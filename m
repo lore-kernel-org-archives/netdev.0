@@ -1,65 +1,64 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 2/8] e1000e: panic caused by Rx traffic arriving while interface going down
-Date: Thu, 25 Apr 2013 21:57:05 -0700
-Message-ID: <1366952231-16727-3-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 3/8] igb: limit udelay for phy changes to 10000us
+Date: Thu, 25 Apr 2013 21:57:06 -0700
+Message-ID: <1366952231-16727-4-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1366952231-16727-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Bruce Allan <bruce.w.allan@intel.com>, netdev@vger.kernel.org,
+Cc: Andi Kleen <ak@linux.intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from mga09.intel.com ([134.134.136.24]:53194 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751943Ab3DZE5R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753957Ab3DZE5R (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Fri, 26 Apr 2013 00:57:17 -0400
 In-Reply-To: <1366952231-16727-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Bruce Allan <bruce.w.allan@intel.com>
+From: Andi Kleen <ak@linux.intel.com>
 
-An "unable to handle kernel paging request" panic can occur when receiving
-traffic while the interface is going down.  Wait for NAPI to be done with
-current context after disabling interrupts and then disable NAPI.
+If you really want 100000us you should really use mdelay or so.
 
-See https://bugzilla.vyatta.com/show_bug.cgi?id=8837.
+Found by the LTO kernel build
 
-Reported-by: Stephen Hemminger <stephen@networkplumber.org>
-Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
+Signed-off-by: Andi Kleen <ak@linux.intel.com>
 Tested-by: Aaron Brown <aaron.f.brown@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/intel/igb/e1000_phy.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index da7f2fa..a27e3bc 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4016,6 +4016,8 @@ void e1000e_down(struct e1000_adapter *adapter)
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index fd46add..115b0da 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -1130,7 +1130,7 @@ s32 igb_phy_force_speed_duplex_igp(struct e1000_hw *hw)
+ 	if (phy->autoneg_wait_to_complete) {
+ 		hw_dbg("Waiting for forced speed/duplex link on IGP phy.\n");
  
- 	e1000_irq_disable(adapter);
+-		ret_val = igb_phy_has_link(hw, PHY_FORCE_LIMIT, 100000, &link);
++		ret_val = igb_phy_has_link(hw, PHY_FORCE_LIMIT, 10000, &link);
+ 		if (ret_val)
+ 			goto out;
  
-+	napi_synchronize(&adapter->napi);
-+
- 	del_timer_sync(&adapter->watchdog_timer);
- 	del_timer_sync(&adapter->phy_info_timer);
+@@ -1138,7 +1138,7 @@ s32 igb_phy_force_speed_duplex_igp(struct e1000_hw *hw)
+ 			hw_dbg("Link taking longer than expected.\n");
  
-@@ -4372,12 +4374,13 @@ static int e1000_close(struct net_device *netdev)
- 
- 	pm_runtime_get_sync(&pdev->dev);
- 
--	napi_disable(&adapter->napi);
--
- 	if (!test_bit(__E1000_DOWN, &adapter->state)) {
- 		e1000e_down(adapter);
- 		e1000_free_irq(adapter);
+ 		/* Try once more */
+-		ret_val = igb_phy_has_link(hw, PHY_FORCE_LIMIT, 100000, &link);
++		ret_val = igb_phy_has_link(hw, PHY_FORCE_LIMIT, 10000, &link);
+ 		if (ret_val)
+ 			goto out;
  	}
-+
-+	napi_disable(&adapter->napi);
-+
- 	e1000_power_down_phy(adapter);
- 
- 	e1000e_free_tx_resources(adapter->tx_ring);
+@@ -1590,7 +1590,7 @@ s32 igb_phy_has_link(struct e1000_hw *hw, u32 iterations,
+ 		 * it across the board.
+ 		 */
+ 		ret_val = hw->phy.ops.read_reg(hw, PHY_STATUS, &phy_status);
+-		if (ret_val) {
++		if (ret_val && usec_interval > 0) {
+ 			/* If the first read fails, another entity may have
+ 			 * ownership of the resources, wait and try again to
+ 			 * see if they have relinquished the resources yet.
 -- 
 1.7.11.7
