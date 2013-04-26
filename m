@@ -1,89 +1,106 @@
-From: Lance Lassetter <lancelassetter@gmail.com>
-Subject: [lancelassetter@gmail.com: r8169 with 3.9.0-rc9]
-Date: Fri, 26 Apr 2013 14:16:37 -0500
-Message-ID: <20130426191635.GA26727@gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH V3 2/3] ARM: net: bpf_jit: make code generation less dependent
+ on struct sk_filter.
+Date: Fri, 26 Apr 2013 21:47:46 +0200
+Message-ID: <517AD9E2.2090704@redhat.com>
+References: <1366824429-26652-1-git-send-email-nschichan@freebox.fr> <1366824429-26652-3-git-send-email-nschichan@freebox.fr> <3592414.M8kQZLCXlW@wuerfel> <20130426122601.10ec05fcb4860df1b0a5b409@linux-foundation.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f49.google.com ([209.85.213.49]:40280 "EHLO
-	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757499Ab3DZTQl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 15:16:41 -0400
-Received: by mail-yh0-f49.google.com with SMTP id i7so121985yha.36
-        for <netdev@vger.kernel.org>; Fri, 26 Apr 2013 12:16:41 -0700 (PDT)
-Received: from gmail.com (99-95-76-71.lightspeed.nworla.sbcglobal.net. [99.95.76.71])
-        by mx.google.com with ESMTPSA id m30sm5740542yhi.11.2013.04.26.12.16.39
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=RC4-SHA bits=128/128);
-        Fri, 26 Apr 2013 12:16:40 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Will Drewry <wad@chromium.org>,
+	Mircea Gherzan <mgherzan@gmail.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Russell King <linux@arm.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130426122601.10ec05fcb4860df1b0a5b409@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-from logwatch...
+On 04/26/2013 09:26 PM, Andrew Morton wrote:
+> On Fri, 26 Apr 2013 16:04:44 +0200 Arnd Bergmann <arnd@arndb.de> wrote:
+>> On Wednesday 24 April 2013 19:27:08 Nicolas Schichan wrote:
+>>> @@ -858,7 +858,7 @@ b_epilogue:
+>>>   }
+>>>
+>>>
+>>> -void bpf_jit_compile(struct sk_filter *fp)
+>>> +static void __bpf_jit_compile(struct jit_ctx *out_ctx)
+>>>   {
+>>>          struct jit_ctx ctx;
+>>>          unsigned tmp_idx;
+>>> @@ -867,11 +867,10 @@ void bpf_jit_compile(struct sk_filter *fp)
+>>>          if (!bpf_jit_enable)
+>>>                  return;
+>>>
+>>> -       memset(&ctx, 0, sizeof(ctx));
+>>> -       ctx.skf         = fp;
+>>> +       ctx = *out_ctx;
+>>>          ctx.ret0_fp_idx = -1;
+>>>
+>>> -       ctx.offsets = kzalloc(4 * (ctx.skf->len + 1), GFP_KERNEL);
+>>> +       ctx.offsets = kzalloc(4 * (ctx.prog_len + 1), GFP_KERNEL);
+>>>          if (ctx.offsets == NULL)
+>>>                  return;
+>>>
+>>> @@ -921,13 +920,26 @@ void bpf_jit_compile(struct sk_filter *fp)
+>>>                  print_hex_dump(KERN_INFO, "BPF JIT code: ",
+>>>                                 DUMP_PREFIX_ADDRESS, 16, 4, ctx.target,
+>>>                                 alloc_size, false);
+>>> -
+>>> -       fp->bpf_func = (void *)ctx.target;
+>>>   out:
+>>>          kfree(ctx.offsets);
+>>> +
+>>> +       *out_ctx = ctx;
+>>>          return;
+>>
+>> This part of the patch, in combination with 79617801e "filter: bpf_jit_comp:
+>> refactor and unify BPF JIT image dump output" is now causing build errors
+>> in linux-next:
+>>
+>> arch/arm/net/bpf_jit_32.c: In function '__bpf_jit_compile':
+>> arch/arm/net/bpf_jit_32.c:930:16: error: 'fp' undeclared (first use in this function)
+>>     bpf_jit_dump(fp->len, alloc_size, 2, ctx.target);
+>
+> Thanks, I did this.  There may be a smarter way...
 
-this is a problem...
+I think also seccomp_jit_compile() would need this change then, otherwise the build
+with CONFIG_SECCOMP_FILTER_JIT might break.
 
-Kernel
+I can fix this up for you if not already applied. I presume it's against
+linux-next tree?
 
-22 Time(s): r8169 0000:03:00.0 p10p1: link down
-21 Time(s): r8169 0000:03:00.0 p10p1: link up
-26 Time(s): r8169 0000:04:09.0 p8p1: link down
-25 Time(s): r8169 0000:04:09.0 p8p1: link up
-
------ Forwarded message from Lance Lassetter <lancelassetter@gmail.com>=
- -----
-
-Date: Fri, 26 Apr 2013 08:23:02 -0500
-=46rom: Lance Lassetter <lancelassetter@gmail.com>
-To: netdev@vger.kernel.org
-Subject: r8169 with 3.9.0-rc9
-User-Agent: Mutt/1.5.21 (2010-09-15)
-
-hello,
-
-i've exhausted my efforts to resolve this so i am sending you this emai=
-l in hopes you might shed some light on the problem.
-
-i have an onboard r8169 and a secondary pcie r8169 chipset gigabit ethe=
-rnet adapters.
-
-the link keeps sputtering with constant kernel messages (dmesg) of "lin=
-k up link down"
-
-the variant of linux is fedora 18 with testing branch enabled and fedor=
-a "vanilla" kernel with minimal fedora patchset taken from fedora vanil=
-la kernel repos as instructed on the fedora wiki.
-
-the reason for the development kernel is i hoped with this, this proble=
-m would be resolved.
-
-dmesg looks like:
-
-[52857.473520] r8169 0000:03:00.0 p10p1: link down
-[52859.763261] r8169 0000:03:00.0 p10p1: link up
-[52859.771250] r8169 0000:04:09.0 p8p1: link up
-[52917.512992] r8169 0000:04:09.0 p8p1: link down
-[52917.534918] r8169 0000:03:00.0 p10p1: link down
-[52919.846520] r8169 0000:04:09.0 p8p1: link up
-[52919.850411] r8169 0000:03:00.0 p10p1: link up
-[53977.329829] r8169 0000:03:00.0 p10p1: link down
-[53979.798396] r8169 0000:03:00.0 p10p1: link up
-[54087.331434] r8169 0000:03:00.0 p10p1: link down
-[54089.730198] r8169 0000:03:00.0 p10p1: link up
-
-etc....
-
-the box serves as a network router so it is causing abundant network tr=
-affic problems.
-
-any debugging i could help you with, please let me know.=A0 also if the=
-re is a possible solution, please let me know.
-
-kind regards and i wish you the best,
-
-lance lassetter
-
------ End forwarded message -----
+> --- a/arch/arm/net/bpf_jit_32.c~arm-net-bpf_jit-make-code-generation-less-dependent-on-struct-sk_filter-fix
+> +++ a/arch/arm/net/bpf_jit_32.c
+> @@ -858,7 +858,7 @@ b_epilogue:
+>   }
+>
+>
+> -static void __bpf_jit_compile(struct jit_ctx *out_ctx)
+> +static void __bpf_jit_compile(struct sk_filter *fp, struct jit_ctx *out_ctx)
+>   {
+>   	struct jit_ctx ctx;
+>   	unsigned tmp_idx;
+> @@ -934,7 +934,7 @@ void bpf_jit_compile(struct sk_filter *f
+>   	ctx.prog_len = fp->len;
+>   	ctx.prog_insns = fp->insns;
+>
+> -	__bpf_jit_compile(&ctx);
+> +	__bpf_jit_compile(fp, &ctx);
+>   	if (ctx.target)
+>   		fp->bpf_func = (void *)ctx.target;
+>   }
+> _
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
