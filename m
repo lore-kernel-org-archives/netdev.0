@@ -1,140 +1,77 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when
- dumping connections
-Date: Fri, 26 Apr 2013 09:30:46 -0700
-Message-ID: <20130426163046.GG3860@linux.vnet.ibm.com>
-References: <1366940708-10180-1-git-send-email-horms@verge.net.au>
- <1366940708-10180-3-git-send-email-horms@verge.net.au>
- <20130426080313.GC8669@dyad.programming.kicks-ass.net>
- <20130426154547.GC3860@linux.vnet.ibm.com>
- <1366991947.8964.233.camel@edumazet-glaptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Oleg Nesterov <oleg@redhat.com>
+Subject: [PATCH v2] x86: make DR*_RESERVED unsigned long
+Date: Fri, 26 Apr 2013 18:38:02 +0200
+Message-ID: <20130426163802.GA30351@redhat.com>
+References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com> <20130424072630.GB1780@gmail.com> <20130424170702.GA1867@redhat.com> <5178282D.9030902@zytor.com> <20130425144818.GA25921@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>, dhaval.giani@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:49678 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756824Ab3DZQfQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 12:35:16 -0400
-Received: from /spool/local
-	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Fri, 26 Apr 2013 10:35:08 -0600
+Cc: Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Cyrill Gorcunov <gorcunov@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	"Theodore Ts'o" <tytso@mit.edu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	the arch/x86 maintainers <x86@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>,
+	Fr??d??ric Weisbecker <fweisbec@gmail.com>
+To: "H. Peter Anvin" <hpa@zytor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1366991947.8964.233.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130425144818.GA25921@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 26, 2013 at 08:59:07AM -0700, Eric Dumazet wrote:
-> On Fri, 2013-04-26 at 08:45 -0700, Paul E. McKenney wrote:
-> 
-> > I have done some crude coccinelle patterns in the past, but they are
-> > subject to false positives (from when you transfer the pointer from
-> > RCU protection to reference-count protection) and also false negatives
-> > (when you atomically increment some statistic unrelated to protection).
-> > 
-> > I could imagine maintaining a per-thread count of the number of outermost
-> > RCU read-side critical sections at runtime, and then associating that
-> > counter with a given pointer at rcu_dereference() time, but this would
-> > require either compiler magic or an API for using a pointer returned
-> > by rcu_dereference().  This API could in theory be enforced by sparse.
-> > 
-> > Dhaval Giani might have some ideas as well, adding him to CC.
-> 
-> 
-> We had this fix the otherday, because tcp prequeue code hit this check :
-> 
-> static inline struct dst_entry *skb_dst(const struct sk_buff *skb)
-> {
->         /* If refdst was not refcounted, check we still are in a 
->          * rcu_read_lock section
->          */
->         WARN_ON((skb->_skb_refdst & SKB_DST_NOREF) &&
->                 !rcu_read_lock_held() &&
->                 !rcu_read_lock_bh_held());
->         return (struct dst_entry *)(skb->_skb_refdst & SKB_DST_PTRMASK);
-> }
-> 
-> ( http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=093162553c33e9479283e107b4431378271c735d )
-> 
-> Problem is the rcu protected pointer was escaping the rcu lock and was
-> then used in another thread.
+DR6_RESERVED and DR_CONTROL_RESERVED are used to clear the set
+bits in the "unsigned long" data, make them long to ensure that
+"&~" doesn't clear the upper bits.
 
-All the way to some other thread?  That is a serious escape!  ;-)
+This is only cleanup, the usage of ~DR*_RESERVED is safe but
+doesn't look clean and the pattern is error prone.
 
-> What would be cool (but expensive maybe) , would be to get a cookie from
-> rcu_read_lock(), and check the cookie at rcu_dereference(). These
-> cookies would have system wide scope to catch any kind of errors.
+	- do_debug:
 
-I suspect that your cookie and my counter are quite similar.
+		dr6 &= ~DR6_RESERVED;
 
-> Because a per thread counter would not catch following problem :
-> 
-> rcu_read_lock();
-> 
-> ptr = rcu_dereference(x);
-> if (!ptr)
-> 	return NULL;
-> ...
-> 
-> 
-> rcu_read_unlock();
-> 
-> ...
-> rcu_read_lock();
-> /* no reload of x, ptr might be now stale/freed */
-> if (ptr->field) { ... }
+	  this also wrongly clears 32-63 bits. Fortunately these
+	  bits are reserved and must be zero.
 
-Well, that is why I needed to appeal to compiler magic or an API
-extension.  Either way, the pointer returned from rcu_dereference()
-must be tagged with the ID of the outermost rcu_read_lock() that
-covers it.  Then that tag must be checked against that of the outermost
-rcu_read_lock() when it is dereferenced.  If we introduced yet another
-set of RCU API members (shudder!) with which to wrapper your
-ptr->field use, we could associate additional storage with the
-pointer to hold the cookie/counter.  And then use sparse to enforce
-use of the new API.
+	- ptrace_write_dr7:
 
-Of course, if we were using C++, we could define a template for pointers
-returned by rcu_dereference() in order to make this work.  Now, where
-did I put that asbestos suit, you know, the one with the titanium
-pinstripes?  ;-)
+		data &= ~DR_CONTROL_RESERVED;
 
-But even that has some "interesting" issues.  To see this, let's
-modify your example a bit:
+	  on __i386__ this mixes long/int but sizeof should be the
+	  same.
 
-	rcu_read_lock();
+Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
+Signed-off-by: Oleg Nesterov <oleg@redhat.com>
+---
+ arch/x86/include/uapi/asm/debugreg.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-	...
-
-	rcu_read_lock_bh();
-
-	ptr = rcu_dereference(x);
-	if (!ptr)
-		return NULL;
-	...
-
-
-	rcu_read_unlock_bh();
-
-	...
-	/* no reload of x, ptr might be now stale/freed */
-	if (ptr->field) { ... }
-
-	...
-
-	rcu_read_unlock();
-
-
-Now, is it the rcu_read_lock() or the rcu_read_lock_bh() that protects
-the rcu_dereference()?
-
-							Thanx, Paul
+diff --git a/arch/x86/include/uapi/asm/debugreg.h b/arch/x86/include/uapi/asm/debugreg.h
+index 3c0874d..c0c1b89 100644
+--- a/arch/x86/include/uapi/asm/debugreg.h
++++ b/arch/x86/include/uapi/asm/debugreg.h
+@@ -15,7 +15,7 @@
+    are either reserved or not of interest to us. */
+ 
+ /* Define reserved bits in DR6 which are always set to 1 */
+-#define DR6_RESERVED	(0xFFFF0FF0)
++#define DR6_RESERVED	(0xFFFF0FF0UL)
+ 
+ #define DR_TRAP0	(0x1)		/* db0 */
+ #define DR_TRAP1	(0x2)		/* db1 */
+@@ -65,7 +65,7 @@
+    gdt or the ldt if we want to.  I am not sure why this is an advantage */
+ 
+ #ifdef __i386__
+-#define DR_CONTROL_RESERVED (0xFC00) /* Reserved by Intel */
++#define DR_CONTROL_RESERVED (0xFC00UL) /* Reserved by Intel */
+ #else
+ #define DR_CONTROL_RESERVED (0xFFFFFFFF0000FC00UL) /* Reserved */
+ #endif
+-- 
+1.5.5.1
