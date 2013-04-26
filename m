@@ -1,91 +1,156 @@
-From: Peter Klausler <pmk@google.com>
-Subject: [PATCH] net/openvswitch: replace memcmp() with specialized comparator
-Date: Fri, 26 Apr 2013 17:46:32 -0400
-Message-ID: <1367012792-25335-1-git-send-email-pmk@google.com>
-Cc: dev@openvswitch.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Peter Klausler <pmk@google.com>
-To: Jesse Gross <jesse@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f201.google.com ([209.85.216.201]:46194 "EHLO
-	mail-qc0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060Ab3DZVq4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 17:46:56 -0400
-Received: by mail-qc0-f201.google.com with SMTP id o22so482244qcr.0
-        for <netdev@vger.kernel.org>; Fri, 26 Apr 2013 14:46:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH V3 2/3] ARM: net: bpf_jit: make code generation less dependent
+ on struct sk_filter.
+Date: Sat, 27 Apr 2013 00:01:10 +0200
+Message-ID: <517AF926.3020302@redhat.com>
+References: <1366824429-26652-1-git-send-email-nschichan@freebox.fr> <1366824429-26652-3-git-send-email-nschichan@freebox.fr> <3592414.M8kQZLCXlW@wuerfel> <20130426122601.10ec05fcb4860df1b0a5b409@linux-foundation.org> <517AD9E2.2090704@redhat.com> <20130426130948.cbfd2f6256afc0e3ee7abeed@linux-foundation.org>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------080108090705060902020509"
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Will Drewry <wad@chromium.org>,
+	Mircea Gherzan <mgherzan@gmail.com>,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Russell King <linux@arm.linux.org.uk>,
+	"David S. Miller" <davem@davemloft.net>,
+	Daniel Borkmann <daniel.borkmann@tik.ee.ethz.ch>,
+	netdev@vger.kernel.org, Xi Wang <xi.wang@gmail.com>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130426130948.cbfd2f6256afc0e3ee7abeed@linux-foundation.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Tune flow table lookup in net/openvswitch, replacing a call to
-the slow-but-safe memcmp() in lib/string.c with a key comparator
-routine that presumes most comparisons will succeed.  Besides
-avoiding an early-exit test on each iteration, it also compares
-keys 4 or 8 bytes at a time on architectures that can load an
-unaligned long efficiently.
+This is a multi-part message in MIME format.
+--------------080108090705060902020509
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-On a 3.2GHz Xeon (5679) this patch reduces the minimum back-to-back
-hot-cache latency of a 128-byte key comparison by 7x, from 130ns with
-the default byte-at-a-time memcmp() in lib/string.c down to 17ns.
+On 04/26/2013 10:09 PM, Andrew Morton wrote:
+> On Fri, 26 Apr 2013 21:47:46 +0200 Daniel Borkmann <dborkman@redhat.com> wrote:
+>> On 04/26/2013 09:26 PM, Andrew Morton wrote:
+>>> On Fri, 26 Apr 2013 16:04:44 +0200 Arnd Bergmann <arnd@arndb.de> wrote:
+>>>> On Wednesday 24 April 2013 19:27:08 Nicolas Schichan wrote:
+>>>>> @@ -858,7 +858,7 @@ b_epilogue:
+>>>>>    }
+>>>>>
+>>>>>
+>>>>> -void bpf_jit_compile(struct sk_filter *fp)
+>>>>> +static void __bpf_jit_compile(struct jit_ctx *out_ctx)
+>>>>>    {
+>>>>>           struct jit_ctx ctx;
+>>>>>           unsigned tmp_idx;
+>>>>> @@ -867,11 +867,10 @@ void bpf_jit_compile(struct sk_filter *fp)
+>>>>>           if (!bpf_jit_enable)
+>>>>>                   return;
+>>>>>
+>>>>> -       memset(&ctx, 0, sizeof(ctx));
+>>>>> -       ctx.skf         = fp;
+>>>>> +       ctx = *out_ctx;
+>>>>>           ctx.ret0_fp_idx = -1;
+>>>>>
+>>>>> -       ctx.offsets = kzalloc(4 * (ctx.skf->len + 1), GFP_KERNEL);
+>>>>> +       ctx.offsets = kzalloc(4 * (ctx.prog_len + 1), GFP_KERNEL);
+>>>>>           if (ctx.offsets == NULL)
+>>>>>                   return;
+>>>>>
+>>>>> @@ -921,13 +920,26 @@ void bpf_jit_compile(struct sk_filter *fp)
+>>>>>                   print_hex_dump(KERN_INFO, "BPF JIT code: ",
+>>>>>                                  DUMP_PREFIX_ADDRESS, 16, 4, ctx.target,
+>>>>>                                  alloc_size, false);
+>>>>> -
+>>>>> -       fp->bpf_func = (void *)ctx.target;
+>>>>>    out:
+>>>>>           kfree(ctx.offsets);
+>>>>> +
+>>>>> +       *out_ctx = ctx;
+>>>>>           return;
+>>>>
+>>>> This part of the patch, in combination with 79617801e "filter: bpf_jit_comp:
+>>>> refactor and unify BPF JIT image dump output" is now causing build errors
+>>>> in linux-next:
+>>>>
+>>>> arch/arm/net/bpf_jit_32.c: In function '__bpf_jit_compile':
+>>>> arch/arm/net/bpf_jit_32.c:930:16: error: 'fp' undeclared (first use in this function)
+>>>>      bpf_jit_dump(fp->len, alloc_size, 2, ctx.target);
+>>>
+>>> Thanks, I did this.  There may be a smarter way...
+>>
+>> I think also seccomp_jit_compile() would need this change then, otherwise the build
+>> with CONFIG_SECCOMP_FILTER_JIT might break.
+>
+> urgh, that tears it.
+>
+>> I can fix this up for you if not already applied. I presume it's against
+>> linux-next tree?
+>
+> Yup, please send something.
 
-More important, replacing the default memcmp() with this specialized
-routine speeds up openvswitch's packet rate by 10% in a closed-loop
-benchmark that simply routes traffic from one tap device to another.
+Patch is attached. However, I currently don't have an ARM toolchain at hand, so
+uncompiled, untested.
 
-Signed-off-by: Peter Klausler <pmk@google.com>
+@Nicolas, Xi (cc, ref: http://thread.gmane.org/gmane.linux.kernel/1481464):
+
+If there is someday support for other archs as well, it would be nice if we
+do not have each time duplicated seccomp_jit_compile() etc functions in each
+JIT implementation, i.e. because they do basically the same. So follow-up
+{fix,clean}up is appreciated.
+
+Also, I find it a bit weird that seccomp_filter_get_len() and some other
+_one-line_ functions from kernel/seccomp.c are not placed into the
+corresponding header file as inlines.
+
+--------------080108090705060902020509
+Content-Type: text/x-patch;
+ name="0001-ARM-bpf_jit-seccomp-filtering-fixup-merge-conflict.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename*0="0001-ARM-bpf_jit-seccomp-filtering-fixup-merge-conflict.patc";
+ filename*1="h"
+
+>From 655f4aabee7ccb909345ccfce92a405e3d173de5 Mon Sep 17 00:00:00 2001
+Message-Id: <655f4aabee7ccb909345ccfce92a405e3d173de5.1367012811.git.dborkman@redhat.com>
+In-Reply-To: <cover.1367012811.git.dborkman@redhat.com>
+References: <cover.1367012811.git.dborkman@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Fri, 26 Apr 2013 23:41:06 +0200
+Subject: [PATCH linux-next -mm] ARM: bpf_jit: seccomp filtering: fixup merge conflict
+
+Commit e4c67f4c0479d8e3cb0 (ARM: net: bpf_jit: make code generation
+less dependent on struct sk_filter.) caused a merge conflict with
+commit 79617801ea0c0e6 (filter: bpf_jit_comp: refactor and unify
+BPF JIT image dump output) resulting in a build failure:
+
+arch/arm/net/bpf_jit_32.c: In function '__bpf_jit_compile':
+arch/arm/net/bpf_jit_32.c:930:16: error: 'fp' undeclared (first use in this function)
+    bpf_jit_dump(fp->len, alloc_size, 2, ctx.target);
+
+Fix this up by using ctx.prog_len that is being set before we enter
+__bpf_jit_compile().
+
+Reported-by: Arnd Bergmann <arnd@arndb.de>
+Cc: Nicolas Schichan <nschichan@freebox.fr>
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- net/openvswitch/flow.c | 33 ++++++++++++++++++++++++++++++++-
- 1 file changed, 32 insertions(+), 1 deletion(-)
+ arch/arm/net/bpf_jit_32.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 67a2b78..d5facf6 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -764,6 +764,37 @@ u32 ovs_flow_hash(const struct sw_flow_key *key, int key_len)
- 	return jhash2((u32 *)key, DIV_ROUND_UP(key_len, sizeof(u32)), 0);
- }
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index c5ef845..eb4daba 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -927,7 +927,7 @@ static void __bpf_jit_compile(struct jit_ctx *out_ctx)
  
-+/*
-+ * Key comparison routine, optimized for the common case of
-+ * equality due to low average hash collision frequency
-+ * (1.5 mean items per nonempty bucket when total table item
-+ * count equals the number of buckets, which is when openvswitch
-+ * expands its hash table).
-+ */
-+static bool equal_keys(const struct sw_flow_key *key1,
-+		       const struct sw_flow_key *key2,
-+		       size_t key_len)
-+{
-+	const char *cp1 = (const char *)key1;
-+	const char *cp2 = (const char *)key2;
-+	long diffs = 0;
-+
-+#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-+	{
-+		const long *lp1 = (const long *)cp1;
-+		const long *lp2 = (const long *)cp2;
-+		for (; key_len >= sizeof(long); key_len -= sizeof(long))
-+			diffs |= *lp1++ ^ *lp2++;
-+		cp1 = (const char *)lp1;
-+		cp2 = (const char *)lp2;
-+	}
-+#endif
-+
-+	while (key_len-- > 0)
-+		diffs |= *cp1++ ^ *cp2++;
-+	return diffs == 0;
-+}
-+
- struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
- 				struct sw_flow_key *key, int key_len)
- {
-@@ -777,7 +808,7 @@ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
- 	hlist_for_each_entry_rcu(flow, head, hash_node[table->node_ver]) {
+ 	if (bpf_jit_enable > 1)
+ 		/* there are 2 passes here */
+-		bpf_jit_dump(fp->len, alloc_size, 2, ctx.target);
++		bpf_jit_dump(ctx.prog_len, alloc_size, 2, ctx.target);
+ out:
+ 	kfree(ctx.offsets);
  
- 		if (flow->hash == hash &&
--		    !memcmp(&flow->key, key, key_len)) {
-+		    equal_keys(&flow->key, key, key_len)) {
- 			return flow;
- 		}
- 	}
 -- 
-1.8.2.1
+1.7.11.7
+
+
+--------------080108090705060902020509--
