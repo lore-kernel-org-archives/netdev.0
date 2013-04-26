@@ -1,7 +1,7 @@
 From: Xi Wang <xi.wang@gmail.com>
-Subject: [RFC PATCH net-next 4/6] PPC: net: bpf_jit_comp: refactor the BPF JIT interface
-Date: Fri, 26 Apr 2013 03:51:44 -0400
-Message-ID: <1366962706-24204-5-git-send-email-xi.wang@gmail.com>
+Subject: [RFC PATCH net-next 1/6] filter: refactor BPF JIT for seccomp filters
+Date: Fri, 26 Apr 2013 03:51:41 -0400
+Message-ID: <1366962706-24204-2-git-send-email-xi.wang@gmail.com>
 References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Xi Wang <xi.wang@gmail.com>
@@ -17,130 +17,138 @@ In-Reply-To: <1366962706-24204-1-git-send-email-xi.wang@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Implement the refactored bpf_jit_compile() and bpf_jit_free().
+Currently, bpf_jit_compile() and bpf_jit_free() takes an sk_filter,
+which seccomp filters cannot reuse.
+
+Change bpf_jit_compile() to take a pointer to BPF instructions and
+the length, and to return a JITted function.
+
+Change bpf_jit_free() to take a JITted function.
+
+Add JIT calls for seccomp filters.
 
 Signed-off-by: Xi Wang <xi.wang@gmail.com>
 ---
- arch/powerpc/net/bpf_jit_comp.c | 36 ++++++++++++++++++------------------
- 1 file changed, 18 insertions(+), 18 deletions(-)
+ include/linux/filter.h | 16 ++++++++++------
+ kernel/seccomp.c       |  6 +++++-
+ net/core/filter.c      |  6 ++----
+ 3 files changed, 17 insertions(+), 11 deletions(-)
 
-diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
-index c427ae3..a82e400 100644
---- a/arch/powerpc/net/bpf_jit_comp.c
-+++ b/arch/powerpc/net/bpf_jit_comp.c
-@@ -31,11 +31,11 @@ static inline void bpf_flush_icache(void *start, void *end)
- 	flush_icache_range((unsigned long)start, (unsigned long)end);
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index d1248f4..8743093 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -21,12 +21,14 @@ struct compat_sock_fprog {
+ struct sk_buff;
+ struct sock;
+ 
++typedef unsigned int (*bpf_func_t)(const struct sk_buff *skb,
++				   const struct sock_filter *filter);
++
+ struct sk_filter
+ {
+ 	atomic_t		refcnt;
+ 	unsigned int         	len;	/* Number of filter blocks */
+-	unsigned int		(*bpf_func)(const struct sk_buff *skb,
+-					    const struct sock_filter *filter);
++	bpf_func_t		bpf_func;
+ 	struct rcu_head		rcu;
+ 	struct sock_filter     	insns[0];
+ };
+@@ -48,11 +50,12 @@ extern int sk_chk_filter(struct sock_filter *filter, unsigned int flen);
+ extern int sk_get_filter(struct sock *sk, struct sock_filter __user *filter, unsigned len);
+ 
+ #ifdef CONFIG_BPF_JIT
++#include <stdarg.h>
+ #include <linux/linkage.h>
+ #include <linux/printk.h>
+ 
+-extern void bpf_jit_compile(struct sk_filter *fp);
+-extern void bpf_jit_free(struct sk_filter *fp);
++extern bpf_func_t bpf_jit_compile(struct sock_filter *filter, unsigned int flen);
++extern void bpf_jit_free(bpf_func_t bpf_func);
+ 
+ static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
+ 				u32 pass, void *image)
+@@ -65,10 +68,11 @@ static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
  }
- 
--static void bpf_jit_build_prologue(struct sk_filter *fp, u32 *image,
-+static void bpf_jit_build_prologue(struct sock_filter *filter,
-+				   u32 *image,
- 				   struct codegen_context *ctx)
+ #define SK_RUN_FILTER(FILTER, SKB) (*FILTER->bpf_func)(SKB, FILTER->insns)
+ #else
+-static inline void bpf_jit_compile(struct sk_filter *fp)
++static inline bpf_func_t bpf_jit_compile(struct sock_filter *filter, unsigned int flen)
  {
- 	int i;
--	const struct sock_filter *filter = fp->insns;
- 
- 	if (ctx->seen & (SEEN_MEM | SEEN_DATAREF)) {
- 		/* Make stackframe */
-@@ -135,12 +135,12 @@ static void bpf_jit_build_epilogue(u32 *image, struct codegen_context *ctx)
- 	((int)K < 0 ? ((int)K >= SKF_LL_OFF ? func##_negative_offset : func) : func##_positive_offset)
- 
- /* Assemble the body code between the prologue & epilogue. */
--static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
-+static int bpf_jit_build_body(struct sock_filter *filter,
-+			      unsigned int flen,
-+			      u32 *image,
- 			      struct codegen_context *ctx,
- 			      unsigned int *addrs)
++	return sk_run_filter;
+ }
+-static inline void bpf_jit_free(struct sk_filter *fp)
++static inline void bpf_jit_free(bpf_func_t bpf_func)
  {
--	const struct sock_filter *filter = fp->insns;
--	int flen = fp->len;
- 	u8 *func;
- 	unsigned int true_cond;
- 	int i;
-@@ -564,7 +564,7 @@ static int bpf_jit_build_body(struct sk_filter *fp, u32 *image,
+ }
+ #define SK_RUN_FILTER(FILTER, SKB) sk_run_filter(SKB, FILTER->insns)
+diff --git a/kernel/seccomp.c b/kernel/seccomp.c
+index 5af44b5..f784feb 100644
+--- a/kernel/seccomp.c
++++ b/kernel/seccomp.c
+@@ -55,6 +55,7 @@ struct seccomp_filter {
+ 	atomic_t usage;
+ 	struct seccomp_filter *prev;
+ 	unsigned short len;  /* Instruction count */
++	bpf_func_t bpf_func;
+ 	struct sock_filter insns[];
+ };
+ 
+@@ -211,7 +212,7 @@ static u32 seccomp_run_filters(int syscall)
+ 	 * value always takes priority (ignoring the DATA).
+ 	 */
+ 	for (f = current->seccomp.filter; f; f = f->prev) {
+-		u32 cur_ret = sk_run_filter(NULL, f->insns);
++		u32 cur_ret = SK_RUN_FILTER(f, NULL);
+ 		if ((cur_ret & SECCOMP_RET_ACTION) < (ret & SECCOMP_RET_ACTION))
+ 			ret = cur_ret;
+ 	}
+@@ -273,6 +274,8 @@ static long seccomp_attach_filter(struct sock_fprog *fprog)
+ 	if (ret)
+ 		goto fail;
+ 
++	filter->bpf_func = bpf_jit_compile(filter->insns, filter->len);
++
+ 	/*
+ 	 * If there is an existing filter, make it the prev and don't drop its
+ 	 * task reference.
+@@ -330,6 +333,7 @@ void put_seccomp_filter(struct task_struct *tsk)
+ 	while (orig && atomic_dec_and_test(&orig->usage)) {
+ 		struct seccomp_filter *freeme = orig;
+ 		orig = orig->prev;
++		bpf_jit_free(freeme->bpf_func);
+ 		kfree(freeme);
+ 	}
+ }
+diff --git a/net/core/filter.c b/net/core/filter.c
+index dad2a17..0a7900b 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -643,7 +643,7 @@ void sk_filter_release_rcu(struct rcu_head *rcu)
+ {
+ 	struct sk_filter *fp = container_of(rcu, struct sk_filter, rcu);
+ 
+-	bpf_jit_free(fp);
++	bpf_jit_free(fp->bpf_func);
+ 	kfree(fp);
+ }
+ EXPORT_SYMBOL(sk_filter_release_rcu);
+@@ -652,13 +652,11 @@ static int __sk_prepare_filter(struct sk_filter *fp)
+ {
+ 	int err;
+ 
+-	fp->bpf_func = sk_run_filter;
+-
+ 	err = sk_chk_filter(fp->insns, fp->len);
+ 	if (err)
+ 		return err;
+ 
+-	bpf_jit_compile(fp);
++	fp->bpf_func = bpf_jit_compile(fp->insns, fp->len);
  	return 0;
  }
  
--void bpf_jit_compile(struct sk_filter *fp)
-+bpf_func_t bpf_jit_compile(struct sock_filter *filter, unsigned int flen)
- {
- 	unsigned int proglen;
- 	unsigned int alloclen;
-@@ -573,14 +573,14 @@ void bpf_jit_compile(struct sk_filter *fp)
- 	unsigned int *addrs;
- 	struct codegen_context cgctx;
- 	int pass;
--	int flen = fp->len;
-+	bpf_func_t bpf_func = sk_run_filter;
- 
- 	if (!bpf_jit_enable)
--		return;
-+		return bpf_func;
- 
- 	addrs = kzalloc((flen+1) * sizeof(*addrs), GFP_KERNEL);
- 	if (addrs == NULL)
--		return;
-+		return bpf_func;
- 
- 	/*
- 	 * There are multiple assembly passes as the generated code will change
-@@ -636,7 +636,7 @@ void bpf_jit_compile(struct sk_filter *fp)
- 	cgctx.seen = 0;
- 	cgctx.pc_ret0 = -1;
- 	/* Scouting faux-generate pass 0 */
--	if (bpf_jit_build_body(fp, 0, &cgctx, addrs))
-+	if (bpf_jit_build_body(filter, flen, 0, &cgctx, addrs))
- 		/* We hit something illegal or unsupported. */
- 		goto out;
- 
-@@ -645,7 +645,7 @@ void bpf_jit_compile(struct sk_filter *fp)
- 	 * update ctgtx.idx as it pretends to output instructions, then we can
- 	 * calculate total size from idx.
- 	 */
--	bpf_jit_build_prologue(fp, 0, &cgctx);
-+	bpf_jit_build_prologue(filter, 0, &cgctx);
- 	bpf_jit_build_epilogue(0, &cgctx);
- 
- 	proglen = cgctx.idx * 4;
-@@ -661,8 +661,8 @@ void bpf_jit_compile(struct sk_filter *fp)
- 	for (pass = 1; pass < 3; pass++) {
- 		/* Now build the prologue, body code & epilogue for real. */
- 		cgctx.idx = 0;
--		bpf_jit_build_prologue(fp, code_base, &cgctx);
--		bpf_jit_build_body(fp, code_base, &cgctx, addrs);
-+		bpf_jit_build_prologue(filter, code_base, &cgctx);
-+		bpf_jit_build_body(filter, flen, code_base, &cgctx, addrs);
- 		bpf_jit_build_epilogue(code_base, &cgctx);
- 
- 		if (bpf_jit_enable > 1)
-@@ -681,11 +681,11 @@ void bpf_jit_compile(struct sk_filter *fp)
- 		/* Function descriptor nastiness: Address + TOC */
- 		((u64 *)image)[0] = (u64)code_base;
- 		((u64 *)image)[1] = local_paca->kernel_toc;
--		fp->bpf_func = (void *)image;
-+		bpf_func = (void *)image;
- 	}
- out:
- 	kfree(addrs);
--	return;
-+	return bpf_func;
- }
- 
- static void jit_free_defer(struct work_struct *arg)
-@@ -696,10 +696,10 @@ static void jit_free_defer(struct work_struct *arg)
- /* run from softirq, we must use a work_struct to call
-  * module_free() from process context
-  */
--void bpf_jit_free(struct sk_filter *fp)
-+void bpf_jit_free(bpf_func_t bpf_func)
- {
--	if (fp->bpf_func != sk_run_filter) {
--		struct work_struct *work = (struct work_struct *)fp->bpf_func;
-+	if (bpf_func != sk_run_filter) {
-+		struct work_struct *work = (struct work_struct *)bpf_func;
- 
- 		INIT_WORK(work, jit_free_defer);
- 		schedule_work(work);
 -- 
 1.8.1.2
