@@ -1,56 +1,63 @@
-From: Heiko Carstens <heiko.carstens@de.ibm.com>
+From: Daniel Borkmann <dborkman@redhat.com>
 Subject: Re: [RFC PATCH net-next 0/6] seccomp filter JIT
-Date: Fri, 26 Apr 2013 13:46:22 +0200
-Message-ID: <20130426114622.GB3736@osiris>
-References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com>
- <20130426112539.GA3736@osiris>
+Date: Fri, 26 Apr 2013 13:46:29 +0200
+Message-ID: <517A6915.2020208@redhat.com>
+References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com> <20130426112539.GA3736@osiris>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Xi Wang <xi.wang@gmail.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Russell King <linux@arm.linux.org.uk>,
 	Eric Dumazet <edumazet@google.com>,
 	Will Drewry <wad@chromium.org>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Xi Wang <xi.wang@gmail.com>
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicolas Schichan <nschichan@freebox.fr>,
+	Mircea Gherzan <mgherzan@gmail.com>
+To: Heiko Carstens <heiko.carstens@de.ibm.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 In-Reply-To: <20130426112539.GA3736@osiris>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 26, 2013 at 01:25:39PM +0200, Heiko Carstens wrote:
+On 04/26/2013 01:25 PM, Heiko Carstens wrote:
 > On Fri, Apr 26, 2013 at 03:51:40AM -0400, Xi Wang wrote:
-> > This patchset brings JIT support to seccomp filters for x86_64 and ARM.
-> > It is against the net-next tree.
-> > 
-> > The current BPF JIT interface only accepts sk_filter, not seccomp_filter.
-> > Patch 1/6 refactors the interface to make it more general.
-> > 
-> > With the refactored interface, patches 2/6 and 3/6 implement the seccomp
-> > BPF_S_ANC_SECCOMP_LD_W instruction in x86 & ARM JIT.
-> > 
-> > Status:
-> > 
-> > * x86_64 & ARM: JIT tested with seccomp examples.
-> > 
-> > * powerpc [4/6]: no seccomp change - compile checked.
-> > 
-> > * sparc [5/6] & s390 [6/6]: no seccomp change - untested.
-> > 
-> > Sorry I have no sparc or s390 build environment here.  Can someone help
-> > check 5/6 and 6/6?  Thanks.
-> 
+>> This patchset brings JIT support to seccomp filters for x86_64 and ARM.
+>> It is against the net-next tree.
+>>
+>> The current BPF JIT interface only accepts sk_filter, not seccomp_filter.
+>> Patch 1/6 refactors the interface to make it more general.
+>>
+>> With the refactored interface, patches 2/6 and 3/6 implement the seccomp
+>> BPF_S_ANC_SECCOMP_LD_W instruction in x86 & ARM JIT.
+>>
+>> Status:
+>>
+>> * x86_64 & ARM: JIT tested with seccomp examples.
+>>
+>> * powerpc [4/6]: no seccomp change - compile checked.
+>>
+>> * sparc [5/6] & s390 [6/6]: no seccomp change - untested.
+>>
+>> Sorry I have no sparc or s390 build environment here.  Can someone help
+>> check 5/6 and 6/6?  Thanks.
+>
 > Your patches are against which tree?
 > They don't apply on top of linux-next or Linus' linux tree.
 
-Right... just right the subject of each patch description says, they apply
-against net-next.
-
-And build fine on s390.
+In the subject line it says net-next.
 
 > Btw. are there any test cases around for BPF JIT?
 > Not only for the new seccomp but also netfilter?
 
-This however is still a valid question.
+BPF is used in packet(7) sockets, not Netfilter. But yeah, test
+cases for different archs would be really good, i.e. if seccomp
+wants to use BPF JIT, where seccomp is used for user space program
+sand-boxing (e.g. in Chromium), I can already guess that this will
+put attention to certain people. :-)
+
+I think BPF JIT for seccomp on ARM recently got applied to -mm tree
+if I'm not mistaken. It was from Nicolas Schichan (cc):
+
+http://thread.gmane.org/gmane.linux.ports.arm.kernel/233416/
