@@ -1,45 +1,61 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: Re: [RFC PATCH net-next 2/6] x86: bpf_jit_comp: support
- BPF_S_ANC_SECCOMP_LD_W instruction
-Date: Fri, 26 Apr 2013 11:57:45 -0400
-Message-ID: <CAKU6vyac37Mj-ZBPozSzLj+0jYhmQAr_ngo9rNZOStYC_TD3fA@mail.gmail.com>
-References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com>
- <1366962706-24204-3-git-send-email-xi.wang@gmail.com> <1366985926.8964.190.camel@edumazet-glaptop>
- <CAKU6vyZfYR-2408G0_Fkp-PS5x5rMH+s4_OOWqqi7Nt+UfiUPg@mail.gmail.com>
- <1366989094.8964.212.camel@edumazet-glaptop> <CAKU6vybrYK9oimKSEGhoLeNzhtk=7r3zouRgzDFqGwJHd=psGQ@mail.gmail.com>
- <1366991021.8964.221.camel@edumazet-glaptop>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [IPROUTE PATCH] iproute2: act_ipt fix xtables breakage on older
+ versions.
+Date: Fri, 26 Apr 2013 08:58:20 -0700
+Message-ID: <517AA41C.4040205@intel.com>
+References: <20130425220716.6520.94862.stgit@ahduyck-cp1.jf.intel.com> <517A7F29.7070903@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Will Drewry <wad@chromium.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1366991021.8964.221.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, Hasan Chowdhury <shemonc@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:33150 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754253Ab3DZP6p (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Apr 2013 11:58:45 -0400
+In-Reply-To: <517A7F29.7070903@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Apr 26, 2013 at 11:43 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> I do not know.
+On 04/26/2013 06:20 AM, Jamal Hadi Salim wrote:
+> On 13-04-25 06:07 PM, Alexander Duyck wrote:
+>> In trying to build on a RHEL6.3 I ran into several build issues that are
+>> addressed in this patch.
+>>
+>> The first is that xtables_options_xfrm only has 3 options.  It
+>> appears this is
+>> how this code was originally.  As such for the case where the version
+>> is less
+>> than 6 I am assuming it would be correct to maintain the original
+>> setup that
+>> only had 3 parameters being passed instead of 4.
+>>
 >
-> This is not explained in your changelog or in any comment.
 >
-> You have to make the full analysis yourself and make us comfortable with
-> the results.
+> Getting it to compile is insufficient get it to work.
+> We've gone over the specific issues you are running into and infact
+> patches exist for both iproute2 and the kernel. I'll see if i can get
+> something out this weekend.
+> Hasan, you never got back to me on our last email exchange whether the
+> proposed changes worked out. Can you please provide me some feedback?
 >
-> You send patches and ask us to spend hours on it, this is not how it
-> works.
+> cheers,
+> jamal
 
-"do we really need that for seccomp?" is not asking.  I just tried to
-explain in a gentle way.
+Getting it to compile is kind of important since it was preventing me
+from completing the build for iproute2 as I had another fix I needed to
+test.
 
-%rdi,%r8,%r9 are not used by seccomp filters so I removed the push/pop
-part.  I agree that I should explain the details in the code comments
-or logs.  Thanks for catching that.
+If you have some test case you want me to run just let me know.  All I
+did here is revert the changes that I believe were made incorrectly for
+versions prior to 1.4.10 in "iproute2: act_ipt fix xtables breakage". 
+It states it was fixing it for versions starting in 1.4.10 which I am
+assuming is the XTABLES_VERSION_CODE >= 6 case so it should not have
+modified the 3 parameter case for versions prior to 6 which is what I
+corrected.
 
-- xi
+Thanks,
+
+Alex
