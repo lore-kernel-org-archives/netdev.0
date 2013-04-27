@@ -1,39 +1,27 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [GIT PULL ipvs] ipvs fixes for v3.9 #2
-Date: Sat, 27 Apr 2013 20:00:50 +0200
-Message-ID: <20130427180050.GA7622@localhost>
-References: <1366941190-12135-1-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Hans Schillstrom <hans@schillstrom.com>
-To: Simon Horman <horms@verge.net.au>
+Subject: [PATCH] IPVS fix for 3.9
+Date: Sat, 27 Apr 2013 20:06:13 +0200
+Message-ID: <1367085974-7750-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1366941190-12135-1-git-send-email-horms@verge.net.au>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 26, 2013 at 10:53:09AM +0900, Simon Horman wrote:
-> Hi Pablo,
-> 
-> I guess that it is too late in the cycle to get this fix into v3.9.
-> If so could you please consider it for v3.10.
+Hi David,
 
-Pulled, thanks Simon.
+The following patchset contains a fix for a hard crash in the
+SIP persistence engine available in IPVS, from Hans Schillstrom:
 
-Will try to get this into 3.9, this is fixing a hard crash after all.
+The problem has been there since 2.6.37, but I think it would be good
+to have a fix for this into 3.9, if time allows.
 
-> I would also like the patch considered for stable. It seems to be applicable
-> to all kernel releases since the sip persistence engine was added
-> by my in v2.6.37. In particular I have checked that it applies cleanly to:
-> 
-> 3.8.8 stable
-> 3.4.41 longterm
-> 3.2.43 longterm
-> 3.0.74 longterm
+Hans Schillstrom (1):
+  ipvs: ip_vs_sip_fill_param() BUG: bad check of return value
 
-Will do once the merge window closes and thing calm down a bit.
+ net/netfilter/ipvs/ip_vs_pe_sip.c |    6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+-- 
+1.7.10.4
+
