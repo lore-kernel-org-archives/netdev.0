@@ -1,42 +1,64 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net-next] vxlan: restore source compatibility
-Date: Fri, 26 Apr 2013 16:54:44 -0700
-Message-ID: <20130426165444.317d4aad@nehalam.linuxnetplumber.net>
-References: <877gk2r64z.wl%atzm@stratosphere.co.jp>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] genetlink: fix possible memory leak in genl_family_rcv_msg()
+Date: Sat, 27 Apr 2013 09:34:16 +0800
+Message-ID: <CAPgLHd_tU4suwLY9M1Xoq9osTMcFWMARAaQV=9eodCJ+hZLz-Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	David Stevens <dlstevens@us.ibm.com>,
-	Mike Rapoport <mike.rapoport@ravellosystems.com>
-To: Atzm Watanabe <atzm@stratosphere.co.jp>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: davem@davemloft.net, pablo@netfilter.org, shemminger@vyatta.com,
+	ebiederm@xmission.com, bhutchings@solarflare.com,
+	pshelar@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:40914 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754320Ab3DZXyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 19:54:52 -0400
-Received: by mail-pb0-f46.google.com with SMTP id xa7so1301266pbc.5
-        for <netdev@vger.kernel.org>; Fri, 26 Apr 2013 16:54:51 -0700 (PDT)
-In-Reply-To: <877gk2r64z.wl%atzm@stratosphere.co.jp>
+Received: from mail-bk0-f50.google.com ([209.85.214.50]:39304 "EHLO
+	mail-bk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089Ab3D0BeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 21:34:18 -0400
+Received: by mail-bk0-f50.google.com with SMTP id ik5so2017264bkc.37
+        for <netdev@vger.kernel.org>; Fri, 26 Apr 2013 18:34:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit:
-    vxlan: Allow setting destination to unicast address.
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Broke source compatibility with exported user headers.
-Compile fails with older iproute2 source fails since IFLA_VXLAN_REMOTE not defined.
+'attrbuf' is malloced in genl_family_rcv_msg() when family->maxattr &&
+family->parallel_ops, thus should be freed before leaving from the error
+handling cases, otherwise it will cause memory leak.
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Introduced by commit def3117493eafd9dfa1f809d861e0031b2cc8a07
+(genl: Allow concurrent genl callbacks.)
 
---- a/include/uapi/linux/if_link.h	2013-04-22 15:44:00.970002724 -0700
-+++ b/include/uapi/linux/if_link.h	2013-04-26 16:49:41.709698816 -0700
-@@ -298,6 +298,7 @@ enum {
- 	IFLA_VXLAN_UNSPEC,
- 	IFLA_VXLAN_ID,
- 	IFLA_VXLAN_REMOTE,
-+#define IFLA_VXLAN_GROUP IFLA_VXLAN_REMOTE
- 	IFLA_VXLAN_LINK,
- 	IFLA_VXLAN_LOCAL,
- 	IFLA_VXLAN_TTL,
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ net/netlink/genetlink.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
+index 2f72598..2fd6dbe 100644
+--- a/net/netlink/genetlink.c
++++ b/net/netlink/genetlink.c
+@@ -598,7 +598,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 		err = nlmsg_parse(nlh, hdrlen, attrbuf, family->maxattr,
+ 				  ops->policy);
+ 		if (err < 0)
+-			return err;
++			goto out;
+ 	}
+ 
+ 	info.snd_seq = nlh->nlmsg_seq;
+@@ -613,7 +613,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 	if (family->pre_doit) {
+ 		err = family->pre_doit(ops, skb, &info);
+ 		if (err)
+-			return err;
++			goto out;
+ 	}
+ 
+ 	err = ops->doit(skb, &info);
+@@ -621,6 +621,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
+ 	if (family->post_doit)
+ 		family->post_doit(ops, skb, &info);
+ 
++out:
+ 	if (family->parallel_ops)
+ 		kfree(attrbuf);
+ 
