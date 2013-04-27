@@ -1,66 +1,68 @@
-From: bvba Bart Van Assche <info@bartvanassche.be>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from spin_lock_mutex
-Date: Sat, 27 Apr 2013 20:53:54 +0200
-Message-ID: <517C1EC2.5090900@bartvanassche.be>
-References: <20130423132345.GA5564@hmsreliant.think-freely.org> <CAO+b5-rQPyO9QE9v+oQTeo+G-ftcsehSB5=63AZ13QW4EJ1X0Q@mail.gmail.com> <20130423134443.GB5564@hmsreliant.think-freely.org> <20130423.133315.1278191592594257624.davem@davemloft.net> <20130423175016.GC5564@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mingo@redhat.com
-To: Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from jacques.telenet-ops.be ([195.130.132.50]:38651 "EHLO
-	jacques.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751476Ab3D0Sx6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 14:53:58 -0400
-In-Reply-To: <20130423175016.GC5564@hmsreliant.think-freely.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 00/18] netfilter updates for net-next
+Date: Sat, 27 Apr 2013 20:58:05 +0200
+Message-ID: <1367089103-8394-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 04/23/13 19:50, Neil Horman wrote:
-> On Tue, Apr 23, 2013 at 01:33:15PM -0400, David Miller wrote:
->> From: Neil Horman <nhorman@tuxdriver.com>
->> Date: Tue, 23 Apr 2013 09:44:43 -0400
->>
->>> Dave, how do you feel about it?  I'm comfortable with the wait queue change I've
->>> proposed, but I've not received any reports of actual netpoll deadlocks (i.e.
->>> the mutex solution is reporting a warning, but no actual problems).  So I think
->>> its safe to wait a bit longer, unless you just want this squared away now.
->>
->> If it's just a warning and people aren't actually hitting the
->> potential deadlock, it can wait.
->>
-> Copy that. Bart, I'll wait till you get back then.
+Hi David,
 
-(Just arrived home)
+The following patchset contains relevant updates for the Netfilter
+tree, they are:
 
-Sorry Neil, but I can still trigger the CPU stuck messages with kernel v3.9-rc8-24-gd7d7271:
+* Enhancements for ipset: Add the counter extension for sets, this
+  information can be used from the iptables set match, to change
+  the matching behaviour. Jozsef required to add the extension
+  infrastructure and moved the existing timeout support upon it.
 
-kernel: BUG: soft lockup - CPU#0 stuck for 22s! [rs:main Q:Reg:601]
-kernel: irq event stamp: 1999192
-kernel: hardirqs last  enabled at (1999191): [<ffffffff8103e89d>] console_unlock+0x41d/0x450
-kernel: hardirqs last disabled at (1999192): [<ffffffff8143e96a>] apic_timer_interrupt+0x6a/0x80
-kernel: softirqs last  enabled at (1999188): [<ffffffff81044e26>] __do_softirq+0x196/0x280
-kernel: softirqs last disabled at (1999181): [<ffffffff810450c5>] irq_exit+0xb5/0xc0
-kernel: CPU 0 
-kernel: Pid: 601, comm: rs:main Q:Reg Tainted: G           O 3.9.0-rc8-debug+ #1 System manufacturer P5Q DELUXE/P5Q DELUXE
-kernel: RIP: 0010:[<ffffffff8103e8a0>]  [<ffffffff8103e8a0>] console_unlock+0x420/0x450
-kernel: Call Trace:
-kernel: [<ffffffff812bbf37>] do_con_write.part.19+0x887/0x2040
-kernel: [<ffffffff812a52b7>] ? process_output+0x37/0x70
-kernel: [<ffffffff814316fc>] ? mutex_lock_nested+0x28c/0x350
-kernel: [<ffffffff812a52b7>] ? process_output+0x37/0x70
-kernel: [<ffffffff812bd764>] con_write+0x34/0x50
-kernel: [<ffffffff812a51e9>] do_output_char+0x179/0x210
-kernel: [<ffffffff812a52cd>] process_output+0x4d/0x70
-kernel: [<ffffffff812a59d0>] n_tty_write+0x210/0x480
-kernel: [<ffffffff81072710>] ? try_to_wake_up+0x2e0/0x2e0
-kernel: [<ffffffff812a2839>] tty_write+0x159/0x300
-kernel: [<ffffffff8109326f>] ? lock_release_holdtime.part.22+0xf/0x180
-kernel: [<ffffffff812a57c0>] ? n_tty_poll+0x1c0/0x1c0
-kernel: [<ffffffff81151a3b>] vfs_write+0xab/0x170
-kernel: [<ffffffff81151ea5>] sys_write+0x55/0xa0
-kernel: [<ffffffff8143dd82>] system_call_fastpath+0x16/0x1b
+* Enhancements for performance boosting in nfnetlink_queue: Add new
+  configuration flags that allows user-space to receive big packets (GRO)
+  and to disable checksumming calculation. This were proposed by Eric
+  Dumazet during the Netfilter Workshop 2013 in Copenhagen. Florian
+  Westphal was kind enough to find the time to materialize the proposal.
 
-Bart.
+* A sparse fix from Simon, he noticed it in the SCTP NAT helper, the fix
+  required a change in the interface of sctp_end_cksum.
+
+Let me know if we're still in time to get this into net-next. Thanks!
+
+The following changes since commit 37fe0660981d7a1577409226f77554c2c5123e27:
+
+  net: fix address check in rtnl_fdb_del (2013-04-25 04:14:08 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to 3a44129aabea6813dc05b829c552fd98b3ab0b68:
+
+  sctp: Correct type and usage of sctp_end_cksum() (2013-04-27 19:55:00 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (4):
+      netfilter: nf_queue: move device refcount bump to extra function
+      netfilter: move skb_gso_segment into nfnetlink_queue module
+      netfilter: nfnetlink_queue: add skb info attribute
+      netfilter: nfnetlink_queue: avoid expensive gso segmentation and checksum fixup
+
+Jozsef Kadlecsik (13):
+      netfilter: ipset: Make possible to test elements marked with nomatch
+      netfilter: ipset: Move often used IPv6 address masking function to header file
+      netfilter: ipset: Introduce extensions to elements in the core
+      netfilter: ipset: Unified bitmap type generation
+      netfilter: ipset: Bitmap types using the unified code base
+      netfilter: ipset: Unified hash type generation
+      netfilter: ipset: Hash types using the unified code base
+      netfilter: ipset: list:set type using the extension interface
+      netfilter: ipset: Introduce the counter extension in the core
+      netfilter: ipset: The bitmap types with counter support
+      netfilter: ipset: The hash types with counter support
+      netfilter: ipset: The list:set type with counter support
+      netfilter: ipset: set match: add support to match the counters
+
+Simon Horman (1):
+      sctp: Correct type and usage of sctp_end_cksum()
+
