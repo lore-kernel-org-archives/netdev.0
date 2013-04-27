@@ -1,86 +1,275 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH v2 net-next 3/3] ARM: net: bpf_jit_32: support BPF_S_ANC_SECCOMP_LD_W
- instruction
-Date: Sat, 27 Apr 2013 08:27:17 +0200
-Message-ID: <517B6FC5.7070003@redhat.com>
-References: <1367029047-14830-1-git-send-email-xi.wang@gmail.com> <1367029047-14830-4-git-send-email-xi.wang@gmail.com>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH 0/3] URGENT for 3.9: net: fec: revert NAPI introduction
+Date: Sat, 27 Apr 2013 15:12:04 +0800
+Message-ID: <CAHrpEqRbZjXkRzfrU4RLgeB_A0uz670b=yHHuY1+HpFnD31pvw@mail.gmail.com>
+References: <1366382164-10968-1-git-send-email-l.stach@pengutronix.de>
+	<CAOMZO5D5+bZ9NvF7HvVsne1ktZDDYPqZgomHkSaydrn2UEvBcQ@mail.gmail.com>
+	<CAHrpEqQyG68v4VMDNEwcobhHqkuP_ORH9KA3OZD=2xAoJCMNOQ@mail.gmail.com>
+	<1366620998.4141.28.camel@weser.hi.pengutronix.de>
+	<CAHrpEqQzpLCVqyuMgD=W6ObK1Za-AcmDV7Ejxzw9xKFH57J99A@mail.gmail.com>
+	<1366893085.4139.6.camel@weser.hi.pengutronix.de>
+	<CAHrpEqQQZKjjnpWvV2-TCKXuQg4J3+VhX8uXDLzuYLOENmu=ig@mail.gmail.com>
+	<1366901836.4139.24.camel@weser.hi.pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Will Drewry <wad@chromium.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	David Laight <david.laight@aculab.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nicolas Schichan <nschichan@freebox.fr>
-To: Xi Wang <xi.wang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367029047-14830-4-git-send-email-xi.wang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Fabio Estevam <festevam@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: Lucas Stach <l.stach@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:62441 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751070Ab3D0HMG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 03:12:06 -0400
+Received: by mail-wi0-f171.google.com with SMTP id l13so1290134wie.10
+        for <netdev@vger.kernel.org>; Sat, 27 Apr 2013 00:12:04 -0700 (PDT)
+In-Reply-To: <1366901836.4139.24.camel@weser.hi.pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/27/2013 04:17 AM, Xi Wang wrote:
-> This patch implements the seccomp BPF_S_ANC_SECCOMP_LD_W instruction
-> in ARM JIT.
->
-> Signed-off-by: Xi Wang <xi.wang@gmail.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Cc: Will Drewry <wad@chromium.org>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Russell King <linux@arm.linux.org.uk>
-> Cc: David Laight <david.laight@aculab.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Nicolas Schichan <nschichan@freebox.fr>
-> ---
->   arch/arm/net/bpf_jit_32.c | 14 ++++++++++++++
->   1 file changed, 14 insertions(+)
->
-> diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-> index 073b085..9bfce464 100644
-> --- a/arch/arm/net/bpf_jit_32.c
-> +++ b/arch/arm/net/bpf_jit_32.c
-> @@ -19,6 +19,7 @@
->   #include <linux/if_vlan.h>
->   #include <asm/cacheflush.h>
->   #include <asm/hwcap.h>
-> +#include <asm/syscall.h>
->
->   #include "bpf_jit_32.h"
->
-> @@ -845,6 +846,19 @@ b_epilogue:
->   			off = offsetof(struct sk_buff, queue_mapping);
->   			emit(ARM_LDRH_I(r_A, r_skb, off), ctx);
->   			break;
-> +#ifdef CONFIG_SECCOMP_FILTER
-> +		case BPF_S_ANC_SECCOMP_LD_W:
-> +			if (k == offsetof(struct seccomp_data, arch)) {
-> +				emit_mov_i(r_A, AUDIT_ARCH_ARM, ctx);
-> +				break;
-> +			}
+2013/4/25 Lucas Stach <l.stach@pengutronix.de>:
+> s soon as the PHY signals a link down things start to fall apart.
 
-Not an expert in ARM, but ...
+Sorry, I can't reproduce your problem.
 
-Arent't you doing here a similar thing in terms of getting arch as Eric
-criticized (Nicolas' implementation does not use that part btw.)? Also,
-even if it would be possible here, now your 2 JIT implementations differ
-in behaviour. I think this is unintended.
+I use two MX6.
+Run below command in one MX6
+> ping -f -i 0 -s 1400 10.192.242.122
 
-Besides all that, I think I also pointed you to a patch that already made
-it in for ARM, not sure why you keep posting the ARM JIT implementation?
+unplug/plug cable at the other boards.
 
-> +			ctx->seen |= SEEN_CALL;
-> +			emit_mov_i(ARM_R3, (u32)seccomp_bpf_load, ctx);
-> +			emit_mov_i(ARM_R0, k, ctx);
-> +			emit_blx_r(ARM_R3, ctx);
-> +			emit(ARM_MOV_R(r_A, ARM_R0), ctx);
-> +			break;
-> +#endif
->   		default:
->   			return -1;
->   		}
->
+ >uname -a
+ Linux freescale 3.9.0-rc8+#214
+
+I base on net tree.
+
+I static analyse code. I know the possible problem.
+fec_enet_adjust_link run at delay work without hold any lock.
+fec_enet_adjust_link will call fec_restart reset BD queue.
+
+fec_resart will reset BD pointer.
+
+I think disable napi and TX queue by netif_stop_queue should resolve
+your problem.
+
+Can you give detail guide to reproduce your problem?
+
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 10/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+root@freescale /proc/irq/150$ libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
+libphy: 2188000.ethernet:01 - Link is Down
+libphy: 2188000.ethernet:01 - Link is Up - 100/Full
