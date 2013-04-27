@@ -1,43 +1,44 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v2] bridge: do not expire mdb entry as long as
- bridge still uses it
-Date: Sat, 27 Apr 2013 23:40:45 +0800
-Message-ID: <1367077245.22748.1.camel@cr0>
-References: <1366878083-22797-1-git-send-email-amwang@redhat.com>
-	 <20130425083704.GA27420@gondor.apana.org.au> <1366884421.11488.4.camel@cr0>
-	 <20130426125023.GA4812@gondor.apana.org.au>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when
+ dumping connections
+Date: Sat, 27 Apr 2013 09:17:32 -0700
+Message-ID: <20130427161732.GA3780@linux.vnet.ibm.com>
+References: <1366940708-10180-1-git-send-email-horms@verge.net.au>
+ <1366940708-10180-3-git-send-email-horms@verge.net.au>
+ <20130426080313.GC8669@dyad.programming.kicks-ass.net>
+ <20130426154547.GC3860@linux.vnet.ibm.com>
+ <20130426171948.GA31467@dyad.programming.kicks-ass.net>
+ <20130426174815.GI3860@linux.vnet.ibm.com>
+ <1367000815.8964.243.camel@edumazet-glaptop>
+ <20130426190428.GJ3860@linux.vnet.ibm.com>
+ <20130427071814.GA31700@dyad.programming.kicks-ass.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23754 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755520Ab3D0PlE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Apr 2013 11:41:04 -0400
-In-Reply-To: <20130426125023.GA4812@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>, dhaval.giani@gmail.com
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130427071814.GA31700@dyad.programming.kicks-ass.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-04-26 at 20:50 +0800, Herbert Xu wrote:
-> So we need to do two things:
+On Sat, Apr 27, 2013 at 09:18:15AM +0200, Peter Zijlstra wrote:
+> > In the worst case, I
+> > can fire up a prio 99 kthread on each CPU and send that kthread a
+> > wakeup from RCU's rcu_gp_fqs() code.
 > 
-> 1) Fix the group timeout mechanism to only arm the timer when a
-> corresponding query is received.
-> 2) Resume sending queries when leave is received if the user makes
-> a querier.
+> You just know that's going to be _so_ popular ;-)
 
-Agreed.
+;-) ;-) ;-)
 
-> 
-> Let me know if you'd like to work on this, otherwise I can take
-> a look at it next week.
-> 
+I must confess that I would prefer a somewhat less heavy-handed approach.
 
-Yeah, I will work on it.
+							Thanx, Paul
 
-Thanks for the suggestion!
