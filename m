@@ -1,60 +1,51 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when dumping
- connections
-Date: Sat, 27 Apr 2013 14:32:48 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1304271342260.1633@ja.ssi.bg>
-References: <1366940708-10180-1-git-send-email-horms@verge.net.au>  <1366940708-10180-3-git-send-email-horms@verge.net.au>  <20130426080313.GC8669@dyad.programming.kicks-ass.net>  <20130426154547.GC3860@linux.vnet.ibm.com>  <20130426171948.GA31467@dyad.programming.kicks-ass.net>
-  <20130426174815.GI3860@linux.vnet.ibm.com> <1367000815.8964.243.camel@edumazet-glaptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable
+ call"
+Date: Sat, 27 Apr 2013 14:06:19 +0200
+Message-ID: <20130427120619.GA26097@electric-eye.fr.zoreil.com>
+References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
+ <CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
+ <20130426134415.GS1366@pengutronix.de>
+ <20130426.143309.1011152996477262852.davem@davemloft.net>
+ <20130427090545.GY1366@pengutronix.de>
+ <CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: paulmck@linux.vnet.ibm.com, Peter Zijlstra <peterz@infradead.org>,
-	Simon Horman <horms@verge.net.au>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>, dhaval.giani@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1367000815.8964.243.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: Frank Li <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48407 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751618Ab3D0MGc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 08:06:32 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Frank Li <lznuaa@gmail.com> :
+[...]
+> diff --git a/drivers/net/ethernet/freescale/fec.c
+> b/drivers/net/ethernet/freescale/fe
+> index 73195f6..c945bb7 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -403,6 +403,11 @@ fec_restart(struct net_device *ndev, int duplex)
+>         const struct platform_device_id *id_entry =
+>                                 platform_get_device_id(fep->pdev);
+>         int i;
+> +       if (netif_running(ndev)) {
+> +               napi_disable(&fep->napi);
 
-	Hello,
+napi_disable may sleep.
 
-On Fri, 26 Apr 2013, Eric Dumazet wrote:
+fec_restart can be called with spinlock held in fec_enet_adjust_link
 
-> On Fri, 2013-04-26 at 10:48 -0700, Paul E. McKenney wrote:
-> 
-> > Don't get me wrong, I am not opposing cond_resched_rcu_lock() because it
-> > will be difficult to validate.  For one thing, until there are a lot of
-> > them, manual inspection is quite possible.  So feel free to apply my
-> > Acked-by to the patch.
-> 
-> One question : If some thread(s) is(are) calling rcu_barrier() and
-> waiting we exit from rcu_read_lock() section, is need_resched() enough
-> for allowing to break the section ?
-> 
-> If not, maybe we should not test need_resched() at all.
-> 
-> rcu_read_unlock();
-> cond_resched();
-> rcu_read_lock();
-
-	So, I assume, to help realtime kernels and rcu_barrier
-it is not a good idea to guard rcu_read_unlock with checks.
-I see that rcu_read_unlock will try to reschedule in the 
-!CONFIG_PREEMPT_RCU case (via preempt_enable), can we
-use ifdefs to avoid double TIF_NEED_RESCHED check?:
-
-	rcu_read_unlock();
-#if !defined(CONFIG_PREEMPT) || defined(CONFIG_PREEMPT_RCU)
-	cond_resched();
-#endif
-	rcu_read_lock();
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+Ueimor
