@@ -1,72 +1,51 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: [PATCH v2 net-next 3/3] ARM: net: bpf_jit_32: support BPF_S_ANC_SECCOMP_LD_W instruction
-Date: Fri, 26 Apr 2013 22:17:27 -0400
-Message-ID: <1367029047-14830-4-git-send-email-xi.wang@gmail.com>
-References: <1367029047-14830-1-git-send-email-xi.wang@gmail.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Will Drewry <wad@chromium.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	David Laight <david.laight@aculab.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nicolas Schichan <nschichan@freebox.fr>,
-	Xi Wang <xi.wang@gmail.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367029047-14830-1-git-send-email-xi.wang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vxlan: use IANA assigned port
+Date: Fri, 26 Apr 2013 23:22:32 -0400 (EDT)
+Message-ID: <20130426.232232.688463657786151100.davem@davemloft.net>
+References: <20130426163346.762c41c1@nehalam.linuxnetplumber.net>
+	<20130426.194405.764067901709113311.davem@davemloft.net>
+	<20130427015129.GJ8882@sequoia.sous-sol.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	kduda@aristanetworks.com
+To: chrisw@sous-sol.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48606 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754658Ab3D0DWf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 23:22:35 -0400
+In-Reply-To: <20130427015129.GJ8882@sequoia.sous-sol.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch implements the seccomp BPF_S_ANC_SECCOMP_LD_W instruction
-in ARM JIT.
+From: Chris Wright <chrisw@sous-sol.org>
+Date: Fri, 26 Apr 2013 18:51:29 -0700
 
-Signed-off-by: Xi Wang <xi.wang@gmail.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>
-Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-Cc: Will Drewry <wad@chromium.org>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Russell King <linux@arm.linux.org.uk>
-Cc: David Laight <david.laight@aculab.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Nicolas Schichan <nschichan@freebox.fr>
----
- arch/arm/net/bpf_jit_32.c | 14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+> * David Miller (davem@davemloft.net) wrote:
+>> From: Stephen Hemminger <stephen@networkplumber.org>
+>> Date: Fri, 26 Apr 2013 16:33:46 -0700
+>> 
+>> > Ken Duda of Arista Networks, one of the VXLAN RFC authors notified
+>> > me that IANA has assigned an official port for VXLAN. My initial version
+>> > of the driver used the value from CISCO LISP that was also being used by
+>> > OpenVswitch.
+>> > 
+>> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>> 
+>> So how does this interact with already deployed VXLAN links?
+>> 
+>> What is the backwards compatability story?  What if one node upgrades
+>> with this patch installed, but all the other nodes are left using
+>> the older port number by default?
+> 
+> With this patch, I think one node upgrading would need to override
+> the default vxlan_port module param (falling back to the pre IANA
+> default) to keep active with the existing overlays.
 
-diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-index 073b085..9bfce464 100644
---- a/arch/arm/net/bpf_jit_32.c
-+++ b/arch/arm/net/bpf_jit_32.c
-@@ -19,6 +19,7 @@
- #include <linux/if_vlan.h>
- #include <asm/cacheflush.h>
- #include <asm/hwcap.h>
-+#include <asm/syscall.h>
- 
- #include "bpf_jit_32.h"
- 
-@@ -845,6 +846,19 @@ b_epilogue:
- 			off = offsetof(struct sk_buff, queue_mapping);
- 			emit(ARM_LDRH_I(r_A, r_skb, off), ctx);
- 			break;
-+#ifdef CONFIG_SECCOMP_FILTER
-+		case BPF_S_ANC_SECCOMP_LD_W:
-+			if (k == offsetof(struct seccomp_data, arch)) {
-+				emit_mov_i(r_A, AUDIT_ARCH_ARM, ctx);
-+				break;
-+			}
-+			ctx->seen |= SEEN_CALL;
-+			emit_mov_i(ARM_R3, (u32)seccomp_bpf_load, ctx);
-+			emit_mov_i(ARM_R0, k, ctx);
-+			emit_blx_r(ARM_R3, ctx);
-+			emit(ARM_MOV_R(r_A, ARM_R0), ctx);
-+			break;
-+#endif
- 		default:
- 			return -1;
- 		}
--- 
-1.8.1.2
+That's an unacceptable burdon for our users.
+
+We're stuck with the initial port number you've choosen.
+
+People can override to the "official" port if they want to.
