@@ -1,101 +1,103 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 16/18] netfilter: nfnetlink_queue: add skb info attribute
-Date: Sat, 27 Apr 2013 20:58:21 +0200
-Message-ID: <1367089103-8394-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 14/18] netfilter: nf_queue: move device refcount bump to extra function
+Date: Sat, 27 Apr 2013 20:58:19 +0200
+Message-ID: <1367089103-8394-15-git-send-email-pablo@netfilter.org>
 References: <1367089103-8394-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42626 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756294Ab3D0S7F (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Apr 2013 14:59:05 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1367089103-8394-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Florian Westphal <fw@strlen.de>
 
-Once we allow userspace to receive gso/gro packets, userspace
-needs to be able to determine when checksums appear to be
-broken, but are not.
-
-NFQA_SKB_CSUMNOTREADY means 'checksums will be fixed in kernel
-later, pretend they are ok'.
-
-NFQA_SKB_GSO could be used for statistics, or to determine when
-packet size exceeds mtu.
+required by future patch that will need to duplicate the
+nf_queue_entry, bumping refcounts of the copy.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nfnetlink_queue.h |    7 +++++++
- net/netfilter/nfnetlink_queue_core.c           |   16 ++++++++++++++++
- 2 files changed, 23 insertions(+)
+ net/netfilter/nf_queue.c |   49 ++++++++++++++++++++++++++--------------------
+ 1 file changed, 28 insertions(+), 21 deletions(-)
 
-diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
-index 70ec8c2..0069da3 100644
---- a/include/uapi/linux/netfilter/nfnetlink_queue.h
-+++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
-@@ -45,6 +45,7 @@ enum nfqnl_attr_type {
- 	NFQA_CT,			/* nf_conntrack_netlink.h */
- 	NFQA_CT_INFO,			/* enum ip_conntrack_info */
- 	NFQA_CAP_LEN,			/* __u32 length of captured packet */
-+	NFQA_SKB_INFO,			/* __u32 skb meta information */
- 
- 	__NFQA_MAX
- };
-@@ -98,4 +99,10 @@ enum nfqnl_attr_config {
- #define NFQA_CFG_F_CONNTRACK			(1 << 1)
- #define NFQA_CFG_F_MAX				(1 << 2)
- 
-+/* flags for NFQA_SKB_INFO */
-+/* packet appears to have wrong checksums, but they are ok */
-+#define NFQA_SKB_CSUMNOTREADY (1 << 0)
-+/* packet is GSO (i.e., exceeds device mtu) */
-+#define NFQA_SKB_GSO (1 << 1)
-+
- #endif /* _NFNETLINK_QUEUE_H */
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index edbae4c..d052cd6 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -272,6 +272,18 @@ nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- 	skb_shinfo(to)->nr_frags = j;
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 5ccf01e..1d91e77 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -66,6 +66,33 @@ static void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
+ 	module_put(entry->elem->owner);
  }
  
-+static int nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet)
++/* Bump dev refs so they don't vanish while packet is out */
++static bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
 +{
-+	__u32 flags = 0;
++	if (!try_module_get(entry->elem->owner))
++		return false;
 +
-+	if (packet->ip_summed == CHECKSUM_PARTIAL)
-+		flags = NFQA_SKB_CSUMNOTREADY;
-+	if (skb_is_gso(packet))
-+		flags |= NFQA_SKB_GSO;
++	if (entry->indev)
++		dev_hold(entry->indev);
++	if (entry->outdev)
++		dev_hold(entry->outdev);
++#ifdef CONFIG_BRIDGE_NETFILTER
++	if (entry->skb->nf_bridge) {
++		struct nf_bridge_info *nf_bridge = entry->skb->nf_bridge;
++		struct net_device *physdev;
 +
-+	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
++		physdev = nf_bridge->physindev;
++		if (physdev)
++			dev_hold(physdev);
++		physdev = nf_bridge->physoutdev;
++		if (physdev)
++			dev_hold(physdev);
++	}
++#endif
++
++	return true;
 +}
 +
- static struct sk_buff *
- nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 			   struct nf_queue_entry *entry,
-@@ -301,6 +313,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- #endif
- 		+ nla_total_size(sizeof(u_int32_t))	/* mark */
- 		+ nla_total_size(sizeof(struct nfqnl_msg_packet_hw))
-+		+ nla_total_size(sizeof(u_int32_t))	/* skbinfo */
- 		+ nla_total_size(sizeof(u_int32_t));	/* cap_len */
+ /*
+  * Any packet that leaves via this function must come back
+  * through nf_reinject().
+@@ -80,10 +107,6 @@ static int __nf_queue(struct sk_buff *skb,
+ {
+ 	int status = -ENOENT;
+ 	struct nf_queue_entry *entry = NULL;
+-#ifdef CONFIG_BRIDGE_NETFILTER
+-	struct net_device *physindev;
+-	struct net_device *physoutdev;
+-#endif
+ 	const struct nf_afinfo *afinfo;
+ 	const struct nf_queue_handler *qh;
  
- 	if (entskb->tstamp.tv64)
-@@ -454,6 +467,9 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 	if (cap_len > 0 && nla_put_be32(skb, NFQA_CAP_LEN, htonl(cap_len)))
- 		goto nla_put_failure;
+@@ -116,26 +139,10 @@ static int __nf_queue(struct sk_buff *skb,
+ 		.okfn	= okfn,
+ 	};
  
-+	if (nfqnl_put_packet_info(skb, entskb))
-+		goto nla_put_failure;
-+
- 	if (data_len) {
- 		struct nlattr *nla;
- 
+-	/* If it's going away, ignore hook. */
+-	if (!try_module_get(entry->elem->owner)) {
++	if (!nf_queue_entry_get_refs(entry)) {
+ 		status = -ECANCELED;
+ 		goto err_unlock;
+ 	}
+-	/* Bump dev refs so they don't vanish while packet is out */
+-	if (indev)
+-		dev_hold(indev);
+-	if (outdev)
+-		dev_hold(outdev);
+-#ifdef CONFIG_BRIDGE_NETFILTER
+-	if (skb->nf_bridge) {
+-		physindev = skb->nf_bridge->physindev;
+-		if (physindev)
+-			dev_hold(physindev);
+-		physoutdev = skb->nf_bridge->physoutdev;
+-		if (physoutdev)
+-			dev_hold(physoutdev);
+-	}
+-#endif
+ 	skb_dst_force(skb);
+ 	afinfo->saveroute(skb, entry);
+ 	status = qh->outfn(entry, queuenum);
 -- 
 1.7.10.4
+
