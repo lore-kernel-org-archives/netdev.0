@@ -1,225 +1,49 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 01/18] netfilter: ipset: Make possible to test elements marked with nomatch
-Date: Sat, 27 Apr 2013 20:58:06 +0200
-Message-ID: <1367089103-8394-2-git-send-email-pablo@netfilter.org>
-References: <1367089103-8394-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: RE: [PATCH net 6/7] qlcnic: Fix reset recovery after transmit
+ timeout
+Date: Sat, 27 Apr 2013 19:08:50 +0000
+Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F62D@avmb2.qlogic.org>
+References: <1366978183-7282-1-git-send-email-shahed.shaikh@qlogic.com>
+	 <1366978183-7282-7-git-send-email-shahed.shaikh@qlogic.com>
+ <1367010061.4035.7.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42551 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752985Ab3D0S6h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Apr 2013 14:58:37 -0400
-In-Reply-To: <1367089103-8394-1-git-send-email-pablo@netfilter.org>
+Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:43643
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752985Ab3D0TI4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 15:08:56 -0400
+In-Reply-To: <1367010061.4035.7.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
----
- include/linux/netfilter/ipset/ip_set.h      |    8 ++++++++
- net/netfilter/ipset/ip_set_hash_ipportnet.c |   14 ++++++++------
- net/netfilter/ipset/ip_set_hash_net.c       |   14 ++++++++------
- net/netfilter/ipset/ip_set_hash_netiface.c  |   14 ++++++++------
- net/netfilter/ipset/ip_set_hash_netport.c   |   14 ++++++++------
- 5 files changed, 40 insertions(+), 24 deletions(-)
-
-diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
-index 7958e84..9701871 100644
---- a/include/linux/netfilter/ipset/ip_set.h
-+++ b/include/linux/netfilter/ipset/ip_set.h
-@@ -200,6 +200,14 @@ ip_set_eexist(int ret, u32 flags)
- 	return ret == -IPSET_ERR_EXIST && (flags & IPSET_FLAG_EXIST);
- }
- 
-+/* Match elements marked with nomatch */
-+static inline bool
-+ip_set_enomatch(int ret, u32 flags, enum ipset_adt adt)
-+{
-+	return adt == IPSET_TEST &&
-+	       ret == -ENOTEMPTY && ((flags >> 16) & IPSET_FLAG_NOMATCH);
-+}
-+
- /* Check the NLA_F_NET_BYTEORDER flag */
- static inline bool
- ip_set_attr_netorder(struct nlattr *tb[], int type)
-diff --git a/net/netfilter/ipset/ip_set_hash_ipportnet.c b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-index 10a30b4..b4836c8 100644
---- a/net/netfilter/ipset/ip_set_hash_ipportnet.c
-+++ b/net/netfilter/ipset/ip_set_hash_ipportnet.c
-@@ -279,10 +279,10 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
- 	}
- 
--	if (tb[IPSET_ATTR_CADT_FLAGS] && adt == IPSET_ADD) {
-+	if (tb[IPSET_ATTR_CADT_FLAGS]) {
- 		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
- 		if (cadt_flags & IPSET_FLAG_NOMATCH)
--			flags |= (cadt_flags << 16);
-+			flags |= (IPSET_FLAG_NOMATCH << 16);
- 	}
- 
- 	with_ports = with_ports && tb[IPSET_ATTR_PORT_TO];
-@@ -292,7 +292,8 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		data.ip = htonl(ip);
- 		data.ip2 = htonl(ip2_from & ip_set_hostmask(data.cidr + 1));
- 		ret = adtfn(set, &data, timeout, flags);
--		return ip_set_eexist(ret, flags) ? 0 : ret;
-+		return ip_set_enomatch(ret, flags, adt) ? 1 :
-+		       ip_set_eexist(ret, flags) ? 0 : ret;
- 	}
- 
- 	ip_to = ip;
-@@ -610,15 +611,16 @@ hash_ipportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
- 	}
- 
--	if (tb[IPSET_ATTR_CADT_FLAGS] && adt == IPSET_ADD) {
-+	if (tb[IPSET_ATTR_CADT_FLAGS]) {
- 		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
- 		if (cadt_flags & IPSET_FLAG_NOMATCH)
--			flags |= (cadt_flags << 16);
-+			flags |= (IPSET_FLAG_NOMATCH << 16);
- 	}
- 
- 	if (adt == IPSET_TEST || !with_ports || !tb[IPSET_ATTR_PORT_TO]) {
- 		ret = adtfn(set, &data, timeout, flags);
--		return ip_set_eexist(ret, flags) ? 0 : ret;
-+		return ip_set_enomatch(ret, flags, adt) ? 1 :
-+		       ip_set_eexist(ret, flags) ? 0 : ret;
- 	}
- 
- 	port = ntohs(data.port);
-diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
-index d6a5915..6dbe0af 100644
---- a/net/netfilter/ipset/ip_set_hash_net.c
-+++ b/net/netfilter/ipset/ip_set_hash_net.c
-@@ -225,16 +225,17 @@ hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
- 	}
- 
--	if (tb[IPSET_ATTR_CADT_FLAGS] && adt == IPSET_ADD) {
-+	if (tb[IPSET_ATTR_CADT_FLAGS]) {
- 		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
- 		if (cadt_flags & IPSET_FLAG_NOMATCH)
--			flags |= (cadt_flags << 16);
-+			flags |= (IPSET_FLAG_NOMATCH << 16);
- 	}
- 
- 	if (adt == IPSET_TEST || !tb[IPSET_ATTR_IP_TO]) {
- 		data.ip = htonl(ip & ip_set_hostmask(data.cidr));
- 		ret = adtfn(set, &data, timeout, flags);
--		return ip_set_eexist(ret, flags) ? 0 : ret;
-+		return ip_set_enomatch(ret, flags, adt) ? 1 :
-+		       ip_set_eexist(ret, flags) ? 0 : ret;
- 	}
- 
- 	ip_to = ip;
-@@ -466,15 +467,16 @@ hash_net6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
- 	}
- 
--	if (tb[IPSET_ATTR_CADT_FLAGS] && adt == IPSET_ADD) {
-+	if (tb[IPSET_ATTR_CADT_FLAGS]) {
- 		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
- 		if (cadt_flags & IPSET_FLAG_NOMATCH)
--			flags |= (cadt_flags << 16);
-+			flags |= (IPSET_FLAG_NOMATCH << 16);
- 	}
- 
- 	ret = adtfn(set, &data, timeout, flags);
- 
--	return ip_set_eexist(ret, flags) ? 0 : ret;
-+	return ip_set_enomatch(ret, flags, adt) ? 1 :
-+	       ip_set_eexist(ret, flags) ? 0 : ret;
- }
- 
- /* Create hash:ip type of sets */
-diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
-index f2b0a3c..2481620 100644
---- a/net/netfilter/ipset/ip_set_hash_netiface.c
-+++ b/net/netfilter/ipset/ip_set_hash_netiface.c
-@@ -396,13 +396,14 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
- 		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
- 		if (cadt_flags & IPSET_FLAG_PHYSDEV)
- 			data.physdev = 1;
--		if (adt == IPSET_ADD && (cadt_flags & IPSET_FLAG_NOMATCH))
--			flags |= (cadt_flags << 16);
-+		if (cadt_flags & IPSET_FLAG_NOMATCH)
-+			flags |= (IPSET_FLAG_NOMATCH << 16);
- 	}
- 	if (adt == IPSET_TEST || !tb[IPSET_ATTR_IP_TO]) {
- 		data.ip = htonl(ip & ip_set_hostmask(data.cidr));
- 		ret = adtfn(set, &data, timeout, flags);
--		return ip_set_eexist(ret, flags) ? 0 : ret;
-+		return ip_set_enomatch(ret, flags, adt) ? 1 :
-+		       ip_set_eexist(ret, flags) ? 0 : ret;
- 	}
- 
- 	if (tb[IPSET_ATTR_IP_TO]) {
-@@ -704,13 +705,14 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
- 		if (cadt_flags & IPSET_FLAG_PHYSDEV)
- 			data.physdev = 1;
--		if (adt == IPSET_ADD && (cadt_flags & IPSET_FLAG_NOMATCH))
--			flags |= (cadt_flags << 16);
-+		if (cadt_flags & IPSET_FLAG_NOMATCH)
-+			flags |= (IPSET_FLAG_NOMATCH << 16);
- 	}
- 
- 	ret = adtfn(set, &data, timeout, flags);
- 
--	return ip_set_eexist(ret, flags) ? 0 : ret;
-+	return ip_set_enomatch(ret, flags, adt) ? 1 :
-+	       ip_set_eexist(ret, flags) ? 0 : ret;
- }
- 
- /* Create hash:ip type of sets */
-diff --git a/net/netfilter/ipset/ip_set_hash_netport.c b/net/netfilter/ipset/ip_set_hash_netport.c
-index 349deb6..57b0550 100644
---- a/net/netfilter/ipset/ip_set_hash_netport.c
-+++ b/net/netfilter/ipset/ip_set_hash_netport.c
-@@ -272,16 +272,17 @@ hash_netport4_uadt(struct ip_set *set, struct nlattr *tb[],
- 
- 	with_ports = with_ports && tb[IPSET_ATTR_PORT_TO];
- 
--	if (tb[IPSET_ATTR_CADT_FLAGS] && adt == IPSET_ADD) {
-+	if (tb[IPSET_ATTR_CADT_FLAGS]) {
- 		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
- 		if (cadt_flags & IPSET_FLAG_NOMATCH)
--			flags |= (cadt_flags << 16);
-+			flags |= (IPSET_FLAG_NOMATCH << 16);
- 	}
- 
- 	if (adt == IPSET_TEST || !(with_ports || tb[IPSET_ATTR_IP_TO])) {
- 		data.ip = htonl(ip & ip_set_hostmask(data.cidr + 1));
- 		ret = adtfn(set, &data, timeout, flags);
--		return ip_set_eexist(ret, flags) ? 0 : ret;
-+		return ip_set_enomatch(ret, flags, adt) ? 1 :
-+		       ip_set_eexist(ret, flags) ? 0 : ret;
- 	}
- 
- 	port = port_to = ntohs(data.port);
-@@ -561,15 +562,16 @@ hash_netport6_uadt(struct ip_set *set, struct nlattr *tb[],
- 		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
- 	}
- 
--	if (tb[IPSET_ATTR_CADT_FLAGS] && adt == IPSET_ADD) {
-+	if (tb[IPSET_ATTR_CADT_FLAGS]) {
- 		u32 cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
- 		if (cadt_flags & IPSET_FLAG_NOMATCH)
--			flags |= (cadt_flags << 16);
-+			flags |= (IPSET_FLAG_NOMATCH << 16);
- 	}
- 
- 	if (adt == IPSET_TEST || !with_ports || !tb[IPSET_ATTR_PORT_TO]) {
- 		ret = adtfn(set, &data, timeout, flags);
--		return ip_set_eexist(ret, flags) ? 0 : ret;
-+		return ip_set_enomatch(ret, flags, adt) ? 1 :
-+		       ip_set_eexist(ret, flags) ? 0 : ret;
- 	}
- 
- 	port = ntohs(data.port);
--- 
-1.7.10.4
+PiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0N
+Cj4gU2VudDogU2F0dXJkYXksIEFwcmlsIDI3LCAyMDEzIDI6MzEgQU0NCj4gVG86IFNoYWhlZCBT
+aGFpa2gNCj4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0ZGV2OyBEZXB0LU5YIExpbnV4IE5JQyBEcml2
+ZXI7IFNvbnkgQ2hhY2tvDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IDYvN10gcWxjbmljOiBG
+aXggcmVzZXQgcmVjb3ZlcnkgYWZ0ZXIgdHJhbnNtaXQgdGltZW91dA0KPg0KWy4uLl0NCj4gPiAg
+CW5ldGlmX2RldmljZV9hdHRhY2gobmV0ZGV2KTsNCj4gPiAtCWlmIChuZXRpZl9ydW5uaW5nKG5l
+dGRldikpIHsNCj4gPiAtCQluZXRpZl9jYXJyaWVyX29uKG5ldGRldik7DQo+ID4gLQkJbmV0aWZf
+d2FrZV9xdWV1ZShuZXRkZXYpOw0KPiA+IC0JfQ0KPiA+ICsJYWRhcHRlci0+bmV0ZGV2LT50cmFu
+c19zdGFydCA9IGppZmZpZXM7DQo+ID4gIH0NCj4gWy4uLl0NCj4gDQo+IFRoZSBkZWxldGlvbnMg
+bG9vayBnb29kLCBidXQgaXQgc2hvdWxkIG5vdCBiZSBuZWNlc3NhcnkgdG8gd3JpdGUgdG8NCj4g
+dHJhbnNfc3RhcnQuICBXaHkgZG8geW91IHRoaW5rIGl0IGlzIG5lZWRlZD8NCg0KWW91IGFyZSBj
+b3JyZWN0LCB3ZSBkb24ndCBoYXZlIHRvIHVwZGF0ZSBuZXRkZXYtPnRyYW5zX3N0YXJ0LiANCldl
+IHdlcmUgdXBkYXRpbmcgbmV0ZGV2LT50cmFuc19zdGFydCB0byBwcmV2ZW50IHdhdGNoZG9nIGZy
+b20ga2lja2luZyBpbi4NCldhdGNoZG9nIHRpbWVvdXQgd2lsbCBub3QgaGFwcGVuIGJlY2F1c2Ug
+d2UgYXJlIHdha2luZyB0aGUgVHggcXVldWUgYW5kIHR1cm5pbmcgdGhlIGNhcnJpZXIgT04gcHJp
+b3IgdG8gIGF0dGFjaGluZyB0aGUgZGV2aWNlLg0KIA0KV2Ugd2lsbCBtYWtlIHRoZSByZXF1aXJl
+ZCBjaGFuZ2UgYXMgeW91IHN1Z2dlc3RlZCBpbiBWMiBvZiB0aGUgcGF0Y2ggc2VyaWVzLg0KDQpU
+aGFua3MsDQpTaGFoZWQNCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0
+YWZmIEVuZ2luZWVyLCBTb2xhcmZsYXJlIE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7DQo+
+IHRoYXQncyB0aGUgbWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMg
+dG8gbm90ZSB0aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQo+
+IA0KDQo=
