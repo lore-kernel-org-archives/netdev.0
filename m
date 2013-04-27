@@ -1,53 +1,86 @@
-From: Tony Prisk <linux@prisktech.co.nz>
-Subject: VIA velocity network driver
-Date: Sat, 27 Apr 2013 17:30:15 +1200
-Message-ID: <517B6267.4070404@prisktech.co.nz>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 net-next 3/3] ARM: net: bpf_jit_32: support BPF_S_ANC_SECCOMP_LD_W
+ instruction
+Date: Sat, 27 Apr 2013 08:27:17 +0200
+Message-ID: <517B6FC5.7070003@redhat.com>
+References: <1367029047-14830-1-git-send-email-xi.wang@gmail.com> <1367029047-14830-4-git-send-email-xi.wang@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Francois Romieu <romieu@fr.zoreil.com>,
-	"Mailing List, Arm" <linux-arm-kernel@lists.infradead.org>,
-	netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Will Drewry <wad@chromium.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	David Laight <david.laight@aculab.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nicolas Schichan <nschichan@freebox.fr>
+To: Xi Wang <xi.wang@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1367029047-14830-4-git-send-email-xi.wang@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-I would like to add support to this driver for platform devices as found 
-on VIA's APC8750 board. At the moment, I have a standalone platform 
-version that works fine, but wanted to ask a few questions before 
-sending a patch to merge this code into one driver.
+On 04/27/2013 04:17 AM, Xi Wang wrote:
+> This patch implements the seccomp BPF_S_ANC_SECCOMP_LD_W instruction
+> in ARM JIT.
+>
+> Signed-off-by: Xi Wang <xi.wang@gmail.com>
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Cc: Will Drewry <wad@chromium.org>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Russell King <linux@arm.linux.org.uk>
+> Cc: David Laight <david.laight@aculab.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Nicolas Schichan <nschichan@freebox.fr>
+> ---
+>   arch/arm/net/bpf_jit_32.c | 14 ++++++++++++++
+>   1 file changed, 14 insertions(+)
+>
+> diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+> index 073b085..9bfce464 100644
+> --- a/arch/arm/net/bpf_jit_32.c
+> +++ b/arch/arm/net/bpf_jit_32.c
+> @@ -19,6 +19,7 @@
+>   #include <linux/if_vlan.h>
+>   #include <asm/cacheflush.h>
+>   #include <asm/hwcap.h>
+> +#include <asm/syscall.h>
+>
+>   #include "bpf_jit_32.h"
+>
+> @@ -845,6 +846,19 @@ b_epilogue:
+>   			off = offsetof(struct sk_buff, queue_mapping);
+>   			emit(ARM_LDRH_I(r_A, r_skb, off), ctx);
+>   			break;
+> +#ifdef CONFIG_SECCOMP_FILTER
+> +		case BPF_S_ANC_SECCOMP_LD_W:
+> +			if (k == offsetof(struct seccomp_data, arch)) {
+> +				emit_mov_i(r_A, AUDIT_ARCH_ARM, ctx);
+> +				break;
+> +			}
 
-The current driver is for PCI network cards, and uses pci dma functions. 
-Most of the pci dma functions are wrappers around other functions which 
-is what I have used for the platform version. For example:
+Not an expert in ARM, but ...
 
-rd_info->skb_dma = pci_map_single(vptr->pdev, rd_info->skb->data,
-                     vptr->rx.buf_sz, PCI_DMA_FROMDEVICE);
+Arent't you doing here a similar thing in terms of getting arch as Eric
+criticized (Nicolas' implementation does not use that part btw.)? Also,
+even if it would be possible here, now your 2 JIT implementations differ
+in behaviour. I think this is unintended.
 
-is replaced with:
-rd_info->skb_dma = dma_map_single(&vptr->plat_dev->dev, rd_info->skb->data,
-                     vptr->rx.buf_sz, DMA_FROM_DEVICE);
+Besides all that, I think I also pointed you to a patch that already made
+it in for ARM, not sure why you keep posting the ARM JIT implementation?
 
-Is it ok to use the non-pci versions (which are basically just the 
-unwrapped pci versions) and pass the struct device *, or will I need to 
-use the correct function for the correct instance.
-
-Other than adding some new probe/remove functions, this is all that is 
-needed to add platform driver support.
-
-One bug/problem that arose is to do with the EEPROM code in 
-velocity_init_registers(), in the case for VELOCITY_INIT_COLD:
-
-         mac_eeprom_reload(regs);
-         for (i = 0; i < 6; i++)
-             writeb(vptr->dev->dev_addr[i], &(regs->PAR[i]));
-
-I assume this is loading something from an EEPROM, but there is no 
-EEPROM on the APC8750. Removing this code, the driver seems to work fine 
-on the APC8750.
-Could it be avoided with a vptr->has_no_eeprom that defaults to 0 to 
-avoid breaking existing support?
-
-Regards
-Tony Prisk
+> +			ctx->seen |= SEEN_CALL;
+> +			emit_mov_i(ARM_R3, (u32)seccomp_bpf_load, ctx);
+> +			emit_mov_i(ARM_R0, k, ctx);
+> +			emit_blx_r(ARM_R3, ctx);
+> +			emit(ARM_MOV_R(r_A, ARM_R0), ctx);
+> +			break;
+> +#endif
+>   		default:
+>   			return -1;
+>   		}
+>
