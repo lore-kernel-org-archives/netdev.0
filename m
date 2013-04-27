@@ -1,64 +1,41 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] genetlink: fix possible memory leak in genl_family_rcv_msg()
-Date: Sat, 27 Apr 2013 09:34:16 +0800
-Message-ID: <CAPgLHd_tU4suwLY9M1Xoq9osTMcFWMARAaQV=9eodCJ+hZLz-Q@mail.gmail.com>
+From: Chris Wright <chrisw@sous-sol.org>
+Subject: Re: [PATCH net] vxlan: use IANA assigned port
+Date: Fri, 26 Apr 2013 18:51:29 -0700
+Message-ID: <20130427015129.GJ8882@sequoia.sous-sol.org>
+References: <20130426163346.762c41c1@nehalam.linuxnetplumber.net>
+ <20130426.194405.764067901709113311.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net, pablo@netfilter.org, shemminger@vyatta.com,
-	ebiederm@xmission.com, bhutchings@solarflare.com,
-	pshelar@nicira.com
+Content-Type: text/plain; charset=us-ascii
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	kduda@aristanetworks.com, chrisw@sous-sol.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f50.google.com ([209.85.214.50]:39304 "EHLO
-	mail-bk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751089Ab3D0BeS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 21:34:18 -0400
-Received: by mail-bk0-f50.google.com with SMTP id ik5so2017264bkc.37
-        for <netdev@vger.kernel.org>; Fri, 26 Apr 2013 18:34:17 -0700 (PDT)
+Received: from sous-sol.org ([216.99.217.87]:46711 "EHLO sequoia.sous-sol.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751108Ab3D0COn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 26 Apr 2013 22:14:43 -0400
+Content-Disposition: inline
+In-Reply-To: <20130426.194405.764067901709113311.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+* David Miller (davem@davemloft.net) wrote:
+> From: Stephen Hemminger <stephen@networkplumber.org>
+> Date: Fri, 26 Apr 2013 16:33:46 -0700
+> 
+> > Ken Duda of Arista Networks, one of the VXLAN RFC authors notified
+> > me that IANA has assigned an official port for VXLAN. My initial version
+> > of the driver used the value from CISCO LISP that was also being used by
+> > OpenVswitch.
+> > 
+> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> 
+> So how does this interact with already deployed VXLAN links?
+> 
+> What is the backwards compatability story?  What if one node upgrades
+> with this patch installed, but all the other nodes are left using
+> the older port number by default?
 
-'attrbuf' is malloced in genl_family_rcv_msg() when family->maxattr &&
-family->parallel_ops, thus should be freed before leaving from the error
-handling cases, otherwise it will cause memory leak.
-
-Introduced by commit def3117493eafd9dfa1f809d861e0031b2cc8a07
-(genl: Allow concurrent genl callbacks.)
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- net/netlink/genetlink.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/netlink/genetlink.c b/net/netlink/genetlink.c
-index 2f72598..2fd6dbe 100644
---- a/net/netlink/genetlink.c
-+++ b/net/netlink/genetlink.c
-@@ -598,7 +598,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
- 		err = nlmsg_parse(nlh, hdrlen, attrbuf, family->maxattr,
- 				  ops->policy);
- 		if (err < 0)
--			return err;
-+			goto out;
- 	}
- 
- 	info.snd_seq = nlh->nlmsg_seq;
-@@ -613,7 +613,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
- 	if (family->pre_doit) {
- 		err = family->pre_doit(ops, skb, &info);
- 		if (err)
--			return err;
-+			goto out;
- 	}
- 
- 	err = ops->doit(skb, &info);
-@@ -621,6 +621,7 @@ static int genl_family_rcv_msg(struct genl_family *family,
- 	if (family->post_doit)
- 		family->post_doit(ops, skb, &info);
- 
-+out:
- 	if (family->parallel_ops)
- 		kfree(attrbuf);
- 
+With this patch, I think one node upgrading would need to override
+the default vxlan_port module param (falling back to the pre IANA
+default) to keep active with the existing overlays.
