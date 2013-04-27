@@ -1,30 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vxlan: use IANA assigned port
-Date: Sat, 27 Apr 2013 03:43:20 -0400 (EDT)
-Message-ID: <20130427.034320.244588324045535017.davem@davemloft.net>
-References: <20130427015129.GJ8882@sequoia.sous-sol.org>
-	<20130426.232232.688463657786151100.davem@davemloft.net>
-	<CAOaVG14yv=TixikAkrjEOTBznoC6YDqm1vb4ByZ32bgXM3Q7xQ@mail.gmail.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: VIA velocity network driver
+Date: Sat, 27 Apr 2013 10:53:06 +0200
+Message-ID: <20130427085306.GA24622@electric-eye.fr.zoreil.com>
+References: <517B6267.4070404@prisktech.co.nz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: kduda@aristanetworks.com, netdev@vger.kernel.org,
-	chrisw@sous-sol.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50731 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751108Ab3D0HnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 03:43:23 -0400
-In-Reply-To: <CAOaVG14yv=TixikAkrjEOTBznoC6YDqm1vb4ByZ32bgXM3Q7xQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, ShirleyHu@viatech.com.cn,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ DavidLv@viatech.com.cn, AndersMa@viatech.com.cn, "Mailing List,
+ Arm" <linux-arm-kernel@lists.infradead.org>
+To: Tony Prisk <linux@prisktech.co.nz>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <517B6267.4070404@prisktech.co.nz>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Fri, 26 Apr 2013 21:53:59 -0700
+Tony Prisk <linux@prisktech.co.nz> :
+> I would like to add support to this driver for platform devices as
+> found on VIA's APC8750 board. At the moment, I have a standalone
+> platform version that works fine, but wanted to ask a few questions
+> before sending a patch to merge this code into one driver.
+> 
+> The current driver is for PCI network cards, and uses pci dma
+> functions. Most of the pci dma functions are wrappers around other
+> functions which is what I have used for the platform version.
 
-> The port should be a property anyway.
-> That way the value is easier to control. And we can do the transistion
-> there.
+[...]
+> Is it ok to use the non-pci versions (which are basically just the
+> unwrapped pci versions) and pass the struct device *, or will I need
+> to use the correct function for the correct instance.
 
-Works for me.
+It's ok.
+
+A standalone patch to convert the pci dma functions and check the
+returned status code of the new one would be welcome regardless of
+any future change in the driver data struct.
+
+[...]
+> I assume this is loading something from an EEPROM, but there is no
+> EEPROM on the APC8750. Removing this code, the driver seems to work
+> fine on the APC8750.
+
+I feel a "no documentation" disturbance in the force.
+
+Via's people Cced.
+
+> Could it be avoided with a vptr->has_no_eeprom that defaults to 0 to
+> avoid breaking existing support?
+
+Yes. No unnecessary module option please.
+
+-- 
+Ueimor
