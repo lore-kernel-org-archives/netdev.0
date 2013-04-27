@@ -1,412 +1,293 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 03/18] netfilter: ipset: Introduce extensions to elements in the core
-Date: Sat, 27 Apr 2013 20:58:08 +0200
-Message-ID: <1367089103-8394-4-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 13/18] netfilter: ipset: set match: add support to match the counters
+Date: Sat, 27 Apr 2013 20:58:18 +0200
+Message-ID: <1367089103-8394-14-git-send-email-pablo@netfilter.org>
 References: <1367089103-8394-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:42593 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756200Ab3D0S6y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 27 Apr 2013 14:58:54 -0400
 In-Reply-To: <1367089103-8394-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
-Introduce extensions to elements in the core and prepare timeout as
-the first one.
+The new revision of the set match supports to match the counters
+and to suppress updating the counters at matching too.
+
+At the set:list types, the updating of the subcounters can be
+suppressed as well.
 
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/ipset/ip_set.h         |   46 +++++++++--
- include/linux/netfilter/ipset/ip_set_timeout.h |  102 +++++-------------------
- net/netfilter/ipset/ip_set_core.c              |   24 ++++--
- net/netfilter/xt_set.c                         |   24 ++----
- 4 files changed, 86 insertions(+), 110 deletions(-)
+ include/linux/netfilter/ipset/ip_set.h      |    9 +++-
+ include/uapi/linux/netfilter/ipset/ip_set.h |   31 ++++++++++--
+ include/uapi/linux/netfilter/xt_set.h       |    9 ++++
+ net/netfilter/ipset/ip_set_core.c           |    2 +-
+ net/netfilter/ipset/ip_set_list_set.c       |    8 ++-
+ net/netfilter/xt_set.c                      |   70 +++++++++++++++++++++++++++
+ 6 files changed, 120 insertions(+), 9 deletions(-)
 
 diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
-index 9701871..bf0220c 100644
+index 0f978eb..d80e275 100644
 --- a/include/linux/netfilter/ipset/ip_set.h
 +++ b/include/linux/netfilter/ipset/ip_set.h
-@@ -1,7 +1,7 @@
- /* Copyright (C) 2000-2002 Joakim Axelsson <gozem@linux.nu>
-  *                         Patrick Schaaf <bof@bof.de>
-  *                         Martin Josefsson <gandalf@wlug.westbo.se>
-- * Copyright (C) 2003-2011 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-+ * Copyright (C) 2003-2013 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -47,10 +47,30 @@ enum ip_set_feature {
- 	IPSET_DUMP_LAST = (1 << IPSET_DUMP_LAST_FLAG),
- };
- 
-+/* Set extensions */
-+enum ip_set_extension {
-+	IPSET_EXT_NONE = 0,
-+	IPSET_EXT_BIT_TIMEOUT = 1,
-+	IPSET_EXT_TIMEOUT = (1 << IPSET_EXT_BIT_TIMEOUT),
-+};
-+
-+/* Extension offsets */
-+enum ip_set_offset {
-+	IPSET_OFFSET_TIMEOUT = 0,
-+	IPSET_OFFSET_MAX,
-+};
-+
-+#define SET_WITH_TIMEOUT(s)	((s)->extensions & IPSET_EXT_TIMEOUT)
-+
-+struct ip_set_ext {
-+	unsigned long timeout;
-+};
-+
- struct ip_set;
+@@ -76,7 +76,7 @@ struct ip_set;
  
  typedef int (*ipset_adtfn)(struct ip_set *set, void *value,
--			   u32 timeout, u32 flags);
-+			   const struct ip_set_ext *ext,
-+			   struct ip_set_ext *mext, u32 flags);
+ 			   const struct ip_set_ext *ext,
+-			   struct ip_set_ext *mext, u32 flags);
++			   struct ip_set_ext *mext, u32 cmdflags);
  
  /* Kernel API function options */
  struct ip_set_adt_opt {
-@@ -58,7 +78,7 @@ struct ip_set_adt_opt {
- 	u8 dim;			/* Dimension of match/target */
- 	u8 flags;		/* Direction and negation flags */
- 	u32 cmdflags;		/* Command-like flags */
--	u32 timeout;		/* Timeout value */
-+	struct ip_set_ext ext;	/* Extensions */
- };
- 
- /* Set type, variant-specific part */
-@@ -69,7 +89,7 @@ struct ip_set_type_variant {
- 	 *			positive for matching element */
- 	int (*kadt)(struct ip_set *set, const struct sk_buff *skb,
- 		    const struct xt_action_param *par,
--		    enum ipset_adt adt, const struct ip_set_adt_opt *opt);
-+		    enum ipset_adt adt, struct ip_set_adt_opt *opt);
- 
- 	/* Userspace: test/add/del entries
- 	 *		returns negative error code,
-@@ -151,6 +171,8 @@ struct ip_set {
- 	u8 family;
- 	/* The type revision */
- 	u8 revision;
-+	/* Extensions */
-+	u8 extensions;
- 	/* The type specific data */
- 	void *data;
- };
-@@ -167,19 +189,21 @@ extern void ip_set_nfnl_put(ip_set_id_t index);
- 
- extern int ip_set_add(ip_set_id_t id, const struct sk_buff *skb,
- 		      const struct xt_action_param *par,
--		      const struct ip_set_adt_opt *opt);
-+		      struct ip_set_adt_opt *opt);
- extern int ip_set_del(ip_set_id_t id, const struct sk_buff *skb,
- 		      const struct xt_action_param *par,
--		      const struct ip_set_adt_opt *opt);
-+		      struct ip_set_adt_opt *opt);
- extern int ip_set_test(ip_set_id_t id, const struct sk_buff *skb,
- 		       const struct xt_action_param *par,
--		       const struct ip_set_adt_opt *opt);
-+		       struct ip_set_adt_opt *opt);
- 
- /* Utility functions */
- extern void *ip_set_alloc(size_t size);
- extern void ip_set_free(void *members);
- extern int ip_set_get_ipaddr4(struct nlattr *nla,  __be32 *ipaddr);
- extern int ip_set_get_ipaddr6(struct nlattr *nla, union nf_inet_addr *ipaddr);
-+extern int ip_set_get_extensions(struct ip_set *set, struct nlattr *tb[],
-+				 struct ip_set_ext *ext);
- 
- static inline int
- ip_set_get_hostipaddr4(struct nlattr *nla, u32 *ipaddr)
-@@ -292,4 +316,12 @@ bitmap_bytes(u32 a, u32 b)
- 	return 4 * ((((b - a + 8) / 8) + 3) / 4);
- }
- 
-+#include <linux/netfilter/ipset/ip_set_timeout.h>
-+
-+#define IP_SET_INIT_KEXT(skb, opt, map)		\
-+	{ .timeout = ip_set_adt_opt_timeout(opt, map) }
-+
-+#define IP_SET_INIT_UEXT(map)			\
-+	{ .timeout = (map)->timeout }
-+
- #endif /*_IP_SET_H */
-diff --git a/include/linux/netfilter/ipset/ip_set_timeout.h b/include/linux/netfilter/ipset/ip_set_timeout.h
-index 41d9cfa..3aac041 100644
---- a/include/linux/netfilter/ipset/ip_set_timeout.h
-+++ b/include/linux/netfilter/ipset/ip_set_timeout.h
-@@ -1,7 +1,7 @@
- #ifndef _IP_SET_TIMEOUT_H
- #define _IP_SET_TIMEOUT_H
- 
--/* Copyright (C) 2003-2011 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-+/* Copyright (C) 2003-2013 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -17,13 +17,14 @@
- #define IPSET_GC_PERIOD(timeout) \
- 	((timeout/3) ? min_t(u32, (timeout)/3, IPSET_GC_TIME) : 1)
- 
--/* Set is defined without timeout support: timeout value may be 0 */
--#define IPSET_NO_TIMEOUT	UINT_MAX
-+/* Entry is set with no timeout value */
-+#define IPSET_ELEM_PERMANENT	0
- 
--#define with_timeout(timeout)	((timeout) != IPSET_NO_TIMEOUT)
-+/* Set is defined with timeout support: timeout value may be 0 */
-+#define IPSET_NO_TIMEOUT	UINT_MAX
- 
--#define opt_timeout(opt, map)	\
--	(with_timeout((opt)->timeout) ? (opt)->timeout : (map)->timeout)
-+#define ip_set_adt_opt_timeout(opt, map)	\
-+((opt)->ext.timeout != IPSET_NO_TIMEOUT ? (opt)->ext.timeout : (map)->timeout)
- 
- static inline unsigned int
- ip_set_timeout_uget(struct nlattr *tb)
-@@ -38,61 +39,6 @@ ip_set_timeout_uget(struct nlattr *tb)
- 	return timeout == IPSET_NO_TIMEOUT ? IPSET_NO_TIMEOUT - 1 : timeout;
- }
- 
--#ifdef IP_SET_BITMAP_TIMEOUT
--
--/* Bitmap specific timeout constants and macros for the entries */
--
--/* Bitmap entry is unset */
--#define IPSET_ELEM_UNSET	0
--/* Bitmap entry is set with no timeout value */
--#define IPSET_ELEM_PERMANENT	(UINT_MAX/2)
--
--static inline bool
--ip_set_timeout_test(unsigned long timeout)
--{
--	return timeout != IPSET_ELEM_UNSET &&
--	       (timeout == IPSET_ELEM_PERMANENT ||
--		time_is_after_jiffies(timeout));
--}
--
--static inline bool
--ip_set_timeout_expired(unsigned long timeout)
--{
--	return timeout != IPSET_ELEM_UNSET &&
--	       timeout != IPSET_ELEM_PERMANENT &&
--	       time_is_before_jiffies(timeout);
--}
--
--static inline unsigned long
--ip_set_timeout_set(u32 timeout)
--{
--	unsigned long t;
--
--	if (!timeout)
--		return IPSET_ELEM_PERMANENT;
--
--	t = msecs_to_jiffies(timeout * 1000) + jiffies;
--	if (t == IPSET_ELEM_UNSET || t == IPSET_ELEM_PERMANENT)
--		/* Bingo! */
--		t++;
--
--	return t;
--}
--
--static inline u32
--ip_set_timeout_get(unsigned long timeout)
--{
--	return timeout == IPSET_ELEM_PERMANENT ? 0 :
--		jiffies_to_msecs(timeout - jiffies)/1000;
--}
--
--#else
--
--/* Hash specific timeout constants and macros for the entries */
--
--/* Hash entry is set with no timeout value */
--#define IPSET_ELEM_PERMANENT	0
--
- static inline bool
- ip_set_timeout_test(unsigned long timeout)
+@@ -217,10 +217,15 @@ ip_set_update_counter(struct ip_set_counter *counter,
+ 		      const struct ip_set_ext *ext,
+ 		      struct ip_set_ext *mext, u32 flags)
  {
-@@ -101,36 +47,32 @@ ip_set_timeout_test(unsigned long timeout)
- }
- 
- static inline bool
--ip_set_timeout_expired(unsigned long timeout)
-+ip_set_timeout_expired(unsigned long *timeout)
- {
--	return timeout != IPSET_ELEM_PERMANENT &&
--	       time_is_before_jiffies(timeout);
-+	return *timeout != IPSET_ELEM_PERMANENT &&
-+	       time_is_before_jiffies(*timeout);
- }
- 
--static inline unsigned long
--ip_set_timeout_set(u32 timeout)
-+static inline void
-+ip_set_timeout_set(unsigned long *timeout, u32 t)
- {
--	unsigned long t;
--
--	if (!timeout)
--		return IPSET_ELEM_PERMANENT;
-+	if (!t) {
-+		*timeout = IPSET_ELEM_PERMANENT;
-+		return;
+-	if (ext->packets != ULLONG_MAX) {
++	if (ext->packets != ULLONG_MAX &&
++	    !(flags & IPSET_FLAG_SKIP_COUNTER_UPDATE)) {
+ 		ip_set_add_bytes(ext->bytes, counter);
+ 		ip_set_add_packets(ext->packets, counter);
+ 	}
++	if (flags & IPSET_FLAG_MATCH_COUNTERS) {
++		mext->packets = ip_set_get_packets(counter);
++		mext->bytes = ip_set_get_bytes(counter);
 +	}
- 
--	t = msecs_to_jiffies(timeout * 1000) + jiffies;
--	if (t == IPSET_ELEM_PERMANENT)
-+	*timeout = msecs_to_jiffies(t * 1000) + jiffies;
-+	if (*timeout == IPSET_ELEM_PERMANENT)
- 		/* Bingo! :-) */
--		t++;
--
--	return t;
-+		(*timeout)--;
  }
  
- static inline u32
--ip_set_timeout_get(unsigned long timeout)
-+ip_set_timeout_get(unsigned long *timeout)
- {
--	return timeout == IPSET_ELEM_PERMANENT ? 0 :
--		jiffies_to_msecs(timeout - jiffies)/1000;
-+	return *timeout == IPSET_ELEM_PERMANENT ? 0 :
-+		jiffies_to_msecs(*timeout - jiffies)/1000;
- }
--#endif /* ! IP_SET_BITMAP_TIMEOUT */
+ static inline bool
+diff --git a/include/uapi/linux/netfilter/ipset/ip_set.h b/include/uapi/linux/netfilter/ipset/ip_set.h
+index ed45267..8024cdf 100644
+--- a/include/uapi/linux/netfilter/ipset/ip_set.h
++++ b/include/uapi/linux/netfilter/ipset/ip_set.h
+@@ -145,7 +145,7 @@ enum ipset_errno {
+ 	IPSET_ERR_TYPE_SPECIFIC = 4352,
+ };
  
- #endif	/* __KERNEL__ */
--
- #endif /* _IP_SET_TIMEOUT_H */
+-/* Flags at command level */
++/* Flags at command level or match/target flags, lower half of cmdattrs*/
+ enum ipset_cmd_flags {
+ 	IPSET_FLAG_BIT_EXIST	= 0,
+ 	IPSET_FLAG_EXIST	= (1 << IPSET_FLAG_BIT_EXIST),
+@@ -153,10 +153,20 @@ enum ipset_cmd_flags {
+ 	IPSET_FLAG_LIST_SETNAME	= (1 << IPSET_FLAG_BIT_LIST_SETNAME),
+ 	IPSET_FLAG_BIT_LIST_HEADER = 2,
+ 	IPSET_FLAG_LIST_HEADER	= (1 << IPSET_FLAG_BIT_LIST_HEADER),
+-	IPSET_FLAG_CMD_MAX = 15,	/* Lower half */
++	IPSET_FLAG_BIT_SKIP_COUNTER_UPDATE = 3,
++	IPSET_FLAG_SKIP_COUNTER_UPDATE =
++		(1 << IPSET_FLAG_BIT_SKIP_COUNTER_UPDATE),
++	IPSET_FLAG_BIT_SKIP_SUBCOUNTER_UPDATE = 4,
++	IPSET_FLAG_SKIP_SUBCOUNTER_UPDATE =
++		(1 << IPSET_FLAG_BIT_SKIP_SUBCOUNTER_UPDATE),
++	IPSET_FLAG_BIT_MATCH_COUNTERS = 5,
++	IPSET_FLAG_MATCH_COUNTERS = (1 << IPSET_FLAG_BIT_MATCH_COUNTERS),
++	IPSET_FLAG_BIT_RETURN_NOMATCH = 7,
++	IPSET_FLAG_RETURN_NOMATCH = (1 << IPSET_FLAG_BIT_RETURN_NOMATCH),
++	IPSET_FLAG_CMD_MAX = 15,
+ };
+ 
+-/* Flags at CADT attribute level */
++/* Flags at CADT attribute level, upper half of cmdattrs */
+ enum ipset_cadt_flags {
+ 	IPSET_FLAG_BIT_BEFORE	= 0,
+ 	IPSET_FLAG_BEFORE	= (1 << IPSET_FLAG_BIT_BEFORE),
+@@ -166,7 +176,7 @@ enum ipset_cadt_flags {
+ 	IPSET_FLAG_NOMATCH	= (1 << IPSET_FLAG_BIT_NOMATCH),
+ 	IPSET_FLAG_BIT_WITH_COUNTERS = 3,
+ 	IPSET_FLAG_WITH_COUNTERS = (1 << IPSET_FLAG_BIT_WITH_COUNTERS),
+-	IPSET_FLAG_CADT_MAX	= 15,	/* Upper half */
++	IPSET_FLAG_CADT_MAX	= 15,
+ };
+ 
+ /* Commands with settype-specific attributes */
+@@ -195,6 +205,7 @@ enum ip_set_dim {
+ 	 * If changed, new revision of iptables match/target is required.
+ 	 */
+ 	IPSET_DIM_MAX = 6,
++	/* Backward compatibility: set match revision 2 */
+ 	IPSET_BIT_RETURN_NOMATCH = 7,
+ };
+ 
+@@ -207,6 +218,18 @@ enum ip_set_kopt {
+ 	IPSET_RETURN_NOMATCH = (1 << IPSET_BIT_RETURN_NOMATCH),
+ };
+ 
++enum {
++	IPSET_COUNTER_NONE = 0,
++	IPSET_COUNTER_EQ,
++	IPSET_COUNTER_NE,
++	IPSET_COUNTER_LT,
++	IPSET_COUNTER_GT,
++};
++
++struct ip_set_counter_match {
++	__u8 op;
++	__u64 value;
++};
+ 
+ /* Interface to iptables/ip6tables */
+ 
+diff --git a/include/uapi/linux/netfilter/xt_set.h b/include/uapi/linux/netfilter/xt_set.h
+index e3a9978..964d3d4 100644
+--- a/include/uapi/linux/netfilter/xt_set.h
++++ b/include/uapi/linux/netfilter/xt_set.h
+@@ -62,4 +62,13 @@ struct xt_set_info_target_v2 {
+ 	__u32 timeout;
+ };
+ 
++/* Revision 3 match */
++
++struct xt_set_info_match_v3 {
++	struct xt_set_info match_set;
++	struct ip_set_counter_match packets;
++	struct ip_set_counter_match bytes;
++	__u32 flags;
++};
++
+ #endif /*_XT_SET_H*/
 diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index 86f5e26..4486285d 100644
+index f6d878a..f771390 100644
 --- a/net/netfilter/ipset/ip_set_core.c
 +++ b/net/netfilter/ipset/ip_set_core.c
-@@ -1,6 +1,6 @@
- /* Copyright (C) 2000-2002 Joakim Axelsson <gozem@linux.nu>
-  *                         Patrick Schaaf <bof@bof.de>
-- * Copyright (C) 2003-2011 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-+ * Copyright (C) 2003-2013 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -315,6 +315,19 @@ ip_set_get_ipaddr6(struct nlattr *nla, union nf_inet_addr *ipaddr)
- }
- EXPORT_SYMBOL_GPL(ip_set_get_ipaddr6);
- 
-+int
-+ip_set_get_extensions(struct ip_set *set, struct nlattr *tb[],
-+		      struct ip_set_ext *ext)
-+{
-+	if (tb[IPSET_ATTR_TIMEOUT]) {
-+		if (!(set->extensions & IPSET_EXT_TIMEOUT))
-+			return -IPSET_ERR_TIMEOUT;
-+		ext->timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
-+	}
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(ip_set_get_extensions);
-+
- /*
-  * Creating/destroying/renaming/swapping affect the existence and
-  * the properties of a set. All of these can be executed from userspace
-@@ -365,8 +378,7 @@ ip_set_rcu_get(ip_set_id_t index)
- 
- int
- ip_set_test(ip_set_id_t index, const struct sk_buff *skb,
--	    const struct xt_action_param *par,
--	    const struct ip_set_adt_opt *opt)
-+	    const struct xt_action_param *par, struct ip_set_adt_opt *opt)
+@@ -413,7 +413,7 @@ ip_set_test(ip_set_id_t index, const struct sk_buff *skb,
+ 		ret = 1;
+ 	} else {
+ 		/* --return-nomatch: invert matched element */
+-		if ((opt->flags & IPSET_RETURN_NOMATCH) &&
++		if ((opt->cmdflags & IPSET_FLAG_RETURN_NOMATCH) &&
+ 		    (set->type->features & IPSET_TYPE_NOMATCH) &&
+ 		    (ret > 0 || ret == -ENOTEMPTY))
+ 			ret = -ret;
+diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
+index c09022e..979b8c9 100644
+--- a/net/netfilter/ipset/ip_set_list_set.c
++++ b/net/netfilter/ipset/ip_set_list_set.c
+@@ -84,9 +84,13 @@ list_set_ktest(struct ip_set *set, const struct sk_buff *skb,
  {
- 	struct ip_set *set = ip_set_rcu_get(index);
- 	int ret = 0;
-@@ -404,8 +416,7 @@ EXPORT_SYMBOL_GPL(ip_set_test);
- 
- int
- ip_set_add(ip_set_id_t index, const struct sk_buff *skb,
--	   const struct xt_action_param *par,
--	   const struct ip_set_adt_opt *opt)
-+	   const struct xt_action_param *par, struct ip_set_adt_opt *opt)
- {
- 	struct ip_set *set = ip_set_rcu_get(index);
+ 	struct list_set *map = set->data;
+ 	struct set_elem *e;
+-	u32 i;
++	u32 i, cmdflags = opt->cmdflags;
  	int ret;
-@@ -427,8 +438,7 @@ EXPORT_SYMBOL_GPL(ip_set_add);
  
- int
- ip_set_del(ip_set_id_t index, const struct sk_buff *skb,
--	   const struct xt_action_param *par,
--	   const struct ip_set_adt_opt *opt)
-+	   const struct xt_action_param *par, struct ip_set_adt_opt *opt)
- {
- 	struct ip_set *set = ip_set_rcu_get(index);
- 	int ret = 0;
++	/* Don't lookup sub-counters at all */
++	opt->cmdflags &= ~IPSET_FLAG_MATCH_COUNTERS;
++	if (opt->cmdflags & IPSET_FLAG_SKIP_SUBCOUNTER_UPDATE)
++		opt->cmdflags &= ~IPSET_FLAG_SKIP_COUNTER_UPDATE;
+ 	for (i = 0; i < map->size; i++) {
+ 		e = list_set_elem(map, i);
+ 		if (e->id == IPSET_INVALID_ID)
+@@ -99,7 +103,7 @@ list_set_ktest(struct ip_set *set, const struct sk_buff *skb,
+ 			if (SET_WITH_COUNTER(set))
+ 				ip_set_update_counter(ext_counter(e, map),
+ 						      ext, &opt->ext,
+-						      opt->cmdflags);
++						      cmdflags);
+ 			return ret;
+ 		}
+ 	}
 diff --git a/net/netfilter/xt_set.c b/net/netfilter/xt_set.c
-index 865a9e5..636c519 100644
+index 636c519..31790e7 100644
 --- a/net/netfilter/xt_set.c
 +++ b/net/netfilter/xt_set.c
-@@ -1,7 +1,7 @@
- /* Copyright (C) 2000-2002 Joakim Axelsson <gozem@linux.nu>
-  *                         Patrick Schaaf <bof@bof.de>
-  *                         Martin Josefsson <gandalf@wlug.westbo.se>
-- * Copyright (C) 2003-2011 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-+ * Copyright (C) 2003-2013 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -30,7 +30,7 @@ MODULE_ALIAS("ip6t_SET");
- static inline int
- match_set(ip_set_id_t index, const struct sk_buff *skb,
- 	  const struct xt_action_param *par,
--	  const struct ip_set_adt_opt *opt, int inv)
-+	  struct ip_set_adt_opt *opt, int inv)
- {
- 	if (ip_set_test(index, skb, par, opt))
- 		inv = !inv;
-@@ -38,20 +38,12 @@ match_set(ip_set_id_t index, const struct sk_buff *skb,
+@@ -189,6 +189,9 @@ set_match_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ 	ADT_OPT(opt, par->family, info->match_set.dim,
+ 		info->match_set.flags, 0, UINT_MAX);
+ 
++	if (opt.flags & IPSET_RETURN_NOMATCH)
++		opt.cmdflags |= IPSET_FLAG_RETURN_NOMATCH;
++
+ 	return match_set(info->match_set.index, skb, par, &opt,
+ 			 info->match_set.flags & IPSET_INV_MATCH);
  }
+@@ -317,6 +320,52 @@ set_target_v2(struct sk_buff *skb, const struct xt_action_param *par)
+ #define set_target_v2_checkentry	set_target_v1_checkentry
+ #define set_target_v2_destroy		set_target_v1_destroy
  
- #define ADT_OPT(n, f, d, fs, cfs, t)	\
--const struct ip_set_adt_opt n = {	\
--	.family	= f,			\
--	.dim = d,			\
--	.flags = fs,			\
--	.cmdflags = cfs,		\
--	.timeout = t,			\
--}
--#define ADT_MOPT(n, f, d, fs, cfs, t)	\
- struct ip_set_adt_opt n = {		\
- 	.family	= f,			\
- 	.dim = d,			\
- 	.flags = fs,			\
- 	.cmdflags = cfs,		\
--	.timeout = t,			\
-+	.ext.timeout = t,		\
- }
++/* Revision 3 match */
++
++static bool
++match_counter(u64 counter, const struct ip_set_counter_match *info)
++{
++	switch (info->op) {
++	case IPSET_COUNTER_NONE:
++		return true;
++	case IPSET_COUNTER_EQ:
++		return counter == info->value;
++	case IPSET_COUNTER_NE:
++		return counter != info->value;
++	case IPSET_COUNTER_LT:
++		return counter < info->value;
++	case IPSET_COUNTER_GT:
++		return counter > info->value;
++	}
++	return false;
++}
++
++static bool
++set_match_v3(const struct sk_buff *skb, struct xt_action_param *par)
++{
++	const struct xt_set_info_match_v3 *info = par->matchinfo;
++	ADT_OPT(opt, par->family, info->match_set.dim,
++		info->match_set.flags, info->flags, UINT_MAX);
++	int ret;
++
++	if (info->packets.op != IPSET_COUNTER_NONE ||
++	    info->bytes.op != IPSET_COUNTER_NONE)
++		opt.cmdflags |= IPSET_FLAG_MATCH_COUNTERS;
++
++	ret = match_set(info->match_set.index, skb, par, &opt,
++			info->match_set.flags & IPSET_INV_MATCH);
++
++	if (!(ret && opt.cmdflags & IPSET_FLAG_MATCH_COUNTERS))
++		return ret;
++
++	if (!match_counter(opt.ext.packets, &info->packets))
++		return 0;
++	return match_counter(opt.ext.bytes, &info->bytes);
++}
++
++#define set_match_v3_checkentry	set_match_v1_checkentry
++#define set_match_v3_destroy	set_match_v1_destroy
++
+ static struct xt_match set_matches[] __read_mostly = {
+ 	{
+ 		.name		= "set",
+@@ -369,6 +418,27 @@ static struct xt_match set_matches[] __read_mostly = {
+ 		.destroy	= set_match_v1_destroy,
+ 		.me		= THIS_MODULE
+ 	},
++	/* counters support: update, match */
++	{
++		.name		= "set",
++		.family		= NFPROTO_IPV4,
++		.revision	= 3,
++		.match		= set_match_v3,
++		.matchsize	= sizeof(struct xt_set_info_match_v3),
++		.checkentry	= set_match_v3_checkentry,
++		.destroy	= set_match_v3_destroy,
++		.me		= THIS_MODULE
++	},
++	{
++		.name		= "set",
++		.family		= NFPROTO_IPV6,
++		.revision	= 3,
++		.match		= set_match_v3,
++		.matchsize	= sizeof(struct xt_set_info_match_v3),
++		.checkentry	= set_match_v3_checkentry,
++		.destroy	= set_match_v3_destroy,
++		.me		= THIS_MODULE
++	},
+ };
  
- /* Revision 0 interface: backward compatible with netfilter/iptables */
-@@ -305,15 +297,15 @@ static unsigned int
- set_target_v2(struct sk_buff *skb, const struct xt_action_param *par)
- {
- 	const struct xt_set_info_target_v2 *info = par->targinfo;
--	ADT_MOPT(add_opt, par->family, info->add_set.dim,
--		 info->add_set.flags, info->flags, info->timeout);
-+	ADT_OPT(add_opt, par->family, info->add_set.dim,
-+		info->add_set.flags, info->flags, info->timeout);
- 	ADT_OPT(del_opt, par->family, info->del_set.dim,
- 		info->del_set.flags, 0, UINT_MAX);
- 
- 	/* Normalize to fit into jiffies */
--	if (add_opt.timeout != IPSET_NO_TIMEOUT &&
--	    add_opt.timeout > UINT_MAX/MSEC_PER_SEC)
--		add_opt.timeout = UINT_MAX/MSEC_PER_SEC;
-+	if (add_opt.ext.timeout != IPSET_NO_TIMEOUT &&
-+	    add_opt.ext.timeout > UINT_MAX/MSEC_PER_SEC)
-+		add_opt.ext.timeout = UINT_MAX/MSEC_PER_SEC;
- 	if (info->add_set.index != IPSET_INVALID_ID)
- 		ip_set_add(info->add_set.index, skb, par, &add_opt);
- 	if (info->del_set.index != IPSET_INVALID_ID)
+ static struct xt_target set_targets[] __read_mostly = {
 -- 
 1.7.10.4
-
