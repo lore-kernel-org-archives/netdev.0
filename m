@@ -1,89 +1,46 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH] ipvs: ip_vs_sip_fill_param() BUG: bad check of return value
-Date: Sat, 27 Apr 2013 20:06:14 +0200
-Message-ID: <1367085974-7750-2-git-send-email-pablo@netfilter.org>
-References: <1367085974-7750-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [PATCH v2 net-next 3/3] ARM: net: bpf_jit_32: support
+ BPF_S_ANC_SECCOMP_LD_W instruction
+Date: Sat, 27 Apr 2013 14:32:19 -0400
+Message-ID: <CAKU6vyathpp4Ky_kcTu_WFenLEdo9Mai4TUE=EWYo9=UuQUMcg@mail.gmail.com>
+References: <1367029047-14830-1-git-send-email-xi.wang@gmail.com>
+ <1367029047-14830-4-git-send-email-xi.wang@gmail.com> <517B6FC5.7070003@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Will Drewry <wad@chromium.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	David Laight <david.laight@aculab.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nicolas Schichan <nschichan@freebox.fr>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:39894 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754160Ab3D0SG2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 27 Apr 2013 14:06:28 -0400
-In-Reply-To: <1367085974-7750-1-git-send-email-pablo@netfilter.org>
+Received: from mail-ob0-f182.google.com ([209.85.214.182]:60284 "EHLO
+	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753369Ab3D0Sc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 14:32:59 -0400
+In-Reply-To: <517B6FC5.7070003@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hans Schillstrom <hans@schillstrom.com>
+On Sat, Apr 27, 2013 at 2:27 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> Arent't you doing here a similar thing in terms of getting arch as Eric
+> criticized (Nicolas' implementation does not use that part btw.)? Also,
+> even if it would be possible here, now your 2 JIT implementations differ
+> in behaviour. I think this is unintended.
 
-The reason for this patch is crash in kmemdup
-caused by returning from get_callid with uniialized
-matchoff and matchlen.
+Eric's comment was about x86, where the audit arch could change on the
+fly.  For ARM, the audit arch doesn't change---syscall_get_arch()
+always returns AUDIT_ARCH_ARM.
 
-Removing Zero check of matchlen since it's done by ct_sip_get_header()
+> Besides all that, I think I also pointed you to a patch that already made
+> it in for ARM, not sure why you keep posting the ARM JIT implementation?
 
-BUG: unable to handle kernel paging request at ffff880457b5763f
-IP: [<ffffffff810df7fc>] kmemdup+0x2e/0x35
-PGD 27f6067 PUD 0
-Oops: 0000 [#1] PREEMPT SMP
-Modules linked in: xt_state xt_helper nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_mangle xt_connmark xt_conntrack ip6_tables nf_conntrack_ftp ip_vs_ftp nf_nat xt_tcpudp iptable_mangle xt_mark ip_tables x_tables ip_vs_rr ip_vs_lblcr ip_vs_pe_sip ip_vs nf_conntrack_sip nf_conntrack bonding igb i2c_algo_bit i2c_core
-CPU 5
-Pid: 0, comm: swapper/5 Not tainted 3.9.0-rc5+ #5                  /S1200KP
-RIP: 0010:[<ffffffff810df7fc>]  [<ffffffff810df7fc>] kmemdup+0x2e/0x35
-RSP: 0018:ffff8803fea03648  EFLAGS: 00010282
-RAX: ffff8803d61063e0 RBX: 0000000000000003 RCX: 0000000000000003
-RDX: 0000000000000003 RSI: ffff880457b5763f RDI: ffff8803d61063e0
-RBP: ffff8803fea03658 R08: 0000000000000008 R09: 0000000000000011
-R10: 0000000000000011 R11: 00ffffffff81a8a3 R12: ffff880457b5763f
-R13: ffff8803d67f786a R14: ffff8803fea03730 R15: ffffffffa0098e90
-FS:  0000000000000000(0000) GS:ffff8803fea00000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: ffff880457b5763f CR3: 0000000001a0c000 CR4: 00000000001407e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process swapper/5 (pid: 0, threadinfo ffff8803ee18c000, task ffff8803ee18a480)
-Stack:
- ffff8803d822a080 000000000000001c ffff8803fea036c8 ffffffffa000937a
- ffffffff81f0d8a0 000000038135fdd5 ffff880300000014 ffff880300110000
- ffffffff150118ac ffff8803d7e8a000 ffff88031e0118ac 0000000000000000
-Call Trace:
- <IRQ>
+That's why I asked in the other post if you wanted me to rebase
+against linux-next or net-next.  The ARM part 3/3 is not needed if
+rebased against linux-next with Nicolas's patches.
 
- [<ffffffffa000937a>] ip_vs_sip_fill_param+0x13a/0x187 [ip_vs_pe_sip]
- [<ffffffffa007b209>] ip_vs_sched_persist+0x2c6/0x9c3 [ip_vs]
- [<ffffffff8107dc53>] ? __lock_acquire+0x677/0x1697
- [<ffffffff8100972e>] ? native_sched_clock+0x3c/0x7d
- [<ffffffff8100972e>] ? native_sched_clock+0x3c/0x7d
- [<ffffffff810649bc>] ? sched_clock_cpu+0x43/0xcf
- [<ffffffffa007bb1e>] ip_vs_schedule+0x181/0x4ba [ip_vs]
-...
-
-Signed-off-by: Hans Schillstrom <hans@schillstrom.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_pe_sip.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_pe_sip.c b/net/netfilter/ipvs/ip_vs_pe_sip.c
-index 12475ef..e5920fb 100644
---- a/net/netfilter/ipvs/ip_vs_pe_sip.c
-+++ b/net/netfilter/ipvs/ip_vs_pe_sip.c
-@@ -37,14 +37,10 @@ static int get_callid(const char *dptr, unsigned int dataoff,
- 		if (ret > 0)
- 			break;
- 		if (!ret)
--			return 0;
-+			return -EINVAL;
- 		dataoff += *matchoff;
- 	}
- 
--	/* Empty callid is useless */
--	if (!*matchlen)
--		return -EINVAL;
--
- 	/* Too large is useless */
- 	if (*matchlen > IP_VS_PEDATA_MAXLEN)
- 		return -EINVAL;
--- 
-1.7.10.4
+- xi
