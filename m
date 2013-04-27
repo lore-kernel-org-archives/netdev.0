@@ -1,64 +1,69 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: VIA velocity network driver
-Date: Sat, 27 Apr 2013 10:53:06 +0200
-Message-ID: <20130427085306.GA24622@electric-eye.fr.zoreil.com>
-References: <517B6267.4070404@prisktech.co.nz>
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable
+ call"
+Date: Sat, 27 Apr 2013 11:05:45 +0200
+Message-ID: <20130427090545.GY1366@pengutronix.de>
+References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
+ <CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
+ <20130426134415.GS1366@pengutronix.de>
+ <20130426.143309.1011152996477262852.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ShirleyHu@viatech.com.cn,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- DavidLv@viatech.com.cn, AndersMa@viatech.com.cn, "Mailing List,
- Arm" <linux-arm-kernel@lists.infradead.org>
-To: Tony Prisk <linux@prisktech.co.nz>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: r.schwebel@pengutronix.de, lznuaa@gmail.com,
+	l.stach@pengutronix.de, netdev@vger.kernel.org,
+	Frank.Li@freescale.com, festevam@gmail.com, shawn.guo@linaro.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:49670 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754000Ab3D0JFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 05:05:50 -0400
 Content-Disposition: inline
-In-Reply-To: <517B6267.4070404@prisktech.co.nz>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130426.143309.1011152996477262852.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tony Prisk <linux@prisktech.co.nz> :
-> I would like to add support to this driver for platform devices as
-> found on VIA's APC8750 board. At the moment, I have a standalone
-> platform version that works fine, but wanted to ask a few questions
-> before sending a patch to merge this code into one driver.
-> 
-> The current driver is for PCI network cards, and uses pci dma
-> functions. Most of the pci dma functions are wrappers around other
-> functions which is what I have used for the platform version.
+On Fri, Apr 26, 2013 at 02:33:09PM -0400, David Miller wrote:
+> From: Robert Schwebel <r.schwebel@pengutronix.de>
+> Date: Fri, 26 Apr 2013 15:44:15 +0200
+>
+> > Seriously - it's friday, and 3.9 is expected to come out this
+> > weekend.
+>
+> Seriously, it took you how long to notice the breakage and report
+> it in sufficient detail for the author to make an attempt at a fix?
+>
+> I thnk Frank's request is reasonable given the circumstances, please
+> work closely with him on the fix.
 
-[...]
-> Is it ok to use the non-pci versions (which are basically just the
-> unwrapped pci versions) and pass the struct device *, or will I need
-> to use the correct function for the correct instance.
+The FEC driver has worked fine in 3.8.x.
 
-It's ok.
+Frank's patches for the 3.9 cycle...
 
-A standalone patch to convert the pci dma functions and check the
-returned status code of the new one would be welcome regardless of
-any future change in the driver data struct.
+- remove locking in a way that memory is freed which is in use
+- break the driver, up to a point where the kernel oopses when the link
+  goes away
+- mix up different changes (queue handling) and should have been split up
+  into separate patches
 
-[...]
-> I assume this is loading something from an EEPROM, but there is no
-> EEPROM on the APC8750. Removing this code, the driver seems to work
-> fine on the APC8750.
+Unfortunately, the breakage happens only on multicore (MX6Q) and if you
+change the link status; that's probably the reason why it hasn't been
+noticed earlier.
 
-I feel a "no documentation" disturbance in the force.
+We have really tried to find a "quick fix which does it right", but it
+has turned out that this isn't possible in such a short time, because it
+is more complex than just re-adding locks. We feel that the results of
+last week's activities are not good enough that they could be merged
+without further breakage.
 
-Via's people Cced.
+Please consider to merge the reverts. Otherwhise FEC will be broken in 3.9.
 
-> Could it be avoided with a vptr->has_no_eeprom that defaults to 0 to
-> avoid breaking existing support?
+Of course, we can help with a real solution, but please after 3.9.final.
 
-Yes. No unnecessary module option please.
-
+Thanks,
+Robert
 -- 
-Ueimor
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
