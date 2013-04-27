@@ -1,49 +1,54 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: RE: [PATCH net 6/7] qlcnic: Fix reset recovery after transmit
- timeout
-Date: Sat, 27 Apr 2013 19:08:50 +0000
-Message-ID: <262CB373A6D1F14F9B81E82F74F77D5A46F62D@avmb2.qlogic.org>
-References: <1366978183-7282-1-git-send-email-shahed.shaikh@qlogic.com>
-	 <1366978183-7282-7-git-send-email-shahed.shaikh@qlogic.com>
- <1367010061.4035.7.camel@bwh-desktop.uk.solarflarecom.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable
+ call"
+Date: Sat, 27 Apr 2013 21:16:00 +0200
+Message-ID: <20130427191600.GA30373@electric-eye.fr.zoreil.com>
+References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
+ <CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
+ <20130426134415.GS1366@pengutronix.de>
+ <20130426.143309.1011152996477262852.davem@davemloft.net>
+ <20130427090545.GY1366@pengutronix.de>
+ <CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
+ <20130427120619.GA26097@electric-eye.fr.zoreil.com>
+ <CAHrpEqTE-oGcdMVk2LMffW0JWNgJ-b_+RakpCOVBy6WxA_ARGg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: Frank Li <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:43643
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752985Ab3D0TI4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 15:08:56 -0400
-In-Reply-To: <1367010061.4035.7.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
+Received: from violet.fr.zoreil.com ([92.243.8.30]:48789 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756143Ab3D0TQN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 15:16:13 -0400
+Content-Disposition: inline
+In-Reply-To: <CAHrpEqTE-oGcdMVk2LMffW0JWNgJ-b_+RakpCOVBy6WxA_ARGg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0N
-Cj4gU2VudDogU2F0dXJkYXksIEFwcmlsIDI3LCAyMDEzIDI6MzEgQU0NCj4gVG86IFNoYWhlZCBT
-aGFpa2gNCj4gQ2M6IERhdmlkIE1pbGxlcjsgbmV0ZGV2OyBEZXB0LU5YIExpbnV4IE5JQyBEcml2
-ZXI7IFNvbnkgQ2hhY2tvDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0IDYvN10gcWxjbmljOiBG
-aXggcmVzZXQgcmVjb3ZlcnkgYWZ0ZXIgdHJhbnNtaXQgdGltZW91dA0KPg0KWy4uLl0NCj4gPiAg
-CW5ldGlmX2RldmljZV9hdHRhY2gobmV0ZGV2KTsNCj4gPiAtCWlmIChuZXRpZl9ydW5uaW5nKG5l
-dGRldikpIHsNCj4gPiAtCQluZXRpZl9jYXJyaWVyX29uKG5ldGRldik7DQo+ID4gLQkJbmV0aWZf
-d2FrZV9xdWV1ZShuZXRkZXYpOw0KPiA+IC0JfQ0KPiA+ICsJYWRhcHRlci0+bmV0ZGV2LT50cmFu
-c19zdGFydCA9IGppZmZpZXM7DQo+ID4gIH0NCj4gWy4uLl0NCj4gDQo+IFRoZSBkZWxldGlvbnMg
-bG9vayBnb29kLCBidXQgaXQgc2hvdWxkIG5vdCBiZSBuZWNlc3NhcnkgdG8gd3JpdGUgdG8NCj4g
-dHJhbnNfc3RhcnQuICBXaHkgZG8geW91IHRoaW5rIGl0IGlzIG5lZWRlZD8NCg0KWW91IGFyZSBj
-b3JyZWN0LCB3ZSBkb24ndCBoYXZlIHRvIHVwZGF0ZSBuZXRkZXYtPnRyYW5zX3N0YXJ0LiANCldl
-IHdlcmUgdXBkYXRpbmcgbmV0ZGV2LT50cmFuc19zdGFydCB0byBwcmV2ZW50IHdhdGNoZG9nIGZy
-b20ga2lja2luZyBpbi4NCldhdGNoZG9nIHRpbWVvdXQgd2lsbCBub3QgaGFwcGVuIGJlY2F1c2Ug
-d2UgYXJlIHdha2luZyB0aGUgVHggcXVldWUgYW5kIHR1cm5pbmcgdGhlIGNhcnJpZXIgT04gcHJp
-b3IgdG8gIGF0dGFjaGluZyB0aGUgZGV2aWNlLg0KIA0KV2Ugd2lsbCBtYWtlIHRoZSByZXF1aXJl
-ZCBjaGFuZ2UgYXMgeW91IHN1Z2dlc3RlZCBpbiBWMiBvZiB0aGUgcGF0Y2ggc2VyaWVzLg0KDQpU
-aGFua3MsDQpTaGFoZWQNCj4gDQo+IEJlbi4NCj4gDQo+IC0tDQo+IEJlbiBIdXRjaGluZ3MsIFN0
-YWZmIEVuZ2luZWVyLCBTb2xhcmZsYXJlIE5vdCBzcGVha2luZyBmb3IgbXkgZW1wbG95ZXI7DQo+
-IHRoYXQncyB0aGUgbWFya2V0aW5nIGRlcGFydG1lbnQncyBqb2IuDQo+IFRoZXkgYXNrZWQgdXMg
-dG8gbm90ZSB0aGF0IFNvbGFyZmxhcmUgcHJvZHVjdCBuYW1lcyBhcmUgdHJhZGVtYXJrZWQuDQo+
-IA0KDQo=
+Frank Li <lznuaa@gmail.com> :
+> 2013/4/27, Francois Romieu <romieu@fr.zoreil.com>:
+[...]
+> > napi_disable may sleep.
+> >
+> > fec_restart can be called with spinlock held in fec_enet_adjust_link
+> 
+> You are right. Spin lock in FEC enet adjust link can be removed when
+> remove spinlock in tx and RX.
+
+fec_restart is also called from the netdev watchdog handler (fec_timeout)
+and tasklet can't sleep either. You should imho schedule_work from
+fec_timeout.
+
+How is the driver supposed to avoid the napi context
+fec_enet_tx:netif_queue_stopped vs fec_enet_start_xmit:netif_stop_queue
+race since both can run on different cpu without any read/write ordering
+enforcement between one thread netif_* and its peer {dirty/cur}_tx ?
+
+-- 
+Ueimor
