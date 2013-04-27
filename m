@@ -1,51 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] vxlan: use IANA assigned port
-Date: Fri, 26 Apr 2013 23:22:32 -0400 (EDT)
-Message-ID: <20130426.232232.688463657786151100.davem@davemloft.net>
-References: <20130426163346.762c41c1@nehalam.linuxnetplumber.net>
-	<20130426.194405.764067901709113311.davem@davemloft.net>
-	<20130427015129.GJ8882@sequoia.sous-sol.org>
+Subject: Re: [PATCH -next] genetlink: fix possible memory leak in
+ genl_family_rcv_msg()
+Date: Fri, 26 Apr 2013 23:26:08 -0400 (EDT)
+Message-ID: <20130426.232608.1636389400751636869.davem@davemloft.net>
+References: <CAPgLHd_tU4suwLY9M1Xoq9osTMcFWMARAaQV=9eodCJ+hZLz-Q@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	kduda@aristanetworks.com
-To: chrisw@sous-sol.org
+Cc: pablo@netfilter.org, shemminger@vyatta.com, ebiederm@xmission.com,
+	bhutchings@solarflare.com, pshelar@nicira.com,
+	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48606 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48627 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754658Ab3D0DWf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 23:22:35 -0400
-In-Reply-To: <20130427015129.GJ8882@sequoia.sous-sol.org>
+	with ESMTP id S1754658Ab3D0D0L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 26 Apr 2013 23:26:11 -0400
+In-Reply-To: <CAPgLHd_tU4suwLY9M1Xoq9osTMcFWMARAaQV=9eodCJ+hZLz-Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Wright <chrisw@sous-sol.org>
-Date: Fri, 26 Apr 2013 18:51:29 -0700
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Sat, 27 Apr 2013 09:34:16 +0800
 
-> * David Miller (davem@davemloft.net) wrote:
->> From: Stephen Hemminger <stephen@networkplumber.org>
->> Date: Fri, 26 Apr 2013 16:33:46 -0700
->> 
->> > Ken Duda of Arista Networks, one of the VXLAN RFC authors notified
->> > me that IANA has assigned an official port for VXLAN. My initial version
->> > of the driver used the value from CISCO LISP that was also being used by
->> > OpenVswitch.
->> > 
->> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->> 
->> So how does this interact with already deployed VXLAN links?
->> 
->> What is the backwards compatability story?  What if one node upgrades
->> with this patch installed, but all the other nodes are left using
->> the older port number by default?
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> With this patch, I think one node upgrading would need to override
-> the default vxlan_port module param (falling back to the pre IANA
-> default) to keep active with the existing overlays.
+> 'attrbuf' is malloced in genl_family_rcv_msg() when family->maxattr &&
+> family->parallel_ops, thus should be freed before leaving from the error
+> handling cases, otherwise it will cause memory leak.
+> 
+> Introduced by commit def3117493eafd9dfa1f809d861e0031b2cc8a07
+> (genl: Allow concurrent genl callbacks.)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-That's an unacceptable burdon for our users.
-
-We're stuck with the initial port number you've choosen.
-
-People can override to the "official" port if they want to.
+Applied, thanks.
