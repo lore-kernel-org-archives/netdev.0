@@ -1,34 +1,30 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when
- dumping connections
-Date: Sat, 27 Apr 2013 09:18:15 +0200
-Message-ID: <20130427071814.GA31700@dyad.programming.kicks-ass.net>
-References: <1366940708-10180-1-git-send-email-horms@verge.net.au>
- <1366940708-10180-3-git-send-email-horms@verge.net.au>
- <20130426080313.GC8669@dyad.programming.kicks-ass.net>
- <20130426154547.GC3860@linux.vnet.ibm.com>
- <20130426171948.GA31467@dyad.programming.kicks-ass.net>
- <20130426174815.GI3860@linux.vnet.ibm.com>
- <1367000815.8964.243.camel@edumazet-glaptop>
- <20130426190428.GJ3860@linux.vnet.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vxlan: use IANA assigned port
+Date: Sat, 27 Apr 2013 03:43:20 -0400 (EDT)
+Message-ID: <20130427.034320.244588324045535017.davem@davemloft.net>
+References: <20130427015129.GJ8882@sequoia.sous-sol.org>
+	<20130426.232232.688463657786151100.davem@davemloft.net>
+	<CAOaVG14yv=TixikAkrjEOTBznoC6YDqm1vb4ByZ32bgXM3Q7xQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>, dhaval.giani@gmail.com
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130426190428.GJ3860@linux.vnet.ibm.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kduda@aristanetworks.com, netdev@vger.kernel.org,
+	chrisw@sous-sol.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50731 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751108Ab3D0HnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 03:43:23 -0400
+In-Reply-To: <CAOaVG14yv=TixikAkrjEOTBznoC6YDqm1vb4ByZ32bgXM3Q7xQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> In the worst case, I
-> can fire up a prio 99 kthread on each CPU and send that kthread a
-> wakeup from RCU's rcu_gp_fqs() code.
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Fri, 26 Apr 2013 21:53:59 -0700
 
-You just know that's going to be _so_ popular ;-)
+> The port should be a property anyway.
+> That way the value is easier to control. And we can do the transistion
+> there.
+
+Works for me.
