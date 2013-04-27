@@ -1,126 +1,100 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH iproute2] iproute2: add vxlan dstport option
-Date: Sat, 27 Apr 2013 14:47:47 -0700
-Message-ID: <20130427144747.48ace4fb@nehalam.linuxnetplumber.net>
-References: <20130427213151.255971631@vyatta.com>
-	<20130427213258.534077786@vyatta.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: mv643xx_eth.c lockdep violation
+Date: Sat, 27 Apr 2013 22:55:30 +0100
+Message-ID: <20130427215530.GI14496@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+To: Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f45.google.com ([209.85.210.45]:50429 "EHLO
-	mail-da0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752373Ab3D0Vr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 17:47:57 -0400
-Received: by mail-da0-f45.google.com with SMTP id v40so437568dad.4
-        for <netdev@vger.kernel.org>; Sat, 27 Apr 2013 14:47:56 -0700 (PDT)
-In-Reply-To: <20130427213258.534077786@vyatta.com>
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:40101 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753425Ab3D0Vzi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 17:55:38 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ability to set UDP destination port on a per device basis.
-If no port is assigned, the default IANA assigned port will be used.
-If you want the kernel default value, then use port 0.
+On shutdown, the mv643xx_eth driver hits the following problem when it is
+taken down.  I've been noticing this for a number of kernel versions now
+that I've enabled lockdep, so it's not a new problem.
 
-Source port range option is now called 'srcport', to avoid
-confusion. The old option syntax is accepted for compatiablity.
+=================================
+[ INFO: inconsistent lock state ]
+3.8.0+ #303 Not tainted
+---------------------------------
+inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
+NetworkManager/3449 [HC0[0]:SC0[0]:HE1:SE1] takes:
+ (_xmit_ETHER#2){+.?...}, at: [<c02828e4>] txq_reclaim+0x60/0x230
+{IN-SOFTIRQ-W} state was registered at:
+  [<c007e93c>] mark_irqflags+0xf8/0x1c4
+  [<c007ee60>] __lock_acquire+0x458/0x9a4
+  [<c007f8b0>] lock_acquire+0x60/0x74
+  [<c03ea914>] _raw_spin_lock+0x40/0x50
+  [<c0334040>] sch_direct_xmit+0xa4/0x2e4
+  [<c0320880>] dev_queue_xmit+0x174/0x508
+  [<c03953b0>] ip6_finish_output2+0xd0/0x3c4
+  [<c03b15bc>] mld_sendpack+0x190/0x368
+  [<c03b3204>] mld_ifc_timer_expire+0xc/0x58
+  [<c005133c>] call_timer_fn+0x6c/0xe0
+  [<c0051588>] run_timer_softirq+0x1d8/0x210
+  [<c004c004>] __do_softirq+0xe0/0x1b4
+  [<c004c448>] irq_exit+0x64/0x6c
+  [<c000f1e0>] handle_IRQ+0x34/0x84
+  [<c000e0d0>] __irq_usr+0x30/0x80
+irq event stamp: 160603
+hardirqs last  enabled at (160603): [<c00c736c>] kfree+0xa8/0xe8
+hardirqs last disabled at (160602): [<c00c72e0>] kfree+0x1c/0xe8
+softirqs last  enabled at (160304): [<c028260c>] mib_counters_update+0x5ec/0x60c
+softirqs last disabled at (160302): [<c03eab8c>] _raw_spin_lock_bh+0x14/0x54
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+other info that might help us debug this:
+ Possible unsafe locking scenario:
 
+       CPU0
+       ----
+  lock(_xmit_ETHER#2);
+  <Interrupt>
+    lock(_xmit_ETHER#2);
 
-diff --git a/include/linux/if_link.h b/include/linux/if_link.h
-index 40167af..e708e86 100644
---- a/include/linux/if_link.h
-+++ b/include/linux/if_link.h
-@@ -301,11 +301,12 @@ enum {
- 	IFLA_VXLAN_LEARNING,
- 	IFLA_VXLAN_AGEING,
- 	IFLA_VXLAN_LIMIT,
--	IFLA_VXLAN_PORT_RANGE,
-+	IFLA_VXLAN_PORT_RANGE,	/* source port */
- 	IFLA_VXLAN_PROXY,
- 	IFLA_VXLAN_RSC,
- 	IFLA_VXLAN_L2MISS,
- 	IFLA_VXLAN_L3MISS,
-+	IFLA_VXLAN_PORT,	/* destination port */
- 	__IFLA_VXLAN_MAX
- };
- #define IFLA_VXLAN_MAX	(__IFLA_VXLAN_MAX - 1)
-diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-index 1025326..2d93ee2 100644
---- a/ip/iplink_vxlan.c
-+++ b/ip/iplink_vxlan.c
-@@ -25,8 +25,8 @@ static void explain(void)
- {
- 	fprintf(stderr, "Usage: ... vxlan id VNI [ group ADDR ] [ local ADDR ]\n");
- 	fprintf(stderr, "                 [ ttl TTL ] [ tos TOS ] [ dev PHYS_DEV ]\n");
--	fprintf(stderr, "                 [ port MIN MAX ] [ [no]learning ]\n");
--	fprintf(stderr, "                 [ [no]proxy ] [ [no]rsc ]\n");
-+	fprintf(stderr, "                 [ dstport PORT ] [ srcport MIN MAX ]\n");
-+	fprintf(stderr, "                 [ [no]learning ] [ [no]proxy ] [ [no]rsc ]\n");
- 	fprintf(stderr, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
- 	fprintf(stderr, "\n");
- 	fprintf(stderr, "Where: VNI := 0-16777215\n");
-@@ -53,6 +53,7 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	__u8 noage = 0;
- 	__u32 age = 0;
- 	__u32 maxaddr = 0;
-+	__u16 dstport = 4789;
- 	struct ifla_vxlan_port_range range = { 0, 0 };
- 
- 	while (argc > 0) {
-@@ -115,7 +116,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 				maxaddr = 0;
- 			else if (get_u32(&maxaddr, *argv, 0))
- 				invarg("max addresses", *argv);
--		} else if (!matches(*argv, "port")) {
-+		} else if (!matches(*argv, "port") ||
-+			   !matches(*argv, "srcport")) {
- 			__u16 minport, maxport;
- 			NEXT_ARG();
- 			if (get_u16(&minport, *argv, 0))
-@@ -125,6 +127,10 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 				invarg("max port", *argv);
- 			range.low = htons(minport);
- 			range.high = htons(maxport);
-+		} else if (!matches(*argv, "dstport")){
-+			NEXT_ARG();
-+			if (get_u16(&dstport, *argv, 0))
-+				invarg("dst port", *argv);
- 		} else if (!matches(*argv, "nolearning")) {
- 			learning = 0;
- 		} else if (!matches(*argv, "learning")) {
-@@ -155,7 +161,6 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 		}
- 		argc--, argv++;
- 	}
--
- 	if (!vni_set) {
- 		fprintf(stderr, "vxlan: missing virtual network identifier\n");
- 		return -1;
-@@ -183,6 +188,8 @@ static int vxlan_parse_opt(struct link_util *lu, int argc, char **argv,
- 	if (range.low || range.high)
- 		addattr_l(n, 1024, IFLA_VXLAN_PORT_RANGE,
- 			  &range, sizeof(range));
-+	if (dstport)
-+		addattr16(n, 1024, IFLA_VXLAN_PORT, htons(dstport));
- 
- 	return 0;
- }
-@@ -233,9 +240,13 @@ static void vxlan_print_opt(struct link_util *lu, FILE *f, struct rtattr *tb[])
- 	if (tb[IFLA_VXLAN_PORT_RANGE]) {
- 		const struct ifla_vxlan_port_range *r
- 			= RTA_DATA(tb[IFLA_VXLAN_PORT_RANGE]);
--		fprintf(f, "port %u %u ", ntohs(r->low), ntohs(r->high));
-+		fprintf(f, "srcport %u %u ", ntohs(r->low), ntohs(r->high));
- 	}
- 
-+	if (tb[IFLA_VXLAN_PORT])
-+		fprintf(f, "dstport %u ",
-+			ntohs(rta_getattr_u16(tb[IFLA_VXLAN_PORT])));
-+
- 	if (tb[IFLA_VXLAN_LEARNING] &&
- 	    !rta_getattr_u8(tb[IFLA_VXLAN_LEARNING]))
- 		fputs("nolearning ", f);
+ *** DEADLOCK ***
+
+1 lock held by NetworkManager/3449:
+ #0:  (rtnl_mutex){+.+.+.}, at: [<c032e664>] rtnetlink_rcv+0xc/0x24
+
+stack backtrace:
+[<c0013e34>] (unwind_backtrace+0x0/0xf8) from [<c007e12c>] (print_usage_bug+0x150/0x1d4)
+[<c007e12c>] (print_usage_bug+0x150/0x1d4) from [<c007e3f8>] (mark_lock_irq+0x248/0x290)
+[<c007e3f8>] (mark_lock_irq+0x248/0x290) from [<c007e598>] (mark_lock+0x158/0x404)
+[<c007e598>] (mark_lock+0x158/0x404) from [<c007e97c>] (mark_irqflags+0x138/0x1c4)
+[<c007e97c>] (mark_irqflags+0x138/0x1c4) from [<c007ee60>] (__lock_acquire+0x458/0x9a4)
+[<c007ee60>] (__lock_acquire+0x458/0x9a4) from [<c007f8b0>] (lock_acquire+0x60/0x74)
+[<c007f8b0>] (lock_acquire+0x60/0x74) from [<c03ea914>] (_raw_spin_lock+0x40/0x50)
+[<c03ea914>] (_raw_spin_lock+0x40/0x50) from [<c02828e4>] (txq_reclaim+0x60/0x230)
+[<c02828e4>] (txq_reclaim+0x60/0x230) from [<c0282ad8>] (txq_deinit+0x24/0xcc)
+[<c0282ad8>] (txq_deinit+0x24/0xcc) from [<c0282d28>] (mv643xx_eth_stop+0x1a8/0x1bc)
+[<c0282d28>] (mv643xx_eth_stop+0x1a8/0x1bc) from [<c031e314>] (__dev_close_many+0x88/0xcc)
+[<c031e314>] (__dev_close_many+0x88/0xcc) from [<c031e380>] (__dev_close+0x28/0x3c)
+[<c031e380>] (__dev_close+0x28/0x3c) from [<c0320fa0>] (__dev_change_flags+0x7c/0x134)
+[<c0320fa0>] (__dev_change_flags+0x7c/0x134) from [<c03210e0>] (dev_change_flags+0x10/0x48)
+[<c03210e0>] (dev_change_flags+0x10/0x48) from [<c032da1c>] (do_setlink+0x1a0/0x730)
+[<c032da1c>] (do_setlink+0x1a0/0x730) from [<c032f524>] (rtnl_newlink+0x304/0x4b0)
+[<c032f524>] (rtnl_newlink+0x304/0x4b0) from [<c032ef8c>] (rtnetlink_rcv_msg+0x25c/0x2a0)
+[<c032ef8c>] (rtnetlink_rcv_msg+0x25c/0x2a0) from [<c03383a0>] (netlink_rcv_skb+0xbc/0xd8)
+[<c03383a0>] (netlink_rcv_skb+0xbc/0xd8) from [<c032e674>] (rtnetlink_rcv+0x1c/0x24)
+[<c032e674>] (rtnetlink_rcv+0x1c/0x24) from [<c03361d8>] (netlink_unicast_kernel+0x88/0xd4)
+[<c03361d8>] (netlink_unicast_kernel+0x88/0xd4) from [<c0337dd0>] (netlink_unicast+0x138/0x180)
+[<c0337dd0>] (netlink_unicast+0x138/0x180) from [<c0338020>] (netlink_sendmsg+0x208/0x32c)
+[<c0338020>] (netlink_sendmsg+0x208/0x32c) from [<c030ab48>] (sock_sendmsg+0x84/0xa4)
+[<c030ab48>] (sock_sendmsg+0x84/0xa4) from [<c030aef4>] (__sys_sendmsg+0x2ac/0x2c4)
+[<c030aef4>] (__sys_sendmsg+0x2ac/0x2c4) from [<c030c8ec>] (sys_sendmsg+0x3c/0x68)
+[<c030c8ec>] (sys_sendmsg+0x3c/0x68) from [<c000e2e0>] (ret_fast_syscall+0x0/0x3c)
+
+It seems that txq_reclaim() takes the netif tx lock:
+
+        __netif_tx_lock(nq, smp_processor_id());
+
+in a context outside of softirq context, and thus is susceptible to
+deadlock should an interrupt occur.
+
+Maybe the call to txq_reclaim() in txq_deinit() should disable local
+IRQs?  Someone who knows this driver needs to look at this.
