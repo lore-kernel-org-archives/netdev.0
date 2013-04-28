@@ -1,64 +1,68 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next 2/2] bnx2x: allow handling tunnel over udp
- offload
-Date: Sun, 28 Apr 2013 21:16:02 +0300
-Message-ID: <1367172962-17369-3-git-send-email-dmitry@broadcom.com>
-References: <1367172962-17369-1-git-send-email-dmitry@broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/1] net: fec: fix kernel oops when plug/unplug cable
+ many times
+Date: Sun, 28 Apr 2013 21:11:46 +0100
+Message-ID: <1367179906.6971.36.camel@deadeye.wl.decadent.org.uk>
+References: <1367118287-12175-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, dmitry@broadcom.com
-To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
+Cc: <romieu@fr.zoreil.com>, <r.schwebel@pengutronix.de>,
+	<davem@davemloft.net>, <l.stach@pengutronix.de>,
+	<netdev@vger.kernel.org>, <festevam@gmail.com>,
+	<shawn.guo@linaro.org>, <lznuaa@gmail.com>
+To: Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4715 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756087Ab3D1SQY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Apr 2013 14:16:24 -0400
-In-Reply-To: <1367172962-17369-1-git-send-email-dmitry@broadcom.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:46353 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756344Ab3D1UMJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 16:12:09 -0400
+In-Reply-To: <1367118287-12175-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CC: Pravin B Shelar <pshelar@nicira.com> 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 5 +++++
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 4 ++--
- 2 files changed, 7 insertions(+), 2 deletions(-)
+On Sun, 2013-04-28 at 11:04 +0800, Frank Li wrote:
+> reproduce steps
+>  1. flood ping from other machine
+>  	ping -f -s 41000 IP
+>  2. run below script
+>     while [ 1 ]; do ethtool -s eth0 autoneg off;
+>     sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
+> 
+> You can see oops in one hour.
+> 
+> The reason is fec_restart clear BD but NAPI may use it.
+> The solution is disable NAPI and stop xmit when reset BD.
+> disable NAPI may sleep, so fec_restart can't be call in
+> atomic context.
+> 
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> ---
+>  drivers/net/ethernet/freescale/fec.c |   39 ++++++++++++++++++++++++++++-----
+>  drivers/net/ethernet/freescale/fec.h |    3 +-
+>  2 files changed, 35 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+> index 73195f6..9128a3c 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -403,6 +403,11 @@ fec_restart(struct net_device *ndev, int duplex)
+>  	const struct platform_device_id *id_entry =
+>  				platform_get_device_id(fep->pdev);
+>  	int i;
+> +	if (netif_running(ndev)) {
+> +		napi_disable(&fep->napi);
+> +		netif_stop_queue(ndev);
+> +	}
+[...]
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index fd20a4f..466b512 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3530,6 +3530,11 @@ static void bnx2x_update_pbds_gso_enc(struct sk_buff *skb,
- 			ETH_TX_PARSE_2ND_BD_IP_HDR_LEN_OUTER_W_SHIFT) |
- 		((skb->protocol == cpu_to_be16(ETH_P_8021Q)) <<
- 			ETH_TX_PARSE_2ND_BD_LLC_SNAP_EN_SHIFT);
-+
-+	if (ip_hdr(skb)->protocol == IPPROTO_UDP) {
-+		SET_FLAG(*global_data, ETH_TX_PARSE_2ND_BD_TUNNEL_UDP_EXIST, 1);
-+		pbd2->tunnel_udp_hdr_start_w = skb_transport_offset(skb) >> 1;
-+	}
- }
- 
- /* called with netif_tx_lock
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 927f83a..91a0434 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12043,11 +12043,11 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
- 		NETIF_F_RXCSUM | NETIF_F_LRO | NETIF_F_GRO |
- 		NETIF_F_RXHASH | NETIF_F_HW_VLAN_CTAG_TX;
- 	if (!CHIP_IS_E1x(bp)) {
--		dev->hw_features |= NETIF_F_GSO_GRE;
-+		dev->hw_features |= NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL;
- 		dev->hw_enc_features =
- 			NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM | NETIF_F_SG |
- 			NETIF_F_TSO | NETIF_F_TSO_ECN | NETIF_F_TSO6 |
--			NETIF_F_GSO_GRE;
-+			NETIF_F_GSO_GRE | NETIF_F_GSO_UDP_TUNNEL;
- 	}
- 
- 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+I would advise against calling netif_stop_queue() outside of the TX path
+(for reasons explained in commit 29c69a488264).  If you're sure the
+carrier state is off at this point, it should be OK, though.
+
+Ben.
+
 -- 
-1.8.1.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
