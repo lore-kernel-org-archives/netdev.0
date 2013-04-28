@@ -1,82 +1,60 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH] sh_eth: add R8A77781 support
-Date: Sun, 28 Apr 2013 22:33:04 +0200
-Message-ID: <1729391.fxbIzSoxUb@avalon>
-References: <201304280044.25139.sergei.shtylyov@cogentembedded.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [IPROUTE PATCH] iproute2: act_ipt fix xtables breakage on older
+ versions.
+Date: Sun, 28 Apr 2013 13:53:17 -0700
+Message-ID: <517D8C3D.60504@gmail.com>
+References: <20130425220716.6520.94862.stgit@ahduyck-cp1.jf.intel.com> <517A7F29.7070903@mojatatu.com> <517AA41C.4040205@intel.com> <517D32AE.503@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201304280044.25139.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	shemminger@vyatta.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, Hasan Chowdhury <shemonc@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:60590 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755960Ab3D1UxX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 16:53:23 -0400
+Received: by mail-pd0-f180.google.com with SMTP id u10so3279993pdi.11
+        for <netdev@vger.kernel.org>; Sun, 28 Apr 2013 13:53:22 -0700 (PDT)
+In-Reply-To: <517D32AE.503@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
-
-Thank you for the patch.
-
-On Sunday 28 April 2013 00:44:24 Sergei Shtylyov wrote:
-> Add support for another ARM member of the R-Car family, R-Car M1A, also
-> known as R8A77781 -- it will share the code with previously added R8A77790.
+On 04/28/2013 07:31 AM, Jamal Hadi Salim wrote:
+> Hi Alex,
 > 
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> On 13-04-26 11:58 AM, Alexander Duyck wrote:
 > 
-> ---
-> This patch is for the 'net-next.git' repository but it may not be fit for
-> immediate applying as R-Car M1A support will only be merged in 3.10-rc1...
+>> Getting it to compile is kind of important since it was preventing me
+>> from completing the build for iproute2 as I had another fix I needed to
+>> test.
 > 
->  drivers/net/ethernet/renesas/Kconfig  |    3 ++-
->  drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
->  2 files changed, 4 insertions(+), 3 deletions(-)
+> So i just went back and looked. I was under the impression the original
+> patch from Hasan was not incorporated, it turns out it was (I just didnt
+> get the usual "applied" email; ands unfortunately for some reason i
+> showed up as the author instead of Hasan). It is the patch you are
+> referring to.
 > 
-> Index: net-next/drivers/net/ethernet/renesas/Kconfig
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/renesas/Kconfig
-> +++ net-next/drivers/net/ethernet/renesas/Kconfig
-> @@ -8,7 +8,8 @@ config SH_ETH
->  		(CPU_SUBTYPE_SH7710 || CPU_SUBTYPE_SH7712 || \
->  		 CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
->  		 CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
-> -		 CPU_SUBTYPE_SH7757 || ARCH_R8A7740 || ARCH_R8A7779)
-> +		 CPU_SUBTYPE_SH7757 || ARCH_R8A7740 || \
-> +		 ARCH_R8A7778 || ARCH_R8A7779)
->  	select CRC32
->  	select NET_CORE
->  	select MII
-> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -342,7 +342,7 @@ static void sh_eth_select_mii(struct net
->  #endif
+> Second - I did compile this on Debian squeeze which is iptables 1.4.8
+> based; lucky, I still have that machine around, so i just verified again
+> that the current git tree compiles fine there.
+> So this could be a fedora specific issue.
+> What does the generated Config file have for you?
+> on squeeze:
+> IPT_LIB_DIR:=/lib/xtables
 > 
->  /* There is CPU dependent code */
-> -#if defined(CONFIG_ARCH_R8A7779)
-> +#if defined(CONFIG_ARCH_R8A7778) || defined(CONFIG_ARCH_R8A7779)
->  #define SH_ETH_RESET_DEFAULT	1
->  static void sh_eth_set_duplex(struct net_device *ndev)
->  {
-> @@ -370,7 +370,7 @@ static void sh_eth_set_rate(struct net_d
->  	}
->  }
-> 
-> -/* R8A7779 */
-> +/* R8A7778/9 */
->  static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
->  	.set_duplex	= sh_eth_set_duplex,
->  	.set_rate	= sh_eth_set_rate,
 
-I was wondering if someone is working (or was planning to work in the near 
-future) in getting rid of that #ifdef mess and add proper support for 
-multiplatform kernels to the sh-eth driver ?
+I just realized my patch description is incorrect.  I had called out
+xtables_options_xfrm as the function I was fixing when it was actually
+references to xtables_merge_options I was fixing in the patch.  From
+what I can tell, all the way up to 1.4.10 xtables_merge_options only had
+3 parameters in include/xtables.h.in.  It looks like things switch to
+version 6 in 1.4.11 and then xtables_options_xfrm takes 4 parameters.
 
-The patch looks good to me though, the above isn't a reason to delay it.
+I will update the patch description and send out a new copy tomorrow.
 
--- 
-Regards,
+Thanks,
 
-Laurent Pinchart
-
+Alex
