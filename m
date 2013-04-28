@@ -1,96 +1,85 @@
-From: Frederic Weisbecker <fweisbec@gmail.com>
-Subject: Re: [PATCH v2] x86: make DR*_RESERVED unsigned long
-Date: Sun, 28 Apr 2013 02:58:16 +0200
-Message-ID: <20130428005814.GB10354@somewhere>
-References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com>
- <20130424072630.GB1780@gmail.com>
- <20130424170702.GA1867@redhat.com>
- <5178282D.9030902@zytor.com>
- <20130425144818.GA25921@redhat.com>
- <20130426163802.GA30351@redhat.com>
- <517AAED5.7040400@zytor.com>
- <20130426171526.GA30875@redhat.com>
- <20130427144537.GA24256@redhat.com>
+From: Lance Lassetter <lancelassetter@gmail.com>
+Subject: Re: r8169 with 3.9.0-rc9
+Date: Sat, 27 Apr 2013 20:12:34 -0500
+Message-ID: <20130428011232.GA4236@gmail.com>
+References: <20130426132254.GA22821@gmail.com>
+ <20130426205018.GA18092@electric-eye.fr.zoreil.com>
+ <20130427041230.GA18709@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Cyrill Gorcunov <gorcunov@gmail.com>,
-	Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Theodore Ts'o <tytso@mit.edu>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	the arch/x86 maintainers <x86@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>
-To: Oleg Nesterov <oleg@redhat.com>
-Return-path: <linux-ext4-owner@vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ye0-f173.google.com ([209.85.213.173]:65374 "EHLO
+	mail-ye0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755511Ab3D1BSp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 21:18:45 -0400
+Received: by mail-ye0-f173.google.com with SMTP id q5so761085yen.4
+        for <netdev@vger.kernel.org>; Sat, 27 Apr 2013 18:18:44 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20130427144537.GA24256@redhat.com>
-Sender: linux-ext4-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130427041230.GA18709@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Apr 27, 2013 at 04:45:37PM +0200, Oleg Nesterov wrote:
-> On 04/26, Oleg Nesterov wrote:
-> 
-> > On 04/26, H. Peter Anvin wrote:
-> > >
-> > > On 04/26/2013 09:38 AM, Oleg Nesterov wrote:
-> > > >
-> > > > 	- do_debug:
-> > > >
-> > > > 		dr6 &= ~DR6_RESERVED;
-> > > >
-> > > > 	  this also wrongly clears 32-63 bits. Fortunately these
-> > > > 	  bits are reserved and must be zero.
-> > >
-> > > I don't think this is wrongly at all.
-> >
-> > OK, I meant that it also clears the bits that are not specified in
-> > DR6_RESERVED mask.
-> >
-> > > The whole point is to mask out
-> > > the bits that the handler doesn't want to deal with, so masking out the
-> > > reserved bits [63:32] seems reasonable to me.
-> >
-> > Then we should do
-> >
-> > 	- #define DR6_RESERVED    0xFFFF0FF0
-> > 	+ #define DR6_RESERVED    0xFFFFFFFFFFFF0FF0
-> >
-> > ?
-> >
-> > or what? (just in case, I will happily agree with "do nothing" ;)
-> 
-> Or we can do the s/reserved/mask/ change and avoid any "unexpected"
-> effect of "long &= ~int". This allso allows to kill ifdef(__i386__).
-> 
-> But this is include/uapi, I do not know if I can simply remove the
-> old define's.
-> 
-> In short: whatever you prefer, including "leave it alone".
-> 
-> Oleg.
-> 
-> diff --git a/arch/x86/include/uapi/asm/debugreg.h b/arch/x86/include/uapi/asm/debugreg.h
-> index 3c0874d..2678b23 100644
-> --- a/arch/x86/include/uapi/asm/debugreg.h
-> +++ b/arch/x86/include/uapi/asm/debugreg.h
-> @@ -14,8 +14,7 @@
->     which debugging register was responsible for the trap.  The other bits
->     are either reserved or not of interest to us. */
->  
-> -/* Define reserved bits in DR6 which are always set to 1 */
-> -#define DR6_RESERVED	(0xFFFF0FF0)
-> +#define DR6_MASK	(0xF00FU)	/* Everything else is reserved */
+On Fri, Apr 26, 2013 at 11:12:33PM -0500, Lance Lassetter wrote:
+> On Fri, Apr 26, 2013 at 10:50:18PM +0200, Francois Romieu wrote:
+> > Lance Lassetter <lancelassetter@gmail.com> :
+> > [...]
+> > > the box serves as a network router so it is causing abundant netw=
+ork
+> > > traffic problems.
+> > >=20
+> > > any debugging i could help you with, please let me know.=A0 also =
+if there
+> > > is a possible solution, please let me know.
+> >=20
+> > Is it a regression and / or an Asus M5A97 system ?
+> >=20
+> > The XID lines that the kernel printed when the r8169 module gets lo=
+aded
+> > may help.
+> >=20
+> > --=20
+> > Ueimor
+>=20
+> lance@annun10 ~$ dmesg | grep -i xid
+> [    6.370821] r8169 0000:03:00.0 eth0: RTL8168c/8111c at 0xffffc9000=
+0c70000, 00
+> :22:19:28:86:61, XID 1c4000c0 IRQ 45
+> [    6.371103] r8169 0000:04:09.0 eth1: RTL8169sb/8110sb at 0xffffc90=
+000c7ec00,
+> 48:02:2a:07:90:45, XID 10000000 IRQ 20
+> lance@annun10 ~$
+>=20
+> i don't think it's a regression and it's a Dell XPS 625 with an addon=
+ r8169 so there are two r8169 cards in the system.  it is a testing fed=
+ora repository system though with vanilla mainline kernel.
+>=20
+> hope this helps,
+>=20
+> lance
 
-I'm personally fine either with that or with Peter's suggestion to do:
+sorry for the lack of information thereof:
 
--#define DR6_RESERVED (0xFFFF0FF0)
-+#define DR6_RESERVED (~0xF00FUL)
+the conventional processor name is AMD Phenom(tm) II X4 940 Processor
 
-If this should stay stable UAPI, we probably want Peter's solution. Otherwise
-I really don't mind.
+i bought the computer back in like 2008, sorry.
 
-Thanks.
+it's an AMD 790FX motherboard chipset for eth0 (r8169i driver)
+
+eth1 is a Roswell RC-404 PCI adapter (r8169 driver)
+
+if regression means it didn't used to happen and now it's happening wit=
+h a newer Linux OS/kernel then yes.  if regression means something diff=
+erent, i'm not sure.
+
+i think it started with my installation of Fedora 18 which began with k=
+ernel 3.6 or 3.7, i really can't remember. it might have started with k=
+ernel 3.8.
+
+before then all was OK.
+
+hope this helps.
+
+Lance Lassetter
