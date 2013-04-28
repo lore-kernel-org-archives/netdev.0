@@ -1,88 +1,96 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net-next 2/2] vxlan: allow specifying multiple default
- destinations
-Date: Sun, 28 Apr 2013 01:57:12 +0300
-Message-ID: <20130427225712.GA6772@zed>
-References: <1366887829-3950-1-git-send-email-mike.rapoport@ravellosystems.com>
- <1366887829-3950-3-git-send-email-mike.rapoport@ravellosystems.com>
- <87txmtpyje.wl%atzm@stratosphere.co.jp>
+From: Frederic Weisbecker <fweisbec@gmail.com>
+Subject: Re: [PATCH v2] x86: make DR*_RESERVED unsigned long
+Date: Sun, 28 Apr 2013 02:58:16 +0200
+Message-ID: <20130428005814.GB10354@somewhere>
+References: <CA+55aFwpLu0qNms=hkQr43yqD0K9DgESNm91OEWKT1ZuT8MU6Q@mail.gmail.com>
+ <20130424072630.GB1780@gmail.com>
+ <20130424170702.GA1867@redhat.com>
+ <5178282D.9030902@zytor.com>
+ <20130425144818.GA25921@redhat.com>
+ <20130426163802.GA30351@redhat.com>
+ <517AAED5.7040400@zytor.com>
+ <20130426171526.GA30875@redhat.com>
+ <20130427144537.GA24256@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Atzm Watanabe <atzm@stratosphere.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog108.obsmtp.com ([74.125.245.84]:50291 "HELO
-	na3sys010aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753499Ab3D0W5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 18:57:19 -0400
-Received: by mail-wi0-f198.google.com with SMTP id c10so2412295wiw.9
-        for <netdev@vger.kernel.org>; Sat, 27 Apr 2013 15:57:17 -0700 (PDT)
+Cc: "H. Peter Anvin" <hpa@zytor.com>, Ingo Molnar <mingo@kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Cyrill Gorcunov <gorcunov@gmail.com>,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Theodore Ts'o <tytso@mit.edu>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	the arch/x86 maintainers <x86@kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-ext4@vger.kernel.org" <linux-ext4@vger.kernel.org>
+To: Oleg Nesterov <oleg@redhat.com>
+Return-path: <linux-ext4-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87txmtpyje.wl%atzm@stratosphere.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130427144537.GA24256@redhat.com>
+Sender: linux-ext4-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 26, 2013 at 03:59:49PM +0900, Atzm Watanabe wrote:
-> At Thu, 25 Apr 2013 14:03:49 +0300,
-> Mike Rapoport wrote:
-> > +/* Add remote to default destinations list */
-> > +static int vxlan_remote_add(struct vxlan_dev *vxlan, struct nlattr *attr)
-> > +{
-
-...
-
-> > +}
+On Sat, Apr 27, 2013 at 04:45:37PM +0200, Oleg Nesterov wrote:
+> On 04/26, Oleg Nesterov wrote:
 > 
-> I think the default destinations should be used for not only sending
-> but receiving, so when multicast address was added, it should be
-> joined to the group, if the interface state is up.
-> (Forbidding the change on the running interface may make it easy.)
+> > On 04/26, H. Peter Anvin wrote:
+> > >
+> > > On 04/26/2013 09:38 AM, Oleg Nesterov wrote:
+> > > >
+> > > > 	- do_debug:
+> > > >
+> > > > 		dr6 &= ~DR6_RESERVED;
+> > > >
+> > > > 	  this also wrongly clears 32-63 bits. Fortunately these
+> > > > 	  bits are reserved and must be zero.
+> > >
+> > > I don't think this is wrongly at all.
+> >
+> > OK, I meant that it also clears the bits that are not specified in
+> > DR6_RESERVED mask.
+> >
+> > > The whole point is to mask out
+> > > the bits that the handler doesn't want to deal with, so masking out the
+> > > reserved bits [63:32] seems reasonable to me.
+> >
+> > Then we should do
+> >
+> > 	- #define DR6_RESERVED    0xFFFF0FF0
+> > 	+ #define DR6_RESERVED    0xFFFFFFFFFFFF0FF0
+> >
+> > ?
+> >
+> > or what? (just in case, I will happily agree with "do nothing" ;)
 > 
-> Also vxlan_open() and vxlan_stop() will need to control the
-> membership of groups in the default destination list.
-
-My original idea was to simulate multicast group with a list of unicast
-destinations for cases when multicast is impossible. I'd prefer to limit
-the additional destinations for unicast addresses for now. The support
-for several multicast groups with the same VNI can be added later on,
-IMHO. 
- 
+> Or we can do the s/reserved/mask/ change and avoid any "unexpected"
+> effect of "long &= ~int". This allso allows to kill ifdef(__i386__).
 > 
-> >  /* See if multicast group is already in use by other ID */
-> >  static bool vxlan_group_used(struct vxlan_net *vn,
-> > @@ -1500,6 +1600,14 @@ static void vxlan_flush(struct vxlan_dev *vxlan)
-> >  	spin_unlock_bh(&vxlan->hash_lock);
-> >  }
-> >  
-> > +static void vxlan_remotes_flush(struct vxlan_dev *vxlan)
-> > +{
-> > +	struct vxlan_rdst *rd;
-> > +
-> > +	for (rd = vxlan->default_dst.remote_next; rd; rd = rd->remote_next)
-> > +		vxlan_remote_destroy(vxlan, rd);
-> > +}
-> > +
-> >  /* Cleanup timer and forwarding table on shutdown */
-> >  static int vxlan_stop(struct net_device *dev)
-> >  {
-> > @@ -1511,6 +1619,7 @@ static int vxlan_stop(struct net_device *dev)
-> >  	del_timer_sync(&vxlan->age_timer);
-> >  
-> >  	vxlan_flush(vxlan);
-> > +	vxlan_remotes_flush(vxlan);
-> >  
-> >  	return 0;
-> >  }
+> But this is include/uapi, I do not know if I can simply remove the
+> old define's.
 > 
-> vxlan_stop() is called when interface state changes to down.
-> I think the default destinations should not be flushed at this timing,
-> and this should be done at dellink instead.
-
-Agree, will fix.
-
+> In short: whatever you prefer, including "leave it alone".
 > 
-> Thanks.
+> Oleg.
+> 
+> diff --git a/arch/x86/include/uapi/asm/debugreg.h b/arch/x86/include/uapi/asm/debugreg.h
+> index 3c0874d..2678b23 100644
+> --- a/arch/x86/include/uapi/asm/debugreg.h
+> +++ b/arch/x86/include/uapi/asm/debugreg.h
+> @@ -14,8 +14,7 @@
+>     which debugging register was responsible for the trap.  The other bits
+>     are either reserved or not of interest to us. */
+>  
+> -/* Define reserved bits in DR6 which are always set to 1 */
+> -#define DR6_RESERVED	(0xFFFF0FF0)
+> +#define DR6_MASK	(0xF00FU)	/* Everything else is reserved */
 
---
-Sincerely yours,
-Mike.
+I'm personally fine either with that or with Peter's suggestion to do:
+
+-#define DR6_RESERVED (0xFFFF0FF0)
++#define DR6_RESERVED (~0xF00FUL)
+
+If this should stay stable UAPI, we probably want Peter's solution. Otherwise
+I really don't mind.
+
+Thanks.
