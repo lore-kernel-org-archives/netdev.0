@@ -1,87 +1,65 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 2/3] x86: bpf_jit_comp: support
- BPF_S_ANC_SECCOMP_LD_W instruction
-Date: Sat, 27 Apr 2013 18:21:32 -0700
-Message-ID: <1367112092.8964.294.camel@edumazet-glaptop>
-References: <1367029047-14830-1-git-send-email-xi.wang@gmail.com>
-	 <1367029047-14830-3-git-send-email-xi.wang@gmail.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH RFC] spinlock: split out debugging check from
+ spin_lock_mutex
+Date: Sat, 27 Apr 2013 22:34:38 -0400
+Message-ID: <r2ebcsgw3twvhk8aedo0xuxg.1367116478630@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Daniel Borkmann <dborkman@redhat.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Will Drewry <wad@chromium.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	David Laight <david.laight@aculab.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Nicolas Schichan <nschichan@freebox.fr>
-To: Xi Wang <xi.wang@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367029047-14830-3-git-send-email-xi.wang@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mingo@redhat.com
+To: bvba Bart Van Assche <info@bartvanassche.be>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:39405 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756059Ab3D1Cew (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 22:34:52 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-04-26 at 22:17 -0400, Xi Wang wrote:
-> This patch implements the seccomp BPF_S_ANC_SECCOMP_LD_W instruction
-> in x86 JIT.
-> 
-> Signed-off-by: Xi Wang <xi.wang@gmail.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
-> Cc: Will Drewry <wad@chromium.org>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Russell King <linux@arm.linux.org.uk>
-> Cc: David Laight <david.laight@aculab.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Andrew Morton <akpm@linux-foundation.org>
-> Cc: Nicolas Schichan <nschichan@freebox.fr>
-> ---
->  arch/x86/net/bpf_jit_comp.c | 11 +++++++++++
->  1 file changed, 11 insertions(+)
-> 
-> diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
-> index 8898680..5f1dafb 100644
-> --- a/arch/x86/net/bpf_jit_comp.c
-> +++ b/arch/x86/net/bpf_jit_comp.c
-> @@ -683,6 +683,17 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
->  				}
->  				EMIT_COND_JMP(f_op, f_offset);
->  				break;
-> +#ifdef CONFIG_SECCOMP_FILTER
-> +			case BPF_S_ANC_SECCOMP_LD_W:
-
-I would feel more comfortable if you added :
-
-	if (seen & SEEN_DATAREF) {
-		pr_err_once("SECCOMP_LD_W assertion failed\n"):
-		goto out;
-	}
-
-This way, if BPF is changed in the future, but not the x86 JIT, we
-can have a working kernel.
-
-Ideally, we should add a SEEN_SKBREF to make sure rdi value can be
-scratched, or you just push %rdi/pop %rdi, its only one byte
-instructions.
-
-Or completely optimize the thing and not call seccomp_bpf_load() at all.
-
-(current would be loaded once in r9, task_pt_regs() would be loaded once
-in r8)
-
-
-> +				func = (u8 *)seccomp_bpf_load;
-> +				t_offset = func - (image + addrs[i]);
-> +				/* seccomp filters don't use %rdi, %r8, %r9
-> +				 * it is safe to not save these registers
-> +				 */
-> +				EMIT1_off32(0xbf, K); /* mov imm32,%edi */
-> +				EMIT1_off32(0xe8, t_offset); /* call seccomp_bpf_load */
-> +				break;
-> +#endif
->  			default:
->  				/* hmm, too complex filter, give up with jit compiler */
->  				goto out;
+WW91J3ZlIGdvdCB0aGUgd3JvbmcgcGF0Y2ggYnVpbHQgdGhlbi4gIFRoZSBuZXRwb2xsIHBhdGgg
+d2l0aCBteSBsYXRlc3QgcGF0Y2ggbm8gbG9uZ2VyIGhhcyBhbnkgbXV0ZXhlcyBpbiBpdC4gIFRo
+aXMgcGVhcnMgdG8gYmUgYSBzZXBhcmF0ZSBwcm9ibGVtLgoKQmVzdApOZWlsCgpidmJhIEJhcnQg
+VmFuIEFzc2NoZSA8aW5mb0BiYXJ0dmFuYXNzY2hlLmJlPiB3cm90ZToKCj5PbiAwNC8yMy8xMyAx
+OTo1MCwgTmVpbCBIb3JtYW4gd3JvdGU6Cj4+IE9uIFR1ZSwgQXByIDIzLCAyMDEzIGF0IDAxOjMz
+OjE1UE0gLTA0MDAsIERhdmlkIE1pbGxlciB3cm90ZToKPj4+IEZyb206IE5laWwgSG9ybWFuIDxu
+aG9ybWFuQHR1eGRyaXZlci5jb20+Cj4+PiBEYXRlOiBUdWUsIDIzIEFwciAyMDEzIDA5OjQ0OjQz
+IC0wNDAwCj4+Pgo+Pj4+IERhdmUsIGhvdyBkbyB5b3UgZmVlbCBhYm91dCBpdD8gIEknbSBjb21m
+b3J0YWJsZSB3aXRoIHRoZSB3YWl0IHF1ZXVlIGNoYW5nZSBJJ3ZlCj4+Pj4gcHJvcG9zZWQsIGJ1
+dCBJJ3ZlIG5vdCByZWNlaXZlZCBhbnkgcmVwb3J0cyBvZiBhY3R1YWwgbmV0cG9sbCBkZWFkbG9j
+a3MgKGkuZS4KPj4+PiB0aGUgbXV0ZXggc29sdXRpb24gaXMgcmVwb3J0aW5nIGEgd2FybmluZywg
+YnV0IG5vIGFjdHVhbCBwcm9ibGVtcykuICBTbyBJIHRoaW5rCj4+Pj4gaXRzIHNhZmUgdG8gd2Fp
+dCBhIGJpdCBsb25nZXIsIHVubGVzcyB5b3UganVzdCB3YW50IHRoaXMgc3F1YXJlZCBhd2F5IG5v
+dy4KPj4+Cj4+PiBJZiBpdCdzIGp1c3QgYSB3YXJuaW5nIGFuZCBwZW9wbGUgYXJlbid0IGFjdHVh
+bGx5IGhpdHRpbmcgdGhlCj4+PiBwb3RlbnRpYWwgZGVhZGxvY2ssIGl0IGNhbiB3YWl0Lgo+Pj4K
+Pj4gQ29weSB0aGF0LiBCYXJ0LCBJJ2xsIHdhaXQgdGlsbCB5b3UgZ2V0IGJhY2sgdGhlbi4KPgo+
+KEp1c3QgYXJyaXZlZCBob21lKQo+Cj5Tb3JyeSBOZWlsLCBidXQgSSBjYW4gc3RpbGwgdHJpZ2dl
+ciB0aGUgQ1BVIHN0dWNrIG1lc3NhZ2VzIHdpdGgga2VybmVsIHYzLjktcmM4LTI0LWdkN2Q3Mjcx
+Ogo+Cj5rZXJuZWw6IEJVRzogc29mdCBsb2NrdXAgLSBDUFUjMCBzdHVjayBmb3IgMjJzISBbcnM6
+bWFpbiBROlJlZzo2MDFdCj5rZXJuZWw6IGlycSBldmVudCBzdGFtcDogMTk5OTE5Mgo+a2VybmVs
+OiBoYXJkaXJxcyBsYXN0ICBlbmFibGVkIGF0ICgxOTk5MTkxKTogWzxmZmZmZmZmZjgxMDNlODlk
+Pl0gY29uc29sZV91bmxvY2srMHg0MWQvMHg0NTAKPmtlcm5lbDogaGFyZGlycXMgbGFzdCBkaXNh
+YmxlZCBhdCAoMTk5OTE5Mik6IFs8ZmZmZmZmZmY4MTQzZTk2YT5dIGFwaWNfdGltZXJfaW50ZXJy
+dXB0KzB4NmEvMHg4MAo+a2VybmVsOiBzb2Z0aXJxcyBsYXN0ICBlbmFibGVkIGF0ICgxOTk5MTg4
+KTogWzxmZmZmZmZmZjgxMDQ0ZTI2Pl0gX19kb19zb2Z0aXJxKzB4MTk2LzB4MjgwCj5rZXJuZWw6
+IHNvZnRpcnFzIGxhc3QgZGlzYWJsZWQgYXQgKDE5OTkxODEpOiBbPGZmZmZmZmZmODEwNDUwYzU+
+XSBpcnFfZXhpdCsweGI1LzB4YzAKPmtlcm5lbDogQ1BVIDAgCj5rZXJuZWw6IFBpZDogNjAxLCBj
+b21tOiByczptYWluIFE6UmVnIFRhaW50ZWQ6IEcgICAgICAgICAgIE8gMy45LjAtcmM4LWRlYnVn
+KyAjMSBTeXN0ZW0gbWFudWZhY3R1cmVyIFA1USBERUxVWEUvUDVRIERFTFVYRQo+a2VybmVsOiBS
+SVA6IDAwMTA6WzxmZmZmZmZmZjgxMDNlOGEwPl0gIFs8ZmZmZmZmZmY4MTAzZThhMD5dIGNvbnNv
+bGVfdW5sb2NrKzB4NDIwLzB4NDUwCj5rZXJuZWw6IENhbGwgVHJhY2U6Cj5rZXJuZWw6IFs8ZmZm
+ZmZmZmY4MTJiYmYzNz5dIGRvX2Nvbl93cml0ZS5wYXJ0LjE5KzB4ODg3LzB4MjA0MAo+a2VybmVs
+OiBbPGZmZmZmZmZmODEyYTUyYjc+XSA/IHByb2Nlc3Nfb3V0cHV0KzB4MzcvMHg3MAo+a2VybmVs
+OiBbPGZmZmZmZmZmODE0MzE2ZmM+XSA/IG11dGV4X2xvY2tfbmVzdGVkKzB4MjhjLzB4MzUwCj5r
+ZXJuZWw6IFs8ZmZmZmZmZmY4MTJhNTJiNz5dID8gcHJvY2Vzc19vdXRwdXQrMHgzNy8weDcwCj5r
+ZXJuZWw6IFs8ZmZmZmZmZmY4MTJiZDc2ND5dIGNvbl93cml0ZSsweDM0LzB4NTAKPmtlcm5lbDog
+WzxmZmZmZmZmZjgxMmE1MWU5Pl0gZG9fb3V0cHV0X2NoYXIrMHgxNzkvMHgyMTAKPmtlcm5lbDog
+WzxmZmZmZmZmZjgxMmE1MmNkPl0gcHJvY2Vzc19vdXRwdXQrMHg0ZC8weDcwCj5rZXJuZWw6IFs8
+ZmZmZmZmZmY4MTJhNTlkMD5dIG5fdHR5X3dyaXRlKzB4MjEwLzB4NDgwCj5rZXJuZWw6IFs8ZmZm
+ZmZmZmY4MTA3MjcxMD5dID8gdHJ5X3RvX3dha2VfdXArMHgyZTAvMHgyZTAKPmtlcm5lbDogWzxm
+ZmZmZmZmZjgxMmEyODM5Pl0gdHR5X3dyaXRlKzB4MTU5LzB4MzAwCj5rZXJuZWw6IFs8ZmZmZmZm
+ZmY4MTA5MzI2Zj5dID8gbG9ja19yZWxlYXNlX2hvbGR0aW1lLnBhcnQuMjIrMHhmLzB4MTgwCj5r
+ZXJuZWw6IFs8ZmZmZmZmZmY4MTJhNTdjMD5dID8gbl90dHlfcG9sbCsweDFjMC8weDFjMAo+a2Vy
+bmVsOiBbPGZmZmZmZmZmODExNTFhM2I+XSB2ZnNfd3JpdGUrMHhhYi8weDE3MAo+a2VybmVsOiBb
+PGZmZmZmZmZmODExNTFlYTU+XSBzeXNfd3JpdGUrMHg1NS8weGEwCj5rZXJuZWw6IFs8ZmZmZmZm
+ZmY4MTQzZGQ4Mj5dIHN5c3RlbV9jYWxsX2Zhc3RwYXRoKzB4MTYvMHgxYgo+Cj5CYXJ0Lgo+Cg==
