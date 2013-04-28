@@ -1,48 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable
- call"
-Date: Sun, 28 Apr 2013 19:57:59 +0200
-Message-ID: <20130428175759.GA8112@electric-eye.fr.zoreil.com>
-References: <20130426134415.GS1366@pengutronix.de>
- <20130426.143309.1011152996477262852.davem@davemloft.net>
- <20130427090545.GY1366@pengutronix.de>
- <CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
- <20130427120619.GA26097@electric-eye.fr.zoreil.com>
- <CAHrpEqTE-oGcdMVk2LMffW0JWNgJ-b_+RakpCOVBy6WxA_ARGg@mail.gmail.com>
- <20130427191600.GA30373@electric-eye.fr.zoreil.com>
- <CAHrpEqRnWXV7jC+QuQe+chiEJCXOkmOz1tEdna2SPfPBQ2E=1Q@mail.gmail.com>
- <20130428093917.GA4540@electric-eye.fr.zoreil.com>
- <CAHrpEqQbaFK-j00X+SQ200Aur4BSnvUuM4nq5pYWVyd5XMWDrg@mail.gmail.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH net-next 0/2] vxlan, bnx2x offload
+Date: Sun, 28 Apr 2013 21:16:00 +0300
+Message-ID: <1367172962-17369-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Frank Li <lznuaa@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: pshelar@nicira.com, dmitry@broadcom.com
+To: eilong@broadcom.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:49708 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754970Ab3D1R6M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 13:58:12 -0400
-Content-Disposition: inline
-In-Reply-To: <CAHrpEqQbaFK-j00X+SQ200Aur4BSnvUuM4nq5pYWVyd5XMWDrg@mail.gmail.com>
+Received: from mms1.broadcom.com ([216.31.210.17]:3502 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755596Ab3D1SQV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 28 Apr 2013 14:16:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Frank Li <lznuaa@gmail.com> :
-[...]
-> tg3_tx is safe method but need more lock.
 
-It's the same design.
+Hi Dave,
 
-> But I think it is not related with this issue. I can change later.
+The series fixes GSO flags in vxlan xmit code and
+adds appropriate code for bnx2x driver to utilize
+fw support for UDP tunneling protocols offload.
 
-It won't oops, sure. It will simply stop under high load or proper
-timing.
+Netperf's results below show improvement in throughput
+between two vxlan interfaces:
+before:
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 9.0.0.2 (9.0.0.2) port 0 AF_INET
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
 
--- 
-Ueimor
+ 87380  16384  16384    10.20     228.73   
+
+after:
+MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 9.0.0.2 (9.0.0.2) port 0 AF_INET
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 87380  16384  16384    10.00    3314.75   
+
+
+Thanks,
+Dmitry
