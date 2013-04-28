@@ -1,82 +1,154 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable call"
-Date: Sun, 28 Apr 2013 12:31:56 +0800
-Message-ID: <CAHrpEqQeOx1HwSP6URtFM_0U+1a0e==Td3SOcA90Tbxadx-0cA@mail.gmail.com>
-References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
-	<CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
-	<20130426134415.GS1366@pengutronix.de>
-	<20130426.143309.1011152996477262852.davem@davemloft.net>
-	<20130427090545.GY1366@pengutronix.de>
-	<CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
-	<20130427120619.GA26097@electric-eye.fr.zoreil.com>
-	<CAHrpEqTE-oGcdMVk2LMffW0JWNgJ-b_+RakpCOVBy6WxA_ARGg@mail.gmail.com>
-	<20130427191600.GA30373@electric-eye.fr.zoreil.com>
-	<CAHrpEqRnWXV7jC+QuQe+chiEJCXOkmOz1tEdna2SPfPBQ2E=1Q@mail.gmail.com>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [PATCH 1/1 v2 net] net: fec: fix kernel oops when plug/unplug cable many times
+Date: Sun, 28 Apr 2013 11:08:28 +0800
+Message-ID: <1367118508-12340-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain
+Cc: Frank Li <Frank.Li@freescale.com>
+To: <romieu@fr.zoreil.com>, <r.schwebel@pengutronix.de>,
+	<davem@davemloft.net>, <l.stach@pengutronix.de>,
+	<netdev@vger.kernel.org>, <festevam@gmail.com>,
+	<shawn.guo@linaro.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f181.google.com ([209.85.212.181]:64658 "EHLO
-	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725Ab3D1Eb6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 00:31:58 -0400
-Received: by mail-wi0-f181.google.com with SMTP id c10so1784490wiw.8
-        for <netdev@vger.kernel.org>; Sat, 27 Apr 2013 21:31:57 -0700 (PDT)
-In-Reply-To: <CAHrpEqRnWXV7jC+QuQe+chiEJCXOkmOz1tEdna2SPfPBQ2E=1Q@mail.gmail.com>
+Received: from mail-db8lp0185.outbound.messaging.microsoft.com ([213.199.154.185]:23072
+	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750725Ab3D1Epb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 00:45:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/4/28 Frank Li <lznuaa@gmail.com>:
-> 2013/4/28 Francois Romieu <romieu@fr.zoreil.com>:
->> Frank Li <lznuaa@gmail.com> :
->>> 2013/4/27, Francois Romieu <romieu@fr.zoreil.com>:
->> [...]
->>> > napi_disable may sleep.
->>> >
->>> > fec_restart can be called with spinlock held in fec_enet_adjust_link
->>>
->>> You are right. Spin lock in FEC enet adjust link can be removed when
->>> remove spinlock in tx and RX.
->>
->> fec_restart is also called from the netdev watchdog handler (fec_timeout)
->> and tasklet can't sleep either. You should imho schedule_work from
->> fec_timeout.
->
-> I will add delay_work to fix this issue.
->
->>
->> How is the driver supposed to avoid the napi context
->> fec_enet_tx:netif_queue_stopped vs fec_enet_start_xmit:netif_stop_queue
->> race since both can run on different cpu without any read/write ordering
->> enforcement between one thread netif_* and its peer {dirty/cur}_tx ?
->
-> This is lockless design if only one read and one write. It likes kfifo.
->
-> Assume CPU1 run xmit.  CPU2 run napi fec_enet_tx
->
-> (1)       if (fep->cur_tx == fep->dirty_tx)
-> (2)                 netif_stop_queue(ndev);
->
-> if CPU2 update fep->dirty_tx before CPU1 run (1).  the condition is false.
-> if CPU2 update fep->dirty_tx after (1) before (2),   netif_stop_queue
-> will be called.  There are not problem at this time even though queue
-> is not full here.  queue is not empty for sure here. fec_enet_tx will
-> be called again when NAPI trigger by one frame finished transfer,
-> fec_enet_tx will wake up send queue.
->
-> Most worse case is waste one BD script.
+reproduce steps
+ 1. flood ping from other machine
+ 	ping -f -s 41000 IP
+ 2. run below script
+    while [ 1 ]; do ethtool -s eth0 autoneg off;
+    sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
 
-I just send out a patch to try to fix your problem.
-Can you help test it in your sit?
+You can see oops in one hour.
 
->
->>
->> --
->> Ueimor
+The reason is fec_restart clear BD but NAPI may use it.
+The solution is disable NAPI and stop xmit when reset BD.
+disable NAPI may sleep, so fec_restart can't be call in
+atomic context.
+
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
+---
+
+Change from V1 to V2
+	Add netif_tx_lock(ndev) to avoid xmit runing when reset hardware	
+
+ drivers/net/ethernet/freescale/fec.c |   41 +++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/freescale/fec.h |    3 +-
+ 2 files changed, 37 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+index 73195f6..d140b50 100644
+--- a/drivers/net/ethernet/freescale/fec.c
++++ b/drivers/net/ethernet/freescale/fec.c
+@@ -403,6 +403,12 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	const struct platform_device_id *id_entry =
+ 				platform_get_device_id(fep->pdev);
+ 	int i;
++	if (netif_running(ndev)) {
++		napi_disable(&fep->napi);
++		netif_stop_queue(ndev);
++		netif_tx_lock(ndev);
++	}
++
+ 	u32 temp_mac[2];
+ 	u32 rcntl = OPT_FRAME_SIZE | 0x04;
+ 	u32 ecntl = 0x2; /* ETHEREN */
+@@ -559,6 +565,12 @@ fec_restart(struct net_device *ndev, int duplex)
+ 
+ 	/* Enable interrupts we wish to service */
+ 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
++
++	if (netif_running(ndev)) {
++		napi_enable(&fep->napi);
++		netif_wake_queue(ndev);
++		netif_tx_unlock(ndev);
++	}
+ }
+ 
+ static void
+@@ -598,8 +610,20 @@ fec_timeout(struct net_device *ndev)
+ 
+ 	ndev->stats.tx_errors++;
+ 
+-	fec_restart(ndev, fep->full_duplex);
+-	netif_wake_queue(ndev);
++	fep->timeout = 1;
++	schedule_delayed_work(&fep->delay_work, msecs_to_jiffies(1));
++}
++
++static void fec_enet_work(struct work_struct *work)
++{
++	struct fec_enet_private *fep =
++		container_of(work, struct fec_enet_private, delay_work.work);
++
++	if (fep->timeout) {
++		fep->timeout = 0;
++		fec_restart(fep->netdev, fep->full_duplex);
++		netif_wake_queue(fep->netdev);
++	}
+ }
+ 
+ static void
+@@ -996,9 +1020,6 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+ 			status_change = 1;
+ 		}
+ 
+-		/* if any of the above changed restart the FEC */
+-		if (status_change)
+-			fec_restart(ndev, phy_dev->duplex);
+ 	} else {
+ 		if (fep->link) {
+ 			fec_stop(ndev);
+@@ -1010,8 +1031,14 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+ spin_unlock:
+ 	spin_unlock_irqrestore(&fep->hw_lock, flags);
+ 
+-	if (status_change)
++	if (status_change) {
++		/* if any of the above changed restart the FEC,
++		 * fec_restart may sleep. can't call it in spin_lock
++		 */
++		if (phy_dev->link)
++			fec_restart(ndev, phy_dev->duplex);
+ 		phy_print_status(phy_dev);
++	}
+ }
+ 
+ static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+@@ -1882,6 +1909,7 @@ fec_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto failed_register;
+ 
++	INIT_DELAYED_WORK(&fep->delay_work, fec_enet_work);
+ 	return 0;
+ 
+ failed_register:
+@@ -1918,6 +1946,7 @@ fec_drv_remove(struct platform_device *pdev)
+ 	struct resource *r;
+ 	int i;
+ 
++	cancel_delayed_work_sync(&fep->delay_work);
+ 	unregister_netdev(ndev);
+ 	fec_enet_mii_remove(fep);
+ 	del_timer_sync(&fep->time_keep);
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index eb43729..a367b21 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -260,7 +260,8 @@ struct fec_enet_private {
+ 	int hwts_rx_en;
+ 	int hwts_tx_en;
+ 	struct timer_list time_keep;
+-
++	struct delayed_work delay_work;
++	int timeout;
+ };
+ 
+ void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev);
+-- 
+1.7.1
