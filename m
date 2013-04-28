@@ -1,68 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/1] net: fec: fix kernel oops when plug/unplug cable
- many times
-Date: Sun, 28 Apr 2013 21:11:46 +0100
-Message-ID: <1367179906.6971.36.camel@deadeye.wl.decadent.org.uk>
-References: <1367118287-12175-1-git-send-email-Frank.Li@freescale.com>
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Subject: Re: [PATCH] sh_eth: use random MAC address if no valid one supplied
+Date: Sun, 28 Apr 2013 22:29:09 +0200
+Message-ID: <1405436.hE5aNhyzLb@avalon>
+References: <201304280248.11893.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <romieu@fr.zoreil.com>, <r.schwebel@pengutronix.de>,
-	<davem@davemloft.net>, <l.stach@pengutronix.de>,
-	<netdev@vger.kernel.org>, <festevam@gmail.com>,
-	<shawn.guo@linaro.org>, <lznuaa@gmail.com>
-To: Frank Li <Frank.Li@freescale.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:46353 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756344Ab3D1UMJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 16:12:09 -0400
-In-Reply-To: <1367118287-12175-1-git-send-email-Frank.Li@freescale.com>
+Received: from perceval.ideasonboard.com ([95.142.166.194]:46016 "EHLO
+	perceval.ideasonboard.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756316Ab3D1U3F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 16:29:05 -0400
+In-Reply-To: <201304280248.11893.sergei.shtylyov@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-04-28 at 11:04 +0800, Frank Li wrote:
-> reproduce steps
->  1. flood ping from other machine
->  	ping -f -s 41000 IP
->  2. run below script
->     while [ 1 ]; do ethtool -s eth0 autoneg off;
->     sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
+Hi Sergei,
+
+Thank you for the patch.
+
+On Sunday 28 April 2013 02:48:11 Sergei Shtylyov wrote:
+> On Renesas R-Car based development boards, although a MAC address is printed
+> on all the Ethernet port labels, U-Boot  doesn't write a valid MAC address 
+> to the Ether MAHR/MALR registers (there's no storage provided for the Ether
+> MAC address either), so we have to resort to using a random MAC address...
 > 
-> You can see oops in one hour.
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 > 
-> The reason is fec_restart clear BD but NAPI may use it.
-> The solution is disable NAPI and stop xmit when reset BD.
-> disable NAPI may sleep, so fec_restart can't be call in
-> atomic context.
-> 
-> Signed-off-by: Frank Li <Frank.Li@freescale.com>
 > ---
->  drivers/net/ethernet/freescale/fec.c |   39 ++++++++++++++++++++++++++++-----
->  drivers/net/ethernet/freescale/fec.h |    3 +-
->  2 files changed, 35 insertions(+), 7 deletions(-)
+> This patch is against the 'net-next.git' repository.
 > 
-> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-> index 73195f6..9128a3c 100644
-> --- a/drivers/net/ethernet/freescale/fec.c
-> +++ b/drivers/net/ethernet/freescale/fec.c
-> @@ -403,6 +403,11 @@ fec_restart(struct net_device *ndev, int duplex)
->  	const struct platform_device_id *id_entry =
->  				platform_get_device_id(fep->pdev);
->  	int i;
-> +	if (netif_running(ndev)) {
-> +		napi_disable(&fep->napi);
-> +		netif_stop_queue(ndev);
+>  drivers/net/ethernet/renesas/sh_eth.c |    5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+> ===================================================================
+> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
+> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -2735,6 +2735,11 @@ static int sh_eth_drv_probe(struct platf
+> 
+>  	/* read and set MAC address */
+>  	read_mac_address(ndev, pd->mac_addr);
+> +	if (!is_valid_ether_addr(ndev->dev_addr)) {
+> +		dev_warn(&pdev->dev, "no valid MAC address supplied, using "
+> +			 "a random one.\n");
+
+Breaking log messages in the middle of a line is frowned upon, more than 
+exceeding the 80 characters per line (soft) limit. I think
+
+        dev_warn(&pdev->dev,
+                 "no valid MAC address supplied, using a random one.\n");
+
+would be better.
+
+> +		eth_hw_addr_random(ndev);
 > +	}
-[...]
-
-I would advise against calling netif_stop_queue() outside of the TX path
-(for reasons explained in commit 29c69a488264).  If you're sure the
-carrier state is off at this point, it should be OK, though.
-
-Ben.
+> 
+>  	/* ioremap the TSU registers */
+>  	if (mdp->cd->tsu) {
 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Regards,
+
+Laurent Pinchart
