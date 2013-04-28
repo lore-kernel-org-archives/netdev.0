@@ -1,61 +1,67 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [IPROUTE PATCH] iproute2: act_ipt fix xtables breakage on older
- versions.
-Date: Sun, 28 Apr 2013 10:31:10 -0400
-Message-ID: <517D32AE.503@mojatatu.com>
-References: <20130425220716.6520.94862.stgit@ahduyck-cp1.jf.intel.com> <517A7F29.7070903@mojatatu.com> <517AA41C.4040205@intel.com>
+Subject: PATCH iproute2] catch iptables interface changes
+Date: Sun, 28 Apr 2013 10:44:38 -0400
+Message-ID: <517D35D6.8090606@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, Hasan Chowdhury <shemonc@gmail.com>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: multipart/mixed;
+ boundary="------------050306030203050200040804"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jan Engelhardt <jengelh@inai.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f173.google.com ([209.85.210.173]:48058 "EHLO
-	mail-ia0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753913Ab3D1ObP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 10:31:15 -0400
-Received: by mail-ia0-f173.google.com with SMTP id 21so1545538iay.32
-        for <netdev@vger.kernel.org>; Sun, 28 Apr 2013 07:31:14 -0700 (PDT)
-In-Reply-To: <517AA41C.4040205@intel.com>
+Received: from mail-ia0-f176.google.com ([209.85.210.176]:41760 "EHLO
+	mail-ia0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755227Ab3D1Oon (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 10:44:43 -0400
+Received: by mail-ia0-f176.google.com with SMTP id l27so4361699iae.7
+        for <netdev@vger.kernel.org>; Sun, 28 Apr 2013 07:44:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alex,
+This is a multi-part message in MIME format.
+--------------050306030203050200040804
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-On 13-04-26 11:58 AM, Alexander Duyck wrote:
 
-> Getting it to compile is kind of important since it was preventing me
-> from completing the build for iproute2 as I had another fix I needed to
-> test.
-
-So i just went back and looked. I was under the impression the original
-patch from Hasan was not incorporated, it turns out it was (I just didnt
-get the usual "applied" email; ands unfortunately for some reason i
-showed up as the author instead of Hasan). It is the patch you are 
-referring to.
-
-Second - I did compile this on Debian squeeze which is iptables 1.4.8
-based; lucky, I still have that machine around, so i just verified again
-that the current git tree compiles fine there.
-So this could be a fedora specific issue.
-What does the generated Config file have for you?
-on squeeze:
-IPT_LIB_DIR:=/lib/xtables
-
->
-> If you have some test case you want me to run just let me know.  All I
-> did here is revert the changes that I believe were made incorrectly for
-> versions prior to 1.4.10 in "iproute2: act_ipt fix xtables breakage".
-> It states it was fixing it for versions starting in 1.4.10 which I am
-> assuming is the XTABLES_VERSION_CODE >= 6 case so it should not have
-> modified the 3 parameter case for versions prior to 6 which is what I
-> corrected.
->
-
-Are you sure about that? Please double check again, i see 4 parameters.
-Having said that the mystery and breakages may have to do with the way
-the different distros package iptables.
+Thanks to Jan for this suggestion.
+Hopefully this would ease some of the pain.
 
 cheers,
 jamal
+
+--------------050306030203050200040804
+Content-Type: text/plain; charset=UTF-8;
+ name="catch-ipt-upgrade"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="catch-ipt-upgrade"
+
+commit ba9b18dbcad853e22ea2b8ecf87d53ef2f6cf58c
+Author: Jamal Hadi Salim <jhs@mojatatu.com>
+Date:   Sun Apr 28 07:41:47 2013 -0400
+
+    Detect future iptable changes interfaces earlier in the dev
+    cycles. Hopefully someone is going to complain about such breakage
+    and we'll get the fix in sooner.
+    
+    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+diff --git a/tc/m_xt.c b/tc/m_xt.c
+index 3edf520..b266337 100644
+--- a/tc/m_xt.c
++++ b/tc/m_xt.c
+@@ -129,6 +129,10 @@ static int parse_ipt(struct action_util *a,int *argc_p,
+ 	__u32 hook = 0, index = 0;
+ 	struct option *opts = NULL;
+ 
++#if (XTABLES_VERSION_CODE > 7)
++#error Someone call the guy who changed xtables ver 7 and \
++	make him fix it^W^W^W^W say you need help.
++#endif
+ 	xtables_init_all(&tcipt_globals, NFPROTO_IPV4);
+ 	set_lib_dir();
+ 
+
+--------------050306030203050200040804--
