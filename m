@@ -1,64 +1,121 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the net
- tree
-Date: Sun, 28 Apr 2013 16:49:33 +0300
-Message-ID: <20130428164933.6d3da501@lb-tlvb-yuvalmin.il.broadcom.com>
-References: <20130426132447.c7b06622240088ccad366b03@canb.auug.org.au>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH] net_sched:  act_ipt forward compat with xtables
+Date: Sun, 28 Apr 2013 11:06:38 -0400
+Message-ID: <517D3AFE.8020001@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
+Content-Type: multipart/mixed;
+ boundary="------------070104090809060905020405"
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Hasan Chowdhury <shemonc@gmail.com>,
+	Jan Engelhardt <jengelh@inai.de>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ia0-f182.google.com ([209.85.210.182]:61244 "EHLO
+	mail-ia0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752108Ab3D1PGm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 11:06:42 -0400
+Received: by mail-ia0-f182.google.com with SMTP id w33so2567526iag.41
+        for <netdev@vger.kernel.org>; Sun, 28 Apr 2013 08:06:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+This is a multi-part message in MIME format.
+--------------070104090809060905020405
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Stephen Rothwell" <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130426132447.c7b06622240088ccad366b03@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
 
-> Hi all,
-> 
-> Today's linux-next merge of the net-next tree got a conflict in
-> drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c between commit
-> ecf01c22be03 ("bnx2x: Prevent NULL pointer dereference in kdump") from
-> the net tree and commit 5b0752c863d7 ("bnx2x: Fix VF statistics") from
-> the net-next tree.
-> 
-> I am not sure about this, but I just used the net tree version but I
-> assume something more may be needed and can carry the fix as
-> necessary (no action is required).
-> 
 
-Hi Stephen,
+I have done minimal testing on this on my environment. I took Jan's
+advise to simplify things.
 
-This patch adds the missing functionality from the `net-next' patch
-which was lost due to the merge.
+Hasan,
+I know you have your head buried in the sand right now; but please
+when you get the time test this patch with the latest iproute2 git
+tree and send your tested-by credential.
 
-Is `linux-next' the correct tree to send it into?
-(I couldn't designate it to `net-next' as the merge between `net' and
-`net-next' hasn't occured yet, thus no collision there)
+Dave,
+When Hasan nods I think this should also go into stable because none
+of the newer kernels work with newer iptables (which is a lot of
+distros).
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 2 ++
- 1 file changed, 2 insertions(+)
+cheers,
+jamal
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c index
-06dee5c..52cf71c 100644 ---
-a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c +++
-b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c @@ -6053,6 +6053,8
-@@ void bnx2x_pre_irq_nic_init(struct bnx2x *bp) bnx2x_init_def_sb(bp);
- 		bnx2x_update_dsb_idx(bp);
- 		bnx2x_init_sp_ring(bp);
-+	} else {
-+		bnx2x_memset_stats(bp);
- 	}
+--------------070104090809060905020405
+Content-Type: text/plain; charset=UTF-8;
+ name="patch-xt-alter2"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="patch-xt-alter2"
+
+commit 94c39d99038dd7fdea4922ae4cfb4ad683c1307c
+Author: Jamal Hadi Salim <jhs@mojatatu.com>
+Date:   Sun Apr 28 10:46:56 2013 -0400
+
+    Deal with changes in newer xtables while maintaining backward
+    compatibility. Thanks to Jan Engelhardt for suggestions.
+    
+    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+
+diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
+index e0f6de6..60d88b6 100644
+--- a/net/sched/act_ipt.c
++++ b/net/sched/act_ipt.c
+@@ -8,7 +8,7 @@
+  *		as published by the Free Software Foundation; either version
+  *		2 of the License, or (at your option) any later version.
+  *
+- * Copyright:	Jamal Hadi Salim (2002-4)
++ * Copyright:	Jamal Hadi Salim (2002-13)
+  */
+ 
+ #include <linux/types.h>
+@@ -303,17 +303,44 @@ static struct tc_action_ops act_ipt_ops = {
+ 	.walk		=	tcf_generic_walker
+ };
+ 
+-MODULE_AUTHOR("Jamal Hadi Salim(2002-4)");
++static struct tc_action_ops act_xt_ops = {
++	.kind		=	"xt",
++	.hinfo		=	&ipt_hash_info,
++	.type		=	TCA_ACT_IPT,
++	.capab		=	TCA_CAP_NONE,
++	.owner		=	THIS_MODULE,
++	.act		=	tcf_ipt,
++	.dump		=	tcf_ipt_dump,
++	.cleanup	=	tcf_ipt_cleanup,
++	.lookup		=	tcf_hash_search,
++	.init		=	tcf_ipt_init,
++	.walk		=	tcf_generic_walker
++};
++
++MODULE_AUTHOR("Jamal Hadi Salim(2002-13)");
+ MODULE_DESCRIPTION("Iptables target actions");
+ MODULE_LICENSE("GPL");
++MODULE_ALIAS("act_xt");
+ 
+ static int __init ipt_init_module(void)
+ {
+-	return tcf_register_action(&act_ipt_ops);
++	int ret1, ret2;
++	ret1 = tcf_register_action(&act_xt_ops);
++	if (ret1 < 0)
++		printk("Failed to load xt action\n");
++	ret2 = tcf_register_action(&act_ipt_ops);
++	if (ret2 < 0)
++		printk("Failed to load ipt action\n");
++
++	if (ret1 < 0 && ret2 < 0)
++		return ret1;
++	else
++		return 0;
  }
  
--- 
-1.8.1.227.g44fe835
+ static void __exit ipt_cleanup_module(void)
+ {
++	tcf_unregister_action(&act_xt_ops);
+ 	tcf_unregister_action(&act_ipt_ops);
+ }
+ 
+
+--------------070104090809060905020405--
