@@ -1,76 +1,58 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable call"
-Date: Sun, 28 Apr 2013 11:09:48 +0800
-Message-ID: <CAHrpEqRnWXV7jC+QuQe+chiEJCXOkmOz1tEdna2SPfPBQ2E=1Q@mail.gmail.com>
-References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
-	<CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
-	<20130426134415.GS1366@pengutronix.de>
-	<20130426.143309.1011152996477262852.davem@davemloft.net>
-	<20130427090545.GY1366@pengutronix.de>
-	<CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
-	<20130427120619.GA26097@electric-eye.fr.zoreil.com>
-	<CAHrpEqTE-oGcdMVk2LMffW0JWNgJ-b_+RakpCOVBy6WxA_ARGg@mail.gmail.com>
-	<20130427191600.GA30373@electric-eye.fr.zoreil.com>
+From: Tony Prisk <linux@prisktech.co.nz>
+Subject: [PATCH 0/4] Add support for velocity network driver on platform
+ devices
+Date: Sun, 28 Apr 2013 15:16:42 +1200
+Message-ID: <1367119006-31280-1-git-send-email-linux@prisktech.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Shawn Guo <shawn.guo@linaro.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: vt8500-wm8505-linux-kernel@googlegroups.com, netdev@vger.kernel.org,
+ Tony Prisk <linux@prisktech.co.nz>, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org
 To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:53032 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753758Ab3D1DJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 23:09:49 -0400
-Received: by mail-we0-f176.google.com with SMTP id s10so4636613wey.35
-        for <netdev@vger.kernel.org>; Sat, 27 Apr 2013 20:09:48 -0700 (PDT)
-In-Reply-To: <20130427191600.GA30373@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-2013/4/28 Francois Romieu <romieu@fr.zoreil.com>:
-> Frank Li <lznuaa@gmail.com> :
->> 2013/4/27, Francois Romieu <romieu@fr.zoreil.com>:
-> [...]
->> > napi_disable may sleep.
->> >
->> > fec_restart can be called with spinlock held in fec_enet_adjust_link
->>
->> You are right. Spin lock in FEC enet adjust link can be removed when
->> remove spinlock in tx and RX.
->
-> fec_restart is also called from the netdev watchdog handler (fec_timeout)
-> and tasklet can't sleep either. You should imho schedule_work from
-> fec_timeout.
+The first three patches are general tidyup.
+Patch #1 just alphabetizes the #includes to make it easier to read.
+Patch #2 replaces vptr->dev with vptr->netdev, again for clarity in the code.
+Patch #3 replaces the pci dma functions with the generic versions.
 
-I will add delay_work to fix this issue.
+I have build tested these patches but don't have a PCI velocity to run-test it.
+I can't see that they should introduce any problems as it is all renames and
+function swapping.
 
->
-> How is the driver supposed to avoid the napi context
-> fec_enet_tx:netif_queue_stopped vs fec_enet_start_xmit:netif_stop_queue
-> race since both can run on different cpu without any read/write ordering
-> enforcement between one thread netif_* and its peer {dirty/cur}_tx ?
+Patch #4 adds support for the velocity driver on devicetree platform devices.
+Binding document included. This patch is compile-tested for PCI, and boot
+tested on a VIA APC8750.
 
-This is lockless design if only one read and one write. It likes kfifo.
+I think it would be pertinent to get some tested-by's for PCI users.
 
-Assume CPU1 run xmit.  CPU2 run napi fec_enet_tx
+Regards
+Tony Prisk
 
-(1)       if (fep->cur_tx == fep->dirty_tx)
-(2)                 netif_stop_queue(ndev);
 
-if CPU2 update fep->dirty_tx before CPU1 run (1).  the condition is false.
-if CPU2 update fep->dirty_tx after (1) before (2),   netif_stop_queue
-will be called.  There are not problem at this time even though queue
-is not full here.  queue is not empty for sure here. fec_enet_tx will
-be called again when NAPI trigger by one frame finished transfer,
-fec_enet_tx will wake up send queue.
+Tony Prisk (4):
+  net: velocity: Alphabetize #includes
+  net: velocity: Rename vptr->dev to vptr->netdev
+  net: velocity: Convert to generic dma functions
+  net: velocity: Add platform device support to VIA velocity driver
 
-Most worse case is waste one BD script.
+ .../devicetree/bindings/net/via-velocity.txt       |   20 +
+ drivers/net/ethernet/via/Kconfig                   |    3 +-
+ drivers/net/ethernet/via/via-velocity.c            |  612 ++++++++++++++------
+ drivers/net/ethernet/via/via-velocity.h            |   35 +-
+ 4 files changed, 480 insertions(+), 190 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/via-velocity.txt
 
->
-> --
-> Ueimor
+-- 
+1.7.9.5
