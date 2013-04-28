@@ -1,65 +1,76 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH RFC] spinlock: split out debugging check from
- spin_lock_mutex
-Date: Sat, 27 Apr 2013 22:34:38 -0400
-Message-ID: <r2ebcsgw3twvhk8aedo0xuxg.1367116478630@email.android.com>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable call"
+Date: Sun, 28 Apr 2013 11:09:48 +0800
+Message-ID: <CAHrpEqRnWXV7jC+QuQe+chiEJCXOkmOz1tEdna2SPfPBQ2E=1Q@mail.gmail.com>
+References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
+	<CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
+	<20130426134415.GS1366@pengutronix.de>
+	<20130426.143309.1011152996477262852.davem@davemloft.net>
+	<20130427090545.GY1366@pengutronix.de>
+	<CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
+	<20130427120619.GA26097@electric-eye.fr.zoreil.com>
+	<CAHrpEqTE-oGcdMVk2LMffW0JWNgJ-b_+RakpCOVBy6WxA_ARGg@mail.gmail.com>
+	<20130427191600.GA30373@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	mingo@redhat.com
-To: bvba Bart Van Assche <info@bartvanassche.be>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:39405 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756059Ab3D1Cew (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 22:34:52 -0400
+Received: from mail-we0-f176.google.com ([74.125.82.176]:53032 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753758Ab3D1DJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 27 Apr 2013 23:09:49 -0400
+Received: by mail-we0-f176.google.com with SMTP id s10so4636613wey.35
+        for <netdev@vger.kernel.org>; Sat, 27 Apr 2013 20:09:48 -0700 (PDT)
+In-Reply-To: <20130427191600.GA30373@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-WW91J3ZlIGdvdCB0aGUgd3JvbmcgcGF0Y2ggYnVpbHQgdGhlbi4gIFRoZSBuZXRwb2xsIHBhdGgg
-d2l0aCBteSBsYXRlc3QgcGF0Y2ggbm8gbG9uZ2VyIGhhcyBhbnkgbXV0ZXhlcyBpbiBpdC4gIFRo
-aXMgcGVhcnMgdG8gYmUgYSBzZXBhcmF0ZSBwcm9ibGVtLgoKQmVzdApOZWlsCgpidmJhIEJhcnQg
-VmFuIEFzc2NoZSA8aW5mb0BiYXJ0dmFuYXNzY2hlLmJlPiB3cm90ZToKCj5PbiAwNC8yMy8xMyAx
-OTo1MCwgTmVpbCBIb3JtYW4gd3JvdGU6Cj4+IE9uIFR1ZSwgQXByIDIzLCAyMDEzIGF0IDAxOjMz
-OjE1UE0gLTA0MDAsIERhdmlkIE1pbGxlciB3cm90ZToKPj4+IEZyb206IE5laWwgSG9ybWFuIDxu
-aG9ybWFuQHR1eGRyaXZlci5jb20+Cj4+PiBEYXRlOiBUdWUsIDIzIEFwciAyMDEzIDA5OjQ0OjQz
-IC0wNDAwCj4+Pgo+Pj4+IERhdmUsIGhvdyBkbyB5b3UgZmVlbCBhYm91dCBpdD8gIEknbSBjb21m
-b3J0YWJsZSB3aXRoIHRoZSB3YWl0IHF1ZXVlIGNoYW5nZSBJJ3ZlCj4+Pj4gcHJvcG9zZWQsIGJ1
-dCBJJ3ZlIG5vdCByZWNlaXZlZCBhbnkgcmVwb3J0cyBvZiBhY3R1YWwgbmV0cG9sbCBkZWFkbG9j
-a3MgKGkuZS4KPj4+PiB0aGUgbXV0ZXggc29sdXRpb24gaXMgcmVwb3J0aW5nIGEgd2FybmluZywg
-YnV0IG5vIGFjdHVhbCBwcm9ibGVtcykuICBTbyBJIHRoaW5rCj4+Pj4gaXRzIHNhZmUgdG8gd2Fp
-dCBhIGJpdCBsb25nZXIsIHVubGVzcyB5b3UganVzdCB3YW50IHRoaXMgc3F1YXJlZCBhd2F5IG5v
-dy4KPj4+Cj4+PiBJZiBpdCdzIGp1c3QgYSB3YXJuaW5nIGFuZCBwZW9wbGUgYXJlbid0IGFjdHVh
-bGx5IGhpdHRpbmcgdGhlCj4+PiBwb3RlbnRpYWwgZGVhZGxvY2ssIGl0IGNhbiB3YWl0Lgo+Pj4K
-Pj4gQ29weSB0aGF0LiBCYXJ0LCBJJ2xsIHdhaXQgdGlsbCB5b3UgZ2V0IGJhY2sgdGhlbi4KPgo+
-KEp1c3QgYXJyaXZlZCBob21lKQo+Cj5Tb3JyeSBOZWlsLCBidXQgSSBjYW4gc3RpbGwgdHJpZ2dl
-ciB0aGUgQ1BVIHN0dWNrIG1lc3NhZ2VzIHdpdGgga2VybmVsIHYzLjktcmM4LTI0LWdkN2Q3Mjcx
-Ogo+Cj5rZXJuZWw6IEJVRzogc29mdCBsb2NrdXAgLSBDUFUjMCBzdHVjayBmb3IgMjJzISBbcnM6
-bWFpbiBROlJlZzo2MDFdCj5rZXJuZWw6IGlycSBldmVudCBzdGFtcDogMTk5OTE5Mgo+a2VybmVs
-OiBoYXJkaXJxcyBsYXN0ICBlbmFibGVkIGF0ICgxOTk5MTkxKTogWzxmZmZmZmZmZjgxMDNlODlk
-Pl0gY29uc29sZV91bmxvY2srMHg0MWQvMHg0NTAKPmtlcm5lbDogaGFyZGlycXMgbGFzdCBkaXNh
-YmxlZCBhdCAoMTk5OTE5Mik6IFs8ZmZmZmZmZmY4MTQzZTk2YT5dIGFwaWNfdGltZXJfaW50ZXJy
-dXB0KzB4NmEvMHg4MAo+a2VybmVsOiBzb2Z0aXJxcyBsYXN0ICBlbmFibGVkIGF0ICgxOTk5MTg4
-KTogWzxmZmZmZmZmZjgxMDQ0ZTI2Pl0gX19kb19zb2Z0aXJxKzB4MTk2LzB4MjgwCj5rZXJuZWw6
-IHNvZnRpcnFzIGxhc3QgZGlzYWJsZWQgYXQgKDE5OTkxODEpOiBbPGZmZmZmZmZmODEwNDUwYzU+
-XSBpcnFfZXhpdCsweGI1LzB4YzAKPmtlcm5lbDogQ1BVIDAgCj5rZXJuZWw6IFBpZDogNjAxLCBj
-b21tOiByczptYWluIFE6UmVnIFRhaW50ZWQ6IEcgICAgICAgICAgIE8gMy45LjAtcmM4LWRlYnVn
-KyAjMSBTeXN0ZW0gbWFudWZhY3R1cmVyIFA1USBERUxVWEUvUDVRIERFTFVYRQo+a2VybmVsOiBS
-SVA6IDAwMTA6WzxmZmZmZmZmZjgxMDNlOGEwPl0gIFs8ZmZmZmZmZmY4MTAzZThhMD5dIGNvbnNv
-bGVfdW5sb2NrKzB4NDIwLzB4NDUwCj5rZXJuZWw6IENhbGwgVHJhY2U6Cj5rZXJuZWw6IFs8ZmZm
-ZmZmZmY4MTJiYmYzNz5dIGRvX2Nvbl93cml0ZS5wYXJ0LjE5KzB4ODg3LzB4MjA0MAo+a2VybmVs
-OiBbPGZmZmZmZmZmODEyYTUyYjc+XSA/IHByb2Nlc3Nfb3V0cHV0KzB4MzcvMHg3MAo+a2VybmVs
-OiBbPGZmZmZmZmZmODE0MzE2ZmM+XSA/IG11dGV4X2xvY2tfbmVzdGVkKzB4MjhjLzB4MzUwCj5r
-ZXJuZWw6IFs8ZmZmZmZmZmY4MTJhNTJiNz5dID8gcHJvY2Vzc19vdXRwdXQrMHgzNy8weDcwCj5r
-ZXJuZWw6IFs8ZmZmZmZmZmY4MTJiZDc2ND5dIGNvbl93cml0ZSsweDM0LzB4NTAKPmtlcm5lbDog
-WzxmZmZmZmZmZjgxMmE1MWU5Pl0gZG9fb3V0cHV0X2NoYXIrMHgxNzkvMHgyMTAKPmtlcm5lbDog
-WzxmZmZmZmZmZjgxMmE1MmNkPl0gcHJvY2Vzc19vdXRwdXQrMHg0ZC8weDcwCj5rZXJuZWw6IFs8
-ZmZmZmZmZmY4MTJhNTlkMD5dIG5fdHR5X3dyaXRlKzB4MjEwLzB4NDgwCj5rZXJuZWw6IFs8ZmZm
-ZmZmZmY4MTA3MjcxMD5dID8gdHJ5X3RvX3dha2VfdXArMHgyZTAvMHgyZTAKPmtlcm5lbDogWzxm
-ZmZmZmZmZjgxMmEyODM5Pl0gdHR5X3dyaXRlKzB4MTU5LzB4MzAwCj5rZXJuZWw6IFs8ZmZmZmZm
-ZmY4MTA5MzI2Zj5dID8gbG9ja19yZWxlYXNlX2hvbGR0aW1lLnBhcnQuMjIrMHhmLzB4MTgwCj5r
-ZXJuZWw6IFs8ZmZmZmZmZmY4MTJhNTdjMD5dID8gbl90dHlfcG9sbCsweDFjMC8weDFjMAo+a2Vy
-bmVsOiBbPGZmZmZmZmZmODExNTFhM2I+XSB2ZnNfd3JpdGUrMHhhYi8weDE3MAo+a2VybmVsOiBb
-PGZmZmZmZmZmODExNTFlYTU+XSBzeXNfd3JpdGUrMHg1NS8weGEwCj5rZXJuZWw6IFs8ZmZmZmZm
-ZmY4MTQzZGQ4Mj5dIHN5c3RlbV9jYWxsX2Zhc3RwYXRoKzB4MTYvMHgxYgo+Cj5CYXJ0Lgo+Cg==
+2013/4/28 Francois Romieu <romieu@fr.zoreil.com>:
+> Frank Li <lznuaa@gmail.com> :
+>> 2013/4/27, Francois Romieu <romieu@fr.zoreil.com>:
+> [...]
+>> > napi_disable may sleep.
+>> >
+>> > fec_restart can be called with spinlock held in fec_enet_adjust_link
+>>
+>> You are right. Spin lock in FEC enet adjust link can be removed when
+>> remove spinlock in tx and RX.
+>
+> fec_restart is also called from the netdev watchdog handler (fec_timeout)
+> and tasklet can't sleep either. You should imho schedule_work from
+> fec_timeout.
+
+I will add delay_work to fix this issue.
+
+>
+> How is the driver supposed to avoid the napi context
+> fec_enet_tx:netif_queue_stopped vs fec_enet_start_xmit:netif_stop_queue
+> race since both can run on different cpu without any read/write ordering
+> enforcement between one thread netif_* and its peer {dirty/cur}_tx ?
+
+This is lockless design if only one read and one write. It likes kfifo.
+
+Assume CPU1 run xmit.  CPU2 run napi fec_enet_tx
+
+(1)       if (fep->cur_tx == fep->dirty_tx)
+(2)                 netif_stop_queue(ndev);
+
+if CPU2 update fep->dirty_tx before CPU1 run (1).  the condition is false.
+if CPU2 update fep->dirty_tx after (1) before (2),   netif_stop_queue
+will be called.  There are not problem at this time even though queue
+is not full here.  queue is not empty for sure here. fec_enet_tx will
+be called again when NAPI trigger by one frame finished transfer,
+fec_enet_tx will wake up send queue.
+
+Most worse case is waste one BD script.
+
+>
+> --
+> Ueimor
