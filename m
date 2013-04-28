@@ -1,154 +1,35 @@
-From: Frank Li <Frank.Li@freescale.com>
-Subject: [PATCH 1/1 v2 net] net: fec: fix kernel oops when plug/unplug cable many times
-Date: Sun, 28 Apr 2013 11:08:28 +0800
-Message-ID: <1367118508-12340-1-git-send-email-Frank.Li@freescale.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable
+ call"
+Date: Sun, 28 Apr 2013 01:11:44 -0400 (EDT)
+Message-ID: <20130428.011144.1722290947259121116.davem@davemloft.net>
+References: <20130426134415.GS1366@pengutronix.de>
+	<20130426.143309.1011152996477262852.davem@davemloft.net>
+	<20130427090545.GY1366@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Frank Li <Frank.Li@freescale.com>
-To: <romieu@fr.zoreil.com>, <r.schwebel@pengutronix.de>,
-	<davem@davemloft.net>, <l.stach@pengutronix.de>,
-	<netdev@vger.kernel.org>, <festevam@gmail.com>,
-	<shawn.guo@linaro.org>, <lznuaa@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: lznuaa@gmail.com, l.stach@pengutronix.de, netdev@vger.kernel.org,
+	Frank.Li@freescale.com, festevam@gmail.com, shawn.guo@linaro.org
+To: r.schwebel@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0185.outbound.messaging.microsoft.com ([213.199.154.185]:23072
-	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750725Ab3D1Epb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 00:45:31 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:36666 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750725Ab3D1FLr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 28 Apr 2013 01:11:47 -0400
+In-Reply-To: <20130427090545.GY1366@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-reproduce steps
- 1. flood ping from other machine
- 	ping -f -s 41000 IP
- 2. run below script
-    while [ 1 ]; do ethtool -s eth0 autoneg off;
-    sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
+From: Robert Schwebel <r.schwebel@pengutronix.de>
+Date: Sat, 27 Apr 2013 11:05:45 +0200
 
-You can see oops in one hour.
+> Please consider to merge the reverts. Otherwhise FEC will be broken
+> in 3.9.
 
-The reason is fec_restart clear BD but NAPI may use it.
-The solution is disable NAPI and stop xmit when reset BD.
-disable NAPI may sleep, so fec_restart can't be call in
-atomic context.
+The amount of effort you put into this email, and complaining,
+far exceed that necessary to help Frank write a fix.
 
-Signed-off-by: Frank Li <Frank.Li@freescale.com>
----
-
-Change from V1 to V2
-	Add netif_tx_lock(ndev) to avoid xmit runing when reset hardware	
-
- drivers/net/ethernet/freescale/fec.c |   41 +++++++++++++++++++++++++++++-----
- drivers/net/ethernet/freescale/fec.h |    3 +-
- 2 files changed, 37 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
-index 73195f6..d140b50 100644
---- a/drivers/net/ethernet/freescale/fec.c
-+++ b/drivers/net/ethernet/freescale/fec.c
-@@ -403,6 +403,12 @@ fec_restart(struct net_device *ndev, int duplex)
- 	const struct platform_device_id *id_entry =
- 				platform_get_device_id(fep->pdev);
- 	int i;
-+	if (netif_running(ndev)) {
-+		napi_disable(&fep->napi);
-+		netif_stop_queue(ndev);
-+		netif_tx_lock(ndev);
-+	}
-+
- 	u32 temp_mac[2];
- 	u32 rcntl = OPT_FRAME_SIZE | 0x04;
- 	u32 ecntl = 0x2; /* ETHEREN */
-@@ -559,6 +565,12 @@ fec_restart(struct net_device *ndev, int duplex)
- 
- 	/* Enable interrupts we wish to service */
- 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
-+
-+	if (netif_running(ndev)) {
-+		napi_enable(&fep->napi);
-+		netif_wake_queue(ndev);
-+		netif_tx_unlock(ndev);
-+	}
- }
- 
- static void
-@@ -598,8 +610,20 @@ fec_timeout(struct net_device *ndev)
- 
- 	ndev->stats.tx_errors++;
- 
--	fec_restart(ndev, fep->full_duplex);
--	netif_wake_queue(ndev);
-+	fep->timeout = 1;
-+	schedule_delayed_work(&fep->delay_work, msecs_to_jiffies(1));
-+}
-+
-+static void fec_enet_work(struct work_struct *work)
-+{
-+	struct fec_enet_private *fep =
-+		container_of(work, struct fec_enet_private, delay_work.work);
-+
-+	if (fep->timeout) {
-+		fep->timeout = 0;
-+		fec_restart(fep->netdev, fep->full_duplex);
-+		netif_wake_queue(fep->netdev);
-+	}
- }
- 
- static void
-@@ -996,9 +1020,6 @@ static void fec_enet_adjust_link(struct net_device *ndev)
- 			status_change = 1;
- 		}
- 
--		/* if any of the above changed restart the FEC */
--		if (status_change)
--			fec_restart(ndev, phy_dev->duplex);
- 	} else {
- 		if (fep->link) {
- 			fec_stop(ndev);
-@@ -1010,8 +1031,14 @@ static void fec_enet_adjust_link(struct net_device *ndev)
- spin_unlock:
- 	spin_unlock_irqrestore(&fep->hw_lock, flags);
- 
--	if (status_change)
-+	if (status_change) {
-+		/* if any of the above changed restart the FEC,
-+		 * fec_restart may sleep. can't call it in spin_lock
-+		 */
-+		if (phy_dev->link)
-+			fec_restart(ndev, phy_dev->duplex);
- 		phy_print_status(phy_dev);
-+	}
- }
- 
- static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-@@ -1882,6 +1909,7 @@ fec_probe(struct platform_device *pdev)
- 	if (ret)
- 		goto failed_register;
- 
-+	INIT_DELAYED_WORK(&fep->delay_work, fec_enet_work);
- 	return 0;
- 
- failed_register:
-@@ -1918,6 +1946,7 @@ fec_drv_remove(struct platform_device *pdev)
- 	struct resource *r;
- 	int i;
- 
-+	cancel_delayed_work_sync(&fep->delay_work);
- 	unregister_netdev(ndev);
- 	fec_enet_mii_remove(fep);
- 	del_timer_sync(&fep->time_keep);
-diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
-index eb43729..a367b21 100644
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@ -260,7 +260,8 @@ struct fec_enet_private {
- 	int hwts_rx_en;
- 	int hwts_tx_en;
- 	struct timer_list time_keep;
--
-+	struct delayed_work delay_work;
-+	int timeout;
- };
- 
- void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev);
--- 
-1.7.1
+I've already told you how I want to see this resolved, and you
+haven't given me any new information, so my point of view has
+not changed.
