@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 18/18] sctp: Correct type and usage of sctp_end_cksum()
-Date: Mon, 29 Apr 2013 20:22:24 +0200
-Message-ID: <1367259744-8922-19-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 16/18] netfilter: nfnetlink_queue: add skb info attribute
+Date: Mon, 29 Apr 2013 20:22:22 +0200
+Message-ID: <1367259744-8922-17-git-send-email-pablo@netfilter.org>
 References: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,78 +10,89 @@ In-Reply-To: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <horms@verge.net.au>
+From: Florian Westphal <fw@strlen.de>
 
-Change the type of the crc32 parameter of sctp_end_cksum()
-from __be32 to __u32 to reflect that fact that it is passed
-to cpu_to_le32().
+Once we allow userspace to receive gso/gro packets, userspace
+needs to be able to determine when checksums appear to be
+broken, but are not.
 
-There are five in-tree users of sctp_end_cksum().
-The following four had warnings flagged by sparse which are
-no longer present with this change.
+NFQA_SKB_CSUMNOTREADY means 'checksums will be fixed in kernel
+later, pretend they are ok'.
 
-net/netfilter/ipvs/ip_vs_proto_sctp.c:sctp_nat_csum()
-net/netfilter/ipvs/ip_vs_proto_sctp.c:sctp_csum_check()
-net/sctp/input.c:sctp_rcv_checksum()
-net/sctp/output.c:sctp_packet_transmit()
+NFQA_SKB_GSO could be used for statistics, or to determine when
+packet size exceeds mtu.
 
-The fifth user is net/netfilter/nf_nat_proto_sctp.c:sctp_manip_pkt().
-It has been updated to pass a __u32 instead of a __be32,
-the value in question was already calculated in cpu byte-order.
-
-net/netfilter/nf_nat_proto_sctp.c:sctp_manip_pkt() has also
-been updated to assign the return value of sctp_end_cksum()
-directly to a variable of type __le32, matching the
-type of the return value. Previously the return value
-was assigned to a variable of type __be32 and then that variable
-was finally assigned to another variable of type __le32.
-
-Problems flagged by sparse.
-Compile and sparse tested only.
-
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/sctp/checksum.h       |    2 +-
- net/netfilter/nf_nat_proto_sctp.c |    5 ++---
- 2 files changed, 3 insertions(+), 4 deletions(-)
+ include/uapi/linux/netfilter/nfnetlink_queue.h |    7 +++++++
+ net/netfilter/nfnetlink_queue_core.c           |   16 ++++++++++++++++
+ 2 files changed, 23 insertions(+)
 
-diff --git a/include/net/sctp/checksum.h b/include/net/sctp/checksum.h
-index befc8d2..5a2110d 100644
---- a/include/net/sctp/checksum.h
-+++ b/include/net/sctp/checksum.h
-@@ -77,7 +77,7 @@ static inline __u32 sctp_update_cksum(__u8 *buffer, __u16 length, __u32 crc32)
- 	return sctp_crc32c(crc32, buffer, length);
+diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
+index 70ec8c2..0069da3 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_queue.h
++++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
+@@ -45,6 +45,7 @@ enum nfqnl_attr_type {
+ 	NFQA_CT,			/* nf_conntrack_netlink.h */
+ 	NFQA_CT_INFO,			/* enum ip_conntrack_info */
+ 	NFQA_CAP_LEN,			/* __u32 length of captured packet */
++	NFQA_SKB_INFO,			/* __u32 skb meta information */
+ 
+ 	__NFQA_MAX
+ };
+@@ -98,4 +99,10 @@ enum nfqnl_attr_config {
+ #define NFQA_CFG_F_CONNTRACK			(1 << 1)
+ #define NFQA_CFG_F_MAX				(1 << 2)
+ 
++/* flags for NFQA_SKB_INFO */
++/* packet appears to have wrong checksums, but they are ok */
++#define NFQA_SKB_CSUMNOTREADY (1 << 0)
++/* packet is GSO (i.e., exceeds device mtu) */
++#define NFQA_SKB_GSO (1 << 1)
++
+ #endif /* _NFNETLINK_QUEUE_H */
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index edbae4c..d052cd6 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -272,6 +272,18 @@ nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
+ 	skb_shinfo(to)->nr_frags = j;
  }
  
--static inline __le32 sctp_end_cksum(__be32 crc32)
-+static inline __le32 sctp_end_cksum(__u32 crc32)
- {
- 	return cpu_to_le32(~crc32);
- }
-diff --git a/net/netfilter/nf_nat_proto_sctp.c b/net/netfilter/nf_nat_proto_sctp.c
-index e64faa5..396e55d 100644
---- a/net/netfilter/nf_nat_proto_sctp.c
-+++ b/net/netfilter/nf_nat_proto_sctp.c
-@@ -36,7 +36,7 @@ sctp_manip_pkt(struct sk_buff *skb,
- {
- 	struct sk_buff *frag;
- 	sctp_sctphdr_t *hdr;
--	__be32 crc32;
-+	__u32 crc32;
++static int nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet)
++{
++	__u32 flags = 0;
++
++	if (packet->ip_summed == CHECKSUM_PARTIAL)
++		flags = NFQA_SKB_CSUMNOTREADY;
++	if (skb_is_gso(packet))
++		flags |= NFQA_SKB_GSO;
++
++	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
++}
++
+ static struct sk_buff *
+ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+ 			   struct nf_queue_entry *entry,
+@@ -301,6 +313,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+ #endif
+ 		+ nla_total_size(sizeof(u_int32_t))	/* mark */
+ 		+ nla_total_size(sizeof(struct nfqnl_msg_packet_hw))
++		+ nla_total_size(sizeof(u_int32_t))	/* skbinfo */
+ 		+ nla_total_size(sizeof(u_int32_t));	/* cap_len */
  
- 	if (!skb_make_writable(skb, hdroff + sizeof(*hdr)))
- 		return false;
-@@ -55,8 +55,7 @@ sctp_manip_pkt(struct sk_buff *skb,
- 	skb_walk_frags(skb, frag)
- 		crc32 = sctp_update_cksum((u8 *)frag->data, skb_headlen(frag),
- 					  crc32);
--	crc32 = sctp_end_cksum(crc32);
--	hdr->checksum = crc32;
-+	hdr->checksum = sctp_end_cksum(crc32);
+ 	if (entskb->tstamp.tv64)
+@@ -454,6 +467,9 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+ 	if (cap_len > 0 && nla_put_be32(skb, NFQA_CAP_LEN, htonl(cap_len)))
+ 		goto nla_put_failure;
  
- 	return true;
- }
++	if (nfqnl_put_packet_info(skb, entskb))
++		goto nla_put_failure;
++
+ 	if (data_len) {
+ 		struct nlattr *nla;
+ 
 -- 
 1.7.10.4
 
