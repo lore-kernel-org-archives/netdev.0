@@ -1,56 +1,45 @@
 From: Nicolas Schichan <nschichan@freebox.fr>
-Subject: Re: [RFC PATCH net-next 0/6] seccomp filter JIT
-Date: Mon, 29 Apr 2013 14:18:13 +0200
-Message-ID: <517E6505.6030005@freebox.fr>
-References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com> <20130426112539.GA3736@osiris> <517A6915.2020208@redhat.com> <CAKU6vybdnpoM-szTrJRDVM2sqNPvAe3Tszg+tCuziKSOEXjJ1w@mail.gmail.com>
+Subject: Re: [PATCH v2 net-next 3/3] ARM: net: bpf_jit_32: support BPF_S_ANC_SECCOMP_LD_W
+ instruction
+Date: Mon, 29 Apr 2013 14:39:29 +0200
+Message-ID: <517E6A01.4040407@freebox.fr>
+References: <1367029047-14830-1-git-send-email-xi.wang@gmail.com> <1367029047-14830-4-git-send-email-xi.wang@gmail.com> <517B6FC5.7070003@redhat.com> <CAKU6vyathpp4Ky_kcTu_WFenLEdo9Mai4TUE=EWYo9=UuQUMcg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>,
+Cc: Daniel Borkmann <dborkman@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
 	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Russell King <linux@arm.linux.org.uk>,
-	Eric Dumazet <edumazet@google.com>,
 	Will Drewry <wad@chromium.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mircea Gherzan <mgherzan@gmail.com>
+	Eric Dumazet <edumazet@google.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	David Laight <david.laight@aculab.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>
 To: Xi Wang <xi.wang@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAKU6vybdnpoM-szTrJRDVM2sqNPvAe3Tszg+tCuziKSOEXjJ1w@mail.gmail.com>
+In-Reply-To: <CAKU6vyathpp4Ky_kcTu_WFenLEdo9Mai4TUE=EWYo9=UuQUMcg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 04/26/2013 02:31 PM, Xi Wang wrote:
-> Thanks for the pointer.
+On 04/27/2013 08:32 PM, Xi Wang wrote:
+> On Sat, Apr 27, 2013 at 2:27 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>> Arent't you doing here a similar thing in terms of getting arch as Eric
+>> criticized (Nicolas' implementation does not use that part btw.)? Also,
+>> even if it would be possible here, now your 2 JIT implementations differ
+>> in behaviour. I think this is unintended.
 >
-> For the ARM part, looks like Nicolas's patch requires to implement two
-> wrappers for each arch:
->
->    void seccomp_jit_compile(struct seccomp_filter *fp);
->    void seccomp_jit_free(struct seccomp_filter *fp);
->
-> The implementation of these wrappers is almost identical to:
->
->    void bpf_jit_compile(struct sk_filter *fp);
->    void bpf_jit_free(struct sk_filter *fp);
->
-> While this patch uses a unified interface for both packet & seccomp filters.
->
->    bpf_func_t bpf_jit_compile(struct sock_filter *filter, unsigned int flen);
->    void bpf_jit_free(bpf_func_t bpf_func);
->
-> Shouldn't be hard to merge though.
+> Eric's comment was about x86, where the audit arch could change on the
+> fly.  For ARM, the audit arch doesn't change---syscall_get_arch()
+> always returns AUDIT_ARCH_ARM.
 
 Hi,
 
-I went for the solution I submitted because I wanted to avoid changes to the 
-current bpf_jit_compile prototypes for all currently supported architectures 
-(for most of which, I can only compile-test).
-
-My solution also allows the seccomp jit code to be disabled while still 
-allowing jit on socket filters (via a Kconfig option). This might be useful to 
-some people.
+Indeed, syscall_get_arch() will only return AUDIT_ARCH_ARM on ARM right now. 
+This might be more future proof to call syscall_get_arch() though. The main 
+reason that comes to my mind would be an AArch64 kernel with support for 
+AArch32 userland tasks. This would I expect require a different AUDIT_ARCH 
+constant to differenciate between AArch64 and AArch32 tasks.
 
 Regards,
 
