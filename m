@@ -1,50 +1,77 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [PATCH net-next v3] ipv6: Kill ipv6 dependency of icmpv6_send().
-Date: Mon, 29 Apr 2013 10:44:45 -0700
-Message-ID: <CALnjE+pTekHaz760QQ-t2dbcvGkAf-sG5T9sj_iD3S4C-zgxFQ@mail.gmail.com>
-References: <1366924110-3397-1-git-send-email-pshelar@nicira.com>
-	<klkjcu$drc$1@ger.gmane.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 00/18] netfilter updates for net-next
+Date: Mon, 29 Apr 2013 19:50:35 +0200
+Message-ID: <20130429175034.GA9307@localhost>
+References: <1367089103-8394-1-git-send-email-pablo@netfilter.org>
+ <20130429.113720.1954422885523724201.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: multipart/mixed; boundary="BXVAT5kNtrzKuDFl"
+Content-Transfer-Encoding: 8bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog136.obsmtp.com ([74.125.149.85]:35989 "HELO
-	na3sys009aog136.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758399Ab3D2Ror (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 13:44:47 -0400
-Received: by mail-qe0-f72.google.com with SMTP id 9so8208775qea.3
-        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 10:44:46 -0700 (PDT)
-In-Reply-To: <klkjcu$drc$1@ger.gmane.org>
+Received: from mail.us.es ([193.147.175.20]:35900 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758377Ab3D2Rul (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Apr 2013 13:50:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20130429.113720.1954422885523724201.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Apr 28, 2013 at 6:46 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Thu, 25 Apr 2013 at 21:08 GMT, Pravin B Shelar <pshelar@nicira.com> wrote:
->> diff --git a/net/ipv6/ip6_icmp.c b/net/ipv6/ip6_icmp.c
->> new file mode 100644
->> index 0000000..4578e23
->> --- /dev/null
->> +++ b/net/ipv6/ip6_icmp.c
->> @@ -0,0 +1,47 @@
->> +#include <linux/export.h>
->> +#include <linux/icmpv6.h>
->> +#include <linux/mutex.h>
->> +#include <linux/netdevice.h>
->> +#include <linux/spinlock.h>
->> +
->> +#include <net/ipv6.h>
->> +
->> +#if IS_ENABLED(CONFIG_IPV6)
->> +
->
-> I don't think we need #if IS_ENABLED(CONFIG_IPV6) inside
-> net/ipv6/ip6_icmp.c.
->
-This file is statically linked to kernel, So it needs this check to
-avoid compilation errors.
 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--BXVAT5kNtrzKuDFl
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: 8bit
+
+On Mon, Apr 29, 2013 at 11:37:20AM -0400, David Miller wrote:
+> 
+> This doesn't compile:
+> 
+> net/sched/em_ipset.c:86:5: error: ‘struct ip_set_adt_opt’ has no member named ‘timeout’
+
+Sorry, I overlooked em_ipset, it was not appropriately adapted after
+the new ipset extension infrastructure was added.
+
+The attached patch fixes the problem. Should I send a new pull
+request?
+
+--BXVAT5kNtrzKuDFl
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-sched-em_ipset-fix-compilation-after-new-ipset-exten.patch"
+
+>From 8a61fa178549c91822ac4c148053d6b6a519a6d5 Mon Sep 17 00:00:00 2001
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon, 29 Apr 2013 19:44:00 +0200
+Subject: [PATCH] sched: em_ipset: fix compilation after new ipset extension
+ infrastructure
+
+This fixes compilation for the ipset packet classifier which was not
+appropriately adapted when the new ipset extension infrastructure was
+added in (80eddba netfilter: ipset: Introduce extensions to elements
+in the core).
+
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/sched/em_ipset.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/sched/em_ipset.c b/net/sched/em_ipset.c
+index 3130320..938b7cb 100644
+--- a/net/sched/em_ipset.c
++++ b/net/sched/em_ipset.c
+@@ -83,7 +83,7 @@ static int em_ipset_match(struct sk_buff *skb, struct tcf_ematch *em,
+ 	opt.dim = set->dim;
+ 	opt.flags = set->flags;
+ 	opt.cmdflags = 0;
+-	opt.timeout = ~0u;
++	opt.ext.timeout = ~0u;
+ 
+ 	network_offset = skb_network_offset(skb);
+ 	skb_pull(skb, network_offset);
+-- 
+1.7.10.4
+
+
+--BXVAT5kNtrzKuDFl--
