@@ -1,39 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] bridge: Add fdb dst check during fdb update
-Date: Mon, 29 Apr 2013 11:41:11 -0400 (EDT)
-Message-ID: <20130429.114111.200161303297538854.davem@davemloft.net>
-References: <1365968593-28725-1-git-send-email-roopa@cumulusnetworks.com>
-	<20130422155649.2e4aebcf@nehalam.linuxnetplumber.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH][net-next] gianfar: Fix reported sent bytes to BQL for
+ Tx timestamping
+Date: Mon, 29 Apr 2013 08:42:45 -0700
+Message-ID: <1367250165.8964.319.camel@edumazet-glaptop>
+References: <1367240268-32609-1-git-send-email-claudiu.manoil@freescale.com>
+	 <1367243593.8964.306.camel@edumazet-glaptop>
+	 <517E8354.1010503@freescale.com>
+	 <1367249009.8964.312.camel@edumazet-glaptop>
+	 <1367249315.8964.314.camel@edumazet-glaptop>
+	 <1367249990.8964.317.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: roopa@cumulusnetworks.com, netdev@vger.kernel.org,
-	nolan@cumulusnetworks.com, shm@cumulusnetworks.com,
-	wkok@cumulusnetworks.com
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57295 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756809Ab3D2PlO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 11:41:14 -0400
-In-Reply-To: <20130422155649.2e4aebcf@nehalam.linuxnetplumber.net>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:65246 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757386Ab3D2Pms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 11:42:48 -0400
+Received: by mail-pd0-f172.google.com with SMTP id 4so3695945pdd.17
+        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 08:42:48 -0700 (PDT)
+In-Reply-To: <1367249990.8964.317.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 22 Apr 2013 15:56:49 -0700
+On Mon, 2013-04-29 at 08:39 -0700, Eric Dumazet wrote:
 
-> From: roopa <roopa@cumulusnetworks.com>
-> 
-> Current bridge fdb update code does not seem to update the port
-> during fdb update. This patch adds a check for fdb dst (port)
-> change during fdb update. Also rearranges the call to
-> fdb_notify to send only one notification for create and update.
-> 
-> Changelog:
-> v2 - Change notify flag to bool
-> 
-> Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+> +	*(unsigned int)skb->cb = len;
 
-Applied.
+Obviously not compiled (I am in a bus right now and this driver doesnt
+compile on x86_64)
+
+*(unsigned int *)skb->cb = len;
