@@ -1,48 +1,69 @@
-From: Tino Keitel <tino.keitel@alcnetworx.de>
-Subject: Re: BQL support in gianfar causes network hickup
-Date: Mon, 29 Apr 2013 15:20:59 +0200
-Message-ID: <1367241659.6393.30.camel@keitelt1-d1.lawo.de>
-References: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6E@Exchange1.lawo.de>
-	 <50AFA599.9040108@windriver.com> <loom.20121124T213422-650@post.gmane.org>
-	 <1353800616.2590.4562.camel@edumazet-glaptop>
-	 <20121126100111.GA3728@mac.home> <1353947677.7553.2.camel@edumazet-glaptop>
-	 <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6F@Exchange1.lawo.de>
-	 <1353950255.7553.6.camel@edumazet-glaptop>
-	 <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE70@Exchange1.lawo.de>
-	 <1354019816.7553.1585.camel@edumazet-glaptop>
-	 <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE71@Exchange1.lawo.de>
-	 <1354023162.7553.1708.camel@edumazet-glaptop>
-	 <9AA65D849A88EB44B5D9B6A8BA098E23042DCF04C8BB@Exchange1.lawo.de>
-	 <CAP=VYLrbFz4UBMthg+FOqc4g0jW_4=etE+jJK6YE_EaSj8cNLA@mail.gmail.com>
-	 <9AA65D849A88EB44B5D9B6A8BA098E23042DCF04C8BE@Exchange1.lawo.de>
-	 <517E722D.4060808@freescale.com>
+From: Min Wang <ser.basis@gmail.com>
+Subject: udp packet not reach application
+Date: Mon, 29 Apr 2013 09:36:06 -0400
+Message-ID: <517E7746.6040802@gmail.com>
+References: <517AC60F.9010609@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Tino Keitel <tino.keitel@tikei.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail2.lawo.de ([80.149.95.33]:51203 "EHLO mail2.lawo.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757500Ab3D2N0r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Apr 2013 09:26:47 -0400
-In-Reply-To: <517E722D.4060808@freescale.com>
+Received: from mail-qc0-f170.google.com ([209.85.216.170]:49068 "EHLO
+	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752062Ab3D2NgK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 09:36:10 -0400
+Received: by mail-qc0-f170.google.com with SMTP id d42so3178308qca.29
+        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 06:36:09 -0700 (PDT)
+Received: from [192.168.55.254] (173-161-143-17-Philadelphia.hfc.comcastbusiness.net. [173.161.143.17])
+        by mx.google.com with ESMTPSA id s10sm12867522qam.7.2013.04.29.06.36.07
+        for <netdev@vger.kernel.org>
+        (version=TLSv1 cipher=RC4-SHA bits=128/128);
+        Mon, 29 Apr 2013 06:36:08 -0700 (PDT)
+In-Reply-To: <517AC60F.9010609@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mo, 2013-04-29 at 15:14 +0200, Claudiu Manoil wrote:
+HI
 
-> The proposed fix (passes this test):
-> http://patchwork.ozlabs.org/patch/240365/
-> 
-> Does it work for you?
+since Linux-net mailing list no longer active, so post here. Hope it is  
+the right place.
 
-Hi,
 
-thanks a lot. I'll try the patch and report back.
+I have following issue ( kernel 3.2.28), google around, could not find 
+any good similar case.
 
-Regards,
-Tino
+one the host:
+     all the  /proc/sys/net/ipv4/conf/*/rp_filter are 0
+
+    a device sent udp traffics to  my udp app ( listen on port x)
+
+
+At first, it was working as my app did get udp traffic.
+
+After a while, strace showed that my app stuck at recvfrom, no udp traffic.
+
+But tcpdump did show that the udp traffic was still coming/alive.
+
+
+Even if I restart my app, strace still showed it was stuck at recv_from.
+
+
+it seems the kernel stop or did not deliver the udp packet to my app at 
+some point.
+
+
+So I have to restart NIC interface, then I could see udp traffic 
+received at my app. (strange also?)
+
+
+What could be wrong? Driver? or Kernel or my app?
+
+At which point the kernel could possibly stop delivering the packets to 
+upper layer even though traffic seen from tcpdump?
+
+
+Thanks a lot!
+
+
+
+min
