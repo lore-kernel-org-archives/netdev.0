@@ -1,118 +1,86 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH net-next v2] openvswitch: Remove unneeded ovs_netdev_get_ifindex()
-Date: Tue, 30 Apr 2013 01:06:41 +0200
-Message-ID: <ccb6cc7843629082ac121043a00947a15561f26f.1367276702.git.tgraf@suug.ch>
-Cc: jesse@nicira.com, dev@openvswitch.org, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 173-166-109-252-newengland.hfc.comcastbusiness.net ([173.166.109.252]:51320
-	"EHLO bombadil.infradead.org" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757559Ab3D2XGw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 19:06:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when dumping
+ connections
+Date: Tue, 30 Apr 2013 02:12:10 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1304300148260.1822@ja.ssi.bg>
+References: <1366940708-10180-1-git-send-email-horms@verge.net.au> <1366940708-10180-3-git-send-email-horms@verge.net.au> <20130426080313.GC8669@dyad.programming.kicks-ass.net> <20130426154547.GC3860@linux.vnet.ibm.com> <20130426171948.GA31467@dyad.programming.kicks-ass.net>
+ <20130426174815.GI3860@linux.vnet.ibm.com> <1367000815.8964.243.camel@edumazet-glaptop> <alpine.LFD.2.00.1304271342260.1633@ja.ssi.bg> <20130427162049.GB3780@linux.vnet.ibm.com> <alpine.LFD.2.00.1304292356220.1822@ja.ssi.bg>
+ <20130429213002.GP3780@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Simon Horman <horms@verge.net.au>,
+	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>, dhaval.giani@gmail.com
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130429213002.GP3780@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The only user is get_dpifindex(), no need to redirect via the port
-operations.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
----
-V2 - Fix stylistic issue
+	Hello,
 
- net/openvswitch/datapath.c           | 3 ++-
- net/openvswitch/vport-internal_dev.c | 1 -
- net/openvswitch/vport-netdev.c       | 7 -------
- net/openvswitch/vport-netdev.h       | 1 -
- net/openvswitch/vport.h              | 2 --
- 5 files changed, 2 insertions(+), 12 deletions(-)
+On Mon, 29 Apr 2013, Paul E. McKenney wrote:
 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 74a5fe6..d12d6b8 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -56,6 +56,7 @@
- #include "datapath.h"
- #include "flow.h"
- #include "vport-internal_dev.h"
-+#include "vport-netdev.h"
- 
- 
- #define REHASH_FLOW_INTERVAL (10 * 60 * HZ)
-@@ -151,7 +152,7 @@ static int get_dpifindex(struct datapath *dp)
- 
- 	local = ovs_vport_rcu(dp, OVSP_LOCAL);
- 	if (local)
--		ifindex = local->ops->get_ifindex(local);
-+		ifindex = netdev_vport_priv(local)->dev->ifindex;
- 	else
- 		ifindex = 0;
- 
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 73682de..84e0a03 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -232,7 +232,6 @@ const struct vport_ops ovs_internal_vport_ops = {
- 	.create		= internal_dev_create,
- 	.destroy	= internal_dev_destroy,
- 	.get_name	= ovs_netdev_get_name,
--	.get_ifindex	= ovs_netdev_get_ifindex,
- 	.send		= internal_dev_recv,
- };
- 
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 40a89ae..4f01c6d 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -150,12 +150,6 @@ const char *ovs_netdev_get_name(const struct vport *vport)
- 	return netdev_vport->dev->name;
- }
- 
--int ovs_netdev_get_ifindex(const struct vport *vport)
--{
--	const struct netdev_vport *netdev_vport = netdev_vport_priv(vport);
--	return netdev_vport->dev->ifindex;
--}
--
- static unsigned int packet_length(const struct sk_buff *skb)
- {
- 	unsigned int length = skb->len - ETH_HLEN;
-@@ -206,6 +200,5 @@ const struct vport_ops ovs_netdev_vport_ops = {
- 	.create		= netdev_create,
- 	.destroy	= netdev_destroy,
- 	.get_name	= ovs_netdev_get_name,
--	.get_ifindex	= ovs_netdev_get_ifindex,
- 	.send		= netdev_send,
- };
-diff --git a/net/openvswitch/vport-netdev.h b/net/openvswitch/vport-netdev.h
-index 6478079..a3cb3a3 100644
---- a/net/openvswitch/vport-netdev.h
-+++ b/net/openvswitch/vport-netdev.h
-@@ -40,6 +40,5 @@ netdev_vport_priv(const struct vport *vport)
- 
- const char *ovs_netdev_get_name(const struct vport *);
- const char *ovs_netdev_get_config(const struct vport *);
--int ovs_netdev_get_ifindex(const struct vport *);
- 
- #endif /* vport_netdev.h */
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 7ba08c3..68a377b 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -124,7 +124,6 @@ struct vport_parms {
-  * have any configuration.
-  * @get_name: Get the device's name.
-  * @get_config: Get the device's configuration.
-- * @get_ifindex: Get the system interface index associated with the device.
-  * May be null if the device does not have an ifindex.
-  * @send: Send a packet on the device.  Returns the length of the packet sent.
-  */
-@@ -141,7 +140,6 @@ struct vport_ops {
- 	/* Called with rcu_read_lock or ovs_mutex. */
- 	const char *(*get_name)(const struct vport *);
- 	void (*get_config)(const struct vport *, void *);
--	int (*get_ifindex)(const struct vport *);
- 
- 	int (*send)(struct vport *, struct sk_buff *);
- };
--- 
-1.7.11.7
+> On Tue, Apr 30, 2013 at 12:08:18AM +0300, Julian Anastasov wrote:
+> > 
+> > 	Hello,
+> > 
+> > On Sat, 27 Apr 2013, Paul E. McKenney wrote:
+> > 
+> > > I would instead suggest something like:
+> > > 
+> > > #ifndef CONFIG_PREEMPT_RCU
+> > > 
+> > > But yes, in the CONFIG_PREEMPT_RCU case, the cond_resched() is not
+> > > needed.
+> > 
+> > 	Hm, is this correct? If I follow the ifdefs
+> > preempt_schedule is called when CONFIG_PREEMPT is
+> > defined _and_ CONFIG_PREEMPT_RCU is not defined.
+> > Your example for CONFIG_PREEMPT_RCU is the opposite to this?
+> 
+> Yep, I really did intend to say "#ifndef CONFIG_PREEMPT_RCU".
+> 
+> A couple of things to keep in mind:
+> 
+> 1.	Although rcu_read_unlock() does map to preempt_enable() for
+> 	CONFIG_TINY_RCU and CONFIG_TREE_RCU, the current Kconfig refuses
+> 	to allow either CONFIG_TINY_RCU or CONFIG_TREE_RCU to be selected
+> 	if CONFIG_PREEMPT=y.
+
+	I see, CONFIG_PREEMPT_RCU depends on CONFIG_PREEMPT
+
+> 2.	In the CONFIG_PREEMPT_RCU case, __rcu_read_unlock() will check
+> 	to see if the RCU core needs to be informed, so there is no
+> 	need to invoke cond_resched() in that case.
+
+	OK
+
+> 3.	If we drop your "|| defined(CONFIG_PREEMPT_RCU)", we get an
+> 	almost-synonym for my "#ifndef CONFIG_PREEMPT_RCU".  The "almost"
+> 	applies to older kernels due to the possibility of having a
+> 	CONFIG_TINY_PREEMPT_RCU kernel -- but this possibility is going
+> 	away soon.
+> 
+> Make sense?
+
+	Yes, thanks for the explanation!
+
+	Simon, so lets do it as suggested by Eric and Paul:
+
+	rcu_read_unlock();
+#ifndef CONFIG_PREEMPT_RCU
+	cond_resched();
+#endif
+	rcu_read_lock();
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
