@@ -1,39 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH V2] net: increase frag hash size
-Date: Mon, 29 Apr 2013 13:44:24 -0400 (EDT)
-Message-ID: <20130429.134424.386873129090930198.davem@davemloft.net>
-References: <20130424154822.16883.93014.stgit@dragon>
-	<20130425194850.25609.46664.stgit@dragon>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next v3] ipv6: Kill ipv6 dependency of icmpv6_send().
+Date: Mon, 29 Apr 2013 10:44:45 -0700
+Message-ID: <CALnjE+pTekHaz760QQ-t2dbcvGkAf-sG5T9sj_iD3S4C-zgxFQ@mail.gmail.com>
+References: <1366924110-3397-1-git-send-email-pshelar@nicira.com>
+	<klkjcu$drc$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com, sergei.shtylyov@cogentembedded.com
-To: brouer@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59356 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758298Ab3D2Ro0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 13:44:26 -0400
-In-Reply-To: <20130425194850.25609.46664.stgit@dragon>
+Received: from na3sys009aog136.obsmtp.com ([74.125.149.85]:35989 "HELO
+	na3sys009aog136.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758399Ab3D2Ror (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 13:44:47 -0400
+Received: by mail-qe0-f72.google.com with SMTP id 9so8208775qea.3
+        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 10:44:46 -0700 (PDT)
+In-Reply-To: <klkjcu$drc$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Thu, 25 Apr 2013 21:52:25 +0200
+On Sun, Apr 28, 2013 at 6:46 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Thu, 25 Apr 2013 at 21:08 GMT, Pravin B Shelar <pshelar@nicira.com> wrote:
+>> diff --git a/net/ipv6/ip6_icmp.c b/net/ipv6/ip6_icmp.c
+>> new file mode 100644
+>> index 0000000..4578e23
+>> --- /dev/null
+>> +++ b/net/ipv6/ip6_icmp.c
+>> @@ -0,0 +1,47 @@
+>> +#include <linux/export.h>
+>> +#include <linux/icmpv6.h>
+>> +#include <linux/mutex.h>
+>> +#include <linux/netdevice.h>
+>> +#include <linux/spinlock.h>
+>> +
+>> +#include <net/ipv6.h>
+>> +
+>> +#if IS_ENABLED(CONFIG_IPV6)
+>> +
+>
+> I don't think we need #if IS_ENABLED(CONFIG_IPV6) inside
+> net/ipv6/ip6_icmp.c.
+>
+This file is statically linked to kernel, So it needs this check to
+avoid compilation errors.
 
-> Increase fragmentation hash bucket size to 1024 from old 64 elems.
-> 
-> After we increased the frag mem limits commit c2a93660 (net: increase
-> fragment memory usage limits) the hash size of 64 elements is simply
-> too small.  Also considering the mem limit is per netns and the hash
-> table is shared for all netns.
-> 
-> For the embedded people, note that this increase will change the hash
-> table/array from using approx 1 Kbytes to 16 Kbytes.
-> 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-> Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Acked-by: Eric Dumazet <edumazet@google.com>
-
-Applied.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
