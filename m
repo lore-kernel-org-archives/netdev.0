@@ -1,85 +1,53 @@
-From: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: Fw: [Bug 57251] New: HUAWEI 3G USB modem and abnormal stops
-Date: Mon, 29 Apr 2013 15:48:44 -0700
-Message-ID: <20130429154844.61abe852@nehalam.linuxnetplumber.net>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH net-next] net: Use consume_skb() to free gso segmented skb
+Date: Mon, 29 Apr 2013 16:02:42 -0700
+Message-ID: <1367276562.23068.7.camel@sridhar.usor.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: =?ISO-8859-1?B?Qmr4cm4=?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e35.co.us.ibm.com ([32.97.110.153]:47008 "EHLO
+	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758424Ab3D2XDK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 19:03:10 -0400
+Received: from /spool/local
+	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
+	Mon, 29 Apr 2013 17:03:10 -0600
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by d03dlp03.boulder.ibm.com (Postfix) with ESMTP id 6920F19D8036
+	for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 17:03:00 -0600 (MDT)
+Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r3TN2hmf095924
+	for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 17:02:47 -0600
+Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r3TN5bkP026108
+	for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 17:05:37 -0600
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Use consume_skb() to free the original skb that is successfully transmitted 
+as gso segmented skbs so that it is not treated as a drop due to an error.
 
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+---
 
-Begin forwarded message:
-
-Date: Sun, 28 Apr 2013 18:52:29 -0700
-From: "bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org" <bugzilla-daemon-590EEB7GvNiWaY/ihj7yzEB+6BGkLq7r@public.gmane.org>
-To: "stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org" <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
-Subject: [Bug 57251] New: HUAWEI 3G USB modem and abnormal stops
-
-
-https://bugzilla.kernel.org/show_bug.cgi?id=57251
-
-           Summary: HUAWEI 3G USB modem and abnormal stops
-           Product: Networking
-           Version: 2.5
-          Platform: All
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-        AssignedTo: shemminger-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
-        ReportedBy: zonadomarquinhos-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-        Regression: No
-
-
-first, excuse me for not here for details about the types of information, logs
-and debugs I could leave here because I do not know the kind of information I
-could put here. 
-
-if they need more information and details, tell me! 
-
-independent of the kernel version used the problem is this: 
-when I'm surfing the internet network flow (upload and download) can not stop
-and browse pages, this problem does not have a right time to happen. 
-
-when I disconnect, I can, but when trying to connect to the internet again and
-I can not only get when I take the usb modem and put again, retracing the
-process of connecting to the internet I can with success. this happens many
-times a day! 
-
-My modem is: 
-HUAWEI 3G USB Modem Model: E1553, Operator (Brazil) Oi 2G 
-
-My system is: Arch Linux i686 
-
-information by lsusb is:
-% lsusb
-Bus 003 Device 002: ID 12d1:1001 Huawei Technologies Co., Ltd. E169/E620/E800
-HSDPA Modem
-Bus 004 Device 002: ID 15d9:0a4c Trust International B.V. USB+PS/2 Optical
-Mouse
-Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
-Bus 002 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
-Bus 003 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
-Bus 004 Device 001: ID 1d6b:0001 Linux Foundation 1.1 root hub
-
-sorry by my english, i are using Google Translate for this.
-and remeber! if need more informations, tell me!
-
-tnx by all!
-
--- 
-Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are the assignee for the bug.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 7c30dce..4040673 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2565,8 +2565,11 @@ gso:
+ 	} while (skb->next);
+ 
+ out_kfree_gso_skb:
+-	if (likely(skb->next == NULL))
++	if (likely(skb->next == NULL)) {
+ 		skb->destructor = DEV_GSO_CB(skb)->destructor;
++		consume_skb(skb);
++		return rc;
++	}
+ out_kfree_skb:
+ 	kfree_skb(skb);
+ out:
