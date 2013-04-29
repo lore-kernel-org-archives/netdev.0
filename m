@@ -1,35 +1,57 @@
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-Subject: Re: [PATCH 00/18] netfilter updates for net-next
-Date: Mon, 29 Apr 2013 22:27:04 +0200 (CEST)
-Message-ID: <alpine.DEB.2.00.1304292223250.19445@blackhole.kfki.hu>
-References: <1367089103-8394-1-git-send-email-pablo@netfilter.org> <20130429.113720.1954422885523724201.davem@davemloft.net>
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Subject: Re: [PATCH v2] sh_eth: use random MAC address if no valid one supplied
+Date: Mon, 29 Apr 2013 22:39:17 +0200
+Message-ID: <6838772.e2fl6QhECK@avalon>
+References: <201304292349.43251.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: pablo@netfilter.org, netfilter-devel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130429.113720.1954422885523724201.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <201304292349.43251.sergei.shtylyov@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Apr 2013, David Miller wrote:
-
-> This doesn't compile:
+On Monday 29 April 2013 23:49:42 Sergei Shtylyov wrote:
+> On Renesas R-Car based development boards, although a MAC address is printed
+> on all the Ethernet port labels, U-Boot  doesn't write a valid MAC address 
+> to the Ether MAHR/MALR registers (there's no storage provided for the Ether
+> MAC address either), so we have to resort to using a random MAC address...
 > 
-> net/sched/em_ipset.c:86:5: error: ?struct ip_set_adt_opt? has no member named ?timeout?
-> N?????r??y????b?X????v?^?)??{.n?+???z?????u???)????w*jg??????????j/???z?????2???????&?)???a???????G???h????j:+v???w??????
+> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-Sorry, that was my fault: I had net sched disabled for faster compilation 
-and thus I missed that em_ipset.c had to be adapted to the changes in the 
-ipset core.
+Acked-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
 
-And Pablo was faster than me - thanks for taking care this too.
+> ---
+> This patch is against the 'net-next.git' repository.
+> 
+> Changes since the original posting:
+> - don't break the message string into 2 lines.
+> 
+>  drivers/net/ethernet/renesas/sh_eth.c |    5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+> ===================================================================
+> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
+> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+> @@ -2735,6 +2735,11 @@ static int sh_eth_drv_probe(struct platf
+> 
+>  	/* read and set MAC address */
+>  	read_mac_address(ndev, pd->mac_addr);
+> +	if (!is_valid_ether_addr(ndev->dev_addr)) {
+> +		dev_warn(&pdev->dev,
+> +			 "no valid MAC address supplied, using a random one.\n");
+> +		eth_hw_addr_random(ndev);
+> +	}
+> 
+>  	/* ioremap the TSU registers */
+>  	if (mdp->cd->tsu) {
 
-Best regards,
-Jozsef
--
-E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
-PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
-Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
-          H-1525 Budapest 114, POB. 49, Hungary
+-- 
+Regards,
+
+Laurent Pinchart
+
