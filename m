@@ -1,56 +1,44 @@
-From: Colin Cross <ccross@android.com>
-Subject: [PATCH 10/10] af_unix: use freezable blocking calls in read
-Date: Mon, 29 Apr 2013 14:45:46 -0700
-Message-ID: <1367271946-7239-11-git-send-email-ccross@android.com>
-References: <1367271946-7239-1-git-send-email-ccross@android.com>
-Cc: linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	arve@android.com, Colin Cross <ccross@android.com>,
-	"David S. Miller" <davem@davemloft.net>,
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: reset timer after any SYNACK retransmit
+Date: Mon, 29 Apr 2013 15:13:34 -0700
+Message-ID: <CAK6E8=fKRMUxPvvbdoWdG0HgsSFAM0rQZFbP=EtSg2QM=qecsA@mail.gmail.com>
+References: <1367261091-28052-1-git-send-email-ycheng@google.com> <20130429.151748.2089724181218333468.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Neal Cardwell <ncardwell@google.com>,
 	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>, netdev@vger.kernel.org
-To: linux-pm@vger.kernel.org
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:32881 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932547Ab3D2Vp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 17:45:59 -0400
-Received: by mail-qc0-f202.google.com with SMTP id k26so712307qcs.5
-        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 14:45:58 -0700 (PDT)
-In-Reply-To: <1367271946-7239-1-git-send-email-ccross@android.com>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:40484 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757025Ab3D2WNz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 18:13:55 -0400
+Received: by mail-lb0-f172.google.com with SMTP id o10so1291299lbi.3
+        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 15:13:54 -0700 (PDT)
+In-Reply-To: <20130429.151748.2089724181218333468.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid waking up every thread sleeping in read call on an AF_UNIX
-socket during suspend and resume by calling a freezable blocking
-call.
-
-Signed-off-by: Colin Cross <ccross@android.com>
----
- net/unix/af_unix.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 2db702d..2bcac57 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -114,6 +114,7 @@
- #include <linux/mount.h>
- #include <net/checksum.h>
- #include <linux/security.h>
-+#include <linux/freezer.h>
- 
- struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
- EXPORT_SYMBOL_GPL(unix_socket_table);
-@@ -1880,7 +1881,7 @@ static long unix_stream_data_wait(struct sock *sk, long timeo)
- 
- 		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
- 		unix_state_unlock(sk);
--		timeo = schedule_timeout(timeo);
-+		timeo = freezable_schedule_timeout(timeo);
- 		unix_state_lock(sk);
- 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
- 	}
--- 
-1.8.2.1
+On Mon, Apr 29, 2013 at 12:17 PM, David Miller <davem@davemloft.net> wrote:
+> From: Yuchung Cheng <ycheng@google.com>
+> Date: Mon, 29 Apr 2013 11:44:51 -0700
+>
+>> Linux immediately returns SYNACK on (spurious) SYN retransmits, but
+>> keeps the SYNACK timer running independently. Thus the timer may
+>> fire right after the SYNACK retransmit and causes a SYN-SYNACK
+>> cross-fire burst.
+>>
+>> Adopt the fast retransmit/recovery idea in established state by
+>> re-arming the SYNACK timer after the fast (SYNACK) retransmit. The
+>> timer may fire late up to 500ms due to the current SYNACK timer wheel,
+>> but it's OK to be conservative when network is congested. Eric's new
+>> listener design should address this issue.
+>>
+>> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+>
+> Applied.
+>
+> Maybe -stable material?
+Should be fine for -stable too. Thanks.
