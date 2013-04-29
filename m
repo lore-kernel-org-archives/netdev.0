@@ -1,48 +1,36 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v3] ipv6: Kill ipv6 dependency of icmpv6_send().
-Date: Mon, 29 Apr 2013 01:46:06 +0000 (UTC)
-Message-ID: <klkjcu$drc$1@ger.gmane.org>
-References: <1366924110-3397-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH net v2 2/3] unix/dgram: fix peeking with an offset
+ larger than data in queue
+Date: Mon, 29 Apr 2013 07:01:39 +0000 (UTC)
+Message-ID: <kll5si$544$1@ger.gmane.org>
+References: <1366915736.8964.171.camel@edumazet-glaptop>
+ <1367001312-6719-1-git-send-email-bpoirier@suse.de>
+ <1367001312-6719-2-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:60639 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756647Ab3D2BqS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 28 Apr 2013 21:46:18 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UWdAW-0002Cy-Km
-	for netdev@vger.kernel.org; Mon, 29 Apr 2013 03:46:16 +0200
-Received: from 182.241.5.9 ([182.241.5.9])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 03:46:16 +0200
-Received: from xiyou.wangcong by 182.241.5.9 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 03:46:16 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Apr 2013 at 21:08 GMT, Pravin B Shelar <pshelar@nicira.com> wrote:
-> diff --git a/net/ipv6/ip6_icmp.c b/net/ipv6/ip6_icmp.c
-> new file mode 100644
-> index 0000000..4578e23
-> --- /dev/null
-> +++ b/net/ipv6/ip6_icmp.c
-> @@ -0,0 +1,47 @@
-> +#include <linux/export.h>
-> +#include <linux/icmpv6.h>
-> +#include <linux/mutex.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/spinlock.h>
-> +
-> +#include <net/ipv6.h>
-> +
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +
+On Fri, 26 Apr 2013 at 18:35 GMT, Benjamin Poirier <bpoirier@suse.de> wrote:
+>  struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+> -				    int *peeked, int *off, int *err)
+> +				    int *peeked, int *_off, int *err)
+>  {
+> -	struct sk_buff *skb;
+> +	struct sk_buff *skb, *last;
+>  	long timeo;
+>  	/*
+>  	 * Caller is allowed not to check sk->sk_err before skb_recv_datagram()
+> @@ -182,14 +183,17 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+>  		 */
+>  		unsigned long cpu_flags;
+>  		struct sk_buff_head *queue = &sk->sk_receive_queue;
+> +		int off = *_off;
+>  
 
-I don't think we need #if IS_ENABLED(CONFIG_IPV6) inside
-net/ipv6/ip6_icmp.c.
+Name the local variable '_off', not the function argument.
+Or pick another name, e.g. 'offset'.
