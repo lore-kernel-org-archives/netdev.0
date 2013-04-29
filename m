@@ -1,198 +1,402 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/18] netfilter: ipset: The list:set type with counter support
-Date: Mon, 29 Apr 2013 20:22:18 +0200
-Message-ID: <1367259744-8922-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 15/18] netfilter: move skb_gso_segment into nfnetlink_queue module
+Date: Mon, 29 Apr 2013 20:22:21 +0200
+Message-ID: <1367259744-8922-16-git-send-email-pablo@netfilter.org>
 References: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:41410 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758684Ab3D2SWt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Apr 2013 14:22:49 -0400
 In-Reply-To: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+From: Florian Westphal <fw@strlen.de>
 
-Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+skb_gso_segment is expensive, so it would be nice if we could
+avoid it in the future. However, userspace needs to be prepared
+to receive larger-than-mtu-packets (which will also have incorrect
+l3/l4 checksums), so we cannot simply remove it.
+
+The plan is to add a per-queue feature flag that userspace can
+set when binding the queue.
+
+The problem is that in nf_queue, we only have a queue number,
+not the queue context/configuration settings.
+
+This patch should have no impact other than the skb_gso_segment
+call now being in a function that has access to the queue config
+data.
+
+A new size attribute in nf_queue_entry is needed so
+nfnetlink_queue can duplicate the entry of the gso skb
+when segmenting the skb while also copying the route key.
+
+The follow up patch adds switch to disable skb_gso_segment when
+queue config says so.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_list_set.c |   73 ++++++++++++++++++++++++++++++---
- 1 file changed, 67 insertions(+), 6 deletions(-)
+ include/net/netfilter/nf_queue.h     |    6 ++
+ net/netfilter/nf_queue.c             |   96 ++-------------------
+ net/netfilter/nfnetlink_queue_core.c |  154 ++++++++++++++++++++++++++++++----
+ 3 files changed, 152 insertions(+), 104 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index 919eefe..c09022e 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -16,7 +16,7 @@
- #include <linux/netfilter/ipset/ip_set_list.h>
+diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
+index fb1c0be..aaba4bb 100644
+--- a/include/net/netfilter/nf_queue.h
++++ b/include/net/netfilter/nf_queue.h
+@@ -9,10 +9,13 @@ struct nf_queue_entry {
  
- #define REVISION_MIN	0
--#define REVISION_MAX	0
-+#define REVISION_MAX	1 /* Counters support added */
- 
- MODULE_LICENSE("GPL");
- MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
-@@ -35,6 +35,21 @@ struct sett_elem {
- 	unsigned long timeout;
+ 	struct nf_hook_ops	*elem;
+ 	u_int8_t		pf;
++	u16			size; /* sizeof(entry) + saved route keys */
+ 	unsigned int		hook;
+ 	struct net_device	*indev;
+ 	struct net_device	*outdev;
+ 	int			(*okfn)(struct sk_buff *);
++
++	/* extra space to store route keys */
  };
  
-+struct setc_elem {
-+	struct {
-+		ip_set_id_t id;
-+	} __attribute__ ((aligned));
-+	struct ip_set_counter counter;
-+};
-+
-+struct setct_elem {
-+	struct {
-+		ip_set_id_t id;
-+	} __attribute__ ((aligned));
-+	struct ip_set_counter counter;
-+	unsigned long timeout;
-+};
-+
- struct set_adt_elem {
- 	ip_set_id_t id;
- 	ip_set_id_t refid;
-@@ -59,6 +74,8 @@ list_set_elem(const struct list_set *map, u32 id)
+ #define nf_queue_entry_reroute(x) ((void *)x + sizeof(struct nf_queue_entry))
+@@ -27,4 +30,7 @@ void nf_register_queue_handler(const struct nf_queue_handler *qh);
+ void nf_unregister_queue_handler(void);
+ extern void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict);
  
- #define ext_timeout(e, m)	\
- (unsigned long *)((void *)(e) + (m)->offset[IPSET_OFFSET_TIMEOUT])
-+#define ext_counter(e, m)	\
-+(struct ip_set_counter *)((void *)(e) + (m)->offset[IPSET_OFFSET_COUNTER])
++bool nf_queue_entry_get_refs(struct nf_queue_entry *entry);
++void nf_queue_entry_release_refs(struct nf_queue_entry *entry);
++
+ #endif /* _NF_QUEUE_H */
+diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
+index 1d91e77..5d24b1f 100644
+--- a/net/netfilter/nf_queue.c
++++ b/net/netfilter/nf_queue.c
+@@ -45,7 +45,7 @@ void nf_unregister_queue_handler(void)
+ }
+ EXPORT_SYMBOL(nf_unregister_queue_handler);
+ 
+-static void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
++void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
+ {
+ 	/* Release those devices we held, or Alexey will kill me. */
+ 	if (entry->indev)
+@@ -65,9 +65,10 @@ static void nf_queue_entry_release_refs(struct nf_queue_entry *entry)
+ 	/* Drop reference to owner of hook which queued us. */
+ 	module_put(entry->elem->owner);
+ }
++EXPORT_SYMBOL_GPL(nf_queue_entry_release_refs);
+ 
+ /* Bump dev refs so they don't vanish while packet is out */
+-static bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
++bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+ {
+ 	if (!try_module_get(entry->elem->owner))
+ 		return false;
+@@ -92,12 +93,13 @@ static bool nf_queue_entry_get_refs(struct nf_queue_entry *entry)
+ 
+ 	return true;
+ }
++EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
+ 
+ /*
+  * Any packet that leaves via this function must come back
+  * through nf_reinject().
+  */
+-static int __nf_queue(struct sk_buff *skb,
++int nf_queue(struct sk_buff *skb,
+ 		      struct nf_hook_ops *elem,
+ 		      u_int8_t pf, unsigned int hook,
+ 		      struct net_device *indev,
+@@ -137,6 +139,7 @@ static int __nf_queue(struct sk_buff *skb,
+ 		.indev	= indev,
+ 		.outdev	= outdev,
+ 		.okfn	= okfn,
++		.size	= sizeof(*entry) + afinfo->route_key_size,
+ 	};
+ 
+ 	if (!nf_queue_entry_get_refs(entry)) {
+@@ -163,87 +166,6 @@ err:
+ 	return status;
+ }
+ 
+-#ifdef CONFIG_BRIDGE_NETFILTER
+-/* When called from bridge netfilter, skb->data must point to MAC header
+- * before calling skb_gso_segment(). Else, original MAC header is lost
+- * and segmented skbs will be sent to wrong destination.
+- */
+-static void nf_bridge_adjust_skb_data(struct sk_buff *skb)
+-{
+-	if (skb->nf_bridge)
+-		__skb_push(skb, skb->network_header - skb->mac_header);
+-}
+-
+-static void nf_bridge_adjust_segmented_data(struct sk_buff *skb)
+-{
+-	if (skb->nf_bridge)
+-		__skb_pull(skb, skb->network_header - skb->mac_header);
+-}
+-#else
+-#define nf_bridge_adjust_skb_data(s) do {} while (0)
+-#define nf_bridge_adjust_segmented_data(s) do {} while (0)
+-#endif
+-
+-int nf_queue(struct sk_buff *skb,
+-	     struct nf_hook_ops *elem,
+-	     u_int8_t pf, unsigned int hook,
+-	     struct net_device *indev,
+-	     struct net_device *outdev,
+-	     int (*okfn)(struct sk_buff *),
+-	     unsigned int queuenum)
+-{
+-	struct sk_buff *segs;
+-	int err = -EINVAL;
+-	unsigned int queued;
+-
+-	if (!skb_is_gso(skb))
+-		return __nf_queue(skb, elem, pf, hook, indev, outdev, okfn,
+-				  queuenum);
+-
+-	switch (pf) {
+-	case NFPROTO_IPV4:
+-		skb->protocol = htons(ETH_P_IP);
+-		break;
+-	case NFPROTO_IPV6:
+-		skb->protocol = htons(ETH_P_IPV6);
+-		break;
+-	}
+-
+-	nf_bridge_adjust_skb_data(skb);
+-	segs = skb_gso_segment(skb, 0);
+-	/* Does not use PTR_ERR to limit the number of error codes that can be
+-	 * returned by nf_queue.  For instance, callers rely on -ECANCELED to mean
+-	 * 'ignore this hook'.
+-	 */
+-	if (IS_ERR(segs))
+-		goto out_err;
+-	queued = 0;
+-	err = 0;
+-	do {
+-		struct sk_buff *nskb = segs->next;
+-
+-		segs->next = NULL;
+-		if (err == 0) {
+-			nf_bridge_adjust_segmented_data(segs);
+-			err = __nf_queue(segs, elem, pf, hook, indev,
+-					   outdev, okfn, queuenum);
+-		}
+-		if (err == 0)
+-			queued++;
+-		else
+-			kfree_skb(segs);
+-		segs = nskb;
+-	} while (segs);
+-
+-	if (queued) {
+-		kfree_skb(skb);
+-		return 0;
+-	}
+-  out_err:
+-	nf_bridge_adjust_segmented_data(skb);
+-	return err;
+-}
+-
+ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ {
+ 	struct sk_buff *skb = entry->skb;
+@@ -283,9 +205,9 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
+ 		local_bh_enable();
+ 		break;
+ 	case NF_QUEUE:
+-		err = __nf_queue(skb, elem, entry->pf, entry->hook,
+-				 entry->indev, entry->outdev, entry->okfn,
+-				 verdict >> NF_VERDICT_QBITS);
++		err = nf_queue(skb, elem, entry->pf, entry->hook,
++				entry->indev, entry->outdev, entry->okfn,
++				verdict >> NF_VERDICT_QBITS);
+ 		if (err < 0) {
+ 			if (err == -ECANCELED)
+ 				goto next_hook;
+diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
+index ef3cdb4..edbae4c 100644
+--- a/net/netfilter/nfnetlink_queue_core.c
++++ b/net/netfilter/nfnetlink_queue_core.c
+@@ -477,28 +477,13 @@ nla_put_failure:
+ }
  
  static int
- list_set_ktest(struct ip_set *set, const struct sk_buff *skb,
-@@ -78,8 +95,13 @@ list_set_ktest(struct ip_set *set, const struct sk_buff *skb,
- 		    ip_set_timeout_expired(ext_timeout(e, map)))
- 			continue;
- 		ret = ip_set_test(e->id, skb, par, opt);
--		if (ret > 0)
-+		if (ret > 0) {
-+			if (SET_WITH_COUNTER(set))
-+				ip_set_update_counter(ext_counter(e, map),
-+						      ext, &opt->ext,
-+						      opt->cmdflags);
- 			return ret;
-+		}
- 	}
- 	return 0;
- }
-@@ -193,6 +215,8 @@ list_set_add(struct ip_set *set, u32 i, struct set_adt_elem *d,
- 	e->id = d->id;
- 	if (SET_WITH_TIMEOUT(set))
- 		ip_set_timeout_set(ext_timeout(e, map), ext->timeout);
-+	if (SET_WITH_COUNTER(set))
-+		ip_set_init_counter(ext_counter(e, map), ext);
- 	return 0;
- }
- 
-@@ -293,6 +317,8 @@ list_set_uadd(struct ip_set *set, void *value, const struct ip_set_ext *ext,
- 		/* Update extensions */
- 		if (SET_WITH_TIMEOUT(set))
- 			ip_set_timeout_set(ext_timeout(e, map), ext->timeout);
-+		if (SET_WITH_COUNTER(set))
-+			ip_set_init_counter(ext_counter(e, map), ext);
- 		/* Set is already added to the list */
- 		ip_set_put_byindex(d->id);
- 		return 0;
-@@ -362,7 +388,9 @@ list_set_uadt(struct ip_set *set, struct nlattr *tb[],
- 
- 	if (unlikely(!tb[IPSET_ATTR_NAME] ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
--		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
-+		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
-+		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
-+		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
- 		return -IPSET_ERR_PROTOCOL;
- 
- 	if (tb[IPSET_ATTR_LINENO])
-@@ -455,6 +483,9 @@ list_set_head(struct ip_set *set, struct sk_buff *skb)
- 	if (nla_put_net32(skb, IPSET_ATTR_SIZE, htonl(map->size)) ||
- 	    (SET_WITH_TIMEOUT(set) &&
- 	     nla_put_net32(skb, IPSET_ATTR_TIMEOUT, htonl(map->timeout))) ||
-+	    (SET_WITH_COUNTER(set) &&
-+	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS,
-+			   htonl(IPSET_FLAG_WITH_COUNTERS))) ||
- 	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
- 	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE,
- 			  htonl(sizeof(*map) + map->size * map->dsize)))
-@@ -502,6 +533,9 @@ list_set_list(const struct ip_set *set,
- 				  htonl(ip_set_timeout_get(
- 						ext_timeout(e, map)))))
- 			goto nla_put_failure;
-+		if (SET_WITH_COUNTER(set) &&
-+		    ip_set_put_counter(skb, ext_counter(e, map)))
-+			goto nla_put_failure;
- 		ipset_nest_end(skb, nested);
- 	}
- finish:
-@@ -603,11 +637,12 @@ static int
- list_set_create(struct ip_set *set, struct nlattr *tb[], u32 flags)
+-nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
++__nfqnl_enqueue_packet(struct net *net, struct nfqnl_instance *queue,
++			struct nf_queue_entry *entry)
  {
- 	struct list_set *map;
--	u32 size = IP_SET_LIST_DEFAULT_SIZE;
-+	u32 size = IP_SET_LIST_DEFAULT_SIZE, cadt_flags = 0;
- 	unsigned long timeout = 0;
+ 	struct sk_buff *nskb;
+-	struct nfqnl_instance *queue;
+ 	int err = -ENOBUFS;
+ 	__be32 *packet_id_ptr;
+ 	int failopen = 0;
+-	struct net *net = dev_net(entry->indev ?
+-				  entry->indev : entry->outdev);
+-	struct nfnl_queue_net *q = nfnl_queue_pernet(net);
+-
+-	/* rcu_read_lock()ed by nf_hook_slow() */
+-	queue = instance_lookup(q, queuenum);
+-	if (!queue) {
+-		err = -ESRCH;
+-		goto err_out;
+-	}
+-
+-	if (queue->copy_mode == NFQNL_COPY_NONE) {
+-		err = -EINVAL;
+-		goto err_out;
+-	}
  
- 	if (unlikely(!ip_set_optattr_netorder(tb, IPSET_ATTR_SIZE) ||
--		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT)))
-+		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
-+		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
- 		return -IPSET_ERR_PROTOCOL;
+ 	nskb = nfqnl_build_packet_message(queue, entry, &packet_id_ptr);
+ 	if (nskb == NULL) {
+@@ -547,6 +532,141 @@ err_out:
+ 	return err;
+ }
  
- 	if (tb[IPSET_ATTR_SIZE])
-@@ -615,10 +650,33 @@ list_set_create(struct ip_set *set, struct nlattr *tb[], u32 flags)
- 	if (size < IP_SET_LIST_MIN_SIZE)
- 		size = IP_SET_LIST_MIN_SIZE;
- 
-+	if (tb[IPSET_ATTR_CADT_FLAGS])
-+		cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
- 	if (tb[IPSET_ATTR_TIMEOUT])
- 		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
- 	set->variant = &set_variant;
--	if (tb[IPSET_ATTR_TIMEOUT]) {
-+	if (cadt_flags & IPSET_FLAG_WITH_COUNTERS) {
-+		set->extensions |= IPSET_EXT_COUNTER;
-+		if (tb[IPSET_ATTR_TIMEOUT]) {
-+			map = init_list_set(set, size,
-+					sizeof(struct setct_elem), timeout);
-+			if (!map)
-+				return -ENOMEM;
-+			set->extensions |= IPSET_EXT_TIMEOUT;
-+			map->offset[IPSET_OFFSET_TIMEOUT] =
-+				offsetof(struct setct_elem, timeout);
-+			map->offset[IPSET_OFFSET_COUNTER] =
-+				offsetof(struct setct_elem, counter);
-+			list_set_gc_init(set, list_set_gc);
-+		} else {
-+			map = init_list_set(set, size,
-+					    sizeof(struct setc_elem), 0);
-+			if (!map)
-+				return -ENOMEM;
-+			map->offset[IPSET_OFFSET_COUNTER] =
-+				offsetof(struct setc_elem, counter);
-+		}
-+	} else if (tb[IPSET_ATTR_TIMEOUT]) {
- 		map = init_list_set(set, size,
- 				    sizeof(struct sett_elem), timeout);
- 		if (!map)
-@@ -647,6 +705,7 @@ static struct ip_set_type list_set_type __read_mostly = {
- 	.create_policy	= {
- 		[IPSET_ATTR_SIZE]	= { .type = NLA_U32 },
- 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
-+		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
- 	},
- 	.adt_policy	= {
- 		[IPSET_ATTR_NAME]	= { .type = NLA_STRING,
-@@ -656,6 +715,8 @@ static struct ip_set_type list_set_type __read_mostly = {
- 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
- 		[IPSET_ATTR_LINENO]	= { .type = NLA_U32 },
- 		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
-+		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
-+		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
- 	},
- 	.me		= THIS_MODULE,
- };
++static struct nf_queue_entry *
++nf_queue_entry_dup(struct nf_queue_entry *e)
++{
++	struct nf_queue_entry *entry = kmemdup(e, e->size, GFP_ATOMIC);
++	if (entry) {
++		if (nf_queue_entry_get_refs(entry))
++			return entry;
++		kfree(entry);
++	}
++	return NULL;
++}
++
++#ifdef CONFIG_BRIDGE_NETFILTER
++/* When called from bridge netfilter, skb->data must point to MAC header
++ * before calling skb_gso_segment(). Else, original MAC header is lost
++ * and segmented skbs will be sent to wrong destination.
++ */
++static void nf_bridge_adjust_skb_data(struct sk_buff *skb)
++{
++	if (skb->nf_bridge)
++		__skb_push(skb, skb->network_header - skb->mac_header);
++}
++
++static void nf_bridge_adjust_segmented_data(struct sk_buff *skb)
++{
++	if (skb->nf_bridge)
++		__skb_pull(skb, skb->network_header - skb->mac_header);
++}
++#else
++#define nf_bridge_adjust_skb_data(s) do {} while (0)
++#define nf_bridge_adjust_segmented_data(s) do {} while (0)
++#endif
++
++static void free_entry(struct nf_queue_entry *entry)
++{
++	nf_queue_entry_release_refs(entry);
++	kfree(entry);
++}
++
++static int
++__nfqnl_enqueue_packet_gso(struct net *net, struct nfqnl_instance *queue,
++			   struct sk_buff *skb, struct nf_queue_entry *entry)
++{
++	int ret = -ENOMEM;
++	struct nf_queue_entry *entry_seg;
++
++	nf_bridge_adjust_segmented_data(skb);
++
++	if (skb->next == NULL) { /* last packet, no need to copy entry */
++		struct sk_buff *gso_skb = entry->skb;
++		entry->skb = skb;
++		ret = __nfqnl_enqueue_packet(net, queue, entry);
++		if (ret)
++			entry->skb = gso_skb;
++		return ret;
++	}
++
++	skb->next = NULL;
++
++	entry_seg = nf_queue_entry_dup(entry);
++	if (entry_seg) {
++		entry_seg->skb = skb;
++		ret = __nfqnl_enqueue_packet(net, queue, entry_seg);
++		if (ret)
++			free_entry(entry_seg);
++	}
++	return ret;
++}
++
++static int
++nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
++{
++	unsigned int queued;
++	struct nfqnl_instance *queue;
++	struct sk_buff *skb, *segs;
++	int err = -ENOBUFS;
++	struct net *net = dev_net(entry->indev ?
++				  entry->indev : entry->outdev);
++	struct nfnl_queue_net *q = nfnl_queue_pernet(net);
++
++	/* rcu_read_lock()ed by nf_hook_slow() */
++	queue = instance_lookup(q, queuenum);
++	if (!queue)
++		return -ESRCH;
++
++	if (queue->copy_mode == NFQNL_COPY_NONE)
++		return -EINVAL;
++
++	if (!skb_is_gso(entry->skb))
++		return __nfqnl_enqueue_packet(net, queue, entry);
++
++	skb = entry->skb;
++
++	switch (entry->pf) {
++	case NFPROTO_IPV4:
++		skb->protocol = htons(ETH_P_IP);
++		break;
++	case NFPROTO_IPV6:
++		skb->protocol = htons(ETH_P_IPV6);
++		break;
++	}
++
++	nf_bridge_adjust_skb_data(skb);
++	segs = skb_gso_segment(skb, 0);
++	/* Does not use PTR_ERR to limit the number of error codes that can be
++	 * returned by nf_queue.  For instance, callers rely on -ECANCELED to
++	 * mean 'ignore this hook'.
++	 */
++	if (IS_ERR(segs))
++		goto out_err;
++	queued = 0;
++	err = 0;
++	do {
++		struct sk_buff *nskb = segs->next;
++		if (err == 0)
++			err = __nfqnl_enqueue_packet_gso(net, queue,
++							segs, entry);
++		if (err == 0)
++			queued++;
++		else
++			kfree_skb(segs);
++		segs = nskb;
++	} while (segs);
++
++	if (queued) {
++		if (err) /* some segments are already queued */
++			free_entry(entry);
++		kfree_skb(skb);
++		return 0;
++	}
++ out_err:
++	nf_bridge_adjust_segmented_data(skb);
++	return err;
++}
++
+ static int
+ nfqnl_mangle(void *data, int data_len, struct nf_queue_entry *e, int diff)
+ {
 -- 
 1.7.10.4
-
