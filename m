@@ -1,14 +1,14 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 08/18] netfilter: ipset: list:set type using the extension interface
-Date: Mon, 29 Apr 2013 20:22:14 +0200
-Message-ID: <1367259744-8922-9-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 11/18] netfilter: ipset: The hash types with counter support
+Date: Mon, 29 Apr 2013 20:22:17 +0200
+Message-ID: <1367259744-8922-12-git-send-email-pablo@netfilter.org>
 References: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41449 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:41447 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758709Ab3D2SW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758708Ab3D2SW4 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 29 Apr 2013 14:22:56 -0400
 In-Reply-To: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
@@ -19,802 +19,811 @@ From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipset/ip_set_list_set.c |  547 ++++++++++++++++++---------------
- 1 file changed, 301 insertions(+), 246 deletions(-)
+ net/netfilter/ipset/ip_set_hash_gen.h       |   65 ++++++++++++++++++++++++++-
+ net/netfilter/ipset/ip_set_hash_ip.c        |   33 +++++++++++++-
+ net/netfilter/ipset/ip_set_hash_ipport.c    |   46 ++++++++++++++++++-
+ net/netfilter/ipset/ip_set_hash_ipportip.c  |   50 ++++++++++++++++++++-
+ net/netfilter/ipset/ip_set_hash_ipportnet.c |   53 +++++++++++++++++++++-
+ net/netfilter/ipset/ip_set_hash_net.c       |   47 +++++++++++++++++--
+ net/netfilter/ipset/ip_set_hash_netiface.c  |   55 +++++++++++++++++++++--
+ net/netfilter/ipset/ip_set_hash_netport.c   |   51 +++++++++++++++++++--
+ 8 files changed, 381 insertions(+), 19 deletions(-)
 
-diff --git a/net/netfilter/ipset/ip_set_list_set.c b/net/netfilter/ipset/ip_set_list_set.c
-index 09c744a..919eefe 100644
---- a/net/netfilter/ipset/ip_set_list_set.c
-+++ b/net/netfilter/ipset/ip_set_list_set.c
-@@ -1,4 +1,4 @@
--/* Copyright (C) 2008-2011 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-+/* Copyright (C) 2008-2013 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -13,7 +13,6 @@
- #include <linux/errno.h>
+diff --git a/net/netfilter/ipset/ip_set_hash_gen.h b/net/netfilter/ipset/ip_set_hash_gen.h
+index 2ba7d4e..57beb17 100644
+--- a/net/netfilter/ipset/ip_set_hash_gen.h
++++ b/net/netfilter/ipset/ip_set_hash_gen.h
+@@ -177,6 +177,8 @@ hbucket_elem_add(struct hbucket *n, u8 ahash_max, size_t dsize)
  
- #include <linux/netfilter/ipset/ip_set.h>
--#include <linux/netfilter/ipset/ip_set_timeout.h>
- #include <linux/netfilter/ipset/ip_set_list.h>
+ #define ext_timeout(e, h)	\
+ (unsigned long *)(((void *)(e)) + (h)->offset[IPSET_OFFSET_TIMEOUT])
++#define ext_counter(e, h)	\
++(struct ip_set_counter *)(((void *)(e)) + (h)->offset[IPSET_OFFSET_COUNTER])
+ 
+ #endif /* _IP_SET_HASH_GEN_H */
+ 
+@@ -660,6 +662,8 @@ reuse_slot:
+ #endif
+ 	if (SET_WITH_TIMEOUT(set))
+ 		ip_set_timeout_set(ext_timeout(data, h), ext->timeout);
++	if (SET_WITH_COUNTER(set))
++		ip_set_init_counter(ext_counter(data, h), ext);
+ 
+ out:
+ 	rcu_read_unlock_bh();
+@@ -721,6 +725,10 @@ static inline int
+ mtype_data_match(struct mtype_elem *data, const struct ip_set_ext *ext,
+ 		 struct ip_set_ext *mext, struct ip_set *set, u32 flags)
+ {
++	if (SET_WITH_COUNTER(set))
++		ip_set_update_counter(ext_counter(data,
++						  (struct htype *)(set->data)),
++				      ext, mext, flags);
+ 	return mtype_do_data_match(data);
+ }
+ 
+@@ -826,7 +834,10 @@ mtype_head(struct ip_set *set, struct sk_buff *skb)
+ 	if (nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
+ 	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE, htonl(memsize)) ||
+ 	    ((set->extensions & IPSET_EXT_TIMEOUT) &&
+-	     nla_put_net32(skb, IPSET_ATTR_TIMEOUT, htonl(h->timeout))))
++	     nla_put_net32(skb, IPSET_ATTR_TIMEOUT, htonl(h->timeout))) ||
++	    ((set->extensions & IPSET_EXT_COUNTER) &&
++	     nla_put_net32(skb, IPSET_ATTR_CADT_FLAGS,
++			   htonl(IPSET_FLAG_WITH_COUNTERS))))
+ 		goto nla_put_failure;
+ 	ipset_nest_end(skb, nested);
+ 
+@@ -880,6 +891,9 @@ mtype_list(const struct ip_set *set,
+ 					  htonl(ip_set_timeout_get(
+ 						ext_timeout(e, h)))))
+ 				goto nla_put_failure;
++			if (SET_WITH_COUNTER(set) &&
++			    ip_set_put_counter(skb, ext_counter(e, h)))
++				goto nla_put_failure;
+ 			ipset_nest_end(skb, nested);
+ 		}
+ 	}
+@@ -931,6 +945,7 @@ static int
+ TOKEN(HTYPE, _create)(struct ip_set *set, struct nlattr *tb[], u32 flags)
+ {
+ 	u32 hashsize = IPSET_DEFAULT_HASHSIZE, maxelem = IPSET_DEFAULT_MAXELEM;
++	u32 cadt_flags = 0;
+ 	u8 hbits;
+ #ifdef IP_SET_HASH_WITH_NETMASK
+ 	u8 netmask;
+@@ -1007,7 +1022,53 @@ TOKEN(HTYPE, _create)(struct ip_set *set, struct nlattr *tb[], u32 flags)
+ 	else
+ 		set->variant = &TOKEN(HTYPE, 6_variant);
+ 
+-	if (tb[IPSET_ATTR_TIMEOUT]) {
++	if (tb[IPSET_ATTR_CADT_FLAGS])
++		cadt_flags = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
++	if (cadt_flags & IPSET_FLAG_WITH_COUNTERS) {
++		set->extensions |= IPSET_EXT_COUNTER;
++		if (tb[IPSET_ATTR_TIMEOUT]) {
++			h->timeout =
++				ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
++			set->extensions |= IPSET_EXT_TIMEOUT;
++			if (set->family == NFPROTO_IPV4) {
++				h->dsize =
++					sizeof(struct TOKEN(HTYPE, 4ct_elem));
++				h->offset[IPSET_OFFSET_TIMEOUT] =
++					offsetof(struct TOKEN(HTYPE, 4ct_elem),
++						 timeout);
++				h->offset[IPSET_OFFSET_COUNTER] =
++					offsetof(struct TOKEN(HTYPE, 4ct_elem),
++						 counter);
++				TOKEN(HTYPE, 4_gc_init)(set,
++					TOKEN(HTYPE, 4_gc));
++			} else {
++				h->dsize =
++					sizeof(struct TOKEN(HTYPE, 6ct_elem));
++				h->offset[IPSET_OFFSET_TIMEOUT] =
++					offsetof(struct TOKEN(HTYPE, 6ct_elem),
++						 timeout);
++				h->offset[IPSET_OFFSET_COUNTER] =
++					offsetof(struct TOKEN(HTYPE, 6ct_elem),
++						 counter);
++				TOKEN(HTYPE, 6_gc_init)(set,
++					TOKEN(HTYPE, 6_gc));
++			}
++		} else {
++			if (set->family == NFPROTO_IPV4) {
++				h->dsize =
++					sizeof(struct TOKEN(HTYPE, 4c_elem));
++				h->offset[IPSET_OFFSET_COUNTER] =
++					offsetof(struct TOKEN(HTYPE, 4c_elem),
++						 counter);
++			} else {
++				h->dsize =
++					sizeof(struct TOKEN(HTYPE, 6c_elem));
++				h->offset[IPSET_OFFSET_COUNTER] =
++					offsetof(struct TOKEN(HTYPE, 6c_elem),
++						 counter);
++			}
++		}
++	} else if (tb[IPSET_ATTR_TIMEOUT]) {
+ 		h->timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
+ 		set->extensions |= IPSET_EXT_TIMEOUT;
+ 		if (set->family == NFPROTO_IPV4) {
+diff --git a/net/netfilter/ipset/ip_set_hash_ip.c b/net/netfilter/ipset/ip_set_hash_ip.c
+index 2fcfb21..c74e6e1 100644
+--- a/net/netfilter/ipset/ip_set_hash_ip.c
++++ b/net/netfilter/ipset/ip_set_hash_ip.c
+@@ -24,7 +24,7 @@
+ #include <linux/netfilter/ipset/ip_set_hash.h>
  
  #define REVISION_MIN	0
-@@ -24,19 +23,28 @@ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
- IP_SET_MODULE_DESC("list:set", REVISION_MIN, REVISION_MAX);
- MODULE_ALIAS("ip_set_list:set");
+-#define REVISION_MAX	0
++#define REVISION_MAX	1	/* Counters support */
  
--/* Member elements without and with timeout */
-+/* Member elements  */
- struct set_elem {
- 	ip_set_id_t id;
- };
- 
--struct set_telem {
--	ip_set_id_t id;
-+struct sett_elem {
-+	struct {
-+		ip_set_id_t id;
-+	} __attribute__ ((aligned));
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -48,6 +48,17 @@ struct hash_ip4t_elem {
  	unsigned long timeout;
  };
  
-+struct set_adt_elem {
-+	ip_set_id_t id;
-+	ip_set_id_t refid;
-+	int before;
++struct hash_ip4c_elem {
++	__be32 ip;
++	struct ip_set_counter counter;
 +};
 +
- /* Type structure */
- struct list_set {
- 	size_t dsize;		/* element size */
-+	size_t offset[IPSET_OFFSET_MAX]; /* Offsets to extensions */
- 	u32 size;		/* size of set list array */
- 	u32 timeout;		/* timeout value */
- 	struct timer_list gc;	/* garbage collection */
-@@ -49,179 +57,296 @@ list_set_elem(const struct list_set *map, u32 id)
- 	return (struct set_elem *)((void *)map->members + id * map->dsize);
- }
- 
--static inline struct set_telem *
--list_set_telem(const struct list_set *map, u32 id)
--{
--	return (struct set_telem *)((void *)map->members + id * map->dsize);
--}
-+#define ext_timeout(e, m)	\
-+(unsigned long *)((void *)(e) + (m)->offset[IPSET_OFFSET_TIMEOUT])
- 
--static inline bool
--list_set_timeout(const struct list_set *map, u32 id)
-+static int
-+list_set_ktest(struct ip_set *set, const struct sk_buff *skb,
-+	       const struct xt_action_param *par,
-+	       struct ip_set_adt_opt *opt, const struct ip_set_ext *ext)
- {
--	const struct set_telem *elem = list_set_telem(map, id);
-+	struct list_set *map = set->data;
-+	struct set_elem *e;
-+	u32 i;
-+	int ret;
- 
--	return ip_set_timeout_test(elem->timeout);
-+	for (i = 0; i < map->size; i++) {
-+		e = list_set_elem(map, i);
-+		if (e->id == IPSET_INVALID_ID)
-+			return 0;
-+		if (SET_WITH_TIMEOUT(set) &&
-+		    ip_set_timeout_expired(ext_timeout(e, map)))
-+			continue;
-+		ret = ip_set_test(e->id, skb, par, opt);
-+		if (ret > 0)
-+			return ret;
-+	}
-+	return 0;
- }
- 
--static inline bool
--list_set_expired(const struct list_set *map, u32 id)
-+static int
-+list_set_kadd(struct ip_set *set, const struct sk_buff *skb,
-+	      const struct xt_action_param *par,
-+	      struct ip_set_adt_opt *opt, const struct ip_set_ext *ext)
- {
--	const struct set_telem *elem = list_set_telem(map, id);
-+	struct list_set *map = set->data;
-+	struct set_elem *e;
-+	u32 i;
-+	int ret;
- 
--	return ip_set_timeout_expired(elem->timeout);
-+	for (i = 0; i < map->size; i++) {
-+		e = list_set_elem(map, i);
-+		if (e->id == IPSET_INVALID_ID)
-+			return 0;
-+		if (SET_WITH_TIMEOUT(set) &&
-+		    ip_set_timeout_expired(ext_timeout(e, map)))
-+			continue;
-+		ret = ip_set_add(e->id, skb, par, opt);
-+		if (ret == 0)
-+			return ret;
-+	}
-+	return 0;
- }
- 
--/* Set list without and with timeout */
--
- static int
--list_set_kadt(struct ip_set *set, const struct sk_buff *skb,
-+list_set_kdel(struct ip_set *set, const struct sk_buff *skb,
- 	      const struct xt_action_param *par,
--	      enum ipset_adt adt, const struct ip_set_adt_opt *opt)
-+	      struct ip_set_adt_opt *opt, const struct ip_set_ext *ext)
- {
- 	struct list_set *map = set->data;
--	struct set_elem *elem;
-+	struct set_elem *e;
- 	u32 i;
- 	int ret;
- 
- 	for (i = 0; i < map->size; i++) {
--		elem = list_set_elem(map, i);
--		if (elem->id == IPSET_INVALID_ID)
-+		e = list_set_elem(map, i);
-+		if (e->id == IPSET_INVALID_ID)
- 			return 0;
--		if (with_timeout(map->timeout) && list_set_expired(map, i))
-+		if (SET_WITH_TIMEOUT(set) &&
-+		    ip_set_timeout_expired(ext_timeout(e, map)))
- 			continue;
--		switch (adt) {
--		case IPSET_TEST:
--			ret = ip_set_test(elem->id, skb, par, opt);
--			if (ret > 0)
--				return ret;
--			break;
--		case IPSET_ADD:
--			ret = ip_set_add(elem->id, skb, par, opt);
--			if (ret == 0)
--				return ret;
--			break;
--		case IPSET_DEL:
--			ret = ip_set_del(elem->id, skb, par, opt);
--			if (ret == 0)
--				return ret;
--			break;
--		default:
--			break;
--		}
-+		ret = ip_set_del(e->id, skb, par, opt);
-+		if (ret == 0)
-+			return ret;
-+	}
-+	return 0;
-+}
++struct hash_ip4ct_elem {
++	__be32 ip;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
 +
-+static int
-+list_set_kadt(struct ip_set *set, const struct sk_buff *skb,
-+	      const struct xt_action_param *par,
-+	      enum ipset_adt adt, struct ip_set_adt_opt *opt)
-+{
-+	struct list_set *map = set->data;
-+	struct ip_set_ext ext = IP_SET_INIT_KEXT(skb, opt, map);
-+
-+	switch (adt) {
-+	case IPSET_TEST:
-+		return list_set_ktest(set, skb, par, opt, &ext);
-+	case IPSET_ADD:
-+		return list_set_kadd(set, skb, par, opt, &ext);
-+	case IPSET_DEL:
-+		return list_set_kdel(set, skb, par, opt, &ext);
-+	default:
-+		break;
- 	}
- 	return -EINVAL;
- }
+ /* Common functions */
  
- static bool
--id_eq(const struct list_set *map, u32 i, ip_set_id_t id)
-+id_eq(const struct ip_set *set, u32 i, ip_set_id_t id)
- {
--	const struct set_elem *elem;
-+	const struct list_set *map = set->data;
-+	const struct set_elem *e;
-+
-+	if (i >= map->size)
-+		return 0;
- 
--	if (i < map->size) {
--		elem = list_set_elem(map, i);
--		return elem->id == id;
-+	e = list_set_elem(map, i);
-+	return !!(e->id == id &&
-+		 !(SET_WITH_TIMEOUT(set) &&
-+		   ip_set_timeout_expired(ext_timeout(e, map))));
-+}
-+
-+static int
-+list_set_add(struct ip_set *set, u32 i, struct set_adt_elem *d,
-+	     const struct ip_set_ext *ext)
-+{
-+	struct list_set *map = set->data;
-+	struct set_elem *e = list_set_elem(map, i);
-+
-+	if (e->id != IPSET_INVALID_ID) {
-+		if (i == map->size - 1)
-+			/* Last element replaced: e.g. add new,before,last */
-+			ip_set_put_byindex(e->id);
-+		else {
-+			struct set_elem *x = list_set_elem(map, map->size - 1);
-+
-+			/* Last element pushed off */
-+			if (x->id != IPSET_INVALID_ID)
-+				ip_set_put_byindex(x->id);
-+			memmove(list_set_elem(map, i + 1), e,
-+				map->dsize * (map->size - (i + 1)));
-+		}
- 	}
- 
-+	e->id = d->id;
-+	if (SET_WITH_TIMEOUT(set))
-+		ip_set_timeout_set(ext_timeout(e, map), ext->timeout);
- 	return 0;
- }
- 
--static bool
--id_eq_timeout(const struct list_set *map, u32 i, ip_set_id_t id)
-+static int
-+list_set_del(struct ip_set *set, u32 i)
- {
--	const struct set_elem *elem;
-+	struct list_set *map = set->data;
-+	struct set_elem *e = list_set_elem(map, i);
- 
--	if (i < map->size) {
--		elem = list_set_elem(map, i);
--		return !!(elem->id == id &&
--			  !(with_timeout(map->timeout) &&
--			    list_set_expired(map, i)));
--	}
-+	ip_set_put_byindex(e->id);
- 
-+	if (i < map->size - 1)
-+		memmove(e, list_set_elem(map, i + 1),
-+			map->dsize * (map->size - (i + 1)));
-+
-+	/* Last element */
-+	e = list_set_elem(map, map->size - 1);
-+	e->id = IPSET_INVALID_ID;
- 	return 0;
- }
- 
- static void
--list_elem_add(struct list_set *map, u32 i, ip_set_id_t id)
-+set_cleanup_entries(struct ip_set *set)
- {
-+	struct list_set *map = set->data;
- 	struct set_elem *e;
-+	u32 i;
- 
--	for (; i < map->size; i++) {
-+	for (i = 0; i < map->size; i++) {
- 		e = list_set_elem(map, i);
--		swap(e->id, id);
--		if (e->id == IPSET_INVALID_ID)
--			break;
-+		if (e->id != IPSET_INVALID_ID &&
-+		    ip_set_timeout_expired(ext_timeout(e, map)))
-+			list_set_del(set, i);
- 	}
- }
- 
--static void
--list_elem_tadd(struct list_set *map, u32 i, ip_set_id_t id,
--	       unsigned long timeout)
-+static int
-+list_set_utest(struct ip_set *set, void *value, const struct ip_set_ext *ext,
-+	       struct ip_set_ext *mext, u32 flags)
- {
--	struct set_telem *e;
-+	struct list_set *map = set->data;
-+	struct set_adt_elem *d = value;
-+	struct set_elem *e;
-+	u32 i;
-+	int ret;
- 
--	for (; i < map->size; i++) {
--		e = list_set_telem(map, i);
--		swap(e->id, id);
--		swap(e->timeout, timeout);
-+	for (i = 0; i < map->size; i++) {
-+		e = list_set_elem(map, i);
- 		if (e->id == IPSET_INVALID_ID)
--			break;
-+			return 0;
-+		else if (SET_WITH_TIMEOUT(set) &&
-+			 ip_set_timeout_expired(ext_timeout(e, map)))
-+			continue;
-+		else if (e->id != d->id)
-+			continue;
-+
-+		if (d->before == 0)
-+			return 1;
-+		else if (d->before > 0)
-+			ret = id_eq(set, i + 1, d->refid);
-+		else
-+			ret = i > 0 && id_eq(set, i - 1, d->refid);
-+		return ret;
- 	}
-+	return 0;
- }
- 
-+
- static int
--list_set_add(struct list_set *map, u32 i, ip_set_id_t id,
--	     unsigned long timeout)
-+list_set_uadd(struct ip_set *set, void *value, const struct ip_set_ext *ext,
-+	      struct ip_set_ext *mext, u32 flags)
- {
--	const struct set_elem *e = list_set_elem(map, i);
-+	struct list_set *map = set->data;
-+	struct set_adt_elem *d = value;
-+	struct set_elem *e;
-+	bool flag_exist = flags & IPSET_FLAG_EXIST;
-+	u32 i, ret = 0;
- 
--	if (e->id != IPSET_INVALID_ID) {
--		const struct set_elem *x = list_set_elem(map, map->size - 1);
-+	/* Check already added element */
-+	for (i = 0; i < map->size; i++) {
-+		e = list_set_elem(map, i);
-+		if (e->id == IPSET_INVALID_ID)
-+			goto insert;
-+		else if (SET_WITH_TIMEOUT(set) &&
-+			 ip_set_timeout_expired(ext_timeout(e, map)))
-+			continue;
-+		else if (e->id != d->id)
-+			continue;
- 
--		/* Last element replaced or pushed off */
--		if (x->id != IPSET_INVALID_ID)
--			ip_set_put_byindex(x->id);
-+		if ((d->before > 1 && !id_eq(set, i + 1, d->refid)) ||
-+		    (d->before < 0 &&
-+		     (i == 0 || !id_eq(set, i - 1, d->refid))))
-+			/* Before/after doesn't match */
-+			return -IPSET_ERR_REF_EXIST;
-+		if (!flag_exist)
-+			/* Can't re-add */
-+			return -IPSET_ERR_EXIST;
-+		/* Update extensions */
-+		if (SET_WITH_TIMEOUT(set))
-+			ip_set_timeout_set(ext_timeout(e, map), ext->timeout);
-+		/* Set is already added to the list */
-+		ip_set_put_byindex(d->id);
-+		return 0;
-+	}
-+insert:
-+	ret = -IPSET_ERR_LIST_FULL;
-+	for (i = 0; i < map->size && ret == -IPSET_ERR_LIST_FULL; i++) {
-+		e = list_set_elem(map, i);
-+		if (e->id == IPSET_INVALID_ID)
-+			ret = d->before != 0 ? -IPSET_ERR_REF_EXIST
-+				: list_set_add(set, i, d, ext);
-+		else if (e->id != d->refid)
-+			continue;
-+		else if (d->before > 0)
-+			ret = list_set_add(set, i, d, ext);
-+		else if (i + 1 < map->size)
-+			ret = list_set_add(set, i + 1, d, ext);
- 	}
--	if (with_timeout(map->timeout))
--		list_elem_tadd(map, i, id, ip_set_timeout_set(timeout));
--	else
--		list_elem_add(map, i, id);
- 
--	return 0;
-+	return ret;
- }
- 
- static int
--list_set_del(struct list_set *map, u32 i)
-+list_set_udel(struct ip_set *set, void *value, const struct ip_set_ext *ext,
-+	      struct ip_set_ext *mext, u32 flags)
- {
--	struct set_elem *a = list_set_elem(map, i), *b;
--
--	ip_set_put_byindex(a->id);
--
--	for (; i < map->size - 1; i++) {
--		b = list_set_elem(map, i + 1);
--		a->id = b->id;
--		if (with_timeout(map->timeout))
--			((struct set_telem *)a)->timeout =
--				((struct set_telem *)b)->timeout;
--		a = b;
--		if (a->id == IPSET_INVALID_ID)
--			break;
--	}
--	/* Last element */
--	a->id = IPSET_INVALID_ID;
--	return 0;
--}
--
--static void
--cleanup_entries(struct list_set *map)
--{
--	struct set_telem *e;
-+	struct list_set *map = set->data;
-+	struct set_adt_elem *d = value;
-+	struct set_elem *e;
- 	u32 i;
- 
- 	for (i = 0; i < map->size; i++) {
--		e = list_set_telem(map, i);
--		if (e->id != IPSET_INVALID_ID && list_set_expired(map, i))
--			list_set_del(map, i);
-+		e = list_set_elem(map, i);
-+		if (e->id == IPSET_INVALID_ID)
-+			return d->before != 0 ? -IPSET_ERR_REF_EXIST
-+					      : -IPSET_ERR_EXIST;
-+		else if (SET_WITH_TIMEOUT(set) &&
-+			 ip_set_timeout_expired(ext_timeout(e, map)))
-+			continue;
-+		else if (e->id != d->id)
-+			continue;
-+
-+		if (d->before == 0)
-+			return list_set_del(set, i);
-+		else if (d->before > 0) {
-+			if (!id_eq(set, i + 1, d->refid))
-+				return -IPSET_ERR_REF_EXIST;
-+			return list_set_del(set, i);
-+		} else if (i == 0 || !id_eq(set, i - 1, d->refid))
-+			return -IPSET_ERR_REF_EXIST;
-+		else
-+			return list_set_del(set, i);
- 	}
-+	return -IPSET_ERR_EXIST;
- }
- 
- static int
-@@ -229,14 +354,10 @@ list_set_uadt(struct ip_set *set, struct nlattr *tb[],
- 	      enum ipset_adt adt, u32 *lineno, u32 flags, bool retried)
- {
- 	struct list_set *map = set->data;
--	bool with_timeout = with_timeout(map->timeout);
--	bool flag_exist = flags & IPSET_FLAG_EXIST;
--	int before = 0;
--	u32 timeout = map->timeout;
--	ip_set_id_t id, refid = IPSET_INVALID_ID;
--	const struct set_elem *elem;
-+	ipset_adtfn adtfn = set->variant->adt[adt];
-+	struct set_adt_elem e = { .refid = IPSET_INVALID_ID };
-+	struct ip_set_ext ext = IP_SET_INIT_UEXT(map);
- 	struct ip_set *s;
--	u32 i;
+ static inline bool
+@@ -112,7 +123,9 @@ hash_ip4_uadt(struct ip_set *set, struct nlattr *tb[],
  	int ret = 0;
  
- 	if (unlikely(!tb[IPSET_ATTR_NAME] ||
-@@ -247,8 +368,11 @@ list_set_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (unlikely(!tb[IPSET_ATTR_IP] ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
  	if (tb[IPSET_ATTR_LINENO])
- 		*lineno = nla_get_u32(tb[IPSET_ATTR_LINENO]);
+@@ -177,6 +190,17 @@ struct hash_ip6t_elem {
+ 	unsigned long timeout;
+ };
  
--	id = ip_set_get_byname(nla_data(tb[IPSET_ATTR_NAME]), &s);
--	if (id == IPSET_INVALID_ID)
-+	ret = ip_set_get_extensions(set, tb, &ext);
-+	if (ret)
-+		return ret;
-+	e.id = ip_set_get_byname(nla_data(tb[IPSET_ATTR_NAME]), &s);
-+	if (e.id == IPSET_INVALID_ID)
- 		return -IPSET_ERR_NAME;
- 	/* "Loop detection" */
- 	if (s->type->features & IPSET_TYPE_NAME) {
-@@ -258,115 +382,34 @@ list_set_uadt(struct ip_set *set, struct nlattr *tb[],
++struct hash_ip6c_elem {
++	union nf_inet_addr ip;
++	struct ip_set_counter counter;
++};
++
++struct hash_ip6ct_elem {
++	union nf_inet_addr ip;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
  
- 	if (tb[IPSET_ATTR_CADT_FLAGS]) {
- 		u32 f = ip_set_get_h32(tb[IPSET_ATTR_CADT_FLAGS]);
--		before = f & IPSET_FLAG_BEFORE;
-+		e.before = f & IPSET_FLAG_BEFORE;
- 	}
+ static inline bool
+@@ -251,6 +275,8 @@ hash_ip6_uadt(struct ip_set *set, struct nlattr *tb[],
  
--	if (before && !tb[IPSET_ATTR_NAMEREF]) {
-+	if (e.before && !tb[IPSET_ATTR_NAMEREF]) {
- 		ret = -IPSET_ERR_BEFORE;
- 		goto finish;
- 	}
+ 	if (unlikely(!tb[IPSET_ATTR_IP] ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
+ 		     tb[IPSET_ATTR_IP_TO] ||
+ 		     tb[IPSET_ATTR_CIDR]))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -288,6 +314,7 @@ static struct ip_set_type hash_ip_type __read_mostly = {
+ 		[IPSET_ATTR_RESIZE]	= { .type = NLA_U8  },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_NETMASK]	= { .type = NLA_U8  },
++		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
+ 	},
+ 	.adt_policy	= {
+ 		[IPSET_ATTR_IP]		= { .type = NLA_NESTED },
+@@ -295,6 +322,8 @@ static struct ip_set_type hash_ip_type __read_mostly = {
+ 		[IPSET_ATTR_CIDR]	= { .type = NLA_U8 },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_LINENO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
++		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_ipport.c b/net/netfilter/ipset/ip_set_hash_ipport.c
+index d89cf41..7a2d2bd 100644
+--- a/net/netfilter/ipset/ip_set_hash_ipport.c
++++ b/net/netfilter/ipset/ip_set_hash_ipport.c
+@@ -25,7 +25,8 @@
+ #include <linux/netfilter/ipset/ip_set_hash.h>
  
- 	if (tb[IPSET_ATTR_NAMEREF]) {
--		refid = ip_set_get_byname(nla_data(tb[IPSET_ATTR_NAMEREF]),
--					  &s);
--		if (refid == IPSET_INVALID_ID) {
-+		e.refid = ip_set_get_byname(nla_data(tb[IPSET_ATTR_NAMEREF]),
-+					    &s);
-+		if (e.refid == IPSET_INVALID_ID) {
- 			ret = -IPSET_ERR_NAMEREF;
- 			goto finish;
- 		}
--		if (!before)
--			before = -1;
--	}
--	if (tb[IPSET_ATTR_TIMEOUT]) {
--		if (!with_timeout) {
--			ret = -IPSET_ERR_TIMEOUT;
--			goto finish;
--		}
--		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
-+		if (!e.before)
-+			e.before = -1;
- 	}
--	if (with_timeout && adt != IPSET_TEST)
--		cleanup_entries(map);
-+	if (adt != IPSET_TEST && SET_WITH_TIMEOUT(set))
-+		set_cleanup_entries(set);
+ #define REVISION_MIN	0
+-#define REVISION_MAX	1 /* SCTP and UDPLITE support added */
++/*			1    SCTP and UDPLITE support added */
++#define REVISION_MAX	2 /* Counters support added */
  
--	switch (adt) {
--	case IPSET_TEST:
--		for (i = 0; i < map->size && !ret; i++) {
--			elem = list_set_elem(map, i);
--			if (elem->id == IPSET_INVALID_ID ||
--			    (before != 0 && i + 1 >= map->size))
--				break;
--			else if (with_timeout && list_set_expired(map, i))
--				continue;
--			else if (before > 0 && elem->id == id)
--				ret = id_eq_timeout(map, i + 1, refid);
--			else if (before < 0 && elem->id == refid)
--				ret = id_eq_timeout(map, i + 1, id);
--			else if (before == 0 && elem->id == id)
--				ret = 1;
--		}
--		break;
--	case IPSET_ADD:
--		for (i = 0; i < map->size; i++) {
--			elem = list_set_elem(map, i);
--			if (elem->id != id)
--				continue;
--			if (!(with_timeout && flag_exist)) {
--				ret = -IPSET_ERR_EXIST;
--				goto finish;
--			} else {
--				struct set_telem *e = list_set_telem(map, i);
--
--				if ((before > 1 &&
--				     !id_eq(map, i + 1, refid)) ||
--				    (before < 0 &&
--				     (i == 0 || !id_eq(map, i - 1, refid)))) {
--					ret = -IPSET_ERR_EXIST;
--					goto finish;
--				}
--				e->timeout = ip_set_timeout_set(timeout);
--				ip_set_put_byindex(id);
--				ret = 0;
--				goto finish;
--			}
--		}
--		ret = -IPSET_ERR_LIST_FULL;
--		for (i = 0; i < map->size && ret == -IPSET_ERR_LIST_FULL; i++) {
--			elem = list_set_elem(map, i);
--			if (elem->id == IPSET_INVALID_ID)
--				ret = before != 0 ? -IPSET_ERR_REF_EXIST
--					: list_set_add(map, i, id, timeout);
--			else if (elem->id != refid)
--				continue;
--			else if (before > 0)
--				ret = list_set_add(map, i, id, timeout);
--			else if (i + 1 < map->size)
--				ret = list_set_add(map, i + 1, id, timeout);
--		}
--		break;
--	case IPSET_DEL:
--		ret = -IPSET_ERR_EXIST;
--		for (i = 0; i < map->size && ret == -IPSET_ERR_EXIST; i++) {
--			elem = list_set_elem(map, i);
--			if (elem->id == IPSET_INVALID_ID) {
--				ret = before != 0 ? -IPSET_ERR_REF_EXIST
--						  : -IPSET_ERR_EXIST;
--				break;
--			} else if (elem->id == id &&
--				   (before == 0 ||
--				    (before > 0 && id_eq(map, i + 1, refid))))
--				ret = list_set_del(map, i);
--			else if (elem->id == refid &&
--				 before < 0 && id_eq(map, i + 1, id))
--				ret = list_set_del(map, i + 1);
--		}
--		break;
--	default:
--		break;
--	}
-+	ret = adtfn(set, &e, &ext, &ext, flags);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -53,6 +54,23 @@ struct hash_ipport4t_elem {
+ 	unsigned long timeout;
+ };
  
- finish:
--	if (refid != IPSET_INVALID_ID)
--		ip_set_put_byindex(refid);
-+	if (e.refid != IPSET_INVALID_ID)
-+		ip_set_put_byindex(e.refid);
- 	if (adt != IPSET_ADD || ret)
--		ip_set_put_byindex(id);
-+		ip_set_put_byindex(e.id);
++struct hash_ipport4c_elem {
++	__be32 ip;
++	__be16 port;
++	u8 proto;
++	u8 padding;
++	struct ip_set_counter counter;
++};
++
++struct hash_ipport4ct_elem {
++	__be32 ip;
++	__be16 port;
++	u8 proto;
++	u8 padding;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
  
- 	return ip_set_eexist(ret, flags) ? 0 : ret;
- }
-@@ -375,14 +418,14 @@ static void
- list_set_flush(struct ip_set *set)
- {
- 	struct list_set *map = set->data;
--	struct set_elem *elem;
-+	struct set_elem *e;
- 	u32 i;
+ static inline bool
+@@ -126,7 +144,9 @@ hash_ipport4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (unlikely(!tb[IPSET_ATTR_IP] ||
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
  
- 	for (i = 0; i < map->size; i++) {
--		elem = list_set_elem(map, i);
--		if (elem->id != IPSET_INVALID_ID) {
--			ip_set_put_byindex(elem->id);
--			elem->id = IPSET_INVALID_ID;
-+		e = list_set_elem(map, i);
-+		if (e->id != IPSET_INVALID_ID) {
-+			ip_set_put_byindex(e->id);
-+			e->id = IPSET_INVALID_ID;
- 		}
- 	}
- }
-@@ -392,7 +435,7 @@ list_set_destroy(struct ip_set *set)
- {
- 	struct list_set *map = set->data;
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -219,6 +239,23 @@ struct hash_ipport6t_elem {
+ 	unsigned long timeout;
+ };
  
--	if (with_timeout(map->timeout))
-+	if (SET_WITH_TIMEOUT(set))
- 		del_timer_sync(&map->gc);
- 	list_set_flush(set);
- 	kfree(map);
-@@ -410,7 +453,7 @@ list_set_head(struct ip_set *set, struct sk_buff *skb)
- 	if (!nested)
- 		goto nla_put_failure;
- 	if (nla_put_net32(skb, IPSET_ATTR_SIZE, htonl(map->size)) ||
--	    (with_timeout(map->timeout) &&
-+	    (SET_WITH_TIMEOUT(set) &&
- 	     nla_put_net32(skb, IPSET_ATTR_TIMEOUT, htonl(map->timeout))) ||
- 	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
- 	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE,
-@@ -440,7 +483,8 @@ list_set_list(const struct ip_set *set,
- 		e = list_set_elem(map, i);
- 		if (e->id == IPSET_INVALID_ID)
- 			goto finish;
--		if (with_timeout(map->timeout) && list_set_expired(map, i))
-+		if (SET_WITH_TIMEOUT(set) &&
-+		    ip_set_timeout_expired(ext_timeout(e, map)))
- 			continue;
- 		nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
- 		if (!nested) {
-@@ -453,13 +497,11 @@ list_set_list(const struct ip_set *set,
- 		if (nla_put_string(skb, IPSET_ATTR_NAME,
- 				   ip_set_name_byindex(e->id)))
- 			goto nla_put_failure;
--		if (with_timeout(map->timeout)) {
--			const struct set_telem *te =
--				(const struct set_telem *) e;
--			__be32 to = htonl(ip_set_timeout_get(te->timeout));
--			if (nla_put_net32(skb, IPSET_ATTR_TIMEOUT, to))
--				goto nla_put_failure;
--		}
-+		if (SET_WITH_TIMEOUT(set) &&
-+		    nla_put_net32(skb, IPSET_ATTR_TIMEOUT,
-+				  htonl(ip_set_timeout_get(
-+						ext_timeout(e, map)))))
-+			goto nla_put_failure;
- 		ipset_nest_end(skb, nested);
- 	}
- finish:
-@@ -485,12 +527,18 @@ list_set_same_set(const struct ip_set *a, const struct ip_set *b)
- 	const struct list_set *y = b->data;
++struct hash_ipport6c_elem {
++	union nf_inet_addr ip;
++	__be16 port;
++	u8 proto;
++	u8 padding;
++	struct ip_set_counter counter;
++};
++
++struct hash_ipport6ct_elem {
++	union nf_inet_addr ip;
++	__be16 port;
++	u8 proto;
++	u8 padding;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
  
- 	return x->size == y->size &&
--	       x->timeout == y->timeout;
-+	       x->timeout == y->timeout &&
-+	       a->extensions == b->extensions;
- }
+ static inline bool
+@@ -298,6 +335,8 @@ hash_ipport6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
+ 		     tb[IPSET_ATTR_IP_TO] ||
+ 		     tb[IPSET_ATTR_CIDR]))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -367,6 +406,7 @@ static struct ip_set_type hash_ipport_type __read_mostly = {
+ 		[IPSET_ATTR_RESIZE]	= { .type = NLA_U8  },
+ 		[IPSET_ATTR_PROTO]	= { .type = NLA_U8 },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
++		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
+ 	},
+ 	.adt_policy	= {
+ 		[IPSET_ATTR_IP]		= { .type = NLA_NESTED },
+@@ -377,6 +417,8 @@ static struct ip_set_type hash_ipport_type __read_mostly = {
+ 		[IPSET_ATTR_PROTO]	= { .type = NLA_U8 },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_LINENO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
++		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_ipportip.c b/net/netfilter/ipset/ip_set_hash_ipportip.c
+index 4b58e5c..34e8a1a 100644
+--- a/net/netfilter/ipset/ip_set_hash_ipportip.c
++++ b/net/netfilter/ipset/ip_set_hash_ipportip.c
+@@ -25,7 +25,8 @@
+ #include <linux/netfilter/ipset/ip_set_hash.h>
  
--static const struct ip_set_type_variant list_set = {
-+static const struct ip_set_type_variant set_variant = {
- 	.kadt	= list_set_kadt,
- 	.uadt	= list_set_uadt,
-+	.adt	= {
-+		[IPSET_ADD] = list_set_uadd,
-+		[IPSET_DEL] = list_set_udel,
-+		[IPSET_TEST] = list_set_utest,
-+	},
- 	.destroy = list_set_destroy,
- 	.flush	= list_set_flush,
- 	.head	= list_set_head,
-@@ -505,7 +553,7 @@ list_set_gc(unsigned long ul_set)
- 	struct list_set *map = set->data;
+ #define REVISION_MIN	0
+-#define REVISION_MAX	1 /* SCTP and UDPLITE support added */
++/*			1    SCTP and UDPLITE support added */
++#define REVISION_MAX	2 /* Counters support added */
  
- 	write_lock_bh(&set->lock);
--	cleanup_entries(map);
-+	set_cleanup_entries(set);
- 	write_unlock_bh(&set->lock);
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -55,6 +56,25 @@ struct hash_ipportip4t_elem {
+ 	unsigned long timeout;
+ };
  
- 	map->gc.expires = jiffies + IPSET_GC_PERIOD(map->timeout) * HZ;
-@@ -513,20 +561,20 @@ list_set_gc(unsigned long ul_set)
- }
++struct hash_ipportip4c_elem {
++	__be32 ip;
++	__be32 ip2;
++	__be16 port;
++	u8 proto;
++	u8 padding;
++	struct ip_set_counter counter;
++};
++
++struct hash_ipportip4ct_elem {
++	__be32 ip;
++	__be32 ip2;
++	__be16 port;
++	u8 proto;
++	u8 padding;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ static inline bool
+ hash_ipportip4_data_equal(const struct hash_ipportip4_elem *ip1,
+ 			  const struct hash_ipportip4_elem *ip2,
+@@ -129,7 +149,9 @@ hash_ipportip4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (unlikely(!tb[IPSET_ATTR_IP] || !tb[IPSET_ATTR_IP2] ||
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
  
- static void
--list_set_gc_init(struct ip_set *set)
-+list_set_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
- {
- 	struct list_set *map = set->data;
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -228,6 +250,25 @@ struct hash_ipportip6t_elem {
+ 	unsigned long timeout;
+ };
  
- 	init_timer(&map->gc);
- 	map->gc.data = (unsigned long) set;
--	map->gc.function = list_set_gc;
-+	map->gc.function = gc;
- 	map->gc.expires = jiffies + IPSET_GC_PERIOD(map->timeout) * HZ;
- 	add_timer(&map->gc);
- }
++struct hash_ipportip6c_elem {
++	union nf_inet_addr ip;
++	union nf_inet_addr ip2;
++	__be16 port;
++	u8 proto;
++	u8 padding;
++	struct ip_set_counter counter;
++};
++
++struct hash_ipportip6ct_elem {
++	union nf_inet_addr ip;
++	union nf_inet_addr ip2;
++	__be16 port;
++	u8 proto;
++	u8 padding;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
  
- /* Create list:set type of sets */
+ static inline bool
+@@ -308,6 +349,8 @@ hash_ipportip6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
+ 		     tb[IPSET_ATTR_IP_TO] ||
+ 		     tb[IPSET_ATTR_CIDR]))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -380,6 +423,7 @@ static struct ip_set_type hash_ipportip_type __read_mostly = {
+ 		[IPSET_ATTR_PROBES]	= { .type = NLA_U8 },
+ 		[IPSET_ATTR_RESIZE]	= { .type = NLA_U8  },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
++		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
+ 	},
+ 	.adt_policy	= {
+ 		[IPSET_ATTR_IP]		= { .type = NLA_NESTED },
+@@ -391,6 +435,8 @@ static struct ip_set_type hash_ipportip_type __read_mostly = {
+ 		[IPSET_ATTR_PROTO]	= { .type = NLA_U8 },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_LINENO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
++		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_ipportnet.c b/net/netfilter/ipset/ip_set_hash_ipportnet.c
+index bfde4ea..c6a5253 100644
+--- a/net/netfilter/ipset/ip_set_hash_ipportnet.c
++++ b/net/netfilter/ipset/ip_set_hash_ipportnet.c
+@@ -27,7 +27,8 @@
+ #define REVISION_MIN	0
+ /*			1    SCTP and UDPLITE support added */
+ /*			2    Range as input support for IPv4 added */
+-#define REVISION_MAX	3 /* nomatch flag support added */
++/*			3    nomatch flag support added */
++#define REVISION_MAX	4 /* Counters support added */
  
--static bool
-+static struct list_set *
- init_list_set(struct ip_set *set, u32 size, size_t dsize,
- 	      unsigned long timeout)
- {
-@@ -536,7 +584,7 @@ init_list_set(struct ip_set *set, u32 size, size_t dsize,
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -67,6 +68,27 @@ struct hash_ipportnet4t_elem {
+ 	unsigned long timeout;
+ };
  
- 	map = kzalloc(sizeof(*map) + size * dsize, GFP_KERNEL);
- 	if (!map)
--		return false;
-+		return NULL;
++struct hash_ipportnet4c_elem {
++	__be32 ip;
++	__be32 ip2;
++	__be16 port;
++	u8 cidr:7;
++	u8 nomatch:1;
++	u8 proto;
++	struct ip_set_counter counter;
++};
++
++struct hash_ipportnet4ct_elem {
++	__be32 ip;
++	__be32 ip2;
++	__be16 port;
++	u8 cidr:7;
++	u8 nomatch:1;
++	u8 proto;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
  
- 	map->size = size;
- 	map->dsize = dsize;
-@@ -548,13 +596,15 @@ init_list_set(struct ip_set *set, u32 size, size_t dsize,
- 		e->id = IPSET_INVALID_ID;
- 	}
+ static inline bool
+@@ -184,7 +206,9 @@ hash_ipportnet4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
  
--	return true;
-+	return map;
- }
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -325,6 +349,27 @@ struct hash_ipportnet6t_elem {
+ 	unsigned long timeout;
+ };
  
- static int
- list_set_create(struct ip_set *set, struct nlattr *tb[], u32 flags)
- {
-+	struct list_set *map;
- 	u32 size = IP_SET_LIST_DEFAULT_SIZE;
-+	unsigned long timeout = 0;
++struct hash_ipportnet6c_elem {
++	union nf_inet_addr ip;
++	union nf_inet_addr ip2;
++	__be16 port;
++	u8 cidr:7;
++	u8 nomatch:1;
++	u8 proto;
++	struct ip_set_counter counter;
++};
++
++struct hash_ipportnet6ct_elem {
++	union nf_inet_addr ip;
++	union nf_inet_addr ip2;
++	__be16 port;
++	u8 cidr:7;
++	u8 nomatch:1;
++	u8 proto;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
  
- 	if (unlikely(!ip_set_optattr_netorder(tb, IPSET_ATTR_SIZE) ||
- 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT)))
-@@ -565,18 +615,23 @@ list_set_create(struct ip_set *set, struct nlattr *tb[], u32 flags)
- 	if (size < IP_SET_LIST_MIN_SIZE)
- 		size = IP_SET_LIST_MIN_SIZE;
+ static inline bool
+@@ -445,6 +490,8 @@ hash_ipportnet6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES) ||
+ 		     tb[IPSET_ATTR_IP_TO] ||
+ 		     tb[IPSET_ATTR_CIDR]))
+ 		return -IPSET_ERR_PROTOCOL;
+@@ -551,6 +598,8 @@ static struct ip_set_type hash_ipportnet_type __read_mostly = {
+ 		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_LINENO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
++		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
+index cfbcdd4..da740ce 100644
+--- a/net/netfilter/ipset/ip_set_hash_net.c
++++ b/net/netfilter/ipset/ip_set_hash_net.c
+@@ -24,7 +24,8 @@
  
-+	if (tb[IPSET_ATTR_TIMEOUT])
-+		timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
-+	set->variant = &set_variant;
- 	if (tb[IPSET_ATTR_TIMEOUT]) {
--		if (!init_list_set(set, size, sizeof(struct set_telem),
--				   ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT])))
-+		map = init_list_set(set, size,
-+				    sizeof(struct sett_elem), timeout);
-+		if (!map)
- 			return -ENOMEM;
--
--		list_set_gc_init(set);
-+		set->extensions |= IPSET_EXT_TIMEOUT;
-+		map->offset[IPSET_OFFSET_TIMEOUT] =
-+			offsetof(struct sett_elem, timeout);
-+		list_set_gc_init(set, list_set_gc);
- 	} else {
--		if (!init_list_set(set, size, sizeof(struct set_elem),
--				   IPSET_NO_TIMEOUT))
-+		map = init_list_set(set, size, sizeof(struct set_elem), 0);
-+		if (!map)
- 			return -ENOMEM;
- 	}
--	set->variant = &list_set;
- 	return 0;
- }
+ #define REVISION_MIN	0
+ /*			1    Range as input support for IPv4 added */
+-#define REVISION_MAX	2 /* nomatch flag support added */
++/*			2    nomatch flag support added */
++#define REVISION_MAX	3 /* Counters support added */
  
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -53,6 +54,23 @@ struct hash_net4t_elem {
+ 	unsigned long timeout;
+ };
+ 
++struct hash_net4c_elem {
++	__be32 ip;
++	u16 padding0;
++	u8 nomatch;
++	u8 cidr;
++	struct ip_set_counter counter;
++};
++
++struct hash_net4ct_elem {
++	__be32 ip;
++	u16 padding0;
++	u8 nomatch;
++	u8 cidr;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
+ 
+ static inline bool
+@@ -153,7 +171,9 @@ hash_net4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 
+ 	if (unlikely(!tb[IPSET_ATTR_IP] ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -225,6 +245,23 @@ struct hash_net6t_elem {
+ 	unsigned long timeout;
+ };
+ 
++struct hash_net6c_elem {
++	union nf_inet_addr ip;
++	u16 padding0;
++	u8 nomatch;
++	u8 cidr;
++	struct ip_set_counter counter;
++};
++
++struct hash_net6ct_elem {
++	union nf_inet_addr ip;
++	u16 padding0;
++	u8 nomatch;
++	u8 cidr;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
+ 
+ static inline bool
+@@ -328,7 +365,9 @@ hash_net6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 
+ 	if (unlikely(!tb[IPSET_ATTR_IP] ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
+ 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+@@ -384,6 +423,8 @@ static struct ip_set_type hash_net_type __read_mostly = {
+ 		[IPSET_ATTR_CIDR]	= { .type = NLA_U8 },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
++		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
++		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
+index 555ebb7..84ae6f6 100644
+--- a/net/netfilter/ipset/ip_set_hash_netiface.c
++++ b/net/netfilter/ipset/ip_set_hash_netiface.c
+@@ -25,7 +25,8 @@
+ 
+ #define REVISION_MIN	0
+ /*			1    nomatch flag support added */
+-#define REVISION_MAX	2 /* /0 support added */
++/*			2    /0 support added */
++#define REVISION_MAX	3 /* Counters support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -163,6 +164,27 @@ struct hash_netiface4t_elem {
+ 	unsigned long timeout;
+ };
+ 
++struct hash_netiface4c_elem {
++	__be32 ip;
++	u8 physdev;
++	u8 cidr;
++	u8 nomatch;
++	u8 elem;
++	const char *iface;
++	struct ip_set_counter counter;
++};
++
++struct hash_netiface4ct_elem {
++	__be32 ip;
++	u8 physdev;
++	u8 cidr;
++	u8 nomatch;
++	u8 elem;
++	const char *iface;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
+ 
+ static inline bool
+@@ -305,7 +327,9 @@ hash_netiface4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (unlikely(!tb[IPSET_ATTR_IP] ||
+ 		     !tb[IPSET_ATTR_IFACE] ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -404,6 +428,27 @@ struct hash_netiface6t_elem {
+ 	unsigned long timeout;
+ };
+ 
++struct hash_netiface6c_elem {
++	union nf_inet_addr ip;
++	u8 physdev;
++	u8 cidr;
++	u8 nomatch;
++	u8 elem;
++	const char *iface;
++	struct ip_set_counter counter;
++};
++
++struct hash_netiface6ct_elem {
++	union nf_inet_addr ip;
++	u8 physdev;
++	u8 cidr;
++	u8 nomatch;
++	u8 elem;
++	const char *iface;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
+ 
+ static inline bool
+@@ -546,7 +591,9 @@ hash_netiface6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 	if (unlikely(!tb[IPSET_ATTR_IP] ||
+ 		     !tb[IPSET_ATTR_IFACE] ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
+ 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+@@ -619,6 +666,8 @@ static struct ip_set_type hash_netiface_type __read_mostly = {
+ 		[IPSET_ATTR_CIDR]	= { .type = NLA_U8 },
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_LINENO]	= { .type = NLA_U32 },
++		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
++		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
+diff --git a/net/netfilter/ipset/ip_set_hash_netport.c b/net/netfilter/ipset/ip_set_hash_netport.c
+index 43b1f1e..9a08698 100644
+--- a/net/netfilter/ipset/ip_set_hash_netport.c
++++ b/net/netfilter/ipset/ip_set_hash_netport.c
+@@ -26,7 +26,8 @@
+ #define REVISION_MIN	0
+ /*			1    SCTP and UDPLITE support added */
+ /*			2    Range as input support for IPv4 added */
+-#define REVISION_MAX	3 /* nomatch flag support added */
++/*			3    nomatch flag support added */
++#define REVISION_MAX	4 /* Counters support added */
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>");
+@@ -64,6 +65,25 @@ struct hash_netport4t_elem {
+ 	unsigned long timeout;
+ };
+ 
++struct hash_netport4c_elem {
++	__be32 ip;
++	__be16 port;
++	u8 proto;
++	u8 cidr:7;
++	u8 nomatch:1;
++	struct ip_set_counter counter;
++};
++
++struct hash_netport4ct_elem {
++	__be32 ip;
++	__be16 port;
++	u8 proto;
++	u8 cidr:7;
++	u8 nomatch:1;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
+ 
+ static inline bool
+@@ -176,7 +196,9 @@ hash_netport4_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 
+ 	if (tb[IPSET_ATTR_LINENO])
+@@ -284,6 +306,25 @@ struct hash_netport6t_elem {
+ 	unsigned long timeout;
+ };
+ 
++struct hash_netport6c_elem {
++	union nf_inet_addr ip;
++	__be16 port;
++	u8 proto;
++	u8 cidr:7;
++	u8 nomatch:1;
++	struct ip_set_counter counter;
++};
++
++struct hash_netport6ct_elem {
++	union nf_inet_addr ip;
++	__be16 port;
++	u8 proto;
++	u8 cidr:7;
++	u8 nomatch:1;
++	struct ip_set_counter counter;
++	unsigned long timeout;
++};
++
+ /* Common functions */
+ 
+ static inline bool
+@@ -400,7 +441,9 @@ hash_netport6_uadt(struct ip_set *set, struct nlattr *tb[],
+ 		     !ip_set_attr_netorder(tb, IPSET_ATTR_PORT) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PORT_TO) ||
+ 		     !ip_set_optattr_netorder(tb, IPSET_ATTR_TIMEOUT) ||
+-		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS)))
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_CADT_FLAGS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_PACKETS) ||
++		     !ip_set_optattr_netorder(tb, IPSET_ATTR_BYTES)))
+ 		return -IPSET_ERR_PROTOCOL;
+ 	if (unlikely(tb[IPSET_ATTR_IP_TO]))
+ 		return -IPSET_ERR_HASH_RANGE_UNSUPPORTED;
+@@ -497,6 +540,8 @@ static struct ip_set_type hash_netport_type __read_mostly = {
+ 		[IPSET_ATTR_TIMEOUT]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_LINENO]	= { .type = NLA_U32 },
+ 		[IPSET_ATTR_CADT_FLAGS]	= { .type = NLA_U32 },
++		[IPSET_ATTR_BYTES]	= { .type = NLA_U64 },
++		[IPSET_ATTR_PACKETS]	= { .type = NLA_U64 },
+ 	},
+ 	.me		= THIS_MODULE,
+ };
 -- 
 1.7.10.4
