@@ -1,7 +1,8 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next 1/3] bridge: use the bridge IP addr as source addr of querier
-Date: Mon, 29 Apr 2013 15:26:30 +0800
-Message-ID: <1367220392-17496-1-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next 2/3] bridge: only expire the mdb entry when query is received
+Date: Mon, 29 Apr 2013 15:26:31 +0800
+Message-ID: <1367220392-17496-2-git-send-email-amwang@redhat.com>
+References: <1367220392-17496-1-git-send-email-amwang@redhat.com>
 Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,25 +10,22 @@ Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:28105 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:13129 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751262Ab3D2H1K (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Apr 2013 03:27:10 -0400
+	id S1751899Ab3D2H1P (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Apr 2013 03:27:15 -0400
+In-Reply-To: <1367220392-17496-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-Quote from Adam:
-"If it is believed that the use of 0.0.0.0
-as the IP address is what is causing strange behaviour on other devices
-then is there a good reason that a bridge rather than a router shouldn't
-be the active querier? If not then using the bridge IP address and
-having the querier enabled by default may be a reasonable solution
-(provided that our querier obeys the election rules and shuts up if it
-sees a query from a lower IP address that isn't 0.0.0.0). Just because a
-device is the elected querier for IGMP doesn't appear to mean it is
-required to perform any other routing functions."
+Currently we arm the expire timer when the mdb entry is added,
+however, this causes problem when there is no querier sent
+out after that.
+
+So we should only arm the timer when a corresponding query is
+received, as suggested by Herbert.
 
 Cc: Herbert Xu <herbert@gondor.apana.org.au>
 Cc: Stephen Hemminger <stephen@networkplumber.org>
@@ -35,29 +33,74 @@ Cc: "David S. Miller" <davem@davemloft.net>
 Cc: Adam Baker <linux@baker-net.org.uk>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- net/bridge/br_multicast.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletions(-)
+ net/bridge/br_multicast.c |   13 ++++++-------
+ 1 files changed, 6 insertions(+), 7 deletions(-)
 
 diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 81f2389..6cb937c 100644
+index 6cb937c..a821a4e 100644
 --- a/net/bridge/br_multicast.c
 +++ b/net/bridge/br_multicast.c
-@@ -23,6 +23,7 @@
- #include <linux/skbuff.h>
- #include <linux/slab.h>
- #include <linux/timer.h>
-+#include <linux/inetdevice.h>
- #include <net/ip.h>
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ipv6.h>
-@@ -381,7 +382,7 @@ static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
- 	iph->frag_off = htons(IP_DF);
- 	iph->ttl = 1;
- 	iph->protocol = IPPROTO_IGMP;
--	iph->saddr = 0;
-+	iph->saddr = inet_select_addr(br->dev, 0, RT_SCOPE_LINK);
- 	iph->daddr = htonl(INADDR_ALLHOSTS_GROUP);
- 	((u8 *)&iph[1])[0] = IPOPT_RA;
- 	((u8 *)&iph[1])[1] = 4;
+@@ -616,8 +616,6 @@ rehash:
+ 
+ 	mp->br = br;
+ 	mp->addr = *group;
+-	setup_timer(&mp->timer, br_multicast_group_expired,
+-		    (unsigned long)mp);
+ 
+ 	hlist_add_head_rcu(&mp->hlist[mdb->ver], &mdb->mhash[hash]);
+ 	mdb->size++;
+@@ -655,7 +653,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	struct net_bridge_mdb_entry *mp;
+ 	struct net_bridge_port_group *p;
+ 	struct net_bridge_port_group __rcu **pp;
+-	unsigned long now = jiffies;
+ 	int err;
+ 
+ 	spin_lock(&br->multicast_lock);
+@@ -670,7 +667,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 
+ 	if (!port) {
+ 		mp->mglist = true;
+-		mod_timer(&mp->timer, now + br->multicast_membership_interval);
+ 		goto out;
+ 	}
+ 
+@@ -678,7 +674,7 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	     (p = mlock_dereference(*pp, br)) != NULL;
+ 	     pp = &p->next) {
+ 		if (p->port == port)
+-			goto found;
++			goto out;
+ 		if ((unsigned long)p->port < (unsigned long)port)
+ 			break;
+ 	}
+@@ -689,8 +685,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	rcu_assign_pointer(*pp, p);
+ 	br_mdb_notify(br->dev, port, group, RTM_NEWMDB);
+ 
+-found:
+-	mod_timer(&p->timer, now + br->multicast_membership_interval);
+ out:
+ 	err = 0;
+ 
+@@ -1130,6 +1124,9 @@ static int br_ip4_multicast_query(struct net_bridge *br,
+ 	if (!mp)
+ 		goto out;
+ 
++	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
++	mod_timer(&mp->timer, now + br->multicast_membership_interval);
++
+ 	max_delay *= br->multicast_last_member_count;
+ 
+ 	if (mp->mglist &&
+@@ -1204,6 +1201,8 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+ 	if (!mp)
+ 		goto out;
+ 
++	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
++	mod_timer(&mp->timer, now + br->multicast_membership_interval);
+ 	max_delay *= br->multicast_last_member_count;
+ 	if (mp->mglist &&
+ 	    (timer_pending(&mp->timer) ?
 -- 
 1.7.7.6
