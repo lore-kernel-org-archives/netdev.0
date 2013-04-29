@@ -1,31 +1,37 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next] openvswitch: Remove unneeded ovs_netdev_get_ifindex()
-Date: Mon, 29 Apr 2013 11:07:15 -0700
-Message-ID: <CAEP_g=8wjitQd3ViBLbo=gEMNQWPuDX2wkNi_+1wmYoyqO88ZA@mail.gmail.com>
-References: <a59b1675cc29cd2897bdf1fb6ae34bfd0971fbb7.1366980015.git.tgraf@suug.ch>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: fix kernel warn on
+ cpsw irq enable
+Date: Mon, 29 Apr 2013 14:08:16 -0400 (EDT)
+Message-ID: <20130429.140816.128860616603400300.davem@davemloft.net>
+References: <1366975848-31503-1-git-send-email-mugunthanvnm@ti.com>
+	<517A6D0C.6020702@linutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:58076 "HELO
-	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754931Ab3D2SHg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 14:07:36 -0400
-Received: by mail-ie0-f198.google.com with SMTP id 9so34988840iec.5
-        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 11:07:35 -0700 (PDT)
-In-Reply-To: <a59b1675cc29cd2897bdf1fb6ae34bfd0971fbb7.1366980015.git.tgraf@suug.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	linux-omap@vger.kernel.org
+To: bigeasy@linutronix.de
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <517A6D0C.6020702@linutronix.de>
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 26, 2013 at 5:40 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> The only user is get_dpifindex(), no need to redirect via the port
-> operations.
->
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Fri, 26 Apr 2013 14:03:24 +0200
 
-I'll let David take this one directly since my tree is otherwise empty
-and the merge window is coming up.
+> David, how did this happen? The patch I've sent
+> 
+>    http://www.spinics.net/lists/netdev/msg234240.html
+> 
+> adds this to the probe function, according to the net-next tree it was
+> added to cpsw_probe_dual_emac(). The context is similar but not exact
+> the same.
 
-Acked-by: Jesse Gross <jesse@nicira.com>
+This is usually I ask people to respin patches even if there are minor
+fuzz differences when I try to apply this patch.
+
+I tried to be nice and save you some work this time, 'patch' accepted
+it with minor offsets, and with a cursory glance I didn't see any
+problems.
+
+Next time I'll be a hardliner and request a respin :-)
