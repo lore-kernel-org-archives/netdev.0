@@ -1,69 +1,59 @@
-From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
-Subject: Re: [PATCH] sh_eth: add R8A77781 support
-Date: Mon, 29 Apr 2013 14:04:25 +0200
-Message-ID: <8939585.WOyomtefEW@avalon>
-References: <201304280044.25139.sergei.shtylyov@cogentembedded.com> <1729391.fxbIzSoxUb@avalon> <517E5D43.1020806@cogentembedded.com>
+From: Nicolas Schichan <nschichan@freebox.fr>
+Subject: Re: [RFC PATCH net-next 0/6] seccomp filter JIT
+Date: Mon, 29 Apr 2013 14:18:13 +0200
+Message-ID: <517E6505.6030005@freebox.fr>
+References: <1366962706-24204-1-git-send-email-xi.wang@gmail.com> <20130426112539.GA3736@osiris> <517A6915.2020208@redhat.com> <CAKU6vybdnpoM-szTrJRDVM2sqNPvAe3Tszg+tCuziKSOEXjJ1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <517E5D43.1020806@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Borkmann <dborkman@redhat.com>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Russell King <linux@arm.linux.org.uk>,
+	Eric Dumazet <edumazet@google.com>,
+	Will Drewry <wad@chromium.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mircea Gherzan <mgherzan@gmail.com>
+To: Xi Wang <xi.wang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKU6vybdnpoM-szTrJRDVM2sqNPvAe3Tszg+tCuziKSOEXjJ1w@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+On 04/26/2013 02:31 PM, Xi Wang wrote:
+> Thanks for the pointer.
+>
+> For the ARM part, looks like Nicolas's patch requires to implement two
+> wrappers for each arch:
+>
+>    void seccomp_jit_compile(struct seccomp_filter *fp);
+>    void seccomp_jit_free(struct seccomp_filter *fp);
+>
+> The implementation of these wrappers is almost identical to:
+>
+>    void bpf_jit_compile(struct sk_filter *fp);
+>    void bpf_jit_free(struct sk_filter *fp);
+>
+> While this patch uses a unified interface for both packet & seccomp filters.
+>
+>    bpf_func_t bpf_jit_compile(struct sock_filter *filter, unsigned int flen);
+>    void bpf_jit_free(bpf_func_t bpf_func);
+>
+> Shouldn't be hard to merge though.
 
-On Monday 29 April 2013 15:45:07 Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 29-04-2013 0:33, Laurent Pinchart wrote:
-> > On Sunday 28 April 2013 00:44:24 Sergei Shtylyov wrote:
-> >> Add support for another ARM member of the R-Car family, R-Car M1A, also
-> >> known as R8A77781 -- it will share the code with previously added
-> >> R8A77790.
-> >> 
-> >> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> 
-> [...]
-> 
-> >> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-> >> ===================================================================
-> >> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-> >> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-> >> @@ -342,7 +342,7 @@ static void sh_eth_select_mii(struct net
-> >>   #endif
-> >>   
-> >>   /* There is CPU dependent code */
-> >> -#if defined(CONFIG_ARCH_R8A7779)
-> >> +#if defined(CONFIG_ARCH_R8A7778) || defined(CONFIG_ARCH_R8A7779)
-> >>   #define SH_ETH_RESET_DEFAULT	1
-> >>   static void sh_eth_set_duplex(struct net_device *ndev)
-> >>   {
-> >> @@ -370,7 +370,7 @@ static void sh_eth_set_rate(struct net_d
-> >>   	}
-> >>   }
-> >> 
-> >> -/* R8A7779 */
-> >> +/* R8A7778/9 */
-> >>   static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
-> >>   	.set_duplex	= sh_eth_set_duplex,
-> >>   	.set_rate	= sh_eth_set_rate,
-> > 
-> > I was wondering if someone is working (or was planning to work in the near
-> > future) in getting rid of that #ifdef mess and add proper support for
-> > multiplatform kernels to the sh-eth driver ?
-> 
-> Yes, I'm still going to work on it.
+Hi,
 
-Great. I would have cooked up a patch otherwise.
+I went for the solution I submitted because I wanted to avoid changes to the 
+current bpf_jit_compile prototypes for all currently supported architectures 
+(for most of which, I can only compile-test).
 
-> > The patch looks good to me though, the above isn't a reason to delay it.
+My solution also allows the seccomp jit code to be disabled while still 
+allowing jit on socket filters (via a Kconfig option). This might be useful to 
+some people.
 
--- 
 Regards,
 
-Laurent Pinchart
-
+-- 
+Nicolas Schichan
+Freebox SAS
