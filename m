@@ -1,104 +1,76 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net 3/3] cxgb4vf: Support CPL_SGE_EGR_UPDATEs encapsulated in a CPL_FW4_MSG
-Date: Mon, 29 Apr 2013 19:34:41 +0530
-Message-ID: <1367244281-23043-4-git-send-email-vipul@chelsio.com>
-References: <1367244281-23043-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
-	abhishek@chelsio.com, leedom@chelsio.com,
-	swise@opengridcomputing.com, Vipul Pandya <vipul@chelsio.com>
+From: Gerlando Falauto <gerlando.falauto@keymile.com>
+Subject: [PATCH v2 2/2] tipc: pskb_copy() buffers when sending on more than one bearer
+Date: Mon, 29 Apr 2013 16:13:40 +0200
+Message-ID: <1367244820-29881-2-git-send-email-gerlando.falauto@keymile.com>
+References: <1367244820-29881-1-git-send-email-gerlando.falauto@keymile.com>
+Cc: jon.maloy@ericsson.com, erik.hugne@ericsson.com,
+	ying.xue@windriver.com, holger.brunck@keymile.com,
+	Gerlando Falauto <gerlando.falauto@keymile.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:8512 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758468Ab3D2OLE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 10:11:04 -0400
-In-Reply-To: <1367244281-23043-1-git-send-email-vipul@chelsio.com>
+Received: from mail-de.keymile.com ([195.8.104.250]:51958 "EHLO
+	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758033Ab3D2OWB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 10:22:01 -0400
+In-Reply-To: <1367244820-29881-1-git-send-email-gerlando.falauto@keymile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Newer firmware can post CPL_SGE_EGR_UPDATE message encapsulated in a
-CPL_FW4_MSG as follows
+When sending packets, TIPC bearers use skb_clone() before writing their
+hardware header. This will however NOT copy the data buffer.
+So when the same packet is sent over multiple bearers (to reach multiple
+nodes), the same socket buffer data will be treated by multiple
+tipc_media drivers which will write their own hardware header through
+dev_hard_header().
+Most of the time this is not a problem, because by the time the
+packet is processed by the second media, it has already been sent over
+the first one. However, when the first transmission is delayed (e.g.
+because of insufficient bandwidth or through a shaper), the next bearer
+will overwrite the hardware header, resulting in the packet being sent:
+a) with the wrong source address, when bearers of the same type,
+e.g. ethernet, are involved
+b) with a completely corrupt header, or even dropped, when bearers of
+different types are involved.
 
-flit0 rss_header (if DropRSS == 0 in IQ context)
-flit1 CPL_FW4_MSG cpl
-flit2 rss_header w/opcode CPL_SGE_EGR_UPDATE
-flit3 CPL_SGE_EGR_UPDATE cpl
+So when the same socket buffer is to be sent multiple times, send a
+pskb_copy() instead (from the second instance on), and release it
+afterwards (the bearer will skb_clone() it anyway).
 
-So FW4_MSG CPLs with a newly created type of FW_TYPE_RSSCPL have the
-CPL_SGE_EGR_UPDATE CPL message in flit 2 of the FW4_MSG. Firmware can still
-post regular CPL_SGE_EGR_UPDATE messages, so the drivers need to handle
-both.
-
-This patch also writes a new parameter to firmware requesting encapsulated
-EGR_UPDATE. This allows firmware with this support to not break older drivers.
-
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h        |  1 +
- .../net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c    | 25 ++++++++++++++++++++++
- 2 files changed, 26 insertions(+)
+ net/tipc/bcast.c |   13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-index 357e297..01d4844 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-@@ -158,6 +158,7 @@ union opcode_tid {
- };
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index be1f945..7f57f76 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -611,6 +611,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+ 		struct tipc_bearer *p = bcbearer->bpairs[bp_index].primary;
+ 		struct tipc_bearer *b = p;
+ 		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
++		struct sk_buff *tbuf;
  
- #define CPL_OPCODE(x) ((x) << 24)
-+#define G_CPL_OPCODE(x) (((x) >> 24) & 0xFF)
- #define MK_OPCODE_TID(opcode, tid) (CPL_OPCODE(opcode) | (tid))
- #define OPCODE_TID(cmd) ((cmd)->ot.opcode_tid)
- #define GET_TID(cmd) (ntohl(OPCODE_TID(cmd)) & 0xFFFFFF)
-diff --git a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-index 73aef76..40c22e7 100644
---- a/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4vf/cxgb4vf_main.c
-@@ -409,6 +409,20 @@ static int fwevtq_handler(struct sge_rspq *rspq, const __be64 *rsp,
- 		break;
- 	}
+ 		if (!p)
+ 			break;	/* No more bearers to try */
+@@ -626,7 +627,17 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+ 		if (bcbearer->remains_new.count == bcbearer->remains.count)
+ 			continue;  /* Nothing added by bearer pair */
  
-+	case CPL_FW4_MSG: {
-+		/* FW can send EGR_UPDATEs encapsulated in a CPL_FW4_MSG.
-+		 */
-+		const struct cpl_sge_egr_update *p = (void *)(rsp + 3);
-+		opcode = G_CPL_OPCODE(ntohl(p->opcode_qid));
-+		if (opcode != CPL_SGE_EGR_UPDATE) {
-+			dev_err(adapter->pdev_dev, "unexpected FW4/CPL %#x on FW event queue\n"
-+				, opcode);
-+			break;
+-		tipc_bearer_send(b, buf, &s->media->bcast_addr);
++		if (bp_index == 0) {
++			/* Use original buffer for first bearer */
++			tipc_bearer_send(b, buf, &b->media->bcast_addr);
++		} else {
++			/* Avoid concurrent buffer access */
++			tbuf = pskb_copy(buf, GFP_ATOMIC);
++			if (!tbuf)
++				break;
++			tipc_bearer_send(b, tbuf, &b->media->bcast_addr);
++			kfree_skb(tbuf); /* Bearer keeps a clone */
 +		}
-+		cpl = (void *)p;
-+		/*FALLTHROUGH*/
-+	}
-+
- 	case CPL_SGE_EGR_UPDATE: {
- 		/*
- 		 * We've received an Egress Queue Status Update message.  We
-@@ -2072,6 +2086,7 @@ static int adap_init0(struct adapter *adapter)
- 	struct sge *s = &adapter->sge;
- 	unsigned int ethqsets;
- 	int err;
-+	u32 param, val = 0;
  
- 	/*
- 	 * Wait for the device to become ready before proceeding ...
-@@ -2153,6 +2168,16 @@ static int adap_init0(struct adapter *adapter)
- 		return err;
- 	}
- 
-+	/* If we're running on newer firmware, let it know that we're
-+	 * prepared to deal with encapsulated CPL messages.  Older
-+	 * firmware won't understand this and we'll just get
-+	 * unencapsulated messages ...
-+	 */
-+	param = FW_PARAMS_MNEM(FW_PARAMS_MNEM_PFVF) |
-+		FW_PARAMS_PARAM_X(FW_PARAMS_PARAM_PFVF_CPLFW4MSG_ENCAP);
-+	val = 1;
-+	(void) t4vf_set_params(adapter, 1, &param, &val);
-+
- 	/*
- 	 * Retrieve our RX interrupt holdoff timer values and counter
- 	 * threshold values from the SGE parameters.
+ 		/* Swap bearers for next packet */
+ 		if (s) {
 -- 
-1.8.0
+1.7.10.1
