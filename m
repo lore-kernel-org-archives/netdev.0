@@ -1,28 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 0/3] Add support for velocity network driver on
- platform devices
-Date: Mon, 29 Apr 2013 15:15:28 -0400 (EDT)
-Message-ID: <20130429.151528.2251094691456287740.davem@davemloft.net>
-References: <1367221841-14563-1-git-send-email-linux@prisktech.co.nz>
+Subject: Re: [PATCH net-next 2/2] be2net: FLR must be first cmd issued to
+ Lancer FW
+Date: Mon, 29 Apr 2013 15:16:01 -0400 (EDT)
+Message-ID: <20130429.151601.1915233683350396033.davem@davemloft.net>
+References: <78281116-7d1e-4aff-b59c-f9a583fa35ea@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	vt8500-wm8505-linux-kernel@googlegroups.com,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: linux@prisktech.co.nz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367221841-14563-1-git-send-email-linux@prisktech.co.nz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kalesh.purayil@emulex.com
+To: somnath.kotur@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33356 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759722Ab3D2TQD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 15:16:03 -0400
+In-Reply-To: <78281116-7d1e-4aff-b59c-f9a583fa35ea@CMEXHTCAS1.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Mon, 29 Apr 2013 13:52:29 +0530
 
-You prepared these patches against a net-next tree which is at least
-a week old, I know this because that's when the NETIF_F_* flags for
-VLAN offloading changed their names which causes your third patch
-to fail to apply.
+> From: Kalesh AP <kalesh.purayil@emulex.com>
+> 
+> Lancer FW requires that the first cmd issued by the host-driver be an FLR.
+> So, re-order be_probe() to move be_cmd_function_reset() ahead of
+> be_cmd_fw_init().
+> 
+> Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 
-Do not do this, net-next changes every day and rapidly, don't take
-the chance that the driver you're touching is unpopular and thus
-hasn't had changes to it recently.  Tree-wide interface changes
-happen all the time.
+Applied.
