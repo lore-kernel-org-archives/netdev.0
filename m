@@ -1,46 +1,171 @@
 From: Lucas Stach <l.stach@pengutronix.de>
-Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable
- call"
-Date: Mon, 29 Apr 2013 15:46:57 +0200
-Message-ID: <1367243217.4100.13.camel@weser.hi.pengutronix.de>
-References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
-	 <CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
-	 <20130426134415.GS1366@pengutronix.de>
-	 <20130426.143309.1011152996477262852.davem@davemloft.net>
-	 <20130427090545.GY1366@pengutronix.de>
-	 <CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
+Subject: Re: [PATCH 1/1 v2 net] net: fec: fix kernel oops when plug/unplug
+ cable many times
+Date: Mon, 29 Apr 2013 15:47:20 +0200
+Message-ID: <1367243240.4100.14.camel@weser.hi.pengutronix.de>
+References: <1367118508-12340-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Frank Li <lznuaa@gmail.com>
+Cc: romieu@fr.zoreil.com, r.schwebel@pengutronix.de,
+	davem@davemloft.net, netdev@vger.kernel.org, festevam@gmail.com,
+	shawn.guo@linaro.org, lznuaa@gmail.com
+To: Frank Li <Frank.Li@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:47355 "EHLO
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:47364 "EHLO
 	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753853Ab3D2NsL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 09:48:11 -0400
-In-Reply-To: <CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
+	with ESMTP id S1756965Ab3D2Nsf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 09:48:35 -0400
+In-Reply-To: <1367118508-12340-1-git-send-email-Frank.Li@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am Samstag, den 27.04.2013, 18:26 +0800 schrieb Frank Li:
-> >
-> > - remove locking in a way that memory is freed which is in use
+Hi Frank,
+
+Am Sonntag, den 28.04.2013, 11:08 +0800 schrieb Frank Li:
+> reproduce steps
+>  1. flood ping from other machine
+>  	ping -f -s 41000 IP
+>  2. run below script
+>     while [ 1 ]; do ethtool -s eth0 autoneg off;
+>     sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
 > 
-> The purpose of remove lock is that fix dead lock.
+> You can see oops in one hour.
+> 
+> The reason is fec_restart clear BD but NAPI may use it.
+> The solution is disable NAPI and stop xmit when reset BD.
+> disable NAPI may sleep, so fec_restart can't be call in
+> atomic context.
+> 
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+> ---
+> 
+> Change from V1 to V2
+> 	Add netif_tx_lock(ndev) to avoid xmit runing when reset hardware	
+> 
+>  drivers/net/ethernet/freescale/fec.c |   41 +++++++++++++++++++++++++++++-----
+>  drivers/net/ethernet/freescale/fec.h |    3 +-
+>  2 files changed, 37 insertions(+), 7 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/fec.c b/drivers/net/ethernet/freescale/fec.c
+> index 73195f6..d140b50 100644
+> --- a/drivers/net/ethernet/freescale/fec.c
+> +++ b/drivers/net/ethernet/freescale/fec.c
+> @@ -403,6 +403,12 @@ fec_restart(struct net_device *ndev, int duplex)
+>  	const struct platform_device_id *id_entry =
+>  				platform_get_device_id(fep->pdev);
+>  	int i;
+> +	if (netif_running(ndev)) {
+> +		napi_disable(&fep->napi);
+> +		netif_stop_queue(ndev);
+> +		netif_tx_lock(ndev);
+> +	}
+> +
+>  	u32 temp_mac[2];
+>  	u32 rcntl = OPT_FRAME_SIZE | 0x04;
+>  	u32 ecntl = 0x2; /* ETHEREN */
+> @@ -559,6 +565,12 @@ fec_restart(struct net_device *ndev, int duplex)
+>  
+>  	/* Enable interrupts we wish to service */
+>  	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
+> +
+> +	if (netif_running(ndev)) {
+> +		napi_enable(&fep->napi);
+> +		netif_wake_queue(ndev);
+> +		netif_tx_unlock(ndev);
+> +	}
+>  }
+>  
+>  static void
+> @@ -598,8 +610,20 @@ fec_timeout(struct net_device *ndev)
+>  
+>  	ndev->stats.tx_errors++;
+>  
+> -	fec_restart(ndev, fep->full_duplex);
+> -	netif_wake_queue(ndev);
+> +	fep->timeout = 1;
+> +	schedule_delayed_work(&fep->delay_work, msecs_to_jiffies(1));
+> +}
 
-Could you please elaborate? What is the exact situation which caused a
-deadlock here? I tried to see what's happening from your changelogs, but
-I'm not sure I can follow here. Wasn't the problem more of the used
-spinlocks not being IRQ-save and thus potentially creating a deadlock?
+Why are you using delayed work here? I don't see a reason why we would
+like to defer execution here. Just use schedule_work().
 
-Regards,
-Lucas
+> +
+> +static void fec_enet_work(struct work_struct *work)
+> +{
+> +	struct fec_enet_private *fep =
+> +		container_of(work, struct fec_enet_private, delay_work.work);
+> +
+> +	if (fep->timeout) {
+> +		fep->timeout = 0;
+> +		fec_restart(fep->netdev, fep->full_duplex);
+> +		netif_wake_queue(fep->netdev);
+> +	}
+>  }
+>  
+>  static void
+> @@ -996,9 +1020,6 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+>  			status_change = 1;
+>  		}
+>  
+> -		/* if any of the above changed restart the FEC */
+> -		if (status_change)
+> -			fec_restart(ndev, phy_dev->duplex);
+>  	} else {
+>  		if (fep->link) {
+>  			fec_stop(ndev);
+> @@ -1010,8 +1031,14 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+>  spin_unlock:
+>  	spin_unlock_irqrestore(&fep->hw_lock, flags);
+>  
+> -	if (status_change)
+> +	if (status_change) {
+> +		/* if any of the above changed restart the FEC,
+> +		 * fec_restart may sleep. can't call it in spin_lock
+> +		 */
+> +		if (phy_dev->link)
+> +			fec_restart(ndev, phy_dev->duplex);
+>  		phy_print_status(phy_dev);
+> +	}
+>  }
+
+Don't complicate things unnecessarily. Just put a patch in front of this
+one to remove the spinlock. As you removed it already from the RX and TX
+paths it doesn't protect anything anymore.
+
+>  
+>  static int fec_enet_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
+> @@ -1882,6 +1909,7 @@ fec_probe(struct platform_device *pdev)
+>  	if (ret)
+>  		goto failed_register;
+>  
+> +	INIT_DELAYED_WORK(&fep->delay_work, fec_enet_work);
+>  	return 0;
+>  
+>  failed_register:
+> @@ -1918,6 +1946,7 @@ fec_drv_remove(struct platform_device *pdev)
+>  	struct resource *r;
+>  	int i;
+>  
+> +	cancel_delayed_work_sync(&fep->delay_work);
+>  	unregister_netdev(ndev);
+>  	fec_enet_mii_remove(fep);
+>  	del_timer_sync(&fep->time_keep);
+> diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+> index eb43729..a367b21 100644
+> --- a/drivers/net/ethernet/freescale/fec.h
+> +++ b/drivers/net/ethernet/freescale/fec.h
+> @@ -260,7 +260,8 @@ struct fec_enet_private {
+>  	int hwts_rx_en;
+>  	int hwts_tx_en;
+>  	struct timer_list time_keep;
+> -
+> +	struct delayed_work delay_work;
+> +	int timeout;
+>  };
+>  
+>  void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev);
+
 -- 
 Pengutronix e.K.                           | Lucas Stach                 |
 Industrial Linux Solutions                 | http://www.pengutronix.de/  |
