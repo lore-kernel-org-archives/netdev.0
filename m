@@ -1,191 +1,146 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 09/18] netfilter: ipset: Introduce the counter extension in the core
-Date: Mon, 29 Apr 2013 20:22:15 +0200
-Message-ID: <1367259744-8922-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 02/18] netfilter: ipset: Move often used IPv6 address masking function to header file
+Date: Mon, 29 Apr 2013 20:22:08 +0200
+Message-ID: <1367259744-8922-3-git-send-email-pablo@netfilter.org>
 References: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41386 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758650Ab3D2SWn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Apr 2013 14:22:43 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/ipset/ip_set.h      |   75 +++++++++++++++++++++++++--
- include/uapi/linux/netfilter/ipset/ip_set.h |    5 ++
- net/netfilter/ipset/ip_set_core.c           |   10 ++++
- 3 files changed, 86 insertions(+), 4 deletions(-)
+ include/linux/netfilter/ipset/pfxlen.h      |    9 +++++++++
+ net/netfilter/ipset/ip_set_hash_ip.c        |    9 ---------
+ net/netfilter/ipset/ip_set_hash_ipportnet.c |    9 ---------
+ net/netfilter/ipset/ip_set_hash_net.c       |    9 ---------
+ net/netfilter/ipset/ip_set_hash_netiface.c  |    9 ---------
+ net/netfilter/ipset/ip_set_hash_netport.c   |    9 ---------
+ 6 files changed, 9 insertions(+), 45 deletions(-)
 
-diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
-index bf0220c..0f978eb 100644
---- a/include/linux/netfilter/ipset/ip_set.h
-+++ b/include/linux/netfilter/ipset/ip_set.h
-@@ -52,18 +52,24 @@ enum ip_set_extension {
- 	IPSET_EXT_NONE = 0,
- 	IPSET_EXT_BIT_TIMEOUT = 1,
- 	IPSET_EXT_TIMEOUT = (1 << IPSET_EXT_BIT_TIMEOUT),
-+	IPSET_EXT_BIT_COUNTER = 2,
-+	IPSET_EXT_COUNTER = (1 << IPSET_EXT_BIT_COUNTER),
- };
+diff --git a/include/linux/netfilter/ipset/pfxlen.h b/include/linux/netfilter/ipset/pfxlen.h
+index 199fd11..1afbb94 100644
+--- a/include/linux/netfilter/ipset/pfxlen.h
++++ b/include/linux/netfilter/ipset/pfxlen.h
+@@ -41,4 +41,13 @@ do {						\
+ 	to = from | ~ip_set_hostmask(cidr);	\
+ } while (0)
  
- /* Extension offsets */
- enum ip_set_offset {
- 	IPSET_OFFSET_TIMEOUT = 0,
-+	IPSET_OFFSET_COUNTER,
- 	IPSET_OFFSET_MAX,
- };
- 
- #define SET_WITH_TIMEOUT(s)	((s)->extensions & IPSET_EXT_TIMEOUT)
-+#define SET_WITH_COUNTER(s)	((s)->extensions & IPSET_EXT_COUNTER)
- 
- struct ip_set_ext {
- 	unsigned long timeout;
-+	u64 packets;
-+	u64 bytes;
- };
- 
- struct ip_set;
-@@ -177,6 +183,65 @@ struct ip_set {
- 	void *data;
- };
- 
-+struct ip_set_counter {
-+	atomic64_t bytes;
-+	atomic64_t packets;
-+};
-+
 +static inline void
-+ip_set_add_bytes(u64 bytes, struct ip_set_counter *counter)
++ip6_netmask(union nf_inet_addr *ip, u8 prefix)
 +{
-+	atomic64_add((long long)bytes, &(counter)->bytes);
++	ip->ip6[0] &= ip_set_netmask6(prefix)[0];
++	ip->ip6[1] &= ip_set_netmask6(prefix)[1];
++	ip->ip6[2] &= ip_set_netmask6(prefix)[2];
++	ip->ip6[3] &= ip_set_netmask6(prefix)[3];
 +}
 +
-+static inline void
-+ip_set_add_packets(u64 packets, struct ip_set_counter *counter)
-+{
-+	atomic64_add((long long)packets, &(counter)->packets);
-+}
-+
-+static inline u64
-+ip_set_get_bytes(const struct ip_set_counter *counter)
-+{
-+	return (u64)atomic64_read(&(counter)->bytes);
-+}
-+
-+static inline u64
-+ip_set_get_packets(const struct ip_set_counter *counter)
-+{
-+	return (u64)atomic64_read(&(counter)->packets);
-+}
-+
-+static inline void
-+ip_set_update_counter(struct ip_set_counter *counter,
-+		      const struct ip_set_ext *ext,
-+		      struct ip_set_ext *mext, u32 flags)
-+{
-+	if (ext->packets != ULLONG_MAX) {
-+		ip_set_add_bytes(ext->bytes, counter);
-+		ip_set_add_packets(ext->packets, counter);
-+	}
-+}
-+
-+static inline bool
-+ip_set_put_counter(struct sk_buff *skb, struct ip_set_counter *counter)
-+{
-+	return nla_put_net64(skb, IPSET_ATTR_BYTES,
-+			     cpu_to_be64(ip_set_get_bytes(counter))) ||
-+	       nla_put_net64(skb, IPSET_ATTR_PACKETS,
-+			     cpu_to_be64(ip_set_get_packets(counter)));
-+}
-+
-+static inline void
-+ip_set_init_counter(struct ip_set_counter *counter,
-+		    const struct ip_set_ext *ext)
-+{
-+	if (ext->bytes != ULLONG_MAX)
-+		atomic64_set(&(counter)->bytes, (long long)(ext->bytes));
-+	if (ext->packets != ULLONG_MAX)
-+		atomic64_set(&(counter)->packets, (long long)(ext->packets));
-+}
-+
- /* register and unregister set references */
- extern ip_set_id_t ip_set_get_byname(const char *name, struct ip_set **set);
- extern void ip_set_put_byindex(ip_set_id_t index);
-@@ -318,10 +383,12 @@ bitmap_bytes(u32 a, u32 b)
- 
- #include <linux/netfilter/ipset/ip_set_timeout.h>
- 
--#define IP_SET_INIT_KEXT(skb, opt, map)		\
--	{ .timeout = ip_set_adt_opt_timeout(opt, map) }
-+#define IP_SET_INIT_KEXT(skb, opt, map)			\
-+	{ .bytes = (skb)->len, .packets = 1,		\
-+	  .timeout = ip_set_adt_opt_timeout(opt, map) }
- 
--#define IP_SET_INIT_UEXT(map)			\
--	{ .timeout = (map)->timeout }
-+#define IP_SET_INIT_UEXT(map)				\
-+	{ .bytes = ULLONG_MAX, .packets = ULLONG_MAX,	\
-+	  .timeout = (map)->timeout }
- 
- #endif /*_IP_SET_H */
-diff --git a/include/uapi/linux/netfilter/ipset/ip_set.h b/include/uapi/linux/netfilter/ipset/ip_set.h
-index fbee428..ed45267 100644
---- a/include/uapi/linux/netfilter/ipset/ip_set.h
-+++ b/include/uapi/linux/netfilter/ipset/ip_set.h
-@@ -108,6 +108,8 @@ enum {
- 	IPSET_ATTR_CIDR2,
- 	IPSET_ATTR_IP2_TO,
- 	IPSET_ATTR_IFACE,
-+	IPSET_ATTR_BYTES,
-+	IPSET_ATTR_PACKETS,
- 	__IPSET_ATTR_ADT_MAX,
- };
- #define IPSET_ATTR_ADT_MAX	(__IPSET_ATTR_ADT_MAX - 1)
-@@ -137,6 +139,7 @@ enum ipset_errno {
- 	IPSET_ERR_REFERENCED,
- 	IPSET_ERR_IPADDR_IPV4,
- 	IPSET_ERR_IPADDR_IPV6,
-+	IPSET_ERR_COUNTER,
- 
- 	/* Type specific error codes */
- 	IPSET_ERR_TYPE_SPECIFIC = 4352,
-@@ -161,6 +164,8 @@ enum ipset_cadt_flags {
- 	IPSET_FLAG_PHYSDEV	= (1 << IPSET_FLAG_BIT_PHYSDEV),
- 	IPSET_FLAG_BIT_NOMATCH	= 2,
- 	IPSET_FLAG_NOMATCH	= (1 << IPSET_FLAG_BIT_NOMATCH),
-+	IPSET_FLAG_BIT_WITH_COUNTERS = 3,
-+	IPSET_FLAG_WITH_COUNTERS = (1 << IPSET_FLAG_BIT_WITH_COUNTERS),
- 	IPSET_FLAG_CADT_MAX	= 15,	/* Upper half */
- };
- 
-diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index 4486285d..f6d878a 100644
---- a/net/netfilter/ipset/ip_set_core.c
-+++ b/net/netfilter/ipset/ip_set_core.c
-@@ -324,6 +324,16 @@ ip_set_get_extensions(struct ip_set *set, struct nlattr *tb[],
- 			return -IPSET_ERR_TIMEOUT;
- 		ext->timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
- 	}
-+	if (tb[IPSET_ATTR_BYTES] || tb[IPSET_ATTR_PACKETS]) {
-+		if (!(set->extensions & IPSET_EXT_COUNTER))
-+			return -IPSET_ERR_COUNTER;
-+		if (tb[IPSET_ATTR_BYTES])
-+			ext->bytes = be64_to_cpu(nla_get_be64(
-+						 tb[IPSET_ATTR_BYTES]));
-+		if (tb[IPSET_ATTR_PACKETS])
-+			ext->packets = be64_to_cpu(nla_get_be64(
-+						   tb[IPSET_ATTR_PACKETS]));
-+	}
- 	return 0;
+ #endif /*_PFXLEN_H */
+diff --git a/net/netfilter/ipset/ip_set_hash_ip.c b/net/netfilter/ipset/ip_set_hash_ip.c
+index b7d4cb4..c486ad2 100644
+--- a/net/netfilter/ipset/ip_set_hash_ip.c
++++ b/net/netfilter/ipset/ip_set_hash_ip.c
+@@ -255,15 +255,6 @@ hash_ip6_data_zero_out(struct hash_ip6_elem *elem)
+ 	ipv6_addr_set(&elem->ip.in6, 0, 0, 0, 0);
  }
- EXPORT_SYMBOL_GPL(ip_set_get_extensions);
+ 
+-static inline void
+-ip6_netmask(union nf_inet_addr *ip, u8 prefix)
+-{
+-	ip->ip6[0] &= ip_set_netmask6(prefix)[0];
+-	ip->ip6[1] &= ip_set_netmask6(prefix)[1];
+-	ip->ip6[2] &= ip_set_netmask6(prefix)[2];
+-	ip->ip6[3] &= ip_set_netmask6(prefix)[3];
+-}
+-
+ static bool
+ hash_ip6_data_list(struct sk_buff *skb, const struct hash_ip6_elem *data)
+ {
+diff --git a/net/netfilter/ipset/ip_set_hash_ipportnet.c b/net/netfilter/ipset/ip_set_hash_ipportnet.c
+index b4836c8..352f8b4 100644
+--- a/net/netfilter/ipset/ip_set_hash_ipportnet.c
++++ b/net/netfilter/ipset/ip_set_hash_ipportnet.c
+@@ -446,15 +446,6 @@ hash_ipportnet6_data_zero_out(struct hash_ipportnet6_elem *elem)
+ }
+ 
+ static inline void
+-ip6_netmask(union nf_inet_addr *ip, u8 prefix)
+-{
+-	ip->ip6[0] &= ip_set_netmask6(prefix)[0];
+-	ip->ip6[1] &= ip_set_netmask6(prefix)[1];
+-	ip->ip6[2] &= ip_set_netmask6(prefix)[2];
+-	ip->ip6[3] &= ip_set_netmask6(prefix)[3];
+-}
+-
+-static inline void
+ hash_ipportnet6_data_netmask(struct hash_ipportnet6_elem *elem, u8 cidr)
+ {
+ 	ip6_netmask(&elem->ip2, cidr);
+diff --git a/net/netfilter/ipset/ip_set_hash_net.c b/net/netfilter/ipset/ip_set_hash_net.c
+index 6dbe0af..370947c 100644
+--- a/net/netfilter/ipset/ip_set_hash_net.c
++++ b/net/netfilter/ipset/ip_set_hash_net.c
+@@ -343,15 +343,6 @@ hash_net6_data_zero_out(struct hash_net6_elem *elem)
+ }
+ 
+ static inline void
+-ip6_netmask(union nf_inet_addr *ip, u8 prefix)
+-{
+-	ip->ip6[0] &= ip_set_netmask6(prefix)[0];
+-	ip->ip6[1] &= ip_set_netmask6(prefix)[1];
+-	ip->ip6[2] &= ip_set_netmask6(prefix)[2];
+-	ip->ip6[3] &= ip_set_netmask6(prefix)[3];
+-}
+-
+-static inline void
+ hash_net6_data_netmask(struct hash_net6_elem *elem, u8 cidr)
+ {
+ 	ip6_netmask(&elem->ip, cidr);
+diff --git a/net/netfilter/ipset/ip_set_hash_netiface.c b/net/netfilter/ipset/ip_set_hash_netiface.c
+index 2481620..dd9843e 100644
+--- a/net/netfilter/ipset/ip_set_hash_netiface.c
++++ b/net/netfilter/ipset/ip_set_hash_netiface.c
+@@ -529,15 +529,6 @@ hash_netiface6_data_zero_out(struct hash_netiface6_elem *elem)
+ }
+ 
+ static inline void
+-ip6_netmask(union nf_inet_addr *ip, u8 prefix)
+-{
+-	ip->ip6[0] &= ip_set_netmask6(prefix)[0];
+-	ip->ip6[1] &= ip_set_netmask6(prefix)[1];
+-	ip->ip6[2] &= ip_set_netmask6(prefix)[2];
+-	ip->ip6[3] &= ip_set_netmask6(prefix)[3];
+-}
+-
+-static inline void
+ hash_netiface6_data_netmask(struct hash_netiface6_elem *elem, u8 cidr)
+ {
+ 	ip6_netmask(&elem->ip, cidr);
+diff --git a/net/netfilter/ipset/ip_set_hash_netport.c b/net/netfilter/ipset/ip_set_hash_netport.c
+index 57b0550..cd1d3c1 100644
+--- a/net/netfilter/ipset/ip_set_hash_netport.c
++++ b/net/netfilter/ipset/ip_set_hash_netport.c
+@@ -407,15 +407,6 @@ hash_netport6_data_zero_out(struct hash_netport6_elem *elem)
+ }
+ 
+ static inline void
+-ip6_netmask(union nf_inet_addr *ip, u8 prefix)
+-{
+-	ip->ip6[0] &= ip_set_netmask6(prefix)[0];
+-	ip->ip6[1] &= ip_set_netmask6(prefix)[1];
+-	ip->ip6[2] &= ip_set_netmask6(prefix)[2];
+-	ip->ip6[3] &= ip_set_netmask6(prefix)[3];
+-}
+-
+-static inline void
+ hash_netport6_data_netmask(struct hash_netport6_elem *elem, u8 cidr)
+ {
+ 	ip6_netmask(&elem->ip, cidr);
 -- 
 1.7.10.4
+
