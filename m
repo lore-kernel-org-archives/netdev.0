@@ -1,201 +1,216 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless-next 2013-04-29
-Date: Mon, 29 Apr 2013 15:45:51 -0400
-Message-ID: <20130429194550.GC4590@tuxdriver.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2oS5YaxWCcQjTEyO"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tony Prisk <linux@prisktech.co.nz>
+Subject: [PATCHv3 2/3] net: velocity: Convert to generic dma functions
+Date: Tue, 30 Apr 2013 07:46:11 +1200
+Message-ID: <1367264772-4557-3-git-send-email-linux@prisktech.co.nz>
+References: <1367264772-4557-1-git-send-email-linux@prisktech.co.nz>
+Cc: vt8500-wm8505-linux-kernel@googlegroups.com,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Tony Prisk <linux@prisktech.co.nz>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from server.prisktech.co.nz ([115.188.14.127]:55271 "EHLO
+	server.prisktech.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761130Ab3D2TqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 15:46:16 -0400
+In-Reply-To: <1367264772-4557-1-git-send-email-linux@prisktech.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Remove the pci_* dma functions and replace with the more generic
+versions.
 
---2oS5YaxWCcQjTEyO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In preparation of adding platform support, a new struct device *dev
+is added to struct velocity_info which can be used by both the pci
+and platform code.
 
-Dave,
-
-A few more stragglers intended for 3.10...
-
-For the Bluetooth bits, Gustavo says:
-
-"A few more patches intended for 3.10, the most important one is the suppor=
-t in
-btusb for fw loading for the Intel Bluetooth device. Other than that we have
-only fixes and clean ups."
-
-For the iwlwifi bits, Johannes says:
-
-"Here are a few more changes for the 3.10 stream, some bugfixes,
-adjustments to some powersave parameters and a new device ID."
-
-For the NFC bits, Samuel says:
-
-"This pull request includes Marcel's Kconfig dependency fix on top of the L=
-LCP
-code move to net/nfc."
-
-On top of that...Yogesh Ashok Powar provides a few PCI-related mwifiex
-updates, Hauke Mehrtens provides a small ssb feature for spurious
-tone avoidance on a specific chip, and Larry Finger provides a small
-rtlwifi fix related to avoiding false detection of AP loss.
-
-Please let me know if there are problems!
-
-Thanks,
-
-John
-
+Signed-off-by: Tony Prisk <linux@prisktech.co.nz>
 ---
+ drivers/net/ethernet/via/via-velocity.c |   51 +++++++++++++++----------------
+ drivers/net/ethernet/via/via-velocity.h |    1 +
+ 2 files changed, 26 insertions(+), 26 deletions(-)
 
-The following changes since commit 94dace10142790ddeb0a3a7b8b33d9540d30c79f:
-
-  cxgb4vf: Support CPL_SGE_EGR_UPDATEs encapsulated in a CPL_FW4_MSG (2013-=
-04-29 15:24:44 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless-next.git =
-for-davem
-
-for you to fetch changes up to 17a2911f3395d66694fcbd2e8970015904d9b034:
-
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/li=
-nville/wireless-next into for-davem (2013-04-29 15:31:57 -0400)
-
-----------------------------------------------------------------
-
-Alexander Bondar (2):
-      iwlwifi: mvm: change TX/RX AM-to-PSM transition time for LP mode
-      iwlwifi: mvm: remove usage of power_save module parameter
-
-Andreas Fenkart (2):
-      Bluetooth: btmrvl: release lock while waiting for fw download complete
-      Bluetooth: btmrvl: report error if verify_fw_download times out
-
-Andy Shevchenko (1):
-      Bluetooth: btmrvl: use native helpers for debugfs
-
-Emmanuel Grumbach (4):
-      iwlwifi: mvm: remove TODO which has been addressed
-      iwlwifi: mvm: fix first_antenna
-      iwlwifi: dvm: don't send zeroed LQ cmd
-      iwlwifi: add a subdevice ID for 7000 series
-
-Fengguang Wu (1):
-      Bluetooth: hci_get_cmd_complete() can be static
-
-Gustavo Padovan (1):
-      Bluetooth: remove unneeded var initialization in btmrvl
-
-Hauke Mehrtens (1):
-      ssb: implement ssb spuravoid for chipid BCM43222
-
-Johan Hedberg (2):
-      Bluetooth: Fix HCI command send functions to use const specifier
-      Bluetooth: Fix sending write_le_host_supporte for LE-only controllers
-
-John W. Linville (4):
-      Merge branch 'for-upstream' of git://git.kernel.org/.../bluetooth/blu=
-etooth-next
-      Merge branch 'for-john' of git://git.kernel.org/.../iwlwifi/iwlwifi-n=
-ext
-      Merge tag 'nfc-next-3.10-4' of git://git.kernel.org/.../sameo/nfc-next
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless-n=
-ext into for-davem
-
-Larry Finger (1):
-      rtlwifi: rtl8192cu: Fix false loss of AP indication
-
-Marcel Holtmann (2):
-      Bluetooth: Remove unneeded parameter from L2CAP ATT channel handling
-      NFC: Add missing RFKILL dependency for Kconfig
-
-Piotr Haber (1):
-      brcmsmac: Fix merge issue
-
-Samuel Ortiz (1):
-      NFC: Move LLCP code to the NFC top level diirectory
-
-Stanislaw Gruszka (3):
-      iwlwifi: fix freeing uninitialized pointer
-      iwlwifi: remove redundant argument from iwl_dump_nic_event_log
-      iwlwifi: remove unneeded goto from iwl_dbgfs_log_event_read
-
-Tedd Ho-Jeong An (1):
-      Bluetooth: Add support for Intel Bluetooth device [8087:07dc]
-
-Yogesh Ashok Powar (4):
-      mwifiex: Use pci_release_region() instead of a pci_release_regions()
-      mwifiex: Call pci_release_region after calling pci_disable_device
-      mwifiex: Do not kfree cmd buf while unregistering PCIe
-      mwifiex: Correct pci_unmap_single's size
-
- drivers/bluetooth/btmrvl_debugfs.c                 | 266 ++-------------
- drivers/bluetooth/btmrvl_sdio.c                    |  41 ++-
- drivers/bluetooth/btusb.c                          | 377 +++++++++++++++++=
-++++
- .../net/wireless/brcm80211/brcmsmac/mac80211_if.c  |   1 +
- drivers/net/wireless/iwlwifi/dvm/agn.h             |   2 +-
- drivers/net/wireless/iwlwifi/dvm/debugfs.c         |  16 +-
- drivers/net/wireless/iwlwifi/dvm/main.c            |   6 +-
- drivers/net/wireless/iwlwifi/dvm/sta.c             |   5 +-
- drivers/net/wireless/iwlwifi/mvm/mac80211.c        |   2 +-
- drivers/net/wireless/iwlwifi/mvm/phy-ctxt.c        |   5 -
- drivers/net/wireless/iwlwifi/mvm/power.c           |  16 +-
- drivers/net/wireless/iwlwifi/mvm/utils.c           |   5 +-
- drivers/net/wireless/iwlwifi/pcie/drv.c            |   1 +
- drivers/net/wireless/mwifiex/pcie.c                |   9 +-
- drivers/net/wireless/rtlwifi/usb.c                 |   3 +
- drivers/ssb/driver_chipcommon_pmu.c                |  19 +-
- include/net/bluetooth/hci_core.h                   |  14 +-
- net/bluetooth/hci_core.c                           |  29 +-
- net/bluetooth/l2cap_core.c                         |   7 +-
- net/bluetooth/mgmt.c                               |   8 +-
- net/nfc/Kconfig                                    |   2 +-
- net/nfc/Makefile                                   |   6 +-
- net/nfc/{llcp =3D> }/llcp.h                          |   0
- net/nfc/llcp/Kconfig                               |   7 -
- net/nfc/{llcp/commands.c =3D> llcp_commands.c}       |   2 +-
- net/nfc/{llcp/llcp.c =3D> llcp_core.c}               |   2 +-
- net/nfc/{llcp/sock.c =3D> llcp_sock.c}               |   2 +-
- net/nfc/netlink.c                                  |   3 +-
- net/nfc/nfc.h                                      |  64 ----
- 29 files changed, 520 insertions(+), 400 deletions(-)
- rename net/nfc/{llcp =3D> }/llcp.h (100%)
- delete mode 100644 net/nfc/llcp/Kconfig
- rename net/nfc/{llcp/commands.c =3D> llcp_commands.c} (99%)
- rename net/nfc/{llcp/llcp.c =3D> llcp_core.c} (99%)
- rename net/nfc/{llcp/sock.c =3D> llcp_sock.c} (99%)
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
-
---2oS5YaxWCcQjTEyO
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRfs3uAAoJEJctW/TcYTgGYI8P/jpSxEDxYnQ6eVJemhS9ikby
-v/5avSc5Awd5iZNRLAb8Ita0dV9F3ktXN2xmXvKbhjdPn7/+i2ghUyHzxOwrD0wc
-2KTr0z7UvNCTYbrhSsrdwYoEaAsUJh0a9lQCgW1QqhLmnOo3YcxtDyr/17FEgpbC
-+FC5KLltntE5vVfGI64qQhr6r9mloHVCaPKGJwM7/qk14Iz4exyJF3Ti0zDqE6p5
-o8G5SvQ9Etz6qPZvuc+A4f/T6aYGpzXS3DsOE2HCYJIGO1+LX7xtHJ+HuOss53fn
-Sl8Hi4sUBpSkD9PKPsStsd35qX3oSbmCWVEhPVRE7N4jdqTKQGcOON8CcXlhyboc
-mu/6JqFEohNKc8M1UtqG22DouVweGYBDU4tsRBhOyj3jeorTjTSEp2wbf+Q+6Rd7
-qygmkdVpQNYXJkbqvKeI+3KInX0q1XwcP1b5ZfB7/2sd7qSPi7lXSfSVO9IYhMuM
-k2MEiI9J6qTE3N1nOs6wsv1bM4hd7uIYFKnHJHYbqAZAEIm2U9+UANj8EeOxjK4G
-WI5giEfYdjxxrVm/UbmYvc/pgnPmu1TXNHLEDTVNQ6Jvp0nAfZooUvqSmL6krulC
-lQ9VfcU07TRcCw/Q11iVQVCJ8apNJP+wLgusVs+cDNLRo5+S80sBpRvkb9hPpvsz
-+MIed1OqH12EywncFOvR
-=OluY
------END PGP SIGNATURE-----
-
---2oS5YaxWCcQjTEyO--
+diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
+index 187eef3..5996cee 100644
+--- a/drivers/net/ethernet/via/via-velocity.c
++++ b/drivers/net/ethernet/via/via-velocity.c
+@@ -46,6 +46,7 @@
+ #include <linux/types.h>
+ #include <linux/bitops.h>
+ #include <linux/init.h>
++#include <linux/dma-mapping.h>
+ #include <linux/mm.h>
+ #include <linux/errno.h>
+ #include <linux/ioport.h>
+@@ -1459,7 +1460,6 @@ static int velocity_init_dma_rings(struct velocity_info *vptr)
+ 	struct velocity_opt *opt = &vptr->options;
+ 	const unsigned int rx_ring_size = opt->numrx * sizeof(struct rx_desc);
+ 	const unsigned int tx_ring_size = opt->numtx * sizeof(struct tx_desc);
+-	struct pci_dev *pdev = vptr->pdev;
+ 	dma_addr_t pool_dma;
+ 	void *pool;
+ 	unsigned int i;
+@@ -1467,13 +1467,13 @@ static int velocity_init_dma_rings(struct velocity_info *vptr)
+ 	/*
+ 	 * Allocate all RD/TD rings a single pool.
+ 	 *
+-	 * pci_alloc_consistent() fulfills the requirement for 64 bytes
++	 * dma_alloc_coherent() fulfills the requirement for 64 bytes
+ 	 * alignment
+ 	 */
+-	pool = pci_alloc_consistent(pdev, tx_ring_size * vptr->tx.numq +
+-				    rx_ring_size, &pool_dma);
++	pool = dma_alloc_coherent(vptr->dev, tx_ring_size * vptr->tx.numq +
++				    rx_ring_size, &pool_dma, GFP_ATOMIC);
+ 	if (!pool) {
+-		dev_err(&pdev->dev, "%s : DMA memory allocation failed.\n",
++		dev_err(vptr->dev, "%s : DMA memory allocation failed.\n",
+ 			vptr->netdev->name);
+ 		return -ENOMEM;
+ 	}
+@@ -1524,8 +1524,8 @@ static int velocity_alloc_rx_buf(struct velocity_info *vptr, int idx)
+ 	 */
+ 	skb_reserve(rd_info->skb,
+ 			64 - ((unsigned long) rd_info->skb->data & 63));
+-	rd_info->skb_dma = pci_map_single(vptr->pdev, rd_info->skb->data,
+-					vptr->rx.buf_sz, PCI_DMA_FROMDEVICE);
++	rd_info->skb_dma = dma_map_single(vptr->dev, rd_info->skb->data,
++					vptr->rx.buf_sz, DMA_FROM_DEVICE);
+ 
+ 	/*
+ 	 *	Fill in the descriptor to match
+@@ -1588,8 +1588,8 @@ static void velocity_free_rd_ring(struct velocity_info *vptr)
+ 
+ 		if (!rd_info->skb)
+ 			continue;
+-		pci_unmap_single(vptr->pdev, rd_info->skb_dma, vptr->rx.buf_sz,
+-				 PCI_DMA_FROMDEVICE);
++		dma_unmap_single(vptr->dev, rd_info->skb_dma, vptr->rx.buf_sz,
++				 DMA_FROM_DEVICE);
+ 		rd_info->skb_dma = 0;
+ 
+ 		dev_kfree_skb(rd_info->skb);
+@@ -1670,7 +1670,7 @@ static void velocity_free_dma_rings(struct velocity_info *vptr)
+ 	const int size = vptr->options.numrx * sizeof(struct rx_desc) +
+ 		vptr->options.numtx * sizeof(struct tx_desc) * vptr->tx.numq;
+ 
+-	pci_free_consistent(vptr->pdev, size, vptr->rx.ring, vptr->rx.pool_dma);
++	dma_free_coherent(vptr->dev, size, vptr->rx.ring, vptr->rx.pool_dma);
+ }
+ 
+ static int velocity_init_rings(struct velocity_info *vptr, int mtu)
+@@ -1727,8 +1727,8 @@ static void velocity_free_tx_buf(struct velocity_info *vptr,
+ 				pktlen = max_t(size_t, pktlen,
+ 						td->td_buf[i].size & ~TD_QUEUE);
+ 
+-			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i],
+-					le16_to_cpu(pktlen), PCI_DMA_TODEVICE);
++			dma_unmap_single(vptr->dev, tdinfo->skb_dma[i],
++					le16_to_cpu(pktlen), DMA_TO_DEVICE);
+ 		}
+ 	}
+ 	dev_kfree_skb_irq(skb);
+@@ -1750,8 +1750,8 @@ static void velocity_free_td_ring_entry(struct velocity_info *vptr,
+ 	if (td_info->skb) {
+ 		for (i = 0; i < td_info->nskb_dma; i++) {
+ 			if (td_info->skb_dma[i]) {
+-				pci_unmap_single(vptr->pdev, td_info->skb_dma[i],
+-					td_info->skb->len, PCI_DMA_TODEVICE);
++				dma_unmap_single(vptr->dev, td_info->skb_dma[i],
++					td_info->skb->len, DMA_TO_DEVICE);
+ 				td_info->skb_dma[i] = 0;
+ 			}
+ 		}
+@@ -2029,7 +2029,6 @@ static inline void velocity_iph_realign(struct velocity_info *vptr,
+  */
+ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
+ {
+-	void (*pci_action)(struct pci_dev *, dma_addr_t, size_t, int);
+ 	struct net_device_stats *stats = &vptr->netdev->stats;
+ 	struct velocity_rd_info *rd_info = &(vptr->rx.info[idx]);
+ 	struct rx_desc *rd = &(vptr->rx.ring[idx]);
+@@ -2047,8 +2046,8 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
+ 
+ 	skb = rd_info->skb;
+ 
+-	pci_dma_sync_single_for_cpu(vptr->pdev, rd_info->skb_dma,
+-				    vptr->rx.buf_sz, PCI_DMA_FROMDEVICE);
++	dma_sync_single_for_cpu(vptr->dev, rd_info->skb_dma,
++				    vptr->rx.buf_sz, DMA_FROM_DEVICE);
+ 
+ 	/*
+ 	 *	Drop frame not meeting IEEE 802.3
+@@ -2061,19 +2060,18 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
+ 		}
+ 	}
+ 
+-	pci_action = pci_dma_sync_single_for_device;
+-
+ 	velocity_rx_csum(rd, skb);
+ 
+ 	if (velocity_rx_copy(&skb, pkt_len, vptr) < 0) {
+ 		velocity_iph_realign(vptr, skb, pkt_len);
+-		pci_action = pci_unmap_single;
+ 		rd_info->skb = NULL;
++		dma_unmap_single(vptr->dev, rd_info->skb_dma, vptr->rx.buf_sz,
++				 DMA_FROM_DEVICE);
++	} else {
++		dma_sync_single_for_device(vptr->dev, rd_info->skb_dma,
++					   vptr->rx.buf_sz, DMA_FROM_DEVICE);
+ 	}
+ 
+-	pci_action(vptr->pdev, rd_info->skb_dma, vptr->rx.buf_sz,
+-		   PCI_DMA_FROMDEVICE);
+-
+ 	skb_put(skb, pkt_len - 4);
+ 	skb->protocol = eth_type_trans(skb, vptr->netdev);
+ 
+@@ -2550,7 +2548,8 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
+ 	 *	add it to the transmit ring.
+ 	 */
+ 	tdinfo->skb = skb;
+-	tdinfo->skb_dma[0] = pci_map_single(vptr->pdev, skb->data, pktlen, PCI_DMA_TODEVICE);
++	tdinfo->skb_dma[0] = dma_map_single(vptr->dev, skb->data, pktlen,
++								DMA_TO_DEVICE);
+ 	td_ptr->tdesc0.len = cpu_to_le16(pktlen);
+ 	td_ptr->td_buf[0].pa_low = cpu_to_le32(tdinfo->skb_dma[0]);
+ 	td_ptr->td_buf[0].pa_high = 0;
+@@ -2560,7 +2559,7 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
+ 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
+ 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
+ 
+-		tdinfo->skb_dma[i + 1] = skb_frag_dma_map(&vptr->pdev->dev,
++		tdinfo->skb_dma[i + 1] = skb_frag_dma_map(vptr->dev,
+ 							  frag, 0,
+ 							  skb_frag_size(frag),
+ 							  DMA_TO_DEVICE);
+@@ -2637,6 +2636,7 @@ static void velocity_init_info(struct pci_dev *pdev, struct velocity_info *vptr,
+ {
+ 	memset(vptr, 0, sizeof(struct velocity_info));
+ 
++	vptr->dev = &pdev->dev;
+ 	vptr->pdev = pdev;
+ 	vptr->chip_id = info->chip_id;
+ 	vptr->tx.numq = info->txqueue;
+@@ -2744,7 +2744,6 @@ static int velocity_found1(struct pci_dev *pdev,
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 	vptr = netdev_priv(dev);
+ 
+-
+ 	if (first) {
+ 		printk(KERN_INFO "%s Ver. %s\n",
+ 			VELOCITY_FULL_DRV_NAM, VELOCITY_VERSION);
+diff --git a/drivers/net/ethernet/via/via-velocity.h b/drivers/net/ethernet/via/via-velocity.h
+index ff8d7828..c38bbae 100644
+--- a/drivers/net/ethernet/via/via-velocity.h
++++ b/drivers/net/ethernet/via/via-velocity.h
+@@ -1434,6 +1434,7 @@ struct velocity_opt {
+ #define GET_RD_BY_IDX(vptr, idx)   (vptr->rd_ring[idx])
+ 
+ struct velocity_info {
++	struct device *dev;
+ 	struct pci_dev *pdev;
+ 	struct net_device *netdev;
+ 
+-- 
+1.7.9.5
