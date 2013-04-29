@@ -1,39 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: reset timer after any SYNACK retransmit
-Date: Mon, 29 Apr 2013 15:17:48 -0400 (EDT)
-Message-ID: <20130429.151748.2089724181218333468.davem@davemloft.net>
-References: <1367261091-28052-1-git-send-email-ycheng@google.com>
+From: Tony Prisk <linux@prisktech.co.nz>
+Subject: Re: [PATCHv2 0/3] Add support for velocity network driver on platform
+ devices
+Date: Tue, 30 Apr 2013 07:19:02 +1200
+Message-ID: <517EC7A6.9030204@prisktech.co.nz>
+References: <1367221841-14563-1-git-send-email-linux@prisktech.co.nz> <20130429.151528.2251094691456287740.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, edumazet@google.com, hagen@jauu.net,
-	netdev@vger.kernel.org
-To: ycheng@google.com
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	vt8500-wm8505-linux-kernel@googlegroups.com,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33398 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760558Ab3D2TRu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 15:17:50 -0400
-In-Reply-To: <1367261091-28052-1-git-send-email-ycheng@google.com>
+Received: from server.prisktech.co.nz ([115.188.14.127]:65123 "EHLO
+	server.prisktech.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932386Ab3D2TS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 15:18:59 -0400
+In-Reply-To: <20130429.151528.2251094691456287740.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Mon, 29 Apr 2013 11:44:51 -0700
+On 30/04/13 07:15, David Miller wrote:
+> You prepared these patches against a net-next tree which is at least
+> a week old, I know this because that's when the NETIF_F_* flags for
+> VLAN offloading changed their names which causes your third patch
+> to fail to apply.
+>
+> Do not do this, net-next changes every day and rapidly, don't take
+> the chance that the driver you're touching is unpopular and thus
+> hasn't had changes to it recently.  Tree-wide interface changes
+> happen all the time.
+Apologies - I didn't realise. These patches are based against 3.8-rc8.
+I will rebase against net-next and resend.
 
-> Linux immediately returns SYNACK on (spurious) SYN retransmits, but
-> keeps the SYNACK timer running independently. Thus the timer may
-> fire right after the SYNACK retransmit and causes a SYN-SYNACK
-> cross-fire burst.
-> 
-> Adopt the fast retransmit/recovery idea in established state by
-> re-arming the SYNACK timer after the fast (SYNACK) retransmit. The
-> timer may fire late up to 500ms due to the current SYNACK timer wheel,
-> but it's OK to be conservative when network is congested. Eric's new
-> listener design should address this issue.
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-
-Applied.
-
-Maybe -stable material?
+Regards
+Tony P
