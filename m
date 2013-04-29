@@ -1,57 +1,56 @@
-From: Matthew Whitehead <tedheadster@gmail.com>
-Subject: [PATCH] 3c509.c: call SET_NETDEV_DEV for all device types (ISA/ISAPnP/EISA)
-Date: Mon, 29 Apr 2013 17:46:53 -0400
-Message-ID: <1367272013-2496-1-git-send-email-tedheadster@gmail.com>
-Cc: Matthew Whitehead <tedheadster@gmail.com>
-To: netdev@vger.kernel.org
+From: Colin Cross <ccross@android.com>
+Subject: [PATCH 10/10] af_unix: use freezable blocking calls in read
+Date: Mon, 29 Apr 2013 14:45:46 -0700
+Message-ID: <1367271946-7239-11-git-send-email-ccross@android.com>
+References: <1367271946-7239-1-git-send-email-ccross@android.com>
+Cc: linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	arve@android.com, Colin Cross <ccross@android.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Gao feng <gaofeng@cn.fujitsu.com>, netdev@vger.kernel.org
+To: linux-pm@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:33996 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933125Ab3D2Vq5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 17:46:57 -0400
-Received: by mail-qc0-f182.google.com with SMTP id k19so3342144qcs.41
-        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 14:46:57 -0700 (PDT)
+Received: from mail-qc0-f202.google.com ([209.85.216.202]:32881 "EHLO
+	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932547Ab3D2Vp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 17:45:59 -0400
+Received: by mail-qc0-f202.google.com with SMTP id k26so712307qcs.5
+        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 14:45:58 -0700 (PDT)
+In-Reply-To: <1367271946-7239-1-git-send-email-ccross@android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The venerable 3c509 driver only sets its device parent in one case, the ISAPnP one.
-It does this with the SET_NETDEV_DEV function. It should register with the device
-hierarchy in two additional cases: standard (non-PnP) ISA and EISA.
+Avoid waking up every thread sleeping in read call on an AF_UNIX
+socket during suspend and resume by calling a freezable blocking
+call.
 
-- Currently they appear here:
-/sys/devices/virtual/net/eth0 (standard ISA)
-/sys/devices/virtual/net/eth1 (EISA)
-
-- Rather, they should instead be here:
-/sys/devices/isa/3c509.0/net/eth0 (standard ISA)
-/sys/devices/pci0000:00/0000:00:07.0/00:04/net/eth1 (EISA)
-
-Tested on ISA and EISA boards.
-
-Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
+Signed-off-by: Colin Cross <ccross@android.com>
 ---
- drivers/net/ethernet/3com/3c509.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+ net/unix/af_unix.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/3com/3c509.c b/drivers/net/ethernet/3com/3c509.c
-index f36ff99..adb4bf5 100644
---- a/drivers/net/ethernet/3com/3c509.c
-+++ b/drivers/net/ethernet/3com/3c509.c
-@@ -306,6 +306,7 @@ static int el3_isa_match(struct device *pdev, unsigned int ndev)
- 	if (!dev)
- 		return -ENOMEM;
+diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
+index 2db702d..2bcac57 100644
+--- a/net/unix/af_unix.c
++++ b/net/unix/af_unix.c
+@@ -114,6 +114,7 @@
+ #include <linux/mount.h>
+ #include <net/checksum.h>
+ #include <linux/security.h>
++#include <linux/freezer.h>
  
-+	SET_NETDEV_DEV(dev, pdev);
- 	netdev_boot_setup_check(dev);
+ struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
+ EXPORT_SYMBOL_GPL(unix_socket_table);
+@@ -1880,7 +1881,7 @@ static long unix_stream_data_wait(struct sock *sk, long timeo)
  
- 	if (!request_region(ioaddr, EL3_IO_EXTENT, "3c509-isa")) {
-@@ -595,6 +596,7 @@ static int __init el3_eisa_probe (struct device *device)
- 		return -ENOMEM;
+ 		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
+ 		unix_state_unlock(sk);
+-		timeo = schedule_timeout(timeo);
++		timeo = freezable_schedule_timeout(timeo);
+ 		unix_state_lock(sk);
+ 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
  	}
- 
-+	SET_NETDEV_DEV(dev, device);
- 	netdev_boot_setup_check(dev);
- 
- 	el3_dev_fill(dev, phys_addr, ioaddr, irq, if_port, EL3_EISA);
 -- 
-1.7.2.5
+1.8.2.1
