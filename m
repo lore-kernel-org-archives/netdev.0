@@ -1,127 +1,497 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH 2/2 v5 RESEND] sierra_net: keep status interrupt URB active
-Date: Mon, 29 Apr 2013 13:36:58 -0500
-Message-ID: <1367260618.20151.31.camel@dcbw.foobar.com>
-References: <1367260435.20151.28.camel@dcbw.foobar.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] net: Add MIB counters for checksum errors
+Date: Mon, 29 Apr 2013 11:39:56 -0700
+Message-ID: <1367260796.8964.331.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ming Lei <tom.leiming@gmail.com>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Oliver Neukum <oliver@neukum.org>
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6406 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758372Ab3D2SfH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Apr 2013 14:35:07 -0400
-In-Reply-To: <1367260435.20151.28.camel@dcbw.foobar.com>
+Received: from mail-ia0-f179.google.com ([209.85.210.179]:60666 "EHLO
+	mail-ia0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932195Ab3D2Sj7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 14:39:59 -0400
+Received: by mail-ia0-f179.google.com with SMTP id p22so5820750iad.24
+        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 11:39:59 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver and firmware sync up through SYNC messages, and the
-firmware's affirmative reply to these SYNC messages appears to be the
-"Reset" indication received via the status interrupt endpoint.  Thus the
-driver needs the status interrupt endpoint always active so that the
-Reset indication can be received even if the netdev is closed, which is
-the case right after device insertion.
+From: Eric Dumazet <edumazet@google.com>
 
-If the Reset indication is not received by the driver, it continues
-sending SYNC messages to the firmware, which crashes about 10 seconds
-later and the device stops responding.
+Add MIB counters for checksum errors in IP layer,
+and TCP/UDP/ICMP layers, to help diagnose problems.
 
-Signed-off-by: Dan Williams <dcbw@redhat.com>
+$ nstat -a | grep  Csum
+IcmpInCsumErrors                72                 0.0
+TcpInCsumErrors                 382                0.0
+UdpInCsumErrors                 463221             0.0
+Icmp6InCsumErrors               75                 0.0
+Udp6InCsumErrors                173442             0.0
+IpExtInCsumErrors               10884              0.0
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/net/usb/sierra_net.c | 40 ++++++++++++++++++++++++++++++++--------
- 1 file changed, 32 insertions(+), 8 deletions(-)
+ include/uapi/linux/snmp.h |    5 +++++
+ net/ipv4/icmp.c           |    4 +++-
+ net/ipv4/ip_input.c       |    4 +++-
+ net/ipv4/proc.c           |   10 +++++++---
+ net/ipv4/tcp_input.c      |    1 +
+ net/ipv4/tcp_ipv4.c       |   14 ++++++++++----
+ net/ipv4/tcp_output.c     |    3 ++-
+ net/ipv4/udp.c            |   11 +++++++++--
+ net/ipv6/icmp.c           |    4 +++-
+ net/ipv6/proc.c           |    4 ++++
+ net/ipv6/tcp_ipv6.c       |   19 ++++++++++---------
+ net/ipv6/udp.c            |   21 +++++++++++++++------
+ 12 files changed, 72 insertions(+), 28 deletions(-)
 
-diff --git a/drivers/net/usb/sierra_net.c b/drivers/net/usb/sierra_net.c
-index 79ab243..d0fa5c18 100644
---- a/drivers/net/usb/sierra_net.c
-+++ b/drivers/net/usb/sierra_net.c
-@@ -427,6 +427,13 @@ static void sierra_net_dosync(struct usbnet *dev)
- 
-        dev_dbg(&dev->udev->dev, "%s", __func__);
- 
-+       /* The SIERRA_NET_HIP_MSYNC_ID command appears to request that the
-+        * firmware restart itself.  After restarting, the modem will respond
-+        * with the SIERRA_NET_HIP_RESTART_ID indication.  The driver continues
-+        * sending MSYNC commands every few seconds until it receives the
-+        * RESTART event from the firmware
-+        */
-+
-        /* tell modem we are ready */
-        status = sierra_net_send_sync(dev);
-        if (status < 0)
-@@ -705,6 +712,9 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
-        /* set context index initially to 0 - prepares tx hdr template */
-        sierra_net_set_ctx_index(priv, 0);
- 
-+       /* prepare sync message template */
-+       memcpy(priv->sync_msg, sync_tmplate, sizeof(priv->sync_msg));
-+
-        /* decrease the rx_urb_size and max_tx_size to 4k on USB 1.1 */
-        dev->rx_urb_size  = SIERRA_NET_RX_URB_SIZE;
-        if (dev->udev->speed != USB_SPEED_HIGH)
-@@ -740,11 +750,6 @@ static int sierra_net_bind(struct usbnet *dev, struct usb_interface *intf)
-                kfree(priv);
-                return -ENODEV;
-        }
--       /* prepare sync message from template */
--       memcpy(priv->sync_msg, sync_tmplate, sizeof(priv->sync_msg));
--
--       /* initiate the sync sequence */
--       sierra_net_dosync(dev);
- 
-        return 0;
- }
-@@ -767,8 +772,9 @@ static void sierra_net_unbind(struct usbnet *dev, struct usb_interface *intf)
-                netdev_err(dev->net,
-                        "usb_control_msg failed, status %d\n", status);
- 
--       sierra_net_set_private(dev, NULL);
-+       usbnet_status_stop(dev);
- 
-+       sierra_net_set_private(dev, NULL);
-        kfree(priv);
- }
- 
-@@ -909,6 +915,24 @@ static const struct driver_info sierra_net_info_direct_ip = {
-        .tx_fixup = sierra_net_tx_fixup,
+diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
+index fefdec91..df2e8b4 100644
+--- a/include/uapi/linux/snmp.h
++++ b/include/uapi/linux/snmp.h
+@@ -50,6 +50,7 @@ enum
+ 	IPSTATS_MIB_OUTMCASTOCTETS,		/* OutMcastOctets */
+ 	IPSTATS_MIB_INBCASTOCTETS,		/* InBcastOctets */
+ 	IPSTATS_MIB_OUTBCASTOCTETS,		/* OutBcastOctets */
++	IPSTATS_MIB_CSUMERRORS,			/* InCsumErrors */
+ 	__IPSTATS_MIB_MAX
  };
  
-+static int
-+sierra_net_probe(struct usb_interface *udev, const struct usb_device_id *prod)
-+{
-+       int ret;
-+
-+       ret = usbnet_probe(udev, prod);
-+       if (ret == 0) {
-+               struct usbnet *dev = usb_get_intfdata(udev);
-+
-+               ret = usbnet_status_start(dev, GFP_KERNEL);
-+               if (ret == 0) {
-+                       /* Interrupt URB now set up; initiate sync sequence */
-+                       sierra_net_dosync(dev);
-+               }
-+       }
-+       return ret;
-+}
-+
- #define DIRECT_IP_DEVICE(vend, prod) \
-        {USB_DEVICE_INTERFACE_NUMBER(vend, prod, 7), \
-        .driver_info = (unsigned long)&sierra_net_info_direct_ip}, \
-@@ -931,7 +955,7 @@ MODULE_DEVICE_TABLE(usb, products);
- static struct usb_driver sierra_net_driver = {
-        .name = "sierra_net",
-        .id_table = products,
--       .probe = usbnet_probe,
-+       .probe = sierra_net_probe,
-        .disconnect = usbnet_disconnect,
-        .suspend = usbnet_suspend,
-        .resume = usbnet_resume,
--- 
-1.8.1.4
+@@ -87,6 +88,7 @@ enum
+ 	ICMP_MIB_OUTTIMESTAMPREPS,		/* OutTimestampReps */
+ 	ICMP_MIB_OUTADDRMASKS,			/* OutAddrMasks */
+ 	ICMP_MIB_OUTADDRMASKREPS,		/* OutAddrMaskReps */
++	ICMP_MIB_CSUMERRORS,			/* InCsumErrors */
+ 	__ICMP_MIB_MAX
+ };
+ 
+@@ -103,6 +105,7 @@ enum
+ 	ICMP6_MIB_INERRORS,			/* InErrors */
+ 	ICMP6_MIB_OUTMSGS,			/* OutMsgs */
+ 	ICMP6_MIB_OUTERRORS,			/* OutErrors */
++	ICMP6_MIB_CSUMERRORS,			/* InCsumErrors */
+ 	__ICMP6_MIB_MAX
+ };
+ 
+@@ -130,6 +133,7 @@ enum
+ 	TCP_MIB_RETRANSSEGS,			/* RetransSegs */
+ 	TCP_MIB_INERRS,				/* InErrs */
+ 	TCP_MIB_OUTRSTS,			/* OutRsts */
++	TCP_MIB_CSUMERRORS,			/* InCsumErrors */
+ 	__TCP_MIB_MAX
+ };
+ 
+@@ -147,6 +151,7 @@ enum
+ 	UDP_MIB_OUTDATAGRAMS,			/* OutDatagrams */
+ 	UDP_MIB_RCVBUFERRORS,			/* RcvbufErrors */
+ 	UDP_MIB_SNDBUFERRORS,			/* SndbufErrors */
++	UDP_MIB_CSUMERRORS,			/* InCsumErrors */
+ 	__UDP_MIB_MAX
+ };
+ 
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 3ac5dff..76e10b4 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -881,7 +881,7 @@ int icmp_rcv(struct sk_buff *skb)
+ 	case CHECKSUM_NONE:
+ 		skb->csum = 0;
+ 		if (__skb_checksum_complete(skb))
+-			goto error;
++			goto csum_error;
+ 	}
+ 
+ 	if (!pskb_pull(skb, sizeof(*icmph)))
+@@ -929,6 +929,8 @@ int icmp_rcv(struct sk_buff *skb)
+ drop:
+ 	kfree_skb(skb);
+ 	return 0;
++csum_error:
++	ICMP_INC_STATS_BH(net, ICMP_MIB_CSUMERRORS);
+ error:
+ 	ICMP_INC_STATS_BH(net, ICMP_MIB_INERRORS);
+ 	goto drop;
+diff --git a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
+index 2bdf802..3da817b 100644
+--- a/net/ipv4/ip_input.c
++++ b/net/ipv4/ip_input.c
+@@ -419,7 +419,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	iph = ip_hdr(skb);
+ 
+ 	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
+-		goto inhdr_error;
++		goto csum_error;
+ 
+ 	len = ntohs(iph->tot_len);
+ 	if (skb->len < len) {
+@@ -446,6 +446,8 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt,
+ 	return NF_HOOK(NFPROTO_IPV4, NF_INET_PRE_ROUTING, skb, dev, NULL,
+ 		       ip_rcv_finish);
+ 
++csum_error:
++	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_CSUMERRORS);
+ inhdr_error:
+ 	IP_INC_STATS_BH(dev_net(dev), IPSTATS_MIB_INHDRERRORS);
+ drop:
+diff --git a/net/ipv4/proc.c b/net/ipv4/proc.c
+index 6da51d5..2a5bf86 100644
+--- a/net/ipv4/proc.c
++++ b/net/ipv4/proc.c
+@@ -125,6 +125,7 @@ static const struct snmp_mib snmp4_ipextstats_list[] = {
+ 	SNMP_MIB_ITEM("OutMcastOctets", IPSTATS_MIB_OUTMCASTOCTETS),
+ 	SNMP_MIB_ITEM("InBcastOctets", IPSTATS_MIB_INBCASTOCTETS),
+ 	SNMP_MIB_ITEM("OutBcastOctets", IPSTATS_MIB_OUTBCASTOCTETS),
++	SNMP_MIB_ITEM("InCsumErrors", IPSTATS_MIB_CSUMERRORS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+@@ -162,6 +163,7 @@ static const struct snmp_mib snmp4_tcp_list[] = {
+ 	SNMP_MIB_ITEM("RetransSegs", TCP_MIB_RETRANSSEGS),
+ 	SNMP_MIB_ITEM("InErrs", TCP_MIB_INERRS),
+ 	SNMP_MIB_ITEM("OutRsts", TCP_MIB_OUTRSTS),
++	SNMP_MIB_ITEM("InCsumErrors", TCP_MIB_CSUMERRORS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+@@ -172,6 +174,7 @@ static const struct snmp_mib snmp4_udp_list[] = {
+ 	SNMP_MIB_ITEM("OutDatagrams", UDP_MIB_OUTDATAGRAMS),
+ 	SNMP_MIB_ITEM("RcvbufErrors", UDP_MIB_RCVBUFERRORS),
+ 	SNMP_MIB_ITEM("SndbufErrors", UDP_MIB_SNDBUFERRORS),
++	SNMP_MIB_ITEM("InCsumErrors", UDP_MIB_CSUMERRORS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+@@ -322,15 +325,16 @@ static void icmp_put(struct seq_file *seq)
+ 	struct net *net = seq->private;
+ 	atomic_long_t *ptr = net->mib.icmpmsg_statistics->mibs;
+ 
+-	seq_puts(seq, "\nIcmp: InMsgs InErrors");
++	seq_puts(seq, "\nIcmp: InMsgs InErrors InCsumErrors");
+ 	for (i=0; icmpmibmap[i].name != NULL; i++)
+ 		seq_printf(seq, " In%s", icmpmibmap[i].name);
+ 	seq_printf(seq, " OutMsgs OutErrors");
+ 	for (i=0; icmpmibmap[i].name != NULL; i++)
+ 		seq_printf(seq, " Out%s", icmpmibmap[i].name);
+-	seq_printf(seq, "\nIcmp: %lu %lu",
++	seq_printf(seq, "\nIcmp: %lu %lu %lu",
+ 		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_INMSGS),
+-		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_INERRORS));
++		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_INERRORS),
++		snmp_fold_field((void __percpu **) net->mib.icmp_statistics, ICMP_MIB_CSUMERRORS));
+ 	for (i=0; icmpmibmap[i].name != NULL; i++)
+ 		seq_printf(seq, " %lu",
+ 			   atomic_long_read(ptr + icmpmibmap[i].index));
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index aafd052..08bbe60 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -5273,6 +5273,7 @@ step5:
+ 	return 0;
+ 
+ csum_error:
++	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_CSUMERRORS);
+ 	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
+ 
+ discard:
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index 2278669..8ea9751 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1866,6 +1866,7 @@ discard:
+ 	return 0;
+ 
+ csum_err:
++	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_CSUMERRORS);
+ 	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
+ 	goto discard;
+ }
+@@ -1985,7 +1986,7 @@ int tcp_v4_rcv(struct sk_buff *skb)
+ 	 * provided case of th->doff==0 is eliminated.
+ 	 * So, we defer the checks. */
+ 	if (!skb_csum_unnecessary(skb) && tcp_v4_checksum_init(skb))
+-		goto bad_packet;
++		goto csum_error;
+ 
+ 	th = tcp_hdr(skb);
+ 	iph = ip_hdr(skb);
+@@ -2051,6 +2052,8 @@ no_tcp_socket:
+ 		goto discard_it;
+ 
+ 	if (skb->len < (th->doff << 2) || tcp_checksum_complete(skb)) {
++csum_error:
++		TCP_INC_STATS_BH(net, TCP_MIB_CSUMERRORS);
+ bad_packet:
+ 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+ 	} else {
+@@ -2072,10 +2075,13 @@ do_time_wait:
+ 		goto discard_it;
+ 	}
+ 
+-	if (skb->len < (th->doff << 2) || tcp_checksum_complete(skb)) {
+-		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
++	if (skb->len < (th->doff << 2)) {
+ 		inet_twsk_put(inet_twsk(sk));
+-		goto discard_it;
++		goto bad_packet;
++	}
++	if (tcp_checksum_complete(skb)) {
++		inet_twsk_put(inet_twsk(sk));
++		goto csum_error;
+ 	}
+ 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
+ 	case TCP_TW_SYN: {
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index b735c23..536d409 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -80,8 +80,9 @@ static void tcp_event_new_data_sent(struct sock *sk, const struct sk_buff *skb)
+ 
+ 	tp->packets_out += tcp_skb_pcount(skb);
+ 	if (!prior_packets || icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
+-	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE)
++	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
+ 		tcp_rearm_rto(sk);
++	}
+ }
+ 
+ /* SND.NXT, if window was not shrunk.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 2722db0..3159d16 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1131,6 +1131,8 @@ static unsigned int first_packet_length(struct sock *sk)
+ 	spin_lock_bh(&rcvq->lock);
+ 	while ((skb = skb_peek(rcvq)) != NULL &&
+ 		udp_lib_checksum_complete(skb)) {
++		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_CSUMERRORS,
++				 IS_UDPLITE(sk));
+ 		UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS,
+ 				 IS_UDPLITE(sk));
+ 		atomic_inc(&sk->sk_drops);
+@@ -1286,8 +1288,10 @@ out:
+ 
+ csum_copy_err:
+ 	slow = lock_sock_fast(sk);
+-	if (!skb_kill_datagram(sk, skb, flags))
++	if (!skb_kill_datagram(sk, skb, flags)) {
++		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
+ 		UDP_INC_STATS_USER(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
++	}
+ 	unlock_sock_fast(sk, slow);
+ 
+ 	if (noblock)
+@@ -1513,7 +1517,7 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (rcu_access_pointer(sk->sk_filter) &&
+ 	    udp_lib_checksum_complete(skb))
+-		goto drop;
++		goto csum_error;
+ 
+ 
+ 	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf))
+@@ -1533,6 +1537,8 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ 	return rc;
+ 
++csum_error:
++	UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
+ drop:
+ 	UDP_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+ 	atomic_inc(&sk->sk_drops);
+@@ -1749,6 +1755,7 @@ csum_error:
+ 		       proto == IPPROTO_UDPLITE ? "Lite" : "",
+ 		       &saddr, ntohs(uh->source), &daddr, ntohs(uh->dest),
+ 		       ulen);
++	UDP_INC_STATS_BH(net, UDP_MIB_CSUMERRORS, proto == IPPROTO_UDPLITE);
+ drop:
+ 	UDP_INC_STATS_BH(net, UDP_MIB_INERRORS, proto == IPPROTO_UDPLITE);
+ 	kfree_skb(skb);
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 2a53a79..b4ff0a4 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -699,7 +699,7 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 		if (__skb_checksum_complete(skb)) {
+ 			LIMIT_NETDEBUG(KERN_DEBUG "ICMPv6 checksum failed [%pI6 > %pI6]\n",
+ 				       saddr, daddr);
+-			goto discard_it;
++			goto csum_error;
+ 		}
+ 	}
+ 
+@@ -785,6 +785,8 @@ static int icmpv6_rcv(struct sk_buff *skb)
+ 	kfree_skb(skb);
+ 	return 0;
+ 
++csum_error:
++	ICMP6_INC_STATS_BH(dev_net(dev), idev, ICMP6_MIB_CSUMERRORS);
+ discard_it:
+ 	ICMP6_INC_STATS_BH(dev_net(dev), idev, ICMP6_MIB_INERRORS);
+ drop_no_count:
+diff --git a/net/ipv6/proc.c b/net/ipv6/proc.c
+index bbbe53a..115cc58 100644
+--- a/net/ipv6/proc.c
++++ b/net/ipv6/proc.c
+@@ -90,6 +90,7 @@ static const struct snmp_mib snmp6_ipstats_list[] = {
+ 	SNMP_MIB_ITEM("Ip6OutMcastOctets", IPSTATS_MIB_OUTMCASTOCTETS),
+ 	SNMP_MIB_ITEM("Ip6InBcastOctets", IPSTATS_MIB_INBCASTOCTETS),
+ 	SNMP_MIB_ITEM("Ip6OutBcastOctets", IPSTATS_MIB_OUTBCASTOCTETS),
++	SNMP_MIB_ITEM("InCsumErrors", IPSTATS_MIB_CSUMERRORS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+@@ -99,6 +100,7 @@ static const struct snmp_mib snmp6_icmp6_list[] = {
+ 	SNMP_MIB_ITEM("Icmp6InErrors", ICMP6_MIB_INERRORS),
+ 	SNMP_MIB_ITEM("Icmp6OutMsgs", ICMP6_MIB_OUTMSGS),
+ 	SNMP_MIB_ITEM("Icmp6OutErrors", ICMP6_MIB_OUTERRORS),
++	SNMP_MIB_ITEM("Icmp6InCsumErrors", ICMP6_MIB_CSUMERRORS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+@@ -129,6 +131,7 @@ static const struct snmp_mib snmp6_udp6_list[] = {
+ 	SNMP_MIB_ITEM("Udp6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
+ 	SNMP_MIB_ITEM("Udp6RcvbufErrors", UDP_MIB_RCVBUFERRORS),
+ 	SNMP_MIB_ITEM("Udp6SndbufErrors", UDP_MIB_SNDBUFERRORS),
++	SNMP_MIB_ITEM("Udp6InCsumErrors", UDP_MIB_CSUMERRORS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+@@ -139,6 +142,7 @@ static const struct snmp_mib snmp6_udplite6_list[] = {
+ 	SNMP_MIB_ITEM("UdpLite6OutDatagrams", UDP_MIB_OUTDATAGRAMS),
+ 	SNMP_MIB_ITEM("UdpLite6RcvbufErrors", UDP_MIB_RCVBUFERRORS),
+ 	SNMP_MIB_ITEM("UdpLite6SndbufErrors", UDP_MIB_SNDBUFERRORS),
++	SNMP_MIB_ITEM("UdpLite6InCsumErrors", UDP_MIB_CSUMERRORS),
+ 	SNMP_MIB_SENTINEL
+ };
+ 
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index e51bd1a..7116706 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1405,6 +1405,7 @@ discard:
+ 	kfree_skb(skb);
+ 	return 0;
+ csum_err:
++	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_CSUMERRORS);
+ 	TCP_INC_STATS_BH(sock_net(sk), TCP_MIB_INERRS);
+ 	goto discard;
+ 
+@@ -1466,7 +1467,7 @@ static int tcp_v6_rcv(struct sk_buff *skb)
+ 		goto discard_it;
+ 
+ 	if (!skb_csum_unnecessary(skb) && tcp_v6_checksum_init(skb))
+-		goto bad_packet;
++		goto csum_error;
+ 
+ 	th = tcp_hdr(skb);
+ 	hdr = ipv6_hdr(skb);
+@@ -1530,6 +1531,8 @@ no_tcp_socket:
+ 		goto discard_it;
+ 
+ 	if (skb->len < (th->doff<<2) || tcp_checksum_complete(skb)) {
++csum_error:
++		TCP_INC_STATS_BH(net, TCP_MIB_CSUMERRORS);
+ bad_packet:
+ 		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
+ 	} else {
+@@ -1537,11 +1540,6 @@ bad_packet:
+ 	}
+ 
+ discard_it:
+-
+-	/*
+-	 *	Discard frame
+-	 */
+-
+ 	kfree_skb(skb);
+ 	return 0;
+ 
+@@ -1555,10 +1553,13 @@ do_time_wait:
+ 		goto discard_it;
+ 	}
+ 
+-	if (skb->len < (th->doff<<2) || tcp_checksum_complete(skb)) {
+-		TCP_INC_STATS_BH(net, TCP_MIB_INERRS);
++	if (skb->len < (th->doff<<2)) {
+ 		inet_twsk_put(inet_twsk(sk));
+-		goto discard_it;
++		goto bad_packet;
++	}
++	if (tcp_checksum_complete(skb)) {
++		inet_twsk_put(inet_twsk(sk));
++		goto csum_error;
+ 	}
+ 
+ 	switch (tcp_timewait_state_process(inet_twsk(sk), skb, th)) {
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index da6019b..d4defdd 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -483,12 +483,17 @@ out:
+ csum_copy_err:
+ 	slow = lock_sock_fast(sk);
+ 	if (!skb_kill_datagram(sk, skb, flags)) {
+-		if (is_udp4)
++		if (is_udp4) {
++			UDP_INC_STATS_USER(sock_net(sk),
++					UDP_MIB_CSUMERRORS, is_udplite);
+ 			UDP_INC_STATS_USER(sock_net(sk),
+ 					UDP_MIB_INERRORS, is_udplite);
+-		else
++		} else {
++			UDP6_INC_STATS_USER(sock_net(sk),
++					UDP_MIB_CSUMERRORS, is_udplite);
+ 			UDP6_INC_STATS_USER(sock_net(sk),
+ 					UDP_MIB_INERRORS, is_udplite);
++		}
+ 	}
+ 	unlock_sock_fast(sk, slow);
+ 
+@@ -637,7 +642,7 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 
+ 	if (rcu_access_pointer(sk->sk_filter)) {
+ 		if (udp_lib_checksum_complete(skb))
+-			goto drop;
++			goto csum_error;
+ 	}
+ 
+ 	if (sk_rcvqueues_full(sk, skb, sk->sk_rcvbuf))
+@@ -656,6 +661,8 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+ 	bh_unlock_sock(sk);
+ 
+ 	return rc;
++csum_error:
++	UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_CSUMERRORS, is_udplite);
+ drop:
+ 	UDP6_INC_STATS_BH(sock_net(sk), UDP_MIB_INERRORS, is_udplite);
+ 	atomic_inc(&sk->sk_drops);
+@@ -817,7 +824,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	}
+ 
+ 	if (udp6_csum_init(skb, uh, proto))
+-		goto discard;
++		goto csum_error;
+ 
+ 	/*
+ 	 *	Multicast receive code
+@@ -850,7 +857,7 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 		goto discard;
+ 
+ 	if (udp_lib_checksum_complete(skb))
+-		goto discard;
++		goto csum_error;
+ 
+ 	UDP6_INC_STATS_BH(net, UDP_MIB_NOPORTS, proto == IPPROTO_UDPLITE);
+ 	icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_PORT_UNREACH, 0);
+@@ -867,7 +874,9 @@ short_packet:
+ 		       skb->len,
+ 		       daddr,
+ 		       ntohs(uh->dest));
+-
++	goto discard;
++csum_error:
++	UDP6_INC_STATS_BH(net, UDP_MIB_CSUMERRORS, proto == IPPROTO_UDPLITE);
+ discard:
+ 	UDP6_INC_STATS_BH(net, UDP_MIB_INERRORS, proto == IPPROTO_UDPLITE);
+ 	kfree_skb(skb);
