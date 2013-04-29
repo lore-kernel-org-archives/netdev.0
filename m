@@ -1,39 +1,67 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: reset timer after any SYNACK retransmit
-Date: Mon, 29 Apr 2013 14:57:27 -0400
-Message-ID: <CADVnQyn2dWfFwrsFSqBEiB=9m3MsKQR58dEsRpPvAM4rqpviQQ@mail.gmail.com>
-References: <1367261091-28052-1-git-send-email-ycheng@google.com>
+From: Bart Van Assche <bvanassche@acm.org>
+Subject: Re: [PATCH RFC] spinlock: split out debugging check from spin_lock_mutex
+Date: Mon, 29 Apr 2013 21:12:03 +0200
+Message-ID: <517EC603.6010506@acm.org>
+References: <20130423132345.GA5564@hmsreliant.think-freely.org> <CAO+b5-rQPyO9QE9v+oQTeo+G-ftcsehSB5=63AZ13QW4EJ1X0Q@mail.gmail.com> <20130423134443.GB5564@hmsreliant.think-freely.org> <20130423.133315.1278191592594257624.davem@davemloft.net> <20130423175016.GC5564@hmsreliant.think-freely.org> <517C1EC2.5090900@bartvanassche.be> <20130429181322.GA27119@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, hagen@jauu.net,
-	Netdev <netdev@vger.kernel.org>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	mingo@redhat.com
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f170.google.com ([209.85.215.170]:51068 "EHLO
-	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758893Ab3D2S53 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 14:57:29 -0400
-Received: by mail-ea0-f170.google.com with SMTP id z7so2695918eaf.15
-        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 11:57:28 -0700 (PDT)
-In-Reply-To: <1367261091-28052-1-git-send-email-ycheng@google.com>
+Received: from gerard.telenet-ops.be ([195.130.132.48]:52504 "EHLO
+	gerard.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756877Ab3D2TMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 15:12:07 -0400
+In-Reply-To: <20130429181322.GA27119@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 29, 2013 at 2:44 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> Linux immediately returns SYNACK on (spurious) SYN retransmits, but
-> keeps the SYNACK timer running independently. Thus the timer may
-> fire right after the SYNACK retransmit and causes a SYN-SYNACK
-> cross-fire burst.
+On 04/29/13 20:13, Neil Horman wrote:
+> On Sat, Apr 27, 2013 at 08:53:54PM +0200, Bart Van Assche wrote:
+>> Sorry Neil, but I can still trigger the CPU stuck messages with kernel v3.9-rc8-24-gd7d7271:
+>>
+>> kernel: BUG: soft lockup - CPU#0 stuck for 22s! [rs:main Q:Reg:601]
+>> kernel: irq event stamp: 1999192
+>> kernel: hardirqs last  enabled at (1999191): [<ffffffff8103e89d>] console_unlock+0x41d/0x450
+>> kernel: hardirqs last disabled at (1999192): [<ffffffff8143e96a>] apic_timer_interrupt+0x6a/0x80
+>> kernel: softirqs last  enabled at (1999188): [<ffffffff81044e26>] __do_softirq+0x196/0x280
+>> kernel: softirqs last disabled at (1999181): [<ffffffff810450c5>] irq_exit+0xb5/0xc0
+>> kernel: CPU 0
+>> kernel: Pid: 601, comm: rs:main Q:Reg Tainted: G           O 3.9.0-rc8-debug+ #1 System manufacturer P5Q DELUXE/P5Q DELUXE
+>> kernel: RIP: 0010:[<ffffffff8103e8a0>]  [<ffffffff8103e8a0>] console_unlock+0x420/0x450
+>> kernel: Call Trace:
+>> kernel: [<ffffffff812bbf37>] do_con_write.part.19+0x887/0x2040
+>> kernel: [<ffffffff812a52b7>] ? process_output+0x37/0x70
+>> kernel: [<ffffffff814316fc>] ? mutex_lock_nested+0x28c/0x350
+>> kernel: [<ffffffff812a52b7>] ? process_output+0x37/0x70
+>> kernel: [<ffffffff812bd764>] con_write+0x34/0x50
+>> kernel: [<ffffffff812a51e9>] do_output_char+0x179/0x210
+>> kernel: [<ffffffff812a52cd>] process_output+0x4d/0x70
+>> kernel: [<ffffffff812a59d0>] n_tty_write+0x210/0x480
+>> kernel: [<ffffffff81072710>] ? try_to_wake_up+0x2e0/0x2e0
+>> kernel: [<ffffffff812a2839>] tty_write+0x159/0x300
+>> kernel: [<ffffffff8109326f>] ? lock_release_holdtime.part.22+0xf/0x180
+>> kernel: [<ffffffff812a57c0>] ? n_tty_poll+0x1c0/0x1c0
+>> kernel: [<ffffffff81151a3b>] vfs_write+0xab/0x170
+>> kernel: [<ffffffff81151ea5>] sys_write+0x55/0xa0
+>> kernel: [<ffffffff8143dd82>] system_call_fastpath+0x16/0x1b
 >
-> Adopt the fast retransmit/recovery idea in established state by
-> re-arming the SYNACK timer after the fast (SYNACK) retransmit. The
-> timer may fire late up to 500ms due to the current SYNACK timer wheel,
-> but it's OK to be conservative when network is congested. Eric's new
-> listener design should address this issue.
->
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+> So, looking at this, I'm not 100% sure whats going on.  console_unlock has the
+> ability to detect the need for rescheduling when we call
+> raw_spin_unlock_irqrestore at the bottom of the function, so there should be no
+> reason that we don't give the per-cpu watchdog task a chance to run.  About the
+> only case I see in which we might be in trouble would be if somehow got into an
+> infinite loop if every message in the log buffer had LOG_NOCONS set, in which
+> case we would spin in this loop without ever scheduling or re-enabling
+> interrupts.  But for that to happen I think you would have to be flooding the
+> log with messages that were bigger than the default message buffer size (about
+> 1000 bytes without a newline).  You're not doing that are you?
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
+The above call trace was triggered by sending messages at a high rate 
+over netconsole where each message has a length between 40 and (about) 
+160 characters. I'm not sure though what exactly is causing this call 
+trace - I haven't had the time yet to analyze this in detail.
 
-neal
+Bart.
