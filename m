@@ -1,108 +1,104 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: netconsole fun
-Date: Mon, 29 Apr 2013 14:21:56 -0400
-Message-ID: <20130429182156.GB27119@hmsreliant.think-freely.org>
-References: <20121213123611.GA12269@hmsreliant.think-freely.org>
- <1355410171.2605.17.camel@thor>
- <20121213180815.GA14796@hmsreliant.think-freely.org>
- <1355426821.2612.16.camel@thor>
- <20121213211754.GC14796@hmsreliant.think-freely.org>
- <1355437480.2612.33.camel@thor>
- <20121214142018.GA24846@shamino.rdu.redhat.com>
- <1355580838.2467.39.camel@thor>
- <20121217142030.GB25322@hmsreliant.think-freely.org>
- <1367256525.3494.10.camel@thor.lan>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Peter Hurley <peter@hurleysoftware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:55863 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758606Ab3D2SWD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 14:22:03 -0400
-Content-Disposition: inline
-In-Reply-To: <1367256525.3494.10.camel@thor.lan>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 00/18] netfilter updates for net-next (try 2)
+Date: Mon, 29 Apr 2013 20:22:06 +0200
+Message-ID: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Apr 29, 2013 at 01:28:45PM -0400, Peter Hurley wrote:
-> On Mon, 2012-12-17 at 09:20 -0500, Neil Horman wrote:
-> > On Sat, Dec 15, 2012 at 09:13:58AM -0500, Peter Hurley wrote:
-> > > On Fri, 2012-12-14 at 09:20 -0500, Neil Horman wrote:
-> > > > Ah!  I'm sorry, I didn't realize this was really about getting netconsole up
-> > > > early in the boot, rather than just getting it up robustly using the startup
-> > > > script.
-> > > 
-> > > Well, it's both but I should have been clearer here. Sorry about that.
-> > > 
-> > > > If thats the case, then I would recommend that you modify the initramfs
-> > > > to do something simmilar to the startup script (since thats where the netconsole
-> > > > module will get loaded anyway).  You can write a script there that will let you
-> > > > specify the destination ip address and figure out the output dev based on the
-> > > > routing tables.  If you're using dracut to build your initramfs, then this
-> > > > should be pretty straightforward.
-> > > 
-> > > When I get some more free time I'll experiment with this approach.
-> > > 
-> > > Just to clarify something from earlier in the discussion:
-> > > 
-> > > On Thu, 2012-12-13 at 13:08 -0500, Neil Horman wrote:
-> > > > On Thu, Dec 13, 2012 at 09:49:31AM -0500, Peter Hurley wrote:
-> > > ....
-> > > > > There is an unforeseen consequence of the patch: it breaks device
-> > > > > renaming because the device will already be in use by netconsole. Which
-> > > > > is the whole problem with userspace device renaming to begin with...
-> > > > > 
-> > > > That is bad, but see above, the netconsole service can work around this for you,
-> > > > allowing you to never have to specify a particular device at all.
-> > > 
-> > > The breakage is a normal consequence of being able to load netconsole
-> > > before the udev rules that do device renaming. The same thing would
-> > > happen modifying initramfs.
-> > > 
-> > > Basically, once netconsole attaches to a device, that device cannot be
-> > > renamed. Unfortunately, the default udev behavior messes things up
-> > > further because it will try to do this:
-> > >   eth0->eth1
-> > >   eth1->eth0
-> > > which means neither device will be renamed.
-> > > 
-> > > Maybe the net core should just implement persistent device names ;)
-> > > 
-> > Theres no good way for the kernel to do that, as persistent naming in this case
-> > is a matter of user policy, not kernel hardware management (i.e. do you want a
-> > network name to follow a mac address, a pci slot, or the network its connected
-> > to)?  You can use smbios to get some modicum of persistent device naming
-> > currently, but I don't recall if that requires udev rules to implement as well
-> > 
-> > You're best bet is to simply make your initramfs more robust.  I understand what
-> > you're saying regarding renaming after you've taken a reference on a device not
-> > being possible, but you can run udev within the initramfs, and do your renaming
-> > prior to your netconsole load.
-> 
-> Hi Neil,
-> 
-> I plan to re-submit 'netconsole: allow mac addr to specify local
-> interface device' which you originally objected to because you asserted
-> that the same effect could be obtained through udev scripts in the
-> initramfs.
-> 
-> When you shot down this patch, did you actually try what you suggested
-> in the initramfs or were you just hypothesizing that it would possible?
-> 
-I've not tried specifically what want to do, no, but I've done interface
-renaming plenty of times in the initramfs back when I did kdump work (we had to
-rename devices in the initramfs to align them with whatever udev renamed them to
-once we pivot_root-ed to the rootfs).
+Hi David,
 
-I presume you're sending me this note because you've for some reason decided
-that doing this in the initramfs isn't feasible?  I'm happy to help you through
-it if you like.
+This is a second pull request resolving the compilation issue in
+net/sched/em_ipset.
 
-You're also welcome to resubmit your patch, but you're going to have to justify
-why doing this in user space isn't a sufficient solution.
+The following patchset contains relevant updates for the Netfilter
+tree, they are:
 
-Regards
-Neil
+* Enhancements for ipset: Add the counter extension for sets, this
+  information can be used from the iptables set match, to change
+  the matching behaviour. Jozsef required to add the extension
+  infrastructure and moved the existing timeout support upon it.
+  This also includes a change in net/sched/em_ipset to adapt it to
+  the new extension structure.
+
+* Enhancements for performance boosting in nfnetlink_queue: Add new
+  configuration flags that allows user-space to receive big packets (GRO)
+  and to disable checksumming calculation. This were proposed by Eric
+  Dumazet during the Netfilter Workshop 2013 in Copenhagen. Florian
+  Westphal was kind enough to find the time to materialize the proposal.
+
+* A sparse fix from Simon, he noticed it in the SCTP NAT helper, the fix
+  required a change in the interface of sctp_end_cksum.
+
+The following changes since commit 37fe0660981d7a1577409226f77554c2c5123e27:
+
+  net: fix address check in rtnl_fdb_del (2013-04-25 04:14:08 -0400)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to eee1d5a14780b9391ec51f3feaf4cffb521ddbb1:
+
+  sctp: Correct type and usage of sctp_end_cksum() (2013-04-29 20:09:08 +0200)
+
+----------------------------------------------------------------
+Florian Westphal (4):
+      netfilter: nf_queue: move device refcount bump to extra function
+      netfilter: move skb_gso_segment into nfnetlink_queue module
+      netfilter: nfnetlink_queue: add skb info attribute
+      netfilter: nfnetlink_queue: avoid expensive gso segmentation and checksum fixup
+
+Jozsef Kadlecsik (13):
+      netfilter: ipset: Make possible to test elements marked with nomatch
+      netfilter: ipset: Move often used IPv6 address masking function to header file
+      netfilter: ipset: Introduce extensions to elements in the core
+      netfilter: ipset: Unified bitmap type generation
+      netfilter: ipset: Bitmap types using the unified code base
+      netfilter: ipset: Unified hash type generation
+      netfilter: ipset: Hash types using the unified code base
+      netfilter: ipset: list:set type using the extension interface
+      netfilter: ipset: Introduce the counter extension in the core
+      netfilter: ipset: The bitmap types with counter support
+      netfilter: ipset: The hash types with counter support
+      netfilter: ipset: The list:set type with counter support
+      netfilter: ipset: set match: add support to match the counters
+
+Simon Horman (1):
+      sctp: Correct type and usage of sctp_end_cksum()
+
+ include/linux/netfilter/ipset/ip_set.h         |  126 ++-
+ include/linux/netfilter/ipset/ip_set_ahash.h   | 1241 ------------------------
+ include/linux/netfilter/ipset/ip_set_bitmap.h  |    6 +
+ include/linux/netfilter/ipset/ip_set_timeout.h |  102 +-
+ include/linux/netfilter/ipset/pfxlen.h         |    9 +
+ include/net/netfilter/nf_queue.h               |    6 +
+ include/net/sctp/checksum.h                    |    2 +-
+ include/uapi/linux/netfilter/ipset/ip_set.h    |   36 +-
+ include/uapi/linux/netfilter/nfnetlink_queue.h |   10 +-
+ include/uapi/linux/netfilter/xt_set.h          |    9 +
+ net/netfilter/ipset/ip_set_bitmap_gen.h        |  277 ++++++
+ net/netfilter/ipset/ip_set_bitmap_ip.c         |  411 +++-----
+ net/netfilter/ipset/ip_set_bitmap_ipmac.c      |  624 +++++-------
+ net/netfilter/ipset/ip_set_bitmap_port.c       |  414 +++-----
+ net/netfilter/ipset/ip_set_core.c              |   36 +-
+ net/netfilter/ipset/ip_set_hash_gen.h          | 1100 +++++++++++++++++++++
+ net/netfilter/ipset/ip_set_hash_ip.c           |  344 ++-----
+ net/netfilter/ipset/ip_set_hash_ipport.c       |  362 +++----
+ net/netfilter/ipset/ip_set_hash_ipportip.c     |  368 +++----
+ net/netfilter/ipset/ip_set_hash_ipportnet.c    |  469 ++++-----
+ net/netfilter/ipset/ip_set_hash_net.c          |  402 +++-----
+ net/netfilter/ipset/ip_set_hash_netiface.c     |  478 ++++-----
+ net/netfilter/ipset/ip_set_hash_netport.c      |  456 +++------
+ net/netfilter/ipset/ip_set_list_set.c          |  622 +++++++-----
+ net/netfilter/nf_nat_proto_sctp.c              |    5 +-
+ net/netfilter/nf_queue.c                       |  143 +--
+ net/netfilter/nfnetlink_queue_core.c           |  173 +++-
+ net/netfilter/xt_set.c                         |   94 +-
+ net/sched/em_ipset.c                           |    2 +-
+ 29 files changed, 3688 insertions(+), 4639 deletions(-)
+ delete mode 100644 include/linux/netfilter/ipset/ip_set_ahash.h
+ create mode 100644 net/netfilter/ipset/ip_set_bitmap_gen.h
+ create mode 100644 net/netfilter/ipset/ip_set_hash_gen.h
