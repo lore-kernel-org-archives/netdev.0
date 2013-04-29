@@ -1,31 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tg3: shows HW time stamping support only if
- ptp_capable is present
-Date: Mon, 29 Apr 2013 15:16:58 -0400 (EDT)
-Message-ID: <20130429.151658.1713298367183696606.davem@davemloft.net>
-References: <1367255287-2664-1-git-send-email-fbl@redhat.com>
+Subject: Re: [PATCH net-next] net: Add MIB counters for checksum errors
+Date: Mon, 29 Apr 2013 15:17:37 -0400 (EDT)
+Message-ID: <20130429.151737.657155400434432034.davem@davemloft.net>
+References: <1367260796.8964.331.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jbenc@redhat.com, nsujir@broadcom.com,
-	mchan@broadcom.com
-To: fbl@redhat.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33376 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33392 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758248Ab3D2TRD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 15:17:03 -0400
-In-Reply-To: <1367255287-2664-1-git-send-email-fbl@redhat.com>
+	with ESMTP id S1760537Ab3D2TRj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 15:17:39 -0400
+In-Reply-To: <1367260796.8964.331.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Flavio Leitner <fbl@redhat.com>
-Date: Mon, 29 Apr 2013 14:08:07 -0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 29 Apr 2013 11:39:56 -0700
 
-> Current tg3 shows hardware timestamping support for all devices
-> when that is true only for the hardware with PTP_CAPABLE flag
-> present.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> Add MIB counters for checksum errors in IP layer,
+> and TCP/UDP/ICMP layers, to help diagnose problems.
+> 
+> $ nstat -a | grep  Csum
+> IcmpInCsumErrors                72                 0.0
+> TcpInCsumErrors                 382                0.0
+> UdpInCsumErrors                 463221             0.0
+> Icmp6InCsumErrors               75                 0.0
+> Udp6InCsumErrors                173442             0.0
+> IpExtInCsumErrors               10884              0.0
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
