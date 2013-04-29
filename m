@@ -1,58 +1,123 @@
 From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH v3 1/3] unix/dgram: peek beyond 0-sized skbs
-Date: Mon, 29 Apr 2013 17:42:12 -0400
-Message-ID: <1367271734-14379-1-git-send-email-bpoirier@suse.de>
+Subject: [PATCH v3 2/3] unix/dgram: fix peeking with an offset larger than data in queue
+Date: Mon, 29 Apr 2013 17:42:13 -0400
+Message-ID: <1367271734-14379-2-git-send-email-bpoirier@suse.de>
 References: <kll5si$544$1@ger.gmane.org>
+ <1367271734-14379-1-git-send-email-bpoirier@suse.de>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>,
 	Eric Dumazet <edumazet@google.com>,
 	Pavel Emelyanov <xemul@parallels.com>,
 	Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f44.google.com ([209.85.128.44]:62517 "EHLO
-	mail-qe0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932908Ab3D2Vmh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 17:42:37 -0400
-In-Reply-To: <kll5si$544$1@ger.gmane.org>
+Received: from mail-qc0-f176.google.com ([209.85.216.176]:33235 "EHLO
+	mail-qc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932914Ab3D2Vmi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 17:42:38 -0400
+In-Reply-To: <1367271734-14379-1-git-send-email-bpoirier@suse.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-"77c1090 net: fix infinite loop in __skb_recv_datagram()" (v3.8) introduced a
-regression:
-After that commit, recv can no longer peek beyond a 0-sized skb in the queue.
-__skb_recv_datagram() instead stops at the first skb with len == 0 and results
-in the system call failing with -EFAULT via skb_copy_datagram_iovec().
+Currently, peeking on a unix datagram socket with an offset larger than len of
+the data in the sk receive queue returns immediately with bogus data. That's
+because *off is not reset between each skb_queue_walk().
 
-When peeking at an offset with 0-sized skb(s), each one of those is received
-only once, in sequence. The offset starts moving forward again after receiving
-datagrams with len > 0.
+This patch fixes this so that the behavior is the same as peeking with no
+offset on an empty queue: the caller blocks.
 
 Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
 
 ---
 
-* v1 fix the case when SO_PEEK_OFF is used to set sk_peek_off beyond a
-  0-sized skb
+v2: address review feedback from Eric Dumazet
 
-* v2 also fix the situation when sk_peek_off must advance to and beyond a
-  0-sized skb
+v3: address review feedback from Cong Wang
 
- net/core/datagram.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ net/core/datagram.c |   21 +++++++++++++--------
+ 1 file changed, 13 insertions(+), 8 deletions(-)
 
 diff --git a/net/core/datagram.c b/net/core/datagram.c
-index 368f9c3..99c4f52 100644
+index 99c4f52..b5d48ac 100644
 --- a/net/core/datagram.c
 +++ b/net/core/datagram.c
-@@ -187,7 +187,8 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+@@ -78,9 +78,10 @@ static int receiver_wake_function(wait_queue_t *wait, unsigned int mode, int syn
+ 	return autoremove_wake_function(wait, mode, sync, key);
+ }
+ /*
+- * Wait for a packet..
++ * Wait for the last received packet to be different from skb
+  */
+-static int wait_for_packet(struct sock *sk, int *err, long *timeo_p)
++static int wait_for_more_packets(struct sock *sk, int *err, long *timeo_p,
++				 const struct sk_buff *skb)
+ {
+ 	int error;
+ 	DEFINE_WAIT_FUNC(wait, receiver_wake_function);
+@@ -92,7 +93,7 @@ static int wait_for_packet(struct sock *sk, int *err, long *timeo_p)
+ 	if (error)
+ 		goto out_err;
+ 
+-	if (!skb_queue_empty(&sk->sk_receive_queue))
++	if (sk->sk_receive_queue.prev != skb)
+ 		goto out;
+ 
+ 	/* Socket shut down? */
+@@ -131,9 +132,9 @@ out_noerr:
+  *	__skb_recv_datagram - Receive a datagram skbuff
+  *	@sk: socket
+  *	@flags: MSG_ flags
++ *	@peeked: returns non-zero if this packet has been seen before
+  *	@off: an offset in bytes to peek skb from. Returns an offset
+  *	      within an skb where data actually starts
+- *	@peeked: returns non-zero if this packet has been seen before
+  *	@err: error code returned
+  *
+  *	Get a datagram skbuff, understands the peeking, nonblocking wakeups
+@@ -161,7 +162,7 @@ out_noerr:
+ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 				    int *peeked, int *off, int *err)
+ {
+-	struct sk_buff *skb;
++	struct sk_buff *skb, *last;
+ 	long timeo;
+ 	/*
+ 	 * Caller is allowed not to check sk->sk_err before skb_recv_datagram()
+@@ -182,14 +183,17 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 		 */
+ 		unsigned long cpu_flags;
+ 		struct sk_buff_head *queue = &sk->sk_receive_queue;
++		int _off = *off;
+ 
++		last = (struct sk_buff *)queue;
+ 		spin_lock_irqsave(&queue->lock, cpu_flags);
  		skb_queue_walk(queue, skb) {
++			last = skb;
  			*peeked = skb->peeked;
  			if (flags & MSG_PEEK) {
--				if (*off >= skb->len && skb->len) {
-+				if (*off >= skb->len && (skb->len || *off ||
-+							 skb->peeked)) {
- 					*off -= skb->len;
+-				if (*off >= skb->len && (skb->len || *off ||
++				if (_off >= skb->len && (skb->len || _off ||
+ 							 skb->peeked)) {
+-					*off -= skb->len;
++					_off -= skb->len;
  					continue;
  				}
+ 				skb->peeked = 1;
+@@ -198,6 +202,7 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 				__skb_unlink(skb, queue);
+ 
+ 			spin_unlock_irqrestore(&queue->lock, cpu_flags);
++			*off = _off;
+ 			return skb;
+ 		}
+ 		spin_unlock_irqrestore(&queue->lock, cpu_flags);
+@@ -207,7 +212,7 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 		if (!timeo)
+ 			goto no_packet;
+ 
+-	} while (!wait_for_packet(sk, err, &timeo));
++	} while (!wait_for_more_packets(sk, err, &timeo, last));
+ 
+ 	return NULL;
+ 
 -- 
 1.7.10.4
