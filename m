@@ -1,69 +1,48 @@
-From: Min Wang <ser.basis@gmail.com>
-Subject: udp packet not reach application
-Date: Mon, 29 Apr 2013 09:36:06 -0400
-Message-ID: <517E7746.6040802@gmail.com>
-References: <517AC60F.9010609@gmail.com>
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable
+ call"
+Date: Mon, 29 Apr 2013 15:46:57 +0200
+Message-ID: <1367243217.4100.13.camel@weser.hi.pengutronix.de>
+References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
+	 <CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
+	 <20130426134415.GS1366@pengutronix.de>
+	 <20130426.143309.1011152996477262852.davem@davemloft.net>
+	 <20130427090545.GY1366@pengutronix.de>
+	 <CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: Frank Li <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f170.google.com ([209.85.216.170]:49068 "EHLO
-	mail-qc0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752062Ab3D2NgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 09:36:10 -0400
-Received: by mail-qc0-f170.google.com with SMTP id d42so3178308qca.29
-        for <netdev@vger.kernel.org>; Mon, 29 Apr 2013 06:36:09 -0700 (PDT)
-Received: from [192.168.55.254] (173-161-143-17-Philadelphia.hfc.comcastbusiness.net. [173.161.143.17])
-        by mx.google.com with ESMTPSA id s10sm12867522qam.7.2013.04.29.06.36.07
-        for <netdev@vger.kernel.org>
-        (version=TLSv1 cipher=RC4-SHA bits=128/128);
-        Mon, 29 Apr 2013 06:36:08 -0700 (PDT)
-In-Reply-To: <517AC60F.9010609@gmail.com>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:47355 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753853Ab3D2NsL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 09:48:11 -0400
+In-Reply-To: <CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-HI
+Am Samstag, den 27.04.2013, 18:26 +0800 schrieb Frank Li:
+> >
+> > - remove locking in a way that memory is freed which is in use
+> 
+> The purpose of remove lock is that fix dead lock.
 
-since Linux-net mailing list no longer active, so post here. Hope it is  
-the right place.
+Could you please elaborate? What is the exact situation which caused a
+deadlock here? I tried to see what's happening from your changelogs, but
+I'm not sure I can follow here. Wasn't the problem more of the used
+spinlocks not being IRQ-save and thus potentially creating a deadlock?
 
-
-I have following issue ( kernel 3.2.28), google around, could not find 
-any good similar case.
-
-one the host:
-     all the  /proc/sys/net/ipv4/conf/*/rp_filter are 0
-
-    a device sent udp traffics to  my udp app ( listen on port x)
-
-
-At first, it was working as my app did get udp traffic.
-
-After a while, strace showed that my app stuck at recvfrom, no udp traffic.
-
-But tcpdump did show that the udp traffic was still coming/alive.
-
-
-Even if I restart my app, strace still showed it was stuck at recv_from.
-
-
-it seems the kernel stop or did not deliver the udp packet to my app at 
-some point.
-
-
-So I have to restart NIC interface, then I could see udp traffic 
-received at my app. (strange also?)
-
-
-What could be wrong? Driver? or Kernel or my app?
-
-At which point the kernel could possibly stop delivering the packets to 
-upper layer even though traffic seen from tcpdump?
-
-
-Thanks a lot!
-
-
-
-min
+Regards,
+Lucas
+-- 
+Pengutronix e.K.                           | Lucas Stach                 |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
