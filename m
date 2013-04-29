@@ -1,83 +1,37 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net-next 2/2] be2net: FLR must be first cmd issued to Lancer FW
-Date: Mon, 29 Apr 2013 13:52:29 +0530
-Message-ID: <78281116-7d1e-4aff-b59c-f9a583fa35ea@CMEXHTCAS1.ad.emulex.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH v2 net-next 3/3] ARM: net: bpf_jit_32: support BPF_S_ANC_SECCOMP_LD_W
+ instruction
+Date: Mon, 29 Apr 2013 12:16:31 +0200
+Message-ID: <517E487F.2050700@redhat.com>
+References: <1367029047-14830-1-git-send-email-xi.wang@gmail.com> <1367029047-14830-4-git-send-email-xi.wang@gmail.com> <517B6FC5.7070003@redhat.com> <CAKU6vyathpp4Ky_kcTu_WFenLEdo9Mai4TUE=EWYo9=UuQUMcg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Kalesh AP <kalesh.purayil@emulex.com>,
-	"Somnath Kotur" <somnath.kotur@emulex.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:21375 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751413Ab3D2IXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 04:23:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Will Drewry <wad@chromium.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	David Laight <david.laight@aculab.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Nicolas Schichan <nschichan@freebox.fr>
+To: Xi Wang <xi.wang@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAKU6vyathpp4Ky_kcTu_WFenLEdo9Mai4TUE=EWYo9=UuQUMcg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Kalesh AP <kalesh.purayil@emulex.com>
+On 04/27/2013 08:32 PM, Xi Wang wrote:
+> On Sat, Apr 27, 2013 at 2:27 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
 
-Lancer FW requires that the first cmd issued by the host-driver be an FLR.
-So, re-order be_probe() to move be_cmd_function_reset() ahead of
-be_cmd_fw_init().
+>> Besides all that, I think I also pointed you to a patch that already made
+>> it in for ARM, not sure why you keep posting the ARM JIT implementation?
+>
+> That's why I asked in the other post if you wanted me to rebase
+> against linux-next or net-next.  The ARM part 3/3 is not needed if
+> rebased against linux-next with Nicolas's patches.
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |   22 +++++++++++-----------
- 1 files changed, 11 insertions(+), 11 deletions(-)
-
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 43d5c1e..1c73491 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -4174,23 +4174,23 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
- 			goto ctrl_clean;
- 	}
- 
--	/* tell fw we're ready to fire cmds */
--	status = be_cmd_fw_init(adapter);
--	if (status)
--		goto ctrl_clean;
--
- 	if (be_reset_required(adapter)) {
- 		status = be_cmd_reset_function(adapter);
- 		if (status)
- 			goto ctrl_clean;
--	}
- 
--	/* Wait for interrupts to quiesce after an FLR */
--	msleep(100);
-+		/* Wait for interrupts to quiesce after an FLR */
-+		msleep(100);
-+	}
- 
- 	/* Allow interrupts for other ULPs running on NIC function */
- 	be_intr_set(adapter, true);
- 
-+	/* tell fw we're ready to fire cmds */
-+	status = be_cmd_fw_init(adapter);
-+	if (status)
-+		goto ctrl_clean;
-+
- 	status = be_stats_init(adapter);
- 	if (status)
- 		goto ctrl_clean;
-@@ -4400,12 +4400,12 @@ static void be_eeh_resume(struct pci_dev *pdev)
- 
- 	pci_save_state(pdev);
- 
--	/* tell fw we're ready to fire cmds */
--	status = be_cmd_fw_init(adapter);
-+	status = be_cmd_reset_function(adapter);
- 	if (status)
- 		goto err;
- 
--	status = be_cmd_reset_function(adapter);
-+	/* tell fw we're ready to fire cmds */
-+	status = be_cmd_fw_init(adapter);
- 	if (status)
- 		goto err;
- 
--- 
-1.6.0.2
+This discussion was only in terms of the unified interface, not the seccomp
+JIT itself. If you speak about ``patch'' (and not ``patch set'') I assumed
+you were only referring to the first one.
