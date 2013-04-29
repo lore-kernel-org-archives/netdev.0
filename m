@@ -1,31 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] be2net: Use GET_FUNCTION_CONFIG V1 cmd
-Date: Mon, 29 Apr 2013 15:15:55 -0400 (EDT)
-Message-ID: <20130429.151555.1197227297665693234.davem@davemloft.net>
-References: <41c8bb00-18f0-474f-b5f2-041333b7f208@CMEXHTCAS1.ad.emulex.com>
+Subject: Re: [PATCH net-next] net: defer net_secret[] initialization
+Date: Mon, 29 Apr 2013 15:16:41 -0400 (EDT)
+Message-ID: <20130429.151641.88899052800399909.davem@davemloft.net>
+References: <1367251132.8964.325.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kalesh.purayil@emulex.com
-To: somnath.kotur@emulex.com
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33352 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33369 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760425Ab3D2TP5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 15:15:57 -0400
-In-Reply-To: <41c8bb00-18f0-474f-b5f2-041333b7f208@CMEXHTCAS1.ad.emulex.com>
+	with ESMTP id S1759975Ab3D2TQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 15:16:43 -0400
+In-Reply-To: <1367251132.8964.325.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Date: Mon, 29 Apr 2013 13:51:13 +0530
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 29 Apr 2013 08:58:52 -0700
 
-> From: Kalesh AP <kalesh.purayil@emulex.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Skyhawk-R requires V1 version of GET_FUNCTION_CONFIG cmd to be used for
-> querrying resources available per function.
+> Instead of feeding net_secret[] at boot time, defer the init
+> at the point first socket is created.
 > 
-> Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+> This permits some platforms to use better entropy sources than
+> the ones available at boot time.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
 Applied.
