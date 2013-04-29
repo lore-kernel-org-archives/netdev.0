@@ -1,66 +1,194 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net-next] hyperv: Fix a compiler warning in netvsc_send()
-Date: Mon, 29 Apr 2013 18:30:53 +0000
-Message-ID: <2bef79e083dd4b14adc5e6d3549f8a05@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
-References: <1367000755-2571-1-git-send-email-haiyangz@microsoft.com>
- <20130429.140932.1477434738582260564.davem@davemloft.net>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH 1/2 v5 RESEND] usbnet: allow status interrupt URB to always
+ be active
+Date: Mon, 29 Apr 2013 13:33:55 -0500
+Message-ID: <1367260435.20151.28.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	KY Srinivasan <kys@microsoft.com>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130429.140932.1477434738582260564.davem@davemloft.net>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ming Lei <tom.leiming@gmail.com>,
+	Elina Pasheva <epasheva@sierrawireless.com>,
+	Network Development <netdev@vger.kernel.org>,
+	linux-usb <linux-usb@vger.kernel.org>,
+	Rory Filer <rfiler@sierrawireless.com>,
+	Phil Sutter <phil@nwl.cc>
+To: Oliver Neukum <oliver@neukum.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:61347 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758372Ab3D2ScK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Apr 2013 14:32:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Some drivers (sierra_net) need the status interrupt URB
+active even when the device is closed, because they receive
+custom indications from firmware.  Add functions to refcount
+the status interrupt URB submit/kill operation so that
+sub-drivers and the generic driver don't fight over whether
+the status interrupt URB is active or not.
 
+A sub-driver can call usbnet_status_start() at any time, but
+the URB is only submitted the first time the function is
+called.  Likewise, when the sub-driver is done with the URB,
+it calls usbnet_status_stop() but the URB is only killed when
+all users have stopped it.  The URB is still killed and
+re-submitted for suspend/resume, as before, with the same
+refcount it had at suspend.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Monday, April 29, 2013 2:10 PM
-> To: Haiyang Zhang
-> Cc: netdev@vger.kernel.org; KY Srinivasan; olaf@aepfle.de;
-> jasowang@redhat.com; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org
-> Subject: Re: [PATCH net-next] hyperv: Fix a compiler warning in
-> netvsc_send()
-> 
-> From: Haiyang Zhang <haiyangz@microsoft.com>
-> Date: Fri, 26 Apr 2013 11:25:55 -0700
-> 
-> > Fixed: warning: cast from pointer to integer of different size
-> >
-> > The Hyper-V hosts always use 64 bit request id. The guests can have 32
-> > or 64 bit pointers which equal to the ulong type size. So we cast it to ulong
-> type.
-> > And, assigning 32bit integer to 64 bit variable works fine.
-> >
-> > The VMBus returns the same id in the completion packet. But the value
-> > has no effect on the host side.
-> >
-> > Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> 
-> Applied, but:
-> 
-> > -		req_id = (u64)packet;
-> > +		req_id = (ulong)packet;
-> 
-> I really do not like these shorthands for fundamental C types, we generally
-> do not use "ulong", "uint" etc.  Please expand them out explicitly to
-> "unsigned long", "unsigned int", etc.
+Signed-off-by: Dan Williams <dcbw@redhat.com>
+---
+NOTE: Oliver already ACK-ed this series, but Ming disagreed about the
+mem_flags argument to usbnet_status_start() and consensus seems far away;
+given that it's not userspace API/ABI, I'd like to see the series go in.
 
-Thanks for applying it. 
+ drivers/net/usb/usbnet.c   | 79 ++++++++++++++++++++++++++++++++++++++++++----
+ include/linux/usb/usbnet.h |  5 +++
+ 2 files changed, 77 insertions(+), 7 deletions(-)
 
-Going forward, I will use the long format, like "unsigned long", instead of "ulong", etc.
-
-Thanks,
-- Haiyang
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 51f3192..b71ce36 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -252,6 +252,70 @@ static int init_status (struct usbnet *dev, struct usb_interface *intf)
+        return 0;
+ }
+ 
++/* Submit the interrupt URB if not previously submitted, increasing refcount */
++int usbnet_status_start(struct usbnet *dev, gfp_t mem_flags)
++{
++       int ret = 0;
++
++       WARN_ON_ONCE(dev->interrupt == NULL);
++       if (dev->interrupt) {
++               mutex_lock(&dev->interrupt_mutex);
++
++               if (++dev->interrupt_count == 1)
++                       ret = usb_submit_urb(dev->interrupt, mem_flags);
++
++               dev_dbg(&dev->udev->dev, "incremented interrupt URB count to %d\n",
++                       dev->interrupt_count);
++               mutex_unlock(&dev->interrupt_mutex);
++       }
++       return ret;
++}
++EXPORT_SYMBOL_GPL(usbnet_status_start);
++
++/* For resume; submit interrupt URB if previously submitted */
++static int __usbnet_status_start_force(struct usbnet *dev, gfp_t mem_flags)
++{
++       int ret = 0;
++
++       mutex_lock(&dev->interrupt_mutex);
++       if (dev->interrupt_count) {
++               ret = usb_submit_urb(dev->interrupt, mem_flags);
++               dev_dbg(&dev->udev->dev,
++                       "submitted interrupt URB for resume\n");
++       }
++       mutex_unlock(&dev->interrupt_mutex);
++       return ret;
++}
++
++/* Kill the interrupt URB if all submitters want it killed */
++void usbnet_status_stop(struct usbnet *dev)
++{
++       if (dev->interrupt) {
++               mutex_lock(&dev->interrupt_mutex);
++               WARN_ON(dev->interrupt_count == 0);
++
++               if (dev->interrupt_count && --dev->interrupt_count == 0)
++                       usb_kill_urb(dev->interrupt);
++
++               dev_dbg(&dev->udev->dev,
++                       "decremented interrupt URB count to %d\n",
++                       dev->interrupt_count);
++               mutex_unlock(&dev->interrupt_mutex);
++       }
++}
++EXPORT_SYMBOL_GPL(usbnet_status_stop);
++
++/* For suspend; always kill interrupt URB */
++static void __usbnet_status_stop_force(struct usbnet *dev)
++{
++       if (dev->interrupt) {
++               mutex_lock(&dev->interrupt_mutex);
++               usb_kill_urb(dev->interrupt);
++               dev_dbg(&dev->udev->dev, "killed interrupt URB for suspend\n");
++               mutex_unlock(&dev->interrupt_mutex);
++       }
++}
++
+ /* Passes this packet up the stack, updating its accounting.
+  * Some link protocols batch packets, so their rx_fixup paths
+  * can return clones as well as just modify the original skb.
+@@ -725,7 +789,7 @@ int usbnet_stop (struct net_device *net)
+        if (!(info->flags & FLAG_AVOID_UNLINK_URBS))
+                usbnet_terminate_urbs(dev);
+ 
+-       usb_kill_urb(dev->interrupt);
++       usbnet_status_stop(dev);
+ 
+        usbnet_purge_paused_rxq(dev);
+ 
+@@ -787,7 +851,7 @@ int usbnet_open (struct net_device *net)
+ 
+        /* start any status interrupt transfer */
+        if (dev->interrupt) {
+-               retval = usb_submit_urb (dev->interrupt, GFP_KERNEL);
++               retval = usbnet_status_start(dev, GFP_KERNEL);
+                if (retval < 0) {
+                        netif_err(dev, ifup, dev->net,
+                                  "intr submit %d\n", retval);
+@@ -1430,6 +1494,8 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
+        dev->delay.data = (unsigned long) dev;
+        init_timer (&dev->delay);
+        mutex_init (&dev->phy_mutex);
++       mutex_init(&dev->interrupt_mutex);
++       dev->interrupt_count = 0;
+ 
+        dev->net = net;
+        strcpy (net->name, "usb%d");
+@@ -1565,7 +1631,7 @@ int usbnet_suspend (struct usb_interface *intf, pm_message_t message)
+                 */
+                netif_device_detach (dev->net);
+                usbnet_terminate_urbs(dev);
+-               usb_kill_urb(dev->interrupt);
++               __usbnet_status_stop_force(dev);
+ 
+                /*
+                 * reattach so runtime management can use and
+@@ -1585,9 +1651,8 @@ int usbnet_resume (struct usb_interface *intf)
+        int                     retval;
+ 
+        if (!--dev->suspend_count) {
+-               /* resume interrupt URBs */
+-               if (dev->interrupt && test_bit(EVENT_DEV_OPEN, &dev->flags))
+-                       usb_submit_urb(dev->interrupt, GFP_NOIO);
++               /* resume interrupt URB if it was previously submitted */
++               __usbnet_status_start_force(dev, GFP_NOIO);
+ 
+                spin_lock_irq(&dev->txq.lock);
+                while ((res = usb_get_from_anchor(&dev->deferred))) {
+diff --git a/include/linux/usb/usbnet.h b/include/linux/usb/usbnet.h
+index 0e5ac93..d71f44c 100644
+--- a/include/linux/usb/usbnet.h
++++ b/include/linux/usb/usbnet.h
+@@ -56,6 +56,8 @@ struct usbnet {
+        struct sk_buff_head     done;
+        struct sk_buff_head     rxq_pause;
+        struct urb              *interrupt;
++       unsigned                interrupt_count;
++       struct mutex            interrupt_mutex;
+        struct usb_anchor       deferred;
+        struct tasklet_struct   bh;
+ 
+@@ -246,4 +248,7 @@ extern int usbnet_nway_reset(struct net_device *net);
+ 
+ extern int usbnet_manage_power(struct usbnet *, int);
+ 
++int usbnet_status_start(struct usbnet *dev, gfp_t mem_flags);
++void usbnet_status_stop(struct usbnet *dev);
++
+ #endif /* __LINUX_USB_USBNET_H */
+-- 
+1.8.1.4
