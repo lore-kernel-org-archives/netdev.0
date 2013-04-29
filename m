@@ -1,94 +1,58 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH 2/2] ipvs: Use cond_resched_rcu_lock() helper when
- dumping connections
-Date: Mon, 29 Apr 2013 14:30:02 -0700
-Message-ID: <20130429213002.GP3780@linux.vnet.ibm.com>
-References: <1366940708-10180-1-git-send-email-horms@verge.net.au>
- <1366940708-10180-3-git-send-email-horms@verge.net.au>
- <20130426080313.GC8669@dyad.programming.kicks-ass.net>
- <20130426154547.GC3860@linux.vnet.ibm.com>
- <20130426171948.GA31467@dyad.programming.kicks-ass.net>
- <20130426174815.GI3860@linux.vnet.ibm.com>
- <1367000815.8964.243.camel@edumazet-glaptop>
- <alpine.LFD.2.00.1304271342260.1633@ja.ssi.bg>
- <20130427162049.GB3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1304292356220.1822@ja.ssi.bg>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Simon Horman <horms@verge.net.au>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>, dhaval.giani@gmail.com
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1304292356220.1822@ja.ssi.bg>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Benjamin Poirier <bpoirier@suse.de>
+Subject: [PATCH v3 1/3] unix/dgram: peek beyond 0-sized skbs
+Date: Mon, 29 Apr 2013 17:42:12 -0400
+Message-ID: <1367271734-14379-1-git-send-email-bpoirier@suse.de>
+References: <kll5si$544$1@ger.gmane.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Pavel Emelyanov <xemul@parallels.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qe0-f44.google.com ([209.85.128.44]:62517 "EHLO
+	mail-qe0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932908Ab3D2Vmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 17:42:37 -0400
+In-Reply-To: <kll5si$544$1@ger.gmane.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 30, 2013 at 12:08:18AM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Sat, 27 Apr 2013, Paul E. McKenney wrote:
-> 
-> > On Sat, Apr 27, 2013 at 02:32:48PM +0300, Julian Anastasov wrote:
-> > > 
-> > > 	So, I assume, to help realtime kernels and rcu_barrier
-> > > it is not a good idea to guard rcu_read_unlock with checks.
-> > > I see that rcu_read_unlock will try to reschedule in the 
-> > > !CONFIG_PREEMPT_RCU case (via preempt_enable), can we
-> > > use ifdefs to avoid double TIF_NEED_RESCHED check?:
-> > > 
-> > > 	rcu_read_unlock();
-> > > #if !defined(CONFIG_PREEMPT) || defined(CONFIG_PREEMPT_RCU)
-> > 
-> > I would instead suggest something like:
-> > 
-> > #ifndef CONFIG_PREEMPT_RCU
-> > 
-> > But yes, in the CONFIG_PREEMPT_RCU case, the cond_resched() is not
-> > needed.
-> 
-> 	Hm, is this correct? If I follow the ifdefs
-> preempt_schedule is called when CONFIG_PREEMPT is
-> defined _and_ CONFIG_PREEMPT_RCU is not defined.
-> Your example for CONFIG_PREEMPT_RCU is the opposite to this?
+"77c1090 net: fix infinite loop in __skb_recv_datagram()" (v3.8) introduced a
+regression:
+After that commit, recv can no longer peek beyond a 0-sized skb in the queue.
+__skb_recv_datagram() instead stops at the first skb with len == 0 and results
+in the system call failing with -EFAULT via skb_copy_datagram_iovec().
 
-Yep, I really did intend to say "#ifndef CONFIG_PREEMPT_RCU".
+When peeking at an offset with 0-sized skb(s), each one of those is received
+only once, in sequence. The offset starts moving forward again after receiving
+datagrams with len > 0.
 
-A couple of things to keep in mind:
+Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
 
-1.	Although rcu_read_unlock() does map to preempt_enable() for
-	CONFIG_TINY_RCU and CONFIG_TREE_RCU, the current Kconfig refuses
-	to allow either CONFIG_TINY_RCU or CONFIG_TREE_RCU to be selected
-	if CONFIG_PREEMPT=y.
+---
 
-2.	In the CONFIG_PREEMPT_RCU case, __rcu_read_unlock() will check
-	to see if the RCU core needs to be informed, so there is no
-	need to invoke cond_resched() in that case.
+* v1 fix the case when SO_PEEK_OFF is used to set sk_peek_off beyond a
+  0-sized skb
 
-3.	If we drop your "|| defined(CONFIG_PREEMPT_RCU)", we get an
-	almost-synonym for my "#ifndef CONFIG_PREEMPT_RCU".  The "almost"
-	applies to older kernels due to the possibility of having a
-	CONFIG_TINY_PREEMPT_RCU kernel -- but this possibility is going
-	away soon.
+* v2 also fix the situation when sk_peek_off must advance to and beyond a
+  0-sized skb
 
-Make sense?
+ net/core/datagram.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-							Thanx, Paul
-
-> > > 	cond_resched();
-> > > #endif
-> > > 	rcu_read_lock();
-> 
-> Regards
-> 
-> --
-> Julian Anastasov <ja@ssi.bg>
-> 
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index 368f9c3..99c4f52 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -187,7 +187,8 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 		skb_queue_walk(queue, skb) {
+ 			*peeked = skb->peeked;
+ 			if (flags & MSG_PEEK) {
+-				if (*off >= skb->len && skb->len) {
++				if (*off >= skb->len && (skb->len || *off ||
++							 skb->peeked)) {
+ 					*off -= skb->len;
+ 					continue;
+ 				}
+-- 
+1.7.10.4
