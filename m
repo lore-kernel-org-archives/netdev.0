@@ -1,15 +1,15 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 04/18] netfilter: ipset: Unified bitmap type generation
-Date: Mon, 29 Apr 2013 20:22:10 +0200
-Message-ID: <1367259744-8922-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/18] netfilter: ipset: Introduce the counter extension in the core
+Date: Mon, 29 Apr 2013 20:22:15 +0200
+Message-ID: <1367259744-8922-10-git-send-email-pablo@netfilter.org>
 References: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:41370 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:41386 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758623Ab3D2SWk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Apr 2013 14:22:40 -0400
+	id S1758650Ab3D2SWn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Apr 2013 14:22:43 -0400
 In-Reply-To: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -19,298 +19,173 @@ From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/netfilter/ipset/ip_set_bitmap.h |    6 +
- net/netfilter/ipset/ip_set_bitmap_gen.h       |  265 +++++++++++++++++++++++++
- 2 files changed, 271 insertions(+)
- create mode 100644 net/netfilter/ipset/ip_set_bitmap_gen.h
+ include/linux/netfilter/ipset/ip_set.h      |   75 +++++++++++++++++++++++++--
+ include/uapi/linux/netfilter/ipset/ip_set.h |    5 ++
+ net/netfilter/ipset/ip_set_core.c           |   10 ++++
+ 3 files changed, 86 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/netfilter/ipset/ip_set_bitmap.h b/include/linux/netfilter/ipset/ip_set_bitmap.h
-index 1a30646..5e4662a 100644
---- a/include/linux/netfilter/ipset/ip_set_bitmap.h
-+++ b/include/linux/netfilter/ipset/ip_set_bitmap.h
-@@ -5,6 +5,12 @@
+diff --git a/include/linux/netfilter/ipset/ip_set.h b/include/linux/netfilter/ipset/ip_set.h
+index bf0220c..0f978eb 100644
+--- a/include/linux/netfilter/ipset/ip_set.h
++++ b/include/linux/netfilter/ipset/ip_set.h
+@@ -52,18 +52,24 @@ enum ip_set_extension {
+ 	IPSET_EXT_NONE = 0,
+ 	IPSET_EXT_BIT_TIMEOUT = 1,
+ 	IPSET_EXT_TIMEOUT = (1 << IPSET_EXT_BIT_TIMEOUT),
++	IPSET_EXT_BIT_COUNTER = 2,
++	IPSET_EXT_COUNTER = (1 << IPSET_EXT_BIT_COUNTER),
+ };
  
- #define IPSET_BITMAP_MAX_RANGE	0x0000FFFF
+ /* Extension offsets */
+ enum ip_set_offset {
+ 	IPSET_OFFSET_TIMEOUT = 0,
++	IPSET_OFFSET_COUNTER,
+ 	IPSET_OFFSET_MAX,
+ };
  
-+enum {
-+	IPSET_ADD_FAILED = 1,
-+	IPSET_ADD_STORE_PLAIN_TIMEOUT,
-+	IPSET_ADD_START_STORED_TIMEOUT,
+ #define SET_WITH_TIMEOUT(s)	((s)->extensions & IPSET_EXT_TIMEOUT)
++#define SET_WITH_COUNTER(s)	((s)->extensions & IPSET_EXT_COUNTER)
+ 
+ struct ip_set_ext {
+ 	unsigned long timeout;
++	u64 packets;
++	u64 bytes;
+ };
+ 
+ struct ip_set;
+@@ -177,6 +183,65 @@ struct ip_set {
+ 	void *data;
+ };
+ 
++struct ip_set_counter {
++	atomic64_t bytes;
++	atomic64_t packets;
 +};
 +
- /* Common functions */
++static inline void
++ip_set_add_bytes(u64 bytes, struct ip_set_counter *counter)
++{
++	atomic64_add((long long)bytes, &(counter)->bytes);
++}
++
++static inline void
++ip_set_add_packets(u64 packets, struct ip_set_counter *counter)
++{
++	atomic64_add((long long)packets, &(counter)->packets);
++}
++
++static inline u64
++ip_set_get_bytes(const struct ip_set_counter *counter)
++{
++	return (u64)atomic64_read(&(counter)->bytes);
++}
++
++static inline u64
++ip_set_get_packets(const struct ip_set_counter *counter)
++{
++	return (u64)atomic64_read(&(counter)->packets);
++}
++
++static inline void
++ip_set_update_counter(struct ip_set_counter *counter,
++		      const struct ip_set_ext *ext,
++		      struct ip_set_ext *mext, u32 flags)
++{
++	if (ext->packets != ULLONG_MAX) {
++		ip_set_add_bytes(ext->bytes, counter);
++		ip_set_add_packets(ext->packets, counter);
++	}
++}
++
++static inline bool
++ip_set_put_counter(struct sk_buff *skb, struct ip_set_counter *counter)
++{
++	return nla_put_net64(skb, IPSET_ATTR_BYTES,
++			     cpu_to_be64(ip_set_get_bytes(counter))) ||
++	       nla_put_net64(skb, IPSET_ATTR_PACKETS,
++			     cpu_to_be64(ip_set_get_packets(counter)));
++}
++
++static inline void
++ip_set_init_counter(struct ip_set_counter *counter,
++		    const struct ip_set_ext *ext)
++{
++	if (ext->bytes != ULLONG_MAX)
++		atomic64_set(&(counter)->bytes, (long long)(ext->bytes));
++	if (ext->packets != ULLONG_MAX)
++		atomic64_set(&(counter)->packets, (long long)(ext->packets));
++}
++
+ /* register and unregister set references */
+ extern ip_set_id_t ip_set_get_byname(const char *name, struct ip_set **set);
+ extern void ip_set_put_byindex(ip_set_id_t index);
+@@ -318,10 +383,12 @@ bitmap_bytes(u32 a, u32 b)
  
- static inline u32
-diff --git a/net/netfilter/ipset/ip_set_bitmap_gen.h b/net/netfilter/ipset/ip_set_bitmap_gen.h
-new file mode 100644
-index 0000000..b993159
---- /dev/null
-+++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
-@@ -0,0 +1,265 @@
-+/* Copyright (C) 2013 Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2 as
-+ * published by the Free Software Foundation.
-+ */
-+
-+#ifndef __IP_SET_BITMAP_IP_GEN_H
-+#define __IP_SET_BITMAP_IP_GEN_H
-+
-+#define CONCAT(a, b)		a##b
-+#define TOKEN(a,b)		CONCAT(a, b)
-+
-+#define mtype_do_test		TOKEN(MTYPE, _do_test)
-+#define mtype_gc_test		TOKEN(MTYPE, _gc_test)
-+#define mtype_is_filled		TOKEN(MTYPE, _is_filled)
-+#define mtype_do_add		TOKEN(MTYPE, _do_add)
-+#define mtype_do_del		TOKEN(MTYPE, _do_del)
-+#define mtype_do_list		TOKEN(MTYPE, _do_list)
-+#define mtype_do_head		TOKEN(MTYPE, _do_head)
-+#define mtype_adt_elem		TOKEN(MTYPE, _adt_elem)
-+#define mtype_add_timeout	TOKEN(MTYPE, _add_timeout)
-+#define mtype_gc_init		TOKEN(MTYPE, _gc_init)
-+#define mtype_kadt		TOKEN(MTYPE, _kadt)
-+#define mtype_uadt		TOKEN(MTYPE, _uadt)
-+#define mtype_destroy		TOKEN(MTYPE, _destroy)
-+#define mtype_flush		TOKEN(MTYPE, _flush)
-+#define mtype_head		TOKEN(MTYPE, _head)
-+#define mtype_same_set		TOKEN(MTYPE, _same_set)
-+#define mtype_elem		TOKEN(MTYPE, _elem)
-+#define mtype_test		TOKEN(MTYPE, _test)
-+#define mtype_add		TOKEN(MTYPE, _add)
-+#define mtype_del		TOKEN(MTYPE, _del)
-+#define mtype_list		TOKEN(MTYPE, _list)
-+#define mtype_gc		TOKEN(MTYPE, _gc)
-+#define mtype			MTYPE
-+
-+#define ext_timeout(e, m)	\
-+	(unsigned long *)((e) + (m)->offset[IPSET_OFFSET_TIMEOUT])
-+#define get_ext(map, id)	((map)->extensions + (map)->dsize * (id))
-+
-+static void
-+mtype_gc_init(struct ip_set *set, void (*gc)(unsigned long ul_set))
-+{
-+	struct mtype *map = set->data;
-+
-+	init_timer(&map->gc);
-+	map->gc.data = (unsigned long) set;
-+	map->gc.function = gc;
-+	map->gc.expires = jiffies + IPSET_GC_PERIOD(map->timeout) * HZ;
-+	add_timer(&map->gc);
-+}
-+
-+static void
-+mtype_destroy(struct ip_set *set)
-+{
-+	struct mtype *map = set->data;
-+
-+	if (SET_WITH_TIMEOUT(set))
-+		del_timer_sync(&map->gc);
-+
-+	ip_set_free(map->members);
-+	if (map->dsize)
-+		ip_set_free(map->extensions);
-+	kfree(map);
-+
-+	set->data = NULL;
-+}
-+
-+static void
-+mtype_flush(struct ip_set *set)
-+{
-+	struct mtype *map = set->data;
-+
-+	memset(map->members, 0, map->memsize);
-+}
-+
-+static int
-+mtype_head(struct ip_set *set, struct sk_buff *skb)
-+{
-+	const struct mtype *map = set->data;
-+	struct nlattr *nested;
-+
-+	nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
-+	if (!nested)
-+		goto nla_put_failure;
-+	if (mtype_do_head(skb, map) ||
-+	    nla_put_net32(skb, IPSET_ATTR_REFERENCES, htonl(set->ref - 1)) ||
-+	    nla_put_net32(skb, IPSET_ATTR_MEMSIZE,
-+			  htonl(sizeof(*map) +
-+				map->memsize +
-+				map->dsize * map->elements)) ||
-+	    (SET_WITH_TIMEOUT(set) &&
-+	     nla_put_net32(skb, IPSET_ATTR_TIMEOUT, htonl(map->timeout))))
-+		goto nla_put_failure;
-+	ipset_nest_end(skb, nested);
-+
-+	return 0;
-+nla_put_failure:
-+	return -EMSGSIZE;
-+}
-+
-+static int
-+mtype_test(struct ip_set *set, void *value, const struct ip_set_ext *ext,
-+	   struct ip_set_ext *mext, u32 flags)
-+{
-+	struct mtype *map = set->data;
-+	const struct mtype_adt_elem *e = value;
-+	void *x = get_ext(map, e->id);
-+	int ret = mtype_do_test(e, map);
-+
-+	if (ret <= 0)
-+		return ret;
-+	if (SET_WITH_TIMEOUT(set) &&
-+	    ip_set_timeout_expired(ext_timeout(x, map)))
-+		return 0;
-+	return 1;
-+}
-+
-+static int
-+mtype_add(struct ip_set *set, void *value, const struct ip_set_ext *ext,
-+	  struct ip_set_ext *mext, u32 flags)
-+{
-+	struct mtype *map = set->data;
-+	const struct mtype_adt_elem *e = value;
-+	void *x = get_ext(map, e->id);
-+	int ret = mtype_do_add(e, map, flags);
-+
-+	if (ret == IPSET_ADD_FAILED) {
-+		if (SET_WITH_TIMEOUT(set) &&
-+		    ip_set_timeout_expired(ext_timeout(x, map)))
-+			ret = 0;
-+		else if (!(flags & IPSET_FLAG_EXIST))
-+			return -IPSET_ERR_EXIST;
+ #include <linux/netfilter/ipset/ip_set_timeout.h>
+ 
+-#define IP_SET_INIT_KEXT(skb, opt, map)		\
+-	{ .timeout = ip_set_adt_opt_timeout(opt, map) }
++#define IP_SET_INIT_KEXT(skb, opt, map)			\
++	{ .bytes = (skb)->len, .packets = 1,		\
++	  .timeout = ip_set_adt_opt_timeout(opt, map) }
+ 
+-#define IP_SET_INIT_UEXT(map)			\
+-	{ .timeout = (map)->timeout }
++#define IP_SET_INIT_UEXT(map)				\
++	{ .bytes = ULLONG_MAX, .packets = ULLONG_MAX,	\
++	  .timeout = (map)->timeout }
+ 
+ #endif /*_IP_SET_H */
+diff --git a/include/uapi/linux/netfilter/ipset/ip_set.h b/include/uapi/linux/netfilter/ipset/ip_set.h
+index fbee428..ed45267 100644
+--- a/include/uapi/linux/netfilter/ipset/ip_set.h
++++ b/include/uapi/linux/netfilter/ipset/ip_set.h
+@@ -108,6 +108,8 @@ enum {
+ 	IPSET_ATTR_CIDR2,
+ 	IPSET_ATTR_IP2_TO,
+ 	IPSET_ATTR_IFACE,
++	IPSET_ATTR_BYTES,
++	IPSET_ATTR_PACKETS,
+ 	__IPSET_ATTR_ADT_MAX,
+ };
+ #define IPSET_ATTR_ADT_MAX	(__IPSET_ATTR_ADT_MAX - 1)
+@@ -137,6 +139,7 @@ enum ipset_errno {
+ 	IPSET_ERR_REFERENCED,
+ 	IPSET_ERR_IPADDR_IPV4,
+ 	IPSET_ERR_IPADDR_IPV6,
++	IPSET_ERR_COUNTER,
+ 
+ 	/* Type specific error codes */
+ 	IPSET_ERR_TYPE_SPECIFIC = 4352,
+@@ -161,6 +164,8 @@ enum ipset_cadt_flags {
+ 	IPSET_FLAG_PHYSDEV	= (1 << IPSET_FLAG_BIT_PHYSDEV),
+ 	IPSET_FLAG_BIT_NOMATCH	= 2,
+ 	IPSET_FLAG_NOMATCH	= (1 << IPSET_FLAG_BIT_NOMATCH),
++	IPSET_FLAG_BIT_WITH_COUNTERS = 3,
++	IPSET_FLAG_WITH_COUNTERS = (1 << IPSET_FLAG_BIT_WITH_COUNTERS),
+ 	IPSET_FLAG_CADT_MAX	= 15,	/* Upper half */
+ };
+ 
+diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
+index 4486285d..f6d878a 100644
+--- a/net/netfilter/ipset/ip_set_core.c
++++ b/net/netfilter/ipset/ip_set_core.c
+@@ -324,6 +324,16 @@ ip_set_get_extensions(struct ip_set *set, struct nlattr *tb[],
+ 			return -IPSET_ERR_TIMEOUT;
+ 		ext->timeout = ip_set_timeout_uget(tb[IPSET_ATTR_TIMEOUT]);
+ 	}
++	if (tb[IPSET_ATTR_BYTES] || tb[IPSET_ATTR_PACKETS]) {
++		if (!(set->extensions & IPSET_EXT_COUNTER))
++			return -IPSET_ERR_COUNTER;
++		if (tb[IPSET_ATTR_BYTES])
++			ext->bytes = be64_to_cpu(nla_get_be64(
++						 tb[IPSET_ATTR_BYTES]));
++		if (tb[IPSET_ATTR_PACKETS])
++			ext->packets = be64_to_cpu(nla_get_be64(
++						   tb[IPSET_ATTR_PACKETS]));
 +	}
-+
-+	if (SET_WITH_TIMEOUT(set))
-+#ifdef IP_SET_BITMAP_STORED_TIMEOUT
-+		mtype_add_timeout(ext_timeout(x, map), e, ext, map, ret);
-+#else
-+		ip_set_timeout_set(ext_timeout(x, map), ext->timeout);
-+#endif
-+
-+	return 0;
-+}
-+
-+static int
-+mtype_del(struct ip_set *set, void *value, const struct ip_set_ext *ext,
-+	  struct ip_set_ext *mext, u32 flags)
-+{
-+	struct mtype *map = set->data;
-+	const struct mtype_adt_elem *e = value;
-+	const void *x = get_ext(map, e->id);
-+
-+	if (mtype_do_del(e, map) ||
-+	    (SET_WITH_TIMEOUT(set) &&
-+	     ip_set_timeout_expired(ext_timeout(x, map))))
-+		return -IPSET_ERR_EXIST;
-+
-+	return 0;
-+}
-+
-+static int
-+mtype_list(const struct ip_set *set,
-+	   struct sk_buff *skb, struct netlink_callback *cb)
-+{
-+	struct mtype *map = set->data;
-+	struct nlattr *adt, *nested;
-+	void *x;
-+	u32 id, first = cb->args[2];
-+
-+	adt = ipset_nest_start(skb, IPSET_ATTR_ADT);
-+	if (!adt)
-+		return -EMSGSIZE;
-+	for (; cb->args[2] < map->elements; cb->args[2]++) {
-+		id = cb->args[2];
-+		x = get_ext(map, id);
-+		if (!test_bit(id, map->members) ||
-+		    (SET_WITH_TIMEOUT(set) &&
-+#ifdef IP_SET_BITMAP_STORED_TIMEOUT
-+		     mtype_is_filled((const struct mtype_elem *) x) &&
-+#endif
-+		     ip_set_timeout_expired(ext_timeout(x, map))))
-+			continue;
-+		nested = ipset_nest_start(skb, IPSET_ATTR_DATA);
-+		if (!nested) {
-+			if (id == first) {
-+				nla_nest_cancel(skb, adt);
-+				return -EMSGSIZE;
-+			} else
-+				goto nla_put_failure;
-+		}
-+		if (mtype_do_list(skb, map, id))
-+			goto nla_put_failure;
-+		if (SET_WITH_TIMEOUT(set)) {
-+#ifdef IP_SET_BITMAP_STORED_TIMEOUT
-+			if (nla_put_net32(skb, IPSET_ATTR_TIMEOUT,
-+					  htonl(ip_set_timeout_stored(map, id,
-+							ext_timeout(x, map)))))
-+				goto nla_put_failure;
-+#else
-+			if (nla_put_net32(skb, IPSET_ATTR_TIMEOUT,
-+					  htonl(ip_set_timeout_get(
-+							ext_timeout(x, map)))))
-+				goto nla_put_failure;
-+#endif
-+		}
-+		ipset_nest_end(skb, nested);
-+	}
-+	ipset_nest_end(skb, adt);
-+
-+	/* Set listing finished */
-+	cb->args[2] = 0;
-+
-+	return 0;
-+
-+nla_put_failure:
-+	nla_nest_cancel(skb, nested);
-+	ipset_nest_end(skb, adt);
-+	if (unlikely(id == first)) {
-+		cb->args[2] = 0;
-+		return -EMSGSIZE;
-+	}
-+	return 0;
-+}
-+
-+static void
-+mtype_gc(unsigned long ul_set)
-+{
-+	struct ip_set *set = (struct ip_set *) ul_set;
-+	struct mtype *map = set->data;
-+	const void *x;
-+	u32 id;
-+
-+	/* We run parallel with other readers (test element)
-+	 * but adding/deleting new entries is locked out */
-+	read_lock_bh(&set->lock);
-+	for (id = 0; id < map->elements; id++)
-+		if (mtype_gc_test(id, map)) {
-+			x = get_ext(map, id);
-+			if (ip_set_timeout_expired(ext_timeout(x, map)))
-+				clear_bit(id, map->members);
-+		}
-+	read_unlock_bh(&set->lock);
-+
-+	map->gc.expires = jiffies + IPSET_GC_PERIOD(map->timeout) * HZ;
-+	add_timer(&map->gc);
-+}
-+
-+static const struct ip_set_type_variant mtype = {
-+	.kadt	= mtype_kadt,
-+	.uadt	= mtype_uadt,
-+	.adt	= {
-+		[IPSET_ADD] = mtype_add,
-+		[IPSET_DEL] = mtype_del,
-+		[IPSET_TEST] = mtype_test,
-+	},
-+	.destroy = mtype_destroy,
-+	.flush	= mtype_flush,
-+	.head	= mtype_head,
-+	.list	= mtype_list,
-+	.same_set = mtype_same_set,
-+};
-+
-+#endif /* __IP_SET_BITMAP_IP_GEN_H */
+ 	return 0;
+ }
+ EXPORT_SYMBOL_GPL(ip_set_get_extensions);
 -- 
 1.7.10.4
