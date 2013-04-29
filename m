@@ -1,48 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] hyperv: Fix a compiler warning in netvsc_send()
-Date: Mon, 29 Apr 2013 14:09:32 -0400 (EDT)
-Message-ID: <20130429.140932.1477434738582260564.davem@davemloft.net>
-References: <1367000755-2571-1-git-send-email-haiyangz@microsoft.com>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: [PATCH net-next] tg3: shows HW time stamping support only
+ if ptp_capable is present
+Date: Mon, 29 Apr 2013 11:09:39 -0700
+Message-ID: <517EB763.8090009@broadcom.com>
+References: <1367255287-2664-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: haiyangz@microsoft.com
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1367000755-2571-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: "devel" <devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, "Jiri Benc" <jbenc@redhat.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: "Flavio Leitner" <fbl@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms2.broadcom.com ([216.31.210.18]:2559 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752235Ab3D2SJs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Apr 2013 14:09:48 -0400
+In-Reply-To: <1367255287-2664-1-git-send-email-fbl@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Fri, 26 Apr 2013 11:25:55 -0700
 
-> Fixed: warning: cast from pointer to integer of different size
-> 
-> The Hyper-V hosts always use 64 bit request id. The guests can have 32 or 64
-> bit pointers which equal to the ulong type size. So we cast it to ulong type.
-> And, assigning 32bit integer to 64 bit variable works fine.
-> 
-> The VMBus returns the same id in the completion packet. But the value has no
-> effect on the host side.
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Applied, but:
+On 04/29/2013 10:08 AM, Flavio Leitner wrote:
+> Current tg3 shows hardware timestamping support for all devices
+> when that is true only for the hardware with PTP_CAPABLE flag
+> present.
+>
+> Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> ---
+>   drivers/net/ethernet/broadcom/tg3.c | 11 +++++++----
+>   1 file changed, 7 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index ac83c87..ef0b8a6 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -5992,10 +5992,13 @@ static int tg3_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
+>
+>   	info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
+>   				SOF_TIMESTAMPING_RX_SOFTWARE |
+> -				SOF_TIMESTAMPING_SOFTWARE    |
+> -				SOF_TIMESTAMPING_TX_HARDWARE |
+> -				SOF_TIMESTAMPING_RX_HARDWARE |
+> -				SOF_TIMESTAMPING_RAW_HARDWARE;
+> +				SOF_TIMESTAMPING_SOFTWARE;
+> +
+> +	if (tg3_flag(tp, PTP_CAPABLE)) {
+> +		info->so_timestamping = SOF_TIMESTAMPING_TX_HARDWARE |
+> +					SOF_TIMESTAMPING_RX_HARDWARE |
+> +					SOF_TIMESTAMPING_RAW_HARDWARE;
+> +	}
+>
+>   	if (tp->ptp_clock)
+>   		info->phc_index = ptp_clock_index(tp->ptp_clock);
+>
 
-> -		req_id = (u64)packet;
-> +		req_id = (ulong)packet;
+Thanks Flavio.
 
-I really do not like these shorthands for fundamental C types, we
-generally do not use "ulong", "uint" etc.  Please expand them out
-explicitly to "unsigned long", "unsigned int", etc.
+Acked-by: Nithin Nayak Sujir <nsujir@broadcom.com>
