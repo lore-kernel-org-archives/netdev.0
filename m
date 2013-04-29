@@ -1,98 +1,67 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 16/18] netfilter: nfnetlink_queue: add skb info attribute
-Date: Mon, 29 Apr 2013 20:22:22 +0200
-Message-ID: <1367259744-8922-17-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 17/18] netfilter: nfnetlink_queue: avoid expensive gso segmentation and checksum fixup
+Date: Mon, 29 Apr 2013 20:22:23 +0200
+Message-ID: <1367259744-8922-18-git-send-email-pablo@netfilter.org>
 References: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:41467 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758716Ab3D2SW7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Apr 2013 14:22:59 -0400
 In-Reply-To: <1367259744-8922-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Florian Westphal <fw@strlen.de>
 
-Once we allow userspace to receive gso/gro packets, userspace
-needs to be able to determine when checksums appear to be
-broken, but are not.
-
-NFQA_SKB_CSUMNOTREADY means 'checksums will be fixed in kernel
-later, pretend they are ok'.
-
-NFQA_SKB_GSO could be used for statistics, or to determine when
-packet size exceeds mtu.
+Userspace can now indicate that it can cope with larger-than-mtu sized
+packets and packets that have invalid ipv4/tcp checksums.
 
 Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/uapi/linux/netfilter/nfnetlink_queue.h |    7 +++++++
- net/netfilter/nfnetlink_queue_core.c           |   16 ++++++++++++++++
- 2 files changed, 23 insertions(+)
+ include/uapi/linux/netfilter/nfnetlink_queue.h |    3 ++-
+ net/netfilter/nfnetlink_queue_core.c           |    5 +++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
 
 diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
-index 70ec8c2..0069da3 100644
+index 0069da3..a2308ae 100644
 --- a/include/uapi/linux/netfilter/nfnetlink_queue.h
 +++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
-@@ -45,6 +45,7 @@ enum nfqnl_attr_type {
- 	NFQA_CT,			/* nf_conntrack_netlink.h */
- 	NFQA_CT_INFO,			/* enum ip_conntrack_info */
- 	NFQA_CAP_LEN,			/* __u32 length of captured packet */
-+	NFQA_SKB_INFO,			/* __u32 skb meta information */
- 
- 	__NFQA_MAX
- };
-@@ -98,4 +99,10 @@ enum nfqnl_attr_config {
+@@ -97,7 +97,8 @@ enum nfqnl_attr_config {
+ /* Flags for NFQA_CFG_FLAGS */
+ #define NFQA_CFG_F_FAIL_OPEN			(1 << 0)
  #define NFQA_CFG_F_CONNTRACK			(1 << 1)
- #define NFQA_CFG_F_MAX				(1 << 2)
+-#define NFQA_CFG_F_MAX				(1 << 2)
++#define NFQA_CFG_F_GSO				(1 << 2)
++#define NFQA_CFG_F_MAX				(1 << 3)
  
-+/* flags for NFQA_SKB_INFO */
-+/* packet appears to have wrong checksums, but they are ok */
-+#define NFQA_SKB_CSUMNOTREADY (1 << 0)
-+/* packet is GSO (i.e., exceeds device mtu) */
-+#define NFQA_SKB_GSO (1 << 1)
-+
- #endif /* _NFNETLINK_QUEUE_H */
+ /* flags for NFQA_SKB_INFO */
+ /* packet appears to have wrong checksums, but they are ok */
 diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index edbae4c..d052cd6 100644
+index d052cd6..2e0e835 100644
 --- a/net/netfilter/nfnetlink_queue_core.c
 +++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -272,6 +272,18 @@ nfqnl_zcopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
- 	skb_shinfo(to)->nr_frags = j;
- }
+@@ -327,7 +327,8 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
+ 		break;
  
-+static int nfqnl_put_packet_info(struct sk_buff *nlskb, struct sk_buff *packet)
-+{
-+	__u32 flags = 0;
-+
-+	if (packet->ip_summed == CHECKSUM_PARTIAL)
-+		flags = NFQA_SKB_CSUMNOTREADY;
-+	if (skb_is_gso(packet))
-+		flags |= NFQA_SKB_GSO;
-+
-+	return flags ? nla_put_be32(nlskb, NFQA_SKB_INFO, htonl(flags)) : 0;
-+}
-+
- static struct sk_buff *
- nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 			   struct nf_queue_entry *entry,
-@@ -301,6 +313,7 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- #endif
- 		+ nla_total_size(sizeof(u_int32_t))	/* mark */
- 		+ nla_total_size(sizeof(struct nfqnl_msg_packet_hw))
-+		+ nla_total_size(sizeof(u_int32_t))	/* skbinfo */
- 		+ nla_total_size(sizeof(u_int32_t));	/* cap_len */
+ 	case NFQNL_COPY_PACKET:
+-		if (entskb->ip_summed == CHECKSUM_PARTIAL &&
++		if (!(queue->flags & NFQA_CFG_F_GSO) &&
++		    entskb->ip_summed == CHECKSUM_PARTIAL &&
+ 		    skb_checksum_help(entskb))
+ 			return NULL;
  
- 	if (entskb->tstamp.tv64)
-@@ -454,6 +467,9 @@ nfqnl_build_packet_message(struct nfqnl_instance *queue,
- 	if (cap_len > 0 && nla_put_be32(skb, NFQA_CAP_LEN, htonl(cap_len)))
- 		goto nla_put_failure;
+@@ -636,7 +637,7 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
+ 	if (queue->copy_mode == NFQNL_COPY_NONE)
+ 		return -EINVAL;
  
-+	if (nfqnl_put_packet_info(skb, entskb))
-+		goto nla_put_failure;
-+
- 	if (data_len) {
- 		struct nlattr *nla;
+-	if (!skb_is_gso(entry->skb))
++	if ((queue->flags & NFQA_CFG_F_GSO) || !skb_is_gso(entry->skb))
+ 		return __nfqnl_enqueue_packet(net, queue, entry);
  
+ 	skb = entry->skb;
 -- 
 1.7.10.4
-
