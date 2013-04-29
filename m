@@ -1,85 +1,76 @@
-From: Gerlando Falauto <gerlando.falauto@keymile.com>
-Subject: [PATCH v2 1/2] tipc: tipc_bcbearer_send(): simplify bearer selection
-Date: Mon, 29 Apr 2013 16:13:39 +0200
-Message-ID: <1367244820-29881-1-git-send-email-gerlando.falauto@keymile.com>
-Cc: jon.maloy@ericsson.com, erik.hugne@ericsson.com,
-	ying.xue@windriver.com, holger.brunck@keymile.com,
-	Gerlando Falauto <gerlando.falauto@keymile.com>
-To: netdev@vger.kernel.org
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: Re: [PATCH][net-next] gianfar: Fix reported sent bytes to BQL for
+ Tx timestamping
+Date: Mon, 29 Apr 2013 17:27:32 +0300
+Message-ID: <517E8354.1010503@freescale.com>
+References: <1367240268-32609-1-git-send-email-claudiu.manoil@freescale.com> <1367243593.8964.306.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:51963 "EHLO
-	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758053Ab3D2OWC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 10:22:02 -0400
+Received: from tx2ehsobe004.messaging.microsoft.com ([65.55.88.14]:55133 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753731Ab3D2O2r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 10:28:47 -0400
+In-Reply-To: <1367243593.8964.306.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also some minor cosmetic improvements and comment style changes
+Hi,
 
-Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
----
- net/tipc/bcast.c |   29 +++++++++++++++--------------
- 1 file changed, 15 insertions(+), 14 deletions(-)
+Unfortunately fixing this the other way around would imply changes
+in both xmit and clean_tx, and additional overhead in clean_tx.
+On xmit skb->len gets incremented with FCB_LEN and/or TXPAL_LEN,
+on a case by case basis. This would imply to add extra checks on
+clean_tx to identify whether only FCB_LEN has been added, or
+FCB+TXPAL or neither, all these just to report the bytes on wire
+for BQL.
+Does BQL really need to measure the bytes-on-wire or the bytes consumed
+for buffering?
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 2655c9f..be1f945 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -584,8 +584,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
- {
- 	int bp_index;
- 
--	/*
--	 * Prepare broadcast link message for reliable transmission,
-+	/* Prepare broadcast link message for reliable transmission,
- 	 * if first time trying to send it;
- 	 * preparation is skipped for broadcast link protocol messages
- 	 * since they are sent in an unreliable manner and don't need it
-@@ -610,31 +609,33 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
- 
- 	for (bp_index = 0; bp_index < MAX_BEARERS; bp_index++) {
- 		struct tipc_bearer *p = bcbearer->bpairs[bp_index].primary;
-+		struct tipc_bearer *b = p;
- 		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
- 
- 		if (!p)
--			break;	/* no more bearers to try */
-+			break;	/* No more bearers to try */
-+
-+		if (tipc_bearer_blocked(p)) {
-+			if (!s || tipc_bearer_blocked(s))
-+				continue; /* Can't use either bearer */
-+			b = s;
-+		}
- 
--		tipc_nmap_diff(&bcbearer->remains, &p->nodes, &bcbearer->remains_new);
-+		tipc_nmap_diff(&bcbearer->remains, &b->nodes,
-+			&bcbearer->remains_new);
- 		if (bcbearer->remains_new.count == bcbearer->remains.count)
--			continue;	/* bearer pair doesn't add anything */
-+			continue;  /* Nothing added by bearer pair */
- 
--		if (!tipc_bearer_blocked(p))
--			tipc_bearer_send(p, buf, &p->media->bcast_addr);
--		else if (s && !tipc_bearer_blocked(s))
--			/* unable to send on primary bearer */
--			tipc_bearer_send(s, buf, &s->media->bcast_addr);
--		else
--			/* unable to send on either bearer */
--			continue;
-+		tipc_bearer_send(b, buf, &s->media->bcast_addr);
- 
-+		/* Swap bearers for next packet */
- 		if (s) {
- 			bcbearer->bpairs[bp_index].primary = s;
- 			bcbearer->bpairs[bp_index].secondary = p;
- 		}
- 
- 		if (bcbearer->remains_new.count == 0)
--			break;	/* all targets reached */
-+			break;	/* All targets reached */
- 
- 		bcbearer->remains = bcbearer->remains_new;
- 	}
--- 
-1.7.10.1
+Thanks,
+Claudiu
+
+On 4/29/2013 4:53 PM, Eric Dumazet wrote:
+> On Mon, 2013-04-29 at 15:57 +0300, Claudiu Manoil wrote:
+>> When Tx timestamping is enabled the number of sent bytes reported
+>> to BQL via tx_completed_queue() falls short by GMAC_FCB_LEN +
+>> GMAC_TXPAL_LEN than the number of bytes reported via tx_sent_queue()
+>> on xmit. This leads to BQL stopping transmission errorneously followed
+>> by tx timeout firing.
+>>
+>> This fixes the amount of sent bytes reported to BQL on clean_tx_ring
+>> to match the amount reported on xmit, when Tx timestamping enabled.
+>>
+>> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+>> ---
+>>   drivers/net/ethernet/freescale/gianfar.c | 1 +
+>>   1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+>> index 2375a01..0d26a8b 100644
+>> --- a/drivers/net/ethernet/freescale/gianfar.c
+>> +++ b/drivers/net/ethernet/freescale/gianfar.c
+>> @@ -2539,6 +2539,7 @@ static void gfar_clean_tx_ring(struct gfar_priv_tx_q *tx_queue)
+>>   			skb_tstamp_tx(skb, &shhwtstamps);
+>>   			bdp->lstatus &= BD_LFLAG(TXBD_WRAP);
+>>   			bdp = next;
+>> +			bytes_sent += GMAC_FCB_LEN + GMAC_TXPAL_LEN;
+>>   		}
+>>
+>>   		bdp->lstatus &= BD_LFLAG(TXBD_WRAP);
+>
+> Technically speaking these bytes are not sent to the wire.
+>
+> I would rather fix gfar_start_xmit() to give to netdev_tx_sent_queue()
+> call the correct amount of bytes on wire, to be consistent with other
+> drivers.
+>
+>
+>
+>
+>
