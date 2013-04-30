@@ -1,103 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: RE: [ethtool] ethtool: check mac type from ethtool_regs.version
-Date: Tue, 30 Apr 2013 19:19:38 +0100
-Message-ID: <1367345978.2941.7.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1366953168-17509-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1367335412.2941.3.camel@bwh-desktop.uk.solarflarecom.com>
-	 <87618083B2453E4A8714035B62D679924FD8BC50@ORSMSX152.amr.corp.intel.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next v7 4/6] vxlan: add ipv6 support
+Date: Tue, 30 Apr 2013 14:58:30 -0400 (EDT)
+Message-ID: <20130430.145830.1069552594749915607.davem@davemloft.net>
+References: <1367311395-15891-5-git-send-email-amwang@redhat.com>
+	<87r4hscr7s.fsf@nemi.mork.no>
+	<1367314694.3216.25.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bjorn@mork.no, netdev@vger.kernel.org, dlstevens@us.ibm.com,
+	stephen@networkplumber.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:61298 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753830Ab3D3STn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 14:19:43 -0400
-In-Reply-To: <87618083B2453E4A8714035B62D679924FD8BC50@ORSMSX152.amr.corp.intel.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52030 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933275Ab3D3S6d convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 14:58:33 -0400
+In-Reply-To: <1367314694.3216.25.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-30 at 18:12 +0000, Tantilov, Emil S wrote:
-[...]
-> >It seems like this would work with both old and new drivers:
-> >
-> >diff --git a/ixgbe.c b/ixgbe.c
-> >index dae11d4..9b005f2 100644
-> >--- a/ixgbe.c
-> >+++ b/ixgbe.c
-> >@@ -133,10 +133,13 @@ ixgbe_dump_regs(struct ethtool_drvinfo *info, struct
-> >ethtool_regs *regs)
-> > 	u8 i;
-> > 	enum ixgbe_mac_type mac_type;
-> >
-> >-	if (version != 1)
-> >+	if (version == 0)
-> > 		return -1;
-> >
-> >-	mac_type = ixgbe_get_mac_type(hw_device_id);
-> >+	/* The current driver reports the MAC type, but older versions
-> >+	 * only report the device ID so we have to infer the MAC type.
-> >+	 */
-> >+	mac_type = version > 1 ? version : ixgbe_get_mac_type(hw_device_id);
-> >
-> > 	reg = regs_buff[1065];
-> > 	fprintf(stdout,
-> 
-> Yeah, this seems like a better way to go.
-> 
-> Thanks a lot,
-> Emil
+=46rom: Cong Wang <amwang@redhat.com>
+Date: Tue, 30 Apr 2013 17:38:14 +0800
 
-OK, so I've applied this:
+> On Tue, 2013-04-30 at 11:17 +0200, Bj=F8rn Mork wrote:
+>> There is no need to rush
+>> this, and people may get tired of looking at the same shortcomings
+>> over
+>> and over again.=20
+>=20
+> The sooner it gets merged, the less maintaining pains I have. I have =
+to
+> solve many conflicts _every time_ I rebase it on to the latest net-ne=
+xt.
 
----
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: ixgbe: check mac type from ethtool_regs.version
+You can't force a feature to be ready, when it isn't.  And your
+complaints about merge conflicts are falling on deaf ears.
 
-This patch cleans up the mac type checks by using ethtool_regs.version
-provided by the driver. This change eliminates the need to add device IDs
-every time they are added to the driver.
+If you're frustrated, it's entirely a self inflicted wound.  And I
+absolutely will not stop the people doing work that is ready just
+because you have this patch series which conflicts, but isn't ready.
 
-Note that when using ethtool with this patch with a version of ixgbe that
-does not provide the mac_type in ethtool_regs.version the register dump
-may be incomplete. However this issue would've existed previously for
-device IDs that were not added to ethtool.
+You have to understand that if this patch series didn't have so many
+shortcomings every single submission, it would have been merged weeks
+ago.
 
-Original patch and description by Emil Tantilov <emil.s.tantilov@intel.com>.
+But that's not what happened, and therefore you're going to miss this
+merge window, and you're going to have to be at peace with that.
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- ixgbe.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
+net-next is closed, I said it's closed, and I even was nicer than
+usual by merging in stuff that came in on the last day.
 
-diff --git a/ixgbe.c b/ixgbe.c
-index dae11d4..9b005f2 100644
---- a/ixgbe.c
-+++ b/ixgbe.c
-@@ -133,10 +133,13 @@ ixgbe_dump_regs(struct ethtool_drvinfo *info, struct ethtool_regs *regs)
- 	u8 i;
- 	enum ixgbe_mac_type mac_type;
- 
--	if (version != 1)
-+	if (version == 0)
- 		return -1;
- 
--	mac_type = ixgbe_get_mac_type(hw_device_id);
-+	/* The current driver reports the MAC type, but older versions
-+	 * only report the device ID so we have to infer the MAC type.
-+	 */
-+	mac_type = version > 1 ? version : ixgbe_get_mac_type(hw_device_id);
- 
- 	reg = regs_buff[1065];
- 	fprintf(stdout,
+You have no basis upon which to justify merging vxlan ipv6 support in
+this merge window, none.
 
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+So the earliest you'll be able to resubmit this feature is about two
+weeks from now when I re-open net-next.  That gives you plenty of time
+to correct all of the bugs and semantic problems, rather than trying
+to "rush" it into my tree.  Rush is synonymous with buggy and not well
+cared for, two things I'd like to avoid.
