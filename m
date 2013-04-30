@@ -1,41 +1,53 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [Patch net-next v7 4/6] vxlan: add ipv6 support
-Date: Tue, 30 Apr 2013 11:17:43 +0200
-Message-ID: <87r4hscr7s.fsf@nemi.mork.no>
-References: <1367311395-15891-1-git-send-email-amwang@redhat.com>
-	<1367311395-15891-5-git-send-email-amwang@redhat.com>
+From: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+Subject: RE: [PATCH 04/18] netfilter: ipset: Unified bitmap type generation
+Date: Tue, 30 Apr 2013 11:19:31 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1304301058540.20765@blackhole.kfki.hu>
+References: <1367259744-8922-1-git-send-email-pablo@netfilter.org> <1367259744-8922-5-git-send-email-pablo@netfilter.org> <AE90C24D6B3A694183C094C60CF0A2F6026B720F@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:53521 "EHLO canardo.mork.no"
+Received: from smtp0.kfki.hu ([148.6.0.25]:36204 "EHLO smtp0.kfki.hu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759627Ab3D3JSH convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 05:18:07 -0400
-In-Reply-To: <1367311395-15891-5-git-send-email-amwang@redhat.com> (Cong
-	Wang's message of "Tue, 30 Apr 2013 16:43:13 +0800")
+	id S1759514Ab3D3JTe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 05:19:34 -0400
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B720F@saturn3.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cong Wang <amwang@redhat.com> writes:
+On Tue, 30 Apr 2013, David Laight wrote:
 
-> +/* Create UDP socket for encapsulation receive. AF_INET6 socket
-> + * could be used for both IPv4 and IPv6 communications.
-> + */
+> > +++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
+> > @@ -0,0 +1,265 @@
+> ...
+> > +#define CONCAT(a, b)		a##b
+> > +#define TOKEN(a,b)		CONCAT(a, b)
+> > +
+> > +#define mtype_do_test		TOKEN(MTYPE, _do_test)
+> > +#define mtype_gc_test		TOKEN(MTYPE, _gc_test)
+> ...
+> > +#define mtype			MTYPE
+> 
+> I'm not entirely sure what is being achieved by the above.
+> Either there ought to be a comment about what MTYPE might
+> be set to, or it is all pointless.
 
-This is not necessarily true as mentioned by David Stevens, and acked b=
-y
-you here: http://www.spinics.net/lists/netdev/msg234151.html
+mtype is defined in order to SHOUT less in the code later.
+ 
+> In any case names like CONCAT() and TOKEN() are likely
+> to be double definitions.
+>
+> A similar namespace issue arises with REVISION_MIN/MAX.
 
-Please take your time to clean up your todo-list and *test* the result
-with different runtime and buildtime settings. There is no need to rush
-this, and people may get tired of looking at the same shortcomings over
-and over again.
+I'll send a patch with more speficic names.
 
-
-
-Bj=C3=B8rn
+Best regards,
+Jozsef
+-
+E-mail  : kadlec@blackhole.kfki.hu, kadlecsik.jozsef@wigner.mta.hu
+PGP key : http://www.kfki.hu/~kadlec/pgp_public_key.txt
+Address : Wigner Research Centre for Physics, Hungarian Academy of Sciences
+          H-1525 Budapest 114, POB. 49, Hungary
