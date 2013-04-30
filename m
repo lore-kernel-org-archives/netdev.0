@@ -1,109 +1,76 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [IPROUTE PATCH v2] iproute2: act_ipt fix xtables breakage on
- older versions.
-Date: Tue, 30 Apr 2013 09:07:36 -0700
-Message-ID: <517FEC48.80700@intel.com>
-References: <20130429154644.52016.60284.stgit@ahduyck-cp1.jf.intel.com> <517FC04E.30705@mojatatu.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 1/2] net: More fine-grained support for
+ encapsulated GSO features
+Date: Tue, 30 Apr 2013 09:19:51 -0700
+Message-ID: <CAEP_g=-9abqxGyox7s4jjzTdPFTXmnLU6gkq+ihGwXJg-NAdaA@mail.gmail.com>
+References: <1366683556-4956-1-git-send-email-horms@verge.net.au>
+ <1366683556-4956-2-git-send-email-horms@verge.net.au> <alpine.LFD.2.02.1304231354440.5598@morpheus.jf.intel.com>
+ <20130425073644.GC7936@verge.net.au> <CAEP_g=_xZOjn6ByhM3sKw-f2Ui9kjnb1wUJ2EGBBg3GD5JnmLw@mail.gmail.com>
+ <20130430032121.GC26726@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, Hasan Chowdhury <shemonc@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:11168 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759879Ab3D3QHi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Apr 2013 12:07:38 -0400
-In-Reply-To: <517FC04E.30705@mojatatu.com>
+Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:37779 "HELO
+	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1760893Ab3D3QUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 12:20:12 -0400
+Received: by mail-oa0-f71.google.com with SMTP id o17so3910035oag.10
+        for <netdev@vger.kernel.org>; Tue, 30 Apr 2013 09:20:11 -0700 (PDT)
+In-Reply-To: <20130430032121.GC26726@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/30/2013 05:59 AM, Jamal Hadi Salim wrote:
->
-> Hi Alex,
-> Theres still some confusion on my part.
->
-> On 13-04-29 11:50 AM, Alexander Duyck wrote:
->
->> The first is that xtables_merge_options only has 3 parameters.  It
->> appears
->> this is how this code was originally.
->
-> what you are describing above is still not making sense:
->
->  As such for the case where the version
->> is less than 6 I am assuming it would be correct to maintain the
->> original
->> setup that only had 3 parameters being passed instead of 4.
+On Mon, Apr 29, 2013 at 8:21 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Fri, Apr 26, 2013 at 04:03:21PM -0700, Jesse Gross wrote:
+>> On Thu, Apr 25, 2013 at 12:36 AM, Simon Horman <horms@verge.net.au> wrote:
+>> > On Tue, Apr 23, 2013 at 02:00:19PM -0700, Joseph Gasparakis wrote:
+>> >> Any particular reason to introduce skb->encapsulation_features instead of
+>> >> using the existing skb->encapsulation? Also I don't see it used in your
+>> >> second patch either.
+>> >
+>> > My reasoning is that skb->encapsulation seems to alter the behaviour of
+>> > many different locations and I'm not sure that any of them, other than the
+>> > one in dev_hard_start_xmit() make sense for MPLS.
 >>
->
-> More below, lets just pick one of those:
->
->> @@ -335,8 +338,7 @@ print_ipt(struct action_util *au,FILE * f, struct
->> rtattr *arg)
->>                           m->x6_options,
->>                           &m->option_offset);
->>   #else
->> -        opts = xtables_merge_options(tcipt_globals.orig_opts,
->> -                         tcipt_globals.opts,
->> +        opts = xtables_merge_options(tcipt_globals.opts,
->>                            m->extra_opts,
->>                            &m->option_offset);
->>   #endif
+>> The problem is the meaning of skb->encapsulation isn't really defined
+>> clearly and I'm certain that the current implementation is not going
+>> to work in the future. Depending on your perspective, vlans, MPLS,
+>> tunnels, etc. can all be considered forms of encapsulation but clearly
+>> there are many NICs that have different capabilities across those. I
+>> believe the intention here was really to describe L3 tunnels as
+>> encapsulation, in which case MPLS really shouldn't be using this
+>> mechanism at all.
 >>
+>> Now there is some overlap, especially today since most currently
+>> shipping silicon wasn't designed to support tunnels and so is using
+>> some form of offset based offloads. In that case, all forms of
+>> encapsulation are pretty similar. However, in the future that won't be
+>> the case as support for specific protocols is implemented for higher
+>> performance and richer support. When that happens, not only will MPLS
+>> and tunnels have different capabilities but various forms tunnels
+>> might as well.
 >
->
-> Here's the original equivalent change that you are updating:
-> -------
-> -                       tcipt_globals.opts =
-> -                           xtables_merge_options(
->  #if (XTABLES_VERSION_CODE >= 6)
-> -                                                
-> tcipt_globals.orig_opts,
-> +               opts = xtables_options_xfrm(tcipt_globals.orig_opts,
-> +                                           tcipt_globals.opts,
-> +                                           m->x6_options,
-> +                                           &m->option_offset);
-> +#else
-> +               opts = xtables_merge_options(tcipt_globals.orig_opts,
-> +                                            tcipt_globals.opts,
-> +                                            m->extra_opts,
-> +                                            &m->option_offset);
->  #endif
-> -                                                 tcipt_globals.opts,
-> -                                                 m->extra_opts,
-> -                                                 &m->option_offset);
-> ------------------
->
-> I see, originally these parameters for xtables_merge_options():
-> tcipt_globals.orig_opts  <---- This is what you are trying to kill
-> tcipt_globals.opts
-> m->extra_opts
-> &m->option_offset
->
-> Which says there were 4 parameters to begin with....
-> Unless you are saying we had it wrong the first time. Pablo?
->
-> cheers,
-> jamal
+> Wouldn't be possible to describe those differences using,
+> dev->hw_enc_features? I assumed that was its purpose.
 
-Jamal,
+If there truly are differences between the offload capabilities of
+MPLS and L3 tunnels then no, it's not possible, because it's a single
+field. It's certainly not a valid assumption that a NIC that can do
+TSO over GRE can also do it over MPLS.
 
-It was 4 parameters for (XTABLES_VERSION_CODE >= 6), for versions prior
-to that it was only 3 parameters.  Notice the line that is removing
-tcipt_globals.orit_opts was wrapped inside the ifdef while the rest of
-the function was originally past the endif.  What the original patch did
-is make it so that on 1.4.10 and prior we cannot build.
-
-Just take a look at:
-https://git.netfilter.org/iptables/tree/include/xtables.h.in?id=v1.4.10#n222
-
-In the git tree it is obvious that xtables_merge_options only takes 3
-parameters.  It is not until v1.4.11 which is XTABLES_VERSION_CODE == 6
-that we see xtables_merge_options take 4 parameters.
-
-Thanks,
-
-Alex
+However, it's unlikely that there are truly significant differences
+between various encapsulation formats on a per-feature basis. I think
+what we need to do is separate out the ability to understand the
+headers from the capabilities so you have two fields: header (none,
+VLAN, QinQ, MPLS, VXLAN, GRE, etc.) and feature (checksum, SG, TSO,
+etc.) rather than the product of each. Otherwise, we end up with a ton
+of different combinations.
