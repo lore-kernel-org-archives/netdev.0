@@ -1,59 +1,109 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH] Add support for netconsole driver used on bridge device
- with VIF attached
-Date: Tue, 30 Apr 2013 15:24:02 +0100
-Message-ID: <1367331842.3142.546.camel@zakaz.uk.xensource.com>
-References: <5757e54b-902b-4338-8ac9-43857cd1906c@default>
-	 <50FD8243.6000501@oracle.com>
-	 <1358846612.3279.282.camel@zakaz.uk.xensource.com>
-	 <201301291054.46405.yuval.shaia@oracle.com>
-	 <1359455385.12252.85.camel@zakaz.uk.xensource.com>
-	 <1367232145.26060.1.camel@yuval-pc>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [ANNOUNCE] iproute2 3.9.0
+Date: Tue, 30 Apr 2013 07:56:45 -0700
+Message-ID: <20130430075645.1747b8ff@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"bridge@lists.linux-foundation.org"
-	<bridge@lists.linux-foundation.org>,
-	Stephen Hemminger <shemminger@vyatta.com>
-To: Yuval Shaia <yuval.shaia@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:52006 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760656Ab3D3OYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 10:24:05 -0400
-In-Reply-To: <1367232145.26060.1.camel@yuval-pc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-04-29 at 11:42 +0100, Yuval Shaia wrote:
-> Can you suggest how to continue from here? as i don't see any comment on
-> that issue up to now.
+This is update for iproute2 tools for 3.9 kernel.
+In addition the usual documentation fixes, this version includes the
+utilities to manage forwarding tables in bridge and vxlan.
 
-Please can you resend the patch with an extended changelog based on the
-discussions in this thread and CC the bridge folks as well.
+If you have been sitting on changes to iproute2 that are in
+net-next for 3.10 merge window, please submit them now.
 
-Ian.
+Iproute2 package is available at:
+  http://kernel.org/pub/linux/utils/net/iproute2/iproute2-3.9.0.tar.gz
 
-> Yuval
-> > 
-> > AFAICT the only reason to actually support netpoll in netback would be
-> > if you wanted host logs to go to a listener running in a domain on the
-> > same host, which sounds like a mad idea to me! If someone actually has a
-> > real need for that use case and can test that it works I'd be happy to
-> > reconsider this patch on that basis (assuming the necessary #ifdefs are
-> > added as mentioned before).
-> > 
-> > > > BTW looking at the patch as it is any use of this hook should be wrapped
-> > > > in CONFIG_NET_POLL_CONTROLLER.
-> > > > 
-> > > > Ian.
-> > > > 
-> > > 
-> > > 
-> > 
-> > 
-> 
-> 
-> 
+You can download the source from:
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/iproute2.git
+
+Alexander Duyck (1):
+      libnetlink: Use ifinfomsg instead of rtgenmsg in rtnl_wilddump_re=
+q_filter
+
+David Stevens (1):
+      generalize VXLAN forwarding tables
+
+David Ward (9):
+      ip/iptunnel: Fix incorrect syntax in man page
+      iplink_vlan: Add flag for Multiple VLAN Registration Protocol (MV=
+RP)
+      ip/xfrm: Extend SPI validity checking
+      ip/xfrm: Do not allow redundant algorithm combinations to be spec=
+ified
+      ip/xfrm: Improve transform protocol-specific parameter checking
+      ip/xfrm: Do not print a zero-length algorithm key
+      ip/xfrm: Command syntax should not expect a key for compression
+      ip/xfrm: Improve usage text and documentation
+      ip/xfrm: Improve error strings
+
+Eric W. Biederman (1):
+      iproute2: Document the -D and -I options
+
+Hannes Frederic Sowa (2):
+      ss: show send queue length on unix domain sockets
+      ss: show socket memory stats for unix sockets if requested
+
+Hubert Kario (1):
+      add short description of batch mode in tc man page
+
+James Chapman (2):
+      iproute2: add l2spec_type param to l2tp add session
+      iproute2: update ip-l2tp man page
+
+Nicolas Dichtel (1):
+      libnetlink: check flag NLM_F_DUMP_INTR during dumps
+
+Petr Sabata (1):
+      iproute2: Fix some manpage typos
+
+Petr =C5=A0abata (1):
+      iproute2: Mention the 'up' argument in documentation
+
+Stephen Hemminger (22):
+      ss: use rta_getattr_u32
+      ip: fix ipv6 ntable on ppc64
+      Update kernel headers to 3.9.0-rc1
+      fix dependency on sizeof(__u64) =3D=3D sizeof(unsigned long long)
+      ipntable: more fixes for ppc64
+      Revert "generalize VXLAN forwarding tables"
+      bridge: cleanup usage message
+      Fix build when shared libraries are disabled
+      ipmaddr: add whitespace around =3D
+      ipaddress: minor white space cleanup
+      bridge: add oneline option
+      tc-tbf: remove ancient references to Alpha
+      ll_map: remove unused address fields
+      ll_map: use net/if.h to get prototype
+      ll_map: add name and index hash
+      ip: remove unnecessary ll_init_map
+      Update kernel headers to 3.9-rc5
+      utils: fix range checking for get_u32/get_u64 et all
+      add linux/fs.h
+      Revert "add linux/fs.h"
+      ipnetns: fix build on older systems
+      v3.9.0
+
+Thomas Egerer (2):
+      ip xfrm state: Allow different selector family
+      ip xfrm state: Allow different selector family
+
+Vijay Subramanian (1):
+      Fix compilation error of m_ipt.c with -Werror enabled
+
+Vlad Yasevich (6):
+      bridge: Add vlan support to fdb entries
+      bridge: Add vlan configuration support
+      bridge: Update bridge man pages to include vlan command
+      bridge: Add support for setting bridge port attributes
+      bridge: Add support for printing bridge port attributes
+      man: Add documentation for the bridge link operation.
+
+roopa (1):
+      Fix -oneline output when alias present
