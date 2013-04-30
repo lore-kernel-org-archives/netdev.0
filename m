@@ -1,50 +1,41 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCHv4 net-next 0/2] Add two new flags to bridge.
-Date: Tue, 30 Apr 2013 15:17:58 -0400
-Message-ID: <518018E6.3080601@redhat.com>
-References: <1367345928-31135-1-git-send-email-vyasevic@redhat.com>
-	<20130430.151212.196427351152373468.davem@davemloft.net>
-Reply-To: vyasevic@redhat.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] 3c509.c: call SET_NETDEV_DEV for all device types
+ (ISA/ISAPnP/EISA)
+Date: Tue, 30 Apr 2013 15:33:44 -0400 (EDT)
+Message-ID: <20130430.153344.707704312490940935.davem@davemloft.net>
+References: <1367272013-2496-1-git-send-email-tedheadster@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, mst@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130430.151212.196427351152373468.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: tedheadster@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52506 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932661Ab3D3Tdp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 15:33:45 -0400
+In-Reply-To: <1367272013-2496-1-git-send-email-tedheadster@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/30/2013 03:12 PM, David Miller wrote:
-> From: Vlad Yasevich <vyasevic@redhat.com>
-> Date: Tue, 30 Apr 2013 14:18:45 -0400
->
->> The following series adds 2 new flags to bridge.  One flag allows
->> the user to control whether mac learning is performed on the interface
->> or not.  By default mac learning is on.
->> The other flag allows the user to control whether unicast traffic
->> is flooded (send without an fdb) to a given unicast port.  Default is
->> on.
->
-> As per:
->
-> 	http://marc.info/?l=linux-netdev&m=136730964130303&w=2
->
-> It is absolutely, positively, not appropriate to submit new features
-> at this time.
->
-> If I can make my announcements more intelligable to you, please let me
-> know how.
->
+From: Matthew Whitehead <tedheadster@gmail.com>
+Date: Mon, 29 Apr 2013 17:46:53 -0400
 
-Sorry, missed it this morning...
+> The venerable 3c509 driver only sets its device parent in one case, the ISAPnP one.
+> It does this with the SET_NETDEV_DEV function. It should register with the device
+> hierarchy in two additional cases: standard (non-PnP) ISA and EISA.
+> 
+> - Currently they appear here:
+> /sys/devices/virtual/net/eth0 (standard ISA)
+> /sys/devices/virtual/net/eth1 (EISA)
+> 
+> - Rather, they should instead be here:
+> /sys/devices/isa/3c509.0/net/eth0 (standard ISA)
+> /sys/devices/pci0000:00/0000:00:07.0/00:04/net/eth1 (EISA)
+> 
+> Tested on ISA and EISA boards.
+> 
+> Signed-off-by: Matthew Whitehead <tedheadster@gmail.com>
 
--vlad
+Applied and queued up for -stable, thanks for being so persistent
+about this fix :-)
