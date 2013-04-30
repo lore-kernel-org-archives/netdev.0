@@ -1,47 +1,31 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Tue, 30 Apr 2013 10:52:38 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
-References: <1367290378-29224-1-git-send-email-horms@verge.net.au> <1367290378-29224-2-git-send-email-horms@verge.net.au> <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg> <20130430072944.GA13959@verge.net.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 30 Apr 2013 04:02:51 -0400 (EDT)
+Message-ID: <20130430.040251.1648116137288414643.davem@davemloft.net>
+References: <20130426132447.c7b06622240088ccad366b03@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130430072944.GA13959@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ariele@broadcom.com,
+	yuvalmin@broadcom.com, eilong@broadcom.com
+To: sfr@canb.auug.org.au
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130426132447.c7b06622240088ccad366b03@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Date: Fri, 26 Apr 2013 13:24:47 +1000
 
-	Hello,
-
-On Tue, 30 Apr 2013, Simon Horman wrote:
-
-> > > +static void inline cond_resched_rcu_lock(void)
-> > > +{
-> > > +	if (need_resched()) {
-> > 
-> > 	Ops, it should be without above need_resched.
+> Today's linux-next merge of the net-next tree got a conflict in
+> drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c between commit
+> ecf01c22be03 ("bnx2x: Prevent NULL pointer dereference in kdump") from
+> the net tree and commit 5b0752c863d7 ("bnx2x: Fix VF statistics") from
+> the net-next tree.
 > 
-> Thanks, to clarify, just this:
-> 
-> static void inline cond_resched_rcu_lock(void)
-> {
-> 	rcu_read_unlock();
-> #ifndef CONFIG_PREEMPT_RCU
-> 	cond_resched();
-> #endif
-> 	rcu_read_lock();
-> }
+> I am not sure about this, but I just used the net tree version but I
+> assume something more may be needed and can carry the fix as necessary (no
+> action is required).
 
-	Yes, thanks!
-
---
-Julian Anastasov <ja@ssi.bg>
+I've just resolved this when I merged net into net-next.
