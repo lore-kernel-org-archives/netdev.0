@@ -1,111 +1,74 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch 1/1] ipvs: change type of netns_ipvs->sysctl_sync_qlen_max
-Date: Tue, 30 Apr 2013 11:24:17 +0900
-Message-ID: <20130430022417.GA24214@verge.net.au>
-References: <20130429185510.DFBB031C266@corp2gmr1-1.hot.corp.google.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Tue, 30 Apr 2013 12:24:23 +1000
+Message-ID: <20130430122423.ab57c82604f13f6773ef4aeb@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	zhangyanfei@cn.fujitsu.com, ja@ssi.bg
-To: akpm@linux-foundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:57960 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753940Ab3D3CYV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 29 Apr 2013 22:24:21 -0400
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__30_Apr_2013_12_24_23_+1000_XyLL3_xSVTg2TfTS"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Chen Gang <gang.chen@asianux.com>, Alan Ott <alan@signal11.us>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Tue__30_Apr_2013_12_24_23_+1000_XyLL3_xSVTg2TfTS
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <20130429185510.DFBB031C266@corp2gmr1-1.hot.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, Apr 29, 2013 at 11:55:10AM -0700, akpm@linux-foundation.org wrote:
-> From: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-> Subject: ipvs: change type of netns_ipvs->sysctl_sync_qlen_max
-> 
-> This member of struct netns_ipvs is calculated from nr_free_buffer_pages
-> so change its type to unsigned long in case of overflow.  Also, type of
-> its related proc var sync_qlen_max and the return type of function
-> sysctl_sync_qlen_max() should be changed to unsigned long, too.
-> 
-> Besides, the type of ipvs_master_sync_state->sync_queue_len should be
-> changed to unsigned long accordingly.
-> 
-> Signed-off-by: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-> Cc: Simon Horman <horms@verge.net.au>
-> Cc: Julian Anastasov <ja@ssi.bg>
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+Hi all,
 
-Andrew, David,
+Today's linux-next merge of the net-next tree got a conflict in
+net/mac802154/mac802154.h between commit 2c1bbbffa0b6 ("net: mac802154:
+comparision issue of type cast, finding by EXTRA_CFLAGS=3D-W") from the net
+tree and commit 7dd43d356e73 ("mac802154: Do not try to resend failed
+packets") from the net-next tree.
 
-It seems most appropriate for me to
-queue this up for v3.11 in the ipvs-next tree.
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-Is that fine?
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-> ---
-> 
->  include/net/ip_vs.h            |    8 ++++----
->  net/netfilter/ipvs/ip_vs_ctl.c |    4 ++--
->  2 files changed, 6 insertions(+), 6 deletions(-)
-> 
-> diff -puN include/net/ip_vs.h~ipvs-change-type-of-netns_ipvs-sysctl_sync_qlen_max include/net/ip_vs.h
-> --- a/include/net/ip_vs.h~ipvs-change-type-of-netns_ipvs-sysctl_sync_qlen_max
-> +++ a/include/net/ip_vs.h
-> @@ -905,7 +905,7 @@ struct ip_vs_app {
->  struct ipvs_master_sync_state {
->  	struct list_head	sync_queue;
->  	struct ip_vs_sync_buff	*sync_buff;
-> -	int			sync_queue_len;
-> +	unsigned long		sync_queue_len;
->  	unsigned int		sync_queue_delay;
->  	struct task_struct	*master_thread;
->  	struct delayed_work	master_wakeup_work;
-> @@ -998,7 +998,7 @@ struct netns_ipvs {
->  	int			sysctl_snat_reroute;
->  	int			sysctl_sync_ver;
->  	int			sysctl_sync_ports;
-> -	int			sysctl_sync_qlen_max;
-> +	unsigned long		sysctl_sync_qlen_max;
->  	int			sysctl_sync_sock_size;
->  	int			sysctl_cache_bypass;
->  	int			sysctl_expire_nodest_conn;
-> @@ -1085,7 +1085,7 @@ static inline int sysctl_sync_ports(stru
->  	return ACCESS_ONCE(ipvs->sysctl_sync_ports);
->  }
->  
-> -static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
-> +static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
->  {
->  	return ipvs->sysctl_sync_qlen_max;
->  }
-> @@ -1138,7 +1138,7 @@ static inline int sysctl_sync_ports(stru
->  	return 1;
->  }
->  
-> -static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
-> +static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
->  {
->  	return IPVS_SYNC_QLEN_MAX;
->  }
-> diff -puN net/netfilter/ipvs/ip_vs_ctl.c~ipvs-change-type-of-netns_ipvs-sysctl_sync_qlen_max net/netfilter/ipvs/ip_vs_ctl.c
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c~ipvs-change-type-of-netns_ipvs-sysctl_sync_qlen_max
-> +++ a/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -1705,9 +1705,9 @@ static struct ctl_table vs_vars[] = {
->  	},
->  	{
->  		.procname	= "sync_qlen_max",
-> -		.maxlen		= sizeof(int),
-> +		.maxlen		= sizeof(unsigned long),
->  		.mode		= 0644,
-> -		.proc_handler	= proc_dointvec,
-> +		.proc_handler	= proc_doulongvec_minmax,
->  	},
->  	{
->  		.procname	= "sync_sock_size",
-> _
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --cc net/mac802154/mac802154.h
+index 703c121,5c9e021..0000000
+--- a/net/mac802154/mac802154.h
++++ b/net/mac802154/mac802154.h
+@@@ -88,9 -88,7 +88,7 @@@ struct mac802154_sub_if_data=20
+ =20
+  #define mac802154_to_priv(_hw)	container_of(_hw, struct mac802154_priv, h=
+w)
+ =20
+- #define MAC802154_MAX_XMIT_ATTEMPTS	3
+-=20
+ -#define MAC802154_CHAN_NONE		(~(u8)0) /* No channel is assigned */
+ +#define MAC802154_CHAN_NONE		0xff /* No channel is assigned */
+ =20
+  extern struct ieee802154_reduced_mlme_ops mac802154_mlme_reduced;
+  extern struct ieee802154_mlme_ops mac802154_mlme_wpan;
+
+--Signature=_Tue__30_Apr_2013_12_24_23_+1000_XyLL3_xSVTg2TfTS
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRfytXAAoJEECxmPOUX5FE5+cP/2Tm5OeSWmVJju9Ji18oAZhm
+zQVI0s9OkBPZRrCoeU39ADxOrvLh3p8eWEk4NZxJvU8SvpDFhJ80Rh7vBPh7cqQM
+TFU5chWD38TLbby/hTjeuv4fKRMjrwmkizgzmRBdt7Vc0fsG1sxj8lqwyLB3JSiw
+SYn+PcREo2OJoPs3liBkOq+rBors+duUq3lZBJ5q2g5tTjuGaj2nYImRCApM366d
+ROTi1ZDbwN5wKsWTqAWTYtNXmTlLlYYW0d9022ByySaP/nL2MpaTBSKKfVHxxyHh
++hAyb4SS/dJcGNKeTFVvFOSv64LlDRFj9CgK9nqMePLYvqA9t005xqbVmOwKWjJH
+hf2BdLVzB22qALI5sgFlaRRx1Oy1RWceKH3/QczRxaSggzzj3Mp8qMOeX6oJC+Bf
+f3GuL/+Pm3aVtjsHVR/9lLnxLZ6FXABNdQ+9KJ8aDYgsCva/e6yI6bYx3/3HZ5KC
+XcVxzquSpwF0oP3ZxBaxEMkdEwOHf5zCixy1To64SwOZw/4/ZrjWkqhWRDAGwGXd
+xS9ZoM4ybjAuRuHYXNW1iBm+bDuMIGEl0zPdFo6Ta8BbVyQL41LoU7LhCYtNYdp2
+9kUdt8Xt5MoDEcpxChtTTpm50ju3kLIke0fgsEyq36HuNHZx6nhJhXuAwEEGDcoy
+CHhukkUEEFQcGqTwzHbn
+=AHSv
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__30_Apr_2013_12_24_23_+1000_XyLL3_xSVTg2TfTS--
