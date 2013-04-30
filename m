@@ -1,7 +1,7 @@
 From: Gerlando Falauto <gerlando.falauto@keymile.com>
-Subject: [PATCH v3 2/3] tipc: tipc_bcbearer_send(): simplify bearer selection
-Date: Tue, 30 Apr 2013 09:33:18 +0200
-Message-ID: <1367307199-10577-2-git-send-email-gerlando.falauto@keymile.com>
+Subject: [PATCH v3 3/3] tipc: pskb_copy() buffers when sending on more than one bearer
+Date: Tue, 30 Apr 2013 09:33:19 +0200
+Message-ID: <1367307199-10577-3-git-send-email-gerlando.falauto@keymile.com>
 References: <1367244820-29881-1-git-send-email-gerlando.falauto@keymile.com>
  <1367307199-10577-1-git-send-email-gerlando.falauto@keymile.com>
 Cc: jon.maloy@ericsson.com, erik.hugne@ericsson.com,
@@ -9,56 +9,70 @@ Cc: jon.maloy@ericsson.com, erik.hugne@ericsson.com,
 	Gerlando Falauto <gerlando.falauto@keymile.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:56047 "EHLO
+Received: from mail-de.keymile.com ([195.8.104.250]:56175 "EHLO
 	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753162Ab3D3HjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 03:39:01 -0400
+	with ESMTP id S1753162Ab3D3HjD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 03:39:03 -0400
 In-Reply-To: <1367307199-10577-1-git-send-email-gerlando.falauto@keymile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+When sending packets, TIPC bearers use skb_clone() before writing their
+hardware header. This will however NOT copy the data buffer.
+So when the same packet is sent over multiple bearers (to reach multiple
+nodes), the same socket buffer data will be treated by multiple
+tipc_media drivers which will write their own hardware header through
+dev_hard_header().
+Most of the time this is not a problem, because by the time the
+packet is processed by the second media, it has already been sent over
+the first one. However, when the first transmission is delayed (e.g.
+because of insufficient bandwidth or through a shaper), the next bearer
+will overwrite the hardware header, resulting in the packet being sent:
+a) with the wrong source address, when bearers of the same type,
+e.g. ethernet, are involved
+b) with a completely corrupt header, or even dropped, when bearers of
+different types are involved.
+
+So when the same socket buffer is to be sent multiple times, send a
+pskb_copy() instead (from the second instance on), and release it
+afterwards (the bearer will skb_clone() it anyway).
+
 Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
 ---
 Changes from v2:
-* Fixed non-bisectability; was tipc_bearer_send(b, buf, &s->media...)
+* Rebased
 
- net/tipc/bcast.c |   18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ net/tipc/bcast.c |   13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
 diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 8438e01..c8f572f 100644
+index c8f572f..a8e574d 100644
 --- a/net/tipc/bcast.c
 +++ b/net/tipc/bcast.c
-@@ -610,23 +610,23 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
- 	for (bp_index = 0; bp_index < MAX_BEARERS; bp_index++) {
+@@ -611,6 +611,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
  		struct tipc_bearer *p = bcbearer->bpairs[bp_index].primary;
  		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
-+		struct tipc_bearer *b = p;
+ 		struct tipc_bearer *b = p;
++		struct sk_buff *tbuf;
  
  		if (!p)
  			break; /* No more bearers to try */
- 
--		tipc_nmap_diff(&bcbearer->remains, &p->nodes,
-+		if (tipc_bearer_blocked(p)) {
-+			if (!s || tipc_bearer_blocked(s))
-+				continue; /* Can't use either bearer */
-+			b = s;
-+		}
-+
-+		tipc_nmap_diff(&bcbearer->remains, &b->nodes,
- 			       &bcbearer->remains_new);
+@@ -626,7 +627,17 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
  		if (bcbearer->remains_new.count == bcbearer->remains.count)
  			continue; /* Nothing added by bearer pair */
  
--		if (!tipc_bearer_blocked(p))
--			tipc_bearer_send(p, buf, &p->media->bcast_addr);
--		else if (s && !tipc_bearer_blocked(s))
--			/* unable to send on primary bearer */
--			tipc_bearer_send(s, buf, &s->media->bcast_addr);
--		else
--			/* unable to send on either bearer */
--			continue;
-+		tipc_bearer_send(b, buf, &b->media->bcast_addr);
+-		tipc_bearer_send(b, buf, &b->media->bcast_addr);
++		if (bp_index == 0) {
++			/* Use original buffer for first bearer */
++			tipc_bearer_send(b, buf, &b->media->bcast_addr);
++		} else {
++			/* Avoid concurrent buffer access */
++			tbuf = pskb_copy(buf, GFP_ATOMIC);
++			if (!tbuf)
++				break;
++			tipc_bearer_send(b, tbuf, &b->media->bcast_addr);
++			kfree_skb(tbuf); /* Bearer keeps a clone */
++		}
  
  		/* Swap bearers for next packet */
  		if (s) {
