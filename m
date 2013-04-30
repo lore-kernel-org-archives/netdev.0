@@ -1,70 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] mlx4_en: fix a build error on 32bit arches
-Date: Tue, 30 Apr 2013 13:53:51 -0700
-Message-ID: <1367355231.11020.10.camel@edumazet-glaptop>
-References: <20130430165730.7779d7e5d8fdca911213cce7@canb.auug.org.au>
-	  <51801449.7080600@infradead.org>
-	 <1367350578.11020.4.camel@edumazet-glaptop>
-	 <51802BE9.7020805@infradead.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH net-next v2] ipv6: add support of peer address
+Date: Tue, 30 Apr 2013 23:58:41 +0200
+Message-ID: <51803E91.3000800@6wind.com>
+References: <1367268252-4810-1-git-send-email-nicolas.dichtel@6wind.com> <1367313464-4338-1-git-send-email-nicolas.dichtel@6wind.com> <20130430.150412.2134432492065774507.davem@davemloft.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>
-To: Randy Dunlap <rdunlap@infradead.org>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f173.google.com ([209.85.210.173]:41150 "EHLO
-	mail-ia0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933255Ab3D3Uxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 16:53:54 -0400
-In-Reply-To: <51802BE9.7020805@infradead.org>
+Received: from mail-we0-f179.google.com ([74.125.82.179]:55745 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751341Ab3D3V6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 17:58:44 -0400
+Received: by mail-we0-f179.google.com with SMTP id u7so850109wey.10
+        for <netdev@vger.kernel.org>; Tue, 30 Apr 2013 14:58:43 -0700 (PDT)
+In-Reply-To: <20130430.150412.2134432492065774507.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-commit b6c39bfcf1d7d63 ("net/mlx4_en: Add a service task")
-added a build error on 32bit arches.
-
-ERROR: "__udivdi3" [drivers/net/ethernet/mellanox/mlx4/mlx4_en.ko]
-undefined!
-
-Fix this problem by using do_div()
-
-Reported-by: Randy Dunlap <rdunlap@infradead.org>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: Randy Dunlap <rdunlap@infradead.org>
-Cc: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_clock.c |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_clock.c b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-index 2f18121..fd64410 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_clock.c
-@@ -114,6 +114,7 @@ void mlx4_en_fill_hwtstamps(struct mlx4_en_dev *mdev,
- void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
- {
- 	struct mlx4_dev *dev = mdev->dev;
-+	u64 ns;
- 
- 	memset(&mdev->cycles, 0, sizeof(mdev->cycles));
- 	mdev->cycles.read = mlx4_en_read_clock;
-@@ -133,10 +134,9 @@ void mlx4_en_init_timestamp(struct mlx4_en_dev *mdev)
- 	/* Calculate period in seconds to call the overflow watchdog - to make
- 	 * sure counter is checked at least once every wrap around.
- 	 */
--	mdev->overflow_period =
--		(cyclecounter_cyc2ns(&mdev->cycles,
--				    mdev->cycles.mask) / NSEC_PER_SEC / 2)
--		* HZ;
-+	ns = cyclecounter_cyc2ns(&mdev->cycles, mdev->cycles.mask);
-+	do_div(ns, NSEC_PER_SEC / 2 / HZ);
-+	mdev->overflow_period = ns;
- }
- 
- void mlx4_en_ptp_overflow_check(struct mlx4_en_dev *mdev)
+Le 30/04/2013 21:04, David Miller a =E9crit :
+>
+> It is not appropriate to submit patches for near features at this
+> time.
+>
+> Let me know what part of:
+>
+> 	http://marc.info/?l=3Dlinux-netdev&m=3D136730964130303&w=3D2
+>
+> you find hard to understand, and I'll adjust my future announcements
+> to make them easier for you to understand.
+>
+Sorry, I will be more careful next time.
+In fact, it was one hour before I send it .. and  I did not check my ma=
+il during=20
+this hour.
