@@ -1,37 +1,29 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: linux-next: Tree for Apr 30 (netdev: mellanox/mlx4)
-Date: Tue, 30 Apr 2013 11:58:17 -0700
-Message-ID: <51801449.7080600@infradead.org>
-References: <20130430165730.7779d7e5d8fdca911213cce7@canb.auug.org.au>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next v7 0/6] vxlan: add ipv6 support
+Date: Tue, 30 Apr 2013 15:00:22 -0400 (EDT)
+Message-ID: <20130430.150022.1680526803243841189.davem@davemloft.net>
+References: <1367311395-15891-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Amir Vadai <amirv@mellanox.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
+Cc: netdev@vger.kernel.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:39834 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933317Ab3D3S6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 14:58:47 -0400
-In-Reply-To: <20130430165730.7779d7e5d8fdca911213cce7@canb.auug.org.au>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52066 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933303Ab3D3TAX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 15:00:23 -0400
+In-Reply-To: <1367311395-15891-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/29/13 23:57, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Please do not add any v3.11 destined work to your linux-next included
-> branches until after v3.10-rc1 is released.
-> 
-> Changes since 20130429:
-> 
 
-on i386:
+Please read:
 
-ERROR: "__udivdi3" [drivers/net/ethernet/mellanox/mlx4/mlx4_en.ko] undefined!
+	http://marc.info/?l=linux-netdev&m=136730964130303&w=2
 
+It is a very bad idea to ignore my announcements about what is, and
+what is not, appropriate to submit at a given time.
 
--- 
-~Randy
+Your changes weren't ready in time for the merge window, please do
+not try and force the matter, you'll only make me angry.
