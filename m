@@ -1,152 +1,261 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCHv4 net-next 1/2] bridge: Add flag to control mac learning.
-Date: Tue, 30 Apr 2013 14:18:46 -0400
-Message-ID: <1367345928-31135-2-git-send-email-vyasevic@redhat.com>
+Subject: [PATCHv4 net-next 2/2] bridge: Add a flag to control unicast packet flood.
+Date: Tue, 30 Apr 2013 14:18:47 -0400
+Message-ID: <1367345928-31135-3-git-send-email-vyasevic@redhat.com>
 References: <1367345928-31135-1-git-send-email-vyasevic@redhat.com>
 Cc: bridge@lists.linux-foundation.org, mst@redhat.com,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>
+	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31169 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:19716 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760751Ab3D3SSx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1761071Ab3D3SSx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Tue, 30 Apr 2013 14:18:53 -0400
 In-Reply-To: <1367345928-31135-1-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow user to control whether mac learning is enabled on the port.
-By default, mac learning is enabled.  Disabling mac learning will
-cause new dynamic FDB entries to not be created for a particular port.
+Add a flag to control flood of unicast traffic.  By default, flood is
+on and the bridge will flood unicast traffic if it doesn't know
+the destination.  When the flag is turned off, unicast traffic
+without an FDB will not be forwarded to the specified port.
 
 Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
 ---
  include/uapi/linux/if_link.h |    1 +
+ net/bridge/br_device.c       |    8 ++++----
+ net/bridge/br_forward.c      |   14 +++++++++-----
  net/bridge/br_if.c           |    2 +-
- net/bridge/br_input.c        |    6 ++++--
+ net/bridge/br_input.c        |    9 ++++++---
  net/bridge/br_netlink.c      |    6 +++++-
- net/bridge/br_private.h      |    1 +
+ net/bridge/br_private.h      |    6 ++++--
  net/bridge/br_sysfs_if.c     |    2 ++
- 6 files changed, 14 insertions(+), 4 deletions(-)
+ 8 files changed, 32 insertions(+), 16 deletions(-)
 
 diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index b05823c..8643809 100644
+index 8643809..4a6faa1 100644
 --- a/include/uapi/linux/if_link.h
 +++ b/include/uapi/linux/if_link.h
-@@ -221,6 +221,7 @@ enum {
- 	IFLA_BRPORT_GUARD,	/* bpdu guard              */
+@@ -222,6 +222,7 @@ enum {
  	IFLA_BRPORT_PROTECT,	/* root port protection    */
  	IFLA_BRPORT_FAST_LEAVE,	/* multicast fast leave    */
-+	IFLA_BRPORT_LEARNING,	/* mac learning */
+ 	IFLA_BRPORT_LEARNING,	/* mac learning */
++	IFLA_BRPORT_UNICAST_FLOOD,	/* control flood of unicast traffic */
  	__IFLA_BRPORT_MAX
  };
  #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 9673128..014d690 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -55,10 +55,10 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	skb_pull(skb, ETH_HLEN);
+ 
+ 	if (is_broadcast_ether_addr(dest))
+-		br_flood_deliver(br, skb);
++		br_flood_deliver(br, skb, false);
+ 	else if (is_multicast_ether_addr(dest)) {
+ 		if (unlikely(netpoll_tx_running(dev))) {
+-			br_flood_deliver(br, skb);
++			br_flood_deliver(br, skb, false);
+ 			goto out;
+ 		}
+ 		if (br_multicast_rcv(br, NULL, skb)) {
+@@ -70,11 +70,11 @@ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb))
+ 			br_multicast_deliver(mdst, skb);
+ 		else
+-			br_flood_deliver(br, skb);
++			br_flood_deliver(br, skb, false);
+ 	} else if ((dst = __br_fdb_get(br, dest, vid)) != NULL)
+ 		br_deliver(dst->dst, skb);
+ 	else
+-		br_flood_deliver(br, skb);
++		br_flood_deliver(br, skb, true);
+ 
+ out:
+ 	rcu_read_unlock();
+diff --git a/net/bridge/br_forward.c b/net/bridge/br_forward.c
+index 092b20e..4b81b14 100644
+--- a/net/bridge/br_forward.c
++++ b/net/bridge/br_forward.c
+@@ -174,7 +174,8 @@ out:
+ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 		     struct sk_buff *skb0,
+ 		     void (*__packet_hook)(const struct net_bridge_port *p,
+-					   struct sk_buff *skb))
++					   struct sk_buff *skb),
++		     bool unicast)
+ {
+ 	struct net_bridge_port *p;
+ 	struct net_bridge_port *prev;
+@@ -182,6 +183,9 @@ static void br_flood(struct net_bridge *br, struct sk_buff *skb,
+ 	prev = NULL;
+ 
+ 	list_for_each_entry_rcu(p, &br->port_list, list) {
++		/* Do not flood unicast traffic to ports that turn it off */
++		if (unicast && !(p->flags & BR_FLOOD))
++			continue;
+ 		prev = maybe_deliver(prev, p, skb, __packet_hook);
+ 		if (IS_ERR(prev))
+ 			goto out;
+@@ -203,16 +207,16 @@ out:
+ 
+ 
+ /* called with rcu_read_lock */
+-void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb)
++void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb, bool unicast)
+ {
+-	br_flood(br, skb, NULL, __br_deliver);
++	br_flood(br, skb, NULL, __br_deliver, unicast);
+ }
+ 
+ /* called under bridge lock */
+ void br_flood_forward(struct net_bridge *br, struct sk_buff *skb,
+-		      struct sk_buff *skb2)
++		      struct sk_buff *skb2, bool unicast)
+ {
+-	br_flood(br, skb, skb2, __br_forward);
++	br_flood(br, skb, skb2, __br_forward, unicast);
+ }
+ 
+ #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
 diff --git a/net/bridge/br_if.c b/net/bridge/br_if.c
-index 4cdba60..2c08911 100644
+index 2c08911..5623be6 100644
 --- a/net/bridge/br_if.c
 +++ b/net/bridge/br_if.c
 @@ -221,7 +221,7 @@ static struct net_bridge_port *new_nbp(struct net_bridge *br,
  	p->path_cost = port_cost(dev);
  	p->priority = 0x8000 >> BR_PORT_BITS;
  	p->port_no = index;
--	p->flags = 0;
-+	p->flags = BR_LEARNING;
+-	p->flags = BR_LEARNING;
++	p->flags = BR_LEARNING | BR_FLOOD;
  	br_init_port(p);
  	p->state = BR_STATE_DISABLED;
  	br_stp_port_timer_init(p);
 diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 828e2bc..7e99366 100644
+index 7e99366..1b8b8b8 100644
 --- a/net/bridge/br_input.c
 +++ b/net/bridge/br_input.c
-@@ -75,7 +75,8 @@ int br_handle_frame_finish(struct sk_buff *skb)
- 
- 	/* insert into forwarding database after filtering to avoid spoofing */
- 	br = p->br;
--	br_fdb_update(br, p, eth_hdr(skb)->h_source, vid);
-+	if (p->flags & BR_LEARNING)
-+		br_fdb_update(br, p, eth_hdr(skb)->h_source, vid);
- 
- 	if (!is_broadcast_ether_addr(dest) && is_multicast_ether_addr(dest) &&
- 	    br_multicast_rcv(br, p, skb))
-@@ -142,7 +143,8 @@ static int br_handle_local_finish(struct sk_buff *skb)
+@@ -65,6 +65,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	struct net_bridge_fdb_entry *dst;
+ 	struct net_bridge_mdb_entry *mdst;
+ 	struct sk_buff *skb2;
++	bool unicast = true;
  	u16 vid = 0;
  
- 	br_vlan_get_tag(skb, &vid);
--	br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid);
-+	if (p->flags & BR_LEARNING)
-+		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid);
- 	return 0;	 /* process further */
- }
+ 	if (!p || p->state == BR_STATE_DISABLED)
+@@ -95,9 +96,10 @@ int br_handle_frame_finish(struct sk_buff *skb)
  
+ 	dst = NULL;
+ 
+-	if (is_broadcast_ether_addr(dest))
++	if (is_broadcast_ether_addr(dest)) {
+ 		skb2 = skb;
+-	else if (is_multicast_ether_addr(dest)) {
++		unicast = false;
++	} else if (is_multicast_ether_addr(dest)) {
+ 		mdst = br_mdb_get(br, skb, vid);
+ 		if (mdst || BR_INPUT_SKB_CB_MROUTERS_ONLY(skb)) {
+ 			if ((mdst && mdst->mglist) ||
+@@ -110,6 +112,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 		} else
+ 			skb2 = skb;
+ 
++		unicast = false;
+ 		br->dev->stats.multicast++;
+ 	} else if ((dst = __br_fdb_get(br, dest, vid)) &&
+ 			dst->is_local) {
+@@ -123,7 +126,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 			dst->used = jiffies;
+ 			br_forward(dst->dst, skb, skb2);
+ 		} else
+-			br_flood_forward(br, skb, skb2);
++			br_flood_forward(br, skb, skb2, unicast);
+ 	}
+ 
+ 	if (skb2)
 diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
-index 8e3abf5..ce902bf 100644
+index ce902bf..1fc30ab 100644
 --- a/net/bridge/br_netlink.c
 +++ b/net/bridge/br_netlink.c
-@@ -30,6 +30,7 @@ static inline size_t br_port_info_size(void)
- 		+ nla_total_size(1)	/* IFLA_BRPORT_GUARD */
+@@ -31,6 +31,7 @@ static inline size_t br_port_info_size(void)
  		+ nla_total_size(1)	/* IFLA_BRPORT_PROTECT */
  		+ nla_total_size(1)	/* IFLA_BRPORT_FAST_LEAVE */
-+		+ nla_total_size(1)	/* IFLA_BRPORT_LEARNING */
+ 		+ nla_total_size(1)	/* IFLA_BRPORT_LEARNING */
++		+ nla_total_size(1)	/* IFLA_BRPORT_UNICAST_FLOOD */
  		+ 0;
  }
  
-@@ -56,7 +57,8 @@ static int br_port_fill_attrs(struct sk_buff *skb,
- 	    nla_put_u8(skb, IFLA_BRPORT_MODE, mode) ||
+@@ -58,7 +59,8 @@ static int br_port_fill_attrs(struct sk_buff *skb,
  	    nla_put_u8(skb, IFLA_BRPORT_GUARD, !!(p->flags & BR_BPDU_GUARD)) ||
  	    nla_put_u8(skb, IFLA_BRPORT_PROTECT, !!(p->flags & BR_ROOT_BLOCK)) ||
--	    nla_put_u8(skb, IFLA_BRPORT_FAST_LEAVE, !!(p->flags & BR_MULTICAST_FAST_LEAVE)))
-+	    nla_put_u8(skb, IFLA_BRPORT_FAST_LEAVE, !!(p->flags & BR_MULTICAST_FAST_LEAVE)) ||
-+	    nla_put_u8(skb, IFLA_BRPORT_LEARNING, !!(p->flags & BR_LEARNING)))
+ 	    nla_put_u8(skb, IFLA_BRPORT_FAST_LEAVE, !!(p->flags & BR_MULTICAST_FAST_LEAVE)) ||
+-	    nla_put_u8(skb, IFLA_BRPORT_LEARNING, !!(p->flags & BR_LEARNING)))
++	    nla_put_u8(skb, IFLA_BRPORT_LEARNING, !!(p->flags & BR_LEARNING)) ||
++	    nla_put_u8(skb, IFLA_BRPORT_UNICAST_FLOOD, !!(p->flags & BR_FLOOD)))
  		return -EMSGSIZE;
  
  	return 0;
-@@ -281,6 +283,7 @@ static const struct nla_policy ifla_brport_policy[IFLA_BRPORT_MAX + 1] = {
- 	[IFLA_BRPORT_MODE]	= { .type = NLA_U8 },
+@@ -284,6 +286,7 @@ static const struct nla_policy ifla_brport_policy[IFLA_BRPORT_MAX + 1] = {
  	[IFLA_BRPORT_GUARD]	= { .type = NLA_U8 },
  	[IFLA_BRPORT_PROTECT]	= { .type = NLA_U8 },
-+	[IFLA_BRPORT_LEARNING]	= { .type = NLA_U8 },
+ 	[IFLA_BRPORT_LEARNING]	= { .type = NLA_U8 },
++	[IFLA_BRPORT_UNICAST_FLOOD] = { .type = NLA_U8 },
  };
  
  /* Change the state of the port and notify spanning tree */
-@@ -328,6 +331,7 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
- 	br_set_port_flag(p, tb, IFLA_BRPORT_GUARD, BR_BPDU_GUARD);
+@@ -332,6 +335,7 @@ static int br_setport(struct net_bridge_port *p, struct nlattr *tb[])
  	br_set_port_flag(p, tb, IFLA_BRPORT_FAST_LEAVE, BR_MULTICAST_FAST_LEAVE);
  	br_set_port_flag(p, tb, IFLA_BRPORT_PROTECT, BR_ROOT_BLOCK);
-+	br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
+ 	br_set_port_flag(p, tb, IFLA_BRPORT_LEARNING, BR_LEARNING);
++	br_set_port_flag(p, tb, IFLA_BRPORT_UNICAST_FLOOD, BR_FLOOD);
  
  	if (tb[IFLA_BRPORT_COST]) {
  		err = br_stp_set_path_cost(p, nla_get_u32(tb[IFLA_BRPORT_COST]));
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index d2c043a..e9833d4 100644
+index e9833d4..017b489 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -157,6 +157,7 @@ struct net_bridge_port
- #define BR_ROOT_BLOCK		0x00000004
+@@ -158,6 +158,7 @@ struct net_bridge_port
  #define BR_MULTICAST_FAST_LEAVE	0x00000008
  #define BR_ADMIN_COST		0x00000010
-+#define BR_LEARNING		0x00000020
+ #define BR_LEARNING		0x00000020
++#define BR_FLOOD		0x00000040
  
  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
  	u32				multicast_startup_queries_sent;
+@@ -412,9 +413,10 @@ extern int br_dev_queue_push_xmit(struct sk_buff *skb);
+ extern void br_forward(const struct net_bridge_port *to,
+ 		struct sk_buff *skb, struct sk_buff *skb0);
+ extern int br_forward_finish(struct sk_buff *skb);
+-extern void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb);
++extern void br_flood_deliver(struct net_bridge *br, struct sk_buff *skb,
++			     bool unicast);
+ extern void br_flood_forward(struct net_bridge *br, struct sk_buff *skb,
+-			     struct sk_buff *skb2);
++			     struct sk_buff *skb2, bool unicast);
+ 
+ /* br_if.c */
+ extern void br_port_carrier_check(struct net_bridge_port *p);
 diff --git a/net/bridge/br_sysfs_if.c b/net/bridge/br_sysfs_if.c
-index a1ef1b6..707f362 100644
+index 707f362..2a2cdb7 100644
 --- a/net/bridge/br_sysfs_if.c
 +++ b/net/bridge/br_sysfs_if.c
-@@ -158,6 +158,7 @@ static BRPORT_ATTR(flush, S_IWUSR, NULL, store_flush);
- BRPORT_ATTR_FLAG(hairpin_mode, BR_HAIRPIN_MODE);
+@@ -159,6 +159,7 @@ BRPORT_ATTR_FLAG(hairpin_mode, BR_HAIRPIN_MODE);
  BRPORT_ATTR_FLAG(bpdu_guard, BR_BPDU_GUARD);
  BRPORT_ATTR_FLAG(root_block, BR_ROOT_BLOCK);
-+BRPORT_ATTR_FLAG(learning, BR_LEARNING);
+ BRPORT_ATTR_FLAG(learning, BR_LEARNING);
++BRPORT_ATTR_FLAG(unicast_flood, BR_FLOOD);
  
  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
  static ssize_t show_multicast_router(struct net_bridge_port *p, char *buf)
-@@ -195,6 +196,7 @@ static const struct brport_attribute *brport_attrs[] = {
- 	&brport_attr_hairpin_mode,
+@@ -197,6 +198,7 @@ static const struct brport_attribute *brport_attrs[] = {
  	&brport_attr_bpdu_guard,
  	&brport_attr_root_block,
-+	&brport_attr_learning,
+ 	&brport_attr_learning,
++	&brport_attr_unicast_flood,
  #ifdef CONFIG_BRIDGE_IGMP_SNOOPING
  	&brport_attr_multicast_router,
  	&brport_attr_multicast_fast_leave,
