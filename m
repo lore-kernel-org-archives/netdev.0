@@ -1,46 +1,102 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v7 1/6] vxlan: defer vxlan init as late as possible
-Date: Tue, 30 Apr 2013 16:43:10 +0800
-Message-ID: <1367311395-15891-2-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v7 2/6] ipv6: export a stub for ipv6_sock_mc_join and ipv6_sock_mc_drop
+Date: Tue, 30 Apr 2013 16:43:11 +0800
+Message-ID: <1367311395-15891-3-git-send-email-amwang@redhat.com>
 References: <1367311395-15891-1-git-send-email-amwang@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32846 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34568 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759215Ab3D3Inh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Apr 2013 04:43:37 -0400
+	id S1759215Ab3D3Inv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 04:43:51 -0400
 In-Reply-To: <1367311395-15891-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+=46rom: Cong Wang <amwang@redhat.com>
 
-When vxlan is compiled as builtin, its init code
-runs before IPv6 init, this could cause problems
-if we create IPv6 socket in the latter patch.
+In case IPv6 is compiled as a module, introduce a stub
+for ipv6_sock_mc_join and ipv6_sock_mc_drop. It will be used
+by vxlan module. Suggested by Ben.
 
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Bj=C3=B8rn Mork <bjorn@mork.no>
 Cc: Stephen Hemminger <stephen@networkplumber.org>
 Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/vxlan.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ include/net/addrconf.h   |    9 +++++++++
+ net/ipv6/addrconf_core.c |    3 +++
+ net/ipv6/mcast.c         |    7 +++++++
+ 3 files changed, 19 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ba81f3c..c1258c6 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1662,7 +1662,7 @@ out2:
- out1:
- 	return rc;
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 84a6440..c82e00f 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -140,6 +140,15 @@ extern bool inet6_mc_check(struct sock *sk,
+ 			   const struct in6_addr *mc_addr,
+ 			   const struct in6_addr *src_addr);
+=20
++/* A stub used by vxlan module */
++struct ipv6_mcast_ops {
++	int (*ipv6_sock_mc_join)(struct sock *sk, int ifindex,
++				 const struct in6_addr *addr);
++	int (*ipv6_sock_mc_drop)(struct sock *sk, int ifindex,
++				 const struct in6_addr *addr);
++};
++extern const struct ipv6_mcast_ops *ipv6_mcast_ops __read_mostly;
++
+ extern int ipv6_dev_mc_inc(struct net_device *dev, const struct in6_ad=
+dr *addr);
+ extern int __ipv6_dev_mc_dec(struct inet6_dev *idev, const struct in6_=
+addr *addr);
+ extern int ipv6_dev_mc_dec(struct net_device *dev, const struct in6_ad=
+dr *addr);
+diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+index 7210456..8c7cb63 100644
+--- a/net/ipv6/addrconf_core.c
++++ b/net/ipv6/addrconf_core.c
+@@ -97,3 +97,6 @@ int inet6addr_notifier_call_chain(unsigned long val, =
+void *v)
+ 	return atomic_notifier_call_chain(&inet6addr_chain, val, v);
  }
--module_init(vxlan_init_module);
-+late_initcall(vxlan_init_module);
- 
- static void __exit vxlan_cleanup_module(void)
+ EXPORT_SYMBOL(inet6addr_notifier_call_chain);
++
++const struct ipv6_mcast_ops *ipv6_mcast_ops __read_mostly;
++EXPORT_SYMBOL_GPL(ipv6_mcast_ops);
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index bfa6cc3..cfa31d2 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -2665,12 +2665,19 @@ static struct pernet_operations igmp6_net_ops =3D=
  {
--- 
+ 	.exit =3D igmp6_net_exit,
+ };
+=20
++static const struct ipv6_mcast_ops ipv6_mcast_ops_impl =3D {
++	.ipv6_sock_mc_join =3D ipv6_sock_mc_join,
++	.ipv6_sock_mc_drop =3D ipv6_sock_mc_drop,
++};
++
+ int __init igmp6_init(void)
+ {
++	ipv6_mcast_ops =3D &ipv6_mcast_ops_impl;
+ 	return register_pernet_subsys(&igmp6_net_ops);
+ }
+=20
+ void igmp6_cleanup(void)
+ {
++	ipv6_mcast_ops =3D NULL;
+ 	unregister_pernet_subsys(&igmp6_net_ops);
+ }
+--=20
 1.7.7.6
