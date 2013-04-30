@@ -1,68 +1,61 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH V5 6/7] xen-netback: coalesce slots in TX
- path and fix regressions
-Date: Tue, 30 Apr 2013 14:06:01 -0400
-Message-ID: <51800809.9070407@oracle.com>
-References: <1366045581-31349-1-git-send-email-wei.liu2@citrix.com> <1366045581-31349-7-git-send-email-wei.liu2@citrix.com>
+From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
+Subject: RE: [ethtool] ethtool: check mac type from ethtool_regs.version
+Date: Tue, 30 Apr 2013 18:12:22 +0000
+Message-ID: <87618083B2453E4A8714035B62D679924FD8BC50@ORSMSX152.amr.corp.intel.com>
+References: <1366953168-17509-1-git-send-email-jeffrey.t.kirsher@intel.com>
+ <1367335412.2941.3.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xen-devel@lists.xen.org,
-	ian.campbell@citrix.com, konrad.wilk@oracle.com,
-	david.vrabel@citrix.com, jbeulich@suse.com, wdauchy@gmail.com
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>
+To: Ben Hutchings <bhutchings@solarflare.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:18912 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760203Ab3D3SGR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 14:06:17 -0400
-In-Reply-To: <1366045581-31349-7-git-send-email-wei.liu2@citrix.com>
+Received: from mga14.intel.com ([143.182.124.37]:39269 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760801Ab3D3SMd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 14:12:33 -0400
+In-Reply-To: <1367335412.2941.3.camel@bwh-desktop.uk.solarflarecom.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-On 2013-4-15 13:06, Wei Liu wrote:
-> This patch tries to coalesce tx requests when constructing grant copy
-> structures. It enables netback to deal with situation when frontend's
-> MAX_SKB_FRAGS is larger than backend's MAX_SKB_FRAGS.
->
-> With the help of coalescing, this patch tries to address two regressions and
-> avoid reopening the security hole in XSA-39.
->
-> Regression 1. The reduction of the number of supported ring entries (slots)
-> per packet (from 18 to 17). This regression has been around for some time but
-> remains unnoticed until XSA-39 security fix. This is fixed by coalescing
-> slots.
->
-> Regression 2. The XSA-39 security fix turning "too many frags" errors from
-> just dropping the packet to a fatal error and disabling the VIF. This is fixed
-> by coalescing slots (handling 18 slots when backend's MAX_SKB_FRAGS is 17)
-> which rules out false positive (using 18 slots is legit) and dropping packets
-> using 19 to `max_skb_slots` slots.
->
-> To avoid reopening security hole in XSA-39, frontend sending packet using more
-> than max_skb_slots is considered malicious.
->
-> The behavior of netback for packet is thus:
->
->      1-18            slots: valid
->     19-max_skb_slots slots: drop and respond with an error
->     max_skb_slots+   slots: fatal error
->
-> max_skb_slots is configurable by admin, default value is 20.
->
-> Also change variable name from "frags" to "slots" in netbk_count_requests.
->
-> Please note that RX path still has dependency on MAX_SKB_FRAGS. This will be
-> fixed with separate patch.
-
-Wei,
-
-The RX path dependency on MAX_SKB_FRAGS in netback should not cause 
-packet dropping issue like TX path, RX path only calls netif_stop_queue 
-if RX ring is full.
-What is your plan on RX path? Is it in your schedule or you started it 
-already?
-
-Thanks
-Annie
+Pi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRv
+OmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+U2VudDogVHVlc2RheSwgQXByaWwgMzAsIDIw
+MTMgODoyNCBBTQ0KPlRvOiBLaXJzaGVyLCBKZWZmcmV5IFQ7IFRhbnRpbG92LCBFbWlsIFMNCj5D
+YzogbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgZ29zcG9AcmVkaGF0LmNvbTsgc2Fzc21hbm5AcmVk
+aGF0LmNvbQ0KPlN1YmplY3Q6IFJlOiBbZXRodG9vbF0gZXRodG9vbDogY2hlY2sgbWFjIHR5cGUg
+ZnJvbSBldGh0b29sX3JlZ3MudmVyc2lvbg0KPg0KPk9uIFRodSwgMjAxMy0wNC0yNSBhdCAyMjox
+MiAtMDcwMCwgSmVmZiBLaXJzaGVyIHdyb3RlOg0KPj4gRnJvbTogRW1pbCBUYW50aWxvdiA8ZW1p
+bC5zLnRhbnRpbG92QGludGVsLmNvbT4NCj4+DQo+PiBUaGlzIHBhdGNoIGNsZWFucyB1cCB0aGUg
+bWFjIHR5cGUgY2hlY2tzIGJ5IHVzaW5nIGV0aHRvb2xfcmVncy52ZXJzaW9uDQo+PiBwcm92aWRl
+ZCBieSB0aGUgZHJpdmVyLiBUaGlzIGNoYW5nZSBlbGltaW5hdGVzIHRoZSBuZWVkIHRvIGFkZCBk
+ZXZpY2UgSURzDQo+PiBldmVyeSB0aW1lIHRoZXkgYXJlIGFkZGVkIHRvIHRoZSBkcml2ZXIuDQo+
+Pg0KPj4gVGhpcyBwYXRjaCBkZXBlbmRzIG9uIGEgZHJpdmVyIGNoYW5nZSB0aGF0IHdpbGwgYWRk
+IHRoZSBtYWNfdHlwZSB0byB0aGUNCj4+IHVwcGVyIDggYml0cyBvZiBldGh0b29sX3JlZ3MudmVy
+c2lvbi4NCj4+DQo+PiBOb3RlIHRoYXQgd2hlbiB1c2luZyBldGh0b29sIHdpdGggdGhpcyBwYXRj
+aCB3aXRoIGEgdmVyc2lvbiBvZiBpeGdiZSB0aGF0DQo+PiBkb2VzIG5vdCBwcm92aWRlIHRoZSBt
+YWNfdHlwZSBpbiBldGh0b29sX3JlZ3MudmVyc2lvbiB0aGUgcmVnaXN0ZXIgZHVtcA0KPj4gbWF5
+IGJlIGluY29tcGxldGUuIEhvd2V2ZXIgdGhpcyBpc3N1ZSB3b3VsZCd2ZSBleGlzdGVkIHByZXZp
+b3VzbHkgZm9yDQo+PiBkZXZpY2UgSURzIHRoYXQgd2VyZSBub3QgYWRkZWQgdG8gZXRodG9vbC4N
+Cj5bLi4uXQ0KPg0KPkkgZG9uJ3QgdGhpbmsgdGhpcyBpcyBhY2NlcHRhYmxlOyBldGh0b29sIHNo
+b3VsZCByZW1haW4gYmFja3dhcmQNCj5jb21wYXRpYmxlIGlmIGF0IGFsbCBwb3NzaWJsZS4NCj4N
+Cj5JdCBzZWVtcyBsaWtlIHRoaXMgd291bGQgd29yayB3aXRoIGJvdGggb2xkIGFuZCBuZXcgZHJp
+dmVyczoNCj4NCj5kaWZmIC0tZ2l0IGEvaXhnYmUuYyBiL2l4Z2JlLmMNCj5pbmRleCBkYWUxMWQ0
+Li45YjAwNWYyIDEwMDY0NA0KPi0tLSBhL2l4Z2JlLmMNCj4rKysgYi9peGdiZS5jDQo+QEAgLTEz
+MywxMCArMTMzLDEzIEBAIGl4Z2JlX2R1bXBfcmVncyhzdHJ1Y3QgZXRodG9vbF9kcnZpbmZvICpp
+bmZvLCBzdHJ1Y3QNCj5ldGh0b29sX3JlZ3MgKnJlZ3MpDQo+IAl1OCBpOw0KPiAJZW51bSBpeGdi
+ZV9tYWNfdHlwZSBtYWNfdHlwZTsNCj4NCj4tCWlmICh2ZXJzaW9uICE9IDEpDQo+KwlpZiAodmVy
+c2lvbiA9PSAwKQ0KPiAJCXJldHVybiAtMTsNCj4NCj4tCW1hY190eXBlID0gaXhnYmVfZ2V0X21h
+Y190eXBlKGh3X2RldmljZV9pZCk7DQo+KwkvKiBUaGUgY3VycmVudCBkcml2ZXIgcmVwb3J0cyB0
+aGUgTUFDIHR5cGUsIGJ1dCBvbGRlciB2ZXJzaW9ucw0KPisJICogb25seSByZXBvcnQgdGhlIGRl
+dmljZSBJRCBzbyB3ZSBoYXZlIHRvIGluZmVyIHRoZSBNQUMgdHlwZS4NCj4rCSAqLw0KPisJbWFj
+X3R5cGUgPSB2ZXJzaW9uID4gMSA/IHZlcnNpb24gOiBpeGdiZV9nZXRfbWFjX3R5cGUoaHdfZGV2
+aWNlX2lkKTsNCj4NCj4gCXJlZyA9IHJlZ3NfYnVmZlsxMDY1XTsNCj4gCWZwcmludGYoc3Rkb3V0
+LA0KDQpZZWFoLCB0aGlzIHNlZW1zIGxpa2UgYSBiZXR0ZXIgd2F5IHRvIGdvLg0KDQpUaGFua3Mg
+YSBsb3QsDQpFbWlsDQoNCj4NCj4tLQ0KPkJlbiBIdXRjaGluZ3MsIFN0YWZmIEVuZ2luZWVyLCBT
+b2xhcmZsYXJlDQo+Tm90IHNwZWFraW5nIGZvciBteSBlbXBsb3llcjsgdGhhdCdzIHRoZSBtYXJr
+ZXRpbmcgZGVwYXJ0bWVudCdzIGpvYi4NCj5UaGV5IGFza2VkIHVzIHRvIG5vdGUgdGhhdCBTb2xh
+cmZsYXJlIHByb2R1Y3QgbmFtZXMgYXJlIHRyYWRlbWFya2VkLg0KDQo=
