@@ -1,20 +1,66 @@
-From: "Administrator" <lt.monicalinbrown@smail.iitm.ac.in>
-Subject: Your Mailbox Is Almost Full
-Date: Tue, 30 Apr 2013 08:48:51 +0630
-Message-ID: <20130430021851.M83755@smail.iitm.ac.in>
-Reply-To: lt.monicalinbrown@admin.org
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=utf-8
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smail.iitm.ac.in ([203.199.213.6]:49410 "EHLO smail.iitm.ac.in"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759137Ab3D3Cwq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Apr 2013 22:52:46 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Tue, 30 Apr 2013 11:52:57 +0900
+Message-ID: <1367290378-29224-2-git-send-email-horms@verge.net.au>
+References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	Simon Horman <horms@verge.net.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
+	Peter Zijlstra <peterz@infradead.org>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1367290378-29224-1-git-send-email-horms@verge.net.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Your Mailbox Is Almost Full "CLICK HERE 
-http://accountupgradingsystem.webs.com/ "To Update Your MailBox And Increase 
-Your Account. Thanks System Administrator
+This is intended for use in loops which read data protected by RCU and may
+have a large number of iterations.  Such an example is dumping the list of
+connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+
+The call to cond_resched() is guarded by #ifndef CONFIG_PREEMPT_RCU as in
+the case of CONFIG_PREEMPT_RCU _rcu_read_unlock() will check to see if the
+RCU core needs to be informed, so there is no need to invoke cond_resched()
+in that case. Thanks to Paul E. McKenney for explaining this.
+
+cond_resched_rcu_lock() suggested by Eric Dumazet.
+ifndef guard suggested by Paul E. McKenney and Julian Anastasov.
+
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
+Cc: Julian Anastasov <ja@ssi.bg>
+Acked-by: Ingo Molnar <mingo@kernel.org>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
+---
+
+v2
+* Add guard the call to cond_resched()
+---
+ include/linux/sched.h | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index e692a02..66da71c 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -2787,3 +2787,14 @@ static inline unsigned long rlimit_max(unsigned int limit)
+ }
+ 
+ #endif
++
++static void inline cond_resched_rcu_lock(void)
++{
++	if (need_resched()) {
++		rcu_read_unlock();
++#ifndef CONFIG_PREEMPT_RCU
++		cond_resched();
++#endif
++		rcu_read_lock();
++	}
++}
+-- 
+1.8.2.1
