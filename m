@@ -1,29 +1,71 @@
-From: David VomLehn <David.VomLehn@spacex.com>
-Subject: What does socket option SO_SNDBUF mean?
-Date: Mon, 29 Apr 2013 18:11:12 -0700
-Message-ID: <20130430011112.GA1504@dvomlehn-z8.spacex.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2] sh_eth: use random MAC address if no valid one
+ supplied
+Date: Tue, 30 Apr 2013 11:01:49 +0900
+Message-ID: <20130430020148.GH22535@verge.net.au>
+References: <201304292349.43251.sergei.shtylyov@cogentembedded.com>
+ <6838772.e2fl6QhECK@avalon>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mta2.spacex.net ([64.47.164.142]:32939 "EHLO mta2.spacex.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758442Ab3D3BWV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Apr 2013 21:22:21 -0400
+Content-Type: text/plain; charset=us-ascii
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org
+To: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <6838772.e2fl6QhECK@avalon>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I've been asked how the socket option SO_SNDBUF should be used to avoid
-blocking by writing too many bytes to a socket. This amounts to asking
-how to interpret the SO_SNDBUF value. After looking through the networking
-code for various kernel versions, it looks like the amount of overhead
-included and how it is used is variable.
+On Mon, Apr 29, 2013 at 10:39:17PM +0200, Laurent Pinchart wrote:
+> On Monday 29 April 2013 23:49:42 Sergei Shtylyov wrote:
+> > On Renesas R-Car based development boards, although a MAC address is printed
+> > on all the Ethernet port labels, U-Boot  doesn't write a valid MAC address 
+> > to the Ether MAHR/MALR registers (there's no storage provided for the Ether
+> > MAC address either), so we have to resort to using a random MAC address...
+> > 
+> > Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 
+> Acked-by: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
 
-So:
-1.	How *should* SO_SNDBUF be interpreted?
-2.	Is it appropriate to use it to avoid blocking of socket writes?
-3.	Does it have other uses besides giving a very fuzzy idea of
-	socket writes will block?
--- 
-David VL
+Acked-by: Simon Horman <horms+renesas@verge.net.au>
+
+FYI, I believe that the lager board, which is an R-Car based development
+board (AFAIK) does not suffer from this problem.
+
+> > ---
+> > This patch is against the 'net-next.git' repository.
+> > 
+> > Changes since the original posting:
+> > - don't break the message string into 2 lines.
+> > 
+> >  drivers/net/ethernet/renesas/sh_eth.c |    5 +++++
+> >  1 file changed, 5 insertions(+)
+> > 
+> > Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+> > ===================================================================
+> > --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
+> > +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+> > @@ -2735,6 +2735,11 @@ static int sh_eth_drv_probe(struct platf
+> > 
+> >  	/* read and set MAC address */
+> >  	read_mac_address(ndev, pd->mac_addr);
+> > +	if (!is_valid_ether_addr(ndev->dev_addr)) {
+> > +		dev_warn(&pdev->dev,
+> > +			 "no valid MAC address supplied, using a random one.\n");
+> > +		eth_hw_addr_random(ndev);
+> > +	}
+> > 
+> >  	/* ioremap the TSU registers */
+> >  	if (mdp->cd->tsu) {
+> 
+> -- 
+> Regards,
+> 
+> Laurent Pinchart
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sh" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
