@@ -1,91 +1,64 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net 4/4] be2net: Fix to fail probe if MSI-X enable fails for a VF
-Date: Tue, 30 Apr 2013 17:09:36 +0530
-Message-ID: <07fa3bd5-baaa-499d-a0b1-5de6387738f8@CMEXHTCAS2.ad.emulex.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3 1/3] tipc: cosmetic: clean up comments
+Date: Tue, 30 Apr 2013 15:54:01 +0400
+Message-ID: <517FB0D9.1070404@cogentembedded.com>
+References: <1367244820-29881-1-git-send-email-gerlando.falauto@keymile.com> <1367307199-10577-1-git-send-email-gerlando.falauto@keymile.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
+	erik.hugne@ericsson.com, ying.xue@windriver.com,
+	holger.brunck@keymile.com
+To: Gerlando Falauto <gerlando.falauto@keymile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:44821 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759520Ab3D3Lku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 07:40:50 -0400
+Received: from mail-la0-f45.google.com ([209.85.215.45]:39743 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759863Ab3D3Ly0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 07:54:26 -0400
+Received: by mail-la0-f45.google.com with SMTP id el20so338067lab.4
+        for <netdev@vger.kernel.org>; Tue, 30 Apr 2013 04:54:25 -0700 (PDT)
+In-Reply-To: <1367307199-10577-1-git-send-email-gerlando.falauto@keymile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As per SPEC, INTx mode is not supported on VFs. So if enable_msix fails,
-then just fail probe. Also bail out of be_open if irq_register fails.
+Hello.
 
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |   22 +++++++++++++++-------
- 1 files changed, 15 insertions(+), 7 deletions(-)
+On 30-04-2013 11:33, Gerlando Falauto wrote:
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 31d5982..47ff540 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2365,7 +2365,7 @@ static uint be_num_rss_want(struct be_adapter *adapter)
- 	return num;
- }
- 
--static void be_msix_enable(struct be_adapter *adapter)
-+static int be_msix_enable(struct be_adapter *adapter)
- {
- #define BE_MIN_MSIX_VECTORS		1
- 	int i, status, num_vec, num_roce_vec = 0;
-@@ -2390,13 +2390,17 @@ static void be_msix_enable(struct be_adapter *adapter)
- 		goto done;
- 	} else if (status >= BE_MIN_MSIX_VECTORS) {
- 		num_vec = status;
--		if (pci_enable_msix(adapter->pdev, adapter->msix_entries,
--				num_vec) == 0)
-+		status = pci_enable_msix(adapter->pdev, adapter->msix_entries,
-+					 num_vec);
-+		if (!status)
- 			goto done;
- 	}
- 
- 	dev_warn(dev, "MSIx enable failed\n");
--	return;
-+	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
-+	if (!be_physfn(adapter))
-+		return status;
-+	return 0;
- done:
- 	if (be_roce_supported(adapter)) {
- 		if (num_vec > num_roce_vec) {
-@@ -2410,7 +2414,7 @@ done:
- 	} else
- 		adapter->num_msix_vec = num_vec;
- 	dev_info(dev, "enabled %d MSI-x vector(s)\n", adapter->num_msix_vec);
--	return;
-+	return 0;
- }
- 
- static inline int be_msix_vec_get(struct be_adapter *adapter,
-@@ -2614,7 +2618,9 @@ static int be_open(struct net_device *netdev)
- 	if (status)
- 		goto err;
- 
--	be_irq_register(adapter);
-+	status = be_irq_register(adapter);
-+	if (status)
-+		goto err;
- 
- 	if (!lancer_chip(adapter))
- 		be_intr_set(adapter, true);
-@@ -3081,7 +3087,9 @@ static int be_setup(struct be_adapter *adapter)
- 	if (status)
- 		goto err;
- 
--	be_msix_enable(adapter);
-+	status = be_msix_enable(adapter);
-+	if (status)
-+		goto err;
- 
- 	status = be_evt_queues_create(adapter);
- 	if (status)
--- 
-1.6.0.2
+> Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
+> ---
+> Changes from v2:
+> * Split cosmetic from functional changes
+
+>   net/tipc/bcast.c |   13 +++++++------
+>   1 file changed, 7 insertions(+), 6 deletions(-)
+
+> diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+> index 2655c9f..8438e01 100644
+> --- a/net/tipc/bcast.c
+> +++ b/net/tipc/bcast.c
+> @@ -584,8 +584,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+>   {
+>   	int bp_index;
+>
+> -	/*
+> -	 * Prepare broadcast link message for reliable transmission,
+> +	/* Prepare broadcast link message for reliable transmission,
+>   	 * if first time trying to send it;
+>   	 * preparation is skipped for broadcast link protocol messages
+>   	 * since they are sent in an unreliable manner and don't need it
+> @@ -613,11 +612,12 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+>   		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
+>
+>   		if (!p)
+> -			break;	/* no more bearers to try */
+> +			break; /* No more bearers to try */
+>
+> -		tipc_nmap_diff(&bcbearer->remains, &p->nodes, &bcbearer->remains_new);
+> +		tipc_nmap_diff(&bcbearer->remains, &p->nodes,
+> +			       &bcbearer->remains_new);
+
+    It apeears you nopt only cleaning up comments in this patch but you don't 
+mention this change in the changelog...
+
+WBR, Sergei
