@@ -1,36 +1,32 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] Revert "bnx2x: allow nvram test to run when
- device is down"
-Date: Wed, 01 May 2013 00:09:47 +0400
-Message-ID: <5180250B.3010703@cogentembedded.com>
-References: <1367314447-10518-1-git-send-email-dmitry@broadcom.com> <20130430.154916.289965268165509683.davem@davemloft.net>
+Subject: Re: [PATCH v2] sh_eth: use random MAC address if no valid one supplied
+Date: Wed, 01 May 2013 00:18:43 +0400
+Message-ID: <51802723.9020105@cogentembedded.com>
+References: <201304292349.43251.sergei.shtylyov@cogentembedded.com> <20130430.153729.859998606300915403.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dmitry@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:56682 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933058Ab3D3UJy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 16:09:54 -0400
-Received: by mail-lb0-f173.google.com with SMTP id v5so916052lbc.32
-        for <netdev@vger.kernel.org>; Tue, 30 Apr 2013 13:09:53 -0700 (PDT)
-In-Reply-To: <20130430.154916.289965268165509683.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20130430.153729.859998606300915403.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
-
-On 04/30/2013 11:49 PM, David Miller wrote:
+On 04/30/2013 11:37 PM, David Miller wrote:
 
 >
->> This reverts commit d2d2d87dfd1a25ee270994c5b9e3eb4690428d32.
-> Please refer to commits in the following format:
->
-> ${SHA_ID} ("Commit message header line.")
+>> On Renesas R-Car based development boards, although a MAC address is printed on
+>> all the Ethernet port labels, U-Boot  doesn't write a valid MAC address  to the
+>> Ether MAHR/MALR registers (there's no storage provided for the Ether MAC address
+>> either), so we have to resort to using a random MAC address...
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Applied, thanks.
 
-    David, this is a standard revert changelog format, reverted commit's 
-summary is in the subject.
+     Thanks to you. I thought I'll have to wait after merge window 
+closes now... :-)
 
 WBR, Sergei
+
