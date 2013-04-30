@@ -1,7 +1,8 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v2 1/3] bridge: select IP addr for source addr of querier
-Date: Tue, 30 Apr 2013 11:41:08 +0800
-Message-ID: <1367293270-26256-1-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v2 2/3] bridge: only expire the mdb entry when query is received
+Date: Tue, 30 Apr 2013 11:41:09 +0800
+Message-ID: <1367293270-26256-2-git-send-email-amwang@redhat.com>
+References: <1367293270-26256-1-git-send-email-amwang@redhat.com>
 Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,28 +10,27 @@ Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:58025 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16209 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757395Ab3D3Dlm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 29 Apr 2013 23:41:42 -0400
+	id S1758518Ab3D3Dlq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Apr 2013 23:41:46 -0400
+In-Reply-To: <1367293270-26256-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-Quote from Adam:
-"If it is believed that the use of 0.0.0.0
-as the IP address is what is causing strange behaviour on other devices
-then is there a good reason that a bridge rather than a router shouldn't
-be the active querier? If not then using the bridge IP address and
-having the querier enabled by default may be a reasonable solution
-(provided that our querier obeys the election rules and shuts up if it
-sees a query from a lower IP address that isn't 0.0.0.0). Just because a
-device is the elected querier for IGMP doesn't appear to mean it is
-required to perform any other routing functions."
+Currently we arm the expire timer when the mdb entry is added,
+however, this causes problem when there is no querier sent
+out after that.
 
-And introduce a new troggle for it, by default we still use
-0.0.0.0 as src IP.
+So we should only arm the timer when a corresponding query is
+received, as suggested by Herbert.
+
+And "if there is no querier then group subscriptions shouldn't expire.
+There has to be at least one querier in the network for this thing to
+work.  Otherwise it just degenerates into a non-snooping switch,
+which is OK."
 
 Cc: Herbert Xu <herbert@gondor.apana.org.au>
 Cc: Stephen Hemminger <stephen@networkplumber.org>
@@ -38,97 +38,118 @@ Cc: "David S. Miller" <davem@davemloft.net>
 Cc: Adam Baker <linux@baker-net.org.uk>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
-v2: introduce a new troggle
+v2: add a flag to check if timer is fired or not
 
- net/bridge/br_multicast.c |    5 ++++-
+ net/bridge/br_multicast.c |   22 ++++++++++++++--------
  net/bridge/br_private.h   |    1 +
- net/bridge/br_sysfs_br.c  |   25 +++++++++++++++++++++++++
- 3 files changed, 30 insertions(+), 1 deletions(-)
+ 2 files changed, 15 insertions(+), 8 deletions(-)
 
 diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 81f2389..c52d4f3 100644
+index c52d4f3..bab3d5a 100644
 --- a/net/bridge/br_multicast.c
 +++ b/net/bridge/br_multicast.c
-@@ -23,6 +23,7 @@
- #include <linux/skbuff.h>
- #include <linux/slab.h>
- #include <linux/timer.h>
-+#include <linux/inetdevice.h>
- #include <net/ip.h>
- #if IS_ENABLED(CONFIG_IPV6)
- #include <net/ipv6.h>
-@@ -381,7 +382,8 @@ static struct sk_buff *br_ip4_multicast_alloc_query(struct net_bridge *br,
- 	iph->frag_off = htons(IP_DF);
- 	iph->ttl = 1;
- 	iph->protocol = IPPROTO_IGMP;
--	iph->saddr = 0;
-+	iph->saddr = br->multicast_query_zero_source ?
-+		     0 : inet_select_addr(br->dev, 0, RT_SCOPE_LINK);
- 	iph->daddr = htonl(INADDR_ALLHOSTS_GROUP);
- 	((u8 *)&iph[1])[0] = IPOPT_RA;
- 	((u8 *)&iph[1])[1] = 4;
-@@ -1618,6 +1620,7 @@ void br_multicast_init(struct net_bridge *br)
+@@ -617,8 +617,6 @@ rehash:
  
- 	br->multicast_router = 1;
- 	br->multicast_querier = 0;
-+	br->multicast_query_zero_source = 1;
- 	br->multicast_last_member_count = 2;
- 	br->multicast_startup_query_count = 2;
+ 	mp->br = br;
+ 	mp->addr = *group;
+-	setup_timer(&mp->timer, br_multicast_group_expired,
+-		    (unsigned long)mp);
  
+ 	hlist_add_head_rcu(&mp->hlist[mdb->ver], &mdb->mhash[hash]);
+ 	mdb->size++;
+@@ -656,7 +654,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	struct net_bridge_mdb_entry *mp;
+ 	struct net_bridge_port_group *p;
+ 	struct net_bridge_port_group __rcu **pp;
+-	unsigned long now = jiffies;
+ 	int err;
+ 
+ 	spin_lock(&br->multicast_lock);
+@@ -671,7 +668,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 
+ 	if (!port) {
+ 		mp->mglist = true;
+-		mod_timer(&mp->timer, now + br->multicast_membership_interval);
+ 		goto out;
+ 	}
+ 
+@@ -679,7 +675,7 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	     (p = mlock_dereference(*pp, br)) != NULL;
+ 	     pp = &p->next) {
+ 		if (p->port == port)
+-			goto found;
++			goto out;
+ 		if ((unsigned long)p->port < (unsigned long)port)
+ 			break;
+ 	}
+@@ -690,8 +686,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	rcu_assign_pointer(*pp, p);
+ 	br_mdb_notify(br->dev, port, group, RTM_NEWMDB);
+ 
+-found:
+-	mod_timer(&p->timer, now + br->multicast_membership_interval);
+ out:
+ 	err = 0;
+ 
+@@ -1131,6 +1125,10 @@ static int br_ip4_multicast_query(struct net_bridge *br,
+ 	if (!mp)
+ 		goto out;
+ 
++	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
++	mod_timer(&mp->timer, now + br->multicast_membership_interval);
++	mp->timer_armed = true;
++
+ 	max_delay *= br->multicast_last_member_count;
+ 
+ 	if (mp->mglist &&
+@@ -1205,6 +1203,10 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+ 	if (!mp)
+ 		goto out;
+ 
++	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
++	mod_timer(&mp->timer, now + br->multicast_membership_interval);
++	mp->timer_armed = true;
++
+ 	max_delay *= br->multicast_last_member_count;
+ 	if (mp->mglist &&
+ 	    (timer_pending(&mp->timer) ?
+@@ -1263,13 +1265,16 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 			call_rcu_bh(&p->rcu, br_multicast_free_pg);
+ 			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
+ 
+-			if (!mp->ports && !mp->mglist &&
++			if (!mp->ports && !mp->mglist && mp->timer_armed &&
+ 			    netif_running(br->dev))
+ 				mod_timer(&mp->timer, jiffies);
+ 		}
+ 		goto out;
+ 	}
+ 
++	if (!mp->timer_armed)
++		goto out;
++
+ 	now = jiffies;
+ 	time = now + br->multicast_last_member_count *
+ 		     br->multicast_last_member_interval;
+@@ -1674,6 +1679,7 @@ void br_multicast_stop(struct net_bridge *br)
+ 		hlist_for_each_entry_safe(mp, n, &mdb->mhash[i],
+ 					  hlist[ver]) {
+ 			del_timer(&mp->timer);
++			mp->timer_armed = false;
+ 			call_rcu_bh(&mp->rcu, br_multicast_free_group);
+ 		}
+ 	}
 diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
-index d2c043a..695033f 100644
+index 695033f..cd2552c 100644
 --- a/net/bridge/br_private.h
 +++ b/net/bridge/br_private.h
-@@ -249,6 +249,7 @@ struct net_bridge
+@@ -112,6 +112,7 @@ struct net_bridge_mdb_entry
+ 	struct timer_list		timer;
+ 	struct br_ip			addr;
+ 	bool				mglist;
++	bool				timer_armed;
+ };
  
- 	u8				multicast_disabled:1;
- 	u8				multicast_querier:1;
-+	u8				multicast_query_zero_source:1;
- 
- 	u32				hash_elasticity;
- 	u32				hash_max;
-diff --git a/net/bridge/br_sysfs_br.c b/net/bridge/br_sysfs_br.c
-index 8baa9c0..ebdfafb 100644
---- a/net/bridge/br_sysfs_br.c
-+++ b/net/bridge/br_sysfs_br.c
-@@ -375,6 +375,30 @@ static ssize_t store_multicast_snooping(struct device *d,
- static DEVICE_ATTR(multicast_snooping, S_IRUGO | S_IWUSR,
- 		   show_multicast_snooping, store_multicast_snooping);
- 
-+static ssize_t show_multicast_query_zero_source(struct device *d,
-+				      struct device_attribute *attr,
-+				      char *buf)
-+{
-+	struct net_bridge *br = to_bridge(d);
-+	return sprintf(buf, "%d\n", br->multicast_query_zero_source);
-+}
-+
-+static int set_query_zero_source(struct net_bridge *br, unsigned long val)
-+{
-+	br->multicast_query_zero_source = !!val;
-+	return 0;
-+}
-+
-+static ssize_t store_multicast_query_zero_source(struct device *d,
-+				       struct device_attribute *attr,
-+				       const char *buf, size_t len)
-+{
-+	return store_bridge_parm(d, buf, len, set_query_zero_source);
-+}
-+static DEVICE_ATTR(multicast_query_zero_source, S_IRUGO | S_IWUSR,
-+		   show_multicast_query_zero_source,
-+		   store_multicast_query_zero_source);
-+
- static ssize_t show_multicast_querier(struct device *d,
- 				      struct device_attribute *attr,
- 				      char *buf)
-@@ -734,6 +758,7 @@ static struct attribute *bridge_attrs[] = {
- 	&dev_attr_multicast_router.attr,
- 	&dev_attr_multicast_snooping.attr,
- 	&dev_attr_multicast_querier.attr,
-+	&dev_attr_multicast_query_zero_source.attr,
- 	&dev_attr_hash_elasticity.attr,
- 	&dev_attr_hash_max.attr,
- 	&dev_attr_multicast_last_member_count.attr,
+ struct net_bridge_mdb_htable
 -- 
 1.7.7.6
