@@ -1,32 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bridge: avoid OOPS if root port not found
-Date: Tue, 30 Apr 2013 15:52:25 -0400 (EDT)
-Message-ID: <20130430.155225.263723275782712153.davem@davemloft.net>
-References: <20130430082927.56aa0785@nehalam.linuxnetplumber.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] Revert "bnx2x: allow nvram test to run when
+ device is down"
+Date: Wed, 01 May 2013 00:09:47 +0400
+Message-ID: <5180250B.3010703@cogentembedded.com>
+References: <1367314447-10518-1-git-send-email-dmitry@broadcom.com> <20130430.154916.289965268165509683.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: dmitry@broadcom.com, netdev@vger.kernel.org, eilong@broadcom.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52739 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933540Ab3D3Tw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 15:52:27 -0400
-In-Reply-To: <20130430082927.56aa0785@nehalam.linuxnetplumber.net>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:56682 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933058Ab3D3UJy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 16:09:54 -0400
+Received: by mail-lb0-f173.google.com with SMTP id v5so916052lbc.32
+        for <netdev@vger.kernel.org>; Tue, 30 Apr 2013 13:09:53 -0700 (PDT)
+In-Reply-To: <20130430.154916.289965268165509683.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Tue, 30 Apr 2013 08:29:27 -0700
+Hello.
 
-> Bridge can crash while trying to send topology change packet.
-> This happens if root port can't be found. This was reported by user
-> but currently unable to reproduce it easily. The STP conditions that cause
-> this are not known yet, but the problem doesn't have to be fatal.
-> 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+On 04/30/2013 11:49 PM, David Miller wrote:
 
-Right, there's no reason we should flat-out crash because of this.
+>
+>> This reverts commit d2d2d87dfd1a25ee270994c5b9e3eb4690428d32.
+> Please refer to commits in the following format:
+>
+> ${SHA_ID} ("Commit message header line.")
 
-Applied, thanks.
+    David, this is a standard revert changelog format, reverted commit's 
+summary is in the subject.
+
+WBR, Sergei
