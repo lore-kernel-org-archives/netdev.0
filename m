@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: Use consume_skb() to free gso segmented
- skb
-Date: Tue, 30 Apr 2013 00:18:34 -0400 (EDT)
-Message-ID: <20130430.001834.1391651112293759345.davem@davemloft.net>
-References: <1367276562.23068.7.camel@sridhar.usor.ibm.com>
+Subject: Re: [PATCH net-next v2] openvswitch: Remove unneeded
+ ovs_netdev_get_ifindex()
+Date: Tue, 30 Apr 2013 00:19:28 -0400 (EDT)
+Message-ID: <20130430.001928.1165027745697375853.davem@davemloft.net>
+References: <ccb6cc7843629082ac121043a00947a15561f26f.1367276702.git.tgraf@suug.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sri@us.ibm.com
+Cc: jesse@nicira.com, dev@openvswitch.org, netdev@vger.kernel.org
+To: tgraf@suug.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39539 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39550 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750751Ab3D3ESg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 00:18:36 -0400
-In-Reply-To: <1367276562.23068.7.camel@sridhar.usor.ibm.com>
+	with ESMTP id S1750751Ab3D3ETa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 00:19:30 -0400
+In-Reply-To: <ccb6cc7843629082ac121043a00947a15561f26f.1367276702.git.tgraf@suug.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sridhar Samudrala <sri@us.ibm.com>
-Date: Mon, 29 Apr 2013 16:02:42 -0700
+From: Thomas Graf <tgraf@suug.ch>
+Date: Tue, 30 Apr 2013 01:06:41 +0200
 
-> Use consume_skb() to free the original skb that is successfully transmitted 
-> as gso segmented skbs so that it is not treated as a drop due to an error.
+> The only user is get_dpifindex(), no need to redirect via the port
+> operations.
 > 
-> Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> ---
+> V2 - Fix stylistic issue
 
-Applied, thanks.
+Applied, thanks Thomas.
