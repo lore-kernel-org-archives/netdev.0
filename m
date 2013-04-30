@@ -1,35 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 3/3] unix/stream: fix peeking with an offset larger
- than data in queue
-Date: Mon, 29 Apr 2013 17:51:00 -0700
-Message-ID: <1367283060.8964.336.camel@edumazet-glaptop>
-References: <kll5si$544$1@ger.gmane.org>
-	 <1367271734-14379-1-git-send-email-bpoirier@suse.de>
-	 <1367271734-14379-3-git-send-email-bpoirier@suse.de>
+From: David VomLehn <David.VomLehn@spacex.com>
+Subject: What does socket option SO_SNDBUF mean?
+Date: Mon, 29 Apr 2013 18:11:12 -0700
+Message-ID: <20130430011112.GA1504@dvomlehn-z8.spacex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Benjamin Poirier <bpoirier@suse.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367271734-14379-3-git-send-email-bpoirier@suse.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mta2.spacex.net ([64.47.164.142]:32939 "EHLO mta2.spacex.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758442Ab3D3BWV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 29 Apr 2013 21:22:21 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-29 at 17:42 -0400, Benjamin Poirier wrote:
-> Currently, peeking on a unix stream socket with an offset larger than len of
-> the data in the sk receive queue returns immediately with bogus data.
-> 
-> This patch fixes this so that the behavior is the same as peeking with no
-> offset on an empty queue: the caller blocks.
-> 
-> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
-> ---
->  net/unix/af_unix.c |   25 ++++++++++++-------------
->  1 file changed, 12 insertions(+), 13 deletions(-)
+I've been asked how the socket option SO_SNDBUF should be used to avoid
+blocking by writing too many bytes to a socket. This amounts to asking
+how to interpret the SO_SNDBUF value. After looking through the networking
+code for various kernel versions, it looks like the amount of overhead
+included and how it is used is variable.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+So:
+1.	How *should* SO_SNDBUF be interpreted?
+2.	Is it appropriate to use it to avoid blocking of socket writes?
+3.	Does it have other uses besides giving a very fuzzy idea of
+	socket writes will block?
+-- 
+David VL
