@@ -1,32 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netlink: Fix skb ref counting.
-Date: Tue, 30 Apr 2013 15:47:06 -0400 (EDT)
-Message-ID: <20130430.154706.1013690460503258249.davem@davemloft.net>
-References: <1367304721-9213-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [net-next PATCH v2 1/1] drivers: net: cpsw: fix kernel warn on
+ cpsw irq enable
+Date: Tue, 30 Apr 2013 15:48:18 -0400 (EDT)
+Message-ID: <20130430.154818.1553726715413608388.davem@davemloft.net>
+References: <1367314048-11503-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org, linux-omap@vger.kernel.org,
+	bigeasy@linutronix.de
+To: mugunthanvnm@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52649 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52667 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932708Ab3D3TrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 15:47:08 -0400
-In-Reply-To: <1367304721-9213-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S932708Ab3D3TsU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 15:48:20 -0400
+In-Reply-To: <1367314048-11503-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Mon, 29 Apr 2013 23:52:01 -0700
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Date: Tue, 30 Apr 2013 14:57:28 +0530
 
-> Commit f9c2288837ba072b21dba955f04a4c97eaa77b1e (netlink:
-> implement memory mapped recvmsg) increamented skb->users
-> ref count twice for a dump op which does not look right.
-> 
-> Following patch fixes that.
-> 
-> CC: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> With the commit a11fbba (net/cpsw: fix irq_disable() with threaded interrupts)
+> from Sebastian Siewior, a kernel warning is generated as below. This warning
+> is generated as the irq_enabled is not initialized for the primary interface
+> and in probe it is initialized for the second interface. This patch moves
+> irq_enabled initialization from second interface to primary interface.
+ ...
+> Cc: Sebastian Siewior <bigeasy@linutronix.de>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-Patrick, please review this, thanks.
+Applied, thanks.
