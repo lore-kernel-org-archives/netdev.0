@@ -1,47 +1,62 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 04/18] netfilter: ipset: Unified bitmap type generation
-Date: Tue, 30 Apr 2013 09:49:21 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B720F@saturn3.aculab.com>
-References: <1367259744-8922-1-git-send-email-pablo@netfilter.org> <1367259744-8922-5-git-send-email-pablo@netfilter.org>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next] tg3: shows HW time stamping support only if
+ ptp_capable is present
+Date: Tue, 30 Apr 2013 10:50:15 +0200
+Message-ID: <20130430105015.097b4b59@griffin>
+References: <1367255287-2664-1-git-send-email-fbl@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Pablo Neira Ayuso" <pablo@netfilter.org>,
-	<netfilter-devel@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: Flavio Leitner <fbl@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:36798 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1759574Ab3D3IuU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 04:50:20 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 30647-07 for <netdev@vger.kernel.org>;
- Tue, 30 Apr 2013 09:50:16 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1367259744-8922-5-git-send-email-pablo@netfilter.org>
+Received: from mx1.redhat.com ([209.132.183.28]:8606 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759617Ab3D3IuT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 04:50:19 -0400
+In-Reply-To: <1367255287-2664-1-git-send-email-fbl@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> +++ b/net/netfilter/ipset/ip_set_bitmap_gen.h
-> @@ -0,0 +1,265 @@
-...
-> +#define CONCAT(a, b)		a##b
-> +#define TOKEN(a,b)		CONCAT(a, b)
+On Mon, 29 Apr 2013 14:08:07 -0300, Flavio Leitner wrote:
+> Current tg3 shows hardware timestamping support for all devices
+> when that is true only for the hardware with PTP_CAPABLE flag
+> present.
+> 
+> Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> ---
+>  drivers/net/ethernet/broadcom/tg3.c | 11 +++++++----
+>  1 file changed, 7 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index ac83c87..ef0b8a6 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -5992,10 +5992,13 @@ static int tg3_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
+>  
+>  	info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
+>  				SOF_TIMESTAMPING_RX_SOFTWARE |
+> -				SOF_TIMESTAMPING_SOFTWARE    |
+> -				SOF_TIMESTAMPING_TX_HARDWARE |
+> -				SOF_TIMESTAMPING_RX_HARDWARE |
+> -				SOF_TIMESTAMPING_RAW_HARDWARE;
+> +				SOF_TIMESTAMPING_SOFTWARE;
 > +
-> +#define mtype_do_test		TOKEN(MTYPE, _do_test)
-> +#define mtype_gc_test		TOKEN(MTYPE, _gc_test)
-...
-> +#define mtype			MTYPE
+> +	if (tg3_flag(tp, PTP_CAPABLE)) {
+> +		info->so_timestamping = SOF_TIMESTAMPING_TX_HARDWARE |
+                                     ^^^^
+                         You need |= here.
 
-I'm not entirely sure what is being achieved by the above.
-Either there ought to be a comment about what MTYPE might
-be set to, or it is all pointless.
+> +					SOF_TIMESTAMPING_RX_HARDWARE |
+> +					SOF_TIMESTAMPING_RAW_HARDWARE;
+> +	}
+>  
+>  	if (tp->ptp_clock)
+>  		info->phc_index = ptp_clock_index(tp->ptp_clock);
 
-In any case names like CONCAT() and TOKEN() are likely
-to be double definitions.
+ Jiri
 
-A similar namespace issue arises with REVISION_MIN/MAX.
-
-	David
+-- 
+Jiri Benc
