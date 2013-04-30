@@ -1,59 +1,120 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [Patch net-next v7 5/6] vxlan: respect disable_ipv6 sysctl
-Date: Tue, 30 Apr 2013 16:27:41 +0400
-Message-ID: <517FB8BD.3090708@cogentembedded.com>
-References: <1367311395-15891-1-git-send-email-amwang@redhat.com> <1367311395-15891-6-git-send-email-amwang@redhat.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [Xen-devel] [PATCH net-next V7 3/4] xen-netback: coalesce
+ slots in TX path and fix regressions
+Date: Tue, 30 Apr 2013 13:59:59 +0100
+Message-ID: <517FDC6F02000078000D21B8@nat28.tlf.novell.com>
+References: <1366633243-17775-1-git-send-email-wei.liu2@citrix.com>
+ <1366633243-17775-4-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <ian.campbell@citrix.com>, <davem@davemloft.net>,
+	<xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+To: "Wei Liu" <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:43740 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760027Ab3D3M2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 08:28:06 -0400
-Received: by mail-la0-f52.google.com with SMTP id fd20so369678lab.11
-        for <netdev@vger.kernel.org>; Tue, 30 Apr 2013 05:28:04 -0700 (PDT)
-In-Reply-To: <1367311395-15891-6-git-send-email-amwang@redhat.com>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:35552 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759848Ab3D3M7T convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Tue, 30 Apr 2013 08:59:19 -0400
+In-Reply-To: <1366633243-17775-4-git-send-email-wei.liu2@citrix.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+>>> On 22.04.13 at 14:20, Wei Liu <wei.liu2@citrix.com> wrote:
+> @@ -898,47 +928,78 @@ static void netbk_fatal_tx_err(struct xenvif *vif)
+>  
+>  static int netbk_count_requests(struct xenvif *vif,
+>  				struct xen_netif_tx_request *first,
+> +				RING_IDX first_idx,
+>  				struct xen_netif_tx_request *txp,
+>  				int work_to_do)
+>  {
+>  	RING_IDX cons = vif->tx.req_cons;
 
-On 30-04-2013 12:43, Cong Wang wrote:
+It looks bogus and confusing to me to pass first_idx into this
+function when this really is the same as cons.
 
-> From: Cong Wang <amwang@redhat.com>
+Jan
 
-> When disable_ipv6 is set, we should not allow IPv6 vxlan
-> device to be created on top of it.
-
-> Cc: David Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> ---
->   drivers/net/vxlan.c |   12 ++++++++++++
->   1 files changed, 12 insertions(+), 0 deletions(-)
-
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index bb39e67..ec1007a 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-[...]
-> @@ -1722,6 +1725,15 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
->   			return -ENODEV;
->   		}
->
-> +#if IS_ENABLED(CONFIG_IPV6)
-> +		if (use_ipv6) {
-> +			struct inet6_dev *idev = in6_dev_get(lowerdev);
-
-    Empty line wouldn't hurt here, after declaration.
-
-> +			if (idev && idev->cnf.disable_ipv6)
-> +					return -EPERM;
+> -	int frags = 0;
+> +	int slots = 0;
+> +	int drop_err = 0;
+>  
+>  	if (!(first->flags & XEN_NETTXF_more_data))
+>  		return 0;
+>  
+>  	do {
+> -		if (frags >= work_to_do) {
+> -			netdev_err(vif->dev, "Need more frags\n");
+> +		if (slots >= work_to_do) {
+> +			netdev_err(vif->dev,
+> +				   "Asked for %d slots but exceeds this limit\n",
+> +				   work_to_do);
+>  			netbk_fatal_tx_err(vif);
+>  			return -ENODATA;
+>  		}
+>  
+> -		if (unlikely(frags >= MAX_SKB_FRAGS)) {
+> -			netdev_err(vif->dev, "Too many frags\n");
+> +		/* This guest is really using too many slots and
+> +		 * considered malicious.
+> +		 */
+> +		if (unlikely(slots >= max_skb_slots)) {
+> +			netdev_err(vif->dev,
+> +				   "Malicious frontend using %d slots, threshold %u\n",
+> +				   slots, max_skb_slots);
+>  			netbk_fatal_tx_err(vif);
+>  			return -E2BIG;
+>  		}
+>  
+> -		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + frags),
+> +		/* Xen network protocol had implicit dependency on
+> +		 * MAX_SKB_FRAGS. XEN_NETIF_NR_SLOTS_MIN is set to the
+> +		 * historical MAX_SKB_FRAGS value 18 to honor the same
+> +		 * behavior as before. Any packet using more than 18
+> +		 * slots but less than max_skb_slots slots is dropped
+> +		 */
+> +		if (!drop_err && slots >= XEN_NETIF_NR_SLOTS_MIN) {
+> +			if (net_ratelimit())
+> +				netdev_dbg(vif->dev,
+> +					   "Too many slots (%d) exceeding limit (%d), dropping packet\n",
+> +					   slots, XEN_NETIF_NR_SLOTS_MIN);
+> +			drop_err = -E2BIG;
 > +		}
-> +#else
-> +		BUG_ON(use_ipv6);
-> +#endif
-
-WBR, Sergei
+> +
+> +		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
+>  		       sizeof(*txp));
+>  		if (txp->size > first->size) {
+> -			netdev_err(vif->dev, "Frag is bigger than frame.\n");
+> +			netdev_err(vif->dev,
+> +				   "Invalid tx request, slot size %u > remaining size %u\n",
+> +				   txp->size, first->size);
+>  			netbk_fatal_tx_err(vif);
+>  			return -EIO;
+>  		}
+>  
+>  		first->size -= txp->size;
+> -		frags++;
+> +		slots++;
+>  
+>  		if (unlikely((txp->offset + txp->size) > PAGE_SIZE)) {
+> -			netdev_err(vif->dev, "txp->offset: %x, size: %u\n",
+> +			netdev_err(vif->dev, "Cross page boundary, txp->offset: %x, size: %u\n",
+>  				 txp->offset, txp->size);
+>  			netbk_fatal_tx_err(vif);
+>  			return -EINVAL;
+>  		}
+>  	} while ((txp++)->flags & XEN_NETTXF_more_data);
+> -	return frags;
+> +
+> +	if (drop_err) {
+> +		netbk_tx_err(vif, first, first_idx + slots);
+> +		return drop_err;
+> +	}
+> +
+> +	return slots;
+>  }
+>  
+>  static struct page *xen_netbk_alloc_page(struct xen_netbk *netbk,
