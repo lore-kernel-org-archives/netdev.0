@@ -1,32 +1,76 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] sh_eth: use random MAC address if no valid one supplied
-Date: Wed, 01 May 2013 00:18:43 +0400
-Message-ID: <51802723.9020105@cogentembedded.com>
-References: <201304292349.43251.sergei.shtylyov@cogentembedded.com> <20130430.153729.859998606300915403.davem@davemloft.net>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: [PATCH v2 net-next] Revert
+ "bnx2x: allow nvram test to run when device is down"
+Date: Tue, 30 Apr 2013 23:24:42 +0300
+Message-ID: <1367353482-24529-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <20130430.153729.859998606300915403.davem@davemloft.net>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:2027 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933325Ab3D3UY6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 16:24:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/30/2013 11:37 PM, David Miller wrote:
+This reverts commit d2d2d87dfd1a25ee270994c5b9e3eb4690428d32
+("bnx2x: allow nvram test to run when device is down").
 
->
->> On Renesas R-Car based development boards, although a MAC address is printed on
->> all the Ethernet port labels, U-Boot  doesn't write a valid MAC address  to the
->> Ether MAHR/MALR registers (there's no storage provided for the Ether MAC address
->> either), so we have to resort to using a random MAC address...
->>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> Applied, thanks.
+Since it makes access to the device in D3 state possible.
+More work is required to make sure device is not set to D3
+during ifdown. Until this is done the nvram-test should simply
+exit if device is down like it did before.
 
-     Thanks to you. I thought I'll have to wait after merge window 
-closes now... :-)
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+This will be done in another patch-series after the current merge window.
+v2 - Fixed  message to include SHA_ID and "Commit message header line."  
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
 
-WBR, Sergei
-
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 397537b..ce1a916 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -2867,16 +2867,9 @@ static void bnx2x_self_test(struct net_device *dev,
+ 
+ 	memset(buf, 0, sizeof(u64) * BNX2X_NUM_TESTS(bp));
+ 
+-	if (bnx2x_test_nvram(bp) != 0) {
+-		if (!IS_MF(bp))
+-			buf[4] = 1;
+-		else
+-			buf[0] = 1;
+-		etest->flags |= ETH_TEST_FL_FAILED;
+-	}
+-
+ 	if (!netif_running(dev)) {
+-		DP(BNX2X_MSG_ETHTOOL, "Interface is down\n");
++		DP(BNX2X_MSG_ETHTOOL,
++		   "Can't perform self-test when interface is down\n");
+ 		return;
+ 	}
+ 
+@@ -2938,7 +2931,13 @@ static void bnx2x_self_test(struct net_device *dev,
+ 		/* wait until link state is restored */
+ 		bnx2x_wait_for_link(bp, link_up, is_serdes);
+ 	}
+-
++	if (bnx2x_test_nvram(bp) != 0) {
++		if (!IS_MF(bp))
++			buf[4] = 1;
++		else
++			buf[0] = 1;
++		etest->flags |= ETH_TEST_FL_FAILED;
++	}
+ 	if (bnx2x_test_intr(bp) != 0) {
+ 		if (!IS_MF(bp))
+ 			buf[5] = 1;
+-- 
+1.8.1.4
