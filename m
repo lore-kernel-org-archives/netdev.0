@@ -1,43 +1,65 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v6 4/5] vxlan: add ipv6 support
-Date: Tue, 30 Apr 2013 11:59:58 +0800
-Message-ID: <1367294398.3216.8.camel@cr0>
-References: <1366782874-18700-1-git-send-email-amwang@redhat.com>
-	 <1366782874-18700-5-git-send-email-amwang@redhat.com>
-	 <20130429.115214.930181179286504457.davem@davemloft.net>
+Subject: Re: [Patch net-next v2 3/3] bridge: send query as soon as leave is
+ received
+Date: Tue, 30 Apr 2013 12:05:17 +0800
+Message-ID: <1367294717.3216.11.camel@cr0>
+References: <1367293270-26256-1-git-send-email-amwang@redhat.com>
+	 <1367293270-26256-3-git-send-email-amwang@redhat.com>
+	 <20130430034538.GA20631@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dlstevens@us.ibm.com,
-	stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29690 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:3557 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750741Ab3D3EAW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Apr 2013 00:00:22 -0400
-In-Reply-To: <20130429.115214.930181179286504457.davem@davemloft.net>
+	id S1750741Ab3D3EFe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 00:05:34 -0400
+In-Reply-To: <20130430034538.GA20631@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-04-29 at 11:52 -0400, David Miller wrote:
-> From: Cong Wang <amwang@redhat.com>
-> Date: Wed, 24 Apr 2013 13:54:33 +0800
-> 
-> > +	rc = sock_create_kern(AF_INET6, SOCK_DGRAM, IPPROTO_UDP, &vn->sock);
-> > +	if (rc < 0) {
-> > +		pr_debug("UDP socket create failed\n");
-> > +		return rc;
+On Tue, 2013-04-30 at 11:45 +0800, Herbert Xu wrote:
+> On Tue, Apr 30, 2013 at 11:41:10AM +0800, Cong Wang wrote:
+> > From: Cong Wang <amwang@redhat.com>
+> > 
+> > Continue sending queries when leave is received if the user marks
+> > it as a querier.
+> > 
+> > Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> > Cc: Stephen Hemminger <stephen@networkplumber.org>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: Adam Baker <linux@baker-net.org.uk>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> > ---
+> > v2: only send query to the port received leave
+> > 
+> >  net/bridge/br_multicast.c |    7 +++++++
+> >  1 files changed, 7 insertions(+), 0 deletions(-)
+> > 
+> > diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+> > index bab3d5a..b1879c8 100644
+> > --- a/net/bridge/br_multicast.c
+> > +++ b/net/bridge/br_multicast.c
+> > @@ -1250,6 +1250,13 @@ static void br_multicast_leave_group(struct net_bridge *br,
+> >  	if (!mp)
+> >  		goto out;
+> >  
+> > +	if (br->multicast_querier) {
+> > +		if (port)
+> > +			__br_multicast_enable_port(port);
+> > +		else
+> > +			mod_timer(&br->multicast_query_timer, jiffies);
 > > +	}
 > 
-> You have to fall back to creating and using an ipv4 socket if making
-> the ipv6 one fails.
-> 
-> IPV6 being enabled does not mean it is guaranteed the one can
-> successfully create ipv6 sockets.
-> 
-> You also must handle /proc/sys/net/ipv6/conf/${DEV}/disable_ipv6
-> correctly as far as this stuff goes as well.
+> AFAICS this is still sending a general query as opposed to a
+> group-specific query, no?
 > 
 
-Right, we should detect the run-time IPv6 support too.
+When port is NULL, the query should only be sent to bridge itself, so I
+think this is what we expect, right? Since we receive leave from bridge
+itself.
