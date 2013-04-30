@@ -1,56 +1,58 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH net-next V7 3/4] xen-netback: coalesce
- slots in TX path and fix regressions
-Date: Tue, 30 Apr 2013 14:55:49 +0100
-Message-ID: <517FE98502000078000D21FC@nat28.tlf.novell.com>
-References: <1366633243-17775-1-git-send-email-wei.liu2@citrix.com>
- <1366633243-17775-4-git-send-email-wei.liu2@citrix.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCHv2 net-next 2/2] bridge: Add a flag to control
+ unicast packet flood.
+Date: Tue, 30 Apr 2013 10:02:30 -0400
+Message-ID: <517FCEF6.3060305@redhat.com>
+References: <1367256945-25923-1-git-send-email-vyasevic@redhat.com>
+	<1367256945-25923-3-git-send-email-vyasevic@redhat.com>
+	<20130429164350.11eaaab1@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <ian.campbell@citrix.com>, <davem@davemloft.net>,
-	<xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
-To: "Wei Liu" <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat28.tlf.novell.com ([130.57.49.28]:55156 "EHLO
-	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760643Ab3D3NzI convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
-	Tue, 30 Apr 2013 09:55:08 -0400
-In-Reply-To: <1366633243-17775-4-git-send-email-wei.liu2@citrix.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, mst@redhat.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130429164350.11eaaab1@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
->>> On 22.04.13 at 14:20, Wei Liu <wei.liu2@citrix.com> wrote:
-> @@ -1256,11 +1394,12 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
->  	struct sk_buff *skb;
->  	int ret;
->  
-> -	while (((nr_pending_reqs(netbk) + MAX_SKB_FRAGS) < MAX_PENDING_REQS) &&
-> +	while ((nr_pending_reqs(netbk) + XEN_NETIF_NR_SLOTS_MIN
-> +		< MAX_PENDING_REQS) &&
->  		!list_empty(&netbk->net_schedule_list)) {
->  		struct xenvif *vif;
->  		struct xen_netif_tx_request txreq;
-> -		struct xen_netif_tx_request txfrags[MAX_SKB_FRAGS];
-> +		struct xen_netif_tx_request txfrags[max_skb_slots];
+On 04/29/2013 07:43 PM, Stephen Hemminger wrote:
+> On Mon, 29 Apr 2013 13:35:45 -0400
+> Vlad Yasevich <vyasevic@redhat.com> wrote:
+>
+>> Add a flag to control flood of unicast traffic.  By default, flood is
+>> on and the bridge will flood unicast traffic if it doesn't know
+>> the destination.  When the flag is turned off, unicast traffic
+>> without an FDB will not be forwarded to the specified port.
+>>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> Reviewed-by: Michael S. Tsirkin <mst@redhat.com>
+>>
+>
+> This a good idea and thank you for doing it. I like that the flag is expressed
+> as a positive value (rather than an inverse value like no-flood).
+>
+> The name BR_UNICAST_FLOOD is too long, just use BR_FLOOD and keep the code
+> shorter.
+>
+> This doesn't apply against current net-next (same problem as first patch).
+>
+> Also, I am not a fan of having lots of boolean flag variables in normal
+> code paths. It ends up reading like PASCAL code. But probably unavoidable in this case.
+>
 
-With max_skb_slots only having a lower limit enforced, this
-basically gives the admin a way to crash the kernel without
-necessarily being aware (and, considering that this would be
-memory corruption, without necessarily being able to readily
-connect the crash to the too high module parameter).
+Sorry, I'll rebase and resubmit.  The alternative there is to possibly
+flag skb->cb.  Then we wouldn't need to pass the argument around.
+If you'd rather I do that, it's easy enough.
 
-I was anyway of the opinion that dynamically sized stack
-objects aren't really desirable to have in the kernel.
-
-In any event, with a few tweaks netbk_count_requests() could
-certainly be made not touch txp-s past XEN_NETIF_NR_SLOTS_MIN
-(maybe XEN_NETIF_NR_SLOTS_MIN + 1).
-
-Jan
-
->  		struct page *page;
->  		struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX-1];
->  		u16 pending_idx;
+Thanks
+-vlad
