@@ -1,81 +1,66 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Tue, 30 Apr 2013 16:29:44 +0900
-Message-ID: <20130430072944.GA13959@verge.net.au>
-References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
- <1367290378-29224-2-git-send-email-horms@verge.net.au>
- <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Gerlando Falauto <gerlando.falauto@keymile.com>
+Subject: [PATCH v3 2/3] tipc: tipc_bcbearer_send(): simplify bearer selection
+Date: Tue, 30 Apr 2013 09:33:18 +0200
+Message-ID: <1367307199-10577-2-git-send-email-gerlando.falauto@keymile.com>
+References: <1367244820-29881-1-git-send-email-gerlando.falauto@keymile.com>
+ <1367307199-10577-1-git-send-email-gerlando.falauto@keymile.com>
+Cc: jon.maloy@ericsson.com, erik.hugne@ericsson.com,
+	ying.xue@windriver.com, holger.brunck@keymile.com,
+	Gerlando Falauto <gerlando.falauto@keymile.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-de.keymile.com ([195.8.104.250]:56047 "EHLO
+	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753162Ab3D3HjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 03:39:01 -0400
+In-Reply-To: <1367307199-10577-1-git-send-email-gerlando.falauto@keymile.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 30, 2013 at 10:12:38AM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Tue, 30 Apr 2013, Simon Horman wrote:
-> 
-> > This is intended for use in loops which read data protected by RCU and may
-> > have a large number of iterations.  Such an example is dumping the list of
-> > connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
-> > 
-> > The call to cond_resched() is guarded by #ifndef CONFIG_PREEMPT_RCU as in
-> > the case of CONFIG_PREEMPT_RCU _rcu_read_unlock() will check to see if the
-> > RCU core needs to be informed, so there is no need to invoke cond_resched()
-> > in that case. Thanks to Paul E. McKenney for explaining this.
-> > 
-> > cond_resched_rcu_lock() suggested by Eric Dumazet.
-> > ifndef guard suggested by Paul E. McKenney and Julian Anastasov.
-> > 
-> > Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> > Cc: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> > Cc: Julian Anastasov <ja@ssi.bg>
-> > Acked-by: Ingo Molnar <mingo@kernel.org>
-> > Signed-off-by: Simon Horman <horms@verge.net.au>
-> > 
-> > ---
-> > 
-> > v2
-> > * Add guard the call to cond_resched()
-> > ---
-> >  include/linux/sched.h | 11 +++++++++++
-> >  1 file changed, 11 insertions(+)
-> > 
-> > diff --git a/include/linux/sched.h b/include/linux/sched.h
-> > index e692a02..66da71c 100644
-> > --- a/include/linux/sched.h
-> > +++ b/include/linux/sched.h
-> > @@ -2787,3 +2787,14 @@ static inline unsigned long rlimit_max(unsigned int limit)
-> >  }
-> >  
-> >  #endif
-> > +
-> > +static void inline cond_resched_rcu_lock(void)
-> > +{
-> > +	if (need_resched()) {
-> 
-> 	Ops, it should be without above need_resched.
+Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
+---
+Changes from v2:
+* Fixed non-bisectability; was tipc_bearer_send(b, buf, &s->media...)
 
-Thanks, to clarify, just this:
+ net/tipc/bcast.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
-static void inline cond_resched_rcu_lock(void)
-{
-	rcu_read_unlock();
-#ifndef CONFIG_PREEMPT_RCU
-	cond_resched();
-#endif
-	rcu_read_lock();
-}
+diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+index 8438e01..c8f572f 100644
+--- a/net/tipc/bcast.c
++++ b/net/tipc/bcast.c
+@@ -610,23 +610,23 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+ 	for (bp_index = 0; bp_index < MAX_BEARERS; bp_index++) {
+ 		struct tipc_bearer *p = bcbearer->bpairs[bp_index].primary;
+ 		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
++		struct tipc_bearer *b = p;
+ 
+ 		if (!p)
+ 			break; /* No more bearers to try */
+ 
+-		tipc_nmap_diff(&bcbearer->remains, &p->nodes,
++		if (tipc_bearer_blocked(p)) {
++			if (!s || tipc_bearer_blocked(s))
++				continue; /* Can't use either bearer */
++			b = s;
++		}
++
++		tipc_nmap_diff(&bcbearer->remains, &b->nodes,
+ 			       &bcbearer->remains_new);
+ 		if (bcbearer->remains_new.count == bcbearer->remains.count)
+ 			continue; /* Nothing added by bearer pair */
+ 
+-		if (!tipc_bearer_blocked(p))
+-			tipc_bearer_send(p, buf, &p->media->bcast_addr);
+-		else if (s && !tipc_bearer_blocked(s))
+-			/* unable to send on primary bearer */
+-			tipc_bearer_send(s, buf, &s->media->bcast_addr);
+-		else
+-			/* unable to send on either bearer */
+-			continue;
++		tipc_bearer_send(b, buf, &b->media->bcast_addr);
+ 
+ 		/* Swap bearers for next packet */
+ 		if (s) {
+-- 
+1.7.10.1
