@@ -1,73 +1,40 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net-next] Revert
- "bnx2x: allow nvram test to run when device is down"
-Date: Tue, 30 Apr 2013 12:34:07 +0300
-Message-ID: <1367314447-10518-1-git-send-email-dmitry@broadcom.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v7 4/6] vxlan: add ipv6 support
+Date: Tue, 30 Apr 2013 17:38:14 +0800
+Message-ID: <1367314694.3216.25.camel@cr0>
+References: <1367311395-15891-1-git-send-email-amwang@redhat.com>
+	 <1367311395-15891-5-git-send-email-amwang@redhat.com>
+	 <87r4hscr7s.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4231 "EHLO mms2.broadcom.com"
+Received: from mx1.redhat.com ([209.132.183.28]:63455 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752898Ab3D3JeS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Apr 2013 05:34:18 -0400
+	id S1759173Ab3D3Jjg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 05:39:36 -0400
+In-Reply-To: <87r4hscr7s.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This reverts commit d2d2d87dfd1a25ee270994c5b9e3eb4690428d32.
-Since it makes access to the device in D3 state possible.
-More work is required to make sure device is not set to D3
-during ifdown. Until this is done the nvram-test should simply
-exit if device is down like it did before.
+On Tue, 2013-04-30 at 11:17 +0200, Bj=C3=B8rn Mork wrote:
+> There is no need to rush
+> this, and people may get tired of looking at the same shortcomings
+> over
+> and over again.=20
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
-This will be done in another patch-series after the current merge window.
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 19 +++++++++----------
- 1 file changed, 9 insertions(+), 10 deletions(-)
+The sooner it gets merged, the less maintaining pains I have. I have to
+solve many conflicts _every time_ I rebase it on to the latest net-next=
+=2E
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 397537b..ce1a916 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -2867,16 +2867,9 @@ static void bnx2x_self_test(struct net_device *dev,
- 
- 	memset(buf, 0, sizeof(u64) * BNX2X_NUM_TESTS(bp));
- 
--	if (bnx2x_test_nvram(bp) != 0) {
--		if (!IS_MF(bp))
--			buf[4] = 1;
--		else
--			buf[0] = 1;
--		etest->flags |= ETH_TEST_FL_FAILED;
--	}
--
- 	if (!netif_running(dev)) {
--		DP(BNX2X_MSG_ETHTOOL, "Interface is down\n");
-+		DP(BNX2X_MSG_ETHTOOL,
-+		   "Can't perform self-test when interface is down\n");
- 		return;
- 	}
- 
-@@ -2938,7 +2931,13 @@ static void bnx2x_self_test(struct net_device *dev,
- 		/* wait until link state is restored */
- 		bnx2x_wait_for_link(bp, link_up, is_serdes);
- 	}
--
-+	if (bnx2x_test_nvram(bp) != 0) {
-+		if (!IS_MF(bp))
-+			buf[4] = 1;
-+		else
-+			buf[0] = 1;
-+		etest->flags |= ETH_TEST_FL_FAILED;
-+	}
- 	if (bnx2x_test_intr(bp) != 0) {
- 		if (!IS_MF(bp))
- 			buf[5] = 1;
--- 
-1.8.1.4
+What's more, I _do_ have some specific reason to push it soon. Please
+don't judge it by your own standard, you are not the one who is being
+pushed.
+
+At last, you can just read the changelog in the cover letter, don't hav=
+e
+to look at them over and over again at all.
