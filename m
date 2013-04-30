@@ -1,44 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch net-next v2 3/3] bridge: send query as soon as leave is
- received
-Date: Tue, 30 Apr 2013 12:07:36 +0800
-Message-ID: <20130430040736.GA20799@gondor.apana.org.au>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v2 2/3] bridge: only expire the mdb entry when
+ query is received
+Date: Tue, 30 Apr 2013 12:09:14 +0800
+Message-ID: <1367294954.3216.13.camel@cr0>
 References: <1367293270-26256-1-git-send-email-amwang@redhat.com>
- <1367293270-26256-3-git-send-email-amwang@redhat.com>
- <20130430034538.GA20631@gondor.apana.org.au>
- <1367294717.3216.11.camel@cr0>
+	 <1367293270-26256-2-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
 	Stephen Hemminger <stephen@networkplumber.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Adam Baker <linux@baker-net.org.uk>
-To: Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:41777 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750854Ab3D3EHk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 00:07:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1367294717.3216.11.camel@cr0>
+Received: from mx1.redhat.com ([209.132.183.28]:21115 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750908Ab3D3EJ0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 00:09:26 -0400
+In-Reply-To: <1367293270-26256-2-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Apr 30, 2013 at 12:05:17PM +0800, Cong Wang wrote:
->
-> When port is NULL, the query should only be sent to bridge itself, so I
-> think this is what we expect, right? Since we receive leave from bridge
-> itself.
+On Tue, 2013-04-30 at 11:41 +0800, Cong Wang wrote:
+> @@ -1263,13 +1265,16 @@ static void br_multicast_leave_group(struct
+> net_bridge *br,
+...
+>  
+> +       if (!mp->timer_armed)
+> +               goto out;
+> + 
 
-No I'm not talking about which port it's being sent to (which
-obviously should only be the port where the leave arrived on),
-but what is in the query message.
-
-A general query queries every single group out there, for a leave
-we need to specifically query for the group that is being left.
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The above piece doesn't look right, will fix it in v3.
