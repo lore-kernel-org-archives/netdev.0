@@ -1,51 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch 1/1] ipvs: change type of
- netns_ipvs->sysctl_sync_qlen_max
-Date: Tue, 30 Apr 2013 00:22:44 -0400 (EDT)
-Message-ID: <20130430.002244.1149700663501203988.davem@davemloft.net>
-References: <20130429185510.DFBB031C266@corp2gmr1-1.hot.corp.google.com>
-	<20130430022417.GA24214@verge.net.au>
+Subject: Re: [PATCH v3 1/3] unix/dgram: peek beyond 0-sized skbs
+Date: Tue, 30 Apr 2013 00:44:08 -0400 (EDT)
+Message-ID: <20130430.004408.1248228240476926838.davem@davemloft.net>
+References: <kll5si$544$1@ger.gmane.org>
+	<1367271734-14379-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	zhangyanfei@cn.fujitsu.com, ja@ssi.bg
-To: horms@verge.net.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39569 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751267Ab3D3EWq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 00:22:46 -0400
-In-Reply-To: <20130430022417.GA24214@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: edumazet@google.com, xemul@parallels.com, xiyou.wangcong@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bpoirier@suse.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1367271734-14379-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 30 Apr 2013 11:24:17 +0900
+From: Benjamin Poirier <bpoirier@suse.de>
+Date: Mon, 29 Apr 2013 17:42:12 -0400
 
-> On Mon, Apr 29, 2013 at 11:55:10AM -0700, akpm@linux-foundation.org wrote:
->> From: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
->> Subject: ipvs: change type of netns_ipvs->sysctl_sync_qlen_max
->> 
->> This member of struct netns_ipvs is calculated from nr_free_buffer_pages
->> so change its type to unsigned long in case of overflow.  Also, type of
->> its related proc var sync_qlen_max and the return type of function
->> sysctl_sync_qlen_max() should be changed to unsigned long, too.
->> 
->> Besides, the type of ipvs_master_sync_state->sync_queue_len should be
->> changed to unsigned long accordingly.
->> 
->> Signed-off-by: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
->> Cc: Simon Horman <horms@verge.net.au>
->> Cc: Julian Anastasov <ja@ssi.bg>
->> Cc: David Miller <davem@davemloft.net>
->> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+> "77c1090 net: fix infinite loop in __skb_recv_datagram()" (v3.8) introduced a
+> regression:
+> After that commit, recv can no longer peek beyond a 0-sized skb in the queue.
+> __skb_recv_datagram() instead stops at the first skb with len == 0 and results
+> in the system call failing with -EFAULT via skb_copy_datagram_iovec().
 > 
-> Andrew, David,
+> When peeking at an offset with 0-sized skb(s), each one of those is received
+> only once, in sequence. The offset starts moving forward again after receiving
+> datagrams with len > 0.
 > 
-> It seems most appropriate for me to
-> queue this up for v3.11 in the ipvs-next tree.
-> 
-> Is that fine?
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
 
-I'm personally fine with that.
+Applied.
