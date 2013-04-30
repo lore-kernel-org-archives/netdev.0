@@ -1,87 +1,57 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [IPROUTE PATCH v2] iproute2: act_ipt fix xtables breakage on
- older versions.
-Date: Tue, 30 Apr 2013 08:59:58 -0400
-Message-ID: <517FC04E.30705@mojatatu.com>
-References: <20130429154644.52016.60284.stgit@ahduyck-cp1.jf.intel.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net-next] tg3: shows HW time stamping support only if
+ ptp_capable is present
+Date: Tue, 30 Apr 2013 10:10:51 -0300
+Message-ID: <20130430131051.GA19993@obelix.rh>
+References: <1367255287-2664-1-git-send-email-fbl@redhat.com>
+ <20130430105015.097b4b59@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, Hasan Chowdhury <shemonc@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+To: Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f170.google.com ([209.85.223.170]:49528 "EHLO
-	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759848Ab3D3NAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 30 Apr 2013 09:00:05 -0400
-Received: by mail-ie0-f170.google.com with SMTP id at1so531550iec.1
-        for <netdev@vger.kernel.org>; Tue, 30 Apr 2013 06:00:05 -0700 (PDT)
-In-Reply-To: <20130429154644.52016.60284.stgit@ahduyck-cp1.jf.intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:33978 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760220Ab3D3NKy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 09:10:54 -0400
+Content-Disposition: inline
+In-Reply-To: <20130430105015.097b4b59@griffin>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Apr 30, 2013 at 10:50:15AM +0200, Jiri Benc wrote:
+> On Mon, 29 Apr 2013 14:08:07 -0300, Flavio Leitner wrote:
+> > Current tg3 shows hardware timestamping support for all devices
+> > when that is true only for the hardware with PTP_CAPABLE flag
+> > present.
+> > 
+> > Signed-off-by: Flavio Leitner <fbl@redhat.com>
+> > ---
+> >  drivers/net/ethernet/broadcom/tg3.c | 11 +++++++----
+> >  1 file changed, 7 insertions(+), 4 deletions(-)
+> > 
+> > diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> > index ac83c87..ef0b8a6 100644
+> > --- a/drivers/net/ethernet/broadcom/tg3.c
+> > +++ b/drivers/net/ethernet/broadcom/tg3.c
+> > @@ -5992,10 +5992,13 @@ static int tg3_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
+> >  
+> >  	info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
+> >  				SOF_TIMESTAMPING_RX_SOFTWARE |
+> > -				SOF_TIMESTAMPING_SOFTWARE    |
+> > -				SOF_TIMESTAMPING_TX_HARDWARE |
+> > -				SOF_TIMESTAMPING_RX_HARDWARE |
+> > -				SOF_TIMESTAMPING_RAW_HARDWARE;
+> > +				SOF_TIMESTAMPING_SOFTWARE;
+> > +
+> > +	if (tg3_flag(tp, PTP_CAPABLE)) {
+> > +		info->so_timestamping = SOF_TIMESTAMPING_TX_HARDWARE |
+>                                      ^^^^
+>                          You need |= here.
 
-Hi Alex,
-Theres still some confusion on my part.
-
-On 13-04-29 11:50 AM, Alexander Duyck wrote:
-
-> The first is that xtables_merge_options only has 3 parameters.  It appears
-> this is how this code was originally.
-
-what you are describing above is still not making sense:
-
-  As such for the case where the version
-> is less than 6 I am assuming it would be correct to maintain the original
-> setup that only had 3 parameters being passed instead of 4.
->
-
-More below, lets just pick one of those:
-
-> @@ -335,8 +338,7 @@ print_ipt(struct action_util *au,FILE * f, struct rtattr *arg)
->   					    m->x6_options,
->   					    &m->option_offset);
->   #else
-> -		opts = xtables_merge_options(tcipt_globals.orig_opts,
-> -					     tcipt_globals.opts,
-> +		opts = xtables_merge_options(tcipt_globals.opts,
->   					     m->extra_opts,
->   					     &m->option_offset);
->   #endif
->
-
-
-Here's the original equivalent change that you are updating:
--------
--                       tcipt_globals.opts =
--                           xtables_merge_options(
-  #if (XTABLES_VERSION_CODE >= 6)
--                                                 tcipt_globals.orig_opts,
-+               opts = xtables_options_xfrm(tcipt_globals.orig_opts,
-+                                           tcipt_globals.opts,
-+                                           m->x6_options,
-+                                           &m->option_offset);
-+#else
-+               opts = xtables_merge_options(tcipt_globals.orig_opts,
-+                                            tcipt_globals.opts,
-+                                            m->extra_opts,
-+                                            &m->option_offset);
-  #endif
--                                                 tcipt_globals.opts,
--                                                 m->extra_opts,
--                                                 &m->option_offset);
-------------------
-
-I see, originally these parameters for xtables_merge_options():
-tcipt_globals.orig_opts  <---- This is what you are trying to kill
-tcipt_globals.opts
-m->extra_opts
-&m->option_offset
-
-Which says there were 4 parameters to begin with....
-Unless you are saying we had it wrong the first time. Pablo?
-
-cheers,
-jamal
+Of course, I will send a follow up patch.
+Thanks for reviewing it.
+-- 
+fbl
