@@ -1,44 +1,76 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v7 4/6] vxlan: add ipv6 support
-Date: Tue, 30 Apr 2013 17:25:56 +0800
-Message-ID: <1367313956.3216.18.camel@cr0>
-References: <1367311395-15891-1-git-send-email-amwang@redhat.com>
-	 <1367311395-15891-5-git-send-email-amwang@redhat.com>
-	 <87r4hscr7s.fsf@nemi.mork.no>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH v2 1/1] drivers: net: cpsw: fix kernel warn on cpsw irq enable
+Date: Tue, 30 Apr 2013 14:57:28 +0530
+Message-ID: <1367314048-11503-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Sebastian Siewior <bigeasy@linutronix.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59788 "EHLO mx1.redhat.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:40664 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759818Ab3D3J0X (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 30 Apr 2013 05:26:23 -0400
-In-Reply-To: <87r4hscr7s.fsf@nemi.mork.no>
+	id S1759854Ab3D3J1m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 30 Apr 2013 05:27:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-04-30 at 11:17 +0200, Bj=C3=B8rn Mork wrote:
-> Please take your time to clean up your todo-list and *test* the resul=
-t
-> with different runtime and buildtime settings. There is no need to ru=
-sh
-> this, and people may get tired of looking at the same shortcomings ov=
-er
-> and over again.
->=20
+With the commit a11fbba (net/cpsw: fix irq_disable() with threaded interrupts)
+from Sebastian Siewior, a kernel warning is generated as below. This warning
+is generated as the irq_enabled is not initialized for the primary interface
+and in probe it is initialized for the second interface. This patch moves
+irq_enabled initialization from second interface to primary interface.
 
-So, why do you expect it is perfect?
+[    3.049173] net eth0: phy found : id is : 0x4dd074
+[    3.054552] net eth0: phy found : id is : 0x4dd074
+[    3.070421] ------------[ cut here ]------------
+[    3.075308] WARNING: at kernel/irq/manage.c:437 enable_irq+0x3c/0x74()
+[    3.082173] Unbalanced enable for IRQ 56
+[    3.086299] Modules linked in:
+[    3.089557] [<c001abcc>] (unwind_backtrace+0x0/0xf0) from [<c004294c>] (warn_slowpath_common+0x4c/0x68)
+[    3.099450] [<c004294c>] (warn_slowpath_common+0x4c/0x68) from [<c00429fc>] (warn_slowpath_fmt+0x30/0x40)
+[    3.109521] [<c00429fc>] (warn_slowpath_fmt+0x30/0x40) from [<c00a29fc>] (enable_irq+0x3c/0x74)
+[    3.118681] [<c00a29fc>] (enable_irq+0x3c/0x74) from [<c03a7818>] (cpsw_ndo_open+0x61c/0x684)
+[    3.127669] [<c03a7818>] (cpsw_ndo_open+0x61c/0x684) from [<c0445c08>] (__dev_open+0x9c/0xf8)
+[    3.136646] [<c0445c08>] (__dev_open+0x9c/0xf8) from [<c0445e34>] (__dev_change_flags+0x78/0x13c)
+[    3.145988] [<c0445e34>] (__dev_change_flags+0x78/0x13c) from [<c0445f64>] (dev_change_flags+0x10/0x48)
+[    3.155884] [<c0445f64>] (dev_change_flags+0x10/0x48) from [<c0736d88>] (ip_auto_config+0x198/0x111c)
+[    3.165592] [<c0736d88>] (ip_auto_config+0x198/0x111c) from [<c00086a4>] (do_one_initcall+0x34/0x180)
+[    3.175309] [<c00086a4>] (do_one_initcall+0x34/0x180) from [<c07078f8>] (kernel_init_freeable+0xfc/0x1c8)
+[    3.185393] [<c07078f8>] (kernel_init_freeable+0xfc/0x1c8) from [<c04f36ec>] (kernel_init+0x8/0xe4)
+[    3.194929] [<c04f36ec>] (kernel_init+0x8/0xe4) from [<c00133d0>] (ret_from_fork+0x14/0x24)
+[    3.203712] ---[ end trace d6f979da080bc391 ]---
 
-It is extremely normal that a new feature is not perfect initially, and
-takes more time to make it perfect. If you need a real example, netlink
-mmap is exactly one, the initial version merged into net-next even
-doesn't compile for some case.
+Cc: Sebastian Siewior <bigeasy@linutronix.de>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+Changes from initial version:
+* added previous commit summary
+* changed secondary interface to second interface
 
-And, why do you want to rely on me to fix them all?
+ drivers/net/ethernet/ti/cpsw.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I am *not* at all an expert on IPv6. If this patchset could be merged
-early, many other IPv6 expert can help me to fix the rest issues.
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 4e2d224..59c4391 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1633,7 +1633,6 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+ 		priv_sl2->irqs_table[i] = priv->irqs_table[i];
+ 		priv_sl2->num_irqs = priv->num_irqs;
+ 	}
+-	priv->irq_enabled = true;
+ 	ndev->features |= NETIF_F_HW_VLAN_CTAG_FILTER;
+ 
+ 	ndev->netdev_ops = &cpsw_netdev_ops;
+@@ -1679,6 +1678,7 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	priv->msg_enable = netif_msg_init(debug_level, CPSW_DEBUG);
+ 	priv->rx_packet_max = max(rx_packet_max, 128);
+ 	priv->cpts = devm_kzalloc(&pdev->dev, sizeof(struct cpts), GFP_KERNEL);
++	priv->irq_enabled = true;
+ 	if (!ndev) {
+ 		pr_err("error allocating cpts\n");
+ 		goto clean_ndev_ret;
+-- 
+1.7.9.5
