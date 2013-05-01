@@ -1,42 +1,30 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH 1/2 v5 RESEND] usbnet: allow status interrupt URB to always be active
-Date: Wed, 01 May 2013 09:23:42 +0200
-Message-ID: <15542804.UEZW9B2gES@linux-5eaq.site>
-References: <1367260435.20151.28.camel@dcbw.foobar.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] af_unix: fix a fatal race with bit fields
+Date: Wed, 01 May 2013 03:36:50 -0400 (EDT)
+Message-ID: <20130501.033650.703182794549888825.davem@davemloft.net>
+References: <1367370761.11020.22.camel@edumazet-glaptop>
+	<1367372393.22115.6.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ming Lei <tom.leiming@gmail.com>,
-	Elina Pasheva <epasheva@sierrawireless.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-usb <linux-usb@vger.kernel.org>,
-	Rory Filer <rfiler@sierrawireless.com>,
-	Phil Sutter <phil@nwl.cc>
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, paulus@samba.org,
+	ambrose@google.com, linuxppc-dev@lists.ozlabs.org
+To: benh@kernel.crashing.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out003.kontent.com ([81.88.40.217]:48767 "EHLO
-	smtp-out003.kontent.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753798Ab3EAHWr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 03:22:47 -0400
-In-Reply-To: <1367260435.20151.28.camel@dcbw.foobar.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60674 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753509Ab3EAHgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 03:36:54 -0400
+In-Reply-To: <1367372393.22115.6.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Monday 29 April 2013 13:33:55 Dan Williams wrote:
-> Some drivers (sierra_net) need the status interrupt URB
-> active even when the device is closed, because they receive
-> custom indications from firmware.  Add functions to refcount
-> the status interrupt URB submit/kill operation so that
-> sub-drivers and the generic driver don't fight over whether
-> the status interrupt URB is active or not.
-> 
-> A sub-driver can call usbnet_status_start() at any time, but
-> the URB is only submitted the first time the function is
-> called.  Likewise, when the sub-driver is done with the URB,
-> it calls usbnet_status_stop() but the URB is only killed when
-> all users have stopped it.  The URB is still killed and
-> re-submitted for suspend/resume, as before, with the same
-> refcount it had at suspend.
-> 
-> Signed-off-by: Dan Williams <dcbw@redhat.com>
-Acked-by: Oliver Neukum <oliver@neukum.org>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 01 May 2013 11:39:53 +1000
+
+> I'm not even completely certain bytes are safe to be honest, though
+> probably more than bitfields. I'll poke our compiler people.
+
+Older Alpha only has 32-bit and 64-bit loads and stores, so byte sized
+accesses are not atomic, and therefore use racey read-modify-write
+sequences.
