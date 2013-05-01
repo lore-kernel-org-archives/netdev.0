@@ -1,69 +1,85 @@
-From: Milan Kocian <milon@wq.cz>
-Subject: WARNING: at kernel/softirq.c:160 local_bh_enable_ip+0x7a/0xb0()
- (probably iwl4965)
-Date: Wed, 1 May 2013 11:08:18 +0200
-Message-ID: <20130501090818.GA5907@ntm.wq.cz>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH V5 6/7] xen-netback: coalesce slots in TX
+ path and fix regressions
+Date: Wed, 1 May 2013 10:22:11 +0100
+Message-ID: <20130501092211.GA9780@zion.uk.xensource.com>
+References: <1366045581-31349-1-git-send-email-wei.liu2@citrix.com>
+ <1366045581-31349-7-git-send-email-wei.liu2@citrix.com>
+ <51800809.9070407@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	Ian Campbell <Ian.Campbell@citrix.com>,
+	"konrad.wilk@oracle.com" <konrad.wilk@oracle.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	"jbeulich@suse.com" <jbeulich@suse.com>,
+	"wdauchy@gmail.com" <wdauchy@gmail.com>
+To: annie li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from srw1.wq.cz ([80.92.240.241]:58983 "EHLO srw1.wq.cz"
+Received: from smtp.citrix.com ([66.165.176.89]:12349 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758837Ab3EAJVe convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 05:21:34 -0400
-Received: from [82.202.95.52] (helo=ntm.wq.cz)
-	by srw1.wq.cz with esmtpsa (TLS1.2:DHE_RSA_AES_128_CBC_SHA1:128)
-	(Exim 4.80)
-	(envelope-from <milon@wq.cz>)
-	id 1UXT1W-0002an-Hv
-	for netdev@vger.kernel.org; Wed, 01 May 2013 11:08:26 +0200
-Received: from milon by ntm.wq.cz with local (Exim 4.80)
-	(envelope-from <milon@wq.cz>)
-	id 1UXT1O-0001ZA-Ez
-	for netdev@vger.kernel.org; Wed, 01 May 2013 11:08:18 +0200
+	id S1757143Ab3EAJWM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 May 2013 05:22:12 -0400
 Content-Disposition: inline
+In-Reply-To: <51800809.9070407@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-hello,
+On Tue, Apr 30, 2013 at 07:06:01PM +0100, annie li wrote:
+> 
+> On 2013-4-15 13:06, Wei Liu wrote:
+> > This patch tries to coalesce tx requests when constructing grant copy
+> > structures. It enables netback to deal with situation when frontend's
+> > MAX_SKB_FRAGS is larger than backend's MAX_SKB_FRAGS.
+> >
+> > With the help of coalescing, this patch tries to address two regressions and
+> > avoid reopening the security hole in XSA-39.
+> >
+> > Regression 1. The reduction of the number of supported ring entries (slots)
+> > per packet (from 18 to 17). This regression has been around for some time but
+> > remains unnoticed until XSA-39 security fix. This is fixed by coalescing
+> > slots.
+> >
+> > Regression 2. The XSA-39 security fix turning "too many frags" errors from
+> > just dropping the packet to a fatal error and disabling the VIF. This is fixed
+> > by coalescing slots (handling 18 slots when backend's MAX_SKB_FRAGS is 17)
+> > which rules out false positive (using 18 slots is legit) and dropping packets
+> > using 19 to `max_skb_slots` slots.
+> >
+> > To avoid reopening security hole in XSA-39, frontend sending packet using more
+> > than max_skb_slots is considered malicious.
+> >
+> > The behavior of netback for packet is thus:
+> >
+> >      1-18            slots: valid
+> >     19-max_skb_slots slots: drop and respond with an error
+> >     max_skb_slots+   slots: fatal error
+> >
+> > max_skb_slots is configurable by admin, default value is 20.
+> >
+> > Also change variable name from "frags" to "slots" in netbk_count_requests.
+> >
+> > Please note that RX path still has dependency on MAX_SKB_FRAGS. This will be
+> > fixed with separate patch.
+> 
+> Wei,
+> 
+> The RX path dependency on MAX_SKB_FRAGS in netback should not cause 
+> packet dropping issue like TX path, RX path only calls netif_stop_queue 
+> if RX ring is full.
+> What is your plan on RX path? Is it in your schedule or you started it 
+> already?
+> 
 
-after upgrade to the kernel v3.9 I see this nice warning after every reboot.
+Not yet planned or started. My general idea is that we need to remove
+all dependency on MAX_SKB_FRAGS.
 
-------------[ cut here ]------------
-WARNING: at kernel/softirq.c:160 local_bh_enable_ip+0x7a/0xb0()
-Hardware name: 76693KG
-Modules linked in: cpufreq_userspace cpufreq_stats cpufreq_powersave cpufreq_ondemand cpufreq_conservative ipv6 rfcomm nfnetlink_log nfnetlink bnep deflate zlib_deflate zlib_inflate ctr twofish_x86_64_3way twofish_x86_64 twofish_common camellia_generic camellia_x86_64 serpent_sse2_x86_64 serpent_generic xts lrw gf128mul glue_helper blowfish_generic blowfish_x86_64 blowfish_common cast5_generic cast_common ablk_helper cryptd des_generic xcbc rmd160 sha512_generic sha1_ssse3 sha1_generic hmac crypto_null af_key xfrm_algo sha256_generic md_mod uinput usbhid fuse snd_hda_codec_analog snd_hda_intel snd_hda_codec snd_hwdep arc4 btusb snd_pcm_oss snd_mixer_oss snd_pcm i915 thinkpad_acpi snd_page_alloc cfbfillrect cfbimgblt bluetooth crc16 iwl4965 iwlegacy mac80211 snd_seq_dummy acpi_cpufreq snd_s
- eq_oss i2c_algo_bit snd_seq_midi cfg80211 firewire_ohci firewire_core crc_itu_t mperf snd_rawmidi cfbcopyarea pcmcia ehci_pci coretemp e1000e iTCO_wdt sdhci_pci drm_kms_helper drm lpc_ich uhci_hcd ehci_hcd snd_seq_midi_event yenta_socket pcmcia_rsrc pcmcia_core sdhci mfd_core mmc_core snd_seq usbcore kvm_intel kvm tpm_tis tpm tpm_bios snd_seq_device snd_timer i2c_i801 i2c_core microcode usb_common snd video rfkill ptp pps_core soundcore
-Pid: 5812, comm: wpa_supplicant Not tainted 3.9.0 #57
-Call Trace:
- [<ffffffff81036829>] ? warn_slowpath_common+0x79/0xc0
- [<ffffffff8103d71a>] ? local_bh_enable_ip+0x7a/0xb0
- [<ffffffffa0329014>] ? il4965_tx_skb+0xc04/0xd50 [iwl4965]
- [<ffffffffa02ba281>] ? ieee80211_crypto_tkip_encrypt+0x141/0x1d0 [mac80211]
- [<ffffffff810f63d0>] ? __kmalloc+0x110/0x120
- [<ffffffffa0329170>] ? il4965_mac_tx+0x10/0x30 [iwl4965]
- [<ffffffffa02d1948>] ? __ieee80211_tx+0x138/0x370 [mac80211]
- [<ffffffffa02d3e4e>] ? ieee80211_tx+0xee/0x120 [mac80211]
- [<ffffffffa02d4f0f>] ? ieee80211_subif_start_xmit+0xb4f/0xd20 [mac80211]
- [<ffffffff81352f40>] ? __skb_recv_datagram+0x110/0x300
- [<ffffffff8135c08e>] ? dev_hard_start_xmit+0x21e/0x460
- [<ffffffff8134fe20>] ? __alloc_skb+0x90/0x2a0
- [<ffffffff8137653d>] ? sch_direct_xmit+0xed/0x1e0
- [<ffffffff8135c4b9>] ? dev_queue_xmit+0x1e9/0x460
- [<ffffffff813ecf1e>] ? packet_sendmsg+0xd7e/0xe60
- [<ffffffff81343e8b>] ? sock_sendmsg+0x7b/0xb0
- [<ffffffff813448f3>] ? move_addr_to_user+0x73/0xd0
- [<ffffffff81346fce>] ? sys_sendto+0xfe/0x150
- [<ffffffff8111ce25>] ? mntput_no_expire+0x25/0x170
- [<ffffffff813475b4>] ? sys_recvmsg+0x44/0x80
- [<ffffffff8140e5d6>] ? system_call_fastpath+0x1a/0x1f
----[ end trace 6443164a8c19ebbd ]---
+I'm working on bug fix for libxl now, so I might get to that later.
 
-If you need more info I will send them. Feel free to send patches
-I will test them :-).
 
-Best regards,
+Wei.
 
--- 
-Milan Kocian
+> Thanks
+> Annie
