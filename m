@@ -1,112 +1,133 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [PATCH net-next 2/2] xen-netback: avoid allocating variable
- size array on stack
-Date: Wed, 1 May 2013 12:47:06 +0100
-Message-ID: <1367408826.3142.714.camel@zakaz.uk.xensource.com>
-References: <1367340644-19690-1-git-send-email-wei.liu2@citrix.com>
-	 <1367340644-19690-3-git-send-email-wei.liu2@citrix.com>
-	 <1367404361.3142.686.camel@zakaz.uk.xensource.com>
-	 <20130501105316.GE9780@zion.uk.xensource.com>
-	 <1367407303.3142.694.camel@zakaz.uk.xensource.com>
-	 <20130501114009.GG9780@zion.uk.xensource.com>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: [PATCH] Add support for netconsole driver used on bridge device
+ with VIF attached
+Date: Wed, 01 May 2013 14:55:01 +0300
+Message-ID: <1367409301.3301.21.camel@yuval-pc.mtl.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jbeulich@suse.com" <jbeulich@suse.com>
-To: Wei Liu <wei.liu2@citrix.com>
+To: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	ian.campbell@citrix.com, bridge <bridge@lists.linux-foundation.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:2180 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751422Ab3EALrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 07:47:08 -0400
-In-Reply-To: <20130501114009.GG9780@zion.uk.xensource.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:46939 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755794Ab3EALzN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 07:55:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-01 at 12:40 +0100, Wei Liu wrote:
-> On Wed, May 01, 2013 at 12:21:43PM +0100, Ian Campbell wrote:
-> > On Wed, 2013-05-01 at 11:53 +0100, Wei Liu wrote:
-> > > On Wed, May 01, 2013 at 11:32:41AM +0100, Ian Campbell wrote:
-> > > > On Tue, 2013-04-30 at 17:50 +0100, Wei Liu wrote:
-> > > > > Tune xen_netbk_count_requests to not touch working array beyond limit, so that
-> > > > > we can make working array size constant.
-> > > > 
-> > > > Is this really correct when max_skb_slots > XEN_NETIF_NR_SLOTS_MIN?
-> > > > Seems like we would either overrun the array or drop frames which
-> > > > max_skb_slots suggests we should accept?
-> > > > 
-> > > 
-> > > So the max_skb_slots for now is the standard to determine whether a
-> > > guest is malicious, not the maximum slots we can process.
-> > 
-> > Perhaps I've have misunderstood this patch then but it looks to me like
-> > it will cause us to drop skbs which use slots > XEN_NETIF_NR_SLOTS_MIN
-> > and < max_skb_slots, i.e. ones which are considered non-malicious by the
-> > above definition. Or it will cause us to access indexes into
-> > xen_netbk_tx_build_gops.txfrags which are > XEN_NETIF_NR_SLOTS_MIN.
-> > 
-> 
-> Any packet using more than XEN_NETIF_NR_SLOTS_MIN are considered
-> malformed at this point. The behavior is documented in previous commit
-> log. 2810e5b9a "xen-netback: coalesce slots in TX path and fix
-> regressions".
-> 
-> """
-> The behavior of netback for packet is thus:
-> 
->         1-18            slots: valid
->        19-max_skb_slots slots: drop and respond with an error
->        max_skb_slots+   slots: fatal error
-> """
+When starting a VM which has virtual interface attached to the same bridge (i.e vif = [type=netfront,bridge=xenbr0'] in vm.cfg) which is used for netconsole the
+following message appears (after about 60 seconds) and VM creation operation fails.
+     Error: Device 0 (vif) could not be connected. Hotplug scripts not working.
 
-OK, so my understanding was wrong and this patch is doing the right
-thing.
+Note:
+When trying to do the opposite, i.e. first create VM and then run
+netconsole we got the error #524 - vif2.0 doesn't support polling,
+aborting.
 
-However it does seem rather like NR_SLOTS_MIN and max_skb_slots are a
-bit misnamed. They are actually NR_SLOTS_MAX and fatal_skb_slots? The
-NR_SLOTS{MIN/MAX} disparity is particularly confusing in the context of
-this code (I understand its the minimum that a backend must support, but
-its still confusing in the context of these functions).
+Here is my network setup:
+----------                              ----------
+| VM A1  |------vif1.0----->|           | Host B |
+|--------|                  |--xenbr0   |        |
+| Host A |--bond0 (eth0)--->|           |        |
+----------          |                   ----------
+                    |                        |
+                    V                        V
+--------------------------------------------------
+|                      LAN                       |
+--------------------------------------------------
 
-> > If XEN_NETIF_NR_SLOTS_MIN==18 and max_skb_slots == 22 what will this
-> > patch cause to happen to an SKB which uses 20 slots? Will it be dropped
-> > or will it access index 20 into an array with size 18?
-> > 
-> 
-> That packet will be dropped.
-> 
-> > > > Other options:
-> > > > 
-> > > > Handle batches of work in <max_skb_slots sized bundles, but that gets
-> > > > complex when you consider the case of an skb which crosses multiple such
-> > > > bundles.
-> > > > 
-> > > > xen_netbk_get_requests() copes the tx req again into the pending_tx_info
-> > > > -- any way we can arrange for this to just happen right in the first
-> > > > place?
-> > > > 
-> > > 
-> > > Isn't the point of having xen_netbk_count_requests to drop malformed
-> > > packets before wasting any effort processing them?
-> > 
-> > Yes, but it seems to me like you are dropping non-malformed packets.
-> > 
-> > Also remember that the tx requests accumulated by
-> > xen_netbk_count_requests into the txfrags array are subsequently used by
-> > xen_netbk_get_requests to do the actual processing.
-> > 
-> 
-> Yes. But the coalesce code add a layer of complexity. It would require
-> rewriting that function and embbed error handling logic in it.
-> 
-> Now that we guarantee when we come to xen_netbk_get_requests the packet
-> must be valid, at which point we already construct a SKB for it.
-> Rewriting the whole process requires lots of code changes.
+I'm using netconsole to capture logs from  Host-A and send them to Host-B.
+Host-A and Host-B are separate hosts (running XEN) which are  connected to the 
+same LAN.
+src-ip is Host-A address.
+dst-ip/mac is Host-B address.
+netconsole parameters: netconsole=1111@src-ip/xenbr0,2002@dst-ip/dst-mac
 
-My point here was that if you aren't accumulating the last frags of a
-valid frag into txfrags then things will break, but as you've explained
-this is not the case.
+As i see it, netconsole driver requires ndo_poll_controller from the device's controlling driver (function __netpoll_setup in net/core/netpoll.c), a thing that is not supported currently in xen_netback driver which is the driver that runs on dom0 and serve VM's virtual interface.
+call flow: init_netconsole() in netconsole.c -> alloc_param_target() -> netpoll_setup() 
+in netpoll.c -> __netpoll_setup() which check if ndo_poll_controller()
+Per Ian,
+Are you sure this is being called for the VIF interface? In your
+configuration I'd expect it to be called on the bridge not the vif, or
+at least for calling on the VIF to not impact whether netpool was
+enabled for the bridge or not.
 
-Ian.
+I think the underlying issue which you are seeing is that
+br_netpoll_setup() requires that all members of the bridge support
+netpoll before allowing netpoll to be enabled on the bridge itself. 
+
+This seems like an odd restriction in the bridge driver since in
+principal only the port over which the netpoll traffic will be going
+will need netpoll, but perhaps the bridge can't tell which port that is
+or is going to be? I think it is worth discussing this with the bridge
+maintainers (who I have CC'd, threads starts at
+http://marc.info/?l=linux-netdev&m=135878868112700&w=2)
+
+Hopefully the bridge isn't flooding/broadcasting netpoll to all ports,
+at least in the case where DST IP and MAC have been specified. That
+would be rather inefficient, especially when most ports go to virtual
+machines.
+
+So before I ack this patch I'd like to hear back from the bridge
+maintainers about whether the current behaviour in the bridge is
+intended and whether it could be fixed in some better way than adding
+netpoll to netback.
+
+AFAICT the only reason to actually support netpoll in netback would be
+if you wanted host logs to go to a listener running in a domain on the
+same host, which sounds like a mad idea to me! If someone actually has a
+real need for that use case and can test that it works I'd be happy to
+reconsider this patch on that basis (assuming the necessary #ifdefs are
+added as mentioned before).
+
+Per Ian,
+I can see why the *bridge* device might need an ndo_poll_controller hook
+in this setup but I can't see any reason why the netback device would
+need one.
+Reply:
+Please note that without netback driver netconsole runs fine, i.e before trying 
+to create VM which attached to the bridge.
+
+The following patch (to latest kernel) fix this bug by adding implementation to ndo_poll_controller.
+
+0001-Add-support-for-netconsole-driver-used-on-bridge-dev.patch
+0 2001
+From: Yuval <yuval.shaia@oracle.com>
+Date: Tue, 8 Jan 2013 10:08:45 +0200
+Subject: [PATCH] Add support for netconsole driver used on bridge device with
+ VIF attached
+
+Signed-off-by: Yuval <yuval.shaia@oracle.com>
+---
+ drivers/net/xen-netback/interface.c |    8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/drivers/net/xen-netback/interface.c \
+b/drivers/net/xen-netback/interface.c index 601ae2a..10751f5 100644
+--- a/drivers/net/xen-netback/interface.c
++++ b/drivers/net/xen-netback/interface.c
+@@ -179,6 +179,13 @@ static u32 xenvif_fix_features(struct net_device *dev, u32 \
+features)  return features;
+ }
+ 
++static void xenvif_poll_controller(struct net_device *dev)
++{
++	disable_irq(dev->irq);
++	xenvif_interrupt(dev->irq, dev);
++	enable_irq(dev->irq);
++}
++
+ static const struct xenvif_stat {
+ 	char name[ETH_GSTRING_LEN];
+ 	u16 offset;
+@@ -237,6 +244,7 @@ static const struct net_device_ops xenvif_netdev_ops = {
+ 	.ndo_stop	= xenvif_close,
+ 	.ndo_change_mtu	= xenvif_change_mtu,
+ 	.ndo_fix_features = xenvif_fix_features,
++	.ndo_poll_controller = xenvif_poll_controller,
+ };
+ 
+ struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+-- 
+1.7.9.5
