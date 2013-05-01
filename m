@@ -1,35 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netlink: Fix skb ref counting.
-Date: Wed, 01 May 2013 14:58:08 -0400 (EDT)
-Message-ID: <20130501.145808.968612044235922066.davem@davemloft.net>
-References: <1367304721-9213-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH RFC] netpoll: convert mutex into a semaphore
+Date: Wed, 01 May 2013 15:00:59 -0400 (EDT)
+Message-ID: <20130501.150059.785741895635621733.davem@davemloft.net>
+References: <20130429181322.GA27119@hmsreliant.think-freely.org>
+	<1367336105-6275-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org, bvanassche@acm.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41553 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41653 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755455Ab3EAS6K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 14:58:10 -0400
-In-Reply-To: <1367304721-9213-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1755512Ab3EATBB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 15:01:01 -0400
+In-Reply-To: <1367336105-6275-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Mon, 29 Apr 2013 23:52:01 -0700
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Tue, 30 Apr 2013 11:35:05 -0400
 
-> Commit f9c2288837ba072b21dba955f04a4c97eaa77b1e (netlink:
-> implement memory mapped recvmsg) increamented skb->users
-> ref count twice for a dump op which does not look right.
+> Bart Van Assche recently reported a warning to me:
+ ...
+> This resulted from my commit ca99ca14c which introduced a mutex_trylock
+> operation in a path that could execute in interrupt context.  When mutex
+> debugging is enabled, the above warns the user when we are in fact
+> exectuting in interrupt context
+> interrupt context.
 > 
-> Following patch fixes that.
+> After some discussion, It seems that a semaphore is the proper mechanism to use
+> here.  While mutexes are defined to be unusable in interrupt context, no such
+> condition exists for semaphores (save for the fact that the non blocking api
+> calls, like up and down_trylock must be used when in irq context).
 > 
-> CC: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Reported-by: Bart Van Assche <bvanassche@acm.org>
 
-I'm tired of waiting for Patrick to review this, to me a lack of a
-timely review translated into "it's not important to me" so...
-
-Applied, thanks Pravin.
+Neil this looks good to me so I'm going to toss it into my tree and queue
+it up for -stable too, thanks!
