@@ -1,41 +1,54 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 1/2 v5 RESEND] usbnet: allow status interrupt URB to
- always be active
-Date: Wed, 01 May 2013 15:19:49 -0500
-Message-ID: <1367439589.12353.19.camel@dcbw.foobar.com>
-References: <1367260435.20151.28.camel@dcbw.foobar.com>
-	 <20130501.145436.92838736206105693.davem@davemloft.net>
-	 <1367438826.12353.13.camel@dcbw.foobar.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] usb: add device IDs for Dell 5804 (Novatel E371) WWAN card
+Date: Wed, 01 May 2013 22:19:28 +0200
+Message-ID: <87mwsebghb.fsf@nemi.mork.no>
+References: <1367431305.12353.8.camel@dcbw.foobar.com>
+	<87r4hqbleh.fsf@nemi.mork.no>
+	<1367438620.12353.11.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org, phil-ydcDiazATMQ@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1367438826.12353.13.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	Greg KH <gregkh@linuxfoundation.org>, stable@vger.kernel.org,
+	Matthias Urlichs <smurf@smurf.noris.de>, dagofthedofg@gmail.com
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1367438620.12353.11.camel@dcbw.foobar.com> (Dan Williams's
+	message of "Wed, 01 May 2013 15:03:40 -0500")
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-01 at 15:07 -0500, Dan Williams wrote:
-> On Wed, 2013-05-01 at 14:54 -0400, David Miller wrote:
-> > 
-> > For a patch set that you've submitted 5 times, I'm incredibly
-> > surprised how whitespace damaged it is.
-> 
-> WTH, I have no idea what happened here.  I will fix this.
+Dan Williams <dcbw@redhat.com> writes:
 
-So much to my dismay, Evolution 3.6.4 in F18+ appears to convert tabs to
-spaces when sending mail in certain cases, even though when editing and
-sending the mail, the whitespace is undamaged.  This didn't happen in
-Evo 3.4 in F17, and I had no reason to think it would have changed.
+> On Wed, 2013-05-01 at 20:33 +0200, Bj=C3=B8rn Mork wrote:
+>> Dan Williams <dcbw@redhat.com> writes:
+>>=20
+>> > A rebranded Novatel E371 for AT&T's LTE bands.
+>>=20
+>> I don't think we're handling the Novatel branded E371 yet?  I tried
+>> googling for ID of that, but were unable to find it.  I guess you do=
+n't
+>> know either...  Well, nothing we can do about that until someone rep=
+orts
+>> it.
+>
+> See the referenced bug report which prompted this:
+>
+> https://bugzilla.redhat.com/show_bug.cgi?id=3D955426
+>
+> It's definitely QMI capable.
 
-^&!@%!^@#^@#  grrr
+Yes, absolutely.
 
-Dan
+I just assumed the E371 exists with a Novatel vendor ID as well. Which
+we could and should also add, if we only knew what the product ID is.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+But it wasn't my intention to question the addition of the Dell
+rebranded E371. There's absolutely no need to let that wait. Sorry for
+being unclear.  I am not communicating well today...
+
+
+
+
+Bj=C3=B8rn
