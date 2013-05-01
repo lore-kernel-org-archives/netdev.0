@@ -1,58 +1,42 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net 1/2] bnx2x: correct reading of speed capabilities
-Date: Wed, 1 May 2013 17:27:57 +0300
-Message-ID: <1367418478-7416-2-git-send-email-yuvalmin@broadcom.com>
-References: <1367418478-7416-1-git-send-email-yuvalmin@broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Wed, 01 May 2013 08:29:55 -0700
+Message-ID: <1367422195.11020.46.camel@edumazet-glaptop>
+References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
+	 <1367290378-29224-2-git-send-email-horms@verge.net.au>
+	 <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
+	 <20130430072944.GA13959@verge.net.au>
+	 <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
+	 <20130501091012.GB28253@dyad.programming.kicks-ass.net>
+	 <20130501124637.GO3780@linux.vnet.ibm.com>
+	 <20130501151752.GA7521@dyad.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, ariele@broadcom.com,
-	"Yaniv Rosner" <yanivr@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2569 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761469Ab3EAP2Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 May 2013 11:28:24 -0400
-In-Reply-To: <1367418478-7416-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130501151752.GA7521@dyad.programming.kicks-ass.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yaniv Rosner <yanivr@broadcom.com>
+On Wed, 2013-05-01 at 17:17 +0200, Peter Zijlstra wrote:
+> On Wed, May 01, 2013 at 05:46:37AM -0700, Paul E. McKenney wrote:
+> 
+> > If the only goal is to allow preemption, and if long grace periods are
+> > not a concern, then this alternate approach would work fine as well.
+> 
+> Hmm.. if that were the goal I'd like it to have a different name;
+> cond_resched*() has always been about preemption.
 
-When the bnx2x driver reads the port configuration - mask irrelevant bits. 
+BTW, I do not remember why cond_resched() is not an empty macro
+when CONFIG_PREEMPT=y ?
 
-Without this change, the unintended bits may cause the driver to needlessly
-toggle the link, as a comparison in the link flap avoidance flow will show
-that the old link did not advertise the same capabilities and thus cannot
-be retained.
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index a8f1ee3..9cc39f1 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -10575,10 +10575,12 @@ static void bnx2x_get_port_hwinfo(struct bnx2x *bp)
- 
- 	bp->link_params.speed_cap_mask[0] =
- 		SHMEM_RD(bp,
--			 dev_info.port_hw_config[port].speed_capability_mask);
-+			 dev_info.port_hw_config[port].speed_capability_mask) &
-+		PORT_HW_CFG_SPEED_CAPABILITY_D0_MASK;
- 	bp->link_params.speed_cap_mask[1] =
- 		SHMEM_RD(bp,
--			 dev_info.port_hw_config[port].speed_capability_mask2);
-+			 dev_info.port_hw_config[port].speed_capability_mask2) &
-+		PORT_HW_CFG_SPEED_CAPABILITY_D0_MASK;
- 	bp->port.link_config[0] =
- 		SHMEM_RD(bp, dev_info.port_feature_config[port].link_config);
- 
--- 
-1.8.1.227.g44fe835
