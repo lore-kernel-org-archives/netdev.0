@@ -1,83 +1,34 @@
-From: Gerlando Falauto <gerlando.falauto@keymile.com>
-Subject: [PATCH v5 3/3] tipc: pskb_copy() buffers when sending on more than one bearer
-Date: Thu,  2 May 2013 00:04:46 +0200
-Message-ID: <1367445886-30879-3-git-send-email-gerlando.falauto@keymile.com>
-References: <1367445886-30879-1-git-send-email-gerlando.falauto@keymile.com>
-Cc: jon.maloy@ericsson.com, erik.hugne@ericsson.com,
-	ying.xue@windriver.com, holger.brunck@keymile.com,
-	Gerlando Falauto <gerlando.falauto@keymile.com>
-To: netdev@vger.kernel.org
+From: Xi Wang <xi.wang@gmail.com>
+Subject: Re: [PATCH net-next] filter: fix va_list build error
+Date: Wed, 1 May 2013 18:29:40 -0400
+Message-ID: <CAKU6vyaEtNC5ZNvF7_vx8gD+rMh1Jo6Wb_=BarLeG9h_VqkYDw@mail.gmail.com>
+References: <1367439848-10854-1-git-send-email-xi.wang@gmail.com> <51818350.6040600@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Joe Perches <joe@perches.com>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:41917 "EHLO
-	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757497Ab3EAWFC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 18:05:02 -0400
-In-Reply-To: <1367445886-30879-1-git-send-email-gerlando.falauto@keymile.com>
+Received: from mail-oa0-f49.google.com ([209.85.219.49]:65305 "EHLO
+	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757608Ab3EAWaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 18:30:21 -0400
+Received: by mail-oa0-f49.google.com with SMTP id j1so1817209oag.22
+        for <netdev@vger.kernel.org>; Wed, 01 May 2013 15:30:20 -0700 (PDT)
+In-Reply-To: <51818350.6040600@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When sending packets, TIPC bearers use skb_clone() before writing their
-hardware header. This will however NOT copy the data buffer.
-So when the same packet is sent over multiple bearers (to reach multiple
-nodes), the same socket buffer data will be treated by multiple
-tipc_media drivers which will write their own hardware header through
-dev_hard_header().
-Most of the time this is not a problem, because by the time the
-packet is processed by the second media, it has already been sent over
-the first one. However, when the first transmission is delayed (e.g.
-because of insufficient bandwidth or through a shaper), the next bearer
-will overwrite the hardware header, resulting in the packet being sent:
-a) with the wrong source address, when bearers of the same type,
-e.g. ethernet, are involved
-b) with a completely corrupt header, or even dropped, when bearers of
-different types are involved.
+On Wed, May 1, 2013 at 5:04 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+> That's a bit weird. Xi, maybe in a follow-up some time later, could
+> you move the GCC-internal stdarg.h rather into linux/printk.h, since
+> that's where the problem is coming from? Imho, it might be better off
+> there, no?
 
-So when the same socket buffer is to be sent multiple times, send a
-pskb_copy() instead (from the second instance on), and release it
-afterwards (the bearer will skb_clone() it anyway).
+There was some discussion a while ago on whether to make printk.h self
+contained or to disallow including it directly.  Joe Perches [CCed]
+had patches for that.
 
-Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
----
-Changes from v4:
-* Rebase on net-next
-* Fixed bcast_addr (no longer within b->media)
-Changes from v3: NONE
-Changes from v2:
-* Rebased
+https://lkml.org/lkml/2011/5/25/263
 
- net/tipc/bcast.c |   13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
-
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index d9d848d..e5f3da5 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -611,6 +611,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
- 		struct tipc_bearer *p = bcbearer->bpairs[bp_index].primary;
- 		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
- 		struct tipc_bearer *b = p;
-+		struct sk_buff *tbuf;
- 
- 		if (!p)
- 			break; /* No more bearers to try */
-@@ -626,7 +627,17 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
- 		if (bcbearer->remains_new.count == bcbearer->remains.count)
- 			continue; /* Nothing added by bearer pair */
- 
--		tipc_bearer_send(b, buf, &b->bcast_addr);
-+		if (bp_index == 0) {
-+			/* Use original buffer for first bearer */
-+			tipc_bearer_send(b, buf, &b->bcast_addr);
-+		} else {
-+			/* Avoid concurrent buffer access */
-+			tbuf = pskb_copy(buf, GFP_ATOMIC);
-+			if (!tbuf)
-+				break;
-+			tipc_bearer_send(b, tbuf, &b->bcast_addr);
-+			kfree_skb(tbuf); /* Bearer keeps a clone */
-+		}
- 
- 		/* Swap bearers for next packet */
- 		if (s) {
--- 
-1.7.10.1
+- xi
