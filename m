@@ -1,32 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: sctp: attribute printl with __printf for gcc fmt
- checks
-Date: Wed, 01 May 2013 15:04:34 -0400 (EDT)
-Message-ID: <20130501.150434.374516340554504821.davem@davemloft.net>
-References: <1367413163-2817-1-git-send-email-dborkman@redhat.com>
+From: Tony Prisk <linux@prisktech.co.nz>
+Subject: Re: [PATCHv4 0/3] Add support for velocity network driver on platform
+ devices
+Date: Thu, 02 May 2013 07:04:55 +1200
+Message-ID: <51816757.4090801@prisktech.co.nz>
+References: <1367302620-4620-1-git-send-email-linux@prisktech.co.nz> <20130501.145209.2011460600232631301.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	vt8500-wm8505-linux-kernel@googlegroups.com,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41706 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756186Ab3EATEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 15:04:36 -0400
-In-Reply-To: <1367413163-2817-1-git-send-email-dborkman@redhat.com>
+Received: from server.prisktech.co.nz ([115.188.14.127]:52354 "EHLO
+	server.prisktech.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756535Ab3EATEz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 15:04:55 -0400
+In-Reply-To: <20130501.145209.2011460600232631301.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed,  1 May 2013 14:59:23 +0200
+On 02/05/13 06:52, David Miller wrote:
+> From: Tony Prisk <linux@prisktech.co.nz>
+> Date: Tue, 30 Apr 2013 18:16:57 +1200
+>
+>> I think it would be pertinent to get some tested-by's for PCI users.
+> Tony, this came in a bit late, and there hasn't been any PCI test
+> reports so I have to defer this to the next merge window, sorry.
+No problems - I didn't honestly expect it to go in for 3.10 any way.
+I was trying to get in nice and earlier for 3.11 to give people plenty 
+of time to test.
 
-> Let GCC check for format string errors in sctp's probe printl
-> function. This patch fixes the warning when compiled with W=1:
-> 
-> net/sctp/probe.c:73:2: warning: function might be possible candidate
-> for 'gnu_printf' format attribute [-Wmissing-format-attribute]
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-
-Applied.
+Regards
+Tony P
