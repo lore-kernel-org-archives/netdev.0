@@ -1,50 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] af_unix: fix a fatal race with bit fields
-Date: Tue, 30 Apr 2013 22:04:32 -0700
-Message-ID: <1367384672.11020.34.camel@edumazet-glaptop>
-References: <1367370761.11020.22.camel@edumazet-glaptop>
-	 <20130501115103.58e40f37@kryten>
-	 <1367375060.11020.24.camel@edumazet-glaptop>
-	 <20130501035425.GD5221@bubble.grove.modra.org>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: [regression] [analyzed] fragmentation broken for tunnel devices
+Date: Wed, 1 May 2013 09:46:45 +0300
+Message-ID: <20130501094645.715bb462@vostro>
+References: <20130315133820.006a42f6@vostro>
+	<20130315150321.621d705e@vostro>
+	<20130320101318.4196d93a@vostro>
+	<20130320.134640.1857052324535652751.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Anton Blanchard <anton@samba.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org,
-	Paul Mackerras <paulus@samba.org>,
-	Ambrose Feinstein <ambrose@google.com>
-To: Alan Modra <amodra@gmail.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:64661 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751157Ab3EAFEf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 01:04:35 -0400
-Received: by mail-pa0-f44.google.com with SMTP id rl6so720199pac.17
-        for <netdev@vger.kernel.org>; Tue, 30 Apr 2013 22:04:35 -0700 (PDT)
-In-Reply-To: <20130501035425.GD5221@bubble.grove.modra.org>
+Received: from mail-ee0-f66.google.com ([74.125.83.66]:62559 "EHLO
+	mail-ee0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753206Ab3EAGpe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 02:45:34 -0400
+Received: by mail-ee0-f66.google.com with SMTP id l10so388315eei.5
+        for <netdev@vger.kernel.org>; Tue, 30 Apr 2013 23:45:33 -0700 (PDT)
+In-Reply-To: <20130320.134640.1857052324535652751.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-01 at 13:24 +0930, Alan Modra wrote:
-> On Tue, Apr 30, 2013 at 07:24:20PM -0700, Eric Dumazet wrote:
-> > 	li 11,1
-> > 	ld 0,0(9)
-> > 	rldimi 0,11,31,32
-> > 	std 0,0(9)
-> > 	blr
-> > 	.ident	"GCC: (GNU) 4.6.3"
-> > 
-> > You can see "ld 0,0(9)" is used : its a 64 bit load.
+On Wed, 20 Mar 2013 13:46:40 -0400 (EDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Timo Teras <timo.teras@iki.fi>
+> Date: Wed, 20 Mar 2013 10:13:18 +0200
 > 
-> Yup.  This is not a powerpc64 specific problem.  See
-> http://gcc.gnu.org/bugzilla/show_bug.cgi?id=52080
-> Fixed in 4.8.0 and 4.7.3.
+> Thanks for investigating this issue.
+> 
+> > 3) Reimplement fragmentation in tunnel devices. This means some
+> > duplication of code. But now that there's GRO support in tunnels,
+> > this would seem the most performant option.
+> 
+> I think this is the best option, especially in the long term.
 
-Ah thanks.
+I've been thinking more. It seems there's going to be tricky cases with
+this approach too. Looks like ICMP and other non-TCP/UDP packets are
+not really sent as GSO/GRO packets. So for those we end up fragmenting
+multiple times and end up sending double the amount of packets than
+needed.
 
-This seems a pretty serious issue, is it documented somewhere that
-ppc64, sparc64 and others need such compiler version ?
+This would also mean that if we are ever to support new protocols, e.g.
+MPLS, we'd get a whole new can of forms when needing fragmentation.
 
-These kind of errors are pretty hard to find, its a pity to spend time
-on them.
+I'm wondering now if it'd be easier to just do the additional
+nexthop consultation for forward routes where destination is a tunnel
+device.
+
+- Timo
