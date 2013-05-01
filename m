@@ -1,40 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH v2 net-next] af_unix: fix a fatal race with bit fields
-Date: Wed, 01 May 2013 09:00:59 -0700
-Message-ID: <1367424059.11020.61.camel@edumazet-glaptop>
-References: <1367370761.11020.22.camel@edumazet-glaptop>
-	 <1367372393.22115.6.camel@pasglop>
-	 <20130501.033650.703182794549888825.davem@davemloft.net>
-	 <1367421843.11020.43.camel@edumazet-glaptop>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B721C@saturn3.aculab.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Wed, 1 May 2013 17:59:58 +0200
+Message-ID: <20130501155957.GC7521@dyad.programming.kicks-ass.net>
+References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
+ <1367290378-29224-2-git-send-email-horms@verge.net.au>
+ <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
+ <20130430072944.GA13959@verge.net.au>
+ <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
+ <20130501091012.GB28253@dyad.programming.kicks-ass.net>
+ <20130501124637.GO3780@linux.vnet.ibm.com>
+ <20130501151752.GA7521@dyad.programming.kicks-ass.net>
+ <1367422195.11020.46.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, benh@kernel.crashing.org,
-	netdev@vger.kernel.org, paulus@samba.org, ambrose@google.com,
-	linuxppc-dev@lists.ozlabs.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f44.google.com ([209.85.210.44]:49899 "EHLO
-	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932361Ab3EAQBE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 12:01:04 -0400
-Received: by mail-da0-f44.google.com with SMTP id z20so722673dae.3
-        for <netdev@vger.kernel.org>; Wed, 01 May 2013 09:01:03 -0700 (PDT)
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B721C@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	Julian Anastasov <ja@ssi.bg>,
+	Simon Horman <horms@verge.net.au>,
+	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1367422195.11020.46.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-01 at 16:53 +0100, David Laight wrote:
-> Why not just change gc_candidate and gc_maybe_cycle to
-> unsigned char?
-> It might reduce the number of pad bytes somewhat.
+On Wed, May 01, 2013 at 08:29:55AM -0700, Eric Dumazet wrote:
+> On Wed, 2013-05-01 at 17:17 +0200, Peter Zijlstra wrote:
+> > On Wed, May 01, 2013 at 05:46:37AM -0700, Paul E. McKenney wrote:
+> > 
+> > > If the only goal is to allow preemption, and if long grace periods are
+> > > not a concern, then this alternate approach would work fine as well.
+> > 
+> > Hmm.. if that were the goal I'd like it to have a different name;
+> > cond_resched*() has always been about preemption.
+> 
+> BTW, I do not remember why cond_resched() is not an empty macro
+> when CONFIG_PREEMPT=y ?
 
-You didn't quite follow the discussion.
-
-I used bytes on V1, and we are not 100% sure its safe on all arches.
-
-unsigned long is guaranteed to be safe. We absolutely rely on this.
-
-Better use more bytes on a socket (with no impact on real memory use),
-than spending hours to debug some strange issues.
+Good question.. at at least, only the __might_sleep() construct. Ingo, happen
+to remember why this is? Most of this infrastructure is from before my time.
