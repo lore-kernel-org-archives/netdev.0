@@ -1,30 +1,75 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] af_unix: fix a fatal race with bit fields
-Date: Wed, 01 May 2013 03:36:50 -0400 (EDT)
-Message-ID: <20130501.033650.703182794549888825.davem@davemloft.net>
-References: <1367370761.11020.22.camel@edumazet-glaptop>
-	<1367372393.22115.6.camel@pasglop>
+From: Gerlando Falauto <gerlando.falauto@keymile.com>
+Subject: Re: [PATCH v3 1/3] tipc: cosmetic: clean up comments
+Date: Wed, 01 May 2013 09:37:48 +0200
+Message-ID: <5180C64C.2040805@keymile.com>
+References: <1367244820-29881-1-git-send-email-gerlando.falauto@keymile.com> <1367307199-10577-1-git-send-email-gerlando.falauto@keymile.com>
+	 <517FB0D9.1070404@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+	charset=ISO-8859-1;
+	format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, paulus@samba.org,
-	ambrose@google.com, linuxppc-dev@lists.ozlabs.org
-To: benh@kernel.crashing.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
+	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
+	"ying.xue@windriver.com" <ying.xue@windriver.com>,
+	"Brunck, Holger" <Holger.Brunck@keymile.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60674 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753509Ab3EAHgy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 03:36:54 -0400
-In-Reply-To: <1367372393.22115.6.camel@pasglop>
+Received: from mail.ch.keymile.com ([193.17.201.103]:60289 "HELO
+	mail-ch.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1754611Ab3EAHtw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 03:49:52 -0400
+In-Reply-To: <517FB0D9.1070404@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Wed, 01 May 2013 11:39:53 +1000
+Hi Sergei,
 
-> I'm not even completely certain bytes are safe to be honest, though
-> probably more than bitfields. I'll poke our compiler people.
+On 04/30/2013 01:54 PM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 30-04-2013 11:33, Gerlando Falauto wrote:
+>
+>> Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
+>> ---
+>> Changes from v2:
+>> * Split cosmetic from functional changes
+>
+>>    net/tipc/bcast.c |   13 +++++++------
+>>    1 file changed, 7 insertions(+), 6 deletions(-)
+>
+>> diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+>> index 2655c9f..8438e01 100644
+>> --- a/net/tipc/bcast.c
+>> +++ b/net/tipc/bcast.c
+>> @@ -584,8 +584,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+>>    {
+>>    	int bp_index;
+>>
+>> -	/*
+>> -	 * Prepare broadcast link message for reliable transmission,
+>> +	/* Prepare broadcast link message for reliable transmission,
+>>    	 * if first time trying to send it;
+>>    	 * preparation is skipped for broadcast link protocol messages
+>>    	 * since they are sent in an unreliable manner and don't need it
+>> @@ -613,11 +612,12 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+>>    		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
+>>
+>>    		if (!p)
+>> -			break;	/* no more bearers to try */
+>> +			break; /* No more bearers to try */
+>>
+>> -		tipc_nmap_diff(&bcbearer->remains, &p->nodes, &bcbearer->remains_new);
+>> +		tipc_nmap_diff(&bcbearer->remains, &p->nodes,
+>> +			       &bcbearer->remains_new);
+>
+>      It apeears you nopt only cleaning up comments in this patch but you don't
+> mention this change in the changelog...
 
-Older Alpha only has 32-bit and 64-bit loads and stores, so byte sized
-accesses are not atomic, and therefore use racey read-modify-write
-sequences.
+That's just adding a line break to split a long line.
+Come on, seriously, is that *really* worth mentioning?
+How about "tipc: cosmetic: clean up comments and break a long line"?
+
+Thanks,
+Gerlando
