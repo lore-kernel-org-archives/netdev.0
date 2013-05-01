@@ -1,36 +1,64 @@
-From: Krishna Chaitanya <chaitanya.mgit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: Regression in 3.9 caused by "bridge: respect RFC2863 operational state"
-Date: Thu, 2 May 2013 01:19:58 +0530
-Message-ID: <CABPxzYLP53mnMXAicD33oX8TW77xnZziS=XBuVCy_u4H2oyLUw@mail.gmail.com>
-References: <518166C5.4080904@openwrt.org>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH] usb: add device IDs for Dell 5804 (Novatel E371) WWAN
+ card
+Date: Wed, 01 May 2013 15:03:40 -0500
+Message-ID: <1367438620.12353.11.camel@dcbw.foobar.com>
+References: <1367431305.12353.8.camel@dcbw.foobar.com>
+	 <87r4hqbleh.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
-	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Sebastian Gottschall <s.gottschall-t37Kgv3TaIPQT0dZR+AlfA@public.gmane.org>
-To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <518166C5.4080904-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>,
+	Greg KH <gregkh@linuxfoundation.org>, stable@vger.kernel.org,
+	Matthias Urlichs <smurf@smurf.noris.de>, dagofthedofg@gmail.com
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:10911 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755916Ab3EAUBe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 May 2013 16:01:34 -0400
+In-Reply-To: <87r4hqbleh.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 2, 2013 at 12:32 AM, Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org> wrote:
->
-> In the long run, I'd like to sort out this mess by passing EAP frames to
-> userspace via nl80211 - but since that will require userspace changes,
-> what do we do about this issue in the mean time?
+On Wed, 2013-05-01 at 20:33 +0200, Bj=C3=B8rn Mork wrote:
+> Dan Williams <dcbw@redhat.com> writes:
+>=20
+> > A rebranded Novatel E371 for AT&T's LTE bands.
+>=20
+> I don't think we're handling the Novatel branded E371 yet?  I tried
+> googling for ID of that, but were unable to find it.  I guess you don=
+'t
+> know either...  Well, nothing we can do about that until someone repo=
+rts
+> it.
 
-One quick solution i can think of is:
+See the referenced bug report which prompted this:
 
-Temporarily we can make the interface UP as soon as
-we are associated and then drop the data packets except for
-EAPOL-KEY (ETH_H_PAE) frames in the mac80211.
+https://bugzilla.redhat.com/show_bug.cgi?id=3D955426
 
-ieee80211_frame_allowed has a rule to drops the unencrypted data frames
-we just need to add a rule to drop encrypted data frames.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+It's definitely QMI capable.
+
+Dan
+
+> For the qmi_wwan part:
+> Acked-by: Bj=C3=B8rn Mork <bjorn@mork.no>
+>=20
+>=20
+> > diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/optio=
+n.c
+> > index 558adfc..569caf6 100644
+> > --- a/drivers/usb/serial/option.c
+> > +++ b/drivers/usb/serial/option.c
+>=20
+> Combining net and usb patches in the same commit is probably not wise=
+?
+>=20
+>=20
+>=20
+> Bj=C3=B8rn
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
