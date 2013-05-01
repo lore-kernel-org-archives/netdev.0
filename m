@@ -1,42 +1,84 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 with 3.9.0-rc9
-Date: Wed, 1 May 2013 14:15:02 +0200
-Message-ID: <20130501121502.GA5456@electric-eye.fr.zoreil.com>
-References: <20130426132254.GA22821@gmail.com>
- <20130426205018.GA18092@electric-eye.fr.zoreil.com>
- <20130427041230.GA18709@gmail.com>
- <20130428011232.GA4236@gmail.com>
- <20130501100733.GA16115@gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Wed, 1 May 2013 05:46:37 -0700
+Message-ID: <20130501124637.GO3780@linux.vnet.ibm.com>
+References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
+ <1367290378-29224-2-git-send-email-horms@verge.net.au>
+ <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
+ <20130430072944.GA13959@verge.net.au>
+ <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
+ <20130501091012.GB28253@dyad.programming.kicks-ass.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Lance Lassetter <lancelassetter@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:56682 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761323Ab3EAMPF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 08:15:05 -0400
+Cc: Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130501100733.GA16115@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130501091012.GB28253@dyad.programming.kicks-ass.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Lance Lassetter <lancelassetter@gmail.com> :
-[...]
-> Any luck with this ?
+On Wed, May 01, 2013 at 11:10:12AM +0200, Peter Zijlstra wrote:
+> On Tue, Apr 30, 2013 at 10:52:38AM +0300, Julian Anastasov wrote:
+> > 
+> > 	Hello,
+> > 
+> > On Tue, 30 Apr 2013, Simon Horman wrote:
+> > 
+> > > > > +static void inline cond_resched_rcu_lock(void)
+> > > > > +{
+> > > > > +	if (need_resched()) {
+> > > > 
+> > > > 	Ops, it should be without above need_resched.
+> > > 
+> > > Thanks, to clarify, just this:
+> > > 
+> > > static void inline cond_resched_rcu_lock(void)
+> > > {
+> > > 	rcu_read_unlock();
+> > > #ifndef CONFIG_PREEMPT_RCU
+> > > 	cond_resched();
+> > > #endif
+> > > 	rcu_read_lock();
+> > > }
+> > 
+> > 	Yes, thanks!
+> 
+> OK, now I'm confused.. PREEMPT_RCU would preempt in any case, so why bother
+> dropping rcu_read_lock() at all?
 
-This is not the usual AMD iommu + realtek NIC problem.
+Good point, I was assuming that the goal was to let grace periods end
+as well as to allow preemption.  The momentary dropping out of the
+RCU read-side critical section allows the grace periods to end.
 
-This is not the usual "I upgraded from 2.6 and my Realtek NIC stopped working".
+> That is; the thing that makes sense to me is:
+> 
+> static void inline cond_resched_rcu_lock(void)
+> {
+> #ifdef CONFIG_PREEMPT_RCU
+> 	if (need_resched()) {
+> 		rcu_read_unlock();
+> 		cond_resched();
+> 		rcu_read_lock();
+> 	}
+> #endif /* CONFIG_PREEMPT_RCU */
+> }
+> 
+> That would have an rcu_read_lock() break and voluntary preemption point for
+> non-preemptible RCU and not bother with the stuff for preemptible RCU.
 
-This is not "recent Realtek NIC support is wet".
+If the only goal is to allow preemption, and if long grace periods are
+not a concern, then this alternate approach would work fine as well.
 
-This is not an "old Realtek PCI NIC stopped working" only problem.
+Of course, both approaches assume that the caller is in a place
+where having all RCU-protected data disappear is OK!
 
-This is an AMD box.
+							Thanx, Paul
 
-May I assume that you used an up-to-date Fedora 17 before migrating to
-Fedora 18 when it was published ?
-
--- 
-Ueimor
