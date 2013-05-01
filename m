@@ -1,58 +1,39 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] af_unix: fix a fatal race with bit fields
-Date: Wed, 1 May 2013 08:10:54 -0700
-Message-ID: <20130501081054.267a7851@nehalam.linuxnetplumber.net>
-References: <1367370761.11020.22.camel@edumazet-glaptop>
-	<20130501115103.58e40f37@kryten>
-	<1367375060.11020.24.camel@edumazet-glaptop>
-	<20130501035425.GD5221@bubble.grove.modra.org>
-	<1367384672.11020.34.camel@edumazet-glaptop>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Wed, 1 May 2013 17:17:53 +0200
+Message-ID: <20130501151752.GA7521@dyad.programming.kicks-ass.net>
+References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
+ <1367290378-29224-2-git-send-email-horms@verge.net.au>
+ <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
+ <20130430072944.GA13959@verge.net.au>
+ <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
+ <20130501091012.GB28253@dyad.programming.kicks-ass.net>
+ <20130501124637.GO3780@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alan Modra <amodra@gmail.com>, Anton Blanchard <anton@samba.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org,
-	Paul Mackerras <paulus@samba.org>,
-	Ambrose Feinstein <ambrose@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f49.google.com ([209.85.210.49]:52143 "EHLO
-	mail-da0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755937Ab3EAPLI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 11:11:08 -0400
-Received: by mail-da0-f49.google.com with SMTP id t11so703772daj.36
-        for <netdev@vger.kernel.org>; Wed, 01 May 2013 08:11:08 -0700 (PDT)
-In-Reply-To: <1367384672.11020.34.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130501124637.GO3780@linux.vnet.ibm.com>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Apr 2013 22:04:32 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Wed, May 01, 2013 at 05:46:37AM -0700, Paul E. McKenney wrote:
 
-> On Wed, 2013-05-01 at 13:24 +0930, Alan Modra wrote:
-> > On Tue, Apr 30, 2013 at 07:24:20PM -0700, Eric Dumazet wrote:
-> > > 	li 11,1
-> > > 	ld 0,0(9)
-> > > 	rldimi 0,11,31,32
-> > > 	std 0,0(9)
-> > > 	blr
-> > > 	.ident	"GCC: (GNU) 4.6.3"
-> > > 
-> > > You can see "ld 0,0(9)" is used : its a 64 bit load.
-> > 
-> > Yup.  This is not a powerpc64 specific problem.  See
-> > http://gcc.gnu.org/bugzilla/show_bug.cgi?id=52080
-> > Fixed in 4.8.0 and 4.7.3.
-> 
-> Ah thanks.
-> 
-> This seems a pretty serious issue, is it documented somewhere that
-> ppc64, sparc64 and others need such compiler version ?
-> 
-> These kind of errors are pretty hard to find, its a pity to spend time
-> on them.
+> If the only goal is to allow preemption, and if long grace periods are
+> not a concern, then this alternate approach would work fine as well.
 
-There is a checkbin target inside arch/powerpc/Makefile
-Shouldn't a check be added there to block building kernel with known
-bad GCC versions?
+Hmm.. if that were the goal I'd like it to have a different name;
+cond_resched*() has always been about preemption.
+
+> Of course, both approaches assume that the caller is in a place
+> where having all RCU-protected data disappear is OK!
+
+Quite :-)
