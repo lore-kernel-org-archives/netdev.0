@@ -1,50 +1,27 @@
-From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [IPROUTE PATCH v2] iproute2: act_ipt fix xtables breakage on
- older versions.
-Date: Wed, 01 May 2013 10:18:21 -0700
-Message-ID: <51814E5D.5030505@intel.com>
-References: <20130429154644.52016.60284.stgit@ahduyck-cp1.jf.intel.com> <517FC04E.30705@mojatatu.com> <517FEC48.80700@intel.com> <51811D06.2070800@mojatatu.com> <518124D3.8070800@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net_sched: act_ipt forward compat with xtables
+Date: Wed, 01 May 2013 13:20:23 -0400 (EDT)
+Message-ID: <20130501.132023.2197014617494654230.davem@davemloft.net>
+References: <517D3AFE.8020001@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, Hasan Chowdhury <shemonc@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: netdev@vger.kernel.org, shemonc@gmail.com, jengelh@inai.de
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:39527 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751051Ab3EARSW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 May 2013 13:18:22 -0400
-In-Reply-To: <518124D3.8070800@mojatatu.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40126 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342Ab3EARU0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 13:20:26 -0400
+In-Reply-To: <517D3AFE.8020001@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/01/2013 07:21 AM, Jamal Hadi Salim wrote:
-> On 13-05-01 09:47 AM, Jamal Hadi Salim wrote:
->> Hi Alex,
->>
->
->> So now i am wondering how the FSCK this thing even compiled.
->
-> Mystery solved. Man, this idea of keeping up with the distros and
-> iptables variants is a little insane.
-> Debian's setup ends up using m_ipt.c for anything less than iptable
-> 1.4.11. Kudos to the debian iproute maintainer.
-> Fedora on the other hand seems to going to m_xt.c
-> (This is why i asked for your Config earlier).
-> In any case, your patch is correct. So i will go sign off on it;
-> its just nobody else had to deal with that (or reported it).
->
-> Thanks for your patience Alex.
->
-> cheers,
-> jamal
->
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Sun, 28 Apr 2013 11:06:38 -0400
 
-No problem.  Just glad to have that patch off of my backlog of things to
-get upstream.
+> When Hasan nods I think this should also go into stable because none
+> of the newer kernels work with newer iptables (which is a lot of
+> distros).
 
-Thanks,
-
-Alex
+I'm tired waiting, applied and queued up for -stable, thanks Jamal.
