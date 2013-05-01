@@ -1,34 +1,46 @@
-From: Xi Wang <xi.wang@gmail.com>
-Subject: Re: [PATCH net-next] filter: fix va_list build error
-Date: Wed, 1 May 2013 18:29:40 -0400
-Message-ID: <CAKU6vyaEtNC5ZNvF7_vx8gD+rMh1Jo6Wb_=BarLeG9h_VqkYDw@mail.gmail.com>
-References: <1367439848-10854-1-git-send-email-xi.wang@gmail.com> <51818350.6040600@redhat.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 with 3.9.0-rc9
+Date: Thu, 2 May 2013 00:31:55 +0200
+Message-ID: <20130501223155.GA15261@electric-eye.fr.zoreil.com>
+References: <20130426132254.GA22821@gmail.com>
+ <20130426205018.GA18092@electric-eye.fr.zoreil.com>
+ <20130427041230.GA18709@gmail.com>
+ <20130428011232.GA4236@gmail.com>
+ <20130501100733.GA16115@gmail.com>
+ <20130501121502.GA5456@electric-eye.fr.zoreil.com>
+ <20130501212803.GA3342@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Joe Perches <joe@perches.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Lance Lassetter <lancelassetter@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f49.google.com ([209.85.219.49]:65305 "EHLO
-	mail-oa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757608Ab3EAWaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 18:30:21 -0400
-Received: by mail-oa0-f49.google.com with SMTP id j1so1817209oag.22
-        for <netdev@vger.kernel.org>; Wed, 01 May 2013 15:30:20 -0700 (PDT)
-In-Reply-To: <51818350.6040600@redhat.com>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:57791 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757434Ab3EAWb6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 18:31:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20130501212803.GA3342@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 1, 2013 at 5:04 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
-> That's a bit weird. Xi, maybe in a follow-up some time later, could
-> you move the GCC-internal stdarg.h rather into linux/printk.h, since
-> that's where the problem is coming from? Imho, it might be better off
-> there, no?
+Lance Lassetter <lancelassetter@gmail.com> :
+[...]
+> Yes, it was an up to date Fedora 17.  I know this is probably redundant but
+> I also tried Realtek firmware from a Debian Sid box onto the Fedora 18
+> using testing repos with vanilla stable kernel to the same result.
+> 
+> Should I file a Red Hat bug ?
 
-There was some discussion a while ago on whether to make printk.h self
-contained or to disallow including it directly.  Joe Perches [CCed]
-had patches for that.
+Not yet.
 
-https://lkml.org/lkml/2011/5/25/263
+> Manually change IRQs, what do you think?
 
-- xi
+I need the version of the last known working Fedora 17 kernel or
+your Fedora 18 install date if you can't retrieve it.
+
+A complete dmesg and the content of /proc/interrupts will be welcome.
+
+Thanks.
+
+-- 
+Ueimor
