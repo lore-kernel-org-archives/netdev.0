@@ -1,85 +1,88 @@
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH] usb: add device IDs for Dell 5804 (Novatel E371) WWAN card
-Date: Wed, 01 May 2013 13:01:45 -0500
-Message-ID: <1367431305.12353.8.camel@dcbw.foobar.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 1/2] net: More fine-grained support for
+ encapsulated GSO features
+Date: Wed, 1 May 2013 11:16:40 -0700
+Message-ID: <CAEP_g=8_W4Y7zEG2ANjSV91wC8-b+i5XcY-RDa6_w7nvuuHyUA@mail.gmail.com>
+References: <1366683556-4956-1-git-send-email-horms@verge.net.au>
+ <1366683556-4956-2-git-send-email-horms@verge.net.au> <alpine.LFD.2.02.1304231354440.5598@morpheus.jf.intel.com>
+ <20130425073644.GC7936@verge.net.au> <CAEP_g=_xZOjn6ByhM3sKw-f2Ui9kjnb1wUJ2EGBBg3GD5JnmLw@mail.gmail.com>
+ <20130430032121.GC26726@verge.net.au> <CAEP_g=-9abqxGyox7s4jjzTdPFTXmnLU6gkq+ihGwXJg-NAdaA@mail.gmail.com>
+ <20130501075029.GD27158@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn-yOkvZcmFvRU@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Matthias Urlichs <smurf-ci3XGGwdvIcvfNposrsB4g@public.gmane.org>, dagofthedofg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:43154 "HELO
+	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753061Ab3EASRB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 14:17:01 -0400
+Received: by mail-ob0-f199.google.com with SMTP id wp18so9270337obc.10
+        for <netdev@vger.kernel.org>; Wed, 01 May 2013 11:17:00 -0700 (PDT)
+In-Reply-To: <20130501075029.GD27158@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A rebranded Novatel E371 for AT&T's LTE bands.
+On Wed, May 1, 2013 at 12:50 AM, Simon Horman <horms@verge.net.au> wrote:
+> On Tue, Apr 30, 2013 at 09:19:51AM -0700, Jesse Gross wrote:
+>> On Mon, Apr 29, 2013 at 8:21 PM, Simon Horman <horms@verge.net.au> wrote:
+>> > On Fri, Apr 26, 2013 at 04:03:21PM -0700, Jesse Gross wrote:
+>> >> On Thu, Apr 25, 2013 at 12:36 AM, Simon Horman <horms@verge.net.au> wrote:
+>> >> > On Tue, Apr 23, 2013 at 02:00:19PM -0700, Joseph Gasparakis wrote:
+>> >> >> Any particular reason to introduce skb->encapsulation_features instead of
+>> >> >> using the existing skb->encapsulation? Also I don't see it used in your
+>> >> >> second patch either.
+>> >> >
+>> >> > My reasoning is that skb->encapsulation seems to alter the behaviour of
+>> >> > many different locations and I'm not sure that any of them, other than the
+>> >> > one in dev_hard_start_xmit() make sense for MPLS.
+>> >>
+>> >> The problem is the meaning of skb->encapsulation isn't really defined
+>> >> clearly and I'm certain that the current implementation is not going
+>> >> to work in the future. Depending on your perspective, vlans, MPLS,
+>> >> tunnels, etc. can all be considered forms of encapsulation but clearly
+>> >> there are many NICs that have different capabilities across those. I
+>> >> believe the intention here was really to describe L3 tunnels as
+>> >> encapsulation, in which case MPLS really shouldn't be using this
+>> >> mechanism at all.
+>> >>
+>> >> Now there is some overlap, especially today since most currently
+>> >> shipping silicon wasn't designed to support tunnels and so is using
+>> >> some form of offset based offloads. In that case, all forms of
+>> >> encapsulation are pretty similar. However, in the future that won't be
+>> >> the case as support for specific protocols is implemented for higher
+>> >> performance and richer support. When that happens, not only will MPLS
+>> >> and tunnels have different capabilities but various forms tunnels
+>> >> might as well.
+>> >
+>> > Wouldn't be possible to describe those differences using,
+>> > dev->hw_enc_features? I assumed that was its purpose.
+>>
+>> If there truly are differences between the offload capabilities of
+>> MPLS and L3 tunnels then no, it's not possible, because it's a single
+>> field. It's certainly not a valid assumption that a NIC that can do
+>> TSO over GRE can also do it over MPLS.
+>>
+>> However, it's unlikely that there are truly significant differences
+>> between various encapsulation formats on a per-feature basis. I think
+>> what we need to do is separate out the ability to understand the
+>> headers from the capabilities so you have two fields: header (none,
+>> VLAN, QinQ, MPLS, VXLAN, GRE, etc.) and feature (checksum, SG, TSO,
+>> etc.) rather than the product of each. Otherwise, we end up with a ton
+>> of different combinations.
+>
+> I'm not quite sure that I follow.
+>
+> Is your idea to replace skb->encapsulation (a single bit) with
+> a field that corresponds to the outer-most (encapsulation) header in use
+> and has bits for none, VLAN, QinQ, MPLS, VXLAN, GRE, etc...?
 
-Cc: <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
-See https://bugzilla.redhat.com/show_bug.cgi?id=955426
-
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 57136dc..299c53b 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -615,6 +615,13 @@ static const struct usb_device_id	products [] = {
- 	.driver_info = 0,
- },
- 
-+/* Dell Wireless 5804 (Novatel E371) - handled by qmi_wwan */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(DELL_VENDOR_ID, 0x819b, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-+	.driver_info = 0,
-+},
-+
- /* AnyDATA ADU960S - handled by qmi_wwan */
- {
- 	USB_DEVICE_AND_INTERFACE_INFO(0x16d5, 0x650a, USB_CLASS_COMM,
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 968d5d5..38734fd 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -392,6 +392,13 @@ static const struct usb_device_id products[] = {
- 					      USB_CDC_PROTO_NONE),
- 		.driver_info        = (unsigned long)&qmi_wwan_info,
- 	},
-+	{	/* Dell Wireless 5804 (Novatel E371) */
-+		USB_DEVICE_AND_INTERFACE_INFO(0x413C, 0x819b,
-+					      USB_CLASS_COMM,
-+					      USB_CDC_SUBCLASS_ETHERNET,
-+					      USB_CDC_PROTO_NONE),
-+		.driver_info        = (unsigned long)&qmi_wwan_info,
-+	},
- 	{	/* ADU960S */
- 		USB_DEVICE_AND_INTERFACE_INFO(0x16d5, 0x650a,
- 					      USB_CLASS_COMM,
-diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option.c
-index 558adfc..569caf6 100644
---- a/drivers/usb/serial/option.c
-+++ b/drivers/usb/serial/option.c
-@@ -196,6 +196,7 @@ static void option_instat_callback(struct urb *urb);
- 
- #define DELL_PRODUCT_5800_MINICARD_VZW		0x8195  /* Novatel E362 */
- #define DELL_PRODUCT_5800_V2_MINICARD_VZW	0x8196  /* Novatel E362 */
-+#define DELL_PRODUCT_5804_MINICARD_ATT		0x819b  /* Novatel E371 */
- 
- #define KYOCERA_VENDOR_ID			0x0c88
- #define KYOCERA_PRODUCT_KPC650			0x17da
-@@ -770,6 +771,7 @@ static const struct usb_device_id option_ids[] = {
- 	{ USB_DEVICE(DELL_VENDOR_ID, DELL_PRODUCT_5730_MINICARD_VZW) }, 	/* Dell Wireless 5730 Mobile Broadband EVDO/HSPA Mini-Card */
- 	{ USB_DEVICE_AND_INTERFACE_INFO(DELL_VENDOR_ID, DELL_PRODUCT_5800_MINICARD_VZW, 0xff, 0xff, 0xff) },
- 	{ USB_DEVICE_AND_INTERFACE_INFO(DELL_VENDOR_ID, DELL_PRODUCT_5800_V2_MINICARD_VZW, 0xff, 0xff, 0xff) },
-+	{ USB_DEVICE_AND_INTERFACE_INFO(DELL_VENDOR_ID, DELL_PRODUCT_5804_MINICARD_ATT, 0xff, 0xff, 0xff) },
- 	{ USB_DEVICE(ANYDATA_VENDOR_ID, ANYDATA_PRODUCT_ADU_E100A) },	/* ADU-E100, ADU-310 */
- 	{ USB_DEVICE(ANYDATA_VENDOR_ID, ANYDATA_PRODUCT_ADU_500A) },
- 	{ USB_DEVICE(ANYDATA_VENDOR_ID, ANYDATA_PRODUCT_ADU_620UW) },
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+No, I'm talking about netdev features. You can already tell the
+encapsulation type of a packet by looking at the EtherType.
