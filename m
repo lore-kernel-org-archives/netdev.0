@@ -1,69 +1,79 @@
-From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
-Subject: Re: [PULL] vhost: cleanups and fixes for 3.10
-Date: Wed, 01 May 2013 09:05:35 -0700
-Message-ID: <1367424335.10977.2.camel@haakon3.risingtidesystems.com>
-References: <20130501150130.GA21230@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v3 1/3] tipc: cosmetic: clean up comments
+Date: Wed, 01 May 2013 20:18:32 +0400
+Message-ID: <51814058.3080805@cogentembedded.com>
+References: <1367244820-29881-1-git-send-email-gerlando.falauto@keymile.com> <1367307199-10577-1-git-send-email-gerlando.falauto@keymile.com>  <517FB0D9.1070404@cogentembedded.com> <5180C64C.2040805@keymile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, asias@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
+	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
+	"ying.xue@windriver.com" <ying.xue@windriver.com>,
+	"Brunck, Holger" <Holger.Brunck@keymile.com>
+To: Gerlando Falauto <gerlando.falauto@keymile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linux-iscsi.org ([67.23.28.174]:45410 "EHLO
-	linux-iscsi.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756889Ab3EAQDN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 12:03:13 -0400
-In-Reply-To: <20130501150130.GA21230@redhat.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:64919 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751956Ab3EAQS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 12:18:59 -0400
+Received: by mail-lb0-f174.google.com with SMTP id t11so1600728lbd.19
+        for <netdev@vger.kernel.org>; Wed, 01 May 2013 09:18:58 -0700 (PDT)
+In-Reply-To: <5180C64C.2040805@keymile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-01 at 18:01 +0300, Michael S. Tsirkin wrote:
-> Please pull the following vhost core updates for 3.10 -
-> they affect both vhost-net and vhost-scsi devices.
-> They also *depend* on both net-next and target-pending.  Since Linus
-> merged target-pending but not net-next at this point, merging through
-> the net tree seems to make sense.
-> 
+Hello.
 
-Perfectly fine by me..
+On 01-05-2013 11:37, Gerlando Falauto wrote:
 
-Btw, I'll be sending another PULL request next week for some other minor
--rc1 items, so if DaveM prefers I'm happy to include this series in that
-PULL instead.
+>>> Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
+>>> ---
+>>> Changes from v2:
+>>> * Split cosmetic from functional changes
 
---nab
+>>>    net/tipc/bcast.c |   13 +++++++------
+>>>    1 file changed, 7 insertions(+), 6 deletions(-)
 
-> The following changes since commit bc7562355fda8075793bf66094cda573206ec693:
-> 
->   Merge branch 'for-next-merge' of git://git.kernel.org/pub/scm/linux/kernel/git/nab/target-pending into vhost-net-next (2013-05-01 09:16:50 +0300)
-> 
-> are available in the git repository at:
-> 
-> 
->   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
-> 
-> for you to fetch changes up to 150b9e51ae975ca1fe468c565870fbc4a96e0574:
-> 
->   vhost: fix error handling in RESET_OWNER ioctl (2013-05-01 10:02:54 +0300)
-> 
-> ----------------------------------------------------------------
-> Asias He (3):
->       vhost: Allow device specific fields per vq
->       tcm_vhost: Wait for pending requests in vhost_scsi_flush()
->       vhost: move vhost-net zerocopy fields to net.c
-> 
-> Michael S. Tsirkin (4):
->       tcm_vhost: document inflight ref-counting use
->       vhost: move per-vq net specific fields out to net
->       tcm_vhost: remove virtio-net.h dependency
->       vhost: fix error handling in RESET_OWNER ioctl
-> 
->  drivers/vhost/net.c       | 255 ++++++++++++++++++++++++++++++++++++----------
->  drivers/vhost/tcm_vhost.c | 154 ++++++++++++++++++++++++----
->  drivers/vhost/tcm_vhost.h |   3 +
->  drivers/vhost/test.c      |   9 +-
->  drivers/vhost/vhost.c     | 153 +++++++++-------------------
->  drivers/vhost/vhost.h     |  32 +-----
->  6 files changed, 400 insertions(+), 206 deletions(-)
+>>> diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
+>>> index 2655c9f..8438e01 100644
+>>> --- a/net/tipc/bcast.c
+>>> +++ b/net/tipc/bcast.c
+>>> @@ -584,8 +584,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+>>>    {
+>>>        int bp_index;
+>>>
+>>> -    /*
+>>> -     * Prepare broadcast link message for reliable transmission,
+>>> +    /* Prepare broadcast link message for reliable transmission,
+>>>         * if first time trying to send it;
+>>>         * preparation is skipped for broadcast link protocol messages
+>>>         * since they are sent in an unreliable manner and don't need it
+>>> @@ -613,11 +612,12 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+>>>            struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
+>>>
+>>>            if (!p)
+>>> -            break;    /* no more bearers to try */
+>>> +            break; /* No more bearers to try */
+>>>
+>>> -        tipc_nmap_diff(&bcbearer->remains, &p->nodes,
+>>> &bcbearer->remains_new);
+>>> +        tipc_nmap_diff(&bcbearer->remains, &p->nodes,
+>>> +                   &bcbearer->remains_new);
+
+>>      It apeears you nopt only cleaning up comments in this patch but you don't
+>> mention this change in the changelog...
+
+> That's just adding a line break to split a long line.
+> Come on, seriously, is that *really* worth mentioning?
+
+    Yes, it is. Otherwise it's an unrelated change.
+
+> How about "tipc: cosmetic: clean up comments and break a long line"?
+
+    Sounds good.
+
+> Thanks,
+> Gerlando
+
+WBR, Sergei
