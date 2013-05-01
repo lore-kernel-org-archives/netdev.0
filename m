@@ -1,41 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3b 1/3] tipc: cosmetic: clean up comments and break a
- long line
-Date: Wed, 01 May 2013 13:16:02 -0400 (EDT)
-Message-ID: <20130501.131602.899596493606702378.davem@davemloft.net>
-References: <51814058.3080805@cogentembedded.com>
-	<1367426477-10441-1-git-send-email-gerlando.falauto@keymile.com>
+From: Alexander Duyck <alexander.h.duyck@intel.com>
+Subject: Re: [IPROUTE PATCH v2] iproute2: act_ipt fix xtables breakage on
+ older versions.
+Date: Wed, 01 May 2013 10:18:21 -0700
+Message-ID: <51814E5D.5030505@intel.com>
+References: <20130429154644.52016.60284.stgit@ahduyck-cp1.jf.intel.com> <517FC04E.30705@mojatatu.com> <517FEC48.80700@intel.com> <51811D06.2070800@mojatatu.com> <518124D3.8070800@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	jon.maloy@ericsson.com, erik.hugne@ericsson.com,
-	ying.xue@windriver.com, holger.brunck@keymile.com
-To: gerlando.falauto@keymile.com
+Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
+	jeffrey.t.kirsher@intel.com, Hasan Chowdhury <shemonc@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40066 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750887Ab3EARQG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 13:16:06 -0400
-In-Reply-To: <1367426477-10441-1-git-send-email-gerlando.falauto@keymile.com>
+Received: from mga14.intel.com ([143.182.124.37]:39527 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751051Ab3EARSW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 May 2013 13:18:22 -0400
+In-Reply-To: <518124D3.8070800@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gerlando Falauto <gerlando.falauto@keymile.com>
-Date: Wed,  1 May 2013 18:41:17 +0200
+On 05/01/2013 07:21 AM, Jamal Hadi Salim wrote:
+> On 13-05-01 09:47 AM, Jamal Hadi Salim wrote:
+>> Hi Alex,
+>>
+>
+>> So now i am wondering how the FSCK this thing even compiled.
+>
+> Mystery solved. Man, this idea of keeping up with the distros and
+> iptables variants is a little insane.
+> Debian's setup ends up using m_ipt.c for anything less than iptable
+> 1.4.11. Kudos to the debian iproute maintainer.
+> Fedora on the other hand seems to going to m_xt.c
+> (This is why i asked for your Config earlier).
+> In any case, your patch is correct. So i will go sign off on it;
+> its just nobody else had to deal with that (or reported it).
+>
+> Thanks for your patience Alex.
+>
+> cheers,
+> jamal
+>
 
-> Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
-> ---
-> Changes from v3:
-> * Added "and break a long line" to the commit message
-> Changes from v2:
-> * Split cosmetic (this patch) from functional changes (next patch)
+No problem.  Just glad to have that patch off of my backlog of things to
+get upstream.
 
-Never resubmit patches by themselves, always resubmit the entire series.
+Thanks,
 
-Because when one patch has problems, I toss the entire series from patchwork,
-and by resubmitting the entire series again you are also giving me important
-information, you're telling me that the subsequent patches in the series
-still apply cleanly even though the first one has changed.
-
-I've tossed this patch too, resubmit this properly, thanks.
+Alex
