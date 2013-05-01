@@ -1,75 +1,88 @@
-From: Gerlando Falauto <gerlando.falauto@keymile.com>
-Subject: Re: [PATCH v3 1/3] tipc: cosmetic: clean up comments
-Date: Wed, 01 May 2013 09:37:48 +0200
-Message-ID: <5180C64C.2040805@keymile.com>
-References: <1367244820-29881-1-git-send-email-gerlando.falauto@keymile.com> <1367307199-10577-1-git-send-email-gerlando.falauto@keymile.com>
-	 <517FB0D9.1070404@cogentembedded.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH net-next 1/2] net: More fine-grained support for
+ encapsulated GSO features
+Date: Wed, 1 May 2013 16:50:29 +0900
+Message-ID: <20130501075029.GD27158@verge.net.au>
+References: <1366683556-4956-1-git-send-email-horms@verge.net.au>
+ <1366683556-4956-2-git-send-email-horms@verge.net.au>
+ <alpine.LFD.2.02.1304231354440.5598@morpheus.jf.intel.com>
+ <20130425073644.GC7936@verge.net.au>
+ <CAEP_g=_xZOjn6ByhM3sKw-f2Ui9kjnb1wUJ2EGBBg3GD5JnmLw@mail.gmail.com>
+ <20130430032121.GC26726@verge.net.au>
+ <CAEP_g=-9abqxGyox7s4jjzTdPFTXmnLU6gkq+ihGwXJg-NAdaA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jon.maloy@ericsson.com" <jon.maloy@ericsson.com>,
-	"erik.hugne@ericsson.com" <erik.hugne@ericsson.com>,
-	"ying.xue@windriver.com" <ying.xue@windriver.com>,
-	"Brunck, Holger" <Holger.Brunck@keymile.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Maciej =?utf-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.ch.keymile.com ([193.17.201.103]:60289 "HELO
-	mail-ch.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1754611Ab3EAHtw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 03:49:52 -0400
-In-Reply-To: <517FB0D9.1070404@cogentembedded.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:46728 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994Ab3EAHuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 03:50:32 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-9abqxGyox7s4jjzTdPFTXmnLU6gkq+ihGwXJg-NAdaA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+On Tue, Apr 30, 2013 at 09:19:51AM -0700, Jesse Gross wrote:
+> On Mon, Apr 29, 2013 at 8:21 PM, Simon Horman <horms@verge.net.au> wrote:
+> > On Fri, Apr 26, 2013 at 04:03:21PM -0700, Jesse Gross wrote:
+> >> On Thu, Apr 25, 2013 at 12:36 AM, Simon Horman <horms@verge.net.au> wrote:
+> >> > On Tue, Apr 23, 2013 at 02:00:19PM -0700, Joseph Gasparakis wrote:
+> >> >> Any particular reason to introduce skb->encapsulation_features instead of
+> >> >> using the existing skb->encapsulation? Also I don't see it used in your
+> >> >> second patch either.
+> >> >
+> >> > My reasoning is that skb->encapsulation seems to alter the behaviour of
+> >> > many different locations and I'm not sure that any of them, other than the
+> >> > one in dev_hard_start_xmit() make sense for MPLS.
+> >>
+> >> The problem is the meaning of skb->encapsulation isn't really defined
+> >> clearly and I'm certain that the current implementation is not going
+> >> to work in the future. Depending on your perspective, vlans, MPLS,
+> >> tunnels, etc. can all be considered forms of encapsulation but clearly
+> >> there are many NICs that have different capabilities across those. I
+> >> believe the intention here was really to describe L3 tunnels as
+> >> encapsulation, in which case MPLS really shouldn't be using this
+> >> mechanism at all.
+> >>
+> >> Now there is some overlap, especially today since most currently
+> >> shipping silicon wasn't designed to support tunnels and so is using
+> >> some form of offset based offloads. In that case, all forms of
+> >> encapsulation are pretty similar. However, in the future that won't be
+> >> the case as support for specific protocols is implemented for higher
+> >> performance and richer support. When that happens, not only will MPLS
+> >> and tunnels have different capabilities but various forms tunnels
+> >> might as well.
+> >
+> > Wouldn't be possible to describe those differences using,
+> > dev->hw_enc_features? I assumed that was its purpose.
+> 
+> If there truly are differences between the offload capabilities of
+> MPLS and L3 tunnels then no, it's not possible, because it's a single
+> field. It's certainly not a valid assumption that a NIC that can do
+> TSO over GRE can also do it over MPLS.
+> 
+> However, it's unlikely that there are truly significant differences
+> between various encapsulation formats on a per-feature basis. I think
+> what we need to do is separate out the ability to understand the
+> headers from the capabilities so you have two fields: header (none,
+> VLAN, QinQ, MPLS, VXLAN, GRE, etc.) and feature (checksum, SG, TSO,
+> etc.) rather than the product of each. Otherwise, we end up with a ton
+> of different combinations.
 
-On 04/30/2013 01:54 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 30-04-2013 11:33, Gerlando Falauto wrote:
->
->> Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
->> ---
->> Changes from v2:
->> * Split cosmetic from functional changes
->
->>    net/tipc/bcast.c |   13 +++++++------
->>    1 file changed, 7 insertions(+), 6 deletions(-)
->
->> diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
->> index 2655c9f..8438e01 100644
->> --- a/net/tipc/bcast.c
->> +++ b/net/tipc/bcast.c
->> @@ -584,8 +584,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
->>    {
->>    	int bp_index;
->>
->> -	/*
->> -	 * Prepare broadcast link message for reliable transmission,
->> +	/* Prepare broadcast link message for reliable transmission,
->>    	 * if first time trying to send it;
->>    	 * preparation is skipped for broadcast link protocol messages
->>    	 * since they are sent in an unreliable manner and don't need it
->> @@ -613,11 +612,12 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
->>    		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
->>
->>    		if (!p)
->> -			break;	/* no more bearers to try */
->> +			break; /* No more bearers to try */
->>
->> -		tipc_nmap_diff(&bcbearer->remains, &p->nodes, &bcbearer->remains_new);
->> +		tipc_nmap_diff(&bcbearer->remains, &p->nodes,
->> +			       &bcbearer->remains_new);
->
->      It apeears you nopt only cleaning up comments in this patch but you don't
-> mention this change in the changelog...
+I'm not quite sure that I follow.
 
-That's just adding a line break to split a long line.
-Come on, seriously, is that *really* worth mentioning?
-How about "tipc: cosmetic: clean up comments and break a long line"?
+Is your idea to replace skb->encapsulation (a single bit) with
+a field that corresponds to the outer-most (encapsulation) header in use
+and has bits for none, VLAN, QinQ, MPLS, VXLAN, GRE, etc...?
 
-Thanks,
-Gerlando
+If so, I believe that would solve the problem I was trying to address
+with this patch.
