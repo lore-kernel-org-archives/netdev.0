@@ -1,88 +1,63 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 1/2] net: More fine-grained support for
- encapsulated GSO features
-Date: Wed, 1 May 2013 16:50:29 +0900
-Message-ID: <20130501075029.GD27158@verge.net.au>
-References: <1366683556-4956-1-git-send-email-horms@verge.net.au>
- <1366683556-4956-2-git-send-email-horms@verge.net.au>
- <alpine.LFD.2.02.1304231354440.5598@morpheus.jf.intel.com>
- <20130425073644.GC7936@verge.net.au>
- <CAEP_g=_xZOjn6ByhM3sKw-f2Ui9kjnb1wUJ2EGBBg3GD5JnmLw@mail.gmail.com>
- <20130430032121.GC26726@verge.net.au>
- <CAEP_g=-9abqxGyox7s4jjzTdPFTXmnLU6gkq+ihGwXJg-NAdaA@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH net-next] af_unix: fix a fatal race with bit fields
+Date: Wed, 01 May 2013 18:08:05 +1000
+Message-ID: <1367395685.22115.19.camel@pasglop>
+References: <1367370761.11020.22.camel@edumazet-glaptop>
+ <1367372393.22115.6.camel@pasglop>
+ <20130501.033650.703182794549888825.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Maciej =?utf-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46728 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750994Ab3EAHuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 03:50:32 -0400
-Content-Disposition: inline
-In-Reply-To: <CAEP_g=-9abqxGyox7s4jjzTdPFTXmnLU6gkq+ihGwXJg-NAdaA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org, paulus@samba.org,
+ ambrose@google.com, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20130501.033650.703182794549888825.davem@davemloft.net>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 30, 2013 at 09:19:51AM -0700, Jesse Gross wrote:
-> On Mon, Apr 29, 2013 at 8:21 PM, Simon Horman <horms@verge.net.au> wrote:
-> > On Fri, Apr 26, 2013 at 04:03:21PM -0700, Jesse Gross wrote:
-> >> On Thu, Apr 25, 2013 at 12:36 AM, Simon Horman <horms@verge.net.au> wrote:
-> >> > On Tue, Apr 23, 2013 at 02:00:19PM -0700, Joseph Gasparakis wrote:
-> >> >> Any particular reason to introduce skb->encapsulation_features instead of
-> >> >> using the existing skb->encapsulation? Also I don't see it used in your
-> >> >> second patch either.
-> >> >
-> >> > My reasoning is that skb->encapsulation seems to alter the behaviour of
-> >> > many different locations and I'm not sure that any of them, other than the
-> >> > one in dev_hard_start_xmit() make sense for MPLS.
-> >>
-> >> The problem is the meaning of skb->encapsulation isn't really defined
-> >> clearly and I'm certain that the current implementation is not going
-> >> to work in the future. Depending on your perspective, vlans, MPLS,
-> >> tunnels, etc. can all be considered forms of encapsulation but clearly
-> >> there are many NICs that have different capabilities across those. I
-> >> believe the intention here was really to describe L3 tunnels as
-> >> encapsulation, in which case MPLS really shouldn't be using this
-> >> mechanism at all.
-> >>
-> >> Now there is some overlap, especially today since most currently
-> >> shipping silicon wasn't designed to support tunnels and so is using
-> >> some form of offset based offloads. In that case, all forms of
-> >> encapsulation are pretty similar. However, in the future that won't be
-> >> the case as support for specific protocols is implemented for higher
-> >> performance and richer support. When that happens, not only will MPLS
-> >> and tunnels have different capabilities but various forms tunnels
-> >> might as well.
-> >
-> > Wouldn't be possible to describe those differences using,
-> > dev->hw_enc_features? I assumed that was its purpose.
+On Wed, 2013-05-01 at 03:36 -0400, David Miller wrote:
+> From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Date: Wed, 01 May 2013 11:39:53 +1000
 > 
-> If there truly are differences between the offload capabilities of
-> MPLS and L3 tunnels then no, it's not possible, because it's a single
-> field. It's certainly not a valid assumption that a NIC that can do
-> TSO over GRE can also do it over MPLS.
+> > I'm not even completely certain bytes are safe to be honest, though
+> > probably more than bitfields. I'll poke our compiler people.
 > 
-> However, it's unlikely that there are truly significant differences
-> between various encapsulation formats on a per-feature basis. I think
-> what we need to do is separate out the ability to understand the
-> headers from the capabilities so you have two fields: header (none,
-> VLAN, QinQ, MPLS, VXLAN, GRE, etc.) and feature (checksum, SG, TSO,
-> etc.) rather than the product of each. Otherwise, we end up with a ton
-> of different combinations.
+> Older Alpha only has 32-bit and 64-bit loads and stores, so byte sized
+> accesses are not atomic, and therefore use racey read-modify-write
+> sequences.
 
-I'm not quite sure that I follow.
+In this case it depends whether the compiler will "chose" the smaller
+(32-bit) size which hopefully won't overlap with the atomic/lock
+provided the latter is aligned... lots of if's here, makes me nervous...
 
-Is your idea to replace skb->encapsulation (a single bit) with
-a field that corresponds to the outer-most (encapsulation) header in use
-and has bits for none, VLAN, QinQ, MPLS, VXLAN, GRE, etc...?
+At least the bytes seem to fix it for ppc64 so far...
 
-If so, I believe that would solve the problem I was trying to address
-with this patch.
+It would make feel generally better if we could get gcc to guarantee us
+to always use the smallest access size that encompass the whole bitfield
+(or at least not go larger than int when the bitfield is defined as
+unsigned int). This would take care of all the cases we haven't spotted
+yet (hopefully).
+
+For all intend and purposes those two fields are bits of an unsigned
+int, why the heck would the compiler use a larger access size anyway ? I
+seem to recall that we have other places where such an assumption is
+made that ints are accessed atomically, and Linus stating in the past
+that a compiler doing anything else was not worth bothering with. I
+don't see why bitfields of such int would be an exception to that rule
+(though again, this is probably not a rule stated in the standard ... oh
+well).
+
+/me goes have a glass of wine and not think about this until tomorrow.
+
+Cheers,
+Ben.
