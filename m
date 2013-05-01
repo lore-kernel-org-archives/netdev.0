@@ -1,74 +1,66 @@
 From: Gerlando Falauto <gerlando.falauto@keymile.com>
-Subject: [PATCH v4 1/3] tipc: cosmetic: clean up comments and break a long line
-Date: Wed,  1 May 2013 19:49:15 +0200
-Message-ID: <1367430557-11843-1-git-send-email-gerlando.falauto@keymile.com>
+Subject: [PATCH v4 2/3] tipc: tipc_bcbearer_send(): simplify bearer selection
+Date: Wed,  1 May 2013 19:49:16 +0200
+Message-ID: <1367430557-11843-2-git-send-email-gerlando.falauto@keymile.com>
+References: <1367430557-11843-1-git-send-email-gerlando.falauto@keymile.com>
 Cc: jon.maloy@ericsson.com, erik.hugne@ericsson.com,
 	ying.xue@windriver.com, holger.brunck@keymile.com,
 	Gerlando Falauto <gerlando.falauto@keymile.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:58531 "EHLO
+Received: from mail-de.keymile.com ([195.8.104.250]:58533 "EHLO
 	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752414Ab3EARtd (ORCPT
+	with ESMTP id S1752201Ab3EARtd (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 13:49:33 -0400
+In-Reply-To: <1367430557-11843-1-git-send-email-gerlando.falauto@keymile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
 ---
-Changes from v3:
-* Added "and break a long line" to the commit message
+Changes from v3: NONE
 Changes from v2:
-* Split cosmetic (this patch) from functional changes (next patch)
+* Fixed non-bisectability; was tipc_bearer_send(b, buf, &s->media...)
 
- net/tipc/bcast.c |   13 +++++++------
- 1 file changed, 7 insertions(+), 6 deletions(-)
+ net/tipc/bcast.c |   18 +++++++++---------
+ 1 file changed, 9 insertions(+), 9 deletions(-)
 
 diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index 2655c9f..8438e01 100644
+index 8438e01..c8f572f 100644
 --- a/net/tipc/bcast.c
 +++ b/net/tipc/bcast.c
-@@ -584,8 +584,7 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
- {
- 	int bp_index;
- 
--	/*
--	 * Prepare broadcast link message for reliable transmission,
-+	/* Prepare broadcast link message for reliable transmission,
- 	 * if first time trying to send it;
- 	 * preparation is skipped for broadcast link protocol messages
- 	 * since they are sent in an unreliable manner and don't need it
-@@ -613,11 +612,12 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+@@ -610,23 +610,23 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
+ 	for (bp_index = 0; bp_index < MAX_BEARERS; bp_index++) {
+ 		struct tipc_bearer *p = bcbearer->bpairs[bp_index].primary;
  		struct tipc_bearer *s = bcbearer->bpairs[bp_index].secondary;
++		struct tipc_bearer *b = p;
  
  		if (!p)
--			break;	/* no more bearers to try */
-+			break; /* No more bearers to try */
+ 			break; /* No more bearers to try */
  
--		tipc_nmap_diff(&bcbearer->remains, &p->nodes, &bcbearer->remains_new);
-+		tipc_nmap_diff(&bcbearer->remains, &p->nodes,
-+			       &bcbearer->remains_new);
+-		tipc_nmap_diff(&bcbearer->remains, &p->nodes,
++		if (tipc_bearer_blocked(p)) {
++			if (!s || tipc_bearer_blocked(s))
++				continue; /* Can't use either bearer */
++			b = s;
++		}
++
++		tipc_nmap_diff(&bcbearer->remains, &b->nodes,
+ 			       &bcbearer->remains_new);
  		if (bcbearer->remains_new.count == bcbearer->remains.count)
--			continue;	/* bearer pair doesn't add anything */
-+			continue; /* Nothing added by bearer pair */
+ 			continue; /* Nothing added by bearer pair */
  
- 		if (!tipc_bearer_blocked(p))
- 			tipc_bearer_send(p, buf, &p->media->bcast_addr);
-@@ -628,13 +628,14 @@ static int tipc_bcbearer_send(struct sk_buff *buf,
- 			/* unable to send on either bearer */
- 			continue;
+-		if (!tipc_bearer_blocked(p))
+-			tipc_bearer_send(p, buf, &p->media->bcast_addr);
+-		else if (s && !tipc_bearer_blocked(s))
+-			/* unable to send on primary bearer */
+-			tipc_bearer_send(s, buf, &s->media->bcast_addr);
+-		else
+-			/* unable to send on either bearer */
+-			continue;
++		tipc_bearer_send(b, buf, &b->media->bcast_addr);
  
-+		/* Swap bearers for next packet */
+ 		/* Swap bearers for next packet */
  		if (s) {
- 			bcbearer->bpairs[bp_index].primary = s;
- 			bcbearer->bpairs[bp_index].secondary = p;
- 		}
- 
- 		if (bcbearer->remains_new.count == 0)
--			break;	/* all targets reached */
-+			break; /* All targets reached */
- 
- 		bcbearer->remains = bcbearer->remains_new;
- 	}
 -- 
 1.7.10.1
