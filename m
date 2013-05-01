@@ -1,51 +1,36 @@
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Subject: [PATCH net 4/4] be2net: Fix to receive Multicast Packets when
- Promiscuous mode is enabled on certain devices
-Date: Wed, 1 May 2013 14:38:24 -0500
-Message-ID: <20130501193824.GA3841@emulex.com>
-Reply-To: Ajit Khaparde <ajit.khaparde@emulex.com>
+From: Krishna Chaitanya <chaitanya.mgit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: Regression in 3.9 caused by "bridge: respect RFC2863 operational state"
+Date: Thu, 2 May 2013 01:19:58 +0530
+Message-ID: <CABPxzYLP53mnMXAicD33oX8TW77xnZziS=XBuVCy_u4H2oyLUw@mail.gmail.com>
+References: <518166C5.4080904@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:6216 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755427Ab3EATi1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 15:38:27 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Stephen Hemminger <shemminger-ZtmgI6mnKB3QT0dZR+AlfA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	Sebastian Gottschall <s.gottschall-t37Kgv3TaIPQT0dZR+AlfA@public.gmane.org>
+To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <518166C5.4080904-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-When a user requests Promiscuous mode on SkyHawk-R devices,
-the FW enables Desparate Promiscuous mode.
-Due to this, we need to explicitly enable Multicast Promiscuous mode
-so that Multicast packets are received as well.
+On Thu, May 2, 2013 at 12:32 AM, Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org> wrote:
+>
+> In the long run, I'd like to sort out this mess by passing EAP frames to
+> userspace via nl80211 - but since that will require userspace changes,
+> what do we do about this issue in the mean time?
 
-This patch fixes that.
+One quick solution i can think of is:
 
-Signed-off-by: Ajit Khaparde <ajit.khaparde@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_cmds.c |    6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+Temporarily we can make the interface UP as soon as
+we are associated and then drop the data packets except for
+EAPOL-KEY (ETH_H_PAE) frames in the mac80211.
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 3c1632a..c4a3e20 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -1764,10 +1764,12 @@ int be_cmd_rx_filter(struct be_adapter *adapter, u32 flags, u32 value)
- 	req->if_id = cpu_to_le32(adapter->if_handle);
- 	if (flags & IFF_PROMISC) {
- 		req->if_flags_mask = cpu_to_le32(BE_IF_FLAGS_PROMISCUOUS |
--					BE_IF_FLAGS_VLAN_PROMISCUOUS);
-+					BE_IF_FLAGS_VLAN_PROMISCUOUS |
-+					BE_IF_FLAGS_MCAST_PROMISCUOUS);
- 		if (value == ON)
- 			req->if_flags = cpu_to_le32(BE_IF_FLAGS_PROMISCUOUS |
--						BE_IF_FLAGS_VLAN_PROMISCUOUS);
-+						BE_IF_FLAGS_VLAN_PROMISCUOUS |
-+						BE_IF_FLAGS_MCAST_PROMISCUOUS);
- 	} else if (flags & IFF_ALLMULTI) {
- 		req->if_flags_mask = req->if_flags =
- 				cpu_to_le32(BE_IF_FLAGS_MCAST_PROMISCUOUS);
--- 
-1.7.10.4
+ieee80211_frame_allowed has a rule to drops the unencrypted data frames
+we just need to add a rule to drop encrypted data frames.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
