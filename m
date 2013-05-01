@@ -1,49 +1,69 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Wed, 1 May 2013 09:02:18 -0700
-Message-ID: <20130501160218.GQ3780@linux.vnet.ibm.com>
-References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
- <1367290378-29224-2-git-send-email-horms@verge.net.au>
- <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
- <20130430072944.GA13959@verge.net.au>
- <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
- <20130501091012.GB28253@dyad.programming.kicks-ass.net>
- <20130501124637.GO3780@linux.vnet.ibm.com>
- <20130501151752.GA7521@dyad.programming.kicks-ass.net>
- <1367422195.11020.46.camel@edumazet-glaptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PULL] vhost: cleanups and fixes for 3.10
+Date: Wed, 01 May 2013 09:05:35 -0700
+Message-ID: <1367424335.10977.2.camel@haakon3.risingtidesystems.com>
+References: <20130501150130.GA21230@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Simon Horman <horms@verge.net.au>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1367422195.11020.46.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	virtualization@lists.osdl.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, asias@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linux-iscsi.org ([67.23.28.174]:45410 "EHLO
+	linux-iscsi.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756889Ab3EAQDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 12:03:13 -0400
+In-Reply-To: <20130501150130.GA21230@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 01, 2013 at 08:29:55AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-05-01 at 17:17 +0200, Peter Zijlstra wrote:
-> > On Wed, May 01, 2013 at 05:46:37AM -0700, Paul E. McKenney wrote:
-> > 
-> > > If the only goal is to allow preemption, and if long grace periods are
-> > > not a concern, then this alternate approach would work fine as well.
-> > 
-> > Hmm.. if that were the goal I'd like it to have a different name;
-> > cond_resched*() has always been about preemption.
+On Wed, 2013-05-01 at 18:01 +0300, Michael S. Tsirkin wrote:
+> Please pull the following vhost core updates for 3.10 -
+> they affect both vhost-net and vhost-scsi devices.
+> They also *depend* on both net-next and target-pending.  Since Linus
+> merged target-pending but not net-next at this point, merging through
+> the net tree seems to make sense.
 > 
-> BTW, I do not remember why cond_resched() is not an empty macro
-> when CONFIG_PREEMPT=y ?
 
-My guess would be for the case where sched_preempt_enable_no_resched()
-is followed some time later by cond_resched().
+Perfectly fine by me..
 
-							Thanx, Paul
+Btw, I'll be sending another PULL request next week for some other minor
+-rc1 items, so if DaveM prefers I'm happy to include this series in that
+PULL instead.
 
+--nab
+
+> The following changes since commit bc7562355fda8075793bf66094cda573206ec693:
+> 
+>   Merge branch 'for-next-merge' of git://git.kernel.org/pub/scm/linux/kernel/git/nab/target-pending into vhost-net-next (2013-05-01 09:16:50 +0300)
+> 
+> are available in the git repository at:
+> 
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
+> 
+> for you to fetch changes up to 150b9e51ae975ca1fe468c565870fbc4a96e0574:
+> 
+>   vhost: fix error handling in RESET_OWNER ioctl (2013-05-01 10:02:54 +0300)
+> 
+> ----------------------------------------------------------------
+> Asias He (3):
+>       vhost: Allow device specific fields per vq
+>       tcm_vhost: Wait for pending requests in vhost_scsi_flush()
+>       vhost: move vhost-net zerocopy fields to net.c
+> 
+> Michael S. Tsirkin (4):
+>       tcm_vhost: document inflight ref-counting use
+>       vhost: move per-vq net specific fields out to net
+>       tcm_vhost: remove virtio-net.h dependency
+>       vhost: fix error handling in RESET_OWNER ioctl
+> 
+>  drivers/vhost/net.c       | 255 ++++++++++++++++++++++++++++++++++++----------
+>  drivers/vhost/tcm_vhost.c | 154 ++++++++++++++++++++++++----
+>  drivers/vhost/tcm_vhost.h |   3 +
+>  drivers/vhost/test.c      |   9 +-
+>  drivers/vhost/vhost.c     | 153 +++++++++-------------------
+>  drivers/vhost/vhost.h     |  32 +-----
+>  6 files changed, 400 insertions(+), 206 deletions(-)
