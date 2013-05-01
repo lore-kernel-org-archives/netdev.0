@@ -1,132 +1,40 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Wed, 1 May 2013 17:55:02 +0200
-Message-ID: <20130501155501.GB7521@dyad.programming.kicks-ass.net>
-References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
- <1367290378-29224-2-git-send-email-horms@verge.net.au>
- <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
- <20130430072944.GA13959@verge.net.au>
- <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
- <20130501091012.GB28253@dyad.programming.kicks-ass.net>
- <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH v2 net-next] af_unix: fix a fatal race with bit fields
+Date: Wed, 01 May 2013 09:00:59 -0700
+Message-ID: <1367424059.11020.61.camel@edumazet-glaptop>
+References: <1367370761.11020.22.camel@edumazet-glaptop>
+	 <1367372393.22115.6.camel@pasglop>
+	 <20130501.033650.703182794549888825.davem@davemloft.net>
+	 <1367421843.11020.43.camel@edumazet-glaptop>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B721C@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, benh@kernel.crashing.org,
+	netdev@vger.kernel.org, paulus@samba.org, ambrose@google.com,
+	linuxppc-dev@lists.ozlabs.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f44.google.com ([209.85.210.44]:49899 "EHLO
+	mail-da0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932361Ab3EAQBE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 12:01:04 -0400
+Received: by mail-da0-f44.google.com with SMTP id z20so722673dae.3
+        for <netdev@vger.kernel.org>; Wed, 01 May 2013 09:01:03 -0700 (PDT)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B721C@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 01, 2013 at 05:22:05PM +0300, Julian Anastasov wrote:
+On Wed, 2013-05-01 at 16:53 +0100, David Laight wrote:
+> Why not just change gc_candidate and gc_maybe_cycle to
+> unsigned char?
+> It might reduce the number of pad bytes somewhat.
 
-> > static void inline cond_resched_rcu_lock(void)
-> > {
-> > #ifdef CONFIG_PREEMPT_RCU
-> 
-> 	You mean '#ifndef' here, right? But in the non-preempt
-> case is using the need_resched() needed? rcu_read_unlock
-> and rcu_read_lock do not generate code.
+You didn't quite follow the discussion.
 
-Uhm... yes!
+I used bytes on V1, and we are not 100% sure its safe on all arches.
 
-> > 	if (need_resched()) {
-> > 		rcu_read_unlock();
-> > 		cond_resched();
-> > 		rcu_read_lock();
-> > 	}
-> > #endif /* CONFIG_PREEMPT_RCU */
-> > }
-> > 
-> > That would have an rcu_read_lock() break and voluntary preemption point for
-> > non-preemptible RCU and not bother with the stuff for preemptible RCU.
-> 
-> 	I see. So, can we choose one of both variants:
-> 
-> 1. Your variant but with ifndef:
-> 
-> static void inline cond_resched_rcu_lock(void)
-> {
-> #ifndef CONFIG_PREEMPT_RCU
-> 	if (need_resched()) {
-> 		rcu_read_unlock();
-> 		cond_resched();
-> 		rcu_read_lock();
-> 	}
-> #endif
-> }
-> 
-> 2. Same without need_resched because cond_resched already
-> performs the same checks:
-> 
-> static void inline cond_resched_rcu_lock(void)
-> {
-> #ifndef CONFIG_PREEMPT_RCU
-> 	rcu_read_unlock();
-> 	cond_resched();
-> 	rcu_read_lock();
-> #endif
-> }
+unsigned long is guaranteed to be safe. We absolutely rely on this.
 
-Ah so the 'problem' with this last version is that it does an unconditional /
-unnessecary rcu_read_unlock().
-
-The below would be in line with all the other cond_resched*() implementations.
-
----
- include/linux/sched.h |  7 +++++++
- kernel/sched/core.c   | 14 ++++++++++++++
- 2 files changed, 21 insertions(+)
-
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 802a751..fd2c77f 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -2449,6 +2449,13 @@ extern int __cond_resched_softirq(void);
- 	__cond_resched_softirq();					\
- })
- 
-+extern int __cond_resched_rcu(void);
-+
-+#define cond_resched_rcu() ({			\
-+	__might_sleep(__FILE__, __LINE__, 0);	\
-+	__cond_resched_rcu();			\
-+})
-+
- /*
-  * Does a critical section need to be broken due to another
-  * task waiting?: (technically does not depend on CONFIG_PREEMPT,
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 7d7901a..2b3b4e6 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -4358,6 +4358,20 @@ int __sched __cond_resched_softirq(void)
- }
- EXPORT_SYMBOL(__cond_resched_softirq);
- 
-+int __sched __cond_resched_rcu(void)
-+{
-+#ifndef CONFIG_PREEMPT_RCU
-+	if (should_resched()) {
-+		rcu_read_unlock();
-+		__cond_resched();
-+		rcu_read_lock();
-+		return 1;
-+	}
-+#endif
-+	return 0;
-+}
-+EXPORT_SYMBOL(__cond_resched_rcu);
-+
- /**
-  * yield - yield the current processor to other threads.
-  *
-
+Better use more bytes on a socket (with no impact on real memory use),
+than spending hours to debug some strange issues.
