@@ -1,87 +1,167 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next 2/2] xen-netback: avoid allocating variable size
- array on stack
-Date: Wed, 1 May 2013 14:01:07 +0100
-Message-ID: <20130501130107.GH9780@zion.uk.xensource.com>
-References: <1367340644-19690-1-git-send-email-wei.liu2@citrix.com>
- <1367340644-19690-3-git-send-email-wei.liu2@citrix.com>
- <1367404361.3142.686.camel@zakaz.uk.xensource.com>
- <20130501105316.GE9780@zion.uk.xensource.com>
- <1367407303.3142.694.camel@zakaz.uk.xensource.com>
- <20130501114009.GG9780@zion.uk.xensource.com>
- <1367408826.3142.714.camel@zakaz.uk.xensource.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"jbeulich@suse.com" <jbeulich@suse.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
+From: David L Stevens <dlstevens@us.ibm.com>
+Subject: [PATCHv4] iproute2: generalize VXLAN forwarding tables
+Date: Wed, 01 May 2013 09:21:22 -0400
+Message-ID: <201305011321.r41DLM0j002746@lab1.dls>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemminger@vyatta.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:47480 "EHLO SMTP.CITRIX.COM"
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:35519 "EHLO e9.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752947Ab3EANBI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 May 2013 09:01:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1367408826.3142.714.camel@zakaz.uk.xensource.com>
+	id S1754926Ab3EANXj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 1 May 2013 09:23:39 -0400
+Received: from /spool/local
+	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Wed, 1 May 2013 09:23:38 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id A52AF38C804D
+	for <netdev@vger.kernel.org>; Wed,  1 May 2013 09:23:36 -0400 (EDT)
+Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r41DNaQS260824
+	for <netdev@vger.kernel.org>; Wed, 1 May 2013 09:23:36 -0400
+Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
+	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r41DNaqN026311
+	for <netdev@vger.kernel.org>; Wed, 1 May 2013 09:23:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 01, 2013 at 12:47:06PM +0100, Ian Campbell wrote:
-> On Wed, 2013-05-01 at 12:40 +0100, Wei Liu wrote:
-> > On Wed, May 01, 2013 at 12:21:43PM +0100, Ian Campbell wrote:
-> > > On Wed, 2013-05-01 at 11:53 +0100, Wei Liu wrote:
-> > > > On Wed, May 01, 2013 at 11:32:41AM +0100, Ian Campbell wrote:
-> > > > > On Tue, 2013-04-30 at 17:50 +0100, Wei Liu wrote:
-> > > > > > Tune xen_netbk_count_requests to not touch working array beyond limit, so that
-> > > > > > we can make working array size constant.
-> > > > > 
-> > > > > Is this really correct when max_skb_slots > XEN_NETIF_NR_SLOTS_MIN?
-> > > > > Seems like we would either overrun the array or drop frames which
-> > > > > max_skb_slots suggests we should accept?
-> > > > > 
-> > > > 
-> > > > So the max_skb_slots for now is the standard to determine whether a
-> > > > guest is malicious, not the maximum slots we can process.
-> > > 
-> > > Perhaps I've have misunderstood this patch then but it looks to me like
-> > > it will cause us to drop skbs which use slots > XEN_NETIF_NR_SLOTS_MIN
-> > > and < max_skb_slots, i.e. ones which are considered non-malicious by the
-> > > above definition. Or it will cause us to access indexes into
-> > > xen_netbk_tx_build_gops.txfrags which are > XEN_NETIF_NR_SLOTS_MIN.
-> > > 
-> > 
-> > Any packet using more than XEN_NETIF_NR_SLOTS_MIN are considered
-> > malformed at this point. The behavior is documented in previous commit
-> > log. 2810e5b9a "xen-netback: coalesce slots in TX path and fix
-> > regressions".
-> > 
-> > """
-> > The behavior of netback for packet is thus:
-> > 
-> >         1-18            slots: valid
-> >        19-max_skb_slots slots: drop and respond with an error
-> >        max_skb_slots+   slots: fatal error
-> > """
-> 
-> OK, so my understanding was wrong and this patch is doing the right
-> thing.
-> 
-> However it does seem rather like NR_SLOTS_MIN and max_skb_slots are a
-> bit misnamed. They are actually NR_SLOTS_MAX and fatal_skb_slots? The
-> NR_SLOTS{MIN/MAX} disparity is particularly confusing in the context of
-> this code (I understand its the minimum that a backend must support, but
-> its still confusing in the context of these functions).
-> 
 
-Yes probably the naming is weird.
+iproute2 patch to generalize VXLAN forwarding tables
 
-Probably we can do
+This is the iproute2 support allowing an administrator to specify alternate
+ports, vnis and outgoing interfaces for VXLAN device forwarding tables.
 
-  #define XEN_NETBK_SLOTS_MAX XEN_NETIF_NR_SLOTS_MIN
-  max_skb_slots -> fatal_skb_slots
+Changes since v3: changed NDA_PORT to be 16-bit network byte order to match
+	changed byte-order/size in the VXLAN driver.
 
-if it makes things clearer.
+Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
 
-
-Wei.
+diff --git a/bridge/fdb.c b/bridge/fdb.c
+index 6ad8118..bad511d 100644
+--- a/bridge/fdb.c
++++ b/bridge/fdb.c
+@@ -9,6 +9,7 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <unistd.h>
++#include <netdb.h>
+ #include <time.h>
+ #include <fcntl.h>
+ #include <sys/socket.h>
+@@ -30,7 +31,8 @@ int filter_index;
+ static void usage(void)
+ {
+ 	fprintf(stderr, "Usage: bridge fdb { add | del } ADDR dev DEV {self|master} [ temp ]\n"
+-		        "              [ dst IPADDR] [ vlan VID ]\n");
++		        "              [ dst IPADDR] [ vlan VID ]\n"
++		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
+ 	fprintf(stderr, "       bridge fdb {show} [ dev DEV ]\n");
+ 	exit(-1);
+ }
+@@ -113,6 +115,23 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
+ 		fprintf(fp, "vlan %hu ", vid);
+ 	}
+ 
++	if (tb[NDA_PORT])
++		fprintf(fp, "port %d ", ntohs(rta_getattr_u16(tb[NDA_PORT])));
++	if (tb[NDA_VNI])
++		fprintf(fp, "vni %d ", rta_getattr_u32(tb[NDA_VNI]));
++	if (tb[NDA_IFINDEX]) {
++		unsigned int ifindex = rta_getattr_u32(tb[NDA_IFINDEX]);
++
++		if (ifindex) {
++			char ifname[IF_NAMESIZE];
++
++			if (if_indextoname(ifindex, ifname))
++				fprintf(fp, "via %s ", ifname);
++			else
++				fprintf(fp, "via ifindex %u ", ifindex);
++		}
++	}
++
+ 	if (show_stats && tb[NDA_CACHEINFO]) {
+ 		struct nda_cacheinfo *ci = RTA_DATA(tb[NDA_CACHEINFO]);
+ 		int hz = get_user_hz();
+@@ -177,6 +196,10 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
+ 	char abuf[ETH_ALEN];
+ 	int dst_ok = 0;
+ 	inet_prefix dst;
++	unsigned long port = 0;
++	unsigned long vni = ~0;
++	unsigned int via = 0;
++	char *endptr;
+ 	short vid = -1;
+ 
+ 	memset(&req, 0, sizeof(req));
+@@ -197,6 +220,30 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
+ 				duparg2("dst", *argv);
+ 			get_addr(&dst, *argv, preferred_family);
+ 			dst_ok = 1;
++		} else if (strcmp(*argv, "port") == 0) {
++
++			NEXT_ARG();
++			port = strtoul(*argv, &endptr, 0);
++			if (endptr && *endptr) {
++				struct servent *pse;
++
++				pse = getservbyname(*argv, "udp");
++				if (!pse)
++					invarg("invalid port\n", *argv);
++				port = ntohs(pse->s_port);
++			} else if (port > 0xffff)
++				invarg("invalid port\n", *argv);
++		} else if (strcmp(*argv, "vni") == 0) {
++			NEXT_ARG();
++			vni = strtoul(*argv, &endptr, 0);
++			if ((endptr && *endptr) ||
++			    (vni >> 24) || vni == ULONG_MAX)
++				invarg("invalid VNI\n", *argv);
++		} else if (strcmp(*argv, "via") == 0) {
++			NEXT_ARG();
++			via = if_nametoindex(*argv);
++			if (via == 0)
++				invarg("invalid device\n", *argv);
+ 		} else if (strcmp(*argv, "self") == 0) {
+ 			req.ndm.ndm_flags |= NTF_SELF;
+ 		} else if (matches(*argv, "master") == 0) {
+@@ -251,6 +298,17 @@ static int fdb_modify(int cmd, int flags, int argc, char **argv)
+ 	if (vid >= 0)
+ 		addattr16(&req.n, sizeof(req), NDA_VLAN, vid);
+ 
++	if (port) {
++		unsigned short dport;
++
++		dport = htons((unsigned short)port);
++		addattr16(&req.n, sizeof(req), NDA_PORT, dport);
++	}
++	if (vni != ~0)
++		addattr32(&req.n, sizeof(req), NDA_VNI, vni);
++	if (via)
++		addattr32(&req.n, sizeof(req), NDA_IFINDEX, via);
++
+ 	req.ndm.ndm_ifindex = ll_name_to_index(d);
+ 	if (req.ndm.ndm_ifindex == 0) {
+ 		fprintf(stderr, "Cannot find device \"%s\"\n", d);
+@@ -270,6 +328,8 @@ int do_fdb(int argc, char **argv)
+ 	if (argc > 0) {
+ 		if (matches(*argv, "add") == 0)
+ 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_EXCL, argc-1, argv+1);
++		if (matches(*argv, "append") == 0)
++			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_APPEND, argc-1, argv+1);
+ 		if (matches(*argv, "delete") == 0)
+ 			return fdb_modify(RTM_DELNEIGH, 0, argc-1, argv+1);
+ 		if (matches(*argv, "show") == 0 ||
+diff --git a/include/linux/neighbour.h b/include/linux/neighbour.h
+index adb068c..f175212 100644
+--- a/include/linux/neighbour.h
++++ b/include/linux/neighbour.h
+@@ -21,6 +21,9 @@ enum {
+ 	NDA_CACHEINFO,
+ 	NDA_PROBES,
+ 	NDA_VLAN,
++	NDA_PORT,
++	NDA_VNI,
++	NDA_IFINDEX,
+ 	__NDA_MAX
+ };
+ 
