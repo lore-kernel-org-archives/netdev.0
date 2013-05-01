@@ -1,45 +1,46 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [IPROUTE PATCH v2] iproute2: act_ipt fix xtables breakage on
- older versions.
-Date: Wed, 01 May 2013 09:47:50 -0400
-Message-ID: <51811D06.2070800@mojatatu.com>
-References: <20130429154644.52016.60284.stgit@ahduyck-cp1.jf.intel.com> <517FC04E.30705@mojatatu.com> <517FEC48.80700@intel.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH iproute2] ip: ipv6: add tokenized interface identifier support
+Date: Wed, 1 May 2013 16:16:45 +0200
+Message-ID: <20130501141645.GC15555@order.stressinduktion.org>
+References: <1367338970-2168-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com, netdev@vger.kernel.org,
-	jeffrey.t.kirsher@intel.com, Hasan Chowdhury <shemonc@gmail.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset=utf-8
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f177.google.com ([209.85.210.177]:43087 "EHLO
-	mail-ia0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753970Ab3EANr7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 09:47:59 -0400
-Received: by mail-ia0-f177.google.com with SMTP id y26so1381876iab.36
-        for <netdev@vger.kernel.org>; Wed, 01 May 2013 06:47:58 -0700 (PDT)
-In-Reply-To: <517FEC48.80700@intel.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:44528 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751090Ab3EAOQt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 10:16:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1367338970-2168-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Alex,
+On Tue, Apr 30, 2013 at 06:22:50PM +0200, Daniel Borkmann wrote:
+> This patch adds support for tokenized IIDs, that enable
+> administrators to assign well-known host-part addresses
+> to nodes whilst still obtaining global network prefix
+> from Router Advertisements. This is the iproute2 part for
+> the kernel patch f53adae4eae5 (``net: ipv6: add tokenized
+> interface identifier support'').
+> 
+> Example commands with iproute2:
+> 
+> Setting a device token:
+>   # ip token set ::1a:2b:3c:4d/64 dev eth1
+> 
+> Getting a device token:
+>   # ip token get dev eth1
+>   token ::1a:2b:3c:4d dev eth1
+> 
+> Listing all tokens:
+>   # ip token list  (or: ip token)
+>   token :: dev eth0
+>   token ::1a:2b:3c:4d dev eth1
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-On 13-04-30 12:07 PM, Alexander Duyck wrote:
-> On 04/30/2013 05:59 AM, Jamal Hadi Salim wrote:
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-
->
-> In the git tree it is obvious that xtables_merge_options only takes 3
-> parameters.  It is not until v1.4.11 which is XTABLES_VERSION_CODE == 6
-> that we see xtables_merge_options take 4 parameters.
->
-
-I apologize, you are correct. So whats incorporated now is wrong
-but compiles fine on Debian.
-So now i am wondering how the FSCK this thing even compiled.
-I am going to test your patch on Debian squeeze, with iptables 1.4.8
-(where the current code compiles just fine) and will ack it if all is
-good
-
-cheers,
-jamal
+Thanks!
