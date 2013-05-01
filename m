@@ -1,48 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] usb: add device IDs for Dell 5804 (Novatel E371) WWAN
- card
-Date: Wed, 01 May 2013 14:42:41 -0400 (EDT)
-Message-ID: <20130501.144241.1818296448373016452.davem@davemloft.net>
-References: <1367431305.12353.8.camel@dcbw.foobar.com>
-	<87r4hqbleh.fsf@nemi.mork.no>
+Subject: Re: [PATCHv4 0/3] Add support for velocity network driver on
+ platform devices
+Date: Wed, 01 May 2013 14:52:09 -0400 (EDT)
+Message-ID: <20130501.145209.2011460600232631301.davem@davemloft.net>
+References: <1367302620-4620-1-git-send-email-linux@prisktech.co.nz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: dcbw@redhat.com, linux-usb@vger.kernel.org, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org, stable@vger.kernel.org,
-	smurf@smurf.noris.de, dagofthedofg@gmail.com
-To: bjorn@mork.no
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <87r4hqbleh.fsf@nemi.mork.no>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	vt8500-wm8505-linux-kernel@googlegroups.com,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: linux@prisktech.co.nz
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:41358 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755412Ab3EASwL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 14:52:11 -0400
+In-Reply-To: <1367302620-4620-1-git-send-email-linux@prisktech.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Wed, 01 May 2013 20:33:10 +0200
+From: Tony Prisk <linux@prisktech.co.nz>
+Date: Tue, 30 Apr 2013 18:16:57 +1200
 
-> Dan Williams <dcbw@redhat.com> writes:
->=20
->> A rebranded Novatel E371 for AT&T's LTE bands.
->=20
-> I don't think we're handling the Novatel branded E371 yet?  I tried
-> googling for ID of that, but were unable to find it.  I guess you don=
-'t
-> know either...  Well, nothing we can do about that until someone repo=
-rts
-> it.
->=20
-> For the qmi_wwan part:
-> Acked-by: Bj=F8rn Mork <bjorn@mork.no>
->=20
->=20
->> diff --git a/drivers/usb/serial/option.c b/drivers/usb/serial/option=
-=2Ec
->> index 558adfc..569caf6 100644
->> --- a/drivers/usb/serial/option.c
->> +++ b/drivers/usb/serial/option.c
->=20
-> Combining net and usb patches in the same commit is probably not wise=
-?
+> I think it would be pertinent to get some tested-by's for PCI users.
 
-Yes, this causes problems, please re-submit the networking portion all
-by itself.
+Tony, this came in a bit late, and there hasn't been any PCI test
+reports so I have to defer this to the next merge window, sorry.
