@@ -1,88 +1,124 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 1/2] net: More fine-grained support for
- encapsulated GSO features
-Date: Wed, 1 May 2013 11:16:40 -0700
-Message-ID: <CAEP_g=8_W4Y7zEG2ANjSV91wC8-b+i5XcY-RDa6_w7nvuuHyUA@mail.gmail.com>
-References: <1366683556-4956-1-git-send-email-horms@verge.net.au>
- <1366683556-4956-2-git-send-email-horms@verge.net.au> <alpine.LFD.2.02.1304231354440.5598@morpheus.jf.intel.com>
- <20130425073644.GC7936@verge.net.au> <CAEP_g=_xZOjn6ByhM3sKw-f2Ui9kjnb1wUJ2EGBBg3GD5JnmLw@mail.gmail.com>
- <20130430032121.GC26726@verge.net.au> <CAEP_g=-9abqxGyox7s4jjzTdPFTXmnLU6gkq+ihGwXJg-NAdaA@mail.gmail.com>
- <20130501075029.GD27158@verge.net.au>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Wed, 1 May 2013 21:22:08 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg>
+References: <1367290378-29224-1-git-send-email-horms@verge.net.au> <1367290378-29224-2-git-send-email-horms@verge.net.au> <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg> <20130430072944.GA13959@verge.net.au> <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
+ <20130501091012.GB28253@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg> <20130501155501.GB7521@dyad.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
 	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?UTF-8?Q?Maciej_=C5=BBenczykowski?= <maze@google.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:43154 "HELO
-	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753061Ab3EASRB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 14:17:01 -0400
-Received: by mail-ob0-f199.google.com with SMTP id wp18so9270337obc.10
-        for <netdev@vger.kernel.org>; Wed, 01 May 2013 11:17:00 -0700 (PDT)
-In-Reply-To: <20130501075029.GD27158@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Ingo Molnar <mingo@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130501155501.GB7521@dyad.programming.kicks-ass.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 1, 2013 at 12:50 AM, Simon Horman <horms@verge.net.au> wrote:
-> On Tue, Apr 30, 2013 at 09:19:51AM -0700, Jesse Gross wrote:
->> On Mon, Apr 29, 2013 at 8:21 PM, Simon Horman <horms@verge.net.au> wrote:
->> > On Fri, Apr 26, 2013 at 04:03:21PM -0700, Jesse Gross wrote:
->> >> On Thu, Apr 25, 2013 at 12:36 AM, Simon Horman <horms@verge.net.au> wrote:
->> >> > On Tue, Apr 23, 2013 at 02:00:19PM -0700, Joseph Gasparakis wrote:
->> >> >> Any particular reason to introduce skb->encapsulation_features instead of
->> >> >> using the existing skb->encapsulation? Also I don't see it used in your
->> >> >> second patch either.
->> >> >
->> >> > My reasoning is that skb->encapsulation seems to alter the behaviour of
->> >> > many different locations and I'm not sure that any of them, other than the
->> >> > one in dev_hard_start_xmit() make sense for MPLS.
->> >>
->> >> The problem is the meaning of skb->encapsulation isn't really defined
->> >> clearly and I'm certain that the current implementation is not going
->> >> to work in the future. Depending on your perspective, vlans, MPLS,
->> >> tunnels, etc. can all be considered forms of encapsulation but clearly
->> >> there are many NICs that have different capabilities across those. I
->> >> believe the intention here was really to describe L3 tunnels as
->> >> encapsulation, in which case MPLS really shouldn't be using this
->> >> mechanism at all.
->> >>
->> >> Now there is some overlap, especially today since most currently
->> >> shipping silicon wasn't designed to support tunnels and so is using
->> >> some form of offset based offloads. In that case, all forms of
->> >> encapsulation are pretty similar. However, in the future that won't be
->> >> the case as support for specific protocols is implemented for higher
->> >> performance and richer support. When that happens, not only will MPLS
->> >> and tunnels have different capabilities but various forms tunnels
->> >> might as well.
->> >
->> > Wouldn't be possible to describe those differences using,
->> > dev->hw_enc_features? I assumed that was its purpose.
->>
->> If there truly are differences between the offload capabilities of
->> MPLS and L3 tunnels then no, it's not possible, because it's a single
->> field. It's certainly not a valid assumption that a NIC that can do
->> TSO over GRE can also do it over MPLS.
->>
->> However, it's unlikely that there are truly significant differences
->> between various encapsulation formats on a per-feature basis. I think
->> what we need to do is separate out the ability to understand the
->> headers from the capabilities so you have two fields: header (none,
->> VLAN, QinQ, MPLS, VXLAN, GRE, etc.) and feature (checksum, SG, TSO,
->> etc.) rather than the product of each. Otherwise, we end up with a ton
->> of different combinations.
->
-> I'm not quite sure that I follow.
->
-> Is your idea to replace skb->encapsulation (a single bit) with
-> a field that corresponds to the outer-most (encapsulation) header in use
-> and has bits for none, VLAN, QinQ, MPLS, VXLAN, GRE, etc...?
 
-No, I'm talking about netdev features. You can already tell the
-encapsulation type of a packet by looking at the EtherType.
+	Hello,
+
+On Wed, 1 May 2013, Peter Zijlstra wrote:
+
+> On Wed, May 01, 2013 at 05:22:05PM +0300, Julian Anastasov wrote:
+> 
+> > 2. Same without need_resched because cond_resched already
+> > performs the same checks:
+> > 
+> > static void inline cond_resched_rcu_lock(void)
+> > {
+> > #ifndef CONFIG_PREEMPT_RCU
+> > 	rcu_read_unlock();
+> > 	cond_resched();
+> > 	rcu_read_lock();
+> > #endif
+> > }
+> 
+> Ah so the 'problem' with this last version is that it does an unconditional /
+> unnessecary rcu_read_unlock().
+
+	It is just a barrier() for the non-preempt case.
+
+> The below would be in line with all the other cond_resched*() implementations.
+
+...
+
+> diff --git a/include/linux/sched.h b/include/linux/sched.h
+> index 802a751..fd2c77f 100644
+> --- a/include/linux/sched.h
+> +++ b/include/linux/sched.h
+> @@ -2449,6 +2449,13 @@ extern int __cond_resched_softirq(void);
+>  	__cond_resched_softirq();					\
+>  })
+>  
+> +extern int __cond_resched_rcu(void);
+> +
+> +#define cond_resched_rcu() ({			\
+> +	__might_sleep(__FILE__, __LINE__, 0);	\
+
+	I see your goal. But digging into __might_sleep()
+I see that rcu_sleep_check() will scream for the non-preempt
+case because we are under rcu_read_lock.
+
+	What about such inline version:
+
+static void inline cond_resched_rcu(void)
+{
+#ifndef CONFIG_PREEMPT_RCU
+	rcu_read_unlock();
+	__might_sleep(__FILE__, __LINE__, 0);
+	cond_resched();
+	rcu_read_lock();
+#else
+	__might_sleep(__FILE__, __LINE__, 0);
+	rcu_lockdep_assert(rcu_preempt_depth() == 1,
+		"Illegal cond_resched_rcu() context");
+#endif
+}
+
+	It will restrict to single RCU lock level for all
+RCU implementations. But we don't have _cond_resched_rcu
+helper for two reasons:
+
+- __might_sleep uses __FILE__, __LINE__
+- only cond_resched generates code, so need_resched() is
+avoided
+
+> +	__cond_resched_rcu();			\
+> +})
+> +
+>  /*
+>   * Does a critical section need to be broken due to another
+>   * task waiting?: (technically does not depend on CONFIG_PREEMPT,
+> diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+> index 7d7901a..2b3b4e6 100644
+> --- a/kernel/sched/core.c
+> +++ b/kernel/sched/core.c
+> @@ -4358,6 +4358,20 @@ int __sched __cond_resched_softirq(void)
+>  }
+>  EXPORT_SYMBOL(__cond_resched_softirq);
+>  
+> +int __sched __cond_resched_rcu(void)
+> +{
+> +#ifndef CONFIG_PREEMPT_RCU
+> +	if (should_resched()) {
+> +		rcu_read_unlock();
+> +		__cond_resched();
+> +		rcu_read_lock();
+> +		return 1;
+> +	}
+> +#endif
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(__cond_resched_rcu);
+> +
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
