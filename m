@@ -1,29 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv4 0/3] Add support for velocity network driver on
- platform devices
-Date: Wed, 01 May 2013 14:52:09 -0400 (EDT)
-Message-ID: <20130501.145209.2011460600232631301.davem@davemloft.net>
-References: <1367302620-4620-1-git-send-email-linux@prisktech.co.nz>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH 1/2 v5 RESEND] usbnet: allow status interrupt URB to
+ always be active
+Date: Wed, 01 May 2013 14:54:36 -0400 (EDT)
+Message-ID: <20130501.145436.92838736206105693.davem@davemloft.net>
+References: <1367260435.20151.28.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	vt8500-wm8505-linux-kernel@googlegroups.com,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: linux@prisktech.co.nz
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41358 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755412Ab3EASwL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 14:52:11 -0400
-In-Reply-To: <1367302620-4620-1-git-send-email-linux@prisktech.co.nz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org, phil-ydcDiazATMQ@public.gmane.org
+To: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1367260435.20151.28.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Tony Prisk <linux@prisktech.co.nz>
-Date: Tue, 30 Apr 2013 18:16:57 +1200
 
-> I think it would be pertinent to get some tested-by's for PCI users.
+For a patch set that you've submitted 5 times, I'm incredibly
+surprised how whitespace damaged it is.
 
-Tony, this came in a bit late, and there hasn't been any PCI test
-reports so I have to defer this to the next merge window, sorry.
+Do not resubmit these patches until you can email the patches to
+yourself and successfully apply what you receive.
+
+Thanks.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
