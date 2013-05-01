@@ -1,74 +1,41 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL] vhost: cleanups and fixes for 3.10
-Date: Wed, 1 May 2013 20:00:06 +0300
-Message-ID: <20130501170006.GA22236@redhat.com>
-References: <20130501150130.GA21230@redhat.com>
- <1367424335.10977.2.camel@haakon3.risingtidesystems.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3b 1/3] tipc: cosmetic: clean up comments and break a
+ long line
+Date: Wed, 01 May 2013 13:16:02 -0400 (EDT)
+Message-ID: <20130501.131602.899596493606702378.davem@davemloft.net>
+References: <51814058.3080805@cogentembedded.com>
+	<1367426477-10441-1-git-send-email-gerlando.falauto@keymile.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
-	virtualization@lists.osdl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, asias@redhat.com
-To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	jon.maloy@ericsson.com, erik.hugne@ericsson.com,
+	ying.xue@windriver.com, holger.brunck@keymile.com
+To: gerlando.falauto@keymile.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3212 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752080Ab3EARAe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 May 2013 13:00:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1367424335.10977.2.camel@haakon3.risingtidesystems.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40066 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750887Ab3EARQG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 13:16:06 -0400
+In-Reply-To: <1367426477-10441-1-git-send-email-gerlando.falauto@keymile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 01, 2013 at 09:05:35AM -0700, Nicholas A. Bellinger wrote:
-> On Wed, 2013-05-01 at 18:01 +0300, Michael S. Tsirkin wrote:
-> > Please pull the following vhost core updates for 3.10 -
-> > they affect both vhost-net and vhost-scsi devices.
-> > They also *depend* on both net-next and target-pending.  Since Linus
-> > merged target-pending but not net-next at this point, merging through
-> > the net tree seems to make sense.
-> > 
-> 
-> Perfectly fine by me..
-> 
-> Btw, I'll be sending another PULL request next week for some other minor
-> -rc1 items, so if DaveM prefers I'm happy to include this series in that
-> PULL instead.
-> 
-> --nab
+From: Gerlando Falauto <gerlando.falauto@keymile.com>
+Date: Wed,  1 May 2013 18:41:17 +0200
 
-Yes but it depends on stuff in net-next. That would pull in a lot.
+> Signed-off-by: Gerlando Falauto <gerlando.falauto@keymile.com>
+> ---
+> Changes from v3:
+> * Added "and break a long line" to the commit message
+> Changes from v2:
+> * Split cosmetic (this patch) from functional changes (next patch)
 
-> > The following changes since commit bc7562355fda8075793bf66094cda573206ec693:
-> > 
-> >   Merge branch 'for-next-merge' of git://git.kernel.org/pub/scm/linux/kernel/git/nab/target-pending into vhost-net-next (2013-05-01 09:16:50 +0300)
-> > 
-> > are available in the git repository at:
-> > 
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git vhost-net-next
-> > 
-> > for you to fetch changes up to 150b9e51ae975ca1fe468c565870fbc4a96e0574:
-> > 
-> >   vhost: fix error handling in RESET_OWNER ioctl (2013-05-01 10:02:54 +0300)
-> > 
-> > ----------------------------------------------------------------
-> > Asias He (3):
-> >       vhost: Allow device specific fields per vq
-> >       tcm_vhost: Wait for pending requests in vhost_scsi_flush()
-> >       vhost: move vhost-net zerocopy fields to net.c
-> > 
-> > Michael S. Tsirkin (4):
-> >       tcm_vhost: document inflight ref-counting use
-> >       vhost: move per-vq net specific fields out to net
-> >       tcm_vhost: remove virtio-net.h dependency
-> >       vhost: fix error handling in RESET_OWNER ioctl
-> > 
-> >  drivers/vhost/net.c       | 255 ++++++++++++++++++++++++++++++++++++----------
-> >  drivers/vhost/tcm_vhost.c | 154 ++++++++++++++++++++++++----
-> >  drivers/vhost/tcm_vhost.h |   3 +
-> >  drivers/vhost/test.c      |   9 +-
-> >  drivers/vhost/vhost.c     | 153 +++++++++-------------------
-> >  drivers/vhost/vhost.h     |  32 +-----
-> >  6 files changed, 400 insertions(+), 206 deletions(-)
-> 
+Never resubmit patches by themselves, always resubmit the entire series.
+
+Because when one patch has problems, I toss the entire series from patchwork,
+and by resubmitting the entire series again you are also giving me important
+information, you're telling me that the subsequent patches in the series
+still apply cleanly even though the first one has changed.
+
+I've tossed this patch too, resubmit this properly, thanks.
