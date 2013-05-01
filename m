@@ -1,42 +1,54 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Wed, 01 May 2013 08:29:55 -0700
-Message-ID: <1367422195.11020.46.camel@edumazet-glaptop>
-References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
-	 <1367290378-29224-2-git-send-email-horms@verge.net.au>
-	 <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
-	 <20130430072944.GA13959@verge.net.au>
-	 <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
-	 <20130501091012.GB28253@dyad.programming.kicks-ass.net>
-	 <20130501124637.GO3780@linux.vnet.ibm.com>
-	 <20130501151752.GA7521@dyad.programming.kicks-ass.net>
+Subject: [BUG] ipv6 and TSO on GRE is broken
+Date: Wed, 01 May 2013 08:53:42 -0700
+Message-ID: <1367423622.11020.54.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	Julian Anastasov <ja@ssi.bg>,
-	Simon Horman <horms@verge.net.au>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130501151752.GA7521@dyad.programming.kicks-ass.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	"Steinar H. Gunderson" <sesse@google.com>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f182.google.com ([209.85.192.182]:49245 "EHLO
+	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761541Ab3EAPxp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 11:53:45 -0400
+Received: by mail-pd0-f182.google.com with SMTP id 14so874275pdj.41
+        for <netdev@vger.kernel.org>; Wed, 01 May 2013 08:53:45 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-01 at 17:17 +0200, Peter Zijlstra wrote:
-> On Wed, May 01, 2013 at 05:46:37AM -0700, Paul E. McKenney wrote:
-> 
-> > If the only goal is to allow preemption, and if long grace periods are
-> > not a concern, then this alternate approach would work fine as well.
-> 
-> Hmm.. if that were the goal I'd like it to have a different name;
-> cond_resched*() has always been about preemption.
+This was reported by Steinar.
 
-BTW, I do not remember why cond_resched() is not an empty macro
-when CONFIG_PREEMPT=y ?
+Sending this to netdev, as I wont have time to debug this in the near
+future. (~ 3 days)
+
+3.9 and latest net-next are broken for IPv6 on top of GRE tunnel
+
+GSO seems OK, but TSO not :
+
+lpq83:~# ethtool -K gre1 tso off gso on 
+lpq83:~# netperf -H 4444::555:0084
+MIGRATED TCP STREAM TEST from ::0 (::) port 0 AF_INET6 to 4444::555:0084
+() port 0 AF_INET6
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 87380  16384  16384    10.00    3789.10   
+lpq83:~# ethtool -K gre1 tso on
+lpq83:~# netperf -H 4444::555:0084
+MIGRATED TCP STREAM TEST from ::0 (::) port 0 AF_INET6 to 4444::555:0084
+() port 0 AF_INET6
+Recv   Send    Send                          
+Socket Socket  Message  Elapsed              
+Size   Size    Size     Time     Throughput  
+bytes  bytes   bytes    secs.    10^6bits/sec  
+
+ 87380  16384  16384    10.00     321.27   
 
 
+No problem for IPv4
+
+Thanks
