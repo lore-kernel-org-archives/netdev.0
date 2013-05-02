@@ -1,79 +1,37 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [GIT] Networking
-Date: Thu, 02 May 2013 13:24:26 -0500
-Message-ID: <1367519066.7757.19.camel@dcbw.foobar.com>
-References: <20130501.164755.1859264969403837546.davem@davemloft.net>
-	 <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
-	 <1367512467.4000.7.camel@dcbw.foobar.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
+ non-promisc mode
+Date: Thu, 2 May 2013 21:37:58 +0300
+Message-ID: <20130502183758.GA16031@redhat.com>
+References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
+	<20130502102331.43728912@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	hayeswang <hayeswang@realtek.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367512467.4000.7.camel@dcbw.foobar.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130502102331.43728912@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-05-02 at 11:34 -0500, Dan Williams wrote:
-> On Wed, 2013-05-01 at 18:28 -0700, Linus Torvalds wrote:
-> > On Wed, May 1, 2013 at 1:47 PM, David Miller <davem@davemloft.net> wrote:
-> > >
-> > > Highlights (1721 non-merge commits, this has to be a record of some
-> > > sort):
-> > 
-> > Lowlight: it completely breaks my machine with r8169 ethernet.  In the
-> > networkmanager applet, it claims no cable connection, which is a bit
-> > odd, because (a) it works with an older kernel and (b) the kernel
-> > messages actually say
-> > 
-> >   r8169 0000:01:00.0 eth0: link up
+On Thu, May 02, 2013 at 10:23:31AM -0700, Stephen Hemminger wrote:
+> Doing research on another problem, I noticed that this would
+> break user mode spanning tree (RSTP) code.
 > 
-> NM calls ETHTOOL_GLINK and if that returns success, NM expects the
-> driver to support carrier detection.  NM then listens to netlink for
-> device flags changes, and uses IFF_LOWER_UP to determine carrier on/off
-> state.  NM does not use NETIF_F_VLAN_CHALLENGED or any of the other
-> ETHTOOL_GFEATURES flags yet, but will in the future.
-> 
-> Is the link status accurately reflected by /sys/class/net/eth0/carrier ?
+> The daemon assumes that bridge is promicious mode and therefore
+> will receive all link-level multicast packets.
 
-One more question Linus; what version of NetworkManager, and can you
-grab some syslog 'daemon' facility logs grepped for "
-NetworkManger" | "eth0"?
-
-When r8169 says "link up" I would expect
-that /sys/class/net/eth0/carrier is '1', and that NetworkManager then
-prints something in the logs about "carrier is ON".  Output of the eth0
-section of 'nm-tool' would be useful here as well, specifically the
-"State" and "Carrier" lines.
-
-Dan
-
-> Dan
-> 
-> 
-> > but nothing actually works.
-> > 
-> >  r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
-> >  r8169 0000:01:00.0 eth0: RTL8168d/8111d at 0xffffc90010ece000,
-> > e0:cb:4e:95:1a:d7, XID 083000c0 IRQ 53
-> >  r8169 0000:01:00.0 eth0: jumbo features [frames: 9200 bytes, tx
-> > checksumming: ko]
-> > 
-> > Any ideas?
-> > 
-> >                   Linus
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Since you have to play with the new learning/flooding
+options to get the non promisc behaviour,
+can't we just say "don't do it then"
+short term, and fix applcations long term?
