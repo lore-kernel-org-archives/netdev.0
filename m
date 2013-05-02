@@ -1,91 +1,68 @@
 From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net 3/3] be2net: Fix to fail probe if MSI-X enable fails for a VF
-Date: Thu, 2 May 2013 19:07:08 +0530
-Message-ID: <27643d04-d8f9-499d-917e-cc6d9b03c4eb@CMEXHTCAS2.ad.emulex.com>
+Subject: [PATCH net 2/3] be2net: avoid napi_disable() when it has not been enabled
+Date: Thu, 2 May 2013 19:06:55 +0530
+Message-ID: <38c3abc5-37e6-4055-aa06-2e9b4e4d9485@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>
+Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>,
+	Kalesh AP <kalesh.purayil@emulex.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:13314 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759582Ab3EBNiW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 09:38:22 -0400
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:18895 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759396Ab3EBNiI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 09:38:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-As per SPEC, INTx mode is not supported on VFs. So if enable_msix fails,
-then just fail probe. Also bail out of be_open if irq_register fails.
+When RQ creation fails in be_open(), driver jumps to be_close() where
+napi_disable() is done without a prior napi_enable(); leading to a hang.
+This change is needed as there is no way to see if napi is enable/disabled.
 
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
 Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   22 +++++++++++++++-------
- 1 files changed, 15 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/emulex/benet/be.h      |    1 +
+ drivers/net/ethernet/emulex/benet/be_main.c |    8 ++++++--
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 362efec..bdeb866 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -326,6 +326,7 @@ enum vf_state {
+ 
+ #define BE_FLAGS_LINK_STATUS_INIT		1
+ #define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
++#define BE_FLAGS_NAPI_ENABLED			(1 << 9)
+ #define BE_UC_PMAC_COUNT		30
+ #define BE_VF_UC_PMAC_COUNT		2
+ #define BE_FLAGS_QNQ_ASYNC_EVT_RCVD		(1 << 11)
 diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 31d5982..47ff540 100644
+index 5544354..31d5982 100644
 --- a/drivers/net/ethernet/emulex/benet/be_main.c
 +++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2365,7 +2365,7 @@ static uint be_num_rss_want(struct be_adapter *adapter)
- 	return num;
- }
- 
--static void be_msix_enable(struct be_adapter *adapter)
-+static int be_msix_enable(struct be_adapter *adapter)
- {
- #define BE_MIN_MSIX_VECTORS		1
- 	int i, status, num_vec, num_roce_vec = 0;
-@@ -2390,13 +2390,17 @@ static void be_msix_enable(struct be_adapter *adapter)
- 		goto done;
- 	} else if (status >= BE_MIN_MSIX_VECTORS) {
- 		num_vec = status;
--		if (pci_enable_msix(adapter->pdev, adapter->msix_entries,
--				num_vec) == 0)
-+		status = pci_enable_msix(adapter->pdev, adapter->msix_entries,
-+					 num_vec);
-+		if (!status)
- 			goto done;
- 	}
- 
- 	dev_warn(dev, "MSIx enable failed\n");
--	return;
-+	/* INTx is not supported in VFs, so fail probe if enable_msix fails */
-+	if (!be_physfn(adapter))
-+		return status;
-+	return 0;
- done:
- 	if (be_roce_supported(adapter)) {
- 		if (num_vec > num_roce_vec) {
-@@ -2410,7 +2414,7 @@ done:
- 	} else
- 		adapter->num_msix_vec = num_vec;
- 	dev_info(dev, "enabled %d MSI-x vector(s)\n", adapter->num_msix_vec);
--	return;
-+	return 0;
- }
- 
- static inline int be_msix_vec_get(struct be_adapter *adapter,
-@@ -2614,7 +2618,9 @@ static int be_open(struct net_device *netdev)
- 	if (status)
- 		goto err;
- 
--	be_irq_register(adapter);
-+	status = be_irq_register(adapter);
-+	if (status)
-+		goto err;
- 
+@@ -2526,8 +2526,11 @@ static int be_close(struct net_device *netdev)
  	if (!lancer_chip(adapter))
- 		be_intr_set(adapter, true);
-@@ -3081,7 +3087,9 @@ static int be_setup(struct be_adapter *adapter)
- 	if (status)
- 		goto err;
+ 		be_intr_set(adapter, false);
  
--	be_msix_enable(adapter);
-+	status = be_msix_enable(adapter);
-+	if (status)
-+		goto err;
+-	for_all_evt_queues(adapter, eqo, i)
+-		napi_disable(&eqo->napi);
++	if (adapter->flags & BE_FLAGS_NAPI_ENABLED) {
++		for_all_evt_queues(adapter, eqo, i)
++			napi_disable(&eqo->napi);
++		adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
++	}
  
- 	status = be_evt_queues_create(adapter);
- 	if (status)
+ 	be_async_mcc_disable(adapter);
+ 
+@@ -2628,6 +2631,7 @@ static int be_open(struct net_device *netdev)
+ 		napi_enable(&eqo->napi);
+ 		be_eq_notify(adapter, eqo->q.id, true, false, 0);
+ 	}
++	adapter->flags |= BE_FLAGS_NAPI_ENABLED;
+ 
+ 	status = be_cmd_link_status_query(adapter, NULL, &link_status, 0);
+ 	if (!status)
 -- 
 1.6.0.2
