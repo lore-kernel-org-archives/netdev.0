@@ -1,165 +1,51 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 1/2] net: More fine-grained support for
- encapsulated GSO features
-Date: Thu, 2 May 2013 23:39:13 +0900
-Message-ID: <20130502143910.GC4137@verge.net.au>
-References: <alpine.LFD.2.02.1304231354440.5598@morpheus.jf.intel.com>
- <20130425073644.GC7936@verge.net.au>
- <CAEP_g=_xZOjn6ByhM3sKw-f2Ui9kjnb1wUJ2EGBBg3GD5JnmLw@mail.gmail.com>
- <20130430032121.GC26726@verge.net.au>
- <CAEP_g=-9abqxGyox7s4jjzTdPFTXmnLU6gkq+ihGwXJg-NAdaA@mail.gmail.com>
- <20130501075029.GD27158@verge.net.au>
- <CAEP_g=8_W4Y7zEG2ANjSV91wC8-b+i5XcY-RDa6_w7nvuuHyUA@mail.gmail.com>
- <20130501225706.GC6517@verge.net.au>
- <CAEP_g=9jRXMZgm9DB=oz+-08d3dPCptB+VY86n2qtq0RhTooKg@mail.gmail.com>
- <20130502053144.GA19430@verge.net.au>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net 1/3] be2net: Fix firmware download for Lancer
+Date: Thu, 2 May 2013 15:37:41 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7221@saturn3.aculab.com>
+References: <18c7d598-93d2-4770-b314-586dec18b9be@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joseph Gasparakis <joseph.gasparakis@intel.com>,
-	"dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>,
-	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Maciej =?utf-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: <davem@davemloft.net>, "Kalesh AP" <kalesh.purayil@emulex.com>
+To: "Somnath Kotur" <somnath.kotur@emulex.com>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:49425 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752587Ab3EBOjA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 10:39:00 -0400
-Content-Disposition: inline
-In-Reply-To: <20130502053144.GA19430@verge.net.au>
+Received: from mx0.aculab.com ([213.249.233.131]:43581 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1760060Ab3EBOjW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 10:39:22 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 02413-02 for <netdev@vger.kernel.org>;
+ Thu,  2 May 2013 15:39:17 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <18c7d598-93d2-4770-b314-586dec18b9be@CMEXHTCAS2.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 02, 2013 at 02:31:44PM +0900, Simon Horman wrote:
-> On Wed, May 01, 2013 at 09:53:42PM -0700, Jesse Gross wrote:
-> > On Wed, May 1, 2013 at 3:57 PM, Simon Horman <horms@verge.net.au> wrote:
-> > > On Wed, May 01, 2013 at 11:16:40AM -0700, Jesse Gross wrote:
-> > >> On Wed, May 1, 2013 at 12:50 AM, Simon Horman <horms@verge.net.au> wrote:
-> > >> > On Tue, Apr 30, 2013 at 09:19:51AM -0700, Jesse Gross wrote:
-> > >> >> On Mon, Apr 29, 2013 at 8:21 PM, Simon Horman <horms@verge.net.au> wrote:
-> > >> >> > On Fri, Apr 26, 2013 at 04:03:21PM -0700, Jesse Gross wrote:
-> > >> >> >> On Thu, Apr 25, 2013 at 12:36 AM, Simon Horman <horms@verge.net.au> wrote:
-> > >> >> >> > On Tue, Apr 23, 2013 at 02:00:19PM -0700, Joseph Gasparakis wrote:
-> > >> >> >> >> Any particular reason to introduce skb->encapsulation_features instead of
-> > >> >> >> >> using the existing skb->encapsulation? Also I don't see it used in your
-> > >> >> >> >> second patch either.
-> > >> >> >> >
-> > >> >> >> > My reasoning is that skb->encapsulation seems to alter the behaviour of
-> > >> >> >> > many different locations and I'm not sure that any of them, other than the
-> > >> >> >> > one in dev_hard_start_xmit() make sense for MPLS.
-> > >> >> >>
-> > >> >> >> The problem is the meaning of skb->encapsulation isn't really defined
-> > >> >> >> clearly and I'm certain that the current implementation is not going
-> > >> >> >> to work in the future. Depending on your perspective, vlans, MPLS,
-> > >> >> >> tunnels, etc. can all be considered forms of encapsulation but clearly
-> > >> >> >> there are many NICs that have different capabilities across those. I
-> > >> >> >> believe the intention here was really to describe L3 tunnels as
-> > >> >> >> encapsulation, in which case MPLS really shouldn't be using this
-> > >> >> >> mechanism at all.
-> > >> >> >>
-> > >> >> >> Now there is some overlap, especially today since most currently
-> > >> >> >> shipping silicon wasn't designed to support tunnels and so is using
-> > >> >> >> some form of offset based offloads. In that case, all forms of
-> > >> >> >> encapsulation are pretty similar. However, in the future that won't be
-> > >> >> >> the case as support for specific protocols is implemented for higher
-> > >> >> >> performance and richer support. When that happens, not only will MPLS
-> > >> >> >> and tunnels have different capabilities but various forms tunnels
-> > >> >> >> might as well.
-> > >> >> >
-> > >> >> > Wouldn't be possible to describe those differences using,
-> > >> >> > dev->hw_enc_features? I assumed that was its purpose.
-> > >> >>
-> > >> >> If there truly are differences between the offload capabilities of
-> > >> >> MPLS and L3 tunnels then no, it's not possible, because it's a single
-> > >> >> field. It's certainly not a valid assumption that a NIC that can do
-> > >> >> TSO over GRE can also do it over MPLS.
-> > >> >>
-> > >> >> However, it's unlikely that there are truly significant differences
-> > >> >> between various encapsulation formats on a per-feature basis. I think
-> > >> >> what we need to do is separate out the ability to understand the
-> > >> >> headers from the capabilities so you have two fields: header (none,
-> > >> >> VLAN, QinQ, MPLS, VXLAN, GRE, etc.) and feature (checksum, SG, TSO,
-> > >> >> etc.) rather than the product of each. Otherwise, we end up with a ton
-> > >> >> of different combinations.
-> > >> >
-> > >> > I'm not quite sure that I follow.
-> > >> >
-> > >> > Is your idea to replace skb->encapsulation (a single bit) with
-> > >> > a field that corresponds to the outer-most (encapsulation) header in use
-> > >> > and has bits for none, VLAN, QinQ, MPLS, VXLAN, GRE, etc...?
-> > >>
-> > >> No, I'm talking about netdev features. You can already tell the
-> > >> encapsulation type of a packet by looking at the EtherType.
-> > >
-> > > Now I am completely confused about what are the two fields that you
-> > > refer to in your previous email.
-> > 
-> > I have always been referring to the netdev features for various
-> > protocol types. This is because considering MPLS as a form of
-> > encapsulation for the purpose of offloads buckets too many protocols
-> > into the same set and NICs will have varying features for those.
-> > Trying to avoid this by having a bit for offloadable encapsulations is
-> > just going to be very confusing and not very future proof.
+> Increasing the timeout value of write_object command to 60 seconds as
+> 30 second timeout was found to be not enough for the command to complete.
+...
+>  	if (!wait_for_completion_timeout(&adapter->flash_compl,
+> -					 msecs_to_jiffies(30000)))
+> +					 msecs_to_jiffies(60000)))
 
-I understand your point regarding a magic bit for encapsulation not
-being particularly future-proof. I agree that it is reasonable to expect
-that a NIC may support an offload for one of the growing list of
-supported encapsulation protocols and not another.
+If an operation is likely to take over 30 seconds I'd expect
+the 'guard timer' to be much longer than 60 seconds.
 
-However, as tedious as this may be, I am rather confused about what your
-proposal above is.
+OTOH if an ioctl() call (or similar) into a driver is going
+to sleep for that long users are going to start getting worried.
 
-> > > In regards to looking ath the ethernet type:
-> > >
-> > > One of the tricky parts of MPLS is that the packet itself does not contain
-> > > the ethernet type or any other way of knowing the type of the inner-packet.
-> > > Information that is needed for GSO.
-> > 
-> > I'm aware of that. However, you were referring to the type of
-> > encapsulation. It is easy to determine that a packet is MPLS.
-> > 
-> > > My proposal to get around this is to leave skb->protocol as the
-> > > original, in the case we are interested in non-MPLS, ethernet type.
-> > 
-> > At the very least, this is not consistent with how it is currently
-> > handled (for example, with VLANs) and seems difficult to do properly.
-> > However, I have not seen any further analysis since the last time that
-> > we discussed this.
-> 
-> Unfortunately my efforts to solicit feedback from others regarding
-> that have not been successful.
+I'm not sure what the answer is, but some kind of confirmation
+that the operation is proceeding would be more useful.
 
-An idea I have for the treatment of skb->protocol and friends is to add
-skb->inner_protocol.  It could be set to the inner protocol, if known, for
-protocols such as MPLS which don't include that information in the packet.
-It would allow skb->protocol to be set to the MPLS ethernet type
-corresponding to the ethernet type of the packet.
+I presume that the time is taken doing flash sector erases
+and writes? 30 seconds is still a lot of flash erases.
 
->From here I see two options:
+Perhaps the flash code could decrement a counter and wake the
+user process every time it finishes a sector. The application
+could then report progress - and the timeout would only need
+to be long enough for a single sector erase/write.
 
-1.  Offloads could be registered for MPLS unicast and multicast.  And the
-    registered MPLS GSO segmentation call-back could set and restore
-    skb->protocol before and after calling skb_mac_gso_segment().
-
-    The MPLS GSO segmentation callback could also calculate features
-    to pass to skb_mac_gso_segment() by some means.
-
-2. Teach skb_network_protocol() about skb->inner_protocol.
-   And most likely teach netif_skb_features() about
-   skb->protocol == ETH_P_MPLS*.
-
-   I'm not entirely sure how to avoid overhead for non-MPLS packets using
-   this approach.
-
-I believe the above could be achieved without using skb->encapsulation
-in newly added code.
-
-Your features proposal above not withstanding, in the current scheme of
-things, it would seem that it would be appropriate to add SKB_GSO_GRE -
-currently not supported by any hardware - and set skb_shinfo(skb)->gso_type
-= SKB_GSO_GRE in the datapath. I think this should be sufficient to trigger
-a call to skb_mac_gso_segment() in dev_hard_start_xmit().
+	David
