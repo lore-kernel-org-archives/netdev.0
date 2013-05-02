@@ -1,43 +1,78 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Thu, 2 May 2013 09:27:43 +0200
-Message-ID: <20130502072742.GF7521@dyad.programming.kicks-ass.net>
-References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
- <1367290378-29224-2-git-send-email-horms@verge.net.au>
- <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
- <20130430072944.GA13959@verge.net.au>
- <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
- <20130501091012.GB28253@dyad.programming.kicks-ass.net>
- <20130501124637.GO3780@linux.vnet.ibm.com>
- <20130501143258.GA31577@linux.vnet.ibm.com>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH net-next] net/usb: new driver for RTL8152
+Date: Thu, 2 May 2013 15:46:50 +0800
+Message-ID: <95FC8A7CCB904AB6B26751C6DBEE49F2@realtek.com.tw>
+References: <1366965948-1805-1-git-send-email-hayeswang@realtek.com> <201305020622.r426MYGv032465@rtits1.realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130501143258.GA31577@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <gregkh@linuxfoundation.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	'nic_swsd' <nic_swsd@realtek.com>
+To: 'Oliver Neukum' <oneukum@suse.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201305020622.r426MYGv032465@rtits1.realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 01, 2013 at 07:32:58AM -0700, Paul E. McKenney wrote:
-> Here is how to detect this:
+ Oliver Neukum [mailto:oneukum@suse.de] 
+> Sent: Friday, April 26, 2013 7:57 PM
+> To: Hayeswang
+> Cc: gregkh@linuxfoundation.org; netdev@vger.kernel.org; 
+> linux-kernel@vger.kernel.org; linux-usb@vger.kernel.org; nic_swsd
+> Subject: Re: [PATCH net-next] net/usb: new driver for RTL8152
 > 
-> 	static void inline cond_resched_rcu_lock(void)
-> 	{
-> 		rcu_read_unlock();
-> 		WARN_ON_ONCE(rcu_read_lock_held());
-> 	#ifndef CONFIG_PREEMPT_RCU
-> 		cond_resched();
-> 	#endif
-> 		rcu_read_lock();
-> 	}
+[...]
+> > +static inline void set_ethernet_addr(struct r8152 *tp)
+> > +{
+> > +	struct net_device *dev = tp->netdev;
+> > +	u8 node_id[8] = {0};
+> > +
+> > +	if (pla_ocp_read(tp, PLA_IDR, sizeof(node_id), node_id) < 0)
+> 
+> DMA coherency rules. No buffers on the stack.
 
-The __might_sleep(__FILE__, __LINE__, PREEMPT_RCU_OFFSET) I posted in the other
-email just now should deal with this.
+Excuse me. I don't understand what you mean. I reference the rtl8150.c and it
+uses the same way. Besides, when I check the other drivers, I find the data
+pointer of the parameter of the usb_control_msg() may be a pointer of a local
+variable from the other functions.
+
+[...]
+> > +static void rtl_work_func_t(struct work_struct *work)
+> > +{
+> > +	struct r8152 *tp = container_of(work, struct r8152, 
+> schedule.work);
+> > +
+> > +	if (!netif_running(tp->netdev))
+> > +		goto out1;
+> > +
+> > +	if (test_bit(RTL8152_UNPLUG, &tp->flags))
+> > +		goto out1;
+> > +
+> > +	set_carrier(tp);
+> > +
+> > +	if (test_bit(RTL8152_SET_RX_MODE, &tp->flags))
+> > +		_rtl8152_set_rx_mode(tp->netdev);
+> > +
+> > +	schedule_delayed_work(&tp->schedule, HZ);
+> 
+> Why does this need to run permanently?
+
+It is used to periodically check the speed, link status, and any other tasks
+which need to be finished.
+
+[...]
+> > +static int rtl8152_close(struct net_device *netdev)
+> > +{
+> > +	struct r8152 *tp = netdev_priv(netdev);
+> > +	int res = 0;
+> > +
+> > +	cancel_delayed_work_sync(&tp->schedule);
+> 
+> Looks like a race. What makes sure the work isn't rescheduled?
+
+netif_running would be checked.
+
+ 
+Best Regards,
+Hayes
