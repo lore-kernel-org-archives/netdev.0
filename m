@@ -1,102 +1,67 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Thu, 2 May 2013 12:34:09 -0700
-Message-ID: <20130502193409.GA3780@linux.vnet.ibm.com>
-References: <20130430072944.GA13959@verge.net.au>
- <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
- <20130501091012.GB28253@dyad.programming.kicks-ass.net>
- <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg>
- <20130501155501.GB7521@dyad.programming.kicks-ass.net>
- <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg>
- <20130502072623.GE7521@dyad.programming.kicks-ass.net>
- <alpine.LFD.2.00.1305021848450.31548@ja.ssi.bg>
- <20130502173257.GX3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PULL] vhost: cleanups and fixes
+Date: Thu, 2 May 2013 12:49:42 -0700
+Message-ID: <CA+55aFwwVMhmmJfWoepipWT+WQZHt4gRPKSucgBABe5Rq=kVkw@mail.gmail.com>
+References: <20130502105353.GA24655@redhat.com>
+	<1367520929.23900.114.camel@haakon3.risingtidesystems.com>
+	<20130502193309.GC16031@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Simon Horman <horms@verge.net.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	KVM list <kvm@vger.kernel.org>, virtualization@lists.osdl.org,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Asias He <asias@redhat.com>,
+	target-devel <target-devel@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <20130502193309.GC16031@redhat.com>
+Sender: target-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 02, 2013 at 09:55:54PM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Thu, 2 May 2013, Paul E. McKenney wrote:
-> 
-> > On Thu, May 02, 2013 at 06:54:05PM +0300, Julian Anastasov wrote:
-> > > 
-> > > 	I tested the following patch in 2 variants,
-> > > TINY_RCU and CONFIG_TREE_PREEMPT_RCU. I see the
-> > 
-> > Could you please also try CONFIG_TREE_RCU?
-> 
-> 	Note that I'm testing on some 9-year old
-> UP system, i.e. 1 CPU. Now I enabled SMP to test CONFIG_TREE_RCU
-> and the results are same. I think, it should be just like
-> the TINY_RCU in terms of these debuggings (non-preempt). Extra 
-> rcu_read_lock gives me "Illegal context switch in RCU read-side
-> critical section" in addition to the "BUG: sleeping function
-> called from invalid context" message.
+On Thu, May 2, 2013 at 12:33 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
+>
+> I prefer not rebasing,
 
-OK...
+Good.
 
-> > > error if extra rcu_read_lock is added for testing.
-> > > 
-> > > 	I'm using the PREEMPT_ACTIVE flag to indicate
-> > > that we are already under lock. It should work because
-> > > __might_sleep is not called with such bit. I also tried to
-> > > add new flag in include/linux/hardirq.h but PREEMPT_ACTIVE
-> > > depends on the arch, so this alternative looked difficult to
-> > > implement.
-> 
-> > > +extern int __cond_resched_rcu(void);
-> > > +
-> > > +#define cond_resched_rcu() ({					\
-> > > +	__might_sleep(__FILE__, __LINE__, PREEMPT_ACTIVE |	\
-> > > +					  PREEMPT_RCU_OFFSET);	\
-> > > +	__cond_resched_rcu();					\
-> > > +})
-> > > +
-> 
-> > > @@ -7062,7 +7076,9 @@ void __might_sleep(const char *file, int line, int preempt_offset)
-> > >  {
-> > >  	static unsigned long prev_jiffy;	/* ratelimiting */
-> > > 
-> > > -	rcu_sleep_check(); /* WARN_ON_ONCE() by default, no rate limit reqd. */
-> > > +	/* WARN_ON_ONCE() by default, no rate limit reqd. */
-> > > +	rcu_sleep_check(preempt_offset & PREEMPT_ACTIVE);
-> > 
-> > Color me confused.
-> > 
-> > >From what I can see, the two values passed in through preempt_offset
-> > are PREEMPT_LOCK_OFFSET and SOFTIRQ_DISABLE_OFFSET.  PREEMPT_ACTIVE
-> > is normally a high-order bit, above PREEMPT_MASK, SOFTIRQ_MASK, and
-> > HARDIRQ_MASK.
-> > 
-> > PREEMPT_LOCK_OFFSET and SOFTIRQ_DISABLE_OFFSET have only low-order bits,
-> > so I don't see how rcu_sleep_check() is passed anything other than zero.
-> > Am I going blind, or what?
-> 
-> 	Only the new cond_resched_rcu() macro provides
-> PREEMPT_ACTIVE flag to skip the rcu_preempt_sleep_check()
-> call. The old macros provide locked=0 as you noticed. Does it
-> answer your question or I'm missing something?
+>                   will play with git to see why
+> does request-pull get me a wrong diffstat and how
+> to trick it into doing the right thing.
+> Maybe merging my branch into master will do this.
 
-PREEMPT_ACTIVE's value is usually 0x10000000.  Did it change
-since 3.9?  If not, rcu_sleep_check(preempt_offset & PREEMPT_ACTIVE)
-is the same as rcu_sleep_check(0).
+No, don't do an unnecessary merge just to get the diffstat right.
 
-							Thanx, Paul
+git pull-request ends up assuming that there are no back-merges, and
+that you have a uniquely defined single shared merge base. That allows
+pull-request to just generate the diff directly from that merge base,
+without actually trying to do the merge itself (which may have
+conflicts etc).
+
+But because git pull-request doesn't actually *do* the merge, it means
+that it will fail to give the correct diffstat if the tree is
+complicated and has multiple merge bases, and it can't really figure
+what the original shared state was before the development.
+
+This is just one reason I do *not* want to see back-merges. They make
+history harder to read not just for humans.
+
+You can either ignore the problem (I'll see the real diffstat when I
+actually do the merge), or you can do a test-merge yourself (that you
+do *not* then push out in the development branch - keep it in a
+temporary branch for your own edification or just delete it after
+doing the merge, and don't do development on it!)
+
+In this case, it's an indirect back-merge: you back-merged a commit
+from the target tree that I have now merged, so it has become a
+back-merge. I'm not sure why you did that - if you needed to start
+from that state, it would actually have been better to just start at
+that state instead of merging it. But whatever. You can get the
+diffstat by using your merge as the base, so
+
+    git diff -M --stat --summary bc7562355fda..
+
+in your branch should get the right result without any merges etc..
+But please do send me a proper pull request.
+
+              Linus
