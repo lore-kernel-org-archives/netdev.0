@@ -1,8 +1,8 @@
 From: Or Gerlitz <ogerlitz@mellanox.com>
 Subject: Re: [IPROUTE PATCH] libnetlink: Use ifinfomsg instead of rtgenmsg
  in rtnl_wilddump_req_filter
-Date: Thu, 2 May 2013 17:12:55 +0300
-Message-ID: <51827467.6020704@mellanox.com>
+Date: Thu, 2 May 2013 17:13:05 +0300
+Message-ID: <51827471.7030802@mellanox.com>
 References: <20130425220710.6520.32515.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"; format=flowed
@@ -11,10 +11,10 @@ Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>,
 	<jeffrey.t.kirsher@intel.com>
 To: Alexander Duyck <alexander.h.duyck@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:41011 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759231Ab3EBONS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 10:13:18 -0400
+Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:45425 "EHLO
+	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759764Ab3EBONh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 10:13:37 -0400
 In-Reply-To: <20130425220710.6520.32515.stgit@ahduyck-cp1.jf.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -24,7 +24,7 @@ On 26/04/2013 01:07, Alexander Duyck wrote:
 > ext_filter_mask not being correctly discovered by the kernel as it is buried
 > somewhere in the ifinfomsg.
 
-working well,  thanks for fixing this up Alex.
+working well,  thanks for fixing this upAlex.
 
 Or.
 
