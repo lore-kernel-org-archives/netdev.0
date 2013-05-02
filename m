@@ -1,71 +1,79 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [PATCH net-next 1/2] xen-netback: remove redundent
- parameter in netbk_count_requests
-Date: Thu, 02 May 2013 10:31:57 +0100
-Message-ID: <51824EAD02000078000D281D@nat28.tlf.novell.com>
-References: <1367340644-19690-1-git-send-email-wei.liu2@citrix.com>
- <1367340644-19690-2-git-send-email-wei.liu2@citrix.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Thu, 2 May 2013 13:06:30 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1305021108430.1676@ja.ssi.bg>
+References: <1367290378-29224-1-git-send-email-horms@verge.net.au> <1367290378-29224-2-git-send-email-horms@verge.net.au> <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg> <20130430072944.GA13959@verge.net.au> <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
+ <20130501091012.GB28253@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg> <20130501155501.GB7521@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg>
+ <20130502072623.GE7521@dyad.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>
-To: "Wei Liu" <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat28.tlf.novell.com ([130.57.49.28]:33083 "EHLO
-	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753163Ab3EBJbS convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:3:1>);
-	Thu, 2 May 2013 05:31:18 -0400
-In-Reply-To: <1367340644-19690-2-git-send-email-wei.liu2@citrix.com>
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130502072623.GE7521@dyad.programming.kicks-ass.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
->>> On 30.04.13 at 18:50, Wei Liu <wei.liu2@citrix.com> wrote:
-> Tracking down from the caller, first_idx is always equal to vif->tx.req_cons.
-> Remove it to avoid confusion.
+
+	Hello,
+
+On Thu, 2 May 2013, Peter Zijlstra wrote:
+
+> On Wed, May 01, 2013 at 09:22:08PM +0300, Julian Anastasov wrote:
+> > > +extern int __cond_resched_rcu(void);
+> > > +
+> > > +#define cond_resched_rcu() ({			\
+> > > +	__might_sleep(__FILE__, __LINE__, 0);	\
+> > 
+> > 	I see your goal. But digging into __might_sleep()
+> > I see that rcu_sleep_check() will scream for the non-preempt
+> > case because we are under rcu_read_lock.
 > 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-
-Suggested-by: Jan Beulich <jbeulich@suse.com>
-
-> ---
->  drivers/net/xen-netback/netback.c |    6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
 > 
-> diff --git a/drivers/net/xen-netback/netback.c 
-> b/drivers/net/xen-netback/netback.c
-> index a2865f1..c44772d 100644
-> --- a/drivers/net/xen-netback/netback.c
-> +++ b/drivers/net/xen-netback/netback.c
-> @@ -928,7 +928,6 @@ static void netbk_fatal_tx_err(struct xenvif *vif)
->  
->  static int netbk_count_requests(struct xenvif *vif,
->  				struct xen_netif_tx_request *first,
-> -				RING_IDX first_idx,
->  				struct xen_netif_tx_request *txp,
->  				int work_to_do)
->  {
-> @@ -1005,7 +1004,7 @@ static int netbk_count_requests(struct xenvif *vif,
->  	} while ((txp++)->flags & XEN_NETTXF_more_data);
->  
->  	if (drop_err) {
-> -		netbk_tx_err(vif, first, first_idx + slots);
-> +		netbk_tx_err(vif, first, cons + slots);
->  		return drop_err;
->  	}
->  
-> @@ -1470,8 +1469,7 @@ static unsigned xen_netbk_tx_build_gops(struct 
-> xen_netbk *netbk)
->  				continue;
->  		}
->  
-> -		ret = netbk_count_requests(vif, &txreq, idx,
-> -					   txfrags, work_to_do);
-> +		ret = netbk_count_requests(vif, &txreq, txfrags, work_to_do);
->  		if (unlikely(ret < 0))
->  			continue;
->  
-> -- 
-> 1.7.10.4
+> #ifdef CONFIG_PREEMPT_RCU
+> #define PREEMPT_RCU_OFFSET 0
+> #else
+> #define PREEMPT_RCU_OFFSET 1
+> #endif
+> 
+> #define cond_resched_rcu() ({	\
+> 	__might_sleep(__FILE__, __LINE__, PREEMPT_RCU_OFFSET);	\
+> 	__cond_resched_rcu();	\
+> })
+> 
+> Should work I think..
+
+	Looks like CONFIG_DEBUG_ATOMIC_SLEEP selects
+CONFIG_PREEMPT_COUNT, so PREEMPT_RCU_OFFSET should be
+1 in all cases because preempt_disable() adds 1, while
+for CONFIG_PREEMPT_RCU case rcu_preempt_depth() should
+return 1:
+
+#ifdef CONFIG_PREEMPT_RCU
+#define PREEMPT_RCU_OFFSET 1
+#else
+#define PREEMPT_RCU_OFFSET PREEMPT_CHECK_OFFSET
+#endif
+
+	Now the remaining part is to fix rcu_sleep_check() for
+the non-preempt case. As there are no nesting depths in this
+case, I don't see a solution so far. We can provide
+some argument to rcu_preempt_sleep_check to compare
+depth with preempt_count() but currently I don't know
+how to differentiate cond_resched_lock() from cond_resched_rcu()
+when calling __might_sleep, in both cases we provide
+PREEMPT_OFFSET. May be some trick is needed here without
+adding new arg to __might_sleep, so that we can properly
+check for rcu_lock_map.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
