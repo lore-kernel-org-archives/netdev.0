@@ -1,206 +1,128 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Thu, 2 May 2013 11:52:15 -0700
-Message-ID: <CA+55aFy04mY5g-Aics9dcGpv6zgn2bu4iQ-_ifE5hun_t4E54Q@mail.gmail.com>
-References: <20130501.164755.1859264969403837546.davem@davemloft.net>
-	<CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
-	<1367512467.4000.7.camel@dcbw.foobar.com>
-	<1367519066.7757.19.camel@dcbw.foobar.com>
+From: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Subject: Re: [PULL] vhost: cleanups and fixes
+Date: Thu, 02 May 2013 11:55:29 -0700
+Message-ID: <1367520929.23900.114.camel@haakon3.risingtidesystems.com>
+References: <20130502105353.GA24655@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	hayeswang <hayeswang@realtek.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f182.google.com ([209.85.128.182]:35171 "EHLO
-	mail-ve0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1761716Ab3EBSwQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 14:52:16 -0400
-In-Reply-To: <1367519066.7757.19.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	asias@redhat.com, target-devel <target-devel@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <target-devel-owner@vger.kernel.org>
+In-Reply-To: <20130502105353.GA24655@redhat.com>
+Sender: target-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 2, 2013 at 11:24 AM, Dan Williams <dcbw@redhat.com> wrote:
->
-> One more question Linus; what version of NetworkManager,
+On Thu, 2013-05-02 at 13:53 +0300, Michael S. Tsirkin wrote:
+> The following changes since commit c39904a0ac22cf05f5f44226457f6da0fe65457e:
+> 
+>   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next (2013-04-26 23:33:41 -0400)
+> 
+> are available in the git repository at:
+> 
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+> 
+> for you to fetch changes up to 181c04a357bb791587c55a99362c2fdde2c64f18:
+> 
+>   vhost_scsi: module rename (2013-05-02 13:40:22 +0300)
+> 
+> ----------------------------------------------------------------
+> vhost: cleanups and fixes for 3.10
+> 
+> Here are vhost cleanups and fixes by Asias He and myself.
+> They affect both vhost-net and vhost-scsi devices.
+> They also *depend* on both net-next and target-pending,
+> where the net and target commits these changes depend on
+> are already merged.
+> So merging through the common vhost tree.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> 
 
-    NetworkManager-0.9.8.1-1.git20130327.fc18.x86_64
+Just FYI, if this PULL request is going to Linus directly, you'll
+probably want to rebase a branch atop a more recent mainline HEAD in
+order to produce a correct diffstat, instead of the one including the
+target-pending/for-next-merge merge commit below..
 
-> and can you
-> grab some syslog 'daemon' facility logs grepped for "
-> NetworkManger" | "eth0"?
+Then again, asking Linus what he prefers for this type of scenario never
+hurt anyone either.  ;)
 
-Here's the NetworkManager part of /var/log/messages from a bad boot:
+--nab
 
-  NetworkManager[540]: <info> WEXT support is enabled
-  NetworkManager[540]: <info> VPN: loaded org.freedesktop.NetworkManager.openvpn
-  NetworkManager[540]: <info> VPN: loaded org.freedesktop.NetworkManager.vpnc
-  NetworkManager[540]: <info> VPN: loaded
-org.freedesktop.NetworkManager.openconnect
-  NetworkManager[540]: <info> VPN: loaded org.freedesktop.NetworkManager.pptp
-  NetworkManager[540]:    ifcfg-rh: Acquired D-Bus service com.redhat.ifcfgrh1
-  NetworkManager[540]: <info> Loaded plugin ifcfg-rh: (c) 2007 - 2010
-Red Hat, Inc.  To report bugs please use the NetworkManager mailing
-list.
-  NetworkManager[540]: <info> Loaded plugin keyfile: (c) 2007 - 2010
-Red Hat, Inc.  To report bugs please use the NetworkManager mailing
-list.
-  NetworkManager[540]:    ifcfg-rh: parsing
-/etc/sysconfig/network-scripts/ifcfg-lo ...
-  NetworkManager[540]:    ifcfg-rh: parsing
-/etc/sysconfig/network-scripts/ifcfg-eth0 ...
-  NetworkManager[540]:    ifcfg-rh:     read connection 'System eth0'
-  NetworkManager[540]: <info> monitoring kernel firmware directory
-'/lib/firmware'.
-  NetworkManager[540]: <info> WiFi enabled by radio killswitch;
-enabled by state file
-  NetworkManager[540]: <info> WWAN enabled by radio killswitch;
-enabled by state file
-  NetworkManager[540]: <info> WiMAX enabled by radio killswitch;
-enabled by state file
-  NetworkManager[540]: <info> Networking is enabled by state file
-  NetworkManager[540]: <warn> failed to allocate link cache: (-10)
-Operation not supported
-  NetworkManager[540]: <info> (eth0): carrier is OFF
-  NetworkManager[540]: <info> (eth0): new Ethernet device (driver:
-'r8169' ifindex: 2)
-  NetworkManager[540]: <info> (eth0): exported as
-/org/freedesktop/NetworkManager/Devices/0
-  NetworkManager[540]: <info> (eth0): device state change: unmanaged
--> unavailable (reason 'managed') [10 20 2]
-  NetworkManager[540]: <info> (eth0): bringing up device.
-  NetworkManager[540]: <info> (eth0): preparing device.
-  NetworkManager[540]: <info> (eth0): deactivating device (reason 'managed') [2]
-  NetworkManager[540]: <warn> /sys/devices/virtual/net/lo: couldn't
-determine device driver; ignoring...
-  NetworkManager[540]: <warn> /sys/devices/virtual/net/lo: couldn't
-determine device driver; ignoring...
-  NetworkManager[540]: <info> (eth0): carrier now ON (device state 20)
-
-and that's all it says. hHere's a good boot:
-
-  NetworkManager[547]: <info> NetworkManager (version
-0.9.8.1-1.git20130327.fc18) is starting...
-  NetworkManager[547]: <info> Read config file
-/etc/NetworkManager/NetworkManager.conf
-  NetworkManager[547]: <info> WEXT support is enabled
-  NetworkManager[547]: <info> VPN: loaded org.freedesktop.NetworkManager.openvpn
-  NetworkManager[547]: <info> VPN: loaded org.freedesktop.NetworkManager.vpnc
-  NetworkManager[547]: <info> VPN: loaded
-org.freedesktop.NetworkManager.openconnect
-  NetworkManager[547]: <info> VPN: loaded org.freedesktop.NetworkManager.pptp
-  NetworkManager[547]:    ifcfg-rh: Acquired D-Bus service com.redhat.ifcfgrh1
-  NetworkManager[547]: <info> Loaded plugin ifcfg-rh: (c) 2007 - 2010
-Red Hat, Inc.  To report bugs please use the NetworkManager mailing
-list.
-  NetworkManager[547]: <info> Loaded plugin keyfile: (c) 2007 - 2010
-Red Hat, Inc.  To report bugs please use the NetworkManager mailing
-list.
-  NetworkManager[547]:    ifcfg-rh: parsing
-/etc/sysconfig/network-scripts/ifcfg-lo ...
-  NetworkManager[547]:    ifcfg-rh: parsing
-/etc/sysconfig/network-scripts/ifcfg-eth0 ...
-  NetworkManager[547]:    ifcfg-rh:     read connection 'System eth0'
-  NetworkManager[547]: <info> monitoring kernel firmware directory
-'/lib/firmware'.
-  NetworkManager[547]: <info> WiFi enabled by radio killswitch;
-enabled by state file
-  NetworkManager[547]: <info> WWAN enabled by radio killswitch;
-enabled by state file
-  NetworkManager[547]: <info> WiMAX enabled by radio killswitch;
-enabled by state file
-  NetworkManager[547]: <info> Networking is enabled by state file
-  NetworkManager[547]: <warn> failed to allocate link cache: (-10)
-Operation not supported
-  NetworkManager[547]: <info> (eth0): carrier is OFF
-  NetworkManager[547]: <info> (eth0): new Ethernet device (driver:
-'r8169' ifindex: 2)
-  NetworkManager[547]: <info> (eth0): exported as
-/org/freedesktop/NetworkManager/Devices/0
-  NetworkManager[547]: <info> (eth0): device state change: unmanaged
--> unavailable (reason 'managed') [10 20 2]
-  NetworkManager[547]: <info> (eth0): bringing up device.
-  NetworkManager[547]: <info> (eth0): preparing device.
-  NetworkManager[547]: <info> (eth0): deactivating device (reason 'managed') [2]
-  NetworkManager[547]: <warn> /sys/devices/virtual/net/lo: couldn't
-determine device driver; ignoring...
-  NetworkManager[547]: <warn> /sys/devices/virtual/net/lo: couldn't
-determine device driver; ignoring...
-  NetworkManager[547]: <info> (eth0): carrier now ON (device state 20)
-  NetworkManager[547]: <info> (eth0): device state change: unavailable
--> disconnected (reason 'carrier-changed') [20 30 40]
-  NetworkManager[547]: <info> Auto-activating connection 'System eth0'.
-  NetworkManager[547]: <info> Activation (eth0) starting connection
-'System eth0'
-  NetworkManager[547]: <info> (eth0): device state change:
-disconnected -> prepare (reason 'none') [30 40 0]
-  NetworkManager[547]: <info> Activation (eth0) Stage 1 of 5 (Device
-Prepare) scheduled...
-  NetworkManager[547]: <info> Activation (eth0) Stage 1 of 5 (Device
-Prepare) started...
-  NetworkManager[547]: <info> Activation (eth0) Stage 2 of 5 (Device
-Configure) scheduled...
-  NetworkManager[547]: <info> Activation (eth0) Stage 1 of 5 (Device
-Prepare) complete.
-  NetworkManager[547]: <info> Activation (eth0) Stage 2 of 5 (Device
-Configure) starting...
-  NetworkManager[547]: <info> (eth0): device state change: prepare ->
-config (reason 'none') [40 50 0]
-  NetworkManager[547]: <info> Activation (eth0) Stage 2 of 5 (Device
-Configure) successful.
-  NetworkManager[547]: <info> Activation (eth0) Stage 3 of 5 (IP
-Configure Start) scheduled.
-  NetworkManager[547]: <info> Activation (eth0) Stage 2 of 5 (Device
-Configure) complete.
-  NetworkManager[547]: <info> Activation (eth0) Stage 3 of 5 (IP
-Configure Start) started...
-  NetworkManager[547]: <info> (eth0): device state change: config ->
-ip-config (reason 'none') [50 70 0]
-  NetworkManager[547]: <info> Activation (eth0) Beginning DHCPv4
-transaction (timeout in 45 seconds)
-  NetworkManager[547]: <info> dhclient started with pid 910
-  NetworkManager[547]: <info> Activation (eth0) Stage 3 of 5 (IP
-Configure Start) complete.
-  NetworkManager[547]: <info> (eth0): DHCPv4 state changed nbi -> preinit
-  NetworkManager[547]: <info> (eth0): DHCPv4 state changed preinit -> reboot
-  NetworkManager[547]: <info>   address 192.168.0.52
-  NetworkManager[547]: <info>   prefix 24 (255.255.255.0)
-  NetworkManager[547]: <info>   gateway 192.168.0.1
-  NetworkManager[547]: <info>   nameserver '192.168.0.1'
-  NetworkManager[547]: <info> Activation (eth0) Stage 5 of 5 (IPv4
-Configure Commit) scheduled...
-  NetworkManager[547]: <info> Activation (eth0) Stage 5 of 5 (IPv4
-Commit) started...
-  NetworkManager[547]: <info> (eth0): device state change: ip-config
--> secondaries (reason 'none') [70 90 0]
-  NetworkManager[547]: <info> Activation (eth0) Stage 5 of 5 (IPv4
-Commit) complete.
-  NetworkManager[547]: <info> (eth0): device state change: secondaries
--> activated (reason 'none') [90 100 0]
-  NetworkManager[547]: <info> Policy set 'System eth0' (eth0) as
-default for IPv4 routing and DNS.
-  NetworkManager[547]: <info> Activation (eth0) successful, device activated.
-
-so apparently NM does see carrier even in the bad state, and it is
-just the NM-applet that then says "cable disconnected". Who knows what
-goes through NM-applets tiny little mind? Not me.
-
-Anyway, they seem to be identical (apart from the pid change, of
-course) up until the good case says
-
-  NetworkManager[540]: <info> (eth0): device state change: unavailable
--> disconnected (reason 'carrier-changed') [20 30 40]
-
-and with a bad kernel, that just never happens. Don't ask me why.  In
-both cases, the preceding kernel messages were
-
-  r8169 0000:01:00.0 eth0: link up
-  IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-
-but for some reason in the bad case NM just doesn't react past the
-"carrier now ON" part.
-
-                    Linus
+> ----------------------------------------------------------------
+> Asias He (3):
+>       vhost: Allow device specific fields per vq
+>       tcm_vhost: Wait for pending requests in vhost_scsi_flush()
+>       vhost: move vhost-net zerocopy fields to net.c
+> 
+> Michael S. Tsirkin (8):
+>       Merge branch 'for-next-merge' of git://git.kernel.org/.../nab/target-pending into vhost-net-next
+>       tcm_vhost: document inflight ref-counting use
+>       vhost: move per-vq net specific fields out to net
+>       tcm_vhost: remove virtio-net.h dependency
+>       vhost: fix error handling in RESET_OWNER ioctl
+>       vhost: src file renames
+>       tcm_vhost: header split up
+>       vhost_scsi: module rename
+> 
+>  drivers/infiniband/Kconfig                     |    1 +
+>  drivers/infiniband/Makefile                    |    1 +
+>  drivers/infiniband/ulp/isert/Kconfig           |    5 +
+>  drivers/infiniband/ulp/isert/Makefile          |    2 +
+>  drivers/infiniband/ulp/isert/ib_isert.c        | 2281 ++++++++++++++++++++++++
+>  drivers/infiniband/ulp/isert/ib_isert.h        |  138 ++
+>  drivers/infiniband/ulp/isert/isert_proto.h     |   47 +
+>  drivers/scsi/qla2xxx/qla_target.c              |   19 -
+>  drivers/scsi/qla2xxx/qla_target.h              |    1 -
+>  drivers/target/iscsi/Makefile                  |    3 +-
+>  drivers/target/iscsi/iscsi_target.c            | 1184 +++++++-----
+>  drivers/target/iscsi/iscsi_target.h            |    3 +-
+>  drivers/target/iscsi/iscsi_target_auth.c       |   28 +-
+>  drivers/target/iscsi/iscsi_target_configfs.c   |   98 +-
+>  drivers/target/iscsi/iscsi_target_core.h       |   26 +-
+>  drivers/target/iscsi/iscsi_target_device.c     |    7 +-
+>  drivers/target/iscsi/iscsi_target_erl1.c       |   13 +-
+>  drivers/target/iscsi/iscsi_target_login.c      |  472 +++--
+>  drivers/target/iscsi/iscsi_target_login.h      |    6 +
+>  drivers/target/iscsi/iscsi_target_nego.c       |  194 +-
+>  drivers/target/iscsi/iscsi_target_nego.h       |   11 +-
+>  drivers/target/iscsi/iscsi_target_parameters.c |   87 +-
+>  drivers/target/iscsi/iscsi_target_parameters.h |   16 +-
+>  drivers/target/iscsi/iscsi_target_tmr.c        |    4 +-
+>  drivers/target/iscsi/iscsi_target_tpg.c        |    6 +-
+>  drivers/target/iscsi/iscsi_target_transport.c  |   55 +
+>  drivers/target/iscsi/iscsi_target_util.c       |   53 +-
+>  drivers/target/iscsi/iscsi_target_util.h       |    1 +
+>  drivers/target/target_core_file.c              |  122 +-
+>  drivers/target/target_core_iblock.c            |  108 +-
+>  drivers/target/target_core_sbc.c               |   85 +
+>  drivers/target/target_core_transport.c         |   13 +-
+>  drivers/target/tcm_fc/tfc_io.c                 |    9 +-
+>  drivers/target/tcm_fc/tfc_sess.c               |    9 +-
+>  drivers/vhost/Kconfig                          |   10 +-
+>  drivers/vhost/Kconfig.tcm                      |    6 -
+>  drivers/vhost/Makefile                         |    3 +-
+>  drivers/vhost/net.c                            |  255 ++-
+>  drivers/vhost/{tcm_vhost.c => scsi.c}          |  507 +++++-
+>  drivers/vhost/tcm_vhost.h                      |  115 --
+>  drivers/vhost/test.c                           |    9 +-
+>  drivers/vhost/vhost.c                          |  153 +-
+>  drivers/vhost/vhost.h                          |   32 +-
+>  include/target/iscsi/iscsi_transport.h         |   83 +
+>  include/target/target_core_backend.h           |    4 +
+>  include/target/target_core_fabric.h            |    2 +-
+>  include/uapi/linux/vhost.h                     |   28 +
+>  47 files changed, 4985 insertions(+), 1330 deletions(-)
+>  create mode 100644 drivers/infiniband/ulp/isert/Kconfig
+>  create mode 100644 drivers/infiniband/ulp/isert/Makefile
+>  create mode 100644 drivers/infiniband/ulp/isert/ib_isert.c
+>  create mode 100644 drivers/infiniband/ulp/isert/ib_isert.h
+>  create mode 100644 drivers/infiniband/ulp/isert/isert_proto.h
+>  create mode 100644 drivers/target/iscsi/iscsi_target_transport.c
+>  delete mode 100644 drivers/vhost/Kconfig.tcm
+>  rename drivers/vhost/{tcm_vhost.c => scsi.c} (76%)
+>  delete mode 100644 drivers/vhost/tcm_vhost.h
+>  create mode 100644 include/target/iscsi/iscsi_transport.h
