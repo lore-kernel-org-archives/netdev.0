@@ -1,141 +1,102 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL] vhost: cleanups and fixes
-Date: Thu, 2 May 2013 22:33:09 +0300
-Message-ID: <20130502193309.GC16031@redhat.com>
-References: <20130502105353.GA24655@redhat.com>
- <1367520929.23900.114.camel@haakon3.risingtidesystems.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Thu, 2 May 2013 12:34:09 -0700
+Message-ID: <20130502193409.GA3780@linux.vnet.ibm.com>
+References: <20130430072944.GA13959@verge.net.au>
+ <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
+ <20130501091012.GB28253@dyad.programming.kicks-ass.net>
+ <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg>
+ <20130501155501.GB7521@dyad.programming.kicks-ass.net>
+ <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg>
+ <20130502072623.GE7521@dyad.programming.kicks-ass.net>
+ <alpine.LFD.2.00.1305021848450.31548@ja.ssi.bg>
+ <20130502173257.GX3780@linux.vnet.ibm.com>
+ <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	asias@redhat.com, target-devel <target-devel@vger.kernel.org>,
-	torvalds@linux-foundation.org
-To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Simon Horman <horms@verge.net.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1367520929.23900.114.camel@haakon3.risingtidesystems.com>
+In-Reply-To: <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 02, 2013 at 11:55:29AM -0700, Nicholas A. Bellinger wrote:
-> On Thu, 2013-05-02 at 13:53 +0300, Michael S. Tsirkin wrote:
-> > The following changes since commit c39904a0ac22cf05f5f44226457f6da0fe65457e:
-> > 
-> >   Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next (2013-04-26 23:33:41 -0400)
-> > 
-> > are available in the git repository at:
-> > 
-> > 
-> >   git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
-> > 
-> > for you to fetch changes up to 181c04a357bb791587c55a99362c2fdde2c64f18:
-> > 
-> >   vhost_scsi: module rename (2013-05-02 13:40:22 +0300)
-> > 
-> > ----------------------------------------------------------------
-> > vhost: cleanups and fixes for 3.10
-> > 
-> > Here are vhost cleanups and fixes by Asias He and myself.
-> > They affect both vhost-net and vhost-scsi devices.
-> > They also *depend* on both net-next and target-pending,
-> > where the net and target commits these changes depend on
-> > are already merged.
-> > So merging through the common vhost tree.
-> > 
-> > Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> > 
+On Thu, May 02, 2013 at 09:55:54PM +0300, Julian Anastasov wrote:
 > 
-> Just FYI, if this PULL request is going to Linus directly, you'll
-> probably want to rebase a branch atop a more recent mainline HEAD in
-> order to produce a correct diffstat, instead of the one including the
-> target-pending/for-next-merge merge commit below..
+> 	Hello,
 > 
-> Then again, asking Linus what he prefers for this type of scenario never
-> hurt anyone either.  ;)
+> On Thu, 2 May 2013, Paul E. McKenney wrote:
 > 
-> --nab
-
-
-Oops I did something wrong and Linus was not on the To list at all :(
-I'll have to repost.
-I prefer not rebasing, will play with git to see why
-does request-pull get me a wrong diffstat and how
-to trick it into doing the right thing.
-Maybe merging my branch into master will do this.
-
-
-> > ----------------------------------------------------------------
-> > Asias He (3):
-> >       vhost: Allow device specific fields per vq
-> >       tcm_vhost: Wait for pending requests in vhost_scsi_flush()
-> >       vhost: move vhost-net zerocopy fields to net.c
+> > On Thu, May 02, 2013 at 06:54:05PM +0300, Julian Anastasov wrote:
+> > > 
+> > > 	I tested the following patch in 2 variants,
+> > > TINY_RCU and CONFIG_TREE_PREEMPT_RCU. I see the
 > > 
-> > Michael S. Tsirkin (8):
-> >       Merge branch 'for-next-merge' of git://git.kernel.org/.../nab/target-pending into vhost-net-next
-> >       tcm_vhost: document inflight ref-counting use
-> >       vhost: move per-vq net specific fields out to net
-> >       tcm_vhost: remove virtio-net.h dependency
-> >       vhost: fix error handling in RESET_OWNER ioctl
-> >       vhost: src file renames
-> >       tcm_vhost: header split up
-> >       vhost_scsi: module rename
-> > 
-> >  drivers/infiniband/Kconfig                     |    1 +
-> >  drivers/infiniband/Makefile                    |    1 +
-> >  drivers/infiniband/ulp/isert/Kconfig           |    5 +
-> >  drivers/infiniband/ulp/isert/Makefile          |    2 +
-> >  drivers/infiniband/ulp/isert/ib_isert.c        | 2281 ++++++++++++++++++++++++
-> >  drivers/infiniband/ulp/isert/ib_isert.h        |  138 ++
-> >  drivers/infiniband/ulp/isert/isert_proto.h     |   47 +
-> >  drivers/scsi/qla2xxx/qla_target.c              |   19 -
-> >  drivers/scsi/qla2xxx/qla_target.h              |    1 -
-> >  drivers/target/iscsi/Makefile                  |    3 +-
-> >  drivers/target/iscsi/iscsi_target.c            | 1184 +++++++-----
-> >  drivers/target/iscsi/iscsi_target.h            |    3 +-
-> >  drivers/target/iscsi/iscsi_target_auth.c       |   28 +-
-> >  drivers/target/iscsi/iscsi_target_configfs.c   |   98 +-
-> >  drivers/target/iscsi/iscsi_target_core.h       |   26 +-
-> >  drivers/target/iscsi/iscsi_target_device.c     |    7 +-
-> >  drivers/target/iscsi/iscsi_target_erl1.c       |   13 +-
-> >  drivers/target/iscsi/iscsi_target_login.c      |  472 +++--
-> >  drivers/target/iscsi/iscsi_target_login.h      |    6 +
-> >  drivers/target/iscsi/iscsi_target_nego.c       |  194 +-
-> >  drivers/target/iscsi/iscsi_target_nego.h       |   11 +-
-> >  drivers/target/iscsi/iscsi_target_parameters.c |   87 +-
-> >  drivers/target/iscsi/iscsi_target_parameters.h |   16 +-
-> >  drivers/target/iscsi/iscsi_target_tmr.c        |    4 +-
-> >  drivers/target/iscsi/iscsi_target_tpg.c        |    6 +-
-> >  drivers/target/iscsi/iscsi_target_transport.c  |   55 +
-> >  drivers/target/iscsi/iscsi_target_util.c       |   53 +-
-> >  drivers/target/iscsi/iscsi_target_util.h       |    1 +
-> >  drivers/target/target_core_file.c              |  122 +-
-> >  drivers/target/target_core_iblock.c            |  108 +-
-> >  drivers/target/target_core_sbc.c               |   85 +
-> >  drivers/target/target_core_transport.c         |   13 +-
-> >  drivers/target/tcm_fc/tfc_io.c                 |    9 +-
-> >  drivers/target/tcm_fc/tfc_sess.c               |    9 +-
-> >  drivers/vhost/Kconfig                          |   10 +-
-> >  drivers/vhost/Kconfig.tcm                      |    6 -
-> >  drivers/vhost/Makefile                         |    3 +-
-> >  drivers/vhost/net.c                            |  255 ++-
-> >  drivers/vhost/{tcm_vhost.c => scsi.c}          |  507 +++++-
-> >  drivers/vhost/tcm_vhost.h                      |  115 --
-> >  drivers/vhost/test.c                           |    9 +-
-> >  drivers/vhost/vhost.c                          |  153 +-
-> >  drivers/vhost/vhost.h                          |   32 +-
-> >  include/target/iscsi/iscsi_transport.h         |   83 +
-> >  include/target/target_core_backend.h           |    4 +
-> >  include/target/target_core_fabric.h            |    2 +-
-> >  include/uapi/linux/vhost.h                     |   28 +
-> >  47 files changed, 4985 insertions(+), 1330 deletions(-)
-> >  create mode 100644 drivers/infiniband/ulp/isert/Kconfig
-> >  create mode 100644 drivers/infiniband/ulp/isert/Makefile
-> >  create mode 100644 drivers/infiniband/ulp/isert/ib_isert.c
-> >  create mode 100644 drivers/infiniband/ulp/isert/ib_isert.h
-> >  create mode 100644 drivers/infiniband/ulp/isert/isert_proto.h
-> >  create mode 100644 drivers/target/iscsi/iscsi_target_transport.c
-> >  delete mode 100644 drivers/vhost/Kconfig.tcm
-> >  rename drivers/vhost/{tcm_vhost.c => scsi.c} (76%)
-> >  delete mode 100644 drivers/vhost/tcm_vhost.h
-> >  create mode 100644 include/target/iscsi/iscsi_transport.h
+> > Could you please also try CONFIG_TREE_RCU?
 > 
+> 	Note that I'm testing on some 9-year old
+> UP system, i.e. 1 CPU. Now I enabled SMP to test CONFIG_TREE_RCU
+> and the results are same. I think, it should be just like
+> the TINY_RCU in terms of these debuggings (non-preempt). Extra 
+> rcu_read_lock gives me "Illegal context switch in RCU read-side
+> critical section" in addition to the "BUG: sleeping function
+> called from invalid context" message.
+
+OK...
+
+> > > error if extra rcu_read_lock is added for testing.
+> > > 
+> > > 	I'm using the PREEMPT_ACTIVE flag to indicate
+> > > that we are already under lock. It should work because
+> > > __might_sleep is not called with such bit. I also tried to
+> > > add new flag in include/linux/hardirq.h but PREEMPT_ACTIVE
+> > > depends on the arch, so this alternative looked difficult to
+> > > implement.
+> 
+> > > +extern int __cond_resched_rcu(void);
+> > > +
+> > > +#define cond_resched_rcu() ({					\
+> > > +	__might_sleep(__FILE__, __LINE__, PREEMPT_ACTIVE |	\
+> > > +					  PREEMPT_RCU_OFFSET);	\
+> > > +	__cond_resched_rcu();					\
+> > > +})
+> > > +
+> 
+> > > @@ -7062,7 +7076,9 @@ void __might_sleep(const char *file, int line, int preempt_offset)
+> > >  {
+> > >  	static unsigned long prev_jiffy;	/* ratelimiting */
+> > > 
+> > > -	rcu_sleep_check(); /* WARN_ON_ONCE() by default, no rate limit reqd. */
+> > > +	/* WARN_ON_ONCE() by default, no rate limit reqd. */
+> > > +	rcu_sleep_check(preempt_offset & PREEMPT_ACTIVE);
+> > 
+> > Color me confused.
+> > 
+> > >From what I can see, the two values passed in through preempt_offset
+> > are PREEMPT_LOCK_OFFSET and SOFTIRQ_DISABLE_OFFSET.  PREEMPT_ACTIVE
+> > is normally a high-order bit, above PREEMPT_MASK, SOFTIRQ_MASK, and
+> > HARDIRQ_MASK.
+> > 
+> > PREEMPT_LOCK_OFFSET and SOFTIRQ_DISABLE_OFFSET have only low-order bits,
+> > so I don't see how rcu_sleep_check() is passed anything other than zero.
+> > Am I going blind, or what?
+> 
+> 	Only the new cond_resched_rcu() macro provides
+> PREEMPT_ACTIVE flag to skip the rcu_preempt_sleep_check()
+> call. The old macros provide locked=0 as you noticed. Does it
+> answer your question or I'm missing something?
+
+PREEMPT_ACTIVE's value is usually 0x10000000.  Did it change
+since 3.9?  If not, rcu_sleep_check(preempt_offset & PREEMPT_ACTIVE)
+is the same as rcu_sleep_check(0).
+
+							Thanx, Paul
