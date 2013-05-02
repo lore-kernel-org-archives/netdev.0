@@ -1,35 +1,44 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [GIT] Networking
-Date: Thu, 2 May 2013 08:41:40 +0200
-Message-ID: <20130502064140.GA21494@electric-eye.fr.zoreil.com>
-References: <20130501.164755.1859264969403837546.davem@davemloft.net>
- <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
+Date: Thu, 02 May 2013 02:45:52 -0400 (EDT)
+Message-ID: <20130502.024552.1513488878160820332.davem@davemloft.net>
+References: <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
+	<CA+55aFzinZSQAS6GW6vYOyQ06+GSMqkCGb8Fu829s_MxY0L0QA@mail.gmail.com>
+	<CA+55aFxoP1vybnqdDwGmd-m0j=x=KDm7GHV6J1i8wGOaU0=5qw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	hayeswang <hayeswang@realtek.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hayeswang@realtek.com, kaber@trash.net, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
+In-Reply-To: <CA+55aFxoP1vybnqdDwGmd-m0j=x=KDm7GHV6J1i8wGOaU0=5qw@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Linus Torvalds <torvalds@linux-foundation.org> :
-[...]
-> Any ideas?
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Wed, 1 May 2013 21:55:38 -0700
 
-1a9646497b163a8b9da5e70008d809dc91b32855 ("r8169: adjust the flow of hw_start"),
-eee3786f7d3134e3edc54c1134511d520dd74285 ("r8169: Modify the method for setting
-firmware") and 0427d0152eb3c2c2712afa427dd593c68fc09299
-("r8169: Remove firmware code") may play a role on your 8168D setup, either by
-themselves or combined with something else.
+> I think the positions of those bits matter, and adding
+> NETIF_F_HW_VLAN_STAG_*_BIT randomly in the middle broke things. That's
+> backed up by the fact that we have things like
+> 
+>       __UNUSED_NETIF_F_1
+> 
+> and
+> 
+>           /**/NETIF_F_GSO_SHIFT,          /* keep the order of SKB_GSO_* bits */
+>         NETIF_F_TSO_BIT                 /* ... TCPv4 segmentation */
+>                 = NETIF_F_GSO_SHIFT,
+> 
+> in that array. There is some ordering, and there is some meaning to
+> the bit numbers, and adding the *_STAG_* bits in the middle broke some
+> subtle dependency.
 
-Expect no sign of life from me until the late end of the european working
-hours.
+The other thing this does is it pushes some bits past bit 31.
 
--- 
-Ueimor
+netdev_features_t, which holds these masks, is 64-bit but we've
+already seen one place in a driver where a 32-bit value was being
+used.
+
+I'll look more deeply into this, thanks.
