@@ -1,73 +1,36 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [PATCH net-next V2 2/3] xen-netback: avoid allocating
- variable size array on stack
-Date: Thu, 02 May 2013 13:04:20 +0100
-Message-ID: <5182726402000078000D2A24@nat28.tlf.novell.com>
-References: <1367491439-27629-1-git-send-email-wei.liu2@citrix.com>
- <1367491439-27629-3-git-send-email-wei.liu2@citrix.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [net-next PATCH 1/1] drivers: net: cpsw: irq not disabled in
+ cpsw isr in particular sequence
+Date: Thu, 2 May 2013 14:37:27 +0200
+Message-ID: <20130502123727.GA17149@linutronix.de>
+References: <1367495531-19470-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>
-To: "Wei Liu" <wei.liu2@citrix.com>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-omap@vger.kernel.org
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat28.tlf.novell.com ([130.57.49.28]:37670 "EHLO
-	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753159Ab3EBMDk convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:3:1>);
-	Thu, 2 May 2013 08:03:40 -0400
-In-Reply-To: <1367491439-27629-3-git-send-email-wei.liu2@citrix.com>
+Received: from www.linutronix.de ([62.245.132.108]:39563 "EHLO
+	Galois.linutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759146Ab3EBMh3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 08:37:29 -0400
 Content-Disposition: inline
+In-Reply-To: <1367495531-19470-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> On 02.05.13 at 12:43, Wei Liu <wei.liu2@citrix.com> wrote:
-> @@ -934,11 +934,14 @@ static int netbk_count_requests(struct xenvif *vif,
->  	RING_IDX cons = vif->tx.req_cons;
->  	int slots = 0;
->  	int drop_err = 0;
-> +	int more_data;
->  
->  	if (!(first->flags & XEN_NETTXF_more_data))
->  		return 0;
->  
->  	do {
-> +		struct xen_netif_tx_request dropped_tx = { 0 };
-> +
+* Mugunthan V N | 2013-05-02 17:22:11 [+0530]:
 
-No need for an initializer here.
+>In CPSW NAPI, after processing all interrupts IRQ is enabled and then book
+>keeping irq_enabled is updated. In random cases when a packet is transmitted
+>or received between processing packets and IRQ enabled, then just after
+>enabled IRQ and before irq_enabled is updated, ISR is called so IRQs are
+>not disabled as irq_enabled is still false and CPU gets locked in CPSW ISR.
+>
+>By changing the sequence as update the irq_enabled and then enable IRQ
+>fixes the issue. This issue is not captured always as it is a timing issue
+>whether Tx or Rx IRQ is invoked between packet processing and enable IRQ.
 
->  		if (slots >= work_to_do) {
->  			netdev_err(vif->dev,
->  				   "Asked for %d slots but exceeds this limit\n",
-> @@ -972,6 +975,9 @@ static int netbk_count_requests(struct xenvif *vif,
->  			drop_err = -E2BIG;
->  		}
->  
-> +		if (drop_err)
-> +			txp = &dropped_tx;
-> +
->  		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
->  		       sizeof(*txp));
->  
-> @@ -1001,7 +1007,13 @@ static int netbk_count_requests(struct xenvif *vif,
->  			netbk_fatal_tx_err(vif);
->  			return -EINVAL;
->  		}
-> -	} while ((txp++)->flags & XEN_NETTXF_more_data);
-> +
-> +		more_data = txp->flags & XEN_NETTXF_more_data;
-> +
-> +		if (!drop_err)
-> +			txp++;
+Acked-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-And no need for the conditional here afaict.
-
-Jan
-
-> +
-> +	} while (more_data);
->  
->  	if (drop_err) {
->  		netbk_tx_err(vif, first, cons + slots);
+Sebastian
