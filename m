@@ -1,53 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH RFT] 3c59x: fix freeing nonexistent resource on driver unload
-Date: Fri, 3 May 2013 01:10:22 +0400
-Message-ID: <201305030110.22462.sergei.shtylyov@cogentembedded.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH net-next] af_unix: fix a fatal race with bit fields
+Date: Fri, 03 May 2013 07:11:29 +1000
+Message-ID: <1367529089.4389.23.camel@pasglop>
+References: <1367370761.11020.22.camel@edumazet-glaptop>
+	 <20130501115103.58e40f37@kryten>
+	 <1367375060.11020.24.camel@edumazet-glaptop>
+	 <20130501035425.GD5221@bubble.grove.modra.org>
+	 <1367384672.11020.34.camel@edumazet-glaptop>
+	 <20130501081054.267a7851@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de,
-	tedheadster@gmail.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Alan Modra <amodra@gmail.com>,
+	Anton Blanchard <anton@samba.org>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org,
+	Paul Mackerras <paulus@samba.org>,
+	Ambrose Feinstein <ambrose@google.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:47652 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758143Ab3EBVK3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 17:10:29 -0400
-Received: by mail-la0-f42.google.com with SMTP id fq13so967574lab.15
-        for <netdev@vger.kernel.org>; Thu, 02 May 2013 14:10:27 -0700 (PDT)
+Received: from gate.crashing.org ([63.228.1.57]:40491 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1760420Ab3EBVLt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 May 2013 17:11:49 -0400
+In-Reply-To: <20130501081054.267a7851@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When unloading the driver that drives an EISA board, a message similar to the
-following one is displayed:
+On Wed, 2013-05-01 at 08:10 -0700, Stephen Hemminger wrote:
+> > These kind of errors are pretty hard to find, its a pity to spend
+> time
+> > on them.
+> 
+> There is a checkbin target inside arch/powerpc/Makefile
+> Shouldn't a check be added there to block building kernel with known
+> bad GCC versions?
 
-Trying to free nonexistent resource <0000000000013000-000000000001301f>
+In this case that makes it all GCC versions except the *very
+latest* .... not practical.
 
-Then an user is unable to reload the driver because the resource it requested in
-the previous load hasn't been freed. This happens most probably due to a typo in
-vortex_eisa_remove() which calls release_region() with 'dev->base_addr'  instead
-of 'edev->base_addr'...
+I suppose we should try to make sure that at least the next batch of
+enterprise distro get that fix on gcc side.
 
-Reported-by: Matthew Whitehead <tedheadster@gmail.com>
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
-The patch is against David Miller's 'net-next.git' repo.
-Matthew, please test it and report on the list.
-
- drivers/net/ethernet/3com/3c59x.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-Index: net-next/drivers/net/ethernet/3com/3c59x.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/3com/3c59x.c
-+++ net-next/drivers/net/ethernet/3com/3c59x.c
-@@ -951,7 +951,7 @@ static int vortex_eisa_remove(struct dev
- 
- 	unregister_netdev(dev);
- 	iowrite16(TotalReset|0x14, ioaddr + EL3_CMD);
--	release_region(dev->base_addr, VORTEX_TOTAL_SIZE);
-+	release_region(edev->base_addr, VORTEX_TOTAL_SIZE);
- 
- 	free_netdev(dev);
- 	return 0;
+Ben.
