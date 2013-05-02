@@ -1,42 +1,46 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable call"
-Date: Thu, 2 May 2013 09:51:00 +0800
-Message-ID: <CAHrpEqR6b0dy1AWsakS-z7TCe5oz5NYdpo+JWSh+K+OzPLrCVw@mail.gmail.com>
-References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
-	<CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
-	<20130426134415.GS1366@pengutronix.de>
-	<20130426.143309.1011152996477262852.davem@davemloft.net>
-	<20130427090545.GY1366@pengutronix.de>
-	<CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
-	<1367243217.4100.13.camel@weser.hi.pengutronix.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Patch net-next v3 2/3] bridge: only expire the mdb entry when
+ query is received
+Date: Thu, 2 May 2013 09:59:38 +0800
+Message-ID: <20130502015938.GA2237@gondor.apana.org.au>
+References: <1367305819-14013-1-git-send-email-amwang@redhat.com>
+ <1367305819-14013-2-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
-	Fabio Estevam <festevam@gmail.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Lucas Stach <l.stach@pengutronix.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f170.google.com ([209.85.212.170]:41474 "EHLO
-	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759186Ab3EBBvC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 21:51:02 -0400
-Received: by mail-wi0-f170.google.com with SMTP id hq12so91544wib.5
-        for <netdev@vger.kernel.org>; Wed, 01 May 2013 18:51:00 -0700 (PDT)
-In-Reply-To: <1367243217.4100.13.camel@weser.hi.pengutronix.de>
+Received: from ringil.hengli.com.au ([178.18.16.133]:42855 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1751790Ab3EBB7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 21:59:43 -0400
+Content-Disposition: inline
+In-Reply-To: <1367305819-14013-2-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2013/4/29 Lucas Stach <l.stach@pengutronix.de>:
-> What is the exact situation which caused a
-> deadlock here? I tried to see what's happening from your changelogs, but
-> I'm not sure I can follow here. Wasn't the problem more of the used
-> spinlocks not being IRQ-save and thus potentially creating a deadlock?
+On Tue, Apr 30, 2013 at 03:10:18PM +0800, Cong Wang wrote:
+>
+> @@ -1275,7 +1277,7 @@ static void br_multicast_leave_group(struct net_bridge *br,
+>  		     br->multicast_last_member_interval;
+>  
+>  	if (!port) {
+> -		if (mp->mglist &&
+> +		if (mp->mglist && mp->timer_armed &&
+>  		    (timer_pending(&mp->timer) ?
+>  		     time_after(mp->timer.expires, time) :
+>  		     try_to_del_timer_sync(&mp->timer) >= 0)) {
 
-You can view below email thread.
-http://www.spinics.net/lists/netdev/msg225240.html
+This whole section of code should now be removed since we're now
+only arming the timer in response to a query to that group.  Of
+course if we were the querier and sent out a query here then you'd
+need to simulate the reception of a query.
 
-The main problem network API use spin_lock_bh only now. So it does not
-prefer use irq to handle skb process.
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
