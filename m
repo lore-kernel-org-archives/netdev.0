@@ -1,31 +1,60 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v2 net-next] net/usb: new driver for RTL8152
-Date: Thu, 2 May 2013 07:12:39 -0700
-Message-ID: <20130502141239.GC24348@kroah.com>
-References: <1366965948-1805-1-git-send-email-hayeswang@realtek.com>
- <1367524087-29512-1-git-send-email-hayeswang@realtek.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [IPROUTE PATCH] libnetlink: Use ifinfomsg instead of rtgenmsg
+ in rtnl_wilddump_req_filter
+Date: Thu, 2 May 2013 17:12:55 +0300
+Message-ID: <51827467.6020704@mellanox.com>
+References: <20130425220710.6520.32515.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: oliver@neukum.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	Realtek linux nic maintainers <nic_swsd@realtek.com>
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1367524087-29512-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <shemminger@vyatta.com>, <netdev@vger.kernel.org>,
+	<jeffrey.t.kirsher@intel.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:41011 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759231Ab3EBONS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 10:13:18 -0400
+In-Reply-To: <20130425220710.6520.32515.stgit@ahduyck-cp1.jf.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 03, 2013 at 03:48:07AM +0800, Hayes Wang wrote:
-> +#define PATENTS		"This product is covered by one or more of the " \
-> +			"following patents:\n" \
-> +			"\t\tUS6,570,884, US6,115,776, and US6,327,625.\n"
+On 26/04/2013 01:07, Alexander Duyck wrote:
+> This change corrects a kernel incompatibility that was resulting in the
+> ext_filter_mask not being correctly discovered by the kernel as it is buried
+> somewhere in the ifinfomsg.
 
-Interesting, you are aware of the issues involved with patents and GPLv2
-code, right?  Do you have a pointer to the GPLv2 patent release that is
-now required, or does your company now release all of the needed rights
-for these patents to be able to be used by everyone?
+working well,  thanks for fixing this up Alex.
 
-thanks,
+Or.
 
-greg k-h
+>
+> Reported-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+>   lib/libnetlink.c |    4 ++--
+>   1 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+> index 04201cd..b17e1aa 100644
+> --- a/lib/libnetlink.c
+> +++ b/lib/libnetlink.c
+> @@ -99,7 +99,7 @@ int rtnl_wilddump_req_filter(struct rtnl_handle *rth, int family, int type,
+>   {
+>   	struct {
+>   		struct nlmsghdr nlh;
+> -		struct rtgenmsg g;
+> +		struct ifinfomsg ifm;
+>   		/* attribute has to be NLMSG aligned */
+>   		struct rtattr ext_req __attribute__ ((aligned(NLMSG_ALIGNTO)));
+>   		__u32 ext_filter_mask;
+> @@ -111,7 +111,7 @@ int rtnl_wilddump_req_filter(struct rtnl_handle *rth, int family, int type,
+>   	req.nlh.nlmsg_flags = NLM_F_DUMP|NLM_F_REQUEST;
+>   	req.nlh.nlmsg_pid = 0;
+>   	req.nlh.nlmsg_seq = rth->dump = ++rth->seq;
+> -	req.g.rtgen_family = family;
+> +	req.ifm.ifi_family = family;
+>   
+>   	req.ext_req.rta_type = IFLA_EXT_MASK;
+>   	req.ext_req.rta_len = RTA_LENGTH(sizeof(__u32));
+>
