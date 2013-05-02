@@ -1,53 +1,53 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [GIT] Networking
-Date: Thu, 2 May 2013 09:03:37 +0200
-Message-ID: <20130502070256.GA29502@macbook.localnet>
-References: <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
- <CA+55aFzinZSQAS6GW6vYOyQ06+GSMqkCGb8Fu829s_MxY0L0QA@mail.gmail.com>
- <CA+55aFxoP1vybnqdDwGmd-m0j=x=KDm7GHV6J1i8wGOaU0=5qw@mail.gmail.com>
- <20130502.024552.1513488878160820332.davem@davemloft.net>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Thu, 2 May 2013 09:26:24 +0200
+Message-ID: <20130502072623.GE7521@dyad.programming.kicks-ass.net>
+References: <1367290378-29224-1-git-send-email-horms@verge.net.au>
+ <1367290378-29224-2-git-send-email-horms@verge.net.au>
+ <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg>
+ <20130430072944.GA13959@verge.net.au>
+ <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
+ <20130501091012.GB28253@dyad.programming.kicks-ass.net>
+ <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg>
+ <20130501155501.GB7521@dyad.programming.kicks-ass.net>
+ <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@linux-foundation.org, hayeswang@realtek.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stinky.trash.net ([213.144.137.162]:61585 "EHLO
-	stinky.trash.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910Ab3EBHI3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 03:08:29 -0400
+Cc: Simon Horman <horms@verge.net.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130502.024552.1513488878160820332.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 02, 2013 at 02:45:52AM -0400, David Miller wrote:
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Wed, 1 May 2013 21:55:38 -0700
+On Wed, May 01, 2013 at 09:22:08PM +0300, Julian Anastasov wrote:
+> > +extern int __cond_resched_rcu(void);
+> > +
+> > +#define cond_resched_rcu() ({			\
+> > +	__might_sleep(__FILE__, __LINE__, 0);	\
 > 
-> > I think the positions of those bits matter, and adding
-> > NETIF_F_HW_VLAN_STAG_*_BIT randomly in the middle broke things. That's
-> > backed up by the fact that we have things like
-> > 
-> >       __UNUSED_NETIF_F_1
-> > 
-> > and
-> > 
-> >           /**/NETIF_F_GSO_SHIFT,          /* keep the order of SKB_GSO_* bits */
-> >         NETIF_F_TSO_BIT                 /* ... TCPv4 segmentation */
-> >                 = NETIF_F_GSO_SHIFT,
-> > 
-> > in that array. There is some ordering, and there is some meaning to
-> > the bit numbers, and adding the *_STAG_* bits in the middle broke some
-> > subtle dependency.
-> 
-> The other thing this does is it pushes some bits past bit 31.
-> 
-> netdev_features_t, which holds these masks, is 64-bit but we've
-> already seen one place in a driver where a 32-bit value was being
-> used.
-> 
-> I'll look more deeply into this, thanks.
+> 	I see your goal. But digging into __might_sleep()
+> I see that rcu_sleep_check() will scream for the non-preempt
+> case because we are under rcu_read_lock.
 
-I'll also have a look at this.
+
+#ifdef CONFIG_PREEMPT_RCU
+#define PREEMPT_RCU_OFFSET 0
+#else
+#define PREEMPT_RCU_OFFSET 1
+#endif
+
+#define cond_resched_rcu() ({	\
+	__might_sleep(__FILE__, __LINE__, PREEMPT_RCU_OFFSET);	\
+	__cond_resched_rcu();	\
+})
+
+Should work I think..
