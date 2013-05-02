@@ -1,44 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL] vhost: cleanups and fixes for 3.10
-Date: Thu, 2 May 2013 04:46:26 +0300
-Message-ID: <20130502014626.GA26105@redhat.com>
-References: <20130501150130.GA21230@redhat.com>
- <20130501.150548.1959140741961524114.davem@davemloft.net>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH resend 1/3] Revert "net: fec: fix missing napi_disable call"
+Date: Thu, 2 May 2013 09:51:00 +0800
+Message-ID: <CAHrpEqR6b0dy1AWsakS-z7TCe5oz5NYdpo+JWSh+K+OzPLrCVw@mail.gmail.com>
+References: <1366966330-5181-1-git-send-email-l.stach@pengutronix.de>
+	<CAHrpEqQLkjCOq0doaM0zNMkgjNkE_pOLxjoFJWNPuQ6CRHCbBw@mail.gmail.com>
+	<20130426134415.GS1366@pengutronix.de>
+	<20130426.143309.1011152996477262852.davem@davemloft.net>
+	<20130427090545.GY1366@pengutronix.de>
+	<CAHrpEqSi+caO5gSo1BZRGqytxhCOs-OuyjiCaG+7fnsnFBj77g@mail.gmail.com>
+	<1367243217.4100.13.camel@weser.hi.pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kvm@vger.kernel.org, virtualization@lists.osdl.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	agrover@redhat.com, asias@redhat.com, brian@purestorage.com,
-	hch@lst.de, joern@logfs.org, mark.d.rustad@intel.com,
-	martin.petersen@oracle.com, nab@linux-iscsi.org,
-	ogerlitz@mellanox.com, yongjun_wei@trendmicro.com.cn
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Robert Schwebel <r.schwebel@pengutronix.de>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Fabio Estevam <festevam@gmail.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: Lucas Stach <l.stach@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59455 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759576Ab3EBBrD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 1 May 2013 21:47:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20130501.150548.1959140741961524114.davem@davemloft.net>
+Received: from mail-wi0-f170.google.com ([209.85.212.170]:41474 "EHLO
+	mail-wi0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759186Ab3EBBvC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 21:51:02 -0400
+Received: by mail-wi0-f170.google.com with SMTP id hq12so91544wib.5
+        for <netdev@vger.kernel.org>; Wed, 01 May 2013 18:51:00 -0700 (PDT)
+In-Reply-To: <1367243217.4100.13.camel@weser.hi.pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 01, 2013 at 03:05:48PM -0400, David Miller wrote:
-> From: "Michael S. Tsirkin" <mst@redhat.com>
-> Date: Wed, 1 May 2013 18:01:31 +0300
-> 
-> > Please pull the following vhost core updates for 3.10 -
-> > they affect both vhost-net and vhost-scsi devices.
-> > They also *depend* on both net-next and target-pending.  Since Linus
-> > merged target-pending but not net-next at this point, merging through
-> > the net tree seems to make sense.
-> 
-> I don't have target-pending in my tree though and I'm not going to pull
-> it in just for this.
-> 
-> Since you have such a multi-dependency situation, just ask Linus to pull
-> this directly after I push net-next to him, which should be later today.
-> 
-> Thanks.
+2013/4/29 Lucas Stach <l.stach@pengutronix.de>:
+> What is the exact situation which caused a
+> deadlock here? I tried to see what's happening from your changelogs, but
+> I'm not sure I can follow here. Wasn't the problem more of the used
+> spinlocks not being IRQ-save and thus potentially creating a deadlock?
 
-OK, thanks.
+You can view below email thread.
+http://www.spinics.net/lists/netdev/msg225240.html
+
+The main problem network API use spin_lock_bh only now. So it does not
+prefer use irq to handle skb process.
