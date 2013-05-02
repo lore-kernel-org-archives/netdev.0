@@ -1,60 +1,57 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] 3c59x: fix PCI resource management
-Date: Thu, 02 May 2013 21:40:53 +0400
-Message-ID: <5182A525.8020601@cogentembedded.com>
-References: <201305020240.34487.sergei.shtylyov@cogentembedded.com> <51819C12.2060103@cogentembedded.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [GIT] Networking
+Date: Thu, 2 May 2013 19:47:25 +0200
+Message-ID: <CAHXqBF+Xb0ZVo2tO-0m59JJDrwy5vYX6=jLbts_ZAv5Pk+7SCw@mail.gmail.com>
+References: <20130501.164755.1859264969403837546.davem@davemloft.net>
+ <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
+ <1367512467.4000.7.camel@dcbw.foobar.com> <20130502.133947.387694205526879673.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de,
-	tedheadster@gmail.com, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f44.google.com ([209.85.215.44]:35353 "EHLO
-	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759009Ab3EBRlW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 13:41:22 -0400
-Received: by mail-la0-f44.google.com with SMTP id ed20so786526lab.31
-        for <netdev@vger.kernel.org>; Thu, 02 May 2013 10:41:20 -0700 (PDT)
-In-Reply-To: <51819C12.2060103@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dcbw@redhat.com, torvalds@linux-foundation.org,
+	hayeswang@realtek.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130502.133947.387694205526879673.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+2013/5/2 David Miller <davem@davemloft.net>:
+> From: Dan Williams <dcbw@redhat.com>
+> Date: Thu, 02 May 2013 11:34:27 -0500
+>
+>> On Wed, 2013-05-01 at 18:28 -0700, Linus Torvalds wrote:
+>>> On Wed, May 1, 2013 at 1:47 PM, David Miller <davem@davemloft.net> =
+wrote:
+>>> >
+>>> > Highlights (1721 non-merge commits, this has to be a record of so=
+me
+>>> > sort):
+>>>
+>>> Lowlight: it completely breaks my machine with r8169 ethernet.  In =
+the
+>>> networkmanager applet, it claims no cable connection, which is a bi=
+t
+>>> odd, because (a) it works with an older kernel and (b) the kernel
+>>> messages actually say
+>>>
+>>>   r8169 0000:01:00.0 eth0: link up
+>>
+>> NM calls ETHTOOL_GLINK and if that returns success, NM expects the
+>> driver to support carrier detection.  NM then listens to netlink for
+>> device flags changes, and uses IFF_LOWER_UP to determine carrier on/=
+off
+>> state.  NM does not use NETIF_F_VLAN_CHALLENGED or any of the other
+>> ETHTOOL_GFEATURES flags yet, but will in the future.
+>>
+>> Is the link status accurately reflected by /sys/class/net/eth0/carri=
+er ?
+> Something cares about the .../eth0/flags value because with the bit
+> ordering different for bits 10 and above things break.
 
-On 02-05-2013 2:49, Sergei Shtylyov wrote:
+Are you sure it's "flags"? /sys/class/net/*/features were removed some
+time ago, and flags don't depend on NETIF_F_*.
 
->> From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-
->> The driver wrongly claimed I/O ports at an address returned by pci_iomap() --
->> even if it was passed an MMIO address.  Fix this by claiming/releasing all PCI
->> resources in the PCI driver probe()/remove() methods instead and get rid of the
->> 'must_free_region' flag weirdness (why would Cardbus claim anything for us?).
-
->> Also, the remove() method was trying to talk to the chip after having disabled
->> its address decoders (at least on x86) -- fix this and while doing it get rid
->> of the useless VORTEX_PCI() invocations.
-
->> While at it, fix some cases of the overly indented code and the code crossing
->> a 80-column boundary...
-
->> [akpm@linux-foundation.org: coding-style fixes]
->> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
->> Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
->> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-
->> ---
->> The patch is against David Miller's 'net-next.git' repo.
->> Matthew, please test it on one of your 3c59x EISA boards.
->> Steffen, here's my second try to get this patch past you, the last one was back
->> in 2009...
-
->      This is mostly a request for testing at this point, I forgot to add [RFT]
-> to the subject...
-
-    David and others, your comments are welcome however. The patch probably 
-needs some more trimming before it can be considered a pure fix. It has been 
-somewhat tested now on EISA (and once more on PCI) board, and as a result of 
-testing another one, EISA specific error was reported, fix for which I'm going 
-to publish for testing RSN.
-
-WBR, Sergei
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
