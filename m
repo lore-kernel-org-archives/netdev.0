@@ -1,160 +1,32 @@
 From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next V2 3/3] xen-netback: better names for thresholds
-Date: Thu, 2 May 2013 11:43:59 +0100
-Message-ID: <1367491439-27629-4-git-send-email-wei.liu2@citrix.com>
-References: <1367491439-27629-1-git-send-email-wei.liu2@citrix.com>
+Subject: [PATCH net-next V2 0/3] xen-netback: misc fixes
+Date: Thu, 2 May 2013 11:43:56 +0100
+Message-ID: <1367491439-27629-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <ian.campbell@citrix.com>, <jbeulich@suse.com>,
 	Wei Liu <wei.liu2@citrix.com>
 To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:53788 "EHLO SMTP.CITRIX.COM"
+Received: from smtp.citrix.com ([66.165.176.89]:56579 "EHLO SMTP.CITRIX.COM"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754281Ab3EBKoC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 May 2013 06:44:02 -0400
-In-Reply-To: <1367491439-27629-1-git-send-email-wei.liu2@citrix.com>
+	id S1754281Ab3EBKoB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 May 2013 06:44:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch only changes some names to avoid confusion.
+This series fixes glitches spotted by Jan. Please see commit logs for details.
 
-In this patch we have:
+A third patch is added to have better names for different thresholds, suggested
+by Ian Campbell.
 
-  MAX_SKB_SLOTS_DEFAULT -> FATAL_SKB_SLOTS_DEFAULT
-  max_skb_slots -> fatal_skb_slots
-  #define XEN_NETBK_LEGACY_SLOTS_MAX XEN_NETIF_NR_SLOTS_MIN
+Wei Liu (3):
+  xen-netback: remove redundent parameter in netbk_count_requests
+  xen-netback: avoid allocating variable size array on stack
+  xen-netback: better names for thresholds
 
-The fatal_skb_slots is the threshold to determine whether a packet is
-malicious.
+ drivers/net/xen-netback/netback.c |   69 +++++++++++++++++++++++--------------
+ 1 file changed, 44 insertions(+), 25 deletions(-)
 
-XEN_NETBK_LEGACY_SLOTS_MAX is the maximum slots a valid packet can have at
-this point. It is defined to be XEN_NETIF_NR_SLOTS_MIN because that's
-guaranteed to be supported by all backends.
-
-Suggested-by: Ian Campbell <ian.campbell@citrix.com>
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
----
- drivers/net/xen-netback/netback.c |   49 ++++++++++++++++++++++---------------
- 1 file changed, 29 insertions(+), 20 deletions(-)
-
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index ce8109f..37984e6 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -51,9 +51,17 @@
-  * This is the maximum slots a skb can have. If a guest sends a skb
-  * which exceeds this limit it is considered malicious.
-  */
--#define MAX_SKB_SLOTS_DEFAULT 20
--static unsigned int max_skb_slots = MAX_SKB_SLOTS_DEFAULT;
--module_param(max_skb_slots, uint, 0444);
-+#define FATAL_SKB_SLOTS_DEFAULT 20
-+static unsigned int fatal_skb_slots = FATAL_SKB_SLOTS_DEFAULT;
-+module_param(fatal_skb_slots, uint, 0444);
-+
-+/*
-+ * To avoid confusion, we define XEN_NETBK_LEGACY_SLOTS_MAX indicating
-+ * the maximum slots a valid packet can use. Now this value is defined
-+ * to be XEN_NETIF_NR_SLOTS_MIN, which is supposed to be supported by
-+ * all backend.
-+ */
-+#define XEN_NETBK_LEGACY_SLOTS_MAX XEN_NETIF_NR_SLOTS_MIN
- 
- typedef unsigned int pending_ring_idx_t;
- #define INVALID_PENDING_RING_IDX (~0U)
-@@ -953,25 +961,26 @@ static int netbk_count_requests(struct xenvif *vif,
- 		/* This guest is really using too many slots and
- 		 * considered malicious.
- 		 */
--		if (unlikely(slots >= max_skb_slots)) {
-+		if (unlikely(slots >= fatal_skb_slots)) {
- 			netdev_err(vif->dev,
- 				   "Malicious frontend using %d slots, threshold %u\n",
--				   slots, max_skb_slots);
-+				   slots, fatal_skb_slots);
- 			netbk_fatal_tx_err(vif);
- 			return -E2BIG;
- 		}
- 
- 		/* Xen network protocol had implicit dependency on
--		 * MAX_SKB_FRAGS. XEN_NETIF_NR_SLOTS_MIN is set to the
--		 * historical MAX_SKB_FRAGS value 18 to honor the same
--		 * behavior as before. Any packet using more than 18
--		 * slots but less than max_skb_slots slots is dropped
-+		 * MAX_SKB_FRAGS. XEN_NETBK_LEGACY_SLOTS_MAX is set to
-+		 * the historical MAX_SKB_FRAGS value 18 to honor the
-+		 * same behavior as before. Any packet using more than
-+		 * 18 slots but less than fatal_skb_slots slots is
-+		 * dropped
- 		 */
--		if (!drop_err && slots >= XEN_NETIF_NR_SLOTS_MIN) {
-+		if (!drop_err && slots >= XEN_NETBK_LEGACY_SLOTS_MAX) {
- 			if (net_ratelimit())
- 				netdev_dbg(vif->dev,
- 					   "Too many slots (%d) exceeding limit (%d), dropping packet\n",
--					   slots, XEN_NETIF_NR_SLOTS_MIN);
-+					   slots, XEN_NETBK_LEGACY_SLOTS_MAX);
- 			drop_err = -E2BIG;
- 		}
- 
-@@ -1053,7 +1062,7 @@ static struct gnttab_copy *xen_netbk_get_requests(struct xen_netbk *netbk,
- 	struct pending_tx_info *first = NULL;
- 
- 	/* At this point shinfo->nr_frags is in fact the number of
--	 * slots, which can be as large as XEN_NETIF_NR_SLOTS_MIN.
-+	 * slots, which can be as large as XEN_NETBK_LEGACY_SLOTS_MAX.
- 	 */
- 	nr_slots = shinfo->nr_frags;
- 
-@@ -1415,12 +1424,12 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
- 	struct sk_buff *skb;
- 	int ret;
- 
--	while ((nr_pending_reqs(netbk) + XEN_NETIF_NR_SLOTS_MIN
-+	while ((nr_pending_reqs(netbk) + XEN_NETBK_LEGACY_SLOTS_MAX
- 		< MAX_PENDING_REQS) &&
- 		!list_empty(&netbk->net_schedule_list)) {
- 		struct xenvif *vif;
- 		struct xen_netif_tx_request txreq;
--		struct xen_netif_tx_request txfrags[XEN_NETIF_NR_SLOTS_MIN];
-+		struct xen_netif_tx_request txfrags[XEN_NETBK_LEGACY_SLOTS_MAX];
- 		struct page *page;
- 		struct xen_netif_extra_info extras[XEN_NETIF_EXTRA_TYPE_MAX-1];
- 		u16 pending_idx;
-@@ -1508,7 +1517,7 @@ static unsigned xen_netbk_tx_build_gops(struct xen_netbk *netbk)
- 		pending_idx = netbk->pending_ring[index];
- 
- 		data_len = (txreq.size > PKT_PROT_LEN &&
--			    ret < XEN_NETIF_NR_SLOTS_MIN) ?
-+			    ret < XEN_NETBK_LEGACY_SLOTS_MAX) ?
- 			PKT_PROT_LEN : txreq.size;
- 
- 		skb = alloc_skb(data_len + NET_SKB_PAD + NET_IP_ALIGN,
-@@ -1787,7 +1796,7 @@ static inline int rx_work_todo(struct xen_netbk *netbk)
- static inline int tx_work_todo(struct xen_netbk *netbk)
- {
- 
--	if ((nr_pending_reqs(netbk) + XEN_NETIF_NR_SLOTS_MIN
-+	if ((nr_pending_reqs(netbk) + XEN_NETBK_LEGACY_SLOTS_MAX
- 	     < MAX_PENDING_REQS) &&
- 	     !list_empty(&netbk->net_schedule_list))
- 		return 1;
-@@ -1872,11 +1881,11 @@ static int __init netback_init(void)
- 	if (!xen_domain())
- 		return -ENODEV;
- 
--	if (max_skb_slots < XEN_NETIF_NR_SLOTS_MIN) {
-+	if (fatal_skb_slots < XEN_NETBK_LEGACY_SLOTS_MAX) {
- 		printk(KERN_INFO
--		       "xen-netback: max_skb_slots too small (%d), bump it to XEN_NETIF_NR_SLOTS_MIN (%d)\n",
--		       max_skb_slots, XEN_NETIF_NR_SLOTS_MIN);
--		max_skb_slots = XEN_NETIF_NR_SLOTS_MIN;
-+		       "xen-netback: fatal_skb_slots too small (%d), bump it to XEN_NETBK_LEGACY_SLOTS_MAX (%d)\n",
-+		       fatal_skb_slots, XEN_NETBK_LEGACY_SLOTS_MAX);
-+		fatal_skb_slots = XEN_NETBK_LEGACY_SLOTS_MAX;
- 	}
- 
- 	xen_netbk_group_nr = num_online_cpus();
 -- 
 1.7.10.4
