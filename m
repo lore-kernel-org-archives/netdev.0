@@ -1,98 +1,58 @@
 From: Dan Williams <dcbw@redhat.com>
 Subject: Re: [GIT] Networking
-Date: Thu, 02 May 2013 11:27:36 -0500
-Message-ID: <1367512056.4000.3.camel@dcbw.foobar.com>
-References: <20130502.041625.412316202038784117.davem@davemloft.net>
-	 <20130502083619.GA22010@macbook.localnet> <87d2t9bvj1.fsf@nemi.mork.no>
-	 <20130502.051727.949429506738234701.davem@davemloft.net>
-	 <1367490491.5106.137.camel@deadeye.wl.decadent.org.uk>
-	 <87zjwda9bl.fsf@nemi.mork.no>
+Date: Thu, 02 May 2013 11:34:27 -0500
+Message-ID: <1367512467.4000.7.camel@dcbw.foobar.com>
+References: <20130501.164755.1859264969403837546.davem@davemloft.net>
+	 <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	torvalds@linux-foundation.org, hayeswang@realtek.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	hayeswang <hayeswang@realtek.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87zjwda9bl.fsf@nemi.mork.no>
+In-Reply-To: <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-05-02 at 13:51 +0200, Bj=C3=B8rn Mork wrote:
-> Ben Hutchings <bhutchings@solarflare.com> writes:
-> > On Thu, 2013-05-02 at 05:17 -0400, David Miller wrote:
-> >> From: Bj=C3=B8rn Mork <bjorn@mork.no>
-> >> Date: Thu, 02 May 2013 11:06:42 +0200
-> >>=20
-> >> > Adding the new netdev features will make it go from 1 to 2:
-> >>=20
-> >> We already had more than 31 feature bits before Patrick's
-> >> changes, and I'm pretty sure this was the case when we added
-> >> that ethtool API.
+On Wed, 2013-05-01 at 18:28 -0700, Linus Torvalds wrote:
+> On Wed, May 1, 2013 at 1:47 PM, David Miller <davem@davemloft.net> wrote:
 > >
-> > It wasn't, but this should be OK.  Userland is supposed to query th=
-e
-> > number of features using ETHTOOL_GSSET_INFO and then work out the n=
-umber
-> > of words/blocks using FEATURE_BITS_TO_BLOCKS(). =20
->=20
->=20
-> Looking at
-> http://cgit.freedesktop.org/NetworkManager/NetworkManager/tree/src/pl=
-atform/nm-linux-platform.c#n1025
-> there seems to be a couple of bugs in this area. This is certainly
-> abusing the exported API, but it does mean that NM breaks if you ever
-> move NETIF_F_VLAN_CHALLENGED (like the 802.1ad patch did):
+> > Highlights (1721 non-merge commits, this has to be a record of some
+> > sort):
+> 
+> Lowlight: it completely breaks my machine with r8169 ethernet.  In the
+> networkmanager applet, it claims no cable connection, which is a bit
+> odd, because (a) it works with an older kernel and (b) the kernel
+> messages actually say
+> 
+>   r8169 0000:01:00.0 eth0: link up
 
-NM doesn't actually use any of the code in src/platform/ yet, so it
-wouldn't be affecting anything NM does at this time.  However, comments
-like this are quite useful so we can fix it before NM does start to
-depend on the code :)
+NM calls ETHTOOL_GLINK and if that returns success, NM expects the
+driver to support carrier detection.  NM then listens to netlink for
+device flags changes, and uses IFF_LOWER_UP to determine carrier on/off
+state.  NM does not use NETIF_F_VLAN_CHALLENGED or any of the other
+ETHTOOL_GFEATURES flags yet, but will in the future.
+
+Is the link status accurately reflected by /sys/class/net/eth0/carrier ?
 
 Dan
 
-> ----
-> #define NETIF_F_VLAN_CHALLENGED (1 << 10)
->=20
-> static gboolean
-> link_supports_vlans (NMPlatform *platform, int ifindex)
-> {
-> 	auto_nl_object struct rtnl_link *rtnllink =3D link_get (platform, if=
-index);
-> 	const char *name =3D nm_platform_link_get_name (ifindex);
-> 	struct {
-> 		struct ethtool_gfeatures features;
-> 		struct ethtool_get_features_block features_block;
-> 	} edata =3D { .features =3D { .cmd =3D ETHTOOL_GFEATURES, .size =3D =
-1 } };
->=20
-> 	/* Only ARPHRD_ETHER links can possibly support VLANs. */
-> 	if (!rtnllink || rtnl_link_get_arptype (rtnllink) !=3D ARPHRD_ETHER)
-> 		return FALSE;
->=20
-> 	if (!name || !ethtool_get (name, &edata))
-> 		return FALSE;
->=20
-> 	return !(edata.features.features[0].active & NETIF_F_VLAN_CHALLENGED=
-);
-> }
-> ----
->=20
->=20
-> Not that I see how this particular bug matters unless you need VLAN
-> support in NM.  But there could be similar issues around.  I guess
-> avoiding unnecessary renumbering of the NETIF_F bits can save us some
-> trouble.  Although you can certainly argue that those bits never were
-> intended to be part of the API, and that using them like this is a us=
-er
-> application bug.
->=20
->=20
->=20
-> Bj=C3=B8rn
+
+> but nothing actually works.
+> 
+>  r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+>  r8169 0000:01:00.0 eth0: RTL8168d/8111d at 0xffffc90010ece000,
+> e0:cb:4e:95:1a:d7, XID 083000c0 IRQ 53
+>  r8169 0000:01:00.0 eth0: jumbo features [frames: 9200 bytes, tx
+> checksumming: ko]
+> 
+> Any ideas?
+> 
+>                   Linus
 > --
 > To unsubscribe from this list: send the line "unsubscribe netdev" in
 > the body of a message to majordomo@vger.kernel.org
