@@ -1,50 +1,73 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 1/1] drivers: net: cpsw: irq not disabled in cpsw isr in particular sequence
-Date: Thu, 2 May 2013 17:22:11 +0530
-Message-ID: <1367495531-19470-1-git-send-email-mugunthanvnm@ti.com>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [PATCH net-next V2 2/3] xen-netback: avoid allocating
+ variable size array on stack
+Date: Thu, 02 May 2013 13:04:20 +0100
+Message-ID: <5182726402000078000D2A24@nat28.tlf.novell.com>
+References: <1367491439-27629-1-git-send-email-wei.liu2@citrix.com>
+ <1367491439-27629-3-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	Sebastian Siewior <bigeasy@linutronix.de>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>
+To: "Wei Liu" <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:52135 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757903Ab3EBLwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 07:52:37 -0400
+Received: from nat28.tlf.novell.com ([130.57.49.28]:37670 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753159Ab3EBMDk convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:3:1>);
+	Thu, 2 May 2013 08:03:40 -0400
+In-Reply-To: <1367491439-27629-3-git-send-email-wei.liu2@citrix.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In CPSW NAPI, after processing all interrupts IRQ is enabled and then book
-keeping irq_enabled is updated. In random cases when a packet is transmitted
-or received between processing packets and IRQ enabled, then just after
-enabled IRQ and before irq_enabled is updated, ISR is called so IRQs are
-not disabled as irq_enabled is still false and CPU gets locked in CPSW ISR.
+>>> On 02.05.13 at 12:43, Wei Liu <wei.liu2@citrix.com> wrote:
+> @@ -934,11 +934,14 @@ static int netbk_count_requests(struct xenvif *vif,
+>  	RING_IDX cons = vif->tx.req_cons;
+>  	int slots = 0;
+>  	int drop_err = 0;
+> +	int more_data;
+>  
+>  	if (!(first->flags & XEN_NETTXF_more_data))
+>  		return 0;
+>  
+>  	do {
+> +		struct xen_netif_tx_request dropped_tx = { 0 };
+> +
 
-By changing the sequence as update the irq_enabled and then enable IRQ
-fixes the issue. This issue is not captured always as it is a timing issue
-whether Tx or Rx IRQ is invoked between packet processing and enable IRQ.
+No need for an initializer here.
 
-Cc: Sebastian Siewior <bigeasy@linutronix.de>
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>  		if (slots >= work_to_do) {
+>  			netdev_err(vif->dev,
+>  				   "Asked for %d slots but exceeds this limit\n",
+> @@ -972,6 +975,9 @@ static int netbk_count_requests(struct xenvif *vif,
+>  			drop_err = -E2BIG;
+>  		}
+>  
+> +		if (drop_err)
+> +			txp = &dropped_tx;
+> +
+>  		memcpy(txp, RING_GET_REQUEST(&vif->tx, cons + slots),
+>  		       sizeof(*txp));
+>  
+> @@ -1001,7 +1007,13 @@ static int netbk_count_requests(struct xenvif *vif,
+>  			netbk_fatal_tx_err(vif);
+>  			return -EINVAL;
+>  		}
+> -	} while ((txp++)->flags & XEN_NETTXF_more_data);
+> +
+> +		more_data = txp->flags & XEN_NETTXF_more_data;
+> +
+> +		if (!drop_err)
+> +			txp++;
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 59c4391..21a5b29 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -555,8 +555,8 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
- 		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
- 		prim_cpsw = cpsw_get_slave_priv(priv, 0);
- 		if (prim_cpsw->irq_enabled == false) {
--			cpsw_enable_irq(priv);
- 			prim_cpsw->irq_enabled = true;
-+			cpsw_enable_irq(priv);
- 		}
- 	}
- 
--- 
-1.7.9.5
+And no need for the conditional here afaict.
+
+Jan
+
+> +
+> +	} while (more_data);
+>  
+>  	if (drop_err) {
+>  		netbk_tx_err(vif, first, cons + slots);
