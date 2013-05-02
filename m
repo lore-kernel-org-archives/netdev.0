@@ -1,59 +1,50 @@
-From: Colin Cross <ccross@android.com>
-Subject: [PATCH v2 10/10] af_unix: use freezable blocking calls in read
-Date: Wed,  1 May 2013 18:35:08 -0700
-Message-ID: <1367458508-9133-11-git-send-email-ccross@android.com>
-References: <1367458508-9133-1-git-send-email-ccross@android.com>
-Cc: linux-kernel@vger.kernel.org, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	arve@android.com, Tejun Heo <tj@kernel.org>,
-	Oleg Nesterov <oleg@redhat.com>,
-	Colin Cross <ccross@android.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>, netdev@vger.kernel.org
-To: linux-pm@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367458508-9133-1-git-send-email-ccross@android.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH 0/3] vhost-scsi: file renames
+Date: Thu, 2 May 2013 04:45:30 +0300
+Message-ID: <cover.1367459045.git.mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Stefan Hajnoczi <stefanha@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Avoid waking up every thread sleeping in read call on an AF_UNIX
-socket during suspend and resume by calling a freezable blocking
-call.  Previous patches modified the freezer to avoid sending
-wakeups to threads that are blocked in freezable blocking calls.
+This reorgs the files a bit, renaming tcm_vhost to
+vhost_scsi as that's how userspace refers to it.
+While at it, cleanup some leftovers from when it was a
+staging driver.
 
-This call was selected to be converted to a freezable call because
-it doesn't hold any locks or release any resources when interrupted
-that might be needed by another freezing task or a kernel driver
-during suspend, and is a common site where idle userspace tasks are
-blocked.
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Signed-off-by: Colin Cross <ccross@android.com>
----
- net/unix/af_unix.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/unix/af_unix.c b/net/unix/af_unix.c
-index 2db702d..2bcac57 100644
---- a/net/unix/af_unix.c
-+++ b/net/unix/af_unix.c
-@@ -114,6 +114,7 @@
- #include <linux/mount.h>
- #include <net/checksum.h>
- #include <linux/security.h>
-+#include <linux/freezer.h>
- 
- struct hlist_head unix_socket_table[2 * UNIX_HASH_SIZE];
- EXPORT_SYMBOL_GPL(unix_socket_table);
-@@ -1880,7 +1881,7 @@ static long unix_stream_data_wait(struct sock *sk, long timeo)
- 
- 		set_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
- 		unix_state_unlock(sk);
--		timeo = schedule_timeout(timeo);
-+		timeo = freezable_schedule_timeout(timeo);
- 		unix_state_lock(sk);
- 		clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
- 	}
+Michael S. Tsirkin (3):
+  vhost: src file renames
+  tcm_vhost: header split up
+  vhost_scsi: module rename
+
+ drivers/vhost/Kconfig                 |  10 ++-
+ drivers/vhost/Kconfig.tcm             |   6 --
+ drivers/vhost/Makefile                |   3 +-
+ drivers/vhost/{tcm_vhost.c => scsi.c} | 115 ++++++++++++++++++++++++++---
+ drivers/vhost/tcm_vhost.h             | 131 ----------------------------------
+ include/uapi/linux/vhost.h            |  28 ++++++++
+ 6 files changed, 143 insertions(+), 150 deletions(-)
+ delete mode 100644 drivers/vhost/Kconfig.tcm
+ rename drivers/vhost/{tcm_vhost.c => scsi.c} (94%)
+ delete mode 100644 drivers/vhost/tcm_vhost.h
+
 -- 
-1.8.2.1
+MST
