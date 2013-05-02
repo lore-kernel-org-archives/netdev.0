@@ -1,68 +1,174 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 1/4] Revert "inet: limit length of fragment
- queue hash table bucket lists"
-Date: Thu, 02 May 2013 08:16:41 -0700
-Message-ID: <1367507801.29805.12.camel@edumazet-glaptop>
-References: <20130424154624.16883.40974.stgit@dragon>
-	 <20130424154800.16883.4797.stgit@dragon>
-	 <1366848030.8964.98.camel@edumazet-glaptop>
-	 <20130502095955.1ea082fb@redhat.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Thu, 2 May 2013 18:54:05 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1305021848450.31548@ja.ssi.bg>
+References: <1367290378-29224-1-git-send-email-horms@verge.net.au> <1367290378-29224-2-git-send-email-horms@verge.net.au> <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg> <20130430072944.GA13959@verge.net.au> <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
+ <20130501091012.GB28253@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg> <20130501155501.GB7521@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg>
+ <20130502072623.GE7521@dyad.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:39729 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932423Ab3EBPQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 11:16:44 -0400
-Received: by mail-pa0-f42.google.com with SMTP id bj3so411060pad.29
-        for <netdev@vger.kernel.org>; Thu, 02 May 2013 08:16:44 -0700 (PDT)
-In-Reply-To: <20130502095955.1ea082fb@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Simon Horman <horms@verge.net.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130502072623.GE7521@dyad.programming.kicks-ass.net>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-05-02 at 09:59 +0200, Jesper Dangaard Brouer wrote:
-> On Wed, 24 Apr 2013 17:00:30 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > On Wed, 2013-04-24 at 17:48 +0200, Jesper Dangaard Brouer wrote:
-> > > This reverts commit 5a3da1fe9561828d0ca7eca664b16ec2b9bf0055.
-> > > 
-> > > The problem with commit 5a3da1fe (inet: limit length of fragment
-> > > queue hash table bucket lists) is that, once we hit the hash depth
-> > > limit (of 128), the we *keep* the existing frag queues, not
-> > > allowing new frag queues to be created.  Thus, an attacker can
-> > > effectivly block handling of fragments for 30 sec (as each frag
-> > > queue have a timeout of 30 sec)
-> > > 
+
+	Hello,
+
+On Thu, 2 May 2013, Peter Zijlstra wrote:
+
+> On Wed, May 01, 2013 at 09:22:08PM +0300, Julian Anastasov wrote:
+> > > +extern int __cond_resched_rcu(void);
+> > > +
+> > > +#define cond_resched_rcu() ({			\
+> > > +	__might_sleep(__FILE__, __LINE__, 0);	\
 > > 
-> > I do not think its good to revert this patch. It was a step in right
-> > direction.
+> > 	I see your goal. But digging into __might_sleep()
+> > I see that rcu_sleep_check() will scream for the non-preempt
+> > case because we are under rcu_read_lock.
 > 
-> We need a revert, because we are too close to the merge window, and
-> cannot complete the needed "steps" to make this patch safe, sorry.
+> 
+> #ifdef CONFIG_PREEMPT_RCU
+> #define PREEMPT_RCU_OFFSET 0
+> #else
+> #define PREEMPT_RCU_OFFSET 1
+> #endif
+> 
+> #define cond_resched_rcu() ({	\
+> 	__might_sleep(__FILE__, __LINE__, PREEMPT_RCU_OFFSET);	\
+> 	__cond_resched_rcu();	\
+> })
+> 
+> Should work I think..
 
-Again, a limit of 128 is totally OK. Its in fact too big.
+	I implemented your idea.
 
-128 cache misses consume 5 us
+	I tested the following patch in 2 variants,
+TINY_RCU and CONFIG_TREE_PREEMPT_RCU. I see the
+error if extra rcu_read_lock is added for testing.
 
-Allowing a chain being non limited is a more severe bug.
+	I'm using the PREEMPT_ACTIVE flag to indicate
+that we are already under lock. It should work because
+__might_sleep is not called with such bit. I also tried to
+add new flag in include/linux/hardirq.h but PREEMPT_ACTIVE
+depends on the arch, so this alternative looked difficult to
+implement.
 
-Reverting will allow an attacker to consume all your cpu cycles.
+ include/linux/rcupdate.h |    7 ++++---
+ include/linux/sched.h    |   14 ++++++++++++++
+ kernel/sched/core.c      |   20 ++++++++++++++++++--
+ 3 files changed, 36 insertions(+), 5 deletions(-)
 
-We changed INETFRAGS_HASHSZ to 1024, so 128*1024 max frags is already a
-very big limit.
+diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
+index b758ce1..b594759 100644
+--- a/include/linux/rcupdate.h
++++ b/include/linux/rcupdate.h
+@@ -480,9 +480,10 @@ static inline void rcu_preempt_sleep_check(void)
+ }
+ #endif /* #else #ifdef CONFIG_PROVE_RCU */
+ 
+-#define rcu_sleep_check()						\
++#define rcu_sleep_check(locked)						\
+ 	do {								\
+-		rcu_preempt_sleep_check();				\
++		if (!(locked))						\
++			rcu_preempt_sleep_check();			\
+ 		rcu_lockdep_assert(!lock_is_held(&rcu_bh_lock_map),	\
+ 				   "Illegal context switch in RCU-bh"	\
+ 				   " read-side critical section");	\
+@@ -494,7 +495,7 @@ static inline void rcu_preempt_sleep_check(void)
+ #else /* #ifdef CONFIG_PROVE_RCU */
+ 
+ #define rcu_lockdep_assert(c, s) do { } while (0)
+-#define rcu_sleep_check() do { } while (0)
++#define rcu_sleep_check(locked) do { } while (0)
+ 
+ #endif /* #else #ifdef CONFIG_PROVE_RCU */
+ 
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index e692a02..027deea 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -2608,6 +2608,20 @@ extern int __cond_resched_softirq(void);
+ 	__cond_resched_softirq();					\
+ })
+ 
++#ifdef CONFIG_PREEMPT_RCU
++#define PREEMPT_RCU_OFFSET	1
++#else
++#define PREEMPT_RCU_OFFSET	PREEMPT_CHECK_OFFSET
++#endif
++
++extern int __cond_resched_rcu(void);
++
++#define cond_resched_rcu() ({					\
++	__might_sleep(__FILE__, __LINE__, PREEMPT_ACTIVE |	\
++					  PREEMPT_RCU_OFFSET);	\
++	__cond_resched_rcu();					\
++})
++
+ /*
+  * Does a critical section need to be broken due to another
+  * task waiting?: (technically does not depend on CONFIG_PREEMPT,
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index 67d0465..2724be7 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -2793,7 +2793,7 @@ static inline void schedule_debug(struct task_struct *prev)
+ 	 */
+ 	if (unlikely(in_atomic_preempt_off() && !prev->exit_state))
+ 		__schedule_bug(prev);
+-	rcu_sleep_check();
++	rcu_sleep_check(0);
+ 
+ 	profile_hit(SCHED_PROFILING, __builtin_return_address(0));
+ 
+@@ -4364,6 +4364,20 @@ int __sched __cond_resched_softirq(void)
+ }
+ EXPORT_SYMBOL(__cond_resched_softirq);
+ 
++int __sched __cond_resched_rcu(void)
++{
++#ifndef CONFIG_PREEMPT_RCU
++	if (should_resched()) {
++		rcu_read_unlock();
++		__cond_resched();
++		rcu_read_lock();
++		return 1;
++	}
++#endif
++	return 0;
++}
++EXPORT_SYMBOL(__cond_resched_rcu);
++
+ /**
+  * yield - yield the current processor to other threads.
+  *
+@@ -7062,7 +7076,9 @@ void __might_sleep(const char *file, int line, int preempt_offset)
+ {
+ 	static unsigned long prev_jiffy;	/* ratelimiting */
+ 
+-	rcu_sleep_check(); /* WARN_ON_ONCE() by default, no rate limit reqd. */
++	/* WARN_ON_ONCE() by default, no rate limit reqd. */
++	rcu_sleep_check(preempt_offset & PREEMPT_ACTIVE);
++	preempt_offset &= ~PREEMPT_ACTIVE;
+ 	if ((preempt_count_equals(preempt_offset) && !irqs_disabled()) ||
+ 	    system_state != SYSTEM_RUNNING || oops_in_progress)
+ 		return;
+-- 
+1.7.3.4
 
-No matter what we do, we need to limit both :
 
-- Memory consumption
-- Cpu consumption
+Regards
 
-For people willing to allow more memory to be used, the only way is to
-resize hash table, or using a bigger INETFRAGS_HASHSZ
-
-I do not think there is a hurry, current defrag code is already better
-than what we had years ago.
+--
+Julian Anastasov <ja@ssi.bg>
