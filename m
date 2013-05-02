@@ -1,70 +1,40 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [BUG] ipv6 and TSO on GRE is broken
-Date: Thu, 2 May 2013 01:00:54 -0700
-Message-ID: <CALnjE+pvvHccEZZhH9ejCk4XGeTnWjupAFNfxvSAGdrOpHWhkg@mail.gmail.com>
-References: <1367423622.11020.54.camel@edumazet-glaptop>
-	<CALnjE+pPmsJx6zqcA7PnR3GX3HUrrtCbZyqj7nyEDBCv9_Tntw@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v7 4/6] vxlan: add ipv6 support
+Date: Thu, 02 May 2013 16:05:53 +0800
+Message-ID: <1367481953.2415.29.camel@cr0>
+References: <1367311395-15891-1-git-send-email-amwang@redhat.com>
+	 <1367311395-15891-5-git-send-email-amwang@redhat.com>
+	 <87r4hscr7s.fsf@nemi.mork.no> <1367313956.3216.18.camel@cr0>
+	 <87mwsgcnoy.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	"Steinar H. Gunderson" <sesse@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:56845 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752159Ab3EBIA4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 04:00:56 -0400
-Received: by mail-gh0-f198.google.com with SMTP id r13so482592ghr.5
-        for <netdev@vger.kernel.org>; Thu, 02 May 2013 01:00:55 -0700 (PDT)
-In-Reply-To: <CALnjE+pPmsJx6zqcA7PnR3GX3HUrrtCbZyqj7nyEDBCv9_Tntw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1274 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750910Ab3EBIGR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 May 2013 04:06:17 -0400
+In-Reply-To: <87mwsgcnoy.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 2, 2013 at 12:02 AM, Pravin Shelar <pshelar@nicira.com> wrote:
-> I forgot to add gre gso handler to inet6 offloads list.
->
-> I will send out patch soon.
->
-nevermind, I guess you were talking abt ipv6 over gre-ipv4 device, I
-will check the code.
+On Tue, 2013-04-30 at 12:33 +0200, Bj=C3=B8rn Mork wrote:
+>=20
+> Well, you have been told that your proposed new feature breaks IPv4
+> support with specific settings.  I do not think that you are speeding
+> up
+> anything here by ignoring that fact.  On the contrary.=20
 
-> Thanks,
-> Pravin.
->
-> On Wed, May 1, 2013 at 8:53 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> This was reported by Steinar.
->>
->> Sending this to netdev, as I wont have time to debug this in the near
->> future. (~ 3 days)
->>
->> 3.9 and latest net-next are broken for IPv6 on top of GRE tunnel
->>
->> GSO seems OK, but TSO not :
->>
->> lpq83:~# ethtool -K gre1 tso off gso on
->> lpq83:~# netperf -H 4444::555:0084
->> MIGRATED TCP STREAM TEST from ::0 (::) port 0 AF_INET6 to 4444::555:0084
->> () port 0 AF_INET6
->> Recv   Send    Send
->> Socket Socket  Message  Elapsed
->> Size   Size    Size     Time     Throughput
->> bytes  bytes   bytes    secs.    10^6bits/sec
->>
->>  87380  16384  16384    10.00    3789.10
->> lpq83:~# ethtool -K gre1 tso on
->> lpq83:~# netperf -H 4444::555:0084
->> MIGRATED TCP STREAM TEST from ::0 (::) port 0 AF_INET6 to 4444::555:0084
->> () port 0 AF_INET6
->> Recv   Send    Send
->> Socket Socket  Message  Elapsed
->> Size   Size    Size     Time     Throughput
->> bytes  bytes   bytes    secs.    10^6bits/sec
->>
->>  87380  16384  16384    10.00     321.27
->>
->>
->> No problem for IPv4
->>
->> Thanks
->>
->>
+It is obviously a corner case which is not deserved such a high priorit=
+y
+(as high as a kernel panic or a compile error). bindv6only is default t=
+o
+be 0, I even wasn't aware of such sysctl until David pointed it out.
+
+So, please give me a reason why we should let such a corner case block
+the inclusion? I think there are still other such corner cases too (and
+maybe many), which neither you nor me are aware of.
