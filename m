@@ -1,47 +1,42 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: 3.6-rt: inet_sk_rx_dst_set() network splat
-Date: Wed, 01 May 2013 20:49:39 -0400
-Message-ID: <1367455779.30667.113.camel@gandalf.local.home>
-References: <1366786204.5977.10.camel@marge.simpson.net>
-	 <1366853695.8964.120.camel@edumazet-glaptop>
-	 <1366865490.4595.22.camel@marge.simpson.net>
-	 <1366866233.8964.128.camel@edumazet-glaptop>
-	 <20130426105030.GE20927@linutronix.de>
+From: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Subject: Re: Regression in 3.9 caused by "bridge: respect RFC2863 operational
+ state"
+Date: Thu, 02 May 2013 02:53:59 +0200
+Message-ID: <5181B927.5010407@openwrt.org>
+References: <518166C5.4080904@openwrt.org> <CABPxzYLP53mnMXAicD33oX8TW77xnZziS=XBuVCy_u4H2oyLUw@mail.gmail.com> <CAOaVG179Rx_JfV99mbjWhwQTALb5gh+2_WVFWDSbngA0qkzoGw@mail.gmail.com> <518183C8.8050606@openwrt.org> <20130501154904.0ea31991@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Mike Galbraith <bitbucket@online.de>,
-	David Miller <davem@davemloft.net>,
-	RT <linux-rt-users@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.122]:19501 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753830Ab3EBAtl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 1 May 2013 20:49:41 -0400
-In-Reply-To: <20130426105030.GE20927@linutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Krishna Chaitanya <chaitanya.mgit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sebastian Gottschall <s.gottschall-t37Kgv3TaIPQT0dZR+AlfA@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130501154904.0ea31991-We1ePj4FEcvRI77zikRAJc56i+j3xesD0e7PPNI6Mm0@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-04-26 at 12:50 +0200, Sebastian Andrzej Siewior wrote:
-> * Eric Dumazet | 2013-04-24 22:03:53 [-0700]:
+On 2013-05-02 12:49 AM, Stephen Hemminger wrote:
+> On Wed, 01 May 2013 23:06:16 +0200
+> Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org> wrote:
 > 
-> >On Thu, 2013-04-25 at 06:51 +0200, Mike Galbraith wrote:
-> >
-> >> Thanks for the fix.  I'll apply it and beat on the box some more (g.p.).
-> >> Gripe only happened the one time during long workout day.
-> >
-> >To force it to happen, you need to invalidate the cached dst in socket.
-> >
-> >So presumably doing in the background some "ip ro ..." commands to
-> >add/delete routes.
+>> On 2013-05-01 10:21 PM, Stephen Hemminger wrote:
+>> > What about using AF_PACKET bound to underlying wireless device and the
+>> > packet type. You can even use BPF to filter.
+>> As far as I know, AF_PACKET only works when not binding it to the packet
+>> type (otherwise it get stolen by the rx handler).
 > 
-> With this instructions I can crash in like 3-5 minutes, with your patch
-> it runs now for 50minutes now. Thanks.
+> You can do AF_PACKET and it gets handle before rx_handler.
+If I don't bind it to a protocol, it ends up in ptype_all, if I do, it
+ends up in &ptype_base. ptype_all is processed before the rx_handler,
+ptype_base is processed after the rx handler.
+Hooking into ptype_all wastes tons of CPU cycles, hooking into
+ptype_base does not solve the problem.
 
-Is this something going into the stable tree, or does it not affect 3.0,
-3.2, 3.4 or 3.6?
-
--- Steve
+- Felix
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
