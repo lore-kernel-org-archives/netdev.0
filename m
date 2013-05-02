@@ -1,49 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT] Networking
-Date: Thu, 02 May 2013 13:39:47 -0400 (EDT)
-Message-ID: <20130502.133947.387694205526879673.davem@davemloft.net>
-References: <20130501.164755.1859264969403837546.davem@davemloft.net>
-	<CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
-	<1367512467.4000.7.camel@dcbw.foobar.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
+ non-promisc mode
+Date: Thu, 02 May 2013 13:41:05 -0400
+Message-ID: <5182A531.2030900@redhat.com>
+References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
+	<20130502102331.43728912@nehalam.linuxnetplumber.net>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, hayeswang@realtek.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: dcbw@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58528 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757049Ab3EBRju (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 13:39:50 -0400
-In-Reply-To: <1367512467.4000.7.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, mst@redhat.com
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130502102331.43728912@nehalam.linuxnetplumber.net>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Williams <dcbw@redhat.com>
-Date: Thu, 02 May 2013 11:34:27 -0500
+On 05/02/2013 01:23 PM, Stephen Hemminger wrote:
+> Doing research on another problem, I noticed that this would
+> break user mode spanning tree (RSTP) code.
+>
+> The daemon assumes that bridge is promicious mode and therefore
+> will receive all link-level multicast packets.
+>
 
-> On Wed, 2013-05-01 at 18:28 -0700, Linus Torvalds wrote:
->> On Wed, May 1, 2013 at 1:47 PM, David Miller <davem@davemloft.net> wrote:
->> >
->> > Highlights (1721 non-merge commits, this has to be a record of some
->> > sort):
->> 
->> Lowlight: it completely breaks my machine with r8169 ethernet.  In the
->> networkmanager applet, it claims no cable connection, which is a bit
->> odd, because (a) it works with an older kernel and (b) the kernel
->> messages actually say
->> 
->>   r8169 0000:01:00.0 eth0: link up
-> 
-> NM calls ETHTOOL_GLINK and if that returns success, NM expects the
-> driver to support carrier detection.  NM then listens to netlink for
-> device flags changes, and uses IFF_LOWER_UP to determine carrier on/off
-> state.  NM does not use NETIF_F_VLAN_CHALLENGED or any of the other
-> ETHTOOL_GFEATURES flags yet, but will in the future.
-> 
-> Is the link status accurately reflected by /sys/class/net/eth0/carrier ?
+Just took another look at RSTP code and I see that's its using
+a packet socket with filter to catch STP frames.
 
-Something cares about the .../eth0/flags value because with the bit
-ordering different for bits 10 and above things break.
+Would setting IFF_ALL_MULTI solve the problem?  STP packets
+are all multicast.
+
+Thanks
+-vlad
