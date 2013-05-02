@@ -1,28 +1,34 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in non-promisc
- mode
-Date: Thu, 2 May 2013 10:23:31 -0700
-Message-ID: <20130502102331.43728912@nehalam.linuxnetplumber.net>
-References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net/usb: new driver for RTL8152
+Date: Thu, 02 May 2013 13:32:15 -0400 (EDT)
+Message-ID: <20130502.133215.2146231670932106380.davem@davemloft.net>
+References: <1366965948-1805-1-git-send-email-hayeswang@realtek.com>
+	<1367524087-29512-1-git-send-email-hayeswang@realtek.com>
+	<20130502141239.GC24348@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	mst@redhat.com
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:61116 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758632Ab3EBRXr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 13:23:47 -0400
-Received: by mail-pa0-f53.google.com with SMTP id kq12so472311pab.12
-        for <netdev@vger.kernel.org>; Thu, 02 May 2013 10:23:47 -0700 (PDT)
-In-Reply-To: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: hayeswang@realtek.com, oliver@neukum.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	nic_swsd@realtek.com
+To: gregkh@linuxfoundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130502141239.GC24348@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Doing research on another problem, I noticed that this would
-break user mode spanning tree (RSTP) code.
+From: Greg KH <gregkh@linuxfoundation.org>
+Date: Thu, 2 May 2013 07:12:39 -0700
 
-The daemon assumes that bridge is promicious mode and therefore
-will receive all link-level multicast packets.
+> On Fri, May 03, 2013 at 03:48:07AM +0800, Hayes Wang wrote:
+>> +#define PATENTS		"This product is covered by one or more of the " \
+>> +			"following patents:\n" \
+>> +			"\t\tUS6,570,884, US6,115,776, and US6,327,625.\n"
+> 
+> Interesting, you are aware of the issues involved with patents and GPLv2
+> code, right?  Do you have a pointer to the GPLv2 patent release that is
+> now required, or does your company now release all of the needed rights
+> for these patents to be able to be used by everyone?
+
+There is no way I'm applying a patch that adds notices like this to the
+kernel log.
