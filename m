@@ -1,79 +1,38 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Thu, 2 May 2013 13:06:30 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1305021108430.1676@ja.ssi.bg>
-References: <1367290378-29224-1-git-send-email-horms@verge.net.au> <1367290378-29224-2-git-send-email-horms@verge.net.au> <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg> <20130430072944.GA13959@verge.net.au> <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg>
- <20130501091012.GB28253@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg> <20130501155501.GB7521@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg>
- <20130502072623.GE7521@dyad.programming.kicks-ass.net>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [GIT] Networking
+Date: Thu, 02 May 2013 12:19:59 +0200
+Message-ID: <878v3xbs4w.fsf@nemi.mork.no>
+References: <20130502.041625.412316202038784117.davem@davemloft.net>
+	<20130502083619.GA22010@macbook.localnet>
+	<87d2t9bvj1.fsf@nemi.mork.no>
+	<20130502.051727.949429506738234701.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Horman <horms@verge.net.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Peter Zijlstra <peterz@infradead.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130502072623.GE7521@dyad.programming.kicks-ass.net>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kaber@trash.net, torvalds@linux-foundation.org,
+	hayeswang@realtek.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130502.051727.949429506738234701.davem@davemloft.net> (David
+	Miller's message of "Thu, 02 May 2013 05:17:27 -0400 (EDT)")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+David Miller <davem@davemloft.net> writes:
+> From: Bj=C3=B8rn Mork <bjorn@mork.no>
+> Date: Thu, 02 May 2013 11:06:42 +0200
+>
+>> Adding the new netdev features will make it go from 1 to 2:
+>
+> We already had more than 31 feature bits before Patrick's
+> changes, and I'm pretty sure this was the case when we added
+> that ethtool API.
 
-	Hello,
+Oh, thanks.  Then I misunderstood the issue.  This is one case where I'=
+m
+happy to be wrong :)
 
-On Thu, 2 May 2013, Peter Zijlstra wrote:
 
-> On Wed, May 01, 2013 at 09:22:08PM +0300, Julian Anastasov wrote:
-> > > +extern int __cond_resched_rcu(void);
-> > > +
-> > > +#define cond_resched_rcu() ({			\
-> > > +	__might_sleep(__FILE__, __LINE__, 0);	\
-> > 
-> > 	I see your goal. But digging into __might_sleep()
-> > I see that rcu_sleep_check() will scream for the non-preempt
-> > case because we are under rcu_read_lock.
-> 
-> 
-> #ifdef CONFIG_PREEMPT_RCU
-> #define PREEMPT_RCU_OFFSET 0
-> #else
-> #define PREEMPT_RCU_OFFSET 1
-> #endif
-> 
-> #define cond_resched_rcu() ({	\
-> 	__might_sleep(__FILE__, __LINE__, PREEMPT_RCU_OFFSET);	\
-> 	__cond_resched_rcu();	\
-> })
-> 
-> Should work I think..
-
-	Looks like CONFIG_DEBUG_ATOMIC_SLEEP selects
-CONFIG_PREEMPT_COUNT, so PREEMPT_RCU_OFFSET should be
-1 in all cases because preempt_disable() adds 1, while
-for CONFIG_PREEMPT_RCU case rcu_preempt_depth() should
-return 1:
-
-#ifdef CONFIG_PREEMPT_RCU
-#define PREEMPT_RCU_OFFSET 1
-#else
-#define PREEMPT_RCU_OFFSET PREEMPT_CHECK_OFFSET
-#endif
-
-	Now the remaining part is to fix rcu_sleep_check() for
-the non-preempt case. As there are no nesting depths in this
-case, I don't see a solution so far. We can provide
-some argument to rcu_preempt_sleep_check to compare
-depth with preempt_count() but currently I don't know
-how to differentiate cond_resched_lock() from cond_resched_rcu()
-when calling __might_sleep, in both cases we provide
-PREEMPT_OFFSET. May be some trick is needed here without
-adding new arg to __might_sleep, so that we can properly
-check for rcu_lock_map.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Bj=C3=B8rn
