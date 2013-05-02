@@ -1,97 +1,53 @@
-From: Oliver Neukum <oneukum@suse.de>
-Subject: Re: [PATCH net-next] net/usb: new driver for RTL8152
-Date: Thu, 02 May 2013 11:02:10 +0200
-Message-ID: <2267010.M7uxa7hLi4@linux-5eaq.site>
-References: <1366965948-1805-1-git-send-email-hayeswang@realtek.com> <201305020622.r426MYGv032465@rtits1.realtek.com> <95FC8A7CCB904AB6B26751C6DBEE49F2@realtek.com.tw>
+From: Berge Schwebs =?utf-8?Q?Bj=C3=B8rlo?= <berge@trivini.no>
+Subject: Re: [BUG] ipv6 and TSO on GRE is broken
+Date: Thu, 2 May 2013 10:32:45 +0200
+Message-ID: <20130502083245.GD31654@trivini.no>
+References: <1367423622.11020.54.camel@edumazet-glaptop>
+ <CALnjE+pPmsJx6zqcA7PnR3GX3HUrrtCbZyqj7nyEDBCv9_Tntw@mail.gmail.com>
+ <CALnjE+pvvHccEZZhH9ejCk4XGeTnWjupAFNfxvSAGdrOpHWhkg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
-	'nic_swsd' <nic_swsd@realtek.com>
-To: hayeswang <hayeswang@realtek.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Steinar H. Gunderson" <sesse@google.com>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:34248 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755708Ab3EBJBP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 May 2013 05:01:15 -0400
-In-Reply-To: <95FC8A7CCB904AB6B26751C6DBEE49F2@realtek.com.tw>
+Received: from cassarossa.samfundet.no ([193.35.52.29]:44400 "EHLO
+	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756918Ab3EBJDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 05:03:13 -0400
+Content-Disposition: inline
+In-Reply-To: <CALnjE+pvvHccEZZhH9ejCk4XGeTnWjupAFNfxvSAGdrOpHWhkg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 02 May 2013 15:46:50 hayeswang wrote:
->  Oliver Neukum [mailto:oneukum@suse.de] 
-> > Sent: Friday, April 26, 2013 7:57 PM
-> > To: Hayeswang
-> > Cc: gregkh@linuxfoundation.org; netdev@vger.kernel.org; 
-> > linux-kernel@vger.kernel.org; linux-usb@vger.kernel.org; nic_swsd
-> > Subject: Re: [PATCH net-next] net/usb: new driver for RTL8152
-> > 
-> [...]
-> > > +static inline void set_ethernet_addr(struct r8152 *tp)
-> > > +{
-> > > +	struct net_device *dev = tp->netdev;
-> > > +	u8 node_id[8] = {0};
-> > > +
-> > > +	if (pla_ocp_read(tp, PLA_IDR, sizeof(node_id), node_id) < 0)
-> > 
-> > DMA coherency rules. No buffers on the stack.
-> 
-> Excuse me. I don't understand what you mean. I reference the rtl8150.c and it
+On Thu, May 02, 2013 at 01:00:54AM -0700, Pravin Shelar wrote:
+> On Thu, May 2, 2013 at 12:02 AM, Pravin Shelar <pshelar@nicira.com> w=
+rote:
+>> I forgot to add gre gso handler to inet6 offloads list.
+>>
+>> I will send out patch soon.
+> nevermind, I guess you were talking abt ipv6 over gre-ipv4 device, I =
+will
+> check the code.
 
-On some CPUs special operations need to be performed on buffers
-intended for DMA. After these operations until the DMA is over any cacheline
-shared with the buffer must not be touched. In addition it is not guaranteed
-that the stack is DMAable at all.
-This is documented in DMA-API.txt
+I'm not sure if we're talking about the same issue, but I'm experiencin=
+g
+massive packet drops with outbound IPv6 traffic with a GREv4 tunnel wit=
+h IPv6
+traffic on the inside. Inbound traffic seems fine, and IPv4 inside the =
+tunnel
+is fine in both directions.
 
-I know this a very common bug because it works on x86, but on some architectures it
-fails.
+=46irst observed when upgrading to 3.9 the other day. 3.8 was fine. git=
+ bisect
+and a kernel-recompile-reboot-dance points to commit
+68c331631143f5f039baac99a650e0b9e1ea02b6 as the culprit.
 
-> uses the same way. Besides, when I check the other drivers, I find the data
-> pointer of the parameter of the usb_control_msg() may be a pointer of a local
-> variable from the other functions.
-> 
-> [...]
-> > > +static void rtl_work_func_t(struct work_struct *work)
-> > > +{
-> > > +	struct r8152 *tp = container_of(work, struct r8152, 
-> > schedule.work);
-> > > +
-> > > +	if (!netif_running(tp->netdev))
-> > > +		goto out1;
-> > > +
-> > > +	if (test_bit(RTL8152_UNPLUG, &tp->flags))
-> > > +		goto out1;
-> > > +
-> > > +	set_carrier(tp);
-> > > +
-> > > +	if (test_bit(RTL8152_SET_RX_MODE, &tp->flags))
-> > > +		_rtl8152_set_rx_mode(tp->netdev);
-> > > +
-> > > +	schedule_delayed_work(&tp->schedule, HZ);
-> > 
-> > Why does this need to run permanently?
-> 
-> It is used to periodically check the speed, link status, and any other tasks
-> which need to be finished.
+Cheers,
+-Berge
 
-Unfortunate. It will hurt power consumption.
-
-> 
-> [...]
-> > > +static int rtl8152_close(struct net_device *netdev)
-> > > +{
-> > > +	struct r8152 *tp = netdev_priv(netdev);
-> > > +	int res = 0;
-> > > +
-> > > +	cancel_delayed_work_sync(&tp->schedule);
-> > 
-> > Looks like a race. What makes sure the work isn't rescheduled?
-> 
-> netif_running would be checked.
-
-I see.
-
-	HTH
-		Oliver
+--=20
+Berge Schwebs Bj=C3=B8rlo
+Alegr=C3=ADa!
