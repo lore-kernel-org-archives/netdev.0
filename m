@@ -1,84 +1,50 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [GIT] Networking
-Date: Thu, 02 May 2013 13:51:42 +0200
-Message-ID: <87zjwda9bl.fsf@nemi.mork.no>
-References: <20130502.041625.412316202038784117.davem@davemloft.net>
-	<20130502083619.GA22010@macbook.localnet>
-	<87d2t9bvj1.fsf@nemi.mork.no>
-	<20130502.051727.949429506738234701.davem@davemloft.net>
-	<1367490491.5106.137.camel@deadeye.wl.decadent.org.uk>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH 1/1] drivers: net: cpsw: irq not disabled in cpsw isr in particular sequence
+Date: Thu, 2 May 2013 17:22:11 +0530
+Message-ID: <1367495531-19470-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <kaber@trash.net>,
-	<torvalds@linux-foundation.org>, <hayeswang@realtek.com>,
-	<akpm@linux-foundation.org>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367490491.5106.137.camel@deadeye.wl.decadent.org.uk> (Ben
-	Hutchings's message of "Thu, 2 May 2013 11:28:11 +0100")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	Sebastian Siewior <bigeasy@linutronix.de>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:52135 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757903Ab3EBLwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 07:52:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ben Hutchings <bhutchings@solarflare.com> writes:
-> On Thu, 2013-05-02 at 05:17 -0400, David Miller wrote:
->> From: Bj=C3=B8rn Mork <bjorn@mork.no>
->> Date: Thu, 02 May 2013 11:06:42 +0200
->>=20
->> > Adding the new netdev features will make it go from 1 to 2:
->>=20
->> We already had more than 31 feature bits before Patrick's
->> changes, and I'm pretty sure this was the case when we added
->> that ethtool API.
->
-> It wasn't, but this should be OK.  Userland is supposed to query the
-> number of features using ETHTOOL_GSSET_INFO and then work out the num=
-ber
-> of words/blocks using FEATURE_BITS_TO_BLOCKS(). =20
+In CPSW NAPI, after processing all interrupts IRQ is enabled and then book
+keeping irq_enabled is updated. In random cases when a packet is transmitted
+or received between processing packets and IRQ enabled, then just after
+enabled IRQ and before irq_enabled is updated, ISR is called so IRQs are
+not disabled as irq_enabled is still false and CPU gets locked in CPSW ISR.
 
+By changing the sequence as update the irq_enabled and then enable IRQ
+fixes the issue. This issue is not captured always as it is a timing issue
+whether Tx or Rx IRQ is invoked between packet processing and enable IRQ.
 
-Looking at
-http://cgit.freedesktop.org/NetworkManager/NetworkManager/tree/src/plat=
-form/nm-linux-platform.c#n1025
-there seems to be a couple of bugs in this area. This is certainly
-abusing the exported API, but it does mean that NM breaks if you ever
-move NETIF_F_VLAN_CHALLENGED (like the 802.1ad patch did):
+Cc: Sebastian Siewior <bigeasy@linutronix.de>
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-----
-#define NETIF_F_VLAN_CHALLENGED (1 << 10)
-
-static gboolean
-link_supports_vlans (NMPlatform *platform, int ifindex)
-{
-	auto_nl_object struct rtnl_link *rtnllink =3D link_get (platform, ifin=
-dex);
-	const char *name =3D nm_platform_link_get_name (ifindex);
-	struct {
-		struct ethtool_gfeatures features;
-		struct ethtool_get_features_block features_block;
-	} edata =3D { .features =3D { .cmd =3D ETHTOOL_GFEATURES, .size =3D 1 =
-} };
-
-	/* Only ARPHRD_ETHER links can possibly support VLANs. */
-	if (!rtnllink || rtnl_link_get_arptype (rtnllink) !=3D ARPHRD_ETHER)
-		return FALSE;
-
-	if (!name || !ethtool_get (name, &edata))
-		return FALSE;
-
-	return !(edata.features.features[0].active & NETIF_F_VLAN_CHALLENGED);
-}
-----
-
-
-Not that I see how this particular bug matters unless you need VLAN
-support in NM.  But there could be similar issues around.  I guess
-avoiding unnecessary renumbering of the NETIF_F bits can save us some
-trouble.  Although you can certainly argue that those bits never were
-intended to be part of the API, and that using them like this is a user
-application bug.
-
-
-
-Bj=C3=B8rn
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 59c4391..21a5b29 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -555,8 +555,8 @@ static int cpsw_poll(struct napi_struct *napi, int budget)
+ 		cpdma_ctlr_eoi(priv->dma, CPDMA_EOI_RX);
+ 		prim_cpsw = cpsw_get_slave_priv(priv, 0);
+ 		if (prim_cpsw->irq_enabled == false) {
+-			cpsw_enable_irq(priv);
+ 			prim_cpsw->irq_enabled = true;
++			cpsw_enable_irq(priv);
+ 		}
+ 	}
+ 
+-- 
+1.7.9.5
