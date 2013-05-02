@@ -1,89 +1,62 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Thu, 2 May 2013 21:55:54 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg>
-References: <1367290378-29224-2-git-send-email-horms@verge.net.au> <alpine.LFD.2.00.1304301011310.1700@ja.ssi.bg> <20130430072944.GA13959@verge.net.au> <alpine.LFD.2.00.1304301051260.1700@ja.ssi.bg> <20130501091012.GB28253@dyad.programming.kicks-ass.net>
- <alpine.LFD.2.00.1305011344320.1603@ja.ssi.bg> <20130501155501.GB7521@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg> <20130502072623.GE7521@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305021848450.31548@ja.ssi.bg>
- <20130502173257.GX3780@linux.vnet.ibm.com>
+From: "John Stoffel" <john@stoffel.org>
+Subject: Re: [GIT] Networking
+Date: Thu, 2 May 2013 14:53:32 -0400
+Message-ID: <20866.46636.642215.768865@quad.stoffel.home>
+References: <20130502.041625.412316202038784117.davem@davemloft.net>
+	<20130502083619.GA22010@macbook.localnet>
+	<87d2t9bvj1.fsf@nemi.mork.no>
+	<20130502.140125.697030413654996310.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Simon Horman <horms@verge.net.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130502173257.GX3780@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: bjorn@mork.no, kaber@trash.net, torvalds@linux-foundation.org,
+	hayeswang@realtek.com, akpm@linux-foundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130502.140125.697030413654996310.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+>>>>> "David" =3D=3D David Miller <davem@davemloft.net> writes:
 
-	Hello,
+David> From: Bj=F8rn Mork <bjorn@mork.no>
+David> Date: Thu, 02 May 2013 11:06:42 +0200
 
-On Thu, 2 May 2013, Paul E. McKenney wrote:
+>> From d957cf339bf625869c39d852ac6733ef597ecef9 Mon Sep 17 00:00:00 20=
+01
+>> From: Bj=F8rn Mork <bjorn@mork.no>
+>> Date: Thu, 2 May 2013 10:37:05 +0200
+>> Subject: [PATCH] net: vlan,ethtool: netdev_features_t is more than 3=
+2 bit
+>> MIME-Version: 1.0
+>> Content-Type: text/plain; charset=3DUTF-8
+>> Content-Transfer-Encoding: 8bit
+>>=20
+>> Signed-off-by: Bj=F8rn Mork <bjorn@mork.no>
 
-> On Thu, May 02, 2013 at 06:54:05PM +0300, Julian Anastasov wrote:
-> > 
-> > 	I tested the following patch in 2 variants,
-> > TINY_RCU and CONFIG_TREE_PREEMPT_RCU. I see the
-> 
-> Could you please also try CONFIG_TREE_RCU?
+David> Also applied and queued up for -stable.
 
-	Note that I'm testing on some 9-year old
-UP system, i.e. 1 CPU. Now I enabled SMP to test CONFIG_TREE_RCU
-and the results are same. I think, it should be just like
-the TINY_RCU in terms of these debuggings (non-preempt). Extra 
-rcu_read_lock gives me "Illegal context switch in RCU read-side
-critical section" in addition to the "BUG: sleeping function
-called from invalid context" message.
+David> These changes show me that this special type isn't providing typ=
+e
+David> safety in the way that we actually need it.
 
-> > error if extra rcu_read_lock is added for testing.
-> > 
-> > 	I'm using the PREEMPT_ACTIVE flag to indicate
-> > that we are already under lock. It should work because
-> > __might_sleep is not called with such bit. I also tried to
-> > add new flag in include/linux/hardirq.h but PREEMPT_ACTIVE
-> > depends on the arch, so this alternative looked difficult to
-> > implement.
+David> Something like how we do the MM page table types would work bett=
+er:
 
-> > +extern int __cond_resched_rcu(void);
-> > +
-> > +#define cond_resched_rcu() ({					\
-> > +	__might_sleep(__FILE__, __LINE__, PREEMPT_ACTIVE |	\
-> > +					  PREEMPT_RCU_OFFSET);	\
-> > +	__cond_resched_rcu();					\
-> > +})
-> > +
+David> typedef struct { u64 val; } netdev_features_t;
 
-> > @@ -7062,7 +7076,9 @@ void __might_sleep(const char *file, int line, int preempt_offset)
-> >  {
-> >  	static unsigned long prev_jiffy;	/* ratelimiting */
-> > 
-> > -	rcu_sleep_check(); /* WARN_ON_ONCE() by default, no rate limit reqd. */
-> > +	/* WARN_ON_ONCE() by default, no rate limit reqd. */
-> > +	rcu_sleep_check(preempt_offset & PREEMPT_ACTIVE);
-> 
-> Color me confused.
-> 
-> >From what I can see, the two values passed in through preempt_offset
-> are PREEMPT_LOCK_OFFSET and SOFTIRQ_DISABLE_OFFSET.  PREEMPT_ACTIVE
-> is normally a high-order bit, above PREEMPT_MASK, SOFTIRQ_MASK, and
-> HARDIRQ_MASK.
-> 
-> PREEMPT_LOCK_OFFSET and SOFTIRQ_DISABLE_OFFSET have only low-order bits,
-> so I don't see how rcu_sleep_check() is passed anything other than zero.
-> Am I going blind, or what?
+David> #define __netdev_feature(X)	((netdev_features_t) { X } )
 
-	Only the new cond_resched_rcu() macro provides
-PREEMPT_ACTIVE flag to skip the rcu_preempt_sleep_check()
-call. The old macros provide locked=0 as you noticed. Does it
-answer your question or I'm missing something?
+David> and also with the appropriate set of accessors.
 
-Regards
+David> Then you can't get it wrong without a compile error.
 
---
-Julian Anastasov <ja@ssi.bg>
+Isn't part of the problem that you're exporting it into /sys in a
+binary format?  Why not just have each flag as it's own file and
+value?  Sure, it's a waste in some ways, but then it makes it simpler
+to just do an 'opendir()' to see if the flag exists, much less what
+it's set to.
+
+John
