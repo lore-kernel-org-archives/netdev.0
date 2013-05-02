@@ -1,52 +1,172 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [GIT] Networking
-Date: Thu, 02 May 2013 15:22:28 -0500
-Message-ID: <1367526148.7757.30.camel@dcbw.foobar.com>
-References: <20130501.164755.1859264969403837546.davem@davemloft.net>
-	 <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
-	 <1367512467.4000.7.camel@dcbw.foobar.com>
-	 <1367519066.7757.19.camel@dcbw.foobar.com>
-	 <CA+55aFy04mY5g-Aics9dcGpv6zgn2bu4iQ-_ifE5hun_t4E54Q@mail.gmail.com>
-	 <CA+55aFy1P6TKZjWSvrJN6o=gAr7OTYQsoZORXGF6g8OnonBT=Q@mail.gmail.com>
-	 <1367522254.7757.23.camel@dcbw.foobar.com>
+From: Chris Metcalf <cmetcalf@tilera.com>
+Subject: [PATCH] tile: support new Tilera hypervisor
+Date: Thu, 2 May 2013 15:29:04 -0400
+Message-ID: <201305022022.r42KMcUX017137@farm-0002.internal.tilera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	hayeswang <hayeswang@realtek.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: text/plain
+To: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367522254.7757.23.camel@dcbw.foobar.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-05-02 at 14:17 -0500, Dan Williams wrote:
-> On Thu, 2013-05-02 at 11:53 -0700, Linus Torvalds wrote:
-> > On Thu, May 2, 2013 at 11:52 AM, Linus Torvalds
-> > <torvalds@linux-foundation.org> wrote:
-> > >
-> > > but for some reason in the bad case NM just doesn't react past the
-> > > "carrier now ON" part.
-> > 
-> > Grr. That was much more readable while editing, then gmail ended up
-> > doing its "smart line wrap" thing and my nice long lines became a
-> > mess. I think you can still figure it out,
-> 
-> Yeah, the dump is good, and it seems to point to a problem in NM for
-> now.  I'm investigating.
+The Tilera hypervisor shipped in releases up through MDE 4.1 launches
+the client operating system (i.e. Linux) at privilege level 1 (PL1).
+Starting with MDE 4.2, as part of the work to enable KVM, the
+Tilera hypervisor launches Linux at PL2 instead.
 
-If you don't mind helping me confirm/reject a theory, would you mind:
+This commit makes the KERNEL_PL option default to 2 for tilegx, while
+still saying at 1 for tilepro, which doesn't have an updated hypervisor.
+It also explains how and when you might want to choose another value.
+In addition, we change a small buglet in the on-chip Ethernet driver,
+where we were failing to use the KERNEL_PL constant in an API call.
 
-1) drop "level=debug" into the [logging] section
-of /etc/NetworkManager/NetworkManager.conf (create the section if it
-doesn't exist)
+To make the transition cleaner, this change also provides the updated
+hv_init() API for the new hypervisor that supports announcing Linux's
+compiled-in PL, so the hypervisor can generate a suitable error in the
+case of a mismatched hypervisor and Linux binary.
 
-2) reboot (or just rmmod/modprobe r8169 if that's enough to trigger it)
+Signed-off-by: Chris Metcalf <cmetcalf@tilera.com>
+Cc: stable@vger.linux.org
+---
+ arch/tile/Kconfig                  |   14 ++++++++++----
+ arch/tile/include/hv/hypervisor.h  |   27 ++++++++++++++++++++++++---
+ arch/tile/kernel/head_32.S         |    2 +-
+ arch/tile/kernel/head_64.S         |   12 +++++++++---
+ drivers/net/ethernet/tile/tilegx.c |    2 +-
+ 5 files changed, 45 insertions(+), 12 deletions(-)
 
-3) grab syslog and send it to me (privately if you wish)
-
-Thanks!
-Dan
+diff --git a/arch/tile/Kconfig b/arch/tile/Kconfig
+index 25877ae..41a2a0b 100644
+--- a/arch/tile/Kconfig
++++ b/arch/tile/Kconfig
+@@ -368,11 +368,17 @@ config HARDWALL
+ config KERNEL_PL
+ 	int "Processor protection level for kernel"
+ 	range 1 2
+-	default "1"
++	default 2 if TILEGX
++	default 1 if !TILEGX
+ 	---help---
+-	  This setting determines the processor protection level the
+-	  kernel will be built to run at.  Generally you should use
+-	  the default value here.
++	  Since MDE 4.2, the Tilera hypervisor runs the kernel
++	  at PL2 by default.  If running under an older hypervisor,
++	  or as a KVM guest, you must run at PL1.  (The current
++	  hypervisor may also be recompiled with "make HV_PL=2" to
++	  allow it to run a kernel at PL1, but clients running at PL1
++	  are not expected to be supported indefinitely.)
++
++	  If you're not sure, don't change the default.
+ 
+ source "arch/tile/gxio/Kconfig"
+ 
+diff --git a/arch/tile/include/hv/hypervisor.h b/arch/tile/include/hv/hypervisor.h
+index ccd847e..837dca5 100644
+--- a/arch/tile/include/hv/hypervisor.h
++++ b/arch/tile/include/hv/hypervisor.h
+@@ -107,7 +107,22 @@
+ #define HV_DISPATCH_ENTRY_SIZE 32
+ 
+ /** Version of the hypervisor interface defined by this file */
+-#define _HV_VERSION 11
++#define _HV_VERSION 13
++
++/** Last version of the hypervisor interface with old hv_init() ABI.
++ *
++ * The change from version 12 to version 13 corresponds to launching
++ * the client by default at PL2 instead of PL1 (corresponding to the
++ * hv itself running at PL3 instead of PL2).  To make this explicit,
++ * the hv_init() API was also extended so the client can report its
++ * desired PL, resulting in a more helpful failure diagnostic.  If you
++ * call hv_init() with _HV_VERSION_OLD_HV_INIT and omit the client_pl
++ * argument, the hypervisor will assume client_pl = 1.
++ *
++ * Note that this is a deprecated solution and we do not expect to
++ * support clients of the Tilera hypervisor running at PL1 indefinitely.
++ */
++#define _HV_VERSION_OLD_HV_INIT 12
+ 
+ /* Index into hypervisor interface dispatch code blocks.
+  *
+@@ -377,7 +392,11 @@ typedef int HV_Errno;
+ #ifndef __ASSEMBLER__
+ 
+ /** Pass HV_VERSION to hv_init to request this version of the interface. */
+-typedef enum { HV_VERSION = _HV_VERSION } HV_VersionNumber;
++typedef enum {
++  HV_VERSION = _HV_VERSION,
++  HV_VERSION_OLD_HV_INIT = _HV_VERSION_OLD_HV_INIT,
++
++} HV_VersionNumber;
+ 
+ /** Initializes the hypervisor.
+  *
+@@ -385,9 +404,11 @@ typedef enum { HV_VERSION = _HV_VERSION } HV_VersionNumber;
+  * that this program expects, typically HV_VERSION.
+  * @param chip_num Architecture number of the chip the client was built for.
+  * @param chip_rev_num Revision number of the chip the client was built for.
++ * @param client_pl Privilege level the client is built for
++ *   (not required if interface_version_number == HV_VERSION_OLD_HV_INIT).
+  */
+ void hv_init(HV_VersionNumber interface_version_number,
+-             int chip_num, int chip_rev_num);
++             int chip_num, int chip_rev_num, int client_pl);
+ 
+ 
+ /** Queries we can make for hv_sysconf().
+diff --git a/arch/tile/kernel/head_32.S b/arch/tile/kernel/head_32.S
+index f71bfee..ac11530 100644
+--- a/arch/tile/kernel/head_32.S
++++ b/arch/tile/kernel/head_32.S
+@@ -38,7 +38,7 @@ ENTRY(_start)
+ 	  movei r2, TILE_CHIP_REV
+ 	}
+ 	{
+-	  moveli r0, _HV_VERSION
++	  moveli r0, _HV_VERSION_OLD_HV_INIT
+ 	  jal hv_init
+ 	}
+ 	/* Get a reasonable default ASID in r0 */
+diff --git a/arch/tile/kernel/head_64.S b/arch/tile/kernel/head_64.S
+index f9a2734..6093964 100644
+--- a/arch/tile/kernel/head_64.S
++++ b/arch/tile/kernel/head_64.S
+@@ -34,13 +34,19 @@
+ ENTRY(_start)
+ 	/* Notify the hypervisor of what version of the API we want */
+ 	{
++#if KERNEL_PL == 1 && _HV_VERSION == 13
++	  /* Support older hypervisors by asking for API version 12. */
++	  movei r0, _HV_VERSION_OLD_HV_INIT
++#else
++	  movei r0, _HV_VERSION
++#endif
+ 	  movei r1, TILE_CHIP
+-	  movei r2, TILE_CHIP_REV
+ 	}
+ 	{
+-	  moveli r0, _HV_VERSION
+-	  jal hv_init
++	  movei r2, TILE_CHIP_REV
++	  movei r3, KERNEL_PL
+ 	}
++	jal hv_init
+ 	/* Get a reasonable default ASID in r0 */
+ 	{
+ 	  move r0, zero
+diff --git a/drivers/net/ethernet/tile/tilegx.c b/drivers/net/ethernet/tile/tilegx.c
+index 66e025a..f3c2d03 100644
+--- a/drivers/net/ethernet/tile/tilegx.c
++++ b/drivers/net/ethernet/tile/tilegx.c
+@@ -930,7 +930,7 @@ static int tile_net_setup_interrupts(struct net_device *dev)
+ 		if (info->has_iqueue) {
+ 			gxio_mpipe_request_notif_ring_interrupt(
+ 				&context, cpu_x(cpu), cpu_y(cpu),
+-				1, ingress_irq, info->iqueue.ring);
++				KERNEL_PL, ingress_irq, info->iqueue.ring);
+ 		}
+ 	}
+ 
+-- 
+1.7.10.3
