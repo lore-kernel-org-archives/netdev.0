@@ -1,49 +1,62 @@
-From: Scott Wood <scottwood@freescale.com>
-Subject: Re: [PATCH net-next] af_unix: fix a fatal race with bit fields
-Date: Thu, 2 May 2013 12:02:25 -0500
-Message-ID: <1367514145.24411.8@snotra>
-References: <1367370761.11020.22.camel@edumazet-glaptop>
-	<20130501115103.58e40f37@kryten>
-	<1367375060.11020.24.camel@edumazet-glaptop>
-	<20130501035425.GD5221@bubble.grove.modra.org>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [PATCHv3 3/3] net: velocity: Add platform device support to
+	VIA velocity driver
+Date: Thu, 2 May 2013 18:19:51 +0100
+Message-ID: <20130502171951.GV14496@n2100.arm.linux.org.uk>
+References: <1367264772-4557-1-git-send-email-linux@prisktech.co.nz> <1367264772-4557-4-git-send-email-linux@prisktech.co.nz> <20130429230450.GA2620@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; delsp=Yes; format=Flowed
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	Ambrose Feinstein <ambrose@google.com>,
-	Paul Mackerras <paulus@samba.org>,
-	Anton Blanchard <anton@samba.org>,
-	<linuxppc-dev@lists.ozlabs.org>, David Miller <davem@davemloft.net>
-To: Alan Modra <amodra@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tony Prisk <linux@prisktech.co.nz>,
+	vt8500-wm8505-linux-kernel@googlegroups.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, davem@davemloft.net
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe005.messaging.microsoft.com ([65.55.88.15]:13114 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1760578Ab3EBRCj convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 May 2013 13:02:39 -0400
-In-Reply-To: <20130501035425.GD5221@bubble.grove.modra.org> (from
-	amodra@gmail.com on Tue Apr 30 22:54:25 2013)
+Received: from caramon.arm.linux.org.uk ([78.32.30.218]:42698 "EHLO
+	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1760989Ab3EBRUG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 13:20:06 -0400
 Content-Disposition: inline
+In-Reply-To: <20130429230450.GA2620@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 04/30/2013 10:54:25 PM, Alan Modra wrote:
-> On Tue, Apr 30, 2013 at 07:24:20PM -0700, Eric Dumazet wrote:
-> > 	li 11,1
-> > 	ld 0,0(9)
-> > 	rldimi 0,11,31,32
-> > 	std 0,0(9)
-> > 	blr
-> > 	.ident	"GCC: (GNU) 4.6.3"
-> >
-> > You can see "ld 0,0(9)" is used : its a 64 bit load.
+On Tue, Apr 30, 2013 at 01:04:50AM +0200, Francois Romieu wrote:
+> Tony Prisk <linux@prisktech.co.nz> :
+> [...]
+> > +static int velocity_remove(void *pdev, enum velocity_bus_type bustype)
+> > +{
+> > +	struct net_device *netdev;
+> > +	struct velocity_info *vptr;
+> > +	int pci = (bustype == BUS_PCI) ? 1 : 0;
+> > +
+> > +	if (pci)
+> > +		netdev = pci_get_drvdata(pdev);
+> > +	else
+> > +		netdev = platform_get_drvdata(pdev);
 > 
-> Yup.  This is not a powerpc64 specific problem.  See
-> http://gcc.gnu.org/bugzilla/show_bug.cgi?id=52080
-> Fixed in 4.8.0 and 4.7.3.
+> The caller knows how to retrieve the net_device pointer, whence
+> the struct velocity_info pointer, whence any bustype dependent
+> function pointer to alleviate the "if (pci)" and CONFIG stuff.
+> 
+> If you are not convinced, please consider turning the void *
+> into an union *.
 
-FWIW (especially if a GCC version check is added), it seems to have  
-been fixed as far back as 4.7.1, not just 4.7.3.
+The other thing here is that you can just pass a struct device into
+these and retrieve the same driver data via:
 
--Scott
+	netdev = dev_get_drvdata(dev);
+
+as:
+
+static inline void *platform_get_drvdata(const struct platform_device *pdev)
+{
+        return dev_get_drvdata(&pdev->dev);
+}
+
+static inline void *pci_get_drvdata(struct pci_dev *pdev)
+{
+        return dev_get_drvdata(&pdev->dev);
+}
+
+So there's no need for void * or union nonsense.
