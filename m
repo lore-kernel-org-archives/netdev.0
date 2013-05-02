@@ -1,51 +1,68 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net 1/3] be2net: Fix firmware download for Lancer
-Date: Thu, 2 May 2013 15:37:41 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7221@saturn3.aculab.com>
-References: <18c7d598-93d2-4770-b314-586dec18b9be@CMEXHTCAS2.ad.emulex.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next PATCH 1/4] Revert "inet: limit length of fragment
+ queue hash table bucket lists"
+Date: Thu, 02 May 2013 08:16:41 -0700
+Message-ID: <1367507801.29805.12.camel@edumazet-glaptop>
+References: <20130424154624.16883.40974.stgit@dragon>
+	 <20130424154800.16883.4797.stgit@dragon>
+	 <1366848030.8964.98.camel@edumazet-glaptop>
+	 <20130502095955.1ea082fb@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, "Kalesh AP" <kalesh.purayil@emulex.com>
-To: "Somnath Kotur" <somnath.kotur@emulex.com>,
-	<netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:43581 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1760060Ab3EBOjW convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 10:39:22 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02413-02 for <netdev@vger.kernel.org>;
- Thu,  2 May 2013 15:39:17 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <18c7d598-93d2-4770-b314-586dec18b9be@CMEXHTCAS2.ad.emulex.com>
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:39729 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932423Ab3EBPQo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 11:16:44 -0400
+Received: by mail-pa0-f42.google.com with SMTP id bj3so411060pad.29
+        for <netdev@vger.kernel.org>; Thu, 02 May 2013 08:16:44 -0700 (PDT)
+In-Reply-To: <20130502095955.1ea082fb@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Increasing the timeout value of write_object command to 60 seconds as
-> 30 second timeout was found to be not enough for the command to complete.
-...
->  	if (!wait_for_completion_timeout(&adapter->flash_compl,
-> -					 msecs_to_jiffies(30000)))
-> +					 msecs_to_jiffies(60000)))
+On Thu, 2013-05-02 at 09:59 +0200, Jesper Dangaard Brouer wrote:
+> On Wed, 24 Apr 2013 17:00:30 -0700 Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > On Wed, 2013-04-24 at 17:48 +0200, Jesper Dangaard Brouer wrote:
+> > > This reverts commit 5a3da1fe9561828d0ca7eca664b16ec2b9bf0055.
+> > > 
+> > > The problem with commit 5a3da1fe (inet: limit length of fragment
+> > > queue hash table bucket lists) is that, once we hit the hash depth
+> > > limit (of 128), the we *keep* the existing frag queues, not
+> > > allowing new frag queues to be created.  Thus, an attacker can
+> > > effectivly block handling of fragments for 30 sec (as each frag
+> > > queue have a timeout of 30 sec)
+> > > 
+> > 
+> > I do not think its good to revert this patch. It was a step in right
+> > direction.
+> 
+> We need a revert, because we are too close to the merge window, and
+> cannot complete the needed "steps" to make this patch safe, sorry.
 
-If an operation is likely to take over 30 seconds I'd expect
-the 'guard timer' to be much longer than 60 seconds.
+Again, a limit of 128 is totally OK. Its in fact too big.
 
-OTOH if an ioctl() call (or similar) into a driver is going
-to sleep for that long users are going to start getting worried.
+128 cache misses consume 5 us
 
-I'm not sure what the answer is, but some kind of confirmation
-that the operation is proceeding would be more useful.
+Allowing a chain being non limited is a more severe bug.
 
-I presume that the time is taken doing flash sector erases
-and writes? 30 seconds is still a lot of flash erases.
+Reverting will allow an attacker to consume all your cpu cycles.
 
-Perhaps the flash code could decrement a counter and wake the
-user process every time it finishes a sector. The application
-could then report progress - and the timeout would only need
-to be long enough for a single sector erase/write.
+We changed INETFRAGS_HASHSZ to 1024, so 128*1024 max frags is already a
+very big limit.
 
-	David
+No matter what we do, we need to limit both :
+
+- Memory consumption
+- Cpu consumption
+
+For people willing to allow more memory to be used, the only way is to
+resize hash table, or using a bigger INETFRAGS_HASHSZ
+
+I do not think there is a hurry, current defrag code is already better
+than what we had years ago.
