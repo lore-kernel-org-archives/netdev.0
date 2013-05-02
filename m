@@ -1,42 +1,60 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
- non-promisc mode
-Date: Thu, 02 May 2013 13:41:05 -0400
-Message-ID: <5182A531.2030900@redhat.com>
-References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
-	<20130502102331.43728912@nehalam.linuxnetplumber.net>
-Reply-To: vyasevic@redhat.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] 3c59x: fix PCI resource management
+Date: Thu, 02 May 2013 21:40:53 +0400
+Message-ID: <5182A525.8020601@cogentembedded.com>
+References: <201305020240.34487.sergei.shtylyov@cogentembedded.com> <51819C12.2060103@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org, mst@redhat.com
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130502102331.43728912@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de,
+	tedheadster@gmail.com, David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f44.google.com ([209.85.215.44]:35353 "EHLO
+	mail-la0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759009Ab3EBRlW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 13:41:22 -0400
+Received: by mail-la0-f44.google.com with SMTP id ed20so786526lab.31
+        for <netdev@vger.kernel.org>; Thu, 02 May 2013 10:41:20 -0700 (PDT)
+In-Reply-To: <51819C12.2060103@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/02/2013 01:23 PM, Stephen Hemminger wrote:
-> Doing research on another problem, I noticed that this would
-> break user mode spanning tree (RSTP) code.
->
-> The daemon assumes that bridge is promicious mode and therefore
-> will receive all link-level multicast packets.
->
+Hello.
 
-Just took another look at RSTP code and I see that's its using
-a packet socket with filter to catch STP frames.
+On 02-05-2013 2:49, Sergei Shtylyov wrote:
 
-Would setting IFF_ALL_MULTI solve the problem?  STP packets
-are all multicast.
+>> From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
 
-Thanks
--vlad
+>> The driver wrongly claimed I/O ports at an address returned by pci_iomap() --
+>> even if it was passed an MMIO address.  Fix this by claiming/releasing all PCI
+>> resources in the PCI driver probe()/remove() methods instead and get rid of the
+>> 'must_free_region' flag weirdness (why would Cardbus claim anything for us?).
+
+>> Also, the remove() method was trying to talk to the chip after having disabled
+>> its address decoders (at least on x86) -- fix this and while doing it get rid
+>> of the useless VORTEX_PCI() invocations.
+
+>> While at it, fix some cases of the overly indented code and the code crossing
+>> a 80-column boundary...
+
+>> [akpm@linux-foundation.org: coding-style fixes]
+>> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+>> Cc: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+>> Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+
+>> ---
+>> The patch is against David Miller's 'net-next.git' repo.
+>> Matthew, please test it on one of your 3c59x EISA boards.
+>> Steffen, here's my second try to get this patch past you, the last one was back
+>> in 2009...
+
+>      This is mostly a request for testing at this point, I forgot to add [RFT]
+> to the subject...
+
+    David and others, your comments are welcome however. The patch probably 
+needs some more trimming before it can be considered a pure fix. It has been 
+somewhat tested now on EISA (and once more on PCI) board, and as a result of 
+testing another one, EISA specific error was reported, fix for which I'm going 
+to publish for testing RSN.
+
+WBR, Sergei
