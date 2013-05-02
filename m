@@ -1,68 +1,31 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net 2/3] be2net: avoid napi_disable() when it has not been enabled
-Date: Thu, 2 May 2013 19:06:55 +0530
-Message-ID: <38c3abc5-37e6-4055-aa06-2e9b4e4d9485@CMEXHTCAS1.ad.emulex.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2 net-next] net/usb: new driver for RTL8152
+Date: Thu, 2 May 2013 07:12:39 -0700
+Message-ID: <20130502141239.GC24348@kroah.com>
+References: <1366965948-1805-1-git-send-email-hayeswang@realtek.com>
+ <1367524087-29512-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>,
-	Kalesh AP <kalesh.purayil@emulex.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:18895 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759396Ab3EBNiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 09:38:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: oliver@neukum.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1367524087-29512-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-When RQ creation fails in be_open(), driver jumps to be_close() where
-napi_disable() is done without a prior napi_enable(); leading to a hang.
-This change is needed as there is no way to see if napi is enable/disabled.
+On Fri, May 03, 2013 at 03:48:07AM +0800, Hayes Wang wrote:
+> +#define PATENTS		"This product is covered by one or more of the " \
+> +			"following patents:\n" \
+> +			"\t\tUS6,570,884, US6,115,776, and US6,327,625.\n"
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h      |    1 +
- drivers/net/ethernet/emulex/benet/be_main.c |    8 ++++++--
- 2 files changed, 7 insertions(+), 2 deletions(-)
+Interesting, you are aware of the issues involved with patents and GPLv2
+code, right?  Do you have a pointer to the GPLv2 patent release that is
+now required, or does your company now release all of the needed rights
+for these patents to be able to be used by everyone?
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 362efec..bdeb866 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -326,6 +326,7 @@ enum vf_state {
- 
- #define BE_FLAGS_LINK_STATUS_INIT		1
- #define BE_FLAGS_WORKER_SCHEDULED		(1 << 3)
-+#define BE_FLAGS_NAPI_ENABLED			(1 << 9)
- #define BE_UC_PMAC_COUNT		30
- #define BE_VF_UC_PMAC_COUNT		2
- #define BE_FLAGS_QNQ_ASYNC_EVT_RCVD		(1 << 11)
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 5544354..31d5982 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2526,8 +2526,11 @@ static int be_close(struct net_device *netdev)
- 	if (!lancer_chip(adapter))
- 		be_intr_set(adapter, false);
- 
--	for_all_evt_queues(adapter, eqo, i)
--		napi_disable(&eqo->napi);
-+	if (adapter->flags & BE_FLAGS_NAPI_ENABLED) {
-+		for_all_evt_queues(adapter, eqo, i)
-+			napi_disable(&eqo->napi);
-+		adapter->flags &= ~BE_FLAGS_NAPI_ENABLED;
-+	}
- 
- 	be_async_mcc_disable(adapter);
- 
-@@ -2628,6 +2631,7 @@ static int be_open(struct net_device *netdev)
- 		napi_enable(&eqo->napi);
- 		be_eq_notify(adapter, eqo->q.id, true, false, 0);
- 	}
-+	adapter->flags |= BE_FLAGS_NAPI_ENABLED;
- 
- 	status = be_cmd_link_status_query(adapter, NULL, &link_status, 0);
- 	if (!status)
--- 
-1.6.0.2
+thanks,
+
+greg k-h
