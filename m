@@ -1,46 +1,44 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH net-next] af_unix: fix a fatal race with bit fields
-Date: Fri, 03 May 2013 07:11:29 +1000
-Message-ID: <1367529089.4389.23.camel@pasglop>
-References: <1367370761.11020.22.camel@edumazet-glaptop>
-	 <20130501115103.58e40f37@kryten>
-	 <1367375060.11020.24.camel@edumazet-glaptop>
-	 <20130501035425.GD5221@bubble.grove.modra.org>
-	 <1367384672.11020.34.camel@edumazet-glaptop>
-	 <20130501081054.267a7851@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 net-next 0/6] Allow bridge to function in
+ non-promisc mode
+Date: Thu, 2 May 2013 14:16:26 -0700
+Message-ID: <20130502141626.17fc04a7@nehalam.linuxnetplumber.net>
+References: <1366404770-28523-1-git-send-email-vyasevic@redhat.com>
+	<20130502102331.43728912@nehalam.linuxnetplumber.net>
+	<20130502183758.GA16031@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Alan Modra <amodra@gmail.com>,
-	Anton Blanchard <anton@samba.org>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, linuxppc-dev@lists.ozlabs.org,
-	Paul Mackerras <paulus@samba.org>,
-	Ambrose Feinstein <ambrose@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:40491 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1760420Ab3EBVLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 May 2013 17:11:49 -0400
-In-Reply-To: <20130501081054.267a7851@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130502183758.GA16031@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-01 at 08:10 -0700, Stephen Hemminger wrote:
-> > These kind of errors are pretty hard to find, its a pity to spend
-> time
-> > on them.
+On Thu, 2 May 2013 21:37:58 +0300
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
+
+> On Thu, May 02, 2013 at 10:23:31AM -0700, Stephen Hemminger wrote:
+> > Doing research on another problem, I noticed that this would
+> > break user mode spanning tree (RSTP) code.
+> > 
+> > The daemon assumes that bridge is promicious mode and therefore
+> > will receive all link-level multicast packets.
 > 
-> There is a checkbin target inside arch/powerpc/Makefile
-> Shouldn't a check be added there to block building kernel with known
-> bad GCC versions?
+> Since you have to play with the new learning/flooding
+> options to get the non promisc behaviour,
+> can't we just say "don't do it then"
+> short term, and fix applcations long term?
 
-In this case that makes it all GCC versions except the *very
-latest* .... not practical.
-
-I suppose we should try to make sure that at least the next batch of
-enterprise distro get that fix on gcc side.
-
-Ben.
+It will work as long as non-promiscious mode turns on all-multicast
+in driver.
