@@ -1,32 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] be2net: Patch series
-Date: Thu, 02 May 2013 16:44:37 -0400 (EDT)
-Message-ID: <20130502.164437.644203204280381208.davem@davemloft.net>
-References: <20130501193707.GA3773@emulex.com>
+Subject: Re: [PATCH net 0/3] be2net fixes
+Date: Thu, 02 May 2013 16:46:26 -0400 (EDT)
+Message-ID: <20130502.164626.1519508217069165984.davem@davemloft.net>
+References: <d4e5f897-f081-4b3d-aad0-6ea296cae6db@CMEXHTCAS1.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: ajit.khaparde@emulex.com
+To: somnath.kotur@emulex.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60983 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32774 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753284Ab3EBUoj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 16:44:39 -0400
-In-Reply-To: <20130501193707.GA3773@emulex.com>
+	with ESMTP id S1761255Ab3EBUq3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 16:46:29 -0400
+In-Reply-To: <d4e5f897-f081-4b3d-aad0-6ea296cae6db@CMEXHTCAS1.ad.emulex.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ajit Khaparde <ajit.khaparde@emulex.com>
-Date: Wed, 1 May 2013 14:37:07 -0500
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Thu, 2 May 2013 19:06:14 +0530
 
-> Please apply.
+> Pls apply
 > 
-> Ajit Khaparde (4):
->   be2net: Fix to use version 2 of cq_create for SkyHawk-R devices
->   be2net: Fix to use 32-bit stats to report rx_drops_no_fragment
->   be2net: Fix to show tx priority pause counter in ethtool -S
->   be2net: Fix to receive Multicast Packets when Promiscuous mode is
->     enabled on certain devices
+> Kalesh AP (2):
+>   be2net: Fix firmware download for Lancer
+>   be2net: avoid napi_disable() when it has not been enabled
+> 
+> Somnath Kotur (1):
+>   be2net: Fix to fail probe if MSI-X enable fails for a VF
 
-Series applied.
+Can you be2net knuckleheads possibly coordinate?
+
+Please?
+
+There was already a series submitted by Ajit and your work overlaps
+and conflicts with his patch set applied.
+
+I sorted out the merge problems and was able to apply your series too,
+but you guys cannot have two patch sets for the same driver in flight
+at the same time.
