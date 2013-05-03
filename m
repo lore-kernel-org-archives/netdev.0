@@ -1,37 +1,44 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: 3.6-rt: inet_sk_rx_dst_set() network splat
-Date: Fri, 3 May 2013 10:20:58 +0200
-Message-ID: <20130503082058.GA8230@linutronix.de>
-References: <1366786204.5977.10.camel@marge.simpson.net>
- <1366853695.8964.120.camel@edumazet-glaptop>
- <1366865490.4595.22.camel@marge.simpson.net>
- <1366866233.8964.128.camel@edumazet-glaptop>
- <20130426105030.GE20927@linutronix.de>
- <1367455779.30667.113.camel@gandalf.local.home>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] af_unix: fix a fatal race with bit fields
+Date: Fri, 3 May 2013 09:20:21 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7222@saturn3.aculab.com>
+References: <1367370761.11020.22.camel@edumazet-glaptop> <20130501115103.58e40f37@kryten> <1367375060.11020.24.camel@edumazet-glaptop> <20130501035425.GD5221@bubble.grove.modra.org> <1367384672.11020.34.camel@edumazet-glaptop> <20130503013136.GN5221@bubble.grove.modra.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Mike Galbraith <bitbucket@online.de>,
-	David Miller <davem@davemloft.net>,
-	RT <linux-rt-users@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1367455779.30667.113.camel@gandalf.local.home>
-Sender: linux-rt-users-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Anton Blanchard" <anton@samba.org>,
+	"David Miller" <davem@davemloft.net>,
+	"netdev" <netdev@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
+	"Paul Mackerras" <paulus@samba.org>,
+	"Ambrose Feinstein" <ambrose@google.com>
+To: "Alan Modra" <amodra@gmail.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:51747 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1751165Ab3ECIV0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 04:21:26 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 31412-06 for <netdev@vger.kernel.org>;
+ Fri,  3 May 2013 09:21:19 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20130503013136.GN5221@bubble.grove.modra.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-* Steven Rostedt | 2013-05-01 20:49:39 [-0400]:
+> Did someone fix btrfs, but not check other kernel locks?  Having now
+> hit the same problem again, have you checked that other kernel locks
+> don't have adjacent bit fields in the same 64-bit word?  And comment
+> the struct to ensure someone doesn't optimize those unsigned chars
+> back to bit fields.
 
->Is this something going into the stable tree, or does it not affect 3.0,
->3.2, 3.4 or 3.6?
+Seems a good reason to have a general policy of not using
+bit fields!
 
-Mike Galbraith reported it against v3.6 so I would say that this is one
-candidate. I just booted v3.4.41-rt55 and it runs for 20 minutes now
-without any issues. Maybe it crashes after I sent the email but I hope
-it does not :)
+Separate char fields normally generate faster code - possibly
+at the expense of an increase in the allocated size of a
+structure.
 
->-- Steve
-
-Sebastian
+	David
