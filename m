@@ -1,41 +1,39 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Fri, 3 May 2013 20:09:26 +0200
-Message-ID: <20130503180926.GA32350@dyad.programming.kicks-ass.net>
-References: <alpine.LFD.2.00.1305021848450.31548@ja.ssi.bg>
- <20130502173257.GX3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg>
- <20130502193409.GA3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1305022249010.25417@ja.ssi.bg>
- <20130502223107.GB3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1305031024080.1657@ja.ssi.bg>
- <20130503163045.GE3780@linux.vnet.ibm.com>
- <20130503170447.GB30733@dyad.programming.kicks-ass.net>
- <20130503173444.GH3780@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130503173444.GH3780@linux.vnet.ibm.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH] cxgb4: fix error recovery when t4_fw_hello returns a positive value
+Date: Fri,  3 May 2013 15:11:04 -0300
+Message-ID: <1367604664-22368-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: dm@chelsio.com, linux-kernel@vger.kernel.org,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> This happens in only two cases:
-> 
-> 1.	CONFIG_PREEMPT_RCU=n kernels.  But in this case, rcu_read_unlock()
-> 	and rcu_read_lock() are free, at least for CONFIG_PROVE_LOCKING=n
-> 	kernels.  And if you have CONFIG_PROVE_LOCKING=y, any contribution
-> 	from rcu_read_unlock() and rcu_read_lock() will be in the noise.
+Since commit 636f9d371f70f22961fd598fe18380057518ca31 ("cxgb4: Add
+support for T4 configuration file"), t4_fw_hello may return a positive
+value instead of 0 for success. The recovery code tests only for zero
+and fails recovery for any other value.
 
-Oh argh.. I completely overlooked that rcu_read_{,un}lock() are NOPs for
-PREEMPT=n kernels.
+This fix tests for negative error values and fails only on those cases.
+Error recovery after an error injection works after this change.
 
-/me crawls back under his stone..
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index c306df7..bb4ad38 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -4538,7 +4538,7 @@ static pci_ers_result_t eeh_slot_reset(struct pci_dev *pdev)
+ 
+ 	if (t4_wait_dev_ready(adap) < 0)
+ 		return PCI_ERS_RESULT_DISCONNECT;
+-	if (t4_fw_hello(adap, adap->fn, adap->fn, MASTER_MUST, NULL))
++	if (t4_fw_hello(adap, adap->fn, adap->fn, MASTER_MUST, NULL) < 0)
+ 		return PCI_ERS_RESULT_DISCONNECT;
+ 	adap->flags |= FW_OK;
+ 	if (adap_init1(adap, &c))
+-- 
+1.7.1
