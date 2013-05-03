@@ -1,136 +1,56 @@
-From: Tom Herbert <therbert@google.com>
-Subject: Re: [PATCH RFC] net: Update RPS target at poll for inet
-Date: Fri, 3 May 2013 14:38:25 -0700
-Message-ID: <CA+mtBx-HwJqbfCyWFvZswZEd6UwEr0Ee31a2uDGXL5rMeQ6sGw@mail.gmail.com>
-References: <20130501023452.E624181885@donbot.mtv.corp.google.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: 3.6-rt: inet_sk_rx_dst_set() network splat
+Date: Fri, 03 May 2013 17:56:23 -0400
+Message-ID: <1367618183.7373.22.camel@gandalf.local.home>
+References: <1366786204.5977.10.camel@marge.simpson.net>
+	 <1366853695.8964.120.camel@edumazet-glaptop>
+	 <1366865490.4595.22.camel@marge.simpson.net>
+	 <1366866233.8964.128.camel@edumazet-glaptop>
+	 <20130426105030.GE20927@linutronix.de>
+	 <1367455779.30667.113.camel@gandalf.local.home>
+	 <20130503082058.GA8230@linutronix.de>
+	 <1367589787.29805.23.camel@edumazet-glaptop>
+	 <1367594003.7373.13.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	Paul Turner <pjt@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: David Majnemer <majnemer@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:33298 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933520Ab3ECViZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 17:38:25 -0400
-Received: by mail-ie0-f169.google.com with SMTP id u16so1015923iet.28
-        for <netdev@vger.kernel.org>; Fri, 03 May 2013 14:38:25 -0700 (PDT)
-In-Reply-To: <20130501023452.E624181885@donbot.mtv.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+	Mike Galbraith <bitbucket@online.de>,
+	David Miller <davem@davemloft.net>,
+	RT <linux-rt-users@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-rt-users-owner@vger.kernel.org>
+In-Reply-To: <1367594003.7373.13.camel@gandalf.local.home>
+Sender: linux-rt-users-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I think this is nice idea, if someone is polling and then reading from
-another thread (CPU) that's not going to be good performance anyway.
+On Fri, 2013-05-03 at 11:13 -0400, Steven Rostedt wrote:
+> On Fri, 2013-05-03 at 07:03 -0700, Eric Dumazet wrote:
+> > On Fri, 2013-05-03 at 10:20 +0200, Sebastian Andrzej Siewior wrote:
+> > > * Steven Rostedt | 2013-05-01 20:49:39 [-0400]:
+> > > 
+> > > >Is this something going into the stable tree, or does it not affect 3.0,
+> > > >3.2, 3.4 or 3.6?
+> > > 
+> > > Mike Galbraith reported it against v3.6 so I would say that this is one
+> > > candidate. I just booted v3.4.41-rt55 and it runs for 20 minutes now
+> > > without any issues. Maybe it crashes after I sent the email but I hope
+> > > it does not :)
+> > 
+> > Thats because the particular way to trigger the bug was to use the IP
+> > early demux, and it was added in 3.5
+> 
+> Is it OK to keep it? I pulled the patch into 3.2-rt and 3.4-rt. I can
+> remove it if you think it's not necessary and will cause a slight
+> performance penalty.
 
-Acked-by: Tom Herbert <therbert@google.com>
+I took it out of 3.2-rt as I needed to add a patch and rerun my tests.
+But I'll leave it in 3.4-rt (unless you think I shoudn't) just so I
+don't need to rerun the tests. I'm only posting a pre-release anyway.
 
-On Wed, Apr 17, 2013 at 1:10 PM, David Majnemer <majnemer@google.com> wrote:
-> Hello,
->
-> The current state of affairs is that read(2)/write(2) will engage
-> RPS (receive packet steering) for internet protocol sockets while
-> poll(2) does not.
->
-> We noticed that this is suboptimal for scenarios similar to the following:
-> 1. Perform a poll(2) on a socket.
-> 2. Block in sock_poll_wait (or something similar).
-> 3. Perform a read(2) on the previously mentioned socket.
->
-> This patch updates the RPS target during poll(2) which improves this scenario.
->
-> Concretely, we saw improvements on the order of ~20% for the median and
-> ~6% for the mean on our internal packet forwarding workload. Let me know if
-> there is another workload I should take a look at.
->
-> Thanks,
-> David
->
-> -----------------------------8<---------------------------
->
-> When poll(2) gets called with an ip socket, update the flow target to be the
-> poller. The data will be on the appropriate CPU when the poller later calls
-> recvmsg(2).
->
-> Signed-off-by: David Majnemer <majnemer@google.com>
-> ---
->  include/net/inet_common.h |  2 ++
->  net/ipv4/af_inet.c        | 13 ++++++++++++-
->  net/ipv4/tcp.c            |  2 ++
->  net/ipv4/udp.c            |  2 ++
->  4 files changed, 18 insertions(+), 1 deletion(-)
->
-> diff --git a/include/net/inet_common.h b/include/net/inet_common.h
-> index 2340087..21ecdb3 100644
-> --- a/include/net/inet_common.h
-> +++ b/include/net/inet_common.h
-> @@ -20,6 +20,8 @@ extern int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
->                                  int addr_len, int flags);
->  extern int inet_dgram_connect(struct socket *sock, struct sockaddr *uaddr,
->                               int addr_len, int flags);
-> +extern unsigned int inet_dgram_poll(struct file *file, struct socket *sock,
-> +                                   poll_table *wait);
->  extern int inet_accept(struct socket *sock, struct socket *newsock, int flags);
->  extern int inet_sendmsg(struct kiocb *iocb, struct socket *sock,
->                         struct msghdr *msg, size_t size);
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index c61b3bb..2c030ef 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -567,6 +567,17 @@ int inet_dgram_connect(struct socket *sock, struct sockaddr *uaddr,
->  }
->  EXPORT_SYMBOL(inet_dgram_connect);
->
-> +unsigned int inet_dgram_poll(struct file *file, struct socket *sock,
-> +                            poll_table *wait)
-> +{
-> +       struct sock *sk = sock->sk;
-> +
-> +       sock_rps_record_flow(sk);
-> +
-> +       return datagram_poll(file, sock, wait);
-> +}
-> +EXPORT_SYMBOL(inet_dgram_poll);
-> +
->  static long inet_wait_for_connect(struct sock *sk, long timeo, int writebias)
->  {
->         DEFINE_WAIT(wait);
-> @@ -1001,7 +1012,7 @@ static const struct proto_ops inet_sockraw_ops = {
->         .socketpair        = sock_no_socketpair,
->         .accept            = sock_no_accept,
->         .getname           = inet_getname,
-> -       .poll              = datagram_poll,
-> +       .poll              = inet_dgram_poll,
->         .ioctl             = inet_ioctl,
->         .listen            = sock_no_listen,
->         .shutdown          = inet_shutdown,
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index dcb116d..8d80092 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -436,6 +436,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
->         struct sock *sk = sock->sk;
->         const struct tcp_sock *tp = tcp_sk(sk);
->
-> +       sock_rps_record_flow(sk);
-> +
->         sock_poll_wait(file, sk_sleep(sk), wait);
->         if (sk->sk_state == TCP_LISTEN)
->                 return inet_csk_listen_poll(sk);
-> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-> index 3159d16..5f115cb 100644
-> --- a/net/ipv4/udp.c
-> +++ b/net/ipv4/udp.c
-> @@ -1967,6 +1967,8 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
->         unsigned int mask = datagram_poll(file, sock, wait);
->         struct sock *sk = sock->sk;
->
-> +       sock_rps_record_flow(sk);
-> +
->         /* Check for false positives due to checksum errors */
->         if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
->             !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
-> --
-> 1.8.2.1
->
+Thanks,
+
+-- Steve
+
+
