@@ -1,98 +1,80 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] sky2: Fix crash on receiving VLAN frames
-Date: Fri, 3 May 2013 08:04:40 -0700
-Message-ID: <20130503080440.73032f54@nehalam.linuxnetplumber.net>
-References: <1367590924-8594-1-git-send-email-kirr@mns.spb.ru>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: Re: tg3 adapter losing link - PM related?
+Date: Fri, 3 May 2013 08:13:15 -0700
+Message-ID: <5183D40B.8090605@broadcom.com>
+References: <20130503092846.GA5126@pcnci.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+ charset=iso-8859-1;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>,
-	Mirko Lindner <mlindner@marvell.com>
-To: Kirill Smelkov <kirr@mns.spb.ru>
+Cc: netdev@vger.kernel.org
+To: "Nikola Ciprich" <nikola.ciprich@linuxbox.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f43.google.com ([209.85.210.43]:48704 "EHLO
-	mail-da0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762442Ab3ECPE5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 11:04:57 -0400
-Received: by mail-da0-f43.google.com with SMTP id u7so846455dae.2
-        for <netdev@vger.kernel.org>; Fri, 03 May 2013 08:04:57 -0700 (PDT)
-In-Reply-To: <1367590924-8594-1-git-send-email-kirr@mns.spb.ru>
+Received: from mms2.broadcom.com ([216.31.210.18]:3832 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758210Ab3ECPNY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 May 2013 11:13:24 -0400
+In-Reply-To: <20130503092846.GA5126@pcnci.linuxbox.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  3 May 2013 18:22:04 +0400
-Kirill Smelkov <kirr@mns.spb.ru> wrote:
+Hi Nikola,
+1. What device is present on this server? Can you give the tg3 messages 
+in /var/log/messages? Can you also give the output of "ethtool -i <iface>"?
 
-> After recent 86a9bad3 (net: vlan: add protocol argument to packet
-> tagging functions) my sky2 started to crash on receive of tagged
-> frames, with backtrace similar to
-> 
->     #CRASH!!!
->     vlan_do_receive
->     __netif_receive_skb_core
->     __netif_receive_skb
->     netif_receive_skb
->     sky2_poll
->     ...
->     __net_rx_action
->     __do_softirq
-> 
-> The problem turned out to be:
-> 
->     1) sky2 copies small packets from ring on RX, and in its
->        receive_copy() skb header is copied manually field, by field, and
->        only for some fields;
-> 
->     2) 86a9bad3  added skb->vlan_proto, which vlan_untag() or
->        __vlan_hwaccel_put_tag() set, and which is later used in
->        vlan_do_receive().
-> 
->        That patch updated copy_skb_header() for newly introduced
->        skb->vlan_proto, but overlooked the need to also copy it in sky2's
->        receive_copy().
-> 
-> Because of 2, we have the following scenario:
-> 
->     - frame is received and tagged in a ring, by sky2_rx_tag(). Both
->       skb->vlan_proto and skb->vlan_tci are set;
-> 
->     - later skb is decided to be copied, but skb->vlan_proto is
->       forgotten and becomes 0.
-> 
->     - in the beginning of vlan_do_receive() we call
-> 
->         __be16 vlan_proto = skb->vlan_proto;
->         vlan_dev = vlan_find_dev(skb->dev, vlan_proto, vlan_id);
-> 
->       which eventually invokes
-> 
->         vlan_proto_idx(vlan_proto)
-> 
->       and that routine BUGs for everything except ETH_P_8021Q and
->       ETH_P_8021AD.
-> 
->       Oops.
-> 
-> Fix it.
-> 
-> P.S.
-> 
-> Stephen, I wonder, why copy_skb_header() is not used in
-> sky2.c::receive_copy() ? Problems, where receive_copy was updated field
-> by field showed several times already, e.g.
-> 
->     3f42941b    (sky2: propogate rx hash when packet is copied)
->     e072b3fa    (sky2: fix receive length error in mixed non-VLAN/VLAN traffic)
-> 
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: Mirko Lindner <mlindner@marvell.com>
-> Signed-off-by: Kirill Smelkov <kirr@mns.spb.ru>
+2. Is it possible for you to try the latest 3.9 upstream kernel?
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+3. Any reason why the link is at 100Mb? The switch does not support gig? 
+What switch is it?
 
-I wonder what other drivers have same issue?
-Looking again, copy_skb_header is overkill, it clones a lot of other values
-which is not needed on a freshly received skb. The skb at that point has
-not had all the other properties set.
+4. I don't think you can turn off EEE in the bios, but you can try 
+turning autoneg off. Try "ethtool -s <iface> speed 100 duplex full 
+autoneg off". It's not exactly the same thing since the device still has 
+EEE enabled but not negotiated.
+
+Nithin.
+
+
+On 5/3/2013 2:28 AM, Nikola Ciprich wrote:
+> Hello,
+>
+> I'd like to ask about trouble I've got with new HP server: tg3 adapter keeps losing
+> link every few minutes:
+>
+> Aug  3 03:58:02 atlovav1a kernel: [616741.147598] tg3 0000:03:00.0: eth0: Link is down
+> Aug  3 03:58:04 atlovav1a kernel: [616743.943456] tg3 0000:03:00.0: eth0: Link is up at 100 Mbps, full duplex
+> Aug  3 03:58:04 atlovav1a kernel: [616743.943598] tg3 0000:03:00.0: eth0: Flow control is on for TX and on for RX
+> Aug  3 03:58:04 atlovav1a kernel: [616743.943736] tg3 0000:03:00.0: eth0: EEE is enabled
+> Aug  3 04:14:29 atlovav1a kernel: [617727.980487] tg3 0000:03:00.0: eth0: Link is down
+> Aug  3 04:14:32 atlovav1a kernel: [617730.847245] tg3 0000:03:00.0: eth0: Link is up at 100 Mbps, full duplex
+> Aug  3 04:14:32 atlovav1a kernel: [617730.847387] tg3 0000:03:00.0: eth0: Flow control is on for TX and on for RX
+> Aug  3 04:14:32 atlovav1a kernel: [617730.847525] tg3 0000:03:00.0: eth0: EEE is enabled
+> Aug  3 06:47:13 atlovav1a kernel: [626885.452974] tg3 0000:03:00.0: eth0: Link is down
+> Aug  3 06:47:15 atlovav1a kernel: [626888.218702] tg3 0000:03:00.0: eth0: Link is up at 100 Mbps, full duplex
+> Aug  3 06:47:15 atlovav1a kernel: [626888.218844] tg3 0000:03:00.0: eth0: Flow control is on for TX and on for RX
+> Aug  3 06:47:15 atlovav1a kernel: [626888.218982] tg3 0000:03:00.0: eth0: EEE is enabled
+> Aug  3 06:51:44 atlovav1a kernel: [627156.293386] tg3 0000:03:00.0: eth0: Link is down
+> Aug  3 06:51:46 atlovav1a kernel: [627159.123347] tg3 0000:03:00.0: eth0: Link is up at 100 Mbps, full duplex
+> Aug  3 06:51:46 atlovav1a kernel: [627159.123491] tg3 0000:03:00.0: eth0: Flow control is on for TX and on for RX
+> Aug  3 06:51:46 atlovav1a kernel: [627159.123629] tg3 0000:03:00.0: eth0: EEE is enabled
+> Aug  3 07:13:10 atlovav1a kernel: [628441.722197] tg3 0000:03:00.0: eth0: Link is down
+> Aug  3 07:13:13 atlovav1a kernel: [628444.615548] tg3 0000:03:00.0: eth0: Link is up at 100 Mbps, full duplex
+> Aug  3 07:13:13 atlovav1a kernel: [628444.615690] tg3 0000:03:00.0: eth0: Flow control is on for TX and on for RX
+> Aug  3 07:13:13 atlovav1a kernel: [628444.615828] tg3 0000:03:00.0: eth0: EEE is enabled
+>
+> I can't exclude the possibility it's switch problem, but I don't have access to box now and the
+> switch is not managed, so I'd like to try other ways first..
+>
+> Could this somehow be power management related? I don't see what else PM-related could I disable
+> in the bios to disable this EEE stuff.. Didn't anyone met similar problem?
+>
+> the system is running Centos6 with x86_64 3.0.76 kernel
+>
+> thanks in advance for any reply
+>
+> BR
+>
+> nik
+>
+>
