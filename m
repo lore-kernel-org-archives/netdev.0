@@ -1,39 +1,63 @@
-From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Subject: [patch] usbnet: pegasus: endian bug in write_mii_word()
-Date: Fri, 3 May 2013 09:44:20 +0300
-Message-ID: <20130503064420.GA14069@elgon.mountain>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v3 2/3] bridge: only expire the mdb entry when
+ query is received
+Date: Fri, 03 May 2013 15:08:46 +0800
+Message-ID: <1367564926.2415.56.camel@cr0>
+References: <1367305819-14013-1-git-send-email-amwang@redhat.com>
+	 <1367305819-14013-2-git-send-email-amwang@redhat.com>
+	 <20130502015938.GA2237@gondor.apana.org.au> <1367553022.2415.55.camel@cr0>
+	 <20130503040102.GA10898@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:54285 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1761595Ab3ECHJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 May 2013 03:09:03 -0400
+In-Reply-To: <20130503040102.GA10898@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We're only passing the two high bits of an integer.  It works for little
-endian but not for big endian.
+On Fri, 2013-05-03 at 12:01 +0800, Herbert Xu wrote:
+> 
+> I think I quoted the wrong hunk in the patch, I meant the code
+> that arms the timer should no longer be in the leave_group function
+> unless we just sent a query ourselves (and in that case the expiration
+> should also be adjusted accordingly).
 
-Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Is the following patch what you meant?
 
-diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
-index 0969905..03e8a15 100644
---- a/drivers/net/usb/pegasus.c
-+++ b/drivers/net/usb/pegasus.c
-@@ -256,8 +256,9 @@ static int mdio_read(struct net_device *dev, int phy_id, int loc)
- static void mdio_write(struct net_device *dev, int phy_id, int loc, int val)
- {
- 	pegasus_t *pegasus = netdev_priv(dev);
-+	u16 data = val;
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index d73276b..21fcc42 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1302,22 +1302,6 @@ static void br_multicast_leave_group(struct
+net_bridge *br,
+                goto out;
+        }
  
--	write_mii_word(pegasus, phy_id, loc, (__u16 *)&val);
-+	write_mii_word(pegasus, phy_id, loc, &data);
+-       for (p = mlock_dereference(mp->ports, br);
+-            p != NULL;
+-            p = mlock_dereference(p->next, br)) {
+-               if (p->port != port)
+-                       continue;
+-
+-               if (!hlist_unhashed(&p->mglist) &&
+-                   (timer_pending(&p->timer) ?
+-                    time_after(p->timer.expires, time) :
+-                    try_to_del_timer_sync(&p->timer) >= 0)) {
+-                       mod_timer(&p->timer, time);
+-               }
+-
+-               break;
+-       }
+-
+ out:
+        spin_unlock(&br->multicast_lock);
  }
- 
- static int read_eprom_word(pegasus_t *pegasus, __u8 index, __u16 *retdata)
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
