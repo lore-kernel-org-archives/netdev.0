@@ -1,41 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] gre: Fix GREv4 TCPv6 segmentation.
-Date: Thu, 02 May 2013 20:00:55 -0700
-Message-ID: <1367550055.29805.14.camel@edumazet-glaptop>
-References: <1367547259-17919-1-git-send-email-pshelar@nicira.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v7 4/6] vxlan: add ipv6 support
+Date: Fri, 03 May 2013 11:02:11 +0800
+Message-ID: <1367550131.2415.48.camel@cr0>
+References: <1367311395-15891-1-git-send-email-amwang@redhat.com>
+	 <1367311395-15891-5-git-send-email-amwang@redhat.com>
+	 <87r4hscr7s.fsf@nemi.mork.no> <1367313956.3216.18.camel@cr0>
+	 <87mwsgcnoy.fsf@nemi.mork.no> <1367481953.2415.29.camel@cr0>
+	 <87sj25a6tr.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sesse@google.com
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f53.google.com ([209.85.210.53]:56265 "EHLO
-	mail-da0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762679Ab3ECDA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 2 May 2013 23:00:58 -0400
-Received: by mail-da0-f53.google.com with SMTP id o9so591754dan.40
-        for <netdev@vger.kernel.org>; Thu, 02 May 2013 20:00:57 -0700 (PDT)
-In-Reply-To: <1367547259-17919-1-git-send-email-pshelar@nicira.com>
+Received: from mx1.redhat.com ([209.132.183.28]:27290 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757783Ab3ECDC2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 2 May 2013 23:02:28 -0400
+In-Reply-To: <87sj25a6tr.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-05-02 at 19:14 -0700, Pravin B Shelar wrote:
-> For ipv6 traffic, GRE can generate packet with strange GSO
-> bits, e.g. ipv4 packet with SKB_GSO_TCPV6 flag set.  Therefore
-> following patch relaxes check in inet gso handler to allow
-> such packet for segmentation.
-> This patch also fixes wrong skb->protocol set that was done in
-> gre_gso_segment() handler.
-> 
-> Reported-by: Steinar H. Gunderson <sesse@google.com>
-> CC: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
-> Same issue exist in 3.8.
-> ---
+On Thu, 2013-05-02 at 14:45 +0200, Bj=C3=B8rn Mork wrote:
+> Yes, I am pretty sure of that as well.  That's why I ask you to *test=
+*
+> your code with assorted settings before resubmitting it.  I'm not
+> going
+> to.=20
 
-Thanks a lot.
+I have two scripts to test my patch, one for IPv4 and one for IPv6. Bot=
+h
+use the default configuration on Fedora.
 
-I did a quick test and it appears to fix the problem.
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+That is chicken-and-egg problem, if I wasn't aware of such sysctl's, ho=
+w
+possible could I test it with different settings? Please don't doubt I
+have tested it as much as I can, I just didn't know some IPv6 specific
+sysctl's exist.
