@@ -1,35 +1,68 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2] ip: add missing help about mode argument
-Date: Fri,  3 May 2013 17:17:42 +0200
-Message-ID: <1367594262-5136-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] af_unix: fix a fatal race with bit fields
+Date: Fri, 3 May 2013 16:44:22 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7227@saturn3.aculab.com>
+References: <1367370761.11020.22.camel@edumazet-glaptop> <1367372393.22115.6.camel@pasglop> <AE90C24D6B3A694183C094C60CF0A2F6026B7226@saturn3.aculab.com> <1367593356.29805.37.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
+	"David Miller" <davem@davemloft.net>,
+	"netdev" <netdev@vger.kernel.org>,
+	"Paul Mackerras" <paulus@samba.org>,
+	"Ambrose Feinstein" <ambrose@google.com>,
+	<linuxppc-dev@lists.ozlabs.org>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:37574 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932459Ab3ECPST (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 11:18:19 -0400
+Received: from mx0.aculab.com ([213.249.233.131]:58082 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1760271Ab3ECPpY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 May 2013 11:45:24 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 26947-05 for <netdev@vger.kernel.org>;
+ Fri,  3 May 2013 16:45:20 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1367593356.29805.37.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is three possibilities: only IPv6, only IPv4 or both.
-
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- ip/link_ip6tnl.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/ip/link_ip6tnl.c b/ip/link_ip6tnl.c
-index 2947364..f5b1245 100644
---- a/ip/link_ip6tnl.c
-+++ b/ip/link_ip6tnl.c
-@@ -33,6 +33,7 @@ static void usage(void) __attribute__((noreturn));
- static void usage(void)
- {
- 	fprintf(stderr, "Usage: ip link { add | set | change | replace | del } NAME\n");
-+	fprintf(stderr, "          [ mode { ip6ip6 | ipip6 | any } ]\n");
- 	fprintf(stderr, "          type ip6tnl [ remote ADDR ] [ local ADDR ]\n");
- 	fprintf(stderr, "          [ dev PHYS_DEV ] [ encaplimit ELIM ]\n");
- 	fprintf(stderr ,"          [ hoplimit HLIM ] [ tclass TCLASS ] [ flowlabel FLOWLABEL ]\n");
--- 
-1.8.2.1
+PiA+ID4gQWxzbyBJJ2QgYmUgc3VycHJpc2VkIGlmIHBwYzY0IGlzIHRoZSBvbmx5IG9uZSB3aXRo
+IHRoYXQgcHJvYmxlbS4uLiB3aGF0DQo+ID4gPiBhYm91dCBzcGFyYzY0IGFuZCBhcm02NCA/DQo+
+ID4NCj4gPiBFdmVuIHg4NiBjb3VsZCBiZSBhZmZlY3RlZC4NCj4gPiBUaGUgd2lkdGggb2YgdGhl
+IG1lbW9yeSBjeWNsZXMgdXNlZCBieSB0aGUgJ2JpdCBzZXQgYW5kIGJpdCBjbGVhcicNCj4gPiBp
+bnN0cnVjdGlvbnMgaXNuJ3QgZG9jdW1lbnRlZC4gVGhleSBhcmUgY2VydGFpbmx5IGFsbG93ZWQg
+dG8gZG8NCj4gPiBSTVcgb24gYWRqYWNlbnQgYnl0ZXMuDQo+ID4gSSBkb24ndCByZW1lbWJlciB3
+aGV0aGVyIHRoZXkgYXJlIGNvbnN0cmFpbmVkIHRvIG9ubHkgZG8NCj4gPiAzMmJpdCBhY2Nlc3Nl
+cywgYnV0IG5vdGhpbmcgdXNlZCB0byBzYXkgdGhhdCB0aGV5IHdvdWxkbid0DQo+ID4gZG8gMzJi
+aXQgbWlzYWxpZ25lZCBvbmVzISAoYWx0aG91Z2ggSSBzdXNwZWN0IHRoZXkgbmV2ZXIgaGF2ZSku
+DQo+IA0KPiB4ODYgaXMgbm90IGFmZmVjdGVkIChvciBlbHNlIHdlIHdvdWxkIGhhdmUgZm91bmQg
+dGhlIGJ1ZyBtdWNoIGVhcmxpZXIpDQo+IA0KPiBTZXR0aW5nIDEtYml0IGZpZWxkIHRvIG9uZS96
+ZXJvIHVzZXMgT1IvQU5EIGluc3RydWN0aW9ucy4NCj4gDQo+IG9yYiAgJDQsNzI0KCVyZWcpDQo+
+IA0KPiBkb2Vzbid0IGxvYWQvc3RvcmUgNjRiaXRzIGJ1dCA4Yml0cy4NCg0KSSB3YXMgdGhpbmtp
+bmcgb2YgY29kZSB0aGF0IG1pZ2h0IGJlIHVzaW5nIEJULCBCVEMsIEJUUiBvciBCVFMuDQpUaGVz
+ZSBhcmUgcHJvYmFibHkgdXNlZCB3aXRoIHRoZSAnbG9jaycgcHJlZml4IC0gd2hpY2ggd291bGQN
+CihJIHRoaW5rKSBtYWtlIHRoZW0gc2FmZS4NCg0KVGhlIGRvY3VtZW50ZWQgY29uc3RyYWludCBp
+cyBtb3JlIHNwZWNpZmljIHRoYW4gaXQgdXNlZCB0byBiZQ0KdGhlIEludGVsIHZlcnNpb24gcmVh
+ZHM6DQoNCiAgICBXaGVuIGFjY2Vzc2luZyBhIGJpdCBpbiBtZW1vcnksIHRoZSBwcm9jZXNzb3Ig
+bWF5IGFjY2VzcyA0IGJ5dGVzDQogICAgc3RhcnRpbmcgZnJvbSB0aGUgbWVtb3J5IGFkZHJlc3Mg
+Zm9yIGEgMzItYml0IG9wZXJhbmQgc2l6ZSwgdXNpbmcNCiAgICBieSB0aGUgZm9sbG93aW5nIHJl
+bGF0aW9uc2hpcDoNCiAgICAgICAgRWZmZWN0aXZlIEFkZHJlc3MgKyAoNCDiiJcgKEJpdE9mZnNl
+dCBESVYgMzIpKQ0KICAgIE9yLCBpdCBtYXkgYWNjZXNzIDIgYnl0ZXMgc3RhcnRpbmcgZnJvbSB0
+aGUgbWVtb3J5IGFkZHJlc3MgZm9yIGENCiAgICAxNi1iaXQgb3BlcmFuZCwgdXNpbmcgdGhpcyBy
+ZWxhdGlvbnNoaXA6DQogICAgICAgIEVmZmVjdGl2ZSBBZGRyZXNzICsgKDIg4oiXIChCaXRPZmZz
+ZXQgRElWIDE2KSkNCiAgICBJdCBtYXkgZG8gc28gZXZlbiB3aGVuIG9ubHkgYSBzaW5nbGUgYnl0
+ZSBuZWVkcyB0byBiZSBhY2Nlc3NlZCB0bw0KICAgIHJlYWNoIHRoZSBnaXZlbiBiaXQuDQogICAg
+V2hlbiB1c2luZyB0aGlzIGJpdCBhZGRyZXNzaW5nIG1lY2hhbmlzbSwgc29mdHdhcmUgc2hvdWxk
+IGF2b2lkDQogICAgcmVmZXJlbmNpbmcgYXJlYXMgb2YgbWVtb3J5IGNsb3NlIHRvIGFkZHJlc3Mg
+c3BhY2UgaG9sZXMuDQogICAgSW4gcGFydGljdWxhciwgaXQgc2hvdWxkIGF2b2lkIHJlZmVyZW5j
+ZXMgdG8gbWVtb3J5LW1hcHBlZCBJL08gcmVnaXN0ZXJzLg0KICAgIEluc3RlYWQsIHNvZnR3YXJl
+IHNob3VsZCB1c2UgdGhlIE1PViBpbnN0cnVjdGlvbnMgdG8gbG9hZCBmcm9tIG9yIHN0b3JlDQog
+ICAgdG8gdGhlc2UgYWRkcmVzc2VzLCBhbmQgdXNlIHRoZSByZWdpc3RlciBmb3JtIG9mIHRoZXNl
+IGluc3RydWN0aW9ucyB0bw0KICAgIG1hbmlwdWxhdGUgdGhlIGRhdGEuDQogICAgSW4gNjQtYml0
+IG1vZGUsIHRoZSBpbnN0cnVjdGlvbuKAmXMgZGVmYXVsdCBvcGVyYXRpb24gc2l6ZSBpcyAzMiBi
+aXRzLg0KICAgIFVzaW5nIGEgUkVYIHByZWZpeCBpbiB0aGUgZm9ybSBvZiBSRVguUiBwZXJtaXRz
+IGFjY2VzcyB0byBhZGRpdGlvbmFsDQogICAgcmVnaXN0ZXJzIChSOC1SMTUpLiBVc2luZyBhIFJF
+WCBwcmVmaXggaW4gdGhlIGZvcm0gb2YgUkVYLlcgcHJvbW90ZXMNCiAgICBvcGVyYXRpb24gdG8g
+NjQgYml0IG9wZXJhbmRzLg0KDQoJRGF2aWQNCg0KDQo=
