@@ -1,7 +1,7 @@
-From: Steven Rostedt <rostedt@goodmis.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: 3.6-rt: inet_sk_rx_dst_set() network splat
-Date: Fri, 03 May 2013 17:56:23 -0400
-Message-ID: <1367618183.7373.22.camel@gandalf.local.home>
+Date: Fri, 03 May 2013 14:58:57 -0700
+Message-ID: <1367618337.22983.0.camel@edumazet-glaptop>
 References: <1366786204.5977.10.camel@marge.simpson.net>
 	 <1366853695.8964.120.camel@edumazet-glaptop>
 	 <1366865490.4595.22.camel@marge.simpson.net>
@@ -19,7 +19,7 @@ Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
 	David Miller <davem@davemloft.net>,
 	RT <linux-rt-users@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <linux-rt-users-owner@vger.kernel.org>
 In-Reply-To: <1367594003.7373.13.camel@gandalf.local.home>
 Sender: linux-rt-users-owner@vger.kernel.org
@@ -45,12 +45,11 @@ On Fri, 2013-05-03 at 11:13 -0400, Steven Rostedt wrote:
 > remove it if you think it's not necessary and will cause a slight
 > performance penalty.
 
-I took it out of 3.2-rt as I needed to add a patch and rerun my tests.
-But I'll leave it in 3.4-rt (unless you think I shoudn't) just so I
-don't need to rerun the tests. I'm only posting a pre-release anyway.
+You can keep it.
 
-Thanks,
+I was refereeing to the method used to trigger the bug.
 
--- Steve
+But the bug is really old and could trigger with other workloads.
+
 
 
