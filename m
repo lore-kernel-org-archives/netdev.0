@@ -1,41 +1,46 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v7 4/6] vxlan: add ipv6 support
-Date: Fri, 03 May 2013 11:02:11 +0800
-Message-ID: <1367550131.2415.48.camel@cr0>
-References: <1367311395-15891-1-git-send-email-amwang@redhat.com>
-	 <1367311395-15891-5-git-send-email-amwang@redhat.com>
-	 <87r4hscr7s.fsf@nemi.mork.no> <1367313956.3216.18.camel@cr0>
-	 <87mwsgcnoy.fsf@nemi.mork.no> <1367481953.2415.29.camel@cr0>
-	 <87sj25a6tr.fsf@nemi.mork.no>
+From: hayeswang <hayeswang@realtek.com>
+Subject: RE: [PATCH v3 net-next] net/usb: new driver for RTL8152
+Date: Fri, 3 May 2013 11:11:47 +0800
+Message-ID: <4215C45C849149B8A86B57F8D603AAEA@realtek.com.tw>
+References: <1366965948-1805-1-git-send-email-hayeswang@realtek.com> <1367546485-1619-1-git-send-email-hayeswang@realtek.com> <20130503023328.GB26712@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27290 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757783Ab3ECDC2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 2 May 2013 23:02:28 -0400
-In-Reply-To: <87sj25a6tr.fsf@nemi.mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <oliver@neukum.org>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	'nic_swsd' <nic_swsd@realtek.com>
+To: 'Greg KH' <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130503023328.GB26712@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-05-02 at 14:45 +0200, Bj=C3=B8rn Mork wrote:
-> Yes, I am pretty sure of that as well.  That's why I ask you to *test=
-*
-> your code with assorted settings before resubmitting it.  I'm not
-> going
-> to.=20
+Greg KH [mailto:gregkh@linuxfoundation.org] 
+> Sent: Friday, May 03, 2013 10:33 AM
+> To: Hayeswang
+> Cc: oliver@neukum.org; netdev@vger.kernel.org; 
+> linux-kernel@vger.kernel.org; linux-usb@vger.kernel.org; nic_swsd
+> Subject: Re: [PATCH v3 net-next] net/usb: new driver for RTL8152
+> 
+> On Fri, May 03, 2013 at 10:01:25AM +0800, Hayes Wang wrote:
+> > Add new driver for supporting Realtek RTL8152 Based USB 2.0 
+> Ethernet Adapters
+> > 
+> > Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> > Cc: Realtek linux nic maintainers <nic_swsd@realtek.com>
+> 
+> You removed the wording I had questions about last time, does 
+> that mean
+> the previous wording was not correct, or that you no longer are
+> publicising the fact that this driver reads on some patents that you
+> own?
+> 
+> You also failed to answer my previous questions, why?
 
-I have two scripts to test my patch, one for IPv4 and one for IPv6. Bot=
-h
-use the default configuration on Fedora.
+That description is about the patent for the hw design, not for software. It
+indicates that the design of the hw uses those patents from the other compnay. I
+have no idea about how to deal with those patents. What should I do for sending
+a patch? 
 
-That is chicken-and-egg problem, if I wasn't aware of such sysctl's, ho=
-w
-possible could I test it with different settings? Please don't doubt I
-have tested it as much as I can, I just didn't know some IPv6 specific
-sysctl's exist.
+Best Regards,
+Hayes
