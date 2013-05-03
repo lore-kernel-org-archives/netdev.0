@@ -1,46 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch net-next v3 2/3] bridge: only expire the mdb entry when
- query is received
-Date: Fri, 3 May 2013 17:30:17 +0800
-Message-ID: <20130503093017.GA12471@gondor.apana.org.au>
-References: <1367305819-14013-1-git-send-email-amwang@redhat.com>
- <1367305819-14013-2-git-send-email-amwang@redhat.com>
- <20130502015938.GA2237@gondor.apana.org.au>
- <1367553022.2415.55.camel@cr0>
- <20130503040102.GA10898@gondor.apana.org.au>
- <1367564926.2415.56.camel@cr0>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net-next PATCH 0/6] Adding pinctrl PM support for CPSW and Davinci
+ MDIO drivers
+Date: Fri, 3 May 2013 15:19:42 +0530
+Message-ID: <51838836.8050104@ti.com>
+References: <1367566736-26644-1-git-send-email-mugunthanvnm@ti.com> <20130503.034252.972676071176953465.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <devicetree-discuss@lists.ozlabs.org>,
+	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:53604 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752315Ab3ECJaX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 05:30:23 -0400
-Content-Disposition: inline
-In-Reply-To: <1367564926.2415.56.camel@cr0>
+Received: from bear.ext.ti.com ([192.94.94.41]:56319 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753137Ab3ECJt6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 May 2013 05:49:58 -0400
+In-Reply-To: <20130503.034252.972676071176953465.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 03, 2013 at 03:08:46PM +0800, Cong Wang wrote:
-> On Fri, 2013-05-03 at 12:01 +0800, Herbert Xu wrote:
-> > 
-> > I think I quoted the wrong hunk in the patch, I meant the code
-> > that arms the timer should no longer be in the leave_group function
-> > unless we just sent a query ourselves (and in that case the expiration
-> > should also be adjusted accordingly).
-> 
-> Is the following patch what you meant?
+On 5/3/2013 1:12 PM, David Miller wrote:
+> Please read:
+>
+> http://marc.info/?l=linux-netdev&m=136730964130303&w=2
+Sorry, will resend the patch series one net is merged with net-next.
 
-Right, but also add the corresponding timers in case we send a
-group-specific query since that won't loop back to ourselves.
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards
+Mugunthan V N
