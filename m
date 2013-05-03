@@ -1,36 +1,49 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCHv4] iproute2: generalize VXLAN forwarding tables
-Date: Fri, 3 May 2013 13:21:36 -0700
-Message-ID: <20130503132136.1d361d8b@nehalam.linuxnetplumber.net>
-References: <201305011321.r41DLM0j002746@lab1.dls>
+Subject: Re: [PATCH iproute2] ip: ipv6: add tokenized interface identifier
+ support
+Date: Fri, 3 May 2013 13:21:57 -0700
+Message-ID: <20130503132157.06e6aca7@nehalam.linuxnetplumber.net>
+References: <1367338970-2168-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@vyatta.com>, netdev@vger.kernel.org
-To: David L Stevens <dlstevens@us.ibm.com>
+Cc: netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f48.google.com ([209.85.210.48]:58272 "EHLO
-	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1762084Ab3ECUVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 16:21:53 -0400
-Received: by mail-da0-f48.google.com with SMTP id h32so945471dak.21
-        for <netdev@vger.kernel.org>; Fri, 03 May 2013 13:21:52 -0700 (PDT)
-In-Reply-To: <201305011321.r41DLM0j002746@lab1.dls>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:38734 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1763500Ab3ECUWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 16:22:14 -0400
+Received: by mail-pd0-f170.google.com with SMTP id 10so1090242pdi.29
+        for <netdev@vger.kernel.org>; Fri, 03 May 2013 13:22:13 -0700 (PDT)
+In-Reply-To: <1367338970-2168-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 01 May 2013 09:21:22 -0400
-David L Stevens <dlstevens@us.ibm.com> wrote:
+On Tue, 30 Apr 2013 18:22:50 +0200
+Daniel Borkmann <dborkman@redhat.com> wrote:
 
+> This patch adds support for tokenized IIDs, that enable
+> administrators to assign well-known host-part addresses
+> to nodes whilst still obtaining global network prefix
+> from Router Advertisements. This is the iproute2 part for
+> the kernel patch f53adae4eae5 (``net: ipv6: add tokenized
+> interface identifier support'').
 > 
-> iproute2 patch to generalize VXLAN forwarding tables
+> Example commands with iproute2:
 > 
-> This is the iproute2 support allowing an administrator to specify alternate
-> ports, vnis and outgoing interfaces for VXLAN device forwarding tables.
+> Setting a device token:
+>   # ip token set ::1a:2b:3c:4d/64 dev eth1
 > 
-> Changes since v3: changed NDA_PORT to be 16-bit network byte order to match
-> 	changed byte-order/size in the VXLAN driver.
+> Getting a device token:
+>   # ip token get dev eth1
+>   token ::1a:2b:3c:4d dev eth1
 > 
-> Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
+> Listing all tokens:
+>   # ip token list  (or: ip token)
+>   token :: dev eth0
+>   token ::1a:2b:3c:4d dev eth1
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Applied.
+Applied
