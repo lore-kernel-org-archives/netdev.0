@@ -1,140 +1,46 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 1/6] net: cpsw: enhance pinctrl support
-Date: Fri, 3 May 2013 13:08:51 +0530
-Message-ID: <1367566736-26644-2-git-send-email-mugunthanvnm@ti.com>
+Subject: [net-next PATCH 4/6] ARM: dts: AM33XX: Add CPSW phy_id device tree data to am335x-evmsk
+Date: Fri, 3 May 2013 13:08:54 +0530
+Message-ID: <1367566736-26644-5-git-send-email-mugunthanvnm@ti.com>
 References: <1367566736-26644-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
 	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
-	Hebbar Gururaja <gururaja.hebbar@ti.com>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([192.94.94.40]:33080 "EHLO arroyo.ext.ti.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:33095 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932971Ab3ECHjR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 May 2013 03:39:17 -0400
+	id S933021Ab3ECHjY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 May 2013 03:39:24 -0400
 In-Reply-To: <1367566736-26644-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hebbar Gururaja <gururaja.hebbar@ti.com>
+Add phy_id device tree data to am335x-evmsk device to bring up CPSW
+ethernet present on am335x starter kit.
 
-Amend cpsw controller to optionally take a pin control handle and set
-the state of the pins to:
-
-- "default" on boot, resume
-- "sleep" on suspend()
-
-This should make it possible to optimize energy usage for the pins
-for the suspend/resume cycle.
-
-If any of the above pin states are missing in dt, a warning message
-about the missing state is displayed.
-If certain pin-states are not available, to remove this warning message
-pass respective state name with null phandler.
-
-Signed-off-by: Hebbar Gururaja <gururaja.hebbar@ti.com>
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c |   49 ++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 49 insertions(+)
+ arch/arm/boot/dts/am335x-evmsk.dts |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 21a5b29..4a6f94b 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -35,6 +35,7 @@
- #include <linux/if_vlan.h>
- 
- #include <linux/platform_data/cpsw.h>
-+#include <linux/pinctrl/consumer.h>
- 
- #include "cpsw_ale.h"
- #include "cpts.h"
-@@ -351,6 +352,11 @@ struct cpsw_priv {
- 	bool irq_enabled;
- 	struct cpts *cpts;
- 	u32 emac_port;
-+
-+	/* Two optional pin states - default & sleep */
-+	struct pinctrl		*pinctrl;
-+	struct pinctrl_state	*pins_default;
-+	struct pinctrl_state	*pins_sleep;
+diff --git a/arch/arm/boot/dts/am335x-evmsk.dts b/arch/arm/boot/dts/am335x-evmsk.dts
+index f5a6162..f297b85 100644
+--- a/arch/arm/boot/dts/am335x-evmsk.dts
++++ b/arch/arm/boot/dts/am335x-evmsk.dts
+@@ -248,3 +248,11 @@
+ 		};
+ 	};
  };
- 
- #define napi_to_priv(napi)	container_of(napi, struct cpsw_priv, napi)
-@@ -1689,6 +1695,36 @@ static int cpsw_probe(struct platform_device *pdev)
- 	 */
- 	pm_runtime_enable(&pdev->dev);
- 
-+	priv->pinctrl = devm_pinctrl_get(&pdev->dev);
-+	if (!IS_ERR(priv->pinctrl)) {
-+		priv->pins_default = pinctrl_lookup_state(priv->pinctrl,
-+						PINCTRL_STATE_DEFAULT);
-+		/* enable pins to be muxed in and configured */
-+		if (IS_ERR(priv->pins_default))
-+			dev_warn(&pdev->dev, "could not get default pinstate\n");
-+		else
-+			if (pinctrl_select_state(priv->pinctrl,
-+						 priv->pins_default))
-+				dev_err(&pdev->dev,
-+					"could not set default pins\n");
 +
-+		priv->pins_sleep = pinctrl_lookup_state(priv->pinctrl,
-+						PINCTRL_STATE_SLEEP);
-+		if (IS_ERR(priv->pins_sleep))
-+			dev_warn(&pdev->dev, "could not get sleep pinstate\n");
-+	} else {
-+		/*
-+		* Since we continue even when pinctrl node is not found,
-+		* Invalidate pins as not available. This is to make sure that
-+		* IS_ERR(pins_xxx) results in failure when used.
-+		*/
-+		priv->pins_default = ERR_PTR(-ENODATA);
-+		priv->pins_sleep = ERR_PTR(-ENODATA);
++&cpsw_emac0 {
++	phy_id = <&davinci_mdio>, <0>;
++};
 +
-+		dev_warn(&pdev->dev,
-+			 "pins are not configured from the driver\n");
-+	}
-+
- 	if (cpsw_probe_dt(&priv->data, pdev)) {
- 		pr_err("cpsw: platform data missing\n");
- 		ret = -ENODEV;
-@@ -1973,11 +2009,17 @@ static int cpsw_suspend(struct device *dev)
- {
- 	struct platform_device	*pdev = to_platform_device(dev);
- 	struct net_device	*ndev = platform_get_drvdata(pdev);
-+	struct cpsw_priv	*priv = netdev_priv(ndev);
- 
- 	if (netif_running(ndev))
- 		cpsw_ndo_stop(ndev);
- 	pm_runtime_put_sync(&pdev->dev);
- 
-+	/* Optionally let pins go into sleep states */
-+	if (!IS_ERR(priv->pins_sleep))
-+		if (pinctrl_select_state(priv->pinctrl, priv->pins_sleep))
-+			dev_err(dev, "could not set pins to sleep state\n");
-+
- 	return 0;
- }
- 
-@@ -1985,8 +2027,15 @@ static int cpsw_resume(struct device *dev)
- {
- 	struct platform_device	*pdev = to_platform_device(dev);
- 	struct net_device	*ndev = platform_get_drvdata(pdev);
-+	struct cpsw_priv	*priv = netdev_priv(ndev);
- 
- 	pm_runtime_get_sync(&pdev->dev);
-+
-+	/* Optionaly enable pins to be muxed in and configured */
-+	if (!IS_ERR(priv->pins_default))
-+		if (pinctrl_select_state(priv->pinctrl, priv->pins_default))
-+			dev_err(dev, "could not set default pins\n");
-+
- 	if (netif_running(ndev))
- 		cpsw_ndo_open(ndev);
- 	return 0;
++&cpsw_emac1 {
++	phy_id = <&davinci_mdio>, <1>;
++};
 -- 
 1.7.9.5
