@@ -1,105 +1,93 @@
-From: Kirill Smelkov <kirr@mns.spb.ru>
-Subject: [PATCH] sky2: Fix crash on receiving VLAN frames
-Date: Fri,  3 May 2013 18:22:04 +0400
-Message-ID: <1367590924-8594-1-git-send-email-kirr@mns.spb.ru>
-Cc: netdev@vger.kernel.org, Kirill Smelkov <kirr@mns.spb.ru>,
-	Patrick McHardy <kaber@trash.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Mirko Lindner <mlindner@marvell.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH] Add support for netconsole driver used on
+ bridge device with VIF attached
+Date: Fri, 3 May 2013 10:36:32 -0400
+Message-ID: <20130503143632.GB3146@phenom.dumpdata.com>
+References: <1367409301.3301.21.camel@yuval-pc.mtl.com>
+ <1367572270.28742.44.camel@zakaz.uk.xensource.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Yuval Shaia <yuval.shaia@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
+	bridge <bridge@lists.linux-foundation.org>
+To: Ian Campbell <Ian.Campbell@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.mnsspb.ru ([84.204.75.2]:40514 "EHLO mail.mnsspb.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933859Ab3ECOgM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 May 2013 10:36:12 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:28991 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933918Ab3ECOgp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 10:36:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1367572270.28742.44.camel@zakaz.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-After recent 86a9bad3 (net: vlan: add protocol argument to packet
-tagging functions) my sky2 started to crash on receive of tagged
-frames, with backtrace similar to
+On Fri, May 03, 2013 at 10:11:10AM +0100, Ian Campbell wrote:
+> On Wed, 2013-05-01 at 12:55 +0100, Yuval Shaia wrote:
+> [... snip regurgitation of the thread...]
+> > 0001-Add-support-for-netconsole-driver-used-on-bridge-dev.patch
+> > 0 2001
+> > From: Yuval <yuval.shaia@oracle.com>
+> > Date: Tue, 8 Jan 2013 10:08:45 +0200
+> > Subject: [PATCH] Add support for netconsole driver used on bridge device with
+> >  VIF attached
+> 
+> Sorry, but this is not what I was asking for.
+> 
+> Please submit with a coherent changelog based on (i.e. digested from)
+> the previous discussion which explains why this change is necessary
+> including the background of why it is being made in this way and the
+> interaction with the bridging layer. I wasn't asking you to just cut and
+> paste that discussion and prepend it to the commit like that.
+> 
+> The key point is that we don't think that doing netconsole from dom0 to
+> a domU on the same host is a useful configuration or something which is
+> especially desirable to support but that because of how the bridge
+> handles netconsole netback needs to expose this hook in order that
+> netconsole can be enabled via a physical device on the same bridge to a
+> netserver elsewhere.
 
-    #CRASH!!!
-    vlan_do_receive
-    __netif_receive_skb_core
-    __netif_receive_skb
-    netif_receive_skb
-    sky2_poll
-    ...
-    __net_rx_action
-    __do_softirq
+I would have thought that doing netconsole on a domU would be a worthwile
+attempt - especially to troubleshoot a guest?
 
-The problem turned out to be:
-
-    1) sky2 copies small packets from ring on RX, and in its
-       receive_copy() skb header is copied manually field, by field, and
-       only for some fields;
-
-    2) 86a9bad3  added skb->vlan_proto, which vlan_untag() or
-       __vlan_hwaccel_put_tag() set, and which is later used in
-       vlan_do_receive().
-
-       That patch updated copy_skb_header() for newly introduced
-       skb->vlan_proto, but overlooked the need to also copy it in sky2's
-       receive_copy().
-
-Because of 2, we have the following scenario:
-
-    - frame is received and tagged in a ring, by sky2_rx_tag(). Both
-      skb->vlan_proto and skb->vlan_tci are set;
-
-    - later skb is decided to be copied, but skb->vlan_proto is
-      forgotten and becomes 0.
-
-    - in the beginning of vlan_do_receive() we call
-
-        __be16 vlan_proto = skb->vlan_proto;
-        vlan_dev = vlan_find_dev(skb->dev, vlan_proto, vlan_id);
-
-      which eventually invokes
-
-        vlan_proto_idx(vlan_proto)
-
-      and that routine BUGs for everything except ETH_P_8021Q and
-      ETH_P_8021AD.
-
-      Oops.
-
-Fix it.
-
-P.S.
-
-Stephen, I wonder, why copy_skb_header() is not used in
-sky2.c::receive_copy() ? Problems, where receive_copy was updated field
-by field showed several times already, e.g.
-
-    3f42941b    (sky2: propogate rx hash when packet is copied)
-    e072b3fa    (sky2: fix receive length error in mixed non-VLAN/VLAN traffic)
-
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: Mirko Lindner <mlindner@marvell.com>
-Signed-off-by: Kirill Smelkov <kirr@mns.spb.ru>
----
- drivers/net/ethernet/marvell/sky2.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/ethernet/marvell/sky2.c b/drivers/net/ethernet/marvell/sky2.c
-index 256ae78..d175bbd 100644
---- a/drivers/net/ethernet/marvell/sky2.c
-+++ b/drivers/net/ethernet/marvell/sky2.c
-@@ -2496,10 +2496,12 @@ static struct sk_buff *receive_copy(struct sky2_port *sky2,
- 		skb->ip_summed = re->skb->ip_summed;
- 		skb->csum = re->skb->csum;
- 		skb->rxhash = re->skb->rxhash;
-+		skb->vlan_proto = re->skb->vlan_proto;
- 		skb->vlan_tci = re->skb->vlan_tci;
- 
- 		pci_dma_sync_single_for_device(sky2->hw->pdev, re->data_addr,
- 					       length, PCI_DMA_FROMDEVICE);
-+		re->skb->vlan_proto = 0;
- 		re->skb->vlan_tci = 0;
- 		re->skb->rxhash = 0;
- 		re->skb->ip_summed = CHECKSUM_NONE;
--- 
-1.8.3.rc0.361.g39d8700
+> 
+> > 
+> > Signed-off-by: Yuval <yuval.shaia@oracle.com>
+> > ---
+> >  drivers/net/xen-netback/interface.c |    8 ++++++++
+> >  1 file changed, 8 insertions(+)
+> > 
+> > diff --git a/drivers/net/xen-netback/interface.c \
+> > b/drivers/net/xen-netback/interface.c index 601ae2a..10751f5 100644
+> > --- a/drivers/net/xen-netback/interface.c
+> > +++ b/drivers/net/xen-netback/interface.c
+> > @@ -179,6 +179,13 @@ static u32 xenvif_fix_features(struct net_device *dev, u32 \
+> > features)  return features;
+> >  }
+> >  
+> > +static void xenvif_poll_controller(struct net_device *dev)
+> > +{
+> > +	disable_irq(dev->irq);
+> > +	xenvif_interrupt(dev->irq, dev);
+> > +	enable_irq(dev->irq);
+> > +}
+> > +
+> >  static const struct xenvif_stat {
+> >  	char name[ETH_GSTRING_LEN];
+> >  	u16 offset;
+> > @@ -237,6 +244,7 @@ static const struct net_device_ops xenvif_netdev_ops = {
+> >  	.ndo_stop	= xenvif_close,
+> >  	.ndo_change_mtu	= xenvif_change_mtu,
+> >  	.ndo_fix_features = xenvif_fix_features,
+> > +	.ndo_poll_controller = xenvif_poll_controller,
+> >  };
+> >  
+> >  struct xenvif *xenvif_alloc(struct device *parent, domid_t domid,
+> 
+> 
+> 
+> _______________________________________________
+> Xen-devel mailing list
+> Xen-devel@lists.xen.org
+> http://lists.xen.org/xen-devel
+> 
