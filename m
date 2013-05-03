@@ -1,39 +1,47 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: [PATCH] cxgb4: fix error recovery when t4_fw_hello returns a positive value
-Date: Fri,  3 May 2013 15:11:04 -0300
-Message-ID: <1367604664-22368-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Cc: dm@chelsio.com, linux-kernel@vger.kernel.org,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: tg3 adapter losing link - PM related?
+Date: Fri, 3 May 2013 19:39:50 +0100
+Message-ID: <1367606390.2756.6.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130503092846.GA5126@pcnci.linuxbox.cz>
+	 <5183D40B.8090605@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Nikola Ciprich <nikola.ciprich@linuxbox.cz>,
+	<netdev@vger.kernel.org>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:58082 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758398Ab3ECSjy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 14:39:54 -0400
+In-Reply-To: <5183D40B.8090605@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since commit 636f9d371f70f22961fd598fe18380057518ca31 ("cxgb4: Add
-support for T4 configuration file"), t4_fw_hello may return a positive
-value instead of 0 for success. The recovery code tests only for zero
-and fails recovery for any other value.
+On Fri, 2013-05-03 at 08:13 -0700, Nithin Nayak Sujir wrote:
+> Hi Nikola,
+> 1. What device is present on this server? Can you give the tg3 messages 
+> in /var/log/messages? Can you also give the output of "ethtool -i <iface>"?
+> 
+> 2. Is it possible for you to try the latest 3.9 upstream kernel?
+> 
+> 3. Any reason why the link is at 100Mb? The switch does not support gig? 
+> What switch is it?
+> 
+> 4. I don't think you can turn off EEE in the bios, but you can try 
+> turning autoneg off. Try "ethtool -s <iface> speed 100 duplex full 
+> autoneg off". It's not exactly the same thing since the device still has 
+> EEE enabled but not negotiated.
+[...]
 
-This fix tests for negative error values and fails only on those cases.
-Error recovery after an error injection works after this change.
+It should be possible to disable EEE with ethtool.  You really should
+implement the EEE configuration operations in tg3 if you're going to
+enable it at all.
 
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
----
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Ben.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index c306df7..bb4ad38 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -4538,7 +4538,7 @@ static pci_ers_result_t eeh_slot_reset(struct pci_dev *pdev)
- 
- 	if (t4_wait_dev_ready(adap) < 0)
- 		return PCI_ERS_RESULT_DISCONNECT;
--	if (t4_fw_hello(adap, adap->fn, adap->fn, MASTER_MUST, NULL))
-+	if (t4_fw_hello(adap, adap->fn, adap->fn, MASTER_MUST, NULL) < 0)
- 		return PCI_ERS_RESULT_DISCONNECT;
- 	adap->flags |= FW_OK;
- 	if (adap_init1(adap, &c))
 -- 
-1.7.1
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
