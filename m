@@ -1,36 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH RFC] net: Update RPS target at poll for inet
-Date: Fri, 03 May 2013 15:06:42 -0700
-Message-ID: <1367618802.22983.2.camel@edumazet-glaptop>
-References: <20130501023452.E624181885@donbot.mtv.corp.google.com>
-	 <CA+mtBx-HwJqbfCyWFvZswZEd6UwEr0Ee31a2uDGXL5rMeQ6sGw@mail.gmail.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next] gre: Fix GREv4 TCPv6 segmentation.
+Date: Fri, 3 May 2013 15:54:11 -0700
+Message-ID: <CALnjE+qniQGq8azFE0AwmY545zgD+71fLtGmxzrytN_fVhMa1A@mail.gmail.com>
+References: <1367547259-17919-1-git-send-email-pshelar@nicira.com>
+	<20130503.161149.1251743328601859737.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Majnemer <majnemer@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Paul Turner <pjt@google.com>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Tom Herbert <therbert@google.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, sesse@google.com, eric.dumazet@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ia0-f171.google.com ([209.85.210.171]:36193 "EHLO
-	mail-ia0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752034Ab3ECWGp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 18:06:45 -0400
-Received: by mail-ia0-f171.google.com with SMTP id r13so1768788iar.16
-        for <netdev@vger.kernel.org>; Fri, 03 May 2013 15:06:45 -0700 (PDT)
-In-Reply-To: <CA+mtBx-HwJqbfCyWFvZswZEd6UwEr0Ee31a2uDGXL5rMeQ6sGw@mail.gmail.com>
+Received: from na3sys009aog101.obsmtp.com ([74.125.149.67]:54037 "HELO
+	na3sys009aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1761974Ab3ECWyN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 18:54:13 -0400
+Received: by mail-ob0-f199.google.com with SMTP id 16so10398467obc.6
+        for <netdev@vger.kernel.org>; Fri, 03 May 2013 15:54:12 -0700 (PDT)
+In-Reply-To: <20130503.161149.1251743328601859737.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-03 at 14:38 -0700, Tom Herbert wrote:
-> I think this is nice idea, if someone is polling and then reading from
-> another thread (CPU) that's not going to be good performance anyway.
-> 
-> Acked-by: Tom Herbert <therbert@google.com>
-> 
-> On Wed, Apr 17, 2013 at 1:10 PM, David Majnemer <majnemer@google.com> wrote:
+On Fri, May 3, 2013 at 1:11 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin B Shelar <pshelar@nicira.com>
+> Date: Thu,  2 May 2013 19:14:19 -0700
+>
+>> For ipv6 traffic, GRE can generate packet with strange GSO
+>> bits, e.g. ipv4 packet with SKB_GSO_TCPV6 flag set.  Therefore
+>> following patch relaxes check in inet gso handler to allow
+>> such packet for segmentation.
+>> This patch also fixes wrong skb->protocol set that was done in
+>> gre_gso_segment() handler.
+>>
+>> Reported-by: Steinar H. Gunderson <sesse@google.com>
+>> CC: Eric Dumazet <eric.dumazet@gmail.com>
+>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>
+> Applied.
 
-David, netdev missed your mail because your mailer used a date in the
-past.
+Hi David,
+
+This patch needs to be queued for -stable.
+
+Thanks.
