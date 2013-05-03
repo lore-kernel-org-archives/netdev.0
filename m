@@ -1,52 +1,35 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: 3.6-rt: inet_sk_rx_dst_set() network splat
-Date: Fri, 03 May 2013 11:13:23 -0400
-Message-ID: <1367594003.7373.13.camel@gandalf.local.home>
-References: <1366786204.5977.10.camel@marge.simpson.net>
-	 <1366853695.8964.120.camel@edumazet-glaptop>
-	 <1366865490.4595.22.camel@marge.simpson.net>
-	 <1366866233.8964.128.camel@edumazet-glaptop>
-	 <20130426105030.GE20927@linutronix.de>
-	 <1367455779.30667.113.camel@gandalf.local.home>
-	 <20130503082058.GA8230@linutronix.de>
-	 <1367589787.29805.23.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
-	Mike Galbraith <bitbucket@online.de>,
-	David Miller <davem@davemloft.net>,
-	RT <linux-rt-users@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH iproute2] ip: add missing help about mode argument
+Date: Fri,  3 May 2013 17:17:42 +0200
+Message-ID: <1367594262-5136-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: shemminger@vyatta.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hrndva-omtalb.mail.rr.com ([71.74.56.122]:8314 "EHLO
-	hrndva-omtalb.mail.rr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758210Ab3ECPN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 11:13:26 -0400
-In-Reply-To: <1367589787.29805.23.camel@edumazet-glaptop>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:37574 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932459Ab3ECPST (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 11:18:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-03 at 07:03 -0700, Eric Dumazet wrote:
-> On Fri, 2013-05-03 at 10:20 +0200, Sebastian Andrzej Siewior wrote:
-> > * Steven Rostedt | 2013-05-01 20:49:39 [-0400]:
-> > 
-> > >Is this something going into the stable tree, or does it not affect 3.0,
-> > >3.2, 3.4 or 3.6?
-> > 
-> > Mike Galbraith reported it against v3.6 so I would say that this is one
-> > candidate. I just booted v3.4.41-rt55 and it runs for 20 minutes now
-> > without any issues. Maybe it crashes after I sent the email but I hope
-> > it does not :)
-> 
-> Thats because the particular way to trigger the bug was to use the IP
-> early demux, and it was added in 3.5
+There is three possibilities: only IPv6, only IPv4 or both.
 
-Is it OK to keep it? I pulled the patch into 3.2-rt and 3.4-rt. I can
-remove it if you think it's not necessary and will cause a slight
-performance penalty.
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ ip/link_ip6tnl.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-Thanks,
-
--- Steve
+diff --git a/ip/link_ip6tnl.c b/ip/link_ip6tnl.c
+index 2947364..f5b1245 100644
+--- a/ip/link_ip6tnl.c
++++ b/ip/link_ip6tnl.c
+@@ -33,6 +33,7 @@ static void usage(void) __attribute__((noreturn));
+ static void usage(void)
+ {
+ 	fprintf(stderr, "Usage: ip link { add | set | change | replace | del } NAME\n");
++	fprintf(stderr, "          [ mode { ip6ip6 | ipip6 | any } ]\n");
+ 	fprintf(stderr, "          type ip6tnl [ remote ADDR ] [ local ADDR ]\n");
+ 	fprintf(stderr, "          [ dev PHYS_DEV ] [ encaplimit ELIM ]\n");
+ 	fprintf(stderr ,"          [ hoplimit HLIM ] [ tclass TCLASS ] [ flowlabel FLOWLABEL ]\n");
+-- 
+1.8.2.1
