@@ -1,54 +1,39 @@
-From: Lance Lassetter <lancelassetter@gmail.com>
-Subject: Re: r8169 with 3.9.0-rc9
-Date: Thu, 2 May 2013 23:24:07 -0500
-Message-ID: <20130503042406.GA26830@gmail.com>
-References: <20130426132254.GA22821@gmail.com>
- <20130426205018.GA18092@electric-eye.fr.zoreil.com>
- <20130427041230.GA18709@gmail.com>
- <20130428011232.GA4236@gmail.com>
- <20130501100733.GA16115@gmail.com>
- <20130501121502.GA5456@electric-eye.fr.zoreil.com>
- <20130501212803.GA3342@gmail.com>
- <20130501223155.GA15261@electric-eye.fr.zoreil.com>
- <20130502021848.GA30099@gmail.com>
- <20130502221837.GA9898@electric-eye.fr.zoreil.com>
+From: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: [patch] usbnet: pegasus: endian bug in write_mii_word()
+Date: Fri, 3 May 2013 09:44:20 +0300
+Message-ID: <20130503064420.GA14069@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f51.google.com ([209.85.213.51]:60529 "EHLO
-	mail-yh0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915Ab3ECEb2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 00:31:28 -0400
-Received: by mail-yh0-f51.google.com with SMTP id l109so231169yhq.38
-        for <netdev@vger.kernel.org>; Thu, 02 May 2013 21:31:28 -0700 (PDT)
+Cc: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Petko Manolov <petkan-nPnTwAqkgEqakBO8gow8eQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20130502221837.GA9898@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 03, 2013 at 12:18:37AM +0200, Francois Romieu wrote:
-> Lance Lassetter <lancelassetter@gmail.com> :
-> [...]
-> > afaik, I think my last FC17 kernel was 3.8.8-100 and the Fedora 18 install date
-> > was the week of the Fedora 18 alpha release, afaik September of 2012.
-> 
-> O_o
-> 
-> Did you try Fedora 17 kernels on your Fedora 18 ?
-> 
-> It does not look like a proper r8169 driver problem: almost (...) the same kernel,
-> different compiler and different userspace.
-> 
-> -- 
-> Ueimor
+We're only passing the two high bits of an integer.  It works for little
+endian but not for big endian.
 
+Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
 
-Ueimor,
-
-Sure will try!
-
-Thanks,
-
-Lance
+diff --git a/drivers/net/usb/pegasus.c b/drivers/net/usb/pegasus.c
+index 0969905..03e8a15 100644
+--- a/drivers/net/usb/pegasus.c
++++ b/drivers/net/usb/pegasus.c
+@@ -256,8 +256,9 @@ static int mdio_read(struct net_device *dev, int phy_id, int loc)
+ static void mdio_write(struct net_device *dev, int phy_id, int loc, int val)
+ {
+ 	pegasus_t *pegasus = netdev_priv(dev);
++	u16 data = val;
+ 
+-	write_mii_word(pegasus, phy_id, loc, (__u16 *)&val);
++	write_mii_word(pegasus, phy_id, loc, &data);
+ }
+ 
+ static int read_eprom_word(pegasus_t *pegasus, __u8 index, __u16 *retdata)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
