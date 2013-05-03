@@ -1,68 +1,55 @@
-From: Kamil Rytarowski <n54@gmx.com>
-Subject: iproute2 patch against GCC 4.8.0
-Date: Fri, 03 May 2013 18:52:21 +0200
-Message-ID: <5183EB45.8040504@gmx.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Fri, 3 May 2013 19:04:47 +0200
+Message-ID: <20130503170447.GB30733@dyad.programming.kicks-ass.net>
+References: <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg>
+ <20130502072623.GE7521@dyad.programming.kicks-ass.net>
+ <alpine.LFD.2.00.1305021848450.31548@ja.ssi.bg>
+ <20130502173257.GX3780@linux.vnet.ibm.com>
+ <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg>
+ <20130502193409.GA3780@linux.vnet.ibm.com>
+ <alpine.LFD.2.00.1305022249010.25417@ja.ssi.bg>
+ <20130502223107.GB3780@linux.vnet.ibm.com>
+ <alpine.LFD.2.00.1305031024080.1657@ja.ssi.bg>
+ <20130503163045.GE3780@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000508000909030607040705"
-To: shemminger@osdl.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:63221 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753486Ab3ECQtN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 May 2013 12:49:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130503163045.GE3780@linux.vnet.ibm.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000508000909030607040705
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+> The key point is that I don't understand why we cannot get the effect
+> we are looking for with the following in sched.h (or wherever):
+> 
+> static inline int cond_resched_rcu(void)
+> {
+> #if defined(CONFIG_DEBUG_ATOMIC_SLEEP) || !defined(CONFIG_PREEMPT_RCU)
+> 	rcu_read_unlock();
+> 	cond_resched();
+> 	rcu_read_lock();
+> #endif
+> }
+> 
+> This adds absolutely no overhead in non-debug builds of CONFIG_PREEMPT_RCU,
+> does the checking in debug builds, and allows voluntary preemption in
+> !CONFIG_PREEMPT_RCU builds.  CONFIG_PROVE_RCU builds will check for an
+> (illegal) outer rcu_read_lock() in CONFIG_PREEMPT_RCU builds, and you
+> will get "scheduling while atomic" in response to an outer rcu_read_lock()
+> in !CONFIG_PREEMPT_RCU builds.
+> 
+> It also seems to me a lot simpler.
+> 
+> Does this work, or am I still missing something?
 
-Hello!
-
-I'm attaching a patch [1] "Feed GCC 4.8.0 against new warning that is 
-shipped with -Wall: -Wsizeof-pointer-memaccess.".
-
-More details: http://gcc.gnu.org/gcc-4.8/porting_to.html
-
-Regards,
-
-[1] 0001-Feed-GCC-4.8.0-against-new-warning-that-is-shipped-w.patch
-
---------------000508000909030607040705
-Content-Type: text/x-patch;
- name="0001-Feed-GCC-4.8.0-against-new-warning-that-is-shipped-w.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-Feed-GCC-4.8.0-against-new-warning-that-is-shipped-w.pa";
- filename*1="tch"
-
->From 1f3ea01fe2ff61cbbca6474f7d9903a0756a4f44 Mon Sep 17 00:00:00 2001
-From: Kamil Rytarowski <n54@gmx.com>
-Date: Fri, 3 May 2013 18:43:38 +0200
-Subject: [PATCH] Feed GCC 4.8.0 against new warning that is shipped with
- -Wall: -Wsizeof-pointer-memaccess.
-
----
- misc/lnstat.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/misc/lnstat.c b/misc/lnstat.c
-index bd19cc1..90198b7 100644
---- a/misc/lnstat.c
-+++ b/misc/lnstat.c
-@@ -166,7 +166,7 @@ static struct table_hdr *build_hdr_string(struct lnstat_file *lnstat_files,
- 
- 	for (i = 0; i < HDR_LINES; i++) {
- 		th.hdr[i] = malloc(HDR_LINE_LENGTH);
--		memset(th.hdr[i], 0, sizeof(th.hdr[i]));
-+		memset(th.hdr[i], 0, HDR_LINE_LENGTH);
- 	}
- 
- 	for (i = 0; i < fps->num; i++) {
--- 
-1.8.1.5
-
-
---------------000508000909030607040705--
+It can do quite a number of superfluous rcu_read_unlock()/lock() pairs for
+voluntary preemption kernels?
