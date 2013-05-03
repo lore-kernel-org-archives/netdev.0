@@ -1,63 +1,41 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v3 2/3] bridge: only expire the mdb entry when
- query is received
-Date: Fri, 03 May 2013 15:08:46 +0800
-Message-ID: <1367564926.2415.56.camel@cr0>
-References: <1367305819-14013-1-git-send-email-amwang@redhat.com>
-	 <1367305819-14013-2-git-send-email-amwang@redhat.com>
-	 <20130502015938.GA2237@gondor.apana.org.au> <1367553022.2415.55.camel@cr0>
-	 <20130503040102.GA10898@gondor.apana.org.au>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next PATCH 0/6] Adding pinctrl PM support for CPSW and Davinci MDIO drivers
+Date: Fri, 3 May 2013 13:08:50 +0530
+Message-ID: <1367566736-26644-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
+	<linux-omap@vger.kernel.org>, <b-cousson@ti.com>, <paul@pwsan.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54285 "EHLO mx1.redhat.com"
+Received: from comal.ext.ti.com ([198.47.26.152]:41587 "EHLO comal.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761595Ab3ECHJD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 May 2013 03:09:03 -0400
-In-Reply-To: <20130503040102.GA10898@gondor.apana.org.au>
+	id S1758995Ab3ECHjO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 May 2013 03:39:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-03 at 12:01 +0800, Herbert Xu wrote:
-> 
-> I think I quoted the wrong hunk in the patch, I meant the code
-> that arms the timer should no longer be in the leave_group function
-> unless we just sent a query ourselves (and in that case the expiration
-> should also be adjusted accordingly).
+This patch series adds the following features
+* Adding pinctrl PM support for CPSW and MDIO for Power Optimization
+* Adding phy address to the CPSW node for EVMsk board
 
-Is the following patch what you meant?
+Hebbar Gururaja (1):
+  net: cpsw: enhance pinctrl support
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index d73276b..21fcc42 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1302,22 +1302,6 @@ static void br_multicast_leave_group(struct
-net_bridge *br,
-                goto out;
-        }
- 
--       for (p = mlock_dereference(mp->ports, br);
--            p != NULL;
--            p = mlock_dereference(p->next, br)) {
--               if (p->port != port)
--                       continue;
--
--               if (!hlist_unhashed(&p->mglist) &&
--                   (timer_pending(&p->timer) ?
--                    time_after(p->timer.expires, time) :
--                    try_to_del_timer_sync(&p->timer) >= 0)) {
--                       mod_timer(&p->timer, time);
--               }
--
--               break;
--       }
--
- out:
-        spin_unlock(&br->multicast_lock);
- }
+Mugunthan V N (5):
+  net: davinci_mdio: enhance pinctrl support
+  ARM: dts: AM33XX: Add pinmux configuration for CPSW to beaglebone
+  ARM: dts: AM33XX: Add CPSW phy_id device tree data to am335x-evmsk
+  ARM: dts: AM33XX: Add pinmux configuration for CPSW to EVMsk
+  ARM: dts: AM33XX: Add pinmux configuration for CPSW to am335x EVM
+
+ arch/arm/boot/dts/am335x-bone.dts      |   38 +++++++++++++++++++++
+ arch/arm/boot/dts/am335x-evm.dts       |   36 ++++++++++++++++++++
+ arch/arm/boot/dts/am335x-evmsk.dts     |   58 ++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw.c         |   49 +++++++++++++++++++++++++++
+ drivers/net/ethernet/ti/davinci_mdio.c |   46 +++++++++++++++++++++++++
+ 5 files changed, 227 insertions(+)
+
+-- 
+1.7.9.5
