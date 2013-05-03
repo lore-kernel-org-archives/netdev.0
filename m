@@ -1,68 +1,59 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] af_unix: fix a fatal race with bit fields
-Date: Fri, 3 May 2013 16:44:22 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7227@saturn3.aculab.com>
-References: <1367370761.11020.22.camel@edumazet-glaptop> <1367372393.22115.6.camel@pasglop> <AE90C24D6B3A694183C094C60CF0A2F6026B7226@saturn3.aculab.com> <1367593356.29805.37.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: net/eth/ibmveth: Fixup retrieval of MAC address
+Date: Fri, 3 May 2013 17:30:32 +0100
+Message-ID: <1367598632.2756.3.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1367458520.4389.6.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Benjamin Herrenschmidt" <benh@kernel.crashing.org>,
-	"David Miller" <davem@davemloft.net>,
-	"netdev" <netdev@vger.kernel.org>,
-	"Paul Mackerras" <paulus@samba.org>,
-	"Ambrose Feinstein" <ambrose@google.com>,
-	<linuxppc-dev@lists.ozlabs.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, David Miller <davem@davemloft.net>,
+	linuxppc-dev <linuxppc-dev@lists.ozlabs.org>,
+	David Gibson <dwg@au1.ibm.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:58082 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1760271Ab3ECPpY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 May 2013 11:45:24 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 26947-05 for <netdev@vger.kernel.org>;
- Fri,  3 May 2013 16:45:20 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1367593356.29805.37.camel@edumazet-glaptop>
+Received: from webmail.solarflare.com ([12.187.104.25]:36198 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932481Ab3ECQaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 12:30:39 -0400
+In-Reply-To: <1367458520.4389.6.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ID4gQWxzbyBJJ2QgYmUgc3VycHJpc2VkIGlmIHBwYzY0IGlzIHRoZSBvbmx5IG9uZSB3aXRo
-IHRoYXQgcHJvYmxlbS4uLiB3aGF0DQo+ID4gPiBhYm91dCBzcGFyYzY0IGFuZCBhcm02NCA/DQo+
-ID4NCj4gPiBFdmVuIHg4NiBjb3VsZCBiZSBhZmZlY3RlZC4NCj4gPiBUaGUgd2lkdGggb2YgdGhl
-IG1lbW9yeSBjeWNsZXMgdXNlZCBieSB0aGUgJ2JpdCBzZXQgYW5kIGJpdCBjbGVhcicNCj4gPiBp
-bnN0cnVjdGlvbnMgaXNuJ3QgZG9jdW1lbnRlZC4gVGhleSBhcmUgY2VydGFpbmx5IGFsbG93ZWQg
-dG8gZG8NCj4gPiBSTVcgb24gYWRqYWNlbnQgYnl0ZXMuDQo+ID4gSSBkb24ndCByZW1lbWJlciB3
-aGV0aGVyIHRoZXkgYXJlIGNvbnN0cmFpbmVkIHRvIG9ubHkgZG8NCj4gPiAzMmJpdCBhY2Nlc3Nl
-cywgYnV0IG5vdGhpbmcgdXNlZCB0byBzYXkgdGhhdCB0aGV5IHdvdWxkbid0DQo+ID4gZG8gMzJi
-aXQgbWlzYWxpZ25lZCBvbmVzISAoYWx0aG91Z2ggSSBzdXNwZWN0IHRoZXkgbmV2ZXIgaGF2ZSku
-DQo+IA0KPiB4ODYgaXMgbm90IGFmZmVjdGVkIChvciBlbHNlIHdlIHdvdWxkIGhhdmUgZm91bmQg
-dGhlIGJ1ZyBtdWNoIGVhcmxpZXIpDQo+IA0KPiBTZXR0aW5nIDEtYml0IGZpZWxkIHRvIG9uZS96
-ZXJvIHVzZXMgT1IvQU5EIGluc3RydWN0aW9ucy4NCj4gDQo+IG9yYiAgJDQsNzI0KCVyZWcpDQo+
-IA0KPiBkb2Vzbid0IGxvYWQvc3RvcmUgNjRiaXRzIGJ1dCA4Yml0cy4NCg0KSSB3YXMgdGhpbmtp
-bmcgb2YgY29kZSB0aGF0IG1pZ2h0IGJlIHVzaW5nIEJULCBCVEMsIEJUUiBvciBCVFMuDQpUaGVz
-ZSBhcmUgcHJvYmFibHkgdXNlZCB3aXRoIHRoZSAnbG9jaycgcHJlZml4IC0gd2hpY2ggd291bGQN
-CihJIHRoaW5rKSBtYWtlIHRoZW0gc2FmZS4NCg0KVGhlIGRvY3VtZW50ZWQgY29uc3RyYWludCBp
-cyBtb3JlIHNwZWNpZmljIHRoYW4gaXQgdXNlZCB0byBiZQ0KdGhlIEludGVsIHZlcnNpb24gcmVh
-ZHM6DQoNCiAgICBXaGVuIGFjY2Vzc2luZyBhIGJpdCBpbiBtZW1vcnksIHRoZSBwcm9jZXNzb3Ig
-bWF5IGFjY2VzcyA0IGJ5dGVzDQogICAgc3RhcnRpbmcgZnJvbSB0aGUgbWVtb3J5IGFkZHJlc3Mg
-Zm9yIGEgMzItYml0IG9wZXJhbmQgc2l6ZSwgdXNpbmcNCiAgICBieSB0aGUgZm9sbG93aW5nIHJl
-bGF0aW9uc2hpcDoNCiAgICAgICAgRWZmZWN0aXZlIEFkZHJlc3MgKyAoNCDiiJcgKEJpdE9mZnNl
-dCBESVYgMzIpKQ0KICAgIE9yLCBpdCBtYXkgYWNjZXNzIDIgYnl0ZXMgc3RhcnRpbmcgZnJvbSB0
-aGUgbWVtb3J5IGFkZHJlc3MgZm9yIGENCiAgICAxNi1iaXQgb3BlcmFuZCwgdXNpbmcgdGhpcyBy
-ZWxhdGlvbnNoaXA6DQogICAgICAgIEVmZmVjdGl2ZSBBZGRyZXNzICsgKDIg4oiXIChCaXRPZmZz
-ZXQgRElWIDE2KSkNCiAgICBJdCBtYXkgZG8gc28gZXZlbiB3aGVuIG9ubHkgYSBzaW5nbGUgYnl0
-ZSBuZWVkcyB0byBiZSBhY2Nlc3NlZCB0bw0KICAgIHJlYWNoIHRoZSBnaXZlbiBiaXQuDQogICAg
-V2hlbiB1c2luZyB0aGlzIGJpdCBhZGRyZXNzaW5nIG1lY2hhbmlzbSwgc29mdHdhcmUgc2hvdWxk
-IGF2b2lkDQogICAgcmVmZXJlbmNpbmcgYXJlYXMgb2YgbWVtb3J5IGNsb3NlIHRvIGFkZHJlc3Mg
-c3BhY2UgaG9sZXMuDQogICAgSW4gcGFydGljdWxhciwgaXQgc2hvdWxkIGF2b2lkIHJlZmVyZW5j
-ZXMgdG8gbWVtb3J5LW1hcHBlZCBJL08gcmVnaXN0ZXJzLg0KICAgIEluc3RlYWQsIHNvZnR3YXJl
-IHNob3VsZCB1c2UgdGhlIE1PViBpbnN0cnVjdGlvbnMgdG8gbG9hZCBmcm9tIG9yIHN0b3JlDQog
-ICAgdG8gdGhlc2UgYWRkcmVzc2VzLCBhbmQgdXNlIHRoZSByZWdpc3RlciBmb3JtIG9mIHRoZXNl
-IGluc3RydWN0aW9ucyB0bw0KICAgIG1hbmlwdWxhdGUgdGhlIGRhdGEuDQogICAgSW4gNjQtYml0
-IG1vZGUsIHRoZSBpbnN0cnVjdGlvbuKAmXMgZGVmYXVsdCBvcGVyYXRpb24gc2l6ZSBpcyAzMiBi
-aXRzLg0KICAgIFVzaW5nIGEgUkVYIHByZWZpeCBpbiB0aGUgZm9ybSBvZiBSRVguUiBwZXJtaXRz
-IGFjY2VzcyB0byBhZGRpdGlvbmFsDQogICAgcmVnaXN0ZXJzIChSOC1SMTUpLiBVc2luZyBhIFJF
-WCBwcmVmaXggaW4gdGhlIGZvcm0gb2YgUkVYLlcgcHJvbW90ZXMNCiAgICBvcGVyYXRpb24gdG8g
-NjQgYml0IG9wZXJhbmRzLg0KDQoJRGF2aWQNCg0KDQo=
+On Thu, 2013-05-02 at 11:35 +1000, Benjamin Herrenschmidt wrote:
+> Some ancient pHyp versions used to create a 8 bytes local-mac-address
+> property in the device-tree instead of a 6 bytes one for veth.
+> 
+> The Linux driver code to deal with that is an insane hack which also
+> happens to break with some choices of MAC addresses in qemu by testing
+> for a bit in the address rather than just looking at the size of the
+> property.
+> 
+> Sanitize this by doing the latter instead.
+[...]
+> @@ -1334,11 +1334,19 @@ static int ibmveth_probe(struct vio_dev *dev, const struct vio_device_id *id)
+>  		dev->unit_address);
+>  
+>  	mac_addr_p = (unsigned char *)vio_get_attribute(dev, VETH_MAC_ADDR,
+> -							NULL);
+> +							&mac_len);
+>  	if (!mac_addr_p) {
+>  		dev_err(&dev->dev, "Can't find VETH_MAC_ADDR attribute\n");
+>  		return -EINVAL;
+>  	}
+> +	/* Workaround for old/broken pHyp */
+> +	if (mac_len == 8)
+> +		mac_addr_p += 2;
+> +	if (mac_len != 6) {
+
+Missing 'else' before the second if?
+
+> +		dev_err(&dev->dev, "VETH_MAC_ADDR attribute wrong len %d\n",
+> +			mac_len);
+> +		return -EINVAL;
+> +	}
+[...]
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
