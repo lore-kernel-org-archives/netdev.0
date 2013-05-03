@@ -1,121 +1,61 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] packet: tpacket_v3: do not trigger bug() on wrong header status
-Date: Fri,  3 May 2013 14:57:00 +0200
-Message-ID: <1367585820-2674-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, darkjames-ws@darkjames.pl
-To: davem@davemloft.net
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH net-next] af_unix: fix a fatal race with bit fields
+Date: Fri, 03 May 2013 22:57:27 +1000
+Message-ID: <1367585847.4389.65.camel@pasglop>
+References: <1367370761.11020.22.camel@edumazet-glaptop>
+	 <20130501115103.58e40f37@kryten>
+	 <1367375060.11020.24.camel@edumazet-glaptop>
+	 <20130501035425.GD5221@bubble.grove.modra.org>
+	 <1367384672.11020.34.camel@edumazet-glaptop>
+	 <20130503013136.GN5221@bubble.grove.modra.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	Ambrose Feinstein <ambrose@google.com>,
+	Paul Mackerras <paulus@samba.org>,
+	Anton Blanchard <anton@samba.org>,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>
+To: Alan Modra <amodra@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:11916 "EHLO mx1.redhat.com"
+Received: from gate.crashing.org ([63.228.1.57]:51941 "EHLO gate.crashing.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1761757Ab3ECM5G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 May 2013 08:57:06 -0400
+	id S1755821Ab3ECM5z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 May 2013 08:57:55 -0400
+In-Reply-To: <20130503013136.GN5221@bubble.grove.modra.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jakub reported that it is fairly easy to trigger the BUG() macro
-from user space with TPACKET_V3's RX_RING by just giving a wrong
-header status flag. We already had a similar situation in commit
-7f5c3e3a80e6654 (``af_packet: remove BUG statement in
-tpacket_destruct_skb'') where this was the case in the TX_RING
-side that could be triggered from user space. So really, don't use
-BUG() or BUG_ON() unless there's really no way out, and i.e.
-don't use it for consistency checking when there's user space
-involved, no excuses, especially not if you're slapping the user
-with WARN + dump_stack + BUG all at once. The two functions are
-of concern:
+On Fri, 2013-05-03 at 11:01 +0930, Alan Modra wrote:
+> On Tue, Apr 30, 2013 at 10:04:32PM -0700, Eric Dumazet wrote:
+> > These kind of errors are pretty hard to find, its a pity to spend time
+> > on them.
+> 
+> Well, yes.  From the first comment in gcc PR52080.  "For the following
+> testcase we generate a 8 byte RMW cycle on IA64 which causes locking
+> problems in the linux kernel btrfs filesystem."
+> 
+> Did someone fix btrfs, but not check other kernel locks?  Having now
+> hit the same problem again, have you checked that other kernel locks
+> don't have adjacent bit fields in the same 64-bit word?  And comment
+> the struct to ensure someone doesn't optimize those unsigned chars
+> back to bit fields.
 
-  prb_retire_current_block() [when block status != TP_STATUS_KERNEL]
-  prb_open_block() [when block_status != TP_STATUS_KERNEL]
+Unfortunately, fixing "other" kernel locks is near impossible.
 
-Calls to prb_open_block() are guarded by ealier checks if block_status
-is really TP_STATUS_KERNEL (racy!), but the first one BUG() is easily
-triggable from user space. System behaves still stable after they are
-removed. Also remove that yoda condition entirely, since it's already
-guarded.
+One could try to grep for all spinlock_t and maybe even all atomic_t,
+may even write a script to spot automatically if a bitfield appears
+to be around (though it could be hidden behind a structure etc...) but
+what about an int accessed with cmxchg (a kernel macro doing a
+lwarx/stwcx. loop on a value) for example ? There's plenty of these...
 
-Reported-by: Jakub Zawadzki <darkjames-ws@darkjames.pl>
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- In general, TPACKET_V3 needs some bigger rework/cleanup in mid-term
- future anyway. Bug triggering is possible since introduction of v3.
+I don't think we can realistically "fix" all potential occurrences of
+that bug in the kernel short of geting rid of all bitfields, which isn't
+going to happen any time soon.
 
- net/packet/af_packet.c | 53 ++++++++++++++++++++++----------------------------
- 1 file changed, 23 insertions(+), 30 deletions(-)
+I'm afraid this *must* be fixed at the compiler level, with as backports
+much as can realistically be done back to distros.
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index dd5cd49..8ec1bca 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -742,36 +742,33 @@ static void prb_open_block(struct tpacket_kbdq_core *pkc1,
+Ben.
  
- 	smp_rmb();
- 
--	if (likely(TP_STATUS_KERNEL == BLOCK_STATUS(pbd1))) {
-+	/* We could have just memset this but we will lose the
-+	 * flexibility of making the priv area sticky
-+	 */
- 
--		/* We could have just memset this but we will lose the
--		 * flexibility of making the priv area sticky
--		 */
--		BLOCK_SNUM(pbd1) = pkc1->knxt_seq_num++;
--		BLOCK_NUM_PKTS(pbd1) = 0;
--		BLOCK_LEN(pbd1) = BLK_PLUS_PRIV(pkc1->blk_sizeof_priv);
--		getnstimeofday(&ts);
--		h1->ts_first_pkt.ts_sec = ts.tv_sec;
--		h1->ts_first_pkt.ts_nsec = ts.tv_nsec;
--		pkc1->pkblk_start = (char *)pbd1;
--		pkc1->nxt_offset = pkc1->pkblk_start + BLK_PLUS_PRIV(pkc1->blk_sizeof_priv);
--		BLOCK_O2FP(pbd1) = (__u32)BLK_PLUS_PRIV(pkc1->blk_sizeof_priv);
--		BLOCK_O2PRIV(pbd1) = BLK_HDR_LEN;
--		pbd1->version = pkc1->version;
--		pkc1->prev = pkc1->nxt_offset;
--		pkc1->pkblk_end = pkc1->pkblk_start + pkc1->kblk_size;
--		prb_thaw_queue(pkc1);
--		_prb_refresh_rx_retire_blk_timer(pkc1);
-+	BLOCK_SNUM(pbd1) = pkc1->knxt_seq_num++;
-+	BLOCK_NUM_PKTS(pbd1) = 0;
-+	BLOCK_LEN(pbd1) = BLK_PLUS_PRIV(pkc1->blk_sizeof_priv);
- 
--		smp_wmb();
-+	getnstimeofday(&ts);
- 
--		return;
--	}
-+	h1->ts_first_pkt.ts_sec = ts.tv_sec;
-+	h1->ts_first_pkt.ts_nsec = ts.tv_nsec;
- 
--	WARN(1, "ERROR block:%p is NOT FREE status:%d kactive_blk_num:%d\n",
--		pbd1, BLOCK_STATUS(pbd1), pkc1->kactive_blk_num);
--	dump_stack();
--	BUG();
-+	pkc1->pkblk_start = (char *)pbd1;
-+	pkc1->nxt_offset = pkc1->pkblk_start + BLK_PLUS_PRIV(pkc1->blk_sizeof_priv);
-+
-+	BLOCK_O2FP(pbd1) = (__u32)BLK_PLUS_PRIV(pkc1->blk_sizeof_priv);
-+	BLOCK_O2PRIV(pbd1) = BLK_HDR_LEN;
-+
-+	pbd1->version = pkc1->version;
-+	pkc1->prev = pkc1->nxt_offset;
-+	pkc1->pkblk_end = pkc1->pkblk_start + pkc1->kblk_size;
-+
-+	prb_thaw_queue(pkc1);
-+	_prb_refresh_rx_retire_blk_timer(pkc1);
-+
-+	smp_wmb();
- }
- 
- /*
-@@ -862,10 +859,6 @@ static void prb_retire_current_block(struct tpacket_kbdq_core *pkc,
- 		prb_close_block(pkc, pbd, po, status);
- 		return;
- 	}
--
--	WARN(1, "ERROR-pbd[%d]:%p\n", pkc->kactive_blk_num, pbd);
--	dump_stack();
--	BUG();
- }
- 
- static int prb_curr_blk_in_use(struct tpacket_kbdq_core *pkc,
--- 
-1.7.11.7
