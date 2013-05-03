@@ -1,63 +1,46 @@
-From: Ian Campbell <Ian.Campbell@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] Add support for netconsole driver used on
- bridge device with VIF attached
-Date: Fri, 3 May 2013 15:43:20 +0100
-Message-ID: <1367592200.28742.115.camel@zakaz.uk.xensource.com>
-References: <1367409301.3301.21.camel@yuval-pc.mtl.com>
-	 <1367572270.28742.44.camel@zakaz.uk.xensource.com>
-	 <20130503143632.GB3146@phenom.dumpdata.com>
+From: Berge Schwebs =?utf-8?Q?Bj=C3=B8rlo?= <berge@trivini.no>
+Subject: Re: [BUG] ipv6 and TSO on GRE is broken
+Date: Fri, 3 May 2013 16:52:49 +0200
+Message-ID: <20130503145248.GF31654@trivini.no>
+References: <1367423622.11020.54.camel@edumazet-glaptop>
+ <CALnjE+pPmsJx6zqcA7PnR3GX3HUrrtCbZyqj7nyEDBCv9_Tntw@mail.gmail.com>
+ <CALnjE+pvvHccEZZhH9ejCk4XGeTnWjupAFNfxvSAGdrOpHWhkg@mail.gmail.com>
+ <20130502083245.GD31654@trivini.no>
+ <CALnjE+qn8oaczOu0rRwcxhdmhaPSzVJgdhQ7un6yQC7og=fknQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yuval Shaia <yuval.shaia@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xensource.com" <xen-devel@lists.xensource.com>,
-	bridge <bridge@lists.linux-foundation.org>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"Steinar H. Gunderson" <sesse@google.com>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([46.33.159.39]:39276 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933637Ab3ECOnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 10:43:23 -0400
-In-Reply-To: <20130503143632.GB3146@phenom.dumpdata.com>
+Received: from cassarossa.samfundet.no ([193.35.52.29]:43504 "EHLO
+	cassarossa.samfundet.no" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932905Ab3ECOwy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 10:52:54 -0400
+Content-Disposition: inline
+In-Reply-To: <CALnjE+qn8oaczOu0rRwcxhdmhaPSzVJgdhQ7un6yQC7og=fknQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-03 at 15:36 +0100, Konrad Rzeszutek Wilk wrote:
-> On Fri, May 03, 2013 at 10:11:10AM +0100, Ian Campbell wrote:
-> > On Wed, 2013-05-01 at 12:55 +0100, Yuval Shaia wrote:
-> > [... snip regurgitation of the thread...]
-> > > 0001-Add-support-for-netconsole-driver-used-on-bridge-dev.patch
-> > > 0 2001
-> > > From: Yuval <yuval.shaia@oracle.com>
-> > > Date: Tue, 8 Jan 2013 10:08:45 +0200
-> > > Subject: [PATCH] Add support for netconsole driver used on bridge device with
-> > >  VIF attached
-> > 
-> > Sorry, but this is not what I was asking for.
-> > 
-> > Please submit with a coherent changelog based on (i.e. digested from)
-> > the previous discussion which explains why this change is necessary
-> > including the background of why it is being made in this way and the
-> > interaction with the bridging layer. I wasn't asking you to just cut and
-> > paste that discussion and prepend it to the commit like that.
-> > 
-> > The key point is that we don't think that doing netconsole from dom0 to
-> > a domU on the same host is a useful configuration or something which is
-> > especially desirable to support but that because of how the bridge
-> > handles netconsole netback needs to expose this hook in order that
-> > netconsole can be enabled via a physical device on the same bridge to a
-> > netserver elsewhere.
-> 
-> I would have thought that doing netconsole on a domU would be a worthwile
-> attempt - especially to troubleshoot a guest?
+On Thu, May 02, 2013 at 07:17:57PM -0700, Pravin Shelar wrote:
+> On Thu, May 2, 2013 at 1:32 AM, Berge Schwebs Bj=C3=B8rlo <berge@triv=
+ini.no>
+> wrote:
+>> I'm not sure if we're talking about the same issue, but I'm experien=
+cing
+>> massive packet drops with outbound IPv6 traffic with a GREv4 tunnel =
+with
+>> IPv6 traffic on the inside. Inbound traffic seems fine, and IPv4 ins=
+ide
+>> the tunnel is fine in both directions.
+> I posted fix on netdev.
 
-Yes. But that's not what I said, nor what this patch does.
+The patch fixes my issues. Thanks!
 
-What this patch enables is dom0 doing netconsole *to* a guest. i.e.
-dom0's console going to a guest running on the same host, which is not
-an especially useful thing to do.
+-B
 
-AFAIK netfront already supports domU netconsole.
-
-Ian.
+--=20
+Berge Schwebs Bj=C3=B8rlo
+Alegr=C3=ADa!
