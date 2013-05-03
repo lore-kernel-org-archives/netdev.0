@@ -1,76 +1,121 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [net-next PATCH 1/4] Revert "inet: limit length of fragment
- queue hash table bucket lists"
-Date: Fri, 3 May 2013 11:15:07 +0200
-Message-ID: <20130503111507.1f5ec1af@redhat.com>
-References: <20130424154624.16883.40974.stgit@dragon>
-	<20130424154800.16883.4797.stgit@dragon>
-	<1366848030.8964.98.camel@edumazet-glaptop>
-	<20130502095955.1ea082fb@redhat.com>
-	<1367507801.29805.12.camel@edumazet-glaptop>
+From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
+Subject: tg3 adapter losing link - PM related?
+Date: Fri, 3 May 2013 11:28:46 +0200
+Message-ID: <20130503092846.GA5126@pcnci.linuxbox.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="k1lZvvs/B4yU6o8G"
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15546 "EHLO mx1.redhat.com"
+Received: from gwu.lbox.cz ([62.245.111.132]:33125 "EHLO gwu.lbox.cz"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1762733Ab3ECJPQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 May 2013 05:15:16 -0400
-In-Reply-To: <1367507801.29805.12.camel@edumazet-glaptop>
+	id S1751518Ab3ECJ2s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 May 2013 05:28:48 -0400
+Received: from pcnci (pcnci.linuxbox.cz [10.76.3.14])
+	by gwu.lbox.cz (Sendmail) with ESMTP id r439SkmZ001172
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Fri, 3 May 2013 11:28:46 +0200
+Received: from pcnci.linuxbox.cz (localhost.localdomain [127.0.0.1])
+	by pcnci (8.14.5/8.14.5) with SMTP id r439SkSK010175
+	for <netdev@vger.kernel.org>; Fri, 3 May 2013 11:28:46 +0200
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 02 May 2013 08:16:41 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-> On Thu, 2013-05-02 at 09:59 +0200, Jesper Dangaard Brouer wrote:
-> > On Wed, 24 Apr 2013 17:00:30 -0700 Eric Dumazet
-> > <eric.dumazet@gmail.com> wrote:
-> > 
-> > > On Wed, 2013-04-24 at 17:48 +0200, Jesper Dangaard Brouer wrote:
-> > > > This reverts commit 5a3da1fe9561828d0ca7eca664b16ec2b9bf0055.
-> > > > 
-> > > > The problem with commit 5a3da1fe (inet: limit length of fragment
-> > > > queue hash table bucket lists) is that, once we hit the hash
-> > > > depth limit (of 128), the we *keep* the existing frag queues,
-> > > > not allowing new frag queues to be created.  Thus, an attacker
-> > > > can effectivly block handling of fragments for 30 sec (as each
-> > > > frag queue have a timeout of 30 sec)
-> > > > 
-> > > 
-> > > I do not think its good to revert this patch. It was a step in
-> > > right direction.
-> > 
-> > We need a revert, because we are too close to the merge window, and
-> > cannot complete the needed "steps" to make this patch safe, sorry.
-> 
-[...]
-> 
-> For people willing to allow more memory to be used, the only way is to
-> resize hash table, or using a bigger INETFRAGS_HASHSZ
->
-> I do not think there is a hurry, current defrag code is already better
-> than what we had years ago.
- 
-Eric I think we agree that:
- 1) we need resizing of hash table based on mem limit
- 2) mem limit per netns "blocks" the hash resize patch
+--k1lZvvs/B4yU6o8G
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Without these two patches/changes, the static 128 depth limit
-introduces an undocumented limit on the max mem limit
-setting (/proc/sys/net/ipv4/ipfrag_high_thresh).
+Hello,
 
-I think we only disagree on the order of the patches.
+I'd like to ask about trouble I've got with new HP server: tg3 adapter keep=
+s losing
+link every few minutes:
 
-But lets keep this, because after we have increased hash
-size (INETFRAGS_HASHSZ) to 1024, we have pushed the "undocumented
-limit" so-far that is very unlikely to be hit.  We would have to
-start >36 netns instances, all being overloaded with small
-incomplete fragments at the same time (30 sec time window).
+Aug  3 03:58:02 atlovav1a kernel: [616741.147598] tg3 0000:03:00.0: eth0: L=
+ink is down
+Aug  3 03:58:04 atlovav1a kernel: [616743.943456] tg3 0000:03:00.0: eth0: L=
+ink is up at 100 Mbps, full duplex
+Aug  3 03:58:04 atlovav1a kernel: [616743.943598] tg3 0000:03:00.0: eth0: F=
+low control is on for TX and on for RX
+Aug  3 03:58:04 atlovav1a kernel: [616743.943736] tg3 0000:03:00.0: eth0: E=
+EE is enabled
+Aug  3 04:14:29 atlovav1a kernel: [617727.980487] tg3 0000:03:00.0: eth0: L=
+ink is down
+Aug  3 04:14:32 atlovav1a kernel: [617730.847245] tg3 0000:03:00.0: eth0: L=
+ink is up at 100 Mbps, full duplex
+Aug  3 04:14:32 atlovav1a kernel: [617730.847387] tg3 0000:03:00.0: eth0: F=
+low control is on for TX and on for RX
+Aug  3 04:14:32 atlovav1a kernel: [617730.847525] tg3 0000:03:00.0: eth0: E=
+EE is enabled
+Aug  3 06:47:13 atlovav1a kernel: [626885.452974] tg3 0000:03:00.0: eth0: L=
+ink is down
+Aug  3 06:47:15 atlovav1a kernel: [626888.218702] tg3 0000:03:00.0: eth0: L=
+ink is up at 100 Mbps, full duplex
+Aug  3 06:47:15 atlovav1a kernel: [626888.218844] tg3 0000:03:00.0: eth0: F=
+low control is on for TX and on for RX
+Aug  3 06:47:15 atlovav1a kernel: [626888.218982] tg3 0000:03:00.0: eth0: E=
+EE is enabled
+Aug  3 06:51:44 atlovav1a kernel: [627156.293386] tg3 0000:03:00.0: eth0: L=
+ink is down
+Aug  3 06:51:46 atlovav1a kernel: [627159.123347] tg3 0000:03:00.0: eth0: L=
+ink is up at 100 Mbps, full duplex
+Aug  3 06:51:46 atlovav1a kernel: [627159.123491] tg3 0000:03:00.0: eth0: F=
+low control is on for TX and on for RX
+Aug  3 06:51:46 atlovav1a kernel: [627159.123629] tg3 0000:03:00.0: eth0: E=
+EE is enabled
+Aug  3 07:13:10 atlovav1a kernel: [628441.722197] tg3 0000:03:00.0: eth0: L=
+ink is down
+Aug  3 07:13:13 atlovav1a kernel: [628444.615548] tg3 0000:03:00.0: eth0: L=
+ink is up at 100 Mbps, full duplex
+Aug  3 07:13:13 atlovav1a kernel: [628444.615690] tg3 0000:03:00.0: eth0: F=
+low control is on for TX and on for RX
+Aug  3 07:13:13 atlovav1a kernel: [628444.615828] tg3 0000:03:00.0: eth0: E=
+EE is enabled
 
---Jesper
+I can't exclude the possibility it's switch problem, but I don't have acces=
+s to box now and the
+switch is not managed, so I'd like to try other ways first..
+
+Could this somehow be power management related? I don't see what else PM-re=
+lated could I disable
+in the bios to disable this EEE stuff.. Didn't anyone met similar problem?
+
+the system is running Centos6 with x86_64 3.0.76 kernel
+
+thanks in advance for any reply
+
+BR
+
+nik
+
+
+--=20
+-------------------------------------
+Ing. Nikola CIPRICH
+LinuxBox.cz, s.r.o.
+28.rijna 168, 709 00 Ostrava
+
+tel.:   +420 591 166 214
+fax:    +420 596 621 273
+mobil:  +420 777 093 799
+www.linuxbox.cz
+
+mobil servis: +420 737 238 656
+email servis: servis@linuxbox.cz
+-------------------------------------
+
+--k1lZvvs/B4yU6o8G
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.14 (GNU/Linux)
+
+iEYEARECAAYFAlGDg04ACgkQ3xdJJrLygV7ImwCg1y6jFOip3333XsPVUxQXUefH
+ycEAoJ1O4xNpE1+HjQQAUGQlBNuZrFWv
+=PEqp
+-----END PGP SIGNATURE-----
+
+--k1lZvvs/B4yU6o8G--
