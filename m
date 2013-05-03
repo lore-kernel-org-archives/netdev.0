@@ -1,63 +1,120 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: ixgbe: RTNL assertion failed
-Date: Fri, 3 May 2013 23:17:39 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF222866464C28E112@ORSMSX110.amr.corp.intel.com>
-References: <20130503120907.4f13d41b@nehalam.linuxnetplumber.net>
+From: Pavel Simerda <psimerda@redhat.com>
+Subject: Re: [GIT] Networking
+Date: Fri, 3 May 2013 19:35:35 -0400 (EDT)
+Message-ID: <1925922763.4087858.1367624135286.JavaMail.root@redhat.com>
+References: <20130502.041625.412316202038784117.davem@davemloft.net> <20130502083619.GA22010@macbook.localnet> <87d2t9bvj1.fsf@nemi.mork.no> <20130502.051727.949429506738234701.davem@davemloft.net> <1367490491.5106.137.camel@deadeye.wl.decadent.org.uk> <87zjwda9bl.fsf@nemi.mork.no> <CAHXqBF+S3mSbktoDzuHkzvEQkfxa6-2R-sYpqVsZBzMDTjUifQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:15600 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755512Ab3ECXRl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 19:17:41 -0400
-In-Reply-To: <20130503120907.4f13d41b@nehalam.linuxnetplumber.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?utf-8?Q?Bj=C3=B8rn?= Mork <bjorn@mork.no>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	David Miller <davem@davemloft.net>, kaber@trash.net,
+	torvalds@linux-foundation.org, hayeswang@realtek.com,
+	akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
+	Jiri Pirko <jpirko@redhat.com>
+To: =?utf-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHXqBF+S3mSbktoDzuHkzvEQkfxa6-2R-sYpqVsZBzMDTjUifQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Stephen Hemminger
-> Sent: Friday, May 03, 2013 12:09 PM
-> To: Kirsher, Jeffrey T
-> Cc: netdev@vger.kernel.org
-> Subject: ixgbe: RTNL assertion failed
-> 
-> Running 3.9 kernel, ixgbe is splatting on resume from suspend.
-> 
-> [26430.213254] ixgbe 0000:01:00.0: setting latency timer to 64 [26430.213257]
-> RTNL: assertion failed at /build/buildd-linux_3.2.41-2-amd64-Wvc92F/linux-
-> 3.2.41/net/core/dev.c (1758) [26430.213259] Pid: 7839, comm: kworker/u:1
-> Not tainted 3.2.0-4-amd64 #1 Debian 3.2.41-2 [26430.213261] Call Trace:
-> [26430.213266]  [<ffffffff8128b89e>] ?
-> netif_set_real_num_tx_queues+0x5c/0x15e
-> [26430.213286]  [<ffffffffa0051749>] ? ixgbe_set_num_queues+0x208/0x221
-> [ixgbe] [26430.213287] sd 0:0:0:0: [sda] Starting disk [26430.213292]
-> [<ffffffffa0054949>] ? ixgbe_init_interrupt_scheme+0x16/0x790 [ixgbe]
-> [26430.213299]  [<ffffffffa0055aae>] ? ixgbe_resume+0x7a/0xe3 [ixgbe]
-> [26430.213303]  [<ffffffff81255b7c>] ? pm_op+0xa1/0x141 [26430.213305]
-> [<ffffffff81255f40>] ? device_resume+0xa2/0xfc [26430.213307]
-> [<ffffffff81255fae>] ? async_resume+0x14/0x38 [26430.213311]
-> [<ffffffff810648c4>] ? async_run_entry_fn+0x96/0x142 [26430.213313]
-> [<ffffffff8105b225>] ? process_one_work+0x161/0x264 [26430.213316]
-> [<ffffffff8105c1e6>] ? worker_thread+0xc2/0x145 [26430.213318]
-> [<ffffffff8105c124>] ? manage_workers.isra.25+0x15b/0x15b
-> [26430.213320]  [<ffffffff8105f321>] ? kthread+0x76/0x7e [26430.213323]
-> [<ffffffff81354ab4>] ? kernel_thread_helper+0x4/0x10 [26430.213325]
-> [<ffffffff8105f2ab>] ? kthread_worker_fn+0x139/0x139 [26430.213327]
-> [<ffffffff81354ab0>] ? gs_change+0x13/0x13
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in the body
-> of a message to majordomo@vger.kernel.org More majordomo info at
-> http://vger.kernel.org/majordomo-info.html
+----- Original Message -----
+> From: "Micha=C5=82 Miros=C5=82aw" <mirqus@gmail.com>
+> To: "Bj=C3=B8rn Mork" <bjorn@mork.no>, "Pavel =C5=A0imerda" <psimerda=
+@redhat.com>
+> Cc: "Ben Hutchings" <bhutchings@solarflare.com>, "David Miller" <dave=
+m@davemloft.net>, kaber@trash.net,
+> torvalds@linux-foundation.org, hayeswang@realtek.com, akpm@linux-foun=
+dation.org, netdev@vger.kernel.org,
+> linux-kernel@vger.kernel.org
+> Sent: Thursday, May 2, 2013 6:22:47 PM
+> Subject: Re: [GIT] Networking
+>=20
+> 2013/5/2 Bj=C3=B8rn Mork <bjorn@mork.no>:
+> > Ben Hutchings <bhutchings@solarflare.com> writes:
+> >> On Thu, 2013-05-02 at 05:17 -0400, David Miller wrote:
+> >>> From: Bj=C3=B8rn Mork <bjorn@mork.no>
+> >>> Date: Thu, 02 May 2013 11:06:42 +0200
+> >>>
+> >>> > Adding the new netdev features will make it go from 1 to 2:
+> >>>
+> >>> We already had more than 31 feature bits before Patrick's
+> >>> changes, and I'm pretty sure this was the case when we added
+> >>> that ethtool API.
+> >>
+> >> It wasn't, but this should be OK.  Userland is supposed to query t=
+he
+> >> number of features using ETHTOOL_GSSET_INFO and then work out the =
+number
+> >> of words/blocks using FEATURE_BITS_TO_BLOCKS().
+> >
+> >
+> > Looking at
+> > http://cgit.freedesktop.org/NetworkManager/NetworkManager/tree/src/=
+platform/nm-linux-platform.c#n1025
+> > there seems to be a couple of bugs in this area. This is certainly
+> > abusing the exported API, but it does mean that NM breaks if you ev=
+er
+> > move NETIF_F_VLAN_CHALLENGED (like the 802.1ad patch did):
+> >
+> > ----
+> > #define NETIF_F_VLAN_CHALLENGED (1 << 10)
+> >
+> > static gboolean
+> > link_supports_vlans (NMPlatform *platform, int ifindex)
+> > {
+> >         auto_nl_object struct rtnl_link *rtnllink =3D link_get (pla=
+tform,
+> >         ifindex);
+> >         const char *name =3D nm_platform_link_get_name (ifindex);
+> >         struct {
+> >                 struct ethtool_gfeatures features;
+> >                 struct ethtool_get_features_block features_block;
+> >         } edata =3D { .features =3D { .cmd =3D ETHTOOL_GFEATURES, .=
+size =3D 1 } };
+> >
+> >         /* Only ARPHRD_ETHER links can possibly support VLANs. */
+> >         if (!rtnllink || rtnl_link_get_arptype (rtnllink) !=3D ARPH=
+RD_ETHER)
+> >                 return FALSE;
+> >
+> >         if (!name || !ethtool_get (name, &edata))
+> >                 return FALSE;
+> >
+> >         return !(edata.features.features[0].active &
+> >         NETIF_F_VLAN_CHALLENGED);
+> > }
+> > ----
+> >
+> >
+> > Not that I see how this particular bug matters unless you need VLAN
+> > support in NM.  But there could be similar issues around.  I guess
+> > avoiding unnecessary renumbering of the NETIF_F bits can save us so=
+me
+> > trouble.  Although you can certainly argue that those bits never we=
+re
+> > intended to be part of the API, and that using them like this is a =
+user
+> > application bug.
+>=20
+> This is certainly a bug in NM, and a fresh one: commit
+> b636ea86b1c0a28b77eda311c84d3b2417cad22e from 2013-04-10 14:40:58
+> (GMT). Userspace is expected to use ETHTOOL_GSTRINGS for
+> ETH_SS_FEATURES and find a corresponding bit position by feature name
+> ("vlan-challenged" in this case).
+>=20
+> Cc: commit's author.
 
-Hey Stephen,
+Recorded the bug with NetworkManager bugzilla blocking the upcoming rel=
+ease:
 
-I'm having a little problem finding a path were we call netif_set_real_num_tx_queues without holding RTNL in net-next.  While looking over the stack dump one of our engineers noticed the text "Not tainted 3.2.0-4-amd64 #1 Debian 3.2.41-2 ".  Could this mean I'm looking over the wrong source?  It would make me feel better as I'm not seeing anything as is. :)
+https://bugzilla.gnome.org/show_bug.cgi?id=3D699649
 
-Thanks,
--Don Skidmore <donald.c.skidmore@intel.com>
+The code is experimental and is not used by NetworkManager even in the =
+'master' branch except by nm-platform's automated tests. Once we fix it=
+, you don't need to worry about it.
+
+Thanks!
+
+Pavel
