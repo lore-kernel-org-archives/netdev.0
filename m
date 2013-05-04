@@ -1,31 +1,84 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] ss: add fastopen support
-Date: Fri, 03 May 2013 20:53:29 -0700
-Message-ID: <1367639609.22983.7.camel@edumazet-glaptop>
-References: <1364590317.5113.63.camel@edumazet-glaptop>
-	 <20130503204218.5a7d537f@nehalam.linuxnetplumber.net>
+Subject: [PATCH] tcp: do not expire TCP fastopen cookies
+Date: Fri, 03 May 2013 22:12:45 -0700
+Message-ID: <1367644365.22983.12.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f43.google.com ([209.85.210.43]:58601 "EHLO
-	mail-da0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751456Ab3EDDxb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 23:53:31 -0400
-Received: by mail-da0-f43.google.com with SMTP id u7so1076392dae.16
-        for <netdev@vger.kernel.org>; Fri, 03 May 2013 20:53:31 -0700 (PDT)
-In-Reply-To: <20130503204218.5a7d537f@nehalam.linuxnetplumber.net>
+Received: from mail-pd0-f174.google.com ([209.85.192.174]:32926 "EHLO
+	mail-pd0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751542Ab3EDFMs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 May 2013 01:12:48 -0400
+Received: by mail-pd0-f174.google.com with SMTP id u10so1221164pdi.33
+        for <netdev@vger.kernel.org>; Fri, 03 May 2013 22:12:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-03 at 20:42 -0700, Stephen Hemminger wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> Ok, but the header stuff needs work.
-> 
-> The headers from iproute2 come from the kernel sanitized headers (ie make headers_install)
-> The only definition of TCPI_OPT_ECN_SEEN in those headers is in <linux/tcp.h>
-> I will tweak the ss to use linux/tcp.h
+TCP metric cache expires entries after one hour.
 
-Thanks, this seems good to me.
+This probably make sense for TCP RTT/RTTVAR/CWND, but not
+for TCP fastopen cookies.
+
+Its better to try previous cookie. If it appears to be obsolete,
+server will send us new cookie anyway.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv4/tcp_metrics.c |   15 +++++++++------
+ 1 file changed, 9 insertions(+), 6 deletions(-)
+
+diff --git a/net/ipv4/tcp_metrics.c b/net/ipv4/tcp_metrics.c
+index f696d7c..f6a005c 100644
+--- a/net/ipv4/tcp_metrics.c
++++ b/net/ipv4/tcp_metrics.c
+@@ -96,7 +96,8 @@ struct tcpm_hash_bucket {
+ 
+ static DEFINE_SPINLOCK(tcp_metrics_lock);
+ 
+-static void tcpm_suck_dst(struct tcp_metrics_block *tm, struct dst_entry *dst)
++static void tcpm_suck_dst(struct tcp_metrics_block *tm, struct dst_entry *dst,
++			  bool fastopen_clear)
+ {
+ 	u32 val;
+ 
+@@ -122,9 +123,11 @@ static void tcpm_suck_dst(struct tcp_metrics_block *tm, struct dst_entry *dst)
+ 	tm->tcpm_vals[TCP_METRIC_REORDERING] = dst_metric_raw(dst, RTAX_REORDERING);
+ 	tm->tcpm_ts = 0;
+ 	tm->tcpm_ts_stamp = 0;
+-	tm->tcpm_fastopen.mss = 0;
+-	tm->tcpm_fastopen.syn_loss = 0;
+-	tm->tcpm_fastopen.cookie.len = 0;
++	if (fastopen_clear) {
++		tm->tcpm_fastopen.mss = 0;
++		tm->tcpm_fastopen.syn_loss = 0;
++		tm->tcpm_fastopen.cookie.len = 0;
++	}
+ }
+ 
+ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
+@@ -154,7 +157,7 @@ static struct tcp_metrics_block *tcpm_new(struct dst_entry *dst,
+ 	}
+ 	tm->tcpm_addr = *addr;
+ 
+-	tcpm_suck_dst(tm, dst);
++	tcpm_suck_dst(tm, dst, true);
+ 
+ 	if (likely(!reclaim)) {
+ 		tm->tcpm_next = net->ipv4.tcp_metrics_hash[hash].chain;
+@@ -171,7 +174,7 @@ out_unlock:
+ static void tcpm_check_stamp(struct tcp_metrics_block *tm, struct dst_entry *dst)
+ {
+ 	if (tm && unlikely(time_after(jiffies, tm->tcpm_stamp + TCP_METRICS_TIMEOUT)))
+-		tcpm_suck_dst(tm, dst);
++		tcpm_suck_dst(tm, dst, false);
+ }
+ 
+ #define TCP_METRICS_RECLAIM_DEPTH	5
