@@ -1,75 +1,47 @@
-From: Colin Cross <ccross@android.com>
-Subject: Re: [PATCH 2/2] lockdep: check that no locks held at freeze time
-Date: Sat, 4 May 2013 13:27:23 -0700
-Message-ID: <CAMbhsRScr+3Zk5Bi6390bGRbtE4oh2H-mHrGHS0wew5hdkivUg@mail.gmail.com>
-References: <1367615050-3894-1-git-send-email-ccross@android.com>
-	<1367615050-3894-2-git-send-email-ccross@android.com>
-	<20130504130440.GC13770@amd.pavel.ucw.cz>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2 10/10] af_unix: use freezable blocking calls in read
+Date: Sat, 4 May 2013 13:39:19 -0700
+Message-ID: <CAOS58YO2b=zFGUVqrV1dHV6gDouNJpN2Wnwo_D6f5V7G9Wz9Vg@mail.gmail.com>
+References: <1367458508-9133-1-git-send-email-ccross@android.com>
+	<1367458508-9133-11-git-send-email-ccross@android.com>
+	<20130503000812.GY19814@mtj.dyndns.org>
+	<85487641.pdFCOjE3G7@vostro.rjw.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: lkml <linux-kernel@vger.kernel.org>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Len Brown <len.brown@intel.com>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
+Cc: Colin Cross <ccross@android.com>,
+	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
+	lkml <linux-kernel@vger.kernel.org>, arve@android.com,
+	Oleg Nesterov <oleg@redhat.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Paul Walmsley <paul@pwsan.com>,
+	Eric Dumazet <edumazet@google.com>,
 	Al Viro <viro@zeniv.linux.org.uk>,
 	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
-	Linux PM list <linux-pm@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Ben Chan <benchan@chromium.org>
-To: Pavel Machek <pavel@ucw.cz>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20130504130440.GC13770@amd.pavel.ucw.cz>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Gao feng <gaofeng@cn.fujitsu.com>,
+	netdev <netdev@vger.kernel.org>
+To: "Rafael J. Wysocki" <rjw@sisk.pl>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f44.google.com ([209.85.216.44]:51301 "EHLO
+	mail-qa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757352Ab3EDUjU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 May 2013 16:39:20 -0400
+In-Reply-To: <85487641.pdFCOjE3G7@vostro.rjw.lan>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 4, 2013 at 6:04 AM, Pavel Machek <pavel@ucw.cz> wrote:
-> On Fri 2013-05-03 14:04:10, Colin Cross wrote:
->> From: Mandeep Singh Baines <msb@chromium.org>
+Hello, Rafael.
+
+On Sat, May 4, 2013 at 12:19 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
+>> Heh, so you are aware of the deadlock possibilities.  Good selection
+>> of spots.  For all the conversion patches.
 >>
->> We shouldn't try_to_freeze if locks are held.  Holding a lock can cause a
->> deadlock if the lock is later acquired in the suspend or hibernate path
->> (e.g.  by dpm).  Holding a lock can also cause a deadlock in the case of
->> cgroup_freezer if a lock is held inside a frozen cgroup that is later
->> acquired by a process outside that group.
+>>  Acked-by: Tejun Heo <tj@kernel.org>
 >
-> Ok, but this does not explain why
->
->> --- a/include/linux/debug_locks.h
->> +++ b/include/linux/debug_locks.h
->> @@ -51,7 +51,7 @@ struct task_struct;
->>  extern void debug_show_all_locks(void);
->>  extern void debug_show_held_locks(struct task_struct *task);
->>  extern void debug_check_no_locks_freed(const void *from, unsigned long len);
->> -extern void debug_check_no_locks_held(struct task_struct *task);
->> +extern void debug_check_no_locks_held(void);
->>  #else
->>  static inline void debug_show_all_locks(void)
->>  {
->
-> Removing task_struct argument from  those functions is good idea?
+> I wonder if that includes [3/10] (just to get the record straight)?
 
-This is an existing patch that was merged in 3.9 and then reverted
-again, so it has already been reviewed and accepted once.
+I think we want the lockdep annotations before these go in. I'll
+review Colin's new series later today.
 
->> --- a/kernel/exit.c
->> +++ b/kernel/exit.c
->> @@ -835,7 +835,7 @@ void do_exit(long code)
->>       /*
->>        * Make sure we are holding no locks:
->>        */
->> -     debug_check_no_locks_held(tsk);
->> +     debug_check_no_locks_held();
->
-> Is task guaranteed == current?
+Thanks!
 
-Yes, the first line of do_exit is:
-        struct task_struct *tsk = current;
+--
+tejun
