@@ -1,68 +1,55 @@
-From: Nikola Ciprich <nikola.ciprich@linuxbox.cz>
-Subject: Re: tg3 adapter losing link - PM related?
-Date: Sat, 4 May 2013 08:45:31 +0200
-Message-ID: <20130504064531.GA5972@nik-comp.linuxbox.cz>
-References: <20130503092846.GA5126@pcnci.linuxbox.cz>
- <5183D40B.8090605@broadcom.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
+Date: Sat, 4 May 2013 10:23:31 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1305041018520.1645@ja.ssi.bg>
+References: <20130501155501.GB7521@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg> <20130502072623.GE7521@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305021848450.31548@ja.ssi.bg> <20130502173257.GX3780@linux.vnet.ibm.com>
+ <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg> <20130502193409.GA3780@linux.vnet.ibm.com> <alpine.LFD.2.00.1305022249010.25417@ja.ssi.bg> <20130502223107.GB3780@linux.vnet.ibm.com> <alpine.LFD.2.00.1305031024080.1657@ja.ssi.bg>
+ <20130503163045.GE3780@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Dxnq1zWXvFF0Q93v"
-Cc: netdev@vger.kernel.org
-To: Nithin Nayak Sujir <nsujir@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gwu.lbox.cz ([62.245.111.132]:44805 "EHLO gwu.lbox.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753766Ab3EDGp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 May 2013 02:45:26 -0400
-Content-Disposition: inline
-In-Reply-To: <5183D40B.8090605@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Peter Zijlstra <peterz@infradead.org>,
+	Simon Horman <horms@verge.net.au>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Dipankar Sarma <dipankar@in.ibm.com>
+To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130503163045.GE3780@linux.vnet.ibm.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
---Dxnq1zWXvFF0Q93v
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+	Hello,
 
-Hello again,
+On Fri, 3 May 2013, Paul E. McKenney wrote:
 
-> 2. Is it possible for you to try the latest 3.9 upstream kernel?
+> static inline int cond_resched_rcu(void)
+> {
+> #if defined(CONFIG_DEBUG_ATOMIC_SLEEP) || !defined(CONFIG_PREEMPT_RCU)
+> 	rcu_read_unlock();
+> 	cond_resched();
+> 	rcu_read_lock();
+> #endif
+> }
+> 
+> This adds absolutely no overhead in non-debug builds of CONFIG_PREEMPT_RCU,
+> does the checking in debug builds, and allows voluntary preemption in
+> !CONFIG_PREEMPT_RCU builds.  CONFIG_PROVE_RCU builds will check for an
+> (illegal) outer rcu_read_lock() in CONFIG_PREEMPT_RCU builds, and you
+> will get "scheduling while atomic" in response to an outer rcu_read_lock()
+> in !CONFIG_PREEMPT_RCU builds.
+> 
+> It also seems to me a lot simpler.
+> 
+> Does this work, or am I still missing something?
 
-so in 3.9 it's the same..
+	Works perfectly. Thanks! Tested CONFIG_PREEMPT_RCU=y/n,
+the errors messages with extra RCU lock.
 
-the box is not used for production yet, so I have few days for tests and
-experiments if it helps. But I shouldn't cut myself off the network :)
-(although there's IPMI module present, so in worst case, I should be able
-to reboot the box..)
+Regards
 
-nik
-
---=20
--------------------------------------
-Ing. Nikola CIPRICH
-LinuxBox.cz, s.r.o.
-28. rijna 168, 709 00 Ostrava
-
-tel.:   +420 591 166 214
-fax:    +420 596 621 273
-mobil:  +420 777 093 799
-
-www.linuxbox.cz
-
-mobil servis: +420 737 238 656
-email servis: servis@linuxbox.cz
--------------------------------------
-
---Dxnq1zWXvFF0Q93v
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.14 (GNU/Linux)
-
-iEYEARECAAYFAlGErosACgkQ3xdJJrLygV4+0gCeP+hlPkwrjW76Q7w2DoYjEtqc
-iI4AoIkebwr5MmBqMJxGcJEq4E70W/EZ
-=6QJk
------END PGP SIGNATURE-----
-
---Dxnq1zWXvFF0Q93v--
+--
+Julian Anastasov <ja@ssi.bg>
