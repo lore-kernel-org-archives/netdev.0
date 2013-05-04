@@ -1,65 +1,43 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Sat, 4 May 2013 11:03:16 -0700
-Message-ID: <20130504180315.GB3659@linux.vnet.ibm.com>
-References: <20130502072623.GE7521@dyad.programming.kicks-ass.net>
- <alpine.LFD.2.00.1305021848450.31548@ja.ssi.bg>
- <20130502173257.GX3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg>
- <20130502193409.GA3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1305022249010.25417@ja.ssi.bg>
- <20130502223107.GB3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1305031024080.1657@ja.ssi.bg>
- <20130503163045.GE3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1305041018520.1645@ja.ssi.bg>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH RFT] 3c59x: fix freeing nonexistent resource on driver
+ unload
+Date: Sat, 04 May 2013 22:12:46 +0400
+Message-ID: <51854F9E.4030703@cogentembedded.com>
+References: <201305030110.22462.sergei.shtylyov@cogentembedded.com> <CAP8WD_ZYxhjYag3dQSKnbB6JojV=jxZzmn7_kJW_eOzQOWtKTg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Simon Horman <horms@verge.net.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1305041018520.1645@ja.ssi.bg>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: tedheadster <tedheadster@gmail.com>, netdev@vger.kernel.org,
+	klassert@mathematik.tu-chemnitz.de
+To: whiteheadm@acm.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f41.google.com ([209.85.215.41]:62292 "EHLO
+	mail-la0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1761847Ab3EDSNM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 May 2013 14:13:12 -0400
+Received: by mail-la0-f41.google.com with SMTP id fn20so2351752lab.14
+        for <netdev@vger.kernel.org>; Sat, 04 May 2013 11:13:11 -0700 (PDT)
+In-Reply-To: <CAP8WD_ZYxhjYag3dQSKnbB6JojV=jxZzmn7_kJW_eOzQOWtKTg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 04, 2013 at 10:23:31AM +0300, Julian Anastasov wrote:
-> 
-> 	Hello,
-> 
-> On Fri, 3 May 2013, Paul E. McKenney wrote:
-> 
-> > static inline int cond_resched_rcu(void)
-> > {
-> > #if defined(CONFIG_DEBUG_ATOMIC_SLEEP) || !defined(CONFIG_PREEMPT_RCU)
-> > 	rcu_read_unlock();
-> > 	cond_resched();
-> > 	rcu_read_lock();
-> > #endif
-> > }
-> > 
-> > This adds absolutely no overhead in non-debug builds of CONFIG_PREEMPT_RCU,
-> > does the checking in debug builds, and allows voluntary preemption in
-> > !CONFIG_PREEMPT_RCU builds.  CONFIG_PROVE_RCU builds will check for an
-> > (illegal) outer rcu_read_lock() in CONFIG_PREEMPT_RCU builds, and you
-> > will get "scheduling while atomic" in response to an outer rcu_read_lock()
-> > in !CONFIG_PREEMPT_RCU builds.
-> > 
-> > It also seems to me a lot simpler.
-> > 
-> > Does this work, or am I still missing something?
-> 
-> 	Works perfectly. Thanks! Tested CONFIG_PREEMPT_RCU=y/n,
-> the errors messages with extra RCU lock.
+Hello.
 
-Very good!  Please send the patch along, and I will ack it.
+On 03-05-2013 8:26, tedheadster wrote:
 
-						Thanx, Paul
+> Sergei
+>    well, the patch got rid of the "Trying to free nonexistent resource" error.
+> However, a problem still persists.
 
+    Does the module at least loads OK for the EISA card now?
+
+> When reloading the module a second time, the system's responsiveness hangs for
+> 10s of seconds. It eventually comes back, but even sysrq-h hangs for a long
+> time. I was able to do a sysrq-t eventually and capture the output to a log.
+> What shall we do to debug this next?
+
+    Frankly speaking, I don't know, and don't have much time to invest in this...
+
+> - Matthew
+
+WBR, Sergei
