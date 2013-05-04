@@ -1,55 +1,74 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v2 1/2] sched: Add cond_resched_rcu_lock() helper
-Date: Sat, 4 May 2013 10:23:31 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1305041018520.1645@ja.ssi.bg>
-References: <20130501155501.GB7521@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305012004360.3397@ja.ssi.bg> <20130502072623.GE7521@dyad.programming.kicks-ass.net> <alpine.LFD.2.00.1305021848450.31548@ja.ssi.bg> <20130502173257.GX3780@linux.vnet.ibm.com>
- <alpine.LFD.2.00.1305022140020.31548@ja.ssi.bg> <20130502193409.GA3780@linux.vnet.ibm.com> <alpine.LFD.2.00.1305022249010.25417@ja.ssi.bg> <20130502223107.GB3780@linux.vnet.ibm.com> <alpine.LFD.2.00.1305031024080.1657@ja.ssi.bg>
- <20130503163045.GE3780@linux.vnet.ibm.com>
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [PATCH 1/2] freezer: add unsafe versions of freezable helpers
+Date: Sat, 4 May 2013 15:00:33 +0200
+Message-ID: <20130504130033.GB13770@amd.pavel.ucw.cz>
+References: <1367615050-3894-1-git-send-email-ccross@android.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Peter Zijlstra <peterz@infradead.org>,
-	Simon Horman <horms@verge.net.au>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Ingo Molnar <mingo@redhat.com>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130503163045.GE3780@linux.vnet.ibm.com>
-Sender: lvs-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Len Brown <len.brown@intel.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Paul Walmsley <paul@pwsan.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
+	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>, Ben Chan <benchan@chromium.org>
+To: Colin Cross <ccross@android.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1367615050-3894-1-git-send-email-ccross@android.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi!
 
-	Hello,
-
-On Fri, 3 May 2013, Paul E. McKenney wrote:
-
-> static inline int cond_resched_rcu(void)
-> {
-> #if defined(CONFIG_DEBUG_ATOMIC_SLEEP) || !defined(CONFIG_PREEMPT_RCU)
-> 	rcu_read_unlock();
-> 	cond_resched();
-> 	rcu_read_lock();
-> #endif
-> }
+> NFS calls the freezable helpers with locks held, which is unsafe
+> and caused lockdep warnings when 6aa9707 "lockdep: check that no
+> locks held at freeze time" was applied (reverted in dbf520a).
+> Add new *_unsafe versions of the helpers that will not run the
+> lockdep test when 6aa9707 is reapplied, and call them from NFS.
 > 
-> This adds absolutely no overhead in non-debug builds of CONFIG_PREEMPT_RCU,
-> does the checking in debug builds, and allows voluntary preemption in
-> !CONFIG_PREEMPT_RCU builds.  CONFIG_PROVE_RCU builds will check for an
-> (illegal) outer rcu_read_lock() in CONFIG_PREEMPT_RCU builds, and you
-> will get "scheduling while atomic" in response to an outer rcu_read_lock()
-> in !CONFIG_PREEMPT_RCU builds.
-> 
-> It also seems to me a lot simpler.
-> 
-> Does this work, or am I still missing something?
+> Signed-off-by: Colin Cross <ccross@android.com>
 
-	Works perfectly. Thanks! Tested CONFIG_PREEMPT_RCU=y/n,
-the errors messages with extra RCU lock.
+Looks mostly good.
 
-Regards
+> @@ -152,6 +169,14 @@ static inline bool freezer_should_skip(struct task_struct *p)
+>  	freezer_count();						\
+>  })
+>  
+> +/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
+> +#define freezable_schedule_unsafe()					\
+> +({									\
+> +	freezer_do_not_count();						\
+> +	schedule();							\
+> +	freezer_count_unsafe();						\
+> +})
+> +
 
---
-Julian Anastasov <ja@ssi.bg>
+Make it inline function? :-). Add short explanation why it is good
+idea?
+
+> +/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
+> +#define freezable_schedule_timeout_killable_unsafe(timeout)		\
+> +({									\
+> +	long __retval;							\
+> +	freezer_do_not_count();						\
+> +	__retval = schedule_timeout_killable(timeout);			\
+> +	freezer_count_unsafe();						\
+> +	__retval;							\
+> +})
+
+Function too?
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
