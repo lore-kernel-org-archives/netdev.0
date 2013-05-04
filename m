@@ -1,120 +1,34 @@
-From: Pavel Simerda <psimerda@redhat.com>
-Subject: Re: [GIT] Networking
-Date: Fri, 3 May 2013 19:35:35 -0400 (EDT)
-Message-ID: <1925922763.4087858.1367624135286.JavaMail.root@redhat.com>
-References: <20130502.041625.412316202038784117.davem@davemloft.net> <20130502083619.GA22010@macbook.localnet> <87d2t9bvj1.fsf@nemi.mork.no> <20130502.051727.949429506738234701.davem@davemloft.net> <1367490491.5106.137.camel@deadeye.wl.decadent.org.uk> <87zjwda9bl.fsf@nemi.mork.no> <CAHXqBF+S3mSbktoDzuHkzvEQkfxa6-2R-sYpqVsZBzMDTjUifQ@mail.gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH iproute2] ss: add fastopen support
+Date: Fri, 3 May 2013 17:08:40 -0700
+Message-ID: <CAK6E8=fdwcFf0yeueQt+Et3MkiKY2dyuaVy6982dzUQoOxohFA@mail.gmail.com>
+References: <1364590317.5113.63.camel@edumazet-glaptop> <20130329.165659.1297013790823482161.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?utf-8?Q?Bj=C3=B8rn?= Mork <bjorn@mork.no>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>, kaber@trash.net,
-	torvalds@linux-foundation.org, hayeswang@realtek.com,
-	akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Dan Williams <dcbw@redhat.com>,
-	Jiri Pirko <jpirko@redhat.com>
-To: =?utf-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHXqBF+S3mSbktoDzuHkzvEQkfxa6-2R-sYpqVsZBzMDTjUifQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f51.google.com ([209.85.215.51]:41098 "EHLO
+	mail-la0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755932Ab3EDAJE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 May 2013 20:09:04 -0400
+Received: by mail-la0-f51.google.com with SMTP id ep20so1978442lab.10
+        for <netdev@vger.kernel.org>; Fri, 03 May 2013 17:09:02 -0700 (PDT)
+In-Reply-To: <20130329.165659.1297013790823482161.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
------ Original Message -----
-> From: "Micha=C5=82 Miros=C5=82aw" <mirqus@gmail.com>
-> To: "Bj=C3=B8rn Mork" <bjorn@mork.no>, "Pavel =C5=A0imerda" <psimerda=
-@redhat.com>
-> Cc: "Ben Hutchings" <bhutchings@solarflare.com>, "David Miller" <dave=
-m@davemloft.net>, kaber@trash.net,
-> torvalds@linux-foundation.org, hayeswang@realtek.com, akpm@linux-foun=
-dation.org, netdev@vger.kernel.org,
-> linux-kernel@vger.kernel.org
-> Sent: Thursday, May 2, 2013 6:22:47 PM
-> Subject: Re: [GIT] Networking
->=20
-> 2013/5/2 Bj=C3=B8rn Mork <bjorn@mork.no>:
-> > Ben Hutchings <bhutchings@solarflare.com> writes:
-> >> On Thu, 2013-05-02 at 05:17 -0400, David Miller wrote:
-> >>> From: Bj=C3=B8rn Mork <bjorn@mork.no>
-> >>> Date: Thu, 02 May 2013 11:06:42 +0200
-> >>>
-> >>> > Adding the new netdev features will make it go from 1 to 2:
-> >>>
-> >>> We already had more than 31 feature bits before Patrick's
-> >>> changes, and I'm pretty sure this was the case when we added
-> >>> that ethtool API.
-> >>
-> >> It wasn't, but this should be OK.  Userland is supposed to query t=
-he
-> >> number of features using ETHTOOL_GSSET_INFO and then work out the =
-number
-> >> of words/blocks using FEATURE_BITS_TO_BLOCKS().
-> >
-> >
-> > Looking at
-> > http://cgit.freedesktop.org/NetworkManager/NetworkManager/tree/src/=
-platform/nm-linux-platform.c#n1025
-> > there seems to be a couple of bugs in this area. This is certainly
-> > abusing the exported API, but it does mean that NM breaks if you ev=
-er
-> > move NETIF_F_VLAN_CHALLENGED (like the 802.1ad patch did):
-> >
-> > ----
-> > #define NETIF_F_VLAN_CHALLENGED (1 << 10)
-> >
-> > static gboolean
-> > link_supports_vlans (NMPlatform *platform, int ifindex)
-> > {
-> >         auto_nl_object struct rtnl_link *rtnllink =3D link_get (pla=
-tform,
-> >         ifindex);
-> >         const char *name =3D nm_platform_link_get_name (ifindex);
-> >         struct {
-> >                 struct ethtool_gfeatures features;
-> >                 struct ethtool_get_features_block features_block;
-> >         } edata =3D { .features =3D { .cmd =3D ETHTOOL_GFEATURES, .=
-size =3D 1 } };
-> >
-> >         /* Only ARPHRD_ETHER links can possibly support VLANs. */
-> >         if (!rtnllink || rtnl_link_get_arptype (rtnllink) !=3D ARPH=
-RD_ETHER)
-> >                 return FALSE;
-> >
-> >         if (!name || !ethtool_get (name, &edata))
-> >                 return FALSE;
-> >
-> >         return !(edata.features.features[0].active &
-> >         NETIF_F_VLAN_CHALLENGED);
-> > }
-> > ----
-> >
-> >
-> > Not that I see how this particular bug matters unless you need VLAN
-> > support in NM.  But there could be similar issues around.  I guess
-> > avoiding unnecessary renumbering of the NETIF_F bits can save us so=
-me
-> > trouble.  Although you can certainly argue that those bits never we=
-re
-> > intended to be part of the API, and that using them like this is a =
-user
-> > application bug.
->=20
-> This is certainly a bug in NM, and a fresh one: commit
-> b636ea86b1c0a28b77eda311c84d3b2417cad22e from 2013-04-10 14:40:58
-> (GMT). Userspace is expected to use ETHTOOL_GSTRINGS for
-> ETH_SS_FEATURES and find a corresponding bit position by feature name
-> ("vlan-challenged" in this case).
->=20
-> Cc: commit's author.
-
-Recorded the bug with NetworkManager bugzilla blocking the upcoming rel=
-ease:
-
-https://bugzilla.gnome.org/show_bug.cgi?id=3D699649
-
-The code is experimental and is not used by NetworkManager even in the =
-'master' branch except by nm-platform's automated tests. Once we fix it=
-, you don't need to worry about it.
-
-Thanks!
-
-Pavel
+On Fri, Mar 29, 2013 at 1:56 PM, David Miller <davem@davemloft.net> wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Fri, 29 Mar 2013 13:51:57 -0700
+>
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> ss -i can output "fastopen" attribute if socket used Fast Open
+>>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>
+> Reviewed-by: David S. Miller <davem@davemloft.net>
+Acked-by: Yuchung Cheng <ycheng@google.com>
