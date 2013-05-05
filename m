@@ -1,57 +1,128 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH v2 10/10] af_unix: use freezable blocking calls in read
-Date: Sun, 05 May 2013 13:23:30 +0200
-Message-ID: <1391819.HieY1Y9pgd@vostro.rjw.lan>
-References: <1367458508-9133-1-git-send-email-ccross@android.com> <CAOS58YO2b=zFGUVqrV1dHV6gDouNJpN2Wnwo_D6f5V7G9Wz9Vg@mail.gmail.com> <CAMbhsRSm74tsqXT7TG1h8L1DoKQV0_wKd3asxvHPR7bttWkxag@mail.gmail.com>
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Subject: [PATCH] net: frag, fix race conditions in LRU list maintenance
+Date: Sun, 05 May 2013 18:56:22 +0400
+Message-ID: <20130505145622.9351.86587.stgit@zurg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: Tejun Heo <tj@kernel.org>,
-	"linux-pm@vger.kernel.org" <linux-pm@vger.kernel.org>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Arve =?ISO-8859-1?Q?Hj=F8nnev=E5g?= <arve@android.com>,
-	Oleg Nesterov <oleg@redhat.com>,
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Gao feng <gaofeng@cn.fujitsu.com>,
-	netdev <netdev@vger.kernel.org>
-To: Colin Cross <ccross@android.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from hydra.sisk.pl ([212.160.235.94]:59390 "EHLO hydra.sisk.pl"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750795Ab3EELPL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 May 2013 07:15:11 -0400
-In-Reply-To: <CAMbhsRSm74tsqXT7TG1h8L1DoKQV0_wKd3asxvHPR7bttWkxag@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Saturday, May 04, 2013 03:23:30 PM Colin Cross wrote:
-> On Sat, May 4, 2013 at 1:39 PM, Tejun Heo <tj@kernel.org> wrote:
-> > Hello, Rafael.
-> >
-> > On Sat, May 4, 2013 at 12:19 PM, Rafael J. Wysocki <rjw@sisk.pl> wrote:
-> >>> Heh, so you are aware of the deadlock possibilities.  Good selection
-> >>> of spots.  For all the conversion patches.
-> >>>
-> >>>  Acked-by: Tejun Heo <tj@kernel.org>
-> >>
-> >> I wonder if that includes [3/10] (just to get the record straight)?
-> >
-> > I think we want the lockdep annotations before these go in. I'll
-> > review Colin's new series later today.
-> 
-> Just to make sure the merge order is clear, the two patches I posted
-> yesterday to reintroduce the lockdep warning in try_to_freeze()
-> (https://lkml.org/lkml/2013/5/3/488) need to be merged first, then I
-> will repost this series on top of that one.
+This patch fixes race between inet_frag_lru_move() and inet_frag_lru_add()
+which was introduced in commit 3ef0eb0db4bf92c6d2510fe5c4dc51852746f206
+("net: frag, move LRU list maintenance outside of rwlock")
 
-OK, thanks for the clarification.
+One cpu already added new fragment queue into hash but not into LRU.
+Other cpu found it in hash and tries to move it to the end of LRU.
+This leads to NULL pointer dereference inside of list_move_tail().
 
-Rafael
+Another possible race condition is between inet_frag_lru_move() and
+inet_frag_lru_del(): move can happens after deletion.
 
+This patch initializes LRU list head before adding fragment into hash and
+inet_frag_lru_move() doesn't touches it if it's empty.
 
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+I saw this kernel oops two times in a couple of days.
+
+[119482.128853] BUG: unable to handle kernel NULL pointer dereference at           (null)
+[119482.132693] IP: [<ffffffff812ede89>] __list_del_entry+0x29/0xd0
+[119482.136456] PGD 2148f6067 PUD 215ab9067 PMD 0
+[119482.140221] Oops: 0000 [#1] SMP
+[119482.144008] Modules linked in: vfat msdos fat 8021q fuse nfsd auth_rpcgss nfs_acl nfs lockd sunrpc ppp_async ppp_generic bridge slhc stp llc w83627ehf hwmon_vid snd_hda_codec_hdmi snd_hda_codec_realtek kvm_amd k10temp kvm snd_hda_intel snd_hda_codec edac_core radeon snd_hwdep ath9k snd_pcm ath9k_common snd_page_alloc ath9k_hw snd_timer snd soundcore drm_kms_helper ath ttm r8169 mii
+[119482.152692] CPU 3
+[119482.152721] Pid: 20, comm: ksoftirqd/3 Not tainted 3.9.0-zurg-00001-g9f95269 #132 To Be Filled By O.E.M. To Be Filled By O.E.M./RS880D
+[119482.161478] RIP: 0010:[<ffffffff812ede89>]  [<ffffffff812ede89>] __list_del_entry+0x29/0xd0
+[119482.166004] RSP: 0018:ffff880216d5db58  EFLAGS: 00010207
+[119482.170568] RAX: 0000000000000000 RBX: ffff88020882b9c0 RCX: dead000000200200
+[119482.175189] RDX: 0000000000000000 RSI: 0000000000000880 RDI: ffff88020882ba00
+[119482.179860] RBP: ffff880216d5db58 R08: ffffffff8155c7f0 R09: 0000000000000014
+[119482.184570] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88020882ba00
+[119482.189337] R13: ffffffff81c8d780 R14: ffff880204357f00 R15: 00000000000005a0
+[119482.194140] FS:  00007f58124dc700(0000) GS:ffff88021fcc0000(0000) knlGS:0000000000000000
+[119482.198928] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[119482.203711] CR2: 0000000000000000 CR3: 00000002155f0000 CR4: 00000000000007e0
+[119482.208533] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[119482.213371] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[119482.218221] Process ksoftirqd/3 (pid: 20, threadinfo ffff880216d5c000, task ffff880216d3a9a0)
+[119482.223113] Stack:
+[119482.228004]  ffff880216d5dbd8 ffffffff8155dcda 0000000000000000 ffff000200000001
+[119482.233038]  ffff8802153c1f00 ffff880000289440 ffff880200000014 ffff88007bc72000
+[119482.238083]  00000000000079d5 ffff88007bc72f44 ffffffff00000002 ffff880204357f00
+[119482.243090] Call Trace:
+[119482.248009]  [<ffffffff8155dcda>] ip_defrag+0x8fa/0xd10
+[119482.252921]  [<ffffffff815a8013>] ipv4_conntrack_defrag+0x83/0xe0
+[119482.257803]  [<ffffffff8154485b>] nf_iterate+0x8b/0xa0
+[119482.262658]  [<ffffffff8155c7f0>] ? inet_del_offload+0x40/0x40
+[119482.267527]  [<ffffffff815448e4>] nf_hook_slow+0x74/0x130
+[119482.272412]  [<ffffffff8155c7f0>] ? inet_del_offload+0x40/0x40
+[119482.277302]  [<ffffffff8155d068>] ip_rcv+0x268/0x320
+[119482.282147]  [<ffffffff81519992>] __netif_receive_skb_core+0x612/0x7e0
+[119482.286998]  [<ffffffff81519b78>] __netif_receive_skb+0x18/0x60
+[119482.291826]  [<ffffffff8151a650>] process_backlog+0xa0/0x160
+[119482.296648]  [<ffffffff81519f29>] net_rx_action+0x139/0x220
+[119482.301403]  [<ffffffff81053707>] __do_softirq+0xe7/0x220
+[119482.306103]  [<ffffffff81053868>] run_ksoftirqd+0x28/0x40
+[119482.310809]  [<ffffffff81074f5f>] smpboot_thread_fn+0xff/0x1a0
+[119482.315515]  [<ffffffff81074e60>] ? lg_local_lock_cpu+0x40/0x40
+[119482.320219]  [<ffffffff8106d870>] kthread+0xc0/0xd0
+[119482.324858]  [<ffffffff8106d7b0>] ? insert_kthread_work+0x40/0x40
+[119482.329460]  [<ffffffff816c32dc>] ret_from_fork+0x7c/0xb0
+[119482.334057]  [<ffffffff8106d7b0>] ? insert_kthread_work+0x40/0x40
+[119482.338661] Code: 00 00 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de 48 8b 47 08 48 89 e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00 ad de 48 39 c8 74 7a <4c> 8b 00 4c 39 c7 75 53 4c 8b 42 08 4c 39 c7 75 2b 48 89 42 08
+[119482.343787] RIP  [<ffffffff812ede89>] __list_del_entry+0x29/0xd0
+[119482.348675]  RSP <ffff880216d5db58>
+[119482.353493] CR2: 0000000000000000
+
+Oops happened on this path:
+ip_defrag() -> ip_frag_queue() -> inet_frag_lru_move() -> list_move_tail() -> __list_del_entry()
+
+Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+Cc: Florian Westphal <fw@strlen.de>
+Cc: Eric Dumazet <edumazet@google.com>
+Cc: David S. Miller <davem@davemloft.net>
+---
+ include/net/inet_frag.h  |    5 +++--
+ net/ipv4/inet_fragment.c |    1 +
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
+index 0a1dcc2..ab3d0ac 100644
+--- a/include/net/inet_frag.h
++++ b/include/net/inet_frag.h
+@@ -135,14 +135,15 @@ static inline int sum_frag_mem_limit(struct netns_frags *nf)
+ static inline void inet_frag_lru_move(struct inet_frag_queue *q)
+ {
+ 	spin_lock(&q->net->lru_lock);
+-	list_move_tail(&q->lru_list, &q->net->lru_list);
++	if (!list_empty(&q->lru_list))
++		list_move_tail(&q->lru_list, &q->net->lru_list);
+ 	spin_unlock(&q->net->lru_lock);
+ }
+ 
+ static inline void inet_frag_lru_del(struct inet_frag_queue *q)
+ {
+ 	spin_lock(&q->net->lru_lock);
+-	list_del(&q->lru_list);
++	list_del_init(&q->lru_list);
+ 	spin_unlock(&q->net->lru_lock);
+ }
+ 
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index f4fd23d..3211914 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -257,6 +257,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
+ 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
+ 	spin_lock_init(&q->lock);
+ 	atomic_set(&q->refcnt, 1);
++	INIT_LIST_HEAD(&q->lru_list);
+ 
+ 	return q;
+ }
