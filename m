@@ -1,128 +1,116 @@
-From: Konstantin Khlebnikov <khlebnikov@openvz.org>
-Subject: [PATCH] net: frag, fix race conditions in LRU list maintenance
-Date: Sun, 05 May 2013 18:56:22 +0400
-Message-ID: <20130505145622.9351.86587.stgit@zurg>
+From: Milan Kocian <milon@wq.cz>
+Subject: Re: WARNING: at kernel/softirq.c:160 local_bh_enable_ip+0x7a/0xb0()
+ (probably iwl4965)
+Date: Sun, 5 May 2013 17:11:32 +0200
+Message-ID: <20130505151132.GA6034@ntm.wq.cz>
+References: <20130501090818.GA5907@ntm.wq.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
-	Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: johannes@sipsolutions.net, linux-wireless@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from srw1.wq.cz ([80.92.240.241]:59112 "EHLO srw1.wq.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751736Ab3EEPLv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 May 2013 11:11:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20130501090818.GA5907@ntm.wq.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes race between inet_frag_lru_move() and inet_frag_lru_add()
-which was introduced in commit 3ef0eb0db4bf92c6d2510fe5c4dc51852746f206
-("net: frag, move LRU list maintenance outside of rwlock")
-
-One cpu already added new fragment queue into hash but not into LRU.
-Other cpu found it in hash and tries to move it to the end of LRU.
-This leads to NULL pointer dereference inside of list_move_tail().
-
-Another possible race condition is between inet_frag_lru_move() and
-inet_frag_lru_del(): move can happens after deletion.
-
-This patch initializes LRU list head before adding fragment into hash and
-inet_frag_lru_move() doesn't touches it if it's empty.
-
-I saw this kernel oops two times in a couple of days.
-
-[119482.128853] BUG: unable to handle kernel NULL pointer dereference at           (null)
-[119482.132693] IP: [<ffffffff812ede89>] __list_del_entry+0x29/0xd0
-[119482.136456] PGD 2148f6067 PUD 215ab9067 PMD 0
-[119482.140221] Oops: 0000 [#1] SMP
-[119482.144008] Modules linked in: vfat msdos fat 8021q fuse nfsd auth_rpcgss nfs_acl nfs lockd sunrpc ppp_async ppp_generic bridge slhc stp llc w83627ehf hwmon_vid snd_hda_codec_hdmi snd_hda_codec_realtek kvm_amd k10temp kvm snd_hda_intel snd_hda_codec edac_core radeon snd_hwdep ath9k snd_pcm ath9k_common snd_page_alloc ath9k_hw snd_timer snd soundcore drm_kms_helper ath ttm r8169 mii
-[119482.152692] CPU 3
-[119482.152721] Pid: 20, comm: ksoftirqd/3 Not tainted 3.9.0-zurg-00001-g9f95269 #132 To Be Filled By O.E.M. To Be Filled By O.E.M./RS880D
-[119482.161478] RIP: 0010:[<ffffffff812ede89>]  [<ffffffff812ede89>] __list_del_entry+0x29/0xd0
-[119482.166004] RSP: 0018:ffff880216d5db58  EFLAGS: 00010207
-[119482.170568] RAX: 0000000000000000 RBX: ffff88020882b9c0 RCX: dead000000200200
-[119482.175189] RDX: 0000000000000000 RSI: 0000000000000880 RDI: ffff88020882ba00
-[119482.179860] RBP: ffff880216d5db58 R08: ffffffff8155c7f0 R09: 0000000000000014
-[119482.184570] R10: 0000000000000000 R11: 0000000000000000 R12: ffff88020882ba00
-[119482.189337] R13: ffffffff81c8d780 R14: ffff880204357f00 R15: 00000000000005a0
-[119482.194140] FS:  00007f58124dc700(0000) GS:ffff88021fcc0000(0000) knlGS:0000000000000000
-[119482.198928] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[119482.203711] CR2: 0000000000000000 CR3: 00000002155f0000 CR4: 00000000000007e0
-[119482.208533] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[119482.213371] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[119482.218221] Process ksoftirqd/3 (pid: 20, threadinfo ffff880216d5c000, task ffff880216d3a9a0)
-[119482.223113] Stack:
-[119482.228004]  ffff880216d5dbd8 ffffffff8155dcda 0000000000000000 ffff000200000001
-[119482.233038]  ffff8802153c1f00 ffff880000289440 ffff880200000014 ffff88007bc72000
-[119482.238083]  00000000000079d5 ffff88007bc72f44 ffffffff00000002 ffff880204357f00
-[119482.243090] Call Trace:
-[119482.248009]  [<ffffffff8155dcda>] ip_defrag+0x8fa/0xd10
-[119482.252921]  [<ffffffff815a8013>] ipv4_conntrack_defrag+0x83/0xe0
-[119482.257803]  [<ffffffff8154485b>] nf_iterate+0x8b/0xa0
-[119482.262658]  [<ffffffff8155c7f0>] ? inet_del_offload+0x40/0x40
-[119482.267527]  [<ffffffff815448e4>] nf_hook_slow+0x74/0x130
-[119482.272412]  [<ffffffff8155c7f0>] ? inet_del_offload+0x40/0x40
-[119482.277302]  [<ffffffff8155d068>] ip_rcv+0x268/0x320
-[119482.282147]  [<ffffffff81519992>] __netif_receive_skb_core+0x612/0x7e0
-[119482.286998]  [<ffffffff81519b78>] __netif_receive_skb+0x18/0x60
-[119482.291826]  [<ffffffff8151a650>] process_backlog+0xa0/0x160
-[119482.296648]  [<ffffffff81519f29>] net_rx_action+0x139/0x220
-[119482.301403]  [<ffffffff81053707>] __do_softirq+0xe7/0x220
-[119482.306103]  [<ffffffff81053868>] run_ksoftirqd+0x28/0x40
-[119482.310809]  [<ffffffff81074f5f>] smpboot_thread_fn+0xff/0x1a0
-[119482.315515]  [<ffffffff81074e60>] ? lg_local_lock_cpu+0x40/0x40
-[119482.320219]  [<ffffffff8106d870>] kthread+0xc0/0xd0
-[119482.324858]  [<ffffffff8106d7b0>] ? insert_kthread_work+0x40/0x40
-[119482.329460]  [<ffffffff816c32dc>] ret_from_fork+0x7c/0xb0
-[119482.334057]  [<ffffffff8106d7b0>] ? insert_kthread_work+0x40/0x40
-[119482.338661] Code: 00 00 55 48 8b 17 48 b9 00 01 10 00 00 00 ad de 48 8b 47 08 48 89 e5 48 39 ca 74 29 48 b9 00 02 20 00 00 00 ad de 48 39 c8 74 7a <4c> 8b 00 4c 39 c7 75 53 4c 8b 42 08 4c 39 c7 75 2b 48 89 42 08
-[119482.343787] RIP  [<ffffffff812ede89>] __list_del_entry+0x29/0xd0
-[119482.348675]  RSP <ffff880216d5db58>
-[119482.353493] CR2: 0000000000000000
-
-Oops happened on this path:
-ip_defrag() -> ip_frag_queue() -> inet_frag_lru_move() -> list_move_tail() -> __list_del_entry()
-
-Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-Cc: Florian Westphal <fw@strlen.de>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: David S. Miller <davem@davemloft.net>
----
- include/net/inet_frag.h  |    5 +++--
- net/ipv4/inet_fragment.c |    1 +
- 2 files changed, 4 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/inet_frag.h b/include/net/inet_frag.h
-index 0a1dcc2..ab3d0ac 100644
---- a/include/net/inet_frag.h
-+++ b/include/net/inet_frag.h
-@@ -135,14 +135,15 @@ static inline int sum_frag_mem_limit(struct netns_frags *nf)
- static inline void inet_frag_lru_move(struct inet_frag_queue *q)
- {
- 	spin_lock(&q->net->lru_lock);
--	list_move_tail(&q->lru_list, &q->net->lru_list);
-+	if (!list_empty(&q->lru_list))
-+		list_move_tail(&q->lru_list, &q->net->lru_list);
- 	spin_unlock(&q->net->lru_lock);
- }
+On Wed, May 01, 2013 at 11:08:18AM +0200, Milan Kocian wrote:
+> hello,
+> 
+> after upgrade to the kernel v3.9 I see this nice warning after every reboot.
+> 
+> ------------[ cut here ]------------
+> WARNING: at kernel/softirq.c:160 local_bh_enable_ip+0x7a/0xb0()
+> Hardware name: 76693KG
+> Modules linked in: cpufreq_userspace cpufreq_stats cpufreq_powersave cpufreq_ondemand cpufreq_conservative ipv6 rfcomm nfnetlink_log nfnetlink bnep deflate zlib_deflate zlib_inflate ctr twofish_x86_64_3way twofish_x86_64 twofish_common camellia_generic camellia_x86_64 serpent_sse2_x86_64 serpent_generic xts lrw gf128mul glue_helper blowfish_generic blowfish_x86_64 blowfish_common cast5_generic cast_common ablk_helper cryptd des_generic xcbc rmd160 sha512_generic sha1_ssse3 sha1_generic hmac crypto_null af_key xfrm_algo sha256_generic md_mod uinput usbhid fuse snd_hda_codec_analog snd_hda_intel snd_hda_codec snd_hwdep arc4 btusb snd_pcm_oss snd_mixer_oss snd_pcm i915 thinkpad_acpi snd_page_alloc cfbfillrect cfbimgblt bluetooth crc16 iwl4965 iwlegacy mac80211 snd_seq_dummy acpi_cpufreq snd
+ _seq_oss i2c_algo_bit snd_seq_midi cfg80211 firewire_ohci firewire_core crc_itu_t mperf snd_rawmidi cfbcopyarea pcmcia ehci_pci coretemp e1000e iTCO_wdt sdhci_pci drm_kms_helper drm lpc_ich uhci_hcd ehci_hcd snd_seq_midi_event yenta_socket pcmcia_rsrc pcmcia_core sdhci mfd_core mmc_core snd_seq usbcore kvm_intel kvm tpm_tis tpm tpm_bios snd_seq_device snd_timer i2c_i801 i2c_core microcode usb_common snd video rfkill ptp pps_core soundcore
+> Pid: 5812, comm: wpa_supplicant Not tainted 3.9.0 #57
+> Call Trace:
+>  [<ffffffff81036829>] ? warn_slowpath_common+0x79/0xc0
+>  [<ffffffff8103d71a>] ? local_bh_enable_ip+0x7a/0xb0
+>  [<ffffffffa0329014>] ? il4965_tx_skb+0xc04/0xd50 [iwl4965]
+>  [<ffffffffa02ba281>] ? ieee80211_crypto_tkip_encrypt+0x141/0x1d0 [mac80211]
+>  [<ffffffff810f63d0>] ? __kmalloc+0x110/0x120
+>  [<ffffffffa0329170>] ? il4965_mac_tx+0x10/0x30 [iwl4965]
+>  [<ffffffffa02d1948>] ? __ieee80211_tx+0x138/0x370 [mac80211]
+>  [<ffffffffa02d3e4e>] ? ieee80211_tx+0xee/0x120 [mac80211]
+>  [<ffffffffa02d4f0f>] ? ieee80211_subif_start_xmit+0xb4f/0xd20 [mac80211]
+>  [<ffffffff81352f40>] ? __skb_recv_datagram+0x110/0x300
+>  [<ffffffff8135c08e>] ? dev_hard_start_xmit+0x21e/0x460
+>  [<ffffffff8134fe20>] ? __alloc_skb+0x90/0x2a0
+>  [<ffffffff8137653d>] ? sch_direct_xmit+0xed/0x1e0
+>  [<ffffffff8135c4b9>] ? dev_queue_xmit+0x1e9/0x460
+>  [<ffffffff813ecf1e>] ? packet_sendmsg+0xd7e/0xe60
+>  [<ffffffff81343e8b>] ? sock_sendmsg+0x7b/0xb0
+>  [<ffffffff813448f3>] ? move_addr_to_user+0x73/0xd0
+>  [<ffffffff81346fce>] ? sys_sendto+0xfe/0x150
+>  [<ffffffff8111ce25>] ? mntput_no_expire+0x25/0x170
+>  [<ffffffff813475b4>] ? sys_recvmsg+0x44/0x80
+>  [<ffffffff8140e5d6>] ? system_call_fastpath+0x1a/0x1f
+> ---[ end trace 6443164a8c19ebbd ]---
+> 
  
- static inline void inet_frag_lru_del(struct inet_frag_queue *q)
- {
- 	spin_lock(&q->net->lru_lock);
--	list_del(&q->lru_list);
-+	list_del_init(&q->lru_list);
- 	spin_unlock(&q->net->lru_lock);
- }
+I tried to enable some kernel debug options and got little different
+warning (see below) where last function is ieee80211_get_tkip_p2k.
+So I blindly tried replace bh functions with non-bh variants in 
+ieee80211_get_tkip_p2k and warning disappeared.
+
+--- a/net/mac80211/tkip.c.orig	2013-05-05 16:39:42.360541954 +0200
++++ b/net/mac80211/tkip.c	2013-05-05 16:40:51.859673095 +0200
+@@ -208,10 +208,10 @@ void ieee80211_get_tkip_p2k(struct ieee8
+ 	u32 iv32 = get_unaligned_le32(&data[4]);
+ 	u16 iv16 = data[2] | (data[0] << 8);
  
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index f4fd23d..3211914 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -257,6 +257,7 @@ static struct inet_frag_queue *inet_frag_alloc(struct netns_frags *nf,
- 	setup_timer(&q->timer, f->frag_expire, (unsigned long)q);
- 	spin_lock_init(&q->lock);
- 	atomic_set(&q->refcnt, 1);
-+	INIT_LIST_HEAD(&q->lru_list);
- 
- 	return q;
+-	spin_lock_bh(&key->u.tkip.txlock);
++	spin_lock(&key->u.tkip.txlock);
+ 	ieee80211_compute_tkip_p1k(key, iv32);
+ 	tkip_mixing_phase2(tk, ctx, iv16, p2k);
+-	spin_unlock_bh(&key->u.tkip.txlock);
++	spin_unlock(&key->u.tkip.txlock);
  }
+ EXPORT_SYMBOL(ieee80211_get_tkip_p2k);
+ 
+
+But I am not really sure if it's the right fix. Please review
+carefully :-). CCing MAC80211 maintainer and linux-wireless.
+
+
+------------[ cut here ]------------
+WARNING: at kernel/softirq.c:160 local_bh_enable_ip+0x7a/0xb0()
+Hardware name: 76693KG
+Modules linked in: cpufreq_userspace cpufreq_stats cpufreq_powersave cpufreq_ondemand cpufreq_conservative ipv6 nfnetlink_log bnep nfnetlink rfcomm deflate zlib_deflate zlib_inflate ctr twofish_x86_64_3way twofish_x86_64 twofish_common camellia_generic camellia_x86_64 serpent_sse2_x86_64 serpent_generic xts lrw gf128mul glue_helper blowfish_generic blowfish_x86_64 blowfish_common cast5_generic cast_common ablk_helper cryptd des_generic xcbc rmd160 sha512_generic sha1_ssse3 sha1_generic hmac crypto_null af_key xfrm_algo sha256_generic md_mod uinput usbhid fuse btusb bluetooth crc16 snd_hda_codec_analog acpi_cpufreq mperf coretemp snd_hda_intel snd_hda_codec snd_hwdep snd_pcm_oss snd_mixer_oss kvm_intel snd_pcm snd_page_alloc snd_seq_dummy snd_seq_oss snd_seq_midi arc4 kvm snd_rawmidi thinkp
+ ad_acpi snd_seq_midi_event iwl4965 snd_seq iwlegacy mac80211 cfg80211 firewire_ohci firewire_core sdhci_pci sdhci mmc_core snd_seq_device snd_timer crc_itu_t i915 cfbfillrect cfbimgblt i2c_algo_bit uhci_hcd iTCO_wdt rfkill e1000e snd ehci_pci cfbcopyarea ehci_hcd usbcore pcmcia lpc_ich mfd_core drm_kms_helper drm soundcore usb_common microcode i2c_i801 i2c_core tpm_tis tpm tpm_bios yenta_socket pcmcia_rsrc pcmcia_core ptp pps_core video
+Pid: 11995, comm: wpa_supplicant Not tainted 3.9.0milonlockdep #58
+Call Trace:
+ [<ffffffff81038e3a>] warn_slowpath_common+0x7a/0xc0
+ [<ffffffff81038e95>] warn_slowpath_null+0x15/0x20
+ [<ffffffff8103fe2a>] local_bh_enable_ip+0x7a/0xb0
+ [<ffffffff81420e2a>] _raw_spin_unlock_bh+0x1a/0x20
+ [<ffffffffa02d45f9>] ieee80211_get_tkip_p2k+0x89/0xa0 [mac80211]
+ [<ffffffffa032406c>] il4965_tx_skb+0xc4c/0xda0 [iwl4965]
+ [<ffffffff814210c6>] ? _raw_spin_lock+0x16/0x40
+ [<ffffffffa03241d8>] il4965_mac_tx+0x18/0x30 [iwl4965]
+ [<ffffffffa02dfedf>] __ieee80211_tx+0x11f/0x330 [mac80211]
+ [<ffffffffa02e23eb>] ieee80211_tx+0xdb/0x100 [mac80211]
+ [<ffffffffa02e2565>] ieee80211_xmit+0xa5/0x110 [mac80211]
+ [<ffffffffa02e34c8>] ieee80211_subif_start_xmit+0xba8/0xd90 [mac80211]
+ [<ffffffff8136cd36>] dev_hard_start_xmit+0x226/0x480
+ [<ffffffff813606cc>] ? __alloc_skb+0x8c/0x290
+ [<ffffffff81387bee>] sch_direct_xmit+0xfe/0x1d0
+ [<ffffffff8136d170>] dev_queue_xmit+0x1e0/0x450
+ [<ffffffff813ffa7f>] packet_sendmsg+0xdbf/0xe70
+ [<ffffffff81354457>] sock_sendmsg+0x87/0xa0
+ [<ffffffff81354ed4>] ? move_addr_to_user+0x74/0xd0
+ [<ffffffff81357529>] sys_sendto+0x119/0x160
+ [<ffffffff81357b24>] ? sys_recvmsg+0x44/0x80
+ [<ffffffff81421f16>] system_call_fastpath+0x1a/0x1f
+---[ end trace de4a367bdbd768e7 ]---
+
+
+-- 
+Milan Kocian
