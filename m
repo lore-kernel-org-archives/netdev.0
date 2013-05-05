@@ -1,37 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net/eth/ibmveth: Fixup retrieval of MAC address
-Date: Sun, 05 May 2013 16:58:34 -0400 (EDT)
-Message-ID: <20130505.165834.1729189703178834015.davem@davemloft.net>
-References: <1367637541.4389.135.camel@pasglop>
+Subject: Re: [PATCH] tcp: do not expire TCP fastopen cookies
+Date: Sun, 05 May 2013 16:58:43 -0400 (EDT)
+Message-ID: <20130505.165843.1494729481746369326.davem@davemloft.net>
+References: <1367644365.22983.12.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	dwg@au1.ibm.com, bhutchings@solarflare.com
-To: benh@kernel.crashing.org
+Cc: netdev@vger.kernel.org, ycheng@google.com, ncardwell@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47985 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47992 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752379Ab3EEU6g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 May 2013 16:58:36 -0400
-In-Reply-To: <1367637541.4389.135.camel@pasglop>
+	with ESMTP id S1752440Ab3EEU6o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 May 2013 16:58:44 -0400
+In-Reply-To: <1367644365.22983.12.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Sat, 04 May 2013 13:19:01 +1000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Fri, 03 May 2013 22:12:45 -0700
 
-> Some ancient pHyp versions used to create a 8 bytes local-mac-address
-> property in the device-tree instead of a 6 bytes one for veth.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> The Linux driver code to deal with that is an insane hack which also
-> happens to break with some choices of MAC addresses in qemu by testing
-> for a bit in the address rather than just looking at the size of the
-> property.
+> TCP metric cache expires entries after one hour.
 > 
-> Sanitize this by doing the latter instead.
+> This probably make sense for TCP RTT/RTTVAR/CWND, but not
+> for TCP fastopen cookies.
 > 
-> Signed-off-by: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> CC: <stable@vger.kernel.org>
+> Its better to try previous cookie. If it appears to be obsolete,
+> server will send us new cookie anyway.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied, thanks.
+Applied, thanks Eric.
