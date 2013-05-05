@@ -1,98 +1,102 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: netconsole fun
-Date: Sat, 04 May 2013 20:59:15 -0400
-Message-ID: <fiuforgj7heps6l9irwl9xmi.1367715555081@email.android.com>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Subject: Re: [PATCH 2/2] lockdep: check that no locks held at freeze time
+Date: Sun, 5 May 2013 03:13:34 +0200
+Message-ID: <20130505011334.GB25454@amd.pavel.ucw.cz>
+References: <1367615050-3894-1-git-send-email-ccross@android.com>
+ <1367615050-3894-2-git-send-email-ccross@android.com>
+ <20130504130440.GC13770@amd.pavel.ucw.cz>
+ <CAMbhsRScr+3Zk5Bi6390bGRbtE4oh2H-mHrGHS0wew5hdkivUg@mail.gmail.com>
+ <20130504225715.GB24276@amd.pavel.ucw.cz>
+ <CAMbhsRS_cF7kF-QZ9BMBUS3ytU0ukRCbC3D549HW_XOsQbEZhg@mail.gmail.com>
+ <20130505000528.GA25454@amd.pavel.ucw.cz>
+ <CAMbhsRQso4fW_DVL6U3zfbX3YbLsTy8-rUA-fo61Aw93bU+sQQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Peter Hurley <peter@hurleysoftware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46770 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750931Ab3EEA7e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 May 2013 20:59:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>, lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Paul Walmsley <paul-DWxLp4Yu+b8AvxtiuMwx3w@public.gmane.org>,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Ben Chan <benchan-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+To: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAMbhsRQso4fW_DVL6U3zfbX3YbLsTy8-rUA-fo61Aw93bU+sQQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-VGhhbmtzIGZvciBjbGFyaWZ5aW5nLiAgR2xhZCB0byBoZWFyIHlvdSBnb3QgaXQgd29ya2luZy4g
-IElmIHlvdXIgZG9pbmcgYSBsb3Qgb2YgY3VzdG9tIGluaXRyYW1mcyB3b3JrLCBhIGRpc3RybyBk
-dW1wIHBhY2thZ2Ugd291bGQgYmUgd29ydGggeW91ciBpbnZlc3RpZ2F0aW9uLCBhcyB0aGV5IGhh
-dmUgbGlrZWx5IGNvdmVyZWQgYSBsb3Qgb2YgZ3JvdW5kIHRoYXQgeW91J3JlIHRyYXZlcnNpbmcu
-CgpCZXN0Ck5laWwKCgpQZXRlciBIdXJsZXkgPHBldGVyQGh1cmxleXNvZnR3YXJlLmNvbT4gd3Jv
-dGU6Cgo+T24gMDQvMjkvMjAxMyAwMjoyMSBQTSwgTmVpbCBIb3JtYW4gd3JvdGU6Cj4+IE9uIE1v
-biwgQXByIDI5LCAyMDEzIGF0IDAxOjI4OjQ1UE0gLTA0MDAsIFBldGVyIEh1cmxleSB3cm90ZToK
-Pj4+IE9uIE1vbiwgMjAxMi0xMi0xNyBhdCAwOToyMCAtMDUwMCwgTmVpbCBIb3JtYW4gd3JvdGU6
-Cj4+Pj4gT24gU2F0LCBEZWMgMTUsIDIwMTIgYXQgMDk6MTM6NThBTSAtMDUwMCwgUGV0ZXIgSHVy
-bGV5IHdyb3RlOgo+Pj4+PiBPbiBGcmksIDIwMTItMTItMTQgYXQgMDk6MjAgLTA1MDAsIE5laWwg
-SG9ybWFuIHdyb3RlOgo+Pj4+Pj4gQWghICBJJ20gc29ycnksIEkgZGlkbid0IHJlYWxpemUgdGhp
-cyB3YXMgcmVhbGx5IGFib3V0IGdldHRpbmcgbmV0Y29uc29sZSB1cAo+Pj4+Pj4gZWFybHkgaW4g
-dGhlIGJvb3QsIHJhdGhlciB0aGFuIGp1c3QgZ2V0dGluZyBpdCB1cCByb2J1c3RseSB1c2luZyB0
-aGUgc3RhcnR1cAo+Pj4+Pj4gc2NyaXB0Lgo+Pj4+Pgo+Pj4+PiBXZWxsLCBpdCdzIGJvdGggYnV0
-IEkgc2hvdWxkIGhhdmUgYmVlbiBjbGVhcmVyIGhlcmUuIFNvcnJ5IGFib3V0IHRoYXQuCj4+Pj4+
-Cj4+Pj4+PiBJZiB0aGF0cyB0aGUgY2FzZSwgdGhlbiBJIHdvdWxkIHJlY29tbWVuZCB0aGF0IHlv
-dSBtb2RpZnkgdGhlIGluaXRyYW1mcwo+Pj4+Pj4gdG8gZG8gc29tZXRoaW5nIHNpbW1pbGFyIHRv
-IHRoZSBzdGFydHVwIHNjcmlwdCAoc2luY2UgdGhhdHMgd2hlcmUgdGhlIG5ldGNvbnNvbGUKPj4+
-Pj4+IG1vZHVsZSB3aWxsIGdldCBsb2FkZWQgYW55d2F5KS4gIFlvdSBjYW4gd3JpdGUgYSBzY3Jp
-cHQgdGhlcmUgdGhhdCB3aWxsIGxldCB5b3UKPj4+Pj4+IHNwZWNpZnkgdGhlIGRlc3RpbmF0aW9u
-IGlwIGFkZHJlc3MgYW5kIGZpZ3VyZSBvdXQgdGhlIG91dHB1dCBkZXYgYmFzZWQgb24gdGhlCj4+
-Pj4+PiByb3V0aW5nIHRhYmxlcy4gIElmIHlvdSdyZSB1c2luZyBkcmFjdXQgdG8gYnVpbGQgeW91
-ciBpbml0cmFtZnMsIHRoZW4gdGhpcwo+Pj4+Pj4gc2hvdWxkIGJlIHByZXR0eSBzdHJhaWdodGZv
-cndhcmQuCj4+Pj4+Cj4+Pj4+IFdoZW4gSSBnZXQgc29tZSBtb3JlIGZyZWUgdGltZSBJJ2xsIGV4
-cGVyaW1lbnQgd2l0aCB0aGlzIGFwcHJvYWNoLgo+Pj4+Pgo+Pj4+PiBKdXN0IHRvIGNsYXJpZnkg
-c29tZXRoaW5nIGZyb20gZWFybGllciBpbiB0aGUgZGlzY3Vzc2lvbjoKPj4+Pj4KPj4+Pj4gT24g
-VGh1LCAyMDEyLTEyLTEzIGF0IDEzOjA4IC0wNTAwLCBOZWlsIEhvcm1hbiB3cm90ZToKPj4+Pj4+
-IE9uIFRodSwgRGVjIDEzLCAyMDEyIGF0IDA5OjQ5OjMxQU0gLTA1MDAsIFBldGVyIEh1cmxleSB3
-cm90ZToKPj4+Pj4gLi4uLgo+Pj4+Pj4+IFRoZXJlIGlzIGFuIHVuZm9yZXNlZW4gY29uc2VxdWVu
-Y2Ugb2YgdGhlIHBhdGNoOiBpdCBicmVha3MgZGV2aWNlCj4+Pj4+Pj4gcmVuYW1pbmcgYmVjYXVz
-ZSB0aGUgZGV2aWNlIHdpbGwgYWxyZWFkeSBiZSBpbiB1c2UgYnkgbmV0Y29uc29sZS4gV2hpY2gK
-Pj4+Pj4+PiBpcyB0aGUgd2hvbGUgcHJvYmxlbSB3aXRoIHVzZXJzcGFjZSBkZXZpY2UgcmVuYW1p
-bmcgdG8gYmVnaW4gd2l0aC4uLgo+Pj4+Pj4+Cj4+Pj4+PiBUaGF0IGlzIGJhZCwgYnV0IHNlZSBh
-Ym92ZSwgdGhlIG5ldGNvbnNvbGUgc2VydmljZSBjYW4gd29yayBhcm91bmQgdGhpcyBmb3IgeW91
-LAo+Pj4+Pj4gYWxsb3dpbmcgeW91IHRvIG5ldmVyIGhhdmUgdG8gc3BlY2lmeSBhIHBhcnRpY3Vs
-YXIgZGV2aWNlIGF0IGFsbC4KPj4+Pj4KPj4+Pj4gVGhlIGJyZWFrYWdlIGlzIGEgbm9ybWFsIGNv
-bnNlcXVlbmNlIG9mIGJlaW5nIGFibGUgdG8gbG9hZCBuZXRjb25zb2xlCj4+Pj4+IGJlZm9yZSB0
-aGUgdWRldiBydWxlcyB0aGF0IGRvIGRldmljZSByZW5hbWluZy4gVGhlIHNhbWUgdGhpbmcgd291
-bGQKPj4+Pj4gaGFwcGVuIG1vZGlmeWluZyBpbml0cmFtZnMuCj4+Pj4+Cj4+Pj4+IEJhc2ljYWxs
-eSwgb25jZSBuZXRjb25zb2xlIGF0dGFjaGVzIHRvIGEgZGV2aWNlLCB0aGF0IGRldmljZSBjYW5u
-b3QgYmUKPj4+Pj4gcmVuYW1lZC4gVW5mb3J0dW5hdGVseSwgdGhlIGRlZmF1bHQgdWRldiBiZWhh
-dmlvciBtZXNzZXMgdGhpbmdzIHVwCj4+Pj4+IGZ1cnRoZXIgYmVjYXVzZSBpdCB3aWxsIHRyeSB0
-byBkbyB0aGlzOgo+Pj4+PiAgICBldGgwLT5ldGgxCj4+Pj4+ICAgIGV0aDEtPmV0aDAKPj4+Pj4g
-d2hpY2ggbWVhbnMgbmVpdGhlciBkZXZpY2Ugd2lsbCBiZSByZW5hbWVkLgo+Pj4+Pgo+Pj4+PiBN
-YXliZSB0aGUgbmV0IGNvcmUgc2hvdWxkIGp1c3QgaW1wbGVtZW50IHBlcnNpc3RlbnQgZGV2aWNl
-IG5hbWVzIDspCj4+Pj4+Cj4+Pj4gVGhlcmVzIG5vIGdvb2Qgd2F5IGZvciB0aGUga2VybmVsIHRv
-IGRvIHRoYXQsIGFzIHBlcnNpc3RlbnQgbmFtaW5nIGluIHRoaXMgY2FzZQo+Pj4+IGlzIGEgbWF0
-dGVyIG9mIHVzZXIgcG9saWN5LCBub3Qga2VybmVsIGhhcmR3YXJlIG1hbmFnZW1lbnQgKGkuZS4g
-ZG8geW91IHdhbnQgYQo+Pj4+IG5ldHdvcmsgbmFtZSB0byBmb2xsb3cgYSBtYWMgYWRkcmVzcywg
-YSBwY2kgc2xvdCwgb3IgdGhlIG5ldHdvcmsgaXRzIGNvbm5lY3RlZAo+Pj4+IHRvKT8gIFlvdSBj
-YW4gdXNlIHNtYmlvcyB0byBnZXQgc29tZSBtb2RpY3VtIG9mIHBlcnNpc3RlbnQgZGV2aWNlIG5h
-bWluZwo+Pj4+IGN1cnJlbnRseSwgYnV0IEkgZG9uJ3QgcmVjYWxsIGlmIHRoYXQgcmVxdWlyZXMg
-dWRldiBydWxlcyB0byBpbXBsZW1lbnQgYXMgd2VsbAo+Pj4+Cj4+Pj4gWW91J3JlIGJlc3QgYmV0
-IGlzIHRvIHNpbXBseSBtYWtlIHlvdXIgaW5pdHJhbWZzIG1vcmUgcm9idXN0LiAgSSB1bmRlcnN0
-YW5kIHdoYXQKPj4+PiB5b3UncmUgc2F5aW5nIHJlZ2FyZGluZyByZW5hbWluZyBhZnRlciB5b3Un
-dmUgdGFrZW4gYSByZWZlcmVuY2Ugb24gYSBkZXZpY2Ugbm90Cj4+Pj4gYmVpbmcgcG9zc2libGUs
-IGJ1dCB5b3UgY2FuIHJ1biB1ZGV2IHdpdGhpbiB0aGUgaW5pdHJhbWZzLCBhbmQgZG8geW91ciBy
-ZW5hbWluZwo+Pj4+IHByaW9yIHRvIHlvdXIgbmV0Y29uc29sZSBsb2FkLgo+Pj4KPj4+IEhpIE5l
-aWwsCj4+Pgo+Pj4gSSBwbGFuIHRvIHJlLXN1Ym1pdCAnbmV0Y29uc29sZTogYWxsb3cgbWFjIGFk
-ZHIgdG8gc3BlY2lmeSBsb2NhbAo+Pj4gaW50ZXJmYWNlIGRldmljZScgd2hpY2ggeW91IG9yaWdp
-bmFsbHkgb2JqZWN0ZWQgdG8gYmVjYXVzZSB5b3UgYXNzZXJ0ZWQKPj4+IHRoYXQgdGhlIHNhbWUg
-ZWZmZWN0IGNvdWxkIGJlIG9idGFpbmVkIHRocm91Z2ggdWRldiBzY3JpcHRzIGluIHRoZQo+Pj4g
-aW5pdHJhbWZzLgo+Pj4KPj4+IFdoZW4geW91IHNob3QgZG93biB0aGlzIHBhdGNoLCBkaWQgeW91
-IGFjdHVhbGx5IHRyeSB3aGF0IHlvdSBzdWdnZXN0ZWQKPj4+IGluIHRoZSBpbml0cmFtZnMgb3Ig
-d2VyZSB5b3UganVzdCBoeXBvdGhlc2l6aW5nIHRoYXQgaXQgd291bGQgcG9zc2libGU/Cj4+Pgo+
-PiBJJ3ZlIG5vdCB0cmllZCBzcGVjaWZpY2FsbHkgd2hhdCB3YW50IHRvIGRvLCBubywgYnV0IEkn
-dmUgZG9uZSBpbnRlcmZhY2UKPj4gcmVuYW1pbmcgcGxlbnR5IG9mIHRpbWVzIGluIHRoZSBpbml0
-cmFtZnMgYmFjayB3aGVuIEkgZGlkIGtkdW1wIHdvcmsgKHdlIGhhZCB0bwo+PiByZW5hbWUgZGV2
-aWNlcyBpbiB0aGUgaW5pdHJhbWZzIHRvIGFsaWduIHRoZW0gd2l0aCB3aGF0ZXZlciB1ZGV2IHJl
-bmFtZWQgdGhlbSB0bwo+PiBvbmNlIHdlIHBpdm90X3Jvb3QtZWQgdG8gdGhlIHJvb3RmcykuCj4+
-Cj4+IEkgcHJlc3VtZSB5b3UncmUgc2VuZGluZyBtZSB0aGlzIG5vdGUgYmVjYXVzZSB5b3UndmUg
-Zm9yIHNvbWUgcmVhc29uIGRlY2lkZWQKPj4gdGhhdCBkb2luZyB0aGlzIGluIHRoZSBpbml0cmFt
-ZnMgaXNuJ3QgZmVhc2libGU/ICBJJ20gaGFwcHkgdG8gaGVscCB5b3UgdGhyb3VnaAo+PiBpdCBp
-ZiB5b3UgbGlrZS4KPgo+TmVpbCwKPgo+SSBvd2UgeW91IGFuIGFwb2xvZ3kuCj4KPlBlcmZvcm1p
-bmcgdGhlIHVkZXYgZGV2aWNlIHJlbmFtaW5nIGFuZCBtb2Rwcm9iaW5nIG5ldGNvbnNvbGUKPndp
-dGggdGhlIHJlbmFtZWQgZGV2aWNlIGludGVyZmFjZSBpcyBpbmRlZWQgcG9zc2libGUgd2l0aGlu
-IGluaXRyYW1mcy4KPk9uY2UgSSBoYWQgbWFuYWdlZCB0byBnZXQgdWRldiBkZXZpY2UgcmVuYW1p
-bmcgd29ya2luZyBpbiB0aGUgaW5pdHJhbWZzLAo+SSBoYWQgY29uZnVzZWQgbXlzZWxmIHJlZ2Fy
-ZGluZyB3aGljaCBpbnRlcmZhY2Ugd2VudCB3aXRoIHdoaWNoIE1BQyBhZGRyZXNzLgo+Cj5IYXZl
-IGEgZ29vZCB3ZWVrZW5kLgo+Cj5SZWdhcmRzLAo+UGV0ZXIgSHVybGV5Cj4KPgo=
+On Sat 2013-05-04 17:23:01, Colin Cross wrote:
+> On Sat, May 4, 2013 at 5:05 PM, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org> wrote:
+> > Hi!
+> >
+> >> >> >> --- a/kernel/exit.c
+> >> >> >> +++ b/kernel/exit.c
+> >> >> >> @@ -835,7 +835,7 @@ void do_exit(long code)
+> >> >> >>       /*
+> >> >> >>        * Make sure we are holding no locks:
+> >> >> >>        */
+> >> >> >> -     debug_check_no_locks_held(tsk);
+> >> >> >> +     debug_check_no_locks_held();
+> >> >> >
+> >> >> > Is task guaranteed == current?
+> >> >>
+> >> >> Yes, the first line of do_exit is:
+> >> >>         struct task_struct *tsk = current;
+> >> >
+> >> > Aha, I understand it now.
+> >> >
+> >> > Accessing current is slower than local variable. So your "new" code
+> >> > will work but will be slower. Please revert this part.
+> >>
+> >> Using current instead of passing in tsk was done at Andrew Morton's
+> >> suggestion, and makes no difference from the freezer's perspective
+> >> since it would have to use current to get the task to pass in, so I'm
+> >> going to leave it as is.
+> >
+> > Well, current is:
+> >
+> > static inline struct thread_info *current_thread_info(void)
+> > {
+> >         register unsigned long sp asm ("sp");
+> >         return (struct thread_info *)(sp & ~(THREAD_SIZE - 1));
+> > }
+> >
+> > #define get_current() (current_thread_info()->task)
+> >
+> > #define current get_current()
+> >
+> > Instead of passing computed value to debug_check_no_locks_held(), you
+> > force it to be computed again. do_exit() performance matters for
+> > configure scripts, etc.
+> >
+> > I'd say it makes sense to keep the optimalization. akpm can correct
+> > me.
+> 
+> That translates to 3 instructions, with no memory accesses:
+> c0008350:       e1a0300d        mov     r3, sp
+> c0008354:       e3c32d7f        bic     r2, r3, #8128   ; 0x1fc0
+> c0008358:       e3c2203f        bic     r2, r2, #63     ; 0x3f
+
+On ARM, you are right. It seems to have memory access on s390 and
+x86-64. Ok, it is probably going to be in cache, but...
+
+									Pavel
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
