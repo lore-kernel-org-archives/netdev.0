@@ -1,60 +1,41 @@
-From: Lance Lassetter <lancelassetter@gmail.com>
-Subject: Re: r8169 with 3.9.0-rc9
-Date: Sun, 5 May 2013 11:02:56 -0500
-Message-ID: <20130505160255.GA15325@gmail.com>
-References: <20130426205018.GA18092@electric-eye.fr.zoreil.com>
- <20130427041230.GA18709@gmail.com>
- <20130428011232.GA4236@gmail.com>
- <20130501100733.GA16115@gmail.com>
- <20130501121502.GA5456@electric-eye.fr.zoreil.com>
- <20130501212803.GA3342@gmail.com>
- <20130501223155.GA15261@electric-eye.fr.zoreil.com>
- <20130502021848.GA30099@gmail.com>
- <20130502221837.GA9898@electric-eye.fr.zoreil.com>
- <20130505151732.GA9096@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: frag, fix race conditions in LRU list maintenance
+Date: Sun, 05 May 2013 13:36:42 -0400 (EDT)
+Message-ID: <20130505.133642.523571665638952150.davem@davemloft.net>
+References: <20130505145622.9351.86587.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f174.google.com ([209.85.161.174]:42160 "EHLO
-	mail-gg0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751820Ab3EEQDD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 May 2013 12:03:03 -0400
-Received: by mail-gg0-f174.google.com with SMTP id i2so517519ggn.19
-        for <netdev@vger.kernel.org>; Sun, 05 May 2013 09:03:01 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130505151732.GA9096@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, edumazet@google.com, fw@strlen.de,
+	linux-kernel@vger.kernel.org, brouer@redhat.com
+To: khlebnikov@openvz.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130505145622.9351.86587.stgit@zurg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 05, 2013 at 10:17:34AM -0500, Lance Lassetter wrote:
-> On Fri, May 03, 2013 at 12:18:37AM +0200, Francois Romieu wrote:
-> > Lance Lassetter <lancelassetter@gmail.com> :
-> > [...]
-> > > afaik, I think my last FC17 kernel was 3.8.8-100 and the Fedora 18 install date
-> > > was the week of the Fedora 18 alpha release, afaik September of 2012.
-> > 
-> > O_o
-> > 
-> > Did you try Fedora 17 kernels on your Fedora 18 ?
-> > 
-> > It does not look like a proper r8169 driver problem: almost (...) the same kernel,
-> > different compiler and different userspace.
-> > 
-> > -- 
-> > Ueimor
-> 
-> Ueimor:
-> 
-> Hi!  I'm exhausted with this....
-> 
-> Tried Fedora 17 kernels (both Vanilla and stock) on Fedora 18 still same effect.  My BIOS is one version behind the latest version, could that be a problem?
-> 
-> What do you think, Ueimor? Maybe faulty motherboard?
-> 
-> Lance
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Date: Sun, 05 May 2013 18:56:22 +0400
 
-Ugh.  I'm thinking of just upgrading to an IBM server.
+> This patch fixes race between inet_frag_lru_move() and inet_frag_lru_add()
+> which was introduced in commit 3ef0eb0db4bf92c6d2510fe5c4dc51852746f206
+> ("net: frag, move LRU list maintenance outside of rwlock")
+> 
+> One cpu already added new fragment queue into hash but not into LRU.
+> Other cpu found it in hash and tries to move it to the end of LRU.
+> This leads to NULL pointer dereference inside of list_move_tail().
+> 
+> Another possible race condition is between inet_frag_lru_move() and
+> inet_frag_lru_del(): move can happens after deletion.
+> 
+> This patch initializes LRU list head before adding fragment into hash and
+> inet_frag_lru_move() doesn't touches it if it's empty.
+> 
+> I saw this kernel oops two times in a couple of days.
+ ...
+> Oops happened on this path:
+> ip_defrag() -> ip_frag_queue() -> inet_frag_lru_move() -> list_move_tail() -> __list_del_entry()
+> 
+> Signed-off-by: Konstantin Khlebnikov <khlebnikov@openvz.org>
 
-Lance
+This looks good to me, Jesper and co. please review.
