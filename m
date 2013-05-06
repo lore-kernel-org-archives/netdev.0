@@ -1,7 +1,7 @@
 From: Colin Cross <ccross@android.com>
-Subject: [PATCH v3 08/16] freezer: convert freezable helpers to static inline where possible
-Date: Mon,  6 May 2013 16:50:13 -0700
-Message-ID: <1367884221-20462-9-git-send-email-ccross@android.com>
+Subject: [PATCH v3 02/16] freezer: add unsafe versions of freezable helpers for CIFS
+Date: Mon,  6 May 2013 16:50:07 -0700
+Message-ID: <1367884221-20462-3-git-send-email-ccross@android.com>
 References: <1367884221-20462-1-git-send-email-ccross@android.com>
 Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Peter Zijlstra <peterz@infradead.org>,
@@ -14,100 +14,70 @@ Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Linus Torvalds <torvalds@linux-foundation.org>,
 	Tejun Heo <tj@kernel.org>, Len Brown <len.brown@intel.com>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ye0-f201.google.com ([209.85.213.201]:57206 "EHLO
+	mail-ye0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932283Ab3EFXuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 19:50:24 -0400
+Received: by mail-ye0-f201.google.com with SMTP id m14so447955yen.2
+        for <netdev@vger.kernel.org>; Mon, 06 May 2013 16:50:23 -0700 (PDT)
 In-Reply-To: <1367884221-20462-1-git-send-email-ccross@android.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Some of the freezable helpers have to be macros because their
-condition argument needs to get evaluated every time through
-the wait loop.  Convert the others to static inline to make
-future changes easier.
+CIFS calls wait_event_freezekillable_unsafe with a VFS lock held,
+which is unsafe and will cause lockdep warnings when 6aa9707
+"lockdep: check that no locks held at freeze time" is reapplied
+(it was reverted in dbf520a).  CIFS shouldn't be doing this, but
+it has long-running syscalls that must hold a lock but also
+shouldn't block suspend.  Until CIFS freeze handling is rewritten
+to use a signal to exit out of the critical section, add a new
+wait_event_freezekillable_unsafe helper that will not run the
+lockdep test when 6aa9707 is reapplied, and call it from CIFS.
+
+In practice the likley result of holding the lock while freezing
+is that a second task blocked on the lock will never freeze,
+aborting suspend, but it is possible to manufacture a case using
+the cgroup freezer, the lock, and the suspend freezer to create
+a deadlock.  Silencing the lockdep warning here will allow
+problems to be found in other drivers that may have a more
+serious deadlock risk, and prevent new problems from being added.
 
 Signed-off-by: Colin Cross <ccross@android.com>
 ---
- include/linux/freezer.h | 58 ++++++++++++++++++++++++-------------------------
- 1 file changed, 29 insertions(+), 29 deletions(-)
+ include/linux/freezer.h | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
 diff --git a/include/linux/freezer.h b/include/linux/freezer.h
-index c71337af..8430d4c5 100644
+index 5b31e21c..d3c038e 100644
 --- a/include/linux/freezer.h
 +++ b/include/linux/freezer.h
-@@ -159,46 +159,46 @@ static inline bool freezer_should_skip(struct task_struct *p)
- }
+@@ -212,6 +212,16 @@ static inline bool freezer_should_skip(struct task_struct *p)
+ 	__retval;							\
+ })
  
- /*
-- * These macros are intended to be used whenever you want allow a sleeping
-+ * These functions are intended to be used whenever you want allow a sleeping
-  * task to be frozen. Note that neither return any clear indication of
-  * whether a freeze event happened while in this function.
-  */
++/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
++#define wait_event_freezekillable_unsafe(wq, condition)			\
++({									\
++	int __retval;							\
++	freezer_do_not_count();						\
++	__retval = wait_event_killable(wq, (condition));		\
++	freezer_count_unsafe();						\
++	__retval;							\
++})
++
+ #define wait_event_freezable(wq, condition)				\
+ ({									\
+ 	int __retval;							\
+@@ -277,6 +287,9 @@ static inline void set_freezable(void) {}
+ #define wait_event_freezekillable(wq, condition)		\
+ 		wait_event_killable(wq, condition)
  
- /* Like schedule(), but should not block the freezer. */
--#define freezable_schedule()						\
--({									\
--	freezer_do_not_count();						\
--	schedule();							\
--	freezer_count();						\
--})
-+static inline void freezable_schedule(void)
-+{
-+	freezer_do_not_count();
-+	schedule();
-+	freezer_count();
-+}
++#define wait_event_freezekillable_unsafe(wq, condition)			\
++		wait_event_killable(wq, condition)
++
+ #endif /* !CONFIG_FREEZER */
  
- /* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
--#define freezable_schedule_unsafe()					\
--({									\
--	freezer_do_not_count();						\
--	schedule();							\
--	freezer_count_unsafe();						\
--})
-+static inline void freezable_schedule_unsafe(void)
-+{
-+	freezer_do_not_count();
-+	schedule();
-+	freezer_count_unsafe();
-+}
- 
- /* Like schedule_timeout_killable(), but should not block the freezer. */
--#define freezable_schedule_timeout_killable(timeout)			\
--({									\
--	long __retval;							\
--	freezer_do_not_count();						\
--	__retval = schedule_timeout_killable(timeout);			\
--	freezer_count();						\
--	__retval;							\
--})
-+static inline long freezable_schedule_timeout_killable(long timeout)
-+{
-+	long __retval;
-+	freezer_do_not_count();
-+	__retval = schedule_timeout_killable(timeout);
-+	freezer_count();
-+	return __retval;
-+}
- 
- /* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
--#define freezable_schedule_timeout_killable_unsafe(timeout)		\
--({									\
--	long __retval;							\
--	freezer_do_not_count();						\
--	__retval = schedule_timeout_killable(timeout);			\
--	freezer_count_unsafe();						\
--	__retval;							\
--})
-+static inline long freezable_schedule_timeout_killable_unsafe(long timeout)
-+{
-+	long __retval;
-+	freezer_do_not_count();
-+	__retval = schedule_timeout_killable(timeout);
-+	freezer_count_unsafe();
-+	return __retval;
-+}
- 
- /*
-  * Freezer-friendly wrappers around wait_event_interruptible(),
+ #endif	/* FREEZER_H_INCLUDED */
 -- 
 1.8.2.1
