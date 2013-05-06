@@ -1,7 +1,7 @@
 From: Colin Cross <ccross@android.com>
-Subject: [PATCH v3 10/16] binder: use freezable blocking calls
-Date: Mon,  6 May 2013 16:50:15 -0700
-Message-ID: <1367884221-20462-11-git-send-email-ccross@android.com>
+Subject: [PATCH v3 09/16] freezer: add new freezable helpers using freezer_do_not_count()
+Date: Mon,  6 May 2013 16:50:14 -0700
+Message-ID: <1367884221-20462-10-git-send-email-ccross@android.com>
 References: <1367884221-20462-1-git-send-email-ccross@android.com>
 Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Peter Zijlstra <peterz@infradead.org>,
@@ -12,69 +12,149 @@ Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
 	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	=?UTF-8?q?Arve=20Hj=C3=B8nnev=C3=A5g?= <arve@android.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Sachin Kamat <sachin.kamat@linaro.org>,
-	devel@driverdev.osuosl.org
+	Tejun Heo <tj@kernel.org>, Len Brown <len.brown@intel.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f202.google.com ([209.85.161.202]:49380 "EHLO
-	mail-gg0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932449Ab3EFXuc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 19:50:32 -0400
-Received: by mail-gg0-f202.google.com with SMTP id 4so424957ggm.1
-        for <netdev@vger.kernel.org>; Mon, 06 May 2013 16:50:31 -0700 (PDT)
+Received: from mail-yh0-f74.google.com ([209.85.213.74]:38618 "EHLO
+	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932273Ab3EFXua (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 19:50:30 -0400
+Received: by mail-yh0-f74.google.com with SMTP id t59so449570yho.1
+        for <netdev@vger.kernel.org>; Mon, 06 May 2013 16:50:28 -0700 (PDT)
 In-Reply-To: <1367884221-20462-1-git-send-email-ccross@android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Avoid waking up every thread sleeping in a binder call during
-suspend and resume by calling a freezable blocking call.  Previous
-patches modified the freezer to avoid sending wakeups to threads
-that are blocked in freezable blocking calls.
+Freezing tasks will wake up almost every userspace task from
+where it is blocking and force it to run until it hits a
+call to try_to_sleep(), generally on the exit path from the syscall
+it is blocking in.  On resume each task will run again, usually
+restarting the syscall and running until it hits the same
+blocking call as it was originally blocked in.
 
-This call was selected to be converted to a freezable call because
-it doesn't hold any locks or release any resources when interrupted
-that might be needed by another freezing task or a kernel driver
-during suspend, and is a common site where idle userspace tasks are
-blocked.
+To allow tasks to avoid running on every suspend/resume cycle,
+this patch adds additional freezable wrappers around blocking calls
+that call freezer_do_not_count().  Combined with the previous patch,
+these tasks will not run during suspend or resume unless they wake
+up for another reason, in which case they will run until they hit
+the try_to_freeze() in freezer_count(), and then continue processing
+the wakeup after tasks are thawed.
 
-Acked-by: Tejun Heo <tj@kernel.org>
+Additional patches will convert the most common locations that
+userspace blocks in to use freezable helpers.
+
 Signed-off-by: Colin Cross <ccross@android.com>
 ---
- drivers/staging/android/binder.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+v3:
+   split out the changes to existing helpers to a separate patch
 
-diff --git a/drivers/staging/android/binder.c b/drivers/staging/android/binder.c
-index 24456a0..af8fba4 100644
---- a/drivers/staging/android/binder.c
-+++ b/drivers/staging/android/binder.c
-@@ -20,6 +20,7 @@
- #include <asm/cacheflush.h>
- #include <linux/fdtable.h>
- #include <linux/file.h>
-+#include <linux/freezer.h>
- #include <linux/fs.h>
- #include <linux/list.h>
- #include <linux/miscdevice.h>
-@@ -2140,13 +2141,13 @@ retry:
- 			if (!binder_has_proc_work(proc, thread))
- 				ret = -EAGAIN;
- 		} else
--			ret = wait_event_interruptible_exclusive(proc->wait, binder_has_proc_work(proc, thread));
-+			ret = wait_event_freezable_exclusive(proc->wait, binder_has_proc_work(proc, thread));
- 	} else {
- 		if (non_block) {
- 			if (!binder_has_thread_work(thread))
- 				ret = -EAGAIN;
- 		} else
--			ret = wait_event_interruptible(thread->wait, binder_has_thread_work(thread));
-+			ret = wait_event_freezable(thread->wait, binder_has_thread_work(thread));
- 	}
+ include/linux/freezer.h | 61 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 61 insertions(+)
+
+diff --git a/include/linux/freezer.h b/include/linux/freezer.h
+index 8430d4c5..7fd81b8 100644
+--- a/include/linux/freezer.h
++++ b/include/linux/freezer.h
+@@ -180,6 +180,32 @@ static inline void freezable_schedule_unsafe(void)
+ 	freezer_count_unsafe();
+ }
  
- 	binder_lock(__func__);
++/*
++ * Like freezable_schedule_timeout(), but should not block the freezer.  Do not
++ * call this with locks held.
++ */
++static inline long freezable_schedule_timeout(long timeout)
++{
++	long __retval;
++	freezer_do_not_count();
++	__retval = schedule_timeout(timeout);
++	freezer_count();
++	return __retval;
++}
++
++/*
++ * Like schedule_timeout_interruptible(), but should not block the freezer.  Do not
++ * call this with locks held.
++ */
++static inline long freezable_schedule_timeout_interruptible(long timeout)
++{
++	long __retval;
++	freezer_do_not_count();
++	__retval = schedule_timeout_interruptible(timeout);
++	freezer_count();
++	return __retval;
++}
++
+ /* Like schedule_timeout_killable(), but should not block the freezer. */
+ static inline long freezable_schedule_timeout_killable(long timeout)
+ {
+@@ -201,6 +227,20 @@ static inline long freezable_schedule_timeout_killable_unsafe(long timeout)
+ }
+ 
+ /*
++ * Like schedule_hrtimeout_range(), but should not block the freezer.  Do not
++ * call this with locks held.
++ */
++static inline int freezable_schedule_hrtimeout_range(ktime_t *expires,
++		unsigned long delta, const enum hrtimer_mode mode)
++{
++	int __retval;
++	freezer_do_not_count();
++	__retval = schedule_hrtimeout_range(expires, delta, mode);
++	freezer_count();
++	return __retval;
++}
++
++/*
+  * Freezer-friendly wrappers around wait_event_interruptible(),
+  * wait_event_killable() and wait_event_interruptible_timeout(), originally
+  * defined in <linux/wait.h>
+@@ -244,6 +284,16 @@ static inline long freezable_schedule_timeout_killable_unsafe(long timeout)
+ 	__retval;							\
+ })
+ 
++#define wait_event_freezable_exclusive(wq, condition)			\
++({									\
++	int __retval;							\
++	freezer_do_not_count();						\
++	__retval = wait_event_interruptible_exclusive(wq, condition);	\
++	freezer_count();						\
++	__retval;							\
++})
++
++
+ #else /* !CONFIG_FREEZER */
+ static inline bool frozen(struct task_struct *p) { return false; }
+ static inline bool freezing(struct task_struct *p) { return false; }
+@@ -267,18 +317,29 @@ static inline void set_freezable(void) {}
+ 
+ #define freezable_schedule_unsafe()  schedule()
+ 
++#define freezable_schedule_timeout(timeout)  schedule_timeout(timeout)
++
++#define freezable_schedule_timeout_interruptible(timeout)		\
++	schedule_timeout_interruptible(timeout)
++
+ #define freezable_schedule_timeout_killable(timeout)			\
+ 	schedule_timeout_killable(timeout)
+ 
+ #define freezable_schedule_timeout_killable_unsafe(timeout)		\
+ 	schedule_timeout_killable(timeout)
+ 
++#define freezable_schedule_hrtimeout_range(expires, delta, mode)	\
++	schedule_hrtimeout_range(expires, delta, mode)
++
+ #define wait_event_freezable(wq, condition)				\
+ 		wait_event_interruptible(wq, condition)
+ 
+ #define wait_event_freezable_timeout(wq, condition, timeout)		\
+ 		wait_event_interruptible_timeout(wq, condition, timeout)
+ 
++#define wait_event_freezable_exclusive(wq, condition)			\
++		wait_event_interruptible_exclusive(wq, condition)
++
+ #define wait_event_freezekillable(wq, condition)		\
+ 		wait_event_killable(wq, condition)
+ 
 -- 
 1.8.2.1
