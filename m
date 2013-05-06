@@ -1,100 +1,87 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH firmware 2/2] rtl_nic: add firmware rtl8106e-2
-Date: Mon, 06 May 2013 04:32:48 +0100
-Message-ID: <1367811168.4131.34.camel@deadeye.wl.decadent.org.uk>
-References: <1366720668-4850-1-git-send-email-hayeswang@realtek.com>
-	 <1366720668-4850-2-git-send-email-hayeswang@realtek.com>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: [PATCH] SUNRPC: Refactor gssx_dec_option_array() to kill uninitialized warning
+Date: Mon,  6 May 2013 09:21:03 +0200
+Message-ID: <1367824863-1857-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-M/x+p6MLEXB8rOf6XpDg"
-Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Hayes Wang <hayeswang@realtek.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1366720668-4850-2-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
+	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+net/sunrpc/auth_gss/gss_rpc_xdr.c: In function =E2=80=98gssx_dec_option=
+_array=E2=80=99:
+net/sunrpc/auth_gss/gss_rpc_xdr.c:258: warning: =E2=80=98creds=E2=80=99=
+ may be used uninitialized in this function
 
---=-M/x+p6MLEXB8rOf6XpDg
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+Return early if count is zero, to make it clearer to the compiler (and =
+the
+casual reviewer) that no more processing is done.
 
-On Tue, 2013-04-23 at 20:37 +0800, Hayes Wang wrote:
-> File: rtl_nic/rtl8106e-2.fw
-> Version: 0.0.1
->=20
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
-> ---
+Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+---
+ net/sunrpc/auth_gss/gss_rpc_xdr.c |   32 +++++++++++++++++------------=
+---
+ 1 files changed, 17 insertions(+), 15 deletions(-)
 
-Applied, thanks.
-
-Ben.
-
->  WHENCE                |   3 +++
->  rtl_nic/rtl8106e-2.fw | Bin 0 -> 832 bytes
->  2 files changed, 3 insertions(+)
->  create mode 100644 rtl_nic/rtl8106e-2.fw
->=20
-> diff --git a/WHENCE b/WHENCE
-> index 54f6388..fedf031 100644
-> --- a/WHENCE
-> +++ b/WHENCE
-> @@ -1869,6 +1869,9 @@ Version: 0.0.1
->  File: rtl_nic/rtl8106e-1.fw
->  Version: 0.0.1
-> =20
-> +File: rtl_nic/rtl8106e-2.fw
-> +Version: 0.0.1
-> +
->  File: rtl_nic/rtl8168g-1.fw
->  Version: 0.0.3
-> =20
-> diff --git a/rtl_nic/rtl8106e-2.fw b/rtl_nic/rtl8106e-2.fw
-> new file mode 100644
-> index 0000000000000000000000000000000000000000..ac042757e1392c184b5b75313=
-d6b597c1561cc41
-> GIT binary patch
-> literal 832
-> zcmYk(!AcuZ6b9fwaZ;g{I7x011aTgqjT0wG%_?9i2wg~*ZqlGa7HUOYrsY~96r><N
-> zfDLq$M-aN1wNychxa|Y9SlZa7)BoO+Q%rI>neUuAbM74g*xlQFR*M%lp3b-8YFw>F
-> zaeZz+nX4ttxz7sM7p}K>^>QJJlh#gqZ>`hXZEv;K-mGs#wZ%pfH|lkKT*mu}Sqp^x
-> z`d@1OHFk2qcSlViY9ilX2abS3y!3F^zSyr=3Dj2T-!t=3DJrlbr$jeQQp{cpE;Ug44xP}
-> zes2Yzjm>eri;SHf)jeR$CXEe7F+Yl6?1sko4cXT{1CZV_^AzqfM8H(~e<nUx_jBWO
-> zVfxkY#~{0NwI+S;`;?IS{g(W_J?r}-`y@3kH6};m^W{+<mI?N_V9(bd%6_Ilnma_8
-> z9m@T`)Ecyg*o|6&RuKEEwoTg>`=3DQpMb;N$Eb!lC(-)ckJP;97nKsyj~XA`>j1p^G|
-> z1Mx|<8QP3kN$r+)D^^i!)7oN>)sAV$Vnwxp7KlAkyEpfQ+A8Z-rOwTGsk3Kt#^-u{
-> e!nzZw`=3D(Z;6~(U9&S+<1*J?dlPps+RJMa%_vcCZU
->=20
-> literal 0
-> HcmV?d00001
->=20
-
+diff --git a/net/sunrpc/auth_gss/gss_rpc_xdr.c b/net/sunrpc/auth_gss/gs=
+s_rpc_xdr.c
+index 5c4c61d..a1e1b1a 100644
+--- a/net/sunrpc/auth_gss/gss_rpc_xdr.c
++++ b/net/sunrpc/auth_gss/gss_rpc_xdr.c
+@@ -264,25 +264,27 @@ static int gssx_dec_option_array(struct xdr_strea=
+m *xdr,
+ 	if (unlikely(p =3D=3D NULL))
+ 		return -ENOSPC;
+ 	count =3D be32_to_cpup(p++);
+-	if (count !=3D 0) {
+-		/* we recognize only 1 currently: CREDS_VALUE */
+-		oa->count =3D 1;
++	if (!count)
++		return 0;
+=20
+-		oa->data =3D kmalloc(sizeof(struct gssx_option), GFP_KERNEL);
+-		if (!oa->data)
+-			return -ENOMEM;
++	/* we recognize only 1 currently: CREDS_VALUE */
++	oa->count =3D 1;
+=20
+-		creds =3D kmalloc(sizeof(struct svc_cred), GFP_KERNEL);
+-		if (!creds) {
+-			kfree(oa->data);
+-			return -ENOMEM;
+-		}
++	oa->data =3D kmalloc(sizeof(struct gssx_option), GFP_KERNEL);
++	if (!oa->data)
++		return -ENOMEM;
+=20
+-		oa->data[0].option.data =3D CREDS_VALUE;
+-		oa->data[0].option.len =3D sizeof(CREDS_VALUE);
+-		oa->data[0].value.data =3D (void *)creds;
+-		oa->data[0].value.len =3D 0;
++	creds =3D kmalloc(sizeof(struct svc_cred), GFP_KERNEL);
++	if (!creds) {
++		kfree(oa->data);
++		return -ENOMEM;
+ 	}
++
++	oa->data[0].option.data =3D CREDS_VALUE;
++	oa->data[0].option.len =3D sizeof(CREDS_VALUE);
++	oa->data[0].value.data =3D (void *)creds;
++	oa->data[0].value.len =3D 0;
++
+ 	for (i =3D 0; i < count; i++) {
+ 		gssx_buffer dummy =3D { 0, NULL };
+ 		u32 length;
 --=20
-Ben Hutchings
-If God had intended Man to program,
-we'd have been born with serial I/O ports.
+1.7.0.4
 
---=-M/x+p6MLEXB8rOf6XpDg
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAUYckYOe/yOyVhhEJAQpvJA/+JtVrrczRmvHDdvG1e4qtfn+c1z44PTll
-l3hs+ez/6PqbvZBZ+CY1Etk9gycLccOQjaYG4aPVveVgvfdt3PYe+zMOn6pu1Ru0
-CssW7rKPkgle4dhF6A62xhWAjQsDHHX8baa60mTKe+Ihxm1jwyOeW3TwFmbWKZS0
-BD3crnpLNy/22Zaa/UORCBxvJnP5EZhrzbkPqO1GbIms20sQETr05uqCArTm9ugO
-n0le4rH0C+NG4ZK9VLbxPTHinZKNTyWANBl3RC6824woya6fXGP/tHt+mqxhT5vP
-4xayePK1FI3dOJGzdbzNPjATvvV9dS1AHZggbZWc+nNR89j28dT9+AURuQ4pW4FG
-73oKaD8V5S/QSNlwekrktLkoJStDIeloman8QM5EKjuuNWADX2eT1P0e00Gq4YVb
-Ph0vuH/sr1dVMx4ACAVi4oIfmqpaoEx0M3PVENTES1qNJPpiUDzZqvL8abvw+fwq
-q4UE5mrZ/VH+An7TCC//wIdKiE2xJQjy5lOGUTTdutHHKyJjEs33YKsJX4iuYdE2
-BEm995N69NqXIzHltBK7jOBjPVPL3Fz5iqFZCAKJW3+GLRayO03plHG+OwNKXAcr
-f90fyPvK1beZIWQEglwchVcyHx95TuEAvUMjbvHGwlUKezO/QCHN3Lz/KdmZRvTV
-wfYR8Yz1PkM=
-=N/eK
------END PGP SIGNATURE-----
-
---=-M/x+p6MLEXB8rOf6XpDg--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
