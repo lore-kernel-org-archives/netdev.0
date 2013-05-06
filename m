@@ -1,26 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next] net/usb: new driver for RTL8152
-Date: Mon, 06 May 2013 16:17:17 -0400 (EDT)
-Message-ID: <20130506.161717.2223438084197918495.davem@davemloft.net>
-References: <1366965948-1805-1-git-send-email-hayeswang@realtek.com>
-	<1367546485-1619-1-git-send-email-hayeswang@realtek.com>
+Subject: Re: [patch 1/2] tipc: add a bounds check in
+ link_recv_changeover_msg()
+Date: Mon, 06 May 2013 16:17:26 -0400 (EDT)
+Message-ID: <20130506.161726.1012915897561757486.davem@davemloft.net>
+References: <20130506182840.GA21347@elgon.mountain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, oliver@neukum.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-usb@vger.kernel.org, nic_swsd@realtek.com
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367546485-1619-1-git-send-email-hayeswang@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: jon.maloy@ericsson.com, allan.stephens@windriver.com,
+	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34738 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756334Ab3EFUR1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 16:17:27 -0400
+In-Reply-To: <20130506182840.GA21347@elgon.mountain>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Fri, 3 May 2013 10:01:25 +0800
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 6 May 2013 21:28:41 +0300
 
-> Add new driver for supporting Realtek RTL8152 Based USB 2.0 Ethernet Adapters
+> The bearer_id here comes from skb->data and it can be a number from 0 to
+> 7.  The problem is that the ->links[] array has only 2 elements so I
+> have added a range check.
 > 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
