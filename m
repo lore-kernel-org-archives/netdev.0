@@ -1,81 +1,66 @@
-From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
-Subject: Re: [PATCH 1/2] freezer: add unsafe versions of freezable helpers
-Date: Mon, 6 May 2013 00:12:34 +0200
-Message-ID: <20130505221234.GA18470@amd.pavel.ucw.cz>
-References: <1367615050-3894-1-git-send-email-ccross@android.com>
- <20130505092318.GD22239@gmail.com>
+From: Al Viro <viro@ZenIV.linux.org.uk>
+Subject: [PATCH] fib_trie: no need to delay vfree()
+Date: Mon, 6 May 2013 03:03:46 +0100
+Message-ID: <20130506020346.GK25399@ZenIV.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
-	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
-	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	"J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Paul Walmsley <paul-DWxLp4Yu+b8AvxtiuMwx3w@public.gmane.org>,
-	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Ben Chan <benchan-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
-To: Ingo Molnar <mingo-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zeniv.linux.org.uk ([195.92.253.2]:49384 "EHLO
+	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751982Ab3EFCDt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 May 2013 22:03:49 -0400
 Content-Disposition: inline
-In-Reply-To: <20130505092318.GD22239-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
+Now that vfree() can be called from interrupt contexts, there's no
+need to play games with schedule_work() to escape calling vfree()
+from RCU callbacks.
 
-> > NFS calls the freezable helpers with locks held, which is unsafe
-> > and caused lockdep warnings when 6aa9707 "lockdep: check that no
-> > locks held at freeze time" was applied (reverted in dbf520a).
-> > Add new *_unsafe versions of the helpers that will not run the
-> > lockdep test when 6aa9707 is reapplied, and call them from NFS.
-> > 
-> > Signed-off-by: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
-> > ---
-> >  fs/nfs/inode.c          |  2 +-
-> >  fs/nfs/nfs3proc.c       |  2 +-
-> >  fs/nfs/nfs4proc.c       |  4 ++--
-> >  include/linux/freezer.h | 42 +++++++++++++++++++++++++++++++++++++++++-
-> >  net/sunrpc/sched.c      |  2 +-
-> >  5 files changed, 46 insertions(+), 6 deletions(-)
-> > 
-> > diff --git a/fs/nfs/inode.c b/fs/nfs/inode.c
-> > index 1f94167..53cbee5 100644
-> > --- a/fs/nfs/inode.c
-> > +++ b/fs/nfs/inode.c
-> > @@ -79,7 +79,7 @@ int nfs_wait_bit_killable(void *word)
-> >  {
-> >  	if (fatal_signal_pending(current))
-> >  		return -ERESTARTSYS;
-> > -	freezable_schedule();
-> > +	freezable_schedule_unsafe();
-> 
-> I'd suggest naming such variants _unkillable() instead of _unsafe().
-> 
-> There's nothing inherently 'unsafe' about it: the user asked for a hard 
-> NFS mount and is getting it: with the side effect that it exposes the 
-> machine to network delays in a 'hard' way as well. Which means suspend may 
-> block indefinitely as well on network failure.
+Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+---
+Not sure if it's 3.10 or 3.11 fodder - the patch is trivial and
+vfree() from RCU callbacks will be exercised in 3.10 anyway (both
+for large descriptor tables and for large sysv semaphore arrays).
+OTOH, it doesn't fix any bugs, so...  Up to you.
 
-You only want to use _unsafe() variants when you enter refrigerator
-with locks held.
-
-And entering refrigerator with locks is tricky... and unsafe :-). It
-is not directly related to killability.
-
-									Pavel
--- 
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/ipv4/fib_trie.c b/net/ipv4/fib_trie.c
+index ff06b75..49616fe 100644
+--- a/net/ipv4/fib_trie.c
++++ b/net/ipv4/fib_trie.c
+@@ -125,7 +125,6 @@ struct tnode {
+ 	unsigned int empty_children;	/* KEYLENGTH bits needed */
+ 	union {
+ 		struct rcu_head rcu;
+-		struct work_struct work;
+ 		struct tnode *tnode_free;
+ 	};
+ 	struct rt_trie_node __rcu *child[0];
+@@ -383,12 +382,6 @@ static struct tnode *tnode_alloc(size_t size)
+ 		return vzalloc(size);
+ }
+ 
+-static void __tnode_vfree(struct work_struct *arg)
+-{
+-	struct tnode *tn = container_of(arg, struct tnode, work);
+-	vfree(tn);
+-}
+-
+ static void __tnode_free_rcu(struct rcu_head *head)
+ {
+ 	struct tnode *tn = container_of(head, struct tnode, rcu);
+@@ -397,10 +390,8 @@ static void __tnode_free_rcu(struct rcu_head *head)
+ 
+ 	if (size <= PAGE_SIZE)
+ 		kfree(tn);
+-	else {
+-		INIT_WORK(&tn->work, __tnode_vfree);
+-		schedule_work(&tn->work);
+-	}
++	else
++		vfree(tn);
+ }
+ 
+ static inline void tnode_free(struct tnode *tn)
