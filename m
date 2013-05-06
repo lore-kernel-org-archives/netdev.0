@@ -1,63 +1,100 @@
-From: Al Viro <viro@ZenIV.linux.org.uk>
-Subject: [PATCH] rps_dev_flow_table_release(): no need to delay vfree()
-Date: Mon, 6 May 2013 03:05:55 +0100
-Message-ID: <20130506020555.GL25399@ZenIV.linux.org.uk>
-References: <20130506020346.GK25399@ZenIV.linux.org.uk>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v3 2/3] bridge: only expire the mdb entry when
+ query is received
+Date: Mon, 06 May 2013 11:24:13 +0800
+Message-ID: <1367810653.6246.5.camel@cr0>
+References: <1367305819-14013-1-git-send-email-amwang@redhat.com>
+	 <1367305819-14013-2-git-send-email-amwang@redhat.com>
+	 <20130502015938.GA2237@gondor.apana.org.au> <1367553022.2415.55.camel@cr0>
+	 <20130503040102.GA10898@gondor.apana.org.au> <1367564926.2415.56.camel@cr0>
+	 <20130503093017.GA12471@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zeniv.linux.org.uk ([195.92.253.2]:49391 "EHLO
-	ZenIV.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751864Ab3EFCF4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 May 2013 22:05:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20130506020346.GK25399@ZenIV.linux.org.uk>
+Received: from mx1.redhat.com ([209.132.183.28]:29247 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752244Ab3EFDYh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 May 2013 23:24:37 -0400
+In-Reply-To: <20130503093017.GA12471@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The same story as with fib_trie patch - vfree() from RCU callbacks
-is legitimate now.
-    
-Signed-off-by: Al Viro <viro@zeniv.linux.org.uk>
+On Fri, 2013-05-03 at 17:30 +0800, Herbert Xu wrote:
+> On Fri, May 03, 2013 at 03:08:46PM +0800, Cong Wang wrote:
+> > On Fri, 2013-05-03 at 12:01 +0800, Herbert Xu wrote:
+> > > 
+> > > I think I quoted the wrong hunk in the patch, I meant the code
+> > > that arms the timer should no longer be in the leave_group function
+> > > unless we just sent a query ourselves (and in that case the expiration
+> > > should also be adjusted accordingly).
+> > 
+> > Is the following patch what you meant?
+> 
+> Right, but also add the corresponding timers in case we send a
+> group-specific query since that won't loop back to ourselves.
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index f8898a4..a94a5a0 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -593,7 +593,6 @@ struct rps_dev_flow {
- struct rps_dev_flow_table {
- 	unsigned int mask;
- 	struct rcu_head rcu;
--	struct work_struct free_work;
- 	struct rps_dev_flow flows[0];
- };
- #define RPS_DEV_FLOW_TABLE_SIZE(_num) (sizeof(struct rps_dev_flow_table) + \
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 7427ab5..981fed3 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -606,21 +606,11 @@ static ssize_t show_rps_dev_flow_table_cnt(struct netdev_rx_queue *queue,
- 	return sprintf(buf, "%lu\n", val);
- }
+Ok, then something like below , it is a delta patch, the first piece
+should go to patch 3/3.
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index d73276b..11946a4 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1263,6 +1263,24 @@ static void br_multicast_leave_group(struct
+net_bridge *br,
+ 			br->multicast_query_interval;
+ 		mod_timer(port ? &port->multicast_query_timer :
+ 				 &br->multicast_query_timer, time);
++
++		time = jiffies + br->multicast_last_member_count *
++				 br->multicast_last_member_interval;
++		for (p = mlock_dereference(mp->ports, br);
++		     p != NULL;
++		     p = mlock_dereference(p->next, br)) {
++			if (p->port != port)
++				continue;
++
++			if (!hlist_unhashed(&p->mglist) &&
++			    (timer_pending(&p->timer) ?
++			     time_after(p->timer.expires, time) :
++			     try_to_del_timer_sync(&p->timer) >= 0)) {
++				mod_timer(&p->timer, time);
++			}
++
++			break;
++		}
+ 	}
  
--static void rps_dev_flow_table_release_work(struct work_struct *work)
--{
--	struct rps_dev_flow_table *table = container_of(work,
--	    struct rps_dev_flow_table, free_work);
+ 	if (port && (port->flags & BR_MULTICAST_FAST_LEAVE)) {
+@@ -1298,24 +1316,6 @@ static void br_multicast_leave_group(struct
+net_bridge *br,
+ 		     try_to_del_timer_sync(&mp->timer) >= 0)) {
+ 			mod_timer(&mp->timer, time);
+ 		}
 -
--	vfree(table);
--}
+-		goto out;
+-	}
 -
- static void rps_dev_flow_table_release(struct rcu_head *rcu)
- {
- 	struct rps_dev_flow_table *table = container_of(rcu,
- 	    struct rps_dev_flow_table, rcu);
+-	for (p = mlock_dereference(mp->ports, br);
+-	     p != NULL;
+-	     p = mlock_dereference(p->next, br)) {
+-		if (p->port != port)
+-			continue;
 -
--	INIT_WORK(&table->free_work, rps_dev_flow_table_release_work);
--	schedule_work(&table->free_work);
-+	vfree(table);
- }
+-		if (!hlist_unhashed(&p->mglist) &&
+-		    (timer_pending(&p->timer) ?
+-		     time_after(p->timer.expires, time) :
+-		     try_to_del_timer_sync(&p->timer) >= 0)) {
+-			mod_timer(&p->timer, time);
+-		}
+-
+-		break;
+ 	}
  
- static ssize_t store_rps_dev_flow_table_cnt(struct netdev_rx_queue *queue,
+ out:
