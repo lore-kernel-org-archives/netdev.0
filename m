@@ -1,37 +1,94 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] netpoll: inverted down_trylock() test
-Date: Mon, 6 May 2013 15:15:13 +0300
-Message-ID: <20130506121513.GA13930@elgon.mountain>
+From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
+Subject: Re: [PATCH] SUNRPC: Refactor gssx_dec_option_array() to kill
+ uninitialized warning
+Date: Mon, 6 May 2013 08:55:31 -0400
+Message-ID: <20130506125531.GC15476@fieldses.org>
+References: <1367824863-1857-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <amwang@redhat.com>, Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:35974 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752313Ab3EFMPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 08:15:35 -0400
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1367824863-1857-1-git-send-email-geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The return value is reversed from mutex_trylock().
+On Mon, May 06, 2013 at 09:21:03AM +0200, Geert Uytterhoeven wrote:
+> net/sunrpc/auth_gss/gss_rpc_xdr.c: In function =E2=80=98gssx_dec_opti=
+on_array=E2=80=99:
+> net/sunrpc/auth_gss/gss_rpc_xdr.c:258: warning: =E2=80=98creds=E2=80=99=
+ may be used uninitialized in this function
+>=20
+> Return early if count is zero, to make it clearer to the compiler (an=
+d the
+> casual reviewer) that no more processing is done.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Looks reasonable; applying for 3.10.--b.
 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index a5802a8..cec074b 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -206,7 +206,7 @@ static void netpoll_poll_dev(struct net_device *dev)
- 	 * the dev_open/close paths use this to block netpoll activity
- 	 * while changing device state
- 	 */
--	if (!down_trylock(&ni->dev_lock))
-+	if (down_trylock(&ni->dev_lock))
- 		return;
- 
- 	if (!netif_running(dev)) {
+>=20
+> Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+> ---
+>  net/sunrpc/auth_gss/gss_rpc_xdr.c |   32 +++++++++++++++++----------=
+-----
+>  1 files changed, 17 insertions(+), 15 deletions(-)
+>=20
+> diff --git a/net/sunrpc/auth_gss/gss_rpc_xdr.c b/net/sunrpc/auth_gss/=
+gss_rpc_xdr.c
+> index 5c4c61d..a1e1b1a 100644
+> --- a/net/sunrpc/auth_gss/gss_rpc_xdr.c
+> +++ b/net/sunrpc/auth_gss/gss_rpc_xdr.c
+> @@ -264,25 +264,27 @@ static int gssx_dec_option_array(struct xdr_str=
+eam *xdr,
+>  	if (unlikely(p =3D=3D NULL))
+>  		return -ENOSPC;
+>  	count =3D be32_to_cpup(p++);
+> -	if (count !=3D 0) {
+> -		/* we recognize only 1 currently: CREDS_VALUE */
+> -		oa->count =3D 1;
+> +	if (!count)
+> +		return 0;
+> =20
+> -		oa->data =3D kmalloc(sizeof(struct gssx_option), GFP_KERNEL);
+> -		if (!oa->data)
+> -			return -ENOMEM;
+> +	/* we recognize only 1 currently: CREDS_VALUE */
+> +	oa->count =3D 1;
+> =20
+> -		creds =3D kmalloc(sizeof(struct svc_cred), GFP_KERNEL);
+> -		if (!creds) {
+> -			kfree(oa->data);
+> -			return -ENOMEM;
+> -		}
+> +	oa->data =3D kmalloc(sizeof(struct gssx_option), GFP_KERNEL);
+> +	if (!oa->data)
+> +		return -ENOMEM;
+> =20
+> -		oa->data[0].option.data =3D CREDS_VALUE;
+> -		oa->data[0].option.len =3D sizeof(CREDS_VALUE);
+> -		oa->data[0].value.data =3D (void *)creds;
+> -		oa->data[0].value.len =3D 0;
+> +	creds =3D kmalloc(sizeof(struct svc_cred), GFP_KERNEL);
+> +	if (!creds) {
+> +		kfree(oa->data);
+> +		return -ENOMEM;
+>  	}
+> +
+> +	oa->data[0].option.data =3D CREDS_VALUE;
+> +	oa->data[0].option.len =3D sizeof(CREDS_VALUE);
+> +	oa->data[0].value.data =3D (void *)creds;
+> +	oa->data[0].value.len =3D 0;
+> +
+>  	for (i =3D 0; i < count; i++) {
+>  		gssx_buffer dummy =3D { 0, NULL };
+>  		u32 length;
+> --=20
+> 1.7.0.4
+>=20
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
