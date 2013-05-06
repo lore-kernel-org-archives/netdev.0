@@ -1,17 +1,16 @@
 From: Jeff Layton <jlayton@redhat.com>
 Subject: Re: [PATCH 1/2] freezer: add unsafe versions of freezable helpers
-Date: Mon, 6 May 2013 06:56:05 -0400
-Message-ID: <20130506065605.6e5ed5e2@tlielax.poochiereds.net>
+Date: Mon, 6 May 2013 06:58:42 -0400
+Message-ID: <20130506065842.25a018f6@tlielax.poochiereds.net>
 References: <1367615050-3894-1-git-send-email-ccross@android.com>
+	<20130506085025.GB13861@dyad.programming.kicks-ass.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
+Cc: Colin Cross <ccross@android.com>, linux-kernel@vger.kernel.org,
 	Trond Myklebust <Trond.Myklebust@netapp.com>,
 	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>, Ingo Molnar <mingo@redhat.com>,
 	"J. Bruce Fields" <bfields@fieldses.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Morton <akpm@linux-foundation.org>,
@@ -22,188 +21,40 @@ Cc: linux-kernel@vger.kernel.org,
 	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
 	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Ben Chan <benchan@chromium.org>,
-	smfrench@gmail.com
-To: Colin Cross <ccross@android.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <1367615050-3894-1-git-send-email-ccross@android.com>
-Sender: linux-pm-owner@vger.kernel.org
+	Tejun Heo <tj@kernel.org>, Ben Chan <benchan@chromium.org>
+To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130506085025.GB13861@dyad.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri,  3 May 2013 14:04:09 -0700
-Colin Cross <ccross@android.com> wrote:
+On Mon, 6 May 2013 10:50:25 +0200
+Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
 
-> NFS calls the freezable helpers with locks held, which is unsafe
-> and caused lockdep warnings when 6aa9707 "lockdep: check that no
-> locks held at freeze time" was applied (reverted in dbf520a).
-> Add new *_unsafe versions of the helpers that will not run the
-> lockdep test when 6aa9707 is reapplied, and call them from NFS.
+> On Fri, May 03, 2013 at 02:04:09PM -0700, Colin Cross wrote:
+> > NFS calls the freezable helpers with locks held, which is unsafe
+> > and caused lockdep warnings when 6aa9707 "lockdep: check that no
+> > locks held at freeze time" was applied (reverted in dbf520a).
+> > Add new *_unsafe versions of the helpers that will not run the
+> > lockdep test when 6aa9707 is reapplied, and call them from NFS.
 > 
-> Signed-off-by: Colin Cross <ccross@android.com>
-> ---
->  fs/nfs/inode.c          |  2 +-
->  fs/nfs/nfs3proc.c       |  2 +-
->  fs/nfs/nfs4proc.c       |  4 ++--
->  include/linux/freezer.h | 42 +++++++++++++++++++++++++++++++++++++++++-
->  net/sunrpc/sched.c      |  2 +-
->  5 files changed, 46 insertions(+), 6 deletions(-)
+> Am I the only one that would like a bit more information about why NFS does
+> this and why we need to work around it?
 > 
-> diff --git a/fs/nfs/inode.c b/fs/nfs/inode.c
-> index 1f94167..53cbee5 100644
-> --- a/fs/nfs/inode.c
-> +++ b/fs/nfs/inode.c
-> @@ -79,7 +79,7 @@ int nfs_wait_bit_killable(void *word)
->  {
->  	if (fatal_signal_pending(current))
->  		return -ERESTARTSYS;
-> -	freezable_schedule();
-> +	freezable_schedule_unsafe();
->  	return 0;
->  }
->  EXPORT_SYMBOL_GPL(nfs_wait_bit_killable);
-> diff --git a/fs/nfs/nfs3proc.c b/fs/nfs/nfs3proc.c
-> index 43ea96c..ce90eb4 100644
-> --- a/fs/nfs/nfs3proc.c
-> +++ b/fs/nfs/nfs3proc.c
-> @@ -33,7 +33,7 @@ nfs3_rpc_wrapper(struct rpc_clnt *clnt, struct rpc_message *msg, int flags)
->  		res = rpc_call_sync(clnt, msg, flags);
->  		if (res != -EJUKEBOX)
->  			break;
-> -		freezable_schedule_timeout_killable(NFS_JUKEBOX_RETRY_TIME);
-> +		freezable_schedule_timeout_killable_unsafe(NFS_JUKEBOX_RETRY_TIME);
->  		res = -ERESTARTSYS;
->  	} while (!fatal_signal_pending(current));
->  	return res;
-> diff --git a/fs/nfs/nfs4proc.c b/fs/nfs/nfs4proc.c
-> index 0ad025e..a236077 100644
-> --- a/fs/nfs/nfs4proc.c
-> +++ b/fs/nfs/nfs4proc.c
-> @@ -266,7 +266,7 @@ static int nfs4_delay(struct rpc_clnt *clnt, long *timeout)
->  		*timeout = NFS4_POLL_RETRY_MIN;
->  	if (*timeout > NFS4_POLL_RETRY_MAX)
->  		*timeout = NFS4_POLL_RETRY_MAX;
-> -	freezable_schedule_timeout_killable(*timeout);
-> +	freezable_schedule_timeout_killable_unsafe(*timeout);
->  	if (fatal_signal_pending(current))
->  		res = -ERESTARTSYS;
->  	*timeout <<= 1;
-> @@ -4309,7 +4309,7 @@ int nfs4_proc_delegreturn(struct inode *inode, struct rpc_cred *cred, const nfs4
->  static unsigned long
->  nfs4_set_lock_task_retry(unsigned long timeout)
->  {
-> -	freezable_schedule_timeout_killable(timeout);
-> +	freezable_schedule_timeout_killable_unsafe(timeout);
->  	timeout <<= 1;
->  	if (timeout > NFS4_LOCK_MAXTIMEOUT)
->  		return NFS4_LOCK_MAXTIMEOUT;
-> diff --git a/include/linux/freezer.h b/include/linux/freezer.h
-> index e70df40..5b31e21c 100644
-> --- a/include/linux/freezer.h
-> +++ b/include/linux/freezer.h
-> @@ -46,7 +46,11 @@ extern int freeze_kernel_threads(void);
->  extern void thaw_processes(void);
->  extern void thaw_kernel_threads(void);
->  
-> -static inline bool try_to_freeze(void)
-> +/*
-> + * DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION
-> + * If try_to_freeze causes a lockdep warning it means the caller may deadlock
-> + */
-> +static inline bool try_to_freeze_unsafe(void)
->  {
->  	might_sleep();
->  	if (likely(!freezing(current)))
-> @@ -54,6 +58,11 @@ static inline bool try_to_freeze(void)
->  	return __refrigerator(false);
->  }
->  
-> +static inline bool try_to_freeze(void)
-> +{
-> +	return try_to_freeze_unsafe();
-> +}
-> +
->  extern bool freeze_task(struct task_struct *p);
->  extern bool set_freezable(void);
->  
-> @@ -115,6 +124,14 @@ static inline void freezer_count(void)
->  	try_to_freeze();
->  }
->  
-> +/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
-> +static inline void freezer_count_unsafe(void)
-> +{
-> +	current->flags &= ~PF_FREEZER_SKIP;
-> +	smp_mb();
-> +	try_to_freeze_unsafe();
-> +}
-> +
->  /**
->   * freezer_should_skip - whether to skip a task when determining frozen
->   *			 state is reached
-> @@ -152,6 +169,14 @@ static inline bool freezer_should_skip(struct task_struct *p)
->  	freezer_count();						\
->  })
->  
-> +/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
-> +#define freezable_schedule_unsafe()					\
-> +({									\
-> +	freezer_do_not_count();						\
-> +	schedule();							\
-> +	freezer_count_unsafe();						\
-> +})
-> +
->  /* Like schedule_timeout_killable(), but should not block the freezer. */
->  #define freezable_schedule_timeout_killable(timeout)			\
->  ({									\
-> @@ -162,6 +187,16 @@ static inline bool freezer_should_skip(struct task_struct *p)
->  	__retval;							\
->  })
->  
-> +/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
-> +#define freezable_schedule_timeout_killable_unsafe(timeout)		\
-> +({									\
-> +	long __retval;							\
-> +	freezer_do_not_count();						\
-> +	__retval = schedule_timeout_killable(timeout);			\
-> +	freezer_count_unsafe();						\
-> +	__retval;							\
-> +})
-> +
->  /*
->   * Freezer-friendly wrappers around wait_event_interruptible(),
->   * wait_event_killable() and wait_event_interruptible_timeout(), originally
-> @@ -225,9 +260,14 @@ static inline void set_freezable(void) {}
->  
->  #define freezable_schedule()  schedule()
->  
-> +#define freezable_schedule_unsafe()  schedule()
-> +
->  #define freezable_schedule_timeout_killable(timeout)			\
->  	schedule_timeout_killable(timeout)
->  
-> +#define freezable_schedule_timeout_killable_unsafe(timeout)		\
-> +	schedule_timeout_killable(timeout)
-> +
->  #define wait_event_freezable(wq, condition)				\
->  		wait_event_interruptible(wq, condition)
->  
-> diff --git a/net/sunrpc/sched.c b/net/sunrpc/sched.c
-> index f8529fc..8dcfadc 100644
-> --- a/net/sunrpc/sched.c
-> +++ b/net/sunrpc/sched.c
-> @@ -254,7 +254,7 @@ static int rpc_wait_bit_killable(void *word)
->  {
->  	if (fatal_signal_pending(current))
->  		return -ERESTARTSYS;
-> -	freezable_schedule();
-> +	freezable_schedule_unsafe();
->  	return 0;
->  }
->  
 
-Looks reasonable, but note that CIFS uses wait_event_freezekillable
-with locks held too, which will likely have the same problem and will
-need the same workaround for now.
+NFS does this because this is how we initially "fixed" it to not block
+the freezer. It sucks and is prone to deadlocking if you selectively
+freeze processes via the cgroup freezer. It does basically "work" in
+most cases though if the freezer is running to suspend the whole system.
+
+I'm looking at fixing this by instead setting points within the NFS/RPC
+layers that cause these calls to return something like ERESTARTSYS
+instead when a freeze event comes in, depending on whether a call has
+already been transmitted to the server.
+
+That's likely to take a while though, and in the meantime we don't want
+lockdep complaining every time someone fires off a RPC call with locks
+held. So for now, we'd like to "opt out" of these lockdep warnings.
 
 -- 
 Jeff Layton <jlayton@redhat.com>
