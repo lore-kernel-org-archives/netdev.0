@@ -1,60 +1,38 @@
-From: Jeff Layton <jlayton@redhat.com>
-Subject: Re: [PATCH 1/2] freezer: add unsafe versions of freezable helpers
-Date: Mon, 6 May 2013 06:58:42 -0400
-Message-ID: <20130506065842.25a018f6@tlielax.poochiereds.net>
-References: <1367615050-3894-1-git-send-email-ccross@android.com>
-	<20130506085025.GB13861@dyad.programming.kicks-ass.net>
+From: "Holger Hoffstaette" <holger.hoffstaette@googlemail.com>
+Subject: Status of loopback-tcp-bypass aka "TCP Friends"
+Date: Mon, 06 May 2013 13:42:34 +0200
+Message-ID: <pan.2013.05.06.11.42.34.650194@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Colin Cross <ccross@android.com>, linux-kernel@vger.kernel.org,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>, Ingo Molnar <mingo@redhat.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Paul Walmsley <paul@pwsan.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
-	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Ben Chan <benchan@chromium.org>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130506085025.GB13861@dyad.programming.kicks-ass.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:39887 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752695Ab3EFLmp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 May 2013 07:42:45 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UZJoa-0002mL-KS
+	for netdev@vger.kernel.org; Mon, 06 May 2013 13:42:44 +0200
+Received: from p5086bb13.dip0.t-ipconnect.de ([80.134.187.19])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 06 May 2013 13:42:44 +0200
+Received: from holger.hoffstaette by p5086bb13.dip0.t-ipconnect.de with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 06 May 2013 13:42:44 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 6 May 2013 10:50:25 +0200
-Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
 
-> On Fri, May 03, 2013 at 02:04:09PM -0700, Colin Cross wrote:
-> > NFS calls the freezable helpers with locks held, which is unsafe
-> > and caused lockdep warnings when 6aa9707 "lockdep: check that no
-> > locks held at freeze time" was applied (reverted in dbf520a).
-> > Add new *_unsafe versions of the helpers that will not run the
-> > lockdep test when 6aa9707 is reapplied, and call them from NFS.
-> 
-> Am I the only one that would like a bit more information about why NFS does
-> this and why we need to work around it?
-> 
+Hi,
 
-NFS does this because this is how we initially "fixed" it to not block
-the freezer. It sucks and is prone to deadlocking if you selectively
-freeze processes via the cgroup freezer. It does basically "work" in
-most cases though if the freezer is running to suspend the whole system.
+can someone please shed light on the status of the "TCP friends" feature
+that was discussed some time ago? I've been trying to find mails/patches
+but everything seems to be more than a few months old. Just curious
+whether this is still planned.
 
-I'm looking at fixing this by instead setting points within the NFS/RPC
-layers that cause these calls to return something like ERESTARTSYS
-instead when a freeze event comes in, depending on whether a call has
-already been transmitted to the server.
+Thanks!
 
-That's likely to take a while though, and in the meantime we don't want
-lockdep complaining every time someone fires off a RPC call with locks
-held. So for now, we'd like to "opt out" of these lockdep warnings.
-
--- 
-Jeff Layton <jlayton@redhat.com>
+-h
