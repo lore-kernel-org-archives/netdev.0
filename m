@@ -1,66 +1,34 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH] qmi_wwan/cdc_ether: add device IDs for Dell 5804 (Novatel
- E371) WWAN card
-Date: Mon, 06 May 2013 16:17:37 -0500
-Message-ID: <1367875057.31762.3.camel@dcbw.foobar.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] qmi_wwan/cdc_ether: add device IDs for Dell 5804 (Novatel E371) WWAN card
+Date: Mon, 06 May 2013 23:22:50 +0200
+Message-ID: <87li7r6bx1.fsf@nemi.mork.no>
 References: <1367874878.31762.0.camel@dcbw.foobar.com>
+	<1367875057.31762.3.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: stable@vger.kernel.org, dagofthedofg@gmail.com,
-	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org,
+	dagofthedofg@gmail.com
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1367874878.31762.0.camel@dcbw.foobar.com>
+In-Reply-To: <1367875057.31762.3.camel@dcbw.foobar.com> (Dan Williams's
+	message of "Mon, 06 May 2013 16:17:37 -0500")
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-A rebranded Novatel E371 for AT&T's LTE bands.  qmi_wwan should drive this
-device, while cdc_ether should ignore it.  Even though the USB descriptors
-are plain CDC-ETHER that USB interface is a QMI interface.
+Dan Williams <dcbw@redhat.com> writes:
 
-Cc: <stable@vger.kernel.org>
-Signed-off-by: Dan Williams <dcbw@redhat.com>
----
- drivers/net/usb/cdc_ether.c | 7 +++++++
- drivers/net/usb/qmi_wwan.c  | 7 +++++++
- 2 files changed, 14 insertions(+)
+> A rebranded Novatel E371 for AT&T's LTE bands.  qmi_wwan should drive=
+ this
+> device, while cdc_ether should ignore it.  Even though the USB descri=
+ptors
+> are plain CDC-ETHER that USB interface is a QMI interface.
+>
+> Cc: <stable@vger.kernel.org>
+> Signed-off-by: Dan Williams <dcbw@redhat.com>
+> ---
+>  drivers/net/usb/cdc_ether.c | 7 +++++++
+>  drivers/net/usb/qmi_wwan.c  | 7 +++++++
+>  2 files changed, 14 insertions(+)
 
-diff --git a/drivers/net/usb/cdc_ether.c b/drivers/net/usb/cdc_ether.c
-index 24fbec2..078795f 100644
---- a/drivers/net/usb/cdc_ether.c
-+++ b/drivers/net/usb/cdc_ether.c
-@@ -613,6 +613,13 @@ static const struct usb_device_id	products [] = {
- 	.driver_info = 0,
- },
- 
-+/* Dell Wireless 5804 (Novatel E371) - handled by qmi_wwan */
-+{
-+	USB_DEVICE_AND_INTERFACE_INFO(DELL_VENDOR_ID, 0x819b, USB_CLASS_COMM,
-+			USB_CDC_SUBCLASS_ETHERNET, USB_CDC_PROTO_NONE),
-+	.driver_info = 0,
-+},
-+
- /* AnyDATA ADU960S - handled by qmi_wwan */
- {
- 	USB_DEVICE_AND_INTERFACE_INFO(0x16d5, 0x650a, USB_CLASS_COMM,
-diff --git a/drivers/net/usb/qmi_wwan.c b/drivers/net/usb/qmi_wwan.c
-index 834e405..cf887c2 100644
---- a/drivers/net/usb/qmi_wwan.c
-+++ b/drivers/net/usb/qmi_wwan.c
-@@ -501,6 +501,13 @@ static const struct usb_device_id products[] = {
- 					      USB_CDC_PROTO_NONE),
- 		.driver_info        = (unsigned long)&qmi_wwan_info,
- 	},
-+	{	/* Dell Wireless 5804 (Novatel E371) */
-+		USB_DEVICE_AND_INTERFACE_INFO(0x413C, 0x819b,
-+					      USB_CLASS_COMM,
-+					      USB_CDC_SUBCLASS_ETHERNET,
-+					      USB_CDC_PROTO_NONE),
-+		.driver_info        = (unsigned long)&qmi_wwan_info,
-+	},
- 	{	/* ADU960S */
- 		USB_DEVICE_AND_INTERFACE_INFO(0x16d5, 0x650a,
- 					      USB_CLASS_COMM,
--- 
-1.8.1.4
+Acked-by: Bj=C3=B8rn Mork <bjorn@mork.no>
