@@ -1,87 +1,57 @@
-From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Subject: [PATCH] SUNRPC: Refactor gssx_dec_option_array() to kill uninitialized warning
-Date: Mon,  6 May 2013 09:21:03 +0200
-Message-ID: <1367824863-1857-1-git-send-email-geert@linux-m68k.org>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH] net: frag, fix race conditions in LRU list maintenance
+Date: Mon, 6 May 2013 09:33:18 +0200
+Message-ID: <20130506093318.679f5557@redhat.com>
+References: <20130505145622.9351.86587.stgit@zurg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-To: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>,
-	Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
+	Jesper Dangaard Brouer <brouer@redhat.com>
+To: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:5230 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752007Ab3EFHdh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 May 2013 03:33:37 -0400
+In-Reply-To: <20130505145622.9351.86587.stgit@zurg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-net/sunrpc/auth_gss/gss_rpc_xdr.c: In function =E2=80=98gssx_dec_option=
-_array=E2=80=99:
-net/sunrpc/auth_gss/gss_rpc_xdr.c:258: warning: =E2=80=98creds=E2=80=99=
- may be used uninitialized in this function
+On Sun, 05 May 2013 18:56:22 +0400
+Konstantin Khlebnikov <khlebnikov@openvz.org> wrote:
 
-Return early if count is zero, to make it clearer to the compiler (and =
-the
-casual reviewer) that no more processing is done.
+> This patch fixes race between inet_frag_lru_move() and
+> inet_frag_lru_add() which was introduced in commit
+> 3ef0eb0db4bf92c6d2510fe5c4dc51852746f206 ("net: frag, move LRU list
+> maintenance outside of rwlock")
+> 
+> One cpu already added new fragment queue into hash but not into LRU.
+> Other cpu found it in hash and tries to move it to the end of LRU.
+> This leads to NULL pointer dereference inside of list_move_tail().
 
-Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
----
- net/sunrpc/auth_gss/gss_rpc_xdr.c |   32 +++++++++++++++++------------=
----
- 1 files changed, 17 insertions(+), 15 deletions(-)
+I tried to address this in:
+http://article.gmane.org/gmane.linux.network/266324 But it was never
+applied, as we disagreed on other parts of the patchset and didn't think
+this would happen with curr LRU scheme (which you have shown it can)
 
-diff --git a/net/sunrpc/auth_gss/gss_rpc_xdr.c b/net/sunrpc/auth_gss/gs=
-s_rpc_xdr.c
-index 5c4c61d..a1e1b1a 100644
---- a/net/sunrpc/auth_gss/gss_rpc_xdr.c
-+++ b/net/sunrpc/auth_gss/gss_rpc_xdr.c
-@@ -264,25 +264,27 @@ static int gssx_dec_option_array(struct xdr_strea=
-m *xdr,
- 	if (unlikely(p =3D=3D NULL))
- 		return -ENOSPC;
- 	count =3D be32_to_cpup(p++);
--	if (count !=3D 0) {
--		/* we recognize only 1 currently: CREDS_VALUE */
--		oa->count =3D 1;
-+	if (!count)
-+		return 0;
-=20
--		oa->data =3D kmalloc(sizeof(struct gssx_option), GFP_KERNEL);
--		if (!oa->data)
--			return -ENOMEM;
-+	/* we recognize only 1 currently: CREDS_VALUE */
-+	oa->count =3D 1;
-=20
--		creds =3D kmalloc(sizeof(struct svc_cred), GFP_KERNEL);
--		if (!creds) {
--			kfree(oa->data);
--			return -ENOMEM;
--		}
-+	oa->data =3D kmalloc(sizeof(struct gssx_option), GFP_KERNEL);
-+	if (!oa->data)
-+		return -ENOMEM;
-=20
--		oa->data[0].option.data =3D CREDS_VALUE;
--		oa->data[0].option.len =3D sizeof(CREDS_VALUE);
--		oa->data[0].value.data =3D (void *)creds;
--		oa->data[0].value.len =3D 0;
-+	creds =3D kmalloc(sizeof(struct svc_cred), GFP_KERNEL);
-+	if (!creds) {
-+		kfree(oa->data);
-+		return -ENOMEM;
- 	}
-+
-+	oa->data[0].option.data =3D CREDS_VALUE;
-+	oa->data[0].option.len =3D sizeof(CREDS_VALUE);
-+	oa->data[0].value.data =3D (void *)creds;
-+	oa->data[0].value.len =3D 0;
-+
- 	for (i =3D 0; i < count; i++) {
- 		gssx_buffer dummy =3D { 0, NULL };
- 		u32 length;
---=20
-1.7.0.4
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Another possible race condition is between inet_frag_lru_move() and
+> inet_frag_lru_del(): move can happens after deletion.
+
+This should be very difficult to hit, because its protected with
+the INET_FRAG_COMPLETE bit (checked in ip_frag_queue() before the LRU
+move), which is set after removing it from LRU (all while protected
+under the q->lock).
+
+
+> This patch initializes LRU list head before adding fragment into hash
+> and inet_frag_lru_move() doesn't touches it if it's empty.
+
+This a good fix, and better than my earlier attempt at fixing this.
+
+Thanks!
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
