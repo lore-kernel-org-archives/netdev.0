@@ -1,9 +1,8 @@
 From: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 2/2] lockdep: check that no locks held at freeze time
-Date: Mon, 6 May 2013 12:01:15 -0700
-Message-ID: <20130506190115.GB800@mtj.dyndns.org>
+Subject: Re: [PATCH 1/2] freezer: add unsafe versions of freezable helpers
+Date: Mon, 6 May 2013 11:55:13 -0700
+Message-ID: <20130506185513.GA800@mtj.dyndns.org>
 References: <1367615050-3894-1-git-send-email-ccross@android.com>
- <1367615050-3894-2-git-send-email-ccross@android.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -26,31 +25,20 @@ Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 To: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
 Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1367615050-3894-2-git-send-email-ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+In-Reply-To: <1367615050-3894-1-git-send-email-ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
 Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 03, 2013 at 02:04:10PM -0700, Colin Cross wrote:
-> From: Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>
+On Fri, May 03, 2013 at 02:04:09PM -0700, Colin Cross wrote:
+> NFS calls the freezable helpers with locks held, which is unsafe
+> and caused lockdep warnings when 6aa9707 "lockdep: check that no
+> locks held at freeze time" was applied (reverted in dbf520a).
+> Add new *_unsafe versions of the helpers that will not run the
+> lockdep test when 6aa9707 is reapplied, and call them from NFS.
 > 
-> We shouldn't try_to_freeze if locks are held.  Holding a lock can cause a
-> deadlock if the lock is later acquired in the suspend or hibernate path
-> (e.g.  by dpm).  Holding a lock can also cause a deadlock in the case of
-> cgroup_freezer if a lock is held inside a frozen cgroup that is later
-> acquired by a process outside that group.
-> 
-> History:
-> This patch was originally applied as 6aa9707099c and reverted in
-> dbf520a9d7d4 because NFS was freezing with locks held.  It was
-> deemed better to keep the bad freeze point in NFS to allow laptops
-> to suspend consistently.  The previous patch in this series converts
-> NFS to call _unsafe versions of the freezable helpers so that
-> lockdep doesn't complain about them until a more correct fix
-> can be applied.
+> Signed-off-by: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
 
-I don't care about %current change, especially given that it's a debug
-interface but that really should be a separate patch, so please split
-it out if you want it (and I think we want it).
+Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
 Thanks.
 
