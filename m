@@ -1,8 +1,7 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH v3 2/7] net: mv643xx_eth: update Device Tree bindings
- documentation
-Date: Mon,  6 May 2013 17:33:35 +0200
-Message-ID: <1367854420-8006-3-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v3 3/7] ARM: dove: remove legacy mv643xx_eth setup
+Date: Mon,  6 May 2013 17:33:36 +0200
+Message-ID: <1367854420-8006-4-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
  <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
@@ -38,17 +37,10 @@ Sender: "devicetree-discuss"
  <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+With DT support for mv643xx_eth we do not need legacy platform_data
+based setup for DT enabled boards.
 
-This patch updates the Device Tree bindings documentation for the
-Marvell MV643xx ethernet controller node and makes the
-"local-mac-address" and "phy" properties optional instead of required.
-The absence of a "phy" node is legal and describes a MAC to switch
-configuration, while not specifying the "local-mac-address" allows for
-reuse of the MAC address already programmed into the Ethernet
-controller.
-
-Signed-off-by: Florian Fainelli <florian-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
 Cc: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 Cc: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
@@ -81,26 +73,31 @@ Cc: linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Cc: linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 ---
- Documentation/devicetree/bindings/marvell.txt |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ arch/arm/mach-dove/board-dt.c |    5 -----
+ 1 files changed, 0 insertions(+), 5 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/marvell.txt b/Documentation/devicetree/bindings/marvell.txt
-index 73ea12f..ed4058c 100644
---- a/Documentation/devicetree/bindings/marvell.txt
-+++ b/Documentation/devicetree/bindings/marvell.txt
-@@ -141,11 +141,11 @@ prefixed with the string "marvell,", for Marvell Technology Group Ltd.
-      - interrupts : <a> where a is the interrupt number for the port.
-      - interrupt-parent : the phandle for the interrupt controller
-        that services interrupts for this device.
-+
-+   Optional properties:
-      - phy : the phandle for the PHY connected to this ethernet
-        controller.
-      - local-mac-address : 6 bytes, MAC address
+diff --git a/arch/arm/mach-dove/board-dt.c b/arch/arm/mach-dove/board-dt.c
+index fbde1dd..3c0963d 100644
+--- a/arch/arm/mach-dove/board-dt.c
++++ b/arch/arm/mach-dove/board-dt.c
+@@ -34,10 +34,6 @@ static void __init dove_legacy_clk_init(void)
+ 	clkspec.np = np;
+ 	clkspec.args_count = 1;
+ 
+-	clkspec.args[0] = CLOCK_GATING_BIT_GBE;
+-	orion_clkdev_add(NULL, "mv643xx_eth_port.0",
+-			 of_clk_get_from_provider(&clkspec));
 -
--   Optional properties:
-      - clocks : Phandle to the clock control device and gate bit
-      - clock-names : String describing the clock gate bit
-      - speed : Speed to force the link (10, 100, 1000), used when no
+ 	clkspec.args[0] = CLOCK_GATING_BIT_PCIE0;
+ 	orion_clkdev_add("0", "pcie",
+ 			 of_clk_get_from_provider(&clkspec));
+@@ -70,7 +66,6 @@ static void __init dove_dt_init(void)
+ 	dove_of_clk_init();
+ 
+ 	/* Internal devices not ported to DT yet */
+-	dove_ge00_init(&dove_dt_ge00_data);
+ 	dove_pcie_init(1, 1);
+ 
+ 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 -- 
 1.7.2.5
