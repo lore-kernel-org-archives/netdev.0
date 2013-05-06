@@ -1,51 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] 3c59x: fix PCI resource management
-Date: Mon, 06 May 2013 22:23:14 +0400
-Message-ID: <5187F512.4070104@cogentembedded.com>
-References: <201305020240.34487.sergei.shtylyov@cogentembedded.com> <20130506.122040.1138770239806939990.davem@davemloft.net> <5187E884.7060101@cogentembedded.com> <20130506.135305.1659397370290340459.davem@davemloft.net>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch 1/2] tipc: add a bounds check in link_recv_changeover_msg()
+Date: Mon, 6 May 2013 21:28:41 +0300
+Message-ID: <20130506182840.GA21347@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de,
-	tedheadster@gmail.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Allan Stephens <allan.stephens@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net,
+	kernel-janitors@vger.kernel.org
+To: Jon Maloy <jon.maloy@ericsson.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:54299 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754831Ab3EFSXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 14:23:17 -0400
-Received: by mail-lb0-f175.google.com with SMTP id w20so3714018lbh.34
-        for <netdev@vger.kernel.org>; Mon, 06 May 2013 11:23:16 -0700 (PDT)
-In-Reply-To: <20130506.135305.1659397370290340459.davem@davemloft.net>
+Received: from userp1040.oracle.com ([156.151.31.81]:41168 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754031Ab3EFS3A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 14:29:00 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+The bearer_id here comes from skb->data and it can be a number from 0 to
+7.  The problem is that the ->links[] array has only 2 elements so I
+have added a range check.
 
-On 06-05-2013 21:53, David Miller wrote:
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+This is static analysis work.  I am not very familiar with this
+subsystem and I haven't tested this.
 
->>>> @@ -1215,12 +1217,13 @@ static int vortex_probe1(struct device *
->>>>    	vp->mii.reg_num_mask = 0x1f;
->>>>
->>>>    	/* Makes sure rings are at least 16 byte aligned. */
->>>> -	vp->rx_ring = pci_alloc_consistent(pdev, sizeof(struct boom_rx_desc) *
->>>> -	RX_RING_SIZE
->>>> -					   + sizeof(struct boom_tx_desc) * TX_RING_SIZE,
->>>> -					   &vp->rx_ring_dma);
->>>> +	vp->rx_ring = pci_alloc_consistent(pdev,
->>>> + sizeof(struct boom_rx_desc) * RX_RING_SIZE +
->>>> + sizeof(struct boom_tx_desc) * TX_RING_SIZE,
->>>> +				&vp->rx_ring_dma);
-
->>> This code was properly indented before your changes, but it isn't
->>> afterwards.
-
->>     David, that's not my change, it's was Andrew Morton who changed that
->>     (in order not to cross 80 columns).
-
-> Ok, whoever submits this next needs to undo that.
-
-     How about I completely drop this change (and maybe deal with it in 
-a subsequent cleanup patch)?
-
-WBR, Sergei
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index daa6080..3a6064b3 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -2306,8 +2306,11 @@ static int link_recv_changeover_msg(struct tipc_link **l_ptr,
+ 	struct tipc_msg *tunnel_msg = buf_msg(tunnel_buf);
+ 	u32 msg_typ = msg_type(tunnel_msg);
+ 	u32 msg_count = msg_msgcnt(tunnel_msg);
++	u32 bearer_id = msg_bearer_id(tunnel_msg);
+ 
+-	dest_link = (*l_ptr)->owner->links[msg_bearer_id(tunnel_msg)];
++	if (bearer_id >= MAX_BEARERS)
++		goto exit;
++	dest_link = (*l_ptr)->owner->links[bearer_id];
+ 	if (!dest_link)
+ 		goto exit;
+ 	if (dest_link == *l_ptr) {
