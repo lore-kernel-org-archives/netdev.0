@@ -1,38 +1,59 @@
-From: "Holger Hoffstaette" <holger.hoffstaette@googlemail.com>
-Subject: Status of loopback-tcp-bypass aka "TCP Friends"
-Date: Mon, 06 May 2013 13:42:34 +0200
-Message-ID: <pan.2013.05.06.11.42.34.650194@googlemail.com>
+From: Asias He <asias@redhat.com>
+Subject: Re: [PATCH] vhost: drop virtio_net.h dependency
+Date: Mon, 6 May 2013 20:07:14 +0800
+Message-ID: <20130506120714.GB7701@hj.localdomain>
+References: <20130506103734.GA12481@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:39887 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752695Ab3EFLmp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 May 2013 07:42:45 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UZJoa-0002mL-KS
-	for netdev@vger.kernel.org; Mon, 06 May 2013 13:42:44 +0200
-Received: from p5086bb13.dip0.t-ipconnect.de ([80.134.187.19])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 06 May 2013 13:42:44 +0200
-Received: from holger.hoffstaette by p5086bb13.dip0.t-ipconnect.de with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 06 May 2013 13:42:44 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Christian Borntraeger <borntraeger@de.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130506103734.GA12481@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, May 06, 2013 at 01:37:34PM +0300, Michael S. Tsirkin wrote:
+> There's no net specific code in vhost.c anymore,
+> don't include the virtio_net.h header.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-Hi,
+Reviewed-by: Asias He <asias@redhat.com>
 
-can someone please shed light on the status of the "TCP friends" feature
-that was discussed some time ago? I've been trying to find mails/patches
-but everything seems to be more than a few months old. Just curious
-whether this is still planned.
+> ---
+> 
+> This is on top of Asias' patches, already queued so
+> just FYI.
+> 
+>  drivers/vhost/vhost.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index de9441a..dcde269 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -13,7 +13,6 @@
+>  
+>  #include <linux/eventfd.h>
+>  #include <linux/vhost.h>
+> -#include <linux/virtio_net.h>
+>  #include <linux/mm.h>
+>  #include <linux/mmu_context.h>
+>  #include <linux/miscdevice.h>
+> -- 
+> MST
 
-Thanks!
-
--h
+-- 
+Asias
