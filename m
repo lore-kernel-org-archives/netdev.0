@@ -1,70 +1,67 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+From: Dan Williams <dcbw@redhat.com>
 Subject: Re: [GIT] Networking
-Date: Mon, 06 May 2013 16:32:46 -0700
-Message-ID: <1367883166.16445.13.camel@jtkirshe-mobl>
-References: <20130506.170537.2116026617074159336.davem@davemloft.net>
-	 <CA+55aFzQ8MzrmPQNPfLFA3nVQVDR3HL+RwcGrAwanJCKRxL2=A@mail.gmail.com>
-	 <20130506.190922.168696209163637134.davem@davemloft.net>
-Reply-To: jeffrey.t.kirsher@intel.com
+Date: Mon, 06 May 2013 18:35:16 -0500
+Message-ID: <1367883316.22645.2.camel@dcbw.foobar.com>
+References: <20130501.164755.1859264969403837546.davem@davemloft.net>
+	 <CA+55aFzsvyQLLKbuETBqfhpgkSaXH9cvT0O-cQ-mTTXXxcMqwg@mail.gmail.com>
+	 <1367512467.4000.7.camel@dcbw.foobar.com>
+	 <1367519066.7757.19.camel@dcbw.foobar.com>
+	 <CA+55aFy04mY5g-Aics9dcGpv6zgn2bu4iQ-_ifE5hun_t4E54Q@mail.gmail.com>
+	 <CA+55aFy1P6TKZjWSvrJN6o=gAr7OTYQsoZORXGF6g8OnonBT=Q@mail.gmail.com>
+	 <1367522254.7757.23.camel@dcbw.foobar.com>
+	 <1367526148.7757.30.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-9+2u/fKRmvtpRVYMB+cl"
-Cc: torvalds@linux-foundation.org, akpm@linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	bruce.w.allan@intel.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:21958 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757621Ab3EFXc4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 May 2013 19:32:56 -0400
-In-Reply-To: <20130506.190922.168696209163637134.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-
---=-9+2u/fKRmvtpRVYMB+cl
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2013-05-06 at 19:09 -0400, David Miller wrote:
-> From: Linus Torvalds <torvalds@linux-foundation.org>
-> Date: Mon, 6 May 2013 15:57:15 -0700
->=20
-> > On Mon, May 6, 2013 at 2:05 PM, David Miller <davem@davemloft.net> wrot=
-e:
-> >>
-> >> Just a small pile of fixes:
-> >=20
-> > Ok, apparently the e1000e problem didn't get fixed yet. Should I just
-> > revert ce43a2168c59 for now, or do we have a fix for that forthcoming
-> > shortly?
->=20
-> It is coming very shortly.
-
-I am preparing the patch now to send upstream...
-
---=-9+2u/fKRmvtpRVYMB+cl
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	hayeswang <hayeswang@realtek.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1367526148.7757.30.camel@dcbw.foobar.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
+On Thu, 2013-05-02 at 15:22 -0500, Dan Williams wrote:
+> On Thu, 2013-05-02 at 14:17 -0500, Dan Williams wrote:
+> > On Thu, 2013-05-02 at 11:53 -0700, Linus Torvalds wrote:
+> > > On Thu, May 2, 2013 at 11:52 AM, Linus Torvalds
+> > > <torvalds@linux-foundation.org> wrote:
+> > > >
+> > > > but for some reason in the bad case NM just doesn't react past the
+> > > > "carrier now ON" part.
+> > > 
+> > > Grr. That was much more readable while editing, then gmail ended up
+> > > doing its "smart line wrap" thing and my nice long lines became a
+> > > mess. I think you can still figure it out,
+> > 
+> > Yeah, the dump is good, and it seems to point to a problem in NM for
+> > now.  I'm investigating.
+> 
+> If you don't mind helping me confirm/reject a theory, would you mind:
+> 
+> 1) drop "level=debug" into the [logging] section
+> of /etc/NetworkManager/NetworkManager.conf (create the section if it
+> doesn't exist)
+> 
+> 2) reboot (or just rmmod/modprobe r8169 if that's enough to trigger it)
+> 
+> 3) grab syslog and send it to me (privately if you wish)
 
-iQIcBAABCgAGBQJRiD2eAAoJEOVv75VaS+3OxNUP/0GbnIVeUtVXFc9IkWNaWihv
-U4zRF+bZrp+Wg/bWnTEr4bVElxti1Y1QOxVrXljadBb4vC47wxewtunflHSVnEO3
-29KYJoi6y0eZ2fp+vqmZsWpUsfkwfLz092j3i4oN+qsLaGkVpMNzEjSUx071tGzq
-DPTKYg8sXPCCjnnHfYXVbrzv0Ukz2MyZO5DQWIrO6DE2VScWZjRLGjs3L5TGMyLG
-YCNs4oZlxBUkbctwRMzWKrrr41dLgIfQsUAxdZ6wYjKmWoQkQeoSsBkYONibPDka
-zfR75+n5+Mwd8AIE8xljAwCvX3leH3Xb+JTUeGU4u+WULAoOli7W6BIEFnvpEL7c
-ZnacZCoLlpKvFlpxldvmhuwLnxVNrQQDEjlI44cM2DzCVhAUP0cIAFPVDGZ4FwQZ
-AdpcoGZB6icNPpeskWtD+v7M6Jz+/tLo7MtMd3BhgOB28hXqs2/sGoSJkQdEYxlH
-bmxWlj9tYRe5E0nNX7YK2YOckCQ9SMjB/Md0LI2QriKtGjS4a9ZA4qRcZpQLu87c
-LsLii1wmHnObgJU98bR4WJyJSbuBIaeh6HVtAczq8jg3HF+tHclowGuKqegM3Poz
-uInb6h5JEprTrZN6YqC0dRlGcyv0tXjgP4QjA/7XazYoZjpYlnWlDTwgN6waKdm3
-YDgikDTt0AOJeBvlWp6E
-=6wVd
------END PGP SIGNATURE-----
+Spent a while trying to reproduce this on a tg3 today, twiddling the
+carrier from the code, but failed to do so...  if you're at all able to
+get the debug logs here as mentioned here, that would help greatly.
 
---=-9+2u/fKRmvtpRVYMB+cl--
+Contrary to the suggestion above, changing the log level in
+NetworkManager.conf does not immediately start logging in that level,
+you do need to restart NM.  So with that in mind, I'd suggest a full
+reboot of the system just to make sure we have the exact same situation
+as when you experience the problem.
+
+(I'm still mystified how the netdev features thing "fixes" this
+though...)
+
+Thanks!
+Dan
