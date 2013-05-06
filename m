@@ -1,59 +1,30 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 1/2] freezer: add unsafe versions of freezable helpers
-Date: Mon, 6 May 2013 15:14:20 -0700
-Message-ID: <20130506221420.GH800@mtj.dyndns.org>
-References: <1367615050-3894-1-git-send-email-ccross@android.com>
- <20130506065605.6e5ed5e2@tlielax.poochiereds.net>
- <CAMbhsRQsFT2j_CuPL45J03itymcp3PNP8ckt3fAAo+hzavNrbw@mail.gmail.com>
- <20130506174336.447d0d75@tlielax.poochiereds.net>
- <CAMbhsRQP+NFwn8C9-mXUVCZNi_oE+TCK1L1NgdGUA_CTw0eiMA@mail.gmail.com>
- <CA+55aFwbXk_r-4p37YiMTQj2HNRA94xohr6DADuQXpHsKSA7NQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [GIT] Networking
+Date: Mon, 06 May 2013 19:09:22 -0400 (EDT)
+Message-ID: <20130506.190922.168696209163637134.davem@davemloft.net>
+References: <20130506.170537.2116026617074159336.davem@davemloft.net>
+	<CA+55aFzQ8MzrmPQNPfLFA3nVQVDR3HL+RwcGrAwanJCKRxL2=A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Colin Cross <ccross@android.com>, Jeff Layton <jlayton@redhat.com>,
-	lkml <linux-kernel@vger.kernel.org>,
-	Trond Myklebust <Trond.Myklebust@netapp.com>,
-	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Paul Walmsley <paul@pwsan.com>,
-	Al Viro <viro@zeniv.linux.org.uk>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Oleg Nesterov <oleg@redhat.com>,
-	linux-nfs <linux-nfs@vger.kernel.org>,
-	Linux PM list <linux-pm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Ben Chan <benchan@chromium.org>,
-	Steve French <smfrench@gmail.com>
-To: Linus Torvalds <torvalds@linux-foundation.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, bruce.w.allan@intel.com,
+	jeffrey.t.kirsher@intel.com
+To: torvalds@linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFwbXk_r-4p37YiMTQj2HNRA94xohr6DADuQXpHsKSA7NQ@mail.gmail.com>
+In-Reply-To: <CA+55aFzQ8MzrmPQNPfLFA3nVQVDR3HL+RwcGrAwanJCKRxL2=A@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello, Linus.
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Date: Mon, 6 May 2013 15:57:15 -0700
 
-On Mon, May 06, 2013 at 02:58:31PM -0700, Linus Torvalds wrote:
-> Quite frankly, is it worth resurrecting these patches at all?
+> On Mon, May 6, 2013 at 2:05 PM, David Miller <davem@davemloft.net> wrote:
+>>
+>> Just a small pile of fixes:
 > 
-> The only things it actually complained about are not worth the pain
-> fixing and are getting explicitly not warned about - is there any
-> reason to believe the patches are worth maintaining and the extra
-> complexity is worth it?
+> Ok, apparently the e1000e problem didn't get fixed yet. Should I just
+> revert ce43a2168c59 for now, or do we have a fix for that forthcoming
+> shortly?
 
-It might not be too useful for nfs but Colin has a patchset spreading
-the use of the freezable schedules in a number of places in an attempt
-to reduce freeze latency for android, which includes introducing a lot
-of schedule_*_freezable() constructs, so I think we need these
-warnings one way or the other so that we don't end up with more
-problems like nfs currently has.
-
-Thakns.
-
--- 
-tejun
+It is coming very shortly.
