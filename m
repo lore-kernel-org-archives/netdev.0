@@ -1,83 +1,72 @@
-From: Colin Cross <ccross@android.com>
-Subject: [PATCH v3 04/16] lockdep: check that no locks held at freeze time
-Date: Mon,  6 May 2013 16:50:09 -0700
-Message-ID: <1367884221-20462-5-git-send-email-ccross@android.com>
+From: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH v3 06/16] freezer: skip waking up tasks with PF_FREEZER_SKIP set
+Date: Mon,  6 May 2013 16:50:11 -0700
+Message-ID: <1367884221-20462-7-git-send-email-ccross@android.com>
 References: <1367884221-20462-1-git-send-email-ccross@android.com>
-Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Colin Cross <ccross@android.com>,
-	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
-	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Ben Chan <benchan@chromium.org>,
-	Len Brown <len.brown@intel.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f74.google.com ([209.85.128.74]:52330 "EHLO
-	mail-qe0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932348Ab3EFXua (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 19:50:30 -0400
-Received: by mail-qe0-f74.google.com with SMTP id 1so447744qec.5
-        for <netdev@vger.kernel.org>; Mon, 06 May 2013 16:50:27 -0700 (PDT)
-In-Reply-To: <1367884221-20462-1-git-send-email-ccross@android.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>, "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+To: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1367884221-20462-1-git-send-email-ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Mandeep Singh Baines <msb@chromium.org>
+Android goes through suspend/resume very often (every few seconds when
+on a busy wifi network with the screen off), and a significant portion
+of the energy used to go in and out of suspend is spent in the
+freezer.  If a task has called freezer_do_not_count(), don't bother
+waking it up.  If it happens to wake up later it will call
+freezer_count() and immediately enter the refrigerator.
 
-We shouldn't try_to_freeze if locks are held.  Holding a lock can cause a
-deadlock if the lock is later acquired in the suspend or hibernate path
-(e.g.  by dpm).  Holding a lock can also cause a deadlock in the case of
-cgroup_freezer if a lock is held inside a frozen cgroup that is later
-acquired by a process outside that group.
+Combined with patches to convert freezable helpers to use
+freezer_do_not_count() and convert common sites where idle userspace
+tasks are blocked to use the freezable helpers, this reduces the
+time and energy required to suspend and resume.
 
-History:
-This patch was originally applied as 6aa9707099c and reverted in
-dbf520a9d7d4 because NFS was freezing with locks held.  It was
-deemed better to keep the bad freeze point in NFS to allow laptops
-to suspend consistently.  The previous patch in this series converts
-NFS to call _unsafe versions of the freezable helpers so that
-lockdep doesn't complain about them until a more correct fix
-can be applied.
-
-[akpm@linux-foundation.org: export debug_check_no_locks_held]
-Signed-off-by: Mandeep Singh Baines <msb@chromium.org>
-Cc: Ben Chan <benchan@chromium.org>
-Cc: Oleg Nesterov <oleg@redhat.com>
-Cc: Tejun Heo <tj@kernel.org>
-Cc: Rafael J. Wysocki <rjw@sisk.pl>
-Cc: Ingo Molnar <mingo@redhat.com>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
-[ccross@android.com: don't warn if try_to_freeze_unsafe is called]
-Signed-off-by: Colin Cross <ccross@android.com>
+Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Acked-by: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Signed-off-by: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
 ---
- include/linux/freezer.h | 3 +++
- 1 file changed, 3 insertions(+)
+v2:  move check to freeze_task()
 
-diff --git a/include/linux/freezer.h b/include/linux/freezer.h
-index d3c038e..bcf9e65 100644
---- a/include/linux/freezer.h
-+++ b/include/linux/freezer.h
-@@ -3,6 +3,7 @@
- #ifndef FREEZER_H_INCLUDED
- #define FREEZER_H_INCLUDED
- 
-+#include <linux/debug_locks.h>
- #include <linux/sched.h>
- #include <linux/wait.h>
- #include <linux/atomic.h>
-@@ -60,6 +61,8 @@ static inline bool try_to_freeze_unsafe(void)
- 
- static inline bool try_to_freeze(void)
+ kernel/freezer.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/kernel/freezer.c b/kernel/freezer.c
+index c38893b..8b2afc1 100644
+--- a/kernel/freezer.c
++++ b/kernel/freezer.c
+@@ -110,6 +110,18 @@ bool freeze_task(struct task_struct *p)
  {
-+	if (!(current->flags & PF_NOFREEZE))
-+		debug_check_no_locks_held();
- 	return try_to_freeze_unsafe();
- }
+ 	unsigned long flags;
  
++	/*
++	 * This check can race with freezer_do_not_count, but worst case that
++	 * will result in an extra wakeup being sent to the task.  It does not
++	 * race with freezer_count(), the barriers in freezer_count() and
++	 * freezer_should_skip() ensure that either freezer_count() sees
++	 * freezing == true in try_to_freeze() and freezes, or
++	 * freezer_should_skip() sees !PF_FREEZE_SKIP and freezes the task
++	 * normally.
++	 */
++	if (freezer_should_skip(p))
++		return false;
++
+ 	spin_lock_irqsave(&freezer_lock, flags);
+ 	if (!freezing(p) || frozen(p)) {
+ 		spin_unlock_irqrestore(&freezer_lock, flags);
 -- 
 1.8.2.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
