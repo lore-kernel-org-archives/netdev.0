@@ -1,7 +1,7 @@
 From: Colin Cross <ccross@android.com>
-Subject: [PATCH v3 14/16] nanosleep: use freezable blocking call
-Date: Mon,  6 May 2013 16:50:19 -0700
-Message-ID: <1367884221-20462-15-git-send-email-ccross@android.com>
+Subject: [PATCH v3 13/16] futex: use freezable blocking call
+Date: Mon,  6 May 2013 16:50:18 -0700
+Message-ID: <1367884221-20462-14-git-send-email-ccross@android.com>
 References: <1367884221-20462-1-git-send-email-ccross@android.com>
 Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Peter Zijlstra <peterz@infradead.org>,
@@ -12,14 +12,18 @@ Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
 	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Thomas Gleixner <tglx@linutronix.de>
+	Tejun Heo <tj@kernel.org>,
+	Darren Hart <dvhart@linux.intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Randy Dunlap <rdunlap@infradead.org>,
+	Al Viro <viro@zeniv.linux.org.uk>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1367884221-20462-1-git-send-email-ccross@android.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Avoid waking up every thread sleeping in a nanosleep call during
+Avoid waking up every thread sleeping in a futex_wait call during
 suspend and resume by calling a freezable blocking call.  Previous
 patches modified the freezer to avoid sending wakeups to threads
 that are blocked in freezable blocking calls.
@@ -32,31 +36,32 @@ blocked.
 
 Acked-by: Tejun Heo <tj@kernel.org>
 Acked-by: Thomas Gleixner <tglx@linutronix.de>
+Acked-by: Darren Hart <dvhart@linux.intel.com>
 Signed-off-by: Colin Cross <ccross@android.com>
 ---
- kernel/hrtimer.c | 3 ++-
+ kernel/futex.c | 3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
-index 14be27f..e036276 100644
---- a/kernel/hrtimer.c
-+++ b/kernel/hrtimer.c
-@@ -47,6 +47,7 @@
- #include <linux/sched/sysctl.h>
+diff --git a/kernel/futex.c b/kernel/futex.c
+index b26dcfc..d710fae 100644
+--- a/kernel/futex.c
++++ b/kernel/futex.c
+@@ -61,6 +61,7 @@
+ #include <linux/nsproxy.h>
+ #include <linux/ptrace.h>
  #include <linux/sched/rt.h>
- #include <linux/timer.h>
 +#include <linux/freezer.h>
  
- #include <asm/uaccess.h>
+ #include <asm/futex.h>
  
-@@ -1525,7 +1526,7 @@ static int __sched do_nanosleep(struct hrtimer_sleeper *t, enum hrtimer_mode mod
- 			t->task = NULL;
- 
- 		if (likely(t->task))
+@@ -1807,7 +1808,7 @@ static void futex_wait_queue_me(struct futex_hash_bucket *hb, struct futex_q *q,
+ 		 * is no timeout, or if it has yet to expire.
+ 		 */
+ 		if (!timeout || timeout->task)
 -			schedule();
 +			freezable_schedule();
- 
- 		hrtimer_cancel(&t->timer);
- 		mode = HRTIMER_MODE_ABS;
+ 	}
+ 	__set_current_state(TASK_RUNNING);
+ }
 -- 
 1.8.2.1
