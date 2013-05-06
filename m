@@ -1,7 +1,7 @@
 From: Colin Cross <ccross@android.com>
-Subject: [PATCH v3 15/16] sigtimedwait: use freezable blocking call
-Date: Mon,  6 May 2013 16:50:20 -0700
-Message-ID: <1367884221-20462-16-git-send-email-ccross@android.com>
+Subject: [PATCH v3 14/16] nanosleep: use freezable blocking call
+Date: Mon,  6 May 2013 16:50:19 -0700
+Message-ID: <1367884221-20462-15-git-send-email-ccross@android.com>
 References: <1367884221-20462-1-git-send-email-ccross@android.com>
 Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Peter Zijlstra <peterz@infradead.org>,
@@ -12,16 +12,14 @@ Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
 	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
 	Linus Torvalds <torvalds@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, Al Viro <viro@zeniv.linux.org.uk>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Kees Cook <keescook@chromium.org>
+	Tejun Heo <tj@kernel.org>, Thomas Gleixner <tglx@linutronix.de>
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-pm-owner@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1367884221-20462-1-git-send-email-ccross@android.com>
-Sender: linux-pm-owner@vger.kernel.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Avoid waking up every thread sleeping in a sigtimedwait call during
+Avoid waking up every thread sleeping in a nanosleep call during
 suspend and resume by calling a freezable blocking call.  Previous
 patches modified the freezer to avoid sending wakeups to threads
 that are blocked in freezable blocking calls.
@@ -33,24 +31,32 @@ during suspend, and is a common site where idle userspace tasks are
 blocked.
 
 Acked-by: Tejun Heo <tj@kernel.org>
+Acked-by: Thomas Gleixner <tglx@linutronix.de>
 Signed-off-by: Colin Cross <ccross@android.com>
 ---
- kernel/signal.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ kernel/hrtimer.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/signal.c b/kernel/signal.c
-index 598dc06..10a70a0 100644
---- a/kernel/signal.c
-+++ b/kernel/signal.c
-@@ -2845,7 +2845,7 @@ int do_sigtimedwait(const sigset_t *which, siginfo_t *info,
- 		recalc_sigpending();
- 		spin_unlock_irq(&tsk->sighand->siglock);
+diff --git a/kernel/hrtimer.c b/kernel/hrtimer.c
+index 14be27f..e036276 100644
+--- a/kernel/hrtimer.c
++++ b/kernel/hrtimer.c
+@@ -47,6 +47,7 @@
+ #include <linux/sched/sysctl.h>
+ #include <linux/sched/rt.h>
+ #include <linux/timer.h>
++#include <linux/freezer.h>
  
--		timeout = schedule_timeout_interruptible(timeout);
-+		timeout = freezable_schedule_timeout_interruptible(timeout);
+ #include <asm/uaccess.h>
  
- 		spin_lock_irq(&tsk->sighand->siglock);
- 		__set_task_blocked(tsk, &tsk->real_blocked);
+@@ -1525,7 +1526,7 @@ static int __sched do_nanosleep(struct hrtimer_sleeper *t, enum hrtimer_mode mod
+ 			t->task = NULL;
+ 
+ 		if (likely(t->task))
+-			schedule();
++			freezable_schedule();
+ 
+ 		hrtimer_cancel(&t->timer);
+ 		mode = HRTIMER_MODE_ABS;
 -- 
 1.8.2.1
-
