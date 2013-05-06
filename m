@@ -1,57 +1,55 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH] net: frag, fix race conditions in LRU list maintenance
-Date: Mon, 6 May 2013 09:33:18 +0200
-Message-ID: <20130506093318.679f5557@redhat.com>
-References: <20130505145622.9351.86587.stgit@zurg>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH v3 1/1 net] net: fec: fix kernel oops when plug/unplug
+ cable many times
+Date: Mon, 6 May 2013 15:47:53 +0800
+Message-ID: <CAHrpEqQybjkXOppbFvXrouqheV6NT06vd_Og5JJtmOfzY0_7Yg@mail.gmail.com>
+References: <1367456138-27172-1-git-send-email-Frank.Li@freescale.com>
+	<20130502.164853.1057531869767418902.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>, linux-kernel@vger.kernel.org,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-To: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Robert Schwebel <r.schwebel@pengutronix.de>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Fabio Estevam <festevam@gmail.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:5230 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752007Ab3EFHdh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 May 2013 03:33:37 -0400
-In-Reply-To: <20130505145622.9351.86587.stgit@zurg>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:44636 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753304Ab3EFHrz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 03:47:55 -0400
+Received: by mail-we0-f176.google.com with SMTP id r6so2801512wey.35
+        for <netdev@vger.kernel.org>; Mon, 06 May 2013 00:47:53 -0700 (PDT)
+In-Reply-To: <20130502.164853.1057531869767418902.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 05 May 2013 18:56:22 +0400
-Konstantin Khlebnikov <khlebnikov@openvz.org> wrote:
+2013/5/3 David Miller <davem@davemloft.net>:
+> From: Frank Li <Frank.Li@freescale.com>
+> Date: Thu, 2 May 2013 08:55:38 +0800
+>
+>> reproduce steps
+>>  1. flood ping from other machine
+>>       ping -f -s 41000 IP
+>>  2. run below script
+>>     while [ 1 ]; do ethtool -s eth0 autoneg off;
+>>     sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
+>>
+>> You can see oops in one hour.
+>>
+>> The reason is fec_restart clear BD but NAPI may use it.
+>> The solution is disable NAPI and stop xmit when reset BD.
+>> disable NAPI may sleep, so fec_restart can't be call in
+>> atomic context.
+>>
+>> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+>
+> Please respin this against the current 'net' tree.
 
-> This patch fixes race between inet_frag_lru_move() and
-> inet_frag_lru_add() which was introduced in commit
-> 3ef0eb0db4bf92c6d2510fe5c4dc51852746f206 ("net: frag, move LRU list
-> maintenance outside of rwlock")
-> 
-> One cpu already added new fragment queue into hash but not into LRU.
-> Other cpu found it in hash and tries to move it to the end of LRU.
-> This leads to NULL pointer dereference inside of list_move_tail().
+MX6 can't bootup at net and net-next tree.
+I am identifying the reason.
 
-I tried to address this in:
-http://article.gmane.org/gmane.linux.network/266324 But it was never
-applied, as we disagreed on other parts of the patchset and didn't think
-this would happen with curr LRU scheme (which you have shown it can)
-
-
-> Another possible race condition is between inet_frag_lru_move() and
-> inet_frag_lru_del(): move can happens after deletion.
-
-This should be very difficult to hit, because its protected with
-the INET_FRAG_COMPLETE bit (checked in ip_frag_queue() before the LRU
-move), which is set after removing it from LRU (all while protected
-under the q->lock).
-
-
-> This patch initializes LRU list head before adding fragment into hash
-> and inet_frag_lru_move() doesn't touches it if it's empty.
-
-This a good fix, and better than my earlier attempt at fixing this.
-
-Thanks!
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+>
+> Thanks!
