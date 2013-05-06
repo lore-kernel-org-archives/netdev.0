@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: frag, fix race conditions in LRU list maintenance
-Date: Mon, 06 May 2013 11:08:00 -0400 (EDT)
-Message-ID: <20130506.110800.1388239604905052651.davem@davemloft.net>
-References: <20130505145622.9351.86587.stgit@zurg>
-	<20130506093318.679f5557@redhat.com>
+Subject: Re: [patch -next] netpoll: inverted down_trylock() test
+Date: Mon, 06 May 2013 11:08:30 -0400 (EDT)
+Message-ID: <20130506.110830.1549027396957172067.davem@davemloft.net>
+References: <20130506121513.GA13930@elgon.mountain>
+	<20130506130024.GD4686@mwanda>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: khlebnikov@openvz.org, netdev@vger.kernel.org, edumazet@google.com,
-	fw@strlen.de, linux-kernel@vger.kernel.org
-To: brouer@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130506093318.679f5557@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: nhorman@tuxdriver.com, amwang@redhat.com, edumazet@google.com,
+	jiri@resnulli.us, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58918 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753607Ab3EFPId (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 11:08:33 -0400
+In-Reply-To: <20130506130024.GD4686@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Mon, 6 May 2013 09:33:18 +0200
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 6 May 2013 16:00:24 +0300
 
-> This a good fix, and better than my earlier attempt at fixing this.
- ...
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> This is needed in mainline actually.  I typed -next by mistake.
 
-Applied, but this patch was generated against a very old tree,
-one before the q->net->nqueues stuff was added.
-
-I sorted out the conflicts but someone needs to double-check
-my work.
+Applied.
