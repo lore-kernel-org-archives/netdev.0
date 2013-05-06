@@ -1,54 +1,60 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 2/2 v2] tipc: potential divide by zero in
- tipc_link_recv_fragment()
-Date: Mon, 6 May 2013 22:31:17 +0300
-Message-ID: <20130506193117.GA11399@elgon.mountain>
-References: <5187F8BD.1080900@cogentembedded.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH 2/2] lockdep: check that no locks held at freeze time
+Date: Mon, 6 May 2013 12:33:07 -0700
+Message-ID: <20130506193307.GD800@mtj.dyndns.org>
+References: <1367615050-3894-1-git-send-email-ccross@android.com>
+ <1367615050-3894-2-git-send-email-ccross@android.com>
+ <20130506190115.GB800@mtj.dyndns.org>
+ <CAMbhsRRcfpXBGAPThjrmB_judgn85TioR_6A6qwh_fBQCent7A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Allan Stephens <allan.stephens@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net,
-	kernel-janitors@vger.kernel.org,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Jon Maloy <jon.maloy@ericsson.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:39599 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755232Ab3EFTbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 15:31:34 -0400
+Cc: lkml <linux-kernel@vger.kernel.org>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Paul Walmsley <paul@pwsan.com>,
+	Al Viro <viro@zeniv.linux.org.uk>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Oleg Nesterov <oleg@redhat.com>,
+	linux-nfs <linux-nfs@vger.kernel.org>,
+	Linux PM list <linux-pm@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Ben Chan <benchan@chromium.org>
+To: Colin Cross <ccross@android.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <5187F8BD.1080900@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAMbhsRRcfpXBGAPThjrmB_judgn85TioR_6A6qwh_fBQCent7A@mail.gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The worry here is that fragm_sz could be zero since it comes from
-skb->data.
+Hello,
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-v2: fix a whitespace issue
+On Mon, May 06, 2013 at 12:30:19PM -0700, Colin Cross wrote:
+> > I don't care about %current change, especially given that it's a debug
+> > interface but that really should be a separate patch, so please split
+> > it out if you want it (and I think we want it).
+> 
+> The current change was requested by akpm and was part of the original
+> patch.  Is it really worth confusing the history of this patch even
+> more, applying it the first time, reverting it, and then applying it
+> again in two parts?
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 3a6064b3..de94493 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2524,14 +2524,16 @@ int tipc_link_recv_fragment(struct sk_buff **pending, struct sk_buff **fb,
- 		struct tipc_msg *imsg = (struct tipc_msg *)msg_data(fragm);
- 		u32 msg_sz = msg_size(imsg);
- 		u32 fragm_sz = msg_data_sz(fragm);
--		u32 exp_fragm_cnt = msg_sz/fragm_sz + !!(msg_sz % fragm_sz);
-+		u32 exp_fragm_cnt;
- 		u32 max =  TIPC_MAX_USER_MSG_SIZE + NAMED_H_SIZE;
-+
- 		if (msg_type(imsg) == TIPC_MCAST_MSG)
- 			max = TIPC_MAX_USER_MSG_SIZE + MCAST_H_SIZE;
--		if (msg_size(imsg) > max) {
-+		if (fragm_sz == 0 || msg_size(imsg) > max) {
- 			kfree_skb(fbuf);
- 			return 0;
- 		}
-+		exp_fragm_cnt = msg_sz / fragm_sz + !!(msg_sz % fragm_sz);
- 		pbuf = tipc_buf_acquire(msg_size(imsg));
- 		if (pbuf != NULL) {
- 			pbuf->next = *pending;
+I don't know.  The patch seems confusing to me.  It really is about
+adding single lockdep annotation but comes with other changes.  I
+don't think it's a big deal either way but at least we wouldn't be
+having this %current vs. @tsk conversation which is mostly irrelevant
+to the actual proposed change, right?  It really should have been a
+separate patch from the beginning.  Just refer to the original commit
+and explain what happened?
+
+Thanks.
+
+-- 
+tejun
