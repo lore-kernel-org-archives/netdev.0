@@ -1,27 +1,61 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Subject: Re: [GIT] Networking
-Date: Mon, 6 May 2013 15:57:15 -0700
-Message-ID: <CA+55aFzQ8MzrmPQNPfLFA3nVQVDR3HL+RwcGrAwanJCKRxL2=A@mail.gmail.com>
-References: <20130506.170537.2116026617074159336.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: David Miller <davem@davemloft.net>
+From: Colin Cross <ccross@android.com>
+Subject: [PATCH v2 00/10] optimize freezing tasks by reducing task wakeups
+Date: Mon,  6 May 2013 16:50:05 -0700
+Message-ID: <1367884221-20462-1-git-send-email-ccross@android.com>
+Cc: Pavel Machek <pavel@ucw.cz>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Colin Cross <ccross@android.com>,
+	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
+	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>
+To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130506.170537.2116026617074159336.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 6, 2013 at 2:05 PM, David Miller <davem@davemloft.net> wrote:
->
-> Just a small pile of fixes:
+On slow cpus the large number of task wakeups and context switches
+triggered by freezing and thawing tasks can take a significant amount
+of cpu time.  This patch series reduces the amount of work done during
+freezing tasks by avoiding waking up tasks that are already in a freezable
+state.
 
-Ok, apparently the e1000e problem didn't get fixed yet. Should I just
-revert ce43a2168c59 for now, or do we have a fix for that forthcoming
-shortly?
+The first 4 patches reintroduce 6aa9707099c (lockdep: check that no locks
+held at freeze time) which was reverted in dbf520a9d7d4, and fix up the
+known callers with locks held in NFS and CIFS to skip the lockdep check
+for now.  The lockdep check will warn any future incorrect users of the
+freezable helpers.
 
-             Linus
+The fifth patch reduces the wasted time in try_to_freeze_tasks() by
+starting with a 1 ms sleep during the first loop and backing off
+up to an 8 ms sleep if all tasks are not frozen.
+
+The sixth patch modifies the freeze_task() function to skip tasks
+that have set the PF_FREEZER_SKIP flag by calling freezer_do_not_count().
+These tasks will not enter the refrigerator during the suspend/resume
+cycle unless they woken up by something else, in which case they will
+enter the refrigerator in freezer_count() before they access any
+resources that would not be available in suspend or deadlock with
+another freezing/frozen task.
+
+The rest of the series adds a few more freezable helpers and converts the
+top call sites that userspace tasks are usually blocked at to freezable
+helpers.  The list of call sites was collected on a Nexus 10 (ARM Exynos
+5250 SoC), but all the top call sites other than binder show up at the
+top of the list on Ubuntu x86-64 as well.
+
+This series cuts the time for freezing tasks from 50 ms to 5 ms when
+the cpu speed is locked at its lowest setting (200MHz), and reduces
+the number of context switches and restarted syscalls from 1000 to
+25.
+
+v2 moves the skip check to freeze_task(), and expands the commit
+messages.
+
+v3 adds the patches to reintroduce the lockdep check to this patchset,
+adds a patch to convert the freezable helpers to static inlines when
+possible, and splits the patch that adds the new helpers out of the one
+that converts the existing helpers to use freezer_do_not_count.
