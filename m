@@ -1,100 +1,102 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v3 2/3] bridge: only expire the mdb entry when
- query is received
-Date: Mon, 06 May 2013 11:24:13 +0800
-Message-ID: <1367810653.6246.5.camel@cr0>
-References: <1367305819-14013-1-git-send-email-amwang@redhat.com>
-	 <1367305819-14013-2-git-send-email-amwang@redhat.com>
-	 <20130502015938.GA2237@gondor.apana.org.au> <1367553022.2415.55.camel@cr0>
-	 <20130503040102.GA10898@gondor.apana.org.au> <1367564926.2415.56.camel@cr0>
-	 <20130503093017.GA12471@gondor.apana.org.au>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH firmware 1/2] rtl_nic: Add firmware rtl8168g-3
+Date: Mon, 06 May 2013 04:32:30 +0100
+Message-ID: <1367811150.4131.33.camel@deadeye.wl.decadent.org.uk>
+References: <1366720668-4850-1-git-send-email-hayeswang@realtek.com>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-1w6adacnKpbpqUM71spB"
+Cc: dwmw2@infradead.org, romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1366720668-4850-1-git-send-email-hayeswang@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+
+--=-1w6adacnKpbpqUM71spB
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29247 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752244Ab3EFDYh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 May 2013 23:24:37 -0400
-In-Reply-To: <20130503093017.GA12471@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2013-05-03 at 17:30 +0800, Herbert Xu wrote:
-> On Fri, May 03, 2013 at 03:08:46PM +0800, Cong Wang wrote:
-> > On Fri, 2013-05-03 at 12:01 +0800, Herbert Xu wrote:
-> > > 
-> > > I think I quoted the wrong hunk in the patch, I meant the code
-> > > that arms the timer should no longer be in the leave_group function
-> > > unless we just sent a query ourselves (and in that case the expiration
-> > > should also be adjusted accordingly).
-> > 
-> > Is the following patch what you meant?
-> 
-> Right, but also add the corresponding timers in case we send a
-> group-specific query since that won't loop back to ourselves.
+On Tue, 2013-04-23 at 20:37 +0800, Hayes Wang wrote:
+> File: rtl_nic/rtl8168g-3.fw
+> Version: 0.0.1
+>=20
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+> ---
 
-Ok, then something like below , it is a delta patch, the first piece
-should go to patch 3/3.
+Applied, thanks.
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index d73276b..11946a4 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1263,6 +1263,24 @@ static void br_multicast_leave_group(struct
-net_bridge *br,
- 			br->multicast_query_interval;
- 		mod_timer(port ? &port->multicast_query_timer :
- 				 &br->multicast_query_timer, time);
-+
-+		time = jiffies + br->multicast_last_member_count *
-+				 br->multicast_last_member_interval;
-+		for (p = mlock_dereference(mp->ports, br);
-+		     p != NULL;
-+		     p = mlock_dereference(p->next, br)) {
-+			if (p->port != port)
-+				continue;
-+
-+			if (!hlist_unhashed(&p->mglist) &&
-+			    (timer_pending(&p->timer) ?
-+			     time_after(p->timer.expires, time) :
-+			     try_to_del_timer_sync(&p->timer) >= 0)) {
-+				mod_timer(&p->timer, time);
-+			}
-+
-+			break;
-+		}
- 	}
- 
- 	if (port && (port->flags & BR_MULTICAST_FAST_LEAVE)) {
-@@ -1298,24 +1316,6 @@ static void br_multicast_leave_group(struct
-net_bridge *br,
- 		     try_to_del_timer_sync(&mp->timer) >= 0)) {
- 			mod_timer(&mp->timer, time);
- 		}
--
--		goto out;
--	}
--
--	for (p = mlock_dereference(mp->ports, br);
--	     p != NULL;
--	     p = mlock_dereference(p->next, br)) {
--		if (p->port != port)
--			continue;
--
--		if (!hlist_unhashed(&p->mglist) &&
--		    (timer_pending(&p->timer) ?
--		     time_after(p->timer.expires, time) :
--		     try_to_del_timer_sync(&p->timer) >= 0)) {
--			mod_timer(&p->timer, time);
--		}
--
--		break;
- 	}
- 
- out:
+Ben.
+
+>  WHENCE                |   5 ++++-
+>  rtl_nic/rtl8168g-3.fw | Bin 0 -> 832 bytes
+>  2 files changed, 4 insertions(+), 1 deletion(-)
+>  create mode 100644 rtl_nic/rtl8168g-3.fw
+>=20
+> diff --git a/WHENCE b/WHENCE
+> index 013f810..54f6388 100644
+> --- a/WHENCE
+> +++ b/WHENCE
+> @@ -1875,8 +1875,11 @@ Version: 0.0.3
+>  File: rtl_nic/rtl8168g-2.fw
+>  Version: 0.0.1
+> =20
+> +File: rtl_nic/rtl8168g-3.fw
+> +Version: 0.0.1
+> +
+>  Licence:
+> - * Copyright =C2=A9 2011, Realtek Semiconductor Corporation
+> + * Copyright =C2=A9 2011-2013, Realtek Semiconductor Corporation
+>   *
+>   * Permission is hereby granted for the distribution of this firmware
+>   * data in hexadecimal or equivalent format, provided this copyright
+> diff --git a/rtl_nic/rtl8168g-3.fw b/rtl_nic/rtl8168g-3.fw
+> new file mode 100644
+> index 0000000000000000000000000000000000000000..0c97d7ea1437ba515c1dbdabe=
+8aa285e79585786
+> GIT binary patch
+> literal 832
+> zcmYk(!AcuZ6b9fwaZ*7`oFrF-f;bOQ<D^r9W))Bhg)T~$ZqlHoS+pvWWsqx0KoCKE
+> z04sFkBM5G0Ep4Hc(rq80MX|9<r~kbtM@(`#neUuAbM74g*zUettkoCa&L^$78dqyk
+> z{B+?-vQSHybDx)7=3DUiR9dQnf}q_x%Vu60`5?f0#<&Gk1?ZK;vOjU>Urb9|Vbvp~qN
+> z|E1PnV=3DD*za?}K(Ch{liz#&kGmnY`zv)zitn6cHfip{}TXA%D&=3D8Y|%Fh?_t!DC~`
+> z@2%jIu{o}t$k<1tx(AHel(E4m=3D0_2Xz0ml+A^W;#0Mc7#p22N~2$)IlX5w>oKbJli
+> zrl0+O46<8SYtj|pr-an+x8(2bTi+MiN2zhCF*y>SFOTxDOt8mS_I$lp_A~v}+&;o=3D
+> zU+%wBYtR~EmudxCLF}K}25m#^w_1nR5&NUoqxHnD)rPd8*idai8;H5H3ElgG0Z!?s
+> z;!|p~v{|u|+70bStfJPYwZ*2@j%Y_>MYVtyh&@!hH}|C4D(hCI&dvBuXV2t}zv%Tb
+> e>yD-FyIPS}6#JoeLAwz9sn)0U#hU)T1OEYQX1@Ud
+>=20
+> literal 0
+> HcmV?d00001
+>=20
+
+--=20
+Ben Hutchings
+If God had intended Man to program,
+we'd have been born with serial I/O ports.
+
+--=-1w6adacnKpbpqUM71spB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUYckTue/yOyVhhEJAQq7+hAA0c2Z0Yuj4LztxHO+AGDRPlkFxVbEkA/k
+Ao4y+rTxoL/UmwWLEQOCe0ywDcthlFzmaNZkh7dU6lhmbBnBSVr+R/YOQZBaw2wd
+Mp+JvbLc27NJzmwjnJHEQ7m3ASpjGKeXjBNb+0t1v9ObAaDTnhDzcdXwXJFvxrw9
+vOwaD127QgOeRqWtoM1vlFxaUyF+s5srebFPZuOge9uWeavcq7UU/r7Y9EySsgUf
+nquDUBjIEElGtjWfFsWDvev05rc+hmQLPO+RtlA49vllC5voB8hePtvvmp8NjfT1
+C/0Y5TGAeF/U94r+fC6xow+Pej4Rf/K6KtGJsjKOZ/X+tCzPnJji0rfYxgD70+ks
+nfiMTxy3bhixsQMJ85QPRBDTKieKm/rDJ5rsCSWovZsyNxLmdq7nlTWB6wFd8qGl
+4rYcpsec13mlqI3pC5kaHdbDz96ke2KiH115H366IwrnZvUnWnFfms0D+x72Djb6
+U1+NU0XpjGPT+70GaoQfa/MjXKcahGyXMJSlc1Pv2YF8Q9jyAE6s8+YyxS+4+UA2
+Jtc3GC8DAo9D0eipH6X3X7MQrKaZDA/nvpFD23rOnCpwayE3TJyRoBNu2/m8BRiw
+K7wcihQWRJhfciyB/1Ehf0eJk/lceFNjsWtYwVkn9CQx3Rmq348tSfNtB7l+of2l
+ZsqpGiTzgSY=
+=EBzN
+-----END PGP SIGNATURE-----
+
+--=-1w6adacnKpbpqUM71spB--
