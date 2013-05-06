@@ -1,7 +1,7 @@
-From: Jeff Layton <jlayton@redhat.com>
+From: Colin Cross <ccross@android.com>
 Subject: Re: [PATCH 1/2] freezer: add unsafe versions of freezable helpers
-Date: Mon, 6 May 2013 18:05:17 -0400
-Message-ID: <20130506180517.070bc3e2@tlielax.poochiereds.net>
+Date: Mon, 6 May 2013 15:11:02 -0700
+Message-ID: <CAMbhsRRiWGrvqTKX_wcQM9v-k9nRuash54uHjXPY+HO4z4K6Dg@mail.gmail.com>
 References: <1367615050-3894-1-git-send-email-ccross@android.com>
 	<20130506065605.6e5ed5e2@tlielax.poochiereds.net>
 	<CAMbhsRQsFT2j_CuPL45J03itymcp3PNP8ckt3fAAo+hzavNrbw@mail.gmail.com>
@@ -9,9 +9,8 @@ References: <1367615050-3894-1-git-send-email-ccross@android.com>
 	<CAMbhsRQP+NFwn8C9-mXUVCZNi_oE+TCK1L1NgdGUA_CTw0eiMA@mail.gmail.com>
 	<CA+55aFwbXk_r-4p37YiMTQj2HNRA94xohr6DADuQXpHsKSA7NQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Colin Cross <ccross@android.com>,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jeff Layton <jlayton@redhat.com>,
 	lkml <linux-kernel@vger.kernel.org>,
 	Trond Myklebust <Trond.Myklebust@netapp.com>,
 	Len Brown <len.brown@intel.com>, Pavel Machek <pavel@ucw.cz>,
@@ -37,34 +36,26 @@ In-Reply-To: <CA+55aFwbXk_r-4p37YiMTQj2HNRA94xohr6DADuQXpHsKSA7NQ@mail.gmail.com
 Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 6 May 2013 14:58:31 -0700
-Linus Torvalds <torvalds@linux-foundation.org> wrote:
-
+On Mon, May 6, 2013 at 2:58 PM, Linus Torvalds
+<torvalds@linux-foundation.org> wrote:
 > On Mon, May 6, 2013 at 2:54 PM, Colin Cross <ccross@android.com> wrote:
-> >>
-> >> There are many other possibilities for other codepaths that end up in
-> >> wait_for_response(). Once we get a solution in place for NFS, we'll
-> >> need to do something very similar for CIFS.
-> >
-> > Makes sense, I will add CIFS to the patch.  Would you prefer it in the
-> > same or separate patches.
-> 
+>>>
+>>> There are many other possibilities for other codepaths that end up in
+>>> wait_for_response(). Once we get a solution in place for NFS, we'll
+>>> need to do something very similar for CIFS.
+>>
+>> Makes sense, I will add CIFS to the patch.  Would you prefer it in the
+>> same or separate patches.
+>
 > Quite frankly, is it worth resurrecting these patches at all?
-> 
+>
 > The only things it actually complained about are not worth the pain
 > fixing and are getting explicitly not warned about - is there any
 > reason to believe the patches are worth maintaining and the extra
 > complexity is worth it?
-> 
->            Linus
 
-Well, these problems are worth the pain of fixing, I think. It's just
-going to take us a while to get there since it involves some
-significant surgery.
-
-As to whether the warnings themselves are worthwhile now that we're
-excluding the most egregious offenders from them, I don't much care
-either way.
-
--- 
-Jeff Layton <jlayton@redhat.com>
+There was at least one real other case caught when this patch was
+applied: https://lkml.org/lkml/2013/3/4/390.  Tejun asked that I
+resurrect it because I'm adding some additional APIs similar to
+freezable_schedule() and he wanted to make sure they didn't get used
+improperly in the future.
