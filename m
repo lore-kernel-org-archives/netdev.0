@@ -1,26 +1,58 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch -next] netpoll: inverted down_trylock() test
-Date: Mon, 6 May 2013 16:00:24 +0300
-Message-ID: <20130506130024.GD4686@mwanda>
-References: <20130506121513.GA13930@elgon.mountain>
+From: Asias He <asias@redhat.com>
+Subject: Re: [PATCH] vhost: drop virtio_net.h dependency
+Date: Mon, 6 May 2013 21:23:29 +0800
+Message-ID: <20130506132329.GB12160@hj.localdomain>
+References: <20130506103734.GA12481@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Cong Wang <amwang@redhat.com>, Eric Dumazet <edumazet@google.com>,
-	Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:46022 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753000Ab3EFNAx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 09:00:53 -0400
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Christian Borntraeger <borntraeger@de.ibm.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 Content-Disposition: inline
-In-Reply-To: <20130506121513.GA13930@elgon.mountain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130506103734.GA12481@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This is needed in mainline actually.  I typed -next by mistake.
+On Mon, May 06, 2013 at 01:37:34PM +0300, Michael S. Tsirkin wrote:
+> There's no net specific code in vhost.c anymore,
+> don't include the virtio_net.h header.
 
-regards,
-dan carpenter
+Did you push the it to your tree. I am not seeing it.
+
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+> 
+> This is on top of Asias' patches, already queued so
+> just FYI.
+> 
+>  drivers/vhost/vhost.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index de9441a..dcde269 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -13,7 +13,6 @@
+>  
+>  #include <linux/eventfd.h>
+>  #include <linux/vhost.h>
+> -#include <linux/virtio_net.h>
+>  #include <linux/mm.h>
+>  #include <linux/mmu_context.h>
+>  #include <linux/miscdevice.h>
+> -- 
+> MST
+
+-- 
+Asias
