@@ -1,19 +1,21 @@
-From: Linus Torvalds <torvalds@linux-foundation.org>
+From: Peter Zijlstra <a.p.zijlstra@chello.nl>
 Subject: Re: [PATCH 2/2] lockdep: check that no locks held at freeze time
-Date: Mon, 6 May 2013 07:33:28 -0700
-Message-ID: <CA+55aFzVNwCJhvp4f0EcHK3Vk1ZVKY0fAeu-6FdjhCFiafTAPQ@mail.gmail.com>
+Date: Mon, 6 May 2013 16:42:48 +0200
+Message-ID: <20130506144248.GB15446@dyad.programming.kicks-ass.net>
 References: <1367615050-3894-1-git-send-email-ccross@android.com>
-	<1367615050-3894-2-git-send-email-ccross@android.com>
-	<20130504130440.GC13770@amd.pavel.ucw.cz>
-	<CAMbhsRScr+3Zk5Bi6390bGRbtE4oh2H-mHrGHS0wew5hdkivUg@mail.gmail.com>
-	<20130504225715.GB24276@amd.pavel.ucw.cz>
-	<CAMbhsRS_cF7kF-QZ9BMBUS3ytU0ukRCbC3D549HW_XOsQbEZhg@mail.gmail.com>
-	<20130505000528.GA25454@amd.pavel.ucw.cz>
-	<20130505091844.GC22239@gmail.com>
-	<20130506085547.GC13861@dyad.programming.kicks-ass.net>
+ <1367615050-3894-2-git-send-email-ccross@android.com>
+ <20130504130440.GC13770@amd.pavel.ucw.cz>
+ <CAMbhsRScr+3Zk5Bi6390bGRbtE4oh2H-mHrGHS0wew5hdkivUg@mail.gmail.com>
+ <20130504225715.GB24276@amd.pavel.ucw.cz>
+ <CAMbhsRS_cF7kF-QZ9BMBUS3ytU0ukRCbC3D549HW_XOsQbEZhg@mail.gmail.com>
+ <20130505000528.GA25454@amd.pavel.ucw.cz>
+ <20130505091844.GC22239@gmail.com>
+ <20130506085547.GC13861@dyad.programming.kicks-ass.net>
+ <CA+55aFzVNwCJhvp4f0EcHK3Vk1ZVKY0fAeu-6FdjhCFiafTAPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ingo Molnar <mingo@kernel.org>, Pavel Machek <pavel@ucw.cz>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Ingo Molnar <mingo@kernel.org>, Pavel Machek <pavel@ucw.cz>,
 	Colin Cross <ccross@android.com>,
 	Andrew Morton <akpm@osdl.org>,
 	lkml <linux-kernel@vger.kernel.org>,
@@ -32,26 +34,35 @@ Cc: Ingo Molnar <mingo@kernel.org>, Pavel Machek <pavel@ucw.cz>,
 	Linux PM list <linux-pm@vger.kernel.org>,
 	netdev <netdev@vger.kernel.org>, Tejun Heo <tj@kernel.org>,
 	Ben Chan <benchan@chromium.org>
-To: Peter Zijlstra <a.p.zijlstra@chello.nl>
+To: Linus Torvalds <torvalds@linux-foundation.org>
 Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20130506085547.GC13861@dyad.programming.kicks-ass.net>
+Content-Disposition: inline
+In-Reply-To: <CA+55aFzVNwCJhvp4f0EcHK3Vk1ZVKY0fAeu-6FdjhCFiafTAPQ@mail.gmail.com>
 Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 6, 2013 at 1:55 AM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
->
-> Doesn't i386 have all the funny per-cpu stuff too? So the only reason it still
-> does the fugly stack based thing is because nobody could be arsed to do the
-> work of converting it.
+On Mon, May 06, 2013 at 07:33:28AM -0700, Linus Torvalds wrote:
+> On Mon, May 6, 2013 at 1:55 AM, Peter Zijlstra <a.p.zijlstra@chello.nl> wrote:
+> >
+> > Doesn't i386 have all the funny per-cpu stuff too? So the only reason it still
+> > does the fugly stack based thing is because nobody could be arsed to do the
+> > work of converting it.
+> 
+> Umm. That "fugly stack-based" thing is better than the per-cpu crap.
+> 
+> The percpu stuff implies a memory load. The stack based thing gets
+> thread_info with pure register accesses. Much better.
+> 
+> For "current()" the per-cpu thing may be better, but if you actually
+> need the thread-info (not the case here, but in other places), the
+> stack masking is superior when it works (ie when you don't have
+> multi-stack issues due to irq's etc)
 
-Umm. That "fugly stack-based" thing is better than the per-cpu crap.
+But you can do both right? Use per-cpu for current and stack frobbery for
+current_thread_info().
 
-The percpu stuff implies a memory load. The stack based thing gets
-thread_info with pure register accesses. Much better.
+That said, ISTR some risky bits where the stack frobbery went awry due to
+irq-stacks which is the source for my feelings towards the stack frobbery.
 
-For "current()" the per-cpu thing may be better, but if you actually
-need the thread-info (not the case here, but in other places), the
-stack masking is superior when it works (ie when you don't have
-multi-stack issues due to irq's etc)
-
-                Linus
+That and of course that i386 and x86-64 behave differently for no apparent
+reason.
