@@ -1,8 +1,9 @@
 From: Dan Williams <dcbw@redhat.com>
-Subject: qmi_wwan/cdc_ether: add device IDs for Dell 5804 (Novatel E371)
- WWAN card
-Date: Mon, 06 May 2013 16:14:38 -0500
-Message-ID: <1367874878.31762.0.camel@dcbw.foobar.com>
+Subject: [PATCH] qmi_wwan/cdc_ether: add device IDs for Dell 5804 (Novatel
+ E371) WWAN card
+Date: Mon, 06 May 2013 16:17:37 -0500
+Message-ID: <1367875057.31762.3.camel@dcbw.foobar.com>
+References: <1367874878.31762.0.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
@@ -10,6 +11,7 @@ Cc: stable@vger.kernel.org, dagofthedofg@gmail.com,
 	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 To: netdev@vger.kernel.org
 Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1367874878.31762.0.camel@dcbw.foobar.com>
 Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
