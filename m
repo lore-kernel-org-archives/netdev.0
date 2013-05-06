@@ -1,37 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: PATCH iproute2] catch iptables interface changes
-Date: Mon, 6 May 2013 08:09:58 -0700
-Message-ID: <20130506080958.79562cfe@nehalam.linuxnetplumber.net>
-References: <517D35D6.8090606@mojatatu.com>
+From: Jean Delvare <jdelvare@suse.de>
+Subject: Re: [PATCH] S390: Fix libphy link failure
+Date: Mon, 06 May 2013 17:17:17 +0200
+Message-ID: <1367853437.4569.126.camel@chaos.site>
+References: <1367852019.4569.123.camel@chaos.site>
+	 <20130506.110011.1813294677998011362.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@vyatta.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jan Engelhardt <jengelh@inai.de>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, heiko.carstens@de.ibm.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:59001 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753652Ab3EFPKC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 11:10:02 -0400
-Received: by mail-pd0-f181.google.com with SMTP id p11so2059012pdj.12
-        for <netdev@vger.kernel.org>; Mon, 06 May 2013 08:10:02 -0700 (PDT)
-In-Reply-To: <517D35D6.8090606@mojatatu.com>
+Received: from cantor2.suse.de ([195.135.220.15]:60232 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753714Ab3EFPSX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 May 2013 11:18:23 -0400
+In-Reply-To: <20130506.110011.1813294677998011362.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 28 Apr 2013 10:44:38 -0400
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+Hi David,
 
-> 
-> Thanks to Jan for this suggestion.
-> Hopefully this would ease some of the pain.
-> 
-> cheers,
-> jamal
+Le Monday 06 May 2013 =C3=A0 11:00 -0400, David Miller a =C3=A9crit :
+> From: Jean Delvare <jdelvare@suse.de>
+> Date: Mon, 06 May 2013 16:53:39 +0200
+>=20
+> > On S390 basic IRQ functions are provided by the PCI subsystem, so
+> > code which calls these cannot be built if PCI support was not
+> > selected.
+> >=20
+> > Signed-off-by: Jean Delvare <jdelvare@suse.de>
+> > Cc: "David S. Miller" <davem@davemloft.net>
+> > Cc: Heiko Carstens <heiko.carstens@de.ibm.com>
+> > ---
+> > I know this isn't nice, but in the current state of S390 support
+> > this is all I can offer.
+>=20
+> I really am tired of all of these special S390 dependencies.
+>=20
+> You can't say this is a new problem, because we've been hitting this
+> issue repeatedly for more than a decade.  And I don't want to hear an=
+y
+> excuses, we've all already invested enough time into this to prove
+> that catering to S390's weird build limitations is a never ending
+> burdon for non-s390 people.
+>=20
+> Really, our interfaces are abstract enough that every driver ought to
+> be buildable on every architecture.
+>=20
+> It's time to put the burdon on your side, if you don't support some
+> IRQ interface or whatever, provide a stub that returns an error
+> rather than being that "special architecture" that everything else
+> has to specially cater for with ugly Kconfig dependencies.
 
-Any feedback from the netfilter team? Is this right?
-I would prefer to change wording of the error to something more professional.
-It may trigger 15 years from now and everybody around forgot what that meant.
+=46air enough, I tend to agree with you. S390 isn't my thing in the fir=
+st
+place. I was only trying to help fix a build regression (make
+allmodconfig fails on 32-bit S390.)
+
+--=20
+Jean Delvare
+Suse L3
