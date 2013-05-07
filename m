@@ -1,120 +1,70 @@
-From: Lucas Stach <l.stach@pengutronix.de>
-Subject: Re: [PATCH v4 1/1 net] net: fec: fix kernel oops when plug/unplug
- cable many times
-Date: Tue, 07 May 2013 12:13:37 +0200
-Message-ID: <1367921617.4126.36.camel@weser.hi.pengutronix.de>
-References: <1367898205-6272-1-git-send-email-Frank.Li@freescale.com>
-	 <1367920728.4126.32.camel@weser.hi.pengutronix.de>
-	 <CAHrpEqQFeqzyjT6EgzULZVC-bQU_juUMddBzuMfoN7+jppF2MQ@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PULL] vhost: more fixes for 3.10
+Date: Tue, 7 May 2013 14:10:24 +0300
+Message-ID: <20130507111024.GA18992@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Frank Li <Frank.Li@freescale.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Robert Schwebel <r.schwebel@pengutronix.de>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Fabio Estevam <festevam@gmail.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Frank Li <lznuaa@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:51537 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754552Ab3EGKPA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 06:15:00 -0400
-In-Reply-To: <CAHrpEqQFeqzyjT6EgzULZVC-bQU_juUMddBzuMfoN7+jppF2MQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, pbonzini@redhat.com
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Am Dienstag, den 07.05.2013, 18:02 +0800 schrieb Frank Li:
-> 2013/5/7 Lucas Stach <l.stach@pengutronix.de>:
-> > Am Dienstag, den 07.05.2013, 11:43 +0800 schrieb Frank Li:
-> >> reproduce steps
-> >>  1. flood ping from other machine
-> >>       ping -f -s 41000 IP
-> >>  2. run below script
-> >>     while [ 1 ]; do ethtool -s eth0 autoneg off;
-> >>     sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
-> >>
-> >> You can see oops in one hour.
-> >>
-> >> The reason is fec_restart clear BD but NAPI may use it.
-> >> The solution is disable NAPI and stop xmit when reset BD.
-> >> disable NAPI may sleep, so fec_restart can't be call in
-> >> atomic context.
-> >>
-> >> Signed-off-by: Frank Li <Frank.Li@freescale.com>
-> > One minor nitpick below, otherwise
-> > Reviewed-by: Lucas Stach <l.stach@pengutronix.de>
-> > Tested-by: Lucas Stach <l.stach@pengutronix.de>
-> >
-> > Could this patch please be marked as a candidate for the 3.9 stable
-> > tree? It fixes a real and severe problem for me, as I seem to be able to
-> > trigger the bug much more easily than Frank.
-> >
-> 
-> How to mark as a candidate for the 3.9 stable?
-> 
-See Documentation/stable_kernel_rules.txt
+I didn't do any back-merging tricks this time,
+as a result this is behind master by quite a lot.
+But I did a test merge and it came out correctly,
+so this shouldn't be an issue.
 
-Basically for this patch just add an
-Cc: <stable@vger.kernel.org> # 3.9
-below the sign-off area, but don't actually send the patch there. It
-will get cherry-picked just based on the tag.
+The following changes since commit 181c04a357bb791587c55a99362c2fdde2c64f18:
 
-> >> ---
-> >> Change from v1 to v2
-> >>  * Add netif_tx_lock(ndev) to avoid xmit runing when reset hardware
-> >> Change from v2 to v3
-> >>  * Move put real statements after function variable declarations according to David's comments
-> >>  * Remove lock in adjust_link according to Lucas Stach's comments
-> >> Change from v3 to v4
-> >>  * rebase to latest net/master
-> >>  * remove hw_lock because not used again
-> >>  * reduce delay work to 0
-> >>  * group delay work related feild to one structure
-> >>  * call netif_device_detach() in fec_restart
-> >>
-> >>  drivers/net/ethernet/freescale/fec.h      |   10 ++++--
-> >>  drivers/net/ethernet/freescale/fec_main.c |   44 +++++++++++++++++++++-------
-> >>  2 files changed, 39 insertions(+), 15 deletions(-)
-> >>
-> > [...]
-> >>
-> >>  static void
-> >> @@ -644,8 +658,22 @@ fec_timeout(struct net_device *ndev)
-> >>
-> >>       ndev->stats.tx_errors++;
-> >>
-> >> -     fec_restart(ndev, fep->full_duplex);
-> >> -     netif_wake_queue(ndev);
-> >> +     fep->delay_work.timeout = 1;
-> > I would like to see a proper true/false used in conjunction with the
-> > bool data type.
-> >
-> >> +     schedule_delayed_work(&(fep->delay_work.delay_work), 0);
-> >> +}
-> >> +
-> >> +static void fec_enet_work(struct work_struct *work)
-> >> +{
-> >> +     struct fec_enet_private *fep =
-> >> +             container_of(work,
-> >> +                          struct fec_enet_private,
-> >> +                          delay_work.delay_work.work);
-> >> +
-> >> +     if (fep->delay_work.timeout) {
-> >> +             fep->delay_work.timeout = 0;
-> > Same as above.
-> >
-> >> +             fec_restart(fep->netdev, fep->full_duplex);
-> >> +             netif_wake_queue(fep->netdev);
-> >> +     }
-> >>  }
-> >>
-> > [...]
+  vhost_scsi: module rename (2013-05-02 13:40:22 +0300)
 
--- 
-Pengutronix e.K.                           | Lucas Stach                 |
-Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
-Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/mst/vhost.git tags/for_linus
+
+for you to fetch changes up to a18cc421649dfdc21edb6c4c867dd05447d7df8c:
+
+  vhost-scsi: Enable VIRTIO_RING_F_EVENT_IDX (2013-05-07 11:11:08 +0300)
+
+----------------------------------------------------------------
+vhost: more fixes for 3.10
+
+This fixes some minor issues in the patches that have been merged.
+We also finally drop the workaround disabling event_idx
+for scsi: it was always questionable, and now we
+know it's not needed.
+There's also a memory leak fix.
+
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+----------------------------------------------------------------
+Asias He (7):
+      vhost: Export vhost_dev_set_owner
+      vhost-net: Free ubuf when vhost_dev_set_owner fails
+      vhost: Move VHOST_NET_FEATURES to net.c
+      vhost: Remove comments for hdr in vhost.h
+      vhost: Remove vhost_enable_zcopy in vhost.h
+      vhost-net: Cleanup vhost_ubuf and vhost_zcopy
+      vhost-scsi: Enable VIRTIO_RING_F_EVENT_IDX
+
+Michael S. Tsirkin (1):
+      vhost: drop virtio_net.h dependency
+
+ drivers/vhost/net.c   | 100 +++++++++++++++++++++++++++++++++-----------------
+ drivers/vhost/scsi.c  |   8 +---
+ drivers/vhost/vhost.c |   4 +-
+ drivers/vhost/vhost.h |  10 +----
+ 4 files changed, 71 insertions(+), 51 deletions(-)
