@@ -1,7 +1,7 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 3/8] qlcnic: Fix missing bracket in module parameter.
-Date: Tue, 7 May 2013 15:55:01 -0400
-Message-ID: <1367956506-3290-4-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 4/8] qlcnic: Fix ethtool Supported port status for 83xx
+Date: Tue, 7 May 2013 15:55:02 -0400
+Message-ID: <1367956506-3290-5-git-send-email-shahed.shaikh@qlogic.com>
 References: <1367956506-3290-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,55 +9,249 @@ Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
 	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe003.messaging.microsoft.com ([216.32.180.13]:19710
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757931Ab3EGUUJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 16:20:09 -0400
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:52091
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757931Ab3EGUUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 16:20:12 -0400
 In-Reply-To: <1367956506-3290-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
+o Fix display for interface while using 'ethtool <device>' for 83xx adapter
+
 Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   10 +++++-----
- 1 files changed, 5 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    2 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   65 +++++++++++++++++++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    2 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   52 ++++++++--------
+ 4 files changed, 92 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 04037b5..d97446a 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -37,24 +37,24 @@ MODULE_PARM_DESC(qlcnic_mac_learn,
- 		 "Mac Filter (0=learning is disabled, 1=Driver learning is enabled, 2=FDB learning is enabled)");
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index 90c253b..019c5f7 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -429,6 +429,7 @@ struct qlcnic_hardware_context {
  
- int qlcnic_use_msi = 1;
--MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled");
-+MODULE_PARM_DESC(use_msi, "MSI interrupt (0=disabled, 1=enabled)");
- module_param_named(use_msi, qlcnic_use_msi, int, 0444);
+ 	u16 port_type;
+ 	u16 board_type;
++	u16 supported_type;
  
- int qlcnic_use_msi_x = 1;
--MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled");
-+MODULE_PARM_DESC(use_msi_x, "MSI-X interrupt (0=disabled, 1=enabled)");
- module_param_named(use_msi_x, qlcnic_use_msi_x, int, 0444);
+ 	u16 link_speed;
+ 	u16 link_duplex;
+@@ -1514,6 +1515,7 @@ void qlcnic_create_diag_entries(struct qlcnic_adapter *adapter);
+ void qlcnic_remove_diag_entries(struct qlcnic_adapter *adapter);
+ void qlcnic_82xx_add_sysfs(struct qlcnic_adapter *adapter);
+ void qlcnic_82xx_remove_sysfs(struct qlcnic_adapter *adapter);
++int qlcnic_82xx_get_settings(struct qlcnic_adapter *, struct ethtool_cmd *);
  
- int qlcnic_auto_fw_reset = 1;
--MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled");
-+MODULE_PARM_DESC(auto_fw_reset, "Auto firmware reset (0=disabled, 1=enabled)");
- module_param_named(auto_fw_reset, qlcnic_auto_fw_reset, int, 0644);
+ int qlcnicvf_config_bridged_mode(struct qlcnic_adapter *, u32);
+ int qlcnicvf_config_led(struct qlcnic_adapter *, u32, u32);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index ea790a9..8a82003 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -2830,6 +2830,23 @@ int qlcnic_83xx_test_link(struct qlcnic_adapter *adapter)
+ 			break;
+ 		}
+ 		config = cmd.rsp.arg[3];
++		if (QLC_83XX_SFP_PRESENT(config)) {
++			switch (ahw->module_type) {
++			case LINKEVENT_MODULE_OPTICAL_UNKNOWN:
++			case LINKEVENT_MODULE_OPTICAL_SRLR:
++			case LINKEVENT_MODULE_OPTICAL_LRM:
++			case LINKEVENT_MODULE_OPTICAL_SFP_1G:
++				ahw->supported_type = PORT_FIBRE;
++				break;
++			case LINKEVENT_MODULE_TWINAX_UNSUPPORTED_CABLE:
++			case LINKEVENT_MODULE_TWINAX_UNSUPPORTED_CABLELEN:
++			case LINKEVENT_MODULE_TWINAX:
++				ahw->supported_type = PORT_TP;
++				break;
++			default:
++				ahw->supported_type = PORT_OTHER;
++			}
++		}
+ 		if (config & 1)
+ 			err = 1;
+ 	}
+@@ -2838,7 +2855,8 @@ out:
+ 	return config;
+ }
  
- int qlcnic_load_fw_file;
--MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file");
-+MODULE_PARM_DESC(load_fw_file, "Load firmware from (0=flash, 1=file)");
- module_param_named(load_fw_file, qlcnic_load_fw_file, int, 0444);
+-int qlcnic_83xx_get_settings(struct qlcnic_adapter *adapter)
++int qlcnic_83xx_get_settings(struct qlcnic_adapter *adapter,
++			     struct ethtool_cmd *ecmd)
+ {
+ 	u32 config = 0;
+ 	int status = 0;
+@@ -2851,6 +2869,51 @@ int qlcnic_83xx_get_settings(struct qlcnic_adapter *adapter)
+ 	ahw->module_type = QLC_83XX_SFP_MODULE_TYPE(config);
+ 	/* hard code until there is a way to get it from flash */
+ 	ahw->board_type = QLCNIC_BRDTYPE_83XX_10G;
++
++	if (netif_running(adapter->netdev) && ahw->has_link_events) {
++		ethtool_cmd_speed_set(ecmd, ahw->link_speed);
++		ecmd->duplex = ahw->link_duplex;
++		ecmd->autoneg = ahw->link_autoneg;
++	} else {
++		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
++		ecmd->duplex = DUPLEX_UNKNOWN;
++		ecmd->autoneg = AUTONEG_DISABLE;
++	}
++
++	if (ahw->port_type == QLCNIC_XGBE) {
++		ecmd->supported = SUPPORTED_1000baseT_Full;
++		ecmd->advertising = ADVERTISED_1000baseT_Full;
++	} else {
++		ecmd->supported = (SUPPORTED_10baseT_Half |
++				   SUPPORTED_10baseT_Full |
++				   SUPPORTED_100baseT_Half |
++				   SUPPORTED_100baseT_Full |
++				   SUPPORTED_1000baseT_Half |
++				   SUPPORTED_1000baseT_Full);
++		ecmd->advertising = (ADVERTISED_100baseT_Half |
++				     ADVERTISED_100baseT_Full |
++				     ADVERTISED_1000baseT_Half |
++				     ADVERTISED_1000baseT_Full);
++	}
++
++	if (ahw->supported_type == PORT_FIBRE) {
++		ecmd->supported |= SUPPORTED_FIBRE;
++		ecmd->advertising |= ADVERTISED_FIBRE;
++		ecmd->port = PORT_FIBRE;
++		ecmd->transceiver = XCVR_EXTERNAL;
++	} else if (ahw->supported_type == PORT_TP) {
++		ecmd->supported |= SUPPORTED_TP;
++		ecmd->advertising |= ADVERTISED_TP;
++		ecmd->port = PORT_TP;
++		ecmd->transceiver = XCVR_INTERNAL;
++	} else {
++		ecmd->supported |= SUPPORTED_FIBRE;
++		ecmd->advertising |= ADVERTISED_FIBRE;
++		ecmd->port = PORT_OTHER;
++		ecmd->transceiver = XCVR_EXTERNAL;
++	}
++	ecmd->phy_address = ahw->physical_port;
++
+ 	return status;
+ }
  
- int qlcnic_config_npars;
- module_param(qlcnic_config_npars, int, 0444);
--MODULE_PARM_DESC(qlcnic_config_npars, "Configure NPARs (0=disabled, 1=enabled");
-+MODULE_PARM_DESC(qlcnic_config_npars, "Configure NPARs (0=disabled, 1=enabled)");
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+index 1f1d85e..faf5553 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+@@ -603,7 +603,7 @@ int qlcnic_83xx_get_vnic_pf_info(struct qlcnic_adapter *, struct qlcnic_info *);
  
- static int qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent);
- static void qlcnic_remove(struct pci_dev *pdev);
+ void qlcnic_83xx_get_minidump_template(struct qlcnic_adapter *);
+ void qlcnic_83xx_get_stats(struct qlcnic_adapter *adapter, u64 *data);
+-int qlcnic_83xx_get_settings(struct qlcnic_adapter *);
++int qlcnic_83xx_get_settings(struct qlcnic_adapter *, struct ethtool_cmd *);
+ int qlcnic_83xx_set_settings(struct qlcnic_adapter *, struct ethtool_cmd *);
+ void qlcnic_83xx_get_pauseparam(struct qlcnic_adapter *,
+ 				struct ethtool_pauseparam *);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 6005b06..cd8d5d6 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -248,10 +248,21 @@ qlcnic_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *drvinfo)
+ 		sizeof(drvinfo->version));
+ }
+ 
+-static int
+-qlcnic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
++static int qlcnic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(dev);
++	int ret = 0;
++
++	if (qlcnic_82xx_check(adapter))
++		ret = qlcnic_82xx_get_settings(adapter, ecmd);
++	else if (qlcnic_83xx_check(adapter))
++		ret =  qlcnic_83xx_get_settings(adapter, ecmd);
++	return ret;
++}
++
++int qlcnic_82xx_get_settings(struct qlcnic_adapter *adapter,
++			     struct ethtool_cmd *ecmd)
++{
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	u32 speed, reg;
+ 	int check_sfp_module = 0;
+@@ -277,10 +288,7 @@ qlcnic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 
+ 	} else if (adapter->ahw->port_type == QLCNIC_XGBE) {
+ 		u32 val = 0;
+-		if (qlcnic_83xx_check(adapter))
+-			qlcnic_83xx_get_settings(adapter);
+-		else
+-			val = QLCRD32(adapter, QLCNIC_PORT_MODE_ADDR);
++		val = QLCRD32(adapter, QLCNIC_PORT_MODE_ADDR);
+ 
+ 		if (val == QLCNIC_PORT_MODE_802_3_AP) {
+ 			ecmd->supported = SUPPORTED_1000baseT_Full;
+@@ -290,16 +298,13 @@ qlcnic_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
+ 			ecmd->advertising = ADVERTISED_10000baseT_Full;
+ 		}
+ 
+-		if (netif_running(dev) && adapter->ahw->has_link_events) {
+-			if (qlcnic_82xx_check(adapter)) {
+-				reg = QLCRD32(adapter,
+-					      P3P_LINK_SPEED_REG(pcifn));
+-				speed = P3P_LINK_SPEED_VAL(pcifn, reg);
+-				ahw->link_speed = speed * P3P_LINK_SPEED_MHZ;
+-			}
+-			ethtool_cmd_speed_set(ecmd, adapter->ahw->link_speed);
+-			ecmd->autoneg = adapter->ahw->link_autoneg;
+-			ecmd->duplex = adapter->ahw->link_duplex;
++		if (netif_running(adapter->netdev) && ahw->has_link_events) {
++			reg = QLCRD32(adapter, P3P_LINK_SPEED_REG(pcifn));
++			speed = P3P_LINK_SPEED_VAL(pcifn, reg);
++			ahw->link_speed = speed * P3P_LINK_SPEED_MHZ;
++			ethtool_cmd_speed_set(ecmd, ahw->link_speed);
++			ecmd->autoneg = ahw->link_autoneg;
++			ecmd->duplex = ahw->link_duplex;
+ 			goto skip;
+ 		}
+ 
+@@ -341,8 +346,8 @@ skip:
+ 	case QLCNIC_BRDTYPE_P3P_10G_SFP_QT:
+ 		ecmd->advertising |= ADVERTISED_TP;
+ 		ecmd->supported |= SUPPORTED_TP;
+-		check_sfp_module = netif_running(dev) &&
+-				   adapter->ahw->has_link_events;
++		check_sfp_module = netif_running(adapter->netdev) &&
++				   ahw->has_link_events;
+ 	case QLCNIC_BRDTYPE_P3P_10G_XFP:
+ 		ecmd->supported |= SUPPORTED_FIBRE;
+ 		ecmd->advertising |= ADVERTISED_FIBRE;
+@@ -356,8 +361,8 @@ skip:
+ 			ecmd->advertising |=
+ 				(ADVERTISED_FIBRE | ADVERTISED_TP);
+ 			ecmd->port = PORT_FIBRE;
+-			check_sfp_module = netif_running(dev) &&
+-					   adapter->ahw->has_link_events;
++			check_sfp_module = netif_running(adapter->netdev) &&
++					   ahw->has_link_events;
+ 		} else {
+ 			ecmd->autoneg = AUTONEG_ENABLE;
+ 			ecmd->supported |= (SUPPORTED_TP | SUPPORTED_Autoneg);
+@@ -366,13 +371,6 @@ skip:
+ 			ecmd->port = PORT_TP;
+ 		}
+ 		break;
+-	case QLCNIC_BRDTYPE_83XX_10G:
+-		ecmd->autoneg = AUTONEG_DISABLE;
+-		ecmd->supported |= (SUPPORTED_FIBRE | SUPPORTED_TP);
+-		ecmd->advertising |= (ADVERTISED_FIBRE | ADVERTISED_TP);
+-		ecmd->port = PORT_FIBRE;
+-		check_sfp_module = netif_running(dev) && ahw->has_link_events;
+-		break;
+ 	default:
+ 		dev_err(&adapter->pdev->dev, "Unsupported board model %d\n",
+ 			adapter->ahw->board_type);
 -- 
 1.5.6
