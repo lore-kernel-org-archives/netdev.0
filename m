@@ -1,40 +1,52 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH v2 00/10] optimize freezing tasks by reducing task wakeups
-Date: Tue, 7 May 2013 11:12:37 -0700
-Message-ID: <20130507181237.GE5531@mtj.dyndns.org>
-References: <1367884221-20462-1-git-send-email-ccross@android.com>
+From: Lukas Tribus <luky-37@hotmail.com>
+Subject: RE: source IP address for ARP requests
+Date: Tue, 7 May 2013 20:15:36 +0200
+Message-ID: <DUB107-W47D427AB8714864D88CD46EDBA0@phx.gbl>
+References: <51891E0D.7050907@msgid.tls.msk.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Pavel Machek <pavel@ucw.cz>,
-	"Rafael J. Wysocki" <rjw@sisk.pl>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
-	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Colin Cross <ccross@android.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1367884221-20462-1-git-send-email-ccross@android.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Michael Tokarev <mjt@tls.msk.ru>, netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from dub0-omc4-s24.dub0.hotmail.com ([157.55.2.99]:32288 "EHLO
+	dub0-omc4-s24.dub0.hotmail.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753396Ab3EGSVt convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 May 2013 14:21:49 -0400
+In-Reply-To: <51891E0D.7050907@msgid.tls.msk.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+>=A0 eth0=A0 10.0.0.1/32
+>=A0 eth1=A0 192.168.1.1/24
+>=A0 route add 10.0.0.2 dev eth1 src 10.0.0.1
+>=20
+> namely, so that just one ip address is available
+> on an "unrelated" subnet, with "our" address taken
+> from another interface.
+>=20
+> With this config, ARPs for 10.0.0.2 are sent to eth1
+> with source address of 192.168.1.1, even if "src"
+> is configured for the route in question:
+>=20
+>=A0 9:28:46.220680 ARP, Request who-has 10.0.0.2 tell
+>=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 192.16=
+8.1.1, length 28
+>=20
+> Is that right, or should the host send ARP requests
+> with src=3D10.0.0.1?
 
-On Mon, May 06, 2013 at 04:50:05PM -0700, Colin Cross wrote:
-> On slow cpus the large number of task wakeups and context switches
-> triggered by freezing and thawing tasks can take a significant amount
-> of cpu time.  This patch series reduces the amount of work done during
-> freezing tasks by avoiding waking up tasks that are already in a freezable
-> state.
+I suspect you cannot change the behavior of layer 2 discovery
+protocols by configuring a certain layer 3 parameter (a route +
+"src").
 
-For the whole series,
+Also from an ARP perspective, this is imho correct behavior, because
+10.0.0.2 should learn "sender hardware address" and "sender protocol
+address" from the ARP _request_ and add them to its own ARP table -
+without an additional ARP request. 10.0.0.2 is connected to eth1, so
+only mac and ip address of eth1 counts in this case (=3D 192.168.1.1).
 
- Acked-by: Tejun Heo <tj@kernel.org>
 
-Thanks a lot!
 
--- 
-tejun
+Regards,
+Lukas 		 	   		  
