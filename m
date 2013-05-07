@@ -1,8 +1,8 @@
 From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH RFC 36/48] Audit: Log watch related audit message to proper
-	user namespace
-Date: Tue, 7 May 2013 10:20:57 +0800
-Message-ID: <1367893269-9308-37-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH RFC 37/48] Audit: translate audit_log_start to
+	audit_log_start_ns
+Date: Tue, 7 May 2013 10:20:58 +0800
+Message-ID: <1367893269-9308-38-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,75 +25,57 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Now, we can log watch related audit message to the user namespace
-which the task belongs to.
+This patch translates the call of interface audit_log_start to
+the namespace aware interface audit_log_start_ns.
+
+After we finish translation, we can rename audit_log_start_ns
+to audit_log_start.
 
 Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- kernel/audit_watch.c | 19 ++++++++++++-------
- 1 file changed, 12 insertions(+), 7 deletions(-)
+ kernel/audit.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/kernel/audit_watch.c b/kernel/audit_watch.c
-index 6be4cbe..1bac505 100644
---- a/kernel/audit_watch.c
-+++ b/kernel/audit_watch.c
-@@ -235,22 +235,26 @@ out:
- 	return new;
+diff --git a/kernel/audit.c b/kernel/audit.c
+index f723fe2..926d59b 100644
+--- a/kernel/audit.c
++++ b/kernel/audit.c
+@@ -1489,9 +1489,10 @@ void audit_log_key(struct audit_buffer *ab, char *key)
+ void audit_log_link_denied(const char *operation, struct path *link)
+ {
+ 	struct audit_buffer *ab;
++	struct user_namespace *ns = current_user_ns();
+ 
+-	ab = audit_log_start(current->audit_context, GFP_KERNEL,
+-			     AUDIT_ANOM_LINK);
++	ab = audit_log_start_ns(ns, current->audit_context, GFP_KERNEL,
++				AUDIT_ANOM_LINK);
+ 	if (!ab)
+ 		return;
+ 	audit_log_format(ab, "op=%s action=denied", operation);
+@@ -1501,7 +1502,7 @@ void audit_log_link_denied(const char *operation, struct path *link)
+ 	audit_log_format(ab, " dev=");
+ 	audit_log_untrustedstring(ab, link->dentry->d_inode->i_sb->s_id);
+ 	audit_log_format(ab, " ino=%lu", link->dentry->d_inode->i_ino);
+-	audit_log_end(ab);
++	audit_log_end_ns(ns, ab);
  }
  
--static void audit_watch_log_rule_change(struct audit_krule *r, struct audit_watch *w, char *op)
-+static void audit_watch_log_rule_change(struct audit_krule *r,
-+					struct audit_watch *w, char *op)
- {
--	if (audit_enabled) {
-+	struct user_namespace *ns = current_user_ns();
-+
-+	if (audit_enabled_ns(ns)) {
- 		struct audit_buffer *ab;
--		ab = audit_log_start(NULL, GFP_NOFS, AUDIT_CONFIG_CHANGE);
-+		ab = audit_log_start_ns(ns, NULL, GFP_NOFS,
-+					AUDIT_CONFIG_CHANGE);
- 		if (unlikely(!ab))
- 			return;
- 		audit_log_format(ab, "auid=%u ses=%u op=",
--				 from_kuid(&init_user_ns, audit_get_loginuid(current)),
-+				 from_kuid(ns, audit_get_loginuid(current)),
- 				 audit_get_sessionid(current));
- 		audit_log_string(ab, op);
- 		audit_log_format(ab, " path=");
- 		audit_log_untrustedstring(ab, w->path);
- 		audit_log_key(ab, r->filterkey);
- 		audit_log_format(ab, " list=%d res=1", r->listnr);
+ void audit_log_end_ns(struct user_namespace *ns, struct audit_buffer *ab)
+@@ -1558,12 +1559,12 @@ void audit_log(struct audit_context *ctx, gfp_t gfp_mask, int type,
+ 	struct audit_buffer *ab;
+ 	va_list args;
+ 
+-	ab = audit_log_start(ctx, gfp_mask, type);
++	ab = audit_log_start_ns(&init_user_ns, ctx, gfp_mask, type);
+ 	if (ab) {
+ 		va_start(args, fmt);
+ 		audit_log_vformat(ab, fmt, args);
+ 		va_end(args);
 -		audit_log_end(ab);
-+		audit_log_end_ns(ns, ab);
++		audit_log_end_ns(&init_user_ns, ab);
  	}
  }
  
-@@ -262,6 +266,7 @@ static void audit_update_watch(struct audit_parent *parent,
- 	struct audit_watch *owatch, *nwatch, *nextw;
- 	struct audit_krule *r, *nextr;
- 	struct audit_entry *oentry, *nentry;
-+	struct user_namespace *ns = current_user_ns();
- 
- 	mutex_lock(&audit_filter_mutex);
- 	/* Run all of the watches on this parent looking for the one that
-@@ -274,7 +279,7 @@ static void audit_update_watch(struct audit_parent *parent,
- 		/* If the update involves invalidating rules, do the inode-based
- 		 * filtering now, so we don't omit records. */
- 		if (invalidating && !audit_dummy_context())
--			audit_filter_inodes(current_user_ns(), current,
-+			audit_filter_inodes(ns, current,
- 					    current->audit_context);
- 
- 		/* updating ino will likely change which audit_hash_list we
-@@ -311,7 +316,7 @@ static void audit_update_watch(struct audit_parent *parent,
- 				nentry->rule.watch = nwatch;
- 				list_add(&nentry->rule.rlist, &nwatch->rules);
- 				list_add_rcu(&nentry->list,
--					&init_user_ns.audit.inode_hash[h]);
-+					&ns->audit.inode_hash[h]);
- 				list_replace(&oentry->rule.list,
- 					     &nentry->rule.list);
- 			}
 -- 
 1.8.1.4
