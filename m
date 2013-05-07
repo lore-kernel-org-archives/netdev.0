@@ -1,76 +1,51 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 1/8] qlcnic: Fix setting MAC address
-Date: Tue, 7 May 2013 15:54:59 -0400
-Message-ID: <1367956506-3290-2-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net 2/8] qlcnic: Fix ethtool strings
+Date: Tue, 7 May 2013 15:55:00 -0400
+Message-ID: <1367956506-3290-3-git-send-email-shahed.shaikh@qlogic.com>
 References: <1367956506-3290-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Manish Chopra <manish.chopra@qlogic.com>
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:59980
+Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:28428
 	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756181Ab3EGUTr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 16:19:47 -0400
+	by vger.kernel.org with ESMTP id S1752695Ab3EGUUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 16:20:05 -0400
 In-Reply-To: <1367956506-3290-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@qlogic.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-o Delete previous unicast MAC which is already programmed
-  in adapter before setting new unicast MAC
+o Add missing information in ethtool statistics information array.
+o Fix  the typo in the statistics information string.
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   21 +++++++++++++++++++++
- 1 files changed, 21 insertions(+), 0 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 264d5a4..04037b5 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -308,6 +308,23 @@ int qlcnic_read_mac_addr(struct qlcnic_adapter *adapter)
- 	return 0;
- }
- 
-+static void qlcnic_delete_adapter_mac(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_mac_list_s *cur;
-+	struct list_head *head;
-+
-+	list_for_each(head, &adapter->mac_list) {
-+		cur = list_entry(head, struct qlcnic_mac_list_s, list);
-+		if (!memcmp(adapter->mac_addr, cur->mac_addr, ETH_ALEN)) {
-+			qlcnic_sre_macaddr_change(adapter, cur->mac_addr,
-+						  0, QLCNIC_MAC_DEL);
-+			list_del(&cur->list);
-+			kfree(cur);
-+			return;
-+		}
-+	}
-+}
-+
- static int qlcnic_set_mac(struct net_device *netdev, void *p)
- {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
-@@ -322,11 +339,15 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
- 	if (!is_valid_ether_addr(addr->sa_data))
- 		return -EINVAL;
- 
-+	if (!memcmp(adapter->mac_addr, addr->sa_data, ETH_ALEN))
-+		return 0;
-+
- 	if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
- 		netif_device_detach(netdev);
- 		qlcnic_napi_disable(adapter);
- 	}
- 
-+	qlcnic_delete_adapter_mac(adapter);
- 	memcpy(adapter->mac_addr, addr->sa_data, netdev->addr_len);
- 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
- 	qlcnic_set_multi(adapter->netdev);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 08efb46..6005b06 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -131,12 +131,13 @@ static const char qlcnic_83xx_rx_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"ctx_lro_pkt_cnt",
+ 	"ctx_ip_csum_error",
+ 	"ctx_rx_pkts_wo_ctx",
+-	"ctx_rx_pkts_dropped_wo_sts",
++	"ctx_rx_pkts_drop_wo_sds_on_card",
++	"ctx_rx_pkts_drop_wo_sds_on_host",
+ 	"ctx_rx_osized_pkts",
+ 	"ctx_rx_pkts_dropped_wo_rds",
+ 	"ctx_rx_unexpected_mcast_pkts",
+ 	"ctx_invalid_mac_address",
+-	"ctx_rx_rds_ring_prim_attemoted",
++	"ctx_rx_rds_ring_prim_attempted",
+ 	"ctx_rx_rds_ring_prim_success",
+ 	"ctx_num_lro_flows_added",
+ 	"ctx_num_lro_flows_removed",
 -- 
 1.5.6
