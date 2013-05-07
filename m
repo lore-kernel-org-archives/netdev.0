@@ -1,112 +1,90 @@
-From: Frank Li <lznuaa@gmail.com>
-Subject: Re: [PATCH v4 1/1 net] net: fec: fix kernel oops when plug/unplug
- cable many times
-Date: Tue, 7 May 2013 18:02:27 +0800
-Message-ID: <CAHrpEqQFeqzyjT6EgzULZVC-bQU_juUMddBzuMfoN7+jppF2MQ@mail.gmail.com>
-References: <1367898205-6272-1-git-send-email-Frank.Li@freescale.com>
-	<1367920728.4126.32.camel@weser.hi.pengutronix.de>
+From: Jeff Layton <jlayton@redhat.com>
+Subject: Re: [PATCH v3 02/16] freezer: add unsafe versions of freezable
+ helpers for CIFS
+Date: Tue, 7 May 2013 06:07:30 -0400
+Message-ID: <20130507060730.03364687@tlielax.poochiereds.net>
+References: <1367884221-20462-1-git-send-email-ccross@android.com>
+	<1367884221-20462-3-git-send-email-ccross@android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Frank Li <Frank.Li@freescale.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Robert Schwebel <r.schwebel@pengutronix.de>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Fabio Estevam <festevam@gmail.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: Lucas Stach <l.stach@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f52.google.com ([74.125.82.52]:48220 "EHLO
-	mail-wg0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754196Ab3EGKC3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 06:02:29 -0400
-Received: by mail-wg0-f52.google.com with SMTP id k13so403686wgh.7
-        for <netdev@vger.kernel.org>; Tue, 07 May 2013 03:02:27 -0700 (PDT)
-In-Reply-To: <1367920728.4126.32.camel@weser.hi.pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Pavel Machek <pavel@ucw.cz>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
+	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>, Len Brown <len.brown@intel.com>
+To: Colin Cross <ccross@android.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1367884221-20462-3-git-send-email-ccross@android.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2013/5/7 Lucas Stach <l.stach@pengutronix.de>:
-> Am Dienstag, den 07.05.2013, 11:43 +0800 schrieb Frank Li:
->> reproduce steps
->>  1. flood ping from other machine
->>       ping -f -s 41000 IP
->>  2. run below script
->>     while [ 1 ]; do ethtool -s eth0 autoneg off;
->>     sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
->>
->> You can see oops in one hour.
->>
->> The reason is fec_restart clear BD but NAPI may use it.
->> The solution is disable NAPI and stop xmit when reset BD.
->> disable NAPI may sleep, so fec_restart can't be call in
->> atomic context.
->>
->> Signed-off-by: Frank Li <Frank.Li@freescale.com>
-> One minor nitpick below, otherwise
-> Reviewed-by: Lucas Stach <l.stach@pengutronix.de>
-> Tested-by: Lucas Stach <l.stach@pengutronix.de>
->
-> Could this patch please be marked as a candidate for the 3.9 stable
-> tree? It fixes a real and severe problem for me, as I seem to be able to
-> trigger the bug much more easily than Frank.
->
+On Mon,  6 May 2013 16:50:07 -0700
+Colin Cross <ccross@android.com> wrote:
 
-How to mark as a candidate for the 3.9 stable?
+> CIFS calls wait_event_freezekillable_unsafe with a VFS lock held,
+> which is unsafe and will cause lockdep warnings when 6aa9707
+> "lockdep: check that no locks held at freeze time" is reapplied
+> (it was reverted in dbf520a).  CIFS shouldn't be doing this, but
+> it has long-running syscalls that must hold a lock but also
+> shouldn't block suspend.  Until CIFS freeze handling is rewritten
+> to use a signal to exit out of the critical section, add a new
+> wait_event_freezekillable_unsafe helper that will not run the
+> lockdep test when 6aa9707 is reapplied, and call it from CIFS.
+> 
+> In practice the likley result of holding the lock while freezing
+> is that a second task blocked on the lock will never freeze,
+> aborting suspend, but it is possible to manufacture a case using
+> the cgroup freezer, the lock, and the suspend freezer to create
+> a deadlock.  Silencing the lockdep warning here will allow
+> problems to be found in other drivers that may have a more
+> serious deadlock risk, and prevent new problems from being added.
+> 
+> Signed-off-by: Colin Cross <ccross@android.com>
+> ---
+>  include/linux/freezer.h | 13 +++++++++++++
+>  1 file changed, 13 insertions(+)
+> 
+> diff --git a/include/linux/freezer.h b/include/linux/freezer.h
+> index 5b31e21c..d3c038e 100644
+> --- a/include/linux/freezer.h
+> +++ b/include/linux/freezer.h
+> @@ -212,6 +212,16 @@ static inline bool freezer_should_skip(struct task_struct *p)
+>  	__retval;							\
+>  })
+>  
+> +/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
+> +#define wait_event_freezekillable_unsafe(wq, condition)			\
+> +({									\
+> +	int __retval;							\
+> +	freezer_do_not_count();						\
+> +	__retval = wait_event_killable(wq, (condition));		\
+> +	freezer_count_unsafe();						\
+> +	__retval;							\
+> +})
+> +
+>  #define wait_event_freezable(wq, condition)				\
+>  ({									\
+>  	int __retval;							\
+> @@ -277,6 +287,9 @@ static inline void set_freezable(void) {}
+>  #define wait_event_freezekillable(wq, condition)		\
+>  		wait_event_killable(wq, condition)
+>  
+> +#define wait_event_freezekillable_unsafe(wq, condition)			\
+> +		wait_event_killable(wq, condition)
+> +
+>  #endif /* !CONFIG_FREEZER */
+>  
+>  #endif	/* FREEZER_H_INCLUDED */
 
->> ---
->> Change from v1 to v2
->>  * Add netif_tx_lock(ndev) to avoid xmit runing when reset hardware
->> Change from v2 to v3
->>  * Move put real statements after function variable declarations according to David's comments
->>  * Remove lock in adjust_link according to Lucas Stach's comments
->> Change from v3 to v4
->>  * rebase to latest net/master
->>  * remove hw_lock because not used again
->>  * reduce delay work to 0
->>  * group delay work related feild to one structure
->>  * call netif_device_detach() in fec_restart
->>
->>  drivers/net/ethernet/freescale/fec.h      |   10 ++++--
->>  drivers/net/ethernet/freescale/fec_main.c |   44 +++++++++++++++++++++-------
->>  2 files changed, 39 insertions(+), 15 deletions(-)
->>
-> [...]
->>
->>  static void
->> @@ -644,8 +658,22 @@ fec_timeout(struct net_device *ndev)
->>
->>       ndev->stats.tx_errors++;
->>
->> -     fec_restart(ndev, fep->full_duplex);
->> -     netif_wake_queue(ndev);
->> +     fep->delay_work.timeout = 1;
-> I would like to see a proper true/false used in conjunction with the
-> bool data type.
->
->> +     schedule_delayed_work(&(fep->delay_work.delay_work), 0);
->> +}
->> +
->> +static void fec_enet_work(struct work_struct *work)
->> +{
->> +     struct fec_enet_private *fep =
->> +             container_of(work,
->> +                          struct fec_enet_private,
->> +                          delay_work.delay_work.work);
->> +
->> +     if (fep->delay_work.timeout) {
->> +             fep->delay_work.timeout = 0;
-> Same as above.
->
->> +             fec_restart(fep->netdev, fep->full_duplex);
->> +             netif_wake_queue(fep->netdev);
->> +     }
->>  }
->>
-> [...]
-> --
-> Pengutronix e.K.                           | Lucas Stach                 |
-> Industrial Linux Solutions                 | http://www.pengutronix.de/  |
-> Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
-> Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
->
+I think you also need to convert wait_for_response in the cifs code to
+use this helper. While it's a pretty straightforward change, you should
+probably cc linux-cifs@vger.kernel.org as well.
+
+-- 
+Jeff Layton <jlayton@redhat.com>
