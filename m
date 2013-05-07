@@ -1,105 +1,84 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCH 3/8] net: sh-eth: Remove duplicate sh_eth_set_duplex()
-Date: Tue, 07 May 2013 14:00:49 +0900
-Message-ID: <51888A81.2000602@renesas.com>
-References: <1366268510-8121-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <1366268510-8121-3-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <516FFF53.6010701@cogentembedded.com>
+From: Jingoo Han <jg1.han@samsung.com>
+Subject: [PATCH 32/36] net: wireless: ath: remove unnecessary
+ platform_set_drvdata()
+Date: Tue, 07 May 2013 14:01:20 +0900
+Message-ID: <003101ce4adf$ea309d20$be91d760$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: netdev@vger.kernel.org, Jingoo Han <jg1.han@samsung.com>,
+	'Jiri Slaby' <jirislaby@gmail.com>,
+	'Nick Kossifidis' <mickflemm@gmail.com>,
+	"'Luis R. Rodriguez'" <mcgrof@qca.qualcomm.com>,
+	'Jouni Malinen' <jouni@qca.qualcomm.com>,
+	'Vasanthakumar Thiagarajan' <vthiagar@qca.qualcomm.com>,
+	'Senthil Balasubramanian' <senthilb@qca.qualcomm.com>
+To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor2.renesas.com ([210.160.252.172]:52817 "EHLO
-	relmlor2.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754175Ab3EGFAu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 01:00:50 -0400
-Received: from relmlir3.idc.renesas.com ([10.200.68.153])
- by relmlor2.idc.renesas.com ( SJSMS)
- with ESMTP id <0MME00BHQWLDG7B0@relmlor2.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 14:00:49 +0900 (JST)
-Received: from relmlac4.idc.renesas.com ([10.200.69.24])
- by relmlir3.idc.renesas.com ( SJSMS)
- with ESMTP id <0MME00KA9WLD3Z50@relmlir3.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 14:00:49 +0900 (JST)
-In-reply-to: <516FFF53.6010701@cogentembedded.com>
+Received: from mailout3.samsung.com ([203.254.224.33]:48931 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754175Ab3EGFBW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 01:01:22 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MME00DF0WM20250@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Tue, 07 May 2013 14:01:21 +0900 (KST)
+Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+The driver core clears the driver data to NULL after device_release
+or on probe failure, since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
+(device-core: Ensure drvdata = NULL when no driver is bound).
+Thus, it is not needed to manually clear the device driver data to NULL.
 
-(2013/04/18 23:12), Sergei Shtylyov wrote:
-> Hello.
->
-> On 18-04-2013 11:01, Nobuhiro Iwamatsu wrote:
->
->> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
->
-> Step in the right direction.
->
->> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
->> index 313d6ef..5c4e82c 100644
->> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> +++ b/drivers/net/ethernet/renesas/sh_eth.c
->> @@ -341,9 +341,11 @@ static void sh_eth_select_mii(struct net_device *ndev)
->> }
->> #endif
->>
->> -/* There is CPU dependent code */
->> -#if defined(CONFIG_ARCH_R8A7779)
->> -#define SH_ETH_RESET_DEFAULT 1
->> +#if defined(CONFIG_CPU_SUBTYPE_SH7619) || \
->> + defined(CONFIG_CPU_SUBTYPE_SH7710) || \
->> + defined(CONFIG_CPU_SUBTYPE_SH7712)
->> +# define sh_eth_set_duplex NULL
->
-> I don't think this is neeeded at all.
->
->> +#else
->> static void sh_eth_set_duplex(struct net_device *ndev)
->> {
->> struct sh_eth_private *mdp = netdev_priv(ndev);
->> @@ -353,7 +355,11 @@ static void sh_eth_set_duplex(struct net_device *ndev)
->> else /* Half */
->> sh_eth_write(ndev, sh_eth_read(ndev, ECMR) & ~ECMR_DM, ECMR);
->> }
->> +#endif
->>
->> +/* There is CPU dependent code */
->> +#if defined(CONFIG_ARCH_R8A7779)
->> +#define SH_ETH_RESET_DEFAULT 1
->> static void sh_eth_set_rate(struct net_device *ndev)
->> {
->> struct sh_eth_private *mdp = netdev_priv(ndev);
-> [...]
->> @@ -834,6 +791,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
->> #elif defined(CONFIG_CPU_SUBTYPE_SH7619)
->> #define SH_ETH_RESET_DEFAULT 1
->> static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
->> + .set_duplex = sh_eth_set_duplex,
->
-> Please, align = like in other initializers.
-> Wait, is this change legitimate at all? You mean NULL will be set here?
-> But why bother doing this, when 0s will be set to all fields without
-> explicit initializer?
+Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+---
+ drivers/net/wireless/ath/ath5k/ahb.c |    2 --
+ drivers/net/wireless/ath/ath9k/ahb.c |    2 --
+ 2 files changed, 0 insertions(+), 4 deletions(-)
 
-Yah, this is mybad.
-
->
->> .eesipr_value = DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
->>
->> .apr = 1,
->> @@ -845,6 +803,7 @@ static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
->> #define SH_ETH_RESET_DEFAULT 1
->> #define SH_ETH_HAS_TSU 1
->> static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
->> + .set_duplex = sh_eth_set_duplex,
->
-> Same coments here.
->
-I see.
-I will remove sh_eth_set_duplex from SH7619, SH7710 and SH7712.
-
-Thanks,
-   Nobuhiro
+diff --git a/drivers/net/wireless/ath/ath5k/ahb.c b/drivers/net/wireless/ath/ath5k/ahb.c
+index 8e8bcc7a..e9bc9e6 100644
+--- a/drivers/net/wireless/ath/ath5k/ahb.c
++++ b/drivers/net/wireless/ath/ath5k/ahb.c
+@@ -185,7 +185,6 @@ static int ath_ahb_probe(struct platform_device *pdev)
+ 
+  err_free_hw:
+ 	ieee80211_free_hw(hw);
+-	platform_set_drvdata(pdev, NULL);
+  err_iounmap:
+         iounmap(mem);
+  err_out:
+@@ -221,7 +220,6 @@ static int ath_ahb_remove(struct platform_device *pdev)
+ 
+ 	ath5k_deinit_ah(ah);
+ 	iounmap(ah->iobase);
+-	platform_set_drvdata(pdev, NULL);
+ 	ieee80211_free_hw(hw);
+ 
+ 	return 0;
+diff --git a/drivers/net/wireless/ath/ath9k/ahb.c b/drivers/net/wireless/ath/ath9k/ahb.c
+index d1ff3c2..072e4b5 100644
+--- a/drivers/net/wireless/ath/ath9k/ahb.c
++++ b/drivers/net/wireless/ath/ath9k/ahb.c
+@@ -150,7 +150,6 @@ static int ath_ahb_probe(struct platform_device *pdev)
+ 	free_irq(irq, sc);
+  err_free_hw:
+ 	ieee80211_free_hw(hw);
+-	platform_set_drvdata(pdev, NULL);
+ 	return ret;
+ }
+ 
+@@ -164,7 +163,6 @@ static int ath_ahb_remove(struct platform_device *pdev)
+ 		ath9k_deinit_device(sc);
+ 		free_irq(sc->irq, sc);
+ 		ieee80211_free_hw(sc->hw);
+-		platform_set_drvdata(pdev, NULL);
+ 	}
+ 
+ 	return 0;
+-- 
+1.7.2.5
