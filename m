@@ -1,8 +1,8 @@
 From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH RFC 24/48] Audit: xt_AUDIT: Log audit message in proper user
-	namespace
-Date: Tue, 7 May 2013 10:20:45 +0800
-Message-ID: <1367893269-9308-25-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH RFC 13/48] Audit: only allow init user namespace to change
+	audit_rate_limit
+Date: Tue, 7 May 2013 10:20:34 +0800
+Message-ID: <1367893269-9308-14-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,43 +25,29 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-we can log audit message in the user namespace which
-netfilter xt_AUDIT rules belongs to.
+Because We want to avoid the DoS attack caused by other user
+namespace,so don't make audit_rate_limit per user namespace.
+
+And only init user namespace has rights to change it.
 
 Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- net/netfilter/xt_AUDIT.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+ kernel/audit.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/netfilter/xt_AUDIT.c b/net/netfilter/xt_AUDIT.c
-index 3228d7f..b1ffba2 100644
---- a/net/netfilter/xt_AUDIT.c
-+++ b/net/netfilter/xt_AUDIT.c
-@@ -122,12 +122,14 @@ static unsigned int
- audit_tg(struct sk_buff *skb, const struct xt_action_param *par)
+diff --git a/kernel/audit.c b/kernel/audit.c
+index bf8b59c..8a3ea47 100644
+--- a/kernel/audit.c
++++ b/kernel/audit.c
+@@ -308,6 +308,9 @@ static int audit_do_config_change(char *function_name, int *to_change,
+ static int audit_set_rate_limit(int limit, kuid_t loginuid, u32 sessionid,
+ 				u32 sid)
  {
- 	const struct xt_audit_info *info = par->targinfo;
-+	struct net *net = dev_net(par->in ? par->in : par->out);
-+	struct user_namespace *ns = net->user_ns;
- 	struct audit_buffer *ab;
- 
--	if (audit_enabled == 0)
-+	if (audit_enabled_ns(ns) == 0)
- 		goto errout;
- 
--	ab = audit_log_start(NULL, GFP_ATOMIC, AUDIT_NETFILTER_PKT);
-+	ab = audit_log_start_ns(ns, NULL, GFP_ATOMIC, AUDIT_NETFILTER_PKT);
- 	if (ab == NULL)
- 		goto errout;
- 
-@@ -172,7 +174,7 @@ audit_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 		audit_log_secctx(ab, skb->secmark);
- #endif
- 
--	audit_log_end(ab);
-+	audit_log_end_ns(ns, ab);
- 
- errout:
- 	return XT_CONTINUE;
++	if (current_user_ns() != &init_user_ns)
++		return -EPERM;
++
+ 	return audit_do_config_change("audit_rate_limit", &audit_rate_limit,
+ 				      limit, loginuid, sessionid, sid);
+ }
 -- 
 1.8.1.4
