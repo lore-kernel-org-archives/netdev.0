@@ -1,8 +1,8 @@
 From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH RFC 25/48] Audit: send reply message to the auditd in proper
+Subject: [PATCH RFC 30/48] Audit: reply audit filter list request to proper
 	user namespace
-Date: Tue, 7 May 2013 10:20:46 +0800
-Message-ID: <1367893269-9308-26-git-send-email-gaofeng@cn.fujitsu.com>
+Date: Tue, 7 May 2013 10:20:51 +0800
+Message-ID: <1367893269-9308-31-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -25,60 +25,54 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-We can send the audit reply message to userspace auditd
-process which running in the same user namespace with the
-process which send the audit request message to kernel.
+We should reply the audit filter list request to the proper
+user namespace.
 
 Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- kernel/audit.c | 8 ++++++--
- 1 file changed, 6 insertions(+), 2 deletions(-)
+ kernel/audit.c       | 3 ++-
+ kernel/audit.h       | 1 +
+ kernel/auditfilter.c | 1 +
+ 3 files changed, 4 insertions(+), 1 deletion(-)
 
 diff --git a/kernel/audit.c b/kernel/audit.c
-index cac4b21..ca9e046 100644
+index 1ca1714..f723fe2 100644
 --- a/kernel/audit.c
 +++ b/kernel/audit.c
-@@ -144,6 +144,7 @@ struct audit_buffer {
- struct audit_reply {
+@@ -474,8 +474,9 @@ int audit_send_list(void *_dest)
+ 	mutex_unlock(&audit_cmd_mutex);
+ 
+ 	while ((skb = __skb_dequeue(&dest->q)) != NULL)
+-		netlink_unicast(init_user_ns.audit.sock, skb, pid, 0);
++		netlink_unicast(dest->user_ns->audit.sock, skb, pid, 0);
+ 
++	put_user_ns(dest->user_ns);
+ 	kfree(dest);
+ 
+ 	return 0;
+diff --git a/kernel/audit.h b/kernel/audit.h
+index a509796..7934598 100644
+--- a/kernel/audit.h
++++ b/kernel/audit.h
+@@ -85,6 +85,7 @@ extern void		    audit_panic(const char *message);
+ struct audit_netlink_list {
  	int pid;
- 	struct sk_buff *skb;
-+	struct user_namespace *ns;
+ 	struct sk_buff_head q;
++	struct user_namespace *user_ns;
  };
  
- static void audit_set_pid(struct audit_buffer *ab, pid_t pid)
-@@ -517,8 +518,9 @@ static int audit_send_reply_thread(void *arg)
- 
- 	/* Ignore failure. It'll only happen if the sender goes away,
- 	   because our timeout is set to infinite. */
--	netlink_unicast(init_user_ns.audit.sock, reply->skb,
-+	netlink_unicast(reply->ns->audit.sock, reply->skb,
- 			reply->pid, 0);
-+	put_user_ns(reply->ns);
- 	kfree(reply);
- 	return 0;
- }
-@@ -552,11 +554,13 @@ static void audit_send_reply(int pid, int seq, int type, int done, int multi,
- 
- 	reply->pid = pid;
- 	reply->skb = skb;
-+	reply->ns = get_user_ns(current_user_ns());
- 
- 	tsk = kthread_run(audit_send_reply_thread, reply, "audit_send_reply");
- 	if (!IS_ERR(tsk))
- 		return;
- 	kfree_skb(skb);
-+	put_user_ns(reply->ns);
- out:
- 	kfree(reply);
- }
-@@ -859,7 +863,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 				security_release_secctx(ctx, len);
+ int audit_send_list(void *);
+diff --git a/kernel/auditfilter.c b/kernel/auditfilter.c
+index cf7fe98..f2afe9b 100644
+--- a/kernel/auditfilter.c
++++ b/kernel/auditfilter.c
+@@ -1180,6 +1180,7 @@ int audit_receive_filter(int type, int pid, int seq, void *data,
  			return -ENOMEM;
- 		}
--		sig_data->uid = from_kuid(&init_user_ns, audit_sig_uid);
-+		sig_data->uid = from_kuid(ns, audit_sig_uid);
- 		sig_data->pid = audit_sig_pid;
- 		if (audit_sig_sid) {
- 			memcpy(sig_data->ctx, ctx, len);
+ 		dest->pid = pid;
+ 		skb_queue_head_init(&dest->q);
++		dest->user_ns = get_user_ns(ns);
+ 
+ 		mutex_lock(&audit_filter_mutex);
+ 		if (type == AUDIT_LIST)
 -- 
 1.8.1.4
