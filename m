@@ -1,55 +1,26 @@
-From: Valentin Longchamp <valentin.longchamp@keymile.com>
-Subject: Re: [PATCH 0/7] mv643xx_eth: device tree bindings
-Date: Tue, 07 May 2013 11:10:24 +0200
-Message-ID: <5188C500.8010209@keymile.com>
-References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
- <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: frag, fix race conditions in LRU list maintenance
+Date: Tue, 07 May 2013 05:13:31 -0400 (EDT)
+Message-ID: <20130507.051331.942846520697886744.davem@davemloft.net>
+References: <20130506093318.679f5557@redhat.com>
+	<20130506.110800.1388239604905052651.davem@davemloft.net>
+	<51888F93.3030300@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jason Cooper <jason@lakedaemon.net>, linux-doc@vger.kernel.org,
- netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
- linux-kernel@vger.kernel.org,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: brouer@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
+	fw@strlen.de, linux-kernel@vger.kernel.org
+To: khlebnikov@openvz.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51888F93.3030300@openvz.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sebastian,
+From: Konstantin Khlebnikov <khlebnikov@openvz.org>
+Date: Tue, 07 May 2013 09:22:27 +0400
 
-On 05/06/2013 05:33 PM, Sebastian Hesselbarth wrote:
-> This patch set picks up work by Florian Fainelli bringing full DT
-> support to mv643xx_eth and Marvell SoCs using it.
-> 
-> The current patch set drops Florian's device tree conversions for
-> Kirkwood, Dove, and Orion5x in favour of split patches for board
-> files and board descriptor files.
-> 
-> Device tree conversion for Dove and Kirkwood is added. Dove has
-> been fully tested, while Kirkwood is compile-tested only.
-> 
-> Florian Fainelli (2):
->   net: mv643xx_eth: add Device Tree bindings
->   net: mv643xx_eth: update Device Tree bindings documentation
-> 
-> Sebastian Hesselbarth (5):
->   ARM: dove: remove legacy mv643xx_eth setup
->   ARM: dove: add gigabit ethernet and mvmdio device tree nodes
->   ARM: kirkwood: remove legacy mv643xx_eth board setup
->   ARM: kirkwood: add gigabit ethernet and mvmdio device tree nodes
->   ARM: kirkwood: remove legacy clk alias for mv643xx_eth
-> 
+> Seems like this bug allows to crash kernel remotely.
+> Should I send it to stable@ for including into 3.9.y or
+> you already have a bunch of patches for it?
 
-I have successfully tested these patches on km_kirkwood, you can add my tested-by:
-
-Tested-by: Valentin Longchamp<valentin.longchamp@keymile.com>
+I already queued it up for -stable.
