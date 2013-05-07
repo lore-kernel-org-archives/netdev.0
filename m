@@ -1,52 +1,99 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [RFC 1/2] netmap: infrastructure (in staging)
-Date: Tue, 7 May 2013 13:20:31 -0400
-Message-ID: <CAAsGZS74kd+XW221+FHB75fss=_2Ghwj93ekYcPceqYns8HdRw@mail.gmail.com>
-References: <20130419.155859.1092595631804890737.davem@davemloft.net>
-	<20130419131632.31fce894@nehalam.linuxnetplumber.net>
-	<1366403483.16391.59.camel@edumazet-glaptop>
-	<20130419.163831.1434224426107133131.davem@davemloft.net>
-	<20130419134925.4981bdfc@nehalam.linuxnetplumber.net>
+From: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH v3 02/16] freezer: add unsafe versions of freezable
+ helpers for CIFS
+Date: Tue, 7 May 2013 10:47:36 -0700
+Message-ID: <CAMbhsRQ1i_dFctwjkqjg3=GJdEc8ReEDk=NnEFEXj8u3MaEqDA@mail.gmail.com>
+References: <1367884221-20462-1-git-send-email-ccross@android.com>
+	<1367884221-20462-3-git-send-email-ccross@android.com>
+	<20130507060730.03364687@tlielax.poochiereds.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	gregkh@linuxfoundation.org, netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:63963 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754585Ab3EGRUd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 13:20:33 -0400
-Received: by mail-la0-f53.google.com with SMTP id eo20so837184lab.12
-        for <netdev@vger.kernel.org>; Tue, 07 May 2013 10:20:31 -0700 (PDT)
-In-Reply-To: <20130419134925.4981bdfc@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: lkml <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>,
+	"Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	linux-nfs <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux PM list <linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130507060730.03364687-9yPaYZwiELC+kQycOl6kW4xkIHaj4LzF@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 19, 2013 at 4:49 PM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-
+On Tue, May 7, 2013 at 3:07 AM, Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> wrote:
+> On Mon,  6 May 2013 16:50:07 -0700
+> Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org> wrote:
 >
-> I get 7Mpps (single queue) with ixgbe and pktgen.
-> Easily hit 14.8 Mpps (single queue) with netmap.
+>> CIFS calls wait_event_freezekillable_unsafe with a VFS lock held,
+>> which is unsafe and will cause lockdep warnings when 6aa9707
+>> "lockdep: check that no locks held at freeze time" is reapplied
+>> (it was reverted in dbf520a).  CIFS shouldn't be doing this, but
+>> it has long-running syscalls that must hold a lock but also
+>> shouldn't block suspend.  Until CIFS freeze handling is rewritten
+>> to use a signal to exit out of the critical section, add a new
+>> wait_event_freezekillable_unsafe helper that will not run the
+>> lockdep test when 6aa9707 is reapplied, and call it from CIFS.
+>>
+>> In practice the likley result of holding the lock while freezing
+>> is that a second task blocked on the lock will never freeze,
+>> aborting suspend, but it is possible to manufacture a case using
+>> the cgroup freezer, the lock, and the suspend freezer to create
+>> a deadlock.  Silencing the lockdep warning here will allow
+>> problems to be found in other drivers that may have a more
+>> serious deadlock risk, and prevent new problems from being added.
+>>
+>> Signed-off-by: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+>> ---
+>>  include/linux/freezer.h | 13 +++++++++++++
+>>  1 file changed, 13 insertions(+)
+>>
+>> diff --git a/include/linux/freezer.h b/include/linux/freezer.h
+>> index 5b31e21c..d3c038e 100644
+>> --- a/include/linux/freezer.h
+>> +++ b/include/linux/freezer.h
+>> @@ -212,6 +212,16 @@ static inline bool freezer_should_skip(struct task_struct *p)
+>>       __retval;                                                       \
+>>  })
+>>
+>> +/* DO NOT ADD ANY NEW CALLERS OF THIS FUNCTION */
+>> +#define wait_event_freezekillable_unsafe(wq, condition)                      \
+>> +({                                                                   \
+>> +     int __retval;                                                   \
+>> +     freezer_do_not_count();                                         \
+>> +     __retval = wait_event_killable(wq, (condition));                \
+>> +     freezer_count_unsafe();                                         \
+>> +     __retval;                                                       \
+>> +})
+>> +
+>>  #define wait_event_freezable(wq, condition)                          \
+>>  ({                                                                   \
+>>       int __retval;                                                   \
+>> @@ -277,6 +287,9 @@ static inline void set_freezable(void) {}
+>>  #define wait_event_freezekillable(wq, condition)             \
+>>               wait_event_killable(wq, condition)
+>>
+>> +#define wait_event_freezekillable_unsafe(wq, condition)                      \
+>> +             wait_event_killable(wq, condition)
+>> +
+>>  #endif /* !CONFIG_FREEZER */
+>>
+>>  #endif       /* FREEZER_H_INCLUDED */
 >
-> The real problem is that DPDK and netmap can do multiple packets per request
-> to driver. Right now their is one PCI bus transaction per packet with current
-> driver model.
+> I think you also need to convert wait_for_response in the cifs code to
+> use this helper. While it's a pretty straightforward change, you should
+> probably cc linux-cifs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org as well.
 >
+> --
+> Jeff Layton <jlayton-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
-Look @ tpacket_v3 and you will realize that you can easily transfer a
-block of packets. A block_descriptor(either the one we have or a
-variant of this) is all you need when you are doing real_life packet
-capture/transmit. Sure you might have a need to add other packet
-descriptors but then it's easy to achieve. The tpacket_v3
-block-descriptor(not packet descriptor) even has some fields that even
-the state of the art FPGAs didn't have on them when I first started
-venturing out in this space.
-
-As far as coalescing PCIe transactions are concerned, it also depends
-how much buffer the NIC/NPU/FPGA has. Cheap NICs don't have onboard
-buffer so they can't absorb the spikes and batch small transfers. If
-we test a NIC w/ another NIC it's not going to tell the whole story. A
-simple spirent test will expose this.
+Oops, dropped a hunk which is why linux-cifs didn't get cc'd.  I will resend it.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
