@@ -1,59 +1,81 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [PATCH net] packet: tpacket_v3: do not trigger bug() on wrong
- header status
-Date: Tue, 7 May 2013 12:59:53 -0400
-Message-ID: <CAAsGZS7TVr2YX8H8EQRqk4gDwNMQiaOkjhwCuLM_27RqB6+QgQ@mail.gmail.com>
-References: <1367585820-2674-1-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.8.4 kernel
+Date: Tue, 07 May 2013 10:11:56 -0700
+Message-ID: <1367946716.13473.9.camel@edumazet-glaptop>
+References: <5153620E.4010608@gmail.com>
+	 <CAErSpo6w+tTbwJ7Qinpd0Vx20q5cm2gMvqzE1Do+2=G3b8rcHA@mail.gmail.com>
+	 <CAErSpo6iwM2r8b-aoiBPjQpkdpcfgLiO+WkpiM1wFsDhxuSXPg@mail.gmail.com>
+	 <CAErSpo68AWCGWQHKgoKuD-QFA0b+jbCRf7T_PzzKoUsVwdZHOg@mail.gmail.com>
+	 <157393863283F442885425D2C45428564F219B3B@nasanexd02f.na.qualcomm.com>
+	 <CAErSpo44-f4UdXxO5MdwVg09LFABwFQ320gG8v8jHcYh=5gqvA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Huang, Xiong" <xiong@qca.qualcomm.com>,
+	"Joseph A. Millikan" <josephamillikan@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ren, Cloud" <cjren@qca.qualcomm.com>,
 	netdev <netdev@vger.kernel.org>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:62405 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752081Ab3EGQ7y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 12:59:54 -0400
-Received: by mail-lb0-f181.google.com with SMTP id w10so982638lbi.12
-        for <netdev@vger.kernel.org>; Tue, 07 May 2013 09:59:53 -0700 (PDT)
-In-Reply-To: <1367585820-2674-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Eric Dumazet <edumazet@google.com>
+To: Bjorn Helgaas <bhelgaas@google.com>,
+	Arend van Spriel <arend@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAErSpo44-f4UdXxO5MdwVg09LFABwFQ320gG8v8jHcYh=5gqvA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 3, 2013 at 8:57 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
->
-> Jakub reported that it is fairly easy to trigger the BUG() macro
-> from user space with TPACKET_V3's RX_RING by just giving a wrong
-> header status flag. We already had a similar situation in commit
-> 7f5c3e3a80e6654 (``af_packet: remove BUG statement in
-> tpacket_destruct_skb'') where this was the case in the TX_RING
-> side that could be triggered from user space. So really, don't use
-> BUG() or BUG_ON() unless there's really no way out, and i.e.
-> don't use it for consistency checking when there's user space
-> involved, no excuses, especially not if you're slapping the user
-> with WARN + dump_stack + BUG all at once. The two functions are
+On Tue, 2013-05-07 at 09:20 -0700, Bjorn Helgaas wrote:
+> [+cc Eric because he made a change (69b08f62e17) that apparently
+> exposes driver bugs]
+> 
+> On Mon, May 6, 2013 at 7:51 PM, Huang, Xiong <xiong@qca.qualcomm.com> wrote:
+> >> >
+> >> > Did this ever get resolved?
+> >>
+> >> I opened https://bugzilla.kernel.org/show_bug.cgi?id=57681 to keep track of
+> >> this and attached the dmesg logs you collected.  If you have a chance, could you
+> >> also collect and attach the output of "lspci -vv"
+> >> (any kernel is fine for this).
+> >>
+> >> I don't see anything obvious wrong, at least from the PCI side.  Maybe the atl1c
+> >> guys will have some ideas.
+> >>
+> >
+> > Hi Bjorn and All
+> >      This issue should be same as bug https://bugzilla.kernel.org/show_bug.cgi?id=54021
+> >      I didn't find any abnormal info from the log and the PHY link is stable as well :(
+> >      Is it related to the network manager ?
+> 
+> I looked at bug #54021 and it does look similar.  It doesn't look like
+> it has been resolved.
+> 
+> http://forums.gentoo.org/viewtopic-t-949168-highlight-.html is another
+> report that looks very similar.  BigE there has a Lenovo G570 that has
+> both wireless and wired networking.  If BigE disables wireless with a
+> hardware switch before booting, it seems to avoid the atl1c wired
+> networking issue.  That's not a fix, of course, but it might be a clue
+> and a temporary workaround until we have a real solution.
+> 
+> Joseph, if there's no hardware switch for the wireless on your G770,
+> you can probably still take wireless out of the picture by removing or
+> renaming the bcma module (look in
+> /lib/modules/.../kernel/drivers/bcma/), then rebooting.
+> 
+> Xiong, do you have a specific network manager-related test that Joseph
+> could perform?  I don't want to burden Joseph with a lot of debugging
+> because he's currently happy with 3.6.11 and testing is pretty
+> disruptive in his environment.
 
-remember, you were able to figure out what the problem was because of
-the WARN and the forceful BUG.
-Is BUG ok? Depends on how you look at it. If you are doing serious
-network monitoring on a real life appliance
-we don't really want folks to write crappy application. May be BUG is
-too harsh. But then I don't see a WARN in this patch either (may be I
-overlooked it).
+drivers/net/wireless/brcm80211/brcmsmac/dma.c contains this suspect code
+in dma64_getnextrxp() :
+
+dma_addr_t pa;
+...
+pa = le32_to_cpu(di->rxd64[i].addrlow) - di->dataoffsetlow;
+/* clear this packet from the descriptor ring */
+dma_unmap_single(di->dmadev, pa, di->rxbufsize, DMA_FROM_DEVICE);
 
 
-> of concern:
->
->   prb_retire_current_block() [when block status != TP_STATUS_KERNEL]
->   prb_open_block() [when block_status != TP_STATUS_KERN
+How can it possibly work, I honestly have no idea.
 
->
-> Calls to prb_open_block() are guarded by ealier checks if block_status
-> is really TP_STATUS_KERNEL (racy!), but the first one BUG() is easily
-> triggable from user space. System behaves still stable after they are
-> removed. Also remove that yoda condition entirely, since it's already
-> guarded.
-
-What yoda? It's called defensive programming. It's a single check and
-not going to cost you anything.
+I suggest enabling CONFIG_DMA_API_DEBUG ?
