@@ -1,35 +1,32 @@
-From: Konstantin Khlebnikov <khlebnikov@openvz.org>
-Subject: Re: [PATCH] net: frag, fix race conditions in LRU list maintenance
-Date: Tue, 07 May 2013 09:22:27 +0400
-Message-ID: <51888F93.3030300@openvz.org>
-References: <20130505145622.9351.86587.stgit@zurg> <20130506093318.679f5557@redhat.com> <20130506.110800.1388239604905052651.davem@davemloft.net>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH 28/36] net: ethernet: ti: remove unnecessary platform_set_drvdata()
+Date: Tue, 7 May 2013 11:00:06 +0530
+Message-ID: <5188915E.1090609@ti.com>
+References: <002d01ce4ade$d6c7da60$84578f20$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, netdev@vger.kernel.org, edumazet@google.com,
-	fw@strlen.de, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130506.110800.1388239604905052651.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "'David S. Miller'" <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, "'Sekhar Nori'" <nsekhar@ti.com>,
+	Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+To: Jingoo Han <jg1.han@samsung.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from comal.ext.ti.com ([198.47.26.152]:51112 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752434Ab3EGFaZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 May 2013 01:30:25 -0400
+In-Reply-To: <002d01ce4ade$d6c7da60$84578f20$@samsung.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jesper Dangaard Brouer<brouer@redhat.com>
-> Date: Mon, 6 May 2013 09:33:18 +0200
+On 5/7/2013 10:23 AM, Jingoo Han wrote:
+> The driver core clears the driver data to NULL after device_release
+> or on probe failure, since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
+> (device-core: Ensure drvdata = NULL when no driver is bound).
+> Thus, it is not needed to manually clear the device driver data to NULL.
 >
->> This a good fix, and better than my earlier attempt at fixing this.
->   ...
->> Signed-off-by: Jesper Dangaard Brouer<brouer@redhat.com>
->
-> Applied, but this patch was generated against a very old tree,
-> one before the q->net->nqueues stuff was added.
->
-> I sorted out the conflicts but someone needs to double-check
-> my work.
+> Signed-off-by: Jingoo Han<jg1.han@samsung.com>
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-All right. Sorry, my patch is against 3.9
-
-Seems like this bug allows to crash kernel remotely.
-Should I send it to stable@ for including into 3.9.y or
-you already have a bunch of patches for it?
+Regards
+Mugunthan V N
