@@ -1,51 +1,42 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 27/36] net: ethernet: stmicro: remove unnecessary
- platform_set_drvdata()
-Date: Tue, 07 May 2013 14:09:02 +0900
-Message-ID: <003601ce4ae0$fd6bc030$f8434090$@samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jingoo Han <jg1.han@samsung.com>,
-	'Giuseppe Cavallaro' <peppe.cavallaro@st.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Subject: [PATCH v3 2/9] net: sh-eth: Add comment to bit of EDSR about SH7757
+Date: Tue,  7 May 2013 14:17:48 +0900
+Message-ID: <1367903875-32606-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+References: <1367903875-32606-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Cc: yoshihiro.shimoda.uh@renesas.com,
+	sergei.shtylyov@cogentembedded.com,
+	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:9990 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758436Ab3EGFJE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 01:09:04 -0400
-Received: from epcpsbgr3.samsung.com
- (u143.gpu120.samsung.co.kr [203.254.230.143])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MME00J1WWXSZ870@mailout2.samsung.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 14:09:02 +0900 (KST)
-Content-language: ko
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:63679 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756571Ab3EGFSN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 01:18:13 -0400
+Received: by mail-pd0-f170.google.com with SMTP id 10so137675pdi.29
+        for <netdev@vger.kernel.org>; Mon, 06 May 2013 22:18:13 -0700 (PDT)
+In-Reply-To: <1367903875-32606-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure, since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
-(device-core: Ensure drvdata = NULL when no driver is bound).
-Thus, it is not needed to manually clear the device driver data to NULL.
+SH7757 uses EDSR register. This adds about SH7757.
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 ---
- .../net/ethernet/stmicro/stmmac/stmmac_platform.c  |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 1d3780f..17bc782 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -171,8 +171,6 @@ static int stmmac_pltfr_remove(struct platform_device *pdev)
- 	if (priv->plat->exit)
- 		priv->plat->exit(pdev);
- 
--	platform_set_drvdata(pdev, NULL);
--
- 	return ret;
- }
- 
+diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
+index 7ccf58c..71c5559 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.h
++++ b/drivers/net/ethernet/renesas/sh_eth.h
+@@ -166,7 +166,7 @@ enum {
+ /*
+  * Register's bits
+  */
+-/* EDSR : sh7734, sh7763 and r8a7740 only */
++/* EDSR : sh7734, sh7763, sh7757 and r8a7740 only */
+ enum EDSR_BIT {
+ 	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
+ };
 -- 
-1.7.2.5
+1.7.10.4
