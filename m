@@ -1,25 +1,26 @@
 From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 33/36] net: wan: ixp4xx: remove unnecessary
+Subject: [PATCH 34/36] net: irda: bfin_sir: remove unnecessary
  platform_set_drvdata()
-Date: Tue, 07 May 2013 14:02:48 +0900
-Message-ID: <003201ce4ae0$1e471df0$5ad559d0$@samsung.com>
+Date: Tue, 07 May 2013 14:04:09 +0900
+Message-ID: <003301ce4ae0$4f1d40d0$ed57c270$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Jingoo Han <jg1.han@samsung.com>,
-	'Krzysztof Halasa' <khc@pm.waw.pl>
+	'Samuel Ortiz' <samuel@sortiz.org>,
+	Sonic Zhang <sonic.zhang@analog.com>
 To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout3.samsung.com ([203.254.224.33]:49154 "EHLO
-	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756274Ab3EGFCt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 01:02:49 -0400
-Received: from epcpsbgr2.samsung.com
- (u142.gpu120.samsung.co.kr [203.254.230.142])
- by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+Received: from mailout1.samsung.com ([203.254.224.24]:41738 "EHLO
+	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757685Ab3EGFEL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 01:04:11 -0400
+Received: from epcpsbgr1.samsung.com
+ (u141.gpu120.samsung.co.kr [203.254.230.141])
+ by mailout1.samsung.com (Oracle Communications Messaging Server 7u4-24.01
  (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MME00DU4WOE5V50@mailout3.samsung.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 14:02:48 +0900 (KST)
+ with ESMTP id <0MME00H9AWQW98O0@mailout1.samsung.com> for
+ netdev@vger.kernel.org; Tue, 07 May 2013 14:04:10 +0900 (KST)
 Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -31,19 +32,19 @@ Thus, it is not needed to manually clear the device driver data to NULL.
 
 Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/wan/ixp4xx_hss.c |    1 -
+ drivers/net/irda/bfin_sir.c |    1 -
  1 files changed, 0 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wan/ixp4xx_hss.c b/drivers/net/wan/ixp4xx_hss.c
-index fc9d11d..e7bbdb7 100644
---- a/drivers/net/wan/ixp4xx_hss.c
-+++ b/drivers/net/wan/ixp4xx_hss.c
-@@ -1384,7 +1384,6 @@ static int hss_remove_one(struct platform_device *pdev)
- 	unregister_hdlc_device(port->netdev);
- 	free_netdev(port->netdev);
- 	npe_release(port->npe);
+diff --git a/drivers/net/irda/bfin_sir.c b/drivers/net/irda/bfin_sir.c
+index a06fca6..4258be8 100644
+--- a/drivers/net/irda/bfin_sir.c
++++ b/drivers/net/irda/bfin_sir.c
+@@ -792,7 +792,6 @@ static int bfin_sir_remove(struct platform_device *pdev)
+ 	kfree(self->rx_buff.head);
+ 	free_netdev(dev);
+ 	kfree(sir_port);
 -	platform_set_drvdata(pdev, NULL);
- 	kfree(port);
+ 
  	return 0;
  }
 -- 
