@@ -1,180 +1,120 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH RFC 27/48] Audit: make tree_list per user namespace
-Date: Tue, 7 May 2013 10:20:48 +0800
-Message-ID: <1367893269-9308-28-git-send-email-gaofeng@cn.fujitsu.com>
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: [PATCH RFC 11/48] Audit: make audit_ever_enabled per user namespace
+Date: Tue, 7 May 2013 10:20:32 +0800
+Message-ID: <1367893269-9308-12-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-audit@redhat.com,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: viro@zeniv.linux.org.uk, eparis@redhat.com, ebiederm@xmission.com,
-	sgrubb@redhat.com, akpm@linux-foundation.org,
-	serge.hallyn@ubuntu.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-tree_list is used to list the directory releated audit rules,
-it should be per user namespace.
+We set audit_ever_enabled true after we enabled audit once.
+and if audit_ever_enabled is true, we will allocate audit
+context for task.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+We should decide if to allocate audit context for tasks based on
+if the audit is enabled once in the user namespace which the
+task belongs to.
+
+So audit_ever_enabled should be per user namespace too.
+
+Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- include/linux/user_namespace.h |  1 +
- kernel/audit.c                 |  2 ++
- kernel/audit.h                 |  4 ++--
- kernel/audit_tree.c            | 22 ++++++++++++----------
- kernel/auditfilter.c           |  2 +-
- 5 files changed, 18 insertions(+), 13 deletions(-)
+ include/linux/user_namespace.h | 1 +
+ kernel/audit.c                 | 7 +++----
+ kernel/auditsc.c               | 5 ++++-
+ 3 files changed, 8 insertions(+), 5 deletions(-)
 
 diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
-index c56e276..c870e28 100644
+index 3b2ed90..d5a22b2 100644
 --- a/include/linux/user_namespace.h
 +++ b/include/linux/user_namespace.h
-@@ -32,6 +32,7 @@ struct audit_ctrl {
- 	wait_queue_head_t	backlog_wait;
- #define AUDIT_INODE_BUCKETS	32
- 	struct list_head	inode_hash[AUDIT_INODE_BUCKETS];
-+	struct list_head	tree_list;
- 	bool			ever_enabled;
+@@ -27,6 +27,7 @@ struct audit_ctrl {
+ 	struct sk_buff_head	queue;
+ 	struct sk_buff_head	hold_queue;
+ 	struct task_struct	*kauditd_task;
++	bool			ever_enabled;
  };
  #endif
+ 
 diff --git a/kernel/audit.c b/kernel/audit.c
-index d254827..a0544b1 100644
+index 1138ff5..9ea5b27 100644
 --- a/kernel/audit.c
 +++ b/kernel/audit.c
-@@ -1609,6 +1609,8 @@ void audit_set_user_ns(struct user_namespace *ns)
- 	for (i = 0; i < AUDIT_INODE_BUCKETS; i++)
- 		INIT_LIST_HEAD(&ns->audit.inode_hash[i]);
+@@ -76,7 +76,6 @@ static int	audit_initialized;
+ #define AUDIT_OFF	0
+ #define AUDIT_ON	1
+ #define AUDIT_LOCKED	2
+-bool		audit_ever_enabled;
  
-+	INIT_LIST_HEAD(&ns->audit.tree_list);
-+
- 	ns->audit.initialized = AUDIT_INITIALIZED;
+ /* Default state when kernel boots without any parameters. */
+ static int	audit_default;
+@@ -331,7 +330,7 @@ static int audit_set_enabled(struct user_namespace *ns, int state,
+ 				     state, loginuid, sessionid, sid);
+ 
+ 	if (!rc)
+-		audit_ever_enabled |= !!state;
++		ns->audit.ever_enabled |= !!state;
+ 
+ 	return rc;
+ }
+@@ -994,7 +993,6 @@ static int __init audit_init(void)
+ 
+ 	audit_set_user_ns(&init_user_ns);
+ 	audit_initialized = AUDIT_INITIALIZED;
+-	audit_ever_enabled |= !!audit_default;
+ 
+ 	audit_log(NULL, GFP_KERNEL, AUDIT_KERNEL, "initialized");
+ 
+@@ -1016,7 +1014,7 @@ static int __init audit_enable(char *str)
+ 
+ 	if (audit_initialized == AUDIT_INITIALIZED) {
+ 		init_user_ns.audit.enabled = audit_default;
+-		audit_ever_enabled |= !!audit_default;
++		init_user_ns.audit.ever_enabled |= !!audit_default;
+ 	} else if (audit_initialized == AUDIT_UNINITIALIZED) {
+ 		printk(" (after initialization)");
+ 	} else {
+@@ -1594,6 +1592,7 @@ void audit_set_user_ns(struct user_namespace *ns)
+ 	skb_queue_head_init(&ns->audit.queue);
+ 	skb_queue_head_init(&ns->audit.hold_queue);
+ 	ns->audit.enabled = audit_default;
++	ns->audit.ever_enabled |= !!audit_default;
  }
  
-diff --git a/kernel/audit.h b/kernel/audit.h
-index a01c892..a509796 100644
---- a/kernel/audit.h
-+++ b/kernel/audit.h
-@@ -122,7 +122,7 @@ extern struct audit_chunk *audit_tree_lookup(const struct inode *);
- extern void audit_put_chunk(struct audit_chunk *);
- extern int audit_tree_match(struct audit_chunk *, struct audit_tree *);
- extern int audit_make_tree(struct audit_krule *, char *, u32);
--extern int audit_add_tree_rule(struct audit_krule *);
-+extern int audit_add_tree_rule(struct user_namespace *ns, struct audit_krule *);
- extern int audit_remove_tree_rule(struct audit_krule *);
- extern void audit_trim_trees(void);
- extern int audit_tag_tree(char *old, char *new);
-@@ -131,7 +131,7 @@ extern void audit_put_tree(struct audit_tree *);
- extern void audit_kill_trees(struct list_head *);
- #else
- #define audit_remove_tree_rule(rule) BUG()
--#define audit_add_tree_rule(rule) -EINVAL
-+#define audit_add_tree_rule(ns, rule) -EINVAL
- #define audit_make_tree(rule, str, op) -EINVAL
- #define audit_trim_trees() (void)0
- #define audit_put_tree(tree) (void)0
-diff --git a/kernel/audit_tree.c b/kernel/audit_tree.c
-index a291aa2..4531d73 100644
---- a/kernel/audit_tree.c
-+++ b/kernel/audit_tree.c
-@@ -35,7 +35,6 @@ struct audit_chunk {
- 	} owners[];
- };
- 
--static LIST_HEAD(tree_list);
- static LIST_HEAD(prune_list);
- 
- /*
-@@ -581,10 +580,11 @@ static int compare_root(struct vfsmount *mnt, void *arg)
- void audit_trim_trees(void)
- {
- 	struct list_head cursor;
-+	struct list_head *tree_list = &current_user_ns()->audit.tree_list;
- 
- 	mutex_lock(&audit_filter_mutex);
--	list_add(&cursor, &tree_list);
--	while (cursor.next != &tree_list) {
-+	list_add(&cursor, tree_list);
-+	while (cursor.next != tree_list) {
- 		struct audit_tree *tree;
- 		struct path path;
- 		struct vfsmount *root_mnt;
-@@ -651,14 +651,14 @@ static int tag_mount(struct vfsmount *mnt, void *arg)
- }
- 
- /* called with audit_filter_mutex */
--int audit_add_tree_rule(struct audit_krule *rule)
-+int audit_add_tree_rule(struct user_namespace *ns, struct audit_krule *rule)
- {
- 	struct audit_tree *seed = rule->tree, *tree;
- 	struct path path;
- 	struct vfsmount *mnt;
- 	int err;
- 
--	list_for_each_entry(tree, &tree_list, list) {
-+	list_for_each_entry(tree, &ns->audit.tree_list, list) {
- 		if (!strcmp(seed->pathname, tree->pathname)) {
- 			put_tree(seed);
- 			rule->tree = tree;
-@@ -667,7 +667,7 @@ int audit_add_tree_rule(struct audit_krule *rule)
- 		}
- 	}
- 	tree = seed;
--	list_add(&tree->list, &tree_list);
-+	list_add(&tree->list, &ns->audit.tree_list);
- 	list_add(&rule->rlist, &tree->rules);
- 	/* do not set rule->tree yet */
- 	mutex_unlock(&audit_filter_mutex);
-@@ -720,6 +720,8 @@ int audit_tag_tree(char *old, char *new)
- 	int failed = 0;
- 	struct path path1, path2;
- 	struct vfsmount *tagged;
+ void audit_free_user_ns(struct user_namespace *ns)
+diff --git a/kernel/auditsc.c b/kernel/auditsc.c
+index 6c97f36..290cce6 100644
+--- a/kernel/auditsc.c
++++ b/kernel/auditsc.c
+@@ -1062,8 +1062,11 @@ int audit_alloc(struct task_struct *tsk)
+ 	struct audit_context *context;
+ 	enum audit_state     state;
+ 	char *key = NULL;
 +	struct user_namespace *ns = current_user_ns();
-+	struct list_head *tree_list = &ns->audit.tree_list;
- 	int err;
++	/* Use current_user_ns, since this new task may run
++	 * in new user namespace */
  
- 	err = kern_path(new, 0, &path2);
-@@ -737,10 +739,10 @@ int audit_tag_tree(char *old, char *new)
- 	}
+-	if (likely(!audit_ever_enabled))
++	if (likely(!ns->audit.ever_enabled))
+ 		return 0; /* Return if not auditing. */
  
- 	mutex_lock(&audit_filter_mutex);
--	list_add(&barrier, &tree_list);
-+	list_add(&barrier, tree_list);
- 	list_add(&cursor, &barrier);
- 
--	while (cursor.next != &tree_list) {
-+	while (cursor.next != tree_list) {
- 		struct audit_tree *tree;
- 		int good_one = 0;
- 
-@@ -773,13 +775,13 @@ int audit_tag_tree(char *old, char *new)
- 		spin_lock(&hash_lock);
- 		if (!tree->goner) {
- 			list_del(&tree->list);
--			list_add(&tree->list, &tree_list);
-+			list_add(&tree->list, tree_list);
- 		}
- 		spin_unlock(&hash_lock);
- 		put_tree(tree);
- 	}
- 
--	while (barrier.prev != &tree_list) {
-+	while (barrier.prev != tree_list) {
- 		struct audit_tree *tree;
- 
- 		tree = container_of(barrier.prev, struct audit_tree, list);
-diff --git a/kernel/auditfilter.c b/kernel/auditfilter.c
-index 573385b..3c8fb2e 100644
---- a/kernel/auditfilter.c
-+++ b/kernel/auditfilter.c
-@@ -962,7 +962,7 @@ static inline int audit_add_rule(struct user_namespace *ns,
- 		}
- 	}
- 	if (tree) {
--		err = audit_add_tree_rule(&entry->rule);
-+		err = audit_add_tree_rule(ns, &entry->rule);
- 		if (err) {
- 			mutex_unlock(&audit_filter_mutex);
- 			goto error;
+ 	state = audit_filter_task(tsk, &key);
 -- 
 1.8.1.4
