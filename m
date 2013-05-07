@@ -1,58 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net] e1000e: fix scheduling while atomic bug
-Date: Tue, 07 May 2013 07:31:01 -0400 (EDT)
-Message-ID: <20130507.073101.877164997428477669.davem@davemloft.net>
-References: <1367905967-12824-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH] net/irda: fix error return code in bfin_sir_open()
+Date: Tue, 7 May 2013 20:14:33 +0800
+Message-ID: <CAPgLHd_MWMBjPhhd=md5AH2kG0=tnPc_9Ka44cA7zD4a3R5k2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@linux-foundation.org, bruce.w.allan@intel.com,
-	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
-	linux-kernel@vger.kernel.org
-To: jeffrey.t.kirsher@intel.com
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: samuel@sortiz.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45112 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754585Ab3EGL3B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 07:29:01 -0400
-In-Reply-To: <1367905967-12824-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-bk0-f41.google.com ([209.85.214.41]:63285 "EHLO
+	mail-bk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757184Ab3EGMOf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 08:14:35 -0400
+Received: by mail-bk0-f41.google.com with SMTP id jc3so249462bkc.14
+        for <netdev@vger.kernel.org>; Tue, 07 May 2013 05:14:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Mon,  6 May 2013 22:52:47 -0700
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-> From: Bruce Allan <bruce.w.allan@intel.com>
-> 
-> A scheduling while atomic bug was introduced recently (by commit ce43a216
-> e1000e: cleanup USLEEP_RANGE checkpatch checks).  Revert the particular
-> instance of usleep_range() which causes the bug.
-> 
-> Reported-by: Maarten Lankhorst <m.b.lankhorst@gmail.com>
-> Signed-off-by: Bruce Allan <bruce.w.allan@intel.com>
-> Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Fix to return -ENOMEM in the irlap_open() error handling case instead
+of 0(overwrite to 0 by bfin_sir_startup()), as done elsewhere in this
+function.
 
-Linus, please apply this directly, thanks:
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/irda/bfin_sir.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Acked-by: David S. Miller <davem@davemloft.net>
-
-> ---
->  drivers/net/ethernet/intel/e1000e/e1000.h | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-> index 82f1c84..ffbc08f 100644
-> --- a/drivers/net/ethernet/intel/e1000e/e1000.h
-> +++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-> @@ -600,7 +600,7 @@ static inline s32 __ew32_prepare(struct e1000_hw *hw)
->  	s32 i = E1000_ICH_FWSM_PCIM2PCI_COUNT;
->  
->  	while ((er32(FWSM) & E1000_ICH_FWSM_PCIM2PCI) && --i)
-> -		usleep_range(50, 100);
-> +		udelay(50);
->  
->  	return i;
->  }
-> -- 
-> 1.7.11.7
-> 
+diff --git a/drivers/net/irda/bfin_sir.c b/drivers/net/irda/bfin_sir.c
+index a06fca6..22b4527 100644
+--- a/drivers/net/irda/bfin_sir.c
++++ b/drivers/net/irda/bfin_sir.c
+@@ -609,7 +609,7 @@ static int bfin_sir_open(struct net_device *dev)
+ {
+ 	struct bfin_sir_self *self = netdev_priv(dev);
+ 	struct bfin_sir_port *port = self->sir_port;
+-	int err = -ENOMEM;
++	int err;
+ 
+ 	self->newspeed = 0;
+ 	self->speed = 9600;
+@@ -623,8 +623,10 @@ static int bfin_sir_open(struct net_device *dev)
+ 	bfin_sir_set_speed(port, 9600);
+ 
+ 	self->irlap = irlap_open(dev, &self->qos, DRIVER_NAME);
+-	if (!self->irlap)
++	if (!self->irlap) {
++		err = -ENOMEM;
+ 		goto err_irlap;
++	}
+ 
+ 	INIT_WORK(&self->work, bfin_sir_send_work);
+ 
