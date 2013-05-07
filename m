@@ -1,71 +1,55 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH 09/36] net: ethernet: cadence: remove unnecessary platform_set_drvdata()
-Date: Tue, 7 May 2013 11:02:06 +0200
-Message-ID: <5188C30E.80401@atmel.com>
-References: <001901ce4ada$af3f99f0$0dbecdd0$@samsung.com>
+From: Valentin Longchamp <valentin.longchamp@keymile.com>
+Subject: Re: [PATCH 0/7] mv643xx_eth: device tree bindings
+Date: Tue, 07 May 2013 11:10:24 +0200
+Message-ID: <5188C500.8010209@keymile.com>
+References: <1365071235-11611-1-git-send-email-florian@openwrt.org>
+ <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Jingoo Han <jg1.han@samsung.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.242]:11436 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759083Ab3EGJCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 05:02:09 -0400
-In-Reply-To: <001901ce4ada$af3f99f0$0dbecdd0$@samsung.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Cooper <jason@lakedaemon.net>, linux-doc@vger.kernel.org,
+ netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+ linux-kernel@vger.kernel.org,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On 07/05/2013 06:23, Jingoo Han :
-> The driver core clears the driver data to NULL after device_release
-> or on probe failure, since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
-> (device-core: Ensure drvdata = NULL when no driver is bound).
-> Thus, it is not needed to manually clear the device driver data to NULL.
->
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+Sebastian,
 
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+On 05/06/2013 05:33 PM, Sebastian Hesselbarth wrote:
+> This patch set picks up work by Florian Fainelli bringing full DT
+> support to mv643xx_eth and Marvell SoCs using it.
+> 
+> The current patch set drops Florian's device tree conversions for
+> Kirkwood, Dove, and Orion5x in favour of split patches for board
+> files and board descriptor files.
+> 
+> Device tree conversion for Dove and Kirkwood is added. Dove has
+> been fully tested, while Kirkwood is compile-tested only.
+> 
+> Florian Fainelli (2):
+>   net: mv643xx_eth: add Device Tree bindings
+>   net: mv643xx_eth: update Device Tree bindings documentation
+> 
+> Sebastian Hesselbarth (5):
+>   ARM: dove: remove legacy mv643xx_eth setup
+>   ARM: dove: add gigabit ethernet and mvmdio device tree nodes
+>   ARM: kirkwood: remove legacy mv643xx_eth board setup
+>   ARM: kirkwood: add gigabit ethernet and mvmdio device tree nodes
+>   ARM: kirkwood: remove legacy clk alias for mv643xx_eth
+> 
 
-> ---
->   drivers/net/ethernet/cadence/at91_ether.c |    1 -
->   drivers/net/ethernet/cadence/macb.c       |    2 --
->   2 files changed, 0 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/cadence/at91_ether.c b/drivers/net/ethernet/cadence/at91_ether.c
-> index cc9a185..3f19571 100644
-> --- a/drivers/net/ethernet/cadence/at91_ether.c
-> +++ b/drivers/net/ethernet/cadence/at91_ether.c
-> @@ -435,7 +435,6 @@ static int at91ether_remove(struct platform_device *pdev)
->   	unregister_netdev(dev);
->   	clk_disable(lp->pclk);
->   	free_netdev(dev);
-> -	platform_set_drvdata(pdev, NULL);
->
->   	return 0;
->   }
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 6be513d..6a7bf7d 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -1635,7 +1635,6 @@ err_out_put_pclk:
->   err_out_free_dev:
->   	free_netdev(dev);
->   err_out:
-> -	platform_set_drvdata(pdev, NULL);
->   	return err;
->   }
->
-> @@ -1661,7 +1660,6 @@ static int __exit macb_remove(struct platform_device *pdev)
->   		clk_disable_unprepare(bp->pclk);
->   		clk_put(bp->pclk);
->   		free_netdev(dev);
-> -		platform_set_drvdata(pdev, NULL);
->   	}
->
->   	return 0;
->
+I have successfully tested these patches on km_kirkwood, you can add my tested-by:
 
-
--- 
-Nicolas Ferre
+Tested-by: Valentin Longchamp<valentin.longchamp@keymile.com>
