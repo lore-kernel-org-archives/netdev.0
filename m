@@ -1,52 +1,36 @@
-From: "Huang, Xiong" <xiong@qca.qualcomm.com>
-Subject: RE: 3.8.4 kernel
-Date: Tue, 7 May 2013 18:24:59 +0000
-Message-ID: <157393863283F442885425D2C45428564F219C97@nasanexd02f.na.qualcomm.com>
-References: <5153620E.4010608@gmail.com>
- <CAErSpo6w+tTbwJ7Qinpd0Vx20q5cm2gMvqzE1Do+2=G3b8rcHA@mail.gmail.com>
- <CAErSpo6iwM2r8b-aoiBPjQpkdpcfgLiO+WkpiM1wFsDhxuSXPg@mail.gmail.com>
- <CAErSpo68AWCGWQHKgoKuD-QFA0b+jbCRf7T_PzzKoUsVwdZHOg@mail.gmail.com>
- <157393863283F442885425D2C45428564F219B3B@nasanexd02f.na.qualcomm.com>
- <CAErSpo44-f4UdXxO5MdwVg09LFABwFQ320gG8v8jHcYh=5gqvA@mail.gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [PATCH 15/15] ptp: PTP_1588_CLOCK_PCH depends on x86
+Date: Tue, 7 May 2013 21:29:38 +0200
+Message-ID: <20130507192938.GA3599@netboy>
+References: <1367936303-13386-1-git-send-email-jslaby@suse.cz>
+ <1367936303-13386-15-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "Joseph A. Millikan" <josephamillikan@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ren, Cloud" <cjren@qca.qualcomm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAErSpo44-f4UdXxO5MdwVg09LFABwFQ320gG8v8jHcYh=5gqvA@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jirislaby@gmail.com, linux-kernel@vger.kernel.org,
+	Jeff Mahoney <jeffm@suse.com>, netdev@vger.kernel.org
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f180.google.com ([209.85.215.180]:34030 "EHLO
+	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752173Ab3EGT3t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 15:29:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1367936303-13386-15-git-send-email-jslaby@suse.cz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, May 07, 2013 at 04:18:23PM +0200, Jiri Slaby wrote:
+> From: Jeff Mahoney <jeffm@suse.com>
 > 
-> Joseph, if there's no hardware switch for the wireless on your G770, you can
-> probably still take wireless out of the picture by removing or renaming the
-> bcma module (look in /lib/modules/.../kernel/drivers/bcma/), then rebooting.
-> 
-> Xiong, do you have a specific network manager-related test that Joseph could
-> perform?  I don't want to burden Joseph with a lot of debugging because he's
-> currently happy with 3.6.11 and testing is pretty disruptive in his environment.
-> 
+> The PCH EG20T is only compatible with Intel Atom processors so it
+> should depend on x86.
 
-There is a stranger behavior for this issue: if only enable either one (Ethernet or Wlan), everything looks OK.
-But once enable both, the issue arises.
+This patch has been submitted before,
 
-And Misha Labjuk said:
-------->
-Comment #38 From Misha Labjuk 2013-03-10 21:10:15 (-) [reply] 02:00.0 Ethernet controller: Qualcomm Atheros AR8152 v2.0 Fast Ethernet (rev
-c1)
+   https://patchwork.kernel.org/patch/2069071/
 
-If configured by iproute2 (ip addr add...) stable working.
-If NetworkManager running (just running, not managing) - ethernet die after 1-5
-min. After "mii-tool -r eth0" working until next freeze.
-<------
+and at that time the reaction was that it is good to have drivers
+cross-compiled, if only for code quality reasons.
 
-Unfortunately, I have no idea about NetworkManager :(
-
-BR.
-Xiong
+Thanks,
+Richard
