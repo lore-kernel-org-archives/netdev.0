@@ -1,102 +1,80 @@
 From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCH v2 6/8] net: sh-eth: Add irq configureation flags in
- sh_eth_cpu_data
-Date: Tue, 07 May 2013 11:57:12 +0900
-Message-ID: <51886D88.3000307@renesas.com>
+Subject: Re: [PATCH v2 1/8] net: sh-eth: Remove ifdef from definition of bit of
+ EDSR and GECMR
+Date: Tue, 07 May 2013 11:57:25 +0900
+Message-ID: <51886D95.8020603@renesas.com>
 References: <1366279869-23387-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <1366279869-23387-6-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <517009D7.7080700@cogentembedded.com>
+ <51700850.3050906@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
 To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor3.renesas.com ([210.160.252.173]:44058 "EHLO
-	relmlor3.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758800Ab3EGC5T (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 22:57:19 -0400
-Received: from relmlir2.idc.renesas.com ([10.200.68.152])
- by relmlor3.idc.renesas.com ( SJSMS)
- with ESMTP id <0MME007CBQVHVZ60@relmlor3.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 11:57:17 +0900 (JST)
-Received: from relmlac3.idc.renesas.com ([10.200.69.23])
- by relmlir2.idc.renesas.com ( SJSMS)
- with ESMTP id <0MME00EY8QVHDEF0@relmlir2.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 11:57:17 +0900 (JST)
-In-reply-to: <517009D7.7080700@cogentembedded.com>
+Received: from relmlor4.renesas.com ([210.160.252.174]:44069 "EHLO
+	relmlor4.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757007Ab3EGC51 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 22:57:27 -0400
+Received: from relmlir3.idc.renesas.com ([10.200.68.153])
+ by relmlor4.idc.renesas.com ( SJSMS)
+ with ESMTP id <0MME007AOQVQW260@relmlor4.idc.renesas.com> for
+ netdev@vger.kernel.org; Tue, 07 May 2013 11:57:26 +0900 (JST)
+Received: from relmlac1.idc.renesas.com ([10.200.69.21])
+ by relmlir3.idc.renesas.com ( SJSMS)
+ with ESMTP id <0MME00HEVQVPIUD0@relmlir3.idc.renesas.com> for
+ netdev@vger.kernel.org; Tue, 07 May 2013 11:57:26 +0900 (JST)
+In-reply-to: <51700850.3050906@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hi,
 
-(2013/04/18 23:57), Sergei Shtylyov wrote:
-> Hello.
->
+(2013/04/18 23:50), Sergei Shtylyov wrote:
 > On 18-04-2013 14:11, Nobuhiro Iwamatsu wrote:
 >
->> sh-eth is supporting some SH and shmobile CPU. CPU with two or more networked
->> devices is in these, these specify IRQF_SHARED as IRQ configureation flags.
->> This changes to set IRQ configureation flags using in sh_eth_cpu_data.
->
 >> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-> [...]
 >
->> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
->> index af8c225..a4e337f 100644
->> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> [...]
->> @@ -1920,14 +1923,7 @@ static int sh_eth_open(struct net_device *ndev)
->> pm_runtime_get_sync(&mdp->pdev->dev);
->>
->> ret = request_irq(ndev->irq, sh_eth_interrupt,
->> -#if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
->> - defined(CONFIG_CPU_SUBTYPE_SH7764) || \
->> - defined(CONFIG_CPU_SUBTYPE_SH7757)
->> - IRQF_SHARED,
->> -#else
->> - 0,
->> -#endif
+> Step in the right direction.
 >
-> Isn't it simpler to always pass IRQF_SHARED?
->
-
-I think there is a mechanism to separate the setting par CPU,
-split is good.
-
->> - ndev->name, ndev);
->> + mdp->cd->irq_flags, ndev->name, ndev);
->> if (ret) {
->> dev_err(&ndev->dev, "Can not assign IRQ number\n");
->> return ret;
 >> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
->> index f86ea96..0772ec1 100644
+>> index 6f9a997..f86ea96 100644
 >> --- a/drivers/net/ethernet/renesas/sh_eth.h
 >> +++ b/drivers/net/ethernet/renesas/sh_eth.h
->> @@ -463,6 +463,7 @@ struct sh_eth_cpu_data {
->> unsigned long tx_error_check;
+>> @@ -166,19 +166,16 @@ enum {
+>> /*
+>> * Register's bits
+>> */
+>> -#if defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763) ||\
+>> - defined(CONFIG_ARCH_R8A7740)
+>> -/* EDSR */
+>> +/* EDSR : sh7734, sh7764, sh7757 and r8a7740 only */
+>
+> Where sh7764 and sh7757 came from?
+
+sh7764 is wrong. I will fix to sh7763.
+sh7757 has this register. I will split to other patch about this.
+
+>
+>> enum EDSR_BIT {
+>> EDSR_ENT = 0x01, EDSR_ENR = 0x02,
+>> };
+>> #define EDSR_ENALL (EDSR_ENT|EDSR_ENR)
 >>
->> /* hardware features */
->> + unsigned long irq_flags; /* IRQ configuration flags */
+>> -/* GECMR */
+>> +/* GECMR : sh7734, sh7764 and r8a7740 only */
 >
-> Comment should have been indented with tabs like the others.
+> Where sh7764 came from?
+
+This is same too. thanks.
+
 >
-
-OK, I will fix.
-
->> unsigned no_psr:1; /* EtherC DO NOT have PSR */
->> unsigned apr:1; /* EtherC have APR */
->> unsigned mpr:1; /* EtherC have MPR */
->> @@ -508,6 +509,7 @@ struct sh_eth_private {
->> int duplex;
->> int port; /* for TSU */
->> int vlan_num_ids; /* for VLAN tag filter */
->> + unsigned long irq_flags; /* IRQ configuration flags */
+>> enum GECMR_BIT {
+>> GECMR_10 = 0x0, GECMR_100 = 0x04, GECMR_1000 = 0x01,
+>> };
+>> -#endif
 >
-> You don't seem to use this...
-
-Oh, I will remove. thank you.
+> WBR, Sergei
+>
 
 Best regards,
    Nobuhiro
