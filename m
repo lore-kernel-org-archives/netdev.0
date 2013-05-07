@@ -1,194 +1,106 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH RFC 46/48] Audit: rename audit_enabled_ns to audit_enabled
-Date: Tue, 7 May 2013 10:21:07 +0800
-Message-ID: <1367893269-9308-47-git-send-email-gaofeng@cn.fujitsu.com>
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: [PATCH RFC 18/48] Audit: make audit_backlog_wait per user namespace
+Date: Tue, 7 May 2013 10:20:39 +0800
+Message-ID: <1367893269-9308-19-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-audit@redhat.com,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: viro@zeniv.linux.org.uk, eparis@redhat.com, ebiederm@xmission.com,
-	sgrubb@redhat.com, akpm@linux-foundation.org,
-	serge.hallyn@ubuntu.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Now,all the callers of audit_enabled is user namespace
-awared, we can rename audit_enable_ns to audit_enabled.
+Tasks are added to audit_backlog_wait when the
+audit_skb_queue of user namespace is full, so
+audit_backlog_wait should be per user namespace too.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- drivers/tty/tty_audit.c      | 4 ++--
- include/linux/audit.h        | 6 ++----
- include/net/xfrm.h           | 2 +-
- kernel/audit_watch.c         | 2 +-
- kernel/auditsc.c             | 4 ++--
- net/core/dev.c               | 2 +-
- net/netfilter/x_tables.c     | 2 +-
- net/netfilter/xt_AUDIT.c     | 2 +-
- net/netlabel/netlabel_user.c | 2 +-
- security/apparmor/lib.c      | 2 +-
- 10 files changed, 13 insertions(+), 15 deletions(-)
+ include/linux/user_namespace.h |  1 +
+ kernel/audit.c                 | 11 +++++------
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/drivers/tty/tty_audit.c b/drivers/tty/tty_audit.c
-index f2d6811..8bb92bb 100644
---- a/drivers/tty/tty_audit.c
-+++ b/drivers/tty/tty_audit.c
-@@ -99,7 +99,7 @@ static void tty_audit_buf_push(struct task_struct *tsk, kuid_t loginuid,
- {
- 	if (buf->valid == 0)
- 		return;
--	if (audit_enabled_ns(task_cred_xxx(tsk, user_ns)) == 0) {
-+	if (audit_enabled(task_cred_xxx(tsk, user_ns)) == 0) {
- 		buf->valid = 0;
- 		return;
- 	}
-@@ -182,7 +182,7 @@ void tty_audit_tiocsti(struct tty_struct *tty, char ch)
- 		tty_audit_buf_put(buf);
- 	}
+diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
+index 7c2c65c..5a778f8 100644
+--- a/include/linux/user_namespace.h
++++ b/include/linux/user_namespace.h
+@@ -29,6 +29,7 @@ struct audit_ctrl {
+ 	struct sk_buff_head	hold_queue;
+ 	struct task_struct	*kauditd_task;
+ 	wait_queue_head_t	kauditd_wait;
++	wait_queue_head_t	backlog_wait;
+ 	bool			ever_enabled;
+ };
+ #endif
+diff --git a/kernel/audit.c b/kernel/audit.c
+index ad03f4f..62f244b 100644
+--- a/kernel/audit.c
++++ b/kernel/audit.c
+@@ -117,8 +117,6 @@ static DEFINE_SPINLOCK(audit_freelist_lock);
+ static int	   audit_freelist_count;
+ static LIST_HEAD(audit_freelist);
  
--	if (should_audit && audit_enabled_ns(current_user_ns())) {
-+	if (should_audit && audit_enabled(current_user_ns())) {
- 		kuid_t auid;
- 		unsigned int sessionid;
+-static DECLARE_WAIT_QUEUE_HEAD(audit_backlog_wait);
+-
+ /* Serialize requests from userspace. */
+ DEFINE_MUTEX(audit_cmd_mutex);
  
-diff --git a/include/linux/audit.h b/include/linux/audit.h
-index a46efa3..3f5dbe3 100644
---- a/include/linux/audit.h
-+++ b/include/linux/audit.h
-@@ -446,8 +446,7 @@ extern int audit_filter_type(int type);
- extern int  audit_receive_filter(int type, int pid, int seq,
- 				void *data, size_t datasz, kuid_t loginuid,
- 				u32 sessionid, u32 sid);
--#define audit_enabled (init_user_ns.audit.enabled)
--#define audit_enabled_ns (ns->audit.enabled)
-+#define audit_enabled(ns) (ns->audit.enabled)
- #else /* CONFIG_AUDIT */
- static inline __printf(4, 5)
- void audit_log(struct audit_context *ctx, gfp_t gfp_mask, int type,
-@@ -495,8 +494,7 @@ static inline void audit_set_user_ns(struct user_namespace *ns)
+@@ -444,7 +442,7 @@ static int kauditd_thread(void *dummy)
+ 		}
  
- static inline void audit_free_user_ns(struct user_namespace *ns)
- { }
--#define audit_enabled 0
--#define audit_enabled_ns(ns) 0
-+#define audit_enabled(ns) 0
- #endif /* CONFIG_AUDIT */
- static inline void audit_log_string(struct audit_buffer *ab, const char *buf)
- {
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index bb4d6b2..e625ae9 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -685,7 +685,7 @@ static inline struct audit_buffer *xfrm_audit_start(const char *op)
- 	struct audit_buffer *audit_buf = NULL;
- 	struct user_namespace *ns = current_user_ns();
+ 		skb = skb_dequeue(queue);
+-		wake_up(&audit_backlog_wait);
++		wake_up(&ns->audit.backlog_wait);
+ 		if (skb) {
+ 			if (ns->audit.pid)
+ 				kauditd_send_skb(ns, skb);
+@@ -1146,14 +1144,14 @@ static void wait_for_auditd(unsigned long sleep_time)
+ 	const struct sk_buff_head *queue = &init_user_ns.audit.queue;
+ 	DECLARE_WAITQUEUE(wait, current);
+ 	set_current_state(TASK_INTERRUPTIBLE);
+-	add_wait_queue(&audit_backlog_wait, &wait);
++	add_wait_queue(&init_user_ns.audit.backlog_wait, &wait);
  
--	if (audit_enabled_ns(ns) == 0)
-+	if (audit_enabled(ns) == 0)
+ 	if (audit_backlog_limit &&
+ 	    skb_queue_len(queue) > audit_backlog_limit)
+ 		schedule_timeout(sleep_time);
+ 
+ 	__set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&audit_backlog_wait, &wait);
++	remove_wait_queue(&init_user_ns.audit.backlog_wait, &wait);
+ }
+ 
+ /* Obtain an audit buffer.  This routine does locking to obtain the
+@@ -1219,7 +1217,7 @@ struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
+ 			       audit_backlog_limit);
+ 		audit_log_lost("backlog limit exceeded");
+ 		audit_backlog_wait_time = audit_backlog_wait_overflow;
+-		wake_up(&audit_backlog_wait);
++		wake_up(&init_user_ns.audit.backlog_wait);
  		return NULL;
- 	audit_buf = audit_log_start(ns, current->audit_context,
- 				    GFP_ATOMIC, AUDIT_MAC_IPSEC_EVENT);
-diff --git a/kernel/audit_watch.c b/kernel/audit_watch.c
-index 4dcc331..f82edc7 100644
---- a/kernel/audit_watch.c
-+++ b/kernel/audit_watch.c
-@@ -240,7 +240,7 @@ static void audit_watch_log_rule_change(struct audit_krule *r,
- {
- 	struct user_namespace *ns = current_user_ns();
+ 	}
  
--	if (audit_enabled_ns(ns)) {
-+	if (audit_enabled(ns)) {
- 		struct audit_buffer *ab;
- 		ab = audit_log_start(ns, NULL, GFP_NOFS,
- 					AUDIT_CONFIG_CHANGE);
-diff --git a/kernel/auditsc.c b/kernel/auditsc.c
-index e579b75..8930158 100644
---- a/kernel/auditsc.c
-+++ b/kernel/auditsc.c
-@@ -1782,7 +1782,7 @@ void __audit_syscall_entry(int arch, int major,
+@@ -1599,6 +1597,7 @@ void audit_set_user_ns(struct user_namespace *ns)
+ 	ns->audit.enabled = audit_default;
+ 	ns->audit.ever_enabled |= !!audit_default;
+ 	init_waitqueue_head(&ns->audit.kauditd_wait);
++	init_waitqueue_head(&ns->audit.backlog_wait);
  
- 	BUG_ON(context->in_syscall || context->name_count);
- 
--	if (!audit_enabled_ns(ns))
-+	if (!audit_enabled(ns))
- 		return;
- 
- 	context->arch	    = arch;
-@@ -2734,7 +2734,7 @@ void audit_core_dumps(long signr)
- 	struct audit_buffer *ab;
- 	struct user_namespace *ns = current_user_ns();
- 
--	if (!audit_enabled_ns(ns))
-+	if (!audit_enabled(ns))
- 		return;
- 
- 	if (signr == SIGQUIT)	/* don't care for those */
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 651ad69..128ee39 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4458,7 +4458,7 @@ static int __dev_set_promiscuity(struct net_device *dev, int inc)
- 		pr_info("device %s %s promiscuous mode\n",
- 			dev->name,
- 			dev->flags & IFF_PROMISC ? "entered" : "left");
--		if (audit_enabled_ns(current_user_ns())) {
-+		if (audit_enabled(current_user_ns())) {
- 			current_uid_gid(&uid, &gid);
- 			audit_log(current->audit_context, GFP_ATOMIC,
- 				AUDIT_ANOM_PROMISCUOUS,
-diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-index 8be219e..9571d7e 100644
---- a/net/netfilter/x_tables.c
-+++ b/net/netfilter/x_tables.c
-@@ -858,7 +858,7 @@ xt_replace_table(struct xt_table *table,
- 	local_bh_enable();
- 
- #ifdef CONFIG_AUDIT
--	if (audit_enabled_ns(ns)) {
-+	if (audit_enabled(ns)) {
- 		struct audit_buffer *ab;
- 
- 		ab = audit_log_start(ns, current->audit_context,
-diff --git a/net/netfilter/xt_AUDIT.c b/net/netfilter/xt_AUDIT.c
-index a0b102a..1079a1ac 100644
---- a/net/netfilter/xt_AUDIT.c
-+++ b/net/netfilter/xt_AUDIT.c
-@@ -126,7 +126,7 @@ audit_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 	struct user_namespace *ns = net->user_ns;
- 	struct audit_buffer *ab;
- 
--	if (audit_enabled_ns(ns) == 0)
-+	if (audit_enabled(ns) == 0)
- 		goto errout;
- 
- 	ab = audit_log_start(ns, NULL, GFP_ATOMIC, AUDIT_NETFILTER_PKT);
-diff --git a/net/netlabel/netlabel_user.c b/net/netlabel/netlabel_user.c
-index e9e4e84..098eaa2 100644
---- a/net/netlabel/netlabel_user.c
-+++ b/net/netlabel/netlabel_user.c
-@@ -102,7 +102,7 @@ struct audit_buffer *netlbl_audit_start_common(int type,
- 	u32 secctx_len;
- 	struct user_namespace *ns = current_user_ns();
- 
--	if (audit_enabled_ns(ns) == 0)
-+	if (audit_enabled(ns) == 0)
- 		return NULL;
- 
- 	audit_buf = audit_log_start(ns, current->audit_context,
-diff --git a/security/apparmor/lib.c b/security/apparmor/lib.c
-index 9cae5ce..3058bb1d 100644
---- a/security/apparmor/lib.c
-+++ b/security/apparmor/lib.c
-@@ -63,7 +63,7 @@ char *aa_split_fqname(char *fqname, char **ns_name)
-  */
- void aa_info_message(const char *str)
- {
--	if (audit_enabled_ns(current_user_ns())) {
-+	if (audit_enabled(current_user_ns())) {
- 		struct common_audit_data sa;
- 		struct apparmor_audit_data aad = {0,};
- 		sa.type = LSM_AUDIT_DATA_NONE;
+ 	ns->audit.initialized = AUDIT_INITIALIZED;
+ }
 -- 
 1.8.1.4
