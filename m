@@ -1,25 +1,27 @@
 From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 20/36] net: ethernet: nuvoton: remove unnecessary
+Subject: [PATCH 21/36] net: ethernet: nxp: remove unnecessary
  platform_set_drvdata()
-Date: Tue, 07 May 2013 13:42:27 +0900
-Message-ID: <002401ce4add$46a61380$d3f23a80$@samsung.com>
+Date: Tue, 07 May 2013 13:44:17 +0900
+Message-ID: <002601ce4add$888a35b0$999ea110$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, Jingoo Han <jg1.han@samsung.com>,
-	Wan ZongShun <mcuos.com@gmail.com>
+	'Wei Yongjun' <yongjun_wei@trendmicro.com.cn>,
+	Eric Dumazet <edumazet@google.com>,
+	'Roland Stigge' <stigge@antcom.de>
 To: "'David S. Miller'" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:52563 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759457Ab3EGEm2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 00:42:28 -0400
-Received: from epcpsbgr3.samsung.com
- (u143.gpu120.samsung.co.kr [203.254.230.143])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+Received: from mailout2.samsung.com ([203.254.224.25]:62441 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759401Ab3EGEoT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 00:44:19 -0400
+Received: from epcpsbgr4.samsung.com
+ (u144.gpu120.samsung.co.kr [203.254.230.144])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7u4-24.01
  (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MME00MUIVPYLYC0@mailout4.samsung.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 13:42:27 +0900 (KST)
+ with ESMTP id <0MME00FPFVTUF080@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Tue, 07 May 2013 13:44:18 +0900 (KST)
 Content-language: ko
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -31,28 +33,28 @@ Thus, it is not needed to manually clear the device driver data to NULL.
 
 Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/ethernet/nuvoton/w90p910_ether.c |    2 --
+ drivers/net/ethernet/nxp/lpc_eth.c |    2 --
  1 files changed, 0 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/nuvoton/w90p910_ether.c b/drivers/net/ethernet/nuvoton/w90p910_ether.c
-index 3df8287..e88bdb1 100644
---- a/drivers/net/ethernet/nuvoton/w90p910_ether.c
-+++ b/drivers/net/ethernet/nuvoton/w90p910_ether.c
-@@ -1051,7 +1051,6 @@ failed_put_clk:
- 	clk_put(ether->clk);
- failed_free_rxirq:
- 	free_irq(ether->rxirq, pdev);
--	platform_set_drvdata(pdev, NULL);
- failed_free_txirq:
- 	free_irq(ether->txirq, pdev);
- failed_free_io:
-@@ -1080,7 +1079,6 @@ static int w90p910_ether_remove(struct platform_device *pdev)
- 	free_irq(ether->rxirq, dev);
- 
- 	del_timer_sync(&ether->check_timer);
--	platform_set_drvdata(pdev, NULL);
- 
- 	free_netdev(dev);
+diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
+index 55a5548..a061b93 100644
+--- a/drivers/net/ethernet/nxp/lpc_eth.c
++++ b/drivers/net/ethernet/nxp/lpc_eth.c
+@@ -1483,7 +1483,6 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
  	return 0;
+ 
+ err_out_unregister_netdev:
+-	platform_set_drvdata(pdev, NULL);
+ 	unregister_netdev(ndev);
+ err_out_dma_unmap:
+ 	if (!use_iram_for_net(&pldat->pdev->dev) ||
+@@ -1511,7 +1510,6 @@ static int lpc_eth_drv_remove(struct platform_device *pdev)
+ 	struct netdata_local *pldat = netdev_priv(ndev);
+ 
+ 	unregister_netdev(ndev);
+-	platform_set_drvdata(pdev, NULL);
+ 
+ 	if (!use_iram_for_net(&pldat->pdev->dev) ||
+ 	    pldat->dma_buff_size > lpc32xx_return_iram_size())
 -- 
 1.7.2.5
