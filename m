@@ -1,92 +1,65 @@
-From: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [Suggestion] Bluetooth: hidp: redundant initialization or issue
- for function hidp_copy_session
-Date: Tue, 7 May 2013 21:37:11 +0200
-Message-ID: <CANq1E4Q8g6Uy5DMiEf3aEBmfWN=KnVCfqxErYr=ZWD94D4vmAQ@mail.gmail.com>
-References: <518906A8.7060708@asianux.com>
-	<51890AC9.7010501@asianux.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net 0/8] qlcnic: Bug fixes
+Date: Tue, 7 May 2013 15:54:58 -0400
+Message-ID: <1367956506-3290-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, andrei.emeltchenko-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <51890AC9.7010501-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from co1ehsobe006.messaging.microsoft.com ([216.32.180.189]:10688
+	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1756181Ab3EGUTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 16:19:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-On Tue, May 7, 2013 at 4:08 PM, Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org> wrote:
-> Hello Maintainers:
->
-> In net/bluetooth/hidp/core.c, for hidp_copy_session(), the
-> 'session->input' and 'session->hid' are conflict with each other.
->
-> And excuse me, I do not quit know the details, but I think we have 2
-> choices for fixing it:
->
->   one is ''if (session->input) { } else if (session->hid) { };''
->   the other is ''if (seesion->hid) { } else if (session->input) { };''
->
-> The first choice assumes the original code has a logical issue; the
-> second choice assumes the original code has redundant initialization.
+This patch series has following bug fixes:
+* Fix a bug in unicast MAC address setting in adapter.
+  Driver was not deleting older unicast MAC while adding new one.
+* Fix an ethtool stats string array by adding missing string entry
+  and fix a typo.
+* Fix module paramter description. Bracket ')' was missing.
+* Fix port status provided though 'ethtool <device>' for 83xx adapter.
+* Fix reset recovery path in case of transmit timeout.
+* Fix reset recovery during diagnostic tests by preserving
+  current device status information.
+* Fix mailbox response handling. Driver was not maintaining poll time properly.
+* Fix validation of link event command.
 
-The code is fine. Only one of "->input" or "->hid" can be valid at a
-time. And exactly one of them is guaranteed to be valid. See
-hidp_session_dev_init().
+Please apply to net.
 
-I fixed all code that I changed during the rework to say:
+Thanks,
+Shahed
 
-if (session->hid)
-...
-else if (session->input)
-...
+Himanshu Madhani (2):
+  qlcnic: Fix missing bracket in module parameter.
+  qlcnic: Fix ethtool Supported port status for 83xx
 
-It makes the code more clear. But I avoided touching all the other
-places that I didn't change, as the code is technically right. Anyway,
-I don't care whether we want to fix all other occurrences to use "else
-if". Feel free to send a patch.
+Manish Chopra (2):
+  qlcnic: Fix setting MAC address
+  qlcnic: Fix bug in diagnostics test reset recovery path
 
-Thanks
-David
+Rajesh Borundia (2):
+  qlcnic: Fix mailbox response handling.
+  qlcnic: Fix validation of link event command.
 
-> Please help check.
->
-> Thanks.
->
->   71 static void hidp_copy_session(struct hidp_session *session, struct hidp_conninfo *ci)
->   72 {
->   73         memset(ci, 0, sizeof(*ci));
->   74         bacpy(&ci->bdaddr, &session->bdaddr);
->   75
->   76         ci->flags = session->flags;
->   77         ci->state = BT_CONNECTED;
->   78
->   79         ci->vendor  = 0x0000;
->   80         ci->product = 0x0000;
->   81         ci->version = 0x0000;
->   82
->   83         if (session->input) {
->   84                 ci->vendor  = session->input->id.vendor;
->   85                 ci->product = session->input->id.product;
->   86                 ci->version = session->input->id.version;
->   87                 if (session->input->name)
->   88                         strncpy(ci->name, session->input->name, 128);
->   89                 else
->   90                         strncpy(ci->name, "HID Boot Device", 128);
->   91         }
->   92
->   93         if (session->hid) {
->   94                 ci->vendor  = session->hid->vendor;
->   95                 ci->product = session->hid->product;
->   96                 ci->version = session->hid->version;
->   97                 strncpy(ci->name, session->hid->name, 128);
->   98         }
->   99 }
->
+Shahed Shaikh (1):
+  qlcnic: Fix ethtool strings
+
+Sony Chacko (1):
+  qlcnic: Fix reset recovery after transmit timeout
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    2 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   92 +++++++++++++++++---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    4 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   24 +++--
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |   57 ++++++------
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   46 ++++++++--
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    8 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |    3 -
+ 9 files changed, 167 insertions(+), 71 deletions(-)
