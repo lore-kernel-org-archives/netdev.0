@@ -1,52 +1,62 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3 2/9] net: sh-eth: Add comment to bit of EDSR about
- SH7757
-Date: Tue, 07 May 2013 18:48:14 +0400
-Message-ID: <5189142E.4000204@cogentembedded.com>
-References: <1367903875-32606-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <1367903875-32606-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] sfc: fix return value check in efx_ptp_probe_channel()
+Date: Tue, 7 May 2013 15:51:13 +0100
+Message-ID: <1367938273.2782.7.camel@bwh-desktop.uk.solarflarecom.com>
+References: <CAPgLHd9-6uOYFs5PVSmxGmPBidtWNWk9ZK6O8s7_6KWQihu=4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
-To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Cc: <linux-net-drivers@solarflare.com>,
+	<yongjun_wei@trendmicro.com.cn>, <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:34339 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754031Ab3EGOsP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 10:48:15 -0400
-Received: by mail-lb0-f170.google.com with SMTP id t11so825964lbd.29
-        for <netdev@vger.kernel.org>; Tue, 07 May 2013 07:48:14 -0700 (PDT)
-In-Reply-To: <1367903875-32606-2-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:17804 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752300Ab3EGOvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 10:51:17 -0400
+In-Reply-To: <CAPgLHd9-6uOYFs5PVSmxGmPBidtWNWk9ZK6O8s7_6KWQihu=4w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07-05-2013 9:17, Nobuhiro Iwamatsu wrote:
+On Tue, 2013-05-07 at 20:19 +0800, Wei Yongjun wrote:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> 
+> In case of error, the function ptp_clock_register() returns ERR_PTR()
+> and never returns NULL. The NULL test in the return value check should
+> be replaced with IS_ERR().
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-> SH7757 uses EDSR register. This adds about SH7757.
+Although the current code is obviously wrong not to set rc, it was not
+clear that ptp_clock_register() returns an ERR_PTR rather than NULL on
+error.  Please could you add that fact to its kernel-doc comment?
 
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Ben.
+
 > ---
->   drivers/net/ethernet/renesas/sh_eth.h |    2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
+>  drivers/net/ethernet/sfc/ptp.c | 4 +++-
+>  1 file changed, 3 insertions(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/sfc/ptp.c b/drivers/net/ethernet/sfc/ptp.c
+> index 07f6baa..9a95abf 100644
+> --- a/drivers/net/ethernet/sfc/ptp.c
+> +++ b/drivers/net/ethernet/sfc/ptp.c
+> @@ -912,8 +912,10 @@ static int efx_ptp_probe_channel(struct efx_channel *channel)
+>  
+>  	ptp->phc_clock = ptp_clock_register(&ptp->phc_clock_info,
+>  					    &efx->pci_dev->dev);
+> -	if (!ptp->phc_clock)
+> +	if (IS_ERR(ptp->phc_clock)) {
+> +		rc = PTR_ERR(ptp->phc_clock);
+>  		goto fail3;
+> +	}
+>  
+>  	INIT_WORK(&ptp->pps_work, efx_ptp_pps_worker);
+>  	ptp->pps_workwq = create_singlethread_workqueue("sfc_pps");
+> 
 
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.h b/drivers/net/ethernet/renesas/sh_eth.h
-> index 7ccf58c..71c5559 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.h
-> +++ b/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -166,7 +166,7 @@ enum {
->   /*
->    * Register's bits
->    */
-> -/* EDSR : sh7734, sh7763 and r8a7740 only */
-> +/* EDSR : sh7734, sh7763, sh7757 and r8a7740 only */
-
-     Shouldn't SH7763 come after SH7757?
-
->   enum EDSR_BIT {
->   	EDSR_ENT = 0x01, EDSR_ENR = 0x02,
->   };
-
-    I think you can merge it to patch #1 with a corresponding comment in 
-the changelog. This is hardly worth separate patch.
-
-WBR, Sergei
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
