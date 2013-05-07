@@ -1,62 +1,64 @@
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Subject: Re: [PATCH v2 5/8] net: sh-eth: Add CONFIG_PM to definition of
- dev_pm_ops
-Date: Tue, 07 May 2013 11:57:47 +0900
-Message-ID: <51886DAB.60804@renesas.com>
-References: <1366279869-23387-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <1366279869-23387-5-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
- <517008D5.8020309@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor2.renesas.com ([210.160.252.172]:40630 "EHLO
-	relmlor2.renesas.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758459Ab3EGC5s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 May 2013 22:57:48 -0400
-Received: from relmlir4.idc.renesas.com ([10.200.68.154])
- by relmlor2.idc.renesas.com ( SJSMS)
- with ESMTP id <0MME00BEAQWBG760@relmlor2.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 11:57:47 +0900 (JST)
-Received: from relmlac4.idc.renesas.com ([10.200.69.24])
- by relmlir4.idc.renesas.com ( SJSMS)
- with ESMTP id <0MME00HV9QWBPHA0@relmlir4.idc.renesas.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 11:57:47 +0900 (JST)
-In-reply-to: <517008D5.8020309@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: [041/126] rt2x00: rt2x00pci_regbusy_read() - only print register access
+ failure once
+Date: Mon, 06 May 2013 23:57:53 -0400
+Message-ID: <20130507035847.818086055@goodmis.org>
+References: <20130507035712.909872333@goodmis.org>
+Cc: Ivo van Doorn <IvDoorn@gmail.com>,
+	Gertjan van Wingerde <gwingerde@gmail.com>,
+	Helmut Schaa <helmut.schaa@googlemail.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	<linux-wireless@vger.kernel.org>, <users@rt2x00.serialmonkey.com>,
+	<netdev@vger.kernel.org>, Tim Gardner <tim.gardner@canonical.com>
+To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline; filename=0041-rt2x00-rt2x00pci_regbusy_read-only-print-register-ac.patch
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+3.6.11.3 stable review patch.
+If anyone has any objections, please let me know.
 
-(2013/04/18 23:53), Sergei Shtylyov wrote:
-> On 18-04-2013 14:11, Nobuhiro Iwamatsu wrote:
->
->> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-> [...]
->
->> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
->> index 7de0b0e..af8c225 100644
->> --- a/drivers/net/ethernet/renesas/sh_eth.c
->> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> [...]
->> @@ -2785,17 +2786,21 @@ static int sh_eth_runtime_nop(struct device *dev)
->> return 0;
->> }
->>
->> -static struct dev_pm_ops sh_eth_dev_pm_ops = {
->> +static const struct dev_pm_ops sh_eth_dev_pm_ops = {
->> .runtime_suspend = sh_eth_runtime_nop,
->> .runtime_resume = sh_eth_runtime_nop,
->> };
->> +#define SH_ETH_PM_OPS &sh_eth_dev_pm_ops
->
-> scripts/checkpatch.pl would complain here about missing (), I heard.
-> Did you run it?
+------------------
 
-thanks, it had missed, although I was running.
-I will fix this.
+From: Tim Gardner <tim.gardner@canonical.com>
 
-Best regards,
-   Nobuhiro
+[ Upstream commit 83589b30f1e1dc9898986293c9336b8ce1705dec ]
+
+BugLink: http://bugs.launchpad.net/bugs/1128840
+
+It appears that when this register read fails it never recovers, so
+I think there is no need to repeat the same error message ad infinitum.
+
+Cc: Ivo van Doorn <IvDoorn@gmail.com>
+Cc: Gertjan van Wingerde <gwingerde@gmail.com>
+Cc: Helmut Schaa <helmut.schaa@googlemail.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: users@rt2x00.serialmonkey.com
+Cc: netdev@vger.kernel.org
+Cc: stable@vger.kernel.org
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+Signed-off-by: Steven Rostedt <rostedt@goodmis.org>
+---
+ drivers/net/wireless/rt2x00/rt2x00pci.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/wireless/rt2x00/rt2x00pci.c b/drivers/net/wireless/rt2x00/rt2x00pci.c
+index a0c8cae..b1c673e 100644
+--- a/drivers/net/wireless/rt2x00/rt2x00pci.c
++++ b/drivers/net/wireless/rt2x00/rt2x00pci.c
+@@ -52,8 +52,8 @@ int rt2x00pci_regbusy_read(struct rt2x00_dev *rt2x00dev,
+ 		udelay(REGISTER_BUSY_DELAY);
+ 	}
+ 
+-	ERROR(rt2x00dev, "Indirect register access failed: "
+-	      "offset=0x%.08x, value=0x%.08x\n", offset, *reg);
++	printk_once(KERN_ERR "%s() Indirect register access failed: "
++	      "offset=0x%.08x, value=0x%.08x\n", __func__, offset, *reg);
+ 	*reg = ~0;
+ 
+ 	return 0;
+-- 
+1.7.10.4
