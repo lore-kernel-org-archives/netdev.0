@@ -1,49 +1,58 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v3 4/9] net: sh-eth: Remove duplicate sh_eth_set_duplex()
-Date: Tue, 07 May 2013 18:52:22 +0400
-Message-ID: <51891526.4090806@cogentembedded.com>
-References: <1367903875-32606-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <1367903875-32606-4-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+From: Rob Herring <rob.herring@calxeda.com>
+Subject: Re: [PATCH 10/36] net: ethernet: calxeda: remove unnecessary platform_set_drvdata()
+Date: Tue, 07 May 2013 09:49:50 -0500
+Message-ID: <5189148E.3040603@calxeda.com>
+References: <001a01ce4ada$e498ace0$adca06a0$@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
-To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Dan Carpenter <dan.carpenter@oracle.com>
+To: Jingoo Han <jg1.han@samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f172.google.com ([209.85.217.172]:64686 "EHLO
-	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751778Ab3EGOwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 10:52:23 -0400
-Received: by mail-lb0-f172.google.com with SMTP id y6so830168lbh.31
-        for <netdev@vger.kernel.org>; Tue, 07 May 2013 07:52:22 -0700 (PDT)
-In-Reply-To: <1367903875-32606-4-git-send-email-nobuhiro.iwamatsu.yj@renesas.com>
+Received: from smtp191.iad.emailsrvr.com ([207.97.245.191]:44151 "EHLO
+	smtp191.iad.emailsrvr.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753847Ab3EGO6m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 10:58:42 -0400
+In-Reply-To: <001a01ce4ada$e498ace0$adca06a0$@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07-05-2013 9:17, Nobuhiro Iwamatsu wrote:
+On 05/06/2013 11:25 PM, Jingoo Han wrote:
+> The driver core clears the driver data to NULL after device_release
+> or on probe failure, since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
+> (device-core: Ensure drvdata = NULL when no driver is bound).
+> Thus, it is not needed to manually clear the device driver data to NULL.
+> 
+> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+netdev is closed during the merge window except for fixes, so you will
+have to resubmit this. But when you do:
+
+Acked-by: Rob Herring <rob.herring@calxeda.com>
+
 > ---
-> V3:
->    Remove sh_eth_set_duplex from SH7619, SH7710 and SH7712.
-> V2:
->    no change.
->   drivers/net/ethernet/renesas/sh_eth.c |   57 +++------------------------------
->   1 file changed, 4 insertions(+), 53 deletions(-)
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 334fa13..944b2df 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -341,9 +341,6 @@ static void sh_eth_select_mii(struct net_device *ndev)
->   }
->   #endif
->
-> -/* There is CPU dependent code */
-> -#if defined(CONFIG_ARCH_R8A7778) || defined(CONFIG_ARCH_R8A7779)
-> -#define SH_ETH_RESET_DEFAULT	1
->   static void sh_eth_set_duplex(struct net_device *ndev)
-
-     I think you need to annotate this function with __maybe_unused as 
-well since some SoC don't use it.
-
-WBR, Sergei
+>  drivers/net/ethernet/calxeda/xgmac.c |    2 --
+>  1 files changed, 0 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/calxeda/xgmac.c b/drivers/net/ethernet/calxeda/xgmac.c
+> index 4a1f2fa..7cb148c 100644
+> --- a/drivers/net/ethernet/calxeda/xgmac.c
+> +++ b/drivers/net/ethernet/calxeda/xgmac.c
+> @@ -1790,7 +1790,6 @@ err_io:
+>  	free_netdev(ndev);
+>  err_alloc:
+>  	release_mem_region(res->start, resource_size(res));
+> -	platform_set_drvdata(pdev, NULL);
+>  	return ret;
+>  }
+>  
+> @@ -1813,7 +1812,6 @@ static int xgmac_remove(struct platform_device *pdev)
+>  	free_irq(ndev->irq, ndev);
+>  	free_irq(priv->pmt_irq, ndev);
+>  
+> -	platform_set_drvdata(pdev, NULL);
+>  	unregister_netdev(ndev);
+>  	netif_napi_del(&priv->napi);
+>  
+> 
