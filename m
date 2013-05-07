@@ -1,52 +1,197 @@
-From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH 36/36] net: irda: sh_sir: remove unnecessary
- platform_set_drvdata()
-Date: Tue, 07 May 2013 14:07:56 +0900
-Message-ID: <003501ce4ae0$d60b7d50$822277f0$@samsung.com>
+From: Frank Li <Frank.Li@freescale.com>
+Subject: [PATCH v4 1/1 net] net: fec: fix kernel oops when plug/unplug cable many times
+Date: Tue, 7 May 2013 11:43:25 +0800
+Message-ID: <1367898205-6272-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jingoo Han <jg1.han@samsung.com>,
-	Samuel Ortiz <samuel@sortiz.org>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	Kuninori Morimoto <kuninori.morimoto.gx@renesas.com>
-To: "'David S. Miller'" <davem@davemloft.net>
+Content-Type: text/plain
+Cc: Frank Li <Frank.Li@freescale.com>
+To: <romieu@fr.zoreil.com>, <r.schwebel@pengutronix.de>,
+	<davem@davemloft.net>, <l.stach@pengutronix.de>,
+	<netdev@vger.kernel.org>, <festevam@gmail.com>,
+	<shawn.guo@linaro.org>, <lznuaa@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:57383 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758419Ab3EGFH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 01:07:58 -0400
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MME0022LWX1D8D0@mailout4.samsung.com> for
- netdev@vger.kernel.org; Tue, 07 May 2013 14:07:56 +0900 (KST)
-Content-language: ko
+Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:38331
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758436Ab3EGFIO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 01:08:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver core clears the driver data to NULL after device_release
-or on probe failure, since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
-(device-core: Ensure drvdata = NULL when no driver is bound).
-Thus, it is not needed to manually clear the device driver data to NULL.
+reproduce steps
+ 1. flood ping from other machine
+ 	ping -f -s 41000 IP
+ 2. run below script
+    while [ 1 ]; do ethtool -s eth0 autoneg off;
+    sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
 
-Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+You can see oops in one hour.
+
+The reason is fec_restart clear BD but NAPI may use it.
+The solution is disable NAPI and stop xmit when reset BD.
+disable NAPI may sleep, so fec_restart can't be call in
+atomic context.
+
+Signed-off-by: Frank Li <Frank.Li@freescale.com>
 ---
- drivers/net/irda/sh_sir.c |    1 -
- 1 files changed, 0 insertions(+), 1 deletions(-)
+Change from v1 to v2
+ * Add netif_tx_lock(ndev) to avoid xmit runing when reset hardware
+Change from v2 to v3
+ * Move put real statements after function variable declarations according to David's comments
+ * Remove lock in adjust_link according to Lucas Stach's comments
+Change from v3 to v4
+ * rebase to latest net/master
+ * remove hw_lock because not used again
+ * reduce delay work to 0
+ * group delay work related feild to one structure
+ * call netif_device_detach() in fec_restart
 
-diff --git a/drivers/net/irda/sh_sir.c b/drivers/net/irda/sh_sir.c
-index 24aefcd..89682b4 100644
---- a/drivers/net/irda/sh_sir.c
-+++ b/drivers/net/irda/sh_sir.c
-@@ -796,7 +796,6 @@ static int sh_sir_remove(struct platform_device *pdev)
- 	sh_sir_remove_iobuf(self);
- 	iounmap(self->membase);
- 	free_netdev(ndev);
--	platform_set_drvdata(pdev, NULL);
+ drivers/net/ethernet/freescale/fec.h      |   10 ++++--
+ drivers/net/ethernet/freescale/fec_main.c |   44 +++++++++++++++++++++-------
+ 2 files changed, 39 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec.h b/drivers/net/ethernet/freescale/fec.h
+index d44f65b..afa7b5b 100644
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@ -198,6 +198,11 @@ struct bufdesc_ex {
+ #define FLAG_RX_CSUM_ENABLED	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
+ #define FLAG_RX_CSUM_ERROR	(BD_ENET_RX_ICE | BD_ENET_RX_PCR)
  
- 	return 0;
++struct fec_enet_delayed_work {
++	struct delayed_work delay_work;
++	bool timeout;
++};
++
+ /* The FEC buffer descriptors track the ring buffers.  The rx_bd_base and
+  * tx_bd_base always point to the base of the buffer descriptors.  The
+  * cur_rx and cur_tx point to the currently available buffer.
+@@ -231,9 +236,6 @@ struct fec_enet_private {
+ 	/* The ring entries to be free()ed */
+ 	struct bufdesc	*dirty_tx;
+ 
+-	/* hold while accessing the HW like ringbuffer for tx/rx but not MAC */
+-	spinlock_t hw_lock;
+-
+ 	struct	platform_device *pdev;
+ 
+ 	int	opened;
+@@ -268,7 +270,7 @@ struct fec_enet_private {
+ 	int hwts_rx_en;
+ 	int hwts_tx_en;
+ 	struct timer_list time_keep;
+-
++	struct fec_enet_delayed_work delay_work;
+ };
+ 
+ void fec_ptp_init(struct net_device *ndev, struct platform_device *pdev);
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index b9748f1..0802aa0 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -445,6 +445,13 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	u32 rcntl = OPT_FRAME_SIZE | 0x04;
+ 	u32 ecntl = 0x2; /* ETHEREN */
+ 
++	if (netif_running(ndev)) {
++		netif_device_detach(ndev);
++		napi_disable(&fep->napi);
++		netif_stop_queue(ndev);
++		netif_tx_lock(ndev);
++	}
++
+ 	/* Whack a reset.  We should wait for this. */
+ 	writel(1, fep->hwp + FEC_ECNTRL);
+ 	udelay(10);
+@@ -605,6 +612,13 @@ fec_restart(struct net_device *ndev, int duplex)
+ 
+ 	/* Enable interrupts we wish to service */
+ 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
++
++	if (netif_running(ndev)) {
++		netif_device_attach(ndev);
++		napi_enable(&fep->napi);
++		netif_wake_queue(ndev);
++		netif_tx_unlock(ndev);
++	}
  }
+ 
+ static void
+@@ -644,8 +658,22 @@ fec_timeout(struct net_device *ndev)
+ 
+ 	ndev->stats.tx_errors++;
+ 
+-	fec_restart(ndev, fep->full_duplex);
+-	netif_wake_queue(ndev);
++	fep->delay_work.timeout = 1;
++	schedule_delayed_work(&(fep->delay_work.delay_work), 0);
++}
++
++static void fec_enet_work(struct work_struct *work)
++{
++	struct fec_enet_private *fep =
++		container_of(work,
++			     struct fec_enet_private,
++			     delay_work.delay_work.work);
++
++	if (fep->delay_work.timeout) {
++		fep->delay_work.timeout = 0;
++		fec_restart(fep->netdev, fep->full_duplex);
++		netif_wake_queue(fep->netdev);
++	}
+ }
+ 
+ static void
+@@ -1024,16 +1052,12 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+ {
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	struct phy_device *phy_dev = fep->phy_dev;
+-	unsigned long flags;
+-
+ 	int status_change = 0;
+ 
+-	spin_lock_irqsave(&fep->hw_lock, flags);
+-
+ 	/* Prevent a state halted on mii error */
+ 	if (fep->mii_timeout && phy_dev->state == PHY_HALTED) {
+ 		phy_dev->state = PHY_RESUMING;
+-		goto spin_unlock;
++		return;
+ 	}
+ 
+ 	if (phy_dev->link) {
+@@ -1061,9 +1085,6 @@ static void fec_enet_adjust_link(struct net_device *ndev)
+ 		}
+ 	}
+ 
+-spin_unlock:
+-	spin_unlock_irqrestore(&fep->hw_lock, flags);
+-
+ 	if (status_change)
+ 		phy_print_status(phy_dev);
+ }
+@@ -1732,7 +1753,6 @@ static int fec_enet_init(struct net_device *ndev)
+ 		return -ENOMEM;
+ 
+ 	memset(cbd_base, 0, PAGE_SIZE);
+-	spin_lock_init(&fep->hw_lock);
+ 
+ 	fep->netdev = ndev;
+ 
+@@ -1947,6 +1967,7 @@ fec_probe(struct platform_device *pdev)
+ 	if (fep->bufdesc_ex && fep->ptp_clock)
+ 		netdev_info(ndev, "registered PHC device %d\n", fep->dev_id);
+ 
++	INIT_DELAYED_WORK(&(fep->delay_work.delay_work), fec_enet_work);
+ 	return 0;
+ 
+ failed_register:
+@@ -1979,6 +2000,7 @@ fec_drv_remove(struct platform_device *pdev)
+ 	struct fec_enet_private *fep = netdev_priv(ndev);
+ 	int i;
+ 
++	cancel_delayed_work_sync(&(fep->delay_work.delay_work));
+ 	unregister_netdev(ndev);
+ 	fec_enet_mii_remove(fep);
+ 	del_timer_sync(&fep->time_keep);
 -- 
-1.7.2.5
+1.7.1
