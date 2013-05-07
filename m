@@ -1,139 +1,123 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH RFC 39/48] Audit: netlabel: translate audit_log_start to audit_log_start_ns
-Date: Tue, 7 May 2013 10:21:00 +0800
-Message-ID: <1367893269-9308-40-git-send-email-gaofeng@cn.fujitsu.com>
+From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Subject: [PATCH RFC 32/48] Audit: pass proper user namespace to
+	audit_filter_inode_name
+Date: Tue, 7 May 2013 10:20:53 +0800
+Message-ID: <1367893269-9308-33-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, linux-audit@redhat.com,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: viro@zeniv.linux.org.uk, eparis@redhat.com, ebiederm@xmission.com,
-	sgrubb@redhat.com, akpm@linux-foundation.org,
-	serge.hallyn@ubuntu.com, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
+	sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Now we can log audit message in the user namespace which current
-task belongs to.
+We should use the right inode_hash list to filter the
+task.
 
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- net/ipv4/cipso_ipv4.c              | 4 ++--
- net/netlabel/netlabel_domainhash.c | 4 ++--
- net/netlabel/netlabel_unlabeled.c  | 8 ++++----
- net/netlabel/netlabel_user.c       | 8 +++++---
- 4 files changed, 13 insertions(+), 11 deletions(-)
+ kernel/audit.h       |  5 +++--
+ kernel/audit_watch.c |  3 ++-
+ kernel/auditsc.c     | 14 ++++++++------
+ 3 files changed, 13 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv4/cipso_ipv4.c b/net/ipv4/cipso_ipv4.c
-index 667c1d4..b021445 100644
---- a/net/ipv4/cipso_ipv4.c
-+++ b/net/ipv4/cipso_ipv4.c
-@@ -532,7 +532,7 @@ doi_add_return:
- 		audit_log_format(audit_buf,
- 				 " cipso_doi=%u cipso_type=%s res=%u",
- 				 doi, type_str, ret_val == 0 ? 1 : 0);
--		audit_log_end(audit_buf);
-+		audit_log_end_ns(current_user_ns(), audit_buf);
- 	}
+diff --git a/kernel/audit.h b/kernel/audit.h
+index 7934598..0079cdd 100644
+--- a/kernel/audit.h
++++ b/kernel/audit.h
+@@ -157,11 +157,12 @@ static inline int audit_signal_info(int sig, struct task_struct *t)
+ 		return __audit_signal_info(sig, t);
+ 	return 0;
+ }
+-extern void audit_filter_inodes(struct task_struct *, struct audit_context *);
++extern void audit_filter_inodes(struct user_namespace *ns,
++				struct task_struct *, struct audit_context *);
+ extern struct list_head *audit_killed_trees(void);
+ #else
+ #define audit_signal_info(s,t) AUDIT_DISABLED
+-#define audit_filter_inodes(t,c) AUDIT_DISABLED
++#define audit_filter_inodes(n, t, c) AUDIT_DISABLED
+ #endif
  
- 	return ret_val;
-@@ -622,7 +622,7 @@ doi_remove_return:
- 		audit_log_format(audit_buf,
- 				 " cipso_doi=%u res=%u",
- 				 doi, ret_val == 0 ? 1 : 0);
--		audit_log_end(audit_buf);
-+		audit_log_end_ns(current_user_ns(), audit_buf);
- 	}
+ extern struct mutex audit_cmd_mutex;
+diff --git a/kernel/audit_watch.c b/kernel/audit_watch.c
+index 27c7a3b..6be4cbe 100644
+--- a/kernel/audit_watch.c
++++ b/kernel/audit_watch.c
+@@ -274,7 +274,8 @@ static void audit_update_watch(struct audit_parent *parent,
+ 		/* If the update involves invalidating rules, do the inode-based
+ 		 * filtering now, so we don't omit records. */
+ 		if (invalidating && !audit_dummy_context())
+-			audit_filter_inodes(current, current->audit_context);
++			audit_filter_inodes(current_user_ns(), current,
++					    current->audit_context);
  
- 	return ret_val;
-diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
-index d8d4243..7fab4b8 100644
---- a/net/netlabel/netlabel_domainhash.c
-+++ b/net/netlabel/netlabel_domainhash.c
-@@ -241,7 +241,7 @@ static void netlbl_domhsh_audit_add(struct netlbl_dom_map *entry,
+ 		/* updating ino will likely change which audit_hash_list we
+ 		 * are on so we need a new watch for the new list */
+diff --git a/kernel/auditsc.c b/kernel/auditsc.c
+index 5401d21..3e3e7c7 100644
+--- a/kernel/auditsc.c
++++ b/kernel/auditsc.c
+@@ -900,12 +900,13 @@ static enum audit_state audit_filter_syscall(struct user_namespace *ns,
+  * Given an audit_name check the inode hash table to see if they match.
+  * Called holding the rcu read lock to protect the use of audit_inode_hash
+  */
+-static int audit_filter_inode_name(struct task_struct *tsk,
++static int audit_filter_inode_name(struct user_namespace *ns,
++				   struct task_struct *tsk,
+ 				   struct audit_names *n,
+ 				   struct audit_context *ctx) {
+ 	int word, bit;
+ 	int h = audit_hash_ino((u32)n->ino);
+-	struct list_head *list = &init_user_ns.audit.inode_hash[h];
++	struct list_head *list = &ns->audit.inode_hash[h];
+ 	struct audit_entry *e;
+ 	enum audit_state state;
+ 
+@@ -931,17 +932,18 @@ static int audit_filter_inode_name(struct task_struct *tsk,
+  * buckets applicable to the inode numbers in audit_names.
+  * Regarding audit_state, same rules apply as for audit_filter_syscall().
+  */
+-void audit_filter_inodes(struct task_struct *tsk, struct audit_context *ctx)
++void audit_filter_inodes(struct user_namespace *ns,
++			 struct task_struct *tsk, struct audit_context *ctx)
+ {
+ 	struct audit_names *n;
+ 
+-	if (init_user_ns.audit.pid && tsk->tgid == init_user_ns.audit.pid)
++	if (ns->audit.pid && tsk->tgid == ns->audit.pid)
+ 		return;
+ 
+ 	rcu_read_lock();
+ 
+ 	list_for_each_entry(n, &ctx->names_list, list) {
+-		if (audit_filter_inode_name(tsk, n, ctx))
++		if (audit_filter_inode_name(ns, tsk, n, ctx))
  			break;
- 		}
- 		audit_log_format(audit_buf, " res=%u", result == 0 ? 1 : 0);
--		audit_log_end(audit_buf);
-+		audit_log_end_ns(current_user_ns(), audit_buf);
  	}
- }
- 
-@@ -462,7 +462,7 @@ int netlbl_domhsh_remove_entry(struct netlbl_dom_map *entry,
- 				 " nlbl_domain=%s res=%u",
- 				 entry->domain ? entry->domain : "(default)",
- 				 ret_val == 0 ? 1 : 0);
--		audit_log_end(audit_buf);
-+		audit_log_end_ns(current_user_ns(), audit_buf);
+ 	rcu_read_unlock();
+@@ -979,7 +981,7 @@ static inline struct audit_context *audit_get_context(struct task_struct *tsk,
+ 	if (context->in_syscall && !context->dummy) {
+ 		audit_filter_syscall(ns, tsk, context,
+ 				&ns->audit.filter_list[AUDIT_FILTER_EXIT]);
+-		audit_filter_inodes(tsk, context);
++		audit_filter_inodes(ns, tsk, context);
  	}
  
- 	if (ret_val == 0) {
-diff --git a/net/netlabel/netlabel_unlabeled.c b/net/netlabel/netlabel_unlabeled.c
-index 8a6c6ea..7708078 100644
---- a/net/netlabel/netlabel_unlabeled.c
-+++ b/net/netlabel/netlabel_unlabeled.c
-@@ -465,7 +465,7 @@ unlhsh_add_return:
- 			security_release_secctx(secctx, secctx_len);
- 		}
- 		audit_log_format(audit_buf, " res=%u", ret_val == 0 ? 1 : 0);
--		audit_log_end(audit_buf);
-+		audit_log_end_ns(current_user_ns(), audit_buf);
- 	}
- 	return ret_val;
- }
-@@ -521,7 +521,7 @@ static int netlbl_unlhsh_remove_addr4(struct net *net,
- 			security_release_secctx(secctx, secctx_len);
- 		}
- 		audit_log_format(audit_buf, " res=%u", entry != NULL ? 1 : 0);
--		audit_log_end(audit_buf);
-+		audit_log_end_ns(current_user_ns(), audit_buf);
- 	}
- 
- 	if (entry == NULL)
-@@ -582,7 +582,7 @@ static int netlbl_unlhsh_remove_addr6(struct net *net,
- 			security_release_secctx(secctx, secctx_len);
- 		}
- 		audit_log_format(audit_buf, " res=%u", entry != NULL ? 1 : 0);
--		audit_log_end(audit_buf);
-+		audit_log_end_ns(current_user_ns(), audit_buf);
- 	}
- 
- 	if (entry == NULL)
-@@ -766,7 +766,7 @@ static void netlbl_unlabel_acceptflg_set(u8 value,
- 	if (audit_buf != NULL) {
- 		audit_log_format(audit_buf,
- 				 " unlbl_accept=%u old=%u", value, old_val);
--		audit_log_end(audit_buf);
-+		audit_log_end_ns(current_user_ns(), audit_buf);
- 	}
- }
- 
-diff --git a/net/netlabel/netlabel_user.c b/net/netlabel/netlabel_user.c
-index 9650c4a..d7550a2 100644
---- a/net/netlabel/netlabel_user.c
-+++ b/net/netlabel/netlabel_user.c
-@@ -100,16 +100,18 @@ struct audit_buffer *netlbl_audit_start_common(int type,
- 	struct audit_buffer *audit_buf;
- 	char *secctx;
- 	u32 secctx_len;
-+	struct user_namespace *ns = current_user_ns();
- 
--	if (audit_enabled == 0)
-+	if (audit_enabled_ns(ns) == 0)
- 		return NULL;
- 
--	audit_buf = audit_log_start(current->audit_context, GFP_ATOMIC, type);
-+	audit_buf = audit_log_start_ns(ns, current->audit_context,
-+				       GFP_ATOMIC, type);
- 	if (audit_buf == NULL)
- 		return NULL;
- 
- 	audit_log_format(audit_buf, "netlabel: auid=%u ses=%u",
--			 from_kuid(&init_user_ns, audit_info->loginuid),
-+			 from_kuid(ns, audit_info->loginuid),
- 			 audit_info->sessionid);
- 
- 	if (audit_info->secid != 0 &&
+ 	tsk->audit_context = NULL;
 -- 
 1.8.1.4
