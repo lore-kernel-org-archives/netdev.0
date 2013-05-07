@@ -1,70 +1,42 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [Suggestion] Bluetooth: hidp: redundant initialization or issue for
- function hidp_copy_session
-Date: Tue, 07 May 2013 22:08:09 +0800
-Message-ID: <51890AC9.7010501@asianux.com>
-References: <518906A8.7060708@asianux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, dh.herrmann@gmail.com,
-	Jiri Kosina <jkosina@suse.cz>, andrei.emeltchenko@intel.com,
-	linux-bluetooth@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: Marcel Holtmann <marcel@holtmann.org>, gustavo@padovan.org,
-	johan.hedberg@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:60662 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933761Ab3EGOJD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 10:09:03 -0400
-In-Reply-To: <518906A8.7060708@asianux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH 15/15] ptp: PTP_1588_CLOCK_PCH depends on x86
+Date: Tue,  7 May 2013 16:18:23 +0200
+Message-ID: <1367936303-13386-15-git-send-email-jslaby@suse.cz>
+References: <1367936303-13386-1-git-send-email-jslaby@suse.cz>
+Cc: linux-kernel@vger.kernel.org, Jeff Mahoney <jeffm@suse.com>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Richard Cochran <richardcochran@gmail.com>,
+	netdev@vger.kernel.org
+To: jirislaby@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1367936303-13386-1-git-send-email-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Maintainers:
+From: Jeff Mahoney <jeffm@suse.com>
 
-In net/bluetooth/hidp/core.c, for hidp_copy_session(), the
-'session->input' and 'session->hid' are conflict with each other.
+The PCH EG20T is only compatible with Intel Atom processors so it
+should depend on x86.
 
-And excuse me, I do not quit know the details, but I think we have 2
-choices for fixing it:
+Signed-off-by: Jeff Mahoney <jeffm@suse.com>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Richard Cochran <richardcochran@gmail.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/ptp/Kconfig | 1 +
+ 1 file changed, 1 insertion(+)
 
-  one is ''if (session->input) { } else if (session->hid) { };''
-  the other is ''if (seesion->hid) { } else if (session->input) { };''
-
-The first choice assumes the original code has a logical issue; the
-second choice assumes the original code has redundant initialization.
-
-Please help check.
-
-Thanks.
-
-  71 static void hidp_copy_session(struct hidp_session *session, struct hidp_conninfo *ci)
-  72 {
-  73         memset(ci, 0, sizeof(*ci));
-  74         bacpy(&ci->bdaddr, &session->bdaddr);
-  75 
-  76         ci->flags = session->flags;
-  77         ci->state = BT_CONNECTED;
-  78 
-  79         ci->vendor  = 0x0000;
-  80         ci->product = 0x0000;
-  81         ci->version = 0x0000;
-  82 
-  83         if (session->input) {
-  84                 ci->vendor  = session->input->id.vendor;
-  85                 ci->product = session->input->id.product;
-  86                 ci->version = session->input->id.version;
-  87                 if (session->input->name)
-  88                         strncpy(ci->name, session->input->name, 128);
-  89                 else
-  90                         strncpy(ci->name, "HID Boot Device", 128);
-  91         }
-  92 
-  93         if (session->hid) {
-  94                 ci->vendor  = session->hid->vendor;
-  95                 ci->product = session->hid->product;
-  96                 ci->version = session->hid->version;
-  97                 strncpy(ci->name, session->hid->name, 128);
-  98         }
-  99 }
+diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
+index 1ea6f1d..e02b7d4 100644
+--- a/drivers/ptp/Kconfig
++++ b/drivers/ptp/Kconfig
+@@ -72,6 +72,7 @@ config DP83640_PHY
+ 
+ config PTP_1588_CLOCK_PCH
+ 	tristate "Intel PCH EG20T as PTP clock"
++	depends on X86
+ 	select PTP_1588_CLOCK
+ 	help
+ 	  This driver adds support for using the PCH EG20T as a PTP
+-- 
+1.8.2.1
