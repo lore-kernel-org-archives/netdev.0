@@ -1,15 +1,13 @@
 From: Jiri Slaby <jslaby@suse.cz>
-Subject: [PATCH 06/15] netfilter: Implement RFC 1123 for FTP conntrack
-Date: Tue,  7 May 2013 16:18:14 +0200
-Message-ID: <1367936303-13386-6-git-send-email-jslaby@suse.cz>
+Subject: [PATCH 02/15] mISDN: Add support for group membership check
+Date: Tue,  7 May 2013 16:18:10 +0200
+Message-ID: <1367936303-13386-2-git-send-email-jslaby@suse.cz>
 References: <1367936303-13386-1-git-send-email-jslaby@suse.cz>
 Cc: linux-kernel@vger.kernel.org, Jeff Mahoney <jeffm@suse.com>,
+	Patrick Koppen <isdn4linux@koppen.de>,
 	Jiri Slaby <jslaby@suse.cz>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
 To: jirislaby@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1367936303-13386-1-git-send-email-jslaby@suse.cz>
@@ -18,200 +16,83 @@ List-Id: netdev.vger.kernel.org
 
 From: Jeff Mahoney <jeffm@suse.com>
 
- The FTP conntrack code currently only accepts the following format for
- the 227 response for PASV:
- 227 Entering Passive Mode (148,100,81,40,31,161).
+This patch adds a module parameter to allow a group access to the
+mISDN devices. Otherwise, unpriviledged users on systems with ISDN
+hardware have the ability to dial out, potentially causing expensive
+bills.
 
- It doesn't accept the following format from an obscure server:
- 227 Data transfer will passively listen to 67,218,99,134,50,144
+Based on a different implementation by Patrick Koppen <isdn4linux@koppen.de>
 
- From RFC 1123:
- The format of the 227 reply to a PASV command is not
- well standardized.  In particular, an FTP client cannot
- assume that the parentheses shown on page 40 of RFC-959
- will be present (and in fact, Figure 3 on page 43 omits
- them).  Therefore, a User-FTP program that interprets
- the PASV reply must scan the reply for the first digit
- of the host and port numbers.
+We (at suse) have this patch in our trees at least since 2009 and want
+to push it upstream now.
 
- This patch adds support for the RFC 1123 clarification by:
- - Allowing a search filter to specify NUL as the terminator so that
-   try_number will return successfully if the array of numbers has been
-   filled when an unexpected character is encountered.
- - Using space as the separator for the 227 reply and then scanning for
-   the first digit of the number sequence. The number sequence is parsed
-   out using the existing try_rfc959 but with a NUL terminator.
-
-References: https://bugzilla.novell.com/show_bug.cgi?id=466279
-References: http://bugzilla.netfilter.org/show_bug.cgi?id=574
-Reported-by: Mark Post <mpost@novell.com>
-Signed-off-by: Jeff Mahoney <jeffm@suse.com>
+Acked-by: Jeff Mahoney <jeffm@suse.com>
+Cc: Patrick Koppen <isdn4linux@koppen.de>
 Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netfilter-devel@vger.kernel.org
-Cc: netfilter@vger.kernel.org
-Cc: coreteam@netfilter.org
+Cc: Karsten Keil <isdn@linux-pingi.de>
 Cc: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>
 ---
- net/netfilter/nf_conntrack_ftp.c | 73 +++++++++++++++++++++++++++++-----------
- 1 file changed, 54 insertions(+), 19 deletions(-)
+ drivers/isdn/mISDN/core.c   | 3 +++
+ drivers/isdn/mISDN/core.h   | 1 +
+ drivers/isdn/mISDN/socket.c | 8 ++++++++
+ 3 files changed, 12 insertions(+)
 
-diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index 6b21707..b8a0924 100644
---- a/net/netfilter/nf_conntrack_ftp.c
-+++ b/net/netfilter/nf_conntrack_ftp.c
-@@ -55,10 +55,14 @@ unsigned int (*nf_nat_ftp_hook)(struct sk_buff *skb,
- 				struct nf_conntrack_expect *exp);
- EXPORT_SYMBOL_GPL(nf_nat_ftp_hook);
+diff --git a/drivers/isdn/mISDN/core.c b/drivers/isdn/mISDN/core.c
+index da30c5c..a7050c3 100644
+--- a/drivers/isdn/mISDN/core.c
++++ b/drivers/isdn/mISDN/core.c
+@@ -21,10 +21,13 @@
+ #include "core.h"
  
--static int try_rfc959(const char *, size_t, struct nf_conntrack_man *, char);
--static int try_eprt(const char *, size_t, struct nf_conntrack_man *, char);
-+static int try_rfc959(const char *, size_t, struct nf_conntrack_man *,
-+		      char, unsigned int *);
-+static int try_rfc1123(const char *, size_t, struct nf_conntrack_man *,
-+		       char, unsigned int *);
-+static int try_eprt(const char *, size_t, struct nf_conntrack_man *,
-+		    char, unsigned int *);
- static int try_epsv_response(const char *, size_t, struct nf_conntrack_man *,
--			     char);
-+			     char, unsigned int *);
+ static u_int debug;
++u_int misdn_permitted_gid;
  
- static struct ftp_search {
- 	const char *pattern;
-@@ -66,7 +70,7 @@ static struct ftp_search {
- 	char skip;
- 	char term;
- 	enum nf_ct_ftp_type ftptype;
--	int (*getnum)(const char *, size_t, struct nf_conntrack_man *, char);
-+	int (*getnum)(const char *, size_t, struct nf_conntrack_man *, char, unsigned int *);
- } search[IP_CT_DIR_MAX][2] = {
- 	[IP_CT_DIR_ORIGINAL] = {
- 		{
-@@ -90,10 +94,8 @@ static struct ftp_search {
- 		{
- 			.pattern	= "227 ",
- 			.plen		= sizeof("227 ") - 1,
--			.skip		= '(',
--			.term		= ')',
- 			.ftptype	= NF_CT_FTP_PASV,
--			.getnum		= try_rfc959,
-+			.getnum		= try_rfc1123,
- 		},
- 		{
- 			.pattern	= "229 ",
-@@ -132,8 +134,9 @@ static int try_number(const char *data, size_t dlen, u_int32_t array[],
- 			i++;
- 		else {
- 			/* Unexpected character; true if it's the
--			   terminator and we're finished. */
--			if (*data == term && i == array_size - 1)
-+			   terminator (or we don't care about one)
-+			   and we're finished. */
-+			if ((*data == term || !term) && i == array_size - 1)
- 				return len;
+ MODULE_AUTHOR("Karsten Keil");
+ MODULE_LICENSE("GPL");
+ module_param(debug, uint, S_IRUGO | S_IWUSR);
++module_param_named(gid, misdn_permitted_gid, uint, 0);
++MODULE_PARM_DESC(gid, "Unix group for accessing misdn socket (default 0)");
  
- 			pr_debug("Char %u (got %u nums) `%u' unexpected\n",
-@@ -148,7 +151,8 @@ static int try_number(const char *data, size_t dlen, u_int32_t array[],
+ static u64		device_ids;
+ #define MAX_DEVICE_ID	63
+diff --git a/drivers/isdn/mISDN/core.h b/drivers/isdn/mISDN/core.h
+index 52695bb..6ea673f 100644
+--- a/drivers/isdn/mISDN/core.h
++++ b/drivers/isdn/mISDN/core.h
+@@ -17,6 +17,7 @@
  
- /* Returns 0, or length of numbers: 192,168,1,1,5,6 */
- static int try_rfc959(const char *data, size_t dlen,
--		      struct nf_conntrack_man *cmd, char term)
-+		      struct nf_conntrack_man *cmd, char term,
-+		      unsigned int *offset)
+ extern struct mISDNdevice	*get_mdevice(u_int);
+ extern int			get_mdevice_count(void);
++extern u_int misdn_permitted_gid;
+ 
+ /* stack status flag */
+ #define mISDN_STACK_ACTION_MASK		0x0000ffff
+diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
+index e47dcb9..71f4986 100644
+--- a/drivers/isdn/mISDN/socket.c
++++ b/drivers/isdn/mISDN/socket.c
+@@ -612,6 +612,10 @@ data_sock_create(struct net *net, struct socket *sock, int protocol)
  {
- 	int length;
- 	u_int32_t array[6];
-@@ -163,6 +167,33 @@ static int try_rfc959(const char *data, size_t dlen,
- 	return length;
- }
+ 	struct sock *sk;
  
-+/*
-+ * From RFC 1123:
-+ * The format of the 227 reply to a PASV command is not
-+ * well standardized.  In particular, an FTP client cannot
-+ * assume that the parentheses shown on page 40 of RFC-959
-+ * will be present (and in fact, Figure 3 on page 43 omits
-+ * them).  Therefore, a User-FTP program that interprets
-+ * the PASV reply must scan the reply for the first digit
-+ * of the host and port numbers.
-+ */
-+static int try_rfc1123(const char *data, size_t dlen,
-+		       struct nf_conntrack_man *cmd, char term,
-+		       unsigned int *offset)
-+{
-+	int i;
-+	for (i = 0; i < dlen; i++)
-+		if (isdigit(data[i]))
-+			break;
++	if(!capable(CAP_SYS_ADMIN) && (misdn_permitted_gid != current_gid())
++		&& (!in_group_p(misdn_permitted_gid)))
++			return -EPERM;
 +
-+	if (i == dlen)
-+		return 0;
-+
-+	*offset += i;
-+
-+	return try_rfc959(data + i, dlen - i, cmd, 0, offset);
-+}
-+
- /* Grab port: number up to delimiter */
- static int get_port(const char *data, int start, size_t dlen, char delim,
- 		    __be16 *port)
-@@ -191,7 +222,7 @@ static int get_port(const char *data, int start, size_t dlen, char delim,
+ 	if (sock->type != SOCK_DGRAM)
+ 		return -ESOCKTNOSUPPORT;
  
- /* Returns 0, or length of numbers: |1|132.235.1.2|6275| or |2|3ffe::1|6275| */
- static int try_eprt(const char *data, size_t dlen, struct nf_conntrack_man *cmd,
--		    char term)
-+		    char term, unsigned int *offset)
- {
- 	char delim;
- 	int length;
-@@ -239,7 +270,8 @@ static int try_eprt(const char *data, size_t dlen, struct nf_conntrack_man *cmd,
- 
- /* Returns 0, or length of numbers: |||6446| */
- static int try_epsv_response(const char *data, size_t dlen,
--			     struct nf_conntrack_man *cmd, char term)
-+			     struct nf_conntrack_man *cmd, char term,
-+			     unsigned int *offset)
- {
- 	char delim;
- 
-@@ -261,9 +293,10 @@ static int find_pattern(const char *data, size_t dlen,
- 			unsigned int *numlen,
- 			struct nf_conntrack_man *cmd,
- 			int (*getnum)(const char *, size_t,
--				      struct nf_conntrack_man *, char))
-+				      struct nf_conntrack_man *, char,
-+				      unsigned int *))
- {
--	size_t i;
-+	size_t i = plen;
- 
- 	pr_debug("find_pattern `%s': dlen = %Zu\n", pattern, dlen);
- 	if (dlen == 0)
-@@ -293,16 +326,18 @@ static int find_pattern(const char *data, size_t dlen,
- 	pr_debug("Pattern matches!\n");
- 	/* Now we've found the constant string, try to skip
- 	   to the 'skip' character */
--	for (i = plen; data[i] != skip; i++)
--		if (i == dlen - 1) return -1;
-+	if (skip) {
-+		for (i = plen; data[i] != skip; i++)
-+			if (i == dlen - 1) return -1;
- 
--	/* Skip over the last character */
--	i++;
-+		/* Skip over the last character */
-+		i++;
-+	}
- 
- 	pr_debug("Skipped up to `%c'!\n", skip);
- 
- 	*numoff = i;
--	*numlen = getnum(data + i, dlen - i, cmd, term);
-+	*numlen = getnum(data + i, dlen - i, cmd, term, numoff);
- 	if (!*numlen)
- 		return -1;
- 
+@@ -694,6 +698,10 @@ base_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 	case IMSETDEVNAME:
+ 	{
+ 		struct mISDN_devrename dn;
++		if(!capable(CAP_SYS_ADMIN)
++			&& (misdn_permitted_gid != current_gid())
++			&& (!in_group_p(misdn_permitted_gid)))
++				return -EPERM;
+ 		if (copy_from_user(&dn, (void __user *)arg,
+ 				   sizeof(dn))) {
+ 			err = -EFAULT;
 -- 
 1.8.2.1
