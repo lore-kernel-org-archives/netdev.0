@@ -1,148 +1,87 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 7/8] qlcnic: Fix mailbox response handling.
-Date: Tue, 7 May 2013 15:55:05 -0400
-Message-ID: <1367956506-3290-8-git-send-email-shahed.shaikh@qlogic.com>
-References: <1367956506-3290-1-git-send-email-shahed.shaikh@qlogic.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] packet: tpacket_v3: do not trigger bug() on wrong
+ header status
+Date: Tue, 07 May 2013 22:49:35 +0200
+Message-ID: <518968DF.9070008@redhat.com>
+References: <1367585820-2674-1-git-send-email-dborkman@redhat.com> <CAAsGZS7TVr2YX8H8EQRqk4gDwNMQiaOkjhwCuLM_27RqB6+QgQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>
+To: chetan loke <loke.chetan@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:26335
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753601Ab3EGUUa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 16:20:30 -0400
-In-Reply-To: <1367956506-3290-1-git-send-email-shahed.shaikh@qlogic.com>
+Received: from mx1.redhat.com ([209.132.183.28]:63573 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759352Ab3EGUto (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 May 2013 16:49:44 -0400
+In-Reply-To: <CAAsGZS7TVr2YX8H8EQRqk4gDwNMQiaOkjhwCuLM_27RqB6+QgQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+On 05/07/2013 06:59 PM, chetan loke wrote:
+> On Fri, May 3, 2013 at 8:57 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>>
+>> Jakub reported that it is fairly easy to trigger the BUG() macro
+>> from user space with TPACKET_V3's RX_RING by just giving a wrong
+>> header status flag. We already had a similar situation in commit
+>> 7f5c3e3a80e6654 (``af_packet: remove BUG statement in
+>> tpacket_destruct_skb'') where this was the case in the TX_RING
+>> side that could be triggered from user space. So really, don't use
+>> BUG() or BUG_ON() unless there's really no way out, and i.e.
+>> don't use it for consistency checking when there's user space
+>> involved, no excuses, especially not if you're slapping the user
+>> with WARN + dump_stack + BUG all at once. The two functions are
+>
+> remember, you were able to figure out what the problem was because of
+> the WARN and the forceful BUG.
+> Is BUG ok? Depends on how you look at it. If you are doing serious
+> network monitoring on a real life appliance
+> we don't really want folks to write crappy application. May be BUG is
 
-o Fix mailbox response poll time to maximum 5 seconds which
-  includes mailbox response time as well as time required for
-  processing AEN if any.
-o Driver need to read firmware control mailbox register instead
-  of host control mailbox register.
+Right, and now we treat people who write crappy applications with BUG?
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   13 +++++--------
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    2 +-
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    8 +++-----
- 4 files changed, 10 insertions(+), 15 deletions(-)
+BUG is only for consistency checks *within* the kernel and not meant to
+be triggered on purpose from user space.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index c38c6f6..e318543 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -696,15 +696,14 @@ u32 qlcnic_83xx_mac_rcode(struct qlcnic_adapter *adapter)
- 	return 1;
- }
- 
--u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *adapter)
-+u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *adapter, u32 *wait_time)
- {
- 	u32 data;
--	unsigned long wait_time = 0;
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	/* wait for mailbox completion */
- 	do {
- 		data = QLCRDX(ahw, QLCNIC_FW_MBX_CTRL);
--		if (++wait_time > QLCNIC_MBX_TIMEOUT) {
-+		if (++(*wait_time) > QLCNIC_MBX_TIMEOUT) {
- 			data = QLCNIC_RCODE_TIMEOUT;
- 			break;
- 		}
-@@ -720,8 +719,8 @@ int qlcnic_83xx_mbx_op(struct qlcnic_adapter *adapter,
- 	u16 opcode;
- 	u8 mbx_err_code;
- 	unsigned long flags;
--	u32 rsp, mbx_val, fw_data, rsp_num, mbx_cmd;
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	u32 rsp, mbx_val, fw_data, rsp_num, mbx_cmd, wait_time = 0;
- 
- 	opcode = LSW(cmd->req.arg[0]);
- 	if (!test_bit(QLC_83XX_MBX_READY, &adapter->ahw->idc.status)) {
-@@ -754,15 +753,13 @@ int qlcnic_83xx_mbx_op(struct qlcnic_adapter *adapter,
- 	/* Signal FW about the impending command */
- 	QLCWRX(ahw, QLCNIC_HOST_MBX_CTRL, QLCNIC_SET_OWNER);
- poll:
--	rsp = qlcnic_83xx_mbx_poll(adapter);
-+	rsp = qlcnic_83xx_mbx_poll(adapter, &wait_time);
- 	if (rsp != QLCNIC_RCODE_TIMEOUT) {
- 		/* Get the FW response data */
- 		fw_data = readl(QLCNIC_MBX_FW(ahw, 0));
- 		if (fw_data &  QLCNIC_MBX_ASYNC_EVENT) {
- 			__qlcnic_83xx_process_aen(adapter);
--			mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
--			if (mbx_val)
--				goto poll;
-+			goto poll;
- 		}
- 		mbx_err_code = QLCNIC_MBX_STATUS(fw_data);
- 		rsp_num = QLCNIC_MBX_NUM_REGS(fw_data);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index faf5553..f5db67f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -620,7 +620,7 @@ int qlcnic_83xx_flash_test(struct qlcnic_adapter *);
- int qlcnic_83xx_enable_flash_write(struct qlcnic_adapter *);
- int qlcnic_83xx_disable_flash_write(struct qlcnic_adapter *);
- u32 qlcnic_83xx_mac_rcode(struct qlcnic_adapter *);
--u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *);
-+u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *, u32 *);
- void qlcnic_83xx_enable_mbx_poll(struct qlcnic_adapter *);
- void qlcnic_83xx_disable_mbx_poll(struct qlcnic_adapter *);
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-index 95b1b57..b6818f4 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-@@ -134,7 +134,7 @@ struct qlcnic_mailbox_metadata {
- 
- #define QLCNIC_SET_OWNER        1
- #define QLCNIC_CLR_OWNER        0
--#define QLCNIC_MBX_TIMEOUT      10000
-+#define QLCNIC_MBX_TIMEOUT      5000
- 
- #define QLCNIC_MBX_RSP_OK	1
- #define QLCNIC_MBX_PORT_RSP_OK	0x1a
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index 44d547d..3869c38 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -280,9 +280,9 @@ void qlcnic_sriov_cleanup(struct qlcnic_adapter *adapter)
- static int qlcnic_sriov_post_bc_msg(struct qlcnic_adapter *adapter, u32 *hdr,
- 				    u32 *pay, u8 pci_func, u8 size)
- {
-+	u32 rsp, mbx_val, fw_data, rsp_num, mbx_cmd, val, wait_time = 0;
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
- 	unsigned long flags;
--	u32 rsp, mbx_val, fw_data, rsp_num, mbx_cmd, val;
- 	u16 opcode;
- 	u8 mbx_err_code;
- 	int i, j;
-@@ -330,15 +330,13 @@ static int qlcnic_sriov_post_bc_msg(struct qlcnic_adapter *adapter, u32 *hdr,
- 	 * assume something is wrong.
- 	 */
- poll:
--	rsp = qlcnic_83xx_mbx_poll(adapter);
-+	rsp = qlcnic_83xx_mbx_poll(adapter, &wait_time);
- 	if (rsp != QLCNIC_RCODE_TIMEOUT) {
- 		/* Get the FW response data */
- 		fw_data = readl(QLCNIC_MBX_FW(ahw, 0));
- 		if (fw_data &  QLCNIC_MBX_ASYNC_EVENT) {
- 			__qlcnic_83xx_process_aen(adapter);
--			mbx_val = QLCRDX(ahw, QLCNIC_HOST_MBX_CTRL);
--			if (mbx_val)
--				goto poll;
-+			goto poll;
- 		}
- 		mbx_err_code = QLCNIC_MBX_STATUS(fw_data);
- 		rsp_num = QLCNIC_MBX_NUM_REGS(fw_data);
--- 
-1.5.6
+> too harsh. But then I don't see a WARN in this patch either (may be I
+> overlooked it).
+
+So what's the point? If people see a WARN() in their kernel log they go
+and complain on netdev that AF_PACKET is broken although its their
+application?
+
+There was already a discussion on netdev with a different BUG macro in
+the TX_RING, where we concluded that it shouldn't be a warn either.
+
+>> of concern:
+>>
+>>    prb_retire_current_block() [when block status != TP_STATUS_KERNEL]
+>>    prb_open_block() [when block_status != TP_STATUS_KERN
+>
+>>
+>> Calls to prb_open_block() are guarded by ealier checks if block_status
+>> is really TP_STATUS_KERNEL (racy!), but the first one BUG() is easily
+>> triggable from user space. System behaves still stable after they are
+>> removed. Also remove that yoda condition entirely, since it's already
+>> guarded.
+>
+> What yoda? It's called defensive programming. It's a single check and
+> not going to cost you anything.
+
+Yoda condition is called if you compare ``CONSTANT == var'', actually the
+other way round as it should be in CodingStyle. But that's not the big issue
+here, as Jakub pointed out it's racy because you do this comparison two
+times and status could change in between, thus you trigger the next BUG
+there, like (pseudo code):
+
+if (frame_status & USERPSACE) {
+   ...
+} else {
+    if (frame_status & KERNEL) {
+       ...
+    } else {
+       BUG
+    }
+}
