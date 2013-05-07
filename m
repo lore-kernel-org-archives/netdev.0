@@ -1,65 +1,101 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] net: of_mdio: fix behavior on missing phy device
-Date: Tue,  7 May 2013 11:49:31 +0200
-Message-ID: <1367920171-20264-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: Re: [PATCH v4 1/1 net] net: fec: fix kernel oops when plug/unplug
+ cable many times
+Date: Tue, 07 May 2013 11:58:48 +0200
+Message-ID: <1367920728.4126.32.camel@weser.hi.pengutronix.de>
+References: <1367898205-6272-1-git-send-email-Frank.Li@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>,
- Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: romieu@fr.zoreil.com, r.schwebel@pengutronix.de,
+	davem@davemloft.net, netdev@vger.kernel.org, festevam@gmail.com,
+	shawn.guo@linaro.org, lznuaa@gmail.com
+To: Frank Li <Frank.Li@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:47362 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751021Ab3EGKAM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 06:00:12 -0400
+In-Reply-To: <1367898205-6272-1-git-send-email-Frank.Li@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-of_mdiobus_register creates a phy_device even if get_phy_device failed
-to create it previously. This causes indefinite polling on non-existent
-PHYs. This fix makes of_mdio_register rely on get_phy_device to
-properly create the device or fail otherwise.
+Am Dienstag, den 07.05.2013, 11:43 +0800 schrieb Frank Li:
+> reproduce steps
+>  1. flood ping from other machine
+>  	ping -f -s 41000 IP
+>  2. run below script
+>     while [ 1 ]; do ethtool -s eth0 autoneg off;
+>     sleep 3;ethtool -s eth0 autoneg on; sleep 4; done;
+> 
+> You can see oops in one hour.
+> 
+> The reason is fec_restart clear BD but NAPI may use it.
+> The solution is disable NAPI and stop xmit when reset BD.
+> disable NAPI may sleep, so fec_restart can't be call in
+> atomic context.
+> 
+> Signed-off-by: Frank Li <Frank.Li@freescale.com>
+One minor nitpick below, otherwise
+Reviewed-by: Lucas Stach <l.stach@pengutronix.de>
+Tested-by: Lucas Stach <l.stach@pengutronix.de>
 
-Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
-Cc: Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
-Cc: Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>
-Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Cc: devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- drivers/of/of_mdio.c |   11 ++++-------
- 1 file changed, 4 insertions(+), 7 deletions(-)
+Could this patch please be marked as a candidate for the 3.9 stable
+tree? It fixes a real and severe problem for me, as I seem to be able to
+trigger the bug much more easily than Frank.
 
-diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-index 23049ae..d5a57a9 100644
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -84,13 +84,10 @@ int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
- 		phy = get_phy_device(mdio, addr, is_c45);
- 
- 		if (!phy || IS_ERR(phy)) {
--			phy = phy_device_create(mdio, addr, 0, false, NULL);
--			if (!phy || IS_ERR(phy)) {
--				dev_err(&mdio->dev,
--					"error creating PHY at address %i\n",
--					addr);
--				continue;
--			}
-+			dev_err(&mdio->dev,
-+				"cannot get PHY at address %i\n",
-+				addr);
-+			continue;
- 		}
- 
- 		/* Associate the OF node with the device structure so it
+> ---
+> Change from v1 to v2
+>  * Add netif_tx_lock(ndev) to avoid xmit runing when reset hardware
+> Change from v2 to v3
+>  * Move put real statements after function variable declarations according to David's comments
+>  * Remove lock in adjust_link according to Lucas Stach's comments
+> Change from v3 to v4
+>  * rebase to latest net/master
+>  * remove hw_lock because not used again
+>  * reduce delay work to 0
+>  * group delay work related feild to one structure
+>  * call netif_device_detach() in fec_restart
+> 
+>  drivers/net/ethernet/freescale/fec.h      |   10 ++++--
+>  drivers/net/ethernet/freescale/fec_main.c |   44 +++++++++++++++++++++-------
+>  2 files changed, 39 insertions(+), 15 deletions(-)
+> 
+[...]
+>  
+>  static void
+> @@ -644,8 +658,22 @@ fec_timeout(struct net_device *ndev)
+>  
+>  	ndev->stats.tx_errors++;
+>  
+> -	fec_restart(ndev, fep->full_duplex);
+> -	netif_wake_queue(ndev);
+> +	fep->delay_work.timeout = 1;
+I would like to see a proper true/false used in conjunction with the
+bool data type.
+
+> +	schedule_delayed_work(&(fep->delay_work.delay_work), 0);
+> +}
+> +
+> +static void fec_enet_work(struct work_struct *work)
+> +{
+> +	struct fec_enet_private *fep =
+> +		container_of(work,
+> +			     struct fec_enet_private,
+> +			     delay_work.delay_work.work);
+> +
+> +	if (fep->delay_work.timeout) {
+> +		fep->delay_work.timeout = 0;
+Same as above.
+
+> +		fec_restart(fep->netdev, fep->full_duplex);
+> +		netif_wake_queue(fep->netdev);
+> +	}
+>  }
+>  
+[...]
 -- 
-1.7.10.4
+Pengutronix e.K.                           | Lucas Stach                 |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-5076 |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
