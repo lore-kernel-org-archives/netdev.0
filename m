@@ -1,153 +1,69 @@
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH RFC 21/48] Audit: pass proper user namespace to
-	audit_log_common_recv_msg
-Date: Tue, 7 May 2013 10:20:42 +0800
-Message-ID: <1367893269-9308-22-git-send-email-gaofeng@cn.fujitsu.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH RFC 31/48] Audit: pass proper user namespace to audit_filter_syscall
+Date: Tue, 7 May 2013 10:20:52 +0800
+Message-ID: <1367893269-9308-32-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-audit@redhat.com,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: viro@zeniv.linux.org.uk, eparis@redhat.com, ebiederm@xmission.com,
+	sgrubb@redhat.com, akpm@linux-foundation.org,
+	serge.hallyn@ubuntu.com, davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:59645 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S933352Ab3EGCTf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 May 2013 22:19:35 -0400
+In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The audit log that generated in user namespace should be
-received by the auditd running in this user namespace.
+We should use the proper user namespace to filter the syscall.
 
-Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- kernel/audit.c | 31 ++++++++++++++++---------------
- 1 file changed, 16 insertions(+), 15 deletions(-)
+ kernel/auditsc.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
 
-diff --git a/kernel/audit.c b/kernel/audit.c
-index 594e4e1..c8329ce 100644
---- a/kernel/audit.c
-+++ b/kernel/audit.c
-@@ -604,25 +604,26 @@ static int audit_netlink_ok(struct sk_buff *skb, u16 msg_type)
- 	return err;
- }
- 
--static int audit_log_common_recv_msg(struct audit_buffer **ab, u16 msg_type,
-+static int audit_log_common_recv_msg(struct user_namespace *ns,
-+				     struct audit_buffer **ab, u16 msg_type,
- 				     kuid_t auid, u32 ses, u32 sid)
+diff --git a/kernel/auditsc.c b/kernel/auditsc.c
+index 29c3e05..5401d21 100644
+--- a/kernel/auditsc.c
++++ b/kernel/auditsc.c
+@@ -866,14 +866,15 @@ static enum audit_state audit_filter_task(struct task_struct *tsk, char **key)
+  * also not high enough that we already know we have to write an audit
+  * record (i.e., the state is AUDIT_SETUP_CONTEXT or AUDIT_BUILD_CONTEXT).
+  */
+-static enum audit_state audit_filter_syscall(struct task_struct *tsk,
++static enum audit_state audit_filter_syscall(struct user_namespace *ns,
++					     struct task_struct *tsk,
+ 					     struct audit_context *ctx,
+ 					     struct list_head *list)
  {
- 	int rc = 0;
- 	char *ctx = NULL;
- 	u32 len;
+ 	struct audit_entry *e;
+ 	enum audit_state state;
  
--	if (!init_user_ns.audit.enabled) {
-+	if (!ns->audit.enabled) {
- 		*ab = NULL;
- 		return rc;
+-	if (init_user_ns.audit.pid && tsk->tgid == init_user_ns.audit.pid)
++	if (ns->audit.pid && tsk->tgid == ns->audit.pid)
+ 		return AUDIT_DISABLED;
+ 
+ 	rcu_read_lock();
+@@ -976,7 +977,7 @@ static inline struct audit_context *audit_get_context(struct task_struct *tsk,
+ 		context->return_code  = return_code;
+ 
+ 	if (context->in_syscall && !context->dummy) {
+-		audit_filter_syscall(tsk, context,
++		audit_filter_syscall(ns, tsk, context,
+ 				&ns->audit.filter_list[AUDIT_FILTER_EXIT]);
+ 		audit_filter_inodes(tsk, context);
  	}
- 
--	*ab = audit_log_start(NULL, GFP_KERNEL, msg_type);
-+	*ab = audit_log_start_ns(ns, NULL, GFP_KERNEL, msg_type);
- 	if (unlikely(!*ab))
- 		return rc;
- 	audit_log_format(*ab, "pid=%d uid=%u auid=%u ses=%u",
- 			 task_tgid_vnr(current),
--			 from_kuid(&init_user_ns, current_uid()),
--			 from_kuid(&init_user_ns, auid), ses);
-+			 from_kuid(ns, current_uid()),
-+			 from_kuid(ns, auid), ses);
- 	if (sid) {
- 		rc = security_secid_to_secctx(sid, &ctx, &len);
- 		if (rc)
-@@ -739,7 +740,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 				if (err)
- 					break;
- 			}
--			audit_log_common_recv_msg(&ab, msg_type,
-+			audit_log_common_recv_msg(ns, &ab, msg_type,
- 						  loginuid, sessionid, sid);
- 
- 			if (msg_type != AUDIT_USER_TTY)
-@@ -756,7 +757,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 				audit_log_n_untrustedstring(ab, data, size);
- 			}
- 			audit_set_pid(ab, NETLINK_CB(skb).portid);
--			audit_log_end(ab);
-+			audit_log_end_ns(ns, ab);
- 		}
- 		break;
- 	case AUDIT_ADD:
-@@ -764,12 +765,12 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		if (nlmsg_len(nlh) < sizeof(struct audit_rule))
- 			return -EINVAL;
- 		if (ns->audit.enabled == AUDIT_LOCKED) {
--			audit_log_common_recv_msg(&ab, AUDIT_CONFIG_CHANGE,
-+			audit_log_common_recv_msg(ns, &ab, AUDIT_CONFIG_CHANGE,
- 						  loginuid, sessionid, sid);
- 
- 			audit_log_format(ab, " audit_enabled=%d res=0",
- 					 ns->audit.enabled);
--			audit_log_end(ab);
-+			audit_log_end_ns(ns, ab);
- 			return -EPERM;
- 		}
- 		/* fallthrough */
-@@ -783,12 +784,12 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		if (nlmsg_len(nlh) < sizeof(struct audit_rule_data))
- 			return -EINVAL;
- 		if (ns->audit.enabled == AUDIT_LOCKED) {
--			audit_log_common_recv_msg(&ab, AUDIT_CONFIG_CHANGE,
-+			audit_log_common_recv_msg(ns, &ab, AUDIT_CONFIG_CHANGE,
- 						  loginuid, sessionid, sid);
- 
- 			audit_log_format(ab, " audit_enabled=%d res=0",
- 					 ns->audit.enabled);
--			audit_log_end(ab);
-+			audit_log_end_ns(ns, ab);
- 			return -EPERM;
- 		}
- 		/* fallthrough */
-@@ -800,11 +801,11 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	case AUDIT_TRIM:
- 		audit_trim_trees();
- 
--		audit_log_common_recv_msg(&ab, AUDIT_CONFIG_CHANGE,
-+		audit_log_common_recv_msg(ns, &ab, AUDIT_CONFIG_CHANGE,
- 					  loginuid, sessionid, sid);
- 
- 		audit_log_format(ab, " op=trim res=1");
--		audit_log_end(ab);
-+		audit_log_end_ns(ns, ab);
- 		break;
- 	case AUDIT_MAKE_EQUIV: {
- 		void *bufp = data;
-@@ -832,7 +833,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		/* OK, here comes... */
- 		err = audit_tag_tree(old, new);
- 
--		audit_log_common_recv_msg(&ab, AUDIT_CONFIG_CHANGE,
-+		audit_log_common_recv_msg(ns, &ab, AUDIT_CONFIG_CHANGE,
- 					  loginuid, sessionid, sid);
- 
- 		audit_log_format(ab, " op=make_equiv old=");
-@@ -840,7 +841,7 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		audit_log_format(ab, " new=");
- 		audit_log_untrustedstring(ab, new);
- 		audit_log_format(ab, " res=%d", !err);
--		audit_log_end(ab);
-+		audit_log_end_ns(ns, ab);
- 		kfree(old);
- 		kfree(new);
- 		break;
+@@ -1784,7 +1785,7 @@ void __audit_syscall_entry(int arch, int major,
+ 	context->dummy = !audit_n_rules;
+ 	if (!context->dummy && state == AUDIT_BUILD_CONTEXT) {
+ 		context->prio = 0;
+-		state = audit_filter_syscall(tsk, context,
++		state = audit_filter_syscall(ns, tsk, context,
+ 			&ns->audit.filter_list[AUDIT_FILTER_ENTRY]);
+ 	}
+ 	if (state == AUDIT_DISABLED)
 -- 
 1.8.1.4
