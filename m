@@ -1,53 +1,62 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: Using skb->mark outside netfilter
-Date: Tue, 07 May 2013 09:30:04 -0400
-Message-ID: <518901DC.2050100@mojatatu.com>
-References: <1365442863-32394-1-git-send-email-antonio@open-mesh.com> <20130506184817.GA2729@open-mesh.com> <5188FBD2.5090200@mojatatu.com> <20130507132326.GB2729@open-mesh.com>
+From: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH] Bluetooth: hidp: using strlcpy or strcpy instead of strncpy
+Date: Tue, 07 May 2013 21:50:32 +0800
+Message-ID: <518906A8.7060708@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Antonio Quartulli <antonio@open-mesh.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f180.google.com ([209.85.223.180]:57187 "EHLO
-	mail-ie0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757751Ab3EGNaH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 09:30:07 -0400
-Received: by mail-ie0-f180.google.com with SMTP id ar20so879129iec.25
-        for <netdev@vger.kernel.org>; Tue, 07 May 2013 06:30:06 -0700 (PDT)
-In-Reply-To: <20130507132326.GB2729@open-mesh.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, andrei.emeltchenko-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>, gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org,
+	johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 13-05-07 09:23 AM, Antonio Quartulli wrote:
 
-> The mark is not really encoded in the batman header.
->
-> Each node is configured with a mark value (the values have to be the same on
-> everynode in order to make the mechanism work correctly), then batman-adv will
-> advertise to the rest of the mesh which host is sending marked packets.
->
-[..]
-> Receiving nodes will then restore the mark in the skb each time it is coming from
-> one of those advertised hosts.
->
+For NUL terminated string, need always let it ended by zero.
 
-I see - so some control "protocol" will be used to advertise the mark
-and which host will use such a mark? Or are you saying some admin is
-going around and configuring 100 batman nodes? ;->
+Since have already called memcpy() to initialize 'ci', so need not
+redundent initializations.
 
-Note: I have no freaking clue in regards to batman or its usage.
+Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+---
+ net/bluetooth/hidp/core.c |   10 +++-------
+ 1 files changed, 3 insertions(+), 7 deletions(-)
 
-> A future feature may consists in carrying the mark directly into the header so
-> that batman-adv itself does not have to take care about the meaning of such
-> value but will just carry it (we still have to think about it...it is just an
-> idea now)
->
-
-I think that may be more interesting because it may allow you to use
-many different marks with many different meanings. It doesnt disqualify
-a control protocol advertising the mark.
-
-cheers,
-jamal
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index 940f5ac..9a8ae63 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -76,25 +76,21 @@ static void hidp_copy_session(struct hidp_session *session, struct hidp_conninfo
+ 	ci->flags = session->flags;
+ 	ci->state = BT_CONNECTED;
+ 
+-	ci->vendor  = 0x0000;
+-	ci->product = 0x0000;
+-	ci->version = 0x0000;
+-
+ 	if (session->input) {
+ 		ci->vendor  = session->input->id.vendor;
+ 		ci->product = session->input->id.product;
+ 		ci->version = session->input->id.version;
+ 		if (session->input->name)
+-			strncpy(ci->name, session->input->name, 128);
++			strlcpy(ci->name, session->input->name, 128);
+ 		else
+-			strncpy(ci->name, "HID Boot Device", 128);
++			strcpy(ci->name, "HID Boot Device");
+ 	}
+ 
+ 	if (session->hid) {
+ 		ci->vendor  = session->hid->vendor;
+ 		ci->product = session->hid->product;
+ 		ci->version = session->hid->version;
+-		strncpy(ci->name, session->hid->name, 128);
++		strlcpy(ci->name, session->hid->name, 128);
+ 	}
+ }
+ 
+-- 
+1.7.7.6
