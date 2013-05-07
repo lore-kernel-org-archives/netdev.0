@@ -1,7 +1,8 @@
 From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH RFC 26/48] Audit: make audit_inode_hash per user namespace
-Date: Tue, 7 May 2013 10:20:47 +0800
-Message-ID: <1367893269-9308-27-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH RFC 20/48] Audit: introduce new audit logging interface for
+	user namespace
+Date: Tue, 7 May 2013 10:20:41 +0800
+Message-ID: <1367893269-9308-21-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,232 +25,243 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-audit_inode_hash is used to hash inode related audit rules,
-and the audit rule should be per user namespace. So we
-should make audit_inode_hash per user namespace too.
+This interface audit_log_start_ns and audit_log_end_ns
+will be used for logging audit logs in user namespace.
 
 Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
- include/linux/user_namespace.h |  2 ++
- kernel/audit.c                 | 13 +++++--------
- kernel/audit.h                 |  5 ++---
- kernel/audit_watch.c           |  5 +++--
- kernel/auditfilter.c           | 22 +++++++++++++---------
- kernel/auditsc.c               |  2 +-
- 6 files changed, 26 insertions(+), 23 deletions(-)
+ include/linux/audit.h | 25 ++++++++++++--
+ kernel/audit.c        | 95 ++++++++++++++++++++++++++++++---------------------
+ 2 files changed, 78 insertions(+), 42 deletions(-)
 
-diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
-index 5a778f8..c56e276 100644
---- a/include/linux/user_namespace.h
-+++ b/include/linux/user_namespace.h
-@@ -30,6 +30,8 @@ struct audit_ctrl {
- 	struct task_struct	*kauditd_task;
- 	wait_queue_head_t	kauditd_wait;
- 	wait_queue_head_t	backlog_wait;
-+#define AUDIT_INODE_BUCKETS	32
-+	struct list_head	inode_hash[AUDIT_INODE_BUCKETS];
- 	bool			ever_enabled;
- };
- #endif
+diff --git a/include/linux/audit.h b/include/linux/audit.h
+index 33e6584..f16db07 100644
+--- a/include/linux/audit.h
++++ b/include/linux/audit.h
+@@ -398,10 +398,18 @@ extern __printf(4, 5)
+ void audit_log(struct audit_context *ctx, gfp_t gfp_mask, int type,
+ 	       const char *fmt, ...);
+ 
+-extern struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask, int type);
++extern struct audit_buffer *
++audit_log_start(struct audit_context *ctx, gfp_t gfp_mask, int type);
++
++extern struct audit_buffer *
++audit_log_start_ns(struct user_namespace *ns, struct audit_context *ctx,
++		   gfp_t gfp_mask, int type);
++
+ extern __printf(2, 3)
+ void audit_log_format(struct audit_buffer *ab, const char *fmt, ...);
+ extern void		    audit_log_end(struct audit_buffer *ab);
++extern void		    audit_log_end_ns(struct user_namespace *ns,
++					     struct audit_buffer *ab);
+ extern int		    audit_string_contains_control(const char *string,
+ 							  size_t len);
+ extern void		    audit_log_n_hex(struct audit_buffer *ab,
+@@ -448,8 +456,16 @@ static inline __printf(4, 5)
+ void audit_log(struct audit_context *ctx, gfp_t gfp_mask, int type,
+ 	       const char *fmt, ...)
+ { }
+-static inline struct audit_buffer *audit_log_start(struct audit_context *ctx,
+-						   gfp_t gfp_mask, int type)
++static inline
++struct audit_buffer *audit_log_start(struct audit_context *ctx,
++				     gfp_t gfp_mask, int type)
++{
++	return NULL;
++}
++static inline
++struct audit_buffer *audit_log_start_ns(struct user_namespace *ns,
++					struct audit_context *ctx,
++					gfp_t gfp_mask, int type)
+ {
+ 	return NULL;
+ }
+@@ -458,6 +474,9 @@ void audit_log_format(struct audit_buffer *ab, const char *fmt, ...)
+ { }
+ static inline void audit_log_end(struct audit_buffer *ab)
+ { }
++static inline void audit_log_end_ns(struct user_namespace *ns,
++				    struct audit_buffer *ab)
++{ }
+ static inline void audit_log_n_hex(struct audit_buffer *ab,
+ 				   const unsigned char *buf, size_t len)
+ { }
 diff --git a/kernel/audit.c b/kernel/audit.c
-index ca9e046..d254827 100644
+index 5ac9acd..594e4e1 100644
 --- a/kernel/audit.c
 +++ b/kernel/audit.c
-@@ -107,9 +107,6 @@ u32		audit_sig_sid = 0;
- */
- static atomic_t    audit_lost = ATOMIC_INIT(0);
- 
--/* Hash for inode-based rules */
--struct list_head audit_inode_hash[AUDIT_INODE_BUCKETS];
--
- /* The audit_freelist is a list of pre-allocated audit buffers (if more
-  * than AUDIT_MAXFREE are in use, the audit buffer is freed instead of
-  * being placed on the freelist). */
-@@ -989,8 +986,6 @@ static struct pernet_operations audit_net_ops = {
- /* Initialize audit support at boot time. */
- static int __init audit_init(void)
+@@ -1139,47 +1139,35 @@ static inline void audit_get_stamp(struct audit_context *ctx,
+ /*
+  * Wait for auditd to drain the queue a little
+  */
+-static void wait_for_auditd(unsigned long sleep_time)
++static void wait_for_auditd(struct user_namespace *ns,
++			    unsigned long sleep_time)
  {
--	int i;
--
- 	if (init_user_ns.audit.initialized == AUDIT_DISABLED)
- 		return 0;
+-	const struct sk_buff_head *queue = &init_user_ns.audit.queue;
++	const struct sk_buff_head *queue = &ns->audit.queue;
+ 	DECLARE_WAITQUEUE(wait, current);
+ 	set_current_state(TASK_INTERRUPTIBLE);
+-	add_wait_queue(&init_user_ns.audit.backlog_wait, &wait);
++	add_wait_queue(&ns->audit.backlog_wait, &wait);
  
-@@ -1004,9 +999,6 @@ static int __init audit_init(void)
+ 	if (audit_backlog_limit &&
+ 	    skb_queue_len(queue) > audit_backlog_limit)
+ 		schedule_timeout(sleep_time);
  
- 	audit_log(NULL, GFP_KERNEL, AUDIT_KERNEL, "initialized");
- 
--	for (i = 0; i < AUDIT_INODE_BUCKETS; i++)
--		INIT_LIST_HEAD(&audit_inode_hash[i]);
--
- 	return 0;
+ 	__set_current_state(TASK_RUNNING);
+-	remove_wait_queue(&init_user_ns.audit.backlog_wait, &wait);
++	remove_wait_queue(&ns->audit.backlog_wait, &wait);
  }
- __initcall(audit_init);
-@@ -1602,6 +1594,8 @@ EXPORT_SYMBOL(audit_log_secctx);
  
- void audit_set_user_ns(struct user_namespace *ns)
+-/**
+- * audit_log_start - obtain an audit buffer
+- * @ctx: audit_context (may be NULL)
+- * @gfp_mask: type of allocation
+- * @type: audit message type
+- *
+- * Returns audit_buffer pointer on success or NULL on error.
+- *
+- * Obtain an audit buffer.  This routine does locking to obtain the
+- * audit buffer, but then no locking is required for calls to
+- * audit_log_*format.  If the task (ctx) is a task that is currently in a
+- * syscall, then the syscall is marked as auditable and an audit record
+- * will be written at syscall exit.  If there is no associated task, then
+- * task context (ctx) should be NULL.
+- */
+-struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
+-				     int type)
++struct audit_buffer *audit_log_start_ns(struct user_namespace *ns,
++					struct audit_context *ctx,
++					gfp_t gfp_mask,
++					int type)
  {
-+	int i;
+ 	struct audit_buffer	*ab	= NULL;
+ 	struct timespec		t;
+ 	unsigned int		uninitialized_var(serial);
+ 	int reserve;
+ 	unsigned long timeout_start = jiffies;
+-	struct sk_buff_head	*queue = &init_user_ns.audit.queue;
++	struct sk_buff_head	*queue = &ns->audit.queue;
+ 
+-	if (init_user_ns.audit.initialized != AUDIT_INITIALIZED)
++	if (ns->audit.initialized != AUDIT_INITIALIZED)
+ 		return NULL;
+ 
+ 	if (unlikely(audit_filter_type(type)))
+@@ -1199,7 +1187,7 @@ struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
+ 			sleep_time = timeout_start + audit_backlog_wait_time -
+ 					jiffies;
+ 			if ((long)sleep_time > 0)
+-				wait_for_auditd(sleep_time);
++				wait_for_auditd(ns, sleep_time);
+ 			continue;
+ 		}
+ 		if (audit_rate_check() && printk_ratelimit())
+@@ -1210,7 +1198,7 @@ struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
+ 			       audit_backlog_limit);
+ 		audit_log_lost("backlog limit exceeded");
+ 		audit_backlog_wait_time = audit_backlog_wait_overflow;
+-		wake_up(&init_user_ns.audit.backlog_wait);
++		wake_up(&ns->audit.backlog_wait);
+ 		return NULL;
+ 	}
+ 
+@@ -1227,6 +1215,28 @@ struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
+ 	return ab;
+ }
+ 
 +
- 	if (init_user_ns.audit.initialized == AUDIT_DISABLED)
++/**
++ * audit_log_start - obtain an audit buffer
++ * @ctx: audit_context (may be NULL)
++ * @gfp_mask: type of allocation
++ * @type: audit message type
++ *
++ * Returns audit_buffer pointer on success or NULL on error.
++ *
++ * Obtain an audit buffer.  This routine does locking to obtain the
++ * audit buffer, but then no locking is required for calls to
++ * audit_log_*format.  If the task (ctx) is a task that is currently in a
++ * syscall, then the syscall is marked as auditable and an audit record
++ * will be written at syscall exit.  If there is no associated task, then
++ * task context (ctx) should be NULL.
++ */
++struct audit_buffer *audit_log_start(struct audit_context *ctx, gfp_t gfp_mask,
++				     int type)
++{
++	return audit_log_start_ns(&init_user_ns, ctx, gfp_mask, type);
++}
++
+ /**
+  * audit_expand - expand skb in the audit buffer
+  * @ab: audit_buffer
+@@ -1496,16 +1506,7 @@ void audit_log_link_denied(const char *operation, struct path *link)
+ 	audit_log_end(ab);
+ }
+ 
+-/**
+- * audit_log_end - end one audit record
+- * @ab: the audit_buffer
+- *
+- * The netlink_* functions cannot be called inside an irq context, so
+- * the audit buffer is placed on a queue and a tasklet is scheduled to
+- * remove them from the queue outside the irq context.  May be called in
+- * any context.
+- */
+-void audit_log_end(struct audit_buffer *ab)
++void audit_log_end_ns(struct user_namespace *ns, struct audit_buffer *ab)
+ {
+ 	if (!ab)
  		return;
+@@ -1515,12 +1516,12 @@ void audit_log_end(struct audit_buffer *ab)
+ 		struct nlmsghdr *nlh = nlmsg_hdr(ab->skb);
+ 		nlh->nlmsg_len = ab->skb->len - NLMSG_HDRLEN;
  
-@@ -1612,6 +1606,9 @@ void audit_set_user_ns(struct user_namespace *ns)
- 	init_waitqueue_head(&ns->audit.kauditd_wait);
- 	init_waitqueue_head(&ns->audit.backlog_wait);
+-		if (init_user_ns.audit.pid) {
+-			skb_queue_tail(&init_user_ns.audit.queue,
++		if (ns->audit.pid) {
++			skb_queue_tail(&ns->audit.queue,
+ 				       ab->skb);
+-			wake_up_interruptible(&init_user_ns.audit.kauditd_wait);
++			wake_up_interruptible(&ns->audit.kauditd_wait);
+ 		} else {
+-			audit_printk_skb(&init_user_ns, ab->skb);
++			audit_printk_skb(ns, ab->skb);
+ 		}
+ 		ab->skb = NULL;
+ 	}
+@@ -1528,6 +1529,20 @@ void audit_log_end(struct audit_buffer *ab)
+ }
  
-+	for (i = 0; i < AUDIT_INODE_BUCKETS; i++)
-+		INIT_LIST_HEAD(&ns->audit.inode_hash[i]);
+ /**
++ * audit_log_end - end one audit record
++ * @ab: the audit_buffer
++ *
++ * The netlink_* functions cannot be called inside an irq context, so
++ * the audit buffer is placed on a queue and a tasklet is scheduled to
++ * remove them from the queue outside the irq context.  May be called in
++ * any context.
++ */
++void audit_log_end(struct audit_buffer *ab)
++{
++	audit_log_end_ns(&init_user_ns, ab);
++}
 +
- 	ns->audit.initialized = AUDIT_INITIALIZED;
++/**
+  * audit_log - Log an audit record
+  * @ctx: audit context
+  * @gfp_mask: type of allocation
+@@ -1614,7 +1629,9 @@ void audit_free_user_ns(struct user_namespace *ns)
  }
  
-diff --git a/kernel/audit.h b/kernel/audit.h
-index ced93fe..a01c892 100644
---- a/kernel/audit.h
-+++ b/kernel/audit.h
-@@ -61,13 +61,12 @@ struct audit_entry {
- 
- extern int audit_ever_enabled;
- 
--#define AUDIT_INODE_BUCKETS	32
--extern struct list_head audit_inode_hash[AUDIT_INODE_BUCKETS];
--
-+#ifdef CONFIG_AUDIT
- static inline int audit_hash_ino(u32 ino)
- {
- 	return (ino & (AUDIT_INODE_BUCKETS-1));
- }
-+#endif
- 
- /* Indicates that audit should log the full pathname. */
- #define AUDIT_NAME_FULL -1
-diff --git a/kernel/audit_watch.c b/kernel/audit_watch.c
-index 22831c4..27c7a3b 100644
---- a/kernel/audit_watch.c
-+++ b/kernel/audit_watch.c
-@@ -309,7 +309,8 @@ static void audit_update_watch(struct audit_parent *parent,
- 				audit_get_watch(nwatch);
- 				nentry->rule.watch = nwatch;
- 				list_add(&nentry->rule.rlist, &nwatch->rules);
--				list_add_rcu(&nentry->list, &audit_inode_hash[h]);
-+				list_add_rcu(&nentry->list,
-+					&init_user_ns.audit.inode_hash[h]);
- 				list_replace(&oentry->rule.list,
- 					     &nentry->rule.list);
- 			}
-@@ -441,7 +442,7 @@ int audit_add_watch(struct audit_krule *krule, struct list_head **list)
- 	audit_put_parent(parent);
- 
- 	h = audit_hash_ino((u32)watch->ino);
--	*list = &audit_inode_hash[h];
-+	*list = &init_user_ns.audit.inode_hash[h];
- error:
- 	path_put(&parent_path);
- 	return ret;
-diff --git a/kernel/auditfilter.c b/kernel/auditfilter.c
-index 2674368..573385b 100644
---- a/kernel/auditfilter.c
-+++ b/kernel/auditfilter.c
-@@ -885,7 +885,8 @@ struct audit_entry *audit_dupe_rule(struct audit_krule *old)
- 
- /* Find an existing audit rule.
-  * Caller must hold audit_filter_mutex to prevent stale rule data. */
--static struct audit_entry *audit_find_rule(struct audit_entry *entry,
-+static struct audit_entry *audit_find_rule(struct user_namespace *ns,
-+					   struct audit_entry *entry,
- 					   struct list_head **p)
- {
- 	struct audit_entry *e, *found = NULL;
-@@ -894,11 +895,11 @@ static struct audit_entry *audit_find_rule(struct audit_entry *entry,
- 
- 	if (entry->rule.inode_f) {
- 		h = audit_hash_ino(entry->rule.inode_f->val);
--		*p = list = &audit_inode_hash[h];
-+		*p = list = &ns->audit.inode_hash[h];
- 	} else if (entry->rule.watch) {
- 		/* we don't know the inode number, so must walk entire hash */
- 		for (h = 0; h < AUDIT_INODE_BUCKETS; h++) {
--			list = &audit_inode_hash[h];
-+			list = &ns->audit.inode_hash[h];
- 			list_for_each_entry(e, list, list)
- 				if (!audit_compare_rule(&entry->rule, &e->rule)) {
- 					found = e;
-@@ -924,7 +925,8 @@ static u64 prio_low = ~0ULL/2;
- static u64 prio_high = ~0ULL/2 - 1;
- 
- /* Add rule to given filterlist if not a duplicate. */
--static inline int audit_add_rule(struct audit_entry *entry)
-+static inline int audit_add_rule(struct user_namespace *ns,
-+				 struct audit_entry *entry)
- {
- 	struct audit_entry *e;
- 	struct audit_watch *watch = entry->rule.watch;
-@@ -941,7 +943,7 @@ static inline int audit_add_rule(struct audit_entry *entry)
- #endif
- 
- 	mutex_lock(&audit_filter_mutex);
--	e = audit_find_rule(entry, &list);
-+	e = audit_find_rule(ns, entry, &list);
- 	if (e) {
- 		mutex_unlock(&audit_filter_mutex);
- 		err = -EEXIST;
-@@ -1003,7 +1005,8 @@ error:
- }
- 
- /* Remove an existing rule from filterlist. */
--static inline int audit_del_rule(struct audit_entry *entry)
-+static inline int audit_del_rule(struct user_namespace *ns,
-+				 struct audit_entry *entry)
- {
- 	struct audit_entry  *e;
- 	struct audit_watch *watch = entry->rule.watch;
-@@ -1020,7 +1023,7 @@ static inline int audit_del_rule(struct audit_entry *entry)
- #endif
- 
- 	mutex_lock(&audit_filter_mutex);
--	e = audit_find_rule(entry, &list);
-+	e = audit_find_rule(ns, entry, &list);
- 	if (!e) {
- 		mutex_unlock(&audit_filter_mutex);
- 		ret = -ENOENT;
-@@ -1162,6 +1165,7 @@ int audit_receive_filter(int type, int pid, int seq, void *data,
- 	struct audit_netlink_list *dest;
- 	int err = 0;
- 	struct audit_entry *entry;
-+	struct user_namespace *ns = current_user_ns();
- 
- 	switch (type) {
- 	case AUDIT_LIST:
-@@ -1201,7 +1205,7 @@ int audit_receive_filter(int type, int pid, int seq, void *data,
- 		if (IS_ERR(entry))
- 			return PTR_ERR(entry);
- 
--		err = audit_add_rule(entry);
-+		err = audit_add_rule(ns, entry);
- 		audit_log_rule_change(loginuid, sessionid, sid, "add rule",
- 				      &entry->rule, !err);
- 
-@@ -1217,7 +1221,7 @@ int audit_receive_filter(int type, int pid, int seq, void *data,
- 		if (IS_ERR(entry))
- 			return PTR_ERR(entry);
- 
--		err = audit_del_rule(entry);
-+		err = audit_del_rule(ns, entry);
- 		audit_log_rule_change(loginuid, sessionid, sid, "remove rule",
- 				      &entry->rule, !err);
- 
-diff --git a/kernel/auditsc.c b/kernel/auditsc.c
-index 290cce6..55bd99e 100644
---- a/kernel/auditsc.c
-+++ b/kernel/auditsc.c
-@@ -902,7 +902,7 @@ static int audit_filter_inode_name(struct task_struct *tsk,
- 				   struct audit_context *ctx) {
- 	int word, bit;
- 	int h = audit_hash_ino((u32)n->ino);
--	struct list_head *list = &audit_inode_hash[h];
-+	struct list_head *list = &init_user_ns.audit.inode_hash[h];
- 	struct audit_entry *e;
- 	enum audit_state state;
- 
+ EXPORT_SYMBOL(audit_log_start);
++EXPORT_SYMBOL(audit_log_start_ns);
+ EXPORT_SYMBOL(audit_log_end);
++EXPORT_SYMBOL(audit_log_end_ns);
+ EXPORT_SYMBOL(audit_log_format);
+ EXPORT_SYMBOL(audit_log);
+ EXPORT_SYMBOL(audit_set_user_ns);
 -- 
 1.8.1.4
