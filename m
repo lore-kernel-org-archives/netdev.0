@@ -1,76 +1,59 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: Using skb->mark outside netfilter
-Date: Tue, 07 May 2013 09:04:18 -0400
-Message-ID: <5188FBD2.5090200@mojatatu.com>
-References: <1365442863-32394-1-git-send-email-antonio@open-mesh.com> <20130506184817.GA2729@open-mesh.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net] gre: verify packet before using inner header
+Date: Tue, 07 May 2013 06:18:35 -0700
+Message-ID: <1367932715.13473.3.camel@edumazet-glaptop>
+References: <1367914850-11055-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Antonio Quartulli <antonio@open-mesh.com>
+Cc: netdev@vger.kernel.org, Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:46604 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932151Ab3EGNEU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 09:04:20 -0400
-Received: by mail-ie0-f176.google.com with SMTP id at1so860429iec.21
-        for <netdev@vger.kernel.org>; Tue, 07 May 2013 06:04:20 -0700 (PDT)
-In-Reply-To: <20130506184817.GA2729@open-mesh.com>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:52928 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754771Ab3EGNSk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 09:18:40 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so392595pbc.35
+        for <netdev@vger.kernel.org>; Tue, 07 May 2013 06:18:39 -0700 (PDT)
+In-Reply-To: <1367914850-11055-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 13-05-06 02:48 PM, Antonio Quartulli wrote:
+On Tue, 2013-05-07 at 16:20 +0800, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
+> 
+> We use ->h_proto of the inner mac header before calling
+> pskb_may_pull() to verify the length of the packet.
+> This might not be a problem, but at least we'd better
+> error out as early as possible.
+> 
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: Pravin B Shelar <pshelar@nicira.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> ---
+> diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+> index cc22363..8a90c67 100644
+> --- a/net/ipv4/gre.c
+> +++ b/net/ipv4/gre.c
+> @@ -149,6 +149,9 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+>  	} else
+>  		csum = false;
+>  
+> +	if (unlikely(!pskb_may_pull(skb, ghl)))
+> +		goto out;
+> +
 
->
-> Now to extend this mechanism network-wide (remember that the use case is a Layer2
-> mesh network set up with batman-adv) I'm going to introduce a mechanism in
-> batman-adv itself which is supposed to read and write the skb->mark field
-> so that the value contained when the packet is leaving one end can be restored
-> later on the other end of the intra-mesh communication (only if it matches a pre
-> configured one).
-> This would allow the remote node to perform the same filtering
-> operation as if the packet was locally generated.
->
+No, you're adding yet another bug [1]
 
-Nice idea.
-How do you encode the mark in the batman header?
+If you are not sure you fix one, just forget this patch.
 
-> Now my question is (I think David is the one who should probably decide here):
-> is batman-adv allowed to touch the mark field of the sk_buff structure? Or is it
-> reserved for netfilter purposes only?
->
-
-
-Ok, let me see if i can come up with a definition for mark:
-"A general purpose 32 bit tag used in the network subsystem
-to carry metadata with global implications across network
-sub-subsystem. As an example, a driver could mark on incoming
-packet to be used by the ingress tc classifier-action sub-subsystem,
-netfilter, ipsec all to execute provisioned policies. Since marks
-have global implications, any changes in the datapath flow would
-have repurcassions at each sub-subsytem level the packet flows to
-next.
-The mark could also be used to direct packets to matching socket
-apps (eg tcp applications) which have registered for it ......
-... more text here on how the mark is used for egress ...
-"
-
-So please, use it.
-
-> In my opinion this field (which survives whatever path the skb follows) is the
-> best option for this task as it allows batman-adv to "communicate" with
-> tc and possibly netfilter itself (if in the future users would like to perform
-> more complicated operations).
->
-
-Yes. Also apps which setsockopt to it etc
-
->
-> To clarify the idea, here you have an ascii art representing a possible setup
-> and how the mark will be read and set:
-
-Looks sane to me.
-
-cheers,
-jamal
+[1] Check commits :
+d14a489a411937fb9420fe2b05168ee9e1e06c9c
+22251c73ca63b5b1050724be9b54910c101a5f30
+96af69ea2a83d292238bdba20e4508ee967cf8cb
+1b05c4b50edbddbdde715c4a7350629819f6655e
+ab43ed8b7490cb387782423ecf74aeee7237e591
+9cb429d692b341e972b12e6cd097364050ebbb26
