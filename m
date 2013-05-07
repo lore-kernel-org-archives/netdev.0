@@ -1,76 +1,68 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Fw: [Bug 57711] New: RTL-8110SC/8169SC driver hangs on 1G mode
-Date: Tue, 7 May 2013 09:09:16 -0700
-Message-ID: <20130507090916.7a756620@nehalam.linuxnetplumber.net>
+From: Bjorn Helgaas <bhelgaas@google.com>
+Subject: Re: 3.8.4 kernel
+Date: Tue, 7 May 2013 09:20:14 -0700
+Message-ID: <CAErSpo44-f4UdXxO5MdwVg09LFABwFQ320gG8v8jHcYh=5gqvA@mail.gmail.com>
+References: <5153620E.4010608@gmail.com> <CAErSpo6w+tTbwJ7Qinpd0Vx20q5cm2gMvqzE1Do+2=G3b8rcHA@mail.gmail.com>
+ <CAErSpo6iwM2r8b-aoiBPjQpkdpcfgLiO+WkpiM1wFsDhxuSXPg@mail.gmail.com>
+ <CAErSpo68AWCGWQHKgoKuD-QFA0b+jbCRf7T_PzzKoUsVwdZHOg@mail.gmail.com> <157393863283F442885425D2C45428564F219B3B@nasanexd02f.na.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?B?ZnJhbudvaXM=?= romieu <romieu@fr.zoreil.com>,
-	hayeswang <hayeswang@realtek.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "Joseph A. Millikan" <josephamillikan@gmail.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Ren, Cloud" <cjren@qca.qualcomm.com>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: "Huang, Xiong" <xiong@qca.qualcomm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:37567 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757929Ab3EGQJV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 12:09:21 -0400
-Received: by mail-pd0-f178.google.com with SMTP id w11so513072pde.23
-        for <netdev@vger.kernel.org>; Tue, 07 May 2013 09:09:20 -0700 (PDT)
+Received: from mail-ob0-f169.google.com ([209.85.214.169]:48644 "EHLO
+	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752496Ab3EGQUf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 12:20:35 -0400
+Received: by mail-ob0-f169.google.com with SMTP id tb18so715523obb.28
+        for <netdev@vger.kernel.org>; Tue, 07 May 2013 09:20:35 -0700 (PDT)
+In-Reply-To: <157393863283F442885425D2C45428564F219B3B@nasanexd02f.na.qualcomm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+[+cc Eric because he made a change (69b08f62e17) that apparently
+exposes driver bugs]
 
+On Mon, May 6, 2013 at 7:51 PM, Huang, Xiong <xiong@qca.qualcomm.com> wrote:
+>> >
+>> > Did this ever get resolved?
+>>
+>> I opened https://bugzilla.kernel.org/show_bug.cgi?id=57681 to keep track of
+>> this and attached the dmesg logs you collected.  If you have a chance, could you
+>> also collect and attach the output of "lspci -vv"
+>> (any kernel is fine for this).
+>>
+>> I don't see anything obvious wrong, at least from the PCI side.  Maybe the atl1c
+>> guys will have some ideas.
+>>
+>
+> Hi Bjorn and All
+>      This issue should be same as bug https://bugzilla.kernel.org/show_bug.cgi?id=54021
+>      I didn't find any abnormal info from the log and the PHY link is stable as well :(
+>      Is it related to the network manager ?
 
-Begin forwarded message:
+I looked at bug #54021 and it does look similar.  It doesn't look like
+it has been resolved.
 
-Date: Tue, 7 May 2013 00:32:28 -0700
-From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
-To: "stephen@networkplumber.org" <stephen@networkplumber.org>
-Subject: [Bug 57711] New: RTL-8110SC/8169SC driver hangs on 1G mode
+http://forums.gentoo.org/viewtopic-t-949168-highlight-.html is another
+report that looks very similar.  BigE there has a Lenovo G570 that has
+both wireless and wired networking.  If BigE disables wireless with a
+hardware switch before booting, it seems to avoid the atl1c wired
+networking issue.  That's not a fix, of course, but it might be a clue
+and a temporary workaround until we have a real solution.
 
+Joseph, if there's no hardware switch for the wireless on your G770,
+you can probably still take wireless out of the picture by removing or
+renaming the bcma module (look in
+/lib/modules/.../kernel/drivers/bcma/), then rebooting.
 
-https://bugzilla.kernel.org/show_bug.cgi?id=57711
+Xiong, do you have a specific network manager-related test that Joseph
+could perform?  I don't want to burden Joseph with a lot of debugging
+because he's currently happy with 3.6.11 and testing is pretty
+disruptive in his environment.
 
-           Summary: RTL-8110SC/8169SC driver hangs on 1G mode
-           Product: Networking
-           Version: 2.5
-          Platform: All
-        OS/Version: Linux
-              Tree: Mainline
-            Status: NEW
-          Severity: normal
-          Priority: P1
-         Component: Other
-        AssignedTo: shemminger@linux-foundation.org
-        ReportedBy: fojtik@penguin.cz
-        Regression: No
-
-
-The ethernet driver is rock stable on 10M/100M modes. 
-
-1G mode causes ethernet device freezing. But everything else seems to continue
-working. I am not alone who is facing this problem.
-
-Here is another desperate guy:
-http://forums.debian.net/viewtopic.php?f=7&t=62789
-
-It looks like drop packet count starts to increase and the device is not able
-to receive packet. All packets are dropped.
----------------------------------------------------------
-eth2      Link encap:Ethernet  HWaddr 00:30:18:A9:F4:01  
-          inet addr:10.23.202.49  Bcast:10.23.202.55  Mask:255.255.255.248
-          inet6 addr: fe80::230:18ff:fea9:f401/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:15642592 errors:0 dropped:251658225 overruns:0 frame:0
-          TX packets:18904013 errors:0 dropped:92 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000 
-          RX bytes:1555731278 (1483.6 Mb)  TX bytes:1855203093 (1769.2 Mb)
-          Interrupt:19 Base address:0xc800 
----------------------------------------------------------
-
-It seems to be different kind of bug than this one:
-https://bugzilla.kernel.org/show_bug.cgi?id=16276
-
--- 
-Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
-------- You are receiving this mail because: -------
-You are the assignee for the bug.
+Bjorn
