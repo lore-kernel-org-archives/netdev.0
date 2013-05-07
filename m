@@ -1,44 +1,55 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] bfin_mac: fix error return code in bfin_mac_probe()
-Date: Tue, 7 May 2013 20:23:38 +0800
-Message-ID: <CAPgLHd-=Cg0hvmerge=oUJvypMU7=HcuDmAgLHNSb8Tay5OVdQ@mail.gmail.com>
+From: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Subject: Re: [PATCH v3 02/16] freezer: add unsafe versions of freezable
+ helpers for CIFS
+Date: Tue, 7 May 2013 14:28:04 +0200
+Message-ID: <20130507122803.GA2585@elf.ucw.cz>
+References: <1367884221-20462-1-git-send-email-ccross@android.com>
+ <1367884221-20462-3-git-send-email-ccross@android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn,
-	uclinux-dist-devel@blackfin.uclinux.org, netdev@vger.kernel.org
-To: davem@davemloft.net, richardcochran@gmail.com, jiri@resnulli.us,
-	gregkh@linuxfoundation.org, konszert@marvell.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f51.google.com ([209.85.214.51]:48740 "EHLO
-	mail-bk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754771Ab3EGMXk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 08:23:40 -0400
-Received: by mail-bk0-f51.google.com with SMTP id ji2so258719bkc.10
-        for <netdev@vger.kernel.org>; Tue, 07 May 2013 05:23:39 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>,
+	Peter Zijlstra <peterz-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	Ingo Molnar <mingo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Mandeep Singh Baines <msb-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Oleg Nesterov <oleg-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-pm-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1367884221-20462-3-git-send-email-ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Mon 2013-05-06 16:50:07, Colin Cross wrote:
+> CIFS calls wait_event_freezekillable_unsafe with a VFS lock held,
+> which is unsafe and will cause lockdep warnings when 6aa9707
+> "lockdep: check that no locks held at freeze time" is reapplied
+> (it was reverted in dbf520a).  CIFS shouldn't be doing this, but
+> it has long-running syscalls that must hold a lock but also
+> shouldn't block suspend.  Until CIFS freeze handling is rewritten
+> to use a signal to exit out of the critical section, add a new
+> wait_event_freezekillable_unsafe helper that will not run the
+> lockdep test when 6aa9707 is reapplied, and call it from CIFS.
+> 
+> In practice the likley result of holding the lock while freezing
+> is that a second task blocked on the lock will never freeze,
+> aborting suspend, but it is possible to manufacture a case using
+> the cgroup freezer, the lock, and the suspend freezer to create
+> a deadlock.  Silencing the lockdep warning here will allow
+> problems to be found in other drivers that may have a more
+> serious deadlock risk, and prevent new problems from being added.
+> 
+> Signed-off-by: Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>
 
-Fix to return a negative error code from the error handling
-case instead of 0, as done elsewhere in this function.
+Acked-by: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/adi/bfin_mac.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/adi/bfin_mac.c b/drivers/net/ethernet/adi/bfin_mac.c
-index ee70577..4adee4c 100644
---- a/drivers/net/ethernet/adi/bfin_mac.c
-+++ b/drivers/net/ethernet/adi/bfin_mac.c
-@@ -1700,7 +1700,8 @@ static int bfin_mac_probe(struct platform_device *pdev)
- 	}
- 
- 	bfin_mac_hwtstamp_init(ndev);
--	if (bfin_phc_init(ndev, &pdev->dev)) {
-+	rc = bfin_phc_init(ndev, &pdev->dev);
-+	if (rc) {
- 		dev_err(&pdev->dev, "Cannot register PHC device!\n");
- 		goto out_err_phc;
- 	}
+-- 
+(english) http://www.livejournal.com/~pavelmachek
+(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses/blog.html
+--
+To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
