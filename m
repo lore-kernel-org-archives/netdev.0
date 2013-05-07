@@ -1,131 +1,137 @@
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH RFC 29/48] Audit: make audit_krule belongs to user namespace
-Date: Tue, 7 May 2013 10:20:50 +0800
-Message-ID: <1367893269-9308-30-git-send-email-gaofeng@cn.fujitsu.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH RFC 43/48] Audit: xfrm: translate audit_log_start to audit_log_start_ns
+Date: Tue, 7 May 2013 10:21:04 +0800
+Message-ID: <1367893269-9308-44-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org,
-	sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: netdev@vger.kernel.org, containers@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, linux-audit@redhat.com,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: viro@zeniv.linux.org.uk, eparis@redhat.com, ebiederm@xmission.com,
+	sgrubb@redhat.com, akpm@linux-foundation.org,
+	serge.hallyn@ubuntu.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Since update_lsm_rules will update all audit_krule, we still
-have to make audit_rules_list global. this patch add a field
-user_ns to struct audit_krule to point out which user namespace
-this audit rule belongs to.
+Now we can log audit message in the user namespace which current
+task belongs to.
 
-Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- include/linux/audit.h |  1 +
- kernel/auditfilter.c  | 19 +++++++++++++++----
- 2 files changed, 16 insertions(+), 4 deletions(-)
+ include/net/xfrm.h     |  7 ++++---
+ net/xfrm/xfrm_policy.c |  4 ++--
+ net/xfrm/xfrm_state.c  | 14 +++++++-------
+ 3 files changed, 13 insertions(+), 12 deletions(-)
 
-diff --git a/include/linux/audit.h b/include/linux/audit.h
-index f16db07..885e842 100644
---- a/include/linux/audit.h
-+++ b/include/linux/audit.h
-@@ -59,6 +59,7 @@ struct audit_krule {
- 	struct audit_field	*inode_f; /* quick access to an inode field */
- 	struct audit_watch	*watch;	/* associated watch */
- 	struct audit_tree	*tree;	/* associated watched tree */
-+	struct user_namespace   *user_ns; /* belongs to this user namespace */
- 	struct list_head	rlist;	/* entry in audit_{watch,tree}.rules list */
- 	struct list_head	list;	/* for AUDIT_LIST* purposes only */
- 	u64			prio;
-diff --git a/kernel/auditfilter.c b/kernel/auditfilter.c
-index dbf05a9..cf7fe98 100644
---- a/kernel/auditfilter.c
-+++ b/kernel/auditfilter.c
-@@ -822,6 +822,7 @@ struct audit_entry *audit_dupe_rule(struct audit_krule *old)
- 	new->buflen = old->buflen;
- 	new->inode_f = old->inode_f;
- 	new->field_count = old->field_count;
-+	new->user_ns = old->user_ns;
- 
- 	/*
- 	 * note that we are OK with not refcounting here; audit_match_tree()
-@@ -965,6 +966,7 @@ static inline int audit_add_rule(struct user_namespace *ns,
- 			entry->rule.prio = --prio_low;
- 	}
- 
-+	entry->rule.user_ns = get_user_ns(ns);
- 	if (entry->rule.flags & AUDIT_FILTER_PREPEND) {
- 		list_add(&entry->rule.list,
- 			 &audit_rules_list[entry->rule.listnr]);
-@@ -1026,6 +1028,7 @@ static inline int audit_del_rule(struct user_namespace *ns,
- 
- 	list_del_rcu(&e->list);
- 	list_del(&e->rule.list);
-+	put_user_ns(e->rule.user_ns);
- 	call_rcu(&e->rcu, audit_free_rule_rcu);
- 
- #ifdef CONFIG_AUDITSYSCALL
-@@ -1048,7 +1051,8 @@ out:
- 
- /* List rules using struct audit_rule.  Exists for backward
-  * compatibility with userspace. */
--static void audit_list(int pid, int seq, struct sk_buff_head *q)
-+static void audit_list(struct user_namespace *ns,
-+		       int pid, int seq, struct sk_buff_head *q)
+diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+index ae16531..1a99744 100644
+--- a/include/net/xfrm.h
++++ b/include/net/xfrm.h
+@@ -683,11 +683,12 @@ struct xfrm_audit {
+ static inline struct audit_buffer *xfrm_audit_start(const char *op)
  {
- 	struct sk_buff *skb;
- 	struct audit_krule *r;
-@@ -1060,6 +1064,9 @@ static void audit_list(int pid, int seq, struct sk_buff_head *q)
- 		list_for_each_entry(r, &audit_rules_list[i], list) {
- 			struct audit_rule *rule;
+ 	struct audit_buffer *audit_buf = NULL;
++	struct user_namespace *ns = current_user_ns();
  
-+			if (r->user_ns != ns)
-+				continue;
-+
- 			rule = audit_krule_to_rule(r);
- 			if (unlikely(!rule))
- 				break;
-@@ -1076,7 +1083,8 @@ static void audit_list(int pid, int seq, struct sk_buff_head *q)
+-	if (audit_enabled == 0)
++	if (audit_enabled_ns(ns) == 0)
+ 		return NULL;
+-	audit_buf = audit_log_start(current->audit_context, GFP_ATOMIC,
+-				    AUDIT_MAC_IPSEC_EVENT);
++	audit_buf = audit_log_start_ns(ns, current->audit_context,
++				       GFP_ATOMIC, AUDIT_MAC_IPSEC_EVENT);
+ 	if (audit_buf == NULL)
+ 		return NULL;
+ 	audit_log_format(audit_buf, "op=%s", op);
+diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+index 23cea0f..f3cc1b9 100644
+--- a/net/xfrm/xfrm_policy.c
++++ b/net/xfrm/xfrm_policy.c
+@@ -3008,7 +3008,7 @@ void xfrm_audit_policy_add(struct xfrm_policy *xp, int result,
+ 	xfrm_audit_helper_usrinfo(auid, sessionid, secid, audit_buf);
+ 	audit_log_format(audit_buf, " res=%u", result);
+ 	xfrm_audit_common_policyinfo(xp, audit_buf);
+-	audit_log_end(audit_buf);
++	audit_log_end_ns(current_user_ns(), audit_buf);
  }
+ EXPORT_SYMBOL_GPL(xfrm_audit_policy_add);
  
- /* List rules using struct audit_rule_data. */
--static void audit_list_rules(int pid, int seq, struct sk_buff_head *q)
-+static void audit_list_rules(struct user_namespace *ns,
-+			     int pid, int seq, struct sk_buff_head *q)
- {
- 	struct sk_buff *skb;
- 	struct audit_krule *r;
-@@ -1088,6 +1096,9 @@ static void audit_list_rules(int pid, int seq, struct sk_buff_head *q)
- 		list_for_each_entry(r, &audit_rules_list[i], list) {
- 			struct audit_rule_data *data;
+@@ -3023,7 +3023,7 @@ void xfrm_audit_policy_delete(struct xfrm_policy *xp, int result,
+ 	xfrm_audit_helper_usrinfo(auid, sessionid, secid, audit_buf);
+ 	audit_log_format(audit_buf, " res=%u", result);
+ 	xfrm_audit_common_policyinfo(xp, audit_buf);
+-	audit_log_end(audit_buf);
++	audit_log_end_ns(current_user_ns(), audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_policy_delete);
+ #endif
+diff --git a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+index 78f66fa..50115d9 100644
+--- a/net/xfrm/xfrm_state.c
++++ b/net/xfrm/xfrm_state.c
+@@ -2119,7 +2119,7 @@ void xfrm_audit_state_add(struct xfrm_state *x, int result,
+ 	xfrm_audit_helper_usrinfo(auid, sessionid, secid, audit_buf);
+ 	xfrm_audit_helper_sainfo(x, audit_buf);
+ 	audit_log_format(audit_buf, " res=%u", result);
+-	audit_log_end(audit_buf);
++	audit_log_end_ns(current_user_ns(), audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_add);
  
-+			if (r->user_ns != ns)
-+				continue;
-+
- 			data = audit_krule_to_data(r);
- 			if (unlikely(!data))
- 				break;
-@@ -1172,9 +1183,9 @@ int audit_receive_filter(int type, int pid, int seq, void *data,
+@@ -2134,7 +2134,7 @@ void xfrm_audit_state_delete(struct xfrm_state *x, int result,
+ 	xfrm_audit_helper_usrinfo(auid, sessionid, secid, audit_buf);
+ 	xfrm_audit_helper_sainfo(x, audit_buf);
+ 	audit_log_format(audit_buf, " res=%u", result);
+-	audit_log_end(audit_buf);
++	audit_log_end_ns(current_user_ns(), audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_delete);
  
- 		mutex_lock(&audit_filter_mutex);
- 		if (type == AUDIT_LIST)
--			audit_list(pid, seq, &dest->q);
-+			audit_list(ns, pid, seq, &dest->q);
- 		else
--			audit_list_rules(pid, seq, &dest->q);
-+			audit_list_rules(ns, pid, seq, &dest->q);
- 		mutex_unlock(&audit_filter_mutex);
+@@ -2152,7 +2152,7 @@ void xfrm_audit_state_replay_overflow(struct xfrm_state *x,
+ 	 * of audit message */
+ 	spi = ntohl(x->id.spi);
+ 	audit_log_format(audit_buf, " spi=%u(0x%x)", spi, spi);
+-	audit_log_end(audit_buf);
++	audit_log_end_ns(current_user_ns(), audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_replay_overflow);
  
- 		tsk = kthread_run(audit_send_list, dest, "audit_send_list");
+@@ -2169,7 +2169,7 @@ void xfrm_audit_state_replay(struct xfrm_state *x,
+ 	spi = ntohl(x->id.spi);
+ 	audit_log_format(audit_buf, " spi=%u(0x%x) seqno=%u",
+ 			 spi, spi, ntohl(net_seq));
+-	audit_log_end(audit_buf);
++	audit_log_end_ns(current_user_ns(), audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_replay);
+ 
+@@ -2181,7 +2181,7 @@ void xfrm_audit_state_notfound_simple(struct sk_buff *skb, u16 family)
+ 	if (audit_buf == NULL)
+ 		return;
+ 	xfrm_audit_helper_pktinfo(skb, family, audit_buf);
+-	audit_log_end(audit_buf);
++	audit_log_end_ns(current_user_ns(), audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_notfound_simple);
+ 
+@@ -2198,7 +2198,7 @@ void xfrm_audit_state_notfound(struct sk_buff *skb, u16 family,
+ 	spi = ntohl(net_spi);
+ 	audit_log_format(audit_buf, " spi=%u(0x%x) seqno=%u",
+ 			 spi, spi, ntohl(net_seq));
+-	audit_log_end(audit_buf);
++	audit_log_end_ns(current_user_ns(), audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_notfound);
+ 
+@@ -2218,7 +2218,7 @@ void xfrm_audit_state_icvfail(struct xfrm_state *x,
+ 		audit_log_format(audit_buf, " spi=%u(0x%x) seqno=%u",
+ 				 spi, spi, ntohl(net_seq));
+ 	}
+-	audit_log_end(audit_buf);
++	audit_log_end_ns(current_user_ns(), audit_buf);
+ }
+ EXPORT_SYMBOL_GPL(xfrm_audit_state_icvfail);
+ #endif /* CONFIG_AUDITSYSCALL */
 -- 
 1.8.1.4
