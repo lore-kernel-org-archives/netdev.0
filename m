@@ -1,81 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.8.4 kernel
-Date: Tue, 07 May 2013 10:11:56 -0700
-Message-ID: <1367946716.13473.9.camel@edumazet-glaptop>
-References: <5153620E.4010608@gmail.com>
-	 <CAErSpo6w+tTbwJ7Qinpd0Vx20q5cm2gMvqzE1Do+2=G3b8rcHA@mail.gmail.com>
-	 <CAErSpo6iwM2r8b-aoiBPjQpkdpcfgLiO+WkpiM1wFsDhxuSXPg@mail.gmail.com>
-	 <CAErSpo68AWCGWQHKgoKuD-QFA0b+jbCRf7T_PzzKoUsVwdZHOg@mail.gmail.com>
-	 <157393863283F442885425D2C45428564F219B3B@nasanexd02f.na.qualcomm.com>
-	 <CAErSpo44-f4UdXxO5MdwVg09LFABwFQ320gG8v8jHcYh=5gqvA@mail.gmail.com>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [RFC 1/2] netmap: infrastructure (in staging)
+Date: Tue, 7 May 2013 13:20:31 -0400
+Message-ID: <CAAsGZS74kd+XW221+FHB75fss=_2Ghwj93ekYcPceqYns8HdRw@mail.gmail.com>
+References: <20130419.155859.1092595631804890737.davem@davemloft.net>
+	<20130419131632.31fce894@nehalam.linuxnetplumber.net>
+	<1366403483.16391.59.camel@edumazet-glaptop>
+	<20130419.163831.1434224426107133131.davem@davemloft.net>
+	<20130419134925.4981bdfc@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "Huang, Xiong" <xiong@qca.qualcomm.com>,
-	"Joseph A. Millikan" <josephamillikan@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Ren, Cloud" <cjren@qca.qualcomm.com>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Bjorn Helgaas <bhelgaas@google.com>,
-	Arend van Spriel <arend@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAErSpo44-f4UdXxO5MdwVg09LFABwFQ320gG8v8jHcYh=5gqvA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	gregkh@linuxfoundation.org, netdev <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:63963 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754585Ab3EGRUd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 13:20:33 -0400
+Received: by mail-la0-f53.google.com with SMTP id eo20so837184lab.12
+        for <netdev@vger.kernel.org>; Tue, 07 May 2013 10:20:31 -0700 (PDT)
+In-Reply-To: <20130419134925.4981bdfc@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-07 at 09:20 -0700, Bjorn Helgaas wrote:
-> [+cc Eric because he made a change (69b08f62e17) that apparently
-> exposes driver bugs]
-> 
-> On Mon, May 6, 2013 at 7:51 PM, Huang, Xiong <xiong@qca.qualcomm.com> wrote:
-> >> >
-> >> > Did this ever get resolved?
-> >>
-> >> I opened https://bugzilla.kernel.org/show_bug.cgi?id=57681 to keep track of
-> >> this and attached the dmesg logs you collected.  If you have a chance, could you
-> >> also collect and attach the output of "lspci -vv"
-> >> (any kernel is fine for this).
-> >>
-> >> I don't see anything obvious wrong, at least from the PCI side.  Maybe the atl1c
-> >> guys will have some ideas.
-> >>
-> >
-> > Hi Bjorn and All
-> >      This issue should be same as bug https://bugzilla.kernel.org/show_bug.cgi?id=54021
-> >      I didn't find any abnormal info from the log and the PHY link is stable as well :(
-> >      Is it related to the network manager ?
-> 
-> I looked at bug #54021 and it does look similar.  It doesn't look like
-> it has been resolved.
-> 
-> http://forums.gentoo.org/viewtopic-t-949168-highlight-.html is another
-> report that looks very similar.  BigE there has a Lenovo G570 that has
-> both wireless and wired networking.  If BigE disables wireless with a
-> hardware switch before booting, it seems to avoid the atl1c wired
-> networking issue.  That's not a fix, of course, but it might be a clue
-> and a temporary workaround until we have a real solution.
-> 
-> Joseph, if there's no hardware switch for the wireless on your G770,
-> you can probably still take wireless out of the picture by removing or
-> renaming the bcma module (look in
-> /lib/modules/.../kernel/drivers/bcma/), then rebooting.
-> 
-> Xiong, do you have a specific network manager-related test that Joseph
-> could perform?  I don't want to burden Joseph with a lot of debugging
-> because he's currently happy with 3.6.11 and testing is pretty
-> disruptive in his environment.
+On Fri, Apr 19, 2013 at 4:49 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
 
-drivers/net/wireless/brcm80211/brcmsmac/dma.c contains this suspect code
-in dma64_getnextrxp() :
+>
+> I get 7Mpps (single queue) with ixgbe and pktgen.
+> Easily hit 14.8 Mpps (single queue) with netmap.
+>
+> The real problem is that DPDK and netmap can do multiple packets per request
+> to driver. Right now their is one PCI bus transaction per packet with current
+> driver model.
+>
 
-dma_addr_t pa;
-...
-pa = le32_to_cpu(di->rxd64[i].addrlow) - di->dataoffsetlow;
-/* clear this packet from the descriptor ring */
-dma_unmap_single(di->dmadev, pa, di->rxbufsize, DMA_FROM_DEVICE);
+Look @ tpacket_v3 and you will realize that you can easily transfer a
+block of packets. A block_descriptor(either the one we have or a
+variant of this) is all you need when you are doing real_life packet
+capture/transmit. Sure you might have a need to add other packet
+descriptors but then it's easy to achieve. The tpacket_v3
+block-descriptor(not packet descriptor) even has some fields that even
+the state of the art FPGAs didn't have on them when I first started
+venturing out in this space.
 
-
-How can it possibly work, I honestly have no idea.
-
-I suggest enabling CONFIG_DMA_API_DEBUG ?
+As far as coalescing PCIe transactions are concerned, it also depends
+how much buffer the NIC/NPU/FPGA has. Cheap NICs don't have onboard
+buffer so they can't absorb the spikes and batch small transfers. If
+we test a NIC w/ another NIC it's not going to tell the whole story. A
+simple spirent test will expose this.
