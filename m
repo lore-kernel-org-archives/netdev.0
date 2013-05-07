@@ -1,56 +1,59 @@
-From: Roland Stigge <stigge@antcom.de>
-Subject: Re: [PATCH 21/36] net: ethernet: nxp: remove unnecessary platform_set_drvdata()
-Date: Tue, 07 May 2013 18:22:59 +0200
-Message-ID: <51892A63.6060309@antcom.de>
-References: <002601ce4add$888a35b0$999ea110$@samsung.com>
+From: chetan loke <loke.chetan@gmail.com>
+Subject: Re: [PATCH net] packet: tpacket_v3: do not trigger bug() on wrong
+ header status
+Date: Tue, 7 May 2013 12:59:53 -0400
+Message-ID: <CAAsGZS7TVr2YX8H8EQRqk4gDwNMQiaOkjhwCuLM_27RqB6+QgQ@mail.gmail.com>
+References: <1367585820-2674-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@davemloft.net>, netdev@vger.kernel.org,
-	'Wei Yongjun' <yongjun_wei@trendmicro.com.cn>,
-	Eric Dumazet <edumazet@google.com>
-To: Jingoo Han <jg1.han@samsung.com>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jakub Zawadzki <darkjames-ws@darkjames.pl>
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from antcom.de ([188.40.178.216]:40763 "EHLO chuck.antcom.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755558Ab3EGQbb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 May 2013 12:31:31 -0400
-In-Reply-To: <002601ce4add$888a35b0$999ea110$@samsung.com>
+Received: from mail-lb0-f181.google.com ([209.85.217.181]:62405 "EHLO
+	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752081Ab3EGQ7y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 12:59:54 -0400
+Received: by mail-lb0-f181.google.com with SMTP id w10so982638lbi.12
+        for <netdev@vger.kernel.org>; Tue, 07 May 2013 09:59:53 -0700 (PDT)
+In-Reply-To: <1367585820-2674-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/07/2013 06:44 AM, Jingoo Han wrote:
-> The driver core clears the driver data to NULL after device_release
-> or on probe failure, since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
-> (device-core: Ensure drvdata = NULL when no driver is bound).
-> Thus, it is not needed to manually clear the device driver data to NULL.
-> 
-> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+On Fri, May 3, 2013 at 8:57 AM, Daniel Borkmann <dborkman@redhat.com> wrote:
+>
+> Jakub reported that it is fairly easy to trigger the BUG() macro
+> from user space with TPACKET_V3's RX_RING by just giving a wrong
+> header status flag. We already had a similar situation in commit
+> 7f5c3e3a80e6654 (``af_packet: remove BUG statement in
+> tpacket_destruct_skb'') where this was the case in the TX_RING
+> side that could be triggered from user space. So really, don't use
+> BUG() or BUG_ON() unless there's really no way out, and i.e.
+> don't use it for consistency checking when there's user space
+> involved, no excuses, especially not if you're slapping the user
+> with WARN + dump_stack + BUG all at once. The two functions are
 
-Tested-by: Roland Stigge <stigge@antcom.de>
-Acked-by: Roland Stigge <stigge@antcom.de>
+remember, you were able to figure out what the problem was because of
+the WARN and the forceful BUG.
+Is BUG ok? Depends on how you look at it. If you are doing serious
+network monitoring on a real life appliance
+we don't really want folks to write crappy application. May be BUG is
+too harsh. But then I don't see a WARN in this patch either (may be I
+overlooked it).
 
-> ---
->  drivers/net/ethernet/nxp/lpc_eth.c |    2 --
->  1 files changed, 0 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-> index 55a5548..a061b93 100644
-> --- a/drivers/net/ethernet/nxp/lpc_eth.c
-> +++ b/drivers/net/ethernet/nxp/lpc_eth.c
-> @@ -1483,7 +1483,6 @@ static int lpc_eth_drv_probe(struct platform_device *pdev)
->  	return 0;
->  
->  err_out_unregister_netdev:
-> -	platform_set_drvdata(pdev, NULL);
->  	unregister_netdev(ndev);
->  err_out_dma_unmap:
->  	if (!use_iram_for_net(&pldat->pdev->dev) ||
-> @@ -1511,7 +1510,6 @@ static int lpc_eth_drv_remove(struct platform_device *pdev)
->  	struct netdata_local *pldat = netdev_priv(ndev);
->  
->  	unregister_netdev(ndev);
-> -	platform_set_drvdata(pdev, NULL);
->  
->  	if (!use_iram_for_net(&pldat->pdev->dev) ||
->  	    pldat->dma_buff_size > lpc32xx_return_iram_size())
+
+> of concern:
+>
+>   prb_retire_current_block() [when block status != TP_STATUS_KERNEL]
+>   prb_open_block() [when block_status != TP_STATUS_KERN
+
+>
+> Calls to prb_open_block() are guarded by ealier checks if block_status
+> is really TP_STATUS_KERNEL (racy!), but the first one BUG() is easily
+> triggable from user space. System behaves still stable after they are
+> removed. Also remove that yoda condition entirely, since it's already
+> guarded.
+
+What yoda? It's called defensive programming. It's a single check and
+not going to cost you anything.
