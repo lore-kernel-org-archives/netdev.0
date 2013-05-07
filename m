@@ -1,7 +1,7 @@
 From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: [PATCH RFC 05/48] Audit: make audit_skb_hold_queue per user namespace
-Date: Tue, 7 May 2013 10:20:26 +0800
-Message-ID: <1367893269-9308-6-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH RFC 06/48] Audit: make kauditd_task per user namespace
+Date: Tue, 7 May 2013 10:20:27 +0800
+Message-ID: <1367893269-9308-7-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,99 +24,85 @@ Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gm
 Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-After this patch, ervery user namespace has one
-audit_skb_hold_queue. Since we havn't finish the
-preparations, only allow user to operate the skb
-hold queue of init user namespace.
+This patch makes kauditd_task per user namespace,
+Since right now we only allow user in init user
+namesapce to send audit netlink message to kernel,
+so actually the kauditd_task belongs to other user
+namespace will still not run.
 
 Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 ---
  include/linux/user_namespace.h |  1 +
- kernel/audit.c                 | 16 +++++++++-------
- 2 files changed, 10 insertions(+), 7 deletions(-)
+ kernel/audit.c                 | 25 +++++++++++++++----------
+ 2 files changed, 16 insertions(+), 10 deletions(-)
 
 diff --git a/include/linux/user_namespace.h b/include/linux/user_namespace.h
-index e322f20..53420a4 100644
+index 53420a4..24f7c2f 100644
 --- a/include/linux/user_namespace.h
 +++ b/include/linux/user_namespace.h
-@@ -22,6 +22,7 @@ struct uid_gid_map {	/* 64 bytes -- 1 cache line */
- struct audit_ctrl {
+@@ -23,6 +23,7 @@ struct audit_ctrl {
  	struct sock		*sock;
  	struct sk_buff_head	queue;
-+	struct sk_buff_head	hold_queue;
+ 	struct sk_buff_head	hold_queue;
++	struct task_struct	*kauditd_task;
  };
  #endif
  
 diff --git a/kernel/audit.c b/kernel/audit.c
-index 2a727af..61562c5 100644
+index 61562c5..839c4c0 100644
 --- a/kernel/audit.c
 +++ b/kernel/audit.c
-@@ -129,8 +129,6 @@ static DEFINE_SPINLOCK(audit_freelist_lock);
+@@ -129,7 +129,6 @@ static DEFINE_SPINLOCK(audit_freelist_lock);
  static int	   audit_freelist_count;
  static LIST_HEAD(audit_freelist);
  
--/* queue of skbs to send to auditd when/if it comes back */
--static struct sk_buff_head audit_skb_hold_queue;
- static struct task_struct *kauditd_task;
+-static struct task_struct *kauditd_task;
  static DECLARE_WAIT_QUEUE_HEAD(kauditd_wait);
  static DECLARE_WAIT_QUEUE_HEAD(audit_backlog_wait);
-@@ -370,9 +368,11 @@ static int audit_set_failure(int state, kuid_t loginuid, u32 sessionid, u32 sid)
-  */
- static void audit_hold_skb(struct sk_buff *skb)
- {
-+	struct sk_buff_head *list = &init_user_ns.audit.hold_queue;
-+
- 	if (audit_default &&
--	    skb_queue_len(&audit_skb_hold_queue) < audit_backlog_limit)
--		skb_queue_tail(&audit_skb_hold_queue, skb);
-+	    skb_queue_len(list) < audit_backlog_limit)
-+		skb_queue_tail(list, skb);
- 	else
- 		kfree_skb(skb);
- }
-@@ -419,6 +419,7 @@ static int kauditd_thread(void *dummy)
+ 
+@@ -418,8 +417,9 @@ static void kauditd_send_skb(struct sk_buff *skb)
+ static int kauditd_thread(void *dummy)
  {
  	struct sk_buff *skb;
- 	struct sk_buff_head *queue = &init_user_ns.audit.queue;
-+	struct sk_buff_head *hold_queue = &init_user_ns.audit.hold_queue;
+-	struct sk_buff_head *queue = &init_user_ns.audit.queue;
+-	struct sk_buff_head *hold_queue = &init_user_ns.audit.hold_queue;
++	struct user_namespace *ns = dummy;
++	struct sk_buff_head *queue = &ns->audit.queue;
++	struct sk_buff_head *hold_queue = &ns->audit.hold_queue;
  
  	set_freezable();
  	while (!kthread_should_stop()) {
-@@ -436,11 +437,11 @@ static int kauditd_thread(void *dummy)
- 		 * note and still have no friggin idea what i'm thinking today.
- 		 */
- 		if (audit_default && audit_pid) {
--			skb = skb_dequeue(&audit_skb_hold_queue);
-+			skb = skb_dequeue(hold_queue);
- 			if (unlikely(skb)) {
- 				while (skb && audit_pid) {
- 					kauditd_send_skb(skb);
--					skb = skb_dequeue(&audit_skb_hold_queue);
-+					skb = skb_dequeue(hold_queue);
- 				}
- 			}
- 		}
-@@ -998,7 +999,6 @@ static int __init audit_init(void)
- 		return -1;
- 
- 	audit_set_user_ns(&init_user_ns);
--	skb_queue_head_init(&audit_skb_hold_queue);
- 	audit_initialized = AUDIT_INITIALIZED;
- 	audit_enabled = audit_default;
- 	audit_ever_enabled |= !!audit_default;
-@@ -1599,6 +1599,7 @@ void audit_set_user_ns(struct user_namespace *ns)
- 		return;
- 
- 	skb_queue_head_init(&ns->audit.queue);
-+	skb_queue_head_init(&ns->audit.hold_queue);
- }
- 
- void audit_free_user_ns(struct user_namespace *ns)
-@@ -1613,6 +1614,7 @@ void audit_free_user_ns(struct user_namespace *ns)
+@@ -663,14 +663,16 @@ static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	ns = current_user_ns();
+ 	/* As soon as there's any sign of userspace auditd,
+ 	 * start kauditd to talk to it */
+-	if (!kauditd_task) {
+-		kauditd_task = kthread_run(kauditd_thread, NULL, "kauditd");
+-		if (IS_ERR(kauditd_task)) {
+-			err = PTR_ERR(kauditd_task);
+-			kauditd_task = NULL;
+-			return err;
+-		}
++	if (!ns->audit.kauditd_task) {
++		struct task_struct *tsk;
++
++		tsk = kthread_run(kauditd_thread, ns, "kauditd");
++		if (IS_ERR(tsk))
++			return PTR_ERR(tsk);
++
++		ns->audit.kauditd_task = tsk;
  	}
++
+ 	loginuid = audit_get_loginuid(current);
+ 	sessionid = audit_get_sessionid(current);
+ 	security_task_getsecid(current, &sid);
+@@ -1615,6 +1617,9 @@ void audit_free_user_ns(struct user_namespace *ns)
  
  	skb_queue_purge(&ns->audit.queue);
-+	skb_queue_purge(&ns->audit.hold_queue);
+ 	skb_queue_purge(&ns->audit.hold_queue);
++
++	if (ns->audit.kauditd_task)
++		kthread_stop(ns->audit.kauditd_task);
  }
  
  EXPORT_SYMBOL(audit_log_start);
