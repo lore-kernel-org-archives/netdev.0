@@ -1,74 +1,66 @@
-From: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [Suggestion] Bluetooth: hidp: redundant initialization or issue
- for function hidp_copy_session
-Date: Wed, 08 May 2013 09:50:25 +0800
-Message-ID: <5189AF61.7020800@asianux.com>
-References: <518906A8.7060708@asianux.com> <51890AC9.7010501@asianux.com> <CANq1E4Q8g6Uy5DMiEf3aEBmfWN=KnVCfqxErYr=ZWD94D4vmAQ@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 05/15] connection tracking helper for SLP
+Date: Wed, 8 May 2013 04:03:28 +0200
+Message-ID: <20130508020328.GA7747@localhost>
+References: <1367936303-13386-1-git-send-email-jslaby@suse.cz>
+ <1367936303-13386-5-git-send-email-jslaby@suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, andrei.emeltchenko-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CANq1E4Q8g6Uy5DMiEf3aEBmfWN=KnVCfqxErYr=ZWD94D4vmAQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jirislaby@gmail.com, linux-kernel@vger.kernel.org,
+	Jiri Bohac <jbohac@suse.cz>, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Patrick McHardy <kaber@trash.net>
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1367936303-13386-5-git-send-email-jslaby@suse.cz>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 2013=E5=B9=B405=E6=9C=8808=E6=97=A5 03:37, David Herrmann wrote:
-> Hi
->=20
-> On Tue, May 7, 2013 at 4:08 PM, Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org> wro=
-te:
->> Hello Maintainers:
->>
->> In net/bluetooth/hidp/core.c, for hidp_copy_session(), the
->> 'session->input' and 'session->hid' are conflict with each other.
->>
->> And excuse me, I do not quit know the details, but I think we have 2
->> choices for fixing it:
->>
->>   one is ''if (session->input) { } else if (session->hid) { };''
->>   the other is ''if (seesion->hid) { } else if (session->input) { };=
-''
->>
->> The first choice assumes the original code has a logical issue; the
->> second choice assumes the original code has redundant initialization=
-=2E
->=20
-> The code is fine. Only one of "->input" or "->hid" can be valid at a
-> time. And exactly one of them is guaranteed to be valid. See
-> hidp_session_dev_init().
->=20
+On Tue, May 07, 2013 at 04:18:13PM +0200, Jiri Slaby wrote:
+> From: Jiri Bohac <jbohac@suse.cz>
+> 
+> A simple connection tracking helper for SLP. Marks replies to a
+> SLP broadcast query as ESTABLISHED to allow them to pass through the
+> firewall.
+> 
+> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> Cc: netfilter-devel@vger.kernel.org
+> Cc: netfilter@vger.kernel.org
+> Cc: coreteam@netfilter.org
+> Cc: netdev@vger.kernel.org
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> ---
+>  net/netfilter/Kconfig            |  15 +++++
+>  net/netfilter/Makefile           |   1 +
+>  net/netfilter/nf_conntrack_slp.c | 131 +++++++++++++++++++++++++++++++++++++++
+>  3 files changed, 147 insertions(+)
+>  create mode 100644 net/netfilter/nf_conntrack_slp.c
+> 
+> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
+> index 56d22ca..ec61b30 100644
+> --- a/net/netfilter/Kconfig
+> +++ b/net/netfilter/Kconfig
+> @@ -320,6 +320,21 @@ config NF_CONNTRACK_TFTP
+>  
+>  	  To compile it as a module, choose M here.  If unsure, say N.
+>  
+> +config NF_CONNTRACK_SLP
+> +	tristate "SLP protocol support"
+> +	depends on NF_CONNTRACK
+> +	depends on NETFILTER_ADVANCED
+> +	help
+> +	  SLP queries are sometimes sent as broadcast messages from an
+> +	  unprivileged port and responded to with unicast messages to the
+> +	  same port. This make them hard to firewall properly because connection
+> +	  tracking doesn't deal with broadcasts. This helper tracks locally
+> +	  originating broadcast SLP queries and the corresponding
+> +	  responses. It relies on correct IP address configuration, specifically
+> +	  netmask and broadcast address.
 
-Oh, really it is, thanks.
-
-> I fixed all code that I changed during the rework to say:
->=20
-> if (session->hid)
-> ..
-> else if (session->input)
-> ..
->=20
-> It makes the code more clear. But I avoided touching all the other
-> places that I didn't change, as the code is technically right. Anyway=
-,
-> I don't care whether we want to fix all other occurrences to use "els=
-e
-> if". Feel free to send a patch.
->=20
-
-Me too: "avoided touching all the other places that I didn't change, as
-the code is technically right".
-
-Thanks.
-
---=20
-Chen Gang
-
-Asianux Corporation
+We have the user-space helper infrastructure in the conntrack-tools,
+this helper has to go there.
