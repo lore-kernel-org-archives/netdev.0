@@ -1,89 +1,109 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: net: phy: realtek: add rtl8201f driver
-Date: Wed, 08 May 2013 19:43:00 +0400
-Message-ID: <518A7284.4000504@cogentembedded.com>
-References: <201305081910.27203.neidhard.kim@lge.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, peppe.cavallaro@st.com,
-	chohnstaedt@innominate.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jongsung Kim <neidhard.kim@lge.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201305081910.27203.neidhard.kim@lge.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jiang Liu <liuj97@gmail.com>
+Subject: [PATCH v5, part4 09/41] mm: use totalram_pages instead of num_physpages at runtime
+Date: Wed,  8 May 2013 23:51:06 +0800
+Message-ID: <1368028298-7401-10-git-send-email-jiang.liu@huawei.com>
+References: <1368028298-7401-1-git-send-email-jiang.liu@huawei.com>
+Cc: Jiang Liu <jiang.liu@huawei.com>,
+	David Rientjes <rientjes@google.com>,
+	Wen Congyang <wency@cn.fujitsu.com>,
+	Mel Gorman <mgorman@suse.de>,
+	Minchan Kim <minchan@kernel.org>,
+	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
+	Michal Hocko <mhocko@suse.cz>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	David Howells <dhowells@redhat.com>,
+	Mark Salter <msalter@redhat.com>,
+	Jianguo Wu <wujianguo@huawei.com>,
+	linux-mm@kvack.org,
+	linux-arch@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Miklos Szeredi <miklos@szeredi.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	fuse-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1368028298-7401-1-git-send-email-jiang.liu@huawei.com>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+The global variable num_physpages is scheduled to be removed, so use
+totalram_pages instead of num_physpages at runtime.
 
-On 08-05-2013 14:10, Jongsung Kim wrote:
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Cc: Miklos Szeredi <miklos@szeredi.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: fuse-devel@lists.sourceforge.net
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+---
+ fs/fuse/inode.c          |    2 +-
+ kernel/power/snapshot.c  |    4 ++--
+ net/ipv4/inet_fragment.c |    2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-> This patch adds the minimal driver to manage the
-> Realtek RTL8201F 10/100Mbps Transceivers.
+diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+index 17ec1f7..cd6dc27 100644
+--- a/fs/fuse/inode.c
++++ b/fs/fuse/inode.c
+@@ -785,7 +785,7 @@ static const struct super_operations fuse_super_operations = {
+ static void sanitize_global_limit(unsigned *limit)
+ {
+ 	if (*limit == 0)
+-		*limit = ((num_physpages << PAGE_SHIFT) >> 13) /
++		*limit = ((totalram_pages << PAGE_SHIFT) >> 13) /
+ 			 sizeof(struct fuse_req);
+ 
+ 	if (*limit >= 1 << 16)
+diff --git a/kernel/power/snapshot.c b/kernel/power/snapshot.c
+index 0de2857..8b5d1cd 100644
+--- a/kernel/power/snapshot.c
++++ b/kernel/power/snapshot.c
+@@ -1651,7 +1651,7 @@ unsigned long snapshot_get_image_size(void)
+ static int init_header(struct swsusp_info *info)
+ {
+ 	memset(info, 0, sizeof(struct swsusp_info));
+-	info->num_physpages = num_physpages;
++	info->num_physpages = get_num_physpages();
+ 	info->image_pages = nr_copy_pages;
+ 	info->pages = snapshot_get_image_size();
+ 	info->size = info->pages;
+@@ -1795,7 +1795,7 @@ static int check_header(struct swsusp_info *info)
+ 	char *reason;
+ 
+ 	reason = check_image_kernel(info);
+-	if (!reason && info->num_physpages != num_physpages)
++	if (!reason && info->num_physpages != get_num_physpages())
+ 		reason = "memory size";
+ 	if (reason) {
+ 		printk(KERN_ERR "PM: Image mismatch: %s\n", reason);
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index e97d66a..f90079d 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -93,7 +93,7 @@ void inet_frags_init(struct inet_frags *f)
+ 	}
+ 	rwlock_init(&f->lock);
+ 
+-	f->rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
++	f->rnd = (u32) ((totalram_pages ^ (totalram_pages >> 7)) ^
+ 				   (jiffies ^ (jiffies >> 6)));
+ 
+ 	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
+-- 
+1.7.9.5
 
-> Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
-> ---
->   drivers/net/phy/realtek.c |   60 +++++++++++++++++++++++++++++++++++++++-----
->   1 files changed, 53 insertions(+), 7 deletions(-)
-
-> diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-> index 8e7af83..27847ca 100644
-> --- a/drivers/net/phy/realtek.c
-> +++ b/drivers/net/phy/realtek.c
-> @@ -16,9 +16,13 @@
->   #include <linux/phy.h>
->   #include <linux/module.h>
->
-> -#define RTL821x_PHYSR		0x11
-> -#define RTL821x_PHYSR_DUPLEX	0x2000
-> -#define RTL821x_PHYSR_SPEED	0xc000
-
-     Removal of unused #define's is a matter of a separate cleanup patch...
-
-> +/* page 0 register 30 - interrupt indicators and SNR display register */
-> +#define RTL8201F_ISR		0x1e
-> +/* page 0 register 31 - page select register */
-> +#define RTL8201F_PSR		0x1f
-> +/* page 7 register 19 - interrupt, WOL enable, and LEDs function register */
-> +#define RTL8201F_IER		0x13
-> +
->   #define RTL821x_INER		0x12
->   #define RTL821x_INER_INIT	0x6400
->   #define RTL821x_INSR		0x13
-> @@ -29,6 +33,15 @@ MODULE_DESCRIPTION("Realtek PHY driver");
->   MODULE_AUTHOR("Johnson Leung");
->   MODULE_LICENSE("GPL");
->
-> +static int rtl8201f_ack_interrupt(struct phy_device *phydev)
-> +{
-> +	int err;
-> +
-> +	err = phy_read(phydev, RTL8201F_ISR);
-
-    This could be an initializer and so make the function shorter.
-
-> +
-> +	return (err < 0) ? err : 0;
-> +}
-> +
->   static int rtl821x_ack_interrupt(struct phy_device *phydev)
->   {
->   	int err;
-[...]
-> @@ -96,16 +141,16 @@ static struct phy_driver rtl8211e_driver = {
->
->   static int __init realtek_init(void)
->   {
-> -	int ret;
-> -
-> -	ret = phy_driver_register(&rtl8211b_driver);
-> -	if (ret < 0)
-> +	if(phy_driver_register(&rtl8201f_driver) < 0)
-> +		return -ENODEV;
-> +	if(phy_driver_register(&rtl8211b_driver) < 0)
-
-     You haven't run this patch thru scripts/checkpatch.pl -- there 
-should be a space between *if* and (.
-
-WBR, Sergei
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
