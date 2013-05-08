@@ -1,31 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] be2net: fixes
-Date: Wed, 08 May 2013 11:59:59 -0700 (PDT)
-Message-ID: <20130508.115959.1716267026828826520.davem@davemloft.net>
-References: <1368014750-25065-1-git-send-email-sathya.perla@emulex.com>
+Subject: Re: [PATCH net 5/8] qlcnic: Fix reset recovery after transmit
+ timeout
+Date: Wed, 08 May 2013 12:06:58 -0700 (PDT)
+Message-ID: <20130508.120658.318501645917412400.davem@davemloft.net>
+References: <1367956506-3290-1-git-send-email-shahed.shaikh@qlogic.com>
+	<1367956506-3290-6-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@emulex.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
+	sony.chacko@qlogic.com
+To: shahed.shaikh@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40554 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40661 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751653Ab3EHTAD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 15:00:03 -0400
-In-Reply-To: <1368014750-25065-1-git-send-email-sathya.perla@emulex.com>
+	with ESMTP id S1755497Ab3EHTHE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 15:07:04 -0400
+In-Reply-To: <1367956506-3290-6-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@emulex.com>
-Date: Wed, 8 May 2013 17:35:46 +0530
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Date: Tue, 7 May 2013 15:55:03 -0400
 
-> Pls apply.
-> 
-> Sathya Perla (4):
->   be2net: provision VF resources before enabling SR-IOV
->   be2net: fix payload_len value for GET_MAC_LIST cmd req
->   be2net: fix EQ from getting full while cleaning RX CQ
->   be2net: disable TX in be_close()
+> @@ -435,10 +435,7 @@ static void qlcnic_83xx_idc_attach_driver(struct qlcnic_adapter *adapter)
+>  	}
+>  done:
+>  	netif_device_attach(netdev);
+> -	if (netif_running(netdev)) {
+> -		netif_carrier_on(netdev);
+> -		netif_wake_queue(netdev);
+> -	}
+> +	adapter->netdev->trans_start = jiffies;
+>  }
+>  
+>  static int qlcnic_83xx_idc_enter_failed_state(struct qlcnic_adapter *adapter,
 
-Series applied, thanks.
+This is not right.
+
+Multiqueue aware drivers should never access netdev->trans_start
+directly, and I see several such writes in this driver.
+
+Anything you write here will be totally ignored by the rest of the
+kernel, because this value is overwritten by every call to dev_trans_start()
+which is the only valid method by which to determine this value.
+
+dev_trans_start() walks all of the transmit queues, recording the most
+recent txq->trans_start timestamp in netdev->trans_start.
+
+So if you write netdev->trans_start in your driver, it does nothing,
+because even the dev_watchdog() time is going to inspect the per-queue
+txq->trans_start values and ignore the netdev->trans_start value for
+devices whose driver suppports multiqueue as qlcnic does.
