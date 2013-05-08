@@ -1,54 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 5/8] qlcnic: Fix reset recovery after transmit
- timeout
-Date: Wed, 08 May 2013 12:06:58 -0700 (PDT)
-Message-ID: <20130508.120658.318501645917412400.davem@davemloft.net>
-References: <1367956506-3290-1-git-send-email-shahed.shaikh@qlogic.com>
-	<1367956506-3290-6-git-send-email-shahed.shaikh@qlogic.com>
+Subject: Re: [PATCH] qmi_wwan/cdc_ether: add device IDs for Dell 5804
+ (Novatel E371) WWAN card
+Date: Wed, 08 May 2013 12:08:50 -0700 (PDT)
+Message-ID: <20130508.120850.755474428060131481.davem@davemloft.net>
+References: <1367874878.31762.0.camel@dcbw.foobar.com>
+	<1367875057.31762.3.camel@dcbw.foobar.com>
+	<87li7r6bx1.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com,
-	sony.chacko@qlogic.com
-To: shahed.shaikh@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40661 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755497Ab3EHTHE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 15:07:04 -0400
-In-Reply-To: <1367956506-3290-6-git-send-email-shahed.shaikh@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: dcbw@redhat.com, netdev@vger.kernel.org, stable@vger.kernel.org,
+	dagofthedofg@gmail.com
+To: bjorn@mork.no
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <87li7r6bx1.fsf@nemi.mork.no>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Date: Tue, 7 May 2013 15:55:03 -0400
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Mon, 06 May 2013 23:22:50 +0200
 
-> @@ -435,10 +435,7 @@ static void qlcnic_83xx_idc_attach_driver(struct qlcnic_adapter *adapter)
->  	}
->  done:
->  	netif_device_attach(netdev);
-> -	if (netif_running(netdev)) {
-> -		netif_carrier_on(netdev);
-> -		netif_wake_queue(netdev);
-> -	}
-> +	adapter->netdev->trans_start = jiffies;
->  }
->  
->  static int qlcnic_83xx_idc_enter_failed_state(struct qlcnic_adapter *adapter,
+> Dan Williams <dcbw@redhat.com> writes:
+>=20
+>> A rebranded Novatel E371 for AT&T's LTE bands.  qmi_wwan should driv=
+e this
+>> device, while cdc_ether should ignore it.  Even though the USB descr=
+iptors
+>> are plain CDC-ETHER that USB interface is a QMI interface.
+>>
+>> Cc: <stable@vger.kernel.org>
+>> Signed-off-by: Dan Williams <dcbw@redhat.com>
+>> ---
+>>  drivers/net/usb/cdc_ether.c | 7 +++++++
+>>  drivers/net/usb/qmi_wwan.c  | 7 +++++++
+>>  2 files changed, 14 insertions(+)
+>=20
+> Acked-by: Bj=F8rn Mork <bjorn@mork.no>
 
-This is not right.
-
-Multiqueue aware drivers should never access netdev->trans_start
-directly, and I see several such writes in this driver.
-
-Anything you write here will be totally ignored by the rest of the
-kernel, because this value is overwritten by every call to dev_trans_start()
-which is the only valid method by which to determine this value.
-
-dev_trans_start() walks all of the transmit queues, recording the most
-recent txq->trans_start timestamp in netdev->trans_start.
-
-So if you write netdev->trans_start in your driver, it does nothing,
-because even the dev_watchdog() time is going to inspect the per-queue
-txq->trans_start values and ignore the netdev->trans_start value for
-devices whose driver suppports multiqueue as qlcnic does.
+Applied.
