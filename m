@@ -1,49 +1,36 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH 4/4] be2net: disable TX in be_close()
-Date: Wed, 8 May 2013 17:35:50 +0530
-Message-ID: <1368014750-25065-5-git-send-email-sathya.perla@emulex.com>
-References: <1368014750-25065-1-git-send-email-sathya.perla@emulex.com>
+From: PJ Waskiewicz <peter.p.waskiewicz.jr@linux.intel.com>
+Subject: Re: Regression: too many packets with incorrect checksum
+Date: Wed, 08 May 2013 05:15:06 -0700
+Message-ID: <518A41CA.3030804@linux.intel.com>
+References: <1368013888.3115.9.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:10935 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755334Ab3EHMDk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 08:03:40 -0400
-In-Reply-To: <1368014750-25065-1-git-send-email-sathya.perla@emulex.com>
+Received: from mga11.intel.com ([192.55.52.93]:64437 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753861Ab3EHMPI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 May 2013 08:15:08 -0400
+In-Reply-To: <1368013888.3115.9.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-be_close() followed by be_clear() is called as a part of cleanup in the
-EEH/AER flow.  This patch stops TX in be_close() before cleaning/freeing
-up the TX queues in be_clear(). This prevents be_xmit() from being called
-while TX queues no longer exist.
+On 5/8/2013 4:51 AM, Cong Wang wrote:
+> Hi, all
+>
+> The latest -net tree has some regression, I saw too many packets with
+> incorrect checksum from tcpdump inside a KVM guest, see the bottom.
+> (firewall is turned off on both sides.)
+>
+> It seems this is not related with drivers, I tried virtio and e1000,
+> both have the same problem. And UDP has the problem too. But turning off
+> tx-checksum by `ethtool -K eth0 tx off` makes the problem disappear
+> (just turning off TSO or GSO doesn't make any difference).
+>
+> I can provide other information if you need.
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
+Reproduce on bare metal, non-KVM?
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 792d838..a444110 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -2559,6 +2559,7 @@ static int be_close(struct net_device *netdev)
- 	 * all tx skbs are freed.
- 	 */
- 	be_tx_compl_clean(adapter);
-+	netif_tx_disable(netdev);
- 
- 	be_rx_qs_destroy(adapter);
- 
-@@ -2667,6 +2668,7 @@ static int be_open(struct net_device *netdev)
- 	if (!status)
- 		be_link_status_update(adapter, link_status);
- 
-+	netif_tx_start_all_queues(netdev);
- 	be_roce_dev_open(adapter);
- 	return 0;
- err:
--- 
-1.7.1
+-PJ
