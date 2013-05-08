@@ -1,40 +1,48 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH RFC iproute2] Add VF link state control
-Date: Wed, 08 May 2013 11:24:46 -0500
-Message-ID: <1368030286.1664.16.camel@dcbw.foobar.com>
-References: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com>
-	 <1368020717-22194-4-git-send-email-ogerlitz@mellanox.com>
-	 <20130508091753.0be79e6c@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] gso: Handle Trans-Ether-Bridging protocol in
+ skb_network_protocol()
+Date: Wed, 8 May 2013 09:23:13 -0700
+Message-ID: <20130508092313.677f9717@nehalam.linuxnetplumber.net>
+References: <1367995267-23443-1-git-send-email-pshelar@nicira.com>
+	<518A01F9.8090403@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org,
-	amirv@mellanox.com, ronye@mellanox.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Pravin B Shelar <pshelar@nicira.com>, netdev@vger.kernel.org,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <amwang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: PJ Waskiewicz <peter.p.waskiewicz.jr@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45467 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756129Ab3EHQYp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 May 2013 12:24:45 -0400
-In-Reply-To: <20130508091753.0be79e6c@nehalam.linuxnetplumber.net>
+Received: from mail-pb0-f47.google.com ([209.85.160.47]:33084 "EHLO
+	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755526Ab3EHQ2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 12:28:20 -0400
+Received: by mail-pb0-f47.google.com with SMTP id uo1so1332174pbc.34
+        for <netdev@vger.kernel.org>; Wed, 08 May 2013 09:28:19 -0700 (PDT)
+In-Reply-To: <518A01F9.8090403@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-08 at 09:17 -0700, Stephen Hemminger wrote:
-> On Wed,  8 May 2013 16:45:17 +0300
-> Or Gerlitz <ogerlitz@mellanox.com> wrote:
-> 
-> > From: Rony Efraim <ronye@mellanox.com>
-> > 
-> > Add link state per VF command
-> > 
-> > Signed-off-by: Rony Efraim <ronye@mellanox.com>
-> 
-> Isn't this redundant with OPERSTATE and LOWER_DOWN?
+On Wed, 08 May 2013 00:42:49 -0700
+PJ Waskiewicz <peter.p.waskiewicz.jr@linux.intel.com> wrote:
 
-I was going to say it was mostly redundant with the "set carrier from
-userspace" patches from jpirko last December, but since a VF doesn't
-appear to always have a netdev, it seems that functionality has to be
-special-cased for VFs instead of being generic :(
+> On 5/7/2013 11:41 PM, Pravin B Shelar wrote:
+> > Rather than having logic to calculate inner protocol in every
+> > tunnel gso handler move it to gso code. This simplifies code.
+> 
+> Moving code that isn't used on a regular basis to hotpath for most 
+> networking to simplify code isn't always a good thing.
+> 
+> Have you run tests on non-tunneled streams using GSO to make sure there 
+> isn't an adverse impact to performance due to the new, untaken branch?
+> 
+> -PJ
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-Dan
+Maybe use unlikely here?
+It looks like more and more of this tunnel unwrapping needs to be handled here
+(vxlan? ipip?) probably want more general switch statement and per-protocol functions.
