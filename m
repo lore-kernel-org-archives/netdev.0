@@ -1,208 +1,84 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH RFC 2/2] net/mlx4: Add vf link state support
-Date: Wed,  8 May 2013 16:45:16 +0300
-Message-ID: <1368020717-22194-3-git-send-email-ogerlitz@mellanox.com>
-References: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com>
-Cc: amirv@mellanox.com, ronye@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:50582 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755036Ab3EHNpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 09:45:04 -0400
-In-Reply-To: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH v2] Bluetooth: hidp: using strlcpy instead of strncpy,
+ also beautify code.
+Date: Wed, 8 May 2013 17:16:25 +0200
+Message-ID: <CANq1E4Q+duvLzwmwN=FHb2AaTQsnSgxRD7T+YsBZLSE-kchR_Q@mail.gmail.com>
+References: <518906A8.7060708@asianux.com>
+	<CANq1E4SmY+CD0uf53_b6GeFkQ-LYnpdxsDGSRMWdn2i1mnb6WQ@mail.gmail.com>
+	<5189A417.503@asianux.com>
+	<5189C7C6.8090408@asianux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, andrei.emeltchenko-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5189C7C6.8090408-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Rony Efraim <ronye@mellanox.com>
+Hi Chen
 
-Add support to change the link state of VF (vPort).
+On Wed, May 8, 2013 at 5:34 AM, Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org> wrote:
+>
+> For NUL terminated string, need always let it ended by zero.
+>
+> Since have already called memcpy() to initialize 'ci', so need not
+> redundent initializations.
+>
+> Better use ''if(session->hid) {} else if(session->input) {}'' instead
+> of ''if(session->hid) {}; if(session->input) {};''
 
-Signed-off-by: Rony Efraim <ronye@mellanox.com>
+Yep, looks good now.
 
----
- drivers/net/ethernet/mellanox/mlx4/cmd.c       |   47 ++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    8 ++++
- drivers/net/ethernet/mellanox/mlx4/eq.c        |    9 ++++-
- drivers/net/ethernet/mellanox/mlx4/fw.c        |    8 ++++
- drivers/net/ethernet/mellanox/mlx4/mlx4.h      |    1 +
- include/linux/mlx4/cmd.h                       |    2 +-
- 6 files changed, 72 insertions(+), 3 deletions(-)
+Reviewed-by: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index 1df56cc..4a9f7a5 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -39,6 +39,7 @@
- #include <linux/errno.h>
- 
- #include <linux/mlx4/cmd.h>
-+#include <linux/mlx4/device.h>
- #include <linux/semaphore.h>
- #include <rdma/ib_smi.h>
- 
-@@ -2184,3 +2185,49 @@ int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_in
- 	return 0;
- }
- EXPORT_SYMBOL_GPL(mlx4_get_vf_config);
-+
-+int mlx4_set_vf_link_state(struct mlx4_dev *dev, int port, int vf, int link_state)
-+{
-+	struct mlx4_priv *priv = mlx4_priv(dev);
-+	struct mlx4_vport_state *s_info;
-+	struct mlx4_vport_oper_state *vp_oper;
-+	int slave;
-+	u8 link_stat_event;
-+
-+	slave = mlx4_get_slave_indx(dev, vf);
-+	if (slave < 0)
-+		return -EINVAL;
-+
-+	switch (link_state) {
-+	case IFLA_VF_LINK_STATE_AUTO:
-+		/* get link curent state */
-+		if (!priv->sense.do_sense_port[port])
-+			link_stat_event = MLX4_PORT_CHANGE_SUBTYPE_ACTIVE;
-+		else
-+			link_stat_event = MLX4_PORT_CHANGE_SUBTYPE_DOWN;
-+	    break;
-+
-+	case IFLA_VF_LINK_STATE_ENABLE:
-+		link_stat_event = MLX4_PORT_CHANGE_SUBTYPE_ACTIVE;
-+	    break;
-+
-+	case IFLA_VF_LINK_STATE_DISABLE:
-+		link_stat_event = MLX4_PORT_CHANGE_SUBTYPE_DOWN;
-+	    break;
-+
-+	default:
-+		mlx4_warn(dev, "unknown value for link_state %02x on slave %d port %d\n",
-+			  link_state, slave, port);
-+		return -EINVAL;
-+	};
-+	/* update the admin & oper state on the link state */
-+	s_info = &priv->mfunc.master.vf_admin[slave].vport[port];
-+	vp_oper = &priv->mfunc.master.vf_oper[slave].vport[port];
-+	s_info->link_state = link_state;
-+	vp_oper->state.link_state = link_state;
-+
-+	/* send event */
-+	mlx4_gen_port_state_change_eqe(dev, slave, port, link_stat_event);
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(mlx4_set_vf_link_state);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index a69a908..af3d058 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2060,6 +2060,13 @@ static int mlx4_en_get_vf_config(struct net_device *dev, int vf, struct ifla_vf_
- 	return mlx4_get_vf_config(mdev->dev, en_priv->port, vf, ivf);
- }
- 
-+static int mlx4_en_set_vf_link_state(struct net_device *dev, int vf, int link_state)
-+{
-+	struct mlx4_en_priv *en_priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = en_priv->mdev;
-+
-+	return mlx4_set_vf_link_state(mdev->dev, en_priv->port, vf, link_state);
-+}
- static const struct net_device_ops mlx4_netdev_ops = {
- 	.ndo_open		= mlx4_en_open,
- 	.ndo_stop		= mlx4_en_close,
-@@ -2100,6 +2107,7 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
- 	.ndo_set_vf_mac		= mlx4_en_set_vf_mac,
- 	.ndo_set_vf_vlan	= mlx4_en_set_vf_vlan,
- 	.ndo_set_vf_spoofchk	= mlx4_en_set_vf_spoofchk,
-+	.ndo_set_vf_link_state	= mlx4_en_set_vf_link_state,
- 	.ndo_get_vf_config	= mlx4_en_get_vf_config,
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller	= mlx4_en_netpoll,
-diff --git a/drivers/net/ethernet/mellanox/mlx4/eq.c b/drivers/net/ethernet/mellanox/mlx4/eq.c
-index 8e3123a..0a882d4 100644
---- a/drivers/net/ethernet/mellanox/mlx4/eq.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/eq.c
-@@ -448,6 +448,7 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 	int i;
- 	enum slave_port_gen_event gen_event;
- 	unsigned long flags;
-+	struct mlx4_vport_state *s_info;
- 
- 	while ((eqe = next_eqe_sw(eq, dev->caps.eqe_factor))) {
- 		/*
-@@ -556,7 +557,9 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 						mlx4_dbg(dev, "%s: Sending MLX4_PORT_CHANGE_SUBTYPE_DOWN"
- 							 " to slave: %d, port:%d\n",
- 							 __func__, i, port);
--						mlx4_slave_event(dev, i, eqe);
-+						s_info = &priv->mfunc.master.vf_oper[slave].vport[port].state;
-+						if (IFLA_VF_LINK_STATE_AUTO == s_info->link_state)
-+							mlx4_slave_event(dev, i, eqe);
- 					} else {  /* IB port */
- 						set_and_calc_slave_port_state(dev, i, port,
- 									      MLX4_PORT_STATE_DEV_EVENT_PORT_DOWN,
-@@ -580,7 +583,9 @@ static int mlx4_eq_int(struct mlx4_dev *dev, struct mlx4_eq *eq)
- 					for (i = 0; i < dev->num_slaves; i++) {
- 						if (i == mlx4_master_func_num(dev))
- 							continue;
--						mlx4_slave_event(dev, i, eqe);
-+						s_info = &priv->mfunc.master.vf_oper[slave].vport[port].state;
-+						if (IFLA_VF_LINK_STATE_AUTO == s_info->link_state)
-+							mlx4_slave_event(dev, i, eqe);
- 					}
- 				else /* IB port */
- 					/* port-up event will be sent to a slave when the
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index b147bdd..37b2d02 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -828,8 +828,10 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
- 	u8 port_type;
- 	u16 short_field;
- 	int err;
-+	int admin_link_state;
- 
- #define MLX4_VF_PORT_NO_LINK_SENSE_MASK	0xE0
-+#define MLX4_PORT_LINK_UP_MASK		0x80
- #define QUERY_PORT_CUR_MAX_PKEY_OFFSET	0x0c
- #define QUERY_PORT_CUR_MAX_GID_OFFSET	0x0e
- 
-@@ -855,6 +857,12 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
- 		/* set port type to currently operating port type */
- 		port_type |= (dev->caps.port_type[vhcr->in_modifier] & 0x3);
- 
-+		admin_link_state = priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.link_state;
-+		if (IFLA_VF_LINK_STATE_ENABLE == admin_link_state)
-+			port_type |= MLX4_PORT_LINK_UP_MASK;
-+		else if (IFLA_VF_LINK_STATE_DISABLE == admin_link_state)
-+			port_type &= ~MLX4_PORT_LINK_UP_MASK;
-+
- 		MLX4_PUT(outbox->buf, port_type,
- 			 QUERY_PORT_SUPPORTED_TYPE_OFFSET);
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index eac3dae..6368dcb 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -482,6 +482,7 @@ struct mlx4_vport_state {
- 	u8  default_qos;
- 	u32 tx_rate;
- 	bool spoofchk;
-+	u32 link_state;
- };
- 
- struct mlx4_vf_admin_state {
-diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
-index adf6e06..8074a97 100644
---- a/include/linux/mlx4/cmd.h
-+++ b/include/linux/mlx4/cmd.h
-@@ -237,7 +237,7 @@ int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac);
- int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos);
- int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting);
- int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_info *ivf);
--
-+int mlx4_set_vf_link_state(struct mlx4_dev *dev, int port, int vf, int link_state);
- 
- #define MLX4_COMM_GET_IF_REV(cmd_chan_ver) (u8)((cmd_chan_ver) >> 8)
- 
--- 
-1.7.1
+Thanks
+David
+
+> Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  net/bluetooth/hidp/core.c |   14 ++++----------
+>  1 files changed, 4 insertions(+), 10 deletions(-)
+>
+> diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+> index 940f5ac..f13a8da 100644
+> --- a/net/bluetooth/hidp/core.c
+> +++ b/net/bluetooth/hidp/core.c
+> @@ -76,25 +76,19 @@ static void hidp_copy_session(struct hidp_session *session, struct hidp_conninfo
+>         ci->flags = session->flags;
+>         ci->state = BT_CONNECTED;
+>
+> -       ci->vendor  = 0x0000;
+> -       ci->product = 0x0000;
+> -       ci->version = 0x0000;
+> -
+>         if (session->input) {
+>                 ci->vendor  = session->input->id.vendor;
+>                 ci->product = session->input->id.product;
+>                 ci->version = session->input->id.version;
+>                 if (session->input->name)
+> -                       strncpy(ci->name, session->input->name, 128);
+> +                       strlcpy(ci->name, session->input->name, 128);
+>                 else
+> -                       strncpy(ci->name, "HID Boot Device", 128);
+> -       }
+> -
+> -       if (session->hid) {
+> +                       strlcpy(ci->name, "HID Boot Device", 128);
+> +       } else if (session->hid) {
+>                 ci->vendor  = session->hid->vendor;
+>                 ci->product = session->hid->product;
+>                 ci->version = session->hid->version;
+> -               strncpy(ci->name, session->hid->name, 128);
+> +               strlcpy(ci->name, session->hid->name, 128);
+>         }
+>  }
+>
+> --
+> 1.7.7.6
