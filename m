@@ -1,36 +1,47 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] packet: tpacket_v3: do not trigger bug() on wrong
- header status
-Date: Tue, 07 May 2013 14:58:15 -0700 (PDT)
-Message-ID: <20130507.145815.205664097646870885.davem@davemloft.net>
-References: <CAAsGZS7TVr2YX8H8EQRqk4gDwNMQiaOkjhwCuLM_27RqB6+QgQ@mail.gmail.com>
-	<518968DF.9070008@redhat.com>
-	<1367963787.13473.11.camel@edumazet-glaptop>
+From: "Rafael J. Wysocki" <rjw@sisk.pl>
+Subject: Re: [PATCH v2 00/10] optimize freezing tasks by reducing task wakeups
+Date: Wed, 08 May 2013 02:02:24 +0200
+Message-ID: <8514381.qPm240gC5h@vostro.rjw.lan>
+References: <1367884221-20462-1-git-send-email-ccross@android.com> <20130507181237.GE5531@mtj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: dborkman@redhat.com, loke.chetan@gmail.com, netdev@vger.kernel.org,
-	darkjames-ws@darkjames.pl
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55896 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750772Ab3EGV6V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 May 2013 17:58:21 -0400
-In-Reply-To: <1367963787.13473.11.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: linux-kernel@vger.kernel.org, Pavel Machek <pavel@ucw.cz>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Mandeep Singh Baines <msb@chromium.org>,
+	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
+	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
+	Linus Torvalds <torvalds@linux-foundation.org>
+To: Tejun Heo <tj@kernel.org>, Colin Cross <ccross@android.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <20130507181237.GE5531@mtj.dyndns.org>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 07 May 2013 14:56:27 -0700
-
-> On Tue, 2013-05-07 at 22:49 +0200, Daniel Borkmann wrote:
+On Tuesday, May 07, 2013 11:12:37 AM Tejun Heo wrote:
+> Hello,
 > 
->> Right, and now we treat people who write crappy applications with BUG?
->> 
->> BUG is only for consistency checks *within* the kernel and not meant to
->> be triggered on purpose from user space.
+> On Mon, May 06, 2013 at 04:50:05PM -0700, Colin Cross wrote:
+> > On slow cpus the large number of task wakeups and context switches
+> > triggered by freezing and thawing tasks can take a significant amount
+> > of cpu time.  This patch series reduces the amount of work done during
+> > freezing tasks by avoiding waking up tasks that are already in a freezable
+> > state.
 > 
-> +1
+> For the whole series,
+> 
+>  Acked-by: Tejun Heo <tj@kernel.org>
+> 
+> Thanks a lot!
 
-+1
+All 16 patches queued up as v3.11 material.
+
+Many thanks to everyone involved,
+Rafael
+
+
+-- 
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
