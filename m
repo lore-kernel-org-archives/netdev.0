@@ -1,66 +1,54 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 05/15] connection tracking helper for SLP
-Date: Wed, 8 May 2013 04:03:28 +0200
-Message-ID: <20130508020328.GA7747@localhost>
-References: <1367936303-13386-1-git-send-email-jslaby@suse.cz>
- <1367936303-13386-5-git-send-email-jslaby@suse.cz>
+From: Matt Helsley <matthltc-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH RFC 10/48] Audit: change type of audit_ever_enabled to bool
+Date: Tue, 7 May 2013 19:06:26 -0700
+Message-ID: <20130508020626.GD24627@us.ibm.com>
+References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<1367893269-9308-11-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jirislaby@gmail.com, linux-kernel@vger.kernel.org,
-	Jiri Bohac <jbohac@suse.cz>, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Patrick McHardy <kaber@trash.net>
-To: Jiri Slaby <jslaby@suse.cz>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
+	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
+To: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1367936303-13386-5-git-send-email-jslaby@suse.cz>
-Sender: netfilter-devel-owner@vger.kernel.org
+In-Reply-To: <1367893269-9308-11-git-send-email-gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 07, 2013 at 04:18:13PM +0200, Jiri Slaby wrote:
-> From: Jiri Bohac <jbohac@suse.cz>
+On Tue, May 07, 2013 at 10:20:31AM +0800, Gao feng wrote:
+> It's better to define audit_ever_enabled as bool
 > 
-> A simple connection tracking helper for SLP. Marks replies to a
-> SLP broadcast query as ESTABLISHED to allow them to pass through the
-> firewall.
-> 
-> Signed-off-by: Jiri Bohac <jbohac@suse.cz>
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-> Cc: netfilter-devel@vger.kernel.org
-> Cc: netfilter@vger.kernel.org
-> Cc: coreteam@netfilter.org
-> Cc: netdev@vger.kernel.org
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
 > ---
->  net/netfilter/Kconfig            |  15 +++++
->  net/netfilter/Makefile           |   1 +
->  net/netfilter/nf_conntrack_slp.c | 131 +++++++++++++++++++++++++++++++++++++++
->  3 files changed, 147 insertions(+)
->  create mode 100644 net/netfilter/nf_conntrack_slp.c
+>  kernel/audit.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/net/netfilter/Kconfig b/net/netfilter/Kconfig
-> index 56d22ca..ec61b30 100644
-> --- a/net/netfilter/Kconfig
-> +++ b/net/netfilter/Kconfig
-> @@ -320,6 +320,21 @@ config NF_CONNTRACK_TFTP
->  
->  	  To compile it as a module, choose M here.  If unsure, say N.
->  
-> +config NF_CONNTRACK_SLP
-> +	tristate "SLP protocol support"
-> +	depends on NF_CONNTRACK
-> +	depends on NETFILTER_ADVANCED
-> +	help
-> +	  SLP queries are sometimes sent as broadcast messages from an
-> +	  unprivileged port and responded to with unicast messages to the
-> +	  same port. This make them hard to firewall properly because connection
-> +	  tracking doesn't deal with broadcasts. This helper tracks locally
-> +	  originating broadcast SLP queries and the corresponding
-> +	  responses. It relies on correct IP address configuration, specifically
-> +	  netmask and broadcast address.
+> diff --git a/kernel/audit.c b/kernel/audit.c
+> index 4595a9e..1138ff5 100644
+> --- a/kernel/audit.c
+> +++ b/kernel/audit.c
+> @@ -76,7 +76,7 @@ static int	audit_initialized;
+>  #define AUDIT_OFF	0
+>  #define AUDIT_ON	1
+>  #define AUDIT_LOCKED	2
+> -int		audit_ever_enabled;
+> +bool		audit_ever_enabled;
 
-We have the user-space helper infrastructure in the conntrack-tools,
-this helper has to go there.
+I think you're better off placing this at the beginning of the series
+and submitting it separately since it's only incidentally related to
+this RFC.
+
+Cheers,
+	-Matt Helsley
