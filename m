@@ -1,58 +1,97 @@
-From: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
-Subject: Re: [PATCH RFC 10/48] Audit: change type of audit_ever_enabled to bool
-Date: Wed, 08 May 2013 13:24:24 +0800
-Message-ID: <5189E188.6060801@cn.fujitsu.com>
-References: <1367893269-9308-1-git-send-email-gaofeng@cn.fujitsu.com>
-	<1367893269-9308-11-git-send-email-gaofeng@cn.fujitsu.com>
-	<20130508020626.GD24627@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org,
-	serge.hallyn-GeWIH/nMZzLQT0dZR+AlfA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	sgrubb-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org
-To: Matt Helsley <matthltc-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>
-Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <20130508020626.GD24627-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
-List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
-	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Pravin B Shelar <pshelar@nicira.com>
+Subject: [PATCH] gso: Handle Trans-Ether-Bridging protocol in skb_network_protocol()
+Date: Tue,  7 May 2013 23:41:07 -0700
+Message-ID: <1367995267-23443-1-git-send-email-pshelar@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Cong Wang <amwang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:46034 "HELO
+	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752082Ab3EHGlN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 02:41:13 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz10so1101583pad.30
+        for <netdev@vger.kernel.org>; Tue, 07 May 2013 23:41:13 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/08/2013 10:06 AM, Matt Helsley wrote:
-> On Tue, May 07, 2013 at 10:20:31AM +0800, Gao feng wrote:
->> It's better to define audit_ever_enabled as bool
->>
->> Signed-off-by: Gao feng <gaofeng-BthXqXjhjHXQFUHtdCDX3A@public.gmane.org>
->> ---
->>  kernel/audit.c | 2 +-
->>  1 file changed, 1 insertion(+), 1 deletion(-)
->>
->> diff --git a/kernel/audit.c b/kernel/audit.c
->> index 4595a9e..1138ff5 100644
->> --- a/kernel/audit.c
->> +++ b/kernel/audit.c
->> @@ -76,7 +76,7 @@ static int	audit_initialized;
->>  #define AUDIT_OFF	0
->>  #define AUDIT_ON	1
->>  #define AUDIT_LOCKED	2
->> -int		audit_ever_enabled;
->> +bool		audit_ever_enabled;
-> 
-> I think you're better off placing this at the beginning of the series
-> and submitting it separately since it's only incidentally related to
-> this RFC.
-> 
+Rather than having logic to calculate inner protocol in every
+tunnel gso handler move it to gso code. This simplifies code.
 
-Thanks for your suggestion. will send these cleanup patches separately.
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Cong Wang <amwang@redhat.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+ net/core/dev.c |   11 +++++++++++
+ net/ipv4/gre.c |    8 +-------
+ net/ipv4/udp.c |    4 +---
+ 3 files changed, 13 insertions(+), 10 deletions(-)
 
-Thanks
-Gao
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 40b1fad..fc1e289 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2213,6 +2213,17 @@ __be16 skb_network_protocol(struct sk_buff *skb)
+ 	__be16 type = skb->protocol;
+ 	int vlan_depth = ETH_HLEN;
+ 
++	/* Tunnel gso handlers can set protocol to ethernet. */
++	if (type == htons(ETH_P_TEB)) {
++		struct ethhdr *eth;
++
++		if (unlikely(!pskb_may_pull(skb, sizeof(struct ethhdr))))
++			return 0;
++
++		eth = (struct ethhdr *)skb_mac_header(skb);
++		type = eth->h_proto;
++	}
++
+ 	while (type == htons(ETH_P_8021Q) || type == htons(ETH_P_8021AD)) {
+ 		struct vlan_hdr *vh;
+ 
+diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+index cc22363..b2e805a 100644
+--- a/net/ipv4/gre.c
++++ b/net/ipv4/gre.c
+@@ -150,13 +150,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 		csum = false;
+ 
+ 	/* setup inner skb. */
+-	if (greh->protocol == htons(ETH_P_TEB)) {
+-		struct ethhdr *eth = (struct ethhdr *)skb_inner_mac_header(skb);
+-		skb->protocol = eth->h_proto;
+-	} else {
+-		skb->protocol = greh->protocol;
+-	}
+-
++	skb->protocol = greh->protocol;
+ 	skb->encapsulation = 0;
+ 
+ 	if (unlikely(!pskb_may_pull(skb, ghl)))
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 0ae038a..0bf5d39 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2311,7 +2311,6 @@ static struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+ 	int mac_len = skb->mac_len;
+ 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
+-	struct ethhdr *inner_eth = (struct ethhdr *)skb_inner_mac_header(skb);
+ 	__be16 protocol = skb->protocol;
+ 	netdev_features_t enc_features;
+ 	int outer_hlen;
+@@ -2324,8 +2323,7 @@ static struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+ 	skb_reset_mac_header(skb);
+ 	skb_set_network_header(skb, skb_inner_network_offset(skb));
+ 	skb->mac_len = skb_inner_network_offset(skb);
+-	inner_eth = (struct ethhdr *)skb_mac_header(skb);
+-	skb->protocol = inner_eth->h_proto;
++	skb->protocol = htons(ETH_P_TEB);
+ 
+ 	/* segment inner packet. */
+ 	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
+-- 
+1.7.1
