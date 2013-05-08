@@ -1,43 +1,70 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH RFC iproute2] Add VF link state control
-Date: Wed, 8 May 2013 20:31:13 +0300
-Message-ID: <CAJZOPZKGGj=531UVDw-47mWD7LGQ7AYh1c7cZwv_08p0Lz1Gtg@mail.gmail.com>
-References: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com>
-	<1368020717-22194-4-git-send-email-ogerlitz@mellanox.com>
-	<20130508091753.0be79e6c@nehalam.linuxnetplumber.net>
-	<1368030286.1664.16.camel@dcbw.foobar.com>
-	<518A80F6.5060605@intel.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: Linux driver for Realtek RTL8723AU devices with USB ID 0bda:1724
+ such as found in Lenovo IdeaPad Yoga 13
+Date: Wed, 08 May 2013 13:12:15 -0500
+Message-ID: <518A957F.1040502@lwfinger.net>
+References: <5159B52D.3050601@lwfinger.net> <5189B939.4010905@zytor.com> <518A7814.1070604@lwfinger.net> <20130508162350.GC28080@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Rony Efraim <ronye@mellanox.com>
-To: John Fastabend <john.r.fastabend@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f45.google.com ([209.85.216.45]:59966 "EHLO
-	mail-qa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756904Ab3EHRbQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 13:31:16 -0400
-Received: by mail-qa0-f45.google.com with SMTP id hu16so2914217qab.18
-        for <netdev@vger.kernel.org>; Wed, 08 May 2013 10:31:13 -0700 (PDT)
-In-Reply-To: <518A80F6.5060605@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "H. Peter Anvin" <hpa@zytor.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>, Dan Williams <dcbw@redhat.com>,
+	'George0505' <george0505@realtek.com>,
+	Joon Ro <joonhyoung.ro@gmail.com>
+To: Greg KH <gregkh@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130508162350.GC28080@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 8, 2013 at 7:44 PM, John Fastabend
-<john.r.fastabend@intel.com> wrote:
-> It does seem unfortunate though that every time we want a feature that
-> already exists to be applicable for a VF we have to go through this
-> exercise of adding an ndo op and adding lookup code in each and
-> every driver to find the VF and pass messages back and forth.
+On 05/08/2013 11:23 AM, Greg KH wrote:
+> On Wed, May 08, 2013 at 11:06:44AM -0500, Larry Finger wrote:
+>> On 05/07/2013 09:32 PM, H. Peter Anvin wrote:
+>>>
+>>> So I can verify that this driver works against 3.8.11 (not against
+>>> current -linus because of a build failure), and yes, there is Bluetooth
+>>> in this device.  In fact, it seems to work better than some in-tree
+>>> drivers I have seen in the past.
+>>>
+>>> However, I'm confused as to the above and what it implies for the
+>>> purpose of the staging tree.  Wasn't the whole point of the staging tree
+>>> to have a working-but-ugly driver upstream and have the work to clean it
+>>> up happen in the mainline tree instead of off somewhere.
+>>
+>> Yes, but even staging has some standards.
+>
+> I have standards?  That's a first :)
+>
+>> For example, they frown on inclusion of firmware in a massive data
+>> block in a file in the driver - it should be in a separate file the
+>> /lib/firmware/ tree.
+>
+> Sure, that would be "nice", but it's not something that I should reject
+> a driver for, have I done that?
 
-agree, how about introducing ndo_set_vf_config which we can extend to
-include new attrbiutes each time we want to add them...  actually do
-we have robust way to extend
-the existing ifla_vf_info? I guess so
+No. You merely "recommended" that it be the #1 item in the TODO list, which 
+forced me to fix it fairly quickly for r8712u.
 
-int (*ndo_get_vf_config)(struct net_device *dev, int vf, struct
-ifla_vf_info *ivf);
+>
+>> In addition, the mainline drivers/net/wireless/ tree is only available
+>> to devices that use mac80211 for the software-based MAC layer. That
+>> conversion is a serious effort that may never be done, thus the
+>> 8723au driver may never leave staging.
+>
+> That's a bigger deal, but note, some drivers have done it, it is not
+> impossible.
 
-these two calls are also there but only the enic driver uses them
+Most of them were in the kernel before mac80211, and have been given a pass as 
+part of a "grandfather" clause.
 
-int (*ndo_set_vf_port)(struct net_device *dev, int vf, struct nlattr *port[]);
-int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
+Unfortunately, I forgot the main reason for development in an off-line repo. I 
+do not have one of these devices, and I have drawn the line at purchasing a 
+$1000 Lenovo tablet just to get one. Making "small" untested changes in the 
+off-line repo for the users to verify is a lot simpler than working through 
+staging, no matter how accommodating you are. :)
+
+If someone wants to donate a device, that would speed up the process.
+
+Larry
