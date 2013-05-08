@@ -1,47 +1,69 @@
-From: "Rafael J. Wysocki" <rjw@sisk.pl>
-Subject: Re: [PATCH v2 00/10] optimize freezing tasks by reducing task wakeups
-Date: Wed, 08 May 2013 02:02:24 +0200
-Message-ID: <8514381.qPm240gC5h@vostro.rjw.lan>
-References: <1367884221-20462-1-git-send-email-ccross@android.com> <20130507181237.GE5531@mtj.dyndns.org>
+From: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH] Bluetooth: hidp: using strlcpy or strcpy instead of strncpy
+Date: Wed, 08 May 2013 09:02:15 +0800
+Message-ID: <5189A417.503@asianux.com>
+References: <518906A8.7060708@asianux.com> <CANq1E4SmY+CD0uf53_b6GeFkQ-LYnpdxsDGSRMWdn2i1mnb6WQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org, Pavel Machek <pavel@ucw.cz>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Ingo Molnar <mingo@redhat.com>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Mandeep Singh Baines <msb@chromium.org>,
-	Oleg Nesterov <oleg@redhat.com>, linux-nfs@vger.kernel.org,
-	linux-pm@vger.kernel.org, netdev@vger.kernel.org,
-	Linus Torvalds <torvalds@linux-foundation.org>
-To: Tejun Heo <tj@kernel.org>, Colin Cross <ccross@android.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20130507181237.GE5531@mtj.dyndns.org>
-Sender: linux-pm-owner@vger.kernel.org
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>, andrei.emeltchenko-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CANq1E4SmY+CD0uf53_b6GeFkQ-LYnpdxsDGSRMWdn2i1mnb6WQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, May 07, 2013 11:12:37 AM Tejun Heo wrote:
-> Hello,
-> 
-> On Mon, May 06, 2013 at 04:50:05PM -0700, Colin Cross wrote:
-> > On slow cpus the large number of task wakeups and context switches
-> > triggered by freezing and thawing tasks can take a significant amount
-> > of cpu time.  This patch series reduces the amount of work done during
-> > freezing tasks by avoiding waking up tasks that are already in a freezable
-> > state.
-> 
-> For the whole series,
-> 
->  Acked-by: Tejun Heo <tj@kernel.org>
-> 
-> Thanks a lot!
+On 2013=C4=EA05=D4=C208=C8=D5 03:31, David Herrmann wrote:
+> On Tue, May 7, 2013 at 3:50 PM, Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org> wro=
+te:
+>> >
+>> > For NUL terminated string, need always let it ended by zero.
+>> >
+>> > Since have already called memcpy() to initialize 'ci', so need not
+>> > redundent initializations.
+>> >
+>> > Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+>> > ---
+>> >  net/bluetooth/hidp/core.c |   10 +++-------
+>> >  1 files changed, 3 insertions(+), 7 deletions(-)
+>> >
+>> > diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+>> > index 940f5ac..9a8ae63 100644
+>> > --- a/net/bluetooth/hidp/core.c
+>> > +++ b/net/bluetooth/hidp/core.c
+>> > @@ -76,25 +76,21 @@ static void hidp_copy_session(struct hidp_sess=
+ion *session, struct hidp_conninfo
+>> >         ci->flags =3D session->flags;
+>> >         ci->state =3D BT_CONNECTED;
+>> >
+>> > -       ci->vendor  =3D 0x0000;
+>> > -       ci->product =3D 0x0000;
+>> > -       ci->version =3D 0x0000;
+>> > -
+>> >         if (session->input) {
+>> >                 ci->vendor  =3D session->input->id.vendor;
+>> >                 ci->product =3D session->input->id.product;
+>> >                 ci->version =3D session->input->id.version;
+>> >                 if (session->input->name)
+>> > -                       strncpy(ci->name, session->input->name, 12=
+8);
+>> > +                       strlcpy(ci->name, session->input->name, 12=
+8);
+>> >                 else
+>> > -                       strncpy(ci->name, "HID Boot Device", 128);
+>> > +                       strcpy(ci->name, "HID Boot Device");
+> I'd actually prefer strlcpy() here, too (better be safe). Other than
+> that the patch looks fine.
 
-All 16 patches queued up as v3.11 material.
+OK, thanks. I will send patch v2.
 
-Many thanks to everyone involved,
-Rafael
+--=20
+Chen Gang
 
-
--- 
-I speak only for myself.
-Rafael J. Wysocki, Intel Open Source Technology Center.
+Asianux Corporation
