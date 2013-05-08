@@ -1,9 +1,10 @@
 From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/2 v6 RESEND] usbnet: allow status interrupt URB to
- always be active
-Date: Wed, 08 May 2013 13:14:24 -0700 (PDT)
-Message-ID: <20130508.131424.165653900409648625.davem@davemloft.net>
+Subject: Re: [PATCH 2/2 v6 RESEND] sierra_net: keep status interrupt URB
+ active
+Date: Wed, 08 May 2013 13:14:34 -0700 (PDT)
+Message-ID: <20130508.131434.1761984633661397541.davem@davemloft.net>
 References: <1367875763.31762.9.camel@dcbw.foobar.com>
+	<1367876096.31762.14.camel@dcbw.foobar.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,27 +13,23 @@ Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, tom.leiming-Re5JQEeQqe8Avxti
 	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org, phil-ydcDiazATMQ@public.gmane.org
 To: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
 Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1367875763.31762.9.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
+In-Reply-To: <1367876096.31762.14.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
 Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Mon, 06 May 2013 16:29:23 -0500
+Date: Mon, 06 May 2013 16:34:56 -0500
 
-> Some drivers (sierra_net) need the status interrupt URB
-> active even when the device is closed, because they receive
-> custom indications from firmware.  Add functions to refcount
-> the status interrupt URB submit/kill operation so that
-> sub-drivers and the generic driver don't fight over whether
-> the status interrupt URB is active or not.
+> The driver and firmware sync up through SYNC messages, and the
+> firmware's affirmative reply to these SYNC messages appears to be the
+> "Reset" indication received via the status interrupt endpoint.  Thus the
+> driver needs the status interrupt endpoint always active so that the
+> Reset indication can be received even if the netdev is closed, which is
+> the case right after device insertion.
 > 
-> A sub-driver can call usbnet_status_start() at any time, but
-> the URB is only submitted the first time the function is
-> called.  Likewise, when the sub-driver is done with the URB,
-> it calls usbnet_status_stop() but the URB is only killed when
-> all users have stopped it.  The URB is still killed and
-> re-submitted for suspend/resume, as before, with the same
-> refcount it had at suspend.
+> If the Reset indication is not received by the driver, it continues
+> sending SYNC messages to the firmware, which crashes about 10 seconds
+> later and the device stops responding.
 > 
 > Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 
