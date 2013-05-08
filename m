@@ -1,32 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] gso: Handle Trans-Ether-Bridging protocol in
- skb_network_protocol()
-Date: Wed, 08 May 2013 13:15:47 -0700 (PDT)
-Message-ID: <20130508.131547.1016073329398924443.davem@davemloft.net>
-References: <1367995267-23443-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [Patch net] ipv6,mcast: always hold idev->lock before mca_lock
+Date: Wed, 08 May 2013 13:16:08 -0700 (PDT)
+Message-ID: <20130508.131608.2126756346585157464.davem@davemloft.net>
+References: <1367998914-26423-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, amwang@redhat.com
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org, dingtianhong@huawei.com,
+	yoshfuji@linux-ipv6.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41797 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41809 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755472Ab3EHUPs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 16:15:48 -0400
-In-Reply-To: <1367995267-23443-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1750900Ab3EHUQJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 16:16:09 -0400
+In-Reply-To: <1367998914-26423-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Tue,  7 May 2013 23:41:07 -0700
+From: Cong Wang <amwang@redhat.com>
+Date: Wed,  8 May 2013 15:41:54 +0800
 
-> Rather than having logic to calculate inner protocol in every
-> tunnel gso handler move it to gso code. This simplifies code.
-> 
-> Cc: Eric Dumazet <eric.dumazet@gmail.com>
-> Cc: Cong Wang <amwang@redhat.com>
+> dingtianhong reported the following deadlock detected by lockdep:
+ ...
+> Reported-by: dingtianhong <dingtianhong@huawei.com>
+> Cc: dingtianhong <dingtianhong@huawei.com>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org> 
 > Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Applied.
+I'm waiting for testing validation of this patch.
