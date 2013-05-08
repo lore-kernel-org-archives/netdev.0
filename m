@@ -1,119 +1,54 @@
-From: chetan loke <loke.chetan@gmail.com>
-Subject: Re: [PATCH net] packet: tpacket_v3: do not trigger bug() on wrong
- header status
-Date: Wed, 8 May 2013 16:32:38 -0400
-Message-ID: <CAAsGZS5SrH7vJ=dd+2JkpAF7RS1UGv09kU+nCjw-qXhDV7SZTA@mail.gmail.com>
-References: <1367585820-2674-1-git-send-email-dborkman@redhat.com>
-	<CAAsGZS7TVr2YX8H8EQRqk4gDwNMQiaOkjhwCuLM_27RqB6+QgQ@mail.gmail.com>
-	<518968DF.9070008@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: net-next currently not in good shape
+Date: Wed, 08 May 2013 16:30:25 -0700
+Message-ID: <1368055825.13473.31.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f42.google.com ([209.85.215.42]:47061 "EHLO
-	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755472Ab3EHUck (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 16:32:40 -0400
-Received: by mail-la0-f42.google.com with SMTP id fq13so2173196lab.1
-        for <netdev@vger.kernel.org>; Wed, 08 May 2013 13:32:38 -0700 (PDT)
-In-Reply-To: <518968DF.9070008@redhat.com>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:38857 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751653Ab3EHXa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 19:30:28 -0400
+Received: by mail-oa0-f50.google.com with SMTP id l10so2775959oag.9
+        for <netdev@vger.kernel.org>; Wed, 08 May 2013 16:30:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 7, 2013 at 4:49 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
+Hi David
 
->> remember, you were able to figure out what the problem was because of
->> the WARN and the forceful BUG.
->> Is BUG ok? Depends on how you look at it. If you are doing serious
->> network monitoring on a real life appliance
->> we don't really want folks to write crappy application. May be BUG is
->
->
-> Right, and now we treat people who write crappy applications with BUG?
->
-> BUG is only for consistency checks *within* the kernel and not meant to
-> be triggered on purpose from user space.
->
+net-next is currently lacking following patch and dies at boot time (at
+leat on my machines)
 
-I thought I made myself clear when I said, may be BUG is too harsh :).
+This message might help others.
+
+Thanks !
 
 
->
->> too harsh. But then I don't see a WARN in this patch either (may be I
->> overlooked it).
->
->
-> So what's the point? If people see a WARN() in their kernel log they go
-> and complain on netdev that AF_PACKET is broken although its their
-> application?
->
+commit 956e46efb2478ebff7a871138458fa8124fd18dd
+Author: Chris Mason <clmason@fusionio.com>
+Date:   Wed May 8 15:56:28 2013 -0400
 
-It's not complaining. Its called bug-reporting. Exactly, by removing
-the WARN you deprived the user from fixing him/her buggy application.
-Infact, that could have been a kernel bug. Who knows.
-
-Pls re-read the code again. The code will also guard itself when you
-start modifying it and forget to check the block-status before calling
-it. There are checks like these everywhere. The caller doesn't trust
-the callee.
-
-If you don't even print a warning then we will never know what
-happened. Again, you were able to see that the user-space was writing
-crap because of this very same WARN + BUG. As mentioned earlier, you
-can strip the BUG. But we need the WARN back. Use WARN_ONCE.
-
-
-So this is what you need.
-
-if (status == STATUS_KERNEL) {
-...
-return;
-}
-if (status == STATUS_USER)
-return;
-WARN_ONE();
-
-There are two kinds of users:
-1) User-A runs a one-shot capture. The corruption may/may-not happen
-during that time.
-2) A capture appliance is running 24x7 monitoring a network. If the
-corruption does happen then some monitoring process will detect it
-(when it scans the kernel-log file) and will raise an alert. Or even
-sysadmins will look at the logfiles from time to time.
-
-Your patch does NOT help in case 2). I can't mine the log file because
-nothing was printed. This could go on for hours and we will lose all
-the capture data during all that time. There are SLAs around
-appliances.
-
-
-> There was already a discussion on netdev with a different BUG macro in
-> the TX_RING, where we concluded that it shouldn't be a warn either.
->
->
->>> of concern:
->>>
->>>    prb_retire_current_block() [when block status != TP_STATUS_KERNEL]
->>>    prb_open_block() [when block_status != TP_STATUS_KERN
-
-Those checks are there today. But no guarantees when the next person
-who is modifying the code does so without understanding it first.
-
-
->>>
->>> Calls to prb_open_block() are guarded by ealier checks if block_status
->>> is really TP_STATUS_KERNEL (racy!), but the first one BUG() is easily
-
-racy? How?
-
-
-
-> Yoda condition is called if you compare ``CONSTANT == var'', actually the
-> other way round as it should be in CodingStyle. But that's not the big issue
-
-FYI: Long back compilers weren't smart enough to warn the user about
-if (var = CONSTANT), so you had to teach yourself to always write
-(CONSTANT == var).
+    mm/slab: Fix crash during slab init
+    
+    Commit 8a965b3baa89 ("mm, slab_common: Fix bootstrap creation of kmalloc
+    caches") introduced a regression that caused us to crash early during
+    boot.  The commit was introducing ordering of slab creation, making sure
+    two odd-sized slabs were created after specific powers of two sizes.
+    
+    But, if any of the power of two slabs were created earlier during boot,
+    slabs at index 1 or 2 might not get created at all.  This patch makes
+    sure none of the slabs get skipped.
+    
+    Tony Lindgren bisected this down to the offending commit, which really
+    helped because bisect kept bringing me to almost but not quite this one.
+    
+    Signed-off-by: Chris Mason <chris.mason@fusionio.com>
+    Acked-by: Christoph Lameter <cl@linux.com>
+    Acked-by: Tony Lindgren <tony@atomide.com>
+    Acked-by: Soren Brinkmann <soren.brinkmann@xilinx.com>
+    Tested-by: Tetsuo Handa <penguin-kernel@i-love.sakura.ne.jp>
+    Tested-by: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+    Signed-off-by: Linus Torvalds <torvalds@linux-foundation.org>
