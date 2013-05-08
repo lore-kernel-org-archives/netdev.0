@@ -1,51 +1,39 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: Linux driver for Realtek RTL8723AU devices with USB ID 0bda:1724
- such as found in Lenovo IdeaPad Yoga 13
-Date: Tue, 07 May 2013 19:32:25 -0700
-Message-ID: <5189B939.4010905@zytor.com>
-References: <5159B52D.3050601@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: linux-wireless <linux-wireless@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>, Dan Williams <dcbw@redhat.com>,
-	"'George0505'" <george0505@realtek.com>,
-	Joon Ro <joonhyoung.ro@gmail.com>,
-	Greg KH <gregkh@linux-foundation.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5159B52D.3050601@lwfinger.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net] udp: remove a useless initialization
+Date: Wed,  8 May 2013 11:04:06 +0800
+Message-ID: <1367982246-10730-1-git-send-email-amwang@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:9349 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752539Ab3EHDES (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 May 2013 23:04:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/01/2013 09:26 AM, Larry Finger wrote:
-> 
-> My plan is to evolve this driver into a form that is suitable for
-> inclusion in the staging tree of the kernel; however, that will take
-> some effort and time, which is why I am making the intermediate results
-> available now. As that work proceeds, the git version will evolve into
-> code that can be submitted to the kernel with only small changes.
-> 
-> Please be aware that I do not have any hardware that uses this driver,
-> thus I can only guarantee that the code compiles; however, Joon Ro has
-> tested the driver and he assures me that it works. Together we have been
-> eliminating spurious log entries.
-> 
-> The 8723a chip also includes Bluetooth hardware. I have not received any
-> indication that it is active in the RTL8723AU, but it certainly is in
-> the RTL8723AE, the PCIe version. In a separate activity, I am working
-> with Realtek to prepare a kernel driver for this portion of the device.
-> 
+'inner_eth' is not used until it is assigned with the same
+value later.
 
-So I can verify that this driver works against 3.8.11 (not against
-current -linus because of a build failure), and yes, there is Bluetooth
-in this device.  In fact, it seems to work better than some in-tree
-drivers I have seen in the past.
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
-However, I'm confused as to the above and what it implies for the
-purpose of the staging tree.  Wasn't the whole point of the staging tree
-to have a working-but-ugly driver upstream and have the work to clean it
-up happen in the mainline tree instead of off somewhere.
-
-	-hpa
+---
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 0ae038a..3d036bdd 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -2311,7 +2311,7 @@ static struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+ 	int mac_len = skb->mac_len;
+ 	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
+-	struct ethhdr *inner_eth = (struct ethhdr *)skb_inner_mac_header(skb);
++	struct ethhdr *inner_eth;
+ 	__be16 protocol = skb->protocol;
+ 	netdev_features_t enc_features;
+ 	int outer_hlen;
