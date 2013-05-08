@@ -1,32 +1,43 @@
-From: PJ Waskiewicz <peter.p.waskiewicz.jr@linux.intel.com>
-Subject: Re: [PATCH] gso: Handle Trans-Ether-Bridging protocol in skb_network_protocol()
-Date: Wed, 08 May 2013 00:42:49 -0700
-Message-ID: <518A01F9.8090403@linux.intel.com>
-References: <1367995267-23443-1-git-send-email-pshelar@nicira.com>
+From: "John P. Goldman" <gliceaga@mendoza-conicet.gob.ar>
+Subject: dringender Vorschlag
+Date: Wed, 8 May 2013 05:46:28 -0300 (ART)
+Message-ID: <351326728.69416.1368002788604.JavaMail.root__46402.1940985278$1368004079$gmane$org@correo.mendoza-conicet.gob.ar>
+Reply-To: "John P. Goldman" <johnp.goldman@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Pravin B Shelar <pshelar@nicira.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15284 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750830Ab3EHHmu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 May 2013 03:42:50 -0400
-In-Reply-To: <1367995267-23443-1-git-send-email-pshelar@nicira.com>
+Received: from mx2.mendoza-conicet.gob.ar ([200.69.149.90]:40948 "EHLO
+	mx2.mendoza-conicet.gob.ar" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751190Ab3EHJG6 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 May 2013 05:06:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/7/2013 11:41 PM, Pravin B Shelar wrote:
-> Rather than having logic to calculate inner protocol in every
-> tunnel gso handler move it to gso code. This simplifies code.
 
-Moving code that isn't used on a regular basis to hotpath for most 
-networking to simplify code isn't always a good thing.
 
-Have you run tests on non-tunneled streams using GSO to make sure there 
-isn't an adverse impact to performance due to the new, untaken branch?
+Entschuldigungen f=C3=BCr kommen in Ihre Privatsph=C3=A4re! Ich bin Rec=
+htsanwalt
+Werner Erich Zeller; Ich habe einen meiner einflussreichen und
+wohlhabenden Kunden zum Tode; und er hatte eine sehr geheime und privat=
+e
+Investitionen von =E2=82=AC15,000,000.00 bei einer privaten Bank in Gro=
+=C3=9Fbritannien
+hier zu Lebzeiten. Diese Investition wurde ohne einen deklarierten
+n=C3=A4chsten Angeh=C3=B6rigen und beg=C3=BCnstigte. Jetzt brauche ich =
+Sie arbeiten mit
+mir als mein Partner zu erholen und zu je 50 % Aktienfonds. Alle Dokume=
+nte
+werden rechtlich beantragt und beschafft, und in 5 Werktage, wird diese
+Transaktion auftreten. Aber ich brauche einen ernsten, treuen und
+glaubw=C3=BCrdigen Partner.
 
--PJ
+Bitte senden Sie mir eine vertrauliche Antwort, wenn Sie denken, Sie
+vertraut werden k=C3=B6nnen und sind von den Qualit=C3=A4ten! Ich warte=
+ auf Ihre
+schnelle Antwort.
+
+Werner Erich Zeller (Rechtsanwalt)
+Rufen Sie + 44-702-409-0820 (Office)
