@@ -1,249 +1,135 @@
-From: dingtianhong <dingtianhong@huawei.com>
-Subject: Re: [Patch net] ipv6,mcast: always hold idev->lock before mca_lock
-Date: Wed, 8 May 2013 17:47:05 +0800
-Message-ID: <518A1F19.6030801@huawei.com>
-References: <1367998914-26423-1-git-send-email-amwang@redhat.com>
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: net: phy: realtek: add rtl8201f driver
+Date: Wed, 8 May 2013 19:10:27 +0900
+Message-ID: <201305081910.27203.neidhard.kim@lge.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:27943 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751950Ab3EHJr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 05:47:57 -0400
-In-Reply-To: <1367998914-26423-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net, peppe.cavallaro@st.com,
+	chohnstaedt@innominate.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I think move ahead of the idev->lock is a fit way to solve this, so will test it, thanks.
+This patch adds the minimal driver to manage the
+Realtek RTL8201F 10/100Mbps Transceivers.
 
-On 2013/5/8 15:41, Cong Wang wrote:
-> dingtianhong reported the following deadlock detected by lockdep:
-> 
->  ======================================================
->  [ INFO: possible circular locking dependency detected ]
->  3.4.24.05-0.1-default #1 Not tainted
->  -------------------------------------------------------
->  ksoftirqd/0/3 is trying to acquire lock:
->   (&ndev->lock){+.+...}, at: [<ffffffff8147f804>] ipv6_get_lladdr+0x74/0x120
-> 
->  but task is already holding lock:
->   (&mc->mca_lock){+.+...}, at: [<ffffffff8149d130>] mld_send_report+0x40/0x150
-> 
->  which lock already depends on the new lock.
-> 
-> 
->  the existing dependency chain (in reverse order) is:
-> 
->  -> #1 (&mc->mca_lock){+.+...}:
->         [<ffffffff810a8027>] validate_chain+0x637/0x730
->         [<ffffffff810a8417>] __lock_acquire+0x2f7/0x500
->         [<ffffffff810a8734>] lock_acquire+0x114/0x150
->         [<ffffffff814f691a>] rt_spin_lock+0x4a/0x60
->         [<ffffffff8149e4bb>] igmp6_group_added+0x3b/0x120
->         [<ffffffff8149e5d8>] ipv6_mc_up+0x38/0x60
->         [<ffffffff81480a4d>] ipv6_find_idev+0x3d/0x80
->         [<ffffffff81483175>] addrconf_notify+0x3d5/0x4b0
->         [<ffffffff814fae3f>] notifier_call_chain+0x3f/0x80
->         [<ffffffff81073471>] raw_notifier_call_chain+0x11/0x20
->         [<ffffffff813d8722>] call_netdevice_notifiers+0x32/0x60
->         [<ffffffff813d92d4>] __dev_notify_flags+0x34/0x80
->         [<ffffffff813d9360>] dev_change_flags+0x40/0x70
->         [<ffffffff813ea627>] do_setlink+0x237/0x8a0
->         [<ffffffff813ebb6c>] rtnl_newlink+0x3ec/0x600
->         [<ffffffff813eb4d0>] rtnetlink_rcv_msg+0x160/0x310
->         [<ffffffff814040b9>] netlink_rcv_skb+0x89/0xb0
->         [<ffffffff813eb357>] rtnetlink_rcv+0x27/0x40
->         [<ffffffff81403e20>] netlink_unicast+0x140/0x180
->         [<ffffffff81404a9e>] netlink_sendmsg+0x33e/0x380
->         [<ffffffff813c4252>] sock_sendmsg+0x112/0x130
->         [<ffffffff813c537e>] __sys_sendmsg+0x44e/0x460
->         [<ffffffff813c5544>] sys_sendmsg+0x44/0x70
->         [<ffffffff814feab9>] system_call_fastpath+0x16/0x1b
-> 
->  -> #0 (&ndev->lock){+.+...}:
->         [<ffffffff810a798e>] check_prev_add+0x3de/0x440
->         [<ffffffff810a8027>] validate_chain+0x637/0x730
->         [<ffffffff810a8417>] __lock_acquire+0x2f7/0x500
->         [<ffffffff810a8734>] lock_acquire+0x114/0x150
->         [<ffffffff814f6c82>] rt_read_lock+0x42/0x60
->         [<ffffffff8147f804>] ipv6_get_lladdr+0x74/0x120
->         [<ffffffff8149b036>] mld_newpack+0xb6/0x160
->         [<ffffffff8149b18b>] add_grhead+0xab/0xc0
->         [<ffffffff8149d03b>] add_grec+0x3ab/0x460
->         [<ffffffff8149d14a>] mld_send_report+0x5a/0x150
->         [<ffffffff8149f99e>] igmp6_timer_handler+0x4e/0xb0
->         [<ffffffff8105705a>] call_timer_fn+0xca/0x1d0
->         [<ffffffff81057b9f>] run_timer_softirq+0x1df/0x2e0
->         [<ffffffff8104e8c7>] handle_pending_softirqs+0xf7/0x1f0
->         [<ffffffff8104ea3b>] __do_softirq_common+0x7b/0xf0
->         [<ffffffff8104f07f>] __thread_do_softirq+0x1af/0x210
->         [<ffffffff8104f1c1>] run_ksoftirqd+0xe1/0x1f0
->         [<ffffffff8106c7de>] kthread+0xae/0xc0
->         [<ffffffff814fff74>] kernel_thread_helper+0x4/0x10
-> 
-> actually we can just hold idev->lock before taking pmc->mca_lock,
-> and avoid taking idev->lock again when iterating idev->addr_list.
-> 
-> Reported-by: dingtianhong <dingtianhong@huawei.com>
-> Cc: dingtianhong <dingtianhong@huawei.com>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org> 
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> ---
-> diff --git a/include/net/addrconf.h b/include/net/addrconf.h
-> index 84a6440..dbc6db7 100644
-> --- a/include/net/addrconf.h
-> +++ b/include/net/addrconf.h
-> @@ -86,6 +86,9 @@ extern int			ipv6_dev_get_saddr(struct net *net,
->  					       const struct in6_addr *daddr,
->  					       unsigned int srcprefs,
->  					       struct in6_addr *saddr);
-> +extern int			__ipv6_get_lladdr(struct inet6_dev *idev,
-> +						  struct in6_addr *addr,
-> +						  unsigned char banned_flags);
->  extern int			ipv6_get_lladdr(struct net_device *dev,
->  						struct in6_addr *addr,
->  						unsigned char banned_flags);
-> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-> index d1ab6ab..a937092 100644
-> --- a/net/ipv6/addrconf.c
-> +++ b/net/ipv6/addrconf.c
-> @@ -1448,6 +1448,23 @@ try_nextdev:
->  }
->  EXPORT_SYMBOL(ipv6_dev_get_saddr);
->  
-> +int __ipv6_get_lladdr(struct inet6_dev *idev, struct in6_addr *addr,
-> +		      unsigned char banned_flags)
-> +{
-> +	int err = -EADDRNOTAVAIL;
-> +	struct inet6_ifaddr *ifp;
-> +
-> +	list_for_each_entry(ifp, &idev->addr_list, if_list) {
-> +		if (ifp->scope == IFA_LINK &&
-> +		    !(ifp->flags & banned_flags)) {
-> +			*addr = ifp->addr;
-> +			err = 0;
-> +			break;
-> +		}
-> +	}
-> +	return err;
-> +}
-> +
->  int ipv6_get_lladdr(struct net_device *dev, struct in6_addr *addr,
->  		    unsigned char banned_flags)
->  {
-> @@ -1457,17 +1474,8 @@ int ipv6_get_lladdr(struct net_device *dev, struct in6_addr *addr,
->  	rcu_read_lock();
->  	idev = __in6_dev_get(dev);
->  	if (idev) {
-> -		struct inet6_ifaddr *ifp;
-> -
->  		read_lock_bh(&idev->lock);
-> -		list_for_each_entry(ifp, &idev->addr_list, if_list) {
-> -			if (ifp->scope == IFA_LINK &&
-> -			    !(ifp->flags & banned_flags)) {
-> -				*addr = ifp->addr;
-> -				err = 0;
-> -				break;
-> -			}
-> -		}
-> +		err = __ipv6_get_lladdr(idev, addr, banned_flags);
->  		read_unlock_bh(&idev->lock);
->  	}
->  	rcu_read_unlock();
-> diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-> index bfa6cc3..c3998c2 100644
-> --- a/net/ipv6/mcast.c
-> +++ b/net/ipv6/mcast.c
-> @@ -1343,8 +1343,9 @@ static void ip6_mc_hdr(struct sock *sk, struct sk_buff *skb,
->  	hdr->daddr = *daddr;
->  }
->  
-> -static struct sk_buff *mld_newpack(struct net_device *dev, int size)
-> +static struct sk_buff *mld_newpack(struct inet6_dev *idev, int size)
->  {
-> +	struct net_device *dev = idev->dev;
->  	struct net *net = dev_net(dev);
->  	struct sock *sk = net->ipv6.igmp_sk;
->  	struct sk_buff *skb;
-> @@ -1369,7 +1370,7 @@ static struct sk_buff *mld_newpack(struct net_device *dev, int size)
->  
->  	skb_reserve(skb, hlen);
->  
-> -	if (ipv6_get_lladdr(dev, &addr_buf, IFA_F_TENTATIVE)) {
-> +	if (__ipv6_get_lladdr(idev, &addr_buf, IFA_F_TENTATIVE)) {
->  		/* <draft-ietf-magma-mld-source-05.txt>:
->  		 * use unspecified address as the source address
->  		 * when a valid link-local address is not available.
-> @@ -1465,7 +1466,7 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ifmcaddr6 *pmc,
->  	struct mld2_grec *pgr;
->  
->  	if (!skb)
-> -		skb = mld_newpack(dev, dev->mtu);
-> +		skb = mld_newpack(pmc->idev, dev->mtu);
->  	if (!skb)
->  		return NULL;
->  	pgr = (struct mld2_grec *)skb_put(skb, sizeof(struct mld2_grec));
-> @@ -1485,7 +1486,8 @@ static struct sk_buff *add_grhead(struct sk_buff *skb, struct ifmcaddr6 *pmc,
->  static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
->  	int type, int gdeleted, int sdeleted)
->  {
-> -	struct net_device *dev = pmc->idev->dev;
-> +	struct inet6_dev *idev = pmc->idev;
-> +	struct net_device *dev = idev->dev;
->  	struct mld2_report *pmr;
->  	struct mld2_grec *pgr = NULL;
->  	struct ip6_sf_list *psf, *psf_next, *psf_prev, **psf_list;
-> @@ -1514,7 +1516,7 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
->  		    AVAILABLE(skb) < grec_size(pmc, type, gdeleted, sdeleted)) {
->  			if (skb)
->  				mld_sendpack(skb);
-> -			skb = mld_newpack(dev, dev->mtu);
-> +			skb = mld_newpack(idev, dev->mtu);
->  		}
->  	}
->  	first = 1;
-> @@ -1541,7 +1543,7 @@ static struct sk_buff *add_grec(struct sk_buff *skb, struct ifmcaddr6 *pmc,
->  				pgr->grec_nsrcs = htons(scount);
->  			if (skb)
->  				mld_sendpack(skb);
-> -			skb = mld_newpack(dev, dev->mtu);
-> +			skb = mld_newpack(idev, dev->mtu);
->  			first = 1;
->  			scount = 0;
->  		}
-> @@ -1596,8 +1598,8 @@ static void mld_send_report(struct inet6_dev *idev, struct ifmcaddr6 *pmc)
->  	struct sk_buff *skb = NULL;
->  	int type;
->  
-> +	read_lock_bh(&idev->lock);
->  	if (!pmc) {
-> -		read_lock_bh(&idev->lock);
->  		for (pmc=idev->mc_list; pmc; pmc=pmc->next) {
->  			if (pmc->mca_flags & MAF_NOREPORT)
->  				continue;
-> @@ -1609,7 +1611,6 @@ static void mld_send_report(struct inet6_dev *idev, struct ifmcaddr6 *pmc)
->  			skb = add_grec(skb, pmc, type, 0, 0);
->  			spin_unlock_bh(&pmc->mca_lock);
->  		}
-> -		read_unlock_bh(&idev->lock);
->  	} else {
->  		spin_lock_bh(&pmc->mca_lock);
->  		if (pmc->mca_sfcount[MCAST_EXCLUDE])
-> @@ -1619,6 +1620,7 @@ static void mld_send_report(struct inet6_dev *idev, struct ifmcaddr6 *pmc)
->  		skb = add_grec(skb, pmc, type, 0, 0);
->  		spin_unlock_bh(&pmc->mca_lock);
->  	}
-> +	read_unlock_bh(&idev->lock);
->  	if (skb)
->  		mld_sendpack(skb);
->  }
-> 
-> .
-> 
+Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
+---
+ drivers/net/phy/realtek.c |   60 +++++++++++++++++++++++++++++++++++++++-----
+ 1 files changed, 53 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index 8e7af83..27847ca 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -16,9 +16,13 @@
+ #include <linux/phy.h>
+ #include <linux/module.h>
+ 
+-#define RTL821x_PHYSR		0x11
+-#define RTL821x_PHYSR_DUPLEX	0x2000
+-#define RTL821x_PHYSR_SPEED	0xc000
++/* page 0 register 30 - interrupt indicators and SNR display register */
++#define RTL8201F_ISR		0x1e
++/* page 0 register 31 - page select register */
++#define RTL8201F_PSR		0x1f
++/* page 7 register 19 - interrupt, WOL enable, and LEDs function register */
++#define RTL8201F_IER		0x13
++
+ #define RTL821x_INER		0x12
+ #define RTL821x_INER_INIT	0x6400
+ #define RTL821x_INSR		0x13
+@@ -29,6 +33,15 @@ MODULE_DESCRIPTION("Realtek PHY driver");
+ MODULE_AUTHOR("Johnson Leung");
+ MODULE_LICENSE("GPL");
+ 
++static int rtl8201f_ack_interrupt(struct phy_device *phydev)
++{
++	int err;
++
++	err = phy_read(phydev, RTL8201F_ISR);
++
++	return (err < 0) ? err : 0;
++}
++
+ static int rtl821x_ack_interrupt(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -38,6 +51,24 @@ static int rtl821x_ack_interrupt(struct phy_device *phydev)
+ 	return (err < 0) ? err : 0;
+ }
+ 
++static int rtl8201f_config_intr(struct phy_device *phydev)
++{
++	int err;
++
++	phy_write(phydev, RTL8201F_PSR, 0x0007);	/* select page 7 */
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
++		err = phy_write(phydev, RTL8201F_IER, 0x3800 |
++		                phy_read(phydev, RTL8201F_IER));
++	else
++		err = phy_write(phydev, RTL8201F_IER, ~0x3800 &
++		                phy_read(phydev, RTL8201F_IER));
++
++	phy_write(phydev, RTL8201F_PSR, 0x0000);	/* back to page 0 */
++
++	return err;
++}
++
+ static int rtl8211b_config_intr(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -64,6 +95,20 @@ static int rtl8211e_config_intr(struct phy_device *phydev)
+ 	return err;
+ }
+ 
++/* RTL8201F */
++static struct phy_driver rtl8201f_driver = {
++	.phy_id		= 0x001cc816,
++	.name		= "RTL8201F 10/100Mbps Ethernet",
++	.phy_id_mask	= 0x001fffff,
++	.features	= PHY_BASIC_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_aneg	= &genphy_config_aneg,
++	.read_status	= &genphy_read_status,
++	.ack_interrupt	= &rtl8201f_ack_interrupt,
++	.config_intr	= &rtl8201f_config_intr,
++	.driver		= { .owner = THIS_MODULE,},
++};
++
+ /* RTL8211B */
+ static struct phy_driver rtl8211b_driver = {
+ 	.phy_id		= 0x001cc912,
+@@ -96,16 +141,16 @@ static struct phy_driver rtl8211e_driver = {
+ 
+ static int __init realtek_init(void)
+ {
+-	int ret;
+-
+-	ret = phy_driver_register(&rtl8211b_driver);
+-	if (ret < 0)
++	if(phy_driver_register(&rtl8201f_driver) < 0)
++		return -ENODEV;
++	if(phy_driver_register(&rtl8211b_driver) < 0)
+ 		return -ENODEV;
+ 	return phy_driver_register(&rtl8211e_driver);
+ }
+ 
+ static void __exit realtek_exit(void)
+ {
++	phy_driver_unregister(&rtl8201f_driver);
+ 	phy_driver_unregister(&rtl8211b_driver);
+ 	phy_driver_unregister(&rtl8211e_driver);
+ }
+@@ -114,6 +159,7 @@ module_init(realtek_init);
+ module_exit(realtek_exit);
+ 
+ static struct mdio_device_id __maybe_unused realtek_tbl[] = {
++	{ 0x001cc816, 0x001fffff },
+ 	{ 0x001cc912, 0x001fffff },
+ 	{ 0x001cc915, 0x001fffff },
+ 	{ }
