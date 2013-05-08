@@ -1,40 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 2/2 v6 RESEND] sierra_net: keep status interrupt URB
- active
-Date: Wed, 08 May 2013 13:14:34 -0700 (PDT)
-Message-ID: <20130508.131434.1761984633661397541.davem@davemloft.net>
-References: <1367875763.31762.9.camel@dcbw.foobar.com>
-	<1367876096.31762.14.camel@dcbw.foobar.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: of_mdio: fix behavior on missing phy device
+Date: Wed, 08 May 2013 13:14:48 -0700 (PDT)
+Message-ID: <20130508.131448.594837732354914619.davem@davemloft.net>
+References: <1367920171-20264-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org, tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	epasheva-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rfiler-ywE8TTl5eJHWpu6QEFMNjNBPR1lH4CV8@public.gmane.org, phil-ydcDiazATMQ@public.gmane.org
-To: dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1367876096.31762.14.camel-wKZy7rqYPVb5EHUCmHmTqw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: grant.likely@linaro.org, rob.herring@calxeda.com,
+	devicetree-discuss@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: sebastian.hesselbarth@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1367920171-20264-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Mon, 06 May 2013 16:34:56 -0500
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Date: Tue,  7 May 2013 11:49:31 +0200
 
-> The driver and firmware sync up through SYNC messages, and the
-> firmware's affirmative reply to these SYNC messages appears to be the
-> "Reset" indication received via the status interrupt endpoint.  Thus the
-> driver needs the status interrupt endpoint always active so that the
-> Reset indication can be received even if the netdev is closed, which is
-> the case right after device insertion.
+> of_mdiobus_register creates a phy_device even if get_phy_device failed
+> to create it previously. This causes indefinite polling on non-existent
+> PHYs. This fix makes of_mdio_register rely on get_phy_device to
+> properly create the device or fail otherwise.
 > 
-> If the Reset indication is not received by the driver, it continues
-> sending SYNC messages to the firmware, which crashes about 10 seconds
-> later and the device stops responding.
-> 
-> Signed-off-by: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 
 Applied.
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
