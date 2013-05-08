@@ -1,39 +1,33 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: Regression: too many packets with incorrect checksum
-Date: Wed, 08 May 2013 20:22:23 +0800
-Message-ID: <1368015743.3115.12.camel@cr0>
-References: <1368013888.3115.9.camel@cr0> <518A41CA.3030804@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: PJ Waskiewicz <peter.p.waskiewicz.jr@linux.intel.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net 0/2] net/mlx4: fixes for ndo VF control calls
+Date: Wed,  8 May 2013 15:30:26 +0300
+Message-ID: <1368016228-19783-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, ronye@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2037 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754312Ab3EHMWa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 May 2013 08:22:30 -0400
-In-Reply-To: <518A41CA.3030804@linux.intel.com>
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:51966 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754323Ab3EHMaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 08:30:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-08 at 05:15 -0700, PJ Waskiewicz wrote:
-> On 5/8/2013 4:51 AM, Cong Wang wrote:
-> > Hi, all
-> >
-> > The latest -net tree has some regression, I saw too many packets with
-> > incorrect checksum from tcpdump inside a KVM guest, see the bottom.
-> > (firewall is turned off on both sides.)
-> >
-> > It seems this is not related with drivers, I tried virtio and e1000,
-> > both have the same problem. And UDP has the problem too. But turning off
-> > tx-checksum by `ethtool -K eth0 tx off` makes the problem disappear
-> > (just turning off TSO or GSO doesn't make any difference).
-> >
-> > I can provide other information if you need.
-> 
-> Reproduce on bare metal, non-KVM?
-> 
+Hi Dave,
 
-Sorry that I don't have env or time to test it on non-KVM, because my
-kernel config is specific to KVM and kicks out all modules.
+These are two fixes to the mlx4 implementation of ndo_set_vf calls
+we added in the 3.10 merge window.
+
+Or.
+
+Or Gerlitz (1):
+  net/mlx4_core: Add missing report on VST and spoof-checking dev caps
+
+Rony Efraim (1):
+  net/mlx4: Strengthen VLAN tags/priorities enforcement in VST mode
+
+ drivers/net/ethernet/mellanox/mlx4/en_resources.c  |    2 +-
+ drivers/net/ethernet/mellanox/mlx4/fw.c            |    4 ++-
+ .../net/ethernet/mellanox/mlx4/resource_tracker.c  |   29 +++++++++++--------
+ include/linux/mlx4/qp.h                            |   29 ++++++++++++++++++-
+ 4 files changed, 48 insertions(+), 16 deletions(-)
