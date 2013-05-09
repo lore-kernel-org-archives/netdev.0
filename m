@@ -1,47 +1,27 @@
-From: Denis Efremov <yefremov.denis@gmail.com>
-Subject: [PATCH 05/21] 9p: remove inline marking of EXPORT_SYMBOL functions
-Date: Thu,  9 May 2013 11:58:27 +0400
-Message-ID: <1368086323-9412-5-git-send-email-yefremov.denis@gmail.com>
-References: <1368086241-9357-1-git-send-email-yefremov.denis@gmail.com>
-Cc: Denis Efremov <yefremov.denis@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	trivial@kernel.org, ldv-project@linuxtesting.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368086241-9357-1-git-send-email-yefremov.denis@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net 1/2] net/mlx4_core: Add missing report on VST and
+ spoof-checking dev caps
+Date: Thu, 9 May 2013 11:14:28 +0300
+Message-ID: <518B5AE4.7090406@mellanox.com>
+References: <1368016228-19783-1-git-send-email-ogerlitz@mellanox.com> <1368016228-19783-2-git-send-email-ogerlitz@mellanox.com> <518A7626.5060409@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<amirv@mellanox.com>, <ronye@mellanox.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog120.obsmtp.com ([207.126.144.149]:43090 "EHLO
+	eu1sys200aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751249Ab3EIIOe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 04:14:34 -0400
+In-Reply-To: <518A7626.5060409@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-EXPORT_SYMBOL and inline directives are contradictory to each other.
-The patch fixes this inconsistency.
+On 08/05/2013 18:58, Sergei Shtylyov wrote:
+>> +        [7] = "FSM (MAC unti-spoofing) support"
+>
+>     Perhaps "anti-"?
 
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Denis Efremov <yefremov.denis@gmail.com>
----
- net/9p/client.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/9p/client.c b/net/9p/client.c
-index 8eb7542..591c664 100644
---- a/net/9p/client.c
-+++ b/net/9p/client.c
-@@ -64,13 +64,13 @@ static const match_table_t tokens = {
- 	{Opt_err, NULL},
- };
- 
--inline int p9_is_proto_dotl(struct p9_client *clnt)
-+int p9_is_proto_dotl(struct p9_client *clnt)
- {
- 	return clnt->proto_version == p9_proto_2000L;
- }
- EXPORT_SYMBOL(p9_is_proto_dotl);
- 
--inline int p9_is_proto_dotu(struct p9_client *clnt)
-+int p9_is_proto_dotu(struct p9_client *clnt)
- {
- 	return clnt->proto_version == p9_proto_2000u;
- }
--- 
-1.8.1.4
+sure, fixing and will send V1, thanks spotting this over
