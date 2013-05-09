@@ -1,35 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2] net: smsc911x: don't artificially limit build
-Date: Thu, 09 May 2013 14:04:33 -0700 (PDT)
-Message-ID: <20130509.140433.661245947462377290.davem@davemloft.net>
-References: <1368095027-8448-1-git-send-email-mark.rutland@arm.com>
-	<20130509102650.GC8258@e106331-lin.cambridge.arm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	arnd@arndb.de
-To: mark.rutland@arm.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59935 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752265Ab3EIVEg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 17:04:36 -0400
-In-Reply-To: <20130509102650.GC8258@e106331-lin.cambridge.arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: [PATCH 07/12] net/ethernet: ARM_AT91_ETHER should depend on HAS_DMA
+Date: Thu,  9 May 2013 23:04:49 +0200
+Message-ID: <1368133494-22198-7-git-send-email-geert@linux-m68k.org>
+References: <1368133494-22198-1-git-send-email-geert@linux-m68k.org>
+Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368133494-22198-1-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Mark Rutland <mark.rutland@arm.com>
-Date: Thu, 9 May 2013 11:26:50 +0100
+If NO_DMA=y:
 
-> This should of course be PATCH, not PATCHv2.
-> 
-> I blame my shell's command history completion.
+drivers/built-in.o: In function `at91ether_start':
+drivers/net/ethernet/cadence/at91_ether.c:49: undefined reference to `dma_alloc_coherent'
+drivers/net/ethernet/cadence/at91_ether.c:60: undefined reference to `dma_free_coherent'
+drivers/built-in.o: In function `at91ether_interrupt':
+drivers/net/ethernet/cadence/at91_ether.c:250: undefined reference to `dma_unmap_single'
+drivers/built-in.o: In function `at91ether_start_xmit':
+drivers/net/ethernet/cadence/at91_ether.c:169: undefined reference to `dma_map_single'
+drivers/built-in.o: In function `at91ether_close':
+drivers/net/ethernet/cadence/at91_ether.c:145: undefined reference to `dma_free_coherent'
 
-That's the least of your problems.
+Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/cadence/Kconfig |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-Every single list posting bounces when it is sent to your address,
-with error "550 Envelope blocked - User Entry - http://www.mimecast.com/knowledgebase/KBID10473.htm#550"
-
-I've unsubscribed you and I'm ignoring your patch submissions until
-your email is actually working properly.
+diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
+index 1194446..0d9d6e6 100644
+--- a/drivers/net/ethernet/cadence/Kconfig
++++ b/drivers/net/ethernet/cadence/Kconfig
+@@ -22,7 +22,7 @@ if NET_CADENCE
+ 
+ config ARM_AT91_ETHER
+ 	tristate "AT91RM9200 Ethernet support"
+-	depends on GENERIC_HARDIRQS
++	depends on GENERIC_HARDIRQS && HAS_DMA
+ 	select NET_CORE
+ 	select MACB
+ 	---help---
+-- 
+1.7.0.4
