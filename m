@@ -1,63 +1,66 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: [B.A.T.M.A.N.] pull request net: batman-adv 2013-05-09
-Date: Thu, 9 May 2013 13:07:56 +0200
-Message-ID: <20130509110756.GE1415@ritirata.org>
-References: <1368097007-817-1-git-send-email-ordex@autistici.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v3 2/3] bridge: only expire the mdb entry when
+ query is received
+Date: Thu, 09 May 2013 20:53:48 +0800
+Message-ID: <1368104028.12413.12.camel@cr0>
+References: <1367305819-14013-1-git-send-email-amwang@redhat.com>
+	 <1367305819-14013-2-git-send-email-amwang@redhat.com>
+	 <20130502015938.GA2237@gondor.apana.org.au> <1367553022.2415.55.camel@cr0>
+	 <20130503040102.GA10898@gondor.apana.org.au> <1367564926.2415.56.camel@cr0>
+	 <20130503093017.GA12471@gondor.apana.org.au> <1367810653.6246.5.camel@cr0>
+	 <20130509051522.GA7998@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="Clx92ZfkiYIKRjnr"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: davem@davemloft.net
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Herbert Xu <herbert@gondor.hengli.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from diserzione.investici.org ([82.221.99.153]:40542 "EHLO
-	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753857Ab3EILJk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 07:09:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1368097007-817-1-git-send-email-ordex@autistici.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47388 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754715Ab3EIMyH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 May 2013 08:54:07 -0400
+In-Reply-To: <20130509051522.GA7998@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Thu, 2013-05-09 at 13:15 +0800, Herbert Xu wrote:
+> 
+> Yes this looks about right.  BTW, for the groups-epcific queries
+> you should use the leave timeout values and not the startup timeout
+> values.
+> 
 
---Clx92ZfkiYIKRjnr
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Right, something like below:
 
-On Thu, May 09, 2013 at 12:56:43PM +0200, Antonio Quartulli wrote:
-> here you have four fixes intended for net.
-
-Ops, "Hello David," has been trimmed.
-Sorry for that :)
-
-Cheers,
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---Clx92ZfkiYIKRjnr
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRi4OLAAoJEADl0hg6qKeOPDUP/13vd4lpcQGj7nvPdDv6qTwh
-imBE+ylOoYOU72ozJv6QUOL7SdCvOHRkW5rv4GF2KXNpwdDNwVesMQkqynq3gbcU
-54EaRajfvwjOpQzQ5kozvGKHBX/07eFC68Kh/ahy2+a+U3rXY3BlYcxHudnMrFse
-QHknaAH0A/S0uSkaRVXgrcCj6kwlxExeJOhbDYd+L6LOIT1RGapO9i0LWyQlHzDS
-JTj/LN13IODsC40LehFgQi46IPCgDru62cOQMacfD/GktiqfT+aFK3o08YH/ZqhG
-JVtuN/Oe+eOYXExRc8iXOiXE4pSn8pYNe8zTuQiGP6FuChtQC6O71a91O/chZ10D
-D2U6Wv729Y1nTbc/rvocCC2ROWnlYSXrg1pk37LFGxvQz5lteSQsa7qdWOG9zrtt
-GMytPO/5Hgi5TaVF+eNmObu2daRInAcCJqNRshDBd2TSFjTN9IPF7caG55xH7kJs
-7PhZqGowAB1DxxdIVGuSzcACWTArD0xM88stNJaCgW6GbBMJBHNLT77vDNdjbzTf
-H6Efk5xKrunheLCEsuWZjH9/k6uWbCVE6iGc1f/1oQSodHk26W06xANObNJkxA4M
-n/yVGAK/lIVqqnqEW9YK9HT+tzrs9z6teFHCgDpjzJmomOusi4OunKl13WChYIJP
-1iyDU6isN8tdGjWjGsYT
-=W9yK
------END PGP SIGNATURE-----
-
---Clx92ZfkiYIKRjnr--
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 11946a4..1e414ce 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -1252,20 +1252,13 @@ static void br_multicast_leave_group(struct
+net_bridge *br,
+ 
+        if (br->multicast_querier &&
+            !timer_pending(&br->multicast_querier_timer)) {
+-               u32 sent;
+-
+                __br_multicast_send_query(br, port, &mp->addr);
+-               sent = port ? port->multicast_startup_queries_sent :
+-                             br->multicast_startup_queries_sent;
+-               time = jiffies;
+-               time += sent < br->multicast_startup_query_count ?
+-                       br->multicast_startup_query_interval :
+-                       br->multicast_query_interval;
+-               mod_timer(port ? &port->multicast_query_timer :
+-                                &br->multicast_query_timer, time);
+ 
+                time = jiffies + br->multicast_last_member_count *
+                                 br->multicast_last_member_interval;
++               mod_timer(port ? &port->multicast_query_timer :
++                                &br->multicast_query_timer, time);
++
+                for (p = mlock_dereference(mp->ports, br);
+                     p != NULL;
+                     p = mlock_dereference(p->next, br)) {
