@@ -1,88 +1,130 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net] macvlan: fix passthru mode race between dev removal and rx path
-Date: Thu,  9 May 2013 16:23:40 +0200
-Message-ID: <1368109420-14199-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, sri@us.ibm.com, kaber@trash.net,
-	linux-kernel@vger.kernel.org, mtesar@redhat.com,
-	eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:46040 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755201Ab3EIOXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 10:23:46 -0400
-Received: by mail-wg0-f43.google.com with SMTP id c11so3015236wgh.34
-        for <netdev@vger.kernel.org>; Thu, 09 May 2013 07:23:44 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>
+Subject: [PATCH 1/2] mrf24j40: Avoid transmission while
+	receiving a frame
+Date: Thu,  9 May 2013 17:19:46 +0200
+Message-ID: <1368112788-25701-1-git-send-email-david@hauweele.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>
+To: Alexander Smirnov <alex.bluesman.smirnov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Dmitry Eremin-Solenikov <dbaryshkov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
+List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
+	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Currently, if macvlan in passthru mode is created and data are rxed and
-you remove this device, following panic happens:
+The transceiver may fail under heavy traffic when a frame is transmitted
+while receiving another frame.
 
-NULL pointer dereference at 0000000000000198
-IP: [<ffffffffa0196058>] macvlan_handle_frame+0x153/0x1f7 [macvlan]
+This patch uses a mutex to separate the transmission and reception of
+frames along with a secondary working queue to avoid a deadlock while
+waiting for the transmission interrupt.
 
-I'm using following script to trigger this:
-<script>
-while [ 1 ]
-do
-	ip link add link e1 name macvtap0 type macvtap mode passthru
-	ip link set e1 up
-	ip link set macvtap0 up
-	IFINDEX=`ip link |grep macvtap0 | cut -f 1 -d ':'`
-	cat /dev/tap$IFINDEX  >/dev/null &
-	ip link del dev macvtap0
-done
-</script>
-
-I run this script while "ping -f" is running on another machine to send
-packets to e1 rx.
-
-Reason of the panic is that list_first_entry() is blindly called in
-macvlan_handle_frame() even if the list was empty. vlan is set to
-incorrect pointer which leads to the crash.
-
-I'm fixing this by protecting port->vlans list by rcu and by preventing
-from getting incorrect pointer in case the list is empty.
-
-Introduced by: commit eb06acdc85585f2 "macvlan: Introduce 'passthru' mode to takeover the underlying device"
-
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+Signed-off-by: David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>
 ---
- drivers/net/macvlan.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
+ drivers/net/ieee802154/mrf24j40.c |   22 +++++++++++++++++++++-
+ 1 file changed, 21 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-index d5a141c..1c502bb 100644
---- a/drivers/net/macvlan.c
-+++ b/drivers/net/macvlan.c
-@@ -229,7 +229,8 @@ static rx_handler_result_t macvlan_handle_frame(struct sk_buff **pskb)
- 	}
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index ede3ce4..1e3ddf3 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -82,8 +82,10 @@ struct mrf24j40 {
+ 	struct ieee802154_dev *dev;
  
- 	if (port->passthru)
--		vlan = list_first_entry(&port->vlans, struct macvlan_dev, list);
-+		vlan = list_first_or_null_rcu(&port->vlans,
-+					      struct macvlan_dev, list);
- 	else
- 		vlan = macvlan_hash_lookup(port, eth->h_dest);
- 	if (vlan == NULL)
-@@ -814,7 +815,7 @@ int macvlan_common_newlink(struct net *src_net, struct net_device *dev,
- 	if (err < 0)
- 		goto upper_dev_unlink;
+ 	struct mutex buffer_mutex; /* only used to protect buf */
++	struct mutex txrx_mutex; /* avoid transmission while receiving a frame */
+ 	struct completion tx_complete;
+ 	struct work_struct irqwork;
++	struct work_struct rxwork;
+ 	u8 *buf; /* 3 bytes. Used for SPI single-register transfers. */
+ };
  
--	list_add_tail(&vlan->list, &port->vlans);
-+	list_add_tail_rcu(&vlan->list, &port->vlans);
- 	netif_stacked_transfer_operstate(lowerdev, dev);
+@@ -353,6 +355,8 @@ static int mrf24j40_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
+ 	/* Set TXNACKREQ if the ACK bit is set in the packet. */
+ 	if (skb->data[0] & IEEE802154_FC_ACK_REQ)
+ 		val |= 0x4;
++
++	mutex_lock(&devrec->txrx_mutex);
+ 	write_short_reg(devrec, REG_TXNCON, val);
  
- 	return 0;
-@@ -842,7 +843,7 @@ void macvlan_dellink(struct net_device *dev, struct list_head *head)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
+ 	INIT_COMPLETION(devrec->tx_complete);
+@@ -361,6 +365,9 @@ static int mrf24j40_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
+ 	ret = wait_for_completion_interruptible_timeout(
+ 						&devrec->tx_complete,
+ 						5 * HZ);
++
++	mutex_unlock(&devrec->txrx_mutex);
++
+ 	if (ret == -ERESTARTSYS)
+ 		goto err;
+ 	if (ret == 0) {
+@@ -535,6 +542,8 @@ static int mrf24j40_handle_rx(struct mrf24j40 *devrec)
+ 	int ret = 0;
+ 	struct sk_buff *skb;
  
--	list_del(&vlan->list);
-+	list_del_rcu(&vlan->list);
- 	unregister_netdevice_queue(dev, head);
- 	netdev_upper_dev_unlink(vlan->lowerdev, dev);
++	mutex_lock(&devrec->txrx_mutex);
++
+ 	/* Turn off reception of packets off the air. This prevents the
+ 	 * device from overwriting the buffer while we're reading it. */
+ 	ret = read_short_reg(devrec, REG_BBREG1, &val);
+@@ -575,6 +584,8 @@ out:
+ 	val &= ~0x4; /* Clear RXDECINV */
+ 	write_short_reg(devrec, REG_BBREG1, val);
+ 
++	mutex_unlock(&devrec->txrx_mutex);
++
+ 	return ret;
  }
+ 
+@@ -616,12 +627,19 @@ static void mrf24j40_isrwork(struct work_struct *work)
+ 
+ 	/* Check for Rx */
+ 	if (intstat & 0x8)
+-		mrf24j40_handle_rx(devrec);
++		schedule_work(&devrec->rxwork);
+ 
+ out:
+ 	enable_irq(devrec->spi->irq);
+ }
+ 
++static void mrf24j40_rxwork(struct work_struct *work)
++{
++	struct mrf24j40 *devrec = container_of(work, struct mrf24j40, rxwork);
++
++	mrf24j40_handle_rx(devrec);
++}
++
+ static int mrf24j40_probe(struct spi_device *spi)
+ {
+ 	int ret = -ENOMEM;
+@@ -648,8 +666,10 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 		spi->max_speed_hz = MAX_SPI_SPEED_HZ;
+ 
+ 	mutex_init(&devrec->buffer_mutex);
++	mutex_init(&devrec->txrx_mutex);
+ 	init_completion(&devrec->tx_complete);
+ 	INIT_WORK(&devrec->irqwork, mrf24j40_isrwork);
++	INIT_WORK(&devrec->rxwork, mrf24j40_rxwork);
+ 	devrec->spi = spi;
+ 	spi_set_drvdata(spi, devrec);
+ 
 -- 
-1.7.11.7
+1.7.10.4
+
+
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book
+"Graph Databases" is the definitive new guide to graph databases and 
+their applications. This 200-page book is written by three acclaimed 
+leaders in the field. The early access version is available now. 
+Download your free book today! http://p.sf.net/sfu/neotech_d2d_may
