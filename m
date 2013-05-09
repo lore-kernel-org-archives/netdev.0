@@ -1,59 +1,76 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 3/4] batman-adv: make DAT drop ARP requests targeting local clients
-Date: Thu,  9 May 2013 12:56:46 +0200
-Message-ID: <1368097007-817-4-git-send-email-ordex@autistici.org>
-References: <1368097007-817-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:44810 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754088Ab3EIK6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 06:58:35 -0400
-In-Reply-To: <1368097007-817-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: pull request net: batman-adv 2013-05-09
+Date: Thu,  9 May 2013 12:56:43 +0200
+Message-ID: <1368097007-817-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-In the outgoing ARP request snooping routine in DAT, ARP
-Request sent by local clients which are supposed to be
-replied by other local clients can be silently dropped.
+here you have four fixes intended for net.
 
-The destination host will reply by itself through the LAN
-and therefore there is no need to involve DAT.
+1/4 fixes the parsing of a string sent from userspace in order to avoid random
+memory access in case of string length of 0.
 
-Reported-by: Carlos Quijano <carlos@crqgestion.es>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-Tested-by: Carlos Quijano <carlos@crqgestion.es>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
----
+2/4 adds a check for the return value of pskb_trim_rcsum() in order to stop
+processing the skb in case of failure.
+
+3/4 prevents DAT (the Distributed ARP Table) to send cached ARP replies when
+both the source and the destination of the snooped ARP request are local clients
+(meaning: directly connected to the node). This can confuse a bridge where
+batman-adv is enslaved.
+
+4/4 fix a race condition in the main clean up procedure by reordering
+sub-components freeing function invocations.
+
+
+Please pull or let me know if there is any problem.
+
+Thanks a lot,
+	Antonio
+
+
+The following changes since commit 4f924b2aa4d3cb30f07e57d6b608838edcbc0d88:
+
+  if_cablemodem.h: Add parenthesis around ioctl macros (2013-05-08 13:13:30 -0700)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to a4361860351e87876aebd9595906d928ce8572c6:
+
+  batman-adv: reorder clean up routine in order to avoid race conditions (2013-05-09 12:39:45 +0200)
+
+----------------------------------------------------------------
+Included changes:
+- fix parsing of user typed protocol string to avoid random memory access in
+  some cases
+- check pskb_trim_rcsum() return value
+- prevent DAT from sending ARP replies when not needed
+- reorder the main clean up routine to prevent race conditions
+
+----------------------------------------------------------------
+Antonio Quartulli (2):
+      batman-adv: make DAT drop ARP requests targeting local clients
+      batman-adv: reorder clean up routine in order to avoid race conditions
+
+Marek Lindner (2):
+      batman-adv: check proto length before accessing proto string buffer
+      batman-adv: check return value of pskb_trim_rcsum()
+
  net/batman-adv/distributed-arp-table.c | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
-
-diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
-index 8e15d96..2399920 100644
---- a/net/batman-adv/distributed-arp-table.c
-+++ b/net/batman-adv/distributed-arp-table.c
-@@ -837,6 +837,19 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
- 
- 	dat_entry = batadv_dat_entry_hash_find(bat_priv, ip_dst);
- 	if (dat_entry) {
-+		/* If the ARP request is destined for a local client the local
-+		 * client will answer itself. DAT would only generate a
-+		 * duplicate packet.
-+		 *
-+		 * Moreover, if the soft-interface is enslaved into a bridge, an
-+		 * additional DAT answer may trigger kernel warnings about
-+		 * a packet coming from the wrong port.
-+		 */
-+		if (batadv_is_my_client(bat_priv, dat_entry->mac_addr)) {
-+			ret = true;
-+			goto out;
-+		}
-+
- 		skb_new = arp_create(ARPOP_REPLY, ETH_P_ARP, ip_src,
- 				     bat_priv->soft_iface, ip_dst, hw_src,
- 				     dat_entry->mac_addr, hw_src);
--- 
-1.8.1.5
+ net/batman-adv/main.c                  | 18 +++++++++++++-----
+ net/batman-adv/network-coding.c        |  8 ++++++--
+ 3 files changed, 32 insertions(+), 7 deletions(-)
