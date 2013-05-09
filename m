@@ -1,66 +1,47 @@
-From: Mark Rutland <mark.rutland@arm.com>
-Subject: Re: [PATCHv2] net: smsc911x: don't artificially limit build
-Date: Thu, 9 May 2013 11:26:50 +0100
-Message-ID: <20130509102650.GC8258@e106331-lin.cambridge.arm.com>
-References: <1368095027-8448-1-git-send-email-mark.rutland@arm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Arnd Bergmann <arnd@arndb.de>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 1/4] batman-adv: check proto length before accessing proto string buffer
+Date: Thu,  9 May 2013 12:56:44 +0200
+Message-ID: <1368097007-817-2-git-send-email-ordex@autistici.org>
+References: <1368097007-817-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:48609 "EHLO
-	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753547Ab3EIK1R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 06:27:17 -0400
-Content-Disposition: inline
-In-Reply-To: <1368095027-8448-1-git-send-email-mark.rutland@arm.com>
+Received: from latitanza.investici.org ([82.94.249.234]:44779 "EHLO
+	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754088Ab3EIK6e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 06:58:34 -0400
+In-Reply-To: <1368097007-817-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This should of course be PATCH, not PATCHv2.
+From: Marek Lindner <lindner_marek@yahoo.de>
 
-I blame my shell's command history completion.
+batadv_param_set_ra() strips the trailing '\n' from the supplied
+string buffer without checking the length of the buffer first. This
+patches avoids random memory access and associated potential
+crashes.
 
-Mark.
+Reported-by: Sasha Levin <sasha.levin@oracle.com>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
+ net/batman-adv/main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-On Thu, May 09, 2013 at 11:23:47AM +0100, Mark Rutland wrote:
-> Currently the SMSC911X driver may only be built for a specific set of
-> architectures, being limited to do so by a Kconfig depends line. This
-> means that if a platform wishes to use the driver, its architecture must
-> be added to the list explicitly, introducing pointless churn.
-> 
-> This may have been due to the driver's use of the {read,write}s{b,w,l}
-> functions, which have since been replaced with the more standard
-> io{read,write}{8,16,32}_rep. We can instead depend on HAS_IOMEM, which
-> should prevent build issues while allowing the driver to be built for
-> currently unlisted architectures, including x86 and arm64.
-> 
-> This patch removes the explicit list of architectures from the driver's
-> depend line, and replaces it with a dependency on HAS_IOMEM.
-> 
-> Signed-off-by: Mark Rutland <mark.rutland@arm.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Arnd Bergmann <arnd@arndb.de>
-> ---
->  drivers/net/ethernet/smsc/Kconfig | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
-> index bb4c167..ff9e994 100644
-> --- a/drivers/net/ethernet/smsc/Kconfig
-> +++ b/drivers/net/ethernet/smsc/Kconfig
-> @@ -97,7 +97,7 @@ config SMC911X
->  
->  config SMSC911X
->  	tristate "SMSC LAN911x/LAN921x families embedded ethernet support"
-> -	depends on (ARM || SUPERH || BLACKFIN || MIPS || MN10300)
-> +	depends on HAS_IOMEM
->  	select CRC32
->  	select NET_CORE
->  	select MII
-> -- 
-> 1.8.1.1
-> 
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 3e30a0f..9c620cd 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -475,7 +475,7 @@ static int batadv_param_set_ra(const char *val, const struct kernel_param *kp)
+ 	char *algo_name = (char *)val;
+ 	size_t name_len = strlen(algo_name);
+ 
+-	if (algo_name[name_len - 1] == '\n')
++	if (name_len > 0 && algo_name[name_len - 1] == '\n')
+ 		algo_name[name_len - 1] = '\0';
+ 
+ 	bat_algo_ops = batadv_algo_get(algo_name);
+-- 
+1.8.1.5
