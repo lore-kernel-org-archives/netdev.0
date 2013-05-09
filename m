@@ -1,39 +1,51 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net] packet: tpacket_v3: do not trigger bug() on wrong
- header status
-Date: Thu, 09 May 2013 20:32:52 +0200
-Message-ID: <518BEBD4.5020003@redhat.com>
-References: <1367585820-2674-1-git-send-email-dborkman@redhat.com> <CAAsGZS7TVr2YX8H8EQRqk4gDwNMQiaOkjhwCuLM_27RqB6+QgQ@mail.gmail.com> <518968DF.9070008@redhat.com> <CAAsGZS5SrH7vJ=dd+2JkpAF7RS1UGv09kU+nCjw-qXhDV7SZTA@mail.gmail.com> <518AF306.8020307@redhat.com> <CAAsGZS49POkSAumqQPkVT61i3Tz7+qqiRL5C2HrUCENTW5xw+Q@mail.gmail.com>
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Subject: [PATCH net v2 2/8] qlcnic: Fix ethtool strings
+Date: Thu, 9 May 2013 15:25:10 -0400
+Message-ID: <1368127516-9943-3-git-send-email-shahed.shaikh@qlogic.com>
+References: <1368127516-9943-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Jakub Zawadzki <darkjames-ws@darkjames.pl>
-To: chetan loke <loke.chetan@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40149 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751257Ab3EISdB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 May 2013 14:33:01 -0400
-In-Reply-To: <CAAsGZS49POkSAumqQPkVT61i3Tz7+qqiRL5C2HrUCENTW5xw+Q@mail.gmail.com>
+Received: from mail-db8lp0185.outbound.messaging.microsoft.com ([213.199.154.185]:45986
+	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751761Ab3EITt7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 15:49:59 -0400
+In-Reply-To: <1368127516-9943-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/09/2013 08:11 PM, chetan loke wrote:
-> On Wed, May 8, 2013 at 8:51 PM, Daniel Borkmann <dborkman@redhat.com> wrote:
-[..]
-> Normally people(sane code) will look for the return value from a
-> syscall. mmap is special because there's no syscall to run once you
-> mmap/setup the rings. Since there's no syscall there's no return
-> value. That's why we try to detect it at run-time and try to WARN the
-> user if we can.
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
 
-Well, I'm aware of all the internals and the problem statement. No need
-for further explanations.
+o Add missing information in ethtool statistics information array.
+o Fix  the typo in the statistics information string.
 
-I also don't want to have endless, tiring discussions on netdev about a
-WARN_ON_ONCE statement either.
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
 
-I still don't like it for the reasons I stated ;-) but if you want to send
-a patch, I'm not going to stand in the way.
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+index 08efb46..6005b06 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c
+@@ -131,12 +131,13 @@ static const char qlcnic_83xx_rx_stats_strings[][ETH_GSTRING_LEN] = {
+ 	"ctx_lro_pkt_cnt",
+ 	"ctx_ip_csum_error",
+ 	"ctx_rx_pkts_wo_ctx",
+-	"ctx_rx_pkts_dropped_wo_sts",
++	"ctx_rx_pkts_drop_wo_sds_on_card",
++	"ctx_rx_pkts_drop_wo_sds_on_host",
+ 	"ctx_rx_osized_pkts",
+ 	"ctx_rx_pkts_dropped_wo_rds",
+ 	"ctx_rx_unexpected_mcast_pkts",
+ 	"ctx_invalid_mac_address",
+-	"ctx_rx_rds_ring_prim_attemoted",
++	"ctx_rx_rds_ring_prim_attempted",
+ 	"ctx_rx_rds_ring_prim_success",
+ 	"ctx_num_lro_flows_added",
+ 	"ctx_num_lro_flows_removed",
+-- 
+1.5.6
