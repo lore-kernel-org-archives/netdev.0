@@ -1,52 +1,41 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: Regression: too many packets with incorrect checksum
-Date: Thu, 09 May 2013 17:17:43 +0800
-Message-ID: <1368091063.12413.9.camel@cr0>
-References: <1368013888.3115.9.camel@cr0> <1368088578.12413.4.camel@cr0>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:13643 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752698Ab3EIJRs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 May 2013 05:17:48 -0400
-In-Reply-To: <1368088578.12413.4.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Denis Efremov <yefremov.denis@gmail.com>
+Subject: [PATCH 07/21] netfilter: nf_nat: remove inline marking of EXPORT_SYMBOL functions
+Date: Thu,  9 May 2013 13:19:38 +0400
+Message-ID: <1368091192-10245-2-git-send-email-yefremov.denis@gmail.com>
+References: <1368086241-9357-1-git-send-email-yefremov.denis@gmail.com>
+Cc: Denis Efremov <yefremov.denis@gmail.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>, netfilter@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	trivial@kernel.org, ldv-project@linuxtesting.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368086241-9357-1-git-send-email-yefremov.denis@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-05-09 at 16:36 +0800, Cong Wang wrote:
-> 
-> Running another RHEL6 KVM guest, it doesn't have this problem, so it is
-> not related with KVM environment.
+EXPORT_SYMBOL and inline directives are contradictory to each other.
+The patch fixes this inconsistency.
 
-I thought it might be due to tcpdump receives a packet which is
-checksummed partially while the wire receives a correct one, but netperf
-shows that is wrong, apparently it hurts performance:
+Found by Linux Driver Verification project (linuxtesting.org).
 
-With latest -net:
+Signed-off-by: Denis Efremov <yefremov.denis@gmail.com>
+---
+ net/netfilter/nf_nat_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-~% netperf -4 -H 192.168.122.74
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-192.168.122.74 () port 0 AF_INET
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
- 87380  16384  16384    10.20     105.19
-
-
-With a RHEL6 kernel:
-
-~% netperf -4 -H 192.168.122.101
-MIGRATED TCP STREAM TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-192.168.122.101 () port 0 AF_INET
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
- 87380  16384  16384    10.00    5528.64
+diff --git a/net/netfilter/nf_nat_core.c b/net/netfilter/nf_nat_core.c
+index 038eee5..38492e0 100644
+--- a/net/netfilter/nf_nat_core.c
++++ b/net/netfilter/nf_nat_core.c
+@@ -44,7 +44,7 @@ __nf_nat_l3proto_find(u8 family)
+ 	return rcu_dereference(nf_nat_l3protos[family]);
+ }
+ 
+-inline const struct nf_nat_l4proto *
++const struct nf_nat_l4proto *
+ __nf_nat_l4proto_find(u8 family, u8 protonum)
+ {
+ 	return rcu_dereference(nf_nat_l4protos[family][protonum]);
+-- 
+1.8.1.4
