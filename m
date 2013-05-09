@@ -1,52 +1,39 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH RFC iproute2] Add VF link state control
-Date: Thu, 9 May 2013 11:34:47 +0300
-Message-ID: <CAJZOPZ+bHAOH-TMGaosZHZ8ibKQRGN1BLkJbM1r203UmSytSig@mail.gmail.com>
-References: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com>
-	<1368020717-22194-4-git-send-email-ogerlitz@mellanox.com>
-	<20130508091753.0be79e6c@nehalam.linuxnetplumber.net>
-	<1368030286.1664.16.camel@dcbw.foobar.com>
-	<518A80F6.5060605@intel.com>
-	<CAJZOPZKGGj=531UVDw-47mWD7LGQ7AYh1c7cZwv_08p0Lz1Gtg@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: Regression: too many packets with incorrect checksum
+Date: Thu, 09 May 2013 16:36:18 +0800
+Message-ID: <1368088578.12413.4.camel@cr0>
+References: <1368013888.3115.9.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Rony Efraim <ronye@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: John Fastabend <john.r.fastabend@intel.com>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f173.google.com ([209.85.216.173]:41095 "EHLO
-	mail-qc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752466Ab3EIIes (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 04:34:48 -0400
-Received: by mail-qc0-f173.google.com with SMTP id c11so1526843qcv.32
-        for <netdev@vger.kernel.org>; Thu, 09 May 2013 01:34:48 -0700 (PDT)
-In-Reply-To: <CAJZOPZKGGj=531UVDw-47mWD7LGQ7AYh1c7cZwv_08p0Lz1Gtg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55299 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751305Ab3EIIg0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 May 2013 04:36:26 -0400
+In-Reply-To: <1368013888.3115.9.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> John Fastabend <john.r.fastabend@intel.com> wrote:
-> > It does seem unfortunate though that every time we want a feature that
-> > already exists to be applicable for a VF we have to go through this
-> > exercise of adding an ndo op and adding lookup code in each and
-> > every driver to find the VF and pass messages back and forth.
->
-> agree, how about introducing ndo_set_vf_config which we can extend to
-> include new attrbiutes each time we want to add them...  actually do
-> we have robust way to extend the existing ifla_vf_info? I guess so
->
-> int (*ndo_get_vf_config)(struct net_device *dev, int vf, struct ifla_vf_info *ivf);
+On Wed, 2013-05-08 at 19:51 +0800, Cong Wang wrote:
+> Hi, all
+> 
+> The latest -net tree has some regression, I saw too many packets with
+> incorrect checksum from tcpdump inside a KVM guest, see the bottom.
+> (firewall is turned off on both sides.)
+> 
+> It seems this is not related with drivers, I tried virtio and e1000,
+> both have the same problem. And UDP has the problem too. But turning off
+> tx-checksum by `ethtool -K eth0 tx off` makes the problem disappear
+> (just turning off TSO or GSO doesn't make any difference).
+> 
 
-Do we lean towards introducing new call/s to set/get VF config and can
-be extended to new features as they come  - e.g
-control VF link state, read VF packet/byte counters, set vlan egress
-map for the VF when its in VGT mode, etc, or
-stick to the current method of one ndo per need?
+Running another RHEL6 KVM guest, it doesn't have this problem, so it is
+not related with KVM environment.
 
-
->
-> these two calls are also there but only the enic driver uses them
->
-> int (*ndo_set_vf_port)(struct net_device *dev, int vf, struct nlattr *port[]);
-> int (*ndo_get_vf_port)(struct net_device *dev, int vf, struct sk_buff *skb);
+After adding some debug printk's inside dev_hard_start_xmit(),
+->ip_summed is mostly CHECKSUM_PARTIAL, in this case, ->csum_start == 34
+(kicking out headroom, of course) and ->csum_offset == 16 look correct
+too.
