@@ -1,42 +1,43 @@
-From: "Jongsung Kim" <neidhard.kim@lge.com>
-Subject: RE: net: phy: realtek: add rtl8201f driver
-Date: Thu, 9 May 2013 11:35:03 +0900
-Message-ID: <008d01ce4c5d$cfd36410$6f7a2c30$@lge.com>
-References: <201305081910.27203.neidhard.kim@lge.com> <518A7284.4000504@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] gso: Handle Trans-Ether-Bridging protocol in
+ skb_network_protocol()
+Date: Wed, 08 May 2013 19:43:08 -0700 (PDT)
+Message-ID: <20130508.194308.824826486646607687.davem@davemloft.net>
+References: <1367995267-23443-1-git-send-email-pshelar@nicira.com>
+	<20130508.131547.1016073329398924443.davem@davemloft.net>
+	<CALnjE+rkpy2vC84L2koq93=ZqHe3fN_1A-09yh=ugFMXBnzM3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <peppe.cavallaro@st.com>,
-	<chohnstaedt@innominate.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>
-To: "'Sergei Shtylyov'" <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <518A7284.4000504@cogentembedded.com>
-Content-Language: ko
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, amwang@redhat.com
+To: pshelar@nicira.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46846 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752183Ab3EICnM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 22:43:12 -0400
+In-Reply-To: <CALnjE+rkpy2vC84L2koq93=ZqHe3fN_1A-09yh=ugFMXBnzM3A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> :
->     Removal of unused #define's is a matter of a separate cleanup patch...
+From: Pravin Shelar <pshelar@nicira.com>
+Date: Wed, 8 May 2013 19:32:40 -0700
 
-Sorry. I won't touch them.
+> On Wed, May 8, 2013 at 1:15 PM, David Miller <davem@davemloft.net> wrote:
+>> From: Pravin B Shelar <pshelar@nicira.com>
+>> Date: Tue,  7 May 2013 23:41:07 -0700
+>>
+>>> Rather than having logic to calculate inner protocol in every
+>>> tunnel gso handler move it to gso code. This simplifies code.
+>>>
+>>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+>>> Cc: Cong Wang <amwang@redhat.com>
+>>> Cc: David S. Miller <davem@davemloft.net>
+>>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+>>
+>> Applied.
+> 
+> Hi David,
+> Can you queue this patch for -stable ?
 
->> +static int rtl8201f_ack_interrupt(struct phy_device *phydev) {
->> +	int err;
->> +
->> +	err = phy_read(phydev, RTL8201F_ISR);
->
->    This could be an initializer and so make the function shorter.
->
-
-Agreed. I just thought it's better to make it similar to the
-rtl821x_ack_interrupt. Then, may I make shorter the rtl821x_ack_interrupt as
-well as rtl8201f_ack_interrupt?
-
->
->     You haven't run this patch thru scripts/checkpatch.pl -- there should
-be a space between *if* and (.
->
-
-Sorry.. what a mistake..
+Done.
