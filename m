@@ -1,43 +1,38 @@
-From: David Miller <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH] gso: Handle Trans-Ether-Bridging protocol in
  skb_network_protocol()
-Date: Wed, 08 May 2013 19:43:08 -0700 (PDT)
-Message-ID: <20130508.194308.824826486646607687.davem@davemloft.net>
+Date: Wed, 08 May 2013 19:49:45 -0700
+Message-ID: <1368067785.13473.72.camel@edumazet-glaptop>
 References: <1367995267-23443-1-git-send-email-pshelar@nicira.com>
-	<20130508.131547.1016073329398924443.davem@davemloft.net>
-	<CALnjE+rkpy2vC84L2koq93=ZqHe3fN_1A-09yh=ugFMXBnzM3A@mail.gmail.com>
+	 <20130508.131547.1016073329398924443.davem@davemloft.net>
+	 <CALnjE+rkpy2vC84L2koq93=ZqHe3fN_1A-09yh=ugFMXBnzM3A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, amwang@redhat.com
-To: pshelar@nicira.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	amwang@redhat.com
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46846 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752183Ab3EICnM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 22:43:12 -0400
+Received: from mail-da0-f46.google.com ([209.85.210.46]:57605 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750774Ab3EICtr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 May 2013 22:49:47 -0400
+Received: by mail-da0-f46.google.com with SMTP id e20so1330578dak.33
+        for <netdev@vger.kernel.org>; Wed, 08 May 2013 19:49:47 -0700 (PDT)
 In-Reply-To: <CALnjE+rkpy2vC84L2koq93=ZqHe3fN_1A-09yh=ugFMXBnzM3A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin Shelar <pshelar@nicira.com>
-Date: Wed, 8 May 2013 19:32:40 -0700
+On Wed, 2013-05-08 at 19:32 -0700, Pravin Shelar wrote:
 
-> On Wed, May 8, 2013 at 1:15 PM, David Miller <davem@davemloft.net> wrote:
->> From: Pravin B Shelar <pshelar@nicira.com>
->> Date: Tue,  7 May 2013 23:41:07 -0700
->>
->>> Rather than having logic to calculate inner protocol in every
->>> tunnel gso handler move it to gso code. This simplifies code.
->>>
->>> Cc: Eric Dumazet <eric.dumazet@gmail.com>
->>> Cc: Cong Wang <amwang@redhat.com>
->>> Cc: David S. Miller <davem@davemloft.net>
->>> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
->>
->> Applied.
-> 
 > Hi David,
 > Can you queue this patch for -stable ?
 
-Done.
+BTW you should always include in the changelog :
+
+Bug added in commit 121212121212
+("foo: some fancy patch")
+
+This eases David and all stable/distro guys work.
+
+Thanks
