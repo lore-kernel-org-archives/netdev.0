@@ -1,70 +1,63 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 4/4] batman-adv: reorder clean up routine in order to avoid race conditions
-Date: Thu,  9 May 2013 12:56:47 +0200
-Message-ID: <1368097007-817-5-git-send-email-ordex@autistici.org>
+Subject: Re: [B.A.T.M.A.N.] pull request net: batman-adv 2013-05-09
+Date: Thu, 9 May 2013 13:07:56 +0200
+Message-ID: <20130509110756.GE1415@ritirata.org>
 References: <1368097007-817-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
-	Marek Lindner <lindner_marek@yahoo.de>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="Clx92ZfkiYIKRjnr"
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:44797 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754151Ab3EIK6f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 06:58:35 -0400
+Received: from diserzione.investici.org ([82.221.99.153]:40542 "EHLO
+	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753857Ab3EILJk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 07:09:40 -0400
+Content-Disposition: inline
 In-Reply-To: <1368097007-817-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-nc_worker accesses the originator table during its periodic
-work, but since the originator table is freed before
-stopping the worker this leads to a global protection fault.
 
-Fix this by killing the worker (in nc_free) before freeing
-the originator table.
+--Clx92ZfkiYIKRjnr
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Moreover tidy up the entire clean up routine by running all
-the subcomponents freeing procedures first and then killing
-the TT and the originator tables at the end.
+On Thu, May 09, 2013 at 12:56:43PM +0200, Antonio Quartulli wrote:
+> here you have four fixes intended for net.
 
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
----
- net/batman-adv/main.c | 20 ++++++++++++++------
- 1 file changed, 14 insertions(+), 6 deletions(-)
+Ops, "Hello David," has been trimmed.
+Sorry for that :)
 
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 9c620cd..1240f07 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -163,14 +163,22 @@ void batadv_mesh_free(struct net_device *soft_iface)
- 	batadv_vis_quit(bat_priv);
- 
- 	batadv_gw_node_purge(bat_priv);
--	batadv_originator_free(bat_priv);
- 	batadv_nc_free(bat_priv);
--
--	batadv_tt_free(bat_priv);
--
--	batadv_bla_free(bat_priv);
--
- 	batadv_dat_free(bat_priv);
-+	batadv_bla_free(bat_priv);
-+
-+	/* Free the TT and the originator tables only after having terminated
-+	 * all the other depending components which may use these structures for
-+	 * their purposes.
-+	 */
-+	batadv_tt_free(bat_priv);
-+
-+	/* Since the originator table clean up routine is accessing the TT
-+	 * tables as well, it has to be invoked after the TT tables have been
-+	 * freed and marked as empty. This ensures that no cleanup RCU callbacks
-+	 * accessing the TT data are scheduled for later execution.
-+	 */
-+	batadv_originator_free(bat_priv);
- 
- 	free_percpu(bat_priv->bat_counters);
- 
--- 
-1.8.1.5
+Cheers,
+
+--=20
+Antonio Quartulli
+
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--Clx92ZfkiYIKRjnr
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRi4OLAAoJEADl0hg6qKeOPDUP/13vd4lpcQGj7nvPdDv6qTwh
+imBE+ylOoYOU72ozJv6QUOL7SdCvOHRkW5rv4GF2KXNpwdDNwVesMQkqynq3gbcU
+54EaRajfvwjOpQzQ5kozvGKHBX/07eFC68Kh/ahy2+a+U3rXY3BlYcxHudnMrFse
+QHknaAH0A/S0uSkaRVXgrcCj6kwlxExeJOhbDYd+L6LOIT1RGapO9i0LWyQlHzDS
+JTj/LN13IODsC40LehFgQi46IPCgDru62cOQMacfD/GktiqfT+aFK3o08YH/ZqhG
+JVtuN/Oe+eOYXExRc8iXOiXE4pSn8pYNe8zTuQiGP6FuChtQC6O71a91O/chZ10D
+D2U6Wv729Y1nTbc/rvocCC2ROWnlYSXrg1pk37LFGxvQz5lteSQsa7qdWOG9zrtt
+GMytPO/5Hgi5TaVF+eNmObu2daRInAcCJqNRshDBd2TSFjTN9IPF7caG55xH7kJs
+7PhZqGowAB1DxxdIVGuSzcACWTArD0xM88stNJaCgW6GbBMJBHNLT77vDNdjbzTf
+H6Efk5xKrunheLCEsuWZjH9/k6uWbCVE6iGc1f/1oQSodHk26W06xANObNJkxA4M
+n/yVGAK/lIVqqnqEW9YK9HT+tzrs9z6teFHCgDpjzJmomOusi4OunKl13WChYIJP
+1iyDU6isN8tdGjWjGsYT
+=W9yK
+-----END PGP SIGNATURE-----
+
+--Clx92ZfkiYIKRjnr--
