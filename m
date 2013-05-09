@@ -1,43 +1,31 @@
-From: Denis Efremov <yefremov.denis@gmail.com>
-Subject: [PATCH 11/21] ipv4: ip_output: remove inline marking of EXPORT_SYMBOL functions
-Date: Thu,  9 May 2013 13:19:42 +0400
-Message-ID: <1368091192-10245-6-git-send-email-yefremov.denis@gmail.com>
-References: <1368086241-9357-1-git-send-email-yefremov.denis@gmail.com>
-Cc: Denis Efremov <yefremov.denis@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, trivial@kernel.org,
-	ldv-project@linuxtesting.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368086241-9357-1-git-send-email-yefremov.denis@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jim Baxter <jim_baxter@mentor.com>
+Subject: Re: [PATCH] net: fec: enable hardware checksum only on imx6q-fec
+Date: Thu, 9 May 2013 10:35:15 +0100
+Message-ID: <518B6DD3.1040201@mentor.com>
+References: <1368083302-12516-1-git-send-email-shawn.guo@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, <kernel@pengutronix.de>,
+	<netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay1.mentorg.com ([192.94.38.131]:38029 "EHLO
+	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753461Ab3EIJf0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 05:35:26 -0400
+In-Reply-To: <1368083302-12516-1-git-send-email-shawn.guo@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-EXPORT_SYMBOL and inline directives are contradictory to each other.
-The patch fixes this inconsistency.
+On 09/05/13 08:08, Shawn Guo wrote:
+> Commit 4c09eed (net: fec: Enable imx6 enet checksum acceleration.)
+> enables hardware checksum acceleration unconditionally for all fec
+> variants.  This is inappropriate, because some variants like imx5 have
+> no such support on hardware.  Consequently, fec is broken on these
+> platforms.  Fix it by enabling hardware checksum only on imx6q-fec type
+> of controllers.
+> 
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
 
-Found by Linux Driver Verification project (linuxtesting.org).
-
-Signed-off-by: Denis Efremov <yefremov.denis@gmail.com>
----
- net/ipv4/ip_output.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
-index 147abf5..4bcabf3 100644
---- a/net/ipv4/ip_output.c
-+++ b/net/ipv4/ip_output.c
-@@ -84,7 +84,7 @@ int sysctl_ip_default_ttl __read_mostly = IPDEFTTL;
- EXPORT_SYMBOL(sysctl_ip_default_ttl);
- 
- /* Generate a checksum for an outgoing IP datagram. */
--__inline__ void ip_send_check(struct iphdr *iph)
-+void ip_send_check(struct iphdr *iph)
- {
- 	iph->check = 0;
- 	iph->check = ip_fast_csum((unsigned char *)iph, iph->ihl);
--- 
-1.8.1.4
+Reviewed-by: Jim Baxter <jim_baxter@mentor.com>
