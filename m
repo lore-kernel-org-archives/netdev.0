@@ -1,7 +1,7 @@
 From: Lance Lassetter <lancelassetter@gmail.com>
 Subject: Re: r8169 with 3.9.0-rc9
-Date: Thu, 9 May 2013 12:14:38 -0500
-Message-ID: <20130509171436.GA10341@gmail.com>
+Date: Thu, 9 May 2013 12:50:21 -0500
+Message-ID: <20130509175019.GA12561@gmail.com>
 References: <20130427041230.GA18709@gmail.com>
  <20130428011232.GA4236@gmail.com>
  <20130501100733.GA16115@gmail.com>
@@ -17,12 +17,12 @@ Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org
 To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f182.google.com ([209.85.160.182]:64743 "EHLO
-	mail-gh0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751191Ab3EIROn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 13:14:43 -0400
-Received: by mail-gh0-f182.google.com with SMTP id z15so701308ghb.27
-        for <netdev@vger.kernel.org>; Thu, 09 May 2013 10:14:42 -0700 (PDT)
+Received: from mail-yh0-f48.google.com ([209.85.213.48]:60438 "EHLO
+	mail-yh0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751980Ab3EIRuZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 13:50:25 -0400
+Received: by mail-yh0-f48.google.com with SMTP id f35so797860yha.21
+        for <netdev@vger.kernel.org>; Thu, 09 May 2013 10:50:24 -0700 (PDT)
 Content-Disposition: inline
 In-Reply-To: <20130505193323.GA21121@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
@@ -40,9 +40,7 @@ On Sun, May 05, 2013 at 09:33:23PM +0200, Francois Romieu wrote:
 > -- 
 > Ueimor
 
-Ueimor,
-
-Thanks!  Does 3.9.1 have this commit?  I searched throught the changelog and didn't see it.
+Nevermind I found it.  Compiling 3.9.1 now.
 
 Regards,
 
