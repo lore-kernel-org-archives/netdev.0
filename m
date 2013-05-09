@@ -1,40 +1,53 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 07/21] netfilter: nf_nat: remove inline marking of EXPORT_SYMBOL functions
-Date: Thu, 9 May 2013 10:47:33 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B722B@saturn3.aculab.com>
-References: <1368086241-9357-1-git-send-email-yefremov.denis@gmail.com> <1368091192-10245-2-git-send-email-yefremov.denis@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Pablo Neira Ayuso" <pablo@netfilter.org>,
-	"Patrick McHardy" <kaber@trash.net>, <netfilter@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<trivial@kernel.org>, <ldv-project@linuxtesting.org>
-To: "Denis Efremov" <yefremov.denis@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1368091192-10245-2-git-send-email-yefremov.denis@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: [PATCHv2] net: smsc911x: don't artificially limit build
+Date: Thu,  9 May 2013 11:23:47 +0100
+Message-ID: <1368095027-8448-1-git-send-email-mark.rutland@arm.com>
+Cc: linux-arm-kernel@lists.infradead.org,
+	Mark Rutland <mark.rutland@arm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:48566 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752942Ab3EIKYh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 06:24:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> EXPORT_SYMBOL and inline directives are contradictory to each other.
-> The patch fixes this inconsistency.
-...
-> -inline const struct nf_nat_l4proto *
-> +const struct nf_nat_l4proto *
->  __nf_nat_l4proto_find(u8 family, u8 protonum)
->  {
->  	return rcu_dereference(nf_nat_l4protos[family][protonum]);
+Currently the SMSC911X driver may only be built for a specific set of
+architectures, being limited to do so by a Kconfig depends line. This
+means that if a platform wishes to use the driver, its architecture must
+be added to the list explicitly, introducing pointless churn.
 
-If it makes sense to inline the local calls (ie the cost
-of the call is significant) then possibly add an inlined
-(or inlinable) static function that is called locally and
-by the exported one?
+This may have been due to the driver's use of the {read,write}s{b,w,l}
+functions, which have since been replaced with the more standard
+io{read,write}{8,16,32}_rep. We can instead depend on HAS_IOMEM, which
+should prevent build issues while allowing the driver to be built for
+currently unlisted architectures, including x86 and arm64.
 
-I'm not sure that gcc is allowed to make the assumption
-that the local exported function will be called - and
-thus inline it.
+This patch removes the explicit list of architectures from the driver's
+depend line, and replaces it with a dependency on HAS_IOMEM.
 
-	David
+Signed-off-by: Mark Rutland <mark.rutland@arm.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/ethernet/smsc/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
+index bb4c167..ff9e994 100644
+--- a/drivers/net/ethernet/smsc/Kconfig
++++ b/drivers/net/ethernet/smsc/Kconfig
+@@ -97,7 +97,7 @@ config SMC911X
+ 
+ config SMSC911X
+ 	tristate "SMSC LAN911x/LAN921x families embedded ethernet support"
+-	depends on (ARM || SUPERH || BLACKFIN || MIPS || MN10300)
++	depends on HAS_IOMEM
+ 	select CRC32
+ 	select NET_CORE
+ 	select MII
+-- 
+1.8.1.1
