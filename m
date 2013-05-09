@@ -1,121 +1,76 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net v2 5/8] qlcnic: Fix reset recovery after transmit timeout
-Date: Thu, 9 May 2013 15:25:13 -0400
-Message-ID: <1368127516-9943-6-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net v2 1/8] qlcnic: Fix setting MAC address
+Date: Thu, 9 May 2013 15:25:09 -0400
+Message-ID: <1368127516-9943-2-git-send-email-shahed.shaikh@qlogic.com>
 References: <1368127516-9943-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
+	Manish Chopra <manish.chopra@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co1ehsobe001.messaging.microsoft.com ([216.32.180.184]:23753
-	"EHLO co1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752254Ab3EITuD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 15:50:03 -0400
+Received: from mail-db8lp0188.outbound.messaging.microsoft.com ([213.199.154.188]:57064
+	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752254Ab3EITuA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 15:50:00 -0400
 In-Reply-To: <1368127516-9943-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
 
-o When transmit timeout happens, recovery attempt should start with
-  adapter soft reset. If soft reset fails to resume traffic, firmware
-  dump will be collected and driver will perform a hard reset of the
-  adapter. Reset recovery on 83xx was failing after a hard reset.
-  This patch fixes that issue.
+o Delete previous unicast MAC which is already programmed
+  in adapter before setting new unicast MAC
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
+Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   22 +++++++++++--------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   15 +++++++++----
- 2 files changed, 23 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index ab1d8d9..c67d1eb 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -435,10 +435,6 @@ static void qlcnic_83xx_idc_attach_driver(struct qlcnic_adapter *adapter)
- 	}
- done:
- 	netif_device_attach(netdev);
--	if (netif_running(netdev)) {
--		netif_carrier_on(netdev);
--		netif_wake_queue(netdev);
--	}
- }
- 
- static int qlcnic_83xx_idc_enter_failed_state(struct qlcnic_adapter *adapter,
-@@ -642,15 +638,21 @@ static int qlcnic_83xx_idc_reattach_driver(struct qlcnic_adapter *adapter)
- 
- static void qlcnic_83xx_idc_update_idc_params(struct qlcnic_adapter *adapter)
- {
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+
- 	qlcnic_83xx_idc_update_drv_presence_reg(adapter, 1, 1);
--	clear_bit(__QLCNIC_RESETTING, &adapter->state);
- 	set_bit(QLC_83XX_MBX_READY, &adapter->ahw->idc.status);
- 	qlcnic_83xx_idc_update_audit_reg(adapter, 0, 1);
- 	set_bit(QLC_83XX_MODULE_LOADED, &adapter->ahw->idc.status);
--	adapter->ahw->idc.quiesce_req = 0;
--	adapter->ahw->idc.delay = QLC_83XX_IDC_FW_POLL_DELAY;
--	adapter->ahw->idc.err_code = 0;
--	adapter->ahw->idc.collect_dump = 0;
-+
-+	ahw->idc.quiesce_req = 0;
-+	ahw->idc.delay = QLC_83XX_IDC_FW_POLL_DELAY;
-+	ahw->idc.err_code = 0;
-+	ahw->idc.collect_dump = 0;
-+	ahw->reset_context = 0;
-+	adapter->tx_timeo_cnt = 0;
-+
-+	clear_bit(__QLCNIC_RESETTING, &adapter->state);
- }
- 
- /**
-@@ -851,6 +853,7 @@ static int qlcnic_83xx_idc_ready_state(struct qlcnic_adapter *adapter)
- 	/* Check for soft reset request */
- 	if (ahw->reset_context &&
- 	    !(val & QLC_83XX_IDC_DISABLE_FW_RESET_RECOVERY)) {
-+		adapter->ahw->reset_context = 0;
- 		qlcnic_83xx_idc_tx_soft_reset(adapter);
- 		return ret;
- 	}
-@@ -914,6 +917,7 @@ static int qlcnic_83xx_idc_need_quiesce_state(struct qlcnic_adapter *adapter)
- static int qlcnic_83xx_idc_failed_state(struct qlcnic_adapter *adapter)
- {
- 	dev_err(&adapter->pdev->dev, "%s: please restart!!\n", __func__);
-+	clear_bit(__QLCNIC_RESETTING, &adapter->state);
- 	adapter->ahw->idc.err_code = -EIO;
- 
- 	return 0;
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index d97446a..8fb836d 100644
+index 264d5a4..04037b5 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2502,12 +2502,17 @@ static void qlcnic_tx_timeout(struct net_device *netdev)
- 	if (test_bit(__QLCNIC_RESETTING, &adapter->state))
- 		return;
- 
--	dev_err(&netdev->dev, "transmit timeout, resetting.\n");
--
--	if (++adapter->tx_timeo_cnt >= QLCNIC_MAX_TX_TIMEOUTS)
--		adapter->need_fw_reset = 1;
--	else
-+	if (++adapter->tx_timeo_cnt >= QLCNIC_MAX_TX_TIMEOUTS) {
-+		netdev_info(netdev, "Tx timeout, reset the adapter.\n");
-+		if (qlcnic_82xx_check(adapter))
-+			adapter->need_fw_reset = 1;
-+		else if (qlcnic_83xx_check(adapter))
-+			qlcnic_83xx_idc_request_reset(adapter,
-+						      QLCNIC_FORCE_FW_DUMP_KEY);
-+	} else {
-+		netdev_info(netdev, "Tx timeout, reset adapter context.\n");
- 		adapter->ahw->reset_context = 1;
-+	}
+@@ -308,6 +308,23 @@ int qlcnic_read_mac_addr(struct qlcnic_adapter *adapter)
+ 	return 0;
  }
  
- static struct net_device_stats *qlcnic_get_stats(struct net_device *netdev)
++static void qlcnic_delete_adapter_mac(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_mac_list_s *cur;
++	struct list_head *head;
++
++	list_for_each(head, &adapter->mac_list) {
++		cur = list_entry(head, struct qlcnic_mac_list_s, list);
++		if (!memcmp(adapter->mac_addr, cur->mac_addr, ETH_ALEN)) {
++			qlcnic_sre_macaddr_change(adapter, cur->mac_addr,
++						  0, QLCNIC_MAC_DEL);
++			list_del(&cur->list);
++			kfree(cur);
++			return;
++		}
++	}
++}
++
+ static int qlcnic_set_mac(struct net_device *netdev, void *p)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+@@ -322,11 +339,15 @@ static int qlcnic_set_mac(struct net_device *netdev, void *p)
+ 	if (!is_valid_ether_addr(addr->sa_data))
+ 		return -EINVAL;
+ 
++	if (!memcmp(adapter->mac_addr, addr->sa_data, ETH_ALEN))
++		return 0;
++
+ 	if (test_bit(__QLCNIC_DEV_UP, &adapter->state)) {
+ 		netif_device_detach(netdev);
+ 		qlcnic_napi_disable(adapter);
+ 	}
+ 
++	qlcnic_delete_adapter_mac(adapter);
+ 	memcpy(adapter->mac_addr, addr->sa_data, netdev->addr_len);
+ 	memcpy(netdev->dev_addr, addr->sa_data, netdev->addr_len);
+ 	qlcnic_set_multi(adapter->netdev);
 -- 
 1.5.6
