@@ -1,49 +1,49 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: net: phy: realtek: add rtl8201f driver
-Date: Thu, 09 May 2013 20:58:55 +0400
-Message-ID: <518BD5CF.8040502@cogentembedded.com>
-References: <201305081910.27203.neidhard.kim@lge.com> <518A7284.4000504@cogentembedded.com> <008d01ce4c5d$cfd36410$6f7a2c30$@lge.com>
+From: Lance Lassetter <lancelassetter@gmail.com>
+Subject: Re: r8169 with 3.9.0-rc9
+Date: Thu, 9 May 2013 12:14:38 -0500
+Message-ID: <20130509171436.GA10341@gmail.com>
+References: <20130427041230.GA18709@gmail.com>
+ <20130428011232.GA4236@gmail.com>
+ <20130501100733.GA16115@gmail.com>
+ <20130501121502.GA5456@electric-eye.fr.zoreil.com>
+ <20130501212803.GA3342@gmail.com>
+ <20130501223155.GA15261@electric-eye.fr.zoreil.com>
+ <20130502021848.GA30099@gmail.com>
+ <20130502221837.GA9898@electric-eye.fr.zoreil.com>
+ <20130505151732.GA9096@gmail.com>
+ <20130505193323.GA21121@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, peppe.cavallaro@st.com,
-	chohnstaedt@innominate.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jongsung Kim <neidhard.kim@lge.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f173.google.com ([209.85.217.173]:53791 "EHLO
-	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750821Ab3EIQ64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 12:58:56 -0400
-Received: by mail-lb0-f173.google.com with SMTP id 10so772729lbf.18
-        for <netdev@vger.kernel.org>; Thu, 09 May 2013 09:58:54 -0700 (PDT)
-In-Reply-To: <008d01ce4c5d$cfd36410$6f7a2c30$@lge.com>
+Received: from mail-gh0-f182.google.com ([209.85.160.182]:64743 "EHLO
+	mail-gh0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751191Ab3EIROn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 13:14:43 -0400
+Received: by mail-gh0-f182.google.com with SMTP id z15so701308ghb.27
+        for <netdev@vger.kernel.org>; Thu, 09 May 2013 10:14:42 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130505193323.GA21121@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Sun, May 05, 2013 at 09:33:23PM +0200, Francois Romieu wrote:
+> Lance Lassetter <lancelassetter@gmail.com> :
+> [...]
+> > What do you think, Ueimor ?
+> 
+> I think you should try a post 3.9 kernel including commit
+> 4ada8db38a44654446fe35ceb20a1972220e0f69 ("net: Restore NETIF_F_* bit
+> ordering.").
+> 
+> -- 
+> Ueimor
 
-On 09-05-2013 6:35, Jongsung Kim wrote:
+Ueimor,
 
->>      Removal of unused #define's is a matter of a separate cleanup patch...
+Thanks!  Does 3.9.1 have this commit?  I searched throught the changelog and didn't see it.
 
-> Sorry. I won't touch them.
+Regards,
 
->>> +static int rtl8201f_ack_interrupt(struct phy_device *phydev) {
->>> +	int err;
->>> +
->>> +	err = phy_read(phydev, RTL8201F_ISR);
-
->>     This could be an initializer and so make the function shorter.
-
-> Agreed. I just thought it's better to make it similar to the
-> rtl821x_ack_interrupt.
-
-    Ah, then you may leave this code as is.
-
-> Then, may I make shorter the rtl821x_ack_interrupt as
-> well as rtl8201f_ack_interrupt?
-
-    In a separate patch, if you wish.
-
-WBR, Sergei
+Lance
