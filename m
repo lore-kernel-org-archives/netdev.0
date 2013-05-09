@@ -1,57 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Patch net-next v3 2/3] bridge: only expire the mdb entry when
- query is received
-Date: Thu, 9 May 2013 13:15:22 +0800
-Message-ID: <20130509051522.GA7998@gondor.apana.org.au>
-References: <1367305819-14013-1-git-send-email-amwang@redhat.com>
- <1367305819-14013-2-git-send-email-amwang@redhat.com>
- <20130502015938.GA2237@gondor.apana.org.au>
- <1367553022.2415.55.camel@cr0>
- <20130503040102.GA10898@gondor.apana.org.au>
- <1367564926.2415.56.camel@cr0>
- <20130503093017.GA12471@gondor.apana.org.au>
- <1367810653.6246.5.camel@cr0>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH nf-next] netfilter: conntrack: remove the central spinlock
+Date: Thu, 9 May 2013 05:43:57 +0000 (UTC)
+Message-ID: <kmfd2s$e2m$1@ger.gmane.org>
+References: <1368068665.13473.81.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Cong Wang <amwang@redhat.com>
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:57316 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1751510Ab3EIFPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 01:15:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1367810653.6246.5.camel@cr0>
+Received: from plane.gmane.org ([80.91.229.3]:40487 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750724Ab3EIFoO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 May 2013 01:44:14 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UaJeG-0004Hh-P6
+	for netdev@vger.kernel.org; Thu, 09 May 2013 07:44:12 +0200
+Received: from 116.53.101.117 ([116.53.101.117])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 09 May 2013 07:44:12 +0200
+Received: from xiyou.wangcong by 116.53.101.117 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 09 May 2013 07:44:12 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 06, 2013 at 11:24:13AM +0800, Cong Wang wrote:
-> On Fri, 2013-05-03 at 17:30 +0800, Herbert Xu wrote:
-> > On Fri, May 03, 2013 at 03:08:46PM +0800, Cong Wang wrote:
-> > > On Fri, 2013-05-03 at 12:01 +0800, Herbert Xu wrote:
-> > > > 
-> > > > I think I quoted the wrong hunk in the patch, I meant the code
-> > > > that arms the timer should no longer be in the leave_group function
-> > > > unless we just sent a query ourselves (and in that case the expiration
-> > > > should also be adjusted accordingly).
-> > > 
-> > > Is the following patch what you meant?
-> > 
-> > Right, but also add the corresponding timers in case we send a
-> > group-specific query since that won't loop back to ourselves.
-> 
-> Ok, then something like below , it is a delta patch, the first piece
-> should go to patch 3/3.
+On Thu, 09 May 2013 at 03:04 GMT, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>  
+> +#if 0
+> +	for (i = 0; i < ARRAY_SIZE(nf_conntrack_locks); i++)
+> +		arch_spin_lock_init(&nf_conntrack_locks[i]);
+> +#endif
+> +
 
-Yes this looks about right.  BTW, for the groups-epcific queries
-you should use the leave timeout values and not the startup timeout
-values.
-
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Is this intentional?
