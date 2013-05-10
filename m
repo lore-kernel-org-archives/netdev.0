@@ -1,42 +1,43 @@
 From: Imre Deak <imre.deak@intel.com>
-Subject: [PATCH 07/11] net/peak_pcmcia: take msecs_to_jiffies_min into use
-Date: Fri, 10 May 2013 15:13:25 +0300
-Message-ID: <1368188011-23661-7-git-send-email-imre.deak@intel.com>
+Subject: [PATCH 10/11] net/tipc: take msecs_to_jiffies_min into use
+Date: Fri, 10 May 2013 15:13:28 +0300
+Message-ID: <1368188011-23661-10-git-send-email-imre.deak@intel.com>
 References: <1368188011-23661-1-git-send-email-imre.deak@intel.com>
 Cc: Andrew Morton <akpm@linux-foundation.org>,
 	Daniel Vetter <daniel.vetter@ffwll.ch>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Bill Pemberton <wfp5p@virginia.edu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Joe Perches <joe@perches.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Allan Stephens <allan.stephens@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	tipc-discussion@lists.sourceforge.net
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga14.intel.com ([143.182.124.37]:53450 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752818Ab3EJMO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 May 2013 08:14:26 -0400
 In-Reply-To: <1368188011-23661-1-git-send-email-imre.deak@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Use msecs_to_jiffies_min instead of open-coding the same.
 
 Signed-off-by: Imre Deak <imre.deak@intel.com>
 ---
- drivers/net/can/sja1000/peak_pcmcia.c |    2 +-
+ net/tipc/core.h |    2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/can/sja1000/peak_pcmcia.c b/drivers/net/can/sja1000/peak_pcmcia.c
-index 1a7020b..3e45e16 100644
---- a/drivers/net/can/sja1000/peak_pcmcia.c
-+++ b/drivers/net/can/sja1000/peak_pcmcia.c
-@@ -253,7 +253,7 @@ static inline int pcan_pccard_present(struct pcan_pccard *card)
- static int pcan_wait_spi_busy(struct pcan_pccard *card)
+diff --git a/net/tipc/core.h b/net/tipc/core.h
+index 0207db0..3f23e22 100644
+--- a/net/tipc/core.h
++++ b/net/tipc/core.h
+@@ -133,7 +133,7 @@ static inline void k_init_timer(struct timer_list *timer, Handler routine,
+  */
+ static inline void k_start_timer(struct timer_list *timer, unsigned long msec)
  {
- 	unsigned long timeout = jiffies +
--				msecs_to_jiffies(PCC_SPI_MAX_BUSY_WAIT_MS) + 1;
-+				msecs_to_jiffies_min(PCC_SPI_MAX_BUSY_WAIT_MS);
+-	mod_timer(timer, jiffies + msecs_to_jiffies(msec) + 1);
++	mod_timer(timer, jiffies + msecs_to_jiffies_min(msec));
+ }
  
- 	/* be sure to read status at least once after sleeping */
- 	while (pcan_read_reg(card, PCC_CSR) & PCC_CSR_SPI_BUSY) {
+ /**
 -- 
 1.7.10.4
