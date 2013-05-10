@@ -1,41 +1,134 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net] virtio_net: use default napi weight by default
-Date: Fri, 10 May 2013 13:50:51 +0800
-Message-ID: <1368165051-11476-1-git-send-email-amwang@redhat.com>
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:7114 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750818Ab3EJFu7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 May 2013 01:50:59 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: [PATCH v2 2/4] net: phy: realtek: add support for the RTL8201F
+Date: Fri, 10 May 2013 16:29:25 +0900
+Message-ID: <1368170967-20589-2-git-send-email-neidhard.kim@lge.com>
+References: <201305081910.27203.neidhard.kim@lge.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: r58129@freescale.com, davem@davemloft.net,
+	sergei.shtylyov@cogentembedded.com, peppe.cavallaro@st.com,
+	chohnstaedt@innominate.com, timur@freescale.com,
+	heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com,
+	neidhard.kim@lge.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201305081910.27203.neidhard.kim@lge.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit 82dc3c63c692b1e1d5937(net: introduce NAPI_POLL_WEIGHT)
-we warn drivers when they use napi weight higher than NAPI_POLL_WEIGHT,
-but virtio_net still uses 128 by default. This patch makes its default
-value to NAPI_POLL_WEIGHT.
+Add the minimal driver to support the Realtek RTL8201F 10/100Mbps
+Ethernet Transceivers.
 
-Cc: "Michael S. Tsirkin" <mst@redhat.com>
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+The help message for the config REALTEK_PHY is also modified to
+describe the current status of the module correctly.
 
+Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
 ---
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 3c23fdc..655bb25 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -28,7 +28,7 @@
- #include <linux/slab.h>
- #include <linux/cpu.h>
+ drivers/net/phy/Kconfig   |    2 +-
+ drivers/net/phy/realtek.c |   52 +++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 53 insertions(+), 1 deletions(-)
+
+diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+index 1e11f2b..000425e 100644
+--- a/drivers/net/phy/Kconfig
++++ b/drivers/net/phy/Kconfig
+@@ -84,7 +84,7 @@ config ICPLUS_PHY
+ config REALTEK_PHY
+ 	tristate "Drivers for Realtek PHYs"
+ 	---help---
+-	  Supports the Realtek 821x PHY.
++	  Currently supports the RTL8201F, RTL8211B and RTL8211E PHYs.
  
--static int napi_weight = 128;
-+static int napi_weight = NAPI_POLL_WEIGHT;
- module_param(napi_weight, int, 0444);
+ config NATIONAL_PHY
+ 	tristate "Drivers for National Semiconductor PHYs"
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index f902107..8e95e38 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -16,6 +16,11 @@
+ #include <linux/phy.h>
+ #include <linux/module.h>
  
- static bool csum = true, gso = true;
++#define RTL8201F_INSR		0x1e
++#define RTL8201F_PGSR		0x1f
++#define RTL8201F_INER		0x13
++#define RTL8201F_INER_MASK	0x3800
++
+ #define RTL821x_PHYSR		0x11
+ #define RTL821x_PHYSR_DUPLEX	0x2000
+ #define RTL821x_PHYSR_SPEED	0xc000
+@@ -29,6 +34,15 @@ MODULE_DESCRIPTION("Realtek PHY driver");
+ MODULE_AUTHOR("Johnson Leung");
+ MODULE_LICENSE("GPL");
+ 
++static int rtl8201f_ack_interrupt(struct phy_device *phydev)
++{
++	int err;
++
++	err = phy_read(phydev, RTL8201F_INSR);
++
++	return (err < 0) ? err : 0;
++}
++
+ static int rtl821x_ack_interrupt(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -38,6 +52,29 @@ static int rtl821x_ack_interrupt(struct phy_device *phydev)
+ 	return (err < 0) ? err : 0;
+ }
+ 
++static void rtl8201f_select_page(struct phy_device *phydev, int page)
++{
++	phy_write(phydev, RTL8201F_PGSR, page);
++}
++
++static int rtl8201f_config_intr(struct phy_device *phydev)
++{
++	int err;
++
++	rtl8201f_select_page(phydev, 7);
++
++	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
++		err = phy_write(phydev, RTL8201F_INER, RTL8201F_INER_MASK |
++				phy_read(phydev, RTL8201F_INER));
++	else
++		err = phy_write(phydev, RTL8201F_INER, ~RTL8201F_INER_MASK &
++				phy_read(phydev, RTL8201F_INER));
++
++	rtl8201f_select_page(phydev, 0);
++
++	return err;
++}
++
+ static int rtl8211b_config_intr(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -65,6 +102,20 @@ static int rtl8211e_config_intr(struct phy_device *phydev)
+ }
+ 
+ static struct phy_driver realtek_drv[] = {
++	{	/* RTL8201F */
++		.phy_id		= 0x001cc816,
++		.name		= "RTL8201F 10/100Mbps Ethernet",
++		.phy_id_mask	= 0x001fffff,
++		.features	= PHY_BASIC_FEATURES,
++		.flags		= PHY_HAS_INTERRUPT,
++		.config_aneg	= &genphy_config_aneg,
++		.read_status	= &genphy_read_status,
++		.ack_interrupt	= &rtl8201f_ack_interrupt,
++		.config_intr	= &rtl8201f_config_intr,
++		.suspend	= genphy_suspend,
++		.resume		= genphy_resume,
++		.driver		= { .owner = THIS_MODULE,},
++	},
+ 	{	/* RTL8211B */
+ 		.phy_id		= 0x001cc912,
+ 		.name		= "RTL8211B Gigabit Ethernet",
+@@ -107,6 +158,7 @@ module_init(realtek_init);
+ module_exit(realtek_exit);
+ 
+ static struct mdio_device_id __maybe_unused realtek_tbl[] = {
++	{ 0x001cc816, 0x001fffff },
+ 	{ 0x001cc912, 0x001fffff },
+ 	{ 0x001cc915, 0x001fffff },
+ 	{ }
+-- 
+1.7.1
