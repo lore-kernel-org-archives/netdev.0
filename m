@@ -1,60 +1,52 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH 08/12] net/ethernet: MACB should depend on HAS_DMA
-Date: Fri, 10 May 2013 10:22:34 +0200
-Message-ID: <518CAE4A.4060902@atmel.com>
-References: <1368133494-22198-1-git-send-email-geert@linux-m68k.org> <1368133494-22198-8-git-send-email-geert@linux-m68k.org>
+From: Magnus Damm <magnus.damm@gmail.com>
+Subject: Re: [RFC PATCH net-next] sh_eth: add support for r8a7790 SoC
+Date: Fri, 10 May 2013 17:35:33 +0900
+Message-ID: <CANqRtoQXnxOncf-_JPsVP0MZLTGorywfoJu6Gx9R=TMJYoS3Bw@mail.gmail.com>
+References: <1368172891-26381-1-git-send-email-horms+renesas@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368133494-22198-8-git-send-email-geert@linux-m68k.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev <netdev@vger.kernel.org>,
+	SH-Linux <linux-sh@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Simon Horman <horms+renesas@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <1368172891-26381-1-git-send-email-horms+renesas@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 09/05/2013 23:04, Geert Uytterhoeven :
-> If NO_DMA=y:
->
-> drivers/built-in.o: In function `macb_free_consistent':
-> drivers/net/ethernet/cadence/macb.c:878: undefined reference to `dma_free_coherent'
-> drivers/net/ethernet/cadence/macb.c:883: undefined reference to `dma_free_coherent'
-> drivers/net/ethernet/cadence/macb.c:888: undefined reference to `dma_free_coherent'
-> drivers/built-in.o: In function `macb_alloc_consistent':
-> drivers/net/ethernet/cadence/macb.c:905: undefined reference to `dma_alloc_coherent'
-> drivers/built-in.o: In function `macb_tx_interrupt':
-> drivers/net/ethernet/cadence/macb.c:515: undefined reference to `dma_unmap_single'
-> drivers/built-in.o: In function `macb_tx_error_task':
-> drivers/net/ethernet/cadence/macb.c:457: undefined reference to `dma_unmap_single'
-> drivers/built-in.o: In function `macb_start_xmit':
-> drivers/net/ethernet/cadence/macb.c:838: undefined reference to `dma_map_single'
->
-> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
-> Cc: Nicolas Ferre <nicolas.ferre@atmel.com>
+Hi Simon,
 
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: netdev@vger.kernel.org
+On Fri, May 10, 2013 at 5:01 PM, Simon Horman
+<horms+renesas@verge.net.au> wrote:
+> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
 > ---
->   drivers/net/ethernet/cadence/Kconfig |    1 +
->   1 files changed, 1 insertions(+), 0 deletions(-)
->
-> diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
-> index 0d9d6e6..768285e 100644
-> --- a/drivers/net/ethernet/cadence/Kconfig
-> +++ b/drivers/net/ethernet/cadence/Kconfig
-> @@ -31,6 +31,7 @@ config ARM_AT91_ETHER
->
->   config MACB
->   	tristate "Cadence MACB/GEM support"
-> +	depends on HAS_DMA
->   	select PHYLIB
->   	---help---
->   	  The Cadence MACB ethernet interface is found on many Atmel AT32 and
->
+>  drivers/net/ethernet/renesas/Kconfig  |  2 +-
+>  drivers/net/ethernet/renesas/sh_eth.c | 10 ++++++++--
+>  drivers/net/ethernet/renesas/sh_eth.h |  1 +
+>  3 files changed, 10 insertions(+), 3 deletions(-)
 
+Thanks for your work on this driver.
 
--- 
-Nicolas Ferre
+> diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
+> index bed9841..d664c0f 100644
+> --- a/drivers/net/ethernet/renesas/Kconfig
+> +++ b/drivers/net/ethernet/renesas/Kconfig
+> @@ -9,7 +9,7 @@ config SH_ETH
+>                  CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
+>                  CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
+>                  CPU_SUBTYPE_SH7757 || ARCH_R8A7740 || \
+> -                ARCH_R8A7778 || ARCH_R8A7779)
+> +                ARCH_R8A7778 || ARCH_R8A7779 || ARCH_R8A7790)
+
+As much as I want to see R8A7790 support right away, wouldn't it be
+nice _not_ to have this dependency crap in the Kconfig? We are already
+multi-SoC within mach-shmobile ARM and soon we will be multi-subarch.
+
+I actually thought that this was already taken care of. What is your
+opinion? Perhaps there are already queued up cleanup patches that
+handle this?
+
+Thanks,
+
+/ magnus
