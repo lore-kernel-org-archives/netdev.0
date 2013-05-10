@@ -1,43 +1,52 @@
 From: Imre Deak <imre.deak@intel.com>
-Subject: [PATCH 10/11] net/tipc: take msecs_to_jiffies_min into use
-Date: Fri, 10 May 2013 15:13:28 +0300
-Message-ID: <1368188011-23661-10-git-send-email-imre.deak@intel.com>
+Subject: [PATCH 09/11] net/sunrpc: take msecs_to_jiffies_min into use
+Date: Fri, 10 May 2013 15:13:27 +0300
+Message-ID: <1368188011-23661-9-git-send-email-imre.deak@intel.com>
 References: <1368188011-23661-1-git-send-email-imre.deak@intel.com>
 Cc: Andrew Morton <akpm@linux-foundation.org>,
 	Daniel Vetter <daniel.vetter@ffwll.ch>,
-	Jon Maloy <jon.maloy@ericsson.com>,
-	Allan Stephens <allan.stephens@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	tipc-discussion@lists.sourceforge.net
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Haggai Eran <haggaie@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Roland Dreier <roland@purestorage.com>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:53450 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752818Ab3EJMO0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 May 2013 08:14:26 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1368188011-23661-1-git-send-email-imre.deak@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Use msecs_to_jiffies_min instead of open-coding the same.
 
 Signed-off-by: Imre Deak <imre.deak@intel.com>
 ---
- net/tipc/core.h |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/sunrpc/xprtrdma/verbs.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 0207db0..3f23e22 100644
---- a/net/tipc/core.h
-+++ b/net/tipc/core.h
-@@ -133,7 +133,7 @@ static inline void k_init_timer(struct timer_list *timer, Handler routine,
-  */
- static inline void k_start_timer(struct timer_list *timer, unsigned long msec)
- {
--	mod_timer(timer, jiffies + msecs_to_jiffies(msec) + 1);
-+	mod_timer(timer, jiffies + msecs_to_jiffies_min(msec));
- }
- 
- /**
+diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
+index 93726560..9cac2c8 100644
+--- a/net/sunrpc/xprtrdma/verbs.c
++++ b/net/sunrpc/xprtrdma/verbs.c
+@@ -404,7 +404,7 @@ rpcrdma_create_id(struct rpcrdma_xprt *xprt,
+ 		goto out;
+ 	}
+ 	wait_for_completion_interruptible_timeout(&ia->ri_done,
+-				msecs_to_jiffies(RDMA_RESOLVE_TIMEOUT) + 1);
++				msecs_to_jiffies_min(RDMA_RESOLVE_TIMEOUT));
+ 	rc = ia->ri_async_rc;
+ 	if (rc)
+ 		goto out;
+@@ -417,7 +417,7 @@ rpcrdma_create_id(struct rpcrdma_xprt *xprt,
+ 		goto out;
+ 	}
+ 	wait_for_completion_interruptible_timeout(&ia->ri_done,
+-				msecs_to_jiffies(RDMA_RESOLVE_TIMEOUT) + 1);
++				msecs_to_jiffies_min(RDMA_RESOLVE_TIMEOUT));
+ 	rc = ia->ri_async_rc;
+ 	if (rc)
+ 		goto out;
 -- 
 1.7.10.4
