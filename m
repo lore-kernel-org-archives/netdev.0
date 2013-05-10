@@ -1,34 +1,58 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC 17/42] drivers/net/ethernet/renesas: don't check resource
- with devm_ioremap_resource
-Date: Fri, 10 May 2013 15:07:45 +0400
-Message-ID: <518CD501.1040909@cogentembedded.com>
-References: <1368173847-5661-1-git-send-email-wsa@the-dreams.de> <1368173847-5661-18-git-send-email-wsa@the-dreams.de>
+Subject: Re: [RFC PATCH net-next] sh_eth: add support for r8a7790 SoC
+Date: Fri, 10 May 2013 15:10:55 +0400
+Message-ID: <518CD5BF.9030306@cogentembedded.com>
+References: <1368172891-26381-1-git-send-email-horms+renesas@verge.net.au> <CANqRtoQXnxOncf-_JPsVP0MZLTGorywfoJu6Gx9R=TMJYoS3Bw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Wolfram Sang <wsa@the-dreams.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:45887 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752032Ab3EJLHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 May 2013 07:07:41 -0400
-Received: by mail-la0-f45.google.com with SMTP id fp12so3867976lab.32
-        for <netdev@vger.kernel.org>; Fri, 10 May 2013 04:07:39 -0700 (PDT)
-In-Reply-To: <1368173847-5661-18-git-send-email-wsa@the-dreams.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Simon Horman <horms+renesas@verge.net.au>,
+	netdev <netdev@vger.kernel.org>,
+	SH-Linux <linux-sh@vger.kernel.org>
+To: Magnus Damm <magnus.damm@gmail.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CANqRtoQXnxOncf-_JPsVP0MZLTGorywfoJu6Gx9R=TMJYoS3Bw@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 10-05-2013 12:17, Wolfram Sang wrote:
+On 10-05-2013 12:35, Magnus Damm wrote:
 
-> devm_ioremap_resource does sanity checks on the given resource. No need to
-> duplicate this in the driver.
+>> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+>> ---
+>>   drivers/net/ethernet/renesas/Kconfig  |  2 +-
+>>   drivers/net/ethernet/renesas/sh_eth.c | 10 ++++++++--
+>>   drivers/net/ethernet/renesas/sh_eth.h |  1 +
+>>   3 files changed, 10 insertions(+), 3 deletions(-)
 
-> Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
+> Thanks for your work on this driver.
 
-Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+>> diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
+>> index bed9841..d664c0f 100644
+>> --- a/drivers/net/ethernet/renesas/Kconfig
+>> +++ b/drivers/net/ethernet/renesas/Kconfig
+>> @@ -9,7 +9,7 @@ config SH_ETH
+>>                   CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
+>>                   CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
+>>                   CPU_SUBTYPE_SH7757 || ARCH_R8A7740 || \
+>> -                ARCH_R8A7778 || ARCH_R8A7779)
+>> +                ARCH_R8A7778 || ARCH_R8A7779 || ARCH_R8A7790)
+
+> As much as I want to see R8A7790 support right away, wouldn't it be
+> nice _not_ to have this dependency crap in the Kconfig? We are already
+> multi-SoC within mach-shmobile ARM and soon we will be multi-subarch.
+
+> I actually thought that this was already taken care of. What is your
+> opinion? Perhaps there are already queued up cleanup patches that
+> handle this?
+
+     No, AFAIK. I haven't gotten around to the big cleanups yet.
+
+> Thanks,
+
+> / magnus
 
 WBR, Sergei
+
