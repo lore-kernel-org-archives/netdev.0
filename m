@@ -1,62 +1,103 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH RFC 0/2] Control VF link state
-Date: Fri, 10 May 2013 01:34:24 +0100
-Message-ID: <1368146064.4131.279.camel@deadeye.wl.decadent.org.uk>
-References: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com>
-	 <1368113074.2653.2.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CAJZOPZJ052r67==xXciyoTmE8TQwXyx5sVgeuR=dQUEpXkd5WQ@mail.gmail.com>
+From: Petri Gynther <pgynther@google.com>
+Subject: [PATCH] emac: Fix EMAC soft reset on 460EX/GT
+Date: Thu, 9 May 2013 19:25:00 -0700
+Message-ID: <20130510022504.C4CAB10064B@puck.mtv.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, <netdev@vger.kernel.org>,
-	<amirv@mellanox.com>, <ronye@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:12620 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755483Ab3EJAed (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 20:34:33 -0400
-In-Reply-To: <CAJZOPZJ052r67==xXciyoTmE8TQwXyx5sVgeuR=dQUEpXkd5WQ@mail.gmail.com>
+Received: from mail-qa0-f73.google.com ([209.85.216.73]:33197 "EHLO
+	mail-qa0-f73.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752882Ab3EJCZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 May 2013 22:25:06 -0400
+Received: by mail-qa0-f73.google.com with SMTP id bs12so22511qab.2
+        for <netdev@vger.kernel.org>; Thu, 09 May 2013 19:25:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-10 at 02:17 +0300, Or Gerlitz wrote:
-> On Thu, May 9, 2013 at 6:24 PM, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> >
-> > On Wed, 2013-05-08 at 16:45 +0300, Or Gerlitz wrote:
-> > > Here's a suggestion for API and implementation that lets the admin to
-> > > configure
-> > > the link state of the VF / SRIOV eSwitch vPORT. Basically, it has three
-> > > states
-> > >
-> > > Auto -        the VF link state will reflect the PF link state
-> > >
-> > > Enable - VF link stat will be always up, traffic from VF to VF can
-> > >        work even if PF link is down.
-> >
-> > It seems like it would be useful to implement these two options on the PF as well.
-> 
-> You mean that PF <--> VF communication on the same node can be made to
-> work even when the physical link is down? this is a bit problematic to
-> model/implement I think. Generally speaking it makes things easier to
-> grasp if PF is considered to be the uplink of the eSwitch whos link is
-> 1:1 as the physical link, but need to think that a bit more.
+=46ix EMAC soft reset on 460EX/GT to select the right PHY clock source
+before and after the soft reset.
 
-Yeah.  In some ways it could be better for a PF driver to create two net
-devices, one which acts as a vswitch port and one which bypasses it (if
-possible).  But then that's going to confuse people too.  I don't think
-we can win...
+EMAC with PHY should use the clock from PHY during soft reset.
+EMAC without PHY should use the internal clock during soft reset.
 
-> > Perhaps the default should also be specified?
-> 
-> mmm, not sure if we can require/enforce the same default for all drivers.
+PPC460EX/GT Embedded Processor Advanced User=E2=80=99s Manual
+section 28.10.1 Mode Register 0 (EMACx_MR0) states:
+Note: The PHY must provide a TX Clk in order to perform a soft reset
+of the EMAC. If none is present, select the internal clock
+(SDR0_ETH_CFG[EMACx_PHY_CLK] =3D 1).
+After a soft reset, select the external clock.
 
-I know. :-/  But arbitrary differences between drivers are no fun for
-sysadmins.
+Without the fix, 460EX/GT-based boards with RGMII PHYs attached to
+EMACs experience EMAC interrupt storm and system watchdog reset when
+issuing "ifconfig eth0 down" + "ifconfig eth0 up" a few times.
+The system enters endless loop of serving emac_irq() with EMACx_ISR
+register stuck at value 0x10000000 (Rx parity error).
 
-Ben.
+With the fix, the above issue is no longer observed.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Petri Gynther <pgynther@google.com>
+---
+ drivers/net/ethernet/ibm/emac/core.c | 36 ++++++++++++++++++++++++++++=
+--------
+ 1 file changed, 28 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/net/ethernet/ibm/emac/core.c b/drivers/net/etherne=
+t/ibm/emac/core.c
+index 4989481..205d29c 100644
+--- a/drivers/net/ethernet/ibm/emac/core.c
++++ b/drivers/net/ethernet/ibm/emac/core.c
+@@ -359,10 +359,26 @@ static int emac_reset(struct emac_instance *dev)
+ 	}
+=20
+ #ifdef CONFIG_PPC_DCR_NATIVE
+-	/* Enable internal clock source */
+-	if (emac_has_feature(dev, EMAC_FTR_460EX_PHY_CLK_FIX))
+-		dcri_clrset(SDR0, SDR0_ETH_CFG,
+-			    0, SDR0_ETH_CFG_ECS << dev->cell_index);
++	/*
++	 * PPC460EX/GT Embedded Processor Advanced User=E2=80=99s Manual
++	 * section 28.10.1 Mode Register 0 (EMACx_MR0) states:
++	 * Note: The PHY must provide a TX Clk in order to perform a soft res=
+et
++	 * of the EMAC. If none is present, select the internal clock
++	 * (SDR0_ETH_CFG[EMACx_PHY_CLK] =3D 1).
++	 * After a soft reset, select the external clock.
++	 */
++	if (emac_has_feature(dev, EMAC_FTR_460EX_PHY_CLK_FIX)) {
++		if (dev->phy_address =3D=3D 0xffffffff &&
++		    dev->phy_map =3D=3D 0xffffffff) {
++			/* No PHY: select internal loop clock before reset */
++			dcri_clrset(SDR0, SDR0_ETH_CFG,
++				    0, SDR0_ETH_CFG_ECS << dev->cell_index);
++		} else {
++			/* PHY present: select external clock before reset */
++			dcri_clrset(SDR0, SDR0_ETH_CFG,
++				    SDR0_ETH_CFG_ECS << dev->cell_index, 0);
++		}
++	}
+ #endif
+=20
+ 	out_be32(&p->mr0, EMAC_MR0_SRST);
+@@ -370,10 +386,14 @@ static int emac_reset(struct emac_instance *dev)
+ 		--n;
+=20
+ #ifdef CONFIG_PPC_DCR_NATIVE
+-	 /* Enable external clock source */
+-	if (emac_has_feature(dev, EMAC_FTR_460EX_PHY_CLK_FIX))
+-		dcri_clrset(SDR0, SDR0_ETH_CFG,
+-			    SDR0_ETH_CFG_ECS << dev->cell_index, 0);
++	if (emac_has_feature(dev, EMAC_FTR_460EX_PHY_CLK_FIX)) {
++		if (dev->phy_address =3D=3D 0xffffffff &&
++		    dev->phy_map =3D=3D 0xffffffff) {
++			/* No PHY: restore external clock source after reset */
++			dcri_clrset(SDR0, SDR0_ETH_CFG,
++				    SDR0_ETH_CFG_ECS << dev->cell_index, 0);
++		}
++	}
+ #endif
+=20
+ 	if (n) {
+--=20
+1.8.2.1
