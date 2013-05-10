@@ -1,58 +1,58 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC PATCH net-next] sh_eth: add support for r8a7790 SoC
-Date: Fri, 10 May 2013 15:10:55 +0400
-Message-ID: <518CD5BF.9030306@cogentembedded.com>
-References: <1368172891-26381-1-git-send-email-horms+renesas@verge.net.au> <CANqRtoQXnxOncf-_JPsVP0MZLTGorywfoJu6Gx9R=TMJYoS3Bw@mail.gmail.com>
+Subject: Re: [PATCH v2 4/4] net: phy: realtek: cleanup code
+Date: Fri, 10 May 2013 15:18:28 +0400
+Message-ID: <518CD784.1030709@cogentembedded.com>
+References: <201305081910.27203.neidhard.kim@lge.com> <1368170967-20589-4-git-send-email-neidhard.kim@lge.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Simon Horman <horms+renesas@verge.net.au>,
-	netdev <netdev@vger.kernel.org>,
-	SH-Linux <linux-sh@vger.kernel.org>
-To: Magnus Damm <magnus.damm@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CANqRtoQXnxOncf-_JPsVP0MZLTGorywfoJu6Gx9R=TMJYoS3Bw@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: r58129@freescale.com, davem@davemloft.net, peppe.cavallaro@st.com,
+	chohnstaedt@innominate.com, timur@freescale.com,
+	heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jongsung Kim <neidhard.kim@lge.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:63260 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752667Ab3EJLSY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 May 2013 07:18:24 -0400
+Received: by mail-lb0-f177.google.com with SMTP id 13so4093493lba.36
+        for <netdev@vger.kernel.org>; Fri, 10 May 2013 04:18:23 -0700 (PDT)
+In-Reply-To: <1368170967-20589-4-git-send-email-neidhard.kim@lge.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 10-05-2013 12:35, Magnus Damm wrote:
+On 10-05-2013 11:29, Jongsung Kim wrote:
 
->> Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
->> ---
->>   drivers/net/ethernet/renesas/Kconfig  |  2 +-
->>   drivers/net/ethernet/renesas/sh_eth.c | 10 ++++++++--
->>   drivers/net/ethernet/renesas/sh_eth.h |  1 +
->>   3 files changed, 10 insertions(+), 3 deletions(-)
+> This patch cleans up the drivers code by:
 
-> Thanks for your work on this driver.
+> - using a consistent way to reference functions
+> - removing unused macro-definitions
+> - removing unnecessary new-lines
+> - making ack_interrupt functions shorter.
 
->> diff --git a/drivers/net/ethernet/renesas/Kconfig b/drivers/net/ethernet/renesas/Kconfig
->> index bed9841..d664c0f 100644
->> --- a/drivers/net/ethernet/renesas/Kconfig
->> +++ b/drivers/net/ethernet/renesas/Kconfig
->> @@ -9,7 +9,7 @@ config SH_ETH
->>                   CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
->>                   CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
->>                   CPU_SUBTYPE_SH7757 || ARCH_R8A7740 || \
->> -                ARCH_R8A7778 || ARCH_R8A7779)
->> +                ARCH_R8A7778 || ARCH_R8A7779 || ARCH_R8A7790)
+> Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
+> ---
+>   drivers/net/phy/realtek.c |   29 ++++++++++-------------------
+>   1 files changed, 10 insertions(+), 19 deletions(-)
 
-> As much as I want to see R8A7790 support right away, wouldn't it be
-> nice _not_ to have this dependency crap in the Kconfig? We are already
-> multi-SoC within mach-shmobile ARM and soon we will be multi-subarch.
+> diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+> index 6f0726a..fd09844 100644
+> --- a/drivers/net/phy/realtek.c
+> +++ b/drivers/net/phy/realtek.c
+[...]
+> @@ -112,8 +103,8 @@ static struct phy_driver realtek_drv[] = {
+>   		.read_status	= &genphy_read_status,
+>   		.ack_interrupt	= &rtl8201f_ack_interrupt,
+>   		.config_intr	= &rtl8201f_config_intr,
+> -		.suspend	= genphy_suspend,
+> -		.resume		= genphy_resume,
+> +		.suspend	= &genphy_suspend,
+> +		.resume		= &genphy_resume,
 
-> I actually thought that this was already taken care of. What is your
-> opinion? Perhaps there are already queued up cleanup patches that
-> handle this?
-
-     No, AFAIK. I haven't gotten around to the big cleanups yet.
-
-> Thanks,
-
-> / magnus
+    Contrariwise, you should have dropped & from the other functions. 
+It's completely superfluous.
 
 WBR, Sergei
-
