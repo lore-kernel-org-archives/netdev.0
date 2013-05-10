@@ -1,48 +1,70 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH 06/11] net/bonding: take msecs_to_jiffies_min into use
-Date: Fri, 10 May 2013 15:58:10 +0200
-Message-ID: <20130510135810.GA30139@unicorn.suse.cz>
-References: <1368188011-23661-1-git-send-email-imre.deak@intel.com>
- <1368188011-23661-6-git-send-email-imre.deak@intel.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 57851] New: a mistake about macro definition of
+ FIB_TABLE_HASHSZ
+Date: Fri, 10 May 2013 08:18:54 -0700
+Message-ID: <20130510081854.0c6b95ff@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Vetter <daniel.vetter@ffwll.ch>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Imre Deak <imre.deak@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1368188011-23661-6-git-send-email-imre.deak@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:56452 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752957Ab3EJPS7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 May 2013 11:18:59 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so2832500pbc.7
+        for <netdev@vger.kernel.org>; Fri, 10 May 2013 08:18:59 -0700 (PDT)
+Received: from nehalam.linuxnetplumber.net (static-50-53-71-109.bvtn.or.frontiernet.net. [50.53.71.109])
+        by mx.google.com with ESMTPSA id ag4sm3072924pbc.20.2013.05.10.08.18.57
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Fri, 10 May 2013 08:18:58 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 10, 2013 at 03:13:24PM +0300, Imre Deak wrote:
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -1751,7 +1751,7 @@ int bond_enslave(struct net_device *bond_dev, s=
-truct net_device *slave_dev)
->  	read_lock(&bond->lock);
-> =20
->  	new_slave->last_arp_rx =3D jiffies -
-> -		(msecs_to_jiffies(bond->params.arp_interval) + 1);
-> +		(msecs_to_jiffies_min(bond->params.arp_interval));
-> =20
->  	if (bond->params.miimon && !bond->params.use_carrier) {
->  		link_reporting =3D bond_check_dev_link(bond, slave_dev, 1);
+Don't know if this already made it to netdev. Google SMTP had been
+flaky and didn't take it yesterday.
 
-This "+ 1" was actually meant as "plus one". We need to ensure that
 
-  slave->last_arp_rx + msecs_to_jiffies(bond->params.arp_interval)
+Subject: [Bug 57851] New: a mistake about macro definition of FIB_TABLE_HASHSZ
 
-is strictly less than current value of jiffies. So with proposed
-definition of msecs_to_jiffies_min() it works correctly but if the
-implementation ever changes in such way that
 
-  msecs_to_jiffies_min(x) >=3D msecs_to_jiffies(x)
+https://bugzilla.kernel.org/show_bug.cgi?id=57851
 
-for some value of x, the code would be incorrect.
+           Summary: a mistake about macro definition of FIB_TABLE_HASHSZ
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 3.5
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: normal
+          Priority: P1
+         Component: Other
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: nosongyang@gmail.com
+        Regression: No
 
-                                                       Michal Kube=E8ek
+
+#ifdef CONFIG_IP_ROUTE_MULTIPATH
+
+#define FIB_RES_NH(res)          ((res).fi->fib_nh[(res).nh_sel])
+
+#define FIB_TABLE_HASHSZ 2
+
+#else /* CONFIG_IP_ROUTE_MULTIPATH */
+
+#define FIB_RES_NH(res)          ((res).fi->fib_nh[0])
+
+#define FIB_TABLE_HASHSZ 256
+
+#endif /* CONFIG_IP_ROUTE_MULTIPATH */
+
+There is a confuse macro definition about the FIB_TABLE_HASHSZ. This mistake
+can generate an error, but will affect performance.
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
