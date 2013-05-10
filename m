@@ -1,39 +1,42 @@
-From: Jongsung Kim <neidhard.kim@lge.com>
-Subject: [PATCH v2 3/4] net: phy: realtek: add suspend/resume handlers for the RTL8211B
-Date: Fri, 10 May 2013 16:29:26 +0900
-Message-ID: <1368170967-20589-3-git-send-email-neidhard.kim@lge.com>
-References: <201305081910.27203.neidhard.kim@lge.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: r58129@freescale.com, davem@davemloft.net,
-	sergei.shtylyov@cogentembedded.com, peppe.cavallaro@st.com,
-	chohnstaedt@innominate.com, timur@freescale.com,
-	heiko.carstens@de.ibm.com, schwidefsky@de.ibm.com,
-	neidhard.kim@lge.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201305081910.27203.neidhard.kim@lge.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net] ipv6,gre: do not leak info to user-space
+Date: Fri, 10 May 2013 15:56:37 +0800
+Message-ID: <1368172597-19183-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29774 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751519Ab3EJH4r (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 May 2013 03:56:47 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add compatible but missing generic PHY suspend/resume handlers for
-the RTL8211B driver.
+There is a hole in struct ip6_tnl_parm2, so we have to
+zero the struct on stack before copying it to user-space.
 
-Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
 ---
- drivers/net/phy/realtek.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
-index 8e95e38..6f0726a 100644
---- a/drivers/net/phy/realtek.c
-+++ b/drivers/net/phy/realtek.c
-@@ -126,6 +126,8 @@ static struct phy_driver realtek_drv[] = {
- 		.read_status	= &genphy_read_status,
- 		.ack_interrupt	= &rtl821x_ack_interrupt,
- 		.config_intr	= &rtl8211b_config_intr,
-+		.suspend	= genphy_suspend,
-+		.resume		= genphy_resume,
- 		.driver		= { .owner = THIS_MODULE,},
- 	},
- 	{	/* RTL8211E */
--- 
-1.7.1
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index d3ddd84..ecd6073 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -1081,6 +1081,7 @@ static int ip6gre_tunnel_ioctl(struct net_device *dev,
+ 		}
+ 		if (t == NULL)
+ 			t = netdev_priv(dev);
++		memset(&p, 0, sizeof(p));
+ 		ip6gre_tnl_parm_to_user(&p, &t->parms);
+ 		if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof(p)))
+ 			err = -EFAULT;
+@@ -1128,6 +1129,7 @@ static int ip6gre_tunnel_ioctl(struct net_device *dev,
+ 		if (t) {
+ 			err = 0;
+ 
++			memset(&p, 0, sizeof(p));
+ 			ip6gre_tnl_parm_to_user(&p, &t->parms);
+ 			if (copy_to_user(ifr->ifr_ifru.ifru_data, &p, sizeof(p)))
+ 				err = -EFAULT;
