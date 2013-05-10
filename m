@@ -1,61 +1,44 @@
-From: Imre Deak <imre.deak@intel.com>
-Subject: Re: [PATCH 06/11] net/bonding: take msecs_to_jiffies_min into use
-Date: Sat, 11 May 2013 00:19:36 +0300
-Message-ID: <1368220776.18714.30.camel@ideak-mobl>
-References: <1368188011-23661-1-git-send-email-imre.deak@intel.com>
-	 <1368188011-23661-6-git-send-email-imre.deak@intel.com>
-	 <20130510135810.GA30139@unicorn.suse.cz>
+From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Subject: Re: [PATCH iproute2] iproute2: add vxlan dstport option
+Date: Fri, 10 May 2013 15:12:16 -0700
+Message-ID: <518D70C0.6070106@gmail.com>
+References: <20130427213151.255971631@vyatta.com> <20130427213258.534077786@vyatta.com> <20130427144747.48ace4fb@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Vetter <daniel.vetter@ffwll.ch>,
-	Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>, netdev@vger.kernel.org
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130510135810.GA30139@unicorn.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	David L Stevens <dlstevens@us.ibm.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f47.google.com ([209.85.219.47]:46196 "EHLO
+	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753245Ab3EJWMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 May 2013 18:12:15 -0400
+Received: by mail-oa0-f47.google.com with SMTP id m1so1632179oag.34
+        for <netdev@vger.kernel.org>; Fri, 10 May 2013 15:12:14 -0700 (PDT)
+In-Reply-To: <20130427144747.48ace4fb@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-10 at 15:58 +0200, Michal Kubecek wrote:
-> On Fri, May 10, 2013 at 03:13:24PM +0300, Imre Deak wrote:
-> > --- a/drivers/net/bonding/bond_main.c
-> > +++ b/drivers/net/bonding/bond_main.c
-> > @@ -1751,7 +1751,7 @@ int bond_enslave(struct net_device *bond_dev,=
- struct net_device *slave_dev)
-> >  	read_lock(&bond->lock);
-> > =20
-> >  	new_slave->last_arp_rx =3D jiffies -
-> > -		(msecs_to_jiffies(bond->params.arp_interval) + 1);
-> > +		(msecs_to_jiffies_min(bond->params.arp_interval));
-> > =20
-> >  	if (bond->params.miimon && !bond->params.use_carrier) {
-> >  		link_reporting =3D bond_check_dev_link(bond, slave_dev, 1);
->=20
-> This "+ 1" was actually meant as "plus one". We need to ensure that
->=20
->   slave->last_arp_rx + msecs_to_jiffies(bond->params.arp_interval)
->=20
-> is strictly less than current value of jiffies.
+On 4/27/2013 2:47 PM, Stephen Hemminger wrote:
+> Add ability to set UDP destination port on a per device basis.
+> If no port is assigned, the default IANA assigned port will be used.
+> If you want the kernel default value, then use port 0.
+>
+> Source port range option is now called 'srcport', to avoid
+> confusion. The old option syntax is accepted for compatiablity.
+>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Ok, I see, the adjustment here is for a different reason and
-msecs_to_jiffies_min wouldn't express this properly. So we should drop
-this patch. Perhaps it'd be nice to add something like the above
-explanation as a code comment, to make it clear that the adjustment is
-not for guaranteeing a minimum duration as it is in many other places.
+I updated iproute2 to the upstream git tree and i noticed that vxlan
+connectivity is lost in my setup as this patch is causing vxlan packets 
+to be
+sent to the new IANA port 4789, but the kernel default is 8472 and the
+receiver is listening on that port.
 
---Imre
+If we are going to keep 8472 as the kernel default for listening port, i 
+think iproute2
+also should keep the same default for dst_port.
 
-> So with proposed
-> definition of msecs_to_jiffies_min() it works correctly but if the
-> implementation ever changes in such way that
->=20
->   msecs_to_jiffies_min(x) >=3D msecs_to_jiffies(x)
->=20
-> for some value of x, the code would be incorrect.
->=20
->                                                        Michal Kube=C4=
-=8Dek
->=20
+Thanks
+Sridhar
