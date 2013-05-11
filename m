@@ -1,48 +1,121 @@
-From: "J. Bruce Fields" <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [patch] svcauth_gss: fix error code in use_gss_proxy()
-Date: Sat, 11 May 2013 14:43:35 -0400
-Message-ID: <20130511184335.GD15765@fieldses.org>
-References: <20130511161349.GA20451@elgon.mountain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Trond Myklebust <Trond.Myklebust-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	"Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>,
-	Simo Sorce <simo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Stanislav Kinsbursky <skinsbursky-bzQdu9zFT3WakBO8gow8eQ@public.gmane.org>,
-	Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
-	linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20130511161349.GA20451-mgFCXtclrQlZLf2FXnZxJA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Subject: [PATCH] qlge: fix dma map leak when the last chunk is not allocated
+Date: Sat, 11 May 2013 16:15:37 -0300
+Message-ID: <1368299737-23863-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Cc: linux-driver@qlogic.com, shahed.shaikh@qlogic.com,
+	jitendra.kalsaria@qlogic.com, ron.mercer@qlogic.com,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e24smtp04.br.ibm.com ([32.104.18.25]:52084 "EHLO
+	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752880Ab3EKTQA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 15:16:00 -0400
+Received: from /spool/local
+	by e24smtp04.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
+	Sat, 11 May 2013 16:15:58 -0300
+Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
+	by d24dlp01.br.ibm.com (Postfix) with ESMTP id A19493520027
+	for <netdev@vger.kernel.org>; Sat, 11 May 2013 15:15:55 -0400 (EDT)
+Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
+	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4BJCvrP2150478
+	for <netdev@vger.kernel.org>; Sat, 11 May 2013 16:12:57 -0300
+Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
+	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4BJFsJu002864
+	for <netdev@vger.kernel.org>; Sat, 11 May 2013 16:15:55 -0300
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 11, 2013 at 07:13:49PM +0300, Dan Carpenter wrote:
-> This should return zero on success and -EBUSY on error so the type
-> needs to be int instead of bool.
+qlge allocates chunks from a page that it maps and unmaps that page when
+the last chunk is released. When the driver is unloaded or the card is
+removed, all chunks are released and the page is unmapped for the last
+chunk.
 
-Oops, you're right--thanks.  Applying.--b.
+However, when the last chunk of a page is not allocated and the device
+is removed, that page is not unmapped. In fact, its last reference is
+not put and there's also a page leak. This bug prevents a device from
+being properly hotplugged.
 
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
-> 
-> diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
-> index 871c73c..2c6a1ec 100644
-> --- a/net/sunrpc/auth_gss/svcauth_gss.c
-> +++ b/net/sunrpc/auth_gss/svcauth_gss.c
-> @@ -1287,7 +1287,7 @@ static bool use_gss_proxy(struct net *net)
->  
->  #ifdef CONFIG_PROC_FS
->  
-> -static bool set_gss_proxy(struct net *net, int type)
-> +static int set_gss_proxy(struct net *net, int type)
->  {
->  	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
->  	int ret = 0;
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+When the DMA API debug option is enabled, the following messages show
+the pending DMA allocation after we remove the driver.
+
+This patch fixes the bug by unmapping and putting the page from the ring
+if its last chunk has not been allocated.
+
+pci 0005:98:00.0: DMA-API: device driver has pending DMA allocations while released from device [count=1]
+One of leaked entries details: [device address=0x0000000060a80000] [size=65536 bytes] [mapped with DMA_FROM_DEVICE] [mapped as page]
+------------[ cut here ]------------
+WARNING: at lib/dma-debug.c:746
+Modules linked in: qlge(-) rpadlpar_io rpaphp pci_hotplug fuse [last unloaded: qlge]
+NIP: c0000000003fc3ec LR: c0000000003fc3e8 CTR: c00000000054de60
+REGS: c0000003ee9c74e0 TRAP: 0700   Tainted: G           O  (3.7.2)
+MSR: 8000000000029032 <SF,EE,ME,IR,DR,RI>  CR: 28002424  XER: 00000001
+SOFTE: 1
+CFAR: c0000000007a39c8
+TASK = c0000003ee8d5c90[8406] 'rmmod' THREAD: c0000003ee9c4000 CPU: 31
+GPR00: c0000000003fc3e8 c0000003ee9c7760 c000000000c789f8 00000000000000ee
+GPR04: 0000000000000000 00000000000000ef 0000000000004000 0000000000010000
+GPR08: 00000000000000be c000000000b22088 c000000000c4c218 00000000007c0000
+GPR12: 0000000028002422 c00000000ff26c80 0000000000000000 000001001b0f1b40
+GPR16: 00000000100cb9d8 0000000010093088 c000000000cdf910 0000000000000001
+GPR20: 0000000000000000 c000000000dbfc00 0000000000000000 c000000000dbfb80
+GPR24: c0000003fafc9d80 0000000000000001 000000000001ff80 c0000003f38f7888
+GPR28: c000000000ddfc00 0000000000000400 c000000000bd7790 c000000000ddfb80
+NIP [c0000000003fc3ec] .dma_debug_device_change+0x22c/0x2b0
+LR [c0000000003fc3e8] .dma_debug_device_change+0x228/0x2b0
+Call Trace:
+[c0000003ee9c7760] [c0000000003fc3e8] .dma_debug_device_change+0x228/0x2b0 (unreliable)
+[c0000003ee9c7840] [c00000000079a098] .notifier_call_chain+0x78/0xf0
+[c0000003ee9c78e0] [c0000000000acc20] .__blocking_notifier_call_chain+0x70/0xb0
+[c0000003ee9c7990] [c0000000004a9580] .__device_release_driver+0x100/0x140
+[c0000003ee9c7a20] [c0000000004a9708] .driver_detach+0x148/0x150
+[c0000003ee9c7ac0] [c0000000004a8144] .bus_remove_driver+0xc4/0x150
+[c0000003ee9c7b60] [c0000000004aa58c] .driver_unregister+0x8c/0xe0
+[c0000003ee9c7bf0] [c0000000004090b4] .pci_unregister_driver+0x34/0xf0
+[c0000003ee9c7ca0] [d000000002231194] .qlge_exit+0x1c/0x34 [qlge]
+[c0000003ee9c7d20] [c0000000000e36d8] .SyS_delete_module+0x1e8/0x290
+[c0000003ee9c7e30] [c0000000000098d4] syscall_exit+0x0/0x94
+Instruction dump:
+7f26cb78 e818003a e87e81a0 e8f80028 e9180030 796b1f24 78001f24 7d6a5a14
+7d2a002a e94b0020 483a7595 60000000 <0fe00000> 2fb80000 40de0048 80120050
+---[ end trace 4294f9abdb01031d ]---
+Mapped at:
+ [<d000000002222f54>] .ql_update_lbq+0x384/0x580 [qlge]
+ [<d000000002227bd0>] .ql_clean_inbound_rx_ring+0x300/0xc60 [qlge]
+ [<d0000000022288cc>] .ql_napi_poll_msix+0x39c/0x5a0 [qlge]
+ [<c0000000006b3c50>] .net_rx_action+0x170/0x300
+ [<c000000000081840>] .__do_softirq+0x170/0x300
+
+Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c |    7 +++++++
+ 1 files changed, 7 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index 87463bc..50235d2 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -1106,6 +1106,7 @@ static int ql_get_next_chunk(struct ql_adapter *qdev, struct rx_ring *rx_ring,
+ 		if (pci_dma_mapping_error(qdev->pdev, map)) {
+ 			__free_pages(rx_ring->pg_chunk.page,
+ 					qdev->lbq_buf_order);
++			rx_ring->pg_chunk.page = NULL;
+ 			netif_err(qdev, drv, qdev->ndev,
+ 				  "PCI mapping failed.\n");
+ 			return -ENOMEM;
+@@ -2777,6 +2778,12 @@ static void ql_free_lbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring
+ 			curr_idx = 0;
+ 
+ 	}
++	if (rx_ring->pg_chunk.page) {
++		pci_unmap_page(qdev->pdev, rx_ring->pg_chunk.map,
++			ql_lbq_block_size(qdev), PCI_DMA_FROMDEVICE);
++		put_page(rx_ring->pg_chunk.page);
++		rx_ring->pg_chunk.page = NULL;
++	}
+ }
+ 
+ static void ql_free_sbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring)
+-- 
+1.7.1
