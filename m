@@ -1,63 +1,42 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] igb: add a method to get the nic hw time
- stamping policy
-Date: Sat, 11 May 2013 17:31:43 +0200
-Message-ID: <20130511153143.GA25180@netboy>
-References: <20130511140219.GG8399@zhudong.nay.redhat.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] svcauth_gss: fix error code in use_gss_proxy()
+Date: Sat, 11 May 2013 19:13:49 +0300
+Message-ID: <20130511161349.GA20451@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, David Howells <dhowells@redhat.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	Jacob Keller <Jacob.e.keller@intel.com>, Dave Jones <davej@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Dong Zhu <bluezhudong@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
+	Simo Sorce <simo@redhat.com>,
+	Stanislav Kinsbursky <skinsbursky@parallels.com>,
+	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: "J. Bruce Fields" <bfields@fieldses.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:34197 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753087Ab3EKQPM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 12:15:12 -0400
 Content-Disposition: inline
-In-Reply-To: <20130511140219.GG8399@zhudong.nay.redhat.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 11, 2013 at 10:02:19PM +0800, Dong Zhu wrote:
-> 
-> Currently kernel only support setting the hw time stamping policy
-> through ioctl,now add a method to check which packets(Outgoing and
-> Incoming) are time stamped by nic.
+This should return zero on success and -EBUSY on error so the type
+needs to be int instead of bool.
 
-I don't really see a use case here. Applications needing time stamping
-should just set the policy that they need.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
->  struct hwtstamp_config {
-> +	int rw;
-
-Also, you can't just go adding fields to an ioctl.
-
->  	int flags;
->  	int tx_type;
->  	int rx_filter;
-> -- 
-
-Thanks,
-Richard
-
-------------------------------------------------------------------------------
-Learn Graph Databases - Download FREE O'Reilly Book
-"Graph Databases" is the definitive new guide to graph databases and 
-their applications. This 200-page book is written by three acclaimed 
-leaders in the field. The early access version is available now. 
-Download your free book today! http://p.sf.net/sfu/neotech_d2d_may
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --git a/net/sunrpc/auth_gss/svcauth_gss.c b/net/sunrpc/auth_gss/svcauth_gss.c
+index 871c73c..2c6a1ec 100644
+--- a/net/sunrpc/auth_gss/svcauth_gss.c
++++ b/net/sunrpc/auth_gss/svcauth_gss.c
+@@ -1287,7 +1287,7 @@ static bool use_gss_proxy(struct net *net)
+ 
+ #ifdef CONFIG_PROC_FS
+ 
+-static bool set_gss_proxy(struct net *net, int type)
++static int set_gss_proxy(struct net *net, int type)
+ {
+ 	struct sunrpc_net *sn = net_generic(net, sunrpc_net_id);
+ 	int ret = 0;
