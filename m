@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/8] qlcnic: Bug fixes
-Date: Sat, 11 May 2013 16:01:47 -0700 (PDT)
-Message-ID: <20130511.160147.301435350728128819.davem@davemloft.net>
-References: <1368127516-9943-1-git-send-email-shahed.shaikh@qlogic.com>
+Subject: Re: [Patch net] ipv6,mcast: always hold idev->lock before mca_lock
+Date: Sat, 11 May 2013 16:11:58 -0700 (PDT)
+Message-ID: <20130511.161158.1119064774406426541.davem@davemloft.net>
+References: <1367998914-26423-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: shahed.shaikh@qlogic.com
+Cc: netdev@vger.kernel.org, dingtianhong@huawei.com,
+	yoshfuji@linux-ipv6.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60087 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60152 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750746Ab3EKXBt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 19:01:49 -0400
-In-Reply-To: <1368127516-9943-1-git-send-email-shahed.shaikh@qlogic.com>
+	with ESMTP id S1751220Ab3EKXL7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 19:11:59 -0400
+In-Reply-To: <1367998914-26423-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Date: Thu, 9 May 2013 15:25:08 -0400
+From: Cong Wang <amwang@redhat.com>
+Date: Wed,  8 May 2013 15:41:54 +0800
 
-> This patch series has following bug fixes:
-> * Fix a bug in unicast MAC address setting in adapter.
->   Driver was not deleting older unicast MAC while adding new one.
-> * Fix an ethtool stats string array by adding missing string entry
->   and fix a typo.
-> * Fix module paramter description. Bracket ')' was missing.
-> * Fix port status provided though 'ethtool <device>' for 83xx adapter.
-> * Fix reset recovery path in case of transmit timeout.
-> * Fix reset recovery during diagnostic tests by preserving
->   current device status information.
-> * Fix mailbox response handling. Driver was not maintaining poll time properly.
-> * Fix validation of link event command.
+> @@ -1369,7 +1370,7 @@ static struct sk_buff *mld_newpack(struct net_device *dev, int size)
+>  
+>  	skb_reserve(skb, hlen);
+>  
+> -	if (ipv6_get_lladdr(dev, &addr_buf, IFA_F_TENTATIVE)) {
+> +	if (__ipv6_get_lladdr(idev, &addr_buf, IFA_F_TENTATIVE)) {
+>  		/* <draft-ietf-magma-mld-source-05.txt>:
+>  		 * use unspecified address as the source address
+>  		 * when a valid link-local address is not available.
 
-Series applied, thanks.
+You aren't necessarily going to be holding idev->lock, therefore you can't
+just do a lockless traversal of idev->addr_list here.
+
+Yes, you can elide the rcu_read_lock() because you have a known reference
+to 'idev' in these paths, but you can't get rid of the address list locking
+altogether.
