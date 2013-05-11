@@ -1,52 +1,36 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC 17/42] drivers/net/ethernet/renesas: don't check resource
- with devm_ioremap_resource
-Date: Sun, 12 May 2013 00:35:39 +0400
-Message-ID: <518EAB9B.8040106@cogentembedded.com>
-References: <1368173847-5661-1-git-send-email-wsa@the-dreams.de> <1368173847-5661-18-git-send-email-wsa@the-dreams.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 0/8] qlcnic: Bug fixes
+Date: Sat, 11 May 2013 16:01:47 -0700 (PDT)
+Message-ID: <20130511.160147.301435350728128819.davem@davemloft.net>
+References: <1368127516-9943-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Wolfram Sang <wsa@the-dreams.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368173847-5661-18-git-send-email-wsa@the-dreams.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: shahed.shaikh@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60087 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746Ab3EKXBt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 19:01:49 -0400
+In-Reply-To: <1368127516-9943-1-git-send-email-shahed.shaikh@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Date: Thu, 9 May 2013 15:25:08 -0400
 
-On 05/10/2013 12:17 PM, Wolfram Sang wrote:
+> This patch series has following bug fixes:
+> * Fix a bug in unicast MAC address setting in adapter.
+>   Driver was not deleting older unicast MAC while adding new one.
+> * Fix an ethtool stats string array by adding missing string entry
+>   and fix a typo.
+> * Fix module paramter description. Bracket ')' was missing.
+> * Fix port status provided though 'ethtool <device>' for 83xx adapter.
+> * Fix reset recovery path in case of transmit timeout.
+> * Fix reset recovery during diagnostic tests by preserving
+>   current device status information.
+> * Fix mailbox response handling. Driver was not maintaining poll time properly.
+> * Fix validation of link event command.
 
-> devm_ioremap_resource does sanity checks on the given resource. No need to
-> duplicate this in the driver.
->
-> Signed-off-by: Wolfram Sang <wsa@the-dreams.de>
-> ---
->   drivers/net/ethernet/renesas/sh_eth.c |   14 +-------------
->   1 file changed, 1 insertion(+), 13 deletions(-)
->
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 33dc6f2..6175839 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -2661,14 +2661,6 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
->   	struct sh_eth_private *mdp = NULL;
->   	struct sh_eth_plat_data *pd = pdev->dev.platform_data;
->   
-> -	/* get base addr */
-> -	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> -	if (unlikely(res == NULL)) {
-> -		dev_err(&pdev->dev, "invalid resource\n");
-> -		ret = -EINVAL;
-> -		goto out;
-> -	}
-> -
->   	ndev = alloc_etherdev(sizeof(struct sh_eth_private));
->   	if (!ndev) {
->   		ret = -ENOMEM;
-
-     There's ndev->base_addr = res->start; below this which you broke. NAK.
-You should really compile-test your patches.
-
-WBR, Sergei
+Series applied, thanks.
