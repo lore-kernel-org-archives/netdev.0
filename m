@@ -1,47 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: do not clear pinet6 field
-Date: Sat, 11 May 2013 16:27:21 -0700 (PDT)
-Message-ID: <20130511.162721.884139879091826308.davem@davemloft.net>
-References: <1368131296.13473.101.camel@edumazet-glaptop>
+Subject: Re: [PATCH 03/12] net/ethernet: NET_CALXEDA_XGMAC should depend on
+ HAS_DMA
+Date: Sat, 11 May 2013 16:28:43 -0700 (PDT)
+Message-ID: <20130511.162843.702635467794467039.davem@davemloft.net>
+References: <1368133494-22198-1-git-send-email-geert@linux-m68k.org>
+	<1368133494-22198-3-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60277 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751900Ab3EKX1V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 19:27:21 -0400
-In-Reply-To: <1368131296.13473.101.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, rob.herring@calxeda.com,
+	netdev@vger.kernel.org
+To: geert@linux-m68k.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368133494-22198-3-git-send-email-geert@linux-m68k.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 09 May 2013 13:28:16 -0700
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Date: Thu,  9 May 2013 23:04:45 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> If NO_DMA=y:
 > 
-> We have seen multiple NULL dereferences in __inet6_lookup_established()
+> drivers/built-in.o: In function `xgmac_xmit':
+> drivers/net/ethernet/calxeda/xgmac.c:1102: undefined reference to `dma_mapping_error'
 > 
-> After analysis, I found that inet6_sk() could be NULL while the
-> check for sk_family == AF_INET6 was true.
-> 
-> Bug was added in linux-2.6.29 when RCU lookups were introduced in UDP
-> and TCP stacks.
-> 
-> Once an IPv6 socket, using SLAB_DESTROY_BY_RCU is inserted in a hash
-> table, we no longer can clear pinet6 field.
-> 
-> This patch extends logic used in commit fcbdf09d9652c891
-> ("net: fix nulls list corruptions in sk_prot_alloc")
-> 
-> TCP/UDP/UDPLite IPv6 protocols provide their own .clear_sk() method
-> to make sure we do not clear pinet6 field.
-> 
-> At socket clone phase, we do not really care, as cloning the parent (non
-> NULL) pinet6 is not adding a fatal race.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
 
-Applied and queued up for -stable, thanks!
+Applied.
