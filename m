@@ -1,121 +1,145 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-Subject: [PATCH] qlge: fix dma map leak when the last chunk is not allocated
-Date: Sat, 11 May 2013 16:15:37 -0300
-Message-ID: <1368299737-23863-1-git-send-email-cascardo@linux.vnet.ibm.com>
-Cc: linux-driver@qlogic.com, shahed.shaikh@qlogic.com,
-	jitendra.kalsaria@qlogic.com, ron.mercer@qlogic.com,
-	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e24smtp04.br.ibm.com ([32.104.18.25]:52084 "EHLO
-	e24smtp04.br.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752880Ab3EKTQA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 15:16:00 -0400
-Received: from /spool/local
-	by e24smtp04.br.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <cascardo@linux.vnet.ibm.com>;
-	Sat, 11 May 2013 16:15:58 -0300
-Received: from d24relay01.br.ibm.com (d24relay01.br.ibm.com [9.8.31.16])
-	by d24dlp01.br.ibm.com (Postfix) with ESMTP id A19493520027
-	for <netdev@vger.kernel.org>; Sat, 11 May 2013 15:15:55 -0400 (EDT)
-Received: from d24av01.br.ibm.com (d24av01.br.ibm.com [9.8.31.91])
-	by d24relay01.br.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4BJCvrP2150478
-	for <netdev@vger.kernel.org>; Sat, 11 May 2013 16:12:57 -0300
-Received: from d24av01.br.ibm.com (loopback [127.0.0.1])
-	by d24av01.br.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4BJFsJu002864
-	for <netdev@vger.kernel.org>; Sat, 11 May 2013 16:15:55 -0300
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Rafael J. Wysocki" <rjw-KKrjLPT3xs0@public.gmane.org>
+Subject: Re: is L1 really disabled in iwlwifi
+Date: Sat, 11 May 2013 22:26:53 +0200
+Message-ID: <1725435.3DlCxYF2FV@vostro.rjw.lan>
+References: <CANUX_P2Hy02SnyYS24dyUGLv3wB3L5xkXt8Y1s+8_RG9d5ReAw@mail.gmail.com> <CAErSpo6OCyTy19u6Xaf=xr0TSDriwCD3n-oMc7eJyLzuJ9d60g@mail.gmail.com> <20130510225257.GA10847@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7Bit
+Cc: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Matthew Garrett <matthew.garrett-05XSO3Yj/JvQT0dZR+AlfA@public.gmane.org>,
+	Stanislaw Gruszka <sgruszka-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	"linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-pci-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	John Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	Roman Yepishev <roman.yepishev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"Guy, Wey-Yi" <wey-yi.w.guy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Mike Miller <mike.miller-VXdhtT5mjnY@public.gmane.org>, iss_storagedev-VXdhtT5mjnY@public.gmane.org,
+	Guo-Fu Tseng <cooldavid-eHdHF5TYP0iWVfeAwA7xHQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>, nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org,
+	aacraid-ugMvIWC9OiRBDgjK7y7TUQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130510225257.GA10847-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-qlge allocates chunks from a page that it maps and unmaps that page when
-the last chunk is released. When the driver is unloaded or the card is
-removed, all chunks are released and the page is unmapped for the last
-chunk.
+On Friday, May 10, 2013 04:52:57 PM Bjorn Helgaas wrote:
+> [+cc Rafael, other pci_disable_link_state() users]
+> 
+> On Wed, May 01, 2013 at 11:13:15AM -0600, Bjorn Helgaas wrote:
+> > On Wed, May 1, 2013 at 2:31 AM, Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
+> > > [from Bjorn's mail]
+> > >> In Emmanuel's case, we don't get _OSC control, so
+> > >> pci_disable_link_state() does nothing.
+> > >
+> > > Right, but this is true with the specific log I sent to you. Is it
+> > > possible that another platform  / BIOS, we *will* get _OSC control and
+> > > that pci_disable_link_state() will actually do something?  In that case
+> > > I would prefer not to remove the call to pcie_disable_link_state().
+> > 
+> > Yes, absolutely, on many platforms we will get _OSC control, and
+> > pci_disable_link_state() will work as expected.  The problem is that
+> > the driver doesn't have a good way to know whether pci_disable_link()
+> > did anything or not.
+> > 
+> > Today I think we have:
+> > 
+> > 1) If the BIOS grants the OS permission to control PCIe services via
+> > _OSC, pci_disable_link_state() works and L1 will be disabled.
+> > 
+> > 2) If the BIOS does not grant permission, pci_disable_link_state()
+> > does nothing and L1 may be enabled or not depending on what
+> > configuration the BIOS did.
+> > 
+> > If the device really doesn't work reliably when L1 is enabled, we're
+> > currently at the mercy of the BIOS -- if the BIOS enables L1 but
+> > doesn't grant us permission via _OSC, L1 will remain enabled (as it is
+> > on your system).
+> 
+> I propose the following patch.  Any comments?
 
-However, when the last chunk of a page is not allocated and the device
-is removed, that page is not unmapped. In fact, its last reference is
-not put and there's also a page leak. This bug prevents a device from
-being properly hotplugged.
+In my opinion this is dangerous, because it opens us to bugs that right now
+are prevented from happening due to the way the code works.
 
-When the DMA API debug option is enabled, the following messages show
-the pending DMA allocation after we remove the driver.
+Thanks,
+Rafael
 
-This patch fixes the bug by unmapping and putting the page from the ring
-if its last chunk has not been allocated.
 
-pci 0005:98:00.0: DMA-API: device driver has pending DMA allocations while released from device [count=1]
-One of leaked entries details: [device address=0x0000000060a80000] [size=65536 bytes] [mapped with DMA_FROM_DEVICE] [mapped as page]
-------------[ cut here ]------------
-WARNING: at lib/dma-debug.c:746
-Modules linked in: qlge(-) rpadlpar_io rpaphp pci_hotplug fuse [last unloaded: qlge]
-NIP: c0000000003fc3ec LR: c0000000003fc3e8 CTR: c00000000054de60
-REGS: c0000003ee9c74e0 TRAP: 0700   Tainted: G           O  (3.7.2)
-MSR: 8000000000029032 <SF,EE,ME,IR,DR,RI>  CR: 28002424  XER: 00000001
-SOFTE: 1
-CFAR: c0000000007a39c8
-TASK = c0000003ee8d5c90[8406] 'rmmod' THREAD: c0000003ee9c4000 CPU: 31
-GPR00: c0000000003fc3e8 c0000003ee9c7760 c000000000c789f8 00000000000000ee
-GPR04: 0000000000000000 00000000000000ef 0000000000004000 0000000000010000
-GPR08: 00000000000000be c000000000b22088 c000000000c4c218 00000000007c0000
-GPR12: 0000000028002422 c00000000ff26c80 0000000000000000 000001001b0f1b40
-GPR16: 00000000100cb9d8 0000000010093088 c000000000cdf910 0000000000000001
-GPR20: 0000000000000000 c000000000dbfc00 0000000000000000 c000000000dbfb80
-GPR24: c0000003fafc9d80 0000000000000001 000000000001ff80 c0000003f38f7888
-GPR28: c000000000ddfc00 0000000000000400 c000000000bd7790 c000000000ddfb80
-NIP [c0000000003fc3ec] .dma_debug_device_change+0x22c/0x2b0
-LR [c0000000003fc3e8] .dma_debug_device_change+0x228/0x2b0
-Call Trace:
-[c0000003ee9c7760] [c0000000003fc3e8] .dma_debug_device_change+0x228/0x2b0 (unreliable)
-[c0000003ee9c7840] [c00000000079a098] .notifier_call_chain+0x78/0xf0
-[c0000003ee9c78e0] [c0000000000acc20] .__blocking_notifier_call_chain+0x70/0xb0
-[c0000003ee9c7990] [c0000000004a9580] .__device_release_driver+0x100/0x140
-[c0000003ee9c7a20] [c0000000004a9708] .driver_detach+0x148/0x150
-[c0000003ee9c7ac0] [c0000000004a8144] .bus_remove_driver+0xc4/0x150
-[c0000003ee9c7b60] [c0000000004aa58c] .driver_unregister+0x8c/0xe0
-[c0000003ee9c7bf0] [c0000000004090b4] .pci_unregister_driver+0x34/0xf0
-[c0000003ee9c7ca0] [d000000002231194] .qlge_exit+0x1c/0x34 [qlge]
-[c0000003ee9c7d20] [c0000000000e36d8] .SyS_delete_module+0x1e8/0x290
-[c0000003ee9c7e30] [c0000000000098d4] syscall_exit+0x0/0x94
-Instruction dump:
-7f26cb78 e818003a e87e81a0 e8f80028 e9180030 796b1f24 78001f24 7d6a5a14
-7d2a002a e94b0020 483a7595 60000000 <0fe00000> 2fb80000 40de0048 80120050
----[ end trace 4294f9abdb01031d ]---
-Mapped at:
- [<d000000002222f54>] .ql_update_lbq+0x384/0x580 [qlge]
- [<d000000002227bd0>] .ql_clean_inbound_rx_ring+0x300/0xc60 [qlge]
- [<d0000000022288cc>] .ql_napi_poll_msix+0x39c/0x5a0 [qlge]
- [<c0000000006b3c50>] .net_rx_action+0x170/0x300
- [<c000000000081840>] .__do_softirq+0x170/0x300
-
-Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
----
- drivers/net/ethernet/qlogic/qlge/qlge_main.c |    7 +++++++
- 1 files changed, 7 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-index 87463bc..50235d2 100644
---- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
-@@ -1106,6 +1106,7 @@ static int ql_get_next_chunk(struct ql_adapter *qdev, struct rx_ring *rx_ring,
- 		if (pci_dma_mapping_error(qdev->pdev, map)) {
- 			__free_pages(rx_ring->pg_chunk.page,
- 					qdev->lbq_buf_order);
-+			rx_ring->pg_chunk.page = NULL;
- 			netif_err(qdev, drv, qdev->ndev,
- 				  "PCI mapping failed.\n");
- 			return -ENOMEM;
-@@ -2777,6 +2778,12 @@ static void ql_free_lbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring
- 			curr_idx = 0;
- 
- 	}
-+	if (rx_ring->pg_chunk.page) {
-+		pci_unmap_page(qdev->pdev, rx_ring->pg_chunk.map,
-+			ql_lbq_block_size(qdev), PCI_DMA_FROMDEVICE);
-+		put_page(rx_ring->pg_chunk.page);
-+		rx_ring->pg_chunk.page = NULL;
-+	}
- }
- 
- static void ql_free_sbq_buffers(struct ql_adapter *qdev, struct rx_ring *rx_ring)
+> commit cd11e3f87c4d2777cf8921c0454500c9baa54b46
+> Author: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> Date:   Fri May 10 15:54:35 2013 -0600
+> 
+>     PCI/ASPM: Allow drivers to disable ASPM unconditionally
+>     
+>     Some devices have hardware problems related to using ASPM.  Drivers for
+>     these devices use pci_disable_link_state() to prevent their device from
+>     entering L0s or L1.  But on platforms where the OS doesn't have permission
+>     to manage ASPM, pci_disable_link_state() does nothing, and the driver has
+>     no way to know this.
+>     
+>     Therefore, if the BIOS enables ASPM but declines (either via the FADT
+>     ACPI_FADT_NO_ASPM bit or the _OSC method) to allow the OS to manage it,
+>     the device can still use ASPM and trip over the hardware issue.
+>     
+>     This patch makes pci_disable_link_state() disable ASPM unconditionally,
+>     regardless of whether the OS has permission to manage ASPM in general.
+>     
+>     Reported-by: Emmanuel Grumbach <egrumbach-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+>     Reference: https://lkml.kernel.org/r/CANUX_P3F5YhbZX3WGU-j1AGpbXb_T9Bis2ErhvKkFMtDvzatVQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org
+>     Reference: https://bugzilla.kernel.org/show_bug.cgi?id=57331
+>     Signed-off-by: Bjorn Helgaas <bhelgaas-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>
+> 
+> diff --git a/drivers/pci/pcie/aspm.c b/drivers/pci/pcie/aspm.c
+> index d320df6..9ef4ab8 100644
+> --- a/drivers/pci/pcie/aspm.c
+> +++ b/drivers/pci/pcie/aspm.c
+> @@ -718,15 +718,11 @@ void pcie_aspm_powersave_config_link(struct pci_dev *pdev)
+>   * pci_disable_link_state - disable pci device's link state, so the link will
+>   * never enter specific states
+>   */
+> -static void __pci_disable_link_state(struct pci_dev *pdev, int state, bool sem,
+> -				     bool force)
+> +static void __pci_disable_link_state(struct pci_dev *pdev, int state, bool sem)
+>  {
+>  	struct pci_dev *parent = pdev->bus->self;
+>  	struct pcie_link_state *link;
+>  
+> -	if (aspm_disabled && !force)
+> -		return;
+> -
+>  	if (!pci_is_pcie(pdev))
+>  		return;
+>  
+> @@ -757,13 +753,13 @@ static void __pci_disable_link_state(struct pci_dev *pdev, int state, bool sem,
+>  
+>  void pci_disable_link_state_locked(struct pci_dev *pdev, int state)
+>  {
+> -	__pci_disable_link_state(pdev, state, false, false);
+> +	__pci_disable_link_state(pdev, state, false);
+>  }
+>  EXPORT_SYMBOL(pci_disable_link_state_locked);
+>  
+>  void pci_disable_link_state(struct pci_dev *pdev, int state)
+>  {
+> -	__pci_disable_link_state(pdev, state, true, false);
+> +	__pci_disable_link_state(pdev, state, true);
+>  }
+>  EXPORT_SYMBOL(pci_disable_link_state);
+>  
+> @@ -781,7 +777,7 @@ void pcie_clear_aspm(struct pci_bus *bus)
+>  		__pci_disable_link_state(child, PCIE_LINK_STATE_L0S |
+>  					 PCIE_LINK_STATE_L1 |
+>  					 PCIE_LINK_STATE_CLKPM,
+> -					 false, true);
+> +					 false);
+>  	}
+>  }
+>  
 -- 
-1.7.1
+I speak only for myself.
+Rafael J. Wysocki, Intel Open Source Technology Center.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
