@@ -1,41 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request net: batman-adv 2013-05-09
-Date: Sat, 11 May 2013 16:24:23 -0700 (PDT)
-Message-ID: <20130511.162423.332204083485209564.davem@davemloft.net>
-References: <1368097007-817-1-git-send-email-ordex@autistici.org>
+Subject: Re: [patch net] macvlan: fix passthru mode race between dev
+ removal and rx path
+Date: Sat, 11 May 2013 16:25:54 -0700 (PDT)
+Message-ID: <20130511.162554.1852680841693318294.davem@davemloft.net>
+References: <1368109420-14199-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: ordex@autistici.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60246 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751491Ab3EKXYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 19:24:24 -0400
-In-Reply-To: <1368097007-817-1-git-send-email-ordex@autistici.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, sri@us.ibm.com, kaber@trash.net,
+	linux-kernel@vger.kernel.org, mtesar@redhat.com,
+	eric.dumazet@gmail.com
+To: jiri@resnulli.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368109420-14199-1-git-send-email-jiri@resnulli.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <ordex@autistici.org>
-Date: Thu,  9 May 2013 12:56:43 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu,  9 May 2013 16:23:40 +0200
 
-> here you have four fixes intended for net.
+> Currently, if macvlan in passthru mode is created and data are rxed and
+> you remove this device, following panic happens:
 > 
-> 1/4 fixes the parsing of a string sent from userspace in order to avoid random
-> memory access in case of string length of 0.
+> NULL pointer dereference at 0000000000000198
+> IP: [<ffffffffa0196058>] macvlan_handle_frame+0x153/0x1f7 [macvlan]
 > 
-> 2/4 adds a check for the return value of pskb_trim_rcsum() in order to stop
-> processing the skb in case of failure.
+> I'm using following script to trigger this:
+ ...
+> I run this script while "ping -f" is running on another machine to send
+> packets to e1 rx.
 > 
-> 3/4 prevents DAT (the Distributed ARP Table) to send cached ARP replies when
-> both the source and the destination of the snooped ARP request are local clients
-> (meaning: directly connected to the node). This can confuse a bridge where
-> batman-adv is enslaved.
+> Reason of the panic is that list_first_entry() is blindly called in
+> macvlan_handle_frame() even if the list was empty. vlan is set to
+> incorrect pointer which leads to the crash.
 > 
-> 4/4 fix a race condition in the main clean up procedure by reordering
-> sub-components freeing function invocations.
+> I'm fixing this by protecting port->vlans list by rcu and by preventing
+> from getting incorrect pointer in case the list is empty.
 > 
-> Please pull or let me know if there is any problem.
+> Introduced by: commit eb06acdc85585f2 "macvlan: Introduce 'passthru' mode to takeover the underlying device"
+> 
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-Pulled, thanks Antonio.
+Applied and queued up for -stable, thanks!
