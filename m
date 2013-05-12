@@ -1,44 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC 17/42] drivers/net/ethernet/renesas: don't check resource
- with devm_ioremap_resource
-Date: Sun, 12 May 2013 19:26:19 +0400
-Message-ID: <518FB49B.7030708@cogentembedded.com>
-References: <1368173847-5661-1-git-send-email-wsa@the-dreams.de> <1368173847-5661-18-git-send-email-wsa@the-dreams.de> <518EAB9B.8040106@cogentembedded.com> <20130512094202.GA3039@katana>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Wolfram Sang <wsa@the-dreams.de>
+From: Laurent Navet <laurent.navet@gmail.com>
+Subject: [PATCH] drivers: net: ethernet: broadcom: bcm63xx: use devm_ioremap_resource()
+Date: Sun, 12 May 2013 17:56:05 +0200
+Message-ID: <1368374165-3228-1-git-send-email-laurent.navet@gmail.com>
+Cc: cernekee@gmail.com, jogo@openwrt.org, joe@perches.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	gregkh@linuxfoundation.org, Laurent Navet <laurent.navet@gmail.com>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130512094202.GA3039@katana>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Replace a call to deprecated devm_request_and_ioremap by devm_ioremap_resource.
 
-On 12-05-2013 13:42, Wolfram Sang wrote:
+Found with coccicheck and this semantic patch:
+ scripts/coccinelle/api/devm_ioremap_resource.cocci
 
->> You should really compile-test your patches.
+Signed-off-by: Laurent Navet <laurent.navet@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-> Easier said than done with a cleanup series touching various platforms
-> and architectures. If there are already solutions how to find a .config
-> compiling the source file modified, I am all ears.
-
-    You can always try to do:
-
-$ make drivers/net/ethernet/renesas/sh_eth.o
-
-with a .config file you have. It will compile a file regardless of 
-whether it's enabled in your .config or not...
-
-> That being said, the actual mistake I did was embarassing, I agree. I am
-> sorry for that and will improve. And, doing things means doing mistakes,
-> too.
-
-    Be more attentive in the future please. :-)
-
-> Regards,
-
->     Wolfram
-
-WBR, Sergei
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index 0b3e23e..9de4217 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -1641,9 +1641,9 @@ static int bcm_enet_probe(struct platform_device *pdev)
+ 	if (ret)
+ 		goto out;
+ 
+-	priv->base = devm_request_and_ioremap(&pdev->dev, res_mem);
+-	if (priv->base == NULL) {
+-		ret = -ENOMEM;
++	priv->base = devm_ioremap_resource(&pdev->dev, res_mem);
++	if (IS_ERR(priv->base)) {
++		ret = PTR_ERR(priv->base);
+ 		goto out;
+ 	}
+ 
+-- 
+1.7.10.4
