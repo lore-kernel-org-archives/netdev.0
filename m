@@ -1,40 +1,36 @@
-From: Andy Johnson <johnsonzjo@gmail.com>
-Subject: NETDEV_FEAT_CHANGE and ethtool (question)
-Date: Sun, 12 May 2013 12:21:45 +0300
-Message-ID: <CAF0Lin3mWT_GybiXE1AihZj8iRfmQ7ahNg51SHn6BKtbitFm4A@mail.gmail.com>
+From: Wolfram Sang <wsa@the-dreams.de>
+Subject: Re: [RFC 17/42] drivers/net/ethernet/renesas: don't check resource
+ with devm_ioremap_resource
+Date: Sun, 12 May 2013 11:42:07 +0200
+Message-ID: <20130512094202.GA3039@katana>
+References: <1368173847-5661-1-git-send-email-wsa@the-dreams.de>
+ <1368173847-5661-18-git-send-email-wsa@the-dreams.de>
+ <518EAB9B.8040106@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:40736 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751982Ab3ELJVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 May 2013 05:21:47 -0400
-Received: by mail-wi0-f178.google.com with SMTP id hm14so1932273wib.17
-        for <netdev@vger.kernel.org>; Sun, 12 May 2013 02:21:46 -0700 (PDT)
+Received: from sauhun.de ([89.238.76.85]:52691 "EHLO pokefinder.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751138Ab3ELJko (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 12 May 2013 05:40:44 -0400
+Content-Disposition: inline
+In-Reply-To: <518EAB9B.8040106@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
 
-The only thing that netdev_features_change() does is send
-NETDEV_FEAT_CHANGE event
-notification.
+> You should really compile-test your patches.
 
-NETDEV_FEAT_CHANGE event is sent in the core from
-netdev_update_features() if __netdev_update_features returned 1, and
-this event is *always* sent from netdev_change_features().
+Easier said than done with a cleanup series touching various platforms
+and architectures. If there are already solutions how to find a .config
+compiling the source file modified, I am all ears.
 
-ethtool calls __netdev_update_features() when chaning features. So
-changing GSO offload features for example, by
-"ethtool -K gso off" will *not* trigger NETDEV_FEAT_CHANGE event notification.
-(assuming that ndo_fix_features/ndo_set_features callbacks of the
-driver, if exist, will not
-trigger such noticiation call).
+That being said, the actual mistake I did was embarassing, I agree. I am
+sorry for that and will improve. And, doing things means doing mistakes,
+too.
 
-My question is: why changing features by ethtool does not trigger
-sending NETDEV_FEAT_CHANGE event?
+Regards,
 
-
-Best,
-Andy
+   Wolfram
