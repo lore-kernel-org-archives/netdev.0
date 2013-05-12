@@ -1,32 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] 3c59x: fix PCI resource management
-Date: Sat, 11 May 2013 17:40:27 -0700 (PDT)
-Message-ID: <20130511.174027.2189352473297054848.davem@davemloft.net>
-References: <201305100114.08149.sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] emac: Fix EMAC soft reset on 460EX/GT
+Date: Sat, 11 May 2013 17:40:39 -0700 (PDT)
+Message-ID: <20130511.174039.1747680568639795324.davem@davemloft.net>
+References: <20130510025021.C97AF10045D@puck.mtv.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
-To: sergei.shtylyov@cogentembedded.com
+Cc: netdev@vger.kernel.org
+To: pgynther@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60704 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60713 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752432Ab3ELAk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 20:40:28 -0400
-In-Reply-To: <201305100114.08149.sergei.shtylyov@cogentembedded.com>
+	with ESMTP id S1753088Ab3ELAkk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 20:40:40 -0400
+In-Reply-To: <20130510025021.C97AF10045D@puck.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Fri, 10 May 2013 01:14:07 +0400
+From: Petri Gynther <pgynther@google.com>
+Date: Thu, 9 May 2013 19:50:00 -0700
 
-> From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+> Fix EMAC soft reset on 460EX/GT to select the right PHY clock source
+> before and after the soft reset.
 > 
-> The driver wrongly claimed I/O ports at an address returned by pci_iomap() --
-> even if it was passed an MMIO address.  Fix this by claiming/releasing all PCI
-> resources in the PCI driver's probe()/remove() methods instead and get rid of
-> 'must_free_region' flag weirdness (why would Cardbus claim anything for us?).
+> EMAC with PHY should use the clock from PHY during soft reset.
+> EMAC without PHY should use the internal clock during soft reset.
 > 
-> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+> PPC460EX/GT Embedded Processor Advanced User's Manual
+> section 28.10.1 Mode Register 0 (EMACx_MR0) states:
+> Note: The PHY must provide a TX Clk in order to perform a soft reset
+> of the EMAC. If none is present, select the internal clock
+> (SDR0_ETH_CFG[EMACx_PHY_CLK] = 1).
+> After a soft reset, select the external clock.
+> 
+> Without the fix, 460EX/GT-based boards with RGMII PHYs attached to
+> EMACs experience EMAC interrupt storm and system watchdog reset when
+> issuing "ifconfig eth0 down" + "ifconfig eth0 up" a few times.
+> The system enters endless loop of serving emac_irq() with EMACx_ISR
+> register stuck at value 0x10000000 (Rx parity error).
+> 
+> With the fix, the above issue is no longer observed.
+> 
+> Signed-off-by: Petri Gynther <pgynther@google.com>
 
-Applied, thanks.
+Applied.
