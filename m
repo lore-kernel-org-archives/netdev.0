@@ -1,50 +1,60 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC 17/42] drivers/net/ethernet/renesas: don't check resource
- with devm_ioremap_resource
-Date: Sun, 12 May 2013 22:33:30 +0400
-Message-ID: <518FE07A.9090904@cogentembedded.com>
-References: <1368173847-5661-1-git-send-email-wsa@the-dreams.de> <1368173847-5661-18-git-send-email-wsa@the-dreams.de> <518EAB9B.8040106@cogentembedded.com> <20130512094202.GA3039@katana> <518FB49B.7030708@cogentembedded.com> <20130512163246.GA2928@katana>
+Subject: Re: [PATCH] drivers: net: ethernet: broadcom: bcm63xx: use devm_ioremap_resource()
+Date: Sun, 12 May 2013 22:38:37 +0400
+Message-ID: <518FE1AD.3090602@cogentembedded.com>
+References: <1368374165-3228-1-git-send-email-laurent.navet@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Wolfram Sang <wsa@the-dreams.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130512163246.GA2928@katana>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, cernekee@gmail.com, jogo@openwrt.org,
+	joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, gregkh@linuxfoundation.org
+To: Laurent Navet <laurent.navet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:37204 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751152Ab3ELSil (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 May 2013 14:38:41 -0400
+Received: by mail-lb0-f173.google.com with SMTP id t10so1658865lbi.32
+        for <netdev@vger.kernel.org>; Sun, 12 May 2013 11:38:40 -0700 (PDT)
+In-Reply-To: <1368374165-3228-1-git-send-email-laurent.navet@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 05/12/2013 08:32 PM, Wolfram Sang wrote:
+On 05/12/2013 07:56 PM, Laurent Navet wrote:
 
+> Replace a call to deprecated devm_request_and_ioremap by devm_ioremap_resource.
 >
->>     You can always try to do:
->>
->> $ make drivers/net/ethernet/renesas/sh_eth.o
->>
->> with a .config file you have. It will compile a file regardless of
->> whether it's enabled in your .config or not...
-> Been there. This mainly works for platform independent drivers. In this case:
+> Found with coccicheck and this semantic patch:
+>   scripts/coccinelle/api/devm_ioremap_resource.cocci
 >
->    CC      drivers/net/ethernet/renesas/sh_eth.o
-> drivers/net/ethernet/renesas/sh_eth.c: In function 'sh_eth_dev_init':
-> drivers/net/ethernet/renesas/sh_eth.c:1274:2: error: implicit declaration of function 'sh_eth_reset' [-Werror=implicit-function-declaration]
-> drivers/net/ethernet/renesas/sh_eth.c: In function 'sh_eth_drv_probe':
-> drivers/net/ethernet/renesas/sh_eth.c:2724:13: error: 'sh_eth_my_cpu_data' undeclared (first use in this function)
-> drivers/net/ethernet/renesas/sh_eth.c:2724:13: note: each undeclared identifier is reported only once for each function it appears in
-> drivers/net/ethernet/renesas/sh_eth.c: At top level:
-> drivers/net/ethernet/renesas/sh_eth.c:889:12: warning: 'sh_eth_check_reset' defined but not used [-Wunused-function]
+> Signed-off-by: Laurent Navet <laurent.navet@gmail.com>
+> ---
+>   drivers/net/ethernet/broadcom/bcm63xx_enet.c |    6 +++---
+>   1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+> index 0b3e23e..9de4217 100644
+> --- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+> +++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+> @@ -1641,9 +1641,9 @@ static int bcm_enet_probe(struct platform_device *pdev)
+>   	if (ret)
+>   		goto out;
+>   
+> -	priv->base = devm_request_and_ioremap(&pdev->dev, res_mem);
+> -	if (priv->base == NULL) {
+> -		ret = -ENOMEM;
+> +	priv->base = devm_ioremap_resource(&pdev->dev, res_mem);
+> +	if (IS_ERR(priv->base)) {
+> +		ret = PTR_ERR(priv->base);
+>   		goto out;
+>   	}
+>
 
-     At least you can try to filter out errors/warning caused by your 
-patch from
-those that are caused by platform dependency. Concerning this driver, 
-hopefully
-the platform dependencies will go away in 3.11.
-
-> Regards,
->
->     Wolfram
->
+    You may as well delete a check for 'res_mem' being NULL above 
+alloc_etherdev()
+call since devm_ioremap_resource() checks for that too.
 
 WBR, Sergei
