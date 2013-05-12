@@ -1,35 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] 8139cp: reset BQL when ring tx ring cleared
-Date: Sat, 11 May 2013 19:30:24 -0700
-Message-ID: <CAOaVG15T14CO_uTb2XG9Qk+Zgop9DJcRW847iMFrfDu-+-jqvw@mail.gmail.com>
-References: <20130511170923.52673453@nehalam.linuxnetplumber.net>
-	<20130511.182125.896338102769943216.davem@davemloft.net>
+From: Andy Johnson <johnsonzjo@gmail.com>
+Subject: NETDEV_FEAT_CHANGE and ethtool (question)
+Date: Sun, 12 May 2013 12:21:45 +0300
+Message-ID: <CAF0Lin3mWT_GybiXE1AihZj8iRfmQ7ahNg51SHn6BKtbitFm4A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David.Woodhouse@intel.com, romieu@fr.zoreil.com,
-	netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f48.google.com ([209.85.212.48]:42231 "EHLO
-	mail-vb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753545Ab3ELCaZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 22:30:25 -0400
-Received: by mail-vb0-f48.google.com with SMTP id q16so4400760vbe.35
-        for <netdev@vger.kernel.org>; Sat, 11 May 2013 19:30:24 -0700 (PDT)
-In-Reply-To: <20130511.182125.896338102769943216.davem@davemloft.net>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:40736 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751982Ab3ELJVr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 May 2013 05:21:47 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hm14so1932273wib.17
+        for <netdev@vger.kernel.org>; Sun, 12 May 2013 02:21:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-No forgot to refresh.
+Hello,
 
-On Sat, May 11, 2013 at 6:21 PM, David Miller <davem@davemloft.net> wrote:
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Sat, 11 May 2013 17:09:23 -0700
->
->> While looking for other problem found this potential issue.
->> When the transmit ring is cleaned out, the Byte Queue Limit values
->> need to be reset.
->>
->> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
->
-> You neither compiled, nor tested this.
+The only thing that netdev_features_change() does is send
+NETDEV_FEAT_CHANGE event
+notification.
+
+NETDEV_FEAT_CHANGE event is sent in the core from
+netdev_update_features() if __netdev_update_features returned 1, and
+this event is *always* sent from netdev_change_features().
+
+ethtool calls __netdev_update_features() when chaning features. So
+changing GSO offload features for example, by
+"ethtool -K gso off" will *not* trigger NETDEV_FEAT_CHANGE event notification.
+(assuming that ndo_fix_features/ndo_set_features callbacks of the
+driver, if exist, will not
+trigger such noticiation call).
+
+My question is: why changing features by ethtool does not trigger
+sending NETDEV_FEAT_CHANGE event?
+
+
+Best,
+Andy
