@@ -1,46 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] emac: Fix EMAC soft reset on 460EX/GT
-Date: Sat, 11 May 2013 17:40:39 -0700 (PDT)
-Message-ID: <20130511.174039.1747680568639795324.davem@davemloft.net>
-References: <20130510025021.C97AF10045D@puck.mtv.corp.google.com>
+Subject: Re: [Patch net] virtio_net: use default napi weight by default
+Date: Sat, 11 May 2013 17:41:02 -0700 (PDT)
+Message-ID: <20130511.174102.1103003063710887591.davem@davemloft.net>
+References: <1368165051-11476-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: pgynther@google.com
+Cc: netdev@vger.kernel.org, mst@redhat.com, eric.dumazet@gmail.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60713 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60721 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753088Ab3ELAkk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 20:40:40 -0400
-In-Reply-To: <20130510025021.C97AF10045D@puck.mtv.corp.google.com>
+	with ESMTP id S1752720Ab3ELAlD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 20:41:03 -0400
+In-Reply-To: <1368165051-11476-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Petri Gynther <pgynther@google.com>
-Date: Thu, 9 May 2013 19:50:00 -0700
+From: Cong Wang <amwang@redhat.com>
+Date: Fri, 10 May 2013 13:50:51 +0800
 
-> Fix EMAC soft reset on 460EX/GT to select the right PHY clock source
-> before and after the soft reset.
+> Since commit 82dc3c63c692b1e1d5937(net: introduce NAPI_POLL_WEIGHT)
+
+I corrected this to:
+
+	commit 82dc3c63c692b1e1d5937 ("net: introduce NAPI_POLL_WEIGHT")
+
+> we warn drivers when they use napi weight higher than NAPI_POLL_WEIGHT,
+> but virtio_net still uses 128 by default. This patch makes its default
+> value to NAPI_POLL_WEIGHT.
 > 
-> EMAC with PHY should use the clock from PHY during soft reset.
-> EMAC without PHY should use the internal clock during soft reset.
-> 
-> PPC460EX/GT Embedded Processor Advanced User's Manual
-> section 28.10.1 Mode Register 0 (EMACx_MR0) states:
-> Note: The PHY must provide a TX Clk in order to perform a soft reset
-> of the EMAC. If none is present, select the internal clock
-> (SDR0_ETH_CFG[EMACx_PHY_CLK] = 1).
-> After a soft reset, select the external clock.
-> 
-> Without the fix, 460EX/GT-based boards with RGMII PHYs attached to
-> EMACs experience EMAC interrupt storm and system watchdog reset when
-> issuing "ifconfig eth0 down" + "ifconfig eth0 up" a few times.
-> The system enters endless loop of serving emac_irq() with EMACx_ISR
-> register stuck at value 0x10000000 (Rx parity error).
-> 
-> With the fix, the above issue is no longer observed.
-> 
-> Signed-off-by: Petri Gynther <pgynther@google.com>
+> Cc: "Michael S. Tsirkin" <mst@redhat.com>
+> Cc: Eric Dumazet <eric.dumazet@gmail.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
 Applied.
