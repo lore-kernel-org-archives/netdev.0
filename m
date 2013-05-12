@@ -1,34 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] xfrm6: release dev before returning error
-Date: Sat, 11 May 2013 17:41:49 -0700 (PDT)
-Message-ID: <20130511.174149.1568987936575630848.davem@davemloft.net>
-References: <1368175200-26877-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH net] 8139cp: reset BQL when ring tx ring cleared
+Date: Sat, 11 May 2013 18:21:25 -0700 (PDT)
+Message-ID: <20130511.182125.896338102769943216.davem@davemloft.net>
+References: <20130511170923.52673453@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, herbert@gondor.hengli.com.au,
-	steffen.klassert@secunet.com
-To: amwang@redhat.com
+Cc: David.Woodhouse@intel.com, romieu@fr.zoreil.com,
+	netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60742 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:32798 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752748Ab3ELAlt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 20:41:49 -0400
-In-Reply-To: <1368175200-26877-1-git-send-email-amwang@redhat.com>
+	with ESMTP id S1753088Ab3ELBV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 May 2013 21:21:27 -0400
+In-Reply-To: <20130511170923.52673453@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
-Date: Fri, 10 May 2013 16:40:00 +0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Sat, 11 May 2013 17:09:23 -0700
 
-> From: Cong Wang <amwang@redhat.com>
+> While looking for other problem found this potential issue.
+> When the transmit ring is cleaned out, the Byte Queue Limit values
+> need to be reset.
 > 
-> We forget to call dev_put() on error path in xfrm6_fill_dst(),
-> its caller doesn't handle this.
-> 
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Applied and queued up for -stable.
+You neither compiled, nor tested this.
