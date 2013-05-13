@@ -1,77 +1,73 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH v3] Bluetooth: hidp: using strlcpy instead of strncpy, also
- beautify code.
-Date: Mon, 13 May 2013 10:07:11 +0800
-Message-ID: <51904ACF.6010904@asianux.com>
-References: <518906A8.7060708@asianux.com> <CANq1E4SmY+CD0uf53_b6GeFkQ-LYnpdxsDGSRMWdn2i1mnb6WQ@mail.gmail.com> <5189A417.503@asianux.com> <5189C7C6.8090408@asianux.com> <alpine.LNX.2.00.1305091041140.23038@pobox.suse.cz>
+From: Dong Zhu <bluezhudong@gmail.com>
+Subject: Re: [PATCH] igb: add a method to get the nic hw time
+ stamping policy
+Date: Mon, 13 May 2013 10:12:36 +0800
+Message-ID: <20130513021236.GJ8399@zhudong.nay.redhat.com>
+References: <20130511140219.GG8399@zhudong.nay.redhat.com>
+	<518E7723.5010003@cogentembedded.com>
+	<20130512142555.GI8399@zhudong.nay.redhat.com>
+	<20130512172446.GA2484@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Gustavo Padovan <gustavo@padovan.org>,
-	David Herrmann <dh.herrmann@gmail.com>,
-	Marcel Holtmann <marcel@holtmann.org>,
-	Johan Hedberg <johan.hedberg@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	andrei.emeltchenko@intel.com,
-	"linux-bluetooth@vger.kernel.org" <linux-bluetooth@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Jiri Kosina <jkosina@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:46340 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753136Ab3EMCID (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 May 2013 22:08:03 -0400
-In-Reply-To: <alpine.LNX.2.00.1305091041140.23038@pobox.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, David Howells <dhowells@redhat.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
+	Jacob Keller <Jacob.e.keller@intel.com>, Dave Jones <davej@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20130512172446.GA2484@netboy>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
+On Sun, May 12, 2013 at 07:24:46PM +0200, Richard Cochran wrote:
+> On Sun, May 12, 2013 at 10:25:55PM +0800, Dong Zhu wrote:
+> > Thanks for your pointing out my mistakes of CodingStyle.
+> > 
+> > > > struct hwtstamp_config {
+> > > >+	int rw;
+> > 
+> > My initial idea was that the type of rw should be enum like tx_type, but I am
+> > not sure whther it is necessary to define a new enum, if this patch could
+> > be accpeted I will ask someone about the rw. At that time I will change
+> > the type of rw to bool or define a new enum, then convert the if to
+> > switch if necessary.
+> 
+> You cannot add any new field at all. That would break a userland ABI.
+> 
 
-For NUL terminated string, need always let it ended by zero.
+Thanks for your info Richard.
 
-Since have already called memcpy() to initialize 'ci', so need not
-redundant initialization.
+Can I use the 'flags' which members of hwtstamp_config to judge the
+ioctl request instead ? If not could you plz give me a new way to
+resolve this issue ?
 
-Better use ''if(session->hid) {} else if(session->input) {}"" instead
-of ''if(session->hid) {}; if(session->input) {};''
+Thanks a lot !
 
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
----
- net/bluetooth/hidp/core.c |   14 ++++----------
- 1 files changed, 4 insertions(+), 10 deletions(-)
-
-diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-index 940f5ac..f13a8da 100644
---- a/net/bluetooth/hidp/core.c
-+++ b/net/bluetooth/hidp/core.c
-@@ -76,25 +76,19 @@ static void hidp_copy_session(struct hidp_session *session, struct hidp_conninfo
- 	ci->flags = session->flags;
- 	ci->state = BT_CONNECTED;
- 
--	ci->vendor  = 0x0000;
--	ci->product = 0x0000;
--	ci->version = 0x0000;
--
- 	if (session->input) {
- 		ci->vendor  = session->input->id.vendor;
- 		ci->product = session->input->id.product;
- 		ci->version = session->input->id.version;
- 		if (session->input->name)
--			strncpy(ci->name, session->input->name, 128);
-+			strlcpy(ci->name, session->input->name, 128);
- 		else
--			strncpy(ci->name, "HID Boot Device", 128);
--	}
--
--	if (session->hid) {
-+			strlcpy(ci->name, "HID Boot Device", 128);
-+	} else if (session->hid) {
- 		ci->vendor  = session->hid->vendor;
- 		ci->product = session->hid->product;
- 		ci->version = session->hid->version;
--		strncpy(ci->name, session->hid->name, 128);
-+		strlcpy(ci->name, session->hid->name, 128);
- 	}
- }
- 
 -- 
-1.7.7.6
+Best Regards,
+Dong Zhu
+
+------------------------------------------------------------------------------
+Learn Graph Databases - Download FREE O'Reilly Book
+"Graph Databases" is the definitive new guide to graph databases and 
+their applications. This 200-page book is written by three acclaimed 
+leaders in the field. The early access version is available now. 
+Download your free book today! http://p.sf.net/sfu/neotech_d2d_may
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
