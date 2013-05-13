@@ -1,69 +1,59 @@
-From: Laurent Navet <laurent.navet@gmail.com>
-Subject: [PATCH] drivers: net: ethernet: broadcom: bcm63xx: use devm_ioremap_resource()
-Date: Mon, 13 May 2013 15:53:01 +0200
-Message-ID: <1368453181-6637-1-git-send-email-laurent.navet@gmail.com>
-Cc: cernekee@gmail.com, sergei.shtylyov@cogentembedded.com,
-	jogo@openwrt.org, joe@perches.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Laurent Navet <laurent.navet@gmail.com>
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] bna: add missing iounmap() on error in bnad_init()
+Date: Mon, 13 May 2013 18:01:45 +0400
+Message-ID: <5190F249.9020309@cogentembedded.com>
+References: <CAPgLHd8G816BcF7U6eG320w=k9Zv-yVYjt4wreyU67eSdVRERg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: rmody@brocade.com, huangj@brocade.com, davem@davemloft.net,
+	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f172.google.com ([209.85.217.172]:51028 "EHLO
+	mail-lb0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751052Ab3EMOBv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 May 2013 10:01:51 -0400
+Received: by mail-lb0-f172.google.com with SMTP id y6so6416647lbh.3
+        for <netdev@vger.kernel.org>; Mon, 13 May 2013 07:01:49 -0700 (PDT)
+In-Reply-To: <CAPgLHd8G816BcF7U6eG320w=k9Zv-yVYjt4wreyU67eSdVRERg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace calls to deprecated devm_request_and_ioremap by devm_ioremap_resource.
-also remove tests on 'res' since devm_ioremap_resource() checks for it
-in a better form.
+Hello.
 
-Found with coccicheck and this semantic patch:
- scripts/coccinelle/api/devm_ioremap_resource.cocci
+On 13-05-2013 11:26, Wei Yongjun wrote:
 
-Signed-off-by: Laurent Navet <laurent.navet@gmail.com>
----
- drivers/net/ethernet/broadcom/bcm63xx_enet.c |   16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 0b3e23e..0497d0a 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -1628,7 +1628,7 @@ static int bcm_enet_probe(struct platform_device *pdev)
- 	res_irq = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
- 	res_irq_rx = platform_get_resource(pdev, IORESOURCE_IRQ, 1);
- 	res_irq_tx = platform_get_resource(pdev, IORESOURCE_IRQ, 2);
--	if (!res_mem || !res_irq || !res_irq_rx || !res_irq_tx)
-+	if (!res_irq || !res_irq_rx || !res_irq_tx)
- 		return -ENODEV;
- 
- 	ret = 0;
-@@ -1641,9 +1641,9 @@ static int bcm_enet_probe(struct platform_device *pdev)
- 	if (ret)
- 		goto out;
- 
--	priv->base = devm_request_and_ioremap(&pdev->dev, res_mem);
--	if (priv->base == NULL) {
--		ret = -ENOMEM;
-+	priv->base = devm_ioremap_resource(&pdev->dev, res_mem);
-+	if (IS_ERR(priv->base)) {
-+		ret = PTR_ERR(priv->base);
- 		goto out;
- 	}
- 
-@@ -1869,12 +1869,10 @@ static int bcm_enet_shared_probe(struct platform_device *pdev)
- 	struct resource *res;
- 
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
--	if (!res)
--		return -ENODEV;
- 
--	bcm_enet_shared_base = devm_request_and_ioremap(&pdev->dev, res);
--	if (!bcm_enet_shared_base)
--		return -ENOMEM;
-+	bcm_enet_shared_base = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(bcm_enet_shared_base))
-+		return PTR_ERR(bcm_enet_shared_base);
- 
- 	return 0;
- }
--- 
-1.7.10.4
+> Add the missing iounmap() before return from bnad_init()
+> in the error handling case.
+> Introduced by commit 01b54b1451853593739816a392485c4e2bee7dda
+> (bna: tx rx cleanup fix).
+
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> ---
+>   drivers/net/ethernet/brocade/bna/bnad.c | 4 +++-
+>   1 file changed, 3 insertions(+), 1 deletion(-)
+
+> diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+> index ce4a030..59da9eb 100644
+> --- a/drivers/net/ethernet/brocade/bna/bnad.c
+> +++ b/drivers/net/ethernet/brocade/bna/bnad.c
+> @@ -3237,8 +3237,10 @@ bnad_init(struct bnad *bnad,
+>   	sprintf(bnad->wq_name, "%s_wq_%d", BNAD_NAME, bnad->id);
+>   	bnad->work_q = create_singlethread_workqueue(bnad->wq_name);
+>
+
+    Empty line not needed here -- maybe it's time to delete it?
+
+> -	if (!bnad->work_q)
+> +	if (!bnad->work_q) {
+> +		iounmap(bnad->bar0);
+>   		return -ENOMEM;
+> +	}
+>
+>   	return 0;
+>   }
+
+WBR, Sergei
