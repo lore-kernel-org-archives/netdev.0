@@ -1,132 +1,99 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH] net/macb: fix ISR clear-on-write behavior only for some SoC
-Date: Tue, 14 May 2013 00:05:56 +0800
-Message-ID: <FE065E51-1EAA-47ED-8C7B-0F2E6418F349@jcrosoft.com>
-References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
-Mime-Version: 1.0 (Mac OS X Mail 6.3 \(1503\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	<hein_tibosch@yahoo.es>, <michal.simek@xilinx.com>,
-	Ludovic Desroches <ludovic.desroches@atmel.com>,
-	<s.trumtrar@pengutronix.de>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] igb: add a method to get the nic hw time stamping policy
+Date: Mon, 13 May 2013 17:09:14 +0100
+Message-ID: <1368461354.3305.17.camel@bwh-desktop.uk.solarflarecom.com>
+References: <CDB65511.1CE8D%matthew.vick@intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Dave, Tushar N" <tushar.n.dave@intel.com>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	David Howells <dhowells@redhat.com>,
+	"Dave Jones" <davej@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"e1000-devel@lists.sourc
+To: "Vick, Matthew" <matthew.vick@intel.com>,
+	Dong Zhu <bluezhudong@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
+In-Reply-To: <CDB65511.1CE8D%matthew.vick@intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2013-05-13 at 15:48 +0000, Vick, Matthew wrote:
+> On 5/13/13 3:07 AM, "Dong Zhu" <bluezhudong@gmail.com> wrote:
+[...]
+> >From 8a12932fd2a3bb5ca904bc72b20140247a5d81be Mon Sep 17 00:00:00 2001
+> >From: Dong Zhu <bluezhudong@gmail.com>
+> >Date: Mon, 13 May 2013 17:27:59 +0800
+> >
+> >Currently kernel only support setting the hw time stamping policy
+> >through ioctl,now add a method to check which packets(Outgoing and
+> >Incoming) are time stamped by nic.
+> >
+> >Add this to igb_get_ts_info, we can query this by using the GET_TS_INFO
+> >ethtool command. Testing on I350 and 82576NS it seems work well.
+> >
+> >Signed-off-by: Dong Zhu <bluezhudong@gmail.com>
+> >---
+> > drivers/net/ethernet/intel/igb/igb_ethtool.c | 78
+> >+++++++++++++++++++++++++++-
+> > include/uapi/linux/ethtool.h                 |  3 ++
+> > 2 files changed, 79 insertions(+), 2 deletions(-)
+> 
+> [...]
+> 
+> >diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> >index 0c9b448..06cdbc0 100644
+> >--- a/include/uapi/linux/ethtool.h
+> >+++ b/include/uapi/linux/ethtool.h
+> >@@ -772,7 +772,10 @@ struct ethtool_sfeatures {
+> >  * @so_timestamping: bit mask of the sum of the supported
+> >SO_TIMESTAMPING flags
+> >  * @phc_index: device index of the associated PHC, or -1 if there is none
+> >  * @tx_types: bit mask of the supported hwtstamp_tx_types enumeration
+> >values
+> >+ * @tx_reserved[0]: bit mask of the in use hwtstamp_tx_types enumeration
+> >values
+> >  * @rx_filters: bit mask of the supported hwtstamp_rx_filters
+> >enumeration values
+> >+ * @rx_reserved[0]: bit mask of the in use hwtstamp_rx_filters
+> >enumeration
+> >+ * values
 
-On May 14, 2013, at 12:05 AM, Nicolas Ferre <nicolas.ferre@atmel.com> wrote:
+Why would we keep calling a field 'reserved' once it's been given a
+specific meaning?
 
-> Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
-> introduces clear-on-write on ISR register. This behavior is not always
-> implemented when using Cadence MACB/GEM and is breaking other platforms.
-> We are using a new Device Tree compatibility string and a capability
-> property to actually activate this clear-on-write behavior on ISR.
+> >  * The bits in the 'tx_types' and 'rx_filters' fields correspond to
+> >  * the 'hwtstamp_tx_types' and 'hwtstamp_rx_filters' enumeration values,
+> >-- 
+> >1.7.11.7
+> >
+> >
+> >-- 
+> >Best Regards,
+> >Dong Zhu
 > 
-> Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> CCing Ben Hutchings, since now your patch is affecting ethtool.
+[...]
 
-can we detect it via the IP?
-> ---
-> Documentation/devicetree/bindings/net/macb.txt |  2 ++
-> drivers/net/ethernet/cadence/macb.c            | 15 +++++++++++++--
-> drivers/net/ethernet/cadence/macb.h            |  5 +++++
-> 3 files changed, 20 insertions(+), 2 deletions(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
-> index 44afa0e..13ec4f6 100644
-> --- a/Documentation/devicetree/bindings/net/macb.txt
-> +++ b/Documentation/devicetree/bindings/net/macb.txt
-> @@ -6,6 +6,8 @@ Required properties:
->   Use "cdns,at32ap7000-macb" for other 10/100 usage or use the generic form: "cdns,macb".
->   Use "cnds,pc302-gem" for Picochip picoXcell pc302 and later devices based on
->   the Cadence GEM, or the generic form: "cdns,gem".
-> +  Use "cdns,zynq-7000-gem" for devices based on Cadence GEM with alternative
-> +  options enabled (ISR clear on write).
-> - reg: Address and length of the register set for the device
-> - interrupts: Should contain macb interrupt
-> - phy-mode: String, operation mode of the PHY interface.
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 6be513d..628f2b0 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -485,7 +485,8 @@ static void macb_tx_interrupt(struct macb *bp)
-> 	status = macb_readl(bp, TSR);
-> 	macb_writel(bp, TSR, status);
-> 
-> -	macb_writel(bp, ISR, MACB_BIT(TCOMP));
-> +	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-> +		macb_writel(bp, ISR, MACB_BIT(TCOMP));
-> 
-> 	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
-> 		(unsigned long)status);
-> @@ -738,7 +739,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
-> 			 * now.
-> 			 */
-> 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
-> -			macb_writel(bp, ISR, MACB_BIT(RCOMP));
-> +			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-> +				macb_writel(bp, ISR, MACB_BIT(RCOMP));
-> 
-> 			if (napi_schedule_prep(&bp->napi)) {
-> 				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
-> @@ -1474,6 +1476,10 @@ static const struct of_device_id macb_dt_ids[] = {
-> 	{ .compatible = "cdns,macb" },
-> 	{ .compatible = "cdns,pc302-gem" },
-> 	{ .compatible = "cdns,gem" },
-> +	{
-> +		.compatible = "cdns,zynq-7000-gem",
-> +		.data = (void *)MACB_CAPS_ISR_CLEAR_ON_WRITE,
-> +	},
-> 	{ /* sentinel */ }
-> };
-> MODULE_DEVICE_TABLE(of, macb_dt_ids);
-> @@ -1484,6 +1490,7 @@ static int __init macb_probe(struct platform_device *pdev)
-> 	struct macb_platform_data *pdata;
-> 	struct resource *regs;
-> 	struct net_device *dev;
-> +	const struct of_device_id *dev_id;
-> 	struct macb *bp;
-> 	struct phy_device *phydev;
-> 	u32 config;
-> @@ -1558,6 +1565,10 @@ static int __init macb_probe(struct platform_device *pdev)
-> 
-> 	dev->base_addr = regs->start;
-> 
-> +	dev_id = of_match_device(macb_dt_ids, &pdev->dev);
-> +	if (dev_id)
-> +		bp->caps = (u32)dev_id->data;
-> +
-> 	/* Set MII management clock divider */
-> 	config = macb_mdc_clk_div(bp);
-> 	config |= macb_dbw(bp);
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index 993d703..5d622fe 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -323,6 +323,9 @@
-> #define MACB_MAN_READ				2
-> #define MACB_MAN_CODE				2
-> 
-> +/* Capability mask bits */
-> +#define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x1
-> +
-> /* Bit manipulation macros */
-> #define MACB_BIT(name)					\
-> 	(1 << MACB_##name##_OFFSET)
-> @@ -574,6 +577,8 @@ struct macb {
-> 	unsigned int 		speed;
-> 	unsigned int 		duplex;
-> 
-> +	u32			caps;
-> +
-> 	phy_interface_t		phy_interface;
-> 
-> 	/* AT91RM9200 transmit */
-> -- 
-> 1.8.0
-> 
+Thanks, Matthew.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
