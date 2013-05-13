@@ -1,151 +1,115 @@
-From: Dong Zhu <bluezhudong@gmail.com>
-Subject: Re: [PATCH] igb: add a method to get the nic hw time
- stamping policy
-Date: Mon, 13 May 2013 18:07:42 +0800
-Message-ID: <20130513100742.GM8399@zhudong.nay.redhat.com>
-References: <20130511140219.GG8399@zhudong.nay.redhat.com>
-	<518E7723.5010003@cogentembedded.com>
-	<20130512142555.GI8399@zhudong.nay.redhat.com>
-	<20130512172446.GA2484@netboy>
-	<20130513021236.GJ8399@zhudong.nay.redhat.com>
-	<20130513043140.GA2567@netboy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	e1000-devel@lists.sourceforge.net, Bruce Allan <bruce.w.allan@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, David Howells <dhowells@redhat.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Thomas Gleixner <tglx@linutronix.de>, netdev@vger.kernel.org,
-	Jacob Keller <Jacob.e.keller@intel.com>, Dave Jones <davej@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20130513043140.GA2567@netboy>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+From: Jongsung Kim <neidhard.kim@lge.com>
+Subject: [PATCH v3 1/4] net: phy: realtek: simplify multiple drivers registration
+Date: Mon, 13 May 2013 18:58:37 +0900
+Message-ID: <1368439120-26322-1-git-send-email-neidhard.kim@lge.com>
+References: <518CD784.1030709@cogentembedded.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jongsung Kim <neidhard.kim@lge.com>,
+	Francois Romieu <romieu@fr.zoreil.com>
+To: davem@davemloft.net, peppe.cavallaro@st.com,
+	chohnstaedt@innominate.com, heiko.carstens@de.ibm.com,
+	schwidefsky@de.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <518CD784.1030709@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiBZb3UgY291bGQgdXNlIHRoZSBmbGFncyBmaWVsZCwgYXMgaXQgaGFzIG5vIGRlZmluaXRpb24g
-eWV0Lgo+IAo+IEJ1dCB5b3Ugc3RpbGwgbmVlZCB0byBleHBsYWluIHdoeSB0aGlzIG5ldyBmdW5j
-dGlvbmFsaXR5IGlzIG5lZWRlZCBpbgo+IHRoZSBmaXJzdCBwbGFjZToKPiAKPiAtIFlvdSBjYW4g
-cXVlcnkgYW4gaW50ZXJmYWNlJ3MgdGltZSBzdGFtcGluZyBjYXBhYmlsaXRpZXMgd2l0aCB0aGUK
-PiAgIEdFVF9UU19JTkZPIGV0aHRvb2wgY29tbWFuZC4KPiAKCkhpLAoKSSBtb2RpZmllZCB0aGlz
-IHBhdGNoIGFuZCBhZGRlZCB0aGUgbWV0aG9kIHRvIGlnYl9nZXRfdHNfaW5mbyBmdW5jdGlvbi4K
-Rm9yIDgyNTc2IG5pYywgdGhyb3VnaCB0aGlzIG1ldGhvZCB3ZSBjYW4gZWFzaWx5IGNoZWNrIHdo
-aWNoIHR5cGUgb2YgcGFja2V0cwphcmUgdGltZSBzdGFtcGVkIG5vdywgc3VjaCBhcyAoSFdUU1RB
-TVBfRklMVEVSX1BUUF9WMV9MNF9TWU5DIGFuZApIV1RTVEFNUF9GSUxURVJfUFRQX1YxX0w0X0RF
-TEFZX1JFUSksIHRoZW4gY2hhbmdlIG9yIGRpc2FibGUgaXQgdXAgdG8geW91ciByZXF1ZXN0cy4K
-SSB0aGluayBpdCBpcyBjb252ZW5pZW50LlRoZSBvcmlnaWFsIEdFVF9UU19JTkZPIG1ldGhvZCBj
-YW4gb25seSBzaG93IHRoZSBkZXZpY2XigJlzCnRpbWUgc3RhbXBpbmcgY2FwYWJpbGl0aWVzIHdo
-aWNoIG5pY3Mgc3VwcG9ydGVkLgoKSSB1c2UgdGhlIHR4X3Jlc2VydmVkWzBdIGFuZCByeF9yZXNl
-cnZlZFswXSB0byByZXN0b3JlIHRoZSBod3RzdGFtcF90eF90eXBlcyBhbmQKaHd0c3RhbXBfcnhf
-ZmlsdGVycyBlbnVtZXJhdGlvbiB2YWx1ZXMuCgpEdWUgdG8gdGhlIGxpbWl0YXRpb24gb2YgODAg
-Y2hhcmFjdGVycyBvbmUgbGluZSwgSSBoYXZlIHRvIG1vdmUgdGhlCnN3aXRjaCBvdXQgb2YgZWxz
-ZSBqdWRlZ21lbnQuCgpJIHRlc3QgaXQgb24gSTM1MCBhbmQgODI1NzZOUyBuaWNzIGFuZCBpdCB3
-b3JrcyBhcyBleHBlY3QuCgpDb3VsZCBoZWxwIHJldmlld2luZyBpdCBhZ2FpbiA/IEFueSBjb21t
-ZW50cyB3b3VsZCBiZSBhcHByZWNpYXRlZC4KCgpGcm9tIDhhMTI5MzJmZDJhM2JiNWNhOTA0YmM3
-MmIyMDE0MDI0N2E1ZDgxYmUgTW9uIFNlcCAxNyAwMDowMDowMCAyMDAxCkZyb206IERvbmcgWmh1
-IDxibHVlemh1ZG9uZ0BnbWFpbC5jb20+CkRhdGU6IE1vbiwgMTMgTWF5IDIwMTMgMTc6Mjc6NTkg
-KzA4MDAKCkN1cnJlbnRseSBrZXJuZWwgb25seSBzdXBwb3J0IHNldHRpbmcgdGhlIGh3IHRpbWUg
-c3RhbXBpbmcgcG9saWN5CnRocm91Z2ggaW9jdGwsbm93IGFkZCBhIG1ldGhvZCB0byBjaGVjayB3
-aGljaCBwYWNrZXRzKE91dGdvaW5nIGFuZApJbmNvbWluZykgYXJlIHRpbWUgc3RhbXBlZCBieSBu
-aWMuCgpBZGQgdGhpcyB0byBpZ2JfZ2V0X3RzX2luZm8sIHdlIGNhbiBxdWVyeSB0aGlzIGJ5IHVz
-aW5nIHRoZSBHRVRfVFNfSU5GTwpldGh0b29sIGNvbW1hbmQuIFRlc3Rpbmcgb24gSTM1MCBhbmQg
-ODI1NzZOUyBpdCBzZWVtcyB3b3JrIHdlbGwuCgpTaWduZWQtb2ZmLWJ5OiBEb25nIFpodSA8Ymx1
-ZXpodWRvbmdAZ21haWwuY29tPgotLS0KIGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9p
-Z2JfZXRodG9vbC5jIHwgNzggKysrKysrKysrKysrKysrKysrKysrKysrKysrLQogaW5jbHVkZS91
-YXBpL2xpbnV4L2V0aHRvb2wuaCAgICAgICAgICAgICAgICAgfCAgMyArKwogMiBmaWxlcyBjaGFu
-Z2VkLCA3OSBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQoKZGlmZiAtLWdpdCBhL2RyaXZl
-cnMvbmV0L2V0aGVybmV0L2ludGVsL2lnYi9pZ2JfZXRodG9vbC5jIGIvZHJpdmVycy9uZXQvZXRo
-ZXJuZXQvaW50ZWwvaWdiL2lnYl9ldGh0b29sLmMKaW5kZXggNzg3NjI0MC4uNDk0ODZiOCAxMDA2
-NDQKLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9ldGh0b29sLmMKKysr
-IGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaWdiL2lnYl9ldGh0b29sLmMKQEAgLTIzMjcs
-NiArMjMyNyw4IEBAIHN0YXRpYyBpbnQgaWdiX2dldF90c19pbmZvKHN0cnVjdCBuZXRfZGV2aWNl
-ICpkZXYsCiAJCQkgICBzdHJ1Y3QgZXRodG9vbF90c19pbmZvICppbmZvKQogewogCXN0cnVjdCBp
-Z2JfYWRhcHRlciAqYWRhcHRlciA9IG5ldGRldl9wcml2KGRldik7CisJc3RydWN0IGUxMDAwX2h3
-ICpodyA9ICZhZGFwdGVyLT5odzsKKwl1MzIgcmVndmFsOwogCiAJc3dpdGNoIChhZGFwdGVyLT5o
-dy5tYWMudHlwZSkgewogCWNhc2UgZTEwMDBfODI1NzU6CkBAIC0yMzYwLDEwICsyMzYyLDI5IEBA
-IHN0YXRpYyBpbnQgaWdiX2dldF90c19pbmZvKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsCiAKIAkJ
-aW5mby0+cnhfZmlsdGVycyA9IDEgPDwgSFdUU1RBTVBfRklMVEVSX05PTkU7CiAKKwkJcmVndmFs
-ID0gcmQzMihFMTAwMF9UU1lOQ1RYQ1RMKTsKKwkJaWYgKHJlZ3ZhbCAmIEUxMDAwX1RTWU5DVFhD
-VExfRU5BQkxFRCkKKwkJCWluZm8tPnR4X3Jlc2VydmVkWzBdID0gMSA8PCBIV1RTVEFNUF9UWF9P
-TjsKKwkJZWxzZQorCQkJaW5mby0+dHhfcmVzZXJ2ZWRbMF0gPSAxIDw8IEhXVFNUQU1QX1RYX09G
-RjsKKworCQlyZWd2YWwgPSByZDMyKEUxMDAwX1RTWU5DUlhDVEwpOworCiAJCS8qIDgyNTc2IGRv
-ZXMgbm90IHN1cHBvcnQgdGltZXN0YW1waW5nIGFsbCBwYWNrZXRzLiAqLwotCQlpZiAoYWRhcHRl
-ci0+aHcubWFjLnR5cGUgPj0gZTEwMDBfODI1ODApCisJCWlmIChhZGFwdGVyLT5ody5tYWMudHlw
-ZSA+PSBlMTAwMF84MjU4MCkgewogCQkJaW5mby0+cnhfZmlsdGVycyB8PSAxIDw8IEhXVFNUQU1Q
-X0ZJTFRFUl9BTEw7Ci0JCWVsc2UKKworCQkJaWYgKCEocmVndmFsICYgRTEwMDBfVFNZTkNSWENU
-TF9FTkFCTEVEKSkKKwkJCQlpbmZvLT5yeF9yZXNlcnZlZFswXSA9CisJCQkJCTEgPDwgSFdUU1RB
-TVBfRklMVEVSX05PTkU7CisJCQllbHNlIGlmIChFMTAwMF9UU1lOQ1JYQ1RMX1RZUEVfQUxMID09
-CisJCQkJCShyZWd2YWwgJiBFMTAwMF9UU1lOQ1JYQ1RMX1RZUEVfTUFTSykpCisJCQkJaW5mby0+
-cnhfcmVzZXJ2ZWRbMF0gPSAxIDw8IEhXVFNUQU1QX0ZJTFRFUl9BTEw7CisJCQllbHNlCisJCQkJ
-cmV0dXJuIC1FUkFOR0U7CisKKwkJCXJldHVybiAwOworCQl9IGVsc2UgewogCQkJaW5mby0+cnhf
-ZmlsdGVycyB8PQogCQkJCSgxIDw8IEhXVFNUQU1QX0ZJTFRFUl9QVFBfVjFfTDRfU1lOQykgfAog
-CQkJCSgxIDw8IEhXVFNUQU1QX0ZJTFRFUl9QVFBfVjFfTDRfREVMQVlfUkVRKSB8CkBAIC0yMzcz
-LDYgKzIzOTQsNTkgQEAgc3RhdGljIGludCBpZ2JfZ2V0X3RzX2luZm8oc3RydWN0IG5ldF9kZXZp
-Y2UgKmRldiwKIAkJCQkoMSA8PCBIV1RTVEFNUF9GSUxURVJfUFRQX1YyX0w0X0RFTEFZX1JFUSkg
-fAogCQkJCSgxIDw8IEhXVFNUQU1QX0ZJTFRFUl9QVFBfVjJfRVZFTlQpOwogCisJCQlpZiAoIShy
-ZWd2YWwgJiBFMTAwMF9UU1lOQ1JYQ1RMX0VOQUJMRUQpKSB7CisJCQkJaW5mby0+cnhfcmVzZXJ2
-ZWRbMF0gPQorCQkJCQkxIDw8IEhXVFNUQU1QX0ZJTFRFUl9OT05FOworCQkJCXJldHVybiAwOwor
-CQkJfQorCQl9CisKKwkJc3dpdGNoIChyZWd2YWwgJiBFMTAwMF9UU1lOQ1JYQ1RMX1RZUEVfTUFT
-SykgeworCQljYXNlIEUxMDAwX1RTWU5DUlhDVExfVFlQRV9MNF9WMToKKwkJCXJlZ3ZhbCA9IHJk
-MzIoRTEwMDBfVFNZTkNSWENGRyk7CisJCQlpZiAoRTEwMDBfVFNZTkNSWENGR19QVFBfVjFfU1lO
-Q19NRVNTQUdFID09CisJCQkJCShyZWd2YWwgJgorCQkJCQkgRTEwMDBfVFNZTkNSWENGR19QVFBf
-VjFfQ1RSTFRfTUFTSykpCisJCQkJaW5mby0+cnhfcmVzZXJ2ZWRbMF0gPQorCQkJCQkoMSA8PCBI
-V1RTVEFNUF9GSUxURVJfUFRQX1YxX0w0X1NZTkMpOworCQkJZWxzZSBpZiAoRTEwMDBfVFNZTkNS
-WENGR19QVFBfVjFfREVMQVlfUkVRX01FU1NBR0UKKwkJCQkJPT0gKHJlZ3ZhbCAmCisJCQkJCUUx
-MDAwX1RTWU5DUlhDRkdfUFRQX1YxX0NUUkxUX01BU0spKQorCQkJCWluZm8tPnJ4X3Jlc2VydmVk
-WzBdID0KKwkJCQkJKDEgPDwKKwkJCQkJIEhXVFNUQU1QX0ZJTFRFUl9QVFBfVjFfTDRfREVMQVlf
-UkVRKTsKKwkJCWVsc2UKKwkJCQlyZXR1cm4gLUVSQU5HRTsKKwkJCWJyZWFrOworCQljYXNlIEUx
-MDAwX1RTWU5DUlhDVExfVFlQRV9MMl9MNF9WMjoKKwkJCXJlZ3ZhbCA9IHJkMzIoRTEwMDBfVFNZ
-TkNSWENGRyk7CisJCQlpZiAoRTEwMDBfVFNZTkNSWENGR19QVFBfVjJfU1lOQ19NRVNTQUdFID09
-CisJCQkJCShyZWd2YWwgJgorCQkJCQkgRTEwMDBfVFNZTkNSWENGR19QVFBfVjJfTVNHSURfTUFT
-SykpCisJCQkJaW5mby0+cnhfcmVzZXJ2ZWRbMF0gPQorCQkJCQkoMSA8PCBIV1RTVEFNUF9GSUxU
-RVJfUFRQX1YyX0wyX1NZTkMpIHwKKwkJCQkJKDEgPDwgSFdUU1RBTVBfRklMVEVSX1BUUF9WMl9M
-NF9TWU5DKTsKKwkJCWVsc2UgaWYgKEUxMDAwX1RTWU5DUlhDRkdfUFRQX1YyX0RFTEFZX1JFUV9N
-RVNTQUdFID09CisJCQkJCShyZWd2YWwgJgorCQkJCQkgRTEwMDBfVFNZTkNSWENGR19QVFBfVjJf
-TVNHSURfTUFTSykpCisJCQkJaW5mby0+cnhfcmVzZXJ2ZWRbMF0gPQorCQkJCQkoMSA8PAorCQkJ
-CQkgSFdUU1RBTVBfRklMVEVSX1BUUF9WMl9MMl9ERUxBWV9SRVEpIHwKKwkJCQkJKDEgPDwKKwkJ
-CQkJIEhXVFNUQU1QX0ZJTFRFUl9QVFBfVjJfTDRfREVMQVlfUkVRKTsKKwkJCWVsc2UKKwkJCQly
-ZXR1cm4gLUVSQU5HRTsKKwkJCWJyZWFrOworCQljYXNlIEUxMDAwX1RTWU5DUlhDVExfVFlQRV9F
-VkVOVF9WMjoKKwkJCWluZm8tPnJ4X3Jlc2VydmVkWzBdID0KKwkJCQkoMSA8PCBIV1RTVEFNUF9G
-SUxURVJfUFRQX1YyX0VWRU5UKSB8CisJCQkJKDEgPDwgSFdUU1RBTVBfRklMVEVSX1BUUF9WMl9T
-WU5DKSB8CisJCQkJKDEgPDwgSFdUU1RBTVBfRklMVEVSX1BUUF9WMl9ERUxBWV9SRVEpOworCQkJ
-YnJlYWs7CisJCWRlZmF1bHQ6CisJCQlyZXR1cm4gLUVSQU5HRTsKKwkJfQorCiAJCXJldHVybiAw
-OwogCWRlZmF1bHQ6CiAJCXJldHVybiAtRU9QTk9UU1VQUDsKZGlmZiAtLWdpdCBhL2luY2x1ZGUv
-dWFwaS9saW51eC9ldGh0b29sLmggYi9pbmNsdWRlL3VhcGkvbGludXgvZXRodG9vbC5oCmluZGV4
-IDBjOWI0NDguLjA2Y2RiYzAgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvdWFwaS9saW51eC9ldGh0b29s
-LmgKKysrIGIvaW5jbHVkZS91YXBpL2xpbnV4L2V0aHRvb2wuaApAQCAtNzcyLDcgKzc3MiwxMCBA
-QCBzdHJ1Y3QgZXRodG9vbF9zZmVhdHVyZXMgewogICogQHNvX3RpbWVzdGFtcGluZzogYml0IG1h
-c2sgb2YgdGhlIHN1bSBvZiB0aGUgc3VwcG9ydGVkIFNPX1RJTUVTVEFNUElORyBmbGFncwogICog
-QHBoY19pbmRleDogZGV2aWNlIGluZGV4IG9mIHRoZSBhc3NvY2lhdGVkIFBIQywgb3IgLTEgaWYg
-dGhlcmUgaXMgbm9uZQogICogQHR4X3R5cGVzOiBiaXQgbWFzayBvZiB0aGUgc3VwcG9ydGVkIGh3
-dHN0YW1wX3R4X3R5cGVzIGVudW1lcmF0aW9uIHZhbHVlcworICogQHR4X3Jlc2VydmVkWzBdOiBi
-aXQgbWFzayBvZiB0aGUgaW4gdXNlIGh3dHN0YW1wX3R4X3R5cGVzIGVudW1lcmF0aW9uIHZhbHVl
-cwogICogQHJ4X2ZpbHRlcnM6IGJpdCBtYXNrIG9mIHRoZSBzdXBwb3J0ZWQgaHd0c3RhbXBfcnhf
-ZmlsdGVycyBlbnVtZXJhdGlvbiB2YWx1ZXMKKyAqIEByeF9yZXNlcnZlZFswXTogYml0IG1hc2sg
-b2YgdGhlIGluIHVzZSBod3RzdGFtcF9yeF9maWx0ZXJzIGVudW1lcmF0aW9uCisgKiB2YWx1ZXMK
-ICAqCiAgKiBUaGUgYml0cyBpbiB0aGUgJ3R4X3R5cGVzJyBhbmQgJ3J4X2ZpbHRlcnMnIGZpZWxk
-cyBjb3JyZXNwb25kIHRvCiAgKiB0aGUgJ2h3dHN0YW1wX3R4X3R5cGVzJyBhbmQgJ2h3dHN0YW1w
-X3J4X2ZpbHRlcnMnIGVudW1lcmF0aW9uIHZhbHVlcywKLS0gCjEuNy4xMS43CgoKLS0gCkJlc3Qg
-UmVnYXJkcywKRG9uZyBaaHUKCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpMZWFybiBHcmFwaCBEYXRh
-YmFzZXMgLSBEb3dubG9hZCBGUkVFIE8nUmVpbGx5IEJvb2sKIkdyYXBoIERhdGFiYXNlcyIgaXMg
-dGhlIGRlZmluaXRpdmUgbmV3IGd1aWRlIHRvIGdyYXBoIGRhdGFiYXNlcyBhbmQgCnRoZWlyIGFw
-cGxpY2F0aW9ucy4gVGhpcyAyMDAtcGFnZSBib29rIGlzIHdyaXR0ZW4gYnkgdGhyZWUgYWNjbGFp
-bWVkIApsZWFkZXJzIGluIHRoZSBmaWVsZC4gVGhlIGVhcmx5IGFjY2VzcyB2ZXJzaW9uIGlzIGF2
-YWlsYWJsZSBub3cuIApEb3dubG9hZCB5b3VyIGZyZWUgYm9vayB0b2RheSEgaHR0cDovL3Auc2Yu
-bmV0L3NmdS9uZW90ZWNoX2QyZF9tYXkKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX18KRTEwMDAtZGV2ZWwgbWFpbGluZyBsaXN0CkUxMDAwLWRldmVsQGxpc3Rz
-LnNvdXJjZWZvcmdlLm5ldApodHRwczovL2xpc3RzLnNvdXJjZWZvcmdlLm5ldC9saXN0cy9saXN0
-aW5mby9lMTAwMC1kZXZlbApUbyBsZWFybiBtb3JlIGFib3V0IEludGVsJiMxNzQ7IEV0aGVybmV0
-LCB2aXNpdCBodHRwOi8vY29tbXVuaXRpZXMuaW50ZWwuY29tL2NvbW11bml0eS93aXJlZAo=
+Use the phy_drivers_register and phy_drivers_unregister to
+simplify registration and error handling. The two existing
+phy_driver structures are converted to an array of the
+structures to do this.
+
+v2: use proper way to register multiple drivers.
+
+Signed-off-by: Jongsung Kim <neidhard.kim@lge.com>
+Cc: Francois Romieu <romieu@fr.zoreil.com>
+---
+ drivers/net/phy/realtek.c |   65 ++++++++++++++++++++-------------------------
+ 1 files changed, 29 insertions(+), 36 deletions(-)
+
+diff --git a/drivers/net/phy/realtek.c b/drivers/net/phy/realtek.c
+index 8e7af83..f902107 100644
+--- a/drivers/net/phy/realtek.c
++++ b/drivers/net/phy/realtek.c
+@@ -64,50 +64,43 @@ static int rtl8211e_config_intr(struct phy_device *phydev)
+ 	return err;
+ }
+ 
+-/* RTL8211B */
+-static struct phy_driver rtl8211b_driver = {
+-	.phy_id		= 0x001cc912,
+-	.name		= "RTL8211B Gigabit Ethernet",
+-	.phy_id_mask	= 0x001fffff,
+-	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT,
+-	.config_aneg	= &genphy_config_aneg,
+-	.read_status	= &genphy_read_status,
+-	.ack_interrupt	= &rtl821x_ack_interrupt,
+-	.config_intr	= &rtl8211b_config_intr,
+-	.driver		= { .owner = THIS_MODULE,},
+-};
+-
+-/* RTL8211E */
+-static struct phy_driver rtl8211e_driver = {
+-	.phy_id		= 0x001cc915,
+-	.name		= "RTL8211E Gigabit Ethernet",
+-	.phy_id_mask	= 0x001fffff,
+-	.features	= PHY_GBIT_FEATURES,
+-	.flags		= PHY_HAS_INTERRUPT,
+-	.config_aneg	= &genphy_config_aneg,
+-	.read_status	= &genphy_read_status,
+-	.ack_interrupt	= &rtl821x_ack_interrupt,
+-	.config_intr	= &rtl8211e_config_intr,
+-	.suspend	= genphy_suspend,
+-	.resume		= genphy_resume,
+-	.driver		= { .owner = THIS_MODULE,},
++static struct phy_driver realtek_drv[] = {
++	{	/* RTL8211B */
++		.phy_id		= 0x001cc912,
++		.name		= "RTL8211B Gigabit Ethernet",
++		.phy_id_mask	= 0x001fffff,
++		.features	= PHY_GBIT_FEATURES,
++		.flags		= PHY_HAS_INTERRUPT,
++		.config_aneg	= &genphy_config_aneg,
++		.read_status	= &genphy_read_status,
++		.ack_interrupt	= &rtl821x_ack_interrupt,
++		.config_intr	= &rtl8211b_config_intr,
++		.driver		= { .owner = THIS_MODULE,},
++	},
++	{	/* RTL8211E */
++		.phy_id		= 0x001cc915,
++		.name		= "RTL8211E Gigabit Ethernet",
++		.phy_id_mask	= 0x001fffff,
++		.features	= PHY_GBIT_FEATURES,
++		.flags		= PHY_HAS_INTERRUPT,
++		.config_aneg	= &genphy_config_aneg,
++		.read_status	= &genphy_read_status,
++		.ack_interrupt	= &rtl821x_ack_interrupt,
++		.config_intr	= &rtl8211e_config_intr,
++		.suspend	= genphy_suspend,
++		.resume		= genphy_resume,
++		.driver		= { .owner = THIS_MODULE,},
++	},
+ };
+ 
+ static int __init realtek_init(void)
+ {
+-	int ret;
+-
+-	ret = phy_driver_register(&rtl8211b_driver);
+-	if (ret < 0)
+-		return -ENODEV;
+-	return phy_driver_register(&rtl8211e_driver);
++	return phy_drivers_register(realtek_drv, ARRAY_SIZE(realtek_drv));
+ }
+ 
+ static void __exit realtek_exit(void)
+ {
+-	phy_driver_unregister(&rtl8211b_driver);
+-	phy_driver_unregister(&rtl8211e_driver);
++	phy_drivers_unregister(realtek_drv, ARRAY_SIZE(realtek_drv));
+ }
+ 
+ module_init(realtek_init);
+-- 
+1.7.1
