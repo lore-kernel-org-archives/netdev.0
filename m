@@ -1,215 +1,80 @@
-From: Tony Prisk <linux@prisktech.co.nz>
-Subject: [PATCHv6 2/3] net: velocity: Convert to generic dma functions
-Date: Mon, 13 May 2013 17:47:09 +1200
-Message-ID: <1368424030-15348-3-git-send-email-linux@prisktech.co.nz>
-References: <1368424030-15348-1-git-send-email-linux@prisktech.co.nz>
-Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	vt8500-wm8505-linux-kernel@googlegroups.com, romieu@fr.zoreil.com,
-	netdev@vger.kernel.org, Tony Prisk <linux@prisktech.co.nz>
-To: davem@davemloft.net
+From: Stefan Bader <stefan.bader@canonical.com>
+Subject: Re: r8169 driver cause ssh failure
+Date: Mon, 13 May 2013 08:11:42 +0200
+Message-ID: <5190841E.9090503@canonical.com>
+References: <CA+6wjbxdbTDXmO984sM1CHFT+PJJdvS=+YmwM2iu-10Ws4WouA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="------------enig02674164051A20ED5484CE37"
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	hayeswang <hayeswang@realtek.com>
+To: S L <sl4ever@gmail.com>, netdev <netdev@vger.kernel.org>,
+	Realtek linux nic maintainers <nic_swsd@realtek.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.prisktech.co.nz ([115.188.14.127]:52136 "EHLO
-	server.prisktech.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752889Ab3EMFrI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 May 2013 01:47:08 -0400
-In-Reply-To: <1368424030-15348-1-git-send-email-linux@prisktech.co.nz>
+Received: from youngberry.canonical.com ([91.189.89.112]:55675 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751013Ab3EMGLy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 May 2013 02:11:54 -0400
+In-Reply-To: <CA+6wjbxdbTDXmO984sM1CHFT+PJJdvS=+YmwM2iu-10Ws4WouA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove the pci_* dma functions and replace with the more generic
-versions.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enig02674164051A20ED5484CE37
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-In preparation of adding platform support, a new struct device *dev
-is added to struct velocity_info which can be used by both the pci
-and platform code.
+On 12.05.2013 05:13, S L wrote:
+> commit e5195c1f31f399289347e043d6abf3ffa80f0005 cause ssh KEXINIT failu=
+re.
+> the hardware is ASROCK B75 PRO3. dmesg show
+>=20
+> [    1.332961] r8169 Gigabit Ethernet driver 2.3LK-NAPI loaded
+> [    1.333262] r8169 0000:03:00.0: irq 42 for MSI/MSI-X
+> [    1.333414] r8169 0000:03:00.0 eth0: RTL8168evl/8111evl at
+> 0xffffc90000024000, 11:11:11:11:11:11, XID 0c900800 IRQ 42
+> [    1.333534] r8169 0000:03:00.0 eth0: jumbo features [frames: 9200 by=
+tes,
+> tx checksumming: ko]
+>=20
+> lspci -vn show
+>=20
+> 03:00.0 0200: 10ec:8168 (rev 06)
+>         Subsystem: 1849:8168
+>=20
 
-Signed-off-by: Tony Prisk <linux@prisktech.co.nz>
----
- drivers/net/ethernet/via/via-velocity.c |   51 +++++++++++++++----------------
- drivers/net/ethernet/via/via-velocity.h |    1 +
- 2 files changed, 26 insertions(+), 26 deletions(-)
+That does not contain much detail information. Also its not too helpful t=
+o send
+such reports only to one person. I did not see ssh problems on my tests b=
+ut that
+could be a different configuration/environment.
 
-diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
-index 187eef3..5996cee 100644
---- a/drivers/net/ethernet/via/via-velocity.c
-+++ b/drivers/net/ethernet/via/via-velocity.c
-@@ -46,6 +46,7 @@
- #include <linux/types.h>
- #include <linux/bitops.h>
- #include <linux/init.h>
-+#include <linux/dma-mapping.h>
- #include <linux/mm.h>
- #include <linux/errno.h>
- #include <linux/ioport.h>
-@@ -1459,7 +1460,6 @@ static int velocity_init_dma_rings(struct velocity_info *vptr)
- 	struct velocity_opt *opt = &vptr->options;
- 	const unsigned int rx_ring_size = opt->numrx * sizeof(struct rx_desc);
- 	const unsigned int tx_ring_size = opt->numtx * sizeof(struct tx_desc);
--	struct pci_dev *pdev = vptr->pdev;
- 	dma_addr_t pool_dma;
- 	void *pool;
- 	unsigned int i;
-@@ -1467,13 +1467,13 @@ static int velocity_init_dma_rings(struct velocity_info *vptr)
- 	/*
- 	 * Allocate all RD/TD rings a single pool.
- 	 *
--	 * pci_alloc_consistent() fulfills the requirement for 64 bytes
-+	 * dma_alloc_coherent() fulfills the requirement for 64 bytes
- 	 * alignment
- 	 */
--	pool = pci_alloc_consistent(pdev, tx_ring_size * vptr->tx.numq +
--				    rx_ring_size, &pool_dma);
-+	pool = dma_alloc_coherent(vptr->dev, tx_ring_size * vptr->tx.numq +
-+				    rx_ring_size, &pool_dma, GFP_ATOMIC);
- 	if (!pool) {
--		dev_err(&pdev->dev, "%s : DMA memory allocation failed.\n",
-+		dev_err(vptr->dev, "%s : DMA memory allocation failed.\n",
- 			vptr->netdev->name);
- 		return -ENOMEM;
- 	}
-@@ -1524,8 +1524,8 @@ static int velocity_alloc_rx_buf(struct velocity_info *vptr, int idx)
- 	 */
- 	skb_reserve(rd_info->skb,
- 			64 - ((unsigned long) rd_info->skb->data & 63));
--	rd_info->skb_dma = pci_map_single(vptr->pdev, rd_info->skb->data,
--					vptr->rx.buf_sz, PCI_DMA_FROMDEVICE);
-+	rd_info->skb_dma = dma_map_single(vptr->dev, rd_info->skb->data,
-+					vptr->rx.buf_sz, DMA_FROM_DEVICE);
- 
- 	/*
- 	 *	Fill in the descriptor to match
-@@ -1588,8 +1588,8 @@ static void velocity_free_rd_ring(struct velocity_info *vptr)
- 
- 		if (!rd_info->skb)
- 			continue;
--		pci_unmap_single(vptr->pdev, rd_info->skb_dma, vptr->rx.buf_sz,
--				 PCI_DMA_FROMDEVICE);
-+		dma_unmap_single(vptr->dev, rd_info->skb_dma, vptr->rx.buf_sz,
-+				 DMA_FROM_DEVICE);
- 		rd_info->skb_dma = 0;
- 
- 		dev_kfree_skb(rd_info->skb);
-@@ -1670,7 +1670,7 @@ static void velocity_free_dma_rings(struct velocity_info *vptr)
- 	const int size = vptr->options.numrx * sizeof(struct rx_desc) +
- 		vptr->options.numtx * sizeof(struct tx_desc) * vptr->tx.numq;
- 
--	pci_free_consistent(vptr->pdev, size, vptr->rx.ring, vptr->rx.pool_dma);
-+	dma_free_coherent(vptr->dev, size, vptr->rx.ring, vptr->rx.pool_dma);
- }
- 
- static int velocity_init_rings(struct velocity_info *vptr, int mtu)
-@@ -1727,8 +1727,8 @@ static void velocity_free_tx_buf(struct velocity_info *vptr,
- 				pktlen = max_t(size_t, pktlen,
- 						td->td_buf[i].size & ~TD_QUEUE);
- 
--			pci_unmap_single(vptr->pdev, tdinfo->skb_dma[i],
--					le16_to_cpu(pktlen), PCI_DMA_TODEVICE);
-+			dma_unmap_single(vptr->dev, tdinfo->skb_dma[i],
-+					le16_to_cpu(pktlen), DMA_TO_DEVICE);
- 		}
- 	}
- 	dev_kfree_skb_irq(skb);
-@@ -1750,8 +1750,8 @@ static void velocity_free_td_ring_entry(struct velocity_info *vptr,
- 	if (td_info->skb) {
- 		for (i = 0; i < td_info->nskb_dma; i++) {
- 			if (td_info->skb_dma[i]) {
--				pci_unmap_single(vptr->pdev, td_info->skb_dma[i],
--					td_info->skb->len, PCI_DMA_TODEVICE);
-+				dma_unmap_single(vptr->dev, td_info->skb_dma[i],
-+					td_info->skb->len, DMA_TO_DEVICE);
- 				td_info->skb_dma[i] = 0;
- 			}
- 		}
-@@ -2029,7 +2029,6 @@ static inline void velocity_iph_realign(struct velocity_info *vptr,
-  */
- static int velocity_receive_frame(struct velocity_info *vptr, int idx)
- {
--	void (*pci_action)(struct pci_dev *, dma_addr_t, size_t, int);
- 	struct net_device_stats *stats = &vptr->netdev->stats;
- 	struct velocity_rd_info *rd_info = &(vptr->rx.info[idx]);
- 	struct rx_desc *rd = &(vptr->rx.ring[idx]);
-@@ -2047,8 +2046,8 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
- 
- 	skb = rd_info->skb;
- 
--	pci_dma_sync_single_for_cpu(vptr->pdev, rd_info->skb_dma,
--				    vptr->rx.buf_sz, PCI_DMA_FROMDEVICE);
-+	dma_sync_single_for_cpu(vptr->dev, rd_info->skb_dma,
-+				    vptr->rx.buf_sz, DMA_FROM_DEVICE);
- 
- 	/*
- 	 *	Drop frame not meeting IEEE 802.3
-@@ -2061,19 +2060,18 @@ static int velocity_receive_frame(struct velocity_info *vptr, int idx)
- 		}
- 	}
- 
--	pci_action = pci_dma_sync_single_for_device;
--
- 	velocity_rx_csum(rd, skb);
- 
- 	if (velocity_rx_copy(&skb, pkt_len, vptr) < 0) {
- 		velocity_iph_realign(vptr, skb, pkt_len);
--		pci_action = pci_unmap_single;
- 		rd_info->skb = NULL;
-+		dma_unmap_single(vptr->dev, rd_info->skb_dma, vptr->rx.buf_sz,
-+				 DMA_FROM_DEVICE);
-+	} else {
-+		dma_sync_single_for_device(vptr->dev, rd_info->skb_dma,
-+					   vptr->rx.buf_sz, DMA_FROM_DEVICE);
- 	}
- 
--	pci_action(vptr->pdev, rd_info->skb_dma, vptr->rx.buf_sz,
--		   PCI_DMA_FROMDEVICE);
--
- 	skb_put(skb, pkt_len - 4);
- 	skb->protocol = eth_type_trans(skb, vptr->netdev);
- 
-@@ -2550,7 +2548,8 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 	 *	add it to the transmit ring.
- 	 */
- 	tdinfo->skb = skb;
--	tdinfo->skb_dma[0] = pci_map_single(vptr->pdev, skb->data, pktlen, PCI_DMA_TODEVICE);
-+	tdinfo->skb_dma[0] = dma_map_single(vptr->dev, skb->data, pktlen,
-+								DMA_TO_DEVICE);
- 	td_ptr->tdesc0.len = cpu_to_le16(pktlen);
- 	td_ptr->td_buf[0].pa_low = cpu_to_le32(tdinfo->skb_dma[0]);
- 	td_ptr->td_buf[0].pa_high = 0;
-@@ -2560,7 +2559,7 @@ static netdev_tx_t velocity_xmit(struct sk_buff *skb,
- 	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
- 		const skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
- 
--		tdinfo->skb_dma[i + 1] = skb_frag_dma_map(&vptr->pdev->dev,
-+		tdinfo->skb_dma[i + 1] = skb_frag_dma_map(vptr->dev,
- 							  frag, 0,
- 							  skb_frag_size(frag),
- 							  DMA_TO_DEVICE);
-@@ -2637,6 +2636,7 @@ static void velocity_init_info(struct pci_dev *pdev, struct velocity_info *vptr,
- {
- 	memset(vptr, 0, sizeof(struct velocity_info));
- 
-+	vptr->dev = &pdev->dev;
- 	vptr->pdev = pdev;
- 	vptr->chip_id = info->chip_id;
- 	vptr->tx.numq = info->txqueue;
-@@ -2744,7 +2744,6 @@ static int velocity_found1(struct pci_dev *pdev,
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 	vptr = netdev_priv(dev);
- 
--
- 	if (first) {
- 		printk(KERN_INFO "%s Ver. %s\n",
- 			VELOCITY_FULL_DRV_NAM, VELOCITY_VERSION);
-diff --git a/drivers/net/ethernet/via/via-velocity.h b/drivers/net/ethernet/via/via-velocity.h
-index ff8d7828..c38bbae 100644
---- a/drivers/net/ethernet/via/via-velocity.h
-+++ b/drivers/net/ethernet/via/via-velocity.h
-@@ -1434,6 +1434,7 @@ struct velocity_opt {
- #define GET_RD_BY_IDX(vptr, idx)   (vptr->rd_ring[idx])
- 
- struct velocity_info {
-+	struct device *dev;
- 	struct pci_dev *pdev;
- 	struct net_device *netdev;
- 
--- 
-1.7.9.5
+-Stefan
+
+
+--------------enig02674164051A20ED5484CE37
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+Comment: Using GnuPG with undefined - http://www.enigmail.net/
+
+iQIcBAEBCgAGBQJRkIQmAAoJEOhnXe7L7s6jV3wQAMgQNL4MPBqQsHfVooR4b00Q
+Eq2oq1+ZV+bB6/nEYH8YZl4TG4vA1+uVTYfLtadbyaUN5g4rTYkkgcN52UGkPZVU
+IrgNgQzJ8RjD7zF5JldIU35xklbA39ieb+5imvGROiCNKC/xvsjHevHvr6FmwG+k
+gGDVrTpy2X8G+JuEGDHIw5lMBo0IUXgODsdWq4fSo3tLYT20IQ34rjFpGv/VqYC2
+ZlHykFWoU4Z/Bd9wuvhIO8tkzUZDLzaX8BcQcMVHnwG065yZBriMd4pxNb31+r2q
+XD9mB3+rgXmXGRVNAMD2X38PiGVBHxu+ZeSZLZN0a6KZWFNSIv95zZEwBGOkD1j0
+czlLJL6qXfIZNRTS/GictNO/Kc0zCaohRaYFyotmHylYF5PASWsnEM477oELxP7t
+0l/tilblDlUWRvrjnUN1y/eobtGF1DNTXl58aQOk1gwwUm1MColPDxCtF78Ob2Ia
+DSxTkK+Vey1KBQBBX4L9fNhvLZ6em2U7jfmDfblTjJGzox3sqsXQq7SoTkKctWle
+QSVY15nkscifpuuZfS1bZH9+cUtA4v0BxFYNADnF+j/+hxVcWsUeAbha8fTb2+Fb
+alMwJvgwop9ZjNQAukNDID6LTqWuaCOu5Wcjl3DCpKyryz3aXV5STsRQH7RqlF7z
+XtzrPtTbDc6e3JFhUnyt
+=5hBL
+-----END PGP SIGNATURE-----
+
+--------------enig02674164051A20ED5484CE37--
