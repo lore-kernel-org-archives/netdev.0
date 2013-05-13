@@ -1,88 +1,33 @@
 From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH v2 net 1/2] tg3: Skip powering down function 0 on
- certain serdes devices
-Date: Mon, 13 May 2013 14:04:15 -0700
-Message-ID: <1368479056-11780-2-git-send-email-nsujir@broadcom.com>
-References: <1368479056-11780-1-git-send-email-nsujir@broadcom.com>
+Subject: [PATCH v2 net 0/2] tg3: 2 bugfixes - TSO data corruption and
+ phy power down
+Date: Mon, 13 May 2013 14:04:14 -0700
+Message-ID: <1368479056-11780-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	stable@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
+Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2292 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4039 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752957Ab3EMVE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752070Ab3EMVE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 13 May 2013 17:04:29 -0400
-In-Reply-To: <1368479056-11780-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-On the 5718, 5719 and 5720 serdes devices, powering down function 0
-results in all the other ports being powered down. Add code to skip
-function 0 power down.
 
 v2:
  - Modify tg3_phy_power_bug() function to use a switch instead of a
    complicated if statement. Suggested by Joe Perches.
 
-Cc: <stable@vger.kernel.org>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 32 ++++++++++++++++++++++++++------
- 1 file changed, 26 insertions(+), 6 deletions(-)
+Michael Chan (1):
+  tg3: Fix data corruption on 5725 with TSO
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 728d42a..781be76 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -2957,6 +2957,31 @@ static int tg3_5700_link_polarity(struct tg3 *tp, u32 speed)
- 	return 0;
- }
- 
-+static bool tg3_phy_power_bug(struct tg3 *tp)
-+{
-+	switch (tg3_asic_rev(tp)) {
-+	case ASIC_REV_5700:
-+	case ASIC_REV_5704:
-+		return true;
-+	case ASIC_REV_5780:
-+		if (tp->phy_flags & TG3_PHYFLG_MII_SERDES)
-+			return true;
-+		return false;
-+	case ASIC_REV_5717:
-+		if (!tp->pci_fn)
-+			return true;
-+		return false;
-+	case ASIC_REV_5719:
-+	case ASIC_REV_5720:
-+		if ((tp->phy_flags & TG3_PHYFLG_PHY_SERDES) &&
-+		    !tp->pci_fn)
-+			return true;
-+		return false;
-+	}
-+
-+	return false;
-+}
-+
- static void tg3_power_down_phy(struct tg3 *tp, bool do_low_power)
- {
- 	u32 val;
-@@ -3016,12 +3041,7 @@ static void tg3_power_down_phy(struct tg3 *tp, bool do_low_power)
- 	/* The PHY should not be powered down on some chips because
- 	 * of bugs.
- 	 */
--	if (tg3_asic_rev(tp) == ASIC_REV_5700 ||
--	    tg3_asic_rev(tp) == ASIC_REV_5704 ||
--	    (tg3_asic_rev(tp) == ASIC_REV_5780 &&
--	     (tp->phy_flags & TG3_PHYFLG_MII_SERDES)) ||
--	    (tg3_asic_rev(tp) == ASIC_REV_5717 &&
--	     !tp->pci_fn))
-+	if (tg3_phy_power_bug(tp))
- 		return;
- 
- 	if (tg3_chip_rev(tp) == CHIPREV_5784_AX ||
+Nithin Nayak Sujir (1):
+  tg3: Skip powering down function 0 on certain serdes devices
+
+ drivers/net/ethernet/broadcom/tg3.c | 49 ++++++++++++++++++++++++++++++++-----
+ 1 file changed, 43 insertions(+), 6 deletions(-)
+
 -- 
 1.8.1.4
