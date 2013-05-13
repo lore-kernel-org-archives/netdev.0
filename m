@@ -1,46 +1,37 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] bna: add missing iounmap() on error in bnad_init()
-Date: Mon, 13 May 2013 15:26:21 +0800
-Message-ID: <CAPgLHd8G816BcF7U6eG320w=k9Zv-yVYjt4wreyU67eSdVRERg@mail.gmail.com>
+From: Heiko Carstens <heiko.carstens@de.ibm.com>
+Subject: Re: Build regressions/improvements in v3.10-rc1 (s390)
+Date: Mon, 13 May 2013 09:41:59 +0200
+Message-ID: <20130513074159.GA4290@osiris>
+References: <alpine.DEB.2.00.1305122130270.3789@ayla.of.borg>
+ <alpine.DEB.2.00.1305122239040.5463@ayla.of.borg>
+ <alpine.DEB.2.00.1305122250110.5463@ayla.of.borg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: rmody@brocade.com, huangj@brocade.com, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f44.google.com ([209.85.214.44]:48645 "EHLO
-	mail-bk0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750920Ab3EMH0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 May 2013 03:26:22 -0400
-Received: by mail-bk0-f44.google.com with SMTP id jk13so2296674bkc.31
-        for <netdev@vger.kernel.org>; Mon, 13 May 2013 00:26:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Development <linux-kernel@vger.kernel.org>,
+	linux-s390@vger.kernel.org, netdev@vger.kernel.org
+To: Geert Uytterhoeven <geert@linux-m68k.org>,
+	linux-net-drivers@solarflare.com,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Stuart Hodgson <smhodgson@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.00.1305122250110.5463@ayla.of.borg>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Sun, May 12, 2013 at 10:50:45PM +0200, Geert Uytterhoeven wrote:
+> On Sun, 12 May 2013, Geert Uytterhoeven wrote:
+> > However, the full list of errors isn't that unmanageable, so I'm following
+> > up with a digested list...
+> 
+> drivers/net/ethernet/sfc/efx.c:646:3: error: call to '__compiletime_assert_648' declared with attribute error: BUILD_BUG_ON failed: sizeof(struct efx_rx_page_state) + EFX_PAGE_IP_ALIGN + EFX_RX_USR_BUF_SIZE > PAGE_SIZE / 2: 2 errors in 2 logs
+> 	v3.10-rc1/s390x/s390-allyesconfig v3.10-rc1/s390x/s390-allmodconfig
 
-Add the missing iounmap() before return from bnad_init()
-in the error handling case.
-Introduced by commit 01b54b1451853593739816a392485c4e2bee7dda
-(bna: tx rx cleanup fix).
+that seems to a BUILD_BUG_ON that only triggers on s390, because we have
+L1_CACHE_BYTES defined with 256 bytes... which seems to be more than any
+other architecture has.
+There was a different network driver that had a similar BUILD_BUG_ON, but
+it got removed.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/brocade/bna/bnad.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
-index ce4a030..59da9eb 100644
---- a/drivers/net/ethernet/brocade/bna/bnad.c
-+++ b/drivers/net/ethernet/brocade/bna/bnad.c
-@@ -3237,8 +3237,10 @@ bnad_init(struct bnad *bnad,
- 	sprintf(bnad->wq_name, "%s_wq_%d", BNAD_NAME, bnad->id);
- 	bnad->work_q = create_singlethread_workqueue(bnad->wq_name);
- 
--	if (!bnad->work_q)
-+	if (!bnad->work_q) {
-+		iounmap(bnad->bar0);
- 		return -ENOMEM;
-+	}
- 
- 	return 0;
- }
+Right, it was the igb driver:
+http://comments.gmane.org/gmane.linux.network/261378
