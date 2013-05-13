@@ -1,46 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] 3c59x: fix PCI resource management
-Date: Sun, 12 May 2013 16:35:06 -0700 (PDT)
-Message-ID: <20130512.163506.42473258916736778.davem@davemloft.net>
-References: <201305100114.08149.sergei.shtylyov@cogentembedded.com>
-	<20130511.174027.2189352473297054848.davem@davemloft.net>
-	<518FB2AB.5050706@cogentembedded.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [RFC PATCH net-next] sh_eth: add support for r8a7790 SoC
+Date: Mon, 13 May 2013 09:36:50 +0900
+Message-ID: <20130513003648.GA22911@verge.net.au>
+References: <1368172891-26381-1-git-send-email-horms+renesas@verge.net.au>
+ <518CD330.5030009@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44885 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751578Ab3ELXfJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 May 2013 19:35:09 -0400
-In-Reply-To: <518FB2AB.5050706@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <518CD330.5030009@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Sun, 12 May 2013 19:18:03 +0400
-
+On Fri, May 10, 2013 at 03:00:00PM +0400, Sergei Shtylyov wrote:
 > Hello.
 > 
-> On 12-05-2013 4:40, David Miller wrote:
+> On 10-05-2013 12:01, Simon Horman wrote:
 > 
->>> From: Sergei Shtylyov <sshtylyov@ru.mvista.com>
+> >Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> >Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> [...]
 > 
->>> The driver wrongly claimed I/O ports at an address returned by
->>> pci_iomap() --
->>> even if it was passed an MMIO address.  Fix this by claiming/releasing
->>> all PCI
->>> resources in the PCI driver's probe()/remove() methods instead and get
->>> rid of
->>> 'must_free_region' flag weirdness (why would Cardbus claim anything
->>> for us?).
+> >diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+> >index 33dc6f2..1ec26bd 100644
+> >--- a/drivers/net/ethernet/renesas/sh_eth.c
+> >+++ b/drivers/net/ethernet/renesas/sh_eth.c
+> [...]
+> >@@ -342,7 +343,8 @@ static void sh_eth_select_mii(struct net_device *ndev)
+> >  #endif
+> >
+> >  /* There is CPU dependent code */
+> >-#if defined(CONFIG_ARCH_R8A7778) || defined(CONFIG_ARCH_R8A7779)
+> >+#if defined(CONFIG_ARCH_R8A7778) || defined(CONFIG_ARCH_R8A7779) || \
+> >+	defined(CONFIG_ARCH_R8A7790)
+> >  #define SH_ETH_RESET_DEFAULT	1
+> >  static void sh_eth_set_duplex(struct net_device *ndev)
+> >  {
+> >@@ -370,7 +372,7 @@ static void sh_eth_set_rate(struct net_device *ndev)
+> >  	}
+> >  }
+> >
+> >-/* R8A7778/9 */
+> >+/* R8A7778, R8A7779, R8A7790 */
+> >  static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
+> >  	.set_duplex	= sh_eth_set_duplex,
+> >  	.set_rate	= sh_eth_set_rate,
+> >@@ -1275,6 +1277,10 @@ static int sh_eth_dev_init(struct net_device *ndev, bool start)
+> >  	if (ret)
+> >  		goto out;
+> >
+> >+#if defined(CONFIG_ARCH_R8A7790)
+> >+	sh_eth_write(ndev, 0x1, RMIIMODE);
+> >+#endif
+> >+
 > 
->>> Signed-off-by: Sergei Shtylyov <sshtylyov@ru.mvista.com>
-> 
->> Applied, thanks.
-> 
->    Thank you. Will you also queue this for -stable?
+>    Ugh, this #ifdef will be hard to get rid of. Perhaps you should
+> add a field to 'struct sh_eth_cpu_data' indicating the presence of
+> this register instead.
 
-Queued up, thanks.
+Sure, I'll see about making that so.
