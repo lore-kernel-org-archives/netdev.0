@@ -1,63 +1,109 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: Re: [PATCH v2 net 2/2] tg3: Fix data corruption on 5725 with
- TSO
-Date: Mon, 13 May 2013 14:47:35 -0700
-Message-ID: <51915F77.5000405@broadcom.com>
-References: <1368479056-11780-1-git-send-email-nsujir@broadcom.com>
- <1368479056-11780-3-git-send-email-nsujir@broadcom.com>
- <1368479644.13473.121.camel@edumazet-glaptop>
- <51915C7D.2000407@broadcom.com>
- <1368481224.13473.124.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCHv2 net 1/2] sfc: Delete EFX_PAGE_IP_ALIGN, equivalent to
+ NET_IP_ALIGN
+Date: Mon, 13 May 2013 22:58:31 +0100
+Message-ID: <1368482311.3305.48.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8;
- format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	"Michael Chan" <mchan@broadcom.com>, stable@vger.kernel.org
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1368481224.13473.124.camel@edumazet-glaptop>
-Sender: stable-owner@vger.kernel.org
+Cc: <linux-net-drivers@solarflare.com>,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>,
+	<linux-s390@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The two architectures that define CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+(powerpc and x86) now both define NET_IP_ALIGN as 0, so there is no
+need for this optimisation any more.
 
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c        |    4 ++--
+ drivers/net/ethernet/sfc/net_driver.h |   15 +--------------
+ drivers/net/ethernet/sfc/rx.c         |    6 +++---
+ 3 files changed, 6 insertions(+), 19 deletions(-)
 
-On 05/13/2013 02:40 PM, Eric Dumazet wrote:
-> On Mon, 2013-05-13 at 14:34 -0700, Nithin Nayak Sujir wrote:
->>
->> On 05/13/2013 02:14 PM, Eric Dumazet wrote:
->
->>>> +/* Test for TSO DMA buffers that cross into regions which are within MSS bytes
->>>> + * of any 4GB boundaries: 4G, 8G, etc
->>>> + */
->>>> +static inline int tg3_4g_tso_overflow_test(struct tg3 *tp, dma_addr_t mapping,
->>>> +					   u32 len, u32 mss)
->>>> +{
->>>> +	if (tg3_asic_rev(tp) == ASIC_REV_5762 && mss) {
->>>> +		u32 base = (u32) mapping & 0xffffffff;
->>>> +
->>>> +		return ((base + len + (mss & 0x3fff)) < base);
->>>> +	}
->>>> +	return 0;
->>>> +}
->>>> +
->>>
->>> I am curious : Does this condition even triggers ?
->>>
->>
->> Yes, it's a rare problem to occur and was reported in our lab. After we
->> implemented this fix, the problem didn't happen again.
->>
->
-> I just cant figure out which part of the kernel could allocate a
-> fragment spanning a 4G region.
->
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 01b9920..999289b 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -638,13 +638,13 @@ static void efx_start_datapath(struct efx_nic *efx)
+ 			   EFX_MAX_FRAME_LEN(efx->net_dev->mtu) +
+ 			   efx->type->rx_buffer_padding);
+ 	rx_buf_len = (sizeof(struct efx_rx_page_state) +
+-		      EFX_PAGE_IP_ALIGN + efx->rx_dma_len);
++		      NET_IP_ALIGN + efx->rx_dma_len);
+ 	if (rx_buf_len <= PAGE_SIZE) {
+ 		efx->rx_scatter = false;
+ 		efx->rx_buffer_order = 0;
+ 	} else if (efx->type->can_rx_scatter) {
+ 		BUILD_BUG_ON(sizeof(struct efx_rx_page_state) +
+-			     EFX_PAGE_IP_ALIGN + EFX_RX_USR_BUF_SIZE >
++			     NET_IP_ALIGN + EFX_RX_USR_BUF_SIZE >
+ 			     PAGE_SIZE / 2);
+ 		efx->rx_scatter = true;
+ 		efx->rx_dma_len = EFX_RX_USR_BUF_SIZE;
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 9bd433a..5efddf3 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -468,24 +468,11 @@ enum nic_state {
+ };
+ 
+ /*
+- * Alignment of page-allocated RX buffers
+- *
+- * Controls the number of bytes inserted at the start of an RX buffer.
+- * This is the equivalent of NET_IP_ALIGN [which controls the alignment
+- * of the skb->head for hardware DMA].
+- */
+-#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+-#define EFX_PAGE_IP_ALIGN 0
+-#else
+-#define EFX_PAGE_IP_ALIGN NET_IP_ALIGN
+-#endif
+-
+-/*
+  * Alignment of the skb->head which wraps a page-allocated RX buffer
+  *
+  * The skb allocated to wrap an rx_buffer can have this alignment. Since
+  * the data is memcpy'd from the rx_buf, it does not need to be equal to
+- * EFX_PAGE_IP_ALIGN.
++ * NET_IP_ALIGN.
+  */
+ #define EFX_PAGE_SKB_ALIGN 2
+ 
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index e73e30b..99f70dd 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -93,7 +93,7 @@ static inline void efx_sync_rx_buffer(struct efx_nic *efx,
+ 
+ void efx_rx_config_page_split(struct efx_nic *efx)
+ {
+-	efx->rx_page_buf_step = ALIGN(efx->rx_dma_len + EFX_PAGE_IP_ALIGN,
++	efx->rx_page_buf_step = ALIGN(efx->rx_dma_len + NET_IP_ALIGN,
+ 				      L1_CACHE_BYTES);
+ 	efx->rx_bufs_per_page = efx->rx_buffer_order ? 1 :
+ 		((PAGE_SIZE - sizeof(struct efx_rx_page_state)) /
+@@ -188,9 +188,9 @@ static int efx_init_rx_buffers(struct efx_rx_queue *rx_queue)
+ 		do {
+ 			index = rx_queue->added_count & rx_queue->ptr_mask;
+ 			rx_buf = efx_rx_buffer(rx_queue, index);
+-			rx_buf->dma_addr = dma_addr + EFX_PAGE_IP_ALIGN;
++			rx_buf->dma_addr = dma_addr + NET_IP_ALIGN;
+ 			rx_buf->page = page;
+-			rx_buf->page_offset = page_offset + EFX_PAGE_IP_ALIGN;
++			rx_buf->page_offset = page_offset + NET_IP_ALIGN;
+ 			rx_buf->len = efx->rx_dma_len;
+ 			rx_buf->flags = 0;
+ 			++rx_queue->added_count;
 
-For the bug to occur, the fragment does not have to span a 4G boundary. If it is 
-within MSS bytes (9.6k) of a 4G boundary, it triggers the failure.
-
-
->
->
->
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
