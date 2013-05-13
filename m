@@ -1,62 +1,44 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net] sfc: Reduce RX scatter buffer size to multiple of
- 256
-Date: Mon, 13 May 2013 20:36:48 +0100
-Message-ID: <1368473808.3305.47.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1368467297.3305.28.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CAMuHMdXnp0z-Tn6KBkPzpbmu1jFpZZaSWRGSggysX5QHNx52ng@mail.gmail.com>
-	 <1368472300.3305.39.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CAMuHMdVs+gcuGKdW82g+rkrzo53UGn0zqU8KwsThCY8STwCd0Q@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] qlge: fix dma map leak when the last chunk is not
+ allocated
+Date: Mon, 13 May 2013 12:55:10 -0700 (PDT)
+Message-ID: <20130513.125510.225110585775124505.davem@davemloft.net>
+References: <1368299737-23863-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	<linux-s390@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Geert Uytterhoeven <geert@linux-m68k.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAMuHMdVs+gcuGKdW82g+rkrzo53UGn0zqU8KwsThCY8STwCd0Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-driver@qlogic.com,
+	shahed.shaikh@qlogic.com, jitendra.kalsaria@qlogic.com,
+	ron.mercer@qlogic.com
+To: cascardo@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57018 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751846Ab3EMTzN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 May 2013 15:55:13 -0400
+In-Reply-To: <1368299737-23863-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-05-13 at 21:16 +0200, Geert Uytterhoeven wrote:
-> On Mon, May 13, 2013 at 9:11 PM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> >> error: BUILD_BUG_ON failed: sizeof(struct efx_rx_page_state) +
-> >> EFX_PAGE_IP_ALIGN + EFX_RX_USR_BUF_SIZE > PAGE_SIZE / 2
-> >> make[4]: *** [drivers/net/ethernet/sfc/efx.o] Error 1
-> >
-> > OK, this doesn't work because on s390 EFX_PAGE_IP_ALIGN == 2 (this macro
+From: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+Date: Sat, 11 May 2013 16:15:37 -0300
+
+> qlge allocates chunks from a page that it maps and unmaps that page when
+> the last chunk is released. When the driver is unloaded or the card is
+> removed, all chunks are released and the page is unmapped for the last
+> chunk.
 > 
-> Yeah, that's what I just discovered, too.
+> However, when the last chunk of a page is not allocated and the device
+> is removed, that page is not unmapped. In fact, its last reference is
+> not put and there's also a page leak. This bug prevents a device from
+> being properly hotplugged.
 > 
-> #ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-> #define EFX_PAGE_IP_ALIGN 0
-> #else
-> #define EFX_PAGE_IP_ALIGN NET_IP_ALIGN
-> #endif
+> When the DMA API debug option is enabled, the following messages show
+> the pending DMA allocation after we remove the driver.
 > 
-> > is equivalent to NET_IP_ALIGN, though that wasn't always true).  So DMA
-> > is going to be misaligned on s390 anyway.
-> 
-> Hmm, so it's making the choice between misaligned CPU and misaligned
-> DMA? Sounds fishy...
+> This patch fixes the bug by unmapping and putting the page from the ring
+> if its last chunk has not been allocated.
+....
+> Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
 
-When writing headers into an skb, we need to ensure that the IP header
-is aligned as required by the CPU.  I'm not sure whether this is true
-for page buffers; it will depend on whether GRO pulls the IP header into
-an skb header area before looking at it.
-
-For RX DMA, our controller doesn't care about alignment but there is a
-performance concern.  So where possible we prefer to align the start of
-the DMA buffer with a cache line.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Applied, thanks.
