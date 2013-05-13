@@ -1,70 +1,72 @@
 From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net 2/2] tg3: Fix data corruption on 5725 with TSO
-Date: Mon, 13 May 2013 11:03:47 -0700
-Message-ID: <1368468227-18710-3-git-send-email-nsujir@broadcom.com>
+Subject: [PATCH net 1/2] tg3: Skip powering down function 0 on certain
+ serdes devices
+Date: Mon, 13 May 2013 11:03:46 -0700
+Message-ID: <1368468227-18710-2-git-send-email-nsujir@broadcom.com>
 References: <1368468227-18710-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	stable@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	stable@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4161 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752114Ab3EMSEI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 May 2013 14:04:08 -0400
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <1368468227-18710-1-git-send-email-nsujir@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <mchan@broadcom.com>
-
-The 5725 family of devices (asic rev 5762), corrupts TSO packets where
-the buffer is within MSS bytes of a 4G boundary (4G, 8G etc.). Detect
-this condition and trigger the workaround path.
+On the 5718, 5719 and 5720 serdes devices, powering down function 0
+results in all the other ports being powered down. Add code to skip
+function 0 power down.
 
 Cc: <stable@vger.kernel.org>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+ drivers/net/ethernet/broadcom/tg3.c | 24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 737f035..77f1fd3 100644
+index 728d42a..737f035 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -7440,6 +7440,20 @@ static inline int tg3_4g_overflow_test(dma_addr_t mapping, int len)
- 	return (base > 0xffffdcc0) && (base + len + 8 < base);
+@@ -2957,6 +2957,23 @@ static int tg3_5700_link_polarity(struct tg3 *tp, u32 speed)
+ 	return 0;
  }
  
-+/* Test for TSO DMA buffers that cross into regions which are within MSS bytes
-+ * of any 4GB boundaries: 4G, 8G, etc
-+ */
-+static inline int tg3_4g_tso_overflow_test(struct tg3 *tp, dma_addr_t mapping,
-+					   u32 len, u32 mss)
++static bool tg3_phy_power_bug(struct tg3 *tp)
 +{
-+	if (tg3_asic_rev(tp) == ASIC_REV_5762 && mss) {
-+		u32 base = (u32) mapping & 0xffffffff;
++	if (tg3_asic_rev(tp) == ASIC_REV_5700 ||
++	    tg3_asic_rev(tp) == ASIC_REV_5704 ||
++	    (tg3_asic_rev(tp) == ASIC_REV_5780 &&
++	     (tp->phy_flags & TG3_PHYFLG_MII_SERDES)) ||
++	    (tg3_asic_rev(tp) == ASIC_REV_5717 &&
++	     !tp->pci_fn) ||
++	    ((tg3_asic_rev(tp) == ASIC_REV_5719 ||
++	      tg3_asic_rev(tp) == ASIC_REV_5720) &&
++	     (tp->phy_flags & TG3_PHYFLG_PHY_SERDES) &&
++	     !tp->pci_fn))
++		return true;
 +
-+		return ((base + len + (mss & 0x3fff)) < base);
-+	}
-+	return 0;
++	return false;
 +}
 +
- /* Test for DMA addresses > 40-bit */
- static inline int tg3_40bit_overflow_test(struct tg3 *tp, dma_addr_t mapping,
- 					  int len)
-@@ -7476,6 +7490,9 @@ static bool tg3_tx_frag_set(struct tg3_napi *tnapi, u32 *entry, u32 *budget,
- 	if (tg3_4g_overflow_test(map, len))
- 		hwbug = true;
+ static void tg3_power_down_phy(struct tg3 *tp, bool do_low_power)
+ {
+ 	u32 val;
+@@ -3016,12 +3033,7 @@ static void tg3_power_down_phy(struct tg3 *tp, bool do_low_power)
+ 	/* The PHY should not be powered down on some chips because
+ 	 * of bugs.
+ 	 */
+-	if (tg3_asic_rev(tp) == ASIC_REV_5700 ||
+-	    tg3_asic_rev(tp) == ASIC_REV_5704 ||
+-	    (tg3_asic_rev(tp) == ASIC_REV_5780 &&
+-	     (tp->phy_flags & TG3_PHYFLG_MII_SERDES)) ||
+-	    (tg3_asic_rev(tp) == ASIC_REV_5717 &&
+-	     !tp->pci_fn))
++	if (tg3_phy_power_bug(tp))
+ 		return;
  
-+	if (tg3_4g_tso_overflow_test(tp, map, len, mss))
-+		hwbug = true;
-+
- 	if (tg3_40bit_overflow_test(tp, map, len))
- 		hwbug = true;
- 
+ 	if (tg3_chip_rev(tp) == CHIPREV_5784_AX ||
 -- 
 1.8.1.4
