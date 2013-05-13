@@ -1,474 +1,102 @@
-From: Oleksij Rempel <linux@rempel-privat.de>
-Subject: Re: [PATCH] ath5k: Remove AHB bus support.
-Date: Mon, 13 May 2013 17:20:36 +0200
-Message-ID: <519104C4.1040204@rempel-privat.de>
-References: <1320756113.14409.385.camel@x61.thuisdomein>  <20111108141647.GA3390@hash.lan>  <1342124352.22584.21.camel@x61.thuisdomein>  <20120712203837.GA3045@localhost> <4FFFBDD8.6020305@neratec.com>  <20120713124134.GA5567@localhost>  <1362999998.3137.60.camel@x61.thuisdomein> <1368457391.1350.67.camel@x61.thuisdomein>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: Re: [PATCH] qlge: fix dma map leak when the last chunk is not
+ allocated
+Date: Mon, 13 May 2013 15:42:21 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E32079A@avmb2.qlogic.org>
+References: <1368299737-23863-1-git-send-email-cascardo@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Slaby <jirislaby@gmail.com>,
-	Nick Kossifidis <mickflemm@gmail.com>,
-	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Bob Copeland <me@bobcopeland.com>,
-	Wojciech Dubowik <Wojciech.Dubowik@neratec.com>,
-	nbd@openwrt.org, ath5k-devel@lists.ath5k.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Paul Bolle <pebolle@tiscali.nl>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368457391.1350.67.camel@x61.thuisdomein>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-Hmm... i'm working right now to make ar231x device work with upstream
-sources. First think is boot loader. There are is a ar231x fork of 
-redboot, but i decided to go barebox. See:
-https://github.com/olerem/barebox/commits/atheros
-there one more barebox dev on it, so i think we will get it.
-
-Next step will be to check why ar231x patches are not in upstream 
-kernel. After i ported ar231x-eth driver to barebox, i can assume why it 
-is not included - it need some more work. Or may be there are other reasons.
-
-Currently i do not know how AHB bus related to ATHEROS_AR231X.
-
-Am 13.05.2013 17:03, schrieb Paul Bolle:
-> AHB bus support was added in v2.6.38, through commit a0b907ee2a ("ath5k:
-> Add AHB bus support."). That code can only be build if the Kconfig
-> symbol ATHEROS_AR231X is set. But that symbol has never been added to
-> the tree. So AHB bus support has always been dead code.
->
-> Let's remove all code that depends on ATHEROS_AR231X. If that symbol
-> ever gets added to the tree the AHB bus support can be re-added too.
->
-> Signed-off-by: Paul Bolle <pebolle@tiscali.nl>
-> ---
-> 0) Compile tested (I do not think I have hardware that use the ath5k
-> driver).
->
-> 1) I mentioned the missing ATHEROS_AR231X symbol three times before (in
-> August 2011, in July 2012 and in March 2103). Nobody stepped forward to
-> tell me they were actually working on adding that symbol somehow. So
-> let's see how people react when I submit a patch to remove the (dead)
-> AHB bus support.
->
->   drivers/net/wireless/ath/ath5k/Kconfig  |  14 +-
->   drivers/net/wireless/ath/ath5k/Makefile |   1 -
->   drivers/net/wireless/ath/ath5k/ahb.c    | 239 --------------------------------
->   drivers/net/wireless/ath/ath5k/ath5k.h  |  28 ----
->   drivers/net/wireless/ath/ath5k/base.c   |  14 --
->   drivers/net/wireless/ath/ath5k/led.c    |   6 -
->   6 files changed, 3 insertions(+), 299 deletions(-)
->   delete mode 100644 drivers/net/wireless/ath/ath5k/ahb.c
->
-> diff --git a/drivers/net/wireless/ath/ath5k/Kconfig b/drivers/net/wireless/ath/ath5k/Kconfig
-> index c9f81a3..93caf8e68 100644
-> --- a/drivers/net/wireless/ath/ath5k/Kconfig
-> +++ b/drivers/net/wireless/ath/ath5k/Kconfig
-> @@ -1,13 +1,12 @@
->   config ATH5K
->   	tristate "Atheros 5xxx wireless cards support"
-> -	depends on (PCI || ATHEROS_AR231X) && MAC80211
-> +	depends on PCI && MAC80211
->   	select ATH_COMMON
->   	select MAC80211_LEDS
->   	select LEDS_CLASS
->   	select NEW_LEDS
->   	select AVERAGE
-> -	select ATH5K_AHB if (ATHEROS_AR231X && !PCI)
-> -	select ATH5K_PCI if (!ATHEROS_AR231X && PCI)
-> +	select ATH5K_PCI
->   	---help---
->   	  This module adds support for wireless adapters based on
->   	  Atheros 5xxx chipset.
-> @@ -52,16 +51,9 @@ config ATH5K_TRACER
->
->   	  If unsure, say N.
->
-> -config ATH5K_AHB
-> -	bool "Atheros 5xxx AHB bus support"
-> -	depends on (ATHEROS_AR231X && !PCI)
-> -	---help---
-> -	  This adds support for WiSoC type chipsets of the 5xxx Atheros
-> -	  family.
-> -
->   config ATH5K_PCI
->   	bool "Atheros 5xxx PCI bus support"
-> -	depends on (!ATHEROS_AR231X && PCI)
-> +	depends on PCI
->   	---help---
->   	  This adds support for PCI type chipsets of the 5xxx Atheros
->   	  family.
-> diff --git a/drivers/net/wireless/ath/ath5k/Makefile b/drivers/net/wireless/ath/ath5k/Makefile
-> index 1b3a34f..51e2d86 100644
-> --- a/drivers/net/wireless/ath/ath5k/Makefile
-> +++ b/drivers/net/wireless/ath/ath5k/Makefile
-> @@ -17,6 +17,5 @@ ath5k-y				+= ani.o
->   ath5k-y				+= sysfs.o
->   ath5k-y				+= mac80211-ops.o
->   ath5k-$(CONFIG_ATH5K_DEBUG)	+= debug.o
-> -ath5k-$(CONFIG_ATH5K_AHB)	+= ahb.o
->   ath5k-$(CONFIG_ATH5K_PCI)	+= pci.o
->   obj-$(CONFIG_ATH5K)		+= ath5k.o
-> diff --git a/drivers/net/wireless/ath/ath5k/ahb.c b/drivers/net/wireless/ath/ath5k/ahb.c
-> deleted file mode 100644
-> index 8e8bcc7a..0000000
-> --- a/drivers/net/wireless/ath/ath5k/ahb.c
-> +++ /dev/null
-> @@ -1,239 +0,0 @@
-> -/*
-> - * Copyright (c) 2008-2009 Atheros Communications Inc.
-> - * Copyright (c) 2009 Gabor Juhos <juhosg@openwrt.org>
-> - * Copyright (c) 2009 Imre Kaloz <kaloz@openwrt.org>
-> - *
-> - * Permission to use, copy, modify, and/or distribute this software for any
-> - * purpose with or without fee is hereby granted, provided that the above
-> - * copyright notice and this permission notice appear in all copies.
-> - *
-> - * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-> - * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-> - * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-> - * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-> - * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-> - * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-> - * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-> - */
-> -
-> -#include <linux/nl80211.h>
-> -#include <linux/platform_device.h>
-> -#include <linux/etherdevice.h>
-> -#include <linux/export.h>
-> -#include <ar231x_platform.h>
-> -#include "ath5k.h"
-> -#include "debug.h"
-> -#include "base.h"
-> -#include "reg.h"
-> -
-> -/* return bus cachesize in 4B word units */
-> -static void ath5k_ahb_read_cachesize(struct ath_common *common, int *csz)
-> -{
-> -	*csz = L1_CACHE_BYTES >> 2;
-> -}
-> -
-> -static bool
-> -ath5k_ahb_eeprom_read(struct ath_common *common, u32 off, u16 *data)
-> -{
-> -	struct ath5k_hw *ah = common->priv;
-> -	struct platform_device *pdev = to_platform_device(ah->dev);
-> -	struct ar231x_board_config *bcfg = pdev->dev.platform_data;
-> -	u16 *eeprom, *eeprom_end;
-> -
-> -
-> -
-> -	bcfg = pdev->dev.platform_data;
-> -	eeprom = (u16 *) bcfg->radio;
-> -	eeprom_end = ((void *) bcfg->config) + BOARD_CONFIG_BUFSZ;
-> -
-> -	eeprom += off;
-> -	if (eeprom > eeprom_end)
-> -		return false;
-> -
-> -	*data = *eeprom;
-> -	return true;
-> -}
-> -
-> -int ath5k_hw_read_srev(struct ath5k_hw *ah)
-> -{
-> -	struct platform_device *pdev = to_platform_device(ah->dev);
-> -	struct ar231x_board_config *bcfg = pdev->dev.platform_data;
-> -	ah->ah_mac_srev = bcfg->devid;
-> -	return 0;
-> -}
-> -
-> -static int ath5k_ahb_eeprom_read_mac(struct ath5k_hw *ah, u8 *mac)
-> -{
-> -	struct platform_device *pdev = to_platform_device(ah->dev);
-> -	struct ar231x_board_config *bcfg = pdev->dev.platform_data;
-> -	u8 *cfg_mac;
-> -
-> -	if (to_platform_device(ah->dev)->id == 0)
-> -		cfg_mac = bcfg->config->wlan0_mac;
-> -	else
-> -		cfg_mac = bcfg->config->wlan1_mac;
-> -
-> -	memcpy(mac, cfg_mac, ETH_ALEN);
-> -	return 0;
-> -}
-> -
-> -static const struct ath_bus_ops ath_ahb_bus_ops = {
-> -	.ath_bus_type = ATH_AHB,
-> -	.read_cachesize = ath5k_ahb_read_cachesize,
-> -	.eeprom_read = ath5k_ahb_eeprom_read,
-> -	.eeprom_read_mac = ath5k_ahb_eeprom_read_mac,
-> -};
-> -
-> -/*Initialization*/
-> -static int ath_ahb_probe(struct platform_device *pdev)
-> -{
-> -	struct ar231x_board_config *bcfg = pdev->dev.platform_data;
-> -	struct ath5k_hw *ah;
-> -	struct ieee80211_hw *hw;
-> -	struct resource *res;
-> -	void __iomem *mem;
-> -	int irq;
-> -	int ret = 0;
-> -	u32 reg;
-> -
-> -	if (!pdev->dev.platform_data) {
-> -		dev_err(&pdev->dev, "no platform data specified\n");
-> -		ret = -EINVAL;
-> -		goto err_out;
-> -	}
-> -
-> -	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-> -	if (res == NULL) {
-> -		dev_err(&pdev->dev, "no memory resource found\n");
-> -		ret = -ENXIO;
-> -		goto err_out;
-> -	}
-> -
-> -	mem = ioremap_nocache(res->start, resource_size(res));
-> -	if (mem == NULL) {
-> -		dev_err(&pdev->dev, "ioremap failed\n");
-> -		ret = -ENOMEM;
-> -		goto err_out;
-> -	}
-> -
-> -	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-> -	if (res == NULL) {
-> -		dev_err(&pdev->dev, "no IRQ resource found\n");
-> -		ret = -ENXIO;
-> -		goto err_iounmap;
-> -	}
-> -
-> -	irq = res->start;
-> -
-> -	hw = ieee80211_alloc_hw(sizeof(struct ath5k_hw), &ath5k_hw_ops);
-> -	if (hw == NULL) {
-> -		dev_err(&pdev->dev, "no memory for ieee80211_hw\n");
-> -		ret = -ENOMEM;
-> -		goto err_iounmap;
-> -	}
-> -
-> -	ah = hw->priv;
-> -	ah->hw = hw;
-> -	ah->dev = &pdev->dev;
-> -	ah->iobase = mem;
-> -	ah->irq = irq;
-> -	ah->devid = bcfg->devid;
-> -
-> -	if (bcfg->devid >= AR5K_SREV_AR2315_R6) {
-> -		/* Enable WMAC AHB arbitration */
-> -		reg = ioread32((void __iomem *) AR5K_AR2315_AHB_ARB_CTL);
-> -		reg |= AR5K_AR2315_AHB_ARB_CTL_WLAN;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR2315_AHB_ARB_CTL);
-> -
-> -		/* Enable global WMAC swapping */
-> -		reg = ioread32((void __iomem *) AR5K_AR2315_BYTESWAP);
-> -		reg |= AR5K_AR2315_BYTESWAP_WMAC;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR2315_BYTESWAP);
-> -	} else {
-> -		/* Enable WMAC DMA access (assuming 5312 or 231x*/
-> -		/* TODO: check other platforms */
-> -		reg = ioread32((void __iomem *) AR5K_AR5312_ENABLE);
-> -		if (to_platform_device(ah->dev)->id == 0)
-> -			reg |= AR5K_AR5312_ENABLE_WLAN0;
-> -		else
-> -			reg |= AR5K_AR5312_ENABLE_WLAN1;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR5312_ENABLE);
-> -
-> -		/*
-> -		 * On a dual-band AR5312, the multiband radio is only
-> -		 * used as pass-through. Disable 2 GHz support in the
-> -		 * driver for it
-> -		 */
-> -		if (to_platform_device(ah->dev)->id == 0 &&
-> -		    (bcfg->config->flags & (BD_WLAN0 | BD_WLAN1)) ==
-> -		     (BD_WLAN1 | BD_WLAN0))
-> -			ah->ah_capabilities.cap_needs_2GHz_ovr = true;
-> -		else
-> -			ah->ah_capabilities.cap_needs_2GHz_ovr = false;
-> -	}
-> -
-> -	ret = ath5k_init_ah(ah, &ath_ahb_bus_ops);
-> -	if (ret != 0) {
-> -		dev_err(&pdev->dev, "failed to attach device, err=%d\n", ret);
-> -		ret = -ENODEV;
-> -		goto err_free_hw;
-> -	}
-> -
-> -	platform_set_drvdata(pdev, hw);
-> -
-> -	return 0;
-> -
-> - err_free_hw:
-> -	ieee80211_free_hw(hw);
-> -	platform_set_drvdata(pdev, NULL);
-> - err_iounmap:
-> -        iounmap(mem);
-> - err_out:
-> -	return ret;
-> -}
-> -
-> -static int ath_ahb_remove(struct platform_device *pdev)
-> -{
-> -	struct ar231x_board_config *bcfg = pdev->dev.platform_data;
-> -	struct ieee80211_hw *hw = platform_get_drvdata(pdev);
-> -	struct ath5k_hw *ah;
-> -	u32 reg;
-> -
-> -	if (!hw)
-> -		return 0;
-> -
-> -	ah = hw->priv;
-> -
-> -	if (bcfg->devid >= AR5K_SREV_AR2315_R6) {
-> -		/* Disable WMAC AHB arbitration */
-> -		reg = ioread32((void __iomem *) AR5K_AR2315_AHB_ARB_CTL);
-> -		reg &= ~AR5K_AR2315_AHB_ARB_CTL_WLAN;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR2315_AHB_ARB_CTL);
-> -	} else {
-> -		/*Stop DMA access */
-> -		reg = ioread32((void __iomem *) AR5K_AR5312_ENABLE);
-> -		if (to_platform_device(ah->dev)->id == 0)
-> -			reg &= ~AR5K_AR5312_ENABLE_WLAN0;
-> -		else
-> -			reg &= ~AR5K_AR5312_ENABLE_WLAN1;
-> -		iowrite32(reg, (void __iomem *) AR5K_AR5312_ENABLE);
-> -	}
-> -
-> -	ath5k_deinit_ah(ah);
-> -	iounmap(ah->iobase);
-> -	platform_set_drvdata(pdev, NULL);
-> -	ieee80211_free_hw(hw);
-> -
-> -	return 0;
-> -}
-> -
-> -static struct platform_driver ath_ahb_driver = {
-> -	.probe      = ath_ahb_probe,
-> -	.remove     = ath_ahb_remove,
-> -	.driver		= {
-> -		.name	= "ar231x-wmac",
-> -		.owner	= THIS_MODULE,
-> -	},
-> -};
-> -
-> -module_platform_driver(ath_ahb_driver);
-> diff --git a/drivers/net/wireless/ath/ath5k/ath5k.h b/drivers/net/wireless/ath/ath5k/ath5k.h
-> index 2d691b8..deaedb8 100644
-> --- a/drivers/net/wireless/ath/ath5k/ath5k.h
-> +++ b/drivers/net/wireless/ath/ath5k/ath5k.h
-> @@ -1645,32 +1645,6 @@ static inline struct ath_regulatory *ath5k_hw_regulatory(struct ath5k_hw *ah)
->   	return &(ath5k_hw_common(ah)->regulatory);
->   }
->
-> -#ifdef CONFIG_ATHEROS_AR231X
-> -#define AR5K_AR2315_PCI_BASE	((void __iomem *)0xb0100000)
-> -
-> -static inline void __iomem *ath5k_ahb_reg(struct ath5k_hw *ah, u16 reg)
-> -{
-> -	/* On AR2315 and AR2317 the PCI clock domain registers
-> -	 * are outside of the WMAC register space */
-> -	if (unlikely((reg >= 0x4000) && (reg < 0x5000) &&
-> -	    (ah->ah_mac_srev >= AR5K_SREV_AR2315_R6)))
-> -		return AR5K_AR2315_PCI_BASE + reg;
-> -
-> -	return ah->iobase + reg;
-> -}
-> -
-> -static inline u32 ath5k_hw_reg_read(struct ath5k_hw *ah, u16 reg)
-> -{
-> -	return ioread32(ath5k_ahb_reg(ah, reg));
-> -}
-> -
-> -static inline void ath5k_hw_reg_write(struct ath5k_hw *ah, u32 val, u16 reg)
-> -{
-> -	iowrite32(val, ath5k_ahb_reg(ah, reg));
-> -}
-> -
-> -#else
-> -
->   static inline u32 ath5k_hw_reg_read(struct ath5k_hw *ah, u16 reg)
->   {
->   	return ioread32(ah->iobase + reg);
-> @@ -1681,8 +1655,6 @@ static inline void ath5k_hw_reg_write(struct ath5k_hw *ah, u32 val, u16 reg)
->   	iowrite32(val, ah->iobase + reg);
->   }
->
-> -#endif
-> -
->   static inline enum ath_bus_type ath5k_get_bus_type(struct ath5k_hw *ah)
->   {
->   	return ath5k_hw_common(ah)->bus_ops->ath_bus_type;
-> diff --git a/drivers/net/wireless/ath/ath5k/base.c b/drivers/net/wireless/ath/ath5k/base.c
-> index 9b20d9e..654cc3d 100644
-> --- a/drivers/net/wireless/ath/ath5k/base.c
-> +++ b/drivers/net/wireless/ath/ath5k/base.c
-> @@ -97,15 +97,6 @@ static int ath5k_reset(struct ath5k_hw *ah, struct ieee80211_channel *chan,
->
->   /* Known SREVs */
->   static const struct ath5k_srev_name srev_names[] = {
-> -#ifdef CONFIG_ATHEROS_AR231X
-> -	{ "5312",	AR5K_VERSION_MAC,	AR5K_SREV_AR5312_R2 },
-> -	{ "5312",	AR5K_VERSION_MAC,	AR5K_SREV_AR5312_R7 },
-> -	{ "2313",	AR5K_VERSION_MAC,	AR5K_SREV_AR2313_R8 },
-> -	{ "2315",	AR5K_VERSION_MAC,	AR5K_SREV_AR2315_R6 },
-> -	{ "2315",	AR5K_VERSION_MAC,	AR5K_SREV_AR2315_R7 },
-> -	{ "2317",	AR5K_VERSION_MAC,	AR5K_SREV_AR2317_R1 },
-> -	{ "2317",	AR5K_VERSION_MAC,	AR5K_SREV_AR2317_R2 },
-> -#else
->   	{ "5210",	AR5K_VERSION_MAC,	AR5K_SREV_AR5210 },
->   	{ "5311",	AR5K_VERSION_MAC,	AR5K_SREV_AR5311 },
->   	{ "5311A",	AR5K_VERSION_MAC,	AR5K_SREV_AR5311A },
-> @@ -124,7 +115,6 @@ static const struct ath5k_srev_name srev_names[] = {
->   	{ "5418",	AR5K_VERSION_MAC,	AR5K_SREV_AR5418 },
->   	{ "2425",	AR5K_VERSION_MAC,	AR5K_SREV_AR2425 },
->   	{ "2417",	AR5K_VERSION_MAC,	AR5K_SREV_AR2417 },
-> -#endif
->   	{ "xxxxx",	AR5K_VERSION_MAC,	AR5K_SREV_UNKNOWN },
->   	{ "5110",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5110 },
->   	{ "5111",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5111 },
-> @@ -140,10 +130,6 @@ static const struct ath5k_srev_name srev_names[] = {
->   	{ "5413",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5413 },
->   	{ "5424",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5424 },
->   	{ "5133",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_5133 },
-> -#ifdef CONFIG_ATHEROS_AR231X
-> -	{ "2316",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_2316 },
-> -	{ "2317",	AR5K_VERSION_RAD,	AR5K_SREV_RAD_2317 },
-> -#endif
->   	{ "xxxxx",	AR5K_VERSION_RAD,	AR5K_SREV_UNKNOWN },
->   };
->
-> diff --git a/drivers/net/wireless/ath/ath5k/led.c b/drivers/net/wireless/ath/ath5k/led.c
-> index f77ef36..dbf2483 100644
-> --- a/drivers/net/wireless/ath/ath5k/led.c
-> +++ b/drivers/net/wireless/ath/ath5k/led.c
-> @@ -162,20 +162,14 @@ int ath5k_init_leds(struct ath5k_hw *ah)
->   {
->   	int ret = 0;
->   	struct ieee80211_hw *hw = ah->hw;
-> -#ifndef CONFIG_ATHEROS_AR231X
->   	struct pci_dev *pdev = ah->pdev;
-> -#endif
->   	char name[ATH5K_LED_MAX_NAME_LEN + 1];
->   	const struct pci_device_id *match;
->
->   	if (!ah->pdev)
->   		return 0;
->
-> -#ifdef CONFIG_ATHEROS_AR231X
-> -	match = NULL;
-> -#else
->   	match = pci_match_id(&ath5k_led_devices[0], pdev);
-> -#endif
->   	if (match) {
->   		__set_bit(ATH_STAT_LEDSOFT, ah->status);
->   		ah->led_pin = ATH_PIN(match->driver_data);
->
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Ron Mercer <ron.mercer@qlogic.com>
+To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from co9ehsobe002.messaging.microsoft.com ([207.46.163.25]:6770 "EHLO
+	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754784Ab3EMPnQ convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 May 2013 11:43:16 -0400
+In-Reply-To: <1368299737-23863-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Content-Language: en-US
+Content-ID: <A3E645E19DF4384F81E50AEE16FF4F00@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
--- 
-Regards,
-Oleksij
+
+On 5/11/13 12:15 PM, "Thadeu Lima de Souza Cascardo"
+<cascardo@linux.vnet.ibm.com> wrote:
+
+>qlge allocates chunks from a page that it maps and unmaps that page when
+>the last chunk is released. When the driver is unloaded or the card is
+>removed, all chunks are released and the page is unmapped for the last
+>chunk.
+>
+>However, when the last chunk of a page is not allocated and the device
+>is removed, that page is not unmapped. In fact, its last reference is
+>not put and there's also a page leak. This bug prevents a device from
+>being properly hotplugged.
+>
+>When the DMA API debug option is enabled, the following messages show
+>the pending DMA allocation after we remove the driver.
+>
+>This patch fixes the bug by unmapping and putting the page from the ring
+>if its last chunk has not been allocated.
+>
+>pci 0005:98:00.0: DMA-API: device driver has pending DMA allocations
+>while released from device [count=1]
+>One of leaked entries details: [device address=0x0000000060a80000]
+>[size=65536 bytes] [mapped with DMA_FROM_DEVICE] [mapped as page]
+>------------[ cut here ]------------
+>WARNING: at lib/dma-debug.c:746
+>Modules linked in: qlge(-) rpadlpar_io rpaphp pci_hotplug fuse [last
+>unloaded: qlge]
+>NIP: c0000000003fc3ec LR: c0000000003fc3e8 CTR: c00000000054de60
+>REGS: c0000003ee9c74e0 TRAP: 0700   Tainted: G           O  (3.7.2)
+>MSR: 8000000000029032 <SF,EE,ME,IR,DR,RI>  CR: 28002424  XER: 00000001
+>SOFTE: 1
+>CFAR: c0000000007a39c8
+>TASK = c0000003ee8d5c90[8406] 'rmmod' THREAD: c0000003ee9c4000 CPU: 31
+>GPR00: c0000000003fc3e8 c0000003ee9c7760 c000000000c789f8 00000000000000ee
+>GPR04: 0000000000000000 00000000000000ef 0000000000004000 0000000000010000
+>GPR08: 00000000000000be c000000000b22088 c000000000c4c218 00000000007c0000
+>GPR12: 0000000028002422 c00000000ff26c80 0000000000000000 000001001b0f1b40
+>GPR16: 00000000100cb9d8 0000000010093088 c000000000cdf910 0000000000000001
+>GPR20: 0000000000000000 c000000000dbfc00 0000000000000000 c000000000dbfb80
+>GPR24: c0000003fafc9d80 0000000000000001 000000000001ff80 c0000003f38f7888
+>GPR28: c000000000ddfc00 0000000000000400 c000000000bd7790 c000000000ddfb80
+>NIP [c0000000003fc3ec] .dma_debug_device_change+0x22c/0x2b0
+>LR [c0000000003fc3e8] .dma_debug_device_change+0x228/0x2b0
+>Call Trace:
+>[c0000003ee9c7760] [c0000000003fc3e8]
+>.dma_debug_device_change+0x228/0x2b0 (unreliable)
+>[c0000003ee9c7840] [c00000000079a098] .notifier_call_chain+0x78/0xf0
+>[c0000003ee9c78e0] [c0000000000acc20]
+>.__blocking_notifier_call_chain+0x70/0xb0
+>[c0000003ee9c7990] [c0000000004a9580] .__device_release_driver+0x100/0x140
+>[c0000003ee9c7a20] [c0000000004a9708] .driver_detach+0x148/0x150
+>[c0000003ee9c7ac0] [c0000000004a8144] .bus_remove_driver+0xc4/0x150
+>[c0000003ee9c7b60] [c0000000004aa58c] .driver_unregister+0x8c/0xe0
+>[c0000003ee9c7bf0] [c0000000004090b4] .pci_unregister_driver+0x34/0xf0
+>[c0000003ee9c7ca0] [d000000002231194] .qlge_exit+0x1c/0x34 [qlge]
+>[c0000003ee9c7d20] [c0000000000e36d8] .SyS_delete_module+0x1e8/0x290
+>[c0000003ee9c7e30] [c0000000000098d4] syscall_exit+0x0/0x94
+>Instruction dump:
+>7f26cb78 e818003a e87e81a0 e8f80028 e9180030 796b1f24 78001f24 7d6a5a14
+>7d2a002a e94b0020 483a7595 60000000 <0fe00000> 2fb80000 40de0048 80120050
+>---[ end trace 4294f9abdb01031d ]---
+>Mapped at:
+>[<d000000002222f54>] .ql_update_lbq+0x384/0x580 [qlge]
+>[<d000000002227bd0>] .ql_clean_inbound_rx_ring+0x300/0xc60 [qlge]
+>[<d0000000022288cc>] .ql_napi_poll_msix+0x39c/0x5a0 [qlge]
+>[<c0000000006b3c50>] .net_rx_action+0x170/0x300
+>[<c000000000081840>] .__do_softirq+0x170/0x300
+>
+>Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+>---
+
+Looks good to me. Thanks!
+
+Acked-by: Jitendra Kalsaria <Jitendra.kalsaria@qlogic.com>
