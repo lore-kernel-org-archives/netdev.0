@@ -1,102 +1,154 @@
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: Re: [PATCH] qlge: fix dma map leak when the last chunk is not
- allocated
-Date: Mon, 13 May 2013 15:42:21 +0000
-Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E32079A@avmb2.qlogic.org>
-References: <1368299737-23863-1-git-send-email-cascardo@linux.vnet.ibm.com>
+From: "Vick, Matthew" <matthew.vick@intel.com>
+Subject: Re: [PATCH] igb: add a method to get the nic hw time stamping policy
+Date: Mon, 13 May 2013 15:48:43 +0000
+Message-ID: <CDB65511.1CE8D%matthew.vick@intel.com>
+References: <20130513100742.GM8399@zhudong.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Ron Mercer <ron.mercer@qlogic.com>
-To: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe002.messaging.microsoft.com ([207.46.163.25]:6770 "EHLO
-	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754784Ab3EMPnQ convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 May 2013 11:43:16 -0400
-In-Reply-To: <1368299737-23863-1-git-send-email-cascardo@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	"Wyborny, Carolyn" <carolyn.wyborny@intel.com>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"Duyck, Alexander H" <alexander.h.duyck@intel.com>,
+	"Ronciak, John" <john.ronciak@intel.com>,
+	"Dave, Tushar N" <tushar.n.dave@intel.com>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	David Howells <dhowells@redhat.com>,
+	Dave Jones <davej@redhat.com>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.ne
+To: Dong Zhu <bluezhudong@gmail.com>,
+	Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130513100742.GM8399@zhudong.nay.redhat.com>
 Content-Language: en-US
-Content-ID: <A3E645E19DF4384F81E50AEE16FF4F00@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-ID: <AD8DAF99FE7A5E438C558B8D0D72E49B@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 5/13/13 3:07 AM, "Dong Zhu" <bluezhudong@gmail.com> wrote:
 
-
-On 5/11/13 12:15 PM, "Thadeu Lima de Souza Cascardo"
-<cascardo@linux.vnet.ibm.com> wrote:
-
->qlge allocates chunks from a page that it maps and unmaps that page when
->the last chunk is released. When the driver is unloaded or the card is
->removed, all chunks are released and the page is unmapped for the last
->chunk.
+>> You could use the flags field, as it has no definition yet.
+>>=20
+>> But you still need to explain why this new functionality is needed i=
+n
+>> the first place:
+>>=20
+>> - You can query an interface's time stamping capabilities with the
+>>   GET_TS_INFO ethtool command.
+>>=20
 >
->However, when the last chunk of a page is not allocated and the device
->is removed, that page is not unmapped. In fact, its last reference is
->not put and there's also a page leak. This bug prevents a device from
->being properly hotplugged.
+>Hi,
 >
->When the DMA API debug option is enabled, the following messages show
->the pending DMA allocation after we remove the driver.
+>I modified this patch and added the method to igb_get_ts_info function=
+=2E
+>For 82576 nic, through this method we can easily check which type of
+>packets
+>are time stamped now, such as (HWTSTAMP_FILTER_PTP_V1_L4_SYNC and
+>HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ), then change or disable it up to
+>your requests.
+>I think it is convenient.The origial GET_TS_INFO method can only show =
+the
+>device=B9s
+>time stamping capabilities which nics supported.
 >
->This patch fixes the bug by unmapping and putting the page from the ring
->if its last chunk has not been allocated.
+>I use the tx_reserved[0] and rx_reserved[0] to restore the
+>hwtstamp_tx_types and
+>hwtstamp_rx_filters enumeration values.
 >
->pci 0005:98:00.0: DMA-API: device driver has pending DMA allocations
->while released from device [count=1]
->One of leaked entries details: [device address=0x0000000060a80000]
->[size=65536 bytes] [mapped with DMA_FROM_DEVICE] [mapped as page]
->------------[ cut here ]------------
->WARNING: at lib/dma-debug.c:746
->Modules linked in: qlge(-) rpadlpar_io rpaphp pci_hotplug fuse [last
->unloaded: qlge]
->NIP: c0000000003fc3ec LR: c0000000003fc3e8 CTR: c00000000054de60
->REGS: c0000003ee9c74e0 TRAP: 0700   Tainted: G           O  (3.7.2)
->MSR: 8000000000029032 <SF,EE,ME,IR,DR,RI>  CR: 28002424  XER: 00000001
->SOFTE: 1
->CFAR: c0000000007a39c8
->TASK = c0000003ee8d5c90[8406] 'rmmod' THREAD: c0000003ee9c4000 CPU: 31
->GPR00: c0000000003fc3e8 c0000003ee9c7760 c000000000c789f8 00000000000000ee
->GPR04: 0000000000000000 00000000000000ef 0000000000004000 0000000000010000
->GPR08: 00000000000000be c000000000b22088 c000000000c4c218 00000000007c0000
->GPR12: 0000000028002422 c00000000ff26c80 0000000000000000 000001001b0f1b40
->GPR16: 00000000100cb9d8 0000000010093088 c000000000cdf910 0000000000000001
->GPR20: 0000000000000000 c000000000dbfc00 0000000000000000 c000000000dbfb80
->GPR24: c0000003fafc9d80 0000000000000001 000000000001ff80 c0000003f38f7888
->GPR28: c000000000ddfc00 0000000000000400 c000000000bd7790 c000000000ddfb80
->NIP [c0000000003fc3ec] .dma_debug_device_change+0x22c/0x2b0
->LR [c0000000003fc3e8] .dma_debug_device_change+0x228/0x2b0
->Call Trace:
->[c0000003ee9c7760] [c0000000003fc3e8]
->.dma_debug_device_change+0x228/0x2b0 (unreliable)
->[c0000003ee9c7840] [c00000000079a098] .notifier_call_chain+0x78/0xf0
->[c0000003ee9c78e0] [c0000000000acc20]
->.__blocking_notifier_call_chain+0x70/0xb0
->[c0000003ee9c7990] [c0000000004a9580] .__device_release_driver+0x100/0x140
->[c0000003ee9c7a20] [c0000000004a9708] .driver_detach+0x148/0x150
->[c0000003ee9c7ac0] [c0000000004a8144] .bus_remove_driver+0xc4/0x150
->[c0000003ee9c7b60] [c0000000004aa58c] .driver_unregister+0x8c/0xe0
->[c0000003ee9c7bf0] [c0000000004090b4] .pci_unregister_driver+0x34/0xf0
->[c0000003ee9c7ca0] [d000000002231194] .qlge_exit+0x1c/0x34 [qlge]
->[c0000003ee9c7d20] [c0000000000e36d8] .SyS_delete_module+0x1e8/0x290
->[c0000003ee9c7e30] [c0000000000098d4] syscall_exit+0x0/0x94
->Instruction dump:
->7f26cb78 e818003a e87e81a0 e8f80028 e9180030 796b1f24 78001f24 7d6a5a14
->7d2a002a e94b0020 483a7595 60000000 <0fe00000> 2fb80000 40de0048 80120050
->---[ end trace 4294f9abdb01031d ]---
->Mapped at:
->[<d000000002222f54>] .ql_update_lbq+0x384/0x580 [qlge]
->[<d000000002227bd0>] .ql_clean_inbound_rx_ring+0x300/0xc60 [qlge]
->[<d0000000022288cc>] .ql_napi_poll_msix+0x39c/0x5a0 [qlge]
->[<c0000000006b3c50>] .net_rx_action+0x170/0x300
->[<c000000000081840>] .__do_softirq+0x170/0x300
+>Due to the limitation of 80 characters one line, I have to move the
+>switch out of else judegment.
 >
->Signed-off-by: Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>
+>I test it on I350 and 82576NS nics and it works as expect.
+>
+>Could help reviewing it again ? Any comments would be appreciated.
+>
+>
+>From 8a12932fd2a3bb5ca904bc72b20140247a5d81be Mon Sep 17 00:00:00 2001
+>From: Dong Zhu <bluezhudong@gmail.com>
+>Date: Mon, 13 May 2013 17:27:59 +0800
+>
+>Currently kernel only support setting the hw time stamping policy
+>through ioctl,now add a method to check which packets(Outgoing and
+>Incoming) are time stamped by nic.
+>
+>Add this to igb_get_ts_info, we can query this by using the GET_TS_INF=
+O
+>ethtool command. Testing on I350 and 82576NS it seems work well.
+>
+>Signed-off-by: Dong Zhu <bluezhudong@gmail.com>
 >---
+> drivers/net/ethernet/intel/igb/igb_ethtool.c | 78
+>+++++++++++++++++++++++++++-
+> include/uapi/linux/ethtool.h                 |  3 ++
+> 2 files changed, 79 insertions(+), 2 deletions(-)
 
-Looks good to me. Thanks!
+[...]
 
-Acked-by: Jitendra Kalsaria <Jitendra.kalsaria@qlogic.com>
+>diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool=
+=2Eh
+>index 0c9b448..06cdbc0 100644
+>--- a/include/uapi/linux/ethtool.h
+>+++ b/include/uapi/linux/ethtool.h
+>@@ -772,7 +772,10 @@ struct ethtool_sfeatures {
+>  * @so_timestamping: bit mask of the sum of the supported
+>SO_TIMESTAMPING flags
+>  * @phc_index: device index of the associated PHC, or -1 if there is =
+none
+>  * @tx_types: bit mask of the supported hwtstamp_tx_types enumeration
+>values
+>+ * @tx_reserved[0]: bit mask of the in use hwtstamp_tx_types enumerat=
+ion
+>values
+>  * @rx_filters: bit mask of the supported hwtstamp_rx_filters
+>enumeration values
+>+ * @rx_reserved[0]: bit mask of the in use hwtstamp_rx_filters
+>enumeration
+>+ * values
+>  *
+>  * The bits in the 'tx_types' and 'rx_filters' fields correspond to
+>  * the 'hwtstamp_tx_types' and 'hwtstamp_rx_filters' enumeration valu=
+es,
+>--=20
+>1.7.11.7
+>
+>
+>--=20
+>Best Regards,
+>Dong Zhu
+
+CCing Ben Hutchings, since now your patch is affecting ethtool.
+
+Dong,
+
+The drivers should already be updating the config.tx_type and
+config.rx_filter with what the driver is configuring the device for, so
+any userspace application that needs to know what the device is actuall=
+y
+configured for can check those values after the ioctl call. If the
+userspace app needs to know for certain that something is going to be
+handled, it should just call the ioctl (as Richard suggested).
+
+I'm not sure what you mean by "checking more" with the 82599EB in ixgbe=
+=2E
+It is permissible to timestamp additional packets, as long as the user
+gets the packets they requested timestamped. This in mind, it's much mo=
+re
+efficient for the I350 to timestamp all receive packets and prevents ot=
+her
+headaches (for example, failure to timestamp if the device receives two
+packets that should be timestamped at once). Because of this, the 82599=
+EB
+may have more individual filters, but the driver will be upscaling any
+user input request to HWTSTAMP_FILTER_ALL on I350.
+
+Cheers,
+Matthew
