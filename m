@@ -1,91 +1,71 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: Re: [PATCH net 1/2] tg3: Skip powering down function 0 on
- certain serdes devices
-Date: Mon, 13 May 2013 11:31:21 -0700
-Message-ID: <51913179.7080204@broadcom.com>
-References: <1368468227-18710-1-git-send-email-nsujir@broadcom.com>
- <1368468227-18710-2-git-send-email-nsujir@broadcom.com>
- <1368469301.1913.24.camel@joe-AO722>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: [PATCH net] sfc: Reduce RX scatter buffer size to multiple of 256
+Date: Mon, 13 May 2013 21:02:42 +0200
+Message-ID: <CAMuHMdXnp0z-Tn6KBkPzpbmu1jFpZZaSWRGSggysX5QHNx52ng@mail.gmail.com>
+References: <1368467297.3305.28.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	stable@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>
-To: "Joe Perches" <joe@perches.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1368469301.1913.24.camel@joe-AO722>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>,
+	linux-s390@vger.kernel.org,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368467297.3305.28.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi Ben,
 
+On Mon, May 13, 2013 at 7:48 PM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> efx_start_datapath() asserts that we can fit 2 RX scatter buffers plus
+> a software structure, each cache-aligned, into a single page.  Where
+> L1_CACHE_BYTES == 256 and PAGE_SIZE == 4096, which is the case on
+> s390, this assertion fails.  Reduce EFX_RX_USR_BUF_SIZE to make this
+> work.
+>
+> This should also be good for performance, as it ensures that each RX
+> scatter buffer covers whole cache lines and slightly reduces the use
+> of DMA writes that can require a read-modify-write on inter-processor
+> links.
+>
+> (We could use 2048 - L1_CACHE_BYTES, but EFX_RX_USR_BUF_SIZE also
+> affects user-level networking where a larger amount of housekeeping
+> data may be needed.  Although this version of the driver does not
+> support user-level networking, I prefer to keep scattering behaviour
+> consistent with the out-of-tree version.)
+>
+> Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Reported-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> ---
+> Heiko or Geert, please confirm that this really does fix the build
 
-On 05/13/2013 11:21 AM, Joe Perches wrote:
-> On Mon, 2013-05-13 at 11:03 -0700, Nithin Nayak Sujir wrote:
->> On the 5718, 5719 and 5720 serdes devices, powering down function 0
->> results in all the other ports being powered down. Add code to skip
->> function 0 power down.
->>
->> Cc: <stable@vger.kernel.org>
->> Signed-off-by: Michael Chan <mchan@broadcom.com>
->> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
->> ---
->>   drivers/net/ethernet/broadcom/tg3.c | 24 ++++++++++++++++++------
->>   1 file changed, 18 insertions(+), 6 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
->> index 728d42a..737f035 100644
->> --- a/drivers/net/ethernet/broadcom/tg3.c
->> +++ b/drivers/net/ethernet/broadcom/tg3.c
->> @@ -2957,6 +2957,23 @@ static int tg3_5700_link_polarity(struct tg3 *tp, u32 speed)
->>   	return 0;
->>   }
->>
->> +static bool tg3_phy_power_bug(struct tg3 *tp)
->> +{
->> +	if (tg3_asic_rev(tp) == ASIC_REV_5700 ||
->> +	    tg3_asic_rev(tp) == ASIC_REV_5704 ||
->> +	    (tg3_asic_rev(tp) == ASIC_REV_5780 &&
->> +	     (tp->phy_flags & TG3_PHYFLG_MII_SERDES)) ||
->> +	    (tg3_asic_rev(tp) == ASIC_REV_5717 &&
->> +	     !tp->pci_fn) ||
->> +	    ((tg3_asic_rev(tp) == ASIC_REV_5719 ||
->> +	      tg3_asic_rev(tp) == ASIC_REV_5720) &&
->> +	     (tp->phy_flags & TG3_PHYFLG_PHY_SERDES) &&
->> +	     !tp->pci_fn))
->> +		return true;
->
-> I think this would be a lot easier to read and
-> more easily extended using a switch/case like:
->
+Thanks! But unfortunately I still get the same error:
 
-Will do, I'll resubmit with this change.
+  CC [M]  drivers/net/ethernet/sfc/efx.o
+/scratch/geert/linux/linux-m68k/drivers/net/ethernet/sfc/efx.c: In
+function 'efx_start_datapath':
+/scratch/geert/linux/linux-m68k/drivers/net/ethernet/sfc/efx.c:646:3:
+error: call to '__compiletime_assert_648' declared with attribute
+error: BUILD_BUG_ON failed: sizeof(struct efx_rx_page_state) +
+EFX_PAGE_IP_ALIGN + EFX_RX_USR_BUF_SIZE > PAGE_SIZE / 2
+make[4]: *** [drivers/net/ethernet/sfc/efx.o] Error 1
 
-> static bool tg3_phy_power_bug(struct tg3 *tp)
-> {
-> 	switch (tg3_asic_rev(tp)) {
-> 	case ASIC_REV_5700:
-> 	case ASIC_REV_5704:
-> 		return true;
-> 	case ASIC_REV_5717:
-> 		if (!tp_>pci_fn)
-> 			return true;
-> 		return false;
-> 	case ASIC_REV_5719:
-> 	case ASIC_REV_5720:
-> 		if ((tp_>phy_flags & TG3_PHYFLG_PHY_SERDES) &&
-> 		    !tp->pci_fn)
-> 			return true;
-> 		return false;
-> 	case ASIC_REV_5780:
-> 		if (tp->phy_flags & TG3_PHYFLG_MII_SERDES)
-> 			return true;
-> 		return false;
-> 	}
->
-> 	return false;
-> }
->
->
->
+> failure - I don't have an s390 toolchain.
+
+http://kernel.org/pub/tools/crosstool/files/bin/
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
