@@ -1,52 +1,83 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Build regressions/improvements in v3.10-rc1 (s390)
-Date: Mon, 13 May 2013 17:41:47 +0100
-Message-ID: <1368463307.3305.23.camel@bwh-desktop.uk.solarflarecom.com>
-References: <alpine.DEB.2.00.1305122130270.3789@ayla.of.borg>
-	 <alpine.DEB.2.00.1305122239040.5463@ayla.of.borg>
-	 <alpine.DEB.2.00.1305122250110.5463@ayla.of.borg>
-	 <20130513074159.GA4290@osiris>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Geert Uytterhoeven <geert@linux-m68k.org>,
-	<linux-net-drivers@solarflare.com>,
-	Stuart Hodgson <smhodgson@solarflare.com>,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	<linux-s390@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Heiko Carstens <heiko.carstens@de.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130513074159.GA4290@osiris>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: John Greene <jogreene@redhat.com>
+Subject: [RHEL 6.5 PATCH 169/176] brcmsmac: fix u16 overflow warning
+Date: Mon, 13 May 2013 11:47:11 -0400
+Message-ID: <1368460038-21195-170-git-send-email-jogreene@redhat.com>
+References: <1368460038-21195-1-git-send-email-jogreene@redhat.com>
+Cc: John Greene <jogreene@redhat.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Seth Forshee <seth.forshee@canonical.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, Tim Gardner <tim.gardner@canonical.com>
+To: rhkernel-list@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cpe-075-189-159-031.nc.res.rr.com ([75.189.159.31]:44243 "EHLO
+	jgpicker.rdu.redhat.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1754429Ab3EMQoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 May 2013 12:44:20 -0400
+In-Reply-To: <1368460038-21195-1-git-send-email-jogreene@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-05-13 at 09:41 +0200, Heiko Carstens wrote:
-> On Sun, May 12, 2013 at 10:50:45PM +0200, Geert Uytterhoeven wrote:
-> > On Sun, 12 May 2013, Geert Uytterhoeven wrote:
-> > > However, the full list of errors isn't that unmanageable, so I'm following
-> > > up with a digested list...
-> > 
-> > drivers/net/ethernet/sfc/efx.c:646:3: error: call to '__compiletime_assert_648' declared with attribute error: BUILD_BUG_ON failed: sizeof(struct efx_rx_page_state) + EFX_PAGE_IP_ALIGN + EFX_RX_USR_BUF_SIZE > PAGE_SIZE / 2: 2 errors in 2 logs
-> > 	v3.10-rc1/s390x/s390-allyesconfig v3.10-rc1/s390x/s390-allmodconfig
-> 
-> that seems to a BUILD_BUG_ON that only triggers on s390, because we have
-> L1_CACHE_BYTES defined with 256 bytes... which seems to be more than any
-> other architecture has.
-> There was a different network driver that had a similar BUILD_BUG_ON, but
-> it got removed.
-> 
-> Right, it was the igb driver:
-> http://comments.gmane.org/gmane.linux.network/261378
+Bugzilla: 757944
+Brew: <https://brewweb.devel.redhat.com/taskinfo?taskID=5738553>
+Upstream Status: 708eb54f20334470ad92042547db0fef0cd60462
+Tested: By me. Acceptable. See BZ for details
 
-The critical value here is EFX_RX_USR_BUF_SIZE.  The hardware constrains
-it to be a multiple of 32, but for performance reasons it also ought to
-be a multiple of the cache line size(s).  In our internal development
-branch it has already been reduced to 1792, which is a multiple of 256
-and should satisfy the BUILD_BUG_ON check.  I'll post a patch shortly.
+DOT11_MIN_BEACON_PERIOD and DOT11_MAX_BEACON_PERIOD are
+superfluous. The only invalid beacon period is 0. Comparing
+a 16 bit quantity to 0xffff also causes a compile warning:
 
-Ben.
+drivers/net/wireless/brcm80211/brcmsmac/main.c:5560 brcms_c_set_beacon_period()
+ warn: impossible condition '(period > 65535) => (0-65535 > 65535)'
 
+Observed from smatch analysis.
+
+Cc: Brett Rudley <brudley@broadcom.com>
+Cc: Arend van Spriel <arend@broadcom.com>
+Cc: "Franky (Zhenhui) Lin" <frankyl@broadcom.com>
+Cc: Hante Meuleman <meuleman@broadcom.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>
+Cc: Pieter-Paul Giesberts <pieterpg@broadcom.com>
+Cc: Seth Forshee <seth.forshee@canonical.com>
+Cc: Hauke Mehrtens <hauke@hauke-m.de>
+Cc: linux-wireless@vger.kernel.org
+Cc: brcm80211-dev-list@broadcom.com
+Cc: netdev@vger.kernel.org
+Signed-off-by: Tim Gardner <tim.gardner@canonical.com>
+Acked-by: Arend van Spriel <arend@broadcom.com>
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+ drivers/net/wireless/brcm80211/brcmsmac/main.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/drivers/net/wireless/brcm80211/brcmsmac/main.c b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+index 5c50b79..c72fbab 100644
+--- a/drivers/net/wireless/brcm80211/brcmsmac/main.c
++++ b/drivers/net/wireless/brcm80211/brcmsmac/main.c
+@@ -101,8 +101,6 @@
+ #define DOT11_RTS_LEN			16
+ #define DOT11_CTS_LEN			10
+ #define DOT11_BA_BITMAP_LEN		128
+-#define DOT11_MIN_BEACON_PERIOD		1
+-#define DOT11_MAX_BEACON_PERIOD		0xFFFF
+ #define DOT11_MAXNUMFRAGS		16
+ #define DOT11_MAX_FRAG_LEN		2346
+ 
+@@ -5548,8 +5546,7 @@ int brcms_c_set_rateset(struct brcms_c_info *wlc, struct brcm_rateset *rs)
+ 
+ int brcms_c_set_beacon_period(struct brcms_c_info *wlc, u16 period)
+ {
+-	if (period < DOT11_MIN_BEACON_PERIOD ||
+-	    period > DOT11_MAX_BEACON_PERIOD)
++	if (period == 0)
+ 		return -EINVAL;
+ 
+ 	wlc->default_bss->beacon_period = period;
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.11.7
