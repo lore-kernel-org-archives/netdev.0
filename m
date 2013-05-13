@@ -1,29 +1,70 @@
 From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net 0/2] tg3: 2 bugfixes - TSO data corruption and phy
- power down
-Date: Mon, 13 May 2013 11:03:45 -0700
-Message-ID: <1368468227-18710-1-git-send-email-nsujir@broadcom.com>
+Subject: [PATCH net 2/2] tg3: Fix data corruption on 5725 with TSO
+Date: Mon, 13 May 2013 11:03:47 -0700
+Message-ID: <1368468227-18710-3-git-send-email-nsujir@broadcom.com>
+References: <1368468227-18710-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
+	stable@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4500 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4161 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751968Ab3EMSEH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 13 May 2013 14:04:07 -0400
+	id S1752114Ab3EMSEI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 May 2013 14:04:08 -0400
+In-Reply-To: <1368468227-18710-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Michael Chan (1):
-  tg3: Fix data corruption on 5725 with TSO
+From: Michael Chan <mchan@broadcom.com>
 
-Nithin Nayak Sujir (1):
-  tg3: Skip powering down function 0 on certain serdes devices
+The 5725 family of devices (asic rev 5762), corrupts TSO packets where
+the buffer is within MSS bytes of a 4G boundary (4G, 8G etc.). Detect
+this condition and trigger the workaround path.
 
- drivers/net/ethernet/broadcom/tg3.c | 41 +++++++++++++++++++++++++++++++------
- 1 file changed, 35 insertions(+), 6 deletions(-)
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 737f035..77f1fd3 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -7440,6 +7440,20 @@ static inline int tg3_4g_overflow_test(dma_addr_t mapping, int len)
+ 	return (base > 0xffffdcc0) && (base + len + 8 < base);
+ }
+ 
++/* Test for TSO DMA buffers that cross into regions which are within MSS bytes
++ * of any 4GB boundaries: 4G, 8G, etc
++ */
++static inline int tg3_4g_tso_overflow_test(struct tg3 *tp, dma_addr_t mapping,
++					   u32 len, u32 mss)
++{
++	if (tg3_asic_rev(tp) == ASIC_REV_5762 && mss) {
++		u32 base = (u32) mapping & 0xffffffff;
++
++		return ((base + len + (mss & 0x3fff)) < base);
++	}
++	return 0;
++}
++
+ /* Test for DMA addresses > 40-bit */
+ static inline int tg3_40bit_overflow_test(struct tg3 *tp, dma_addr_t mapping,
+ 					  int len)
+@@ -7476,6 +7490,9 @@ static bool tg3_tx_frag_set(struct tg3_napi *tnapi, u32 *entry, u32 *budget,
+ 	if (tg3_4g_overflow_test(map, len))
+ 		hwbug = true;
+ 
++	if (tg3_4g_tso_overflow_test(tp, map, len, mss))
++		hwbug = true;
++
+ 	if (tg3_40bit_overflow_test(tp, map, len))
+ 		hwbug = true;
+ 
 -- 
 1.8.1.4
