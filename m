@@ -1,42 +1,72 @@
-From: "Luis R. Rodriguez" <mcgrof@do-not-panic.com>
-Subject: Re: [ath5k-devel] [PATCH] ath5k: Remove AHB bus support.
-Date: Mon, 13 May 2013 10:43:06 -0700
-Message-ID: <CAB=NE6UR+3uadczBt+2n4g8j2e_A6OBJ-+ZJiO4y2g4Z0cFywg@mail.gmail.com>
-References: <1320756113.14409.385.camel@x61.thuisdomein> <20111108141647.GA3390@hash.lan>
- <1342124352.22584.21.camel@x61.thuisdomein> <20120712203837.GA3045@localhost>
- <4FFFBDD8.6020305@neratec.com> <20120713124134.GA5567@localhost>
- <1362999998.3137.60.camel@x61.thuisdomein> <1368457391.1350.67.camel@x61.thuisdomein>
- <CAJ-VmokciVPxzJ0LptdQyL9koa8Bw7ecJdentPH5q9+MQ4=GpA@mail.gmail.com>
- <5191173D.3070709@gmail.com> <CAJ-Vmo=HOFqu8vB1=pvz79YwE8qAMDc4ZJACJHaSuxn4S92sFg@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net] sfc: Reduce RX scatter buffer size to multiple of 256
+Date: Mon, 13 May 2013 18:48:17 +0100
+Message-ID: <1368467297.3305.28.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jonathan Bither <jonbither@gmail.com>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Paul Bolle <pebolle@tiscali.nl>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	Wojciech Dubowik <Wojciech.Dubowik@neratec.com>,
-	"ath5k-devel@lists.ath5k.org" <ath5k-devel@lists.ath5k.org>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Adrian Chadd <adrian@freebsd.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJ-Vmo=HOFqu8vB1=pvz79YwE8qAMDc4ZJACJHaSuxn4S92sFg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-net-drivers@solarflare.com>,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>,
+	<linux-s390@vger.kernel.org>, <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:29930 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752197Ab3EMRsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 May 2013 13:48:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 13, 2013 at 10:09 AM, Adrian Chadd <adrian@freebsd.org> wrote:
-> On 13 May 2013 09:39, Jonathan Bither <jonbither@gmail.com> wrote:
->
->>> ... is anyone using this on openwrt?
->>>
->> I am.
->> I am also reworking AR2131X drivers and will submit a patch to linux-mips
->> shortly.
->
-> Sweet. Someone say NACK then? :)
+efx_start_datapath() asserts that we can fit 2 RX scatter buffers plus
+a software structure, each cache-aligned, into a single page.  Where
+L1_CACHE_BYTES == 256 and PAGE_SIZE == 4096, which is the case on
+s390, this assertion fails.  Reduce EFX_RX_USR_BUF_SIZE to make this
+work.
 
-NACK, looking forward to the linux-mips patches, in the future however
-we want to avoid these type of placeholder patches.
+This should also be good for performance, as it ensures that each RX
+scatter buffer covers whole cache lines and slightly reduces the use
+of DMA writes that can require a read-modify-write on inter-processor
+links.
 
-  Luis
+(We could use 2048 - L1_CACHE_BYTES, but EFX_RX_USR_BUF_SIZE also
+affects user-level networking where a larger amount of housekeeping
+data may be needed.  Although this version of the driver does not
+support user-level networking, I prefer to keep scattering behaviour
+consistent with the out-of-tree version.)
+
+Reported-by: Geert Uytterhoeven <geert@linux-m68k.org>
+Reported-by: Heiko Carstens <heiko.carstens@de.ibm.com>
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+Heiko or Geert, please confirm that this really does fix the build
+failure - I don't have an s390 toolchain.
+
+Ben.
+
+ drivers/net/ethernet/sfc/net_driver.h |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 9bd433a..6c8e1a8 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -72,8 +72,10 @@
+ /* Maximum possible MTU the driver supports */
+ #define EFX_MAX_MTU (9 * 1024)
+ 
+-/* Size of an RX scatter buffer.  Small enough to pack 2 into a 4K page. */
+-#define EFX_RX_USR_BUF_SIZE 1824
++/* Size of an RX scatter buffer.  Small enough to pack 2 into a 4K page,
++ * and should be a multiple of the cache line size.
++ */
++#define EFX_RX_USR_BUF_SIZE	(2048 - 256)
+ 
+ /* Forward declare Precision Time Protocol (PTP) support structure. */
+ struct efx_ptp_data;
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
