@@ -1,53 +1,63 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: [PATCH net] sfc: Reduce RX scatter buffer size to multiple of 256
-Date: Mon, 13 May 2013 21:16:06 +0200
-Message-ID: <CAMuHMdVs+gcuGKdW82g+rkrzo53UGn0zqU8KwsThCY8STwCd0Q@mail.gmail.com>
-References: <1368467297.3305.28.camel@bwh-desktop.uk.solarflarecom.com>
-	<CAMuHMdXnp0z-Tn6KBkPzpbmu1jFpZZaSWRGSggysX5QHNx52ng@mail.gmail.com>
-	<1368472300.3305.39.camel@bwh-desktop.uk.solarflarecom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	linux-s390@vger.kernel.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+From: Laurent Navet <laurent.navet@gmail.com>
+Subject: [PATCH] net: ethernet: freescale: use devm_ioremap_resource()
+Date: Mon, 13 May 2013 21:37:54 +0200
+Message-ID: <1368473874-9569-1-git-send-email-laurent.navet@gmail.com>
+Cc: Frank.Li@freescale.com, fabio.estevam@freescale.com,
+	shawn.guo@linaro.org, joe@perches.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Laurent Navet <laurent.navet@gmail.com>
+To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368472300.3305.39.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 13, 2013 at 9:11 PM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
->> error: BUILD_BUG_ON failed: sizeof(struct efx_rx_page_state) +
->> EFX_PAGE_IP_ALIGN + EFX_RX_USR_BUF_SIZE > PAGE_SIZE / 2
->> make[4]: *** [drivers/net/ethernet/sfc/efx.o] Error 1
->
-> OK, this doesn't work because on s390 EFX_PAGE_IP_ALIGN == 2 (this macro
+Replace a call to deprecated devm_request_and_ioremap by devm_ioremap_resource.
+also remove tests on 'r' since devm_ioremap_resource() checks for it
+in a better way.
 
-Yeah, that's what I just discovered, too.
+Found with coccicheck and this semantic patch:
+ scripts/coccinelle/api/devm_ioremap_resource.cocci
 
-#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-#define EFX_PAGE_IP_ALIGN 0
-#else
-#define EFX_PAGE_IP_ALIGN NET_IP_ALIGN
-#endif
+Signed-off-by: Laurent Navet <laurent.navet@gmail.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c |   13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
 
-> is equivalent to NET_IP_ALIGN, though that wasn't always true).  So DMA
-> is going to be misaligned on s390 anyway.
-
-Hmm, so it's making the choice between misaligned CPU and misaligned
-DMA? Sounds fishy...
-
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index aff0310..0afc7ff 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1843,8 +1843,6 @@ fec_probe(struct platform_device *pdev)
+ 		pdev->id_entry = of_id->data;
+ 
+ 	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (!r)
+-		return -ENXIO;
+ 
+ 	/* Init network device */
+ 	ndev = alloc_etherdev(sizeof(struct fec_enet_private));
+@@ -1861,17 +1859,16 @@ fec_probe(struct platform_device *pdev)
+ 	    (pdev->id_entry->driver_data & FEC_QUIRK_HAS_GBIT))
+ 		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
+ 
+-	fep->hwp = devm_request_and_ioremap(&pdev->dev, r);
++	fep->hwp = devm_ioremap_resource(&pdev->dev, r);
++	if (IS_ERR(fep->hwp)) {
++		ret = PTR_ERR(fep->hwp);
++		goto failed_ioremap;
++	}
+ 	fep->pdev = pdev;
+ 	fep->dev_id = dev_id++;
+ 
+ 	fep->bufdesc_ex = 0;
+ 
+-	if (!fep->hwp) {
+-		ret = -ENOMEM;
+-		goto failed_ioremap;
+-	}
+-
+ 	platform_set_drvdata(pdev, ndev);
+ 
+ 	ret = of_get_phy_mode(pdev->dev.of_node);
+-- 
+1.7.10.4
