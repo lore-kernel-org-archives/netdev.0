@@ -1,130 +1,52 @@
-From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-Subject: Re: [PATCH v2] net/macb: fix ISR clear-on-write behavior only for
- some SoC
-Date: Tue, 14 May 2013 18:24:50 +0200
-Message-ID: <20130514162450.GF22508@game.jcrosoft.org>
-References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
- <1368536416-18364-1-git-send-email-nicolas.ferre@atmel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [PATCH v2 net 2/2] tg3: Fix data corruption on 5725 with TSO
+Date: Tue, 14 May 2013 09:46:10 -0700
+Message-ID: <1368549970.4519.16.camel@edumazet-glaptop>
+References: <1368479056-11780-1-git-send-email-nsujir@broadcom.com>
+	 <1368479056-11780-3-git-send-email-nsujir@broadcom.com>
+	 <1368479644.13473.121.camel@edumazet-glaptop>
+	 <51915C7D.2000407@broadcom.com>
+	 <1368481224.13473.124.camel@edumazet-glaptop>
+	 <51915F77.5000405@broadcom.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7236@saturn3.aculab.com>
+	 <1368543869.12268.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7237@saturn3.aculab.com>
+	 <1368548345.12268.76.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hein_tibosch@yahoo.es, michal.simek@xilinx.com,
-	Ludovic Desroches <ludovic.desroches@atmel.com>,
-	s.trumtrar@pengutronix.de, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1368536416-18364-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Laight <David.Laight@ACULAB.COM>,
+	Nithin Nayak Sujir <nsujir@broadcom.com>,
+	davem@davemloft.net, netdev@vger.kernel.org, stable@vger.kernel.org
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1368548345.12268.76.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 15:00 Tue 14 May     , Nicolas Ferre wrote:
-> Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
-> introduces clear-on-write on ISR register. This behavior is not always
-> implemented when using Cadence MACB/GEM and is breaking other platforms.
-> We are using the Design Configuration Register 1 information and a capability
-> property to actually activate this clear-on-write behavior on ISR.
-> 
-> Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
-> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
-Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
-> ---
-> v2: - use DCFG1 bit 23 integration information instead of device tree
->       compatibility string to retreive information about c-o-r vs. c-o-w ISR.
->     - move configuration in macb_init_hw() function instead of probe() - at
->       "open" time.
-> 
-> As I have changed the most of this patch, I will collect your Ack and feedback
-> just like a new patch. Thanks for your help...
-> 
-> Bye,
-> 
->  drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++++++--
->  drivers/net/ethernet/cadence/macb.h |  7 +++++++
->  2 files changed, 23 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-> index 6be513d..c89aa41 100644
-> --- a/drivers/net/ethernet/cadence/macb.c
-> +++ b/drivers/net/ethernet/cadence/macb.c
-> @@ -485,7 +485,8 @@ static void macb_tx_interrupt(struct macb *bp)
->  	status = macb_readl(bp, TSR);
->  	macb_writel(bp, TSR, status);
->  
-> -	macb_writel(bp, ISR, MACB_BIT(TCOMP));
-> +	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-> +		macb_writel(bp, ISR, MACB_BIT(TCOMP));
->  
->  	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
->  		(unsigned long)status);
-> @@ -738,7 +739,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
->  			 * now.
->  			 */
->  			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
-> -			macb_writel(bp, ISR, MACB_BIT(RCOMP));
-> +			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-> +				macb_writel(bp, ISR, MACB_BIT(RCOMP));
->  
->  			if (napi_schedule_prep(&bp->napi)) {
->  				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
-> @@ -1062,6 +1064,17 @@ static void macb_configure_dma(struct macb *bp)
->  	}
->  }
->  
-> +/*
-> + * Configure peripheral capacities according to integration options used
-> + */
-> +static void macb_configure_caps(struct macb *bp)
-> +{
-> +	if (macb_is_gem(bp)) {
-> +		if (GEM_BF(IRQCOR, gem_readl(bp, DCFG1)) == 0)
-> +			bp->caps |= MACB_CAPS_ISR_CLEAR_ON_WRITE;
-> +	}
-> +}
-> +
->  static void macb_init_hw(struct macb *bp)
->  {
->  	u32 config;
-> @@ -1084,6 +1097,7 @@ static void macb_init_hw(struct macb *bp)
->  	bp->duplex = DUPLEX_HALF;
->  
->  	macb_configure_dma(bp);
-> +	macb_configure_caps(bp);
->  
->  	/* Initialize TX and RX buffers */
->  	macb_writel(bp, RBQP, bp->rx_ring_dma);
-> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-> index 993d703..548c0ec 100644
-> --- a/drivers/net/ethernet/cadence/macb.h
-> +++ b/drivers/net/ethernet/cadence/macb.h
-> @@ -300,6 +300,8 @@
->  #define MACB_REV_SIZE				16
->  
->  /* Bitfields in DCFG1. */
-> +#define GEM_IRQCOR_OFFSET			23
-> +#define GEM_IRQCOR_SIZE				1
->  #define GEM_DBWDEF_OFFSET			25
->  #define GEM_DBWDEF_SIZE				3
->  
-> @@ -323,6 +325,9 @@
->  #define MACB_MAN_READ				2
->  #define MACB_MAN_CODE				2
->  
-> +/* Capability mask bits */
-> +#define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x1
-> +
->  /* Bit manipulation macros */
->  #define MACB_BIT(name)					\
->  	(1 << MACB_##name##_OFFSET)
-> @@ -574,6 +579,8 @@ struct macb {
->  	unsigned int 		speed;
->  	unsigned int 		duplex;
->  
-> +	u32			caps;
-> +
->  	phy_interface_t		phy_interface;
->  
->  	/* AT91RM9200 transmit */
-> -- 
-> 1.8.0
-> 
+On Tue, 2013-05-14 at 09:19 -0700, Michael Chan wrote:
+
+> We relocate once and then drop the packet if we encounter additional
+> errors, including OOM, DMA mapping error, 4G boundary, etc.  The new
+> linear skb should not hit the 4G boundary again.  The room between the
+> end of this current buffer and 4G isn't big enough for the new linear
+> skb.
+
+This remind me an issue on bnx2x :
+
+bnx2x FW has a limitation on GSO packets :
+    
+A single mss can not span more than 10 fragments.
+
+After "net: use a per task frag allocator" patch, its possible
+for an application interleaving small write() on several sockets
+to build pathological skbs using 16 fragments (aka MAX_SKB_FRAGS)
+but small amount of payload.
+    
+Fast path should build skbs with 2 or 3 fragments, as fragments
+can be order-3 pages.
+    
+bnx2x driver performs an expensive skb_linearize() call and
+this can fail if memory is fragmented : skb->len can be around 64K,
+and including the skb_shared_info overhead, we might need order-5
+pages.
