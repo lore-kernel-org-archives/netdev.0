@@ -1,58 +1,59 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net 2/2] tg3: Fix data corruption on 5725 with TSO
-Date: Tue, 14 May 2013 16:20:03 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7237@saturn3.aculab.com>
-References: <1368479056-11780-1-git-send-email-nsujir@broadcom.com> <1368479056-11780-3-git-send-email-nsujir@broadcom.com> <1368479644.13473.121.camel@edumazet-glaptop> <51915C7D.2000407@broadcom.com> <1368481224.13473.124.camel@edumazet-glaptop> <51915F77.5000405@broadcom.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7236@saturn3.aculab.com> <1368543869.12268.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: ipv6: Add IPv6 support to the ping socket.
+Date: Tue, 14 May 2013 08:30:54 -0700
+Message-ID: <1368545454.4519.13.camel@edumazet-glaptop>
+References: <20130514145804.3780F180460@drone2.tok.corp.google.com>
+	 <1368544581.4519.12.camel@edumazet-glaptop>
+	 <CAKD1Yr0s1pD-BwXcanf-zzHxUUtze6X_dKgL+eyLH0HD46zwHg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
-To: "Michael Chan" <mchan@broadcom.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1368543869.12268.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	segoon@openwall.com, yoshfuji@linux-ipv6.org,
+	Eric Dumazet <edumazet@google.com>
+To: Lorenzo Colitti <lorenzo@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:51545 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752627Ab3ENPa5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 11:30:57 -0400
+Received: by mail-pa0-f52.google.com with SMTP id bg2so619987pad.25
+        for <netdev@vger.kernel.org>; Tue, 14 May 2013 08:30:57 -0700 (PDT)
+In-Reply-To: <CAKD1Yr0s1pD-BwXcanf-zzHxUUtze6X_dKgL+eyLH0HD46zwHg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> On Tue, 2013-05-14 at 09:40 +0100, David Laight wrote:
-> > > >>>> +        if (tg3_asic_rev(tp) == ASIC_REV_5762 && mss) {
-> > > >>>> +                u32 base = (u32) mapping & 0xffffffff;
-> > > >>>> +
-> > > >>>> +                return ((base + len + (mss & 0x3fff)) < base);
-> > ...
-> > > For the bug to occur, the fragment does not have to span a 4G boundary. If it is
-> > > within MSS bytes (9.6k) of a 4G boundary, it triggers the failure.
-> >
-> > Would it be worth simplifying the test to assume that 'len'
-> > is 64k and 'mss' 9.6k?
-> > (commenting on the actual condition.)
-> > The number of false positives would be small, but the test
-> > a lot quicker.
-> > The '(u32)mapping + (0x10000 + 9600) < (u32)mapping' test might
-> > even be faster than the ' tg3_asic_rev(tp) == ASIC_REV_5762' one.
+On Wed, 2013-05-15 at 00:22 +0900, Lorenzo Colitti wrote:
+> On Wed, May 15, 2013 at 12:16 AM, Eric Dumazet
+> <eric.dumazet@gmail.com> wrote:
+>         This cannot possibly work with
+>         
+>         CONFIG_IPV6=m
 > 
-> I think that if we do this and detect a false positive, it may be very
-> far from the 4G boundary.
+> 
+> Hmm, I thought I did that. I had problems with #if
+> IS_ENABLED(CONFIG_IPV6), but I thought #if CONFIG_IPV6 worked. Let me
+> try again.
 
-It can't be very far away, approx 1 in 65k checks would fail.
-You could do the finer test afterwards.
+Also remind to send text mails to netdev, not html
 
-> The new skb that we allocate to workaround the condition may be
-> even closer to 4G and may hit the real bug condition.
+Let me try to compile your patch :
 
-If the 'fix' is to relocate the skb you are doomed to lose regardless
-of the check - unless you are willing to reallocate a lot of times,
-and without freeing the old skb.
-I'd assumed the 'fix' was to disable the relevant offload.
+  MODPOST 263 modules
+ERROR: "ping_init_sock" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_rcv" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_close" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_common_sendmsg" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_get_port" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_unhash" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_bind" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_err" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_getfrag" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_recvmsg" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_hash" [net/ipv6/ipv6.ko] undefined!
+ERROR: "ping_queue_rcv_skb" [net/ipv6/ipv6.ko] undefined!
+make[2]: *** [__modpost] Error 1
+make[1]: *** [modules] Error 2
+make[1]: *** Waiting for unfinished jobs....
 
-> The mss and len values are accessed many times in this immediate code
-> path just before setting the TX BD, gcc should be able to optimize this
-> quite nicely.
-
-I was looking at the number of branches in the hot path, not whether
-the values were already in registers.
-
-	David
+Sorry :)
