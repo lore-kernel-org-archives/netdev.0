@@ -1,65 +1,50 @@
-From: <sarveshwar.bandi@emulex.com>
-Subject: [PATCH net] be2net: Avoid double insertion of vlan tags.
-Date: Tue, 14 May 2013 11:58:20 +0530
-Message-ID: <99cc7c56-50d0-448a-8792-5661cdf030d9@CMEXHTCAS2.ad.emulex.com>
+From: Steffen Trumtrar <s.trumtrar@pengutronix.de>
+Subject: Re: [PATCH] net/macb: fix ISR clear-on-write behavior only for
+ some SoC
+Date: Tue, 14 May 2013 09:01:47 +0200
+Message-ID: <20130514070147.GB29391@pengutronix.de>
+References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:40713 "EHLO
-	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751177Ab3ENG0X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 02:26:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	hein_tibosch@yahoo.es, michal.simek@xilinx.com,
+	Ludovic Desroches <ludovic.desroches@atmel.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
+Hi!
 
-Fix to avoid double insertion of  vlan tags into the packet while
-handling an asic workaroud (issue introduced by net next Commit bc0c340)
+On Mon, May 13, 2013 at 06:05:05PM +0200, Nicolas Ferre wrote:
+> Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
+> introduces clear-on-write on ISR register. This behavior is not always
+> implemented when using Cadence MACB/GEM and is breaking other platforms.
+> We are using a new Device Tree compatibility string and a capability
+> property to actually activate this clear-on-write behavior on ISR.
+> 
+> Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> ---
+>  Documentation/devicetree/bindings/net/macb.txt |  2 ++
+>  drivers/net/ethernet/cadence/macb.c            | 15 +++++++++++++--
+>  drivers/net/ethernet/cadence/macb.h            |  5 +++++
+>  3 files changed, 20 insertions(+), 2 deletions(-)
+> 
 
-Signed-off-by: Sarveshwar Bandi <sarveshwar.bandi@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be_main.c |   18 +++++-------------
- 1 file changed, 5 insertions(+), 13 deletions(-)
+Looks okay to me:
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index a444110..ca2967b 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -780,26 +780,18 @@ static struct sk_buff *be_insert_vlan_in_pkt(struct be_adapter *adapter,
- 	if (unlikely(!skb))
- 		return skb;
- 
--	if (vlan_tx_tag_present(skb)) {
-+	if (vlan_tx_tag_present(skb))
- 		vlan_tag = be_get_tx_vlan_tag(adapter, skb);
--		skb = __vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
--		if (skb)
--			skb->vlan_tci = 0;
--	}
--
--	if (qnq_async_evt_rcvd(adapter) && adapter->pvid) {
--		if (!vlan_tag)
--			vlan_tag = adapter->pvid;
--		if (skip_hw_vlan)
--			*skip_hw_vlan = true;
--	}
-+	else if (qnq_async_evt_rcvd(adapter) && adapter->pvid)
-+		vlan_tag = adapter->pvid;
- 
- 	if (vlan_tag) {
- 		skb = __vlan_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
- 		if (unlikely(!skb))
- 			return skb;
--
- 		skb->vlan_tci = 0;
-+		if (skip_hw_vlan)
-+			*skip_hw_vlan = true;
- 	}
- 
- 	/* Insert the outer VLAN, if any */
+Acked-by: Steffen Trumtrar <s.trumtrar@pengutronix.de>
+
+Thanks,
+Steffen
+
 -- 
-1.7.9.5
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
