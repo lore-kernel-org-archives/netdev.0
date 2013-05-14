@@ -1,56 +1,93 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: ipv6: Add IPv6 support to the ping socket.
-Date: Tue, 14 May 2013 08:16:21 -0700
-Message-ID: <1368544581.4519.12.camel@edumazet-glaptop>
-References: <20130514145804.3780F180460@drone2.tok.corp.google.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
+Date: Tue, 14 May 2013 08:19:02 -0700
+Message-ID: <CAE9FiQWiHBvB4Q6Kc+S1jrgr_WO=DEk7pmE_UNc2eFQKpE+-_g@mail.gmail.com>
+References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
+	<1368498506-25857-7-git-send-email-yinghai@kernel.org>
+	<CF9D1877D81D214CB0CA0669EFAE020C25AB3277@CMEXMB1.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, segoon@openwall.com,
-	yoshfuji@linux-ipv6.org, edumazet@google.com
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:51286 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754468Ab3ENPQZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 11:16:25 -0400
-Received: by mail-pb0-f48.google.com with SMTP id md4so513919pbc.21
-        for <netdev@vger.kernel.org>; Tue, 14 May 2013 08:16:24 -0700 (PDT)
-In-Reply-To: <20130514145804.3780F180460@drone2.tok.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Gu Zheng <guz.fnst@cn.fujitsu.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Perla, Sathya" <Sathya.Perla@emulex.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C25AB3277@CMEXMB1.ad.emulex.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-14 at 23:58 +0900, Lorenzo Colitti wrote:
-> This adds the ability to send ICMPv6 echo requests without a
-> raw socket. The equivalent ability for ICMPv4 was added in
-> 2011.
-> 
-> Instead of having separate code paths for IPv4 and IPv6, make
-> most of the code in net/ipv4/ping.c dual-stack and only add a
-> few IPv6-specific bits (like the protocol definition) to a new
-> net/ipv6/ping.c. Hopefully this will reduce divergence and/or
-> duplication of bugs in the future.
-> 
+On Tue, May 14, 2013 at 2:46 AM, Perla, Sathya <Sathya.Perla@emulex.com> wrote:
+>
+>> -----Original Message-----
+>> From: linux-pci-owner@vger.kernel.org [mailto:linux-pci-
+>> owner@vger.kernel.org] On Behalf Of Yinghai Lu
+>>
+>> Found kernel try to load mlx4 drivers for VFs before PF's is really loaded
+>> when the drivers are built-in, and kernel command line include
+>> probe_vfs=63, num_vfs=63.
+>>
+>> It turns that it also happen for hotadd path even drivers are compiled as
+>> modules and if they loaded. Esp some VF share the same driver with PF.
+>>
+>> calling path:
+>>       device driver probe
+>>               ==> pci_enable_sriov
+>>                       ==> virtfn_add
+>>                               ==> pci_dev_add
+>>                               ==> pci_bus_device_add
+>> when pci_bus_device_add is called, the VF's driver will be attached.
+>> and at that time PF's driver does not finish yet.
+>>
+>> Need to move out pci_bus_device_add from virtfn_add and call it later. Fix
+>> the problem for two path, 1. hotadd path: use device_schedule_callback.
+>> 2. for booting path, use initcall to call that for all VF's.
+>>
+>
+> ...
+>>
+>> Index: linux-2.6/drivers/net/ethernet/emulex/benet/be_main.c
+>> ==========================================================
+>> =========
+>> --- linux-2.6.orig/drivers/net/ethernet/emulex/benet/be_main.c
+>> +++ linux-2.6/drivers/net/ethernet/emulex/benet/be_main.c
+>> @@ -4119,6 +4119,7 @@ static int lancer_recover_func(struct be
+>>       if (status)
+>>               goto err;
+>>
+>> +     pci_bus_add_device_vfs(adapter->pdev);
+>>       if (netif_running(adapter->netdev)) {
+>>               status = be_open(adapter->netdev);
+>>               if (status)
+>> @@ -4335,6 +4336,8 @@ static int be_probe(struct pci_dev *pdev
+>>       dev_info(&pdev->dev, "%s: %s %s port %c\n", nic_name(pdev),
+>>                func_name(adapter), mc_name(adapter), port_name);
+>>
+>> +     pci_bus_add_device_vfs(pdev);
+>> +
+>>       return 0;
+>>
+>>  unsetup:
+>> @@ -4406,6 +4409,7 @@ static int be_resume(struct pci_dev *pde
+>>               rtnl_unlock();
+>>       }
+>>
+>> +     pci_bus_add_device_vfs(adapter->pdev);
+>>       schedule_delayed_work(&adapter->func_recovery_work,
+>>                             msecs_to_jiffies(1000));
+>>       netif_device_attach(netdev);
+>
+> I fixed this issue in be2net with the following patch (commit b4c1df93)
+> http://marc.info/?l=linux-netdev&m=136801459808765&w=2
 
-Interesting, but :
+We should fix that in generic way.
 
-> +#ifdef CONFIG_IPV6
-> +#include <linux/in6.h>
-> +#include <linux/icmpv6.h>
-> +#include <net/addrconf.h>
-> +#include <net/ipv6.h>
-> +#include <net/transp_v6.h>
-> +#endif
->  
+BTW, Can you please implement sriov_configure like
+intel igb, ixgbe
+qlogic: qlcnic
+...
 
-This cannot possibly work with
-CONFIG_IPV6=m
+driver really should not call pci_enable_sriov in probe path.
 
-Please always compile/test your IPv6 patches with following possible
-configurations.
-
-1) CONFIG_IPV6=m
-2) CONFIG_IPV6=y
-3) # CONFIG_IPV6 is not set
-
-Thanks !
+Yinghai
