@@ -1,52 +1,58 @@
-From: Nicholas Thomas <nick@bytemark.co.uk>
-Subject: Re: tap devices not receiving packets from a bridge
-Date: Tue, 14 May 2013 15:49:09 +0100
-Message-ID: <1368542949.15129.354.camel@eboracum.office.bytemark.co.uk>
-References: <50AE36E0.8000307@dlhnet.de>
-	<20121123070211.GC22787@stefanha-thinkpad.hitronhub.home>
-	<E85C6011-548D-4507-A776-1028DD3E3515@dlhnet.de>
-	<20121123110146.GC7051@redhat.com> <50FE5607.9020405@dlhnet.de>
-	<20130123100312.GA8108@redhat.com>  <5119E9DC.3000505@dlhnet.de>
-	<1368541284.15129.317.camel@eboracum.office.bytemark.co.uk>
-	<519249F6.3000900@dlhnet.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stefan Hajnoczi <stefanha@gmail.com>, netdev@vger.kernel.org,
-	qemu-devel@nongnu.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Peter Lieven <pl@dlhnet.de>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <519249F6.3000900@dlhnet.de>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+From: Imre Deak <imre.deak@intel.com>
+Subject: [PATCH v2 6/8] net/sunrpc: take msecs_to_jiffies_timeout into use
+Date: Tue, 14 May 2013 17:48:36 +0300
+Message-ID: <1368542918-8861-7-git-send-email-imre.deak@intel.com>
+References: <1368542918-8861-1-git-send-email-imre.deak@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	Daniel Vetter <daniel.vetter@ffwll.ch>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	Trond Myklebust <Trond.Myklebust@netapp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Haggai Eran <haggaie@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Roland Dreier <roland@purestorage.com>,
+	linux-nfs@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:57864 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932142Ab3ENOtQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 May 2013 10:49:16 -0400
+In-Reply-To: <1368542918-8861-1-git-send-email-imre.deak@intel.com>
+In-Reply-To: <1368188011-23661-1-git-send-email-imre.deak@intel.com>
+References: <1368188011-23661-1-git-send-email-imre.deak@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Use msecs_to_jiffies_timeout instead of open-coding the same.
 
-On Tue, 2013-05-14 at 16:28 +0200, Peter Lieven wrote:
+Signed-off-by: Imre Deak <imre.deak@intel.com>
+---
+ net/sunrpc/xprtrdma/verbs.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-> Please check the tunnel mode in sysfs after your VM is started. It is likely
-> that qemu overwrites the settings you made in the ruby script.
-> 
-> Please check if the patch
-> 
-> tap: set IFF_ONE_QUEUE per default
-> 
-> is in your qemu 1.4.1 version.
-
-That didn't even cross my mind!
-
-/sys/devices/virtual/net/t100/tun_flags is 0x5002 - so it looks like
-IFF_ONE_QUEUE was indeed unset by qemu (which is lacking the patch). It
-surprises me, but that's probably my fault, rather than qemu's.
-
-Sorry for the noise, and thanks for the quick response :)
-
-/Nick
+diff --git a/net/sunrpc/xprtrdma/verbs.c b/net/sunrpc/xprtrdma/verbs.c
+index 93726560..8a6575d 100644
+--- a/net/sunrpc/xprtrdma/verbs.c
++++ b/net/sunrpc/xprtrdma/verbs.c
+@@ -404,7 +404,7 @@ rpcrdma_create_id(struct rpcrdma_xprt *xprt,
+ 		goto out;
+ 	}
+ 	wait_for_completion_interruptible_timeout(&ia->ri_done,
+-				msecs_to_jiffies(RDMA_RESOLVE_TIMEOUT) + 1);
++				msecs_to_jiffies_timeout(RDMA_RESOLVE_TIMEOUT));
+ 	rc = ia->ri_async_rc;
+ 	if (rc)
+ 		goto out;
+@@ -417,7 +417,7 @@ rpcrdma_create_id(struct rpcrdma_xprt *xprt,
+ 		goto out;
+ 	}
+ 	wait_for_completion_interruptible_timeout(&ia->ri_done,
+-				msecs_to_jiffies(RDMA_RESOLVE_TIMEOUT) + 1);
++				msecs_to_jiffies_timeout(RDMA_RESOLVE_TIMEOUT));
+ 	rc = ia->ri_async_rc;
+ 	if (rc)
+ 		goto out;
+-- 
+1.7.10.4
