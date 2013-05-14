@@ -1,86 +1,154 @@
-From: Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>
-Subject: Re: [PATCH] igb: add a method to get the nic hw time stamping policy
-Date: Tue, 14 May 2013 03:51:40 -0700
-Message-ID: <5192173C.1070808@intel.com>
-References: <20130511140219.GG8399@zhudong.nay.redhat.com> <518E7723.5010003@cogentembedded.com> <20130512142555.GI8399@zhudong.nay.redhat.com> <20130512172446.GA2484@netboy> <20130513021236.GJ8399@zhudong.nay.redhat.com> <20130513043140.GA2567@netboy> <20130513100742.GM8399@zhudong.nay.redhat.com> <20130514095155.GO8399@zhudong.nay.redhat.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH] net/macb: fix ISR clear-on-write behavior only for some
+ SoC
+Date: Tue, 14 May 2013 13:38:50 +0200
+Message-ID: <5192224A.7090303@monstr.eu>
+References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com> <FE065E51-1EAA-47ED-8C7B-0F2E6418F349@jcrosoft.com> <519200DA.8060102@atmel.com>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jacob Keller <Jacob.e.keller@intel.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Matthew Vick <matthew.vick@intel.com>,
-	Richard Cochran <richardcochran@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Greg Rose <gregory.v.rose@intel.com>,
-	Alex Duyck <alexander.h.duyck@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Tushar Dave <tushar.n.dave@intel.com>,
-	Akeem G Abodunrin <akeem.g.abodunrin@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	David Howells <dhowells@redhat.com>,
-	Dave Jones <davej@redhat.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linux-kernel@vger.kernel.org, e10
-To: Dong Zhu <bluezhudong@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2MIGIIOGVJAXBORKCEXSI"
+Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	michal.simek@xilinx.com, s.trumtrar@pengutronix.de,
+	hein_tibosch@yahoo.es,
+	Ludovic Desroches <ludovic.desroches@atmel.com>,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Anirudha Sarangi <anirudh@xilinx.com>
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130514095155.GO8399@zhudong.nay.redhat.com>
+In-Reply-To: <519200DA.8060102@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/14/2013 02:51 AM, Dong Zhu wrote:
-> Hi,
->
->> I modified this patch and added the method to igb_get_ts_info functi=
-on.
->> For 82576 nic, through this method we can easily check which type of=
- packets
->> are time stamped now, such as (HWTSTAMP_FILTER_PTP_V1_L4_SYNC and
->> HWTSTAMP_FILTER_PTP_V1_L4_DELAY_REQ), then change or disable it up t=
-o your requests.
->> I think it is convenient.The origial GET_TS_INFO method can only sho=
-w the device=E2=80=99s
->> time stamping capabilities which nics supported.
-> Through this method we can easily check which type of packets are
-> timestamped currently, it is useful because that we use the hwstamp_c=
-tl
-> set time stamping policy first then we could verify what type of pack=
-ets
-> does the nic timestamp and then do some other testing(regression) for=
- each
-> policy.No matter PTP is running or not we can make sure whether times=
-tamp packets
-> could cause other general network problems through viewing and settin=
-g the
-> timestamp policy.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2MIGIIOGVJAXBORKCEXSI
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-I'm trying to follow this thread, and Richard's question keeps coming u=
-p=20
-in my head, and you've failed to answer it yet.
+On 05/14/2013 11:16 AM, Nicolas Ferre wrote:
+> On 13/05/2013 18:05, Jean-Christophe PLAGNIOL-VILLARD :
+>>
+>> On May 14, 2013, at 12:05 AM, Nicolas Ferre <nicolas.ferre@atmel.com> =
+wrote:
+>>
+>>> Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
+>>> introduces clear-on-write on ISR register. This behavior is not alway=
+s
+>>> implemented when using Cadence MACB/GEM and is breaking other platfor=
+ms.
+>>> We are using a new Device Tree compatibility string and a capability
+>>> property to actually activate this clear-on-write behavior on ISR.
+>>>
+>>> Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
+>>> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+>>
+>> can we detect it via the IP?
+>=20
+> As said by Hein, we cannot use the IP revision number. *But* we may hav=
+e the opportunity to read this integration configuration in the Design Co=
+nfiguration Register 1 (DCFG1 already used for determining data bus width=
+).
+>=20
+> So, Michal or Steffen, can you please tell me the value of:
+> -> bit 23 at register address 0x280: mine is "1" which should mean "IRQ=
+ read clear", yours should be "0".
 
-What are you trying to fix/solve?
+here is the whole reg map for zynq.
+Reg 0x280 is undocumented in our TRM.
+Please decode it not sure if bit 0 is LSB or MSB.
 
-It sounds like what you're trying to add can already be retrieved=20
-through different mechanisms that already exist.
+U-Boot-PetaLinux> md e000b000
+e000b000: 0000001c 000e0013 00000006 00000000    ................
+e000b010: 00180704 00000021 3ffba2e4 3ffbd32c    ....!......?,..?
+e000b020: 00000003 00000000 00000000 00000000    ................
+e000b030: 07ffffff 63c66f08 00000000 0000ffff    .....o.c........
+e000b040: 000003ff 000003ff 00000000 00000000    ................
+e000b050: 00000000 00000000 00000000 00000000    ................
+e000b060: 00000000 00000000 00000000 00000000    ................
+e000b070: 00000000 00000000 00000000 00000000    ................
+e000b080: 00000000 00000000 00350a00 00001c48    ..........5.H...
+e000b090: 00000000 00000000 00000000 00000000    ................
+e000b0a0: 00000000 00000000 00000000 00000000    ................
+e000b0b0: 00000000 00000000 00000000 00000000    ................
+e000b0c0: 00000000 00000000 00000000 00000000    ................
+e000b0d0: 00000000 00000000 00000000 00000000    ................
+e000b0e0: 00000000 00000000 00000000 00000000    ................
+e000b0f0: 00000000 00000000 00000000 00020118    ................
+U-Boot-PetaLinux>
+e000b100: 00014796 00000000 0000051e 00000001    .G..............
+e000b110: 00000000 00000000 0000051d 00000001    ................
+e000b120: 00000000 00000000 00000000 00000000    ................
+e000b130: 00000000 00000000 00000000 00000000    ................
+e000b140: 00000000 00000000 00000000 00000000    ................
+e000b150: 001e58b6 00000000 00000526 00000000    .X......&.......
+e000b160: 00000004 00000000 00000004 00000001    ................
+e000b170: 00000000 00000004 00000000 0000051d    ................
+e000b180: 00000000 00000000 00000000 00000000    ................
+e000b190: 00000000 00000000 00000000 00000000    ................
+e000b1a0: 00000038 00000000 00000000 00000000    8...............
+e000b1b0: 00000000 00000000 00000000 00000000    ................
+e000b1c0: 00000000 00000000 00000000 00000000    ................
+e000b1d0: 00000000 00000000 00000000 00000000    ................
+e000b1e0: 00000000 00000000 00000000 00000000    ................
+e000b1f0: 00000000 00000000 00000000 00000000    ................
+U-Boot-PetaLinux>
+e000b200: 00000000 00000000 00000000 00000000    ................
+e000b210: 00000000 00000000 00000000 00000000    ................
+e000b220: 00000000 00000000 00000000 00000000    ................
+e000b230: 00000000 00000000 00000000 00000000    ................
+e000b240: 00000000 00000000 00000000 00000000    ................
+e000b250: 00000000 00000000 00000000 00000000    ................
+e000b260: 00000000 00000000 00000000 00000000    ................
+e000b270: 00000000 00000000 00000000 00000000    ................
+e000b280: 02500111 2ab13fff 00000000 00000000    ..P..?.*........
+e000b290: 002f2145 00000200 00000000 00000000    E!/.............
+e000b2a0: 00000000 00000000 00000000 00000000    ................
+e000b2b0: 00000000 00000000 00000000 00000000    ................
+e000b2c0: 00000000 00000000 00000000 00000000    ................
+e000b2d0: 00000000 00000000 00000000 00000000    ................
+e000b2e0: 00000000 00000000 00000000 00000000    ................
+e000b2f0: 00000000 00000000 00000000 00000000    ................
+U-Boot-PetaLinux>
 
-Please explain what you're trying to accomplish that doesn't already=20
-exist today, and why it's important.  If the facility exists already,=20
-then use that.  If it's not very usable, it can (maybe) be updated give=
-n=20
-what's deficient.  If it doesn't exist, then explaining why it needs to=
-=20
-exist will help the case for the patches.
 
-Just providing code doesn't help answer the question of what you're=20
-trying to do in the first place, and why what already exists isn't good=
-=20
-enough.
 
-Regards,
--PJ
+>=20
+> Hein, in case of use of the MACB, we do not have this register included=
+, so I will avoid to run the test when using MACB (we already have this i=
+nformation).
+>=20
+> If it works, I plan to rewrite the patch but taking this information in=
+stead of the device tree compatibility string.
+
+yep. Will be good to detect it instead of new compatible string.
+
+Also is there an option to remove "CONFIG_ARCH_AT91"?
+
+Thanks,
+Michal
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+
+
+
+------enig2MIGIIOGVJAXBORKCEXSI
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlGSIkoACgkQykllyylKDCGh7wCeNRz2DGcbbNbJg7BcDr+4dxuj
+jVMAnijx2zlPoT0k9xvNrbsfs5hpYnoS
+=rLv6
+-----END PGP SIGNATURE-----
+
+------enig2MIGIIOGVJAXBORKCEXSI--
