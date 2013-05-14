@@ -1,42 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net/802/mrp: fix lockdep splat
-Date: Tue, 14 May 2013 12:21:47 -0700
-Message-ID: <1368559307.4519.21.camel@edumazet-glaptop>
-References: <6901a7785249816fe13a98e3c0b35127@visp.net.lb>
-	 <1368447851.13473.119.camel@edumazet-glaptop>
-	 <16b0a5ee4602cb9005dd67ea7ad0d4e8@visp.net.lb>
-	 <20130514.120754.1745967383330029903.davem@davemloft.net>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH v5 1/1 net] net: fec: fix kernel oops when plug/unplug
+ cable many times
+Date: Tue, 14 May 2013 16:27:04 -0300
+Message-ID: <CAOMZO5AUk0GHKj857a0=Q-dxhpO2s7uatXurNVZV_UmEmtGsqQ@mail.gmail.com>
+References: <1367971724-1974-1-git-send-email-Frank.Li@freescale.com>
+	<20130513045710.GA4440@S2101-09.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: denys@visp.net.lb, amwang@redhat.com, david.ward@ll.mit.edu,
-	hayeswang@realtek.com, romieu@fr.zoreil.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: Frank Li <Frank.Li@freescale.com>, romieu@fr.zoreil.com,
+	r.schwebel@pengutronix.de, davem@davemloft.net,
+	l.stach@pengutronix.de, netdev@vger.kernel.org, lznuaa@gmail.com
+To: Shawn Guo <shawn.guo@linaro.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:47173 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755446Ab3ENTVu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 15:21:50 -0400
-Received: by mail-pb0-f52.google.com with SMTP id xa7so687687pbc.25
-        for <netdev@vger.kernel.org>; Tue, 14 May 2013 12:21:49 -0700 (PDT)
-In-Reply-To: <20130514.120754.1745967383330029903.davem@davemloft.net>
+Received: from mail-ve0-f178.google.com ([209.85.128.178]:33095 "EHLO
+	mail-ve0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755376Ab3ENT1G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 15:27:06 -0400
+Received: by mail-ve0-f178.google.com with SMTP id jy13so1111145veb.23
+        for <netdev@vger.kernel.org>; Tue, 14 May 2013 12:27:04 -0700 (PDT)
+In-Reply-To: <20130513045710.GA4440@S2101-09.ap.freescale.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-14 at 12:07 -0700, David Miller wrote:
+On Mon, May 13, 2013 at 1:57 AM, Shawn Guo <shawn.guo@linaro.org> wrote:
 
-> Can you double check that you really had Eric's patch applied?
-> lockdep appears to be complaining about the same thing in your
-> log dump, as if the patch was not really applied.
-> 
-> It's saying that app->lock can be taken from the join timer in
-> softirq, but mrp_uninit_applicant() takes it without disabling
-> softirqs.
-> 
-> Eric's patch explicitly fixes this, by making sure that spin_lock_bh()
-> is used there.
+> The patch has landed on 3.10-rc1.  Seems that it introduces a lock
+> warning as below.  Turn on CONFIG_PROVE_LOCKING and you will be able
+> to see it.
 
-I am going to test this myself, it seems quite simple.
-I'll add a Tested-by: tag once done.
+This makes the warning goes away on mx28:
 
-Thanks
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -451,7 +451,6 @@ fec_restart(struct net_device *ndev, int duplex)
+                netif_device_detach(ndev);
+                napi_disable(&fep->napi);
+                netif_stop_queue(ndev);
+-               netif_tx_lock(ndev);
+        }
+
+        /* Whack a reset.  We should wait for this. */
+@@ -619,7 +618,6 @@ fec_restart(struct net_device *ndev, int duplex)
+                netif_device_attach(ndev);
+                napi_enable(&fep->napi);
+                netif_wake_queue(ndev);
+-               netif_tx_unlock(ndev);
+        }
+ }
+
+,but not sure if it looks OK.
