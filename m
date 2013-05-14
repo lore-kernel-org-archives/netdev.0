@@ -1,119 +1,47 @@
-From: Weiping Pan <wpan@redhat.com>
-Subject: [PATCH net] tcp: add a wrapper for tcp_sock->pred_flags
-Date: Tue, 14 May 2013 22:07:15 +0800
-Message-ID: <9196da039b33675c3c053d934d92b9f6d2f7e197.1368540390.git.wpan@redhat.com>
-Cc: Weiping Pan <panweiping3@gmail.com>, Weiping Pan <wpan@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48849 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754624Ab3ENOHW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 May 2013 10:07:22 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [PATCH 15/15] ptp: PTP_1588_CLOCK_PCH depends on x86
+Date: Tue, 14 May 2013 16:20:09 +0200
+Message-ID: <51924819.3060907@suse.cz>
+References: <1367936303-13386-1-git-send-email-jslaby@suse.cz> <1367936303-13386-15-git-send-email-jslaby@suse.cz> <20130507192938.GA3599@netboy>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Jeff Mahoney <jeffm@suse.com>,
+	netdev@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>,
+	Jiri Slaby <jirislaby@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130507192938.GA3599@netboy>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Weiping Pan <panweiping3@gmail.com>
+On 05/07/2013 09:29 PM, Richard Cochran wrote:
+> On Tue, May 07, 2013 at 04:18:23PM +0200, Jiri Slaby wrote:
+>> From: Jeff Mahoney <jeffm@suse.com>
+>>
+>> The PCH EG20T is only compatible with Intel Atom processors so it
+>> should depend on x86.
+> 
+> This patch has been submitted before,
+> 
+>    https://patchwork.kernel.org/patch/2069071/
+> 
+> and at that time the reaction was that it is good to have drivers
+> cross-compiled, if only for code quality reasons.
 
-I think a wrapper is more meaningful here than the assignment.
+Hmm, then it depends whether the kernel is for users or for developers.
+I, as a user, do not really want to compile drivers with allmodconfig
+which I have no way to load/use.
 
-Signed-off-by: Weiping Pan <wpan@redhat.com>
----
- include/net/tcp.h        |    5 +++++
- net/ipv4/tcp_input.c     |   10 +++++-----
- net/ipv4/tcp_minisocks.c |    2 +-
- net/ipv4/tcp_output.c    |    2 +-
- 4 files changed, 12 insertions(+), 7 deletions(-)
+And allmodconfig is basically what we, users (SUSE distributors in this
+case) do. So having this driver being built makes our life harder (in
+the meaning we have to have specific rules about disabling unwanted
+drivers from configs).
 
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 5bba80f..75f3139 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -633,6 +633,11 @@ static inline void tcp_fast_path_check(struct sock *sk)
- 		tcp_fast_path_on(tp);
- }
- 
-+static inline void tcp_fast_path_off(struct tcp_sock *tp)
-+{
-+	tp->pred_flags = 0;
-+}
-+
- /* Compute the actual rto_min value */
- static inline u32 tcp_rto_min(struct sock *sk)
- {
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 08bbe60..b197929 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -3233,7 +3233,7 @@ static int tcp_ack_update_window(struct sock *sk, const struct sk_buff *skb, u32
- 			/* Note, it is the only place, where
- 			 * fast path is recovered for sending TCP.
- 			 */
--			tp->pred_flags = 0;
-+			tcp_fast_path_off(tp);
- 			tcp_fast_path_check(sk);
- 
- 			if (nwin > tp->max_window) {
-@@ -4127,7 +4127,7 @@ static void tcp_data_queue_ofo(struct sock *sk, struct sk_buff *skb)
- 	}
- 
- 	/* Disable header prediction. */
--	tp->pred_flags = 0;
-+	tcp_fast_path_off(tp);
- 	inet_csk_schedule_ack(sk);
- 
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPOFOQUEUE);
-@@ -4653,7 +4653,7 @@ static int tcp_prune_queue(struct sock *sk)
- 	NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_RCVPRUNED);
- 
- 	/* Massive buffer overcommit. */
--	tp->pred_flags = 0;
-+	tcp_fast_path_off(tp);
- 	return -1;
- }
- 
-@@ -4852,7 +4852,7 @@ static void tcp_check_urg(struct sock *sk, const struct tcphdr *th)
- 	tp->urg_seq = ptr;
- 
- 	/* Disable header prediction. */
--	tp->pred_flags = 0;
-+	tcp_fast_path_off(tp);
- }
- 
- /* This is the 'fast' part of urgent handling. */
-@@ -5314,7 +5314,7 @@ void tcp_finish_connect(struct sock *sk, struct sk_buff *skb)
- 	if (!tp->rx_opt.snd_wscale)
- 		__tcp_fast_path_on(tp, tp->snd_wnd);
- 	else
--		tp->pred_flags = 0;
-+		tcp_fast_path_off(tp);
- 
- 	if (!sock_flag(sk, SOCK_DEAD)) {
- 		sk->sk_state_change(sk);
-diff --git a/net/ipv4/tcp_minisocks.c b/net/ipv4/tcp_minisocks.c
-index 0f01788..716cb14 100644
---- a/net/ipv4/tcp_minisocks.c
-+++ b/net/ipv4/tcp_minisocks.c
-@@ -389,7 +389,7 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
- 		struct tcp_sock *newtp = tcp_sk(newsk);
- 
- 		/* Now setup tcp_sock */
--		newtp->pred_flags = 0;
-+		tcp_fast_path_off(newtp);
- 
- 		newtp->rcv_wup = newtp->copied_seq =
- 		newtp->rcv_nxt = treq->rcv_isn + 1;
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 536d409..ce3260d 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -291,7 +291,7 @@ static u16 tcp_select_window(struct sock *sk)
- 
- 	/* If we advertise zero window, disable fast path. */
- 	if (new_win == 0)
--		tp->pred_flags = 0;
-+		tcp_fast_path_off(tp);
- 
- 	return new_win;
- }
+And, developers should have a testbed where they build 32bit configs.
+And we actually have that for -next AFAIU.
+
+thanks,
 -- 
-1.7.4.4
+js
+suse labs
