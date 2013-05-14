@@ -1,93 +1,58 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Tue, 14 May 2013 08:19:02 -0700
-Message-ID: <CAE9FiQWiHBvB4Q6Kc+S1jrgr_WO=DEk7pmE_UNc2eFQKpE+-_g@mail.gmail.com>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
-	<1368498506-25857-7-git-send-email-yinghai@kernel.org>
-	<CF9D1877D81D214CB0CA0669EFAE020C25AB3277@CMEXMB1.ad.emulex.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2 net 2/2] tg3: Fix data corruption on 5725 with TSO
+Date: Tue, 14 May 2013 16:20:03 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7237@saturn3.aculab.com>
+References: <1368479056-11780-1-git-send-email-nsujir@broadcom.com> <1368479056-11780-3-git-send-email-nsujir@broadcom.com> <1368479644.13473.121.camel@edumazet-glaptop> <51915C7D.2000407@broadcom.com> <1368481224.13473.124.camel@edumazet-glaptop> <51915F77.5000405@broadcom.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7236@saturn3.aculab.com> <1368543869.12268.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Perla, Sathya" <Sathya.Perla@emulex.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CF9D1877D81D214CB0CA0669EFAE020C25AB3277@CMEXMB1.ad.emulex.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>, <davem@davemloft.net>,
+	<netdev@vger.kernel.org>, <stable@vger.kernel.org>
+To: "Michael Chan" <mchan@broadcom.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <1368543869.12268.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 14, 2013 at 2:46 AM, Perla, Sathya <Sathya.Perla@emulex.com> wrote:
->
->> -----Original Message-----
->> From: linux-pci-owner@vger.kernel.org [mailto:linux-pci-
->> owner@vger.kernel.org] On Behalf Of Yinghai Lu
->>
->> Found kernel try to load mlx4 drivers for VFs before PF's is really loaded
->> when the drivers are built-in, and kernel command line include
->> probe_vfs=63, num_vfs=63.
->>
->> It turns that it also happen for hotadd path even drivers are compiled as
->> modules and if they loaded. Esp some VF share the same driver with PF.
->>
->> calling path:
->>       device driver probe
->>               ==> pci_enable_sriov
->>                       ==> virtfn_add
->>                               ==> pci_dev_add
->>                               ==> pci_bus_device_add
->> when pci_bus_device_add is called, the VF's driver will be attached.
->> and at that time PF's driver does not finish yet.
->>
->> Need to move out pci_bus_device_add from virtfn_add and call it later. Fix
->> the problem for two path, 1. hotadd path: use device_schedule_callback.
->> 2. for booting path, use initcall to call that for all VF's.
->>
->
-> ...
->>
->> Index: linux-2.6/drivers/net/ethernet/emulex/benet/be_main.c
->> ==========================================================
->> =========
->> --- linux-2.6.orig/drivers/net/ethernet/emulex/benet/be_main.c
->> +++ linux-2.6/drivers/net/ethernet/emulex/benet/be_main.c
->> @@ -4119,6 +4119,7 @@ static int lancer_recover_func(struct be
->>       if (status)
->>               goto err;
->>
->> +     pci_bus_add_device_vfs(adapter->pdev);
->>       if (netif_running(adapter->netdev)) {
->>               status = be_open(adapter->netdev);
->>               if (status)
->> @@ -4335,6 +4336,8 @@ static int be_probe(struct pci_dev *pdev
->>       dev_info(&pdev->dev, "%s: %s %s port %c\n", nic_name(pdev),
->>                func_name(adapter), mc_name(adapter), port_name);
->>
->> +     pci_bus_add_device_vfs(pdev);
->> +
->>       return 0;
->>
->>  unsetup:
->> @@ -4406,6 +4409,7 @@ static int be_resume(struct pci_dev *pde
->>               rtnl_unlock();
->>       }
->>
->> +     pci_bus_add_device_vfs(adapter->pdev);
->>       schedule_delayed_work(&adapter->func_recovery_work,
->>                             msecs_to_jiffies(1000));
->>       netif_device_attach(netdev);
->
-> I fixed this issue in be2net with the following patch (commit b4c1df93)
-> http://marc.info/?l=linux-netdev&m=136801459808765&w=2
+> On Tue, 2013-05-14 at 09:40 +0100, David Laight wrote:
+> > > >>>> +        if (tg3_asic_rev(tp) == ASIC_REV_5762 && mss) {
+> > > >>>> +                u32 base = (u32) mapping & 0xffffffff;
+> > > >>>> +
+> > > >>>> +                return ((base + len + (mss & 0x3fff)) < base);
+> > ...
+> > > For the bug to occur, the fragment does not have to span a 4G boundary. If it is
+> > > within MSS bytes (9.6k) of a 4G boundary, it triggers the failure.
+> >
+> > Would it be worth simplifying the test to assume that 'len'
+> > is 64k and 'mss' 9.6k?
+> > (commenting on the actual condition.)
+> > The number of false positives would be small, but the test
+> > a lot quicker.
+> > The '(u32)mapping + (0x10000 + 9600) < (u32)mapping' test might
+> > even be faster than the ' tg3_asic_rev(tp) == ASIC_REV_5762' one.
+> 
+> I think that if we do this and detect a false positive, it may be very
+> far from the 4G boundary.
 
-We should fix that in generic way.
+It can't be very far away, approx 1 in 65k checks would fail.
+You could do the finer test afterwards.
 
-BTW, Can you please implement sriov_configure like
-intel igb, ixgbe
-qlogic: qlcnic
-...
+> The new skb that we allocate to workaround the condition may be
+> even closer to 4G and may hit the real bug condition.
 
-driver really should not call pci_enable_sriov in probe path.
+If the 'fix' is to relocate the skb you are doomed to lose regardless
+of the check - unless you are willing to reallocate a lot of times,
+and without freeing the old skb.
+I'd assumed the 'fix' was to disable the relevant offload.
 
-Yinghai
+> The mss and len values are accessed many times in this immediate code
+> path just before setting the TX BD, gcc should be able to optimize this
+> quite nicely.
+
+I was looking at the number of branches in the hot path, not whether
+the values were already in registers.
+
+	David
