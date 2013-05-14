@@ -1,59 +1,52 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [RFC PATCH net-next v2 2/3] sh_eth: add support RMIIMODE register
-Date: Tue, 14 May 2013 17:48:55 +0400
-Message-ID: <519240C7.1060406@cogentembedded.com>
-References: <1368499073-21975-1-git-send-email-horms+renesas@verge.net.au> <1368499073-21975-3-git-send-email-horms+renesas@verge.net.au>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCHv2 net 1/2] sfc: Delete EFX_PAGE_IP_ALIGN, equivalent to
+ NET_IP_ALIGN
+Date: Tue, 14 May 2013 14:48:43 +0100
+Message-ID: <1368539323.4304.81.camel@deadeye.wl.decadent.org.uk>
+References: <1368482311.3305.48.camel@bwh-desktop.uk.solarflarecom.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7235@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
-	Magnus Damm <magnus.damm@gmail.com>
-To: Simon Horman <horms+renesas@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <1368499073-21975-3-git-send-email-horms+renesas@verge.net.au>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Geert Uytterhoeven <geert@linux-m68k.org>,
+	<linux-net-drivers@solarflare.com>,
+	Linux Kernel Development <linux-kernel@vger.kernel.org>,
+	<linux-s390@vger.kernel.org>, netdev <netdev@vger.kernel.org>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7235@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Tue, 2013-05-14 at 09:32 +0100, David Laight wrote:
+> > The two architectures that define CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+> > (powerpc and x86) now both define NET_IP_ALIGN as 0, so there is no
+> > need for this optimisation any more.
+> 
+> Hmmm.... even on x86 there will be a measurable cost
+> in misaligned accesses - at least for some workloads.
 
-On 14-05-2013 6:37, Simon Horman wrote:
+When they cross cache-line boundaries, yes.
 
-> This change is motivated by the lager board which uses the r8a7790 SoC,
-> an R-Car SoC. For this board setting the RMIIMODE register is necessary.
+Maybe napi_get_frags() should be adding the 2 byte offset on all
+architectures, as the skbs it allocates are never RX DMA buffers.
 
-> This patch assumes this is valid for all R-Car SoCs.
+> If the DMA is able to write to a mis-aligned buffer and
+> still perform aligned burst transfers mid-frame then
+> 4n+2 aligning the rx buffer should be a win even on x86.
 
-    No, RMIIMODE register is not documented on R8A7778/9 SoCs and this 
-location is described as reserved. How's it called in R8A7790 manual, CXR15?
+I don't think so.
 
-> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> Note to hardware engineers: add an option to write two
+> bytes of junk before the rx data :-)
 
-> --
+There is some hardware with that option.
 
-    Missed a dash here.
+Ben.
 
-> v2
-> * Split from patch to add r8a7790 support to driver (ifdef nastiness)
-> * As suggested by Sergei Shtylyov
->    - Add a field to struct sh_eth_cpu_data to indicate if the
->      rmiimode register is present. This replaces an extremely ugly ifdef.
-> ---
->   drivers/net/ethernet/renesas/sh_eth.c | 5 +++++
->   drivers/net/ethernet/renesas/sh_eth.h | 2 ++
->   2 files changed, 7 insertions(+)
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-> index 016cf80..ff5613d 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -190,6 +190,7 @@ static const u16 sh_eth_offset_fast_rcar[SH_ETH_MAX_REGISTER_OFFSET] = {
->   	[RMCR]		= 0x0258,
->   	[TFUCR]		= 0x0264,
->   	[RFOCR]		= 0x0268,
-> +	[RMIIMODE]      = 0x026c,
->   	[FCFTR]		= 0x0270,
->   	[TRIMD]		= 0x027c,
->   };
-
-WBR, Sergei
-
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
