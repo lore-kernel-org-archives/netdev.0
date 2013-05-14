@@ -1,52 +1,31 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCHv2 net 1/2] sfc: Delete EFX_PAGE_IP_ALIGN, equivalent to
- NET_IP_ALIGN
-Date: Tue, 14 May 2013 14:48:43 +0100
-Message-ID: <1368539323.4304.81.camel@deadeye.wl.decadent.org.uk>
-References: <1368482311.3305.48.camel@bwh-desktop.uk.solarflarecom.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7235@saturn3.aculab.com>
+From: Frank Li <lznuaa@gmail.com>
+Subject: Re: [PATCH] net: ethernet: freescale: use devm_ioremap_resource()
+Date: Tue, 14 May 2013 21:56:17 +0800
+Message-ID: <CAHrpEqTQz4d65+xrWV0M6hWxqGVqb6Rfp3ZPQ4z5VExsCz14Xg@mail.gmail.com>
+References: <1368473874-9569-1-git-send-email-laurent.navet@gmail.com>
+	<CAHrpEqQRPiJqkFoLCGa+QmbnAa++50HRQHvw69uxN7y8zgiR3Q@mail.gmail.com>
+	<CAH7P7NgZPS_AJtkaM661uGUD8rteora=EaGa4XzJZEY+vYr+6g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
 Cc: David Miller <davem@davemloft.net>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Geert Uytterhoeven <geert@linux-m68k.org>,
-	<linux-net-drivers@solarflare.com>,
-	Linux Kernel Development <linux-kernel@vger.kernel.org>,
-	<linux-s390@vger.kernel.org>, netdev <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
+	"Frank.Li@freescale.com" <Frank.Li@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>, joe@perches.com,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	kernel list <linux-kernel@vger.kernel.org>
+To: Laurent Navet <laurent.navet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7235@saturn3.aculab.com>
+In-Reply-To: <CAH7P7NgZPS_AJtkaM661uGUD8rteora=EaGa4XzJZEY+vYr+6g@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-14 at 09:32 +0100, David Laight wrote:
-> > The two architectures that define CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-> > (powerpc and x86) now both define NET_IP_ALIGN as 0, so there is no
-> > need for this optimisation any more.
-> 
-> Hmmm.... even on x86 there will be a measurable cost
-> in misaligned accesses - at least for some workloads.
+2013/5/14 Laurent Navet <laurent.navet@gmail.com>:
+> struct resource *res)
+>  {
+> ...
+>          if (!res || resource_type(res) != IORESOURCE_MEM) {
+>                  dev_err(dev, "invalid resource\n");
+>                  return ERR_PTR(-EINVAL);
 
-When they cross cache-line boundaries, yes.
-
-Maybe napi_get_frags() should be adding the 2 byte offset on all
-architectures, as the skbs it allocates are never RX DMA buffers.
-
-> If the DMA is able to write to a mis-aligned buffer and
-> still perform aligned burst transfers mid-frame then
-> 4n+2 aligning the rx buffer should be a win even on x86.
-
-I don't think so.
-
-> Note to hardware engineers: add an option to write two
-> bytes of junk before the rx data :-)
-
-There is some hardware with that option.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Okay, thanks.
+Acked
