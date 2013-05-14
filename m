@@ -1,53 +1,126 @@
-From: Lance Lassetter <lancelassetter@gmail.com>
-Subject: Re: r8169 with 3.9.0-rc9
-Date: Mon, 13 May 2013 22:04:34 -0500
-Message-ID: <20130514030432.GA18292@gmail.com>
-References: <20130427041230.GA18709@gmail.com>
- <20130428011232.GA4236@gmail.com>
- <20130501100733.GA16115@gmail.com>
- <20130501121502.GA5456@electric-eye.fr.zoreil.com>
- <20130501212803.GA3342@gmail.com>
- <20130501223155.GA15261@electric-eye.fr.zoreil.com>
- <20130502021848.GA30099@gmail.com>
- <20130502221837.GA9898@electric-eye.fr.zoreil.com>
- <20130505151732.GA9096@gmail.com>
- <20130505193323.GA21121@electric-eye.fr.zoreil.com>
+From: Alan Ott <alan@signal11.us>
+Subject: Re: [Linux-zigbee-devel] [PATCH 1/2] mrf24j40: Avoid transmission
+ while receiving a frame
+Date: Mon, 13 May 2013 23:22:12 -0400
+Message-ID: <5191ADE4.8040709@signal11.us>
+References: <1368112788-25701-1-git-send-email-david@hauweele.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f49.google.com ([209.85.213.49]:59538 "EHLO
-	mail-yh0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751788Ab3ENDLX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 May 2013 23:11:23 -0400
-Received: by mail-yh0-f49.google.com with SMTP id f73so6610yha.8
-        for <netdev@vger.kernel.org>; Mon, 13 May 2013 20:11:22 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130505193323.GA21121@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Hauweele <david@hauweele.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368112788-25701-1-git-send-email-david@hauweele.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 05, 2013 at 09:33:23PM +0200, Francois Romieu wrote:
-> Lance Lassetter <lancelassetter@gmail.com> :
-> [...]
-> > What do you think, Ueimor ?
-> 
-> I think you should try a post 3.9 kernel including commit
-> 4ada8db38a44654446fe35ceb20a1972220e0f69 ("net: Restore NETIF_F_* bit
-> ordering.").
-> 
-> -- 
-> Ueimor
+On 5/9/13 11:19 AM, David Hauweele wrote:
+> The transceiver may fail under heavy traffic when a frame is transmitted
+> while receiving another frame.
+>
+> This patch uses a mutex to separate the transmission and reception of
+> frames along with a secondary working queue to avoid a deadlock while
+> waiting for the transmission interrupt.
+>
 
-Ueimor,
+Have you observed this failure? I have put this kind of thing in before 
+(several times actually) but ultimately convinced myself each time that 
+it was not necessary. I'm happy to be shown wrong.
 
-Tried stock 3.10-rc1.  Still same problem with alias r8169 alias p10p1 and p8p1 "up down, up down".
 
-Does this kernel inclde your patch?  I think it does....
+> Signed-off-by: David Hauweele <david@hauweele.net>
+> ---
+>   drivers/net/ieee802154/mrf24j40.c |   22 +++++++++++++++++++++-
+>   1 file changed, 21 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+> index ede3ce4..1e3ddf3 100644
+> --- a/drivers/net/ieee802154/mrf24j40.c
+> +++ b/drivers/net/ieee802154/mrf24j40.c
+> @@ -82,8 +82,10 @@ struct mrf24j40 {
+>   	struct ieee802154_dev *dev;
+>
+>   	struct mutex buffer_mutex; /* only used to protect buf */
+> +	struct mutex txrx_mutex; /* avoid transmission while receiving a frame */
+>   	struct completion tx_complete;
+>   	struct work_struct irqwork;
+> +	struct work_struct rxwork;
+>   	u8 *buf; /* 3 bytes. Used for SPI single-register transfers. */
+>   };
+>
+> @@ -353,6 +355,8 @@ static int mrf24j40_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
+>   	/* Set TXNACKREQ if the ACK bit is set in the packet. */
+>   	if (skb->data[0] & IEEE802154_FC_ACK_REQ)
+>   		val |= 0x4;
+> +
+> +	mutex_lock(&devrec->txrx_mutex);
+>   	write_short_reg(devrec, REG_TXNCON, val);
+>
+>   	INIT_COMPLETION(devrec->tx_complete);
+> @@ -361,6 +365,9 @@ static int mrf24j40_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
+>   	ret = wait_for_completion_interruptible_timeout(
+>   						&devrec->tx_complete,
+>   						5 * HZ);
+> +
+> +	mutex_unlock(&devrec->txrx_mutex);
+> +
+>   	if (ret == -ERESTARTSYS)
+>   		goto err;
+>   	if (ret == 0) {
+> @@ -535,6 +542,8 @@ static int mrf24j40_handle_rx(struct mrf24j40 *devrec)
+>   	int ret = 0;
+>   	struct sk_buff *skb;
+>
+> +	mutex_lock(&devrec->txrx_mutex);
+> +
+>   	/* Turn off reception of packets off the air. This prevents the
+>   	 * device from overwriting the buffer while we're reading it. */
+>   	ret = read_short_reg(devrec, REG_BBREG1, &val);
+> @@ -575,6 +584,8 @@ out:
+>   	val &= ~0x4; /* Clear RXDECINV */
+>   	write_short_reg(devrec, REG_BBREG1, val);
+>
+> +	mutex_unlock(&devrec->txrx_mutex);
+> +
+>   	return ret;
+>   }
+>
+> @@ -616,12 +627,19 @@ static void mrf24j40_isrwork(struct work_struct *work)
+>
+>   	/* Check for Rx */
+>   	if (intstat & 0x8)
+> -		mrf24j40_handle_rx(devrec);
+> +		schedule_work(&devrec->rxwork);
+>
 
-Please reply with suggestions.
+mrf24f40_isrwork() is already called from a workqueue.
 
-Regards,
-
-Lance Lassetter
+>   out:
+>   	enable_irq(devrec->spi->irq);
+>   }
+>
+> +static void mrf24j40_rxwork(struct work_struct *work)
+> +{
+> +	struct mrf24j40 *devrec = container_of(work, struct mrf24j40, rxwork);
+> +
+> +	mrf24j40_handle_rx(devrec);
+> +}
+> +
+>   static int mrf24j40_probe(struct spi_device *spi)
+>   {
+>   	int ret = -ENOMEM;
+> @@ -648,8 +666,10 @@ static int mrf24j40_probe(struct spi_device *spi)
+>   		spi->max_speed_hz = MAX_SPI_SPEED_HZ;
+>
+>   	mutex_init(&devrec->buffer_mutex);
+> +	mutex_init(&devrec->txrx_mutex);
+>   	init_completion(&devrec->tx_complete);
+>   	INIT_WORK(&devrec->irqwork, mrf24j40_isrwork);
+> +	INIT_WORK(&devrec->rxwork, mrf24j40_rxwork);
+>   	devrec->spi = spi;
+>   	spi_set_drvdata(spi, devrec);
+>
+>
