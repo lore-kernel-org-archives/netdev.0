@@ -1,52 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH v2 net 2/2] tg3: Fix data corruption on 5725 with TSO
-Date: Tue, 14 May 2013 09:46:10 -0700
-Message-ID: <1368549970.4519.16.camel@edumazet-glaptop>
-References: <1368479056-11780-1-git-send-email-nsujir@broadcom.com>
-	 <1368479056-11780-3-git-send-email-nsujir@broadcom.com>
-	 <1368479644.13473.121.camel@edumazet-glaptop>
-	 <51915C7D.2000407@broadcom.com>
-	 <1368481224.13473.124.camel@edumazet-glaptop>
-	 <51915F77.5000405@broadcom.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7236@saturn3.aculab.com>
-	 <1368543869.12268.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7237@saturn3.aculab.com>
-	 <1368548345.12268.76.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH RFC 0/2] Control VF link state
+Date: Tue, 14 May 2013 18:12:36 +0100
+Message-ID: <1368551556.2741.8.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com>
+	 <1368113074.2653.2.camel@bwh-desktop.uk.solarflarecom.com>
+	 <CAJZOPZJ052r67==xXciyoTmE8TQwXyx5sVgeuR=dQUEpXkd5WQ@mail.gmail.com>
+	 <1368146064.4131.279.camel@deadeye.wl.decadent.org.uk>
+	 <CAJZOPZ+fe7wx=3Xod-PoF-v5s+s+L0j1VjakWNdv97V_u_CQfA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Laight <David.Laight@ACULAB.COM>,
-	Nithin Nayak Sujir <nsujir@broadcom.com>,
-	davem@davemloft.net, netdev@vger.kernel.org, stable@vger.kernel.org
-To: Michael Chan <mchan@broadcom.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1368548345.12268.76.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, <netdev@vger.kernel.org>,
+	<amirv@mellanox.com>, <ronye@mellanox.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:30714 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755529Ab3ENRMn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 13:12:43 -0400
+In-Reply-To: <CAJZOPZ+fe7wx=3Xod-PoF-v5s+s+L0j1VjakWNdv97V_u_CQfA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-14 at 09:19 -0700, Michael Chan wrote:
+On Mon, 2013-05-13 at 00:48 +0300, Or Gerlitz wrote:
+> On Fri, May 10, 2013 at 3:34 AM, Ben Hutchings
+> <bhutchings@solarflare.com> wrote:
+> > On Fri, 2013-05-10 at 02:17 +0300, Or Gerlitz wrote:
+> > > On Thu, May 9, 2013 at 6:24 PM, Ben Hutchings <bhutchings@solarflare.com> wrote:
+> > > >
+> > > > On Wed, 2013-05-08 at 16:45 +0300, Or Gerlitz wrote:
+> > > > > Here's a suggestion for API and implementation that lets the admin to
+> > > > > configure
+> > > > > the link state of the VF / SRIOV eSwitch vPORT. Basically, it has three
+> > > > > states
+> > > > >
+> > > > > Auto -        the VF link state will reflect the PF link state
+> > > > >
+> > > > > Enable - VF link stat will be always up, traffic from VF to VF can
+> > > > >        work even if PF link is down.
+> > > >
+> > > > It seems like it would be useful to implement these two options on the PF as well.
+> > >
+> > > You mean that PF <--> VF communication on the same node can be made to
+> > > work even when the physical link is down? this is a bit problematic to
+> > > model/implement I think. Generally speaking it makes things easier to
+> > > grasp if PF is considered to be the uplink of the eSwitch whos link is
+> > > 1:1 as the physical link, but need to think that a bit more.
+> >
+> > Yeah.  In some ways it could be better for a PF driver to create two net
+> > devices, one which acts as a vswitch port and one which bypasses it (if possible).
+> 
+> That's interesting approach, any rough thoughts what you think it would by us?
 
-> We relocate once and then drop the packet if we encounter additional
-> errors, including OOM, DMA mapping error, 4G boundary, etc.  The new
-> linear skb should not hit the 4G boundary again.  The room between the
-> end of this current buffer and 4G isn't big enough for the new linear
-> skb.
+There are many attributes that could differ between the external port
+(or ports - there could be more than one on the same integrated switch)
+and the PF's switch port, including at least:
 
-This remind me an issue on bnx2x :
+- Link state
+- Packet counters
+- MTU
+- VLAN filtering
 
-bnx2x FW has a limitation on GSO packets :
-    
-A single mss can not span more than 10 fragments.
+So long as we conflate these two (or more) ports into a single net
+device, there will be confusion about what the attributes mean.
 
-After "net: use a per task frag allocator" patch, its possible
-for an application interleaving small write() on several sockets
-to build pathological skbs using 16 fragments (aka MAX_SKB_FRAGS)
-but small amount of payload.
-    
-Fast path should build skbs with 2 or 3 fragments, as fragments
-can be order-3 pages.
-    
-bnx2x driver performs an expensive skb_linearize() call and
-this can fail if memory is fragmented : skb->len can be around 64K,
-and including the skb_shared_info overhead, we might need order-5
-pages.
+> > But then that's going to confuse people too.  I don't think we can win...
+> >
+> > > > Perhaps the default should also be specified?
+> > >
+> > > mmm, not sure if we can require/enforce the same default for all drivers.
+> >
+> > I know. :-/  But arbitrary differences between drivers are no fun for sysadmins.
+> 
+> yes, basically, on a production cloud environment, I would say that
+> before a vport (VF) interface
+> is configured, e.g ndo_set_vf_yyy is applied for it, we would want the
+> VF link to be down, but for non
+> production environments it could be problematic to have down/disabled
+> as the default... not sure, maybe
+> the default should be auto and for smart env they would set it to down
+> before the VF is probed on the VM?
+
+Not sure about that.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
