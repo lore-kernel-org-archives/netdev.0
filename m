@@ -1,31 +1,46 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2 net 2/2] tg3: Fix data corruption on 5725 with TSO
-Date: Tue, 14 May 2013 09:40:26 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7236@saturn3.aculab.com>
-References: <1368479056-11780-1-git-send-email-nsujir@broadcom.com> <1368479056-11780-3-git-send-email-nsujir@broadcom.com> <1368479644.13473.121.camel@edumazet-glaptop> <51915C7D.2000407@broadcom.com> <1368481224.13473.124.camel@edumazet-glaptop> <51915F77.5000405@broadcom.com>
+From: Andreas Larsson <andreas@gaisler.com>
+Subject: Re: [PATCH] drivers: net: can: grcan: use devm_ioremap_resource()
+Date: Tue, 14 May 2013 10:49:32 +0200
+Message-ID: <5191FA9C.50200@gaisler.com>
+References: <1368458871-7402-1-git-send-email-laurent.navet@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	"Michael Chan" <mchan@broadcom.com>, <stable@vger.kernel.org>
-To: "Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <51915F77.5000405@broadcom.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: wg@grandegger.com, mkl@pengutronix.de, linux-can@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Laurent Navet <laurent.navet@gmail.com>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1368458871-7402-1-git-send-email-laurent.navet@gmail.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiA+Pj4+ICsJaWYgKHRnM19hc2ljX3Jldih0cCkgPT0gQVNJQ19SRVZfNTc2MiAmJiBtc3MpIHsN
-Cj4gPj4+PiArCQl1MzIgYmFzZSA9ICh1MzIpIG1hcHBpbmcgJiAweGZmZmZmZmZmOw0KPiA+Pj4+
-ICsNCj4gPj4+PiArCQlyZXR1cm4gKChiYXNlICsgbGVuICsgKG1zcyAmIDB4M2ZmZikpIDwgYmFz
-ZSk7DQouLi4NCj4gRm9yIHRoZSBidWcgdG8gb2NjdXIsIHRoZSBmcmFnbWVudCBkb2VzIG5vdCBo
-YXZlIHRvIHNwYW4gYSA0RyBib3VuZGFyeS4gSWYgaXQgaXMNCj4gd2l0aGluIE1TUyBieXRlcyAo
-OS42aykgb2YgYSA0RyBib3VuZGFyeSwgaXQgdHJpZ2dlcnMgdGhlIGZhaWx1cmUuDQoNCldvdWxk
-IGl0IGJlIHdvcnRoIHNpbXBsaWZ5aW5nIHRoZSB0ZXN0IHRvIGFzc3VtZSB0aGF0ICdsZW4nDQpp
-cyA2NGsgYW5kICdtc3MnIDkuNms/DQooY29tbWVudGluZyBvbiB0aGUgYWN0dWFsIGNvbmRpdGlv
-bi4pDQpUaGUgbnVtYmVyIG9mIGZhbHNlIHBvc2l0aXZlcyB3b3VsZCBiZSBzbWFsbCwgYnV0IHRo
-ZSB0ZXN0DQphIGxvdCBxdWlja2VyLg0KVGhlICcodTMyKW1hcHBpbmcgKyAoMHgxMDAwMCArIDk2
-MDApIDwgKHUzMiltYXBwaW5nJyB0ZXN0IG1pZ2h0DQpldmVuIGJlIGZhc3RlciB0aGFuIHRoZSAn
-IHRnM19hc2ljX3Jldih0cCkgPT0gQVNJQ19SRVZfNTc2Micgb25lLg0KDQoJRGF2aWQNCg0K
+On 2013-05-13 17:27, Laurent Navet wrote:
+> Replace a call to deprecated devm_request_and_ioremap by devm_ioremap_resource.
+> dev_err() message is no more needed since it's already displayed in
+> devm_ioremap_resource().
+>
+> Signed-off-by: Laurent Navet <laurent.navet@gmail.com>
+> ---
+>   drivers/net/can/grcan.c |    7 +++----
+>   1 file changed, 3 insertions(+), 4 deletions(-)
+>
+> diff --git a/drivers/net/can/grcan.c b/drivers/net/can/grcan.c
+> index 17fbc7a..9e9d0d6 100644
+> --- a/drivers/net/can/grcan.c
+> +++ b/drivers/net/can/grcan.c
+> @@ -1683,10 +1683,9 @@ static int grcan_probe(struct platform_device *ofdev)
+>   	}
+>
+>   	res = platform_get_resource(ofdev, IORESOURCE_MEM, 0);
+> -	base = devm_request_and_ioremap(&ofdev->dev, res);
+> -	if (!base) {
+> -		dev_err(&ofdev->dev, "couldn't map IO resource\n");
+> -		err = -EADDRNOTAVAIL;
+> +	base = devm_ioremap_resource(&ofdev->dev, res);
+> +	if (IS_ERR(base)) {
+> +		err = PTR_ERR(base);
+>   		goto exit_error;
+>   	}
+
+Acked-by: Andreas Larsson <andreas@gaisler.com>
+
