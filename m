@@ -1,68 +1,58 @@
 From: Alexander Duyck <alexander.h.duyck@intel.com>
-Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Tue, 14 May 2013 14:39:00 -0700
-Message-ID: <5192AEF4.1070905@intel.com>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org> <1368498506-25857-7-git-send-email-yinghai@kernel.org> <51925FB0.4080504@intel.com> <CAE9FiQXYQEAZ=0sG6+2OdffBqfLS9MpoN1xviRR9aDbxPxcKxQ@mail.gmail.com> <5192946F.1050700@intel.com> <CAE9FiQVGGHB_amKw0-DfDifpTnRGPbxA+q3WY5F-O3x-sx386A@mail.gmail.com>
+Subject: [PATCH] pci: Avoid reentrant calls to work_on_cpu
+Date: Tue, 14 May 2013 15:26:53 -0700
+Message-ID: <20130514221748.6180.30597.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Yinghai Lu <yinghai@kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAE9FiQVGGHB_amKw0-DfDifpTnRGPbxA+q3WY5F-O3x-sx386A@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: guz.fnst@cn.fujitsu.com, linux-pci@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: bhelgaas@google.com, yinghai@kernel.org
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/14/2013 12:59 PM, Yinghai Lu wrote:
-> On Tue, May 14, 2013 at 12:45 PM, Alexander Duyck
-> <alexander.h.duyck@intel.com> wrote:
->> On 05/14/2013 11:44 AM, Yinghai Lu wrote:
->>> On Tue, May 14, 2013 at 9:00 AM, Alexander Duyck
->>> <alexander.h.duyck@intel.com> wrote:
->>>> I'm sorry, but what is the point of this patch?  With device assignment
->>>> it is always possible to have VFs loaded and the PF driver unloaded
->>>> since you cannot remove the VFs if they are assigned to a VM.
->>> unload PF driver will not call pci_disable_sriov?
->> You cannot call pci_disable_sriov because you will panic all of the
->> guests that have devices assigned.
-> ixgbe_remove did call pci_disable_sriov...
->
-> for guest panic, that is another problem.
-> just like you pci passthrough with real pci device and hotremove the
-> card in host.
->
-> ...
+This change is meant to fix a deadlock seen when pci_enable_sriov was
+called from within a driver's probe routine.  The issue was that
+work_on_cpu calls flush_work which attempts to flush a work queue for a
+cpu that we are currently working in.  In order to avoid the reentrant
+path we just skip the call to work_on_cpu in the case that the device
+node matches our current node.
 
-I suggest you take another look.  In ixgbe_disable_sriov, which is the
-function that is called we do a check for assigned VFs.  If they are
-assigned then we do not call pci_disable_sriov.
+Reported-by: Yinghai Lu <yinghai@kernel.org>
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+---
 
->
->> So how does your patch actually fix this problem?  It seems like it is
->> just avoiding it.
-> yes, until the first one is done.
+This patch is meant to address the issue pointed out in an earlier patch
+sent by Yinghai Lu titled:
+  [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
 
-Avoiding the issue doesn't fix the underlying problem and instead you
-are likely just introducing more bugs as a result.
+ drivers/pci/pci-driver.c |   14 +++++++++-----
+ 1 files changed, 9 insertions(+), 5 deletions(-)
 
->> From what I can tell your problem is originating in pci_call_probe.  I
->> believe it is calling work_on_cpu and that doesn't seem correct since
->> the work should be taking place on a CPU already local to the PF. You
->> might want to look there to see why you are trying to schedule work on a
->> CPU which should be perfectly fine for you to already be doing your work on.
-> it always try to go with local cpu with same pxm.
-
-The problem is we really shouldn't be calling work_for_cpu in this case
-since we are already on the correct CPU.  What probably should be
-happening is that pci_call_probe should be doing a check to see if the
-current CPU is already contained within the device node map and if so
-just call local_pci_probe directly.  That way you can avoid deadlocking
-the system by trying to flush the CPU queue of the CPU you are currently on.
-
-Thanks,
-
-Alex
+diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+index 79277fb..caeb1c0 100644
+--- a/drivers/pci/pci-driver.c
++++ b/drivers/pci/pci-driver.c
+@@ -277,12 +277,16 @@ static int pci_call_probe(struct pci_driver *drv, struct pci_dev *dev,
+ 	int error, node;
+ 	struct drv_dev_and_id ddi = { drv, dev, id };
+ 
+-	/* Execute driver initialization on node where the device's
+-	   bus is attached to.  This way the driver likely allocates
+-	   its local memory on the right node without any need to
+-	   change it. */
++	/*
++	 * Execute driver initialization on the node where the device's
++	 * bus is attached.  This way the driver likely allocates
++	 * its local memory on the right node without any need to
++	 * change it.  If the node is the current node just call
++	 * local_pci_probe and avoid the possibility of reentrant
++	 * calls to work_on_cpu.
++	 */
+ 	node = dev_to_node(&dev->dev);
+-	if (node >= 0) {
++	if ((node >= 0) && (node != numa_node_id())) {
+ 		int cpu;
+ 
+ 		get_online_cpus();
