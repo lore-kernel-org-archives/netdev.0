@@ -1,91 +1,266 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH RFC 0/2] Control VF link state
-Date: Tue, 14 May 2013 18:12:36 +0100
-Message-ID: <1368551556.2741.8.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com>
-	 <1368113074.2653.2.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CAJZOPZJ052r67==xXciyoTmE8TQwXyx5sVgeuR=dQUEpXkd5WQ@mail.gmail.com>
-	 <1368146064.4131.279.camel@deadeye.wl.decadent.org.uk>
-	 <CAJZOPZ+fe7wx=3Xod-PoF-v5s+s+L0j1VjakWNdv97V_u_CQfA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: fix tcp_md5_hash_skb_data()
+Date: Tue, 14 May 2013 10:58:21 -0700
+Message-ID: <1368554301.4519.20.camel@edumazet-glaptop>
+References: <1368516352.32106.13.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, <netdev@vger.kernel.org>,
-	<amirv@mellanox.com>, <ronye@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Matt Schnall <mischnal@google.com>,
+	Bernhard Beck <bbeck@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:30714 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755529Ab3ENRMn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 13:12:43 -0400
-In-Reply-To: <CAJZOPZ+fe7wx=3Xod-PoF-v5s+s+L0j1VjakWNdv97V_u_CQfA@mail.gmail.com>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:35750 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757815Ab3ENR6Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 13:58:24 -0400
+Received: by mail-pb0-f45.google.com with SMTP id mc8so634818pbc.32
+        for <netdev@vger.kernel.org>; Tue, 14 May 2013 10:58:23 -0700 (PDT)
+In-Reply-To: <1368516352.32106.13.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-05-13 at 00:48 +0300, Or Gerlitz wrote:
-> On Fri, May 10, 2013 at 3:34 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> > On Fri, 2013-05-10 at 02:17 +0300, Or Gerlitz wrote:
-> > > On Thu, May 9, 2013 at 6:24 PM, Ben Hutchings <bhutchings@solarflare.com> wrote:
-> > > >
-> > > > On Wed, 2013-05-08 at 16:45 +0300, Or Gerlitz wrote:
-> > > > > Here's a suggestion for API and implementation that lets the admin to
-> > > > > configure
-> > > > > the link state of the VF / SRIOV eSwitch vPORT. Basically, it has three
-> > > > > states
-> > > > >
-> > > > > Auto -        the VF link state will reflect the PF link state
-> > > > >
-> > > > > Enable - VF link stat will be always up, traffic from VF to VF can
-> > > > >        work even if PF link is down.
-> > > >
-> > > > It seems like it would be useful to implement these two options on the PF as well.
-> > >
-> > > You mean that PF <--> VF communication on the same node can be made to
-> > > work even when the physical link is down? this is a bit problematic to
-> > > model/implement I think. Generally speaking it makes things easier to
-> > > grasp if PF is considered to be the uplink of the eSwitch whos link is
-> > > 1:1 as the physical link, but need to think that a bit more.
-> >
-> > Yeah.  In some ways it could be better for a PF driver to create two net
-> > devices, one which acts as a vswitch port and one which bypasses it (if possible).
+On Tue, 2013-05-14 at 00:25 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> That's interesting approach, any rough thoughts what you think it would by us?
-
-There are many attributes that could differ between the external port
-(or ports - there could be more than one on the same integrated switch)
-and the PF's switch port, including at least:
-
-- Link state
-- Packet counters
-- MTU
-- VLAN filtering
-
-So long as we conflate these two (or more) ports into a single net
-device, there will be confusion about what the attributes mean.
-
-> > But then that's going to confuse people too.  I don't think we can win...
-> >
-> > > > Perhaps the default should also be specified?
-> > >
-> > > mmm, not sure if we can require/enforce the same default for all drivers.
-> >
-> > I know. :-/  But arbitrary differences between drivers are no fun for sysadmins.
+> TCP md5 communications fail [1] for some devices, because sg/crypto code
+> assume page offsets are below PAGE_SIZE.
 > 
-> yes, basically, on a production cloud environment, I would say that
-> before a vport (VF) interface
-> is configured, e.g ndo_set_vf_yyy is applied for it, we would want the
-> VF link to be down, but for non
-> production environments it could be problematic to have down/disabled
-> as the default... not sure, maybe
-> the default should be auto and for smart env they would set it to down
-> before the VF is probed on the VM?
+> This was discovered using mlx4 driver [2], but I suspect loopback
+> might trigger the same bug now we use order-3 pages in tcp_sendmsg()
 
-Not sure about that.
+Yes, I confirm I can trigger this bug on loopback, using following
+program :
 
-Ben.
+./tcp_md5 -s -m 127.0.0.1:somekey &
+./tcp_md5 -c -m 127.0.0.1:somekey
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+
+/*
+ * Copyright 2013 Google Inc. All Rights Reserved.
+ * Author: edumazet@google.com (Eric Dumazet)
+ *
+ * tcp_md5
+ * Usage :
+ * server side : tcp_md5 -s -m ip_client:md5_key
+ * client side : tcp_md5 -c -m ip_server:md5_key
+ */
+#include <pthread.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <string.h>
+#include <errno.h>
+#include <getopt.h>
+#include <netdb.h>
+#include <signal.h>
+#include <unistd.h>
+#include <time.h>
+#include <netinet/tcp.h>
+
+
+char *content;
+size_t content_size = 4000000;
+
+void content_init(void)
+{
+	size_t ui;
+
+	content = malloc(content_size);
+	if (!content) {
+		perror("bind"); 
+		exit(EXIT_FAILURE);
+	}
+	srandom(12345);
+	for (ui = 0; ui < content_size; ui += sizeof(unsigned short))
+		*(unsigned short *)(content + ui) = (unsigned short)random();
+}
+
+
+
+char buffer[4096];
+
+int main(int argc, char *argv[])
+{
+	int fd, c;
+	int sflg = 0, cflg = 0;
+	char *mopt = NULL;
+	struct tcp_md5sig sig;
+	int one = 1;
+	int port = 8080;
+	struct sockaddr_in server_addr, addr;
+	socklen_t len;
+
+	while ((c = getopt(argc, argv, "scm:p:")) != -1) {
+		if (c == 's') sflg++;
+		else if (c == 'c') cflg++;
+		else if (c == 'm') mopt = optarg;
+		else if (c == 'p') port = atoi(optarg);
+	}
+	content_init();
+  	memset(&sig, 0, sizeof(sig));
+	if (mopt) {
+		char *p = strchr(mopt, ':');
+
+		if (!p) {
+			fprintf(stderr, " Use -m ip:key\n");
+			exit(EXIT_FAILURE);
+		}
+		*p++ = 0;
+		sig.tcpm_keylen = strlen(p);
+		memcpy(sig.tcpm_key, p, sig.tcpm_keylen);
+		addr.sin_family = AF_INET;
+		inet_pton(AF_INET, mopt, &addr.sin_addr);
+		memcpy(&sig.tcpm_addr, &addr, sizeof(addr));
+	}
+	if (sflg + cflg != 1) {
+		fprintf(stderr, "Use option -c or -s\n");
+		exit(EXIT_FAILURE);
+	}
+	if (sflg) {
+		int listener_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (listener_fd == -1) {
+			perror("socket");
+			exit(EXIT_FAILURE);
+		}
+		if (setsockopt(listener_fd, SOL_SOCKET, SO_REUSEADDR,
+			       &one, sizeof(one)) == -1) {
+			perror("setsockopt");
+			exit(EXIT_FAILURE);
+		}
+		memset(&server_addr, 0, sizeof(server_addr));
+		server_addr.sin_family = AF_INET;
+		server_addr.sin_port = htons(port);
+		if (bind(listener_fd, (struct sockaddr *)&server_addr, sizeof(server_addr))) {
+			perror("bind"); 
+			exit(EXIT_FAILURE);
+		}
+		if (setsockopt(listener_fd, SOL_TCP,  TCP_MD5SIG, &sig, sizeof(sig)) == -1) {
+			perror("TCP_MD5SIG");
+			exit(EXIT_FAILURE);
+		}
+		if (listen(listener_fd, 255) == -1) {
+			perror("listen");
+			exit(EXIT_FAILURE);
+		}
+		while (1) {
+			pid_t pid;
+			off_t off;
+			len = sizeof(addr);
+			fd = accept(listener_fd, (struct sockaddr *)&addr, &len);
+			if (fd == -1) {
+				perror("accept");
+				exit(EXIT_FAILURE); 
+			}
+			signal(SIGCLD, SIG_IGN);
+			pid = fork();
+			if (pid == -1) {
+				close(fd);
+				continue;
+			}
+			if (pid)
+				continue;
+//			sleep(1);
+			for (off = 0; ;) {
+				int lu = read(fd, buffer, 4096);
+				if (lu <= 0) break;
+				if (memcmp(content + off, buffer, lu)) {
+					fprintf(stderr, "Mismatch at off %llu\n", (unsigned long long)off);
+					break;
+				}
+				off += lu;
+			}
+			printf("read %llu bytes\n", (unsigned long long)off);
+			close(fd);
+			exit( off == content_size ? 0 : EXIT_FAILURE);
+		}
+	}
+	if (cflg) {
+		int fd1 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		int fd2 = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		if (fd1 == -1) {
+			perror("socket");
+			exit(EXIT_FAILURE);
+		}
+		if (setsockopt(fd1, SOL_SOCKET, SO_REUSEADDR,
+			       &one, sizeof(one)) == -1) {
+			perror("setsockopt");
+			exit(EXIT_FAILURE);
+		}
+		
+		addr.sin_port = htons(port);
+		if (setsockopt(fd1, SOL_TCP, TCP_MD5SIG,
+			       &sig, sizeof(sig)) == -1) {
+			perror("TCP_MD5SIG");
+			exit(EXIT_FAILURE);
+		}
+		if (connect(fd1, (struct sockaddr *)&addr,
+			    sizeof(addr))) {
+			perror("connect"); 
+			exit(EXIT_FAILURE);
+		}
+		if (fd2 == -1) {
+			perror("socket");
+			exit(EXIT_FAILURE);
+		}
+		if (setsockopt(fd2, SOL_SOCKET, SO_REUSEADDR,
+			       &one, sizeof(one)) == -1) {
+			perror("setsockopt");
+			exit(EXIT_FAILURE);
+		}
+		
+		addr.sin_port = htons(port);
+		if (setsockopt(fd2, SOL_TCP, TCP_MD5SIG,
+			       &sig, sizeof(sig)) == -1) {
+			perror("TCP_MD5SIG");
+			exit(EXIT_FAILURE);
+		}
+		if (connect(fd2, (struct sockaddr *)&addr,
+			    sizeof(addr))) {
+			perror("connect"); 
+			exit(EXIT_FAILURE);
+		}
+		if (1) {
+			size_t off1 = 0;
+			size_t off2 = 0;
+			srandom(12345);
+			while (1) {
+				if (off1 < content_size) {
+					int res;
+					int amount = random() % 10000;
+					if (amount > content_size - off1)
+						amount = content_size - off1;
+					res = write(fd1, content + off1, amount);
+					if (res == -1) {
+						perror("write");
+						exit(EXIT_FAILURE);
+					}
+					off1 += res;
+				}
+				if (off2 < content_size) {
+					int res;
+					int amount = random() % 10000;
+					if (amount > content_size - off2)
+						amount = content_size - off2;
+					res = write(fd2, content + off2, amount);
+					if (res == -1) {
+						perror("write");
+						exit(EXIT_FAILURE);
+					}
+					off2 += res;
+				}
+			if (off1 == content_size && off2 == content_size)
+				break;
+			}
+		}
+		close(fd1);
+		close(fd2);
+	}
+	exit(0);
+}
