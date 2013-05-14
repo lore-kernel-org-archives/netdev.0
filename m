@@ -1,80 +1,130 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: RE: [PATCH v2 net 2/2] tg3: Fix data corruption on 5725 with
- TSO
-Date: Tue, 14 May 2013 09:19:05 -0700
-Message-ID: <1368548345.12268.76.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1368479056-11780-1-git-send-email-nsujir@broadcom.com>
- <1368479056-11780-3-git-send-email-nsujir@broadcom.com>
- <1368479644.13473.121.camel@edumazet-glaptop>
- <51915C7D.2000407@broadcom.com>
- <1368481224.13473.124.camel@edumazet-glaptop>
- <51915F77.5000405@broadcom.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7236@saturn3.aculab.com>
- <1368543869.12268.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7237@saturn3.aculab.com>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH v2] net/macb: fix ISR clear-on-write behavior only for
+ some SoC
+Date: Tue, 14 May 2013 18:24:50 +0200
+Message-ID: <20130514162450.GF22508@game.jcrosoft.org>
+References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
+ <1368536416-18364-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: "Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: "David Laight" <David.Laight@ACULAB.COM>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7237@saturn3.aculab.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hein_tibosch@yahoo.es, michal.simek@xilinx.com,
+	Ludovic Desroches <ludovic.desroches@atmel.com>,
+	s.trumtrar@pengutronix.de, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1368536416-18364-1-git-send-email-nicolas.ferre@atmel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-14 at 16:20 +0100, David Laight wrote: 
-> > On Tue, 2013-05-14 at 09:40 +0100, David Laight wrote:
-> > > > >>>> +        if (tg3_asic_rev(tp) == ASIC_REV_5762 && mss) {
-> > > > >>>> +                u32 base = (u32) mapping & 0xffffffff;
-> > > > >>>> +
-> > > > >>>> +                return ((base + len + (mss & 0x3fff)) < base);
-> > > ...
-> > > > For the bug to occur, the fragment does not have to span a 4G boundary. If it is
-> > > > within MSS bytes (9.6k) of a 4G boundary, it triggers the failure.
-> > >
-> > > Would it be worth simplifying the test to assume that 'len'
-> > > is 64k and 'mss' 9.6k?
-> > > (commenting on the actual condition.)
-> > > The number of false positives would be small, but the test
-> > > a lot quicker.
-> > > The '(u32)mapping + (0x10000 + 9600) < (u32)mapping' test might
-> > > even be faster than the ' tg3_asic_rev(tp) == ASIC_REV_5762' one.
-> > 
-> > I think that if we do this and detect a false positive, it may be very
-> > far from the 4G boundary.
+On 15:00 Tue 14 May     , Nicolas Ferre wrote:
+> Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
+> introduces clear-on-write on ISR register. This behavior is not always
+> implemented when using Cadence MACB/GEM and is breaking other platforms.
+> We are using the Design Configuration Register 1 information and a capability
+> property to actually activate this clear-on-write behavior on ISR.
 > 
-> It can't be very far away, approx 1 in 65k checks would fail.
-> You could do the finer test afterwards.
-
-If we do a 2nd level test, it will be ok.  But I'm not sure if it is
-worth the complexity.
-
+> Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
+> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+> ---
+> v2: - use DCFG1 bit 23 integration information instead of device tree
+>       compatibility string to retreive information about c-o-r vs. c-o-w ISR.
+>     - move configuration in macb_init_hw() function instead of probe() - at
+>       "open" time.
 > 
-> > The new skb that we allocate to workaround the condition may be
-> > even closer to 4G and may hit the real bug condition.
+> As I have changed the most of this patch, I will collect your Ack and feedback
+> just like a new patch. Thanks for your help...
 > 
-> If the 'fix' is to relocate the skb you are doomed to lose regardless
-> of the check - unless you are willing to reallocate a lot of times,
-> and without freeing the old skb.
-> I'd assumed the 'fix' was to disable the relevant offload.
-
-We relocate once and then drop the packet if we encounter additional
-errors, including OOM, DMA mapping error, 4G boundary, etc.  The new
-linear skb should not hit the 4G boundary again.  The room between the
-end of this current buffer and 4G isn't big enough for the new linear
-skb.
-
+> Bye,
 > 
-> > The mss and len values are accessed many times in this immediate code
-> > path just before setting the TX BD, gcc should be able to optimize this
-> > quite nicely.
+>  drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++++++--
+>  drivers/net/ethernet/cadence/macb.h |  7 +++++++
+>  2 files changed, 23 insertions(+), 2 deletions(-)
 > 
-> I was looking at the number of branches in the hot path, not whether
-> the values were already in registers.
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+> index 6be513d..c89aa41 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -485,7 +485,8 @@ static void macb_tx_interrupt(struct macb *bp)
+>  	status = macb_readl(bp, TSR);
+>  	macb_writel(bp, TSR, status);
+>  
+> -	macb_writel(bp, ISR, MACB_BIT(TCOMP));
+> +	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +		macb_writel(bp, ISR, MACB_BIT(TCOMP));
+>  
+>  	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
+>  		(unsigned long)status);
+> @@ -738,7 +739,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+>  			 * now.
+>  			 */
+>  			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
+> -			macb_writel(bp, ISR, MACB_BIT(RCOMP));
+> +			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
+> +				macb_writel(bp, ISR, MACB_BIT(RCOMP));
+>  
+>  			if (napi_schedule_prep(&bp->napi)) {
+>  				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
+> @@ -1062,6 +1064,17 @@ static void macb_configure_dma(struct macb *bp)
+>  	}
+>  }
+>  
+> +/*
+> + * Configure peripheral capacities according to integration options used
+> + */
+> +static void macb_configure_caps(struct macb *bp)
+> +{
+> +	if (macb_is_gem(bp)) {
+> +		if (GEM_BF(IRQCOR, gem_readl(bp, DCFG1)) == 0)
+> +			bp->caps |= MACB_CAPS_ISR_CLEAR_ON_WRITE;
+> +	}
+> +}
+> +
+>  static void macb_init_hw(struct macb *bp)
+>  {
+>  	u32 config;
+> @@ -1084,6 +1097,7 @@ static void macb_init_hw(struct macb *bp)
+>  	bp->duplex = DUPLEX_HALF;
+>  
+>  	macb_configure_dma(bp);
+> +	macb_configure_caps(bp);
+>  
+>  	/* Initialize TX and RX buffers */
+>  	macb_writel(bp, RBQP, bp->rx_ring_dma);
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+> index 993d703..548c0ec 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -300,6 +300,8 @@
+>  #define MACB_REV_SIZE				16
+>  
+>  /* Bitfields in DCFG1. */
+> +#define GEM_IRQCOR_OFFSET			23
+> +#define GEM_IRQCOR_SIZE				1
+>  #define GEM_DBWDEF_OFFSET			25
+>  #define GEM_DBWDEF_SIZE				3
+>  
+> @@ -323,6 +325,9 @@
+>  #define MACB_MAN_READ				2
+>  #define MACB_MAN_CODE				2
+>  
+> +/* Capability mask bits */
+> +#define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x1
+> +
+>  /* Bit manipulation macros */
+>  #define MACB_BIT(name)					\
+>  	(1 << MACB_##name##_OFFSET)
+> @@ -574,6 +579,8 @@ struct macb {
+>  	unsigned int 		speed;
+>  	unsigned int 		duplex;
+>  
+> +	u32			caps;
+> +
+>  	phy_interface_t		phy_interface;
+>  
+>  	/* AT91RM9200 transmit */
+> -- 
+> 1.8.0
 > 
-
-Isn't the number of branches the same whether we use actual values in
-registers or fixed values?
