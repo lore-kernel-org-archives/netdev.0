@@ -1,167 +1,145 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Tue, 14 May 2013 11:44:08 -0700
-Message-ID: <CAE9FiQXYQEAZ=0sG6+2OdffBqfLS9MpoN1xviRR9aDbxPxcKxQ@mail.gmail.com>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
-	<1368498506-25857-7-git-send-email-yinghai@kernel.org>
-	<51925FB0.4080504@intel.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH] igb: add a method to get the nic hw time
+	stamping policy
+Date: Tue, 14 May 2013 18:59:24 +0000
+Message-ID: <02874ECE860811409154E81DA85FBB58564E0BA3@ORSMSX104.amr.corp.intel.com>
+References: <20130511140219.GG8399@zhudong.nay.redhat.com>
+	<518E7723.5010003@cogentembedded.com>
+	<20130512142555.GI8399@zhudong.nay.redhat.com>
+	<20130512172446.GA2484@netboy>
+	<20130513021236.GJ8399@zhudong.nay.redhat.com>
+	<20130513043140.GA2567@netboy>
+	<20130513100742.GM8399@zhudong.nay.redhat.com>
+	<20130514095155.GO8399@zhudong.nay.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.h.duyck@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:38206 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754656Ab3ENSoJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 14:44:09 -0400
-In-Reply-To: <51925FB0.4080504@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>, "Brandeburg,
+	Jesse" <jesse.brandeburg@intel.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Howells <dhowells@redhat.com>, David, "Ronciak,
+	John" <john.ronciak@intel.com>, Thomas Gleixner <tglx@linutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+To: Dong Zhu <bluezhudong@gmail.com>, Ben Hutchings
+	<bhutchings@solarflare.com>, "Vick, Matthew" <matthew.vick@intel.com>,
+	Richard Cochran <richardcochran@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130514095155.GO8399@zhudong.nay.redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 14, 2013 at 9:00 AM, Alexander Duyck
-<alexander.h.duyck@intel.com> wrote:
-> On 05/13/2013 07:28 PM, Yinghai Lu wrote:
->> Found kernel try to load mlx4 drivers for VFs before
->> PF's is really loaded when the drivers are built-in, and kernel
->> command line include probe_vfs=63, num_vfs=63.
->>
->> It turns that it also happen for hotadd path even drivers are
->> compiled as modules and if they loaded. Esp some VF share the
->> same driver with PF.
->>
->> calling path:
->>       device driver probe
->>               ==> pci_enable_sriov
->>                       ==> virtfn_add
->>                               ==> pci_dev_add
->>                               ==> pci_bus_device_add
->> when pci_bus_device_add is called, the VF's driver will be attached.
->> and at that time PF's driver does not finish yet.
->>
->> Need to move out pci_bus_device_add from virtfn_add and call it
->> later. Fix the problem for two path,
->> 1. hotadd path: use device_schedule_callback.
->> 2. for booting path, use initcall to call that for all VF's.
->>
->> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
->> Cc: netdev@vger.kernel.org
->>
->
-> I'm sorry, but what is the point of this patch?  With device assignment
-> it is always possible to have VFs loaded and the PF driver unloaded
-> since you cannot remove the VFs if they are assigned to a VM.
-
-unload PF driver will not call pci_disable_sriov?
-
->
-> If there is a driver that has to have the PF driver fully loaded before
-> it instantiates the VFs then it sounds like a buggy driver to me.  The
-> VF driver should be able to be loaded when the PF driver is not
-> present.  We handle it in igb and ixgbe last I checked, and I don't see
-> any reason why it cannot be handled in all other VF drivers.  I'm not
-> saying the VF has to be able to fully functional, but it should be able
-> to detect the PF becoming enabled and then bring itself to a fully
-> functional state.  To not handle that case is a bug.
-
-more than that.
-
-there is work_on_cpu nested lock problem. from calling pci_bus_add_device
-in driver pci probe function.
-
-[  181.938110] mlx4_core 0000:02:00.0: Started init_resource_tracker: 80 slaves
-[  181.938759]   alloc irq_desc for 1170 on node 0
-[  181.949104] mlx4_core 0000:02:00.0: irq 1170 for MSI-X
-[  181.949404]   alloc irq_desc for 1171 on node 0
-[  181.949741] mlx4_core 0000:02:00.0: irq 1171 for MSI-X
-[  181.969253]   alloc irq_desc for 1172 on node 0
-[  181.969564] mlx4_core 0000:02:00.0: irq 1172 for MSI-X
-[  181.989137]   alloc irq_desc for 1173 on node 0
-[  181.989485] mlx4_core 0000:02:00.0: irq 1173 for MSI-X
-[  182.033789] mlx4_core 0000:02:00.0: NOP command IRQ test passed
-[  182.035380]
-[  182.035473] =============================================
-[  182.049065] [ INFO: possible recursive locking detected ]
-[  182.049349] 3.10.0-rc1-yh-00114-gf59c98e-dirty #1588 Not tainted
-[  182.069079] ---------------------------------------------
-[  182.069354] kworker/0:1/2285 is trying to acquire lock:
-[  182.089080]  ((&wfc.work)){+.+.+.}, at: [<ffffffff810ab745>]
-flush_work+0x5/0x280
-[  182.089500]
-[  182.089500] but task is already holding lock:
-[  182.109671]  ((&wfc.work)){+.+.+.}, at: [<ffffffff810aabe2>]
-process_one_work+0x202/0x490
-[  182.129097]
-[  182.129097] other info that might help us debug this:
-[  182.129415]  Possible unsafe locking scenario:
-[  182.129415]
-[  182.149275]        CPU0
-[  182.149386]        ----
-[  182.149513]   lock((&wfc.work));
-[  182.149705]   lock((&wfc.work));
-[  182.169391]
-[  182.169391]  *** DEADLOCK ***
-[  182.169391]
-[  182.169722]  May be due to missing lock nesting notation
-[  182.169722]
-[  182.189461] 3 locks held by kworker/0:1/2285:
-[  182.189664]  #0:  (events){.+.+.+}, at: [<ffffffff810aabe2>]
-process_one_work+0x202/0x490
-[  182.209468]  #1:  ((&wfc.work)){+.+.+.}, at: [<ffffffff810aabe2>]
-process_one_work+0x202/0x490
-[  182.229176]  #2:  (&__lockdep_no_validate__){......}, at:
-[<ffffffff81765eea>] device_attach+0x2a/0xc0
-[  182.249108]
-[  182.249108] stack backtrace:
-[  182.249362] CPU: 0 PID: 2285 Comm: kworker/0:1 Not tainted
-3.10.0-rc1-yh-00114-gf59c98e-dirty #1588
-[  182.269258] Hardware name: Oracle Corporation  unknown       /
-, BIOS 11016600    05/17/2011
-[  182.289141] Workqueue: events work_for_cpu_fn
-[  182.289410]  ffffffff83350bc0 ffff881025c11778 ffffffff82093a74
-ffff881025c11838
-[  182.309167]  ffffffff810ed194 ffff881025c117b8 ffff881025c38000
-0000b787702301dc
-[  182.309587]  ffff881000000000 0000000000000002 ffffffff8322cba0
-ffff881025c11878
-[  182.329524] Call Trace:
-[  182.329669]  [<ffffffff82093a74>] dump_stack+0x19/0x1b
-[  182.349365]  [<ffffffff810ed194>] validate_chain.isra.19+0x8f4/0x1210
-[  182.349720]  [<ffffffff810ed3b6>] ? validate_chain.isra.19+0xb16/0x1210
-[  182.369261]  [<ffffffff810eacf8>] ? trace_hardirqs_off_caller+0x28/0x160
-[  182.389069]  [<ffffffff810f0c40>] __lock_acquire+0xac0/0xce0
-[  182.389330]  [<ffffffff810f150a>] lock_acquire+0xda/0x130
-[  182.409077]  [<ffffffff810ab745>] ? flush_work+0x5/0x280
-[  182.409320]  [<ffffffff810ab78c>] flush_work+0x4c/0x280
-[  182.409595]  [<ffffffff810ab745>] ? flush_work+0x5/0x280
-[  182.429306]  [<ffffffff810ee506>] ? mark_held_locks+0x136/0x150
-[  182.429634]  [<ffffffff820a67fb>] ? _raw_spin_unlock+0x2b/0x40
-[  182.449352]  [<ffffffff810aa5a5>] ? queue_work_on+0x75/0xa0
-[  182.469088]  [<ffffffff810ee78d>] ? trace_hardirqs_on+0xd/0x10
-[  182.469352]  [<ffffffff810aba42>] work_on_cpu+0x82/0x90
-[  182.489073]  [<ffffffff810a7940>] ? find_worker_executing_work+0x90/0x90
-[  182.489426]  [<ffffffff8151e290>] ? pci_device_shutdown+0x70/0x70
-[  182.509188]  [<ffffffff8151ebcf>] pci_device_probe+0xaf/0x110
-[  182.509448]  [<ffffffff8176608d>] driver_probe_device+0xdd/0x220
-[  182.529193]  [<ffffffff81766280>] ? __driver_attach+0xb0/0xb0
-[  182.529516]  [<ffffffff817662b3>] __device_attach+0x33/0x50
-[  182.549222]  [<ffffffff817640b6>] bus_for_each_drv+0x56/0xa0
-[  182.549503]  [<ffffffff81765f48>] device_attach+0x88/0xc0
-[  182.569215]  [<ffffffff81515b49>] pci_bus_add_device+0x39/0x60
-[  182.569513]  [<ffffffff81540605>] pci_bus_add_vf+0x25/0x40
-[  182.589239]  [<ffffffff81540834>] pci_bus_add_device_vfs+0xa4/0xe0
-[  182.589618]  [<ffffffff81c1faa6>] __mlx4_init_one+0xa96/0xc90
-[  182.609273]  [<ffffffff81c1fd0d>] mlx4_init_one+0x4d/0x60
-[  182.609588]  [<ffffffff8151e2db>] local_pci_probe+0x4b/0x80
-[  182.629584]  [<ffffffff810a7958>] work_for_cpu_fn+0x18/0x30
-[  182.629869]  [<ffffffff810aac6b>] process_one_work+0x28b/0x490
-[  182.649313]  [<ffffffff810aabe2>] ? process_one_work+0x202/0x490
-[  182.649608]  [<ffffffff810abf68>] ? worker_thread+0x48/0x370
-[  182.669325]  [<ffffffff810aae9c>] process_scheduled_works+0x2c/0x40
-[  182.690446]  [<ffffffff810ac158>] worker_thread+0x238/0x370
-[  182.690712]  [<ffffffff810ee78d>] ? trace_hardirqs_on+0xd/0x10
-[  182.709143]  [<ffffffff810abf20>] ? manage_workers.isra.18+0x330/0x330
-[  182.709499]  [<ffffffff810b2e78>] kthread+0xe8/0xf0
+SGVsbG8sDQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogRG9uZyBaaHUg
+W21haWx0bzpibHVlemh1ZG9uZ0BnbWFpbC5jb21dDQo+IFNlbnQ6IFR1ZXNkYXksIE1heSAxNCwg
+MjAxMyAyOjUyIEFNDQo+IFRvOiBLZWxsZXIsIEphY29iIEU7IEJlbiBIdXRjaGluZ3M7IFZpY2ss
+IE1hdHRoZXc7IFJpY2hhcmQgQ29jaHJhbg0KPiBDYzogU2VyZ2VpIFNodHlseW92OyBLaXJzaGVy
+LCBKZWZmcmV5IFQ7IEJyYW5kZWJ1cmcsIEplc3NlOyBBbGxhbiwgQnJ1Y2UNCj4gVzsgV3lib3Ju
+eSwgQ2Fyb2x5bjsgU2tpZG1vcmUsIERvbmFsZCBDOyBSb3NlLCBHcmVnb3J5IFY7IFdhc2tpZXdp
+Y3oNCj4gSnIsIFBldGVyIFA7IER1eWNrLCBBbGV4YW5kZXIgSDsgUm9uY2lhaywgSm9objsgRGF2
+ZSwgVHVzaGFyIE47DQo+IEFib2R1bnJpbiwgQWtlZW0gRzsgRGF2aWQgUy4gTWlsbGVyOyBQYXVs
+IEUuIE1jS2VubmV5OyBEYXZpZCBIb3dlbGxzOw0KPiBEYXZlIEpvbmVzOyBUaG9tYXMgR2xlaXhu
+ZXI7IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7IGUxMDAwLQ0KPiBkZXZlbEBsaXN0cy5z
+b3VyY2Vmb3JnZS5uZXQ7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3ViamVjdDogUmU6IFtQ
+QVRDSF0gaWdiOiBhZGQgYSBtZXRob2QgdG8gZ2V0IHRoZSBuaWMgaHcgdGltZSBzdGFtcGluZw0K
+PiBwb2xpY3kNCj4gDQo+IEhpLA0KPiANCj4gPiBJIG1vZGlmaWVkIHRoaXMgcGF0Y2ggYW5kIGFk
+ZGVkIHRoZSBtZXRob2QgdG8gaWdiX2dldF90c19pbmZvDQo+IGZ1bmN0aW9uLg0KPiA+IEZvciA4
+MjU3NiBuaWMsIHRocm91Z2ggdGhpcyBtZXRob2Qgd2UgY2FuIGVhc2lseSBjaGVjayB3aGljaCB0
+eXBlIG9mDQo+IHBhY2tldHMNCj4gPiBhcmUgdGltZSBzdGFtcGVkIG5vdywgc3VjaCBhcyAoSFdU
+U1RBTVBfRklMVEVSX1BUUF9WMV9MNF9TWU5DDQo+IGFuZA0KPiA+IEhXVFNUQU1QX0ZJTFRFUl9Q
+VFBfVjFfTDRfREVMQVlfUkVRKSwgdGhlbiBjaGFuZ2Ugb3IgZGlzYWJsZSBpdA0KPiB1cCB0byB5
+b3VyIHJlcXVlc3RzLg0KPiA+IEkgdGhpbmsgaXQgaXMgY29udmVuaWVudC5UaGUgb3JpZ2lhbCBH
+RVRfVFNfSU5GTyBtZXRob2QgY2FuIG9ubHkgc2hvdw0KPiB0aGUgZGV2aWNl4oCZcw0KPiA+IHRp
+bWUgc3RhbXBpbmcgY2FwYWJpbGl0aWVzIHdoaWNoIG5pY3Mgc3VwcG9ydGVkLg0KPiANCj4gVGhy
+b3VnaCB0aGlzIG1ldGhvZCB3ZSBjYW4gZWFzaWx5IGNoZWNrIHdoaWNoIHR5cGUgb2YgcGFja2V0
+cyBhcmUNCj4gdGltZXN0YW1wZWQgY3VycmVudGx5LCBpdCBpcyB1c2VmdWwgYmVjYXVzZSB0aGF0
+IHdlIHVzZSB0aGUNCj4gaHdzdGFtcF9jdGwNCj4gc2V0IHRpbWUgc3RhbXBpbmcgcG9saWN5IGZp
+cnN0IHRoZW4gd2UgY291bGQgdmVyaWZ5IHdoYXQgdHlwZSBvZiBwYWNrZXRzDQo+IGRvZXMgdGhl
+IG5pYyB0aW1lc3RhbXAgYW5kIHRoZW4gZG8gc29tZSBvdGhlciB0ZXN0aW5nKHJlZ3Jlc3Npb24p
+IGZvcg0KPiBlYWNoDQo+IHBvbGljeS5ObyBtYXR0ZXIgUFRQIGlzIHJ1bm5pbmcgb3Igbm90IHdl
+IGNhbiBtYWtlIHN1cmUgd2hldGhlcg0KPiB0aW1lc3RhbXAgcGFja2V0cw0KPiBjb3VsZCBjYXVz
+ZSBvdGhlciBnZW5lcmFsIG5ldHdvcmsgcHJvYmxlbXMgdGhyb3VnaCB2aWV3aW5nIGFuZA0KPiBz
+ZXR0aW5nIHRoZQ0KPiB0aW1lc3RhbXAgcG9saWN5Lg0KPiANCg0KQ29ycmVjdC4gSG93ZXZlciwg
+dGhlIGlvY3RsIGFscmVhZHkgbW9kaWZpZXMgdGhlIHZhbHVlIG9mIHRoZSBod3RzdGFtcF9jb25m
+aWcgc28gdGhhdCBpdCB3aWxsIHRlbGwgeW91IHdoaWNoIHBhY2tldHMgYXJlIGJlaW5nIHRpbWVz
+dGFtcGVkLiBBcyBsb25nIGFzIHRoZSBmaWx0ZXIgaXMgYSBtYXRjaCBmb3Igb25lIG9mIHRoZSBz
+dXBwb3J0ZWQgZmlsdGVycywgaXQgd2lsbCByZXR1cm4gdGhhdCB2YWx1ZSwgb3RoZXJ3aXNlIGl0
+IHdpbGwgcmV0dXJuIEhXVFNUQU1QX0ZJTFRFUl9TT01FLiBCdXQgdGhhdCBtZWFucyAgaXQgd2ls
+bCB0aW1lc3RhbXAgYXQgbGVhc3Qgd2hhdCB5b3UgcmVxdWVzdC4gSWYgeW91IGFyZSBjb25jZXJu
+ZWQgYWJvdXQgcmV0dXJuaW5nIG1vcmUgc3BlY2lmaWNhbGx5IHdoYXQgdGhlIGRyaXZlciBpcyBk
+b2luZyBpbiBGSUxURVJfU09NRSBtb2RlLCB5b3UgY291bGQgZXh0ZW5kIHRoZSBmaWx0ZXJzLCBh
+bmQgYWRkIHRoZSBvbmUgeW91J3JlIG1pc3NpbmcsIGJ1dCBpdCB3b3VsZCBuZWVkIHRvIGJlIGNv
+bW1vbiBhbmQganVzdGlmaWVkIGVub3VnaC4uLiBXaGljaCBpdCBwcm9iYWJseSBpc24ndCBhcyB0
+aGUgY3VycmVudCBsaXN0IGlzIHByZXR0eSBjb21wcmVoZW5zaXZlLg0KDQpUaGVyZSBpcyBubyBy
+ZWFsIG5lZWQgdG8gYWRkIGEgc2Vjb25kIGZpZWxkIHRvIGdldCB0aGlzIHdpdGhvdXQgc2V0dGlu
+ZywgYXMgeW91IGNhbiBzaW1wbHkgY2FsbCBpdCB3aXRoIGEgbmV3IHZhbHVlLCBhbmQgdGhlbiBn
+ZXQgdGhlIHZhbHVlIHlvdSBuZWVkLiBFZmZlY3RpdmVseSwgaWYgeW91IGRvbid0IGtub3cgdGhl
+IHZhbHVlIGlzIGNvcnJlY3QsIGp1c3QgdHJ5IHRvIHNldCBpdCBob3cgeW91IHdhbnQsIGFuZCBj
+aGVjayB0aGUgcmV0dXJuIHZhbHVlIHBsdXMgdGhlIGh3dHN0YW1wX2NvbmZpZyBzdHJ1Y3R1cmUg
+d2hpY2ggd2lsbCBiZSBNT0RJRklFRCBieSB0aGUgaHd0c3RhbXAgaW9jdGwuDQoNClRoZXJlIGlz
+IGFic29sdXRlbHkgbm8gcmVhc29uIHRvIGFkZCB0aGlzIGFzIGEgbmV3IGZpZWxkIHdoaWNoIHdv
+dWxkIHJlbW92ZSB0aGUgYWJpbGl0eSB0byBleHRlbmQgaHd0c3RhbXBfaW9jdGwgaW4gdGhlIGZ1
+dHVyZSBzaG91bGQgdGhhdCBldmVyIGJlIG5lY2Vzc2FyeSEhDQoNCj4gTXkgb3JpZ2luYWwgaWRl
+YSBpcyB0aGF0Og0KPiBUaGUgaW1wbGVtZW50YXRpb24gb2YgdGhpcyBtZXRob2QgaXMgY2FsbGlu
+ZyB0aGUgaW9jdGwgY2FsbCwgaW4gb3JkZXINCj4gbm90IHRvIGJyZWFrIHRoZSB1c2VybGFuZCBB
+QkkgSSB1c2UgdGhlIGZsYWdzIGZpZWxkIG9mIGh3dHN0YW1wX2NvbmZpZywNCj4gYXMgaXQgaGFz
+IG5vIGRlZmluaXRpb24geWV0Lg0KPiANClRoYXQgd291bGQgcmVtb3ZlIHRoZSBhYmlsaXR5IHRv
+IGV4dGVuZCB0aGUgaW9jdGwgd2hlbiBpdCdzIHJlYWxseSBuZWNlc3NhcnkuDQoNCj4gICAtIEZv
+ciBJMzUwIGl0IG9ubHkgc3VwcG9ydHMgdHdvIHR5cGVzIEhXVFNUQU1QX0ZJTFRFUl9OT05FIGFu
+ZA0KPiBIV1RTVEFNUF9GSUxURVJfQUxMDQo+ICAgICBmb3IgdGltZXN0YW1waW5nLiBJdCBpcyBl
+YXN5IHRvIGhhbmRsZSBqdXN0IHJldHVybiB0aGUgdmFsdWUgdG8gZmxhZ3MuDQo+IA0KPiAgIC0g
+Rm9yIDgyNTc2TlMgaXQgaGFzIG1vcmUgaW5kaXZpZHVhbCBmaWx0ZXJzLCBzbyBJIG5lZWQgdG8g
+ZG8gdGhlDQo+ICAgICBqdWRlbWVudCBpbiB0aGUgaWdiX3B0cF9od3RzdGFtcF9pb2N0bCBmdW5j
+dGlvbiBmb3IgZGlmZmVyZW50IG5pY3MsDQo+ICAgICB0aGUgY29kZSBvZiBqdWRnZW1lbnQgbWln
+aHQgYmUgcmVkdXBsaWNhdGVkIHdpdGgNCj4gaWdiX2dldF90c19pbmZvLHRoZW4gZG8NCj4gICAg
+IHRoZSBPUiBvcGVyYXRpb24gZm9yIGZpbHRlcnMgdGhlbiByZXR1cm4gdG8gdGhlIGZsYWdzLg0K
+PiANCg0KV2hhdCBhcmUgeW91IHRyeWluZyB0byBhY2hpZXZlLiBXaGVuIHlvdSBjYWxsIGh3dHN0
+YW1wX2lvY3RsIG9uIHRoZSBpZ2IgZHJpdmVyLCBpdCB3aWxsIG1vZGlmeSB0aGUgcGFzc2VkIGlu
+IHN0cnVjdHVyZSAoaHd0c3RhbXBfY29uZmlnKSBhbmQgc2V0IGl0J3MgcnhfZmlsdGVyIHR5cGUg
+dG8gdGhlIGN1cnJlbnQgdmFsdWUgYWZ0ZXIgdGhlIGZ1bmN0aW9uIGlzIGNhbGxlZC4gVXBvbiBy
+ZXR1cm4sIHlvdXIgYXBwbGljYXRpb24gY2FuIGNoZWNrIHRoZSB2YWx1ZSBhbmQgdGhlbiBwZXJm
+b3JtIHJlZ3Jlc3Npb24gdGVzdHMgb3Igd2hhdCBoYXZlIHlvdSBhZ2FpbnN0IHRoYXQgdmFsdWUu
+IFlvdSBhbHJlYWR5IGhhdmUgdGhpcyBpbmZvcm1hdGlvbi4gWW91IGRvbid0IG5lZWQgYSBuZXcg
+bWV0aG9kIHRvIGZpeCBpdC4NCg0KSWYgeW91IGFyZSBkZWJ1Z2dpbmcgYSBkcml2ZXIsIHlvdSBj
+YW4gaGF2ZSB0aGF0IGRyaXZlciBwcmludCBkYXRhIHRvIHRoZSBrZXJuZWwgcHJpbnQgYnVmZmVy
+IG9yIHRoZSBmdHJhY2UgYnVmZmVyIGluIG9yZGVyIHRvIGRldGVybWluZSB3aGF0IGlzIGJlaW5n
+IGRvbmUuIEJ1dCB5b3VyIGFwcGxpY2F0aW9uIGNhbiBhbHJlYWR5IGdldCB0aGUgc2V0IGZpbHRl
+ciBhbmQgY29tcGFyZSB0byB0aGUgZXhwZWN0ZWQgZmlsdGVyLiBEb2N1bWVudGF0aW9uL3RpbWVz
+dGFtcGluZy90aW1lc3RhbXBpbmcuYyBhbHJlYWR5IHNob3dzIHlvdSBob3cgdG8gZG8gdGhpcyEN
+Cg0KPiBDb3VsZCB0ZWxsIG1lIHdoZXRoZXIgdGhlIGFib3ZlIG1ldGhvZChpb2N0bCkgaXMgZmVh
+c2libGUgYW5kIGJldHRlcg0KPiB0aGFuIHRoaXMNCj4gb25lIChldGh0b29sKT8NCj4gDQo+IElN
+TyBjaGVja2luZyB0aGlzIHRocm91Z2ggdGhlIGV0aHRvb2wgR0VUX1RTX0lORk8gaXMgc28gY29u
+dmVuaWVudA0KPiB3aXRob3V0IGJyZWFraW5nIGFueSB1c2VybGFuZCBBQklzLiBEbyB5b3UgdGhp
+bmsgc28gPw0KPiANCk1vZGlmeWluZyBHRVRfVFNfSU5GTyB3b3VsZCBiZSBwb3RlbnRpYWxseSBi
+cmVha2luZyBhIHVzZXJsYW5kIEFCSS4uIEFnYWluLCBubyBvbmUgdW5kZXJzdGFuZHMgd2hhdCB5
+b3UgYXJlIHRyeWluZyB0byBkbyB0aGF0IGNhbid0IGFscmVhZHkgYmUgZG9uZSB2aWEgaHd0c3Rh
+bXBfaW9jdGwgKHVubW9kaWZpZWQhKSBXZSB1bmRlcnN0YW5kIHdoYXQgeW91IGFyZSB3YW50aW5n
+LCBidXQgdGVsbGluZyB5b3UgdGhhdCBpdCBjYW4gYWxyZWFkeSBiZSBkb25lIQ0KDQo+ID4NCj4g
+PiBJIHVzZSB0aGUgdHhfcmVzZXJ2ZWRbMF0gYW5kIHJ4X3Jlc2VydmVkWzBdIHRvIHJlc3RvcmUg
+dGhlDQo+IGh3dHN0YW1wX3R4X3R5cGVzIGFuZA0KPiA+IGh3dHN0YW1wX3J4X2ZpbHRlcnMgZW51
+bWVyYXRpb24gdmFsdWVzLg0KPiA+DQo+ID4gSSB0ZXN0IGl0IG9uIEkzNTAgYW5kIDgyNTc2TlMg
+bmljcyBhbmQgaXQgd29ya3MgYXMgZXhwZWN0Lg0KPiA+DQo+ID4gQ291bGQgaGVscCByZXZpZXdp
+bmcgaXQgYWdhaW4gPyBBbnkgY29tbWVudHMgd291bGQgYmUgYXBwcmVjaWF0ZWQuDQo+ID4NCj4g
+DQoNCg0KLSBKYWtlDQotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KQWxpZW5WYXVsdCBVbmlmaWVkIFNl
+Y3VyaXR5IE1hbmFnZW1lbnQgKFVTTSkgcGxhdGZvcm0gZGVsaXZlcnMgY29tcGxldGUKc2VjdXJp
+dHkgdmlzaWJpbGl0eSB3aXRoIHRoZSBlc3NlbnRpYWwgc2VjdXJpdHkgY2FwYWJpbGl0aWVzLiBF
+YXNpbHkgYW5kCmVmZmljaWVudGx5IGNvbmZpZ3VyZSwgbWFuYWdlLCBhbmQgb3BlcmF0ZSBhbGwg
+b2YgeW91ciBzZWN1cml0eSBjb250cm9scwpmcm9tIGEgc2luZ2xlIGNvbnNvbGUgYW5kIG9uZSB1
+bmlmaWVkIGZyYW1ld29yay4gRG93bmxvYWQgYSBmcmVlIHRyaWFsLgpodHRwOi8vcC5zZi5uZXQv
+c2Z1L2FsaWVudmF1bHRfZDJkCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3Vy
+Y2Vmb3JnZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8v
+ZTEwMDAtZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlz
+aXQgaHR0cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
