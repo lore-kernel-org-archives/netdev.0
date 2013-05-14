@@ -1,98 +1,86 @@
-From: Yan Burman <yanb@mellanox.com>
-Subject: RE: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Tue, 14 May 2013 08:58:40 +0000
-Message-ID: <0EE9A1CDC8D6434DB00095CD7DB873462CFB0E4E@MTLDAG01.mtl.com>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
- <1368498506-25857-7-git-send-email-yinghai@kernel.org>
+From: Hein Tibosch <hein_tibosch@yahoo.es>
+Subject: Re: [PATCH] net/macb: fix ISR clear-on-write behavior only for some
+ SoC
+Date: Tue, 14 May 2013 16:32:41 +0800
+Message-ID: <5191F6A9.2000309@yahoo.es>
+References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com> <FE065E51-1EAA-47ED-8C7B-0F2E6418F349@jcrosoft.com> <51918C23.7040106@yahoo.es> <20130514055256.GD22508@game.jcrosoft.org> <5191E53B.9000106@yahoo.es> <C35C1E42-FCD6-4EE7-902B-FE01F362CD40@jcrosoft.com> <5191E855.5090908@yahoo.es> <5191EC95.2020704@monstr.eu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jack Morgenstein <jackm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Yinghai Lu <yinghai@kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1368498506-25857-7-git-send-email-yinghai@kernel.org>
-Content-Language: en-US
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	michal.simek@xilinx.com,
+	Ludovic Desroches <ludovic.desroches@atmel.com>,
+	s.trumtrar@pengutronix.de, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: monstr@monstr.eu, Nicolas Ferre <nicolas.ferre@atmel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5191EC95.2020704@monstr.eu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
+On 5/14/2013 3:49 PM, Michal Simek wrote:
+> On 05/14/2013 09:31 AM, Hein Tibosch wrote:
+>> On 5/14/2013 3:22 PM, Jean-Christophe PLAGNIOL-VILLARD wrote:
+>>> On May 14, 2013, at 3:18 PM, Hein Tibosch <hein_tibosch@yahoo.es> wrote:
+>>>
+>>>> On 5/14/2013 1:52 PM, Jean-Christophe PLAGNIOL-VILLARD wrote:
+>>>>> On 08:58 Tue 14 May     , Hein Tibosch wrote:
+>>>>>> On 5/14/2013 12:05 AM, Jean-Christophe PLAGNIOL-VILLARD wrote:
+>>>>>>> On May 14, 2013, at 12:05 AM, Nicolas Ferre <nicolas.ferre@atmel.com> wrote:
+>>>>>>>
+>>>>>>>> Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
+>>>>>>>> introduces clear-on-write on ISR register. This behavior is not always
+>>>>>>>> implemented when using Cadence MACB/GEM and is breaking other platforms.
+>>>>>>>> We are using a new Device Tree compatibility string and a capability
+>>>>>>>> property to actually activate this clear-on-write behavior on ISR.
+>>>>>>>>
+>>>>>>>> Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
+>>>>>>>> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+>>>>>>> can we detect it via the IP?
+>>>>>> This was my first proposal, have it based on the value of MACB's
+>>>>>> register 'MID' (offset 0x00fc, lower 16 bits).
+>>>>>> On avr32 it reads: 0x0000010D, on Zynq it reports 0x00000119
+>>>>>>
+>>>>>> So for the moment, CAPS_ISR_CLEAR_ON_WRITE could be set if the revision
+>>>>>> equals to 0x00000119?
+>>>>> so no it will not work
+>>>>>
+>>>>> as the gem on sama5 is 00020119
+>>>>>
+>>>>> so version 0x119 too
+>>>>>
+>>>>> nico
+>>>> All right, that's a pity.
+>>>>
+>>>> The only issue that remains then is the obligation to use CONFIG_OF,
+>>>> or:
+>>>>
+>>>> +#if defined(CONFIG_OF)
+>>>> +	dev_id = of_match_device(macb_dt_ids, &pdev->dev);
+>>>> +	if (dev_id)
+>>>> +		bp->caps = (u32)dev_id->data;
+>>>> +
+>>>> +#endif
+>>>>
+>>>> ?
+>>> no need as of_match_device is a inline of !OF
+>> Sorry, here's the complete compiler error:
+>> drivers/net/ethernet/cadence/macb.c: In function 'macb_probe':
+>> drivers/net/ethernet/cadence/macb.c:1601: error: 'macb_dt_ids' undeclared (first use in this function)
+>>
+>> Earlier, 'macb_dt_ids' is only defined when using OF
+> The trick is in using of_match_ptr. It means remove that CONFIG_OF around macb_dt_ids too.
+>
+> [linux-2.6.x]$ grep -rn "of_match_ptr" include/linux/
+> include/linux/of.h:314:#define of_match_ptr(_ptr)	(_ptr)
+> include/linux/of.h:508:#define of_match_ptr(_ptr)	NULL
+yes of course, clever.
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Yinghai Lu
-> Sent: Tuesday, May 14, 2013 05:31
-> To: Bjorn Helgaas
-> Cc: Gu Zheng; linux-pci@vger.kernel.org; linux-kernel@vger.kernel.org; Yinghai
-> Lu; netdev@vger.kernel.org
-> Subject: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-> 
-> Found kernel try to load mlx4 drivers for VFs before PF's is really loaded when
-> the drivers are built-in, and kernel command line include probe_vfs=63,
-> num_vfs=63.
-> 
-> It turns that it also happen for hotadd path even drivers are compiled as
-> modules and if they loaded. Esp some VF share the same driver with PF.
-> 
-> calling path:
-> 	device driver probe
-> 		==> pci_enable_sriov
-> 			==> virtfn_add
-> 				==> pci_dev_add
-> 				==> pci_bus_device_add
-> when pci_bus_device_add is called, the VF's driver will be attached.
-> and at that time PF's driver does not finish yet.
-> 
-> Need to move out pci_bus_device_add from virtfn_add and call it later. Fix
-> the problem for two path, 1. hotadd path: use device_schedule_callback.
-> 2. for booting path, use initcall to call that for all VF's.
-> 
-> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-> Cc: netdev@vger.kernel.org
-> 
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c    |    7 +
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c      |    4 -
->  drivers/net/ethernet/cisco/enic/enic_main.c          |    2
->  drivers/net/ethernet/emulex/benet/be_main.c          |    4 +
->  drivers/net/ethernet/intel/igb/igb_main.c            |   11 ++
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c        |    2
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c       |    9 +-
->  drivers/net/ethernet/mellanox/mlx4/main.c            |    2
->  drivers/net/ethernet/neterion/vxge/vxge-main.c       |    3
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c |    5 +
->  drivers/net/ethernet/sfc/efx.c                       |    1
->  drivers/pci/iov.c                                    |   73 +++++++++++++++++--
->  drivers/scsi/lpfc/lpfc_init.c                        |    2
->  include/linux/pci.h                                  |    4 +
->  14 files changed, 115 insertions(+), 14 deletions(-)
-> 
-> Index: linux-2.6/drivers/net/ethernet/mellanox/mlx4/main.c
-> =================================================================
-> ==
-> --- linux-2.6.orig/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ linux-2.6/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -2308,6 +2308,8 @@ slave_start:
->  	priv->pci_dev_data = pci_dev_data;
->  	pci_set_drvdata(pdev, dev);
-> 
-> +	pci_bus_add_device_vfs(pdev);
-> +
+I tested the patch with that change on my avr32 platform and like to add:
 
-This seems wrong, since pci_bus_add_device_vfs() is being called for VF's as well as for PF when SRIOV is not enabled.
-I can see that there are sanity checks in pci_bus_add_vf() that would prevent this code from doing damage,
-but why schedule a callback that will do nothing if we can prevent scheduling altogether?
-It would probably be better to do the following:
+Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
+Tested-by: Hein Tibosch <hein_tibosch@yahoo.es>
 
-+	if (dev->flags & MLX4_FLAG_SRIOV)
-+		pci_bus_add_device_vfs(pdev);
-+
-
->  	return 0;
-> 
->  err_port:
+Thanks,
+Hein
