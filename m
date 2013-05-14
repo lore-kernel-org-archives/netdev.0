@@ -1,42 +1,101 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH] mv643xx_eth: fix NAPI weight being > 64
-Date: Tue, 14 May 2013 07:17:12 +0200
-Message-ID: <1368508632-13742-1-git-send-email-andrew@lunn.ch>
-Cc: linux ARM <linux-arm-kernel@lists.infradead.org>,
-	netdev@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>
-To: davem@davemloft.net, buytenh@wantstofly.org,
-	Jason Cooper <jason@lakedaemon.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from londo.lunn.ch ([80.238.139.98]:35546 "EHLO londo.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751277Ab3ENFR4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 May 2013 01:17:56 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
+Subject: Re: [PATCH] net/macb: fix ISR clear-on-write behavior only for
+ some SoC
+Date: Tue, 14 May 2013 07:52:56 +0200
+Message-ID: <20130514055256.GD22508@game.jcrosoft.org>
+References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
+ <FE065E51-1EAA-47ED-8C7B-0F2E6418F349@jcrosoft.com>
+ <51918C23.7040106@yahoo.es>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Nicolas Ferre <nicolas.ferre@atmel.com>,
+ michal.simek@xilinx.com, linux-kernel@vger.kernel.org,
+ Ludovic Desroches <ludovic.desroches@atmel.com>, s.trumtrar@pengutronix.de,
+ linux-arm-kernel@lists.infradead.org
+To: Hein Tibosch <hein_tibosch@yahoo.es>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <51918C23.7040106@yahoo.es>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-3.10-rc1 issues the following warning:
+On 08:58 Tue 14 May     , Hein Tibosch wrote:
+> On 5/14/2013 12:05 AM, Jean-Christophe PLAGNIOL-VILLARD wrote:
+> > On May 14, 2013, at 12:05 AM, Nicolas Ferre <nicolas.ferre@atmel.com> wrote:
+> >
+> >> Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
+> >> introduces clear-on-write on ISR register. This behavior is not always
+> >> implemented when using Cadence MACB/GEM and is breaking other platforms.
+> >> We are using a new Device Tree compatibility string and a capability
+> >> property to actually activate this clear-on-write behavior on ISR.
+> >>
+> >> Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
+> >> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> > can we detect it via the IP?
+> 
+> This was my first proposal, have it based on the value of MACB's
+> register 'MID' (offset 0x00fc, lower 16 bits).
+> On avr32 it reads: 0x0000010D, on Zynq it reports 0x00000119
+> 
+> So for the moment, CAPS_ISR_CLEAR_ON_WRITE could be set if the revision
+> equals to 0x00000119?
+so no it will not work
 
-netif_napi_add() called with weight 128 on device eth%d
+as the gem on sama5 is 00020119
 
-This patch reduce the weight to 64.
+so version 0x119 too
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+nico 
+Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
 
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index d0afeea..6b5471f 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -2745,7 +2745,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- 
- 	INIT_WORK(&mp->tx_timeout_task, tx_timeout_task);
- 
--	netif_napi_add(dev, &mp->napi, mv643xx_eth_poll, 128);
-+	netif_napi_add(dev, &mp->napi, mv643xx_eth_poll, 64);
- 
- 	init_timer(&mp->rx_oom);
- 	mp->rx_oom.data = (unsigned long)mp;
--- 
-1.7.10.4
+Best Regards,
+J.
+> 
+> >> ---
+> >> Documentation/devicetree/bindings/net/macb.txt |  2 ++
+> >> drivers/net/ethernet/cadence/macb.c            | 15 +++++++++++++--
+> >> drivers/net/ethernet/cadence/macb.h            |  5 +++++
+> >> 3 files changed, 20 insertions(+), 2 deletions(-)
+> >>
+> >> diff --git a/Documentation/devicetree/bindings/net/macb.txt b/Documentation/devicetree/bindings/net/macb.txt
+> >> index 44afa0e..13ec4f6 100644
+> >>
+> >> <snip>
+> >>
+> >> @@ -1474,6 +1476,10 @@ static const struct of_device_id macb_dt_ids[] = {
+> >> 	{ .compatible = "cdns,macb" },
+> >> 	{ .compatible = "cdns,pc302-gem" },
+> >> 	{ .compatible = "cdns,gem" },
+> >> +	{
+> >> +		.compatible = "cdns,zynq-7000-gem",
+> >> +		.data = (void *)MACB_CAPS_ISR_CLEAR_ON_WRITE,
+> >> +	},
+> >> 	{ /* sentinel */ }
+> >> };
+> >> MODULE_DEVICE_TABLE(of, macb_dt_ids);
+> >> @@ -1484,6 +1490,7 @@ static int __init macb_probe(struct platform_device *pdev)
+> >> 	struct macb_platform_data *pdata;
+> >> 	struct resource *regs;
+> >> 	struct net_device *dev;
+> >> +	const struct of_device_id *dev_id;
+> >> 	struct macb *bp;
+> >> 	struct phy_device *phydev;
+> >> 	u32 config;
+> >> @@ -1558,6 +1565,10 @@ static int __init macb_probe(struct platform_device *pdev)
+> >>
+> >> 	dev->base_addr = regs->start;
+> >>
+> >> +	dev_id = of_match_device(macb_dt_ids, &pdev->dev);
+> As avr32 doesn't yet define CONFIG_OF:
+>     macb.c:1601: error:  'macb_dt_ids' undeclared
+> 
+> Hein
