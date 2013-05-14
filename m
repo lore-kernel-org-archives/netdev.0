@@ -1,80 +1,65 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Tue, 14 May 2013 08:43:44 -0700
-Message-ID: <CAE9FiQVn4F+dTrQn0xsg-6QY9+HwbnJR=1CrjdoZkmF_LMrgpg@mail.gmail.com>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
-	<1368498506-25857-7-git-send-email-yinghai@kernel.org>
-	<0EE9A1CDC8D6434DB00095CD7DB873462CFB0E4E@MTLDAG01.mtl.com>
+From: Laurent Pinchart <laurent.pinchart@ideasonboard.com>
+Subject: Re: [RFC PATCH net-next] sh_eth: add support for r8a7790 SoC
+Date: Tue, 14 May 2013 17:45:02 +0200
+Message-ID: <1624039.YHFTonitSX@avalon>
+References: <1368172891-26381-1-git-send-email-horms+renesas@verge.net.au> <CANqRtoQXnxOncf-_JPsVP0MZLTGorywfoJu6Gx9R=TMJYoS3Bw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jack Morgenstein <jackm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: Yan Burman <yanb@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <0EE9A1CDC8D6434DB00095CD7DB873462CFB0E4E@MTLDAG01.mtl.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Simon Horman <horms+renesas@verge.net.au>,
+	netdev <netdev@vger.kernel.org>,
+	SH-Linux <linux-sh@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Magnus Damm <magnus.damm@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perceval.ideasonboard.com ([95.142.166.194]:45050 "EHLO
+	perceval.ideasonboard.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932307Ab3ENPoo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 11:44:44 -0400
+In-Reply-To: <CANqRtoQXnxOncf-_JPsVP0MZLTGorywfoJu6Gx9R=TMJYoS3Bw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 14, 2013 at 1:58 AM, Yan Burman <yanb@mellanox.com> wrote:
->
->
->> -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
->> On Behalf Of Yinghai Lu
->> Sent: Tuesday, May 14, 2013 05:31
->> To: Bjorn Helgaas
->> Cc: Gu Zheng; linux-pci@vger.kernel.org; linux-kernel@vger.kernel.org; Yinghai
->> Lu; netdev@vger.kernel.org
->> Subject: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
->>
->> Found kernel try to load mlx4 drivers for VFs before PF's is really loaded when
->> the drivers are built-in, and kernel command line include probe_vfs=63,
->> num_vfs=63.
->>
->> It turns that it also happen for hotadd path even drivers are compiled as
->> modules and if they loaded. Esp some VF share the same driver with PF.
->>
->> calling path:
->>       device driver probe
->>               ==> pci_enable_sriov
->>                       ==> virtfn_add
->>                               ==> pci_dev_add
->>                               ==> pci_bus_device_add
->> when pci_bus_device_add is called, the VF's driver will be attached.
->> and at that time PF's driver does not finish yet.
->>
->> Need to move out pci_bus_device_add from virtfn_add and call it later. Fix
->> the problem for two path, 1. hotadd path: use device_schedule_callback.
->> 2. for booting path, use initcall to call that for all VF's.
+Hi Magnus,
 
->> Index: linux-2.6/drivers/net/ethernet/mellanox/mlx4/main.c
->> =================================================================
->> ==
->> --- linux-2.6.orig/drivers/net/ethernet/mellanox/mlx4/main.c
->> +++ linux-2.6/drivers/net/ethernet/mellanox/mlx4/main.c
->> @@ -2308,6 +2308,8 @@ slave_start:
->>       priv->pci_dev_data = pci_dev_data;
->>       pci_set_drvdata(pdev, dev);
->>
->> +     pci_bus_add_device_vfs(pdev);
->> +
->
-> This seems wrong, since pci_bus_add_device_vfs() is being called for VF's as well as for PF when SRIOV is not enabled.
-> I can see that there are sanity checks in pci_bus_add_vf() that would prevent this code from doing damage,
-> but why schedule a callback that will do nothing if we can prevent scheduling altogether?
-> It would probably be better to do the following:
->
-> +       if (dev->flags & MLX4_FLAG_SRIOV)
-> +               pci_bus_add_device_vfs(pdev);
-> +
+On Friday 10 May 2013 17:35:33 Magnus Damm wrote:
+> On Fri, May 10, 2013 at 5:01 PM, Simon Horman wrote:
+> > Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> > Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+> > ---
+> > 
+> >  drivers/net/ethernet/renesas/Kconfig  |  2 +-
+> >  drivers/net/ethernet/renesas/sh_eth.c | 10 ++++++++--
+> >  drivers/net/ethernet/renesas/sh_eth.h |  1 +
+> >  3 files changed, 10 insertions(+), 3 deletions(-)
+> 
+> Thanks for your work on this driver.
+> 
+> > diff --git a/drivers/net/ethernet/renesas/Kconfig
+> > b/drivers/net/ethernet/renesas/Kconfig index bed9841..d664c0f 100644
+> > --- a/drivers/net/ethernet/renesas/Kconfig
+> > +++ b/drivers/net/ethernet/renesas/Kconfig
+> > @@ -9,7 +9,7 @@ config SH_ETH
+> > 
+> >                  CPU_SUBTYPE_SH7763 || CPU_SUBTYPE_SH7619 || \
+> >                  CPU_SUBTYPE_SH7724 || CPU_SUBTYPE_SH7734 || \
+> >                  CPU_SUBTYPE_SH7757 || ARCH_R8A7740 || \
+> > 
+> > -                ARCH_R8A7778 || ARCH_R8A7779)
+> > +                ARCH_R8A7778 || ARCH_R8A7779 || ARCH_R8A7790)
+> 
+> As much as I want to see R8A7790 support right away, wouldn't it be
+> nice _not_ to have this dependency crap in the Kconfig? We are already
+> multi-SoC within mach-shmobile ARM and soon we will be multi-subarch.
 
-Yes, we can add that check.
+I'm really looking forward to that. Is anyone working on getting rid of 
+CONFIG_MEMORY_START and CONFIG_MEMORY_SIZE ?
 
-BTW, do you have any plan to make mlx4 support sriov_configure via sysfs?
+> I actually thought that this was already taken care of. What is your
+> opinion? Perhaps there are already queued up cleanup patches that
+> handle this?
 
-Yinghai
+-- 
+Regards,
+
+Laurent Pinchart
