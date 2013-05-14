@@ -1,127 +1,63 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH v2] net/macb: fix ISR clear-on-write behavior only for some SoC
-Date: Tue, 14 May 2013 15:00:16 +0200
-Message-ID: <1368536416-18364-1-git-send-email-nicolas.ferre@atmel.com>
-References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2] mv643xx_eth: fix NAPI weight being > 64
+Date: Tue, 14 May 2013 06:10:08 -0700
+Message-ID: <1368537008.4519.5.camel@edumazet-glaptop>
+References: <1368525260-17556-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <michal.simek@xilinx.com>,
-	Ludovic Desroches <ludovic.desroches@atmel.com>,
-	<s.trumtrar@pengutronix.de>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	<hein_tibosch@yahoo.es>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Jason Cooper <jason@lakedaemon.net>,
+	buytenh@wantstofly.org,
+	linux ARM <linux-arm-kernel@lists.infradead.org>,
+	netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f47.google.com ([209.85.210.47]:33409 "EHLO
+	mail-da0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751846Ab3ENNKN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 09:10:13 -0400
+Received: by mail-da0-f47.google.com with SMTP id k13so303629dae.34
+        for <netdev@vger.kernel.org>; Tue, 14 May 2013 06:10:13 -0700 (PDT)
+In-Reply-To: <1368525260-17556-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
-introduces clear-on-write on ISR register. This behavior is not always
-implemented when using Cadence MACB/GEM and is breaking other platforms.
-We are using the Design Configuration Register 1 information and a capability
-property to actually activate this clear-on-write behavior on ISR.
+On Tue, 2013-05-14 at 11:54 +0200, Andrew Lunn wrote:
+> 3.10-rc1 issues the following warning:
+> 
+> netif_napi_add() called with weight 128 on device eth%d
+> 
+> This patch reduce the weight to 64, using NAPI_POLL_WEIGHT.
+> 
+> Signed-off-by: Andrew Lunn <andrew@lunn.ch>
+> ---
+> v1->v2: Use NAPI_POLL_WEIGHT.
+> 
+>  drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> index d0afeea..8f63c36 100644
+> --- a/drivers/net/ethernet/marvell/mv643xx_eth.c
+> +++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+> @@ -2745,7 +2745,7 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+>  
+>  	INIT_WORK(&mp->tx_timeout_task, tx_timeout_task);
+>  
+> -	netif_napi_add(dev, &mp->napi, mv643xx_eth_poll, 128);
+> +	netif_napi_add(dev, &mp->napi, mv643xx_eth_poll, NAPI_POLL_WEIGHT);
+>  
+>  	init_timer(&mp->rx_oom);
+>  	mp->rx_oom.data = (unsigned long)mp;
 
-Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
-Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
----
-v2: - use DCFG1 bit 23 integration information instead of device tree
-      compatibility string to retreive information about c-o-r vs. c-o-w ISR.
-    - move configuration in macb_init_hw() function instead of probe() - at
-      "open" time.
+Thanks Andrew.
 
-As I have changed the most of this patch, I will collect your Ack and feedback
-just like a new patch. Thanks for your help...
+Note that some other drivers need same change, would you mind sending a
+patch for them as well ?
 
-Bye,
+Acked-by: Eric Dumazet <edumazet@google.com>
 
- drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++++++--
- drivers/net/ethernet/cadence/macb.h |  7 +++++++
- 2 files changed, 23 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 6be513d..c89aa41 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -485,7 +485,8 @@ static void macb_tx_interrupt(struct macb *bp)
- 	status = macb_readl(bp, TSR);
- 	macb_writel(bp, TSR, status);
- 
--	macb_writel(bp, ISR, MACB_BIT(TCOMP));
-+	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+		macb_writel(bp, ISR, MACB_BIT(TCOMP));
- 
- 	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
- 		(unsigned long)status);
-@@ -738,7 +739,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
- 			 * now.
- 			 */
- 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
--			macb_writel(bp, ISR, MACB_BIT(RCOMP));
-+			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
-+				macb_writel(bp, ISR, MACB_BIT(RCOMP));
- 
- 			if (napi_schedule_prep(&bp->napi)) {
- 				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
-@@ -1062,6 +1064,17 @@ static void macb_configure_dma(struct macb *bp)
- 	}
- }
- 
-+/*
-+ * Configure peripheral capacities according to integration options used
-+ */
-+static void macb_configure_caps(struct macb *bp)
-+{
-+	if (macb_is_gem(bp)) {
-+		if (GEM_BF(IRQCOR, gem_readl(bp, DCFG1)) == 0)
-+			bp->caps |= MACB_CAPS_ISR_CLEAR_ON_WRITE;
-+	}
-+}
-+
- static void macb_init_hw(struct macb *bp)
- {
- 	u32 config;
-@@ -1084,6 +1097,7 @@ static void macb_init_hw(struct macb *bp)
- 	bp->duplex = DUPLEX_HALF;
- 
- 	macb_configure_dma(bp);
-+	macb_configure_caps(bp);
- 
- 	/* Initialize TX and RX buffers */
- 	macb_writel(bp, RBQP, bp->rx_ring_dma);
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 993d703..548c0ec 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -300,6 +300,8 @@
- #define MACB_REV_SIZE				16
- 
- /* Bitfields in DCFG1. */
-+#define GEM_IRQCOR_OFFSET			23
-+#define GEM_IRQCOR_SIZE				1
- #define GEM_DBWDEF_OFFSET			25
- #define GEM_DBWDEF_SIZE				3
- 
-@@ -323,6 +325,9 @@
- #define MACB_MAN_READ				2
- #define MACB_MAN_CODE				2
- 
-+/* Capability mask bits */
-+#define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x1
-+
- /* Bit manipulation macros */
- #define MACB_BIT(name)					\
- 	(1 << MACB_##name##_OFFSET)
-@@ -574,6 +579,8 @@ struct macb {
- 	unsigned int 		speed;
- 	unsigned int 		duplex;
- 
-+	u32			caps;
-+
- 	phy_interface_t		phy_interface;
- 
- 	/* AT91RM9200 transmit */
--- 
-1.8.0
+drivers/s390/net/qeth_core.h:741:#define QETH_NAPI_WEIGHT 128
+drivers/infiniband/hw/nes/nes_nic.c:1682:       netif_napi_add(netdev, &nesvnic->napi, nes_netdev_poll, 128);
+drivers/infiniband/ulp/ipoib/ipoib_main.c:1356: netif_napi_add(dev, &priv->napi, ipoib_poll, 100);
+drivers/net/can/janz-ican3.c:1794:      netif_napi_add(ndev, &mod->napi, ican3_napi, ICAN3_RX_BUFFERS);
