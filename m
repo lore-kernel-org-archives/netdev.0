@@ -1,125 +1,127 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH] net/macb: fix ISR clear-on-write behavior only for some
- SoC
-Date: Tue, 14 May 2013 14:30:59 +0200
-Message-ID: <51922E83.2060002@atmel.com>
-References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com> <FE065E51-1EAA-47ED-8C7B-0F2E6418F349@jcrosoft.com> <519200DA.8060102@atmel.com> <5192224A.7090303@monstr.eu>
+Subject: [PATCH v2] net/macb: fix ISR clear-on-write behavior only for some SoC
+Date: Tue, 14 May 2013 15:00:16 +0200
+Message-ID: <1368536416-18364-1-git-send-email-nicolas.ferre@atmel.com>
+References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	<michal.simek@xilinx.com>, <s.trumtrar@pengutronix.de>,
-	<hein_tibosch@yahoo.es>,
+Content-Type: text/plain
+Cc: <michal.simek@xilinx.com>,
 	Ludovic Desroches <ludovic.desroches@atmel.com>,
+	<s.trumtrar@pengutronix.de>,
 	<linux-arm-kernel@lists.infradead.org>,
 	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Anirudha Sarangi <anirudh@xilinx.com>
-To: <monstr@monstr.eu>
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	<hein_tibosch@yahoo.es>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5192224A.7090303@monstr.eu>
+In-Reply-To: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 14/05/2013 13:38, Michal Simek :
-> On 05/14/2013 11:16 AM, Nicolas Ferre wrote:
->> On 13/05/2013 18:05, Jean-Christophe PLAGNIOL-VILLARD :
->>>
->>> On May 14, 2013, at 12:05 AM, Nicolas Ferre <nicolas.ferre@atmel.com> wrote:
->>>
->>>> Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
->>>> introduces clear-on-write on ISR register. This behavior is not always
->>>> implemented when using Cadence MACB/GEM and is breaking other platforms.
->>>> We are using a new Device Tree compatibility string and a capability
->>>> property to actually activate this clear-on-write behavior on ISR.
->>>>
->>>> Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
->>>> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
->>>
->>> can we detect it via the IP?
->>
->> As said by Hein, we cannot use the IP revision number. *But* we may have the opportunity to read this integration configuration in the Design Configuration Register 1 (DCFG1 already used for determining data bus width).
->>
->> So, Michal or Steffen, can you please tell me the value of:
->> -> bit 23 at register address 0x280: mine is "1" which should mean "IRQ read clear", yours should be "0".
->
-> here is the whole reg map for zynq.
-> Reg 0x280 is undocumented in our TRM.
-> Please decode it not sure if bit 0 is LSB or MSB.
+Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
+introduces clear-on-write on ISR register. This behavior is not always
+implemented when using Cadence MACB/GEM and is breaking other platforms.
+We are using the Design Configuration Register 1 information and a capability
+property to actually activate this clear-on-write behavior on ISR.
 
-Bit 0 is LSB.
+Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
+Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+---
+v2: - use DCFG1 bit 23 integration information instead of device tree
+      compatibility string to retreive information about c-o-r vs. c-o-w ISR.
+    - move configuration in macb_init_hw() function instead of probe() - at
+      "open" time.
 
-Value of DCFG1 is 0x02500111 so I read '0' for this value which should 
-be good.
+As I have changed the most of this patch, I will collect your Ack and feedback
+just like a new patch. Thanks for your help...
 
-I write a new patch immediately.
+Bye,
 
+ drivers/net/ethernet/cadence/macb.c | 18 ++++++++++++++++--
+ drivers/net/ethernet/cadence/macb.h |  7 +++++++
+ 2 files changed, 23 insertions(+), 2 deletions(-)
 
-> U-Boot-PetaLinux> md e000b000
-> e000b000: 0000001c 000e0013 00000006 00000000    ................
-> e000b010: 00180704 00000021 3ffba2e4 3ffbd32c    ....!......?,..?
-> e000b020: 00000003 00000000 00000000 00000000    ................
-> e000b030: 07ffffff 63c66f08 00000000 0000ffff    .....o.c........
-> e000b040: 000003ff 000003ff 00000000 00000000    ................
-> e000b050: 00000000 00000000 00000000 00000000    ................
-> e000b060: 00000000 00000000 00000000 00000000    ................
-> e000b070: 00000000 00000000 00000000 00000000    ................
-> e000b080: 00000000 00000000 00350a00 00001c48    ..........5.H...
-> e000b090: 00000000 00000000 00000000 00000000    ................
-> e000b0a0: 00000000 00000000 00000000 00000000    ................
-> e000b0b0: 00000000 00000000 00000000 00000000    ................
-> e000b0c0: 00000000 00000000 00000000 00000000    ................
-> e000b0d0: 00000000 00000000 00000000 00000000    ................
-> e000b0e0: 00000000 00000000 00000000 00000000    ................
-> e000b0f0: 00000000 00000000 00000000 00020118    ................
-> U-Boot-PetaLinux>
-> e000b100: 00014796 00000000 0000051e 00000001    .G..............
-> e000b110: 00000000 00000000 0000051d 00000001    ................
-> e000b120: 00000000 00000000 00000000 00000000    ................
-> e000b130: 00000000 00000000 00000000 00000000    ................
-> e000b140: 00000000 00000000 00000000 00000000    ................
-> e000b150: 001e58b6 00000000 00000526 00000000    .X......&.......
-> e000b160: 00000004 00000000 00000004 00000001    ................
-> e000b170: 00000000 00000004 00000000 0000051d    ................
-> e000b180: 00000000 00000000 00000000 00000000    ................
-> e000b190: 00000000 00000000 00000000 00000000    ................
-> e000b1a0: 00000038 00000000 00000000 00000000    8...............
-> e000b1b0: 00000000 00000000 00000000 00000000    ................
-> e000b1c0: 00000000 00000000 00000000 00000000    ................
-> e000b1d0: 00000000 00000000 00000000 00000000    ................
-> e000b1e0: 00000000 00000000 00000000 00000000    ................
-> e000b1f0: 00000000 00000000 00000000 00000000    ................
-> U-Boot-PetaLinux>
-> e000b200: 00000000 00000000 00000000 00000000    ................
-> e000b210: 00000000 00000000 00000000 00000000    ................
-> e000b220: 00000000 00000000 00000000 00000000    ................
-> e000b230: 00000000 00000000 00000000 00000000    ................
-> e000b240: 00000000 00000000 00000000 00000000    ................
-> e000b250: 00000000 00000000 00000000 00000000    ................
-> e000b260: 00000000 00000000 00000000 00000000    ................
-> e000b270: 00000000 00000000 00000000 00000000    ................
-> e000b280: 02500111 2ab13fff 00000000 00000000    ..P..?.*........
-> e000b290: 002f2145 00000200 00000000 00000000    E!/.............
-> e000b2a0: 00000000 00000000 00000000 00000000    ................
-> e000b2b0: 00000000 00000000 00000000 00000000    ................
-> e000b2c0: 00000000 00000000 00000000 00000000    ................
-> e000b2d0: 00000000 00000000 00000000 00000000    ................
-> e000b2e0: 00000000 00000000 00000000 00000000    ................
-> e000b2f0: 00000000 00000000 00000000 00000000    ................
-> U-Boot-PetaLinux>
->
->
->
->>
->> Hein, in case of use of the MACB, we do not have this register included, so I will avoid to run the test when using MACB (we already have this information).
->>
->> If it works, I plan to rewrite the patch but taking this information instead of the device tree compatibility string.
->
-> yep. Will be good to detect it instead of new compatible string.
->
-> Also is there an option to remove "CONFIG_ARCH_AT91"?
-
-Okay, I have a look at this as-well.
-
-Best regards,
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 6be513d..c89aa41 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -485,7 +485,8 @@ static void macb_tx_interrupt(struct macb *bp)
+ 	status = macb_readl(bp, TSR);
+ 	macb_writel(bp, TSR, status);
+ 
+-	macb_writel(bp, ISR, MACB_BIT(TCOMP));
++	if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
++		macb_writel(bp, ISR, MACB_BIT(TCOMP));
+ 
+ 	netdev_vdbg(bp->dev, "macb_tx_interrupt status = 0x%03lx\n",
+ 		(unsigned long)status);
+@@ -738,7 +739,8 @@ static irqreturn_t macb_interrupt(int irq, void *dev_id)
+ 			 * now.
+ 			 */
+ 			macb_writel(bp, IDR, MACB_RX_INT_FLAGS);
+-			macb_writel(bp, ISR, MACB_BIT(RCOMP));
++			if (bp->caps & MACB_CAPS_ISR_CLEAR_ON_WRITE)
++				macb_writel(bp, ISR, MACB_BIT(RCOMP));
+ 
+ 			if (napi_schedule_prep(&bp->napi)) {
+ 				netdev_vdbg(bp->dev, "scheduling RX softirq\n");
+@@ -1062,6 +1064,17 @@ static void macb_configure_dma(struct macb *bp)
+ 	}
+ }
+ 
++/*
++ * Configure peripheral capacities according to integration options used
++ */
++static void macb_configure_caps(struct macb *bp)
++{
++	if (macb_is_gem(bp)) {
++		if (GEM_BF(IRQCOR, gem_readl(bp, DCFG1)) == 0)
++			bp->caps |= MACB_CAPS_ISR_CLEAR_ON_WRITE;
++	}
++}
++
+ static void macb_init_hw(struct macb *bp)
+ {
+ 	u32 config;
+@@ -1084,6 +1097,7 @@ static void macb_init_hw(struct macb *bp)
+ 	bp->duplex = DUPLEX_HALF;
+ 
+ 	macb_configure_dma(bp);
++	macb_configure_caps(bp);
+ 
+ 	/* Initialize TX and RX buffers */
+ 	macb_writel(bp, RBQP, bp->rx_ring_dma);
+diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
+index 993d703..548c0ec 100644
+--- a/drivers/net/ethernet/cadence/macb.h
++++ b/drivers/net/ethernet/cadence/macb.h
+@@ -300,6 +300,8 @@
+ #define MACB_REV_SIZE				16
+ 
+ /* Bitfields in DCFG1. */
++#define GEM_IRQCOR_OFFSET			23
++#define GEM_IRQCOR_SIZE				1
+ #define GEM_DBWDEF_OFFSET			25
+ #define GEM_DBWDEF_SIZE				3
+ 
+@@ -323,6 +325,9 @@
+ #define MACB_MAN_READ				2
+ #define MACB_MAN_CODE				2
+ 
++/* Capability mask bits */
++#define MACB_CAPS_ISR_CLEAR_ON_WRITE		0x1
++
+ /* Bit manipulation macros */
+ #define MACB_BIT(name)					\
+ 	(1 << MACB_##name##_OFFSET)
+@@ -574,6 +579,8 @@ struct macb {
+ 	unsigned int 		speed;
+ 	unsigned int 		duplex;
+ 
++	u32			caps;
++
+ 	phy_interface_t		phy_interface;
+ 
+ 	/* AT91RM9200 transmit */
 -- 
-Nicolas Ferre
+1.8.0
