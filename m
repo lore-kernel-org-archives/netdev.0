@@ -1,19 +1,70 @@
-From: Western Union <wcsadmin@myanmar.com.mm>
-Subject: Cash Awaiting Pick-UP.
-Date: Wed, 15 May 2013 13:44:43 +0630 (MMT)
-Message-ID: <1003217128.202164.1368602083381.JavaMail.root@YTP-PMX1>
-Reply-To: "Mrs. Hillary Florence" <wutransonline@yahoo.com.sg>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH] vhost-scsi: Depend on NET for memcpy_fromiovec
+Date: Thu, 16 May 2013 09:05:38 +0930
+Message-ID: <871u9724vp.fsf@rustcorp.com.au>
+References: <20130515095558.918f2b29ba318a477eb5dde2@canb.auug.org.au>
+	<1368579583-13097-1-git-send-email-asias@redhat.com>
+	<8761yk254u.fsf@rustcorp.com.au>
+	<1368657450.6899.29.camel@haakon3.risingtidesystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smgscanner02.teleport.net.mm ([203.81.162.107]:45370 "EHLO
-	smgscanner02.teleport.net.mm" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751677Ab3EOXpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 19:45:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>, kvm@vger.kernel.org,
+	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
+	Randy Dunlap <rdunlap@infradead.org>, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	target-devel@vger.kernel.org, linux-next@vger.kernel.org
+To: "Nicholas A. Bellinger" <nab@linux-iscsi.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1368657450.6899.29.camel@haakon3.risingtidesystems.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
+"Nicholas A. Bellinger" <nab@linux-iscsi.org> writes:
+> On Wed, 2013-05-15 at 14:47 +0930, Rusty Russell wrote:
+>> Asias He <asias@redhat.com> writes:
+>> > scsi.c includes vhost.c which uses memcpy_fromiovec.
+>> >
+>> > This patch fixes this build failure.
+>> >
+>> >    From Randy Dunlap:
+>> >    '''
+>> >    on x86_64:
+>> >
+>> >    ERROR: "memcpy_fromiovec" [drivers/vhost/vhost_scsi.ko] undefined!
+>> >
+>> >    It needs to depend on NET since net/core/ provides that function.
+>> >    '''
+>> 
+>> Proper fix please.
+>> 
+>> Though I can't see why you thought this was a good idea.  Nonetheless, I
+>> shan't highlight why: I have far too much respect for your intellects
+>> and abilities.
+>> 
+>> No, don't thank me!
+>
+> Hi Rusty & Asias,
+>
+> I assume you mean something like the following patch to allow kbuild to
+> work when VHOST_NET + VHOST_SCSI are both enabled and sharing vhost.o,
+> yes..?
 
-You have $500,000 waiting for pick-up at Western Union Office, Contact Mrs. Hillary on wutransonline@yahoo.com.sg for the MTCN.
+No, that's a separate issue.
+
+memcpy_fromiovec() has nothing to do with networking: that was just the
+first user.  Note that crypto/algif_skcipher.c also uses it.  The
+obvious answer is to move it into lib/.
+
+OTOH making vhost_scsi depend on CONFIG_NET is breathtakingly lazy.  I
+expect better from experienced kernel hackers :(
+
+Rusty.
