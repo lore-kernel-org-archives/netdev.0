@@ -1,39 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] fec: Invert the order of function calls in
- fec_restart()
-Date: Wed, 15 May 2013 14:54:49 -0700 (PDT)
-Message-ID: <20130515.145449.143324877111226754.davem@davemloft.net>
-References: <1368637587-13391-1-git-send-email-fabio.estevam@freescale.com>
-	<1368637587-13391-2-git-send-email-fabio.estevam@freescale.com>
+Subject: Re: [PATCH] broadcom: add include guards to include/linux/brcmphy.h
+Date: Wed, 15 May 2013 14:54:58 -0700 (PDT)
+Message-ID: <20130515.145458.700897173953931240.davem@davemloft.net>
+References: <1368640825-22382-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shawn.guo@linaro.org, Frank.Li@freescale.com,
-	kernel@pengutronix.de, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: fabio.estevam@freescale.com
+Cc: netdev@vger.kernel.org, cernekee@gmail.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34025 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34036 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752555Ab3EOVyu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 17:54:50 -0400
-In-Reply-To: <1368637587-13391-2-git-send-email-fabio.estevam@freescale.com>
+	with ESMTP id S1752555Ab3EOVy7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 17:54:59 -0400
+In-Reply-To: <1368640825-22382-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Date: Wed, 15 May 2013 14:06:27 -0300
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Date: Wed, 15 May 2013 18:00:25 +0000
 
-> commit 54309fa6 ("net: fec: fix kernel oops when plug/unplug cable many times")
-> introduced the following 'if' block in the beginning of fec_start():
- ...
-> Then later in the end of fec_restart() there is another block that calls the
-> opposite of each one of these functions.
+> include/linux/brcmphy.h is currently not protected against double
+> inclusion, add ifdefs guard to fix that.
 > 
-> The correct approach would be to also call them with in the reverse order, so 
-> that we have as result:
- ...
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
 Applied.
