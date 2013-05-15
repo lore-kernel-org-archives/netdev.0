@@ -1,78 +1,55 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: Single socket with TX_RING and RX_RING
-Date: Wed, 15 May 2013 16:52:24 +0200
-Message-ID: <5193A128.8030204@redhat.com>
-References: <loom.20130515T144941-798@post.gmane.org> <51938BAD.5050502@redhat.com> <loom.20130515T152203-727@post.gmane.org> <5193A00E.2020507@redhat.com>
+From: Ricardo =?utf-8?b?VHViw61v?= <rtpardavila@gmail.com>
+Subject: Re: Single socket with =?utf-8?b?VFhfUklORw==?= and =?utf-8?b?UlhfUklORw==?=
+Date: Wed, 15 May 2013 14:58:06 +0000 (UTC)
+Message-ID: <loom.20130515T165501-421@post.gmane.org>
+References: <loom.20130515T144941-798@post.gmane.org> <51938BAD.5050502@redhat.com> <loom.20130515T152203-727@post.gmane.org> <5193A00E.2020507@redhat.com> <5193A128.8030204@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?UTF-8?B?UmljYXJkbyBUdWLDrW8=?= <rtpardavila@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17655 "EHLO mx1.redhat.com"
+Received: from plane.gmane.org ([80.91.229.3]:47297 "EHLO plane.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759182Ab3EOOw1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 May 2013 10:52:27 -0400
-In-Reply-To: <5193A00E.2020507@redhat.com>
+	id S1759300Ab3EOO6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 May 2013 10:58:24 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Ucd9q-0006vq-O4
+	for netdev@vger.kernel.org; Wed, 15 May 2013 16:58:22 +0200
+Received: from static-adsl-c-5-188.ipcom.comunitel.net ([static-adsl-c-5-188.ipcom.comunitel.net])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 15 May 2013 16:58:22 +0200
+Received: from rtpardavila by static-adsl-c-5-188.ipcom.comunitel.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 15 May 2013 16:58:22 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/15/2013 04:47 PM, Daniel Borkmann wrote:
-> On 05/15/2013 03:32 PM, Ricardo Tub=C3=ADo wrote:
->> Daniel Borkmann <dborkman <at> redhat.com> writes:
->>> On 05/15/2013 02:53 PM, Ricardo Tub=C3=ADo wrote:
->>>> Once I tell kernel to export the TX_RING through setsockopt() (see=
- code
->>>> below) I always get an error (EBUSY) if i try to tell kernel to ex=
-port the
->>>> RX_RING with the same socket descriptor. Therefore, I have to open=
- an
->>>> additional socket for the RX_RING and I require of two sockets whe=
-n I though
->>>> that I would only require of one socket for both TX and RX using m=
-map()ed
->>>> memory.
->>>>
->>>> Do I need both sockets or am I doing something wrong?
->>>
->>> The second time you call init_ring() in your code e.g. with TX_RING=
-, where
->>> you have previously set it up for the RX_RING. The kernel will give=
- you
->>> -EBUSY because the packet socket is already mmap(2)'ed.
->
-> (if you need an answer, then please do not drop the CC, otherwise it =
-could be
->   that I might not read it)
->
->> Ok, so if I make the following system calls:
->>
->> void *ring=3DNULL;
->> setsockopt(socket_fd, SOL_PACKET, PACKET_RX_RING, p, LEN__TPACKET_RE=
-Q);
->> ring =3D mmap(NULL, ring_len, ring_access_flags, MAP_SHARED, socket_=
-fd, 0);
->>
->> Would I be permitted to use the ring map obtained both for RX and fo=
-r TX? If
->> so, for me it is confusing to use PACKET_RX_RING if I can also TX da=
-ta
->> through that ring...
+Daniel Borkmann <dborkman <at> redhat.com> writes:
 
-No, just as a side note, I think here you rather wanted to say ...
-
-  setsockopt(socket, SOL_PACKET, PACKET_RX_RING, ...);
-  setsockopt(socket, SOL_PACKET, PACKET_TX_RING, ...);
-
-=2E.. and then only once:
-
-  ring =3D mmap(NULL, ..., socket, 0);
-
-> I haven't tried it out yet, and currently also do not really have tim=
-e to. But
-> looking at the mmap code, it seems that the size of the mmap area is =
+> 
+> No, just as a side note, I think here you rather wanted to say ...
+> 
+>   setsockopt(socket, SOL_PACKET, PACKET_RX_RING, ...);
+>   setsockopt(socket, SOL_PACKET, PACKET_TX_RING, ...);
+> 
+> ... and then only once:
+> 
+>   ring = mmap(NULL, ..., socket, 0);
+> 
+> > I haven't tried it out yet, and currently also do not really have time
+to. But
+> > looking at the mmap code, it seems that the size of the mmap area is
 accumulated
-> for rx and tx ring. However, the header status bits are not really in=
-teroperable
-> with each other. So looks you will need to have two sockets ...
+> > for rx and tx ring. However, the header status bits are not really
+interoperable
+> > with each other. So looks you will need to have two sockets ...
+> 
+
+I have already tried that and, if I use the same socket_fd twice with
+setsockopt(), I get the EBUSY errno from Kernel. Tomorrow, I will try the
+first solution with both sockets (it seems the easiest way); afterwards, I
+will try to use the TX_RING socket for TX and for RX at a time.
+
+I will come back with the results.
