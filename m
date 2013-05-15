@@ -1,465 +1,93 @@
-From: Greg Rose <gregory.v.rose@intel.com>
-Subject: Re: [PATCH v2 6/7] PCI: Make sure VF's driver get attached after
- PF's
-Date: Wed, 15 May 2013 09:12:48 -0700
-Message-ID: <20130515091248.00002fe3@unknown>
-References: <1368586102-17661-1-git-send-email-yinghai@kernel.org>
+From: Robin Holt <holt@sgi.com>
+Subject: Re: kmalloc warning in mlx4_buddy_init.
+Date: Wed, 15 May 2013 11:13:53 -0500
+Message-ID: <20130515161353.GW3658@sgi.com>
+References: <20130515082348.GO3658@sgi.com>
+ <1368627342.4519.29.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	<linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Sathya Perla <Sathya.Perla@Emulex.Com>,
-	<netdev@vger.kernel.org>
-To: Yinghai Lu <yinghai@kernel.org>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <1368586102-17661-1-git-send-email-yinghai@kernel.org>
-Sender: linux-pci-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Robin Holt <holt@sgi.com>, Roland Dreier <roland@purestorage.com>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1368627342.4519.29.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 May 2013 19:48:22 -0700
-Yinghai Lu <yinghai@kernel.org> wrote:
+On Wed, May 15, 2013 at 07:15:42AM -0700, Eric Dumazet wrote:
+> On Wed, 2013-05-15 at 03:23 -0500, Robin Holt wrote:
+> > Roland,
+> > 
+> > We are seeing the following when booting on a large system.
+> > 
+> > [  171.399023] mlx4_core 0004:01:00.0: irq 2410 for MSI/MSI-X
+> > [  171.406560] ------------[ cut here ]------------
+> > [  171.411734] WARNING: at mm/slab_common.c:376 kmalloc_slab+0x71/0x90()
+> > [  171.418919] Modules linked in: mlx4_core(+) sg lpc_ich mfd_core shpchp pci_hotplug ehci_pci ehci_hcd ioatdma i2c_i801 igb dca i2c_algo_bit i2c_core ptp pps_core mperf processor thermal_sys hwmon usbcore usb_common ext4 jbd2 crc16 sd_mod crc_t10dif qla2xxx scsi_transport_fc scsi_tgt megaraid_sas ahci libahci isci libsas libata scsi_transport_sas scsi_mod button dm_mirror dm_region_hash dm_log dm_mod gru(O) xvma(O)
+> > [  171.460377] CPU: 48 PID: 2561 Comm: kworker/48:1 Tainted: G        W  O 3.10.0-rc1-uv-hz100-rja+ #3
+> > [  171.470473] Hardware name: SGI UV2000/ROMLEY, BIOS SGI UV 2000/3000 series BIOS 01/15/2013
+> > [  171.479720] Workqueue: events work_for_cpu_fn
+> > [  171.484597]  0000000000000178 ffff8867bb0f5ba8 ffffffff814a873c ffff8867bb0f5be8
+> > [  171.492897]  ffffffff81045a7b 000080d0000080d0 0000000000200000 ffff88679bc7cb80
+> > [  171.501205]  0000000000000000 00000000000082d0 0000000000000000 ffff8867bb0f5bf8
+> > [  171.509502] Call Trace:
+> > [  171.512266]  [<ffffffff814a873c>] dump_stack+0x19/0x1d
+> > [  171.518007]  [<ffffffff81045a7b>] warn_slowpath_common+0x6b/0xa0
+> > [  171.524711]  [<ffffffff81045ac5>] warn_slowpath_null+0x15/0x20
+> > [  171.531230]  [<ffffffff811258c1>] kmalloc_slab+0x71/0x90
+> > [  171.537176]  [<ffffffff81152e10>] __kmalloc+0x30/0x220
+> > [  171.542989]  [<ffffffffa03a9f4b>] ? mlx4_buddy_init+0xdb/0x1d0 [mlx4_core]
+> > [  171.550699]  [<ffffffffa03a9f4b>] mlx4_buddy_init+0xdb/0x1d0 [mlx4_core]
+> > [  171.558183]  [<ffffffffa03aa0ef>] mlx4_init_mr_table+0xaf/0x130 [mlx4_core]
+> > [  171.565964]  [<ffffffffa03a3c48>] mlx4_setup_hca+0x158/0x5a0 [mlx4_core]
+> > [  171.573446]  [<ffffffffa03a5b90>] __mlx4_init_one+0x720/0x9c0 [mlx4_core]
+> > [  171.581030]  [<ffffffffa03a5e7c>] mlx4_init_one+0x2c/0x60 [mlx4_core]
+> > [  171.588232]  [<ffffffff8128c599>] local_pci_probe+0x49/0x80
+> > [  171.594458]  [<ffffffff810606f3>] work_for_cpu_fn+0x13/0x20
+> > [  171.600692]  [<ffffffff81064114>] process_one_work+0x194/0x3d0
+> > [  171.607200]  [<ffffffff81065464>] worker_thread+0x2c4/0x410
+> > [  171.613421]  [<ffffffff810651a0>] ? manage_workers+0x190/0x190
+> > [  171.619940]  [<ffffffff8106aee6>] kthread+0xc6/0xd0
+> > [  171.625392]  [<ffffffff8106ae20>] ? kthread_freezable_should_stop+0x70/0x70
+> > [  171.633182]  [<ffffffff814b42ec>] ret_from_fork+0x7c/0xb0
+> > [  171.639204]  [<ffffffff8106ae20>] ? kthread_freezable_should_stop+0x70/0x70
+> > [  171.646976] ---[ end trace 822f6d487f108023 ]---
+> > [  171.715920] mlx4_core 0004:01:00.0: command 0xc failed: fw status = 0x40
+> > [  171.723888] mlx4_core: Initializing 0007:02:00.0
+> > 
+> > This looks to be a kmalloc larger than MAX_ORDER.  Not sure which of the two
+> > kcallocs in mlx4_buddy_init.
+> 
+> Same problem here, its a real old problem that I mentioned.
 
-> Found kernel try to load mlx4 drivers for VFs before
-> PF's is loaded when the drivers are built-in, and kernel
-> command line include probe_vfs=63, num_vfs=63.
-> 
-> [  169.581682] calling  mlx4_init+0x0/0x119 @ 1
-> [  169.595681] mlx4_core: Mellanox ConnectX core driver v1.1 (Dec,
-> 2011) [  169.600194] mlx4_core: Initializing 0000:02:00.0
-> [  169.616322] mlx4_core 0000:02:00.0: Enabling SR-IOV with 63 VFs
-> [  169.724084] pci 0000:02:00.1: [15b3:1002] type 00 class 0x0c0600
-> [  169.732442] mlx4_core: Initializing 0000:02:00.1
-> [  169.734345] mlx4_core 0000:02:00.1: enabling device (0000 -> 0002)
-> [  169.747060] mlx4_core 0000:02:00.1: enabling bus mastering
-> [  169.764283] mlx4_core 0000:02:00.1: Detected virtual function -
-> running in slave mode [  169.767409] mlx4_core 0000:02:00.1: with
-> iommu 3 : domain 11 [  169.785589] mlx4_core 0000:02:00.1: Sending
-> reset [  179.790131] mlx4_core 0000:02:00.1: Got slave FLRed from
-> Communication channel (ret:0x1) [  181.798661] mlx4_core
-> 0000:02:00.1: slave is currently in themiddle of FLR. retrying...(try
-> num:1) [  181.803336] mlx4_core 0000:02:00.1: Communication channel
-> is not idle.my toggle is 1 (cmd:0x0) ... [  182.078710] mlx4_core
-> 0000:02:00.1: slave is currently in themiddle of FLR. retrying...(try
-> num:10) [  182.096657] mlx4_core 0000:02:00.1: Communication channel
-> is not idle.my toggle is 1 (cmd:0x0) [  182.104935] mlx4_core
-> 0000:02:00.1: slave driver version is not supported by the master
-> [  182.118570] mlx4_core 0000:02:00.1: Communication channel is not
-> idle.my toggle is 1 (cmd:0x0) [  182.138190] mlx4_core 0000:02:00.1:
-> Failed to initialize slave [  182.141728] mlx4_core: probe of
-> 0000:02:00.1 failed with error -5
-> 
-> It turns that this also happen for hotadd path even drivers are
-> compiled as modules and if they are loaded. Esp some VF share the
-> same driver with PF.
-> 
-> calling path:
-> 	device driver probe
-> 		==> pci_enable_sriov
-> 			==> virtfn_add
-> 				==> pci_dev_add
-> 				==> pci_bus_device_add
-> when pci_bus_device_add is called, the VF's driver will be attached.
-> and at that time PF's driver does not finish yet.
-> 
-> Need to move out pci_bus_device_add from virtfn_add and call it
-> later.
-> 
-> bnx2x and qlcnic are ok, because it does not modules command line
-> to enable sriov. They must use sysfs to enable it.
-> 
-> be2net is ok, according to Sathya Perla,
-> he fixed this issue in be2net with the following patch (commit
-> b4c1df93) http://marc.info/?l=linux-netdev&m=136801459808765&w=2
-> 
-> For igb and ixgbe is ok, as Alex Duyck said:
-> | The VF driver should be able to be loaded when the PF driver is not
-> | present.  We handle it in igb and ixgbe last I checked, and I don't
-> see | any reason why it cannot be handled in all other VF drivers.
-> I'm not | saying the VF has to be able to fully functional, but it
-> should be able | to detect the PF becoming enabled and then bring
-> itself to a fully | functional state.  To not handle that case is a
-> bug.
-> 
-> Looks like the patch will help enic, mlx4, efx, vxge and lpfc now.
-> 
-> -v2: don't use schedule_callback, and initcall after Alex's patch.
-> 	pci: Avoid reentrant calls to work_on_cpu
-> 
-> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
-> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-> Cc: Yan Burman <yanb@mellanox.com>
-> Cc: Sathya Perla <Sathya.Perla@Emulex.Com>
-> Cc: netdev@vger.kernel.org
+Is there any pressure against getting this changed or an equivalent
+change made upstream?
 
-I'm really not a fan of this.  Seems to me the tail is wagging the dog
-here.  Fix the driver to work without a PF driver being present.
-
-- Greg
-
+> I usually use following hack to reduce the allocation size by 50%
 > 
-> ---
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c    |    7 ++
->  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c      |    4 +
->  drivers/net/ethernet/cisco/enic/enic_main.c          |    2 
->  drivers/net/ethernet/emulex/benet/be_main.c          |    4 +
->  drivers/net/ethernet/intel/igb/igb_main.c            |   11 +++-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c        |    2 
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c       |    9 ++-
->  drivers/net/ethernet/mellanox/mlx4/main.c            |    3 +
->  drivers/net/ethernet/neterion/vxge/vxge-main.c       |    3 +
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c |    5 +-
->  drivers/net/ethernet/sfc/efx.c                       |    1 
->  drivers/pci/iov.c                                    |   47
-> ++++++++++++++++---
-> drivers/scsi/lpfc/lpfc_init.c                        |    2
-> include/linux/pci.h                                  |    4 + 14
-> files changed, 90 insertions(+), 14 deletions(-)
-> 
-> Index: linux-2.6/drivers/net/ethernet/mellanox/mlx4/main.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ linux-2.6/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -2308,6 +2308,9 @@ slave_start:
->  	priv->pci_dev_data = pci_dev_data;
->  	pci_set_drvdata(pdev, dev);
->  
-> +	if (dev->flags & MLX4_FLAG_SRIOV)
-> +		pci_bus_add_device_vfs(pdev);
-> +
->  	return 0;
->  
->  err_port:
-> Index: linux-2.6/drivers/pci/iov.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/pci/iov.c
-> +++ linux-2.6/drivers/pci/iov.c
-> @@ -66,7 +66,8 @@ static void virtfn_remove_bus(struct pci
->  		pci_remove_bus(child);
->  }
->  
-> -static int virtfn_add(struct pci_dev *dev, int id, int reset)
-> +static int virtfn_add(struct pci_dev *dev, int id, int reset,
-> +			struct pci_dev **ret)
->  {
->  	int i;
->  	int rc;
-> @@ -116,7 +117,6 @@ static int virtfn_add(struct pci_dev *de
->  	pci_device_add(virtfn, virtfn->bus);
->  	mutex_unlock(&iov->dev->sriov->lock);
->  
-> -	rc = pci_bus_add_device(virtfn);
->  	sprintf(buf, "virtfn%u", id);
->  	rc = sysfs_create_link(&dev->dev.kobj, &virtfn->dev.kobj,
-> buf); if (rc)
-> @@ -127,6 +127,8 @@ static int virtfn_add(struct pci_dev *de
->  
->  	kobject_uevent(&virtfn->dev.kobj, KOBJ_CHANGE);
->  
-> +	if (ret)
-> +		*ret = virtfn;
->  	return 0;
->  
->  failed2:
-> @@ -141,6 +143,26 @@ failed1:
->  	return rc;
->  }
->  
-> +void pci_bus_add_device_vfs(struct pci_dev *pdev)
-> +{
-> +	int rc;
-> +	struct pci_dev *dev;
-> +
-> +       /* only search if it is a PF */
-> +	if (!pdev->is_physfn)
-> +		return;
-> +
-> +	/* loop through all the VFs to see if we own and is not
-> added yet*/
-> +	dev = pci_get_device(pdev->vendor, PCI_ANY_ID, NULL);
-> +	while (dev) {
-> +		if (dev->is_virtfn && dev->physfn == pdev
-> && !dev->is_added)
-> +			rc = pci_bus_add_device(dev);
-> +
-> +		dev = pci_get_device(pdev->vendor, PCI_ANY_ID, dev);
-> +	}
-> +}
-> +EXPORT_SYMBOL_GPL(pci_bus_add_device_vfs);
-> +
->  static void virtfn_remove(struct pci_dev *dev, int id, int reset)
->  {
->  	char buf[VIRTFN_ID_LEN];
-> @@ -204,6 +226,7 @@ static int sriov_migration(struct pci_de
->  static void sriov_migration_task(struct work_struct *work)
->  {
->  	int i;
-> +	int rc;
->  	u8 state;
->  	u16 status;
->  	struct pci_sriov *iov = container_of(work, struct pci_sriov,
-> mtask); @@ -213,14 +236,24 @@ static void sriov_migration_task(struct
->  		if (state == PCI_SRIOV_VFM_MI) {
->  			writeb(PCI_SRIOV_VFM_AV, iov->mstate + i);
->  			state = readb(iov->mstate + i);
-> -			if (state == PCI_SRIOV_VFM_AV)
-> -				virtfn_add(iov->self, i, 1);
-> +			if (state == PCI_SRIOV_VFM_AV) {
-> +				struct pci_dev *virtfn = NULL;
-> +
-> +				virtfn_add(iov->self, i, 1, &virtfn);
-> +				if (virtfn)
-> +					rc =
-> pci_bus_add_device(virtfn);
-> +			}
->  		} else if (state == PCI_SRIOV_VFM_MO) {
->  			virtfn_remove(iov->self, i, 1);
->  			writeb(PCI_SRIOV_VFM_UA, iov->mstate + i);
->  			state = readb(iov->mstate + i);
-> -			if (state == PCI_SRIOV_VFM_AV)
-> -				virtfn_add(iov->self, i, 0);
-> +			if (state == PCI_SRIOV_VFM_AV) {
-> +				struct pci_dev *virtfn = NULL;
-> +
-> +				virtfn_add(iov->self, i, 0, &virtfn);
-> +				if (virtfn)
-> +					rc =
-> pci_bus_add_device(virtfn);
-> +			}
->  		}
->  	}
->  
-> @@ -356,7 +389,7 @@ static int sriov_enable(struct pci_dev *
->  		initial = nr_virtfn;
->  
->  	for (i = 0; i < initial; i++) {
-> -		rc = virtfn_add(dev, i, 0);
-> +		rc = virtfn_add(dev, i, 0, NULL);
->  		if (rc)
->  			goto failed;
->  	}
-> Index: linux-2.6/include/linux/pci.h
-> ===================================================================
-> --- linux-2.6.orig/include/linux/pci.h
-> +++ linux-2.6/include/linux/pci.h
-> @@ -1659,6 +1659,7 @@ void __iomem *pci_ioremap_bar(struct pci
->  
->  #ifdef CONFIG_PCI_IOV
->  int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
-> +void pci_bus_add_device_vfs(struct pci_dev *dev);
->  void pci_disable_sriov(struct pci_dev *dev);
->  irqreturn_t pci_sriov_migration(struct pci_dev *dev);
->  int pci_num_vf(struct pci_dev *dev);
-> @@ -1670,6 +1671,9 @@ static inline int pci_enable_sriov(struc
->  {
->  	return -ENODEV;
->  }
-> +static inline void pci_bus_add_device_vfs(struct pci_dev *dev)
-> +{
-> +}
->  static inline void pci_disable_sriov(struct pci_dev *dev)
->  {
->  }
-> Index: linux-2.6/drivers/net/ethernet/intel/igb/igb_main.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/intel/igb/igb_main.c
-> +++ linux-2.6/drivers/net/ethernet/intel/igb/igb_main.c
-> @@ -2366,6 +2366,9 @@ static int igb_probe(struct pci_dev *pde
->  	}
->  
->  	pm_runtime_put_noidle(&pdev->dev);
-> +
-> +	pci_bus_add_device_vfs(pdev);
-> +
->  	return 0;
->  
->  err_register:
-> @@ -7278,8 +7281,12 @@ static int igb_pci_sriov_configure(struc
->  #ifdef CONFIG_PCI_IOV
->  	if (num_vfs == 0)
->  		return igb_pci_disable_sriov(dev);
-> -	else
-> -		return igb_pci_enable_sriov(dev, num_vfs);
-> +	else {
-> +		int ret = igb_pci_enable_sriov(dev, num_vfs);
-> +		if (ret > 0)
-> +			pci_bus_add_device_vfs(dev);
-> +		return ret;
-> +	}
->  #endif
->  	return 0;
->  }
-> Index: linux-2.6/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> +++ linux-2.6/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> @@ -346,8 +346,13 @@ int ixgbe_pci_sriov_configure(struct pci
->  {
->  	if (num_vfs == 0)
->  		return ixgbe_pci_sriov_disable(dev);
-> -	else
-> -		return ixgbe_pci_sriov_enable(dev, num_vfs);
-> +	else {
-> +		int ret = ixgbe_pci_sriov_enable(dev, num_vfs);
-> +
-> +		if (ret > 0)
-> +			pci_bus_add_device_vfs(dev);
-> +		return ret;
-> +	}
->  }
->  
->  static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
-> Index: linux-2.6/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ linux-2.6/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -7658,6 +7658,8 @@ skip_sriov:
->  			IXGBE_LINK_SPEED_10GB_FULL |
-> IXGBE_LINK_SPEED_1GB_FULL, true);
->  
-> +	pci_bus_add_device_vfs(pdev);
-> +
->  	return 0;
->  
->  err_register:
-> Index: linux-2.6/drivers/scsi/lpfc/lpfc_init.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/scsi/lpfc/lpfc_init.c
-> +++ linux-2.6/drivers/scsi/lpfc/lpfc_init.c
-> @@ -10582,6 +10582,8 @@ lpfc_pci_probe_one(struct pci_dev *pdev,
->  	else
->  		rc = lpfc_pci_probe_one_s3(pdev, pid);
->  
-> +	pci_bus_add_device_vfs(pdev);
-> +
->  	return rc;
->  }
->  
-> Index: linux-2.6/drivers/net/ethernet/emulex/benet/be_main.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/emulex/benet/be_main.c
-> +++ linux-2.6/drivers/net/ethernet/emulex/benet/be_main.c
-> @@ -4111,6 +4111,7 @@ static int lancer_recover_func(struct be
->  	if (status)
->  		goto err;
->  
-> +	pci_bus_add_device_vfs(adapter->pdev);
->  	if (netif_running(adapter->netdev)) {
->  		status = be_open(adapter->netdev);
->  		if (status)
-> @@ -4327,6 +4328,8 @@ static int be_probe(struct pci_dev *pdev
->  	dev_info(&pdev->dev, "%s: %s %s port %c\n", nic_name(pdev),
->  		 func_name(adapter), mc_name(adapter), port_name);
->  
-> +	pci_bus_add_device_vfs(pdev);
-> +
->  	return 0;
->  
->  unsetup:
-> @@ -4398,6 +4401,7 @@ static int be_resume(struct pci_dev *pde
->  		rtnl_unlock();
->  	}
->  
-> +	pci_bus_add_device_vfs(adapter->pdev);
->  	schedule_delayed_work(&adapter->func_recovery_work,
->  			      msecs_to_jiffies(1000));
->  	netif_device_attach(netdev);
-> Index: linux-2.6/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-> ===================================================================
-> ---
-> linux-2.6.orig/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
-> +++ linux-2.6/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c @@
-> -568,8 +568,11 @@ int qlcnic_pci_sriov_configure(struct pc 
->  	if (num_vfs == 0)
->  		err = qlcnic_pci_sriov_disable(adapter);
-> -	else
-> +	else {
->  		err = qlcnic_pci_sriov_enable(adapter, num_vfs);
-> +		if (err > 0)
-> +			pci_bus_add_device_vfs(dev);
-> +	}
->  
->  	clear_bit(__QLCNIC_RESETTING, &adapter->state);
->  	return err;
-> Index: linux-2.6/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-> +++ linux-2.6/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-> @@ -3048,7 +3048,12 @@ int bnx2x_sriov_configure(struct pci_dev
->  		pci_disable_sriov(dev);
->  		return 0;
->  	} else {
-> -		return bnx2x_enable_sriov(bp);
-> +		int ret = bnx2x_enable_sriov(bp);
-> +
-> +		if (ret > 0)
-> +			pci_bus_add_device_vfs(dev);
-> +
-> +		return 0;
->  	}
->  }
->  
-> Index: linux-2.6/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> +++ linux-2.6/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-> @@ -5749,10 +5749,12 @@ static int init_one(struct pci_dev *pdev
->  sriov:
->  #ifdef CONFIG_PCI_IOV
->  	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
-> -		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
-> +		if (pci_enable_sriov(pdev, num_vf[func]) == 0) {
->  			dev_info(&pdev->dev,
->  				 "instantiated %u virtual
-> functions\n", num_vf[func]);
-> +			pci_bus_add_device_vfs(pdev);
-> +		}
->  #endif
->  	return 0;
->  
-> Index: linux-2.6/drivers/net/ethernet/cisco/enic/enic_main.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/cisco/enic/enic_main.c
-> +++ linux-2.6/drivers/net/ethernet/cisco/enic/enic_main.c
-> @@ -2524,6 +2524,8 @@ static int enic_probe(struct pci_dev *pd
->  		goto err_out_dev_deinit;
->  	}
->  
-> +	pci_bus_add_device_vfs(pdev);
-> +
->  	return 0;
->  
->  err_out_dev_deinit:
-> Index: linux-2.6/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> +++ linux-2.6/drivers/net/ethernet/neterion/vxge/vxge-main.c
-> @@ -4731,6 +4731,9 @@ vxge_probe(struct pci_dev *pdev, const s
->  		vxge_hw_device_trace_level_get(hldev));
->  
->  	kfree(ll_config);
-> +
-> +	pci_bus_add_device_vfs(pdev);
-> +
->  	return 0;
->  
->  _exit6:
-> Index: linux-2.6/drivers/net/ethernet/sfc/efx.c
-> ===================================================================
-> --- linux-2.6.orig/drivers/net/ethernet/sfc/efx.c
-> +++ linux-2.6/drivers/net/ethernet/sfc/efx.c
-> @@ -2824,6 +2824,7 @@ static int efx_pci_probe(struct pci_dev
->  		netif_warn(efx, probe, efx->net_dev,
->  			   "pci_enable_pcie_error_reporting failed
-> (%d)\n", rc); 
-> +	pci_bus_add_device_vfs(pci_dev);
->  	return 0;
->  
->   fail4:
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c
+> b/drivers/net/ethernet/mellanox/mlx4/main.c
+> index 0d32a82..b22f116 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+> @@ -126,7 +126,7 @@ static int log_num_vlan;
+>  module_param_named(log_num_vlan, log_num_vlan, int, 0444);
+>  MODULE_PARM_DESC(log_num_vlan, "Log2 max number of VLANs per ETH port
+> (0-7)");
+>  /* Log2 max number of VLANs per ETH port (0-7) */
+> -#define MLX4_LOG_NUM_VLANS 7
+> +#define MLX4_LOG_NUM_VLANS 6
+
+This seems to work around the problem, but I think I might have something
+else going on as well.
+
+Without this patch, it will succeed if I have the driver configured
+to be built into the kernel.  It will fail when I have it configured
+as a loadable module.  I am not certain I did not accidentally change
+something else as well.
+
+I am going to use this for my local stuff and hope a fix gets upstream.
+
+Thanks,
+Robin
