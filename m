@@ -1,7 +1,7 @@
 From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: [PATCH 2/3 v3] net/macb: change RX path for GEM
-Date: Wed, 15 May 2013 11:18:47 +0200
-Message-ID: <00f6c153b3714cda31cffe685b024ca81687bcb5.1368608928.git.nicolas.ferre@atmel.com>
+Subject: [PATCH 1/3 v3] net/macb: increase RX buffer size for GEM
+Date: Wed, 15 May 2013 11:18:46 +0200
+Message-ID: <4632e58c379c28ae2c4f3c1bfc2e849a20d8b769.1368608928.git.nicolas.ferre@atmel.com>
 References: <cover.1368608928.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,469 +17,149 @@ In-Reply-To: <cover.1368608928.git.nicolas.ferre@atmel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-GEM is able to adapt its DMA buffer size, so change
-the RX path to take advantage of this possibility and
-remove all kind of memcpy in this path.
-This modification introduces function pointers for managing
-differences between MACB and GEM adapter type.
+Macb Ethernet controller requires a RX buffer of 128 bytes. It is
+highly sub-optimal for Gigabit-capable GEM that is able to use
+a bigger DMA buffer. Change this constant and associated macros
+with data stored in the private structure.
+RX DMA buffer size has to be multiple of 64 bytes as indicated in
+DMA Configuration Register specification.
 
 Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 ---
- drivers/net/ethernet/cadence/macb.c | 308 ++++++++++++++++++++++++++++++------
- drivers/net/ethernet/cadence/macb.h |  13 ++
- 2 files changed, 272 insertions(+), 49 deletions(-)
+ drivers/net/ethernet/cadence/macb.c | 45 ++++++++++++++++++++++++++++++-------
+ drivers/net/ethernet/cadence/macb.h |  1 +
+ 2 files changed, 38 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index 1d36d2b..ea31b74 100644
+index c89aa41..1d36d2b 100644
 --- a/drivers/net/ethernet/cadence/macb.c
 +++ b/drivers/net/ethernet/cadence/macb.c
-@@ -33,7 +33,6 @@
+@@ -32,7 +32,9 @@
+ 
  #include "macb.h"
  
- #define MACB_RX_BUFFER_SIZE	128
--#define GEM_RX_BUFFER_SIZE	2048
- #define RX_BUFFER_MULTIPLE	64  /* bytes */
+-#define RX_BUFFER_SIZE		128
++#define MACB_RX_BUFFER_SIZE	128
++#define GEM_RX_BUFFER_SIZE	2048
++#define RX_BUFFER_MULTIPLE	64  /* bytes */
  #define RX_RING_SIZE		512 /* must be power of 2 */
  #define RX_RING_BYTES		(sizeof(struct macb_dma_desc) * RX_RING_SIZE)
-@@ -530,6 +529,155 @@ static void macb_tx_interrupt(struct macb *bp)
- 		netif_wake_queue(bp->dev);
+ 
+@@ -92,7 +94,7 @@ static struct macb_dma_desc *macb_rx_desc(struct macb *bp, unsigned int index)
+ 
+ static void *macb_rx_buffer(struct macb *bp, unsigned int index)
+ {
+-	return bp->rx_buffers + RX_BUFFER_SIZE * macb_rx_ring_wrap(index);
++	return bp->rx_buffers + bp->rx_buffer_size * macb_rx_ring_wrap(index);
  }
  
-+static void gem_rx_refill(struct macb *bp)
-+{
-+	unsigned int		entry;
-+	struct sk_buff		*skb;
-+	struct macb_dma_desc	*desc;
-+	dma_addr_t		paddr;
-+
-+	while (CIRC_SPACE(bp->rx_prepared_head, bp->rx_tail, RX_RING_SIZE) > 0) {
-+		u32 addr, ctrl;
-+
-+		entry = macb_rx_ring_wrap(bp->rx_prepared_head);
-+		desc = &bp->rx_ring[entry];
-+
-+		/* Make hw descriptor updates visible to CPU */
-+		rmb();
-+
-+		addr = desc->addr;
-+		ctrl = desc->ctrl;
-+		bp->rx_prepared_head++;
-+
-+		if ((addr & MACB_BIT(RX_USED)))
-+			continue;
-+
-+		if (bp->rx_skbuff[entry] == NULL) {
-+			/* allocate sk_buff for this free entry in ring */
-+			skb = netdev_alloc_skb(bp->dev, bp->rx_buffer_size);
-+			if (unlikely(skb == NULL)) {
-+				netdev_err(bp->dev,
-+					   "Unable to allocate sk_buff\n");
-+				break;
-+			}
-+			bp->rx_skbuff[entry] = skb;
-+
-+			/* now fill corresponding descriptor entry */
-+			paddr = dma_map_single(&bp->pdev->dev, skb->data,
-+					       bp->rx_buffer_size, DMA_FROM_DEVICE);
-+
-+			if (entry == RX_RING_SIZE - 1)
-+				paddr |= MACB_BIT(RX_WRAP);
-+			bp->rx_ring[entry].addr = paddr;
-+			bp->rx_ring[entry].ctrl = 0;
-+
-+			/* properly align Ethernet header */
-+			skb_reserve(skb, NET_IP_ALIGN);
-+		}
-+	}
-+
-+	/* Make descriptor updates visible to hardware */
-+	wmb();
-+
-+	netdev_vdbg(bp->dev, "rx ring: prepared head %d, tail %d\n",
-+		   bp->rx_prepared_head, bp->rx_tail);
-+}
-+
-+/* Mark DMA descriptors from begin up to and not including end as unused */
-+static void discard_partial_frame(struct macb *bp, unsigned int begin,
-+				  unsigned int end)
-+{
-+	unsigned int frag;
-+
-+	for (frag = begin; frag != end; frag++) {
-+		struct macb_dma_desc *desc = macb_rx_desc(bp, frag);
-+		desc->addr &= ~MACB_BIT(RX_USED);
-+	}
-+
-+	/* Make descriptor updates visible to hardware */
-+	wmb();
-+
-+	/*
-+	 * When this happens, the hardware stats registers for
-+	 * whatever caused this is updated, so we don't have to record
-+	 * anything.
-+	 */
-+}
-+
-+static int gem_rx(struct macb *bp, int budget)
-+{
-+	unsigned int		len;
-+	unsigned int		entry;
-+	struct sk_buff		*skb;
-+	struct macb_dma_desc	*desc;
-+	int			count = 0;
-+
-+	while (count < budget) {
-+		u32 addr, ctrl;
-+
-+		entry = macb_rx_ring_wrap(bp->rx_tail);
-+		desc = &bp->rx_ring[entry];
-+
-+		/* Make hw descriptor updates visible to CPU */
-+		rmb();
-+
-+		addr = desc->addr;
-+		ctrl = desc->ctrl;
-+
-+		if (!(addr & MACB_BIT(RX_USED)))
-+			break;
-+
-+		desc->addr &= ~MACB_BIT(RX_USED);
-+		bp->rx_tail++;
-+		count++;
-+
-+		if (!(ctrl & MACB_BIT(RX_SOF) && ctrl & MACB_BIT(RX_EOF))) {
-+			netdev_err(bp->dev,
-+				   "not whole frame pointed by descriptor\n");
-+			bp->stats.rx_dropped++;
-+			break;
-+		}
-+		skb = bp->rx_skbuff[entry];
-+		if (unlikely(!skb)) {
-+			netdev_err(bp->dev,
-+				   "inconsistent Rx descriptor chain\n");
-+			bp->stats.rx_dropped++;
-+			break;
-+		}
-+		/* now everything is ready for receiving packet */
-+		bp->rx_skbuff[entry] = NULL;
-+		len = MACB_BFEXT(RX_FRMLEN, ctrl);
-+
-+		netdev_vdbg(bp->dev, "gem_rx %u (len %u)\n", entry, len);
-+
-+		skb_put(skb, len);
-+		addr = MACB_BF(RX_WADDR, MACB_BFEXT(RX_WADDR, addr));
-+		dma_unmap_single(&bp->pdev->dev, addr,
-+				 len, DMA_FROM_DEVICE);
-+
-+		skb->protocol = eth_type_trans(skb, bp->dev);
-+		skb_checksum_none_assert(skb);
-+
-+		bp->stats.rx_packets++;
-+		bp->stats.rx_bytes += skb->len;
-+
-+#if defined(DEBUG) && defined(VERBOSE_DEBUG)
-+		netdev_vdbg(bp->dev, "received skb of length %u, csum: %08x\n",
-+			    skb->len, skb->csum);
-+		print_hex_dump(KERN_DEBUG, " mac: ", DUMP_PREFIX_ADDRESS, 16, 1,
-+			       skb->mac_header, 16, true);
-+		print_hex_dump(KERN_DEBUG, "data: ", DUMP_PREFIX_ADDRESS, 16, 1,
-+			       skb->data, 32, true);
-+#endif
-+
-+		netif_receive_skb(skb);
-+	}
-+
-+	gem_rx_refill(bp);
-+
-+	return count;
-+}
-+
- static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 			 unsigned int last_frag)
- {
-@@ -608,27 +756,6 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
- 	return 0;
- }
+ void macb_set_hwaddr(struct macb *bp)
+@@ -575,7 +577,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 	skb_put(skb, len);
  
--/* Mark DMA descriptors from begin up to and not including end as unused */
--static void discard_partial_frame(struct macb *bp, unsigned int begin,
--				  unsigned int end)
--{
--	unsigned int frag;
--
--	for (frag = begin; frag != end; frag++) {
--		struct macb_dma_desc *desc = macb_rx_desc(bp, frag);
--		desc->addr &= ~MACB_BIT(RX_USED);
--	}
--
--	/* Make descriptor updates visible to hardware */
--	wmb();
--
--	/*
--	 * When this happens, the hardware stats registers for
--	 * whatever caused this is updated, so we don't have to record
--	 * anything.
--	 */
--}
--
- static int macb_rx(struct macb *bp, int budget)
- {
- 	int received = 0;
-@@ -689,7 +816,7 @@ static int macb_poll(struct napi_struct *napi, int budget)
- 	netdev_vdbg(bp->dev, "poll: status = %08lx, budget = %d\n",
- 		   (unsigned long)status, budget);
+ 	for (frag = first_frag; ; frag++) {
+-		unsigned int frag_len = RX_BUFFER_SIZE;
++		unsigned int frag_len = bp->rx_buffer_size;
  
--	work_done = macb_rx(bp, budget);
-+	work_done = bp->macbgem_ops.mog_rx(bp, budget);
- 	if (work_done < budget) {
- 		napi_complete(napi);
+ 		if (offset + frag_len > len) {
+ 			BUG_ON(frag != last_frag);
+@@ -583,7 +585,7 @@ static int macb_rx_frame(struct macb *bp, unsigned int first_frag,
+ 		}
+ 		skb_copy_to_linear_data_offset(skb, offset,
+ 				macb_rx_buffer(bp, frag), frag_len);
+-		offset += RX_BUFFER_SIZE;
++		offset += bp->rx_buffer_size;
+ 		desc = macb_rx_desc(bp, frag);
+ 		desc->addr &= ~MACB_BIT(RX_USED);
  
-@@ -872,29 +999,63 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -870,6 +872,30 @@ static int macb_start_xmit(struct sk_buff *skb, struct net_device *dev)
  	return NETDEV_TX_OK;
  }
  
--static void macb_init_rx_buffer_size(struct macb *bp)
-+static void macb_init_rx_buffer_size(struct macb *bp, size_t size)
- {
- 	if (!macb_is_gem(bp)) {
- 		bp->rx_buffer_size = MACB_RX_BUFFER_SIZE;
- 	} else {
--		bp->rx_buffer_size = GEM_RX_BUFFER_SIZE;
-+		bp->rx_buffer_size = size;
- 
--		if (bp->rx_buffer_size > PAGE_SIZE) {
--			netdev_warn(bp->dev,
--				    "RX buffer cannot be bigger than PAGE_SIZE, shrinking\n");
--			bp->rx_buffer_size = PAGE_SIZE;
--		}
- 		if (bp->rx_buffer_size % RX_BUFFER_MULTIPLE) {
--			netdev_warn(bp->dev,
--				    "RX buffer must be multiple of %d bytes, shrinking\n",
-+			netdev_dbg(bp->dev,
-+				    "RX buffer must be multiple of %d bytes, expanding\n",
- 				    RX_BUFFER_MULTIPLE);
- 			bp->rx_buffer_size =
--				rounddown(bp->rx_buffer_size, RX_BUFFER_MULTIPLE);
-+				roundup(bp->rx_buffer_size, RX_BUFFER_MULTIPLE);
- 		}
--		bp->rx_buffer_size = max(RX_BUFFER_MULTIPLE, GEM_RX_BUFFER_SIZE);
- 	}
-+
-+	netdev_dbg(bp->dev, "mtu [%d] rx_buffer_size [%d]\n",
-+		   bp->dev->mtu, bp->rx_buffer_size);
- }
- 
-+static void gem_free_rx_buffers(struct macb *bp)
++static void macb_init_rx_buffer_size(struct macb *bp)
 +{
-+	struct sk_buff		*skb;
-+	struct macb_dma_desc	*desc;
-+	dma_addr_t		addr;
-+	int i;
++	if (!macb_is_gem(bp)) {
++		bp->rx_buffer_size = MACB_RX_BUFFER_SIZE;
++	} else {
++		bp->rx_buffer_size = GEM_RX_BUFFER_SIZE;
 +
-+	if (!bp->rx_skbuff)
-+		return;
-+
-+	for (i = 0; i < RX_RING_SIZE; i++) {
-+		skb = bp->rx_skbuff[i];
-+
-+		if (skb == NULL)
-+			continue;
-+
-+		desc = &bp->rx_ring[i];
-+		addr = MACB_BF(RX_WADDR, MACB_BFEXT(RX_WADDR, desc->addr));
-+		dma_unmap_single(&bp->pdev->dev, addr, skb->len,
-+				 DMA_FROM_DEVICE);
-+		dev_kfree_skb_any(skb);
-+		skb = NULL;
-+	}
-+
-+	kfree(bp->rx_skbuff);
-+	bp->rx_skbuff = NULL;
-+}
-+
-+static void macb_free_rx_buffers(struct macb *bp)
-+{
-+	if (bp->rx_buffers) {
-+		dma_free_coherent(&bp->pdev->dev,
-+				  RX_RING_SIZE * bp->rx_buffer_size,
-+				  bp->rx_buffers, bp->rx_buffers_dma);
-+		bp->rx_buffers = NULL;
++		if (bp->rx_buffer_size > PAGE_SIZE) {
++			netdev_warn(bp->dev,
++				    "RX buffer cannot be bigger than PAGE_SIZE, shrinking\n");
++			bp->rx_buffer_size = PAGE_SIZE;
++		}
++		if (bp->rx_buffer_size % RX_BUFFER_MULTIPLE) {
++			netdev_warn(bp->dev,
++				    "RX buffer must be multiple of %d bytes, shrinking\n",
++				    RX_BUFFER_MULTIPLE);
++			bp->rx_buffer_size =
++				rounddown(bp->rx_buffer_size, RX_BUFFER_MULTIPLE);
++		}
++		bp->rx_buffer_size = max(RX_BUFFER_MULTIPLE, GEM_RX_BUFFER_SIZE);
 +	}
 +}
- 
++
++
  static void macb_free_consistent(struct macb *bp)
  {
-@@ -902,6 +1063,7 @@ static void macb_free_consistent(struct macb *bp)
- 		kfree(bp->tx_skb);
- 		bp->tx_skb = NULL;
+ 	if (bp->tx_skb) {
+@@ -888,7 +914,7 @@ static void macb_free_consistent(struct macb *bp)
  	}
-+	bp->macbgem_ops.mog_free_rx_buffers(bp);
- 	if (bp->rx_ring) {
- 		dma_free_coherent(&bp->pdev->dev, RX_RING_BYTES,
- 				  bp->rx_ring, bp->rx_ring_dma);
-@@ -912,12 +1074,37 @@ static void macb_free_consistent(struct macb *bp)
- 				  bp->tx_ring, bp->tx_ring_dma);
- 		bp->tx_ring = NULL;
+ 	if (bp->rx_buffers) {
+ 		dma_free_coherent(&bp->pdev->dev,
+-				  RX_RING_SIZE * RX_BUFFER_SIZE,
++				  RX_RING_SIZE * bp->rx_buffer_size,
+ 				  bp->rx_buffers, bp->rx_buffers_dma);
+ 		bp->rx_buffers = NULL;
  	}
--	if (bp->rx_buffers) {
--		dma_free_coherent(&bp->pdev->dev,
--				  RX_RING_SIZE * bp->rx_buffer_size,
--				  bp->rx_buffers, bp->rx_buffers_dma);
--		bp->rx_buffers = NULL;
--	}
-+}
-+
-+static int gem_alloc_rx_buffers(struct macb *bp)
-+{
-+	int size;
-+
-+	size = RX_RING_SIZE * sizeof(struct sk_buff *);
-+	bp->rx_skbuff = kzalloc(size, GFP_KERNEL);
-+	if (!bp->rx_skbuff)
-+		return -ENOMEM;
-+	else
-+		netdev_dbg(bp->dev,
-+			   "Allocated %d RX struct sk_buff entries at %p\n",
-+			   RX_RING_SIZE, bp->rx_skbuff);
-+	return 0;
-+}
-+
-+static int macb_alloc_rx_buffers(struct macb *bp)
-+{
-+	int size;
-+
-+	size = RX_RING_SIZE * bp->rx_buffer_size;
-+	bp->rx_buffers = dma_alloc_coherent(&bp->pdev->dev, size,
-+					    &bp->rx_buffers_dma, GFP_KERNEL);
-+	if (!bp->rx_buffers)
-+		return -ENOMEM;
-+	else
-+		netdev_dbg(bp->dev,
-+			   "Allocated RX buffers of %d bytes at %08lx (mapped %p)\n",
-+			   size, (unsigned long)bp->rx_buffers_dma, bp->rx_buffers);
-+	return 0;
- }
- 
- static int macb_alloc_consistent(struct macb *bp)
-@@ -947,14 +1134,8 @@ static int macb_alloc_consistent(struct macb *bp)
+@@ -921,7 +947,7 @@ static int macb_alloc_consistent(struct macb *bp)
  		   "Allocated TX ring of %d bytes at %08lx (mapped %p)\n",
  		   size, (unsigned long)bp->tx_ring_dma, bp->tx_ring);
  
--	size = RX_RING_SIZE * bp->rx_buffer_size;
--	bp->rx_buffers = dma_alloc_coherent(&bp->pdev->dev, size,
--					    &bp->rx_buffers_dma, GFP_KERNEL);
--	if (!bp->rx_buffers)
-+	if (bp->macbgem_ops.mog_alloc_rx_buffers(bp))
- 		goto out_err;
--	netdev_dbg(bp->dev,
--		   "Allocated RX buffers of %d bytes at %08lx (mapped %p)\n",
--		   size, (unsigned long)bp->rx_buffers_dma, bp->rx_buffers);
+-	size = RX_RING_SIZE * RX_BUFFER_SIZE;
++	size = RX_RING_SIZE * bp->rx_buffer_size;
+ 	bp->rx_buffers = dma_alloc_coherent(&bp->pdev->dev, size,
+ 					    &bp->rx_buffers_dma, GFP_KERNEL);
+ 	if (!bp->rx_buffers)
+@@ -946,7 +972,7 @@ static void macb_init_rings(struct macb *bp)
+ 	for (i = 0; i < RX_RING_SIZE; i++) {
+ 		bp->rx_ring[i].addr = addr;
+ 		bp->rx_ring[i].ctrl = 0;
+-		addr += RX_BUFFER_SIZE;
++		addr += bp->rx_buffer_size;
+ 	}
+ 	bp->rx_ring[RX_RING_SIZE - 1].addr |= MACB_BIT(RX_WRAP);
  
- 	return 0;
+@@ -1056,7 +1082,7 @@ static void macb_configure_dma(struct macb *bp)
  
-@@ -963,6 +1144,21 @@ out_err:
- 	return -ENOMEM;
- }
- 
-+static void gem_init_rings(struct macb *bp)
-+{
-+	int i;
-+
-+	for (i = 0; i < TX_RING_SIZE; i++) {
-+		bp->tx_ring[i].addr = 0;
-+		bp->tx_ring[i].ctrl = MACB_BIT(TX_USED);
-+	}
-+	bp->tx_ring[TX_RING_SIZE - 1].ctrl |= MACB_BIT(TX_WRAP);
-+
-+	bp->rx_tail = bp->rx_prepared_head = bp->tx_head = bp->tx_tail = 0;
-+
-+	gem_rx_refill(bp);
-+}
-+
- static void macb_init_rings(struct macb *bp)
- {
- 	int i;
-@@ -1259,6 +1455,7 @@ EXPORT_SYMBOL_GPL(macb_set_rx_mode);
- static int macb_open(struct net_device *dev)
- {
- 	struct macb *bp = netdev_priv(dev);
-+	size_t bufsz = dev->mtu + ETH_HLEN + ETH_FCS_LEN + NET_IP_ALIGN;
- 	int err;
- 
- 	netdev_dbg(bp->dev, "open\n");
-@@ -1271,7 +1468,7 @@ static int macb_open(struct net_device *dev)
+ 	if (macb_is_gem(bp)) {
+ 		dmacfg = gem_readl(bp, DMACFG) & ~GEM_BF(RXBS, -1L);
+-		dmacfg |= GEM_BF(RXBS, RX_BUFFER_SIZE / 64);
++		dmacfg |= GEM_BF(RXBS, bp->rx_buffer_size / RX_BUFFER_MULTIPLE);
+ 		dmacfg |= GEM_BF(FBLDO, 16);
+ 		dmacfg |= GEM_BIT(TXPBMS) | GEM_BF(RXBMS, -1L);
+ 		dmacfg &= ~GEM_BIT(ENDIA);
+@@ -1244,6 +1270,9 @@ static int macb_open(struct net_device *dev)
+ 	if (!bp->phy_dev)
  		return -EAGAIN;
  
- 	/* RX buffers initialization */
--	macb_init_rx_buffer_size(bp);
-+	macb_init_rx_buffer_size(bp, bufsz);
- 
++	/* RX buffers initialization */
++	macb_init_rx_buffer_size(bp);
++
  	err = macb_alloc_consistent(bp);
  	if (err) {
-@@ -1282,7 +1479,7 @@ static int macb_open(struct net_device *dev)
- 
- 	napi_enable(&bp->napi);
- 
--	macb_init_rings(bp);
-+	bp->macbgem_ops.mog_init_rings(bp);
- 	macb_init_hw(bp);
- 
- 	/* schedule a link state check */
-@@ -1601,6 +1798,19 @@ static int __init macb_probe(struct platform_device *pdev)
- 
- 	dev->base_addr = regs->start;
- 
-+	/* setup appropriated routines according to adapter type */
-+	if (macb_is_gem(bp)) {
-+		bp->macbgem_ops.mog_alloc_rx_buffers = gem_alloc_rx_buffers;
-+		bp->macbgem_ops.mog_free_rx_buffers = gem_free_rx_buffers;
-+		bp->macbgem_ops.mog_init_rings = gem_init_rings;
-+		bp->macbgem_ops.mog_rx = gem_rx;
-+	} else {
-+		bp->macbgem_ops.mog_alloc_rx_buffers = macb_alloc_rx_buffers;
-+		bp->macbgem_ops.mog_free_rx_buffers = macb_free_rx_buffers;
-+		bp->macbgem_ops.mog_init_rings = macb_init_rings;
-+		bp->macbgem_ops.mog_rx = macb_rx;
-+	}
-+
- 	/* Set MII management clock divider */
- 	config = macb_mdc_clk_div(bp);
- 	config |= macb_dbw(bp);
+ 		netdev_err(dev, "Unable to allocate DMA memory (error %d)\n",
 diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 9b5e19f..f407615 100644
+index 548c0ec..9b5e19f 100644
 --- a/drivers/net/ethernet/cadence/macb.h
 +++ b/drivers/net/ethernet/cadence/macb.h
-@@ -545,11 +545,22 @@ struct gem_stats {
- 	u32	rx_udp_checksum_errors;
- };
- 
-+struct macb;
-+
-+struct macb_or_gem_ops {
-+	int	(*mog_alloc_rx_buffers)(struct macb *bp);
-+	void	(*mog_free_rx_buffers)(struct macb *bp);
-+	void	(*mog_init_rings)(struct macb *bp);
-+	int	(*mog_rx)(struct macb *bp, int budget);
-+};
-+
- struct macb {
- 	void __iomem		*regs;
- 
+@@ -551,6 +551,7 @@ struct macb {
  	unsigned int		rx_tail;
-+	unsigned int		rx_prepared_head;
  	struct macb_dma_desc	*rx_ring;
-+	struct sk_buff		**rx_skbuff;
  	void			*rx_buffers;
- 	size_t			rx_buffer_size;
++	size_t			rx_buffer_size;
  
-@@ -574,6 +585,8 @@ struct macb {
- 	dma_addr_t		tx_ring_dma;
- 	dma_addr_t		rx_buffers_dma;
- 
-+	struct macb_or_gem_ops	macbgem_ops;
-+
- 	struct mii_bus		*mii_bus;
- 	struct phy_device	*phy_dev;
- 	unsigned int 		link;
+ 	unsigned int		tx_head, tx_tail;
+ 	struct macb_dma_desc	*tx_ring;
 -- 
 1.8.0
