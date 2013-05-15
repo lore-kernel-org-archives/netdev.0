@@ -1,93 +1,155 @@
-From: Robin Holt <holt@sgi.com>
-Subject: Re: kmalloc warning in mlx4_buddy_init.
-Date: Wed, 15 May 2013 11:13:53 -0500
-Message-ID: <20130515161353.GW3658@sgi.com>
-References: <20130515082348.GO3658@sgi.com>
- <1368627342.4519.29.camel@edumazet-glaptop>
+From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
+Subject: Re: [PATCH] net/802/mrp: fix lockdep splat
+Date: Wed, 15 May 2013 12:34:16 -0400
+Message-ID: <5193B908.4030407@ll.mit.edu>
+References: <6901a7785249816fe13a98e3c0b35127@visp.net.lb>
+	 <1368447851.13473.119.camel@edumazet-glaptop>
+	 <16b0a5ee4602cb9005dd67ea7ad0d4e8@visp.net.lb>
+	 <20130514.120754.1745967383330029903.davem@davemloft.net>
+	 <1368559307.4519.21.camel@edumazet-glaptop>
+	 <1368560401.4519.25.camel@edumazet-glaptop>
+	 <1851d9143b2404f6686cf25d6bcea823@visp.net.lb>
+ <1368631325.4519.30.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robin Holt <holt@sgi.com>, Roland Dreier <roland@purestorage.com>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pkcs7-signature";
+	micalg=sha1; boundary="------------ms090502050505010007030908"
+Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
+	David Miller <davem@davemloft.net>,
+	"amwang@redhat.com" <amwang@redhat.com>,
+	"hayeswang@realtek.com" <hayeswang@realtek.com>,
+	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1368627342.4519.29.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:41468 "EHLO mx2.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758652Ab3EOQfr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 May 2013 12:35:47 -0400
+In-Reply-To: <1368631325.4519.30.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 15, 2013 at 07:15:42AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-05-15 at 03:23 -0500, Robin Holt wrote:
-> > Roland,
-> > 
-> > We are seeing the following when booting on a large system.
-> > 
-> > [  171.399023] mlx4_core 0004:01:00.0: irq 2410 for MSI/MSI-X
-> > [  171.406560] ------------[ cut here ]------------
-> > [  171.411734] WARNING: at mm/slab_common.c:376 kmalloc_slab+0x71/0x90()
-> > [  171.418919] Modules linked in: mlx4_core(+) sg lpc_ich mfd_core shpchp pci_hotplug ehci_pci ehci_hcd ioatdma i2c_i801 igb dca i2c_algo_bit i2c_core ptp pps_core mperf processor thermal_sys hwmon usbcore usb_common ext4 jbd2 crc16 sd_mod crc_t10dif qla2xxx scsi_transport_fc scsi_tgt megaraid_sas ahci libahci isci libsas libata scsi_transport_sas scsi_mod button dm_mirror dm_region_hash dm_log dm_mod gru(O) xvma(O)
-> > [  171.460377] CPU: 48 PID: 2561 Comm: kworker/48:1 Tainted: G        W  O 3.10.0-rc1-uv-hz100-rja+ #3
-> > [  171.470473] Hardware name: SGI UV2000/ROMLEY, BIOS SGI UV 2000/3000 series BIOS 01/15/2013
-> > [  171.479720] Workqueue: events work_for_cpu_fn
-> > [  171.484597]  0000000000000178 ffff8867bb0f5ba8 ffffffff814a873c ffff8867bb0f5be8
-> > [  171.492897]  ffffffff81045a7b 000080d0000080d0 0000000000200000 ffff88679bc7cb80
-> > [  171.501205]  0000000000000000 00000000000082d0 0000000000000000 ffff8867bb0f5bf8
-> > [  171.509502] Call Trace:
-> > [  171.512266]  [<ffffffff814a873c>] dump_stack+0x19/0x1d
-> > [  171.518007]  [<ffffffff81045a7b>] warn_slowpath_common+0x6b/0xa0
-> > [  171.524711]  [<ffffffff81045ac5>] warn_slowpath_null+0x15/0x20
-> > [  171.531230]  [<ffffffff811258c1>] kmalloc_slab+0x71/0x90
-> > [  171.537176]  [<ffffffff81152e10>] __kmalloc+0x30/0x220
-> > [  171.542989]  [<ffffffffa03a9f4b>] ? mlx4_buddy_init+0xdb/0x1d0 [mlx4_core]
-> > [  171.550699]  [<ffffffffa03a9f4b>] mlx4_buddy_init+0xdb/0x1d0 [mlx4_core]
-> > [  171.558183]  [<ffffffffa03aa0ef>] mlx4_init_mr_table+0xaf/0x130 [mlx4_core]
-> > [  171.565964]  [<ffffffffa03a3c48>] mlx4_setup_hca+0x158/0x5a0 [mlx4_core]
-> > [  171.573446]  [<ffffffffa03a5b90>] __mlx4_init_one+0x720/0x9c0 [mlx4_core]
-> > [  171.581030]  [<ffffffffa03a5e7c>] mlx4_init_one+0x2c/0x60 [mlx4_core]
-> > [  171.588232]  [<ffffffff8128c599>] local_pci_probe+0x49/0x80
-> > [  171.594458]  [<ffffffff810606f3>] work_for_cpu_fn+0x13/0x20
-> > [  171.600692]  [<ffffffff81064114>] process_one_work+0x194/0x3d0
-> > [  171.607200]  [<ffffffff81065464>] worker_thread+0x2c4/0x410
-> > [  171.613421]  [<ffffffff810651a0>] ? manage_workers+0x190/0x190
-> > [  171.619940]  [<ffffffff8106aee6>] kthread+0xc6/0xd0
-> > [  171.625392]  [<ffffffff8106ae20>] ? kthread_freezable_should_stop+0x70/0x70
-> > [  171.633182]  [<ffffffff814b42ec>] ret_from_fork+0x7c/0xb0
-> > [  171.639204]  [<ffffffff8106ae20>] ? kthread_freezable_should_stop+0x70/0x70
-> > [  171.646976] ---[ end trace 822f6d487f108023 ]---
-> > [  171.715920] mlx4_core 0004:01:00.0: command 0xc failed: fw status = 0x40
-> > [  171.723888] mlx4_core: Initializing 0007:02:00.0
-> > 
-> > This looks to be a kmalloc larger than MAX_ORDER.  Not sure which of the two
-> > kcallocs in mlx4_buddy_init.
-> 
-> Same problem here, its a real old problem that I mentioned.
+--------------ms090502050505010007030908
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
 
-Is there any pressure against getting this changed or an equivalent
-change made upstream?
+On 05/15/2013 11:22 AM, Eric Dumazet wrote:
+> Re: [PATCH] net/802/mrp: fix lockdep splat
+>
+> On Wed, 2013-05-15 at 17:50 +0300, Denys Fedoryshchenko wrote:
+> > On 2013-05-14 22:40, Eric Dumazet wrote:
+> > >
+> > > I definitely could trigger the bug easily without my patch :
+> >
+> >
+> > >
+> > > And with the patch, there is no lockdep splat anymore.
+> > >
+> > > Tested-by: Eric Dumazet <edumazet@google.com>
+> >
+> > Yes, it seems after depclean i cannot reproduce anymore this bug. My
+> > bad, seems i should recompile kernel completely next time.
+> >
+>
+> Thanks for testing again, I was quite mystified by your original
+> results ;)
+>
 
-> I usually use following hack to reduce the allocation size by 50%
-> 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c
-> b/drivers/net/ethernet/mellanox/mlx4/main.c
-> index 0d32a82..b22f116 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-> @@ -126,7 +126,7 @@ static int log_num_vlan;
->  module_param_named(log_num_vlan, log_num_vlan, int, 0444);
->  MODULE_PARM_DESC(log_num_vlan, "Log2 max number of VLANs per ETH port
-> (0-7)");
->  /* Log2 max number of VLANs per ETH port (0-7) */
-> -#define MLX4_LOG_NUM_VLANS 7
-> +#define MLX4_LOG_NUM_VLANS 6
+FYI - I believe GARP (net/802/garp.c) needs the same fix.  Thechange=20
+that introduced this issue was originally copied from there.
 
-This seems to work around the problem, but I think I might have something
-else going on as well.
+David
 
-Without this patch, it will succeed if I have the driver configured
-to be built into the kernel.  It will fail when I have it configured
-as a loadable module.  I am not certain I did not accidentally change
-something else as well.
 
-I am going to use this for my local stuff and hope a fix gets upstream.
+--------------ms090502050505010007030908
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="smime.p7s"
+Content-Description: S/MIME Cryptographic Signature
 
-Thanks,
-Robin
+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
+--------------ms090502050505010007030908--
