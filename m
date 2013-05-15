@@ -1,61 +1,45 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 07/11] net/peak_pcmcia: take msecs_to_jiffies_min into
- use
-Date: Wed, 15 May 2013 11:12:44 +0200
-Message-ID: <5193518C.3040706@pengutronix.de>
-References: <1368188011-23661-1-git-send-email-imre.deak@intel.com> <1368188011-23661-7-git-send-email-imre.deak@intel.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: [PATCH 0/3 v3] net/macb: RX path enhancement
+Date: Wed, 15 May 2013 11:18:45 +0200
+Message-ID: <cover.1368608928.git.nicolas.ferre@atmel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2PNOBNGTSUMEMBABXASGK"
-Cc: linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Daniel Vetter <daniel.vetter@ffwll.ch>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	Bill Pemberton <wfp5p@virginia.edu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Joe Perches <joe@perches.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Imre Deak <imre.deak@intel.com>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1368188011-23661-7-git-send-email-imre.deak@intel.com>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	<hein_tibosch@yahoo.es>, <s.trumtrar@pengutronix.de>,
+	<michal.simek@xilinx.com>, <monstr@monstr.eu>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>
+To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2PNOBNGTSUMEMBABXASGK
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+Here is the patch series for modifying the RX path in macb driver.
+This change applies on GEM variant of the Cadence IP and introduces
+function pointers to match the path to the proper adapter. The move
+to RX buffers adapted to MTU and that can be DMAed directly in SKB
+is done in two steps but can be merged in a single patch.
 
-On 05/10/2013 02:13 PM, Imre Deak wrote:
-> Use msecs_to_jiffies_min instead of open-coding the same.
->=20
-> Signed-off-by: Imre Deak <imre.deak@intel.com>
+v3: - rebased on top of net-next (containing recently added
+      net/macb: fix ISR clear-on-write behavior only for some SoC)
+    - added the ___cacheline_aligned_in_smp qualifier to napi field
+      following Ben Hutchings' advice
 
-Tnx, applied to linux-can-next/master.
+v2: - gave up the idea of using non-coherent memory for
+      rx buffers
+    - addition of the struct macb layout optimization
 
-Marc
+Havard Skinnemoen (1):
+  net/macb: Try to optimize struct macb layout
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+Nicolas Ferre (2):
+  net/macb: increase RX buffer size for GEM
+  net/macb: change RX path for GEM
 
+ drivers/net/ethernet/cadence/macb.c | 323 +++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/cadence/macb.h |  39 +++--
+ 2 files changed, 308 insertions(+), 54 deletions(-)
 
-------enig2PNOBNGTSUMEMBABXASGK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlGTUYwACgkQjTAFq1RaXHP48QCdEMb8xFkbN/xEMwk6+nl0WdqZ
-/N8An1ecBfxBpaF3pDbNt1kOejjLMFDI
-=Vlfc
------END PGP SIGNATURE-----
-
-------enig2PNOBNGTSUMEMBABXASGK--
+-- 
+1.8.0
