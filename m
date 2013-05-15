@@ -1,70 +1,45 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH V3] rtlwifi: rtl8192cu: Add new USB ID
-Date: Wed, 15 May 2013 15:34:14 -0500
-Message-ID: <5193F146.3030206@lwfinger.net>
-References: <1368630196-14704-1-git-send-email-Larry.Finger@lwfinger.net> <5193EEA8.8030900@cogentembedded.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: r8169 on 3.8.13, 3.9.2, 3.10-rc1, was Re: [ 00/73]
+ 3.8.13-stable review
+Date: Wed, 15 May 2013 13:39:13 -0700 (PDT)
+Message-ID: <20130515.133913.339696465413205791.davem@davemloft.net>
+References: <pan.2013.05.10.10.54.26.943195@googlemail.com>
+	<20130515000715.GA20099@milliways>
+	<20130515061401.GA4382@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	Albert Pool <albertpool@solcon.nl>, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:34442 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755108Ab3EOUeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 16:34:20 -0400
-In-Reply-To: <5193EEA8.8030900@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: zarniwhoop@ntlworld.com, holger.hoffstaette@googlemail.com,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130515061401.GA4382@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 05/15/2013 03:23 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 05/15/2013 07:03 PM, Larry Finger wrote:
->
->> From: Albert Pool <albertpool@solcon.nl>
->>
->> This adds the USB ID of the On Networks N300MA, clone of Netgear WNA3100M.
->>
->> Signed-off-by: Albert Pool <albertpool@solcon.nl>
->> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
->> Reported-by: Ana Rey <Anazul77@hotmail.com>
->> ---
->>
->> John,
->>
->> Please use this version. V2 still had some whitespace errors that I fixed.
->>
->> Albert,
->>
->> Please use scripts/checkpatch.pl to check the patch before you send it.
->>
->> Thanks,
->>
->> Larry
->> ---
->>
->>   drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 1 +
->>   1 file changed, 1 insertion(+)
->>
->> diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->> b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->> index 23d640a..18da6de 100644
->> --- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->> +++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->> @@ -349,6 +349,7 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
->>       {RTL_USB_DEVICE(0x07aa, 0x0056, rtl92cu_hal_cfg)}, /*ATKK-Gemtek*/
->>       {RTL_USB_DEVICE(0x07b8, 0x8178, rtl92cu_hal_cfg)}, /*Funai -Abocom*/
->>       {RTL_USB_DEVICE(0x0846, 0x9021, rtl92cu_hal_cfg)}, /*Netgear-Sercomm*/
->> +    {RTL_USB_DEVICE(0x0846, 0xf001, rtl92cu_hal_cfg)}, /*On Netwrks N300MA*/
->
->     "Networks", perhaps? Or does it hit 80 columns limit this way?
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Wed, 15 May 2013 08:14:01 +0200
 
-That is exactly the problem. I suppose I could allow one line to be 81 
-characters in length, but that would diminish the effectiveness of my suggestion 
-that checkpatch be used.
+> Ken Moffat <zarniwhoop@ntlworld.com> :
+> [...]
+>>  Cc'ing to netdev because I don't think this has had a response, and
+> 
+> A patch has been sent to netdev a few hours ago. It needs more work,
+> especially testing (hint, hint) as I don't have a proven test case yet.
+> 
+> Please note:
+> - if you don't use a 8168evl (check your dmesg for the XID line emitted
+>   by the r8169 driver), you are not the experiencing the same bug.
+> - if you don't enable Tx checksum offload (distro/vendor dependent though
+>   disabled by default in the vanilla driver, see ethtool -k eth0,
+>   ethtool -K eth0 tx on sg on)), you are not the experiencing the same
+>   bug.
+> - if you are experiencing the same bug, 3.10-rc1 should work again
+>   after reverting e5195c1f31f399289347e043d6abf3ffa80f0005
+> 
+> If someone comes with a failing network capture and a working one, it will
+> save time. A 64 bytes (max) packet is not correctly transmitted.
 
-Thanks for noticing. At least someone is reading the patches.
-
-Larry
+FWIW, I was about to submit the regression causing commit to -stable
+but now I'm going to hold off until we get the fix for it to Linus.
