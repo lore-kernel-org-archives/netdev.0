@@ -1,60 +1,35 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: r8169 on 3.8.13, 3.9.2, 3.10-rc1, was Re: [ 00/73]
- 3.8.13-stable review
-Date: Wed, 15 May 2013 16:15:53 -0700 (PDT)
-Message-ID: <20130515.161553.1871580061675923929.davem@davemloft.net>
-References: <20130515000715.GA20099@milliways>
-	<20130515061401.GA4382@electric-eye.fr.zoreil.com>
-	<20130515.133913.339696465413205791.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bonding: allow TSO being set on bonding master
+Date: Wed, 15 May 2013 16:18:20 -0700
+Message-ID: <1368659900.4519.57.camel@edumazet-glaptop>
+References: <1368654065.4519.53.camel@edumazet-glaptop>
+	 <CAHXqBF+r3wnWY+hveYjVBNwbVYdiDF4mOj1UmbKeH3OYo6kz6Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: zarniwhoop@ntlworld.com, holger.hoffstaette@googlemail.com,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	netdev@vger.kernel.org
-To: romieu@fr.zoreil.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130515.133913.339696465413205791.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:51408 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753315Ab3EOXSW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 19:18:22 -0400
+Received: by mail-da0-f46.google.com with SMTP id e20so1261654dak.5
+        for <netdev@vger.kernel.org>; Wed, 15 May 2013 16:18:22 -0700 (PDT)
+In-Reply-To: <CAHXqBF+r3wnWY+hveYjVBNwbVYdiDF4mOj1UmbKeH3OYo6kz6Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 15 May 2013 13:39:13 -0700 (PDT)
+On Thu, 2013-05-16 at 00:55 +0200, Micha=C5=82 Miros=C5=82aw wrote:
 
-> From: Francois Romieu <romieu@fr.zoreil.com>
-> Date: Wed, 15 May 2013 08:14:01 +0200
-> 
->> Ken Moffat <zarniwhoop@ntlworld.com> :
->> [...]
->>>  Cc'ing to netdev because I don't think this has had a response, and
->> 
->> A patch has been sent to netdev a few hours ago. It needs more work,
->> especially testing (hint, hint) as I don't have a proven test case yet.
->> 
->> Please note:
->> - if you don't use a 8168evl (check your dmesg for the XID line emitted
->>   by the r8169 driver), you are not the experiencing the same bug.
->> - if you don't enable Tx checksum offload (distro/vendor dependent though
->>   disabled by default in the vanilla driver, see ethtool -k eth0,
->>   ethtool -K eth0 tx on sg on)), you are not the experiencing the same
->>   bug.
->> - if you are experiencing the same bug, 3.10-rc1 should work again
->>   after reverting e5195c1f31f399289347e043d6abf3ffa80f0005
->> 
->> If someone comes with a failing network capture and a working one, it will
->> save time. A 64 bytes (max) packet is not correctly transmitted.
-> 
-> FWIW, I was about to submit the regression causing commit to -stable
-> but now I'm going to hold off until we get the fix for it to Linus.
+> Have you tried adding it to NETIF_F_ONE_FOR_ALL set? 'Team' and bridg=
+e
+> could then also use it.
 
-Oh, I see, someone merged it behind my back.
-
-Well, guys, now do you see why I let patches cook in Linus's tree for a
-week or two before I submit them to Linus?
-
-It's so that bugs like this are less likely to propagate, and we find
-them such problems and fix them before a change hits -stable and
-therefore has an effect on an even larger number of users.
-
-Please, use the networking -stable submission process.  If you want a
-patch merged, tell me, and I'll queue it up in patchwork.
+Good point, I am testing this, thanks !
