@@ -1,47 +1,60 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: Single socket with TX_RING and RX_RING
-Date: Thu, 16 May 2013 00:44:45 +0200
-Message-ID: <20130515224452.7CAA6224C4@mail.nwl.cc>
-References: <loom.20130515T144941-798@post.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: r8169 on 3.8.13, 3.9.2, 3.10-rc1, was Re: [ 00/73]
+ 3.8.13-stable review
+Date: Wed, 15 May 2013 16:15:53 -0700 (PDT)
+Message-ID: <20130515.161553.1871580061675923929.davem@davemloft.net>
+References: <20130515000715.GA20099@milliways>
+	<20130515061401.GA4382@electric-eye.fr.zoreil.com>
+	<20130515.133913.339696465413205791.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ricardo =?utf-8?B?VHViw61v?= <rtpardavila@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:59493 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753491Ab3EOWzy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 May 2013 18:55:54 -0400
-Content-Disposition: inline
-In-Reply-To: <loom.20130515T144941-798@post.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: zarniwhoop@ntlworld.com, holger.hoffstaette@googlemail.com,
+	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	netdev@vger.kernel.org
+To: romieu@fr.zoreil.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130515.133913.339696465413205791.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 15, 2013 at 12:53:55PM +0000, Ricardo Tub=C3=ADo wrote:
-> Once I tell kernel to export the TX_RING through setsockopt() (see co=
-de
-> below) I always get an error (EBUSY) if i try to tell kernel to expor=
-t the
-> RX_RING with the same socket descriptor. Therefore, I have to open an
-> additional socket for the RX_RING and I require of two sockets when I=
- though
-> that I would only require of one socket for both TX and RX using mmap=
-()ed
-> memory.
->=20
-> Do I need both sockets or am I doing something wrong?
+From: David Miller <davem@davemloft.net>
+Date: Wed, 15 May 2013 13:39:13 -0700 (PDT)
 
-After requesting the rings, a single mmap() call suffices for both. So
-pseudo-code basically looks like this:
+> From: Francois Romieu <romieu@fr.zoreil.com>
+> Date: Wed, 15 May 2013 08:14:01 +0200
+> 
+>> Ken Moffat <zarniwhoop@ntlworld.com> :
+>> [...]
+>>>  Cc'ing to netdev because I don't think this has had a response, and
+>> 
+>> A patch has been sent to netdev a few hours ago. It needs more work,
+>> especially testing (hint, hint) as I don't have a proven test case yet.
+>> 
+>> Please note:
+>> - if you don't use a 8168evl (check your dmesg for the XID line emitted
+>>   by the r8169 driver), you are not the experiencing the same bug.
+>> - if you don't enable Tx checksum offload (distro/vendor dependent though
+>>   disabled by default in the vanilla driver, see ethtool -k eth0,
+>>   ethtool -K eth0 tx on sg on)), you are not the experiencing the same
+>>   bug.
+>> - if you are experiencing the same bug, 3.10-rc1 should work again
+>>   after reverting e5195c1f31f399289347e043d6abf3ffa80f0005
+>> 
+>> If someone comes with a failing network capture and a working one, it will
+>> save time. A 64 bytes (max) packet is not correctly transmitted.
+> 
+> FWIW, I was about to submit the regression causing commit to -stable
+> but now I'm going to hold off until we get the fix for it to Linus.
 
-| setsockopt(fd, SOL_PACKET, PACKET_RX_RING, p, sizeof(p));
-| setsockopt(fd, SOL_PACKET, PACKET_TX_RING, p, sizeof(p));
-| rx_ring =3D mmap(NULL, ring_len * 2, PROT_READ | PROT_WRITE, MAP_SHAR=
-ED, fd, 0);
-| tx_ring =3D rx_ring + ring_len;
+Oh, I see, someone merged it behind my back.
 
-Note that packet_mmap() in net/packet/af_packet.c always maps the TX
-ring memory right after the RX one.
+Well, guys, now do you see why I let patches cook in Linus's tree for a
+week or two before I submit them to Linus?
 
-HTH, Phil
+It's so that bugs like this are less likely to propagate, and we find
+them such problems and fix them before a change hits -stable and
+therefore has an effect on an even larger number of users.
+
+Please, use the networking -stable submission process.  If you want a
+patch merged, tell me, and I'll queue it up in patchwork.
