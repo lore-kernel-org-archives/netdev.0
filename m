@@ -1,68 +1,90 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [Patch iproute2] vxlan: use 8472 as default dst port
-Date: Wed, 15 May 2013 09:53:22 -0700
-Message-ID: <20130515095322.275c9b2f@nehalam.linuxnetplumber.net>
-References: <1368616270-5775-1-git-send-email-amwang@redhat.com>
-	<OFA8084FAB.8443890D-ON85257B6C.003F1FAB-85257B6C.003F65F2@us.ibm.com>
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH 1/2] fec: Fix inconsistent lock state
+Date: Wed, 15 May 2013 14:06:26 -0300
+Message-ID: <1368637587-13391-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <Frank.Li@freescale.com>,
+	<kernel@pengutronix.de>, <eric.dumazet@gmail.com>,
+	<netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:35358 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932901Ab3EOQx0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 12:53:26 -0400
-Received: by mail-pd0-f177.google.com with SMTP id g10so1520008pdj.22
-        for <netdev@vger.kernel.org>; Wed, 15 May 2013 09:53:26 -0700 (PDT)
-In-Reply-To: <OFA8084FAB.8443890D-ON85257B6C.003F1FAB-85257B6C.003F65F2@us.ibm.com>
+Received: from va3ehsobe002.messaging.microsoft.com ([216.32.180.12]:26540
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759559Ab3EORGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 13:06:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 15 May 2013 07:32:28 -0400
-David Stevens <dlstevens@us.ibm.com> wrote:
+fec_restart() runs in softirq context and we should use the 
+netif_tx_lock_bh/netif_tx_unlock_bh() variants to avoid the following warning
+that happens since commit 54309fa6 ("net: fec: fix kernel oops when plug/unplug 
+cable many times"):
 
-> netdev-owner@vger.kernel.org wrote on 05/15/2013 07:11:10 AM:
-> 
-> > From: Cong Wang <amwang@redhat.com>
-> 
-> > Cc: Stephen Hemminger <stephen@networkplumber.org>
-> > Signed-off-by: Cong Wang <amwang@redhat.com>
-> > 
-> > ---
-> > diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-> > index 2d93ee2..a0c90b3 100644
-> > --- a/ip/iplink_vxlan.c
-> > +++ b/ip/iplink_vxlan.c
-> > @@ -53,7 +53,7 @@ static int vxlan_parse_opt(struct link_util *lu, 
-> > int argc, char **argv,
-> >     __u8 noage = 0;
-> >     __u32 age = 0;
-> >     __u32 maxaddr = 0;
-> > -   __u16 dstport = 4789;
-> > +   __u16 dstport = 8472;
-> 
-> I think this should be "0"; then it will use the kernel port,
-> whatever it is.
-> 
-> > @@ -188,8 +188,7 @@ static int vxlan_parse_opt(struct link_util *lu,
-> > int argc, char **argv,
-> >     if (range.low || range.high)
-> >        addattr_l(n, 1024, IFLA_VXLAN_PORT_RANGE,
-> >             &range, sizeof(range));
-> > -   if (dstport)
-> > -      addattr16(n, 1024, IFLA_VXLAN_PORT, htons(dstport));
-> > +   addattr16(n, 1024, IFLA_VXLAN_PORT, htons(dstport));
-> 
->         ...and these lines should be left alone. If not specified,
-> it won't pass an alternate port and will use the kernel default.
-> 
->                                                 +-DLS
-> 
-> 
+[    9.753168] =================================
+[    9.757540] [ INFO: inconsistent lock state ]
+[    9.761921] 3.10.0-rc1-next-20130514 #13 Not tainted
+[    9.766897] ---------------------------------
+[    9.771264] inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
+[    9.777288] swapper/0 [HC0[0]:SC1[3]:HE1:SE0] takes:
+[    9.782261]  (_xmit_ETHER#2){+.?...}, at: [<c03c24a4>] sch_direct_xmit+0xa0/0x2d4
+[    9.789879] {SOFTIRQ-ON-W} state was registered at:
+[    9.794769]   [<c0059c60>] __lock_acquire+0x528/0x1bc0
+[    9.799953]   [<c005b838>] lock_acquire+0xa0/0x108
+[    9.804780]   [<c0441320>] _raw_spin_lock+0x28/0x38
+[    9.809702]   [<c02f9fc8>] fec_restart+0x5d0/0x664
+[    9.814542]   [<c02fa738>] fec_enet_adjust_link+0xa8/0xc0
+[    9.819978]   [<c02f7a28>] phy_state_machine+0x2fc/0x370
+[    9.825323]   [<c0035ee0>] process_one_work+0x1c0/0x4a0
+[    9.830589]   [<c0036594>] worker_thread+0x138/0x394
+[    9.835587]   [<c003c620>] kthread+0xa4/0xb0
+[    9.839890]   [<c000e820>] ret_from_fork+0x14/0x34
+[    9.844728] irq event stamp: 185984
+[    9.848226] hardirqs last  enabled at (185984): [<c00232b0>] local_bh_enable_ip+0x84/0xf0
+[    9.856450] hardirqs last disabled at (185983): [<c0023270>] local_bh_enable_ip+0x44/0xf0
+[    9.864667] softirqs last  enabled at (185966): [<c0023470>] irq_enter+0x64/0x68
+[    9.872099] softirqs last disabled at (185967): [<c0023510>] irq_exit+0x9c/0xd8
+[    9.879440] 
+[    9.879440] other info that might help us debug this:
+[    9.885981]  Possible unsafe locking scenario:
+[    9.885981] 
+[    9.891912]        CPU0
+[    9.894364]        ----
+[    9.896814]   lock(_xmit_ETHER#2);
+[    9.900259]   <Interrupt>
+[    9.902884]     lock(_xmit_ETHER#2);
+[    9.906500] 
+[    9.906500]  *** DEADLOCK ***
 
-No. I want all users to get the IANA assigned port unless they specifically
-override it. For compatibility kernel can't change to the IANA value
-but user space needs to nudge users in the correct direction.
+Reported-by: Shawn Guo <shawn.guo@linaro.org>
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index ca9825c..658fbc1 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -451,7 +451,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 		netif_device_detach(ndev);
+ 		napi_disable(&fep->napi);
+ 		netif_stop_queue(ndev);
+-		netif_tx_lock(ndev);
++		netif_tx_lock_bh(ndev);
+ 	}
+ 
+ 	/* Whack a reset.  We should wait for this. */
+@@ -619,7 +619,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 		netif_device_attach(ndev);
+ 		napi_enable(&fep->napi);
+ 		netif_wake_queue(ndev);
+-		netif_tx_unlock(ndev);
++		netif_tx_unlock_bh(ndev);
+ 	}
+ }
+ 
+-- 
+1.8.1.2
