@@ -1,44 +1,50 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: RE: [PATCH v2 net 2/2] tg3: Fix data corruption on 5725 with
- TSO
-Date: Wed, 15 May 2013 08:51:20 -0700
-Message-ID: <1368633080.3768.17.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1368479056-11780-1-git-send-email-nsujir@broadcom.com>
- <1368479056-11780-3-git-send-email-nsujir@broadcom.com>
- <1368479644.13473.121.camel@edumazet-glaptop>
- <51915C7D.2000407@broadcom.com>
- <1368481224.13473.124.camel@edumazet-glaptop>
- <51915F77.5000405@broadcom.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7236@saturn3.aculab.com>
- <1368543869.12268.49.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7237@saturn3.aculab.com>
- <1368548345.12268.76.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7239@saturn3.aculab.com>
- <1368630754.3768.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
- <1368631423.4519.32.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: BCM5719(tg3) use multiple MSI with RSS
+Date: Wed, 15 May 2013 16:52:00 +0100
+Message-ID: <1368633120.2652.11.camel@bwh-desktop.uk.solarflarecom.com>
+References: <51933FCB.4090402@linux.vnet.ibm.com>
+	 <1368630538.3768.12.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David Laight" <David.Laight@ACULAB.COM>,
-	"Nithin Nayak Sujir" <nsujir@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, stable@vger.kernel.org
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1368631423.4519.32.camel@edumazet-glaptop>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Mike Qiu <qiudayu@linux.vnet.ibm.com>, <eilong@broadcom.com>,
+	<mcarlson@broadcom.com>, <zambrano@broadcom.com>,
+	<jeffrey.t.kirsher@intel.com>, <netdev@vger.kernel.org>
+To: Michael Chan <mchan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:57848 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758111Ab3EOPwI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 11:52:08 -0400
+In-Reply-To: <1368630538.3768.12.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-15 at 08:23 -0700, Eric Dumazet wrote: 
-> On Wed, 2013-05-15 at 08:12 -0700, Michael Chan wrote:
-> 
+On Wed, 2013-05-15 at 08:08 -0700, Michael Chan wrote:
+> On Wed, 2013-05-15 at 15:56 +0800, Mike Qiu wrote: 
+> > Hi all
 > > 
-> > We will discard the packet if that happens.  I think the probabilty is
-> > very small.
+> > Currently, I need to enable multiple MSI on BCM5719 network card.
+> > But I look in to the spec of 5719 from Broadcom, it seems
+> > that RSS just enable with MSI-X, so I'm not sure if multiple
+> > MSI can use RSS.
+> > 
 > 
-> Data corruption means the content of the packet was mangled on the wire,
-> or was it a more serious issue, like a tx queue hang ?
-> 
-> 
-I think the DMA engine is getting the wrong data under this condition so
-we end up with bad data but correct header checksums on the wire.
+> MSI can only support one IRQ source and cannot support RSS.
+
+It is possible for an MSI capability to have multiple MSIs, but they
+will use the same address and consecutive data values.
+
+On x86, if you can find a large enough block of free IRQs on an IOAPIC,
+it is possible to implement RSS this way.  Linux supports this on
+systems with an x2apic.
+
+Now, maybe tg3 hardware doesn't support this (and really, why bother
+when there is MSI-X?) but the option does exist.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
