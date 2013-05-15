@@ -1,75 +1,69 @@
-From: Ken Moffat <zarniwhoop@ntlworld.com>
-Subject: r8169 on 3.8.13, 3.9.2, 3.10-rc1, was Re: [ 00/73] 3.8.13-stable
- review
-Date: Wed, 15 May 2013 01:07:15 +0100
-Message-ID: <20130515000715.GA20099@milliways>
-References: <20130509222757.917088509@linuxfoundation.org>
- <pan.2013.05.10.10.54.26.943195@googlemail.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH] pci: Avoid reentrant calls to work_on_cpu
+Date: Tue, 14 May 2013 20:32:59 -0400
+Message-ID: <CAJZOPZL06sG__MdTzp6FF6BuB+Tv+CC_US35eHY0EDP6vQVzMw@mail.gmail.com>
+References: <20130514221748.6180.30597.stgit@ahduyck-cp1.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Holger Hoffstaette <holger.hoffstaette@googlemail.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <pan.2013.05.10.10.54.26.943195@googlemail.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: bhelgaas@google.com, yinghai@kernel.org, guz.fnst@cn.fujitsu.com,
+	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
+To: Alexander Duyck <alexander.h.duyck@intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20130514221748.6180.30597.stgit@ahduyck-cp1.jf.intel.com>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 10, 2013 at 12:54:27PM +0200, Holger Hoffstaette wrote:
+On Tue, May 14, 2013 at 6:26 PM, Alexander Duyck
+<alexander.h.duyck@intel.com> wrote:
+>
+> This change is meant to fix a deadlock seen when pci_enable_sriov was
+> called from within a driver's probe routine.  The issue was that
+> work_on_cpu calls flush_work which attempts to flush a work queue for a
+> cpu that we are currently working in.  In order to avoid the reentrant
+> path we just skip the call to work_on_cpu in the case that the device
+> node matches our current node.
+>
+> Reported-by: Yinghai Lu <yinghai@kernel.org>
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> ---
+>
+> This patch is meant to address the issue pointed out in an earlier patch
+> sent by Yinghai Lu titled:
+>   [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
+>
+>  drivers/pci/pci-driver.c |   14 +++++++++-----
+>  1 files changed, 9 insertions(+), 5 deletions(-)
+>
+> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
+> index 79277fb..caeb1c0 100644
+> --- a/drivers/pci/pci-driver.c
+> +++ b/drivers/pci/pci-driver.c
+> @@ -277,12 +277,16 @@ static int pci_call_probe(struct pci_driver *drv,
+> struct pci_dev *dev,
+>         int error, node;
+>         struct drv_dev_and_id ddi = { drv, dev, id };
+>
+> -       /* Execute driver initialization on node where the device's
+> -          bus is attached to.  This way the driver likely allocates
+> -          its local memory on the right node without any need to
+> -          change it. */
+> +       /*
+> +        * Execute driver initialization on the node where the device's
+> +        * bus is attached.  This way the driver likely allocates
+> +        * its local memory on the right node without any need to
+> +        * change it.  If the node is the current node just call
+> +        * local_pci_probe and avoid the possibility of reentrant
+> +        * calls to work_on_cpu.
+> +        */
+>         node = dev_to_node(&dev->dev);
+> -       if (node >= 0) {
+> +       if ((node >= 0) && (node != numa_node_id())) {
+>                 int cpu;
+>
+>                 get_online_cpus();
 
- Cc'ing to netdev because I don't think this has had a response, and
-I care because I *might* be seeing the same problem on both 3.9.2
-and 3.10-rc1, but my take on the problem is slightly different [
-details after Holger's posting ]
 
-> On Thu, 09 May 2013 15:31:23 -0700, Greg Kroah-Hartman wrote:
->=20
-> > This is the start of the stable review cycle for the 3.8.13 release=
-=2E There
->=20
-> This patchset broke my internet, with all sorts of weird effects like
-> Samba clients having problems to talk to the server and only partiall=
-y
-> working DNS resolution (CDNs broken, Amazon unreachable).
->=20
-> After two reboots to/from .12/.13 (to rule out temporary internet
-> brokenness) the problem has been identified as:
->=20
-> > Stefan Bader <stefan.bader@canonical.com>
-> >     r8169: fix 8168evl frame padding.
->=20
-> After reverting only this patch (turning r8169 back to 3.8.12) things
-> again behave as expected with the rest of .13. So far no other regres=
-sions
-> detected.
->=20
-> This patch should probably be removed from 3.9.2-rc as well.
->=20
-> -h
->=20
- For me, I'm seeing what might be a similar problem in about 2/5 of
-my boots of 3.9.2 and 3.10-rc1 : in my case, r8169 is a module [ most
-things are built in ], I use dhclient to get an ip address, and I
-have separate nfs shares for /sources [ in /etc/mtab ] and my user's
-~/notes [ mounted from ~/.bashrc ].
-
- On a good boot, everything mounts.  On a bad boot, /sources is NOT
-mounted because eth0 is not up, but by the time anyone logs in it
-_is_ up so mounting ~/notes [and manually mounting /sources as root]
-works.  What seems to be happening is that eth0 is coming up
-slightly later on some occasions (about 11 seconds from booting,
-instead of 10.5 seconds) and somehow the dhclient script seems to
-have ended *before* that.
-
- For me, this isn't bisectable (so far, 10 boots of 3.9.2 and
-3.10-rc1 on this box, and 4 were problematic).  On this box, 3.9.0
-itself was perfect.
-
-Holger : apologies if I've hijacked this thread with what turns out
-to be a different problem.
-
-ken
---=20
-das eine Mal als Trag=F6die, das andere Mal als Farce
+Alex, FWIW a similar patch was posted by Michael during the last rc
+cycles of 3.9 see
+http://marc.info/?l=linux-netdev&m=136569426119644&w=2
