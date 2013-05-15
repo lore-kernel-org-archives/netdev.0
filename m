@@ -1,43 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [Patch iproute2] vxlan: use 8472 as default dst port
-Date: Wed, 15 May 2013 13:25:49 -0700
-Message-ID: <20130515132549.2404413a@nehalam.linuxnetplumber.net>
-References: <1368616270-5775-1-git-send-email-amwang@redhat.com>
-	<OFA8084FAB.8443890D-ON85257B6C.003F1FAB-85257B6C.003F65F2@us.ibm.com>
-	<20130515095322.275c9b2f@nehalam.linuxnetplumber.net>
-	<20130515.132213.120685330795916926.davem@davemloft.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH V3] rtlwifi: rtl8192cu: Add new USB ID
+Date: Wed, 15 May 2013 15:34:14 -0500
+Message-ID: <5193F146.3030206@lwfinger.net>
+References: <1368630196-14704-1-git-send-email-Larry.Finger@lwfinger.net> <5193EEA8.8030900@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dlstevens@us.ibm.com, amwang@redhat.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	Albert Pool <albertpool@solcon.nl>, netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:40184 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756964Ab3EOUZy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 16:25:54 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so1687372pbb.20
-        for <netdev@vger.kernel.org>; Wed, 15 May 2013 13:25:53 -0700 (PDT)
-In-Reply-To: <20130515.132213.120685330795916926.davem@davemloft.net>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:34442 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755108Ab3EOUeU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 16:34:20 -0400
+In-Reply-To: <5193EEA8.8030900@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 15 May 2013 13:22:13 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+On 05/15/2013 03:23 PM, Sergei Shtylyov wrote:
+> Hello.
+>
+> On 05/15/2013 07:03 PM, Larry Finger wrote:
+>
+>> From: Albert Pool <albertpool@solcon.nl>
+>>
+>> This adds the USB ID of the On Networks N300MA, clone of Netgear WNA3100M.
+>>
+>> Signed-off-by: Albert Pool <albertpool@solcon.nl>
+>> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+>> Reported-by: Ana Rey <Anazul77@hotmail.com>
+>> ---
+>>
+>> John,
+>>
+>> Please use this version. V2 still had some whitespace errors that I fixed.
+>>
+>> Albert,
+>>
+>> Please use scripts/checkpatch.pl to check the patch before you send it.
+>>
+>> Thanks,
+>>
+>> Larry
+>> ---
+>>
+>>   drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 1 +
+>>   1 file changed, 1 insertion(+)
+>>
+>> diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+>> b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+>> index 23d640a..18da6de 100644
+>> --- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+>> +++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+>> @@ -349,6 +349,7 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
+>>       {RTL_USB_DEVICE(0x07aa, 0x0056, rtl92cu_hal_cfg)}, /*ATKK-Gemtek*/
+>>       {RTL_USB_DEVICE(0x07b8, 0x8178, rtl92cu_hal_cfg)}, /*Funai -Abocom*/
+>>       {RTL_USB_DEVICE(0x0846, 0x9021, rtl92cu_hal_cfg)}, /*Netgear-Sercomm*/
+>> +    {RTL_USB_DEVICE(0x0846, 0xf001, rtl92cu_hal_cfg)}, /*On Netwrks N300MA*/
+>
+>     "Networks", perhaps? Or does it hit 80 columns limit this way?
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> Date: Wed, 15 May 2013 09:53:22 -0700
-> 
-> > No. I want all users to get the IANA assigned port unless they specifically
-> > override it. For compatibility kernel can't change to the IANA value
-> > but user space needs to nudge users in the correct direction.
-> 
-> You're changing the behavior people get by invoking the tools the way
-> they were doing so previously.
-> 
-> Therefore, just as we can't change the kernel's default, you really
-> can't legitimately change iproute2's either.
+That is exactly the problem. I suppose I could allow one line to be 81 
+characters in length, but that would diminish the effectiveness of my suggestion 
+that checkpatch be used.
 
-Ok, then I will make the user specify a port.
-We just have to have a way to force new installations to use the correct port.
+Thanks for noticing. At least someone is reading the patches.
+
+Larry
