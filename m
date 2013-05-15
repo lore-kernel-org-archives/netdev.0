@@ -1,65 +1,54 @@
-From: Ken Moffat <zarniwhoop@ntlworld.com>
-Subject: Re: r8169 on 3.8.13, 3.9.2, 3.10-rc1, was Re: [ 00/73] 3.8.13-stable
- review
-Date: Wed, 15 May 2013 18:09:47 +0100
-Message-ID: <20130515170947.GA10174@milliways>
-References: <20130509222757.917088509@linuxfoundation.org>
- <pan.2013.05.10.10.54.26.943195@googlemail.com>
- <20130515000715.GA20099@milliways>
- <20130515061401.GA4382@electric-eye.fr.zoreil.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [Patch iproute2] vxlan: use 8472 as default dst port
+Date: Wed, 15 May 2013 13:19:43 -0400
+Message-ID: <OFF100C7ED.6500FAB3-ON85257B6C.005DCF7C-85257B6C.005F309B@us.ibm.com>
+References: <1368616270-5775-1-git-send-email-amwang@redhat.com>	<OFA8084FAB.8443890D-ON85257B6C.003F1FAB-85257B6C.003F65F2@us.ibm.com> <20130515095322.275c9b2f@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Holger Hoffstaette <holger.hoffstaette@googlemail.com>,
-	linux-kernel@vger.kernel.org, stable@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <stable-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130515061401.GA4382@electric-eye.fr.zoreil.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:40609 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759723Ab3EORVR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 May 2013 13:21:17 -0400
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Wed, 15 May 2013 13:21:16 -0400
+In-Reply-To: <20130515095322.275c9b2f@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 15, 2013 at 08:14:01AM +0200, Francois Romieu wrote:
-> Ken Moffat <zarniwhoop@ntlworld.com> :
-> [...]
-> >  Cc'ing to netdev because I don't think this has had a response, an=
-d
->=20
-> A patch has been sent to netdev a few hours ago. It needs more work,
-> especially testing (hint, hint) as I don't have a proven test case ye=
-t.
->=20
-> Please note:
-> - if you don't use a 8168evl (check your dmesg for the XID line emitt=
-ed
->   by the r8169 driver), you are not the experiencing the same bug.
-[    3.174180] r8169 0000:02:00.0 eth0: RTL8168evl/8111evl at
-0xffffc90000008000, c8:60:00:97:07:35, XID 0c900800 IRQ 41
+netdev-owner@vger.kernel.org wrote on 05/15/2013 12:53:22 PM:
 
-> - if you don't enable Tx checksum offload (distro/vendor dependent th=
-ough
->   disabled by default in the vanilla driver, see ethtool -k eth0,
->   ethtool -K eth0 tx on sg on)), you are not the experiencing the sam=
-e
->   bug.
+> From: Stephen Hemminger <stephen@networkplumber.org>
+ 
+> No. I want all users to get the IANA assigned port unless they 
+specifically
+> override it. For compatibility kernel can't change to the IANA value
+> but user space needs to nudge users in the correct direction.
 
- If it is disabled by default then my problem is different (I don't
-have an ethtool program)
+It's more than a nudge -- it doesn't interoperate with itself.
 
-> - if you are experiencing the same bug, 3.10-rc1 should work again
->   after reverting e5195c1f31f399289347e043d6abf3ffa80f0005
->=20
-> If someone comes with a failing network capture and a working one, it=
- will
-> save time. A 64 bytes (max) packet is not correctly transmitted.
->=20
-> --=20
-> Ueimor
+1) The kernel binds to 8472 on module load.
+2) After it's bound, iproute2 "changes" the port to 4789, but
+        the kernel binding is still 8742 for listening. All destinations 
+use
+        the new port, but all bindings use the old port.
 
- Thanks for the detailed comments, looks as if my intermittent
-problem is something else.
+So, boot two systems without specifying a port and they can't
+talk to each other. They both listen on 8742 and they both send to
+4789.
 
-ken
---=20
-das eine Mal als Trag=F6die, das andere Mal als Farce
+This clearly is worse than changing the kernel default port to 4789, but
+what's the point of having a kernel default if a user-level program 
+overrides
+it even when the user did not specify a port, and only for half of it (the
+sender side)?
+
+You could make a port change close and rebind, but that's little different
+than changing the default in the kernel, if "ip" does it without a port
+specification. 
+                                                                +-DLS
