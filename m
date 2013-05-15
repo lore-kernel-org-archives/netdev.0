@@ -1,7 +1,7 @@
 From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
 Subject: Re: [PATCH] net/802/mrp: fix lockdep splat
-Date: Wed, 15 May 2013 12:34:16 -0400
-Message-ID: <5193B908.4030407@ll.mit.edu>
+Date: Wed, 15 May 2013 12:41:07 -0400
+Message-ID: <5193BAA3.4010903@ll.mit.edu>
 References: <6901a7785249816fe13a98e3c0b35127@visp.net.lb>
 	 <1368447851.13473.119.camel@edumazet-glaptop>
 	 <16b0a5ee4602cb9005dd67ea7ad0d4e8@visp.net.lb>
@@ -9,10 +9,10 @@ References: <6901a7785249816fe13a98e3c0b35127@visp.net.lb>
 	 <1368559307.4519.21.camel@edumazet-glaptop>
 	 <1368560401.4519.25.camel@edumazet-glaptop>
 	 <1851d9143b2404f6686cf25d6bcea823@visp.net.lb>
- <1368631325.4519.30.camel@edumazet-glaptop>
+ <1368631325.4519.30.camel@edumazet-glaptop> <5193B908.4030407@ll.mit.edu>
 Mime-Version: 1.0
 Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms090502050505010007030908"
+	micalg=sha1; boundary="------------ms090000030102040905030309"
 Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
 	David Miller <davem@davemloft.net>,
 	"amwang@redhat.com" <amwang@redhat.com>,
@@ -21,47 +21,55 @@ Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
 	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:41468 "EHLO mx2.ll.mit.edu"
+Received: from MX2.LL.MIT.EDU ([129.55.12.46]:43707 "EHLO mx2.ll.mit.edu"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758652Ab3EOQfr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 May 2013 12:35:47 -0400
-In-Reply-To: <1368631325.4519.30.camel@edumazet-glaptop>
+	id S1758319Ab3EOQmr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 May 2013 12:42:47 -0400
+In-Reply-To: <5193B908.4030407@ll.mit.edu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------ms090502050505010007030908
+--------------ms090000030102040905030309
 Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: quoted-printable
 
-On 05/15/2013 11:22 AM, Eric Dumazet wrote:
-> Re: [PATCH] net/802/mrp: fix lockdep splat
+On 05/15/2013 12:34 PM, Ward, David - 0663 - MITLL wrote:
+> On 05/15/2013 11:22 AM, Eric Dumazet wrote:
+>> Re: [PATCH] net/802/mrp: fix lockdep splat
+>>
+>> On Wed, 2013-05-15 at 17:50 +0300, Denys Fedoryshchenko wrote:
+>> > On 2013-05-14 22:40, Eric Dumazet wrote:
+>> > >
+>> > > I definitely could trigger the bug easily without my patch :
+>> >
+>> >
+>> > >
+>> > > And with the patch, there is no lockdep splat anymore.
+>> > >
+>> > > Tested-by: Eric Dumazet <edumazet@google.com>
+>> >
+>> > Yes, it seems after depclean i cannot reproduce anymore this bug. My=
+
+>> > bad, seems i should recompile kernel completely next time.
+>> >
+>>
+>> Thanks for testing again, I was quite mystified by your original
+>> results ;)
+>>
 >
-> On Wed, 2013-05-15 at 17:50 +0300, Denys Fedoryshchenko wrote:
-> > On 2013-05-14 22:40, Eric Dumazet wrote:
-> > >
-> > > I definitely could trigger the bug easily without my patch :
-> >
-> >
-> > >
-> > > And with the patch, there is no lockdep splat anymore.
-> > >
-> > > Tested-by: Eric Dumazet <edumazet@google.com>
-> >
-> > Yes, it seems after depclean i cannot reproduce anymore this bug. My
-> > bad, seems i should recompile kernel completely next time.
-> >
+> FYI - I believe GARP (net/802/garp.c) needs the same fix. Thechange=20
+> that introduced this issue was originally copied from there.
 >
-> Thanks for testing again, I was quite mystified by your original
-> results ;)
+> David
 >
 
-FYI - I believe GARP (net/802/garp.c) needs the same fix.  Thechange=20
-that introduced this issue was originally copied from there.
+My bad... I copied the patch from GARP to MRP wrong... that's what=20
+created this problem in the first place.  Sorry.
 
 David
 
 
---------------ms090502050505010007030908
+--------------ms090000030102040905030309
 Content-Type: application/pkcs7-signature; name="smime.p7s"
 Content-Transfer-Encoding: base64
 Content-Disposition: attachment; filename="smime.p7s"
@@ -139,17 +147,17 @@ uBF8vkBfCwGVrB3mi9PQXBWdBBV9++shL3Vj0TT+Ec/sc1ftXt+CvoF9ggppVVRJwBfA6ZJ4
 /yiLxDsY+K5I9gvRMYIDNzCCAzMCAQEwXzBRMQswCQYDVQQGEwJVUzEfMB0GA1UEChMWTUlU
 IExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0y
 AgoUNPN9AAAAAFBDMAkGBSsOAwIaBQCgggGtMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEw
-HAYJKoZIhvcNAQkFMQ8XDTEzMDUxNTE2MzQxNlowIwYJKoZIhvcNAQkEMRYEFOWyUcsZyHHg
-Mwh+Zkh3JvPz086oMGwGCSqGSIb3DQEJDzFfMF0wCwYJYIZIAWUDBAEqMAsGCWCGSAFlAwQB
+HAYJKoZIhvcNAQkFMQ8XDTEzMDUxNTE2NDEwN1owIwYJKoZIhvcNAQkEMRYEFNFugByrbKHV
+ZmAPo1s8jjgoXSa8MGwGCSqGSIb3DQEJDzFfMF0wCwYJYIZIAWUDBAEqMAsGCWCGSAFlAwQB
 AjAKBggqhkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcNAwICAUAwBwYFKw4DAgcw
 DQYIKoZIhvcNAwICASgwbgYJKwYBBAGCNxAEMWEwXzBRMQswCQYDVQQGEwJVUzEfMB0GA1UE
 ChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRM
 TCBDQS0yAgoUNYuXAAAAAFBEMHAGCyqGSIb3DQEJEAILMWGgXzBRMQswCQYDVQQGEwJVUzEf
 MB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQD
-EwpNSVRMTCBDQS0yAgoUNYuXAAAAAFBEMA0GCSqGSIb3DQEBAQUABIIBAAC7szOPnr2FOLJf
-2WB0jUlWz5R151Rsh15KrABI7eSr2YJr95K2UZemZNFsUETcPfa9E3+K8nqKQ7pXsowC/CG2
-YsarPaDKaLy27ZiB+4uwJDOUYd7c9/1GExbAVo9EwLH9hIMA1VTY+neRVbrK5PAnjuIO12Bf
-txTKJRPkNuXEOYx8AmkiFwfpKHhZKgLzEngwN0JzQ8Ms8bjNeEZA5HL4eDuuDtBMAGONMlYz
-Y9VYw9bU4QMAM5JQhMq4kD3lUj3HbjyjaoTdie56Z9/yb/1HM5wtpc70BezJlXG42eJ8+hfo
-5m6hMaJZF5aQrqHDsFc8zGvq9eu8MBVmnTOMKncAAAAAAAA=
---------------ms090502050505010007030908--
+EwpNSVRMTCBDQS0yAgoUNYuXAAAAAFBEMA0GCSqGSIb3DQEBAQUABIIBAGYO7dsMXwmlKSYJ
+1SDHkQihdxy7CCZ0zvLPv3Tv9gBYdapXzwCe+1DhyhGMv0TkQT/C9it20e085feiFOQiKSFU
+7+6xT1qD7SuEe0XcDHZ5T2gz16mRnABWIk6//ZuBd0uSEsc79+XBgR6eT074HJFMGXo6yk95
+BMX0KhhRAALEzgnUqkokFTbM9KTL8k1/TVmCWl+vK8dN755toIdJ7j0w1y7AeSlO5A6dedDR
+gtmdN3OVCcaJoNWfvHyZ0V1shTSad5+Kv1Z2kfbAqOgmQNIzNCAM/DxOofKBfGqfeKNuPICf
+mVRcegRvTPt8Pg8TNq9P2+je03xxVAndYcqv3/QAAAAAAAA=
+--------------ms090000030102040905030309--
