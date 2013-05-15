@@ -1,7 +1,8 @@
 From: Fabio Estevam <fabio.estevam@freescale.com>
-Subject: [PATCH 1/2] fec: Fix inconsistent lock state
-Date: Wed, 15 May 2013 14:06:26 -0300
-Message-ID: <1368637587-13391-1-git-send-email-fabio.estevam@freescale.com>
+Subject: [PATCH 2/2] fec: Invert the order of function calls in fec_restart()
+Date: Wed, 15 May 2013 14:06:27 -0300
+Message-ID: <1368637587-13391-2-git-send-email-fabio.estevam@freescale.com>
+References: <1368637587-13391-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <shawn.guo@linaro.org>, <Frank.Li@freescale.com>,
@@ -10,79 +11,58 @@ Cc: <shawn.guo@linaro.org>, <Frank.Li@freescale.com>,
 	Fabio Estevam <fabio.estevam@freescale.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe002.messaging.microsoft.com ([216.32.180.12]:26540
+Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:14660
 	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759559Ab3EORGX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 13:06:23 -0400
+	by vger.kernel.org with ESMTP id S1759559Ab3EORGl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 13:06:41 -0400
+In-Reply-To: <1368637587-13391-1-git-send-email-fabio.estevam@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fec_restart() runs in softirq context and we should use the 
-netif_tx_lock_bh/netif_tx_unlock_bh() variants to avoid the following warning
-that happens since commit 54309fa6 ("net: fec: fix kernel oops when plug/unplug 
-cable many times"):
+commit 54309fa6 ("net: fec: fix kernel oops when plug/unplug cable many times")
+introduced the following 'if' block in the beginning of fec_start():
 
-[    9.753168] =================================
-[    9.757540] [ INFO: inconsistent lock state ]
-[    9.761921] 3.10.0-rc1-next-20130514 #13 Not tainted
-[    9.766897] ---------------------------------
-[    9.771264] inconsistent {SOFTIRQ-ON-W} -> {IN-SOFTIRQ-W} usage.
-[    9.777288] swapper/0 [HC0[0]:SC1[3]:HE1:SE0] takes:
-[    9.782261]  (_xmit_ETHER#2){+.?...}, at: [<c03c24a4>] sch_direct_xmit+0xa0/0x2d4
-[    9.789879] {SOFTIRQ-ON-W} state was registered at:
-[    9.794769]   [<c0059c60>] __lock_acquire+0x528/0x1bc0
-[    9.799953]   [<c005b838>] lock_acquire+0xa0/0x108
-[    9.804780]   [<c0441320>] _raw_spin_lock+0x28/0x38
-[    9.809702]   [<c02f9fc8>] fec_restart+0x5d0/0x664
-[    9.814542]   [<c02fa738>] fec_enet_adjust_link+0xa8/0xc0
-[    9.819978]   [<c02f7a28>] phy_state_machine+0x2fc/0x370
-[    9.825323]   [<c0035ee0>] process_one_work+0x1c0/0x4a0
-[    9.830589]   [<c0036594>] worker_thread+0x138/0x394
-[    9.835587]   [<c003c620>] kthread+0xa4/0xb0
-[    9.839890]   [<c000e820>] ret_from_fork+0x14/0x34
-[    9.844728] irq event stamp: 185984
-[    9.848226] hardirqs last  enabled at (185984): [<c00232b0>] local_bh_enable_ip+0x84/0xf0
-[    9.856450] hardirqs last disabled at (185983): [<c0023270>] local_bh_enable_ip+0x44/0xf0
-[    9.864667] softirqs last  enabled at (185966): [<c0023470>] irq_enter+0x64/0x68
-[    9.872099] softirqs last disabled at (185967): [<c0023510>] irq_exit+0x9c/0xd8
-[    9.879440] 
-[    9.879440] other info that might help us debug this:
-[    9.885981]  Possible unsafe locking scenario:
-[    9.885981] 
-[    9.891912]        CPU0
-[    9.894364]        ----
-[    9.896814]   lock(_xmit_ETHER#2);
-[    9.900259]   <Interrupt>
-[    9.902884]     lock(_xmit_ETHER#2);
-[    9.906500] 
-[    9.906500]  *** DEADLOCK ***
+	if (netif_running(ndev)) {
+		netif_device_detach(ndev);
+		napi_disable(&fep->napi);
+		netif_stop_queue(ndev);
+		netif_tx_lock_bh(ndev);
+	}
 
-Reported-by: Shawn Guo <shawn.guo@linaro.org>
+Then later in the end of fec_restart() there is another block that calls the
+opposite of each one of these functions.
+
+The correct approach would be to also call them with in the reverse order, so 
+that we have as result:
+
+	if (netif_running(ndev)) {
+		netif_tx_unlock_bh(ndev);
+		netif_wake_queue(ndev);
+		napi_enable(&fep->napi);
+		netif_device_attach(ndev);
+	}
+
 Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
 Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/freescale/fec_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index ca9825c..658fbc1 100644
+index 658fbc1..570dfad 100644
 --- a/drivers/net/ethernet/freescale/fec_main.c
 +++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -451,7 +451,7 @@ fec_restart(struct net_device *ndev, int duplex)
- 		netif_device_detach(ndev);
- 		napi_disable(&fep->napi);
- 		netif_stop_queue(ndev);
--		netif_tx_lock(ndev);
-+		netif_tx_lock_bh(ndev);
- 	}
+@@ -616,10 +616,10 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	writel(FEC_DEFAULT_IMASK, fep->hwp + FEC_IMASK);
  
- 	/* Whack a reset.  We should wait for this. */
-@@ -619,7 +619,7 @@ fec_restart(struct net_device *ndev, int duplex)
- 		netif_device_attach(ndev);
- 		napi_enable(&fep->napi);
- 		netif_wake_queue(ndev);
--		netif_tx_unlock(ndev);
-+		netif_tx_unlock_bh(ndev);
+ 	if (netif_running(ndev)) {
+-		netif_device_attach(ndev);
+-		napi_enable(&fep->napi);
+-		netif_wake_queue(ndev);
+ 		netif_tx_unlock_bh(ndev);
++		netif_wake_queue(ndev);
++		napi_enable(&fep->napi);
++		netif_device_attach(ndev);
  	}
  }
  
