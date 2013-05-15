@@ -1,29 +1,31 @@
-From: =?ISO-8859-1?Q?Holger_Hoffst=E4tte?=
-	<holger.hoffstaette@googlemail.com>
-Subject: Re: r8169 driver cause ssh failure
-Date: Wed, 15 May 2013 10:16:18 +0200
-Message-ID: <51934452.5040600@googlemail.com>
-References: <CA+6wjbxdbTDXmO984sM1CHFT+PJJdvS=+YmwM2iu-10Ws4WouA@mail.gmail.com> <5190841E.9090503@canonical.com> <20130513063332.GA16374@electric-eye.fr.zoreil.com> <pan.2013.05.13.13.24.46.794122@googlemail.com> <20130514225422.GA32242@electric-eye.fr.zoreil.com>
+From: "Holger Hoffstaette" <holger.hoffstaette@googlemail.com>
+Subject: Re: r8169 on 3.8.13, 3.9.2, 3.10-rc1, was Re: [ 00/73] 3.8.13-stable review
+Date: Wed, 15 May 2013 10:31:50 +0200
+Message-ID: <pan.2013.05.15.08.31.40.496197@googlemail.com>
+References: <20130509222757.917088509@linuxfoundation.org> <pan.2013.05.10.10.54.26.943195@googlemail.com> <20130515000715.GA20099@milliways>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:61895 "EHLO
-	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757021Ab3EOIQX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 04:16:23 -0400
-In-Reply-To: <20130514225422.GA32242@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: stable@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 15.05.2013 00:54, Francois Romieu wrote:
-> Could you check if the patch below helps ?
+On Wed, 15 May 2013 01:07:15 +0100, Ken Moffat wrote:
 
-Seems to work fine! I have turned tx offloading back on and everything
-works again, just like before the regression.
+>  Cc'ing to netdev because I don't think this has had a response, and
+> I care because I *might* be seeing the same problem on both 3.9.2 and
+> 3.10-rc1, but my take on the problem is slightly different [ details after
+> Holger's posting ]
 
-Thanks!
+I later isolated the regression to tx offloading, which allows one to
+reproduce the problem on the fly (enable: b0rken internets, disable: all
+fine). So unless you have tx offloading enabled then whatever you are
+seeing has likely nothing to do with *this* problem.
+
+Francois posted a patch to -netdev which I am running as we speak, and the
+problem seems fixed for me; tx offloading (in adition to rx/gro) works
+again, with no side effects. Please help test!
 
 -h
