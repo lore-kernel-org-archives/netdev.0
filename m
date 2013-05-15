@@ -1,163 +1,68 @@
-From: "Ward, David - 0663 - MITLL" <david.ward@ll.mit.edu>
-Subject: Re: [PATCH] net/802/mrp: fix lockdep splat
-Date: Wed, 15 May 2013 12:41:07 -0400
-Message-ID: <5193BAA3.4010903@ll.mit.edu>
-References: <6901a7785249816fe13a98e3c0b35127@visp.net.lb>
-	 <1368447851.13473.119.camel@edumazet-glaptop>
-	 <16b0a5ee4602cb9005dd67ea7ad0d4e8@visp.net.lb>
-	 <20130514.120754.1745967383330029903.davem@davemloft.net>
-	 <1368559307.4519.21.camel@edumazet-glaptop>
-	 <1368560401.4519.25.camel@edumazet-glaptop>
-	 <1851d9143b2404f6686cf25d6bcea823@visp.net.lb>
- <1368631325.4519.30.camel@edumazet-glaptop> <5193B908.4030407@ll.mit.edu>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [Patch iproute2] vxlan: use 8472 as default dst port
+Date: Wed, 15 May 2013 09:53:22 -0700
+Message-ID: <20130515095322.275c9b2f@nehalam.linuxnetplumber.net>
+References: <1368616270-5775-1-git-send-email-amwang@redhat.com>
+	<OFA8084FAB.8443890D-ON85257B6C.003F1FAB-85257B6C.003F65F2@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pkcs7-signature";
-	micalg=sha1; boundary="------------ms090000030102040905030309"
-Cc: Denys Fedoryshchenko <denys@visp.net.lb>,
-	David Miller <davem@davemloft.net>,
-	"amwang@redhat.com" <amwang@redhat.com>,
-	"hayeswang@realtek.com" <hayeswang@realtek.com>,
-	"romieu@fr.zoreil.com" <romieu@fr.zoreil.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Cong Wang <amwang@redhat.com>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from MX2.LL.MIT.EDU ([129.55.12.46]:43707 "EHLO mx2.ll.mit.edu"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758319Ab3EOQmr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 May 2013 12:42:47 -0400
-In-Reply-To: <5193B908.4030407@ll.mit.edu>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:35358 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932901Ab3EOQx0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 12:53:26 -0400
+Received: by mail-pd0-f177.google.com with SMTP id g10so1520008pdj.22
+        for <netdev@vger.kernel.org>; Wed, 15 May 2013 09:53:26 -0700 (PDT)
+In-Reply-To: <OFA8084FAB.8443890D-ON85257B6C.003F1FAB-85257B6C.003F65F2@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---------------ms090000030102040905030309
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
+On Wed, 15 May 2013 07:32:28 -0400
+David Stevens <dlstevens@us.ibm.com> wrote:
 
-On 05/15/2013 12:34 PM, Ward, David - 0663 - MITLL wrote:
-> On 05/15/2013 11:22 AM, Eric Dumazet wrote:
->> Re: [PATCH] net/802/mrp: fix lockdep splat
->>
->> On Wed, 2013-05-15 at 17:50 +0300, Denys Fedoryshchenko wrote:
->> > On 2013-05-14 22:40, Eric Dumazet wrote:
->> > >
->> > > I definitely could trigger the bug easily without my patch :
->> >
->> >
->> > >
->> > > And with the patch, there is no lockdep splat anymore.
->> > >
->> > > Tested-by: Eric Dumazet <edumazet@google.com>
->> >
->> > Yes, it seems after depclean i cannot reproduce anymore this bug. My=
+> netdev-owner@vger.kernel.org wrote on 05/15/2013 07:11:10 AM:
+> 
+> > From: Cong Wang <amwang@redhat.com>
+> 
+> > Cc: Stephen Hemminger <stephen@networkplumber.org>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> > 
+> > ---
+> > diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
+> > index 2d93ee2..a0c90b3 100644
+> > --- a/ip/iplink_vxlan.c
+> > +++ b/ip/iplink_vxlan.c
+> > @@ -53,7 +53,7 @@ static int vxlan_parse_opt(struct link_util *lu, 
+> > int argc, char **argv,
+> >     __u8 noage = 0;
+> >     __u32 age = 0;
+> >     __u32 maxaddr = 0;
+> > -   __u16 dstport = 4789;
+> > +   __u16 dstport = 8472;
+> 
+> I think this should be "0"; then it will use the kernel port,
+> whatever it is.
+> 
+> > @@ -188,8 +188,7 @@ static int vxlan_parse_opt(struct link_util *lu,
+> > int argc, char **argv,
+> >     if (range.low || range.high)
+> >        addattr_l(n, 1024, IFLA_VXLAN_PORT_RANGE,
+> >             &range, sizeof(range));
+> > -   if (dstport)
+> > -      addattr16(n, 1024, IFLA_VXLAN_PORT, htons(dstport));
+> > +   addattr16(n, 1024, IFLA_VXLAN_PORT, htons(dstport));
+> 
+>         ...and these lines should be left alone. If not specified,
+> it won't pass an alternate port and will use the kernel default.
+> 
+>                                                 +-DLS
+> 
+> 
 
->> > bad, seems i should recompile kernel completely next time.
->> >
->>
->> Thanks for testing again, I was quite mystified by your original
->> results ;)
->>
->
-> FYI - I believe GARP (net/802/garp.c) needs the same fix. Thechange=20
-> that introduced this issue was originally copied from there.
->
-> David
->
-
-My bad... I copied the patch from GARP to MRP wrong... that's what=20
-created this problem in the first place.  Sorry.
-
-David
-
-
---------------ms090000030102040905030309
-Content-Type: application/pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIIOZjCC
-BLcwggOfoAMCAQICARQwDQYJKoZIhvcNAQELBQAwVDELMAkGA1UEBhMCVVMxHzAdBgNVBAoT
-Fk1JVCBMaW5jb2xuIExhYm9yYXRvcnkxDDAKBgNVBAsTA1BLSTEWMBQGA1UEAxMNTUlUTEwg
-Um9vdCBDQTAeFw0wOTEyMTQxMjAwMDBaFw0xNTEyMzEyMzU5NTlaMFExCzAJBgNVBAYTAlVT
-MR8wHQYDVQQKExZNSVQgTGluY29sbiBMYWJvcmF0b3J5MQwwCgYDVQQLEwNQS0kxEzARBgNV
-BAMTCk1JVExMIENBLTIwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCnBMsjYUiH
-7DegMwcFYWZM6OknYzRgEO5gNgPE9JJnQgfDB+o1o1VTMBWcJYPXII4CyhLhDvSjfCvTPI4H
-mRDKIp5UX5N2BCzwu7BJJMwUJHFaS4RMAC7nvYh6MIEixpl2aWCpkYX74b2CeDDQriGlqXCv
-xmg2QhPlNmk4ONpL/80Kx9wKKhV/NThe54sFzZ2pz9YUEX5DE0a52hFvA19EzGhv7fUcucUj
-Ky0zXPQ70LYwOWXLlpxAolKcgwRVsS6/cse8YH9fy8IAsXKAXikgQaFs5EJigLIDKPTKtRaf
-55yKsORSpoDrO1cvuntA5PnIH/qAFfACvGRTEK1RNLh9AgMBAAGjggGVMIIBkTASBgNVHRMB
-Af8ECDAGAQH/AgEAMB0GA1UdDgQWBBSOSn2JoWMXHIGINFc3JkVeGYp+JDAfBgNVHSMEGDAW
-gBRnqnrP9AqmuXK1iqDSnfIQw0PtKTAOBgNVHQ8BAf8EBAMCAYYwYQYIKwYBBQUHAQEEVTBT
-MC0GCCsGAQUFBzAChiFodHRwOi8vY3JsLmxsLm1pdC5lZHUvZ2V0dG8/TExSQ0EwIgYIKwYB
-BQUHMAGGFmh0dHA6Ly9vY3NwLmxsLm1pdC5lZHUwMwYDVR0fBCwwKjAooCagJIYiaHR0cDov
-L2NybC5sbC5taXQuZWR1L2dldGNybD9MTFJDQTCBkgYDVR0gBIGKMIGHMA0GCyqGSIb3EgIB
-AwEGMA0GCyqGSIb3EgIBAwEIMA0GCyqGSIb3EgIBAwEHMA0GCyqGSIb3EgIBAwEJMA0GCyqG
-SIb3EgIBAwEKMA0GCyqGSIb3EgIBAwELMA0GCyqGSIb3EgIBAwEOMA0GCyqGSIb3EgIBAwEP
-MA0GCyqGSIb3EgIBAwEQMA0GCSqGSIb3DQEBCwUAA4IBAQCIdwah0P1x/Augwi/nhBq6Ds8Q
-XAqkzSLZrL+DADWjk6HYFNo64x3Bo15c6oaW/GcTpZACt3StPa3OvsgAnKCtk81bQ0WV2MaL
-/0qmUYyN3bn1NiWrQD8aLAssv9aLY5dUylGOO1r37d9b3X+YtFytg0FRCfl5arYAYhU1SDCH
-wScD2o67Is/qYBRGMIYcCcb7PH5UotBSwhO+1WCxIqD+YcRusyD3kEcc4dW6IG36YVhx7aIk
-w5AUmeFH7xl0E1X+0I4Q+cmMNdMiArYx5rYG34AZB+f770fdjWPUUpTT82aphiiImutWyQpm
-oEWBsnsX3nVTRdHCVi+Cf3Cx4YDWMIIE0DCCA7igAwIBAgIKFDTzfQAAAABQQzANBgkqhkiG
-9w0BAQsFADBRMQswCQYDVQQGEwJVUzEfMB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9y
-eTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0yMB4XDTEyMDkwNDEzMjA1NFoX
-DTEzMDkwNDEzMjA1NFowXzELMAkGA1UEBhMCVVMxHzAdBgNVBAoTFk1JVCBMaW5jb2xuIExh
-Ym9yYXRvcnkxDzANBgNVBAsTBlBlb3BsZTEeMBwGA1UEAxMVV2FyZC5EYXZpZC5QLjUwMDEx
-NDU5MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlQpeGVnnD5Qk9yst3Dc4hHB7
-ffqz1+uzSq+vbdj8SsPimBI1/ptJDv047zbGKH+8GR6JF9ykClRkyse5QtC5oxn2gvMDDxI1
-dI5t4itSWE1zi4+5Sc7c/+kiDaZxWfjhSgYlSY160VbzudjaAY7uRZtVLVGqsfYV631GBCH/
-zPnklpmx79kZO3s2dHh1J/xvUiGY3VrqCi1mdigP4Sys0kzzrH0bRzkKYWYjQQKgbFgQE17l
-cVflo22XZ82rM7boe+u5zMeo2UYcuKV9sh2wttVijbJpIgV0PQJIxTAtcUjzEkZXBCR3vMvS
-RtQB9k+i6+L4qLJagSSmK0LPL5GT4QIDAQABo4IBmjCCAZYwHQYDVR0OBBYEFJDeo9mVRpLI
-h5SCQITbLFzbqIaQMA4GA1UdDwEB/wQEAwIGwDAfBgNVHSMEGDAWgBSOSn2JoWMXHIGINFc3
-JkVeGYp+JDAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3JsLmxsLm1pdC5lZHUvZ2V0Y3Js
-L0xMQ0EyMGIGCCsGAQUFBwEBBFYwVDAtBggrBgEFBQcwAoYhaHR0cDovL2NybC5sbC5taXQu
-ZWR1L2dldHRvL0xMQ0EyMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5sbC5taXQuZWR1LzAM
-BgNVHRMBAf8EAjAAMD0GCSsGAQQBgjcVBwQwMC4GJisGAQQBgjcVCIOD5R2H7Kdmhq2HFYPq
-8EWFtqEfHYXL3jKH/4pzAgFkAgEFMCIGA1UdJQEB/wQYMBYGCCsGAQUFBwMEBgorBgEEAYI3
-CgMMMBgGA1UdIAQRMA8wDQYLKoZIhvcSAgEDAQgwIAYDVR0RBBkwF4EVZGF2aWQud2FyZEBs
-bC5taXQuZWR1MA0GCSqGSIb3DQEBCwUAA4IBAQA+4Y9Phse3fgha9SCOdzKDbrFdD6GrFHf2
-G6qwyWKn02TE+HnEqu8bArS9HTruLHJSZd6Sk0fJ0kjsV93XuivqiagSiwTE5Z3LbVmEZmVz
-/J1wNwbt4Wh6Fia+HzGwpxJUVMaiCNW/KZ6QG89c9fUeXz20QLcwaXFbFDxFowYOJ18z6znq
-muerd0Vgadj+tUNLkaFKExfSHz4S6vGHruKzlp8pN5pShkL2WvcrLfex6DFK3vYhrYTdkaB+
-mKAy/dokW1x6qygDW+WW2ykQ5gwIdldidpCtWf77ifYrJ3PqPrI1koY8I2zmc6F96eIXXmSI
-dCcKkrv/7zbuwtuNQUElMIIE0zCCA7ugAwIBAgIKFDWLlwAAAABQRDANBgkqhkiG9w0BAQsF
-ADBRMQswCQYDVQQGEwJVUzEfMB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoG
-A1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0yMB4XDTEyMDkwNDEzMjEzM1oXDTEzMDkw
-NDEzMjEzM1owXzELMAkGA1UEBhMCVVMxHzAdBgNVBAoTFk1JVCBMaW5jb2xuIExhYm9yYXRv
-cnkxDzANBgNVBAsTBlBlb3BsZTEeMBwGA1UEAxMVV2FyZC5EYXZpZC5QLjUwMDExNDU5MIIB
-IjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA3CB/DldDL6g8NAY4KpWAgCgXj1s+C8bG
-z3dPr47Iuc/4hfvPVx6uEnQH7nG1L3QvV5AAISN6kILSRUkJCluU6c3XyjgIl5wP4jrviMEI
-HV8YLGyihZwAXaakGT3zWopv5J/LzJSk5z2AJf7zmX6PbD2yoCicUqWTwtBIZtSOeBT2b/yf
-a/BzrTivc8QvB69BBu72VcaKe6F6yqnNU1FH/CKkxcDva+YC1MzFZrfEof2MMmc8gJrdEzsJ
-mwPYV6EZO4P8T09cMUiqyfgUX4Qvy2Poe7wlRDnFDZxFQTGnsq/HSjBMnwr2LmwNUef4qJEH
-cnOcaMFPFZM8lbFtr69x0wIDAQABo4IBnTCCAZkwHQYDVR0OBBYEFFGXCofTuCBcetmoX4/Z
-Q7y0QXlGMA4GA1UdDwEB/wQEAwIFIDAfBgNVHSMEGDAWgBSOSn2JoWMXHIGINFc3JkVeGYp+
-JDAzBgNVHR8ELDAqMCigJqAkhiJodHRwOi8vY3JsLmxsLm1pdC5lZHUvZ2V0Y3JsL0xMQ0Ey
-MGIGCCsGAQUFBwEBBFYwVDAtBggrBgEFBQcwAoYhaHR0cDovL2NybC5sbC5taXQuZWR1L2dl
-dHRvL0xMQ0EyMCMGCCsGAQUFBzABhhdodHRwOi8vb2NzcC5sbC5taXQuZWR1LzAMBgNVHRMB
-Af8EAjAAMD0GCSsGAQQBgjcVBwQwMC4GJisGAQQBgjcVCIOD5R2H7Kdmhq2HFYPq8EWFtqEf
-HYXr0HCD6+0gAgFkAgEEMCUGA1UdJQQeMBwGBFUdJQAGCCsGAQUFBwMEBgorBgEEAYI3CgME
-MBgGA1UdIAQRMA8wDQYLKoZIhvcSAgEDAQgwIAYDVR0RBBkwF4EVZGF2aWQud2FyZEBsbC5t
-aXQuZWR1MA0GCSqGSIb3DQEBCwUAA4IBAQAhEOVwxw+GDmh/7XAXTFab//YvOnc25VZ72/IW
-IW07g6YuDsiFHNXQ67GcXySUpjgKsxeorrGxfnDZ03Qp67s+xHvtVqqgkclOa+CAmFm18yG8
-sBpY0G2C+HJuFwWKBHmnt5/npvZLIqwbFLm548QYRuS5u073HRW4QH2MPrrexZBL50e8fjnI
-NoyK8JcXwzXNWeo1yRCl+REKUIqqtjS2AM9+4H0M3HONctclRU4sryPVpddxGi8T0Hv798IA
-uBF8vkBfCwGVrB3mi9PQXBWdBBV9++shL3Vj0TT+Ec/sc1ftXt+CvoF9ggppVVRJwBfA6ZJ4
-/yiLxDsY+K5I9gvRMYIDNzCCAzMCAQEwXzBRMQswCQYDVQQGEwJVUzEfMB0GA1UEChMWTUlU
-IExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRMTCBDQS0y
-AgoUNPN9AAAAAFBDMAkGBSsOAwIaBQCgggGtMBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEw
-HAYJKoZIhvcNAQkFMQ8XDTEzMDUxNTE2NDEwN1owIwYJKoZIhvcNAQkEMRYEFNFugByrbKHV
-ZmAPo1s8jjgoXSa8MGwGCSqGSIb3DQEJDzFfMF0wCwYJYIZIAWUDBAEqMAsGCWCGSAFlAwQB
-AjAKBggqhkiG9w0DBzAOBggqhkiG9w0DAgICAIAwDQYIKoZIhvcNAwICAUAwBwYFKw4DAgcw
-DQYIKoZIhvcNAwICASgwbgYJKwYBBAGCNxAEMWEwXzBRMQswCQYDVQQGEwJVUzEfMB0GA1UE
-ChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQDEwpNSVRM
-TCBDQS0yAgoUNYuXAAAAAFBEMHAGCyqGSIb3DQEJEAILMWGgXzBRMQswCQYDVQQGEwJVUzEf
-MB0GA1UEChMWTUlUIExpbmNvbG4gTGFib3JhdG9yeTEMMAoGA1UECxMDUEtJMRMwEQYDVQQD
-EwpNSVRMTCBDQS0yAgoUNYuXAAAAAFBEMA0GCSqGSIb3DQEBAQUABIIBAGYO7dsMXwmlKSYJ
-1SDHkQihdxy7CCZ0zvLPv3Tv9gBYdapXzwCe+1DhyhGMv0TkQT/C9it20e085feiFOQiKSFU
-7+6xT1qD7SuEe0XcDHZ5T2gz16mRnABWIk6//ZuBd0uSEsc79+XBgR6eT074HJFMGXo6yk95
-BMX0KhhRAALEzgnUqkokFTbM9KTL8k1/TVmCWl+vK8dN755toIdJ7j0w1y7AeSlO5A6dedDR
-gtmdN3OVCcaJoNWfvHyZ0V1shTSad5+Kv1Z2kfbAqOgmQNIzNCAM/DxOofKBfGqfeKNuPICf
-mVRcegRvTPt8Pg8TNq9P2+je03xxVAndYcqv3/QAAAAAAAA=
---------------ms090000030102040905030309--
+No. I want all users to get the IANA assigned port unless they specifically
+override it. For compatibility kernel can't change to the IANA value
+but user space needs to nudge users in the correct direction.
