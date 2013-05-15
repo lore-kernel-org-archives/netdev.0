@@ -1,55 +1,54 @@
-From: Ricardo =?utf-8?b?VHViw61v?= <rtpardavila@gmail.com>
-Subject: Re: Single socket with =?utf-8?b?VFhfUklORw==?= and =?utf-8?b?UlhfUklORw==?=
-Date: Wed, 15 May 2013 14:58:06 +0000 (UTC)
-Message-ID: <loom.20130515T165501-421@post.gmane.org>
-References: <loom.20130515T144941-798@post.gmane.org> <51938BAD.5050502@redhat.com> <loom.20130515T152203-727@post.gmane.org> <5193A00E.2020507@redhat.com> <5193A128.8030204@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH V3] rtlwifi: rtl8192cu: Add new USB ID
+Date: Wed, 15 May 2013 10:03:16 -0500
+Message-ID: <1368630196-14704-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org, Albert Pool <albertpool@solcon.nl>,
+	netdev@vger.kernel.org, Larry Finger <Larry.Finger@lwfinger.net>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:47297 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759300Ab3EOO6Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 May 2013 10:58:24 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Ucd9q-0006vq-O4
-	for netdev@vger.kernel.org; Wed, 15 May 2013 16:58:22 +0200
-Received: from static-adsl-c-5-188.ipcom.comunitel.net ([static-adsl-c-5-188.ipcom.comunitel.net])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 15 May 2013 16:58:22 +0200
-Received: from rtpardavila by static-adsl-c-5-188.ipcom.comunitel.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 15 May 2013 16:58:22 +0200
+Received: from mail-ob0-f175.google.com ([209.85.214.175]:59821 "EHLO
+	mail-ob0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932795Ab3EOPDc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 11:03:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Borkmann <dborkman <at> redhat.com> writes:
+From: Albert Pool <albertpool@solcon.nl>
 
-> 
-> No, just as a side note, I think here you rather wanted to say ...
-> 
->   setsockopt(socket, SOL_PACKET, PACKET_RX_RING, ...);
->   setsockopt(socket, SOL_PACKET, PACKET_TX_RING, ...);
-> 
-> ... and then only once:
-> 
->   ring = mmap(NULL, ..., socket, 0);
-> 
-> > I haven't tried it out yet, and currently also do not really have time
-to. But
-> > looking at the mmap code, it seems that the size of the mmap area is
-accumulated
-> > for rx and tx ring. However, the header status bits are not really
-interoperable
-> > with each other. So looks you will need to have two sockets ...
-> 
+This adds the USB ID of the On Networks N300MA, clone of Netgear WNA3100M.
 
-I have already tried that and, if I use the same socket_fd twice with
-setsockopt(), I get the EBUSY errno from Kernel. Tomorrow, I will try the
-first solution with both sockets (it seems the easiest way); afterwards, I
-will try to use the TX_RING socket for TX and for RX at a time.
+Signed-off-by: Albert Pool <albertpool@solcon.nl>
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Reported-by: Ana Rey <Anazul77@hotmail.com>
+---
 
-I will come back with the results.
+John,
+
+Please use this version. V2 still had some whitespace errors that I fixed.
+
+Albert,
+
+Please use scripts/checkpatch.pl to check the patch before you send it.
+
+Thanks,
+
+Larry
+---
+
+ drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+index 23d640a..18da6de 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+@@ -349,6 +349,7 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
+ 	{RTL_USB_DEVICE(0x07aa, 0x0056, rtl92cu_hal_cfg)}, /*ATKK-Gemtek*/
+ 	{RTL_USB_DEVICE(0x07b8, 0x8178, rtl92cu_hal_cfg)}, /*Funai -Abocom*/
+ 	{RTL_USB_DEVICE(0x0846, 0x9021, rtl92cu_hal_cfg)}, /*Netgear-Sercomm*/
++	{RTL_USB_DEVICE(0x0846, 0xf001, rtl92cu_hal_cfg)}, /*On Netwrks N300MA*/
+ 	{RTL_USB_DEVICE(0x0b05, 0x17ab, rtl92cu_hal_cfg)}, /*ASUS-Edimax*/
+ 	{RTL_USB_DEVICE(0x0bda, 0x8186, rtl92cu_hal_cfg)}, /*Realtek 92CE-VAU*/
+ 	{RTL_USB_DEVICE(0x0df6, 0x0061, rtl92cu_hal_cfg)}, /*Sitecom-Edimax*/
+-- 
+1.8.1.4
