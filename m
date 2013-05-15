@@ -1,83 +1,40 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH] pci: Avoid reentrant calls to work_on_cpu
-Date: Tue, 14 May 2013 18:58:03 -0700
-Message-ID: <5192EBAB.7030203@gmail.com>
-References: <20130514221748.6180.30597.stgit@ahduyck-cp1.jf.intel.com> <CAJZOPZL06sG__MdTzp6FF6BuB+Tv+CC_US35eHY0EDP6vQVzMw@mail.gmail.com>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH v5 1/1 net] net: fec: fix kernel oops when plug/unplug
+ cable many times
+Date: Tue, 14 May 2013 23:42:17 -0300
+Message-ID: <CAOMZO5CXUatKj0b=OuX_Cm5UiiuNbACG16Qnp9EY=_nMJ2g=bA@mail.gmail.com>
+References: <1367971724-1974-1-git-send-email-Frank.Li@freescale.com>
+	<20130513045710.GA4440@S2101-09.ap.freescale.net>
+	<CAOMZO5AUk0GHKj857a0=Q-dxhpO2s7uatXurNVZV_UmEmtGsqQ@mail.gmail.com>
+	<1368559834.4519.23.camel@edumazet-glaptop>
+	<CAOMZO5DK6giehS9HpmXMzRKiDvvtEPLxvyenMQaBdrWS8WWVxw@mail.gmail.com>
+	<CAHrpEqT=yD085tPPpvxG9heL1nHjZM0e7aHdA_2RdQrNWShRdw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>, bhelgaas@google.com,
-	yinghai@kernel.org, guz.fnst@cn.fujitsu.com,
-	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "Michael S. Tsirkin" <mst@redhat.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAJZOPZL06sG__MdTzp6FF6BuB+Tv+CC_US35eHY0EDP6vQVzMw@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Frank Li <Frank.Li@freescale.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Robert Schwebel <r.schwebel@pengutronix.de>,
+	David Miller <davem@davemloft.net>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Frank Li <lznuaa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:54782 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752001Ab3EOCmS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 22:42:18 -0400
+Received: by mail-pd0-f170.google.com with SMTP id 10so948424pdi.15
+        for <netdev@vger.kernel.org>; Tue, 14 May 2013 19:42:18 -0700 (PDT)
+In-Reply-To: <CAHrpEqT=yD085tPPpvxG9heL1nHjZM0e7aHdA_2RdQrNWShRdw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/14/2013 05:32 PM, Or Gerlitz wrote:
-> On Tue, May 14, 2013 at 6:26 PM, Alexander Duyck
-> <alexander.h.duyck@intel.com> wrote:
->>
->> This change is meant to fix a deadlock seen when pci_enable_sriov was
->> called from within a driver's probe routine.  The issue was that
->> work_on_cpu calls flush_work which attempts to flush a work queue for a
->> cpu that we are currently working in.  In order to avoid the reentrant
->> path we just skip the call to work_on_cpu in the case that the device
->> node matches our current node.
->>
->> Reported-by: Yinghai Lu <yinghai@kernel.org>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> ---
->>
->> This patch is meant to address the issue pointed out in an earlier patch
->> sent by Yinghai Lu titled:
->>   [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
->>
->>  drivers/pci/pci-driver.c |   14 +++++++++-----
->>  1 files changed, 9 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/pci/pci-driver.c b/drivers/pci/pci-driver.c
->> index 79277fb..caeb1c0 100644
->> --- a/drivers/pci/pci-driver.c
->> +++ b/drivers/pci/pci-driver.c
->> @@ -277,12 +277,16 @@ static int pci_call_probe(struct pci_driver *drv,
->> struct pci_dev *dev,
->>         int error, node;
->>         struct drv_dev_and_id ddi = { drv, dev, id };
->>
->> -       /* Execute driver initialization on node where the device's
->> -          bus is attached to.  This way the driver likely allocates
->> -          its local memory on the right node without any need to
->> -          change it. */
->> +       /*
->> +        * Execute driver initialization on the node where the device's
->> +        * bus is attached.  This way the driver likely allocates
->> +        * its local memory on the right node without any need to
->> +        * change it.  If the node is the current node just call
->> +        * local_pci_probe and avoid the possibility of reentrant
->> +        * calls to work_on_cpu.
->> +        */
->>         node = dev_to_node(&dev->dev);
->> -       if (node >= 0) {
->> +       if ((node >= 0) && (node != numa_node_id())) {
->>                 int cpu;
->>
->>                 get_online_cpus();
-> 
-> 
-> Alex, FWIW a similar patch was posted by Michael during the last rc
-> cycles of 3.9 see
-> http://marc.info/?l=linux-netdev&m=136569426119644&w=2
+On Tue, May 14, 2013 at 10:56 PM, Frank Li <lznuaa@gmail.com> wrote:
 
-Did his patch ever get applied anywhere?  I don't see it in any of the
-trees.
+> I also find the same solution yesterdays. I tested on MX6. Shawn
+> tested on MX6 and MX28.
+> You can submit patch.
 
-The advantage this approach has over the one in the similar patch is
-that this covers a broader set of CPUs since anything on the same node
-is local versus just the first CPU in a given NUMA node.
-
-Thanks,
-
-Alex
+Thanks, Frank. Will submit it tomorrow.
