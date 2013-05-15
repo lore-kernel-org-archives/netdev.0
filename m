@@ -1,124 +1,75 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 driver cause ssh failure
-Date: Wed, 15 May 2013 00:54:22 +0200
-Message-ID: <20130514225422.GA32242@electric-eye.fr.zoreil.com>
-References: <CA+6wjbxdbTDXmO984sM1CHFT+PJJdvS=+YmwM2iu-10Ws4WouA@mail.gmail.com>
- <5190841E.9090503@canonical.com>
- <20130513063332.GA16374@electric-eye.fr.zoreil.com>
- <pan.2013.05.13.13.24.46.794122@googlemail.com>
+From: Ken Moffat <zarniwhoop@ntlworld.com>
+Subject: r8169 on 3.8.13, 3.9.2, 3.10-rc1, was Re: [ 00/73] 3.8.13-stable
+ review
+Date: Wed, 15 May 2013 01:07:15 +0100
+Message-ID: <20130515000715.GA20099@milliways>
+References: <20130509222757.917088509@linuxfoundation.org>
+ <pan.2013.05.10.10.54.26.943195@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-kernel@vger.kernel.org, stable@vger.kernel.org,
+	netdev@vger.kernel.org
 To: Holger Hoffstaette <holger.hoffstaette@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:60595 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758429Ab3ENWyZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 May 2013 18:54:25 -0400
+Return-path: <stable-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <pan.2013.05.13.13.24.46.794122@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <pan.2013.05.10.10.54.26.943195@googlemail.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Holger Hoffstaette <holger.hoffstaette@googlemail.com> :
-[...]
-> Don't have a packet capture, but I also noticed that this commit caused
-> failures; symptom for me was broken squid traffic to websites using CDNs
-> (arstechnica, twitter) and/or DNS, probably related to mixed IPv4/v6
-> traffic. See my followup to last week's 3.8.13-stable announcement, which
-> was apparently not dramatic enough to warrant attention.
+On Fri, May 10, 2013 at 12:54:27PM +0200, Holger Hoffstaette wrote:
 
-It was not Cced and it did not appear as a reply to the stable-submitted
-r8169 patch.
+ Cc'ing to netdev because I don't think this has had a response, and
+I care because I *might* be seeing the same problem on both 3.9.2
+and 3.10-rc1, but my take on the problem is slightly different [
+details after Holger's posting ]
 
-> I later found out that this regression is related to tx offloading;
-> enabling rx & gso offloading still works. Reverting the patch restores tx
-> offloading as well.
+> On Thu, 09 May 2013 15:31:23 -0700, Greg Kroah-Hartman wrote:
+>=20
+> > This is the start of the stable review cycle for the 3.8.13 release=
+=2E There
+>=20
+> This patchset broke my internet, with all sorts of weird effects like
+> Samba clients having problems to talk to the server and only partiall=
+y
+> working DNS resolution (CDNs broken, Amazon unreachable).
+>=20
+> After two reboots to/from .12/.13 (to rule out temporary internet
+> brokenness) the problem has been identified as:
+>=20
+> > Stefan Bader <stefan.bader@canonical.com>
+> >     r8169: fix 8168evl frame padding.
+>=20
+> After reverting only this patch (turning r8169 back to 3.8.12) things
+> again behave as expected with the rest of .13. So far no other regres=
+sions
+> detected.
+>=20
+> This patch should probably be removed from 3.9.2-rc as well.
+>=20
+> -h
+>=20
+ For me, I'm seeing what might be a similar problem in about 2/5 of
+my boots of 3.9.2 and 3.10-rc1 : in my case, r8169 is a module [ most
+things are built in ], I use dhclient to get an ip address, and I
+have separate nfs shares for /sources [ in /etc/mtab ] and my user's
+~/notes [ mounted from ~/.bashrc ].
 
-Could you check if the patch below helps ?
+ On a good boot, everything mounts.  On a bad boot, /sources is NOT
+mounted because eth0 is not up, but by the time anyone logs in it
+_is_ up so mounting ~/notes [and manually mounting /sources as root]
+works.  What seems to be happening is that eth0 is coming up
+slightly later on some occasions (about 11 seconds from booting,
+instead of 10.5 seconds) and somehow the dhclient script seems to
+have ended *before* that.
 
-It has not crashed yet but I still lack a test case to claim it makes
-a difference.
+ For me, this isn't bisectable (so far, 10 boots of 3.9.2 and
+3.10-rc1 on this box, and 4 were problematic).  On this box, 3.9.0
+itself was perfect.
 
-diff --git a/drivers/net/ethernet/realtek/r8169.c b/drivers/net/ethernet/realtek/r8169.c
-index 79c520b..a05596c 100644
---- a/drivers/net/ethernet/realtek/r8169.c
-+++ b/drivers/net/ethernet/realtek/r8169.c
-@@ -5856,7 +5856,15 @@ err_out:
- 	return -EIO;
- }
- 
--static inline void rtl8169_tso_csum(struct rtl8169_private *tp,
-+static bool rtl_skb_pad(struct sk_buff *skb)
-+{
-+	if (skb_padto(skb, ETH_ZLEN))
-+		return false;
-+	skb_put(skb, ETH_ZLEN - skb->len);
-+	return true;
-+}
-+
-+static inline bool rtl8169_tso_csum(struct rtl8169_private *tp,
- 				    struct sk_buff *skb, u32 *opts)
- {
- 	const struct rtl_tx_desc_info *info = tx_desc_info + tp->txd_version;
-@@ -5869,13 +5877,24 @@ static inline void rtl8169_tso_csum(struct rtl8169_private *tp,
- 	} else if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		const struct iphdr *ip = ip_hdr(skb);
- 
-+		if (unlikely(skb->len < ETH_ZLEN &&
-+		    (tp->mac_version == RTL_GIGA_MAC_VER_34))) {
-+			skb_checksum_help(skb);
-+			return rtl_skb_pad(skb);
-+		}
-+
- 		if (ip->protocol == IPPROTO_TCP)
- 			opts[offset] |= info->checksum.tcp;
- 		else if (ip->protocol == IPPROTO_UDP)
- 			opts[offset] |= info->checksum.udp;
- 		else
- 			WARN_ON_ONCE(1);
-+	} else {
-+		if (unlikely(skb->len < ETH_ZLEN &&
-+		    (tp->mac_version == RTL_GIGA_MAC_VER_34)))
-+			return rtl_skb_pad(skb);
- 	}
-+	return true;
- }
- 
- static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
-@@ -5896,17 +5915,15 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 		goto err_stop_0;
- 	}
- 
--	/* 8168evl does not automatically pad to minimum length. */
--	if (unlikely(tp->mac_version == RTL_GIGA_MAC_VER_34 &&
--		     skb->len < ETH_ZLEN)) {
--		if (skb_padto(skb, ETH_ZLEN))
--			goto err_update_stats;
--		skb_put(skb, ETH_ZLEN - skb->len);
--	}
--
- 	if (unlikely(le32_to_cpu(txd->opts1) & DescOwn))
- 		goto err_stop_0;
- 
-+	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(skb));
-+	opts[0] = DescOwn;
-+
-+	if (!rtl8169_tso_csum(tp, skb, opts))
-+		goto err_update_stats;
-+
- 	len = skb_headlen(skb);
- 	mapping = dma_map_single(d, skb->data, len, DMA_TO_DEVICE);
- 	if (unlikely(dma_mapping_error(d, mapping))) {
-@@ -5918,11 +5935,6 @@ static netdev_tx_t rtl8169_start_xmit(struct sk_buff *skb,
- 	tp->tx_skb[entry].len = len;
- 	txd->addr = cpu_to_le64(mapping);
- 
--	opts[1] = cpu_to_le32(rtl8169_tx_vlan_tag(skb));
--	opts[0] = DescOwn;
--
--	rtl8169_tso_csum(tp, skb, opts);
--
- 	frags = rtl8169_xmit_frags(tp, skb, opts);
- 	if (frags < 0)
- 		goto err_dma_1;
+Holger : apologies if I've hijacked this thread with what turns out
+to be a different problem.
+
+ken
+--=20
+das eine Mal als Trag=F6die, das andere Mal als Farce
