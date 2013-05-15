@@ -1,46 +1,29 @@
-From: Mike Qiu <qiudayu@linux.vnet.ibm.com>
-Subject: BCM5719(tg3) use multiple MSI with RSS
-Date: Wed, 15 May 2013 15:56:59 +0800
-Message-ID: <51933FCB.4090402@linux.vnet.ibm.com>
+From: =?ISO-8859-1?Q?Holger_Hoffst=E4tte?=
+	<holger.hoffstaette@googlemail.com>
+Subject: Re: r8169 driver cause ssh failure
+Date: Wed, 15 May 2013 10:16:18 +0200
+Message-ID: <51934452.5040600@googlemail.com>
+References: <CA+6wjbxdbTDXmO984sM1CHFT+PJJdvS=+YmwM2iu-10Ws4WouA@mail.gmail.com> <5190841E.9090503@canonical.com> <20130513063332.GA16374@electric-eye.fr.zoreil.com> <pan.2013.05.13.13.24.46.794122@googlemail.com> <20130514225422.GA32242@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eilong@broadcom.com, mchan@broadcom.com, mcarlson@broadcom.com,
-	zambrano@broadcom.com, jeffrey.t.kirsher@intel.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp06.au.ibm.com ([202.81.31.148]:39775 "EHLO
-	e23smtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757048Ab3EOH5W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 03:57:22 -0400
-Received: from /spool/local
-	by e23smtp06.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <qiudayu@linux.vnet.ibm.com>;
-	Wed, 15 May 2013 17:50:48 +1000
-Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [9.190.235.21])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 08B9C2BB0050
-	for <netdev@vger.kernel.org>; Wed, 15 May 2013 17:57:06 +1000 (EST)
-Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4F7uw1i19005600
-	for <netdev@vger.kernel.org>; Wed, 15 May 2013 17:56:58 +1000
-Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
-	by d23av02.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4F7v4KD032272
-	for <netdev@vger.kernel.org>; Wed, 15 May 2013 17:57:05 +1000
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:61895 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757021Ab3EOIQX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 04:16:23 -0400
+In-Reply-To: <20130514225422.GA32242@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all
+On 15.05.2013 00:54, Francois Romieu wrote:
+> Could you check if the patch below helps ?
 
-Currently, I need to enable multiple MSI on BCM5719 network card.
-But I look in to the spec of 5719 from Broadcom, it seems
-that RSS just enable with MSI-X, so I'm not sure if multiple
-MSI can use RSS.
+Seems to work fine! I have turned tx offloading back on and everything
+works again, just like before the regression.
 
+Thanks!
 
-
-And if multiple MSI can't use RSS, how other usage of the
-interrupts allocated from the system? Can they be used to
-improve the performance of the network?
-
-Thanks
-Mike
+-h
