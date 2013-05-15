@@ -1,64 +1,81 @@
-From: Ricardo =?utf-8?b?VHViw61v?= <rtpardavila@gmail.com>
-Subject: Re: Single socket with =?utf-8?b?VFhfUklORw==?= and =?utf-8?b?UlhfUklORw==?=
-Date: Wed, 15 May 2013 13:32:41 +0000 (UTC)
-Message-ID: <loom.20130515T152203-727@post.gmane.org>
-References: <loom.20130515T144941-798@post.gmane.org> <51938BAD.5050502@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 4/4] bonding: fix multiple 3ad mode sysfs race conditions
+Date: Wed, 15 May 2013 17:53:41 +0400
+Message-ID: <51939365.4020905@cogentembedded.com>
+References: <1368621162-6807-1-git-send-email-nikolay@redhat.com> <1368621162-6807-5-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com,
+	davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:59435 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759053Ab3EONdA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 May 2013 09:33:00 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UcbpA-00062m-LC
-	for netdev@vger.kernel.org; Wed, 15 May 2013 15:32:56 +0200
-Received: from static-adsl-c-5-188.ipcom.comunitel.net ([static-adsl-c-5-188.ipcom.comunitel.net])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 15 May 2013 15:32:56 +0200
-Received: from rtpardavila by static-adsl-c-5-188.ipcom.comunitel.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 15 May 2013 15:32:56 +0200
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:52737 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758991Ab3EONxm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 May 2013 09:53:42 -0400
+Received: by mail-lb0-f171.google.com with SMTP id v20so1899658lbc.30
+        for <netdev@vger.kernel.org>; Wed, 15 May 2013 06:53:40 -0700 (PDT)
+In-Reply-To: <1368621162-6807-5-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Daniel Borkmann <dborkman <at> redhat.com> writes:
+Hello.
 
->=20
-> On 05/15/2013 02:53 PM, Ricardo Tub=C3=ADo wrote:
-> > Once I tell kernel to export the TX_RING through setsockopt() (see =
-code
-> > below) I always get an error (EBUSY) if i try to tell kernel to exp=
-ort the
-> > RX_RING with the same socket descriptor. Therefore, I have to open =
-an
-> > additional socket for the RX_RING and I require of two sockets when=
- I though
-> > that I would only require of one socket for both TX and RX using mm=
-ap()ed
-> > memory.
-> >
-> > Do I need both sockets or am I doing something wrong?
->=20
-> The second time you call init_ring() in your code e.g. with TX_RING, =
-where
-> you have previously set it up for the RX_RING. The kernel will give y=
-ou
-> -EBUSY because the packet socket is already mmap(2)'ed.
->=20
+On 15-05-2013 16:32, Nikolay Aleksandrov wrote:
 
-Ok, so if I make the following system calls:
+> When bond_3ad_get_active_agg_info() is used in all show_ad_ functions
+> it is not protected against slave manipulation and since it walks over
+> the slaves and uses them, this can easily result in NULL pointer
+> dereference or use of freed memory.
 
-void *ring=3DNULL;
-setsockopt(socket_fd, SOL_PACKET, PACKET_RX_RING, p, LEN__TPACKET_REQ);
-ring =3D mmap(NULL, ring_len, ring_access_flags, MAP_SHARED, socket_fd,=
- 0);
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+> ---
+>   drivers/net/bonding/bond_sysfs.c | 21 ++++++++++++++++-----
+>   1 file changed, 16 insertions(+), 5 deletions(-)
 
-Would I be permitted to use the ring map obtained both for RX and for T=
-X? If
-so, for me it is confusing to use PACKET_RX_RING if I can also TX data
-through that ring...
+> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+> index 77ea237..81ef36a 100644
+> --- a/drivers/net/bonding/bond_sysfs.c
+> +++ b/drivers/net/bonding/bond_sysfs.c
+[...]
+> @@ -1333,7 +1344,7 @@ static ssize_t bonding_show_ad_aggregator(struct device *d,
+>   	if (bond->params.mode == BOND_MODE_8023AD) {
+>   		struct ad_info ad_info;
+>   		count = sprintf(buf, "%d\n",
+> -				(bond_3ad_get_active_agg_info(bond, &ad_info))
+> +				(get_active_agg_info(bond, &ad_info))
+>   				?  0 : ad_info.aggregator_id);
+>   	}
+>
+> @@ -1355,7 +1366,7 @@ static ssize_t bonding_show_ad_num_ports(struct device *d,
+>   	if (bond->params.mode == BOND_MODE_8023AD) {
+>   		struct ad_info ad_info;
+>   		count = sprintf(buf, "%d\n",
+> -				(bond_3ad_get_active_agg_info(bond, &ad_info))
+> +				(get_active_agg_info(bond, &ad_info))
+>   				?  0 : ad_info.ports);
+>   	}
+>
+> @@ -1377,7 +1388,7 @@ static ssize_t bonding_show_ad_actor_key(struct device *d,
+>   	if (bond->params.mode == BOND_MODE_8023AD) {
+>   		struct ad_info ad_info;
+>   		count = sprintf(buf, "%d\n",
+> -				(bond_3ad_get_active_agg_info(bond, &ad_info))
+> +				(get_active_agg_info(bond, &ad_info))
+>   				?  0 : ad_info.actor_key);
+>   	}
+>
+> @@ -1399,7 +1410,7 @@ static ssize_t bonding_show_ad_partner_key(struct device *d,
+>   	if (bond->params.mode == BOND_MODE_8023AD) {
+>   		struct ad_info ad_info;
+>   		count = sprintf(buf, "%d\n",
+> -				(bond_3ad_get_active_agg_info(bond, &ad_info))
+> +				(get_active_agg_info(bond, &ad_info))
+>   				?  0 : ad_info.partner_key);
+>   	}
+
+    Perhaps it's time to get rid of the useless parens around function 
+call in ?: operator?
+
+WBR, Sergei
