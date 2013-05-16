@@ -1,57 +1,53 @@
-From: Peter Lieven <pl@dlhnet.de>
-Subject: Re: [Qemu-devel] tap devices not receiving packets from a bridge
-Date: Thu, 16 May 2013 10:47:02 +0200
-Message-ID: <51949D06.1060109@dlhnet.de>
-References: <50FE5607.9020405@dlhnet.de> <20130123100312.GA8108@redhat.com> <5119E9DC.3000505@dlhnet.de> <1368541284.15129.317.camel@eboracum.office.bytemark.co.uk> <519249F6.3000900@dlhnet.de> <1368542949.15129.354.camel@eboracum.office.bytemark.co.uk> <1368615603.15129.1471.camel@eboracum.office.bytemark.co.uk> <20130516062405.GA26548@redhat.com> <20130516062743.GB26548@redhat.com> <1368692455.15129.1475.camel@eboracum.office.bytemark.co.uk> <20130516084021.GA28125@redhat.com>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH] bonding: allow TSO being set on bonding master
+Date: Thu, 16 May 2013 10:59:25 +0200
+Message-ID: <CAHXqBFL8t9SUz3SXVonf+MwtVHU6UgAuk07ysGdPU7hGH8DbmQ@mail.gmail.com>
+References: <1368654065.4519.53.camel@edumazet-glaptop> <CAHXqBF+r3wnWY+hveYjVBNwbVYdiDF4mOj1UmbKeH3OYo6kz6Q@mail.gmail.com>
+ <1368659900.4519.57.camel@edumazet-glaptop> <1368660613.4519.60.camel@edumazet-glaptop>
+ <CAHXqBFLnPQnd2a17B4_UKpiL70BzkFMWzocM-4mr88TYoG6Jcw@mail.gmail.com> <1368684572.3301.14.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Nicholas Thomas <nick@bytemark.co.uk>,
-	Stefan Hajnoczi <stefanha@gmail.com>, qemu-devel@nongnu.org,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ssl.dlhnet.de ([91.198.192.8]:43274 "EHLO ssl.dlh.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755788Ab3EPIrF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 May 2013 04:47:05 -0400
-In-Reply-To: <20130516084021.GA28125@redhat.com>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:34440 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755785Ab3EPI7p convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 04:59:45 -0400
+Received: by mail-ie0-f175.google.com with SMTP id s9so5807576iec.20
+        for <netdev@vger.kernel.org>; Thu, 16 May 2013 01:59:45 -0700 (PDT)
+In-Reply-To: <1368684572.3301.14.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 16.05.2013 10:40, schrieb Michael S. Tsirkin:
-> On Thu, May 16, 2013 at 09:20:55AM +0100, Nicholas Thomas wrote:
->> Hi,
->>
->> On Thu, 2013-05-16 at 09:27 +0300, Michael S. Tsirkin wrote:
->>> On Thu, May 16, 2013 at 09:24:05AM +0300, Michael S. Tsirkin wrote:
->>>> Is this with or without vhost-net in host?
->>>
->>> never mind, I see it's without.
->>> Try to enable vhost-net (you'll have to switch to -netdev syntax
->>> for that to work) and see if this help.
->>> If it does it's likely a qemu bug if not probably a guest bug.
->>
->> Switching to -netdev is non-trivial for me, unfortunately.
-> 
-> Interesting. Why is that?
-> 
->> Anyway, it's
->> definitely a qemu bug - it happens on kernels 3.2 and 3.9 with 1.4.1,
->> but doesn't happen with qemu 0.15.0 or 1.5.0rc1.
->>
->> I'll have a dig through git to see if I can identify the patch that
->> resolves it. It feels-like qemu sometimes stops reading from the tap
->> file descriptor between ipxe exiting and the linux kernel bringing up
->> the network interface, and never recovers from that.
->>
->> /Nick
-> 
-> You can try to bisect, yes.
-> 
+2013/5/16 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Thu, 2013-05-16 at 07:45 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+>
+>> This should enable GSO if at least one slave has it on. What feature=
+s
+>> (tx-tcp*) the slaves have?
+>
+> Both slaves have tso off, gso on.
+>
+> (Let's say for some tricky hardware bug on the NIC)
+>
+> We want to not do tso on the NIC, but do the GSO segmentation right
+> before NIC.
+>
+> It brings about 30% improvement.
 
-It would be good to bisect this. I would appreciate it. I have a similar problem with rtl8139 (without vhost-net), but I was unable
-to reproduce yet.
+Then your patch is the way to go.
 
-Thanks,
-Peter
+BTW, the fix_features callbacks of bridge, team and bonding are so
+similar it calls for some refactoring. What they want also seems very
+close.
+
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
