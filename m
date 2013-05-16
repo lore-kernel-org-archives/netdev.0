@@ -1,8 +1,7 @@
 From: "Florian Fainelli" <f.fainelli@gmail.com>
-Subject: [PATCH 2/2 net-next] phy: add phy_mac_interrupt() to use with
- PHY_IGNORE_INTERRUPT
-Date: Thu, 16 May 2013 18:04:56 +0000
-Message-ID: <1368727496-25638-3-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH 1/2 net-next] phy: fix the use of PHY_IGNORE_INTERRUPT
+Date: Thu, 16 May 2013 18:04:55 +0000
+Message-ID: <1368727496-25638-2-git-send-email-f.fainelli@gmail.com>
 References: <1368727496-25638-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,99 +11,83 @@ Cc: netdev@vger.kernel.org, jogo@openwrt.org,
 	"Florian Fainelli" <f.fainelli@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1669 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2507 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753559Ab3EPSFW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 May 2013 14:05:22 -0400
+	id S1753514Ab3EPSFb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 May 2013 14:05:31 -0400
 In-Reply-To: <1368727496-25638-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is currently no way for an Ethernet MAC driver servicing PHY link
-interrupts to notify this to the PHY state machine without defining its
-own state machine. Since most drivers are not so special, introduce a
-helper: phy_mac_interrupt() which can be called from a link up/down
-interrupt routine to update the PHY state machine. To avoid code
-duplication some refactoring has been done to expose the workqueue and
-its corresponding callback internally.
+When a PHY device is registered with the special IRQ value
+PHY_IGNORE_INTERRUPT (-2) it will not properly be handled by the PHY
+library:
 
+- it continues to poll its register, while we do not want this
+  because such PHY link events or register changes are serviced by an
+  Ethernet MAC interrupt line
+- it will still try to configure PHY interrupts at the PHY level, such
+  interrupts do not exist at the PHY but at the MAC level
+- the state machine only handles PHY_POLL, but should also handle
+  PHY_IGNORE_INTERRUPT similarly
+
+This patch updates the PHY state machine and initialization paths to
+account for the specific PHY_IGNORE_INTERRUPT. Based on an earlier patch
+by Thomas Petazzoni, and reworked to add the missing bits.
+
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/phy.c        | 14 +++++++++-----
- drivers/net/phy/phy_device.c |  1 +
- include/linux/phy.h          |  2 ++
- 3 files changed, 12 insertions(+), 5 deletions(-)
+ drivers/net/phy/phy.c        | 6 +++---
+ drivers/net/phy/phy_device.c | 5 +++--
+ 2 files changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 2de4290..8a3b83a 100644
+index c14f147..2de4290 100644
 --- a/drivers/net/phy/phy.c
 +++ b/drivers/net/phy/phy.c
-@@ -419,8 +419,6 @@ out_unlock:
- EXPORT_SYMBOL(phy_start_aneg);
+@@ -682,7 +682,7 @@ void phy_stop(struct phy_device *phydev)
+ 	if (PHY_HALTED == phydev->state)
+ 		goto out_unlock;
  
+-	if (phydev->irq != PHY_POLL) {
++	if (phydev->irq >= 0) {
+ 		/* Disable PHY Interrupts */
+ 		phy_config_interrupt(phydev, PHY_INTERRUPT_DISABLED);
  
--static void phy_change(struct work_struct *work);
--
- /**
-  * phy_start_machine - start PHY state machine tracking
-  * @phydev: the phy_device struct
-@@ -565,8 +563,6 @@ int phy_start_interrupts(struct phy_device *phydev)
- {
- 	int err = 0;
+@@ -829,7 +829,7 @@ void phy_state_machine(struct work_struct *work)
+ 		case PHY_RUNNING:
+ 			/* Only register a CHANGE if we are
+ 			 * polling */
+-			if (PHY_POLL == phydev->irq)
++			if (phydev->irq < 0)
+ 				phydev->state = PHY_CHANGELINK;
+ 			break;
+ 		case PHY_CHANGELINK:
+@@ -848,7 +848,7 @@ void phy_state_machine(struct work_struct *work)
  
--	INIT_WORK(&phydev->phy_queue, phy_change);
--
- 	atomic_set(&phydev->irq_disable, 0);
- 	if (request_irq(phydev->irq, phy_interrupt,
- 				IRQF_SHARED,
-@@ -623,7 +619,7 @@ EXPORT_SYMBOL(phy_stop_interrupts);
-  * phy_change - Scheduled by the phy_interrupt/timer to handle PHY changes
-  * @work: work_struct that describes the work to be done
-  */
--static void phy_change(struct work_struct *work)
-+void phy_change(struct work_struct *work)
- {
- 	int err;
- 	struct phy_device *phydev =
-@@ -921,6 +917,14 @@ void phy_state_machine(struct work_struct *work)
- 	schedule_delayed_work(&phydev->state_queue, PHY_STATE_TIME * HZ);
- }
+ 			phydev->adjust_link(phydev->attached_dev);
  
-+void phy_mac_interrupt(struct phy_device *phydev, int new_link)
-+{
-+	cancel_work_sync(&phydev->phy_queue);
-+	phydev->link = new_link;
-+	schedule_work(&phydev->phy_queue);
-+}
-+EXPORT_SYMBOL(phy_mac_interrupt);
-+
- static inline void mmd_phy_indirect(struct mii_bus *bus, int prtad, int devad,
- 				    int addr)
- {
+-			if (PHY_POLL != phydev->irq)
++			if (phydev->irq >= 0)
+ 				err = phy_config_interrupt(phydev,
+ 						PHY_INTERRUPT_ENABLED);
+ 			break;
 diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 3cb80b8..59e0236 100644
+index 3657b4a..3cb80b8 100644
 --- a/drivers/net/phy/phy_device.c
 +++ b/drivers/net/phy/phy_device.c
-@@ -189,6 +189,7 @@ struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
+@@ -1009,8 +1009,9 @@ static int phy_probe(struct device *dev)
+ 	phydrv = to_phy_driver(drv);
+ 	phydev->drv = phydrv;
  
- 	mutex_init(&dev->lock);
- 	INIT_DELAYED_WORK(&dev->state_queue, phy_state_machine);
-+	INIT_WORK(&dev->phy_queue, phy_change);
+-	/* Disable the interrupt if the PHY doesn't support it */
+-	if (!(phydrv->flags & PHY_HAS_INTERRUPT))
++	/* Disable the interrupt if the PHY doesn't support it
++	 * but the interrupt is still a valid one */
++	if (!(phydrv->flags & PHY_HAS_INTERRUPT) && phydev->irq >= 0)
+ 		phydev->irq = PHY_POLL;
  
- 	/* Request the appropriate module unconditionally; don't
- 	   bother trying to do so only if it isn't already loaded,
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 9e11039..be3842b 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -545,6 +545,8 @@ void phy_drivers_unregister(struct phy_driver *drv, int n);
- int phy_driver_register(struct phy_driver *new_driver);
- int phy_drivers_register(struct phy_driver *new_driver, int n);
- void phy_state_machine(struct work_struct *work);
-+void phy_change(struct work_struct *work);
-+void phy_mac_interrupt(struct phy_device *phydev, int new_link);
- void phy_start_machine(struct phy_device *phydev,
- 		void (*handler)(struct net_device *));
- void phy_stop_machine(struct phy_device *phydev);
+ 	mutex_lock(&phydev->lock);
 -- 
 1.8.1.2
