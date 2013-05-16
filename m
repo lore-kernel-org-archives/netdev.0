@@ -1,54 +1,304 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] sfc: Enable accelerated RFS on vlans
-Date: Thu, 16 May 2013 21:00:47 +0100
-Message-ID: <1368734447.2655.32.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4bdabd4670b726348cdcdc0d2d635dd660671ee3.1368229353.git.luto@amacapital.net>
-	 <1368729524.2655.30.camel@bwh-desktop.uk.solarflarecom.com>
-	 <CALCETrVpEz_WdG9bKjUSR3OKyERd+hMLwK8+_84L5WxepQrS1g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:53999 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752410Ab3EPUAv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 16:00:51 -0400
-In-Reply-To: <CALCETrVpEz_WdG9bKjUSR3OKyERd+hMLwK8+_84L5WxepQrS1g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sriram Narasimhan <sriram.narasimhan@hp.com>
+Subject: [PATCH] virtio-net: Reporting traffic queue distribution statistics through ethtool
+Date: Thu, 16 May 2013 13:24:29 -0700
+Message-ID: <1368735869-31076-1-git-send-email-sriram.narasimhan@hp.com>
+Cc: virtualization@lists.linux-foundation.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sriram Narasimhan <sriram.narasimhan@hp.com>
+To: mst@redhat.com, rusty@rustcorp.com.au
+Return-path: <kvm-owner@vger.kernel.org>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-05-16 at 12:45 -0700, Andy Lutomirski wrote:
-> On Thu, May 16, 2013 at 11:38 AM, Ben Hutchings
-> <bhutchings@solarflare.com> wrote:
-> > On Fri, 2013-05-10 at 16:51 -0700, Andy Lutomirski wrote:
-> >> As far as I know, the hardware doesn't support matching on both IP
-> >> fields and vlan tag, but it can at least match on the vlan tag.
-> >>
-> >> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
-> >> ---
-> >>
-> >> Tested on the OpenOnload version of the driver, but the patch is the same
-> >> other than some offset.
-> >
-> > This looks correct, but I'll have to actually test it.  So I'll queue
-> > this up and re-submit along with other sfc patches later on, OK?
-> 
-> Fine with me.  (Is there a combined vlan + IP filter that I don't know about?)
+This patch allows virtio-net driver to report traffic distribution
+to inbound/outbound queues through ethtool -S.  The per_cpu
+virtnet_stats is split into receive and transmit stats and are
+maintained on a per receive_queue and send_queue basis.
+virtnet_stats() is modified to aggregate interface level statistics
+from per-queue statistics.  Sample output below:
 
-Not in current hardware.
+NIC statistics:
+     rxq0: rx_packets: 4357802
+     rxq0: rx_bytes: 292642052
+     txq0: tx_packets: 824540
+     txq0: tx_bytes: 55256404
+     rxq1: rx_packets: 0
+     rxq1: rx_bytes: 0
+     txq1: tx_packets: 1094268
+     txq1: tx_bytes: 73328316
+     rxq2: rx_packets: 0
+     rxq2: rx_bytes: 0
+     txq2: tx_packets: 1091466
+     txq2: tx_bytes: 73140566
+     rxq3: rx_packets: 0
+     rxq3: rx_bytes: 0
+     txq3: tx_packets: 1093043
+     txq3: tx_bytes: 73246142
 
-> When you resubmit it, it might be worth fixing the blatant typo (vlan
-> tag -> IP fields) in the description, though :/
-[...]
+Signed-off-by: Sriram Narasimhan <sriram.narasimhan@hp.com>
+---
+ drivers/net/virtio_net.c |  157 +++++++++++++++++++++++++++++++++++++---------
+ 1 files changed, 128 insertions(+), 29 deletions(-)
 
-Good point!
-
-Ben.
-
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 3c23fdc..3c58c52 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -41,15 +41,46 @@ module_param(gso, bool, 0444);
+ 
+ #define VIRTNET_DRIVER_VERSION "1.0.0"
+ 
+-struct virtnet_stats {
+-	struct u64_stats_sync tx_syncp;
++struct virtnet_rx_stats {
+ 	struct u64_stats_sync rx_syncp;
+-	u64 tx_bytes;
++	u64 rx_packets;
++	u64 rx_bytes;
++};
++
++struct virtnet_tx_stats {
++	struct u64_stats_sync tx_syncp;
+ 	u64 tx_packets;
++	u64 tx_bytes;
++};
+ 
+-	u64 rx_bytes;
+-	u64 rx_packets;
++struct virtnet_ethtool_stats {
++	char desc[ETH_GSTRING_LEN];
++	int type;
++	int size;
++	int offset;
++};
++
++enum {VIRTNET_STATS_TX, VIRTNET_STATS_RX};
++
++#define VIRTNET_RX_STATS_INFO(_struct, _field) \
++	{#_field, VIRTNET_STATS_RX, FIELD_SIZEOF(_struct, _field), \
++	offsetof(_struct, _field)}
++
++#define VIRTNET_TX_STATS_INFO(_struct, _field) \
++	{#_field, VIRTNET_STATS_TX, FIELD_SIZEOF(_struct, _field), \
++	offsetof(_struct, _field)}
++
++static const struct virtnet_ethtool_stats virtnet_et_rx_stats[] = {
++	VIRTNET_RX_STATS_INFO(struct virtnet_rx_stats, rx_packets),
++	VIRTNET_RX_STATS_INFO(struct virtnet_rx_stats, rx_bytes)
++};
++#define VIRTNET_RX_STATS_NUM (ARRAY_SIZE(virtnet_et_rx_stats))
++
++static const struct virtnet_ethtool_stats virtnet_et_tx_stats[] = {
++	VIRTNET_TX_STATS_INFO(struct virtnet_tx_stats, tx_packets),
++	VIRTNET_TX_STATS_INFO(struct virtnet_tx_stats, tx_bytes)
+ };
++#define VIRTNET_TX_STATS_NUM (ARRAY_SIZE(virtnet_et_tx_stats))
+ 
+ /* Internal representation of a send virtqueue */
+ struct send_queue {
+@@ -61,6 +92,9 @@ struct send_queue {
+ 
+ 	/* Name of the send queue: output.$index */
+ 	char name[40];
++
++	/* Active send queue statistics */
++	struct virtnet_tx_stats stats;
+ };
+ 
+ /* Internal representation of a receive virtqueue */
+@@ -81,6 +115,9 @@ struct receive_queue {
+ 
+ 	/* Name of this receive queue: input.$index */
+ 	char name[40];
++
++	/* Active receive queue statistics */
++	struct virtnet_rx_stats stats;
+ };
+ 
+ struct virtnet_info {
+@@ -109,9 +146,6 @@ struct virtnet_info {
+ 	/* enable config space updates */
+ 	bool config_enable;
+ 
+-	/* Active statistics */
+-	struct virtnet_stats __percpu *stats;
+-
+ 	/* Work struct for refilling if we run low on memory. */
+ 	struct delayed_work refill;
+ 
+@@ -330,7 +364,7 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+ {
+ 	struct virtnet_info *vi = rq->vq->vdev->priv;
+ 	struct net_device *dev = vi->dev;
+-	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
++	struct virtnet_rx_stats *stats = &rq->stats;
+ 	struct sk_buff *skb;
+ 	struct page *page;
+ 	struct skb_vnet_hdr *hdr;
+@@ -650,8 +684,7 @@ static void free_old_xmit_skbs(struct send_queue *sq)
+ {
+ 	struct sk_buff *skb;
+ 	unsigned int len;
+-	struct virtnet_info *vi = sq->vq->vdev->priv;
+-	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
++	struct virtnet_tx_stats *stats = &sq->stats;
+ 
+ 	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+ 		pr_debug("Sent skb %p\n", skb);
+@@ -841,24 +874,25 @@ static struct rtnl_link_stats64 *virtnet_stats(struct net_device *dev,
+ 					       struct rtnl_link_stats64 *tot)
+ {
+ 	struct virtnet_info *vi = netdev_priv(dev);
+-	int cpu;
++	int i;
+ 	unsigned int start;
+ 
+-	for_each_possible_cpu(cpu) {
+-		struct virtnet_stats *stats = per_cpu_ptr(vi->stats, cpu);
++	for (i = 0; i < vi->max_queue_pairs; i++) {
++		struct virtnet_tx_stats *tstats = &vi->sq[i].stats;
++		struct virtnet_rx_stats *rstats = &vi->rq[i].stats;
+ 		u64 tpackets, tbytes, rpackets, rbytes;
+ 
+ 		do {
+-			start = u64_stats_fetch_begin_bh(&stats->tx_syncp);
+-			tpackets = stats->tx_packets;
+-			tbytes   = stats->tx_bytes;
+-		} while (u64_stats_fetch_retry_bh(&stats->tx_syncp, start));
++			start = u64_stats_fetch_begin_bh(&tstats->tx_syncp);
++			tpackets = tstats->tx_packets;
++			tbytes   = tstats->tx_bytes;
++		} while (u64_stats_fetch_retry_bh(&tstats->tx_syncp, start));
+ 
+ 		do {
+-			start = u64_stats_fetch_begin_bh(&stats->rx_syncp);
+-			rpackets = stats->rx_packets;
+-			rbytes   = stats->rx_bytes;
+-		} while (u64_stats_fetch_retry_bh(&stats->rx_syncp, start));
++			start = u64_stats_fetch_begin_bh(&rstats->rx_syncp);
++			rpackets = rstats->rx_packets;
++			rbytes   = rstats->rx_bytes;
++		} while (u64_stats_fetch_retry_bh(&rstats->rx_syncp, start));
+ 
+ 		tot->rx_packets += rpackets;
+ 		tot->tx_packets += tpackets;
+@@ -1177,12 +1211,83 @@ static void virtnet_get_channels(struct net_device *dev,
+ 	channels->other_count = 0;
+ }
+ 
++static void virtnet_get_stat_strings(struct net_device *dev,
++					u32 stringset,
++					u8 *data)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++	int i, j;
++
++	switch (stringset) {
++	case ETH_SS_STATS:
++		for (i = 0; i < vi->max_queue_pairs; i++) {
++			for (j = 0; j < VIRTNET_RX_STATS_NUM; j++) {
++				sprintf(data, "rxq%d: %s", i,
++					virtnet_et_rx_stats[j].desc);
++				data += ETH_GSTRING_LEN;
++			}
++			for (j = 0; j < VIRTNET_TX_STATS_NUM; j++) {
++				sprintf(data, "txq%d: %s", i,
++					virtnet_et_tx_stats[j].desc);
++				data += ETH_GSTRING_LEN;
++			}
++		}
++		break;
++	}
++}
++
++static int virtnet_get_sset_count(struct net_device *dev, int stringset)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++	switch (stringset) {
++	case ETH_SS_STATS:
++		return vi->max_queue_pairs *
++			(VIRTNET_RX_STATS_NUM + VIRTNET_TX_STATS_NUM);
++	default:
++		return -EINVAL;
++	}
++}
++
++static void virtnet_get_ethtool_stats(struct net_device *dev,
++					struct ethtool_stats *stats,
++					u64 *data)
++{
++	struct virtnet_info *vi = netdev_priv(dev);
++	unsigned int i, base;
++	unsigned int start;
++
++	for (i = 0, base = 0; i < vi->max_queue_pairs; i++) {
++		struct virtnet_tx_stats *tstats = &vi->sq[i].stats;
++		struct virtnet_rx_stats *rstats = &vi->rq[i].stats;
++
++		do {
++			start = u64_stats_fetch_begin_bh(&rstats->rx_syncp);
++			data[base] = rstats->rx_packets;
++			data[base+1] = rstats->rx_bytes;
++		} while (u64_stats_fetch_retry_bh(&rstats->rx_syncp, start));
++
++		base += VIRTNET_RX_STATS_NUM;
++
++		do {
++			start = u64_stats_fetch_begin_bh(&tstats->tx_syncp);
++			data[base] = tstats->tx_packets;
++			data[base+1]   = tstats->tx_bytes;
++		} while (u64_stats_fetch_retry_bh(&tstats->tx_syncp, start));
++
++		base += VIRTNET_TX_STATS_NUM;
++	}
++}
++
++
+ static const struct ethtool_ops virtnet_ethtool_ops = {
+ 	.get_drvinfo = virtnet_get_drvinfo,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_ringparam = virtnet_get_ringparam,
+ 	.set_channels = virtnet_set_channels,
+ 	.get_channels = virtnet_get_channels,
++	.get_strings = virtnet_get_stat_strings,
++	.get_sset_count = virtnet_get_sset_count,
++	.get_ethtool_stats = virtnet_get_ethtool_stats,
+ };
+ 
+ #define MIN_MTU 68
+@@ -1531,14 +1636,11 @@ static int virtnet_probe(struct virtio_device *vdev)
+ 	vi->dev = dev;
+ 	vi->vdev = vdev;
+ 	vdev->priv = vi;
+-	vi->stats = alloc_percpu(struct virtnet_stats);
+ 	err = -ENOMEM;
+-	if (vi->stats == NULL)
+-		goto free;
+ 
+ 	vi->vq_index = alloc_percpu(int);
+ 	if (vi->vq_index == NULL)
+-		goto free_stats;
++		goto free;
+ 
+ 	mutex_init(&vi->config_lock);
+ 	vi->config_enable = true;
+@@ -1616,8 +1718,6 @@ free_vqs:
+ 	virtnet_del_vqs(vi);
+ free_index:
+ 	free_percpu(vi->vq_index);
+-free_stats:
+-	free_percpu(vi->stats);
+ free:
+ 	free_netdev(dev);
+ 	return err;
+@@ -1653,7 +1753,6 @@ static void virtnet_remove(struct virtio_device *vdev)
+ 	flush_work(&vi->config_work);
+ 
+ 	free_percpu(vi->vq_index);
+-	free_percpu(vi->stats);
+ 	free_netdev(vi->dev);
+ }
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.1
+
