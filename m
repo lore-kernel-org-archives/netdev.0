@@ -1,65 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] tcp: speedup tcp_fixup_rcvbuf()
-Date: Wed, 15 May 2013 22:25:55 -0700
-Message-ID: <1368681955.3301.11.camel@edumazet-glaptop>
+From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
+Subject: Re: [PATCH] bonding: allow TSO being set on bonding master
+Date: Thu, 16 May 2013 07:45:05 +0200
+Message-ID: <CAHXqBFLnPQnd2a17B4_UKpiL70BzkFMWzocM-4mr88TYoG6Jcw@mail.gmail.com>
+References: <1368654065.4519.53.camel@edumazet-glaptop> <CAHXqBF+r3wnWY+hveYjVBNwbVYdiDF4mOj1UmbKeH3OYo6kz6Q@mail.gmail.com>
+ <1368659900.4519.57.camel@edumazet-glaptop> <1368660613.4519.60.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Tom Herbert <therbert@google.com>,
 	Neal Cardwell <ncardwell@google.com>,
 	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f48.google.com ([209.85.210.48]:33237 "EHLO
-	mail-da0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751329Ab3EPFZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 01:25:57 -0400
-Received: by mail-da0-f48.google.com with SMTP id h32so1424040dak.35
-        for <netdev@vger.kernel.org>; Wed, 15 May 2013 22:25:57 -0700 (PDT)
+Received: from mail-ia0-f177.google.com ([209.85.210.177]:47585 "EHLO
+	mail-ia0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752108Ab3EPFp0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 01:45:26 -0400
+Received: by mail-ia0-f177.google.com with SMTP id z13so3101823iaz.36
+        for <netdev@vger.kernel.org>; Wed, 15 May 2013 22:45:26 -0700 (PDT)
+In-Reply-To: <1368660613.4519.60.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+2013/5/16 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Wed, 2013-05-15 at 16:18 -0700, Eric Dumazet wrote:
+>> On Thu, 2013-05-16 at 00:55 +0200, Micha=C5=82 Miros=C5=82aw wrote:
+>>
+>> > Have you tried adding it to NETIF_F_ONE_FOR_ALL set? 'Team' and br=
+idge
+>> > could then also use it.
+>>
+>> Good point, I am testing this, thanks !
+> Hmm, this doesnt work.
+>
+> # ethtool -k bond0 | grep tcp-segmentation-offload
+> tcp-segmentation-offload: off
+> # ethtool -K bond0 tso on
+> # ethtool -k bond0 | grep tcp-segmentation-offload
+> tcp-segmentation-offload: off
+>
+> Do you have something different in mind ?
 
-tcp_fixup_rcvbuf() contains a loop to estimate initial socket
-rcv space needed for a given mss. With large MTU (like 64K on lo),
-we can loop ~500 times and consume a lot of cpu cycles.
+This should enable GSO if at least one slave has it on. What features
+(tx-tcp*) the slaves have?
 
-perf top of 200 concurrent netperf -t TCP_CRR
-
-5.62%  netperf  [kernel.kallsyms]  [k] tcp_init_buffer_space
-1.71%  netperf  [kernel.kallsyms]  [k] _raw_spin_lock
-1.55%  netperf  [kernel.kallsyms]  [k] kmem_cache_free
-1.51%  netperf  [kernel.kallsyms]  [k] tcp_transmit_skb
-1.50%  netperf  [kernel.kallsyms]  [k] tcp_ack
-
-Lets use a 100% factor, and remove the loop.
-
-100% is needed anyway for tcp_adv_win_scale=1
-default value, and is also the maximum factor.
-
-Refs: commit b49960a05e32 
-      ("tcp: change tcp_adv_win_scale and tcp_rmem[2]")
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_input.c |    4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 08bbe60..b358e8c 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -360,9 +360,7 @@ static void tcp_fixup_rcvbuf(struct sock *sk)
- 	if (mss > 1460)
- 		icwnd = max_t(u32, (1460 * TCP_DEFAULT_INIT_RCVWND) / mss, 2);
- 
--	rcvmem = SKB_TRUESIZE(mss + MAX_TCP_HEADER);
--	while (tcp_win_from_space(rcvmem) < mss)
--		rcvmem += 128;
-+	rcvmem = 2 * SKB_TRUESIZE(mss + MAX_TCP_HEADER);
- 
- 	rcvmem *= icwnd;
- 
+Best Regards,
+Micha=C5=82 Miros=C5=82aw
