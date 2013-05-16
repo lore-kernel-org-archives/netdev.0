@@ -1,88 +1,50 @@
-From: Albert Pool <albertpool-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
-Subject: Re: [PATCH V3] rtlwifi: rtl8192cu: Add new USB ID
-Date: Thu, 16 May 2013 11:04:44 +0200
-Message-ID: <5194A12C.6010807@solcon.nl>
-References: <1368630196-14704-1-git-send-email-Larry.Finger@lwfinger.net> <5193EEA8.8030900@cogentembedded.com> <5193F146.3030206@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vhost-scsi: Depend on NET for memcpy_fromiovec
+Date: Thu, 16 May 2013 02:10:20 -0700 (PDT)
+Message-ID: <20130516.021020.886926151198681453.davem@davemloft.net>
+References: <871u9724vp.fsf@rustcorp.com.au>
+	<20130515.201055.1401062016041347476.davem@davemloft.net>
+	<20130516064620.GB26995@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5193F146.3030206-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: sfr@canb.auug.org.au, rdunlap@infradead.org, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	target-devel@vger.kernel.org, linux-next@vger.kernel.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130516064620.GB26995@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 16 May 2013 09:46:21 +0300
 
-Op 15-05-13 22:34, Larry Finger schreef:
-> On 05/15/2013 03:23 PM, Sergei Shtylyov wrote:
->> Hello.
->>
->> On 05/15/2013 07:03 PM, Larry Finger wrote:
->>
->>> From: Albert Pool <albertpool-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
->>>
->>> This adds the USB ID of the On Networks N300MA, clone of Netgear 
->>> WNA3100M.
->>>
->>> Signed-off-by: Albert Pool <albertpool-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
->>> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
->>> Reported-by: Ana Rey <Anazul77-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
->>> ---
->>>
->>> John,
->>>
->>> Please use this version. V2 still had some whitespace errors that I 
->>> fixed.
->>>
->>> Albert,
->>>
->>> Please use scripts/checkpatch.pl to check the patch before you send it.
->>>
->>> Thanks,
->>>
->>> Larry
->>> ---
->>>
->>>   drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 1 +
->>>   1 file changed, 1 insertion(+)
->>>
->>> diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->>> b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->>> index 23d640a..18da6de 100644
->>> --- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->>> +++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->>> @@ -349,6 +349,7 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
->>>       {RTL_USB_DEVICE(0x07aa, 0x0056, rtl92cu_hal_cfg)}, 
->>> /*ATKK-Gemtek*/
->>>       {RTL_USB_DEVICE(0x07b8, 0x8178, rtl92cu_hal_cfg)}, /*Funai 
->>> -Abocom*/
->>>       {RTL_USB_DEVICE(0x0846, 0x9021, rtl92cu_hal_cfg)}, 
->>> /*Netgear-Sercomm*/
->>> +    {RTL_USB_DEVICE(0x0846, 0xf001, rtl92cu_hal_cfg)}, /*On Netwrks 
->>> N300MA*/
->>
->>     "Networks", perhaps? Or does it hit 80 columns limit this way?
->
-> That is exactly the problem. I suppose I could allow one line to be 81 
-> characters in length, but that would diminish the effectiveness of my 
-> suggestion that checkpatch be used.
->
-> Thanks for noticing. At least someone is reading the patches.
->
-> Larry
->
->
-So my patch v2 could not be used because the line was longer than 80 
-chars? (It was 82, indeed)
+> On Wed, May 15, 2013 at 08:10:55PM -0700, David Miller wrote:
+>> From: Rusty Russell <rusty@rustcorp.com.au>
+>> Date: Thu, 16 May 2013 09:05:38 +0930
+>> 
+>> > memcpy_fromiovec() has nothing to do with networking: that was just the
+>> > first user.  Note that crypto/algif_skcipher.c also uses it.  The
+>> > obvious answer is to move it into lib/.
+>> 
+>> +1
+> 
+> Rusty sent a patch that does this:
+> http://patchwork.ozlabs.org/patch/244207/
+> 
+> David, looks like you weren't CC'd.
+> If you agree could you please Ack that patch and then I can merge it
+> through the vhost tree?
+> Or if you prefer merge it directly and I'll sort out the dependencies...
 
-Also the problems with bad signal were due to Ana Rey's AP. It's being 
-fixed or replaced today.
-
-Albert
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: David S. Miller <davem@davemloft.net>
