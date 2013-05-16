@@ -1,40 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] Netfilter fixes for net (3.10-rc1)
-Date: Thu, 16 May 2013 14:36:01 -0700 (PDT)
-Message-ID: <20130516.143601.736819721136214103.davem@davemloft.net>
-References: <1368719721-7470-1-git-send-email-pablo@netfilter.org>
+Subject: Re: [PATCH] tcp: gso: do not generate out of order packets
+Date: Thu, 16 May 2013 14:44:02 -0700 (PDT)
+Message-ID: <20130516.144402.851927775820198853.davem@davemloft.net>
+References: <1368668281.4519.75.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1368719721-7470-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, maze@google.com, therbert@google.com,
+	ncardwell@google.com, ycheng@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55506 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751462Ab3EPVoD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 17:44:03 -0400
+In-Reply-To: <1368668281.4519.75.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Thu, 16 May 2013 17:55:17 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 15 May 2013 18:38:01 -0700
 
-> * Fix crash if nf_log_packet is called from conntrack, in that case
->   both interfaces are NULL, from Hans Schillstrom. This bug introduced
->   with the logging netns support in the previous merge window.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> * Fix compilation of nf_log and nf_queue without CONFIG_PROC_FS,
->   from myself. This bug was introduced in the previous merge window
->   with the new netns support for the netfilter logging infrastructure.
+> GSO TCP handler has following issues :
 > 
-> * Fix possible crash in xt_TCPOPTSTRIP due to missing sanity
->   checkings to validate that the TCP header is well-formed, from
->   myself. I can find this bug in 2.6.25, probably it's been there
->   since the beginning. I'll pass this to -stable.
+> 1) ooo_okay from original GSO packet is duplicated to all segments
+> 2) segments (but the last one) are orphaned, so transmit path can not
+> get transmit queue number from the socket. This happens if GSO
+> segmentation is done before stacked device for example.
 > 
-> * Update MAINTAINER file to point to new nf trees at git.kernel.org,
->   remove Harald and use M: instead of P: (now obsolete tag) to
->   keep Jozsef in the list of people.
+> Result is we can send packets from a given TCP flow to different TX
+> queues (if using multiqueue NICS). This generates OOO problems and
+> spurious SACK & retransmits.
 > 
-> Please, consider pulling this. Thanks!
- ..
->   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+> Fix this by keeping socket pointer set for all segments.
+> 
+> This means that every segment must also have a destructor, and the
+> original gso skb truesize must be split on all segments, to keep
+> precise sk->sk_wmem_alloc accounting.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Pulled, thanks.
+Applied, thanks Eric.
