@@ -1,47 +1,50 @@
-From: Stephen Warren <swarren@wwwdotorg.org>
-Subject: Re: [PATCH 00/33] devm improvement series, part 1, take 2
-Date: Thu, 16 May 2013 12:29:19 -0600
-Message-ID: <5195257F.3060309@wwwdotorg.org>
-References: <1368702961-4325-1-git-send-email-wsa@the-dreams.de>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
+Date: Thu, 16 May 2013 11:36:05 -0700
+Message-ID: <CAE9FiQWPNt42gsRwYqQwJM6VpZ-UF2+r-64p_aS3X7GdeVbXCA@mail.gmail.com>
+References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
+	<1368498506-25857-7-git-send-email-yinghai@kernel.org>
+	<0EE9A1CDC8D6434DB00095CD7DB873462CFB0E4E@MTLDAG01.mtl.com>
+	<CAE9FiQVn4F+dTrQn0xsg-6QY9+HwbnJR=1CrjdoZkmF_LMrgpg@mail.gmail.com>
+	<CAJZOPZLjdALP4jkLo6p787jaPx=dkKj7+AmCr9+mgJN3z_xBxQ@mail.gmail.com>
+	<CAE9FiQWvYQRCZjDx-Kh16nKfjfS=pyu8foJR+wWYS-x8DUZteg@mail.gmail.com>
+	<CAJZOPZLVc=V-ac8_A2JB_r17TRyCMoDpe1MXN6WcjMR4SO6n1Q@mail.gmail.com>
+	<20130516175350.GB7171@mtj.dyndns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org,
- linux-usb@vger.kernel.org, Liam Girdwood <lgirdwood@gmail.com>,
- Alexander Shishkin <alexander.shishkin@linux.intel.com>,
- Viresh Kumar <viresh.kumar@linaro.org>,
- Linus Walleij <linus.walleij@linaro.org>, Matt Mackall <mpm@selenic.com>,
- linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
- Jaroslav Kysela <perex@perex.cz>, linux-ide@vger.kernel.org,
- netdev@vger.kernel.org, linux-mtd@lists.infradead.org,
- linux-i2c@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>,
- Wan ZongShun <mcuos.com@gmail.com>, ac100@lists.launchpad.net,
- devel@driverdev.osuosl.org, Kukjin Kim <kgene.kim@samsung.com>,
- Russell King <linux@arm.linux.org.uk>,
- Herbert Xu <herbert@gondor.apana.org.au>,
- Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
- "Rafael J. Wysocki" <rjw@sisk.pl>, cpufreq@vger.kernel.org,
- Eduardo Valentin <eduardo.v
-To: Wolfram Sang <wsa@the-dreams.de>
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1368702961-4325-1-git-send-email-wsa@the-dreams.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: "devel" <devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Gu Zheng <guz.fnst@cn.fujitsu.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jack Morgenstein <jackm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: Tejun Heo <tj@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <20130516175350.GB7171@mtj.dyndns.org>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/16/2013 05:15 AM, Wolfram Sang wrote:
-> Lately, I have been experimenting how to improve the devm interface to make
-> writing device drivers easier and less error prone while also getting rid of
-> its subtle issues. I think it has more potential but still needs work and
-> definately conistency, especiall in its usage.
-...
+On Thu, May 16, 2013 at 10:53 AM, Tejun Heo <tj@kernel.org> wrote:
+> On Thu, May 16, 2013 at 12:56:42AM -0400, Or Gerlitz wrote:
+>> > > Please note that this whole lockdep warning was identified as false
+>> > > positive by Tejun http://www.spinics.net/lists/linux-pci/msg21568.html
+>> >
+>> > No, at least one time, I noticed there is one real hang happens.
+>>
+>> Tejun, so what your thinking here?
+>
+> Can't really tell much without more details.  Yinghai, do you have any
+> logs from such hang?  Are you sure it's from this?
 
-The Tegra parts in patches 4, 5, 8, 15, 16, 17, 29 all,
-Acked-by: Stephen Warren <swarren@nvidia.com>
+I did not keep that log.
+
+Will remove AlexD patch, try several times to see if I can duplicate it again.
+
+Thanks
+
+Yinghai
