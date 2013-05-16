@@ -1,42 +1,52 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: Single socket with TX_RING and RX_RING
-Date: Thu, 16 May 2013 13:52:07 +0200
-Message-ID: <20130516115207.GC18282@orbit.nwl.cc>
-References: <loom.20130515T144941-798@post.gmane.org>
- <20130515224452.7CAA6224C4@mail.nwl.cc>
- <loom.20130516T111446-437@post.gmane.org>
- <20130516104541.GB18282@orbit.nwl.cc>
- <loom.20130516T125157-378@post.gmane.org>
+From: Artem Bityutskiy <dedekind1@gmail.com>
+Subject: Re: [PATCH 00/33] devm improvement series, part 1, take 2
+Date: Thu, 16 May 2013 14:57:32 +0300
+Message-ID: <1368705452.15764.217.camel@sauron.fi.intel.com>
+References: <1368702961-4325-1-git-send-email-wsa@the-dreams.de>
+Reply-To: dedekind1@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Ricardo =?utf-8?B?VHViw61v?= <rtpardavila@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbit.nwl.cc ([176.31.251.142]:50967 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753438Ab3EPLwe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 May 2013 07:52:34 -0400
-Content-Disposition: inline
-In-Reply-To: <loom.20130516T125157-378@post.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org,
+ Alessandro Zummo <a.zummo@towertech.it>, Liam Girdwood <lgirdwood@gmail.com>,
+ Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+ Viresh Kumar <viresh.kumar@linaro.org>,
+ Linus Walleij <linus.walleij@linaro.org>,
+ Thierry Reding <thierry.reding@avionic-design.de>, linux-fbdev@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, Jaroslav Kysela <perex@perex.cz>,
+ linux-ide@vger.kernel.org, linux-mtd@lists.infradead.org,
+ linux-i2c@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>,
+ ac100@lists.launchpad.net, devel@driverdev.osuosl.org,
+ Kukjin Kim <kgene.kim@samsung.com>, Russell King <linux@arm.linux.org.uk>,
+ Herbert Xu <herbert@gondor.apana.org.au>, Samuel Ortiz <sameo@linux.intel.com>,
+ Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
+ Vinod Koul <vinod.koul@intel.com>, linux-pm@vger.kernel.org,
+ cpufreq@vger.ker
+To: Wolfram Sang <wsa@the-dreams.de>
+Return-path: <devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1368702961-4325-1-git-send-email-wsa@the-dreams.de>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
+List-Post: <mailto:devel@linuxdriverproject.org>
+List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
+ <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: devel-bounces@linuxdriverproject.org
+Sender: "devel" <devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 16, 2013 at 11:01:17AM +0000, Ricardo Tub=C3=ADo wrote:
-> Phil Sutter <phil <at> nwl.cc> writes:
->=20
-> > So you do not call init_ring() twice as one may imply when reading =
-your
-> > first mail? Please provide a complete code sample.
-> >=20
->=20
-> Yes, I call it twice. The problem is that if I call it twice with the=
- same
-> socket_fd, the second time I call it I get the EBUSY error from kerne=
-l. I
-> have to use two different sockets (two different socket_fd's, therefo=
-re) in
-> order to workaround this issue.
+On Thu, 2013-05-16 at 13:15 +0200, Wolfram Sang wrote:
+> Despite various architectures and platform dependencies, I managed to
+> compile
+> test 45 out of 57 modified files locally using heuristics and
+> defconfigs.
+> If somebody knows how to create a minimal .config with a certain
+> kconfig symbol
+> (and its dependencies) set, I'd love to hear about it.
 
-Which call does produce the EBUSY response, the second setsockopt() or
-second mmap() one?
+If you find this out, please, share!
+
+-- 
+Best Regards,
+Artem Bityutskiy
