@@ -1,42 +1,83 @@
-From: Yinghai Lu <yinghai@kernel.org>
-Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Wed, 15 May 2013 21:39:11 -0700
-Message-ID: <CAE9FiQWvYQRCZjDx-Kh16nKfjfS=pyu8foJR+wWYS-x8DUZteg@mail.gmail.com>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
-	<1368498506-25857-7-git-send-email-yinghai@kernel.org>
-	<0EE9A1CDC8D6434DB00095CD7DB873462CFB0E4E@MTLDAG01.mtl.com>
-	<CAE9FiQVn4F+dTrQn0xsg-6QY9+HwbnJR=1CrjdoZkmF_LMrgpg@mail.gmail.com>
-	<CAJZOPZLjdALP4jkLo6p787jaPx=dkKj7+AmCr9+mgJN3z_xBxQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] bonding: allow TSO being set on bonding master
+Date: Wed, 15 May 2013 21:44:31 -0700
+Message-ID: <1368679471.4519.104.camel@edumazet-glaptop>
+References: <1368654065.4519.53.camel@edumazet-glaptop>
+	 <CAHXqBF+r3wnWY+hveYjVBNwbVYdiDF4mOj1UmbKeH3OYo6kz6Q@mail.gmail.com>
+	 <1368659900.4519.57.camel@edumazet-glaptop>
+	 <1368660613.4519.60.camel@edumazet-glaptop>
+	 <CAHo-Oozt9tmfhhFHj0o+bGfRevcZw+YD6PpHAr-U_S76AbC+2A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Yan Burman <yanb@mellanox.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jack Morgenstein <jackm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:63917 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751058Ab3EPEjM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 00:39:12 -0400
-In-Reply-To: <CAJZOPZLjdALP4jkLo6p787jaPx=dkKj7+AmCr9+mgJN3z_xBxQ@mail.gmail.com>
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:37455 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752275Ab3EPEoe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 00:44:34 -0400
+Received: by mail-pb0-f51.google.com with SMTP id jt11so909704pbb.38
+        for <netdev@vger.kernel.org>; Wed, 15 May 2013 21:44:33 -0700 (PDT)
+In-Reply-To: <CAHo-Oozt9tmfhhFHj0o+bGfRevcZw+YD6PpHAr-U_S76AbC+2A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 15, 2013 at 9:00 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> On Tue, May 14, 2013 at 11:43 AM, Yinghai Lu <yinghai@kernel.org> wrote:
->
->> BTW, do you have any plan to make mlx4 support sriov_configure via sysfs?
->
-> yes we do, we're waiting for a firmware change that will allow for
-> such a patch to get working.
->
-> Please note that this whole lockdep warning was identified as false
-> positive by Tejun http://www.spinics.net/lists/linux-pci/msg21568.html
+Please do not top post on netdev.
 
-No, at least one time, I noticed there is one real hang happens.
+On Wed, 2013-05-15 at 21:31 -0700, Maciej =C5=BBenczykowski wrote:
+> I think it should always be possible to enable both TSO and GSO on th=
+e
+> bond master - regardless of what the slaves support and/or currently
+> have enabled.
+> At the last moment as we're passing a packet to a slave, we should
+> check whether the slave will like it and if not GSO it.
+> This means TSO or GSO enabled on the master can effectively almost
+> force (or force emulation of) GSO on slaves.
+> Even if the slaves themselves don't support GSO.
+
+GSO is software provided in core network.
+
+>=20
+> There's a lot more room for argument with regards to the default stat=
+e
+> of TSO/GSO on the master.
+> I would argue for default to on for both.
+> One could argue that if none of the slaves support GSO or TSO then
+> maybe it should default to off, but I don't buy that.
+>=20
+> I don't really understand the point of passing GSO/TSO up from the
+> slaves to the master.
+> Although the maximum size and/or number of segs for a packet probably
+> needs to be propagated from TSO capable devices,
+> unless one were to add a "split big GSO packet into smaller (but stil=
+l
+> larger than mtu) TSO packets" step as well.
+
+We could always build GSO packets in TCP stack and if these packets lan=
+d
+on a non SG/TSO capable device, segment them, but it would be more
+expensive than building non GSO packets at the beginning.
+Its also risky because this segmentation uses GFP_ATOMIC allocations an=
+d
+therefore can easily fail (especially if SG is lacking)
+
+So bonding has heuristics :=20
+
+- If at least one slave supports TSO, then the master supports TSO=20
+- If at least one slave support GSO, then the master supports GSO
+=2E..
+
+Point is : as we do have software fallback, we should allow the admin t=
+o
+set/unset TSO on the bonding master, regardless of slaves settings.
+
+Depending on the netfilter/qdisc setups, an admin might know better tha=
+n
+the kernel heuristics.
