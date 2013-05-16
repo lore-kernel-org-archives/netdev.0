@@ -1,51 +1,76 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] bonding: allow TSO being set on bonding master
-Date: Thu, 16 May 2013 15:02:39 -0700 (PDT)
-Message-ID: <20130516.150239.2187164031807939707.davem@davemloft.net>
-References: <1368654065.4519.53.camel@edumazet-glaptop>
-	<1368725693.3301.59.camel@edumazet-glaptop>
+Subject: Re: [PATCH 1/2 net-next] phy: fix the use of PHY_IGNORE_INTERRUPT
+Date: Thu, 16 May 2013 15:05:46 -0700 (PDT)
+Message-ID: <20130516.150546.1380610594436313255.davem@davemloft.net>
+References: <1368727496-25638-1-git-send-email-f.fainelli@gmail.com>
+	<1368727496-25638-2-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mirqus@gmail.com, netdev@vger.kernel.org, fubar@us.ibm.com,
-	maze@google.com, andy@greyhouse.net, therbert@google.com,
-	ncardwell@google.com, ycheng@google.com
-To: eric.dumazet@gmail.com
+Cc: netdev@vger.kernel.org, jogo@openwrt.org,
+	thomas.petazzoni@free-electrons.com, afleming@freescale.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55716 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55788 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752827Ab3EPWCk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 18:02:40 -0400
-In-Reply-To: <1368725693.3301.59.camel@edumazet-glaptop>
+	with ESMTP id S1753473Ab3EPWFr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 18:05:47 -0400
+In-Reply-To: <1368727496-25638-2-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 16 May 2013 10:34:53 -0700
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Date: Thu, 16 May 2013 18:04:55 +0000
 
-> From: Eric Dumazet <edumazet@google.com>
+> When a PHY device is registered with the special IRQ value
+> PHY_IGNORE_INTERRUPT (-2) it will not properly be handled by the PHY
+> library:
 > 
-> In some situations, we need to disable TSO on bonding slaves.
+> - it continues to poll its register, while we do not want this
+>   because such PHY link events or register changes are serviced by an
+>   Ethernet MAC interrupt line
+> - it will still try to configure PHY interrupts at the PHY level, such
+>   interrupts do not exist at the PHY but at the MAC level
+> - the state machine only handles PHY_POLL, but should also handle
+>   PHY_IGNORE_INTERRUPT similarly
 > 
-> bonding device automatically unset TSO in bond_fix_features(), and
-> performance is not good because :
+> This patch updates the PHY state machine and initialization paths to
+> account for the specific PHY_IGNORE_INTERRUPT. Based on an earlier patch
+> by Thomas Petazzoni, and reworked to add the missing bits.
 > 
-> 1) We consume more cpu cycles.
+> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> ---
+>  drivers/net/phy/phy.c        | 6 +++---
+>  drivers/net/phy/phy_device.c | 5 +++--
+>  2 files changed, 6 insertions(+), 5 deletions(-)
 > 
-> 2) GSO segmentation has some bugs leading to out of order TCP packets
-> if this segmentation is done before virtual device. This particular
-> problem will be addressed in a separate patch.
-> 
-> This patch allows TSO being set/unset on the bonding master,
-> so that GSO segmentation is done after bonding layer.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+> index c14f147..2de4290 100644
+> --- a/drivers/net/phy/phy.c
+> +++ b/drivers/net/phy/phy.c
+> @@ -682,7 +682,7 @@ void phy_stop(struct phy_device *phydev)
+>  	if (PHY_HALTED == phydev->state)
+>  		goto out_unlock;
+>  
+> -	if (phydev->irq != PHY_POLL) {
+> +	if (phydev->irq >= 0) {
 
-Applied, but:
+This test, as well as the other two you changed in this file, have
+a meaning.  But negative vs. non-negative does not convey what that
+meaning actually is.
 
-> +static inline netdev_features_t netdev_add_tso_features(netdev_features_t features,
-> +	netdev_features_t mask)
+Add a helper function that says what this is testing, and I would add
+a comment to that function referencing all of the special PHY_* values
+that are relevant to the test.
 
-I fixed the mask argument indentation when I commited this.
+> +	/* Disable the interrupt if the PHY doesn't support it
+> +	 * but the interrupt is still a valid one */
 
-Thakns.
+Multi-line comments in the networking should be formatted:
+
+	/* Like
+	 * this.
+	 */
+
+Please fix this stuff up and resubmit the entire series, thanks.
