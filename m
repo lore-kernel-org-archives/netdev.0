@@ -1,96 +1,63 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2] bonding: allow TSO being set on bonding master
-Date: Thu, 16 May 2013 10:34:53 -0700
-Message-ID: <1368725693.3301.59.camel@edumazet-glaptop>
-References: <1368654065.4519.53.camel@edumazet-glaptop>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] tcp: speedup tcp_fixup_rcvbuf()
+Date: Thu, 16 May 2013 10:42:35 -0700
+Message-ID: <51951A8B.8080801@hp.com>
+References: <1368681955.3301.11.camel@edumazet-glaptop> <1697330.SmXeaasf9r@cpaasch-mac>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>,
-	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>
+To: christoph.paasch@uclouvain.be
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:60186 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753225Ab3EPRe5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 13:34:57 -0400
-Received: by mail-pd0-f179.google.com with SMTP id q10so2538397pdj.38
-        for <netdev@vger.kernel.org>; Thu, 16 May 2013 10:34:56 -0700 (PDT)
-In-Reply-To: <1368654065.4519.53.camel@edumazet-glaptop>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:24080 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308Ab3EPRmh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 13:42:37 -0400
+In-Reply-To: <1697330.SmXeaasf9r@cpaasch-mac>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Eric Dumazet <edumazet@google.com>
+On 05/16/2013 12:06 AM, Christoph Paasch wrote:
+> just out of curiosity, how do you run 200 concurrent netperfs?
+> Is there an option as in iperf (-P) ?
+> I did not find anything like this in the netperf-code.
 
-In some situations, we need to disable TSO on bonding slaves.
+There is nothing like that in the netperf2 code.  Concurrent netperfs is 
+handled outside of netperf itself via scripting.  There is some 
+discussion of some different mechanisms in netperf to use in conjunction 
+with that external scripting to mitigate issues of skew error:
 
-bonding device automatically unset TSO in bond_fix_features(), and
-performance is not good because :
+http://www.netperf.org/svn/netperf2/trunk/doc/netperf.html#Using-Netperf-to-Measure-Aggregate-Performance
 
-1) We consume more cpu cycles.
+My favorite these days is to use the interim results emitted when 
+netperf is ./configure'd with --enable-demo , and reasonably 
+synchronized clocks on the different systems running netperf, and then 
+post-process them.  A single-system example of that being done is in 
+doc/examples/runemomniaggdemo.sh , the results of which can be 
+post-processed with doc/examples/post_proc.py .
 
-2) GSO segmentation has some bugs leading to out of order TCP packets
-if this segmentation is done before virtual device. This particular
-problem will be addressed in a separate patch.
+I have used the interim results plus post processing mechanism as far 
+out as 512ish concurrent netperfs running on 512ish systems targeting 
+512ish other systems.  Apart from my innate lack of patience :) I don't 
+believe there is much there to limit that mechanism scaling further. 
+Perhaps others have already gone father.
 
-This patch allows TSO being set/unset on the bonding master,
-so that GSO segmentation is done after bonding layer.
+I this specific situation where Eric was running 200 netperf TCP_CRR 
+tests over loopback, if the difference from removing the loop was 
+sufficiently large (and I'm guessing so based on the perf top output) 
+then I would expect the difference to appear in service demand even for 
+a single stream of TCP_CRR tests.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>
-Cc: Jay Vosburgh <fubar@us.ibm.com>
-Cc: Andy Gospodarek <andy@greyhouse.net>
-Cc: Maciej =C5=BBenczykowski <maze@google.com>
-Cc: Tom Herbert <therbert@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
-v2: add a documented helper so that team/bridge can use it
+something like:
 
- drivers/net/bonding/bond_main.c |    1 +
- include/linux/netdevice.h       |   11 +++++++++++
- 2 files changed, 12 insertions(+)
+netperf -t TCP_CRR -c -i 30,3
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
-_main.c
-index d0aade0..449ad9b 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1362,6 +1362,7 @@ static netdev_features_t bond_fix_features(struct=
- net_device *dev,
- 						     slave->dev->features,
- 						     mask);
- 	}
-+	features =3D netdev_add_tso_features(features, mask);
-=20
- out:
- 	read_unlock(&bond->lock);
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index a94a5a0..095945c 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2733,6 +2733,17 @@ static inline netdev_features_t netdev_get_wante=
-d_features(
- }
- netdev_features_t netdev_increment_features(netdev_features_t all,
- 	netdev_features_t one, netdev_features_t mask);
-+
-+/* Allow TSO being used on stacked device :
-+ * Performing the GSO segmentation before last device
-+ * is a performance improvement.
-+ */
-+static inline netdev_features_t netdev_add_tso_features(netdev_feature=
-s_t features,
-+	netdev_features_t mask)
-+{
-+	return netdev_increment_features(features, NETIF_F_ALL_TSO, mask);
-+}
-+
- int __netdev_update_features(struct net_device *dev);
- void netdev_update_features(struct net_device *dev);
- void netdev_change_features(struct net_device *dev);
+before and after the change.  Perhaps use the -I option to request a 
+narrower confidence interval than the default 5%  and use a longish 
+per-iteration runtime (-l option) to help ensure hitting the confidence 
+intervals.
+
+happy benchmarking,
+
+rick jones
