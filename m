@@ -1,45 +1,125 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: gso: do not generate out of order packets
-Date: Thu, 16 May 2013 14:44:02 -0700 (PDT)
-Message-ID: <20130516.144402.851927775820198853.davem@davemloft.net>
-References: <1368668281.4519.75.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] virtio-net: Reporting traffic queue distribution
+	statistics through ethtool
+Date: Thu, 16 May 2013 22:47:35 +0100
+Message-ID: <1368740855.2655.57.camel@bwh-desktop.uk.solarflarecom.com>
+References: <1368735869-31076-1-git-send-email-sriram.narasimhan@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maze@google.com, therbert@google.com,
-	ncardwell@google.com, ycheng@google.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55506 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462Ab3EPVoD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 17:44:03 -0400
-In-Reply-To: <1368668281.4519.75.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: Sriram Narasimhan <sriram.narasimhan@hp.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1368735869-31076-1-git-send-email-sriram.narasimhan@hp.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 15 May 2013 18:38:01 -0700
+On Thu, 2013-05-16 at 13:24 -0700, Sriram Narasimhan wrote:
+> This patch allows virtio-net driver to report traffic distribution
+> to inbound/outbound queues through ethtool -S.  The per_cpu
+> virtnet_stats is split into receive and transmit stats and are
+> maintained on a per receive_queue and send_queue basis.
+> virtnet_stats() is modified to aggregate interface level statistics
+> from per-queue statistics.  Sample output below:
+> 
+> NIC statistics:
+>      rxq0: rx_packets: 4357802
+>      rxq0: rx_bytes: 292642052
+>      txq0: tx_packets: 824540
+>      txq0: tx_bytes: 55256404
+>      rxq1: rx_packets: 0
+>      rxq1: rx_bytes: 0
+>      txq1: tx_packets: 1094268
+>      txq1: tx_bytes: 73328316
+>      rxq2: rx_packets: 0
+>      rxq2: rx_bytes: 0
+>      txq2: tx_packets: 1091466
+>      txq2: tx_bytes: 73140566
+>      rxq3: rx_packets: 0
+>      rxq3: rx_bytes: 0
+>      txq3: tx_packets: 1093043
+>      txq3: tx_bytes: 73246142
+> 
+> Signed-off-by: Sriram Narasimhan <sriram.narasimhan@hp.com>
+[...]
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> GSO TCP handler has following issues :
-> 
-> 1) ooo_okay from original GSO packet is duplicated to all segments
-> 2) segments (but the last one) are orphaned, so transmit path can not
-> get transmit queue number from the socket. This happens if GSO
-> segmentation is done before stacked device for example.
-> 
-> Result is we can send packets from a given TCP flow to different TX
-> queues (if using multiqueue NICS). This generates OOO problems and
-> spurious SACK & retransmits.
-> 
-> Fix this by keeping socket pointer set for all segments.
-> 
-> This means that every segment must also have a destructor, and the
-> original gso skb truesize must be split on all segments, to keep
-> precise sk->sk_wmem_alloc accounting.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+That ordering is totally unreadable.  I want to see patches for ethtool
+to let the user order and aggregate the queue statistics in a sensible
+way:
 
-Applied, thanks Eric.
+$ ethtool -S eth0                   # default would show aggregated statistics
+NIC statistics:
+	rx_packets: 4357802
+	rx_bytes: 292642052
+	tx_packets: 4103317
+	tx_bytes: 274971428
+
+$ ethtool -S eth0 full group queue  # full statistics, grouped by queue name
+NIC statistics:
+rxq0:
+	rx_packets: 4357802
+	rx_bytes: 292642052
+rxq1:
+	rx_packets: 0
+	rx_bytes: 0
+[...]
+txq0:
+	tx_packets: 824540
+	tx_bytes: 55256404
+txq1:
+	tx_packets: 1094268
+	tx_bytes: 73328316
+[...]
+
+$ ethtool -S eth0 full group statistic  # full statistics, grouped by statistic name
+NIC statistics:
+rx_packets:
+	rxq0: 4357802
+	rxq1: 0
+	rxq2: 0
+	rxq3: 0
+rx_bytes:
+	rxq0: 292642052
+	rxq1: 0
+	rxq2: 0
+	rxq3: 0
+[...]
+
+Maybe even:
+
+$ ethtool -S eth0 full table
+NIC statistics:
+	rx_packets   rx_bytes
+rxq0:      4357802  292642052
+rxq1:            0          0
+rxq2:            0          0
+rxq3:            0          0
+	tx_packets   tx_bytes
+txq0:       824540   55256404
+txq1:      1094268   73328316
+txq2:      1091466   73140566
+txq3:      1093043   73246142
+
+(Difficult to do, but probably very useful!)
+
+The queue names should be rx-<index> and tx-<index> like in sysfs.
+
+We'll need to reach a consensus on the naming scheme for per-queue and
+otherwise disaggregated statistics (see previous discussions in
+<http://thread.gmane.org/gmane.linux.kernel.virtualization/15572/focus=15608>).  I don't much care what they look like as long as there's an implementation for the ethtool side and they don't look too awful in older versions of ethtool.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
