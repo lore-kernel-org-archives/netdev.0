@@ -1,56 +1,39 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: [PATCH] vxlan: Update vxlan fdb 'used' field after each usage.
-Date: Thu, 16 May 2013 15:22:44 -0700
-Message-ID: <1368742964.14093.19.camel@sridhar.usor.ibm.com>
-References: <1368723943.14093.4.camel@sridhar.usor.ibm.com>
-	 <20130516.150019.1779890463663876284.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [RFC/BUG] ipv6: bug in "ipv6: Copy cork options in ip6_append_data"
+Date: Thu, 16 May 2013 15:23:10 -0700
+Message-ID: <1368742990.3301.67.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, dlstevens@us.ibm.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e35.co.us.ibm.com ([32.97.110.153]:42031 "EHLO
-	e35.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754484Ab3EPWXD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 18:23:03 -0400
-Received: from /spool/local
-	by e35.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
-	Thu, 16 May 2013 16:22:57 -0600
-Received: from d03relay04.boulder.ibm.com (d03relay04.boulder.ibm.com [9.17.195.106])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 03AF73E4005B
-	for <netdev@vger.kernel.org>; Thu, 16 May 2013 16:22:32 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay04.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4GMMm15358784
-	for <netdev@vger.kernel.org>; Thu, 16 May 2013 16:22:48 -0600
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4GMPl5g004981
-	for <netdev@vger.kernel.org>; Thu, 16 May 2013 16:25:48 -0600
-In-Reply-To: <20130516.150019.1779890463663876284.davem@davemloft.net>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:42600 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754945Ab3EPWXN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 18:23:13 -0400
+Received: by mail-pd0-f177.google.com with SMTP id g10so2723826pdj.22
+        for <netdev@vger.kernel.org>; Thu, 16 May 2013 15:23:12 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-05-16 at 15:00 -0700, David Miller wrote:
-> From: Sridhar Samudrala <sri@us.ibm.com>
-> Date: Thu, 16 May 2013 10:05:43 -0700
-> 
-> > Fix some instances where vxlan fdb 'used' field is not updated after the entry 
-> > is used.
-> > 
-> > Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
-> 
-> Please just put the ->used update into vxlan_find_mac().
+Hi Herbert
 
-I thought of doing it that way, but i found that there is a call
-to vxlan_find_mac() in vxlan_fdb_create() where the fdb entry
-gets updated, but it not really used.
+Looking at the code added in commit 0178b695fd6b40a62a215cb
+("ipv6: Copy cork options in ip6_append_data") it looks like we can have
+either a memleak or corruption (later in ip6_cork_release()) in case one
+of the sub-allocation (ip6_opt_dup()/ip6_rthdr_dup()) fails.
 
-Also in other cases, the fdb entry may not be used even if
-vxlan_find_mac() returns an entry because of other conditions.
+I would at least use a kzalloc() instead of kmalloc() in 
 
-I guess it depends on how we define the 'used' field.
+np->cork.opt = kmalloc(opt->tot_len, sk->sk_allocation);
 
-Thanks
-Sridhar
+Or maybe better, reuse the code in  ipv6_dup_options() so that we
+perform a single memory allocation ?
+
+Am I missing something obvious ?
+
+Thanks !
