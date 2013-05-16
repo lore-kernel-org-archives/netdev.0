@@ -1,70 +1,96 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH] vxlan: Update vxlan fdb 'used' field after each usage.
-Date: Thu, 16 May 2013 10:05:43 -0700
-Message-ID: <1368723943.14093.4.camel@sridhar.usor.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH v2] bonding: allow TSO being set on bonding master
+Date: Thu, 16 May 2013 10:34:53 -0700
+Message-ID: <1368725693.3301.59.camel@edumazet-glaptop>
+References: <1368654065.4519.53.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org, dlstevens@us.ibm.com,
-	davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	Tom Herbert <therbert@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>,
+	=?UTF-8?Q?Micha=C5=82_Miros=C5=82aw?= <mirqus@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:37783 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752146Ab3EPRJD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 13:09:03 -0400
-Received: from /spool/local
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
-	Thu, 16 May 2013 11:09:02 -0600
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id A816C3E40062
-	for <netdev@vger.kernel.org>; Thu, 16 May 2013 11:05:45 -0600 (MDT)
-Received: from d03av06.boulder.ibm.com (d03av06.boulder.ibm.com [9.17.195.245])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4GH5jaB057046
-	for <netdev@vger.kernel.org>; Thu, 16 May 2013 11:05:50 -0600
-Received: from d03av06.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av06.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4GH8jei001194
-	for <netdev@vger.kernel.org>; Thu, 16 May 2013 11:08:46 -0600
+Received: from mail-pd0-f179.google.com ([209.85.192.179]:60186 "EHLO
+	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753225Ab3EPRe5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 13:34:57 -0400
+Received: by mail-pd0-f179.google.com with SMTP id q10so2538397pdj.38
+        for <netdev@vger.kernel.org>; Thu, 16 May 2013 10:34:56 -0700 (PDT)
+In-Reply-To: <1368654065.4519.53.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix some instances where vxlan fdb 'used' field is not updated after the entry 
-is used.
+=46rom: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+In some situations, we need to disable TSO on bonding slaves.
 
+bonding device automatically unset TSO in bond_fix_features(), and
+performance is not good because :
+
+1) We consume more cpu cycles.
+
+2) GSO segmentation has some bugs leading to out of order TCP packets
+if this segmentation is done before virtual device. This particular
+problem will be addressed in a separate patch.
+
+This patch allows TSO being set/unset on the bonding master,
+so that GSO segmentation is done after bonding layer.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Micha=C5=82 Miros=C5=82aw <mirqus@gmail.com>
+Cc: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Andy Gospodarek <andy@greyhouse.net>
+Cc: Maciej =C5=BBenczykowski <maze@google.com>
+Cc: Tom Herbert <therbert@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Yuchung Cheng <ycheng@google.com>
 ---
+v2: add a documented helper so that team/bridge can use it
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ba81f3c..3bfa6c4 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -814,6 +814,7 @@ static int arp_reduce(struct net_device *dev, struct sk_buff *skb)
- 
- 		f = vxlan_find_mac(vxlan, n->ha);
- 		if (f && f->remote.remote_ip == htonl(INADDR_ANY)) {
-+			f->used = jiffies;
- 			/* bridge-local neighbor */
- 			neigh_release(n);
- 			goto out;
-@@ -1118,6 +1119,7 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	if (f && (f->flags & NTF_ROUTER) && (vxlan->flags & VXLAN_F_RSC) &&
- 	    ntohs(eth->h_proto) == ETH_P_IP) {
-+		f->used = jiffies;
- 		did_rsc = route_shortcircuit(dev, skb);
- 		if (did_rsc)
- 			f = vxlan_find_mac(vxlan, eth->h_dest);
-@@ -1130,8 +1132,10 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 		    (vxlan->flags & VXLAN_F_L2MISS) &&
- 		    !is_multicast_ether_addr(eth->h_dest))
- 			vxlan_fdb_miss(vxlan, eth->h_dest);
--	} else
-+	} else {
-+		f->used = jiffies;
- 		rdst0 = &f->remote;
-+	}
- 
- 	rc = NETDEV_TX_OK;
- 
+ drivers/net/bonding/bond_main.c |    1 +
+ include/linux/netdevice.h       |   11 +++++++++++
+ 2 files changed, 12 insertions(+)
+
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond=
+_main.c
+index d0aade0..449ad9b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1362,6 +1362,7 @@ static netdev_features_t bond_fix_features(struct=
+ net_device *dev,
+ 						     slave->dev->features,
+ 						     mask);
+ 	}
++	features =3D netdev_add_tso_features(features, mask);
+=20
+ out:
+ 	read_unlock(&bond->lock);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a94a5a0..095945c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2733,6 +2733,17 @@ static inline netdev_features_t netdev_get_wante=
+d_features(
+ }
+ netdev_features_t netdev_increment_features(netdev_features_t all,
+ 	netdev_features_t one, netdev_features_t mask);
++
++/* Allow TSO being used on stacked device :
++ * Performing the GSO segmentation before last device
++ * is a performance improvement.
++ */
++static inline netdev_features_t netdev_add_tso_features(netdev_feature=
+s_t features,
++	netdev_features_t mask)
++{
++	return netdev_increment_features(features, NETIF_F_ALL_TSO, mask);
++}
++
+ int __netdev_update_features(struct net_device *dev);
+ void netdev_update_features(struct net_device *dev);
+ void netdev_change_features(struct net_device *dev);
