@@ -1,82 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] sfc: Enable accelerated RFS on vlans
-Date: Thu, 16 May 2013 19:38:44 +0100
-Message-ID: <1368729524.2655.30.camel@bwh-desktop.uk.solarflarecom.com>
-References: <4bdabd4670b726348cdcdc0d2d635dd660671ee3.1368229353.git.luto@amacapital.net>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/5] davinci: net: cpdma: remove unwanted header file
+ incusion and sort thme alphabetically
+Date: Thu, 16 May 2013 22:53:12 +0400
+Message-ID: <51952B18.4060004@cogentembedded.com>
+References: <1368689438-23889-1-git-send-email-prabhakar.csengg@gmail.com> <1368689438-23889-2-git-send-email-prabhakar.csengg@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:58431 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752411Ab3EPSis (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 14:38:48 -0400
-In-Reply-To: <4bdabd4670b726348cdcdc0d2d635dd660671ee3.1368229353.git.luto@amacapital.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: DLOS <davinci-linux-open-source@linux.davincidsp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jiri Kosina <trivial@kernel.org>, netdev@vger.kernel.org,
+	Mugunthan V N <mugunthanvnm@ti.com>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Lad Prabhakar <prabhakar.csengg@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368689438-23889-2-git-send-email-prabhakar.csengg@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-05-10 at 16:51 -0700, Andy Lutomirski wrote:
-> As far as I know, the hardware doesn't support matching on both IP
-> fields and vlan tag, but it can at least match on the vlan tag.
-> 
-> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+Hello.
+
+On 16-05-2013 11:30, Lad Prabhakar wrote:
+
+    s/incusion/inclusion/, s/thme/them/ in the subject. Though instead 
+of "them" it would be better to write "headers".
+
+> From: Lad, Prabhakar <prabhakar.csengg@gmail.com>
+
+    Changelog won't hurt here... which unwanted #include's you are 
+removing and why are they unwanted?
+
+> Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 > ---
-> 
-> Tested on the OpenOnload version of the driver, but the patch is the same
-> other than some offset.
+>   drivers/net/ethernet/ti/davinci_cpdma.c |   10 +++-------
+>   1 files changed, 3 insertions(+), 7 deletions(-)
 
-This looks correct, but I'll have to actually test it.  So I'll queue
-this up and re-submit along with other sfc patches later on, OK?
-
-> With this patch, accelerated RFS works for me.  (Oddly, some packets end
-> up on otherwise idle cores, even when those cores have weight zero in
-> ethtool --set-rxfh-indir; I'm not sure what's going on there.)
-
-Some packets, or some interrupts?  TX completions and wake-up events (if
-you use user-level networking) are of course not affected by the RX flow
-hash indirection table..
-
-You might find it useful to dump the complete RX filter table by running
-'ethtool -d'.  ('ethtool -n' only shows the manually controlled
-filters.)
-
-Ben.
-
->  drivers/net/ethernet/sfc/filter.c | 15 ++++++++++++++-
->  1 file changed, 14 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/sfc/filter.c b/drivers/net/ethernet/sfc/filter.c
-> index 8af42cd..5313ffe 100644
-> --- a/drivers/net/ethernet/sfc/filter.c
-> +++ b/drivers/net/ethernet/sfc/filter.c
-> @@ -1076,8 +1076,21 @@ int efx_filter_rfs(struct net_device *net_dev, const struct sk_buff *skb,
->  
->  	nhoff = skb_network_offset(skb);
->  
-> -	if (skb->protocol != htons(ETH_P_IP))
-> +	if (skb->protocol == htons(ETH_P_8021Q)) {
-> +		EFX_BUG_ON_PARANOID(skb_headlen(skb) <
-> +				    nhoff + sizeof(struct vlan_hdr));
-> +		if (((const struct vlan_hdr *)skb->data + nhoff)->
-> +		    h_vlan_encapsulated_proto != htons(ETH_P_IP))
-> +			return -EPROTONOSUPPORT;
+> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+> index 49dfd59..f7ce97f 100644
+> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+> @@ -12,15 +12,11 @@
+>    * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+>    * GNU General Public License for more details.
+>    */
+> -#include <linux/kernel.h>
+> -#include <linux/spinlock.h>
+> -#include <linux/device.h>
 > +
-> +		/* This is IP over 802.1q VLAN.  We can't filter on the
-> +		 * IP 5-tuple and the vlan together, so just strip the
-> +		 * vlan header and filter on the IP part.
-> +		 */
-> +		nhoff += sizeof(struct vlan_hdr);
-> +	} else if (skb->protocol != htons(ETH_P_IP)) {
->  		return -EPROTONOSUPPORT;
-> +	}
->  
->  	/* RFS must validate the IP header length before calling us */
->  	EFX_BUG_ON_PARANOID(skb_headlen(skb) < nhoff + sizeof(*ip));
+> +#include <linux/delay.h>
+> +#include <linux/dma-mapping.h>
+>   #include <linux/module.h>
+>   #include <linux/slab.h>
+> -#include <linux/err.h>
+> -#include <linux/dma-mapping.h>
+> -#include <linux/io.h>
+> -#include <linux/delay.h>
+>
+>   #include "davinci_cpdma.h"
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+WBR, Sergei
