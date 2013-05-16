@@ -1,212 +1,422 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost-scsi: Depend on NET for memcpy_fromiovec
-Date: Thu, 16 May 2013 09:36:52 +0300
-Message-ID: <20130516063652.GA26928@redhat.com>
-References: <20130515095558.918f2b29ba318a477eb5dde2@canb.auug.org.au>
-	<1368579583-13097-1-git-send-email-asias@redhat.com>
-	<8761yk254u.fsf@rustcorp.com.au>
-	<20130516020848.GB23441@hj.localdomain>
-	<87d2sra97h.fsf@rustcorp.com.au>
+Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
+Date: Thu, 16 May 2013 09:39:54 +0300
+Message-ID: <20130516063954.GB26928@redhat.com>
+References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
+ <1368498506-25857-7-git-send-email-yinghai@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, Randy Dunlap <rdunlap@infradead.org>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	target-devel@vger.kernel.org, linux-next@vger.kernel.org
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bjorn Helgaas <bhelgaas@google.com>,
+	Gu Zheng <guz.fnst@cn.fujitsu.com>, linux-pci@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Yinghai Lu <yinghai@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87d2sra97h.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <1368498506-25857-7-git-send-email-yinghai@kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 16, 2013 at 01:04:58PM +0930, Rusty Russell wrote:
-> Asias He <asias@redhat.com> writes:
-> > On Wed, May 15, 2013 at 02:47:53PM +0930, Rusty Russell wrote:
-> >> Asias He <asias@redhat.com> writes:
-> >> > scsi.c includes vhost.c which uses memcpy_fromiovec.
-> >> >
-> >> > This patch fixes this build failure.
-> >> >
-> >> >    From Randy Dunlap:
-> >> >    '''
-> >> >    on x86_64:
-> >> >
-> >> >    ERROR: "memcpy_fromiovec" [drivers/vhost/vhost_scsi.ko] undefined!
-> >> >
-> >> >    It needs to depend on NET since net/core/ provides that function.
-> >> >    '''
-> >> 
-> >> Proper fix please.
-> >
-> > --verbose please ;-)
-> >
-> > Making VHOST_SCSI depends on NET looks weird but this is because vhost
-> > core depends on it. A bunch of patches are cleaning this up. Since MST
-> > wanted do the vhost.ko split up in 3.11, plus your WIP vringh work, so I
-> > wanted the fix for 3.10 as minimum as possible.
+On Mon, May 13, 2013 at 07:28:25PM -0700, Yinghai Lu wrote:
+> Found kernel try to load mlx4 drivers for VFs before
+> PF's is really loaded when the drivers are built-in, and kernel
+> command line include probe_vfs=63, num_vfs=63.
 > 
-> If this isn't the only symbol causing the problem, then this should be
-> mentioned in the changelog.  If it is, it should be fixed: we have
-> plenty of time for that.
+> It turns that it also happen for hotadd path even drivers are
+> compiled as modules and if they loaded. Esp some VF share the
+> same driver with PF.
 > 
-> Either way, your commit message or the commit itself needs to justify
-> it!
-> 
-> > Other users are using memcpy_fromiovec and friends outside net. It seems
-> > a good idea to put it in a util library. e.g.  crypto/algif_skcipher.c
-> > which also depends on NET for it.
-> >
-> >> Though I can't see why you thought this was a good idea.  Nonetheless, I
-> >> shan't highlight why: I have far too much respect for your intellects
-> >> and abilities.
-> >> 
-> >> No, don't thank me!
-> >
-> > Interesting.
-> 
-> Heh... I originally wrote an explanation, then found it a bit insulting:
-> I knew I didn't need to tell you :)
-> 
-> How's this?
-> 
-> From: Rusty Russell <rusty@rustcorp.com.au>
-> Subject: Hoist memcpy_fromiovec into lib/
-> 
-> ERROR: "memcpy_fromiovec" [drivers/vhost/vhost_scsi.ko] undefined!
-> 
-> That function is only present with CONFIG_NET.  Turns out that
-> crypto/algif_skcipher.c also uses that outside net, but it actually
-> needs sockets anyway.
-> 
-> socket.h already include uio.h, so no callers need updating.
-> 
-> Reported-by: Randy Dunlap <rdunlap@infradead.org>
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> calling path:
+> 	device driver probe
+> 		==> pci_enable_sriov
+> 			==> virtfn_add
+> 				==> pci_dev_add
+> 				==> pci_bus_device_add
+> when pci_bus_device_add is called, the VF's driver will be attached.
+> and at that time PF's driver does not finish yet.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Okay but why is this a problem?
 
-Would you like me to merge this through the vhost tree?
-If I do I can drop #include "linux/socket.h" from vhost.c
-right now.
 
-> diff --git a/include/linux/socket.h b/include/linux/socket.h
-> index 428c37a..7266775 100644
-> --- a/include/linux/socket.h
-> +++ b/include/linux/socket.h
-> @@ -305,7 +305,6 @@ struct ucred {
+> Need to move out pci_bus_device_add from virtfn_add and call it
+> later. Fix the problem for two path,
+> 1. hotadd path: use device_schedule_callback.
+> 2. for booting path, use initcall to call that for all VF's.
+> 
+> Signed-off-by: Yinghai Lu <yinghai@kernel.org>
+> Cc: netdev@vger.kernel.org
+> 
+> ---
+>  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c    |    7 +
+>  drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c      |    4 -
+>  drivers/net/ethernet/cisco/enic/enic_main.c          |    2 
+>  drivers/net/ethernet/emulex/benet/be_main.c          |    4 +
+>  drivers/net/ethernet/intel/igb/igb_main.c            |   11 ++
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c        |    2 
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c       |    9 +-
+>  drivers/net/ethernet/mellanox/mlx4/main.c            |    2 
+>  drivers/net/ethernet/neterion/vxge/vxge-main.c       |    3 
+>  drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c |    5 +
+>  drivers/net/ethernet/sfc/efx.c                       |    1 
+>  drivers/pci/iov.c                                    |   73 +++++++++++++++++--
+>  drivers/scsi/lpfc/lpfc_init.c                        |    2 
+>  include/linux/pci.h                                  |    4 +
+>  14 files changed, 115 insertions(+), 14 deletions(-)
+> 
+> Index: linux-2.6/drivers/net/ethernet/mellanox/mlx4/main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/mellanox/mlx4/main.c
+> +++ linux-2.6/drivers/net/ethernet/mellanox/mlx4/main.c
+> @@ -2308,6 +2308,8 @@ slave_start:
+>  	priv->pci_dev_data = pci_dev_data;
+>  	pci_set_drvdata(pdev, dev);
 >  
->  extern void cred_to_ucred(struct pid *pid, const struct cred *cred, struct ucred *ucred);
+> +	pci_bus_add_device_vfs(pdev);
+> +
+>  	return 0;
 >  
-> -extern int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
->  extern int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
->  			       int offset, int len);
->  extern int csum_partial_copy_fromiovecend(unsigned char *kdata, 
-> diff --git a/include/linux/uio.h b/include/linux/uio.h
-> index 629aaf5..21628d3 100644
-> --- a/include/linux/uio.h
-> +++ b/include/linux/uio.h
-> @@ -35,4 +35,6 @@ static inline size_t iov_length(const struct iovec *iov, unsigned long nr_segs)
+>  err_port:
+> Index: linux-2.6/drivers/pci/iov.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/pci/iov.c
+> +++ linux-2.6/drivers/pci/iov.c
+> @@ -66,7 +66,8 @@ static void virtfn_remove_bus(struct pci
+>  		pci_remove_bus(child);
 >  }
 >  
->  unsigned long iov_shorten(struct iovec *iov, unsigned long nr_segs, size_t to);
-> +
-> +int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
->  #endif
-> diff --git a/lib/Makefile b/lib/Makefile
-> index e9c52e1..2377211 100644
-> --- a/lib/Makefile
-> +++ b/lib/Makefile
-> @@ -9,7 +9,7 @@ endif
+> -static int virtfn_add(struct pci_dev *dev, int id, int reset)
+> +static int virtfn_add(struct pci_dev *dev, int id, int reset,
+> +			struct pci_dev **ret)
+>  {
+>  	int i;
+>  	int rc;
+> @@ -116,7 +117,6 @@ static int virtfn_add(struct pci_dev *de
+>  	pci_device_add(virtfn, virtfn->bus);
+>  	mutex_unlock(&iov->dev->sriov->lock);
 >  
->  lib-y := ctype.o string.o vsprintf.o cmdline.o \
->  	 rbtree.o radix-tree.o dump_stack.o timerqueue.o\
-> -	 idr.o int_sqrt.o extable.o \
-> +	 idr.o int_sqrt.o extable.o iovec.o \
->  	 sha1.o md5.o irq_regs.o reciprocal_div.o argv_split.o \
->  	 proportions.o flex_proportions.o prio_heap.o ratelimit.o show_mem.o \
->  	 is_single_threaded.o plist.o decompress.o kobject_uevent.o \
-> diff --git a/lib/iovec.c b/lib/iovec.c
-> new file mode 100644
-> index 0000000..632c5ea
-> --- /dev/null
-> +++ b/lib/iovec.c
-> @@ -0,0 +1,29 @@
-> +#include <linux/uaccess.h>
-> +#include <linux/export.h>
-> +#include <linux/uio.h>
-> +
-> +/*
-> + *	Copy iovec to kernel. Returns -EFAULT on error.
-> + *
-> + *	Note: this modifies the original iovec.
-> + */
-> +
-> +int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len)
+> -	rc = pci_bus_add_device(virtfn);
+>  	sprintf(buf, "virtfn%u", id);
+>  	rc = sysfs_create_link(&dev->dev.kobj, &virtfn->dev.kobj, buf);
+>  	if (rc)
+> @@ -127,6 +127,8 @@ static int virtfn_add(struct pci_dev *de
+>  
+>  	kobject_uevent(&virtfn->dev.kobj, KOBJ_CHANGE);
+>  
+> +	if (ret)
+> +		*ret = virtfn;
+>  	return 0;
+>  
+>  failed2:
+> @@ -141,6 +143,55 @@ failed1:
+>  	return rc;
+>  }
+>  
+> +static void pci_bus_add_vf(struct pci_dev *dev)
 > +{
-> +	while (len > 0) {
-> +		if (iov->iov_len) {
-> +			int copy = min_t(unsigned int, len, iov->iov_len);
-> +			if (copy_from_user(kdata, iov->iov_base, copy))
-> +				return -EFAULT;
-> +			len -= copy;
-> +			kdata += copy;
-> +			iov->iov_base += copy;
-> +			iov->iov_len -= copy;
-> +		}
-> +		iov++;
+> +	int rc;
+> +
+> +	if (!dev || !dev->is_virtfn || dev->is_added)
+> +		return;
+> +
+> +	rc = pci_bus_add_device(dev);
+> +}
+> +
+> +static void bus_add_vfs(struct device *device)
+> +{
+> +	struct pci_dev *dev = to_pci_dev(device);
+> +	int i, num_vfs = pci_num_vf(dev);
+> +
+> +	for (i = 0; i < num_vfs; i++) {
+> +		struct pci_bus *bus;
+> +		struct pci_dev *virtfn;
+> +
+> +		bus = pci_find_bus(pci_domain_nr(dev->bus), virtfn_bus(dev, i));
+> +		if (!bus)
+> +			continue;
+> +
+> +		virtfn = pci_get_slot(bus, virtfn_devfn(dev, i));
+> +		pci_bus_add_vf(virtfn);
+> +		pci_dev_put(virtfn);
 > +	}
+> +}
+> +void pci_bus_add_device_vfs(struct pci_dev *pdev)
+> +{
+> +	if (system_state == SYSTEM_BOOTING)
+> +		return;
+> +
+> +	device_schedule_callback(&pdev->dev, bus_add_vfs);
+> +}
+> +EXPORT_SYMBOL_GPL(pci_bus_add_device_vfs);
+> +
+> +/* Make sure all VFs get added before pci_sysfs_init */
+> +static int __init pci_bus_add_device_vfs_booting(void)
+> +{
+> +	struct pci_dev *dev = NULL;
+> +
+> +	for_each_pci_dev(dev)
+> +		pci_bus_add_vf(dev);
 > +
 > +	return 0;
 > +}
-> +EXPORT_SYMBOL(memcpy_fromiovec);
+> +device_initcall_sync(pci_bus_add_device_vfs_booting);
 > +
-> diff --git a/net/core/iovec.c b/net/core/iovec.c
-> index 7e7aeb0..d81257f 100644
-> --- a/net/core/iovec.c
-> +++ b/net/core/iovec.c
-> @@ -125,31 +125,6 @@ int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
->  EXPORT_SYMBOL(memcpy_toiovecend);
+>  static void virtfn_remove(struct pci_dev *dev, int id, int reset)
+>  {
+>  	char buf[VIRTFN_ID_LEN];
+> @@ -213,14 +264,22 @@ static void sriov_migration_task(struct
+>  		if (state == PCI_SRIOV_VFM_MI) {
+>  			writeb(PCI_SRIOV_VFM_AV, iov->mstate + i);
+>  			state = readb(iov->mstate + i);
+> -			if (state == PCI_SRIOV_VFM_AV)
+> -				virtfn_add(iov->self, i, 1);
+> +			if (state == PCI_SRIOV_VFM_AV) {
+> +				struct pci_dev *virtfn = NULL;
+> +
+> +				virtfn_add(iov->self, i, 1, &virtfn);
+> +				pci_bus_add_vf(virtfn);
+> +			}
+>  		} else if (state == PCI_SRIOV_VFM_MO) {
+>  			virtfn_remove(iov->self, i, 1);
+>  			writeb(PCI_SRIOV_VFM_UA, iov->mstate + i);
+>  			state = readb(iov->mstate + i);
+> -			if (state == PCI_SRIOV_VFM_AV)
+> -				virtfn_add(iov->self, i, 0);
+> +			if (state == PCI_SRIOV_VFM_AV) {
+> +				struct pci_dev *virtfn = NULL;
+> +
+> +				virtfn_add(iov->self, i, 0, &virtfn);
+> +				pci_bus_add_vf(virtfn);
+> +			}
+>  		}
+>  	}
 >  
->  /*
-> - *	Copy iovec to kernel. Returns -EFAULT on error.
-> - *
-> - *	Note: this modifies the original iovec.
-> - */
-> -
-> -int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len)
-> -{
-> -	while (len > 0) {
-> -		if (iov->iov_len) {
-> -			int copy = min_t(unsigned int, len, iov->iov_len);
-> -			if (copy_from_user(kdata, iov->iov_base, copy))
-> -				return -EFAULT;
-> -			len -= copy;
-> -			kdata += copy;
-> -			iov->iov_base += copy;
-> -			iov->iov_len -= copy;
-> -		}
-> -		iov++;
-> -	}
-> -
-> -	return 0;
-> -}
-> -EXPORT_SYMBOL(memcpy_fromiovec);
-> -
-> -/*
->   *	Copy iovec from kernel. Returns -EFAULT on error.
->   */
+> @@ -356,7 +415,7 @@ static int sriov_enable(struct pci_dev *
+>  		initial = nr_virtfn;
 >  
-> _______________________________________________
-> Virtualization mailing list
-> Virtualization@lists.linux-foundation.org
-> https://lists.linuxfoundation.org/mailman/listinfo/virtualization
+>  	for (i = 0; i < initial; i++) {
+> -		rc = virtfn_add(dev, i, 0);
+> +		rc = virtfn_add(dev, i, 0, NULL);
+>  		if (rc)
+>  			goto failed;
+>  	}
+> Index: linux-2.6/include/linux/pci.h
+> ===================================================================
+> --- linux-2.6.orig/include/linux/pci.h
+> +++ linux-2.6/include/linux/pci.h
+> @@ -1659,6 +1659,7 @@ void __iomem *pci_ioremap_bar(struct pci
+>  
+>  #ifdef CONFIG_PCI_IOV
+>  int pci_enable_sriov(struct pci_dev *dev, int nr_virtfn);
+> +void pci_bus_add_device_vfs(struct pci_dev *dev);
+>  void pci_disable_sriov(struct pci_dev *dev);
+>  irqreturn_t pci_sriov_migration(struct pci_dev *dev);
+>  int pci_num_vf(struct pci_dev *dev);
+> @@ -1670,6 +1671,9 @@ static inline int pci_enable_sriov(struc
+>  {
+>  	return -ENODEV;
+>  }
+> +static inline void pci_bus_add_device_vfs(struct pci_dev *dev)
+> +{
+> +}
+>  static inline void pci_disable_sriov(struct pci_dev *dev)
+>  {
+>  }
+> Index: linux-2.6/drivers/net/ethernet/intel/igb/igb_main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/intel/igb/igb_main.c
+> +++ linux-2.6/drivers/net/ethernet/intel/igb/igb_main.c
+> @@ -2366,6 +2366,9 @@ static int igb_probe(struct pci_dev *pde
+>  	}
+>  
+>  	pm_runtime_put_noidle(&pdev->dev);
+> +
+> +	pci_bus_add_device_vfs(pdev);
+> +
+>  	return 0;
+>  
+>  err_register:
+> @@ -7278,8 +7281,12 @@ static int igb_pci_sriov_configure(struc
+>  #ifdef CONFIG_PCI_IOV
+>  	if (num_vfs == 0)
+>  		return igb_pci_disable_sriov(dev);
+> -	else
+> -		return igb_pci_enable_sriov(dev, num_vfs);
+> +	else {
+> +		int ret = igb_pci_enable_sriov(dev, num_vfs);
+> +		if (ret > 0)
+> +			pci_bus_add_device_vfs(dev);
+> +		return ret;
+> +	}
+>  #endif
+>  	return 0;
+>  }
+> Index: linux-2.6/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> +++ linux-2.6/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+> @@ -346,8 +346,13 @@ int ixgbe_pci_sriov_configure(struct pci
+>  {
+>  	if (num_vfs == 0)
+>  		return ixgbe_pci_sriov_disable(dev);
+> -	else
+> -		return ixgbe_pci_sriov_enable(dev, num_vfs);
+> +	else {
+> +		int ret = ixgbe_pci_sriov_enable(dev, num_vfs);
+> +
+> +		if (ret > 0)
+> +			pci_bus_add_device_vfs(dev);
+> +		return ret;
+> +	}
+>  }
+>  
+>  static int ixgbe_set_vf_multicasts(struct ixgbe_adapter *adapter,
+> Index: linux-2.6/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ linux-2.6/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -7658,6 +7658,8 @@ skip_sriov:
+>  			IXGBE_LINK_SPEED_10GB_FULL | IXGBE_LINK_SPEED_1GB_FULL,
+>  			true);
+>  
+> +	pci_bus_add_device_vfs(pdev);
+> +
+>  	return 0;
+>  
+>  err_register:
+> Index: linux-2.6/drivers/scsi/lpfc/lpfc_init.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/scsi/lpfc/lpfc_init.c
+> +++ linux-2.6/drivers/scsi/lpfc/lpfc_init.c
+> @@ -10582,6 +10582,8 @@ lpfc_pci_probe_one(struct pci_dev *pdev,
+>  	else
+>  		rc = lpfc_pci_probe_one_s3(pdev, pid);
+>  
+> +	pci_bus_add_device_vfs(pdev);
+> +
+>  	return rc;
+>  }
+>  
+> Index: linux-2.6/drivers/net/ethernet/emulex/benet/be_main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ linux-2.6/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -4119,6 +4119,7 @@ static int lancer_recover_func(struct be
+>  	if (status)
+>  		goto err;
+>  
+> +	pci_bus_add_device_vfs(adapter->pdev);
+>  	if (netif_running(adapter->netdev)) {
+>  		status = be_open(adapter->netdev);
+>  		if (status)
+> @@ -4335,6 +4336,8 @@ static int be_probe(struct pci_dev *pdev
+>  	dev_info(&pdev->dev, "%s: %s %s port %c\n", nic_name(pdev),
+>  		 func_name(adapter), mc_name(adapter), port_name);
+>  
+> +	pci_bus_add_device_vfs(pdev);
+> +
+>  	return 0;
+>  
+>  unsetup:
+> @@ -4406,6 +4409,7 @@ static int be_resume(struct pci_dev *pde
+>  		rtnl_unlock();
+>  	}
+>  
+> +	pci_bus_add_device_vfs(adapter->pdev);
+>  	schedule_delayed_work(&adapter->func_recovery_work,
+>  			      msecs_to_jiffies(1000));
+>  	netif_device_attach(netdev);
+> Index: linux-2.6/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+> +++ linux-2.6/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+> @@ -568,8 +568,11 @@ int qlcnic_pci_sriov_configure(struct pc
+>  
+>  	if (num_vfs == 0)
+>  		err = qlcnic_pci_sriov_disable(adapter);
+> -	else
+> +	else {
+>  		err = qlcnic_pci_sriov_enable(adapter, num_vfs);
+> +		if (err > 0)
+> +			pci_bus_add_device_vfs(dev);
+> +	}
+>  
+>  	clear_bit(__QLCNIC_RESETTING, &adapter->state);
+>  	return err;
+> Index: linux-2.6/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> +++ linux-2.6/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+> @@ -3048,7 +3048,12 @@ int bnx2x_sriov_configure(struct pci_dev
+>  		pci_disable_sriov(dev);
+>  		return 0;
+>  	} else {
+> -		return bnx2x_enable_sriov(bp);
+> +		int ret = bnx2x_enable_sriov(bp);
+> +
+> +		if (ret > 0)
+> +			pci_bus_add_device_vfs(dev);
+> +
+> +		return 0;
+>  	}
+>  }
+>  
+> Index: linux-2.6/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> +++ linux-2.6/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+> @@ -5749,10 +5749,12 @@ static int init_one(struct pci_dev *pdev
+>  sriov:
+>  #ifdef CONFIG_PCI_IOV
+>  	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
+> -		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
+> +		if (pci_enable_sriov(pdev, num_vf[func]) == 0) {
+>  			dev_info(&pdev->dev,
+>  				 "instantiated %u virtual functions\n",
+>  				 num_vf[func]);
+> +			pci_bus_add_device_vfs(pdev);
+> +		}
+>  #endif
+>  	return 0;
+>  
+> Index: linux-2.6/drivers/net/ethernet/cisco/enic/enic_main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/cisco/enic/enic_main.c
+> +++ linux-2.6/drivers/net/ethernet/cisco/enic/enic_main.c
+> @@ -2524,6 +2524,8 @@ static int enic_probe(struct pci_dev *pd
+>  		goto err_out_dev_deinit;
+>  	}
+>  
+> +	pci_bus_add_device_vfs(pdev);
+> +
+>  	return 0;
+>  
+>  err_out_dev_deinit:
+> Index: linux-2.6/drivers/net/ethernet/neterion/vxge/vxge-main.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/neterion/vxge/vxge-main.c
+> +++ linux-2.6/drivers/net/ethernet/neterion/vxge/vxge-main.c
+> @@ -4731,6 +4731,9 @@ vxge_probe(struct pci_dev *pdev, const s
+>  		vxge_hw_device_trace_level_get(hldev));
+>  
+>  	kfree(ll_config);
+> +
+> +	pci_bus_add_device_vfs(pdev);
+> +
+>  	return 0;
+>  
+>  _exit6:
+> Index: linux-2.6/drivers/net/ethernet/sfc/efx.c
+> ===================================================================
+> --- linux-2.6.orig/drivers/net/ethernet/sfc/efx.c
+> +++ linux-2.6/drivers/net/ethernet/sfc/efx.c
+> @@ -2822,6 +2822,7 @@ static int efx_pci_probe(struct pci_dev
+>  		netif_warn(efx, probe, efx->net_dev,
+>  			   "pci_enable_pcie_error_reporting failed (%d)\n", rc);
+>  
+> +	pci_bus_add_device_vfs(pci_dev);
+>  	return 0;
+>  
+>   fail4:
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
