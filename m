@@ -1,45 +1,36 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [RFT] vxlan: listen on multiple ports
-Date: Thu, 16 May 2013 10:51:13 +0800
-Message-ID: <1368672673.12751.19.camel@cr0>
-References: <1368616270-5775-1-git-send-email-amwang@redhat.com>
-	 <OFA8084FAB.8443890D-ON85257B6C.003F1FAB-85257B6C.003F65F2@us.ibm.com>
-	 <20130515095322.275c9b2f@nehalam.linuxnetplumber.net>
-	 <OFF100C7ED.6500FAB3-ON85257B6C.005DCF7C-85257B6C.005F309B@us.ibm.com>
-	 <20130515104825.5cbeaee3@nehalam.linuxnetplumber.net>
-	 <OF1177AC77.13B8F09E-ON85257B6C.0064777A-85257B6C.0066B974@us.ibm.com>
-	 <20130515143702.38730c3d@nehalam.linuxnetplumber.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] vhost-scsi: Depend on NET for memcpy_fromiovec
+Date: Wed, 15 May 2013 20:10:55 -0700 (PDT)
+Message-ID: <20130515.201055.1401062016041347476.davem@davemloft.net>
+References: <8761yk254u.fsf@rustcorp.com.au>
+	<1368657450.6899.29.camel@haakon3.risingtidesystems.com>
+	<871u9724vp.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62539 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754323Ab3EPCvU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 May 2013 22:51:20 -0400
-In-Reply-To: <20130515143702.38730c3d@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, kvm@vger.kernel.org, mst@redhat.com,
+	netdev@vger.kernel.org, rdunlap@infradead.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	target-devel@vger.kernel.org, linux-next@vger.kernel.org
+To: rusty@rustcorp.com.au
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <871u9724vp.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-15 at 14:37 -0700, Stephen Hemminger wrote:
-> The earlier change to introduce per-vxlan UDP port configuration did only
-> half the necessary work. It added per vxlan destination for sending, but
-> overlooked the handling of multiple ports for incoming, which means it
-> is broken.
-> 
-> This patch changes the listening port management to handle multiple
-> incoming UDP ports. The earlier per-namespace structure is now a hash
-> list per namespace.
-> 
-> It is also now possible to define the same virtual network id
-> but with different UDP port values.
-> 
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Thu, 16 May 2013 09:05:38 +0930
 
-Besides fixing the default port issue, what other benefits does it have?
-This seems overkill.
+> memcpy_fromiovec() has nothing to do with networking: that was just the
+> first user.  Note that crypto/algif_skcipher.c also uses it.  The
+> obvious answer is to move it into lib/.
 
-It looks like you make one socket per port, after my IPv6 patches, we
-would have two sockets per port...
++1
