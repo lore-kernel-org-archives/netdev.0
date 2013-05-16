@@ -1,7 +1,7 @@
 From: Lad Prabhakar <prabhakar.csengg@gmail.com>
-Subject: [PATCH 4/5] net: davinci_emac: simplify the OF parser code
-Date: Thu, 16 May 2013 13:00:37 +0530
-Message-ID: <1368689438-23889-5-git-send-email-prabhakar.csengg@gmail.com>
+Subject: [PATCH 5/5] net: davinci_mdio: trivial cleanup
+Date: Thu, 16 May 2013 13:00:38 +0530
+Message-ID: <1368689438-23889-6-git-send-email-prabhakar.csengg@gmail.com>
 References: <1368689438-23889-1-git-send-email-prabhakar.csengg@gmail.com>
 Cc: LKML <linux-kernel@vger.kernel.org>,
 	"Lad, Prabhakar" <prabhakar.csengg@gmail.com>
@@ -16,131 +16,77 @@ List-Id: netdev.vger.kernel.org
 
 From: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 
-This patch cleans up the OF parser code, removes unnecessary checks
-on of_property_read_*() and guards davinci_emac_of_match table with
-CONFIG_OF.
+remove unwanted header inclusion and sort the alphabetically
+also guard the davinci_mdio_of_mtable table and davinci_mdio_probe_dt()
+with CONFIG_OF.
 
 Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 ---
- drivers/net/ethernet/ti/davinci_emac.c |   67 +++++++++++---------------------
- 1 files changed, 23 insertions(+), 44 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c |   23 +++++++++++------------
+ 1 files changed, 11 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index a8b5c6b..17783a9 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -1730,29 +1730,22 @@ static const struct net_device_ops emac_netdev_ops = {
- #endif
- };
- 
--#ifdef CONFIG_OF
--static struct emac_platform_data
--	*davinci_emac_of_get_pdata(struct platform_device *pdev,
--	struct emac_priv *priv)
-+static struct emac_platform_data *
-+davinci_emac_of_get_pdata(struct platform_device *pdev, struct emac_priv *priv)
- {
- 	struct device_node *np;
- 	struct emac_platform_data *pdata = NULL;
- 	const u8 *mac_addr;
--	u32 data;
--	int ret;
- 
--	pdata = pdev->dev.platform_data;
--	if (!pdata) {
--		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
--		if (!pdata)
--			goto nodata;
--	}
-+	if (!IS_ENABLED(CONFIG_OF) || !pdev->dev.of_node)
-+		return pdev->dev.platform_data;
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 12aec17..bc6cfec 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -24,20 +24,16 @@
+  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+  * ---------------------------------------------------------------------------
+  */
+-#include <linux/module.h>
+-#include <linux/kernel.h>
+-#include <linux/platform_device.h>
+-#include <linux/delay.h>
+-#include <linux/sched.h>
+-#include <linux/slab.h>
+-#include <linux/phy.h>
 +
-+	pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
-+	if (!pdata)
-+		return NULL;
+ #include <linux/clk.h>
+-#include <linux/err.h>
+-#include <linux/io.h>
+-#include <linux/pm_runtime.h>
+ #include <linux/davinci_emac.h>
++#include <linux/delay.h>
++#include <linux/io.h>
++#include <linux/module.h>
+ #include <linux/of.h>
+-#include <linux/of_device.h>
++#include <linux/phy.h>
++#include <linux/platform_device.h>
++#include <linux/pm_runtime.h>
  
- 	np = pdev->dev.of_node;
--	if (!np)
--		goto nodata;
--	else
--		pdata->version = EMAC_VERSION_2;
-+	pdata->version = EMAC_VERSION_2;
- 
- 	if (!is_valid_ether_addr(pdata->mac_addr)) {
- 		mac_addr = of_get_mac_address(np);
-@@ -1760,47 +1753,31 @@ static struct emac_platform_data
- 			memcpy(pdata->mac_addr, mac_addr, ETH_ALEN);
- 	}
- 
--	ret = of_property_read_u32(np, "ti,davinci-ctrl-reg-offset", &data);
--	if (!ret)
--		pdata->ctrl_reg_offset = data;
-+	of_property_read_u32(np, "ti,davinci-ctrl-reg-offset",
-+			     &pdata->ctrl_reg_offset);
- 
--	ret = of_property_read_u32(np, "ti,davinci-ctrl-mod-reg-offset",
--		&data);
--	if (!ret)
--		pdata->ctrl_mod_reg_offset = data;
-+	of_property_read_u32(np, "ti,davinci-ctrl-mod-reg-offset",
-+			     &pdata->ctrl_mod_reg_offset);
- 
--	ret = of_property_read_u32(np, "ti,davinci-ctrl-ram-offset", &data);
--	if (!ret)
--		pdata->ctrl_ram_offset = data;
-+	of_property_read_u32(np, "ti,davinci-ctrl-ram-offset",
-+			     &pdata->ctrl_ram_offset);
- 
--	ret = of_property_read_u32(np, "ti,davinci-ctrl-ram-size", &data);
--	if (!ret)
--		pdata->ctrl_ram_size = data;
-+	of_property_read_u32(np, "ti,davinci-ctrl-ram-size",
-+			     &pdata->ctrl_ram_size);
- 
--	ret = of_property_read_u32(np, "ti,davinci-rmii-en", &data);
--	if (!ret)
--		pdata->rmii_en = data;
-+	of_property_read_u8(np, "ti,davinci-rmii-en", &pdata->rmii_en);
- 
--	ret = of_property_read_u32(np, "ti,davinci-no-bd-ram", &data);
--	if (!ret)
--		pdata->no_bd_ram = data;
-+	pdata->no_bd_ram = of_property_read_bool(np, "ti,davinci-no-bd-ram");
- 
- 	priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
- 	if (!priv->phy_node)
- 		pdata->phy_id = "";
- 
- 	pdev->dev.platform_data = pdata;
--nodata:
-+
- 	return  pdata;
+ /*
+  * This timeout definition is a worst-case ultra defensive measure against
+@@ -291,6 +287,7 @@ static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
+ 	return 0;
  }
--#else
--static struct emac_platform_data
--	*davinci_emac_of_get_pdata(struct platform_device *pdev,
--	struct emac_priv *priv)
--{
--	return  pdev->dev.platform_data;
--}
--#endif
-+
- /**
-  * davinci_emac_probe - EMAC device probe
-  * @pdev: The DaVinci EMAC device that we are removing
-@@ -2022,11 +1999,13 @@ static const struct dev_pm_ops davinci_emac_pm_ops = {
- 	.resume		= davinci_emac_resume,
+ 
++#if IS_ENABLED(CONFIG_OF)
+ static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
+ 			 struct platform_device *pdev)
+ {
+@@ -308,7 +305,7 @@ static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
+ 
+ 	return 0;
+ }
+-
++#endif
+ 
+ static int davinci_mdio_probe(struct platform_device *pdev)
+ {
+@@ -481,11 +478,13 @@ static const struct dev_pm_ops davinci_mdio_pm_ops = {
+ 	.resume		= davinci_mdio_resume,
  };
  
 +#if IS_ENABLED(CONFIG_OF)
- static const struct of_device_id davinci_emac_of_match[] = {
- 	{.compatible = "ti,davinci-dm6467-emac", },
- 	{},
+ static const struct of_device_id davinci_mdio_of_mtable[] = {
+ 	{ .compatible = "ti,davinci_mdio", },
+ 	{ /* sentinel */ },
  };
- MODULE_DEVICE_TABLE(of, davinci_emac_of_match);
+ MODULE_DEVICE_TABLE(of, davinci_mdio_of_mtable);
 +#endif
  
- /* davinci_emac_driver: EMAC platform driver structure */
- static struct platform_driver davinci_emac_driver = {
+ static struct platform_driver davinci_mdio_driver = {
+ 	.driver = {
 -- 
 1.7.4.1
