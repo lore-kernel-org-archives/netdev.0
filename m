@@ -1,39 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: gso: do not generate out of order packets
-Date: Wed, 15 May 2013 21:46:48 -0700
-Message-ID: <1368679608.4519.105.camel@edumazet-glaptop>
-References: <1368668281.4519.75.camel@edumazet-glaptop>
-	 <CAHo-OozZz4yx5iuoEWcq5vTJvJ0b_5bNbiQuc4PMw22jBZOxpg@mail.gmail.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
+Date: Thu, 16 May 2013 00:56:42 -0400
+Message-ID: <CAJZOPZLVc=V-ac8_A2JB_r17TRyCMoDpe1MXN6WcjMR4SO6n1Q@mail.gmail.com>
+References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
+	<1368498506-25857-7-git-send-email-yinghai@kernel.org>
+	<0EE9A1CDC8D6434DB00095CD7DB873462CFB0E4E@MTLDAG01.mtl.com>
+	<CAE9FiQVn4F+dTrQn0xsg-6QY9+HwbnJR=1CrjdoZkmF_LMrgpg@mail.gmail.com>
+	<CAJZOPZLjdALP4jkLo6p787jaPx=dkKj7+AmCr9+mgJN3z_xBxQ@mail.gmail.com>
+	<CAE9FiQWvYQRCZjDx-Kh16nKfjfS=pyu8foJR+wWYS-x8DUZteg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Maciej =?UTF-8?Q?=C5=BBenczykowski?= <zenczykowski@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f41.google.com ([209.85.210.41]:51109 "EHLO
-	mail-da0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752275Ab3EPEqu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 00:46:50 -0400
-Received: by mail-da0-f41.google.com with SMTP id y19so1417023dan.14
-        for <netdev@vger.kernel.org>; Wed, 15 May 2013 21:46:50 -0700 (PDT)
-In-Reply-To: <CAHo-OozZz4yx5iuoEWcq5vTJvJ0b_5bNbiQuc4PMw22jBZOxpg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Yan Burman <yanb@mellanox.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Gu Zheng <guz.fnst@cn.fujitsu.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jack Morgenstein <jackm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: Yinghai Lu <yinghai@kernel.org>, Tejun Heo <tj@kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAE9FiQWvYQRCZjDx-Kh16nKfjfS=pyu8foJR+wWYS-x8DUZteg@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-15 at 20:58 -0700, Maciej =C5=BBenczykowski wrote:
+On Thu, May 16, 2013 at 12:39 AM, Yinghai Lu <yinghai@kernel.org> wrote:
+>
+> On Wed, May 15, 2013 at 9:00 PM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
+> > On Tue, May 14, 2013 at 11:43 AM, Yinghai Lu <yinghai@kernel.org> wrote:
+> >
+> >> BTW, do you have any plan to make mlx4 support sriov_configure via
+> >> sysfs?
+> >
+> > yes we do, we're waiting for a firmware change that will allow for
+> > such a patch to get working.
+> >
+> > Please note that this whole lockdep warning was identified as false
+> > positive by Tejun http://www.spinics.net/lists/linux-pci/msg21568.html
+>
+> No, at least one time, I noticed there is one real hang happens.
 
-> Could we instead move the queue mapping into the skb somehow instead?
-
-Quite frankly all the ndo_select_queue() / ARFS / XPS stuff are already
-a mess.
-
-You need a socket pointer to be able to change the queue numbers we
-cache in it. We lack this information at GSO segmentation.
-
-Let's do GSO properly and provide skbs exactly like if they were built
-by TCP stack. (Well, there _is_ some difference, as the truesize will
-have less overhead)
+Tejun, so what your thinking here?
