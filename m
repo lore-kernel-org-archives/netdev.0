@@ -1,39 +1,51 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] bonding: allow TSO being set on bonding master
-Date: Thu, 16 May 2013 15:16:54 -0700
-Message-ID: <1368742614.3301.61.camel@edumazet-glaptop>
-References: <1368654065.4519.53.camel@edumazet-glaptop>
-	 <1368725693.3301.59.camel@edumazet-glaptop>
-	 <20130516.150239.2187164031807939707.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: speedup tcp_fixup_rcvbuf()
+Date: Thu, 16 May 2013 15:20:06 -0700 (PDT)
+Message-ID: <20130516.152006.741790547799409001.davem@davemloft.net>
+References: <1368681955.3301.11.camel@edumazet-glaptop>
+	<CADVnQy=uV85jypjHkVDBf1-BVrq5mx3juqAhyebG2p8zSpPm1w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mirqus@gmail.com, netdev@vger.kernel.org, fubar@us.ibm.com,
-	maze@google.com, andy@greyhouse.net, therbert@google.com,
-	ncardwell@google.com, ycheng@google.com
-To: David Miller <davem@davemloft.net>
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org, ycheng@google.com
+To: ncardwell@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:40208 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755001Ab3EPWRC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 18:17:02 -0400
-Received: by mail-pd0-f176.google.com with SMTP id x10so2741561pdj.35
-        for <netdev@vger.kernel.org>; Thu, 16 May 2013 15:17:01 -0700 (PDT)
-In-Reply-To: <20130516.150239.2187164031807939707.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55907 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752598Ab3EPWUH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 18:20:07 -0400
+In-Reply-To: <CADVnQy=uV85jypjHkVDBf1-BVrq5mx3juqAhyebG2p8zSpPm1w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-05-16 at 15:02 -0700, David Miller wrote:
+From: Neal Cardwell <ncardwell@google.com>
+Date: Thu, 16 May 2013 11:23:03 -0400
 
-> Applied, but:
-> 
-> > +static inline netdev_features_t netdev_add_tso_features(netdev_features_t features,
-> > +	netdev_features_t mask)
-> 
-> I fixed the mask argument indentation when I commited this.
-> 
-> Thakns.
+> On Thu, May 16, 2013 at 1:25 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> From: Eric Dumazet <edumazet@google.com>
+>>
+>> tcp_fixup_rcvbuf() contains a loop to estimate initial socket
+>> rcv space needed for a given mss. With large MTU (like 64K on lo),
+>> we can loop ~500 times and consume a lot of cpu cycles.
+>>
+>> perf top of 200 concurrent netperf -t TCP_CRR
+>>
+>> 5.62%  netperf  [kernel.kallsyms]  [k] tcp_init_buffer_space
+>> 1.71%  netperf  [kernel.kallsyms]  [k] _raw_spin_lock
+>> 1.55%  netperf  [kernel.kallsyms]  [k] kmem_cache_free
+>> 1.51%  netperf  [kernel.kallsyms]  [k] tcp_transmit_skb
+>> 1.50%  netperf  [kernel.kallsyms]  [k] tcp_ack
+>>
+>> Lets use a 100% factor, and remove the loop.
+>>
+>> 100% is needed anyway for tcp_adv_win_scale=1
+>> default value, and is also the maximum factor.
+>>
+>> Refs: commit b49960a05e32
+>>       ("tcp: change tcp_adv_win_scale and tcp_rmem[2]")
+>>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+ ...
+> Acked-by: Neal Cardwell <ncardwell@google.com>
 
-I sorry, I think I used the convention of the above function.
-
-Thanks !
+Applied.
