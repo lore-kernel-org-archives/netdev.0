@@ -1,46 +1,40 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Thu, 16 May 2013 10:53:50 -0700
-Message-ID: <20130516175350.GB7171@mtj.dyndns.org>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
- <1368498506-25857-7-git-send-email-yinghai@kernel.org>
- <0EE9A1CDC8D6434DB00095CD7DB873462CFB0E4E@MTLDAG01.mtl.com>
- <CAE9FiQVn4F+dTrQn0xsg-6QY9+HwbnJR=1CrjdoZkmF_LMrgpg@mail.gmail.com>
- <CAJZOPZLjdALP4jkLo6p787jaPx=dkKj7+AmCr9+mgJN3z_xBxQ@mail.gmail.com>
- <CAE9FiQWvYQRCZjDx-Kh16nKfjfS=pyu8foJR+wWYS-x8DUZteg@mail.gmail.com>
- <CAJZOPZLVc=V-ac8_A2JB_r17TRyCMoDpe1MXN6WcjMR4SO6n1Q@mail.gmail.com>
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Subject: [PATCH 0/2 net-next] phy: PHY_IGNORE_INTERRUPT fixes and
+ improvements
+Date: Thu, 16 May 2013 18:04:54 +0000
+Message-ID: <1368727496-25638-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yinghai Lu <yinghai@kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jack Morgenstein <jackm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZLVc=V-ac8_A2JB_r17TRyCMoDpe1MXN6WcjMR4SO6n1Q@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jogo@openwrt.org,
+	thomas.petazzoni@free-electrons.com, afleming@freescale.com,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4953 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753428Ab3EPSFM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 May 2013 14:05:12 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 16, 2013 at 12:56:42AM -0400, Or Gerlitz wrote:
-> > > Please note that this whole lockdep warning was identified as false
-> > > positive by Tejun http://www.spinics.net/lists/linux-pci/msg21568.html
-> >
-> > No, at least one time, I noticed there is one real hang happens.
-> 
-> Tejun, so what your thinking here?
+David, Andy,
 
-Can't really tell much without more details.  Yinghai, do you have any
-logs from such hang?  Are you sure it's from this?
+These two patches contain fixes and improvements for using PHY_IGNORE_INTERRUPT
+in network drivers. Since the second patch is an addition and not a bug fix
+per-se, these patches are based on net-net. The first patch applies cleanly
+to "net" too.
 
-Thanks.
+Thanks!
+
+Florian Fainelli (2):
+  phy: fix the use of PHY_IGNORE_INTERRUPT
+  phy: add phy_mac_interrupt() to use with PHY_IGNORE_INTERRUPT
+
+ drivers/net/phy/phy.c        | 20 ++++++++++++--------
+ drivers/net/phy/phy_device.c |  6 ++++--
+ include/linux/phy.h          |  2 ++
+ 3 files changed, 18 insertions(+), 10 deletions(-)
 
 -- 
-tejun
+1.8.1.2
