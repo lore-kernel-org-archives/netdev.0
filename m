@@ -1,79 +1,64 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/4] netfilter: xt_TCPOPTSTRIP: fix possible mangling beyond packet boundary
-Date: Thu, 16 May 2013 17:55:21 +0200
-Message-ID: <1368719721-7470-5-git-send-email-pablo@netfilter.org>
-References: <1368719721-7470-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1368719721-7470-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [Patch iproute2] vxlan: use 8472 as default dst port
+Date: Thu, 16 May 2013 09:02:39 -0700
+Message-ID: <20130516090239.06067273@nehalam.linuxnetplumber.net>
+References: <1368616270-5775-1-git-send-email-amwang@redhat.com>
+	<OFA8084FAB.8443890D-ON85257B6C.003F1FAB-85257B6C.003F65F2@us.ibm.com>
+	<20130515095322.275c9b2f@nehalam.linuxnetplumber.net>
+	<OFF100C7ED.6500FAB3-ON85257B6C.005DCF7C-85257B6C.005F309B@us.ibm.com>
+	<20130515104308.5de3e852@nehalam.linuxnetplumber.net>
+	<OF80FDF86D.7A293781-ON85257B6C.0061CCF7-85257B6C.0063F69C@us.ibm.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B723D@saturn3.aculab.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David Stevens" <dlstevens@us.ibm.com>,
+	"Cong Wang" <amwang@redhat.com>, <netdev@vger.kernel.org>,
+	<netdev-owner@vger.kernel.org>
+To: "David Laight" <David.Laight@ACULAB.COM>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35468 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752256Ab3EPQCo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 12:02:44 -0400
+Received: by mail-pa0-f44.google.com with SMTP id jh10so2652237pab.31
+        for <netdev@vger.kernel.org>; Thu, 16 May 2013 09:02:43 -0700 (PDT)
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B723D@saturn3.aculab.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This target assumes that tcph->doff is well-formed, that may be well
-not the case. Add extra sanity checkings to avoid possible crash due
-to read/write out of the real packet boundary. After this patch, the
-default action on malformed TCP packets is to drop them. Moreover,
-fragments are skipped.
+On Thu, 16 May 2013 09:24:47 +0100
+"David Laight" <David.Laight@ACULAB.COM> wrote:
 
-Reported-by: Rafal Kupka <rkupka@telemetry.com>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/xt_TCPOPTSTRIP.c |   17 ++++++++++++++---
- 1 file changed, 14 insertions(+), 3 deletions(-)
+> > > From: Stephen Hemminger <stephen@networkplumber.org>
+> > >
+> > > I want all new users to get the IANA port without asking.
+> > > Old users with existing nets have to force the port to the one they
+> > > were using.
+> > 
+> > That'd be great -- what we're getting is all new users are getting
+> > a listen port of 8472 and a send port of 4789. So new users who aren't
+> > aware of why will simply see that two *new* installations don't talk
+> > to each other (and never will, using default ports, because the kernel
+> > and ip will need to be compatible with their incompatible selves).
+> 
+> Could the kernel listen on both port numbers?
+> Then the default 'send' port could be changed while maintaining
+> functionality for existing systems.
+> 
+> At some later time the listener on 8372 could be removed.
+> 
+> 	David
+> 
+> 
+> 
 
-diff --git a/net/netfilter/xt_TCPOPTSTRIP.c b/net/netfilter/xt_TCPOPTSTRIP.c
-index 25fd1c4..1eb1a44 100644
---- a/net/netfilter/xt_TCPOPTSTRIP.c
-+++ b/net/netfilter/xt_TCPOPTSTRIP.c
-@@ -30,17 +30,28 @@ static inline unsigned int optlen(const u_int8_t *opt, unsigned int offset)
- 
- static unsigned int
- tcpoptstrip_mangle_packet(struct sk_buff *skb,
--			  const struct xt_tcpoptstrip_target_info *info,
-+			  const struct xt_action_param *par,
- 			  unsigned int tcphoff, unsigned int minlen)
- {
-+	const struct xt_tcpoptstrip_target_info *info = par->targinfo;
- 	unsigned int optl, i, j;
- 	struct tcphdr *tcph;
- 	u_int16_t n, o;
- 	u_int8_t *opt;
-+	int len;
-+
-+	/* This is a fragment, no TCP header is available */
-+	if (par->fragoff != 0)
-+		return XT_CONTINUE;
- 
- 	if (!skb_make_writable(skb, skb->len))
- 		return NF_DROP;
- 
-+	len = skb->len - tcphoff;
-+	if (len < (int)sizeof(struct tcphdr) ||
-+	    tcp_hdr(skb)->doff * 4 > len)
-+		return NF_DROP;
-+
- 	tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
- 	opt  = (u_int8_t *)tcph;
- 
-@@ -76,7 +87,7 @@ tcpoptstrip_mangle_packet(struct sk_buff *skb,
- static unsigned int
- tcpoptstrip_tg4(struct sk_buff *skb, const struct xt_action_param *par)
- {
--	return tcpoptstrip_mangle_packet(skb, par->targinfo, ip_hdrlen(skb),
-+	return tcpoptstrip_mangle_packet(skb, par, ip_hdrlen(skb),
- 	       sizeof(struct iphdr) + sizeof(struct tcphdr));
- }
- 
-@@ -94,7 +105,7 @@ tcpoptstrip_tg6(struct sk_buff *skb, const struct xt_action_param *par)
- 	if (tcphoff < 0)
- 		return NF_DROP;
- 
--	return tcpoptstrip_mangle_packet(skb, par->targinfo, tcphoff,
-+	return tcpoptstrip_mangle_packet(skb, par, tcphoff,
- 	       sizeof(*ipv6h) + sizeof(struct tcphdr));
- }
- #endif
--- 
-1.7.10.4
+Actually with the destination port per vxlan it is possible to do.
 
+1. Create vxlan0 with old port number
+2. Create vxlan1 with new port number
+3. Create a bridge vxlanbr0
+4. Put both vxlan's into the bridge
+
+Then the bridge will silently handle finding the correct port
+and allow migrating other hosts to the new port number.
