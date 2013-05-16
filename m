@@ -1,25 +1,22 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: 3com: 3c509: remove unnecessary code
-Date: Thu, 16 May 2013 15:20:36 -0700 (PDT)
-Message-ID: <20130516.152036.1729452229788182314.davem@davemloft.net>
-References: <1368721481-3602-1-git-send-email-govindarajulu90@gmail.com>
+Subject: net-next is now open for submissions...
+Date: Thu, 16 May 2013 15:21:20 -0700 (PDT)
+Message-ID: <20130516.152120.1235185571419423080.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: govindarajulu90@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368721481-3602-1-git-send-email-govindarajulu90@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55972 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754159Ab3EPWVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 18:21:21 -0400
+Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
+	(Authenticated sender: davem-davemloft)
+	by shards.monkeyblade.net (Postfix) with ESMTPSA id 3C3F3584ADD
+	for <netdev@vger.kernel.org>; Thu, 16 May 2013 15:21:21 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "govindarajulu.v" <govindarajulu90@gmail.com>
-Date: Thu, 16 May 2013 21:54:41 +0530
 
-> From: "govindarajulu.v" <govindarajulu90@gmail.com>
-> 
-> This patch removes unnecessary #if 0 code from 3c509.c
-> 
-> Signed-off-by: govindarajulu.v <govindarajulu90@gmail.com>
-
-Applied.
+Fire away.
