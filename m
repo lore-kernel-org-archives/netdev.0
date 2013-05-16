@@ -1,53 +1,88 @@
-From: =?ISO-8859-2?Q?Micha=B3_Miros=B3aw?= <mirqus@gmail.com>
-Subject: Re: [PATCH] bonding: allow TSO being set on bonding master
-Date: Thu, 16 May 2013 10:59:25 +0200
-Message-ID: <CAHXqBFL8t9SUz3SXVonf+MwtVHU6UgAuk07ysGdPU7hGH8DbmQ@mail.gmail.com>
-References: <1368654065.4519.53.camel@edumazet-glaptop> <CAHXqBF+r3wnWY+hveYjVBNwbVYdiDF4mOj1UmbKeH3OYo6kz6Q@mail.gmail.com>
- <1368659900.4519.57.camel@edumazet-glaptop> <1368660613.4519.60.camel@edumazet-glaptop>
- <CAHXqBFLnPQnd2a17B4_UKpiL70BzkFMWzocM-4mr88TYoG6Jcw@mail.gmail.com> <1368684572.3301.14.camel@edumazet-glaptop>
+From: Albert Pool <albertpool-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
+Subject: Re: [PATCH V3] rtlwifi: rtl8192cu: Add new USB ID
+Date: Thu, 16 May 2013 11:04:44 +0200
+Message-ID: <5194A12C.6010807@solcon.nl>
+References: <1368630196-14704-1-git-send-email-Larry.Finger@lwfinger.net> <5193EEA8.8030900@cogentembedded.com> <5193F146.3030206@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	Tom Herbert <therbert@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:34440 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755785Ab3EPI7p convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 04:59:45 -0400
-Received: by mail-ie0-f175.google.com with SMTP id s9so5807576iec.20
-        for <netdev@vger.kernel.org>; Thu, 16 May 2013 01:59:45 -0700 (PDT)
-In-Reply-To: <1368684572.3301.14.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5193F146.3030206-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-2013/5/16 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Thu, 2013-05-16 at 07:45 +0200, Micha=C5=82 Miros=C5=82aw wrote:
->
->> This should enable GSO if at least one slave has it on. What feature=
-s
->> (tx-tcp*) the slaves have?
->
-> Both slaves have tso off, gso on.
->
-> (Let's say for some tricky hardware bug on the NIC)
->
-> We want to not do tso on the NIC, but do the GSO segmentation right
-> before NIC.
->
-> It brings about 30% improvement.
 
-Then your patch is the way to go.
+Op 15-05-13 22:34, Larry Finger schreef:
+> On 05/15/2013 03:23 PM, Sergei Shtylyov wrote:
+>> Hello.
+>>
+>> On 05/15/2013 07:03 PM, Larry Finger wrote:
+>>
+>>> From: Albert Pool <albertpool-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
+>>>
+>>> This adds the USB ID of the On Networks N300MA, clone of Netgear 
+>>> WNA3100M.
+>>>
+>>> Signed-off-by: Albert Pool <albertpool-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
+>>> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+>>> Reported-by: Ana Rey <Anazul77-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
+>>> ---
+>>>
+>>> John,
+>>>
+>>> Please use this version. V2 still had some whitespace errors that I 
+>>> fixed.
+>>>
+>>> Albert,
+>>>
+>>> Please use scripts/checkpatch.pl to check the patch before you send it.
+>>>
+>>> Thanks,
+>>>
+>>> Larry
+>>> ---
+>>>
+>>>   drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 1 +
+>>>   1 file changed, 1 insertion(+)
+>>>
+>>> diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+>>> b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+>>> index 23d640a..18da6de 100644
+>>> --- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+>>> +++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+>>> @@ -349,6 +349,7 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
+>>>       {RTL_USB_DEVICE(0x07aa, 0x0056, rtl92cu_hal_cfg)}, 
+>>> /*ATKK-Gemtek*/
+>>>       {RTL_USB_DEVICE(0x07b8, 0x8178, rtl92cu_hal_cfg)}, /*Funai 
+>>> -Abocom*/
+>>>       {RTL_USB_DEVICE(0x0846, 0x9021, rtl92cu_hal_cfg)}, 
+>>> /*Netgear-Sercomm*/
+>>> +    {RTL_USB_DEVICE(0x0846, 0xf001, rtl92cu_hal_cfg)}, /*On Netwrks 
+>>> N300MA*/
+>>
+>>     "Networks", perhaps? Or does it hit 80 columns limit this way?
+>
+> That is exactly the problem. I suppose I could allow one line to be 81 
+> characters in length, but that would diminish the effectiveness of my 
+> suggestion that checkpatch be used.
+>
+> Thanks for noticing. At least someone is reading the patches.
+>
+> Larry
+>
+>
+So my patch v2 could not be used because the line was longer than 80 
+chars? (It was 82, indeed)
 
-BTW, the fix_features callbacks of bridge, team and bonding are so
-similar it calls for some refactoring. What they want also seems very
-close.
+Also the problems with bad signal were due to Ana Rey's AP. It's being 
+fixed or replaced today.
 
-Best Regards,
-Micha=C5=82 Miros=C5=82aw
+Albert
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
