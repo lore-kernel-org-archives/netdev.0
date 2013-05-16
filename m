@@ -1,55 +1,38 @@
-From: Neal Cardwell <ncardwell@google.com>
-Subject: Re: [PATCH net-next] tcp: speedup tcp_fixup_rcvbuf()
-Date: Thu, 16 May 2013 11:23:03 -0400
-Message-ID: <CADVnQy=uV85jypjHkVDBf1-BVrq5mx3juqAhyebG2p8zSpPm1w@mail.gmail.com>
-References: <1368681955.3301.11.camel@edumazet-glaptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 13/33] drivers/net/ethernet/renesas: don't check
+ resource with devm_ioremap_resource
+Date: Thu, 16 May 2013 08:37:15 -0700
+Message-ID: <1368718635.2194.55.camel@joe-AO722>
+References: <1368702961-4325-1-git-send-email-wsa@the-dreams.de>
+	 <1368702961-4325-14-git-send-email-wsa@the-dreams.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Yuchung Cheng <ycheng@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f46.google.com ([74.125.83.46]:47328 "EHLO
-	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752074Ab3EPPXG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 11:23:06 -0400
-Received: by mail-ee0-f46.google.com with SMTP id e49so1849210eek.19
-        for <netdev@vger.kernel.org>; Thu, 16 May 2013 08:23:04 -0700 (PDT)
-In-Reply-To: <1368681955.3301.11.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Wolfram Sang <wsa@the-dreams.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368702961-4325-14-git-send-email-wsa@the-dreams.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 16, 2013 at 1:25 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> tcp_fixup_rcvbuf() contains a loop to estimate initial socket
-> rcv space needed for a given mss. With large MTU (like 64K on lo),
-> we can loop ~500 times and consume a lot of cpu cycles.
->
-> perf top of 200 concurrent netperf -t TCP_CRR
->
-> 5.62%  netperf  [kernel.kallsyms]  [k] tcp_init_buffer_space
-> 1.71%  netperf  [kernel.kallsyms]  [k] _raw_spin_lock
-> 1.55%  netperf  [kernel.kallsyms]  [k] kmem_cache_free
-> 1.51%  netperf  [kernel.kallsyms]  [k] tcp_transmit_skb
-> 1.50%  netperf  [kernel.kallsyms]  [k] tcp_ack
->
-> Lets use a 100% factor, and remove the loop.
->
-> 100% is needed anyway for tcp_adv_win_scale=1
-> default value, and is also the maximum factor.
->
-> Refs: commit b49960a05e32
->       ("tcp: change tcp_adv_win_scale and tcp_rmem[2]")
->
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> ---
->  net/ipv4/tcp_input.c |    4 +---
->  1 file changed, 1 insertion(+), 3 deletions(-)
+On Thu, 2013-05-16 at 13:15 +0200, Wolfram Sang wrote:
+> devm_ioremap_resource does sanity checks on the given resource. No need to
+> duplicate this in the driver.
+[]
+> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+[]
+> @@ -2745,11 +2745,6 @@ static int sh_eth_drv_probe(struct platform_device *pdev)
+>  	if (mdp->cd->tsu) {
+>  		struct resource *rtsu;
+>  		rtsu = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+> -		if (!rtsu) {
+> -			dev_err(&pdev->dev, "Not found TSU resource\n");
+> -			ret = -ENODEV;
+> -			goto out_release;
+> -		}
+>  		mdp->tsu_addr = devm_ioremap_resource(&pdev->dev, rtsu);
+>  		if (IS_ERR(mdp->tsu_addr)) {
+>  			ret = PTR_ERR(mdp->tsu_addr);
 
-Acked-by: Neal Cardwell <ncardwell@google.com>
-
-neal
+I'm not sure it matters, but at least one of these
+conversions will now return -EINVAL instead of -ENODEV
