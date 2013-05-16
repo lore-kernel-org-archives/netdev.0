@@ -1,89 +1,55 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH V3] rtlwifi: rtl8192cu: Add new USB ID
-Date: Thu, 16 May 2013 10:15:21 -0500
-Message-ID: <5194F809.6040809@lwfinger.net>
-References: <1368630196-14704-1-git-send-email-Larry.Finger@lwfinger.net> <5193EEA8.8030900@cogentembedded.com> <5193F146.3030206@lwfinger.net> <5194A12C.6010807@solcon.nl>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: speedup tcp_fixup_rcvbuf()
+Date: Thu, 16 May 2013 11:23:03 -0400
+Message-ID: <CADVnQy=uV85jypjHkVDBf1-BVrq5mx3juqAhyebG2p8zSpPm1w@mail.gmail.com>
+References: <1368681955.3301.11.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Albert Pool <albertpool-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5194A12C.6010807-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f46.google.com ([74.125.83.46]:47328 "EHLO
+	mail-ee0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752074Ab3EPPXG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 May 2013 11:23:06 -0400
+Received: by mail-ee0-f46.google.com with SMTP id e49so1849210eek.19
+        for <netdev@vger.kernel.org>; Thu, 16 May 2013 08:23:04 -0700 (PDT)
+In-Reply-To: <1368681955.3301.11.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/16/2013 04:04 AM, Albert Pool wrote:
+On Thu, May 16, 2013 at 1:25 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
 >
-> Op 15-05-13 22:34, Larry Finger schreef:
->> On 05/15/2013 03:23 PM, Sergei Shtylyov wrote:
->>> Hello.
->>>
->>> On 05/15/2013 07:03 PM, Larry Finger wrote:
->>>
->>>> From: Albert Pool <albertpool-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
->>>>
->>>> This adds the USB ID of the On Networks N300MA, clone of Netgear WNA3100M.
->>>>
->>>> Signed-off-by: Albert Pool <albertpool-2BgBnwcziRhmR6Xm/wNWPw@public.gmane.org>
->>>> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
->>>> Reported-by: Ana Rey <Anazul77-PkbjNfxxIARBDgjK7y7TUQ@public.gmane.org>
->>>> ---
->>>>
->>>> John,
->>>>
->>>> Please use this version. V2 still had some whitespace errors that I fixed.
->>>>
->>>> Albert,
->>>>
->>>> Please use scripts/checkpatch.pl to check the patch before you send it.
->>>>
->>>> Thanks,
->>>>
->>>> Larry
->>>> ---
->>>>
->>>>   drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 1 +
->>>>   1 file changed, 1 insertion(+)
->>>>
->>>> diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->>>> b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->>>> index 23d640a..18da6de 100644
->>>> --- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->>>> +++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
->>>> @@ -349,6 +349,7 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
->>>>       {RTL_USB_DEVICE(0x07aa, 0x0056, rtl92cu_hal_cfg)}, /*ATKK-Gemtek*/
->>>>       {RTL_USB_DEVICE(0x07b8, 0x8178, rtl92cu_hal_cfg)}, /*Funai -Abocom*/
->>>>       {RTL_USB_DEVICE(0x0846, 0x9021, rtl92cu_hal_cfg)}, /*Netgear-Sercomm*/
->>>> +    {RTL_USB_DEVICE(0x0846, 0xf001, rtl92cu_hal_cfg)}, /*On Netwrks N300MA*/
->>>
->>>     "Networks", perhaps? Or does it hit 80 columns limit this way?
->>
->> That is exactly the problem. I suppose I could allow one line to be 81
->> characters in length, but that would diminish the effectiveness of my
->> suggestion that checkpatch be used.
->>
->> Thanks for noticing. At least someone is reading the patches.
->>
->> Larry
->>
->>
-> So my patch v2 could not be used because the line was longer than 80 chars? (It
-> was 82, indeed)
+> tcp_fixup_rcvbuf() contains a loop to estimate initial socket
+> rcv space needed for a given mss. With large MTU (like 64K on lo),
+> we can loop ~500 times and consume a lot of cpu cycles.
 >
-> Also the problems with bad signal were due to Ana Rey's AP. It's being fixed or
-> replaced today.
+> perf top of 200 concurrent netperf -t TCP_CRR
+>
+> 5.62%  netperf  [kernel.kallsyms]  [k] tcp_init_buffer_space
+> 1.71%  netperf  [kernel.kallsyms]  [k] _raw_spin_lock
+> 1.55%  netperf  [kernel.kallsyms]  [k] kmem_cache_free
+> 1.51%  netperf  [kernel.kallsyms]  [k] tcp_transmit_skb
+> 1.50%  netperf  [kernel.kallsyms]  [k] tcp_ack
+>
+> Lets use a 100% factor, and remove the loop.
+>
+> 100% is needed anyway for tcp_adv_win_scale=1
+> default value, and is also the maximum factor.
+>
+> Refs: commit b49960a05e32
+>       ("tcp: change tcp_adv_win_scale and tcp_rmem[2]")
+>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> ---
+>  net/ipv4/tcp_input.c |    4 +---
+>  1 file changed, 1 insertion(+), 3 deletions(-)
 
-The long line was not the problem. If you run V2 through the checkpatch script, 
-ypu will see that there were a number of <space><tab> sequences in the patch. 
-Not only did they fail the check, but they also failed to apply on my source base.
+Acked-by: Neal Cardwell <ncardwell@google.com>
 
-Larry
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+neal
