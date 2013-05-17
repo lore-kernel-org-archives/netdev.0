@@ -1,193 +1,180 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] vhost-scsi: Depend on NET for memcpy_fromiovec
-Date: Fri, 17 May 2013 09:12:39 +0930
-Message-ID: <878v3ea3v4.fsf@rustcorp.com.au>
-References: <20130515095558.918f2b29ba318a477eb5dde2@canb.auug.org.au>
-	<1368579583-13097-1-git-send-email-asias@redhat.com>
-	<8761yk254u.fsf@rustcorp.com.au>
-	<20130516020848.GB23441@hj.localdomain>
-	<87d2sra97h.fsf@rustcorp.com.au>
-	<1368676505.2194.47.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, kvm@vger.kernel.org,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Randy Dunlap <rdunlap@infradead.org>, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	target-devel@vger.kernel.org, linux-next@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1368676505.2194.47.camel@joe-AO722>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v4 2/3] bridge: only expire the mdb entry when query is received
+Date: Fri, 17 May 2013 09:59:24 +0800
+Message-ID: <1368755965-26615-2-git-send-email-amwang@redhat.com>
+References: <1368755965-26615-1-git-send-email-amwang@redhat.com>
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60613 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751068Ab3EQCA3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 May 2013 22:00:29 -0400
+In-Reply-To: <1368755965-26615-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe@perches.com> writes:
-> On Thu, 2013-05-16 at 13:04 +0930, Rusty Russell wrote:
->> Asias He <asias@redhat.com> writes:
->> > On Wed, May 15, 2013 at 02:47:53PM +0930, Rusty Russell wrote:
-> []
->> > Other users are using memcpy_fromiovec and friends outside net. It seems
->> > a good idea to put it in a util library. e.g.  crypto/algif_skcipher.c
->> > which also depends on NET for it.
->
-> []
->> Subject: Hoist memcpy_fromiovec into lib/
->
-> You'll need the "friends" memcpy_toiovec too.
->
-> $ git grep -E \bmemcpy\w+iovec\w*"
-> crypto/algif_hash.c:    err = memcpy_toiovec(msg->msg_iov, ctx->result, len);
-> crypto/algif_skcipher.c:                        err = memcpy_fromiovec(page_address(sg_page(sg)) +
-> crypto/algif_skcipher.c:                        err = memcpy_fromiovec(page_address(sg_page(sg + i)),
-> drivers/dma/iovlock.c:#include <net/tcp.h> /* for memcpy_toiovec */
-> drivers/dma/iovlock.c:          return memcpy_toiovec(iov, kdata, len);
-> drivers/dma/iovlock.c:          err = memcpy_toiovec(iov, vaddr + offset, len);
-> drivers/isdn/mISDN/socket.c:    if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-> drivers/misc/vmw_vmci/vmci_queue_pair.c:                        err = memcpy_fromiovec((u8 *)va + page_o
-> drivers/misc/vmw_vmci/vmci_queue_pair.c:                        err = memcpy_toiovec(iov, (u8 *)va + pag
+From: Cong Wang <amwang@redhat.com>
 
-Fascinating.  These all indirectly depend on NET, so there's no problem
-at the moment.  But it is a bit weird...
+Currently we arm the expire timer when the mdb entry is added,
+however, this causes problem when there is no querier sent
+out after that.
 
-crypto/algif_hash.c: depends on CRYPTO_USER_API_HASH -> NET
-crypto/algif_skcipher.c: depends on CRYPTO_USER_API_SKCIPHER -> NET
-drivers/dma/iovlock.c: depends on NET_DMA -> NET
-drivers/isdn/mISDN/socket.c: depends on MISDN -> ISDN -> NET
-drivers/misc/vmw_vmci/vmci_queue_pair.c: depends on VMCI -> NET
+So we should only arm the timer when a corresponding query is
+received, as suggested by Herbert.
 
-Patch welcome.
+And he also said "if there is no querier then group subscriptions
+shouldn't expire. There has to be at least one querier in the network
+for this thing to work.  Otherwise it just degenerates into
+a non-snooping switch, which is OK."
 
-Meanwhile, to avoid more bikeshedding I've put the patch I posted with
-all acks in my fixes branch.  One cycle through linux-next, then
-straight to Linus.
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Adam Baker <linux@baker-net.org.uk>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+v4: remove some useless timer code
+v3: fix the code in br_multicast_leave_group()
+v2: add a flag to check if timer is fired or not
 
-Subject: Hoist memcpy_fromiovec into lib/
+ net/bridge/br_multicast.c |   39 ++++++++++++---------------------------
+ net/bridge/br_private.h   |    1 +
+ 2 files changed, 13 insertions(+), 27 deletions(-)
 
-ERROR: "memcpy_fromiovec" [drivers/vhost/vhost_scsi.ko] undefined!
-
-That function is only present with CONFIG_NET.  Turns out that
-crypto/algif_skcipher.c also uses that outside net, but it actually
-needs sockets anyway.
-
-socket.h already include uio.h, so no callers need updating.
-
-Reported-by: Randy Dunlap <rdunlap@infradead.org>
-Acked-by: David S. Miller <davem@davemloft.net>
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index 428c37a..7266775 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -305,7 +305,6 @@ struct ucred {
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index c52d4f3..9b589bd 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -617,8 +617,6 @@ rehash:
  
- extern void cred_to_ucred(struct pid *pid, const struct cred *cred, struct ucred *ucred);
+ 	mp->br = br;
+ 	mp->addr = *group;
+-	setup_timer(&mp->timer, br_multicast_group_expired,
+-		    (unsigned long)mp);
  
--extern int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
- extern int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
- 			       int offset, int len);
- extern int csum_partial_copy_fromiovecend(unsigned char *kdata, 
-diff --git a/include/linux/uio.h b/include/linux/uio.h
-index 629aaf5..21628d3 100644
---- a/include/linux/uio.h
-+++ b/include/linux/uio.h
-@@ -35,4 +35,6 @@ static inline size_t iov_length(const struct iovec *iov, unsigned long nr_segs)
- }
+ 	hlist_add_head_rcu(&mp->hlist[mdb->ver], &mdb->mhash[hash]);
+ 	mdb->size++;
+@@ -656,7 +654,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	struct net_bridge_mdb_entry *mp;
+ 	struct net_bridge_port_group *p;
+ 	struct net_bridge_port_group __rcu **pp;
+-	unsigned long now = jiffies;
+ 	int err;
  
- unsigned long iov_shorten(struct iovec *iov, unsigned long nr_segs, size_t to);
-+
-+int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
- #endif
-diff --git a/lib/Makefile b/lib/Makefile
-index e9c52e1..2377211 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -9,7 +9,7 @@ endif
+ 	spin_lock(&br->multicast_lock);
+@@ -671,7 +668,6 @@ static int br_multicast_add_group(struct net_bridge *br,
  
- lib-y := ctype.o string.o vsprintf.o cmdline.o \
- 	 rbtree.o radix-tree.o dump_stack.o timerqueue.o\
--	 idr.o int_sqrt.o extable.o \
-+	 idr.o int_sqrt.o extable.o iovec.o \
- 	 sha1.o md5.o irq_regs.o reciprocal_div.o argv_split.o \
- 	 proportions.o flex_proportions.o prio_heap.o ratelimit.o show_mem.o \
- 	 is_single_threaded.o plist.o decompress.o kobject_uevent.o \
-diff --git a/lib/iovec.c b/lib/iovec.c
-new file mode 100644
-index 0000000..632c5ea
---- /dev/null
-+++ b/lib/iovec.c
-@@ -0,0 +1,29 @@
-+#include <linux/uaccess.h>
-+#include <linux/export.h>
-+#include <linux/uio.h>
-+
-+/*
-+ *	Copy iovec to kernel. Returns -EFAULT on error.
-+ *
-+ *	Note: this modifies the original iovec.
-+ */
-+
-+int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len)
-+{
-+	while (len > 0) {
-+		if (iov->iov_len) {
-+			int copy = min_t(unsigned int, len, iov->iov_len);
-+			if (copy_from_user(kdata, iov->iov_base, copy))
-+				return -EFAULT;
-+			len -= copy;
-+			kdata += copy;
-+			iov->iov_base += copy;
-+			iov->iov_len -= copy;
-+		}
-+		iov++;
-+	}
-+
-+	return 0;
-+}
-+EXPORT_SYMBOL(memcpy_fromiovec);
-+
-diff --git a/net/core/iovec.c b/net/core/iovec.c
-index 7e7aeb0..d81257f 100644
---- a/net/core/iovec.c
-+++ b/net/core/iovec.c
-@@ -125,31 +125,6 @@ int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
- EXPORT_SYMBOL(memcpy_toiovecend);
+ 	if (!port) {
+ 		mp->mglist = true;
+-		mod_timer(&mp->timer, now + br->multicast_membership_interval);
+ 		goto out;
+ 	}
  
- /*
-- *	Copy iovec to kernel. Returns -EFAULT on error.
-- *
-- *	Note: this modifies the original iovec.
-- */
+@@ -679,7 +675,7 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	     (p = mlock_dereference(*pp, br)) != NULL;
+ 	     pp = &p->next) {
+ 		if (p->port == port)
+-			goto found;
++			goto out;
+ 		if ((unsigned long)p->port < (unsigned long)port)
+ 			break;
+ 	}
+@@ -690,8 +686,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	rcu_assign_pointer(*pp, p);
+ 	br_mdb_notify(br->dev, port, group, RTM_NEWMDB);
+ 
+-found:
+-	mod_timer(&p->timer, now + br->multicast_membership_interval);
+ out:
+ 	err = 0;
+ 
+@@ -1131,6 +1125,10 @@ static int br_ip4_multicast_query(struct net_bridge *br,
+ 	if (!mp)
+ 		goto out;
+ 
++	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
++	mod_timer(&mp->timer, now + br->multicast_membership_interval);
++	mp->timer_armed = true;
++
+ 	max_delay *= br->multicast_last_member_count;
+ 
+ 	if (mp->mglist &&
+@@ -1205,6 +1203,10 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+ 	if (!mp)
+ 		goto out;
+ 
++	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
++	mod_timer(&mp->timer, now + br->multicast_membership_interval);
++	mp->timer_armed = true;
++
+ 	max_delay *= br->multicast_last_member_count;
+ 	if (mp->mglist &&
+ 	    (timer_pending(&mp->timer) ?
+@@ -1263,7 +1265,7 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 			call_rcu_bh(&p->rcu, br_multicast_free_pg);
+ 			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
+ 
+-			if (!mp->ports && !mp->mglist &&
++			if (!mp->ports && !mp->mglist && mp->timer_armed &&
+ 			    netif_running(br->dev))
+ 				mod_timer(&mp->timer, jiffies);
+ 		}
+@@ -1275,30 +1277,12 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 		     br->multicast_last_member_interval;
+ 
+ 	if (!port) {
+-		if (mp->mglist &&
++		if (mp->mglist && mp->timer_armed &&
+ 		    (timer_pending(&mp->timer) ?
+ 		     time_after(mp->timer.expires, time) :
+ 		     try_to_del_timer_sync(&mp->timer) >= 0)) {
+ 			mod_timer(&mp->timer, time);
+ 		}
 -
--int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len)
--{
--	while (len > 0) {
--		if (iov->iov_len) {
--			int copy = min_t(unsigned int, len, iov->iov_len);
--			if (copy_from_user(kdata, iov->iov_base, copy))
--				return -EFAULT;
--			len -= copy;
--			kdata += copy;
--			iov->iov_base += copy;
--			iov->iov_len -= copy;
--		}
--		iov++;
+-		goto out;
 -	}
 -
--	return 0;
--}
--EXPORT_SYMBOL(memcpy_fromiovec);
+-	for (p = mlock_dereference(mp->ports, br);
+-	     p != NULL;
+-	     p = mlock_dereference(p->next, br)) {
+-		if (p->port != port)
+-			continue;
 -
--/*
-  *	Copy iovec from kernel. Returns -EFAULT on error.
-  */
+-		if (!hlist_unhashed(&p->mglist) &&
+-		    (timer_pending(&p->timer) ?
+-		     time_after(p->timer.expires, time) :
+-		     try_to_del_timer_sync(&p->timer) >= 0)) {
+-			mod_timer(&p->timer, time);
+-		}
+-
+-		break;
+ 	}
+ 
+ out:
+@@ -1674,6 +1658,7 @@ void br_multicast_stop(struct net_bridge *br)
+ 		hlist_for_each_entry_safe(mp, n, &mdb->mhash[i],
+ 					  hlist[ver]) {
+ 			del_timer(&mp->timer);
++			mp->timer_armed = false;
+ 			call_rcu_bh(&mp->rcu, br_multicast_free_group);
+ 		}
+ 	}
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 695033f..cd2552c 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -112,6 +112,7 @@ struct net_bridge_mdb_entry
+ 	struct timer_list		timer;
+ 	struct br_ip			addr;
+ 	bool				mglist;
++	bool				timer_armed;
+ };
+ 
+ struct net_bridge_mdb_htable
+-- 
+1.7.7.6
