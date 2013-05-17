@@ -1,51 +1,36 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] filter: do not output bpf image address for
- security reason
-Date: Fri, 17 May 2013 16:31:39 -0700
-Message-ID: <1368833499.3301.126.camel@edumazet-glaptop>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH net-next] ipv6: use ipv6_dup_options() from
+ ip6_append_data()
+Date: Sat, 18 May 2013 07:36:01 +0800
+Message-ID: <20130517233601.GA20445@gondor.apana.org.au>
+References: <1368742990.3301.67.camel@edumazet-glaptop>
+ <1368750452.3301.74.camel@edumazet-glaptop>
+ <20130517135804.GA16069@gondor.apana.org.au>
+ <1368802393.3301.90.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f53.google.com ([209.85.160.53]:33024 "EHLO
-	mail-pb0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751882Ab3EQXbl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 19:31:41 -0400
-Received: by mail-pb0-f53.google.com with SMTP id un1so3712961pbc.40
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 16:31:40 -0700 (PDT)
+Received: from ringil.hengli.com.au ([178.18.16.133]:50063 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1752880Ab3EQXgI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 19:36:08 -0400
+Content-Disposition: inline
+In-Reply-To: <1368802393.3301.90.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+On Fri, May 17, 2013 at 07:53:13AM -0700, Eric Dumazet wrote:
+>
+> OK, so I guess for stable we should use kzalloc(), and work on a cleanup
+> in net-next.
 
-Do not leak starting address of BPF JIT code, as it might help
-intruders to perform an attack.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Daniel Borkmann <dborkman@redhat.com>
----
- include/linux/filter.h |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index c050dcc..08cda1c 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -58,10 +58,11 @@ extern void bpf_jit_free(struct sk_filter *fp);
- static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
- 				u32 pass, void *image)
- {
--	pr_err("flen=%u proglen=%u pass=%u image=%p\n",
--	       flen, proglen, pass, image);
-+	/* Do not output address (image) for security reason */
-+	pr_err("flen=%u proglen=%u pass=%u image=10\n",
-+	       flen, proglen, pass);
- 	if (image)
--		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_ADDRESS,
-+		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
- 			       16, 1, image, proglen, false);
- }
- #define SK_RUN_FILTER(FILTER, SKB) (*FILTER->bpf_func)(SKB, FILTER->insns)
+I agree.  Thank you.
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
