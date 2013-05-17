@@ -1,75 +1,49 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: Re: [PATCH] netlabel: improve domain mapping validation
-Date: Fri, 17 May 2013 15:37:51 -0400
-Message-ID: <1368823708.cY7J5lAl7C@sifl>
-References: <20130517190850.11148.51057.stgit@localhost> <51968397.6010808@cogentembedded.com>
+From: govind <govindarajulu90@gmail.com>
+Subject: Re: [PATCH net-next] net: netdev_pick_tx: use get_xps_q if xps map
+ is set
+Date: Sat, 18 May 2013 01:20:25 +0530
+Message-ID: <51968A01.7070105@gmail.com>
+References: <1368780528-15209-1-git-send-email-govindarajulu90@gmail.com> <1368797733.3301.84.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	vlad.halilov@gmail.com, selinux@tycho.nsa.gov
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-security-module-owner@vger.kernel.org>
-In-Reply-To: <51968397.6010808@cogentembedded.com>
-Sender: linux-security-module-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, xiyou.wangcong@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368797733.3301.84.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, May 17, 2013 11:23:03 PM Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 05/17/2013 11:08 PM, Paul Moore wrote:
-> > The net/netlabel/netlabel_domainhash.c:netlbl_domhsh_add() function
-> > does not properly validate new domain hash entries resulting in
-> > potential problems when an administrator attempts to add an invalid
-> > entry.  One such problem, as reported by Vlad Halilov, is a kernel
-> > BUG (found in netlabel_domainhash.c:netlbl_domhsh_audit_add()) when
-> > adding an IPv6 outbound mapping with a CIPSO configuration.
-> > 
-> > This patch corrects this problem by adding the necessary validation
-> > code to netlbl_domhsh_add() via the newly created
-> > netlbl_domhsh_validate() function.
-> > 
-> > Ideally this patch should also be pushed to the currently active
-> > -stable trees.
-> > 
-> > Reported-by: Vlad Halilov <vlad.halilov@gmail.com>
-> > Signed-off-by: Paul Moore <pmoore@redhat.com>
+On 05/17/2013 07:05 PM, Eric Dumazet wrote:
+> On Fri, 2013-05-17 at 14:18 +0530, govindarajulu.v wrote:
+>> From: "govindarajulu.v" <govindarajulu90@gmail.com>
+>>
+>> netdev_pick_tx ignores the xps map configuration if netdev->ndo_select_queue
+>> is defined. Most of the drivers define ndo_select_queue. The problem with this
+>> is, if admin wants kernel to pick tx queue based on xps map (instead of driver
+>> defined ndo_select_queue), he has to netdev->ndo_select_queue = NULL, compile
+>> and reload.
+>>
+>> This patch fixes it by checking if dev->xps_maps is defined. If yes it
+>> proceeds with get_xps_queue. If not it proceeds with netdev->ndo_select_queue
+>> (if defined).
+>>
+>> Compile test only.
+>
+> I do not think its right, take a look at
+> drivers/net/ethernet/intel/ixgbe/ixgbe_main.c , around line 6467
 
-...
+I see. In ixgbe_select_queue we use __netdev_pick_tx only if packet is not
+FCOE & FIP.
 
-> > +#if IS_ENABLED(CONFIG_IPV6)
-> 
->    Why not:
-> 
->          if (IS_ENABLED(CONFIG_IPV6))
-> 
->     #if's in the function body are frowned upon.
+If you see
+bnx2x_select_queue in drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c, line 1832
+and mlx4_en_select_queue in drivers/net/ethernet/mellanox/mlx4/en_tx.c, line 547.
+we cannot have xps working with these drivers.
 
-The dependent functions/types are not defined when !IS_ENABLED(CONFIG_IPV6); 
-please look at the rest of the NetLabel code (net/netlabel).
+This needs to be fixed by replacing __skb_tx_hash with __netdev_pick_tx. Am i 
+correct?
 
-Perhaps we can do some work to fixup some of that in the future, but that 
-shouldn't hold up this fix.
- 
-> > +		netlbl_af6list_foreach(iter6, &entry->type_def.addrsel->list6) {
-> > +			map6 = netlbl_domhsh_addr6_entry(iter6);
-> > +			switch (map6->type) {
-> > +			case NETLBL_NLTYPE_UNLABELED:
-> > +				break;
-> > +			default:
-> > +				return -EINVAL;
-> > +			}
-> > +		}
-> > +#endif /* IPv6 */
-> > +		break;
-> > +	default:
-> > +		return -EINVAL;
-> > +	}
-> > +
-> > +	return 0;
-> > +}
-
--- 
-paul moore
-security and virtualization @ redhat
-
+thanks
+//govind
