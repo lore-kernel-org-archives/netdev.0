@@ -1,42 +1,40 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] gianfar: add missing iounmap() on error in gianfar_ptp_probe()
-Date: Fri, 17 May 2013 16:25:34 +0800
-Message-ID: <CAPgLHd9ED7YCCTmKtD9PURq_cWy5GG=M+4ExC1wd+xOpgB97CQ@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/4] bonding: race and inconsistency fixes
+Date: Fri, 17 May 2013 01:30:57 -0700 (PDT)
+Message-ID: <20130517.013057.1998803722045738861.davem@davemloft.net>
+References: <1368621162-6807-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org
-To: richardcochran@gmail.com, grant.likely@linaro.org,
-	rob.herring@calxeda.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f47.google.com ([209.85.214.47]:47922 "EHLO
-	mail-bk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752720Ab3EQIZf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 04:25:35 -0400
-Received: by mail-bk0-f47.google.com with SMTP id jg9so2157002bkc.20
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 01:25:34 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:34400 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753577Ab3EQIa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 04:30:58 -0400
+In-Reply-To: <1368621162-6807-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Date: Wed, 15 May 2013 14:32:38 +0200
 
-Add the missing iounmap() before return from gianfar_ptp_probe()
-in the error handling case.
+> Hello,
+>  In patch 1/4 a race condition while changing the bonding mode through
+>  sysfs is fixed. Since no synchronization method is used it can race
+>  with different functions resulting in different impacts. RTNL is used
+>  to sync with the most important and dangerous events.
+>  Patch 2/4 is trivial and improves the debugging output by changing %x
+>  format to %pI4 for IPv4 addresses in a few pr_debug() calls.
+>  Patch 3/4 fixes an inconsistent arp_targets state where we have 0 entry
+>  between (or in the beginning) the valid entries that were obtained which
+>  is hard to diagnose otherwise.
+>  Patch 4/4 fixes multiple instances of a race condition which is because of
+>  calls to bond_3ad_get_active_agg_info without any locking, and since it 
+>  traverses the slave list this can easily result in NULL ptr dereference or
+>  use of freed memory.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/freescale/gianfar_ptp.c | 1 +
- 1 file changed, 1 insertion(+)
+Can a bonding expert please review this series?
 
-diff --git a/drivers/net/ethernet/freescale/gianfar_ptp.c b/drivers/net/ethernet/freescale/gianfar_ptp.c
-index 576e4b8..083ea2b 100644
---- a/drivers/net/ethernet/freescale/gianfar_ptp.c
-+++ b/drivers/net/ethernet/freescale/gianfar_ptp.c
-@@ -524,6 +524,7 @@ static int gianfar_ptp_probe(struct platform_device *dev)
- 	return 0;
- 
- no_clock:
-+	iounmap(etsects->regs);
- no_ioremap:
- 	release_resource(etsects->rsrc);
- no_resource:
+Thanks.
