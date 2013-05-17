@@ -1,90 +1,72 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next] xen-netfront: avoid leaking resources when setup_netfront fails
-Date: Fri, 17 May 2013 10:43:58 +0100
-Message-ID: <1368783838-24187-1-git-send-email-wei.liu2@citrix.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [Patch net-next v8 02/11] ipv6: make ip6_dst_hoplimit() static
+ inline
+Date: Fri, 17 May 2013 17:02:34 +0400
+Message-ID: <51962A6A.5000009@cogentembedded.com>
+References: <1368750099-14086-1-git-send-email-amwang@redhat.com> <1368750099-14086-3-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ian.campbell@citrix.com>, Wei Liu <wei.liu2@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:12396 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753332Ab3EQJoA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 May 2013 05:44:00 -0400
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:55172 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753535Ab3EQNCg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 09:02:36 -0400
+Received: by mail-lb0-f176.google.com with SMTP id x10so4349272lbi.35
+        for <netdev@vger.kernel.org>; Fri, 17 May 2013 06:02:35 -0700 (PDT)
+In-Reply-To: <1368750099-14086-3-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We should correctly free related resources (grant ref, memory page, evtchn)
-when setup_netfront fails.
+Hello.
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
----
- drivers/net/xen-netfront.c |   31 ++++++++++++++++++++-----------
- 1 file changed, 20 insertions(+), 11 deletions(-)
+On 17-05-2013 4:21, Cong Wang wrote:
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 1db10141..2dff4eb 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1532,39 +1532,48 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
- 	FRONT_RING_INIT(&info->tx, txs, PAGE_SIZE);
- 
- 	err = xenbus_grant_ring(dev, virt_to_mfn(txs));
--	if (err < 0) {
--		free_page((unsigned long)txs);
--		goto fail;
--	}
-+	if (err < 0)
-+		goto grant_tx_ring_fail;
- 
- 	info->tx_ring_ref = err;
- 	rxs = (struct xen_netif_rx_sring *)get_zeroed_page(GFP_NOIO | __GFP_HIGH);
- 	if (!rxs) {
- 		err = -ENOMEM;
- 		xenbus_dev_fatal(dev, err, "allocating rx ring page");
--		goto fail;
-+		goto alloc_rx_ring_fail;
- 	}
- 	SHARED_RING_INIT(rxs);
- 	FRONT_RING_INIT(&info->rx, rxs, PAGE_SIZE);
- 
- 	err = xenbus_grant_ring(dev, virt_to_mfn(rxs));
--	if (err < 0) {
--		free_page((unsigned long)rxs);
--		goto fail;
--	}
-+	if (err < 0)
-+		goto grant_rx_ring_fail;
- 	info->rx_ring_ref = err;
- 
- 	err = xenbus_alloc_evtchn(dev, &info->evtchn);
- 	if (err)
--		goto fail;
-+		goto alloc_evtchn_fail;
- 
- 	err = bind_evtchn_to_irqhandler(info->evtchn, xennet_interrupt,
- 					0, netdev->name, netdev);
- 	if (err < 0)
--		goto fail;
-+		goto bind_fail;
- 	netdev->irq = err;
- 	return 0;
- 
-+ /* If we fail to setup netfront, it is safe to just revoke access to granted
-+  * pages because backend is not accessing it at this point.
-+  */
-+ bind_fail:
-+	xenbus_free_evtchn(dev, info->evtchn);
-+ alloc_evtchn_fail:
-+	gnttab_end_foreign_access_ref(info->rx_ring_ref, 0);
-+ grant_rx_ring_fail:
-+	free_page((unsigned long)rxs);
-+ alloc_rx_ring_fail:
-+	gnttab_end_foreign_access_ref(info->tx_ring_ref, 0);
-+ grant_tx_ring_fail:
-+	free_page((unsigned long)txs);
-  fail:
- 	return err;
- }
--- 
-1.7.10.4
+> From: Cong Wang <amwang@redhat.com>
+
+> It will be used by vxlan module, so move it from ipv6 module
+> to core kernel. I think it is small enough to be inlined.
+
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+> ---
+>   include/net/ip6_route.h |   23 +++++++++++++++++++++--
+>   net/ipv6/route.c        |   19 -------------------
+>   2 files changed, 21 insertions(+), 21 deletions(-)
+
+> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+> index 260f83f..7e9192e 100644
+> --- a/include/net/ip6_route.h
+> +++ b/include/net/ip6_route.h
+[...]
+> @@ -201,4 +200,24 @@ static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr
+>   	return dest;
+>   }
+>
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +static inline int ip6_dst_hoplimit(struct dst_entry *dst)
+> +{
+> +	int hoplimit = dst_metric_raw(dst, RTAX_HOPLIMIT);
+
+     Empty line wouldn't hurt here, after the declaration, like below...
+
+> +	if (hoplimit == 0) {
+> +		struct net_device *dev = dst->dev;
+> +		struct inet6_dev *idev;
+> +
+> +		rcu_read_lock();
+> +		idev = __in6_dev_get(dev);
+> +		if (idev)
+> +			hoplimit = idev->cnf.hop_limit;
+> +		else
+> +			hoplimit = dev_net(dev)->ipv6.devconf_all->hop_limit;
+> +		rcu_read_unlock();
+> +	}
+> +	return hoplimit;
+> +}
+> +#endif
+> +
+
+WBR, Sergei
