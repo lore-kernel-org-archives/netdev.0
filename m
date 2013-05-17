@@ -1,49 +1,33 @@
-From: =?UTF-8?q?Emilio=20L=C3=B3pez?= <emilio@elopez.com.ar>
-Subject: [PATCH 4/4] net: ethernet: korina: initialize variables directly
-Date: Fri, 17 May 2013 12:07:48 -0300
-Message-ID: <1368803268-27698-4-git-send-email-emilio@elopez.com.ar>
-References: <1368803268-27698-1-git-send-email-emilio@elopez.com.ar>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: [PATCH net-next 0/4] tg3: Add set_eee and get_eee handlers.
+Date: Fri, 17 May 2013 08:19:46 -0700
+Message-ID: <1368803990-10098-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, <linux-kernel@vger.kernel.org>,
-	=?UTF-8?q?Emilio=20L=C3=B3pez?= <emilio@elopez.com.ar>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1368803268-27698-1-git-send-email-emilio@elopez.com.ar>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4468 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753669Ab3EQPUA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 May 2013 11:20:00 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Clean up the code a bit to initialize the variables directly when
-defining them.
+This series adds support for modifying EEE settings via ethtool. Since this can
+impact Link Flap Avoidance, the driver pulls the current hardware settings if
+LFA is enabled. This is similar to how we do the link settings to avoid a flap.
 
-Signed-off-by: Emilio L=C3=B3pez <emilio@elopez.com.ar>
----
+Nithin Nayak Sujir (4):
+  tg3: Add ethtool_eee struct and tg3_setup_eee()
+  tg3: Add tg3_eee_pull_config() function
+  tg3: Simplify tg3_phy_eee_config_ok() by reusing tg3_eee_pull_config()
+  tg3: Implement set/get_eee handlers
 
-Please note that this patch is untested.
+ drivers/net/ethernet/broadcom/tg3.c | 227 +++++++++++++++++++++++++++---------
+ drivers/net/ethernet/broadcom/tg3.h |   1 +
+ 2 files changed, 174 insertions(+), 54 deletions(-)
 
- drivers/net/ethernet/korina.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korin=
-a.c
-index 5409fe8..3756d95 100644
---- a/drivers/net/ethernet/korina.c
-+++ b/drivers/net/ethernet/korina.c
-@@ -495,12 +495,9 @@ static void korina_multicast_list(struct net_devic=
-e *dev)
-=20
- 	/* Build the hash table */
- 	if (netdev_mc_count(dev) > 4) {
--		u16 hash_table[4];
-+		u16 hash_table[4] =3D {0};
- 		u32 crc;
-=20
--		for (i =3D 0; i < 4; i++)
--			hash_table[i] =3D 0;
--
- 		netdev_for_each_mc_addr(ha, dev) {
- 			crc =3D ether_crc_le(6, ha->addr);
- 			crc >>=3D 26;
---=20
-1.8.2.3
+-- 
+1.8.1.4
