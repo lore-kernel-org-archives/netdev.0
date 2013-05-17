@@ -1,137 +1,78 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2] ip/xfrm: all to set flag XFRM_SA_XFLAG_DONT_ENCAP_DSCP
-Date: Fri, 17 May 2013 10:36:15 +0200
-Message-ID: <1368779775-5210-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:54202 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752487Ab3EQIgU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 04:36:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] ipv4: netfilter: always let NUL terminated string ended by
+ '\0'
+Date: Fri, 17 May 2013 16:39:15 +0800
+Message-ID: <5195ECB3.5000006@asianux.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev <netdev@vger.kernel.org>
+To: pablo@netfilter.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-For the display part, we print extra-flags only if show_stats is set, like for
-standard flags.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+For NUL terminated string, better always be sure of ended by '\0'.
+
+'pm' is 'struct ulog_packet_msg_t' which may be copied to user mode
+(defined in "include/uapi/..."), so can not use strlcpy() instead of.
+
+
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
 ---
- ip/ipxfrm.c     | 10 ++++++++++
- ip/xfrm_state.c | 45 ++++++++++++++++++++++++++++++++++++++++++++-
- 2 files changed, 54 insertions(+), 1 deletion(-)
+ net/ipv4/netfilter/ipt_ULOG.c |   27 ++++++++++++++++-----------
+ 1 files changed, 16 insertions(+), 11 deletions(-)
 
-diff --git a/ip/ipxfrm.c b/ip/ipxfrm.c
-index 0495ff4..0a3a9fb 100644
---- a/ip/ipxfrm.c
-+++ b/ip/ipxfrm.c
-@@ -856,6 +856,16 @@ void xfrm_state_info_print(struct xfrm_usersa_info *xsinfo,
- 		if (flags)
- 			fprintf(fp, "%x", flags);
- 	}
-+	if (show_stats > 0 || tb[XFRMA_SA_EXTRA_FLAGS]) {
-+		__u32 extra_flags = *(__u32 *)RTA_DATA(tb[XFRMA_SA_EXTRA_FLAGS]);
-+
-+		fprintf(fp, "extra_flag ");
-+		XFRM_FLAG_PRINT(fp, extra_flags,
-+				XFRM_SA_XFLAG_DONT_ENCAP_DSCP,
-+				"dont-encap-dscp");
-+		if (extra_flags)
-+			fprintf(fp, "%x", extra_flags);
-+	}
- 	if (show_stats > 0)
- 		fprintf(fp, " (0x%s)", strxf_mask8(xsinfo->flags));
- 	fprintf(fp, "%s", _SL_);
-diff --git a/ip/xfrm_state.c b/ip/xfrm_state.c
-index 61a8f02..389942c 100644
---- a/ip/xfrm_state.c
-+++ b/ip/xfrm_state.c
-@@ -60,7 +60,7 @@ static void usage(void)
- 	fprintf(stderr, "        [ mark MARK [ mask MASK ] ] [ reqid REQID ] [ seq SEQ ]\n");
- 	fprintf(stderr, "        [ replay-window SIZE ] [ replay-seq SEQ ] [ replay-oseq SEQ ]\n");
- 	fprintf(stderr, "        [ flag FLAG-LIST ] [ sel SELECTOR ] [ LIMIT-LIST ] [ encap ENCAP ]\n");
--	fprintf(stderr, "        [ coa ADDR[/PLEN] ] [ ctx CTX ]\n");
-+	fprintf(stderr, "        [ coa ADDR[/PLEN] ] [ ctx CTX ] [ extra-flag EXTRA-FLAG-LIST ]\n");
- 	fprintf(stderr, "Usage: ip xfrm state allocspi ID [ mode MODE ] [ mark MARK [ mask MASK ] ]\n");
- 	fprintf(stderr, "        [ reqid REQID ] [ seq SEQ ] [ min SPI max SPI ]\n");
- 	fprintf(stderr, "Usage: ip xfrm state { delete | get } ID [ mark MARK [ mask MASK ] ]\n");
-@@ -89,6 +89,8 @@ static void usage(void)
- 	fprintf(stderr, "MODE := transport | tunnel | beet | ro | in_trigger\n");
- 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
- 	fprintf(stderr, "FLAG := noecn | decap-dscp | nopmtudisc | wildrecv | icmp | af-unspec | align4\n");
-+	fprintf(stderr, "EXTRA-FLAG-LIST := [ EXTRA-FLAG-LIST ] EXTRA-FLAG\n");
-+	fprintf(stderr, "EXTRA-FLAG := dont-encap-dscp\n");
- 	fprintf(stderr, "SELECTOR := [ src ADDR[/PLEN] ] [ dst ADDR[/PLEN] ] [ dev DEV ] [ UPSPEC ]\n");
- 	fprintf(stderr, "UPSPEC := proto { { ");
- 	fprintf(stderr, "%s | ", strxf_proto(IPPROTO_TCP));
-@@ -230,6 +232,39 @@ static int xfrm_state_flag_parse(__u8 *flags, int *argcp, char ***argvp)
- 	return 0;
- }
+diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
+index f8a222cb..4a93382 100644
+--- a/net/ipv4/netfilter/ipt_ULOG.c
++++ b/net/ipv4/netfilter/ipt_ULOG.c
+@@ -231,11 +231,13 @@ static void ipt_ulog_packet(unsigned int hooknum,
+ 	put_unaligned(tv.tv_usec, &pm->timestamp_usec);
+ 	put_unaligned(skb->mark, &pm->mark);
+ 	pm->hook = hooknum;
+-	if (prefix != NULL)
+-		strncpy(pm->prefix, prefix, sizeof(pm->prefix));
+-	else if (loginfo->prefix[0] != '\0')
+-		strncpy(pm->prefix, loginfo->prefix, sizeof(pm->prefix));
+-	else
++	if (prefix != NULL) {
++		strncpy(pm->prefix, prefix, sizeof(pm->prefix) - 1);
++		pm->prefix[sizeof(pm->prefix) - 1] = '\0';
++	} else if (loginfo->prefix[0] != '\0') {
++		strncpy(pm->prefix, loginfo->prefix, sizeof(pm->prefix) - 1);
++		pm->prefix[sizeof(pm->prefix) - 1] = '\0';
++	} else
+ 		*(pm->prefix) = '\0';
  
-+static int xfrm_state_extra_flag_parse(__u32 *extra_flags, int *argcp, char ***argvp)
-+{
-+	int argc = *argcp;
-+	char **argv = *argvp;
-+	int len = strlen(*argv);
-+
-+	if (len > 2 && strncmp(*argv, "0x", 2) == 0) {
-+		__u32 val = 0;
-+
-+		if (get_u32(&val, *argv, 16))
-+			invarg("\"EXTRA-FLAG\" is invalid", *argv);
-+		*extra_flags = val;
-+	} else {
-+		while (1) {
-+			if (strcmp(*argv, "dont-encap-dscp") == 0)
-+				*extra_flags |= XFRM_SA_XFLAG_DONT_ENCAP_DSCP;
-+			else {
-+				PREV_ARG(); /* back track */
-+				break;
-+			}
-+
-+			if (!NEXT_ARG_OK())
-+				break;
-+			NEXT_ARG();
-+		}
-+	}
-+
-+	*argcp = argc;
-+	*argvp = argv;
-+
-+	return 0;
-+}
-+
- static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
- {
- 	struct rtnl_handle rth;
-@@ -246,6 +281,7 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
- 	char *calgop = NULL;
- 	char *coap = NULL;
- 	char *sctxp = NULL;
-+	__u32 extra_flags = 0;
- 	struct xfrm_mark mark = {0, 0};
- 	struct {
- 		struct xfrm_user_sec_ctx sctx;
-@@ -293,6 +329,9 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
- 		} else if (strcmp(*argv, "flag") == 0) {
- 			NEXT_ARG();
- 			xfrm_state_flag_parse(&req.xsinfo.flags, &argc, &argv);
-+		} else if (strcmp(*argv, "extra-flag") == 0) {
-+			NEXT_ARG();
-+			xfrm_state_extra_flag_parse(&extra_flags, &argc, &argv);
- 		} else if (strcmp(*argv, "sel") == 0) {
- 			NEXT_ARG();
- 			preferred_family = AF_UNSPEC;
-@@ -480,6 +519,10 @@ static int xfrm_state_modify(int cmd, unsigned flags, int argc, char **argv)
- 		addattr_l(&req.n, sizeof(req.buf), XFRMA_REPLAY_VAL,
- 			  (void *)&replay, sizeof(replay));
+ 	if (in && in->hard_header_len > 0 &&
+@@ -246,14 +248,17 @@ static void ipt_ulog_packet(unsigned int hooknum,
+ 	} else
+ 		pm->mac_len = 0;
  
-+	if (extra_flags)
-+		addattr32(&req.n, sizeof(req.buf), XFRMA_SA_EXTRA_FLAGS,
-+			  extra_flags);
-+
- 	if (!idp) {
- 		fprintf(stderr, "Not enough information: ID is required\n");
- 		exit(1);
+-	if (in)
+-		strncpy(pm->indev_name, in->name, sizeof(pm->indev_name));
+-	else
++	if (in) {
++		strncpy(pm->indev_name, in->name, sizeof(pm->indev_name) - 1);
++		pm->indev_name[sizeof(pm->indev_name) - 1] = '\0';
++	} else
+ 		pm->indev_name[0] = '\0';
+ 
+-	if (out)
+-		strncpy(pm->outdev_name, out->name, sizeof(pm->outdev_name));
+-	else
++	if (out) {
++		strncpy(pm->outdev_name, out->name,
++			sizeof(pm->outdev_name) - 1);
++		pm->outdev_name[sizeof(pm->outdev_name) - 1] = '\0';
++	} else
+ 		pm->outdev_name[0] = '\0';
+ 
+ 	/* copy_len <= skb->len, so can't fail. */
 -- 
-1.8.2.1
+1.7.7.6
