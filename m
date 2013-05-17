@@ -1,7 +1,7 @@
 From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net-next 4/4] tg3: Implement set/get_eee handlers
-Date: Fri, 17 May 2013 08:19:50 -0700
-Message-ID: <1368803990-10098-5-git-send-email-nsujir@broadcom.com>
+Subject: [PATCH net-next 2/4] tg3: Add tg3_eee_pull_config() function
+Date: Fri, 17 May 2013 08:19:48 -0700
+Message-ID: <1368803990-10098-3-git-send-email-nsujir@broadcom.com>
 References: <1368803990-10098-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,85 +10,121 @@ Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
 	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3250 "EHLO mms2.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:2637 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751004Ab3EQPUB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 May 2013 11:20:01 -0400
+	id S1754032Ab3EQPUF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 May 2013 11:20:05 -0400
 In-Reply-To: <1368803990-10098-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+Add tg3_eee_pull_config() to pull the settings from the hardware and
+populate the eee structure.
+
+If Link Flap Avoidance is enabled, we pull the eee settings from the hw
+so as not to cause a phy reset on eee config mismatch later. This
+requires moving down tg3_setup_eee() below the tg3_pull_config() to not
+trample existing settings.
 
 Reviewed-by: Ben Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 47 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 47 insertions(+)
+ drivers/net/ethernet/broadcom/tg3.c | 62 +++++++++++++++++++++++++++++++------
+ 1 file changed, 53 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 3aeb98f..7d4f664 100644
+index 91efe64..75b38c4 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -13657,6 +13657,51 @@ static int tg3_set_coalesce(struct net_device *dev, struct ethtool_coalesce *ec)
- 	return 0;
+@@ -2320,6 +2320,52 @@ static void tg3_phy_apply_otp(struct tg3 *tp)
+ 	tg3_phy_toggle_auxctl_smdsp(tp, false);
  }
  
-+static int tg3_set_eee(struct net_device *dev, struct ethtool_eee *edata)
++static void tg3_eee_pull_config(struct tg3 *tp, struct ethtool_eee *eee)
 +{
-+	struct tg3 *tp = netdev_priv(dev);
++	u32 val;
++	struct ethtool_eee *dest = &tp->eee;
 +
-+	if (!(tp->phy_flags & TG3_PHYFLG_EEE_CAP)) {
-+		netdev_warn(tp->dev,
-+			    "Board does not support EEE!\n");
-+		return -EOPNOTSUPP;
-+	}
++	if (!(tp->phy_flags & TG3_PHYFLG_EEE_CAP))
++		return;
 +
-+	if (edata->advertised != tp->eee.advertised) {
-+		netdev_warn(tp->dev,
-+			    "Direct manipulation of EEE advertisement is not supported\n");
-+		return -EINVAL;
-+	}
++	if (eee)
++		dest = eee;
 +
-+	tp->eee = *edata;
++	if (tg3_phy_cl45_read(tp, MDIO_MMD_AN, TG3_CL45_D7_EEERES_STAT, &val))
++		return;
 +
-+	tp->phy_flags |= TG3_PHYFLG_USER_CONFIGURED;
-+	tg3_warn_mgmt_link_flap(tp);
++	/* Pull eee_active and lp_advertised. */
++	if (val == TG3_CL45_D7_EEERES_STAT_LP_1000T ||
++	    val == TG3_CL45_D7_EEERES_STAT_LP_100TX) {
++		dest->eee_active = 1;
++	} else
++		dest->eee_active = 0;
 +
-+	if (netif_running(tp->dev)) {
-+		tg3_full_lock(tp, 0);
-+		tg3_setup_eee(tp);
-+		tg3_phy_reset(tp);
-+		tg3_full_unlock(tp);
-+	}
++	if (val == TG3_CL45_D7_EEERES_STAT_LP_1000T)
++		dest->lp_advertised = ADVERTISED_1000baseT_Full;
++	else
++		dest->lp_advertised = ADVERTISED_100baseT_Full;
 +
-+	return 0;
++	/* Pull advertised and eee_enabled settings */
++	if (tg3_phy_cl45_read(tp, MDIO_MMD_AN, MDIO_AN_EEE_ADV, &val))
++		return;
++
++	dest->eee_enabled = !!val;
++
++	dest->advertised = 0;
++	if (val & MDIO_AN_EEE_ADV_100TX)
++		dest->advertised = ADVERTISED_100baseT_Full;
++	if (val & MDIO_AN_EEE_ADV_1000T)
++		dest->advertised |= ADVERTISED_1000baseT_Full;
++
++	/* Pull tx_lpi_enabled */
++	val = tr32(TG3_CPMU_EEE_MODE);
++	dest->tx_lpi_enabled = !!(val & TG3_CPMU_EEEMD_LPI_IN_TX);
++
++	/* Pull lpi timer value */
++	dest->tx_lpi_timer = tr32(TG3_CPMU_EEE_DBTMR1) & 0xffff;
 +}
 +
-+static int tg3_get_eee(struct net_device *dev, struct ethtool_eee *edata)
-+{
-+	struct tg3 *tp = netdev_priv(dev);
-+
-+	if (!(tp->phy_flags & TG3_PHYFLG_EEE_CAP)) {
-+		netdev_warn(tp->dev,
-+			    "Board does not support EEE!\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	*edata = tp->eee;
-+	return 0;
-+}
-+
- static const struct ethtool_ops tg3_ethtool_ops = {
- 	.get_settings		= tg3_get_settings,
- 	.set_settings		= tg3_set_settings,
-@@ -13690,6 +13735,8 @@ static const struct ethtool_ops tg3_ethtool_ops = {
- 	.get_channels		= tg3_get_channels,
- 	.set_channels		= tg3_set_channels,
- 	.get_ts_info		= tg3_get_ts_info,
-+	.get_eee		= tg3_get_eee,
-+	.set_eee		= tg3_set_eee,
- };
+ static void tg3_phy_eee_adjust(struct tg3 *tp, bool current_link_up)
+ {
+ 	u32 val;
+@@ -2343,11 +2389,8 @@ static void tg3_phy_eee_adjust(struct tg3 *tp, bool current_link_up)
  
- static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
+ 		tw32(TG3_CPMU_EEE_CTRL, eeectl);
+ 
+-		tg3_phy_cl45_read(tp, MDIO_MMD_AN,
+-				  TG3_CL45_D7_EEERES_STAT, &val);
+-
+-		if (val == TG3_CL45_D7_EEERES_STAT_LP_1000T ||
+-		    val == TG3_CL45_D7_EEERES_STAT_LP_100TX)
++		tg3_eee_pull_config(tp, NULL);
++		if (tp->eee.eee_active)
+ 			tp->setlpicnt = 2;
+ 	}
+ 
+@@ -9522,16 +9565,17 @@ static int tg3_reset_hw(struct tg3 *tp, bool reset_phy)
+ 	if (tg3_flag(tp, INIT_COMPLETE))
+ 		tg3_abort_hw(tp, 1);
+ 
+-	/* Enable MAC control of LPI */
+-	if (tp->phy_flags & TG3_PHYFLG_EEE_CAP)
+-		tg3_setup_eee(tp);
+-
+ 	if ((tp->phy_flags & TG3_PHYFLG_KEEP_LINK_ON_PWRDN) &&
+ 	    !(tp->phy_flags & TG3_PHYFLG_USER_CONFIGURED)) {
+ 		tg3_phy_pull_config(tp);
++		tg3_eee_pull_config(tp, NULL);
+ 		tp->phy_flags |= TG3_PHYFLG_USER_CONFIGURED;
+ 	}
+ 
++	/* Enable MAC control of LPI */
++	if (tp->phy_flags & TG3_PHYFLG_EEE_CAP)
++		tg3_setup_eee(tp);
++
+ 	if (reset_phy)
+ 		tg3_phy_reset(tp);
+ 
 -- 
 1.8.1.4
