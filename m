@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Emilio=20L=C3=B3pez?= <emilio@elopez.com.ar>
-Subject: [PATCH 3/4] net: ethernet: davicom: dm9000: initialize variables directly
-Date: Fri, 17 May 2013 12:07:47 -0300
-Message-ID: <1368803268-27698-3-git-send-email-emilio@elopez.com.ar>
+Subject: [PATCH 4/4] net: ethernet: korina: initialize variables directly
+Date: Fri, 17 May 2013 12:07:48 -0300
+Message-ID: <1368803268-27698-4-git-send-email-emilio@elopez.com.ar>
 References: <1368803268-27698-1-git-send-email-emilio@elopez.com.ar>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -22,36 +22,28 @@ Signed-off-by: Emilio L=C3=B3pez <emilio@elopez.com.ar>
 
 Please note that this patch is untested.
 
- drivers/net/ethernet/davicom/dm9000.c | 9 +--------
- 1 file changed, 1 insertion(+), 8 deletions(-)
+ drivers/net/ethernet/korina.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethern=
-et/davicom/dm9000.c
-index 9105465..e4ed05e 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -827,7 +827,7 @@ dm9000_hash_table_unlocked(struct net_device *dev)
- 	struct netdev_hw_addr *ha;
- 	int i, oft;
- 	u32 hash_val;
--	u16 hash_table[4];
-+	u16 hash_table[4] =3D {0, 0, 0, 0x8000}; /* broadcast address */
- 	u8 rcr =3D RCR_DIS_LONG | RCR_DIS_CRC | RCR_RXEN;
+diff --git a/drivers/net/ethernet/korina.c b/drivers/net/ethernet/korin=
+a.c
+index 5409fe8..3756d95 100644
+--- a/drivers/net/ethernet/korina.c
++++ b/drivers/net/ethernet/korina.c
+@@ -495,12 +495,9 @@ static void korina_multicast_list(struct net_devic=
+e *dev)
 =20
- 	dm9000_dbg(db, 1, "entering %s\n", __func__);
-@@ -835,13 +835,6 @@ dm9000_hash_table_unlocked(struct net_device *dev)
- 	for (i =3D 0, oft =3D DM9000_PAR; i < 6; i++, oft++)
- 		iow(db, oft, dev->dev_addr[i]);
+ 	/* Build the hash table */
+ 	if (netdev_mc_count(dev) > 4) {
+-		u16 hash_table[4];
++		u16 hash_table[4] =3D {0};
+ 		u32 crc;
 =20
--	/* Clear Hash Table */
--	for (i =3D 0; i < 4; i++)
--		hash_table[i] =3D 0x0;
+-		for (i =3D 0; i < 4; i++)
+-			hash_table[i] =3D 0;
 -
--	/* broadcast address */
--	hash_table[3] =3D 0x8000;
--
- 	if (dev->flags & IFF_PROMISC)
- 		rcr |=3D RCR_PRMSC;
-=20
+ 		netdev_for_each_mc_addr(ha, dev) {
+ 			crc =3D ether_crc_le(6, ha->addr);
+ 			crc >>=3D 26;
 --=20
 1.8.2.3
