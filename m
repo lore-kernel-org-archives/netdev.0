@@ -1,109 +1,122 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] ss:  Show inet and unix sockets' shutdown state
-Date: Fri, 17 May 2013 22:08:06 +0400
-Message-ID: <51967206.5020908@cogentembedded.com>
-References: <51964669.7020503@parallels.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: [PATCH] netlabel: improve domain mapping validation
+Date: Fri, 17 May 2013 15:08:50 -0400
+Message-ID: <20130517190850.11148.51057.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@linux-foundation.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:54019 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752349Ab3EQSID (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 14:08:03 -0400
-Received: by mail-lb0-f178.google.com with SMTP id w10so3203007lbi.37
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 11:08:01 -0700 (PDT)
-In-Reply-To: <51964669.7020503@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-security-module@vger.kernel.org, vlad.halilov@gmail.com,
+	selinux@tycho.nsa.gov
+To: netdev@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: linux-security-module-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+The net/netlabel/netlabel_domainhash.c:netlbl_domhsh_add() function
+does not properly validate new domain hash entries resulting in
+potential problems when an administrator attempts to add an invalid
+entry.  One such problem, as reported by Vlad Halilov, is a kernel
+BUG (found in netlabel_domainhash.c:netlbl_domhsh_audit_add()) when
+adding an IPv6 outbound mapping with a CIPSO configuration.
 
-On 05/17/2013 07:02 PM, Pavel Emelyanov wrote:
+This patch corrects this problem by adding the necessary validation
+code to netlbl_domhsh_add() via the newly created
+netlbl_domhsh_validate() function.
 
-> When extended info is requested (-e option) one will be able to observe
-> arrows in the output, like this:
->
-> ESTAB 0 0  127.0.0.1:41705  127.0.0.1:12345  ino:143321 sk:ffff88003a8cea00 -->
-> ESTAB 0 0  127.0.0.1:46925  127.0.0.1:12346  ino:143322 sk:ffff88003a8ce4c0 <--
-> ESTAB 0 0  127.0.0.1:51678  127.0.0.1:12347  ino:143323 sk:ffff88003a8cdf80 ---
-> ESTAB 0 0  127.0.0.1:46911  127.0.0.1:12348  ino:143324 sk:ffff88003b7f05c0 <->
->
-> for SHUT_RD, SHUT_WR, SHUT_RDWR and non-shutdown sockets respectively.
->
-> The respective nlattrs in *_diag messages has appeared in Linux v3.7 and
-> are already present in ss's headers.
->
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
->
-> ---
->
-> diff --git a/misc/ss.c b/misc/ss.c
-> index 5493630..c32574c 100644
-> --- a/misc/ss.c
-> +++ b/misc/ss.c
-> @@ -1350,15 +1350,12 @@ static void print_skmeminfo(struct rtattr *tb[], int attrtype)
->   	printf(")");
->   }
->   
-> -static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
-> +static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
-> +		struct rtattr *tb[])
+Ideally this patch should also be pushed to the currently active
+-stable trees.
 
-     Should be aligned under the next char after (.
+Reported-by: Vlad Halilov <vlad.halilov@gmail.com>
+Signed-off-by: Paul Moore <pmoore@redhat.com>
+---
+ net/netlabel/netlabel_domainhash.c |   69 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 69 insertions(+)
 
-> @@ -1443,9 +1440,13 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
->   
->   static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f)
->   {
-> +	struct rtattr * tb[INET_DIAG_MAX+1];
->   	struct inet_diag_msg *r = NLMSG_DATA(nlh);
->   	struct tcpstat s;
->   
-> +	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr*)(r+1),
-> +		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
-> +
->   	s.state = r->idiag_state;
->   	s.local.family = s.remote.family = r->idiag_family;
->   	s.lport = ntohs(r->id.idiag_sport);
-> @@ -1494,10 +1495,15 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f)
->   		if (r->id.idiag_cookie[1] != 0)
->   			printf("%08x", r->id.idiag_cookie[1]);
->    		printf("%08x", r->id.idiag_cookie[0]);
-> +		if (tb[INET_DIAG_SHUTDOWN]) {
-> +			unsigned char mask;
+diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
+index d8d4243..6bb1d42 100644
+--- a/net/netlabel/netlabel_domainhash.c
++++ b/net/netlabel/netlabel_domainhash.c
+@@ -245,6 +245,71 @@ static void netlbl_domhsh_audit_add(struct netlbl_dom_map *entry,
+ 	}
+ }
+ 
++/**
++ * netlbl_domhsh_validate - Validate a new domain mapping entry
++ * @entry: the entry to validate
++ *
++ * This function validates the new domain mapping entry to ensure that it is
++ * a valid entry.  Returns zero on success, negative values on failure.
++ *
++ */
++static int netlbl_domhsh_validate(const struct netlbl_dom_map *entry)
++{
++	struct netlbl_af4list *iter4;
++	struct netlbl_domaddr4_map *map4;
++#if IS_ENABLED(CONFIG_IPV6)
++	struct netlbl_af6list *iter6;
++	struct netlbl_domaddr6_map *map6;
++#endif /* IPv6 */
++
++	if (entry == NULL)
++		return -EINVAL;
++
++	switch (entry->type) {
++	case NETLBL_NLTYPE_UNLABELED:
++		if (entry->type_def.cipsov4 != NULL ||
++		    entry->type_def.addrsel != NULL)
++			return -EINVAL;
++		break;
++	case NETLBL_NLTYPE_CIPSOV4:
++		if (entry->type_def.cipsov4 == NULL)
++			return -EINVAL;
++		break;
++	case NETLBL_NLTYPE_ADDRSELECT:
++		netlbl_af4list_foreach(iter4, &entry->type_def.addrsel->list4) {
++			map4 = netlbl_domhsh_addr4_entry(iter4);
++			switch (map4->type) {
++			case NETLBL_NLTYPE_UNLABELED:
++				if (map4->type_def.cipsov4 != NULL)
++					return -EINVAL;
++				break;
++			case NETLBL_NLTYPE_CIPSOV4:
++				if (map4->type_def.cipsov4 == NULL)
++					return -EINVAL;
++				break;
++			default:
++				return -EINVAL;
++			}
++		}
++#if IS_ENABLED(CONFIG_IPV6)
++		netlbl_af6list_foreach(iter6, &entry->type_def.addrsel->list6) {
++			map6 = netlbl_domhsh_addr6_entry(iter6);
++			switch (map6->type) {
++			case NETLBL_NLTYPE_UNLABELED:
++				break;
++			default:
++				return -EINVAL;
++			}
++		}
++#endif /* IPv6 */
++		break;
++	default:
++		return -EINVAL;
++	}
++
++	return 0;
++}
++
+ /*
+  * Domain Hash Table Functions
+  */
+@@ -311,6 +376,10 @@ int netlbl_domhsh_add(struct netlbl_dom_map *entry,
+ 	struct netlbl_af6list *tmp6;
+ #endif /* IPv6 */
+ 
++	ret_val = netlbl_domhsh_validate(entry);
++	if (ret_val != 0)
++		return ret_val;
++
+ 	/* XXX - we can remove this RCU read lock as the spinlock protects the
+ 	 *       entire function, but before we do we need to fixup the
+ 	 *       netlbl_af[4,6]list RCU functions to do "the right thing" with
 
-    Empty line wouldn't hurt here, after declaration.
-
-> +			mask = *(__u8 *)RTA_DATA(tb[INET_DIAG_SHUTDOWN]);
-> +			printf(" %c-%c", mask & 1 ? '-' : '<', mask & 2 ? '-' : '>');
-> +		}
->   	}
->   	if (show_mem || show_tcpinfo) {
->   		printf("\n\t");
-> -		tcp_show_info(nlh, r);
-> +		tcp_show_info(nlh, r, tb);
->   	}
->   
->   	printf("\n");
-> @@ -2203,6 +2209,14 @@ static int unix_show_sock(struct nlmsghdr *nlh, struct filter *f)
->   		print_skmeminfo(tb, UNIX_DIAG_MEMINFO);
->   	}
->   
-> +	if (show_details) {
-> +		if (tb[UNIX_DIAG_SHUTDOWN]) {
-> +			unsigned char mask;
-
-     Here too.
-
-> +			mask = *(__u8 *)RTA_DATA(tb[UNIX_DIAG_SHUTDOWN]);
-> +			printf(" %c-%c", mask & 1 ? '-' : '<', mask & 2 ? '-' : '>');
-> +		}
-> +	}
-> +
->
-
-WBR, Sergei
