@@ -1,36 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH net-next] ipv6: use ipv6_dup_options() from
- ip6_append_data()
-Date: Sat, 18 May 2013 07:36:01 +0800
-Message-ID: <20130517233601.GA20445@gondor.apana.org.au>
-References: <1368742990.3301.67.camel@edumazet-glaptop>
- <1368750452.3301.74.camel@edumazet-glaptop>
- <20130517135804.GA16069@gondor.apana.org.au>
- <1368802393.3301.90.camel@edumazet-glaptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next] filter: do not output bpf image address for
+ security reason
+Date: Fri, 17 May 2013 16:42:51 -0700
+Message-ID: <1368834171.2194.98.camel@joe-AO722>
+References: <1368833499.3301.126.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
 Cc: David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Neal Cardwell <ncardwell@google.com>
+	Daniel Borkmann <dborkman@redhat.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:50063 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1752880Ab3EQXgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 19:36:08 -0400
-Content-Disposition: inline
-In-Reply-To: <1368802393.3301.90.camel@edumazet-glaptop>
+Received: from perches-mx.perches.com ([206.117.179.246]:37297 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1754338Ab3EQXmw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 May 2013 19:42:52 -0400
+In-Reply-To: <1368833499.3301.126.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 17, 2013 at 07:53:13AM -0700, Eric Dumazet wrote:
->
-> OK, so I guess for stable we should use kzalloc(), and work on a cleanup
-> in net-next.
+On Fri, 2013-05-17 at 16:31 -0700, Eric Dumazet wrote:
+> Do not leak starting address of BPF JIT code, as it might help
+> intruders to perform an attack.
+[]
+> diff --git a/include/linux/filter.h b/include/linux/filter.h
+[]
+> @@ -58,10 +58,11 @@ extern void bpf_jit_free(struct sk_filter *fp);
+>  static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
+>  				u32 pass, void *image)
+>  {
+> -	pr_err("flen=%u proglen=%u pass=%u image=%p\n",
+> -	       flen, proglen, pass, image);
+> +	/* Do not output address (image) for security reason */
+> +	pr_err("flen=%u proglen=%u pass=%u image=10\n",
+> +	       flen, proglen, pass);
 
-I agree.  Thank you.
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+[]
+
+Are stable equivalents for versions before commit 79617801ea0
+necessary?
