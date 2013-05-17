@@ -1,66 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: small skb_segment() cleanup
-Date: Fri, 17 May 2013 10:13:24 -0700
-Message-ID: <1368810804.3301.100.camel@edumazet-glaptop>
+From: Harvey Harrison <harvey.harrison@gmail.com>
+Subject: Re: [PATCH net-next] net: small skb_segment() cleanup
+Date: Fri, 17 May 2013 10:20:04 -0700
+Message-ID: <CAHLZz11hoXDQ3ie2jBnfpQG7+SqgCuNMBA087ms3M+OPtnhqKA@mail.gmail.com>
+References: <1368810804.3301.100.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:42758 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755940Ab3EQRNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 13:13:25 -0400
-Received: by mail-pa0-f43.google.com with SMTP id hz10so3771871pad.2
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 10:13:25 -0700 (PDT)
+Received: from mail-vc0-f172.google.com ([209.85.220.172]:52547 "EHLO
+	mail-vc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755922Ab3EQRUF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 13:20:05 -0400
+Received: by mail-vc0-f172.google.com with SMTP id hf12so2981455vcb.17
+        for <netdev@vger.kernel.org>; Fri, 17 May 2013 10:20:04 -0700 (PDT)
+In-Reply-To: <1368810804.3301.100.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-
-if (cond) {
-	...
-	__skb_put(nskb, doffset);
-} else {
-	...
-	__skb_put(nskb, doffset);
-}
-
-can be simplified to
-
-if (cond) {
-	...
-} else {
-	...
-}
-__skb_put(nskb, doffset);
+On Fri, May 17, 2013 at 10:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
 
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/skbuff.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+> @@ -2817,7 +2817,6 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>
+>                         nskb->truesize += skb_end_offset(nskb) - hsize;
+>                         skb_release_head_state(nskb);
+> -                       __skb_push(nskb, doffset);
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index af9185d..87b5814 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2817,7 +2817,6 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 
- 			nskb->truesize += skb_end_offset(nskb) - hsize;
- 			skb_release_head_state(nskb);
--			__skb_push(nskb, doffset);
- 		} else {
- 			nskb = __alloc_skb(hsize + doffset + headroom,
- 					   GFP_ATOMIC, skb_alloc_rx_flag(skb),
-@@ -2827,8 +2826,8 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
- 				goto err;
- 
- 			skb_reserve(nskb, headroom);
--			__skb_put(nskb, doffset);
- 		}
-+		__skb_put(nskb, doffset);
- 
- 		if (segs)
- 			tail->next = nskb;
+is __skb_push equivalent to __skb_put?
+
+Harvey
+
+>                 } else {
+>                         nskb = __alloc_skb(hsize + doffset + headroom,
+>                                            GFP_ATOMIC, skb_alloc_rx_flag(skb),
+> @@ -2827,8 +2826,8 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>                                 goto err;
+>
+>                         skb_reserve(nskb, headroom);
+> -                       __skb_put(nskb, doffset);
+>                 }
+> +               __skb_put(nskb, doffset);
+>
+>                 if (segs)
+>                         tail->next = nskb;
+>
