@@ -1,92 +1,107 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v8 00/11] vxlan: add ipv6 support
-Date: Fri, 17 May 2013 08:21:28 +0800
-Message-ID: <1368750099-14086-1-git-send-email-amwang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [Patch net-next v8 02/11] ipv6: make ip6_dst_hoplimit() static inline
+Date: Fri, 17 May 2013 08:21:30 +0800
+Message-ID: <1368750099-14086-3-git-send-email-amwang@redhat.com>
+References: <1368750099-14086-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:65529 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16121 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753982Ab3EQAVm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 May 2013 20:21:42 -0400
-Received: from int-mx09.intmail.prod.int.phx2.redhat.com (int-mx09.intmail.prod.int.phx2.redhat.com [10.5.11.22])
-	by mx1.redhat.com (8.14.4/8.14.4) with ESMTP id r4H0LgNv023785
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=OK)
-	for <netdev@vger.kernel.org>; Thu, 16 May 2013 20:21:42 -0400
-Received: from cr0.redhat.com (vpn-244-101.nrt.redhat.com [10.64.244.101])
-	by int-mx09.intmail.prod.int.phx2.redhat.com (8.14.4/8.14.4) with ESMTP id r4H0LeuJ026259
-	for <netdev@vger.kernel.org>; Thu, 16 May 2013 20:21:41 -0400
+	id S1754913Ab3EQAVx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 May 2013 20:21:53 -0400
+In-Reply-To: <1368750099-14086-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-v8: fix the bug when bindv6only=1
-    fix more compile errors when IPV6=m
-    complete the rest missing features for IPv6
+It will be used by vxlan module, so move it from ipv6 module
+to core kernel. I think it is small enough to be inlined.
 
-v7: respect disable_ipv6 flag
-    back to ipv4 only when ipv6 is not supported
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+ include/net/ip6_route.h |   23 +++++++++++++++++++++--
+ net/ipv6/route.c        |   19 -------------------
+ 2 files changed, 21 insertions(+), 21 deletions(-)
 
-v6: use a stub for IPv6 mcast functions
-    split a few more long lines
-    rebased on the latest net-next
-
-v5: make David happy on the names of the fields
-    fix my mistake during rebasing the patches
-    drop the scope_id patch, because it is broken
-    export in6addr_loopback
-    fix a udp checksum bug
-    rebased on the latest net-next
-
-v4: rename ->sin to ->va_sin
-    rename ->sin6 to ->va_sin6
-    rename ->family to ->va_sa
-    support ll addr
-    fix more ugly #ifdef
-    rebased on the latest net-next
-
-v3: fix many coding style issues
-    fix some ugly #ifdef
-    rename vxlan_ip to vxlan_addr
-    rename ->proto to ->family
-    rename ->ip4/->ip6 to ->sin/->sin6
-
-v2: fix some compile error when !CONFIG_IPV6
-    improve some code based on Stephen's comments
-    use sockaddr suggested by David
-
-
-Cong Wang (11):
-  vxlan: defer vxlan init as late as possible
-  ipv6: make ip6_dst_hoplimit() static inline
-  ipv6: move ip6_local_out into core kernel
-  ipv6: export a stub for IPv6 symbols used by vxlan
-  ipv6: export in6addr_loopback to modules
-  vxlan: add ipv6 support
-  vxlan: respect disable_ipv6 sysctl
-  vxlan: add ipv6 route short circuit support
-  vxlan: add ipv6 proxy support
-  vxlan: respect scope_id for ll addr
-  ipv6: Add generic UDP Tunnel segmentation
-
- drivers/net/vxlan.c          |  829 ++++++++++++++++++++++++++++++++++--------
- include/net/addrconf.h       |   18 +
- include/net/ip6_route.h      |   23 +-
- include/net/ndisc.h          |    5 +
- include/uapi/linux/if_link.h |    2 +
- net/ipv6/addrconf.c          |    9 -
- net/ipv6/addrconf_core.c     |   13 +
- net/ipv6/af_inet6.c          |   12 +
- net/ipv6/ip6_offload.c       |    4 +-
- net/ipv6/ip6_output.c        |   25 --
- net/ipv6/ndisc.c             |    8 +-
- net/ipv6/output_core.c       |   26 ++
- net/ipv6/route.c             |   19 -
- net/ipv6/udp_offload.c       |  153 ++++++---
- 14 files changed, 893 insertions(+), 253 deletions(-)
-
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 260f83f..7e9192e 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -21,6 +21,7 @@ struct route_info {
+ #include <net/flow.h>
+ #include <net/ip6_fib.h>
+ #include <net/sock.h>
++#include <net/addrconf.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/route.h>
+@@ -112,8 +113,6 @@ extern struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 					   const struct in6_addr *addr,
+ 					   bool anycast);
+ 
+-extern int			ip6_dst_hoplimit(struct dst_entry *dst);
+-
+ /*
+  *	support functions for ND
+  *
+@@ -201,4 +200,24 @@ static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr
+ 	return dest;
+ }
+ 
++#if IS_ENABLED(CONFIG_IPV6)
++static inline int ip6_dst_hoplimit(struct dst_entry *dst)
++{
++	int hoplimit = dst_metric_raw(dst, RTAX_HOPLIMIT);
++	if (hoplimit == 0) {
++		struct net_device *dev = dst->dev;
++		struct inet6_dev *idev;
++
++		rcu_read_lock();
++		idev = __in6_dev_get(dev);
++		if (idev)
++			hoplimit = idev->cnf.hop_limit;
++		else
++			hoplimit = dev_net(dev)->ipv6.devconf_all->hop_limit;
++		rcu_read_unlock();
++	}
++	return hoplimit;
++}
++#endif
++
+ #endif
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ad0aa6b..0d9c531 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1310,25 +1310,6 @@ out:
+ 	return entries > rt_max_size;
+ }
+ 
+-int ip6_dst_hoplimit(struct dst_entry *dst)
+-{
+-	int hoplimit = dst_metric_raw(dst, RTAX_HOPLIMIT);
+-	if (hoplimit == 0) {
+-		struct net_device *dev = dst->dev;
+-		struct inet6_dev *idev;
+-
+-		rcu_read_lock();
+-		idev = __in6_dev_get(dev);
+-		if (idev)
+-			hoplimit = idev->cnf.hop_limit;
+-		else
+-			hoplimit = dev_net(dev)->ipv6.devconf_all->hop_limit;
+-		rcu_read_unlock();
+-	}
+-	return hoplimit;
+-}
+-EXPORT_SYMBOL(ip6_dst_hoplimit);
+-
+ /*
+  *
+  */
 -- 
 1.7.7.6
