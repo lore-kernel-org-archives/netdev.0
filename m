@@ -1,67 +1,70 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH] bridge: netfilter: using strlcpy() instead of strncpy()
-Date: Fri, 17 May 2013 16:07:22 +0800
-Message-ID: <5195E53A.4060406@asianux.com>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: pull request for net: batman-adv 2013-05-17
+Date: Fri, 17 May 2013 10:10:10 +0200
+Message-ID: <1368778211-2142-1-git-send-email-ordex@autistici.org>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
-	netdev <netdev@vger.kernel.org>
-To: bart.de.schuymer@pandora.be, pablo@netfilter.org, kaber@trash.net,
-	stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:46350 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751644Ab3EQIIP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 04:08:15 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
+
+Hello David,
+
+here you have one fix intended for net/linux-3.10.
+This patch is fixing a global fault protection that can be triggered on m=
+odule
+removal due to the double invocation of call_rcu() in chain.
+
+While fixing, the patch is also adding some kernel doc to the changed fun=
+ctions.
+Consider queueing this patch to -stable.
 
 
-'name' has already set all zero when it is defined, so not need let
-strncpy() to pad it again.
 
-'name' is a string, better always let is NUL terminated, so use
-strlcpy() instead of strncpy().
+Please pull or let me know if there is any problem!
+
+Thank you,
+	Antonio
 
 
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
----
- net/bridge/netfilter/ebtables.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+The following changes since commit b0ce3508b25ea6fa10ae3ca254de1d695b5217=
+02:
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 3d110c4..ac78024 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1339,7 +1339,7 @@ static inline int ebt_make_matchname(const struct ebt_entry_match *m,
- 
- 	/* ebtables expects 32 bytes long names but xt_match names are 29 bytes
- 	   long. Copy 29 bytes and fill remaining bytes with zeroes. */
--	strncpy(name, m->u.match->name, sizeof(name));
-+	strlcpy(name, m->u.match->name, sizeof(name));
- 	if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
- 		return -EFAULT;
- 	return 0;
-@@ -1351,7 +1351,7 @@ static inline int ebt_make_watchername(const struct ebt_entry_watcher *w,
- 	char __user *hlp = ubase + ((char *)w - base);
- 	char name[EBT_FUNCTION_MAXNAMELEN] = {};
- 
--	strncpy(name, w->u.watcher->name, sizeof(name));
-+	strlcpy(name, w->u.watcher->name, sizeof(name));
- 	if (copy_to_user(hlp , name, EBT_FUNCTION_MAXNAMELEN))
- 		return -EFAULT;
- 	return 0;
-@@ -1377,7 +1377,7 @@ ebt_make_names(struct ebt_entry *e, const char *base, char __user *ubase)
- 	ret = EBT_WATCHER_ITERATE(e, ebt_make_watchername, base, ubase);
- 	if (ret != 0)
- 		return ret;
--	strncpy(name, t->u.target->name, sizeof(name));
-+	strlcpy(name, t->u.target->name, sizeof(name));
- 	if (copy_to_user(hlp, name, EBT_FUNCTION_MAXNAMELEN))
- 		return -EFAULT;
- 	return 0;
--- 
-1.7.7.6
+  bonding: allow TSO being set on bonding master (2013-05-16 15:02:01 -07=
+00)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to 72822225bd41320a98f5d7cde38317766e18983f:
+
+  batman-adv: Fix rcu_barrier() miss due to double call_rcu() in TT code =
+(2013-05-17 09:54:28 +0200)
+
+----------------------------------------------------------------
+Included changes:
+- fix global protection fault by avoiding double call_rcu
+
+----------------------------------------------------------------
+Linus L=C3=BCssing (1):
+      batman-adv: Fix rcu_barrier() miss due to double call_rcu() in TT c=
+ode
+
+ net/batman-adv/originator.c        | 16 ++++++++++++++++
+ net/batman-adv/originator.h        |  1 +
+ net/batman-adv/translation-table.c |  7 ++++++-
+ 3 files changed, 23 insertions(+), 1 deletion(-)
