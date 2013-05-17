@@ -1,145 +1,100 @@
-From: "Narasimhan, Sriram" <sriram.narasimhan@hp.com>
-Subject: RE: [PATCH] virtio-net: Reporting traffic queue distribution
-	statistics through ethtool
-Date: Fri, 17 May 2013 02:42:40 +0000
-Message-ID: <228BD1969E90E94D8805535E22CE8EFF063CE9E9@G9W0717.americas.hpqcorp.net>
-References: <1368735869-31076-1-git-send-email-sriram.narasimhan@hp.com>
-	<1368740855.2655.57.camel@bwh-desktop.uk.solarflarecom.com>
+From: Flavio Leitner <fleitner@redhat.com>
+Subject: possible bug in IPv6 MLD retransmissions
+Date: Fri, 17 May 2013 00:24:49 -0300
+Message-ID: <20130517032449.GA3595@obelix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "kvm@vger.kernel.org" <kvm@vger.kernel.org>,
-	"mst@redhat.com" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"virtualization@lists.linux-foundation.org"
-	<virtualization@lists.linux-foundation.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1368740855.2655.57.camel@bwh-desktop.uk.solarflarecom.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:17226 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752063Ab3EQDYy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 May 2013 23:24:54 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Thanks for the pointer to the earlier discussion thread.
-I am open to any consensus format.  I would also like to
-get feedback from Michael on maintaining the stats in the
-per-queue data structure.
+Hi,
 
-Sriram
+A tcpdump captured while adding an IPv6 link-local address shows
+two MLD reports. One with source ``::'' and another with the permanent
+address.
 
------Original Message-----
-From: Ben Hutchings [mailto:bhutchings@solarflare.com] 
-Sent: Thursday, May 16, 2013 2:48 PM
-To: Narasimhan, Sriram
-Cc: mst@redhat.com; rusty@rustcorp.com.au; virtualization@lists.linux-foundation.org; kvm@vger.kernel.org; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
-Subject: Re: [PATCH] virtio-net: Reporting traffic queue distribution statistics through ethtool
+Well, if you increase dad_retransmits from 1 to 10, for instance,
+then both MLD reports are sent with source address ``::'' which
+according with specs should be ignored by the routers.
 
-On Thu, 2013-05-16 at 13:24 -0700, Sriram Narasimhan wrote:
-> This patch allows virtio-net driver to report traffic distribution
-> to inbound/outbound queues through ethtool -S.  The per_cpu
-> virtnet_stats is split into receive and transmit stats and are
-> maintained on a per receive_queue and send_queue basis.
-> virtnet_stats() is modified to aggregate interface level statistics
-> from per-queue statistics.  Sample output below:
-> 
-> NIC statistics:
->      rxq0: rx_packets: 4357802
->      rxq0: rx_bytes: 292642052
->      txq0: tx_packets: 824540
->      txq0: tx_bytes: 55256404
->      rxq1: rx_packets: 0
->      rxq1: rx_bytes: 0
->      txq1: tx_packets: 1094268
->      txq1: tx_bytes: 73328316
->      rxq2: rx_packets: 0
->      rxq2: rx_bytes: 0
->      txq2: tx_packets: 1091466
->      txq2: tx_bytes: 73140566
->      rxq3: rx_packets: 0
->      rxq3: rx_bytes: 0
->      txq3: tx_packets: 1093043
->      txq3: tx_bytes: 73246142
-> 
-> Signed-off-by: Sriram Narasimhan <sriram.narasimhan@hp.com>
-[...]
+* 4759.429868           :: -> ff02::16     ICMPv6 90 Multicast Listener
+  Report Message v2
+4759.890934           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+4760.893868           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+4761.895867           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+4762.897873           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+4763.899868           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+* 4764.237923           :: -> ff02::16     ICMPv6 90 Multicast Listener
+  Report Message v2
+4764.901866           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+4765.903878           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+4766.905867           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+4767.907864           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+4768.909865           :: -> ff02::1:ffe5:a8aa ICMPv6 78 Neighbor
+  Solicitation for fe80::f2de:f1ff:fee5:a8aa
+4769.911919 fe80::f2de:f1ff:fee5:a8aa -> ff02::2      ICMPv6 70 Router
+  Solicitation from f0:de:f1:e5:a8:a9
+4773.917868 fe80::f2de:f1ff:fee5:a8aa -> ff02::2      ICMPv6 70 Router
+  Solicitation from f0:de:f1:e5:a8:a9
+4777.925855 fe80::f2de:f1ff:fee5:a8aa -> ff02::2      ICMPv6 70 Router
+  Solicitation from f0:de:f1:e5:a8:a9
 
-That ordering is totally unreadable.  I want to see patches for ethtool
-to let the user order and aggregate the queue statistics in a sensible
-way:
+Therefore, I believe this is a bug in IPv6 MLD because it should
+sent at least 2 MLD reports after DAD is completed.
+The specs says:
 
-$ ethtool -S eth0                   # default would show aggregated statistics
-NIC statistics:
-	rx_packets: 4357802
-	rx_bytes: 292642052
-	tx_packets: 4103317
-	tx_bytes: 274971428
+rfc3810
+5.2.13. Source Addresses for Reports
 
-$ ethtool -S eth0 full group queue  # full statistics, grouped by queue name
-NIC statistics:
-rxq0:
-	rx_packets: 4357802
-	rx_bytes: 292642052
-rxq1:
-	rx_packets: 0
-	rx_bytes: 0
-[...]
-txq0:
-	tx_packets: 824540
-	tx_bytes: 55256404
-txq1:
-	tx_packets: 1094268
-	tx_bytes: 73328316
-[...]
+   An MLDv2 Report MUST be sent with a valid IPv6 link-local source
+   address, or the unspecified address (::), if the sending interface
+   has not acquired a valid link-local address yet.  Sending reports
+   with the unspecified address is allowed to support the use of IP
+   multicast in the Neighbor Discovery Protocol [RFC2461].  For
+   stateless autoconfiguration, as defined in [RFC2462], a node is
+   required to join several IPv6 multicast groups, in order to perform
+   Duplicate Address Detection (DAD).  Prior to DAD, the only address
+   the reporting node has for the sending interface is a tentative one,
+   which cannot be used for communication.  Thus, the unspecified
+   address must be used.
 
-$ ethtool -S eth0 full group statistic  # full statistics, grouped by statistic name
-NIC statistics:
-rx_packets:
-	rxq0: 4357802
-	rxq1: 0
-	rxq2: 0
-	rxq3: 0
-rx_bytes:
-	rxq0: 292642052
-	rxq1: 0
-	rxq2: 0
-	rxq3: 0
-[...]
+   On the other hand, routers MUST silently discard a message that is
+   not sent with a valid link-local address, without taking any action
+   on the contents of the packet.  Thus, a Report is discarded if the
+   router cannot identify the source address of the packet as belonging
+   to a link connected to the interface on which the packet was
+   received.  A Report sent with the unspecified address is also
+   discarded by the router.  This enhances security, as unidentified
+   reporting nodes cannot influence the state of the MLDv2 router(s).
+   Nevertheless, the reporting node has modified its listening state for
+   multicast addresses that are contained in the Multicast Address
+   Records of the Report message.  From now on, it will treat packets
+   sent to those multicast addresses according to this new listening
+   state.  ***Once a valid link-local address is available, a node
+SHOULD
+   generate new MLDv2 Report messages for all multicast addresses joined
+   on the interface****.
+...
 
-Maybe even:
-
-$ ethtool -S eth0 full table
-NIC statistics:
-	rx_packets   rx_bytes
-rxq0:      4357802  292642052
-rxq1:            0          0
-rxq2:            0          0
-rxq3:            0          0
-	tx_packets   tx_bytes
-txq0:       824540   55256404
-txq1:      1094268   73328316
-txq2:      1091466   73140566
-txq3:      1093043   73246142
-
-(Difficult to do, but probably very useful!)
-
-The queue names should be rx-<index> and tx-<index> like in sysfs.
-
-We'll need to reach a consensus on the naming scheme for per-queue and
-otherwise disaggregated statistics (see previous discussions in
-<http://thread.gmane.org/gmane.linux.kernel.virtualization/15572/focus=15608>).  I don't much care what they look like as long as there's an implementation for the ethtool side and they don't look too awful in older versions of ethtool.
-
-Ben.
-
+Does that make any sense?
+Thanks,
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+fbl
