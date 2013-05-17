@@ -1,90 +1,103 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [PATCH v2] vxlan: Update vxlan fdb 'used' field after each usage
-Date: Fri, 17 May 2013 09:39:07 -0700
-Message-ID: <1368808747.14093.23.camel@sridhar.usor.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v2] net: Loosen constraints for recalculating
+ checksum in skb_segment()
+Date: Fri, 17 May 2013 10:02:03 -0700
+Message-ID: <1368810123.3301.96.camel@edumazet-glaptop>
+References: <1368773342-31882-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net, stephen@networkplumber.org,
-	dlstevens@us.ibm.com
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	jarno.rajahalme@nsn.com,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:43546 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753577Ab3EQQjP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 May 2013 12:39:15 -0400
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
-	Fri, 17 May 2013 12:39:14 -0400
-Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 0886E38C8047
-	for <netdev@vger.kernel.org>; Fri, 17 May 2013 12:39:11 -0400 (EDT)
-Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4HGd9RG158048
-	for <netdev@vger.kernel.org>; Fri, 17 May 2013 12:39:10 -0400
-Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4HGd8mv022094
-	for <netdev@vger.kernel.org>; Fri, 17 May 2013 10:39:08 -0600
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:47429 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756276Ab3EQRCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 13:02:05 -0400
+Received: by mail-pa0-f48.google.com with SMTP id kp6so3737088pab.21
+        for <netdev@vger.kernel.org>; Fri, 17 May 2013 10:02:05 -0700 (PDT)
+In-Reply-To: <1368773342-31882-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix some instances where vxlan fdb 'used' field is not updated after the entry 
-is used.
+On Fri, 2013-05-17 at 15:49 +0900, Simon Horman wrote:
+> In the case where the ability to offload checksums changes
+> then it may be necessary for software checksumming of an skb to occur.
+> 
+> An example of such a case is where a non-GRE packet is received but
+> is to be encapsulated and transmitted as GRE.
+> 
+> Another example relates to my proposed support for for GSO packets
+> that are non-MPLS when received but MPLS when transmitted.
+> 
+> The cost of this change is that csum may be checked when it previously
+> was not. In the case where csum is true this is pure overhead. In the
+> case where csum is false it leads to software checksumming, which
+> I believe also leads to correct checksums in transmitted packets for
+> the cases described above.
+> 
+> This patch relies on the return value of can_checksum_protocol()
+> being correct and in turn the return value of skb_network_protocol(),
+> used to provide the protocol parameter of can_checksum_protocol(),
+> being correct. It also relies on the features passed to skb_segment()
+> and in turn to can_checksum_protocol() being correct.
+> 
+> I believe that this problem does has not been observed for VLANs because it
+> appears that all drivers except xgbe set vlan_features such that that the
+> checksum offload support for VLAN packets is greater than or equal to that
+> of non-VLAN packets.
+> 
+> I wonder if the code in xgbe may be an oversight and the hardware does
+> support checksumming of VLAN packets.  If so it may be worth updating the
+> vlan_features of the driver as this patch will force such checksums to be
+> performed in software rather than hardware.
+> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> ---
+> 
+> Tested using the bnx2 driver.
+> 
+> v2
+> Rewrite changlog after further analysis
+> ---
+>  net/core/skbuff.c | 3 ++-
+>  1 file changed, 2 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index af9185d..3a43be4 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -2853,7 +2853,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+>  						 doffset + tnl_hlen);
+>  
+>  		if (fskb != skb_shinfo(skb)->frag_list)
+> -			continue;
+> +			goto csum;
+>  
+>  		if (!sg) {
+>  			nskb->ip_summed = CHECKSUM_NONE;
+> @@ -2917,6 +2917,7 @@ skip_fraglist:
+>  		nskb->len += nskb->data_len;
+>  		nskb->truesize += nskb->data_len;
+>  
+> +csum:
+>  		if (!csum) {
+>  			nskb->csum = skb_checksum(nskb, doffset,
+>  						  nskb->len - doffset, 0);
 
-v2: rename vxlan_find_mac() as __vxlan_find_mac() and create a new vxlan_find_mac()
-that also updates ->used field.
 
-Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+I had hard time to understand this patch, but I think I now get it.
 
----
+Changelog seems to be very specific, while the change looks like a more
+generic problem about skbs having a frag_list ? Oh well...
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ba81f3c..3b1d2ee 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -301,7 +301,7 @@ static inline struct hlist_head *vxlan_fdb_head(struct vxlan_dev *vxlan,
- }
- 
- /* Look up Ethernet address in forwarding table */
--static struct vxlan_fdb *vxlan_find_mac(struct vxlan_dev *vxlan,
-+static struct vxlan_fdb *__vxlan_find_mac(struct vxlan_dev *vxlan,
- 					const u8 *mac)
- 
- {
-@@ -316,6 +316,18 @@ static struct vxlan_fdb *vxlan_find_mac(struct vxlan_dev *vxlan,
- 	return NULL;
- }
- 
-+static struct vxlan_fdb *vxlan_find_mac(struct vxlan_dev *vxlan,
-+					const u8 *mac)
-+{
-+	struct vxlan_fdb *f;
-+
-+	f = __vxlan_find_mac(vxlan, mac);
-+	if (f)
-+		f->used = jiffies;
-+
-+	return f;
-+}
-+
- /* Add/update destinations for multicast */
- static int vxlan_fdb_append(struct vxlan_fdb *f,
- 			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
-@@ -353,7 +365,7 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
- 	struct vxlan_fdb *f;
- 	int notify = 0;
- 
--	f = vxlan_find_mac(vxlan, mac);
-+	f = __vxlan_find_mac(vxlan, mac);
- 	if (f) {
- 		if (flags & NLM_F_EXCL) {
- 			netdev_dbg(vxlan->dev,
-@@ -563,7 +575,6 @@ static void vxlan_snoop(struct net_device *dev,
- 
- 	f = vxlan_find_mac(vxlan, src_mac);
- 	if (likely(f)) {
--		f->used = jiffies;
- 		if (likely(f->remote.remote_ip == src_ip))
- 			return;
- 
+skb_segment() is probably too complex for my understanding.
+
+Could you please change the label name ?
+
+perform_csum_check for example, and maybe it would be easier :)
