@@ -1,49 +1,52 @@
-From: Harvey Harrison <harvey.harrison@gmail.com>
-Subject: Re: [PATCH net-next] net: small skb_segment() cleanup
-Date: Fri, 17 May 2013 10:20:04 -0700
-Message-ID: <CAHLZz11hoXDQ3ie2jBnfpQG7+SqgCuNMBA087ms3M+OPtnhqKA@mail.gmail.com>
-References: <1368810804.3301.100.camel@edumazet-glaptop>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v3] MPLS: Add limited GSO support
+Date: Fri, 17 May 2013 10:26:14 -0700
+Message-ID: <1368811574.3301.109.camel@edumazet-glaptop>
+References: <1368773452-32310-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	jarno.rajahalme@nsn.com,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f172.google.com ([209.85.220.172]:52547 "EHLO
-	mail-vc0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755922Ab3EQRUF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 13:20:05 -0400
-Received: by mail-vc0-f172.google.com with SMTP id hf12so2981455vcb.17
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 10:20:04 -0700 (PDT)
-In-Reply-To: <1368810804.3301.100.camel@edumazet-glaptop>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:36253 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756245Ab3EQR0P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 13:26:15 -0400
+Received: by mail-pb0-f43.google.com with SMTP id ma3so1803294pbc.30
+        for <netdev@vger.kernel.org>; Fri, 17 May 2013 10:26:15 -0700 (PDT)
+In-Reply-To: <1368773452-32310-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 17, 2013 at 10:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
+On Fri, 2013-05-17 at 15:50 +0900, Simon Horman wrote:
 
+> @@ -509,6 +511,8 @@ struct sk_buff {
+>  		__u32		reserved_tailroom;
+>  	};
+>  
+> +	__be16			inner_protocol;
+> +	/* 16/48 bit hole */
+>  	sk_buff_data_t		inner_transport_header;
+>  	sk_buff_data_t		inner_network_header;
+>  	sk_buff_data_t		inner_mac_header;
 
-> @@ -2817,7 +2817,6 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
->
->                         nskb->truesize += skb_end_offset(nskb) - hsize;
->                         skb_release_head_state(nskb);
-> -                       __skb_push(nskb, doffset);
+We are reaching the point where sk_buff is so big that per packet cost
+is killing us, and guys want linux kernel bypass.
 
-is __skb_push equivalent to __skb_put?
+sizeof(sk_buff) = 0xf8 -> 0x100
 
-Harvey
+sizeof(skbuff_fclone_cache) = 0x200 -> 0x240 
 
->                 } else {
->                         nskb = __alloc_skb(hsize + doffset + headroom,
->                                            GFP_ATOMIC, skb_alloc_rx_flag(skb),
-> @@ -2827,8 +2826,8 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
->                                 goto err;
->
->                         skb_reserve(nskb, headroom);
-> -                       __skb_put(nskb, doffset);
->                 }
-> +               __skb_put(nskb, doffset);
->
->                 if (segs)
->                         tail->next = nskb;
->
+So TCP stack performance is going to be hurt by this change, as the
+atomic_t containing fclone_ref will be in a separate cache line.
+
+__copy_skb_header() needs to be smarter and perform a bulk copy using
+long words
+
+Maybe we could use 16 bits instead of 32 for the inner_*_headers ?
