@@ -1,130 +1,90 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net-next 2/4] tg3: Add tg3_eee_pull_config() function
-Date: Fri, 17 May 2013 08:19:48 -0700
-Message-ID: <1368803990-10098-3-git-send-email-nsujir@broadcom.com>
-References: <1368803990-10098-1-git-send-email-nsujir@broadcom.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [PATCH v2] vxlan: Update vxlan fdb 'used' field after each usage
+Date: Fri, 17 May 2013 09:39:07 -0700
+Message-ID: <1368808747.14093.23.camel@sridhar.usor.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net, stephen@networkplumber.org,
+	dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2637 "EHLO mms1.broadcom.com"
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:43546 "EHLO e9.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754032Ab3EQPUF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 May 2013 11:20:05 -0400
-In-Reply-To: <1368803990-10098-1-git-send-email-nsujir@broadcom.com>
+	id S1753577Ab3EQQjP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 May 2013 12:39:15 -0400
+Received: from /spool/local
+	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <sri@us.ibm.com>;
+	Fri, 17 May 2013 12:39:14 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 0886E38C8047
+	for <netdev@vger.kernel.org>; Fri, 17 May 2013 12:39:11 -0400 (EDT)
+Received: from d03av02.boulder.ibm.com (d03av02.boulder.ibm.com [9.17.195.168])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4HGd9RG158048
+	for <netdev@vger.kernel.org>; Fri, 17 May 2013 12:39:10 -0400
+Received: from d03av02.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av02.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4HGd8mv022094
+	for <netdev@vger.kernel.org>; Fri, 17 May 2013 10:39:08 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add tg3_eee_pull_config() to pull the settings from the hardware and
-populate the eee structure.
+Fix some instances where vxlan fdb 'used' field is not updated after the entry 
+is used.
 
-If Link Flap Avoidance is enabled, we pull the eee settings from the hw
-so as not to cause a phy reset on eee config mismatch later. This
-requires moving down tg3_setup_eee() below the tg3_pull_config() to not
-trample existing settings.
+v2: rename vxlan_find_mac() as __vxlan_find_mac() and create a new vxlan_find_mac()
+that also updates ->used field.
 
-Reviewed-by: Ben Li <benli@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Signed-off-by: Sridhar Samudrala <sri@us.ibm.com>
+
 ---
- drivers/net/ethernet/broadcom/tg3.c | 62 +++++++++++++++++++++++++++++++------
- 1 file changed, 53 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 91efe64..75b38c4 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -2320,6 +2320,52 @@ static void tg3_phy_apply_otp(struct tg3 *tp)
- 	tg3_phy_toggle_auxctl_smdsp(tp, false);
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index ba81f3c..3b1d2ee 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -301,7 +301,7 @@ static inline struct hlist_head *vxlan_fdb_head(struct vxlan_dev *vxlan,
  }
  
-+static void tg3_eee_pull_config(struct tg3 *tp, struct ethtool_eee *eee)
+ /* Look up Ethernet address in forwarding table */
+-static struct vxlan_fdb *vxlan_find_mac(struct vxlan_dev *vxlan,
++static struct vxlan_fdb *__vxlan_find_mac(struct vxlan_dev *vxlan,
+ 					const u8 *mac)
+ 
+ {
+@@ -316,6 +316,18 @@ static struct vxlan_fdb *vxlan_find_mac(struct vxlan_dev *vxlan,
+ 	return NULL;
+ }
+ 
++static struct vxlan_fdb *vxlan_find_mac(struct vxlan_dev *vxlan,
++					const u8 *mac)
 +{
-+	u32 val;
-+	struct ethtool_eee *dest = &tp->eee;
++	struct vxlan_fdb *f;
 +
-+	if (!(tp->phy_flags & TG3_PHYFLG_EEE_CAP))
-+		return;
++	f = __vxlan_find_mac(vxlan, mac);
++	if (f)
++		f->used = jiffies;
 +
-+	if (eee)
-+		dest = eee;
-+
-+	if (tg3_phy_cl45_read(tp, MDIO_MMD_AN, TG3_CL45_D7_EEERES_STAT, &val))
-+		return;
-+
-+	/* Pull eee_active and lp_advertised. */
-+	if (val == TG3_CL45_D7_EEERES_STAT_LP_1000T ||
-+	    val == TG3_CL45_D7_EEERES_STAT_LP_100TX) {
-+		dest->eee_active = 1;
-+	} else
-+		dest->eee_active = 0;
-+
-+	if (val == TG3_CL45_D7_EEERES_STAT_LP_1000T)
-+		dest->lp_advertised = ADVERTISED_1000baseT_Full;
-+	else
-+		dest->lp_advertised = ADVERTISED_100baseT_Full;
-+
-+	/* Pull advertised and eee_enabled settings */
-+	if (tg3_phy_cl45_read(tp, MDIO_MMD_AN, MDIO_AN_EEE_ADV, &val))
-+		return;
-+
-+	dest->eee_enabled = !!val;
-+
-+	dest->advertised = 0;
-+	if (val & MDIO_AN_EEE_ADV_100TX)
-+		dest->advertised = ADVERTISED_100baseT_Full;
-+	if (val & MDIO_AN_EEE_ADV_1000T)
-+		dest->advertised |= ADVERTISED_1000baseT_Full;
-+
-+	/* Pull tx_lpi_enabled */
-+	val = tr32(TG3_CPMU_EEE_MODE);
-+	dest->tx_lpi_enabled = !!(val & TG3_CPMU_EEEMD_LPI_IN_TX);
-+
-+	/* Pull lpi timer value */
-+	dest->tx_lpi_timer = tr32(TG3_CPMU_EEE_DBTMR1) & 0xffff;
++	return f;
 +}
 +
- static void tg3_phy_eee_adjust(struct tg3 *tp, bool current_link_up)
- {
- 	u32 val;
-@@ -2343,11 +2389,8 @@ static void tg3_phy_eee_adjust(struct tg3 *tp, bool current_link_up)
+ /* Add/update destinations for multicast */
+ static int vxlan_fdb_append(struct vxlan_fdb *f,
+ 			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
+@@ -353,7 +365,7 @@ static int vxlan_fdb_create(struct vxlan_dev *vxlan,
+ 	struct vxlan_fdb *f;
+ 	int notify = 0;
  
- 		tw32(TG3_CPMU_EEE_CTRL, eeectl);
+-	f = vxlan_find_mac(vxlan, mac);
++	f = __vxlan_find_mac(vxlan, mac);
+ 	if (f) {
+ 		if (flags & NLM_F_EXCL) {
+ 			netdev_dbg(vxlan->dev,
+@@ -563,7 +575,6 @@ static void vxlan_snoop(struct net_device *dev,
  
--		tg3_phy_cl45_read(tp, MDIO_MMD_AN,
--				  TG3_CL45_D7_EEERES_STAT, &val);
--
--		if (val == TG3_CL45_D7_EEERES_STAT_LP_1000T ||
--		    val == TG3_CL45_D7_EEERES_STAT_LP_100TX)
-+		tg3_eee_pull_config(tp, NULL);
-+		if (tp->eee.eee_active)
- 			tp->setlpicnt = 2;
- 	}
+ 	f = vxlan_find_mac(vxlan, src_mac);
+ 	if (likely(f)) {
+-		f->used = jiffies;
+ 		if (likely(f->remote.remote_ip == src_ip))
+ 			return;
  
-@@ -9522,16 +9565,17 @@ static int tg3_reset_hw(struct tg3 *tp, bool reset_phy)
- 	if (tg3_flag(tp, INIT_COMPLETE))
- 		tg3_abort_hw(tp, 1);
- 
--	/* Enable MAC control of LPI */
--	if (tp->phy_flags & TG3_PHYFLG_EEE_CAP)
--		tg3_setup_eee(tp);
--
- 	if ((tp->phy_flags & TG3_PHYFLG_KEEP_LINK_ON_PWRDN) &&
- 	    !(tp->phy_flags & TG3_PHYFLG_USER_CONFIGURED)) {
- 		tg3_phy_pull_config(tp);
-+		tg3_eee_pull_config(tp, NULL);
- 		tp->phy_flags |= TG3_PHYFLG_USER_CONFIGURED;
- 	}
- 
-+	/* Enable MAC control of LPI */
-+	if (tp->phy_flags & TG3_PHYFLG_EEE_CAP)
-+		tg3_setup_eee(tp);
-+
- 	if (reset_phy)
- 		tg3_phy_reset(tp);
- 
--- 
-1.8.1.4
