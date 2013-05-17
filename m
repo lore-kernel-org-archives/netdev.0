@@ -1,75 +1,122 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v8 07/11] vxlan: respect disable_ipv6 sysctl
-Date: Fri, 17 May 2013 08:21:35 +0800
-Message-ID: <1368750099-14086-8-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v8 04/11] ipv6: export a stub for IPv6 symbols used by vxlan
+Date: Fri, 17 May 2013 08:21:32 +0800
+Message-ID: <1368750099-14086-5-git-send-email-amwang@redhat.com>
 References: <1368750099-14086-1-git-send-email-amwang@redhat.com>
-Cc: David Miller <davem@davemloft.net>, Cong Wang <amwang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Ben Hutchings <bhutchings@solarflare.com>,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31340 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:61917 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755129Ab3EQAWH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 May 2013 20:22:07 -0400
+	id S1755129Ab3EQAWL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 May 2013 20:22:11 -0400
 In-Reply-To: <1368750099-14086-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+=46rom: Cong Wang <amwang@redhat.com>
 
-When disable_ipv6 is set, we should not allow IPv6 vxlan
-device created on top of it.
+In case IPv6 is compiled as a module, introduce a stub
+for ipv6_sock_mc_join and ipv6_sock_mc_drop etc.. It will be used
+by vxlan module.
 
-Cc: David Miller <davem@davemloft.net>
+This is an ugly but easy solution for now.
+
+Suggested-by: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Bj=C3=B8rn Mork <bjorn@mork.no>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/vxlan.c |   14 ++++++++++++++
- 1 files changed, 14 insertions(+), 0 deletions(-)
+ include/net/addrconf.h   |   14 ++++++++++++++
+ net/ipv6/addrconf_core.c |    3 +++
+ net/ipv6/af_inet6.c      |   11 +++++++++++
+ 3 files changed, 28 insertions(+), 0 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 46c59a6..1ee79e0 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1681,6 +1681,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 	struct vxlan_rdst *dst = &vxlan->default_dst;
- 	__u32 vni;
- 	int err;
-+	bool use_ipv6 = false;
- 
- 	if (!data[IFLA_VXLAN_ID])
- 		return -EINVAL;
-@@ -1703,6 +1704,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 		nla_memcpy(&dst->remote_ip.sin6.sin6_addr, data[IFLA_VXLAN_GROUP6],
- 			   sizeof(struct in6_addr));
- 		dst->remote_ip.sa.sa_family = AF_INET6;
-+		use_ipv6 = true;
- #else
- 		return -EPFNOSUPPORT;
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 84a6440..d09d42c 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -140,6 +140,20 @@ extern bool inet6_mc_check(struct sock *sk,
+ 			   const struct in6_addr *mc_addr,
+ 			   const struct in6_addr *src_addr);
+=20
++/* A stub used by vxlan module. This is ugly, ideally these
++ * symbols should be built into the core kernel.
++ */
++struct ipv6_stub {
++	int (*ipv6_sock_mc_join)(struct sock *sk, int ifindex,
++				 const struct in6_addr *addr);
++	int (*ipv6_sock_mc_drop)(struct sock *sk, int ifindex,
++				 const struct in6_addr *addr);
++	int (*ipv6_dst_lookup)(struct sock *sk, struct dst_entry **dst,
++				struct flowi6 *fl6);
++	void (*udpv6_encap_enable)(void);
++};
++extern const struct ipv6_stub *ipv6_stub __read_mostly;
++
+ extern int ipv6_dev_mc_inc(struct net_device *dev, const struct in6_ad=
+dr *addr);
+ extern int __ipv6_dev_mc_dec(struct inet6_dev *idev, const struct in6_=
+addr *addr);
+ extern int ipv6_dev_mc_dec(struct net_device *dev, const struct in6_ad=
+dr *addr);
+diff --git a/net/ipv6/addrconf_core.c b/net/ipv6/addrconf_core.c
+index 7210456..3807a79 100644
+--- a/net/ipv6/addrconf_core.c
++++ b/net/ipv6/addrconf_core.c
+@@ -97,3 +97,6 @@ int inet6addr_notifier_call_chain(unsigned long val, =
+void *v)
+ 	return atomic_notifier_call_chain(&inet6addr_chain, val, v);
+ }
+ EXPORT_SYMBOL(inet6addr_notifier_call_chain);
++
++const struct ipv6_stub *ipv6_stub __read_mostly;
++EXPORT_SYMBOL_GPL(ipv6_stub);
+diff --git a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+index ab5c7ad..58de055 100644
+--- a/net/ipv6/af_inet6.c
++++ b/net/ipv6/af_inet6.c
+@@ -808,6 +808,13 @@ static struct pernet_operations inet6_net_ops =3D =
+{
+ 	.exit =3D inet6_net_exit,
+ };
+=20
++static const struct ipv6_stub ipv6_stub_impl =3D {
++	.ipv6_sock_mc_join =3D ipv6_sock_mc_join,
++	.ipv6_sock_mc_drop =3D ipv6_sock_mc_drop,
++	.ipv6_dst_lookup =3D ip6_dst_lookup,
++	.udpv6_encap_enable =3D udpv6_encap_enable,
++};
++
+ static int __init inet6_init(void)
+ {
+ 	struct list_head *r;
+@@ -879,6 +886,9 @@ static int __init inet6_init(void)
+ 	err =3D igmp6_init();
+ 	if (err)
+ 		goto igmp_fail;
++
++	ipv6_stub =3D &ipv6_stub_impl;
++
+ 	err =3D ipv6_netfilter_init();
+ 	if (err)
+ 		goto netfilter_fail;
+@@ -1027,6 +1037,7 @@ static void __exit inet6_exit(void)
+ 	raw6_proc_exit();
  #endif
-@@ -1719,6 +1721,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 		nla_memcpy(&vxlan->saddr.sin6.sin6_addr, data[IFLA_VXLAN_LOCAL6],
- 			   sizeof(struct in6_addr));
- 		vxlan->saddr.sa.sa_family = AF_INET6;
-+		use_ipv6 = true;
- #else
- 		return -EPFNOSUPPORT;
- #endif
-@@ -1734,6 +1737,17 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 			return -ENODEV;
- 		}
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+		if (use_ipv6) {
-+			struct inet6_dev *idev = in6_dev_get(lowerdev);
-+			if (idev && idev->cnf.disable_ipv6) {
-+				pr_info("IPv6 is disabled via sysctl\n");
-+				return -EPERM;
-+			}
-+		}
-+#else
-+		BUG_ON(use_ipv6);
-+#endif
- 		if (!tb[IFLA_MTU])
- 			dev->mtu = lowerdev->mtu - VXLAN_HEADROOM;
- 
--- 
+ 	ipv6_netfilter_fini();
++	ipv6_stub =3D NULL;
+ 	igmp6_cleanup();
+ 	ndisc_cleanup();
+ 	ip6_mr_cleanup();
+--=20
 1.7.7.6
