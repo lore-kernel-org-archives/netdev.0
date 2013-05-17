@@ -1,64 +1,79 @@
-From: Lance Lassetter <lancelassetter@gmail.com>
-Subject: Re: r8169 with 3.9.0-rc9
-Date: Fri, 17 May 2013 09:35:48 -0500
-Message-ID: <20130517143546.GA527@gmail.com>
-References: <20130428011232.GA4236@gmail.com>
- <20130501100733.GA16115@gmail.com>
- <20130501121502.GA5456@electric-eye.fr.zoreil.com>
- <20130501212803.GA3342@gmail.com>
- <20130501223155.GA15261@electric-eye.fr.zoreil.com>
- <20130502021848.GA30099@gmail.com>
- <20130502221837.GA9898@electric-eye.fr.zoreil.com>
- <20130505151732.GA9096@gmail.com>
- <20130505193323.GA21121@electric-eye.fr.zoreil.com>
- <20130514030432.GA18292@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: use ipv6_dup_options() from
+ ip6_append_data()
+Date: Fri, 17 May 2013 07:53:13 -0700
+Message-ID: <1368802393.3301.90.camel@edumazet-glaptop>
+References: <1368742990.3301.67.camel@edumazet-glaptop>
+	 <1368750452.3301.74.camel@edumazet-glaptop>
+	 <20130517135804.GA16069@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Neal Cardwell <ncardwell@google.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f170.google.com ([209.85.161.170]:50145 "EHLO
-	mail-gg0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754321Ab3EQOfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 10:35:53 -0400
-Received: by mail-gg0-f170.google.com with SMTP id s5so889996ggc.1
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 07:35:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130514030432.GA18292@gmail.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:35969 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754010Ab3EQOxP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 10:53:15 -0400
+Received: by mail-pd0-f176.google.com with SMTP id r11so95258pdi.21
+        for <netdev@vger.kernel.org>; Fri, 17 May 2013 07:53:15 -0700 (PDT)
+In-Reply-To: <20130517135804.GA16069@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 13, 2013 at 10:04:34PM -0500, Lance Lassetter wrote:
-> On Sun, May 05, 2013 at 09:33:23PM +0200, Francois Romieu wrote:
-> > Lance Lassetter <lancelassetter@gmail.com> :
-> > [...]
-> > > What do you think, Ueimor ?
-> > 
-> > I think you should try a post 3.9 kernel including commit
-> > 4ada8db38a44654446fe35ceb20a1972220e0f69 ("net: Restore NETIF_F_* bit
-> > ordering.").
-> > 
-> > -- 
-> > Ueimor
-> 
-> Ueimor,
-> 
-> Tried stock 3.10-rc1.  Still same problem with alias r8169 alias p10p1 and p8p1 "up down, up down".
-> 
-> Does this kernel inclde your patch?  I think it does....
-> 
-> Please reply with suggestions.
-> 
-> Regards,
-> 
-> Lance Lassetter
+From: Eric Dumazet <edumazet@google.com>
 
-Ueimor,
+On Fri, 2013-05-17 at 21:58 +0800, Herbert Xu wrote:
 
-I don't think it's a driver problem as I've tried three separate drivers all to the same effect:  link up/link down.
+> However, I think this function is just as buggy as the original
+> code that I replaced.  If you look at the code that fills in the
+> options in ip6_datagram_send_ctl, you'll find that the options do
+> not lie in the memory area of the opt + opt->tot_len.  They instead
+> point to data in the cmsg.
+> 
+> So I think we should
+> 
+> 1) fix ipv6_dup_options to do what I tried do but in a non-buggy way;
+> 2) make the UDP path use it.
+> 
+> BTW, in the UDP path we also have a socket so we can just charge the
+> memory to it and avoid using kmalloc at all.
 
-I think it might be Fedora faulty power management orba udev problem.  I've modified /etc/udev/70-persisetent-net.rules, let's see what happens.
+OK, so I guess for stable we should use kzalloc(), and work on a cleanup
+in net-next.
 
-Thanks,
+Thanks !
 
-Lance
+[PATCH] ipv6: fix possible crashes in ip6_cork_release()
+
+commit 0178b695fd6b4 ("ipv6: Copy cork options in ip6_append_data")
+added some code duplication and bad error recovery, leading to potential
+crash in ip6_cork_release() as kfree() could be called with garbage.
+
+use kzalloc() to make sure this wont happen.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+ net/ipv6/ip6_output.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index d2eedf1..dae1949 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1147,7 +1147,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
+ 			if (WARN_ON(np->cork.opt))
+ 				return -EINVAL;
+ 
+-			np->cork.opt = kmalloc(opt->tot_len, sk->sk_allocation);
++			np->cork.opt = kzalloc(opt->tot_len, sk->sk_allocation);
+ 			if (unlikely(np->cork.opt == NULL))
+ 				return -ENOBUFS;
+ 
