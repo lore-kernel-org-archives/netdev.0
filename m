@@ -1,79 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] ipv6: use ipv6_dup_options() from
- ip6_append_data()
-Date: Fri, 17 May 2013 07:53:13 -0700
-Message-ID: <1368802393.3301.90.camel@edumazet-glaptop>
-References: <1368742990.3301.67.camel@edumazet-glaptop>
-	 <1368750452.3301.74.camel@edumazet-glaptop>
-	 <20130517135804.GA16069@gondor.apana.org.au>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH] ss:  Show inet and unix sockets' shutdown state
+Date: Fri, 17 May 2013 19:02:01 +0400
+Message-ID: <51964669.7020503@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Neal Cardwell <ncardwell@google.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Stephen Hemminger <shemminger@linux-foundation.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:35969 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754010Ab3EQOxP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 10:53:15 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r11so95258pdi.21
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 07:53:15 -0700 (PDT)
-In-Reply-To: <20130517135804.GA16069@gondor.apana.org.au>
+Received: from mailhub.sw.ru ([195.214.232.25]:9119 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755395Ab3EQPCM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 May 2013 11:02:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+When extended info is requested (-e option) one will be able to observe
+arrows in the output, like this:
 
-On Fri, 2013-05-17 at 21:58 +0800, Herbert Xu wrote:
+ESTAB 0 0  127.0.0.1:41705  127.0.0.1:12345  ino:143321 sk:ffff88003a8cea00 -->
+ESTAB 0 0  127.0.0.1:46925  127.0.0.1:12346  ino:143322 sk:ffff88003a8ce4c0 <--
+ESTAB 0 0  127.0.0.1:51678  127.0.0.1:12347  ino:143323 sk:ffff88003a8cdf80 ---
+ESTAB 0 0  127.0.0.1:46911  127.0.0.1:12348  ino:143324 sk:ffff88003b7f05c0 <->
 
-> However, I think this function is just as buggy as the original
-> code that I replaced.  If you look at the code that fills in the
-> options in ip6_datagram_send_ctl, you'll find that the options do
-> not lie in the memory area of the opt + opt->tot_len.  They instead
-> point to data in the cmsg.
-> 
-> So I think we should
-> 
-> 1) fix ipv6_dup_options to do what I tried do but in a non-buggy way;
-> 2) make the UDP path use it.
-> 
-> BTW, in the UDP path we also have a socket so we can just charge the
-> memory to it and avoid using kmalloc at all.
+for SHUT_RD, SHUT_WR, SHUT_RDWR and non-shutdown sockets respectively.
 
-OK, so I guess for stable we should use kzalloc(), and work on a cleanup
-in net-next.
+The respective nlattrs in *_diag messages has appeared in Linux v3.7 and
+are already present in ss's headers.
 
-Thanks !
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-[PATCH] ipv6: fix possible crashes in ip6_cork_release()
-
-commit 0178b695fd6b4 ("ipv6: Copy cork options in ip6_append_data")
-added some code duplication and bad error recovery, leading to potential
-crash in ip6_cork_release() as kfree() could be called with garbage.
-
-use kzalloc() to make sure this wont happen.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Neal Cardwell <ncardwell@google.com>
 ---
- net/ipv6/ip6_output.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
-index d2eedf1..dae1949 100644
---- a/net/ipv6/ip6_output.c
-+++ b/net/ipv6/ip6_output.c
-@@ -1147,7 +1147,7 @@ int ip6_append_data(struct sock *sk, int getfrag(void *from, char *to,
- 			if (WARN_ON(np->cork.opt))
- 				return -EINVAL;
+diff --git a/misc/ss.c b/misc/ss.c
+index 5493630..c32574c 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1350,15 +1350,12 @@ static void print_skmeminfo(struct rtattr *tb[], int attrtype)
+ 	printf(")");
+ }
  
--			np->cork.opt = kmalloc(opt->tot_len, sk->sk_allocation);
-+			np->cork.opt = kzalloc(opt->tot_len, sk->sk_allocation);
- 			if (unlikely(np->cork.opt == NULL))
- 				return -ENOBUFS;
+-static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
++static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
++		struct rtattr *tb[])
+ {
+-	struct rtattr * tb[INET_DIAG_MAX+1];
+ 	char b1[64];
+ 	double rtt = 0;
  
+-	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr*)(r+1),
+-		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+-
+ 	if (tb[INET_DIAG_SKMEMINFO]) {
+ 		print_skmeminfo(tb, INET_DIAG_SKMEMINFO);
+ 	} else if (tb[INET_DIAG_MEMINFO]) {
+@@ -1443,9 +1440,13 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r)
+ 
+ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f)
+ {
++	struct rtattr * tb[INET_DIAG_MAX+1];
+ 	struct inet_diag_msg *r = NLMSG_DATA(nlh);
+ 	struct tcpstat s;
+ 
++	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr*)(r+1),
++		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
++
+ 	s.state = r->idiag_state;
+ 	s.local.family = s.remote.family = r->idiag_family;
+ 	s.lport = ntohs(r->id.idiag_sport);
+@@ -1494,10 +1495,15 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f)
+ 		if (r->id.idiag_cookie[1] != 0)
+ 			printf("%08x", r->id.idiag_cookie[1]);
+  		printf("%08x", r->id.idiag_cookie[0]);
++		if (tb[INET_DIAG_SHUTDOWN]) {
++			unsigned char mask;
++			mask = *(__u8 *)RTA_DATA(tb[INET_DIAG_SHUTDOWN]);
++			printf(" %c-%c", mask & 1 ? '-' : '<', mask & 2 ? '-' : '>');
++		}
+ 	}
+ 	if (show_mem || show_tcpinfo) {
+ 		printf("\n\t");
+-		tcp_show_info(nlh, r);
++		tcp_show_info(nlh, r, tb);
+ 	}
+ 
+ 	printf("\n");
+@@ -2203,6 +2209,14 @@ static int unix_show_sock(struct nlmsghdr *nlh, struct filter *f)
+ 		print_skmeminfo(tb, UNIX_DIAG_MEMINFO);
+ 	}
+ 
++	if (show_details) {
++		if (tb[UNIX_DIAG_SHUTDOWN]) {
++			unsigned char mask;
++			mask = *(__u8 *)RTA_DATA(tb[UNIX_DIAG_SHUTDOWN]);
++			printf(" %c-%c", mask & 1 ? '-' : '<', mask & 2 ? '-' : '>');
++		}
++	}
++
+ 	printf("\n");
+ 
+ 	return 0;
