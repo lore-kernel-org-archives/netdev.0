@@ -1,18 +1,18 @@
 From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net-next] tcp: remove bad timeout logic in fast recovery
-Date: Fri, 17 May 2013 16:45:05 -0700
-Message-ID: <1368834305-29849-1-git-send-email-ycheng@google.com>
+Subject: [PATCH] tcp: remove bad timeout logic in fast recovery
+Date: Fri, 17 May 2013 16:36:30 -0700
+Message-ID: <1368833790-28841-1-git-send-email-ycheng@google.com>
 Cc: ilpo.jarvinen@cs.helsinki.fi, netdev@vger.kernel.org,
 	Yuchung Cheng <ycheng@google.com>
 To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
 	nanditad@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f74.google.com ([209.85.216.74]:55378 "EHLO
-	mail-qa0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755139Ab3EQXvA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 19:51:00 -0400
-Received: by mail-qa0-f74.google.com with SMTP id bs12so112884qab.3
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 16:50:59 -0700 (PDT)
+Received: from mail-vb0-f74.google.com ([209.85.212.74]:65012 "EHLO
+	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756250Ab3ERAHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 20:07:20 -0400
+Received: by mail-vb0-f74.google.com with SMTP id q16so327786vbe.1
+        for <netdev@vger.kernel.org>; Fri, 17 May 2013 17:07:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -48,6 +48,7 @@ of this feature is questionable. It also wastes cycles walking the
 sack scoreboard and is actually harmful because of the false recovery.
 It's time to remove this.
 
+Change-Id: I8eb2ae80e032dbc07a4d87bf5a68771856a8c04c
 Signed-off-by: Yuchung Cheng <ycheng@google.com>
 ---
  include/linux/tcp.h  |  1 -
