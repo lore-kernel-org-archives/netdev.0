@@ -1,53 +1,28 @@
-From: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Subject: Re: [PATCH 2/5] net: davinci_emac: remove unwanted header inclusion
- and sort the alphabetically
-Date: Fri, 17 May 2013 10:23:16 +0530
-Message-ID: <CA+V-a8vWLWXL7WP3dzKXM0yFAkoU4UxfaqJ4E1t0gQhRp8zj-w@mail.gmail.com>
-References: <1368689438-23889-1-git-send-email-prabhakar.csengg@gmail.com>
- <1368689438-23889-3-git-send-email-prabhakar.csengg@gmail.com> <51952BA2.9040900@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG] crash in 8139cp with 3.9.2 and KVM
+Date: Thu, 16 May 2013 22:17:28 -0700
+Message-ID: <1368767848.3301.75.camel@edumazet-glaptop>
+References: <20130516214913.53ed65f9@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: DLOS <davinci-linux-open-source@linux.davincidsp.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jiri Kosina <trivial@kernel.org>, netdev@vger.kernel.org,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51952BA2.9040900@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, nic_swsd@realtek.com, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-da0-f50.google.com ([209.85.210.50]:47002 "EHLO
+	mail-da0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752857Ab3EQFRa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 01:17:30 -0400
+Received: by mail-da0-f50.google.com with SMTP id i23so1248891dad.37
+        for <netdev@vger.kernel.org>; Thu, 16 May 2013 22:17:30 -0700 (PDT)
+In-Reply-To: <20130516214913.53ed65f9@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Sergei,
+On Thu, 2013-05-16 at 21:49 -0700, Stephen Hemminger wrote:
+> Seeing the following panic when using emulated 8139cp with KVM and 3.9.2 kernel.
+> 
+> Looks like netdev_alloc_skb_ip_align() can return a fragmented skb sometimes
+> and using skb_put() on a non-linear skb causes a panic.
 
-Thanks for the review.
-
-On Fri, May 17, 2013 at 12:25 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> On 16-05-2013 11:30, Lad Prabhakar wrote:
->
->> From: Lad, Prabhakar <prabhakar.csengg@gmail.com>
->
->
->> This patch removes unwanted header inclusion
->
->
->    Why are they unwanted?
->
-The driver builds without this includes.
-
-This is arguable, if I would have added a new driver with the only
-#includes which were required to build thats accepted. But when I remove
-unnecessary #includes from the existing drivers that's not acceptable ?
-
-This applies to rest of the similar patches in the series.
-
->> and sorts them alphabetically
->
->
->    In the subject you typed "the" instead of "them".
->
-Hmm carry forwarded this copy paste error every where will fix it in V2.
-
-Regards,
---Prabhakar Lad
+Absolutely not, netdev_alloc_skb_ip_align() always provide a linear skb.
