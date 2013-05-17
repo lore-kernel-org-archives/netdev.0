@@ -1,78 +1,30 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH] ipv4: netfilter: always let NUL terminated string ended by
- '\0'
-Date: Fri, 17 May 2013 16:39:15 +0800
-Message-ID: <5195ECB3.5000006@asianux.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request for net: batman-adv 2013-05-17
+Date: Fri, 17 May 2013 01:41:40 -0700 (PDT)
+Message-ID: <20130517.014140.2125848646591726751.davem@davemloft.net>
+References: <1368778211-2142-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev <netdev@vger.kernel.org>
-To: pablo@netfilter.org, kaber@trash.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34507 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754284Ab3EQIll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 04:41:41 -0400
+In-Reply-To: <1368778211-2142-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Fri, 17 May 2013 10:10:10 +0200
 
-For NUL terminated string, better always be sure of ended by '\0'.
+> here you have one fix intended for net/linux-3.10.
+> This patch is fixing a global fault protection that can be triggered on module
+> removal due to the double invocation of call_rcu() in chain.
+> 
+> While fixing, the patch is also adding some kernel doc to the changed functions.
+> Consider queueing this patch to -stable.
 
-'pm' is 'struct ulog_packet_msg_t' which may be copied to user mode
-(defined in "include/uapi/..."), so can not use strlcpy() instead of.
-
-
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
----
- net/ipv4/netfilter/ipt_ULOG.c |   27 ++++++++++++++++-----------
- 1 files changed, 16 insertions(+), 11 deletions(-)
-
-diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
-index f8a222cb..4a93382 100644
---- a/net/ipv4/netfilter/ipt_ULOG.c
-+++ b/net/ipv4/netfilter/ipt_ULOG.c
-@@ -231,11 +231,13 @@ static void ipt_ulog_packet(unsigned int hooknum,
- 	put_unaligned(tv.tv_usec, &pm->timestamp_usec);
- 	put_unaligned(skb->mark, &pm->mark);
- 	pm->hook = hooknum;
--	if (prefix != NULL)
--		strncpy(pm->prefix, prefix, sizeof(pm->prefix));
--	else if (loginfo->prefix[0] != '\0')
--		strncpy(pm->prefix, loginfo->prefix, sizeof(pm->prefix));
--	else
-+	if (prefix != NULL) {
-+		strncpy(pm->prefix, prefix, sizeof(pm->prefix) - 1);
-+		pm->prefix[sizeof(pm->prefix) - 1] = '\0';
-+	} else if (loginfo->prefix[0] != '\0') {
-+		strncpy(pm->prefix, loginfo->prefix, sizeof(pm->prefix) - 1);
-+		pm->prefix[sizeof(pm->prefix) - 1] = '\0';
-+	} else
- 		*(pm->prefix) = '\0';
- 
- 	if (in && in->hard_header_len > 0 &&
-@@ -246,14 +248,17 @@ static void ipt_ulog_packet(unsigned int hooknum,
- 	} else
- 		pm->mac_len = 0;
- 
--	if (in)
--		strncpy(pm->indev_name, in->name, sizeof(pm->indev_name));
--	else
-+	if (in) {
-+		strncpy(pm->indev_name, in->name, sizeof(pm->indev_name) - 1);
-+		pm->indev_name[sizeof(pm->indev_name) - 1] = '\0';
-+	} else
- 		pm->indev_name[0] = '\0';
- 
--	if (out)
--		strncpy(pm->outdev_name, out->name, sizeof(pm->outdev_name));
--	else
-+	if (out) {
-+		strncpy(pm->outdev_name, out->name,
-+			sizeof(pm->outdev_name) - 1);
-+		pm->outdev_name[sizeof(pm->outdev_name) - 1] = '\0';
-+	} else
- 		pm->outdev_name[0] = '\0';
- 
- 	/* copy_len <= skb->len, so can't fail. */
--- 
-1.7.7.6
+Pulled, thanks.
