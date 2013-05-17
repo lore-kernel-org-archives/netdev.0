@@ -1,122 +1,46 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [PATCH] netlabel: improve domain mapping validation
-Date: Fri, 17 May 2013 15:08:50 -0400
-Message-ID: <20130517190850.11148.51057.stgit@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-security-module@vger.kernel.org, vlad.halilov@gmail.com,
-	selinux@tycho.nsa.gov
-To: netdev@vger.kernel.org
-Return-path: <linux-security-module-owner@vger.kernel.org>
-Sender: linux-security-module-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next] Documentation/sysctl/net.txt: fix (attribute removal).
+Date: Fri, 17 May 2013 22:10:34 +0300
+Message-ID: <1368817834-5915-1-git-send-email-ramirose@gmail.com>
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org,
+	Rami Rosen <ramirose@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:35350 "EHLO
+	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755886Ab3EQTL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 15:11:27 -0400
+Received: by mail-ea0-f175.google.com with SMTP id h10so2532098eaj.34
+        for <netdev@vger.kernel.org>; Fri, 17 May 2013 12:11:26 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The net/netlabel/netlabel_domainhash.c:netlbl_domhsh_add() function
-does not properly validate new domain hash entries resulting in
-potential problems when an administrator attempts to add an invalid
-entry.  One such problem, as reported by Vlad Halilov, is a kernel
-BUG (found in netlabel_domainhash.c:netlbl_domhsh_audit_add()) when
-adding an IPv6 outbound mapping with a CIPSO configuration.
+This patch removes mentioning the sysfsf net_device weight attribute
+(class/net/<device>/weight)  
+in Documentation/sysctl/net.txt, since the net sysfs weight attribute
+was removed by the following patch:
 
-This patch corrects this problem by adding the necessary validation
-code to netlbl_domhsh_add() via the newly created
-netlbl_domhsh_validate() function.
+[NET]: Make NAPI polling independent of struct net_device objects
+ bea3348eef27e6044b6161fd04c3152215f96411
 
-Ideally this patch should also be pushed to the currently active
--stable trees.
-
-Reported-by: Vlad Halilov <vlad.halilov@gmail.com>
-Signed-off-by: Paul Moore <pmoore@redhat.com>
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
 ---
- net/netlabel/netlabel_domainhash.c |   69 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 69 insertions(+)
+ Documentation/sysctl/net.txt | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
-index d8d4243..6bb1d42 100644
---- a/net/netlabel/netlabel_domainhash.c
-+++ b/net/netlabel/netlabel_domainhash.c
-@@ -245,6 +245,71 @@ static void netlbl_domhsh_audit_add(struct netlbl_dom_map *entry,
- 	}
- }
+diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
+index 98335b7..c1f8640 100644
+--- a/Documentation/sysctl/net.txt
++++ b/Documentation/sysctl/net.txt
+@@ -93,8 +93,7 @@ netdev_budget
  
-+/**
-+ * netlbl_domhsh_validate - Validate a new domain mapping entry
-+ * @entry: the entry to validate
-+ *
-+ * This function validates the new domain mapping entry to ensure that it is
-+ * a valid entry.  Returns zero on success, negative values on failure.
-+ *
-+ */
-+static int netlbl_domhsh_validate(const struct netlbl_dom_map *entry)
-+{
-+	struct netlbl_af4list *iter4;
-+	struct netlbl_domaddr4_map *map4;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct netlbl_af6list *iter6;
-+	struct netlbl_domaddr6_map *map6;
-+#endif /* IPv6 */
-+
-+	if (entry == NULL)
-+		return -EINVAL;
-+
-+	switch (entry->type) {
-+	case NETLBL_NLTYPE_UNLABELED:
-+		if (entry->type_def.cipsov4 != NULL ||
-+		    entry->type_def.addrsel != NULL)
-+			return -EINVAL;
-+		break;
-+	case NETLBL_NLTYPE_CIPSOV4:
-+		if (entry->type_def.cipsov4 == NULL)
-+			return -EINVAL;
-+		break;
-+	case NETLBL_NLTYPE_ADDRSELECT:
-+		netlbl_af4list_foreach(iter4, &entry->type_def.addrsel->list4) {
-+			map4 = netlbl_domhsh_addr4_entry(iter4);
-+			switch (map4->type) {
-+			case NETLBL_NLTYPE_UNLABELED:
-+				if (map4->type_def.cipsov4 != NULL)
-+					return -EINVAL;
-+				break;
-+			case NETLBL_NLTYPE_CIPSOV4:
-+				if (map4->type_def.cipsov4 == NULL)
-+					return -EINVAL;
-+				break;
-+			default:
-+				return -EINVAL;
-+			}
-+		}
-+#if IS_ENABLED(CONFIG_IPV6)
-+		netlbl_af6list_foreach(iter6, &entry->type_def.addrsel->list6) {
-+			map6 = netlbl_domhsh_addr6_entry(iter6);
-+			switch (map6->type) {
-+			case NETLBL_NLTYPE_UNLABELED:
-+				break;
-+			default:
-+				return -EINVAL;
-+			}
-+		}
-+#endif /* IPv6 */
-+		break;
-+	default:
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
- /*
-  * Domain Hash Table Functions
-  */
-@@ -311,6 +376,10 @@ int netlbl_domhsh_add(struct netlbl_dom_map *entry,
- 	struct netlbl_af6list *tmp6;
- #endif /* IPv6 */
+ Maximum number of packets taken from all interfaces in one polling cycle (NAPI
+ poll). In one polling cycle interfaces which are registered to polling are
+-probed in a round-robin manner. The limit of packets in one such probe can be
+-set per-device via sysfs class/net/<device>/weight .
++probed in a round-robin manner.
  
-+	ret_val = netlbl_domhsh_validate(entry);
-+	if (ret_val != 0)
-+		return ret_val;
-+
- 	/* XXX - we can remove this RCU read lock as the spinlock protects the
- 	 *       entire function, but before we do we need to fixup the
- 	 *       netlbl_af[4,6]list RCU functions to do "the right thing" with
-
+ netdev_max_backlog
+ ------------------
+-- 
+1.8.1.4
