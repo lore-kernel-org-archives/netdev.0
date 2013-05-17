@@ -1,7 +1,7 @@
 From: =?UTF-8?q?Emilio=20L=C3=B3pez?= <emilio@elopez.com.ar>
-Subject: [PATCH v2 2/4] net: ethernet: apple: initialize variables directly
-Date: Fri, 17 May 2013 17:42:54 -0300
-Message-ID: <1368823376-13104-2-git-send-email-emilio@elopez.com.ar>
+Subject: [PATCH v2 3/4] net: ethernet: davicom: dm9000: initialize variables directly
+Date: Fri, 17 May 2013 17:42:55 -0300
+Message-ID: <1368823376-13104-3-git-send-email-emilio@elopez.com.ar>
 References: <1368803268-27698-1-git-send-email-emilio@elopez.com.ar>
  <1368823376-13104-1-git-send-email-emilio@elopez.com.ar>
 Mime-Version: 1.0
@@ -26,30 +26,36 @@ Please note that this patch is untested.
 Changes from v1:
   - {0} -> { 0 } as suggested by David Miller
 
- drivers/net/ethernet/apple/bmac.c | 4 +---
- 1 file changed, 1 insertion(+), 3 deletions(-)
+ drivers/net/ethernet/davicom/dm9000.c | 9 +--------
+ 1 file changed, 1 insertion(+), 8 deletions(-)
 
-diff --git a/drivers/net/ethernet/apple/bmac.c b/drivers/net/ethernet/a=
-pple/bmac.c
-index f36bbd6..253030c 100644
---- a/drivers/net/ethernet/apple/bmac.c
-+++ b/drivers/net/ethernet/apple/bmac.c
-@@ -1030,14 +1030,12 @@ static void bmac_set_multicast(struct net_devic=
-e *dev)
- 		rx_cfg |=3D RxPromiscEnable;
- 		bmwrite(dev, RXCFG, rx_cfg);
- 	} else {
--		u16 hash_table[4];
-+		u16 hash_table[4] =3D { 0 };
+diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethern=
+et/davicom/dm9000.c
+index 9105465..e4ed05e 100644
+--- a/drivers/net/ethernet/davicom/dm9000.c
++++ b/drivers/net/ethernet/davicom/dm9000.c
+@@ -827,7 +827,7 @@ dm9000_hash_table_unlocked(struct net_device *dev)
+ 	struct netdev_hw_addr *ha;
+ 	int i, oft;
+ 	u32 hash_val;
+-	u16 hash_table[4];
++	u16 hash_table[4] =3D { 0, 0, 0, 0x8000 }; /* broadcast address */
+ 	u8 rcr =3D RCR_DIS_LONG | RCR_DIS_CRC | RCR_RXEN;
 =20
- 		rx_cfg =3D bmread(dev, RXCFG);
- 		rx_cfg &=3D ~RxPromiscEnable;
- 		bmwrite(dev, RXCFG, rx_cfg);
+ 	dm9000_dbg(db, 1, "entering %s\n", __func__);
+@@ -835,13 +835,6 @@ dm9000_hash_table_unlocked(struct net_device *dev)
+ 	for (i =3D 0, oft =3D DM9000_PAR; i < 6; i++, oft++)
+ 		iow(db, oft, dev->dev_addr[i]);
 =20
--		for(i =3D 0; i < 4; i++) hash_table[i] =3D 0;
+-	/* Clear Hash Table */
+-	for (i =3D 0; i < 4; i++)
+-		hash_table[i] =3D 0x0;
 -
- 		netdev_for_each_mc_addr(ha, dev) {
- 			crc =3D ether_crc_le(6, ha->addr);
- 			crc >>=3D 26;
+-	/* broadcast address */
+-	hash_table[3] =3D 0x8000;
+-
+ 	if (dev->flags & IFF_PROMISC)
+ 		rcr |=3D RCR_PRMSC;
+=20
 --=20
 1.8.2.3
