@@ -1,54 +1,190 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] ip_gre: fix a possible crash in ipgre_err()
-Date: Sat, 18 May 2013 11:36:03 -0700
-Message-ID: <1368902163.3301.156.camel@edumazet-glaptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCHv8 3/3] net: velocity: Add platform device support to VIA
+ velocity driver
+Date: Sat, 18 May 2013 20:55:26 +0200
+Message-ID: <20130518185526.GA25486@electric-eye.fr.zoreil.com>
+References: <1368853187-17823-1-git-send-email-linux@prisktech.co.nz>
+ <1368853187-17823-4-git-send-email-linux@prisktech.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:54934 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752590Ab3ERSgF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 May 2013 14:36:05 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so3536204pdj.14
-        for <netdev@vger.kernel.org>; Sat, 18 May 2013 11:36:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Tony Prisk <linux@prisktech.co.nz>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1368853187-17823-4-git-send-email-linux@prisktech.co.nz>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Tony Prisk <linux@prisktech.co.nz> :
+[...]
+> diff --git a/drivers/net/ethernet/via/via-velocity.c b/drivers/net/ethernet/via/via-velocity.c
+> index 5996cee..d8d5bc5 100644
+> --- a/drivers/net/ethernet/via/via-velocity.c
+> +++ b/drivers/net/ethernet/via/via-velocity.c
+[...]
+> @@ -84,6 +88,16 @@
+>  static int velocity_nics;
+>  static int msglevel = MSG_LEVEL_INFO;
+>  
+> +static void velocity_set_power_state(struct velocity_info *vptr, char state)
+> +{
+> +	void *addr = vptr->mac_regs;
 
-Another fix needed in ipgre_err(), as parse_gre_header() might change
-skb->head.
+Your choice but it's only used once.
 
-Bug added in commit c54419321455 (GRE: Refactor GRE tunneling code.)
+[...]
+> @@ -1353,9 +1366,12 @@ static void velocity_init_registers(struct velocity_info *vptr,
+>  		velocity_soft_reset(vptr);
+>  		mdelay(5);
+>  
+> -		mac_eeprom_reload(regs);
+> -		for (i = 0; i < 6; i++)
+> -			writeb(vptr->netdev->dev_addr[i], &(regs->PAR[i]));
+> +		if (!vptr->no_eeprom) {
+> +			mac_eeprom_reload(regs);
+> +			for (i = 0; i < 6; i++)
+> +				writeb(vptr->netdev->dev_addr[i],
+> +							&(regs->PAR[i]));
+> +		}
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
----
- net/ipv4/ip_gre.c |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+velocity_init_registers would not suffer from a local vptr->netdev variable.
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index c625e4d..2a83591 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -235,7 +235,7 @@ static void ipgre_err(struct sk_buff *skb, u32 info)
- 	   */
- 	struct net *net = dev_net(skb->dev);
- 	struct ip_tunnel_net *itn;
--	const struct iphdr *iph = (const struct iphdr *)skb->data;
-+	const struct iphdr *iph;
- 	const int type = icmp_hdr(skb)->type;
- 	const int code = icmp_hdr(skb)->code;
- 	struct ip_tunnel *t;
-@@ -281,6 +281,7 @@ static void ipgre_err(struct sk_buff *skb, u32 info)
- 	else
- 		itn = net_generic(net, ipgre_net_id);
- 
-+	iph = (const struct iphdr *)skb->data;
- 	t = ip_tunnel_lookup(itn, skb->dev->ifindex, tpi.flags,
- 			     iph->daddr, iph->saddr, tpi.key);
- 
+If you change this code, you may replace &(regs->PAR[i]) with regs->PAR + i.
+
+[...]
+> @@ -2730,19 +2773,19 @@ static int velocity_found1(struct pci_dev *pdev,
+>  	 * can support more than MAX_UNITS.
+>  	 */
+>  	if (velocity_nics >= MAX_UNITS) {
+> -		dev_notice(&pdev->dev, "already found %d NICs.\n",
+> -			   velocity_nics);
+> +		dev_notice(dev, "already found %d NICs.\n", velocity_nics);
+>  		return -ENODEV;
+>  	}
+>  
+> -	dev = alloc_etherdev(sizeof(struct velocity_info));
+> -	if (!dev)
+> +	netdev = alloc_etherdev(sizeof(struct velocity_info));
+> +	if (!netdev)
+>  		goto out;
+>  
+>  	/* Chain it all together */
+>  
+> -	SET_NETDEV_DEV(dev, &pdev->dev);
+> -	vptr = netdev_priv(dev);
+> +	SET_NETDEV_DEV(netdev, dev);
+> +	vptr = netdev_priv(netdev);
+> +	memset(vptr, 0, sizeof(struct velocity_info));
+
+memset is not needed (alloc_etherdev indirectly uses kzalloc).
+
+[...]
+> +static int velocity_pci_probe(struct pci_dev *pdev,
+> +			   const struct pci_device_id *ent)
+
+It does not seem to line up as it should.
+
+> +{
+> +	int ret;
+> +	const struct velocity_info_tbl *info =
+> +					&chip_info_table[ent->driver_data];
+
+Long lines ought to come first.
+
+> +
+> +	ret = pci_enable_device(pdev);
+> +	if (ret < 0)
+> +		return ret;
+> +
+> +	ret = pci_request_regions(pdev, VELOCITY_NAME);
+> +	if (ret < 0) {
+> +		dev_err(&pdev->dev, "No PCI resources.\n");
+> +		pci_disable_device(pdev);
+> +		return ret;
+> +	}
+> +
+> +	ret = velocity_probe(&pdev->dev, pdev->irq, info, BUS_PCI);
+> +	if (ret < 0) {
+> +		pci_release_regions(pdev);
+> +		pci_disable_device(pdev);
+> +	}
+
+Please use gotos for the error paths.
+
+[...]
+> @@ -3270,7 +3409,11 @@ static void velocity_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo
+>  	struct velocity_info *vptr = netdev_priv(dev);
+>  	strlcpy(info->driver, VELOCITY_NAME, sizeof(info->driver));
+
+You may sneak an empty line after the declaration.
+
+>  	strlcpy(info->version, VELOCITY_VERSION, sizeof(info->version));
+> -	strlcpy(info->bus_info, pci_name(vptr->pdev), sizeof(info->bus_info));
+> +	if (vptr->bustype == BUS_PCI)
+> +		strlcpy(info->bus_info, pci_name(vptr->pdev),
+> +						sizeof(info->bus_info));
+> +	else
+> +		strlcpy(info->bus_info, "platform", sizeof(info->bus_info));
+
+	strlcpy(info->bus_info, vptr->pdev ? pci_name(vptr->pdev) : "platform",
+		sizeof(info->bus_info));
+
+>  static void velocity_ethtool_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+> @@ -3563,9 +3706,15 @@ static int __init velocity_init_module(void)
+>  	int ret;
+>  
+>  	velocity_register_notifier();
+> -	ret = pci_register_driver(&velocity_driver);
+> +
+> +	ret = pci_register_driver(&velocity_pci_driver);
+> +	if (ret < 0)
+> +		velocity_unregister_notifier();
+> +
+> +	ret = platform_driver_register(&velocity_platform_driver);
+>  	if (ret < 0)
+>  		velocity_unregister_notifier();
+> +
+
+I'd rather velocity_unregister_notifier iif both driver registrations
+failed.
+
+[...]
+> diff --git a/drivers/net/ethernet/via/via-velocity.h b/drivers/net/ethernet/via/via-velocity.h
+> index c38bbae..1d94612 100644
+> --- a/drivers/net/ethernet/via/via-velocity.h
+> +++ b/drivers/net/ethernet/via/via-velocity.h
+[...]
+> @@ -1433,10 +1433,17 @@ struct velocity_opt {
+>  
+>  #define GET_RD_BY_IDX(vptr, idx)   (vptr->rd_ring[idx])
+>  
+> +enum velocity_bus_type {
+> +	BUS_PCI,
+> +	BUS_PLATFORM,
+> +};
+> +
+>  struct velocity_info {
+> -	struct device *dev;
+>  	struct pci_dev *pdev;
+> +	struct device *dev;
+
+Please don't move the fields you added.
+
+>  	struct net_device *netdev;
+> +	enum velocity_bus_type bustype;
+
+velocity_bus_type is not really needed since you always have pdev to
+check against.
+
+-- 
+Ueimor
