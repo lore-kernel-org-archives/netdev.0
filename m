@@ -1,21 +1,42 @@
-From: =?ISO-8859-13?Q?Penki_=F0imtai_t=FBkstan=E8i=F8_doleri=F8_buvo_suteikta_u=FE_?=
-	 =?ISO-8859-13?Q?savo_elektroninio_pa=F0to_ID=2E?=
-	<skidopedro1990@gmail.com>
-Subject: (unknown)
-Date: Sat, 18 May 2013 21:59:08 +0100
-Message-ID: <CABSDjgd66za6YWLRt4nQ7kK6c-F_eXxU1nyD869aApvjgdY2-w__10265.1241388687$1368910778$gmane$org@mail.gmail.com>
-Reply-To: bobjohnsonx477@gmail.com
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: bug fixing and cleanup
+Date: Sat, 18 May 2013 23:09:48 +0200
+Message-ID: <20130518210948.GA26590@electric-eye.fr.zoreil.com>
+References: <alpine.DEB.2.02.1305181902080.7518@fry.nucleusys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f68.google.com ([209.85.215.68]:52376 "EHLO
-	mail-la0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292Ab3ERU7N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 May 2013 16:59:13 -0400
-Received: by mail-la0-f68.google.com with SMTP id fp13so965226lab.3
-        for <netdev@vger.kernel.org>; Sat, 18 May 2013 13:59:11 -0700 (PDT)
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Petko Manolov <petkan@nucleusys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.DEB.2.02.1305181902080.7518@fry.nucleusys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Petko Manolov <petkan@nucleusys.com> :
+> From: Petko Manolov <petkan@nucleusys.com>
+> 
+> Moving constant and structure definitions out of rtl8150.c;
+
+What's the point ?
+
+[...]
+> ---
+>  drivers/net/usb/rtl8150.c |  121 +----------------------------------
+>  1 file changed, 2 insertions(+), 119 deletions(-)
+> 
+> diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+> index a491d3a..7d1897b 100644
+> --- a/drivers/net/usb/rtl8150.c
+> +++ b/drivers/net/usb/rtl8150.c
+> @@ -17,132 +17,15 @@
+>  #include <linux/usb.h>
+>  #include <asm/uaccess.h>
+>  
+> +#include "rtl8150.h"
+
+It won't compile. You shouldn't do that.
+
+-- 
+Ueimor
