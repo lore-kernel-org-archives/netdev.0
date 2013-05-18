@@ -1,202 +1,36 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH] tcp: remove bad timeout logic in fast recovery
-Date: Fri, 17 May 2013 16:36:30 -0700
-Message-ID: <1368833790-28841-1-git-send-email-ycheng@google.com>
-Cc: ilpo.jarvinen@cs.helsinki.fi, netdev@vger.kernel.org,
-	Yuchung Cheng <ycheng@google.com>
-To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
-	nanditad@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f74.google.com ([209.85.212.74]:65012 "EHLO
-	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756250Ab3ERAHU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 20:07:20 -0400
-Received: by mail-vb0-f74.google.com with SMTP id q16so327786vbe.1
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 17:07:19 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv6 0/3] Add support for velocity network driver on
+ platform devices
+Date: Fri, 17 May 2013 17:36:44 -0700 (PDT)
+Message-ID: <20130517.173644.1877140985770026320.davem@davemloft.net>
+References: <1368768078-16121-1-git-send-email-linux@prisktech.co.nz>
+	<20130517.141938.2120801813213703422.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-7
+Content-Transfer-Encoding: base64
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	romieu@fr.zoreil.com, netdev@vger.kernel.org
+To: linux@prisktech.co.nz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130517.141938.2120801813213703422.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-tcp_timeout_skb() was intended to trigger fast recovery on timeout,
-unfortunately in reality it often causes spurious retransmission
-storms during fast recovery. The particular sign is fast retransmit
-over highest sacked sequence (SND.FACK).
-
-Currently the RTO timer re-arming (as in RFC6298) offers a nice cushion
-to avoid spurious timeout: when SND.UNA advances the sender re-arms
-RTO and extends the timeout by icsk_rto. The sender does not offset
-the time elapsed since the packet at SND.UNA was sent.
-
-But if the next (DUP)ACK arrives later than ~RTTVAR and triggers
-tcp_fastretrans_alert(), then tcp_timeout_skb() will mark any packet
-sent before icsk_rto interval lost, including one that's above the
-highest sacked sequence. Most likely a large part of scorebard will
-be marked.
-
-If most packets are not lost then the subsequence DUPACKs with new
-SACK blockes will cause the sender to continue retransmit packets
-beyond SND.FACK spuriously right. Even only one packet is lost the
-sender may falsely retransmit almost the entire window.
-
-The situation becomes common in the world of bufferbloat: the RTT
-continues to grow as the queue builds up but RTTVAR remains small and
-close to the minimum 200ms. If a data packet is lost and the DUPACK
-triggered by the next data packet is slightly delayed, then a spurious
-retransmission storm forms.
-
-As the original comment on tcp_timeout_skb() suggests: the usefulness
-of this feature is questionable. It also wastes cycles walking the
-sack scoreboard and is actually harmful because of the false recovery.
-It's time to remove this.
-
-Change-Id: I8eb2ae80e032dbc07a4d87bf5a68771856a8c04c
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
----
- include/linux/tcp.h  |  1 -
- include/net/tcp.h    |  1 -
- net/ipv4/tcp_input.c | 65 +---------------------------------------------------
- 3 files changed, 1 insertion(+), 66 deletions(-)
-
-diff --git a/include/linux/tcp.h b/include/linux/tcp.h
-index 5adbc33..472120b 100644
---- a/include/linux/tcp.h
-+++ b/include/linux/tcp.h
-@@ -246,7 +246,6 @@ struct tcp_sock {
- 
- 	/* from STCP, retrans queue hinting */
- 	struct sk_buff* lost_skb_hint;
--	struct sk_buff *scoreboard_skb_hint;
- 	struct sk_buff *retransmit_skb_hint;
- 
- 	struct sk_buff_head	out_of_order_queue; /* Out of order segments go here */
-diff --git a/include/net/tcp.h b/include/net/tcp.h
-index 5bba80f..e1c3723 100644
---- a/include/net/tcp.h
-+++ b/include/net/tcp.h
-@@ -1193,7 +1193,6 @@ static inline void tcp_mib_init(struct net *net)
- static inline void tcp_clear_retrans_hints_partial(struct tcp_sock *tp)
- {
- 	tp->lost_skb_hint = NULL;
--	tp->scoreboard_skb_hint = NULL;
- }
- 
- static inline void tcp_clear_all_retrans_hints(struct tcp_sock *tp)
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index b358e8c..d7d3694 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -1255,8 +1255,6 @@ static bool tcp_shifted_skb(struct sock *sk, struct sk_buff *skb,
- 
- 	if (skb == tp->retransmit_skb_hint)
- 		tp->retransmit_skb_hint = prev;
--	if (skb == tp->scoreboard_skb_hint)
--		tp->scoreboard_skb_hint = prev;
- 	if (skb == tp->lost_skb_hint) {
- 		tp->lost_skb_hint = prev;
- 		tp->lost_cnt_hint -= tcp_skb_pcount(prev);
-@@ -1964,20 +1962,6 @@ static bool tcp_pause_early_retransmit(struct sock *sk, int flag)
- 	return true;
- }
- 
--static inline int tcp_skb_timedout(const struct sock *sk,
--				   const struct sk_buff *skb)
--{
--	return tcp_time_stamp - TCP_SKB_CB(skb)->when > inet_csk(sk)->icsk_rto;
--}
--
--static inline int tcp_head_timedout(const struct sock *sk)
--{
--	const struct tcp_sock *tp = tcp_sk(sk);
--
--	return tp->packets_out &&
--	       tcp_skb_timedout(sk, tcp_write_queue_head(sk));
--}
--
- /* Linux NewReno/SACK/FACK/ECN state machine.
-  * --------------------------------------
-  *
-@@ -2084,12 +2068,6 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
- 	if (tcp_dupack_heuristics(tp) > tp->reordering)
- 		return true;
- 
--	/* Trick#3 : when we use RFC2988 timer restart, fast
--	 * retransmit can be triggered by timeout of queue head.
--	 */
--	if (tcp_is_fack(tp) && tcp_head_timedout(sk))
--		return true;
--
- 	/* Trick#4: It is still not OK... But will it be useful to delay
- 	 * recovery more?
- 	 */
-@@ -2126,44 +2104,6 @@ static bool tcp_time_to_recover(struct sock *sk, int flag)
- 	return false;
- }
- 
--/* New heuristics: it is possible only after we switched to restart timer
-- * each time when something is ACKed. Hence, we can detect timed out packets
-- * during fast retransmit without falling to slow start.
-- *
-- * Usefulness of this as is very questionable, since we should know which of
-- * the segments is the next to timeout which is relatively expensive to find
-- * in general case unless we add some data structure just for that. The
-- * current approach certainly won't find the right one too often and when it
-- * finally does find _something_ it usually marks large part of the window
-- * right away (because a retransmission with a larger timestamp blocks the
-- * loop from advancing). -ij
-- */
--static void tcp_timeout_skbs(struct sock *sk)
--{
--	struct tcp_sock *tp = tcp_sk(sk);
--	struct sk_buff *skb;
--
--	if (!tcp_is_fack(tp) || !tcp_head_timedout(sk))
--		return;
--
--	skb = tp->scoreboard_skb_hint;
--	if (tp->scoreboard_skb_hint == NULL)
--		skb = tcp_write_queue_head(sk);
--
--	tcp_for_write_queue_from(skb, sk) {
--		if (skb == tcp_send_head(sk))
--			break;
--		if (!tcp_skb_timedout(sk, skb))
--			break;
--
--		tcp_skb_mark_lost(tp, skb);
--	}
--
--	tp->scoreboard_skb_hint = skb;
--
--	tcp_verify_left_out(tp);
--}
--
- /* Detect loss in event "A" above by marking head of queue up as lost.
-  * For FACK or non-SACK(Reno) senders, the first "packets" number of segments
-  * are considered lost. For RFC3517 SACK, a segment is considered lost if it
-@@ -2249,8 +2189,6 @@ static void tcp_update_scoreboard(struct sock *sk, int fast_rexmit)
- 		else if (fast_rexmit)
- 			tcp_mark_head_lost(sk, 1, 1);
- 	}
--
--	tcp_timeout_skbs(sk);
- }
- 
- /* CWND moderation, preventing bursts due to too big ACKs
-@@ -2842,7 +2780,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
- 		fast_rexmit = 1;
- 	}
- 
--	if (do_lost || (tcp_is_fack(tp) && tcp_head_timedout(sk)))
-+	if (do_lost)
- 		tcp_update_scoreboard(sk, fast_rexmit);
- 	tcp_cwnd_reduction(sk, newly_acked_sacked, fast_rexmit);
- 	tcp_xmit_retransmit_queue(sk);
-@@ -3075,7 +3013,6 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
- 
- 		tcp_unlink_write_queue(skb, sk);
- 		sk_wmem_free_skb(sk, skb);
--		tp->scoreboard_skb_hint = NULL;
- 		if (skb == tp->retransmit_skb_hint)
- 			tp->retransmit_skb_hint = NULL;
- 		if (skb == tp->lost_skb_hint)
--- 
-1.8.2.1
+RnJvbTogRGF2aWQgTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQubmV0Pg0KRGF0ZTogRnJpLCAxNyBN
+YXkgMjAxMyAxNDoxOTozOCAtMDcwMCAoUERUKQ0KDQo+IA0KPiBTZXJpZXMgYXBwbGllZCwgdGhh
+bmtzLg0KDQpJJ20gcmV2ZXJ0aW5nIHRoaXMsIHlvdSdyZSBub3QgdXNpbmcgdGhlIGNvcnJlY3Qg
+dHlwZXMgZm9yIHRoZSBQTQ0KZnVuY3Rpb25zIHlvdSdyZSBob29raW5nIHVwLg0KDQpkcml2ZXJz
+L25ldC9ldGhlcm5ldC92aWEvdmlhLXZlbG9jaXR5LmM6MzIzODo4OiB3YXJuaW5nOiBpbml0aWFs
+aXphdGlvbiBmcm9tIGluY29tcGF0aWJsZSBwb2ludGVyIHR5cGUgW2VuYWJsZWQgYnkgZGVmYXVs
+dF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L3ZpYS92aWEtdmVsb2NpdHkuYzozMjM4Ojg6IHdhcm5p
+bmc6IChuZWFyIGluaXRpYWxpemF0aW9uIGZvciChdmVsb2NpdHlfcG1fb3BzLnN1c3BlbmSiKSBb
+ZW5hYmxlZCBieSBkZWZhdWx0XQ0KZHJpdmVycy9uZXQvZXRoZXJuZXQvdmlhL3ZpYS12ZWxvY2l0
+eS5jOjMyMzg6ODogd2FybmluZzogaW5pdGlhbGl6YXRpb24gZnJvbSBpbmNvbXBhdGlibGUgcG9p
+bnRlciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRdDQpkcml2ZXJzL25ldC9ldGhlcm5ldC92aWEv
+dmlhLXZlbG9jaXR5LmM6MzIzODo4OiB3YXJuaW5nOiAobmVhciBpbml0aWFsaXphdGlvbiBmb3Ig
+oXZlbG9jaXR5X3BtX29wcy5mcmVlemWiKSBbZW5hYmxlZCBieSBkZWZhdWx0XQ0KZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvdmlhL3ZpYS12ZWxvY2l0eS5jOjMyMzg6ODogd2FybmluZzogaW5pdGlhbGl6
+YXRpb24gZnJvbSBpbmNvbXBhdGlibGUgcG9pbnRlciB0eXBlIFtlbmFibGVkIGJ5IGRlZmF1bHRd
+DQpkcml2ZXJzL25ldC9ldGhlcm5ldC92aWEvdmlhLXZlbG9jaXR5LmM6MzIzODo4OiB3YXJuaW5n
+OiAobmVhciBpbml0aWFsaXphdGlvbiBmb3IgoXZlbG9jaXR5X3BtX29wcy5wb3dlcm9mZqIpIFtl
+bmFibGVkIGJ5IGRlZmF1bHRdDQo=
