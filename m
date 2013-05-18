@@ -1,45 +1,35 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: NDA_PORT attribute is useless
-Date: Fri, 17 May 2013 20:54:57 -0700
-Message-ID: <20130517205457.61dbaae2@nehalam.linuxnetplumber.net>
+Subject: Please revert port per vxlan in 3.10
+Date: Fri, 17 May 2013 20:57:57 -0700
+Message-ID: <20130517205757.2048df89@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f51.google.com ([209.85.210.51]:62758 "EHLO
-	mail-da0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751306Ab3ERDzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 23:55:02 -0400
-Received: by mail-da0-f51.google.com with SMTP id h15so2748988dan.10
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 20:55:01 -0700 (PDT)
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:52086 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751306Ab3ERD6C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 23:58:02 -0400
+Received: by mail-pd0-f178.google.com with SMTP id w10so1378084pde.37
+        for <netdev@vger.kernel.org>; Fri, 17 May 2013 20:58:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I noticed that this commit is also broken.
-Because although you can specify alternate UDP ports for sending,
-it does nothing to enable those ports for reception. So although you
-can create new static neighbour entries with different ports, they
-are useless.
+If you won't take the multiple listen port value patch.
+Then please use -net to revert this commit so it doesn't show up in a
+broken state in 3.10. But keep it in for net-next.
 
-commit 6681712d67eef14c4ce793561c3231659153a320
-Author: David Stevens <dlstevens@us.ibm.com>
-Date:   Fri Mar 15 04:35:51 2013 +0000
+commit 823aa873bc782f1c51b1ce8ec6da7cfcaf93836e
+Author: stephen hemminger <stephen@networkplumber.org>
+Date:   Sat Apr 27 11:31:57 2013 +0000
 
-    vxlan: generalize forwarding tables
+    vxlan: allow choosing destination port per vxlan
     
-    This patch generalizes VXLAN forwarding table entries allowing an administra
-    to:
-        1) specify multiple destinations for a given MAC
-        2) specify alternate vni's in the VXLAN header
-        3) specify alternate destination UDP ports
-        4) use multicast MAC addresses as fdb lookup keys
-        5) specify multicast destinations
-        6) specify the outgoing interface for forwarded packets
+    Allow configuring the default destination port on a per-device basis.
+    Adds new netlink paramater IFLA_VXLAN_PORT to allow setting destination
+    port when creating new vxlan.
     
-    The combination allows configuration of more complex topologies using VXLAN
-    encapsulation.
-    
-    Changes since v1: rebase to 3.9.0-rc2
-    
+    Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
