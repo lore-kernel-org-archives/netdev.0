@@ -1,162 +1,172 @@
 From: Petko Manolov <petkan@nucleusys.com>
-Subject: [PATCH 2/5] drivers: net: usb: rtl8150: introducing rtl8150.h
-Date: Sat, 18 May 2013 23:21:04 +0300 (EEST)
-Message-ID: <alpine.DEB.2.02.1305182309330.16874@fry.nucleusys.com>
+Subject: [PATCH 3/5] drivers: net: usb: rtl8150: getting rid of skb pool
+Date: Sat, 18 May 2013 23:21:18 +0300 (EEST)
+Message-ID: <alpine.DEB.2.02.1305182311100.16874@fry.nucleusys.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([92.247.61.126]:49120 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753309Ab3ERUVL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 May 2013 16:21:11 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Petko Manolov <petkan@nucleusys.com>
 
-adding rtl8150.h;
+removing socket buffer pre-allocation pool;
 
 Signed-off-by: Petko Manolov <petkan@nucleusys.com>
 ---
- drivers/net/usb/rtl8150.h |  131 +++++++++++++++++++++++++++++++++++
- 1 file changed, 131 insertions(+)
+ drivers/net/usb/rtl8150.c |   60 +++--------------------------------
+ drivers/net/usb/rtl8150.h |    3 --
+ 2 files changed, 5 insertions(+), 58 deletions(-)
 
+diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+index 7d1897b..fd4bc2a 100644
+--- a/drivers/net/usb/rtl8150.c
++++ b/drivers/net/usb/rtl8150.c
+@@ -240,21 +240,6 @@ static void unlink_all_urbs(rtl8150_t * dev)
+ 	usb_kill_urb(dev->ctrl_urb);
+ }
+ 
+-static inline struct sk_buff *pull_skb(rtl8150_t *dev)
+-{
+-	struct sk_buff *skb;
+-	int i;
+-
+-	for (i = 0; i < RX_SKB_POOL_SIZE; i++) {
+-		if (dev->rx_skb_pool[i]) {
+-			skb = dev->rx_skb_pool[i];
+-			dev->rx_skb_pool[i] = NULL;
+-			return skb;
+-		}
+-	}
+-	return NULL;
+-}
+-
+ static void read_bulk_callback(struct urb *urb)
+ {
+ 	rtl8150_t *dev;
+@@ -305,9 +290,7 @@ static void read_bulk_callback(struct urb *urb)
+ 	netdev->stats.rx_packets++;
+ 	netdev->stats.rx_bytes += pkt_len;
+ 
+-	spin_lock(&dev->rx_pool_lock);
+-	skb = pull_skb(dev);
+-	spin_unlock(&dev->rx_pool_lock);
++	skb = __netdev_alloc_skb_ip_align(dev->netdev, RTL8150_MTU, GFP_ATOMIC);
+ 	if (!skb)
+ 		goto resched;
+ 
+@@ -441,47 +424,16 @@ static int rtl8150_resume(struct usb_interface *intf)
+ **
+ */
+ 
+-static void fill_skb_pool(rtl8150_t *dev)
+-{
+-	struct sk_buff *skb;
+-	int i;
+-
+-	for (i = 0; i < RX_SKB_POOL_SIZE; i++) {
+-		if (dev->rx_skb_pool[i])
+-			continue;
+-		skb = dev_alloc_skb(RTL8150_MTU + 2);
+-		if (!skb) {
+-			return;
+-		}
+-		skb_reserve(skb, 2);
+-		dev->rx_skb_pool[i] = skb;
+-	}
+-}
+-
+-static void free_skb_pool(rtl8150_t *dev)
+-{
+-	int i;
+-
+-	for (i = 0; i < RX_SKB_POOL_SIZE; i++)
+-		if (dev->rx_skb_pool[i])
+-			dev_kfree_skb(dev->rx_skb_pool[i]);
+-}
+-
+ static void rx_fixup(unsigned long data)
+ {
+ 	struct rtl8150 *dev = (struct rtl8150 *)data;
+ 	struct sk_buff *skb;
+ 	int status;
+ 
+-	spin_lock_irq(&dev->rx_pool_lock);
+-	fill_skb_pool(dev);
+-	spin_unlock_irq(&dev->rx_pool_lock);
+ 	if (test_bit(RX_URB_FAIL, &dev->flags))
+ 		if (dev->rx_skb)
+ 			goto try_again;
+-	spin_lock_irq(&dev->rx_pool_lock);
+-	skb = pull_skb(dev);
+-	spin_unlock_irq(&dev->rx_pool_lock);
++	skb = __netdev_alloc_skb_ip_align(dev->netdev, RTL8150_MTU, GFP_ATOMIC);
+ 	if (skb == NULL)
+ 		goto tlsched;
+ 	dev->rx_skb = skb;
+@@ -611,7 +563,9 @@ static int rtl8150_open(struct net_device *netdev)
+ 	int res;
+ 
+ 	if (dev->rx_skb == NULL)
+-		dev->rx_skb = pull_skb(dev);
++		dev->rx_skb = __netdev_alloc_skb_ip_align(dev->netdev,
++							  RTL8150_MTU,
++							  GFP_ATOMIC);
+ 	if (!dev->rx_skb)
+ 		return -ENOMEM;
+ 
+@@ -764,7 +718,6 @@ static int rtl8150_probe(struct usb_interface *intf,
+ 	}
+ 
+ 	tasklet_init(&dev->tl, rx_fixup, (unsigned long)dev);
+-	spin_lock_init(&dev->rx_pool_lock);
+ 
+ 	dev->udev = udev;
+ 	dev->netdev = netdev;
+@@ -781,7 +734,6 @@ static int rtl8150_probe(struct usb_interface *intf,
+ 		dev_err(&intf->dev, "couldn't reset the device\n");
+ 		goto out1;
+ 	}
+-	fill_skb_pool(dev);
+ 	set_ethernet_addr(dev);
+ 
+ 	usb_set_intfdata(intf, dev);
+@@ -797,7 +749,6 @@ static int rtl8150_probe(struct usb_interface *intf,
+ 
+ out2:
+ 	usb_set_intfdata(intf, NULL);
+-	free_skb_pool(dev);
+ out1:
+ 	free_all_urbs(dev);
+ out:
+@@ -817,7 +768,6 @@ static void rtl8150_disconnect(struct usb_interface *intf)
+ 		unregister_netdev(dev->netdev);
+ 		unlink_all_urbs(dev);
+ 		free_all_urbs(dev);
+-		free_skb_pool(dev);
+ 		if (dev->rx_skb)
+ 			dev_kfree_skb(dev->rx_skb);
+ 		kfree(dev->intr_buff);
 diff --git a/drivers/net/usb/rtl8150.h b/drivers/net/usb/rtl8150.h
-new file mode 100644
-index 0000000..cfb1e74
---- /dev/null
+index cfb1e74..a29410c 100644
+--- a/drivers/net/usb/rtl8150.h
 +++ b/drivers/net/usb/rtl8150.h
-@@ -0,0 +1,131 @@
-+/*
-+ *  Copyright (c) 2002-2013 Petko Manolov (petkan@nucleusys.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * version 2 as published by the Free Software Foundation.
-+ */
-+
-+#ifndef	__rtl8150_h__
-+#define	__rtl8150_h__
-+
-+#define	IDR			0x0120
-+#define	MAR			0x0126
-+#define	CR			0x012e
-+#define	TCR			0x012f
-+#define	RCR			0x0130
-+#define	TSR			0x0132
-+#define	RSR			0x0133
-+#define	CON0			0x0135
-+#define	CON1			0x0136
-+#define	MSR			0x0137
-+#define	PHYADD			0x0138
-+#define	PHYDAT			0x0139
-+#define	PHYCNT			0x013b
-+#define	GPPC			0x013d
-+#define	BMCR			0x0140
-+#define	BMSR			0x0142
-+#define	ANAR			0x0144
-+#define	ANLP			0x0146
-+#define	AER			0x0148
-+#define CSCR			0x014C  /* This one has the link status */
-+#define CSCR_LINK_STATUS	(1 << 3)
-+
-+#define	IDR_EEPROM		0x1202
-+
-+#define	PHY_READ		0
-+#define	PHY_WRITE		0x20
-+#define	PHY_GO			0x40
-+
-+#define	MII_TIMEOUT		10
-+#define	INTBUFSIZE		8
-+
-+#define	RTL8150_REQT_READ	0xc0
-+#define	RTL8150_REQT_WRITE	0x40
-+#define	RTL8150_REQ_GET_REGS	0x05
-+#define	RTL8150_REQ_SET_REGS	0x05
-+
-+
-+/* Transmit status register errors */
-+#define TSR_ECOL		(1<<5)
-+#define TSR_LCOL		(1<<4)
-+#define TSR_LOSS_CRS		(1<<3)
-+#define TSR_JBR			(1<<2)
-+#define TSR_ERRORS		(TSR_ECOL | TSR_LCOL | TSR_LOSS_CRS | TSR_JBR)
-+/* Receive status register errors */
-+#define RSR_CRC			(1<<2)
-+#define RSR_FAE			(1<<1)
-+#define RSR_ERRORS		(RSR_CRC | RSR_FAE)
-+
-+/* Media status register definitions */
-+#define MSR_DUPLEX		(1<<4)
-+#define MSR_SPEED		(1<<3)
-+#define MSR_LINK		(1<<2)
-+
-+/* Interrupt pipe data */
-+#define INT_TSR			0x00
-+#define INT_RSR			0x01
-+#define INT_MSR			0x02
-+#define INT_WAKSR		0x03
-+#define INT_TXOK_CNT		0x04
-+#define INT_RXLOST_CNT		0x05
-+#define INT_CRERR_CNT		0x06
-+#define INT_COL_CNT		0x07
-+
-+
-+#define	RTL8150_MTU		1540
-+#define	RTL8150_TX_TIMEOUT	(HZ)
-+#define	RX_SKB_POOL_SIZE	4
-+
-+/* rtl8150 flags */
-+#define	RTL8150_HW_CRC		0
-+#define	RX_REG_SET		1
-+#define	RTL8150_UNPLUG		2
-+#define	RX_URB_FAIL		3
-+
-+/* Define these values to match your device */
-+#define	VENDOR_ID_REALTEK		0x0bda
-+#define	VENDOR_ID_MELCO			0x0411
-+#define	VENDOR_ID_MICRONET		0x3980
-+#define	VENDOR_ID_LONGSHINE		0x07b8
-+#define	VENDOR_ID_OQO			0x1557
-+#define	VENDOR_ID_ZYXEL			0x0586
-+
-+#define PRODUCT_ID_RTL8150		0x8150
-+#define	PRODUCT_ID_LUAKTX		0x0012
-+#define	PRODUCT_ID_LCS8138TX		0x401a
-+#define PRODUCT_ID_SP128AR		0x0003
-+#define	PRODUCT_ID_PRESTIGE		0x401a
-+
-+#undef	EEPROM_WRITE
-+
-+/* table of devices that work with this driver */
-+static struct usb_device_id rtl8150_table[] = {
-+	{USB_DEVICE(VENDOR_ID_REALTEK, PRODUCT_ID_RTL8150)},
-+	{USB_DEVICE(VENDOR_ID_MELCO, PRODUCT_ID_LUAKTX)},
-+	{USB_DEVICE(VENDOR_ID_MICRONET, PRODUCT_ID_SP128AR)},
-+	{USB_DEVICE(VENDOR_ID_LONGSHINE, PRODUCT_ID_LCS8138TX)},
-+	{USB_DEVICE(VENDOR_ID_OQO, PRODUCT_ID_RTL8150)},
-+	{USB_DEVICE(VENDOR_ID_ZYXEL, PRODUCT_ID_PRESTIGE)},
-+	{}
-+};
-+
-+struct rtl8150 {
-+	unsigned long flags;
-+	struct usb_device *udev;
-+	struct tasklet_struct tl;
-+	struct net_device *netdev;
-+	struct urb *rx_urb, *tx_urb, *intr_urb, *ctrl_urb;
-+	struct sk_buff *tx_skb, *rx_skb;
-+	struct sk_buff *rx_skb_pool[RX_SKB_POOL_SIZE];
-+	spinlock_t rx_pool_lock;
-+	struct usb_ctrlrequest dr;
-+	int intr_interval;
-+	__le16 rx_creg;
-+	u8 *intr_buff;
-+	u8 phy;
-+};
-+
-+typedef struct rtl8150 rtl8150_t;
-+
-+#endif	/* __rtl8150_h__ */
+@@ -75,7 +75,6 @@
+ 
+ #define	RTL8150_MTU		1540
+ #define	RTL8150_TX_TIMEOUT	(HZ)
+-#define	RX_SKB_POOL_SIZE	4
+ 
+ /* rtl8150 flags */
+ #define	RTL8150_HW_CRC		0
+@@ -117,8 +116,6 @@ struct rtl8150 {
+ 	struct net_device *netdev;
+ 	struct urb *rx_urb, *tx_urb, *intr_urb, *ctrl_urb;
+ 	struct sk_buff *tx_skb, *rx_skb;
+-	struct sk_buff *rx_skb_pool[RX_SKB_POOL_SIZE];
+-	spinlock_t rx_pool_lock;
+ 	struct usb_ctrlrequest dr;
+ 	int intr_interval;
+ 	__le16 rx_creg;
