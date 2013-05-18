@@ -1,51 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] vxlan: listen on multiple ports
-Date: Fri, 17 May 2013 21:05:17 -0700
-Message-ID: <20130517210517.04a36665@nehalam.linuxnetplumber.net>
-References: <20130516143520.581d1d78@nehalam.linuxnetplumber.net>
-	<20130517.140655.2182995212892285929.davem@davemloft.net>
-	<CAOaVG15gx4Fqgqwjg5v-k=r4FrVNgTh9EpnnmxGECc5Wv_X=wA@mail.gmail.com>
-	<OF0A8D9398.8E59B8DA-ON85257B6F.0014B0DC-85257B6F.0015E329@us.ibm.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: NDA_PORT attribute is useless
+Date: Sat, 18 May 2013 00:08:53 -0400
+Message-ID: <OF7329FB93.18E31915-ON85257B6F.00161446-85257B6F.0016C9AC@us.ibm.com>
+References: <20130517205457.61dbaae2@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:35268 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750751Ab3EREFW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 May 2013 00:05:22 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so3174767pdj.28
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 21:05:22 -0700 (PDT)
-In-Reply-To: <OF0A8D9398.8E59B8DA-ON85257B6F.0014B0DC-85257B6F.0015E329@us.ibm.com>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:48137 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089Ab3EREI7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 May 2013 00:08:59 -0400
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Fri, 17 May 2013 22:08:58 -0600
+Received: from d03relay05.boulder.ibm.com (d03relay05.boulder.ibm.com [9.17.195.107])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 659141FF001D
+	for <netdev@vger.kernel.org>; Fri, 17 May 2013 22:03:49 -0600 (MDT)
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay05.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4I48uYY089580
+	for <netdev@vger.kernel.org>; Fri, 17 May 2013 22:08:56 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4I48uW2020410
+	for <netdev@vger.kernel.org>; Fri, 17 May 2013 22:08:56 -0600
+In-Reply-To: <20130517205457.61dbaae2@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 May 2013 23:59:03 -0400
-David Stevens <dlstevens@us.ibm.com> wrote:
+Stephen Hemminger <stephen@networkplumber.org> wrote on 05/17/2013 
+11:54:57 PM:
 
-> Stephen Hemminger <stephen@networkplumber.org> wrote on 05/17/2013 
-> 11:05:16 PM:
-> 
-> > then the original commit to add NDA_PORT should be reverted from 3.10
-> > no point in continuing the half baked idea
-> 
-> I don't think these are linked at all. While being able to specify
-> multiple listen ports, I agree, is a good idea, being able to specify
-> alternate remote ports is needed because you can already change the
-> one per-host port.
-> 
-> With only one listen port per host, if they are different on two hosts,
-> NDA_PORT in the fdb table is the only way those two hosts can use VXLAN
-> with each other at all.
-> 
-> It has nothing to do with how many listen ports there are, but just that
-> the listen port can be different on different hosts.
-> 
->                                                                 +-DLS
-> 
+> I noticed that this commit is also broken.
+> Because although you can specify alternate UDP ports for sending,
+> it does nothing to enable those ports for reception. So although you
+> can create new static neighbour entries with different ports, they
+> are useless.
 
-It does mean that you are creating an asymmetric routing setup.
-The other end of the tunnel still has to send back to default vxlan port.
-There is no mechanism to add additional ports.
+On Host A:
+modprobe vxlan
+
+on Host B:
+modprobe vxlan udp_port=9462
+
+...and whatever you want on any other hosts.
+
+Then you want to connect a segment on Host A and
+Host B. The fdb entries on Host A that point to
+Host B should use "port 9462"; the fdb entries on
+Host B that have destination Host A should use
+"port 8472".
+
+And if Host C is an external switch using 4789, its
+fdb entries should use "port 4789".
+
+It does exactly what it is supposed to do, allow these
+hosts to use VXLAN with each other, and has nothing to do
+with listening on multiple ports.
+
+                                                        +-DLS
