@@ -1,31 +1,53 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] filter: do not output bpf image address for
+Subject: [PATCH net-next] filter: do not output bpf image address for
  security reason
-Date: Fri, 17 May 2013 19:55:56 -0700
-Message-ID: <1368845756.3301.145.camel@edumazet-glaptop>
-References: <1368833499.3301.126.camel@edumazet-glaptop>
-	 <1368839478.3469.70.camel@deadeye.wl.decadent.org.uk>
+Date: Fri, 17 May 2013 19:57:37 -0700
+Message-ID: <1368845857.3301.148.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
+Cc: netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
 	Daniel Borkmann <dborkman@redhat.com>
-To: Ben Hutchings <bhutchings@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:34902 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757328Ab3ERCz6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 22:55:58 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ro8so3819835pbb.41
-        for <netdev@vger.kernel.org>; Fri, 17 May 2013 19:55:58 -0700 (PDT)
-In-Reply-To: <1368839478.3469.70.camel@deadeye.wl.decadent.org.uk>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:37702 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758543Ab3ERC5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 22:57:39 -0400
+Received: by mail-da0-f46.google.com with SMTP id e20so418822dak.19
+        for <netdev@vger.kernel.org>; Fri, 17 May 2013 19:57:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-05-18 at 02:11 +0100, Ben Hutchings wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> Not "%pK"?
-> 
+Do not leak starting address of BPF JIT code for non root users,
+as it might help intruders to perform an attack.
 
-Yes, thanks for the suggestion.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+---
+v2: use %pK as Ben suggestion
+
+ include/linux/filter.h |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index c050dcc..56a6b7f 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -58,10 +58,10 @@ extern void bpf_jit_free(struct sk_filter *fp);
+ static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
+ 				u32 pass, void *image)
+ {
+-	pr_err("flen=%u proglen=%u pass=%u image=%p\n",
++	pr_err("flen=%u proglen=%u pass=%u image=%pK\n",
+ 	       flen, proglen, pass, image);
+ 	if (image)
+-		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_ADDRESS,
++		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
+ 			       16, 1, image, proglen, false);
+ }
+ #define SK_RUN_FILTER(FILTER, SKB) (*FILTER->bpf_func)(SKB, FILTER->insns)
