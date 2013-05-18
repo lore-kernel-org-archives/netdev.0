@@ -1,64 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] filter: do not output bpf image address for
- security reason
-Date: Sat, 18 May 2013 02:11:18 +0100
-Message-ID: <1368839478.3469.70.camel@deadeye.wl.decadent.org.uk>
-References: <1368833499.3301.126.camel@edumazet-glaptop>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] gianfar: add missing iounmap() on error in
+ gianfar_ptp_probe()
+Date: Fri, 17 May 2013 18:20:03 -0700 (PDT)
+Message-ID: <20130517.182003.132169969783675734.davem@davemloft.net>
+References: <CAPgLHd9ED7YCCTmKtD9PURq_cWy5GG=M+4ExC1wd+xOpgB97CQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Daniel Borkmann <dborkman@redhat.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:7243 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751449Ab3ERBLX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 May 2013 21:11:23 -0400
-In-Reply-To: <1368833499.3301.126.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org,
+ yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
+ devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+To: weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <CAPgLHd9ED7YCCTmKtD9PURq_cWy5GG=M+4ExC1wd+xOpgB97CQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-05-17 at 16:31 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+From: Wei Yongjun <weiyj.lk-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Date: Fri, 17 May 2013 16:25:34 +0800
+
+> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 > 
-> Do not leak starting address of BPF JIT code, as it might help
-> intruders to perform an attack.
+> Add the missing iounmap() before return from gianfar_ptp_probe()
+> in the error handling case.
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  include/linux/filter.h |    7 ++++---
->  1 file changed, 4 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/filter.h b/include/linux/filter.h
-> index c050dcc..08cda1c 100644
-> --- a/include/linux/filter.h
-> +++ b/include/linux/filter.h
-> @@ -58,10 +58,11 @@ extern void bpf_jit_free(struct sk_filter *fp);
->  static inline void bpf_jit_dump(unsigned int flen, unsigned int proglen,
->  				u32 pass, void *image)
->  {
-> -	pr_err("flen=%u proglen=%u pass=%u image=%p\n",
-> -	       flen, proglen, pass, image);
-> +	/* Do not output address (image) for security reason */
-> +	pr_err("flen=%u proglen=%u pass=%u image=10\n",
+> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-Not "%pK"?
-
-Ben.
-
-> +	       flen, proglen, pass);
->  	if (image)
-> -		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_ADDRESS,
-> +		print_hex_dump(KERN_ERR, "JIT code: ", DUMP_PREFIX_OFFSET,
->  			       16, 1, image, proglen, false);
->  }
->  #define SK_RUN_FILTER(FILTER, SKB) (*FILTER->bpf_func)(SKB, FILTER->insns)
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Applied, thanks.
