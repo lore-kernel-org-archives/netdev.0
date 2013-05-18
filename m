@@ -1,259 +1,222 @@
 From: Petko Manolov <petkan@nucleusys.com>
-Subject: [PATCH 4/5] drivers: net: usb: rtl8150: avoid potential race in
- async registers write
-Date: Sat, 18 May 2013 23:21:29 +0300 (EEST)
-Message-ID: <alpine.DEB.2.02.1305182313050.16874@fry.nucleusys.com>
+Subject: [PATCH 5/5] drivers: net: usb: rtl8150: making the code a bit better
+ looking
+Date: Sat, 18 May 2013 23:21:43 +0300 (EEST)
+Message-ID: <alpine.DEB.2.02.1305182314500.16874@fry.nucleusys.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lan.nucleusys.com ([92.247.61.126]:49124 "EHLO
-	zztop.nucleusys.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753157Ab3ERUVh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 May 2013 16:21:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Petko Manolov <petkan@nucleusys.com>
 
-[get|set]_registers() will now display a message in case of error condition
-and if DEBUG is enabled.  All resources required for asynchronous control URB
-submission are being dynamically (de)allocated.
+copyright, email address and styling update;
 
 Signed-off-by: Petko Manolov <petkan@nucleusys.com>
 ---
- drivers/net/usb/rtl8150.c |  129 +++++++++++++++++------------------
- drivers/net/usb/rtl8150.h |    9 ++-
- 2 files changed, 68 insertions(+), 70 deletions(-)
+ drivers/net/usb/rtl8150.c |   69 +++++++++++++++++------------------
+ 1 file changed, 34 insertions(+), 35 deletions(-)
 
 diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-index fd4bc2a..0e226d8 100644
+index 0e226d8..928546e 100644
 --- a/drivers/net/usb/rtl8150.c
 +++ b/drivers/net/usb/rtl8150.c
-@@ -15,7 +15,6 @@
- #include <linux/mii.h>
- #include <linux/ethtool.h>
- #include <linux/usb.h>
--#include <asm/uaccess.h>
- 
+@@ -1,5 +1,5 @@
+ /*
+- *  Copyright (c) 2002 Petko Manolov (petkan@users.sourceforge.net)
++ *  Copyright (c) 2002-2013 Petko Manolov (petkan@nucleusys.com)
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+@@ -19,8 +19,8 @@
  #include "rtl8150.h"
  
-@@ -29,69 +28,75 @@ MODULE_DEVICE_TABLE(usb, rtl8150_table);
- static const char driver_name [] = "rtl8150";
+ /* Version Information */
+-#define DRIVER_VERSION "v0.6.2 (2004/08/27)"
+-#define DRIVER_AUTHOR "Petko Manolov <petkan@users.sourceforge.net>"
++#define DRIVER_VERSION "v0.9.3 (2013/05/18)"
++#define DRIVER_AUTHOR "Petko Manolov <petkan@nucleusys.com>"
+ #define DRIVER_DESC "rtl8150 based usb-ethernet driver"
  
- /*
--**
--**	device related part of the code
--**
--*/
-+ *
-+ * device related part of the code
-+ *
-+ */
- static int get_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
+ MODULE_DEVICE_TABLE(usb, rtl8150_table);
+@@ -32,7 +32,7 @@ static const char driver_name [] = "rtl8150";
+  * device related part of the code
+  *
+  */
+-static int get_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
++static int get_registers(rtl8150_t *dev, u16 indx, u16 size, void *data)
  {
--	return usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
--			       RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
--			       indx, 0, data, size, 500);
-+	int res;
-+
-+	res = usb_control_msg(dev->udev, usb_rcvctrlpipe(dev->udev, 0),
-+			      RTL8150_REQ_GET_REGS, RTL8150_REQT_READ,
-+			      indx, 0, data, size, 500);
-+	if (res < 0)
-+		dev_dbg(&dev->udev->dev, "%s returned %d\n", __func__, res);
-+	return res;
+ 	int res;
+ 
+@@ -44,7 +44,7 @@ static int get_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
+ 	return res;
  }
  
- static int set_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
+-static int set_registers(rtl8150_t * dev, u16 indx, u16 size, void *data)
++static int set_registers(rtl8150_t *dev, u16 indx, u16 size, void *data)
  {
--	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
--			       RTL8150_REQ_SET_REGS, RTL8150_REQT_WRITE,
--			       indx, 0, data, size, 500);
-+	int res;
-+
-+	res = usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
-+			      RTL8150_REQ_SET_REGS, RTL8150_REQT_WRITE,
-+			      indx, 0, data, size, 500);
-+	if (res < 0)
-+		dev_dbg(&dev->udev->dev, "%s returned %d\n", __func__, res);
-+	return res;
+ 	int res;
+ 
+@@ -99,7 +99,7 @@ static int async_set_registers(rtl8150_t *dev, u16 indx, u16 size, u16 reg)
+ 	return res;
  }
  
--static void ctrl_callback(struct urb *urb)
-+static void async_set_reg_cb(struct urb *urb)
+-static int read_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 * reg)
++static int read_mii_word(rtl8150_t *dev, u8 phy, __u8 indx, u16 *reg)
  {
--	rtl8150_t *dev;
-+	struct async_req *req = (struct async_req *)urb->context;
- 	int status = urb->status;
- 
--	switch (status) {
--	case 0:
--		break;
--	case -EINPROGRESS:
--		break;
--	case -ENOENT:
--		break;
--	default:
--		if (printk_ratelimit())
--			dev_warn(&urb->dev->dev, "ctrl urb status %d\n", status);
--	}
--	dev = urb->context;
--	clear_bit(RX_REG_SET, &dev->flags);
-+	if (status < 0)
-+		dev_dbg(&urb->dev->dev, "%s failed with %d", __func__, status);
-+	kfree(req);
-+	usb_free_urb(urb);
+ 	int i;
+ 	u8 data[3], tmp;
+@@ -123,7 +123,7 @@ static int read_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 * reg)
+ 		return 1;
  }
  
--static int async_set_registers(rtl8150_t * dev, u16 indx, u16 size)
-+static int async_set_registers(rtl8150_t *dev, u16 indx, u16 size, u16 reg)
+-static int write_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 reg)
++static int write_mii_word(rtl8150_t *dev, u8 phy, __u8 indx, u16 reg)
  {
--	int ret;
--
--	if (test_bit(RX_REG_SET, &dev->flags))
--		return -EAGAIN;
--
--	dev->dr.bRequestType = RTL8150_REQT_WRITE;
--	dev->dr.bRequest = RTL8150_REQ_SET_REGS;
--	dev->dr.wValue = cpu_to_le16(indx);
--	dev->dr.wIndex = 0;
--	dev->dr.wLength = cpu_to_le16(size);
--	dev->ctrl_urb->transfer_buffer_length = size;
--	usb_fill_control_urb(dev->ctrl_urb, dev->udev,
--			 usb_sndctrlpipe(dev->udev, 0), (char *) &dev->dr,
--			 &dev->rx_creg, size, ctrl_callback, dev);
--	if ((ret = usb_submit_urb(dev->ctrl_urb, GFP_ATOMIC))) {
--		if (ret == -ENODEV)
--			netif_device_detach(dev->netdev);
--		dev_err(&dev->udev->dev,
--			"control request submission failed: %d\n", ret);
--	} else
--		set_bit(RX_REG_SET, &dev->flags);
-+	int res = -ENOMEM;
-+	struct urb *async_urb;
-+	struct async_req *req;
- 
--	return ret;
-+	req = kmalloc(sizeof(struct async_req), GFP_ATOMIC);
-+	if (req == NULL)
-+		return res;
-+	async_urb = usb_alloc_urb(0, GFP_ATOMIC);
-+	if (async_urb == NULL) {
-+		kfree(req);
-+		return res;
-+	}
-+	req->rx_creg = cpu_to_le16(reg);
-+	req->dr.bRequestType = RTL8150_REQT_WRITE;
-+	req->dr.bRequest = RTL8150_REQ_SET_REGS;
-+	req->dr.wIndex = 0;
-+	req->dr.wValue = cpu_to_le16(indx);
-+	req->dr.wLength = cpu_to_le16(size);
-+	usb_fill_control_urb(async_urb, dev->udev,
-+	                     usb_sndctrlpipe(dev->udev, 0), (void *) &req->dr,
-+			     &req->rx_creg, size, async_set_reg_cb, req);
-+	res = usb_submit_urb(async_urb, GFP_ATOMIC);
-+	if (res) {
-+		if (res == -ENODEV)
-+			netif_device_detach(dev->netdev);
-+		dev_err(&dev->udev->dev, "%s failed with %d\n", __func__, res);
-+	}
-+	return res;
+ 	int i;
+ 	u8 data[3], tmp;
+@@ -146,7 +146,7 @@ static int write_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 reg)
+ 		return 1;
  }
  
- static int read_mii_word(rtl8150_t * dev, u8 phy, __u8 indx, u16 * reg)
-@@ -213,14 +218,6 @@ static int alloc_all_urbs(rtl8150_t * dev)
- 		usb_free_urb(dev->tx_urb);
- 		return 0;
- 	}
--	dev->ctrl_urb = usb_alloc_urb(0, GFP_KERNEL);
--	if (!dev->ctrl_urb) {
--		usb_free_urb(dev->rx_urb);
--		usb_free_urb(dev->tx_urb);
--		usb_free_urb(dev->intr_urb);
--		return 0;
--	}
--
+-static inline void set_ethernet_addr(rtl8150_t * dev)
++static inline void set_ethernet_addr(rtl8150_t *dev)
+ {
+ 	u8 node_id[6];
+ 
+@@ -189,7 +189,7 @@ static int rtl8150_set_mac_address(struct net_device *netdev, void *p)
+ 	return 0;
+ }
+ 
+-static int rtl8150_reset(rtl8150_t * dev)
++static int rtl8150_reset(rtl8150_t *dev)
+ {
+ 	u8 data = 0x10;
+ 	int i = HZ;
+@@ -202,7 +202,7 @@ static int rtl8150_reset(rtl8150_t * dev)
+ 	return (i > 0) ? 1 : 0;
+ }
+ 
+-static int alloc_all_urbs(rtl8150_t * dev)
++static int alloc_all_urbs(rtl8150_t *dev)
+ {
+ 	dev->rx_urb = usb_alloc_urb(0, GFP_KERNEL);
+ 	if (!dev->rx_urb)
+@@ -221,14 +221,14 @@ static int alloc_all_urbs(rtl8150_t * dev)
  	return 1;
  }
  
-@@ -229,7 +226,6 @@ static void free_all_urbs(rtl8150_t * dev)
+-static void free_all_urbs(rtl8150_t * dev)
++static void free_all_urbs(rtl8150_t *dev)
+ {
  	usb_free_urb(dev->rx_urb);
  	usb_free_urb(dev->tx_urb);
  	usb_free_urb(dev->intr_urb);
--	usb_free_urb(dev->ctrl_urb);
  }
  
- static void unlink_all_urbs(rtl8150_t * dev)
-@@ -237,7 +233,6 @@ static void unlink_all_urbs(rtl8150_t * dev)
+-static void unlink_all_urbs(rtl8150_t * dev)
++static void unlink_all_urbs(rtl8150_t *dev)
+ {
  	usb_kill_urb(dev->rx_urb);
  	usb_kill_urb(dev->tx_urb);
- 	usb_kill_urb(dev->intr_urb);
--	usb_kill_urb(dev->ctrl_urb);
+@@ -364,12 +364,12 @@ static void intr_callback(struct urb *urb)
+ 	if ((d[INT_MSR] & MSR_LINK) == 0) {
+ 		if (netif_carrier_ok(dev->netdev)) {
+ 			netif_carrier_off(dev->netdev);
+-			netdev_dbg(dev->netdev, "%s: LINK LOST\n", __func__);
++			netdev_dbg(dev->netdev, "%s: link lost\n", __func__);
+ 		}
+ 	} else {
+ 		if (!netif_carrier_ok(dev->netdev)) {
+ 			netif_carrier_on(dev->netdev);
+-			netdev_dbg(dev->netdev, "%s: LINK CAME BACK\n", __func__);
++			netdev_dbg(dev->netdev, "%s: link is back\n", __func__);
+ 		}
+ 	}
+ 
+@@ -450,7 +450,7 @@ tlsched:
+ 	tasklet_schedule(&dev->tl);
  }
  
- static void read_bulk_callback(struct urb *urb)
-@@ -464,7 +459,6 @@ static int enable_net_traffic(rtl8150_t * dev)
- 	}
- 	/* RCR bit7=1 attach Rx info at the end;  =0 HW CRC (which is broken) */
- 	rcr = 0x9e;
--	dev->rx_creg = cpu_to_le16(rcr);
- 	tcr = 0xd8;
- 	cr = 0x0c;
- 	if (!(rcr & 0x80))
-@@ -497,20 +491,21 @@ static void rtl8150_tx_timeout(struct net_device *netdev)
- static void rtl8150_set_multicast(struct net_device *netdev)
+-static int enable_net_traffic(rtl8150_t * dev)
++static int enable_net_traffic(rtl8150_t *dev)
+ {
+ 	u8 cr, tcr, rcr, msr;
+ 
+@@ -471,7 +471,7 @@ static int enable_net_traffic(rtl8150_t * dev)
+ 	return 0;
+ }
+ 
+-static void disable_net_traffic(rtl8150_t * dev)
++static void disable_net_traffic(rtl8150_t *dev)
+ {
+ 	u8 cr;
+ 
+@@ -510,7 +510,7 @@ static void rtl8150_set_multicast(struct net_device *netdev)
+ }
+ 
+ static netdev_tx_t rtl8150_start_xmit(struct sk_buff *skb,
+-					    struct net_device *netdev)
++				      struct net_device *netdev)
  {
  	rtl8150_t *dev = netdev_priv(netdev);
-+	u16 rx_creg = 0x9e;
-+
- 	netif_stop_queue(netdev);
- 	if (netdev->flags & IFF_PROMISC) {
--		dev->rx_creg |= cpu_to_le16(0x0001);
-+		rx_creg |= 0x0001;
- 		dev_info(&netdev->dev, "%s: promiscuous mode\n", netdev->name);
--	} else if (!netdev_mc_empty(netdev) ||
--		   (netdev->flags & IFF_ALLMULTI)) {
--		dev->rx_creg &= cpu_to_le16(0xfffe);
--		dev->rx_creg |= cpu_to_le16(0x0002);
-+	} else if (!netdev_mc_empty(netdev) || (netdev->flags & IFF_ALLMULTI)) {
-+		rx_creg &= 0xfffe;
-+		rx_creg |= 0x0002;
- 		dev_info(&netdev->dev, "%s: allmulti set\n", netdev->name);
- 	} else {
- 		/* ~RX_MULTICAST, ~RX_PROMISCUOUS */
--		dev->rx_creg &= cpu_to_le16(0x00fc);
-+		rx_creg &= 0x00fc;
- 	}
--	async_set_registers(dev, RCR, 2);
-+	async_set_registers(dev, RCR, sizeof(rx_creg), rx_creg);
- 	netif_wake_queue(netdev);
+ 	int count, res;
+@@ -681,16 +681,15 @@ static int rtl8150_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
  }
  
-diff --git a/drivers/net/usb/rtl8150.h b/drivers/net/usb/rtl8150.h
-index a29410c..2dff8f4 100644
---- a/drivers/net/usb/rtl8150.h
-+++ b/drivers/net/usb/rtl8150.h
-@@ -114,15 +114,18 @@ struct rtl8150 {
- 	struct usb_device *udev;
- 	struct tasklet_struct tl;
- 	struct net_device *netdev;
--	struct urb *rx_urb, *tx_urb, *intr_urb, *ctrl_urb;
-+	struct urb *rx_urb, *tx_urb, *intr_urb;
- 	struct sk_buff *tx_skb, *rx_skb;
--	struct usb_ctrlrequest dr;
- 	int intr_interval;
--	__le16 rx_creg;
- 	u8 *intr_buff;
- 	u8 phy;
+ static const struct net_device_ops rtl8150_netdev_ops = {
+-	.ndo_open		= rtl8150_open,
+-	.ndo_stop		= rtl8150_close,
+-	.ndo_do_ioctl		= rtl8150_ioctl,
+-	.ndo_start_xmit		= rtl8150_start_xmit,
+-	.ndo_tx_timeout		= rtl8150_tx_timeout,
+-	.ndo_set_rx_mode	= rtl8150_set_multicast,
+-	.ndo_set_mac_address	= rtl8150_set_mac_address,
+-
+-	.ndo_change_mtu		= eth_change_mtu,
+-	.ndo_validate_addr	= eth_validate_addr,
++	.ndo_open = rtl8150_open,
++	.ndo_stop = rtl8150_close,
++	.ndo_do_ioctl = rtl8150_ioctl,
++	.ndo_start_xmit = rtl8150_start_xmit,
++	.ndo_tx_timeout = rtl8150_tx_timeout,
++	.ndo_set_rx_mode = rtl8150_set_multicast,
++	.ndo_set_mac_address = rtl8150_set_mac_address,
++	.ndo_change_mtu	= eth_change_mtu,
++	.ndo_validate_addr = eth_validate_addr,
  };
  
- typedef struct rtl8150 rtl8150_t;
+ static int rtl8150_probe(struct usb_interface *intf,
+@@ -738,8 +737,8 @@ static int rtl8150_probe(struct usb_interface *intf,
+ 		goto out2;
+ 	}
  
-+struct async_req {
-+	struct usb_ctrlrequest dr;
-+	u16 rx_creg;
-+};
-+
- #endif	/* __rtl8150_h__ */
+-	dev_info(&intf->dev, "%s: rtl8150 is detected\n", netdev->name);
+-
++	dev_info(&intf->dev, "%s: %s %s\n", netdev->name,
++		 DRIVER_DESC, DRIVER_VERSION);
+ 	return 0;
+ 
+ out2:
+@@ -771,12 +770,12 @@ static void rtl8150_disconnect(struct usb_interface *intf)
+ }
+ 
+ static struct usb_driver rtl8150_driver = {
+-	.name		= driver_name,
+-	.probe		= rtl8150_probe,
+-	.disconnect	= rtl8150_disconnect,
+-	.id_table	= rtl8150_table,
+-	.suspend	= rtl8150_suspend,
+-	.resume		= rtl8150_resume,
++	.name = driver_name,
++	.probe = rtl8150_probe,
++	.disconnect = rtl8150_disconnect,
++	.id_table = rtl8150_table,
++	.suspend = rtl8150_suspend,
++	.resume = rtl8150_resume,
+ 	.disable_hub_initiated_lpm = 1,
+ };
+ 
