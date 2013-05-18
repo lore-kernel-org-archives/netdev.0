@@ -1,61 +1,47 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH net-next] net-bnx2x: dont reload on GRO change
-Date: Sat, 18 May 2013 21:36:07 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20C5054D@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1368897293.3301.152.camel@edumazet-glaptop>
+From: Rolf Eike Beer <eike-kernel@sf-tec.de>
+Subject: [PATCH] ThunderLAN: remove is_eisa flag
+Date: Sat, 18 May 2013 23:50:17 +0200
+Message-ID: <3469605.xkLC7l46TH@eto>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:2984 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753002Ab3ERVgT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 May 2013 17:36:19 -0400
-In-Reply-To: <1368897293.3301.152.camel@edumazet-glaptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Samuel Chessman <chessman@tux.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
-bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBTYXR1cmRheSwgTWF5IDE4LCAyMDEz
-IDg6MTUgUE0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogbmV0ZGV2OyBEbWl0cnkgS3Jhdmtv
-djsgRWlsb24gR3JlZW5zdGVpbg0KPiBTdWJqZWN0OiBbUEFUQ0ggbmV0LW5leHRdIG5ldC1ibngy
-eDogZG9udCByZWxvYWQgb24gR1JPIGNoYW5nZQ0KPiANCj4gRnJvbTogRXJpYyBEdW1hemV0IDxl
-ZHVtYXpldEBnb29nbGUuY29tPg0KPiANCj4gYm54Mnhfc2V0X2ZlYXR1cmVzKCkgZm9yY2VzIGEg
-ZHJpdmVyIHJlbG9hZCBpZiBHUk8gc2V0dGluZyBpcyBjaGFuZ2VkLg0KPiANCj4gQSByZWxvYWQg
-bWFrZXMgdGhlIGV0aGVybmV0IHBvcnQgdW5yZXNwb25zaXZlIGZvciBhYm91dCA1IHNlY29uZHMu
-DQo+IA0KPiBUaGlzIGlzIG5vdCBuZWVkZWQgaW4gdGhlIGNvbW1vbiBjYXNlIExSTyBpcyBlbmFi
-bGVkLCBhcyBMUk8NCj4gKFRQQV9FTkFCTEVfRkxBRykgaGFzIHByZWNlZGVuY2Ugb3ZlciBHUk8g
-KEdST19FTkFCTEVfRkxBRykNCj4gDQo+IFRlc3RlZDoNCj4gIFZlcmlmaWVkIHRoYXQgImV0aHRv
-b2wgLUsgZXRoMCBncm8ge29ufG9mZn0iIGRvZXNuJ3QgYmxhY2tvdXQNCj4gIHRoZSBOSUMgYW55
-bW9yZQ0KPiANCj4gR29vZ2xlLUJ1Zy1JZDogODQ0MDQ0Mg0KPiBTaWduZWQtb2ZmLWJ5OiBFcmlj
-IER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+IENjOiBEbWl0cnkgS3JhdmtvdiA8ZG1p
-dHJ5QGJyb2FkY29tLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNv
-bS9ibngyeC9ibngyeF9jbW4uYyB8ICAgMTMgKysrKysrKysrKy0tLQ0KPiAgMSBmaWxlIGNoYW5n
-ZWQsIDEwIGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEv
-ZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfY21uLmMgYi9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9jbW4uYw0KPiBpbmRleCBiOGZiZTI2
-Li42Y2M1MTAxIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9i
-bngyeC9ibngyeF9jbW4uYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9i
-bngyeC9ibngyeF9jbW4uYw0KPiBAQCAtNDU5OSw2ICs0NTk5LDcgQEAgaW50IGJueDJ4X3NldF9m
-ZWF0dXJlcyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBuZXRkZXZfZmVhdHVyZXNfdCBmZWF0dXJl
-cykNCj4gIHsNCj4gIAlzdHJ1Y3QgYm54MnggKmJwID0gbmV0ZGV2X3ByaXYoZGV2KTsNCj4gIAl1
-MzIgZmxhZ3MgPSBicC0+ZmxhZ3M7DQo+ICsJdTMyIGNoYW5nZXM7DQo+ICAJYm9vbCBibngyeF9y
-ZWxvYWQgPSBmYWxzZTsNCj4gDQo+ICAJaWYgKGZlYXR1cmVzICYgTkVUSUZfRl9MUk8pDQo+IEBA
-IC00NjIzLDEwICs0NjI0LDE2IEBAIGludCBibngyeF9zZXRfZmVhdHVyZXMoc3RydWN0IG5ldF9k
-ZXZpY2UgKmRldiwgbmV0ZGV2X2ZlYXR1cmVzX3QgZmVhdHVyZXMpDQo+ICAJCX0NCj4gIAl9DQo+
-IA0KPiAtCWlmIChmbGFncyBeIGJwLT5mbGFncykgew0KPiAtCQlicC0+ZmxhZ3MgPSBmbGFnczsN
-Cj4gKwljaGFuZ2VzID0gZmxhZ3MgXiBicC0+ZmxhZ3M7DQo+ICsNCj4gKwkvKiBpZiBHUk8gaXMg
-Y2hhbmdlZCB3aGlsZSBMUk8gaXMgZW5hYmxlZCwgZG9udCBmb3JjZSBhIHJlbG9hZCAqLw0KPiAr
-CWlmICgoY2hhbmdlcyAmIEdST19FTkFCTEVfRkxBRykgJiYgKGZsYWdzICYgVFBBX0VOQUJMRV9G
-TEFHKSkNCj4gKwkJY2hhbmdlcyAmPSB+R1JPX0VOQUJMRV9GTEFHOw0KPiArDQo+ICsJaWYgKGNo
-YW5nZXMpDQo+ICAJCWJueDJ4X3JlbG9hZCA9IHRydWU7DQo+IC0JfQ0KPiArDQo+ICsJYnAtPmZs
-YWdzID0gZmxhZ3M7DQo+IA0KPiAgCWlmIChibngyeF9yZWxvYWQpIHsNCj4gIAkJaWYgKGJwLT5y
-ZWNvdmVyeV9zdGF0ZSA9PSBCTlgyWF9SRUNPVkVSWV9ET05FKQ0KPiANCj4NCkxvb2tzIGdvb2Qh
-IFRoYW5rcywgRXJpYw0KDQpBY2tlZC1ieTogRG1pdHJ5IEtyYXZrb3YgPGRtaXRyeUBicm9hZGNv
-bS5jb20+DQoNCg==
+These 2 places are the only matches for is_eisa in the whole tree.
+
+Signed-off-by: Rolf Eike Beer <eike-kernel@sf-tec.de>
+---
+ drivers/net/ethernet/ti/tlan.c | 1 -
+ drivers/net/ethernet/ti/tlan.h | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
+index 60c400f..59abfbc 100644
+--- a/drivers/net/ethernet/ti/tlan.c
++++ b/drivers/net/ethernet/ti/tlan.c
+@@ -533,7 +533,6 @@ static int tlan_probe1(struct pci_dev *pdev, long ioaddr, int irq, int rev,
+ 		/* This is a hack. We need to know which board structure
+ 		 * is suited for this adapter */
+ 		device_id = inw(ioaddr + EISA_ID2);
+-		priv->is_eisa = 1;
+ 		if (device_id == 0x20F1) {
+ 			priv->adapter = &board_info[13]; /* NetFlex-3/E */
+ 			priv->adapter_rev = 23;		/* TLAN 2.3 */
+diff --git a/drivers/net/ethernet/ti/tlan.h b/drivers/net/ethernet/ti/tlan.h
+index 5fc98a8..2eb33a2 100644
+--- a/drivers/net/ethernet/ti/tlan.h
++++ b/drivers/net/ethernet/ti/tlan.h
+@@ -207,7 +207,6 @@ struct tlan_priv {
+ 	u8			tlan_full_duplex;
+ 	spinlock_t		lock;
+ 	u8			link;
+-	u8			is_eisa;
+ 	struct work_struct			tlan_tqueue;
+ 	u8			neg_be_verbose;
+ };
+-- 
+1.8.1.4
