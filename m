@@ -1,7 +1,8 @@
 From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH v2 net-next 4/4] tg3: Implement set/get_eee handlers
-Date: Sat, 18 May 2013 09:26:55 -0700
-Message-ID: <1368894415-27678-5-git-send-email-nsujir@broadcom.com>
+Subject: [PATCH v2 net-next 3/4] tg3: Simplify tg3_phy_eee_config_ok()
+ by reusing tg3_eee_pull_config()
+Date: Sat, 18 May 2013 09:26:54 -0700
+Message-ID: <1368894415-27678-4-git-send-email-nsujir@broadcom.com>
 References: <1368894415-27678-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,104 +11,80 @@ Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
 	"Michael Chan" <mchan@broadcom.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2044 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3660 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752662Ab3ERQ1T (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 18 May 2013 12:27:19 -0400
+	id S1752660Ab3ERQ1X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 May 2013 12:27:23 -0400
 In-Reply-To: <1368894415-27678-1-git-send-email-nsujir@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
+
+eee_config_ok() was checking only for mismatch in advertised settings.
+This patch expands the scope of eee_config_ok() to check for mismatch in
+the other eee settings. On mismatch we will require a call to
+tg3_setup_eee() to push the configured settings to the hardware.
 
 Reviewed-by: Ben Li <benli@broadcom.com>
 Signed-off-by: Michael Chan <mchan@broadcom.com>
 Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 53 +++++++++++++++++++++++++++++++++++++
- drivers/net/ethernet/broadcom/tg3.h |  1 +
- 2 files changed, 54 insertions(+)
+ drivers/net/ethernet/broadcom/tg3.c | 31 +++++++++++++++----------------
+ 1 file changed, 15 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 2d9b303..0a2ee3c 100644
+index 8aec446..2d9b303 100644
 --- a/drivers/net/ethernet/broadcom/tg3.c
 +++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -13647,6 +13647,57 @@ static int tg3_set_coalesce(struct net_device *dev, struct ethtool_coalesce *ec)
- 	return 0;
+@@ -4552,26 +4552,23 @@ static int tg3_init_5401phy_dsp(struct tg3 *tp)
+ 
+ static bool tg3_phy_eee_config_ok(struct tg3 *tp)
+ {
+-	u32 val;
+-	u32 tgtadv = 0;
+-	u32 advertising = tp->link_config.advertising;
++	struct ethtool_eee eee;
+ 
+ 	if (!(tp->phy_flags & TG3_PHYFLG_EEE_CAP))
+ 		return true;
+ 
+-	if (tg3_phy_cl45_read(tp, MDIO_MMD_AN, MDIO_AN_EEE_ADV, &val))
+-		return false;
+-
+-	val &= (MDIO_AN_EEE_ADV_100TX | MDIO_AN_EEE_ADV_1000T);
+-
+-
+-	if (advertising & ADVERTISED_100baseT_Full)
+-		tgtadv |= MDIO_AN_EEE_ADV_100TX;
+-	if (advertising & ADVERTISED_1000baseT_Full)
+-		tgtadv |= MDIO_AN_EEE_ADV_1000T;
++	tg3_eee_pull_config(tp, &eee);
+ 
+-	if (val != tgtadv)
+-		return false;
++	if (tp->eee.eee_enabled) {
++		if (tp->eee.advertised != eee.advertised ||
++		    tp->eee.tx_lpi_timer != eee.tx_lpi_timer ||
++		    tp->eee.tx_lpi_enabled != eee.tx_lpi_enabled)
++			return false;
++	} else {
++		/* EEE is disabled but we're advertising */
++		if (eee.advertised)
++			return false;
++	}
+ 
+ 	return true;
  }
- 
-+static int tg3_set_eee(struct net_device *dev, struct ethtool_eee *edata)
-+{
-+	struct tg3 *tp = netdev_priv(dev);
-+
-+	if (!(tp->phy_flags & TG3_PHYFLG_EEE_CAP)) {
-+		netdev_warn(tp->dev, "Board does not support EEE!\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (edata->advertised != tp->eee.advertised) {
-+		netdev_warn(tp->dev,
-+			    "Direct manipulation of EEE advertisement is not supported\n");
-+		return -EINVAL;
-+	}
-+
-+	if (edata->tx_lpi_timer > TG3_CPMU_DBTMR1_LNKIDLE_MAX) {
-+		netdev_warn(tp->dev,
-+			    "Maximal Tx Lpi timer supported is %#x(u)\n",
-+			    TG3_CPMU_DBTMR1_LNKIDLE_MAX);
-+		return -EINVAL;
-+	}
-+
-+	tp->eee = *edata;
-+
-+	tp->phy_flags |= TG3_PHYFLG_USER_CONFIGURED;
-+	tg3_warn_mgmt_link_flap(tp);
-+
-+	if (netif_running(tp->dev)) {
-+		tg3_full_lock(tp, 0);
-+		tg3_setup_eee(tp);
-+		tg3_phy_reset(tp);
-+		tg3_full_unlock(tp);
-+	}
-+
-+	return 0;
-+}
-+
-+static int tg3_get_eee(struct net_device *dev, struct ethtool_eee *edata)
-+{
-+	struct tg3 *tp = netdev_priv(dev);
-+
-+	if (!(tp->phy_flags & TG3_PHYFLG_EEE_CAP)) {
-+		netdev_warn(tp->dev,
-+			    "Board does not support EEE!\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	*edata = tp->eee;
-+	return 0;
-+}
-+
- static const struct ethtool_ops tg3_ethtool_ops = {
- 	.get_settings		= tg3_get_settings,
- 	.set_settings		= tg3_set_settings,
-@@ -13680,6 +13731,8 @@ static const struct ethtool_ops tg3_ethtool_ops = {
- 	.get_channels		= tg3_get_channels,
- 	.set_channels		= tg3_set_channels,
- 	.get_ts_info		= tg3_get_ts_info,
-+	.get_eee		= tg3_get_eee,
-+	.set_eee		= tg3_set_eee,
- };
- 
- static struct rtnl_link_stats64 *tg3_get_stats64(struct net_device *dev,
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 057532c..2530c20 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -1175,6 +1175,7 @@
- #define TG3_CPMU_EEE_DBTMR1		0x000036b4
- #define  TG3_CPMU_DBTMR1_PCIEXIT_2047US	 0x07ff0000
- #define  TG3_CPMU_DBTMR1_LNKIDLE_2047US	 0x000007ff
-+#define  TG3_CPMU_DBTMR1_LNKIDLE_MAX	 0x0000ffff
- #define TG3_CPMU_EEE_DBTMR2		0x000036b8
- #define  TG3_CPMU_DBTMR2_APE_TX_2047US	 0x07ff0000
- #define  TG3_CPMU_DBTMR2_TXIDXEQ_2047US	 0x000007ff
+@@ -4874,8 +4871,10 @@ static int tg3_setup_copper_phy(struct tg3 *tp, bool force_reset)
+ 			 */
+ 			if (!eee_config_ok &&
+ 			    (tp->phy_flags & TG3_PHYFLG_KEEP_LINK_ON_PWRDN) &&
+-			    !force_reset)
++			    !force_reset) {
++				tg3_setup_eee(tp);
+ 				tg3_phy_reset(tp);
++			}
+ 		} else {
+ 			if (!(bmcr & BMCR_ANENABLE) &&
+ 			    tp->link_config.speed == current_speed &&
 -- 
 1.8.1.4
