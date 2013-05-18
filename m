@@ -1,68 +1,61 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2 3/4] bonding: arp_ip_count and arp_targets can be wrong
-Date: Sun, 19 May 2013 01:28:38 +0400
-Message-ID: <5197F286.1070505@cogentembedded.com>
-References: <1368875911-4952-1-git-send-email-nikolay@redhat.com> <1368875911-4952-4-git-send-email-nikolay@redhat.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH net-next] net-bnx2x: dont reload on GRO change
+Date: Sat, 18 May 2013 21:36:07 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20C5054D@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1368897293.3301.152.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:36912 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752988Ab3ERV2a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 May 2013 17:28:30 -0400
-Received: by mail-lb0-f175.google.com with SMTP id v10so5419023lbd.20
-        for <netdev@vger.kernel.org>; Sat, 18 May 2013 14:28:29 -0700 (PDT)
-In-Reply-To: <1368875911-4952-4-git-send-email-nikolay@redhat.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:2984 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753002Ab3ERVgT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 18 May 2013 17:36:19 -0400
+In-Reply-To: <1368897293.3301.152.camel@edumazet-glaptop>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 18-05-2013 15:18, Nikolay Aleksandrov wrote:
-
-> When getting arp_ip_targets if we encounter a bad IP, arp_ip_count still
-> gets increased and all the targets after the wrong one will not be probed
-> if arp_interval is enabled after that (unless a new IP target is added
-> through sysfs) because of the zero entry, in this case reading
-> arp_ip_target through sysfs will show valid targets even if there's a
-> zero entry.
-> Example: 1.2.3.4,4.5.6.7,blah,5.6.7.8
-> When retrieving the list from arp_ip_target the output would be:
-> 1.2.3.4,4.5.6.7,5.6.7.8
-> but there will be a 0 entry between 4.5.6.7 and 5.6.7.8. If arp_interval
-> is enabled after that 5.6.7.8 will never be checked because of that.
-
-> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
-> ---
->   drivers/net/bonding/bond_main.c | 19 ++++++++-----------
->   1 file changed, 8 insertions(+), 11 deletions(-)
-
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 1a0cc13..d6a96cb 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-[...]
-> @@ -4650,19 +4650,18 @@ static int bond_check_params(struct bond_params *params)
->   		arp_interval = BOND_LINK_ARP_INTERV;
->   	}
->
-> -	for (arp_ip_count = 0;
-> -	     (arp_ip_count < BOND_MAX_ARP_TARGETS) && arp_ip_target[arp_ip_count];
-> -	     arp_ip_count++) {
-> +	for (arp_ip_count = 0, i = 0;
-> +	     (arp_ip_count < BOND_MAX_ARP_TARGETS) && arp_ip_target[i]; i++) {
->   		/* not complete check, but should be good enough to
->   		   catch mistakes */
-> -		__be32 ip = in_aton(arp_ip_target[arp_ip_count]);
-> -		if (!isdigit(arp_ip_target[arp_ip_count][0]) ||
-> -		    ip == 0 || ip == htonl(INADDR_BROADCAST)) {
-> +		__be32 ip = in_aton(arp_ip_target[i]);
-
-    Empty line wouldn't hurt here, after declaration.
-
-> +		if (!isdigit(arp_ip_target[i][0]) || ip == 0 ||
-> +		    ip == htonl(INADDR_BROADCAST)) {
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0
+bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBTZW50OiBTYXR1cmRheSwgTWF5IDE4LCAyMDEz
+IDg6MTUgUE0NCj4gVG86IERhdmlkIE1pbGxlcg0KPiBDYzogbmV0ZGV2OyBEbWl0cnkgS3Jhdmtv
+djsgRWlsb24gR3JlZW5zdGVpbg0KPiBTdWJqZWN0OiBbUEFUQ0ggbmV0LW5leHRdIG5ldC1ibngy
+eDogZG9udCByZWxvYWQgb24gR1JPIGNoYW5nZQ0KPiANCj4gRnJvbTogRXJpYyBEdW1hemV0IDxl
+ZHVtYXpldEBnb29nbGUuY29tPg0KPiANCj4gYm54Mnhfc2V0X2ZlYXR1cmVzKCkgZm9yY2VzIGEg
+ZHJpdmVyIHJlbG9hZCBpZiBHUk8gc2V0dGluZyBpcyBjaGFuZ2VkLg0KPiANCj4gQSByZWxvYWQg
+bWFrZXMgdGhlIGV0aGVybmV0IHBvcnQgdW5yZXNwb25zaXZlIGZvciBhYm91dCA1IHNlY29uZHMu
+DQo+IA0KPiBUaGlzIGlzIG5vdCBuZWVkZWQgaW4gdGhlIGNvbW1vbiBjYXNlIExSTyBpcyBlbmFi
+bGVkLCBhcyBMUk8NCj4gKFRQQV9FTkFCTEVfRkxBRykgaGFzIHByZWNlZGVuY2Ugb3ZlciBHUk8g
+KEdST19FTkFCTEVfRkxBRykNCj4gDQo+IFRlc3RlZDoNCj4gIFZlcmlmaWVkIHRoYXQgImV0aHRv
+b2wgLUsgZXRoMCBncm8ge29ufG9mZn0iIGRvZXNuJ3QgYmxhY2tvdXQNCj4gIHRoZSBOSUMgYW55
+bW9yZQ0KPiANCj4gR29vZ2xlLUJ1Zy1JZDogODQ0MDQ0Mg0KPiBTaWduZWQtb2ZmLWJ5OiBFcmlj
+IER1bWF6ZXQgPGVkdW1hemV0QGdvb2dsZS5jb20+DQo+IENjOiBEbWl0cnkgS3JhdmtvdiA8ZG1p
+dHJ5QGJyb2FkY29tLmNvbT4NCj4gLS0tDQo+ICBkcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNv
+bS9ibngyeC9ibngyeF9jbW4uYyB8ICAgMTMgKysrKysrKysrKy0tLQ0KPiAgMSBmaWxlIGNoYW5n
+ZWQsIDEwIGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEv
+ZHJpdmVycy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfY21uLmMgYi9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9jbW4uYw0KPiBpbmRleCBiOGZiZTI2
+Li42Y2M1MTAxIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9i
+bngyeC9ibngyeF9jbW4uYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9i
+bngyeC9ibngyeF9jbW4uYw0KPiBAQCAtNDU5OSw2ICs0NTk5LDcgQEAgaW50IGJueDJ4X3NldF9m
+ZWF0dXJlcyhzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBuZXRkZXZfZmVhdHVyZXNfdCBmZWF0dXJl
+cykNCj4gIHsNCj4gIAlzdHJ1Y3QgYm54MnggKmJwID0gbmV0ZGV2X3ByaXYoZGV2KTsNCj4gIAl1
+MzIgZmxhZ3MgPSBicC0+ZmxhZ3M7DQo+ICsJdTMyIGNoYW5nZXM7DQo+ICAJYm9vbCBibngyeF9y
+ZWxvYWQgPSBmYWxzZTsNCj4gDQo+ICAJaWYgKGZlYXR1cmVzICYgTkVUSUZfRl9MUk8pDQo+IEBA
+IC00NjIzLDEwICs0NjI0LDE2IEBAIGludCBibngyeF9zZXRfZmVhdHVyZXMoc3RydWN0IG5ldF9k
+ZXZpY2UgKmRldiwgbmV0ZGV2X2ZlYXR1cmVzX3QgZmVhdHVyZXMpDQo+ICAJCX0NCj4gIAl9DQo+
+IA0KPiAtCWlmIChmbGFncyBeIGJwLT5mbGFncykgew0KPiAtCQlicC0+ZmxhZ3MgPSBmbGFnczsN
+Cj4gKwljaGFuZ2VzID0gZmxhZ3MgXiBicC0+ZmxhZ3M7DQo+ICsNCj4gKwkvKiBpZiBHUk8gaXMg
+Y2hhbmdlZCB3aGlsZSBMUk8gaXMgZW5hYmxlZCwgZG9udCBmb3JjZSBhIHJlbG9hZCAqLw0KPiAr
+CWlmICgoY2hhbmdlcyAmIEdST19FTkFCTEVfRkxBRykgJiYgKGZsYWdzICYgVFBBX0VOQUJMRV9G
+TEFHKSkNCj4gKwkJY2hhbmdlcyAmPSB+R1JPX0VOQUJMRV9GTEFHOw0KPiArDQo+ICsJaWYgKGNo
+YW5nZXMpDQo+ICAJCWJueDJ4X3JlbG9hZCA9IHRydWU7DQo+IC0JfQ0KPiArDQo+ICsJYnAtPmZs
+YWdzID0gZmxhZ3M7DQo+IA0KPiAgCWlmIChibngyeF9yZWxvYWQpIHsNCj4gIAkJaWYgKGJwLT5y
+ZWNvdmVyeV9zdGF0ZSA9PSBCTlgyWF9SRUNPVkVSWV9ET05FKQ0KPiANCj4NCkxvb2tzIGdvb2Qh
+IFRoYW5rcywgRXJpYw0KDQpBY2tlZC1ieTogRG1pdHJ5IEtyYXZrb3YgPGRtaXRyeUBicm9hZGNv
+bS5jb20+DQoNCg==
