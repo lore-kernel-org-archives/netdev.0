@@ -1,100 +1,62 @@
-From: Tomasz Figa <tomasz.figa@gmail.com>
-Subject: Re: [PATCH v2] net: dm9000: Allow instantiation using device tree
-Date: Sun, 19 May 2013 15:41:55 +0200
-Message-ID: <15046898.dr5fzcR9ZS@flatron>
-References: <1368962191-32594-1-git-send-email-tomasz.figa@gmail.com> <5198D359.5060608@gmail.com>
+From: Shawn Guo <shawn.guo@linaro.org>
+Subject: [PATCH] net: fec: use a more proper compatible string for MVF type device
+Date: Sun, 19 May 2013 22:38:46 +0800
+Message-ID: <1368974326-24069-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	devicetree-discuss@lists.ozlabs.org,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>
-To: Sylwester Nawrocki <sylvester.nawrocki@gmail.com>
+Content-Type: text/plain
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jingchang Lu <b35083@freescale.com>,
+	Shawn Guo <shawn.guo@linaro.org>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:61381 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751504Ab3ESNmA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 09:42:00 -0400
-Received: by mail-ee0-f49.google.com with SMTP id d17so3424038eek.22
-        for <netdev@vger.kernel.org>; Sun, 19 May 2013 06:41:59 -0700 (PDT)
-In-Reply-To: <5198D359.5060608@gmail.com>
+Received: from co9ehsobe005.messaging.microsoft.com ([207.46.163.28]:2553 "EHLO
+	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752561Ab3ESOin (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 10:38:43 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Sylwester,
+MVF is a family while MVF600 is a particular SoC in the family.  We
+generally prefer to use SoC rather than family name in compatible string
+to define a particular type of fec device.  And this is how fec_dt_ids
+works for all those IMX fec variants.  Let's change mvf to mvf600 to
+have it work in the same way.
 
-On Sunday 19 of May 2013 15:27:53 Sylwester Nawrocki wrote:
-> Hi,
-> 
-> On 05/19/2013 01:16 PM, Tomasz Figa wrote:
-> > +++ b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-> > @@ -0,0 +1,26 @@
-> > +Davicom DM9000 Fast Ethernet controller
-> > +
-> > +Required properties:
-> > +- compatible = "davicom,dm9000";
-> > +- reg : physical addresses and sizes of registers, must contain 2
-> > entries: +    first entry : address register,
-> > +    second entry : address register.
-> 
-> Two address registers ? Shouldn't one of these be "data register" ?
+Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+---
+ drivers/net/ethernet/freescale/fec_main.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-Oops. I thought I already corrected this typo. Thanks.
-
-> > +Example:
-> > +
-> > +	ethernet@18000000 {
-> > +		compatible = "davicom,dm9000";
-> > +		reg =<0x18000000 0x2 0x18000004 0x2>;
-> > +		interrupt-parent =<&gpn>;
-> > +		interrupts =<7 4>;
-> > +		local-mac-address = [00 00 de ad be ef];
-> > +		davicom,no-eeprom;
-> > +	};
-> > 
-> > +static struct dm9000_plat_data *dm9000_parse_dt(struct device *dev)
-> > +{
-> > +	struct dm9000_plat_data *pdata;
-> > +	struct device_node *np = dev->of_node;
-> > +	const void *mac_addr;
-> > +
-> > +	if (!IS_ENABLED(CONFIG_OF) || !np)
-> > +		return NULL;
-> 
-> Shouldn't ERR_PTR() value be returned here ?
-
-Nope. No platform data is a valid case, so no error here.
-
-> > +	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-> > +	if (!pdata) {
-> > +		dev_err(dev, "failed to allocate platform data struct\n");
-> 
-> There is no need for this error log, k*alloc already logs any failures.
-
-Hmm. Does it print what allocation exactly failed? (e.g. a backtrace)
-
-Not that it would give anything that could help you in an out of memory 
-condition like this, but in general it's good to know in what point the 
-failure happened.
-
-Best regards,
-Tomasz
-
-> > @@ -1373,6 +1402,12 @@ dm9000_probe(struct platform_device *pdev)
-> > 
-> >   	int i;
-> >   	u32 id_val;
-> > 
-> > +	if (!pdata) {
-> > +		pdata = dm9000_parse_dt(&pdev->dev);
-> > +		if (IS_ERR(pdata))
-> > +			return PTR_ERR(pdata);
-> > +	}
-> 
-> Thanks,
-> 
-> Sylwester
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 658fbc1..ce7b638 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -109,7 +109,7 @@ static struct platform_device_id fec_devtype[] = {
+ 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
+ 				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM,
+ 	}, {
+-		.name = "mvf-fec",
++		.name = "mvf600-fec",
+ 		.driver_data = FEC_QUIRK_ENET_MAC,
+ 	}, {
+ 		/* sentinel */
+@@ -122,7 +122,7 @@ enum imx_fec_type {
+ 	IMX27_FEC,	/* runs on i.mx27/35/51 */
+ 	IMX28_FEC,
+ 	IMX6Q_FEC,
+-	MVF_FEC,
++	MVF600_FEC,
+ };
+ 
+ static const struct of_device_id fec_dt_ids[] = {
+@@ -130,7 +130,7 @@ static const struct of_device_id fec_dt_ids[] = {
+ 	{ .compatible = "fsl,imx27-fec", .data = &fec_devtype[IMX27_FEC], },
+ 	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[IMX28_FEC], },
+ 	{ .compatible = "fsl,imx6q-fec", .data = &fec_devtype[IMX6Q_FEC], },
+-	{ .compatible = "fsl,mvf-fec", .data = &fec_devtype[MVF_FEC], },
++	{ .compatible = "fsl,mvf600-fec", .data = &fec_devtype[MVF600_FEC], },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, fec_dt_ids);
+-- 
+1.7.9.5
