@@ -1,52 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] net: dm9000: Allow instantiation using device tree
-Date: Sun, 19 May 2013 10:38:22 +0200
-Message-ID: <20130519083822.GA31087@electric-eye.fr.zoreil.com>
-References: <1368918194-24030-1-git-send-email-tomasz.figa@gmail.com>
- <20130519070538.GX32299@pengutronix.de>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: bug fixing and cleanup
+Date: Sun, 19 May 2013 11:42:06 +0300 (EEST)
+Message-ID: <alpine.DEB.2.02.1305191136360.4537@fry.nucleusys.com>
+References: <alpine.DEB.2.02.1305181902080.7518@fry.nucleusys.com> <20130518210948.GA26590@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
- Tomasz Figa <tomasz.figa@gmail.com>, Rob Herring <rob.herring@calxeda.com>,
- Grant Likely <grant.likely@linaro.org>, Sascha Hauer <s.hauer@pengutronix.de>,
- linux-arm-kernel@lists.infradead.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20130519070538.GX32299@pengutronix.de>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130518210948.GA26590@electric-eye.fr.zoreil.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Sascha Hauer <s.hauer@pengutronix.de> :
-[...]
-> > +#ifdef CONFIG_OF
-> > +static struct dm9000_plat_data *dm9000_parse_dt(struct device *dev)
-> > +{
-> > +	struct dm9000_plat_data *pdata;
-> > +	struct device_node *np = dev->of_node;
-> > +	const void *prop;
-> > +	int len;
-> > +
-> > +	if (!np)
-> > +		return NULL;
+On Sat, 18 May 2013, Francois Romieu wrote:
+
+> Petko Manolov <petkan@nucleusys.com> :
+> > From: Petko Manolov <petkan@nucleusys.com>
+> > 
+> > Moving constant and structure definitions out of rtl8150.c;
 > 
-> You should be able to kill the ifdef around this function by doing
+> What's the point ?
+
+The general logic of having .h files applies.
+ 
+> [...]
+> > ---
+> >  drivers/net/usb/rtl8150.c |  121 +----------------------------------
+> >  1 file changed, 2 insertions(+), 119 deletions(-)
+> > 
+> > diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+> > index a491d3a..7d1897b 100644
+> > --- a/drivers/net/usb/rtl8150.c
+> > +++ b/drivers/net/usb/rtl8150.c
+> > @@ -17,132 +17,15 @@
+> >  #include <linux/usb.h>
+> >  #include <asm/uaccess.h>
+> >  
+> > +#include "rtl8150.h"
 > 
-> 	if (!IS_ENABLED(CONFIG_OF) || !np)
-> 		return NULL;
+> It won't compile. You shouldn't do that.
 
-It will be the first such use of IS_ENABLED in net land.
+It does compile.  Both inside and outside of the tree.
 
-David, is it ok ?
-
--- 
-Ueimor
+If the proper place for rtl8150.h is somewhere in include/linux/... then 
+it is different matter.
