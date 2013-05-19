@@ -1,82 +1,50 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net] bnx2x: Fix GSO for 57710/57711 chips
-Date: Sun, 19 May 2013 17:41:01 +0300
-Message-ID: <1368974461-5308-1-git-send-email-yuvalmin@broadcom.com>
+From: Boian Bonev <bbonev@ipacct.com>
+Subject: RFC EOIP Tunnel
+Date: Sun, 19 May 2013 18:31:40 +0300
+Message-ID: <CAD53P8CY9SFvsrhiZqpxT=P5PtjbqL4LG1tf3O8jpU0yrychUw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4249 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752811Ab3ESOjb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 May 2013 10:39:31 -0400
+Received: from mail-ia0-f176.google.com ([209.85.210.176]:65165 "EHLO
+	mail-ia0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750733Ab3ESPcL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 11:32:11 -0400
+Received: by mail-ia0-f176.google.com with SMTP id j3so4362104iae.21
+        for <netdev@vger.kernel.org>; Sun, 19 May 2013 08:32:10 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Starting with commit 91226790bbe2dbfbba48dd79d49f2b38ef10eb97
-`bnx2x: use FW 7.8.17', the bnx2x driver no longer requests the FW to perform
-IP checksums for IPv4 packets.
+Hi,
 
-This behaviour needs to be revised for 57710/57711 chips -
-when using GSO, if the driver will not set the IP checksum flag then packets
-will be transmitted by the chip without a valid IP checksum, resulting in
-a drop of all such packets on the receiver-side.
+EOIP is a proprietary ethernet over IP tunneling protocol introduced
+by MikroTik's commercial product RouterOS. It uses GRE as protocol id
+but with non-standard header.
 
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
-Hi Dave,
+Unlike EtherIP (RFC 3378) that is documented but not used, EOIP is not
+documented but used for transparent Layer2 over wireless links and in
+providing Layer2 services through multiple management domain networks
+where pure L2 is as hard as near to impossible.
 
-Please consider applying this to `net'.
+Long story short: my primary motivation behind doing this work was to
+reduce the number of points of failure in a Linux+RouterOS and many
+RouterOS endpoints setup. Old RouterOS endpoints do not support any
+standard ethernet tunneling (upgrading is not an option) while Linux
+does not support the EOIP protocol. On the other hand RouterOS cannot
+be as flexible as Linux can be for routing and magic.
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+Judging from the existence of at least two separate opensource
+projects doing this tunneling in userspace
+(https://github.com/katuma/eoip and
+https://code.google.com/p/linux-eoip/) I believe that this will be
+useful for people using Linux in networked setups.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index b8fbe26..be59ec4 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3313,6 +3313,7 @@ static void bnx2x_set_pbd_gso_e2(struct sk_buff *skb, u32 *parsing_data,
-  */
- static void bnx2x_set_pbd_gso(struct sk_buff *skb,
- 			      struct eth_tx_parse_bd_e1x *pbd,
-+			      struct eth_tx_start_bd *tx_start_bd,
- 			      u32 xmit_type)
- {
- 	pbd->lso_mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
-@@ -3326,11 +3327,14 @@ static void bnx2x_set_pbd_gso(struct sk_buff *skb,
- 						   ip_hdr(skb)->daddr,
- 						   0, IPPROTO_TCP, 0));
- 
--	} else
-+		/* GSO on 57710/57711 needs FW to calculate IP checksum */
-+		tx_start_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_IP_CSUM;
-+	} else {
- 		pbd->tcp_pseudo_csum =
- 			bswab16(~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
- 						 &ipv6_hdr(skb)->daddr,
- 						 0, IPPROTO_TCP, 0));
-+	}
- 
- 	pbd->global_data |=
- 		cpu_to_le16(ETH_TX_PARSE_BD_E1X_PSEUDO_CS_WITHOUT_LEN);
-@@ -3814,7 +3818,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 			bnx2x_set_pbd_gso_e2(skb, &pbd_e2_parsing_data,
- 					     xmit_type);
- 		else
--			bnx2x_set_pbd_gso(skb, pbd_e1x, xmit_type);
-+			bnx2x_set_pbd_gso(skb, pbd_e1x, tx_start_bd,
-+					  xmit_type);
- 	}
- 
- 	/* Set the PBD's parsing_data field if not zero
--- 
-1.8.1.227.g44fe835
+Before going in technical details and submitting patches I want to
+know opinions if this work is suitable for merging upstream or is
+better to be kept as a side kernel patch project.
+
+With best regards,
+b.
+
+ps. https://github.com/bbonev/eoip contains 3.2.x patches + somehow
+working but quite crappy config tool
