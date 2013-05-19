@@ -1,49 +1,58 @@
-From: David Hauweele <david@hauweele.net>
-Subject: [PATCH 1/1] 6lowpan: Fix fragmentation with link-local compressed addresses
-Date: Sun, 19 May 2013 20:13:31 +0200
-Message-ID: <1368987211-19826-1-git-send-email-david@hauweele.net>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Hauweele <david@hauweele.net>
-To: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
-	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-zigbee-devel@lists.sourceforge.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] isdn/kcapi: fix a small underflow
+Date: Sun, 19 May 2013 21:36:36 +0300
+Message-ID: <20130519183636.GA25275@elgon.mountain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Karsten Keil <isdn@linux-pingi.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:41946 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751950Ab3ESSgz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 14:36:55 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a new 6lowpan fragment is received, a skbuff is allocated for
-the reassembled packet. However when a 6lowpan packet compresses
-link-local addresses based on link-layer addresses, the processing
-function relies on the skb mac control block to find the related
-link-layer address.
+In get_capi_ctr_by_nr() and get_capi_appl_by_nr() the parameter comes
+from skb->data.  The current code can underflow to one space before the
+start of the array.
 
-This patch copies the control block from the first fragment into
-the newly allocated skb to keep a trace of the link-layer addresses
-in case of a link-local compressed address.
+The sanity check isn't needed in __get_capi_appl_by_nr() but I changed
+it to match the others.
 
-Signed-off-by: David Hauweele <david@hauweele.net>
----
- net/ieee802154/6lowpan.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/net/ieee802154/6lowpan.c b/net/ieee802154/6lowpan.c
-index 55e1fd5..d9a41e2 100644
---- a/net/ieee802154/6lowpan.c
-+++ b/net/ieee802154/6lowpan.c
-@@ -702,6 +702,13 @@ lowpan_alloc_new_frame(struct sk_buff *skb, u16 len, u16 tag)
- 	skb_reserve(frame->skb, sizeof(struct ipv6hdr));
- 	skb_put(frame->skb, frame->length);
+diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
+index 9b1b274..c123709 100644
+--- a/drivers/isdn/capi/kcapi.c
++++ b/drivers/isdn/capi/kcapi.c
+@@ -93,7 +93,7 @@ capi_ctr_put(struct capi_ctr *ctr)
  
-+	/*
-+	 * copy the first control block to keep a
-+	 * trace of the link-layer addresses in case
-+	 * of a link-local compressed address
-+	 */
-+	memcpy(frame->skb->cb, skb->cb, sizeof(skb->cb));
-+
- 	init_timer(&frame->timer);
- 	/* time out is the same as for ipv6 - 60 sec */
- 	frame->timer.expires = jiffies + LOWPAN_FRAG_TIMEOUT;
--- 
-1.7.10.4
+ static inline struct capi_ctr *get_capi_ctr_by_nr(u16 contr)
+ {
+-	if (contr - 1 >= CAPI_MAXCONTR)
++	if (contr < 1 || contr - 1 >= CAPI_MAXCONTR)
+ 		return NULL;
+ 
+ 	return capi_controller[contr - 1];
+@@ -103,7 +103,7 @@ static inline struct capi20_appl *__get_capi_appl_by_nr(u16 applid)
+ {
+ 	lockdep_assert_held(&capi_controller_lock);
+ 
+-	if (applid - 1 >= CAPI_MAXAPPL)
++	if (applid < 1 || applid - 1 >= CAPI_MAXAPPL)
+ 		return NULL;
+ 
+ 	return capi_applications[applid - 1];
+@@ -111,7 +111,7 @@ static inline struct capi20_appl *__get_capi_appl_by_nr(u16 applid)
+ 
+ static inline struct capi20_appl *get_capi_appl_by_nr(u16 applid)
+ {
+-	if (applid - 1 >= CAPI_MAXAPPL)
++	if (applid < 1 || applid - 1 >= CAPI_MAXAPPL)
+ 		return NULL;
+ 
+ 	return rcu_dereference(capi_applications[applid - 1]);
