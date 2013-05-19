@@ -1,150 +1,153 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v2 net-next 0/4] net: low latency Ethernet device polling
-Date: Sun, 19 May 2013 13:25:25 +0300
-Message-ID: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
+Subject: [PATCH v2 net-next 2/4] tcp: add TCP support for low
+ latency receive poll.
+Date: Sun, 19 May 2013 13:25:43 +0300
+Message-ID: <20130519102542.12527.3461.stgit@ladj378.jer.intel.com>
+References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donanld.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Andi Kleen <andi@firstfloor.org>,
+	Don Skidmore <donanld.c.skidmore@intel.com>, HPA <hpa@zytor.com>,
 	Eliezer Tamir <eliezer@tamir.org.il>
 To: Dave Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Dave, 
+an example of how one could add support for ndo_ll_poll to TCP.
 
-Please consider applying to net-next.
+Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Tested-by: Willem de Bruijn <willemb@google.com>
+Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+---
 
-Thanks,
-Eliezer
+ net/ipv4/Kconfig     |   11 +++++++++++
+ net/ipv4/tcp.c       |    9 +++++++++
+ net/ipv4/tcp_input.c |    4 ++++
+ 3 files changed, 24 insertions(+), 0 deletions(-)
 
-This is an updated version of the code we posted on February.
+diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+index d209f0f..8a3239e 100644
+--- a/net/ipv4/Kconfig
++++ b/net/ipv4/Kconfig
+@@ -421,6 +421,17 @@ config INET_LL_RX_POLL
+ 
+ 	  If unsure, say N.
+ 
++config INET_LL_TCP_POLL
++	bool "Low Latency TCP Receive Poll"
++	depends on INET_LL_RX_POLL
++	default n
++	---help---
++	  TCP support for Low Latency TCP Queue Poll.
++	  (For network cards that support this option.)
++	  Add support to the TCP stack for direct polling of the network card.
++
++	  If unsure, say N.
++
+ config INET_DIAG
+ 	tristate "INET: socket monitoring interface"
+ 	default y
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index dcb116d..85b8040 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -279,6 +279,7 @@
+ 
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
++#include <net/ll_poll.h>
+ 
+ int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
+ 
+@@ -1504,6 +1505,7 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
+ 			if (offset + 1 != skb->len)
+ 				continue;
+ 		}
++		sk_mark_ll(sk, skb);
+ 		if (tcp_hdr(skb)->fin) {
+ 			sk_eat_skb(sk, skb, false);
+ 			++seq;
+@@ -1551,6 +1553,12 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 	struct sk_buff *skb;
+ 	u32 urg_hole = 0;
+ 
++#ifdef CONFIG_INET_LL_TCP_POLL
++	if (sk_valid_ll(sk) && skb_queue_empty(&sk->sk_receive_queue)
++	    && (sk->sk_state == TCP_ESTABLISHED))
++		sk_poll_ll(sk, nonblock);
++#endif
++
+ 	lock_sock(sk);
+ 
+ 	err = -ENOTCONN;
+@@ -1855,6 +1863,7 @@ do_prequeue:
+ 					break;
+ 				}
+ 			}
++			sk_mark_ll(sk, skb);
+ 		}
+ 
+ 		*seq += used;
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index b358e8c..f3f293b 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -74,6 +74,7 @@
+ #include <linux/ipsec.h>
+ #include <asm/unaligned.h>
+ #include <net/netdma.h>
++#include <net/ll_poll.h>
+ 
+ int sysctl_tcp_timestamps __read_mostly = 1;
+ int sysctl_tcp_window_scaling __read_mostly = 1;
+@@ -4329,6 +4330,7 @@ static void tcp_data_queue(struct sock *sk, struct sk_buff *skb)
+ 				tp->copied_seq += chunk;
+ 				eaten = (chunk == skb->len);
+ 				tcp_rcv_space_adjust(sk);
++				sk_mark_ll(sk, skb);
+ 			}
+ 			local_bh_disable();
+ 		}
+@@ -4896,6 +4898,7 @@ static int tcp_copy_to_iovec(struct sock *sk, struct sk_buff *skb, int hlen)
+ 		tp->ucopy.len -= chunk;
+ 		tp->copied_seq += chunk;
+ 		tcp_rcv_space_adjust(sk);
++		sk_mark_ll(sk, skb);
+ 	}
+ 
+ 	local_bh_disable();
+@@ -4955,6 +4958,7 @@ static bool tcp_dma_try_early_copy(struct sock *sk, struct sk_buff *skb,
+ 		tp->ucopy.len -= chunk;
+ 		tp->copied_seq += chunk;
+ 		tcp_rcv_space_adjust(sk);
++		sk_mark_ll(sk, skb);
+ 
+ 		if ((tp->ucopy.len == 0) ||
+ 		    (tcp_flag_word(tcp_hdr(skb)) & TCP_FLAG_PSH) ||
 
-Patch 1 adds ndo_ll_poll and the IP code to use it.
-Patch 2 is an example of how TCP can use ndo_ll_poll.
-Patch 3 shows how this method would be implemented for the ixgbe driver.
-Patch 4 adds statistics to the ixgbe driver for ndo_ll_poll events.
 
-Changes from previous version:
-1. The sysctl knob is now in microseconds, we don't adjust it for cpu
-clock changes. The default value is now 0 (off).
-Recommended value is around 50.
-
-2. For now the code depends at configure time on CONFIG_I86_TSC to
-satisfy both the need for a high precision get_cycles() and a 64 bit
-cycles_t. I looked into using sched_clock(). It looks like it does not
-have the required precision on all architectures. Using config it would
-be easy to add other architectures once some testing has been done on them.
-
-3. The napi reference in struct skb is now a union with the dma cookie
-since the former is only used on RX and the latter on TX, as suggested
-by Eric Dumazet.
-
-4. We do a better job at honoring non-blocking operations.
-
-5. Removed busy-polling support for tcp_read_sock().
-Doing a release_sock() followed by a lock_sock() to get the backlog 
-processed is unsafe there.
-If there is interest in tcp_read_sock() support we would need another
-way to get backlog processing done.
-BTW I was not able to find a microbenchamrk that uses tcp_read_sock(),
-any suggestions?
-
-6. To avoid the overhead of reference counting napi structs by skbs
-and sockets in the fastpath, and increasing the size of the skb struct,
-we no longer allow unloading the module once this feature has been used.
-
-It seems that for most of the people interested in busy-polling, giving
-up the ability to blindly remove the module for a slight but measurable
-performance gain is a good tradeoff.
-(There is a module parameter to override this behavior and if you know
-what you are doing and are careful to stop the processes you can safely
-unload, but we don't enforce this.)
-
-7. We no longer try to dynamically turn GRO off when someone is busy-
-polling, since this sometimes caused reordering with packets left on
-the napi->gro_list by napi. For most workloads you should probably start
-by globally disabling GRO with ethtool. In some cases the performance
-gain of GRO greatly outweighs the cost of reordering.
-Your mileage may vary.
-
-8. Many small changes suggested by people here. I would like to thank
-all of the people that took the time to review our code.
-
-The performance is about the same as the last time.
-I promised Rick Jones CPU utilization numbers so here are some examples
-with these numbers added.
-
-Performance numbers:
-        setup                    TCP_RR              UDP_RR
-kernel  Config     C3/6 rx-usecs tps cpu% S.dem   tps cpu% S.dem
-patched optimized* on   100      87k 3.13 11.4   94K 3.17 10.7
-patched optimized* on   0        71k 3.12 14.0   84k 3.19 12.0
-patched optimized* on   adaptive 80k 3.13 12.5   90k 3.46 12.2
-patched typical    on   100      72  3.13 14.0   79k 3.17 12.8
-patched typical    on   0        60k 2.13 16.5   71k 3.18 14.0
-patched typical    on   adaptive 67k 3.51 16.7   75k 3.36 14.5
-3.9     optimized* on   adaptive 25k 1.0  12.7   28k 0.98 11.2
-3.9     typical    off  0        48k 1.09  7.3   52k 1.11 4.18
-3.9     typical    0ff  adaptive 35k 1.12 4.08   38k 0.65 5.49
-3.9     optimized* off  adaptive 40k 0.82 4.83   43k 0.70 5.23
-3.9     optimized* off  0        57k 1.17 4.08   62k 1.04 3.95
-*not the same config as the one used in v1.
-
-Test setup details:
-Machines: each with two Intel Xeon 2680 CPUs and X520 (82599) optical NICs
-Tests: Netperf tcp_rr and udp_rr, 1 byte (round trips per second)
-Kernel: unmodified 3.9 and patched 3.9
-Config: typical is derived from RH6.2, optimized is a stripped down config.
-Interrupt coalescing (ethtool rx-usecs) settings: 0=off, 1=adaptive, 100 us
-When C3/6 states were turned on (via BIOS) the performance governor was used.
-
-This is not the same exact optimized config that I used last time.
-When trying it on kernel 3.9 my machines would not boot.
-So I re-did it and I removed a slightly different set of options.
-As a result it is a bit faster on the patched kernel.
-This is also probably the explanation for a slight regression in 
-the performance of the unpatched 3.9 kernel with the optimized config
-compared to the 3.8 results.
-
-how to test:
-(changes from v1 are highlighted with ***)
-
-1. The patchset should apply cleanly to net-next.
-If someone wants a set for 3.9 I can give it to them.
-(don't forget to configure INET_LL_RX_POLL and INET_LL_TCP_POLL).
-
-2. The ethtool -c setting for rx-usecs should be on the order of 100.
-
-3. *** Use ethtool -K to disable GRO and LRO
-(You are encouraged to try it both ways. If you find that your workload
-does better with GRO on do tell us.)
-
-4. *** Sysctl value net.ipv4.ip_low_latency_poll controls how long
-(in us) to busy-wait for more data, You are encouraged to play
-with this and see what works for you. The default is now 0 so you need to
-set it to turn the feature on. I recommend a value around 50.
-
-4. benchmark thread and IRQ should be bound to separate cores.
-Both cores should be on the same CPU NUMA node as the NIC.
-When the app and the IRQ run on the same CPU  you get a ~5% penalty.
-If interrupt coalescing is set to a low value this penalty
-can be very large.
-
-5. If you suspect that your machine is not configured properly,
-use numademo to make sure that the CPU to memory BW is OK.
-numademo 128m memcpy local copy numbers should be more than
-8GB/s on a properly configured machine.
-
-Credit:
-Jesse Brandeburg, Arun Chekhov Ilango, Julie Cummings,
-Alexander Duyck, Eric Geisler, Jason Neighbors, Yadong Li,
-Mike Polehn, Anil Vasudevan, Don Wood
-Special thanks for finding bugs in earlier versions:
-Willem de Bruijn and Andi Kleen
+------------------------------------------------------------------------------
+AlienVault Unified Security Management (USM) platform delivers complete
+security visibility with the essential security capabilities. Easily and
+efficiently configure, manage, and operate all of your security controls
+from a single console and one unified framework. Download a free trial.
+http://p.sf.net/sfu/alienvault_d2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
