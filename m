@@ -1,62 +1,82 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: [PATCH] net: fec: use a more proper compatible string for MVF type device
-Date: Sun, 19 May 2013 22:38:46 +0800
-Message-ID: <1368974326-24069-1-git-send-email-shawn.guo@linaro.org>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net] bnx2x: Fix GSO for 57710/57711 chips
+Date: Sun, 19 May 2013 17:41:01 +0300
+Message-ID: <1368974461-5308-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jingchang Lu <b35083@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>
-To: <netdev@vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: "Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe005.messaging.microsoft.com ([207.46.163.28]:2553 "EHLO
-	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752561Ab3ESOin (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 10:38:43 -0400
+Received: from mms3.broadcom.com ([216.31.210.19]:4249 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752811Ab3ESOjb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 May 2013 10:39:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MVF is a family while MVF600 is a particular SoC in the family.  We
-generally prefer to use SoC rather than family name in compatible string
-to define a particular type of fec device.  And this is how fec_dt_ids
-works for all those IMX fec variants.  Let's change mvf to mvf600 to
-have it work in the same way.
+Starting with commit 91226790bbe2dbfbba48dd79d49f2b38ef10eb97
+`bnx2x: use FW 7.8.17', the bnx2x driver no longer requests the FW to perform
+IP checksums for IPv4 packets.
 
-Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+This behaviour needs to be revised for 57710/57711 chips -
+when using GSO, if the driver will not set the IP checksum flag then packets
+will be transmitted by the chip without a valid IP checksum, resulting in
+a drop of all such packets on the receiver-side.
+
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+Hi Dave,
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 658fbc1..ce7b638 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -109,7 +109,7 @@ static struct platform_device_id fec_devtype[] = {
- 		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
- 				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM,
- 	}, {
--		.name = "mvf-fec",
-+		.name = "mvf600-fec",
- 		.driver_data = FEC_QUIRK_ENET_MAC,
- 	}, {
- 		/* sentinel */
-@@ -122,7 +122,7 @@ enum imx_fec_type {
- 	IMX27_FEC,	/* runs on i.mx27/35/51 */
- 	IMX28_FEC,
- 	IMX6Q_FEC,
--	MVF_FEC,
-+	MVF600_FEC,
- };
+Please consider applying this to `net'.
+
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index b8fbe26..be59ec4 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -3313,6 +3313,7 @@ static void bnx2x_set_pbd_gso_e2(struct sk_buff *skb, u32 *parsing_data,
+  */
+ static void bnx2x_set_pbd_gso(struct sk_buff *skb,
+ 			      struct eth_tx_parse_bd_e1x *pbd,
++			      struct eth_tx_start_bd *tx_start_bd,
+ 			      u32 xmit_type)
+ {
+ 	pbd->lso_mss = cpu_to_le16(skb_shinfo(skb)->gso_size);
+@@ -3326,11 +3327,14 @@ static void bnx2x_set_pbd_gso(struct sk_buff *skb,
+ 						   ip_hdr(skb)->daddr,
+ 						   0, IPPROTO_TCP, 0));
  
- static const struct of_device_id fec_dt_ids[] = {
-@@ -130,7 +130,7 @@ static const struct of_device_id fec_dt_ids[] = {
- 	{ .compatible = "fsl,imx27-fec", .data = &fec_devtype[IMX27_FEC], },
- 	{ .compatible = "fsl,imx28-fec", .data = &fec_devtype[IMX28_FEC], },
- 	{ .compatible = "fsl,imx6q-fec", .data = &fec_devtype[IMX6Q_FEC], },
--	{ .compatible = "fsl,mvf-fec", .data = &fec_devtype[MVF_FEC], },
-+	{ .compatible = "fsl,mvf600-fec", .data = &fec_devtype[MVF600_FEC], },
- 	{ /* sentinel */ }
- };
- MODULE_DEVICE_TABLE(of, fec_dt_ids);
+-	} else
++		/* GSO on 57710/57711 needs FW to calculate IP checksum */
++		tx_start_bd->bd_flags.as_bitfield |= ETH_TX_BD_FLAGS_IP_CSUM;
++	} else {
+ 		pbd->tcp_pseudo_csum =
+ 			bswab16(~csum_ipv6_magic(&ipv6_hdr(skb)->saddr,
+ 						 &ipv6_hdr(skb)->daddr,
+ 						 0, IPPROTO_TCP, 0));
++	}
+ 
+ 	pbd->global_data |=
+ 		cpu_to_le16(ETH_TX_PARSE_BD_E1X_PSEUDO_CS_WITHOUT_LEN);
+@@ -3814,7 +3818,8 @@ netdev_tx_t bnx2x_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 			bnx2x_set_pbd_gso_e2(skb, &pbd_e2_parsing_data,
+ 					     xmit_type);
+ 		else
+-			bnx2x_set_pbd_gso(skb, pbd_e1x, xmit_type);
++			bnx2x_set_pbd_gso(skb, pbd_e1x, tx_start_bd,
++					  xmit_type);
+ 	}
+ 
+ 	/* Set the PBD's parsing_data field if not zero
 -- 
-1.7.9.5
+1.8.1.227.g44fe835
