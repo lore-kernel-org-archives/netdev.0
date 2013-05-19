@@ -1,16 +1,15 @@
 From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH 0/5] drivers: net: usb: rtl8150: bug fixing and code
- cleanup
-Date: Sun, 19 May 2013 11:27:29 +0300 (EEST)
-Message-ID: <alpine.DEB.2.02.1305191121400.4537@fry.nucleusys.com>
-References: <alpine.DEB.2.02.1305182305110.16874@fry.nucleusys.com> <20130518212013.GA26921@electric-eye.fr.zoreil.com>
+Subject: Re: [PATCH 5/5] drivers: net: usb: rtl8150: bug fixing and cleanup
+Date: Sun, 19 May 2013 11:36:17 +0300 (EEST)
+Message-ID: <alpine.DEB.2.02.1305191135380.4537@fry.nucleusys.com>
+References: <alpine.DEB.2.02.1305181905490.7518@fry.nucleusys.com> <20130518211041.GD26590@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130518212013.GA26921@electric-eye.fr.zoreil.com>
+In-Reply-To: <20130518211041.GD26590@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -18,21 +17,30 @@ On Sat, 18 May 2013, Francois Romieu wrote:
 
 > Petko Manolov <petkan@nucleusys.com> :
 > [...]
-> > This patch series adds rtl8150.h, which contains structure and constant 
-> > definitons formerly found in rtl8150.c, removes socket buffer 
-> > pre-allocated pool and uses dynamically allocated memory for the 
-> > asynchronous URB requests, thus avoids clobbering the previously scheduled 
-> > for update value.
-> > 
-> > This patch series is against 'net' tree.
+> > @@ -681,16 +681,15 @@ static int rtl8150_ioctl(struct net_device *netdev, struct ifreq *rq, int cmd)
+> >  }
+> >  
+> >  static const struct net_device_ops rtl8150_netdev_ops = {
+> > -	.ndo_open		= rtl8150_open,
+> > -	.ndo_stop		= rtl8150_close,
+> > -	.ndo_do_ioctl		= rtl8150_ioctl,
+> > -	.ndo_start_xmit		= rtl8150_start_xmit,
+> > -	.ndo_tx_timeout		= rtl8150_tx_timeout,
+> > -	.ndo_set_rx_mode	= rtl8150_set_multicast,
+> > -	.ndo_set_mac_address	= rtl8150_set_mac_address,
+> > -
+> > -	.ndo_change_mtu		= eth_change_mtu,
+> > -	.ndo_validate_addr	= eth_validate_addr,
+> > +	.ndo_open = rtl8150_open,
+> > +	.ndo_stop = rtl8150_close,
+> > +	.ndo_do_ioctl = rtl8150_ioctl,
+> > +	.ndo_start_xmit = rtl8150_start_xmit,
+> > +	.ndo_tx_timeout = rtl8150_tx_timeout,
+> > +	.ndo_set_rx_mode = rtl8150_set_multicast,
+> > +	.ndo_set_mac_address = rtl8150_set_mac_address,
+> > +	.ndo_change_mtu	= eth_change_mtu,
+> > +	.ndo_validate_addr = eth_validate_addr,
 > 
-> 'net' tree takes fixes. The cleanup / fix ratio is imho a bit high in 
-> this series. You may submit the fix part now and wait until davem merges 
-> 'net' into 'net-next' to submit big cleanups against net-next.
+> This is wrong.
 
-Well, i did ask which tree to use as a base.  It may seem like a lot, but 
-these changes are trivial.  If David decide to schedule the patches for 
-3.11 it won't break my heart.
-
-
-		Petko
+I am inclined to agree with you.
