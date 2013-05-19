@@ -1,166 +1,356 @@
-From: Tomasz Figa <tomasz.figa@gmail.com>
-Subject: [PATCH v2] net: dm9000: Allow instantiation using device tree
-Date: Sun, 19 May 2013 13:16:31 +0200
-Message-ID: <1368962191-32594-1-git-send-email-tomasz.figa@gmail.com>
-Cc: linux-arm-kernel@lists.infradead.org,
-	devicetree-discuss@lists.ozlabs.org,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Sascha Hauer <s.hauer@pengutronix.de>,
-	David Miller <davem@davemloft.net>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Tomasz Figa <tomasz.figa@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:39984 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754043Ab3ESLQq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 07:16:46 -0400
-Received: by mail-ea0-f177.google.com with SMTP id q14so3194728eaj.36
-        for <netdev@vger.kernel.org>; Sun, 19 May 2013 04:16:45 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] virtio-net: Reporting traffic queue distribution
+	statistics through ethtool
+Date: Sun, 19 May 2013 14:28:00 +0300
+Message-ID: <20130519112800.GG19883@redhat.com>
+References: <1368735869-31076-1-git-send-email-sriram.narasimhan@hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: Sriram Narasimhan <sriram.narasimhan@hp.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1368735869-31076-1-git-send-email-sriram.narasimhan@hp.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch adds Device Tree support to dm9000 driver.
+On Thu, May 16, 2013 at 01:24:29PM -0700, Sriram Narasimhan wrote:
+> This patch allows virtio-net driver to report traffic distribution
+> to inbound/outbound queues through ethtool -S.  The per_cpu
+> virtnet_stats is split into receive and transmit stats and are
+> maintained on a per receive_queue and send_queue basis.
+> virtnet_stats() is modified to aggregate interface level statistics
+> from per-queue statistics.  Sample output below:
+> 
 
-Signed-off-by: Tomasz Figa <tomasz.figa@gmail.com>
----
+Thanks for the patch. The idea itself looks OK to me.
+Ben Hutchings already sent some comments
+so I won't repeat them. Some minor more comments
+and questions below.
 
-Changes since v1:
- - dropped davicom,simple-phy property as it seems to be of no use
- - used of_get_mac_address() to get MAC address from device tree
- - replaced #ifdef CONFIG_OF around dm9000_parse_dt() with IS_ENABLED
+> NIC statistics:
+>      rxq0: rx_packets: 4357802
+>      rxq0: rx_bytes: 292642052
+>      txq0: tx_packets: 824540
+>      txq0: tx_bytes: 55256404
+>      rxq1: rx_packets: 0
+>      rxq1: rx_bytes: 0
+>      txq1: tx_packets: 1094268
+>      txq1: tx_bytes: 73328316
+>      rxq2: rx_packets: 0
+>      rxq2: rx_bytes: 0
+>      txq2: tx_packets: 1091466
+>      txq2: tx_bytes: 73140566
+>      rxq3: rx_packets: 0
+>      rxq3: rx_bytes: 0
+>      txq3: tx_packets: 1093043
+>      txq3: tx_bytes: 73246142
 
- .../devicetree/bindings/net/davicom-dm9000.txt     | 26 +++++++++++++
- .../devicetree/bindings/vendor-prefixes.txt        |  1 +
- drivers/net/ethernet/davicom/dm9000.c              | 44 ++++++++++++++++++++++
- 3 files changed, 71 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/davicom-dm9000.txt
+Interesting. This example implies that all packets are coming in
+through the same RX queue - is this right?
+If yes that's worth exploring - could be a tun bug -
+and shows how this patch is useful.
 
-diff --git a/Documentation/devicetree/bindings/net/davicom-dm9000.txt b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-new file mode 100644
-index 0000000..653df17
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
-@@ -0,0 +1,26 @@
-+Davicom DM9000 Fast Ethernet controller
-+
-+Required properties:
-+- compatible = "davicom,dm9000";
-+- reg : physical addresses and sizes of registers, must contain 2 entries:
-+    first entry : address register,
-+    second entry : address register.
-+- interrupt-parent : interrupt controller to which the device is connected
-+- interrupts : interrupt specifier specific to interrupt controller
-+
-+Optional properties:
-+- local-mac-address : A bytestring of 6 bytes specifying Ethernet MAC address
-+    to use (from firmware or bootloader)
-+- davicom,no-eeprom : Configuration EEPROM is not available
-+- davicom,ext-phy : Use external PHY
-+
-+Example:
-+
-+	ethernet@18000000 {
-+		compatible = "davicom,dm9000";
-+		reg = <0x18000000 0x2 0x18000004 0x2>;
-+		interrupt-parent = <&gpn>;
-+		interrupts = <7 4>;
-+		local-mac-address = [00 00 de ad be ef];
-+		davicom,no-eeprom;
-+	};
-diff --git a/Documentation/devicetree/bindings/vendor-prefixes.txt b/Documentation/devicetree/bindings/vendor-prefixes.txt
-index 6931c43..2fe74e6 100644
---- a/Documentation/devicetree/bindings/vendor-prefixes.txt
-+++ b/Documentation/devicetree/bindings/vendor-prefixes.txt
-@@ -18,6 +18,7 @@ chrp	Common Hardware Reference Platform
- cirrus	Cirrus Logic, Inc.
- cortina	Cortina Systems, Inc.
- dallas	Maxim Integrated Products (formerly Dallas Semiconductor)
-+davicom	DAVICOM Semiconductor, Inc.
- denx	Denx Software Engineering
- emmicro	EM Microelectronic
- epson	Seiko Epson Corp.
-diff --git a/drivers/net/ethernet/davicom/dm9000.c b/drivers/net/ethernet/davicom/dm9000.c
-index 9105465..8b69586 100644
---- a/drivers/net/ethernet/davicom/dm9000.c
-+++ b/drivers/net/ethernet/davicom/dm9000.c
-@@ -29,6 +29,8 @@
- #include <linux/spinlock.h>
- #include <linux/crc32.h>
- #include <linux/mii.h>
-+#include <linux/of.h>
-+#include <linux/of_net.h>
- #include <linux/ethtool.h>
- #include <linux/dm9000.h>
- #include <linux/delay.h>
-@@ -1358,6 +1360,33 @@ static const struct net_device_ops dm9000_netdev_ops = {
- #endif
- };
- 
-+static struct dm9000_plat_data *dm9000_parse_dt(struct device *dev)
-+{
-+	struct dm9000_plat_data *pdata;
-+	struct device_node *np = dev->of_node;
-+	const void *mac_addr;
-+
-+	if (!IS_ENABLED(CONFIG_OF) || !np)
-+		return NULL;
-+
-+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
-+	if (!pdata) {
-+		dev_err(dev, "failed to allocate platform data struct\n");
-+		return ERR_PTR(-ENOMEM);
-+	}
-+
-+	if (of_find_property(np, "davicom,ext-phy", NULL))
-+		pdata->flags |= DM9000_PLATF_EXT_PHY;
-+	if (of_find_property(np, "davicom,no-eeprom", NULL))
-+		pdata->flags |= DM9000_PLATF_NO_EEPROM;
-+
-+	mac_addr = of_get_mac_address(np);
-+	if (mac_addr)
-+		memcpy(pdata->dev_addr, mac_addr, sizeof(pdata->dev_addr));
-+
-+	return pdata;
-+}
-+
- /*
-  * Search DM9000 board, allocate space and register it
-  */
-@@ -1373,6 +1402,12 @@ dm9000_probe(struct platform_device *pdev)
- 	int i;
- 	u32 id_val;
- 
-+	if (!pdata) {
-+		pdata = dm9000_parse_dt(&pdev->dev);
-+		if (IS_ERR(pdata))
-+			return PTR_ERR(pdata);
-+	}
-+
- 	/* Init network device */
- 	ndev = alloc_etherdev(sizeof(struct board_info));
- 	if (!ndev)
-@@ -1683,11 +1718,20 @@ dm9000_drv_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
-+#ifdef CONFIG_OF
-+static const struct of_device_id dm9000_of_matches[] = {
-+	{ .compatible = "davicom,dm9000", },
-+	{ /* sentinel */ }
-+};
-+MODULE_DEVICE_TABLE(of, dm9000_of_matches);
-+#endif
-+
- static struct platform_driver dm9000_driver = {
- 	.driver	= {
- 		.name    = "dm9000",
- 		.owner	 = THIS_MODULE,
- 		.pm	 = &dm9000_drv_pm_ops,
-+		.of_match_table = of_match_ptr(dm9000_of_matches),
- 	},
- 	.probe   = dm9000_probe,
- 	.remove  = dm9000_drv_remove,
--- 
-1.8.2.1
+> Signed-off-by: Sriram Narasimhan <sriram.narasimhan@hp.com>
+
+BTW, while you are looking at the stats, one other interesting
+thing to add could be checking more types of stats: number of exits,
+queue full errors, etc.
+
+> ---
+>  drivers/net/virtio_net.c |  157 +++++++++++++++++++++++++++++++++++++---------
+>  1 files changed, 128 insertions(+), 29 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 3c23fdc..3c58c52 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -41,15 +41,46 @@ module_param(gso, bool, 0444);
+>  
+>  #define VIRTNET_DRIVER_VERSION "1.0.0"
+>  
+> -struct virtnet_stats {
+> -	struct u64_stats_sync tx_syncp;
+> +struct virtnet_rx_stats {
+>  	struct u64_stats_sync rx_syncp;
+> -	u64 tx_bytes;
+> +	u64 rx_packets;
+> +	u64 rx_bytes;
+> +};
+> +
+> +struct virtnet_tx_stats {
+> +	struct u64_stats_sync tx_syncp;
+>  	u64 tx_packets;
+> +	u64 tx_bytes;
+> +};
+>  
+> -	u64 rx_bytes;
+> -	u64 rx_packets;
+
+I think maintaining the stats in a per-queue data structure like this is
+fine.  if # of CPUs == # of queues which is typical, we use same amount
+of memory.  And each queue access is under a lock,
+or from napi thread, so no races either.
+
+> +struct virtnet_ethtool_stats {
+> +	char desc[ETH_GSTRING_LEN];
+> +	int type;
+> +	int size;
+> +	int offset;
+> +};
+> +
+> +enum {VIRTNET_STATS_TX, VIRTNET_STATS_RX};
+> +
+> +#define VIRTNET_RX_STATS_INFO(_struct, _field) \
+> +	{#_field, VIRTNET_STATS_RX, FIELD_SIZEOF(_struct, _field), \
+> +	offsetof(_struct, _field)}
+> +
+> +#define VIRTNET_TX_STATS_INFO(_struct, _field) \
+> +	{#_field, VIRTNET_STATS_TX, FIELD_SIZEOF(_struct, _field), \
+> +	offsetof(_struct, _field)}
+> +
+> +static const struct virtnet_ethtool_stats virtnet_et_rx_stats[] = {
+> +	VIRTNET_RX_STATS_INFO(struct virtnet_rx_stats, rx_packets),
+> +	VIRTNET_RX_STATS_INFO(struct virtnet_rx_stats, rx_bytes)
+> +};
+> +#define VIRTNET_RX_STATS_NUM (ARRAY_SIZE(virtnet_et_rx_stats))
+> +
+> +static const struct virtnet_ethtool_stats virtnet_et_tx_stats[] = {
+> +	VIRTNET_TX_STATS_INFO(struct virtnet_tx_stats, tx_packets),
+> +	VIRTNET_TX_STATS_INFO(struct virtnet_tx_stats, tx_bytes)
+>  };
+> +#define VIRTNET_TX_STATS_NUM (ARRAY_SIZE(virtnet_et_tx_stats))
+
+I'd prefer a full name: virtnet_ethtool_tx_stats, or
+just virtnet_tx_stats.
+
+>  
+>  /* Internal representation of a send virtqueue */
+>  struct send_queue {
+> @@ -61,6 +92,9 @@ struct send_queue {
+>  
+>  	/* Name of the send queue: output.$index */
+>  	char name[40];
+> +
+> +	/* Active send queue statistics */
+> +	struct virtnet_tx_stats stats;
+>  };
+>  
+>  /* Internal representation of a receive virtqueue */
+> @@ -81,6 +115,9 @@ struct receive_queue {
+>  
+>  	/* Name of this receive queue: input.$index */
+>  	char name[40];
+> +
+> +	/* Active receive queue statistics */
+> +	struct virtnet_rx_stats stats;
+>  };
+>  
+>  struct virtnet_info {
+> @@ -109,9 +146,6 @@ struct virtnet_info {
+>  	/* enable config space updates */
+>  	bool config_enable;
+>  
+> -	/* Active statistics */
+> -	struct virtnet_stats __percpu *stats;
+> -
+>  	/* Work struct for refilling if we run low on memory. */
+>  	struct delayed_work refill;
+>  
+> @@ -330,7 +364,7 @@ static void receive_buf(struct receive_queue *rq, void *buf, unsigned int len)
+>  {
+>  	struct virtnet_info *vi = rq->vq->vdev->priv;
+>  	struct net_device *dev = vi->dev;
+> -	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+> +	struct virtnet_rx_stats *stats = &rq->stats;
+>  	struct sk_buff *skb;
+>  	struct page *page;
+>  	struct skb_vnet_hdr *hdr;
+> @@ -650,8 +684,7 @@ static void free_old_xmit_skbs(struct send_queue *sq)
+>  {
+>  	struct sk_buff *skb;
+>  	unsigned int len;
+> -	struct virtnet_info *vi = sq->vq->vdev->priv;
+> -	struct virtnet_stats *stats = this_cpu_ptr(vi->stats);
+> +	struct virtnet_tx_stats *stats = &sq->stats;
+>  
+>  	while ((skb = virtqueue_get_buf(sq->vq, &len)) != NULL) {
+>  		pr_debug("Sent skb %p\n", skb);
+> @@ -841,24 +874,25 @@ static struct rtnl_link_stats64 *virtnet_stats(struct net_device *dev,
+>  					       struct rtnl_link_stats64 *tot)
+>  {
+>  	struct virtnet_info *vi = netdev_priv(dev);
+> -	int cpu;
+> +	int i;
+>  	unsigned int start;
+>  
+> -	for_each_possible_cpu(cpu) {
+> -		struct virtnet_stats *stats = per_cpu_ptr(vi->stats, cpu);
+> +	for (i = 0; i < vi->max_queue_pairs; i++) {
+> +		struct virtnet_tx_stats *tstats = &vi->sq[i].stats;
+> +		struct virtnet_rx_stats *rstats = &vi->rq[i].stats;
+>  		u64 tpackets, tbytes, rpackets, rbytes;
+>  
+>  		do {
+> -			start = u64_stats_fetch_begin_bh(&stats->tx_syncp);
+> -			tpackets = stats->tx_packets;
+> -			tbytes   = stats->tx_bytes;
+> -		} while (u64_stats_fetch_retry_bh(&stats->tx_syncp, start));
+> +			start = u64_stats_fetch_begin_bh(&tstats->tx_syncp);
+> +			tpackets = tstats->tx_packets;
+> +			tbytes   = tstats->tx_bytes;
+> +		} while (u64_stats_fetch_retry_bh(&tstats->tx_syncp, start));
+>  
+>  		do {
+> -			start = u64_stats_fetch_begin_bh(&stats->rx_syncp);
+> -			rpackets = stats->rx_packets;
+> -			rbytes   = stats->rx_bytes;
+> -		} while (u64_stats_fetch_retry_bh(&stats->rx_syncp, start));
+> +			start = u64_stats_fetch_begin_bh(&rstats->rx_syncp);
+> +			rpackets = rstats->rx_packets;
+> +			rbytes   = rstats->rx_bytes;
+> +		} while (u64_stats_fetch_retry_bh(&rstats->rx_syncp, start));
+>  
+>  		tot->rx_packets += rpackets;
+>  		tot->tx_packets += tpackets;
+> @@ -1177,12 +1211,83 @@ static void virtnet_get_channels(struct net_device *dev,
+>  	channels->other_count = 0;
+>  }
+>  
+> +static void virtnet_get_stat_strings(struct net_device *dev,
+> +					u32 stringset,
+> +					u8 *data)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +	int i, j;
+> +
+> +	switch (stringset) {
+> +	case ETH_SS_STATS:
+> +		for (i = 0; i < vi->max_queue_pairs; i++) {
+> +			for (j = 0; j < VIRTNET_RX_STATS_NUM; j++) {
+> +				sprintf(data, "rxq%d: %s", i,
+> +					virtnet_et_rx_stats[j].desc);
+> +				data += ETH_GSTRING_LEN;
+> +			}
+> +			for (j = 0; j < VIRTNET_TX_STATS_NUM; j++) {
+> +				sprintf(data, "txq%d: %s", i,
+> +					virtnet_et_tx_stats[j].desc);
+> +				data += ETH_GSTRING_LEN;
+> +			}
+> +		}
+> +		break;
+> +	}
+> +}
+> +
+> +static int virtnet_get_sset_count(struct net_device *dev, int stringset)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +	switch (stringset) {
+> +	case ETH_SS_STATS:
+> +		return vi->max_queue_pairs *
+> +			(VIRTNET_RX_STATS_NUM + VIRTNET_TX_STATS_NUM);
+> +	default:
+> +		return -EINVAL;
+> +	}
+> +}
+> +
+> +static void virtnet_get_ethtool_stats(struct net_device *dev,
+> +					struct ethtool_stats *stats,
+> +					u64 *data)
+> +{
+> +	struct virtnet_info *vi = netdev_priv(dev);
+> +	unsigned int i, base;
+> +	unsigned int start;
+> +
+> +	for (i = 0, base = 0; i < vi->max_queue_pairs; i++) {
+> +		struct virtnet_tx_stats *tstats = &vi->sq[i].stats;
+> +		struct virtnet_rx_stats *rstats = &vi->rq[i].stats;
+> +
+> +		do {
+> +			start = u64_stats_fetch_begin_bh(&rstats->rx_syncp);
+> +			data[base] = rstats->rx_packets;
+> +			data[base+1] = rstats->rx_bytes;
+
+nitpicking:
+We normally has spaces around +, like this:
+			data[base + 1] = rstats->rx_bytes;
+
+> +		} while (u64_stats_fetch_retry_bh(&rstats->rx_syncp, start));
+> +
+> +		base += VIRTNET_RX_STATS_NUM;
+> +
+> +		do {
+> +			start = u64_stats_fetch_begin_bh(&tstats->tx_syncp);
+> +			data[base] = tstats->tx_packets;
+> +			data[base+1]   = tstats->tx_bytes;
+
+
+nitpicking:
+Here, something strange happened to indentation.
+
+> +		} while (u64_stats_fetch_retry_bh(&tstats->tx_syncp, start));
+> +
+> +		base += VIRTNET_TX_STATS_NUM;
+> +	}
+> +}
+> +
+> +
+>  static const struct ethtool_ops virtnet_ethtool_ops = {
+>  	.get_drvinfo = virtnet_get_drvinfo,
+>  	.get_link = ethtool_op_get_link,
+>  	.get_ringparam = virtnet_get_ringparam,
+>  	.set_channels = virtnet_set_channels,
+>  	.get_channels = virtnet_get_channels,
+> +	.get_strings = virtnet_get_stat_strings,
+> +	.get_sset_count = virtnet_get_sset_count,
+> +	.get_ethtool_stats = virtnet_get_ethtool_stats,
+>  };
+>  
+>  #define MIN_MTU 68
+> @@ -1531,14 +1636,11 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	vi->dev = dev;
+>  	vi->vdev = vdev;
+>  	vdev->priv = vi;
+> -	vi->stats = alloc_percpu(struct virtnet_stats);
+>  	err = -ENOMEM;
+> -	if (vi->stats == NULL)
+> -		goto free;
+>  
+>  	vi->vq_index = alloc_percpu(int);
+>  	if (vi->vq_index == NULL)
+> -		goto free_stats;
+> +		goto free;
+>  
+>  	mutex_init(&vi->config_lock);
+>  	vi->config_enable = true;
+> @@ -1616,8 +1718,6 @@ free_vqs:
+>  	virtnet_del_vqs(vi);
+>  free_index:
+>  	free_percpu(vi->vq_index);
+> -free_stats:
+> -	free_percpu(vi->stats);
+>  free:
+>  	free_netdev(dev);
+>  	return err;
+> @@ -1653,7 +1753,6 @@ static void virtnet_remove(struct virtio_device *vdev)
+>  	flush_work(&vi->config_work);
+>  
+>  	free_percpu(vi->vq_index);
+> -	free_percpu(vi->stats);
+>  	free_netdev(vi->dev);
+>  }
+
+Thanks!
+
+> -- 
+> 1.7.1
