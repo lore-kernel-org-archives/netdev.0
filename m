@@ -1,34 +1,92 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] Documentation/sysctl/net.txt: fix (attribute
- removal).
-Date: Sun, 19 May 2013 15:13:24 -0700 (PDT)
-Message-ID: <20130519.151324.2280887229712891869.davem@davemloft.net>
-References: <1368817834-5915-1-git-send-email-ramirose@gmail.com>
+From: David Hauweele <david@hauweele.net>
+Subject: Re: [PATCH 1/1] 6lowpan: Fix fragmentation with link-local compressed addresses
+Date: Mon, 20 May 2013 00:14:48 +0200
+Message-ID: <CAO+c-UW6MAK5TQrsn6NFnkvsm7QOTk+tUDM4OHGUb+E0KxvJgQ@mail.gmail.com>
+References: <1368987211-19826-1-git-send-email-david@hauweele.net>
+	<20130519195809.GA3237@x61s.Speedport_W_921V_1_21_000>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
-To: ramirose@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49261 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752327Ab3ESWNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 18:13:25 -0400
-In-Reply-To: <1368817834-5915-1-git-send-email-ramirose@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Alexander Smirnov <alex.bluesman.smirnov@gmail.com>,
+	Dmitry Eremin-Solenikov <dbaryshkov@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-zigbee-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Alexander Aring <alex.aring@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130519195809.GA3237@x61s.Speedport_W_921V_1_21_000>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Rami Rosen <ramirose@gmail.com>
-Date: Fri, 17 May 2013 22:10:34 +0300
+Hello,
 
-> This patch removes mentioning the sysfsf net_device weight attribute
-> (class/net/<device>/weight)  
-> in Documentation/sysctl/net.txt, since the net sysfs weight attribute
-> was removed by the following patch:
-> 
-> [NET]: Make NAPI polling independent of struct net_device objects
->  bea3348eef27e6044b6161fd04c3152215f96411
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+There is a patch which fixes link-local address uncompression:
 
-Applied, thanks.
+http://permalink.gmane.org/gmane.linux.network.zigbee.devel/1717
+
+I came across a similar solution but didn't submit it as another patch
+already existed.
+This patch instead focus on fragmented packet with link-local address
+compression,
+which is related but a different bug.
+
+2013/5/19 Alexander Aring <alex.aring@gmail.com>:
+> Hi David,
+>
+> can you use a link-layer address on the current net-next kernel?
+>
+> I am asking because I can't use a link-layer address currently.
+> Your patch doesn't help to solve my problem with link-layer addresses.
+>
+>
+> To your patch:
+>
+> We get the link-layer addresses from skb not from the allocated
+> frame->skb.
+>
+> Here is the code:
+>
+> _saddr = mac_cb(skb)->sa.hwaddr;
+> _daddr = mac_cb(skb)->da.hwaddr;
+>
+> Here is skb != frame->skb so we don't need to copy it to frame->skb->cb
+> because we already the link-layer addresses from skb->cb.
+>
+> Is there another place in the code where we get the link-layer addresses
+> from allocated "frame" structure?
+
+frame->skb is used to reassemble the 6lowpan packet when new fragments
+are received.
+This is the 'fragments assembling' switch at the beginning of
+lowpan_process_data().
+It will reassemble fragments until the packet is successfully reassembled.
+Once it is, skb is replaced:
+
+dev_kfree_skb(skb);
+skb = frame->skb;
+kfree(frame);
+
+And the process continues as with other 6lowpan packets.
+
+In particular:
+
+_saddr = mac_cb(skb)->sa.hwaddr;
+_daddr = mac_cb(skb)->da.hwaddr;
+
+Several lines later there are:
+
+err = lowpan_uncompress_addr(skb, &hdr.saddr, lowpan_llprefix,
+lowpan_unc_llconf[tmp], skb->data);
+err = lowpan_uncompress_addr(skb, &hdr.daddr, lowpan_llprefix,
+lowpan_unc_llconf[tmp], skb->data);
+
+These two lines should use _saddr/_daddr instead of skb->data, which
+fixes the link-local address uncompression.
+I'm able to use link-layer addresses with these two patches and it works well.
+
+>
+> Regards
+> Alex
+
+Regards,
+
+David
