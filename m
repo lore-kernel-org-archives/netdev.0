@@ -1,41 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: irda: using kzalloc() instead of kmalloc() to
- avoid strncpy() issue.
-Date: Sun, 19 May 2013 15:11:12 -0700 (PDT)
-Message-ID: <20130519.151112.787320797896644755.davem@davemloft.net>
-References: <5195F4A0.3000708@asianux.com>
+Subject: Re: [PATCH net-next] Documentation/sysctl/net.txt: fix (attribute
+ removal).
+Date: Sun, 19 May 2013 15:13:24 -0700 (PDT)
+Message-ID: <20130519.151324.2280887229712891869.davem@davemloft.net>
+References: <1368817834-5915-1-git-send-email-ramirose@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: samuel@sortiz.org, netdev@vger.kernel.org
-To: gang.chen@asianux.com
+Cc: netdev@vger.kernel.org, shemminger@linux-foundation.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49223 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49261 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215Ab3ESWLM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 18:11:12 -0400
-In-Reply-To: <5195F4A0.3000708@asianux.com>
+	with ESMTP id S1752327Ab3ESWNZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 18:13:25 -0400
+In-Reply-To: <1368817834-5915-1-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chen Gang <gang.chen@asianux.com>
-Date: Fri, 17 May 2013 17:13:04 +0800
+From: Rami Rosen <ramirose@gmail.com>
+Date: Fri, 17 May 2013 22:10:34 +0300
 
+> This patch removes mentioning the sysfsf net_device weight attribute
+> (class/net/<device>/weight)  
+> in Documentation/sysctl/net.txt, since the net sysfs weight attribute
+> was removed by the following patch:
 > 
-> 'discovery->data.info' length is 22, NICKNAME_MAX_LEN is 21, so the
-> strncpy() will always left the last byte of 'discovery->data.info'
-> uninitialized.
+> [NET]: Make NAPI polling independent of struct net_device objects
+>  bea3348eef27e6044b6161fd04c3152215f96411
 > 
-> When 'text' length is longer than 21 (NICKNAME_MAX_LEN), if still left
-> the last byte of 'discovery->data.info' uninitialized, the next
-> strlen() will cause issue.
-> 
-> Also 'discovery->data' is 'struct irda_device_info' which defined in
-> "include/uapi/...", it may copy to user mode, so need whole initialized.
-> 
-> All together, need use kzalloc() instead of kmalloc() to initialize all
-> members firstly.
-> 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
 Applied, thanks.
