@@ -1,69 +1,34 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] 3c59x: fix PCI resource management
-Date: Sun, 19 May 2013 23:36:09 +0400
-Message-ID: <519929A9.7060509@cogentembedded.com>
-References: <201305020240.34487.sergei.shtylyov@cogentembedded.com> <20130506.122040.1138770239806939990.davem@davemloft.net> <5187E884.7060101@cogentembedded.com> <20130506.135305.1659397370290340459.davem@davemloft.net> <5187F512.4070104@cogentembedded.com>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH] bridge: netfilter: using strlcpy() instead of strncpy()
+Date: Sun, 19 May 2013 21:43:43 +0200
+Message-ID: <51992B6F.70309@pandora.be>
+References: <5195E53A.4060406@asianux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, klassert@mathematik.tu-chemnitz.de,
-	tedheadster@gmail.com
-To: David Miller <davem@davemloft.net>
+Cc: bart.de.schuymer@pandora.be, pablo@netfilter.org, kaber@trash.net,
+	stephen@networkplumber.org, David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, bridge@lists.linux-foundation.org,
+	netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f178.google.com ([209.85.217.178]:45488 "EHLO
-	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753289Ab3ESTgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 15:36:12 -0400
-Received: by mail-lb0-f178.google.com with SMTP id w10so4396064lbi.37
-        for <netdev@vger.kernel.org>; Sun, 19 May 2013 12:36:11 -0700 (PDT)
-In-Reply-To: <5187F512.4070104@cogentembedded.com>
+Received: from juliette.telenet-ops.be ([195.130.137.74]:34354 "EHLO
+	juliette.telenet-ops.be" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753816Ab3ESTnx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 15:43:53 -0400
+In-Reply-To: <5195E53A.4060406@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 05/06/2013 10:23 PM, Sergei Shtylyov wrote:
-
+Op 17/05/2013 10:07, Chen Gang schreef:
 >
->>>>> @@ -1215,12 +1217,13 @@ static int vortex_probe1(struct device *
->>>>>        vp->mii.reg_num_mask = 0x1f;
->>>>>
->>>>>        /* Makes sure rings are at least 16 byte aligned. */
->>>>> -    vp->rx_ring = pci_alloc_consistent(pdev, sizeof(struct 
->>>>> boom_rx_desc) *
->>>>> -    RX_RING_SIZE
->>>>> -                       + sizeof(struct boom_tx_desc) * TX_RING_SIZE,
->>>>> -                       &vp->rx_ring_dma);
->>>>> +    vp->rx_ring = pci_alloc_consistent(pdev,
->>>>> + sizeof(struct boom_rx_desc) * RX_RING_SIZE +
->>>>> + sizeof(struct boom_tx_desc) * TX_RING_SIZE,
->>>>> +                &vp->rx_ring_dma);
+> 'name' has already set all zero when it is defined, so not need let
+> strncpy() to pad it again.
 >
->>>> This code was properly indented before your changes, but it isn't
->>>> afterwards.
+> 'name' is a string, better always let is NUL terminated, so use
+> strlcpy() instead of strncpy().
 >
->>>     David, that's not my change, it's was Andrew Morton who changed 
->>> that
->>>     (in order not to cross 80 columns).
 >
->> Ok, whoever submits this next needs to undo that.
->
->     How about I completely drop this change (and maybe deal with it in 
-> a subsequent cleanup patch)?
-
-    It appears I had fixes for only a small part of 
-scripts/checkpatch.pl complaints
-in this driver:
-
-total: 114 errors, 428 warnings, 3327 lines checked
-
-NOTE: whitespace errors detected, you may wish to use scripts/cleanpatch or
-       scripts/cleanfile
-
-    I guess you don't need me to clean up the coding style in such an 
-old driver,
-and I don't want to spend time on it either. So I'm going to let the lot 
-of overly
-long lines in the driver live forever. :-)
-
-WBR, Sergei
+> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+Acked-by: Bart De Schuymer <bdschuym@pandora.be>
