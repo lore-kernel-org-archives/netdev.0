@@ -1,58 +1,59 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] isdn/kcapi: fix a small underflow
-Date: Sun, 19 May 2013 21:36:36 +0300
-Message-ID: <20130519183636.GA25275@elgon.mountain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: bug fixing and cleanup
+Date: Sun, 19 May 2013 21:01:16 +0200
+Message-ID: <20130519190116.GA4019@electric-eye.fr.zoreil.com>
+References: <alpine.DEB.2.02.1305181902080.7518@fry.nucleusys.com>
+ <20130518210948.GA26590@electric-eye.fr.zoreil.com>
+ <alpine.DEB.2.02.1305191136360.4537@fry.nucleusys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: Karsten Keil <isdn@linux-pingi.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:41946 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751950Ab3ESSgz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 14:36:55 -0400
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Petko Manolov <petkan@nucleusys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1305191136360.4537@fry.nucleusys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In get_capi_ctr_by_nr() and get_capi_appl_by_nr() the parameter comes
-from skb->data.  The current code can underflow to one space before the
-start of the array.
+Petko Manolov <petkan@nucleusys.com> :
+> On Sat, 18 May 2013, Francois Romieu wrote:
+> > > From: Petko Manolov <petkan@nucleusys.com>
+[...]
+> > > Moving constant and structure definitions out of rtl8150.c;
+> > 
+> > What's the point ?
+> 
+> The general logic of having .h files applies.
 
-The sanity check isn't needed in __get_capi_appl_by_nr() but I changed
-it to match the others.
+Which one ?
+- share it through the kernel or with userspace
+- personal choice .c split
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+I don't mind the later even if it does not exactly apply to a
+WIP driver. I'd still avoid future copycat followers though.
 
-diff --git a/drivers/isdn/capi/kcapi.c b/drivers/isdn/capi/kcapi.c
-index 9b1b274..c123709 100644
---- a/drivers/isdn/capi/kcapi.c
-+++ b/drivers/isdn/capi/kcapi.c
-@@ -93,7 +93,7 @@ capi_ctr_put(struct capi_ctr *ctr)
- 
- static inline struct capi_ctr *get_capi_ctr_by_nr(u16 contr)
- {
--	if (contr - 1 >= CAPI_MAXCONTR)
-+	if (contr < 1 || contr - 1 >= CAPI_MAXCONTR)
- 		return NULL;
- 
- 	return capi_controller[contr - 1];
-@@ -103,7 +103,7 @@ static inline struct capi20_appl *__get_capi_appl_by_nr(u16 applid)
- {
- 	lockdep_assert_held(&capi_controller_lock);
- 
--	if (applid - 1 >= CAPI_MAXAPPL)
-+	if (applid < 1 || applid - 1 >= CAPI_MAXAPPL)
- 		return NULL;
- 
- 	return capi_applications[applid - 1];
-@@ -111,7 +111,7 @@ static inline struct capi20_appl *__get_capi_appl_by_nr(u16 applid)
- 
- static inline struct capi20_appl *get_capi_appl_by_nr(u16 applid)
- {
--	if (applid - 1 >= CAPI_MAXAPPL)
-+	if (applid < 1 || applid - 1 >= CAPI_MAXAPPL)
- 		return NULL;
- 
- 	return rcu_dereference(capi_applications[applid - 1]);
+[...]
+> > >  drivers/net/usb/rtl8150.c |  121 +----------------------------------
+> > >  1 file changed, 2 insertions(+), 119 deletions(-)
+> > > 
+> > > diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+> > > index a491d3a..7d1897b 100644
+> > > --- a/drivers/net/usb/rtl8150.c
+> > > +++ b/drivers/net/usb/rtl8150.c
+> > > @@ -17,132 +17,15 @@
+> > >  #include <linux/usb.h>
+> > >  #include <asm/uaccess.h>
+> > >  
+> > > +#include "rtl8150.h"
+> > 
+> > It won't compile. You shouldn't do that.
+> 
+> It does compile.  Both inside and outside of the tree.
+
+The rtl8150.h file is created in patch #2. This is patch #1.
+
+So...
+
+-- 
+Ueimor
