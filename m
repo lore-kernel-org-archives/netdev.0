@@ -1,10 +1,10 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: bug fixing and cleanup
-Date: Sun, 19 May 2013 21:01:16 +0200
-Message-ID: <20130519190116.GA4019@electric-eye.fr.zoreil.com>
-References: <alpine.DEB.2.02.1305181902080.7518@fry.nucleusys.com>
- <20130518210948.GA26590@electric-eye.fr.zoreil.com>
- <alpine.DEB.2.02.1305191136360.4537@fry.nucleusys.com>
+Subject: Re: [PATCH 4/5] drivers: net: usb: rtl8150: bug fixing and cleanup
+Date: Sun, 19 May 2013 21:01:27 +0200
+Message-ID: <20130519190127.GB4019@electric-eye.fr.zoreil.com>
+References: <alpine.DEB.2.02.1305181905100.7518@fry.nucleusys.com>
+ <20130518211012.GC26590@electric-eye.fr.zoreil.com>
+ <alpine.DEB.2.02.1305191149310.4537@fry.nucleusys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
@@ -12,48 +12,26 @@ Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
 To: Petko Manolov <petkan@nucleusys.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1305191136360.4537@fry.nucleusys.com>
+In-Reply-To: <alpine.DEB.2.02.1305191149310.4537@fry.nucleusys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Petko Manolov <petkan@nucleusys.com> :
-> On Sat, 18 May 2013, Francois Romieu wrote:
-> > > From: Petko Manolov <petkan@nucleusys.com>
 [...]
-> > > Moving constant and structure definitions out of rtl8150.c;
+> > > +	usb_fill_control_urb(async_urb, dev->udev,
+> > > +	                     usb_sndctrlpipe(dev->udev, 0), (void *) &req->dr,
 > > 
-> > What's the point ?
+> > Useless void * cast.
 > 
-> The general logic of having .h files applies.
-
-Which one ?
-- share it through the kernel or with userspace
-- personal choice .c split
-
-I don't mind the later even if it does not exactly apply to a
-WIP driver. I'd still avoid future copycat followers though.
-
-[...]
-> > >  drivers/net/usb/rtl8150.c |  121 +----------------------------------
-> > >  1 file changed, 2 insertions(+), 119 deletions(-)
-> > > 
-> > > diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
-> > > index a491d3a..7d1897b 100644
-> > > --- a/drivers/net/usb/rtl8150.c
-> > > +++ b/drivers/net/usb/rtl8150.c
-> > > @@ -17,132 +17,15 @@
-> > >  #include <linux/usb.h>
-> > >  #include <asm/uaccess.h>
-> > >  
-> > > +#include "rtl8150.h"
-> > 
-> > It won't compile. You shouldn't do that.
+> Wrong.  The compiler actually moans quite a lot:
 > 
-> It does compile.  Both inside and outside of the tree.
+> /usr/src/git/rtl8150/rtl8150.c: In function ?async_set_registers?:
+> /usr/src/git/rtl8150/rtl8150.c:92:9: warning: passing argument 4 of ?usb_fill_control_urb? from incompatible pointer type [enabled by default]
+> In file included from /usr/src/git/rtl8150/rtl8150.c:17:0:
+> include/linux/usb.h:1440:20: note: expected ?unsigned char *? but argument is of type ?struct usb_ctrlrequest *?
 
-The rtl8150.h file is created in patch #2. This is patch #1.
-
-So...
+Sorry, I confused it with transfer_buffer. Some drivers go through unsigned
+char *, some widen it to void *.
 
 -- 
 Ueimor
