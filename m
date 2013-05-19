@@ -1,37 +1,47 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 4/5] drivers: net: usb: rtl8150: bug fixing and cleanup
-Date: Sun, 19 May 2013 21:01:27 +0200
-Message-ID: <20130519190127.GB4019@electric-eye.fr.zoreil.com>
-References: <alpine.DEB.2.02.1305181905100.7518@fry.nucleusys.com>
- <20130518211012.GC26590@electric-eye.fr.zoreil.com>
- <alpine.DEB.2.02.1305191149310.4537@fry.nucleusys.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/4] net: low latency Ethernet
+	device polling
+Date: Sun, 19 May 2013 22:06:20 +0300
+Message-ID: <CAJZOPZJzVykmBH5FFQBVuztAFGRMOPT-GKABiewG6b4pnKVUeA@mail.gmail.com>
+References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Petko Manolov <petkan@nucleusys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1305191149310.4537@fry.nucleusys.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Don Skidmore <donanld.c.skidmore@intel.com>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Petko Manolov <petkan@nucleusys.com> :
-[...]
-> > > +	usb_fill_control_urb(async_urb, dev->udev,
-> > > +	                     usb_sndctrlpipe(dev->udev, 0), (void *) &req->dr,
-> > 
-> > Useless void * cast.
-> 
-> Wrong.  The compiler actually moans quite a lot:
-> 
-> /usr/src/git/rtl8150/rtl8150.c: In function ?async_set_registers?:
-> /usr/src/git/rtl8150/rtl8150.c:92:9: warning: passing argument 4 of ?usb_fill_control_urb? from incompatible pointer type [enabled by default]
-> In file included from /usr/src/git/rtl8150/rtl8150.c:17:0:
-> include/linux/usb.h:1440:20: note: expected ?unsigned char *? but argument is of type ?struct usb_ctrlrequest *?
+On Sun, May 19, 2013 at 1:25 PM, Eliezer Tamir
+<eliezer.tamir@linux.intel.com> wrote:
+> This is an updated version of the code we posted on February.
 
-Sorry, I confused it with transfer_buffer. Some drivers go through unsigned
-char *, some widen it to void *.
+Last time you've placed a copy of the patchset in the rfc branch of
+git://github.com/jbrandeb/lls.git  - can you repost there V2 too?
 
--- 
-Ueimor
+Or.
+
+------------------------------------------------------------------------------
+AlienVault Unified Security Management (USM) platform delivers complete
+security visibility with the essential security capabilities. Easily and
+efficiently configure, manage, and operate all of your security controls
+from a single console and one unified framework. Download a free trial.
+http://p.sf.net/sfu/alienvault_d2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
