@@ -1,183 +1,121 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v2 net-next 4/4] ixgbe: add extra stats for ndo_ll_poll
-Date: Sun, 19 May 2013 13:26:01 +0300
-Message-ID: <20130519102601.12527.18652.stgit@ladj378.jer.intel.com>
-References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH] net: dm9000: Allow instantiation using device tree
+Date: Sun, 19 May 2013 12:35:44 +0200
+Message-ID: <20130519103544.GZ32299@pengutronix.de>
+References: <1368918194-24030-1-git-send-email-tomasz.figa@gmail.com>
+ <20130519070538.GX32299@pengutronix.de>
+ <2763249.7aFBh8NOHl@flatron>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donanld.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Dave Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>
+To: Tomasz Figa <tomasz.figa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:55262 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753205Ab3ESKfs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 06:35:48 -0400
+Content-Disposition: inline
+In-Reply-To: <2763249.7aFBh8NOHl@flatron>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add additional statistics to the ixgbe driver for ndo_ll_poll
-Defined under LL_EXTENDED_STATS
+On Sun, May 19, 2013 at 10:54:53AM +0200, Tomasz Figa wrote:
+> Hi Sascha,
+> 
+> On Sunday 19 of May 2013 09:05:38 Sascha Hauer wrote:
+> > Hi Tomasz,
+> > 
+> > On Sun, May 19, 2013 at 01:03:14AM +0200, Tomasz Figa wrote:
+> > > This patch adds Device Tree support to dm9000 driver.
+> > > 
+> > > Signed-off-by: Tomasz Figa <tomasz.figa@gmail.com>
+> > > ---
+> > > 
+> > >  .../devicetree/bindings/net/davicom-dm9000.txt     | 27 ++++++++++
+> > >  .../devicetree/bindings/vendor-prefixes.txt        |  1 +
+> > >  drivers/net/ethernet/davicom/dm9000.c              | 60
+> > >  ++++++++++++++++++++++ 3 files changed, 88 insertions(+)
+> > >  create mode 100644
+> > >  Documentation/devicetree/bindings/net/davicom-dm9000.txt> 
+> > > diff --git a/Documentation/devicetree/bindings/net/davicom-dm9000.txt
+> > > b/Documentation/devicetree/bindings/net/davicom-dm9000.txt new file
+> > > mode 100644
+> > > index 0000000..d2902db
+> > > --- /dev/null
+> > > +++ b/Documentation/devicetree/bindings/net/davicom-dm9000.txt
+> > > @@ -0,0 +1,27 @@
+> > > +Davicom DM9000 Fast Ethernet controller
+> > > +
+> > > +Required properties:
+> > > +- compatible = "davicom,dm9000";
+> > > +- reg : physical addresses and sizes of registers, must contain 2
+> > > entries: +    first entry : address register,
+> > > +    second entry : address register.
+> > > +- interrupt-parent : interrupt controller to which the device is
+> > > connected +- interrupts : interrupt specifier specific to interrupt
+> > > controller +
+> > > +Optional properties:
+> > > +- local-mac-address : A bytestring of 6 bytes specifying Ethernet MAC
+> > > address +    to use (from firmware or bootloader)
+> > > +- davicom,no-eeprom : Configuration EEPROM is not available
+> > > +- davicom,ext-phy : Use external PHY
+> > > +- davicom,simple-phy : Use NSR to find LinkStatus
+> > 
+> > Do we really need to expose this simple-phy property? Looking at the
+> > drvier code this more looks like a work around shortcomings of the
+> > driver code rather than something really necessary.
+> 
+> Well, depending on this property it can use two different methods of 
+> checking carrier status and it seems to depend on hardware, which one 
+> should be used. I don't see any driver shortcomings here, but maybe I'm 
+> missing something.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
+It's not hardware dependent, at least not from the original commit log.
 
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   14 ++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   40 ++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    6 +++
- 3 files changed, 60 insertions(+), 0 deletions(-)
+The driver doesn't use mdiobus_register which you normally would do
+today. If someone ports the driver over to mdiobus we would still have
+to support this legacy flag as a special case.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 72be661..2a7de7c 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -52,6 +52,9 @@
- #include <linux/dca.h>
- #endif
- 
-+#ifdef CONFIG_INET_LL_RX_POLL
-+#define LL_EXTENDED_STATS
-+#endif  /* CONFIG_INET_LL_RX_POLL */
- /* common prefix used by pr_<> macros */
- #undef pr_fmt
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-@@ -182,6 +185,11 @@ struct ixgbe_rx_buffer {
- struct ixgbe_queue_stats {
- 	u64 packets;
- 	u64 bytes;
-+#ifdef LL_EXTENDED_STATS
-+	u64 yields;
-+	u64 misses;
-+	u64 cleaned;
-+#endif  /* LL_EXTENDED_STATS */
- };
- 
- struct ixgbe_tx_queue_stats {
-@@ -389,6 +397,9 @@ static inline int ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
- 		WARN_ON(q_vector->state & IXGBE_QV_STATE_NAPI);
- 		q_vector->state |= IXGBE_QV_STATE_NAPI_YIELD;
- 		rc = false;
-+#ifdef LL_EXTENDED_STATS
-+		q_vector->tx.ring->stats.yields++;
-+#endif
- 	} else
- 		/* we don't care if someone yielded */
- 		q_vector->state = IXGBE_QV_STATE_NAPI;
-@@ -419,6 +430,9 @@ static inline int ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
- 	if ((q_vector->state & IXGBE_QV_LOCKED)) {
- 		q_vector->state |= IXGBE_QV_STATE_POLL_YIELD;
- 		rc = false;
-+#ifdef LL_EXTENDED_STATS
-+		q_vector->rx.ring->stats.yields++;
-+#endif
- 	} else
- 		/* preserve yield marks */
- 		q_vector->state |= IXGBE_QV_STATE_POLL;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index d375472..24e2e7a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1054,6 +1054,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
-+#ifdef LL_EXTENDED_STATS
-+			data[i] = 0;
-+			data[i+1] = 0;
-+			data[i+2] = 0;
-+			i += 3;
-+#endif
- 			continue;
- 		}
- 
-@@ -1063,6 +1069,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
-+#ifdef LL_EXTENDED_STATS
-+		data[i] = ring->stats.yields;
-+		data[i+1] = ring->stats.misses;
-+		data[i+2] = ring->stats.cleaned;
-+		i += 3;
-+#endif
- 	}
- 	for (j = 0; j < IXGBE_NUM_RX_QUEUES; j++) {
- 		ring = adapter->rx_ring[j];
-@@ -1070,6 +1082,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
-+#ifdef LL_EXTENDED_STATS
-+			data[i] = 0;
-+			data[i+1] = 0;
-+			data[i+2] = 0;
-+			i += 3;
-+#endif
- 			continue;
- 		}
- 
-@@ -1079,6 +1097,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
-+#ifdef LL_EXTENDED_STATS
-+		data[i] = ring->stats.yields;
-+		data[i+1] = ring->stats.misses;
-+		data[i+2] = ring->stats.cleaned;
-+		i += 3;
-+#endif
- 	}
- 
- 	for (j = 0; j < IXGBE_MAX_PACKET_BUFFERS; j++) {
-@@ -1115,12 +1139,28 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "tx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
-+#ifdef LL_EXTENDED_STATS
-+			sprintf(p, "tx_q_%u_napi_yield", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "tx_q_%u_misses", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "tx_q_%u_cleaned", i);
-+			p += ETH_GSTRING_LEN;
-+#endif /* LL_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_NUM_RX_QUEUES; i++) {
- 			sprintf(p, "rx_queue_%u_packets", i);
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "rx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
-+#ifdef LL_EXTENDED_STATS
-+			sprintf(p, "rx_q_%u_ll_poll_yield", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_q_%u_misses", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_q_%u_cleaned", i);
-+			p += ETH_GSTRING_LEN;
-+#endif /* LL_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
- 			sprintf(p, "tx_pb_%u_pxon", i);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 628b7b1..1b2214b 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2033,6 +2033,12 @@ static int ixgbe_low_latency_recv(struct napi_struct *napi)
- 
- 	ixgbe_for_each_ring(ring, q_vector->rx) {
- 		found = ixgbe_clean_rx_irq(q_vector, ring, 4);
-+#ifdef LL_EXTENDED_STATS
-+		if (found)
-+			ring->stats.cleaned += found;
-+		else
-+			ring->stats.misses++;
-+#endif
- 		if (found)
- 			break;
- 	}
+Since no mainline user makes use of this flag I suggest to skip it from
+the devicetree, at least until someone really asks for this specific
+flag (and has good reasons to use it)
+
+> 
+> > > +#ifdef CONFIG_OF
+> > > +static struct dm9000_plat_data *dm9000_parse_dt(struct device *dev)
+> > > +{
+> > > +	struct dm9000_plat_data *pdata;
+> > > +	struct device_node *np = dev->of_node;
+> > > +	const void *prop;
+> > > +	int len;
+> > > +
+> > > +	if (!np)
+> > > +		return NULL;
+> > 
+> > You should be able to kill the ifdef around this function by doing
+> 
+> Basically this would be a kill with a double-edged sword.
+> 
+> I could completely drop the #ifdef without any additional check, as it is 
+> not possible that np is not NULL with !CONFIG_OF,
+
+Yes, but the compiler doesn't know this.
+
+> but I decided to keep 
+> the code conditional to reduce driver code a bit on platforms that don't 
+> need OF.
+
+IS_ENABLED(CONFIG_OF) will expand to 0 without OF and the compiler will
+through the unused code away. You won't find differences in the binary
+size.
+
+Sascha
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
