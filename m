@@ -1,32 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/usb/r8152: Use module_usb_driver to register driver
-Date: Mon, 20 May 2013 14:12:04 -0700 (PDT)
-Message-ID: <20130520.141204.1030613972336983434.davem@davemloft.net>
-References: <1369081696-8149-1-git-send-email-peterhuewe@gmx.de>
+Subject: Re: [PATCH 0/2 net-next v2] phy: PHY_IGNORE_INTERRUPT fixes and
+ improvements
+Date: Mon, 20 May 2013 14:13:35 -0700 (PDT)
+Message-ID: <20130520.141335.1768047165121130802.davem@davemloft.net>
+References: <1369040023-22270-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: gregkh@linuxfoundation.org, linux-usb@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: peterhuewe@gmx.de
+Cc: netdev@vger.kernel.org, jogo@openwrt.org,
+	thomas.petazzoni@free-electrons.com, afleming@freescale.com
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38095 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38107 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758269Ab3ETVMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 17:12:05 -0400
-In-Reply-To: <1369081696-8149-1-git-send-email-peterhuewe@gmx.de>
+	with ESMTP id S1758380Ab3ETVNg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 17:13:36 -0400
+In-Reply-To: <1369040023-22270-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Huewe <peterhuewe@gmx.de>
-Date: Mon, 20 May 2013 22:28:16 +0200
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Date: Mon, 20 May 2013 08:53:41 +0000
 
-> Removing some boilerplate by using module_usb_driver instead of calling
-> register and unregister in the otherwise empty init/exit functions.
-> 
-> Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
+> These two patches contain fixes and improvements for using PHY_IGNORE_INTERRUPT
+> in network drivers. Since the second patch is an addition and not a bug fix
+> per-se, these patches are based on "net-next". The first patch applies cleanly
+> to "net" too.
 
-This driver has already been converted like this.
-
-Please make sure your patches always apply cleanly to the most
-uptodate sources.
+Series applied to net-next, thanks.
