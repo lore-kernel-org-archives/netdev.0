@@ -1,60 +1,61 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/2] ppc: bpf_jit: can call module_free() from any context
-Date: Mon, 20 May 2013 20:05:50 +0200
-Message-ID: <1369073151-25028-1-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 2/2] arm: bpf_jit: can call module_free() from any context
+Date: Mon, 20 May 2013 20:05:51 +0200
+Message-ID: <1369073151-25028-2-git-send-email-dborkman@redhat.com>
+References: <1369073151-25028-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
-	Matt Evans <matt@ozlabs.org>
+	Mircea Gherzan <mgherzan@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:45450 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:37231 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751471Ab3ETSF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 May 2013 14:05:58 -0400
+	id S1751471Ab3ETSF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 May 2013 14:05:59 -0400
+In-Reply-To: <1369073151-25028-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Followup patch on module_free()/vfree() that takes care of the rest, so
-no longer this workaround with work_struct is needed.
+Follow-up on module_free()/vfree() that takes care of the rest, so no
+longer this workaround with work_struct needed.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Matt Evans <matt@ozlabs.org>
+Cc: Mircea Gherzan <mgherzan@gmail.com>
 ---
- arch/powerpc/net/bpf_jit_comp.c | 19 +++----------------
- 1 file changed, 3 insertions(+), 16 deletions(-)
+ arch/arm/net/bpf_jit_32.c | 18 +++---------------
+ 1 file changed, 3 insertions(+), 15 deletions(-)
 
-diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
-index c427ae3..bf56e33 100644
---- a/arch/powerpc/net/bpf_jit_comp.c
-+++ b/arch/powerpc/net/bpf_jit_comp.c
-@@ -650,8 +650,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
+index 1a643ee..f50d223 100644
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@ -900,8 +900,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ #endif
  
- 	proglen = cgctx.idx * 4;
- 	alloclen = proglen + FUNCTION_DESCR_SIZE;
--	image = module_alloc(max_t(unsigned int, alloclen,
--				   sizeof(struct work_struct)));
-+	image = module_alloc(alloclen);
- 	if (!image)
+ 	alloc_size = 4 * ctx.idx;
+-	ctx.target = module_alloc(max(sizeof(struct work_struct),
+-				      alloc_size));
++	ctx.target = module_alloc(alloc_size);
+ 	if (unlikely(ctx.target == NULL))
  		goto out;
  
-@@ -688,20 +687,8 @@ out:
+@@ -927,19 +926,8 @@ out:
  	return;
  }
  
--static void jit_free_defer(struct work_struct *arg)
+-static void bpf_jit_free_worker(struct work_struct *work)
 -{
--	module_free(NULL, arg);
+-	module_free(NULL, work);
 -}
 -
--/* run from softirq, we must use a work_struct to call
-- * module_free() from process context
-- */
  void bpf_jit_free(struct sk_filter *fp)
  {
--	if (fp->bpf_func != sk_run_filter) {
--		struct work_struct *work = (struct work_struct *)fp->bpf_func;
+-	struct work_struct *work;
 -
--		INIT_WORK(work, jit_free_defer);
+-	if (fp->bpf_func != sk_run_filter) {
+-		work = (struct work_struct *)fp->bpf_func;
+-
+-		INIT_WORK(work, bpf_jit_free_worker);
 -		schedule_work(work);
 -	}
 +	if (fp->bpf_func != sk_run_filter)
