@@ -1,80 +1,51 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v2 net-next 1/4] net: implement support
- for low latency socket polling
-Date: Mon, 20 May 2013 12:39:59 +0300
-Message-ID: <5199EF6F.9040008@linux.intel.com>
-References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
-	<20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
-	<20130520.005447.972811583292360876.davem@davemloft.net>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] x86: bpf_jit_comp: secure bpf jit against spraying
+ attacks
+Date: Mon, 20 May 2013 11:50:27 +0200
+Message-ID: <5199F1E3.1020109@redhat.com>
+References: <1368844623.3301.142.camel@edumazet-glaptop> <AE90C24D6B3A694183C094C60CF0A2F6026B723E@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, hpa@zytor.com,
-	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
-	andi@firstfloor.org, eliezer@tamir.org.il
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130520.005447.972811583292360876.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"H. Peter Anvin" <hpa@zytor.com>, linux-kernel@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B723E@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20/05/2013 10:54, David Miller wrote:
-> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> Date: Sun, 19 May 2013 13:25:33 +0300
+On 05/20/2013 10:51 AM, David Laight wrote:
+>> hpa bringed into my attention some security related issues
+>> with BPF JIT on x86.
+>>
+>> This patch makes sure the bpf generated code is marked read only,
+>> as other kernel text sections.
+>>
+>> It also splits the unused space (we vmalloc() and only use a fraction of
+>> the page) in two parts, so that the generated bpf code not starts at a
+>> known offset in the page, but a pseudo random one.
+> ...
+>> +static struct bpf_binary_header *bpf_alloc_binary(unsigned int proglen,
+>> +						  u8 **image_ptr)
+> ...
+>> +	/* insert a random number of int3 instructions before BPF code */
+>> +	*image_ptr = &header->image[prandom_u32() % hole];
+>> +	return header;
+>> +}
 >
->> +#else /* CONFIG_INET_LL_RX_FLUSH */
->> +
->> +#define sk_valid_ll(sk) 0
->> +#define sk_poll_ll(sk, nonblock) do {} while (0)
->> +#define skb_mark_ll(napi, skb) do {} while (0)
->> +#define sk_mark_ll(sk, skb) do {} while (0)
+> Hmmm.... anyone looking to overwrite kernel code will then start
+> looking for blocks of 0xcc bytes and know that what follows
+> is the beginning of a function.
+> That isn't any harder than random writes.
 >
-> Make these inline functions too, so that even if
-> CONFIG_INET_LL_RX_POLL is disabled, the arguments and return values
-> are still properly type checked.
+> Copying a random part of .rodata might be better - especially
+> if you can find part of .rodata.str*.
 
-Is this what you had in mind?
+Here seems also to be another approach ...
 
-static inline bool sk_valid_ll(struct sock *sk)
-{
-	return 0;
-}
+   http://grsecurity.net/~spender/jit_prot.diff
 
-static inline bool sk_poll_ll(struct sock *sk, int noblock)
-{
-	return 0;
-}
-
-static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct 
-*napi)
-{
-}
-
-static inline voiv sk_mark_ll(struct sock *sk, struct sk_buff *skb)
-{
-}
-
-would you like me to resend the whole set or just this patch?
-
-Thanks,
-Eliezer
-
-------------------------------------------------------------------------------
-AlienVault Unified Security Management (USM) platform delivers complete
-security visibility with the essential security capabilities. Easily and
-efficiently configure, manage, and operate all of your security controls
-from a single console and one unified framework. Download a free trial.
-http://p.sf.net/sfu/alienvault_d2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+via: http://www.reddit.com/r/netsec/comments/13dzhx/linux_kernel_jit_spray_for_smep_kernexec_bypass/
