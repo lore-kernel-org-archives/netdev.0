@@ -1,61 +1,43 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: provide vhost thread per virtqueue for forwarding scenario
-Date: Mon, 20 May 2013 10:43:00 +0300
-Message-ID: <20130520074300.GA27848@redhat.com>
-References: <5872DA217C2FF7488B20897D84F904E7338FC974@nkgeml511-mbx.china.huawei.com>
+From: Petko Manolov <petkan@nucleusys.com>
+Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: bug fixing and cleanup
+Date: Mon, 20 May 2013 10:49:46 +0300 (EEST)
+Message-ID: <alpine.DEB.2.02.1305201049210.3374@fry.nucleusys.com>
+References: <alpine.DEB.2.02.1305201008190.4719@fry.nucleusys.com> <20130520.001252.838327096610376306.davem@davemloft.net> <alpine.DEB.2.02.1305201014220.4719@fry.nucleusys.com> <20130520.004324.1700573748194578434.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
-	"nab@linux-iscsi.org" <nab@linux-iscsi.org>,
-	" (netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
-	" (kvm@vger.kernel.org)" <kvm@vger.kernel.org>,
-	Zanghongyong <zanghongyong@huawei.com>,
-	"Zhangjie (HZ)" <zhang.zhangjie@huawei.com>
-To: Qinchuanyu <qinchuanyu@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25874 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754240Ab3ETHoZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 May 2013 03:44:25 -0400
-Content-Disposition: inline
-In-Reply-To: <5872DA217C2FF7488B20897D84F904E7338FC974@nkgeml511-mbx.china.huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130520.004324.1700573748194578434.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 20, 2013 at 02:11:19AM +0000, Qinchuanyu wrote:
-> Vhost thread provide both tx and rx ability for virtio-net. 
-> In the forwarding scenarios, tx and rx share the vhost thread, and throughput is limited by single thread.
+On Mon, 20 May 2013, David Miller wrote:
+
+> From: Petko Manolov <petkan@nucleusys.com>
+> Date: Mon, 20 May 2013 10:18:17 +0300 (EEST)
 > 
-> So I did a patch for provide vhost thread per virtqueue, not per vhost_net.
+> > On Mon, 20 May 2013, David Miller wrote:
+> > 
+> >> From: Petko Manolov <petkan@nucleusys.com>
+> >> Date: Mon, 20 May 2013 10:09:00 +0300 (EEST)
+> >> 
+> >> > What about the .c/.h split?
+> >> 
+> >> I have no strong opinion either way.
+> > 
+> > OK, so i'll prepare new patch series that coalesce my original patch #1 
+> > and #2, and apply the Francois suggestion about using the generic 
+> > netdev_alloc_skb_ip_align() in the interrupt path.
+> > 
+> > Which tree would you want me to diff against?
 > 
-> Of course, multi-queue virtio-net is final solution, but it require new version of virtio-net working in guest.
-> If you have to work with suse10,11, redhat 5.x as guest, and want to improve the forward throughput,
-> using vhost thread per queue seems to be the only solution.
-
-Why is it? If multi-queue works well for you, just update the drivers in
-the guests that you care about. Guest driver backport is not so hard.
-
-In my testing, performance of thread per vq varies: some workloads might
-gain throughput but you get more IPIs and more scheduling overhead, so
-you waste more host CPU per byte. As you create more VMs, this stops
-being a win.
-
+> As has been explained to you already, cleanups belong in 'net-next',
+> bug fixes belong in 'net'.
 > 
-> I did the test with kernel 3.0.27 and qemu-1.4.0, guest is suse11-sp2, and then two vhost thread provide 
-> double tx/rx forwarding performance than signal vhost thread. 
-> The virtqueue of vhost_blk is 1, so it still use one vhost thread without change.
-> 
-> Is there something wrong in this solution? If not, I would list patch later.
-> 
-> Best regards
-> King
+> If you series has both, you have to submit them separately.  Submit
+> the bug fixes to 'net', then the next time I merge 'net' into 'net-next'
+> you can submit the cleanups on top against 'net-next'.
 
-Yes, I don't think we want to create threads even more aggressively
-in all cases. I'm worried about scalability as it is.
-I think we should explore a flexible approach, use a thread pool
-(for example, a wq) to share threads between virtqueues,
-switch to a separate thread only if there's free CPU and existing
-threads are busy. Hopefully share threads between vhost instances too.
-
--- 
-MST
+Got it.  Thanks.
