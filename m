@@ -1,50 +1,27 @@
-From: Petko Manolov <petkan@nucleusys.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: bug fixing and cleanup
-Date: Mon, 20 May 2013 09:58:39 +0300 (EEST)
-Message-ID: <alpine.DEB.2.02.1305200941260.4719@fry.nucleusys.com>
-References: <alpine.DEB.2.02.1305181902080.7518@fry.nucleusys.com> <20130518210948.GA26590@electric-eye.fr.zoreil.com> <alpine.DEB.2.02.1305191136360.4537@fry.nucleusys.com> <20130519190116.GA4019@electric-eye.fr.zoreil.com>
+Date: Mon, 20 May 2013 00:00:46 -0700 (PDT)
+Message-ID: <20130520.000046.631828458050532836.davem@davemloft.net>
+References: <alpine.DEB.2.02.1305191136360.4537@fry.nucleusys.com>
+	<20130519190116.GA4019@electric-eye.fr.zoreil.com>
+	<alpine.DEB.2.02.1305200941260.4719@fry.nucleusys.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: petkan@nucleusys.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130519190116.GA4019@electric-eye.fr.zoreil.com>
+In-Reply-To: <alpine.DEB.2.02.1305200941260.4719@fry.nucleusys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+From: Petko Manolov <petkan@nucleusys.com>
+Date: Mon, 20 May 2013 09:58:39 +0300 (EEST)
 
-On Sun, 19 May 2013, Francois Romieu wrote:
+> So first apply patch #1 and then patch #2.
 
-> Which one ?
-> - share it through the kernel or with userspace
-> - personal choice .c split
+Then nobody can properly GIT bisect through your patch series.
 
-It is obviously not the former.  I think that in general constant and 
-other definitions (in their majority) should be in a header file.  I 
-definitely like this way better.
-
-Perhaps in this particular case my patch is a bit of an overkill as the 
-code lines aren't that many.  If the consensus is in this direction i'll 
-revert this part of the series.
-
-> I don't mind the later even if it does not exactly apply to a
-> WIP driver. I'd still avoid future copycat followers though.
-
-This isn't WIP anymore as the W(ork) part is missing.  After so many quiet 
-years i assume the experimental tag should be removed.
-
-> The rtl8150.h file is created in patch #2. This is patch #1.
-> 
-> So...
-
-So first apply patch #1 and then patch #2.
-
-However, if it is required for the driver to be in build-able form after 
-applying any single patch i'll coalesce #1 and #2 before next submission.
-
-
-David?
-
-
-		Petko
+The tree must work and build properly at each and every step
+of your patch series.
