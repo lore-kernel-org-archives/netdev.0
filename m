@@ -1,58 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next v6] rps: selective flow shedding during softnet
- overflow
-Date: Mon, 20 May 2013 09:00:54 -0700
-Message-ID: <1369065654.3301.184.camel@edumazet-glaptop>
-References: <20130425.042007.1583080085524610665.davem@davemloft.net>
-	 <1369058552-2909-1-git-send-email-willemb@google.com>
+From: Yinghai Lu <yinghai@kernel.org>
+Subject: Re: [PATCH v2 6/7] PCI: Make sure VF's driver get attached after PF's
+Date: Mon, 20 May 2013 09:01:58 -0700
+Message-ID: <CAE9FiQWXQhbWObM=8wq+D84sbDakChyvuze9SS0SJxuxOUeQBQ@mail.gmail.com>
+References: <1368586102-17661-1-git-send-email-yinghai@kernel.org>
+	<20130515091248.00002fe3@unknown>
+	<CAJZOPZ+L1QJdHePd_x9RAoqZKyJAKHo+hA8T1UZoe8=ozT98RA@mail.gmail.com>
+	<519A1DFD.5080809@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f47.google.com ([209.85.160.47]:42822 "EHLO
-	mail-pb0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757021Ab3ETQA5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 12:00:57 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so5428810pbb.6
-        for <netdev@vger.kernel.org>; Mon, 20 May 2013 09:00:57 -0700 (PDT)
-In-Reply-To: <1369058552-2909-1-git-send-email-willemb@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	Greg Rose <gregory.v.rose@intel.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Gu Zheng <guz.fnst@cn.fujitsu.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Sathya Perla <Sathya.Perla@emulex.com>,
+	NetDev <netdev@vger.kernel.org>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <519A1DFD.5080809@linux.intel.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-05-20 at 10:02 -0400, Willem de Bruijn wrote:
-> A cpu executing the network receive path sheds packets when its input
-> queue grows to netdev_max_backlog. A single high rate flow (such as a
-> spoofed source DoS) can exceed a single cpu processing rate and will
-> degrade throughput of other flows hashed onto the same cpu.
-> 
-> This patch adds a more fine grained hashtable. If the netdev backlog
-> is above a threshold, IRQ cpus track the ratio of total traffic of
-> each flow (using 4096 buckets, configurable). The ratio is measured
-> by counting the number of packets per flow over the last 256 packets
-> from the source cpu. Any flow that occupies a large fraction of this
-> (set at 50%) will see packet drop while above the threshold.
-> 
-> Tested:
-> Setup is a muli-threaded UDP echo server with network rx IRQ on cpu0,
-> kernel receive (RPS) on cpu0 and application threads on cpus 2--7
-> each handling 20k req/s. Throughput halves when hit with a 400 kpps
-> antagonist storm. With this patch applied, antagonist overload is
-> dropped and the server processes its complete load.
-> 
-> The patch is effective when kernel receive processing is the
-> bottleneck. The above RPS scenario is a extreme, but the same is
-> reached with RFS and sufficient kernel processing (iptables, packet
-> socket tap, ..).
-> 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
-> 
-> ---
+On Mon, May 20, 2013 at 5:58 AM, Eliezer Tamir
+<eliezer.tamir@linux.intel.com> wrote:
+>>
+> Maybe do the following:
+> 1. split the VF PCI IDs into a separate PCI_ID device table.
+> 2. have two pci_driver structs, one for all of the PF IDS and one with the
+> VF IDS.
+> 3. only register the first pci_driver struct from mlx4_init().
+> 4. register the one for the VFs once your PFs are all up and ready.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+that may help booting path that have driver built-in, or first time
+load driver path.
 
-Willemb, are you planning to add a section in
-Documentation/networking/scaling.txt ?
+For driver already loaded, and hotadd path, the problem is still there.
 
-Thanks
+Yinghai
