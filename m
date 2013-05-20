@@ -1,36 +1,41 @@
-From: Peter =?iso-8859-15?q?H=FCwe?= <PeterHuewe@gmx.de>
-Subject: Re: [PATCH] net/can/mcp251x: Use module_spi_driver to register driver
-Date: Mon, 20 May 2013 22:17:29 +0200
-Message-ID: <201305202217.29983.PeterHuewe@gmx.de>
-References: <1369079399-6031-1-git-send-email-peterhuewe@gmx.de> <519A7F3B.1000105@pengutronix.de>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: [PATCH v3] net: dm9000: Allow instantiation using device tree
+Date: Mon, 20 May 2013 22:14:54 +0200
+Message-ID: <20130520201454.GD32299@pengutronix.de>
+References: <1369077418-5966-1-git-send-email-tomasz.figa@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Wolfgang Grandegger <wg@grandegger.com>, linux-can@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "Marc Kleine-Budde" <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <519A7F3B.1000105@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	devicetree-discuss@lists.ozlabs.org,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	David Miller <davem@davemloft.net>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Sylwester Nawrocki <sylvester.nawrocki@gmail.com>
+To: Tomasz Figa <tomasz.figa@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:60581 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756008Ab3ETUO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 16:14:56 -0400
+Content-Disposition: inline
+In-Reply-To: <1369077418-5966-1-git-send-email-tomasz.figa@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Montag, 20. Mai 2013, 21:53:31 schrieb Marc Kleine-Budde:
-> On 05/20/2013 09:49 PM, Peter Huewe wrote:
-> > Removing some boilerplate by using module_spi_driver instead of calling
-> > register and unregister in the otherwise empty init/exit functions
-> > 
-> > Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
+On Mon, May 20, 2013 at 09:16:58PM +0200, Tomasz Figa wrote:
+> This patch adds Device Tree support to dm9000 driver.
 > 
-> A similar patch [1] by Lars-Peter Clausen hit mainline in v3.10-rc1.
-> 
-> thanks, Marc
-> 
-> [1] 01b8807 can: mcp251x: Use module_spi_driver
+> Signed-off-by: Tomasz Figa <tomasz.figa@gmail.com>
 
+Looks good for me aswell, thanks.
 
-Thanks for noticing!
-I was unfortunately working on a stale tree - sorry for the noise.
+Reviewed-by: Sascha Hauer <s.hauer@pengutronix.de>
 
-Thanks,
-Peter
+Sascha
+
+-- 
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
