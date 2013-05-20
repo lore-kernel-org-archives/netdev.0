@@ -1,29 +1,32 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: bug fixing and cleanup
-Date: Mon, 20 May 2013 10:18:17 +0300 (EEST)
-Message-ID: <alpine.DEB.2.02.1305201014220.4719@fry.nucleusys.com>
-References: <alpine.DEB.2.02.1305200941260.4719@fry.nucleusys.com> <20130520.000046.631828458050532836.davem@davemloft.net> <alpine.DEB.2.02.1305201008190.4719@fry.nucleusys.com> <20130520.001252.838327096610376306.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ip_gre: fix a possible crash in ipgre_err()
+Date: Mon, 20 May 2013 00:19:38 -0700 (PDT)
+Message-ID: <20130520.001938.137427083553027440.davem@davemloft.net>
+References: <1368902163.3301.156.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130520.001252.838327096610376306.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, pshelar@nicira.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54651 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753399Ab3ETHTj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 03:19:39 -0400
+In-Reply-To: <1368902163.3301.156.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 May 2013, David Miller wrote:
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 18 May 2013 11:36:03 -0700
 
-> From: Petko Manolov <petkan@nucleusys.com>
-> Date: Mon, 20 May 2013 10:09:00 +0300 (EEST)
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> > What about the .c/.h split?
+> Another fix needed in ipgre_err(), as parse_gre_header() might change
+> skb->head.
 > 
-> I have no strong opinion either way.
+> Bug added in commit c54419321455 (GRE: Refactor GRE tunneling code.)
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-OK, so i'll prepare new patch series that coalesce my original patch #1 
-and #2, and apply the Francois suggestion about using the generic 
-netdev_alloc_skb_ip_align() in the interrupt path.
-
-Which tree would you want me to diff against?
+Applied, thanks Eric.
