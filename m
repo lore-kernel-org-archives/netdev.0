@@ -1,43 +1,50 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] x86: bpf_jit_comp: secure bpf jit against spraying attacks
-Date: Mon, 20 May 2013 15:35:58 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B723F@saturn3.aculab.com>
-References: <1368844623.3301.142.camel@edumazet-glaptop> <20130520141941.GA16412@breakpoint.cc> <1369059993.3301.174.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: moving constant and
+ structure definitions out of rtl8150.c
+Date: Mon, 20 May 2013 15:49:20 +0100
+Message-ID: <1369061360.4616.0.camel@bwh-desktop.uk.solarflarecom.com>
+References: <alpine.DEB.2.02.1305182306550.16874@fry.nucleusys.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev" <netdev@vger.kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>, <linux-kernel@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Florian Westphal" <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:43779 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1756616Ab3ETOh1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 May 2013 10:37:27 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 29012-08 for <netdev@vger.kernel.org>;
- Mon, 20 May 2013 15:37:20 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1369059993.3301.174.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+To: Petko Manolov <petkan@nucleusys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.DEB.2.02.1305182306550.16874@fry.nucleusys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiA+IFdoYXQgYWJvdXQgZW1pdHRpbmcgYWRkaXRpb25hbCBpbnN0cnVjdGlvbnMgYXQgcmFuZG9t
-IGxvY2F0aW9ucyBpbiB0aGUNCj4gPiBnZW5lcmF0ZWQgY29kZSBpdHNlbGY/DQo+ID4NCj4gPiBF
-Zy4sIGFmdGVyIGV2ZXJ5IGluc3RydWN0aW9uLCBoYXZlIHJhbmRvbSBjaGFuY2UgdG8gaW5zZXJ0
-DQo+ID4gJ3hvciAkMHhjYywlYWw7IHhvciAkMHhjYywlYWwnLCBldGM/DQo+IA0KPiBUaGlzIHdp
-bGwgYmUgdGhlIGxhdGVzdCB0aGluZyBJJ2xsIGRvLg0KPiANCj4gRnJhbmtseSwgd2hvbGUgcG9p
-bnQgb2YgQlBGIEpJVCBpcyBzcGVlZC4NCj4gDQo+IElmIHdlIGhhdmUgc2xvdyBjb2RlLCBqdXN0
-IHVzZSB0aGUgaW50ZXJwcmV0b3IgaW5zdGVhZC4NCg0KQWRkaW5nIG9uZSBvZiB0aGUgc3RhbmRh
-cmQgbm9wIG9wY29kZXMgd291bGRuJ3QgYmUgdG9vIGJhZC4NCklJUkMgMHg5MCBpcyBza2lwcGVk
-IHZlcnkgZWFybHkgb24gYnkgbW9kZXJuIGNwdS4NCkFkZGluZyBvbmUgYWZ0ZXIgZXZlcnkgbnRo
-IChvciBuLW10aCkgaW5zdHJ1Y3Rpb24gd291bGQNCnByb2JhYmx5IGJyZWFrIHRoZSBhbHRlcm5h
-dGUgaW5zdHJ1Y3Rpb24gc3RyZWFtLg0KDQpIb3dldmVyIHRoZSBhdHRhY2tlciBjb3VsZCAocHJv
-YmFibHkpIGtlZXAgaW5zdGFsbGluZw0KY29kZSBwYXR0ZXJucyB1bnRpbCB0aGUgZ3Vlc3MgcGF0
-dGVybiBtYXRjaGVkLg0KDQpBbHNvIHRoZSBjb2RlIHNpemUgY2hhbmdlcyBtaWdodCBtYWtlIHRo
-ZSBKSVQgY29tcGlsZSBmYWlsDQotIG1heWJlIGJlY2F1c2Ugb2YgYnJhbmNoIG9mZnNldHMsIG9y
-IGp1c3Qgc2l6ZS4NCg0KCURhdmlkDQoNCg==
+On Sat, 2013-05-18 at 23:20 +0300, Petko Manolov wrote:
+> From: Petko Manolov <petkan@nucleusys.com>
+> 
+> Moving constant and structure definitions out of rtl8150.c;
+> 
+> Signed-off-by: Petko Manolov <petkan@nucleusys.com>
+> ---
+>  drivers/net/usb/rtl8150.c |  121 +----------------------------------
+>  1 file changed, 2 insertions(+), 119 deletions(-)
+> 
+> diff --git a/drivers/net/usb/rtl8150.c b/drivers/net/usb/rtl8150.c
+> index a491d3a..7d1897b 100644
+> --- a/drivers/net/usb/rtl8150.c
+> +++ b/drivers/net/usb/rtl8150.c
+> @@ -17,132 +17,15 @@
+>  #include <linux/usb.h>
+>  #include <asm/uaccess.h>
+>  
+> +#include "rtl8150.h"
+[...]
+
+Now how is this driver going to compile, when rtl8150.h is only added by
+the next patch?!
+
+You need to squash these first 2 together, so that the driver can be
+compiled after each step.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
