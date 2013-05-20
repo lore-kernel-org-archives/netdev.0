@@ -1,42 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/4] bonding: race and inconsistency fixes
-Date: Sun, 19 May 2013 23:26:19 -0700 (PDT)
-Message-ID: <20130519.232619.104616236191299455.davem@davemloft.net>
-References: <1368875911-4952-1-git-send-email-nikolay@redhat.com>
+Subject: Re: [PATCH net-next] xen-netfront: avoid leaking resources when
+ setup_netfront fails
+Date: Sun, 19 May 2013 23:28:33 -0700 (PDT)
+Message-ID: <20130519.232833.988876168197782913.davem@davemloft.net>
+References: <1368783838-24187-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net
-To: nikolay@redhat.com
+Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
+	ian.campbell@citrix.com
+To: wei.liu2@citrix.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53973 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:53998 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457Ab3ETG0W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 02:26:22 -0400
-In-Reply-To: <1368875911-4952-1-git-send-email-nikolay@redhat.com>
+	with ESMTP id S1751457Ab3ETG2e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 02:28:34 -0400
+In-Reply-To: <1368783838-24187-1-git-send-email-wei.liu2@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Date: Sat, 18 May 2013 13:18:27 +0200
+From: Wei Liu <wei.liu2@citrix.com>
+Date: Fri, 17 May 2013 10:43:58 +0100
 
-> Hello,
->  In patch 1/4 a race condition while changing the bonding mode through
->  sysfs is fixed. Since no synchronization method is used it can race
->  with different functions resulting in different impacts. RTNL is used
->  to sync with the most important and dangerous events.
->  Patch 2/4 is trivial and improves the debugging output by changing %x
->  format to %pI4 for IPv4 addresses in a few pr_debug() calls.
->  Patch 3/4 fixes an inconsistent arp_targets state where we have 0 entry
->  between (or in the beginning) the valid entries that were obtained which
->  is hard to diagnose otherwise.
->  Patch 4/4 fixes multiple instances of a race condition which is because of
->  calls to bond_3ad_get_active_agg_info without any locking, and since it 
->  traverses the slave list this can easily result in NULL ptr dereference or
->  use of freed memory.
-> 
->  v2 is to address a minor style fix, to make the wrapper
->  global and move it to bond_3ad.c, and also to fix the naming of the
->  functions, all in patch 4/4.
+>  
+> + /* If we fail to setup netfront, it is safe to just revoke access to granted
+> +  * pages because backend is not accessing it at this point.
+> +  */
+> + bind_fail:
+> +	xenbus_free_evtchn(dev, info->evtchn);
+> + alloc_evtchn_fail:
+> +	gnttab_end_foreign_access_ref(info->rx_ring_ref, 0);
+> + grant_rx_ring_fail:
+> +	free_page((unsigned long)rxs);
+> + alloc_rx_ring_fail:
+> +	gnttab_end_foreign_access_ref(info->tx_ring_ref, 0);
+> + grant_tx_ring_fail:
+> +	free_page((unsigned long)txs);
+>   fail:
+>  	return err;
+>  }
 
-Series applied, thanks.
+This is not even close to adhering to proper coding style.
+
+The comment should be indented by one tab not one space:
+
+	/* Like
+	 * this.
+	 */
+
+And the code labels should appear at the first column, not
+with a leading space.
