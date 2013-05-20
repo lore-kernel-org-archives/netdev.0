@@ -1,62 +1,70 @@
-From: Lei Li <matrixs.zero@gmail.com>
-Subject: Re: [PATCH] vhost: get 2% performance improved by reducing spin_lock
- race in vhost_work_queue
-Date: Mon, 20 May 2013 12:15:58 +0800
-Message-ID: <5199A37E.90401@gmail.com>
-References: <5872DA217C2FF7488B20897D84F904E7338FD1E5@nkgeml511-mbx.china.huawei.com> <51999AA2.8070806@redhat.com>
+From: Qinchuanyu <qinchuanyu@huawei.com>
+Subject: Re: [PATCH] vhost: get 2% performance improved by reducing
+ spin_lock race in vhost_work_queue
+Date: Mon, 20 May 2013 04:22:11 +0000
+Message-ID: <5872DA217C2FF7488B20897D84F904E7338FD2C5@nkgeml511-mbx.china.huawei.com>
+References: <5872DA217C2FF7488B20897D84F904E7338FD1E5@nkgeml511-mbx.china.huawei.com>
+ <51999AA2.8070806@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>,
-	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
 	"mst@redhat.com" <mst@redhat.com>,
 	"dhowells@redhat.com" <dhowells@redhat.com>,
 	"(kvm@vger.kernel.org)" <kvm@vger.kernel.org>,
-	"(netdev@vger.kernel.org)" <netdev@vger.kernel.org>
-To: Qinchuanyu <qinchuanyu@huawei.com>
+	"(netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
+	Heguansen <heguansen@huawei.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <51999AA2.8070806@redhat.com>
+Content-Language: zh-CN
 Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/20/2013 11:38 AM, Jason Wang wrote:
-> On 05/20/2013 11:06 AM, Qinchuanyu wrote:
->> Right now the wake_up_process func is included in spin_lock/unlock, but it could be done outside the spin_lock.
->> I have test it with kernel 3.0.27 and guest suse11-sp2, it provide 2%-3% net performance improved.
->>
->> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
-> Make sense to me but need generate a patch against net-next.git or
-> vhost.git in git.kernel.org.
->
-> Btw. How did you test this? Care to share the perf numbers?
-
-I wonder how did you get the performance improved number 2%?
-
->
-> Thanks
->> mu
->> --- a/drivers/vhost/vhost.c     2013-05-20 10:36:30.000000000 +0800
->> +++ b/drivers/vhost/vhost.c     2013-05-20 10:36:54.000000000 +0800
->> @@ -144,9 +144,10 @@
->>          if (list_empty(&work->node)) {
->>                  list_add_tail(&work->node, &dev->work_list);
->>                  work->queue_seq++;
->> +               spin_unlock_irqrestore(&dev->work_lock, flags);
->>                  wake_up_process(dev->worker);
->> -       }
->> -       spin_unlock_irqrestore(&dev->work_lock, flags);
->> +       } else
->> +               spin_unlock_irqrestore(&dev->work_lock, flags);
->>   }
->>   
->>   void vhost_poll_queue(struct vhost_poll *poll)
->> --
->> To unsubscribe from this list: send the line "unsubscribe netdev" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> --
-> To unsubscribe from this list: send the line "unsubscribe kvm" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
+VGhlIHBhdGNoIGJlbG93IGlzIGJhc2Ugb24gDQpodHRwczovL2dpdC5rZXJuZWwub3JnL2NnaXQv
+bGludXgva2VybmVsL2dpdC9uZXh0L2xpbnV4LW5leHQuZ2l0L3RyZWUvZHJpdmVycy92aG9zdC92
+aG9zdC5jP2lkPXJlZnMvdGFncy9uZXh0LTIwMTMwNTE3DQoNClNpZ25lZC1vZmYtYnk6IENodWFu
+eXUgUWluIDxxaW5jaHVhbnl1QGh1YXdlaS5jb20+DQotLS0gYS9kcml2ZXJzL3Zob3N0L3Zob3N0
+LmMgICAgIDIwMTMtMDUtMjAgMTE6NDc6MDUuMDAwMDAwMDAwICswODAwDQorKysgYi9kcml2ZXJz
+L3Zob3N0L3Zob3N0LmMgICAgIDIwMTMtMDUtMjAgMTE6NDg6MjQuMDAwMDAwMDAwICswODAwDQpA
+QCAtMTU0LDkgKzE1NCwxMCBAQA0KICAgICAgICBpZiAobGlzdF9lbXB0eSgmd29yay0+bm9kZSkp
+IHsNCiAgICAgICAgICAgICAgICBsaXN0X2FkZF90YWlsKCZ3b3JrLT5ub2RlLCAmZGV2LT53b3Jr
+X2xpc3QpOw0KICAgICAgICAgICAgICAgIHdvcmstPnF1ZXVlX3NlcSsrOw0KKyAgICAgICAgICAg
+ICAgIHNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmRldi0+d29ya19sb2NrLCBmbGFncyk7DQogICAg
+ICAgICAgICAgICAgd2FrZV91cF9wcm9jZXNzKGRldi0+d29ya2VyKTsNCi0gICAgICAgfQ0KLSAg
+ICAgICBzcGluX3VubG9ja19pcnFyZXN0b3JlKCZkZXYtPndvcmtfbG9jaywgZmxhZ3MpOw0KKyAg
+ICAgICB9IGVsc2UNCisgICAgICAgICAgICAgICBzcGluX3VubG9ja19pcnFyZXN0b3JlKCZkZXYt
+PndvcmtfbG9jaywgZmxhZ3MpOw0KIH0NCiANCiB2b2lkIHZob3N0X3BvbGxfcXVldWUoc3RydWN0
+IHZob3N0X3BvbGwgKnBvbGwpDQoNCkkgZGlkIHRoZSB0ZXN0IGJ5IHVzaW5nIGlwZXJmIGluIDEw
+RyBlbnZpcm9ubWVudCwgdGhlIHRlc3QgbnVtIGFzIGJlbG93Og0KICAgICAgICAgICAgICAgICBv
+cmlnbmFsICAgICAgICAgICAgICAgICAgIG1vZGlmaWVkDQp0aHJlYWRfbnVtICB0cChHYnBzKSAg
+IHZob3N0KCUpICB8ICB0cChHYnBzKSAgICAgdmhvc3QoJSkNCjEgICAgICAgICAgIDkuNTkgICAg
+ICAgICAyOC44MiAgIHwgICAgICA5LjU5ICAgICAgICAyNy40OQ0KOCAgICAgICAgICAgIDkuNjEg
+ICAgICAgIDMyLjkyICAgfCAgICAgIDkuNjIgICAgICAgIDI2Ljc3DQo2NCAgICAgICAgICAgIDku
+NTggICAgICAgIDQ2LjQ4ICB8ICAgICA5LjU1ICAgICAgICAzOC45OQ0KMjU2ICAgICAgICAgICAg
+OS42ICAgICAgICA2My43ICAgfCAgICAgIDkuNiAgICAgICAgIDUyLjU5DQoNClRoZSBjb3N0IG9m
+IHZob3N0IHJlZHVjZWQgd2hpbGUgdGhlIHRocm91Z2hwdXQgaXMgYWxtb3N0IHVuY2hhbmdlZC4N
+Cg0KT24gMDUvMjAvMjAxMyAxMTowNiBBTSwgUWluY2h1YW55dSB3cm90ZToNCj4gUmlnaHQgbm93
+IHRoZSB3YWtlX3VwX3Byb2Nlc3MgZnVuYyBpcyBpbmNsdWRlZCBpbiBzcGluX2xvY2svdW5sb2Nr
+LCBidXQgaXQgY291bGQgYmUgZG9uZSBvdXRzaWRlIHRoZSBzcGluX2xvY2suDQo+IEkgaGF2ZSB0
+ZXN0IGl0IHdpdGgga2VybmVsIDMuMC4yNyBhbmQgZ3Vlc3Qgc3VzZTExLXNwMiwgaXQgcHJvdmlk
+ZSAyJS0zJSBuZXQgcGVyZm9ybWFuY2UgaW1wcm92ZWQuDQo+DQo+IFNpZ25lZC1vZmYtYnk6IENo
+dWFueXUgUWluIDxxaW5jaHVhbnl1QGh1YXdlaS5jb20+DQoNCk1ha2Ugc2Vuc2UgdG8gbWUgYnV0
+IG5lZWQgZ2VuZXJhdGUgYSBwYXRjaCBhZ2FpbnN0IG5ldC1uZXh0LmdpdCBvcg0Kdmhvc3QuZ2l0
+IGluIGdpdC5rZXJuZWwub3JnLg0KDQpCdHcuIEhvdyBkaWQgeW91IHRlc3QgdGhpcz8gQ2FyZSB0
+byBzaGFyZSB0aGUgcGVyZiBudW1iZXJzPw0KDQpUaGFua3MNCj4gbXUNCj4gLS0tIGEvZHJpdmVy
+cy92aG9zdC92aG9zdC5jICAgICAyMDEzLTA1LTIwIDEwOjM2OjMwLjAwMDAwMDAwMCArMDgwMA0K
+PiArKysgYi9kcml2ZXJzL3Zob3N0L3Zob3N0LmMgICAgIDIwMTMtMDUtMjAgMTA6MzY6NTQuMDAw
+MDAwMDAwICswODAwDQo+IEBAIC0xNDQsOSArMTQ0LDEwIEBADQo+ICAgICAgICAgaWYgKGxpc3Rf
+ZW1wdHkoJndvcmstPm5vZGUpKSB7DQo+ICAgICAgICAgICAgICAgICBsaXN0X2FkZF90YWlsKCZ3
+b3JrLT5ub2RlLCAmZGV2LT53b3JrX2xpc3QpOw0KPiAgICAgICAgICAgICAgICAgd29yay0+cXVl
+dWVfc2VxKys7DQo+ICsgICAgICAgICAgICAgICBzcGluX3VubG9ja19pcnFyZXN0b3JlKCZkZXYt
+PndvcmtfbG9jaywgZmxhZ3MpOw0KPiAgICAgICAgICAgICAgICAgd2FrZV91cF9wcm9jZXNzKGRl
+di0+d29ya2VyKTsNCj4gLSAgICAgICB9DQo+IC0gICAgICAgc3Bpbl91bmxvY2tfaXJxcmVzdG9y
+ZSgmZGV2LT53b3JrX2xvY2ssIGZsYWdzKTsNCj4gKyAgICAgICB9IGVsc2UNCj4gKyAgICAgICAg
+ICAgICAgIHNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmRldi0+d29ya19sb2NrLCBmbGFncyk7DQo+
+ICB9DQo+ICANCj4gIHZvaWQgdmhvc3RfcG9sbF9xdWV1ZShzdHJ1Y3Qgdmhvc3RfcG9sbCAqcG9s
+bCkNCj4gLS0NCj4gVG8gdW5zdWJzY3JpYmUgZnJvbSB0aGlzIGxpc3Q6IHNlbmQgdGhlIGxpbmUg
+InVuc3Vic2NyaWJlIG5ldGRldiIgaW4NCj4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9y
+ZG9tb0B2Z2VyLmtlcm5lbC5vcmcNCj4gTW9yZSBtYWpvcmRvbW8gaW5mbyBhdCAgaHR0cDovL3Zn
+ZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1sDQoNCg==
