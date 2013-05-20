@@ -1,58 +1,49 @@
 From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: [PATCH 3/4] e1000e: Calculate the desc_len based on adapter type
-Date: Mon, 20 May 2013 02:37:48 -0700
-Message-ID: <5199EEEC.5030105@gmail.com>
-References: <1369037707-27026-1-git-send-email-weiyang@linux.vnet.ibm.com> <1369037707-27026-4-git-send-email-weiyang@linux.vnet.ibm.com>
+Subject: Re: [PATCH 4/4] e1000e: Not initialize the e1000_ps_page array when
+ packet-split is not used
+Date: Mon, 20 May 2013 02:38:07 -0700
+Message-ID: <5199EEFF.3070905@gmail.com>
+References: <1369037707-27026-1-git-send-email-weiyang@linux.vnet.ibm.com> <1369037707-27026-5-git-send-email-weiyang@linux.vnet.ibm.com>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha512;
  protocol="application/pgp-signature";
- boundary="------------enig52DFA8290DFC5EEAB8FB0079"
+ boundary="------------enigF7544034234A112838216E07"
 Cc: jeffrey.t.kirsher@intel.com, e1000-devel@lists.sourceforge.net,
 	netdev@vger.kernel.org
 To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:28262 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:6649 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753184Ab3ETJht (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 May 2013 05:37:49 -0400
-In-Reply-To: <1369037707-27026-4-git-send-email-weiyang@linux.vnet.ibm.com>
+	id S1752097Ab3ETJiP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 May 2013 05:38:15 -0400
+In-Reply-To: <1369037707-27026-5-git-send-email-weiyang@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig52DFA8290DFC5EEAB8FB0079
+--------------enigF7544034234A112838216E07
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: quoted-printable
 
 On 05/20/2013 01:15 AM, Wei Yang wrote:
-> desc_len represents the size of descriptor in rx_ring. There are two ki=
-nds of
-> rx descriptors, e1000_rx_desc_packet_split(32 byte) and
-> e1000_rx_desc_extended(16 byte). Different adapter will use different r=
-x
-> descriptors.
+> When packet split is not used, those fields are still initialized and m=
+emory
+> is allocated for them.
 >
-> When allocating the dma space for this descriptor in current implementa=
-tion,
-> the code ignore the descriptor type and take it as e1000_rx_desc_packet=
-_split
-> in any case. This behavior will not effect the function, but will requi=
-re
-> double size of dma space.
->
-> This patch will calculate the desc_len based on the adapter type.
->
-> Tested on T420, which use e1000_rx_desc_extended and works fine.
+> This patch check whether packet split is used and do the initialization=
+ base
+> on the status.
 >
 > Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
 > ---
->  drivers/net/ethernet/intel/e1000e/netdev.c |    7 ++++++-
->  1 files changed, 6 insertions(+), 1 deletions(-)
+>  drivers/net/ethernet/intel/e1000e/netdev.c |   38 ++++++++++++++------=
+-------
+>  1 files changed, 20 insertions(+), 18 deletions(-)
 Thanks, I have added the patch to my queue for e1000e.
 
 
---------------enig52DFA8290DFC5EEAB8FB0079
+--------------enigF7544034234A112838216E07
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: OpenPGP digital signature
 Content-Disposition: attachment; filename="signature.asc"
@@ -61,19 +52,19 @@ Content-Disposition: attachment; filename="signature.asc"
 Version: GnuPG v1.4.13 (GNU/Linux)
 Comment: Using GnuPG with undefined - http://www.enigmail.net/
 
-iQIcBAEBCgAGBQJRme7sAAoJEOVv75VaS+3OwGkQAKWtpzmVA6XUexPdJExSv15M
-EtR2gtIuZTF91sO5r1DowpQYplFCLUa3N67MyKsEihqNEr/i01B5usCUrYkQUbLK
-xsMmySoC0RDNkNVaMVvvxecVWhTIY9cf6ch7iyjn8Nsx7JCC7C+OBN83VlggxtBA
-klzjLTdy1g8390OJWHhREkl5exPhxFmHN6ymxywMfC8th1T+JceRjnwFSYojEQN5
-WzT6ozfhhg9l4E6w553UuxUGNvn7gty3sNFF+0lROovYI6FTF6szdqVFmQn59SkK
-FSoVh0WB/yOsyasG4yChRCfFX89SrFLLxukZbLtP+hLRYiTSFETAb1MK+AM9wby/
-VfVk3hq7VosMV8kN0ijM+ydjFpuZ+tsfTpQ3jaR1C0dSre+sIQA9LnNgYZzBkPTO
-+FDZFYVfduolaUwE6NHmZIAWRulC33hNyC3/U93Vq0gJfJJ6ZmBCkOCzXjQajCxe
-yQvEIsoQDW5idQ95Hd9dGNUPZ/L9xbgyOOvNTrIuX4qEruQsMdrWexJspgSz2UCW
-hFAuYw5Rk0ZdI0rbd3zpxOAFMtfDDRO3thmh5rgkFV30vbAO5+e0wrhyy6kLCJ9+
-Ev1xBK1M+FameHrM9mhSdeX8Uz5C3S/xcWoP3LmdOdOtkll6fjY0SqfAaq1464sO
-/0YylgE4C+yPc9eSfjMr
-=bNuD
+iQIcBAEBCgAGBQJRme8AAAoJEOVv75VaS+3O57YP/3s7IfY5YNzg8nj/RjrheFM4
+Zf1wTtAc6xOE2JCKecLBlDPQKu3CbfNyHl27iSITPu77GMp6yYYmWcb8/CP/pG2a
+kIJB+QFE4oZw/2mTm8zObzDWDpoCbFwRgqo60Okgi1nSPyKTQ6QUPuX3l/YjQx2Q
+c9YYmYBB9IqGUozZPCcNr/V+eV9lyowTHly7XnwVSKPsOrgHSM5Pn27hWLHJmTBC
+9y/90FBDjSwLFQBYfJFthChYGhSFMxH3pfWPNowde5+6ZXXm+VuZZYMO3f2WvNlB
+5/BLfPscbs+5W8oKHPmGRZopqus0oBMGH2igA737Db9Of8bALONgdJ4lLW7Gl71y
+7tzfL51zbK0RljMHORd+SNJIIcBtyCcJ3cIke6B68RtASKJQ2ZnIWRfqb6zz3uCj
+w4GHVj/Ut2KqZ3B+v61WHy7Une4xSW5evPNGWfPPOs/xnCQfLR6shipgReso1iDL
+MI+sN48EotXuucprDgjCpzfosnVgcXmWn0aFih035+5T6R6zAML8T7eNfCbiQ5C0
+eVPOyM8AkXb5ojbnfnOieXfXR62R/G21hr31T2Z3B+0mhhnJRZmJPvHT1H/JJTMb
+7jL8JHU9rU9gWcsEvCIYjFiQx0EDq6PpHdfGxfa5ToFpk6UJxFKTkShLsoz3DpQF
+DKTM6//1CjAwXY8g8peW
+=fWK4
 -----END PGP SIGNATURE-----
 
---------------enig52DFA8290DFC5EEAB8FB0079--
+--------------enigF7544034234A112838216E07--
