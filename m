@@ -1,50 +1,84 @@
-From: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-Subject: Re: [PATCH v3] Bluetooth: hidp: using strlcpy instead of strncpy,
- also beautify code.
-Date: Mon, 20 May 2013 18:52:24 -0300
-Message-ID: <20130520215224.GE17712@joana>
-References: <518906A8.7060708@asianux.com>
- <CANq1E4SmY+CD0uf53_b6GeFkQ-LYnpdxsDGSRMWdn2i1mnb6WQ@mail.gmail.com>
- <5189A417.503@asianux.com>
- <5189C7C6.8090408@asianux.com>
- <alpine.LNX.2.00.1305091041140.23038@pobox.suse.cz>
- <51904ACF.6010904@asianux.com>
+From: Jesse Brandeburg <jesse.brandeburg@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/4] net: low latency Ethernet
+ device polling
+Date: Mon, 20 May 2013 15:08:28 -0700
+Message-ID: <CAEuXFEwSMFqOAzEusHT3q6c4gW-zCCOdeH6g_UQDBwYRcqE=cQ@mail.gmail.com>
+References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
+	<CAJZOPZJzVykmBH5FFQBVuztAFGRMOPT-GKABiewG6b4pnKVUeA@mail.gmail.com>
+	<5199260B.9090204@linux.intel.com>
+	<1369080566.2892.3.camel@jtkirshe-mobl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
-	David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	andrei.emeltchenko-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <51904ACF.6010904-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/mixed; boundary="===============4384425628862178213=="
+Cc: Willem de Bruijn <willemb@google.com>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	NetDEV list <netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andi Kleen <andi@firstfloor.org>,
+	Don Skidmore <donanld.c.skidmore@intel.com>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1369080566.2892.3.camel@jtkirshe-mobl>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi Chen,
+--===============4384425628862178213==
+Content-Type: multipart/alternative; boundary=485b3970d19c8d360204dd2d9218
 
-* Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org> [2013-05-13 10:07:11 +0800]:
+--485b3970d19c8d360204dd2d9218
+Content-Type: text/plain; charset=ISO-8859-1
 
-> 
-> For NUL terminated string, need always let it ended by zero.
-> 
-> Since have already called memcpy() to initialize 'ci', so need not
-> redundant initialization.
-> 
-> Better use ''if(session->hid) {} else if(session->input) {}"" instead
-> of ''if(session->hid) {}; if(session->input) {};''
-> 
-> Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
-> ---
->  net/bluetooth/hidp/core.c |   14 ++++----------
->  1 files changed, 4 insertions(+), 10 deletions(-)
+On Mon, May 20, 2013 at 1:09 PM, Jeff Kirsher
+<jeffrey.t.kirsher@intel.com>wrote:
 
-Sorry for the big delay on this, patches has now been applied to
-bluetooth-next. Thanks all.
+> On Sun, 2013-05-19 at 22:20 +0300, Eliezer Tamir wrote:
+> > On 19/05/2013 22:06, Or Gerlitz wrote:
+> > > On Sun, May 19, 2013 at 1:25 PM, Eliezer Tamir
+> > > <eliezer.tamir@linux.intel.com> wrote:
+> > >> This is an updated version of the code we posted on February.
+> > >
+> > > Last time you've placed a copy of the patchset in the rfc branch of
+> > > git://github.com/jbrandeb/lls.git  - can you repost there V2 too?
+>
 
-	Gustavo
+the latest set (the v3 changes) were posted to
+the rfcv2 branch on git://github.com/jbrandeb/lls.git
+
+--485b3970d19c8d360204dd2d9218--
+
+
+--===============4384425628862178213==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+AlienVault Unified Security Management (USM) platform delivers complete
+security visibility with the essential security capabilities. Easily and
+efficiently configure, manage, and operate all of your security controls
+from a single console and one unified framework. Download a free trial.
+http://p.sf.net/sfu/alienvault_d2d
+--===============4384425628862178213==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============4384425628862178213==--
