@@ -1,69 +1,63 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: [PATCH 3/4] e1000e: Calculate the desc_len based on adapter type
-Date: Mon, 20 May 2013 16:15:06 +0800
-Message-ID: <1369037707-27026-4-git-send-email-weiyang@linux.vnet.ibm.com>
-References: <1369037707-27026-1-git-send-email-weiyang@linux.vnet.ibm.com>
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	Wei Yang <weiyang@linux.vnet.ibm.com>
-To: jeffrey.t.kirsher@intel.com
+From: Abel Gordon <ABELG@il.ibm.com>
+Subject: Re: provide vhost thread per virtqueue for forwarding scenario
+Date: Mon, 20 May 2013 11:16:03 +0300
+Message-ID: <OF2D1D6163.08173A32-ONC2257B71.002CA3E8-C2257B71.002D6A76@il.ibm.com>
+References: <5872DA217C2FF7488B20897D84F904E7338FC974@nkgeml511-mbx.china.huawei.com> <20130520074300.GA27848@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Cc: kvm-owner@vger.kernel.org,
+	"nab@linux-iscsi.org" <nab@linux-iscsi.org>,
+	" (netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
+	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
+	Zanghongyong <zanghongyong@huawei.com>,
+	"Zhangjie (HZ)" <zhang.zhangjie@huawei.com>, nyharel@gmail.com,
+	"Muli Ben-Yehuda" <mulix@mulix.org>, orit.was@gmail.com,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Qinchuanyu <qinchuanyu@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp06.au.ibm.com ([202.81.31.148]:39917 "EHLO
-	e23smtp06.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755351Ab3ETIPc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 04:15:32 -0400
+Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:47997 "EHLO
+	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755084Ab3ETIQK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 04:16:10 -0400
 Received: from /spool/local
-	by e23smtp06.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Mon, 20 May 2013 18:09:01 +1000
-Received: from d23relay05.au.ibm.com (d23relay05.au.ibm.com [9.190.235.152])
-	by d23dlp01.au.ibm.com (Postfix) with ESMTP id 457F72CE804D
-	for <netdev@vger.kernel.org>; Mon, 20 May 2013 18:15:26 +1000 (EST)
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
-	by d23relay05.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4K81B658388722
-	for <netdev@vger.kernel.org>; Mon, 20 May 2013 18:01:11 +1000
-Received: from d23av03.au.ibm.com (loopback [127.0.0.1])
-	by d23av03.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4K8FPxH015941
-	for <netdev@vger.kernel.org>; Mon, 20 May 2013 18:15:25 +1000
-In-Reply-To: <1369037707-27026-1-git-send-email-weiyang@linux.vnet.ibm.com>
+	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <abelg@il.ibm.com>;
+	Mon, 20 May 2013 09:14:08 +0100
+In-Reply-To: <20130520074300.GA27848@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-desc_len represents the size of descriptor in rx_ring. There are two kinds of
-rx descriptors, e1000_rx_desc_packet_split(32 byte) and
-e1000_rx_desc_extended(16 byte). Different adapter will use different rx
-descriptors.
 
-When allocating the dma space for this descriptor in current implementation,
-the code ignore the descriptor type and take it as e1000_rx_desc_packet_split
-in any case. This behavior will not effect the function, but will require
-double size of dma space.
 
-This patch will calculate the desc_len based on the adapter type.
+"Michael S. Tsirkin" <mst@redhat.com> wrote on 20/05/2013 10:43:00 AM:
 
-Tested on T420, which use e1000_rx_desc_extended and works fine.
+> >
+> > I did the test with kernel 3.0.27 and qemu-1.4.0, guest is suse11-
+> sp2, and then two vhost thread provide
+> > double tx/rx forwarding performance than signal vhost thread.
+> > The virtqueue of vhost_blk is 1, so it still use one vhost thread
+> without change.
+> >
+> > Is there something wrong in this solution? If not, I would list patch
+later.
+> >
+> > Best regards
+> > King
+>
+> Yes, I don't think we want to create threads even more aggressively
+> in all cases. I'm worried about scalability as it is.
+> I think we should explore a flexible approach, use a thread pool
+> (for example, a wq) to share threads between virtqueues,
+> switch to a separate thread only if there's free CPU and existing
+> threads are busy. Hopefully share threads between vhost instances too.
+>
 
-Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
----
- drivers/net/ethernet/intel/e1000e/netdev.c |    7 ++++++-
- 1 files changed, 6 insertions(+), 1 deletions(-)
+Qinchuanyu, you can take a look at the following tech. report
+http://domino.research.ibm.com/library/cyberdig.nsf/1e4115aea78b6e7c85256b360066f0d4/479e3578ed05bfac85257b4200427735!OpenDocument
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 5cb8321..a2e8a53 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -2364,7 +2364,12 @@ int e1000e_setup_rx_resources(struct e1000_ring *rx_ring)
- 			goto err_pages;
- 	}
- 
--	desc_len = sizeof(union e1000_rx_desc_packet_split);
-+	if (adapter->rx_ps_pages) {
-+		/* this is a 32 byte descriptor */
-+		desc_len = sizeof(union e1000_rx_desc_packet_split);
-+	} else {
-+		desc_len = sizeof(union e1000_rx_desc_extended);
-+	}
- 
- 	/* Round up to nearest 4K */
- 	rx_ring->size = rx_ring->count * desc_len;
--- 
-1.7.5.4
+
+which actually shows the scalability problem Michael mentioned when
+you run multiple vhost-threads.
+
+Regards,
+Abel.
