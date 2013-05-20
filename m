@@ -1,59 +1,38 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 net-next 1/4] net: implement support
- for low latency socket polling
-Date: Mon, 20 May 2013 01:29:47 -0700
-Message-ID: <1369038587.2143.12.camel@joe-AO722>
-References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
-	<20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
-	<20130520.005447.972811583292360876.davem@davemloft.net>
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Subject: [PATCH 0/2 net-next v2] phy: PHY_IGNORE_INTERRUPT fixes and
+ improvements
+Date: Mon, 20 May 2013 08:53:41 +0000
+Message-ID: <1369040023-22270-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, eliezer.tamir@linux.intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org,
-	andi@firstfloor.org, donanld.c.skidmore@intel.com, hpa@zytor.com,
-	eliezer@tamir.org.il
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130520.005447.972811583292360876.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, jogo@openwrt.org,
+	thomas.petazzoni@free-electrons.com, afleming@freescale.com,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:1999 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751139Ab3ETIyO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 May 2013 04:54:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-05-20 at 00:54 -0700, David Miller wrote:
-> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-[]
-> >  {
-> >       struct socket *sock;
-> > +     unsigned int poll_result;
-> 
-> Please order local variable declarations from longest line to
-> shortest line.
+David, Andy,
 
-reverse christmas tree doesn't seem especially valuable or
-sensible for automatics.
+These two patches contain fixes and improvements for using PHY_IGNORE_INTERRUPT
+in network drivers. Since the second patch is an addition and not a bug fix
+per-se, these patches are based on "net-next". The first patch applies cleanly
+to "net" too.
 
-I'd rather order by first use or even alphabetical, especially
-with long lists of automatics.
+Florian Fainelli (2):
+  phy: fix the use of PHY_IGNORE_INTERRUPT
+  phy: add phy_mac_interrupt() to use with PHY_IGNORE_INTERRUPT
 
+ drivers/net/phy/phy.c        | 23 ++++++++++++++---------
+ drivers/net/phy/phy_device.c |  8 ++++++--
+ include/linux/phy.h          | 14 ++++++++++++++
+ 3 files changed, 34 insertions(+), 11 deletions(-)
 
-
-
-------------------------------------------------------------------------------
-AlienVault Unified Security Management (USM) platform delivers complete
-security visibility with the essential security capabilities. Easily and
-efficiently configure, manage, and operate all of your security controls
-from a single console and one unified framework. Download a free trial.
-http://p.sf.net/sfu/alienvault_d2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+-- 
+1.8.1.2
