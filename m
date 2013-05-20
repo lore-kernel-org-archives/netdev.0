@@ -1,41 +1,61 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH] MIPS: OCTEON: Rename Kconfig
- CAVIUM_OCTEON_REFERENCE_BOARD to CAVIUM_OCTEON_SOC
-Date: Mon, 20 May 2013 16:10:01 -0700
-Message-ID: <20130520231001.GA21559@kroah.com>
-References: <1369088378-13957-1-git-send-email-ddaney.cavm@gmail.com>
+From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Subject: Re: [PATCH net]  vxlan: revert per-vxlan port
+Date: Mon, 20 May 2013 16:59:44 -0700
+Message-ID: <519AB8F0.7060003@gmail.com>
+References: <20130520103017.054ae605@nehalam.linuxnetplumber.net> <OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com> <20130520113000.0057ce90@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	David Daney <david.daney@cavium.com>,
-	linux-ide@vger.kernel.org, linux-edac@vger.kernel.org,
-	linux-i2c@vger.kernel.org, netdev@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net,
-	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
-To: David Daney <ddaney.cavm@gmail.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1369088378-13957-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Stevens <dlstevens@us.ibm.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:63357 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751648Ab3ETX7r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 19:59:47 -0400
+In-Reply-To: <20130520113000.0057ce90@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 20, 2013 at 03:19:38PM -0700, David Daney wrote:
-> From: David Daney <david.daney@cavium.com>
-> 
-> CAVIUM_OCTEON_SOC most place we used to use CPU_CAVIUM_OCTEON.  This
-> allows us to CPU_CAVIUM_OCTEON in places where we have no OCTEON SOC.
-> 
-> Remove CAVIUM_OCTEON_SIMULATOR as it doesn't really do anything, we can
-> get the same configuration with CAVIUM_OCTEON_SOC.
-> 
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> Cc: linux-ide@vger.kernel.org
-> Cc: linux-edac@vger.kernel.org
-> Cc: linux-i2c@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: spi-devel-general@lists.sourceforge.net
-> Cc: devel@driverdev.osuosl.org
-> Cc: linux-usb@vger.kernel.org
-> ---
+On 5/20/2013 11:30 AM, Stephen Hemminger wrote:
+> On Mon, 20 May 2013 14:15:59 -0400
+> David Stevens <dlstevens@us.ibm.com> wrote:
+>
+>>> From: Stephen Hemminger <stephen@networkplumber.org>
+>>   
+>>> \This commit 823aa873bc782f1c51b1ce8ec6da7cfcaf93836e
+>>> Author: stephen hemminger <stephen@networkplumber.org>
+>>> Date:   Sat Apr 27 11:31:57 2013 +0000
+>>>
+>>>      vxlan: allow choosing destination port per vxlan
+>>>
+>>> is broken revert it. The change allowed setting per port for transmit
+>>> but did not add additional listening sockets, which made any vxlan's
+>>> defined with non-default port send only.
+>> This allows you to specify a different default port for
+>> transmits, which is what you want to do if your own instance
+>> of VXLAN is the odd one. I don't see any requirement for multiple
+>> listen ports for that to be useful, since those sending to you
+>> can have complete fdb tables even if the local instance doesn't
+>> and relies on the default. Not to mention using an agent to
+>> fill the fdb triggered by packets sent to the default, so the
+>> receiver is not necessarily even a VXLAN instance. The receiver
+>> side and transmit side ports can be completely independent of
+>> each other, as in any other client-server system.
+> Vxlan's are a weird beast. They can be viewed as either bridge like
+> entities or tunnel like entities. I view them more as bridge type
+> devices where user configures two hosts with equivalent values and
+> they learn about each other. In that case the code in 3.10 is broken;
+> but the version with the learning in net-next works.
+>
+> Your view is that VXLAN's are more like tunnels, where each host
+> has static entries to know about every other host. In that mode,
+> 3.10 is useable, but the same effect can be had by defining static
+> neighbour entries.
 
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+how can we send to a different dst port using static neighbor entries?
+
+Thanks
+Sridhar
