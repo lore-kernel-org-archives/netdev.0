@@ -1,24 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ThunderLAN: remove is_eisa flag
-Date: Mon, 20 May 2013 00:20:33 -0700 (PDT)
-Message-ID: <20130520.002033.188756467952679642.davem@davemloft.net>
-References: <3469605.xkLC7l46TH@eto>
+Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: bug fixing and cleanup
+Date: Mon, 20 May 2013 00:43:24 -0700 (PDT)
+Message-ID: <20130520.004324.1700573748194578434.davem@davemloft.net>
+References: <alpine.DEB.2.02.1305201008190.4719@fry.nucleusys.com>
+	<20130520.001252.838327096610376306.davem@davemloft.net>
+	<alpine.DEB.2.02.1305201014220.4719@fry.nucleusys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: chessman@tux.org, netdev@vger.kernel.org,
+Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: eike-kernel@sf-tec.de
+To: petkan@nucleusys.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3469605.xkLC7l46TH@eto>
+In-Reply-To: <alpine.DEB.2.02.1305201014220.4719@fry.nucleusys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Rolf Eike Beer <eike-kernel@sf-tec.de>
-Date: Sat, 18 May 2013 23:50:17 +0200
+From: Petko Manolov <petkan@nucleusys.com>
+Date: Mon, 20 May 2013 10:18:17 +0300 (EEST)
 
-> These 2 places are the only matches for is_eisa in the whole tree.
+> On Mon, 20 May 2013, David Miller wrote:
 > 
-> Signed-off-by: Rolf Eike Beer <eike-kernel@sf-tec.de>
+>> From: Petko Manolov <petkan@nucleusys.com>
+>> Date: Mon, 20 May 2013 10:09:00 +0300 (EEST)
+>> 
+>> > What about the .c/.h split?
+>> 
+>> I have no strong opinion either way.
+> 
+> OK, so i'll prepare new patch series that coalesce my original patch #1 
+> and #2, and apply the Francois suggestion about using the generic 
+> netdev_alloc_skb_ip_align() in the interrupt path.
+> 
+> Which tree would you want me to diff against?
 
-Applied, thanks.
+As has been explained to you already, cleanups belong in 'net-next',
+bug fixes belong in 'net'.
+
+If you series has both, you have to submit them separately.  Submit
+the bug fixes to 'net', then the next time I merge 'net' into 'net-next'
+you can submit the cleanups on top against 'net-next'.
