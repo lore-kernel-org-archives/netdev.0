@@ -1,92 +1,51 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next V2] xen-netfront: avoid leaking resources when setup_netfront fails
-Date: Mon, 20 May 2013 12:05:12 +0100
-Message-ID: <1369047912-31901-1-git-send-email-wei.liu2@citrix.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
+Date: Mon, 20 May 2013 15:23:21 +0300
+Message-ID: <CAJZOPZKN02BV_3+_yJSimmLXCckgmHObYNw3z8t0vtWRz-Nf-w@mail.gmail.com>
+References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
+	<1368498506-25857-7-git-send-email-yinghai@kernel.org>
+	<0EE9A1CDC8D6434DB00095CD7DB873462CFB0E4E@MTLDAG01.mtl.com>
+	<CAE9FiQVn4F+dTrQn0xsg-6QY9+HwbnJR=1CrjdoZkmF_LMrgpg@mail.gmail.com>
+	<CAJZOPZLjdALP4jkLo6p787jaPx=dkKj7+AmCr9+mgJN3z_xBxQ@mail.gmail.com>
+	<CAE9FiQWvYQRCZjDx-Kh16nKfjfS=pyu8foJR+wWYS-x8DUZteg@mail.gmail.com>
+	<CAJZOPZLVc=V-ac8_A2JB_r17TRyCMoDpe1MXN6WcjMR4SO6n1Q@mail.gmail.com>
+	<20130516175350.GB7171@mtj.dyndns.org>
+	<CAE9FiQWPNt42gsRwYqQwJM6VpZ-UF2+r-64p_aS3X7GdeVbXCA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <ian.campbell@citrix.com>, Wei Liu <wei.liu2@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:15028 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756380Ab3ETLFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 07:05:14 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Tejun Heo <tj@kernel.org>, "Michael S. Tsirkin" <mst@redhat.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Gu Zheng <guz.fnst@cn.fujitsu.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jack Morgenstein <jackm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>
+To: Yinghai Lu <yinghai@kernel.org>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <CAE9FiQWPNt42gsRwYqQwJM6VpZ-UF2+r-64p_aS3X7GdeVbXCA@mail.gmail.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We should correctly free related resources (grant ref, memory page, evtchn)
-when setup_netfront fails.
+On Thu, May 16, 2013 at 9:36 PM, Yinghai Lu <yinghai@kernel.org> wrote:
+> On Thu, May 16, 2013 at 10:53 AM, Tejun Heo <tj@kernel.org> wrote:
+>> On Thu, May 16, 2013 at 12:56:42AM -0400, Or Gerlitz wrote:
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
----
- drivers/net/xen-netfront.c |   33 +++++++++++++++++++++------------
- 1 file changed, 21 insertions(+), 12 deletions(-)
+>>>>> Please note that this whole lockdep warning was identified as false
+>>>>> positive by Tejun http://www.spinics.net/lists/linux-pci/msg21568.html
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 1db10141..5770e3b 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -1532,40 +1532,49 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
- 	FRONT_RING_INIT(&info->tx, txs, PAGE_SIZE);
- 
- 	err = xenbus_grant_ring(dev, virt_to_mfn(txs));
--	if (err < 0) {
--		free_page((unsigned long)txs);
--		goto fail;
--	}
-+	if (err < 0)
-+		goto grant_tx_ring_fail;
- 
- 	info->tx_ring_ref = err;
- 	rxs = (struct xen_netif_rx_sring *)get_zeroed_page(GFP_NOIO | __GFP_HIGH);
- 	if (!rxs) {
- 		err = -ENOMEM;
- 		xenbus_dev_fatal(dev, err, "allocating rx ring page");
--		goto fail;
-+		goto alloc_rx_ring_fail;
- 	}
- 	SHARED_RING_INIT(rxs);
- 	FRONT_RING_INIT(&info->rx, rxs, PAGE_SIZE);
- 
- 	err = xenbus_grant_ring(dev, virt_to_mfn(rxs));
--	if (err < 0) {
--		free_page((unsigned long)rxs);
--		goto fail;
--	}
-+	if (err < 0)
-+		goto grant_rx_ring_fail;
- 	info->rx_ring_ref = err;
- 
- 	err = xenbus_alloc_evtchn(dev, &info->evtchn);
- 	if (err)
--		goto fail;
-+		goto alloc_evtchn_fail;
- 
- 	err = bind_evtchn_to_irqhandler(info->evtchn, xennet_interrupt,
- 					0, netdev->name, netdev);
- 	if (err < 0)
--		goto fail;
-+		goto bind_fail;
- 	netdev->irq = err;
- 	return 0;
- 
-- fail:
-+	/* If we fail to setup netfront, it is safe to just revoke access to
-+	 * granted pages because backend is not accessing it at this point.
-+	 */
-+bind_fail:
-+	xenbus_free_evtchn(dev, info->evtchn);
-+alloc_evtchn_fail:
-+	gnttab_end_foreign_access_ref(info->rx_ring_ref, 0);
-+grant_rx_ring_fail:
-+	free_page((unsigned long)rxs);
-+alloc_rx_ring_fail:
-+	gnttab_end_foreign_access_ref(info->tx_ring_ref, 0);
-+grant_tx_ring_fail:
-+	free_page((unsigned long)txs);
-+fail:
- 	return err;
- }
- 
--- 
-1.7.10.4
+>>>> No, at least one time, I noticed there is one real hang happens.
+
+>>> Tejun, so what your thinking here?
+
+>> Can't really tell much without more details.  Yinghai, do you have any
+>> logs from such hang?  Are you sure it's from this?
+
+> I did not keep that log.
+> Will remove AlexD patch, try several times to see if I can duplicate it again.
+
+Any news here?
+
+Or.
