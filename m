@@ -1,65 +1,52 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/2] arm: bpf_jit: can call module_free() from any context
-Date: Mon, 20 May 2013 20:05:51 +0200
-Message-ID: <1369073151-25028-2-git-send-email-dborkman@redhat.com>
-References: <1369073151-25028-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
-	Mircea Gherzan <mgherzan@gmail.com>
-To: davem@davemloft.net
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH net]  vxlan: revert per-vxlan port
+Date: Mon, 20 May 2013 14:15:59 -0400
+Message-ID: <OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com>
+References: <20130520103017.054ae605@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37231 "EHLO mx1.redhat.com"
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:40994 "EHLO e7.ny.us.ibm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751471Ab3ETSF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 May 2013 14:05:59 -0400
-In-Reply-To: <1369073151-25028-1-git-send-email-dborkman@redhat.com>
+	id S1756018Ab3ETSQh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 May 2013 14:16:37 -0400
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Mon, 20 May 2013 14:16:36 -0400
+In-Reply-To: <20130520103017.054ae605@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Follow-up on module_free()/vfree() that takes care of the rest, so no
-longer this workaround with work_struct needed.
+> From: Stephen Hemminger <stephen@networkplumber.org>
+ 
+> \This commit 823aa873bc782f1c51b1ce8ec6da7cfcaf93836e
+> Author: stephen hemminger <stephen@networkplumber.org>
+> Date:   Sat Apr 27 11:31:57 2013 +0000
+> 
+>     vxlan: allow choosing destination port per vxlan
+> 
+> is broken revert it. The change allowed setting per port for transmit
+> but did not add additional listening sockets, which made any vxlan's
+> defined with non-default port send only.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Cc: Al Viro <viro@zeniv.linux.org.uk>
-Cc: Mircea Gherzan <mgherzan@gmail.com>
----
- arch/arm/net/bpf_jit_32.c | 18 +++---------------
- 1 file changed, 3 insertions(+), 15 deletions(-)
+This allows you to specify a different default port for
+transmits, which is what you want to do if your own instance
+of VXLAN is the odd one. I don't see any requirement for multiple
+listen ports for that to be useful, since those sending to you
+can have complete fdb tables even if the local instance doesn't
+and relies on the default. Not to mention using an agent to
+fill the fdb triggered by packets sent to the default, so the
+receiver is not necessarily even a VXLAN instance. The receiver
+side and transmit side ports can be completely independent of
+each other, as in any other client-server system.
 
-diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-index 1a643ee..f50d223 100644
---- a/arch/arm/net/bpf_jit_32.c
-+++ b/arch/arm/net/bpf_jit_32.c
-@@ -900,8 +900,7 @@ void bpf_jit_compile(struct sk_filter *fp)
- #endif
- 
- 	alloc_size = 4 * ctx.idx;
--	ctx.target = module_alloc(max(sizeof(struct work_struct),
--				      alloc_size));
-+	ctx.target = module_alloc(alloc_size);
- 	if (unlikely(ctx.target == NULL))
- 		goto out;
- 
-@@ -927,19 +926,8 @@ out:
- 	return;
- }
- 
--static void bpf_jit_free_worker(struct work_struct *work)
--{
--	module_free(NULL, work);
--}
--
- void bpf_jit_free(struct sk_filter *fp)
- {
--	struct work_struct *work;
--
--	if (fp->bpf_func != sk_run_filter) {
--		work = (struct work_struct *)fp->bpf_func;
--
--		INIT_WORK(work, bpf_jit_free_worker);
--		schedule_work(work);
--	}
-+	if (fp->bpf_func != sk_run_filter)
-+		module_free(NULL, fp->bpf_func);
- }
--- 
-1.7.11.7
+I think an administrator should have full flexibility to specify
+the ports and destinations as s/he sees fit and if you don't think
+that's a useful feature, you don't have to use it; the defaults
+work fine, too.
+
+                                                        +-DLS
