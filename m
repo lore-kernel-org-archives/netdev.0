@@ -1,115 +1,64 @@
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Subject: Re: [RFC PATCH 2/2] ppp_mppe: Check coherency counter for out-of-order
- sequencing
-Date: Mon, 20 May 2013 20:03:40 +0200
-Message-ID: <519A657C.8040606@dti2.net>
-References: <1369067640-2793-1-git-send-email-jorge@dti2.net>  <1369067640-2793-2-git-send-email-jorge@dti2.net> <1369071170.3301.198.camel@edumazet-glaptop>
-Reply-To: jorge@dti2.net
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1369071170.3301.198.camel@edumazet-glaptop>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 1/2] ppc: bpf_jit: can call module_free() from any context
+Date: Mon, 20 May 2013 20:05:50 +0200
+Message-ID: <1369073151-25028-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, Al Viro <viro@zeniv.linux.org.uk>,
+	Matt Evans <matt@ozlabs.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:45450 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751471Ab3ETSF6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 May 2013 14:05:58 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-El 20/05/2013 19:32, Eric Dumazet escribi=C3=B3:
-> On Mon, 2013-05-20 at 18:34 +0200, Jorge Boncompte [DTI2] wrote:
->> From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
->>
->> While testing a L2TP tunnel without sequencing with MPPE encryption =
-in
->> stateless mode noticed that after a packet was reordered the encapsu=
-lated
->> traffic session was stuck but testing against a Cisco gear did work.
->>
->> From RFC3078 "MPPE expects packets to be delivered in sequence".
->>
->> The thing it's that the ppp_mppe module treats the reorder as if the
->> coherency counter did wrap and rekeys all the "missing" packets.
->>
->> The link layer protocol should deliver the packets in order but at l=
-east
->> with this patch in place the decryption process survives some packet=
- reorder.
->>
->> Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
->> ---
->>  drivers/net/ppp/ppp_mppe.c |   21 +++++++++++++++++++++
->>  1 file changed, 21 insertions(+)
->>
->> diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
->> index 9a1849a..0a10a6d 100644
->> --- a/drivers/net/ppp/ppp_mppe.c
->> +++ b/drivers/net/ppp/ppp_mppe.c
->> @@ -55,6 +55,7 @@
->>  #include <linux/ppp_defs.h>
->>  #include <linux/ppp-comp.h>
->>  #include <linux/scatterlist.h>
->> +#include <linux/net.h>
->>  #include <asm/unaligned.h>
->> =20
->>  #include "ppp_mppe.h"
->> @@ -469,6 +470,15 @@ static void mppe_decomp_reset(void *arg)
->>  }
->> =20
->>  /*
->> + * Compares two coherency counter values.
->> + */
->> +static int
->> +mppe_cmp_ccount(unsigned int a, unsigned int b)
->> +{
->> +	return (int)((a << 20) - (b << 20));
->> +}
->> +
->=20
-> How was chosen this magical value ?
+Followup patch on module_free()/vfree() that takes care of the rest, so
+no longer this workaround with work_struct is needed.
 
-	The coherency count it's a 12-bit value. I'll add a define for it.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
+Cc: Matt Evans <matt@ozlabs.org>
+---
+ arch/powerpc/net/bpf_jit_comp.c | 19 +++----------------
+ 1 file changed, 3 insertions(+), 16 deletions(-)
 
->=20
->> +/*
->>   * Decompress (decrypt) an MPPE packet.
->>   */
->>  static int
->> @@ -547,6 +557,17 @@ mppe_decompress(void *arg, unsigned char *ibuf,=
- int isize, unsigned char *obuf,
->>  	 */
->> =20
->>  	if (!state->stateful) {
->> +		if (mppe_cmp_ccount(ccount, state->ccount) < 0) {
->> +			if (state->debug >=3D 7 && net_ratelimit())
->> +				printk(KERN_DEBUG
->> +				       "%s[%d:]: Dropping out-of-order packet, "
->> +				       "ccount %u expecting %u.\n",
->> +				       __func__, state->unit, ccount,
->> +				       state->ccount);
->> +
->=20
->=20
-> net_dbg_ratelimited() ?
-
-	I think it will be better if I prepare a third patch that cleanups the=
- whole
-file after.
-
---=20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-Jorge Boncompte - Ingenieria y Gestion de RED
-DTI2 - Desarrollo de la Tecnologia de las Comunicaciones
---------------------------------------------------------------
-C/ Abogado Enriquez Barrios, 5   14004 CORDOBA (SPAIN)
-Tlf: +34 957 761395 / FAX: +34 957 450380
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-- There is only so much duct tape you can put on something
-  before it just becomes a giant ball of duct tape.
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
-
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index c427ae3..bf56e33 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -650,8 +650,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+ 
+ 	proglen = cgctx.idx * 4;
+ 	alloclen = proglen + FUNCTION_DESCR_SIZE;
+-	image = module_alloc(max_t(unsigned int, alloclen,
+-				   sizeof(struct work_struct)));
++	image = module_alloc(alloclen);
+ 	if (!image)
+ 		goto out;
+ 
+@@ -688,20 +687,8 @@ out:
+ 	return;
+ }
+ 
+-static void jit_free_defer(struct work_struct *arg)
+-{
+-	module_free(NULL, arg);
+-}
+-
+-/* run from softirq, we must use a work_struct to call
+- * module_free() from process context
+- */
+ void bpf_jit_free(struct sk_filter *fp)
+ {
+-	if (fp->bpf_func != sk_run_filter) {
+-		struct work_struct *work = (struct work_struct *)fp->bpf_func;
+-
+-		INIT_WORK(work, jit_free_defer);
+-		schedule_work(work);
+-	}
++	if (fp->bpf_func != sk_run_filter)
++		module_free(NULL, fp->bpf_func);
+ }
+-- 
+1.7.11.7
