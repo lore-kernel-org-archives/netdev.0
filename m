@@ -1,130 +1,63 @@
-From: "Florian Fainelli" <f.fainelli@gmail.com>
-Subject: [PATCH 1/2 v2 net-next] phy: fix the use of
- PHY_IGNORE_INTERRUPT
-Date: Mon, 20 May 2013 08:53:42 +0000
-Message-ID: <1369040023-22270-2-git-send-email-f.fainelli@gmail.com>
-References: <1369040023-22270-1-git-send-email-f.fainelli@gmail.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next] xen-netfront: avoid leaking resources when
+ setup_netfront fails
+Date: Mon, 20 May 2013 10:01:12 +0100
+Message-ID: <20130520090112.GA27858@zion.uk.xensource.com>
+References: <1368783838-24187-1-git-send-email-wei.liu2@citrix.com>
+ <20130519.232833.988876168197782913.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jogo@openwrt.org,
-	thomas.petazzoni@free-electrons.com, afleming@freescale.com,
-	"Florian Fainelli" <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <ian.campbell@citrix.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:1998 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751080Ab3ETIyO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 May 2013 04:54:14 -0400
-In-Reply-To: <1369040023-22270-1-git-send-email-f.fainelli@gmail.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:11085 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751315Ab3ETJBP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 05:01:15 -0400
+Content-Disposition: inline
+In-Reply-To: <20130519.232833.988876168197782913.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When a PHY device is registered with the special IRQ value
-PHY_IGNORE_INTERRUPT (-2) it will not properly be handled by the PHY
-library:
+On Sun, May 19, 2013 at 11:28:33PM -0700, David Miller wrote:
+> From: Wei Liu <wei.liu2@citrix.com>
+> Date: Fri, 17 May 2013 10:43:58 +0100
+> 
+> >  
+> > + /* If we fail to setup netfront, it is safe to just revoke access to granted
+> > +  * pages because backend is not accessing it at this point.
+> > +  */
+> > + bind_fail:
+> > +	xenbus_free_evtchn(dev, info->evtchn);
+> > + alloc_evtchn_fail:
+> > +	gnttab_end_foreign_access_ref(info->rx_ring_ref, 0);
+> > + grant_rx_ring_fail:
+> > +	free_page((unsigned long)rxs);
+> > + alloc_rx_ring_fail:
+> > +	gnttab_end_foreign_access_ref(info->tx_ring_ref, 0);
+> > + grant_tx_ring_fail:
+> > +	free_page((unsigned long)txs);
+> >   fail:
+> >  	return err;
+> >  }
+> 
+> This is not even close to adhering to proper coding style.
+> 
+> The comment should be indented by one tab not one space:
+> 
+> 	/* Like
+> 	 * this.
+> 	 */
+> 
+> And the code labels should appear at the first column, not
+> with a leading space.
 
-- it continues to poll its register, while we do not want this
-  because such PHY link events or register changes are serviced by an
-  Ethernet MAC
-- it will still try to configure PHY interrupts at the PHY level, such
-  interrupts do not exist at the PHY but at the MAC level
-- the state machine only handles PHY_POLL, but should also handle
-  PHY_IGNORE_INTERRUPT similarly
+Thanks, coding style problems are fixed now.
 
-This patch updates the PHY state machine and initialization paths to
-account for the specific PHY_IGNORE_INTERRUPT. Based on an earlier patch
-by Thomas Petazzoni, and reworked to add the missing bits. Add a helper
-phy_interrupt_is_valid() which specifically tests for a PHY interrupt
-not to be PHY_POLL or PHY_IGNORE_INTERRUPT and use it throughout the
-code.
+For some reason some other labels in this file appear to have the same
+style problem, I will fix them when I touch other part of the file in
+the future.
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes since v1:
-- add helper function phy_interrupt_is_valid() which tests for
-  PHY_POLL and PHY_IGNORE_INTERRUPT as suggested by David
 
- drivers/net/phy/phy.c        |  9 +++++----
- drivers/net/phy/phy_device.c |  7 +++++--
- include/linux/phy.h          | 12 ++++++++++++
- 3 files changed, 22 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index c14f147..3bcf099 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -682,7 +682,7 @@ void phy_stop(struct phy_device *phydev)
- 	if (PHY_HALTED == phydev->state)
- 		goto out_unlock;
- 
--	if (phydev->irq != PHY_POLL) {
-+	if (phy_interrupt_is_valid(phydev)) {
- 		/* Disable PHY Interrupts */
- 		phy_config_interrupt(phydev, PHY_INTERRUPT_DISABLED);
- 
-@@ -828,8 +828,9 @@ void phy_state_machine(struct work_struct *work)
- 			break;
- 		case PHY_RUNNING:
- 			/* Only register a CHANGE if we are
--			 * polling */
--			if (PHY_POLL == phydev->irq)
-+			 * polling or ignoring interrupts
-+			 */
-+			if (!phy_interrupt_is_valid(phydev))
- 				phydev->state = PHY_CHANGELINK;
- 			break;
- 		case PHY_CHANGELINK:
-@@ -848,7 +849,7 @@ void phy_state_machine(struct work_struct *work)
- 
- 			phydev->adjust_link(phydev->attached_dev);
- 
--			if (PHY_POLL != phydev->irq)
-+			if (phy_interrupt_is_valid(phydev))
- 				err = phy_config_interrupt(phydev,
- 						PHY_INTERRUPT_ENABLED);
- 			break;
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index 3657b4a..8e29d22 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1009,8 +1009,11 @@ static int phy_probe(struct device *dev)
- 	phydrv = to_phy_driver(drv);
- 	phydev->drv = phydrv;
- 
--	/* Disable the interrupt if the PHY doesn't support it */
--	if (!(phydrv->flags & PHY_HAS_INTERRUPT))
-+	/* Disable the interrupt if the PHY doesn't support it
-+	 * but the interrupt is still a valid one
-+	 */
-+	if (!(phydrv->flags & PHY_HAS_INTERRUPT) &&
-+			phy_interrupt_is_valid(phydev))
- 		phydev->irq = PHY_POLL;
- 
- 	mutex_lock(&phydev->lock);
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index 9e11039..8e4bc8a 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -508,6 +508,18 @@ static inline int phy_write(struct phy_device *phydev, u32 regnum, u16 val)
- 	return mdiobus_write(phydev->bus, phydev->addr, regnum, val);
- }
- 
-+/**
-+ * phy_interrupt_is_valid - Convenience function for testing a given PHY irq
-+ * @phydev: the phy_device struct
-+ *
-+ * NOTE: must be kept in sync with addition/removal of PHY_POLL and
-+ * PHY_IGNORE_INTERRUPT
-+ */
-+static inline bool phy_interrupt_is_valid(struct phy_device *phydev)
-+{
-+	return phydev->irq != PHY_POLL && phydev->irq != PHY_IGNORE_INTERRUPT;
-+}
-+
- struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 		bool is_c45, struct phy_c45_device_ids *c45_ids);
- struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
--- 
-1.8.1.2
+Wei.
