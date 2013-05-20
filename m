@@ -1,40 +1,42 @@
 From: Qinchuanyu <qinchuanyu@huawei.com>
-Subject: provide vhost thread per virtqueue for forwarding scenario
-Date: Mon, 20 May 2013 02:11:19 +0000
-Message-ID: <5872DA217C2FF7488B20897D84F904E7338FC974@nkgeml511-mbx.china.huawei.com>
+Subject: [PATCH] vhost: get 2% performance improved by reducing spin_lock
+ race in vhost_work_queue
+Date: Mon, 20 May 2013 03:06:25 +0000
+Message-ID: <5872DA217C2FF7488B20897D84F904E7338FD1E5@nkgeml511-mbx.china.huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 8BIT
-Cc: " (netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
-	" (kvm@vger.kernel.org)" <kvm@vger.kernel.org>,
-	Zanghongyong <zanghongyong@huawei.com>,
-	"Zhangjie (HZ)" <zhang.zhangjie@huawei.com>
-To: "mst@redhat.com" <mst@redhat.com>,
-	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
-	"nab@linux-iscsi.org" <nab@linux-iscsi.org>
+Cc: " (kvm@vger.kernel.org)" <kvm@vger.kernel.org>,
+	" (netdev@vger.kernel.org)" <netdev@vger.kernel.org>
+To: "rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
+	"mst@redhat.com" <mst@redhat.com>,
+	"dhowells@redhat.com" <dhowells@redhat.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:7344 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:35773 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755107Ab3ETCL6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 22:11:58 -0400
+	with ESMTP id S1755086Ab3ETDHc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 23:07:32 -0400
 Content-Language: zh-CN
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vhost thread provide both tx and rx ability for virtio-net. 
-In the forwarding scenarios, tx and rx share the vhost thread, and throughput is limited by single thread.
+Right now the wake_up_process func is included in spin_lock/unlock, but it could be done outside the spin_lock.
+I have test it with kernel 3.0.27 and guest suse11-sp2, it provide 2%-3% net performance improved.
 
-So I did a patch for provide vhost thread per virtqueue, not per vhost_net.
-
-Of course, multi-queue virtio-net is final solution, but it require new version of virtio-net working in guest.
-If you have to work with suse10,11, redhat 5.x as guest, and want to improve the forward throughput,
-using vhost thread per queue seems to be the only solution.
-
-I did the test with kernel 3.0.27 and qemu-1.4.0, guest is suse11-sp2, and then two vhost thread provide 
-double tx/rx forwarding performance than signal vhost thread. 
-The virtqueue of vhost_blk is 1, so it still use one vhost thread without change.
-
-Is there something wrong in this solution? If not, I would list patch later.
-
-Best regards
-King
+Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+--- a/drivers/vhost/vhost.c     2013-05-20 10:36:30.000000000 +0800
++++ b/drivers/vhost/vhost.c     2013-05-20 10:36:54.000000000 +0800
+@@ -144,9 +144,10 @@
+        if (list_empty(&work->node)) {
+                list_add_tail(&work->node, &dev->work_list);
+                work->queue_seq++;
++               spin_unlock_irqrestore(&dev->work_lock, flags);
+                wake_up_process(dev->worker);
+-       }
+-       spin_unlock_irqrestore(&dev->work_lock, flags);
++       } else
++               spin_unlock_irqrestore(&dev->work_lock, flags);
+ }
+ 
+ void vhost_poll_queue(struct vhost_poll *poll)
