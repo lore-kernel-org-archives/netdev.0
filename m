@@ -1,52 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] xen-netfront: avoid leaking resources when
- setup_netfront fails
-Date: Sun, 19 May 2013 23:28:33 -0700 (PDT)
-Message-ID: <20130519.232833.988876168197782913.davem@davemloft.net>
-References: <1368783838-24187-1-git-send-email-wei.liu2@citrix.com>
+Subject: Re: [PATCH net-next v3] sock_diag: notify packet socket
+ creation/deletion
+Date: Sun, 19 May 2013 23:29:25 -0700 (PDT)
+Message-ID: <20130519.232925.1972249319855411715.davem@davemloft.net>
+References: <1366818756-4234-5-git-send-email-nicolas.dichtel@6wind.com>
+	<1368800738-4364-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	ian.campbell@citrix.com
-To: wei.liu2@citrix.com
+Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53998 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54006 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751457Ab3ETG2e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 02:28:34 -0400
-In-Reply-To: <1368783838-24187-1-git-send-email-wei.liu2@citrix.com>
+	with ESMTP id S1751791Ab3ETG3Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 02:29:25 -0400
+In-Reply-To: <1368800738-4364-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Fri, 17 May 2013 10:43:58 +0100
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Fri, 17 May 2013 16:25:38 +0200
 
->  
-> + /* If we fail to setup netfront, it is safe to just revoke access to granted
-> +  * pages because backend is not accessing it at this point.
-> +  */
-> + bind_fail:
-> +	xenbus_free_evtchn(dev, info->evtchn);
-> + alloc_evtchn_fail:
-> +	gnttab_end_foreign_access_ref(info->rx_ring_ref, 0);
-> + grant_rx_ring_fail:
-> +	free_page((unsigned long)rxs);
-> + alloc_rx_ring_fail:
-> +	gnttab_end_foreign_access_ref(info->tx_ring_ref, 0);
-> + grant_tx_ring_fail:
-> +	free_page((unsigned long)txs);
->   fail:
->  	return err;
->  }
+> With this patch, a netlink message is sent each time a packet socket
+> is created or deleted.  The framework is generic, so it's easy to
+> add the notification for other kind of sockets.
+>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 
-This is not even close to adhering to proper coding style.
-
-The comment should be indented by one tab not one space:
-
-	/* Like
-	 * this.
-	 */
-
-And the code labels should appear at the first column, not
-with a leading space.
+Just curious what you want to use this for.
