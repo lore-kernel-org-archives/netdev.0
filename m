@@ -1,51 +1,50 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH v3 6/7] ARM: kirkwood: add gigabit ethernet and mvmdio
- device tree nodes
-Date: Mon, 20 May 2013 23:38:00 +0200
-Message-ID: <519A97B8.1090503@gmail.com>
-References: <1365071235-11611-1-git-send-email-florian@openwrt.org> <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com> <1367854420-8006-7-git-send-email-sebastian.hesselbarth@gmail.com> <20130520212708.GA26519@schnuecks.de>
+From: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH v3] Bluetooth: hidp: using strlcpy instead of strncpy,
+ also beautify code.
+Date: Mon, 20 May 2013 18:52:24 -0300
+Message-ID: <20130520215224.GE17712@joana>
+References: <518906A8.7060708@asianux.com>
+ <CANq1E4SmY+CD0uf53_b6GeFkQ-LYnpdxsDGSRMWdn2i1mnb6WQ@mail.gmail.com>
+ <5189A417.503@asianux.com>
+ <5189C7C6.8090408@asianux.com>
+ <alpine.LNX.2.00.1305091041140.23038@pobox.suse.cz>
+ <51904ACF.6010904@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Grant Likely <grant.likely@linaro.org>,
-	David Miller <davem@davemloft.net>,
-	Florian Fainelli <florian@openwrt.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, linux-doc@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Simon Baatz <gmbnomis@gmail.com>
-Return-path: <linux-doc-owner@vger.kernel.org>
-In-Reply-To: <20130520212708.GA26519@schnuecks.de>
-Sender: linux-doc-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Jiri Kosina <jkosina-AlSwsSmVLrQ@public.gmane.org>,
+	David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>,
+	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	andrei.emeltchenko-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	"linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <51904ACF.6010904-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 05/20/2013 11:27 PM, Simon Baatz wrote:
-> Hi Sebastian,
->
-> On Mon, May 06, 2013 at 05:33:39PM +0200, Sebastian Hesselbarth wrote:
->> This patch adds mv643xx_eth and mvmdio device tree nodes for DT enabled
->> Kirkwood boards. Phy nodes are also added with reg property set on a
->> per-board basis.
-> ...
->> diff --git a/arch/arm/boot/dts/kirkwood.dtsi b/arch/arm/boot/dts/kirkwood.dtsi
->> index fada7e6..c01a273 100644
->> --- a/arch/arm/boot/dts/kirkwood.dtsi
->> +++ b/arch/arm/boot/dts/kirkwood.dtsi
->> @@ -202,5 +202,57 @@
->>   			clocks =<&gate_clk 4>;
->>   			status = "disabled";
->>   		};
->> +
->> +		mdio: mdio-bus@72004 {
->> +			compatible = "marvell,orion-mdio";
->> +			reg =<0x72004 0x84>;
->> +			interrupts =<11>;
->
-> Shouldn't this be 46?
+Hi Chen,
 
-Yes, mdio is using GbE0Err interrupt and that is 14 on IRQ HIGH CAUSE.
-I was misled by 11 on IRQ LOW CAUSE.
+* Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org> [2013-05-13 10:07:11 +0800]:
 
-Sebastian
+> 
+> For NUL terminated string, need always let it ended by zero.
+> 
+> Since have already called memcpy() to initialize 'ci', so need not
+> redundant initialization.
+> 
+> Better use ''if(session->hid) {} else if(session->input) {}"" instead
+> of ''if(session->hid) {}; if(session->input) {};''
+> 
+> Signed-off-by: Chen Gang <gang.chen-bOixZGp5f+dBDgjK7y7TUQ@public.gmane.org>
+> ---
+>  net/bluetooth/hidp/core.c |   14 ++++----------
+>  1 files changed, 4 insertions(+), 10 deletions(-)
+
+Sorry for the big delay on this, patches has now been applied to
+bluetooth-next. Thanks all.
+
+	Gustavo
