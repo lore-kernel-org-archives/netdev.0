@@ -1,70 +1,80 @@
-From: Jeff Kirsher <tarbal@gmail.com>
-Subject: Re: [PATCH 4/4] e1000e: Not initialize the e1000_ps_page array when
- packet-split is not used
-Date: Mon, 20 May 2013 02:38:07 -0700
-Message-ID: <5199EEFF.3070905@gmail.com>
-References: <1369037707-27026-1-git-send-email-weiyang@linux.vnet.ibm.com> <1369037707-27026-5-git-send-email-weiyang@linux.vnet.ibm.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v2 net-next 1/4] net: implement support
+ for low latency socket polling
+Date: Mon, 20 May 2013 12:39:59 +0300
+Message-ID: <5199EF6F.9040008@linux.intel.com>
+References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
+	<20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
+	<20130520.005447.972811583292360876.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="------------enigF7544034234A112838216E07"
-Cc: jeffrey.t.kirsher@intel.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Wei Yang <weiyang@linux.vnet.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:6649 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752097Ab3ETJiP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 May 2013 05:38:15 -0400
-In-Reply-To: <1369037707-27026-5-git-send-email-weiyang@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: willemb@google.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, hpa@zytor.com,
+	linux-kernel@vger.kernel.org, jesse.brandeburg@intel.com,
+	andi@firstfloor.org, eliezer@tamir.org.il
+To: David Miller <davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130520.005447.972811583292360876.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigF7544034234A112838216E07
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On 05/20/2013 01:15 AM, Wei Yang wrote:
-> When packet split is not used, those fields are still initialized and m=
-emory
-> is allocated for them.
+On 20/05/2013 10:54, David Miller wrote:
+> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+> Date: Sun, 19 May 2013 13:25:33 +0300
 >
-> This patch check whether packet split is used and do the initialization=
- base
-> on the status.
+>> +#else /* CONFIG_INET_LL_RX_FLUSH */
+>> +
+>> +#define sk_valid_ll(sk) 0
+>> +#define sk_poll_ll(sk, nonblock) do {} while (0)
+>> +#define skb_mark_ll(napi, skb) do {} while (0)
+>> +#define sk_mark_ll(sk, skb) do {} while (0)
 >
-> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-> ---
->  drivers/net/ethernet/intel/e1000e/netdev.c |   38 ++++++++++++++------=
--------
->  1 files changed, 20 insertions(+), 18 deletions(-)
-Thanks, I have added the patch to my queue for e1000e.
+> Make these inline functions too, so that even if
+> CONFIG_INET_LL_RX_POLL is disabled, the arguments and return values
+> are still properly type checked.
 
+Is this what you had in mind?
 
---------------enigF7544034234A112838216E07
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+static inline bool sk_valid_ll(struct sock *sk)
+{
+	return 0;
+}
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-Comment: Using GnuPG with undefined - http://www.enigmail.net/
+static inline bool sk_poll_ll(struct sock *sk, int noblock)
+{
+	return 0;
+}
 
-iQIcBAEBCgAGBQJRme8AAAoJEOVv75VaS+3O57YP/3s7IfY5YNzg8nj/RjrheFM4
-Zf1wTtAc6xOE2JCKecLBlDPQKu3CbfNyHl27iSITPu77GMp6yYYmWcb8/CP/pG2a
-kIJB+QFE4oZw/2mTm8zObzDWDpoCbFwRgqo60Okgi1nSPyKTQ6QUPuX3l/YjQx2Q
-c9YYmYBB9IqGUozZPCcNr/V+eV9lyowTHly7XnwVSKPsOrgHSM5Pn27hWLHJmTBC
-9y/90FBDjSwLFQBYfJFthChYGhSFMxH3pfWPNowde5+6ZXXm+VuZZYMO3f2WvNlB
-5/BLfPscbs+5W8oKHPmGRZopqus0oBMGH2igA737Db9Of8bALONgdJ4lLW7Gl71y
-7tzfL51zbK0RljMHORd+SNJIIcBtyCcJ3cIke6B68RtASKJQ2ZnIWRfqb6zz3uCj
-w4GHVj/Ut2KqZ3B+v61WHy7Une4xSW5evPNGWfPPOs/xnCQfLR6shipgReso1iDL
-MI+sN48EotXuucprDgjCpzfosnVgcXmWn0aFih035+5T6R6zAML8T7eNfCbiQ5C0
-eVPOyM8AkXb5ojbnfnOieXfXR62R/G21hr31T2Z3B+0mhhnJRZmJPvHT1H/JJTMb
-7jL8JHU9rU9gWcsEvCIYjFiQx0EDq6PpHdfGxfa5ToFpk6UJxFKTkShLsoz3DpQF
-DKTM6//1CjAwXY8g8peW
-=fWK4
------END PGP SIGNATURE-----
+static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct 
+*napi)
+{
+}
 
---------------enigF7544034234A112838216E07--
+static inline voiv sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+{
+}
+
+would you like me to resend the whole set or just this patch?
+
+Thanks,
+Eliezer
+
+------------------------------------------------------------------------------
+AlienVault Unified Security Management (USM) platform delivers complete
+security visibility with the essential security capabilities. Easily and
+efficiently configure, manage, and operate all of your security controls
+from a single console and one unified framework. Download a free trial.
+http://p.sf.net/sfu/alienvault_d2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
