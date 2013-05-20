@@ -1,59 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 1/4] net: implement support for low latency
- socket polling
-Date: Mon, 20 May 2013 00:54:47 -0700 (PDT)
-Message-ID: <20130520.005447.972811583292360876.davem@davemloft.net>
-References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
-	<20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
+Subject: Re: [PATCH net] bnx2x: Fix GSO for 57710/57711 chips
+Date: Mon, 20 May 2013 00:57:32 -0700 (PDT)
+Message-ID: <20130520.005732.1368878689207038499.davem@davemloft.net>
+References: <1368974461-5308-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, donanld.c.skidmore@intel.com,
-	e1000-devel@lists.sourceforge.net, willemb@google.com,
-	andi@firstfloor.org, hpa@zytor.com, eliezer@tamir.org.il
-To: eliezer.tamir@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dmitry@broadcom.com, eilong@broadcom.com
+To: yuvalmin@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:55132 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754782Ab3ETH5e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 03:57:34 -0400
+In-Reply-To: <1368974461-5308-1-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Date: Sun, 19 May 2013 13:25:33 +0300
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Sun, 19 May 2013 17:41:01 +0300
 
-> +#ifndef _LINUX_NET_LL_POLL_H
-> +#define _LINUX_NET_LL_POLL_H
-> +#ifdef CONFIG_INET_LL_RX_POLL
+> Starting with commit 91226790bbe2dbfbba48dd79d49f2b38ef10eb97
+> `bnx2x: use FW 7.8.17', the bnx2x driver no longer requests the FW to perform
+> IP checksums for IPv4 packets.
+> 
+> This behaviour needs to be revised for 57710/57711 chips -
+> when using GSO, if the driver will not set the IP checksum flag then packets
+> will be transmitted by the chip without a valid IP checksum, resulting in
+> a drop of all such packets on the receiver-side.
+> 
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Please put an empty line before the final ifdef test here.
-
-> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
-> +{
-> +		sk->dev_ref = skb->dev_ref;
-	^^^
-
-One tab too many.
-
-> +#else /* CONFIG_INET_LL_RX_FLUSH */
-> +
-> +#define sk_valid_ll(sk) 0
-> +#define sk_poll_ll(sk, nonblock) do {} while (0)
-> +#define skb_mark_ll(napi, skb) do {} while (0)
-> +#define sk_mark_ll(sk, skb) do {} while (0)
-
-Make these inline functions too, so that even if
-CONFIG_INET_LL_RX_POLL is disabled, the arguments and return values
-are still properly type checked.
-
->  {
->  	struct socket *sock;
-> +	unsigned int poll_result;
-
-Please order local variable declarations from longest line to
-shortest line.
-
-> +	    !(poll_result & (POLLRDNORM | POLLERR | POLLRDHUP | POLLHUP))) {
-> +
-> +		struct sock *sk = sock->sk;
-
-Please remove the empty line before the variable declaration.
+Applied, thanks.
