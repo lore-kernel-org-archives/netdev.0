@@ -1,30 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2] xen-netfront: avoid leaking resources when
- setup_netfront fails
-Date: Mon, 20 May 2013 13:43:28 -0700 (PDT)
-Message-ID: <20130520.134328.1634344993818261317.davem@davemloft.net>
-References: <1369047912-31901-1-git-send-email-wei.liu2@citrix.com>
+Subject: Re: [PATCH 1/2] fec: Let device core handle pinctrl
+Date: Mon, 20 May 2013 13:44:40 -0700 (PDT)
+Message-ID: <20130520.134440.1135634217457548595.davem@davemloft.net>
+References: <1369055178-6083-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	ian.campbell@citrix.com
-To: wei.liu2@citrix.com
+Cc: shawn.guo@linaro.org, netdev@vger.kernel.org
+To: fabio.estevam@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37722 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37740 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758203Ab3ETUn3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 16:43:29 -0400
-In-Reply-To: <1369047912-31901-1-git-send-email-wei.liu2@citrix.com>
+	with ESMTP id S1756621Ab3ETUol (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 16:44:41 -0400
+In-Reply-To: <1369055178-6083-1-git-send-email-fabio.estevam@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Mon, 20 May 2013 12:05:12 +0100
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Date: Mon, 20 May 2013 10:06:17 -0300
 
-> We should correctly free related resources (grant ref, memory page, evtchn)
-> when setup_netfront fails.
+> Since commit ab78029 (drivers/pinctrl: grab default handles from device core)
+> we can rely on device core for handling pinctrl, so remove 
+> devm_pinctrl_get_select_default() from the driver.
 > 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
 Applied.
