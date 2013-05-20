@@ -1,82 +1,100 @@
 From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: [PATCH 2/4] e1000e: Use marco instead of digit for defining e1000_rx_desc_packet_split
-Date: Mon, 20 May 2013 16:15:05 +0800
-Message-ID: <1369037707-27026-3-git-send-email-weiyang@linux.vnet.ibm.com>
+Subject: [PATCH 4/4] e1000e: Not initialize the e1000_ps_page array when packet-split is not used
+Date: Mon, 20 May 2013 16:15:07 +0800
+Message-ID: <1369037707-27026-5-git-send-email-weiyang@linux.vnet.ibm.com>
 References: <1369037707-27026-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	Wei Yang <weiyang@linux.vnet.ibm.com>
 To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp03.au.ibm.com ([202.81.31.145]:44670 "EHLO
-	e23smtp03.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755278Ab3ETIPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 04:15:31 -0400
+Received: from e23smtp09.au.ibm.com ([202.81.31.142]:51976 "EHLO
+	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755278Ab3ETIPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 04:15:33 -0400
 Received: from /spool/local
-	by e23smtp03.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Mon, 20 May 2013 18:07:00 +1000
-Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [9.190.235.21])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id E19BA2BB0023
-	for <netdev@vger.kernel.org>; Mon, 20 May 2013 18:15:23 +1000 (EST)
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4K8FG6h20644044
-	for <netdev@vger.kernel.org>; Mon, 20 May 2013 18:15:16 +1000
-Received: from d23av04.au.ibm.com (loopback [127.0.0.1])
-	by d23av04.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4K8FMkO019807
-	for <netdev@vger.kernel.org>; Mon, 20 May 2013 18:15:23 +1000
+	Tue, 21 May 2013 05:12:57 +1000
+Received: from d23relay04.au.ibm.com (d23relay04.au.ibm.com [9.190.234.120])
+	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 590882BB0051
+	for <netdev@vger.kernel.org>; Mon, 20 May 2013 18:15:28 +1000 (EST)
+Received: from d23av02.au.ibm.com (d23av02.au.ibm.com [9.190.235.138])
+	by d23relay04.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4K81MsI20185324
+	for <netdev@vger.kernel.org>; Mon, 20 May 2013 18:01:22 +1000
+Received: from d23av02.au.ibm.com (loopback [127.0.0.1])
+	by d23av02.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4K8FRrW029296
+	for <netdev@vger.kernel.org>; Mon, 20 May 2013 18:15:27 +1000
 In-Reply-To: <1369037707-27026-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In structure e1000_rx_desc_packet_split, the size of wb.upper.length is
-defined by a digit. This may introduce some problem when the lenght is
-changed.
+When packet split is not used, those fields are still initialized and memory
+is allocated for them.
 
-This patch use the marco PS_PAGE_BUFFERS for the definition. And move the
-definition to hw.h.
+This patch check whether packet split is used and do the initialization base
+on the status.
 
 Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
 ---
- drivers/net/ethernet/intel/e1000e/e1000.h |    3 ---
- drivers/net/ethernet/intel/e1000e/hw.h    |    5 ++++-
- 2 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c |   38 ++++++++++++++-------------
+ 1 files changed, 20 insertions(+), 18 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/e1000.h b/drivers/net/ethernet/intel/e1000e/e1000.h
-index fcc7581..3ba560d 100644
---- a/drivers/net/ethernet/intel/e1000e/e1000.h
-+++ b/drivers/net/ethernet/intel/e1000e/e1000.h
-@@ -90,9 +90,6 @@ struct e1000_info;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index a2e8a53..c75d9cf 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -1690,15 +1690,17 @@ static void e1000_clean_rx_ring(struct e1000_ring *rx_ring)
+ 			buffer_info->skb = NULL;
+ 		}
  
- #define E1000_MNG_VLAN_NONE		(-1)
+-		for (j = 0; j < PS_PAGE_BUFFERS; j++) {
+-			ps_page = &buffer_info->ps_pages[j];
+-			if (!ps_page->page)
+-				break;
+-			dma_unmap_page(&pdev->dev, ps_page->dma, PAGE_SIZE,
+-				       DMA_FROM_DEVICE);
+-			ps_page->dma = 0;
+-			put_page(ps_page->page);
+-			ps_page->page = NULL;
++		if (adapter->rx_ps_pages) {
++			for (j = 0; j < PS_PAGE_BUFFERS; j++) {
++				ps_page = &buffer_info->ps_pages[j];
++				if (!ps_page->page)
++					break;
++				dma_unmap_page(&pdev->dev, ps_page->dma, PAGE_SIZE,
++					       DMA_FROM_DEVICE);
++				ps_page->dma = 0;
++				put_page(ps_page->page);
++				ps_page->page = NULL;
++			}
+ 		}
+ 	}
  
--/* Number of packet split data buffers (not including the header buffer) */
--#define PS_PAGE_BUFFERS			(MAX_PS_BUFFERS - 1)
+@@ -2355,16 +2357,16 @@ int e1000e_setup_rx_resources(struct e1000_ring *rx_ring)
+ 	if (!rx_ring->buffer_info)
+ 		goto err;
+ 
+-	for (i = 0; i < rx_ring->count; i++) {
+-		buffer_info = &rx_ring->buffer_info[i];
+-		buffer_info->ps_pages = kcalloc(PS_PAGE_BUFFERS,
+-						sizeof(struct e1000_ps_page),
+-						GFP_KERNEL);
+-		if (!buffer_info->ps_pages)
+-			goto err_pages;
+-	}
 -
- #define DEFAULT_JUMBO			9234
- 
- /* Time to wait before putting the device into D3 if there's no link (in ms). */
-diff --git a/drivers/net/ethernet/intel/e1000e/hw.h b/drivers/net/ethernet/intel/e1000e/hw.h
-index 1e6b889..edc618ad 100644
---- a/drivers/net/ethernet/intel/e1000e/hw.h
-+++ b/drivers/net/ethernet/intel/e1000e/hw.h
-@@ -227,6 +227,9 @@ union e1000_rx_desc_extended {
- };
- 
- #define MAX_PS_BUFFERS 4
+ 	if (adapter->rx_ps_pages) {
++		for (i = 0; i < rx_ring->count; i++) {
++			buffer_info = &rx_ring->buffer_info[i];
++			buffer_info->ps_pages = kcalloc(PS_PAGE_BUFFERS,
++							sizeof(struct e1000_ps_page),
++							GFP_KERNEL);
++			if (!buffer_info->ps_pages)
++				goto err_pages;
++		}
 +
-+/* Number of packet split data buffers (not including the header buffer) */
-+#define PS_PAGE_BUFFERS			(MAX_PS_BUFFERS - 1)
- /* Receive Descriptor - Packet Split */
- union e1000_rx_desc_packet_split {
- 	struct {
-@@ -251,7 +254,7 @@ union e1000_rx_desc_packet_split {
- 		} middle;
- 		struct {
- 			__le16 header_status;
--			__le16 length[3];	/* length of buffers 1-3 */
-+			__le16 length[PS_PAGE_BUFFERS];	/* length of buffers 1-3 */
- 		} upper;
- 		__le64 reserved;
- 	} wb; /* writeback */
+ 		/* this is a 32 byte descriptor */
+ 		desc_len = sizeof(union e1000_rx_desc_packet_split);
+ 	} else {
 -- 
 1.7.5.4
