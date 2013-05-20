@@ -1,79 +1,93 @@
-From: Fan Du <fan.du@windriver.com>
-Subject: [RESEND PATCH net-next] xfrm: add LINUX_MIB_XFRMACQUIREERROR statistic counter
-Date: Mon, 20 May 2013 09:40:25 +0800
-Message-ID: <1369014025-19564-1-git-send-email-fan.du@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <herbert@gondor.hengli.com.au>, <davem@davemloft.net>,
-	<netdev@vger.kernel.org>
-To: <steffen.klassert@secunet.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH net-next v3] net: Loosen constraints for recalculating checksum in skb_segment()
+Date: Mon, 20 May 2013 10:46:49 +0900
+Message-ID: <1369014409-14629-1-git-send-email-horms@verge.net.au>
+Cc: Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	jarno.rajahalme@nsn.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	Simon Horman <horms@verge.net.au>
+To: dev@openvswitch.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:40084 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754190Ab3ETBlu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 21:41:50 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:59837 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753755Ab3ETBrQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 May 2013 21:47:16 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When host ping its peer, ICMP echo request packet triggers IPsec
-policy, then host negotiates SA secret with its peer. After IKE
-installed SA for OUT direction, but before SA for IN direction
-installed, host get ICMP echo reply from its peer. At the time
-being, the SA state for IN direction could be XFRM_STATE_ACQ,
-then the received packet will be dropped after adding
-LINUX_MIB_XFRMINSTATEINVALID statistic.
+This is a generic solution to resolve a specific problem that I have observed.
 
-Adding a LINUX_MIB_XFRMACQUIREERROR statistic counter for such
-scenario when SA in larval state is much clearer for user than
-LINUX_MIB_XFRMINSTATEINVALID which indicates the SA is totally
-bad.
+If the encapsulation of an skb changes then ability to offload checksums
+may also change. In particular it may be necessary to perform checksumming
+in software.
 
-Signed-off-by: Fan Du <fan.du@windriver.com>
+An example of such a case is where a non-GRE packet is received but
+is to be encapsulated and transmitted as GRE.
+
+Another example relates to my proposed support for for packets
+that are non-MPLS when received but MPLS when transmitted.
+
+The cost of this change is that the value of the csum variable may be
+checked when it previously was not. In the case where the csum variable is
+true this is pure overhead. In the case where the csum variable is false it
+leads to software checksumming, which I believe also leads to correct
+checksums in transmitted packets for the cases described above.
+
+Further analysis:
+
+This patch relies on the return value of can_checksum_protocol()
+being correct and in turn the return value of skb_network_protocol(),
+used to provide the protocol parameter of can_checksum_protocol(),
+being correct. It also relies on the features passed to skb_segment()
+and in turn to can_checksum_protocol() being correct.
+
+I believe that this problem has not been observed for VLANs because it
+appears that almost all drivers, the exception being xgbe, set
+vlan_features such that that the checksum offload support for VLAN packets
+is greater than or equal to that of non-VLAN packets.
+
+I wonder if the code in xgbe may be an oversight and the hardware does
+support checksumming of VLAN packets.  If so it may be worth updating the
+vlan_features of the driver as this patch will force such checksums to be
+performed in software rather than hardware.
+
+Signed-off-by: Simon Horman <horms@verge.net.au>
+
 ---
- include/uapi/linux/snmp.h |    1 +
- net/xfrm/xfrm_input.c     |    5 +++++
- net/xfrm/xfrm_proc.c      |    1 +
- 3 files changed, 7 insertions(+), 0 deletions(-)
 
-diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
-index df2e8b4..3d072bf 100644
---- a/include/uapi/linux/snmp.h
-+++ b/include/uapi/linux/snmp.h
-@@ -287,6 +287,7 @@ enum
- 	LINUX_MIB_XFRMOUTPOLERROR,		/* XfrmOutPolError */
- 	LINUX_MIB_XFRMFWDHDRERROR,		/* XfrmFwdHdrError*/
- 	LINUX_MIB_XFRMOUTSTATEINVALID,		/* XfrmOutStateInvalid */
-+	LINUX_MIB_XFRMACQUIREERROR,     /* XfrmAcquireError*/
- 	__LINUX_MIB_XFRMMAX
- };
+Tested using the bnx2 driver.
+
+v3
+* As suggested by Erec Dumazet:
+  - Rename goto label: csum -> perform_csum_check
+
+v2
+Rewrite changelog after further analysis
+---
+ net/core/skbuff.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index af9185d..d629891 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2853,7 +2853,7 @@ struct sk_buff *skb_segment(struct sk_buff *skb, netdev_features_t features)
+ 						 doffset + tnl_hlen);
  
-diff --git a/net/xfrm/xfrm_input.c b/net/xfrm/xfrm_input.c
-index ab2bb42..8884399 100644
---- a/net/xfrm/xfrm_input.c
-+++ b/net/xfrm/xfrm_input.c
-@@ -163,6 +163,11 @@ int xfrm_input(struct sk_buff *skb, int nexthdr, __be32 spi, int encap_type)
- 		skb->sp->xvec[skb->sp->len++] = x;
+ 		if (fskb != skb_shinfo(skb)->frag_list)
+-			continue;
++			goto perform_csum_check;
  
- 		spin_lock(&x->lock);
-+		if (unlikely(x->km.state == XFRM_STATE_ACQ)) {
-+			XFRM_INC_STATS(net, LINUX_MIB_XFRMACQUIREERROR);
-+			goto drop_unlock;
-+		}
-+
- 		if (unlikely(x->km.state != XFRM_STATE_VALID)) {
- 			XFRM_INC_STATS(net, LINUX_MIB_XFRMINSTATEINVALID);
- 			goto drop_unlock;
-diff --git a/net/xfrm/xfrm_proc.c b/net/xfrm/xfrm_proc.c
-index c721b0d..80cd1e5 100644
---- a/net/xfrm/xfrm_proc.c
-+++ b/net/xfrm/xfrm_proc.c
-@@ -44,6 +44,7 @@ static const struct snmp_mib xfrm_mib_list[] = {
- 	SNMP_MIB_ITEM("XfrmOutPolError", LINUX_MIB_XFRMOUTPOLERROR),
- 	SNMP_MIB_ITEM("XfrmFwdHdrError", LINUX_MIB_XFRMFWDHDRERROR),
- 	SNMP_MIB_ITEM("XfrmOutStateInvalid", LINUX_MIB_XFRMOUTSTATEINVALID),
-+	SNMP_MIB_ITEM("XfrmAcquireError", LINUX_MIB_XFRMACQUIREERROR),
- 	SNMP_MIB_SENTINEL
- };
+ 		if (!sg) {
+ 			nskb->ip_summed = CHECKSUM_NONE;
+@@ -2917,6 +2917,7 @@ skip_fraglist:
+ 		nskb->len += nskb->data_len;
+ 		nskb->truesize += nskb->data_len;
  
++perform_csum_check:
+ 		if (!csum) {
+ 			nskb->csum = skb_checksum(nskb, doffset,
+ 						  nskb->len - doffset, 0);
 -- 
-1.7.4.1
+1.8.2.1
