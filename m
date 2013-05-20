@@ -1,57 +1,63 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 6/7] PCI: Make sure VF's driver get attached after
- PF's
-Date: Mon, 20 May 2013 17:07:15 +0100
-Message-ID: <1369066035.4616.6.camel@bwh-desktop.uk.solarflarecom.com>
-References: <1368586102-17661-1-git-send-email-yinghai@kernel.org>
-	 <20130515091248.00002fe3@unknown>
-	 <CAJZOPZ+L1QJdHePd_x9RAoqZKyJAKHo+hA8T1UZoe8=ozT98RA@mail.gmail.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 2/2] can: flexcan: Let device core handle pinctrl
+Date: Mon, 20 May 2013 18:07:26 +0200
+Message-ID: <519A4A3E.1060603@pengutronix.de>
+References: <1369055178-6083-1-git-send-email-fabio.estevam@freescale.com> <1369055178-6083-2-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Greg Rose <gregory.v.rose@intel.com>,
-	Yinghai Lu <yinghai@kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	<linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Sathya Perla <Sathya.Perla@emulex.com>,
-	<netdev@vger.kernel.org>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAJZOPZ+L1QJdHePd_x9RAoqZKyJAKHo+hA8T1UZoe8=ozT98RA@mail.gmail.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2WMOMBANIUEHKROURLMVW"
+Cc: davem@davemloft.net, shawn.guo@linaro.org, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org
+To: Fabio Estevam <fabio.estevam@freescale.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:43080 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756950Ab3ETQHc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 12:07:32 -0400
+In-Reply-To: <1369055178-6083-2-git-send-email-fabio.estevam@freescale.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-05-20 at 15:28 +0300, Or Gerlitz wrote:
-> On Wed, May 15, 2013 at 7:12 PM, Greg Rose <gregory.v.rose@intel.com> wrote:
-> 
-> 
-> > I'm really not a fan of this.  Seems to me the tail is wagging the dog
-> > here.  Fix the driver to work without a PF driver being present.
-> 
-> Greg, Alex,
-> 
-> As I wrote over the V1 thread, currently we can't go and patch mlx4 to
-> use the sysfs API nor defer the call from within our probe function to
-> enable sriov since  this requires some firmware change to allow
-> enabling SRIOV after some  resources are initialized/provisioned.
-> Hence the patch suggested here or any other patch we can agree on
-> which will make sure that VF probing is done only once the PF is ready
-> is preferred, I think.
-> 
-> I wasn't sure to totally follow on the argument that things need to
-> work when the PF is absent in the sense there's no driver instance
-> around over which the PF is probed, if you can explain little better,
-> that would help.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2WMOMBANIUEHKROURLMVW
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-It might be sufficient to return -EPROBE_DEFER from the VF probe
-function when the PF is not yet ready, if you can easily detect that.
+On 05/20/2013 03:06 PM, Fabio Estevam wrote:
+> Since commit ab78029 (drivers/pinctrl: grab default handles from device=
+ core)
+> we can rely on device core for handling pinctrl, so remove=20
+> devm_pinctrl_get_select_default() from the driver.
+>=20
+> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+> Cc: <linux-can@vger.kernel.org>
+> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
 
-Ben.
+applied to linux-can-next.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thx,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+------enig2WMOMBANIUEHKROURLMVW
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlGaSj4ACgkQjTAFq1RaXHNS/QCggw2i9S28cQ+ig6dS3LKWJ/9d
+DG8AoJDAgjYOYCveMf6MfT6sBEetbDJK
+=nIDi
+-----END PGP SIGNATURE-----
+
+------enig2WMOMBANIUEHKROURLMVW--
