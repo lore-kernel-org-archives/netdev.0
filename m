@@ -1,26 +1,64 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net-next v6] rps: selective flow shedding during softnet overflow
-Date: Mon, 20 May 2013 12:08:39 -0400
-Message-ID: <CA+FuTSdDQAVyGoOwyt22BrmE29HSO8NtQ9oguWh7GHf648yG3A@mail.gmail.com>
-References: <20130425.042007.1583080085524610665.davem@davemloft.net>
- <1369058552-2909-1-git-send-email-willemb@google.com> <1369065654.3301.184.camel@edumazet-glaptop>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH v2 net-next 1/4] net: implement support
+ for low latency socket polling
+Date: Mon, 20 May 2013 18:22:27 +0200
+Message-ID: <20130520162227.GD24555@two.firstfloor.org>
+References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
+	<20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f169.google.com ([209.85.223.169]:34266 "EHLO
-	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755788Ab3ETQJK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 12:09:10 -0400
-Received: by mail-ie0-f169.google.com with SMTP id u16so14223033iet.14
-        for <netdev@vger.kernel.org>; Mon, 20 May 2013 09:09:10 -0700 (PDT)
-In-Reply-To: <1369065654.3301.184.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Don Skidmore <donanld.c.skidmore@intel.com>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-> Willemb, are you planning to add a section in
-> Documentation/networking/scaling.txt ?
+> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+> index f98ca63..cfcf0ea 100644
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -19,6 +19,11 @@ ip_no_pmtu_disc - BOOLEAN
+>  	Disable Path MTU Discovery.
+>  	default FALSE
+>  
+> +ip_low_latency_poll - INTEGER
+> +	Low latency busy poll timeout. (needs CONFIG_INET_LL_RX_POLL)
+> +	Approximate time in ms to spin waiting for packets on the device queue.
+> +	default 0
 
-Good point, I should. I will send a follow-on patch documenting the
-mechanism and sysctls.
+Can you document the suggested value here?
+
+Also I would add something like "may increase power usage"
+
+The other thing I would add is a linuxmib statistic counter so that
+we can see the polling happens.
+
+-Andi
+-- 
+ak@linux.intel.com -- Speaking for myself only.
+
+------------------------------------------------------------------------------
+AlienVault Unified Security Management (USM) platform delivers complete
+security visibility with the essential security capabilities. Easily and
+efficiently configure, manage, and operate all of your security controls
+from a single console and one unified framework. Download a free trial.
+http://p.sf.net/sfu/alienvault_d2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
