@@ -1,63 +1,59 @@
-From: Abel Gordon <ABELG@il.ibm.com>
-Subject: Re: provide vhost thread per virtqueue for forwarding scenario
-Date: Mon, 20 May 2013 11:16:03 +0300
-Message-ID: <OF2D1D6163.08173A32-ONC2257B71.002CA3E8-C2257B71.002D6A76@il.ibm.com>
-References: <5872DA217C2FF7488B20897D84F904E7338FC974@nkgeml511-mbx.china.huawei.com> <20130520074300.GA27848@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 net-next 1/4] net: implement support
+ for low latency socket polling
+Date: Mon, 20 May 2013 01:29:47 -0700
+Message-ID: <1369038587.2143.12.camel@joe-AO722>
+References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
+	<20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
+	<20130520.005447.972811583292360876.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: kvm-owner@vger.kernel.org,
-	"nab@linux-iscsi.org" <nab@linux-iscsi.org>,
-	" (netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
-	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
-	Zanghongyong <zanghongyong@huawei.com>,
-	"Zhangjie (HZ)" <zhang.zhangjie@huawei.com>, nyharel@gmail.com,
-	"Muli Ben-Yehuda" <mulix@mulix.org>, orit.was@gmail.com,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Qinchuanyu <qinchuanyu@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e06smtp10.uk.ibm.com ([195.75.94.106]:47997 "EHLO
-	e06smtp10.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755084Ab3ETIQK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 04:16:10 -0400
-Received: from /spool/local
-	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <abelg@il.ibm.com>;
-	Mon, 20 May 2013 09:14:08 +0100
-In-Reply-To: <20130520074300.GA27848@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: willemb@google.com, eliezer.tamir@linux.intel.com,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, linux-kernel@vger.kernel.org,
+	andi@firstfloor.org, donanld.c.skidmore@intel.com, hpa@zytor.com,
+	eliezer@tamir.org.il
+To: David Miller <davem@davemloft.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130520.005447.972811583292360876.davem@davemloft.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+On Mon, 2013-05-20 at 00:54 -0700, David Miller wrote:
+> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+[]
+> >  {
+> >       struct socket *sock;
+> > +     unsigned int poll_result;
+> 
+> Please order local variable declarations from longest line to
+> shortest line.
+
+reverse christmas tree doesn't seem especially valuable or
+sensible for automatics.
+
+I'd rather order by first use or even alphabetical, especially
+with long lists of automatics.
 
 
 
-"Michael S. Tsirkin" <mst@redhat.com> wrote on 20/05/2013 10:43:00 AM:
 
-> >
-> > I did the test with kernel 3.0.27 and qemu-1.4.0, guest is suse11-
-> sp2, and then two vhost thread provide
-> > double tx/rx forwarding performance than signal vhost thread.
-> > The virtqueue of vhost_blk is 1, so it still use one vhost thread
-> without change.
-> >
-> > Is there something wrong in this solution? If not, I would list patch
-later.
-> >
-> > Best regards
-> > King
->
-> Yes, I don't think we want to create threads even more aggressively
-> in all cases. I'm worried about scalability as it is.
-> I think we should explore a flexible approach, use a thread pool
-> (for example, a wq) to share threads between virtqueues,
-> switch to a separate thread only if there's free CPU and existing
-> threads are busy. Hopefully share threads between vhost instances too.
->
-
-Qinchuanyu, you can take a look at the following tech. report
-http://domino.research.ibm.com/library/cyberdig.nsf/1e4115aea78b6e7c85256b360066f0d4/479e3578ed05bfac85257b4200427735!OpenDocument
-
-
-which actually shows the scalability problem Michael mentioned when
-you run multiple vhost-threads.
-
-Regards,
-Abel.
+------------------------------------------------------------------------------
+AlienVault Unified Security Management (USM) platform delivers complete
+security visibility with the essential security capabilities. Easily and
+efficiently configure, manage, and operate all of your security controls
+from a single console and one unified framework. Download a free trial.
+http://p.sf.net/sfu/alienvault_d2d
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
