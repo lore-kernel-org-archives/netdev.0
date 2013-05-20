@@ -1,61 +1,361 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/4] net: implement support for low latency
- socket polling
-Date: Mon, 20 May 2013 08:29:24 -0700
-Message-ID: <1369063764.3301.182.camel@edumazet-glaptop>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
-	 <20130520101601.14133.874.stgit@ladj378.jer.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130520101601.14133.874.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Willem de Bruijn <willemb@google.com>
+Subject: [PATCH net-next v6] rps: selective flow shedding during softnet overflow
+Date: Mon, 20 May 2013 10:02:32 -0400
+Message-ID: <1369058552-2909-1-git-send-email-willemb@google.com>
+References: <20130425.042007.1583080085524610665.davem@davemloft.net>
+Cc: Willem de Bruijn <willemb@google.com>
+To: davem@davemloft.net, eric.dumazet@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ye0-f201.google.com ([209.85.213.201]:56190 "EHLO
+	mail-ye0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755943Ab3ETPuI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 11:50:08 -0400
+Received: by mail-ye0-f201.google.com with SMTP id q9so105630yen.0
+        for <netdev@vger.kernel.org>; Mon, 20 May 2013 08:50:05 -0700 (PDT)
+In-Reply-To: <20130425.042007.1583080085524610665.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-05-20 at 13:16 +0300, Eliezer Tamir wrote:
-> Adds a new ndo_ll_poll method and the code that supports and uses it.
-> This method can be used by low latency applications to busy poll ethernet
-> device queues directly from the socket code. The ip_low_latency_poll sysctl
-> entry controls how many cycles to poll. Set to zero to disable.
-> 
+A cpu executing the network receive path sheds packets when its input
+queue grows to netdev_max_backlog. A single high rate flow (such as a
+spoofed source DoS) can exceed a single cpu processing rate and will
+degrade throughput of other flows hashed onto the same cpu.
 
-This changelog lacks a lot of information, see below.
+This patch adds a more fine grained hashtable. If the netdev backlog
+is above a threshold, IRQ cpus track the ratio of total traffic of
+each flow (using 4096 buckets, configurable). The ratio is measured
+by counting the number of packets per flow over the last 256 packets
+from the source cpu. Any flow that occupies a large fraction of this
+(set at 50%) will see packet drop while above the threshold.
 
-Part of this information was in your 0/4 text, but it wont be included
-in the git tree.
+Tested:
+Setup is a muli-threaded UDP echo server with network rx IRQ on cpu0,
+kernel receive (RPS) on cpu0 and application threads on cpus 2--7
+each handling 20k req/s. Throughput halves when hit with a 400 kpps
+antagonist storm. With this patch applied, antagonist overload is
+dropped and the server processes its complete load.
 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Willem de Bruijn <willemb@google.com>
-> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> ---
-> 
+The patch is effective when kernel receive processing is the
+bottleneck. The above RPS scenario is a extreme, but the same is
+reached with RFS and sufficient kernel processing (iptables, packet
+socket tap, ..).
 
-> +
-> +static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct *napi)
-> +{
-> +	skb->dev_ref = napi;
-> +}
-> +
-> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
-> +{
-> +	sk->dev_ref = skb->dev_ref;
-> +}
+Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-I do not see why it's safe to keep a pointer to a napi object without
-taking a reference, or something to prevent object being removed.
+---
 
-Using a genid might be enough. (some counter incremented every time a
-napi is dismantled)
+Changes
+v6
+- bugfix: lockdep_is_held bug with CONFIG_PROVE_RCU
+  (now built with allyesconfig)
+- kconfig: update to follow format of RPS
+v5
+- depend on RPS, automatically build if RPS is enabled.
+v4
+- remove unnecessary synchronize_rcu after rcu_assign_pointer to NULL ptr
+- simplify lookup of current cpu's softnet
+v3
+- fix race between updates to table_len sysctl during bitmap sysctl.
+- fix NULL pointer dereference on alloc failure.
+v2
+- add fl->num_buckets element to use the actual allocated table length.
+- disable the kconfig option by default, as it is workload specific.
+---
+ include/linux/netdevice.h  |  17 ++++++++
+ net/Kconfig                |  12 ++++++
+ net/core/dev.c             |  48 ++++++++++++++++++++-
+ net/core/net-procfs.c      |  16 ++++++-
+ net/core/sysctl_net_core.c | 104 +++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 194 insertions(+), 3 deletions(-)
 
-Alternatively, use a napi_id instead of a pointer.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index a94a5a0..7dd535d 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1778,6 +1778,19 @@ static inline int unregister_gifconf(unsigned int family)
+ 	return register_gifconf(family, NULL);
+ }
+ 
++#ifdef CONFIG_NET_FLOW_LIMIT
++#define FLOW_LIMIT_HISTORY	(1 << 8)	/* must be ^2 */
++struct sd_flow_limit {
++	u64			count;
++	unsigned int		num_buckets;
++	unsigned int		history_head;
++	u16			history[FLOW_LIMIT_HISTORY];
++	u8			buckets[];
++};
++
++extern int netdev_flow_limit_table_len;
++#endif /* CONFIG_NET_FLOW_LIMIT */
++
+ /*
+  * Incoming packets are placed on per-cpu queues
+  */
+@@ -1807,6 +1820,10 @@ struct softnet_data {
+ 	unsigned int		dropped;
+ 	struct sk_buff_head	input_pkt_queue;
+ 	struct napi_struct	backlog;
++
++#ifdef CONFIG_NET_FLOW_LIMIT
++	struct sd_flow_limit	*flow_limit;
++#endif
+ };
+ 
+ static inline void input_queue_head_incr(struct softnet_data *sd)
+diff --git a/net/Kconfig b/net/Kconfig
+index 2ddc904..08de901 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -259,6 +259,18 @@ config BPF_JIT
+ 	  packet sniffing (libpcap/tcpdump). Note : Admin should enable
+ 	  this feature changing /proc/sys/net/core/bpf_jit_enable
+ 
++config NET_FLOW_LIMIT
++	boolean
++	depends on RPS
++	default y
++	---help---
++	  The network stack has to drop packets when a receive processing CPU's
++	  backlog reaches netdev_max_backlog. If a few out of many active flows
++	  generate the vast majority of load, drop their traffic earlier to
++	  maintain capacity for the other flows. This feature provides servers
++	  with many clients some protection against DoS by a single (spoofed)
++	  flow that greatly exceeds average workload.
++
+ menu "Network testing"
+ 
+ config NET_PKTGEN
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 18e9730..7229bc3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3064,6 +3064,46 @@ static int rps_ipi_queued(struct softnet_data *sd)
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_NET_FLOW_LIMIT
++int netdev_flow_limit_table_len __read_mostly = (1 << 12);
++#endif
++
++static bool skb_flow_limit(struct sk_buff *skb, unsigned int qlen)
++{
++#ifdef CONFIG_NET_FLOW_LIMIT
++	struct sd_flow_limit *fl;
++	struct softnet_data *sd;
++	unsigned int old_flow, new_flow;
++
++	if (qlen < (netdev_max_backlog >> 1))
++		return false;
++
++	sd = &__get_cpu_var(softnet_data);
++
++	rcu_read_lock();
++	fl = rcu_dereference(sd->flow_limit);
++	if (fl) {
++		new_flow = skb_get_rxhash(skb) & (fl->num_buckets - 1);
++		old_flow = fl->history[fl->history_head];
++		fl->history[fl->history_head] = new_flow;
++
++		fl->history_head++;
++		fl->history_head &= FLOW_LIMIT_HISTORY - 1;
++
++		if (likely(fl->buckets[old_flow]))
++			fl->buckets[old_flow]--;
++
++		if (++fl->buckets[new_flow] > (FLOW_LIMIT_HISTORY >> 1)) {
++			fl->count++;
++			rcu_read_unlock();
++			return true;
++		}
++	}
++	rcu_read_unlock();
++#endif
++	return false;
++}
++
+ /*
+  * enqueue_to_backlog is called to queue an skb to a per CPU backlog
+  * queue (may be a remote CPU queue).
+@@ -3073,13 +3113,15 @@ static int enqueue_to_backlog(struct sk_buff *skb, int cpu,
+ {
+ 	struct softnet_data *sd;
+ 	unsigned long flags;
++	unsigned int qlen;
+ 
+ 	sd = &per_cpu(softnet_data, cpu);
+ 
+ 	local_irq_save(flags);
+ 
+ 	rps_lock(sd);
+-	if (skb_queue_len(&sd->input_pkt_queue) <= netdev_max_backlog) {
++	qlen = skb_queue_len(&sd->input_pkt_queue);
++	if (qlen <= netdev_max_backlog && !skb_flow_limit(skb, qlen)) {
+ 		if (skb_queue_len(&sd->input_pkt_queue)) {
+ enqueue:
+ 			__skb_queue_tail(&sd->input_pkt_queue, skb);
+@@ -6269,6 +6311,10 @@ static int __init net_dev_init(void)
+ 		sd->backlog.weight = weight_p;
+ 		sd->backlog.gro_list = NULL;
+ 		sd->backlog.gro_count = 0;
++
++#ifdef CONFIG_NET_FLOW_LIMIT
++		sd->flow_limit = NULL;
++#endif
+ 	}
+ 
+ 	dev_boot_phase = 0;
+diff --git a/net/core/net-procfs.c b/net/core/net-procfs.c
+index 569d355..2bf8329 100644
+--- a/net/core/net-procfs.c
++++ b/net/core/net-procfs.c
+@@ -146,11 +146,23 @@ static void softnet_seq_stop(struct seq_file *seq, void *v)
+ static int softnet_seq_show(struct seq_file *seq, void *v)
+ {
+ 	struct softnet_data *sd = v;
++	unsigned int flow_limit_count = 0;
+ 
+-	seq_printf(seq, "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
++#ifdef CONFIG_NET_FLOW_LIMIT
++	struct sd_flow_limit *fl;
++
++	rcu_read_lock();
++	fl = rcu_dereference(sd->flow_limit);
++	if (fl)
++		flow_limit_count = fl->count;
++	rcu_read_unlock();
++#endif
++
++	seq_printf(seq,
++		   "%08x %08x %08x %08x %08x %08x %08x %08x %08x %08x %08x\n",
+ 		   sd->processed, sd->dropped, sd->time_squeeze, 0,
+ 		   0, 0, 0, 0, /* was fastroute */
+-		   sd->cpu_collision, sd->received_rps);
++		   sd->cpu_collision, sd->received_rps, flow_limit_count);
+ 	return 0;
+ }
+ 
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index cfdb46a..741db5fc 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -87,6 +87,96 @@ static int rps_sock_flow_sysctl(ctl_table *table, int write,
+ }
+ #endif /* CONFIG_RPS */
+ 
++#ifdef CONFIG_NET_FLOW_LIMIT
++static DEFINE_MUTEX(flow_limit_update_mutex);
++
++static int flow_limit_cpu_sysctl(ctl_table *table, int write,
++				 void __user *buffer, size_t *lenp,
++				 loff_t *ppos)
++{
++	struct sd_flow_limit *cur;
++	struct softnet_data *sd;
++	cpumask_var_t mask;
++	int i, len, ret = 0;
++
++	if (!alloc_cpumask_var(&mask, GFP_KERNEL))
++		return -ENOMEM;
++
++	if (write) {
++		ret = cpumask_parse_user(buffer, *lenp, mask);
++		if (ret)
++			goto done;
++
++		mutex_lock(&flow_limit_update_mutex);
++		len = sizeof(*cur) + netdev_flow_limit_table_len;
++		for_each_possible_cpu(i) {
++			sd = &per_cpu(softnet_data, i);
++			cur = rcu_dereference_protected(sd->flow_limit,
++				     lockdep_is_held(&flow_limit_update_mutex));
++			if (cur && !cpumask_test_cpu(i, mask)) {
++				RCU_INIT_POINTER(sd->flow_limit, NULL);
++				synchronize_rcu();
++				kfree(cur);
++			} else if (!cur && cpumask_test_cpu(i, mask)) {
++				cur = kzalloc(len, GFP_KERNEL);
++				if (!cur) {
++					/* not unwinding previous changes */
++					ret = -ENOMEM;
++					goto write_unlock;
++				}
++				cur->num_buckets = netdev_flow_limit_table_len;
++				rcu_assign_pointer(sd->flow_limit, cur);
++			}
++		}
++write_unlock:
++		mutex_unlock(&flow_limit_update_mutex);
++	} else {
++		if (*ppos || !*lenp) {
++			*lenp = 0;
++			goto done;
++		}
++
++		cpumask_clear(mask);
++		rcu_read_lock();
++		for_each_possible_cpu(i) {
++			sd = &per_cpu(softnet_data, i);
++			if (rcu_dereference(sd->flow_limit))
++				cpumask_set_cpu(i, mask);
++		}
++		rcu_read_unlock();
++
++		len = cpumask_scnprintf(buffer, *lenp, mask);
++		*lenp = len + 1;
++		*ppos += len + 1;
++	}
++
++done:
++	free_cpumask_var(mask);
++	return ret;
++}
++
++static int flow_limit_table_len_sysctl(ctl_table *table, int write,
++				       void __user *buffer, size_t *lenp,
++				       loff_t *ppos)
++{
++	unsigned int old, *ptr;
++	int ret;
++
++	mutex_lock(&flow_limit_update_mutex);
++
++	ptr = table->data;
++	old = *ptr;
++	ret = proc_dointvec(table, write, buffer, lenp, ppos);
++	if (!ret && write && !is_power_of_2(*ptr)) {
++		*ptr = old;
++		ret = -EINVAL;
++	}
++
++	mutex_unlock(&flow_limit_update_mutex);
++	return ret;
++}
++#endif /* CONFIG_NET_FLOW_LIMIT */
++
+ static struct ctl_table net_core_table[] = {
+ #ifdef CONFIG_NET
+ 	{
+@@ -180,6 +270,20 @@ static struct ctl_table net_core_table[] = {
+ 		.proc_handler	= rps_sock_flow_sysctl
+ 	},
+ #endif
++#ifdef CONFIG_NET_FLOW_LIMIT
++	{
++		.procname	= "flow_limit_cpu_bitmap",
++		.mode		= 0644,
++		.proc_handler	= flow_limit_cpu_sysctl
++	},
++	{
++		.procname	= "flow_limit_table_len",
++		.data		= &netdev_flow_limit_table_len,
++		.maxlen		= sizeof(int),
++		.mode		= 0644,
++		.proc_handler	= flow_limit_table_len_sysctl
++	},
++#endif /* CONFIG_NET_FLOW_LIMIT */
+ #endif /* CONFIG_NET */
+ 	{
+ 		.procname	= "netdev_budget",
+-- 
+1.8.2.1
