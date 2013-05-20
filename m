@@ -1,64 +1,61 @@
-From: Andi Kleen <andi@firstfloor.org>
-Subject: Re: [PATCH v2 net-next 1/4] net: implement support
- for low latency socket polling
-Date: Mon, 20 May 2013 18:22:27 +0200
-Message-ID: <20130520162227.GD24555@two.firstfloor.org>
-References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
-	<20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
+From: Wei Yang <weiyang@linux.vnet.ibm.com>
+Subject: Re: [PATCH 1/4] e1000e: Remove duplicate assignment of default rx/tx
+ ring size
+Date: Tue, 21 May 2013 00:24:28 +0800
+Message-ID: <20130520162428.GA18520@weiyang.vnet.ibm.com>
+References: <1369037707-27026-1-git-send-email-weiyang@linux.vnet.ibm.com>
+ <1369037707-27026-2-git-send-email-weiyang@linux.vnet.ibm.com>
+ <5199EECC.8040900@gmail.com>
+Reply-To: Wei Yang <weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Don Skidmore <donanld.c.skidmore@intel.com>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp09.au.ibm.com ([202.81.31.142]:54733 "EHLO
+	e23smtp09.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752024Ab3ETQYf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 12:24:35 -0400
+Received: from /spool/local
+	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
+	Tue, 21 May 2013 13:21:59 +1000
+Received: from d23relay03.au.ibm.com (d23relay03.au.ibm.com [9.190.235.21])
+	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 764452BB0050
+	for <netdev@vger.kernel.org>; Tue, 21 May 2013 02:24:31 +1000 (EST)
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+	by d23relay03.au.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4KGONwS20185304
+	for <netdev@vger.kernel.org>; Tue, 21 May 2013 02:24:23 +1000
+Received: from d23av01.au.ibm.com (loopback [127.0.0.1])
+	by d23av01.au.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4KGOUGq011207
+	for <netdev@vger.kernel.org>; Tue, 21 May 2013 02:24:30 +1000
 Content-Disposition: inline
-In-Reply-To: <20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <5199EECC.8040900@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-> index f98ca63..cfcf0ea 100644
-> --- a/Documentation/networking/ip-sysctl.txt
-> +++ b/Documentation/networking/ip-sysctl.txt
-> @@ -19,6 +19,11 @@ ip_no_pmtu_disc - BOOLEAN
->  	Disable Path MTU Discovery.
->  	default FALSE
->  
-> +ip_low_latency_poll - INTEGER
-> +	Low latency busy poll timeout. (needs CONFIG_INET_LL_RX_POLL)
-> +	Approximate time in ms to spin waiting for packets on the device queue.
-> +	default 0
+On Mon, May 20, 2013 at 02:37:16AM -0700, Jeff Kirsher wrote:
+>On 05/20/2013 01:15 AM, Wei Yang wrote:
+>> tx_ring/rx_ring size is assigned in function e1000_alloc_queues(), which is
+>> called by e1000_sw_init() in the early stage of e1000_probe().
+>>
+>> This patch just remove the duplicate assignment of this default ring size
+>> value.
+>>
+>> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+>> Reviewed-by: Gavin Shan <shangw@linux.vnet.ibm.com>
+>> Reviewed-by: Da Yu Qiu <qiudayu@cn.ibm.com>
+>> ---
+>>  drivers/net/ethernet/intel/e1000e/netdev.c |    4 ----
+>>  1 files changed, 0 insertions(+), 4 deletions(-)
+>Thanks, I have added the patch to my queue for e1000e.
 
-Can you document the suggested value here?
+Thanks~
 
-Also I would add something like "may increase power usage"
+>
 
-The other thing I would add is a linuxmib statistic counter so that
-we can see the polling happens.
 
--Andi
+
 -- 
-ak@linux.intel.com -- Speaking for myself only.
-
-------------------------------------------------------------------------------
-AlienVault Unified Security Management (USM) platform delivers complete
-security visibility with the essential security capabilities. Easily and
-efficiently configure, manage, and operate all of your security controls
-from a single console and one unified framework. Download a free trial.
-http://p.sf.net/sfu/alienvault_d2d
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Richard Yang
+Help you, Help me
