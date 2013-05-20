@@ -1,107 +1,44 @@
-From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next V2] xen-netfront: avoid leaking
- resources when setup_netfront fails
-Date: Mon, 20 May 2013 15:24:12 -0400
-Message-ID: <20130520192412.GA29728@phenom.dumpdata.com>
-References: <1369047912-31901-1-git-send-email-wei.liu2@citrix.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/4] net: implement support for low latency
+ socket polling
+Date: Mon, 20 May 2013 12:34:40 -0700 (PDT)
+Message-ID: <20130520.123440.567878984450788905.davem@davemloft.net>
+References: <20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
+	<20130520.005447.972811583292360876.davem@davemloft.net>
+	<5199EF6F.9040008@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org,
-	ian.campbell@citrix.com
-To: Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25944 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754154Ab3ETTYY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 15:24:24 -0400
-Content-Disposition: inline
-In-Reply-To: <1369047912-31901-1-git-send-email-wei.liu2@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
+	e1000-devel@lists.sourceforge.net, willemb@google.com,
+	andi@firstfloor.org, hpa@zytor.com, eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5199EF6F.9040008@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 20, 2013 at 12:05:12PM +0100, Wei Liu wrote:
-> We should correctly free related resources (grant ref, memory page, evtchn)
-> when setup_netfront fails.
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Mon, 20 May 2013 12:39:59 +0300
 
-Looks ok to me.
+> On 20/05/2013 10:54, David Miller wrote:
+>> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+>> Date: Sun, 19 May 2013 13:25:33 +0300
+>>
+>>> +#else /* CONFIG_INET_LL_RX_FLUSH */
+>>> +
+>>> +#define sk_valid_ll(sk) 0
+>>> +#define sk_poll_ll(sk, nonblock) do {} while (0)
+>>> +#define skb_mark_ll(napi, skb) do {} while (0)
+>>> +#define sk_mark_ll(sk, skb) do {} while (0)
+>>
+>> Make these inline functions too, so that even if
+>> CONFIG_INET_LL_RX_POLL is disabled, the arguments and return values
+>> are still properly type checked.
 > 
-> Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-> ---
->  drivers/net/xen-netfront.c |   33 +++++++++++++++++++++------------
->  1 file changed, 21 insertions(+), 12 deletions(-)
+> Is this what you had in mind?
 > 
-> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-> index 1db10141..5770e3b 100644
-> --- a/drivers/net/xen-netfront.c
-> +++ b/drivers/net/xen-netfront.c
-> @@ -1532,40 +1532,49 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
->  	FRONT_RING_INIT(&info->tx, txs, PAGE_SIZE);
->  
->  	err = xenbus_grant_ring(dev, virt_to_mfn(txs));
-> -	if (err < 0) {
-> -		free_page((unsigned long)txs);
-> -		goto fail;
-> -	}
-> +	if (err < 0)
-> +		goto grant_tx_ring_fail;
->  
->  	info->tx_ring_ref = err;
->  	rxs = (struct xen_netif_rx_sring *)get_zeroed_page(GFP_NOIO | __GFP_HIGH);
->  	if (!rxs) {
->  		err = -ENOMEM;
->  		xenbus_dev_fatal(dev, err, "allocating rx ring page");
-> -		goto fail;
-> +		goto alloc_rx_ring_fail;
->  	}
->  	SHARED_RING_INIT(rxs);
->  	FRONT_RING_INIT(&info->rx, rxs, PAGE_SIZE);
->  
->  	err = xenbus_grant_ring(dev, virt_to_mfn(rxs));
-> -	if (err < 0) {
-> -		free_page((unsigned long)rxs);
-> -		goto fail;
-> -	}
-> +	if (err < 0)
-> +		goto grant_rx_ring_fail;
->  	info->rx_ring_ref = err;
->  
->  	err = xenbus_alloc_evtchn(dev, &info->evtchn);
->  	if (err)
-> -		goto fail;
-> +		goto alloc_evtchn_fail;
->  
->  	err = bind_evtchn_to_irqhandler(info->evtchn, xennet_interrupt,
->  					0, netdev->name, netdev);
->  	if (err < 0)
-> -		goto fail;
-> +		goto bind_fail;
->  	netdev->irq = err;
->  	return 0;
->  
-> - fail:
-> +	/* If we fail to setup netfront, it is safe to just revoke access to
-> +	 * granted pages because backend is not accessing it at this point.
-> +	 */
-> +bind_fail:
-> +	xenbus_free_evtchn(dev, info->evtchn);
-> +alloc_evtchn_fail:
-> +	gnttab_end_foreign_access_ref(info->rx_ring_ref, 0);
-> +grant_rx_ring_fail:
-> +	free_page((unsigned long)rxs);
-> +alloc_rx_ring_fail:
-> +	gnttab_end_foreign_access_ref(info->tx_ring_ref, 0);
-> +grant_tx_ring_fail:
-> +	free_page((unsigned long)txs);
-> +fail:
->  	return err;
->  }
->  
-> -- 
-> 1.7.10.4
-> 
-> 
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xen.org
-> http://lists.xen.org/xen-devel
-> 
+> static inline bool sk_valid_ll(struct sock *sk)
+
+Yes.
