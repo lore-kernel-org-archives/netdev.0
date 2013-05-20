@@ -1,79 +1,36 @@
-From: "Keller, Jacob E" <jacob.e.keller@intel.com>
-Subject: RE: [PATCH 15/15] ptp: PTP_1588_CLOCK_PCH depends on x86
-Date: Mon, 20 May 2013 22:31:02 +0000
-Message-ID: <02874ECE860811409154E81DA85FBB58564EC215@ORSMSX104.amr.corp.intel.com>
-References: <1367936303-13386-1-git-send-email-jslaby@suse.cz>
- <1367936303-13386-15-git-send-email-jslaby@suse.cz>
- <20130507192938.GA3599@netboy> <51924819.3060907@suse.cz>
- <20130514181234.GH31561@decadent.org.uk>
+From: "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Subject: Re: [PATCH v2 net-next 0/4] net: low latency Ethernet device
+ polling
+Date: Mon, 20 May 2013 15:44:24 -0700 (PDT)
+Message-ID: <alpine.LRH.2.03.1305201544180.10213@intel.com>
+References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com> <CAJZOPZJzVykmBH5FFQBVuztAFGRMOPT-GKABiewG6b4pnKVUeA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Richard Cochran <richardcochran@gmail.com>,
-	Jiri Slaby <jirislaby@gmail.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Jeff Mahoney <jeffm@suse.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>, Jiri Slaby <jslaby@suse.cz>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Dave Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donanld.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130514181234.GH31561@decadent.org.uk>
-Content-Language: en-US
+In-Reply-To: <CAJZOPZJzVykmBH5FFQBVuztAFGRMOPT-GKABiewG6b4pnKVUeA@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-
-> owner@vger.kernel.org] On Behalf Of Ben Hutchings
-> Sent: Tuesday, May 14, 2013 11:13 AM
-> To: Jiri Slaby
-> Cc: Richard Cochran; Jiri Slaby; linux-kernel@vger.kernel.org; Jeff
-> Mahoney; netdev@vger.kernel.org
-> Subject: Re: [PATCH 15/15] ptp: PTP_1588_CLOCK_PCH depends on x86
+On Sun, 19 May 2013, Or Gerlitz wrote:
+> On Sun, May 19, 2013 at 1:25 PM, Eliezer Tamir
+> <eliezer.tamir@linux.intel.com> wrote:
+> > This is an updated version of the code we posted on February.
 > 
-> On Tue, May 14, 2013 at 04:20:09PM +0200, Jiri Slaby wrote:
-> > On 05/07/2013 09:29 PM, Richard Cochran wrote:
-> > > On Tue, May 07, 2013 at 04:18:23PM +0200, Jiri Slaby wrote:
-> > >> From: Jeff Mahoney <jeffm@suse.com>
-> > >>
-> > >> The PCH EG20T is only compatible with Intel Atom processors so it
-> > >> should depend on x86.
-> > >
-> > > This patch has been submitted before,
-> > >
-> > >    https://patchwork.kernel.org/patch/2069071/
-> > >
-> > > and at that time the reaction was that it is good to have drivers
-> > > cross-compiled, if only for code quality reasons.
-> >
-> > Hmm, then it depends whether the kernel is for users or for
-> developers.
-> > I, as a user, do not really want to compile drivers with allmodconfig
-> > which I have no way to load/use.
-> >
-> > And allmodconfig is basically what we, users (SUSE distributors in this
-> > case) do. So having this driver being built makes our life harder (in
-> > the meaning we have to have specific rules about disabling unwanted
-> > drivers from configs).
-> 
-> Wearing my Debian hat, I agree with this.  Perhaps we could define a
-> CONFIG_BUILD_TEST symbol for people who want to do that, and then
-> make drivers for hardware that's only found in x86 systems (for
-> example) depend on X86 || BUILD_TEST.
-> 
-> Ben.
-> 
+> Last time you've placed a copy of the patchset in the rfc branch of
+> git://github.com/jbrandeb/lls.git  - can you repost there V2 too?
 
-I agree with this.
+done, sorry for the dup, the first post got html munged by gmail web 
+interface.
 
-- Jake Keller
-
-> > And, developers should have a testbed where they build 32bit configs.
-> > And we actually have that for -next AFAIU.
-> > --
-> Ben Hutchings
-> We get into the habit of living before acquiring the habit of thinking.
->                                                               - Albert Camus
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+the latest set (the v3 changes) were posted to
+the rfcv2 branch on git://github.com/jbrandeb/lls.git
