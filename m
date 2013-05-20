@@ -1,43 +1,59 @@
-From: Petko Manolov <petkan@nucleusys.com>
-Subject: Re: [PATCH 1/5] drivers: net: usb: rtl8150: bug fixing and cleanup
-Date: Mon, 20 May 2013 10:49:46 +0300 (EEST)
-Message-ID: <alpine.DEB.2.02.1305201049210.3374@fry.nucleusys.com>
-References: <alpine.DEB.2.02.1305201008190.4719@fry.nucleusys.com> <20130520.001252.838327096610376306.davem@davemloft.net> <alpine.DEB.2.02.1305201014220.4719@fry.nucleusys.com> <20130520.004324.1700573748194578434.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 1/4] net: implement support for low latency
+ socket polling
+Date: Mon, 20 May 2013 00:54:47 -0700 (PDT)
+Message-ID: <20130520.005447.972811583292360876.davem@davemloft.net>
+References: <20130519102525.12527.83301.stgit@ladj378.jer.intel.com>
+	<20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: romieu@fr.zoreil.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, donanld.c.skidmore@intel.com,
+	e1000-devel@lists.sourceforge.net, willemb@google.com,
+	andi@firstfloor.org, hpa@zytor.com, eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130520.004324.1700573748194578434.davem@davemloft.net>
+In-Reply-To: <20130519102533.12527.12991.stgit@ladj378.jer.intel.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 May 2013, David Miller wrote:
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Sun, 19 May 2013 13:25:33 +0300
 
-> From: Petko Manolov <petkan@nucleusys.com>
-> Date: Mon, 20 May 2013 10:18:17 +0300 (EEST)
-> 
-> > On Mon, 20 May 2013, David Miller wrote:
-> > 
-> >> From: Petko Manolov <petkan@nucleusys.com>
-> >> Date: Mon, 20 May 2013 10:09:00 +0300 (EEST)
-> >> 
-> >> > What about the .c/.h split?
-> >> 
-> >> I have no strong opinion either way.
-> > 
-> > OK, so i'll prepare new patch series that coalesce my original patch #1 
-> > and #2, and apply the Francois suggestion about using the generic 
-> > netdev_alloc_skb_ip_align() in the interrupt path.
-> > 
-> > Which tree would you want me to diff against?
-> 
-> As has been explained to you already, cleanups belong in 'net-next',
-> bug fixes belong in 'net'.
-> 
-> If you series has both, you have to submit them separately.  Submit
-> the bug fixes to 'net', then the next time I merge 'net' into 'net-next'
-> you can submit the cleanups on top against 'net-next'.
+> +#ifndef _LINUX_NET_LL_POLL_H
+> +#define _LINUX_NET_LL_POLL_H
+> +#ifdef CONFIG_INET_LL_RX_POLL
 
-Got it.  Thanks.
+Please put an empty line before the final ifdef test here.
+
+> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+> +{
+> +		sk->dev_ref = skb->dev_ref;
+	^^^
+
+One tab too many.
+
+> +#else /* CONFIG_INET_LL_RX_FLUSH */
+> +
+> +#define sk_valid_ll(sk) 0
+> +#define sk_poll_ll(sk, nonblock) do {} while (0)
+> +#define skb_mark_ll(napi, skb) do {} while (0)
+> +#define sk_mark_ll(sk, skb) do {} while (0)
+
+Make these inline functions too, so that even if
+CONFIG_INET_LL_RX_POLL is disabled, the arguments and return values
+are still properly type checked.
+
+>  {
+>  	struct socket *sock;
+> +	unsigned int poll_result;
+
+Please order local variable declarations from longest line to
+shortest line.
+
+> +	    !(poll_result & (POLLRDNORM | POLLERR | POLLRDHUP | POLLHUP))) {
+> +
+> +		struct sock *sk = sock->sk;
+
+Please remove the empty line before the variable declaration.
