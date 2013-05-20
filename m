@@ -1,51 +1,43 @@
 From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Mon, 20 May 2013 15:23:21 +0300
-Message-ID: <CAJZOPZKN02BV_3+_yJSimmLXCckgmHObYNw3z8t0vtWRz-Nf-w@mail.gmail.com>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
-	<1368498506-25857-7-git-send-email-yinghai@kernel.org>
-	<0EE9A1CDC8D6434DB00095CD7DB873462CFB0E4E@MTLDAG01.mtl.com>
-	<CAE9FiQVn4F+dTrQn0xsg-6QY9+HwbnJR=1CrjdoZkmF_LMrgpg@mail.gmail.com>
-	<CAJZOPZLjdALP4jkLo6p787jaPx=dkKj7+AmCr9+mgJN3z_xBxQ@mail.gmail.com>
-	<CAE9FiQWvYQRCZjDx-Kh16nKfjfS=pyu8foJR+wWYS-x8DUZteg@mail.gmail.com>
-	<CAJZOPZLVc=V-ac8_A2JB_r17TRyCMoDpe1MXN6WcjMR4SO6n1Q@mail.gmail.com>
-	<20130516175350.GB7171@mtj.dyndns.org>
-	<CAE9FiQWPNt42gsRwYqQwJM6VpZ-UF2+r-64p_aS3X7GdeVbXCA@mail.gmail.com>
+Subject: Re: [PATCH v2 6/7] PCI: Make sure VF's driver get attached after PF's
+Date: Mon, 20 May 2013 15:28:39 +0300
+Message-ID: <CAJZOPZ+L1QJdHePd_x9RAoqZKyJAKHo+hA8T1UZoe8=ozT98RA@mail.gmail.com>
+References: <1368586102-17661-1-git-send-email-yinghai@kernel.org>
+	<20130515091248.00002fe3@unknown>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Tejun Heo <tj@kernel.org>, "Michael S. Tsirkin" <mst@redhat.com>,
-	Yan Burman <yanb@mellanox.com>,
+Cc: Yinghai Lu <yinghai@kernel.org>,
 	Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jack Morgenstein <jackm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>
-To: Yinghai Lu <yinghai@kernel.org>
+	Gu Zheng <guz.fnst@cn.fujitsu.com>, linux-pci@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Alexander Duyck <alexander.h.duyck@intel.com>,
+	Yan Burman <yanb@mellanox.com>,
+	Sathya Perla <Sathya.Perla@emulex.com>, netdev@vger.kernel.org
+To: Greg Rose <gregory.v.rose@intel.com>
 Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <CAE9FiQWPNt42gsRwYqQwJM6VpZ-UF2+r-64p_aS3X7GdeVbXCA@mail.gmail.com>
+In-Reply-To: <20130515091248.00002fe3@unknown>
 Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 16, 2013 at 9:36 PM, Yinghai Lu <yinghai@kernel.org> wrote:
-> On Thu, May 16, 2013 at 10:53 AM, Tejun Heo <tj@kernel.org> wrote:
->> On Thu, May 16, 2013 at 12:56:42AM -0400, Or Gerlitz wrote:
+On Wed, May 15, 2013 at 7:12 PM, Greg Rose <gregory.v.rose@intel.com> wrote:
 
->>>>> Please note that this whole lockdep warning was identified as false
->>>>> positive by Tejun http://www.spinics.net/lists/linux-pci/msg21568.html
 
->>>> No, at least one time, I noticed there is one real hang happens.
+> I'm really not a fan of this.  Seems to me the tail is wagging the dog
+> here.  Fix the driver to work without a PF driver being present.
 
->>> Tejun, so what your thinking here?
+Greg, Alex,
 
->> Can't really tell much without more details.  Yinghai, do you have any
->> logs from such hang?  Are you sure it's from this?
+As I wrote over the V1 thread, currently we can't go and patch mlx4 to
+use the sysfs API nor defer the call from within our probe function to
+enable sriov since  this requires some firmware change to allow
+enabling SRIOV after some  resources are initialized/provisioned.
+Hence the patch suggested here or any other patch we can agree on
+which will make sure that VF probing is done only once the PF is ready
+is preferred, I think.
 
-> I did not keep that log.
-> Will remove AlexD patch, try several times to see if I can duplicate it again.
-
-Any news here?
+I wasn't sure to totally follow on the argument that things need to
+work when the PF is absent in the sense there's no driver instance
+around over which the PF is probed, if you can explain little better,
+that would help.
 
 Or.
