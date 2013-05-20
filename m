@@ -1,48 +1,69 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v2 6/7] PCI: Make sure VF's driver get attached after
- PF's
-Date: Mon, 20 May 2013 15:58:37 +0300
-Message-ID: <519A1DFD.5080809@linux.intel.com>
-References: <1368586102-17661-1-git-send-email-yinghai@kernel.org> <20130515091248.00002fe3@unknown> <CAJZOPZ+L1QJdHePd_x9RAoqZKyJAKHo+hA8T1UZoe8=ozT98RA@mail.gmail.com>
+From: Fabio Estevam <fabio.estevam@freescale.com>
+Subject: [PATCH 1/2] fec: Let device core handle pinctrl
+Date: Mon, 20 May 2013 10:06:17 -0300
+Message-ID: <1369055178-6083-1-git-send-email-fabio.estevam@freescale.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Greg Rose <gregory.v.rose@intel.com>,
-	Yinghai Lu <yinghai@kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>, linux-pci@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Yan Burman <yanb@mellanox.com>,
-	Sathya Perla <Sathya.Perla@emulex.com>, netdev@vger.kernel.org
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAJZOPZ+L1QJdHePd_x9RAoqZKyJAKHo+hA8T1UZoe8=ozT98RA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <shawn.guo@linaro.org>, <netdev@vger.kernel.org>,
+	Fabio Estevam <fabio.estevam@freescale.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [65.55.88.13] ([65.55.88.13]:36359 "EHLO
+	tx2outboundpool.messaging.microsoft.com" rhost-flags-FAIL-FAIL-OK-OK)
+	by vger.kernel.org with ESMTP id S1756812Ab3ETNHb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 09:07:31 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 20/05/2013 15:28, Or Gerlitz wrote:
-> On Wed, May 15, 2013 at 7:12 PM, Greg Rose <gregory.v.rose@intel.com> wrote:
->
->
->> I'm really not a fan of this.  Seems to me the tail is wagging the dog
->> here.  Fix the driver to work without a PF driver being present.
->
-> Greg, Alex,
->
-> As I wrote over the V1 thread, currently we can't go and patch mlx4 to
-> use the sysfs API nor defer the call from within our probe function to
-> enable sriov since  this requires some firmware change to allow
-> enabling SRIOV after some  resources are initialized/provisioned.
-> Hence the patch suggested here or any other patch we can agree on
-> which will make sure that VF probing is done only once the PF is ready
-> is preferred, I think.
->
-Maybe do the following:
-1. split the VF PCI IDs into a separate PCI_ID device table.
-2. have two pci_driver structs, one for all of the PF IDS and one with 
-the VF IDS.
-3. only register the first pci_driver struct from mlx4_init().
-4. register the one for the VFs once your PFs are all up and ready.
+Since commit ab78029 (drivers/pinctrl: grab default handles from device core)
+we can rely on device core for handling pinctrl, so remove 
+devm_pinctrl_get_select_default() from the driver.
 
-Eliezer
+Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 9 ---------
+ 1 file changed, 9 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 570dfad..e277860 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -53,7 +53,6 @@
+ #include <linux/of_device.h>
+ #include <linux/of_gpio.h>
+ #include <linux/of_net.h>
+-#include <linux/pinctrl/consumer.h>
+ #include <linux/regulator/consumer.h>
+ 
+ #include <asm/cacheflush.h>
+@@ -1841,7 +1840,6 @@ fec_probe(struct platform_device *pdev)
+ 	struct resource *r;
+ 	const struct of_device_id *of_id;
+ 	static int dev_id;
+-	struct pinctrl *pinctrl;
+ 	struct regulator *reg_phy;
+ 
+ 	of_id = of_match_device(fec_dt_ids, &pdev->dev);
+@@ -1891,12 +1889,6 @@ fec_probe(struct platform_device *pdev)
+ 		fep->phy_interface = ret;
+ 	}
+ 
+-	pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+-	if (IS_ERR(pinctrl)) {
+-		ret = PTR_ERR(pinctrl);
+-		goto failed_pin;
+-	}
+-
+ 	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
+ 	if (IS_ERR(fep->clk_ipg)) {
+ 		ret = PTR_ERR(fep->clk_ipg);
+@@ -1996,7 +1988,6 @@ failed_regulator:
+ 	clk_disable_unprepare(fep->clk_ipg);
+ 	clk_disable_unprepare(fep->clk_enet_out);
+ 	clk_disable_unprepare(fep->clk_ptp);
+-failed_pin:
+ failed_clk:
+ failed_ioremap:
+ 	free_netdev(ndev);
+-- 
+1.8.1.2
