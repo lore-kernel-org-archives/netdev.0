@@ -1,31 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: GRE+XFRM+GSO crashes
-Date: Tue, 21 May 2013 15:46:15 -0700
-Message-ID: <1369176375.3301.259.camel@edumazet-glaptop>
-References: <20130520094127.546a2f3e@vostro>
-	 <CALnjE+qgOQUDm_gAuygpDE5VH23YS0i3QyQuCVPhgu15=jwXWw@mail.gmail.com>
-	 <20130521110132.37dc2665@vostro>
-	 <CALnjE+qOf2pxzP0-7s4AsSNDbG5M5s8bXFDqYoD-5NgmtKYixA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f43.google.com ([209.85.219.43]:50528 "EHLO
-	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752407Ab3EUWqR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 18:46:17 -0400
-Received: by mail-oa0-f43.google.com with SMTP id o6so1618420oag.2
-        for <netdev@vger.kernel.org>; Tue, 21 May 2013 15:46:17 -0700 (PDT)
-In-Reply-To: <CALnjE+qOf2pxzP0-7s4AsSNDbG5M5s8bXFDqYoD-5NgmtKYixA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Huewe <peterhuewe@gmx.de>
+Subject: [PATCH 10/19] net/ethernet/broadcom/bnx2: Use module_pci_driver to register driver
+Date: Wed, 22 May 2013 00:58:05 +0200
+Message-ID: <1369177096-19674-10-git-send-email-peterhuewe@gmx.de>
+References: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
+Cc: Peter Huewe <peterhuewe@gmx.de>, Michael Chan <mchan@broadcom.com>,
+	netdev@vger.kernel.org (open list:BROADCOM BNX2 GIG...),
+	linux-kernel@vger.kernel.org (open list)
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-21 at 15:32 -0700, Pravin Shelar wrote:
+Removing some boilerplate by using module_pci_driver instead of calling
+register and unregister in the otherwise empty init/exit functions.
 
-> OK. I am still not able to reproduce it, Can you try attached patch?
-> if that works, I will send out proper patch.
+Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
+---
+ drivers/net/ethernet/broadcom/bnx2.c | 16 +---------------
+ 1 file changed, 1 insertion(+), 15 deletions(-)
 
-strange, dev_gso_segment() doesnt change skb->cb[]
-only dev_gso_segment() does.
+diff --git a/drivers/net/ethernet/broadcom/bnx2.c b/drivers/net/ethernet/broadcom/bnx2.c
+index 5d20449..1a1b23e 100644
+--- a/drivers/net/ethernet/broadcom/bnx2.c
++++ b/drivers/net/ethernet/broadcom/bnx2.c
+@@ -8764,18 +8764,4 @@ static struct pci_driver bnx2_pci_driver = {
+ 	.err_handler	= &bnx2_err_handler,
+ };
+ 
+-static int __init bnx2_init(void)
+-{
+-	return pci_register_driver(&bnx2_pci_driver);
+-}
+-
+-static void __exit bnx2_cleanup(void)
+-{
+-	pci_unregister_driver(&bnx2_pci_driver);
+-}
+-
+-module_init(bnx2_init);
+-module_exit(bnx2_cleanup);
+-
+-
+-
++module_pci_driver(bnx2_pci_driver);
+-- 
+1.8.1.5
