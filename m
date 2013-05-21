@@ -1,120 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug#708995: iptables firewall is dropping GRO'd packets
-Date: Mon, 20 May 2013 19:03:10 -0700
-Message-ID: <1369101790.3301.206.camel@edumazet-glaptop>
-References: <20130520044850.31127.24148.reportbug@shadbolt.decadent.org.uk>
-	 <1369096123.3469.127.camel@deadeye.wl.decadent.org.uk>
-	 <1369097605.3301.203.camel@edumazet-glaptop>
+From: Shuah Khan <shuah.kh@samsung.com>
+Subject: [RFC PATCH] net/wireless/mwifiex/pcie: Convert to dev_pm_ops from
+ legacy pm ops
+Date: Tue, 21 May 2013 02:33:09 +0000
+Message-ID: <1369103589.12093.4.camel@lorien>
+Reply-To: Shuah Khan <shuah.kh@samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, 708995@bugs.debian.org,
-	Jiri Pirko <jiri@resnulli.us>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f46.google.com ([209.85.160.46]:40906 "EHLO
-	mail-pb0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755567Ab3EUCDM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 22:03:12 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so103612pbb.19
-        for <netdev@vger.kernel.org>; Mon, 20 May 2013 19:03:11 -0700 (PDT)
-In-Reply-To: <1369097605.3301.203.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"shuahkhan@gmail.com" <shuahkhan@gmail.com>,
+	Shuah Khan <shuah.kh@samsung.com>
+To: "bzhao@marvell.com" <bzhao@marvell.com>,
+	"linville@tuxdriver.com" <linville@tuxdriver.com>,
+	"rafael.j.wysocki@intel.com" <rafael.j.wysocki@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Content-ID: <FB8F19BA2BA64C4B9F1209B2F32034F5@sisa.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-05-20 at 17:53 -0700, Eric Dumazet wrote:
-> On Tue, 2013-05-21 at 01:28 +0100, Ben Hutchings wrote:
-> > I'm seeing packet loss when forwarding from a LAN to PPP, whenever GRO
-> > kicks in on the LAN interface.
-> > 
-> > On Mon, 2013-05-20 at 05:48 +0100, Ben Hutchings wrote:
-> > [...]
-> > > The Windows system is connected to the LAN interface (int0).  Turning
-> > > off GRO on this interface works around the problem.  But since GRO is
-> > > on by default, it clearly ought to work properly with iptables.
-> > > 
-> > > I'll try to work out where the drops are occurring, but the
-> > > perf net_dropmonitor script is also broken...
-> > [...]
-> > 
-> > I've fixed that script and now I can see that it's not iptables but
-> > tbf_enqueue() that is dropping the GRO'd packets.  I do traffic-shaping
-> > on the PPP link like this:
-> > 
-> > tc qdisc replace dev ppp0 root tbf rate 420kbit latency 50ms burst 1540
-> > 
-> > The local TCP will never generate an skb larger than the burst size
-> > because it knows the PPP interface can't do GSO or TSO.  And the wifi
-> > network doesn't seem to be fast enough for GRO to have much of an
-> > effect.  But a peer on the wired network can trigger GRO and this
-> > produces an skb that exceeds the burst size.
-> > 
-> > Is this a bug in sch_tbf, or should I accept it as a limitation?  It
-> > seems like it should do GSO on entry to the queue if necessary.
-> > 
-> 
-> This has been discussed on netdev this year.
-> 
-> Jiri Pirko was working on this. 
-> 
-> (thread :  tbf: take into account gso skbs)
-
-I have tested the following (net-next) patch
-
-diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
-index c8388f3..a132620 100644
---- a/net/sched/sch_tbf.c
-+++ b/net/sched/sch_tbf.c
-@@ -116,14 +116,50 @@ struct tbf_sched_data {
- 	struct qdisc_watchdog watchdog;	/* Watchdog timer */
- };
- 
-+
-+static int tbf_segment(struct sk_buff *skb, struct Qdisc *sch, struct Qdisc *child)
-+{
-+	struct sk_buff *segs, *nskb;
-+	netdev_features_t features = netif_skb_features(skb);
-+	int ret, nb;
-+
-+	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
-+
-+	if (IS_ERR_OR_NULL(segs))
-+		return qdisc_reshape_fail(skb, sch);
-+
-+	nb = 0;
-+	while (segs) {
-+		nskb = segs->next;
-+		segs->next = NULL;
-+		qdisc_skb_cb(segs)->pkt_len = segs->len;
-+
-+		ret = qdisc_enqueue(segs, child);
-+		if (ret != NET_XMIT_SUCCESS) {
-+			if (net_xmit_drop_count(ret))
-+				sch->qstats.drops++;
-+		} else {
-+			nb++;
-+		}
-+		segs = nskb;
-+	}
-+	sch->q.qlen += nb;
-+	if (nb > 1)
-+		qdisc_tree_decrease_qlen(sch, 1 - nb);
-+	consume_skb(skb);
-+	return nb > 0 ? NET_XMIT_SUCCESS : NET_XMIT_DROP;
-+}
-+
- static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- {
- 	struct tbf_sched_data *q = qdisc_priv(sch);
- 	int ret;
- 
--	if (qdisc_pkt_len(skb) > q->max_size)
-+	if (qdisc_pkt_len(skb) > q->max_size) {
-+		if (skb_is_gso(skb))
-+			return tbf_segment(skb, sch, q->qdisc);
- 		return qdisc_reshape_fail(skb, sch);
--
-+	}
- 	ret = qdisc_enqueue(skb, q->qdisc);
- 	if (ret != NET_XMIT_SUCCESS) {
- 		if (net_xmit_drop_count(ret))
+Q29udmVydCB0aGUgZHJpdmVyIHRvIHVzZSBkZXZfcG1fb3BzIGZvciBwb3dlciBtYW5hZ2VtZW50
+IGFuZCByZW1vdmUgTGVnYWN5IFBNDQpoYW5kbGluZy4gVGhpcyBjaGFuZ2UgcmUtdXNlcyBleGlz
+dGluZyBzdXNwZW5kIGFuZCByZXN1bWUgaW50ZXJmYWNlcyBmb3IgDQpkZXZfcG1fb3BzLg0KDQpT
+aWduZWQtb2ZmLWJ5OiBTaHVhaCBLaGFuIDxzaHVhaC5raEBzYW1zdW5nLmNvbT4NCkNjOiBTaHVh
+aCBLaGFuIDxzaHVhaGtoYW5AZ21haWwuY29tPg0KU3VnZ2VzdGVkLWJ5OiByYWZhZWwuai53eXNv
+Y2tpQGludGVsLmNvbQ0KLS0tDQoNClJhZmFlbCwNCg0KVGhpcyBpcyB0aGUgZmlyc3QgZHJpdmVy
+IHBhdGNoIHRvIGNvbnZlcnQgZHJpdmVycyB0byB1c2UgZGV2X3BtX29wcyBmb3INCnBvd2VyIG1h
+bmFnZW1lbnQuIFBsZWFzZSByZXZpZXcgZm9yIHRoZSBhcHByb2FjaCBhbmQgbWFrZSBzdWdnZXN0
+aW9ucyBmb3INCmltcHJvdmVtZW50Lg0KDQp0aGFua3MsDQotLSBTaHVhaA0KDQogZHJpdmVycy9u
+ZXQvd2lyZWxlc3MvbXdpZmlleC9wY2llLmMgfCAgIDMzICsrKysrKysrKysrKysrKysrKysrKysr
+KysrKy0tLS0tLQ0KIDEgZmlsZSBjaGFuZ2VkLCAyNyBpbnNlcnRpb25zKCspLCA2IGRlbGV0aW9u
+cygtKQ0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvd2lyZWxlc3MvbXdpZmlleC9wY2llLmMg
+Yi9kcml2ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4L3BjaWUuYw0KaW5kZXggMjBjOWM0Yy4uYTI3
+MWM2NCAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL213aWZpZXgvcGNpZS5jDQor
+KysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9td2lmaWV4L3BjaWUuYw0KQEAgLTg1LDcgKzg1LDcg
+QEAgc3RhdGljIGJvb2wgbXdpZmlleF9wY2llX29rX3RvX2FjY2Vzc19odyhzdHJ1Y3QgbXdpZmll
+eF9hZGFwdGVyICphZGFwdGVyKQ0KICAqIElmIGFscmVhZHkgbm90IHN1c3BlbmRlZCwgdGhpcyBm
+dW5jdGlvbiBhbGxvY2F0ZXMgYW5kIHNlbmRzIGEgaG9zdA0KICAqIHNsZWVwIGFjdGl2YXRlIHJl
+cXVlc3QgdG8gdGhlIGZpcm13YXJlIGFuZCB0dXJucyBvZmYgdGhlIHRyYWZmaWMuDQogICovDQot
+c3RhdGljIGludCBtd2lmaWV4X3BjaWVfc3VzcGVuZChzdHJ1Y3QgcGNpX2RldiAqcGRldiwgcG1f
+bWVzc2FnZV90IHN0YXRlKQ0KK3N0YXRpYyBpbnQgX19td2lmaWV4X3BjaWVfc3VzcGVuZChzdHJ1
+Y3QgcGNpX2RldiAqcGRldikNCiB7DQogCXN0cnVjdCBtd2lmaWV4X2FkYXB0ZXIgKmFkYXB0ZXI7
+DQogCXN0cnVjdCBwY2llX3NlcnZpY2VfY2FyZCAqY2FyZDsNCkBAIC0xMTIsNiArMTEyLDEzIEBA
+IHN0YXRpYyBpbnQgbXdpZmlleF9wY2llX3N1c3BlbmQoc3RydWN0IHBjaV9kZXYgKnBkZXYsIHBt
+X21lc3NhZ2VfdCBzdGF0ZSkNCiAJcmV0dXJuIDA7DQogfQ0KIA0KK3N0YXRpYyBpbnQgbXdpZmll
+eF9wY2llX3N1c3BlbmQoc3RydWN0IGRldmljZSAqZGV2KQ0KK3sNCisJc3RydWN0IHBjaV9kZXYg
+KnBkZXYgPSB0b19wY2lfZGV2KGRldik7DQorDQorCXJldHVybiBfX213aWZpZXhfcGNpZV9zdXNw
+ZW5kKHBkZXYpOw0KK30NCisNCiAvKg0KICAqIEtlcm5lbCBuZWVkcyB0byBzdXNwZW5kIGFsbCBm
+dW5jdGlvbnMgc2VwYXJhdGVseS4gVGhlcmVmb3JlIGFsbA0KICAqIHJlZ2lzdGVyZWQgZnVuY3Rp
+b25zIG11c3QgaGF2ZSBkcml2ZXJzIHdpdGggc3VzcGVuZCBhbmQgcmVzdW1lDQpAQCAtMTIwLDcg
+KzEyNyw3IEBAIHN0YXRpYyBpbnQgbXdpZmlleF9wY2llX3N1c3BlbmQoc3RydWN0IHBjaV9kZXYg
+KnBkZXYsIHBtX21lc3NhZ2VfdCBzdGF0ZSkNCiAgKiBJZiBhbHJlYWR5IG5vdCByZXN1bWVkLCB0
+aGlzIGZ1bmN0aW9uIHR1cm5zIG9uIHRoZSB0cmFmZmljIGFuZA0KICAqIHNlbmRzIGEgaG9zdCBz
+bGVlcCBjYW5jZWwgcmVxdWVzdCB0byB0aGUgZmlybXdhcmUuDQogICovDQotc3RhdGljIGludCBt
+d2lmaWV4X3BjaWVfcmVzdW1lKHN0cnVjdCBwY2lfZGV2ICpwZGV2KQ0KK3N0YXRpYyBpbnQgX19t
+d2lmaWV4X3BjaWVfcmVzdW1lKHN0cnVjdCBwY2lfZGV2ICpwZGV2KQ0KIHsNCiAJc3RydWN0IG13
+aWZpZXhfYWRhcHRlciAqYWRhcHRlcjsNCiAJc3RydWN0IHBjaWVfc2VydmljZV9jYXJkICpjYXJk
+Ow0KQEAgLTE1MCw2ICsxNTcsMTMgQEAgc3RhdGljIGludCBtd2lmaWV4X3BjaWVfcmVzdW1lKHN0
+cnVjdCBwY2lfZGV2ICpwZGV2KQ0KIA0KIAlyZXR1cm4gMDsNCiB9DQorDQorc3RhdGljIGludCBt
+d2lmaWV4X3BjaWVfcmVzdW1lKHN0cnVjdCBkZXZpY2UgKmRldikNCit7DQorCXN0cnVjdCBwY2lf
+ZGV2ICpwZGV2ID0gdG9fcGNpX2RldihkZXYpOw0KKw0KKwlyZXR1cm4gX19td2lmaWV4X3BjaWVf
+cmVzdW1lKHBkZXYpOw0KK30NCiAjZW5kaWYNCiANCiAvKg0KQEAgLTIxMyw3ICsyMjcsNyBAQCBz
+dGF0aWMgdm9pZCBtd2lmaWV4X3BjaWVfcmVtb3ZlKHN0cnVjdCBwY2lfZGV2ICpwZGV2KQ0KIAlp
+ZiAodXNlcl9ybW1vZCkgew0KICNpZmRlZiBDT05GSUdfUE0NCiAJCWlmIChhZGFwdGVyLT5pc19z
+dXNwZW5kZWQpDQotCQkJbXdpZmlleF9wY2llX3Jlc3VtZShwZGV2KTsNCisJCQlfX213aWZpZXhf
+cGNpZV9yZXN1bWUocGRldik7DQogI2VuZGlmDQogDQogCQlmb3IgKGkgPSAwOyBpIDwgYWRhcHRl
+ci0+cHJpdl9udW07IGkrKykNCkBAIC0yNDksNiArMjYzLDEzIEBAIHN0YXRpYyBERUZJTkVfUENJ
+X0RFVklDRV9UQUJMRShtd2lmaWV4X2lkcykgPSB7DQogDQogTU9EVUxFX0RFVklDRV9UQUJMRShw
+Y2ksIG13aWZpZXhfaWRzKTsNCiANCisjaWZkZWYgQ09ORklHX1BNDQorLyogUG93ZXIgTWFuYWdl
+bWVudCBIb29rcyAqLw0KK3N0YXRpYyBjb25zdCBzdHJ1Y3QgZGV2X3BtX29wcyBtd2lmaWV4X3Bj
+aWVfcG1fb3BzID0gew0KKwlTRVRfU1lTVEVNX1NMRUVQX1BNX09QUyhtd2lmaWV4X3BjaWVfc3Vz
+cGVuZCwgbXdpZmlleF9wY2llX3Jlc3VtZSkNCit9Ow0KKyNlbmRpZg0KKw0KIC8qIFBDSSBEZXZp
+Y2UgRHJpdmVyICovDQogc3RhdGljIHN0cnVjdCBwY2lfZHJpdmVyIF9fcmVmZGF0YSBtd2lmaWV4
+X3BjaWUgPSB7DQogCS5uYW1lICAgICA9ICJtd2lmaWV4X3BjaWUiLA0KQEAgLTI1Niw5ICsyNzcs
+OSBAQCBzdGF0aWMgc3RydWN0IHBjaV9kcml2ZXIgX19yZWZkYXRhIG13aWZpZXhfcGNpZSA9IHsN
+CiAJLnByb2JlICAgID0gbXdpZmlleF9wY2llX3Byb2JlLA0KIAkucmVtb3ZlICAgPSBtd2lmaWV4
+X3BjaWVfcmVtb3ZlLA0KICNpZmRlZiBDT05GSUdfUE0NCi0JLyogUG93ZXIgTWFuYWdlbWVudCBI
+b29rcyAqLw0KLQkuc3VzcGVuZCAgPSBtd2lmaWV4X3BjaWVfc3VzcGVuZCwNCi0JLnJlc3VtZSAg
+ID0gbXdpZmlleF9wY2llX3Jlc3VtZSwNCisJLmRyaXZlciAgID0gew0KKwkJLnBtID0gJm13aWZp
+ZXhfcGNpZV9wbV9vcHMsDQorCX0sDQogI2VuZGlmDQogfTsNCiANCi0tIA0KMS43LjEwLjQNCg0K
+DQo=
