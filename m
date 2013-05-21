@@ -1,122 +1,215 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Tue, 21 May 2013 15:30:44 -0700
-Message-ID: <519BF594.1020607@gmail.com>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org> <1368498506-25857-7-git-send-email-yinghai@kernel.org> <51925FB0.4080504@intel.com> <CAE9FiQXYQEAZ=0sG6+2OdffBqfLS9MpoN1xviRR9aDbxPxcKxQ@mail.gmail.com> <5192946F.1050700@intel.com> <CAE9FiQVGGHB_amKw0-DfDifpTnRGPbxA+q3WY5F-O3x-sx386A@mail.gmail.com> <5192AEF4.1070905@intel.com> <519BE778.9040800@redhat.com> <20130521214912.GA21713@redhat.com> <519BEEA4.2030804@gmail.com> <20130521221117.GB803@redhat.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: GRE+XFRM+GSO crashes
+Date: Tue, 21 May 2013 15:32:35 -0700
+Message-ID: <CALnjE+qOf2pxzP0-7s4AsSNDbG5M5s8bXFDqYoD-5NgmtKYixA@mail.gmail.com>
+References: <20130520094127.546a2f3e@vostro>
+	<CALnjE+qgOQUDm_gAuygpDE5VH23YS0i3QyQuCVPhgu15=jwXWw@mail.gmail.com>
+	<20130521110132.37dc2665@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Don Dutile <ddutile@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Yinghai Lu <yinghai@kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Or Gerlitz <or.gerlitz@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: multipart/mixed; boundary=047d7b6783aca094fe04dd420656
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-da0-f47.google.com ([209.85.210.47]:61691 "EHLO
-	mail-da0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752049Ab3EUWaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 18:30:46 -0400
-In-Reply-To: <20130521221117.GB803@redhat.com>
+Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:51322 "HELO
+	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751604Ab3EUWck (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 18:32:40 -0400
+Received: by mail-qe0-f51.google.com with SMTP id nd7so770473qeb.10
+        for <netdev@vger.kernel.org>; Tue, 21 May 2013 15:32:35 -0700 (PDT)
+In-Reply-To: <20130521110132.37dc2665@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/21/2013 03:11 PM, Michael S. Tsirkin wrote:
-> On Tue, May 21, 2013 at 03:01:08PM -0700, Alexander Duyck wrote:
->> On 05/21/2013 02:49 PM, Michael S. Tsirkin wrote:
->>> On Tue, May 21, 2013 at 05:30:32PM -0400, Don Dutile wrote:
->>>> On 05/14/2013 05:39 PM, Alexander Duyck wrote:
->>>>> On 05/14/2013 12:59 PM, Yinghai Lu wrote:
->>>>>> On Tue, May 14, 2013 at 12:45 PM, Alexander Duyck
->>>>>> <alexander.h.duyck@intel.com>  wrote:
->>>>>>> On 05/14/2013 11:44 AM, Yinghai Lu wrote:
->>>>>>>> On Tue, May 14, 2013 at 9:00 AM, Alexander Duyck
->>>>>>>> <alexander.h.duyck@intel.com>  wrote:
->>>>>>>>> I'm sorry, but what is the point of this patch?  With device assignment
->>>>>>>>> it is always possible to have VFs loaded and the PF driver unloaded
->>>>>>>>> since you cannot remove the VFs if they are assigned to a VM.
->>>>>>>> unload PF driver will not call pci_disable_sriov?
->>>>>>> You cannot call pci_disable_sriov because you will panic all of the
->>>>>>> guests that have devices assigned.
->>>>>> ixgbe_remove did call pci_disable_sriov...
->>>>>>
->>>>>> for guest panic, that is another problem.
->>>>>> just like you pci passthrough with real pci device and hotremove the
->>>>>> card in host.
->>>>>>
->>>>>> ...
->>>>>
->>>>> I suggest you take another look.  In ixgbe_disable_sriov, which is the
->>>>> function that is called we do a check for assigned VFs.  If they are
->>>>> assigned then we do not call pci_disable_sriov.
->>>>>
->>>>>>
->>>>>>> So how does your patch actually fix this problem?  It seems like it is
->>>>>>> just avoiding it.
->>>>>> yes, until the first one is done.
->>>>>
->>>>> Avoiding the issue doesn't fix the underlying problem and instead you
->>>>> are likely just introducing more bugs as a result.
->>>>>
->>>>>>> From what I can tell your problem is originating in pci_call_probe.  I
->>>>>>> believe it is calling work_on_cpu and that doesn't seem correct since
->>>>>>> the work should be taking place on a CPU already local to the PF. You
->>>>>>> might want to look there to see why you are trying to schedule work on a
->>>>>>> CPU which should be perfectly fine for you to already be doing your work on.
->>>>>> it always try to go with local cpu with same pxm.
->>>>>
->>>>> The problem is we really shouldn't be calling work_for_cpu in this case
->>>>> since we are already on the correct CPU.  What probably should be
->>>>> happening is that pci_call_probe should be doing a check to see if the
->>>>> current CPU is already contained within the device node map and if so
->>>>> just call local_pci_probe directly.  That way you can avoid deadlocking
->>>>> the system by trying to flush the CPU queue of the CPU you are currently on.
->>>>>
->>>> That's the patch that Michael Tsirkin posted for a fix,
->>>> but it was noted that if you have the case where the _same_ driver is used for vf & pf,
->>>> other deadlocks may occur.
->>>> It would work in the case of ixgbe/ixgbevf, but not for something like
->>>> the Mellanox pf/vf driver (which is the same).
->>>>
->>>
->>> I think our conclusion was this is a false positive for Mellanox.
->>> If not, we need to understand what the deadlock is better.
->>>
->>
->> As I understand the issue, the problem is not a deadlock for Mellanox
->> (At least with either your patch or mine applied), the issue is that the
->> PF is not ready to handle VFs when pci_enable_sriov is called due to
->> some firmware issues.
+--047d7b6783aca094fe04dd420656
+Content-Type: text/plain; charset=ISO-8859-1
+
+On Tue, May 21, 2013 at 1:01 AM, Timo Teras <timo.teras@iki.fi> wrote:
+> On Mon, 20 May 2013 10:58:03 -0700
+> Pravin Shelar <pshelar@nicira.com> wrote:
+>
+>> On Sun, May 19, 2013 at 11:41 PM, Timo Teras <timo.teras@iki.fi>
+>> wrote:
+>> > Since upgrade from 3.8 to 3.9 I've started getting the below
+>> > mentioned BUG crashes. One of the few relevant changes seems to be
+>> > GSO support in GRE driver.
+>> >
+>> > Turning off SG (and GSO) seems to make these crashes disappear.
+>> >
+>> > The basic setup is:
+>> > - gre1 is an NBMA tunnel (no explicit destination, nor bound
+>> >   target interface; opennhrp daemon creates neigh mappings)
+>> > - IPsec policy to encrypt all GRE traffic in transport mode
+>> > - VIA Padlock hardware for AES acceleration
+>> > - GRE traffic goes to r8169 NIC; rx on, gro on, tx off, sg off, gso
+>> > off
+>> >
+>> > Incidentally, when I tried exact same setup ran as virtualized, I
+>> > was unable to reproduce this crash. I suspect it depends on the
+>> > target NIC acceleration capabilities.
+>> >
+>> I do not have access to this hardware, can you tell me what are target
+>> device capabilities?
+>
+> The physical hardware from which the OOPS is from:
+>
+> r8169 0000:00:09.0 eth0: RTL8169sc/8110sc at 0xf801c000, 00:30:18:a8:14:ac, XID 18000000 IRQ 18
+> r8169 0000:00:09.0 eth0: jumbo features [frames: 7152 bytes, tx checksumming: ok]
+>
+> (defaults after boot)
+> Offload parameters for eth0:
+> rx-checksumming: on
+> tx-checksumming: off
+> scatter-gather: off
+> tcp-segmentation-offload: off
+> udp-fragmentation-offload: off
+> generic-segmentation-offload: off
+> generic-receive-offload: on
+> large-receive-offload: off
+> rx-vlan-offload: on
+> tx-vlan-offload: on
+> ntuple-filters: off
+> receive-hashing: off
+>
+> When running virtualized in which I was unable to reproduce this OOPS:
+>
+> e1000 0000:00:03.0 eth0: (PCI:33MHz:32-bit) 52:54:00:12:34:56
+> e1000 0000:00:03.0 eth0: Intel(R) PRO/1000 Network Connection
+>
+> Offload parameters for eth0:
+> rx-checksumming: off
+> tx-checksumming: on
+> scatter-gather: on
+> tcp-segmentation-offload: on
+> udp-fragmentation-offload: off
+> generic-segmentation-offload: on
+> generic-receive-offload: on
+> large-receive-offload: off
+> rx-vlan-offload: on
+> tx-vlan-offload: on
+> ntuple-filters: off
+> receive-hashing: off
+>
+
+OK. I am still not able to reproduce it, Can you try attached patch?
+if that works, I will send out proper patch.
+
 >>
 >> Thanks,
->>
->> Alex
-> 
-> I haven't seen Mellanox guys say anything like this on the list.
-> Pointers?
-> All I saw is some lockdep warnings and Tejun says they are bogus ...
+>> Pravin.
+>> > This is from vanilla 3.9.2 kernel:
+>> >  BUG: unable to handle kernel NULL pointer dereference at 00000010
+>> >  IP: [<c123e5b8>] xfrm_output_resume+0x63/0x2a4
+>> >  *pde = 00000000
+>> >  Oops: 0000 [#1] SMP
+>> >  Modules linked in: sha1_generic authenc esp4 xfrm4_mode_transport
+>> >  deflate zlib_deflate ctr twofish_i586 twofish_generic
+>> > twofish_common camellia_generic serpent_sse2_i586 xts lrw gf128mul
+>> > glue_helper ablk_helper cryptd serpent_generic blowfish_generic
+>> > blowfish_common cast5_generic cast_common des_generic cbc xcbc
+>> > rmd160 sha512_generic hmac crypto_null af_key xfrm_algo ip_gre
+>> > ipt_REJECT iptable_filter ipt_MASQUERADE xt_nat iptable_nat
+>> > nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat ip_tables
+>> > ip6t_REJECT xt_LOG xt_limit xt_recent xt_policy xt_tcpudp
+>> > nf_conntrack_ipv6 nf_defrag_ipv6 xt_state nf_conntrack xt_multiport
+>> > ip6table_filter ip6_tables x_tables ipv6 af_packet padlock_sha
+>> > padlock_aes via_cputemp hwmon hwmon_vid serio_raw psmouse pcspkr
+>> > shpchp pci_hotplug i2c_viapro i2c_core via_rhine snd_via82xx
+>> > snd_ac97_codec snd_pcm snd_timer ac97_bus snd_page_alloc
+>> > snd_mpu401_uart snd_rawmidi snd_seq_device snd soundcore
+>> > firewire_ohci firewire_core crc_itu_t via_agp agpgart r8169
+>> > firmware_class mii evdev fan parport_pc parport thermal button
+>> > acpi_cpufreq freq_table mperf processor nls_utf8 nls_cp437 vfat fat
+>> > sata_via ehci_pci ehci_hcd uhci_hcd ata_generic pata_via pata_acpi
+>> > libata usb_storage usbcore usb_common sd_mod scsi_mod squashfs loop
+>> > Pid: 1794, comm: opennhrp Not tainted 3.9.2
+>> > #2-Alpine    /CN700-8237 EIP: 0060:[<c123e5b8>] EFLAGS: 00010246
+>> > CPU: 0 EIP is at xfrm_output_resume+0x63/0x2a4 EAX: 00000000 EBX:
+>> > f0572500 ECX: f5ffc8b8 EDX: 00000064 ESI: f0496400 EDI: 00000000
+>> > EBP: f0499bf8 ESP: f0499be8 DS: 007b ES: 007b FS: 00d8 GS: 0033 SS:
+>> > 0068 CR0: 80050033 CR2: 00000010 CR3: 3104c000 CR4: 00000690
+>> >  DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
+>> >  DR6: ffff0ff0 DR7: 00000400
+>> >  Process opennhrp (pid: 1794, ti=f0498000 task=f670eff0
+>> > task.ti=f0498000) Stack:
+>> >   f0496420 f0572500 c1236810 f0572528 f0499c00 c123e806 f0499c14
+>> > c123e89b f0572500 c1236810 f0572528 f0499c1c c1236837 f0499c2c
+>> > c1236865 f0572500 0000003c f0499c38 c12016e7 f0572500 f0499cb0
+>> > f84175fb f0572a00 f04bb400 Call Trace:
+>> >   [<c1236810>] ? xfrm4_extract_output+0x8c/0x8c
+>> >   [<c123e806>] xfrm_output2+0xd/0xf
+>> >   [<c123e89b>] xfrm_output+0x93/0xa0
+>> >   [<c1236810>] ? xfrm4_extract_output+0x8c/0x8c
+>> >   [<c1236837>] xfrm4_output_finish+0x27/0x29
+>> >   [<c1236865>] xfrm4_output+0x2c/0x63
+>> >   [<c12016e7>] ip_local_out+0x1b/0x1e
+>> >   [<f84175fb>] ipgre_tunnel_xmit+0x80a/0x892 [ip_gre]
+>> >   [<c11ddff1>] dev_hard_start_xmit+0x27d/0x37c
+>> >   [<c11de379>] dev_queue_xmit+0x289/0x31a
+>> >   [<f8332308>] packet_sendmsg+0x933/0x9d0 [af_packet]
+>> >   [<c1040200>] ? ttwu_do_wakeup+0xe/0xa8
+>> >   [<f8416874>] ? ipgre_header_parse+0x15/0x15 [ip_gre]
+>> >   [<c11cd5a9>] sock_sendmsg+0x79/0x94
+>> >   [<c10b33d4>] ? __pollwait+0xa4/0xa4
+>> >   [<c11cd7e3>] __sys_sendmsg+0x16e/0x1f3
+>> >   [<c10367c5>] ? free_pid+0x99/0x9f
+>> >   [<c106b92a>] ? call_rcu_sched+0xf/0x12
+>> >   [<c1026e15>] ? release_task+0x36d/0x37d
+>> >   [<c10390e8>] ? remove_wait_queue+0x31/0x36
+>> >   [<c1027a1d>] ? do_wait+0x1a8/0x1b5
+>> >   [<c11cef10>] sys_sendmsg+0x2b/0x46
+>> >   [<c11cf394>] sys_socketcall+0x145/0x19f
+>> >   [<c1257888>] syscall_call+0x7/0xb
+>> >  Code: ff 8b 43 74 c7 43 70 00 00 00 00 85 c0 74 0f 3e ff 08 0f 94
+>> > c2 84 d2 74 05 e8 35 17 e6 ff 8b 43 48 c7 43 74 00 00 00 00 83 e0
+>> > fe <8b> 50 10 89 d8 ff 52 34 83 f8 01 89 c7 0f 85 24 02 00 00 8b 53
+>> > EIP: [<c123e5b8>] xfrm_output_resume+0x63/0x2a4 SS:ESP
+>> > 0068:f0499be8 CR2: 0000000000000010 ---[ end trace ac96c6b6b1a4992f
+>> > ]--- Kernel panic - not syncing: Fatal exception in interrupt
+>> >
+>> >
+>> > Based on the disassembly, it seems the crash happens in
+>> > net/xfrm/xfrm_output.c:
+>> >
+>> > int xfrm_output_resume(struct sk_buff *skb, int err)
+>> > {
+>> >         while (likely((err = xfrm_output_one(skb, err)) == 0)) {
+>> >                 nf_reset(skb);
+>> >
+>> >                 err = skb_dst(skb)->ops->local_out(skb);
+>> >                       ^^^^^^^^^^^^ is NULL
+>> >                 if (unlikely(err != 1))
+>> >                         goto out;
+>> >
+>> >                 if (!skb_dst(skb)->xfrm)
+>> >                         return dst_output(skb);
+>
 
-Actually the patch I submitted is at:
-https://patchwork.kernel.org/patch/2568881/
+--047d7b6783aca094fe04dd420656
+Content-Type: application/octet-stream;
+	name="0001-xfrm-Restore-skb-cb-after-segmenting-it.patch"
+Content-Disposition: attachment;
+	filename="0001-xfrm-Restore-skb-cb-after-segmenting-it.patch"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hgznsp1j0
 
-It was in response to:
-https://patchwork.kernel.org/patch/2562471/
-
-Basically the patch I was responding to was supposed to address both the
-lockdep issue and a problem with mlx4 not being able to support the VFs
-when pci_enable_sriov is called.  Yinghai had specifically called out
-the work_on_cpu lockdep issue that you also submitted a patch for.
-
-As per the feedback from Yinghai it seems like my patch does resolve the
-lockdep issue that was seen.  The other half of the issue was what we
-have been discussing with Or in regards to delaying VF driver init via
-something like -EPROBE_DEFER instead of trying to split up
-pci_enable_sriov and VF probe.
-
-Thanks,
-
-Alex
+RnJvbSBlNDM3YjIwMTkyNWM5Y2Y3ZDMyNjQ5ODc4NWJlNDg0N2VjMDdmMWNmIE1vbiBTZXAgMTcg
+MDA6MDA6MDAgMjAwMQpGcm9tOiBQcmF2aW4gQiBTaGVsYXIgPHBzaGVsYXJAbmljaXJhLmNvbT4K
+RGF0ZTogVHVlLCAyMSBNYXkgMjAxMyAxNToyMzowNCAtMDcwMApTdWJqZWN0OiBbUEFUQ0hdIHhm
+cm06IFJlc3RvcmUgc2tiLWNiIGFmdGVyIHNlZ21lbnRpbmcgaXQuCgpTaWduZWQtb2ZmLWJ5OiBQ
+cmF2aW4gQiBTaGVsYXIgPHBzaGVsYXJAbmljaXJhLmNvbT4KLS0tCiBuZXQveGZybS94ZnJtX291
+dHB1dC5jIHwgICAgNyArKysrKysrCiAxIGZpbGVzIGNoYW5nZWQsIDcgaW5zZXJ0aW9ucygrKSwg
+MCBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQveGZybS94ZnJtX291dHB1dC5jIGIvbmV0
+L3hmcm0veGZybV9vdXRwdXQuYwppbmRleCBiY2ZkYTg5Li44YzM5OTUxIDEwMDY0NAotLS0gYS9u
+ZXQveGZybS94ZnJtX291dHB1dC5jCisrKyBiL25ldC94ZnJtL3hmcm1fb3V0cHV0LmMKQEAgLTE1
+Miw3ICsxNTIsMTIgQEAgc3RhdGljIGludCB4ZnJtX291dHB1dDIoc3RydWN0IHNrX2J1ZmYgKnNr
+YikKIHN0YXRpYyBpbnQgeGZybV9vdXRwdXRfZ3NvKHN0cnVjdCBza19idWZmICpza2IpCiB7CiAJ
+c3RydWN0IHNrX2J1ZmYgKnNlZ3M7CisJc3RydWN0IGluZXRfc2tiX3Bhcm0gY2I7CiAKKwkvKiBH
+U08gY29kZSBtYWtlIHVzZSBvZiBza2IgY29udHJvbCBibG9jaywgc2F2ZSBpdCBsb2NhbGx5LAor
+CSAqIHNvIHRoYXQgd2UgY2FuIHJlc3RvcmUgaXQgYmFjayB0byBpbmRpdmlkdWFsIHNlZ21lbnRz
+LgorCSAqKi8KKwljYiA9ICpJUENCKHNrYik7CiAJc2VncyA9IHNrYl9nc29fc2VnbWVudChza2Is
+IDApOwogCWtmcmVlX3NrYihza2IpOwogCWlmIChJU19FUlIoc2VncykpCkBAIC0xNjMsNiArMTY4
+LDggQEAgc3RhdGljIGludCB4ZnJtX291dHB1dF9nc28oc3RydWN0IHNrX2J1ZmYgKnNrYikKIAkJ
+aW50IGVycjsKIAogCQlzZWdzLT5uZXh0ID0gTlVMTDsKKwkJKklQQ0Ioc2VncykgPSBjYjsKKwog
+CQllcnIgPSB4ZnJtX291dHB1dDIoc2Vncyk7CiAKIAkJaWYgKHVubGlrZWx5KGVycikpIHsKLS0g
+CjEuNy4xCgo=
+--047d7b6783aca094fe04dd420656--
