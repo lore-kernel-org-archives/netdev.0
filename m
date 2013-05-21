@@ -1,95 +1,78 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net]  vxlan: revert per-vxlan port
-Date: Mon, 20 May 2013 17:13:04 -0700
-Message-ID: <20130520171304.06c6ed00@nehalam.linuxnetplumber.net>
-References: <20130520103017.054ae605@nehalam.linuxnetplumber.net>
-	<OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com>
-	<20130520113000.0057ce90@nehalam.linuxnetplumber.net>
-	<519AB8F0.7060003@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+From: Nandita Dukkipati <nanditad@google.com>
+Subject: [PATCH] tcp: bug fix in proportional rate reduction.
+Date: Mon, 20 May 2013 17:22:04 -0700
+Message-ID: <1369095724-17745-1-git-send-email-nanditad@google.com>
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Nandita Dukkipati <nanditad@google.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f54.google.com ([209.85.220.54]:52732 "EHLO
-	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755939Ab3EUANJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 20:13:09 -0400
-Received: by mail-pa0-f54.google.com with SMTP id kx1so119607pab.13
-        for <netdev@vger.kernel.org>; Mon, 20 May 2013 17:13:08 -0700 (PDT)
-In-Reply-To: <519AB8F0.7060003@gmail.com>
+Received: from mail-yh0-f74.google.com ([209.85.213.74]:64439 "EHLO
+	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751572Ab3EUAWP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 20:22:15 -0400
+Received: by mail-yh0-f74.google.com with SMTP id t59so7163yho.1
+        for <netdev@vger.kernel.org>; Mon, 20 May 2013 17:22:15 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 May 2013 16:59:44 -0700
-Sridhar Samudrala <samudrala.sridhar@gmail.com> wrote:
+This patch is a fix for a bug triggering newly_acked_sacked < 0
+in tcp_ack(.).
 
-> On 5/20/2013 11:30 AM, Stephen Hemminger wrote:
-> > On Mon, 20 May 2013 14:15:59 -0400
-> > David Stevens <dlstevens@us.ibm.com> wrote:
-> >
-> >>> From: Stephen Hemminger <stephen@networkplumber.org>
-> >>   
-> >>> \This commit 823aa873bc782f1c51b1ce8ec6da7cfcaf93836e
-> >>> Author: stephen hemminger <stephen@networkplumber.org>
-> >>> Date:   Sat Apr 27 11:31:57 2013 +0000
-> >>>
-> >>>      vxlan: allow choosing destination port per vxlan
-> >>>
-> >>> is broken revert it. The change allowed setting per port for transmit
-> >>> but did not add additional listening sockets, which made any vxlan's
-> >>> defined with non-default port send only.
-> >> This allows you to specify a different default port for
-> >> transmits, which is what you want to do if your own instance
-> >> of VXLAN is the odd one. I don't see any requirement for multiple
-> >> listen ports for that to be useful, since those sending to you
-> >> can have complete fdb tables even if the local instance doesn't
-> >> and relies on the default. Not to mention using an agent to
-> >> fill the fdb triggered by packets sent to the default, so the
-> >> receiver is not necessarily even a VXLAN instance. The receiver
-> >> side and transmit side ports can be completely independent of
-> >> each other, as in any other client-server system.
-> > Vxlan's are a weird beast. They can be viewed as either bridge like
-> > entities or tunnel like entities. I view them more as bridge type
-> > devices where user configures two hosts with equivalent values and
-> > they learn about each other. In that case the code in 3.10 is broken;
-> > but the version with the learning in net-next works.
-> >
-> > Your view is that VXLAN's are more like tunnels, where each host
-> > has static entries to know about every other host. In that mode,
-> > 3.10 is useable, but the same effect can be had by defining static
-> > neighbour entries.
-> 
-> how can we send to a different dst port using static neighbor entries?
-> 
-> Thanks
-> Sridhar
+The bug is triggered by sacked_out decreasing relative to prior_sacked,
+but packets_out remaining the same as pior_packets. This is because the
+snapshot of prior_packets is taken after tcp_sacktag_write_queue() while
+prior_sacked is captured before tcp_sacktag_write_queue(). The problem
+is: tcp_sacktag_write_queue (tcp_match_skb_to_sack() -> tcp_fragment)
+adjusts the pcount for packets_out and sacked_out (MSS change or other
+reason). As a result, this delta in pcount is reflected in
+(prior_sacked - sacked_out) but not in (prior_packets - packets_out).
 
-It is part of this commit in 3.10 already.
+This patch does the following:
+1) initializes prior_packets at the start of tcp_ack() so as to
+capture the delta in packets_out created by tcp_fragment.
+2) introduces a new "previous_packets_out" variable that snapshots
+packets_out right before tcp_clean_rtx_queue, so pkts_acked can be
+correctly computed as before.
 
-commit 6681712d67eef14c4ce793561c3231659153a320
-Author: David Stevens <dlstevens@us.ibm.com>
-Date:   Fri Mar 15 04:35:51 2013 +0000
+Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+---
+ net/ipv4/tcp_input.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-    vxlan: generalize forwarding tables
-    
-    This patch generalizes VXLAN forwarding table entries allowing an administrator
-    to:
-        1) specify multiple destinations for a given MAC
-        2) specify alternate vni's in the VXLAN header
-        3) specify alternate destination UDP ports
-        4) use multicast MAC addresses as fdb lookup keys
-        5) specify multicast destinations
-        6) specify the outgoing interface for forwarded packets
-    
-    The combination allows configuration of more complex topologies using VXLAN
-    encapsulation.
-    
-    Changes since v1: rebase to 3.9.0-rc2
-    
-    Signed-Off-By: David L Stevens <dlstevens@us.ibm.com>
-    
-    Signed-off-by: David S. Miller <davem@davemloft.net>
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d7d3694..2986e10 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3265,9 +3265,10 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	bool is_dupack = false;
+ 	u32 prior_in_flight;
+ 	u32 prior_fackets;
+-	int prior_packets;
++	int prior_packets = tp->packets_out;
+ 	int prior_sacked = tp->sacked_out;
+ 	int pkts_acked = 0;
++	int previous_packets_out = 0;
+ 
+ 	/* If the ack is older than previous acks
+ 	 * then we can probably ignore it.
+@@ -3338,14 +3339,14 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+ 	sk->sk_err_soft = 0;
+ 	icsk->icsk_probes_out = 0;
+ 	tp->rcv_tstamp = tcp_time_stamp;
+-	prior_packets = tp->packets_out;
+ 	if (!prior_packets)
+ 		goto no_queue;
+ 
+ 	/* See if we can take anything off of the retransmit queue. */
++	previous_packets_out = tp->packets_out;
+ 	flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una);
+ 
+-	pkts_acked = prior_packets - tp->packets_out;
++	pkts_acked = previous_packets_out - tp->packets_out;
+ 
+ 	if (tcp_ack_is_dubious(sk, flag)) {
+ 		/* Advance CWND, if state allows this. */
+-- 
+1.8.2.1
