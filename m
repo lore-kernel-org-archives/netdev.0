@@ -1,64 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH v2 3/4] ppp_mppe: cleanup kernel log messages
-Date: Tue, 21 May 2013 11:40:26 -0700
-Message-ID: <1369161626.2143.45.camel@joe-AO722>
-References: <1369160304-31967-1-git-send-email-jorge@dti2.net>
-	 <1369160304-31967-3-git-send-email-jorge@dti2.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3] sock_diag: notify packet socket
+ creation/deletion
+Date: Tue, 21 May 2013 11:43:56 -0700 (PDT)
+Message-ID: <20130521.114356.1770768038835716108.davem@davemloft.net>
+References: <1368800738-4364-1-git-send-email-nicolas.dichtel@6wind.com>
+	<20130519.232925.1972249319855411715.davem@davemloft.net>
+	<519B8F6A.7010406@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
-To: jorge@dti2.net
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1369160304-31967-3-git-send-email-jorge@dti2.net>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
+	netdev@vger.kernel.org
+To: nicolas.dichtel@6wind.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53436 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752488Ab3EUSn5 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 14:43:57 -0400
+In-Reply-To: <519B8F6A.7010406@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-21 at 20:18 +0200, Jorge Boncompte [DTI2] wrote:
-> From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-> 
-> - Consolidate log messages, print PPP unit number where available.
-> - Changes error or warning messages to correct log level.
-> - Use _ratelimited() functions for messages triggered by network packets.
-[]
-> diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
-[]
-> @@ -178,7 +178,8 @@ static void mppe_rekey(struct ppp_mppe_state * state, int initial_key)
->  		setup_sg(sg_out, state->session_key, state->keylen);
->  		if (crypto_blkcipher_encrypt(&desc, sg_out, sg_in,
->  					     state->keylen) != 0) {
-> -    		    printk(KERN_WARNING "mppe_rekey: cipher_encrypt failed\n");
-> +			net_warn_ratelimited("%s[%d]: crypto_blkcipher_encrypt "
-> +					     "failed\n", __func__, state->unit);
+=46rom: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Date: Tue, 21 May 2013 17:14:50 +0200
 
-Please don't split formats across multiple lines.
+> Le 20/05/2013 08:29, David Miller a =E9crit :
+>> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>> Date: Fri, 17 May 2013 16:25:38 +0200
+>>
+>>> With this patch, a netlink message is sent each time a packet socke=
+t
+>>> is created or deleted.  The framework is generic, so it's easy to
+>>> add the notification for other kind of sockets.
+>>>
+>>> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+>>
+>> Just curious what you want to use this for.
+> Some HW (custom FPGA, ASICs, NPUs) are able to offload packet
+> captures, so it is required to notify them.
 
-			net_warn_ratelimited("%s[%d]: crypto_blkcipher_encrypt failed\n",
-					     __func__, state->unit);
+I don't even want to hear about this until you have patches ready
+to submit to fully support such a facility.
 
-is just fine.
-
-> @@ -314,8 +314,7 @@ mppe_init(void *arg, unsigned char *options, int optlen, int unit, int debug,
->  			sprintf(mkey + i * 2, "%02x", state->master_key[i]);
->  		for (i = 0; i < sizeof(state->session_key); i++)
->  			sprintf(skey + i * 2, "%02x", state->session_key[i]);
-> -		printk(KERN_DEBUG
-> -		       "%s[%d]: keys: master: %s initial session: %s\n",
-> +		printk(KERN_DEBUG "%s[%d]: keys: master: %s initial session: %s\n",
->  		       debugstr, unit, mkey, skey);
-
-this could probably use:
-	%*ph, (int)sizeof(state->session_key), state->session_key
-
->  	}
->  
-> @@ -387,9 +386,9 @@ mppe_compress(void *arg, unsigned char *ibuf, unsigned char *obuf,
-[]
-> +		net_err_ratelimited("%s[%d]: osize too small! "
-> +				    "(have: %d need: %d)\n", __func__,
-> +				    state->unit, osize, isize + MPPE_OVHD + 2);
-
-another split format, please coalesce.
-
-etc...
-
+I'm not applying this patch, sorry.
