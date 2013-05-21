@@ -1,91 +1,50 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next resend PATCH 3/6] ARM: dts: AM33XX: Add pinmux configuration for CPSW to beaglebone
-Date: Tue, 21 May 2013 15:25:00 +0530
-Message-ID: <1369130103-743-4-git-send-email-mugunthanvnm@ti.com>
-References: <1369130103-743-1-git-send-email-mugunthanvnm@ti.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [Patch net] ipv6,mcast: always hold idev->lock before mca_lock
+Date: Tue, 21 May 2013 12:10:59 +0200
+Message-ID: <20130521101059.GB19984@order.stressinduktion.org>
+References: <1367998914-26423-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
-	<linux-omap@vger.kernel.org>, <benoit.cousson@linaro.orgm>,
-	<paul@pwsan.com>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, dingtianhong <dingtianhong@huawei.com>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:50407 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753096Ab3EUJzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 05:55:21 -0400
-In-Reply-To: <1369130103-743-1-git-send-email-mugunthanvnm@ti.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:52282 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752471Ab3EUKLA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 06:11:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1367998914-26423-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add pinmux configurations for MII based CPSW ethernet to am335x-bone.
-In this patch, only single named mode/state is added and these pins
-are configured during pinctrl driver initialization.
+On Wed, May 08, 2013 at 03:41:54PM +0800, Cong Wang wrote:
+> @@ -1596,8 +1598,8 @@ static void mld_send_report(struct inet6_dev *idev, struct ifmcaddr6 *pmc)
+>  	struct sk_buff *skb = NULL;
+>  	int type;
+>  
+> +	read_lock_bh(&idev->lock);
+>  	if (!pmc) {
+> -		read_lock_bh(&idev->lock);
+>  		for (pmc=idev->mc_list; pmc; pmc=pmc->next) {
+>  			if (pmc->mca_flags & MAF_NOREPORT)
+>  				continue;
+> @@ -1609,7 +1611,6 @@ static void mld_send_report(struct inet6_dev *idev, struct ifmcaddr6 *pmc)
+>  			skb = add_grec(skb, pmc, type, 0, 0);
+>  			spin_unlock_bh(&pmc->mca_lock);
+>  		}
+> -		read_unlock_bh(&idev->lock);
+>  	} else {
+>  		spin_lock_bh(&pmc->mca_lock);
+>  		if (pmc->mca_sfcount[MCAST_EXCLUDE])
+> @@ -1619,6 +1620,7 @@ static void mld_send_report(struct inet6_dev *idev, struct ifmcaddr6 *pmc)
+>  		skb = add_grec(skb, pmc, type, 0, 0);
+>  		spin_unlock_bh(&pmc->mca_lock);
+>  	}
+> +	read_unlock_bh(&idev->lock);
+>  	if (skb)
+>  		mld_sendpack(skb);
+>  }
 
-Default mode is nothing but the values required for the module during
-active state. With this configurations module is functional as
-expected.
-
-Todo:
-- if an idle state is available for pins, add support for it.
-
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- arch/arm/boot/dts/am335x-bone.dts |   38 +++++++++++++++++++++++++++++++++++++
- 1 file changed, 38 insertions(+)
-
-diff --git a/arch/arm/boot/dts/am335x-bone.dts b/arch/arm/boot/dts/am335x-bone.dts
-index 5302f79..97294a6 100644
---- a/arch/arm/boot/dts/am335x-bone.dts
-+++ b/arch/arm/boot/dts/am335x-bone.dts
-@@ -36,6 +36,33 @@
- 				0x60 0x17	/* gpmc_a8.gpio1_24, OUTPUT_PULLUP | MODE7 */
- 			>;
- 		};
-+
-+		cpsw_default: cpsw_default {
-+			pinctrl-single,pins = <
-+				/* Slave 1 */
-+				0x110 0x20	/* mii1_rxerr.mii1_rxerr, MODE0 | INPUT */
-+				0x114 0x0	/* mii1_txen.mii1_txen, MODE0 | OUTPUT */
-+				0x118 0x20	/* mii1_rxdv.mii1_rxdv, MODE0 | INPUT_PULLDOWN */
-+				0x11c 0x0	/* mii1_txd3.mii1_txd3, MODE0 | OUTPUT */
-+				0x120 0x0	/* mii1_txd2.mii1_txd2, MODE0 | OUTPUT */
-+				0x124 0x0	/* mii1_txd1.mii1_txd1, MODE0 | OUTPUT */
-+				0x128 0x0	/* mii1_txd0.mii1_txd0, MODE0 | OUTPUT */
-+				0x12c 0x20	/* mii1_txclk.mii1_txclk, MODE0 | INPUT_PULLDOWN */
-+				0x130 0x20	/* mii1_rxclk.mii1_rxclk, MODE0 | INPUT_PULLDOWN */
-+				0x134 0x20	/* mii1_rxd3.mii1_rxd3, MODE0 | INPUT_PULLDOWN */
-+				0x138 0x20	/* mii1_rxd2.mii1_rxd2, MODE0 | INPUT_PULLDOWN */
-+				0x13c 0x20	/* mii1_rxd1.mii1_rxd1, MODE0 | INPUT_PULLDOWN */
-+				0x140 0x20	/* mii1_rxd0.mii1_rxd0, MODE0 | INPUT_PULLDOWN */
-+			>;
-+		};
-+
-+		davinci_mdio_default: davinci_mdio_default {
-+			pinctrl-single,pins = <
-+				/* MDIO */
-+				0x148 0x30	/* mdio_data.mdio_data, MODE0 | INPUT_PULLUP */
-+				0x14c 0x10	/* mdio_clk.mdio_clk, MODE0 | OUTPUT_PULLUP */
-+			>;
-+		};
- 	};
- 
- 	ocp {
-@@ -136,3 +163,14 @@
- &cpsw_emac1 {
- 	phy_id = <&davinci_mdio>, <1>;
- };
-+
-+&mac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&cpsw_default>;
-+
-+};
-+
-+&davinci_mdio {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&davinci_mdio_default>;
-+};
--- 
-1.7.9.5
+Isn't this hunk the only one needed to fix this problem?
