@@ -1,63 +1,35 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
-Subject: Re: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
-Date: Tue, 21 May 2013 15:55:05 +0400
-Message-ID: <519B6099.1080403@yandex-team.ru>
-References: <519B38EC.90401@yandex-team.ru> <AE90C24D6B3A694183C094C60CF0A2F6026B7241@saturn3.aculab.com>
+From: Schmiedl Christian <Christian.Schmiedl@gemalto.com>
+Subject: [PATCH] qmi_wwan: Added support for Cinterion's PLxx WWAN Interface
+Date: Tue, 21 May 2013 14:07:17 +0200
+Message-ID: <376FB829F3ECB542B825EAF4D8CA8A97013E8459E48B@CROEXCFWP03.gemalto.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dipankar Sarma <dipankar@in.ibm.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	zhmurov@yandex-team.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Schemmel Hans-Christoph <Hans-Christoph.Schemmel@gemalto.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-usb@vger.kernel.org" <linux-usb@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7241@saturn3.aculab.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 21.05.2013 14:40, David Laight wrote:
->> Some network functions (udp4_lib_lookup2(), for instance) use the
->> hlist_nulls_for_each_entry_rcu macro in a way that assumes restarting
->> of a loop. In this case, it is strictly necessary to reread the head->first
->> value from the memory before each scan.
->> Without additional hints, gcc caches this value in a register. In this case,
->> if a cached node is moved to another chain during the scan, we can loop
->> forever getting wrong nulls values and restarting the loop uninterruptedly.
->
-> Hmmm.... if either inet_ehashfn() or next_pseudo_random32() is
-> called gcc must reread it anyway.
-> I'm surprised gcc is generating separate code for all the conditional
-> loop endings. So why is it caching head->first.
-> The 'list empty' might be short-circuited - but that would only
-> be relevant after a rescan.
-> I suspect something else is going on.
+From: Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>
 
-What do you mean?
+Added support for Cinterion's PLxx WWAN Interface by adding QMI_FIXED_INTF with
+Cinterion's Vendor ID as well as Product ID and WWAN Interface Number.
 
-> I'd also have thought that this code needs to scan the entire
-> hash list. If things are moved under its feet this won't happen.
-> If it can end up on a different list (because a node got moved)
-> it is also possible for a later node to move it back.
-> In that case it would end up on the correct list
+Signed-off-by: Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>
+Signed-off-by: Christian Schmiedl <christian.schmiedl@gemalto.com>
+---
+patch is against linux-3.9
+--- linux-3.9/drivers/net/usb/qmi_wwan.c.orig	2013-05-06 08:10:11.170034451 +0200
++++ linux-3.9/drivers/net/usb/qmi_wwan.c	2013-05-06 08:58:00.800264179 +0200
+@@ -569,6 +569,7 @@ static const struct usb_device_id produc
+ 	{QMI_FIXED_INTF(0x1bbb, 0x011e, 4)},	/* Telekom Speedstick LTE II (Alcatel One Touch L100V LTE) */
+ 	{QMI_FIXED_INTF(0x2357, 0x0201, 4)},	/* TP-LINK HSUPA Modem MA180 */
+ 	{QMI_FIXED_INTF(0x1bc7, 0x1200, 5)},	/* Telit LE920 */
++	{QMI_FIXED_INTF(0x1e2d, 0x12d1, 4)},	/* Cinterion PLxx */
 
-Things are always moved to the head of the list, so, it's not a problem.
-
-> ...
->> -#define hlist_nulls_first_rcu(head) \
->> -	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
->> +#define hlist_nulls_first_rcu(head)			\
->> +	(*((struct hlist_nulls_node __rcu __force **)	\
->> +	   &((volatile typeof(*head) *)head)->first))
->
-> I'd have thought it would be better to change hlist_nulls_first_rcu().
-
-It's exactly what I suggest. May be I miss something? Please, clarify.
-
-Regards,
-Roman
+ 	/* 4. Gobi 1000 devices */
+ 	{QMI_GOBI1K_DEVICE(0x05c6, 0x9212)},	/* Acer Gobi Modem Device */
