@@ -1,76 +1,70 @@
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net 1/3] qlcnic: Return proper error codes from probe failure paths
-Date: Tue, 21 May 2013 15:26:59 -0400
-Message-ID: <1369164421-20996-2-git-send-email-shahed.shaikh@qlogic.com>
-References: <1369164421-20996-1-git-send-email-shahed.shaikh@qlogic.com>
+From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
+Subject: (no subject)
+Date: Tue, 21 May 2013 21:53:54 +0200
+Message-ID: <1369166035-585-1-git-send-email-ordex@autistici.org>
+References: <pull request for net: batman-adv 2013-05-21>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe003.messaging.microsoft.com ([207.46.163.26]:29305
-	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751639Ab3EUTxI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 15:53:08 -0400
-In-Reply-To: <1369164421-20996-1-git-send-email-shahed.shaikh@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <pull request for net: batman-adv 2013-05-21>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Sony Chacko <sony.chacko@qlogic.com>
+Hello David,
 
-Fix error paths in probe to assign proper error codes to probe return value.
+this is another small patch for net/linux-3.10. It is preventing a double=
+ free
+of the bat_counters in case of mesh initialisation failure.
 
-Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |   12 ++++++++----
- 1 files changed, 8 insertions(+), 4 deletions(-)
+Sorry for sending such small pull requests (I guess this is not that bad =
+since
+they target net :-)), but these are small glitches we are finding while t=
+esting
+new features.
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 8fb836d..9a7519f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -2016,8 +2016,10 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	pci_enable_pcie_error_reporting(pdev);
- 
- 	ahw = kzalloc(sizeof(struct qlcnic_hardware_context), GFP_KERNEL);
--	if (!ahw)
-+	if (!ahw) {
-+		err = -ENOMEM;
- 		goto err_out_free_res;
-+	}
- 
- 	switch (ent->device) {
- 	case PCI_DEVICE_ID_QLOGIC_QLE824X:
-@@ -2053,6 +2055,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 
- 	adapter->qlcnic_wq = create_singlethread_workqueue("qlcnic");
- 	if (adapter->qlcnic_wq == NULL) {
-+		err = -ENOMEM;
- 		dev_err(&pdev->dev, "Failed to create workqueue\n");
- 		goto err_out_free_netdev;
- 	}
-@@ -2133,6 +2136,10 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 			goto err_out_disable_msi;
- 	}
- 
-+	err = qlcnic_get_act_pci_func(adapter);
-+	if (err)
-+		goto err_out_disable_mbx_intr;
-+
- 	err = qlcnic_setup_netdev(adapter, netdev, pci_using_dac);
- 	if (err)
- 		goto err_out_disable_mbx_intr;
-@@ -2162,9 +2169,6 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		break;
- 	}
- 
--	if (qlcnic_get_act_pci_func(adapter))
--		goto err_out_disable_mbx_intr;
--
- 	if (adapter->drv_mac_learn)
- 		qlcnic_alloc_lb_filters_mem(adapter);
- 
--- 
-1.5.6
+Please pull or let me know if there is any problem.
+
+Thanks a lot,
+	Antonio
+
+
+The following changes since commit 3ccfc1b1d2fa78f8ece83646027982916fcc79=
+4b:
+
+  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/g=
+it/linville/wireless (2013-05-20 14:05:22 -0700)
+
+are available in the git repository at:
+
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
+
+for you to fetch changes up to f69ae770e74df420fbcf93aae81b30a5dcc73b7d:
+
+  batman-adv: Avoid double freeing of bat_counters (2013-05-21 21:34:36 +=
+0200)
+
+----------------------------------------------------------------
+Included change:
+- fix double free in case of failure during mesh initialisation
+
+----------------------------------------------------------------
+Martin Hundeb=C3=B8ll (1):
+      batman-adv: Avoid double freeing of bat_counters
+
+ net/batman-adv/main.c           | 1 +
+ net/batman-adv/soft-interface.c | 1 +
+ 2 files changed, 2 insertions(+)
