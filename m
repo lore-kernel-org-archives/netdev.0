@@ -1,54 +1,45 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v3 net-next 1/4] net: implement support for low latency
- socket polling
-Date: Tue, 21 May 2013 10:28:55 +0300
-Message-ID: <519B2237.20204@linux.intel.com>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>  <20130520101601.14133.874.stgit@ladj378.jer.intel.com> <1369063764.3301.182.camel@edumazet-glaptop>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: linux-next: manual merge of the akpm tree with the net-next tree
+Date: Tue, 21 May 2013 09:44:13 +0200
+Message-ID: <519B25CD.5060801@redhat.com>
+References: <20130521142537.00a9ccb7ca4aa81f553b61cf@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369063764.3301.182.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Andrew Morton <akpm@linux-foundation.org>,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Nicolas Schichan <nschichan@freebox.fr>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130521142537.00a9ccb7ca4aa81f553b61cf@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 20/05/2013 18:29, Eric Dumazet wrote:
-> On Mon, 2013-05-20 at 13:16 +0300, Eliezer Tamir wrote:
----
->> +static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct *napi)
->> +{
->> +	skb->dev_ref = napi;
->> +}
->> +
->> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
->> +{
->> +	sk->dev_ref = skb->dev_ref;
->> +}
+Hi Stephen,
+
+On 05/21/2013 06:25 AM, Stephen Rothwell wrote:
+> Hi Andrew,
 >
-> I do not see why it's safe to keep a pointer to a napi object without
-> taking a reference, or something to prevent object being removed.
+> Today's linux-next merge of the akpm tree got a conflict in
+> arch/arm/net/bpf_jit_32.c between commit aafc787e41fd ("arm: bpf_jit: can
+> call module_free() from any context") from the net-next tree and commit
+> "ARM: net: bpf_jit: make code generation less dependent on struct
+> sk_filter" from the akpm tree.
 >
-> Using a genid might be enough. (some counter incremented every time a
-> napi is dismantled)
+> I fixed it up (see below) and can carry the fix as necessary (no action
+> is required).
 
-I really like this approach and I tried it.
-The main problem I had is that you need to increase the size of the skb 
-to store the generation id unless you stuff it in the flags2 bitfield.
-There appear to be only 7 useful bit left there.
-Is it OK to use them all up?
+Also seccomp_jit_free() needs a change otherwise the kernel won't build
+with CONFIG_SECCOMP_FILTER_JIT enabled since the work_struct is initialized
+with the bpf_jit_free_worker() callback, which is no longer existent.
 
+Do you want me to send you a patch?
 
-> Alternatively, use a napi_id instead of a pointer.
+Quite frankly, I don't like so much that {seccomp,bpf}_jit_compile() and
+{seccomp,bpf}_jit_free() are almost idential functions and now both need
+to be maintained with the same changes, but that's off-topic here.
 
-I'm not sure I understand what you propose.
+Cheers,
 
--Eliezer
+Daniel
