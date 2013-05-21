@@ -1,114 +1,63 @@
-From: "Florian Fainelli" <f.fainelli@gmail.com>
-Subject: [PATCH 1/2 net-next v2] phy: allow drivers to flag a PHY device
- as internal
-Date: Tue, 21 May 2013 12:09:47 +0100
-Message-ID: <1369134588-18339-2-git-send-email-f.fainelli@gmail.com>
-References: <1369134588-18339-1-git-send-email-f.fainelli@gmail.com>
+From: Roman Gushchin <klamm@yandex-team.ru>
+Subject: Re: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
+Date: Tue, 21 May 2013 15:55:05 +0400
+Message-ID: <519B6099.1080403@yandex-team.ru>
+References: <519B38EC.90401@yandex-team.ru> <AE90C24D6B3A694183C094C60CF0A2F6026B7241@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, afleming@freescale.com, jogo@openwrt.org,
-	"Florian Fainelli" <f.fainelli@gmail.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4723 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751580Ab3EULKC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 May 2013 07:10:02 -0400
-In-Reply-To: <1369134588-18339-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dipankar Sarma <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	zhmurov@yandex-team.ru, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7241@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-libphy currently always reports a PHY as an external transceiver from
-the ethtool output. This is inaccurate, because some drivers should be
-able to tell that a PHY device is an internal transceiver of an Ethernet
-MAC. Add a new flag (PHY_IS_INTERNAL) which can be set by PHY drivers
-just like other flags, and a corresponding helper: phy_is_internal()
-which can be used by networking drivers to query if a given
-PHY device is internal.
+On 21.05.2013 14:40, David Laight wrote:
+>> Some network functions (udp4_lib_lookup2(), for instance) use the
+>> hlist_nulls_for_each_entry_rcu macro in a way that assumes restarting
+>> of a loop. In this case, it is strictly necessary to reread the head->first
+>> value from the memory before each scan.
+>> Without additional hints, gcc caches this value in a register. In this case,
+>> if a cached node is moved to another chain during the scan, we can loop
+>> forever getting wrong nulls values and restarting the loop uninterruptedly.
+>
+> Hmmm.... if either inet_ehashfn() or next_pseudo_random32() is
+> called gcc must reread it anyway.
+> I'm surprised gcc is generating separate code for all the conditional
+> loop endings. So why is it caching head->first.
+> The 'list empty' might be short-circuited - but that would only
+> be relevant after a rescan.
+> I suspect something else is going on.
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes since v1:
-- fixed typo in commit message (accurate vs inaccurate)
-- add missing phy_is_internal helper
+What do you mean?
 
- drivers/net/phy/phy.c        |  3 ++-
- drivers/net/phy/phy_device.c |  3 +++
- include/linux/phy.h          | 12 ++++++++++++
- 3 files changed, 17 insertions(+), 1 deletion(-)
+> I'd also have thought that this code needs to scan the entire
+> hash list. If things are moved under its feet this won't happen.
+> If it can end up on a different list (because a node got moved)
+> it is also possible for a later node to move it back.
+> In that case it would end up on the correct list
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index 2d28a0e..b2a94e4 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -294,7 +294,8 @@ int phy_ethtool_gset(struct phy_device *phydev, struct ethtool_cmd *cmd)
- 	cmd->duplex = phydev->duplex;
- 	cmd->port = PORT_MII;
- 	cmd->phy_address = phydev->addr;
--	cmd->transceiver = XCVR_EXTERNAL;
-+	cmd->transceiver = phy_is_internal(phydev) ?
-+		XCVR_INTERNAL : XCVR_EXTERNAL;
- 	cmd->autoneg = phydev->autoneg;
- 
- 	return 0;
-diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
-index b55aa33..74630e9 100644
---- a/drivers/net/phy/phy_device.c
-+++ b/drivers/net/phy/phy_device.c
-@@ -1017,6 +1017,9 @@ static int phy_probe(struct device *dev)
- 			phy_interrupt_is_valid(phydev))
- 		phydev->irq = PHY_POLL;
- 
-+	if (phydrv->flags & PHY_IS_INTERNAL)
-+		phydev->is_internal = true;
-+
- 	mutex_lock(&phydev->lock);
- 
- 	/* Start out supporting everything. Eventually,
-diff --git a/include/linux/phy.h b/include/linux/phy.h
-index fdfa115..ee411b0 100644
---- a/include/linux/phy.h
-+++ b/include/linux/phy.h
-@@ -49,6 +49,7 @@
- 
- #define PHY_HAS_INTERRUPT	0x00000001
- #define PHY_HAS_MAGICANEG	0x00000002
-+#define PHY_IS_INTERNAL		0x00000004
- 
- /* Interface Mode definitions */
- typedef enum {
-@@ -261,6 +262,7 @@ struct phy_c45_device_ids {
-  * phy_id: UID for this device found during discovery
-  * c45_ids: 802.3-c45 Device Identifers if is_c45.
-  * is_c45:  Set to true if this phy uses clause 45 addressing.
-+ * is_internal: Set to true if this phy is internal to a MAC.
-  * state: state of the PHY for management purposes
-  * dev_flags: Device-specific flags used by the PHY driver.
-  * addr: Bus address of PHY
-@@ -298,6 +300,7 @@ struct phy_device {
- 
- 	struct phy_c45_device_ids c45_ids;
- 	bool is_c45;
-+	bool is_internal;
- 
- 	enum phy_state state;
- 
-@@ -520,6 +523,15 @@ static inline bool phy_interrupt_is_valid(struct phy_device *phydev)
- 	return phydev->irq != PHY_POLL && phydev->irq != PHY_IGNORE_INTERRUPT;
- }
- 
-+/**
-+ * phy_is_internal - Convenience function for testing if a PHY is internal
-+ * @phydev: the phy_device struct
-+ */
-+static inline bool phy_is_internal(struct phy_device *phydev)
-+{
-+	return phydev->is_internal;
-+}
-+
- struct phy_device *phy_device_create(struct mii_bus *bus, int addr, int phy_id,
- 		bool is_c45, struct phy_c45_device_ids *c45_ids);
- struct phy_device *get_phy_device(struct mii_bus *bus, int addr, bool is_c45);
--- 
-1.8.1.2
+Things are always moved to the head of the list, so, it's not a problem.
+
+> ...
+>> -#define hlist_nulls_first_rcu(head) \
+>> -	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
+>> +#define hlist_nulls_first_rcu(head)			\
+>> +	(*((struct hlist_nulls_node __rcu __force **)	\
+>> +	   &((volatile typeof(*head) *)head)->first))
+>
+> I'd have thought it would be better to change hlist_nulls_first_rcu().
+
+It's exactly what I suggest. May be I miss something? Please, clarify.
+
+Regards,
+Roman
