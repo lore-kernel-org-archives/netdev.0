@@ -1,40 +1,69 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Bug#708995: iptables firewall is dropping GRO'd packets
-Date: Tue, 21 May 2013 06:22:06 -0700
-Message-ID: <1369142526.3301.208.camel@edumazet-glaptop>
-References: <20130520044850.31127.24148.reportbug@shadbolt.decadent.org.uk>
-	 <1369096123.3469.127.camel@deadeye.wl.decadent.org.uk>
-	 <1369097605.3301.203.camel@edumazet-glaptop>
-	 <1369101790.3301.206.camel@edumazet-glaptop>
-	 <20130521125502.GA7374@minipsycho.brq.redhat.com>
+Subject: Re: [PATCH v3 net-next 1/4] net: implement support for low latency
+ socket polling
+Date: Tue, 21 May 2013 06:28:46 -0700
+Message-ID: <1369142926.3301.213.camel@edumazet-glaptop>
+References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
+	  <20130520101601.14133.874.stgit@ladj378.jer.intel.com>
+	 <1369063764.3301.182.camel@edumazet-glaptop>
+	 <519B2237.20204@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	netdev <netdev@vger.kernel.org>, 708995@bugs.debian.org
-To: Jiri Pirko <jiri@resnulli.us>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:44149 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753196Ab3EUNWI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 09:22:08 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kl13so708594pab.20
-        for <netdev@vger.kernel.org>; Tue, 21 May 2013 06:22:08 -0700 (PDT)
-In-Reply-To: <20130521125502.GA7374@minipsycho.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <519B2237.20204@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-21 at 14:55 +0200, Jiri Pirko wrote:
-
-> This is looking good to me. On my test machine it makes tbf work correctly
-> with gso packets.
-> I worked on similar patch (enqueue path) myself some time ago but I got
-> distracted by other tasks.
-
-Yes, I understood this.
-
+On Tue, 2013-05-21 at 10:28 +0300, Eliezer Tamir wrote:
+> On 20/05/2013 18:29, Eric Dumazet wrote:
+> > On Mon, 2013-05-20 at 13:16 +0300, Eliezer Tamir wrote:
+> ---
+> >> +static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct *napi)
+> >> +{
+> >> +	skb->dev_ref = napi;
+> >> +}
+> >> +
+> >> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+> >> +{
+> >> +	sk->dev_ref = skb->dev_ref;
+> >> +}
+> >
+> > I do not see why it's safe to keep a pointer to a napi object without
+> > taking a reference, or something to prevent object being removed.
+> >
+> > Using a genid might be enough. (some counter incremented every time a
+> > napi is dismantled)
 > 
-> Do you plan to submit this patch?
+> I really like this approach and I tried it.
+> The main problem I had is that you need to increase the size of the skb 
+> to store the generation id unless you stuff it in the flags2 bitfield.
+> There appear to be only 7 useful bit left there.
+> Is it OK to use them all up?
 > 
+> 
+> > Alternatively, use a napi_id instead of a pointer.
+> 
+> I'm not sure I understand what you propose.
 
-Of course I will, when correctly tested.
+Oh well.
+
+To get a pointer to a struct net_device, we can use ifindex, and do a
+rcu lookup into a hash table to get the net_device. We do not need
+{pointer,ifindex} but {ifindex} is enough
+
+My suggestion is to not have skb->skb_ref but skb->napi_index : Its safe
+to copy its value from skb->napi_index to sk->napi_index without
+refcounting.
+
+All NAPI need to get a unique napi_index, and be inserted in a hash
+table for immediate/fast lookup.
