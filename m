@@ -1,53 +1,53 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 18/19] drivers/net/ethernet/marvell: add missing platform_driver
- owne
-Date: Tue, 21 May 2013 17:11:43 +0400
-Message-ID: <519B728F.2000905@cogentembedded.com>
-References: <1369104171-8824-1-git-send-email-libo.chen@huawei.com>
+From: Alex Rosenbaum <alexr@mellanox.com>
+Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet
+	device polling
+Date: Tue, 21 May 2013 16:15:01 +0300
+Message-ID: <519B7355.9090303@mellanox.com>
+References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
+	<519B632F.7040202@mellanox.com> <519B68A4.3010406@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	lizefan@huawei.com
-To: Libo Chen <libo.chen@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:41117 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754232Ab3EUNLp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 09:11:45 -0400
-Received: by mail-lb0-f174.google.com with SMTP id u10so758376lbi.19
-        for <netdev@vger.kernel.org>; Tue, 21 May 2013 06:11:43 -0700 (PDT)
-In-Reply-To: <1369104171-8824-1-git-send-email-libo.chen@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Willem de Bruijn <willemb@google.com>, Don,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <519B68A4.3010406@linux.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On 5/21/2013 3:29 PM, Eliezer Tamir wrote:
+> What benchmarks are you using to test poll/select/epoll?
+for epoll/select latency tests we are using sockperf as performance 
+latency tool: https://code.google.com/p/sockperf/
+It is a client-server based tool and it supported ping-pong, throughput, 
+and under-load test type.
+For epoll, you will need to define a 'feedfile' ("-f filepathname") 
+which has a list of TCP and/or UDP socket and defined your IO mux type 
+("-F epoll").
 
-On 21-05-2013 6:42, Libo Chen wrote:
+thanks for all the clarifications.
 
-> set the owner of platform_driver, to ensure that the
-> caller of driver holds a module refernece
+- Alex Rosenbaum
 
-> Signed-off-by: Libo Chen <libo.chen@huawei.com>
-> ---
->   drivers/net/ethernet/marvell/mvneta.c |    1 +
->   1 files changed, 1 insertions(+), 0 deletions(-)
-
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index c966785..be35a3e 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -2820,6 +2820,7 @@ static struct platform_driver mvneta_driver = {
->   	.remove = mvneta_remove,
->   	.driver = {
->   		.name = MVNETA_DRIVER_NAME,
-> +		.owner	= THIS_MODULE,
-
-    Indent this = with space or indent all ='s with tabs.
-
->   		.of_match_table = mvneta_match,
->   	},
->   };
-
-WBR, Sergei
+------------------------------------------------------------------------------
+Try New Relic Now & We'll Send You this Cool Shirt
+New Relic is the only SaaS-based application performance monitoring service 
+that delivers powerful full stack analytics. Optimize and monitor your
+browser, app, & servers with just a few lines of code. Try New Relic
+and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
