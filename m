@@ -1,93 +1,61 @@
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Subject: [RFC PATCH v2 2/4] ppp_mppe: check coherency counter for out-of-order sequencing
-Date: Tue, 21 May 2013 20:18:22 +0200
-Message-ID: <1369160304-31967-2-git-send-email-jorge@dti2.net>
-References: <1369160304-31967-1-git-send-email-jorge@dti2.net>
-Reply-To: jorge@dti2.net
-Cc: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-To: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: [PATCH v2 net-next] arp: flush arp cache on IFF_NOARP change
+Date: Tue, 21 May 2013 21:29:30 +0300
+Message-ID: <20130521212930.01efd34e@vostro>
+References: <20130520.134633.448574202175922639.davem@davemloft.net>
+	<1369131824-6318-1-git-send-email-timo.teras@iki.fi>
+	<1369153519.2615.3.camel@bwh-desktop.uk.solarflarecom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<kaber@trash.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from alcalazamora.dti2.net ([81.24.162.8]:62348 "EHLO
-	alcalazamora.dti2.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755494Ab3EUSX5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 14:23:57 -0400
-In-Reply-To: <1369160304-31967-1-git-send-email-jorge@dti2.net>
+Received: from mail-ee0-f51.google.com ([74.125.83.51]:37606 "EHLO
+	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755265Ab3EUS15 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 14:27:57 -0400
+Received: by mail-ee0-f51.google.com with SMTP id e51so606104eek.24
+        for <netdev@vger.kernel.org>; Tue, 21 May 2013 11:27:56 -0700 (PDT)
+In-Reply-To: <1369153519.2615.3.camel@bwh-desktop.uk.solarflarecom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
+On Tue, 21 May 2013 17:25:19 +0100
+Ben Hutchings <bhutchings@solarflare.com> wrote:
 
-While testing a L2TP tunnel without sequencing with MPPE encryption in
-stateless mode noticed that after a packet was reordered the encapsulated
-traffic session was stuck but testing against a Cisco gear did work.
+> On Tue, 2013-05-21 at 13:23 +0300, Timo Ter=C3=A4s wrote:
+> > IFF_NOARP affects what kind of neighbor entries are created
+> > (nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
+> > cache to refresh all entries.
+> >=20
+> > Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+> > ---
+> > > This patch makes no sense at all.
+> > >=20
+> > > The state bit in ->priv_flags is a boolean stating whether the
+> > > notified should do something or not.
+> > >=20
+> > > But you're setting it to match what IFF_NOARP is.
+> > >
+> > > You should set it any time IFF_NOARP _changes_, and then clear
+> > > the bit when the notifier clears the neighbour entries.
+> >=20
+> > IFF_NOARP_CHANGED is set according to "changes =3D dev->flags ^
+> > old_flags;" which reflect the change. But I agree that the clearing
+> > out bit was misplaced. This is especially true as it seems
+> > NETDEV_CHANGE can be notified from another place too.
+> [...]
+>=20
+> None of the other persistent flags have a transient flag for changes;
+> why should IFF_NOARP?  Why not cache the IFF_NOARP state in the
+> in_device and then compare and update that in arp_netdev_event().
 
->From RFC3078 "MPPE expects packets to be delivered in sequence".
+This was the earlier suggestion I got, so I followed that. NOARP flag
+is also used in IPv6 side (quick look would indicate that ndisc code
+needs similar fix), so it would be useful to have this generally
+available.
 
-The thing it's that the ppp_mppe module treats the reorder as if the
-coherency counter did wrap and rekeys all the "missing" packets.
-
-The link layer protocol should deliver the packets in order but at least
-with this patch in place the decryption process survives some packet reorder.
-
-Signed-off-by: Jorge Boncompte [DTI2] <jorge@dti2.net>
----
- drivers/net/ppp/ppp_mppe.c |   23 ++++++++++++++++++++++-
- 1 file changed, 22 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ppp/ppp_mppe.c b/drivers/net/ppp/ppp_mppe.c
-index 9a1849a..97f4804 100644
---- a/drivers/net/ppp/ppp_mppe.c
-+++ b/drivers/net/ppp/ppp_mppe.c
-@@ -55,6 +55,7 @@
- #include <linux/ppp_defs.h>
- #include <linux/ppp-comp.h>
- #include <linux/scatterlist.h>
-+#include <linux/net.h>
- #include <asm/unaligned.h>
- 
- #include "ppp_mppe.h"
-@@ -125,7 +126,10 @@ struct ppp_mppe_state {
- 
- #define MPPE_BITS(p) ((p)[4] & 0xf0)
- #define MPPE_CCOUNT(p) ((((p)[4] & 0x0f) << 8) + (p)[5])
--#define MPPE_CCOUNT_SPACE 0x1000	/* The size of the ccount space */
-+#define MPPE_CCOUNT_BITS 12	/* MPPE coherency count bits */
-+/* The size of the ccount space */
-+#define MPPE_CCOUNT_SPACE (1 << MPPE_CCOUNT_BITS)
-+#define MPPE_CCOUNT_SHIFT ((sizeof(int) * 8) - MPPE_CCOUNT_BITS)
- 
- #define MPPE_OVHD	2	/* MPPE overhead/packet */
- #define SANITY_MAX	1600	/* Max bogon factor we will tolerate */
-@@ -469,6 +473,14 @@ static void mppe_decomp_reset(void *arg)
- }
- 
- /*
-+ * Compares two coherency counter values.
-+ */
-+static int mppe_cmp_ccount(unsigned int a, unsigned int b)
-+{
-+	return (int)((a << MPPE_CCOUNT_SHIFT) - (b << MPPE_CCOUNT_SHIFT));
-+}
-+
-+/*
-  * Decompress (decrypt) an MPPE packet.
-  */
- static int
-@@ -547,6 +559,15 @@ mppe_decompress(void *arg, unsigned char *ibuf, int isize, unsigned char *obuf,
- 	 */
- 
- 	if (!state->stateful) {
-+		if (mppe_cmp_ccount(ccount, state->ccount) < 0) {
-+			if (net_ratelimit())
-+				printk(KERN_WARNING "%s[%d]: Dropping out-of-order "
-+				       "packet with ccount %u, "
-+				       "expecting %u!\n", __func__,
-+				       state->unit, ccount, state->ccount);
-+			return DECOMP_DROPERROR;
-+		}
-+
- 		/* RFC 3078, sec 8.1.  Rekey for every packet. */
- 		while (state->ccount != ccount) {
- 			mppe_rekey(state, 0);
--- 
-1.7.10.4
+Would it be worthwhile to consider adding "flags_changed" to struct
+net_device or some other mechanism add this info about all flags?
