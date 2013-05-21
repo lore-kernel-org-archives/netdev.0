@@ -1,66 +1,108 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet
-	device polling
-Date: Tue, 21 May 2013 19:15:15 +0100
-Message-ID: <1369160115.2615.51.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
-	<519B632F.7040202@mellanox.com> <519B68A4.3010406@linux.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] sch_tbf: segment too big GSO packets
+Date: Tue, 21 May 2013 11:16:46 -0700
+Message-ID: <1369160206.3301.245.camel@edumazet-glaptop>
+References: <20130520044850.31127.24148.reportbug@shadbolt.decadent.org.uk>
+	 <1369096123.3469.127.camel@deadeye.wl.decadent.org.uk>
+	 <1369097605.3301.203.camel@edumazet-glaptop>
+	 <1369101790.3301.206.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Andi Kleen <andi@firstfloor.org>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Alex Rosenbaum <alexr@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <519B68A4.3010406@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>, Jiri Pirko <jiri@resnulli.us>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:51392 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754964Ab3EUSQs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 14:16:48 -0400
+Received: by mail-oa0-f52.google.com with SMTP id h1so1233693oag.39
+        for <netdev@vger.kernel.org>; Tue, 21 May 2013 11:16:48 -0700 (PDT)
+In-Reply-To: <1369101790.3301.206.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-21 at 15:29 +0300, Eliezer Tamir wrote:
-> Many of the questions you asked are covered in our RFC cover letter, but 
-> I will touch them briefly
-> 
-> On 21/05/2013 15:06, Alex Rosenbaum wrote:
-> > 1. It seem this patch does not cover epoll/select and such IO muxing APIs?
-> 
-> We are thinking about how to implement epoll support as one of the next 
-> steps.
->
-> What benchmarks are you using to test poll/select/epoll?
-[...]
+From: Eric Dumazet <edumazet@google.com>
 
-I raised this issue back at Plumbers and I thought Jesse said poll() was
-covered.  It's likely to be a bit of a toy without that.  Also, UDP?
+If a GSO packet has a length above tbf burst limit, the packet
+is currently silently dropped.
 
-Solarflare uses a wide range of benchmarks.  Of the publicly available
-applications, I believe Ixia Chariot uses (or can use) epoll.
+Current way to handle this is to set the device in non GSO/TSO mode, or
+setting high bursts, and its sub optimal.
 
-Ben.
+We can actually segment too big GSO packets, and send individual
+segments as tbf parameters allow, allowing for better interoperability.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Ben Hutchings <ben@decadent.org.uk>
+Cc: Jiri Pirko <jiri@resnulli.us>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ net/sched/sch_tbf.c |   47 ++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 45 insertions(+), 2 deletions(-)
 
-
-------------------------------------------------------------------------------
-Try New Relic Now & We'll Send You this Cool Shirt
-New Relic is the only SaaS-based application performance monitoring service 
-that delivers powerful full stack analytics. Optimize and monitor your
-browser, app, & servers with just a few lines of code. Try New Relic
-and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --git a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+index c8388f3..38008b0 100644
+--- a/net/sched/sch_tbf.c
++++ b/net/sched/sch_tbf.c
+@@ -116,14 +116,57 @@ struct tbf_sched_data {
+ 	struct qdisc_watchdog watchdog;	/* Watchdog timer */
+ };
+ 
++
++/* GSO packet is too big, segment it so that tbf can transmit
++ * each segment in time
++ */
++static int tbf_segment(struct sk_buff *skb, struct Qdisc *sch)
++{
++	struct tbf_sched_data *q = qdisc_priv(sch);
++	struct sk_buff *segs, *nskb;
++	netdev_features_t features = netif_skb_features(skb);
++	int ret, nb;
++
++	segs = skb_gso_segment(skb, features & ~NETIF_F_GSO_MASK);
++
++	if (IS_ERR_OR_NULL(segs))
++		return qdisc_reshape_fail(skb, sch);
++
++	nb = 0;
++	while (segs) {
++		nskb = segs->next;
++		segs->next = NULL;
++		if (likely(segs->len <= q->max_size)) {
++			qdisc_skb_cb(segs)->pkt_len = segs->len;
++			ret = qdisc_enqueue(segs, q->qdisc);
++		} else {
++			ret = qdisc_reshape_fail(skb, sch);
++		}
++		if (ret != NET_XMIT_SUCCESS) {
++			if (net_xmit_drop_count(ret))
++				sch->qstats.drops++;
++		} else {
++			nb++;
++		}
++		segs = nskb;
++	}
++	sch->q.qlen += nb;
++	if (nb > 1)
++		qdisc_tree_decrease_qlen(sch, 1 - nb);
++	consume_skb(skb);
++	return nb > 0 ? NET_XMIT_SUCCESS : NET_XMIT_DROP;
++}
++
+ static int tbf_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ {
+ 	struct tbf_sched_data *q = qdisc_priv(sch);
+ 	int ret;
+ 
+-	if (qdisc_pkt_len(skb) > q->max_size)
++	if (qdisc_pkt_len(skb) > q->max_size) {
++		if (skb_is_gso(skb))
++			return tbf_segment(skb, sch);
+ 		return qdisc_reshape_fail(skb, sch);
+-
++	}
+ 	ret = qdisc_enqueue(skb, q->qdisc);
+ 	if (ret != NET_XMIT_SUCCESS) {
+ 		if (net_xmit_drop_count(ret))
