@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next resend PATCH 5/6] ARM: dts: AM33XX: Add pinmux configuration for CPSW to EVMsk
-Date: Tue, 21 May 2013 15:25:02 +0530
-Message-ID: <1369130103-743-6-git-send-email-mugunthanvnm@ti.com>
+Subject: [net-next resend PATCH 6/6] ARM: dts: AM33XX: Add pinmux configuration for CPSW to am335x EVM
+Date: Tue, 21 May 2013 15:25:03 +0530
+Message-ID: <1369130103-743-7-git-send-email-mugunthanvnm@ti.com>
 References: <1369130103-743-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,15 +10,15 @@ Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
 	<paul@pwsan.com>, Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:56371 "EHLO comal.ext.ti.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:46371 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753061Ab3EUJz2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 May 2013 05:55:28 -0400
+	id S1753206Ab3EUJz3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 May 2013 05:55:29 -0400
 In-Reply-To: <1369130103-743-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add pinmux configurations for MII based CPSW ethernet to AM335x EVMsk.
+Add pinmux configurations for RGMII based CPSW ethernet to am335x-evm.
 In this patch, only single named mode/state is added and these pins
 are configured during pinctrl driver initialization.
 
@@ -31,15 +31,15 @@ Todo:
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- arch/arm/boot/dts/am335x-evmsk.dts |   50 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 50 insertions(+)
+ arch/arm/boot/dts/am335x-evm.dts |   36 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
 
-diff --git a/arch/arm/boot/dts/am335x-evmsk.dts b/arch/arm/boot/dts/am335x-evmsk.dts
-index acbcac3..12cbe4e 100644
---- a/arch/arm/boot/dts/am335x-evmsk.dts
-+++ b/arch/arm/boot/dts/am335x-evmsk.dts
-@@ -51,6 +51,46 @@
- 				0x9c 0x27	/* gpmc_ben0_cle.gpio2_5, INPUT | MODE7 */
+diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
+index 0423298..beb2fbf 100644
+--- a/arch/arm/boot/dts/am335x-evm.dts
++++ b/arch/arm/boot/dts/am335x-evm.dts
+@@ -44,6 +44,32 @@
+ 				0x154 0x27	/* spi0_d0.gpio0_3, INPUT | MODE7 */
  			>;
  		};
 +
@@ -58,20 +58,6 @@ index acbcac3..12cbe4e 100644
 +				0x138 0x22	/* mii1_rxd2.rgmii1_rd2, MODE2 | INPUT_PULLDOWN */
 +				0x13c 0x22	/* mii1_rxd1.rgmii1_rd1, MODE2 | INPUT_PULLDOWN */
 +				0x140 0x22	/* mii1_rxd0.rgmii1_rd0, MODE2 | INPUT_PULLDOWN */
-+
-+				/* Slave 2 */
-+				0x40 0x2	/* gpmc_a0.rgmii2_tctl", MODE2 | OUTPUT */
-+				0x44 0x22	/* gpmc_a1.rgmii2_rctl", MODE2 | INPUT_PULLDOWN */
-+				0x48 0x2	/* gpmc_a2.rgmii2_td3", MODE2 | OUTPUT */
-+				0x4c 0x2	/* gpmc_a3.rgmii2_td2", MODE2 | OUTPUT */
-+				0x50 0x2	/* gpmc_a4.rgmii2_td1", MODE2 | OUTPUT */
-+				0x54 0x2	/* gpmc_a5.rgmii2_td0", MODE2 | OUTPUT */
-+				0x58 0x2	/* gpmc_a6.rgmii2_tclk", MODE2 | OUTPUT */
-+				0x5c 0x22	/* gpmc_a7.rgmii2_rclk", MODE2 | INPUT_PULLDOWN */
-+				0x60 0x22	/* gpmc_a8.rgmii2_rd3", MODE2 | INPUT_PULLDOWN */
-+				0x64 0x22	/* gpmc_a9.rgmii2_rd2", MODE2 | INPUT_PULLDOWN */
-+				0x68 0x22	/* gpmc_a10.rgmii2_rd1", MODE2 | INPUT_PULLDOWN */
-+				0x6c 0x22	/* gpmc_a11.rgmii2_rd0", MODE2 | INPUT_PULLDOWN */
 +			>;
 +		};
 +
@@ -85,7 +71,7 @@ index acbcac3..12cbe4e 100644
  	};
  
  	ocp {
-@@ -249,6 +289,16 @@
+@@ -237,6 +263,16 @@
  	};
  };
  
