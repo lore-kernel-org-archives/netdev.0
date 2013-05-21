@@ -1,35 +1,44 @@
-From: Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>
-Subject: Re: [PATCH] MIPS: OCTEON: Rename Kconfig
- CAVIUM_OCTEON_REFERENCE_BOARD to CAVIUM_OCTEON_SOC
-Date: Tue, 21 May 2013 11:26:40 +0200
-Message-ID: <20130521092637.GA2975@katana>
-References: <1369088378-13957-1-git-send-email-ddaney.cavm@gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net-next resend PATCH 0/6] Adding pinctrl PM support for CPSW and MDIO
+Date: Tue, 21 May 2013 15:24:57 +0530
+Message-ID: <1369130103-743-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org, ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-edac-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1369088378-13957-1-git-send-email-ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
+	<linux-omap@vger.kernel.org>, <benoit.cousson@linaro.orgm>,
+	<paul@pwsan.com>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:43328 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751036Ab3EUJzO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 May 2013 05:55:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 20, 2013 at 03:19:38PM -0700, David Daney wrote:
-> From: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
-> 
-> CAVIUM_OCTEON_SOC most place we used to use CPU_CAVIUM_OCTEON.  This
-> allows us to CPU_CAVIUM_OCTEON in places where we have no OCTEON SOC.
-> 
-> Remove CAVIUM_OCTEON_SIMULATOR as it doesn't really do anything, we can
-> get the same configuration with CAVIUM_OCTEON_SOC.
-> 
-> Signed-off-by: David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>
+Resending the same patch series as it is dropped which was sent
+during merge window
 
-For I2C:
+This patch series adds the following features
+* Adding pinctrl PM support for CPSW and MDIO for Power Optimization
+* Adding phy address to the CPSW node for EVMsk board
 
-Acked-by: Wolfram Sang <wsa-z923LK4zBo2bacvFa/9K2g@public.gmane.org>
+Hebbar Gururaja (1):
+  net: cpsw: enhance pinctrl support
+
+Mugunthan V N (5):
+  net: davinci_mdio: enhance pinctrl support
+  ARM: dts: AM33XX: Add pinmux configuration for CPSW to beaglebone
+  ARM: dts: AM33XX: Add CPSW phy_id device tree data to am335x-evmsk
+  ARM: dts: AM33XX: Add pinmux configuration for CPSW to EVMsk
+  ARM: dts: AM33XX: Add pinmux configuration for CPSW to am335x EVM
+
+ arch/arm/boot/dts/am335x-bone.dts      |   38 +++++++++++++++++++++
+ arch/arm/boot/dts/am335x-evm.dts       |   36 ++++++++++++++++++++
+ arch/arm/boot/dts/am335x-evmsk.dts     |   58 ++++++++++++++++++++++++++++++++
+ drivers/net/ethernet/ti/cpsw.c         |   49 +++++++++++++++++++++++++++
+ drivers/net/ethernet/ti/davinci_mdio.c |   46 +++++++++++++++++++++++++
+ 5 files changed, 227 insertions(+)
+
+-- 
+1.7.9.5
