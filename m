@@ -1,68 +1,53 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
-Date: Tue, 21 May 2013 05:09:07 -0700
-Message-ID: <20130521120906.GD3578@linux.vnet.ibm.com>
-References: <519B38EC.90401@yandex-team.ru>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Florian Westphal <fw@strlen.de>
+Subject: sk_page_frag_refill OOM killing spree
+Date: Tue, 21 May 2013 14:28:45 +0200
+Message-ID: <20130521122845.GD16412@breakpoint.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Roman Gushchin <klamm@yandex-team.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:38618 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751689Ab3EUM2s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 08:28:48 -0400
 Content-Disposition: inline
-In-Reply-To: <519B38EC.90401@yandex-team.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 21, 2013 at 01:05:48PM +0400, Roman Gushchin wrote:
-> Hi, all!
-> 
-> This is a fix for a problem described here:
-> https://lkml.org/lkml/2013/4/16/371 .
-> ---
-> 
-> Some network functions (udp4_lib_lookup2(), for instance) use the
-> hlist_nulls_for_each_entry_rcu macro in a way that assumes restarting
-> of a loop. In this case, it is strictly necessary to reread the head->first
-> value from the memory before each scan.
-> Without additional hints, gcc caches this value in a register. In this case,
-> if a cached node is moved to another chain during the scan, we can loop
-> forever getting wrong nulls values and restarting the loop uninterruptedly.
-> 
-> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
-> Reported-by: Boris Zhmurov <zhmurov@yandex-team.ru>
-> ---
->  include/linux/rculist_nulls.h | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
-> index 2ae1371..efd51bf 100644
-> --- a/include/linux/rculist_nulls.h
-> +++ b/include/linux/rculist_nulls.h
-> @@ -37,8 +37,9 @@ static inline void hlist_nulls_del_init_rcu(struct
-> hlist_nulls_node *n)
->  	}
->  }
-> 
-> -#define hlist_nulls_first_rcu(head) \
-> -	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
-> +#define hlist_nulls_first_rcu(head)			\
-> +	(*((struct hlist_nulls_node __rcu __force **)	\
-> +	   &((volatile typeof(*head) *)head)->first))
+Hi Eric,
 
-Why not use ACCESS_ONCE() or (better) rcu_dereference_raw() here?
+seems like sk_page_frag_refill() can cause oom-killer invocation:
 
-							Thanx, Paul
+postgres invoked oom-killer: gfp_mask=0x42d0, order=3, oom_score_adj=0
+Pid: 10551, comm: postgres Tainted: G           O 3.8.6-5.g613ca40-smp #1
+Call Trace:
+ [<c106dbd5>] ? dump_header+0x60/0x191
+ [<c1133d3a>] ? ___ratelimit+0xb2/0xc4
+ [<c106dfd3>] ? oom_kill_process+0x61/0x2d1
+ [<c1030042>] ? has_capability_noaudit+0x1c/0x23
+ [<c106df0f>] ? oom_badness+0x8c/0xef
+ [<c106e446>] ? out_of_memory+0x203/0x247
+ [<c107128a>] ? __alloc_pages_nodemask+0x42b/0x4c3
+ [<c11fa66a>] ? sk_page_frag_refill+0x6a/0xd2
+ [<c1233548>] ? tcp_sendmsg+0x3e8/0x7c6
+ [<c124f34b>] ? inet_sendmsg+0x6b/0x75
+ [<c11f74d8>] ? sock_sendmsg+0x8d/0xa6
+ [<c11f7b83>] ? sys_sendto+0x105/0x130
+ [<c1025927>] ? __kunmap_atomic+0x62/0x8a
+ [<c1025940>] ? __kunmap_atomic+0x7b/0x8a
+ [<c1073d78>] ? __lru_cache_add+0x18/0x47
+ [<c10812f9>] ? handle_pte_fault+0x745/0x751
+ [<c1025a2d>] ? kmap_atomic_prot+0xd3/0xf1
+ [<c10817da>] ? handle_mm_fault+0x112/0x121
+ [<c11f7be5>] ? sys_send+0x37/0x3b
 
->  #define hlist_nulls_next_rcu(node) \
->  	(*((struct hlist_nulls_node __rcu __force **)&(node)->next))
-> -- 
-> 1.8.1.2
-> 
+The system is busy, so, order-3 alloc failure doesn't strike me as odd.
+
+There are no allocation failures with order != 3.
+
+Sometimes this can happen in very short sucession, i.e.
+and oom-killer did end up zapping 30 processes or so.
+
+My question is, should sk_page_frag_refill use __GFP_NORETRY, at least
+for order 3 requests?
