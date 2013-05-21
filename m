@@ -1,86 +1,45 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: Re: (no subject)
-Date: Tue, 21 May 2013 21:56:26 +0200
-Message-ID: <20130521195626.GC3435@ritirata.org>
-References: <1369166035-585-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: linux-next: manual merge of the akpm tree with the net-next
+ tree
+Date: Tue, 21 May 2013 13:04:38 -0700
+Message-ID: <20130521130438.1ecdf535ab2461888abbe0c3@linux-foundation.org>
+References: <20130521142948.444f09820c5406f9adc4b7f1@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature"; boundary="4jXrM3lyYWu4nBt5"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1369166035-585-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <dborkman@redhat.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Nicolas Schichan <nschichan@freebox.fr>
+To: Stephen Rothwell <sfr@canb.auug.org.au>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20130521142948.444f09820c5406f9adc4b7f1@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 21 May 2013 14:29:48 +1000 Stephen Rothwell <sfr@canb.auug.org.au> wrote:
 
---4jXrM3lyYWu4nBt5
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Hi Andrew,
+> 
+> Today's linux-next merge of the akpm tree got a conflict in
+> arch/arm/net/bpf_jit_32.c between commit aafc787e41fd ("arm: bpf_jit: can
+> call module_free() from any context") from the net-next tree and commit
+> "bpf: add comments explaining the schedule_work() operation" from the
+> akpm tree.
+> 
+> The former means that the latter is no longer required, so I used the
+> former and can carry the fix as necessary (no action is required).
 
-On Tue, May 21, 2013 at 09:53:54PM +0200, Antonio Quartulli wrote:
-> Hello David,
+Yes, there have been a lot of conflicts in
 
-Sorry but git-send-email fooled me. Subject was supposed to be:
+seccomp-add-generic-code-for-jitted-seccomp-filters.patch
+arm-net-bpf_jit-make-code-generation-less-dependent-on-struct-sk_filter.patch
+arm-net-bpf_jit-make-code-generation-less-dependent-on-struct-sk_filter-fixup-merge-conflict.patch
+arm-net-bpf_jit-add-support-for-jitted-seccomp-filters.patch
 
-pull request for net: batman-adv 2013-05-21
+recently and I'm presently seeing a compilation error.
 
-Regards,
-
->=20
-> this is another small patch for net/linux-3.10. It is preventing a double=
- free
-> of the bat_counters in case of mesh initialisation failure.
->=20
-> Sorry for sending such small pull requests (I guess this is not that bad =
-since
-> they target net :-)), but these are small glitches we are finding while t=
-esting
-> new features.
->=20
-> Please pull or let me know if there is any problem.
->=20
-> Thanks a lot,
-> 	Antonio
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---4jXrM3lyYWu4nBt5
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRm9FqAAoJEADl0hg6qKeOOBAQALkbB+2DiL+uuWRArhltP2SB
-jGNBfDL39G8PpCxM7St3xJ8dxzXPIUxvO4k3nXivX8dB7qs8Q7cOZ+M4edELImA5
-U+voxc3HFMS0TjXnWdG1HUyCS/g64IcTDWsIADlfiRwhTKkEK3kHM05W4xn9EYqI
-/SPuuSubVHuJT0uZbIkyKL8NLYPsM5SvNOiHVOHgD8NcZmEq9ZR/fsNVbKVWZkja
-3tx1URhKcR7tLFEtzGaYzgtkaVKplbpFVrXfYxtR6JLEptIese79NVLlWyOkH67j
-PJMwfwTHPTcAw0YkDM9dtw8Orzg7Ye43hBiwewLjxmvHn3aEMSeZUa2MS4Kl3C9T
-AT5G69LnGFSfyH0JKLtYTM/2wtI5UZdinD2H7FTJrIaatJWcxieQsAqC6yrcyWG3
-rBHGaFXqQEMhOfams6EPBKTjIZzSsbXgfmCEN3dORAIzlKHktGLshzcFMIuFfWO5
-17TOsylBfBknZQF/7E06cfV45UdP7W2sj8XkxaOJuNR2WpG1hhgTD7+RQ+Byb9y1
-J9RbdxjXhclp1S9laDJU3863KvMQTMKOqdlKv39c6rkmW5GWetPIn/uF5uxculFr
-XaM8H0gso1wnCA7yG1/y9opY+qjkFGEm91YG0KcEnJRl54j6X9weDMtIN2WixULB
-SZJVSlttvMG5+qPqjt0z
-=LGVp
------END PGP SIGNATURE-----
-
---4jXrM3lyYWu4nBt5--
+Nicolas, I think the patches need a re-check so I'll drop the versions
+which I presently have.  Please refresh, retest and resend when
+convenient?  It'll need to be against linux-next, which is where the
+conflicting (vfree/module_free) changes have occurred.
