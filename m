@@ -1,63 +1,31 @@
-From: Peter Huewe <peterhuewe@gmx.de>
-Subject: [PATCH 09/19] net/ethernet/alteon/acenic: Use module_pci_driver to register driver
-Date: Wed, 22 May 2013 00:42:14 +0200
-Message-ID: <1369176146-19383-9-git-send-email-peterhuewe@gmx.de>
-References: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
-Cc: Peter Huewe <peterhuewe@gmx.de>,
-	Jes Sorensen <jes@trained-monkey.org>,
-	linux-acenic@sunsite.dk (open list:ACENIC DRIVER),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-	linux-kernel@vger.kernel.org (open list)
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: GRE+XFRM+GSO crashes
+Date: Tue, 21 May 2013 15:46:15 -0700
+Message-ID: <1369176375.3301.259.camel@edumazet-glaptop>
+References: <20130520094127.546a2f3e@vostro>
+	 <CALnjE+qgOQUDm_gAuygpDE5VH23YS0i3QyQuCVPhgu15=jwXWw@mail.gmail.com>
+	 <20130521110132.37dc2665@vostro>
+	 <CALnjE+qOf2pxzP0-7s4AsSNDbG5M5s8bXFDqYoD-5NgmtKYixA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Timo Teras <timo.teras@iki.fi>, netdev@vger.kernel.org
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:51044 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753493Ab3EUWjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 May 2013 18:39:08 -0400
-Received: from mailout-de.gmx.net ([10.1.76.35]) by mrigmx.server.lan
- (mrigmx001) with ESMTP (Nemesis) id 0M2rpw-1UNeyT0awg-00sfqn for
- <netdev@vger.kernel.org>; Wed, 22 May 2013 00:39:07 +0200
-In-Reply-To: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
+Received: from mail-oa0-f43.google.com ([209.85.219.43]:50528 "EHLO
+	mail-oa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752407Ab3EUWqR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 18:46:17 -0400
+Received: by mail-oa0-f43.google.com with SMTP id o6so1618420oag.2
+        for <netdev@vger.kernel.org>; Tue, 21 May 2013 15:46:17 -0700 (PDT)
+In-Reply-To: <CALnjE+qOf2pxzP0-7s4AsSNDbG5M5s8bXFDqYoD-5NgmtKYixA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Removing some boilerplate by using module_pci_driver instead of calling
-register and unregister in the otherwise empty init/exit functions.
+On Tue, 2013-05-21 at 15:32 -0700, Pravin Shelar wrote:
 
-Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
----
- drivers/net/ethernet/alteon/acenic.c | 15 ++-------------
- 1 file changed, 2 insertions(+), 13 deletions(-)
+> OK. I am still not able to reproduce it, Can you try attached patch?
+> if that works, I will send out proper patch.
 
-diff --git a/drivers/net/ethernet/alteon/acenic.c b/drivers/net/ethernet/alteon/acenic.c
-index b7894f8..219be1b 100644
---- a/drivers/net/ethernet/alteon/acenic.c
-+++ b/drivers/net/ethernet/alteon/acenic.c
-@@ -702,19 +702,6 @@ static struct pci_driver acenic_pci_driver = {
- 	.remove		= acenic_remove_one,
- };
- 
--static int __init acenic_init(void)
--{
--	return pci_register_driver(&acenic_pci_driver);
--}
--
--static void __exit acenic_exit(void)
--{
--	pci_unregister_driver(&acenic_pci_driver);
--}
--
--module_init(acenic_init);
--module_exit(acenic_exit);
--
- static void ace_free_descriptors(struct net_device *dev)
- {
- 	struct ace_private *ap = netdev_priv(dev);
-@@ -3199,3 +3186,5 @@ static int read_eeprom_byte(struct net_device *dev, unsigned long offset)
- 	       ap->name, offset);
- 	goto out;
- }
-+
-+module_pci_driver(acenic_pci_driver);
--- 
-1.8.1.5
+strange, dev_gso_segment() doesnt change skb->cb[]
+only dev_gso_segment() does.
