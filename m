@@ -1,74 +1,108 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/12] igb: Add update to last_rx_timestamp in Rx rings
-Date: Tue, 21 May 2013 15:03:13 -0700
-Message-ID: <1369173800-20326-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 12/12] IXGBE: Set the SW prio_tc values at initialization to the HW setting.
+Date: Tue, 21 May 2013 15:03:20 -0700
+Message-ID: <1369173800-20326-13-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1369173800-20326-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Matthew Vick <matthew.vick@intel.com>, netdev@vger.kernel.org,
+Cc: Amir Hanania <amir.hanania@intel.com>, netdev@vger.kernel.org,
 	gospo@redhat.com, sassmann@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:53264 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:9532 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753299Ab3EUWD3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 May 2013 18:03:29 -0400
+	id S1751604Ab3EUWDg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 May 2013 18:03:36 -0400
 In-Reply-To: <1369173800-20326-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthew Vick <matthew.vick@intel.com>
+From: Amir Hanania <amir.hanania@intel.com>
 
-In order to support a more accurate check for a PTP Rx hang where the
-device can no longer timestamp received packets, we need to update, per
-ring, when the last Rx timestamp was. Because of how the PTP Rx hang logic
-works, the current logic is valid, but properly updating the ring variable
-increases the accuracy of the check.
+Set the SW prio_tc values at initialization to the HW setting.
+Setting the SW prio_tc default values to be the HW setting by reading the
+rtrup2tc register. For any TC change we need to reset the device.
+This will remove the need to reset the device at the first
+time we call ixgbe_dcbnl_ieee_setets.
 
-Signed-off-by: Matthew Vick <matthew.vick@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Amir Hanania <amir.hanania@intel.com>
+Tested-by: Jack Morgan<jack.morgan@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h      | 9 +++++++--
- drivers/net/ethernet/intel/igb/igb_main.c | 2 +-
- 2 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       | 23 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |  2 ++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |  1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |  3 +++
+ 4 files changed, 29 insertions(+)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index 9d6c075..a905707 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -514,13 +514,18 @@ extern void igb_ptp_rx_rgtstamp(struct igb_q_vector *q_vector,
- extern void igb_ptp_rx_pktstamp(struct igb_q_vector *q_vector,
- 				unsigned char *va,
- 				struct sk_buff *skb);
--static inline void igb_ptp_rx_hwtstamp(struct igb_q_vector *q_vector,
-+static inline void igb_ptp_rx_hwtstamp(struct igb_ring *rx_ring,
- 				       union e1000_adv_rx_desc *rx_desc,
- 				       struct sk_buff *skb)
- {
- 	if (igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TS) &&
- 	    !igb_test_staterr(rx_desc, E1000_RXDADV_STAT_TSIP))
--		igb_ptp_rx_rgtstamp(q_vector, skb);
-+		igb_ptp_rx_rgtstamp(rx_ring->q_vector, skb);
-+
-+	/* Update the last_rx_timestamp timer in order to enable watchdog check
-+	 * for error case of latched timestamp on a dropped packet.
-+	 */
-+	rx_ring->last_rx_timestamp = jiffies;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
+index 1f2c805..e055e00 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
+@@ -380,3 +380,26 @@ s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw,
+ 	}
+ 	return 0;
  }
++
++static void ixgbe_dcb_read_rtrup2tc_82599(struct ixgbe_hw *hw, u8 *map)
++{
++	u32 reg, i;
++
++	reg = IXGBE_READ_REG(hw, IXGBE_RTRUP2TC);
++	for (i = 0; i < MAX_USER_PRIORITY; i++)
++		map[i] = IXGBE_RTRUP2TC_UP_MASK &
++			(reg >> (i * IXGBE_RTRUP2TC_UP_SHIFT));
++	return;
++}
++
++void ixgbe_dcb_read_rtrup2tc(struct ixgbe_hw *hw, u8 *map)
++{
++	switch (hw->mac.type) {
++	case ixgbe_mac_82599EB:
++	case ixgbe_mac_X540:
++		ixgbe_dcb_read_rtrup2tc_82599(hw, map);
++		break;
++	default:
++		break;
++	}
++}
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
+index 1634de8..fc0a2dd 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
+@@ -159,6 +159,8 @@ s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw, u16 *refill, u16 *max,
+ s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en, u8 *tc_prio);
+ s32 ixgbe_dcb_hw_config(struct ixgbe_hw *, struct ixgbe_dcb_config *);
  
- extern int igb_ptp_hwtstamp_ioctl(struct net_device *netdev,
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 64cbe0d..2c8f7e0 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6622,7 +6622,7 @@ static void igb_process_skb_fields(struct igb_ring *rx_ring,
++void ixgbe_dcb_read_rtrup2tc(struct ixgbe_hw *hw, u8 *map);
++
+ /* DCB definitions for credit calculation */
+ #define DCB_CREDIT_QUANTUM	64   /* DCB Quantum */
+ #define MAX_CREDIT_REFILL       511  /* 0x1FF * 64B = 32704B */
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
+index a4ef076..d71d9ce 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
+@@ -45,6 +45,7 @@
  
- 	igb_rx_checksum(rx_ring, rx_desc, skb);
+ /* Receive UP2TC mapping */
+ #define IXGBE_RTRUP2TC_UP_SHIFT 3
++#define IXGBE_RTRUP2TC_UP_MASK	7
+ /* Transmit UP2TC mapping */
+ #define IXGBE_RTTUP2TC_UP_SHIFT 3
  
--	igb_ptp_rx_hwtstamp(rx_ring->q_vector, rx_desc, skb);
-+	igb_ptp_rx_hwtstamp(rx_ring, rx_desc, skb);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+index f3d68f9..edd89a1 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
+@@ -554,6 +554,9 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
+ 		for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
+ 			adapter->ixgbe_ieee_ets->prio_tc[i] =
+ 				IEEE_8021QAZ_MAX_TCS;
++		/* if possible update UP2TC mappings from HW */
++		ixgbe_dcb_read_rtrup2tc(&adapter->hw,
++					adapter->ixgbe_ieee_ets->prio_tc);
+ 	}
  
- 	if ((dev->features & NETIF_F_HW_VLAN_CTAG_RX) &&
- 	    igb_test_staterr(rx_desc, E1000_RXD_STAT_VP)) {
+ 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
 -- 
 1.7.11.7
