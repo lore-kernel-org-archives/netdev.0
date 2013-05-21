@@ -1,41 +1,50 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next 2/2] xen-netfront: split event
- channels feature support
-Date: Tue, 21 May 2013 14:41:49 +0100
-Message-ID: <20130521134149.GN32007@zion.uk.xensource.com>
-References: <1369090931-27306-1-git-send-email-wei.liu2@citrix.com>
- <1369090931-27306-3-git-send-email-wei.liu2@citrix.com>
- <519B78F5.5020301@citrix.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
+Date: Tue, 21 May 2013 14:42:34 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7242@saturn3.aculab.com>
+References: <519B38EC.90401@yandex-team.ru> <AE90C24D6B3A694183C094C60CF0A2F6026B7241@saturn3.aculab.com> <519B6099.1080403@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <ian.campbell@citrix.com>,
-	<konrad.wilk@oracle.com>
-To: David Vrabel <david.vrabel@citrix.com>
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Dipankar Sarma" <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
+	<zhmurov@yandex-team.ru>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>,
+	"Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
+	"James Morris" <jmorris@namei.org>,
+	"Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
+	"Patrick McHardy" <kaber@trash.net>
+To: "Roman Gushchin" <klamm@yandex-team.ru>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:15388 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751681Ab3EUNl5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 09:41:57 -0400
-Content-Disposition: inline
-In-Reply-To: <519B78F5.5020301@citrix.com>
+Received: from mx0.aculab.com ([213.249.233.131]:57529 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1752525Ab3EUNnG convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 09:43:06 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 01105-03 for <netdev@vger.kernel.org>;
+ Tue, 21 May 2013 14:43:01 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <519B6099.1080403@yandex-team.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 21, 2013 at 02:39:01PM +0100, David Vrabel wrote:
-[...]
-> > +	info->rx_evtchn = info->tx_evtchn;
-> > +	info->rx_irq = info->tx_irq = err;
-> > +	dev_info(&info->xbdev->dev,
-> > +		 "single event channel, evtchn = %d, irq = %d\n",
-> > +		 info->tx_evtchn, info->tx_irq);
+> >> -#define hlist_nulls_first_rcu(head) \
+> >> -	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
+> >> +#define hlist_nulls_first_rcu(head)			\
+> >> +	(*((struct hlist_nulls_node __rcu __force **)	\
+> >> +	   &((volatile typeof(*head) *)head)->first))
+> >
+> > I'd have thought it would be better to change hlist_nulls_first_rcu().
 > 
-> This message is pointless chatter as the information is available
-> elsewhere.  Please remove.
-> 
+> It's exactly what I suggest. May be I miss something? Please, clarify.
 
-Do you mean /proc/interrupt by "elsewhere"? Information there doesn't
-give you irq<->evtchn mapping info.
+Gah - chasing through too many defines in too many header files!
+Actually making the 'head' structure have volatile pointers
+might be better.
+Possibly in struct hlist_nulls_node itself.
+There are toooo many casts for sanity :-)
 
-
-Wei.
+	David
