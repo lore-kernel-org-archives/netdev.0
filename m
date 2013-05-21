@@ -1,31 +1,52 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v4 08/12] ARM: orion5x: add gigabit ethernet and mvmdio device tree nodes
-Date: Tue, 21 May 2013 18:41:46 +0200
-Message-ID: <1369154510-4927-9-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v4 01/12] net: mv643xx_eth: use phy_disconnect instead of
+ phy_detach
+Date: Tue, 21 May 2013 18:41:39 +0200
+Message-ID: <1369154510-4927-2-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
  <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
+ David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@wantstofly.org>
 To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-This patch adds mv643xx_eth and mvmdio device tree nodes for DT enabled
-Orion5x boards. Phy nodes are also added with reg property set on a
-per-board basis.
+Using a separated mdio bus driver with mvmdio, phy_detach on network device
+removal will not stop the phy and finally lead to NULL pointer dereference
+in mvmdio due to non-existent network device. Use phy_disconnect instead
+to properly stop phy device from accessing network device prior removal of
+the network device.
 
 Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
-Changelog:
-v3->v4:
-- convert to new device tree binding
+Note: I observed this behavior when removing a modular mv643xx_eth driver
+after attaching it to a phy handled by (also modular) mvmdio. The mvmdio
+conversion has been done in
+
+commit c3a07134e6aa5b93a37f72ffa3d11fadf72bf757
+ ("mv643xx_eth: convert to use the Marvell Orion MDIO driver")
+
+and should go back any -stable version with that commit (propably only 3.9)
+
+@David: I am not sure if the above description is sufficient for a -stable
+patch, if you need more, like actual kernel failure, I am sure I can reproduce
+it.
 
 Cc: David Miller <davem@davemloft.net>
 Cc: Lennert Buytenhek <buytenh@wantstofly.org>
@@ -37,73 +58,21 @@ Cc: linux-arm-kernel@lists.infradead.org
 Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-kernel@vger.kernel.org
 ---
- .../dts/orion5x-lacie-ethernet-disk-mini-v2.dts    |   17 ++++++++++++
- arch/arm/boot/dts/orion5x.dtsi                     |   29 ++++++++++++++++++++
- 2 files changed, 46 insertions(+)
+ drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts b/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts
-index 0077fc8..c7e2efd 100644
---- a/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts
-+++ b/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts
-@@ -53,3 +53,20 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	&ethphy: ethernet-phy {
-+		device-type = "ethernet-phy";
-+		reg = <8>;
-+	};
-+};
-+
-+&eth {
-+	status = "okay";
-+
-+	ethernet-port@0 {
-+		phy-handle = <&ethphy>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/orion5x.dtsi b/arch/arm/boot/dts/orion5x.dtsi
-index 892c64e..6fe45d5 100644
---- a/arch/arm/boot/dts/orion5x.dtsi
-+++ b/arch/arm/boot/dts/orion5x.dtsi
-@@ -132,5 +132,34 @@
- 			interrupts = <28>;
- 			status = "okay";
- 		};
-+
-+		mdio: mdio-bus@72004 {
-+			compatible = "marvell,orion-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0x72004 0x84>;
-+			interrupts = <22>;
-+			status = "disabled";
-+
-+			/* add phy nodes in board file */
-+		};
-+
-+		eth: ethernet-controller@72000 {
-+			compatible = "marvell,orion-eth";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0x72000 0x4000>;
-+			marvell,tx-checksum-limit = <1600>;
-+			status = "disabled";
-+
-+			ethernet-port@0 {
-+				device_type = "network";
-+				compatible = "marvell,orion-eth-port";
-+				reg = <0>;
-+				/* overwrite MAC address in bootloader */
-+				local-mac-address = [00 00 00 00 00 00];
-+				/* set phy-handle property in board file */
-+			};
-+		};
- 	};
- };
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index d0afeea..ef3454c 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -2805,7 +2805,7 @@ static int mv643xx_eth_remove(struct platform_device *pdev)
+ 
+ 	unregister_netdev(mp->dev);
+ 	if (mp->phy != NULL)
+-		phy_detach(mp->phy);
++		phy_disconnect(mp->phy);
+ 	cancel_work_sync(&mp->tx_timeout_task);
+ 
+ 	if (!IS_ERR(mp->clk))
 -- 
 1.7.10.4
