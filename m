@@ -1,75 +1,45 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
-Date: Tue, 21 May 2013 05:58:56 -0700
-Message-ID: <20130521125856.GH3578@linux.vnet.ibm.com>
-References: <519B38EC.90401@yandex-team.ru>
- <20130521120906.GD3578@linux.vnet.ibm.com>
- <519B6CBE.1020002@yandex-team.ru>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 15/19] drivers/net/irda: add missing platform_driver owner
+Date: Tue, 21 May 2013 17:09:35 +0400
+Message-ID: <519B720F.9020705@cogentembedded.com>
+References: <1369104163-38628-1-git-send-email-libo.chen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Roman Gushchin <klamm@yandex-team.ru>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: samuel@sortiz.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net,
+	lizefan@huawei.com
+To: Libo Chen <libo.chen@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <519B6CBE.1020002@yandex-team.ru>
+In-Reply-To: <1369104163-38628-1-git-send-email-libo.chen@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 21, 2013 at 04:46:54PM +0400, Roman Gushchin wrote:
-> On 21.05.2013 16:09, Paul E. McKenney wrote:
-> >On Tue, May 21, 2013 at 01:05:48PM +0400, Roman Gushchin wrote:
-> >>Hi, all!
-> >>
-> >>This is a fix for a problem described here:
-> >>https://lkml.org/lkml/2013/4/16/371 .
-> >>---
-> >>
-> >>Some network functions (udp4_lib_lookup2(), for instance) use the
-> >>hlist_nulls_for_each_entry_rcu macro in a way that assumes restarting
-> >>of a loop. In this case, it is strictly necessary to reread the head->first
-> >>value from the memory before each scan.
-> >>Without additional hints, gcc caches this value in a register. In this case,
-> >>if a cached node is moved to another chain during the scan, we can loop
-> >>forever getting wrong nulls values and restarting the loop uninterruptedly.
-> >>
-> >>Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
-> >>Reported-by: Boris Zhmurov <zhmurov@yandex-team.ru>
-> >>---
-> >>  include/linux/rculist_nulls.h | 5 +++--
-> >>  1 file changed, 3 insertions(+), 2 deletions(-)
-> >>
-> >>diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
-> >>index 2ae1371..efd51bf 100644
-> >>--- a/include/linux/rculist_nulls.h
-> >>+++ b/include/linux/rculist_nulls.h
-> >>@@ -37,8 +37,9 @@ static inline void hlist_nulls_del_init_rcu(struct
-> >>hlist_nulls_node *n)
-> >>  	}
-> >>  }
-> >>
-> >>-#define hlist_nulls_first_rcu(head) \
-> >>-	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
-> >>+#define hlist_nulls_first_rcu(head)			\
-> >>+	(*((struct hlist_nulls_node __rcu __force **)	\
-> >>+	   &((volatile typeof(*head) *)head)->first))
-> >
-> >Why not use ACCESS_ONCE() or (better) rcu_dereference_raw() here?
-> 
-> It will be nice, but will require to keep the old variant too (for
-> using in hlist_nulls_add_head_rcu() as in rcu_assign_pointer()
-> argument). Do you think, it's better?
+Hello.
 
-Both ACCESS_ONCE() and rcu_dereference_raw() can be used by updaters
-as well as readers, so yes, I do think that it is better.  Better to
-keep the encapsulation rather than having to search for lots of volatile
-casts should this idiom ever need to change.
+On 21-05-2013 6:42, Libo Chen wrote:
 
-							Thanx, Paul
+> set the owner of platform_driver, to ensure that the
+> caller of driver holds a module refernece
+
+> Signed-off-by: Libo Chen <libo.chen@huawei.com>
+> ---
+>   drivers/net/irda/bfin_sir.c   |    1 +
+>   drivers/net/irda/sh_irda.c    |    1 +
+>   drivers/net/irda/sh_sir.c     |    1 +
+>   drivers/net/irda/smsc-ircc2.c |    1 +
+>   4 files changed, 4 insertions(+), 0 deletions(-)
+
+> diff --git a/drivers/net/irda/bfin_sir.c b/drivers/net/irda/bfin_sir.c
+> index 22b4527..bf976f3 100644
+> --- a/drivers/net/irda/bfin_sir.c
+> +++ b/drivers/net/irda/bfin_sir.c
+> @@ -806,6 +806,7 @@ static struct platform_driver bfin_ir_driver = {
+>   	.resume  = bfin_sir_resume,
+>   	.driver  = {
+>   		.name = DRIVER_NAME,
+> +		.owner	= THIS_MODULE,
+
+    Either indent last = with space as above, or indent both = with tabs.
+
+WBR, Sergei
