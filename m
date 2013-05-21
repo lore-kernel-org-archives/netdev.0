@@ -1,38 +1,99 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: macvlan crash in 3.9
-Date: Tue, 21 May 2013 11:19:28 +0800
-Message-ID: <519AE7C0.5090104@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the akpm tree with the net-next tree
+Date: Tue, 21 May 2013 14:25:37 +1000
+Message-ID: <20130521142537.00a9ccb7ca4aa81f553b61cf@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>, jwboyer@redhat.com
-To: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53442 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751126Ab3EUDTh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 May 2013 23:19:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__21_May_2013_14_25_37_+1000_czuMkj7p2T1jaBgU"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <dborkman@redhat.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Nicolas Schichan <nschichan@freebox.fr>
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David:
+--Signature=_Tue__21_May_2013_14_25_37_+1000_czuMkj7p2T1jaBgU
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-We see macvlan crash in 3.9 because the precise packet length estimation
-tries to use the transport header which hasn't been set. This has been
-fixed in 3.10 and looks like at least the following commits needs to be
-backported to 3.9 stable:
+Hi Andrew,
 
-set transport header for untrusted packets:
+Today's linux-next merge of the akpm tree got a conflict in
+arch/arm/net/bpf_jit_32.c between commit aafc787e41fd ("arm: bpf_jit: can
+call module_free() from any context") from the net-next tree and commit
+"ARM: net: bpf_jit: make code generation less dependent on struct
+sk_filter" from the akpm tree.
 
-9b4d669bc06c215d64f56f1eb0d4eb96e14d689d
-38502af77e07b5d6650b9ff99a0b482d86366592
-c1aad275b0293d2b1905ec95a945422262470684
-f9ca8f74399f9195fd8e01f67a8424a8d33efa55
-15e5a030716468dce4032fa0f398d840fa2756f6
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
-and the commits that introduces skb_transport_header_was_set():
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-fda55eca5a33f33ffcd4192c6b2d75179714a52c
+diff --cc arch/arm/net/bpf_jit_32.c
+index f50d223,2dab3e6..0000000
+--- a/arch/arm/net/bpf_jit_32.c
++++ b/arch/arm/net/bpf_jit_32.c
+@@@ -926,8 -926,32 +925,21 @@@ out
+  	return;
+  }
+ =20
++ void bpf_jit_compile(struct sk_filter *fp)
++ {
++ 	struct jit_ctx ctx;
++=20
++ 	memset(&ctx, 0, sizeof(ctx));
++ 	ctx.prog_len =3D fp->len;
++ 	ctx.prog_insns =3D fp->insns;
++=20
++ 	__bpf_jit_compile(&ctx);
++ 	if (ctx.target)
++ 		fp->bpf_func =3D (void *)ctx.target;
++ }
++=20
+ -static void bpf_jit_free_worker(struct work_struct *work)
+ -{
+ -	module_free(NULL, work);
+ -}
+ -
+  void bpf_jit_free(struct sk_filter *fp)
+  {
+ -	struct work_struct *work;
+ -
+ -	if (fp->bpf_func !=3D sk_run_filter) {
+ -		work =3D (struct work_struct *)fp->bpf_func;
+ -
+ -		INIT_WORK(work, bpf_jit_free_worker);
+ -		schedule_work(work);
+ -	}
+ +	if (fp->bpf_func !=3D sk_run_filter)
+ +		module_free(NULL, fp->bpf_func);
+  }
 
-Thanks
+--Signature=_Tue__21_May_2013_14_25_37_+1000_czuMkj7p2T1jaBgU
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRmvdBAAoJEECxmPOUX5FEf9gP/jDC3ve/SD4oTq4cNKPIX6Yb
+bYGgo3+wTae6WPOmzy5nXj6M8hdBow6YtH3rttxefPlUOBTpIybR0MWpmUmO7I0X
+gcqm/XidhrDnYiBZRLoT97B9xnrr1LsC/pJaamy2KTHKqd3sksVp+4z0pFURIACV
+lZMF5dwu5BLxtCHFsTMYLNw63saiMikVkieFZQ6lqdlPmY8sVvWNIbMPN+qy3FM9
+K6ch+P6ugmioNwWtotnokMMy2TShoq79ub54UdkY2fKEVEaPvEXDzfKU0eGjasG0
+L07rJsh6MvWqiI0Rx2dYdWRyzNDb/ntL7TK9jFVhklMDkc1PI9P/jLU8l250Gr0u
+HEkPczaiAzTdixusk7I2GOYpoNUP6tXfNfu2R2vo1lciaryPNB+RhmcJnxJ8BDRj
+tAjdSCnANRVanJc2vREh5YEtZPwW8QhxzgzBUrUmLy2ZPPCHZ+yHQrGgTxlNvHBj
+MX2Jbxik/NSIu50WYOCc0qkO0+xIxqV9qMHI9OkH6GstZRnq0W0g7htw2dS3e5iy
+/vJogts94Y3Ng7XVRD3yUC+t9HopAkwoJT73JQQTUuseJe6pXLMWBkQDMpP9i1Ge
+FdCqZQ724XNC8mwEQCIpgy9/HH2PytblcQPEL+au0i+OaBjiAArq2O57Vdlzct/w
+fuOp6hwLVOuVdah6jzil
+=eMNV
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__21_May_2013_14_25_37_+1000_czuMkj7p2T1jaBgU--
