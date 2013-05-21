@@ -1,61 +1,67 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet device polling
-Date: Tue, 21 May 2013 15:29:24 +0300
-Message-ID: <519B68A4.3010406@linux.intel.com>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com> <519B632F.7040202@mellanox.com>
+From: Roman Gushchin <klamm@yandex-team.ru>
+Subject: Re: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
+Date: Tue, 21 May 2013 16:46:54 +0400
+Message-ID: <519B6CBE.1020002@yandex-team.ru>
+References: <519B38EC.90401@yandex-team.ru> <20130521120906.GD3578@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Alex Rosenbaum <alexr@mellanox.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <519B632F.7040202@mellanox.com>
+In-Reply-To: <20130521120906.GD3578@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Many of the questions you asked are covered in our RFC cover letter, bu=
-t=20
-I will touch them briefly
-
-On 21/05/2013 15:06, Alex Rosenbaum wrote:
-> 1. It seem this patch does not cover epoll/select and such IO muxing =
-APIs?
-
-We are thinking about how to implement epoll support as one of the next=
-=20
-steps.
-
-What benchmarks are you using to test poll/select/epoll?
-
-
-> 2. How is the logic aware of RSS and RFS?
+On 21.05.2013 16:09, Paul E. McKenney wrote:
+> On Tue, May 21, 2013 at 01:05:48PM +0400, Roman Gushchin wrote:
+>> Hi, all!
+>>
+>> This is a fix for a problem described here:
+>> https://lkml.org/lkml/2013/4/16/371 .
+>> ---
+>>
+>> Some network functions (udp4_lib_lookup2(), for instance) use the
+>> hlist_nulls_for_each_entry_rcu macro in a way that assumes restarting
+>> of a loop. In this case, it is strictly necessary to reread the head->first
+>> value from the memory before each scan.
+>> Without additional hints, gcc caches this value in a register. In this case,
+>> if a cached node is moved to another chain during the scan, we can loop
+>> forever getting wrong nulls values and restarting the loop uninterruptedly.
+>>
+>> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+>> Reported-by: Boris Zhmurov <zhmurov@yandex-team.ru>
+>> ---
+>>   include/linux/rculist_nulls.h | 5 +++--
+>>   1 file changed, 3 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
+>> index 2ae1371..efd51bf 100644
+>> --- a/include/linux/rculist_nulls.h
+>> +++ b/include/linux/rculist_nulls.h
+>> @@ -37,8 +37,9 @@ static inline void hlist_nulls_del_init_rcu(struct
+>> hlist_nulls_node *n)
+>>   	}
+>>   }
+>>
+>> -#define hlist_nulls_first_rcu(head) \
+>> -	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
+>> +#define hlist_nulls_first_rcu(head)			\
+>> +	(*((struct hlist_nulls_node __rcu __force **)	\
+>> +	   &((volatile typeof(*head) *)head)->first))
 >
-> With TCP sockets, the driver knows the specific ring it need to poll =
-so
-> this should be mapped and provide the best latency.
+> Why not use ACCESS_ONCE() or (better) rcu_dereference_raw() here?
 
-This code is blissfully oblivious of RFS and RSS, it only assumes that=20
-the packets for a socket are likely to continue to come on the same que=
-ue.
-The code is designed to be correct even if you get your data on the=20
-wrong queue. (your performance will suffer but no more than that.)
+It will be nice, but will require to keep the old variant too (for using 
+in hlist_nulls_add_head_rcu() as in rcu_assign_pointer() argument). Do 
+you think, it's better?
 
-
-> 3. I could not find any reference to multi-thread on single core logi=
-c.
-> This can causes the opposite effect and create contentions and higher
-> latency=E2=80=99s.
-
-Again, the only bad thing that will happen if you misconfigure this is =
-a=20
-performance hit, we will not deadlock.
-
--Eliezer
+Regards,
+Roman
