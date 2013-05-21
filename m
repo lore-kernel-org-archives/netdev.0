@@ -1,115 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 06/12] ARM: dove: add gigabit ethernet and mvmdio
- device tree nodes
-Date: Tue, 21 May 2013 19:48:49 +0200
-Message-ID: <20130521174849.GL26249@lunn.ch>
-References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369154510-4927-7-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next 1/4] net: implement support
+ for low latency socket polling
+Date: Tue, 21 May 2013 10:51:26 -0700
+Message-ID: <1369158686.3301.237.camel@edumazet-glaptop>
+References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
+	<20130520101601.14133.874.stgit@ladj378.jer.intel.com>
+	<1369063764.3301.182.camel@edumazet-glaptop>
+	<519B2237.20204@linux.intel.com>
+	<1369142926.3301.213.camel@edumazet-glaptop>
+	<alpine.GSO.2.00.1305211855120.9230@git.silcnet.org>
+	<1369158499.3301.236.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1369154510-4927-7-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, Don,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
+To: Pekka Riikonen <priikone@iki.fi>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1369158499.3301.236.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 21, 2013 at 06:41:44PM +0200, Sebastian Hesselbarth wrote:
-> This patch adds orion-eth and mvmdio device tree nodes for DT enabled
-> Dove boards. As there is only one ethernet controller on Dove, a default
-> phy node is also added with a note to set its reg property on a per-board
-> basis.
-> 
-> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> ---
-> Changelog:
-> v3->v4:
-> - convert to new device tree binding
-> 
-> Cc: David Miller <davem@davemloft.net>
-> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-> Cc: Jason Cooper <jason@lakedaemon.net>
-> Cc: Andrew Lunn <andrew@lunn.ch>
-> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> Cc: netdev@vger.kernel.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: linux-kernel@vger.kernel.org
-> ---
->  arch/arm/boot/dts/dove-cubox.dts |    7 +++++++
->  arch/arm/boot/dts/dove.dtsi      |   35 +++++++++++++++++++++++++++++++++++
->  2 files changed, 42 insertions(+)
-> 
-> diff --git a/arch/arm/boot/dts/dove-cubox.dts b/arch/arm/boot/dts/dove-cubox.dts
-> index 7e3065a..02618fa 100644
-> --- a/arch/arm/boot/dts/dove-cubox.dts
-> +++ b/arch/arm/boot/dts/dove-cubox.dts
-> @@ -49,6 +49,13 @@
->  &uart0 { status = "okay"; };
->  &sata0 { status = "okay"; };
->  &i2c0 { status = "okay"; };
-> +&mdio { status = "okay"; };
-> +&eth { status = "okay"; };
-> +
-> +&ethphy {
-> +	compatible = "marvell,88e1310";
-> +	reg = <1>;
-> +};
->  
->  &sdio0 {
->  	status = "okay";
-> diff --git a/arch/arm/boot/dts/dove.dtsi b/arch/arm/boot/dts/dove.dtsi
-> index 6cab468..8612658 100644
-> --- a/arch/arm/boot/dts/dove.dtsi
-> +++ b/arch/arm/boot/dts/dove.dtsi
-> @@ -258,5 +258,40 @@
->  				dmacap,xor;
->  			};
->  		};
-> +
-> +		mdio: mdio-bus@72004 {
-> +			compatible = "marvell,orion-mdio";
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			reg = <0x72004 0x84>;
-> +			interrupts = <30>;
-> +			clocks = <&gate_clk 2>;
-> +			status = "disabled";
-> +
-> +			ethphy: ethernet-phy {
-> +				device-type = "ethernet-phy";
-> +				/* set phy address in board file */
-> +			};
-> +		};
-> +
-> +		eth: ethernet-controller@72000 {
-> +			compatible = "marvell,orion-eth";
-> +			#address-cells = <1>;
-> +			#size-cells = <0>;
-> +			reg = <0x72000 0x4000>;
-> +			clocks = <&gate_clk 2>;
-> +			marvell,tx-checksum-limit = <1600>;
-> +			status = "disabled";
-> +
-> +			ethernet-port@0 {
-> +				device_type = "network";
-> +				compatible = "marvell,orion-eth-port";
-> +				reg = <0>;
-> +				interrupts = <29>;
-> +				/* overwrite MAC address in bootloader */
-> +				local-mac-address = [00 00 00 00 00 00];
+On Tue, 2013-05-21 at 10:48 -0700, Eric Dumazet wrote:
 
-Hi Sebastian
+> We do not keep skb->dev information once a packet leaves the rcu
+> protected region.
+> 
+> Once packet is queued to tcp input queues, skb->dev is NULL.
 
-Its probably a good idea to set the local administration bit in this
-MAC address. i.e. first byte is 02.
+This is done in tcp_v4_rcv() & tcp_v6_rcv()
 
-    Andrew
+
+
+
+------------------------------------------------------------------------------
+Try New Relic Now & We'll Send You this Cool Shirt
+New Relic is the only SaaS-based application performance monitoring service 
+that delivers powerful full stack analytics. Optimize and monitor your
+browser, app, & servers with just a few lines of code. Try New Relic
+and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
