@@ -1,42 +1,92 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [PATCH RFC 0/2] Control VF link state
-Date: Tue, 21 May 2013 14:43:07 -0700
-Message-ID: <519BEA6B.4080600@intel.com>
-References: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com> <1368113074.2653.2.camel@bwh-desktop.uk.solarflarecom.com> <CAJZOPZJ052r67==xXciyoTmE8TQwXyx5sVgeuR=dQUEpXkd5WQ@mail.gmail.com> <1368146064.4131.279.camel@deadeye.wl.decadent.org.uk> <CAJZOPZ+c4HDbd+983qosp+NOmpZ-U3sCWKyKZrEVW_UDhfMEWA@mail.gmail.com> <1369082231.4616.15.camel@bwh-desktop.uk.solarflarecom.com> <CAJZOPZJpPjqxX__+P0eN=XatC8pzY7zJZBQcc3U6tjQycdKB5g@mail.gmail.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
+Date: Wed, 22 May 2013 00:49:12 +0300
+Message-ID: <20130521214912.GA21713@redhat.com>
+References: <1368498506-25857-1-git-send-email-yinghai@kernel.org>
+ <1368498506-25857-7-git-send-email-yinghai@kernel.org>
+ <51925FB0.4080504@intel.com>
+ <CAE9FiQXYQEAZ=0sG6+2OdffBqfLS9MpoN1xviRR9aDbxPxcKxQ@mail.gmail.com>
+ <5192946F.1050700@intel.com>
+ <CAE9FiQVGGHB_amKw0-DfDifpTnRGPbxA+q3WY5F-O3x-sx386A@mail.gmail.com>
+ <5192AEF4.1070905@intel.com>
+ <519BE778.9040800@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org,
-	amirv@mellanox.com, ronye@mellanox.com
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:15439 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751457Ab3EUVnI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 May 2013 17:43:08 -0400
-In-Reply-To: <CAJZOPZJpPjqxX__+P0eN=XatC8pzY7zJZBQcc3U6tjQycdKB5g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexander Duyck <alexander.h.duyck@intel.com>,
+	Yinghai Lu <yinghai@kernel.org>,
+	Bjorn Helgaas <bhelgaas@google.com>,
+	Gu Zheng <guz.fnst@cn.fujitsu.com>,
+	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Don Dutile <ddutile@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <519BE778.9040800@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[...]
+On Tue, May 21, 2013 at 05:30:32PM -0400, Don Dutile wrote:
+> On 05/14/2013 05:39 PM, Alexander Duyck wrote:
+> >On 05/14/2013 12:59 PM, Yinghai Lu wrote:
+> >>On Tue, May 14, 2013 at 12:45 PM, Alexander Duyck
+> >><alexander.h.duyck@intel.com>  wrote:
+> >>>On 05/14/2013 11:44 AM, Yinghai Lu wrote:
+> >>>>On Tue, May 14, 2013 at 9:00 AM, Alexander Duyck
+> >>>><alexander.h.duyck@intel.com>  wrote:
+> >>>>>I'm sorry, but what is the point of this patch?  With device assignment
+> >>>>>it is always possible to have VFs loaded and the PF driver unloaded
+> >>>>>since you cannot remove the VFs if they are assigned to a VM.
+> >>>>unload PF driver will not call pci_disable_sriov?
+> >>>You cannot call pci_disable_sriov because you will panic all of the
+> >>>guests that have devices assigned.
+> >>ixgbe_remove did call pci_disable_sriov...
+> >>
+> >>for guest panic, that is another problem.
+> >>just like you pci passthrough with real pci device and hotremove the
+> >>card in host.
+> >>
+> >>...
+> >
+> >I suggest you take another look.  In ixgbe_disable_sriov, which is the
+> >function that is called we do a check for assigned VFs.  If they are
+> >assigned then we do not call pci_disable_sriov.
+> >
+> >>
+> >>>So how does your patch actually fix this problem?  It seems like it is
+> >>>just avoiding it.
+> >>yes, until the first one is done.
+> >
+> >Avoiding the issue doesn't fix the underlying problem and instead you
+> >are likely just introducing more bugs as a result.
+> >
+> >>> From what I can tell your problem is originating in pci_call_probe.  I
+> >>>believe it is calling work_on_cpu and that doesn't seem correct since
+> >>>the work should be taking place on a CPU already local to the PF. You
+> >>>might want to look there to see why you are trying to schedule work on a
+> >>>CPU which should be perfectly fine for you to already be doing your work on.
+> >>it always try to go with local cpu with same pxm.
+> >
+> >The problem is we really shouldn't be calling work_for_cpu in this case
+> >since we are already on the correct CPU.  What probably should be
+> >happening is that pci_call_probe should be doing a check to see if the
+> >current CPU is already contained within the device node map and if so
+> >just call local_pci_probe directly.  That way you can avoid deadlocking
+> >the system by trying to flush the CPU queue of the CPU you are currently on.
+> >
+> That's the patch that Michael Tsirkin posted for a fix,
+> but it was noted that if you have the case where the _same_ driver is used for vf & pf,
+> other deadlocks may occur.
+> It would work in the case of ixgbe/ixgbevf, but not for something like
+> the Mellanox pf/vf driver (which is the same).
+> 
 
->> The risk I see with extensible operations (and which has occurred with
->> many ethtool operations) is that drivers may quietly ignore the elements
->> they don't implement.  So either (1) add yet another specific operation
->> or (2) define a general VF setter, require drivers to set some flags
->> that indicate which VF attributes are settable, and check the flags in
->> rtnetlink.c before calling into the driver.
->
-> both (1) and (2) makes sense to me, I am more leaned to (2), John, do
-> we have a go from your side to post V1 for net-next? which of the
-> options makes more sense to you?
->
-> Or.
->
+I think our conclusion was this is a false positive for Mellanox.
+If not, we need to understand what the deadlock is better.
 
-Either is fine if you prefer (2) that works for me. I'll get it
-working with ixgbe after you post it.
-
-.John
+> >
+> >Alex
+> >--
+> >To unsubscribe from this list: send the line "unsubscribe linux-pci" in
+> >the body of a message to majordomo@vger.kernel.org
+> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
