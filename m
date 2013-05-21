@@ -1,70 +1,67 @@
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Subject: (no subject)
-Date: Tue, 21 May 2013 21:53:54 +0200
-Message-ID: <1369166035-585-1-git-send-email-ordex@autistici.org>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH] batman-adv: Avoid double freeing of bat_counters
+Date: Tue, 21 May 2013 21:53:55 +0200
+Message-ID: <1369166035-585-2-git-send-email-ordex@autistici.org>
 References: <pull request for net: batman-adv 2013-05-21>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+ <1369166035-585-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <pull request for net: batman-adv 2013-05-21>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	=?UTF-8?q?Martin=20Hundeb=C3=B8ll?= <martin@hundeboll.net>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from contumacia.investici.org ([178.255.144.35]:51121 "EHLO
+	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751940Ab3EUTzq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 15:55:46 -0400
+In-Reply-To: <1369166035-585-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+=46rom: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
 
-this is another small patch for net/linux-3.10. It is preventing a double=
- free
-of the bat_counters in case of mesh initialisation failure.
+On errors in batadv_mesh_init(), bat_counters will be freed in both
+batadv_mesh_free() and batadv_softif_init_late(). This patch fixes this
+by returning earlier from batadv_softif_init_late() in case of errors i=
+n
+batadv_mesh_init() and by setting bat_counters to NULL after freeing.
 
-Sorry for sending such small pull requests (I guess this is not that bad =
-since
-they target net :-)), but these are small glitches we are finding while t=
-esting
-new features.
-
-Please pull or let me know if there is any problem.
-
-Thanks a lot,
-	Antonio
-
-
-The following changes since commit 3ccfc1b1d2fa78f8ece83646027982916fcc79=
-4b:
-
-  Merge branch 'for-davem' of git://git.kernel.org/pub/scm/linux/kernel/g=
-it/linville/wireless (2013-05-20 14:05:22 -0700)
-
-are available in the git repository at:
-
-
-  git://git.open-mesh.org/linux-merge.git tags/batman-adv-fix-for-davem
-
-for you to fetch changes up to f69ae770e74df420fbcf93aae81b30a5dcc73b7d:
-
-  batman-adv: Avoid double freeing of bat_counters (2013-05-21 21:34:36 +=
-0200)
-
-----------------------------------------------------------------
-Included change:
-- fix double free in case of failure during mesh initialisation
-
-----------------------------------------------------------------
-Martin Hundeb=C3=B8ll (1):
-      batman-adv: Avoid double freeing of bat_counters
-
+Signed-off-by: Martin Hundeb=C3=B8ll <martin@hundeboll.net>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
  net/batman-adv/main.c           | 1 +
  net/batman-adv/soft-interface.c | 1 +
  2 files changed, 2 insertions(+)
+
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 1240f07..51aafd6 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -181,6 +181,7 @@ void batadv_mesh_free(struct net_device *soft_iface=
+)
+ 	batadv_originator_free(bat_priv);
+=20
+ 	free_percpu(bat_priv->bat_counters);
++	bat_priv->bat_counters =3D NULL;
+=20
+ 	atomic_set(&bat_priv->mesh_state, BATADV_MESH_INACTIVE);
+ }
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-inte=
+rface.c
+index 6f20d33..819dfb0 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -505,6 +505,7 @@ unreg_debugfs:
+ 	batadv_debugfs_del_meshif(dev);
+ free_bat_counters:
+ 	free_percpu(bat_priv->bat_counters);
++	bat_priv->bat_counters =3D NULL;
+=20
+ 	return ret;
+ }
+--=20
+1.8.1.5
