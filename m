@@ -1,91 +1,96 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 6/7] PCI: Make sure VF's driver get attached after PF's
-Date: Tue, 21 May 2013 15:01:08 -0700
-Message-ID: <519BEEA4.2030804@gmail.com>
-References: <1368498506-25857-1-git-send-email-yinghai@kernel.org> <1368498506-25857-7-git-send-email-yinghai@kernel.org> <51925FB0.4080504@intel.com> <CAE9FiQXYQEAZ=0sG6+2OdffBqfLS9MpoN1xviRR9aDbxPxcKxQ@mail.gmail.com> <5192946F.1050700@intel.com> <CAE9FiQVGGHB_amKw0-DfDifpTnRGPbxA+q3WY5F-O3x-sx386A@mail.gmail.com> <5192AEF4.1070905@intel.com> <519BE778.9040800@redhat.com> <20130521214912.GA21713@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Don Dutile <ddutile@redhat.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Yinghai Lu <yinghai@kernel.org>,
-	Bjorn Helgaas <bhelgaas@google.com>,
-	Gu Zheng <guz.fnst@cn.fujitsu.com>,
-	"linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>,
-	Or Gerlitz <or.gerlitz@gmail.com>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-pci-owner@vger.kernel.org>
-In-Reply-To: <20130521214912.GA21713@redhat.com>
-Sender: linux-pci-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
+Date: Tue, 21 May 2013 15:03:08 -0700
+Message-ID: <1369173800-20326-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
+	gospo@redhat.com, sassmann@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([143.182.124.21]:53264 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751604Ab3EUWDY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 May 2013 18:03:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/21/2013 02:49 PM, Michael S. Tsirkin wrote:
-> On Tue, May 21, 2013 at 05:30:32PM -0400, Don Dutile wrote:
->> On 05/14/2013 05:39 PM, Alexander Duyck wrote:
->>> On 05/14/2013 12:59 PM, Yinghai Lu wrote:
->>>> On Tue, May 14, 2013 at 12:45 PM, Alexander Duyck
->>>> <alexander.h.duyck@intel.com>  wrote:
->>>>> On 05/14/2013 11:44 AM, Yinghai Lu wrote:
->>>>>> On Tue, May 14, 2013 at 9:00 AM, Alexander Duyck
->>>>>> <alexander.h.duyck@intel.com>  wrote:
->>>>>>> I'm sorry, but what is the point of this patch?  With device assignment
->>>>>>> it is always possible to have VFs loaded and the PF driver unloaded
->>>>>>> since you cannot remove the VFs if they are assigned to a VM.
->>>>>> unload PF driver will not call pci_disable_sriov?
->>>>> You cannot call pci_disable_sriov because you will panic all of the
->>>>> guests that have devices assigned.
->>>> ixgbe_remove did call pci_disable_sriov...
->>>>
->>>> for guest panic, that is another problem.
->>>> just like you pci passthrough with real pci device and hotremove the
->>>> card in host.
->>>>
->>>> ...
->>>
->>> I suggest you take another look.  In ixgbe_disable_sriov, which is the
->>> function that is called we do a check for assigned VFs.  If they are
->>> assigned then we do not call pci_disable_sriov.
->>>
->>>>
->>>>> So how does your patch actually fix this problem?  It seems like it is
->>>>> just avoiding it.
->>>> yes, until the first one is done.
->>>
->>> Avoiding the issue doesn't fix the underlying problem and instead you
->>> are likely just introducing more bugs as a result.
->>>
->>>>> From what I can tell your problem is originating in pci_call_probe.  I
->>>>> believe it is calling work_on_cpu and that doesn't seem correct since
->>>>> the work should be taking place on a CPU already local to the PF. You
->>>>> might want to look there to see why you are trying to schedule work on a
->>>>> CPU which should be perfectly fine for you to already be doing your work on.
->>>> it always try to go with local cpu with same pxm.
->>>
->>> The problem is we really shouldn't be calling work_for_cpu in this case
->>> since we are already on the correct CPU.  What probably should be
->>> happening is that pci_call_probe should be doing a check to see if the
->>> current CPU is already contained within the device node map and if so
->>> just call local_pci_probe directly.  That way you can avoid deadlocking
->>> the system by trying to flush the CPU queue of the CPU you are currently on.
->>>
->> That's the patch that Michael Tsirkin posted for a fix,
->> but it was noted that if you have the case where the _same_ driver is used for vf & pf,
->> other deadlocks may occur.
->> It would work in the case of ixgbe/ixgbevf, but not for something like
->> the Mellanox pf/vf driver (which is the same).
->>
-> 
-> I think our conclusion was this is a false positive for Mellanox.
-> If not, we need to understand what the deadlock is better.
-> 
+This series contains updates to e1000e, igb and ixgbe.
 
-As I understand the issue, the problem is not a deadlock for Mellanox
-(At least with either your patch or mine applied), the issue is that the
-PF is not ready to handle VFs when pci_enable_sriov is called due to
-some firmware issues.
+Bruce Allan provide 2 minor cleanups for e1000e to resolve whitespace
+issues and build warnings about unused parameters.
 
-Thanks,
+Carolyn provides a couple of fixes for igb, one being a fix for a
+possible panic when the interface is down and receive traffic
+arrives.  The second fix resolves an issue on newer parts which have
+multiple checksum fields and set_ethtool was only checking to update
+the first checksum of the NVM image.
 
-Alex
+Akeem provides majority of the changes in this patch set.  Akeem
+provides a fix for e1000e on an issue reported from the community to
+resolve the issue of unlocking swflag_mutex for 82574 and 82583
+devices even if the hardware semaphore was successfully acquired.
+The other patches from Akeem are against igb, where he adds support
+SFP module discovery, LED blink mechanism for devices using cathodes,
+LED support for i210/i211 parts and cleanup of a i2c function which
+was not being used.
+
+Matthew provides an update for igb to support a more accurate check
+for a PTP RX hang.
+
+Amir provides a patch for ixgbe to set the software prio_tc values at
+initialization to the hardware setting to remove the need to reset the
+device at the first time we call ixgbe_dcbnl_ieee_setets.
+
+The following are changes since commit 1e18583adccfc122b5d6415cfe4bf1826c370f4e:
+  ThunderLAN: remove is_eisa flag
+and are available in the git repository at:
+  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+
+Akeem G. Abodunrin (6):
+  e1000e: Release mutex lock only if it has been initially acquired
+  igb: Changed LEDs blink mechanism to include designs using cathode
+  igb: Support for SFP modules discovery
+  igb: SerDes flow control setting
+  igb: Implementation of i210/i211 LED support
+  igb: Removed unused i2c function
+
+Amir Hanania (1):
+  IXGBE: Set the SW prio_tc values at initialization to the HW setting.
+
+Bruce Allan (2):
+  e1000e: cleanup whitespace
+  e1000e: prevent warning from -Wunused-parameter
+
+Carolyn Wyborny (2):
+  igb: Fix set_ethtool function to call update nvm for entire image
+  igb: Fix possible panic caused by Rx traffic arrival while interface
+    is down
+
+Matthew Vick (1):
+  igb: Add update to last_rx_timestamp in Rx rings
+
+ drivers/net/ethernet/intel/e1000e/80003es2lan.c    |  24 ++--
+ drivers/net/ethernet/intel/e1000e/82571.c          |  30 ++---
+ drivers/net/ethernet/intel/e1000e/ethtool.c        |  34 +++---
+ drivers/net/ethernet/intel/e1000e/hw.h             |  34 +++---
+ drivers/net/ethernet/intel/e1000e/ich8lan.c        |  62 +++++------
+ drivers/net/ethernet/intel/e1000e/netdev.c         |  55 +++++----
+ drivers/net/ethernet/intel/e1000e/nvm.c            |   1 -
+ drivers/net/ethernet/intel/e1000e/phy.c            |  22 ++--
+ drivers/net/ethernet/intel/igb/e1000_82575.c       | 120 +++++++++++++++++++-
+ drivers/net/ethernet/intel/igb/e1000_defines.h     |  36 +++---
+ drivers/net/ethernet/intel/igb/e1000_hw.h          |   2 +
+ drivers/net/ethernet/intel/igb/e1000_i210.h        |   6 +-
+ drivers/net/ethernet/intel/igb/e1000_mac.c         |  45 ++++++--
+ drivers/net/ethernet/intel/igb/e1000_phy.c         | 124 +++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_phy.h         |  20 ++++
+ drivers/net/ethernet/intel/igb/igb.h               |  14 +--
+ drivers/net/ethernet/intel/igb/igb_ethtool.c       |  74 ++++++------
+ drivers/net/ethernet/intel/igb/igb_main.c          |   9 +-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       |  23 ++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |   2 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |   1 +
+ drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |   3 +
+ 22 files changed, 526 insertions(+), 215 deletions(-)
+
+-- 
+1.7.11.7
