@@ -1,39 +1,68 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
-Date: Tue, 21 May 2013 06:37:30 -0700
-Message-ID: <1369143450.3301.217.camel@edumazet-glaptop>
-References: <519B38EC.90401@yandex-team.ru>
-	 <20130521120906.GD3578@linux.vnet.ibm.com>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next 2/2] xen-netfront: split event channels
+ feature support
+Date: Tue, 21 May 2013 14:39:01 +0100
+Message-ID: <519B78F5.5020301@citrix.com>
+References: <1369090931-27306-1-git-send-email-wei.liu2@citrix.com> <1369090931-27306-3-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Roman Gushchin <klamm@yandex-team.ru>,
-	Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: paulmck@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130521120906.GD3578@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	<ian.campbell@citrix.com>, <konrad.wilk@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:3628 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752872Ab3EUNjE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 May 2013 09:39:04 -0400
+In-Reply-To: <1369090931-27306-3-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-21 at 05:09 -0700, Paul E. McKenney wrote:
-> > 
-> > -#define hlist_nulls_first_rcu(head) \
-> > -	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
-> > +#define hlist_nulls_first_rcu(head)			\
-> > +	(*((struct hlist_nulls_node __rcu __force **)	\
-> > +	   &((volatile typeof(*head) *)head)->first))
+On 21/05/13 00:02, Wei Liu wrote:
+> This patch adds a new feature called feature-split-event-channels for
+> netfront, enabling it to handle TX and RX events separately.
 > 
-> Why not use ACCESS_ONCE() or (better) rcu_dereference_raw() here?
-> 
+> If netback does not support this feature, it falls back to use single event
+> channel.
+[...]
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -1503,12 +1528,90 @@ static int xen_net_read_mac(struct xenbus_device *dev, u8 mac[])
+>  	return 0;
+>  }
+>  
+> +static int setup_netfront_single(struct netfront_info *info)
+> +{
+> +	int err;
+> +
+> +	err = xenbus_alloc_evtchn(info->xbdev, &info->tx_evtchn);
+> +	if (err < 0)
+> +		goto fail;
+> +
+> +	err = bind_evtchn_to_irqhandler(info->tx_evtchn,
+> +					xennet_interrupt,
+> +					0, info->netdev->name, info);
+> +	if (err < 0)
+> +		goto bind_fail;
+> +	info->rx_evtchn = info->tx_evtchn;
+> +	info->rx_irq = info->tx_irq = err;
+> +	dev_info(&info->xbdev->dev,
+> +		 "single event channel, evtchn = %d, irq = %d\n",
+> +		 info->tx_evtchn, info->tx_irq);
 
-+1
+This message is pointless chatter as the information is available
+elsewhere.  Please remove.
 
-Very good catch Roman !
+> +	dev_info(&info->xbdev->dev,
+> +		 "split event channels, tx_evtchn/irq = %d/%d, rx_evtchn/irq = %d/%d",
+> +		 info->tx_evtchn, info->tx_irq,
+> +		 info->rx_evtchn, info->rx_irq);
 
-Thanks !
+Similarly.
+
+Otherwise,
+
+Reviewed-by: David Vrabel <david.vrabel@citrix.com>
+
+David
