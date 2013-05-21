@@ -1,108 +1,469 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 12/12] IXGBE: Set the SW prio_tc values at initialization to the HW setting.
-Date: Tue, 21 May 2013 15:03:20 -0700
-Message-ID: <1369173800-20326-13-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/12] igb: Support for SFP modules discovery
+Date: Tue, 21 May 2013 15:03:14 -0700
+Message-ID: <1369173800-20326-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1369173800-20326-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Amir Hanania <amir.hanania@intel.com>, netdev@vger.kernel.org,
-	gospo@redhat.com, sassmann@redhat.com,
+Cc: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([143.182.124.21]:9532 "EHLO mga03.intel.com"
+Received: from mga03.intel.com ([143.182.124.21]:53264 "EHLO mga03.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751604Ab3EUWDg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 May 2013 18:03:36 -0400
+	id S1751604Ab3EUWDb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 May 2013 18:03:31 -0400
 In-Reply-To: <1369173800-20326-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Hanania <amir.hanania@intel.com>
+From: "Akeem G. Abodunrin" <akeem.g.abodunrin@intel.com>
 
-Set the SW prio_tc values at initialization to the HW setting.
-Setting the SW prio_tc default values to be the HW setting by reading the
-rtrup2tc register. For any TC change we need to reset the device.
-This will remove the need to reset the device at the first
-time we call ixgbe_dcbnl_ieee_setets.
+This patch adds support for SFP modules media type discovery for
+SGMII, which will enable driver to detect supported external PHYs,
+including 100baseFXSFP module.
 
-Signed-off-by: Amir Hanania <amir.hanania@intel.com>
-Tested-by: Jack Morgan<jack.morgan@intel.com>
+Signed-off-by: Akeem G Abodunrin <akeem.g.abodunrin@intel.com>
+Signed-off-by: Carolyn Wyborny <carolyn.wyborny@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c       | 23 ++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h       |  2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h |  1 +
- drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c    |  3 +++
- 4 files changed, 29 insertions(+)
+ drivers/net/ethernet/intel/igb/e1000_82575.c   | 120 +++++++++++++++++++++++-
+ drivers/net/ethernet/intel/igb/e1000_defines.h |  30 +++---
+ drivers/net/ethernet/intel/igb/e1000_hw.h      |   2 +
+ drivers/net/ethernet/intel/igb/e1000_phy.c     | 124 +++++++++++++++++++++++++
+ drivers/net/ethernet/intel/igb/e1000_phy.h     |  20 ++++
+ drivers/net/ethernet/intel/igb/igb_ethtool.c   |  34 +++----
+ 6 files changed, 291 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-index 1f2c805..e055e00 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.c
-@@ -380,3 +380,26 @@ s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw,
- 	}
+diff --git a/drivers/net/ethernet/intel/igb/e1000_82575.c b/drivers/net/ethernet/intel/igb/e1000_82575.c
+index ff6a17c..f21a91a 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_82575.c
++++ b/drivers/net/ethernet/intel/igb/e1000_82575.c
+@@ -401,12 +401,82 @@ static s32 igb_init_mac_params_82575(struct e1000_hw *hw)
  	return 0;
  }
-+
-+static void ixgbe_dcb_read_rtrup2tc_82599(struct ixgbe_hw *hw, u8 *map)
+ 
++/**
++ *  igb_set_sfp_media_type_82575 - derives SFP module media type.
++ *  @hw: pointer to the HW structure
++ *
++ *  The media type is chosen based on SFP module.
++ *  compatibility flags retrieved from SFP ID EEPROM.
++ **/
++static s32 igb_set_sfp_media_type_82575(struct e1000_hw *hw)
 +{
-+	u32 reg, i;
++	s32 ret_val = E1000_ERR_CONFIG;
++	u32 ctrl_ext = 0;
++	struct e1000_dev_spec_82575 *dev_spec = &hw->dev_spec._82575;
++	struct e1000_sfp_flags *eth_flags = &dev_spec->eth_flags;
++	u8 tranceiver_type = 0;
++	s32 timeout = 3;
 +
-+	reg = IXGBE_READ_REG(hw, IXGBE_RTRUP2TC);
-+	for (i = 0; i < MAX_USER_PRIORITY; i++)
-+		map[i] = IXGBE_RTRUP2TC_UP_MASK &
-+			(reg >> (i * IXGBE_RTRUP2TC_UP_SHIFT));
-+	return;
-+}
++	/* Turn I2C interface ON and power on sfp cage */
++	ctrl_ext = rd32(E1000_CTRL_EXT);
++	ctrl_ext &= ~E1000_CTRL_EXT_SDP3_DATA;
++	wr32(E1000_CTRL_EXT, ctrl_ext | E1000_CTRL_I2C_ENA);
 +
-+void ixgbe_dcb_read_rtrup2tc(struct ixgbe_hw *hw, u8 *map)
-+{
-+	switch (hw->mac.type) {
-+	case ixgbe_mac_82599EB:
-+	case ixgbe_mac_X540:
-+		ixgbe_dcb_read_rtrup2tc_82599(hw, map);
-+		break;
-+	default:
-+		break;
++	wrfl();
++
++	/* Read SFP module data */
++	while (timeout) {
++		ret_val = igb_read_sfp_data_byte(hw,
++			E1000_I2CCMD_SFP_DATA_ADDR(E1000_SFF_IDENTIFIER_OFFSET),
++			&tranceiver_type);
++		if (ret_val == 0)
++			break;
++		msleep(100);
++		timeout--;
 +	}
-+}
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-index 1634de8..fc0a2dd 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb.h
-@@ -159,6 +159,8 @@ s32 ixgbe_dcb_hw_ets_config(struct ixgbe_hw *hw, u16 *refill, u16 *max,
- s32 ixgbe_dcb_hw_pfc_config(struct ixgbe_hw *hw, u8 pfc_en, u8 *tc_prio);
- s32 ixgbe_dcb_hw_config(struct ixgbe_hw *, struct ixgbe_dcb_config *);
- 
-+void ixgbe_dcb_read_rtrup2tc(struct ixgbe_hw *hw, u8 *map);
++	if (ret_val != 0)
++		goto out;
 +
- /* DCB definitions for credit calculation */
- #define DCB_CREDIT_QUANTUM	64   /* DCB Quantum */
- #define MAX_CREDIT_REFILL       511  /* 0x1FF * 64B = 32704B */
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
-index a4ef076..d71d9ce 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_82599.h
-@@ -45,6 +45,7 @@
++	ret_val = igb_read_sfp_data_byte(hw,
++			E1000_I2CCMD_SFP_DATA_ADDR(E1000_SFF_ETH_FLAGS_OFFSET),
++			(u8 *)eth_flags);
++	if (ret_val != 0)
++		goto out;
++
++	/* Check if there is some SFP module plugged and powered */
++	if ((tranceiver_type == E1000_SFF_IDENTIFIER_SFP) ||
++	    (tranceiver_type == E1000_SFF_IDENTIFIER_SFF)) {
++		dev_spec->module_plugged = true;
++		if (eth_flags->e1000_base_lx || eth_flags->e1000_base_sx) {
++			hw->phy.media_type = e1000_media_type_internal_serdes;
++		} else if (eth_flags->e100_base_fx) {
++			dev_spec->sgmii_active = true;
++			hw->phy.media_type = e1000_media_type_internal_serdes;
++		} else if (eth_flags->e1000_base_t) {
++			dev_spec->sgmii_active = true;
++			hw->phy.media_type = e1000_media_type_copper;
++		} else {
++			hw->phy.media_type = e1000_media_type_unknown;
++			hw_dbg("PHY module has not been recognized\n");
++			goto out;
++		}
++	} else {
++		hw->phy.media_type = e1000_media_type_unknown;
++	}
++	ret_val = 0;
++out:
++	/* Restore I2C interface setting */
++	wr32(E1000_CTRL_EXT, ctrl_ext);
++	return ret_val;
++}
++
+ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ {
+ 	struct e1000_mac_info *mac = &hw->mac;
+ 	struct e1000_dev_spec_82575 * dev_spec = &hw->dev_spec._82575;
+ 	s32 ret_val;
+ 	u32 ctrl_ext = 0;
++	u32 link_mode = 0;
  
- /* Receive UP2TC mapping */
- #define IXGBE_RTRUP2TC_UP_SHIFT 3
-+#define IXGBE_RTRUP2TC_UP_MASK	7
- /* Transmit UP2TC mapping */
- #define IXGBE_RTTUP2TC_UP_SHIFT 3
+ 	switch (hw->device_id) {
+ 	case E1000_DEV_ID_82575EB_COPPER:
+@@ -470,16 +540,56 @@ static s32 igb_get_invariants_82575(struct e1000_hw *hw)
+ 	 */
+ 	hw->phy.media_type = e1000_media_type_copper;
+ 	dev_spec->sgmii_active = false;
++	dev_spec->module_plugged = false;
  
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-index f3d68f9..edd89a1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_dcb_nl.c
-@@ -554,6 +554,9 @@ static int ixgbe_dcbnl_ieee_setets(struct net_device *dev,
- 		for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++)
- 			adapter->ixgbe_ieee_ets->prio_tc[i] =
- 				IEEE_8021QAZ_MAX_TCS;
-+		/* if possible update UP2TC mappings from HW */
-+		ixgbe_dcb_read_rtrup2tc(&adapter->hw,
-+					adapter->ixgbe_ieee_ets->prio_tc);
+ 	ctrl_ext = rd32(E1000_CTRL_EXT);
+-	switch (ctrl_ext & E1000_CTRL_EXT_LINK_MODE_MASK) {
+-	case E1000_CTRL_EXT_LINK_MODE_SGMII:
+-		dev_spec->sgmii_active = true;
+-		break;
++
++	link_mode = ctrl_ext & E1000_CTRL_EXT_LINK_MODE_MASK;
++	switch (link_mode) {
+ 	case E1000_CTRL_EXT_LINK_MODE_1000BASE_KX:
+-	case E1000_CTRL_EXT_LINK_MODE_PCIE_SERDES:
+ 		hw->phy.media_type = e1000_media_type_internal_serdes;
+ 		break;
++	case E1000_CTRL_EXT_LINK_MODE_SGMII:
++		/* Get phy control interface type set (MDIO vs. I2C)*/
++		if (igb_sgmii_uses_mdio_82575(hw)) {
++			hw->phy.media_type = e1000_media_type_copper;
++			dev_spec->sgmii_active = true;
++			break;
++		}
++		/* fall through for I2C based SGMII */
++	case E1000_CTRL_EXT_LINK_MODE_PCIE_SERDES:
++		/* read media type from SFP EEPROM */
++		ret_val = igb_set_sfp_media_type_82575(hw);
++		if ((ret_val != 0) ||
++		    (hw->phy.media_type == e1000_media_type_unknown)) {
++			/* If media type was not identified then return media
++			 * type defined by the CTRL_EXT settings.
++			 */
++			hw->phy.media_type = e1000_media_type_internal_serdes;
++
++			if (link_mode == E1000_CTRL_EXT_LINK_MODE_SGMII) {
++				hw->phy.media_type = e1000_media_type_copper;
++				dev_spec->sgmii_active = true;
++			}
++
++			break;
++		}
++
++		/* do not change link mode for 100BaseFX */
++		if (dev_spec->eth_flags.e100_base_fx)
++			break;
++
++		/* change current link mode setting */
++		ctrl_ext &= ~E1000_CTRL_EXT_LINK_MODE_MASK;
++
++		if (hw->phy.media_type == e1000_media_type_copper)
++			ctrl_ext |= E1000_CTRL_EXT_LINK_MODE_SGMII;
++		else
++			ctrl_ext |= E1000_CTRL_EXT_LINK_MODE_PCIE_SERDES;
++
++		wr32(E1000_CTRL_EXT, ctrl_ext);
++
++		break;
+ 	default:
+ 		break;
  	}
+diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
+index aa17649..aa201ab 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_defines.h
++++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
+@@ -61,20 +61,22 @@
+ /* Clear Interrupt timers after IMS clear */
+ /* packet buffer parity error detection enabled */
+ /* descriptor FIFO parity error detection enable */
+-#define E1000_CTRL_EXT_PBA_CLR        0x80000000 /* PBA Clear */
+-#define E1000_I2CCMD_REG_ADDR_SHIFT   16
+-#define E1000_I2CCMD_PHY_ADDR_SHIFT   24
+-#define E1000_I2CCMD_OPCODE_READ      0x08000000
+-#define E1000_I2CCMD_OPCODE_WRITE     0x00000000
+-#define E1000_I2CCMD_READY            0x20000000
+-#define E1000_I2CCMD_ERROR            0x80000000
+-#define E1000_MAX_SGMII_PHY_REG_ADDR  255
+-#define E1000_I2CCMD_PHY_TIMEOUT      200
+-#define E1000_IVAR_VALID              0x80
+-#define E1000_GPIE_NSICR              0x00000001
+-#define E1000_GPIE_MSIX_MODE          0x00000010
+-#define E1000_GPIE_EIAME              0x40000000
+-#define E1000_GPIE_PBA                0x80000000
++#define E1000_CTRL_EXT_PBA_CLR		0x80000000 /* PBA Clear */
++#define E1000_I2CCMD_REG_ADDR_SHIFT	16
++#define E1000_I2CCMD_PHY_ADDR_SHIFT	24
++#define E1000_I2CCMD_OPCODE_READ	0x08000000
++#define E1000_I2CCMD_OPCODE_WRITE	0x00000000
++#define E1000_I2CCMD_READY		0x20000000
++#define E1000_I2CCMD_ERROR		0x80000000
++#define E1000_I2CCMD_SFP_DATA_ADDR(a)	(0x0000 + (a))
++#define E1000_I2CCMD_SFP_DIAG_ADDR(a)	(0x0100 + (a))
++#define E1000_MAX_SGMII_PHY_REG_ADDR	255
++#define E1000_I2CCMD_PHY_TIMEOUT	200
++#define E1000_IVAR_VALID		0x80
++#define E1000_GPIE_NSICR		0x00000001
++#define E1000_GPIE_MSIX_MODE		0x00000010
++#define E1000_GPIE_EIAME		0x40000000
++#define E1000_GPIE_PBA			0x80000000
  
- 	for (i = 0; i < IEEE_8021QAZ_MAX_TCS; i++) {
+ /* Receive Descriptor bit definitions */
+ #define E1000_RXD_STAT_DD       0x01    /* Descriptor Done */
+diff --git a/drivers/net/ethernet/intel/igb/e1000_hw.h b/drivers/net/ethernet/intel/igb/e1000_hw.h
+index 488abb2..94d7866 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_hw.h
++++ b/drivers/net/ethernet/intel/igb/e1000_hw.h
+@@ -528,6 +528,8 @@ struct e1000_dev_spec_82575 {
+ 	bool global_device_reset;
+ 	bool eee_disable;
+ 	bool clear_semaphore_once;
++	struct e1000_sfp_flags eth_flags;
++	bool module_plugged;
+ };
+ 
+ struct e1000_hw {
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.c b/drivers/net/ethernet/intel/igb/e1000_phy.c
+index 115b0da..1d6a401 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.c
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.c
+@@ -341,6 +341,130 @@ s32 igb_write_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 data)
+ }
+ 
+ /**
++ *  igb_read_sfp_data_byte - Reads SFP module data.
++ *  @hw: pointer to the HW structure
++ *  @offset: byte location offset to be read
++ *  @data: read data buffer pointer
++ *
++ *  Reads one byte from SFP module data stored
++ *  in SFP resided EEPROM memory or SFP diagnostic area.
++ *  Function should be called with
++ *  E1000_I2CCMD_SFP_DATA_ADDR(<byte offset>) for SFP module database access
++ *  E1000_I2CCMD_SFP_DIAG_ADDR(<byte offset>) for SFP diagnostics parameters
++ *  access
++ **/
++s32 igb_read_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 *data)
++{
++	u32 i = 0;
++	u32 i2ccmd = 0;
++	u32 data_local = 0;
++
++	if (offset > E1000_I2CCMD_SFP_DIAG_ADDR(255)) {
++		hw_dbg("I2CCMD command address exceeds upper limit\n");
++		return -E1000_ERR_PHY;
++	}
++
++	/* Set up Op-code, EEPROM Address,in the I2CCMD
++	 * register. The MAC will take care of interfacing with the
++	 * EEPROM to retrieve the desired data.
++	 */
++	i2ccmd = ((offset << E1000_I2CCMD_REG_ADDR_SHIFT) |
++		  E1000_I2CCMD_OPCODE_READ);
++
++	wr32(E1000_I2CCMD, i2ccmd);
++
++	/* Poll the ready bit to see if the I2C read completed */
++	for (i = 0; i < E1000_I2CCMD_PHY_TIMEOUT; i++) {
++		udelay(50);
++		data_local = rd32(E1000_I2CCMD);
++		if (data_local & E1000_I2CCMD_READY)
++			break;
++	}
++	if (!(data_local & E1000_I2CCMD_READY)) {
++		hw_dbg("I2CCMD Read did not complete\n");
++		return -E1000_ERR_PHY;
++	}
++	if (data_local & E1000_I2CCMD_ERROR) {
++		hw_dbg("I2CCMD Error bit set\n");
++		return -E1000_ERR_PHY;
++	}
++	*data = (u8) data_local & 0xFF;
++
++	return 0;
++}
++
++/**
++ *  e1000_write_sfp_data_byte - Writes SFP module data.
++ *  @hw: pointer to the HW structure
++ *  @offset: byte location offset to write to
++ *  @data: data to write
++ *
++ *  Writes one byte to SFP module data stored
++ *  in SFP resided EEPROM memory or SFP diagnostic area.
++ *  Function should be called with
++ *  E1000_I2CCMD_SFP_DATA_ADDR(<byte offset>) for SFP module database access
++ *  E1000_I2CCMD_SFP_DIAG_ADDR(<byte offset>) for SFP diagnostics parameters
++ *  access
++ **/
++s32 e1000_write_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 data)
++{
++	u32 i = 0;
++	u32 i2ccmd = 0;
++	u32 data_local = 0;
++
++	if (offset > E1000_I2CCMD_SFP_DIAG_ADDR(255)) {
++		hw_dbg("I2CCMD command address exceeds upper limit\n");
++		return -E1000_ERR_PHY;
++	}
++	/* The programming interface is 16 bits wide
++	 * so we need to read the whole word first
++	 * then update appropriate byte lane and write
++	 * the updated word back.
++	 */
++	/* Set up Op-code, EEPROM Address,in the I2CCMD
++	 * register. The MAC will take care of interfacing
++	 * with an EEPROM to write the data given.
++	 */
++	i2ccmd = ((offset << E1000_I2CCMD_REG_ADDR_SHIFT) |
++		  E1000_I2CCMD_OPCODE_READ);
++	/* Set a command to read single word */
++	wr32(E1000_I2CCMD, i2ccmd);
++	for (i = 0; i < E1000_I2CCMD_PHY_TIMEOUT; i++) {
++		udelay(50);
++		/* Poll the ready bit to see if lastly
++		 * launched I2C operation completed
++		 */
++		i2ccmd = rd32(E1000_I2CCMD);
++		if (i2ccmd & E1000_I2CCMD_READY) {
++			/* Check if this is READ or WRITE phase */
++			if ((i2ccmd & E1000_I2CCMD_OPCODE_READ) ==
++			    E1000_I2CCMD_OPCODE_READ) {
++				/* Write the selected byte
++				 * lane and update whole word
++				 */
++				data_local = i2ccmd & 0xFF00;
++				data_local |= data;
++				i2ccmd = ((offset <<
++					E1000_I2CCMD_REG_ADDR_SHIFT) |
++					E1000_I2CCMD_OPCODE_WRITE | data_local);
++				wr32(E1000_I2CCMD, i2ccmd);
++			} else {
++				break;
++			}
++		}
++	}
++	if (!(i2ccmd & E1000_I2CCMD_READY)) {
++		hw_dbg("I2CCMD Write did not complete\n");
++		return -E1000_ERR_PHY;
++	}
++	if (i2ccmd & E1000_I2CCMD_ERROR) {
++		hw_dbg("I2CCMD Error bit set\n");
++		return -E1000_ERR_PHY;
++	}
++	return 0;
++}
++
++/**
+  *  igb_read_phy_reg_igp - Read igp PHY register
+  *  @hw: pointer to the HW structure
+  *  @offset: register offset to be read
+diff --git a/drivers/net/ethernet/intel/igb/e1000_phy.h b/drivers/net/ethernet/intel/igb/e1000_phy.h
+index 784fd1c..6a0873f 100644
+--- a/drivers/net/ethernet/intel/igb/e1000_phy.h
++++ b/drivers/net/ethernet/intel/igb/e1000_phy.h
+@@ -69,6 +69,8 @@ s32  igb_read_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 *data);
+ s32  igb_write_phy_reg_mdic(struct e1000_hw *hw, u32 offset, u16 data);
+ s32  igb_read_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 *data);
+ s32  igb_write_phy_reg_i2c(struct e1000_hw *hw, u32 offset, u16 data);
++s32  igb_read_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 *data);
++s32  e1000_write_sfp_data_byte(struct e1000_hw *hw, u16 offset, u8 data);
+ s32  igb_copper_link_setup_82580(struct e1000_hw *hw);
+ s32  igb_get_phy_info_82580(struct e1000_hw *hw);
+ s32  igb_phy_force_speed_duplex_82580(struct e1000_hw *hw);
+@@ -157,4 +159,22 @@ s32  igb_check_polarity_m88(struct e1000_hw *hw);
+ #define GS40G_CS_POWER_DOWN		0x0002
+ #define GS40G_LINE_LB			0x4000
+ 
++/* SFP modules ID memory locations */
++#define E1000_SFF_IDENTIFIER_OFFSET	0x00
++#define E1000_SFF_IDENTIFIER_SFF	0x02
++#define E1000_SFF_IDENTIFIER_SFP	0x03
++
++#define E1000_SFF_ETH_FLAGS_OFFSET	0x06
++/* Flags for SFP modules compatible with ETH up to 1Gb */
++struct e1000_sfp_flags {
++	u8 e1000_base_sx:1;
++	u8 e1000_base_lx:1;
++	u8 e1000_base_cx:1;
++	u8 e1000_base_t:1;
++	u8 e100_base_lx:1;
++	u8 e100_base_fx:1;
++	u8 e10_base_bx10:1;
++	u8 e10_base_px:1;
++};
++
+ #endif
+diff --git a/drivers/net/ethernet/intel/igb/igb_ethtool.c b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+index 7876240..4e54f84 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ethtool.c
++++ b/drivers/net/ethernet/intel/igb/igb_ethtool.c
+@@ -142,6 +142,8 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ {
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 	struct e1000_hw *hw = &adapter->hw;
++	struct e1000_dev_spec_82575 *dev_spec = &hw->dev_spec._82575;
++	struct e1000_sfp_flags *eth_flags = &dev_spec->eth_flags;
+ 	u32 status;
+ 
+ 	if (hw->phy.media_type == e1000_media_type_copper) {
+@@ -181,30 +183,22 @@ static int igb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 		ecmd->phy_address = hw->phy.addr;
+ 		ecmd->transceiver = XCVR_INTERNAL;
+ 	} else {
+-		ecmd->supported = (SUPPORTED_1000baseT_Full |
+-				   SUPPORTED_100baseT_Full |
+-				   SUPPORTED_FIBRE |
++		ecmd->supported = (SUPPORTED_FIBRE |
+ 				   SUPPORTED_Autoneg |
+ 				   SUPPORTED_Pause);
+-		if (hw->mac.type == e1000_i354)
+-				ecmd->supported |= SUPPORTED_2500baseX_Full;
+-
+ 		ecmd->advertising = ADVERTISED_FIBRE;
+-
+-		switch (adapter->link_speed) {
+-		case SPEED_2500:
+-			ecmd->advertising = ADVERTISED_2500baseX_Full;
+-			break;
+-		case SPEED_1000:
+-			ecmd->advertising = ADVERTISED_1000baseT_Full;
+-			break;
+-		case SPEED_100:
+-			ecmd->advertising = ADVERTISED_100baseT_Full;
+-			break;
+-		default:
+-			break;
++		if (hw->mac.type == e1000_i354) {
++			ecmd->supported |= SUPPORTED_2500baseX_Full;
++			ecmd->advertising |= ADVERTISED_2500baseX_Full;
++		}
++		if ((eth_flags->e1000_base_lx) || (eth_flags->e1000_base_sx)) {
++			ecmd->supported |= SUPPORTED_1000baseT_Full;
++			ecmd->advertising |= ADVERTISED_1000baseT_Full;
++		}
++		if (eth_flags->e100_base_fx) {
++			ecmd->supported |= SUPPORTED_100baseT_Full;
++			ecmd->advertising |= ADVERTISED_100baseT_Full;
+ 		}
+-
+ 		if (hw->mac.autoneg == 1)
+ 			ecmd->advertising |= ADVERTISED_Autoneg;
+ 
 -- 
 1.7.11.7
