@@ -1,47 +1,59 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH v3 net-next 3/4] ixgbe: Add support for
-	ndo_ll_poll
-Date: Tue, 21 May 2013 11:43:23 +0300
-Message-ID: <CAJZOPZJD5QpkmkJF9qpWV3Q28aioLw5CuT5X4URxDC4eSby3nQ@mail.gmail.com>
-References: <1369120003.25971.2.camel@lb-tlvb-eilong.il.broadcom.com>
-	<20130521.001444.1361294042663568537.davem@davemloft.net>
-	<CAJZOPZJTA9A8T4R8MtRCeqcYj3XJWFCXF+ojmEqza5TMj-6G+w@mail.gmail.com>
-	<20130521.013912.96249995742935192.davem@davemloft.net>
+From: Roman Gushchin <klamm@yandex-team.ru>
+Subject: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
+Date: Tue, 21 May 2013 13:05:48 +0400
+Message-ID: <519B38EC.90401@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, eliezer.tamir@linux.intel.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	hpa@zytor.com, jesse.brandeburg@intel.com, eliezer@tamir.org.il,
-	linux-kernel@vger.kernel.org, andi@firstfloor.org, eilong@broadcom.com
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130521.013912.96249995742935192.davem@davemloft.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: zhmurov@yandex-team.ru, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Dipankar Sarma <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 21, 2013 at 11:39 AM, David Miller <davem@davemloft.net> wrote:
+Hi, all!
 
-> It's one of those "implementation details", I hate it too.
+This is a fix for a problem described here:
+https://lkml.org/lkml/2013/4/16/371 .
+---
 
-Maybe if we bake it on this list little further we can see how to get
-away from that, or what's the most non ugly way for that?
+Some network functions (udp4_lib_lookup2(), for instance) use the
+hlist_nulls_for_each_entry_rcu macro in a way that assumes restarting
+of a loop. In this case, it is strictly necessary to reread the head->first
+value from the memory before each scan.
+Without additional hints, gcc caches this value in a register. In this case,
+if a cached node is moved to another chain during the scan, we can loop
+forever getting wrong nulls values and restarting the loop uninterruptedly.
 
-------------------------------------------------------------------------------
-Try New Relic Now & We'll Send You this Cool Shirt
-New Relic is the only SaaS-based application performance monitoring service 
-that delivers powerful full stack analytics. Optimize and monitor your
-browser, app, & servers with just a few lines of code. Try New Relic
-and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+Reported-by: Boris Zhmurov <zhmurov@yandex-team.ru>
+---
+  include/linux/rculist_nulls.h | 5 +++--
+  1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
+index 2ae1371..efd51bf 100644
+--- a/include/linux/rculist_nulls.h
++++ b/include/linux/rculist_nulls.h
+@@ -37,8 +37,9 @@ static inline void hlist_nulls_del_init_rcu(struct 
+hlist_nulls_node *n)
+  	}
+  }
+
+-#define hlist_nulls_first_rcu(head) \
+-	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
++#define hlist_nulls_first_rcu(head)			\
++	(*((struct hlist_nulls_node __rcu __force **)	\
++	   &((volatile typeof(*head) *)head)->first))
+
+  #define hlist_nulls_next_rcu(node) \
+  	(*((struct hlist_nulls_node __rcu __force **)&(node)->next))
+-- 
+1.8.1.2
