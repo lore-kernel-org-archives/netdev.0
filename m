@@ -1,70 +1,59 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH net-next 1/2] cxgb3: Fix warning about using rcu_dereference when not in a rcu-locked section
-Date: Tue, 21 May 2013 19:51:28 +0530
-Message-ID: <1369146089-19060-2-git-send-email-vipul@chelsio.com>
-References: <1369146089-19060-1-git-send-email-vipul@chelsio.com>
-Cc: davem@davemloft.net, divy@chelsio.com, dm@chelsio.com,
-	santosh@chelsio.com, fenlason@redhat.com, vipul@chelsio.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:14602 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754485Ab3EUO14 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 10:27:56 -0400
-In-Reply-To: <1369146089-19060-1-git-send-email-vipul@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Willem de Bruijn <willemb@google.com>
+Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet
+	device polling
+Date: Tue, 21 May 2013 10:30:53 -0400
+Message-ID: <CA+FuTScYMPUsf0+67FAU0LBfuxhGT8JKyvL1WX=Rjomno75q2A@mail.gmail.com>
+References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
+	<519B632F.7040202@mellanox.com> <519B68A4.3010406@linux.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andi Kleen <andi@firstfloor.org>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>,
+	netdev@vger.kernel.org, HPA <hpa@zytor.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
+	Alex Rosenbaum <alexr@mellanox.com>, Eliezer Tamir <eliezer@tamir.org.il>,
+	Dave Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <519B68A4.3010406@linux.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Jay Fenlason <fenlason@redhat.com>
+>> 2. How is the logic aware of RSS and RFS?
+>>
+>> With TCP sockets, the driver knows the specific ring it need to poll so
+>> this should be mapped and provide the best latency.
+>
+>
+> This code is blissfully oblivious of RFS and RSS, it only assumes that the
+> packets for a socket are likely to continue to come on the same queue.
+> The code is designed to be correct even if you get your data on the wrong
+> queue. (your performance will suffer but no more than that.)
+>
 
-It is about using rcu_dereference() when not in a rcu-locked section. It only
-happens on initialization hence fix the initialization to not rcu_dereference()
+For low latency, you don't want to have to wait for the IPI that RPS
+sets to redirect packets to another CPU.  However, this feature works
+extremely well with hardware flow steering (nfc/ntuple) and
+accelerated RFS, where the device will enqueue directly on an rxqueue
+owned exclusively by the destination cpu (if configured correctly).
 
-Signed-off-by: Jay Fenlason <fenlason@redhat.com>
----
- drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c | 9 +++++----
- 1 file changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-index 0c96e5f..4058b85 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c
-@@ -1246,6 +1246,7 @@ int cxgb3_offload_activate(struct adapter *adapter)
- 	struct tid_range stid_range, tid_range;
- 	struct mtutab mtutab;
- 	unsigned int l2t_capacity;
-+	struct l2t_data *l2td;
- 
- 	t = kzalloc(sizeof(*t), GFP_KERNEL);
- 	if (!t)
-@@ -1261,8 +1262,8 @@ int cxgb3_offload_activate(struct adapter *adapter)
- 		goto out_free;
- 
- 	err = -ENOMEM;
--	RCU_INIT_POINTER(dev->l2opt, t3_init_l2t(l2t_capacity));
--	if (!L2DATA(dev))
-+	l2td = t3_init_l2t(l2t_capacity);
-+	if (!l2td)
- 		goto out_free;
- 
- 	natids = min(tid_range.num / 2, MAX_ATIDS);
-@@ -1279,6 +1280,7 @@ int cxgb3_offload_activate(struct adapter *adapter)
- 	INIT_LIST_HEAD(&t->list_node);
- 	t->dev = dev;
- 
-+	RCU_INIT_POINTER(dev->l2opt, l2td);
- 	T3C_DATA(dev) = t;
- 	dev->recv = process_rx;
- 	dev->neigh_update = t3_l2t_update;
-@@ -1294,8 +1296,7 @@ int cxgb3_offload_activate(struct adapter *adapter)
- 	return 0;
- 
- out_free_l2t:
--	t3_free_l2t(L2DATA(dev));
--	RCU_INIT_POINTER(dev->l2opt, NULL);
-+	t3_free_l2t(l2td);
- out_free:
- 	kfree(t);
- 	return err;
--- 
-1.8.0
+------------------------------------------------------------------------------
+Try New Relic Now & We'll Send You this Cool Shirt
+New Relic is the only SaaS-based application performance monitoring service 
+that delivers powerful full stack analytics. Optimize and monitor your
+browser, app, & servers with just a few lines of code. Try New Relic
+and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
