@@ -1,23 +1,19 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH v3 net-next 3/4] ixgbe: Add support for
-	ndo_ll_poll
-Date: Tue, 21 May 2013 10:19:39 -0400
-Message-ID: <CA+FuTSeYQs7yhGbm_BGoQQbzSG77mEXdPccFubWb04UoMoE6nA@mail.gmail.com>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
-	<20130520101622.14133.21998.stgit@ladj378.jer.intel.com>
-	<CAJZOPZJx8vpSWqOhmN65gn=vi7hWXQO_J01+hAwGY9RwetX3DA@mail.gmail.com>
-	<519B1A2B.4010909@linux.intel.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH v4 net-next 0/4] net: low latency Ethernet
+	device polling
+Date: Tue, 21 May 2013 17:26:41 +0300
+Message-ID: <20130521142641.18498.52856.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <or.gerlitz@gmail.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, HPA <hpa@zytor.com>,
+Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, linux-kernel@vger.kernel.org,
+	Eliezer Tamir <eliezer@tamir.org.il>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+	Andi Kleen <andi@firstfloor.org>, Eilon Greenstien <eilong@broadcom.com>
+To: Dave Miller <davem@davemloft.net>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <519B1A2B.4010909@linux.intel.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -28,55 +24,52 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 21, 2013 at 2:54 AM, Eliezer Tamir
-<eliezer.tamir@linux.intel.com> wrote:
-> On 20/05/2013 23:20, Or Gerlitz wrote:
->>
->> On Mon, May 20, 2013 at 1:16 PM, Eliezer Tamir
->> <eliezer.tamir@linux.intel.com> wrote:
->>>
->>> Add the ixgbe driver code implementing ndo_ll_poll.
->>> It should be easy for other drivers to do something similar
->>> in order to enable support for CONFIG_INET_LL_RX_POLL
->>
->>
->> I am not sure,
->
->
-> Willem ported this to <some undisclosed HW that they use at Google>, his
-> feedback was that it was not a major effort.
+Hello Dave,
 
-The core ndo_ll_poll implementation is generally a subset of a device
-driver's existing napi callback. It cleans the queues, but it skips
-napi_complete and unmasking of the IRQ.
+I believe that I addressed the issues that were raised.
+Please look and see if you have more comments.
 
-+       ixgbe_for_each_ring(ring, q_vector->rx) {
-+               found = ixgbe_clean_rx_irq(q_vector, ring, 4);
-+               if (found)
-+                       break;
-+       }
+Thank you all for your input.
 
-A subtle difference in the above code vs ixgbe_poll is that the
-callback returns as soon as some data arrived on a queue, as opposed
-to iterating over all queues. The budget is lower, too. Since not all
-data arriving is necessarily destined towards polling socket, this may
-or may not be an improvement.
+To prevent the use of a stale napi pointer, I implemented a global id
+that should be incremented whenever a napi is freed.
+I used the free space in skb's second bitfield (7 bits) since I did not
+want to increase the size of the structure. In an earlier attempt to do
+this I chopped the global id to seven bits but in testing, this would
+crash on the wrap-around. 
+Now if the seven bits that are in the skb match the global id, 
+we save the un-chopped id in the socket.
+(This removes the module parameter and the limit on unloading.)
 
-Besides that, the driver has to mark the packet with
-ll_mark_skb(&cq->napi, skb);
 
-On devices where tx completion interrupts share the same IRQ as rx
-interrupts, the driver may also have to clean the tx queue once in a
-while (at obvious tail latency cost). LLS does not disable the IRQ,
-but I think the suggestion was to set its moderation threshold very
-high to avoid net_rx_action/LLS lock contention. If so, starvation may
-occur.
+is this how you prefer the change log?
 
-The most difficult bit is handling mutual exclusion with the
-interrupt-driven receive path. The ixgbe port has its own internal
-locking mechanism in anticipation of future use cases that can be
-lock-free. As first approximation, I just took the napi->poll_lock,
-similar to how netpoll handles mutual exclusion with net_rx_action.
+change log
+v4
+- removed separate config option for TCP busy-polling as suggested Eric Dumazet.
+- added linux mib counter for packets received through the low latency path.
+- re-allow module unloading, remove module param, use a global generation id
+  instead to prevent the use of a stale napi pointer, as suggested
+  by Eric Dumazet
+- updated Documentation/networking/ip-sysctl.txt text
+
+v3
+- coding style changes suggested by Dave Miller
+
+v2
+- the sysctl knob is now in microseconds. The default value is now 0 (off).
+- for now the code depends at configure time on CONFIG_I86_TSC 
+- the napi reference in struct skb is now a union with the dma cookie
+  since the former is only used on RX and the latter on TX,
+  as suggested by Eric Dumazet.
+- we do a better job at honoring non-blocking operations.
+- removed busy-polling support for tcp_read_sock()
+- remove dynamic disabling of GRO
+- coding style fixes
+- disallow unloading the device module after the feature has been used
+
+Thanks,
+Eliezer
 
 ------------------------------------------------------------------------------
 Try New Relic Now & We'll Send You this Cool Shirt
