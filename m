@@ -1,71 +1,90 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
-Date: Tue, 21 May 2013 08:16:21 -0700
-Message-ID: <1369149381.3301.228.camel@edumazet-glaptop>
-References: <519B38EC.90401@yandex-team.ru>
-	  <20130521120906.GD3578@linux.vnet.ibm.com>
-	 <1369143885.3301.221.camel@edumazet-glaptop>
-	 <519B8908.9080007@yandex-team.ru>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH] tcp: bug fix in proportional rate reduction.
+Date: Tue, 21 May 2013 08:18:37 -0700
+Message-ID: <CAK6E8=fcaXtnw0=9Btyboike3OQS81UiGGTc0rAsb5=f+Xf6-Q@mail.gmail.com>
+References: <1369095724-17745-1-git-send-email-nanditad@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, Dipankar Sarma <dipankar@in.ibm.com>,
-	zhmurov@yandex-team.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Roman Gushchin <klamm@yandex-team.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <519B8908.9080007@yandex-team.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: Nandita Dukkipati <nanditad@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-la0-f53.google.com ([209.85.215.53]:42848 "EHLO
+	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753370Ab3EUPTA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 11:19:00 -0400
+Received: by mail-la0-f53.google.com with SMTP id ea20so833609lab.12
+        for <netdev@vger.kernel.org>; Tue, 21 May 2013 08:18:58 -0700 (PDT)
+In-Reply-To: <1369095724-17745-1-git-send-email-nanditad@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-21 at 18:47 +0400, Roman Gushchin wrote:
-> On 21.05.2013 17:44, Eric Dumazet wrote:
-> > On Tue, 2013-05-21 at 05:09 -0700, Paul E. McKenney wrote:
-> >
-> >>>
-> >>> -#define hlist_nulls_first_rcu(head) \
-> >>> -	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
-> >>> +#define hlist_nulls_first_rcu(head)			\
-> >>> +	(*((struct hlist_nulls_node __rcu __force **)	\
-> >>> +	   &((volatile typeof(*head) *)head)->first))
-> >>
-> >> Why not use ACCESS_ONCE() or (better) rcu_dereference_raw() here?
-> >
-> > More exactly we have :
-> >
-> > #define list_entry_rcu(ptr, type, member) \
-> >          ({typeof (*ptr) __rcu *__ptr = (typeof (*ptr) __rcu __force *)ptr; \
-> >           container_of((typeof(ptr))rcu_dereference_raw(__ptr), type, member); \
-> >          })
-> >
-> > #define list_for_each_entry_rcu(pos, head, member) \
-> >          for (pos = list_entry_rcu((head)->next, typeof(*pos), member); \
-> >                  &pos->member != (head); \
-> >                  pos = list_entry_rcu(pos->member.next, typeof(*pos), member))
-> > << and >>
-> >
-> > #define hlist_nulls_for_each_entry_rcu(tpos, pos, head, member)                 \
-> >          for (pos = rcu_dereference_raw(hlist_nulls_first_rcu(head));            \
-> >                  (!is_a_nulls(pos)) &&                                           \
-> >                  ({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1; }); \
-> >                  pos = rcu_dereference_raw(hlist_nulls_next_rcu(pos)))
-> >
-> > We need to change hlist_nulls_for_each_entry_rcu() to use same construct,
-> > so that the rcu_dereference_raw() is performed at the right place.
-> 
-> No.
-> 
-> This code has the same mistake: it is rcu_dereference_raw(head->first), 
-> so there is nothing that prevents gcc to store the (head->first) value 
-> in a register.
+On Mon, May 20, 2013 at 5:22 PM, Nandita Dukkipati <nanditad@google.com> wrote:
+> This patch is a fix for a bug triggering newly_acked_sacked < 0
+> in tcp_ack(.).
+>
+> The bug is triggered by sacked_out decreasing relative to prior_sacked,
+> but packets_out remaining the same as pior_packets. This is because the
+> snapshot of prior_packets is taken after tcp_sacktag_write_queue() while
+> prior_sacked is captured before tcp_sacktag_write_queue(). The problem
+> is: tcp_sacktag_write_queue (tcp_match_skb_to_sack() -> tcp_fragment)
+> adjusts the pcount for packets_out and sacked_out (MSS change or other
+> reason). As a result, this delta in pcount is reflected in
+> (prior_sacked - sacked_out) but not in (prior_packets - packets_out).
+I don't think this patch fixes the problem you described because
+it does not change how newly_acked_sacked is computed.
 
-Please read again what I wrote, you misundertood.
+you probably should use prior_packets for newly_acked_sacked and use
+ previous_packets_out for pkts_acked
 
-hlist_nulls_for_each_entry_rcu() should use same construct than
-list_for_each_entry_rcu(), and not use rcu_dereference_raw()
-
-Is that clear, or do you want me to send the patch ?
+>
+> This patch does the following:
+> 1) initializes prior_packets at the start of tcp_ack() so as to
+> capture the delta in packets_out created by tcp_fragment.
+> 2) introduces a new "previous_packets_out" variable that snapshots
+> packets_out right before tcp_clean_rtx_queue, so pkts_acked can be
+> correctly computed as before.
+>
+> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
+> ---
+>  net/ipv4/tcp_input.c | 7 ++++---
+>  1 file changed, 4 insertions(+), 3 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index d7d3694..2986e10 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -3265,9 +3265,10 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>         bool is_dupack = false;
+>         u32 prior_in_flight;
+>         u32 prior_fackets;
+> -       int prior_packets;
+> +       int prior_packets = tp->packets_out;
+>         int prior_sacked = tp->sacked_out;
+>         int pkts_acked = 0;
+> +       int previous_packets_out = 0;
+>
+>         /* If the ack is older than previous acks
+>          * then we can probably ignore it.
+> @@ -3338,14 +3339,14 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
+>         sk->sk_err_soft = 0;
+>         icsk->icsk_probes_out = 0;
+>         tp->rcv_tstamp = tcp_time_stamp;
+> -       prior_packets = tp->packets_out;
+>         if (!prior_packets)
+>                 goto no_queue;
+>
+>         /* See if we can take anything off of the retransmit queue. */
+> +       previous_packets_out = tp->packets_out;
+>         flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una);
+>
+> -       pkts_acked = prior_packets - tp->packets_out;
+> +       pkts_acked = previous_packets_out - tp->packets_out;
+>
+>         if (tcp_ack_is_dubious(sk, flag)) {
+>                 /* Advance CWND, if state allows this. */
+> --
+> 1.8.2.1
+>
