@@ -1,55 +1,43 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 net-next] arp: flush arp cache on IFF_NOARP change
-Date: Tue, 21 May 2013 17:25:19 +0100
-Message-ID: <1369153519.2615.3.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20130520.134633.448574202175922639.davem@davemloft.net>
-	 <1369131824-6318-1-git-send-email-timo.teras@iki.fi>
+From: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net-next 2/2] xen-netfront: split event
+ channels feature support
+Date: Tue, 21 May 2013 12:28:25 -0400
+Message-ID: <20130521162825.GA3669@phenom.dumpdata.com>
+References: <1369090931-27306-1-git-send-email-wei.liu2@citrix.com>
+ <1369090931-27306-3-git-send-email-wei.liu2@citrix.com>
+ <519B78F5.5020301@citrix.com>
+ <20130521134149.GN32007@zion.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<kaber@trash.net>
-To: Timo =?ISO-8859-1?Q?Ter=E4s?= <timo.teras@iki.fi>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Vrabel <david.vrabel@citrix.com>, xen-devel@lists.xen.org,
+	netdev@vger.kernel.org, ian.campbell@citrix.com
+To: Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:23863 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751629Ab3EUQZY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 12:25:24 -0400
-In-Reply-To: <1369131824-6318-1-git-send-email-timo.teras@iki.fi>
+Received: from aserp1040.oracle.com ([141.146.126.69]:39131 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754849Ab3EUQ2f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 12:28:35 -0400
+Content-Disposition: inline
+In-Reply-To: <20130521134149.GN32007@zion.uk.xensource.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-21 at 13:23 +0300, Timo Ter=C3=A4s wrote:
-> IFF_NOARP affects what kind of neighbor entries are created
-> (nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
-> cache to refresh all entries.
->=20
-> Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
-> ---
-> > This patch makes no sense at all.
-> >=20
-> > The state bit in ->priv_flags is a boolean stating whether the
-> > notified should do something or not.
-> >=20
-> > But you're setting it to match what IFF_NOARP is.
-> >
-> > You should set it any time IFF_NOARP _changes_, and then clear
-> > the bit when the notifier clears the neighbour entries.
->=20
-> IFF_NOARP_CHANGED is set according to "changes =3D dev->flags ^ old_f=
-lags;"
-> which reflect the change. But I agree that the clearing out bit was
-> misplaced. This is especially true as it seems NETDEV_CHANGE can be
-> notified from another place too.
-[...]
+On Tue, May 21, 2013 at 02:41:49PM +0100, Wei Liu wrote:
+> On Tue, May 21, 2013 at 02:39:01PM +0100, David Vrabel wrote:
+> [...]
+> > > +	info->rx_evtchn = info->tx_evtchn;
+> > > +	info->rx_irq = info->tx_irq = err;
+> > > +	dev_info(&info->xbdev->dev,
+> > > +		 "single event channel, evtchn = %d, irq = %d\n",
+> > > +		 info->tx_evtchn, info->tx_irq);
+> > 
+> > This message is pointless chatter as the information is available
+> > elsewhere.  Please remove.
+> > 
+> 
+> Do you mean /proc/interrupt by "elsewhere"? Information there doesn't
+> give you irq<->evtchn mapping info.
 
-None of the other persistent flags have a transient flag for changes;
-why should IFF_NOARP?  Why not cache the IFF_NOARP state in the
-in_device and then compare and update that in arp_netdev_event().
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+If you really want to, that should be implemented via an DebugFS entry that can
+be driven from drivers/xen/events.c. As the events.c is the generic code that sets
+up the Xen events, pirqs, ipis, <-> Linux IRQs.
