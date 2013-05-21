@@ -1,31 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 3/4] ixgbe: Add support for ndo_ll_poll
-Date: Tue, 21 May 2013 00:14:44 -0700 (PDT)
-Message-ID: <20130521.001444.1361294042663568537.davem@davemloft.net>
-References: <CAJZOPZJx8vpSWqOhmN65gn=vi7hWXQO_J01+hAwGY9RwetX3DA@mail.gmail.com>
-	<519B1A2B.4010909@linux.intel.com>
-	<1369120003.25971.2.camel@lb-tlvb-eilong.il.broadcom.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v3 net-next 1/4] net: implement support for low latency
+ socket polling
+Date: Tue, 21 May 2013 10:28:55 +0300
+Message-ID: <519B2237.20204@linux.intel.com>
+References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>  <20130520101601.14133.874.stgit@ladj378.jer.intel.com> <1369063764.3301.182.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: eliezer.tamir@linux.intel.com, or.gerlitz@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
-	e1000-devel@lists.sourceforge.net, willemb@google.com,
-	andi@firstfloor.org, hpa@zytor.com, eliezer@tamir.org.il
-To: eilong@broadcom.com
+Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369120003.25971.2.camel@lb-tlvb-eilong.il.broadcom.com>
+In-Reply-To: <1369063764.3301.182.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: "Eilon Greenstein" <eilong@broadcom.com>
-Date: Tue, 21 May 2013 10:06:43 +0300
+On 20/05/2013 18:29, Eric Dumazet wrote:
+> On Mon, 2013-05-20 at 13:16 +0300, Eliezer Tamir wrote:
+---
+>> +static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct *napi)
+>> +{
+>> +	skb->dev_ref = napi;
+>> +}
+>> +
+>> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+>> +{
+>> +	sk->dev_ref = skb->dev_ref;
+>> +}
+>
+> I do not see why it's safe to keep a pointer to a napi object without
+> taking a reference, or something to prevent object being removed.
+>
+> Using a genid might be enough. (some counter incremented every time a
+> napi is dismantled)
 
-> Hopefully this series will be accepted so we can send follow up support
-> for the bnx2x as well.
+I really like this approach and I tried it.
+The main problem I had is that you need to increase the size of the skb 
+to store the generation id unless you stuff it in the flags2 bitfield.
+There appear to be only 7 useful bit left there.
+Is it OK to use them all up?
 
-I think in two or three more iterations it will be merged.
 
-There are no objections on the fundamentals, it's just implementation
-details and coding style at this point.
+> Alternatively, use a napi_id instead of a pointer.
+
+I'm not sure I understand what you propose.
+
+-Eliezer
