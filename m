@@ -1,143 +1,69 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH v2.29] datapath: Add basic MPLS support to kernel
-Date: Tue, 21 May 2013 09:07:06 -0700
-Message-ID: <CAEP_g=-PDNYWPk+yi4czHw7V822GPRdgNX+csHMByF151Jb5oA@mail.gmail.com>
-References: <1368774397-10700-1-git-send-email-horms@verge.net.au>
- <CAEP_g=8GefFzMPSE0EkaLSTNtPJYtgoOKMaV_hN1ckE-Qxhsog@mail.gmail.com> <20130521005519.GA14817@verge.net.au>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 0/5] perf: net_dropmonitor: Make it work and make it fast
+Date: Tue, 21 May 2013 12:12:09 -0400
+Message-ID: <20130521161209.GC3613@neilslaptop.think-freely.org>
+References: <1369096976.3469.131.camel@deadeye.wl.decadent.org.uk>
+ <20130521133355.GA3613@neilslaptop.think-freely.org>
+ <1369144440.3469.181.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
-	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
-	Isaku Yamahata <yamahata@valinux.co.jp>,
-	Ben Pfaff <blp@nicira.com>,
-	Jarno Rajahalme <jarno.rajahalme@nsn.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:53408 "HELO
-	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754456Ab3EUQH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 12:07:27 -0400
-Received: by mail-ie0-f177.google.com with SMTP id 9so2034920iec.8
-        for <netdev@vger.kernel.org>; Tue, 21 May 2013 09:07:26 -0700 (PDT)
-In-Reply-To: <20130521005519.GA14817@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Paul Mackerras <paulus@samba.org>,
+	Ingo Molnar <mingo@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1369144440.3469.181.camel@deadeye.wl.decadent.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 20, 2013 at 5:55 PM, Simon Horman <horms@verge.net.au> wrote:
-> On Fri, May 17, 2013 at 04:14:56PM -0700, Jesse Gross wrote:
->> On Fri, May 17, 2013 at 12:06 AM, Simon Horman <horms@verge.net.au> wrote:
->> > +static int push_mpls(struct sk_buff *skb,
->> > +                    const struct ovs_action_push_mpls *mpls)
->> > +{
->> > +       __be32 *new_mpls_lse;
->> > +       int err;
->> > +
->> > +       err = make_writable(skb, skb->mac_len + MPLS_HLEN);
->> > +       if (unlikely(err))
->> > +               return err;
->> > +
->> > +       skb_push(skb, MPLS_HLEN);
->>
->> What happens if there isn't enough headroom?
->
-> Good point. How about this?
->
->         if (unlikely(skb->data<skb->head))
->                 return -EINVAL;
->         skb_push(skb, MPLS_HLEN);
+On Tue, May 21, 2013 at 02:54:00PM +0100, Ben Hutchings wrote:
+> On Tue, 2013-05-21 at 09:33 -0400, Neil Horman wrote:
+> > On Tue, May 21, 2013 at 01:42:56AM +0100, Ben Hutchings wrote:
+> > > Somewhat surprisingly, the net_dropmonitor reporting script doesn't work
+> > > at all.  This series fixes it and then makes it slightly more efficient.
+> > > 
+> > > Ben.
+> > > 
+> > It worked fine when I first submitted it.  I wonder if there was a paramter
+> > order change at some point that I wasn't CC'ed on.
+> 
+> The parameter order for the trace event changed in 2.6.39, but that was
+> before this script went in.
+> 
+> Ben.
+> 
+Yeah, thats how this happened.  I posted right before 2.6.39, which was around
+July 4th:
+https://lkml.org/lkml/2011/7/4/273
 
-The amount of headroom is an internal kernel property so we can't
-reject actions on the basis of it. We need to expand the headroom,
-similar to __vlan_put_tag().
+So I posted it, and shortly thereafter the perf infrastructure changed.  Acme
+didnt actually pull the patch in until Well into August, and so it was borked
+from there.  I never noticed as I had been using the netlink based utility since
+that time.
 
->> > diff --git a/datapath/datapath.c b/datapath/datapath.c
->> > index 42af315..3a1c203 100644
->> > --- a/datapath/datapath.c
->> > +++ b/datapath/datapath.c
->>
->> It's not clear to that using the depth is actually sufficient to
->> capture all possible combinations because the more common case is that
->> actions are a list, not nested. For example, consider the following
->> (invalid) action list on an IP input packet:
->>
->> push_mpls, sample(pop_mpls), pop_mpls
->>
->> I don't believe that this will be rejected since by the time we get to
->> the second pop_mpls we will have forgotten about the sample action.
->
-> My intention when writing the code was that such a case would be rejected
-> as follows:
->
-> 1. When the nested pop_mpls is validated the following call is
->    made with depth = 1:
->
->   eth_types_set(eth_types, depth, htons(0));
->
->   This sets:
->         eth_types->depth = 1
->         eth_types[1] = htons(0);
->
-> 2. When the second pop_mpls is validated the following
->    is executed (with the fix that you suggested below):
->
->    for (i = 0; i < eth_types->depth; i++)
->         if (!eth_p_mpls(eth_types->types[i]))
->                 return -EINVAL;
->
->    This will return -EINVAL due to the values of eth_type members set in 1.
+Thanks for catching this!
+Neil
 
-OK, I see that the depth does't get reset for the next check. However,
-what about this sequence?
-
-push_mpls, sample(pop_mpls), sample(push_mpls), pop_mpls
-
-My point is that in cases where sample actions aren't nested, the
-depth doesn't capture all the combinations.
-
->> > diff --git a/datapath/flow.c b/datapath/flow.c
->> > index 3ce926e..2a86f90 100644
->> > --- a/datapath/flow.c
->> > +++ b/datapath/flow.c
->> > @@ -848,6 +880,9 @@ const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
->> >         [OVS_KEY_ATTR_ARP] = sizeof(struct ovs_key_arp),
->> >         [OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
->> >         [OVS_KEY_ATTR_TUNNEL] = -1,
->> > +
->> > +       /* Not upstream. */
->> > +       [OVS_KEY_ATTR_MPLS] = sizeof(struct ovs_key_mpls),
->>
->> At this point, we can probably treat this patch as the point where the
->> MPLS data structures are finalized and upstreamable. Therefore, this
->> patch can move the attribute to a final location.
->
-> Thanks, I will squash the following incremental change into the next
-> posting of this patch.
->
-> diff --git a/datapath/flow.c b/datapath/flow.c
-> index 2a86f90..d67d6bf 100644
-> --- a/datapath/flow.c
-> +++ b/datapath/flow.c
-> @@ -880,8 +880,6 @@ const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
->         [OVS_KEY_ATTR_ARP] = sizeof(struct ovs_key_arp),
->         [OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
->         [OVS_KEY_ATTR_TUNNEL] = -1,
-> -
-> -       /* Not upstream. */
->         [OVS_KEY_ATTR_MPLS] = sizeof(struct ovs_key_mpls),
->  };
->
-> diff --git a/include/linux/openvswitch.h b/include/linux/openvswitch.h
-> index e890fd8..d90f585 100644
-> --- a/include/linux/openvswitch.h
-> +++ b/include/linux/openvswitch.h
-> @@ -287,7 +287,7 @@ enum ovs_key_attr {
->         OVS_KEY_ATTR_IPV4_TUNNEL,  /* struct ovs_key_ipv4_tunnel */
->  #endif
->
-> -       OVS_KEY_ATTR_MPLS = 62, /* array of struct ovs_key_mpls.
-> +       OVS_KEY_ATTR_MPLS,      /* array of struct ovs_key_mpls.
->                                  * The implementation may restrict
->                                  * the accepted length of the array. */
->         __OVS_KEY_ATTR_MAX
-
-I think this belongs more appropriately directly after OVS_KEY_ATTR_TUNNEL.
+> > Either way, this all looks good.  Thanks Ben.
+> > 
+> > Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> > 
+> > > Ben Hutchings (5):
+> > >   perf: net_dropmonitor: Fix trace parameter order
+> > >   perf: net_dropmonitor: Fix symbol-relative addresses
+> > >   perf: net_dropmonitor: Do not assume ordering of dictionaries
+> > >   perf: net_dropmonitor: Use bisection in symbol lookup
+> > >   perf: net_dropmonitor: Remove progress indicator
+> > > 
+> > >  tools/perf/scripts/python/net_dropmonitor.py |   39 ++++++++++++++------------
+> > >  1 file changed, 21 insertions(+), 18 deletions(-)
+> > > 
+> > > 
+> > 
+> > 
+> 
+> -- 
+> Ben Hutchings
+> friends: People who know you well, but like you anyway.
