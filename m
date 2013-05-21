@@ -1,41 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet device polling
-Date: Tue, 21 May 2013 06:31:39 -0700
-Message-ID: <1369143099.3301.216.camel@edumazet-glaptop>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
-	 <519B632F.7040202@mellanox.com> <519B68A4.3010406@linux.intel.com>
-	 <519B7355.9090303@mellanox.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH 0/5] perf: net_dropmonitor: Make it work and make it fast
+Date: Tue, 21 May 2013 09:33:56 -0400
+Message-ID: <20130521133355.GA3613@neilslaptop.think-freely.org>
+References: <1369096976.3469.131.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Dave Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Alex Rosenbaum <alexr@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Paul Mackerras <paulus@samba.org>,
+	Ingo Molnar <mingo@redhat.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <519B7355.9090303@mellanox.com>
+Content-Disposition: inline
+In-Reply-To: <1369096976.3469.131.camel@deadeye.wl.decadent.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-21 at 16:15 +0300, Alex Rosenbaum wrote:
-> On 5/21/2013 3:29 PM, Eliezer Tamir wrote:
-> > What benchmarks are you using to test poll/select/epoll?
-> for epoll/select latency tests we are using sockperf as performance 
-> latency tool: https://code.google.com/p/sockperf/
-> It is a client-server based tool and it supported ping-pong, throughput, 
-> and under-load test type.
-> For epoll, you will need to define a 'feedfile' ("-f filepathname") 
-> which has a list of TCP and/or UDP socket and defined your IO mux type 
-> ("-F epoll").
+On Tue, May 21, 2013 at 01:42:56AM +0100, Ben Hutchings wrote:
+> Somewhat surprisingly, the net_dropmonitor reporting script doesn't work
+> at all.  This series fixes it and then makes it slightly more efficient.
+> 
+> Ben.
+> 
+It worked fine when I first submitted it.  I wonder if there was a paramter
+order change at some point that I wasn't CC'ed on.
 
-I totally agree, most modern applications use poll/select/epoll,
-and a fair amount of sockets per task, sendfile()/vmsplice()/... and
-netperf is not using same paths.
+Either way, this all looks good.  Thanks Ben.
 
-Thanks Alex !
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
+> Ben Hutchings (5):
+>   perf: net_dropmonitor: Fix trace parameter order
+>   perf: net_dropmonitor: Fix symbol-relative addresses
+>   perf: net_dropmonitor: Do not assume ordering of dictionaries
+>   perf: net_dropmonitor: Use bisection in symbol lookup
+>   perf: net_dropmonitor: Remove progress indicator
+> 
+>  tools/perf/scripts/python/net_dropmonitor.py |   39 ++++++++++++++------------
+>  1 file changed, 21 insertions(+), 18 deletions(-)
+> 
+> 
