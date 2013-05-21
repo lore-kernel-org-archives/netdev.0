@@ -1,10 +1,10 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v4 net-next 2/4] tcp: add TCP support for
- low latency receive poll.
-Date: Tue, 21 May 2013 18:30:18 +0100
-Message-ID: <1369157418.2615.30.camel@bwh-desktop.uk.solarflarecom.com>
+Subject: Re: [PATCH v4 net-next 3/4] ixgbe: Add support for
+	ndo_ll_poll
+Date: Tue, 21 May 2013 18:33:37 +0100
+Message-ID: <1369157617.2615.32.camel@bwh-desktop.uk.solarflarecom.com>
 References: <20130521142641.18498.52856.stgit@ladj378.jer.intel.com>
-	<20130521142659.18498.1984.stgit@ladj378.jer.intel.com>
+	<20130521142709.18498.28270.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,7 +17,7 @@ Cc: Willem de Bruijn <willemb@google.com>, Don,
 	Eilon Greenstien <eilong@broadcom.com>, Dave Miller <davem@davemloft.net>
 To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130521142659.18498.1984.stgit@ladj378.jer.intel.com>
+In-Reply-To: <20130521142709.18498.28270.stgit@ladj378.jer.intel.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -29,38 +29,27 @@ Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 On Tue, 2013-05-21 at 17:27 +0300, Eliezer Tamir wrote:
-> adds busy-poll support for TCP.
-> 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Willem de Bruijn <willemb@google.com>
-> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> ---
-> 
->  net/ipv4/tcp.c       |    9 +++++++++
->  net/ipv4/tcp_input.c |    4 ++++
->  2 files changed, 13 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index dcb116d..b9cc512 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
+> Add the ixgbe driver code implementing ndo_ll_poll.
+> It should be easy for other drivers to do something similar
+> in order to enable support for CONFIG_INET_LL_RX_POLL
 [...]
-> @@ -1551,6 +1553,12 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
->  	struct sk_buff *skb;
->  	u32 urg_hole = 0;
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_lib.c
+> @@ -1019,6 +1019,8 @@ static void ixgbe_free_q_vectors(struct ixgbe_adapter *adapter)
+>  	adapter->num_rx_queues = 0;
+>  	adapter->num_q_vectors = 0;
 >  
-> +#ifdef CONFIG_INET_LL_RX_POLL
-> +	if (sk_valid_ll(sk) && skb_queue_empty(&sk->sk_receive_queue)
-> +	    && (sk->sk_state == TCP_ESTABLISHED))
-> +		sk_poll_ll(sk, nonblock);
-> +#endif
-[...]
+> +	inc_ll_gen_id();
 
-I don't think the #ifdef is needed; this should compile down to nothing
-if the config option is disabled.
+I think that should be handled by the networking core (somewhere) and
+not by drivers.
 
 Ben.
+
+>  	while (v_idx--)
+>  		ixgbe_free_q_vector(adapter, v_idx);
+>  }
+[...]
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
