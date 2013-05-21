@@ -1,85 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 net-next] arp: flush arp cache on IFF_NOARP change
-Date: Tue, 21 May 2013 19:54:14 +0100
-Message-ID: <1369162454.2615.60.camel@bwh-desktop.uk.solarflarecom.com>
-References: <20130520.134633.448574202175922639.davem@davemloft.net>
-	 <1369131824-6318-1-git-send-email-timo.teras@iki.fi>
-	 <1369153519.2615.3.camel@bwh-desktop.uk.solarflarecom.com>
-	 <20130521212930.01efd34e@vostro>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v3 net-next 1/4] net: implement support
+ for low latency socket polling
+Date: Tue, 21 May 2013 22:25:43 +0300
+Message-ID: <519BCA37.4020707@linux.intel.com>
+References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
+	<20130520101601.14133.874.stgit@ladj378.jer.intel.com>
+	<1369063764.3301.182.camel@edumazet-glaptop>
+	<519B2237.20204@linux.intel.com>
+	<1369142926.3301.213.camel@edumazet-glaptop>
+	<alpine.GSO.2.00.1305211855120.9230@git.silcnet.org>
+	<1369158499.3301.236.camel@edumazet-glaptop>
+	<1369158686.3301.237.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<kaber@trash.net>
-To: Timo Teras <timo.teras@iki.fi>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:52644 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752608Ab3EUSyS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 14:54:18 -0400
-In-Reply-To: <20130521212930.01efd34e@vostro>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, HPA <hpa@zytor.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>,
+	Pekka Riikonen <priikone@iki.fi>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1369158686.3301.237.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-21 at 21:29 +0300, Timo Teras wrote:
-> On Tue, 21 May 2013 17:25:19 +0100
-> Ben Hutchings <bhutchings@solarflare.com> wrote:
->=20
-> > On Tue, 2013-05-21 at 13:23 +0300, Timo Ter=C3=A4s wrote:
-> > > IFF_NOARP affects what kind of neighbor entries are created
-> > > (nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
-> > > cache to refresh all entries.
-> > >=20
-> > > Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
-> > > ---
-> > > > This patch makes no sense at all.
-> > > >=20
-> > > > The state bit in ->priv_flags is a boolean stating whether the
-> > > > notified should do something or not.
-> > > >=20
-> > > > But you're setting it to match what IFF_NOARP is.
-> > > >
-> > > > You should set it any time IFF_NOARP _changes_, and then clear
-> > > > the bit when the notifier clears the neighbour entries.
-> > >=20
-> > > IFF_NOARP_CHANGED is set according to "changes =3D dev->flags ^
-> > > old_flags;" which reflect the change. But I agree that the cleari=
-ng
-> > > out bit was misplaced. This is especially true as it seems
-> > > NETDEV_CHANGE can be notified from another place too.
-> > [...]
-> >=20
-> > None of the other persistent flags have a transient flag for change=
-s;
-> > why should IFF_NOARP?  Why not cache the IFF_NOARP state in the
-> > in_device and then compare and update that in arp_netdev_event().
->=20
-> This was the earlier suggestion I got, so I followed that. NOARP flag
-> is also used in IPv6 side (quick look would indicate that ndisc code
-> needs similar fix), so it would be useful to have this generally
-> available.
+On 21/05/2013 20:51, Eric Dumazet wrote:
+> On Tue, 2013-05-21 at 10:48 -0700, Eric Dumazet wrote:
+>
+>> We do not keep skb->dev information once a packet leaves the rcu
+>> protected region.
+>>
+>> Once packet is queued to tcp input queues, skb->dev is NULL.
+>
+> This is done in tcp_v4_rcv() & tcp_v6_rcv()
 
-Sorry, I missed that IFF_NOARP is not really just about ARP.
+So if we move calling sk_mark_ll() into the rcu protected region,
+We would not need the gen id in the skb.
+We could save skb->dev and skb->queue_mapping along with the generation 
+id in the socket.
 
-> Would it be worthwhile to consider adding "flags_changed" to struct
-> net_device or some other mechanism add this info about all flags?
+then we don't need to change the skb struct at all.
+skb_mark_ll() can go away.
+we also call sk_mark_ll in one central place in net_protocol->handler 
+instead of all over the place.
 
-It's inelegant to put transient data associated with an event in a
-persistent data structure.  On the other hand, having every user cache
-the old state is pretty awful as well.
+or am I missing something?
 
-Really, netdev notifiers should be changed to accept a structure that
-encapsulates the changes rather than just a pointer to the net_device.
-But making such a change would be an enormous pain and error-prone
-because notifier functions aren't type-safe.
-
-As an interim solution, I think either the general priv_flags_changed o=
-r
-old_priv_flags would be preferable to defining extra transient flags.
-
-Ben.
-
---=20
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+------------------------------------------------------------------------------
+Try New Relic Now & We'll Send You this Cool Shirt
+New Relic is the only SaaS-based application performance monitoring service 
+that delivers powerful full stack analytics. Optimize and monitor your
+browser, app, & servers with just a few lines of code. Try New Relic
+and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
