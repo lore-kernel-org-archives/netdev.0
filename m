@@ -1,55 +1,95 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next 2/2] xen-netfront: split event
- channels feature support
-Date: Tue, 21 May 2013 18:07:26 +0100
-Message-ID: <20130521170726.GA18489@zion.uk.xensource.com>
-References: <1369090931-27306-1-git-send-email-wei.liu2@citrix.com>
- <1369090931-27306-3-git-send-email-wei.liu2@citrix.com>
- <519B78F5.5020301@citrix.com>
- <20130521134149.GN32007@zion.uk.xensource.com>
- <20130521162825.GA3669@phenom.dumpdata.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v4 net-next 1/4] net: implement support for low latency
+ socket polling
+Date: Tue, 21 May 2013 18:23:50 +0100
+Message-ID: <1369157030.2615.24.camel@bwh-desktop.uk.solarflarecom.com>
+References: <20130521142641.18498.52856.stgit@ladj378.jer.intel.com>
+	 <20130521142650.18498.71715.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	David Vrabel <david.vrabel@citrix.com>,
-	<xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	<ian.campbell@citrix.com>
-To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:61547 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754691Ab3EURHz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 13:07:55 -0400
-Content-Disposition: inline
-In-Reply-To: <20130521162825.GA3669@phenom.dumpdata.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Dave Miller <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	"Don Skidmore" <donald.c.skidmore@intel.com>,
+	<e1000-devel@lists.sourceforge.net>,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130521142650.18498.71715.stgit@ladj378.jer.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 21, 2013 at 12:28:25PM -0400, Konrad Rzeszutek Wilk wrote:
-> On Tue, May 21, 2013 at 02:41:49PM +0100, Wei Liu wrote:
-> > On Tue, May 21, 2013 at 02:39:01PM +0100, David Vrabel wrote:
-> > [...]
-> > > > +	info->rx_evtchn = info->tx_evtchn;
-> > > > +	info->rx_irq = info->tx_irq = err;
-> > > > +	dev_info(&info->xbdev->dev,
-> > > > +		 "single event channel, evtchn = %d, irq = %d\n",
-> > > > +		 info->tx_evtchn, info->tx_irq);
-> > > 
-> > > This message is pointless chatter as the information is available
-> > > elsewhere.  Please remove.
-> > > 
-> > 
-> > Do you mean /proc/interrupt by "elsewhere"? Information there doesn't
-> > give you irq<->evtchn mapping info.
-> 
-> If you really want to, that should be implemented via an DebugFS entry that can
-> be driven from drivers/xen/events.c. As the events.c is the generic code that sets
-> up the Xen events, pirqs, ipis, <-> Linux IRQs.
+On Tue, 2013-05-21 at 17:26 +0300, Eliezer Tamir wrote:
+> Adds a new ndo_ll_poll method and the code that supports and uses it.
+> This method can be used by low latency applications to busy poll ethernet
+> device queues directly from the socket code. The ip_low_latency_poll sysctl
+> entry controls how many cycles to poll. Set to zero to disable.
 
-I mainly focus on upstreaming all necessary features for a new Xen
-network baseline, so I would rather not touch other files.
+Microseconds, not cycles.
 
-I will delete these dev_info, they don't seem to be critical anyway.
+[...]
+> --- a/Documentation/networking/ip-sysctl.txt
+> +++ b/Documentation/networking/ip-sysctl.txt
+> @@ -19,6 +19,12 @@ ip_no_pmtu_disc - BOOLEAN
+>  	Disable Path MTU Discovery.
+>  	default FALSE
+>  
+> +ip_low_latency_poll - INTEGER
+> +	Low latency busy poll timeout. (needs CONFIG_INET_LL_RX_POLL)
+> +	Approximate time in ms to spin waiting for packets on the device queue.
 
+us, not ms.
 
-Wei.
+[...]
+> --- /dev/null
+> +++ b/include/net/ll_poll.h
+> @@ -0,0 +1,117 @@
+> +/*
+> + * low latency network device queue flush
+> + * Copyright(c) 2013 Intel Corporation.
+> + * Author: Eliezer Tamir
+> + *
+> + * For now this depends on CONFIG_I86_TSC
+
+CONFIG_X86_TSC
+
+[...]
+> +static inline bool sk_poll_ll(struct sock *sk, int nonblock)
+> +{
+> +	unsigned long end_time = TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll)
+> +					+ get_cycles();
+> +	struct napi_struct *napi = sk->dev_ref;
+> +	const struct net_device_ops *ops;
+> +	int rc;
+> +
+> +	if (!napi->dev->netdev_ops->ndo_ll_poll)
+> +		return false;
+> +
+> +	local_bh_disable();
+> +
+> +	ops = napi->dev->netdev_ops;
+
+Should be done before testing ndo_ll_poll above, so you can avoid
+repeating the indirections.
+
+> +	while (skb_queue_empty(&sk->sk_receive_queue) &&
+> +			!time_after((unsigned long)get_cycles(), end_time)) {
+> +		rc = ops->ndo_ll_poll(napi);
+> +
+> +		if (rc == LL_FLUSH_FAILED)
+> +			break; /* premanent failure */
+[...]
+
+Typo: 'permanent'.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
