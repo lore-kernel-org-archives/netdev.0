@@ -1,50 +1,58 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Patch net] ipv6,mcast: always hold idev->lock before mca_lock
-Date: Tue, 21 May 2013 12:10:59 +0200
-Message-ID: <20130521101059.GB19984@order.stressinduktion.org>
-References: <1367998914-26423-1-git-send-email-amwang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, dingtianhong <dingtianhong@huawei.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+From: Mark Rutland <mark.rutland@arm.com>
+Subject: [PATCH RESEND] net: smsc911x: don't artificially limit build
+Date: Tue, 21 May 2013 11:22:37 +0100
+Message-ID: <1369131757-9335-1-git-send-email-mark.rutland@arm.com>
+Cc: Mark Rutland <mark.rutland@arm.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Arnd Bergmann <arnd@arndb.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:52282 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752471Ab3EUKLA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 06:11:00 -0400
-Content-Disposition: inline
-In-Reply-To: <1367998914-26423-1-git-send-email-amwang@redhat.com>
+Received: from cam-admin0.cambridge.arm.com ([217.140.96.50]:35073 "EHLO
+	cam-admin0.cambridge.arm.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753193Ab3EUKW4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 06:22:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 08, 2013 at 03:41:54PM +0800, Cong Wang wrote:
-> @@ -1596,8 +1598,8 @@ static void mld_send_report(struct inet6_dev *idev, struct ifmcaddr6 *pmc)
->  	struct sk_buff *skb = NULL;
->  	int type;
->  
-> +	read_lock_bh(&idev->lock);
->  	if (!pmc) {
-> -		read_lock_bh(&idev->lock);
->  		for (pmc=idev->mc_list; pmc; pmc=pmc->next) {
->  			if (pmc->mca_flags & MAF_NOREPORT)
->  				continue;
-> @@ -1609,7 +1611,6 @@ static void mld_send_report(struct inet6_dev *idev, struct ifmcaddr6 *pmc)
->  			skb = add_grec(skb, pmc, type, 0, 0);
->  			spin_unlock_bh(&pmc->mca_lock);
->  		}
-> -		read_unlock_bh(&idev->lock);
->  	} else {
->  		spin_lock_bh(&pmc->mca_lock);
->  		if (pmc->mca_sfcount[MCAST_EXCLUDE])
-> @@ -1619,6 +1620,7 @@ static void mld_send_report(struct inet6_dev *idev, struct ifmcaddr6 *pmc)
->  		skb = add_grec(skb, pmc, type, 0, 0);
->  		spin_unlock_bh(&pmc->mca_lock);
->  	}
-> +	read_unlock_bh(&idev->lock);
->  	if (skb)
->  		mld_sendpack(skb);
->  }
+Currently the SMSC911X driver may only be built for a specific set of
+architectures, being limited to do so by a Kconfig depends line. This
+means that if a platform wishes to use the driver, its architecture must
+be added to the list explicitly, introducing pointless churn.
 
-Isn't this hunk the only one needed to fix this problem?
+This may have been due to the driver's use of the {read,write}s{b,w,l}
+functions, which have since been replaced with the more standard
+io{read,write}{8,16,32}_rep. We can instead depend on HAS_IOMEM, which
+should prevent build issues while allowing the driver to be built for
+currently unlisted architectures, including x86 and arm64.
+
+This patch removes the explicit list of architectures from the driver's
+depend line, and replaces it with a dependency on HAS_IOMEM.
+
+Signed-off-by: Mark Rutland <mark.rutland@arm.com>
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: netdev@vger.kernel.org
+---
+David: apologies for the bounces my account generated previously. I've
+corrected my blacklist and whitelist to prevent this from happening
+again, and flagged up the automatic blacklist behaviour as a problem
+with my mail provider.
+
+ drivers/net/ethernet/smsc/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/smsc/Kconfig b/drivers/net/ethernet/smsc/Kconfig
+index bb4c167..ff9e994 100644
+--- a/drivers/net/ethernet/smsc/Kconfig
++++ b/drivers/net/ethernet/smsc/Kconfig
+@@ -97,7 +97,7 @@ config SMC911X
+ 
+ config SMSC911X
+ 	tristate "SMSC LAN911x/LAN921x families embedded ethernet support"
+-	depends on (ARM || SUPERH || BLACKFIN || MIPS || MN10300)
++	depends on HAS_IOMEM
+ 	select CRC32
+ 	select NET_CORE
+ 	select MII
+-- 
+1.8.1.1
