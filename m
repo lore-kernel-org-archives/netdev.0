@@ -1,7 +1,7 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v4 12/12] ARM: orion5x: remove legacy mv643xx_eth board setup
-Date: Tue, 21 May 2013 18:41:50 +0200
-Message-ID: <1369154510-4927-13-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v4 06/12] ARM: dove: add gigabit ethernet and mvmdio device tree nodes
+Date: Tue, 21 May 2013 18:41:44 +0200
+Message-ID: <1369154510-4927-7-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
  <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Cc: David Miller <davem@davemloft.net>,
@@ -17,12 +17,17 @@ In-Reply-To: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With DT support for mv643xx_eth we do not need legacy platform_data
-based setup for DT enabled boards. This patch removes eth setup
-for all orion5x DT board files.
+This patch adds orion-eth and mvmdio device tree nodes for DT enabled
+Dove boards. As there is only one ethernet controller on Dove, a default
+phy node is also added with a note to set its reg property on a per-board
+basis.
 
 Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
+Changelog:
+v3->v4:
+- convert to new device tree binding
+
 Cc: David Miller <davem@davemloft.net>
 Cc: Lennert Buytenhek <buytenh@wantstofly.org>
 Cc: Jason Cooper <jason@lakedaemon.net>
@@ -33,43 +38,72 @@ Cc: linux-arm-kernel@lists.infradead.org
 Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-kernel@vger.kernel.org
 ---
- arch/arm/mach-orion5x/edmini_v2-setup.c |   10 ----------
- 1 file changed, 10 deletions(-)
+ arch/arm/boot/dts/dove-cubox.dts |    7 +++++++
+ arch/arm/boot/dts/dove.dtsi      |   35 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 42 insertions(+)
 
-diff --git a/arch/arm/mach-orion5x/edmini_v2-setup.c b/arch/arm/mach-orion5x/edmini_v2-setup.c
-index 1476155..d9de926 100644
---- a/arch/arm/mach-orion5x/edmini_v2-setup.c
-+++ b/arch/arm/mach-orion5x/edmini_v2-setup.c
-@@ -24,7 +24,6 @@
- #include <linux/pci.h>
- #include <linux/irq.h>
- #include <linux/mtd/physmap.h>
--#include <linux/mv643xx_eth.h>
- #include <linux/leds.h>
- #include <linux/gpio_keys.h>
- #include <linux/input.h>
-@@ -96,14 +95,6 @@ static struct platform_device edmini_v2_nor_flash = {
+diff --git a/arch/arm/boot/dts/dove-cubox.dts b/arch/arm/boot/dts/dove-cubox.dts
+index 7e3065a..02618fa 100644
+--- a/arch/arm/boot/dts/dove-cubox.dts
++++ b/arch/arm/boot/dts/dove-cubox.dts
+@@ -49,6 +49,13 @@
+ &uart0 { status = "okay"; };
+ &sata0 { status = "okay"; };
+ &i2c0 { status = "okay"; };
++&mdio { status = "okay"; };
++&eth { status = "okay"; };
++
++&ethphy {
++	compatible = "marvell,88e1310";
++	reg = <1>;
++};
+ 
+ &sdio0 {
+ 	status = "okay";
+diff --git a/arch/arm/boot/dts/dove.dtsi b/arch/arm/boot/dts/dove.dtsi
+index 6cab468..8612658 100644
+--- a/arch/arm/boot/dts/dove.dtsi
++++ b/arch/arm/boot/dts/dove.dtsi
+@@ -258,5 +258,40 @@
+ 				dmacap,xor;
+ 			};
+ 		};
++
++		mdio: mdio-bus@72004 {
++			compatible = "marvell,orion-mdio";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <0x72004 0x84>;
++			interrupts = <30>;
++			clocks = <&gate_clk 2>;
++			status = "disabled";
++
++			ethphy: ethernet-phy {
++				device-type = "ethernet-phy";
++				/* set phy address in board file */
++			};
++		};
++
++		eth: ethernet-controller@72000 {
++			compatible = "marvell,orion-eth";
++			#address-cells = <1>;
++			#size-cells = <0>;
++			reg = <0x72000 0x4000>;
++			clocks = <&gate_clk 2>;
++			marvell,tx-checksum-limit = <1600>;
++			status = "disabled";
++
++			ethernet-port@0 {
++				device_type = "network";
++				compatible = "marvell,orion-eth-port";
++				reg = <0>;
++				interrupts = <29>;
++				/* overwrite MAC address in bootloader */
++				local-mac-address = [00 00 00 00 00 00];
++				phy-handle = <&ethphy>;
++			};
++		};
+ 	};
  };
- 
- /*****************************************************************************
-- * Ethernet
-- ****************************************************************************/
--
--static struct mv643xx_eth_platform_data edmini_v2_eth_data = {
--	.phy_addr	= 8,
--};
--
--/*****************************************************************************
-  * RTC 5C372a on I2C bus
-  ****************************************************************************/
- 
-@@ -152,7 +143,6 @@ void __init edmini_v2_init(void)
- 	 * Configure peripherals.
- 	 */
- 	orion5x_ehci0_init();
--	orion5x_eth_init(&edmini_v2_eth_data);
- 
- 	mvebu_mbus_add_window("devbus-boot", EDMINI_V2_NOR_BOOT_BASE,
- 			      EDMINI_V2_NOR_BOOT_SIZE);
 -- 
 1.7.10.4
