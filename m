@@ -1,11 +1,13 @@
 From: Peter Huewe <peterhuewe@gmx.de>
-Subject: [PATCH 05/19] net/ethernet/sis/sis190: Use module_pci_driver to register driver
-Date: Wed, 22 May 2013 00:42:10 +0200
-Message-ID: <1369176146-19383-5-git-send-email-peterhuewe@gmx.de>
+Subject: [PATCH 07/19] net/ethernet/toshiba/tc35815: Use module_pci_driver to register driver
+Date: Wed, 22 May 2013 00:42:12 +0200
+Message-ID: <1369176146-19383-7-git-send-email-peterhuewe@gmx.de>
 References: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
 Cc: Peter Huewe <peterhuewe@gmx.de>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	netdev@vger.kernel.org (open list:SIS 190 ETHERNET...),
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Pirko <jiri@resnulli.us>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
 	linux-kernel@vger.kernel.org (open list)
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -18,29 +20,32 @@ register and unregister in the otherwise empty init/exit functions.
 
 Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
 ---
- drivers/net/ethernet/sis/sis190.c | 13 +------------
- 1 file changed, 1 insertion(+), 12 deletions(-)
+ drivers/net/ethernet/toshiba/tc35815.c | 14 +-------------
+ 1 file changed, 1 insertion(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/sis/sis190.c b/drivers/net/ethernet/sis/sis190.c
-index 9a9c379..02df089 100644
---- a/drivers/net/ethernet/sis/sis190.c
-+++ b/drivers/net/ethernet/sis/sis190.c
-@@ -1934,15 +1934,4 @@ static struct pci_driver sis190_pci_driver = {
- 	.remove		= sis190_remove_one,
- };
+diff --git a/drivers/net/ethernet/toshiba/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
+index fe25609..a971b9c 100644
+--- a/drivers/net/ethernet/toshiba/tc35815.c
++++ b/drivers/net/ethernet/toshiba/tc35815.c
+@@ -2209,18 +2209,6 @@ MODULE_PARM_DESC(speed, "0:auto, 10:10Mbps, 100:100Mbps");
+ module_param_named(duplex, options.duplex, int, 0);
+ MODULE_PARM_DESC(duplex, "0:auto, 1:half, 2:full");
  
--static int __init sis190_init_module(void)
+-static int __init tc35815_init_module(void)
 -{
--	return pci_register_driver(&sis190_pci_driver);
+-	return pci_register_driver(&tc35815_pci_driver);
 -}
 -
--static void __exit sis190_cleanup_module(void)
+-static void __exit tc35815_cleanup_module(void)
 -{
--	pci_unregister_driver(&sis190_pci_driver);
+-	pci_unregister_driver(&tc35815_pci_driver);
 -}
 -
--module_init(sis190_init_module);
--module_exit(sis190_cleanup_module);
-+module_pci_driver(sis190_pci_driver);
+-module_init(tc35815_init_module);
+-module_exit(tc35815_cleanup_module);
+-
++module_pci_driver(tc35815_pci_driver);
+ MODULE_DESCRIPTION("TOSHIBA TC35815 PCI 10M/100M Ethernet driver");
+ MODULE_LICENSE("GPL");
 -- 
 1.8.1.5
