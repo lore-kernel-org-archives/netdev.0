@@ -1,61 +1,22 @@
-From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
-Subject: Re: [PATCH net]  vxlan: revert per-vxlan port
-Date: Mon, 20 May 2013 16:59:44 -0700
-Message-ID: <519AB8F0.7060003@gmail.com>
-References: <20130520103017.054ae605@nehalam.linuxnetplumber.net> <OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com> <20130520113000.0057ce90@nehalam.linuxnetplumber.net>
+From: =?KOI8-R?B?8M/axNLB18zRxc0sIPfB2yDczMXL1NLPzs7ZyiA=?=
+	 =?KOI8-R?B?wcTSxdMg19nJx9LBzCDQ0dTY08/UINTZ09HeIMXX0s8=?=
+	 =?KOI8-R?B?LiDrz83Qwc7J0SBFdXJvbWlsbGlvbiDQ0sXNyckg0NLP18U=?=
+	<1lt.robertsmith@gmail.com>
+Subject: (unknown)
+Date: Tue, 21 May 2013 01:06:09 +0100
+Message-ID: <CAErUbCTs6enrDNw2QEH-CVNdA3C5E52j=6vhVYwVV6Oisg-56w__42556.1317163103$1369094782$gmane$org@mail.gmail.com>
+Reply-To: helenxana26@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1
+To: undisclosed-recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f46.google.com ([209.85.219.46]:63357 "EHLO
-	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751648Ab3ETX7r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 19:59:47 -0400
-In-Reply-To: <20130520113000.0057ce90@nehalam.linuxnetplumber.net>
+Received: from mail-we0-f195.google.com ([74.125.82.195]:52426 "EHLO
+	mail-we0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757132Ab3EUAGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 20:06:11 -0400
+Received: by mail-we0-f195.google.com with SMTP id q56so5922wes.2
+        for <netdev@vger.kernel.org>; Mon, 20 May 2013 17:06:10 -0700 (PDT)
+Subject: 
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 5/20/2013 11:30 AM, Stephen Hemminger wrote:
-> On Mon, 20 May 2013 14:15:59 -0400
-> David Stevens <dlstevens@us.ibm.com> wrote:
->
->>> From: Stephen Hemminger <stephen@networkplumber.org>
->>   
->>> \This commit 823aa873bc782f1c51b1ce8ec6da7cfcaf93836e
->>> Author: stephen hemminger <stephen@networkplumber.org>
->>> Date:   Sat Apr 27 11:31:57 2013 +0000
->>>
->>>      vxlan: allow choosing destination port per vxlan
->>>
->>> is broken revert it. The change allowed setting per port for transmit
->>> but did not add additional listening sockets, which made any vxlan's
->>> defined with non-default port send only.
->> This allows you to specify a different default port for
->> transmits, which is what you want to do if your own instance
->> of VXLAN is the odd one. I don't see any requirement for multiple
->> listen ports for that to be useful, since those sending to you
->> can have complete fdb tables even if the local instance doesn't
->> and relies on the default. Not to mention using an agent to
->> fill the fdb triggered by packets sent to the default, so the
->> receiver is not necessarily even a VXLAN instance. The receiver
->> side and transmit side ports can be completely independent of
->> each other, as in any other client-server system.
-> Vxlan's are a weird beast. They can be viewed as either bridge like
-> entities or tunnel like entities. I view them more as bridge type
-> devices where user configures two hosts with equivalent values and
-> they learn about each other. In that case the code in 3.10 is broken;
-> but the version with the learning in net-next works.
->
-> Your view is that VXLAN's are more like tunnels, where each host
-> has static entries to know about every other host. In that mode,
-> 3.10 is useable, but the same effect can be had by defining static
-> neighbour entries.
-
-how can we send to a different dst port using static neighbor entries?
-
-Thanks
-Sridhar
