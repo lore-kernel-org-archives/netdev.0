@@ -1,84 +1,35 @@
-From: Qinchuanyu <qinchuanyu@huawei.com>
-Subject: Re: [PATCH] vhost: get 2% performance improved by reducing
- spin_lock race in vhost_work_queue
-Date: Tue, 21 May 2013 02:40:42 +0000
-Message-ID: <5872DA217C2FF7488B20897D84F904E7338FE592@nkgeml511-mbx.china.huawei.com>
-References: <5872DA217C2FF7488B20897D84F904E7338FD1E5@nkgeml511-mbx.china.huawei.com>
- <51999AA2.8070806@redhat.com>
- <5872DA217C2FF7488B20897D84F904E7338FD2C5@nkgeml511-mbx.china.huawei.com>
- <5199AABF.6090801@redhat.com>
+From: Libo Chen <libo.chen@huawei.com>
+Subject: [PATCH 08/19] drivers/net/ethernet/amd: add missing platform_driver owner
+Date: Tue, 21 May 2013 10:42:24 +0800
+Message-ID: <1369104144-712-1-git-send-email-libo.chen@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
-	"dhowells@redhat.com" <dhowells@redhat.com>,
-	"(kvm@vger.kernel.org)" <kvm@vger.kernel.org>,
-	"(netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
-	Heguansen <heguansen@huawei.com>
-To: "mst@redhat.com" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:33163 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751887Ab3EUCls (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 22:41:48 -0400
-In-Reply-To: <5199AABF.6090801@redhat.com>
-Content-Language: zh-CN
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<davem@davemloft.net>, <lizefan@huawei.com>, <libo.chen@huawei.com>
+To: <linux@arm.linux.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogQ2h1YW55dSBRaW4gPHFpbmNodWFueXVAaHVhd2VpLmNvbT4NClN1YmplY3Q6IFtQQVRD
-SF0gZ2V0IDIlIG9yIG1vcmUgcGVyZm9ybWFuY2UgaW1wcm92ZWQgYnkgcmVkdWNpbmcgc3Bpbl9s
-b2NrIHJhY2UgaW4gdmhvc3Rfd29ya19xdWV1ZQ0KDQp0aGUgd2FrZV91cF9wcm9jZXNzIGZ1bmMg
-aXMgaW5jbHVkZWQgYnkgc3Bpbl9sb2NrL3VubG9jayBpbiB2aG9zdF93b3JrX3F1ZXVlLCANCmJ1
-dCBpdCBjb3VsZCBiZSBkb25lIG91dHNpZGUgdGhlIHNwaW5fbG9jay4gDQpJIGhhdmUgdGVzdCBp
-dCB3aXRoIGtlcm5lbCAzLjAuMjcgYW5kIGd1ZXN0IHN1c2UxMS1zcDIgdXNpbmcgaXBlcmYsIHRo
-ZSBudW0gYXMgYmVsb3cuDQogICAgICAgICAgICAgICAgIG9yaWduYWwgICAgICAgICAgICAgICAg
-ICAgbW9kaWZpZWQNCnRocmVhZF9udW0gIHRwKEdicHMpICAgdmhvc3QoJSkgIHwgIHRwKEdicHMp
-ICAgICB2aG9zdCglKQ0KMSAgICAgICAgICAgOS41OSAgICAgICAgIDI4LjgyICAgfCAgICAgIDku
-NTkgICAgICAgIDI3LjQ5DQo4ICAgICAgICAgICAgOS42MSAgICAgICAgMzIuOTIgICB8ICAgICAg
-OS42MiAgICAgICAgMjYuNzcNCjY0ICAgICAgICAgICAgOS41OCAgICAgICAgNDYuNDggIHwgICAg
-IDkuNTUgICAgICAgIDM4Ljk5DQoyNTYgICAgICAgICAgICA5LjYgICAgICAgIDYzLjcgICB8ICAg
-ICAgOS42ICAgICAgICAgNTIuNTkNCg0KU2lnbmVkLW9mZi1ieTogQ2h1YW55dSBRaW4gPHFpbmNo
-dWFueXVAaHVhd2VpLmNvbT4NCi0tLQ0KIGRyaXZlcnMvdmhvc3Qvdmhvc3QuYyB8ICAgIDUgKysr
-LS0NCiAxIGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkNCg0K
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvdmhvc3Qvdmhvc3QuYyBiL2RyaXZlcnMvdmhvc3Qvdmhvc3Qu
-Yw0KaW5kZXggOTRkYmQyNS4uOGJlZTEwOSAxMDA2NDQNCi0tLSBhL2RyaXZlcnMvdmhvc3Qvdmhv
-c3QuYw0KKysrIGIvZHJpdmVycy92aG9zdC92aG9zdC5jDQpAQCAtMTQ2LDkgKzE0NiwxMCBAQCBz
-dGF0aWMgaW5saW5lIHZvaWQgdmhvc3Rfd29ya19xdWV1ZShzdHJ1Y3Qgdmhvc3RfZGV2ICpkZXYs
-DQogCWlmIChsaXN0X2VtcHR5KCZ3b3JrLT5ub2RlKSkgew0KIAkJbGlzdF9hZGRfdGFpbCgmd29y
-ay0+bm9kZSwgJmRldi0+d29ya19saXN0KTsNCiAJCXdvcmstPnF1ZXVlX3NlcSsrOw0KKwkJc3Bp
-bl91bmxvY2tfaXJxcmVzdG9yZSgmZGV2LT53b3JrX2xvY2ssIGZsYWdzKTsNCiAJCXdha2VfdXBf
-cHJvY2VzcyhkZXYtPndvcmtlcik7DQotCX0NCi0Jc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSgmZGV2
-LT53b3JrX2xvY2ssIGZsYWdzKTsNCisJfSBlbHNlDQorCQlzcGluX3VubG9ja19pcnFyZXN0b3Jl
-KCZkZXYtPndvcmtfbG9jaywgZmxhZ3MpOw0KIH0NCiANCiB2b2lkIHZob3N0X3BvbGxfcXVldWUo
-c3RydWN0IHZob3N0X3BvbGwgKnBvbGwpDQotLSANCjEuNy4zLjEubXN5c2dpdC4wDQoNCg0KPiBP
-biAwNS8yMC8yMDEzIDEyOjIyIFBNLCBRaW5jaHVhbnl1IHdyb3RlOg0KPiA+IFRoZSBwYXRjaCBi
-ZWxvdyBpcyBiYXNlIG9uDQo+ID4gaHR0cHM6Ly9naXQua2VybmVsLm9yZy9jZ2l0L2xpbnV4L2tl
-cm5lbC9naXQvbmV4dC9saW51eC0NCj4gbmV4dC5naXQvdHJlZS9kcml2ZXJzL3Zob3N0L3Zob3N0
-LmM/aWQ9cmVmcy90YWdzL25leHQtMjAxMzA1MTcNCj4gPg0KPiA+IFNpZ25lZC1vZmYtYnk6IENo
-dWFueXUgUWluIDxxaW5jaHVhbnl1QGh1YXdlaS5jb20+DQo+ID4gLS0tIGEvZHJpdmVycy92aG9z
-dC92aG9zdC5jICAgICAyMDEzLTA1LTIwIDExOjQ3OjA1LjAwMDAwMDAwMCArMDgwMA0KPiA+ICsr
-KyBiL2RyaXZlcnMvdmhvc3Qvdmhvc3QuYyAgICAgMjAxMy0wNS0yMCAxMTo0ODoyNC4wMDAwMDAw
-MDAgKzA4MDANCj4gPiBAQCAtMTU0LDkgKzE1NCwxMCBAQA0KPiA+ICAgICAgICAgaWYgKGxpc3Rf
-ZW1wdHkoJndvcmstPm5vZGUpKSB7DQo+ID4gICAgICAgICAgICAgICAgIGxpc3RfYWRkX3RhaWwo
-JndvcmstPm5vZGUsICZkZXYtPndvcmtfbGlzdCk7DQo+ID4gICAgICAgICAgICAgICAgIHdvcmst
-PnF1ZXVlX3NlcSsrOw0KPiA+ICsgICAgICAgICAgICAgICBzcGluX3VubG9ja19pcnFyZXN0b3Jl
-KCZkZXYtPndvcmtfbG9jaywgZmxhZ3MpOw0KPiA+ICAgICAgICAgICAgICAgICB3YWtlX3VwX3By
-b2Nlc3MoZGV2LT53b3JrZXIpOw0KPiA+IC0gICAgICAgfQ0KPiA+IC0gICAgICAgc3Bpbl91bmxv
-Y2tfaXJxcmVzdG9yZSgmZGV2LT53b3JrX2xvY2ssIGZsYWdzKTsNCj4gPiArICAgICAgIH0gZWxz
-ZQ0KPiA+ICsgICAgICAgICAgICAgICBzcGluX3VubG9ja19pcnFyZXN0b3JlKCZkZXYtPndvcmtf
-bG9jaywgZmxhZ3MpOw0KPiA+ICB9DQo+ID4NCj4gPiAgdm9pZCB2aG9zdF9wb2xsX3F1ZXVlKHN0
-cnVjdCB2aG9zdF9wb2xsICpwb2xsKQ0KPiA+DQo+ID4gSSBkaWQgdGhlIHRlc3QgYnkgdXNpbmcg
-aXBlcmYgaW4gMTBHIGVudmlyb25tZW50LCB0aGUgdGVzdCBudW0gYXMNCj4gYmVsb3c6DQo+ID4g
-ICAgICAgICAgICAgICAgICBvcmlnbmFsICAgICAgICAgICAgICAgICAgIG1vZGlmaWVkDQo+ID4g
-dGhyZWFkX251bSAgdHAoR2JwcykgICB2aG9zdCglKSAgfCAgdHAoR2JwcykgICAgIHZob3N0KCUp
-DQo+ID4gMSAgICAgICAgICAgOS41OSAgICAgICAgIDI4LjgyICAgfCAgICAgIDkuNTkgICAgICAg
-IDI3LjQ5DQo+ID4gOCAgICAgICAgICAgIDkuNjEgICAgICAgIDMyLjkyICAgfCAgICAgIDkuNjIg
-ICAgICAgIDI2Ljc3DQo+ID4gNjQgICAgICAgICAgICA5LjU4ICAgICAgICA0Ni40OCAgfCAgICAg
-OS41NSAgICAgICAgMzguOTkNCj4gPiAyNTYgICAgICAgICAgICA5LjYgICAgICAgIDYzLjcgICB8
-ICAgICAgOS42ICAgICAgICAgNTIuNTkNCj4gPg0KPiA+IFRoZSBjb3N0IG9mIHZob3N0IHJlZHVj
-ZWQgd2hpbGUgdGhlIHRocm91Z2hwdXQgaXMgYWxtb3N0IHVuY2hhbmdlZC4NCj4gDQo+IFRoYW5r
-cywgYW5kIHBsZWFzZSBnZW5lcmF0ZSBhIGZvcm1hbCBwYXRjaCBiYXNlZCBvbg0KPiBEb2N1bWVu
-dGF0aW9uL1N1Ym1pdHRpbmdQYXRjaGVzIChwdXQgdGhlIGRlc2NyaXB0aW9uIGFuZCBwZXJmIG51
-bWJlcnMNCj4gaW4gdGhlIGNvbW1pdCBsb2cpLiBUaGVuIHJlc3VibWl0IGl0IHRvIGxldCB0aGUg
-bWFpbnRhaW5lciBhcHBseSBpdC4NCg0K
+set the owner of platform_driver, to ensure that the
+caller of driver holds a module refernece
+
+Signed-off-by: Libo Chen <libo.chen@huawei.com>
+---
+ drivers/net/ethernet/amd/am79c961a.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/am79c961a.c b/drivers/net/ethernet/amd/am79c961a.c
+index 9793767..a1a890b 100644
+--- a/drivers/net/ethernet/amd/am79c961a.c
++++ b/drivers/net/ethernet/amd/am79c961a.c
+@@ -757,6 +757,7 @@ static struct platform_driver am79c961_driver = {
+ 	.probe		= am79c961_probe,
+ 	.driver		= {
+ 		.name	= "am79c961",
++		.owner	= THIS_MODULE,
+ 	},
+ };
+ 
+-- 
+1.7.1
