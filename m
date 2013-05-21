@@ -1,96 +1,81 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net 2/2]  8139cp: reset BQL when ring tx ring cleared
-Date: Mon, 20 May 2013 17:27:49 -0700
-Message-ID: <20130520172749.2a4447b6@nehalam.linuxnetplumber.net>
-References: <20130520095443.2d18b2cb@nehalam.linuxnetplumber.net>
-	<20130520213728.GA28252@electric-eye.fr.zoreil.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Bug#708995: iptables firewall is dropping GRO'd packets
+Date: Tue, 21 May 2013 01:28:43 +0100
+Message-ID: <1369096123.3469.127.camel@deadeye.wl.decadent.org.uk>
+References: <20130520044850.31127.24148.reportbug@shadbolt.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-c0NvjAPxwRqUn9cWJ6Ia"
+Cc: 708995@bugs.debian.org
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:35355 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751572Ab3EUA1y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 20:27:54 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ro12so39325pbb.27
-        for <netdev@vger.kernel.org>; Mon, 20 May 2013 17:27:54 -0700 (PDT)
-In-Reply-To: <20130520213728.GA28252@electric-eye.fr.zoreil.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:34541 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751648Ab3EUA2v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 May 2013 20:28:51 -0400
+In-Reply-To: <20130520044850.31127.24148.reportbug@shadbolt.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 20 May 2013 23:37:28 +0200
-Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-> cp_stop_hw includes netdev_reset_queue.
-> 
-> You have imho exhibited a start_xmit after cp_stop_hw race - not sure if
-> it happens in cp_tx_timeout or cp_change_mtu. Reverting the analysis above,
-> I have not found a place where cp_stop_hw could be called without being
-> followed by a cp_clean_rings. The netdev_reset_queue in cp_stop_hw, now
-> useless, should thus be removed.
-> 
-> Does it make sense ?
+--=-c0NvjAPxwRqUn9cWJ6Ia
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Your right, you could probably remove it.
+I'm seeing packet loss when forwarding from a LAN to PPP, whenever GRO
+kicks in on the LAN interface.
 
-It doesn't solve the problem, still seeing transmit timeouts.
-Looks like what happens with DHCP is something else.
+On Mon, 2013-05-20 at 05:48 +0100, Ben Hutchings wrote:
+[...]
+> The Windows system is connected to the LAN interface (int0).  Turning
+> off GRO on this interface works around the problem.  But since GRO is
+> on by default, it clearly ought to work properly with iptables.
+>=20
+> I'll try to work out where the drops are occurring, but the
+> perf net_dropmonitor script is also broken...
+[...]
 
+I've fixed that script and now I can see that it's not iptables but
+tbf_enqueue() that is dropping the GRO'd packets.  I do traffic-shaping
+on the PPP link like this:
 
- zebra[2210]: interface eth0 index 2 changed <UP,BROADCAST,RUNNING,MULTICAST>.
+tc qdisc replace dev ppp0 root tbf rate 420kbit latency 50ms burst 1540
 
-[   23.960059] ------------[ cut here ]------------
-[   23.960107] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x243/0x250()
-[   23.960110] Hardware name: Bochs 
-[   23.960114] Modules linked in: 9p 9pnet fscache ipv6 tun mperf cpufreq_stats cpufreq_ondemand freq_table cpufreq_userspace cpufreq_conservative virtio_uio(O) cpufreq_powersave igb_uio(O) uio cirrus ttm drm_kms_helper drm sysimgblt sysfillrect virtio_balloon i2c_piix4 i2c_core hid_generic syscopyarea psmouse evdev serio_raw microcode pcspkr intel_agp intel_gtt agpgart processor thermal_sys button vfat fat usb_storage ohci_hcd squashfs loop overlayfs raid10 raid456 async_pq async_xor xor async_memcpy async_raid6_recov usbhid hid raid6_pq async_tx raid1 raid0 multipath linear md_mod pata_acpi ata_generic virtio_blk virtio_net 8139cp ata_piix 8139too mii virtio_pci virtio_ring virtio floppy
-[   23.960177] Pid: 0, comm: swapper/3 Tainted: G           O 3.9.3-1-amd64-vyatta #1
-[   23.960179] Call Trace:
-[   23.960181]  <IRQ>  [<ffffffff8105479b>] ? warn_slowpath_common+0x7b/0xc0
-[   23.960212]  [<ffffffff81054895>] ? warn_slowpath_fmt+0x45/0x50
-[   23.960228]  [<ffffffff814dfb45>] ? _raw_spin_lock+0x5/0x10
-[   23.960232]  [<ffffffff8143dde3>] ? dev_watchdog+0x243/0x250
-[   23.960245]  [<ffffffff810704c0>] ? __queue_work+0x2b0/0x2b0
-[   23.960253]  [<ffffffff8143dba0>] ? __netdev_watchdog_up+0x70/0x70
-[   23.960257]  [<ffffffff8143dba0>] ? __netdev_watchdog_up+0x70/0x70
-[   23.960262]  [<ffffffff81064773>] ? call_timer_fn+0x43/0x130
-[   23.960265]  [<ffffffff81064c27>] ? run_timer_softirq+0x237/0x280 
-[   23.960269]  [<ffffffff8107b200>] ? update_rmtp+0x80/0x80
-[   23.960272]  [<ffffffff814dfb45>] ? _raw_spin_lock+0x5/0x10
-[   23.960276]  [<ffffffff8105ca41>] ? __do_softirq+0xe1/0x270
-[   23.960280]  [<ffffffff8105ccd5>] ? irq_exit+0xb5/0xc0
-[   23.960291]  [<ffffffff81039fd8>] ? smp_apic_timer_interrupt+0x68/0xa0
-[   23.960302]  [<ffffffff814e151d>] ? apic_timer_interrupt+0x6d/0x80
-[   23.960304]  <EOI>  [<ffffffff81042152>] ? native_safe_halt+0x2/0x10
-[   23.960318]  [<ffffffff8101e1ef>] ? default_idle+0x3f/0xf0
-[   23.960323]  [<ffffffff8101db48>] ? cpu_idle+0x88/0xd0
-[   23.960330]  [<ffffffff814d547a>] ? start_secondary+0x211/0x216
-[   23.960333] ---[ end trace a519f7f509aceb9a ]--- 
-[   23.960407] 8139cp 0000:00:03.0 eth0: Transmit timeout, status  d   3b    4 80ff
-[   35.960137] 8139cp 0000:00:03.0 eth0: Transmit timeout, status  d   3b    5 80ff
-[   47.960108] 8139cp 0000:00:03.0 eth0: Transmit timeout, status  d   3b    5 80ff
-[   59.960117] 8139cp 0000:00:03.0 eth0: Transmit timeout, status  d   3b    5 80ff
-[   71.960115] 8139cp 0000:00:03.0 eth0: Transmit timeout, status  d   3b    5 80ff
-[   83.960117] 8139cp 0000:00:03.0 eth0: Transmit timeout, status  d   3b    5 80ff
-[   95.960131] 8139cp 0000:00:03.0 eth0: Transmit timeout, status  d   3b    5 80ff
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-~                                                                                                                                                    
-"messages" 35 lines, 2958 characters written
+The local TCP will never generate an skb larger than the burst size
+because it knows the PPP interface can't do GSO or TSO.  And the wifi
+network doesn't seem to be fast enough for GRO to have much of an
+effect.  But a peer on the wired network can trigger GRO and this
+produces an skb that exceeds the burst size.
+
+Is this a bug in sch_tbf, or should I accept it as a limitation?  It
+seems like it should do GSO on entry to the queue if necessary.
+
+Ben.
+
+--=20
+Ben Hutchings
+friends: People who know you well, but like you anyway.
+
+--=-c0NvjAPxwRqUn9cWJ6Ia
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUZq/u+e/yOyVhhEJAQroWw/7B5ZPOALcwjsF86DxCmH/6gmAABz83ojl
+MvIS2fdIXJ/uRIQEAhd9BMLR9ijACTiGg0hpeGCUQNS3TDD2ASQvG467S4LxPtWY
+y0hKR+DdujKaHLE88jpjUerqh80o2VRcoFgaA0n7UvOW/z47dwWp1688xBbB4Yqw
+2CnD7ZmxdsRwrIgZDBUDa0oPCqYbORurrCf69ZEELnkOVbaiM/trjjLpFSJppDLV
+fS07NVguhV4q383S3CxpyGCPbxZMquAZwaoe/sUbL6ggZaGbrrypFJIEDPKtl+GU
+JL/1920PXh2TRuDZJBW4TpsENsbdCPf/fnuD4cUrm6KY2UkgZbUYnXv5Gz5CLDoL
+QJ26lKproCJFxKghtFY8a6ncdzNXDYFynMG+NOnkdma1xI7SLRfHEjy84j99uoKS
+qYTB/CGv2vVtKf++gguFZ2hPWMH02euk/8lYGgGr6mdOOFF46yJ3W+8JOOjRp94d
+cuWHXFOhM7qQW4PMzmjJUCfiBlDUY5O95gSy715jZATubAnYPP0JhEQXKYKbGmNa
+iOgoP3GU/i1zmIU5b8e1xRewmbEKg9Dw403uts9Ev3KlxE/9xhCD1M5V5GEbWB7v
+3puOIVJzwGAk0wCCeH7nUF6fIgIbWcS4TspyqvAWStmGyMWHwm2OwbvRPv61GHwk
+GT6sexrDeRo=
+=f4cH
+-----END PGP SIGNATURE-----
+
+--=-c0NvjAPxwRqUn9cWJ6Ia--
