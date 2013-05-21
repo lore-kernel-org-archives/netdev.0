@@ -1,57 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/4] net: implement support
- for low latency socket polling
-Date: Tue, 21 May 2013 10:51:26 -0700
-Message-ID: <1369158686.3301.237.camel@edumazet-glaptop>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
-	<20130520101601.14133.874.stgit@ladj378.jer.intel.com>
-	<1369063764.3301.182.camel@edumazet-glaptop>
-	<519B2237.20204@linux.intel.com>
-	<1369142926.3301.213.camel@edumazet-glaptop>
-	<alpine.GSO.2.00.1305211855120.9230@git.silcnet.org>
-	<1369158499.3301.236.camel@edumazet-glaptop>
+From: Roman Gushchin <klamm@yandex-team.ru>
+Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
+ macro
+Date: Tue, 21 May 2013 22:12:27 +0400
+Message-ID: <519BB90B.6080706@yandex-team.ru>
+References: <519B38EC.90401@yandex-team.ru>   <20130521120906.GD3578@linux.vnet.ibm.com>  <1369143885.3301.221.camel@edumazet-glaptop>  <519B8908.9080007@yandex-team.ru> <1369150693.3301.233.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Don,
-	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
-To: Pekka Riikonen <priikone@iki.fi>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1369158499.3301.236.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: paulmck@linux.vnet.ibm.com, Dipankar Sarma <dipankar@in.ibm.com>,
+	zhmurov@yandex-team.ru, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369150693.3301.233.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-21 at 10:48 -0700, Eric Dumazet wrote:
+> If other rcu accessors have the same problem, a more complete patch is
+> needed.
 
-> We do not keep skb->dev information once a packet leaves the rcu
-> protected region.
-> 
-> Once packet is queued to tcp input queues, skb->dev is NULL.
+[PATCH] rcu: fix a race in rcu lists traverse macros
 
-This is done in tcp_v4_rcv() & tcp_v6_rcv()
+Some network functions (udp4_lib_lookup2(), for instance) use the
+rcu lists traverse macros (hlist_nulls_for_each_entry_rcu, for instance)
+in a way that assumes restarting of a loop. In this case, it is strictly
+necessary to reread the head->first value from the memory before each scan.
+Without additional hints, gcc caches this value in a register. In this case,
+if a cached node is moved to another chain during the scan, we can loop
+forever getting wrong nulls values and restarting the loop uninterruptedly.
 
+Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+Reported-by: Boris Zhmurov <zhmurov@yandex-team.ru>
+---
+  include/linux/compiler.h      | 6 ++++++
+  include/linux/rculist.h       | 6 ++++--
+  include/linux/rculist_nulls.h | 3 ++-
+  3 files changed, 12 insertions(+), 3 deletions(-)
 
+diff --git a/include/linux/compiler.h b/include/linux/compiler.h
+index 92669cd..0e05d7c 100644
+--- a/include/linux/compiler.h
++++ b/include/linux/compiler.h
+@@ -351,6 +351,12 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
+   */
+  #define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
 
++/*
++ * Prevent the compiler from optimizing accesses to structure member.
++ */
++#define GET_STRUCT_FIELD_VOLATILE(struct_ptr, field)		\
++	(((volatile typeof(*struct_ptr) *)struct_ptr)->field)
++
+  /* Ignore/forbid kprobes attach on very low level functions marked by this attribute: */
+  #ifdef CONFIG_KPROBES
+  # define __kprobes	__attribute__((__section__(".kprobes.text")))
+diff --git a/include/linux/rculist.h b/include/linux/rculist.h
+index 8089e35..6c3eea7 100644
+--- a/include/linux/rculist.h
++++ b/include/linux/rculist.h
+@@ -282,7 +282,8 @@ static inline void list_splice_init_rcu(struct list_head *list,
+   * as long as the traversal is guarded by rcu_read_lock().
+   */
+  #define list_for_each_entry_rcu(pos, head, member) \
+-	for (pos = list_entry_rcu((head)->next, typeof(*pos), member); \
++	for (pos = list_entry_rcu(GET_STRUCT_FIELD_VOLATILE(head, next), \
++				  typeof(*pos), member); \
+  		&pos->member != (head); \
+  		pos = list_entry_rcu(pos->member.next, typeof(*pos), member))
 
-------------------------------------------------------------------------------
-Try New Relic Now & We'll Send You this Cool Shirt
-New Relic is the only SaaS-based application performance monitoring service 
-that delivers powerful full stack analytics. Optimize and monitor your
-browser, app, & servers with just a few lines of code. Try New Relic
-and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+@@ -348,7 +349,8 @@ static inline void hlist_replace_rcu(struct hlist_node *old,
+  /*
+   * return the first or the next element in an RCU protected hlist
+   */
+-#define hlist_first_rcu(head)	(*((struct hlist_node __rcu **)(&(head)->first)))
++#define hlist_first_rcu(head)	(*((struct hlist_node __rcu **)		\
++				   (&GET_STRUCT_FIELD_VOLATILE(head, first))))
+  #define hlist_next_rcu(node)	(*((struct hlist_node __rcu **)(&(node)->next)))
+  #define hlist_pprev_rcu(node)	(*((struct hlist_node __rcu **)((node)->pprev)))
+
+diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
+index 2ae1371..b04fd0a 100644
+--- a/include/linux/rculist_nulls.h
++++ b/include/linux/rculist_nulls.h
+@@ -38,7 +38,8 @@ static inline void hlist_nulls_del_init_rcu(struct hlist_nulls_node *n)
+  }
+
+  #define hlist_nulls_first_rcu(head) \
+-	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
++	(*((struct hlist_nulls_node __rcu __force **)	\
++	   &(GET_STRUCT_FIELD_VOLATILE(head, first))))
+
+  #define hlist_nulls_next_rcu(node) \
+  	(*((struct hlist_nulls_node __rcu __force **)&(node)->next))
+-- 
+1.8.1.2
