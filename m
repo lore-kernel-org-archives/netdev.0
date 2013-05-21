@@ -1,46 +1,39 @@
-From: Mauro Carvalho Chehab <mchehab@redhat.com>
-Subject: Re: [PATCH] MIPS: OCTEON: Rename Kconfig
- CAVIUM_OCTEON_REFERENCE_BOARD to CAVIUM_OCTEON_SOC
-Date: Tue, 21 May 2013 07:25:21 -0300
-Message-ID: <20130521072521.0a296a67@redhat.com>
-References: <1369088378-13957-1-git-send-email-ddaney.cavm@gmail.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v3 net-next 3/4] ixgbe: Add support for ndo_ll_poll
+Date: Tue, 21 May 2013 13:27:25 +0300
+Message-ID: <519B4C0D.3040602@linux.intel.com>
+References: <1369120003.25971.2.camel@lb-tlvb-eilong.il.broadcom.com> <20130521.001444.1361294042663568537.davem@davemloft.net> <CAJZOPZJTA9A8T4R8MtRCeqcYj3XJWFCXF+ojmEqza5TMj-6G+w@mail.gmail.com> <20130521.013912.96249995742935192.davem@davemloft.net> <CAJZOPZJD5QpkmkJF9qpWV3Q28aioLw5CuT5X4URxDC4eSby3nQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-mips@linux-mips.org, ralf@linux-mips.org,
-	David Daney <david.daney@cavium.com>,
-	linux-ide@vger.kernel.org, linux-edac@vger.kernel.org,
-	linux-i2c@vger.kernel.org, netdev@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net,
-	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
-To: David Daney <ddaney.cavm@gmail.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <1369088378-13957-1-git-send-email-ddaney.cavm@gmail.com>
-Sender: linux-ide-owner@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, eilong@broadcom.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
+	e1000-devel@lists.sourceforge.net, willemb@google.com,
+	andi@firstfloor.org, hpa@zytor.com, eliezer@tamir.org.il
+To: Or Gerlitz <or.gerlitz@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAJZOPZJD5QpkmkJF9qpWV3Q28aioLw5CuT5X4URxDC4eSby3nQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Em Mon, 20 May 2013 15:19:38 -0700
-David Daney <ddaney.cavm@gmail.com> escreveu:
+On 21/05/2013 11:43, Or Gerlitz wrote:
+> On Tue, May 21, 2013 at 11:39 AM, David Miller <davem@davemloft.net> wrote:
+>
+>> It's one of those "implementation details", I hate it too.
+>
+> Maybe if we bake it on this list little further we can see how to get
+> away from that, or what's the most non ugly way for that?
 
-> From: David Daney <david.daney@cavium.com>
-> 
-> CAVIUM_OCTEON_SOC most place we used to use CPU_CAVIUM_OCTEON.  This
-> allows us to CPU_CAVIUM_OCTEON in places where we have no OCTEON SOC.
-> 
-> Remove CAVIUM_OCTEON_SIMULATOR as it doesn't really do anything, we can
-> get the same configuration with CAVIUM_OCTEON_SOC.
-> 
-> Signed-off-by: David Daney <david.daney@cavium.com>
-> Cc: linux-ide@vger.kernel.org
-> Cc: linux-edac@vger.kernel.org
+I'm all for proper review and fixing any issues before forcing 
+"ugliness" and "black magic" on unsuspecting users.
 
-Acked-by: Mauro Carvalho Chehab <mchehab@redhat.com>
+Having said that, you failed to mention that your company sells 
+userspace stack replacements.
 
-> Cc: linux-i2c@vger.kernel.org
-> Cc: netdev@vger.kernel.org
-> Cc: spi-devel-general@lists.sourceforge.net
-> Cc: devel@driverdev.osuosl.org
-> Cc: linux-usb@vger.kernel.org
+Informal testing I did convinces me that for a given HW, the latencies 
+you get with this patchset and with userspace busy-polling are about the 
+same. (This is my personal opinion, I'm not authorized to talk on behalf 
+of my company or anyone else.)
 
-Regards,
-Mauro
+Why don't you try it out and tell us what you find.
