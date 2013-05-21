@@ -1,12 +1,11 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH 3/5] perf: net_dropmonitor: Do not assume ordering of
- dictionaries
-Date: Tue, 21 May 2013 01:45:34 +0100
-Message-ID: <1369097134.3469.134.camel@deadeye.wl.decadent.org.uk>
+Subject: [PATCH 4/5] perf: net_dropmonitor: Use bisection in symbol lookup
+Date: Tue, 21 May 2013 01:45:42 +0100
+Message-ID: <1369097142.3469.135.camel@deadeye.wl.decadent.org.uk>
 References: <1369096976.3469.131.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-CNAU/NIdG04fRS9ud95b"
+	protocol="application/pgp-signature"; boundary="=-tRevJHoDC/9C2G3h77db"
 Cc: Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Peter Zijlstra <a.p.zijlstra@chello.nl>,
@@ -18,68 +17,72 @@ Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
---=-CNAU/NIdG04fRS9ud95b
+--=-tRevJHoDC/9C2G3h77db
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
-The sort order of dictionaries in Python is undocumented.  Use
-tuples instead, which are documented to be lexically ordered.
-
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
- tools/perf/scripts/python/net_dropmonitor.py |    8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ tools/perf/scripts/python/net_dropmonitor.py |   22 ++++++++++++++++++----
+ 1 file changed, 18 insertions(+), 4 deletions(-)
 
 diff --git a/tools/perf/scripts/python/net_dropmonitor.py b/tools/perf/scri=
 pts/python/net_dropmonitor.py
-index 4c11605..6acdc82e 100755
+index 6acdc82e..32fcee0 100755
 --- a/tools/perf/scripts/python/net_dropmonitor.py
 +++ b/tools/perf/scripts/python/net_dropmonitor.py
-@@ -32,7 +32,7 @@ def get_kallsyms_table():
- 		j =3D j +1
- 		if ((j % 100) =3D=3D 0):
- 			print "\r" + str(j) + "/" + str(linecount),
--		kallsyms.append({ 'loc': loc, 'name' : name})
-+		kallsyms.append((loc, name))
-=20
- 	print "\r" + str(j) + "/" + str(linecount)
- 	kallsyms.sort()
-@@ -40,9 +40,9 @@ def get_kallsyms_table():
+@@ -40,10 +40,24 @@ def get_kallsyms_table():
 =20
  def get_sym(sloc):
  	loc =3D int(sloc)
--	for i in kallsyms[::-1]:
--		if loc >=3D i['loc']:
--			return (i['name'], loc - i['loc'])
-+	for symloc, name in kallsyms[::-1]:
-+		if loc >=3D symloc:
-+			return (name, loc - symloc)
- 	return (None, 0)
+-	for symloc, name in kallsyms[::-1]:
+-		if loc >=3D symloc:
+-			return (name, loc - symloc)
+-	return (None, 0)
++
++	# Invariant: kallsyms[i][0] <=3D loc for all 0 <=3D i <=3D start
++	#            kallsyms[i][0] > loc for all end <=3D i < len(kallsyms)
++	start, end =3D -1, len(kallsyms)
++	while end !=3D start + 1:
++		pivot =3D (start + end) // 2
++		if loc < kallsyms[pivot][0]:
++			end =3D pivot
++		else:
++			start =3D pivot
++
++	# Now (start =3D=3D -1 or kallsyms[start][0] <=3D loc)
++	# and (start =3D=3D len(kallsyms) - 1 or loc < kallsyms[start + 1][0])
++	if start >=3D 0:
++		symloc, name =3D kallsyms[start]
++		return (name, loc - symloc)
++	else:
++		return (None, 0)
 =20
  def print_drop_table():
+ 	print "%25s %25s %25s" % ("LOCATION", "OFFSET", "COUNT")
 
 
 
---=-CNAU/NIdG04fRS9ud95b
+--=-tRevJHoDC/9C2G3h77db
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.12 (GNU/Linux)
 
-iQIVAwUAUZrDrue/yOyVhhEJAQr86A/8DPr9oHYhbLtgT+K9BVdum2un9JznvSdT
-BINXTBWQHXDBUKdEszLsHneaGYj8xMm5S1142l8PEW/BFWR6MEL4+iuVxMi/o9kA
-lNvhSEXLJkQTR9JUXMBQnnxCnmOo+z5Gozd74F1Kwm2kD6EbMJXVrBQFI4QeE7cO
-ujwP5wQs+G+JDJaP+YCucvLardZM1MrhyHxHNxX/vxlhW0ANr0ZKCBPLKh6HPUhQ
-Hh4SP+Oyx84QHYl6PQ0Snbxq1L1cp+aukvMlPHdpLbug0cvForPzF/CUxV+E320w
-sIjHxA2eBkV5cQjzKCxOO0Ok9pM0oAtpEJyGnx5DPbgI5h9IF4oekJIjgimqTzMm
-Z4fanxS4LiuWfbv/bQ6feCi2t3v+M9HarzN+/YjH7lmfpZvdyU90yzr7NVy1BRzV
-1AoTUA2rAVX3c8Y+F5adEjLygnD2KQ7yy6632V6cvLwcu5F1IVZKur14lTOdKWpy
-xih48q3CBngzKExQdzmQBjWktWPULcj2qkIXb1O3tAVFl4EFuMvJpEQRYz9kLPRA
-bt91vIoJ1Q+1jc8ez4vdZey8YoGkeoh8TNZYT6B424EyfKqei35bI5CN2V3Ag+Uq
-CzMeFuswrKRrz4MlEib+n9EIgGuMpSYZdUQSoPvSPpti8ZF97JSEYIRmb8Cqi1VK
-VFTamonIrd0=
-=9PQw
+iQIVAwUAUZrDtue/yOyVhhEJAQo5Pg/7BB10z6arw8/D4E00yEqX8i6ctFnFr8ZJ
+le4efiyGRgFRAHfiYELLXbZPBUn77SumPWeO4Xj5YskARxDUSpJMYN7JStVUx+j6
+zS/80usc7TvXbG0SWSHFp/e6fsrgNDtn5HnNWAxo1YugbhMqPZyPE9QhhoQgneFR
+rA1MncNMNKfA+EW/BfWKKjoIAR3yOLtbBuSFacr2c161IkNZ1RAgWpYmpQnTFhk8
+eBlgB+MMbFrW3gOKKT1RcFXe86dhbltdAgA1L3ELA5qJn04M/EHmDsqnZ/njpNkw
+DEmzIFWtr1m52epGZGxfce1VKuDq2Y2jxdozBbafRkKSMTJvihDVx7RKO1RnDknf
+ODa170kpJJtmrX6c7XrGGhuN5Rj2QL3i6swDt0EF093c+qINRYcD9S7DAxg8eL9A
+Y2bgy+l6pqr3WPhQNVIJ/GfAa7T+gfmkr8jmqG8ucBosSTBoRNiQ99emQNGGaUdr
+NGJgrcMmojIKAM+KVBU/ooT31u0amRxvjEaohR5a4Us22ldWdL9ifH92IDRz/w/n
+jIf0So2lhYBNTnOoNGS6pAlH+iYPf/9Uvir9BZaAqy/Td68n4+Ih5IfUgxkJfbwd
+j6v79U3vCfdrB2PGmtbRCV2eevgAqyVYNy06Ad0xyFh8ealTXt6aOZ35Afuf3jzW
++qdeCnqGBaE=
+=k9t0
 -----END PGP SIGNATURE-----
 
---=-CNAU/NIdG04fRS9ud95b--
+--=-tRevJHoDC/9C2G3h77db--
