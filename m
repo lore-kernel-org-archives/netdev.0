@@ -1,90 +1,55 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH] tcp: bug fix in proportional rate reduction.
-Date: Tue, 21 May 2013 08:18:37 -0700
-Message-ID: <CAK6E8=fcaXtnw0=9Btyboike3OQS81UiGGTc0rAsb5=f+Xf6-Q@mail.gmail.com>
-References: <1369095724-17745-1-git-send-email-nanditad@google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: sk_page_frag_refill OOM killing spree
+Date: Tue, 21 May 2013 08:31:20 -0700
+Message-ID: <1369150280.3301.230.camel@edumazet-glaptop>
+References: <20130521122845.GD16412@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Nandita Dukkipati <nanditad@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:42848 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753370Ab3EUPTA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 11:19:00 -0400
-Received: by mail-la0-f53.google.com with SMTP id ea20so833609lab.12
-        for <netdev@vger.kernel.org>; Tue, 21 May 2013 08:18:58 -0700 (PDT)
-In-Reply-To: <1369095724-17745-1-git-send-email-nanditad@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130521122845.GD16412@breakpoint.cc>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, May 20, 2013 at 5:22 PM, Nandita Dukkipati <nanditad@google.com> wrote:
-> This patch is a fix for a bug triggering newly_acked_sacked < 0
-> in tcp_ack(.).
->
-> The bug is triggered by sacked_out decreasing relative to prior_sacked,
-> but packets_out remaining the same as pior_packets. This is because the
-> snapshot of prior_packets is taken after tcp_sacktag_write_queue() while
-> prior_sacked is captured before tcp_sacktag_write_queue(). The problem
-> is: tcp_sacktag_write_queue (tcp_match_skb_to_sack() -> tcp_fragment)
-> adjusts the pcount for packets_out and sacked_out (MSS change or other
-> reason). As a result, this delta in pcount is reflected in
-> (prior_sacked - sacked_out) but not in (prior_packets - packets_out).
-I don't think this patch fixes the problem you described because
-it does not change how newly_acked_sacked is computed.
+On Tue, 2013-05-21 at 14:28 +0200, Florian Westphal wrote:
+> Hi Eric,
+> 
+> seems like sk_page_frag_refill() can cause oom-killer invocation:
+> 
+> postgres invoked oom-killer: gfp_mask=0x42d0, order=3, oom_score_adj=0
+> Pid: 10551, comm: postgres Tainted: G           O 3.8.6-5.g613ca40-smp #1
+> Call Trace:
+>  [<c106dbd5>] ? dump_header+0x60/0x191
+>  [<c1133d3a>] ? ___ratelimit+0xb2/0xc4
+>  [<c106dfd3>] ? oom_kill_process+0x61/0x2d1
+>  [<c1030042>] ? has_capability_noaudit+0x1c/0x23
+>  [<c106df0f>] ? oom_badness+0x8c/0xef
+>  [<c106e446>] ? out_of_memory+0x203/0x247
+>  [<c107128a>] ? __alloc_pages_nodemask+0x42b/0x4c3
+>  [<c11fa66a>] ? sk_page_frag_refill+0x6a/0xd2
+>  [<c1233548>] ? tcp_sendmsg+0x3e8/0x7c6
+>  [<c124f34b>] ? inet_sendmsg+0x6b/0x75
+>  [<c11f74d8>] ? sock_sendmsg+0x8d/0xa6
+>  [<c11f7b83>] ? sys_sendto+0x105/0x130
+>  [<c1025927>] ? __kunmap_atomic+0x62/0x8a
+>  [<c1025940>] ? __kunmap_atomic+0x7b/0x8a
+>  [<c1073d78>] ? __lru_cache_add+0x18/0x47
+>  [<c10812f9>] ? handle_pte_fault+0x745/0x751
+>  [<c1025a2d>] ? kmap_atomic_prot+0xd3/0xf1
+>  [<c10817da>] ? handle_mm_fault+0x112/0x121
+>  [<c11f7be5>] ? sys_send+0x37/0x3b
+> 
+> The system is busy, so, order-3 alloc failure doesn't strike me as odd.
+> 
+> There are no allocation failures with order != 3.
+> 
+> Sometimes this can happen in very short sucession, i.e.
+> and oom-killer did end up zapping 30 processes or so.
+> 
+> My question is, should sk_page_frag_refill use __GFP_NORETRY, at least
+> for order 3 requests?
 
-you probably should use prior_packets for newly_acked_sacked and use
- previous_packets_out for pkts_acked
-
->
-> This patch does the following:
-> 1) initializes prior_packets at the start of tcp_ack() so as to
-> capture the delta in packets_out created by tcp_fragment.
-> 2) introduces a new "previous_packets_out" variable that snapshots
-> packets_out right before tcp_clean_rtx_queue, so pkts_acked can be
-> correctly computed as before.
->
-> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
-> ---
->  net/ipv4/tcp_input.c | 7 ++++---
->  1 file changed, 4 insertions(+), 3 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index d7d3694..2986e10 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -3265,9 +3265,10 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
->         bool is_dupack = false;
->         u32 prior_in_flight;
->         u32 prior_fackets;
-> -       int prior_packets;
-> +       int prior_packets = tp->packets_out;
->         int prior_sacked = tp->sacked_out;
->         int pkts_acked = 0;
-> +       int previous_packets_out = 0;
->
->         /* If the ack is older than previous acks
->          * then we can probably ignore it.
-> @@ -3338,14 +3339,14 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
->         sk->sk_err_soft = 0;
->         icsk->icsk_probes_out = 0;
->         tp->rcv_tstamp = tcp_time_stamp;
-> -       prior_packets = tp->packets_out;
->         if (!prior_packets)
->                 goto no_queue;
->
->         /* See if we can take anything off of the retransmit queue. */
-> +       previous_packets_out = tp->packets_out;
->         flag |= tcp_clean_rtx_queue(sk, prior_fackets, prior_snd_una);
->
-> -       pkts_acked = prior_packets - tp->packets_out;
-> +       pkts_acked = previous_packets_out - tp->packets_out;
->
->         if (tcp_ack_is_dubious(sk, flag)) {
->                 /* Advance CWND, if state allows this. */
-> --
-> 1.8.2.1
->
+Yes, you may be right, but I prefer some mm expertise here, so I CC lkml
