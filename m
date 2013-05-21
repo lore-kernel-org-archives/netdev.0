@@ -1,69 +1,41 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 1/4] net: implement support for low latency
- socket polling
-Date: Tue, 21 May 2013 06:28:46 -0700
-Message-ID: <1369142926.3301.213.camel@edumazet-glaptop>
+Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet device polling
+Date: Tue, 21 May 2013 06:31:39 -0700
+Message-ID: <1369143099.3301.216.camel@edumazet-glaptop>
 References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
-	  <20130520101601.14133.874.stgit@ladj378.jer.intel.com>
-	 <1369063764.3301.182.camel@edumazet-glaptop>
-	 <519B2237.20204@linux.intel.com>
+	 <519B632F.7040202@mellanox.com> <519B68A4.3010406@linux.intel.com>
+	 <519B7355.9090303@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Dave Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Don Skidmore <donald.c.skidmore@intel.com>,
 	e1000-devel@lists.sourceforge.net,
 	Willem de Bruijn <willemb@google.com>,
 	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
 	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+To: Alex Rosenbaum <alexr@mellanox.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <519B2237.20204@linux.intel.com>
+In-Reply-To: <519B7355.9090303@mellanox.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-21 at 10:28 +0300, Eliezer Tamir wrote:
-> On 20/05/2013 18:29, Eric Dumazet wrote:
-> > On Mon, 2013-05-20 at 13:16 +0300, Eliezer Tamir wrote:
-> ---
-> >> +static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct *napi)
-> >> +{
-> >> +	skb->dev_ref = napi;
-> >> +}
-> >> +
-> >> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
-> >> +{
-> >> +	sk->dev_ref = skb->dev_ref;
-> >> +}
-> >
-> > I do not see why it's safe to keep a pointer to a napi object without
-> > taking a reference, or something to prevent object being removed.
-> >
-> > Using a genid might be enough. (some counter incremented every time a
-> > napi is dismantled)
-> 
-> I really like this approach and I tried it.
-> The main problem I had is that you need to increase the size of the skb 
-> to store the generation id unless you stuff it in the flags2 bitfield.
-> There appear to be only 7 useful bit left there.
-> Is it OK to use them all up?
-> 
-> 
-> > Alternatively, use a napi_id instead of a pointer.
-> 
-> I'm not sure I understand what you propose.
+On Tue, 2013-05-21 at 16:15 +0300, Alex Rosenbaum wrote:
+> On 5/21/2013 3:29 PM, Eliezer Tamir wrote:
+> > What benchmarks are you using to test poll/select/epoll?
+> for epoll/select latency tests we are using sockperf as performance 
+> latency tool: https://code.google.com/p/sockperf/
+> It is a client-server based tool and it supported ping-pong, throughput, 
+> and under-load test type.
+> For epoll, you will need to define a 'feedfile' ("-f filepathname") 
+> which has a list of TCP and/or UDP socket and defined your IO mux type 
+> ("-F epoll").
 
-Oh well.
+I totally agree, most modern applications use poll/select/epoll,
+and a fair amount of sockets per task, sendfile()/vmsplice()/... and
+netperf is not using same paths.
 
-To get a pointer to a struct net_device, we can use ifindex, and do a
-rcu lookup into a hash table to get the net_device. We do not need
-{pointer,ifindex} but {ifindex} is enough
-
-My suggestion is to not have skb->skb_ref but skb->napi_index : Its safe
-to copy its value from skb->napi_index to sk->napi_index without
-refcounting.
-
-All NAPI need to get a unique napi_index, and be inserted in a hash
-table for immediate/fast lookup.
+Thanks Alex !
