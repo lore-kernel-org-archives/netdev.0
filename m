@@ -1,38 +1,71 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net-next v3] sock_diag: notify packet socket creation/deletion
-Date: Tue, 21 May 2013 17:14:50 +0200
-Message-ID: <519B8F6A.7010406@6wind.com>
-References: <1366818756-4234-5-git-send-email-nicolas.dichtel@6wind.com> <1368800738-4364-1-git-send-email-nicolas.dichtel@6wind.com> <20130519.232925.1972249319855411715.davem@davemloft.net>
-Reply-To: nicolas.dichtel@6wind.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
+Date: Tue, 21 May 2013 08:16:21 -0700
+Message-ID: <1369149381.3301.228.camel@edumazet-glaptop>
+References: <519B38EC.90401@yandex-team.ru>
+	  <20130521120906.GD3578@linux.vnet.ibm.com>
+	 <1369143885.3301.221.camel@edumazet-glaptop>
+	 <519B8908.9080007@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: xiyou.wangcong@gmail.com, eric.dumazet@gmail.com,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f49.google.com ([74.125.82.49]:48954 "EHLO
-	mail-wg0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751575Ab3EUPOx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 11:14:53 -0400
-Received: by mail-wg0-f49.google.com with SMTP id y10so418329wgg.4
-        for <netdev@vger.kernel.org>; Tue, 21 May 2013 08:14:52 -0700 (PDT)
-In-Reply-To: <20130519.232925.1972249319855411715.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: paulmck@linux.vnet.ibm.com, Dipankar Sarma <dipankar@in.ibm.com>,
+	zhmurov@yandex-team.ru, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Roman Gushchin <klamm@yandex-team.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <519B8908.9080007@yandex-team.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 20/05/2013 08:29, David Miller a =E9crit :
-> From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Date: Fri, 17 May 2013 16:25:38 +0200
->
->> With this patch, a netlink message is sent each time a packet socket
->> is created or deleted.  The framework is generic, so it's easy to
->> add the notification for other kind of sockets.
->>
->> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
->
-> Just curious what you want to use this for.
-Some HW (custom FPGA, ASICs, NPUs) are able to offload packet captures,=
- so it is=20
-required to notify them.
+On Tue, 2013-05-21 at 18:47 +0400, Roman Gushchin wrote:
+> On 21.05.2013 17:44, Eric Dumazet wrote:
+> > On Tue, 2013-05-21 at 05:09 -0700, Paul E. McKenney wrote:
+> >
+> >>>
+> >>> -#define hlist_nulls_first_rcu(head) \
+> >>> -	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
+> >>> +#define hlist_nulls_first_rcu(head)			\
+> >>> +	(*((struct hlist_nulls_node __rcu __force **)	\
+> >>> +	   &((volatile typeof(*head) *)head)->first))
+> >>
+> >> Why not use ACCESS_ONCE() or (better) rcu_dereference_raw() here?
+> >
+> > More exactly we have :
+> >
+> > #define list_entry_rcu(ptr, type, member) \
+> >          ({typeof (*ptr) __rcu *__ptr = (typeof (*ptr) __rcu __force *)ptr; \
+> >           container_of((typeof(ptr))rcu_dereference_raw(__ptr), type, member); \
+> >          })
+> >
+> > #define list_for_each_entry_rcu(pos, head, member) \
+> >          for (pos = list_entry_rcu((head)->next, typeof(*pos), member); \
+> >                  &pos->member != (head); \
+> >                  pos = list_entry_rcu(pos->member.next, typeof(*pos), member))
+> > << and >>
+> >
+> > #define hlist_nulls_for_each_entry_rcu(tpos, pos, head, member)                 \
+> >          for (pos = rcu_dereference_raw(hlist_nulls_first_rcu(head));            \
+> >                  (!is_a_nulls(pos)) &&                                           \
+> >                  ({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1; }); \
+> >                  pos = rcu_dereference_raw(hlist_nulls_next_rcu(pos)))
+> >
+> > We need to change hlist_nulls_for_each_entry_rcu() to use same construct,
+> > so that the rcu_dereference_raw() is performed at the right place.
+> 
+> No.
+> 
+> This code has the same mistake: it is rcu_dereference_raw(head->first), 
+> so there is nothing that prevents gcc to store the (head->first) value 
+> in a register.
+
+Please read again what I wrote, you misundertood.
+
+hlist_nulls_for_each_entry_rcu() should use same construct than
+list_for_each_entry_rcu(), and not use rcu_dereference_raw()
+
+Is that clear, or do you want me to send the patch ?
