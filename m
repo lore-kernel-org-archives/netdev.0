@@ -1,48 +1,55 @@
-From: Pekka Riikonen <priikone@iki.fi>
-Subject: Re: [PATCH v3 net-next 1/4] net: implement support for low latency
- socket polling
-Date: Tue, 21 May 2013 19:02:19 +0200 (CEST)
-Message-ID: <alpine.GSO.2.00.1305211855120.9230@git.silcnet.org>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>   <20130520101601.14133.874.stgit@ladj378.jer.intel.com>  <1369063764.3301.182.camel@edumazet-glaptop>  <519B2237.20204@linux.intel.com> <1369142926.3301.213.camel@edumazet-glaptop>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next 2/2] xen-netfront: split event
+ channels feature support
+Date: Tue, 21 May 2013 18:07:26 +0100
+Message-ID: <20130521170726.GA18489@zion.uk.xensource.com>
+References: <1369090931-27306-1-git-send-email-wei.liu2@citrix.com>
+ <1369090931-27306-3-git-send-email-wei.liu2@citrix.com>
+ <519B78F5.5020301@citrix.com>
+ <20130521134149.GN32007@zion.uk.xensource.com>
+ <20130521162825.GA3669@phenom.dumpdata.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Dave Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369142926.3301.213.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	David Vrabel <david.vrabel@citrix.com>,
+	<xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	<ian.campbell@citrix.com>
+To: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:61547 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754691Ab3EURHz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 13:07:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20130521162825.GA3669@phenom.dumpdata.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 May 2013, Eric Dumazet wrote:
+On Tue, May 21, 2013 at 12:28:25PM -0400, Konrad Rzeszutek Wilk wrote:
+> On Tue, May 21, 2013 at 02:41:49PM +0100, Wei Liu wrote:
+> > On Tue, May 21, 2013 at 02:39:01PM +0100, David Vrabel wrote:
+> > [...]
+> > > > +	info->rx_evtchn = info->tx_evtchn;
+> > > > +	info->rx_irq = info->tx_irq = err;
+> > > > +	dev_info(&info->xbdev->dev,
+> > > > +		 "single event channel, evtchn = %d, irq = %d\n",
+> > > > +		 info->tx_evtchn, info->tx_irq);
+> > > 
+> > > This message is pointless chatter as the information is available
+> > > elsewhere.  Please remove.
+> > > 
+> > 
+> > Do you mean /proc/interrupt by "elsewhere"? Information there doesn't
+> > give you irq<->evtchn mapping info.
+> 
+> If you really want to, that should be implemented via an DebugFS entry that can
+> be driven from drivers/xen/events.c. As the events.c is the generic code that sets
+> up the Xen events, pirqs, ipis, <-> Linux IRQs.
 
-: > > Alternatively, use a napi_id instead of a pointer.
-: > 
-: > I'm not sure I understand what you propose.
-: 
-: Oh well.
-: 
-: To get a pointer to a struct net_device, we can use ifindex, and do a
-: rcu lookup into a hash table to get the net_device. We do not need
-: {pointer,ifindex} but {ifindex} is enough
-: 
-: My suggestion is to not have skb->skb_ref but skb->napi_index : Its safe
-: to copy its value from skb->napi_index to sk->napi_index without
-: refcounting.
-: 
-: All NAPI need to get a unique napi_index, and be inserted in a hash
-: table for immediate/fast lookup.
-: 
-Maybe even that's not needed.  Couldn't skb->queue_mapping give the 
-correct NAPI instance in multiqueue nics?  The NAPI instance could be made 
-easily available from skb->dev.  In any case an index is much better than 
-a new pointer.
+I mainly focus on upstreaming all necessary features for a new Xen
+network baseline, so I would rather not touch other files.
 
-	Pekka
+I will delete these dev_info, they don't seem to be critical anyway.
+
+
+Wei.
