@@ -1,42 +1,83 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH 0/5] perf: net_dropmonitor: Make it work and make it fast
-Date: Tue, 21 May 2013 09:33:56 -0400
-Message-ID: <20130521133355.GA3613@neilslaptop.think-freely.org>
-References: <1369096976.3469.131.camel@deadeye.wl.decadent.org.uk>
+From: David Vrabel <david.vrabel@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next 1/2] xen-netback: split event channels
+ feature support
+Date: Tue, 21 May 2013 14:34:19 +0100
+Message-ID: <519B77DB.3040901@citrix.com>
+References: <1369090931-27306-1-git-send-email-wei.liu2@citrix.com> <1369090931-27306-2-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>,
-	Paul Mackerras <paulus@samba.org>,
-	Ingo Molnar <mingo@redhat.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1369096976.3469.131.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	<ian.campbell@citrix.com>, <konrad.wilk@oracle.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.citrix.com ([66.165.176.89]:34500 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754431Ab3EUNeW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 May 2013 09:34:22 -0400
+In-Reply-To: <1369090931-27306-2-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 21, 2013 at 01:42:56AM +0100, Ben Hutchings wrote:
-> Somewhat surprisingly, the net_dropmonitor reporting script doesn't work
-> at all.  This series fixes it and then makes it slightly more efficient.
+On 21/05/13 00:02, Wei Liu wrote:
+> Netback and netfront only use one event channel to do TX / RX notification,
+> which may cause unnecessary wake-up of processing routines. This patch adds a
+> new feature called feature-split-event-channels to netback, enabling it to
+> handle TX and RX events separately.
 > 
-> Ben.
+> Netback will use tx_irq to notify guest for TX completion, rx_irq for RX
+> notification.
 > 
-It worked fine when I first submitted it.  I wonder if there was a paramter
-order change at some point that I wasn't CC'ed on.
+> If frontend doesn't support this feature, tx_irq is equal to rx_irq.
+[...]
+> --- a/drivers/net/xen-netback/interface.c
+> +++ b/drivers/net/xen-netback/interface.c
+> @@ -69,12 +69,35 @@ static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
+>  
+>  	xen_netbk_schedule_xenvif(vif);
+>  
+> +	return IRQ_HANDLED;
+> +}
+> +
+> +static irqreturn_t xenvif_rx_interrupt(int irq, void *dev_id)
+> +{
+> +	struct xenvif *vif = dev_id;
+> +
+> +	if (vif->netbk == NULL)
+> +		return IRQ_NONE;
 
-Either way, this all looks good.  Thanks Ben.
+I know the original code had this but this looks suspect to me.  Event
+channels are never shared so it does not make sense to ever return IRQ_NONE.
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+Suggest making this return IRQ_HANDLED instead (and similarly in
+xenvif_tx_interrupt()) and...
 
-> Ben Hutchings (5):
->   perf: net_dropmonitor: Fix trace parameter order
->   perf: net_dropmonitor: Fix symbol-relative addresses
->   perf: net_dropmonitor: Do not assume ordering of dictionaries
->   perf: net_dropmonitor: Use bisection in symbol lookup
->   perf: net_dropmonitor: Remove progress indicator
-> 
->  tools/perf/scripts/python/net_dropmonitor.py |   39 ++++++++++++++------------
->  1 file changed, 21 insertions(+), 18 deletions(-)
-> 
-> 
+> +static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
+> +{
+> +	struct xenvif *vif = dev_id;
+> +
+> +	if (vif->netbk == NULL)
+> +		return IRQ_NONE;
+
+... then you can remove this test.
+
+> --- a/drivers/net/xen-netback/xenbus.c
+> +++ b/drivers/net/xen-netback/xenbus.c
+> @@ -114,6 +114,15 @@ static int netback_probe(struct xenbus_device *dev,
+>  			goto abort_transaction;
+>  		}
+>  
+> +		/* Split event channels support */
+> +		err = xenbus_printf(xbt, dev->nodename,
+> +				"feature-split-event-channels",
+> +				"%u", 1);
+> +		if (err) {
+> +			message = "writing feature-split-event-channels";
+> +			goto abort_transaction;
+> +		}
+> +
+
+Event channels are currently a limited resource.  Do we want to have a
+knob to disable this feature?
+
+David
