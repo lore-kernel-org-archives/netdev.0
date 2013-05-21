@@ -1,66 +1,47 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net-next 1/2] tg3: Ensure boot code has completed
- initialization before accessing hardware
-Date: Tue, 21 May 2013 15:57:32 -0700
-Message-ID: <1369177053-7117-2-git-send-email-nsujir@broadcom.com>
-References: <1369177053-7117-1-git-send-email-nsujir@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1666 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753818Ab3EUW5r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 May 2013 18:57:47 -0400
-In-Reply-To: <1369177053-7117-1-git-send-email-nsujir@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Peter Huewe <peterhuewe@gmx.de>
+Subject: [PATCH 16/19] net/hippi/rrunner: Use module_pci_driver to register driver
+Date: Wed, 22 May 2013 01:42:53 +0200
+Message-ID: <1369179778-20115-16-git-send-email-peterhuewe@gmx.de>
+References: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
+Cc: Peter Huewe <peterhuewe@gmx.de>,
+	Jes Sorensen <jes@trained-monkey.org>,
+	linux-hippi@sunsite.dk (open list:HIPPI),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-After resetting the device, the driver waits for a signature to be
-updated to know that firmware has completed initialization. However, the
-call to tg3_poll_fw() is being done too late and we're writing to the
-GRC_MODE register before it has completely initialized, causing
-contention with firmware.  This logic has existed since day one but is
-causing PCIE link to go down randomly at startup on one platform once
-every few hundred reboots.
+Removing some boilerplate by using module_pci_driver instead of calling
+register and unregister in the otherwise empty init/exit functions.
 
-Move the tg3_poll_fw() up to before we write to the GRC_MODE register
-after reset.
-
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
 ---
- drivers/net/ethernet/broadcom/tg3.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/hippi/rrunner.c | 13 +------------
+ 1 file changed, 1 insertion(+), 12 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index fb06aa1..6ba031b 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -8956,6 +8956,10 @@ static int tg3_chip_reset(struct tg3 *tp)
- 		tg3_halt_cpu(tp, RX_CPU_BASE);
- 	}
+diff --git a/drivers/net/hippi/rrunner.c b/drivers/net/hippi/rrunner.c
+index 3c4d627..00ed751 100644
+--- a/drivers/net/hippi/rrunner.c
++++ b/drivers/net/hippi/rrunner.c
+@@ -1686,15 +1686,4 @@ static struct pci_driver rr_driver = {
+ 	.remove		= rr_remove_one,
+ };
  
-+	err = tg3_poll_fw(tp);
-+	if (err)
-+		return err;
-+
- 	tw32(GRC_MODE, tp->grc_mode);
- 
- 	if (tg3_chip_rev_id(tp) == CHIPREV_ID_5705_A0) {
-@@ -8986,10 +8990,6 @@ static int tg3_chip_reset(struct tg3 *tp)
- 
- 	tg3_ape_unlock(tp, TG3_APE_LOCK_GRC);
- 
--	err = tg3_poll_fw(tp);
--	if (err)
--		return err;
+-static int __init rr_init_module(void)
+-{
+-	return pci_register_driver(&rr_driver);
+-}
 -
- 	tg3_mdio_start(tp);
- 
- 	if (tg3_flag(tp, PCI_EXPRESS) &&
+-static void __exit rr_cleanup_module(void)
+-{
+-	pci_unregister_driver(&rr_driver);
+-}
+-
+-module_init(rr_init_module);
+-module_exit(rr_cleanup_module);
++module_pci_driver(rr_driver);
 -- 
-1.8.1.4
+1.8.1.5
