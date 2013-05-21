@@ -1,47 +1,33 @@
-From: Peter Huewe <peterhuewe@gmx.de>
-Subject: [PATCH 15/19] net/ethernet/amd/amd8111e: Use module_pci_driver to register driver
-Date: Wed, 22 May 2013 00:58:10 +0200
-Message-ID: <1369177096-19674-15-git-send-email-peterhuewe@gmx.de>
-References: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
-Cc: Peter Huewe <peterhuewe@gmx.de>, Patrick McHardy <kaber@trash.net>,
-	Bill Pemberton <wfp5p@virginia.edu>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-	linux-kernel@vger.kernel.org (open list)
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: [PATCH net-next 0/2] tg3: Fix boot code initialization
+ handshake bug
+Date: Tue, 21 May 2013 15:57:31 -0700
+Message-ID: <1369177053-7117-1-git-send-email-nsujir@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:3127 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753446Ab3EUW5m (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 May 2013 18:57:42 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Removing some boilerplate by using module_pci_driver instead of calling
-register and unregister in the otherwise empty init/exit functions.
+This patch fixes an issue that was recently observed on one platform after few
+hundred suspend/resume loops. The code has existed since day one and affects
+every tg3 device. Due to the scope of the devices affected, submitting this
+patch to net-next to let it bake for sometime before submitting to stable.
 
-Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
----
- drivers/net/ethernet/amd/amd8111e.c | 13 +------------
- 1 file changed, 1 insertion(+), 12 deletions(-)
+Nithin Nayak Sujir (2):
+  tg3: Ensure boot code has completed initialization before accessing
+    hardware
+  tg3: Update version to 3.132
 
-diff --git a/drivers/net/ethernet/amd/amd8111e.c b/drivers/net/ethernet/amd/amd8111e.c
-index 8e6b665..bc71aec 100644
---- a/drivers/net/ethernet/amd/amd8111e.c
-+++ b/drivers/net/ethernet/amd/amd8111e.c
-@@ -1981,15 +1981,4 @@ static struct pci_driver amd8111e_driver = {
- 	.resume		= amd8111e_resume
- };
- 
--static int __init amd8111e_init(void)
--{
--	return pci_register_driver(&amd8111e_driver);
--}
--
--static void __exit amd8111e_cleanup(void)
--{
--	pci_unregister_driver(&amd8111e_driver);
--}
--
--module_init(amd8111e_init);
--module_exit(amd8111e_cleanup);
-+module_pci_driver(amd8111e_driver);
+ drivers/net/ethernet/broadcom/tg3.c | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
 -- 
-1.8.1.5
+1.8.1.4
