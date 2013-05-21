@@ -1,77 +1,72 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [Xen-devel] [PATCH net-next 1/2] xen-netback: split event
- channels feature support
-Date: Tue, 21 May 2013 15:33:57 +0100
-Message-ID: <20130521143357.GO32007@zion.uk.xensource.com>
-References: <1369090931-27306-1-git-send-email-wei.liu2@citrix.com>
- <1369090931-27306-2-git-send-email-wei.liu2@citrix.com>
- <519B77DB.3040901@citrix.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 net-next 1/4] net: implement support
+ for low latency socket polling
+Date: Tue, 21 May 2013 07:35:38 -0700
+Message-ID: <1369146938.3301.225.camel@edumazet-glaptop>
+References: <20130521142641.18498.52856.stgit@ladj378.jer.intel.com>
+	<20130521142650.18498.71715.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
-	<netdev@vger.kernel.org>, <ian.campbell@citrix.com>,
-	<konrad.wilk@oracle.com>
-To: David Vrabel <david.vrabel@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:49490 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751913Ab3EUOeA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 May 2013 10:34:00 -0400
-Content-Disposition: inline
-In-Reply-To: <519B77DB.3040901@citrix.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, Don,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Eilon Greenstien <eilong@broadcom.com>, Dave Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130521142650.18498.71715.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 21, 2013 at 02:34:19PM +0100, David Vrabel wrote:
-> > +
-> > +static irqreturn_t xenvif_rx_interrupt(int irq, void *dev_id)
-> > +{
-> > +	struct xenvif *vif = dev_id;
-> > +
-> > +	if (vif->netbk == NULL)
-> > +		return IRQ_NONE;
-> 
-> I know the original code had this but this looks suspect to me.  Event
-> channels are never shared so it does not make sense to ever return IRQ_NONE.
-> 
-> Suggest making this return IRQ_HANDLED instead (and similarly in
-> xenvif_tx_interrupt()) and...
-> 
+On Tue, 2013-05-21 at 17:26 +0300, Eliezer Tamir wrote:
 
-Fixed.
+> +/* should be called when destroying a napi struct */
+> +static inline void inc_ll_gen_id(void)
+> +{
+> +	ll_global_gen_id++;
+> +}
+> +
+> +static inline void skb_mark_ll(struct sk_buff *skb, struct napi_struct *napi)
+> +{
+> +	skb->dev_ref = napi;
+> +	skb->ll_gen_id = SKB_LL_GEN(ll_global_gen_id);
+> +}
+> +
+> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+> +{
+> +	if (skb->dev_ref && skb->ll_gen_id == SKB_LL_GEN(ll_global_gen_id)) {
+> +		sk->dev_ref = skb->dev_ref;
+> +		sk->ll_gen_id = ll_global_gen_id;
+> +	} else
+> +		sk->dev_ref = NULL; /* clear expired ref */
+> +}
+> +
 
-> > +static irqreturn_t xenvif_interrupt(int irq, void *dev_id)
-> > +{
-> > +	struct xenvif *vif = dev_id;
-> > +
-> > +	if (vif->netbk == NULL)
-> > +		return IRQ_NONE;
-> 
-> ... then you can remove this test.
+Thats really hacky.
 
-Fixed.
-
-> 
-> > --- a/drivers/net/xen-netback/xenbus.c
-> > +++ b/drivers/net/xen-netback/xenbus.c
-> > @@ -114,6 +114,15 @@ static int netback_probe(struct xenbus_device *dev,
-> >  			goto abort_transaction;
-> >  		}
-> >  
-> > +		/* Split event channels support */
-> > +		err = xenbus_printf(xbt, dev->nodename,
-> > +				"feature-split-event-channels",
-> > +				"%u", 1);
-> > +		if (err) {
-> > +			message = "writing feature-split-event-channels";
-> > +			goto abort_transaction;
-> > +		}
-> > +
-> 
-> Event channels are currently a limited resource.  Do we want to have a
-> knob to disable this feature?
-
-Knob feature_split_event_channels added.
+Please dont rush sending a new patch set every day.
 
 
-Wei.
+
+
+------------------------------------------------------------------------------
+Try New Relic Now & We'll Send You this Cool Shirt
+New Relic is the only SaaS-based application performance monitoring service 
+that delivers powerful full stack analytics. Optimize and monitor your
+browser, app, & servers with just a few lines of code. Try New Relic
+and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
