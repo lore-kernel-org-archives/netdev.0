@@ -1,28 +1,34 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v4 09/12] ARM: dove: remove legacy mv643xx_eth setup
-Date: Tue, 21 May 2013 18:41:47 +0200
-Message-ID: <1369154510-4927-10-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v4 03/12] net: mv643xx_eth: add phy_node to platform_data
+ struct
+Date: Tue, 21 May 2013 18:41:41 +0200
+Message-ID: <1369154510-4927-4-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
  <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
+ David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@wantstofly.org>
 To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:35093 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827Ab3EUQmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 12:42:20 -0400
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-With DT support for mv643xx_eth we do not need legacy platform_data
-based setup for DT enabled boards anymore.
+This adds a struct device_node pointer for a phy passed by phandle
+to mv643xx_eth node.
 
 Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
@@ -36,42 +42,28 @@ Cc: linux-arm-kernel@lists.infradead.org
 Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-kernel@vger.kernel.org
 ---
- arch/arm/mach-dove/board-dt.c |    9 ---------
- 1 file changed, 9 deletions(-)
+ include/linux/mv643xx_eth.h |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/arch/arm/mach-dove/board-dt.c b/arch/arm/mach-dove/board-dt.c
-index 0b14280..048e942 100644
---- a/arch/arm/mach-dove/board-dt.c
-+++ b/arch/arm/mach-dove/board-dt.c
-@@ -34,10 +34,6 @@ static void __init dove_legacy_clk_init(void)
- 	clkspec.np = np;
- 	clkspec.args_count = 1;
+diff --git a/include/linux/mv643xx_eth.h b/include/linux/mv643xx_eth.h
+index 141d395..6e8215b 100644
+--- a/include/linux/mv643xx_eth.h
++++ b/include/linux/mv643xx_eth.h
+@@ -30,6 +30,7 @@ struct mv643xx_eth_shared_platform_data {
+ #define MV643XX_ETH_PHY_ADDR(x)		(0x80 | (x))
+ #define MV643XX_ETH_PHY_NONE		0xff
  
--	clkspec.args[0] = CLOCK_GATING_BIT_GBE;
--	orion_clkdev_add(NULL, "mv643xx_eth_port.0",
--			 of_clk_get_from_provider(&clkspec));
--
- 	clkspec.args[0] = CLOCK_GATING_BIT_PCIE0;
- 	orion_clkdev_add("0", "pcie",
- 			 of_clk_get_from_provider(&clkspec));
-@@ -53,10 +49,6 @@ static void __init dove_of_clk_init(void)
- 	dove_legacy_clk_init();
- }
++struct device_node;
+ struct mv643xx_eth_platform_data {
+ 	/*
+ 	 * Pointer back to our parent instance, and our port number.
+@@ -41,6 +42,7 @@ struct mv643xx_eth_platform_data {
+ 	 * Whether a PHY is present, and if yes, at which address.
+ 	 */
+ 	int			phy_addr;
++	struct device_node	*phy_node;
  
--static struct mv643xx_eth_platform_data dove_dt_ge00_data = {
--	.phy_addr = MV643XX_ETH_PHY_ADDR_DEFAULT,
--};
--
- static void __init dove_dt_init(void)
- {
- 	pr_info("Dove 88AP510 SoC\n");
-@@ -70,7 +62,6 @@ static void __init dove_dt_init(void)
- 	dove_of_clk_init();
- 
- 	/* Internal devices not ported to DT yet */
--	dove_ge00_init(&dove_dt_ge00_data);
- 	dove_pcie_init(1, 1);
- 
- 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
+ 	/*
+ 	 * Use this MAC address if it is valid, overriding the
 -- 
 1.7.10.4
