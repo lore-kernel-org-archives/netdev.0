@@ -1,79 +1,62 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH v4 06/12] ARM: dove: add gigabit ethernet and mvmdio
- device tree nodes
-Date: Wed, 22 May 2013 13:48:15 -0400
-Message-ID: <20130522174815.GI31290@titan.lakedaemon.net>
-References: <1369154510-4927-7-git-send-email-sebastian.hesselbarth@gmail.com>
- <20130521174849.GL26249@lunn.ch> <519C9333.20609@gmail.com>
- <519C9822.9040909@windriver.com> <519C9A66.3050807@gmail.com>
- <20130522131010.GB31290@titan.lakedaemon.net>
- <20130522165908.GB12320@obsidianresearch.com>
- <519D0143.1000203@gmail.com>
- <20130522173505.GH31290@titan.lakedaemon.net>
- <519D038C.9000605@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org,
- Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
- "tiejun.chen" <tiejun.chen@windriver.com>,
- Lennert Buytenhek <buytenh@wantstofly.org>, linuxppc-dev@lists.ozlabs.org,
- David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <519D038C.9000605@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCHv2 net-next] bridge: Set vlan_features to allow
+	offloads on vlans.
+Date: Wed, 22 May 2013 13:49:34 -0400
+Message-ID: <1369244974-10160-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, bridge@lists.linux-foundation.org
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 22, 2013 at 07:42:36PM +0200, Sebastian Hesselbarth wrote:
-> On 05/22/2013 07:35 PM, Jason Cooper wrote:
-> >On Wed, May 22, 2013 at 07:32:51PM +0200, Sebastian Hesselbarth wrote:
-> >>On 05/22/2013 06:59 PM, Jason Gunthorpe wrote:
-> >>>On Wed, May 22, 2013 at 09:10:10AM -0400, Jason Cooper wrote:
-> >>>>iirc, our solution to this was to parse the ATAGs for the mac addr and
-> >>>>update the appended dtb.  This way, module load and unload would work
-> >>>>without loosing the mac address.  I believe Jason Gunthorpe has a patch
-> >>>>to atags_to_fdt() for this...  This should allow us to get rid of the
-> >>>>clocks hack.
-> >>>
-> >>>Sorry, no, we don't use ATAGs here, our platforms start the kernel
-> >>>with a correct DTB that has the correct mac address to use. My patch
-> >>>was to have the driver accept it, and I think Sebastian has already
-> >>>got that functionality...
-> >>
-> >>Not neccessary anyway, after talking Jason C in a Kirkwood-only
-> >>workaround I prepared a patch that reads mac address registers early
-> >>and stores it in the local-mac-address property.
-> >
-> >Sweet!
-> >
-> >>Just tested on Dockstar with gated clocks and modular DT mv643xx_eth.
-> >>
-> >>Will append to the DT mv643xx_eth patch set if a v5 will be required
-> >>or as single patch prior Jason C taking in the ARM part of it
-> >>otherwise.
-> >
-> >Please post, in-reply-to v4 is fine.
-> 
-> Hmm, maybe a little bit too early. While restoring the MAC address now
-> works, another bug arises which I guess is related with phy setup
-> and aneg.
-> 
-> Will investigate and update patch set accordingly.
+When vlan device is configured on top of the brige, it does
+not support any offload capabilities because the bridge
+device does not initiliaze vlan_fatures.  Set vlan_fatures to
+be equivalent to hw_fatures.
 
-Cool, chances are, we should be able to take that patch in by itself for
-this merge window...
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+---
+ net/bridge/br_device.c |   13 +++++++------
+ 1 files changed, 7 insertions(+), 6 deletions(-)
 
-thx,
-
-Jason.
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 9673128..75f3239 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -22,6 +22,9 @@
+ #include <asm/uaccess.h>
+ #include "br_private.h"
+ 
++#define COMMON_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA | \
++			 NETIF_F_GSO_MASK | NETIF_F_HW_CSUM)
++
+ /* net device transmit always called with BH disabled */
+ netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+@@ -346,12 +349,10 @@ void br_dev_setup(struct net_device *dev)
+ 	dev->tx_queue_len = 0;
+ 	dev->priv_flags = IFF_EBRIDGE;
+ 
+-	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
+-			NETIF_F_GSO_MASK | NETIF_F_HW_CSUM | NETIF_F_LLTX |
+-			NETIF_F_NETNS_LOCAL | NETIF_F_HW_VLAN_CTAG_TX;
+-	dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
+-			   NETIF_F_GSO_MASK | NETIF_F_HW_CSUM |
+-			   NETIF_F_HW_VLAN_CTAG_TX;
++	dev->features = COMMON_FEATURES | NETIF_F_LLTX | NETIF_F_NETNS_LOCAL |
++			NETIF_F_HW_VLAN_CTAG_TX;
++	dev->hw_features = COMMON_FEATURES | NETIF_F_HW_VLAN_CTAG_TX;
++	dev->vlan_features = COMMON_FEATURES;
+ 
+ 	br->dev = dev;
+ 	spin_lock_init(&br->lock);
+-- 
+1.7.7.6
