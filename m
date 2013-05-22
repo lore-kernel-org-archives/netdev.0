@@ -1,13 +1,22 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
  macro
-Date: Wed, 22 May 2013 17:55:21 +0400
-Message-ID: <519CCE49.4050308@yandex-team.ru>
-References: <519B38EC.90401@yandex-team.ru>  <20130521120906.GD3578@linux.vnet.ibm.com>  <1369143885.3301.221.camel@edumazet-glaptop>  <519B8908.9080007@yandex-team.ru>  <1369150693.3301.233.camel@edumazet-glaptop>  <519BB90B.6080706@yandex-team.ru>  <1369188080.3301.268.camel@edumazet-glaptop> <1369201765.3301.299.camel@edumazet-glaptop> <519CB2D8.103@yandex-team.ru> <1369225837.3301.324.camel@edumazet-glaptop> <AE90C24D6B3A694183C094C60CF0A2F6026B7246@saturn3.aculab.com>
+Date: Wed, 22 May 2013 07:16:55 -0700
+Message-ID: <1369232215.3301.338.camel@edumazet-glaptop>
+References: <519B38EC.90401@yandex-team.ru>
+	 <20130521120906.GD3578@linux.vnet.ibm.com>
+	 <1369143885.3301.221.camel@edumazet-glaptop>
+	 <519B8908.9080007@yandex-team.ru>
+	 <1369150693.3301.233.camel@edumazet-glaptop>
+	 <519BB90B.6080706@yandex-team.ru>
+	 <1369188080.3301.268.camel@edumazet-glaptop>
+	 <20130522095839.GC3578@linux.vnet.ibm.com>
+	 <1369225727.3301.322.camel@edumazet-glaptop>
+	 <20130522130030.GB3431@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, paulmck@linux.vnet.ibm.com,
+Cc: Roman Gushchin <klamm@yandex-team.ru>,
 	Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
@@ -15,53 +24,42 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>, paulmck@linux.vnet.ibm.com,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>
-To: David Laight <David.Laight@ACULAB.COM>
+To: paulmck@linux.vnet.ibm.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7246@saturn3.aculab.com>
+In-Reply-To: <20130522130030.GB3431@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 22.05.2013 17:27, David Laight wrote:
->> So yes, the patch appears to fix the bug, but it sounds not logical to
->> me.
->
-> I was confused because the copy of the code I found was different
-> (it has some checks for reusaddr - which force a function call in the
-> loop).
->
-> The code being compiled is:
->
-> begin:
-> 	result = NULL;
-> 	badness = -1;
-> 	udp_portaddr_for_each_entry_rcu(sk, node, &hslot2->head) {
-> 		score = compute_score2(sk, net, saddr, sport,
-> 				      daddr, hnum, dif);
-> 		if (score > badness) {
-> 			result = sk;
-> 			badness = score;
-> 			if (score == SCORE2_MAX)
-> 				goto exact_match;
-> 		}
-> 	}
-> 	/*
-> 	 * if the nulls value we got at the end of this lookup is
-> 	 * not the expected one, we must restart lookup.
-> 	 * We probably met an item that was moved to another chain.
-> 	 */
-> 	if (get_nulls_value(node) != slot2)
-> 		goto begin;
->
-> Which is entirely inlined - so the compiler is allowed to assume
-> that no other code modifies any of the data.
-> Hence it is allowed to cache the list head value.
-> Indeed it could convert the last line to "for (;;);".
->
-> A asm volatile ("":::"memory") somewhere would fix it.
->
+On Wed, 2013-05-22 at 06:00 -0700, Paul E. McKenney wrote:
 
-Yes, it does. It was my first attempt to fix the issue.
-But putting such instructions into each such cycle isn't a good idea, IMHO.
+> Right, rcu_read_lock() is part of the protection, but rcu_dereference()
+> is the other part.
+> 
+> All that aside, I can't claim that I understand what problem the various
+> patches would solve.  ;-)
 
-Regards,
-Roman
+Problem is that rcu_dereference(expr) might be optimized by the compiler
+to cache the dereferenced data in certain circumstances.
+
+Following patch shows the difference if you look at the generated code:
+
+This patch fixes the problem, and its not really obvious why !
+
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 0bf5d39..6aa8088 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -416,11 +416,12 @@ static struct sock *udp4_lib_lookup2(struct net *net,
+ 	struct hlist_nulls_node *node;
+ 	int score, badness, matches = 0, reuseport = 0;
+ 	u32 hash = 0;
++	struct hlist_nulls_head *head = &hslot2->head;
+ 
+ begin:
+ 	result = NULL;
+ 	badness = 0;
+-	udp_portaddr_for_each_entry_rcu(sk, node, &hslot2->head) {
++	udp_portaddr_for_each_entry_rcu(sk, node, head) {
+ 		score = compute_score2(sk, net, saddr, sport,
+ 				      daddr, hnum, dif);
+ 		if (score > badness) {
