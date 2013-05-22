@@ -1,41 +1,36 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH v4 06/12] ARM: dove: add gigabit ethernet and mvmdio
- device tree nodes
-Date: Wed, 22 May 2013 12:24:48 -0600
-Message-ID: <20130522182448.GA17206@obsidianresearch.com>
-References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369154510-4927-7-git-send-email-sebastian.hesselbarth@gmail.com>
- <20130521174849.GL26249@lunn.ch>
- <519C9333.20609@gmail.com>
- <519C9822.9040909@windriver.com>
- <519C9A66.3050807@gmail.com>
- <20130522131010.GB31290@titan.lakedaemon.net>
- <20130522165908.GB12320@obsidianresearch.com>
- <519D0143.1000203@gmail.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: possible bug in IPv6 MLD retransmissions
+Date: Wed, 22 May 2013 14:24:34 -0400
+Message-ID: <OF2FF7FDBF.29F92AB4-ON85257B73.00649006-85257B73.00652081@us.ibm.com>
+References: <20130517032449.GA3595@obelix.rh> <20130518173105.GD29528@order.stressinduktion.org> <20130521150616.GA8513@obelix.rh> <20130522004027.GD32093@order.stressinduktion.org> <OF1A7F184A.4282AFE8-ON85257B73.003E82A8-85257B73.003F3B88@us.ibm.com> <20130522172711.GC17240@obelix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Cooper <jason@lakedaemon.net>,
-	"tiejun.chen" <tiejun.chen@windriver.com>,
-	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <519D0143.1000203@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: Flavio Leitner <fbl@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e9.ny.us.ibm.com ([32.97.182.139]:60639 "EHLO e9.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754687Ab3EVSZr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 May 2013 14:25:47 -0400
+Received: from /spool/local
+	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Wed, 22 May 2013 14:25:46 -0400
+In-Reply-To: <20130522172711.GC17240@obelix.rh>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 22, 2013 at 07:32:51PM +0200, Sebastian Hesselbarth wrote:
- 
-> Not neccessary anyway, after talking Jason C in a Kirkwood-only
-> workaround I prepared a patch that reads mac address registers early
-> and stores it in the local-mac-address property.
+Flavio Leitner <fbl@redhat.com> wrote on 05/22/2013 01:27:11 PM:
 
-That sounds great, but, FWIW, our bootloaders don't set the MAC
-address registers. Does the work around only trigger if the
-local-mac-address property is 0?
+> It becomes a bug (and that's why I started with 'possible') if dad
+> completes after the two MLD reports sent with ``::'' source, because
+> routers will ignore those initial reports and the system is left out.
 
-Jason
+No, unsolicited reports are not necessary for MLD. If there are no
+other listeners for a group, the reports will be triggered within
+one query interval after a valid LL addr is there.
+
+                                                                +-DLS
