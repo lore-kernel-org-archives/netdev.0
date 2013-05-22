@@ -1,33 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] netfilter: xt_socket: use IP early demux
-Date: Wed, 22 May 2013 14:27:33 -0700 (PDT)
-Message-ID: <20130522.142733.458456664835859037.davem@davemloft.net>
-References: <1369256466.3301.364.camel@edumazet-glaptop>
+Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
+ spinlock
+Date: Wed, 22 May 2013 14:29:46 -0700 (PDT)
+Message-ID: <20130522.142946.1071765105220112729.davem@davemloft.net>
+References: <1369255104.2143.108.camel@joe-AO722>
+	<1369255736.3301.358.camel@edumazet-glaptop>
+	<1369257171.2143.120.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pablo@netfilter.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, kaber@trash.net
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44566 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756096Ab3EVV1f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 17:27:35 -0400
-In-Reply-To: <1369256466.3301.364.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: eric.dumazet@gmail.com, pablo@netfilter.org,
+	netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
+	therbert@google.com, kaber@trash.net
+To: joe@perches.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1369257171.2143.120.camel@joe-AO722>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 22 May 2013 14:01:06 -0700
+From: Joe Perches <joe@perches.com>
+Date: Wed, 22 May 2013 14:12:51 -0700
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> With IP early demux added in linux-3.6, we perform TCP lookup in IP
-> layer before iptables hooks.
-> 
-> We can avoid doing a second lookup in xt_socket.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> @@ -528,7 +528,7 @@ struct netdev_queue {
+>   * write mostly part
+>   */
+>  	spinlock_t		_xmit_lock ____cacheline_aligned_in_smp;
+> -	int			xmit_lock_owner;
+> +	u16			xmit_lock_owner;
+>  	/*
+>  	 * please use this field instead of dev->trans_start
+>  	 */
+> @@ -2453,7 +2453,7 @@ static inline void __netif_tx_unlock_bh(struct netdev_queue *txq)
+>  
+>  static inline void txq_trans_update(struct netdev_queue *txq)
+>  {
+> -	if (txq->xmit_lock_owner != -1)
+> +	if (txq->xmit_lock_owner != (u16)-1)
+>  		txq->trans_start = jiffies;
+>  }
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Then technically this is an s16, don't use casts to pretend that it
+isn't.
