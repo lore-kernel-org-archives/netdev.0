@@ -1,35 +1,33 @@
-From: Alan Ott <alan@signal11.us>
-Subject: Re: [PATCH beta 1] 0/3] Fix race conditions in mrf24j40 interrupts
-Date: Tue, 21 May 2013 22:03:59 -0400
-Message-ID: <519C278F.5030809@signal11.us>
-References: <CAO+c-UVJQJbmmmCS4hxAEYHKa8gEU1Bs=y+Rv_A75UHeBZxc+w@mail.gmail.com> <1369188080-8904-1-git-send-email-alan@signal11.us>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: RFC limit sk_mem_quantum to 8192
+Date: Tue, 21 May 2013 19:21:01 -0700
+Message-ID: <1369189261.3301.269.camel@edumazet-glaptop>
+References: <20130522004541.GA17240@obelix.rh>
+	 <1369184962.3301.264.camel@edumazet-glaptop>
+	 <20130522015858.GB17240@obelix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: david@hauweele.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	linux-zigbee-devel@lists.sourceforge.net
-To: Alan Ott <alan@signal11.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369188080-8904-1-git-send-email-alan@signal11.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Flavio Leitner <fbl@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:53807 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753617Ab3EVCVE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 22:21:04 -0400
+Received: by mail-pa0-f53.google.com with SMTP id kq12so1315829pab.12
+        for <netdev@vger.kernel.org>; Tue, 21 May 2013 19:21:03 -0700 (PDT)
+In-Reply-To: <20130522015858.GB17240@obelix.rh>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/21/2013 10:01 PM, Alan Ott wrote:
-> David Hauweele noticed that the mrf24j40 would hang arbitrarily after some
-> period of heavy traffic.  Two race conditions were discovered, and the
-> driver was changed to use threaded interrupts, since the enable/disable of
-> interrupts in the driver has recently been a lighning rod whenever issues
-> arise related to interrupts (costing engineering time), and since threaded
-> interrupts are the right way to do it.
->
-> Alan Ott (3):
->   mrf24j40: Move INIT_COMPLETION() to before packet transmission
->   mrf24j40: Use threaded IRQ handler
->   mrf24j40: Use level-triggered interrupts
->
->  drivers/net/ieee802154/mrf24j40.c | 31 +++++++++----------------------
->  1 file changed, 9 insertions(+), 22 deletions(-)
+On Tue, 2013-05-21 at 22:58 -0300, Flavio Leitner wrote:
+> On Tue, May 21, 2013 at 06:09:22PM -0700, Eric Dumazet wrote:
+>  
+> > Are you sure a network driver doesn't provide skb using a full page ?
+> 
+> You lost me. You're saying that today we consider a page size
+> a minimum and so if we reduce that, the skb wouldn't fit in the
+> min sk memory?
 
-I forgot to add, I ran ping -f both ways all afternoon (6.5 hours), and
-it seems solid.
+SK_MEM_QUANTUM is also used in UDP stack, thats why I am asking.
