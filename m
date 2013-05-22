@@ -1,7 +1,7 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 3/4] bnx2x: Wait for MCP validity during AER
-Date: Wed, 22 May 2013 15:22:38 +0300
-Message-ID: <1369225359-5578-4-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 1/4] bnx2x: Add Private Flags Support
+Date: Wed, 22 May 2013 15:22:36 +0300
+Message-ID: <1369225359-5578-2-git-send-email-yuvalmin@broadcom.com>
 References: <1369225359-5578-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,74 +10,137 @@ Cc: ariele@broadcom.com, eilong@broadcom.com,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4377 "EHLO mms1.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4368 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755456Ab3EVMUq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1755680Ab3EVMUq (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 22 May 2013 08:20:46 -0400
 In-Reply-To: <1369225359-5578-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-During PCIe advanced error recovery, the secondary bus reset will cause FW
-to reset; This will cause the shared memory between it and the driver to be
-invalidated.
-
-During the driver's recovery flow, the driver should not make any assumption
-on the validity of that memory and instead re-initialize it.
-
-This also removes a redundant re-initialization of a previously
-initialized mutex.
+Utilize ethtool's callback `get_priv_flags' - shed more light on the
+feasibility of devices as storage interfaces.
 
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 19 ++++---------------
- 1 file changed, 4 insertions(+), 15 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |  2 +
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    | 49 ++++++++++++++++++----
+ 2 files changed, 44 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 649880d..7ed9cdf 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12760,19 +12760,6 @@ static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
- 	return 0;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 3dba2a7..3f42910 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -2137,6 +2137,8 @@ void bnx2x_igu_clear_sb_gen(struct bnx2x *bp, u8 func, u8 idu_sb_id,
+ #define ATTN_HARD_WIRED_MASK		0xff00
+ #define ATTENTION_ID			4
+ 
++#define IS_MF_STORAGE_ONLY(bp) (IS_MF_STORAGE_SD(bp) || \
++				 IS_MF_FCOE_AFEX(bp))
+ 
+ /* stuff added to make the code fit 80Col */
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index ce1a916..da23aea 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1921,6 +1921,19 @@ static const char bnx2x_tests_str_arr[BNX2X_NUM_TESTS_SF][ETH_GSTRING_LEN] = {
+ 	"link_test (online)         "
+ };
+ 
++enum {
++	BNX2X_PRI_FLAG_ISCSI,
++	BNX2X_PRI_FLAG_FCOE,
++	BNX2X_PRI_FLAG_STORAGE,
++	BNX2X_PRI_FLAG_LEN,
++};
++
++static const char bnx2x_private_arr[BNX2X_PRI_FLAG_LEN][ETH_GSTRING_LEN] = {
++	"iSCSI offload support ",
++	"FCoE offload support  ",
++	"Storage only interface"
++};
++
+ static u32 bnx2x_eee_to_adv(u32 eee_adv)
+ {
+ 	u32 modes = 0;
+@@ -2978,32 +2991,47 @@ static int bnx2x_num_stat_queues(struct bnx2x *bp)
+ static int bnx2x_get_sset_count(struct net_device *dev, int stringset)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+-	int i, num_stats;
++	int i, num_strings = 0;
+ 
+ 	switch (stringset) {
+ 	case ETH_SS_STATS:
+ 		if (is_multi(bp)) {
+-			num_stats = bnx2x_num_stat_queues(bp) *
+-						BNX2X_NUM_Q_STATS;
++			num_strings = bnx2x_num_stat_queues(bp) *
++				      BNX2X_NUM_Q_STATS;
+ 		} else
+-			num_stats = 0;
++			num_strings = 0;
+ 		if (IS_MF_MODE_STAT(bp)) {
+ 			for (i = 0; i < BNX2X_NUM_STATS; i++)
+ 				if (IS_FUNC_STAT(i))
+-					num_stats++;
++					num_strings++;
+ 		} else
+-			num_stats += BNX2X_NUM_STATS;
++			num_strings += BNX2X_NUM_STATS;
+ 
+-		return num_stats;
++		return num_strings;
+ 
+ 	case ETH_SS_TEST:
+ 		return BNX2X_NUM_TESTS(bp);
+ 
++	case ETH_SS_PRIV_FLAGS:
++		return BNX2X_PRI_FLAG_LEN;
++
+ 	default:
+ 		return -EINVAL;
+ 	}
  }
  
--static void bnx2x_eeh_recover(struct bnx2x *bp)
--{
--	u32 val;
--
--	mutex_init(&bp->port.phy_mutex);
--
--
--	val = SHMEM_RD(bp, validity_map[BP_PORT(bp)]);
--	if ((val & (SHR_MEM_VALIDITY_DEV_INFO | SHR_MEM_VALIDITY_MB))
--		!= (SHR_MEM_VALIDITY_DEV_INFO | SHR_MEM_VALIDITY_MB))
--		BNX2X_ERR("BAD MCP validity signature\n");
--}
--
- /**
-  * bnx2x_io_error_detected - called when PCI error is detected
-  * @pdev: Pointer to PCI device
-@@ -12841,6 +12828,10 @@ static pci_ers_result_t bnx2x_io_slot_reset(struct pci_dev *pdev)
- 
- 	if (netif_running(dev)) {
- 		BNX2X_ERR("IO slot reset --> driver unload\n");
++static u32 bnx2x_get_private_flags(struct net_device *dev)
++{
++	struct bnx2x *bp = netdev_priv(dev);
++	u32 flags = 0;
 +
-+		/* MCP should have been reset; Need to wait for validity */
-+		bnx2x_init_shmem(bp);
++	flags |= (!(bp->flags & NO_ISCSI_FLAG) ? 1 : 0) << BNX2X_PRI_FLAG_ISCSI;
++	flags |= (!(bp->flags & NO_FCOE_FLAG)  ? 1 : 0) << BNX2X_PRI_FLAG_FCOE;
++	flags |= (!!IS_MF_STORAGE_ONLY(bp)) << BNX2X_PRI_FLAG_STORAGE;
 +
- 		if (IS_PF(bp) && SHMEM2_HAS(bp, drv_capabilities_flag)) {
- 			u32 v;
++	return flags;
++}
++
+ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+@@ -3045,6 +3073,12 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ 			start = 4;
+ 		memcpy(buf, bnx2x_tests_str_arr + start,
+ 		       ETH_GSTRING_LEN * BNX2X_NUM_TESTS(bp));
++		break;
++
++	case ETH_SS_PRIV_FLAGS:
++		memcpy(buf, bnx2x_private_arr,
++		       ETH_GSTRING_LEN * BNX2X_PRI_FLAG_LEN);
++		break;
+ 	}
+ }
  
-@@ -12899,8 +12890,6 @@ static void bnx2x_io_resume(struct pci_dev *pdev)
- 
- 	rtnl_lock();
- 
--	bnx2x_eeh_recover(bp);
--
- 	bp->fw_seq = SHMEM_RD(bp, func_mb[BP_FW_MB_IDX(bp)].drv_mb_header) &
- 							DRV_MSG_SEQ_NUMBER_MASK;
- 
+@@ -3445,6 +3479,7 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
+ 	.set_pauseparam		= bnx2x_set_pauseparam,
+ 	.self_test		= bnx2x_self_test,
+ 	.get_sset_count		= bnx2x_get_sset_count,
++	.get_priv_flags		= bnx2x_get_private_flags,
+ 	.get_strings		= bnx2x_get_strings,
+ 	.set_phys_id		= bnx2x_set_phys_id,
+ 	.get_ethtool_stats	= bnx2x_get_ethtool_stats,
 -- 
 1.8.1.227.g44fe835
