@@ -1,39 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v8 02/11] ipv6: make ip6_dst_hoplimit() static
- inline
-Date: Wed, 22 May 2013 00:14:53 -0700 (PDT)
-Message-ID: <20130522.001453.864958570289931561.davem@davemloft.net>
-References: <1368750099-14086-3-git-send-email-amwang@redhat.com>
-	<20130517.141327.2084320693913331713.davem@davemloft.net>
-	<1369198453.5722.12.camel@cr0>
+From: Andrew Morton <akpm@linux-foundation.org>
+Subject: Re: linux-next: manual merge of the akpm tree with the net-next
+ tree
+Date: Wed, 22 May 2013 00:14:58 -0700
+Message-ID: <20130522001458.af0f4ab5.akpm@linux-foundation.org>
+References: <20130521142948.444f09820c5406f9adc4b7f1@canb.auug.org.au>
+	<20130521130438.1ecdf535ab2461888abbe0c3@linux-foundation.org>
+	<20130522.000748.454683591881350280.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33809 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753147Ab3EVHOy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 03:14:54 -0400
-In-Reply-To: <1369198453.5722.12.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sfr@canb.auug.org.au, linux-next@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dborkman@redhat.com,
+	netdev@vger.kernel.org, nschichan@freebox.fr
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130522.000748.454683591881350280.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Wed, 22 May 2013 12:54:13 +0800
+On Wed, 22 May 2013 00:07:48 -0700 (PDT) David Miller <davem@davemloft.net> wrote:
 
-> Actually that is exactly what I _did_ in v1 or RFC, IIRC, it is David
-> Stevens who prefers to use #ifdef inside these functions, so I changed
-> it based on his suggestion.
+> From: Andrew Morton <akpm@linux-foundation.org>
+> Date: Tue, 21 May 2013 13:04:38 -0700
 > 
-> I myself don't have any strong opinion here, either is okay, I just
-> don't like changing it again and again. :)
+> > Nicolas, I think the patches need a re-check so I'll drop the versions
+> > which I presently have.  Please refresh, retest and resend when
+> > convenient?  It'll need to be against linux-next, which is where the
+> > conflicting (vfree/module_free) changes have occurred.
+> 
+> How about working against net-next and submitting your patches to netdev
+> just like the rest of the world?
+> 
 
-The driver looks like complete shit with all the ifdefs in there,
-this isn't the BSD kernel.
-
-I do not want to seem them there at all.
-
-You can abstract everything behind helper functions in a header
-file, keep the mess there.
+Well that's probably practical.  But the patchset is a seccomp
+enhancement for (at present) ARM.  Not exactly net stuff, or anything
+which netdev readers are likely to spend a lot of time testing and
+reviewing.
