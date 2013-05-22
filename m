@@ -1,53 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
- macro
-Date: Wed, 22 May 2013 05:30:37 -0700
-Message-ID: <1369225837.3301.324.camel@edumazet-glaptop>
-References: <519B38EC.90401@yandex-team.ru>
-	  <20130521120906.GD3578@linux.vnet.ibm.com>
-	  <1369143885.3301.221.camel@edumazet-glaptop>
-	  <519B8908.9080007@yandex-team.ru>
-	  <1369150693.3301.233.camel@edumazet-glaptop>
-	  <519BB90B.6080706@yandex-team.ru>
-	  <1369188080.3301.268.camel@edumazet-glaptop>
-	 <1369201765.3301.299.camel@edumazet-glaptop> <519CB2D8.103@yandex-team.ru>
+From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH 1/5] ibmebus: convert of_platform_driver to platform_driver
+Date: Wed, 22 May 2013 22:32:07 +1000
+Message-ID: <1369225927.3870.15.camel@pasglop>
+References: <1366596798-9457-1-git-send-email-robherring2@gmail.com>
+ <1366596798-9457-2-git-send-email-robherring2@gmail.com>
+ <CAL_JsqKDF=hPEM0Jz-zZSXBCXBZ=gBjLWL6QDvq+nFWkqY3DMw@mail.gmail.com>
+ <1366911329.2869.31.camel@pasglop> <517980B0.3000401@gmail.com>
+ <1366920741.2869.32.camel@pasglop> <517995D0.8020307@gmail.com>
+ <CAL_JsqKXt-gFL4y_k-_dFktpk1JD_S2G+hUsoOavw8QugFMOKA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, Dipankar Sarma <dipankar@in.ibm.com>,
-	zhmurov@yandex-team.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Roman Gushchin <klamm@yandex-team.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <519CB2D8.103@yandex-team.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ "devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+ "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>, Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
+ Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
+ Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
+ Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <CAL_JsqKXt-gFL4y_k-_dFktpk1JD_S2G+hUsoOavw8QugFMOKA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-22 at 15:58 +0400, Roman Gushchin wrote:
+On Wed, 2013-05-22 at 07:26 -0500, Rob Herring wrote:
+> Did you have a chance to test this? I want to get this into -next.
 
-> +/*
-> + * Same as ACCESS_ONCE(), but used for accessing field of a structure.
-> + * The main goal is preventing compiler to store &ptr->field in a register.
+Ah sorry, skipped out of my mind, I'll get to it asap...
 
-But &ptr->field is a constant during the whole duration of
-udp4_lib_lookup2() and could be in a register, in my case field is at
-offset 0, and ptr is a parameter (so could be in a 'register')
-
-The bug you found is that compiler caches the indirection  (ptr->field)
-into a register, not that compiler stores &ptr->field into a register.
-
-> + */
-> +#define ACCESS_FIELD_ONCE(PTR, FIELD) (((volatile typeof(*PTR) *)PTR)->FIELD)
-> +
-
-Here we force the compiler to consider ptr as volatile, but semantically
-it is not required in rcu_dereference(ptr->field)  
-
-We want field to be reloaded, not ptr.
-
-So yes, the patch appears to fix the bug, but it sounds not logical to
-me.
+Cheers,
+Ben.
