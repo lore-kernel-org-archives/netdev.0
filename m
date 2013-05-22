@@ -1,45 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH ipvs-next v3 0/2] sched: Add cond_resched_rcu_lock()
- helper
-Date: Wed, 22 May 2013 01:31:08 -0700 (PDT)
-Message-ID: <20130522.013108.58504645261021804.davem@davemloft.net>
-References: <1369201832-17163-1-git-send-email-horms@verge.net.au>
-	<20130522075438.GO26912@twins.programming.kicks-ass.net>
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: [PATCH net-next 0/2 V2] Xen network: split event channels
+ support
+Date: Wed, 22 May 2013 09:35:59 +0100
+Message-ID: <1369211759.21246.115.camel@zakaz.uk.xensource.com>
+References: <1369161310-9529-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: horms@verge.net.au, eric.dumazet@gmail.com, ja@ssi.bg,
-	mingo@redhat.com, paulmck@linux.vnet.ibm.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pablo@netfilter.org, dipankar@in.ibm.com
-To: peterz@infradead.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130522075438.GO26912@twins.programming.kicks-ass.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	<konrad.wilk@oracle.com>, <david.vrabel@citrix.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.eu.citrix.com ([46.33.159.39]:11061 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750974Ab3EVIgB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 04:36:01 -0400
+In-Reply-To: <1369161310-9529-1-git-send-email-wei.liu2@citrix.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Peter Zijlstra <peterz@infradead.org>
-Date: Wed, 22 May 2013 09:54:38 +0200
-
-> On Wed, May 22, 2013 at 02:50:30PM +0900, Simon Horman wrote:
->> Add a helper that for use in loops which read data protected by RCU and
->> may have a large number of iterations.  Such an example is dumping the list
->> of connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
->> 
->> This series also updates IPVS to use the helper.
->> 
->> Simon Horman (2):
->>   sched: add cond_resched_rcu() helper
->>   ipvs: use cond_resched_rcu() helper when walking connections
->> 
->>  include/linux/sched.h           |  9 +++++++++
->>  net/netfilter/ipvs/ip_vs_conn.c | 23 ++++++++---------------
->>  2 files changed, 17 insertions(+), 15 deletions(-)
+On Tue, 2013-05-21 at 19:35 +0100, Wei Liu wrote:
+> This series adds a new feature called split event channels.
 > 
-> Acked-by: Peter Zijlstra <peterz@infradead.org>
+> In the original implementation, only one event channel is setup between
+> frontend and backend. This is not ideal as TX notification interferes with RX
+> notification. Using dedicated event channels for TX and RX solves this issue.
 > 
-> How do you want to go about merging this? Do you want to route it
-> through the net tree or through -tip?
+> Changes since V1:
+> * change subject lines of commits to be more specific
+> * add parameter feature_split_event_channels for xen-netback
+> * remove two dev_info
+> 
+> Wei Liu (2):
+>   xen-netback: split event channels support for Xen backend driver
+>   xen-netfront: split event channels support for Xen frontend driver
+> 
+>  drivers/net/xen-netback/common.h    |   13 ++-
+>  drivers/net/xen-netback/interface.c |   84 ++++++++++++++---
+>  drivers/net/xen-netback/netback.c   |   14 ++-
+>  drivers/net/xen-netback/xenbus.c    |   40 ++++++--
+>  drivers/net/xen-netfront.c          |  173 +++++++++++++++++++++++++++++------
+>  5 files changed, 266 insertions(+), 58 deletions(-)
 
-I think we can have Pablo merge it into his netfilter tree.
+Please could you also submit a patch to xen.git against which documents
+the new protocol and feature flags etc in the canonical
+xen/include/public/io/netif.h header. This change should then be
+synchronised into Linux's include/xen/interface/io/netif.h copy as part
+of this series.
+
+Ian.
