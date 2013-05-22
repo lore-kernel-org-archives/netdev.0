@@ -1,41 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
- spinlock
-Date: Wed, 22 May 2013 13:16:01 -0700
-Message-ID: <1369253761.3301.355.camel@edumazet-glaptop>
-References: <1368068665.13473.81.camel@edumazet-glaptop>
-	 <1369244868.3301.343.camel@edumazet-glaptop>
-	 <1369246816.2143.84.camel@joe-AO722>
-	 <1369250772.3301.349.camel@edumazet-glaptop>
-	 <1369252624.2143.103.camel@joe-AO722>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for Kirkwood
+ SoCs
+Date: Wed, 22 May 2013 14:16:07 -0600
+Message-ID: <20130522201607.GA18823@obsidianresearch.com>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1369252624.2143.103.camel@joe-AO722>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-22 at 12:57 -0700, Joe Perches wrote:
+On Wed, May 22, 2013 at 10:04:02PM +0200, Sebastian Hesselbarth wrote:
 
-> Ahh, nice.
-> 
-> It might also be nice to mark it if ever more than a u16
-> brace/flock/coven/cluster worth of cpus become feasible
-> as it seems int is used almost everywhere else.
+> Ethernet controllers found on Kirkwood SoCs not only suffer from loosing
+> MAC address register contents on clock gating but also some important
+> registers are reset to values that would break ethernet. This patch
 
-It seems Linus hates cpu_t or whatever_t
+FWIW, we found that the bootloader has to write to PSC1, the driver
+doesn't work with the power on/reset value of the register. So I think
+it is safe to assume that all kirkwood bootloaders alter the value.
 
-Thats why we have u16 everywhere to code cpu numbers, and why we use
-"unsigned long" for jiffies.
+Our systems write the value 0x00638488 to PSC1.
 
-Check include/linux/netdevice.h for numerous examples
+I looked at patching mv643xx_eth, but ran into the same complexity you
+did, it isn't clear what variants of this IP block have the
+register/etc.
 
-So far, I believe linux supports at most 4096 cpus.
+> +	/* Kirkwood resets some registers on gated clocks. Especially
+> +	 * CLK125_BYPASS_EN must be cleared but is not available on
+> +	 * all other SoCs/System Controllers using this driver.
+> +	 */
+> +	if (of_machine_is_compatible("marvell,kirkwood"))
+> +		wrlp(mp, PORT_SERIAL_CONTROL1,
+> +		     rdlp(mp, PORT_SERIAL_CONTROL1) & ~CLK125_BYPASS_EN);
 
+of_machine_is_compatible seems heavy handed, I would expect this to be
+based on the compatible string of the ethernet node itself, not the
+machine??
 
+Jason
