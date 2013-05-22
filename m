@@ -1,73 +1,45 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: sk_page_frag_refill OOM killing spree
-Date: Wed, 22 May 2013 10:26:39 +0200
-Message-ID: <20130522082639.GB32299@breakpoint.cc>
-References: <20130521122845.GD16412@breakpoint.cc>
- <1369150280.3301.230.camel@edumazet-glaptop>
- <alpine.DEB.2.02.1305211309100.31504@chino.kir.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH ipvs-next v3 0/2] sched: Add cond_resched_rcu_lock()
+ helper
+Date: Wed, 22 May 2013 01:31:08 -0700 (PDT)
+Message-ID: <20130522.013108.58504645261021804.davem@davemloft.net>
+References: <1369201832-17163-1-git-send-email-horms@verge.net.au>
+	<20130522075438.GO26912@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: David Rientjes <rientjes@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:44303 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753295Ab3EVI0n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 04:26:43 -0400
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.02.1305211309100.31504@chino.kir.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: horms@verge.net.au, eric.dumazet@gmail.com, ja@ssi.bg,
+	mingo@redhat.com, paulmck@linux.vnet.ibm.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pablo@netfilter.org, dipankar@in.ibm.com
+To: peterz@infradead.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130522075438.GO26912@twins.programming.kicks-ass.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-David Rientjes <rientjes@google.com> wrote:
-> > On Tue, 2013-05-21 at 14:28 +0200, Florian Westphal wrote:
-> > > seems like sk_page_frag_refill() can cause oom-killer invocation:
-> > > 
-> > > postgres invoked oom-killer: gfp_mask=0x42d0, order=3, oom_score_adj=0
-> > > Pid: 10551, comm: postgres Tainted: G           O 3.8.6-5.g613ca40-smp #1
-> > > Call Trace:
-> > >  [<c106dbd5>] ? dump_header+0x60/0x191
-> > >  [<c1133d3a>] ? ___ratelimit+0xb2/0xc4
-> > >  [<c106dfd3>] ? oom_kill_process+0x61/0x2d1
-> > >  [<c1030042>] ? has_capability_noaudit+0x1c/0x23
-> > >  [<c106df0f>] ? oom_badness+0x8c/0xef
-> > >  [<c106e446>] ? out_of_memory+0x203/0x247
-> > >  [<c107128a>] ? __alloc_pages_nodemask+0x42b/0x4c3
-> > >  [<c11fa66a>] ? sk_page_frag_refill+0x6a/0xd2
-> > >  [<c1233548>] ? tcp_sendmsg+0x3e8/0x7c6
-> > >  [<c124f34b>] ? inet_sendmsg+0x6b/0x75
-> > >  [<c11f74d8>] ? sock_sendmsg+0x8d/0xa6
-> > >  [<c11f7b83>] ? sys_sendto+0x105/0x130
-> > >  [<c1025927>] ? __kunmap_atomic+0x62/0x8a
-> > >  [<c1025940>] ? __kunmap_atomic+0x7b/0x8a
-> > >  [<c1073d78>] ? __lru_cache_add+0x18/0x47
-> > >  [<c10812f9>] ? handle_pte_fault+0x745/0x751
-> > >  [<c1025a2d>] ? kmap_atomic_prot+0xd3/0xf1
-> > >  [<c10817da>] ? handle_mm_fault+0x112/0x121
-> > >  [<c11f7be5>] ? sys_send+0x37/0x3b
-> > > 
-> > > The system is busy, so, order-3 alloc failure doesn't strike me as odd.
-> > > 
-> > > There are no allocation failures with order != 3.
-> > > 
-> > > Sometimes this can happen in very short sucession, i.e.
-> > > and oom-killer did end up zapping 30 processes or so.
+From: Peter Zijlstra <peterz@infradead.org>
+Date: Wed, 22 May 2013 09:54:38 +0200
+
+> On Wed, May 22, 2013 at 02:50:30PM +0900, Simon Horman wrote:
+>> Add a helper that for use in loops which read data protected by RCU and
+>> may have a large number of iterations.  Such an example is dumping the list
+>> of connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+>> 
+>> This series also updates IPVS to use the helper.
+>> 
+>> Simon Horman (2):
+>>   sched: add cond_resched_rcu() helper
+>>   ipvs: use cond_resched_rcu() helper when walking connections
+>> 
+>>  include/linux/sched.h           |  9 +++++++++
+>>  net/netfilter/ipvs/ip_vs_conn.c | 23 ++++++++---------------
+>>  2 files changed, 17 insertions(+), 15 deletions(-)
 > 
-> Aside from the __GFP_NORETRY issue, could you post the full oom killer log 
-> where it kills more than one process with /proc/sys/vm/oom_dump_tasks 
-> enabled?  That shouldn't happen unless you have a memory leak.
+> Acked-by: Peter Zijlstra <peterz@infradead.org>
+> 
+> How do you want to go about merging this? Do you want to route it
+> through the net tree or through -tip?
 
-http://strlen.de/fw/oom.txt
-
-HOWEVER, before you spend time on this:
-I don't think there is an issue with oom killer, I only noticed
-that after kernel update oom killer invocations are
- a) more frequent than before
- b) often show above backtrace (sk_page_frag_refill).
-
-I'm not even saying "sk_page_frag_refill is broken", since I don't know if
-adding GFP_NORETRY might add silent performance degradation, etc.
-
-Its very well possible that everything is working as intended :-)
+I think we can have Pablo merge it into his netfilter tree.
