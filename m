@@ -1,66 +1,49 @@
-From: dingtianhong <dingtianhong@huawei.com>
-Subject: [PATCH] bonding: add synchronize_net() after netdev_rx_handler_unregister
-Date: Wed, 22 May 2013 16:42:44 +0800
-Message-ID: <519C8504.1080906@huawei.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH ipvs-next v3 0/2] sched: Add cond_resched_rcu_lock()
+ helper
+Date: Wed, 22 May 2013 11:00:51 +0200
+Message-ID: <20130522090051.GA18810@twins.programming.kicks-ass.net>
+References: <1369201832-17163-1-git-send-email-horms@verge.net.au>
+ <20130522075438.GO26912@twins.programming.kicks-ass.net>
+ <20130522.013108.58504645261021804.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-To: Jay Vosburgh <fubar@us.ibm.com>,
-	Andy Gospodarek <andy@greyhouse.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:16902 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750960Ab3EVIoe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 04:44:34 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: horms@verge.net.au, eric.dumazet@gmail.com, ja@ssi.bg,
+	mingo@redhat.com, paulmck@linux.vnet.ibm.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pablo@netfilter.org, dipankar@in.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130522.013108.58504645261021804.davem@davemloft.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-commit 00cfec3748 (net: add a synchronize_net() ...) add a synchronize_net()
-in netdev_rx_handler_unregister() to guarantee the rx_handler  is NULL when
-rx_handler_data is a non NULL in rcu_read_lock().
+On Wed, May 22, 2013 at 01:31:08AM -0700, David Miller wrote:
+> From: Peter Zijlstra <peterz@infradead.org>
+> Date: Wed, 22 May 2013 09:54:38 +0200
+> 
+> > On Wed, May 22, 2013 at 02:50:30PM +0900, Simon Horman wrote:
+> >> Add a helper that for use in loops which read data protected by RCU and
+> >> may have a large number of iterations.  Such an example is dumping the list
+> >> of connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+> >> 
+> >> This series also updates IPVS to use the helper.
+> >> 
+> >> Simon Horman (2):
+> >>   sched: add cond_resched_rcu() helper
+> >>   ipvs: use cond_resched_rcu() helper when walking connections
+> >> 
+> >>  include/linux/sched.h           |  9 +++++++++
+> >>  net/netfilter/ipvs/ip_vs_conn.c | 23 ++++++++---------------
+> >>  2 files changed, 17 insertions(+), 15 deletions(-)
+> > 
+> > Acked-by: Peter Zijlstra <peterz@infradead.org>
+> > 
+> > How do you want to go about merging this? Do you want to route it
+> > through the net tree or through -tip?
+> 
+> I think we can have Pablo merge it into his netfilter tree.
 
-so the caller should not use netdev_rx_handler_unregister in atomic as it may
-schedule and sleep, the commit fcd99434f fix the bug in bond release, but the
-problem is no action to guarantee the rx_handler_data is NULL when bond release,
-so add synchronize_net() and fix it.
-
-This patch adds more comments to netdev_rx_handler_unregister().
-
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- drivers/net/bonding/bond_main.c | 2 ++
- net/core/dev.c                  | 3 +++
- 2 files changed, 5 insertions(+)
-
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index d0aade0..592a603 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -2007,6 +2007,8 @@ static int __bond_release_one(struct net_device *bond_dev,
- 	 * for this slave anymore.
- 	 */
- 	netdev_rx_handler_unregister(slave_dev);
-+	synchronize_net();
-+
- 	write_lock_bh(&bond->lock);
- 
- 	if (!all && !bond->params.fail_over_mac) {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fc1e289..9ffeda9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3344,6 +3344,9 @@ EXPORT_SYMBOL_GPL(netdev_rx_handler_register);
-  *	Unregister a receive handler from a device.
-  *
-  *	The caller must hold the rtnl_mutex.
-+ *
-+ *	The function should only be called outside the atomic as it
-+ *	might sleep and schedule.
-  */
- void netdev_rx_handler_unregister(struct net_device *dev)
- {
--- 
-1.8.0
+Works for me. Thanks!
