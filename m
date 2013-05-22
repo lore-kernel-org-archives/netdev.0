@@ -1,311 +1,101 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: [PATCH net-next V3 2/3] xen-netfront: split event channels support for Xen frontend driver
-Date: Wed, 22 May 2013 17:34:46 +0100
-Message-ID: <1369240487-18834-3-git-send-email-wei.liu2@citrix.com>
-References: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com>
+From: Alex Williamson <alex.williamson@redhat.com>
+Subject: Re: [PATCH net-next 20/22] sfc: reuse pages to avoid DMA mapping/unmapping costs
+Date: Wed, 22 May 2013 16:29:09 +0000 (UTC)
+Message-ID: <loom.20130522T180718-104@post.gmane.org>
+References: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com> <1363031947.2608.57.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <jbeulich@suse.com>, <ian.campbell@citrix.com>,
-	<annie.li@oracle.com>, <konrad.wilk@oracle.com>,
-	<david.vrabel@citrix.com>, Wei Liu <wei.liu2@citrix.com>
-To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:34299 "EHLO SMTP.CITRIX.COM"
+Received: from plane.gmane.org ([80.91.229.3]:49736 "EHLO plane.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754399Ab3EVQev (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 May 2013 12:34:51 -0400
-In-Reply-To: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com>
+	id S1756238Ab3EVQfL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 May 2013 12:35:11 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UfC0F-0007Vv-8U
+	for netdev@vger.kernel.org; Wed, 22 May 2013 18:35:03 +0200
+Received: from c-98-245-149-74.hsd1.co.comcast.net ([98.245.149.74])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 18:35:03 +0200
+Received: from alex.williamson by c-98-245-149-74.hsd1.co.comcast.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 18:35:03 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a new feature called feature-split-event-channels for
-netfront, enabling it to handle TX and RX events separately.
+Ben Hutchings <bhutchings <at> solarflare.com> writes:
 
-If netback does not support this feature, it falls back to use single event
-channel.
+> 
+> From:  Daniel Pieczko <dpieczko <at> solarflare.com>
+> 
+> On POWER systems, DMA mapping/unmapping operations are very expensive.
+> These changes reduce these costs by trying to reuse DMA mapped pages.
+> 
+> After all the buffers associated with a page have been processed and
+> passed up, the page is placed into a ring (if there is room).  For
+> each page that is required for a refill operation, a page in the ring
+> is examined to determine if its page count has fallen to 1, ie. the
+> kernel has released its reference to these packets.  If this is the
+> case, the page can be immediately added back into the RX descriptor
+> ring, without having to re-map it for DMA.
+> 
+> If the kernel is still holding a reference to this page, it is removed
+> from the ring and unmapped for DMA.  Then a new page, which can
+> immediately be used by RX buffers in the descriptor ring, is allocated
+> and DMA mapped.
+> 
+> The time a page needs to spend in the recycle ring before the kernel
+> has released its page references is based on the number of buffers
+> that use this page.  As large pages can hold more RX buffers, the RX
+> recycle ring can be shorter.  This reduces memory usage on POWER
+> systems, while maintaining the performance gain achieved by recycling
+> pages, following the driver change to pack more than two RX buffers
+> into large pages.
+> 
+> When an IOMMU is not present, the recycle ring can be small to reduce
+> memory usage, since DMA mapping operations are inexpensive.
 
-If netfront fails to setup split event channels, it will try falling back to
-single event channel.
+I'm not sure I agree with the test for whether an IOMMU is present...
 
-Signed-off-by: Wei Liu <wei.liu2@citrix.com>
-Reviewed-by: David Vrabel <david.vrabel@citrix.com>
----
- drivers/net/xen-netfront.c |  178 ++++++++++++++++++++++++++++++++++++--------
- 1 file changed, 149 insertions(+), 29 deletions(-)
+> diff --git a/drivers/net/ethernet/sfc/efx.c 
+b/drivers/net/ethernet/sfc/efx.c
+> index 1213af5..a70c458 100644
+> --- a/drivers/net/ethernet/sfc/efx.c
+> +++ b/drivers/net/ethernet/sfc/efx.c
+[snip]
+> +void efx_init_rx_recycle_ring(struct efx_nic *efx,
+> +			      struct efx_rx_queue *rx_queue)
+> +{
+> +	unsigned int bufs_in_recycle_ring, page_ring_size;
+> +
+> +	/* Set the RX recycle ring size */
+> +#ifdef CONFIG_PPC64
+> +	bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_IOMMU;
+> +#else
+> +	if (efx->pci_dev->dev.iommu_group)
+> +		bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_IOMMU;
+> +	else
+> +		bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_NOIOMMU;
+> +#endif /* CONFIG_PPC64 */
 
-diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
-index 5770e3b..62238a0 100644
---- a/drivers/net/xen-netfront.c
-+++ b/drivers/net/xen-netfront.c
-@@ -85,7 +85,15 @@ struct netfront_info {
- 
- 	struct napi_struct napi;
- 
--	unsigned int evtchn;
-+	/* Split event channels support, tx_* == rx_* when using
-+	 * single event channel.
-+	 */
-+	unsigned int tx_evtchn, rx_evtchn;
-+	unsigned int tx_irq, rx_irq;
-+	/* Only used when split event channels support is enabled */
-+	char tx_irq_name[IFNAMSIZ+4]; /* DEVNAME-tx */
-+	char rx_irq_name[IFNAMSIZ+4]; /* DEVNAME-rx */
-+
- 	struct xenbus_device *xbdev;
- 
- 	spinlock_t   tx_lock;
-@@ -330,7 +338,7 @@ no_skb:
-  push:
- 	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&np->rx, notify);
- 	if (notify)
--		notify_remote_via_irq(np->netdev->irq);
-+		notify_remote_via_irq(np->rx_irq);
- }
- 
- static int xennet_open(struct net_device *dev)
-@@ -623,7 +631,7 @@ static int xennet_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	RING_PUSH_REQUESTS_AND_CHECK_NOTIFY(&np->tx, notify);
- 	if (notify)
--		notify_remote_via_irq(np->netdev->irq);
-+		notify_remote_via_irq(np->tx_irq);
- 
- 	u64_stats_update_begin(&stats->syncp);
- 	stats->tx_bytes += skb->len;
-@@ -1254,23 +1262,35 @@ static int xennet_set_features(struct net_device *dev,
- 	return 0;
- }
- 
--static irqreturn_t xennet_interrupt(int irq, void *dev_id)
-+static irqreturn_t xennet_tx_interrupt(int irq, void *dev_id)
- {
--	struct net_device *dev = dev_id;
--	struct netfront_info *np = netdev_priv(dev);
-+	struct netfront_info *np = dev_id;
-+	struct net_device *dev = np->netdev;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&np->tx_lock, flags);
-+	xennet_tx_buf_gc(dev);
-+	spin_unlock_irqrestore(&np->tx_lock, flags);
- 
--	if (likely(netif_carrier_ok(dev))) {
--		xennet_tx_buf_gc(dev);
--		/* Under tx_lock: protects access to rx shared-ring indexes. */
--		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
-+	return IRQ_HANDLED;
-+}
-+
-+static irqreturn_t xennet_rx_interrupt(int irq, void *dev_id)
-+{
-+	struct netfront_info *np = dev_id;
-+	struct net_device *dev = np->netdev;
-+
-+	if (likely(netif_carrier_ok(dev) &&
-+		   RING_HAS_UNCONSUMED_RESPONSES(&np->rx)))
- 			napi_schedule(&np->napi);
--	}
- 
--	spin_unlock_irqrestore(&np->tx_lock, flags);
-+	return IRQ_HANDLED;
-+}
- 
-+static irqreturn_t xennet_interrupt(int irq, void *dev_id)
-+{
-+	xennet_tx_interrupt(irq, dev_id);
-+	xennet_rx_interrupt(irq, dev_id);
- 	return IRQ_HANDLED;
- }
- 
-@@ -1451,9 +1471,14 @@ static void xennet_disconnect_backend(struct netfront_info *info)
- 	spin_unlock_irq(&info->tx_lock);
- 	spin_unlock_bh(&info->rx_lock);
- 
--	if (info->netdev->irq)
--		unbind_from_irqhandler(info->netdev->irq, info->netdev);
--	info->evtchn = info->netdev->irq = 0;
-+	if (info->tx_irq && (info->tx_irq == info->rx_irq))
-+		unbind_from_irqhandler(info->tx_irq, info);
-+	if (info->tx_irq && (info->tx_irq != info->rx_irq)) {
-+		unbind_from_irqhandler(info->tx_irq, info);
-+		unbind_from_irqhandler(info->rx_irq, info);
-+	}
-+	info->tx_evtchn = info->rx_evtchn = 0;
-+	info->tx_irq = info->rx_irq = 0;
- 
- 	/* End access and free the pages */
- 	xennet_end_access(info->tx_ring_ref, info->tx.sring);
-@@ -1503,12 +1528,82 @@ static int xen_net_read_mac(struct xenbus_device *dev, u8 mac[])
- 	return 0;
- }
- 
-+static int setup_netfront_single(struct netfront_info *info)
-+{
-+	int err;
-+
-+	err = xenbus_alloc_evtchn(info->xbdev, &info->tx_evtchn);
-+	if (err < 0)
-+		goto fail;
-+
-+	err = bind_evtchn_to_irqhandler(info->tx_evtchn,
-+					xennet_interrupt,
-+					0, info->netdev->name, info);
-+	if (err < 0)
-+		goto bind_fail;
-+	info->rx_evtchn = info->tx_evtchn;
-+	info->rx_irq = info->tx_irq = err;
-+
-+	return 0;
-+
-+bind_fail:
-+	xenbus_free_evtchn(info->xbdev, info->tx_evtchn);
-+	info->tx_evtchn = 0;
-+fail:
-+	return err;
-+}
-+
-+static int setup_netfront_split(struct netfront_info *info)
-+{
-+	int err;
-+
-+	err = xenbus_alloc_evtchn(info->xbdev, &info->tx_evtchn);
-+	if (err < 0)
-+		goto fail;
-+	err = xenbus_alloc_evtchn(info->xbdev, &info->rx_evtchn);
-+	if (err < 0)
-+		goto alloc_rx_evtchn_fail;
-+
-+	snprintf(info->tx_irq_name, sizeof(info->tx_irq_name),
-+		 "%s-tx", info->netdev->name);
-+	err = bind_evtchn_to_irqhandler(info->tx_evtchn,
-+					xennet_tx_interrupt,
-+					0, info->tx_irq_name, info);
-+	if (err < 0)
-+		goto bind_tx_fail;
-+	info->tx_irq = err;
-+
-+	snprintf(info->rx_irq_name, sizeof(info->rx_irq_name),
-+		 "%s-rx", info->netdev->name);
-+	err = bind_evtchn_to_irqhandler(info->rx_evtchn,
-+					xennet_rx_interrupt,
-+					0, info->rx_irq_name, info);
-+	if (err < 0)
-+		goto bind_rx_fail;
-+	info->rx_irq = err;
-+
-+	return 0;
-+
-+bind_rx_fail:
-+	unbind_from_irqhandler(info->tx_irq, info);
-+	info->tx_irq = 0;
-+bind_tx_fail:
-+	xenbus_free_evtchn(info->xbdev, info->rx_evtchn);
-+	info->rx_evtchn = 0;
-+alloc_rx_evtchn_fail:
-+	xenbus_free_evtchn(info->xbdev, info->tx_evtchn);
-+	info->tx_evtchn = 0;
-+fail:
-+	return err;
-+}
-+
- static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
- {
- 	struct xen_netif_tx_sring *txs;
- 	struct xen_netif_rx_sring *rxs;
- 	int err;
- 	struct net_device *netdev = info->netdev;
-+	unsigned int feature_split_evtchn;
- 
- 	info->tx_ring_ref = GRANT_INVALID_REF;
- 	info->rx_ring_ref = GRANT_INVALID_REF;
-@@ -1516,6 +1611,12 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
- 	info->tx.sring = NULL;
- 	netdev->irq = 0;
- 
-+	err = xenbus_scanf(XBT_NIL, info->xbdev->otherend,
-+			   "feature-split-event-channels", "%u",
-+			   &feature_split_evtchn);
-+	if (err < 0)
-+		feature_split_evtchn = 0;
-+
- 	err = xen_net_read_mac(dev, netdev->dev_addr);
- 	if (err) {
- 		xenbus_dev_fatal(dev, err, "parsing %s/mac", dev->nodename);
-@@ -1550,22 +1651,23 @@ static int setup_netfront(struct xenbus_device *dev, struct netfront_info *info)
- 		goto grant_rx_ring_fail;
- 	info->rx_ring_ref = err;
- 
--	err = xenbus_alloc_evtchn(dev, &info->evtchn);
-+	if (feature_split_evtchn)
-+		err = setup_netfront_split(info);
-+	/* setup single event channel if
-+	 *  a) feature-split-event-channels == 0
-+	 *  b) feature-split-event-channels == 1 but failed to setup
-+	 */
-+	if (!feature_split_evtchn || (feature_split_evtchn && err))
-+		err = setup_netfront_single(info);
-+
- 	if (err)
- 		goto alloc_evtchn_fail;
- 
--	err = bind_evtchn_to_irqhandler(info->evtchn, xennet_interrupt,
--					0, netdev->name, netdev);
--	if (err < 0)
--		goto bind_fail;
--	netdev->irq = err;
- 	return 0;
- 
- 	/* If we fail to setup netfront, it is safe to just revoke access to
- 	 * granted pages because backend is not accessing it at this point.
- 	 */
--bind_fail:
--	xenbus_free_evtchn(dev, info->evtchn);
- alloc_evtchn_fail:
- 	gnttab_end_foreign_access_ref(info->rx_ring_ref, 0);
- grant_rx_ring_fail:
-@@ -1610,11 +1712,27 @@ again:
- 		message = "writing rx ring-ref";
- 		goto abort_transaction;
- 	}
--	err = xenbus_printf(xbt, dev->nodename,
--			    "event-channel", "%u", info->evtchn);
--	if (err) {
--		message = "writing event-channel";
--		goto abort_transaction;
-+
-+	if (info->tx_evtchn == info->rx_evtchn) {
-+		err = xenbus_printf(xbt, dev->nodename,
-+				    "event-channel", "%u", info->tx_evtchn);
-+		if (err) {
-+			message = "writing event-channel";
-+			goto abort_transaction;
-+		}
-+	} else {
-+		err = xenbus_printf(xbt, dev->nodename,
-+				    "event-channel-tx", "%u", info->tx_evtchn);
-+		if (err) {
-+			message = "writing event-channel-tx";
-+			goto abort_transaction;
-+		}
-+		err = xenbus_printf(xbt, dev->nodename,
-+				    "event-channel-rx", "%u", info->rx_evtchn);
-+		if (err) {
-+			message = "writing event-channel-rx";
-+			goto abort_transaction;
-+		}
- 	}
- 
- 	err = xenbus_printf(xbt, dev->nodename, "request-rx-copy", "%u",
-@@ -1727,7 +1845,9 @@ static int xennet_connect(struct net_device *dev)
- 	 * packets.
- 	 */
- 	netif_carrier_on(np->netdev);
--	notify_remote_via_irq(np->netdev->irq);
-+	notify_remote_via_irq(np->tx_irq);
-+	if (np->tx_irq != np->rx_irq)
-+		notify_remote_via_irq(np->rx_irq);
- 	xennet_tx_buf_gc(dev);
- 	xennet_alloc_rx_buffers(dev);
- 
--- 
-1.7.10.4
+Testing for an iommu_group is more of a test of (is an iommu present && does 
+it support the iommu api && does it support iommu groups && is the device 
+isolatable).  That doesn't seem like what we want here (besides, it's kind 
+of a hacky sidestep to the API which would suggest using iommu_group_get/put 
+here).
+
+We could use iommu_present(&pci_bus_type), which reduces the test to (iommu 
+present && supports iommu api (ie. iommu_ops)).  Better, but I think you 
+really care about an iommu present with dma_ops.  I think we can assume that 
+if an iommu supports iommu_ops, it supports dma_ops, but that still leaves 
+out iommus that do not support iommu_ops.  Do we care about those?
+
+Furthermore, what about cases where an iommu is present, but unused?  For 
+example, iommu=pt (passthrough).  I'd think the driver would want to behave 
+as it would in the non-iommu case in that configuration.  Anyway, I don't 
+think iommu_group is the correct test here.  Thanks,
+
+Alex
