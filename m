@@ -1,10 +1,9 @@
 From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH beta 1] 1/3] mrf24j40: Move
-	INIT_COMPLETION() to before packet transmission
-Date: Tue, 21 May 2013 22:01:18 -0400
-Message-ID: <1369188080-8904-2-git-send-email-alan@signal11.us>
+Subject: [PATCH beta 1] 0/3] Fix race conditions in
+	mrf24j40 interrupts
+Date: Tue, 21 May 2013 22:01:17 -0400
+Message-ID: <1369188080-8904-1-git-send-email-alan@signal11.us>
 References: <CAO+c-UVJQJbmmmCS4hxAEYHKa8gEU1Bs=y+Rv_A75UHeBZxc+w@mail.gmail.com>
-	<1369188080-8904-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -12,7 +11,7 @@ Cc: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>, netdev-u79uwXL29TY7
 	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 To: david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org
 Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <1369188080-8904-1-git-send-email-alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
+In-Reply-To: <CAO+c-UVJQJbmmmCS4hxAEYHKa8gEU1Bs=y+Rv_A75UHeBZxc+w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
 	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
@@ -23,36 +22,21 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel
 Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This avoids a race condition where complete(tx_complete) could be called
-before tx_complete is initialized.
+David Hauweele noticed that the mrf24j40 would hang arbitrarily after some
+period of heavy traffic.  Two race conditions were discovered, and the
+driver was changed to use threaded interrupts, since the enable/disable of
+interrupts in the driver has recently been a lighning rod whenever issues
+arise related to interrupts (costing engineering time), and since threaded
+interrupts are the right way to do it.
 
-Signed-off-by: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
----
- drivers/net/ieee802154/mrf24j40.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Alan Ott (3):
+  mrf24j40: Move INIT_COMPLETION() to before packet transmission
+  mrf24j40: Use threaded IRQ handler
+  mrf24j40: Use level-triggered interrupts
 
-diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
-index 556151d..0ea2a5a 100644
---- a/drivers/net/ieee802154/mrf24j40.c
-+++ b/drivers/net/ieee802154/mrf24j40.c
-@@ -345,6 +345,8 @@ static int mrf24j40_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
- 	if (ret)
- 		goto err;
- 
-+	INIT_COMPLETION(devrec->tx_complete);
-+
- 	/* Set TXNTRIG bit of TXNCON to send packet */
- 	ret = read_short_reg(devrec, REG_TXNCON, &val);
- 	if (ret)
-@@ -355,8 +357,6 @@ static int mrf24j40_tx(struct ieee802154_dev *dev, struct sk_buff *skb)
- 		val |= 0x4;
- 	write_short_reg(devrec, REG_TXNCON, val);
- 
--	INIT_COMPLETION(devrec->tx_complete);
--
- 	/* Wait for the device to send the TX complete interrupt. */
- 	ret = wait_for_completion_interruptible_timeout(
- 						&devrec->tx_complete,
+ drivers/net/ieee802154/mrf24j40.c | 31 +++++++++----------------------
+ 1 file changed, 9 insertions(+), 22 deletions(-)
+
 -- 
 1.7.11.2
 
