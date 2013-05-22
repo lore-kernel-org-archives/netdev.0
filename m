@@ -1,134 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
- macro
-Date: Tue, 21 May 2013 19:01:20 -0700
-Message-ID: <1369188080.3301.268.camel@edumazet-glaptop>
-References: <519B38EC.90401@yandex-team.ru>
-	   <20130521120906.GD3578@linux.vnet.ibm.com>
-	  <1369143885.3301.221.camel@edumazet-glaptop>
-	  <519B8908.9080007@yandex-team.ru>
-	 <1369150693.3301.233.camel@edumazet-glaptop>
-	 <519BB90B.6080706@yandex-team.ru>
+From: Alan Ott <alan@signal11.us>
+Subject: Re: [PATCH beta 1] 0/3] Fix race conditions in mrf24j40 interrupts
+Date: Tue, 21 May 2013 22:03:59 -0400
+Message-ID: <519C278F.5030809@signal11.us>
+References: <CAO+c-UVJQJbmmmCS4hxAEYHKa8gEU1Bs=y+Rv_A75UHeBZxc+w@mail.gmail.com> <1369188080-8904-1-git-send-email-alan@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: paulmck@linux.vnet.ibm.com, Dipankar Sarma <dipankar@in.ibm.com>,
-	zhmurov@yandex-team.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Roman Gushchin <klamm@yandex-team.ru>
+Cc: david@hauweele.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net
+To: Alan Ott <alan@signal11.us>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <519BB90B.6080706@yandex-team.ru>
+In-Reply-To: <1369188080-8904-1-git-send-email-alan@signal11.us>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-21 at 22:12 +0400, Roman Gushchin wrote:
-> > If other rcu accessors have the same problem, a more complete patch is
-> > needed.
-> 
-> [PATCH] rcu: fix a race in rcu lists traverse macros
-> 
-> Some network functions (udp4_lib_lookup2(), for instance) use the
-> rcu lists traverse macros (hlist_nulls_for_each_entry_rcu, for instance)
-> in a way that assumes restarting of a loop. In this case, it is strictly
-> necessary to reread the head->first value from the memory before each scan.
-> Without additional hints, gcc caches this value in a register. In this case,
-> if a cached node is moved to another chain during the scan, we can loop
-> forever getting wrong nulls values and restarting the loop uninterruptedly.
-> 
-> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
-> Reported-by: Boris Zhmurov <zhmurov@yandex-team.ru>
-> ---
->   include/linux/compiler.h      | 6 ++++++
->   include/linux/rculist.h       | 6 ++++--
->   include/linux/rculist_nulls.h | 3 ++-
->   3 files changed, 12 insertions(+), 3 deletions(-)
-> 
-> diff --git a/include/linux/compiler.h b/include/linux/compiler.h
-> index 92669cd..0e05d7c 100644
-> --- a/include/linux/compiler.h
-> +++ b/include/linux/compiler.h
-> @@ -351,6 +351,12 @@ void ftrace_likely_update(struct ftrace_branch_data *f, int val, int expect);
->    */
->   #define ACCESS_ONCE(x) (*(volatile typeof(x) *)&(x))
-> 
-> +/*
-> + * Prevent the compiler from optimizing accesses to structure member.
-> + */
-> +#define GET_STRUCT_FIELD_VOLATILE(struct_ptr, field)		\
-> +	(((volatile typeof(*struct_ptr) *)struct_ptr)->field)
-> +
->   /* Ignore/forbid kprobes attach on very low level functions marked by this attribute: */
->   #ifdef CONFIG_KPROBES
->   # define __kprobes	__attribute__((__section__(".kprobes.text")))
-> diff --git a/include/linux/rculist.h b/include/linux/rculist.h
-> index 8089e35..6c3eea7 100644
-> --- a/include/linux/rculist.h
-> +++ b/include/linux/rculist.h
-> @@ -282,7 +282,8 @@ static inline void list_splice_init_rcu(struct list_head *list,
->    * as long as the traversal is guarded by rcu_read_lock().
->    */
->   #define list_for_each_entry_rcu(pos, head, member) \
-> -	for (pos = list_entry_rcu((head)->next, typeof(*pos), member); \
-> +	for (pos = list_entry_rcu(GET_STRUCT_FIELD_VOLATILE(head, next), \
-> +				  typeof(*pos), member); \
->   		&pos->member != (head); \
->   		pos = list_entry_rcu(pos->member.next, typeof(*pos), member))
-> 
-> @@ -348,7 +349,8 @@ static inline void hlist_replace_rcu(struct hlist_node *old,
->   /*
->    * return the first or the next element in an RCU protected hlist
->    */
-> -#define hlist_first_rcu(head)	(*((struct hlist_node __rcu **)(&(head)->first)))
-> +#define hlist_first_rcu(head)	(*((struct hlist_node __rcu **)		\
-> +				   (&GET_STRUCT_FIELD_VOLATILE(head, first))))
->   #define hlist_next_rcu(node)	(*((struct hlist_node __rcu **)(&(node)->next)))
->   #define hlist_pprev_rcu(node)	(*((struct hlist_node __rcu **)((node)->pprev)))
-> 
-> diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
-> index 2ae1371..b04fd0a 100644
-> --- a/include/linux/rculist_nulls.h
-> +++ b/include/linux/rculist_nulls.h
-> @@ -38,7 +38,8 @@ static inline void hlist_nulls_del_init_rcu(struct hlist_nulls_node *n)
->   }
-> 
->   #define hlist_nulls_first_rcu(head) \
-> -	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
-> +	(*((struct hlist_nulls_node __rcu __force **)	\
-> +	   &(GET_STRUCT_FIELD_VOLATILE(head, first))))
-> 
->   #define hlist_nulls_next_rcu(node) \
->   	(*((struct hlist_nulls_node __rcu __force **)&(node)->next))
+On 05/21/2013 10:01 PM, Alan Ott wrote:
+> David Hauweele noticed that the mrf24j40 would hang arbitrarily after some
+> period of heavy traffic.  Two race conditions were discovered, and the
+> driver was changed to use threaded interrupts, since the enable/disable of
+> interrupts in the driver has recently been a lighning rod whenever issues
+> arise related to interrupts (costing engineering time), and since threaded
+> interrupts are the right way to do it.
+>
+> Alan Ott (3):
+>   mrf24j40: Move INIT_COMPLETION() to before packet transmission
+>   mrf24j40: Use threaded IRQ handler
+>   mrf24j40: Use level-triggered interrupts
+>
+>  drivers/net/ieee802154/mrf24j40.c | 31 +++++++++----------------------
+>  1 file changed, 9 insertions(+), 22 deletions(-)
 
-Please use ACCESS_ONCE(), which is the standard way to deal with this,
-and remove the rcu_dereference_raw() in 
-hlist_nulls_for_each_entry_rcu()
-
-something like : (for the nulls part only)
-
-diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
-index 2ae1371..1d485d3 100644
---- a/include/linux/rculist_nulls.h
-+++ b/include/linux/rculist_nulls.h
-@@ -40,6 +40,9 @@ static inline void hlist_nulls_del_init_rcu(struct hlist_nulls_node *n)
- #define hlist_nulls_first_rcu(head) \
- 	(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
- 
-+#define hlist_nulls_first_rcu_once(head) \
-+	ACCESS_ONCE(*((struct hlist_nulls_node __rcu __force **)&(head)->first))
-+
- #define hlist_nulls_next_rcu(node) \
- 	(*((struct hlist_nulls_node __rcu __force **)&(node)->next))
- 
-@@ -107,7 +110,7 @@ static inline void hlist_nulls_add_head_rcu(struct hlist_nulls_node *n,
-  *
-  */
- #define hlist_nulls_for_each_entry_rcu(tpos, pos, head, member)                        \
--	for (pos = rcu_dereference_raw(hlist_nulls_first_rcu(head));            \
-+	for (pos = hlist_nulls_first_rcu_once(head);                            \
- 		(!is_a_nulls(pos)) &&                                           \
- 		({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1; }); \
-                pos = rcu_dereference_raw(hlist_nulls_next_rcu(pos)))
+I forgot to add, I ran ping -f both ways all afternoon (6.5 hours), and
+it seems solid.
