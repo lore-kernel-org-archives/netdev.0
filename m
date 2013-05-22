@@ -1,70 +1,80 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: GRE+XFRM+GSO crashes
-Date: Wed, 22 May 2013 14:09:48 +0300
-Message-ID: <20130522140948.3e3ad94e@vostro>
-References: <20130520094127.546a2f3e@vostro>
-	<CALnjE+qgOQUDm_gAuygpDE5VH23YS0i3QyQuCVPhgu15=jwXWw@mail.gmail.com>
-	<20130521110132.37dc2665@vostro>
-	<CALnjE+qOf2pxzP0-7s4AsSNDbG5M5s8bXFDqYoD-5NgmtKYixA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH next-next v4 1/2] net: Use 16bits for inner_*_headers
+ fields of struct skbuff
+Date: Wed, 22 May 2013 04:32:06 -0700
+Message-ID: <1369222326.3301.301.camel@edumazet-glaptop>
+References: <1369205836-9407-1-git-send-email-horms@verge.net.au>
+	 <1369205836-9407-2-git-send-email-horms@verge.net.au>
+	 <alpine.GSO.2.00.1305220923130.11532@git.silcnet.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Pravin Shelar <pshelar@nicira.com>
+Cc: Simon Horman <horms@verge.net.au>, dev@openvswitch.org,
+	netdev@vger.kernel.org, Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	jarno.rajahalme@nsn.com,
+	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Pekka Riikonen <priikone@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:64117 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754174Ab3EVLIO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 07:08:14 -0400
-Received: by mail-ea0-f180.google.com with SMTP id g10so1039625eak.39
-        for <netdev@vger.kernel.org>; Wed, 22 May 2013 04:08:12 -0700 (PDT)
-In-Reply-To: <CALnjE+qOf2pxzP0-7s4AsSNDbG5M5s8bXFDqYoD-5NgmtKYixA@mail.gmail.com>
+Received: from mail-da0-f46.google.com ([209.85.210.46]:42229 "EHLO
+	mail-da0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753608Ab3EVLcI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 07:32:08 -0400
+Received: by mail-da0-f46.google.com with SMTP id e20so1093975dak.19
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 04:32:07 -0700 (PDT)
+In-Reply-To: <alpine.GSO.2.00.1305220923130.11532@git.silcnet.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 May 2013 15:32:35 -0700
-Pravin Shelar <pshelar@nicira.com> wrote:
-
-> On Tue, May 21, 2013 at 1:01 AM, Timo Teras <timo.teras@iki.fi> wrote:
-> > On Mon, 20 May 2013 10:58:03 -0700
-> > Pravin Shelar <pshelar@nicira.com> wrote:
-> >
-> >> On Sun, May 19, 2013 at 11:41 PM, Timo Teras <timo.teras@iki.fi>
-> >> wrote:
-> >> > Since upgrade from 3.8 to 3.9 I've started getting the below
-> >> > mentioned BUG crashes. One of the few relevant changes seems to
-> >> > be GSO support in GRE driver.
-> >> >
-> >> > Turning off SG (and GSO) seems to make these crashes disappear.
-> >> >
-> >> > The basic setup is:
-> >> > - gre1 is an NBMA tunnel (no explicit destination, nor bound
-> >> >   target interface; opennhrp daemon creates neigh mappings)
-> >> > - IPsec policy to encrypt all GRE traffic in transport mode
-> >> > - VIA Padlock hardware for AES acceleration
-> >> > - GRE traffic goes to r8169 NIC; rx on, gro on, tx off, sg off,
-> >> > gso off
-> >> >
-> >> > Incidentally, when I tried exact same setup ran as virtualized, I
-> >> > was unable to reproduce this crash. I suspect it depends on the
-> >> > target NIC acceleration capabilities.
-> >> >
-> >> I do not have access to this hardware, can you tell me what are
-> >> target device capabilities?
-> >
-> > The physical hardware from which the OOPS is from:
-> >[snip]
+On Wed, 2013-05-22 at 09:25 +0200, Pekka Riikonen wrote:
+> On Wed, 22 May 2013, Simon Horman wrote:
 > 
-> OK. I am still not able to reproduce it, Can you try attached patch?
-> if that works, I will send out proper patch.
+> > include/linux/skbuff.h | 63 +++++++-------------------------------------------
+> > 1 file changed, 8 insertions(+), 55 deletions(-)
+> >
+> > diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> > index 2e0ced1..3791615 100644
+> > --- a/include/linux/skbuff.h
+> > +++ b/include/linux/skbuff.h
+> > @@ -509,9 +509,9 @@ struct sk_buff {
+> > 		__u32		reserved_tailroom;
+> > 	};
+> >
+> > -	sk_buff_data_t		inner_transport_header;
+> > -	sk_buff_data_t		inner_network_header;
+> > -	sk_buff_data_t		inner_mac_header;
+> > +	__u16			inner_transport_header;
+> > +	__u16			inner_network_header;
+> > +	__u16			inner_mac_header;
+> > 	sk_buff_data_t		transport_header;
+> > 	sk_buff_data_t		network_header;
+> > 	sk_buff_data_t		mac_header;
+> >
+> Why not take one more step and use 16-bit fields for the other header 
+> fields too: transport_header, network_header and mac_header?
 
-No. Seems this is not GSO related at all, after all. I was unable to
-reliably reproduce this oops originally and for some weird reason it
-happened only with GSO and this specific hardware. I finally
-pinpointed a way to trigger this reliably, and it does happen without
-GSO too.
+Thats more risky [1], but definitely worth doing
 
-I'm pretty sure I've pinpointed the commit breaking things, and have a
-fix already building. Will post it after testing.
+[1] 
+commit 50bceae9bd3569d56744882f3012734d48a1d413
+Author: Thomas Graf <tgraf@suug.ch>
+Date:   Thu Apr 11 10:57:18 2013 +0000
 
-Thanks for the help anyways.
+    tcp: Reallocate headroom if it would overflow csum_start
+    
+    If a TCP retransmission gets partially ACKed and collapsed multiple
+    times it is possible for the headroom to grow beyond 64K which will
+    overflow the 16bit skb->csum_start which is based on the start of
+    the headroom. It has been observed rarely in the wild with IPoIB due
+    to the 64K MTU.
+    
+    Verify if the acking and collapsing resulted in a headroom exceeding
+    what csum_start can cover and reallocate the headroom if so.
+    
+    A big thank you to Jim Foraker <foraker1@llnl.gov> and the team at
+    LLNL for helping out with the investigation and testing.
+    
+    Reported-by: Jim Foraker <foraker1@llnl.gov>
+    Signed-off-by: Thomas Graf <tgraf@suug.ch>
+    Acked-by: Eric Dumazet <edumazet@google.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
