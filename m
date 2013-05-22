@@ -1,52 +1,39 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH net] vxlan: revert per-vxlan port
-Date: Wed, 22 May 2013 19:18:12 -0400
-Message-ID: <OFB688A387.A3698315-ON85257B73.007C1B7B-85257B73.00800294@us.ibm.com>
-References: <20130520103017.054ae605@nehalam.linuxnetplumber.net>	<OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com>
-	<20130520113000.0057ce90@nehalam.linuxnetplumber.net> <20130522.150830.1305371698781503084.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: question on pktgen shutdown logic.
+Date: Wed, 22 May 2013 16:22:01 -0700
+Message-ID: <1369264921.3301.370.camel@edumazet-glaptop>
+References: <519D519B.8040406@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	stephen@networkplumber.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:44870 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754670Ab3EVXST (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 May 2013 19:18:19 -0400
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Wed, 22 May 2013 19:18:18 -0400
-In-Reply-To: <20130522.150830.1305371698781503084.davem@davemloft.net>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:52553 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754726Ab3EVXWD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 19:22:03 -0400
+Received: by mail-pd0-f175.google.com with SMTP id 6so1893301pdd.20
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 16:22:02 -0700 (PDT)
+In-Reply-To: <519D519B.8040406@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote on 05/22/2013 06:08:30 PM:
+On Wed, 2013-05-22 at 16:15 -0700, Ben Greear wrote:
+> While looking at pktgen.c in 3.9.3, I cannot explain how
+> it does not race on shutdown.
+> 
+> The thread worker checks for pktgen_exiting, and will bail out
+> of it's main loop and initiate cleanup if this is true.
+> 
+> The pg_net_exit sets the pktgen_exiting to true, and then
+> proceedes to call
+> 
+> 		kthread_stop(t->tsk);
+> 		kfree(t);
+> 
+> What I don't understand is what keeps the kfree(t) from happening
+> before the thread has noticed pktgen_exiting is set and properly
+> bailed out of it's loop and finished cleanup?
 
-> David, please come to some kind of agreement with Stephen about what
-> we're going to do about this.
-
-Well, I think being able to specify an alternate port for the
-default fdb entry is a useful feature in its own right. It is
-not equivalent to individual fdb entries with alternate ports
-because those require the host to know all the destinations in
-advance. It's certainly reasonable to use an alternate port for
-the default entry as well, and is not "useless" without multiple
-listen ports; it is as useful for the default port as it is for
-individual fdb entries.
-
-I'm not sure what the benefit of reverting any working feature
-is, only to re-add it later, which I believe is what Stephen
-is proposing. I think it is useful for some configurations now,
-even if it only becomes useful for other configurations after
-multiple listen ports.
-
-Stephen, can you explain what the benefit of reverting this is?
-
-I think we want it long term, but I can live without it
-temporarily. I just don't see any reasoning for removing it
-temporarily in the first place. It isn't broken, or breaking
-anything else, after all.
-
-                                                +-DLS
+kthread_stop() is synchronous.
