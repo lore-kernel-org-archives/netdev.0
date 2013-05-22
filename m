@@ -1,37 +1,44 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [Patch net-next] ipv6: use ipv6_addr_any() helper
-Date: Wed, 22 May 2013 18:06:38 +0200
-Message-ID: <519CED0E.9050708@6wind.com>
-References: <1369237266-21742-1-git-send-email-xiyou.wangcong@gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 1/4] bnx2x: Add Private Flags Support
+Date: Wed, 22 May 2013 17:08:17 +0100
+Message-ID: <1369238897.2670.11.camel@bwh-desktop.uk.level5networks.com>
+References: <1369225359-5578-1-git-send-email-yuvalmin@broadcom.com>
+	 <1369225359-5578-2-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<ariele@broadcom.com>, <eilong@broadcom.com>
+To: Yuval Mintz <yuvalmin@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:54801 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956Ab3EVQGo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 12:06:44 -0400
-Received: by mail-we0-f169.google.com with SMTP id q55so1423512wes.0
-        for <netdev@vger.kernel.org>; Wed, 22 May 2013 09:06:43 -0700 (PDT)
-In-Reply-To: <1369237266-21742-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:42875 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752176Ab3EVQIU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 12:08:20 -0400
+In-Reply-To: <1369225359-5578-2-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 22/05/2013 17:41, Cong Wang a =C3=A9crit :
-> From: Cong Wang <xiyou.wangcong@gmail.com>
->
-> ipv6_addr_any() is a faster way to determine if an addr
-> is ipv6 any addr, no need to compute the addr type.
->
-> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
->
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Wed, 2013-05-22 at 15:22 +0300, Yuval Mintz wrote:
+> Utilize ethtool's callback `get_priv_flags' - shed more light on the
+> feasibility of devices as storage interfaces.
+[...]
+> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+[...]
+> +static const char bnx2x_private_arr[BNX2X_PRI_FLAG_LEN][ETH_GSTRING_LEN] = {
+> +	"iSCSI offload support ",
+> +	"FCoE offload support  ",
+> +	"Storage only interface"
+> +};
+[...]
+
+No trailing spaces, please.  If you don't like the way private flags are
+printed by ethtool, send a patch for ethtool.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
