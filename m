@@ -1,46 +1,61 @@
-From: Andy Johnson <johnsonzjo@gmail.com>
-Subject: Rtnelink and notifcations: a question.
-Date: Wed, 22 May 2013 09:13:36 +0300
-Message-ID: <CAF0Lin08QxdKRTXUJOuHeRBwfueUks0Scrx+c5FjZmA_4+FNSA@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH V2] virtio_net: enable napi for all possible queues during open
+Date: Wed, 22 May 2013 14:03:58 +0800
+Message-ID: <1369202638-17660-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f46.google.com ([74.125.82.46]:38713 "EHLO
-	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754282Ab3EVGNh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 02:13:37 -0400
-Received: by mail-wg0-f46.google.com with SMTP id l18so806351wgh.25
-        for <netdev@vger.kernel.org>; Tue, 21 May 2013 23:13:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
+To: rusty@rustcorp.com.au, mst@redhat.com,
+	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hello,
+Commit 55257d72bd1c51f25106350f4983ec19f62ed1fa (virtio-net: fill only rx
+queues which are being used) only does the napi enabling during open for
+curr_queue_pairs. This will break multiqueue receiving since napi of new queues
+were still disabled after changing the number of queues.
 
-This is a theoretical question (sorry,-)). I was wondering why do we
-need both rtnetlink
-kernel sockets and the notification API ?
-For example,
-in net/core/dev.c,
-we use notification to send NETDEV_REGISTER event notification in:
-call_netdevice_notifiers(NETDEV_REGISTER, dev);
-and we use the rtnetlink to send RTM_NEWLINK message:
-rtmsg_ifinfo(RTM_NEWLINK,...);
+This patch fixes this by enabling napi for all possible queues during open.
 
+Cc: Sasha Levin <sasha.levin@oracle.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+Changes from V1:
+- enable napi in open instead of virtnet_set_queues() to avoid kernel BUG() when
+trying to do napi_enable() for a already enabled queue
+---
+ drivers/net/virtio_net.c |    9 +++++----
+ 1 files changed, 5 insertions(+), 4 deletions(-)
 
-Is it possible to use only the rtnetlink API and to send events like
-NETDEV_REGISTER with rtnetlink methods ?
-
-Or is there something inherent with rtnetlink/notification that
-prevents implementing in
-this way ?
-
-I believe that the other way (solely using notification API) is not
-possible because
-we need to support getting messages
-from userspace (for example, with the iproute package).
-
-
-
-Regards,
-Andy
+diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+index 2d6abac..241527d 100644
+--- a/drivers/net/virtio_net.c
++++ b/drivers/net/virtio_net.c
+@@ -636,10 +636,11 @@ static int virtnet_open(struct net_device *dev)
+ 	struct virtnet_info *vi = netdev_priv(dev);
+ 	int i;
+ 
+-	for (i = 0; i < vi->curr_queue_pairs; i++) {
+-		/* Make sure we have some buffers: if oom use wq. */
+-		if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
+-			schedule_delayed_work(&vi->refill, 0);
++	for (i = 0; i < vi->max_queue_pairs; i++) {
++		if (i < vi->curr_queue_pairs)
++			/* Make sure we have some buffers: if oom use wq. */
++			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
++				schedule_delayed_work(&vi->refill, 0);
+ 		virtnet_napi_enable(&vi->rq[i]);
+ 	}
+ 
+-- 
+1.7.1
