@@ -1,50 +1,49 @@
-From: Wei Liu <liuw@liuw.name>
-Subject: Re: [Xen-devel] [PATCH net-next V3 2/3] xen-netfront: split event
- channels support for Xen frontend driver
-Date: Wed, 22 May 2013 21:20:37 +0100
-Message-ID: <CAOsiSVXptBRRA=m3HFnO7eQWjxN_wgfzAcvw+rPebOPH9mRjXg@mail.gmail.com>
-References: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com>
- <1369240487-18834-3-git-send-email-wei.liu2@citrix.com> <519D1D61.8030500@oracle.com>
+From: David Hauweele <david@hauweele.net>
+Subject: Re: [PATCH beta 1] 0/3] Fix race conditions in mrf24j40 interrupts
+Date: Wed, 22 May 2013 22:32:15 +0200
+Message-ID: <CAO+c-UV1bZZEE=9=7VVn3f1eLWzCpYCK9eZnnvzNwcPOKKtKLA@mail.gmail.com>
+References: <CAO+c-UVJQJbmmmCS4hxAEYHKa8gEU1Bs=y+Rv_A75UHeBZxc+w@mail.gmail.com>
+	<1369188080-8904-1-git-send-email-alan@signal11.us>
+	<519C278F.5030809@signal11.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Wei Liu <wei.liu2@citrix.com>,
-	Ian Campbell <ian.campbell@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	David Vrabel <david.vrabel@citrix.com>, jbeulich@suse.com
-To: annie li <annie.li@oracle.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f176.google.com ([74.125.82.176]:59618 "EHLO
-	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753849Ab3EVUVJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 16:21:09 -0400
-Received: by mail-we0-f176.google.com with SMTP id p58so1553646wes.21
-        for <netdev@vger.kernel.org>; Wed, 22 May 2013 13:21:07 -0700 (PDT)
-In-Reply-To: <519D1D61.8030500@oracle.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net
+To: Alan Ott <alan@signal11.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <519C278F.5030809@signal11.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 22, 2013 at 8:32 PM, annie li <annie.li@oracle.com> wrote:
->
->
-> Originally, netfront protects access to rx shared-ring with tx_lock, you
-> remove this protection here. It is better to protect the ring access by a
-> sperate rx_lock then.
->
+Hello,
 
-TX ring and RX ring are separate rings. I don't think that comment / code
-makes sense any more. My stress test confirms that.
+I cannot use level-triggered interrupts with GPIO on the RPi, so I
+cannot test this specific patch.
+However I agree with the idea of level-triggered interrupts, that
+would fix all major problems related to missed interrupts.
 
+Beside this I'm running a ping -f since more than two hours now and it
+seems to work well.
 
-Wei.
+David
 
-> Thanks
-> Annie
+2013/5/22 Alan Ott <alan@signal11.us>:
+> On 05/21/2013 10:01 PM, Alan Ott wrote:
+>> David Hauweele noticed that the mrf24j40 would hang arbitrarily after some
+>> period of heavy traffic.  Two race conditions were discovered, and the
+>> driver was changed to use threaded interrupts, since the enable/disable of
+>> interrupts in the driver has recently been a lighning rod whenever issues
+>> arise related to interrupts (costing engineering time), and since threaded
+>> interrupts are the right way to do it.
+>>
+>> Alan Ott (3):
+>>   mrf24j40: Move INIT_COMPLETION() to before packet transmission
+>>   mrf24j40: Use threaded IRQ handler
+>>   mrf24j40: Use level-triggered interrupts
+>>
+>>  drivers/net/ieee802154/mrf24j40.c | 31 +++++++++----------------------
+>>  1 file changed, 9 insertions(+), 22 deletions(-)
 >
+> I forgot to add, I ran ping -f both ways all afternoon (6.5 hours), and
+> it seems solid.
 >
->
-> _______________________________________________
-> Xen-devel mailing list
-> Xen-devel@lists.xen.org
-> http://lists.xen.org/xen-devel
