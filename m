@@ -1,145 +1,83 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: [PATCH 5/5] net: Block MSG_CMSG_COMPAT in send(m)msg and recv(m)msg
-Date: Wed, 22 May 2013 14:07:44 -0700
-Message-ID: <aa015609319786835bcab445d507faa75c11f111.1369177867.git.luto@amacapital.net>
-References: <cover.1369177867.git.luto@amacapital.net>
-Cc: x86@kernel.org, trinity@vger.kernel.org,
-	Andy Lutomirski <luto@amacapital.net>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1369177867.git.luto@amacapital.net>
-In-Reply-To: <cover.1369177867.git.luto@amacapital.net>
-References: <cover.1369177867.git.luto@amacapital.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH resend nf-next] netfilter: xt_CT: optimize XT_CT_NOTRACK
+Date: Wed, 22 May 2013 14:10:57 -0700
+Message-ID: <1369257057.3301.367.camel@edumazet-glaptop>
+References: <1368132751.13473.113.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1368132751.13473.113.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-MSG_CMSG_COMPAT is (AFAIK) not intended to be part of the API --
-it's a hack that steals a bit to indicate to other networking code
-that a compat entry was used.  So don't allow it from a non-compat
-syscall.
+From: Eric Dumazet <edumazet@google.com>
 
-This prevents an oops when running this code:
+The percpu untracked ct are not currently used for XT_CT_NOTRACK.
 
-int main()
-{
-	int s;
-	struct sockaddr_in addr;
-	struct msghdr *hdr;
+xt_ct_tg_check()/xt_ct_target() provides a single ct.
 
-	char *highpage = mmap((void*)(TASK_SIZE_MAX - 4096), 4096,
-	                      PROT_READ | PROT_WRITE,
-	                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
-	if (highpage == MAP_FAILED)
-		err(1, "mmap");
+Thats not optimal as the ct->ct_general.use cache line will bounce among
+cpus.
 
-	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-	if (s == -1)
-		err(1, "socket");
+Use the intended [1] thing : xt_ct_target() should select the percpu
+object.
 
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(1);
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	if (connect(s, (struct sockaddr*)&addr, sizeof(addr)) != 0)
-		err(1, "connect");
+[1] Refs :
+commit 5bfddbd46a95c97 ("netfilter: nf_conntrack: IPS_UNTRACKED bit")
+commit b3c5163fe0193a7 ("netfilter: nf_conntrack: per_cpu untracking")
 
-	void *evil = highpage + 4096 - COMPAT_MSGHDR_SIZE;
-	printf("Evil address is %p\n", evil);
-
-	if (syscall(__NR_sendmmsg, s, evil, 1, MSG_CMSG_COMPAT) < 0)
-		err(1, "sendmmsg");
-
-	return 0;
-}
-
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/socket.c | 33 +++++++++++++++++++++++++++++++--
- 1 file changed, 31 insertions(+), 2 deletions(-)
+Sent Thu, 2013-05-09, this is a resend only, no changes
 
-diff --git a/net/socket.c b/net/socket.c
-index 88f759a..0e16888 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -2097,8 +2097,12 @@ SYSCALL_DEFINE3(sendmsg, int, fd, struct msghdr __user *, msg, unsigned int, fla
- {
- 	int fput_needed, err;
- 	struct msghdr msg_sys;
--	struct socket *sock = sockfd_lookup_light(fd, &err, &fput_needed);
-+	struct socket *sock;
-+
-+	if (flags & MSG_CMSG_COMPAT)
-+		return -EINVAL;
+ net/netfilter/xt_CT.c |   10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
+index a60261c..da35ac0 100644
+--- a/net/netfilter/xt_CT.c
++++ b/net/netfilter/xt_CT.c
+@@ -26,6 +26,9 @@ static inline int xt_ct_target(struct sk_buff *skb, struct nf_conn *ct)
+ 	if (skb->nfct != NULL)
+ 		return XT_CONTINUE;
  
-+	sock = sockfd_lookup_light(fd, &err, &fput_needed);
- 	if (!sock)
++	/* special case the untracked ct : we want the percpu object */
++	if (!ct)
++		ct = nf_ct_untracked_get();
+ 	atomic_inc(&ct->ct_general.use);
+ 	skb->nfct = &ct->ct_general;
+ 	skb->nfctinfo = IP_CT_NEW;
+@@ -186,8 +189,7 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
+ 	int ret = -EOPNOTSUPP;
+ 
+ 	if (info->flags & XT_CT_NOTRACK) {
+-		ct = nf_ct_untracked_get();
+-		atomic_inc(&ct->ct_general.use);
++		ct = NULL;
  		goto out;
+ 	}
  
-@@ -2171,6 +2175,8 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
- SYSCALL_DEFINE4(sendmmsg, int, fd, struct mmsghdr __user *, mmsg,
- 		unsigned int, vlen, unsigned int, flags)
- {
-+	if (flags & MSG_CMSG_COMPAT)
-+		return -EINVAL;
- 	return __sys_sendmmsg(fd, mmsg, vlen, flags);
+@@ -311,7 +313,7 @@ static void xt_ct_tg_destroy(const struct xt_tgdtor_param *par,
+ 	struct nf_conn *ct = info->ct;
+ 	struct nf_conn_help *help;
+ 
+-	if (!nf_ct_is_untracked(ct)) {
++	if (ct && !nf_ct_is_untracked(ct)) {
+ 		help = nfct_help(ct);
+ 		if (help)
+ 			module_put(help->helper->me);
+@@ -319,8 +321,8 @@ static void xt_ct_tg_destroy(const struct xt_tgdtor_param *par,
+ 		nf_ct_l3proto_module_put(par->family);
+ 
+ 		xt_ct_destroy_timeout(ct);
++		nf_ct_put(info->ct);
+ 	}
+-	nf_ct_put(info->ct);
  }
  
-@@ -2271,8 +2277,12 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr __user *, msg,
- {
- 	int fput_needed, err;
- 	struct msghdr msg_sys;
--	struct socket *sock = sockfd_lookup_light(fd, &err, &fput_needed);
-+	struct socket *sock;
-+
-+	if (flags & MSG_CMSG_COMPAT)
-+		return -EINVAL;
- 
-+	sock = sockfd_lookup_light(fd, &err, &fput_needed);
- 	if (!sock)
- 		goto out;
- 
-@@ -2397,6 +2407,9 @@ SYSCALL_DEFINE5(recvmmsg, int, fd, struct mmsghdr __user *, mmsg,
- 	int datagrams;
- 	struct timespec timeout_sys;
- 
-+	if (flags & MSG_CMSG_COMPAT)
-+		return -EINVAL;
-+
- 	if (!timeout)
- 		return __sys_recvmmsg(fd, mmsg, vlen, flags, NULL);
- 
-@@ -2512,15 +2525,31 @@ SYSCALL_DEFINE2(socketcall, int, call, unsigned long __user *, args)
- 				   (int __user *)a[4]);
- 		break;
- 	case SYS_SENDMSG:
-+		if (a[2] & MSG_CMSG_COMPAT) {
-+			err = -EINVAL;
-+			break;
-+		}
- 		err = sys_sendmsg(a0, (struct msghdr __user *)a1, a[2]);
- 		break;
- 	case SYS_SENDMMSG:
-+		if (a[3] & MSG_CMSG_COMPAT) {
-+			err = -EINVAL;
-+			break;
-+		}
- 		err = sys_sendmmsg(a0, (struct mmsghdr __user *)a1, a[2], a[3]);
- 		break;
- 	case SYS_RECVMSG:
-+		if (a[2] & MSG_CMSG_COMPAT) {
-+			err = -EINVAL;
-+			break;
-+		}
- 		err = sys_recvmsg(a0, (struct msghdr __user *)a1, a[2]);
- 		break;
- 	case SYS_RECVMMSG:
-+		if (a[3] & MSG_CMSG_COMPAT) {
-+			err = -EINVAL;
-+			break;
-+		}
- 		err = sys_recvmmsg(a0, (struct mmsghdr __user *)a1, a[2], a[3],
- 				   (struct timespec __user *)a[4]);
- 		break;
--- 
-1.8.1.4
+ static void xt_ct_tg_destroy_v0(const struct xt_tgdtor_param *par)
+
+
