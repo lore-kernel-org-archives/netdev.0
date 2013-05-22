@@ -1,61 +1,99 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH v4 06/12] ARM: dove: add gigabit ethernet and mvmdio device
- tree nodes
-Date: Wed, 22 May 2013 19:42:36 +0200
-Message-ID: <519D038C.9000605@gmail.com>
-References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com> <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com> <1369154510-4927-7-git-send-email-sebastian.hesselbarth@gmail.com> <20130521174849.GL26249@lunn.ch> <519C9333.20609@gmail.com> <519C9822.9040909@windriver.com> <519C9A66.3050807@gmail.com> <20130522131010.GB31290@titan.lakedaemon.net> <20130522165908.GB12320@obsidianresearch.com> <519D0143.1000203@gmail.com> <20130522173505.GH31290@titan.lakedaemon.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next 20/22] sfc: reuse pages to avoid DMA
+ mapping/unmapping costs
+Date: Wed, 22 May 2013 18:43:02 +0100
+Message-ID: <1369244582.2670.32.camel@bwh-desktop.uk.level5networks.com>
+References: <1363030400.2608.37.camel@bwh-desktop.uk.solarflarecom.com>
+	 <1363031947.2608.57.camel@bwh-desktop.uk.solarflarecom.com>
+	 <loom.20130522T180718-104@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	"tiejun.chen" <tiejun.chen@windriver.com>,
-	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Jason Cooper <jason@lakedaemon.net>
+Cc: <netdev@vger.kernel.org>, Daniel Pieczko <dpieczko@solarflare.com>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: Alex Williamson <alex.williamson@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f173.google.com ([209.85.215.173]:44110 "EHLO
-	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751915Ab3EVRmk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 13:42:40 -0400
-In-Reply-To: <20130522173505.GH31290@titan.lakedaemon.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:12844 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752049Ab3EVRnH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 13:43:07 -0400
+In-Reply-To: <loom.20130522T180718-104@post.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2013 07:35 PM, Jason Cooper wrote:
-> On Wed, May 22, 2013 at 07:32:51PM +0200, Sebastian Hesselbarth wrote:
->> On 05/22/2013 06:59 PM, Jason Gunthorpe wrote:
->>> On Wed, May 22, 2013 at 09:10:10AM -0400, Jason Cooper wrote:
->>>> iirc, our solution to this was to parse the ATAGs for the mac addr and
->>>> update the appended dtb.  This way, module load and unload would work
->>>> without loosing the mac address.  I believe Jason Gunthorpe has a patch
->>>> to atags_to_fdt() for this...  This should allow us to get rid of the
->>>> clocks hack.
->>>
->>> Sorry, no, we don't use ATAGs here, our platforms start the kernel
->>> with a correct DTB that has the correct mac address to use. My patch
->>> was to have the driver accept it, and I think Sebastian has already
->>> got that functionality...
->>
->> Not neccessary anyway, after talking Jason C in a Kirkwood-only
->> workaround I prepared a patch that reads mac address registers early
->> and stores it in the local-mac-address property.
->
-> Sweet!
->
->> Just tested on Dockstar with gated clocks and modular DT mv643xx_eth.
->>
->> Will append to the DT mv643xx_eth patch set if a v5 will be required
->> or as single patch prior Jason C taking in the ARM part of it
->> otherwise.
->
-> Please post, in-reply-to v4 is fine.
+On Wed, 2013-05-22 at 16:29 +0000, Alex Williamson wrote:
+> Ben Hutchings <bhutchings <at> solarflare.com> writes:
+> 
+> > 
+> > From:  Daniel Pieczko <dpieczko <at> solarflare.com>
+> > 
+> > On POWER systems, DMA mapping/unmapping operations are very expensive.
+> > These changes reduce these costs by trying to reuse DMA mapped pages.
+[...]
+> > When an IOMMU is not present, the recycle ring can be small to reduce
+> > memory usage, since DMA mapping operations are inexpensive.
+> 
+> I'm not sure I agree with the test for whether an IOMMU is present...
+> 
+> > diff --git a/drivers/net/ethernet/sfc/efx.c 
+> b/drivers/net/ethernet/sfc/efx.c
+> > index 1213af5..a70c458 100644
+> > --- a/drivers/net/ethernet/sfc/efx.c
+> > +++ b/drivers/net/ethernet/sfc/efx.c
+> [snip]
+> > +void efx_init_rx_recycle_ring(struct efx_nic *efx,
+> > +			      struct efx_rx_queue *rx_queue)
+> > +{
+> > +	unsigned int bufs_in_recycle_ring, page_ring_size;
+> > +
+> > +	/* Set the RX recycle ring size */
+> > +#ifdef CONFIG_PPC64
+> > +	bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_IOMMU;
+> > +#else
+> > +	if (efx->pci_dev->dev.iommu_group)
+> > +		bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_IOMMU;
+> > +	else
+> > +		bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_NOIOMMU;
+> > +#endif /* CONFIG_PPC64 */
+> 
+> Testing for an iommu_group is more of a test of (is an iommu present && does 
+> it support the iommu api && does it support iommu groups && is the device 
+> isolatable).  That doesn't seem like what we want here (besides, it's kind 
+> of a hacky sidestep to the API which would suggest using iommu_group_get/put 
+> here).
 
-Hmm, maybe a little bit too early. While restoring the MAC address now
-works, another bug arises which I guess is related with phy setup
-and aneg.
+Since we don't try to use the iommu_group itself, those functions don't
+seem to be appropriate.
 
-Will investigate and update patch set accordingly.
+> We could use iommu_present(&pci_bus_type), which reduces the test to (iommu 
+> present && supports iommu api (ie. iommu_ops)).
 
-Sebastian
+That's the test we use OOT for older kernel version.  However I advised
+Daniel, apparently wrongly, that testing iommu_group would now be more
+accurate.
+
+> Better, but I think you 
+> really care about an iommu present with dma_ops.  I think we can assume that 
+> if an iommu supports iommu_ops, it supports dma_ops, but that still leaves 
+> out iommus that do not support iommu_ops.  Do we care about those?
+
+Unfortunately the pSeries IOMMU code doesn't support iommu_ops yet, and
+that is precisely the case where DMA map/unmap operations are most
+expensive (that we've seen).
+
+> Furthermore, what about cases where an iommu is present, but unused?  For 
+> example, iommu=pt (passthrough).  I'd think the driver would want to behave 
+> as it would in the non-iommu case in that configuration.  Anyway, I don't 
+> think iommu_group is the correct test here.  Thanks,
+
+Right.  The real question the driver should ask is: 'will DMA-mapping/
+unmapping for this device be significantly slower than DMA-syncing?'  We
+don't yet have a way to ask that; maybe that should be added to the DMA
+API.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
