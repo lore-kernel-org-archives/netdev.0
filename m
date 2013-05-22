@@ -1,34 +1,49 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH] MIPS: OCTEON: Rename Kconfig
- CAVIUM_OCTEON_REFERENCE_BOARD to CAVIUM_OCTEON_SOC
-Date: Wed, 22 May 2013 19:14:46 +0200
-Message-ID: <20130522171446.GF10769@linux-mips.org>
-References: <1369088378-13957-1-git-send-email-ddaney.cavm@gmail.com>
- <20130521220457.GF31836@blackmetal.musicnaut.iki.fi>
- <519BF01B.1010600@caviumnetworks.com>
- <20130522122232.GD10769@linux-mips.org>
- <519CEEBE.5020403@caviumnetworks.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: possible bug in IPv6 MLD retransmissions
+Date: Wed, 22 May 2013 14:27:11 -0300
+Message-ID: <20130522172711.GC17240@obelix.rh>
+References: <20130517032449.GA3595@obelix.rh>
+ <20130518173105.GD29528@order.stressinduktion.org>
+ <20130521150616.GA8513@obelix.rh>
+ <20130522004027.GD32093@order.stressinduktion.org>
+ <OF1A7F184A.4282AFE8-ON85257B73.003E82A8-85257B73.003F3B88@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Aaro Koskinen <aaro.koskinen@iki.fi>,
-	David Daney <ddaney.cavm@gmail.com>, linux-mips@linux-mips.org,
-	David Daney <david.daney@cavium.com>,
-	linux-ide@vger.kernel.org, linux-edac@vger.kernel.org,
-	linux-i2c@vger.kernel.org, netdev@vger.kernel.org,
-	spi-devel-general@lists.sourceforge.net,
-	devel@driverdev.osuosl.org, linux-usb@vger.kernel.org
-To: David Daney <ddaney@caviumnetworks.com>
-Return-path: <linux-ide-owner@vger.kernel.org>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+To: David Stevens <dlstevens@us.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:30417 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756258Ab3EVR22 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 May 2013 13:28:28 -0400
 Content-Disposition: inline
-In-Reply-To: <519CEEBE.5020403@caviumnetworks.com>
-Sender: linux-ide-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <OF1A7F184A.4282AFE8-ON85257B73.003E82A8-85257B73.003F3B88@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 22, 2013 at 09:13:50AM -0700, David Daney wrote:
+On Wed, May 22, 2013 at 07:30:39AM -0400, David Stevens wrote:
+> First, I wouldn't call this a "bug"; it is listed as a "SHOULD", not a 
+> "MUST",  so
+> it is not required for compliance, though it is a good feature to add.
+> 
+> Second, I think doing this on all LL addresses unconditionally isn't a 
+> good
+> idea. If some configuration is using thousands of LL addrs for reasons of 
+> their
+> own, they would suddenly be blasted with unexpected MLD reports where
+> they have none now. I don't see why tracking it would be such a problem --
+> if nothing else, you could simply add a counter for the number of valid LL 
+> addrs
+> incremented on DAD completion, and send these whenever it transitions from 
+> 0 to 1.
 
-> Can you take v2 instead?  It has the missing watchdog adjustment
-> that is not in v1.
+It becomes a bug (and that's why I started with 'possible') if dad
+completes after the two MLD reports sent with ``::'' source, because
+routers will ignore those initial reports and the system is left out.
 
-Done.
-
-  Ralf
+Thanks,
+-- 
+fbl
