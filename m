@@ -1,62 +1,83 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCHv2 net-next] bridge: Set vlan_features to allow
-	offloads on vlans.
-Date: Wed, 22 May 2013 13:49:34 -0400
-Message-ID: <1369244974-10160-1-git-send-email-vyasevic@redhat.com>
-Cc: Vlad Yasevich <vyasevic@redhat.com>, bridge@lists.linux-foundation.org
-To: netdev@vger.kernel.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/2] ipvs: Fix reuse connection if real server is dead
+Date: Wed, 22 May 2013 22:11:35 +0400
+Message-ID: <519D0A57.7010204@cogentembedded.com>
+References: <1369202209-18570-1-git-send-email-horms@verge.net.au> <1369202209-18570-3-git-send-email-horms@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
+	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1369202209-18570-3-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When vlan device is configured on top of the brige, it does
-not support any offload capabilities because the bridge
-device does not initiliaze vlan_fatures.  Set vlan_fatures to
-be equivalent to hw_fatures.
+Hello.
 
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- net/bridge/br_device.c |   13 +++++++------
- 1 files changed, 7 insertions(+), 6 deletions(-)
+On 22-05-2013 9:56, Simon Horman wrote:
 
-diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-index 9673128..75f3239 100644
---- a/net/bridge/br_device.c
-+++ b/net/bridge/br_device.c
-@@ -22,6 +22,9 @@
- #include <asm/uaccess.h>
- #include "br_private.h"
- 
-+#define COMMON_FEATURES (NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA | \
-+			 NETIF_F_GSO_MASK | NETIF_F_HW_CSUM)
-+
- /* net device transmit always called with BH disabled */
- netdev_tx_t br_dev_xmit(struct sk_buff *skb, struct net_device *dev)
- {
-@@ -346,12 +349,10 @@ void br_dev_setup(struct net_device *dev)
- 	dev->tx_queue_len = 0;
- 	dev->priv_flags = IFF_EBRIDGE;
- 
--	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
--			NETIF_F_GSO_MASK | NETIF_F_HW_CSUM | NETIF_F_LLTX |
--			NETIF_F_NETNS_LOCAL | NETIF_F_HW_VLAN_CTAG_TX;
--	dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
--			   NETIF_F_GSO_MASK | NETIF_F_HW_CSUM |
--			   NETIF_F_HW_VLAN_CTAG_TX;
-+	dev->features = COMMON_FEATURES | NETIF_F_LLTX | NETIF_F_NETNS_LOCAL |
-+			NETIF_F_HW_VLAN_CTAG_TX;
-+	dev->hw_features = COMMON_FEATURES | NETIF_F_HW_VLAN_CTAG_TX;
-+	dev->vlan_features = COMMON_FEATURES;
- 
- 	br->dev = dev;
- 	spin_lock_init(&br->lock);
--- 
-1.7.7.6
+> From: Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
+
+> Expire cached connection for new TCP/SCTP connection if real server is down
+
+> Signed-off-by: Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
+> Acked-by Hans Schillstrom <hans@schillstrom.com>
+
+    Missing :.
+
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> ---
+>   net/netfilter/ipvs/ip_vs_core.c | 36 ++++++++++++++++++++++++++++++++++++
+>   1 file changed, 36 insertions(+)
+
+> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
+> index 085b588..7967d12 100644
+> --- a/net/netfilter/ipvs/ip_vs_core.c
+> +++ b/net/netfilter/ipvs/ip_vs_core.c
+> @@ -1001,6 +1001,33 @@ static inline int is_tcp_reset(const struct sk_buff *skb, int nh_len)
+>   	return th->rst;
+>   }
+>
+> +static inline bool is_new_conn(const struct sk_buff *skb,
+> +			       struct ip_vs_iphdr *iph)
+> +{
+> +	switch (iph->protocol) {
+> +	case IPPROTO_TCP: {
+> +		struct tcphdr _tcph, *th;
+> +
+> +		th = skb_header_pointer(skb, iph->len, sizeof(_tcph), &_tcph);
+> +		if (th == NULL)
+> +			return false;
+> +		return th->syn;
+> +	}
+> +	case IPPROTO_SCTP: {
+> +		sctp_chunkhdr_t *sch, schunk;
+> +
+> +		sch = skb_header_pointer(skb, iph->len + sizeof(sctp_sctphdr_t),
+> +				sizeof(schunk), &schunk);
+
+    This line should be aligned under the next character after (.
+
+> +		if (sch == NULL)
+> +			return false;
+> +		return (sch->type == SCTP_CID_INIT);
+
+    () not needed.
+
+> +	}
+> +	default:
+> +		return false;
+> +	}
+> +}
+> +
+> +
+
+    Too many empty lines?
+
+WBR, Sergei
+
