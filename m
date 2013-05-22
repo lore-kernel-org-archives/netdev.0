@@ -1,64 +1,51 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [PATCH net-next V3 2/3] xen-netfront: split event channels support
- for Xen frontend driver
-Date: Wed, 22 May 2013 15:32:49 -0400
-Message-ID: <519D1D61.8030500@oracle.com>
-References: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com> <1369240487-18834-3-git-send-email-wei.liu2@citrix.com>
+From: Ricardo =?utf-8?b?VHViw61v?= <rtpardavila@gmail.com>
+Subject: Re: Single socket with =?utf-8?b?VFhfUklORw==?= and =?utf-8?b?UlhfUklORw==?=
+Date: Wed, 22 May 2013 19:36:34 +0000 (UTC)
+Message-ID: <loom.20130522T212418-499@post.gmane.org>
+References: <loom.20130515T144941-798@post.gmane.org> <20130515224452.7CAA6224C4@mail.nwl.cc> <loom.20130516T111446-437@post.gmane.org> <20130516104541.GB18282@orbit.nwl.cc> <loom.20130516T125157-378@post.gmane.org> <519A8D87.6080409@fnac.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org, jbeulich@suse.com,
-	ian.campbell@citrix.com, konrad.wilk@oracle.com,
-	david.vrabel@citrix.com
-To: Wei Liu <wei.liu2@citrix.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:41451 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756139Ab3EVTc3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 15:32:29 -0400
-In-Reply-To: <1369240487-18834-3-git-send-email-wei.liu2@citrix.com>
+Received: from plane.gmane.org ([80.91.229.3]:50188 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756362Ab3EVTgu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 May 2013 15:36:50 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UfEq9-0005l6-1C
+	for netdev@vger.kernel.org; Wed, 22 May 2013 21:36:49 +0200
+Received: from static-65-129-225-77.ipcom.comunitel.net ([static-65-129-225-77.ipcom.comunitel.net])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 21:36:49 +0200
+Received: from rtpardavila by static-65-129-225-77.ipcom.comunitel.net with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 21:36:49 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Paul Chavent <paul.chavent <at> fnac.net> writes:
 
-On 2013-5-22 12:34, Wei Liu wrote:
-> [...]
->   
-> -static irqreturn_t xennet_interrupt(int irq, void *dev_id)
-> +static irqreturn_t xennet_tx_interrupt(int irq, void *dev_id)
->   {
-> -	struct net_device *dev = dev_id;
-> -	struct netfront_info *np = netdev_priv(dev);
-> +	struct netfront_info *np = dev_id;
-> +	struct net_device *dev = np->netdev;
->   	unsigned long flags;
->   
->   	spin_lock_irqsave(&np->tx_lock, flags);
-> +	xennet_tx_buf_gc(dev);
-> +	spin_unlock_irqrestore(&np->tx_lock, flags);
->   
-> -	if (likely(netif_carrier_ok(dev))) {
-> -		xennet_tx_buf_gc(dev);
-> -		/* Under tx_lock: protects access to rx shared-ring indexes. */
-> -		if (RING_HAS_UNCONSUMED_RESPONSES(&np->rx))
-> +	return IRQ_HANDLED;
-> +}
-> +
-> +static irqreturn_t xennet_rx_interrupt(int irq, void *dev_id)
-> +{
-> +	struct netfront_info *np = dev_id;
-> +	struct net_device *dev = np->netdev;
-> +
-> +	if (likely(netif_carrier_ok(dev) &&
-> +		   RING_HAS_UNCONSUMED_RESPONSES(&np->rx)))
->   			napi_schedule(&np->napi);
-> -	}
->   
-> -	spin_unlock_irqrestore(&np->tx_lock, flags);
+> 
+> Hi.
+> 
+> As stated before, you should call mmap only once.
+> 
+> Paul.
+> 
 
-Originally, netfront protects access to rx shared-ring with tx_lock, you 
-remove this protection here. It is better to protect the ring access by 
-a sperate rx_lock then.
 
-Thanks
-Annie
+Hi Paul,
+
+I think that you must check the return value of the call that you make to
+"setsockopt()", especially for the second call. The first one returns 0,
+this is, the "setsockopt()" call was executed correctly. However, the second
+one returns -16 ("EBUSY" value), this is, the call to "setsockopt()" was not
+executed correctly.
+
+So, could you modify your calls to "setsockopt()" and check whether the
+return value is 0 (correct execution) or -16 (EBUSY, incorrect execution)?
+
+Best, Cardo.
