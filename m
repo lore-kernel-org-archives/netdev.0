@@ -1,56 +1,53 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: Re: [PATCH 11/19] net/ethernet/broadcom/tg3: Use
- module_pci_driver to register driver
-Date: Tue, 21 May 2013 17:22:48 -0700
-Message-ID: <519C0FD8.80705@broadcom.com>
-References: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
- <1369177096-19674-11-git-send-email-peterhuewe@gmx.de>
+From: Boian Bonev <bbonev@ipacct.com>
+Subject: Re: RFC EOIP Tunnel
+Date: Wed, 22 May 2013 03:29:10 +0300
+Message-ID: <CAD53P8AHEm0Q1gFcaL=WVqc65gKNkc+yEbLSi8qW-iLaNxjWQA@mail.gmail.com>
+References: <CAD53P8CY9SFvsrhiZqpxT=P5PtjbqL4LG1tf3O8jpU0yrychUw@mail.gmail.com>
+ <20130520230852.GB12098@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=iso-8859-1;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"Michael Chan" <mchan@broadcom.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: "Peter Huewe" <peterhuewe@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369177096-19674-11-git-send-email-peterhuewe@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: Boian Bonev <bbonev@ipacct.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f175.google.com ([209.85.223.175]:57926 "EHLO
+	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752683Ab3EVA3l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 20:29:41 -0400
+Received: by mail-ie0-f175.google.com with SMTP id s9so3571541iec.6
+        for <netdev@vger.kernel.org>; Tue, 21 May 2013 17:29:40 -0700 (PDT)
+In-Reply-To: <20130520230852.GB12098@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi,
 
+> Actually, I does get used in BSD land. I have seen several setups some time
+> ago where gif interfaces got added to a bridge interface, which behaves like
+> EtherIP then. Prior to FreeBSD 8 they reversed the bytes of the version field
+> so they still have to provide knobs for backwards compatibility.
 
-On 05/21/2013 03:58 PM, Peter Huewe wrote:
-> Removing some boilerplate by using module_pci_driver instead of calling
-> register and unregister in the otherwise empty init/exit functions.
->
-> Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
-> ---
->   drivers/net/ethernet/broadcom/tg3.c | 13 +------------
->   1 file changed, 1 insertion(+), 12 deletions(-)
->
-> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-> index fb06aa1..4f0e3fe 100644
-> --- a/drivers/net/ethernet/broadcom/tg3.c
-> +++ b/drivers/net/ethernet/broadcom/tg3.c
-> @@ -17804,15 +17804,4 @@ static struct pci_driver tg3_driver = {
->   	.driver.pm	= &tg3_pm_ops,
->   };
->
-> -static int __init tg3_init(void)
-> -{
-> -	return pci_register_driver(&tg3_driver);
-> -}
-> -
-> -static void __exit tg3_cleanup(void)
-> -{
-> -	pci_unregister_driver(&tg3_driver);
-> -}
-> -
-> -module_init(tg3_init);
-> -module_exit(tg3_cleanup);
-> +module_pci_driver(tg3_driver);
->
+In FreeBSD the same thing is implemented as netgraph node...
 
-Acked-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+>> Before going in technical details and submitting patches I want to
+>> know opinions if this work is suitable for merging upstream or is
+>> better to be kept as a side kernel patch project.
+>
+> If the side kernel patch has matured and you are fine with it just propose it
+> to get merged.
+
+It is mature enough for the 3.2 series kernels (but obviously this is
+not ok for submitting). Since then tunnels have got refactored to have
+common code in a single place used by all tunnels and also GRE GSO
+support was added. I am not very confident if I can get the GSO part
+the right way and properly test it...
+
+Thanks for the pointers - will follow your advice and submit a patch.
+
+>> ps. https://github.com/bbonev/eoip contains 3.2.x patches + somehow
+>> working but quite crappy config tool
+>
+> Configuration should be done by iproute.
+
+This is my plan. The config tool is more like a proof of concept thing.
+
+With best regards,
+b.
