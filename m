@@ -1,68 +1,56 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
- spinlock
-Date: Wed, 22 May 2013 13:38:24 -0700
-Message-ID: <1369255104.2143.108.camel@joe-AO722>
-References: <1368068665.13473.81.camel@edumazet-glaptop>
-	 <1369244868.3301.343.camel@edumazet-glaptop>
-	 <1369246816.2143.84.camel@joe-AO722>
-	 <1369250772.3301.349.camel@edumazet-glaptop>
-	 <1369252624.2143.103.camel@joe-AO722>
-	 <1369253761.3301.355.camel@edumazet-glaptop>
+From: Wei Liu <liuw@liuw.name>
+Subject: Re: [Xen-devel] [PATCH net-next V3 2/3] xen-netfront: split event
+ channels support for Xen frontend driver
+Date: Wed, 22 May 2013 21:38:20 +0100
+Message-ID: <CAOsiSVUHqezpo4u+Go1pm4vm7Hots2gDUJ9YEzVK7_FPSc3zLA@mail.gmail.com>
+References: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com>
+ <1369240487-18834-3-git-send-email-wei.liu2@citrix.com> <519D1D61.8030500@oracle.com>
+ <CAOsiSVXptBRRA=m3HFnO7eQWjxN_wgfzAcvw+rPebOPH9mRjXg@mail.gmail.com> <519D2C02.7080500@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	jbeulich <jbeulich@suse.com>
+To: annie li <annie.li@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:41447 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1756945Ab3EVUiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 May 2013 16:38:25 -0400
-In-Reply-To: <1369253761.3301.355.camel@edumazet-glaptop>
+Received: from mail-wi0-f178.google.com ([209.85.212.178]:52602 "EHLO
+	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753389Ab3EVUiv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 16:38:51 -0400
+Received: by mail-wi0-f178.google.com with SMTP id hj6so382659wib.11
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 13:38:50 -0700 (PDT)
+In-Reply-To: <519D2C02.7080500@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-22 at 13:16 -0700, Eric Dumazet wrote:
-> On Wed, 2013-05-22 at 12:57 -0700, Joe Perches wrote:
-> > It might also be nice to mark it if ever more than a u16
-> > brace/flock/coven/cluster worth of cpus become feasible
-> > as it seems int is used almost everywhere else.
-> 
-> It seems Linus hates cpu_t or whatever_t
+On Wed, May 22, 2013 at 9:35 PM, annie li <annie.li@oracle.com> wrote:
+>
+> On 2013-5-22 16:20, Wei Liu wrote:
+>>
+>> On Wed, May 22, 2013 at 8:32 PM, annie li <annie.li@oracle.com> wrote:
+>>>
+>>>
+>>> Originally, netfront protects access to rx shared-ring with tx_lock, you
+>>> remove this protection here. It is better to protect the ring access by a
+>>> sperate rx_lock then.
+>>>
+>> TX ring and RX ring are separate rings. I don't think that comment / code
+>> makes sense any more. My stress test confirms that.
+>
+>
+> Yes, they are separate rings. Actually I am not sure why
+> RING_HAS_UNCONSUMED_RESPONSES(&np->rx) is protected by any tx_lock
+> originally. But for xennet_rx_interrupt, it is better to use rx_lock to
+> protect RING_HAS_UNCONSUMED_RESPONSES(&np->rx).
+>
 
-Go figure.
+This doesn't make sense to me either. Xen ring protocol is designed to
+be lock-free.
+And in netfront's case there is no concurrent access to the ring.
 
-> Thats why we have u16 everywhere to code cpu numbers, and why we use
-> "unsigned long" for jiffies.
 
-u16 for cpu is hardly used at all.
-
-$ git grep -E "^\s*\w+\s+cpu\s*;" | cut -f2- -d":" | \
-  sed -r -e 's/^\s+//g' -e 's/\s+/ /g' -e 's/;.*//' | \
-  sort | uniq -c | sort -rn
-    569 int cpu
-     29 return cpu
-     28 __u32 cpu
-     14 u32 cpu
-      7 unsigned cpu
-      5 u16 cpu
-      4 cpuid_t cpu
-      3 uint32_t cpu
-      2 __u8 cpu
-      2 u64 cpu
-      2 s32 cpu
-      2 long cpu
-      1 u8 cpu
-      1 __u16 cpu
-      1 struct cpu
-      1 short cpu
-      1 __le32 cpu
-      1 geo_cpu_t cpu
-
-> So far, I believe linux supports at most 4096 cpus.
-
-I believe that as well.
+Wei.
