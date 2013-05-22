@@ -1,65 +1,57 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: Re: [Xen-devel] [PATCH net-next V2 1/2] xen-netback: split
- event channels support for Xen backend driver
-Date: Wed, 22 May 2013 09:05:55 +0100
-Message-ID: <519C988302000078000D8018@nat28.tlf.novell.com>
-References: <1369161310-9529-1-git-send-email-wei.liu2@citrix.com>
- <1369161310-9529-2-git-send-email-wei.liu2@citrix.com>
+From: <Narendra_K@Dell.com>
+Subject: Generic interface to make physical port number used by a netdevice
+ available to user space
+Date: Wed, 22 May 2013 13:24:15 +0530
+Message-ID: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <david.vrabel@citrix.com>, <ian.campbell@citrix.com>,
-	<xen-devel@lists.xen.org>, <konrad.wilk@oracle.com>,
-	<netdev@vger.kernel.org>
-To: "Wei Liu" <wei.liu2@citrix.com>
+Content-Transfer-Encoding: 7BIT
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nat28.tlf.novell.com ([130.57.49.28]:34065 "EHLO
-	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752232Ab3EVIGB convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
-	Wed, 22 May 2013 04:06:01 -0400
-In-Reply-To: <1369161310-9529-2-git-send-email-wei.liu2@citrix.com>
-Content-Disposition: inline
+Received: from ausxipps301.us.dell.com ([143.166.148.223]:62970 "EHLO
+	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752232Ab3EVIGN convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 04:06:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> On 21.05.13 at 20:35, Wei Liu <wei.liu2@citrix.com> wrote:
-> @@ -158,4 +163,6 @@ void xenvif_carrier_off(struct xenvif *vif);
->  /* Returns number of ring slots required to send an skb to the frontend */
->  unsigned int xen_netbk_count_skb_slots(struct xenvif *vif, struct sk_buff *skb);
->  
-> +extern unsigned int feature_split_event_channels;
+Hello,
 
-This gets used exclusively as a boolean, so ought to be bool.
+It is useful to know if network interfaces from NIC partitions 'map to/ use the'
+same physical port. For example,  when creating bonding in fault tolerance mode,
+if two network interfaces map to/use the same physical port, it might not have the
+desired result. This information is not available today in a standard format or
+it is not present.  If this information can be made available in a generic  way
+to user space, tools such as NetworkManager or Libteam  or Wicked can make smarter
+bonding decisions (such as warn users when setting up configurations which will
+not have desired effect).
 
-> --- a/drivers/net/xen-netback/xenbus.c
-> +++ b/drivers/net/xen-netback/xenbus.c
-> @@ -114,6 +114,15 @@ static int netback_probe(struct xenbus_device *dev,
->  			goto abort_transaction;
->  		}
->  
-> +		/* Split event channels support */
-> +		err = xenbus_printf(xbt, dev->nodename,
-> +				"feature-split-event-channels",
-> +				"%u", feature_split_event_channels);
-> +		if (err) {
-> +			message = "writing feature-split-event-channels";
-> +			goto abort_transaction;
+The requirement is to have a generic interface using which kernel/drivers can
+provide information/hints to user space about the physical port number used by
+a network interface.
 
-We had this discussion elsewhere quite recently: Failure to write
-extension nodes should not be fatal - this needs to even be moved
-out of the containing loop afaict.
+While looking for already existing generic facility, 'dev_id' sysfs attribute
+seemed relevant. Looking into the sources seemed to indicate that majority of 
+the drivers do not set it and it could be interpreted differently.
 
-> +	/* Try split event channels first, then single event channel. */
-> +	err = xenbus_gather(XBT_NIL, dev->otherend,
-> +			    "event-channel-tx", "%u", &tx_evtchn,
-> +			    "event-channel-rx", "%u", &rx_evtchn, NULL);
-> +	if (err) {
-> +		err = xenbus_gather(XBT_NIL, dev->otherend,
-> +				    "event-channel", "%u", &tx_evtchn, NULL);
+It would be great to know list's thoughts on  'dev_id' being used as the interface
+to make the physical port number information used by netdevice available to user
+space or do we need a new sysfs attribute for the same.
 
-And this got discussed quite recently too: Single item reads should
-use xenbus_scanf() as being the simpler interface doing better type
-checking.
+Note: I think in the scenario of SRIOV VF devices assigned to guest and being
+bonded, additional information would be needed to differentiate the network
+controller in the host.  But I suppose it is a different problem than this.
 
-Jan
+References to related discussions:
+1. [PATCH net-next] bnx2x: Add Nic partitioning mode (57712)
+http://marc.info/?l=linux-netdev&m=129098288709528&w=2
+2. [PATCH net-next] bonding: Support for multi function NIC devices
+http://marc.info/?l=linux-netdev&m=134240221118594&w=2
+
+Thank you,
+
+-- 
+With regards,
+Narendra K
+Linux Engineering
+Dell Inc.
