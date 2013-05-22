@@ -1,95 +1,55 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH v4 11/12] ARM: kirkwood: remove redundant DT board files
-Date: Wed, 22 May 2013 22:55:43 +0200
-Message-ID: <519D30CF.9040904@gmail.com>
-References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com> <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com> <1369154510-4927-12-git-send-email-sebastian.hesselbarth@gmail.com> <20130522203633.GA28394@schnuecks.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
+Date: Wed, 22 May 2013 13:57:25 -0700 (PDT)
+Message-ID: <20130522.135725.2055012330878292564.davem@davemloft.net>
+References: <1369173800-20326-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
-To: Simon Baatz <gmbnomis@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130522203633.GA28394@schnuecks.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
+To: jeffrey.t.kirsher@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44220 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756851Ab3EVU52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 16:57:28 -0400
+In-Reply-To: <1369173800-20326-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2013 10:36 PM, Simon Baatz wrote:
-> Hi Sebastian,
->
-> On Tue, May 21, 2013 at 06:41:49PM +0200, Sebastian Hesselbarth wrote:
->> With DT support for mv643xx_eth, board specific init for some boards now
->> is unneccessary. Remove those board files, Kconfig entries, and
->> corresponding entries in kirkwood_defconfig.
->>
->> Signed-off-by: Sebastian Hesselbarth<sebastian.hesselbarth@gmail.com>
->> ---
->> Note: board-km_kirkwood.c is also removed, as Valentin Longchamp confirmed
->> the lock-up is not caused by accessing clock gating registers but rather
->> non-existent device registers. This will be addressed by dtsi separation
->> for kirkwood and bobcat SoC variants.
->>
->> Changelog:
->> v3->v4:
->> - remove more boards that don't require board specific setup
->>
-...
-> We still have:
->
-> static const char * const kirkwood_dt_board_compat[] = {
-> 	"globalscale,dreamplug",
-> 	"globalscale,guruplug",
-> 	"dlink,dns-320",
-> 	"dlink,dns-325",
-> 	"iom,iconnect",
-> 	"raidsonic,ib-nas62x0",
-> 	"qnap,ts219",
-> 	"seagate,dockstar",
-> 	"seagate,goflexnet",
-> 	"buffalo,lsxl",
-> 	"iom,ix2-200",
-> 	"keymile,km_kirkwood",
-> 	"lacie,cloudbox",
-> 	"lacie,inetspace_v2",
-> 	"lacie,netspace_lite_v2",
-> 	"lacie,netspace_max_v2",
-> 	"lacie,netspace_mini_v2",
-> 	"lacie,netspace_v2",
-> 	"mpl,cec4",
-> 	"netgear,readynas-duo-v2",
-> 	"plathome,openblocks-a6",
-> 	"usi,topkick",
-> 	"zyxel,nsa310",
-> 	NULL
-> };
->
-> in that file. I think it does not make sense that we need to list
-> boards here that can be described fully by DT. When adding such a
-> board in the future, you will still need to adapt board-dt.c.
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Tue, 21 May 2013 15:03:08 -0700
 
-True, will remove the redundant compatible strings for v5.
-Actually, if I am not missing something, all compatible strings except
-"marvell,kirkwood" are redundant as long as board.dts append it
-correctly.
+> This series contains updates to e1000e, igb and ixgbe.
+> 
+> Bruce Allan provide 2 minor cleanups for e1000e to resolve whitespace
+> issues and build warnings about unused parameters.
+> 
+> Carolyn provides a couple of fixes for igb, one being a fix for a
+> possible panic when the interface is down and receive traffic
+> arrives.  The second fix resolves an issue on newer parts which have
+> multiple checksum fields and set_ethtool was only checking to update
+> the first checksum of the NVM image.
+> 
+> Akeem provides majority of the changes in this patch set.  Akeem
+> provides a fix for e1000e on an issue reported from the community to
+> resolve the issue of unlocking swflag_mutex for 82574 and 82583
+> devices even if the hardware semaphore was successfully acquired.
+> The other patches from Akeem are against igb, where he adds support
+> SFP module discovery, LED blink mechanism for devices using cathodes,
+> LED support for i210/i211 parts and cleanup of a i2c function which
+> was not being used.
+> 
+> Matthew provides an update for igb to support a more accurate check
+> for a PTP RX hang.
+> 
+> Amir provides a patch for ixgbe to set the software prio_tc values at
+> initialization to the hardware setting to remove the need to reset the
+> device at the first time we call ixgbe_dcbnl_ieee_setets.
+> 
+> The following are changes since commit 1e18583adccfc122b5d6415cfe4bf1826c370f4e:
+>   ThunderLAN: remove is_eisa flag
+> and are available in the git repository at:
+>   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
 
-> Should we remove the boards that you removed above here as well and
-> add
->
-> 	"marvell,kirkwood-88f6192",
-> 	"marvell,kirkwood-88f6281",
-> 	"marvell,kirkwood-88f6282",
-> 	"marvell,kirkwood-88f6283",
-> 	"marvell,kirkwood-88f6702",
-> 	"marvell,kirkwood-98DX4122",
->
-> or even just state "marvell,kirkwood"?
-
-I would stick with "marvell,kirkwood" only. This is SoC init code and
-we do not distinguish variants here at all.
-
-Sebastian
+Pulled, excellent merge commit message, thanks!
