@@ -1,91 +1,54 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: linux-next: manual merge of the akpm tree with the net-next tree
-Date: Wed, 22 May 2013 11:20:51 +0200
-Message-ID: <519C8DF3.7000605@redhat.com>
-References: <20130521142537.00a9ccb7ca4aa81f553b61cf@canb.auug.org.au> <519B25CD.5060801@redhat.com> <20130522095436.66e63c613c41da01cd103208@canb.auug.org.au>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet device polling
+Date: Wed, 22 May 2013 12:35:21 +0300
+Message-ID: <519C9159.7050807@linux.intel.com>
+References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>  <519B632F.7040202@mellanox.com> <519B68A4.3010406@linux.intel.com> <1369160115.2615.51.camel@bwh-desktop.uk.solarflarecom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040407090900060402060109"
-Cc: Andrew Morton <akpm@linux-foundation.org>,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Nicolas Schichan <nschichan@freebox.fr>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130522095436.66e63c613c41da01cd103208@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------040407090900060402060109
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Alex Rosenbaum <alexr@mellanox.com>,
+	Dave Miller <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:53915 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752610Ab3EVJf0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 May 2013 05:35:26 -0400
+In-Reply-To: <1369160115.2615.51.camel@bwh-desktop.uk.solarflarecom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2013 01:54 AM, Stephen Rothwell wrote:
-> Hi Daniel,
->
-> On Tue, 21 May 2013 09:44:13 +0200 Daniel Borkmann <dborkman@redhat.com> wrote:
+
+
+On 21/05/2013 21:15, Ben Hutchings wrote:
+> On Tue, 2013-05-21 at 15:29 +0300, Eliezer Tamir wrote:
+>> Many of the questions you asked are covered in our RFC cover letter, but
+>> I will touch them briefly
 >>
->> Also seccomp_jit_free() needs a change otherwise the kernel won't build
->> with CONFIG_SECCOMP_FILTER_JIT enabled since the work_struct is initialized
->> with the bpf_jit_free_worker() callback, which is no longer existent.
+>> On 21/05/2013 15:06, Alex Rosenbaum wrote:
+>>> 1. It seem this patch does not cover epoll/select and such IO muxing APIs?
 >>
->> Do you want me to send you a patch?
+>> We are thinking about how to implement epoll support as one of the next
+>> steps.
+>>
+>> What benchmarks are you using to test poll/select/epoll?
+> [...]
 >
-> Yes, please.
+> I raised this issue back at Plumbers and I thought Jesse said poll() was
+> covered.  It's likely to be a bit of a toy without that.  Also, UDP?
 
-In case this is still needed, patch attached. That should fix it.
+The current patchset covers poll/select for UDP.
+Adding poll/select for TCP should be simple, I will try to include it in 
+the next version.
 
---------------040407090900060402060109
-Content-Type: text/x-patch;
- name="0001-arm-bpf_jit-fixup-build-error-in-seccomp_jit_free.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-arm-bpf_jit-fixup-build-error-in-seccomp_jit_free.patch"
-
->From 72d68685f31b84f64826740cf3d33ba6d8d28ffc Mon Sep 17 00:00:00 2001
-Message-Id: <72d68685f31b84f64826740cf3d33ba6d8d28ffc.1369214198.git.dborkman@redhat.com>
-In-Reply-To: <cover.1369214198.git.dborkman@redhat.com>
-References: <cover.1369214198.git.dborkman@redhat.com>
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Wed, 22 May 2013 11:12:31 +0200
-Subject: [PATCH] arm: bpf_jit: fixup build error in seccomp_jit_free
-
-bpf_jit_free_worker() no longer exist, so get seccomp_jit_free()
-in line with bpf_jit_free().
-
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- arch/arm/net/bpf_jit_32.c | 13 ++-----------
- 1 file changed, 2 insertions(+), 11 deletions(-)
-
-diff --git a/arch/arm/net/bpf_jit_32.c b/arch/arm/net/bpf_jit_32.c
-index 62aca35..3fe001d 100644
---- a/arch/arm/net/bpf_jit_32.c
-+++ b/arch/arm/net/bpf_jit_32.c
-@@ -969,18 +969,9 @@ void seccomp_jit_compile(struct seccomp_filter *fp)
- 
- void seccomp_jit_free(struct seccomp_filter *fp)
- {
--	struct work_struct *work;
- 	void *bpf_func = seccomp_filter_get_bpf_func(fp);
- 
--	if (bpf_func != sk_run_filter) {
--		/*
--		 * seccomp_jit_free() can be called from softirq; module_free()
--		 * requires process context.
--		 */
--		work = (struct work_struct *)bpf_func;
--
--		INIT_WORK(work, bpf_jit_free_worker);
--		schedule_work(work);
--	}
-+	if (bpf_func != sk_run_filter)
-+		module_free(NULL, bpf_func);
- }
- #endif
--- 
-1.7.11.7
-
-
---------------040407090900060402060109--
+Epoll should see a gain from the above in the case where all the polled 
+file descriptors are associated to the same device queue.
+A fuller implementation, in the epoll itself would be needed to cover 
+multiple queues/devices.
