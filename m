@@ -1,104 +1,53 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
-Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
- macro
-Date: Wed, 22 May 2013 23:17:46 +0400
-Message-ID: <519D19DA.50400@yandex-team.ru>
-References: <20130521120906.GD3578@linux.vnet.ibm.com> <1369143885.3301.221.camel@edumazet-glaptop> <519B8908.9080007@yandex-team.ru> <1369150693.3301.233.camel@edumazet-glaptop> <519BB90B.6080706@yandex-team.ru> <1369188080.3301.268.camel@edumazet-glaptop> <1369201765.3301.299.camel@edumazet-glaptop> <519CB2D8.103@yandex-team.ru> <1369225837.3301.324.camel@edumazet-glaptop> <519CC2FB.2010006@yandex-team.ru> <20130522174532.GC3431@linux.vnet.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
+ spinlock
+Date: Wed, 22 May 2013 12:26:12 -0700
+Message-ID: <1369250772.3301.349.camel@edumazet-glaptop>
+References: <1368068665.13473.81.camel@edumazet-glaptop>
+	 <1369244868.3301.343.camel@edumazet-glaptop>
+	 <1369246816.2143.84.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
 	Patrick McHardy <kaber@trash.net>
-To: paulmck@linux.vnet.ibm.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130522174532.GC3431@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33703 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755190Ab3EVT0O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 15:26:14 -0400
+In-Reply-To: <1369246816.2143.84.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 22.05.2013 21:45, Paul E. McKenney wrote:
-> On Wed, May 22, 2013 at 05:07:07PM +0400, Roman Gushchin wrote:
->> On 22.05.2013 16:30, Eric Dumazet wrote:
->>> On Wed, 2013-05-22 at 15:58 +0400, Roman Gushchin wrote:
->>>
->>>> +/*
->>>> + * Same as ACCESS_ONCE(), but used for accessing field of a structure.
->>>> + * The main goal is preventing compiler to store &ptr->field in a register.
->>>
->>> But &ptr->field is a constant during the whole duration of
->>> udp4_lib_lookup2() and could be in a register, in my case field is at
->>> offset 0, and ptr is a parameter (so could be in a 'register')
->>>
->>> The bug you found is that compiler caches the indirection  (ptr->field)
->>> into a register, not that compiler stores &ptr->field into a register.
->>>
->>>> + */
->>>> +#define ACCESS_FIELD_ONCE(PTR, FIELD) (((volatile typeof(*PTR) *)PTR)->FIELD)
->>>> +
->>>
->>> Here we force the compiler to consider ptr as volatile, but semantically
->>> it is not required in rcu_dereference(ptr->field)
->>
->> Actually, we need to mark an "address of a place" where the field value is
->> located as volatile before dereferencing. I have no idea how to do it in another way,
->> except using multiple casts and offsetof's, but, IMHO, it will be even more complex:
->> 	ACCESS_ONCE(typeof(&ptr->field)((char*)ptr + offsetof(typeof(*ptr), field)))
+On Wed, 2013-05-22 at 11:20 -0700, Joe Perches wrote:
+> On Wed, 2013-05-22 at 10:47 -0700, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > nf_conntrack_lock is a monolithic lock and suffers from huge contention
+> > on current generation servers (8 or more core/threads).
+> []
+> > diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+> []
+> > @@ -76,7 +76,8 @@ struct nf_conn {
+> >             plus 1 for any connection(s) we are `master' for */
+> >  	struct nf_conntrack ct_general;
+> >  
+> > -	spinlock_t lock;
+> > +	spinlock_t	lock;
+> > +	u16		cpu;
+> 
+> trivia:
+> 
+> What's the real value in not using int here?
+> 
 
-Probably I miss one more ACCESS_ONCE() in this expression. Should be something like
-ACCESS_ONCE(typeof(&ptr->field)((char*)ACCESS_ONCE(ptr) + offsetof(typeof(*ptr), field))) .
-But this is not a working example, just an illustration against using ACCESS_ONCE() here.
+On some machines, sizeof(spinlock_t) is 2
 
-> Why not just ACCESS_ONCE(ptr->field)?  Or if it is the thing that
-> ptr->field points to that is subject to change, ACCESS_ONCE(*ptr->field)?
->
-> Or rcu_dereference(ptr->field), as appropriate?
+So this addition doesn't increase size of the structure, as I fill a
+hole.
 
-It's not enough. So is the code now, and it doesn't work as expected.
-You can't write (ptr->field) without ptr being marked as a volatile pointer.
-
-I try to explain the problem once more from scratch:
-
-1) We have the following pseudo-code (based on udp4_lib_lookup2()):
-
-static void some_func(struct hlist_nulls_head *head) {
-	struct hlist_nulls_node *node;
-
-begin:
-	for (node = rcu_dereference(head->first);
-		!is_nulls(node) & ...;
-		node = rcu_dereference(node->next)) {
-		<...>
-	}
-
-	if (restart_condition)
-		goto begin;
-
-2) A problem occurs when restart_condition is true and we jump to the begin label.
-We do not recalculate (head + offsetof(head, first)) address, we just dereference
-again the OLD (head->first) pointer. So, we get a node, that WAS the first node in a
-previous time instead of current first node. That node can be dead, or, for instance,
-can be a head of another chain.
-
-It is correct from gcc's point of view, since it doesn't expect the head pointer
-to change, and this address is just (head + constant offset).
-
-3) If we start with a wrong first element, restart_condition can be always true, so,
-we get an infinite loop. In any case, we do not scan the whole (socket) chain,
-as expected.
-
-This scenario is absolutely real and causes our DNS servers to hang
-sometimes under high load.
-
-Note, that there are no problems if we don't restart a loop. Also, it is highly
-dependent on gcc options, and the code in the body of the loop. Even small changes
-in the code (like adding debugging print) preventing reproducing of the issue.
-
-Thanks!
-
-Regards,
-Roman
+Thats the case on x86 when NR_CPUS < 256
