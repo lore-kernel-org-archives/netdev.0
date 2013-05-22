@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] perf: net_dropmonitor: Make it work and make it
- fast
-Date: Wed, 22 May 2013 15:11:12 -0700 (PDT)
-Message-ID: <20130522.151112.1309391168644175099.davem@davemloft.net>
-References: <1369096976.3469.131.camel@deadeye.wl.decadent.org.uk>
-	<20130521133355.GA3613@neilslaptop.think-freely.org>
+Subject: Re: [PATCH] qmi_wwan: Added support for Cinterion's PLxx WWAN
+ Interface
+Date: Wed, 22 May 2013 15:13:38 -0700 (PDT)
+Message-ID: <20130522.151338.2181176723987593238.davem@davemloft.net>
+References: <376FB829F3ECB542B825EAF4D8CA8A97013E8459E48B@CROEXCFWP03.gemalto.com>
+	<877gislbbk.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ben@decadent.org.uk, a.p.zijlstra@chello.nl, paulus@samba.org,
-	mingo@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: nhorman@tuxdriver.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Christian.Schmiedl@gemalto.com, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Hans-Christoph.Schemmel@gemalto.com
+To: bjorn@mork.no
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45245 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45304 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757276Ab3EVWLN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 18:11:13 -0400
-In-Reply-To: <20130521133355.GA3613@neilslaptop.think-freely.org>
+	with ESMTP id S1757596Ab3EVWNj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 18:13:39 -0400
+In-Reply-To: <877gislbbk.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Tue, 21 May 2013 09:33:56 -0400
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Tue, 21 May 2013 15:19:43 +0200
 
-> On Tue, May 21, 2013 at 01:42:56AM +0100, Ben Hutchings wrote:
->> Somewhat surprisingly, the net_dropmonitor reporting script doesn't work
->> at all.  This series fixes it and then makes it slightly more efficient.
->> 
->> Ben.
->> 
-> It worked fine when I first submitted it.  I wonder if there was a paramter
-> order change at some point that I wasn't CC'ed on.
-> 
-> Either way, this all looks good.  Thanks Ben.
-> 
-> Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> Schmiedl Christian <Christian.Schmiedl@gemalto.com> writes:
+>=20
+>> From: Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>
+>>
+>> Added support for Cinterion's PLxx WWAN Interface by adding QMI_FIXE=
+D_INTF with
+>> Cinterion's Vendor ID as well as Product ID and WWAN Interface Numbe=
+r.
+>>
+>> Signed-off-by: Hans-Christoph Schemmel <hans-christoph.schemmel@gema=
+lto.com>
+>> Signed-off-by: Christian Schmiedl <christian.schmiedl@gemalto.com>
+ ...
+> Acked-by: Bj=F8rn Mork <bjorn@mork.no>
 
-Series applied, thanks.
+Applied.
