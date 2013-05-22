@@ -1,43 +1,55 @@
-From: Peter Zijlstra <peterz@infradead.org>
-Subject: Re: [PATCH ipvs-next v3 0/2] sched: Add cond_resched_rcu_lock()
- helper
-Date: Wed, 22 May 2013 09:54:38 +0200
-Message-ID: <20130522075438.GO26912@twins.programming.kicks-ass.net>
-References: <1369201832-17163-1-git-send-email-horms@verge.net.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Patch net-next v5 1/3] bridge: use the bridge IP addr as
+ source addr for querier
+Date: Wed, 22 May 2013 15:55:19 +0800
+Message-ID: <20130522075519.GA15155@gondor.apana.org.au>
+References: <1369209176-6841-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ringil.hengli.com.au ([178.18.16.133]:58661 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753187Ab3EVHzZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 03:55:25 -0400
 Content-Disposition: inline
-In-Reply-To: <1369201832-17163-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1369209176-6841-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 22, 2013 at 02:50:30PM +0900, Simon Horman wrote:
-> Add a helper that for use in loops which read data protected by RCU and
-> may have a large number of iterations.  Such an example is dumping the list
-> of connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+On Wed, May 22, 2013 at 03:52:54PM +0800, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
 > 
-> This series also updates IPVS to use the helper.
+> Quote from Adam:
+> "If it is believed that the use of 0.0.0.0
+> as the IP address is what is causing strange behaviour on other devices
+> then is there a good reason that a bridge rather than a router shouldn't
+> be the active querier? If not then using the bridge IP address and
+> having the querier enabled by default may be a reasonable solution
+> (provided that our querier obeys the election rules and shuts up if it
+> sees a query from a lower IP address that isn't 0.0.0.0). Just because a
+> device is the elected querier for IGMP doesn't appear to mean it is
+> required to perform any other routing functions."
 > 
-> Simon Horman (2):
->   sched: add cond_resched_rcu() helper
->   ipvs: use cond_resched_rcu() helper when walking connections
+> And introduce a new troggle for it, as suggested by Herbert.
 > 
->  include/linux/sched.h           |  9 +++++++++
->  net/netfilter/ipvs/ip_vs_conn.c | 23 ++++++++---------------
->  2 files changed, 17 insertions(+), 15 deletions(-)
+> Suggested-by: Adam Baker <linux@baker-net.org.uk>
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Adam Baker <linux@baker-net.org.uk>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Acked-by: Peter Zijlstra <peterz@infradead.org>
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-How do you want to go about merging this? Do you want to route it
-through the net tree or through -tip?
+to all three patches.
 
-
+Thanks!
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
