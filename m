@@ -1,70 +1,58 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH ipvs-next v3 1/2] sched: add cond_resched_rcu() helper
-Date: Wed, 22 May 2013 14:50:31 +0900
-Message-ID: <1369201832-17163-2-git-send-email-horms@verge.net.au>
-References: <1369201832-17163-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Dipankar Sarma <dipankar@in.ibm.com>,
-	Simon Horman <horms@verge.net.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Julian Anastasov <ja@ssi.bg>, Ingo Molnar <mingo@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the final tree (net-next
+ tree related)
+Date: Wed, 22 May 2013 15:55:37 +1000
+Message-ID: <20130522155537.3cc0ee6254775cc88cf2218f@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__22_May_2013_15_55_37_+1000_hcUSMTO/Jbxh5RdU"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Emilio =?UTF-8?B?TMOzcGV6?= <emilio@elopez.com.ar>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369201832-17163-1-git-send-email-horms@verge.net.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is intended for use in loops which read data protected by RCU and may
-have a large number of iterations.  Such an example is dumping the list of
-connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+--Signature=_Wed__22_May_2013_15_55_37_+1000_hcUSMTO/Jbxh5RdU
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-The benefits are for CONFIG_PREEMPT_RCU=y where we save CPU cycles
-by moving rcu_read_lock and rcu_read_unlock out of large loops
-but still allowing the current task to be preempted after every
-loop iteration for the CONFIG_PREEMPT_RCU=n case.
+Hi all,
 
-The call to cond_resched() is not needed when CONFIG_PREEMPT_RCU=y.
-Thanks to Paul E. McKenney for explaining this and for the
-final version that checks the context with CONFIG_DEBUG_ATOMIC_SLEEP=y
-for all possible configurations.
+After merging the final tree, today's linux-next build (sparc32 defconfig)
+produced this warning:
 
-The function can be empty in the CONFIG_PREEMPT_RCU case,
-rcu_read_lock and rcu_read_unlock are not needed in this case
-because the task can be preempted on indication from scheduler.
-Thanks to Peter Zijlstra for catching this and for his help
-in trying a solution that changes __might_sleep.
+drivers/net/ethernet/sun/sunbmac.c: In function 'bigmac_set_multicast':
+drivers/net/ethernet/sun/sunbmac.c:998:6: warning: unused variable 'i' [-Wu=
+nused-variable]
 
-Initial cond_resched_rcu_lock() function suggested by Eric Dumazet.
+Introduced by commit bfd428daaf61 ("net: ethernet: sun: initialize
+variables directly") from the net-next tree.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
 
-Tested-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/linux/sched.h | 9 +++++++++
- 1 file changed, 9 insertions(+)
+--Signature=_Wed__22_May_2013_15_55_37_+1000_hcUSMTO/Jbxh5RdU
+Content-Type: application/pgp-signature
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index e692a02..2080446 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -2608,6 +2608,15 @@ extern int __cond_resched_softirq(void);
- 	__cond_resched_softirq();					\
- })
- 
-+static inline void cond_resched_rcu(void)
-+{
-+#if defined(CONFIG_DEBUG_ATOMIC_SLEEP) || !defined(CONFIG_PREEMPT_RCU)
-+	rcu_read_unlock();
-+	cond_resched();
-+	rcu_read_lock();
-+#endif
-+}
-+
- /*
-  * Does a critical section need to be broken due to another
-  * task waiting?: (technically does not depend on CONFIG_PREEMPT,
--- 
-1.8.2.1
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRnF3ZAAoJEECxmPOUX5FEp9kP/iKklmD7VavHhDBYmSiOpdDp
+rZ8U8r0TNd+BHTHUPQHCreXCwKrEgTRnf00TTvfIDhI54ManvBLc5gjq7or3WNL/
+xg+RGYO28uurwKjEbB+poQYTXuGA8hbmshg9NhTqLhnmfZPJ48SRcViOH8HaOpW5
+0g38Y7ki1ckq6Le1ItNJZGAyE/4rdQTy+UoFVi9vPAlzppF8r6b/vhyNHfOyyIPv
+Ys0YkSHG+5q75t2tZyDc6BEjlR95FkoiqzOETrFoB25gBab7QUeuWDusoxj+lYLO
+wYc/G8jqIe67M6H+WhKwL6bN0RYFTGXRNCMf0+uqdcw9rSQjSlzCXyNHYop5bGDC
+JvCThYEdJKnzNGo1d4dDRdAh3dy45LZL3QDhsC9OclYchzzCz262U5rf9NpfkVII
+xLDn0WYUCEUHSbSJdci3RSwGU/PskkjBa4qbJRBWJg7RGKauK4w7/BBsL7OcYHuj
+QrIlf+IuSzmkIiVcqptlKQnW58da3Y/VhadR40pD+UcxVpqFEwdCIBaIcxUvPq1G
+Azc/65GATmubqeP9MHdkh6Zhy8V0NthBAlvzz/XqrBISqsZSJzc652uR5kKSlVVU
+DpHWhmbE6mBgbmKjrqqc6J2vQLu0izUZGKfJV3UsPWBOR9IkGHtEMVZr/aBDf4fK
+CdZbSM/GMebgMT+Kqh5w
+=XI7o
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__22_May_2013_15_55_37_+1000_hcUSMTO/Jbxh5RdU--
