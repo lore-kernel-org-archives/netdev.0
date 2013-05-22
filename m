@@ -1,29 +1,181 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: Re: [PATCH 12/19] net/ethernet/sgi/ioc3-eth: Use module_pci_driver
- to register driver
-Date: Wed, 22 May 2013 09:53:24 +0200
-Message-ID: <20130522075324.GA10769@linux-mips.org>
-References: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
- <1369177096-19674-12-git-send-email-peterhuewe@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"open list:IOC3 ETHERNET DRIVER" <linux-mips@linux-mips.org>,
-	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Peter Huewe <peterhuewe@gmx.de>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v5 2/3] bridge: only expire the mdb entry when query is received
+Date: Wed, 22 May 2013 15:52:55 +0800
+Message-ID: <1369209176-6841-2-git-send-email-amwang@redhat.com>
+References: <1369209176-6841-1-git-send-email-amwang@redhat.com>
+Cc: Herbert Xu <herbert@gondor.hengli.com.au>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eddie.linux-mips.org ([78.24.191.182]:37417 "EHLO
-	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752176Ab3EVHxd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 03:53:33 -0400
-Content-Disposition: inline
-In-Reply-To: <1369177096-19674-12-git-send-email-peterhuewe@gmx.de>
+Received: from mx1.redhat.com ([209.132.183.28]:8457 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752176Ab3EVHxk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 May 2013 03:53:40 -0400
+In-Reply-To: <1369209176-6841-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 22, 2013 at 12:58:07AM +0200, Peter Huewe wrote:
+From: Cong Wang <amwang@redhat.com>
 
-Looks good.
+Currently we arm the expire timer when the mdb entry is added,
+however, this causes problem when there is no querier sent
+out after that.
 
-  Ralf
+So we should only arm the timer when a corresponding query is
+received, as suggested by Herbert.
+
+And he also mentioned "if there is no querier then group
+subscriptions shouldn't expire. There has to be at least one querier
+in the network for this thing to work.  Otherwise it just degenerates
+into a non-snooping switch, which is OK."
+
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Adam Baker <linux@baker-net.org.uk>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+v5: no change
+v4: remove some useless timer code
+v3: fix the code in br_multicast_leave_group()
+v2: add a flag to check if timer is fired or not
+
+ net/bridge/br_multicast.c |   39 ++++++++++++---------------------------
+ net/bridge/br_private.h   |    1 +
+ 2 files changed, 13 insertions(+), 27 deletions(-)
+
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 2475147..40bda80 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -617,8 +617,6 @@ rehash:
+ 
+ 	mp->br = br;
+ 	mp->addr = *group;
+-	setup_timer(&mp->timer, br_multicast_group_expired,
+-		    (unsigned long)mp);
+ 
+ 	hlist_add_head_rcu(&mp->hlist[mdb->ver], &mdb->mhash[hash]);
+ 	mdb->size++;
+@@ -656,7 +654,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	struct net_bridge_mdb_entry *mp;
+ 	struct net_bridge_port_group *p;
+ 	struct net_bridge_port_group __rcu **pp;
+-	unsigned long now = jiffies;
+ 	int err;
+ 
+ 	spin_lock(&br->multicast_lock);
+@@ -671,7 +668,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 
+ 	if (!port) {
+ 		mp->mglist = true;
+-		mod_timer(&mp->timer, now + br->multicast_membership_interval);
+ 		goto out;
+ 	}
+ 
+@@ -679,7 +675,7 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	     (p = mlock_dereference(*pp, br)) != NULL;
+ 	     pp = &p->next) {
+ 		if (p->port == port)
+-			goto found;
++			goto out;
+ 		if ((unsigned long)p->port < (unsigned long)port)
+ 			break;
+ 	}
+@@ -690,8 +686,6 @@ static int br_multicast_add_group(struct net_bridge *br,
+ 	rcu_assign_pointer(*pp, p);
+ 	br_mdb_notify(br->dev, port, group, RTM_NEWMDB);
+ 
+-found:
+-	mod_timer(&p->timer, now + br->multicast_membership_interval);
+ out:
+ 	err = 0;
+ 
+@@ -1131,6 +1125,10 @@ static int br_ip4_multicast_query(struct net_bridge *br,
+ 	if (!mp)
+ 		goto out;
+ 
++	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
++	mod_timer(&mp->timer, now + br->multicast_membership_interval);
++	mp->timer_armed = true;
++
+ 	max_delay *= br->multicast_last_member_count;
+ 
+ 	if (mp->mglist &&
+@@ -1205,6 +1203,10 @@ static int br_ip6_multicast_query(struct net_bridge *br,
+ 	if (!mp)
+ 		goto out;
+ 
++	setup_timer(&mp->timer, br_multicast_group_expired, (unsigned long)mp);
++	mod_timer(&mp->timer, now + br->multicast_membership_interval);
++	mp->timer_armed = true;
++
+ 	max_delay *= br->multicast_last_member_count;
+ 	if (mp->mglist &&
+ 	    (timer_pending(&mp->timer) ?
+@@ -1263,7 +1265,7 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 			call_rcu_bh(&p->rcu, br_multicast_free_pg);
+ 			br_mdb_notify(br->dev, port, group, RTM_DELMDB);
+ 
+-			if (!mp->ports && !mp->mglist &&
++			if (!mp->ports && !mp->mglist && mp->timer_armed &&
+ 			    netif_running(br->dev))
+ 				mod_timer(&mp->timer, jiffies);
+ 		}
+@@ -1275,30 +1277,12 @@ static void br_multicast_leave_group(struct net_bridge *br,
+ 		     br->multicast_last_member_interval;
+ 
+ 	if (!port) {
+-		if (mp->mglist &&
++		if (mp->mglist && mp->timer_armed &&
+ 		    (timer_pending(&mp->timer) ?
+ 		     time_after(mp->timer.expires, time) :
+ 		     try_to_del_timer_sync(&mp->timer) >= 0)) {
+ 			mod_timer(&mp->timer, time);
+ 		}
+-
+-		goto out;
+-	}
+-
+-	for (p = mlock_dereference(mp->ports, br);
+-	     p != NULL;
+-	     p = mlock_dereference(p->next, br)) {
+-		if (p->port != port)
+-			continue;
+-
+-		if (!hlist_unhashed(&p->mglist) &&
+-		    (timer_pending(&p->timer) ?
+-		     time_after(p->timer.expires, time) :
+-		     try_to_del_timer_sync(&p->timer) >= 0)) {
+-			mod_timer(&p->timer, time);
+-		}
+-
+-		break;
+ 	}
+ 
+ out:
+@@ -1674,6 +1658,7 @@ void br_multicast_stop(struct net_bridge *br)
+ 		hlist_for_each_entry_safe(mp, n, &mdb->mhash[i],
+ 					  hlist[ver]) {
+ 			del_timer(&mp->timer);
++			mp->timer_armed = false;
+ 			call_rcu_bh(&mp->rcu, br_multicast_free_group);
+ 		}
+ 	}
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index e260710..1b0ac95 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -112,6 +112,7 @@ struct net_bridge_mdb_entry
+ 	struct timer_list		timer;
+ 	struct br_ip			addr;
+ 	bool				mglist;
++	bool				timer_armed;
+ };
+ 
+ struct net_bridge_mdb_htable
+-- 
+1.7.7.6
