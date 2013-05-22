@@ -1,32 +1,31 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: use a more proper compatible string for MVF
- type device
-Date: Wed, 22 May 2013 15:01:16 -0700 (PDT)
-Message-ID: <20130522.150116.198661400362762752.davem@davemloft.net>
-References: <1368974326-24069-1-git-send-email-shawn.guo@linaro.org>
+From: Roland Dreier <roland@kernel.org>
+Subject: Re: tg3 transmit timeout on 5720 / Dell R720
+Date: Wed, 22 May 2013 15:02:23 -0700
+Message-ID: <CAL1RGDXbMcgox0vuOPzkBOE2vAYKYdP-qXy_nwaaA9GAUruBtA@mail.gmail.com>
+References: <1369242151-6821-1-git-send-email-roland@kernel.org> <519D1BDE.9000109@broadcom.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, b35083@freescale.com
-To: shawn.guo@linaro.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45130 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756459Ab3EVWBR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 18:01:17 -0400
-In-Reply-To: <1368974326-24069-1-git-send-email-shawn.guo@linaro.org>
+Received: from na3sys010aog109.obsmtp.com ([74.125.245.86]:52530 "HELO
+	na3sys010aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756513Ab3EVWCq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 18:02:46 -0400
+Received: by mail-lb0-f173.google.com with SMTP id t10so2640596lbi.4
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 15:02:44 -0700 (PDT)
+In-Reply-To: <519D1BDE.9000109@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shawn Guo <shawn.guo@linaro.org>
-Date: Sun, 19 May 2013 22:38:46 +0800
+> -               tp->eee.eee_enabled = 1;
+> +               tp->eee.eee_enabled = 0;
 
-> MVF is a family while MVF600 is a particular SoC in the family.  We
-> generally prefer to use SoC rather than family name in compatible string
-> to define a particular type of fec device.  And this is how fec_dt_ids
-> works for all those IMX fec variants.  Let's change mvf to mvf600 to
-> have it work in the same way.
-> 
-> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
+Tried latest net-next (5ea94e7686a3) both with and without this patch
+and hit the transmit timeout immediately both ways.  (On the one bad
+port)
 
-Applied, thanks.
+I'll try to find a kernel where tg3 works on this system so I can bisect.
+
+ - R.
