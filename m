@@ -1,61 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net-next] ipv6: use ipv6_addr_any() helper
-Date: Wed, 22 May 2013 23:41:06 +0800
-Message-ID: <1369237266-21742-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <xiyou.wangcong@gmail.com>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCH] bridge: Set vlan_features to allow offloads on vlans.
+Date: Wed, 22 May 2013 11:46:30 -0400
+Message-ID: <1369237590-29871-1-git-send-email-vyasevic@redhat.com>
+Cc: bridge@lists.linux-foundation.org,
+	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:56885 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756505Ab3EVPle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 11:41:34 -0400
-Received: by mail-pa0-f41.google.com with SMTP id rl6so1935432pac.28
-        for <netdev@vger.kernel.org>; Wed, 22 May 2013 08:41:33 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:25498 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756544Ab3EVPq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 May 2013 11:46:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
+When vlan device is configured on top of the brige, it does
+not support any offload capabilities because the bridge
+device does not initiliaze vlan_fatures.  Set vlan_fatures to
+be equivalent to hw_fatures.
 
-ipv6_addr_any() is a faster way to determine if an addr
-is ipv6 any addr, no need to compute the addr type.
-
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-
+Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
 ---
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index d684d23..e052696 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3846,7 +3846,7 @@ static int inet6_fill_ifaddr(struct sk_buff *skb, struct inet6_ifaddr *ifa,
- 		valid = INFINITY_LIFE_TIME;
- 	}
+ net/bridge/br_device.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
+
+diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+index 9673128..126f2c2 100644
+--- a/net/bridge/br_device.c
++++ b/net/bridge/br_device.c
+@@ -352,6 +352,7 @@ void br_dev_setup(struct net_device *dev)
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
+ 			   NETIF_F_GSO_MASK | NETIF_F_HW_CSUM |
+ 			   NETIF_F_HW_VLAN_CTAG_TX;
++	dev->vlan_features = dev->hw_features;
  
--	if (ipv6_addr_type(&ifa->peer_addr) != IPV6_ADDR_ANY) {
-+	if (!ipv6_addr_any(&ifa->peer_addr)) {
- 		if (nla_put(skb, IFA_LOCAL, 16, &ifa->addr) < 0 ||
- 		    nla_put(skb, IFA_ADDRESS, 16, &ifa->peer_addr) < 0)
- 			goto error;
-@@ -4579,7 +4579,7 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
- 			ip6_ins_rt(ifp->rt);
- 		if (ifp->idev->cnf.forwarding)
- 			addrconf_join_anycast(ifp);
--		if (ipv6_addr_type(&ifp->peer_addr) != IPV6_ADDR_ANY)
-+		if (!ipv6_addr_any(&ifp->peer_addr))
- 			addrconf_prefix_route(&ifp->peer_addr, 128,
- 					      ifp->idev->dev, 0, 0);
- 		break;
-@@ -4587,7 +4587,7 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
- 		if (ifp->idev->cnf.forwarding)
- 			addrconf_leave_anycast(ifp);
- 		addrconf_leave_solict(ifp->idev, &ifp->addr);
--		if (ipv6_addr_type(&ifp->peer_addr) != IPV6_ADDR_ANY) {
-+		if (!ipv6_addr_any(&ifp->peer_addr)) {
- 			struct rt6_info *rt;
- 			struct net_device *dev = ifp->idev->dev;
- 
+ 	br->dev = dev;
+ 	spin_lock_init(&br->lock);
+-- 
+1.7.7.6
