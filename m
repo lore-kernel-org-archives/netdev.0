@@ -1,52 +1,42 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 4/4] bnx2x: Enable `set_phys_id' for all
- functions
-Date: Wed, 22 May 2013 15:22:39 +0300
-Message-ID: <1369225359-5578-5-git-send-email-yuvalmin@broadcom.com>
-References: <1369225359-5578-1-git-send-email-yuvalmin@broadcom.com>
+From: Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>
+Subject: Re: [PATCH] MIPS: OCTEON: Rename Kconfig
+ CAVIUM_OCTEON_REFERENCE_BOARD to CAVIUM_OCTEON_SOC
+Date: Wed, 22 May 2013 14:22:32 +0200
+Message-ID: <20130522122232.GD10769@linux-mips.org>
+References: <1369088378-13957-1-git-send-email-ddaney.cavm@gmail.com>
+ <20130521220457.GF31836@blackmetal.musicnaut.iki.fi>
+ <519BF01B.1010600@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, eilong@broadcom.com,
-	"Yaniv Rosner" <yanivr@broadcom.com>,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:4368 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755849Ab3EVMUv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 May 2013 08:20:51 -0400
-In-Reply-To: <1369225359-5578-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>,
+	David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
+	David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-edac-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
+	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <519BF01B.1010600-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
+Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Yaniv Rosner <yanivr@broadcom.com>
+On Tue, May 21, 2013 at 03:07:23PM -0700, David Daney wrote:
 
-In Multi-function mode, all functions should be able to utilize said function;
-There's no reason why only the link owner should be able to do so.
+> >>  config USB_OCTEON_OHCI
+> >>  	bool "Octeon on-chip OHCI support"
+> >>-	depends on CPU_CAVIUM_OCTEON
+> >>+	depends on  CAVIUM_OCTEON_SOC
+> >
+> >Just a minor comment, here the extra whitespace after "depends on"
+> >could be eliminated.
+> >
+> 
+> Good point.  I will regenerate the patch to correct this.
 
-Signed-off-by: Yaniv Rosner <yanivr@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 5 -----
- 1 file changed, 5 deletions(-)
+I took care of that and queued the patch.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index da23aea..5bd6b24 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -3146,11 +3146,6 @@ static int bnx2x_set_phys_id(struct net_device *dev,
- 		return -EAGAIN;
- 	}
- 
--	if (!bp->port.pmf) {
--		DP(BNX2X_MSG_ETHTOOL, "Interface is not pmf\n");
--		return -EOPNOTSUPP;
--	}
--
- 	switch (state) {
- 	case ETHTOOL_ID_ACTIVE:
- 		return 1;	/* cycle on/off once per second */
--- 
-1.8.1.227.g44fe835
+Thanks,
+
+  Ralf
