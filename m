@@ -1,55 +1,100 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/12][pull request] Intel Wired LAN Driver Updates
-Date: Wed, 22 May 2013 13:57:25 -0700 (PDT)
-Message-ID: <20130522.135725.2055012330878292564.davem@davemloft.net>
-References: <1369173800-20326-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] netfilter: xt_socket: use IP early demux
+Date: Wed, 22 May 2013 14:01:06 -0700
+Message-ID: <1369256466.3301.364.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44220 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756851Ab3EVU52 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 16:57:28 -0400
-In-Reply-To: <1369173800-20326-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+	Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 21 May 2013 15:03:08 -0700
+From: Eric Dumazet <edumazet@google.com>
 
-> This series contains updates to e1000e, igb and ixgbe.
-> 
-> Bruce Allan provide 2 minor cleanups for e1000e to resolve whitespace
-> issues and build warnings about unused parameters.
-> 
-> Carolyn provides a couple of fixes for igb, one being a fix for a
-> possible panic when the interface is down and receive traffic
-> arrives.  The second fix resolves an issue on newer parts which have
-> multiple checksum fields and set_ethtool was only checking to update
-> the first checksum of the NVM image.
-> 
-> Akeem provides majority of the changes in this patch set.  Akeem
-> provides a fix for e1000e on an issue reported from the community to
-> resolve the issue of unlocking swflag_mutex for 82574 and 82583
-> devices even if the hardware semaphore was successfully acquired.
-> The other patches from Akeem are against igb, where he adds support
-> SFP module discovery, LED blink mechanism for devices using cathodes,
-> LED support for i210/i211 parts and cleanup of a i2c function which
-> was not being used.
-> 
-> Matthew provides an update for igb to support a more accurate check
-> for a PTP RX hang.
-> 
-> Amir provides a patch for ixgbe to set the software prio_tc values at
-> initialization to the hardware setting to remove the need to reset the
-> device at the first time we call ixgbe_dcbnl_ieee_setets.
-> 
-> The following are changes since commit 1e18583adccfc122b5d6415cfe4bf1826c370f4e:
->   ThunderLAN: remove is_eisa flag
-> and are available in the git repository at:
->   git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/net-next master
+With IP early demux added in linux-3.6, we perform TCP lookup in IP
+layer before iptables hooks.
 
-Pulled, excellent merge commit message, thanks!
+We can avoid doing a second lookup in xt_socket.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/netfilter/xt_socket.c |   26 ++++++++++++++++----------
+ 1 file changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index 63b2bdb..0270424 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -107,7 +107,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ {
+ 	const struct iphdr *iph = ip_hdr(skb);
+ 	struct udphdr _hdr, *hp = NULL;
+-	struct sock *sk;
++	struct sock *sk = skb->sk;
+ 	__be32 uninitialized_var(daddr), uninitialized_var(saddr);
+ 	__be16 uninitialized_var(dport), uninitialized_var(sport);
+ 	u8 uninitialized_var(protocol);
+@@ -155,9 +155,11 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 	}
+ #endif
+ 
+-	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), protocol,
+-				   saddr, daddr, sport, dport, par->in, NFT_LOOKUP_ANY);
+-	if (sk != NULL) {
++	if (!sk)
++		sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), protocol,
++					   saddr, daddr, sport, dport,
++					   par->in, NFT_LOOKUP_ANY);
++	if (sk) {
+ 		bool wildcard;
+ 		bool transparent = true;
+ 
+@@ -173,7 +175,8 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 				       (sk->sk_state == TCP_TIME_WAIT &&
+ 					inet_twsk(sk)->tw_transparent));
+ 
+-		xt_socket_put_sk(sk);
++		if (sk != skb->sk)
++			xt_socket_put_sk(sk);
+ 
+ 		if (wildcard || !transparent)
+ 			sk = NULL;
+@@ -260,7 +263,7 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ {
+ 	struct ipv6hdr *iph = ipv6_hdr(skb);
+ 	struct udphdr _hdr, *hp = NULL;
+-	struct sock *sk;
++	struct sock *sk = skb->sk;
+ 	struct in6_addr *daddr = NULL, *saddr = NULL;
+ 	__be16 uninitialized_var(dport), uninitialized_var(sport);
+ 	int thoff = 0, uninitialized_var(tproto);
+@@ -291,9 +294,11 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ 		return false;
+ 	}
+ 
+-	sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
+-				   saddr, daddr, sport, dport, par->in, NFT_LOOKUP_ANY);
+-	if (sk != NULL) {
++	if (!sk)
++		sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
++					   saddr, daddr, sport, dport,
++					   par->in, NFT_LOOKUP_ANY);
++	if (sk) {
+ 		bool wildcard;
+ 		bool transparent = true;
+ 
+@@ -309,7 +314,8 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ 				       (sk->sk_state == TCP_TIME_WAIT &&
+ 					inet_twsk(sk)->tw_transparent));
+ 
+-		xt_socket_put_sk(sk);
++		if (sk != skb->sk)
++			xt_socket_put_sk(sk);
+ 
+ 		if (wildcard || !transparent)
+ 			sk = NULL;
+
+
