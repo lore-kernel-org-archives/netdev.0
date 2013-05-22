@@ -1,49 +1,41 @@
-From: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Subject: [PATCH beta 1] 0/3] Fix race conditions in
-	mrf24j40 interrupts
-Date: Tue, 21 May 2013 22:01:17 -0400
-Message-ID: <1369188080-8904-1-git-send-email-alan@signal11.us>
+From: Alan Ott <alan@signal11.us>
+Subject: [PATCH beta 1] 3/3] mrf24j40: Use level-triggered interrupts
+Date: Tue, 21 May 2013 22:01:20 -0400
+Message-ID: <1369188080-8904-4-git-send-email-alan@signal11.us>
 References: <CAO+c-UVJQJbmmmCS4hxAEYHKa8gEU1Bs=y+Rv_A75UHeBZxc+w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <CAO+c-UVJQJbmmmCS4hxAEYHKa8gEU1Bs=y+Rv_A75UHeBZxc+w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+ <1369188080-8904-1-git-send-email-alan@signal11.us>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-zigbee-devel@lists.sourceforge.net,
+	Alan Ott <alan@signal11.us>
+To: david@hauweele.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369188080-8904-1-git-send-email-alan@signal11.us>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-David Hauweele noticed that the mrf24j40 would hang arbitrarily after some
-period of heavy traffic.  Two race conditions were discovered, and the
-driver was changed to use threaded interrupts, since the enable/disable of
-interrupts in the driver has recently been a lighning rod whenever issues
-arise related to interrupts (costing engineering time), and since threaded
-interrupts are the right way to do it.
+The mrf24j40 generates level interrupts. There are rare cases where it
+appears that the interrupt line never gets de-asserted between interrupts,
+causing interrupts to be lost, and causing a hung device from the driver's
+perspective.  Switching the driver to interpret these interrupts as
+level-triggered fixes this issue.
 
-Alan Ott (3):
-  mrf24j40: Move INIT_COMPLETION() to before packet transmission
-  mrf24j40: Use threaded IRQ handler
-  mrf24j40: Use level-triggered interrupts
+Signed-off-by: Alan Ott <alan@signal11.us>
+---
+ drivers/net/ieee802154/mrf24j40.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- drivers/net/ieee802154/mrf24j40.c | 31 +++++++++----------------------
- 1 file changed, 9 insertions(+), 22 deletions(-)
-
+diff --git a/drivers/net/ieee802154/mrf24j40.c b/drivers/net/ieee802154/mrf24j40.c
+index a55ab8d..d59dbff 100644
+--- a/drivers/net/ieee802154/mrf24j40.c
++++ b/drivers/net/ieee802154/mrf24j40.c
+@@ -685,7 +685,7 @@ static int mrf24j40_probe(struct spi_device *spi)
+ 	ret = request_threaded_irq(spi->irq,
+ 				   NULL,
+ 				   mrf24j40_isr,
+-				   IRQF_TRIGGER_FALLING|IRQF_ONESHOT,
++				   IRQF_TRIGGER_LOW|IRQF_ONESHOT,
+ 				   dev_name(&spi->dev),
+ 				   devrec);
+ 
 -- 
 1.7.11.2
-
-
-------------------------------------------------------------------------------
-Try New Relic Now & We'll Send You this Cool Shirt
-New Relic is the only SaaS-based application performance monitoring service 
-that delivers powerful full stack analytics. Optimize and monitor your
-browser, app, & servers with just a few lines of code. Try New Relic
-and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
