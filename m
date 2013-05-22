@@ -1,46 +1,33 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH] MIPS: OCTEON: Rename Kconfig CAVIUM_OCTEON_REFERENCE_BOARD
- to CAVIUM_OCTEON_SOC
-Date: Wed, 22 May 2013 09:13:50 -0700
-Message-ID: <519CEEBE.5020403@caviumnetworks.com>
-References: <1369088378-13957-1-git-send-email-ddaney.cavm@gmail.com> <20130521220457.GF31836@blackmetal.musicnaut.iki.fi> <519BF01B.1010600@caviumnetworks.com> <20130522122232.GD10769@linux-mips.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v4 00/12] net: mv643xx_eth DT support and fixes
+Date: Wed, 22 May 2013 18:16:21 +0200
+Message-ID: <20130522161621.GM2824@lunn.ch>
+References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Aaro Koskinen <aaro.koskinen@iki.fi>,
-	David Daney <ddaney.cavm@gmail.com>,
-	<linux-mips@linux-mips.org>, David Daney <david.daney@cavium.com>,
-	<linux-ide@vger.kernel.org>, <linux-edac@vger.kernel.org>,
-	<linux-i2c@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<spi-devel-general@lists.sourceforge.net>,
-	<devel@driverdev.osuosl.org>, <linux-usb@vger.kernel.org>
-To: Ralf Baechle <ralf@linux-mips.org>
-Return-path: <linux-ide-owner@vger.kernel.org>
-In-Reply-To: <20130522122232.GD10769@linux-mips.org>
-Sender: linux-ide-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/22/2013 05:22 AM, Ralf Baechle wrote:
-> On Tue, May 21, 2013 at 03:07:23PM -0700, David Daney wrote:
->
->>>>   config USB_OCTEON_OHCI
->>>>   	bool "Octeon on-chip OHCI support"
->>>> -	depends on CPU_CAVIUM_OCTEON
->>>> +	depends on  CAVIUM_OCTEON_SOC
->>>
->>> Just a minor comment, here the extra whitespace after "depends on"
->>> could be eliminated.
->>>
->>
->> Good point.  I will regenerate the patch to correct this.
->
-> I took care of that and queued the patch.
->
+On Tue, May 21, 2013 at 06:41:38PM +0200, Sebastian Hesselbarth wrote:
+> This patch set picks up work by Florian Fainelli bringing full DT
+> support to mv643xx_eth and Marvell SoCs using it.
 
-Can you take v2 instead?  It has the missing watchdog adjustment that is 
-not in v1.
+Hi Sebastian
 
-Thanks,
-David Daney
+I tested on my QNAP and topkick. Works great.
 
+Tested-by: Andrew Lunn <andrew@lunn.ch>
 
+   Andrew
