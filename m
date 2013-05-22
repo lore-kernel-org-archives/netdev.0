@@ -1,42 +1,43 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] qmi_wwan: Added support for Cinterion's PLxx WWAN
- Interface
-Date: Wed, 22 May 2013 15:13:38 -0700 (PDT)
-Message-ID: <20130522.151338.2181176723987593238.davem@davemloft.net>
-References: <376FB829F3ECB542B825EAF4D8CA8A97013E8459E48B@CROEXCFWP03.gemalto.com>
-	<877gislbbk.fsf@nemi.mork.no>
+From: Ben Greear <greearb@candelatech.com>
+Subject: question on pktgen shutdown logic.
+Date: Wed, 22 May 2013 16:15:39 -0700
+Message-ID: <519D519B.8040406@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Christian.Schmiedl@gemalto.com, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Hans-Christoph.Schemmel@gemalto.com
-To: bjorn@mork.no
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45304 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757596Ab3EVWNj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 18:13:39 -0400
-In-Reply-To: <877gislbbk.fsf@nemi.mork.no>
+Received: from mail.candelatech.com ([208.74.158.172]:34425 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751456Ab3EVXPk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 19:15:40 -0400
+Received: from [192.168.100.226] (firewall.candelatech.com [70.89.124.249])
+	(authenticated bits=0)
+	by ns3.lanforge.com (8.14.2/8.14.2) with ESMTP id r4MNFdTL010976
+	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-SHA bits=256 verify=NO)
+	for <netdev@vger.kernel.org>; Wed, 22 May 2013 16:15:40 -0700
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Bj=F8rn Mork <bjorn@mork.no>
-Date: Tue, 21 May 2013 15:19:43 +0200
+While looking at pktgen.c in 3.9.3, I cannot explain how
+it does not race on shutdown.
 
-> Schmiedl Christian <Christian.Schmiedl@gemalto.com> writes:
->=20
->> From: Hans-Christoph Schemmel <hans-christoph.schemmel@gemalto.com>
->>
->> Added support for Cinterion's PLxx WWAN Interface by adding QMI_FIXE=
-D_INTF with
->> Cinterion's Vendor ID as well as Product ID and WWAN Interface Numbe=
-r.
->>
->> Signed-off-by: Hans-Christoph Schemmel <hans-christoph.schemmel@gema=
-lto.com>
->> Signed-off-by: Christian Schmiedl <christian.schmiedl@gemalto.com>
- ...
-> Acked-by: Bj=F8rn Mork <bjorn@mork.no>
+The thread worker checks for pktgen_exiting, and will bail out
+of it's main loop and initiate cleanup if this is true.
 
-Applied.
+The pg_net_exit sets the pktgen_exiting to true, and then
+proceedes to call
+
+		kthread_stop(t->tsk);
+		kfree(t);
+
+What I don't understand is what keeps the kfree(t) from happening
+before the thread has noticed pktgen_exiting is set and properly
+bailed out of it's loop and finished cleanup?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
