@@ -1,36 +1,50 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: possible bug in IPv6 MLD retransmissions
-Date: Wed, 22 May 2013 14:24:34 -0400
-Message-ID: <OF2FF7FDBF.29F92AB4-ON85257B73.00649006-85257B73.00652081@us.ibm.com>
-References: <20130517032449.GA3595@obelix.rh> <20130518173105.GD29528@order.stressinduktion.org> <20130521150616.GA8513@obelix.rh> <20130522004027.GD32093@order.stressinduktion.org> <OF1A7F184A.4282AFE8-ON85257B73.003E82A8-85257B73.003F3B88@us.ibm.com> <20130522172711.GC17240@obelix.rh>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] bonding: add synchronize_net() after netdev_rx_handler_unregister
+Date: Wed, 22 May 2013 22:30:19 +0400
+Message-ID: <519D0EBB.4030307@cogentembedded.com>
+References: <519C8504.1080906@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: Flavio Leitner <fbl@redhat.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>
+To: dingtianhong <dingtianhong@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:60639 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754687Ab3EVSZr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 May 2013 14:25:47 -0400
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Wed, 22 May 2013 14:25:46 -0400
-In-Reply-To: <20130522172711.GC17240@obelix.rh>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:53086 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752319Ab3EVSaQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 14:30:16 -0400
+Received: by mail-la0-f48.google.com with SMTP id fs12so2316798lab.21
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 11:30:14 -0700 (PDT)
+In-Reply-To: <519C8504.1080906@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Flavio Leitner <fbl@redhat.com> wrote on 05/22/2013 01:27:11 PM:
+Hello.
 
-> It becomes a bug (and that's why I started with 'possible') if dad
-> completes after the two MLD reports sent with ``::'' source, because
-> routers will ignore those initial reports and the system is left out.
+On 22-05-2013 12:42, dingtianhong wrote:
 
-No, unsolicited reports are not necessary for MLD. If there are no
-other listeners for a group, the reports will be triggered within
-one query interval after a valid LL addr is there.
+> commit 00cfec3748 (net: add a synchronize_net() ...) add a synchronize_net()
 
-                                                                +-DLS
+    Please specify complete summary line of this commit.
+
+> in netdev_rx_handler_unregister() to guarantee the rx_handler  is NULL when
+> rx_handler_data is a non NULL in rcu_read_lock().
+>
+> so the caller should not use netdev_rx_handler_unregister in atomic as it may
+> schedule and sleep, the commit fcd99434f
+
+    You forgot to specify the summary line of this commit.
+
+> fix the bug in bond release, but the
+> problem is no action to guarantee the rx_handler_data is NULL when bond release,
+> so add synchronize_net() and fix it.
+
+> This patch adds more comments to netdev_rx_handler_unregister().
+
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+
+WBR, Sergei
