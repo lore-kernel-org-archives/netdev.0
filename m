@@ -1,61 +1,51 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2] virtio_net: enable napi for all possible queues during open
-Date: Wed, 22 May 2013 14:03:58 +0800
-Message-ID: <1369202638-17660-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: rusty@rustcorp.com.au, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH next-next v4 0/2] MPLS: Add limited GSO support
+Date: Wed, 22 May 2013 15:57:14 +0900
+Message-ID: <1369205836-9407-1-git-send-email-horms@verge.net.au>
+Cc: Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	jarno.rajahalme@nsn.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?q?Maciej=20=C5=BBenczykowski?= <maze@google.com>,
+	Simon Horman <horms@verge.net.au>
+To: dev@openvswitch.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from kirsty.vergenet.net ([202.4.237.240]:40739 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752724Ab3EVG5V (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 02:57:21 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 55257d72bd1c51f25106350f4983ec19f62ed1fa (virtio-net: fill only rx
-queues which are being used) only does the napi enabling during open for
-curr_queue_pairs. This will break multiqueue receiving since napi of new queues
-were still disabled after changing the number of queues.
+In the case where a non-MPLS packet is received and an MPLS stack is
+added it may well be the case that the original skb is GSO but the
+NIC used for transmit does not support GSO of MPLS packets.
 
-This patch fixes this by enabling napi for all possible queues during open.
+The aim of this short series is to provide GSO in software for MPLS packets
+whose skbs are GSO.
 
-Cc: Sasha Levin <sasha.levin@oracle.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-Changes from V1:
-- enable napi in open instead of virtnet_set_queues() to avoid kernel BUG() when
-trying to do napi_enable() for a already enabled queue
----
- drivers/net/virtio_net.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
+Simon Horman (2):
+  net: Use 16bits for inner_*_headers fields of struct skbuff
+  MPLS: Add limited GSO support
 
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index 2d6abac..241527d 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -636,10 +636,11 @@ static int virtnet_open(struct net_device *dev)
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	int i;
- 
--	for (i = 0; i < vi->curr_queue_pairs; i++) {
--		/* Make sure we have some buffers: if oom use wq. */
--		if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
--			schedule_delayed_work(&vi->refill, 0);
-+	for (i = 0; i < vi->max_queue_pairs; i++) {
-+		if (i < vi->curr_queue_pairs)
-+			/* Make sure we have some buffers: if oom use wq. */
-+			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
-+				schedule_delayed_work(&vi->refill, 0);
- 		virtnet_napi_enable(&vi->rq[i]);
- 	}
- 
+ include/linux/netdev_features.h |   4 +-
+ include/linux/netdevice.h       |   2 +
+ include/linux/skbuff.h          |  67 +++++-------------------
+ net/Kconfig                     |   1 +
+ net/Makefile                    |   1 +
+ net/core/dev.c                  |   4 ++
+ net/core/ethtool.c              |   1 +
+ net/ipv4/af_inet.c              |   1 +
+ net/ipv4/tcp.c                  |   1 +
+ net/ipv4/udp.c                  |   2 +-
+ net/ipv6/ip6_offload.c          |   1 +
+ net/ipv6/udp_offload.c          |   3 +-
+ net/mpls/Kconfig                |   9 ++++
+ net/mpls/Makefile               |   4 ++
+ net/mpls/mpls_gso.c             | 109 ++++++++++++++++++++++++++++++++++++++++
+ 15 files changed, 152 insertions(+), 58 deletions(-)
+ create mode 100644 net/mpls/Kconfig
+ create mode 100644 net/mpls/Makefile
+ create mode 100644 net/mpls/mpls_gso.c
+
 -- 
-1.7.1
+1.8.2.1
