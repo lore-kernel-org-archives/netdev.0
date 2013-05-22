@@ -1,64 +1,76 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH 06/19] net/ethernet/dec/tulip/xircom_cb: Use
- module_pci_driver to register driver
-Date: Tue, 21 May 2013 17:41:20 -0700
-Message-ID: <CAP6odjjq_yX7JCsBnTqKYh6E_FNjYBoxnMYFDRwj6Dcou14jwA@mail.gmail.com>
-References: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
-	<1369176146-19383-6-git-send-email-peterhuewe@gmx.de>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: RFC limit sk_mem_quantum to 8192
+Date: Tue, 21 May 2013 21:45:41 -0300
+Message-ID: <20130522004541.GA17240@obelix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Grant Grundler <grundler@parisc-linux.org>,
-	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Peter Huewe <peterhuewe@gmx.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369176146-19383-6-git-send-email-peterhuewe@gmx.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25027 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750850Ab3EVApq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 May 2013 20:45:46 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[new gmail editor changed how to send plaint/text email - sorry for
-multiple copies]
 
+Hi,
 
-On Tue, May 21, 2013 at 3:42 PM, Peter Huewe <peterhuewe@gmx.de> wrote:
-> Removing some boilerplate by using module_pci_driver instead of calling
-> register and unregister in the otherwise empty init/exit functions.
->
-> Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
+The page size can be 64k on ppc64, so SK_MEM_QUANTUM increases to
+that value as well.
 
-LGTM
-Reviewed-by: Grant Grundler <grundler@parisc-linux.org>
+net/ipv4/tcp.c:
+...
+        sysctl_tcp_wmem[0] = SK_MEM_QUANTUM;
+        sysctl_tcp_wmem[1] = 16*1024;
+        sysctl_tcp_wmem[2] = max(64*1024, max_share);
 
+        sysctl_tcp_rmem[0] = SK_MEM_QUANTUM;
+        sysctl_tcp_rmem[1] = 87380;
+        sysctl_tcp_rmem[2] = max(87380, max_share);
+
+and:
+include/net/sock.h:
+#define SK_MEM_QUANTUM ((int)PAGE_SIZE)
+
+ppc64 config:
+# CONFIG_PPC_4K_PAGES is not set
+# CONFIG_PPC_16K_PAGES is not set
+CONFIG_PPC_64K_PAGES=y
+# CONFIG_PPC_256K_PAGES is not set
+
+It seems too much for a minimum reserved memory. Also, the
+other values are meaningless in this case because default
+is only 16k and the maximum is limited to 64k.
+
+This will require a modification in the
+Documentation/networking/ip-sysctl.txt as well which states
+that default minimum is 1 page.
+
+Also, sk_mem_schedule() and friends will have to consider
+that SK_MEM_QUANTUM might not be PAGE_SIZE anymore.
+
+Well, the patch below illustrates what I am talking.
 thanks,
-grant
+fbl
 
-> ---
->  drivers/net/ethernet/dec/tulip/xircom_cb.c | 14 +-------------
->  1 file changed, 1 insertion(+), 13 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/xircom_cb.c b/drivers/net/ethernet/dec/tulip/xircom_cb.c
-> index cdbcd16..9b84cb0 100644
-> --- a/drivers/net/ethernet/dec/tulip/xircom_cb.c
-> +++ b/drivers/net/ethernet/dec/tulip/xircom_cb.c
-> @@ -1171,16 +1171,4 @@ investigate_write_descriptor(struct net_device *dev,
->         }
->  }
->
-> -static int __init xircom_init(void)
-> -{
-> -       return pci_register_driver(&xircom_ops);
-> -}
-> -
-> -static void __exit xircom_exit(void)
-> -{
-> -       pci_unregister_driver(&xircom_ops);
-> -}
-> -
-> -module_init(xircom_init)
-> -module_exit(xircom_exit)
-> -
-> +module_pci_driver(xircom_ops);
-> --
-> 1.8.1.5
->
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 5d84de4..d52fa2d 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -954,7 +954,12 @@ static inline struct inode *SOCK_INODE(struct socket *socket)
+ extern int __sk_mem_schedule(struct sock *sk, int size, int kind);
+ extern void __sk_mem_reclaim(struct sock *sk);
+ 
++#if PAGE_SIZE < 8192
+ #define SK_MEM_QUANTUM ((int)PAGE_SIZE)
++#else
++#define SK_MEM_QUANTUM ((int)8192)
++#endif
++
+ #define SK_MEM_QUANTUM_SHIFT ilog2(SK_MEM_QUANTUM)
+ #define SK_MEM_SEND	0
+ #define SK_MEM_RECV	1
