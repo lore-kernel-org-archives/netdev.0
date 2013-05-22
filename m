@@ -1,47 +1,51 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: Re: [PATCH v4 06/12] ARM: dove: add gigabit ethernet and mvmdio device
- tree nodes
-Date: Wed, 22 May 2013 21:52:40 +0200
-Message-ID: <519D2208.8040902@gmail.com>
-References: <1369154510-4927-7-git-send-email-sebastian.hesselbarth@gmail.com> <20130521174849.GL26249@lunn.ch> <519C9333.20609@gmail.com> <519C9822.9040909@windriver.com> <519C9A66.3050807@gmail.com> <20130522131010.GB31290@titan.lakedaemon.net> <20130522165908.GB12320@obsidianresearch.com> <519D0143.1000203@gmail.com> <20130522173505.GH31290@titan.lakedaemon.net> <519D038C.9000605@gmail.com> <20130522174815.GI31290@titan.lakedaemon.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
+ spinlock
+Date: Wed, 22 May 2013 12:57:04 -0700
+Message-ID: <1369252624.2143.103.camel@joe-AO722>
+References: <1368068665.13473.81.camel@edumazet-glaptop>
+	 <1369244868.3301.343.camel@edumazet-glaptop>
+	 <1369246816.2143.84.camel@joe-AO722>
+	 <1369250772.3301.349.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	"tiejun.chen" <tiejun.chen@windriver.com>,
-	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>
-To: Jason Cooper <jason@lakedaemon.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130522174815.GI31290@titan.lakedaemon.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1369250772.3301.349.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/22/2013 07:48 PM, Jason Cooper wrote:
-> On Wed, May 22, 2013 at 07:42:36PM +0200, Sebastian Hesselbarth wrote:
->> On 05/22/2013 07:35 PM, Jason Cooper wrote:
->>> On Wed, May 22, 2013 at 07:32:51PM +0200, Sebastian Hesselbarth wrote:
->>>> Just tested on Dockstar with gated clocks and modular DT mv643xx_eth.
->>>>
->>>> Will append to the DT mv643xx_eth patch set if a v5 will be required
->>>> or as single patch prior Jason C taking in the ARM part of it
->>>> otherwise.
->>>
->>> Please post, in-reply-to v4 is fine.
->>
->> Hmm, maybe a little bit too early. While restoring the MAC address now
->> works, another bug arises which I guess is related with phy setup
->> and aneg.
->>
->> Will investigate and update patch set accordingly.
+On Wed, 2013-05-22 at 12:26 -0700, Eric Dumazet wrote:
+> On Wed, 2013-05-22 at 11:20 -0700, Joe Perches wrote:
+> > On Wed, 2013-05-22 at 10:47 -0700, Eric Dumazet wrote:
+> > > nf_conntrack_lock is a monolithic lock and suffers from huge contention
+> > > on current generation servers (8 or more core/threads).
+> > []
+> > > diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+> > []
+> > > @@ -76,7 +76,8 @@ struct nf_conn {
+> > >             plus 1 for any connection(s) we are `master' for */
+> > >  	struct nf_conntrack ct_general;
+> > >  
+> > > -	spinlock_t lock;
+> > > +	spinlock_t	lock;
+> > > +	u16		cpu;
+> > trivia:
+> > What's the real value in not using int here?
+> On some machines, sizeof(spinlock_t) is 2
+> So this addition doesn't increase size of the structure, as I fill a
+> hole.
+> Thats the case on x86 when NR_CPUS < 256
 
-Ok, have it working now by properly clearing CLK125_BYPASS_EN bit in
-PORT_SERIAL_CTRL1 register for Kirkwood only. I have two more patches
-ready that I will post as single patches in reply to v4.
+Ahh, nice.
 
-If David gives his ACK for the patch set and names a branch to base it
-on, I will send a v5 including all patches.
+It might also be nice to mark it if ever more than a u16
+brace/flock/coven/cluster worth of cpus become feasible
+as it seems int is used almost everywhere else.
 
-Sebastian
+
