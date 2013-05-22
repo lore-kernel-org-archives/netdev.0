@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] qlcnic: Bug fixes
-Date: Wed, 22 May 2013 14:52:51 -0700 (PDT)
-Message-ID: <20130522.145251.1708408348135941334.davem@davemloft.net>
-References: <1369164421-20996-1-git-send-email-shahed.shaikh@qlogic.com>
+Subject: Re: [PATCH] net: fec: use a more proper compatible string for MVF
+ type device
+Date: Wed, 22 May 2013 15:01:16 -0700 (PDT)
+Message-ID: <20130522.150116.198661400362762752.davem@davemloft.net>
+References: <1368974326-24069-1-git-send-email-shawn.guo@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: shahed.shaikh@qlogic.com
+Cc: netdev@vger.kernel.org, b35083@freescale.com
+To: shawn.guo@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45011 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:45130 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751456Ab3EVVww (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 17:52:52 -0400
-In-Reply-To: <1369164421-20996-1-git-send-email-shahed.shaikh@qlogic.com>
+	with ESMTP id S1756459Ab3EVWBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 18:01:17 -0400
+In-Reply-To: <1368974326-24069-1-git-send-email-shawn.guo@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Date: Tue, 21 May 2013 15:26:58 -0400
+From: Shawn Guo <shawn.guo@linaro.org>
+Date: Sun, 19 May 2013 22:38:46 +0800
 
-> This patch series includes following bug fixes:
-> * Fix probe failure path by returning proper error codes.
-> * Removed access to netdev->trans_start in driver.
-> * Fix netdev->features manipulation as part of change in EPORT
->   features
+> MVF is a family while MVF600 is a particular SoC in the family.  We
+> generally prefer to use SoC rather than family name in compatible string
+> to define a particular type of fec device.  And this is how fec_dt_ids
+> works for all those IMX fec variants.  Let's change mvf to mvf600 to
+> have it work in the same way.
 > 
-> Please apply to net.
+> Signed-off-by: Shawn Guo <shawn.guo@linaro.org>
 
-Series applied, thanks.
+Applied, thanks.
