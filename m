@@ -1,42 +1,58 @@
-From: Ralf Baechle <ralf-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org>
-Subject: Re: [PATCH] MIPS: OCTEON: Rename Kconfig
- CAVIUM_OCTEON_REFERENCE_BOARD to CAVIUM_OCTEON_SOC
-Date: Wed, 22 May 2013 14:22:32 +0200
-Message-ID: <20130522122232.GD10769@linux-mips.org>
-References: <1369088378-13957-1-git-send-email-ddaney.cavm@gmail.com>
- <20130521220457.GF31836@blackmetal.musicnaut.iki.fi>
- <519BF01B.1010600@caviumnetworks.com>
+From: Rob Herring <robherring2@gmail.com>
+Subject: Re: [PATCH 1/5] ibmebus: convert of_platform_driver to platform_driver
+Date: Wed, 22 May 2013 07:26:42 -0500
+Message-ID: <CAL_JsqKXt-gFL4y_k-_dFktpk1JD_S2G+hUsoOavw8QugFMOKA@mail.gmail.com>
+References: <1366596798-9457-1-git-send-email-robherring2@gmail.com>
+	<1366596798-9457-2-git-send-email-robherring2@gmail.com>
+	<CAL_JsqKDF=hPEM0Jz-zZSXBCXBZ=gBjLWL6QDvq+nFWkqY3DMw@mail.gmail.com>
+	<1366911329.2869.31.camel@pasglop>
+	<517980B0.3000401@gmail.com>
+	<1366920741.2869.32.camel@pasglop>
+	<517995D0.8020307@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Aaro Koskinen <aaro.koskinen-X3B1VOXEql0@public.gmane.org>,
-	David Daney <ddaney.cavm-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-mips-6z/3iImG2C8G8FEW9MqTrA@public.gmane.org,
-	David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-	linux-ide-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-edac-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	spi-devel-general-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org,
-	devel-gWbeCf7V1WCQmaza687I9mD2FQJk+8+b@public.gmane.org, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Daney <ddaney-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Return-path: <linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <519BF01B.1010600-M3mlKVOIwJVv6pq1l3V1OdBPR1lH4CV8@public.gmane.org>
-Sender: linux-i2c-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	Grant Likely <grant.likely@linaro.org>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Paul Mackerras <paulus@samba.org>,
+	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@linux.vnet.ibm.com>,
+	linuxppc-dev@lists.ozlabs.org, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <517995D0.8020307@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 21, 2013 at 03:07:23PM -0700, David Daney wrote:
+On Thu, Apr 25, 2013 at 3:45 PM, Rob Herring <robherring2@gmail.com> wrote:
+> On 04/25/2013 03:12 PM, Benjamin Herrenschmidt wrote:
+>> On Thu, 2013-04-25 at 14:14 -0500, Rob Herring wrote:
+>>> On 04/25/2013 12:35 PM, Benjamin Herrenschmidt wrote:
+>
+> [...]
+>
+>>> You need patch 2 of this series to fix this:
+>>>
+>>> driver core: move to_platform_driver to platform_device.h
+>>>
+>>> which as Arnd pointed out needs to come first. I've fixed that in my
+>>> tree, but I don't think it warrants another post.
+>>
+>> Can I pull you tree from somewhere to test ?
+>
+> Here you go:
+>
+> git://sources.calxeda.com/kernel/linux.git of-platform-removal
 
-> >>  config USB_OCTEON_OHCI
-> >>  	bool "Octeon on-chip OHCI support"
-> >>-	depends on CPU_CAVIUM_OCTEON
-> >>+	depends on  CAVIUM_OCTEON_SOC
-> >
-> >Just a minor comment, here the extra whitespace after "depends on"
-> >could be eliminated.
-> >
-> 
-> Good point.  I will regenerate the patch to correct this.
+Ben,
 
-I took care of that and queued the patch.
+Did you have a chance to test this? I want to get this into -next.
 
-Thanks,
-
-  Ralf
+Rob
