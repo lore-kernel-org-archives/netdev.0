@@ -1,73 +1,77 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: provide vhost thread per virtqueue for forwarding scenario
-Date: Wed, 22 May 2013 13:10:48 +0300
-Message-ID: <20130522101048.GA32671@redhat.com>
-References: <5872DA217C2FF7488B20897D84F904E7338FC974@nkgeml511-mbx.china.huawei.com>
- <20130520074300.GA27848@redhat.com>
- <519C96E7.2030704@huawei.com>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH v4 06/12] ARM: dove: add gigabit ethernet and mvmdio device
+ tree nodes
+Date: Wed, 22 May 2013 12:13:58 +0200
+Message-ID: <519C9A66.3050807@gmail.com>
+References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com> <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com> <1369154510-4927-7-git-send-email-sebastian.hesselbarth@gmail.com> <20130521174849.GL26249@lunn.ch> <519C9333.20609@gmail.com> <519C9822.9040909@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, Qinchuanyu <qinchuanyu@huawei.com>,
-	"rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
-	"nab@linux-iscsi.org" <nab@linux-iscsi.org>,
-	"(netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
-	"(kvm@vger.kernel.org)" <kvm@vger.kernel.org>,
-	"Zhangjie (HZ)" <zhang.zhangjie@huawei.com>
-To: Zang Hongyong <zanghongyong@huawei.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <519C96E7.2030704@huawei.com>
-Sender: kvm-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+	linux-kernel@vger.kernel.org,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	David Miller <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org
+To: "tiejun.chen" <tiejun.chen@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <519C9822.9040909@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 22, 2013 at 05:59:03PM +0800, Zang Hongyong wrote:
-> On 2013/5/20 15:43, Michael S. Tsirkin wrote:
-> >On Mon, May 20, 2013 at 02:11:19AM +0000, Qinchuanyu wrote:
-> >>Vhost thread provide both tx and rx ability for virtio-net.
-> >>In the forwarding scenarios, tx and rx share the vhost thread, and throughput is limited by single thread.
-> >>
-> >>So I did a patch for provide vhost thread per virtqueue, not per vhost_net.
-> >>
-> >>Of course, multi-queue virtio-net is final solution, but it require new version of virtio-net working in guest.
-> >>If you have to work with suse10,11, redhat 5.x as guest, and want to improve the forward throughput,
-> >>using vhost thread per queue seems to be the only solution.
-> >Why is it? If multi-queue works well for you, just update the drivers in
-> >the guests that you care about. Guest driver backport is not so hard.
-> >
-> >In my testing, performance of thread per vq varies: some workloads might
-> >gain throughput but you get more IPIs and more scheduling overhead, so
-> >you waste more host CPU per byte. As you create more VMs, this stops
-> >being a win.
-> >
-> >>I did the test with kernel 3.0.27 and qemu-1.4.0, guest is suse11-sp2, and then two vhost thread provide
-> >>double tx/rx forwarding performance than signal vhost thread.
-> >>The virtqueue of vhost_blk is 1, so it still use one vhost thread without change.
-> >>
-> >>Is there something wrong in this solution? If not, I would list patch later.
-> >>
-> >>Best regards
-> >>King
-> >Yes, I don't think we want to create threads even more aggressively
-> >in all cases. I'm worried about scalability as it is.
-> >I think we should explore a flexible approach, use a thread pool
-> >(for example, a wq) to share threads between virtqueues,
-> >switch to a separate thread only if there's free CPU and existing
-> >threads are busy. Hopefully share threads between vhost instances too.
-> On Xen platform, network backend pv driver model has evolved to this
-> way. Netbacks from all DomUs share a thread pool,
-> and thread number eaqual to cpu core number.
-> Is there any plan for kvm paltform?
+On 05/22/2013 12:04 PM, tiejun.chen wrote:
+> On 05/22/2013 05:43 PM, Sebastian Hesselbarth wrote:
+>> On 05/21/2013 07:48 PM, Andrew Lunn wrote:
+>>> On Tue, May 21, 2013 at 06:41:44PM +0200, Sebastian Hesselbarth wrote:
+>>>> This patch adds orion-eth and mvmdio device tree nodes for DT enabled
+>>>> Dove boards. As there is only one ethernet controller on Dove, a
+>>>> default
+>>>> phy node is also added with a note to set its reg property on a
+>>>> per-board
+>>>> basis.
+>>>>
+>>>> Signed-off-by: Sebastian Hesselbarth<sebastian.hesselbarth@gmail.com>
+>>>> ---
+>> ...
+>>>> + ethernet-port@0 {
+>>>> + device_type = "network";
+>>>> + compatible = "marvell,orion-eth-port";
+>>>> + reg =<0>;
+>>>> + interrupts =<29>;
+>>>> + /* overwrite MAC address in bootloader */
+>>>> + local-mac-address = [00 00 00 00 00 00];
+>>>
+>>> Hi Sebastian
+>>>
+>>> Its probably a good idea to set the local administration bit in this
+>>> MAC address. i.e. first byte is 02.
+>>
+>> Andrew,
+>>
+>> we just need an invalid address here to trigger the default behavior of
+>> the driver and load the MAC address from its register. As PPC binding
+>> documentation also has all zero, I just took it.
+>
+> The truth is in PPC case, often we set the real mac address with some
+> variables like 'eth[x]addr' in u-boot prompt, then u-boot will parse
+> that value to fill the dtb. At last the associated driver can get the
+> actual mac address from the dtb. And especially for those older u-boot
+> version, even you have to reset the 'local-mac-address' property in dts
+> directly with the real mac address before generate the dtb since the
+> older u-boot have no this ability to fill dtb again before pass the kernel.
 
-Shirley Ma had a patchset like this. Look it up:
-'NUMA aware scheduling per vhost thread patch'
+Tiejun,
 
-Unfortunately I don't think we can fix the thread number: if a thread
-gets blocked because its accessing a swapped out memory for guest 1, we
-must allow guest 2 to make progress.
+with Marvell SoCs it is no different, except that there is almost no dtb
+support in their u-boot. The default behavior of the driver always was
+to load the MAC address from its register if there is no valid overwrite
+value. Using an invalid address (and all zero above is invalid) will
+cause of_get_mac_address() to fail (which we allow), the corresponding
+platform_data will never be written, and cause the default behavior.
 
-But it shouldn't be too hard to fix: detect that
-a thread is blocked and spawn a new one,
-or pre-create a per-guest thread and bounce the work there.
+We only need an invalid address passed initially on local-mac-address.
+DT aware boot loader will overwrite but DT agnositic boot loader will
+not. I can put any invalid MAC address in here, so I have chosen the
+very first I can think of.
 
-> >
-> 
+Sebastian
