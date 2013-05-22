@@ -1,33 +1,51 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v4 00/12] net: mv643xx_eth DT support and fixes
-Date: Wed, 22 May 2013 18:16:21 +0200
-Message-ID: <20130522161621.GM2824@lunn.ch>
-References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: [PATCH net-next 0/2 V3] Xen network: split event channels support
+Date: Wed, 22 May 2013 17:34:44 +0100
+Message-ID: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <jbeulich@suse.com>, <ian.campbell@citrix.com>,
+	<annie.li@oracle.com>, <konrad.wilk@oracle.com>,
+	<david.vrabel@citrix.com>, Wei Liu <wei.liu2@citrix.com>
+To: <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp02.citrix.com ([66.165.176.63]:39946 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754399Ab3EVQet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 12:34:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 21, 2013 at 06:41:38PM +0200, Sebastian Hesselbarth wrote:
-> This patch set picks up work by Florian Fainelli bringing full DT
-> support to mv643xx_eth and Marvell SoCs using it.
+This series adds a new feature called split event channels.
 
-Hi Sebastian
+In the original implementation, only one event channel is setup between
+frontend and backend. This is not ideal as TX notification interferes with RX
+notification. Using dedicated event channels for TX and RX solves this issue.
 
-I tested on my QNAP and topkick. Works great.
+Changes since V2:
+* feature_split_event_channels -> separate_tx_rx_irq
+* make separate_tx_rx_irq bool
+* document this feature in header file
+* don't report fatal if writing feature to xenstore fails
+* frontend will fall back to single event channel if new feature setup fails
 
-Tested-by: Andrew Lunn <andrew@lunn.ch>
+Changes since V1:
+* change subject lines of commits to be more specific
+* add parameter feature_split_event_channels for xen-netback
+* remove two dev_info
 
-   Andrew
+Wei Liu (3):
+  xen-netback: split event channels support for Xen backend driver
+  xen-netfront: split event channels support for Xen frontend driver
+  xen: netif.h: document feature-split-event-channels
+
+ drivers/net/xen-netback/common.h    |   13 ++-
+ drivers/net/xen-netback/interface.c |   85 ++++++++++++++---
+ drivers/net/xen-netback/netback.c   |   14 ++-
+ drivers/net/xen-netback/xenbus.c    |   41 ++++++--
+ drivers/net/xen-netfront.c          |  178 +++++++++++++++++++++++++++++------
+ include/xen/interface/io/netif.h    |   12 +++
+ 6 files changed, 285 insertions(+), 58 deletions(-)
+
+-- 
+1.7.10.4
