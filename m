@@ -1,45 +1,46 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: question on pktgen shutdown logic.
-Date: Wed, 22 May 2013 16:52:22 -0700
-Message-ID: <519D5A36.6030000@candelatech.com>
-References: <519D519B.8040406@candelatech.com>  <1369264921.3301.370.camel@edumazet-glaptop>  <519D54A8.4090707@candelatech.com> <1369265749.3301.372.camel@edumazet-glaptop>
+From: =?UTF-8?q?Emilio=20L=C3=B3pez?= <emilio@elopez.com.ar>
+Subject: [PATCH 1/3] net: ethernet: apple: drop unused variable
+Date: Wed, 22 May 2013 20:57:35 -0300
+Message-ID: <1369267057-9371-1-git-send-email-emilio@elopez.com.ar>
+References: <20130522.122624.266893118412034519.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	=?UTF-8?q?Emilio=20L=C3=B3pez?= <emilio@elopez.com.ar>
+To: sfr@canb.auug.org.au, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:44720 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756611Ab3EVXwX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 19:52:23 -0400
-In-Reply-To: <1369265749.3301.372.camel@edumazet-glaptop>
+Received: from zetta.elopez.com.ar ([199.30.59.35]:36655 "EHLO
+	zetta.elopez.com.ar" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754052Ab3EWAAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 20:00:21 -0400
+In-Reply-To: <20130522.122624.266893118412034519.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2013 04:35 PM, Eric Dumazet wrote:
-> On Wed, 2013-05-22 at 16:28 -0700, Ben Greear wrote:
->
->> Ahh, so it waits for the pktgen_thread_worker method to return?
->>
->> Why do we bother with the pktgen_exiting flag at all...it
->> would seem that just checking kthread_should_stop() would
->> do the trick?
->
-> If you have 4096 cpus, setting pktgen_exiting permits all pktgen exiting
-> faster.
->
-> Otherwise you wait about 400 seconds (4096 * HZ/10)
+Commit 3b0aaef ("net: ethernet: apple: initialize variables directly")
+dropped the only loop that was using i but did not remove the actual
+variable, therefore causing a warning when building. This patch drops
+the now redundant line.
 
-Ok, I think I understand now.
+Signed-off-by: Emilio L=C3=B3pez <emilio@elopez.com.ar>
+---
+ drivers/net/ethernet/apple/bmac.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-Thanks,
-Ben
-
->
->
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+diff --git a/drivers/net/ethernet/apple/bmac.c b/drivers/net/ethernet/a=
+pple/bmac.c
+index 714dcfe..a597b76 100644
+--- a/drivers/net/ethernet/apple/bmac.c
++++ b/drivers/net/ethernet/apple/bmac.c
+@@ -1016,7 +1016,6 @@ static void bmac_set_multicast(struct net_device =
+*dev)
+ static void bmac_set_multicast(struct net_device *dev)
+ {
+ 	struct netdev_hw_addr *ha;
+-	int i;
+ 	unsigned short rx_cfg;
+ 	u32 crc;
+=20
+--=20
+1.8.2.3
