@@ -1,62 +1,64 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: possible bug in IPv6 MLD retransmissions
-Date: Wed, 22 May 2013 02:40:27 +0200
-Message-ID: <20130522004027.GD32093@order.stressinduktion.org>
-References: <20130517032449.GA3595@obelix.rh> <20130518173105.GD29528@order.stressinduktion.org> <20130521150616.GA8513@obelix.rh>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [PATCH 06/19] net/ethernet/dec/tulip/xircom_cb: Use
+ module_pci_driver to register driver
+Date: Tue, 21 May 2013 17:41:20 -0700
+Message-ID: <CAP6odjjq_yX7JCsBnTqKYh6E_FNjYBoxnMYFDRwj6Dcou14jwA@mail.gmail.com>
+References: <1369176146-19383-1-git-send-email-peterhuewe@gmx.de>
+	<1369176146-19383-6-git-send-email-peterhuewe@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: netdev@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:53859 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754105Ab3EVAk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 20:40:28 -0400
-Content-Disposition: inline
-In-Reply-To: <20130521150616.GA8513@obelix.rh>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Grant Grundler <grundler@parisc-linux.org>,
+	"open list:TULIP NETWORK DRI..." <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Peter Huewe <peterhuewe@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369176146-19383-6-git-send-email-peterhuewe@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 21, 2013 at 12:06:16PM -0300, Flavio Leitner wrote:
-> On Sat, May 18, 2013 at 07:31:05PM +0200, Hannes Frederic Sowa wrote:
-> > On Fri, May 17, 2013 at 12:24:49AM -0300, Flavio Leitner wrote:
-> > > A tcpdump captured while adding an IPv6 link-local address shows
-> > > two MLD reports. One with source ``::'' and another with the permanent
-> > > address.
-> > > 
-> > > Well, if you increase dad_retransmits from 1 to 10, for instance,
-> > > then both MLD reports are sent with source address ``::'' which
-> > > according with specs should be ignored by the routers.
-> > >
-> > > [...]
-> > >
-> > > Therefore, I believe this is a bug in IPv6 MLD because it should
-> > > sent at least 2 MLD reports after DAD is completed.
-> > > The specs says:
-> > >
-> > > [..]
-> > >
-> > > Does that make any sense?
-> > 
-> > Yes, this is unfortunate. RFC3590 clarifies this also for MLDv1 messages.
-> > 
-> > Could you try following patch I just came up with?
-> 
-> It does work, but it would be better to send [Robustness Variable]
-> times, right?
+[new gmail editor changed how to send plaint/text email - sorry for
+multiple copies]
 
-Sure, this is the more robust approach.
 
-Patch is tested and seems fine:
+On Tue, May 21, 2013 at 3:42 PM, Peter Huewe <peterhuewe@gmx.de> wrote:
+> Removing some boilerplate by using module_pci_driver instead of calling
+> register and unregister in the otherwise empty init/exit functions.
+>
+> Signed-off-by: Peter Huewe <peterhuewe@gmx.de>
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+LGTM
+Reviewed-by: Grant Grundler <grundler@parisc-linux.org>
 
-I tried to track if we actually used the unspecified address to send out
-mld reports, but doing this correctly (multiple link-local addresses in
-dad state) needed a bit of ugly lock handling and the code got bloated. So
-I do think it is not worth the effort.
+thanks,
+grant
 
-Thanks,
-
-  Hannes
+> ---
+>  drivers/net/ethernet/dec/tulip/xircom_cb.c | 14 +-------------
+>  1 file changed, 1 insertion(+), 13 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/dec/tulip/xircom_cb.c b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+> index cdbcd16..9b84cb0 100644
+> --- a/drivers/net/ethernet/dec/tulip/xircom_cb.c
+> +++ b/drivers/net/ethernet/dec/tulip/xircom_cb.c
+> @@ -1171,16 +1171,4 @@ investigate_write_descriptor(struct net_device *dev,
+>         }
+>  }
+>
+> -static int __init xircom_init(void)
+> -{
+> -       return pci_register_driver(&xircom_ops);
+> -}
+> -
+> -static void __exit xircom_exit(void)
+> -{
+> -       pci_unregister_driver(&xircom_ops);
+> -}
+> -
+> -module_init(xircom_init)
+> -module_exit(xircom_exit)
+> -
+> +module_pci_driver(xircom_ops);
+> --
+> 1.8.1.5
+>
