@@ -1,44 +1,33 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: possible bug in IPv6 MLD retransmissions
-Date: Wed, 22 May 2013 18:21:27 -0300
-Message-ID: <20130522212127.GF17259@obelix.rh>
-References: <20130517032449.GA3595@obelix.rh>
- <20130518173105.GD29528@order.stressinduktion.org>
- <20130521150616.GA8513@obelix.rh>
- <20130522004027.GD32093@order.stressinduktion.org>
- <OF1A7F184A.4282AFE8-ON85257B73.003E82A8-85257B73.003F3B88@us.ibm.com>
- <20130522172711.GC17240@obelix.rh>
- <OF2FF7FDBF.29F92AB4-ON85257B73.00649006-85257B73.00652081@us.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] netfilter: xt_socket: use IP early demux
+Date: Wed, 22 May 2013 14:27:33 -0700 (PDT)
+Message-ID: <20130522.142733.458456664835859037.davem@davemloft.net>
+References: <1369256466.3301.364.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: pablo@netfilter.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, kaber@trash.net
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:18187 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753204Ab3EVVVf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 May 2013 17:21:35 -0400
-Content-Disposition: inline
-In-Reply-To: <OF2FF7FDBF.29F92AB4-ON85257B73.00649006-85257B73.00652081@us.ibm.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44566 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756096Ab3EVV1f (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 17:27:35 -0400
+In-Reply-To: <1369256466.3301.364.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 22, 2013 at 02:24:34PM -0400, David Stevens wrote:
-> Flavio Leitner <fbl@redhat.com> wrote on 05/22/2013 01:27:11 PM:
-> 
-> > It becomes a bug (and that's why I started with 'possible') if dad
-> > completes after the two MLD reports sent with ``::'' source, because
-> > routers will ignore those initial reports and the system is left out.
-> 
-> No, unsolicited reports are not necessary for MLD. If there are no
-> other listeners for a group, the reports will be triggered within
-> one query interval after a valid LL addr is there.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 22 May 2013 14:01:06 -0700
 
-Agreed that they aren't necessary, but I also don't think it's
-a good solution to wait for the query interval.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> With IP early demux added in linux-3.6, we perform TCP lookup in IP
+> layer before iptables hooks.
+> 
+> We can avoid doing a second lookup in xt_socket.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
--- 
-fbl
+Acked-by: David S. Miller <davem@davemloft.net>
