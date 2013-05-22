@@ -1,88 +1,46 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 2/2] ipvs: Fix reuse connection if real server is dead
-Date: Wed, 22 May 2013 14:56:49 +0900
-Message-ID: <1369202209-18570-3-git-send-email-horms@verge.net.au>
-References: <1369202209-18570-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Grzegorz Lyczba <grzegorz.lyczba@gmail.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Andy Johnson <johnsonzjo@gmail.com>
+Subject: Rtnelink and notifcations: a question.
+Date: Wed, 22 May 2013 09:13:36 +0300
+Message-ID: <CAF0Lin08QxdKRTXUJOuHeRBwfueUks0Scrx+c5FjZmA_4+FNSA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:50490 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755272Ab3EVF4y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 01:56:54 -0400
-In-Reply-To: <1369202209-18570-1-git-send-email-horms@verge.net.au>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:38713 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754282Ab3EVGNh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 02:13:37 -0400
+Received: by mail-wg0-f46.google.com with SMTP id l18so806351wgh.25
+        for <netdev@vger.kernel.org>; Tue, 21 May 2013 23:13:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
+Hello,
 
-Expire cached connection for new TCP/SCTP connection if real server is down
+This is a theoretical question (sorry,-)). I was wondering why do we
+need both rtnetlink
+kernel sockets and the notification API ?
+For example,
+in net/core/dev.c,
+we use notification to send NETDEV_REGISTER event notification in:
+call_netdevice_notifiers(NETDEV_REGISTER, dev);
+and we use the rtnetlink to send RTM_NEWLINK message:
+rtmsg_ifinfo(RTM_NEWLINK,...);
 
-Signed-off-by: Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
-Acked-by Hans Schillstrom <hans@schillstrom.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_core.c | 36 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 36 insertions(+)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 085b588..7967d12 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1001,6 +1001,33 @@ static inline int is_tcp_reset(const struct sk_buff *skb, int nh_len)
- 	return th->rst;
- }
- 
-+static inline bool is_new_conn(const struct sk_buff *skb,
-+			       struct ip_vs_iphdr *iph)
-+{
-+	switch (iph->protocol) {
-+	case IPPROTO_TCP: {
-+		struct tcphdr _tcph, *th;
-+
-+		th = skb_header_pointer(skb, iph->len, sizeof(_tcph), &_tcph);
-+		if (th == NULL)
-+			return false;
-+		return th->syn;
-+	}
-+	case IPPROTO_SCTP: {
-+		sctp_chunkhdr_t *sch, schunk;
-+
-+		sch = skb_header_pointer(skb, iph->len + sizeof(sctp_sctphdr_t),
-+				sizeof(schunk), &schunk);
-+		if (sch == NULL)
-+			return false;
-+		return (sch->type == SCTP_CID_INIT);
-+	}
-+	default:
-+		return false;
-+	}
-+}
-+
-+
- /* Handle response packets: rewrite addresses and send away...
-  */
- static unsigned int
-@@ -1612,6 +1639,15 @@ ip_vs_in(unsigned int hooknum, struct sk_buff *skb, int af)
- 	 * Check if the packet belongs to an existing connection entry
- 	 */
- 	cp = pp->conn_in_get(af, skb, &iph, 0);
-+
-+	if (unlikely(sysctl_expire_nodest_conn(ipvs)) && cp && cp->dest &&
-+	    unlikely(!atomic_read(&cp->dest->weight)) && !iph.fragoffs &&
-+	    is_new_conn(skb, &iph)) {
-+		ip_vs_conn_expire_now(cp);
-+		__ip_vs_conn_put(cp);
-+		cp = NULL;
-+	}
-+
- 	if (unlikely(!cp) && !iph.fragoffs) {
- 		/* No (second) fragments need to enter here, as nf_defrag_ipv6
- 		 * replayed fragment zero will already have created the cp
--- 
-1.8.2.1
+Is it possible to use only the rtnetlink API and to send events like
+NETDEV_REGISTER with rtnetlink methods ?
+
+Or is there something inherent with rtnetlink/notification that
+prevents implementing in
+this way ?
+
+I believe that the other way (solely using notification API) is not
+possible because
+we need to support getting messages
+from userspace (for example, with the iproute package).
+
+
+
+Regards,
+Andy
