@@ -1,53 +1,62 @@
-From: Boian Bonev <bbonev@ipacct.com>
-Subject: Re: RFC EOIP Tunnel
-Date: Wed, 22 May 2013 03:29:10 +0300
-Message-ID: <CAD53P8AHEm0Q1gFcaL=WVqc65gKNkc+yEbLSi8qW-iLaNxjWQA@mail.gmail.com>
-References: <CAD53P8CY9SFvsrhiZqpxT=P5PtjbqL4LG1tf3O8jpU0yrychUw@mail.gmail.com>
- <20130520230852.GB12098@order.stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: possible bug in IPv6 MLD retransmissions
+Date: Wed, 22 May 2013 02:40:27 +0200
+Message-ID: <20130522004027.GD32093@order.stressinduktion.org>
+References: <20130517032449.GA3595@obelix.rh> <20130518173105.GD29528@order.stressinduktion.org> <20130521150616.GA8513@obelix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Boian Bonev <bbonev@ipacct.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+To: netdev@vger.kernel.org,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:57926 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752683Ab3EVA3l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 20:29:41 -0400
-Received: by mail-ie0-f175.google.com with SMTP id s9so3571541iec.6
-        for <netdev@vger.kernel.org>; Tue, 21 May 2013 17:29:40 -0700 (PDT)
-In-Reply-To: <20130520230852.GB12098@order.stressinduktion.org>
+Received: from order.stressinduktion.org ([87.106.68.36]:53859 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754105Ab3EVAk2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 May 2013 20:40:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20130521150616.GA8513@obelix.rh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Tue, May 21, 2013 at 12:06:16PM -0300, Flavio Leitner wrote:
+> On Sat, May 18, 2013 at 07:31:05PM +0200, Hannes Frederic Sowa wrote:
+> > On Fri, May 17, 2013 at 12:24:49AM -0300, Flavio Leitner wrote:
+> > > A tcpdump captured while adding an IPv6 link-local address shows
+> > > two MLD reports. One with source ``::'' and another with the permanent
+> > > address.
+> > > 
+> > > Well, if you increase dad_retransmits from 1 to 10, for instance,
+> > > then both MLD reports are sent with source address ``::'' which
+> > > according with specs should be ignored by the routers.
+> > >
+> > > [...]
+> > >
+> > > Therefore, I believe this is a bug in IPv6 MLD because it should
+> > > sent at least 2 MLD reports after DAD is completed.
+> > > The specs says:
+> > >
+> > > [..]
+> > >
+> > > Does that make any sense?
+> > 
+> > Yes, this is unfortunate. RFC3590 clarifies this also for MLDv1 messages.
+> > 
+> > Could you try following patch I just came up with?
+> 
+> It does work, but it would be better to send [Robustness Variable]
+> times, right?
 
-> Actually, I does get used in BSD land. I have seen several setups some time
-> ago where gif interfaces got added to a bridge interface, which behaves like
-> EtherIP then. Prior to FreeBSD 8 they reversed the bytes of the version field
-> so they still have to provide knobs for backwards compatibility.
+Sure, this is the more robust approach.
 
-In FreeBSD the same thing is implemented as netgraph node...
+Patch is tested and seems fine:
 
->> Before going in technical details and submitting patches I want to
->> know opinions if this work is suitable for merging upstream or is
->> better to be kept as a side kernel patch project.
->
-> If the side kernel patch has matured and you are fine with it just propose it
-> to get merged.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-It is mature enough for the 3.2 series kernels (but obviously this is
-not ok for submitting). Since then tunnels have got refactored to have
-common code in a single place used by all tunnels and also GRE GSO
-support was added. I am not very confident if I can get the GSO part
-the right way and properly test it...
+I tried to track if we actually used the unspecified address to send out
+mld reports, but doing this correctly (multiple link-local addresses in
+dad state) needed a bit of ugly lock handling and the code got bloated. So
+I do think it is not worth the effort.
 
-Thanks for the pointers - will follow your advice and submit a patch.
+Thanks,
 
->> ps. https://github.com/bbonev/eoip contains 3.2.x patches + somehow
->> working but quite crappy config tool
->
-> Configuration should be done by iproute.
-
-This is my plan. The config tool is more like a proof of concept thing.
-
-With best regards,
-b.
+  Hannes
