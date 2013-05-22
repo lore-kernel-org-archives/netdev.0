@@ -1,51 +1,112 @@
-From: Ricardo =?utf-8?b?VHViw61v?= <rtpardavila@gmail.com>
-Subject: Re: Single socket with =?utf-8?b?VFhfUklORw==?= and =?utf-8?b?UlhfUklORw==?=
-Date: Wed, 22 May 2013 19:36:34 +0000 (UTC)
-Message-ID: <loom.20130522T212418-499@post.gmane.org>
-References: <loom.20130515T144941-798@post.gmane.org> <20130515224452.7CAA6224C4@mail.nwl.cc> <loom.20130516T111446-437@post.gmane.org> <20130516104541.GB18282@orbit.nwl.cc> <loom.20130516T125157-378@post.gmane.org> <519A8D87.6080409@fnac.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:50188 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756362Ab3EVTgu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 May 2013 15:36:50 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UfEq9-0005l6-1C
-	for netdev@vger.kernel.org; Wed, 22 May 2013 21:36:49 +0200
-Received: from static-65-129-225-77.ipcom.comunitel.net ([static-65-129-225-77.ipcom.comunitel.net])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 22 May 2013 21:36:49 +0200
-Received: from rtpardavila by static-65-129-225-77.ipcom.comunitel.net with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 22 May 2013 21:36:49 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH v2 -resend 1/6] mISDN: Add support for group membership check
+Date: Wed, 22 May 2013 21:42:50 +0200
+Message-ID: <1369251770-22316-1-git-send-email-jslaby@suse.cz>
+References: <519D16B4.7080905@cogentembedded.com>
+Cc: linux-kernel@vger.kernel.org, Jeff Mahoney <jeffm@suse.com>,
+	Patrick Koppen <isdn4linux@koppen.de>,
+	Jiri Slaby <jslaby@suse.cz>,
+	Karsten Keil <isdn@linux-pingi.de>, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: jirislaby@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <519D16B4.7080905@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Paul Chavent <paul.chavent <at> fnac.net> writes:
+From: Jeff Mahoney <jeffm@suse.com>
 
-> 
-> Hi.
-> 
-> As stated before, you should call mmap only once.
-> 
-> Paul.
-> 
+This patch adds a module parameter to allow a group access to the
+mISDN devices. Otherwise, unpriviledged users on systems with ISDN
+hardware have the ability to dial out, potentially causing expensive
+bills.
 
+Based on a different implementation by Patrick Koppen <isdn4linux@koppen.de>.
 
-Hi Paul,
+[v2]
+ - convert to the new UID/GID API
+ - fix whitespace issues (per Sergei)
 
-I think that you must check the return value of the call that you make to
-"setsockopt()", especially for the second call. The first one returns 0,
-this is, the "setsockopt()" call was executed correctly. However, the second
-one returns -16 ("EBUSY" value), this is, the call to "setsockopt()" was not
-executed correctly.
+Acked-by: Jeff Mahoney <jeffm@suse.com>
+Cc: Patrick Koppen <isdn4linux@koppen.de>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: netdev@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+---
+ drivers/isdn/mISDN/core.c   | 6 ++++++
+ drivers/isdn/mISDN/core.h   | 1 +
+ drivers/isdn/mISDN/socket.c | 9 +++++++++
+ 3 files changed, 16 insertions(+)
 
-So, could you modify your calls to "setsockopt()" and check whether the
-return value is 0 (correct execution) or -16 (EBUSY, incorrect execution)?
-
-Best, Cardo.
+diff --git a/drivers/isdn/mISDN/core.c b/drivers/isdn/mISDN/core.c
+index da30c5c..174aa3f 100644
+--- a/drivers/isdn/mISDN/core.c
++++ b/drivers/isdn/mISDN/core.c
+@@ -21,10 +21,14 @@
+ #include "core.h"
+ 
+ static u_int debug;
++static u_int gid;
++kgid_t misdn_permitted_gid;
+ 
+ MODULE_AUTHOR("Karsten Keil");
+ MODULE_LICENSE("GPL");
+ module_param(debug, uint, S_IRUGO | S_IWUSR);
++module_param(gid, uint, 0);
++MODULE_PARM_DESC(gid, "Unix group for accessing misdn socket (default 0)");
+ 
+ static u64		device_ids;
+ #define MAX_DEVICE_ID	63
+@@ -372,6 +376,8 @@ mISDNInit(void)
+ {
+ 	int	err;
+ 
++	misdn_permitted_gid = make_kgid(current_user_ns(), gid);
++
+ 	printk(KERN_INFO "Modular ISDN core version %d.%d.%d\n",
+ 	       MISDN_MAJOR_VERSION, MISDN_MINOR_VERSION, MISDN_RELEASE);
+ 	mISDN_init_clock(&debug);
+diff --git a/drivers/isdn/mISDN/core.h b/drivers/isdn/mISDN/core.h
+index 52695bb..5f509bf 100644
+--- a/drivers/isdn/mISDN/core.h
++++ b/drivers/isdn/mISDN/core.h
+@@ -17,6 +17,7 @@
+ 
+ extern struct mISDNdevice	*get_mdevice(u_int);
+ extern int			get_mdevice_count(void);
++extern kgid_t misdn_permitted_gid;
+ 
+ /* stack status flag */
+ #define mISDN_STACK_ACTION_MASK		0x0000ffff
+diff --git a/drivers/isdn/mISDN/socket.c b/drivers/isdn/mISDN/socket.c
+index e47dcb9..8dcef36 100644
+--- a/drivers/isdn/mISDN/socket.c
++++ b/drivers/isdn/mISDN/socket.c
+@@ -612,6 +612,11 @@ data_sock_create(struct net *net, struct socket *sock, int protocol)
+ {
+ 	struct sock *sk;
+ 
++	if (!capable(CAP_SYS_ADMIN) &&
++			!gid_eq(misdn_permitted_gid, current_gid()) &&
++			!in_group_p(misdn_permitted_gid))
++		return -EPERM;
++
+ 	if (sock->type != SOCK_DGRAM)
+ 		return -ESOCKTNOSUPPORT;
+ 
+@@ -694,6 +699,10 @@ base_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ 	case IMSETDEVNAME:
+ 	{
+ 		struct mISDN_devrename dn;
++		if (!capable(CAP_SYS_ADMIN) &&
++				!gid_eq(misdn_permitted_gid, current_gid()) &&
++				!in_group_p(misdn_permitted_gid))
++			return -EPERM;
+ 		if (copy_from_user(&dn, (void __user *)arg,
+ 				   sizeof(dn))) {
+ 			err = -EFAULT;
+-- 
+1.8.2.3
