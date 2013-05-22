@@ -1,83 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/2] ipvs: Fix reuse connection if real server is dead
-Date: Wed, 22 May 2013 22:11:35 +0400
-Message-ID: <519D0A57.7010204@cogentembedded.com>
-References: <1369202209-18570-1-git-send-email-horms@verge.net.au> <1369202209-18570-3-git-send-email-horms@verge.net.au>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
+ spinlock
+Date: Wed, 22 May 2013 11:20:16 -0700
+Message-ID: <1369246816.2143.84.camel@joe-AO722>
+References: <1368068665.13473.81.camel@edumazet-glaptop>
+	 <1369244868.3301.343.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>, lvs-devel@vger.kernel.org,
-	netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
-To: Simon Horman <horms@verge.net.au>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1369202209-18570-3-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1369244868.3301.343.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, 2013-05-22 at 10:47 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> nf_conntrack_lock is a monolithic lock and suffers from huge contention
+> on current generation servers (8 or more core/threads).
+[]
+> diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+[]
+> @@ -76,7 +76,8 @@ struct nf_conn {
+>             plus 1 for any connection(s) we are `master' for */
+>  	struct nf_conntrack ct_general;
+>  
+> -	spinlock_t lock;
+> +	spinlock_t	lock;
+> +	u16		cpu;
 
-On 22-05-2013 9:56, Simon Horman wrote:
+trivia:
 
-> From: Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
+What's the real value in not using int here?
 
-> Expire cached connection for new TCP/SCTP connection if real server is down
-
-> Signed-off-by: Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
-> Acked-by Hans Schillstrom <hans@schillstrom.com>
-
-    Missing :.
-
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> ---
->   net/netfilter/ipvs/ip_vs_core.c | 36 ++++++++++++++++++++++++++++++++++++
->   1 file changed, 36 insertions(+)
-
-> diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-> index 085b588..7967d12 100644
-> --- a/net/netfilter/ipvs/ip_vs_core.c
-> +++ b/net/netfilter/ipvs/ip_vs_core.c
-> @@ -1001,6 +1001,33 @@ static inline int is_tcp_reset(const struct sk_buff *skb, int nh_len)
->   	return th->rst;
->   }
->
-> +static inline bool is_new_conn(const struct sk_buff *skb,
-> +			       struct ip_vs_iphdr *iph)
-> +{
-> +	switch (iph->protocol) {
-> +	case IPPROTO_TCP: {
-> +		struct tcphdr _tcph, *th;
-> +
-> +		th = skb_header_pointer(skb, iph->len, sizeof(_tcph), &_tcph);
-> +		if (th == NULL)
-> +			return false;
-> +		return th->syn;
-> +	}
-> +	case IPPROTO_SCTP: {
-> +		sctp_chunkhdr_t *sch, schunk;
-> +
-> +		sch = skb_header_pointer(skb, iph->len + sizeof(sctp_sctphdr_t),
-> +				sizeof(schunk), &schunk);
-
-    This line should be aligned under the next character after (.
-
-> +		if (sch == NULL)
-> +			return false;
-> +		return (sch->type == SCTP_CID_INIT);
-
-    () not needed.
-
-> +	}
-> +	default:
-> +		return false;
-> +	}
-> +}
-> +
-> +
-
-    Too many empty lines?
-
-WBR, Sergei
 
