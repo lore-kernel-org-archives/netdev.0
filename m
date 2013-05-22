@@ -1,42 +1,50 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu macro
-Date: Wed, 22 May 2013 15:23:19 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7247@saturn3.aculab.com>
-References: <519B38EC.90401@yandex-team.ru>  <20130521120906.GD3578@linux.vnet.ibm.com>  <1369143885.3301.221.camel@edumazet-glaptop>  <519B8908.9080007@yandex-team.ru>  <1369150693.3301.233.camel@edumazet-glaptop>  <519BB90B.6080706@yandex-team.ru>  <1369188080.3301.268.camel@edumazet-glaptop> <1369201765.3301.299.camel@edumazet-glaptop> <519CB2D8.103@yandex-team.ru> <1369225837.3301.324.camel@edumazet-glaptop> <AE90C24D6B3A694183C094C60CF0A2F6026B7246@saturn3.aculab.com> <1369229800.3301.332.camel@edumazet-glaptop>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: RFC limit sk_mem_quantum to 8192
+Date: Wed, 22 May 2013 11:31:00 -0300
+Message-ID: <20130522143100.GE17292@obelix.rh>
+References: <20130522004541.GA17240@obelix.rh>
+ <1369184962.3301.264.camel@edumazet-glaptop>
+ <20130522015858.GB17240@obelix.rh>
+ <1369189261.3301.269.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Roman Gushchin" <klamm@yandex-team.ru>,
-	<paulmck@linux.vnet.ibm.com>,
-	"Dipankar Sarma" <dipankar@in.ibm.com>, <zhmurov@yandex-team.ru>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Alexey Kuznetsov" <kuznet@ms2.inr.ac.ru>,
-	"James Morris" <jmorris@namei.org>,
-	"Hideaki YOSHIFUJI" <yoshfuji@linux-ipv6.org>,
-	"Patrick McHardy" <kaber@trash.net>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1369229800.3301.332.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:50367 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752744Ab3EVObE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 May 2013 10:31:04 -0400
+Content-Disposition: inline
+In-Reply-To: <1369189261.3301.269.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiBIZXJlIHRoaXMgbG9vcHMgYmVnaW4gYnkNCj4gDQo+ICBzb21lcHRyID0gcmN1X2RlcmVmZXJl
-bmNlKHNvbWVsb2NhdGlvbik7DQo+IA0KPiBNYXkgY2xhaW0gaXMgcmN1X2RlcmVmZXJlbmNlKCkg
-c2hvdWxkIGZvcmNlIHRoZSBjb21waWxlciB0byByZWFkIGFnYWluDQo+IHNvbWVsb2NhdGlvbi4g
-SXRzIGRvbmUgdGhhbmtzIHRvIEFDQ0VTU19PTkNFKCkuIEJ1dCBhcHBhcmVudGx5IGluIHRoZQ0K
-PiBzcGVjaWZpYyBjYXNlIG9mICZoc2xvdC0+aGVhZCwgaXQgZG9lc250IHdvcmsuDQoNCkhtbW0u
-Li4uDQojZGVmaW5lIEFDQ0VTU19PTkNFKHgpICgqKHZvbGF0aWxlIHR5cGVvZih4KSAqKSYoeCkp
-DQpUaGF0IG1pZ2h0IGJlIGRvb21lZCB0byBmYWlsIGZvciBtdWNoIHRoZSBzYW1lIHJlYXNvbiBh
-czoNCnZvaWQgeChzdHJ1Y3QgZm9vICp1bmFsaWduZWRfcHRyKQ0Kew0KICAgIGNoYXIgKnAgPSAo
-dm9pZCAqKXVuYWxpZ25lZF9wdHI7DQogICAgbWVtY3B5KHRndCwgcCwgc2l6ZW9mICpwKTsNCn0N
-CmdlbmVyYXRlcyBhbGlnbm1lbnQgZmF1bHRzLg0KQW5kIHRoYXQgY2FzdHMgdG8gYSB1bmlvbiB0
-eXBlIGRvbid0IGdldCBhcm91bmQgJ3N0cmljdCBhbGlhc2luZycuDQoNCkJhc2ljYWxseSB0aGUg
-Y29tcGlsZXIgbWFrZXMgdXNlIG9mIHRoZSBmYWN0IHRoYXQgeW91IHNob3VsZA0KY2FzdCBhZGRy
-ZXNzZXMgYmFjayB0byB0aGVpciBvcmlnaW5hbCB0eXBlIGJlZm9yZSBkZXJlZmVyZW5jaW5nIHRo
-ZW0uDQoNClNvIEknbSBub3Qgc3VyZSB5b3UgY2FuIHVzZSBhIGNhc3QgdG8gYWRkIGEgdHlwZSBx
-dWFsaWZpZXIuDQpUaGUgZnJvbnQtZW5kIGxldHMgeW91IHJlbW92ZSAnY29uc3QnLCBidXQgSSBz
-dXNwZWN0IHRoZSBvcHRpbWlzZXINCmlzIHVzaW5nIHRoZSBvcmlnaW5hbCB0eXBlcy4NCg0KCURh
-dmlkDQoNCg==
+On Tue, May 21, 2013 at 07:21:01PM -0700, Eric Dumazet wrote:
+> On Tue, 2013-05-21 at 22:58 -0300, Flavio Leitner wrote:
+> > On Tue, May 21, 2013 at 06:09:22PM -0700, Eric Dumazet wrote:
+> >  
+> > > Are you sure a network driver doesn't provide skb using a full page ?
+> > 
+> > You lost me. You're saying that today we consider a page size
+> > a minimum and so if we reduce that, the skb wouldn't fit in the
+> > min sk memory?
+> 
+> SK_MEM_QUANTUM is also used in UDP stack, thats why I am asking.
+
+Yeah, it is. SCTP too, but for the protocol cases, the most
+complex one appears to be TCP, and it doesn't seem to be a problem
+to replace the minimum with something not page sized.
+
+For the drivers, it seems to have an indirect assumption that
+page size bytes is a minimum acceptable, so changing this minimum
+could cause a performance issue.
+
+Well, this define is quite old, so I am not sure if there are
+other historical reasons to keep it page size. However, if the
+idea of fixing SK_MEM_QUANTUM to 4k seems reasonable, I am
+willing to spend more time digging into this.
+
+Thanks!
+-- 
+fbl
