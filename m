@@ -1,51 +1,35 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: question on pktgen shutdown logic.
-Date: Wed, 22 May 2013 16:28:40 -0700
-Message-ID: <519D54A8.4090707@candelatech.com>
-References: <519D519B.8040406@candelatech.com> <1369264921.3301.370.camel@edumazet-glaptop>
+Date: Wed, 22 May 2013 16:35:49 -0700
+Message-ID: <1369265749.3301.372.camel@edumazet-glaptop>
+References: <519D519B.8040406@candelatech.com>
+	 <1369264921.3301.370.camel@edumazet-glaptop>
+	 <519D54A8.4090707@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:37216 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755601Ab3EVX2l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 19:28:41 -0400
-In-Reply-To: <1369264921.3301.370.camel@edumazet-glaptop>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:46301 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756285Ab3EVXfx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 19:35:53 -0400
+Received: by mail-ob0-f179.google.com with SMTP id ta14so1994517obb.10
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 16:35:52 -0700 (PDT)
+In-Reply-To: <519D54A8.4090707@candelatech.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2013 04:22 PM, Eric Dumazet wrote:
-> On Wed, 2013-05-22 at 16:15 -0700, Ben Greear wrote:
->> While looking at pktgen.c in 3.9.3, I cannot explain how
->> it does not race on shutdown.
->>
->> The thread worker checks for pktgen_exiting, and will bail out
->> of it's main loop and initiate cleanup if this is true.
->>
->> The pg_net_exit sets the pktgen_exiting to true, and then
->> proceedes to call
->>
->> 		kthread_stop(t->tsk);
->> 		kfree(t);
->>
->> What I don't understand is what keeps the kfree(t) from happening
->> before the thread has noticed pktgen_exiting is set and properly
->> bailed out of it's loop and finished cleanup?
->
-> kthread_stop() is synchronous.
+On Wed, 2013-05-22 at 16:28 -0700, Ben Greear wrote:
 
-Ahh, so it waits for the pktgen_thread_worker method to return?
+> Ahh, so it waits for the pktgen_thread_worker method to return?
+> 
+> Why do we bother with the pktgen_exiting flag at all...it
+> would seem that just checking kthread_should_stop() would
+> do the trick?
 
-Why do we bother with the pktgen_exiting flag at all...it
-would seem that just checking kthread_should_stop() would
-do the trick?
+If you have 4096 cpus, setting pktgen_exiting permits all pktgen exiting
+faster.
 
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Otherwise you wait about 400 seconds (4096 * HZ/10)
