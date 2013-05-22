@@ -1,44 +1,56 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 1/4] bnx2x: Add Private Flags Support
-Date: Wed, 22 May 2013 17:08:17 +0100
-Message-ID: <1369238897.2670.11.camel@bwh-desktop.uk.level5networks.com>
-References: <1369225359-5578-1-git-send-email-yuvalmin@broadcom.com>
-	 <1369225359-5578-2-git-send-email-yuvalmin@broadcom.com>
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [Patch net-next v8 02/11] ipv6: make ip6_dst_hoplimit() static
+ inline
+Date: Wed, 22 May 2013 19:10:14 +0300
+Message-ID: <20130522161013.GA10184@zed>
+References: <1368750099-14086-3-git-send-email-amwang@redhat.com>
+ <20130517.141327.2084320693913331713.davem@davemloft.net>
+ <1369198453.5722.12.camel@cr0>
+ <20130522.001453.864958570289931561.davem@davemloft.net>
+ <1369218521.5097.20.camel@cr0>
+ <CAF1J0HNZS_s9pA1jetaFHZgqdgT+BfS6wASDpTL5UV8SzpH6Fg@mail.gmail.com>
+ <703447758.6014383.1369238603475.JavaMail.root@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<ariele@broadcom.com>, <eilong@broadcom.com>
-To: Yuval Mintz <yuvalmin@broadcom.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:42875 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752176Ab3EVQIU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 12:08:20 -0400
-In-Reply-To: <1369225359-5578-2-git-send-email-yuvalmin@broadcom.com>
+Received: from na3sys010aog102.obsmtp.com ([74.125.245.72]:49488 "HELO
+	na3sys010aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1750956Ab3EVQKU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 12:10:20 -0400
+Received: by mail-ee0-f42.google.com with SMTP id c50so1217601eek.1
+        for <netdev@vger.kernel.org>; Wed, 22 May 2013 09:10:18 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <703447758.6014383.1369238603475.JavaMail.root@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-22 at 15:22 +0300, Yuval Mintz wrote:
-> Utilize ethtool's callback `get_priv_flags' - shed more light on the
-> feasibility of devices as storage interfaces.
-[...]
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-[...]
-> +static const char bnx2x_private_arr[BNX2X_PRI_FLAG_LEN][ETH_GSTRING_LEN] = {
-> +	"iSCSI offload support ",
-> +	"FCoE offload support  ",
-> +	"Storage only interface"
-> +};
-[...]
+On Wed, May 22, 2013 at 12:03:23PM -0400, Cong Wang wrote:
+> 
+> 
+> ----- Original Message -----
+> > 
+> > I think you can just drop #ifdefs in 90% of the cases rather than
+> > create two versions of code for IPv4 and IPv6....
+> > 
+> 
+> I know we can use memcmp(), but comparing 16+ bytes even for IPv4 is not
+> a good idea, also we have to zalloc() every instance of union vxlan_addr.
 
-No trailing spaces, please.  If you don't like the way private flags are
-printed by ethtool, send a patch for ethtool.
+I've lost you here... Why not just:
 
-Ben.
+static inline
+bool vxlan_addr_equal(const union vxlan_addr *a, const union vxlan_addr *b)
+{
+       if (a->sa.sa_family != b->sa.sa_family)
+               return false;
+       if (a->sa.sa_family == AF_INET6)
+               return ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr);
+       else
+               return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
+}
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--
+Sincrely yours,
+Mike.
