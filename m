@@ -1,63 +1,46 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH] bridge: Set vlan_features to allow offloads on
-	vlans.
-Date: Wed, 22 May 2013 12:39:17 -0400
-Message-ID: <519CF4B5.2030504@redhat.com>
-References: <1369237590-29871-1-git-send-email-vyasevic@redhat.com>
-	<1369239164.2670.13.camel@bwh-desktop.uk.level5networks.com>
-Reply-To: vyasevic@redhat.com
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH v4 06/12] ARM: dove: add gigabit ethernet and mvmdio
+ device tree nodes
+Date: Wed, 22 May 2013 10:59:08 -0600
+Message-ID: <20130522165908.GB12320@obsidianresearch.com>
+References: <1367854420-8006-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369154510-4927-7-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20130521174849.GL26249@lunn.ch>
+ <519C9333.20609@gmail.com>
+ <519C9822.9040909@windriver.com>
+ <519C9A66.3050807@gmail.com>
+ <20130522131010.GB31290@titan.lakedaemon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1369239164.2670.13.camel@bwh-desktop.uk.level5networks.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+	"tiejun.chen" <tiejun.chen@windriver.com>,
+	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from quartz.orcorp.ca ([184.70.90.242]:44205 "EHLO quartz.orcorp.ca"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756573Ab3EVQ7T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 May 2013 12:59:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20130522131010.GB31290@titan.lakedaemon.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/22/2013 12:12 PM, Ben Hutchings wrote:
-> On Wed, 2013-05-22 at 11:46 -0400, Vlad Yasevich wrote:
->> When vlan device is configured on top of the brige, it does
->> not support any offload capabilities because the bridge
->> device does not initiliaze vlan_fatures.  Set vlan_fatures to
->> be equivalent to hw_fatures.
->>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>   net/bridge/br_device.c |    1 +
->>   1 files changed, 1 insertions(+), 0 deletions(-)
->>
->> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
->> index 9673128..126f2c2 100644
->> --- a/net/bridge/br_device.c
->> +++ b/net/bridge/br_device.c
->> @@ -352,6 +352,7 @@ void br_dev_setup(struct net_device *dev)
->>   	dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST | NETIF_F_HIGHDMA |
->>   			   NETIF_F_GSO_MASK | NETIF_F_HW_CSUM |
->>   			   NETIF_F_HW_VLAN_CTAG_TX;
->> +	dev->vlan_features = dev->hw_features;
->
-> I think you need to mask out NETIF_F_HW_VLAN_CTAG_TX (although maybe the
-> vlan driver should take care of that itself).
->
+On Wed, May 22, 2013 at 09:10:10AM -0400, Jason Cooper wrote:
 
-Yep, you are right.  I guess it would confuse things a bit 802.1ad was
-configured on top of the bridge.
+> iirc, our solution to this was to parse the ATAGs for the mac addr and
+> update the appended dtb.  This way, module load and unload would work
+> without loosing the mac address.  I believe Jason Gunthorpe has a patch
+> to atags_to_fdt() for this...  This should allow us to get rid of the
+> clocks hack.
 
-I'll fix that.
--vlad
+Sorry, no, we don't use ATAGs here, our platforms start the kernel
+with a correct DTB that has the correct mac address to use. My patch
+was to have the driver accept it, and I think Sebastian has already
+got that functionality...
 
-> Ben.
->
->>   	br->dev = dev;
->>   	spin_lock_init(&br->lock);
->
+Jason
