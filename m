@@ -1,83 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH resend nf-next] netfilter: xt_CT: optimize XT_CT_NOTRACK
-Date: Wed, 22 May 2013 14:10:57 -0700
-Message-ID: <1369257057.3301.367.camel@edumazet-glaptop>
-References: <1368132751.13473.113.camel@edumazet-glaptop>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
+ spinlock
+Date: Wed, 22 May 2013 14:12:51 -0700
+Message-ID: <1369257171.2143.120.camel@joe-AO722>
+References: <1368068665.13473.81.camel@edumazet-glaptop>
+	 <1369244868.3301.343.camel@edumazet-glaptop>
+	 <1369246816.2143.84.camel@joe-AO722>
+	 <1369250772.3301.349.camel@edumazet-glaptop>
+	 <1369252624.2143.103.camel@joe-AO722>
+	 <1369253761.3301.355.camel@edumazet-glaptop>
+	 <1369255104.2143.108.camel@joe-AO722>
+	 <1369255736.3301.358.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1368132751.13473.113.camel@edumazet-glaptop>
+In-Reply-To: <1369255736.3301.358.camel@edumazet-glaptop>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Wed, 2013-05-22 at 13:48 -0700, Eric Dumazet wrote:
+> On Wed, 2013-05-22 at 13:38 -0700, Joe Perches wrote:
+> 
+> > u16 for cpu is hardly used at all.
+> 
+> Its used in network tree.
+> 
+> The day it has to change, don't worry, I think we'll be able to handle
+> it.
+> 
+> For the meantime, I do not want to add 4 more bytes to conntrack
+> structure, its already bloated enough.
 
-The percpu untracked ct are not currently used for XT_CT_NOTRACK.
+I wrote "nice" already, no worries.
 
-xt_ct_tg_check()/xt_ct_target() provides a single ct.
-
-Thats not optimal as the ct->ct_general.use cache line will bounce among
-cpus.
-
-Use the intended [1] thing : xt_ct_target() should select the percpu
-object.
-
-[1] Refs :
-commit 5bfddbd46a95c97 ("netfilter: nf_conntrack: IPS_UNTRACKED bit")
-commit b3c5163fe0193a7 ("netfilter: nf_conntrack: per_cpu untracking")
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+btw: netdevice.h could possibly convert xmit_lock_owner
+to u16 as well for that same 4 byte savings if the -1
+test was converted too.
 ---
-Sent Thu, 2013-05-09, this is a resend only, no changes
+ include/linux/netdevice.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
- net/netfilter/xt_CT.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/net/netfilter/xt_CT.c b/net/netfilter/xt_CT.c
-index a60261c..da35ac0 100644
---- a/net/netfilter/xt_CT.c
-+++ b/net/netfilter/xt_CT.c
-@@ -26,6 +26,9 @@ static inline int xt_ct_target(struct sk_buff *skb, struct nf_conn *ct)
- 	if (skb->nfct != NULL)
- 		return XT_CONTINUE;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 60584b1..c38cd29 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -528,7 +528,7 @@ struct netdev_queue {
+  * write mostly part
+  */
+ 	spinlock_t		_xmit_lock ____cacheline_aligned_in_smp;
+-	int			xmit_lock_owner;
++	u16			xmit_lock_owner;
+ 	/*
+ 	 * please use this field instead of dev->trans_start
+ 	 */
+@@ -2453,7 +2453,7 @@ static inline void __netif_tx_unlock_bh(struct netdev_queue *txq)
  
-+	/* special case the untracked ct : we want the percpu object */
-+	if (!ct)
-+		ct = nf_ct_untracked_get();
- 	atomic_inc(&ct->ct_general.use);
- 	skb->nfct = &ct->ct_general;
- 	skb->nfctinfo = IP_CT_NEW;
-@@ -186,8 +189,7 @@ static int xt_ct_tg_check(const struct xt_tgchk_param *par,
- 	int ret = -EOPNOTSUPP;
- 
- 	if (info->flags & XT_CT_NOTRACK) {
--		ct = nf_ct_untracked_get();
--		atomic_inc(&ct->ct_general.use);
-+		ct = NULL;
- 		goto out;
- 	}
- 
-@@ -311,7 +313,7 @@ static void xt_ct_tg_destroy(const struct xt_tgdtor_param *par,
- 	struct nf_conn *ct = info->ct;
- 	struct nf_conn_help *help;
- 
--	if (!nf_ct_is_untracked(ct)) {
-+	if (ct && !nf_ct_is_untracked(ct)) {
- 		help = nfct_help(ct);
- 		if (help)
- 			module_put(help->helper->me);
-@@ -319,8 +321,8 @@ static void xt_ct_tg_destroy(const struct xt_tgdtor_param *par,
- 		nf_ct_l3proto_module_put(par->family);
- 
- 		xt_ct_destroy_timeout(ct);
-+		nf_ct_put(info->ct);
- 	}
--	nf_ct_put(info->ct);
+ static inline void txq_trans_update(struct netdev_queue *txq)
+ {
+-	if (txq->xmit_lock_owner != -1)
++	if (txq->xmit_lock_owner != (u16)-1)
+ 		txq->trans_start = jiffies;
  }
  
- static void xt_ct_tg_destroy_v0(const struct xt_tgdtor_param *par)
+
 
 
