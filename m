@@ -1,44 +1,70 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: possible bug in IPv6 MLD retransmissions
-Date: Thu, 23 May 2013 22:21:56 +0200
-Message-ID: <20130523202156.GJ17411@order.stressinduktion.org>
-References: <20130517032449.GA3595@obelix.rh> <20130518173105.GD29528@order.stressinduktion.org> <20130521150616.GA8513@obelix.rh> <20130522004027.GD32093@order.stressinduktion.org> <OF1A7F184A.4282AFE8-ON85257B73.003E82A8-85257B73.003F3B88@us.ibm.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [RFC PATCH 2/2] xfrm: force a garbage collection after deleting a policy
+Date: Thu, 23 May 2013 16:26 -0400
+Message-ID: <3745713.ydSpZNh4x7@sifl>
+References: <20130523185659.19212.56853.stgit@localhost> <20130523190746.19212.6027.stgit@localhost> <519E6E36.4070600@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, omoris@redhat.com,
+	pwouters@redhat.com
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:58328 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759026Ab3EWUV5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 16:21:57 -0400
-Content-Disposition: inline
-In-Reply-To: <OF1A7F184A.4282AFE8-ON85257B73.003E82A8-85257B73.003F3B88@us.ibm.com>
+Received: from mx1.redhat.com ([209.132.183.28]:42876 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759207Ab3EWU0H (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 May 2013 16:26:07 -0400
+In-Reply-To: <519E6E36.4070600@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 22, 2013 at 07:30:39AM -0400, David Stevens wrote:
-> Second, I think doing this on all LL addresses unconditionally isn't a 
-> good
-> idea. If some configuration is using thousands of LL addrs for reasons of 
-> their
-> own, they would suddenly be blasted with unexpected MLD reports where
-> they have none now. I don't see why tracking it would be such a problem --
-> if nothing else, you could simply add a counter for the number of valid LL 
-> addrs
-> incremented on DAD completion, and send these whenever it transitions from 
-> 0 to 1.
+On Thursday, May 23, 2013 11:29:58 PM Sergei Shtylyov wrote:
+> Hello.
+> 
+> On 05/23/2013 11:07 PM, Paul Moore wrote:
+> > In some cases after deleting a policy from the SPD the policy would
+> > remain in the dst/flow/route cache for an extended period of time
+> > which caused problems for SELinux as its dynamic network access
+> > controls key off of the number of XFRM policy and state entries.
+> > This patch corrects this problem by forcing a XFRM garbage collection
+> > whenever a policy is sucessfully removed.
+> > 
+> > Reported-by: Ondrej Moris <omoris@redhat.com>
+> > Signed-off-by: Paul Moore <pmoore@redhat.com>
+> > ---
+> > 
+> >   include/net/xfrm.h     |    6 ++++++
+> >   net/key/af_key.c       |    4 ++++
+> >   net/xfrm/xfrm_policy.c |    3 ++-
+> >   net/xfrm/xfrm_user.c   |    2 ++
+> >   4 files changed, 14 insertions(+), 1 deletion(-)
+> > 
+> > diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> > index ae16531..918e4cd 100644
+> > --- a/include/net/xfrm.h
+> > +++ b/include/net/xfrm.h
+> 
+> [...]
+> 
+> > @@ -1194,6 +1196,10 @@ static inline int xfrm6_policy_check_reverse(struct
+> > sock *sk, int dir,> 
+> >   {
+> >   
+> >   	return 1;
+> >   
+> >   }
+> > 
+> > +static inline void xfrm_garbage_collect(struct net *net)
+> > +{
+> > +	return;
+> 
+>      Not needed.
+> 
+> > +}
 
-While testing some code, I noticed that we seem to have a similar
-problem with the generation of router soliciations. We send out
-MAX_RTR_SOLICITATIONS for each link-local address dad completion.
+True, I added it for the sake of completeness, but I'll go ahead and remove 
+it.
 
-So the tracking could have some more users and I will move it to
-addrconf.c. I'll hope I cope with all the tiny races I found in my last
-version. :)
-
-Greetings,
-
-  Hannes
+-- 
+paul moore
+security and virtualization @ redhat
