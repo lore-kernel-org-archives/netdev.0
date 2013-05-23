@@ -1,113 +1,97 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next RFC 6/8] macvtap: allow TUNSETIFF to create multiqueue
- device
-Date: Thu, 23 May 2013 14:45:56 +0300
-Message-ID: <20130523114556.GC17993@redhat.com>
-References: <1369278753-2533-1-git-send-email-jasowang@redhat.com>
- <1369278753-2533-7-git-send-email-jasowang@redhat.com>
+From: Alex Rosenbaum <alexr@mellanox.com>
+Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet
+	device polling
+Date: Thu, 23 May 2013 14:45:43 +0300
+Message-ID: <519E0167.6060408@mellanox.com>
+References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
+	<519B632F.7040202@mellanox.com> <519B68A4.3010406@linux.intel.com>
+	<519B7355.9090303@mellanox.com> <519DF84B.10401@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1369278753-2533-7-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============7932222427563873125=="
+Cc: Willem de Bruijn <willemb@google.com>, Don,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <519DF84B.10401@linux.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 23, 2013 at 11:12:31AM +0800, Jason Wang wrote:
-> Though the queue were in fact created by open(), we still need to add this check
-> to be compatible with tuntap which can let mgmt software use a single API to
-> manage queues. This patch only validates the device name and moves the TUNSETIFF
-> to a helper.
-> 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/macvtap.c |   50 ++++++++++++++++++++++++++++++++++++++----------
->  1 files changed, 39 insertions(+), 11 deletions(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 5fd341c..e3f9344 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -867,6 +867,7 @@ out:
->  	return ret;
->  }
->  
-> +
+--===============7932222427563873125==
+Content-Type: multipart/alternative;
+	boundary="------------030502030606020500070500"
 
-Please don't add empty lines like this :).
+--------------030502030606020500070500
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
 
->  static struct macvlan_dev *macvtap_get_vlan(struct macvtap_queue *q)
->  {
->  	struct macvlan_dev *vlan;
-> @@ -884,6 +885,43 @@ static void macvtap_put_vlan(struct macvlan_dev *vlan)
->  	dev_put(vlan->dev);
->  }
->  
-> +static int macvtap_set_iff(struct file *file, struct ifreq __user *ifr_u)
-> +{
-> +	struct macvtap_queue *q = file->private_data;
-> +	struct net *net = current->nsproxy->net_ns;
-> +	struct inode *inode = file_inode(file);
-> +	struct net_device *dev, *dev2;
-> +	struct ifreq ifr;
-> +
-> +	if (copy_from_user(&ifr, ifr_u, sizeof(struct ifreq)))
-> +		return -EFAULT;
-> +
-> +	if (ifr.ifr_flags & IFF_MULTI_QUEUE) {
+On 5/23/2013 2:06 PM, Eliezer Tamir wrote:
+> On 21/05/2013 16:15, Alex Rosenbaum wrote:
+>> On 5/21/2013 3:29 PM, Eliezer Tamir wrote:
+>>> What benchmarks are you using to test poll/select/epoll?
+>> for epoll/select latency tests we are using sockperf as performance
+>> latency tool: https://code.google.com/p/sockperf/
+>> It is a client-server based tool and it supported ping-pong, throughput,
+>> and under-load test type.
+>> For epoll, you will need to define a 'feedfile' ("-f filepathname")
+>> which has a list of TCP and/or UDP socket and defined your IO mux type
+>> ("-F epoll").
+>
+> Thank you!
+> This is very helpful.
+>
+> With sockperf i can directly observe how poll/select/epoll are behaving.
+> I can see some improvement in all of them but clearly more work is 
+> needed here.
+>
+> -Eliezer
 
-So why do we validate the name?
-Pls add a comment.
+I'm happy you got it working.
 
-> +		dev = __dev_get_by_name(net, ifr.ifr_name);
-> +		if (!dev)
-> +			return -EINVAL;
-> +
-> +		dev2 = dev_get_by_macvtap_minor(iminor(inode));
-> +		if (!dev2)
-> +			return -EINVAL;
-> +
-> +		if (dev != dev2) {
-> +			dev_put(dev2);
-> +			return -EINVAL;
-> +		}
-> +
-> +		dev_put(dev2);
-> +	}
-> +
-> +	if ((ifr.ifr_flags & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
-> +	    (IFF_NO_PI | IFF_TAP))
-> +		return -EINVAL;
-> +	else
-> +		q->flags = ifr.ifr_flags;
-> +
-> +	return 0;
-> +}
-> +
->  /*
->   * provide compatibility with generic tun/tap interface
->   */
-> @@ -902,17 +940,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  
->  	switch (cmd) {
->  	case TUNSETIFF:
-> -		/* ignore the name, just look at flags */
-> -		if (get_user(u, &ifr->ifr_flags))
-> -			return -EFAULT;
-> -
-> -		ret = 0;
-> -		if ((u & ~IFF_VNET_HDR) != (IFF_NO_PI | IFF_TAP))
-> -			ret = -EINVAL;
-> -		else
-> -			q->flags = u;
-> -
-> -		return ret;
-> +		return macvtap_set_iff(file, ifr);
->  
->  	case TUNGETIFF:
->  		vlan = macvtap_get_vlan(q);
-> -- 
-> 1.7.1
+If you add '--timeout=0' to the sockperf epoll command line you can see 
+non-blocking epoll application behavior and then you will get some 
+improved latency over due to the application thread not sleeping.
+
+This is not like a full blown LLS epoll solution but half way there.
+
+
+Alex
+
+
+--------------030502030606020500070500--
+
+
+--===============7932222427563873125==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Try New Relic Now & We'll Send You this Cool Shirt
+New Relic is the only SaaS-based application performance monitoring service 
+that delivers powerful full stack analytics. Optimize and monitor your
+browser, app, & servers with just a few lines of code. Try New Relic
+and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
+--===============7932222427563873125==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============7932222427563873125==--
