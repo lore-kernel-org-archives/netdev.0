@@ -1,51 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] tcp: bug fix in proportional rate reduction.
-Date: Thu, 23 May 2013 00:10:31 -0700 (PDT)
-Message-ID: <20130523.001031.1071247701270523473.davem@davemloft.net>
-References: <1369095724-17745-1-git-send-email-nanditad@google.com>
-	<1369185127-27255-1-git-send-email-nanditad@google.com>
-	<CAK6E8=fKZOFPn1vLxYpMJYhdovodAE8ngbA8LYj7ynOeiGxbjQ@mail.gmail.com>
+Subject: Re: [PATCH V2] virtio_net: enable napi for all possible queues
+	during open
+Date: Thu, 23 May 2013 00:11:23 -0700 (PDT)
+Message-ID: <20130523.001123.1597846956917976677.davem@davemloft.net>
+References: <1369202638-17660-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nanditad@google.com, netdev@vger.kernel.org, edumazet@google.com,
-	ncardwell@google.com
-To: ycheng@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51813 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751296Ab3EWHKc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 03:10:32 -0400
-In-Reply-To: <CAK6E8=fKZOFPn1vLxYpMJYhdovodAE8ngbA8LYj7ynOeiGxbjQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, sasha.levin@oracle.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1369202638-17660-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Tue, 21 May 2013 18:27:09 -0700
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed, 22 May 2013 14:03:58 +0800
 
-> On Tue, May 21, 2013 at 6:12 PM, Nandita Dukkipati <nanditad@google.com> wrote:
->> This patch is a fix for a bug triggering newly_acked_sacked < 0
->> in tcp_ack(.).
->>
->> The bug is triggered by sacked_out decreasing relative to prior_sacked,
->> but packets_out remaining the same as pior_packets. This is because the
->> snapshot of prior_packets is taken after tcp_sacktag_write_queue() while
->> prior_sacked is captured before tcp_sacktag_write_queue(). The problem
->> is: tcp_sacktag_write_queue (tcp_match_skb_to_sack() -> tcp_fragment)
->> adjusts the pcount for packets_out and sacked_out (MSS change or other
->> reason). As a result, this delta in pcount is reflected in
->> (prior_sacked - sacked_out) but not in (prior_packets - packets_out).
->>
->> This patch does the following:
->> 1) initializes prior_packets at the start of tcp_ack() so as to
->> capture the delta in packets_out created by tcp_fragment.
->> 2) introduces a new "previous_packets_out" variable that snapshots
->> packets_out right before tcp_clean_rtx_queue, so pkts_acked can be
->> correctly computed as before.
->> 3) Computes pkts_acked using previous_packets_out, and computes
->> newly_acked_sacked using prior_packets.
->>
->> Signed-off-by: Nandita Dukkipati <nanditad@google.com>
-> Acked-by: Yuchung Cheng <ycheng@google.com>
+> Commit 55257d72bd1c51f25106350f4983ec19f62ed1fa (virtio-net: fill only rx
+> queues which are being used) only does the napi enabling during open for
+> curr_queue_pairs. This will break multiqueue receiving since napi of new queues
+> were still disabled after changing the number of queues.
+> 
+> This patch fixes this by enabling napi for all possible queues during open.
+> 
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Applied, and queued up for -stable, thanks.
+Applied, thanks.
