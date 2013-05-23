@@ -1,112 +1,105 @@
-From: Alan Ott <alan@signal11.us>
-Subject: Re: [PATCH beta 1] 0/3] Fix race conditions in mrf24j40 interrupts
-Date: Thu, 23 May 2013 15:33:50 -0400
-Message-ID: <519E6F1E.8000200@signal11.us>
-References: <CAO+c-UVJQJbmmmCS4hxAEYHKa8gEU1Bs=y+Rv_A75UHeBZxc+w@mail.gmail.com> <1369188080-8904-1-git-send-email-alan@signal11.us> <519C278F.5030809@signal11.us> <CAO+c-UV1bZZEE=9=7VVn3f1eLWzCpYCK9eZnnvzNwcPOKKtKLA@mail.gmail.com> <519DB8E6.4020709@signal11.us> <CAO+c-UVMoctgG2qM2EzOVJwsEY_2TT79J-AuzX-xrPkSUHrQtw@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Generic interface to make physical port number used by a
+ netdevice available to user space
+Date: Thu, 23 May 2013 20:49:39 +0100
+Message-ID: <1369338579.6963.22.camel@bwh-desktop.uk.level5networks.com>
+References: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>
+	 <1369238658.2670.9.camel@bwh-desktop.uk.level5networks.com>
+	 <20130523132729.GA11584@fedora-17-guest.blr.amer.dell.com>
+	 <1369325920.1950.20.camel@bwh-desktop.uk.level5networks.com>
+	 <1369334028.25066.8.camel@dcbw.foobar.com>
+	 <1369334904.6963.17.camel@bwh-desktop.uk.level5networks.com>
+	 <1369335900.25066.14.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-zigbee-devel@lists.sourceforge.net
-To: David Hauweele <david@hauweele.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAO+c-UVMoctgG2qM2EzOVJwsEY_2TT79J-AuzX-xrPkSUHrQtw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <Narendra_K@Dell.com>, <netdev@vger.kernel.org>
+To: Dan Williams <dcbw@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:33752 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758071Ab3EWTtn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 15:49:43 -0400
+In-Reply-To: <1369335900.25066.14.camel@dcbw.foobar.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2013 01:54 PM, David Hauweele wrote:
-> 2013/5/23 Alan Ott <alan@signal11.us>:
->> On 5/22/13 4:32 PM, David Hauweele wrote:
->>>
->>> I cannot use level-triggered interrupts with GPIO on the RPi, so I
->>> cannot test this specific patch.
->>
->>
->> Is there another interrupt line you can tie into which does support
->> level-trigger interrupts (INT0 or something)?
+On Thu, 2013-05-23 at 14:05 -0500, Dan Williams wrote:
+> On Thu, 2013-05-23 at 19:48 +0100, Ben Hutchings wrote:
+> > On Thu, 2013-05-23 at 13:33 -0500, Dan Williams wrote:
+> > > On Thu, 2013-05-23 at 17:18 +0100, Ben Hutchings wrote:
+> > > > On Thu, 2013-05-23 at 06:27 -0700, Narendra_K@Dell.com wrote:
+> > > > > On Wed, May 22, 2013 at 09:34:18PM +0530, Ben Hutchings wrote:
+> > > > > > 
+> > > > > > On Wed, 2013-05-22 at 13:24 +0530, Narendra_K@Dell.com wrote:
+> > > > > > > While looking for already existing generic facility, 'dev_id' sysfs attribute
+> > > > > > > seemed relevant. Looking into the sources seemed to indicate that majority of
+> > > > > > > the drivers do not set it and it could be interpreted differently.
+> > > > > > 
+> > > > > > That is what it's for.  Unfortunately it is defined to be 0-based and as
+> > > > > > you've seen the default (unknown) value is also 0, creating ambiguity.
+> > > > > > (It also seems to be more common for user-facing documentation and
+> > > > > > physical labels to use 1-based numbering.)
+> > > > > > 
+> > > > > > I wonder whether it would do any harm to make it signed and initialised
+> > > > > > it to -1 in alloc_netdev_mqs() would do any harm?  That would make the
+> > > > > > unknown case unambiguous.
+> > > > > > 
+> > > > > > > It would be great to know list's thoughts on  'dev_id' being used as the
+> > > > > > interface
+> > > > > > > to make the physical port number information used by netdevice available to
+> > > > > > user
+> > > > > > > space or do we need a new sysfs attribute for the same.
+> > > > > > >
+> > > > > > > Note: I think in the scenario of SRIOV VF devices assigned to guest and being
+> > > > > > > bonded, additional information would be needed to differentiate the network
+> > > > > > > controller in the host.  But I suppose it is a different problem than this.
+> > > > > > 
+> > > > > > You're thinking about hybrid guest acceleration?  A combination of PCIe
+> > > > > > serial number and port number should work.
+> > > > > 
+> > > > > Hi Ben,
+> > > > > 
+> > > > > Thank you for the response.
+> > > > > 
+> > > > > I was thinking about the scenario of VF0 and VF1 coming from PF0 in the host
+> > > > > Network Controller 1 being direct assigned to a KVM guest via VTD and netdevices
+> > > > > from VF0 and VF1 being bonded in the guest. Assuming that physical port number used
+> > > > > by VF0 and VF1 is 1, additional information is needed to identify if port number 1
+> > > > > is on Network controller 1 or Network controller 2. (In the host we could use
+> > > > > PCI b/d/f to differentiate two Network Controllers). I think it is similar to
+> > > > > hybrid guest acceleration on the VF assignment aspect.
+> > > > 
+> > > > OK.  Either way, the hypervisor or management stack will have to help
+> > > > the guest by providing the identifier(s) to tie the devices together.  I
+> > > > suggested PCIe serial number as the controller identifier.
+> > > 
+> > > Forgive my ignorance, but is the PCIe serial number anything like the
+> > > USB serial number?  Almost nobody sets a unique serial number for USB
+> > > devices and often it's all zeros or 0123456789abcdef, so hopefully the
+> > > PCIe one is saner.  If not, we shouldn't use it for anything important.
+> > 
+> > The PCIe serial number is specified as an EUI-64, which is trivially
+> > derived from a MAC address.  So this is relatively easy to get right as
+> > you need to assign unique MAC addresses anyway.  It's also an optional
+> > capability, so there's no particular reason to set a dummy value.
+> > 
+> > That's not to say no-one ever gets this wrong.  SFC4000-based boards
+> > have the bytes in reverse order.  Other potential mistakes would be
+> > exposing different serial numbers in different functions, or changing
+> > the serial number when the MAC address is temporarily changed.
 > 
-> According to the datasheet it should be possible but the bcm2708 port
-> does not support it. I've been told that we shouldn't use level-triggered
-> interrupts in the first place.
+> Hmm, that's not making me feel warm and fuzzy inside when thinking about
+> using this as an identifier of the parent interface.  If you happened to
+> bond two interfaces and the firmware did change the serial number in
+> response to a MAC address change, I think we'd be hosed, no?
 
+If changing MAC address on a VF affects config space on the PF then the
+device has *much* bigger problems!
 
-Who is "we," and why shouldn't we use level-triggered interrupts? The
-CPU needs to detect whatever type of interrupt the attached hardware
-generates.
+Ben.
 
-
-> 
->>
->>
->>> However I agree with the idea of level-triggered interrupts, that
->>> would fix all major problems related to missed interrupts.
->>>
->>> Beside this I'm running a ping -f since more than two hours now and it
->>> seems to work well.
->>>
->>
->> So that surprises me. I thought level-trigger interrupts were the thing that
->> would fix this problem, and if you're not running with that patch, you just
->> have the INIT_COMPLETION() fix (which you said didn't fix your issue) and
->> the threaded interrupts patch, which I was fairly sure I had determined
->> wasn't fixing any actual race-condition-related problems.
-> 
-> I should have been more clear about this. I've tested [PATCH 1/3]
-> which fixes the race condition with tx_complete. That is the
-> INIT_COMPLETION() fix. But it is still possible to miss an interrupt,
-> perhaps it just took longer this time. I ran the test again today and
-> it failed after 30 minutes.
-> 
-> I did not test [PATCH 2/3], that is the threaded IRQ. Instead I
-> removed interrupt enable/disable from the IRQ handler and the
-> workqueue. Without this the driver would fail within seconds of a ping
-> -f.
-
-
-Without what? What do you mean by "without this?" Without the
-enable/disable, or without the change that removes the enable/disable?
-
-
-> Have you observed this too ? Perhaps this problem is specific to
-> the bcm2708 port.
-> 
-
-What I observe right now is that it seems to work great (ping -f for 6.5
-hours) when using the three patches in this patch set on a BeagleBone.
-
-> 
->>
->> I'm glad, but surprised that you're no longer seeing issues.
->>
->> Alan.
->>
->>
->>>
->>> 2013/5/22 Alan Ott <alan@signal11.us>:
->>>>
->>>> On 05/21/2013 10:01 PM, Alan Ott wrote:
->>>>>
->>>>> David Hauweele noticed that the mrf24j40 would hang arbitrarily after
->>>>> some
->>>>> period of heavy traffic.  Two race conditions were discovered, and the
->>>>> driver was changed to use threaded interrupts, since the enable/disable
->>>>> of
->>>>> interrupts in the driver has recently been a lighning rod whenever
->>>>> issues
->>>>> arise related to interrupts (costing engineering time), and since
->>>>> threaded
->>>>> interrupts are the right way to do it.
->>>>>
->>>>> Alan Ott (3):
->>>>>    mrf24j40: Move INIT_COMPLETION() to before packet transmission
->>>>>    mrf24j40: Use threaded IRQ handler
->>>>>    mrf24j40: Use level-triggered interrupts
->>>>>
->>>>>   drivers/net/ieee802154/mrf24j40.c | 31 +++++++++----------------------
->>>>>   1 file changed, 9 insertions(+), 22 deletions(-)
->>>>
->>>>
->>>> I forgot to add, I ran ping -f both ways all afternoon (6.5 hours), and
->>>> it seems solid.
->>>>
->>
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
