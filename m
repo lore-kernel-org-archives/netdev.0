@@ -1,33 +1,53 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] ipv4: netfilter: always let NUL terminated string ended
- by '\0'
-Date: Thu, 23 May 2013 13:08:32 +0200
-Message-ID: <20130523110832.GB22553@localhost>
-References: <5195ECB3.5000006@asianux.com>
+From: "Hebbar, Gururaja" <gururaja.hebbar@ti.com>
+Subject: RE: [net-next resend PATCH 1/6] net: cpsw: enhance pinctrl support
+Date: Thu, 23 May 2013 11:28:38 +0000
+Message-ID: <1BAFE6F6C881BF42822005164F1491C33EBF928C@DBDE04.ent.ti.com>
+References: <1369130103-743-1-git-send-email-mugunthanvnm@ti.com>
+	<1369130103-743-2-git-send-email-mugunthanvnm@ti.com>
+ <20130522.235741.135665074490271750.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev <netdev@vger.kernel.org>
-To: Chen Gang <gang.chen@asianux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:52836 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758359Ab3EWLJD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 May 2013 07:09:03 -0400
-Content-Disposition: inline
-In-Reply-To: <5195ECB3.5000006@asianux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	"linux-omap@vger.kernel.org" <linux-omap@vger.kernel.org>,
+	"benoit.cousson@linaro.orgm" <benoit.cousson@linaro.orgm>,
+	"paul@pwsan.com" <paul@pwsan.com>
+To: David Miller <davem@davemloft.net>,
+	"N, Mugunthan V" <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <20130522.235741.135665074490271750.davem@davemloft.net>
+Content-Language: en-US
+Sender: linux-omap-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 17, 2013 at 04:39:15PM +0800, Chen Gang wrote:
+On Thu, May 23, 2013 at 12:27:41, David Miller wrote:
+> From: Mugunthan V N <mugunthanvnm@ti.com>
+> Date: Tue, 21 May 2013 15:24:58 +0530
 > 
-> For NUL terminated string, better always be sure of ended by '\0'.
+> > +		priv->pins_default = pinctrl_lookup_state(priv->pinctrl,
+> > +						PINCTRL_STATE_DEFAULT);
 > 
-> 'pm' is 'struct ulog_packet_msg_t' which may be copied to user mode
-> (defined in "include/uapi/..."), so can not use strlcpy() instead of.
+> This is not indented correctly.
+> 
+> Argument on the second, and subsequent, lines of a function call
+> must start at the first column after the openning parenthesis of
+> the function call itself.
 
-loginfo->prefix is always nul-terminated, as this is validated in
-checkentry. I don't think the kernel will take a non nul-terminated
-device name either.
+Well, if I am correct, doing so will make the line cross 80 character limit.
+If you could (please I ask), can you let me know how it can be handled in 
+above situation. I will make the changes/corrections and re-send it.
+
+Thanks a lot in advance.
+
+> 
+> Please audit for this problem in your entire patch series, fix
+> it up, and resubmit the full set of patches.
+> 
+> Thanks.
+> 
+
+
+Regards, 
+Gururaja
