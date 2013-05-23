@@ -1,92 +1,92 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for
- Kirkwood SoCs
-Date: Thu, 23 May 2013 14:40:28 -0400
-Message-ID: <20130523184028.GU31290@titan.lakedaemon.net>
-References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
- <20130522201607.GA18823@obsidianresearch.com>
- <20130523160111.GP31290@titan.lakedaemon.net>
- <20130523171112.GB31281@obsidianresearch.com>
- <20130523172339.GQ31290@titan.lakedaemon.net>
- <20130523175357.GB2821@obsidianresearch.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH net] vxlan: revert per-vxlan port
+Date: Thu, 23 May 2013 14:45:51 -0400
+Message-ID: <OFCF66B423.CF0815E9-ON85257B74.0062F5C7-85257B74.0067134F@us.ibm.com>
+References: <20130520103017.054ae605@nehalam.linuxnetplumber.net>	<OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com>
+	<20130520113000.0057ce90@nehalam.linuxnetplumber.net>	<20130522.150830.1305371698781503084.davem@davemloft.net>
+	<OFB688A387.A3698315-ON85257B73.007C1B7B-85257B73.00800294@us.ibm.com>	<20130522173954.7f75f62d@nehalam.linuxnetplumber.net>
+	<OF0BD0286F.81969B78-ON85257B74.00097DBA-85257B74.000C5443@us.ibm.com> <20130523100854.6c9749d6@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- linux-kernel@vger.kernel.org, Lennert Buytenhek <buytenh@wantstofly.org>,
- netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20130523175357.GB2821@obsidianresearch.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e39.co.us.ibm.com ([32.97.110.160]:39773 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757896Ab3EWSp7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 14:45:59 -0400
+Received: from /spool/local
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Thu, 23 May 2013 12:45:58 -0600
+In-Reply-To: <20130523100854.6c9749d6@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 23, 2013 at 11:53:57AM -0600, Jason Gunthorpe wrote:
-> On Thu, May 23, 2013 at 01:23:39PM -0400, Jason Cooper wrote:
+Stephen Hemminger <stephen@networkplumber.org> wrote on 05/23/2013 
+01:08:54 PM:
+
+> Let's go back to basic use cases.
+> User wants to setup a vxlan between two hosts with custom port
+>    On both hosts, he/she does:
+>  # ip li add vxlan0 type vxlan id 42 group 239.1.1.1 dev eth0 dstport 
+4789
 > 
-> > Shouldn't it rather be
-> > 
-> > 	compatible = "marvell,kirkwood-eth", "marvell,orion-eth";
+> With net-next it works, with 3.10 it doesn't.
+
+This does not "work" in net-next, either. If you set the one-and-only bind
+port to one port and the one and only send port to another port on both
+systems, they can't talk to each other in net-next, either. If you 
+separately
+have it listen on multiple ports, and if potential non-linux systems 
+you're
+talking to can do that too, then you can configure it to work, but the 
+extra
+listen ports are entirely unnecessary.
+
+You're starting with the assumption, which I disagree with, that the 
+receive
+and send ports need to be the same. In fact, for two systems listening on
+different ports to talk to each other, they *must* be different. It 
+doesn't
+require multiple ports, it only requires the listen and send ports be 
+*different*.
+
+If I have two existing systems, one listening on port 8472 and one 
+listening
+on port 4789, and I want to connect them, how would you do that? Yes, you
+*can* add individual MAC entries with different ports for all VMs 
+connected
+on both machines, but if you have 2 hosts and 10,000 MAC addresses, that's
+a ridiculous waste. If you simply don't know all the MAC addresses on the
+remote machine, you can't do it. But if you can set the destination port 
+for
+the default fdb entry, which is what dstport does, then you can do both.
+
+The dstport and dst are simply the default entry for the fdb table, used 
+if
+there is no exact match in the fdb. They should have every capability to 
+use
+alternate data that the fdb table does.
+
+> Sure it works if they have your agent, or manually configure N-M static 
+FDB
+> entries, but that is corner case.
 > 
-> Not sure about orion-eth?
->  
-> > I'm inclined to go with of_machine_is_compatible() since the only
-> > concrete difference we know is that the tweak is needed on kirkwood and
-> > nowhere else.
-> 
-> But there is a larger problem here then just this one bit.
-> 
-> The PSC1 register must be set properly for the board layout, and today
-> we rely on the bootloader to set it. In fact, even with Sebastian's
-> change the ethernet port won't work without bootloader
-> intervention. The PortReset bit should also be cleared by the driver
-> (and it is only present on some variants of this IP block,
-> apparently).
-> 
-> We know that some Marvell SOC's wack the ethernet registers when they
-> clock gate, and the flip of Clk125Bypass is another symptom of this
-> general problem.
-> 
-> So, long term, the PSC1 must be fully set by the driver, based on DT
-> information describing the board (eg RGMII/MII/1000Base-X [SFP] Phy
-> type), and the layout of this register seems to vary on a SOC by SOC
-> basis.
-> 
-> Thus, I think it is appropriate to call this variant of the eth IP
-> 'marvell,kirkwood-eth' which indicates that the register block follows
-> the kirkwood manual and the PSC1 register specifically has the
-> kirkwood layout.
+> No matter if Dave decides to the revert the kernel part or not, I am
+> pulling the option
+> from 3.10 version of iproute to avoid user confusion.
 
-Ok, so mv643xx_eth would match both "marvell,orion-eth" and
-"marvell,kirkwood-eth", then write to PSC1 iff it sees a node matching
-"marvell,kirkwood-eth".  I'm not too keen on that, however, the matching
-of the machine doesn't look to good, either.
+I don't know what confusion you're concerned about here. How can anyone
+be confused by packets going to a different destination port when they use
+an option "dstport XXXX"? (!?!?!?!?)
 
-Perhaps a better answer is to add a boolean, "marvell,kirkwood_psc1" and
-check for that?
+You can't really prohibit people from using VXLAN however they choose to.
+It simply means people wanting to do more interesting things will
+have to patch your code, jump through hoops to edit packets with 
+netfilter,
+or use alternative implementations that are more flexible. None of those
+things benefits VXLAN on linux.
 
-Or, marvell,psc1_reset = <0xWWXXYYZZ>;
-
-> The question is what other Marvell SOCs have the same PSC1 layout as
-> kirkwood?
-
-I think marvell,psc1_reset = <>; gives us the most flexibility in
-accurately describing the hardware.
-
-thx,
-
-Jason.
+                                                                +-DLS
