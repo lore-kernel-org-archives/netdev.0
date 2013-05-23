@@ -1,61 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH] tcp: xps: fix reordering issues
-Date: Thu, 23 May 2013 10:44:20 -0700
-Message-ID: <1369331060.3301.396.camel@edumazet-glaptop>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for Kirkwood
+ SoCs
+Date: Thu, 23 May 2013 11:53:57 -0600
+Message-ID: <20130523175357.GB2821@obsidianresearch.com>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20130522201607.GA18823@obsidianresearch.com>
+ <20130523160111.GP31290@titan.lakedaemon.net>
+ <20130523171112.GB31281@obsidianresearch.com>
+ <20130523172339.GQ31290@titan.lakedaemon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <therbert@google.com>,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:49731 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758362Ab3EWRoW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 13:44:22 -0400
-Received: by mail-pa0-f44.google.com with SMTP id wp1so660160pac.31
-        for <netdev@vger.kernel.org>; Thu, 23 May 2013 10:44:21 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130523172339.GQ31290@titan.lakedaemon.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+On Thu, May 23, 2013 at 01:23:39PM -0400, Jason Cooper wrote:
 
-commit 3853b5841c01a ("xps: Improvements in TX queue selection")
-introduced ooo_okay flag, but the condition to set it is slightly wrong.
+> Shouldn't it rather be
+> 
+> 	compatible = "marvell,kirkwood-eth", "marvell,orion-eth";
 
-In our traces, we have seen ACK packets being received out of order,
-and RST packets sent in response.
-
-We should test if we have any packets still in host queue.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Tom Herbert <therbert@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
----
- net/ipv4/tcp_output.c |   10 ++++++----
- 1 file changed, 6 insertions(+), 4 deletions(-)
-
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 536d409..ec335fa 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -874,11 +874,13 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
- 							   &md5);
- 	tcp_header_size = tcp_options_size + sizeof(struct tcphdr);
+Not sure about orion-eth?
  
--	if (tcp_packets_in_flight(tp) == 0) {
-+	if (tcp_packets_in_flight(tp) == 0)
- 		tcp_ca_event(sk, CA_EVENT_TX_START);
--		skb->ooo_okay = 1;
--	} else
--		skb->ooo_okay = 0;
-+
-+	/* if no packet is in qdisc/device queue, then allow XPS to select
-+	 * another queue.
-+	 */
-+	skb->ooo_okay = sk_wmem_alloc_get(sk) == 0;
- 
- 	skb_push(skb, tcp_header_size);
- 	skb_reset_transport_header(skb);
+> I'm inclined to go with of_machine_is_compatible() since the only
+> concrete difference we know is that the tweak is needed on kirkwood and
+> nowhere else.
+
+But there is a larger problem here then just this one bit.
+
+The PSC1 register must be set properly for the board layout, and today
+we rely on the bootloader to set it. In fact, even with Sebastian's
+change the ethernet port won't work without bootloader
+intervention. The PortReset bit should also be cleared by the driver
+(and it is only present on some variants of this IP block,
+apparently).
+
+We know that some Marvell SOC's wack the ethernet registers when they
+clock gate, and the flip of Clk125Bypass is another symptom of this
+general problem.
+
+So, long term, the PSC1 must be fully set by the driver, based on DT
+information describing the board (eg RGMII/MII/1000Base-X [SFP] Phy
+type), and the layout of this register seems to vary on a SOC by SOC
+basis.
+
+Thus, I think it is appropriate to call this variant of the eth IP
+'marvell,kirkwood-eth' which indicates that the register block follows
+the kirkwood manual and the PSC1 register specifically has the
+kirkwood layout.
+
+The question is what other Marvell SOCs have the same PSC1 layout as
+kirkwood?
+
+Jason
