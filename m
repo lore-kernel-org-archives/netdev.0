@@ -1,70 +1,55 @@
-From: Lucas Meneghel Rodrigues <lmr@redhat.com>
-Subject: Re: updated: kvm networking todo wiki
-Date: Thu, 23 May 2013 11:12:52 -0300
-Message-ID: <519E23E4.7020506@redhat.com>
-References: <20130523085034.GA16142@redhat.com>
+From: annie li <annie.li@oracle.com>
+Subject: Re: [Xen-devel] [PATCH net-next V3 2/3] xen-netfront: split event
+ channels support for Xen frontend driver
+Date: Thu, 23 May 2013 10:14:57 -0400
+Message-ID: <519E2461.2090203@oracle.com>
+References: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com> <1369240487-18834-3-git-send-email-wei.liu2@citrix.com> <519D1D61.8030500@oracle.com> <CAOsiSVXptBRRA=m3HFnO7eQWjxN_wgfzAcvw+rPebOPH9mRjXg@mail.gmail.com> <519D2C02.7080500@oracle.com> <CAOsiSVUHqezpo4u+Go1pm4vm7Hots2gDUJ9YEzVK7_FPSc3zLA@mail.gmail.com> <20130523134618.GA18648@zion.uk.xensource.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, vyasevic@redhat.com, "Xin,
-	Xiaohui" <xiaohui.xin@intel.com>,
-	Rusty Russell <rusty@rustcorp.com.au>, akong@redhat.com,
-	kvm@vger.kernel.org, sriram.narasimhan@hp.com,
-	netdev@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
-	Shirley Ma <mashirle@us.ibm.com>,
-	virtualization@lists.linux-foundation.org,
-	David Stevens <dlstevens@us.ibm.com>, qemu-devel@nongnu.org,
-	herbert@gondor.hengli.com.au,
-	Anthony Liguori <anthony@codemonkey.ws>, jdike@linux.intel.com,
-	sri@linux.vnet.ibm.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org>
-In-Reply-To: <20130523085034.GA16142@redhat.com>
-List-Unsubscribe: <https://lists.nongnu.org/mailman/options/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=unsubscribe>
-List-Archive: <http://lists.nongnu.org/archive/html/qemu-devel>
-List-Post: <mailto:qemu-devel@nongnu.org>
-List-Help: <mailto:qemu-devel-request@nongnu.org?subject=help>
-List-Subscribe: <https://lists.nongnu.org/mailman/listinfo/qemu-devel>,
-	<mailto:qemu-devel-request@nongnu.org?subject=subscribe>
-Errors-To: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-Sender: qemu-devel-bounces+gceq-qemu-devel=gmane.org@nongnu.org
-List-Id: netdev.vger.kernel.org
+Cc: Wei Liu <liuw@liuw.name>, Ian Campbell <ian.campbell@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	jbeulich <jbeulich@suse.com>
+To: Wei Liu <wei.liu2@citrix.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:44064 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759141Ab3EWOPO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 10:15:14 -0400
+In-Reply-To: <20130523134618.GA18648@zion.uk.xensource.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 23/05/13 05:50 AM, Michael S. Tsirkin wrote:
-> Hey guys,
-> I've updated the kvm networking todo wiki with current projects.
-> Will try to keep it up to date more often.
-> Original announcement below.
->
-> ----
->
-> I've put up a wiki page with a kvm networking todo list,
-> mainly to avoid effort duplication, but also in the hope
-> to draw attention to what I think we should try addressing
-> in KVM:
->
-> http://www.linux-kvm.org/page/NetworkingTodo
->
-> This page could cover all networking related activity in KVM,
-> currently most info is related to virtio-net.
->
-> Note: if there's no developer listed for an item,
-> this just means I don't know of anyone actively working
-> on an issue at the moment, not that no one intends to.
->
-> I would appreciate it if others working on one of the items on this list
-> would add their names so we can communicate better.  If others like this
-> wiki page, please go ahead and add stuff you are working on if any.
->
-> It would be especially nice to add autotest projects:
-> there is just a short test matrix and a catch-all
-> 'Cover test matrix with autotest', currently.
 
-Ok, I'll take a look and fill in with currently available networking tests.
+On 2013-5-23 9:46, Wei Liu wrote:
+> On Wed, May 22, 2013 at 09:38:20PM +0100, Wei Liu wrote:
+>> On Wed, May 22, 2013 at 9:35 PM, annie li <annie.li@oracle.com> wrote:
+>>> On 2013-5-22 16:20, Wei Liu wrote:
+>>>> On Wed, May 22, 2013 at 8:32 PM, annie li <annie.li@oracle.com> wrote:
+>>>>>
+>>>>> Originally, netfront protects access to rx shared-ring with tx_lock, you
+>>>>> remove this protection here. It is better to protect the ring access by a
+>>>>> sperate rx_lock then.
+>>>>>
+>>>> TX ring and RX ring are separate rings. I don't think that comment / code
+>>>> makes sense any more. My stress test confirms that.
+>>>
+>>> Yes, they are separate rings. Actually I am not sure why
+>>> RING_HAS_UNCONSUMED_RESPONSES(&np->rx) is protected by any tx_lock
+>>> originally. But for xennet_rx_interrupt, it is better to use rx_lock to
+>>> protect RING_HAS_UNCONSUMED_RESPONSES(&np->rx).
+>>>
+>> This doesn't make sense to me either. Xen ring protocol is designed to
+>> be lock-free.
+>> And in netfront's case there is no concurrent access to the ring.
+>>
+>>
+> Annie, did I answer your questions / relieve your concern?
 
-> Currently there are some links to Red Hat bugzilla entries,
-> feel free to add links to other bugzillas.
->
-> Thanks!
->
+Yes, I think you are correct.
+
+Thanks
+Annie
