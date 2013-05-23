@@ -1,93 +1,102 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Generic interface to make physical port number used by a
- netdevice available to user space
-Date: Thu, 23 May 2013 19:48:24 +0100
-Message-ID: <1369334904.6963.17.camel@bwh-desktop.uk.level5networks.com>
-References: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>
-	 <1369238658.2670.9.camel@bwh-desktop.uk.level5networks.com>
-	 <20130523132729.GA11584@fedora-17-guest.blr.amer.dell.com>
-	 <1369325920.1950.20.camel@bwh-desktop.uk.level5networks.com>
-	 <1369334028.25066.8.camel@dcbw.foobar.com>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for Kirkwood
+ SoCs
+Date: Thu, 23 May 2013 13:01:40 -0600
+Message-ID: <20130523190140.GA4010@obsidianresearch.com>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20130522201607.GA18823@obsidianresearch.com>
+ <20130523160111.GP31290@titan.lakedaemon.net>
+ <20130523171112.GB31281@obsidianresearch.com>
+ <20130523172339.GQ31290@titan.lakedaemon.net>
+ <20130523175357.GB2821@obsidianresearch.com>
+ <20130523184028.GU31290@titan.lakedaemon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <Narendra_K@Dell.com>, <netdev@vger.kernel.org>
-To: Dan Williams <dcbw@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:7448 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757896Ab3EWSs1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 14:48:27 -0400
-In-Reply-To: <1369334028.25066.8.camel@dcbw.foobar.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130523184028.GU31290@titan.lakedaemon.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-05-23 at 13:33 -0500, Dan Williams wrote:
-> On Thu, 2013-05-23 at 17:18 +0100, Ben Hutchings wrote:
-> > On Thu, 2013-05-23 at 06:27 -0700, Narendra_K@Dell.com wrote:
-> > > On Wed, May 22, 2013 at 09:34:18PM +0530, Ben Hutchings wrote:
-> > > > 
-> > > > On Wed, 2013-05-22 at 13:24 +0530, Narendra_K@Dell.com wrote:
-> > > > > While looking for already existing generic facility, 'dev_id' sysfs attribute
-> > > > > seemed relevant. Looking into the sources seemed to indicate that majority of
-> > > > > the drivers do not set it and it could be interpreted differently.
-> > > > 
-> > > > That is what it's for.  Unfortunately it is defined to be 0-based and as
-> > > > you've seen the default (unknown) value is also 0, creating ambiguity.
-> > > > (It also seems to be more common for user-facing documentation and
-> > > > physical labels to use 1-based numbering.)
-> > > > 
-> > > > I wonder whether it would do any harm to make it signed and initialised
-> > > > it to -1 in alloc_netdev_mqs() would do any harm?  That would make the
-> > > > unknown case unambiguous.
-> > > > 
-> > > > > It would be great to know list's thoughts on  'dev_id' being used as the
-> > > > interface
-> > > > > to make the physical port number information used by netdevice available to
-> > > > user
-> > > > > space or do we need a new sysfs attribute for the same.
-> > > > >
-> > > > > Note: I think in the scenario of SRIOV VF devices assigned to guest and being
-> > > > > bonded, additional information would be needed to differentiate the network
-> > > > > controller in the host.  But I suppose it is a different problem than this.
-> > > > 
-> > > > You're thinking about hybrid guest acceleration?  A combination of PCIe
-> > > > serial number and port number should work.
-> > > 
-> > > Hi Ben,
-> > > 
-> > > Thank you for the response.
-> > > 
-> > > I was thinking about the scenario of VF0 and VF1 coming from PF0 in the host
-> > > Network Controller 1 being direct assigned to a KVM guest via VTD and netdevices
-> > > from VF0 and VF1 being bonded in the guest. Assuming that physical port number used
-> > > by VF0 and VF1 is 1, additional information is needed to identify if port number 1
-> > > is on Network controller 1 or Network controller 2. (In the host we could use
-> > > PCI b/d/f to differentiate two Network Controllers). I think it is similar to
-> > > hybrid guest acceleration on the VF assignment aspect.
+On Thu, May 23, 2013 at 02:40:28PM -0400, Jason Cooper wrote:
+
+> > But there is a larger problem here then just this one bit.
 > > 
-> > OK.  Either way, the hypervisor or management stack will have to help
-> > the guest by providing the identifier(s) to tie the devices together.  I
-> > suggested PCIe serial number as the controller identifier.
+> > The PSC1 register must be set properly for the board layout, and today
+> > we rely on the bootloader to set it. In fact, even with Sebastian's
+> > change the ethernet port won't work without bootloader
+> > intervention. The PortReset bit should also be cleared by the driver
+> > (and it is only present on some variants of this IP block,
+> > apparently).
+> > 
+> > We know that some Marvell SOC's wack the ethernet registers when they
+> > clock gate, and the flip of Clk125Bypass is another symptom of this
+> > general problem.
+> > 
+> > So, long term, the PSC1 must be fully set by the driver, based on DT
+> > information describing the board (eg RGMII/MII/1000Base-X [SFP] Phy
+> > type), and the layout of this register seems to vary on a SOC by SOC
+> > basis.
+> > 
+> > Thus, I think it is appropriate to call this variant of the eth IP
+> > 'marvell,kirkwood-eth' which indicates that the register block follows
+> > the kirkwood manual and the PSC1 register specifically has the
+> > kirkwood layout.
 > 
-> Forgive my ignorance, but is the PCIe serial number anything like the
-> USB serial number?  Almost nobody sets a unique serial number for USB
-> devices and often it's all zeros or 0123456789abcdef, so hopefully the
-> PCIe one is saner.  If not, we shouldn't use it for anything important.
+> Ok, so mv643xx_eth would match both "marvell,orion-eth" and
+> "marvell,kirkwood-eth", then write to PSC1 iff it sees a node matching
+> "marvell,kirkwood-eth".  I'm not too keen on that, however, the matching
+> of the machine doesn't look to good, either.
 
-The PCIe serial number is specified as an EUI-64, which is trivially
-derived from a MAC address.  So this is relatively easy to get right as
-you need to assign unique MAC addresses anyway.  It's also an optional
-capability, so there's no particular reason to set a dummy value.
+Why are you not keen on this? It seems like normal device driver
+practice, that is what the data field of of_device_id is typically
+used for..
 
-That's not to say no-one ever gets this wrong.  SFC4000-based boards
-have the bytes in reverse order.  Other potential mistakes would be
-exposing different serial numbers in different functions, or changing
-the serial number when the MAC address is temporarily changed.
+There are more compatible strings than just kirkwood and orion in this
+driver, the whole TX_BW_CONTROL_OLD_LAYOUT/TX_BW_CONTROL_NEW_LAYOUT
+buisness (affecting PPC/MIPS) should also someday be captured with
+compatible strings rather than auto-detection too..
 
-Ben.
+> > The question is what other Marvell SOCs have the same PSC1 layout as
+> > kirkwood?
+> 
+> I think marvell,psc1_reset = <>; gives us the most flexibility in
+> accurately describing the hardware.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Agree, providing psc1_reset value is a good idea to setup the phy
+modes. If all 'orion' SOCs have the PSC1 value then we don't need the
+kirkwood differentiators, especially if things like the reset bit are
+in the same place.
+
+The same trick Sebastian used to capture the mac address could be used
+to capture the PSC1 value from the bootloader.
+
+Basically, I think any IP variants that have idential register layouts
+can share a compatible string, otherwise different layouts need
+different compatible strings, so the general format:
+
+ compatible = "marvell,SOCNAME-eth", "marvell,<something>-eth";
+
+Seems very sane to me. At least this way if we discover more changes
+then the driver can match on the SOCNAME compatible string to find
+them.
+
+<someting> = orion for TX_BW_CONTROL_NEW_LAYOUT variants also seems
+reasonable..
+
+No idea what to call TX_BW_CONTROL_OLD_LAYOUT variants, or the PPC
+variants, not important right now it seems.
+
+(BTW, I wonder if the driver should ideally toggle PSC1 reset at some
+point????)
+
+Jason
