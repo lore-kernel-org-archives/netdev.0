@@ -1,47 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next resend PATCH 1/6] net: cpsw: enhance pinctrl support
-Date: Thu, 23 May 2013 12:10:37 -0700 (PDT)
-Message-ID: <20130523.121037.84357412382839522.davem@davemloft.net>
-References: <1369130103-743-2-git-send-email-mugunthanvnm@ti.com>
-	<20130522.235741.135665074490271750.davem@davemloft.net>
-	<1BAFE6F6C881BF42822005164F1491C33EBF928C@DBDE04.ent.ti.com>
+Subject: Re: [PATCH 3/3] net: ethernet: sun: drop unused variable
+Date: Thu, 23 May 2013 12:13:29 -0700 (PDT)
+Message-ID: <20130523.121329.781995429475451805.davem@davemloft.net>
+References: <1369267057-9371-3-git-send-email-emilio@elopez.com.ar>
+	<20130522.234318.1664796969540142910.davem@davemloft.net>
+	<519E117F.9040707@elopez.com.ar>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org, linux-omap@vger.kernel.org,
-	benoit.cousson@linaro.orgm, paul@pwsan.com
-To: gururaja.hebbar@ti.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33186 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758293Ab3EWTKk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 15:10:40 -0400
-In-Reply-To: <1BAFE6F6C881BF42822005164F1491C33EBF928C@DBDE04.ent.ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: emilio@elopez.com.ar
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <519E117F.9040707@elopez.com.ar>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Hebbar, Gururaja" <gururaja.hebbar@ti.com>
-Date: Thu, 23 May 2013 11:28:38 +0000
+=46rom: Emilio L=F3pez <emilio@elopez.com.ar>
+Date: Thu, 23 May 2013 09:54:23 -0300
 
-> On Thu, May 23, 2013 at 12:27:41, David Miller wrote:
->> From: Mugunthan V N <mugunthanvnm@ti.com>
->> Date: Tue, 21 May 2013 15:24:58 +0530
->> 
->> > +		priv->pins_default = pinctrl_lookup_state(priv->pinctrl,
->> > +						PINCTRL_STATE_DEFAULT);
->> 
->> This is not indented correctly.
->> 
->> Argument on the second, and subsequent, lines of a function call
->> must start at the first column after the openning parenthesis of
->> the function call itself.
-> 
-> Well, if I am correct, doing so will make the line cross 80 character limit.
-> If you could (please I ask), can you let me know how it can be handled in 
-> above situation. I will make the changes/corrections and re-send it.
-> 
-> Thanks a lot in advance.
+> Hi David,
+>=20
+> El 23/05/13 03:43, David Miller escribi=F3:
+>> From: Emilio L=F3pez <emilio@elopez.com.ar>
+>> Date: Wed, 22 May 2013 20:57:37 -0300
+>>=20
+>>> Commit bfd428d ("net: ethernet: sun: initialize variables directly"=
+)
+>>> dropped the only loop that was using i but did not remove the actua=
+l
+>>> variable, therefore causing a warning when building. This patch dro=
+ps
+>>> the now redundant line.
+>>>
+>>> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+>>> Signed-off-by: Emilio L=F3pez <emilio@elopez.com.ar>
+>>=20
+>> Applied.
+>=20
+> I see that you applied the series in net instead of net-next; the
+> previous patches were in net-next only. This will cause build breakag=
+e
+> in net because the loop is still there.
 
-Avoid the deep indentation by coding the basic block into a helper
-function.
+My bad, I'll fix this up.
