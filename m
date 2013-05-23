@@ -1,67 +1,63 @@
-From: <Narendra_K@Dell.com>
-Subject: Re: Generic interface to make physical port number used by a
- netdevice available to user space
-Date: Thu, 23 May 2013 06:27:42 -0700
-Message-ID: <20130523132729.GA11584@fedora-17-guest.blr.amer.dell.com>
-References: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>
- <1369238658.2670.9.camel@bwh-desktop.uk.level5networks.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next V3 2/3] xen-netfront: split event
+ channels support for Xen frontend driver
+Date: Thu, 23 May 2013 14:46:18 +0100
+Message-ID: <20130523134618.GA18648@zion.uk.xensource.com>
+References: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com>
+ <1369240487-18834-3-git-send-email-wei.liu2@citrix.com>
+ <519D1D61.8030500@oracle.com>
+ <CAOsiSVXptBRRA=m3HFnO7eQWjxN_wgfzAcvw+rPebOPH9mRjXg@mail.gmail.com>
+ <519D2C02.7080500@oracle.com>
+ <CAOsiSVUHqezpo4u+Go1pm4vm7Hots2gDUJ9YEzVK7_FPSc3zLA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: <netdev@vger.kernel.org>
-To: <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="us-ascii"
+Cc: annie li <annie.li@oracle.com>, Wei Liu <wei.liu2@citrix.com>,
+	Ian Campbell <ian.campbell@citrix.com>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
+	David Vrabel <david.vrabel@citrix.com>,
+	jbeulich <jbeulich@suse.com>
+To: Wei Liu <liuw@liuw.name>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:15776 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758727Ab3EWN2O convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 09:28:14 -0400
-In-Reply-To: <1369238658.2670.9.camel@bwh-desktop.uk.level5networks.com>
+Received: from smtp02.citrix.com ([66.165.176.63]:29260 "EHLO
+	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758671Ab3EWNqU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 09:46:20 -0400
+Content-Disposition: inline
+In-Reply-To: <CAOsiSVUHqezpo4u+Go1pm4vm7Hots2gDUJ9YEzVK7_FPSc3zLA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 22, 2013 at 09:34:18PM +0530, Ben Hutchings wrote:
-> 
-> On Wed, 2013-05-22 at 13:24 +0530, Narendra_K@Dell.com wrote:
-> > While looking for already existing generic facility, 'dev_id' sysfs attribute
-> > seemed relevant. Looking into the sources seemed to indicate that majority of
-> > the drivers do not set it and it could be interpreted differently.
-> 
-> That is what it's for.  Unfortunately it is defined to be 0-based and as
-> you've seen the default (unknown) value is also 0, creating ambiguity.
-> (It also seems to be more common for user-facing documentation and
-> physical labels to use 1-based numbering.)
-> 
-> I wonder whether it would do any harm to make it signed and initialised
-> it to -1 in alloc_netdev_mqs() would do any harm?  That would make the
-> unknown case unambiguous.
-> 
-> > It would be great to know list's thoughts on  'dev_id' being used as the
-> interface
-> > to make the physical port number information used by netdevice available to
-> user
-> > space or do we need a new sysfs attribute for the same.
+On Wed, May 22, 2013 at 09:38:20PM +0100, Wei Liu wrote:
+> On Wed, May 22, 2013 at 9:35 PM, annie li <annie.li@oracle.com> wrote:
 > >
-> > Note: I think in the scenario of SRIOV VF devices assigned to guest and being
-> > bonded, additional information would be needed to differentiate the network
-> > controller in the host.  But I suppose it is a different problem than this.
+> > On 2013-5-22 16:20, Wei Liu wrote:
+> >>
+> >> On Wed, May 22, 2013 at 8:32 PM, annie li <annie.li@oracle.com> wrote:
+> >>>
+> >>>
+> >>> Originally, netfront protects access to rx shared-ring with tx_lock, you
+> >>> remove this protection here. It is better to protect the ring access by a
+> >>> sperate rx_lock then.
+> >>>
+> >> TX ring and RX ring are separate rings. I don't think that comment / code
+> >> makes sense any more. My stress test confirms that.
+> >
+> >
+> > Yes, they are separate rings. Actually I am not sure why
+> > RING_HAS_UNCONSUMED_RESPONSES(&np->rx) is protected by any tx_lock
+> > originally. But for xennet_rx_interrupt, it is better to use rx_lock to
+> > protect RING_HAS_UNCONSUMED_RESPONSES(&np->rx).
+> >
 > 
-> You're thinking about hybrid guest acceleration?  A combination of PCIe
-> serial number and port number should work.
+> This doesn't make sense to me either. Xen ring protocol is designed to
+> be lock-free.
+> And in netfront's case there is no concurrent access to the ring.
+> 
+> 
 
-Hi Ben,
+Annie, did I answer your questions / relieve your concern?
 
-Thank you for the response.
 
-I was thinking about the scenario of VF0 and VF1 coming from PF0 in the host
-Network Controller 1 being direct assigned to a KVM guest via VTD and netdevices
-from VF0 and VF1 being bonded in the guest. Assuming that physical port number used
-by VF0 and VF1 is 1, additional information is needed to identify if port number 1
-is on Network controller 1 or Network controller 2. (In the host we could use
-PCI b/d/f to differentiate two Network Controllers). I think it is similar to
-hybrid guest acceleration on the VF assignment aspect.
-
--- 
-With regards,
-Narendra K
-Linux Engineering
-Dell Inc.
+Wei.
