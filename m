@@ -1,41 +1,33 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet device polling
-Date: Thu, 23 May 2013 14:06:51 +0300
-Message-ID: <519DF84B.10401@linux.intel.com>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com> <519B632F.7040202@mellanox.com> <519B68A4.3010406@linux.intel.com> <519B7355.9090303@mellanox.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] ipv4: netfilter: always let NUL terminated string ended
+ by '\0'
+Date: Thu, 23 May 2013 13:08:32 +0200
+Message-ID: <20130523110832.GB22553@localhost>
+References: <5195ECB3.5000006@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Alex Rosenbaum <alexr@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <519B7355.9090303@mellanox.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:52836 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758359Ab3EWLJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 May 2013 07:09:03 -0400
+Content-Disposition: inline
+In-Reply-To: <5195ECB3.5000006@asianux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 21/05/2013 16:15, Alex Rosenbaum wrote:
-> On 5/21/2013 3:29 PM, Eliezer Tamir wrote:
->> What benchmarks are you using to test poll/select/epoll?
-> for epoll/select latency tests we are using sockperf as performance
-> latency tool: https://code.google.com/p/sockperf/
-> It is a client-server based tool and it supported ping-pong, throughput,
-> and under-load test type.
-> For epoll, you will need to define a 'feedfile' ("-f filepathname")
-> which has a list of TCP and/or UDP socket and defined your IO mux type
-> ("-F epoll").
+On Fri, May 17, 2013 at 04:39:15PM +0800, Chen Gang wrote:
+> 
+> For NUL terminated string, better always be sure of ended by '\0'.
+> 
+> 'pm' is 'struct ulog_packet_msg_t' which may be copied to user mode
+> (defined in "include/uapi/..."), so can not use strlcpy() instead of.
 
-Thank you!
-This is very helpful.
-
-With sockperf i can directly observe how poll/select/epoll are behaving.
-I can see some improvement in all of them but clearly more work is 
-needed here.
-
--Eliezer
+loginfo->prefix is always nul-terminated, as this is validated in
+checkentry. I don't think the kernel will take a non nul-terminated
+device name either.
