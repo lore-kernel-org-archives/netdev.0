@@ -1,114 +1,127 @@
-From: Thierry Reding <thierry.reding@avionic-design.de>
-Subject: Re: [PATCH 00/33] devm improvement series, part 1, take 2
-Date: Thu, 23 May 2013 22:32:43 +0200
-Message-ID: <20130523203243.GA18069@avionic-0098.adnet.avionic-design.de>
-References: <1368702961-4325-1-git-send-email-wsa@the-dreams.de>
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Subject: [PATCH net-next 1/6] tg3: Split APE driver state change out of
+ boot reset signature update
+Date: Thu, 23 May 2013 14:11:22 -0700
+Message-ID: <1369343487-6453-2-git-send-email-nsujir@broadcom.com>
+References: <1369343487-6453-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1637291975=="
-Cc: linux-mips@linux-mips.org, alsa-devel@alsa-project.org,
- linux-usb@vger.kernel.org, Liam Girdwood <lgirdwood@gmail.com>,
- Alexander Shishkin <alexander.shishkin@linux.intel.com>,
- Viresh Kumar <viresh.kumar@linaro.org>,
- Linus Walleij <linus.walleij@linaro.org>, Matt Mackall <mpm@selenic.com>,
- linux-fbdev@vger.kernel.org, dri-devel@lists.freedesktop.org,
- Jaroslav Kysela <perex@perex.cz>, linux-ide@vger.kernel.org,
- netdev@vger.kernel.org, linux-mtd@lists.infradead.org,
- linux-i2c@vger.kernel.org, Evgeniy Polyakov <zbr@ioremap.net>,
- Wan ZongShun <mcuos.com@gmail.com>, ac100@lists.launchpad.net,
- devel@driverdev.osuosl.org, Kukjin Kim <kgene.kim@samsung.com>,
- Russell King <linux@arm.linux.org.uk>,
- Herbert Xu <herbert@gondor.apana.org.au>,
- Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
- Stephen Warren <swarren@wwwdotorg.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
- cpufreq@vger
-To: Wolfram Sang <wsa@the-dreams.de>
-Return-path: <devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1368702961-4325-1-git-send-email-wsa@the-dreams.de>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/devel/>
-List-Post: <mailto:devel@linuxdriverproject.org>
-List-Help: <mailto:devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/devel>,
- <mailto:devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: devel-bounces@linuxdriverproject.org
-Sender: "devel" <devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
-
-
---===============1637291975==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="cWoXeonUoKmBZSoM"
-Content-Disposition: inline
-
-
---cWoXeonUoKmBZSoM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Thu, May 16, 2013 at 01:15:28PM +0200, Wolfram Sang wrote:
-> Lately, I have been experimenting how to improve the devm interface to ma=
-ke
-> writing device drivers easier and less error prone while also getting rid=
- of
-> its subtle issues. I think it has more potential but still needs work and
-> definately conistency, especiall in its usage.
->=20
-> The first thing I come up with is a low hanging fruit regarding
-> devm_ioremap_resouce(). This function already checks if the passed resour=
-ce is
-> valid and gives an error message if not. So, we can remove similar checks=
- from
-> the drivers and get rid of a bit of code and a number of inconsistent err=
-or
-> strings.
-
-Sorry for jumping in so late. I generally like the idea. One small
-inconvenience is that devm_ioremap_resource() returns -EINVAL if
-res =3D=3D NULL, which means that drivers will now also return -EINVAL
-in cases where no resource was returned. Typically drivers handle
-this by returning something like -ENODEV, -ENXIO, -ENOENT. Some do
-return -EINVAL but perhaps having a separate error code (and maybe
-error message as well) for a missing resource would be helpful.
-
-Doing this would be rather easy now that you've paved the way by
-making devm_ioremap_resource() usage consistent across drivers.
-
-Thierry
-
---cWoXeonUoKmBZSoM
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRnnzqAAoJEN0jrNd/PrOh7SQP/0805wibt2DFxkTSFnZBxDGZ
-hU1p6eTzQ5Nh3uDq449RqWs8GsB+f2osxomSH71KMqGJmlKi0jc0gtcINotD6FH+
-F8ABG95AKXi5TmG9hEcdIv6eAzfI0AUAgx1izHLxQWLHIcVoca5GpptWPrkOlW6U
-NujE+Lz3rYYtbNMoK8jexasO9uQzo/V6fB3IMVdnEx80CE5o6TbTYBQz5fInVcs8
-QlA0w37qFEcmOq1BsEJNdlcm0JUJ+3sXoFUdnN9jPGcrTgiOg8jXx6GpKLMRJyA3
-cToFc9kVXqgOOtYPw08CUkrzkqF/E0i11IaBOtlvXG489AbvlUOeF95JQEZvLgu9
-ScBNy/PqNN9Z3jZhoiqsTd//QGBb5kNUKEs5v30o4zHpy+3buWpOSiUgJLvX18la
-o8Krom/w4KEH01JRqLSCJLHwZXvyOj6DWW/ogPPMpirX+TTdyDLt4XbGP5GU6iVh
-um0drkT9bUruG2pQVDeNkVwpTMedd5xa96kTXLu0D3MB7Lvfp43mVDVAuYG/FjhU
-m4NkG0SY8N07Upidbb2LZSvAEydzHVJcF7kobEMRnQwH99VYyRUmviKHhoP469T0
-VyKKbTxfTlSWkLQqvgS3eVraylffA8O6eV4RHpAYZyZlsoa+5JulahO69B0yebx2
-atBr1eUuDOTwTR9IUz59
-=pYVl
------END PGP SIGNATURE-----
-
---cWoXeonUoKmBZSoM--
-
---===============1637291975==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	"Michael Chan" <mchan@broadcom.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1189 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758982Ab3EWVLn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 May 2013 17:11:43 -0400
+In-Reply-To: <1369343487-6453-1-git-send-email-nsujir@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-devel mailing list
-devel@linuxdriverproject.org
-http://driverdev.linuxdriverproject.org/mailman/listinfo/devel
+Unlike the boot signature that needs to be set before every reset, the
+ape state only needs to be updated to tell the firmware that the driver
+is now taking/releasing control of the hardware. Move the calls to
+tg3_ape_driver_state_change() to better, more appropriate places.
 
---===============1637291975==--
+Also, the firmware does not distinguish between SUSPEND and START states
+anymore. Remove the SUSPEND case in the switch.
+
+Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+Signed-off-by: Michael Chan <mchan@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c | 30 +++++++++++++++---------------
+ 1 file changed, 15 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 4f0e3fe..77b51c2 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -965,9 +965,6 @@ static void tg3_ape_driver_state_change(struct tg3 *tp, int kind)
+ 
+ 		event = APE_EVENT_STATUS_STATE_UNLOAD;
+ 		break;
+-	case RESET_KIND_SUSPEND:
+-		event = APE_EVENT_STATUS_STATE_SUSPEND;
+-		break;
+ 	default:
+ 		return;
+ 	}
+@@ -1739,10 +1736,6 @@ static void tg3_write_sig_pre_reset(struct tg3 *tp, int kind)
+ 			break;
+ 		}
+ 	}
+-
+-	if (kind == RESET_KIND_INIT ||
+-	    kind == RESET_KIND_SUSPEND)
+-		tg3_ape_driver_state_change(tp, kind);
+ }
+ 
+ /* tp->lock is held. */
+@@ -1764,9 +1757,6 @@ static void tg3_write_sig_post_reset(struct tg3 *tp, int kind)
+ 			break;
+ 		}
+ 	}
+-
+-	if (kind == RESET_KIND_SHUTDOWN)
+-		tg3_ape_driver_state_change(tp, kind);
+ }
+ 
+ /* tp->lock is held. */
+@@ -4186,6 +4176,8 @@ static int tg3_power_down_prepare(struct tg3 *tp)
+ 
+ 	tg3_write_sig_post_reset(tp, RESET_KIND_SHUTDOWN);
+ 
++	tg3_ape_driver_state_change(tp, RESET_KIND_SHUTDOWN);
++
+ 	return 0;
+ }
+ 
+@@ -11207,6 +11199,9 @@ static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq,
+ 
+ 	tg3_full_lock(tp, 0);
+ 
++	if (init)
++		tg3_ape_driver_state_change(tp, RESET_KIND_INIT);
++
+ 	err = tg3_init_hw(tp, reset_phy);
+ 	if (err) {
+ 		tg3_halt(tp, RESET_KIND_SHUTDOWN, 1);
+@@ -13323,11 +13318,13 @@ static void tg3_self_test(struct net_device *dev, struct ethtool_test *etest,
+ 	struct tg3 *tp = netdev_priv(dev);
+ 	bool doextlpbk = etest->flags & ETH_TEST_FL_EXTERNAL_LB;
+ 
+-	if ((tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) &&
+-	    tg3_power_up(tp)) {
+-		etest->flags |= ETH_TEST_FL_FAILED;
+-		memset(data, 1, sizeof(u64) * TG3_NUM_TEST);
+-		return;
++	if (tp->phy_flags & TG3_PHYFLG_IS_LOW_POWER) {
++		if (tg3_power_up(tp)) {
++			etest->flags |= ETH_TEST_FL_FAILED;
++			memset(data, 1, sizeof(u64) * TG3_NUM_TEST);
++			return;
++		}
++		tg3_ape_driver_state_change(tp, RESET_KIND_INIT);
+ 	}
+ 
+ 	memset(data, 0, sizeof(u64) * TG3_NUM_TEST);
+@@ -17633,6 +17630,8 @@ static int tg3_resume(struct device *device)
+ 
+ 	tg3_full_lock(tp, 0);
+ 
++	tg3_ape_driver_state_change(tp, RESET_KIND_INIT);
++
+ 	tg3_flag_set(tp, INIT_COMPLETE);
+ 	err = tg3_restart_hw(tp,
+ 			     !(tp->phy_flags & TG3_PHYFLG_KEEP_LINK_ON_PWRDN));
+@@ -17767,6 +17766,7 @@ static void tg3_io_resume(struct pci_dev *pdev)
+ 		goto done;
+ 
+ 	tg3_full_lock(tp, 0);
++	tg3_ape_driver_state_change(tp, RESET_KIND_INIT);
+ 	tg3_flag_set(tp, INIT_COMPLETE);
+ 	err = tg3_restart_hw(tp, true);
+ 	if (err) {
+-- 
+1.8.1.4
