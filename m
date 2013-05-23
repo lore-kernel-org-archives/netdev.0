@@ -1,70 +1,53 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net] vxlan: revert per-vxlan port
-Date: Wed, 22 May 2013 17:39:54 -0700
-Message-ID: <20130522173954.7f75f62d@nehalam.linuxnetplumber.net>
-References: <20130520103017.054ae605@nehalam.linuxnetplumber.net>
- <OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com>
- <20130520113000.0057ce90@nehalam.linuxnetplumber.net>
- <20130522.150830.1305371698781503084.davem@davemloft.net>
- <OFB688A387.A3698315-ON85257B73.007C1B7B-85257B73.00800294@us.ibm.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH ipvs-next v3 0/2] sched: Add cond_resched_rcu_lock()
+ helper
+Date: Thu, 23 May 2013 10:11:37 +0900
+Message-ID: <20130523011137.GB26193@verge.net.au>
+References: <1369201832-17163-1-git-send-email-horms@verge.net.au>
+ <20130522075438.GO26912@twins.programming.kicks-ass.net>
+ <20130522.013108.58504645261021804.davem@davemloft.net>
+ <20130522090051.GA18810@twins.programming.kicks-ass.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:59535 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754087Ab3EWAj6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 20:39:58 -0400
-Received: by mail-pb0-f49.google.com with SMTP id rp8so2298890pbb.36
-        for <netdev@vger.kernel.org>; Wed, 22 May 2013 17:39:58 -0700 (PDT)
-In-Reply-To: <OFB688A387.A3698315-ON85257B73.007C1B7B-85257B73.00800294@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	ja@ssi.bg, mingo@redhat.com, paulmck@linux.vnet.ibm.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pablo@netfilter.org, dipankar@in.ibm.com
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130522090051.GA18810@twins.programming.kicks-ass.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 22 May 2013 19:18:12 -0400
-David Stevens <dlstevens@us.ibm.com> wrote:
+On Wed, May 22, 2013 at 11:00:51AM +0200, Peter Zijlstra wrote:
+> On Wed, May 22, 2013 at 01:31:08AM -0700, David Miller wrote:
+> > From: Peter Zijlstra <peterz@infradead.org>
+> > Date: Wed, 22 May 2013 09:54:38 +0200
+> > 
+> > > On Wed, May 22, 2013 at 02:50:30PM +0900, Simon Horman wrote:
+> > >> Add a helper that for use in loops which read data protected by RCU and
+> > >> may have a large number of iterations.  Such an example is dumping the list
+> > >> of connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+> > >> 
+> > >> This series also updates IPVS to use the helper.
+> > >> 
+> > >> Simon Horman (2):
+> > >>   sched: add cond_resched_rcu() helper
+> > >>   ipvs: use cond_resched_rcu() helper when walking connections
+> > >> 
+> > >>  include/linux/sched.h           |  9 +++++++++
+> > >>  net/netfilter/ipvs/ip_vs_conn.c | 23 ++++++++---------------
+> > >>  2 files changed, 17 insertions(+), 15 deletions(-)
+> > > 
+> > > Acked-by: Peter Zijlstra <peterz@infradead.org>
+> > > 
+> > > How do you want to go about merging this? Do you want to route it
+> > > through the net tree or through -tip?
+> > 
+> > I think we can have Pablo merge it into his netfilter tree.
+> 
+> Works for me. Thanks!
 
-> David Miller <davem@davemloft.net> wrote on 05/22/2013 06:08:30 PM:
-> 
-> > David, please come to some kind of agreement with Stephen about what
-> > we're going to do about this.
-> 
-> Well, I think being able to specify an alternate port for the
-> default fdb entry is a useful feature in its own right. It is
-> not equivalent to individual fdb entries with alternate ports
-> because those require the host to know all the destinations in
-> advance. It's certainly reasonable to use an alternate port for
-> the default entry as well, and is not "useless" without multiple
-> listen ports; it is as useful for the default port as it is for
-> individual fdb entries.
-> 
-> I'm not sure what the benefit of reverting any working feature
-> is, only to re-add it later, which I believe is what Stephen
-> is proposing. I think it is useful for some configurations now,
-> even if it only becomes useful for other configurations after
-> multiple listen ports.
-> 
-> Stephen, can you explain what the benefit of reverting this is?
-> 
-> I think we want it long term, but I can live without it
-> temporarily. I just don't see any reasoning for removing it
-> temporarily in the first place. It isn't broken, or breaking
-> anything else, after all.
-> 
->                                                 +-DLS
-> 
-
-There are two different config things here
-  1. FDB - NDA_PORT
-  2. VXLAN - IFLA_VXLAN_PORT
-
-The FDB stuff is seperate and fine, Dave did a complete job on that.
-I was confused, but it's fine.
-
-The per-vxlan device stuff is the issue. I don't think it works
-as is in 3.10 because there is no real way to use it to receive.
-And don't want to let it out broken. By reverting that part, we avoid
-raising false expectations.
+Thanks, I will queue it up in ipvs-next and pass it to Pablo from there.
