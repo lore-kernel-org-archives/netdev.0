@@ -1,31 +1,148 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH v2 net-next 0/4] bnx2x: Enhancement patch series
-Date: Thu, 23 May 2013 10:21:48 +0300
-Message-ID: <1369293712-26541-1-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH v2 net-next 1/4] bnx2x: Add Private Flags Support
+Date: Thu, 23 May 2013 10:21:49 +0300
+Message-ID: <1369293712-26541-2-git-send-email-yuvalmin@broadcom.com>
+References: <1369293712-26541-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ariele@broadcom.com, eilong@broadcom.com
+Cc: ariele@broadcom.com, eilong@broadcom.com,
+	"Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:2837 "EHLO mms1.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3622 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752440Ab3EWHWf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 May 2013 03:22:35 -0400
+	id S1756450Ab3EWHWi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 May 2013 03:22:38 -0400
+In-Reply-To: <1369293712-26541-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+Utilize ethtool's callback `get_priv_flags' - shed more light on the
+feasibility of devices as storage interfaces.
 
-This series contain several small enhancements - chief among those are
-the implementation of ethtool's private flags callback to share information
-about the storage offload capabilities of its network interfaces,
-and the prevention of a link flap when booting from storage area networks.
+CC: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h        |  2 +
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    | 49 ++++++++++++++++++----
+ 2 files changed, 44 insertions(+), 7 deletions(-)
 
-Please consider applying these patches to `net-next'.
-
-Changes from V1:
-  - Patch 1, removed trailing whitespaces from private flag strings.
-
-Thanks,
-Yuval Mintz
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 3dba2a7..3f42910 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -2137,6 +2137,8 @@ void bnx2x_igu_clear_sb_gen(struct bnx2x *bp, u8 func, u8 idu_sb_id,
+ #define ATTN_HARD_WIRED_MASK		0xff00
+ #define ATTENTION_ID			4
+ 
++#define IS_MF_STORAGE_ONLY(bp) (IS_MF_STORAGE_SD(bp) || \
++				 IS_MF_FCOE_AFEX(bp))
+ 
+ /* stuff added to make the code fit 80Col */
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index ce1a916..da23aea 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1921,6 +1921,19 @@ static const char bnx2x_tests_str_arr[BNX2X_NUM_TESTS_SF][ETH_GSTRING_LEN] = {
+ 	"link_test (online)         "
+ };
+ 
++enum {
++	BNX2X_PRI_FLAG_ISCSI,
++	BNX2X_PRI_FLAG_FCOE,
++	BNX2X_PRI_FLAG_STORAGE,
++	BNX2X_PRI_FLAG_LEN,
++};
++
++static const char bnx2x_private_arr[BNX2X_PRI_FLAG_LEN][ETH_GSTRING_LEN] = {
++	"iSCSI offload support",
++	"FCoE offload support",
++	"Storage only interface"
++};
++
+ static u32 bnx2x_eee_to_adv(u32 eee_adv)
+ {
+ 	u32 modes = 0;
+@@ -2978,32 +2991,47 @@ static int bnx2x_num_stat_queues(struct bnx2x *bp)
+ static int bnx2x_get_sset_count(struct net_device *dev, int stringset)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+-	int i, num_stats;
++	int i, num_strings = 0;
+ 
+ 	switch (stringset) {
+ 	case ETH_SS_STATS:
+ 		if (is_multi(bp)) {
+-			num_stats = bnx2x_num_stat_queues(bp) *
+-						BNX2X_NUM_Q_STATS;
++			num_strings = bnx2x_num_stat_queues(bp) *
++				      BNX2X_NUM_Q_STATS;
+ 		} else
+-			num_stats = 0;
++			num_strings = 0;
+ 		if (IS_MF_MODE_STAT(bp)) {
+ 			for (i = 0; i < BNX2X_NUM_STATS; i++)
+ 				if (IS_FUNC_STAT(i))
+-					num_stats++;
++					num_strings++;
+ 		} else
+-			num_stats += BNX2X_NUM_STATS;
++			num_strings += BNX2X_NUM_STATS;
+ 
+-		return num_stats;
++		return num_strings;
+ 
+ 	case ETH_SS_TEST:
+ 		return BNX2X_NUM_TESTS(bp);
+ 
++	case ETH_SS_PRIV_FLAGS:
++		return BNX2X_PRI_FLAG_LEN;
++
+ 	default:
+ 		return -EINVAL;
+ 	}
+ }
+ 
++static u32 bnx2x_get_private_flags(struct net_device *dev)
++{
++	struct bnx2x *bp = netdev_priv(dev);
++	u32 flags = 0;
++
++	flags |= (!(bp->flags & NO_ISCSI_FLAG) ? 1 : 0) << BNX2X_PRI_FLAG_ISCSI;
++	flags |= (!(bp->flags & NO_FCOE_FLAG)  ? 1 : 0) << BNX2X_PRI_FLAG_FCOE;
++	flags |= (!!IS_MF_STORAGE_ONLY(bp)) << BNX2X_PRI_FLAG_STORAGE;
++
++	return flags;
++}
++
+ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+@@ -3045,6 +3073,12 @@ static void bnx2x_get_strings(struct net_device *dev, u32 stringset, u8 *buf)
+ 			start = 4;
+ 		memcpy(buf, bnx2x_tests_str_arr + start,
+ 		       ETH_GSTRING_LEN * BNX2X_NUM_TESTS(bp));
++		break;
++
++	case ETH_SS_PRIV_FLAGS:
++		memcpy(buf, bnx2x_private_arr,
++		       ETH_GSTRING_LEN * BNX2X_PRI_FLAG_LEN);
++		break;
+ 	}
+ }
+ 
+@@ -3445,6 +3479,7 @@ static const struct ethtool_ops bnx2x_ethtool_ops = {
+ 	.set_pauseparam		= bnx2x_set_pauseparam,
+ 	.self_test		= bnx2x_self_test,
+ 	.get_sset_count		= bnx2x_get_sset_count,
++	.get_priv_flags		= bnx2x_get_private_flags,
+ 	.get_strings		= bnx2x_get_strings,
+ 	.set_phys_id		= bnx2x_set_phys_id,
+ 	.get_ethtool_stats	= bnx2x_get_ethtool_stats,
+-- 
+1.8.1.227.g44fe835
