@@ -1,91 +1,55 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net-next 4/6] tg3: Use descriptive label names in
- tg3_start
-Date: Thu, 23 May 2013 14:11:25 -0700
-Message-ID: <1369343487-6453-5-git-send-email-nsujir@broadcom.com>
-References: <1369343487-6453-1-git-send-email-nsujir@broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: napi layer and packet throttling
+Date: Thu, 23 May 2013 23:27:36 +0100
+Message-ID: <1369348056.6963.25.camel@bwh-desktop.uk.level5networks.com>
+References: <519E030E.5040903@keymile.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Nithin Nayak Sujir" <nsujir@broadcom.com>,
-	"Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
+Cc: <netdev@vger.kernel.org>
+To: Holger Brunck <holger.brunck@keymile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:1134 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758494Ab3EWVLl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 May 2013 17:11:41 -0400
-In-Reply-To: <1369343487-6453-1-git-send-email-nsujir@broadcom.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:19814 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759752Ab3EWW1l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 18:27:41 -0400
+In-Reply-To: <519E030E.5040903@keymile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
+On Thu, 2013-05-23 at 13:52 +0200, Holger Brunck wrote:
+> Hi all,
+> I have a general question to the napi layer. I have a board with a MPC8360
+> processor which uses the ucc_geth.c driver for it's ethernet device. The kernel
+> version is 3.9. We see in lab tests that the board gets unresponsive if we send
+> a high packet rate to this ethernet device via an packet generator. In the end
+> we would like to limit the amount of incoming packets at a very early stage, to
+> prevent the system of a to high softirq load.
+> 
+> The NAPI layer description I read on:
+> http://www.linuxfoundation.org/collaborate/workgroups/networking/napi
+> pointed two main functions out for the napi layer.
+> 
+> a) Interrupt mitigation
+> Which works perfectly on the ucc_geth.c driver under high load the hard irqs for
+> the RX packets are disabled and we switch to a polling mode. If the load is more
+> relaxed we switch back.
+> 
+> b) Packet-Throttling
+> Here the description says "NAPI-compliant drivers can often cause packets to be
+> dropped in the network adaptor itself, before the kernel sees them at all."
+> 
+> This is exactly what I need for my usecase. But I don't see any hints how this
+> can be implemented with the napi layer.
+[...]
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 3906327..98b770e 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -11207,7 +11207,7 @@ static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq,
- 	 */
- 	err = tg3_alloc_consistent(tp);
- 	if (err)
--		goto err_out1;
-+		goto out_ints_fini;
- 
- 	tg3_napi_init(tp);
- 
-@@ -11221,7 +11221,7 @@ static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq,
- 				tnapi = &tp->napi[i];
- 				free_irq(tnapi->irq_vec, tnapi);
- 			}
--			goto err_out2;
-+			goto out_napi_fini;
- 		}
- 	}
- 
-@@ -11239,7 +11239,7 @@ static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq,
- 	tg3_full_unlock(tp);
- 
- 	if (err)
--		goto err_out3;
-+		goto out_free_irq;
- 
- 	if (test_irq && tg3_flag(tp, USING_MSI)) {
- 		err = tg3_test_msi(tp);
-@@ -11250,7 +11250,7 @@ static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq,
- 			tg3_free_rings(tp);
- 			tg3_full_unlock(tp);
- 
--			goto err_out2;
-+			goto out_napi_fini;
- 		}
- 
- 		if (!tg3_flag(tp, 57765_PLUS) && tg3_flag(tp, USING_MSI)) {
-@@ -11290,18 +11290,18 @@ static int tg3_start(struct tg3 *tp, bool reset_phy, bool test_irq,
- 
- 	return 0;
- 
--err_out3:
-+out_free_irq:
- 	for (i = tp->irq_cnt - 1; i >= 0; i--) {
- 		struct tg3_napi *tnapi = &tp->napi[i];
- 		free_irq(tnapi->irq_vec, tnapi);
- 	}
- 
--err_out2:
-+out_napi_fini:
- 	tg3_napi_disable(tp);
- 	tg3_napi_fini(tp);
- 	tg3_free_consistent(tp);
- 
--err_out1:
-+out_ints_fini:
- 	tg3_ints_fini(tp);
- 
- 	return err;
+If the RX ring is not cleaned and refilled quickly enough, the network
+controller will naturally start to drop packets.  It's not something you
+should do explicitly in the driver.
+
+Ben.
+
 -- 
-1.8.1.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
