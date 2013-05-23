@@ -1,191 +1,306 @@
-From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-Subject: [PATCH RFC] net/ipv4: Use next hop exceptions also for input routes
-Date: Thu, 23 May 2013 16:15:46 +0300
-Message-ID: <1369314946-12692-1-git-send-email-timo.teras@iki.fi>
+From: "Victor Miasnikov" <vvm@tut.by>
+Subject: Kernel v3.2 used in SlackWare 14.00 please, backport all needed patches Re: [PATCH net, 1/2] hyperv: Fix a kernel warning from netvsc_linkstatus_callback()
+Date: Thu, 23 May 2013 16:14:55 +0300
+Message-ID: <00D0FAD3528A443BAEA3E39861B3CFAD@local.st.by>
+References: <1365198280-23270-1-git-send-email-haiyangz@microsoft.com> <CACQ1gAi0JfJFAc822YT5xVfW8HkB8r_4rf0dXTNsi-1oChsPsQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-To: netdev@vger.kernel.org
+Content-Type: text/plain;
+	format=flowed;
+	charset="utf-8";
+	reply-type=original
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>, <olaf@aepfle.de>,
+	<jasowang@redhat.com>, <linux-kernel@vger.kernel.org>,
+	<devel@linuxdriverproject.org>, <stable@vger.kernel.org>
+To: "Richard Genoud" <richard.genoud@gmail.com>,
+	"Haiyang Zhang" <haiyangz@microsoft.com>,
+	"Patrick J. Volkerding" <volkerdi@slackware.com>,
+	"KY Srinivasan" <kys@microsoft.com>,
+	"Mike Sterling" <Mike.Sterling@microsoft.com>,
+	"Olaf Hering" <ohering@suse.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f174.google.com ([209.85.215.174]:45116 "EHLO
-	mail-ea0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757139Ab3EWNOM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 09:14:12 -0400
-Received: by mail-ea0-f174.google.com with SMTP id z7so1782236eaf.19
-        for <netdev@vger.kernel.org>; Thu, 23 May 2013 06:14:11 -0700 (PDT)
+Received: from mail-bk0-f43.google.com ([209.85.214.43]:40999 "EHLO
+	mail-bk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758939Ab3EWNPA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 09:15:00 -0400
+Received: by mail-bk0-f43.google.com with SMTP id jm2so207199bkc.16
+        for <netdev@vger.kernel.org>; Thu, 23 May 2013 06:14:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit d2d68ba9 (ipv4: Cache input routes in fib_info nexthops)
-assmued that "locally destined, and routed packets, never trigger
-PMTU events or redirects that will be processed by us".
+Hi!
 
-However, it seems that tunnel devices do trigger PMTU events in certain
-cases. At least ip_gre, ip6_gre, sit, and ipip do use the inner flow's
-skb_dst(skb)->ops->update_pmtu to propage mtu information from the
-outer flows. These can cause the inner flow mtu to be decreased. If
-next hop exceptions are not consulted for pmtu, IP fragmentation will
-not be done properly for these routes.
+> (the 3.2 version is different,
+> and it's instaging. (at not used by distros anyway))
 
-It also seems that we really need to have the PMTU information always
-for netfilter TCPMSS' clamp-to-pmtu feature to work properly.
+ No: used
 
-So for the time being, cache separate copies of input routes for
-each next hop exception.
+Linux Kernel v3.2 used in:
+-- SlackWare 14.00
 
-Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
----
-I had ideas to make optimizations where pmtu information would not
-be needed. This includes:
-- Target devices with IFF_XMIT_DST_RELEASE set (practically all devices
-  except tunnels). If skb_dst() is early freed the target device cannot
-  generate PMTU events
-- Add flag for input route generation if pmtu info is needed for
-  fragmentation. Basically a flag saying if DF bit was set in ip_hdr.
+This is actual stable version SlackWare
 
-However, TCPMSS clamp-to-pmtu prevents both optimizations.
+Please, backport all(!) needed patches
 
-I'm not yet all familiar with the recent changes in routing caching,
-so there might be caveats that I missed. Basic testing shows this fixes
-the fragmentation issues I'm seeing, and I have not yet found any ill
-side effects either.
+ I'm download https://www.kernel.org/pub/linux/kernel/v3.x/linux-3.2.45.tar.xz
 
- include/net/ip_fib.h     |  3 ++-
- net/ipv4/fib_semantics.c |  3 ++-
- net/ipv4/route.c         | 41 +++++++++++++++++++++++++++++++---------=
--
- 3 files changed, 35 insertions(+), 12 deletions(-)
+File ata_piix.c ( SHA1 ceaf441142ad3f6768ff71f023e73d0695458e2c ) from
+./linux-3.2.45/drivers/ata/
+not contain:
+( even not contain sub-string "Hyper-V")
+== ( VVM: symbol TAB replaced by Space+Space -- special for users of MS IE, MS OutLook [Express] )
+static int prefer_ms_hyperv = 1;
+module_param(prefer_ms_hyperv, int, 0);
+MODULE_PARM_DESC(prefer_ms_hyperv,
+  "Prefer Hyper-V paravirtualization drivers instead of ATA, "
+  "0 - Use ATA drivers, "
+  "1 (Default) - Use the paravirtualization drivers.");
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index e49db91..20529a6 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -55,7 +55,8 @@ struct fib_nh_exception {
- 	u32				fnhe_pmtu;
- 	__be32				fnhe_gw;
- 	unsigned long			fnhe_expires;
--	struct rtable __rcu		*fnhe_rth;
-+	struct rtable __rcu		*fnhe_rth_input;
-+	struct rtable __rcu		*fnhe_rth_output;
- 	unsigned long			fnhe_stamp;
- };
-=20
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index 8f6cb7a..d5dbca5 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -169,7 +169,8 @@ static void free_nh_exceptions(struct fib_nh *nh)
- 		=09
- 			next =3D rcu_dereference_protected(fnhe->fnhe_next, 1);
-=20
--			rt_fibinfo_free(&fnhe->fnhe_rth);
-+			rt_fibinfo_free(&fnhe->fnhe_rth_input);
-+			rt_fibinfo_free(&fnhe->fnhe_rth_output);
-=20
- 			kfree(fnhe);
-=20
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 550781a..073df96 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -576,9 +576,14 @@ static struct fib_nh_exception *fnhe_oldest(struct=
- fnhe_hash_bucket *hash)
- 		if (time_before(fnhe->fnhe_stamp, oldest->fnhe_stamp))
- 			oldest =3D fnhe;
- 	}
--	orig =3D rcu_dereference(oldest->fnhe_rth);
-+	orig =3D rcu_dereference(oldest->fnhe_rth_input);
- 	if (orig) {
--		RCU_INIT_POINTER(oldest->fnhe_rth, NULL);
-+		RCU_INIT_POINTER(oldest->fnhe_rth_input, NULL);
-+		rt_free(orig);
-+	}
-+	orig =3D rcu_dereference(oldest->fnhe_rth_output);
-+	if (orig) {
-+		RCU_INIT_POINTER(oldest->fnhe_rth_output, NULL);
- 		rt_free(orig);
- 	}
- 	return oldest;
-@@ -1209,7 +1214,15 @@ static bool rt_bind_exception(struct rtable *rt,=
- struct fib_nh_exception *fnhe,
- 	spin_lock_bh(&fnhe_lock);
-=20
- 	if (daddr =3D=3D fnhe->fnhe_daddr) {
--		struct rtable *orig =3D rcu_dereference(fnhe->fnhe_rth);
-+		struct rtable __rcu **porig;
-+		struct rtable *orig;
-+
-+		if (rt_is_input_route(rt))
-+			porig =3D &fnhe->fnhe_rth_input;
-+		else
-+			porig =3D &fnhe->fnhe_rth_output;
-+
-+		orig =3D rcu_dereference(*porig);
- 		if (orig && rt_is_expired(orig)) {
- 			fnhe->fnhe_gw =3D 0;
- 			fnhe->fnhe_pmtu =3D 0;
-@@ -1231,12 +1244,14 @@ static bool rt_bind_exception(struct rtable *rt=
-, struct fib_nh_exception *fnhe,
- 		} else if (!rt->rt_gateway)
- 			rt->rt_gateway =3D daddr;
-=20
--		rcu_assign_pointer(fnhe->fnhe_rth, rt);
--		if (orig)
--			rt_free(orig);
-+		if (!(rt->dst.flags & DST_NOCACHE)) {
-+			rcu_assign_pointer(*porig, rt);
-+			if (orig)
-+				rt_free(orig);
-+			ret =3D true;
-+		}
-=20
- 		fnhe->fnhe_stamp =3D jiffies;
--		ret =3D true;
- 	}
- 	spin_unlock_bh(&fnhe_lock);
-=20
-@@ -1468,6 +1483,7 @@ static int __mkroute_input(struct sk_buff *skb,
- 			   struct in_device *in_dev,
- 			   __be32 daddr, __be32 saddr, u32 tos)
- {
-+	struct fib_nh_exception *fnhe;
- 	struct rtable *rth;
- 	int err;
- 	struct in_device *out_dev;
-@@ -1514,8 +1530,13 @@ static int __mkroute_input(struct sk_buff *skb,
- 		}
- 	}
-=20
-+	fnhe =3D find_exception(&FIB_RES_NH(*res), daddr);
- 	if (do_cache) {
--		rth =3D rcu_dereference(FIB_RES_NH(*res).nh_rth_input);
-+		if (fnhe !=3D NULL)
-+			rth =3D rcu_dereference(fnhe->fnhe_rth_input);
-+		else
-+			rth =3D rcu_dereference(FIB_RES_NH(*res).nh_rth_input);
-+
- 		if (rt_cache_valid(rth)) {
- 			skb_dst_set_noref(skb, &rth->dst);
- 			goto out;
-@@ -1543,7 +1564,7 @@ static int __mkroute_input(struct sk_buff *skb,
- 	rth->dst.input =3D ip_forward;
- 	rth->dst.output =3D ip_output;
-=20
--	rt_set_nexthop(rth, daddr, res, NULL, res->fi, res->type, itag);
-+	rt_set_nexthop(rth, daddr, res, fnhe, res->fi, res->type, itag);
- 	skb_dst_set(skb, &rth->dst);
- out:
- 	err =3D 0;
-@@ -1858,7 +1879,7 @@ static struct rtable *__mkroute_output(const stru=
-ct fib_result *res,
-=20
- 		fnhe =3D find_exception(nh, fl4->daddr);
- 		if (fnhe)
--			prth =3D &fnhe->fnhe_rth;
-+			prth =3D &fnhe->fnhe_rth_output;
- 		else {
- 			if (unlikely(fl4->flowi4_flags &
- 				     FLOWI_FLAG_KNOWN_NH &&
---=20
-1.8.2.3
+static void piix_ignore_devices_quirk(struct ata_host *host)
+{
+#if IS_ENABLED(CONFIG_HYPERV_STORAGE)
+  static const struct dmi_system_id ignore_hyperv[] = {
+    {
+      /* On Hyper-V hypervisors the disks are exposed on
+       * both the emulated SATA controller and on the
+       * paravirtualised drivers.  The CD/DVD devices
+       * are only exposed on the emulated controller.
+       * Request we ignore ATA devices on this host.
+       */
+      .ident = "Hyper-V Virtual Machine",
+      .matches = {
+        DMI_MATCH(DMI_SYS_VENDOR,
+            "Microsoft Corporation"),
+        DMI_MATCH(DMI_PRODUCT_NAME, "Virtual Machine"),
+      },
+    },
+    { }  /* terminate list */
+  };
+  static const struct dmi_system_id allow_virtual_pc[] = {
+    {
+      /* In MS Virtual PC guests the DMI ident is nearly
+       * identical to a Hyper-V guest. One difference is the
+       * product version which is used here to identify
+       * a Virtual PC guest. This entry allows ata_piix to
+       * drive the emulated hardware.
+       */
+      .ident = "MS Virtual PC 2007",
+      .matches = {
+        DMI_MATCH(DMI_SYS_VENDOR,
+            "Microsoft Corporation"),
+        DMI_MATCH(DMI_PRODUCT_NAME, "Virtual Machine"),
+        DMI_MATCH(DMI_PRODUCT_VERSION, "VS2005R2"),
+      },
+    },
+    { }  /* terminate list */
+  };
+  const struct dmi_system_id *ignore = dmi_first_match(ignore_hyperv);
+  const struct dmi_system_id *allow = dmi_first_match(allow_virtual_pc);
+
+  if (ignore && !allow && prefer_ms_hyperv) {
+    host->flags |= ATA_HOST_IGNORE_ATA;
+    dev_info(host->dev, "%s detected, ATA device ignore set\n",
+      ignore->ident);
+  }
+#endif
+==
+
+
+_Absolutly_ ( as _minimum_ for SlackWare 14.00 ) need backport requested at 2012-06-08(!) :
+( look on sub-string "3.2")
+==
+----- Original Message ----- 
+From: "Victor Miasnikov"
+To: "Greg KH" ; "Jonathan Nieder" ; "Andy Whitcroft"
+Cc: <stable@vger.kernel.org>; <linux-kernel@vger.kernel.org>; "KY Srinivasan"; "Mike Sterling"
+Sent: Friday, June 08, 2012 1:36 PM
+Subject: Re: Re: ToDo: backport to v3.4 , v3.3 , v3.2 patches 1b) db63a4c8115a libata 1) cd006086fa5d ata_piix: defer
+disks to the Hyper-V drivers by default Fw: use hv_storvsc instead of ata_piix for IDE disks ( but not for the CD-ROM)
+
+ . . .
+
+{
+> > > Hyper-V admins need _worked_ Linux v3.4.X / v3.3.X / v3.2.X
+> > > Please, _fix_ errors related "use hv_storvsc instead of ata_piix to
+> > > handle the IDE disks devices ( but not for the CD-ROM)"
+
+  i.e. need backport to all actual version after 3.1
+
+  cd006086fa5d ata_piix: defer disks to the Hyper-V drivers by default
+
+and its prerequisite
+
+  db63a4c8115a libata: add a host flag to ignore detected ATA devices
+}
+==
+
+and not forget patch related Bug 52821 :
+
+{{
+== ==
+----- Original Message ----- 
+From: vvm
+To: Andreas
+Sent: Wednesday, January 30, 2013 4:20 PM
+Subject: FIXed: ef773e1..bec35f4 Re: ata_piix.prefer_ms_hyperv=0 works Fw: Bug 52821 - ata_piix ATA_HOST_IGNORE_ATA for
+Hyper-V also affects Virtual PC 7 https://bugzilla.novell.com/show_bug.cgi?id=737532 Or
+https://bugzilla.kernel.org/show_bug.cgi?id=52821
+
+
+Hi!
+
+ Short:
+
+> Still, if there is a way to cleanly identify Hyper-V but not Virtual PC 7, this would be great!
+
+FIXed: ef773e1..bec35f4
+
+ Write in
+https://bugzilla.kernel.org/show_bug.cgi?id=52821
+
+"please, backport to 3.4 . . . 3.6 . . . 3.7"
+
+   . . .
+
+ Full:
+
+
+
+(
+ . . .
+
+> Still, if there is a way to cleanly identify Hyper-V but not Virtual PC 7, this would be great!
+
+FIXed: ef773e1..bec35f4
+
+
+----- Original Message ----- 
+From: "Jeff Garzik"
+To: "Olaf Hering"
+Cc:  . . . ; "KY Srinivasan"
+Sent: Wednesday, November 28, 2012 8:44 PM
+Subject: Re: [PATCH] ata_piix: reenable MS Virtual PC guests
+
+On 09/18/2012 11:48 AM, Olaf Hering wrote:
+An earlier commit cd006086fa5d91414d8ff9ff2b78fbb593878e3c ("ata_piix:
+defer disks to the Hyper-V drivers by default") broke MS Virtual PC
+guests. Hyper-V guests and Virtual PC guests have nearly identical DMI
+info. As a result the driver does currently ignore the emulated hardware
+in Virtual PC guests and defers the handling to hv_blkvsc [ VVM: in current ver kernel -- hv_storvsc ]  . Since Virtual
+PC does not offer paravirtualized drivers no disks will be found in the
+guest.
+
+One difference in the DMI info is the product version. This patch adds a
+match for MS Virtual PC 2007 and "unignores" the emulated hardware.
+
+This was reported for openSuSE 12.1 in bugzilla:
+https://bugzilla.novell.com/show_bug.cgi?id=737532
+.  .  .
+
+Signed-off-by: Olaf Hering
+
+applied.  Apologies for missing this one.  It was accidentally shifting
+into the low-priority pile.
+==
+
+
+== ==
+
+
+==
+Andreas 2013-01-30 22:19:21
+  First appearance:
+https://bugzilla.novell.com/show_bug.cgi?id=737532
+Patch:
+https://lkml.org/lkml/2012/9/18/306
+
+==
+
+}}
+
+
+
+
+> This should also go to the stable tree, shouldn't it ?
+> At least 3.8, 3.7 and 3.4
+
+ In kernel 3.2 used in
+
+-- Ubuntu 12.4.0 LTS (  after 12.4.2 -- 3.5.X)
+and
+-- Debian 7.0
+
+source code related Hyper-V backported from "vanila" Kernel v3.5 ( and someone from hi versions)
+
+Please, ask Support Teams of Debian and Ubuntu for backport
+
+
+
+Best regards, Victor Miasnikov
+Blog:  http://vvm.blog.tut.by/
+
+
+P.S.
+
+to To Microsoft Hyper-V for Linux Team:
+
+what are mint phrase:
+"LIS (Linux Integration Services) 4.0"
+?
+
+If need details -- ask me by e-mail . . .
+
+
+
+P.P.S.
+
+Again to To Microsoft Hyper-V for Linux Team:
+
+ See on MS Forum topic
+"Linux VM literally crashes Hyper-V host server with STOP 0x00020001"
+ and (or)
+please, remember, CVE number
+
+
+
+P.P.P.S.
+
+To SUSE Hyper-V for Linux Team:
+
+Olaf, I'm received Yours e-mail msg ( answer on my earler msg)
+
+ Thanks for answer
+
+Unfortunately Yours ( SUSE/Novel) Bug-Tracker not opened by IE from Win Srv Edtions
+I'm try do it from OpenSUSE v12.3 LiveCD but can not boot from it in Hyper-V VM when "Dynamic memory" turn on
+
+ See details on
+http://vvm.blog.tut.by/2013/05/18/opensuse-on-hyper-v/
+
+ Or ask SUSE Support Team write me by e-mail for detail
+
+
+P.P.P.P.S.
+
+ In
+./linux-3.10-rc2/drivers/scsi/storvsc_drv.c
+
+I am not found sub-string "Fiber Channel"
+
+  As I  undestand Linux Kernel roadmap/timeline traditions
+need ask by backport needed patches to v3.10
+
+To Microsoft Hyper-V for Linux Team:
+
+ Who must do it?
+
+Again Hypev-V sysadmin[s] ?
+
+
+P.P.P.P.P.S.
+
+Sorry, if my msg not full "political correct"
+
+I preffered solve problem as possibily earler, what wait big problems
+
+Sorry, again . . .
