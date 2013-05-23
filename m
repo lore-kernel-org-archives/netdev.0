@@ -1,113 +1,72 @@
-From: David Hauweele <david-1EggE+PRa6vk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH beta 1] 0/3] Fix race conditions in
-	mrf24j40 interrupts
-Date: Thu, 23 May 2013 19:54:12 +0200
-Message-ID: <CAO+c-UVMoctgG2qM2EzOVJwsEY_2TT79J-AuzX-xrPkSUHrQtw@mail.gmail.com>
-References: <CAO+c-UVJQJbmmmCS4hxAEYHKa8gEU1Bs=y+Rv_A75UHeBZxc+w@mail.gmail.com>
-	<1369188080-8904-1-git-send-email-alan@signal11.us>
-	<519C278F.5030809@signal11.us>
-	<CAO+c-UV1bZZEE=9=7VVn3f1eLWzCpYCK9eZnnvzNwcPOKKtKLA@mail.gmail.com>
-	<519DB8E6.4020709@signal11.us>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH] Ethtool: Beautify private flags print
+Date: Thu, 23 May 2013 20:55:51 +0300
+Message-ID: <1369331751-32543-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-To: Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-Return-path: <linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-In-Reply-To: <519DB8E6.4020709-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=linux-zigbee-devel>
-List-Post: <mailto:linux-zigbee-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/linux-zigbee-devel>,
-	<mailto:linux-zigbee-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-Errors-To: linux-zigbee-devel-bounces-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: eilong@broadcom.com, "Yuval Mintz" <yuvalmin@broadcom.com>
+To: bhutchings@solarflare.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms3.broadcom.com ([216.31.210.19]:4664 "EHLO mms3.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757799Ab3EWR4I (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 May 2013 13:56:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/5/23 Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>:
-> On 5/22/13 4:32 PM, David Hauweele wrote:
->>
->> I cannot use level-triggered interrupts with GPIO on the RPi, so I
->> cannot test this specific patch.
->
->
-> Is there another interrupt line you can tie into which does support
-> level-trigger interrupts (INT0 or something)?
+When printing the private flags of the device, align all strings
+to have the same length.
 
-According to the datasheet it should be possible but the bcm2708 port
-does not support it. I've been told that we shouldn't use level-triggered
-interrupts in the first place.
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+---
+ ethtool.c | 26 ++++++++++++++++++++++----
+ 1 file changed, 22 insertions(+), 4 deletions(-)
 
->
->
->> However I agree with the idea of level-triggered interrupts, that
->> would fix all major problems related to missed interrupts.
->>
->> Beside this I'm running a ping -f since more than two hours now and it
->> seems to work well.
->>
->
-> So that surprises me. I thought level-trigger interrupts were the thing that
-> would fix this problem, and if you're not running with that patch, you just
-> have the INIT_COMPLETION() fix (which you said didn't fix your issue) and
-> the threaded interrupts patch, which I was fairly sure I had determined
-> wasn't fixing any actual race-condition-related problems.
-
-I should have been more clear about this. I've tested [PATCH 1/3]
-which fixes the race condition with tx_complete. That is the
-INIT_COMPLETION() fix. But it is still possible to miss an interrupt,
-perhaps it just took longer this time. I ran the test again today and
-it failed after 30 minutes.
-
-I did not test [PATCH 2/3], that is the threaded IRQ. Instead I
-removed interrupt enable/disable from the IRQ handler and the
-workqueue. Without this the driver would fail within seconds of a ping
--f. Have you observed this too ? Perhaps this problem is specific to
-the bcm2708 port.
-
-David
-
->
-> I'm glad, but surprised that you're no longer seeing issues.
->
-> Alan.
->
->
->>
->> 2013/5/22 Alan Ott <alan-yzvJWuRpmD1zbRFIqnYvSA@public.gmane.org>:
->>>
->>> On 05/21/2013 10:01 PM, Alan Ott wrote:
->>>>
->>>> David Hauweele noticed that the mrf24j40 would hang arbitrarily after
->>>> some
->>>> period of heavy traffic.  Two race conditions were discovered, and the
->>>> driver was changed to use threaded interrupts, since the enable/disable
->>>> of
->>>> interrupts in the driver has recently been a lighning rod whenever
->>>> issues
->>>> arise related to interrupts (costing engineering time), and since
->>>> threaded
->>>> interrupts are the right way to do it.
->>>>
->>>> Alan Ott (3):
->>>>    mrf24j40: Move INIT_COMPLETION() to before packet transmission
->>>>    mrf24j40: Use threaded IRQ handler
->>>>    mrf24j40: Use level-triggered interrupts
->>>>
->>>>   drivers/net/ieee802154/mrf24j40.c | 31 +++++++++----------------------
->>>>   1 file changed, 9 insertions(+), 22 deletions(-)
->>>
->>>
->>> I forgot to add, I ran ping -f both ways all afternoon (6.5 hours), and
->>> it seems solid.
->>>
->
-
-------------------------------------------------------------------------------
-Try New Relic Now & We'll Send You this Cool Shirt
-New Relic is the only SaaS-based application performance monitoring service 
-that delivers powerful full stack analytics. Optimize and monitor your
-browser, app, & servers with just a few lines of code. Try New Relic
-and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
+diff --git a/ethtool.c b/ethtool.c
+index 8cc10b5..1244c74 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -3445,6 +3445,7 @@ static int do_gprivflags(struct cmd_context *ctx)
+ 	struct ethtool_gstrings *strings;
+ 	struct ethtool_value flags;
+ 	unsigned int i;
++	int max_len = 0, cur_len;
+ 
+ 	if (ctx->argc != 0)
+ 		exit_bad_args();
+@@ -3472,11 +3473,28 @@ static int do_gprivflags(struct cmd_context *ctx)
+ 		return 1;
+ 	}
+ 
++	/* Find longest string and align all strings accordingly */
++	for (i = 0; i < strings->len; i++) {
++		cur_len = strlen((const char*)strings->data +
++					      i * ETH_GSTRING_LEN);
++		if (cur_len > max_len)
++			max_len = cur_len;
++	}
++
+ 	printf("Private flags for %s:\n", ctx->devname);
+-	for (i = 0; i < strings->len; i++)
+-		printf("%s: %s\n",
+-		       (const char *)strings->data + i * ETH_GSTRING_LEN,
+-		       (flags.data & (1U << i)) ? "on" : "off");
++	for (i = 0; i < strings->len; i++) {
++		int j;
++
++		printf("%s", (const char *)strings->data +
++					   i * ETH_GSTRING_LEN);
++
++		cur_len = strlen((const char*)strings->data +
++					      i * ETH_GSTRING_LEN);
++		for (j = 0; j < max_len - cur_len; j++)
++			printf(" ");
++
++		printf(": %s\n", (flags.data & (1U << i)) ? "on" : "off");
++	}
+ 
+ 	return 0;
+ }
+-- 
+1.8.1.227.g44fe835
