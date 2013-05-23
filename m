@@ -1,58 +1,83 @@
-From: Holger Brunck <holger.brunck@keymile.com>
-Subject: napi layer and packet throttling
-Date: Thu, 23 May 2013 13:52:46 +0200
-Message-ID: <519E030E.5040903@keymile.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] ipv4: netfilter: always let NUL terminated string ended
+ by '\0'
+Date: Thu, 23 May 2013 19:59:19 +0800
+Message-ID: <519E0497.5000002@asianux.com>
+References: <5195ECB3.5000006@asianux.com> <20130523110832.GB22553@localhost> <519DFFFB.40104@asianux.com> <20130523114950.GA4972@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:59950 "EHLO
-	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758215Ab3EWMAB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 08:00:01 -0400
-Received: from frodo.de.keymile.net ([10.9.1.54]:59725 helo=mailrelay.de.keymile.net)
-	by mail-de.keymile.com with esmtp (Exim 4.76)
-	(envelope-from <Holger.Brunck@keymile.com>)
-	id 1UfU4d-0001yA-0v
-	for netdev@vger.kernel.org; Thu, 23 May 2013 13:52:47 +0200
-Received: from srvdehan1003.de.keymile.net (srvdehan1003.de.keymile.net [10.9.1.108])
-	by mailrelay.de.keymile.net (8.12.2/8.12.2) with ESMTP id r4NBonxd013533
-	for <netdev@vger.kernel.org>; Thu, 23 May 2013 13:50:49 +0200 (MEST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev <netdev@vger.kernel.org>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20130523114950.GA4972@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
-I have a general question to the napi layer. I have a board with a MPC8360
-processor which uses the ucc_geth.c driver for it's ethernet device. The kernel
-version is 3.9. We see in lab tests that the board gets unresponsive if we send
-a high packet rate to this ethernet device via an packet generator. In the end
-we would like to limit the amount of incoming packets at a very early stage, to
-prevent the system of a to high softirq load.
+On 05/23/2013 07:49 PM, Pablo Neira Ayuso wrote:
+> On Thu, May 23, 2013 at 07:39:39PM +0800, Chen Gang wrote:
+>> > On 05/23/2013 07:08 PM, Pablo Neira Ayuso wrote:
+>>> > > On Fri, May 17, 2013 at 04:39:15PM +0800, Chen Gang wrote:
+>>>>> > >> >
+>>>>> > >> > For NUL terminated string, better always be sure of ended by '\0'.
+>>>>> > >> >
+>>>>> > >> > 'pm' is 'struct ulog_packet_msg_t' which may be copied to user mode
+>>>>> > >> > (defined in "include/uapi/..."), so can not use strlcpy() instead of.
+>>> > > loginfo->prefix is always nul-terminated, as this is validated in
+>>> > > checkentry. I don't think the kernel will take a non nul-terminated
+>>> > > device name either.
+>> >
+>> > Really it is.
+>> >
+>> > And 'prefix' max length is 128 (NF_LOG_PREFIXLEN), and 'pm->prefix' max
+>> > length is 32 (ULOG_PREFIX_LEN), so we still need this patch, but need
+>> > improved.
+> Both are ULOG_PREFIX_LEN long.
+> 
+>>From include/uapi/linux/netfilter_ipv4/ipt_ULOG.h:
+> 
+> /* private data structure for each rule with a ULOG target */
+> struct ipt_ulog_info {
+>         unsigned int nl_group;
+>         size_t copy_range;
+>         size_t qthreshold;
+>         char prefix[ULOG_PREFIX_LEN];
+> };
+> 
+> /* Format of the ULOG packets passed through netlink */
+> typedef struct ulog_packet_msg {
+>         unsigned long mark;
+>         long timestamp_sec;
+>         long timestamp_usec;
+>         unsigned int hook;
+>         char indev_name[IFNAMSIZ];
+>         char outdev_name[IFNAMSIZ];
+>         size_t data_len;
+>         char prefix[ULOG_PREFIX_LEN];
+>         unsigned char mac_len;
+>         unsigned char mac[ULOG_MAC_LEN;
+>         unsigned char payload[0];
+> } ulog_packet_msg_t;
+> 
+> 
 
-The NAPI layer description I read on:
-http://www.linuxfoundation.org/collaborate/workgroups/networking/napi
-pointed two main functions out for the napi layer.
+Yes, for 'loginfo->prefix', really it is.
 
-a) Interrupt mitigation
-Which works perfectly on the ucc_geth.c driver under high load the hard irqs for
-the RX packets are disabled and we switch to a polling mode. If the load is more
-relaxed we switch back.
+But for 'prefix', it is 128. the call work flow is:
 
-b) Packet-Throttling
-Here the description says "NAPI-compliant drivers can often cause packets to be
-dropped in the network adaptor itself, before the kernel sees them at all."
+  nf_log_packet() ->  "char prefix[NF_LOG_PREFIXLEN];"
+    logger->logfn() -> "prefix as last parameter"
+      ipt_logfn() ->   "prefix as last parameter"
+        ipt_ulog_packet() "prefix as last parameter"
 
-This is exactly what I need for my usecase. But I don't see any hints how this
-can be implemented with the napi layer. So what I need would be something like a
-possibility to accept on the eth0 device in timeframe x only packetcount y. If
-this packetcount is reached disable hard irq and napi_poll until the timeframe
-is expired.
+  netfilter/nf_log.c:16:#define NF_LOG_PREFIXLEN		128
 
-So are there any pointers to other ethernet drivers doing something like this?
-Do I misunderstand the packet throttling purpose of the NAPI layer completely?
 
-Any help is appreciated.
+Thanks.
+-- 
+Chen Gang
 
-Regards
-Holger
+Asianux Corporation
