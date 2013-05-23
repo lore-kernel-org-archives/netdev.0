@@ -1,66 +1,53 @@
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Subject: RE: [PATCH net, 1/2] hyperv: Fix a kernel warning from
- netvsc_linkstatus_callback()
-Date: Thu, 23 May 2013 14:51:57 +0000
-Message-ID: <ed50df23ce9a4fb785faa0082ff79c95@DFM-TK5MBX15-06.exchange.corp.microsoft.com>
-References: <1365198280-23270-1-git-send-email-haiyangz@microsoft.com>
- <CACQ1gAi0JfJFAc822YT5xVfW8HkB8r_4rf0dXTNsi-1oChsPsQ@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [net-next RFC 3/8] macvtap: introduce macvtap_get_vlan()
+Date: Thu, 23 May 2013 19:11:07 +0400
+Message-ID: <519E318B.2010804@cogentembedded.com>
+References: <1369278753-2533-1-git-send-email-jasowang@redhat.com> <1369278753-2533-4-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"stable (stable@kernel.org)" <stable@kernel.org>
-To: Richard Genoud <richard.genoud@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACQ1gAi0JfJFAc822YT5xVfW8HkB8r_4rf0dXTNsi-1oChsPsQ@mail.gmail.com>
-Content-Language: en-US
+In-Reply-To: <1369278753-2533-4-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogUmljaGFyZCBHZW5vdWQg
-W21haWx0bzpyaWNoYXJkLmdlbm91ZEBnbWFpbC5jb21dDQo+IFNlbnQ6IFRodXJzZGF5LCBNYXkg
-MjMsIDIwMTMgNDo0NCBBTQ0KPiBUbzogSGFpeWFuZyBaaGFuZw0KPiBDYzogZGF2ZW1AZGF2ZW1s
-b2Z0Lm5ldDsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZzsgb2xhZkBhZXBmbGUuZGU7DQo+IGphc293
-YW5nQHJlZGhhdC5jb207IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmc7DQo+IGRldmVsQGxp
-bnV4ZHJpdmVycHJvamVjdC5vcmcNCj4gU3ViamVjdDogUmU6IFtQQVRDSCBuZXQsIDEvMl0gaHlw
-ZXJ2OiBGaXggYSBrZXJuZWwgd2FybmluZyBmcm9tDQo+IG5ldHZzY19saW5rc3RhdHVzX2NhbGxi
-YWNrKCkNCj4gDQo+IDIwMTMvNC81IEhhaXlhbmcgWmhhbmcgPGhhaXlhbmd6QG1pY3Jvc29mdC5j
-b20+Og0KPiA+IFRoZSB3YXJuaW5nIGFib3V0IGxvY2FsX2JoX2VuYWJsZSBpbnNpZGUgSVJRIGhh
-cHBlbnMgd2hlbg0KPiA+IGRpc2Nvbm5lY3RpbmcgYSB2aXJ0dWFsIE5JQy4NCj4gPg0KPiA+IFRo
-ZSByZWFzb24gZm9yIHRoZSB3YXJuaW5nIGlzIC0tIG5ldGlmX3R4X2Rpc2FibGUoKSBpcyBjYWxs
-ZWQgd2hlbiB0aGUNCj4gPiBOSUMgaXMgZGlzY29ubmVjdGVkLiBBbmQgaXQncyBjYWxsZWQgd2l0
-aGluIGlycSBjb250ZXh0Lg0KPiA+IG5ldGlmX3R4X2Rpc2FibGUoKSBjYWxscw0KPiA+IGxvY2Fs
-X2JoX2VuYWJsZSgpIHdoaWNoIGRpc3BsYXlzIHdhcm5pbmcgaWYgaW4gaXJxLg0KPiA+DQo+ID4g
-VGhlIGZpeCBpcyB0byByZW1vdmUgdGhlIHVubmVjZXNzYXJ5IG5ldGlmX3R4X2Rpc2FibGUgJiB3
-YWtlX3F1ZXVlKCkNCj4gPiBpbiB0aGUgbmV0dnNjX2xpbmtzdGF0dXNfY2FsbGJhY2soKS4NCj4g
-Pg0KPiA+IFJlcG9ydGVkLWJ5OiBSaWNoYXJkIEdlbm91ZCA8cmljaGFyZC5nZW5vdWRAZ21haWwu
-Y29tPg0KPiA+IFRlc3RlZC1ieTogTG9uZyBMaSA8bG9uZ2xpQG1pY3Jvc29mdC5jb20+DQo+ID4g
-VGVzdGVkLWJ5OiBSaWNoYXJkIEdlbm91ZCA8cmljaGFyZC5nZW5vdWRAZ21haWwuY29tPg0KPiA+
-IFNpZ25lZC1vZmYtYnk6IEhhaXlhbmcgWmhhbmcgPGhhaXlhbmd6QG1pY3Jvc29mdC5jb20+DQo+
-ID4gUmV2aWV3ZWQtYnk6IEsuIFkuIFNyaW5pdmFzYW4gPGt5c0BtaWNyb3NvZnQuY29tPg0KPiA+
-DQo+ID4gLS0tDQo+ID4gIGRyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMgfCAgICAyIC0t
-DQo+ID4gIDEgZmlsZXMgY2hhbmdlZCwgMCBpbnNlcnRpb25zKCspLCAyIGRlbGV0aW9ucygtKQ0K
-PiA+DQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMNCj4g
-PiBiL2RyaXZlcnMvbmV0L2h5cGVydi9uZXR2c2NfZHJ2LmMgaW5kZXggNWY4NTIwNS4uODM0MWI2
-MiAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9oeXBlcnYvbmV0dnNjX2Rydi5jDQo+ID4g
-KysrIGIvZHJpdmVycy9uZXQvaHlwZXJ2L25ldHZzY19kcnYuYw0KPiA+IEBAIC0yNDEsMTMgKzI0
-MSwxMSBAQCB2b2lkIG5ldHZzY19saW5rc3RhdHVzX2NhbGxiYWNrKHN0cnVjdCBodl9kZXZpY2UN
-Cj4gPiAqZGV2aWNlX29iaiwNCj4gPg0KPiA+ICAgICAgICAgaWYgKHN0YXR1cyA9PSAxKSB7DQo+
-ID4gICAgICAgICAgICAgICAgIG5ldGlmX2NhcnJpZXJfb24obmV0KTsNCj4gPiAtICAgICAgICAg
-ICAgICAgbmV0aWZfd2FrZV9xdWV1ZShuZXQpOw0KPiA+ICAgICAgICAgICAgICAgICBuZGV2X2N0
-eCA9IG5ldGRldl9wcml2KG5ldCk7DQo+ID4gICAgICAgICAgICAgICAgIHNjaGVkdWxlX2RlbGF5
-ZWRfd29yaygmbmRldl9jdHgtPmR3b3JrLCAwKTsNCj4gPiAgICAgICAgICAgICAgICAgc2NoZWR1
-bGVfZGVsYXllZF93b3JrKCZuZGV2X2N0eC0+ZHdvcmssDQo+IG1zZWNzX3RvX2ppZmZpZXMoMjAp
-KTsNCj4gPiAgICAgICAgIH0gZWxzZSB7DQo+ID4gICAgICAgICAgICAgICAgIG5ldGlmX2NhcnJp
-ZXJfb2ZmKG5ldCk7DQo+ID4gLSAgICAgICAgICAgICAgIG5ldGlmX3R4X2Rpc2FibGUobmV0KTsN
-Cj4gPiAgICAgICAgIH0NCj4gPiAgfQ0KPiA+DQo+ID4gLS0NCj4gPiAxLjcuNC4xDQo+IA0KPiBU
-aGlzIHNob3VsZCBhbHNvIGdvIHRvIHRoZSBzdGFibGUgdHJlZSwgc2hvdWxkbid0IGl0ID8NCj4g
-QXQgbGVhc3QgMy44LCAzLjcgYW5kIDMuNCAodGhlIDMuMiB2ZXJzaW9uIGlzIGRpZmZlcmVudCwg
-YW5kIGl0J3MgaW4gc3RhZ2luZy4gKGF0IG5vdA0KPiB1c2VkIGJ5IGRpc3Ryb3MgYW55d2F5KSkN
-Cg0KQ2M6IHN0YWJsZSA8c3RhYmxlQGtlcm5lbC5vcmc+DQoNCkkgYWdyZWUuIEFkZGluZyBzdGFi
-bGVAa2VybmVsLm9yZyB0byBDYyBsaXN0Lg0KDQpUaGFua3MsDQotIEhhaXlhbmcNCg0K
+Hello.
+
+On 23-05-2013 7:12, Jason Wang wrote:
+
+> Factor out the device holding logic to a macvtap_get_vlan(), this will be also
+> used by multiqueue API.
+
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> ---
+>   drivers/net/macvtap.c |   26 +++++++++++++++++++-------
+>   1 files changed, 19 insertions(+), 7 deletions(-)
+
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index ce1c72a..a36e49e 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -890,6 +890,23 @@ out:
+>   	return ret;
+>   }
+>
+> +static struct macvlan_dev *macvtap_get_vlan(struct macvtap_queue *q)
+> +{
+> +	struct macvlan_dev *vlan;
+
+    Empty line wouldn't hurt here, after declaration.
+
+> +	rcu_read_lock_bh();
+> +	vlan = rcu_dereference_bh(q->vlan);
+> +	if (vlan)
+> +		dev_hold(vlan->dev);
+> +	rcu_read_unlock_bh();
+> +
+> +	return vlan;
+> +}
+[...]
+
+WBR, Sergei
