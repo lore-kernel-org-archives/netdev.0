@@ -1,73 +1,44 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH V2] virtio_net: enable napi for all possible queues during
-	open
-Date: Thu, 23 May 2013 12:52:46 +0930
-Message-ID: <87obc2s7ll.fsf@rustcorp.com.au>
-References: <1369202638-17660-1-git-send-email-jasowang@redhat.com>
+From: "Perla, Sathya" <Sathya.Perla@Emulex.Com>
+Subject: RE: [PATCH] be2net: bug fix on returning an invalid nic descriptor
+Date: Thu, 23 May 2013 04:32:40 +0000
+Message-ID: <CF9D1877D81D214CB0CA0669EFAE020C25F97375@CMEXMB1.ad.emulex.com>
+References: <1369274302-8118-1-git-send-email-weiyang@linux.vnet.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Sasha Levin <sasha.levin@oracle.com>
-To: Jason Wang <jasowang@redhat.com>, mst@redhat.com,
-	virtualization@lists.linux-foundation.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1369202638-17660-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+To: Wei Yang <weiyang@linux.vnet.ibm.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:28053 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750916Ab3EWEcm convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 00:32:42 -0400
+In-Reply-To: <1369274302-8118-1-git-send-email-weiyang@linux.vnet.ibm.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Jason Wang <jasowang@redhat.com> writes:
-> Commit 55257d72bd1c51f25106350f4983ec19f62ed1fa (virtio-net: fill only rx
-> queues which are being used) only does the napi enabling during open for
-> curr_queue_pairs. This will break multiqueue receiving since napi of new queues
-> were still disabled after changing the number of queues.
->
-> This patch fixes this by enabling napi for all possible queues during open.
->
-> Cc: Sasha Levin <sasha.levin@oracle.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> -----Original Message-----
+> From: Wei Yang [mailto:weiyang@linux.vnet.ibm.com]
+> 
+> In function be_get_nic_desc(), it will go through the descriptor array
+> returned from f/w. By comparing the desc_type field, it determines whether
+> there is a nic descriptor in the array or not. In the case of no nic descriptor,
+> this function should return NULL.
+> 
+> The code may return an invalide descriptor, when there is no nic descriptor in
+> the array and the desc_count is less than MAX_RESOURCE_DESC. In this
+> case, even there is no nic descriptor, it will still return the lase descriptor
+> since the i doesn't equal to MAX_RESOURCE_DESC.
+> 
+> This patch fix this issue by returning the descriptor when find it and return
+> NULL for other cases.
+> 
+> Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
+> Reviewed-by: Gavin Shan <shangw@linux.vnet.ibm.com>
+> Reviewed-by: Xiao Guangrong <xiaoguangrong@linux.vnet.ibm.com>
 
-Acked-by: Rusty Russell <rusty@rustcorp.com.au>
+Acked-by: Sathya Perla <sathya.perla@emulex.com>
 
-Dave, please send to Linus (fixes master).
-
-Cheers,
-Rusty.
-
-> ---
-> Changes from V1:
-> - enable napi in open instead of virtnet_set_queues() to avoid kernel BUG() when
-> trying to do napi_enable() for a already enabled queue
-> ---
->  drivers/net/virtio_net.c |    9 +++++----
->  1 files changed, 5 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 2d6abac..241527d 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -636,10 +636,11 @@ static int virtnet_open(struct net_device *dev)
->  	struct virtnet_info *vi = netdev_priv(dev);
->  	int i;
->  
-> -	for (i = 0; i < vi->curr_queue_pairs; i++) {
-> -		/* Make sure we have some buffers: if oom use wq. */
-> -		if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
-> -			schedule_delayed_work(&vi->refill, 0);
-> +	for (i = 0; i < vi->max_queue_pairs; i++) {
-> +		if (i < vi->curr_queue_pairs)
-> +			/* Make sure we have some buffers: if oom use wq. */
-> +			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
-> +				schedule_delayed_work(&vi->refill, 0);
->  		virtnet_napi_enable(&vi->rq[i]);
->  	}
->  
-> -- 
-> 1.7.1
+Thanks for the fix.
+-Sathya
