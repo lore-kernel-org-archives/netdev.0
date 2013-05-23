@@ -1,39 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RESEND] net: smsc911x: don't artificially limit build
-Date: Wed, 22 May 2013 23:58:55 -0700 (PDT)
-Message-ID: <20130522.235855.205103899466949885.davem@davemloft.net>
-References: <1369131757-9335-1-git-send-email-mark.rutland@arm.com>
+Subject: Re: [PATCH v2 net-next] arp: flush arp cache on IFF_NOARP change
+Date: Thu, 23 May 2013 00:01:36 -0700 (PDT)
+Message-ID: <20130523.000136.1188829048647539329.davem@davemloft.net>
+References: <20130520.134633.448574202175922639.davem@davemloft.net>
+	<1369131824-6318-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, arnd@arndb.de
-To: mark.rutland@arm.com
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51639 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51700 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751402Ab3EWG64 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 02:58:56 -0400
-In-Reply-To: <1369131757-9335-1-git-send-email-mark.rutland@arm.com>
+	with ESMTP id S1751485Ab3EWHBr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 03:01:47 -0400
+In-Reply-To: <1369131824-6318-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mark Rutland <mark.rutland@arm.com>
-Date: Tue, 21 May 2013 11:22:37 +0100
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Tue, 21 May 2013 13:23:44 +0300
 
-> Currently the SMSC911X driver may only be built for a specific set of
-> architectures, being limited to do so by a Kconfig depends line. This
-> means that if a platform wishes to use the driver, its architecture must
-> be added to the list explicitly, introducing pointless churn.
-> 
-> This may have been due to the driver's use of the {read,write}s{b,w,l}
-> functions, which have since been replaced with the more standard
-> io{read,write}{8,16,32}_rep. We can instead depend on HAS_IOMEM, which
-> should prevent build issues while allowing the driver to be built for
-> currently unlisted architectures, including x86 and arm64.
-> 
-> This patch removes the explicit list of architectures from the driver's
-> depend line, and replaces it with a dependency on HAS_IOMEM.
-> 
-> Signed-off-by: Mark Rutland <mark.rutland@arm.com>
+> IFF_NOARP affects what kind of neighbor entries are created
+> (nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
+> cache to refresh all entries.
+>=20
+> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
 
-Applied.
+I agree with Ben that we should have a "orig_priv_flags" or
+something like that to implement this, rather than adding
+transient state flags to ->priv_flags.
