@@ -1,27 +1,65 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net-next: export skb_splice_bits()
-Date: Thu, 23 May 2013 12:23:03 -0700 (PDT)
-Message-ID: <20130523.122303.1335553698804467865.davem@davemloft.net>
-References: <1369328974.3123.77.camel@Thor>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC PATCH 2/2] xfrm: force a garbage collection after deleting
+ a policy
+Date: Thu, 23 May 2013 23:29:58 +0400
+Message-ID: <519E6E36.4070600@cogentembedded.com>
+References: <20130523185659.19212.56853.stgit@localhost> <20130523190746.19212.6027.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, pshelar@nicira.com,
-	linux-kernel@vger.kernel.org
-To: michel@digirati.com.br
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369328974.3123.77.camel@Thor>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, omoris@redhat.com,
+	pwouters@redhat.com
+To: Paul Moore <pmoore@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f170.google.com ([209.85.217.170]:49846 "EHLO
+	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758248Ab3EWT3x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 15:29:53 -0400
+Received: by mail-lb0-f170.google.com with SMTP id t13so3859452lbd.29
+        for <netdev@vger.kernel.org>; Thu, 23 May 2013 12:29:51 -0700 (PDT)
+In-Reply-To: <20130523190746.19212.6027.stgit@localhost>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
-Ummm, no.
+On 05/23/2013 11:07 PM, Paul Moore wrote:
 
-You don't export every single function just because it appears in a header
-file.
+> In some cases after deleting a policy from the SPD the policy would
+> remain in the dst/flow/route cache for an extended period of time
+> which caused problems for SELinux as its dynamic network access
+> controls key off of the number of XFRM policy and state entries.
+> This patch corrects this problem by forcing a XFRM garbage collection
+> whenever a policy is sucessfully removed.
+>
+> Reported-by: Ondrej Moris <omoris@redhat.com>
+> Signed-off-by: Paul Moore <pmoore@redhat.com>
+> ---
+>   include/net/xfrm.h     |    6 ++++++
+>   net/key/af_key.c       |    4 ++++
+>   net/xfrm/xfrm_policy.c |    3 ++-
+>   net/xfrm/xfrm_user.c   |    2 ++
+>   4 files changed, 14 insertions(+), 1 deletion(-)
+>
+> diff --git a/include/net/xfrm.h b/include/net/xfrm.h
+> index ae16531..918e4cd 100644
+> --- a/include/net/xfrm.h
+> +++ b/include/net/xfrm.h
+[...]
+> @@ -1194,6 +1196,10 @@ static inline int xfrm6_policy_check_reverse(struct sock *sk, int dir,
+>   {
+>   	return 1;
+>   }
+> +static inline void xfrm_garbage_collect(struct net *net)
+> +{
+> +	return;
 
-When we have an in-kernel module that needs these functions, we can
-export them, but no sooner.
+     Not needed.
 
-So until you submit a set of changes that use these routines from modules
-we're not exporting them.
+> +}
+>   #endif
+>   
+>   static __inline__
+>
+
+WBR, Sergei
