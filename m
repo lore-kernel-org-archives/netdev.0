@@ -1,92 +1,93 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH net] vxlan: revert per-vxlan port
-Date: Thu, 23 May 2013 14:45:51 -0400
-Message-ID: <OFCF66B423.CF0815E9-ON85257B74.0062F5C7-85257B74.0067134F@us.ibm.com>
-References: <20130520103017.054ae605@nehalam.linuxnetplumber.net>	<OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com>
-	<20130520113000.0057ce90@nehalam.linuxnetplumber.net>	<20130522.150830.1305371698781503084.davem@davemloft.net>
-	<OFB688A387.A3698315-ON85257B73.007C1B7B-85257B73.00800294@us.ibm.com>	<20130522173954.7f75f62d@nehalam.linuxnetplumber.net>
-	<OF0BD0286F.81969B78-ON85257B74.00097DBA-85257B74.000C5443@us.ibm.com> <20130523100854.6c9749d6@nehalam.linuxnetplumber.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Generic interface to make physical port number used by a
+ netdevice available to user space
+Date: Thu, 23 May 2013 19:48:24 +0100
+Message-ID: <1369334904.6963.17.camel@bwh-desktop.uk.level5networks.com>
+References: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>
+	 <1369238658.2670.9.camel@bwh-desktop.uk.level5networks.com>
+	 <20130523132729.GA11584@fedora-17-guest.blr.amer.dell.com>
+	 <1369325920.1950.20.camel@bwh-desktop.uk.level5networks.com>
+	 <1369334028.25066.8.camel@dcbw.foobar.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <Narendra_K@Dell.com>, <netdev@vger.kernel.org>
+To: Dan Williams <dcbw@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:39773 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757896Ab3EWSp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 14:45:59 -0400
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Thu, 23 May 2013 12:45:58 -0600
-In-Reply-To: <20130523100854.6c9749d6@nehalam.linuxnetplumber.net>
+Received: from webmail.solarflare.com ([12.187.104.25]:7448 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757896Ab3EWSs1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 14:48:27 -0400
+In-Reply-To: <1369334028.25066.8.camel@dcbw.foobar.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org> wrote on 05/23/2013 
-01:08:54 PM:
-
-> Let's go back to basic use cases.
-> User wants to setup a vxlan between two hosts with custom port
->    On both hosts, he/she does:
->  # ip li add vxlan0 type vxlan id 42 group 239.1.1.1 dev eth0 dstport 
-4789
+On Thu, 2013-05-23 at 13:33 -0500, Dan Williams wrote:
+> On Thu, 2013-05-23 at 17:18 +0100, Ben Hutchings wrote:
+> > On Thu, 2013-05-23 at 06:27 -0700, Narendra_K@Dell.com wrote:
+> > > On Wed, May 22, 2013 at 09:34:18PM +0530, Ben Hutchings wrote:
+> > > > 
+> > > > On Wed, 2013-05-22 at 13:24 +0530, Narendra_K@Dell.com wrote:
+> > > > > While looking for already existing generic facility, 'dev_id' sysfs attribute
+> > > > > seemed relevant. Looking into the sources seemed to indicate that majority of
+> > > > > the drivers do not set it and it could be interpreted differently.
+> > > > 
+> > > > That is what it's for.  Unfortunately it is defined to be 0-based and as
+> > > > you've seen the default (unknown) value is also 0, creating ambiguity.
+> > > > (It also seems to be more common for user-facing documentation and
+> > > > physical labels to use 1-based numbering.)
+> > > > 
+> > > > I wonder whether it would do any harm to make it signed and initialised
+> > > > it to -1 in alloc_netdev_mqs() would do any harm?  That would make the
+> > > > unknown case unambiguous.
+> > > > 
+> > > > > It would be great to know list's thoughts on  'dev_id' being used as the
+> > > > interface
+> > > > > to make the physical port number information used by netdevice available to
+> > > > user
+> > > > > space or do we need a new sysfs attribute for the same.
+> > > > >
+> > > > > Note: I think in the scenario of SRIOV VF devices assigned to guest and being
+> > > > > bonded, additional information would be needed to differentiate the network
+> > > > > controller in the host.  But I suppose it is a different problem than this.
+> > > > 
+> > > > You're thinking about hybrid guest acceleration?  A combination of PCIe
+> > > > serial number and port number should work.
+> > > 
+> > > Hi Ben,
+> > > 
+> > > Thank you for the response.
+> > > 
+> > > I was thinking about the scenario of VF0 and VF1 coming from PF0 in the host
+> > > Network Controller 1 being direct assigned to a KVM guest via VTD and netdevices
+> > > from VF0 and VF1 being bonded in the guest. Assuming that physical port number used
+> > > by VF0 and VF1 is 1, additional information is needed to identify if port number 1
+> > > is on Network controller 1 or Network controller 2. (In the host we could use
+> > > PCI b/d/f to differentiate two Network Controllers). I think it is similar to
+> > > hybrid guest acceleration on the VF assignment aspect.
+> > 
+> > OK.  Either way, the hypervisor or management stack will have to help
+> > the guest by providing the identifier(s) to tie the devices together.  I
+> > suggested PCIe serial number as the controller identifier.
 > 
-> With net-next it works, with 3.10 it doesn't.
+> Forgive my ignorance, but is the PCIe serial number anything like the
+> USB serial number?  Almost nobody sets a unique serial number for USB
+> devices and often it's all zeros or 0123456789abcdef, so hopefully the
+> PCIe one is saner.  If not, we shouldn't use it for anything important.
 
-This does not "work" in net-next, either. If you set the one-and-only bind
-port to one port and the one and only send port to another port on both
-systems, they can't talk to each other in net-next, either. If you 
-separately
-have it listen on multiple ports, and if potential non-linux systems 
-you're
-talking to can do that too, then you can configure it to work, but the 
-extra
-listen ports are entirely unnecessary.
+The PCIe serial number is specified as an EUI-64, which is trivially
+derived from a MAC address.  So this is relatively easy to get right as
+you need to assign unique MAC addresses anyway.  It's also an optional
+capability, so there's no particular reason to set a dummy value.
 
-You're starting with the assumption, which I disagree with, that the 
-receive
-and send ports need to be the same. In fact, for two systems listening on
-different ports to talk to each other, they *must* be different. It 
-doesn't
-require multiple ports, it only requires the listen and send ports be 
-*different*.
+That's not to say no-one ever gets this wrong.  SFC4000-based boards
+have the bytes in reverse order.  Other potential mistakes would be
+exposing different serial numbers in different functions, or changing
+the serial number when the MAC address is temporarily changed.
 
-If I have two existing systems, one listening on port 8472 and one 
-listening
-on port 4789, and I want to connect them, how would you do that? Yes, you
-*can* add individual MAC entries with different ports for all VMs 
-connected
-on both machines, but if you have 2 hosts and 10,000 MAC addresses, that's
-a ridiculous waste. If you simply don't know all the MAC addresses on the
-remote machine, you can't do it. But if you can set the destination port 
-for
-the default fdb entry, which is what dstport does, then you can do both.
+Ben.
 
-The dstport and dst are simply the default entry for the fdb table, used 
-if
-there is no exact match in the fdb. They should have every capability to 
-use
-alternate data that the fdb table does.
-
-> Sure it works if they have your agent, or manually configure N-M static 
-FDB
-> entries, but that is corner case.
-> 
-> No matter if Dave decides to the revert the kernel part or not, I am
-> pulling the option
-> from 3.10 version of iproute to avoid user confusion.
-
-I don't know what confusion you're concerned about here. How can anyone
-be confused by packets going to a different destination port when they use
-an option "dstport XXXX"? (!?!?!?!?)
-
-You can't really prohibit people from using VXLAN however they choose to.
-It simply means people wanting to do more interesting things will
-have to patch your code, jump through hoops to edit packets with 
-netfilter,
-or use alternative implementations that are more flexible. None of those
-things benefits VXLAN on linux.
-
-                                                                +-DLS
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
