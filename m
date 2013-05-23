@@ -1,8 +1,8 @@
 From: "Florian Fainelli" <f.fainelli@gmail.com>
-Subject: [PATCH 3/3 net-next v3] phy: bcm63xx: report Broadcom BCM63xx
- PHYs as internal
-Date: Thu, 23 May 2013 12:11:13 +0100
-Message-ID: <1369307473-20696-4-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH 1/3 net-next v3] net: ethtool: disambiguate XCVR_*
+ meaning
+Date: Thu, 23 May 2013 12:11:11 +0100
+Message-ID: <1369307473-20696-2-git-send-email-f.fainelli@gmail.com>
 References: <1369307473-20696-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,43 +12,39 @@ Cc: netdev@vger.kernel.org, afleming@freescale.com, jogo@openwrt.org,
 	"Florian Fainelli" <f.fainelli@gmail.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3195 "EHLO mms2.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:3161 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758455Ab3EWLeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1758176Ab3EWLeQ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 23 May 2013 07:34:16 -0400
 In-Reply-To: <1369307473-20696-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Broadcom BCM63xx PHY driver is for the SoC internal PHYs, flag these
-as internal PHY devices.
+Add a comment which explains the real meaning of XCVR_INTERNAL (PHY and
+Ethernet MAC in the same package/die) and XCVR_EXTERNAL (PHY and
+Ethernet MAC in a different package/die). Most if not all of the drivers
+setting their transceiver type already do it the way the comment
+describes it.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/phy/bcm63xx.c | 4 ++--
+ include/uapi/linux/ethtool.h | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/phy/bcm63xx.c b/drivers/net/phy/bcm63xx.c
-index 84c7a39..ac55b08 100644
---- a/drivers/net/phy/bcm63xx.c
-+++ b/drivers/net/phy/bcm63xx.c
-@@ -78,7 +78,7 @@ static struct phy_driver bcm63xx_driver[] = {
- 	.name		= "Broadcom BCM63XX (1)",
- 	/* ASYM_PAUSE bit is marked RO in datasheet, so don't cheat */
- 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
--	.flags		= PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT | PHY_IS_INTERNAL,
- 	.config_init	= bcm63xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
-@@ -91,7 +91,7 @@ static struct phy_driver bcm63xx_driver[] = {
- 	.phy_id_mask	= 0xfffffc00,
- 	.name		= "Broadcom BCM63XX (2)",
- 	.features	= (PHY_BASIC_FEATURES | SUPPORTED_Pause),
--	.flags		= PHY_HAS_INTERRUPT,
-+	.flags		= PHY_HAS_INTERRUPT | PHY_IS_INTERNAL,
- 	.config_init	= bcm63xx_config_init,
- 	.config_aneg	= genphy_config_aneg,
- 	.read_status	= genphy_read_status,
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 0c9b448..38dbafa 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -993,8 +993,8 @@ enum ethtool_sfeatures_retval_bits {
+ #define PORT_OTHER		0xff
+ 
+ /* Which transceiver to use. */
+-#define XCVR_INTERNAL		0x00
+-#define XCVR_EXTERNAL		0x01
++#define XCVR_INTERNAL		0x00 /* PHY and MAC are in the same package */
++#define XCVR_EXTERNAL		0x01 /* PHY and MAC are in different packages */
+ #define XCVR_DUMMY1		0x02
+ #define XCVR_DUMMY2		0x03
+ #define XCVR_DUMMY3		0x04
 -- 
 1.8.1.2
