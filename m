@@ -1,113 +1,47 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [RFC PATCH 2/2] xfrm: force a garbage collection after deleting a
- policy
-Date: Thu, 23 May 2013 15:07:46 -0400
-Message-ID: <20130523190746.19212.6027.stgit@localhost>
-References: <20130523185659.19212.56853.stgit@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next resend PATCH 1/6] net: cpsw: enhance pinctrl support
+Date: Thu, 23 May 2013 12:10:37 -0700 (PDT)
+Message-ID: <20130523.121037.84357412382839522.davem@davemloft.net>
+References: <1369130103-743-2-git-send-email-mugunthanvnm@ti.com>
+	<20130522.235741.135665074490271750.davem@davemloft.net>
+	<1BAFE6F6C881BF42822005164F1491C33EBF928C@DBDE04.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: omoris@redhat.com, pwouters@redhat.com
-To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Cc: mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, linux-omap@vger.kernel.org,
+	benoit.cousson@linaro.orgm, paul@pwsan.com
+To: gururaja.hebbar@ti.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20733 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758788Ab3EWTHs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 May 2013 15:07:48 -0400
-In-Reply-To: <20130523185659.19212.56853.stgit@localhost>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33186 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758293Ab3EWTKk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 15:10:40 -0400
+In-Reply-To: <1BAFE6F6C881BF42822005164F1491C33EBF928C@DBDE04.ent.ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In some cases after deleting a policy from the SPD the policy would
-remain in the dst/flow/route cache for an extended period of time
-which caused problems for SELinux as its dynamic network access
-controls key off of the number of XFRM policy and state entries.
-This patch corrects this problem by forcing a XFRM garbage collection
-whenever a policy is sucessfully removed.
+From: "Hebbar, Gururaja" <gururaja.hebbar@ti.com>
+Date: Thu, 23 May 2013 11:28:38 +0000
 
-Reported-by: Ondrej Moris <omoris@redhat.com>
-Signed-off-by: Paul Moore <pmoore@redhat.com>
----
- include/net/xfrm.h     |    6 ++++++
- net/key/af_key.c       |    4 ++++
- net/xfrm/xfrm_policy.c |    3 ++-
- net/xfrm/xfrm_user.c   |    2 ++
- 4 files changed, 14 insertions(+), 1 deletion(-)
+> On Thu, May 23, 2013 at 12:27:41, David Miller wrote:
+>> From: Mugunthan V N <mugunthanvnm@ti.com>
+>> Date: Tue, 21 May 2013 15:24:58 +0530
+>> 
+>> > +		priv->pins_default = pinctrl_lookup_state(priv->pinctrl,
+>> > +						PINCTRL_STATE_DEFAULT);
+>> 
+>> This is not indented correctly.
+>> 
+>> Argument on the second, and subsequent, lines of a function call
+>> must start at the first column after the openning parenthesis of
+>> the function call itself.
+> 
+> Well, if I am correct, doing so will make the line cross 80 character limit.
+> If you could (please I ask), can you let me know how it can be handled in 
+> above situation. I will make the changes/corrections and re-send it.
+> 
+> Thanks a lot in advance.
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index ae16531..918e4cd 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1160,6 +1160,8 @@ static inline void xfrm_sk_free_policy(struct sock *sk)
- 	}
- }
- 
-+extern void xfrm_garbage_collect(struct net *net);
-+
- #else
- 
- static inline void xfrm_sk_free_policy(struct sock *sk) {}
-@@ -1194,6 +1196,10 @@ static inline int xfrm6_policy_check_reverse(struct sock *sk, int dir,
- {
- 	return 1;
- }
-+static inline void xfrm_garbage_collect(struct net *net)
-+{
-+	return;
-+}
- #endif
- 
- static __inline__
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 5b1e5af..c5fbd75 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2366,6 +2366,8 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
- 
- out:
- 	xfrm_pol_put(xp);
-+	if (err == 0)
-+		xfrm_garbage_collect(net);
- 	return err;
- }
- 
-@@ -2615,6 +2617,8 @@ static int pfkey_spdget(struct sock *sk, struct sk_buff *skb, const struct sadb_
- 
- out:
- 	xfrm_pol_put(xp);
-+	if (delete && err == 0)
-+		xfrm_garbage_collect(net);
- 	return err;
- }
- 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 23cea0f..ea970b8 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2557,11 +2557,12 @@ static void __xfrm_garbage_collect(struct net *net)
- 	}
- }
- 
--static void xfrm_garbage_collect(struct net *net)
-+void xfrm_garbage_collect(struct net *net)
- {
- 	flow_cache_flush();
- 	__xfrm_garbage_collect(net);
- }
-+EXPORT_SYMBOL(xfrm_garbage_collect);
- 
- static void xfrm_garbage_collect_deferred(struct net *net)
- {
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index aa77874..3f565e4 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1681,6 +1681,8 @@ static int xfrm_get_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
- 
- out:
- 	xfrm_pol_put(xp);
-+	if (delete && err == 0)
-+		xfrm_garbage_collect(net);
- 	return err;
- }
- 
+Avoid the deep indentation by coding the basic block into a helper
+function.
