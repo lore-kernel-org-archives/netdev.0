@@ -1,55 +1,64 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: napi layer and packet throttling
-Date: Thu, 23 May 2013 23:27:36 +0100
-Message-ID: <1369348056.6963.25.camel@bwh-desktop.uk.level5networks.com>
-References: <519E030E.5040903@keymile.com>
+From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
+Subject: Re: [PATCH net] vxlan: revert per-vxlan port
+Date: Thu, 23 May 2013 15:35:57 -0700
+Message-ID: <519E99CD.1030500@gmail.com>
+References: <20130520103017.054ae605@nehalam.linuxnetplumber.net>	<OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com> <20130520113000.0057ce90@nehalam.linuxnetplumber.net>	<20130522.150830.1305371698781503084.davem@davemloft.net> <OFB688A387.A3698315-ON85257B73.007C1B7B-85257B73.00800294@us.ibm.com>	<20130522173954.7f75f62d@nehalam.linuxnetplumber.net> <OF0BD0286F.81969B78-ON85257B74.00097DBA-85257B74.000C5443@us.ibm.com>	<20130523100854.6c9749d6@nehalam.linuxnetplumber.net> <OFCF66B423.CF0815E9-ON85257B74.0062F5C7-85257B74.0067134F@us.ibm.com> <20130523121804.6b7450a3@nehalam.linuxnetplumber.net> <OFD1F52E5E.B02C16A0-ON85257B74.006AF452-85257B74.006E6AF1@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Holger Brunck <holger.brunck@keymile.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:19814 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759752Ab3EWW1l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 18:27:41 -0400
-In-Reply-To: <519E030E.5040903@keymile.com>
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:54847 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759752Ab3EWWf6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 18:35:58 -0400
+In-Reply-To: <OFD1F52E5E.B02C16A0-ON85257B74.006AF452-85257B74.006E6AF1@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-05-23 at 13:52 +0200, Holger Brunck wrote:
-> Hi all,
-> I have a general question to the napi layer. I have a board with a MPC8360
-> processor which uses the ucc_geth.c driver for it's ethernet device. The kernel
-> version is 3.9. We see in lab tests that the board gets unresponsive if we send
-> a high packet rate to this ethernet device via an packet generator. In the end
-> we would like to limit the amount of incoming packets at a very early stage, to
-> prevent the system of a to high softirq load.
-> 
-> The NAPI layer description I read on:
-> http://www.linuxfoundation.org/collaborate/workgroups/networking/napi
-> pointed two main functions out for the napi layer.
-> 
-> a) Interrupt mitigation
-> Which works perfectly on the ucc_geth.c driver under high load the hard irqs for
-> the RX packets are disabled and we switch to a polling mode. If the load is more
-> relaxed we switch back.
-> 
-> b) Packet-Throttling
-> Here the description says "NAPI-compliant drivers can often cause packets to be
-> dropped in the network adaptor itself, before the kernel sees them at all."
-> 
-> This is exactly what I need for my usecase. But I don't see any hints how this
-> can be implemented with the napi layer.
-[...]
+On 5/23/2013 1:06 PM, David Stevens wrote:
+> Stephen Hemminger <stephen@networkplumber.org> wrote on 05/23/2013
+> 03:18:04 PM:
+>
+>   
+>> With the patch davem already included, the dstport is enough
+>> to add additional listener.
+>          If you're saying that using the dstport changes the
+> listen port, or adds another listen port, then I think that
+> behaviour is wrong and should be reverted.
+I agree that using 'dstport' option to also create a socket and binding 
+to that port for
+receives is confusing. As the name suggests, it should only be used as a 
+default dst
+port for fdb entries.
 
-If the RX ring is not cleaned and refilled quickly enough, the network
-controller will naturally start to drop packets.  It's not something you
-should do explicitly in the driver.
+>          An admin should be able to specify the source and destination
+> ports independently of each other. If dstport has a side-effect that
+> is unrelated to changing the destination port, that's what I'd call
+> "confusing."
+>          IMHO, "port" should change the listen port (only) and "dstport"
+> should change the send port (only). And yes, both of those should allow
+> multiple ports, and destinations. So, binding should be a list of
+> the form: "[IP:]port[,[IP:]port]*" and destinations should be the same
+> as in the fdb, allowing multiple destinations and different ports, and
+> different vni's. It should be simply a "default" fdb entry in all
+> respects.
+Currently 'port' option takes 2 values that indicate the range of ports 
+that can be used as
+source port when sending vxlan packets.
 
-Ben.
+So we don't have a good way to specify listening port when creating a 
+vxlan device using
+the existing options.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+It may be a good idea to revert dstport in linux-3.10 and  multiple 
+listening ports patch in
+net-next and re-implement them with 2 different options that can take a 
+list of ports/addresses
+as David suggested.
+
+Thanks
+Sridhar
