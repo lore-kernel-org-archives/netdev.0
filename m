@@ -1,55 +1,55 @@
-From: annie li <annie.li@oracle.com>
-Subject: Re: [Xen-devel] [PATCH net-next V3 2/3] xen-netfront: split event
- channels support for Xen frontend driver
-Date: Thu, 23 May 2013 10:14:57 -0400
-Message-ID: <519E2461.2090203@oracle.com>
-References: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com> <1369240487-18834-3-git-send-email-wei.liu2@citrix.com> <519D1D61.8030500@oracle.com> <CAOsiSVXptBRRA=m3HFnO7eQWjxN_wgfzAcvw+rPebOPH9mRjXg@mail.gmail.com> <519D2C02.7080500@oracle.com> <CAOsiSVUHqezpo4u+Go1pm4vm7Hots2gDUJ9YEzVK7_FPSc3zLA@mail.gmail.com> <20130523134618.GA18648@zion.uk.xensource.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: Re: [PATCH] qlge: add missing free_netdev() on error in qlge_probe()
+Date: Thu, 23 May 2013 14:40:46 +0000
+Message-ID: <BECD8E8A1B550B48A1BF97C13991F60E32A4FE@avmb2.qlogic.org>
+References: <CAPgLHd-8NxBN2-x2zzjgbVNj4E_4bhVqdTi1HmxMh5pawXPKZA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Wei Liu <liuw@liuw.name>, Ian Campbell <ian.campbell@citrix.com>,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"xen-devel@lists.xen.org" <xen-devel@lists.xen.org>,
-	David Vrabel <david.vrabel@citrix.com>,
-	jbeulich <jbeulich@suse.com>
-To: Wei Liu <wei.liu2@citrix.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "yongjun_wei@trendmicro.com.cn" <yongjun_wei@trendmicro.com.cn>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>
+To: Wei Yongjun <weiyj.lk@gmail.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Ron Mercer <ron.mercer@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:44064 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759141Ab3EWOPO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 10:15:14 -0400
-In-Reply-To: <20130523134618.GA18648@zion.uk.xensource.com>
+Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:13639
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758967Ab3EWOky convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 May 2013 10:40:54 -0400
+In-Reply-To: <CAPgLHd-8NxBN2-x2zzjgbVNj4E_4bhVqdTi1HmxMh5pawXPKZA@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <2F7E78FA49261B4E8F5D41E250B1E199@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 5/23/13 2:09 AM, "Wei Yongjun" <weiyj.lk@gmail.com> wrote:
 
-On 2013-5-23 9:46, Wei Liu wrote:
-> On Wed, May 22, 2013 at 09:38:20PM +0100, Wei Liu wrote:
->> On Wed, May 22, 2013 at 9:35 PM, annie li <annie.li@oracle.com> wrote:
->>> On 2013-5-22 16:20, Wei Liu wrote:
->>>> On Wed, May 22, 2013 at 8:32 PM, annie li <annie.li@oracle.com> wrote:
->>>>>
->>>>> Originally, netfront protects access to rx shared-ring with tx_lock, you
->>>>> remove this protection here. It is better to protect the ring access by a
->>>>> sperate rx_lock then.
->>>>>
->>>> TX ring and RX ring are separate rings. I don't think that comment / code
->>>> makes sense any more. My stress test confirms that.
->>>
->>> Yes, they are separate rings. Actually I am not sure why
->>> RING_HAS_UNCONSUMED_RESPONSES(&np->rx) is protected by any tx_lock
->>> originally. But for xennet_rx_interrupt, it is better to use rx_lock to
->>> protect RING_HAS_UNCONSUMED_RESPONSES(&np->rx).
->>>
->> This doesn't make sense to me either. Xen ring protocol is designed to
->> be lock-free.
->> And in netfront's case there is no concurrent access to the ring.
->>
->>
-> Annie, did I answer your questions / relieve your concern?
+>From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>
+>Add the missing free_netdev() before return from function
+>qlge_probe() in the error handling case.
+>
+>Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+>---
+> drivers/net/ethernet/qlogic/qlge/qlge_main.c | 1 +
+> 1 file changed, 1 insertion(+)
+>
+>diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+>b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+>index e04d471..2553cf4 100644
+>--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+>+++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+>@@ -4717,6 +4717,7 @@ static int qlge_probe(struct pci_dev *pdev,
+> 		dev_err(&pdev->dev, "net device registration failed.\n");
+> 		ql_release_all(pdev);
+> 		pci_disable_device(pdev);
+>+		free_netdev(ndev);
+> 		return err;
+> 	}
+> 	/* Start up the timer to trigger EEH if
 
-Yes, I think you are correct.
+Thanks!
 
-Thanks
-Annie
+Acked-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
