@@ -1,60 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] ip_gre: fix kernel panic with icmp_dest_unreach
-Date: Thu, 23 May 2013 10:10:33 -0700
-Message-ID: <1369329033.3301.389.camel@edumazet-glaptop>
-References: <D2CA09D3-A93C-48CF-A23B-DC1B76D66818@rcs-rds.ro>
-	 <1369170063.3301.251.camel@edumazet-glaptop> <519C839E.1000309@rcs-rds.ro>
-	  <1369222666.3301.304.camel@edumazet-glaptop> <519CB0D3.8000406@rcs-rds.ro>
-	 <1369230739.3301.334.camel@edumazet-glaptop> <519CE6F0.3040703@rcs-rds.ro>
-	 <519DD7A4.9090801@rcs-rds.ro> <1369324409.3301.382.camel@edumazet-glaptop>
+From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for Kirkwood
+ SoCs
+Date: Thu, 23 May 2013 11:11:12 -0600
+Message-ID: <20130523171112.GB31281@obsidianresearch.com>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20130522201607.GA18823@obsidianresearch.com>
+ <20130523160111.GP31290@titan.lakedaemon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Daniel Petre <daniel.petre@rcs-rds.ro>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:39860 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757984Ab3EWRKh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 13:10:37 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ro12so3156389pbb.13
-        for <netdev@vger.kernel.org>; Thu, 23 May 2013 10:10:34 -0700 (PDT)
-In-Reply-To: <1369324409.3301.382.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130523160111.GP31290@titan.lakedaemon.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-05-23 at 08:53 -0700, Eric Dumazet wrote:
-> On Thu, 2013-05-23 at 11:47 +0300, Daniel Petre wrote:
-> 
+On Thu, May 23, 2013 at 12:01:11PM -0400, Jason Cooper wrote:
+> > > +	/* Kirkwood resets some registers on gated clocks. Especially
+> > > +	 * CLK125_BYPASS_EN must be cleared but is not available on
+> > > +	 * all other SoCs/System Controllers using this driver.
+> > > +	 */
+> > > +	if (of_machine_is_compatible("marvell,kirkwood"))
+> > > +		wrlp(mp, PORT_SERIAL_CONTROL1,
+> > > +		     rdlp(mp, PORT_SERIAL_CONTROL1) & ~CLK125_BYPASS_EN);
 > > 
-> > Hello again Eric,
-> > we applied the little patch from:
-> > http://lkml.indiana.edu/hypermail/linux/kernel/1007.0/00961.html
-> > we have flapped the link few times and everything recovered smooth.
-> > 
+> > of_machine_is_compatible seems heavy handed, I would expect this to be
+> > based on the compatible string of the ethernet node itself, not the
+> > machine??
 > 
-> Thats a very good catch, now we have to fix the bug at the right place.
+> Is there a model number variation between IP that needs this and IP that
+> doesn't?  If not, I'm fine with of_machine_is_compatible().
 
+Well the name 'mv643xx' is a family of system controller SOC's
+from ages ago, it seems reasonble to continue the trend and label the
+IP variations with the SOC name:
 
-Please try the following patch :
+ compatible = "marvell,kirwood,ethernet", "marvell,mv643xx_eth"
 
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 91d66db..563358e 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -795,6 +795,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 
- 	if (dev->type == ARPHRD_ETHER)
- 		IPCB(skb)->flags = 0;
-+	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
- 
- 	if (dev->header_ops && dev->type == ARPHRD_IPGRE) {
- 		gre_hlen = 0;
-@@ -952,7 +953,6 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
- 	skb_push(skb, gre_hlen);
- 	skb_reset_network_header(skb);
- 	skb_set_transport_header(skb, sizeof(*iph));
--	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
- 	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
- 			      IPSKB_REROUTED);
- 	skb_dst_drop(skb);
+Jason
