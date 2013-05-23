@@ -1,92 +1,46 @@
-From: Tomi Valkeinen <tomi.valkeinen@ti.com>
-Subject: Re: [PATCH] build some drivers only when compile-testing
-Date: Thu, 23 May 2013 10:46:57 +0300
-Message-ID: <519DC971.80406@ti.com>
-References: <1369214326-6558-1-git-send-email-jslaby@suse.cz>
+From: dingtianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] bonding: add synchronize_net() after netdev_rx_handler_unregister
+Date: Thu, 23 May 2013 15:50:46 +0800
+Message-ID: <519DCA56.9020509@huawei.com>
+References: <519C8504.1080906@huawei.com>  <1369223145.3301.308.camel@edumazet-glaptop> <519D73CA.8090200@huawei.com> <1369273937.3301.377.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature";
-	boundary="----enig2FCLOGUJKJTLPIAPAOUPR"
-Cc: <jirislaby@gmail.com>, <linux-kernel@vger.kernel.org>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jeff Mahoney <jeffm@suse.com>,
-	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	<linux-usb@vger.kernel.org>,
-	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
-	<linux-geode@lists.infradead.org>, <linux-fbdev@vger.kernel.org>,
-	Richard Cochran <richardcochran@gmail.com>,
-	<netdev@vger.kernel.org>, Ben Hutchings <ben@decadent.org.uk>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>
-To: Jiri Slaby <jslaby@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369214326-6558-1-git-send-email-jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:29167 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753897Ab3EWHvg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 03:51:36 -0400
+In-Reply-To: <1369273937.3301.377.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-------enig2FCLOGUJKJTLPIAPAOUPR
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 2013/5/23 9:52, Eric Dumazet wrote:
+> On Thu, 2013-05-23 at 09:41 +0800, dingtianhong wrote:
+> 
+>> I totally understand the commit [1] and know the problem that you met at that time,
+>> but its not a net core problem, its drivers problem, the function synchronize_net()
+>> need to follow netdev_rx_handler_unregister() even though netdev_rx_handler_unregister()
+>> has its own synchronize_net(), the commit [2] fcd99434f fix drivers problem follow your
+>> opinion, but miss synchronize_net(),so add it.
+>>
+> 
+> No, driver is fine.
+> 
+> You absolutely not explained why you believe this is needed.
+> 
+> After netdev_rx_handler_unregister(), no packet will be delivered to the
+> bonding driver.
+> 
+> 
+ok, I agree with the views of yours, it is no way to access the rx_handler_data after that.
 
-Hi,
-
-On 22/05/13 12:18, Jiri Slaby wrote:
-> Some drivers can be built on more platforms than they run on. This
-> causes users and distributors packaging burden when they have to
-> manually deselect some drivers from their allmodconfigs. Or sometimes
-> it is even impossible to disable the drivers without patching the
-> kernel.
->=20
-> Introduce a new config option COMPILE_TEST and make all those drivers
-> to depend on the platform they run on, or on the COMPILE_TEST option.
-> Now, when users/distributors choose COMPILE_TEST=3Dn they will not have=
-
-> the drivers in their allmodconfig setups, but developers still can
-> compile-test them with COMPILE_TEST=3Dy.
->=20
-> Now the drivers where we use this new option:
-> * PTP_1588_CLOCK_PCH: The PCH EG20T is only compatible with Intel Atom
->   processors so it should depend on x86.
-> * FB_GEODE: Geode is 32-bit only so only enable it for X86_32.
-> * USB_CHIPIDEA_IMX: The OF_DEVICE dependency will be met on powerpc
->   systems -- which do not actually support the hardware via that
->   method.
-
-I had this exact same idea some time ago. The mail below contains some
-of my reasoning for this:
-
-http://comments.gmane.org/gmane.linux.kbuild.devel/9829
-
-I proposed a new Kconfig keyword, but Sam was quite against it as the
-Kconfig language already does what is required.
-
- Tomi
-
-
-
-------enig2FCLOGUJKJTLPIAPAOUPR
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iQIcBAEBAgAGBQJRncl1AAoJEPo9qoy8lh71qFoP/3PjrIvuoEgFhp4JW4uj0+zO
-9OWNwwh3EWsolDOiaexaDrJvgdNwK2PMlXbihBUEfYHx3rIh7hR8GZPUwnCXIsur
-edYF+octUiWGWh5UykQzX5tVM0Z+OyvSPJ/mBDsacDnUQFfNdJFAjbxaQmzHzwmZ
-jAlhcGW1yT4qDahNi3aRtk4QTjWF5uBRMBFpRSjp3IT5mh5wEtvQxNRKcLxCt98E
-m4T5UQE16j73lMhyGfaYCGP6EqGZ9ymCK2ewuOt9ziDpCAqhWPeImrKZOC97vQZ2
-z5hYmlkAvV41FP8xpPO5bPqVUeFvNBvS+YVY+Hx8W3DZokPBU2QDs5w/9h9xqm7m
-Rhf3ce1VVVx+UjWOMQFKZMOiZJA6LQ+hSIjJ16Nr41QQvqBMKwZDQVJHcynzCSFH
-Id5g8/Ut9VIVTflkWFuaBEBp1QMzMnyzjwvu17NSjSCLtfWjfCtA2Ccy7zhV00XH
-8MpmkHL1tmCD3CHM0ckJqYiYd2U9MsgT91Egk/w+AS0c0q45qClkrAY26896O1CT
-zGKNIcmbc1Z35Rtvbk3g3H1CKn3rtWzC8Qb+EVAE2gJ61DYNTm7OaDRRqEn2xbAa
-PZhaM841bJnaFkPt+fRF9ZD4FZVnKgL1/MkuTA4XWmMqPe01oQYE9tjUWidnw+CO
-qNQkXF3hX8gYoy7IaDwa
-=ggmg
------END PGP SIGNATURE-----
-
-------enig2FCLOGUJKJTLPIAPAOUPR--
+> 
+> 
+> 
