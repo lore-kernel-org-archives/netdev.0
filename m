@@ -1,199 +1,48 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost-scsi: Depend on NET for memcpy_fromiovec
-Date: Thu, 23 May 2013 10:30:38 +0300
-Message-ID: <20130523073038.GA15378@redhat.com>
-References: <20130515095558.918f2b29ba318a477eb5dde2@canb.auug.org.au>
-	<1368579583-13097-1-git-send-email-asias@redhat.com>
-	<8761yk254u.fsf@rustcorp.com.au>
-	<20130516020848.GB23441@hj.localdomain>
-	<87d2sra97h.fsf@rustcorp.com.au>
-	<1368676505.2194.47.camel@joe-AO722>
-	<878v3ea3v4.fsf@rustcorp.com.au>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: [PATCH v2 net-next] arp: flush arp cache on IFF_NOARP change
+Date: Thu, 23 May 2013 10:49:44 +0300
+Message-ID: <20130523104944.4b7ce6c2@vostro>
+References: <20130520.134633.448574202175922639.davem@davemloft.net>
+	<1369131824-6318-1-git-send-email-timo.teras@iki.fi>
+	<20130523.000136.1188829048647539329.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>, kvm@vger.kernel.org,
-	netdev@vger.kernel.org, Randy Dunlap <rdunlap@infradead.org>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	target-devel@vger.kernel.org, linux-next@vger.kernel.org,
-	Joe Perches <joe@perches.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <878v3ea3v4.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:46390 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753897Ab3EWHsJ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 03:48:09 -0400
+Received: by mail-ee0-f48.google.com with SMTP id b47so1595923eek.7
+        for <netdev@vger.kernel.org>; Thu, 23 May 2013 00:48:08 -0700 (PDT)
+In-Reply-To: <20130523.000136.1188829048647539329.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 17, 2013 at 09:12:39AM +0930, Rusty Russell wrote:
-> Joe Perches <joe@perches.com> writes:
-> > On Thu, 2013-05-16 at 13:04 +0930, Rusty Russell wrote:
-> >> Asias He <asias@redhat.com> writes:
-> >> > On Wed, May 15, 2013 at 02:47:53PM +0930, Rusty Russell wrote:
-> > []
-> >> > Other users are using memcpy_fromiovec and friends outside net. It seems
-> >> > a good idea to put it in a util library. e.g.  crypto/algif_skcipher.c
-> >> > which also depends on NET for it.
-> >
-> > []
-> >> Subject: Hoist memcpy_fromiovec into lib/
-> >
-> > You'll need the "friends" memcpy_toiovec too.
-> >
-> > $ git grep -E \bmemcpy\w+iovec\w*"
-> > crypto/algif_hash.c:    err = memcpy_toiovec(msg->msg_iov, ctx->result, len);
-> > crypto/algif_skcipher.c:                        err = memcpy_fromiovec(page_address(sg_page(sg)) +
-> > crypto/algif_skcipher.c:                        err = memcpy_fromiovec(page_address(sg_page(sg + i)),
-> > drivers/dma/iovlock.c:#include <net/tcp.h> /* for memcpy_toiovec */
-> > drivers/dma/iovlock.c:          return memcpy_toiovec(iov, kdata, len);
-> > drivers/dma/iovlock.c:          err = memcpy_toiovec(iov, vaddr + offset, len);
-> > drivers/isdn/mISDN/socket.c:    if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-> > drivers/misc/vmw_vmci/vmci_queue_pair.c:                        err = memcpy_fromiovec((u8 *)va + page_o
-> > drivers/misc/vmw_vmci/vmci_queue_pair.c:                        err = memcpy_toiovec(iov, (u8 *)va + pag
-> 
-> Fascinating.  These all indirectly depend on NET, so there's no problem
-> at the moment.  But it is a bit weird...
-> 
-> crypto/algif_hash.c: depends on CRYPTO_USER_API_HASH -> NET
-> crypto/algif_skcipher.c: depends on CRYPTO_USER_API_SKCIPHER -> NET
-> drivers/dma/iovlock.c: depends on NET_DMA -> NET
-> drivers/isdn/mISDN/socket.c: depends on MISDN -> ISDN -> NET
-> drivers/misc/vmw_vmci/vmci_queue_pair.c: depends on VMCI -> NET
-> 
-> Patch welcome.
-> 
-> Meanwhile, to avoid more bikeshedding I've put the patch I posted with
-> all acks in my fixes branch.  One cycle through linux-next, then
-> straight to Linus.
+On Thu, 23 May 2013 00:01:36 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
 
-Not in 3.10-rc2 yes - still plan to merge for 3.10?
+> From: Timo Ter=E4s <timo.teras@iki.fi>
+> Date: Tue, 21 May 2013 13:23:44 +0300
+>=20
+> > IFF_NOARP affects what kind of neighbor entries are created
+> > (nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
+> > cache to refresh all entries.
+> >=20
+> > Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
+>=20
+> I agree with Ben that we should have a "orig_priv_flags" or
+> something like that to implement this, rather than adding
+> transient state flags to ->priv_flags.
 
-> Subject: Hoist memcpy_fromiovec into lib/
-> 
-> ERROR: "memcpy_fromiovec" [drivers/vhost/vhost_scsi.ko] undefined!
-> 
-> That function is only present with CONFIG_NET.  Turns out that
-> crypto/algif_skcipher.c also uses that outside net, but it actually
-> needs sockets anyway.
-> 
-> socket.h already include uio.h, so no callers need updating.
-> 
-> Reported-by: Randy Dunlap <rdunlap@infradead.org>
-> Acked-by: David S. Miller <davem@davemloft.net>
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
-> 
-> diff --git a/include/linux/socket.h b/include/linux/socket.h
-> index 428c37a..7266775 100644
-> --- a/include/linux/socket.h
-> +++ b/include/linux/socket.h
-> @@ -305,7 +305,6 @@ struct ucred {
->  
->  extern void cred_to_ucred(struct pid *pid, const struct cred *cred, struct ucred *ucred);
->  
-> -extern int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
->  extern int memcpy_fromiovecend(unsigned char *kdata, const struct iovec *iov,
->  			       int offset, int len);
->  extern int csum_partial_copy_fromiovecend(unsigned char *kdata, 
-> diff --git a/include/linux/uio.h b/include/linux/uio.h
-> index 629aaf5..21628d3 100644
-> --- a/include/linux/uio.h
-> +++ b/include/linux/uio.h
-> @@ -35,4 +35,6 @@ static inline size_t iov_length(const struct iovec *iov, unsigned long nr_segs)
->  }
->  
->  unsigned long iov_shorten(struct iovec *iov, unsigned long nr_segs, size_t to);
-> +
-> +int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len);
->  #endif
-> diff --git a/lib/Makefile b/lib/Makefile
-> index e9c52e1..2377211 100644
-> --- a/lib/Makefile
-> +++ b/lib/Makefile
-> @@ -9,7 +9,7 @@ endif
->  
->  lib-y := ctype.o string.o vsprintf.o cmdline.o \
->  	 rbtree.o radix-tree.o dump_stack.o timerqueue.o\
-> -	 idr.o int_sqrt.o extable.o \
-> +	 idr.o int_sqrt.o extable.o iovec.o \
->  	 sha1.o md5.o irq_regs.o reciprocal_div.o argv_split.o \
->  	 proportions.o flex_proportions.o prio_heap.o ratelimit.o show_mem.o \
->  	 is_single_threaded.o plist.o decompress.o kobject_uevent.o \
-> diff --git a/lib/iovec.c b/lib/iovec.c
-> new file mode 100644
-> index 0000000..632c5ea
-> --- /dev/null
-> +++ b/lib/iovec.c
-> @@ -0,0 +1,29 @@
-> +#include <linux/uaccess.h>
-> +#include <linux/export.h>
-> +#include <linux/uio.h>
-> +
-> +/*
-> + *	Copy iovec to kernel. Returns -EFAULT on error.
-> + *
-> + *	Note: this modifies the original iovec.
-> + */
-> +
-> +int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len)
-> +{
-> +	while (len > 0) {
-> +		if (iov->iov_len) {
-> +			int copy = min_t(unsigned int, len, iov->iov_len);
-> +			if (copy_from_user(kdata, iov->iov_base, copy))
-> +				return -EFAULT;
-> +			len -= copy;
-> +			kdata += copy;
-> +			iov->iov_base += copy;
-> +			iov->iov_len -= copy;
-> +		}
-> +		iov++;
-> +	}
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(memcpy_fromiovec);
-> +
-> diff --git a/net/core/iovec.c b/net/core/iovec.c
-> index 7e7aeb0..d81257f 100644
-> --- a/net/core/iovec.c
-> +++ b/net/core/iovec.c
-> @@ -125,31 +125,6 @@ int memcpy_toiovecend(const struct iovec *iov, unsigned char *kdata,
->  EXPORT_SYMBOL(memcpy_toiovecend);
->  
->  /*
-> - *	Copy iovec to kernel. Returns -EFAULT on error.
-> - *
-> - *	Note: this modifies the original iovec.
-> - */
-> -
-> -int memcpy_fromiovec(unsigned char *kdata, struct iovec *iov, int len)
-> -{
-> -	while (len > 0) {
-> -		if (iov->iov_len) {
-> -			int copy = min_t(unsigned int, len, iov->iov_len);
-> -			if (copy_from_user(kdata, iov->iov_base, copy))
-> -				return -EFAULT;
-> -			len -= copy;
-> -			kdata += copy;
-> -			iov->iov_base += copy;
-> -			iov->iov_len -= copy;
-> -		}
-> -		iov++;
-> -	}
-> -
-> -	return 0;
-> -}
-> -EXPORT_SYMBOL(memcpy_fromiovec);
-> -
-> -/*
->   *	Copy iovec from kernel. Returns -EFAULT on error.
->   */
->  
+Sure. I'll split this to two patches then and do this.
+
+I would prefer "flags_changed" as then the notifiers can easily test on
+the change. Usually the care only about the new state, or if it
+changed. Otherwise the change calculation is needed on all notify
+callbacks.
+
+Will post this briefly, unless you feel that "orig_flags" is still
+preferred.
