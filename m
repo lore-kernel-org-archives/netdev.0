@@ -1,80 +1,70 @@
-From: Wei Yang <weiyang@linux.vnet.ibm.com>
-Subject: [PATCH] be2net: bug fix on returning an invalid nic descriptor
-Date: Thu, 23 May 2013 09:58:22 +0800
-Message-ID: <1369274302-8118-1-git-send-email-weiyang@linux.vnet.ibm.com>
-Cc: Wei Yang <weiyang@linux.vnet.ibm.com>
-To: sathya.perla@emulex.com, netdev@vger.kernel.org
+From: dingtianhong <dingtianhong@huawei.com>
+Subject: [PATCH] bonding: add synchronize_net() after netdev_rx_handler_unregister
+Date: Thu, 23 May 2013 09:57:55 +0800
+Message-ID: <519D77A3.7040003@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+To: Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Netdev <netdev@vger.kernel.org>, Li Zefan <lizefan@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp05.in.ibm.com ([122.248.162.5]:48229 "EHLO
-	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757215Ab3EWB63 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 21:58:29 -0400
-Received: from /spool/local
-	by e28smtp05.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <weiyang@linux.vnet.ibm.com>;
-	Thu, 23 May 2013 07:24:12 +0530
-Received: from d28relay05.in.ibm.com (d28relay05.in.ibm.com [9.184.220.62])
-	by d28dlp02.in.ibm.com (Postfix) with ESMTP id 6B4EF394004E
-	for <netdev@vger.kernel.org>; Thu, 23 May 2013 07:28:25 +0530 (IST)
-Received: from d28av01.in.ibm.com (d28av01.in.ibm.com [9.184.220.63])
-	by d28relay05.in.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4N1wJ3n62586990
-	for <netdev@vger.kernel.org>; Thu, 23 May 2013 07:28:19 +0530
-Received: from d28av01.in.ibm.com (loopback [127.0.0.1])
-	by d28av01.in.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4N1wN3l032660
-	for <netdev@vger.kernel.org>; Thu, 23 May 2013 01:58:23 GMT
+Received: from szxga01-in.huawei.com ([119.145.14.64]:1377 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757215Ab3EWB66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 21:58:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In function be_get_nic_desc(), it will go through the descriptor array
-returned from f/w. By comparing the desc_type field, it determines whether
-there is a nic descriptor in the array or not. In the case of no nic
-descriptor, this function should return NULL.
+commit 00cfec3 (net: add a synchronize_net() in netdev_rx_handler_unregister())
+add a synchronize_net() in netdev_rx_handler_unregister() to guarantee the
+rx_handler is NULL when rx_handler_data is a non NULL in rcu_read_lock().
 
-The code may return an invalide descriptor, when there is no nic descriptor
-in the array and the desc_count is less than MAX_RESOURCE_DESC. In this case,
-even there is no nic descriptor, it will still return the lase descriptor
-since the i doesn't equal to MAX_RESOURCE_DESC.
+so the caller should not use netdev_rx_handler_unregister in atomic as it may
+schedule and sleep, the bonding release met the problem.
 
-This patch fix this issue by returning the descriptor when find it and return
-NULL for other cases.
+the commit fcd99434f (bonding: get netdev_rx_handler_unregister out of locks)
+fix the bug in bond release, but there is no action to guarantee the
+rx_handler_data is NULL when bond release, so add synchronize_net() behind
+netdev_rx_handler_unregister() to guarantee it.
 
-Signed-off-by: Wei Yang <weiyang@linux.vnet.ibm.com>
-Reviewed-by: Gavin Shan <shangw@linux.vnet.ibm.com>
-Reviewed-by: Xiao Guangrong <xiaoguangrong@linux.vnet.ibm.com>
+This patch adds more comments to netdev_rx_handler_unregister(), as its more
+reasonable.
+
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
 ---
- drivers/net/ethernet/emulex/benet/be_cmds.c |   13 ++++---------
- 1 files changed, 4 insertions(+), 9 deletions(-)
+ drivers/net/bonding/bond_main.c | 2 ++
+ net/core/dev.c                  | 3 +++
+ 2 files changed, 5 insertions(+)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index fd7b547..a236ecd 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -2976,22 +2976,17 @@ static struct be_nic_resource_desc *be_get_nic_desc(u8 *buf, u32 desc_count,
- 	for (i = 0; i < desc_count; i++) {
- 		desc->desc_len = desc->desc_len ? : RESOURCE_DESC_SIZE;
- 		if (((void *)desc + desc->desc_len) >
--		    (void *)(buf + max_buf_size)) {
--			desc = NULL;
--			break;
--		}
-+		    (void *)(buf + max_buf_size))
-+			return NULL;
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index d0aade0..592a603 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2007,6 +2007,8 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	 * for this slave anymore.
+ 	 */
+ 	netdev_rx_handler_unregister(slave_dev);
++	synchronize_net();
++
+ 	write_lock_bh(&bond->lock);
  
- 		if (desc->desc_type == NIC_RESOURCE_DESC_TYPE_V0 ||
- 		    desc->desc_type == NIC_RESOURCE_DESC_TYPE_V1)
--			break;
-+			return desc;
- 
- 		desc = (void *)desc + desc->desc_len;
- 	}
- 
--	if (!desc || i == MAX_RESOURCE_DESC)
--		return NULL;
--
--	return desc;
-+	return NULL;
- }
- 
- /* Uses Mbox */
+ 	if (!all && !bond->params.fail_over_mac) {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fc1e289..9ffeda9 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -3344,6 +3344,9 @@ EXPORT_SYMBOL_GPL(netdev_rx_handler_register);
+  *	Unregister a receive handler from a device.
+  *
+  *	The caller must hold the rtnl_mutex.
++ *
++ *	The function should only be called outside the atomic as it
++ *	might sleep and schedule.
+  */
+ void netdev_rx_handler_unregister(struct net_device *dev)
+ {
 -- 
-1.7.1
+1.8.0
