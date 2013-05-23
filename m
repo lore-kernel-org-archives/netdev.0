@@ -1,193 +1,113 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next RFC 5/8] macvtap: eliminate linear search
-Date: Thu, 23 May 2013 14:41:09 +0300
-Message-ID: <20130523114109.GB17993@redhat.com>
+Subject: Re: [net-next RFC 6/8] macvtap: allow TUNSETIFF to create multiqueue
+ device
+Date: Thu, 23 May 2013 14:45:56 +0300
+Message-ID: <20130523114556.GC17993@redhat.com>
 References: <1369278753-2533-1-git-send-email-jasowang@redhat.com>
- <1369278753-2533-6-git-send-email-jasowang@redhat.com>
+ <1369278753-2533-7-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27205 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758568Ab3EWLks (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 May 2013 07:40:48 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1369278753-2533-6-git-send-email-jasowang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1369278753-2533-7-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 23, 2013 at 11:12:30AM +0800, Jason Wang wrote:
-> Linear search were used in both get_slot() and macvtap_get_queue(), this is
-> because:
-> 
-> - macvtap didn't reshuffle the array of taps when create or destroy a queue, so
->   when adding a new queue, macvtap must do linear search to find a location for
->   the new queue. This will also complicate the TUNSETQUEUE implementation for
->   multiqueue API.
-> - the queue itself didn't track the queue index, so the we must do a linear
->   search in the array to find the location of a existed queue.
-> 
-> The solution is straightforward: reshuffle the array and introduce a queue_index
-> to macvtap_queue.
+On Thu, May 23, 2013 at 11:12:31AM +0800, Jason Wang wrote:
+> Though the queue were in fact created by open(), we still need to add this check
+> to be compatible with tuntap which can let mgmt software use a single API to
+> manage queues. This patch only validates the device name and moves the TUNSETIFF
+> to a helper.
 > 
 > Signed-off-by: Jason Wang <jasowang@redhat.com>
 > ---
->  drivers/net/macvtap.c |   63 +++++++++++++++---------------------------------
->  1 files changed, 20 insertions(+), 43 deletions(-)
+>  drivers/net/macvtap.c |   50 ++++++++++++++++++++++++++++++++++++++----------
+>  1 files changed, 39 insertions(+), 11 deletions(-)
 > 
 > diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index a36e49e..5fd341c 100644
+> index 5fd341c..e3f9344 100644
 > --- a/drivers/net/macvtap.c
 > +++ b/drivers/net/macvtap.c
-> @@ -44,6 +44,7 @@ struct macvtap_queue {
->  	struct macvlan_dev __rcu *vlan;
->  	struct file *file;
->  	unsigned int flags;
-> +	u16 queue_index;
->  };
->  
->  static struct proto macvtap_proto = {
-> @@ -84,30 +85,10 @@ static const struct proto_ops macvtap_socket_ops;
->   */
->  static DEFINE_SPINLOCK(macvtap_lock);
->  
-> -/*
-> - * get_slot: return a [unused/occupied] slot in vlan->taps[]:
-> - *	- if 'q' is NULL, return the first empty slot;
-> - *	- otherwise, return the slot this pointer occupies.
-> - */
-> -static int get_slot(struct macvlan_dev *vlan, struct macvtap_queue *q)
-> -{
-> -	int i;
-> -
-> -	for (i = 0; i < MAX_MACVTAP_QUEUES; i++) {
-> -		if (rcu_dereference_protected(vlan->taps[i],
-> -					      lockdep_is_held(&macvtap_lock)) == q)
-> -			return i;
-> -	}
-> -
-> -	/* Should never happen */
-> -	BUG_ON(1);
-> -}
-> -
->  static int macvtap_set_queue(struct net_device *dev, struct file *file,
->  				struct macvtap_queue *q)
->  {
->  	struct macvlan_dev *vlan = netdev_priv(dev);
-> -	int index;
->  	int err = -EBUSY;
->  
->  	spin_lock(&macvtap_lock);
-> @@ -115,12 +96,12 @@ static int macvtap_set_queue(struct net_device *dev, struct file *file,
->  		goto out;
->  
->  	err = 0;
-> -	index = get_slot(vlan, NULL);
->  	rcu_assign_pointer(q->vlan, vlan);
-> -	rcu_assign_pointer(vlan->taps[index], q);
-> +	rcu_assign_pointer(vlan->taps[vlan->numvtaps], q);
->  	sock_hold(&q->sk);
->  
->  	q->file = file;
-> +	q->queue_index = vlan->numvtaps;
->  	file->private_data = q;
->  
->  	vlan->numvtaps++;
-> @@ -140,16 +121,23 @@ out:
->   */
->  static void macvtap_put_queue(struct macvtap_queue *q)
->  {
-> +	struct macvtap_queue *nq;
->  	struct macvlan_dev *vlan;
->  
->  	spin_lock(&macvtap_lock);
->  	vlan = rcu_dereference_protected(q->vlan,
->  					 lockdep_is_held(&macvtap_lock));
->  	if (vlan) {
-> -		int index = get_slot(vlan, q);
-> +		int index = q->queue_index;
-> +		BUG_ON(index >= vlan->numvtaps);
->  
-> -		RCU_INIT_POINTER(vlan->taps[index], NULL);
-> +		rcu_assign_pointer(vlan->taps[index],
-> +				   vlan->taps[vlan->numvtaps - 1]);
->  		RCU_INIT_POINTER(q->vlan, NULL);
-> +		nq = rcu_dereference_protected(vlan->taps[index],
-> +					       lockdep_is_held(&macvtap_lock));
-> +		nq->queue_index = index;
-> +
->  		sock_put(&q->sk);
-
-Hmm this looks like a bug BTW: sock_put should be after
-no one uses this tap, so must be after synchronize_rcu.
-No?
-
->  		--vlan->numvtaps;
->  	}
-
-So:
-		nq = rcu_dereference_protected(vlan->taps[vlan->numvtaps - 1],
-					       lockdep_is_held(&macvtap_lock));
-		rcu_assign_pointer(vlan->taps[index], nq);
-
-same thing?
-
-
-> @@ -182,8 +170,7 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
->  	rxq = skb_get_rxhash(skb);
->  	if (rxq) {
->  		tap = rcu_dereference(vlan->taps[rxq % numvtaps]);
-> -		if (tap)
-> -			goto out;
-> +		goto out;
->  	}
->  
->  	if (likely(skb_rx_queue_recorded(skb))) {
-> @@ -193,17 +180,10 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
->  			rxq -= numvtaps;
->  
->  		tap = rcu_dereference(vlan->taps[rxq]);
-> -		if (tap)
-> -			goto out;
-> -	}
-> -
-> -	/* Everything failed - find first available queue */
-> -	for (rxq = 0; rxq < MAX_MACVTAP_QUEUES; rxq++) {
-> -		tap = rcu_dereference(vlan->taps[rxq]);
-> -		if (tap)
-> -			break;
-> +		goto out;
->  	}
->  
-> +	tap = rcu_dereference(vlan->taps[0]);
->  out:
->  	return tap;
+> @@ -867,6 +867,7 @@ out:
+>  	return ret;
 >  }
-> @@ -221,17 +201,14 @@ static void macvtap_del_queues(struct net_device *dev)
 >  
->  	/* macvtap_put_queue can free some slots, so go through all slots */
->  	spin_lock(&macvtap_lock);
-> -	for (i = 0; i < MAX_MACVTAP_QUEUES && vlan->numvtaps; i++) {
-> +	for (i = 0; i < vlan->numvtaps; i++) {
->  		q = rcu_dereference_protected(vlan->taps[i],
->  					      lockdep_is_held(&macvtap_lock));
-> -		if (q) {
-> -			qlist[j++] = q;
-> -			RCU_INIT_POINTER(vlan->taps[i], NULL);
-> -			RCU_INIT_POINTER(q->vlan, NULL);
-> -			vlan->numvtaps--;
-> -		}
-> +		BUG_ON(q == NULL);
-> +		qlist[j++] = q;
-> +		RCU_INIT_POINTER(vlan->taps[i], NULL);
-> +		RCU_INIT_POINTER(q->vlan, NULL);
->  	}
-> -	BUG_ON(vlan->numvtaps != 0);
->  	/* guarantee that any future macvtap_set_queue will fail */
->  	vlan->numvtaps = MAX_MACVTAP_QUEUES;
->  	spin_unlock(&macvtap_lock);
+> +
+
+Please don't add empty lines like this :).
+
+>  static struct macvlan_dev *macvtap_get_vlan(struct macvtap_queue *q)
+>  {
+>  	struct macvlan_dev *vlan;
+> @@ -884,6 +885,43 @@ static void macvtap_put_vlan(struct macvlan_dev *vlan)
+>  	dev_put(vlan->dev);
+>  }
+>  
+> +static int macvtap_set_iff(struct file *file, struct ifreq __user *ifr_u)
+> +{
+> +	struct macvtap_queue *q = file->private_data;
+> +	struct net *net = current->nsproxy->net_ns;
+> +	struct inode *inode = file_inode(file);
+> +	struct net_device *dev, *dev2;
+> +	struct ifreq ifr;
+> +
+> +	if (copy_from_user(&ifr, ifr_u, sizeof(struct ifreq)))
+> +		return -EFAULT;
+> +
+> +	if (ifr.ifr_flags & IFF_MULTI_QUEUE) {
+
+So why do we validate the name?
+Pls add a comment.
+
+> +		dev = __dev_get_by_name(net, ifr.ifr_name);
+> +		if (!dev)
+> +			return -EINVAL;
+> +
+> +		dev2 = dev_get_by_macvtap_minor(iminor(inode));
+> +		if (!dev2)
+> +			return -EINVAL;
+> +
+> +		if (dev != dev2) {
+> +			dev_put(dev2);
+> +			return -EINVAL;
+> +		}
+> +
+> +		dev_put(dev2);
+> +	}
+> +
+> +	if ((ifr.ifr_flags & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
+> +	    (IFF_NO_PI | IFF_TAP))
+> +		return -EINVAL;
+> +	else
+> +		q->flags = ifr.ifr_flags;
+> +
+> +	return 0;
+> +}
+> +
+>  /*
+>   * provide compatibility with generic tun/tap interface
+>   */
+> @@ -902,17 +940,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+>  
+>  	switch (cmd) {
+>  	case TUNSETIFF:
+> -		/* ignore the name, just look at flags */
+> -		if (get_user(u, &ifr->ifr_flags))
+> -			return -EFAULT;
+> -
+> -		ret = 0;
+> -		if ((u & ~IFF_VNET_HDR) != (IFF_NO_PI | IFF_TAP))
+> -			ret = -EINVAL;
+> -		else
+> -			q->flags = u;
+> -
+> -		return ret;
+> +		return macvtap_set_iff(file, ifr);
+>  
+>  	case TUNGETIFF:
+>  		vlan = macvtap_get_vlan(q);
 > -- 
 > 1.7.1
