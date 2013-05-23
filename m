@@ -1,92 +1,163 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: drivers/isdn: checkng length to be sure not memory overflow
-Date: Thu, 23 May 2013 09:24:06 +0800
-Message-ID: <519D6FB6.7090003@asianux.com>
-References: <20130522210522.GA2800@elgon.mountain>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v2.29] datapath: Add basic MPLS support to kernel
+Date: Thu, 23 May 2013 10:38:56 +0900
+Message-ID: <20130523013856.GA22608@verge.net.au>
+References: <1368774397-10700-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=8GefFzMPSE0EkaLSTNtPJYtgoOKMaV_hN1ckE-Qxhsog@mail.gmail.com>
+ <20130521005519.GA14817@verge.net.au>
+ <CAEP_g=-PDNYWPk+yi4czHw7V822GPRdgNX+csHMByF151Jb5oA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Ben Pfaff <blp@nicira.com>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>
+To: Jesse Gross <jesse@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:4178 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756946Ab3EWBY6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 21:24:58 -0400
-In-Reply-To: <20130522210522.GA2800@elgon.mountain>
+Received: from kirsty.vergenet.net ([202.4.237.240]:45877 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757297Ab3EWBi7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 May 2013 21:38:59 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=-PDNYWPk+yi4czHw7V822GPRdgNX+csHMByF151Jb5oA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2013 05:05 AM, Dan Carpenter wrote:
-> The patch f39479363e03: "drivers/isdn: checkng length to be sure not
-> memory overflow" from Mar 7, 2013, leads to the following static checker
-> warning:
+On Tue, May 21, 2013 at 09:07:06AM -0700, Jesse Gross wrote:
+> On Mon, May 20, 2013 at 5:55 PM, Simon Horman <horms@verge.net.au> wrote:
+> > On Fri, May 17, 2013 at 04:14:56PM -0700, Jesse Gross wrote:
+> >> On Fri, May 17, 2013 at 12:06 AM, Simon Horman <horms@verge.net.au> wrote:
+> >> > +static int push_mpls(struct sk_buff *skb,
+> >> > +                    const struct ovs_action_push_mpls *mpls)
+> >> > +{
+> >> > +       __be32 *new_mpls_lse;
+> >> > +       int err;
+> >> > +
+> >> > +       err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+> >> > +       if (unlikely(err))
+> >> > +               return err;
+> >> > +
+> >> > +       skb_push(skb, MPLS_HLEN);
+> >>
+> >> What happens if there isn't enough headroom?
+> >
+> > Good point. How about this?
+> >
+> >         if (unlikely(skb->data<skb->head))
+> >                 return -EINVAL;
+> >         skb_push(skb, MPLS_HLEN);
 > 
-> "drivers/isdn/i4l/isdn_tty.c:969 isdn_tty_send_msg()
-> 	 error: buffer overflow 'cmd.parm.cmsg.para' 50 <= 73"
+> The amount of headroom is an internal kernel property so we can't
+> reject actions on the basis of it. We need to expand the headroom,
+> similar to __vlan_put_tag().
+
+Thanks. I have changed the code around and it is now as follows.
+I am a little unsure if the combination of make_writable() and
+skb_cow_head() is sensible.
+
+	err = make_writable(skb, skb->mac_len + MPLS_HLEN);
+	if (unlikely(err))
+		return err;
+
+	if (skb_cow_head(skb, MPLS_HLEN) < 0)
+		return -ENOMEM;
+
+	skb_push(skb, MPLS_HLEN);
+
+> >> > diff --git a/datapath/datapath.c b/datapath/datapath.c
+> >> > index 42af315..3a1c203 100644
+> >> > --- a/datapath/datapath.c
+> >> > +++ b/datapath/datapath.c
+> >>
+> >> It's not clear to that using the depth is actually sufficient to
+> >> capture all possible combinations because the more common case is that
+> >> actions are a list, not nested. For example, consider the following
+> >> (invalid) action list on an IP input packet:
+> >>
+> >> push_mpls, sample(pop_mpls), pop_mpls
+> >>
+> >> I don't believe that this will be rejected since by the time we get to
+> >> the second pop_mpls we will have forgotten about the sample action.
+> >
+> > My intention when writing the code was that such a case would be rejected
+> > as follows:
+> >
+> > 1. When the nested pop_mpls is validated the following call is
+> >    made with depth = 1:
+> >
+> >   eth_types_set(eth_types, depth, htons(0));
+> >
+> >   This sets:
+> >         eth_types->depth = 1
+> >         eth_types[1] = htons(0);
+> >
+> > 2. When the second pop_mpls is validated the following
+> >    is executed (with the fix that you suggested below):
+> >
+> >    for (i = 0; i < eth_types->depth; i++)
+> >         if (!eth_p_mpls(eth_types->types[i]))
+> >                 return -EINVAL;
+> >
+> >    This will return -EINVAL due to the values of eth_type members set in 1.
 > 
-> drivers/isdn/i4l/isdn_tty.c
->    905          l = min(strlen(msg), sizeof(cmd.parm) - sizeof(cmd.parm.cmsg)
->    906                  + sizeof(cmd.parm.cmsg.para) - 2);
->    907  
+> OK, I see that the depth does't get reset for the next check. However,
+> what about this sequence?
 > 
-> [ snip ]
+> push_mpls, sample(pop_mpls), sample(push_mpls), pop_mpls
 > 
->    963                  cmd.parm.cmsg.Length = l + 14;
->    964                  cmd.parm.cmsg.Command = CAPI_MANUFACTURER;
->    965                  cmd.parm.cmsg.Subcommand = CAPI_REQ;
->    966                  cmd.parm.cmsg.adr.Controller = info->isdn_driver + 1;
->    967                  cmd.parm.cmsg.para[0] = l + 1;
->    968                  strncpy(&cmd.parm.cmsg.para[1], msg, l);
->    969                  cmd.parm.cmsg.para[l + 1] = 0xd;
->                                           ^^^^^^^
-> "l" is more than sizeof(cmd.parm.cmsg.para) here so it is an overflow.
-> As far as I can see the correct limit should be:
+> My point is that in cases where sample actions aren't nested, the
+> depth doesn't capture all the combinations.
+
+Thanks, I see your point. And I agree that the code does not seem
+to handle that case correctly. I will work on this.
+
+> >> > diff --git a/datapath/flow.c b/datapath/flow.c
+> >> > index 3ce926e..2a86f90 100644
+> >> > --- a/datapath/flow.c
+> >> > +++ b/datapath/flow.c
+> >> > @@ -848,6 +880,9 @@ const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
+> >> >         [OVS_KEY_ATTR_ARP] = sizeof(struct ovs_key_arp),
+> >> >         [OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
+> >> >         [OVS_KEY_ATTR_TUNNEL] = -1,
+> >> > +
+> >> > +       /* Not upstream. */
+> >> > +       [OVS_KEY_ATTR_MPLS] = sizeof(struct ovs_key_mpls),
+> >>
+> >> At this point, we can probably treat this patch as the point where the
+> >> MPLS data structures are finalized and upstreamable. Therefore, this
+> >> patch can move the attribute to a final location.
+> >
+> > Thanks, I will squash the following incremental change into the next
+> > posting of this patch.
+> >
+> > diff --git a/datapath/flow.c b/datapath/flow.c
+> > index 2a86f90..d67d6bf 100644
+> > --- a/datapath/flow.c
+> > +++ b/datapath/flow.c
+> > @@ -880,8 +880,6 @@ const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
+> >         [OVS_KEY_ATTR_ARP] = sizeof(struct ovs_key_arp),
+> >         [OVS_KEY_ATTR_ND] = sizeof(struct ovs_key_nd),
+> >         [OVS_KEY_ATTR_TUNNEL] = -1,
+> > -
+> > -       /* Not upstream. */
+> >         [OVS_KEY_ATTR_MPLS] = sizeof(struct ovs_key_mpls),
+> >  };
+> >
+> > diff --git a/include/linux/openvswitch.h b/include/linux/openvswitch.h
+> > index e890fd8..d90f585 100644
+> > --- a/include/linux/openvswitch.h
+> > +++ b/include/linux/openvswitch.h
+> > @@ -287,7 +287,7 @@ enum ovs_key_attr {
+> >         OVS_KEY_ATTR_IPV4_TUNNEL,  /* struct ovs_key_ipv4_tunnel */
+> >  #endif
+> >
+> > -       OVS_KEY_ATTR_MPLS = 62, /* array of struct ovs_key_mpls.
+> > +       OVS_KEY_ATTR_MPLS,      /* array of struct ovs_key_mpls.
+> >                                  * The implementation may restrict
+> >                                  * the accepted length of the array. */
+> >         __OVS_KEY_ATTR_MAX
 > 
-> 		l = min(strlen(msg), sizeof(cmd.parm.cmsg.para) - 2);
-> 
-> The "- 2" is so that ".cmsg.para[l + 1] = 0xd" does not overflow.
+> I think this belongs more appropriately directly after OVS_KEY_ATTR_TUNNEL.
 
-
-'cmd.parm' is a union in "include/linux/isdnif.h", so if length is more
-than 'sizeof(cmd.parm.cmsg.para) - 2', but still within the 'cmd.parm',
-it will be still OK (can not cause memory over flow).
-
-The patch tries to keep original API no touch, and only fix the bug
-(try not to decrease the original real valid buffer length).
-
-Excuse me, the patch comments is not with standard format, so may cause
-the readers misunderstanding.
-
-
-Thanks.
-
-------------------------------comments begin--------------------------------------
-
-commit f39479363e0361c8bb4397481c01a7c3a1a3c8ac
-Author: Chen Gang <gang.chen@asianux.com>
-Date:   Thu Mar 7 18:25:41 2013 +0000
-
-    drivers/isdn: checkng length to be sure not memory overflow
-    
-    sizeof (cmd.parm.cmsg.para) is 50 (MAX_CAPI_PARA_LEN).
-      sizeof (cmd.parm) is 80+, but less than 100.
-      strlen(msg) may be more than 80+ (Modem-Commandbuffer, less than 255).
-        isdn_tty_send_msg is called by isdn_tty_parse_at
-        the relative parameter is m->mdmcmd (atemu *m)
-        the relative command may be "+M..."
-    
-      so need check the length to be sure not memory overflow.
-        cmd.parm is a union, and need keep original valid buffer length no touch
-    
-    Signed-off-by: Chen Gang <gang.chen@asianux.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
-
-------------------------------comments end--------------------------------------
-
-
-
--- 
-Chen Gang
-
-Asianux Corporation
+Sure, I will move it.
