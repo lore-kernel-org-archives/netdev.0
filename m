@@ -1,33 +1,38 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH net-next] netfilter: xt_socket: use IP early demux
-Date: Thu, 23 May 2013 12:53:44 +0200
-Message-ID: <20130523105344.GA22507@localhost>
-References: <1369256466.3301.364.camel@edumazet-glaptop>
- <20130522.142733.458456664835859037.davem@davemloft.net>
+Subject: Re: [PATCH resend nf-next] netfilter: xt_CT: optimize XT_CT_NOTRACK
+Date: Thu, 23 May 2013 12:54:04 +0200
+Message-ID: <20130523105404.GB22507@localhost>
+References: <1368132751.13473.113.camel@edumazet-glaptop>
+ <1369257057.3301.367.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:47569 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757558Ab3EWKyP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 May 2013 06:54:15 -0400
 Content-Disposition: inline
-In-Reply-To: <20130522.142733.458456664835859037.davem@davemloft.net>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1369257057.3301.367.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 22, 2013 at 02:27:33PM -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 22 May 2013 14:01:06 -0700
+On Wed, May 22, 2013 at 02:10:57PM -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > With IP early demux added in linux-3.6, we perform TCP lookup in IP
-> > layer before iptables hooks.
-> > 
-> > We can avoid doing a second lookup in xt_socket.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> The percpu untracked ct are not currently used for XT_CT_NOTRACK.
 > 
-> Acked-by: David S. Miller <davem@davemloft.net>
+> xt_ct_tg_check()/xt_ct_target() provides a single ct.
+> 
+> Thats not optimal as the ct->ct_general.use cache line will bounce among
+> cpus.
+> 
+> Use the intended [1] thing : xt_ct_target() should select the percpu
+> object.
+> 
+> [1] Refs :
+> commit 5bfddbd46a95c97 ("netfilter: nf_conntrack: IPS_UNTRACKED bit")
+> commit b3c5163fe0193a7 ("netfilter: nf_conntrack: per_cpu untracking")
 
-Applied to nf-next, thanks!
+Applied, thanks Eric.
