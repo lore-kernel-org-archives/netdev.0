@@ -1,97 +1,65 @@
-From: Alex Rosenbaum <alexr@mellanox.com>
-Subject: Re: [PATCH v3 net-next 0/4] net: low latency Ethernet
-	device polling
-Date: Thu, 23 May 2013 14:45:43 +0300
-Message-ID: <519E0167.6060408@mellanox.com>
-References: <20130520101552.14133.45953.stgit@ladj378.jer.intel.com>
-	<519B632F.7040202@mellanox.com> <519B68A4.3010406@linux.intel.com>
-	<519B7355.9090303@mellanox.com> <519DF84B.10401@linux.intel.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] ipv4: netfilter: always let NUL terminated string ended
+ by '\0'
+Date: Thu, 23 May 2013 13:49:50 +0200
+Message-ID: <20130523114950.GA4972@localhost>
+References: <5195ECB3.5000006@asianux.com>
+ <20130523110832.GB22553@localhost>
+ <519DFFFB.40104@asianux.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============7932222427563873125=="
-Cc: Willem de Bruijn <willemb@google.com>, Don,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Dave Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <519DF84B.10401@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, David Miller <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <519DFFFB.40104@asianux.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---===============7932222427563873125==
-Content-Type: multipart/alternative;
-	boundary="------------030502030606020500070500"
-
---------------030502030606020500070500
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-
-On 5/23/2013 2:06 PM, Eliezer Tamir wrote:
-> On 21/05/2013 16:15, Alex Rosenbaum wrote:
->> On 5/21/2013 3:29 PM, Eliezer Tamir wrote:
->>> What benchmarks are you using to test poll/select/epoll?
->> for epoll/select latency tests we are using sockperf as performance
->> latency tool: https://code.google.com/p/sockperf/
->> It is a client-server based tool and it supported ping-pong, throughput,
->> and under-load test type.
->> For epoll, you will need to define a 'feedfile' ("-f filepathname")
->> which has a list of TCP and/or UDP socket and defined your IO mux type
->> ("-F epoll").
+On Thu, May 23, 2013 at 07:39:39PM +0800, Chen Gang wrote:
+> On 05/23/2013 07:08 PM, Pablo Neira Ayuso wrote:
+> > On Fri, May 17, 2013 at 04:39:15PM +0800, Chen Gang wrote:
+> >> >
+> >> > For NUL terminated string, better always be sure of ended by '\0'.
+> >> >
+> >> > 'pm' is 'struct ulog_packet_msg_t' which may be copied to user mode
+> >> > (defined in "include/uapi/..."), so can not use strlcpy() instead of.
+> > loginfo->prefix is always nul-terminated, as this is validated in
+> > checkentry. I don't think the kernel will take a non nul-terminated
+> > device name either.
 >
-> Thank you!
-> This is very helpful.
+> Really it is.
 >
-> With sockperf i can directly observe how poll/select/epoll are behaving.
-> I can see some improvement in all of them but clearly more work is 
-> needed here.
->
-> -Eliezer
+> And 'prefix' max length is 128 (NF_LOG_PREFIXLEN), and 'pm->prefix' max
+> length is 32 (ULOG_PREFIX_LEN), so we still need this patch, but need
+> improved.
 
-I'm happy you got it working.
+Both are ULOG_PREFIX_LEN long.
 
-If you add '--timeout=0' to the sockperf epoll command line you can see 
-non-blocking epoll application behavior and then you will get some 
-improved latency over due to the application thread not sleeping.
+>From include/uapi/linux/netfilter_ipv4/ipt_ULOG.h:
 
-This is not like a full blown LLS epoll solution but half way there.
+/* private data structure for each rule with a ULOG target */
+struct ipt_ulog_info {
+        unsigned int nl_group;
+        size_t copy_range;
+        size_t qthreshold;
+        char prefix[ULOG_PREFIX_LEN];
+};
 
-
-Alex
-
-
---------------030502030606020500070500--
-
-
---===============7932222427563873125==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Try New Relic Now & We'll Send You this Cool Shirt
-New Relic is the only SaaS-based application performance monitoring service 
-that delivers powerful full stack analytics. Optimize and monitor your
-browser, app, & servers with just a few lines of code. Try New Relic
-and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
---===============7932222427563873125==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============7932222427563873125==--
+/* Format of the ULOG packets passed through netlink */
+typedef struct ulog_packet_msg {
+        unsigned long mark;
+        long timestamp_sec;
+        long timestamp_usec;
+        unsigned int hook;
+        char indev_name[IFNAMSIZ];
+        char outdev_name[IFNAMSIZ];
+        size_t data_len;
+        char prefix[ULOG_PREFIX_LEN];
+        unsigned char mac_len;
+        unsigned char mac[ULOG_MAC_LEN;
+        unsigned char payload[0];
+} ulog_packet_msg_t;
