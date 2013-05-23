@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] arp: flush arp cache on IFF_NOARP change
-Date: Thu, 23 May 2013 00:01:36 -0700 (PDT)
-Message-ID: <20130523.000136.1188829048647539329.davem@davemloft.net>
-References: <20130520.134633.448574202175922639.davem@davemloft.net>
-	<1369131824-6318-1-git-send-email-timo.teras@iki.fi>
+Subject: Re: [PATCH net-next 0/2] Fix warnings in cxgb3
+Date: Thu, 23 May 2013 00:04:19 -0700 (PDT)
+Message-ID: <20130523.000419.2227491126781427282.davem@davemloft.net>
+References: <1369146089-19060-1-git-send-email-vipul@chelsio.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: timo.teras@iki.fi
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, divy@chelsio.com, dm@chelsio.com,
+	santosh@chelsio.com, fenlason@redhat.com
+To: vipul@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51700 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51733 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751485Ab3EWHBr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 03:01:47 -0400
-In-Reply-To: <1369131824-6318-1-git-send-email-timo.teras@iki.fi>
+	with ESMTP id S1751417Ab3EWHEU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 03:04:20 -0400
+In-Reply-To: <1369146089-19060-1-git-send-email-vipul@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Ter=E4s <timo.teras@iki.fi>
-Date: Tue, 21 May 2013 13:23:44 +0300
+From: Vipul Pandya <vipul@chelsio.com>
+Date: Tue, 21 May 2013 19:51:27 +0530
 
-> IFF_NOARP affects what kind of neighbor entries are created
-> (nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
-> cache to refresh all entries.
->=20
-> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
+> The first warning is about using rcu_dereference() when not in a rcu-locked
+> section. It only happens on initialization hence fix the initialization to not
+> rcu_dereference().
+> 
+> The second warning is about not checking that a *dma_map*() call succeeded.
+> This patch adds checks at approprate places.
+> 
+> We request this patch series to get merged via net-next tree.
 
-I agree with Ben that we should have a "orig_priv_flags" or
-something like that to implement this, rather than adding
-transient state flags to ->priv_flags.
+All applied, thanks.
