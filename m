@@ -1,52 +1,70 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: provide vhost thread per virtqueue for forwarding scenario
-Date: Thu, 23 May 2013 13:43:29 +0930
-Message-ID: <8738tes592.fsf@rustcorp.com.au>
-References: <5872DA217C2FF7488B20897D84F904E7338FC974@nkgeml511-mbx.china.huawei.com> <20130520074300.GA27848@redhat.com> <519C96E7.2030704@huawei.com> <519C98E2.9000102@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH V2] virtio_net: enable napi for all possible queues
+	during open
+Date: Thu, 23 May 2013 08:59:57 +0300
+Message-ID: <20130523055957.GC13916@redhat.com>
+References: <1369202638-17660-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Michael S. Tsirkin" <mst@redhat.com>,
-	Qinchuanyu <qinchuanyu@huawei.com>,
-	"nab\@linux-iscsi.org" <nab@linux-iscsi.org>,
-	"\(netdev\@vger.kernel.org\)" <netdev@vger.kernel.org>,
-	"\(kvm\@vger.kernel.org\)" <kvm@vger.kernel.org>,
-	"Zhangjie \(HZ\)" <zhang.zhangjie@huawei.com>
-To: Jason Wang <jasowang@redhat.com>,
-	Zang Hongyong <zanghongyong@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:45722 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751142Ab3EWE4u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 May 2013 00:56:50 -0400
-In-Reply-To: <519C98E2.9000102@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>,
+	virtualization@lists.linux-foundation.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1369202638-17660-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Jason Wang <jasowang@redhat.com> writes:
-> On 05/22/2013 05:59 PM, Zang Hongyong wrote:
->> On 2013/5/20 15:43, Michael S. Tsirkin wrote:
->>> On Mon, May 20, 2013 at 02:11:19AM +0000, Qinchuanyu wrote:
->>> Yes, I don't think we want to create threads even more aggressively
->>> in all cases. I'm worried about scalability as it is.
->>> I think we should explore a flexible approach, use a thread pool
->>> (for example, a wq) to share threads between virtqueues,
->>> switch to a separate thread only if there's free CPU and existing
->>> threads are busy. Hopefully share threads between vhost instances too.
->> On Xen platform, network backend pv driver model has evolved to this
->> way. Netbacks from all DomUs share a thread pool,
->> and thread number eaqual to cpu core number.
->> Is there any plan for kvm paltform?
->
-> There used to be two related RFCs for this, one is the multiple vhost
-> workers from Anthony another is percpu vhost thread from Shirley. You
-> can search the archives on netdev or kvm for the patches.
+On Wed, May 22, 2013 at 02:03:58PM +0800, Jason Wang wrote:
+> Commit 55257d72bd1c51f25106350f4983ec19f62ed1fa (virtio-net: fill only rx
+> queues which are being used) only does the napi enabling during open for
+> curr_queue_pairs. This will break multiqueue receiving since napi of new queues
+> were still disabled after changing the number of queues.
+> 
+> This patch fixes this by enabling napi for all possible queues during open.
+> 
+> Cc: Sasha Levin <sasha.levin@oracle.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-As I've said to MST before, I think our entire model is wrong.
-Userspace should create the threads and call in.  If you're doing kernel
-acceleration, two extra threads per NIC is a tiny overhead.
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Of course, such radical changes to vhost doesn't help existing users as
-Qinchuanyu asked...
-
-Cheers,
-Rusty,
+> ---
+> Changes from V1:
+> - enable napi in open instead of virtnet_set_queues() to avoid kernel BUG() when
+> trying to do napi_enable() for a already enabled queue
+> ---
+>  drivers/net/virtio_net.c |    9 +++++----
+>  1 files changed, 5 insertions(+), 4 deletions(-)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index 2d6abac..241527d 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -636,10 +636,11 @@ static int virtnet_open(struct net_device *dev)
+>  	struct virtnet_info *vi = netdev_priv(dev);
+>  	int i;
+>  
+> -	for (i = 0; i < vi->curr_queue_pairs; i++) {
+> -		/* Make sure we have some buffers: if oom use wq. */
+> -		if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
+> -			schedule_delayed_work(&vi->refill, 0);
+> +	for (i = 0; i < vi->max_queue_pairs; i++) {
+> +		if (i < vi->curr_queue_pairs)
+> +			/* Make sure we have some buffers: if oom use wq. */
+> +			if (!try_fill_recv(&vi->rq[i], GFP_KERNEL))
+> +				schedule_delayed_work(&vi->refill, 0);
+>  		virtnet_napi_enable(&vi->rq[i]);
+>  	}
+>  
+> -- 
+> 1.7.1
