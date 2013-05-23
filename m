@@ -1,54 +1,31 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH] ptp_pch: fix error handling in pch_probe()
-Date: Thu, 23 May 2013 17:59:28 +0800
-Message-ID: <CAPgLHd-ec4mveiMefnkSYLNnhYizt6_xZ7ZNLR9YxZCciMH+gA@mail.gmail.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next 2/2] arp: flush arp cache on IFF_NOARP change
+Date: Thu, 23 May 2013 11:23:28 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7249@saturn3.aculab.com>
+References: <1369303109-12003-1-git-send-email-timo.teras@iki.fi> <1369303109-12003-2-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: richardcochran@gmail.com
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: =?utf-8?B?VGltbyBUZXLDpHM=?= <timo.teras@iki.fi>,
+	<netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f52.google.com ([209.85.214.52]:33557 "EHLO
-	mail-bk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757636Ab3EWJ73 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 05:59:29 -0400
-Received: by mail-bk0-f52.google.com with SMTP id mz10so1688460bkb.39
-        for <netdev@vger.kernel.org>; Thu, 23 May 2013 02:59:28 -0700 (PDT)
+Received: from mx0.aculab.com ([213.249.233.131]:57743 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1757918Ab3EWKYK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 May 2013 06:24:10 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 26690-05 for <netdev@vger.kernel.org>;
+ Thu, 23 May 2013 11:24:06 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1369303109-12003-2-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-
-Fix to release resources when ptp_clock_register() fail instead
-of return error code directly.
-
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/ptp/ptp_pch.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-index bea9451..71a2559 100644
---- a/drivers/ptp/ptp_pch.c
-+++ b/drivers/ptp/ptp_pch.c
-@@ -628,9 +628,10 @@ pch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 
- 	chip->caps = ptp_pch_caps;
- 	chip->ptp_clock = ptp_clock_register(&chip->caps, &pdev->dev);
--
--	if (IS_ERR(chip->ptp_clock))
--		return PTR_ERR(chip->ptp_clock);
-+	if (IS_ERR(chip->ptp_clock)) {
-+		ret = PTR_ERR(chip->ptp_clock);
-+		goto err_ptp_clock_reg;
-+	}
- 
- 	spin_lock_init(&chip->register_lock);
- 
-@@ -669,6 +670,7 @@ pch_probe(struct pci_dev *pdev, const struct pci_device_id *id)
- 
- err_req_irq:
- 	ptp_clock_unregister(chip->ptp_clock);
-+err_ptp_clock_reg:
- 	iounmap(chip->regs);
- 	chip->regs = NULL;
- 
+PiBJRkZfTk9BUlAgYWZmZWN0cyB3aGF0IGtpbmQgb2YgbmVpZ2hib3IgZW50cmllcyBhcmUgY3Jl
+YXRlZA0KPiAobnVkIE5PQVJQIG9yIG51ZCBJTkNPTVBMRVRFKS4gSWYgdGhlIGZsYWcgY2hhbmdl
+cywgZmx1c2ggdGhlIGFycA0KPiBjYWNoZSB0byByZWZyZXNoIGFsbCBlbnRyaWVzLg0KDQpNaWdo
+dCBzb21lb25lIHdhbnQgdG8gdXNlIHRoaXMgdG8gc3RvcCBmdXJ0aGVyIGFycCB0YWJsZQ0KZW50
+cmllcyBiZWluZyBjcmVhdGVkPw0KSW4gd2hpY2ggY2FzZSB5b3UgZG9uJ3Qgd2FudCBhbnl0aGlu
+ZyBmbHVzaGVkLg0KDQoJRGF2aWQNCg0K
