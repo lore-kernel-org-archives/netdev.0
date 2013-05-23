@@ -1,64 +1,143 @@
-From: Sridhar Samudrala <samudrala.sridhar@gmail.com>
-Subject: Re: [PATCH net] vxlan: revert per-vxlan port
-Date: Thu, 23 May 2013 15:35:57 -0700
-Message-ID: <519E99CD.1030500@gmail.com>
-References: <20130520103017.054ae605@nehalam.linuxnetplumber.net>	<OFECE722DE.3DBEE821-ON85257B71.00610478-85257B71.006456B5@us.ibm.com> <20130520113000.0057ce90@nehalam.linuxnetplumber.net>	<20130522.150830.1305371698781503084.davem@davemloft.net> <OFB688A387.A3698315-ON85257B73.007C1B7B-85257B73.00800294@us.ibm.com>	<20130522173954.7f75f62d@nehalam.linuxnetplumber.net> <OF0BD0286F.81969B78-ON85257B74.00097DBA-85257B74.000C5443@us.ibm.com>	<20130523100854.6c9749d6@nehalam.linuxnetplumber.net> <OFCF66B423.CF0815E9-ON85257B74.0062F5C7-85257B74.0067134F@us.ibm.com> <20130523121804.6b7450a3@nehalam.linuxnetplumber.net> <OFD1F52E5E.B02C16A0-ON85257B74.006AF452-85257B74.006E6AF1@us.ibm.com>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for Kirkwood
+ SoCs
+Date: Fri, 24 May 2013 00:40:26 +0200
+Message-ID: <519E9ADA.3040204@gmail.com>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com> <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com> <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com> <20130522201607.GA18823@obsidianresearch.com> <20130523160111.GP31290@titan.lakedaemon.net> <20130523171112.GB31281@obsidianresearch.com> <20130523172339.GQ31290@titan.lakedaemon.net> <20130523175357.GB2821@obsidianresearch.com> <20130523184028.GU31290@titan.lakedaemon.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:54847 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759752Ab3EWWf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 18:35:58 -0400
-In-Reply-To: <OFD1F52E5E.B02C16A0-ON85257B74.006AF452-85257B74.006E6AF1@us.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+	Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>
+To: Jason Cooper <jason@lakedaemon.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130523184028.GU31290@titan.lakedaemon.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 5/23/2013 1:06 PM, David Stevens wrote:
-> Stephen Hemminger <stephen@networkplumber.org> wrote on 05/23/2013
-> 03:18:04 PM:
+On 05/23/2013 08:40 PM, Jason Cooper wrote:
+> On Thu, May 23, 2013 at 11:53:57AM -0600, Jason Gunthorpe wrote:
+>> On Thu, May 23, 2013 at 01:23:39PM -0400, Jason Cooper wrote:
+>>> Shouldn't it rather be
+>>>
+>>> 	compatible = "marvell,kirkwood-eth", "marvell,orion-eth";
+>>
+>> Not sure about orion-eth?
+
+Jason, Jason,
+
+sorry I didn't came back to this conversation earlier. I already
+reworked the patch to rely on 
+of_device_is_compatible(.."marvell,kirkwood-eth"..). This is a
+kirkwood only thing as other Orions cannot do clock gating or
+retain critcal register content (Dove). I will stick with orion-eth
+for all other and maybe introduce new compatible strings (and new
+fixes) as soon as issues surface.
+
+>>> I'm inclined to go with of_machine_is_compatible() since the only
+>>> concrete difference we know is that the tweak is needed on kirkwood and
+>>> nowhere else.
+>>
+>> But there is a larger problem here then just this one bit.
+>>
+>> The PSC1 register must be set properly for the board layout, and today
+>> we rely on the bootloader to set it. In fact, even with Sebastian's
+>> change the ethernet port won't work without bootloader
+>> intervention. The PortReset bit should also be cleared by the driver
+>> (and it is only present on some variants of this IP block,
+>> apparently).
+
+Actually, fixing modular scenarios is only for the sake of multiarch
+someday. I don't see the point in running current kernel without eth
+compiled in _on a NAS SoC_ ;)
+
+On Dockstar which I tested, clearing CLK125_BYPASS_EN to make it work
+after clock gating, it might be a coincidence that bootloader's PSC1
+setup matches reset value here - so please test the patch on other
+Kirkwood boards also.
+
+But, as long as no other issue arise, I will not start to modifiy
+mv643xx_eth out of the blue. I has been working for ages and breaking
+PPC is not my intention. There are other things David Miller already
+requested to get fixed and honestly I even thought about a fresh start
+for it. Maybe I'll come back to it when barebox gets it's driver
+someday.
+
+>> We know that some Marvell SOC's wack the ethernet registers when they
+>> clock gate, and the flip of Clk125Bypass is another symptom of this
+>> general problem.
+
+Which SoCs except Kirkwood? I cannot reproduce any of this behavior on
+Dove - and from what I can see from the FS of Orion5x or MV78x00 there
+are no clock gating registers.
+
+>> So, long term, the PSC1 must be fully set by the driver, based on DT
+>> information describing the board (eg RGMII/MII/1000Base-X [SFP] Phy
+>> type), and the layout of this register seems to vary on a SOC by SOC
+>> basis.
+
+Agree, but I tend to not go at it now. mv643xx_eth has never set up that
+registers and actually it never connects anything else than GMII phy (or 
+no phy at all). The latter is easy but the for the other, I like to
+give up that brain-dead multi-device driver and stick with one device
+for both shared and up to three ports. From what I can see from e.g.
+ixgbe or any other multi-port eth drivers they all attach the network
+device to a single (pci) device.
+
+>> Thus, I think it is appropriate to call this variant of the eth IP
+>> 'marvell,kirkwood-eth' which indicates that the register block follows
+>> the kirkwood manual and the PSC1 register specifically has the
+>> kirkwood layout.
 >
->   
->> With the patch davem already included, the dstport is enough
->> to add additional listener.
->          If you're saying that using the dstport changes the
-> listen port, or adds another listen port, then I think that
-> behaviour is wrong and should be reverted.
-I agree that using 'dstport' option to also create a socket and binding 
-to that port for
-receives is confusing. As the name suggests, it should only be used as a 
-default dst
-port for fdb entries.
+> Ok, so mv643xx_eth would match both "marvell,orion-eth" and
+> "marvell,kirkwood-eth", then write to PSC1 iff it sees a node matching
+> "marvell,kirkwood-eth".  I'm not too keen on that, however, the matching
+> of the machine doesn't look to good, either.
 
->          An admin should be able to specify the source and destination
-> ports independently of each other. If dstport has a side-effect that
-> is unrelated to changing the destination port, that's what I'd call
-> "confusing."
->          IMHO, "port" should change the listen port (only) and "dstport"
-> should change the send port (only). And yes, both of those should allow
-> multiple ports, and destinations. So, binding should be a list of
-> the form: "[IP:]port[,[IP:]port]*" and destinations should be the same
-> as in the fdb, allowing multiple destinations and different ports, and
-> different vni's. It should be simply a "default" fdb entry in all
-> respects.
-Currently 'port' option takes 2 values that indicate the range of ports 
-that can be used as
-source port when sending vxlan packets.
+I didn't choose "marvell,mv643xx-eth" for two reasons
+(a) The DT layout is slightly different with phy-handle instead of phy
+and marvell prefixed properties. Choosing a compatible string that
+matches any PPC compatible string will cause driver racing with sysdev
+code to set up platform_data.
 
-So we don't have a good way to specify listening port when creating a 
-vxlan device using
-the existing options.
+(b) I chose to name the controller "orion-eth" and the port
+"orion-eth-port" .. PPC has "mv64360-eth" for the port and some 
+"mv64360-eth-block" or "-group" for the controller. IMHO not intuitive,
+but it just a name anyway.
 
-It may be a good idea to revert dstport in linux-3.10 and  multiple 
-listening ports patch in
-net-next and re-implement them with 2 different options that can take a 
-list of ports/addresses
-as David suggested.
+> Perhaps a better answer is to add a boolean, "marvell,kirkwood_psc1" and
+> check for that?
+>
+> Or, marvell,psc1_reset =<0xWWXXYYZZ>;
 
-Thanks
-Sridhar
+For the _long_ run: Exploit either already present phy properties for
+MII and friends or introduce new marvell prefixed .. but not misuse DT
+for register values here. Each SoC should setup mv643xx_eth properly,
+but that should be based on a clean approach _and_ enough people willing
+to test that.
+
+I just have a Dockstar and Topkick which is running 24/7. I didn't even
+check if only 6281 suffers from it or also 6282 or maybe only some
+revisions of 6281. This patch is a fix, nothing more nothing
+less. If you have Kirkwoods around, please test if it suffers from
+loosing the MAC address and if it works after insmod with the fix
+installed.
+
+>> The question is what other Marvell SOCs have the same PSC1 layout as
+>> kirkwood?
+>
+> I think marvell,psc1_reset =<>; gives us the most flexibility in
+> accurately describing the hardware.
+
+IMHO using that is just another workaround for a broken driver. We
+could hack the whole register setup in DT as it would still accurately
+describe HW. Don't get me wrong, but I don't like it.
+
+Haven't checked how happy Linus Walleij is about pinctrl drivers with
+reg values hacked in lately.
+
+Sebastian
