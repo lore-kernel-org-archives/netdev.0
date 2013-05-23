@@ -1,347 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net-next] tcp: remove one indentation level in
- tcp_rcv_state_process()
-Date: Thu, 23 May 2013 08:55:25 -0700
-Message-ID: <1369324525.3301.384.camel@edumazet-glaptop>
-References: <1366341367.3205.85.camel@edumazet-glaptop>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for
+ Kirkwood SoCs
+Date: Thu, 23 May 2013 12:01:11 -0400
+Message-ID: <20130523160111.GP31290@titan.lakedaemon.net>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20130522201607.GA18823@obsidianresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:51146 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758884Ab3EWPz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 11:55:27 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kl1so1265973pab.6
-        for <netdev@vger.kernel.org>; Thu, 23 May 2013 08:55:27 -0700 (PDT)
-In-Reply-To: <1366341367.3205.85.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Andrew Lunn <andrew@lunn.ch>, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
+ Lennert Buytenhek <buytenh@wantstofly.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20130522201607.GA18823@obsidianresearch.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Sebastian,
 
-Remove one level of indentation 'introduced' in commit
-c3ae62af8e75 (tcp: should drop incoming frames without ACK flag set)
+On Wed, May 22, 2013 at 02:16:07PM -0600, Jason Gunthorpe wrote:
+> On Wed, May 22, 2013 at 10:04:02PM +0200, Sebastian Hesselbarth wrote:
+> 
+> > Ethernet controllers found on Kirkwood SoCs not only suffer from loosing
+> > MAC address register contents on clock gating but also some important
+> > registers are reset to values that would break ethernet. This patch
+> 
+> FWIW, we found that the bootloader has to write to PSC1, the driver
+> doesn't work with the power on/reset value of the register. So I think
+> it is safe to assume that all kirkwood bootloaders alter the value.
+> 
+> Our systems write the value 0x00638488 to PSC1.
+> 
+> I looked at patching mv643xx_eth, but ran into the same complexity you
+> did, it isn't clear what variants of this IP block have the
+> register/etc.
+> 
+> > +	/* Kirkwood resets some registers on gated clocks. Especially
+> > +	 * CLK125_BYPASS_EN must be cleared but is not available on
+> > +	 * all other SoCs/System Controllers using this driver.
+> > +	 */
+> > +	if (of_machine_is_compatible("marvell,kirkwood"))
+> > +		wrlp(mp, PORT_SERIAL_CONTROL1,
+> > +		     rdlp(mp, PORT_SERIAL_CONTROL1) & ~CLK125_BYPASS_EN);
+> 
+> of_machine_is_compatible seems heavy handed, I would expect this to be
+> based on the compatible string of the ethernet node itself, not the
+> machine??
 
-if (true) {
-	...
-}
+Is there a model number variation between IP that needs this and IP that
+doesn't?  If not, I'm fine with of_machine_is_compatible().
 
-@acceptable variable is a boolean.
+thx,
 
-This patch is a pure cleanup.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
----
-respin of v1 sent April 18th and postponed because of fix we
-had to do before (tcp: call tcp_replace_ts_recent() from tcp_ack())
-
- net/ipv4/tcp_input.c |  270 ++++++++++++++++++++---------------------
- 1 file changed, 134 insertions(+), 136 deletions(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index d7d3694..162f40f 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -5533,6 +5533,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 	struct inet_connection_sock *icsk = inet_csk(sk);
- 	struct request_sock *req;
- 	int queued = 0;
-+	bool acceptable;
- 
- 	tp->rx_opt.saw_tstamp = 0;
- 
-@@ -5603,157 +5604,154 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
- 		return 0;
- 
- 	/* step 5: check the ACK field */
--	if (true) {
--		int acceptable = tcp_ack(sk, skb, FLAG_SLOWPATH |
--						  FLAG_UPDATE_TS_RECENT) > 0;
--
--		switch (sk->sk_state) {
--		case TCP_SYN_RECV:
--			if (acceptable) {
--				/* Once we leave TCP_SYN_RECV, we no longer
--				 * need req so release it.
--				 */
--				if (req) {
--					tcp_synack_rtt_meas(sk, req);
--					tp->total_retrans = req->num_retrans;
--
--					reqsk_fastopen_remove(sk, req, false);
--				} else {
--					/* Make sure socket is routed, for
--					 * correct metrics.
--					 */
--					icsk->icsk_af_ops->rebuild_header(sk);
--					tcp_init_congestion_control(sk);
-+	acceptable = tcp_ack(sk, skb, FLAG_SLOWPATH |
-+				      FLAG_UPDATE_TS_RECENT) > 0;
- 
--					tcp_mtup_init(sk);
--					tcp_init_buffer_space(sk);
--					tp->copied_seq = tp->rcv_nxt;
--				}
--				smp_mb();
--				tcp_set_state(sk, TCP_ESTABLISHED);
--				sk->sk_state_change(sk);
-+	switch (sk->sk_state) {
-+	case TCP_SYN_RECV:
-+		if (acceptable) {
-+			/* Once we leave TCP_SYN_RECV, we no longer
-+			 * need req so release it.
-+			 */
-+			if (req) {
-+				tcp_synack_rtt_meas(sk, req);
-+				tp->total_retrans = req->num_retrans;
- 
--				/* Note, that this wakeup is only for marginal
--				 * crossed SYN case. Passively open sockets
--				 * are not waked up, because sk->sk_sleep ==
--				 * NULL and sk->sk_socket == NULL.
-+				reqsk_fastopen_remove(sk, req, false);
-+			} else {
-+				/* Make sure socket is routed, for
-+				 * correct metrics.
- 				 */
--				if (sk->sk_socket)
--					sk_wake_async(sk,
--						      SOCK_WAKE_IO, POLL_OUT);
--
--				tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
--				tp->snd_wnd = ntohs(th->window) <<
--					      tp->rx_opt.snd_wscale;
--				tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
--
--				if (tp->rx_opt.tstamp_ok)
--					tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
--
--				if (req) {
--					/* Re-arm the timer because data may
--					 * have been sent out. This is similar
--					 * to the regular data transmission case
--					 * when new data has just been ack'ed.
--					 *
--					 * (TFO) - we could try to be more
--					 * aggressive and retranmitting any data
--					 * sooner based on when they were sent
--					 * out.
--					 */
--					tcp_rearm_rto(sk);
--				} else
--					tcp_init_metrics(sk);
-+				icsk->icsk_af_ops->rebuild_header(sk);
-+				tcp_init_congestion_control(sk);
- 
--				/* Prevent spurious tcp_cwnd_restart() on
--				 * first data packet.
-+				tcp_mtup_init(sk);
-+				tcp_init_buffer_space(sk);
-+				tp->copied_seq = tp->rcv_nxt;
-+			}
-+			smp_mb();
-+			tcp_set_state(sk, TCP_ESTABLISHED);
-+			sk->sk_state_change(sk);
-+
-+			/* Note, that this wakeup is only for marginal
-+			 * crossed SYN case. Passively open sockets
-+			 * are not waked up, because sk->sk_sleep ==
-+			 * NULL and sk->sk_socket == NULL.
-+			 */
-+			if (sk->sk_socket)
-+				sk_wake_async(sk,
-+					      SOCK_WAKE_IO, POLL_OUT);
-+
-+			tp->snd_una = TCP_SKB_CB(skb)->ack_seq;
-+			tp->snd_wnd = ntohs(th->window) << tp->rx_opt.snd_wscale;
-+			tcp_init_wl(tp, TCP_SKB_CB(skb)->seq);
-+
-+			if (tp->rx_opt.tstamp_ok)
-+				tp->advmss -= TCPOLEN_TSTAMP_ALIGNED;
-+
-+			if (req) {
-+				/* Re-arm the timer because data may
-+				 * have been sent out. This is similar
-+				 * to the regular data transmission case
-+				 * when new data has just been ack'ed.
-+				 *
-+				 * (TFO) - we could try to be more
-+				 * aggressive and retranmitting any data
-+				 * sooner based on when they were sent
-+				 * out.
- 				 */
--				tp->lsndtime = tcp_time_stamp;
-+				tcp_rearm_rto(sk);
-+			} else
-+				tcp_init_metrics(sk);
- 
--				tcp_initialize_rcv_mss(sk);
--				tcp_fast_path_on(tp);
--			} else {
--				return 1;
--			}
--			break;
-+			/* Prevent spurious tcp_cwnd_restart() on
-+			 * first data packet.
-+			 */
-+			tp->lsndtime = tcp_time_stamp;
- 
--		case TCP_FIN_WAIT1:
--			/* If we enter the TCP_FIN_WAIT1 state and we are a
--			 * Fast Open socket and this is the first acceptable
--			 * ACK we have received, this would have acknowledged
--			 * our SYNACK so stop the SYNACK timer.
-+			tcp_initialize_rcv_mss(sk);
-+			tcp_fast_path_on(tp);
-+		} else {
-+			return 1;
-+		}
-+		break;
-+
-+	case TCP_FIN_WAIT1:
-+		/* If we enter the TCP_FIN_WAIT1 state and we are a
-+		 * Fast Open socket and this is the first acceptable
-+		 * ACK we have received, this would have acknowledged
-+		 * our SYNACK so stop the SYNACK timer.
-+		 */
-+		if (req != NULL) {
-+			/* Return RST if ack_seq is invalid.
-+			 * Note that RFC793 only says to generate a
-+			 * DUPACK for it but for TCP Fast Open it seems
-+			 * better to treat this case like TCP_SYN_RECV
-+			 * above.
- 			 */
--			if (req != NULL) {
--				/* Return RST if ack_seq is invalid.
--				 * Note that RFC793 only says to generate a
--				 * DUPACK for it but for TCP Fast Open it seems
--				 * better to treat this case like TCP_SYN_RECV
--				 * above.
--				 */
--				if (!acceptable)
-+			if (!acceptable)
-+				return 1;
-+			/* We no longer need the request sock. */
-+			reqsk_fastopen_remove(sk, req, false);
-+			tcp_rearm_rto(sk);
-+		}
-+		if (tp->snd_una == tp->write_seq) {
-+			struct dst_entry *dst;
-+
-+			tcp_set_state(sk, TCP_FIN_WAIT2);
-+			sk->sk_shutdown |= SEND_SHUTDOWN;
-+
-+			dst = __sk_dst_get(sk);
-+			if (dst)
-+				dst_confirm(dst);
-+
-+			if (!sock_flag(sk, SOCK_DEAD)) {
-+				/* Wake up lingering close() */
-+				sk->sk_state_change(sk);
-+			} else {
-+				int tmo;
-+
-+				if (tp->linger2 < 0 ||
-+				    (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
-+				     after(TCP_SKB_CB(skb)->end_seq - th->fin, tp->rcv_nxt))) {
-+					tcp_done(sk);
-+					NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPABORTONDATA);
- 					return 1;
--				/* We no longer need the request sock. */
--				reqsk_fastopen_remove(sk, req, false);
--				tcp_rearm_rto(sk);
--			}
--			if (tp->snd_una == tp->write_seq) {
--				struct dst_entry *dst;
--
--				tcp_set_state(sk, TCP_FIN_WAIT2);
--				sk->sk_shutdown |= SEND_SHUTDOWN;
--
--				dst = __sk_dst_get(sk);
--				if (dst)
--					dst_confirm(dst);
--
--				if (!sock_flag(sk, SOCK_DEAD))
--					/* Wake up lingering close() */
--					sk->sk_state_change(sk);
--				else {
--					int tmo;
--
--					if (tp->linger2 < 0 ||
--					    (TCP_SKB_CB(skb)->end_seq != TCP_SKB_CB(skb)->seq &&
--					     after(TCP_SKB_CB(skb)->end_seq - th->fin, tp->rcv_nxt))) {
--						tcp_done(sk);
--						NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPABORTONDATA);
--						return 1;
--					}
-+				}
- 
--					tmo = tcp_fin_time(sk);
--					if (tmo > TCP_TIMEWAIT_LEN) {
--						inet_csk_reset_keepalive_timer(sk, tmo - TCP_TIMEWAIT_LEN);
--					} else if (th->fin || sock_owned_by_user(sk)) {
--						/* Bad case. We could lose such FIN otherwise.
--						 * It is not a big problem, but it looks confusing
--						 * and not so rare event. We still can lose it now,
--						 * if it spins in bh_lock_sock(), but it is really
--						 * marginal case.
--						 */
--						inet_csk_reset_keepalive_timer(sk, tmo);
--					} else {
--						tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
--						goto discard;
--					}
-+				tmo = tcp_fin_time(sk);
-+				if (tmo > TCP_TIMEWAIT_LEN) {
-+					inet_csk_reset_keepalive_timer(sk, tmo - TCP_TIMEWAIT_LEN);
-+				} else if (th->fin || sock_owned_by_user(sk)) {
-+					/* Bad case. We could lose such FIN otherwise.
-+					 * It is not a big problem, but it looks confusing
-+					 * and not so rare event. We still can lose it now,
-+					 * if it spins in bh_lock_sock(), but it is really
-+					 * marginal case.
-+					 */
-+					inet_csk_reset_keepalive_timer(sk, tmo);
-+				} else {
-+					tcp_time_wait(sk, TCP_FIN_WAIT2, tmo);
-+					goto discard;
- 				}
- 			}
--			break;
-+		}
-+		break;
- 
--		case TCP_CLOSING:
--			if (tp->snd_una == tp->write_seq) {
--				tcp_time_wait(sk, TCP_TIME_WAIT, 0);
--				goto discard;
--			}
--			break;
-+	case TCP_CLOSING:
-+		if (tp->snd_una == tp->write_seq) {
-+			tcp_time_wait(sk, TCP_TIME_WAIT, 0);
-+			goto discard;
-+		}
-+		break;
- 
--		case TCP_LAST_ACK:
--			if (tp->snd_una == tp->write_seq) {
--				tcp_update_metrics(sk);
--				tcp_done(sk);
--				goto discard;
--			}
--			break;
-+	case TCP_LAST_ACK:
-+		if (tp->snd_una == tp->write_seq) {
-+			tcp_update_metrics(sk);
-+			tcp_done(sk);
-+			goto discard;
- 		}
-+		break;
- 	}
- 
- 	/* step 6: check the URG bit */
+Jason.
