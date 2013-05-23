@@ -1,41 +1,42 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next RFC 1/8] macvlan: switch to use IS_ENABLED()
-Date: Thu, 23 May 2013 14:31:44 +0300
-Message-ID: <20130523113144.GA17993@redhat.com>
-References: <1369278753-2533-1-git-send-email-jasowang@redhat.com>
- <1369278753-2533-2-git-send-email-jasowang@redhat.com>
+From: "Florian Fainelli" <f.fainelli@gmail.com>
+Subject: [PATCH 0/3 v3] phy: allow flagging PHY devices as internal
+Date: Thu, 23 May 2013 12:11:10 +0100
+Message-ID: <1369307473-20696-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1369278753-2533-2-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, afleming@freescale.com, jogo@openwrt.org,
+	bhutchings@solarflare.com,
+	"Florian Fainelli" <f.fainelli@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:3301 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758538Ab3EWLd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 May 2013 07:33:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 23, 2013 at 11:12:26AM +0800, Jason Wang wrote:
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+David, Andy,
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+This small patch set updates libphy to allow PHY drivers to flag a
+specific PHY device as internal, which is then used to accurately
+report the transceiver type (internal vs external) in ethtool.
 
-> ---
->  include/linux/if_macvlan.h |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-> index 84dde1d..e47ad46 100644
-> --- a/include/linux/if_macvlan.h
-> +++ b/include/linux/if_macvlan.h
-> @@ -8,7 +8,7 @@
->  #include <net/netlink.h>
->  #include <linux/u64_stats_sync.h>
->  
-> -#if defined(CONFIG_MACVTAP) || defined(CONFIG_MACVTAP_MODULE)
-> +#if IS_ENABLED(CONFIG_MACVTAP)
->  struct socket *macvtap_get_socket(struct file *);
->  #else
->  #include <linux/err.h>
-> -- 
-> 1.7.1
+As far as I can tell we only have one in-tree driver for the moment
+which is known to be for internal PHYs.
+
+Florian Fainelli (3):
+  net: ethtool: disambiguate XCVR_* meaning
+  phy: allow drivers to flag a PHY device as internal
+  phy: bcm63xx: report Broadcom BCM63xx PHYs as internal
+
+ drivers/net/phy/bcm63xx.c    |  4 ++--
+ drivers/net/phy/phy.c        |  3 ++-
+ drivers/net/phy/phy_device.c |  3 +++
+ include/linux/phy.h          | 12 ++++++++++++
+ include/uapi/linux/ethtool.h |  4 ++--
+ 5 files changed, 21 insertions(+), 5 deletions(-)
+
+-- 
+1.8.1.2
