@@ -1,68 +1,38 @@
-From: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>
-Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for Kirkwood
- SoCs
-Date: Fri, 24 May 2013 11:33:06 -0600
-Message-ID: <20130524173306.GA30022@obsidianresearch.com>
-References: <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
- <20130522201607.GA18823@obsidianresearch.com>
- <20130523160111.GP31290@titan.lakedaemon.net>
- <20130523171112.GB31281@obsidianresearch.com>
- <20130523172339.GQ31290@titan.lakedaemon.net>
- <20130523175357.GB2821@obsidianresearch.com>
- <20130523184028.GU31290@titan.lakedaemon.net>
- <20130523190140.GA4010@obsidianresearch.com>
- <20130524164636.GV31290@titan.lakedaemon.net>
+From: Sarah Sharp <sarah.a.sharp@linux.intel.com>
+Subject: Re: Mobile Broadband Interface Model (MBIM) support?
+Date: Fri, 24 May 2013 11:10:51 -0700
+Message-ID: <20130524181051.GB15788@xanatos>
+References: <20130524170915.GA15788@xanatos>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	linux-kernel@vger.kernel.org,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	David Miller <davem@davemloft.net>,
-	linux-arm-kernel@lists.infradead.org,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Jason Cooper <jason@lakedaemon.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: "Ismail, Rahman" <abdul.r.ismail@intel.com>,
+	"Wallick, Stephanie S" <stephanie.s.wallick@intel.com>
+To: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, dcbw@redhat
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:13785 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751633Ab3EXSKv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 May 2013 14:10:51 -0400
 Content-Disposition: inline
-In-Reply-To: <20130524164636.GV31290@titan.lakedaemon.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130524170915.GA15788@xanatos>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 24, 2013 at 12:46:36PM -0400, Jason Cooper wrote:
+Ccing Dan Williams, since Johannes Berg mentioned on IRC that Dan might
+know the status of MBIM support.
 
-> > Why are you not keen on this? It seems like normal device driver
-> > practice, that is what the data field of of_device_id is typically
-> > used for..
+On Fri, May 24, 2013 at 10:09:15AM -0700, Sarah Sharp wrote:
+> Do we have support for the new extensions for USB communication devices
+> that use the Mobile Broadband Interface Model (MBIM) spec?
 > 
-> I'm not keen on it because we don't have a document saying "All kirkwood
-> SoCs need PSC1 set to X after reset."  We know it, but have we tested
-> the 6282?
-
-I disagree. The manul is very clear how PSC1 must be set for proper
-operation. Clk125BypassEn bit is used only for loopback testing, it
-should never set for driver operation. Similarly PortReset must be
-cleared for driver operation.
-
-It is always safe for the driver to clear these bits, if it knows they
-are available.  In fact, I would argue the driver should always clear
-these bits so that the bootloader isn't relied on to do it. It doesn't
-matter if the SOC errantly sets the bit or not, it can *always* be
-safely cleared.
-
-Further, I compared my 88F6282/88F6283 manual against the public
-88F6180/88F619x/88F6281 spec and confirmed that the PSC1 layout is the
-same.
-
-So all of these SOC's can share a driver compatible string.
-
-AFAICT the only reason the driver doesn't touch PSC1 today is because
-the PSC1 was introduced in a later IP revision and its presence isn't
-auto-detectable.
-
-The last bit of the puzzle to get bootloader independence on kirkwood
-is to encode the phy interface type (GMII/RGMII/BASE-X) in the DT so
-the entire PSC1 can be set by the driver..
-
-Jason
+> http://www.usb.org/developers/devclass_docs/MBIM10Errata1.zip
+> 
+> The spec was released pretty recently, which is why I'm asking on the
+> mailing lists, rather than digging around the kernel tree for a driver.
+> 
+> Sarah Sharp
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
