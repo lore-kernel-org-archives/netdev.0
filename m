@@ -1,32 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2 V3] Xen network: split event channels
- support
-Date: Thu, 23 May 2013 18:41:07 -0700 (PDT)
-Message-ID: <20130523.184107.1626078235368904477.davem@davemloft.net>
-References: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com>
+Subject: Re: [PATCH v2 net-next 0/4] bnx2x: Enhancement patch series
+Date: Thu, 23 May 2013 18:49:51 -0700 (PDT)
+Message-ID: <20130523.184951.51052688105215644.davem@davemloft.net>
+References: <1369293712-26541-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xen-devel@lists.xen.org, netdev@vger.kernel.org, jbeulich@suse.com,
-	ian.campbell@citrix.com, annie.li@oracle.com,
-	konrad.wilk@oracle.com, david.vrabel@citrix.com
-To: wei.liu2@citrix.com
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37462 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37646 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759471Ab3EXBlI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 21:41:08 -0400
-In-Reply-To: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com>
+	with ESMTP id S1758618Ab3EXBtw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 21:49:52 -0400
+In-Reply-To: <1369293712-26541-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Liu <wei.liu2@citrix.com>
-Date: Wed, 22 May 2013 17:34:44 +0100
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Thu, 23 May 2013 10:21:48 +0300
 
-> This series adds a new feature called split event channels.
+> This series contain several small enhancements - chief among those are
+> the implementation of ethtool's private flags callback to share information
+> about the storage offload capabilities of its network interfaces,
+> and the prevention of a link flap when booting from storage area networks.
 > 
-> In the original implementation, only one event channel is setup between
-> frontend and backend. This is not ideal as TX notification interferes with RX
-> notification. Using dedicated event channels for TX and RX solves this issue.
+> Please consider applying these patches to `net-next'.
+> 
+> Changes from V1:
+>   - Patch 1, removed trailing whitespaces from private flag strings.
 
 Series applied, thanks.
