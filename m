@@ -1,90 +1,47 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for
- Kirkwood SoCs
-Date: Fri, 24 May 2013 12:53:38 -0400
-Message-ID: <20130524165338.GW31290@titan.lakedaemon.net>
-References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
- <20130522201607.GA18823@obsidianresearch.com>
- <20130523160111.GP31290@titan.lakedaemon.net>
- <20130523171112.GB31281@obsidianresearch.com>
- <20130523172339.GQ31290@titan.lakedaemon.net>
- <20130523175357.GB2821@obsidianresearch.com>
- <20130523184028.GU31290@titan.lakedaemon.net>
- <519E9ADA.3040204@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
+Date: Fri, 24 May 2013 09:58:56 -0700
+Message-ID: <1369414736.3301.420.camel@edumazet-glaptop>
+References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com>
+	 <20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- linux-kernel@vger.kernel.org,
- Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
- Lennert Buytenhek <buytenh@wantstofly.org>, netdev@vger.kernel.org,
- linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <519E9ADA.3040204@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Or Gerlitz <or.gerlitz@gmail.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Shawn Bohrer <shawn.bohrer@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:55312 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751406Ab3EXQ66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 12:58:58 -0400
+Received: by mail-pb0-f44.google.com with SMTP id wz12so4446501pbc.31
+        for <netdev@vger.kernel.org>; Fri, 24 May 2013 09:58:57 -0700 (PDT)
+In-Reply-To: <20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 24, 2013 at 12:40:26AM +0200, Sebastian Hesselbarth wrote:
-> On 05/23/2013 08:40 PM, Jason Cooper wrote:
-> >On Thu, May 23, 2013 at 11:53:57AM -0600, Jason Gunthorpe wrote:
-> >>On Thu, May 23, 2013 at 01:23:39PM -0400, Jason Cooper wrote:
-> >>>Shouldn't it rather be
-> >>>
-> >>>	compatible = "marvell,kirkwood-eth", "marvell,orion-eth";
-> >>
-> >>Not sure about orion-eth?
-
-Sorry, yep, one or the other.
-
-> Jason, Jason,
-
-For a second, I read this as "tsk tsk tsk..." ;-)
-
-> sorry I didn't came back to this conversation earlier. I already
-> reworked the patch to rely on
-> of_device_is_compatible(.."marvell,kirkwood-eth"..). This is a
-> kirkwood only thing as other Orions cannot do clock gating or
-> retain critcal register content (Dove). I will stick with orion-eth
-> for all other and maybe introduce new compatible strings (and new
-> fixes) as soon as issues surface.
-
-Okay, as I mentioned to Jason, I would like to test 6282 before we
-settle on this path.  Other than that, I'm fine with it.
-
-> >>>I'm inclined to go with of_machine_is_compatible() since the only
-> >>>concrete difference we know is that the tweak is needed on kirkwood and
-> >>>nowhere else.
-> >>
-> >>But there is a larger problem here then just this one bit.
-> >>
-> >>The PSC1 register must be set properly for the board layout, and today
-> >>we rely on the bootloader to set it. In fact, even with Sebastian's
-> >>change the ethernet port won't work without bootloader
-> >>intervention. The PortReset bit should also be cleared by the driver
-> >>(and it is only present on some variants of this IP block,
-> >>apparently).
+On Fri, 2013-05-24 at 11:34 -0500, Shawn Bohrer wrote:
+> On Fri, May 24, 2013 at 10:49:31AM -0500, Shawn Bohrer wrote:
+> > I just started testing the 3.10 kernel, previously we were on 3.4 so
+> > there is a fairly large jump.  I've additionally applied the following
+> > four patches to the 3.10.0-rc2 kernel that I'm testing:
+> > 
+> > https://patchwork.kernel.org/patch/2484651/
+> > https://patchwork.kernel.org/patch/2484671/
+> > https://patchwork.kernel.org/patch/2484681/
+> > https://patchwork.kernel.org/patch/2484641/
+> > 
+> > I don't know if those patches are related to my issues or not but I
+> > plan on trying to reproduce without them soon.
 > 
-> Actually, fixing modular scenarios is only for the sake of multiarch
-> someday. I don't see the point in running current kernel without eth
-> compiled in _on a NAS SoC_ ;)
+> I've reverted the four patches above from my test kernel and still see
+> the issue so they don't appear to be the cause.
 
-Good point, but if the eth can be gated to save power, we shouldn't
-limit the user's ability just because the SoC is primarily in NAS's.
+I suggest adding in tools/testing/selftests/net tests about multicast
+stuff.
 
-thx,
-
-Jason.
+It seems many NIC suffer from bugs in this area, especially when dealing
+with a lot of groups.
