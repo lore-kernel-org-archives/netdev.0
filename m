@@ -1,60 +1,66 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 06/12] qlcnic: Convert nested if-else to switch-case
-Date: Fri, 24 May 2013 09:36:49 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B724B@saturn3.aculab.com>
-References: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com> <1369379076-4718-7-git-send-email-shahed.shaikh@qlogic.com>
+From: "devendra.aaru" <devendra.aaru@gmail.com>
+Subject: Re: napi layer and packet throttling
+Date: Fri, 24 May 2013 14:50:42 +0530
+Message-ID: <CAHdPZaPChc_EUW_Y+Dvu16nsAGZpe00BRm08-2NW=p+8hDt1yA@mail.gmail.com>
+References: <519E030E.5040903@keymile.com>
+	<1369348056.6963.25.camel@bwh-desktop.uk.level5networks.com>
+	<519F1698.3050301@keymile.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	"Jitendra Kalsaria" <jitendra.kalsaria@qlogic.com>
-To: "Shahed Shaikh" <shahed.shaikh@qlogic.com>, <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Holger Brunck <holger.brunck@keymile.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:42373 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750720Ab3EXImn convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 04:42:43 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 14765-07 for <netdev@vger.kernel.org>;
- Fri, 24 May 2013 09:42:39 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1369379076-4718-7-git-send-email-shahed.shaikh@qlogic.com>
+Received: from mail-wi0-f180.google.com ([209.85.212.180]:57740 "EHLO
+	mail-wi0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752649Ab3EXJUn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 05:20:43 -0400
+Received: by mail-wi0-f180.google.com with SMTP id hn14so2584839wib.13
+        for <netdev@vger.kernel.org>; Fri, 24 May 2013 02:20:42 -0700 (PDT)
+In-Reply-To: <519F1698.3050301@keymile.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -
-> -	if (priv_level == QLCNIC_NON_PRIV_FUNC) {
-> +	switch (priv_level) {
-> +	case QLCNIC_NON_PRIV_FUNC:
->  		ahw->op_mode = QLCNIC_NON_PRIV_FUNC;
->  		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
->  		nic_ops->init_driver = qlcnic_83xx_init_non_privileged_vnic;
-> -	} else if (priv_level == QLCNIC_PRIV_FUNC) {
-> +		break;
-> +	case QLCNIC_PRIV_FUNC:
->  		ahw->op_mode = QLCNIC_PRIV_FUNC;
->  		ahw->idc.state_entry = qlcnic_83xx_idc_vnic_pf_entry;
->  		nic_ops->init_driver = qlcnic_83xx_init_privileged_vnic;
-> -	} else if (priv_level == QLCNIC_MGMT_FUNC) {
-> +		break;
-> +	case QLCNIC_MGMT_FUNC:
->  		ahw->op_mode = QLCNIC_MGMT_FUNC;
->  		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
->  		nic_ops->init_driver = qlcnic_83xx_init_mgmt_vnic;
-> -	} else {
-> +		break;
-> +	default:
-> +		dev_err(&adapter->pdev->dev, "Invalid Virtual NIC opmode\n");
->  		return -EIO;
->  	}
+On Fri, May 24, 2013 at 12:58 PM, Holger Brunck
+<holger.brunck@keymile.com> wrote:
+> Hi Ben,
+>
+> On 05/24/2013 12:27 AM, Ben Hutchings wrote:
+>> On Thu, 2013-05-23 at 13:52 +0200, Holger Brunck wrote:
+>>> b) Packet-Throttling
+>>> Here the description says "NAPI-compliant drivers can often cause packets to be
+>>> dropped in the network adaptor itself, before the kernel sees them at all."
+>>>
+>>> This is exactly what I need for my usecase. But I don't see any hints how this
+>>> can be implemented with the napi layer.
+>> [...]
+>>
+>> If the RX ring is not cleaned and refilled quickly enough, the network
+>> controller will naturally start to drop packets.  It's not something you
+>> should do explicitly in the driver.
+>>
+>
+> yes. But what if the remaining amount of packets which are getting through the
+> napi_poll function into the linux system are still to many and generate
+> therefore a to high softirq load on the system which leads to the problems I
+> see. Ok I could use a smaller amount of RX ring buffers, but then the system
+> would get more intolerant for RX bursts what I don't want. I would like to
+> protect the system if someone sends continuously a high packet rate to the
+> interface, similar to DoS attacks.
 
-If the NON_PRIV case happens most of the time, then the old code would
-have a single conditional branch that could easily be predicted correctly.
-The switch statement version will either be a compare and an indirect jump
-(a pipeline stall on a lot of cpus) or a compare-branch chain.
 
-So this is necessarily an improvent!
+what if i measure no. of packets over a period of time and find the
+rate of arrival (packets/msec) and if that rate is greater than the
+choosen rate, allow only packets that are in the window that you can
+accept, This window can be time window or the number of packets (like
+1 packet in 10 usec or 1 packet out of 100 packets). Like wise this
+measurement can be repeated after every full period.
 
-	David
+
+>
+> Regards
+> Holger
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
