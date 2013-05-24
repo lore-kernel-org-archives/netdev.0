@@ -1,60 +1,69 @@
-From: Daniel Petre <daniel.petre@rcs-rds.ro>
-Subject: Re: [PATCH] ip_gre: fix kernel panic with icmp_dest_unreach
-Date: Fri, 24 May 2013 12:40:02 +0300
-Message-ID: <519F3572.7060503@rcs-rds.ro>
-References: <D2CA09D3-A93C-48CF-A23B-DC1B76D66818@rcs-rds.ro>  <1369170063.3301.251.camel@edumazet-glaptop> <519C839E.1000309@rcs-rds.ro>   <1369222666.3301.304.camel@edumazet-glaptop> <519CB0D3.8000406@rcs-rds.ro>  <1369230739.3301.334.camel@edumazet-glaptop> <519CE6F0.3040703@rcs-rds.ro>  <519DD7A4.9090801@rcs-rds.ro> <1369324409.3301.382.camel@edumazet-glaptop> <1369329033.3301.389.camel@edumazet-glaptop>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: updated: kvm networking todo wiki
+Date: Fri, 24 May 2013 17:41:11 +0800
+Message-ID: <519F35B7.6010408@redhat.com>
+References: <20130523085034.GA16142@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailproxy.rcs-rds.ro ([212.54.120.14]:42129 "EHLO
-	mailproxy.rcs-rds.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750933Ab3EXJkF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 05:40:05 -0400
-In-Reply-To: <1369329033.3301.389.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Krishna Kumar2 <krkumar2@in.ibm.com>, lmr@redhat.com, "Xin,
+	Xiaohui" <xiaohui.xin@intel.com>, kvm@vger.kernel.org,
+	netdev@vger.kernel.org, Shirley Ma <mashirle@us.ibm.com>,
+	virtualization@lists.linux-foundation.org,
+	David Stevens <dlstevens@us.ibm.com>, qemu-devel@nongnu.org,
+	vyasevic@redhat.com, herbert@gondor.hengli.com.au,
+	Anthony Liguori <anthony@codemonkey.ws>, jdike@linux.intel.com,
+	sri@linux.vnet.ibm.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130523085034.GA16142@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 05/23/2013 08:10 PM, Eric Dumazet wrote:
-> On Thu, 2013-05-23 at 08:53 -0700, Eric Dumazet wrote:
->> On Thu, 2013-05-23 at 11:47 +0300, Daniel Petre wrote:
->>
->>>
->>> Hello again Eric,
->>> we applied the little patch from:
->>> http://lkml.indiana.edu/hypermail/linux/kernel/1007.0/00961.html
->>> we have flapped the link few times and everything recovered smooth.
->>>
->>
->> Thats a very good catch, now we have to fix the bug at the right place.
-> 
-> 
-> Please try the following patch :
+On 05/23/2013 04:50 PM, Michael S. Tsirkin wrote:
+> Hey guys,
+> I've updated the kvm networking todo wiki with current projects.
+> Will try to keep it up to date more often.
+> Original announcement below.
 
-we have compiled it, tested it few times and.. nothing evil happens anymore!
+Thanks a lot. I've added the tasks I'm currently working on to the wiki.
 
-> 
-> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-> index 91d66db..563358e 100644
-> --- a/net/ipv4/ip_gre.c
-> +++ b/net/ipv4/ip_gre.c
-> @@ -795,6 +795,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
->  
->  	if (dev->type == ARPHRD_ETHER)
->  		IPCB(skb)->flags = 0;
-> +	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
->  
->  	if (dev->header_ops && dev->type == ARPHRD_IPGRE) {
->  		gre_hlen = 0;
-> @@ -952,7 +953,6 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
->  	skb_push(skb, gre_hlen);
->  	skb_reset_network_header(skb);
->  	skb_set_transport_header(skb, sizeof(*iph));
-> -	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
->  	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
->  			      IPSKB_REROUTED);
->  	skb_dst_drop(skb);
-> 
-> 
+btw. I notice the virtio-net data plane were missed in the wiki. Is the
+project still being considered?
+> ----
+>
+> I've put up a wiki page with a kvm networking todo list,
+> mainly to avoid effort duplication, but also in the hope
+> to draw attention to what I think we should try addressing
+> in KVM:
+>
+> http://www.linux-kvm.org/page/NetworkingTodo
+>
+> This page could cover all networking related activity in KVM,
+> currently most info is related to virtio-net.
+>
+> Note: if there's no developer listed for an item,
+> this just means I don't know of anyone actively working
+> on an issue at the moment, not that no one intends to.
+>
+> I would appreciate it if others working on one of the items on this list
+> would add their names so we can communicate better.  If others like this
+> wiki page, please go ahead and add stuff you are working on if any.
+>
+> It would be especially nice to add autotest projects:
+> there is just a short test matrix and a catch-all
+> 'Cover test matrix with autotest', currently.
+>
+> Currently there are some links to Red Hat bugzilla entries,
+> feel free to add links to other bugzillas.
+>
+> Thanks!
+>
