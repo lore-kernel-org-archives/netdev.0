@@ -1,44 +1,192 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v8 02/11] ipv6: make ip6_dst_hoplimit() static
- inline
-Date: Fri, 24 May 2013 13:15:20 +0800
-Message-ID: <1369372520.5590.2.camel@cr0>
-References: <1368750099-14086-3-git-send-email-amwang@redhat.com>
-	 <20130517.141327.2084320693913331713.davem@davemloft.net>
-	 <1369198453.5722.12.camel@cr0>
-	 <20130522.001453.864958570289931561.davem@davemloft.net>
-	 <1369218521.5097.20.camel@cr0>
-	 <CAF1J0HNZS_s9pA1jetaFHZgqdgT+BfS6wASDpTL5UV8SzpH6Fg@mail.gmail.com>
-	 <703447758.6014383.1369238603475.JavaMail.root@redhat.com>
-	 <20130522161013.GA10184@zed>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next RFC 5/8] macvtap: eliminate linear search
+Date: Fri, 24 May 2013 13:33:17 +0800
+Message-ID: <519EFB9D.8070607@redhat.com>
+References: <1369278753-2533-1-git-send-email-jasowang@redhat.com> <1369278753-2533-6-git-send-email-jasowang@redhat.com> <20130523114109.GB17993@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63629 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752685Ab3EXFPj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 May 2013 01:15:39 -0400
-In-Reply-To: <20130522161013.GA10184@zed>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130523114109.GB17993@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-22 at 19:10 +0300, Mike Rapoport wrote:
-> I've lost you here... Why not just:
-> 
-> static inline
-> bool vxlan_addr_equal(const union vxlan_addr *a, const union vxlan_addr *b)
-> {
->        if (a->sa.sa_family != b->sa.sa_family)
->                return false;
->        if (a->sa.sa_family == AF_INET6)
->                return ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr);
->        else
->                return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
-> }
+On 05/23/2013 07:41 PM, Michael S. Tsirkin wrote:
+> On Thu, May 23, 2013 at 11:12:30AM +0800, Jason Wang wrote:
+>> Linear search were used in both get_slot() and macvtap_get_queue(), this is
+>> because:
+>>
+>> - macvtap didn't reshuffle the array of taps when create or destroy a queue, so
+>>   when adding a new queue, macvtap must do linear search to find a location for
+>>   the new queue. This will also complicate the TUNSETQUEUE implementation for
+>>   multiqueue API.
+>> - the queue itself didn't track the queue index, so the we must do a linear
+>>   search in the array to find the location of a existed queue.
+>>
+>> The solution is straightforward: reshuffle the array and introduce a queue_index
+>> to macvtap_queue.
+>>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  drivers/net/macvtap.c |   63 +++++++++++++++---------------------------------
+>>  1 files changed, 20 insertions(+), 43 deletions(-)
+>>
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index a36e49e..5fd341c 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -44,6 +44,7 @@ struct macvtap_queue {
+>>  	struct macvlan_dev __rcu *vlan;
+>>  	struct file *file;
+>>  	unsigned int flags;
+>> +	u16 queue_index;
+>>  };
+>>  
+>>  static struct proto macvtap_proto = {
+>> @@ -84,30 +85,10 @@ static const struct proto_ops macvtap_socket_ops;
+>>   */
+>>  static DEFINE_SPINLOCK(macvtap_lock);
+>>  
+>> -/*
+>> - * get_slot: return a [unused/occupied] slot in vlan->taps[]:
+>> - *	- if 'q' is NULL, return the first empty slot;
+>> - *	- otherwise, return the slot this pointer occupies.
+>> - */
+>> -static int get_slot(struct macvlan_dev *vlan, struct macvtap_queue *q)
+>> -{
+>> -	int i;
+>> -
+>> -	for (i = 0; i < MAX_MACVTAP_QUEUES; i++) {
+>> -		if (rcu_dereference_protected(vlan->taps[i],
+>> -					      lockdep_is_held(&macvtap_lock)) == q)
+>> -			return i;
+>> -	}
+>> -
+>> -	/* Should never happen */
+>> -	BUG_ON(1);
+>> -}
+>> -
+>>  static int macvtap_set_queue(struct net_device *dev, struct file *file,
+>>  				struct macvtap_queue *q)
+>>  {
+>>  	struct macvlan_dev *vlan = netdev_priv(dev);
+>> -	int index;
+>>  	int err = -EBUSY;
+>>  
+>>  	spin_lock(&macvtap_lock);
+>> @@ -115,12 +96,12 @@ static int macvtap_set_queue(struct net_device *dev, struct file *file,
+>>  		goto out;
+>>  
+>>  	err = 0;
+>> -	index = get_slot(vlan, NULL);
+>>  	rcu_assign_pointer(q->vlan, vlan);
+>> -	rcu_assign_pointer(vlan->taps[index], q);
+>> +	rcu_assign_pointer(vlan->taps[vlan->numvtaps], q);
+>>  	sock_hold(&q->sk);
+>>  
+>>  	q->file = file;
+>> +	q->queue_index = vlan->numvtaps;
+>>  	file->private_data = q;
+>>  
+>>  	vlan->numvtaps++;
+>> @@ -140,16 +121,23 @@ out:
+>>   */
+>>  static void macvtap_put_queue(struct macvtap_queue *q)
+>>  {
+>> +	struct macvtap_queue *nq;
+>>  	struct macvlan_dev *vlan;
+>>  
+>>  	spin_lock(&macvtap_lock);
+>>  	vlan = rcu_dereference_protected(q->vlan,
+>>  					 lockdep_is_held(&macvtap_lock));
+>>  	if (vlan) {
+>> -		int index = get_slot(vlan, q);
+>> +		int index = q->queue_index;
+>> +		BUG_ON(index >= vlan->numvtaps);
+>>  
+>> -		RCU_INIT_POINTER(vlan->taps[index], NULL);
+>> +		rcu_assign_pointer(vlan->taps[index],
+>> +				   vlan->taps[vlan->numvtaps - 1]);
+>>  		RCU_INIT_POINTER(q->vlan, NULL);
+>> +		nq = rcu_dereference_protected(vlan->taps[index],
+>> +					       lockdep_is_held(&macvtap_lock));
+>> +		nq->queue_index = index;
+>> +
+>>  		sock_put(&q->sk);
+> Hmm this looks like a bug BTW: sock_put should be after
+> no one uses this tap, so must be after synchronize_rcu.
+> No?
 
-I see your point now, but for !CONFIG_IPV6, the first two 'if' is
-obviously useless. Is GCC smart enough to know ->sa.sa_family ==
-AF_INET4 is always true in such case? I doubt...
+Two refcnts were held, one is the socket itself (and we can safely put
+it here), another is held by device when doing macvtap_set_queue(), it
+was released by another sock_put() after synchronize_rcu().
+>
+>>  		--vlan->numvtaps;
+>>  	}
+> So:
+> 		nq = rcu_dereference_protected(vlan->taps[vlan->numvtaps - 1],
+> 					       lockdep_is_held(&macvtap_lock));
+> 		rcu_assign_pointer(vlan->taps[index], nq);
+>
+> same thing?
+
+Same and cleaner, thanks.
+>
+>> @@ -182,8 +170,7 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
+>>  	rxq = skb_get_rxhash(skb);
+>>  	if (rxq) {
+>>  		tap = rcu_dereference(vlan->taps[rxq % numvtaps]);
+>> -		if (tap)
+>> -			goto out;
+>> +		goto out;
+>>  	}
+>>  
+>>  	if (likely(skb_rx_queue_recorded(skb))) {
+>> @@ -193,17 +180,10 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
+>>  			rxq -= numvtaps;
+>>  
+>>  		tap = rcu_dereference(vlan->taps[rxq]);
+>> -		if (tap)
+>> -			goto out;
+>> -	}
+>> -
+>> -	/* Everything failed - find first available queue */
+>> -	for (rxq = 0; rxq < MAX_MACVTAP_QUEUES; rxq++) {
+>> -		tap = rcu_dereference(vlan->taps[rxq]);
+>> -		if (tap)
+>> -			break;
+>> +		goto out;
+>>  	}
+>>  
+>> +	tap = rcu_dereference(vlan->taps[0]);
+>>  out:
+>>  	return tap;
+>>  }
+>> @@ -221,17 +201,14 @@ static void macvtap_del_queues(struct net_device *dev)
+>>  
+>>  	/* macvtap_put_queue can free some slots, so go through all slots */
+>>  	spin_lock(&macvtap_lock);
+>> -	for (i = 0; i < MAX_MACVTAP_QUEUES && vlan->numvtaps; i++) {
+>> +	for (i = 0; i < vlan->numvtaps; i++) {
+>>  		q = rcu_dereference_protected(vlan->taps[i],
+>>  					      lockdep_is_held(&macvtap_lock));
+>> -		if (q) {
+>> -			qlist[j++] = q;
+>> -			RCU_INIT_POINTER(vlan->taps[i], NULL);
+>> -			RCU_INIT_POINTER(q->vlan, NULL);
+>> -			vlan->numvtaps--;
+>> -		}
+>> +		BUG_ON(q == NULL);
+>> +		qlist[j++] = q;
+>> +		RCU_INIT_POINTER(vlan->taps[i], NULL);
+>> +		RCU_INIT_POINTER(q->vlan, NULL);
+>>  	}
+>> -	BUG_ON(vlan->numvtaps != 0);
+>>  	/* guarantee that any future macvtap_set_queue will fail */
+>>  	vlan->numvtaps = MAX_MACVTAP_QUEUES;
+>>  	spin_unlock(&macvtap_lock);
+>> -- 
+>> 1.7.1
