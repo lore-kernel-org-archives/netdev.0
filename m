@@ -1,59 +1,102 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for
- Kirkwood SoCs
-Date: Fri, 24 May 2013 13:03:35 -0400
-Message-ID: <20130524170335.GY31290@titan.lakedaemon.net>
-References: <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
- <20130522201607.GA18823@obsidianresearch.com>
- <20130523160111.GP31290@titan.lakedaemon.net>
- <20130523171112.GB31281@obsidianresearch.com>
- <20130523172339.GQ31290@titan.lakedaemon.net>
- <20130523175357.GB2821@obsidianresearch.com>
- <20130523184028.GU31290@titan.lakedaemon.net>
- <20130523190140.GA4010@obsidianresearch.com>
- <20130524164636.GV31290@titan.lakedaemon.net>
- <20130524165315.GX26249@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
- Lennert Buytenhek <buytenh@wantstofly.org>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- linuxppc-dev@lists.ozlabs.org, David Miller <davem@davemloft.net>,
- linux-arm-kernel@lists.infradead.org,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <20130524165315.GX26249@lunn.ch>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Masanari Iida <standby24x7@gmail.com>
+Subject: [PATCH] [trivial]doc:networking: Fix typo in documentation/networking
+Date: Sat, 25 May 2013 02:05:59 +0900
+Message-ID: <1369415159-22856-1-git-send-email-standby24x7@gmail.com>
+Cc: Masanari Iida <standby24x7@gmail.com>
+To: trivial@kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 24, 2013 at 06:53:15PM +0200, Andrew Lunn wrote:
-> > > Why are you not keen on this? It seems like normal device driver
-> > > practice, that is what the data field of of_device_id is typically
-> > > used for..
-> > 
-> > I'm not keen on it because we don't have a document saying "All kirkwood
-> > SoCs need PSC1 set to X after reset."  We know it, but have we tested
-> > the 6282?
-> 
-> 6282 looses its MAC address, that much i know. I've no idea about
-> PSC1, but if its MAC address behaviour is the same as 6281, is expect
-> PSC1 is the same.
+Correct spelling typo
 
-Do you have a board set up for testing you could try Sebastian's
-forthcoming series on (with "marvell,kirkwood-eth")?
+Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 
-thx,
+---
+ Documentation/networking/ifenslave.c      |  2 +-
+ Documentation/networking/ip-sysctl.txt    |  2 +-
+ Documentation/networking/netlink_mmap.txt | 14 +++++++-------
+ 3 files changed, 9 insertions(+), 9 deletions(-)
 
-Jason.
+diff --git a/Documentation/networking/ifenslave.c b/Documentation/networking/ifenslave.c
+index ac5debb..9f6a8ff 100644
+--- a/Documentation/networking/ifenslave.c
++++ b/Documentation/networking/ifenslave.c
+@@ -501,7 +501,7 @@ out:
+ 
+ static short mif_flags;
+ 
+-/* Get the inteface configuration from the kernel. */
++/* Get the interface configuration from the kernel. */
+ static int if_getconfig(char *ifname)
+ {
+ 	struct ifreq ifr;
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index f98ca63..398d0fb 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -183,7 +183,7 @@ tcp_early_retrans - INTEGER
+ 	for triggering fast retransmit when the amount of outstanding data is
+ 	small and when no previously unsent data can be transmitted (such
+ 	that limited transmit could be used). Also controls the use of
+-	Tail loss probe (TLP) that converts RTOs occuring due to tail
++	Tail loss probe (TLP) that converts RTOs occurring due to tail
+ 	losses into fast recovery (draft-dukkipati-tcpm-tcp-loss-probe-01).
+ 	Possible values:
+ 		0 disables ER
+diff --git a/Documentation/networking/netlink_mmap.txt b/Documentation/networking/netlink_mmap.txt
+index 1c2dab4..e6088ba 100644
+--- a/Documentation/networking/netlink_mmap.txt
++++ b/Documentation/networking/netlink_mmap.txt
+@@ -54,7 +54,7 @@ it will use an allocated socket buffer as usual and the contents will be
+  copied to the ring on transmission, nullifying most of the performance gains.
+ Dumps of kernel databases automatically support memory mapped I/O.
+ 
+-Conversion of the transmit path involves changing message contruction to
++Conversion of the transmit path involves changing message construction to
+ use memory from the TX ring instead of (usually) a buffer declared on the
+ stack and setting up the frame header approriately. Optionally poll() can
+ be used to wait for free frames in the TX ring.
+@@ -65,8 +65,8 @@ Structured and definitions for using memory mapped I/O are contained in
+ RX and TX rings
+ ----------------
+ 
+-Each ring contains a number of continous memory blocks, containing frames of
+-fixed size dependant on the parameters used for ring setup.
++Each ring contains a number of continuous memory blocks, containing frames of
++fixed size dependent on the parameters used for ring setup.
+ 
+ Ring:	[ block 0 ]
+ 		[ frame 0 ]
+@@ -80,7 +80,7 @@ Ring:	[ block 0 ]
+ 		[ frame 2 * n + 1 ]
+ 
+ The blocks are only visible to the kernel, from the point of view of user-space
+-the ring just contains the frames in a continous memory zone.
++the ring just contains the frames in a continuous memory zone.
+ 
+ The ring parameters used for setting up the ring are defined as follows:
+ 
+@@ -91,7 +91,7 @@ struct nl_mmap_req {
+ 	unsigned int	nm_frame_nr;
+ };
+ 
+-Frames are grouped into blocks, where each block is a continous region of memory
++Frames are grouped into blocks, where each block is a continuous region of memory
+ and holds nm_block_size / nm_frame_size frames. The total number of frames in
+ the ring is nm_frame_nr. The following invariants hold:
+ 
+@@ -113,8 +113,8 @@ Some parameters are constrained, specifically:
+ 
+ - nm_frame_nr must equal the actual number of frames as specified above.
+ 
+-When the kernel can't allocate phsyically continous memory for a ring block,
+-it will fall back to use physically discontinous memory. This might affect
++When the kernel can't allocate phsyically continuous memory for a ring block,
++it will fall back to use physically discontinuous memory. This might affect
+ performance negatively, in order to avoid this the nm_frame_size parameter
+ should be chosen to be as small as possible for the required frame size and
+ the number of blocks should be increased instead.
+-- 
+1.8.3.rc3
