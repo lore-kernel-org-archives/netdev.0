@@ -1,47 +1,49 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: RE: [PATCH] Ethtool: Beautify private flags print
-Date: Fri, 24 May 2013 03:50:45 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AC5EE34@SJEXCHMB10.corp.ad.broadcom.com>
-References: <1369331751-32543-1-git-send-email-yuvalmin@broadcom.com>
- <1369333817.2075.34.camel@joe-AO722>
+From: Lance Lassetter <lancelassetter@gmail.com>
+Subject: Re: r8169 with 3.9.0-rc9
+Date: Thu, 23 May 2013 23:45:59 -0500
+Message-ID: <20130524044557.GA32073@gmail.com>
+References: <20130427041230.GA18709@gmail.com>
+ <20130428011232.GA4236@gmail.com>
+ <20130501100733.GA16115@gmail.com>
+ <20130501121502.GA5456@electric-eye.fr.zoreil.com>
+ <20130501212803.GA3342@gmail.com>
+ <20130501223155.GA15261@electric-eye.fr.zoreil.com>
+ <20130502021848.GA30099@gmail.com>
+ <20130502221837.GA9898@electric-eye.fr.zoreil.com>
+ <20130505151732.GA9096@gmail.com>
+ <20130505193323.GA21121@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "bhutchings@solarflare.com" <bhutchings@solarflare.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Joe Perches" <joe@perches.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3354 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759950Ab3EXDu4 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 23:50:56 -0400
-In-Reply-To: <1369333817.2075.34.camel@joe-AO722>
-Content-Language: en-US
+Received: from mail-gh0-f178.google.com ([209.85.160.178]:64215 "EHLO
+	mail-gh0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752280Ab3EXEqF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 00:46:05 -0400
+Received: by mail-gh0-f178.google.com with SMTP id g15so1437825ghb.37
+        for <netdev@vger.kernel.org>; Thu, 23 May 2013 21:46:03 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130505193323.GA21121@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On Thu, 2013-05-23 at 20:55 +0300, Yuval Mintz wrote:
-> > When printing the private flags of the device, align all strings
-> > to have the same length.
-> []
-> > diff --git a/ethtool.c b/ethtool.c
-> []
-> > +	for (i = 0; i < strings->len; i++) {
-> > +		int j;
-> > +
-> > +		printf("%s", (const char *)strings->data +
-> > +					   i * ETH_GSTRING_LEN);
-> > +
-> > +		cur_len = strlen((const char*)strings->data +
-> > +					      i * ETH_GSTRING_LEN);
-> > +		for (j = 0; j < max_len - cur_len; j++)
-> > +			printf(" ");
+On Sun, May 05, 2013 at 09:33:23PM +0200, Francois Romieu wrote:
+> Lance Lassetter <lancelassetter@gmail.com> :
+> [...]
+> > What do you think, Ueimor ?
 > 
-> I think this isn't necessary, but this is simpler
+> I think you should try a post 3.9 kernel including commit
+> 4ada8db38a44654446fe35ceb20a1972220e0f69 ("net: Restore NETIF_F_* bit
+> ordering.").
 > 
-> "%-*s", max_len, strings->data + i * ETH_GSTRING_LEN
+> -- 
+> Ueimor
 
-Nice - I was unfamiliar with this second-order format string modifier.
-I'll modify the patch into using this format.
+Ueimor,
+
+I fixed the problem with grub2 bootloader kenel parameter: clocksource=acpi_pm  Evidently it was an AMD PowerNow bug with linux.  Fixing the timer resolved the constant loss of ether link.
+
+Appreciate your time and support.
+
+Lance Lassetter
