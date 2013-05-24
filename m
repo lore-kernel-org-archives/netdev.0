@@ -1,61 +1,168 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for
-	Kirkwood SoCs
-Date: Fri, 24 May 2013 18:13:00 +0100
-Message-ID: <20130524171300.GD18614@n2100.arm.linux.org.uk>
-References: <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com> <20130522201607.GA18823@obsidianresearch.com> <20130523160111.GP31290@titan.lakedaemon.net> <20130523171112.GB31281@obsidianresearch.com> <20130523172339.GQ31290@titan.lakedaemon.net> <20130523175357.GB2821@obsidianresearch.com> <20130523184028.GU31290@titan.lakedaemon.net> <519E9ADA.3040204@gmail.com> <CACRpkdbsicPkPAiaQCOg2mQF2Ce2dg_K=BKqqx=FCdAH7Y+QBg@mail.gmail.com> <20130524170125.GX31290@titan.lakedaemon.net>
+From: Jarkko Sakkinen <jarkko.sakkinen@iki.fi>
+Subject: Re: [PATCH net-next] x86: bpf_jit_comp: secure bpf jit against spraying
+ attacks
+Date: Fri, 24 May 2013 10:23:08 -0700
+Message-ID: <519FA1FC.8090102@iki.fi>
+References: <1368844623.3301.142.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Walleij <linus.walleij@linaro.org>,
-	Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Grant Likely <grant.likely@secretlab.ca>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	"linuxppc-dev@lists.ozlabs.org list" <linuxppc-dev@lists.ozlabs.org>,
-	David Miller <davem@davemloft.net>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Jason Cooper <jason@lakedaemon.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from caramon.arm.linux.org.uk ([78.32.30.218]:57048 "EHLO
-	caramon.arm.linux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751406Ab3EXRN4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 13:13:56 -0400
-Content-Disposition: inline
-In-Reply-To: <20130524170125.GX31290@titan.lakedaemon.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"H. Peter Anvin" <hpa@zytor.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1368844623.3301.142.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 24, 2013 at 01:01:25PM -0400, Jason Cooper wrote:
-> On Fri, May 24, 2013 at 01:03:25PM +0200, Linus Walleij wrote:
-> > IMO: if you want to go down that road, what you really want is not
-> > ever more expressible device trees, but real open firmware,
-> > or ACPI or UEFI that can interpret and run bytecode as some
-> > "bios" for you. With DT coming from OF maybe this is a natural
-> > progression of things, but one has to realize when we reach the
-> > point where what we really want is a bios. Then your time is
-> > likely better spent with Tianocore or something than with the
-> > kernel.
-> 
-> shudder.  I like embedded systems because the *don't* have a bios.
+Hi Eric,
 
-Then you're into scenarios like I have with my laptop, where - those
-of you who check the nightly build results will have noticed - one
-of my serial ports doesn't always exist.  That's because the ACPI data
-in the BIOS is *wrong*.  It reports that it has been enabled when it
-hasn't, and the disassembled byte code is at fault here.
+Peter talked to me about this BPF work to prevent JIT spraying attacks
+in the beginning of this week and I took a look at your patch.
 
-The fix?  God knows.  As far as I'm concerned as a user, or even as an
-OS developer, it's unfixable without getting the ACPI data structures
-changed, and that's not something I can do.
+Some comments:
 
-Do you really want that on ARM?  Given the fiasco with the location of
-the registers, are you sure you want to place more trust in that
-direction?  Does it give you a warm fuzzy feeling to know that you
-might have to work out some way to patch vendor supplied bytecode?
+* Meta-comment about patch structure: why this was a one patch and not
+   two patches? It changes two things that are orthogonal to each other
+   (random offset,  RW -> RO change).
+* Should NX bit be turned on while JIT code is being prepared?
+* How hard it would be to read value of bpf_func pointer? If attacker
+   is able to read that, it would compromise the whole randomization
+   scheme.
+* I loved the socket creation trick in the blog post :) Are there any
+   plans to do something about it?
+* How was minimum entropy of 128 bytes chose? The patch description
+   does not explain this in anyway although it seems like decent choice.
+
+/Jarkko
+
+On 17.05.2013 19:37, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> hpa bringed into my attention some security related issues
+> with BPF JIT on x86.
+>
+> This patch makes sure the bpf generated code is marked read only,
+> as other kernel text sections.
+>
+> It also splits the unused space (we vmalloc() and only use a fraction of
+> the page) in two parts, so that the generated bpf code not starts at a
+> known offset in the page, but a pseudo random one.
+>
+> Refs:
+> http://mainisusuallyafunction.blogspot.com/2012/11/attacking-hardened-linux-systems-with.html
+>
+> Reported-by: H. Peter Anvin <hpa@zytor.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>   arch/x86/net/bpf_jit_comp.c |   53 ++++++++++++++++++++++++++++++----
+>   1 file changed, 47 insertions(+), 6 deletions(-)
+>
+> diff --git a/arch/x86/net/bpf_jit_comp.c b/arch/x86/net/bpf_jit_comp.c
+> index c0212db..79c216a 100644
+> --- a/arch/x86/net/bpf_jit_comp.c
+> +++ b/arch/x86/net/bpf_jit_comp.c
+> @@ -12,6 +12,7 @@
+>   #include <linux/netdevice.h>
+>   #include <linux/filter.h>
+>   #include <linux/if_vlan.h>
+> +#include <linux/random.h>
+>   
+>   /*
+>    * Conventions :
+> @@ -144,6 +145,39 @@ static int pkt_type_offset(void)
+>   	return -1;
+>   }
+>   
+> +struct bpf_binary_header {
+> +	unsigned int	pages;
+> +	/* Note : for security reasons, bpf code will follow a randomly
+> +	 * sized amount of int3 instructions
+> +	 */
+> +	u8		image[];
+> +};
+> +
+> +static struct bpf_binary_header *bpf_alloc_binary(unsigned int proglen,
+> +						  u8 **image_ptr)
+> +{
+> +	unsigned int sz, hole;
+> +	struct bpf_binary_header *header;
+> +
+> +	/* Most of BPF filters are really small,
+> +	 * but if some of them fill a page, allow at least
+> +	 * 128 extra bytes to insert a random section of int3
+> +	 */
+> +	sz = round_up(proglen + sizeof(*header) + 128, PAGE_SIZE);
+> +	header = module_alloc(sz);
+> +	if (!header)
+> +		return NULL;
+> +
+> +	memset(header, 0xcc, sz); /* fill whole space with int3 instructions */
+> +
+> +	header->pages = sz / PAGE_SIZE;
+> +	hole = sz - (proglen + sizeof(*header));
+> +
+> +	/* insert a random number of int3 instructions before BPF code */
+> +	*image_ptr = &header->image[prandom_u32() % hole];
+> +	return header;
+> +}
+> +
+>   void bpf_jit_compile(struct sk_filter *fp)
+>   {
+>   	u8 temp[64];
+> @@ -153,6 +187,7 @@ void bpf_jit_compile(struct sk_filter *fp)
+>   	int t_offset, f_offset;
+>   	u8 t_op, f_op, seen = 0, pass;
+>   	u8 *image = NULL;
+> +	struct bpf_binary_header *header = NULL;
+>   	u8 *func;
+>   	int pc_ret0 = -1; /* bpf index of first RET #0 instruction (if any) */
+>   	unsigned int cleanup_addr; /* epilogue code offset */
+> @@ -693,7 +728,7 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
+>   				if (unlikely(proglen + ilen > oldproglen)) {
+>   					pr_err("bpb_jit_compile fatal error\n");
+>   					kfree(addrs);
+> -					module_free(NULL, image);
+> +					module_free(NULL, header);
+>   					return;
+>   				}
+>   				memcpy(image + proglen, temp, ilen);
+> @@ -717,8 +752,8 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
+>   			break;
+>   		}
+>   		if (proglen == oldproglen) {
+> -			image = module_alloc(proglen);
+> -			if (!image)
+> +			header = bpf_alloc_binary(proglen, &image);
+> +			if (!header)
+>   				goto out;
+>   		}
+>   		oldproglen = proglen;
+> @@ -728,7 +763,8 @@ cond_branch:			f_offset = addrs[i + filter[i].jf] - addrs[i];
+>   		bpf_jit_dump(flen, proglen, pass, image);
+>   
+>   	if (image) {
+> -		bpf_flush_icache(image, image + proglen);
+> +		bpf_flush_icache(header, image + proglen);
+> +		set_memory_ro((unsigned long)header, header->pages);
+>   		fp->bpf_func = (void *)image;
+>   	}
+>   out:
+> @@ -738,6 +774,11 @@ out:
+>   
+>   void bpf_jit_free(struct sk_filter *fp)
+>   {
+> -	if (fp->bpf_func != sk_run_filter)
+> -		module_free(NULL, fp->bpf_func);
+> +	if (fp->bpf_func != sk_run_filter) {
+> +		unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
+> +		struct bpf_binary_header *header = (void *)addr;
+> +
+> +		set_memory_rw(addr, header->pages);
+> +		module_free(NULL, header);
+> +	}
+>   }
+>
+>
