@@ -1,105 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 1/2] net: Export skb_zerocopy() to zerocopy
- from one skb to another
-Date: Fri, 24 May 2013 08:31:56 -0700
-Message-ID: <1369409516.3301.407.camel@edumazet-glaptop>
-References: <cover.1369406826.git.tgraf@suug.ch>
-	 <d209be514b6eff718e0b6562da289faadd014806.1369406826.git.tgraf@suug.ch>
+From: Shawn Bohrer <shawn.bohrer@gmail.com>
+Subject: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
+Date: Fri, 24 May 2013 10:49:31 -0500
+Message-ID: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jesse@nicira.com, dev@openvswitch.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:34397 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753310Ab3EXPb7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 11:31:59 -0400
-Received: by mail-pd0-f181.google.com with SMTP id bv13so2432180pdb.12
-        for <netdev@vger.kernel.org>; Fri, 24 May 2013 08:31:58 -0700 (PDT)
-In-Reply-To: <d209be514b6eff718e0b6562da289faadd014806.1369406826.git.tgraf@suug.ch>
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:49056 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754721Ab3EXPtr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 11:49:47 -0400
+Received: by mail-oa0-f52.google.com with SMTP id h1so6413195oag.11
+        for <netdev@vger.kernel.org>; Fri, 24 May 2013 08:49:46 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-24 at 16:52 +0200, Thomas Graf wrote:
-> Make the skb zerocopy logic written for nfnetlink queue available for
-> use by other modules.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> ---
->  include/linux/skbuff.h               |  2 ++
->  net/core/skbuff.c                    | 46 +++++++++++++++++++++++++++++++++++
->  net/netfilter/nfnetlink_queue_core.c | 47 +-----------------------------------
->  3 files changed, 49 insertions(+), 46 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 2e0ced1..ff2cbe8 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2478,6 +2478,8 @@ extern int             skb_splice_bits(struct sk_buff *skb,
->  						unsigned int len,
->  						unsigned int flags);
->  extern void	       skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to);
-> +extern void	       skb_zerocopy(struct sk_buff *to, const struct sk_buff *from,
-> +				    int len, int hlen);
->  extern void	       skb_split(struct sk_buff *skb,
->  				 struct sk_buff *skb1, const u32 len);
->  extern int	       skb_shift(struct sk_buff *tgt, struct sk_buff *skb,
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index d629891..cb60bf6 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -2118,6 +2118,52 @@ void skb_copy_and_csum_dev(const struct sk_buff *skb, u8 *to)
->  }
->  EXPORT_SYMBOL(skb_copy_and_csum_dev);
->  
-> +void
-> +skb_zerocopy(struct sk_buff *to, const struct sk_buff *from, int len, int hlen)
-> +{
-> +	int i, j = 0;
-> +	int plen = 0; /* length of skb->head fragment */
-> +	struct page *page;
-> +	unsigned int offset;
-> +
-> +	/* dont bother with small payloads */
-> +	if (len <= skb_tailroom(to)) {
-> +		skb_copy_bits(from, 0, skb_put(to, len), len);
-> +		return;
-> +	}
-> +
-> +	if (hlen) {
-> +		skb_copy_bits(from, 0, skb_put(to, hlen), hlen);
-> +		len -= hlen;
-> +	} else {
-> +		plen = min_t(int, skb_headlen(from), len);
-> +		if (plen) {
-> +			page = virt_to_head_page(from->head);
+I just started testing the 3.10 kernel, previously we were on 3.4 so
+there is a fairly large jump.  I've additionally applied the following
+four patches to the 3.10.0-rc2 kernel that I'm testing:
 
-Hmm. Big warning here : In the nfnetlink case, we specifically made sure
-that this path was taken only if skb->head_frag was set (all incoming
-packets have this property, but not outgoing ones yet)
+https://patchwork.kernel.org/patch/2484651/
+https://patchwork.kernel.org/patch/2484671/
+https://patchwork.kernel.org/patch/2484681/
+https://patchwork.kernel.org/patch/2484641/
 
-This should be documented if we move it to net/core/skbuff.c, or we
-should add a BUG_ON()
+I don't know if those patches are related to my issues or not but I
+plan on trying to reproduce without them soon.
 
-I see your openvswitch code seems OK.
+The issue I'm seeing is that our applications listen on a number of
+multicast addresses.  In this case I'm listening to about 350
+different addresses per machine, across many different processes, with
+usually one socket per address.  The problem is that some of the
+sockets are not receiving any data and some are, even though they all
+should be.  If I put the device in promiscuous mode then I start
+receiving data on all of my sockets.  Running netstat -g shows all of
+my memberships so it appears to me that the kernel and the switch
+think I've joined the groups, but the card may be filtering the data.
+This is with:
 
-Maybe also put in net/core/skbuff.c the code dealing with  this stuff ?
+05:00.0 Network controller: Mellanox Technologies MT27500 Family [ConnectX-3]
 
-+       if (!skb->head_frag ||
-+           skb_headlen(skb) < L1_CACHE_BYTES ||
-+           skb_shinfo(skb)->nr_frags >= MAX_SKB_FRAGS)
-+               hlen = skb_headlen(skb);
-+
-+       if (skb_has_frag_list(skb))
-+               hlen = skb->len;
+# ethtool -i eth4
+driver: mlx4_en
+version: 2.0 (Dec 2011)
+firmware-version: 2.11.500
+bus-info: 0000:05:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: no
+supports-register-dump: no
 
+The other strange part is that I've got multiple machines all running
+the same kernel and not all of them are experiencing the issue.  At
+one point they were all working fine, but the issue appeared after I
+rebooted one of the machines and multiple reboots later it is still in
+this bad state.  Rebooting that machine back to 3.4 causes it to work
+as expected but no luck under 3.10.  I've now got two machines in this
+bad state and they both started immediately after a reboot.
 
+Does anyone have any ideas?
 
-> +			offset = from->data - (unsigned char *)page_address(page);
-> +			__skb_fill_page_desc(to, 0, page, offset, plen);
-> +			get_page(page);
-> +			j = 1;
-> +			len -= plen;
-> +		}
-> +	}
+Thanks,
+Shawn
