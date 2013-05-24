@@ -1,11 +1,11 @@
 From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCHv3 1/6] net: Add EMAC ethernet driver found on Allwinner
- A10 SoC's
-Date: Fri, 24 May 2013 22:10:30 +0200
-Message-ID: <20130524201030.GA17847@lukather>
+Subject: Re: [PATCHv3 5/6] ARM: cubieboard: Enable ethernet (EMAC) support in
+ dts
+Date: Fri, 24 May 2013 22:15:39 +0200
+Message-ID: <20130524201539.GB17847@lukather>
 References: <1369387394-9453-1-git-send-email-maxime.ripard@free-electrons.com>
- <1369387394-9453-2-git-send-email-maxime.ripard@free-electrons.com>
- <519F6128.9060608@elopez.com.ar>
+ <1369387394-9453-6-git-send-email-maxime.ripard@free-electrons.com>
+ <519F62B3.8090302@elopez.com.ar>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -18,54 +18,54 @@ Cc: davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
 To: Emilio =?iso-8859-1?Q?L=F3pez?= <emilio@elopez.com.ar>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <519F6128.9060608@elopez.com.ar>
+In-Reply-To: <519F62B3.8090302@elopez.com.ar>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Hi Emilio,
 
-On Fri, May 24, 2013 at 09:46:32AM -0300, Emilio L=F3pez wrote:
+On Fri, May 24, 2013 at 09:53:07AM -0300, Emilio L=F3pez wrote:
+> Hi,
+>=20
 > El 24/05/13 06:23, Maxime Ripard escribi=F3:
 > > From: Stefan Roese <sr@denx.de>
 > >=20
-> > The Allwinner A10 has an ethernet controller that seem to be develo=
-pped
-> > internally by them.
-> >=20
-> > The exact feature set of this controller is unknown, since there is=
- no
-> > public documentation for this IP, and this driver is mostly the one
-> > published by Allwinner that has been heavily cleaned up.
-> >=20
 > > Signed-off-by: Stefan Roese <sr@denx.de>
-> > Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
 > > ---
->=20
-> (snip)
->=20
+> >  arch/arm/boot/dts/sun4i-a10-cubieboard.dts | 15 +++++++++++++++
+> >  1 file changed, 15 insertions(+)
+> >=20
+> > diff --git a/arch/arm/boot/dts/sun4i-a10-cubieboard.dts b/arch/arm/=
+boot/dts/sun4i-a10-cubieboard.dts
+> > index b70fe0d..32d9b18 100644
+> > --- a/arch/arm/boot/dts/sun4i-a10-cubieboard.dts
+> > +++ b/arch/arm/boot/dts/sun4i-a10-cubieboard.dts
+> > @@ -27,6 +27,21 @@
+> >  	};
+> > =20
+> >  	soc@01c20000 {
+> > +		emac: ethernet@01c0b000 {
+> > +			pinctrl-names =3D "default";
+> > +			pinctrl-0 =3D <&emac_pins_a>;
+> > +			phy =3D <&phy0>;
+> > +			status =3D "okay";
+> > +		};
 > > +
-> > +config SUN4I_EMAC
-> > +        tristate "Allwinner A10 EMAC support"
-> > +	depends on ARCH_SUNXI
-> > +	depends on OF
-> > +	select CRC32
-> > +	select NET_CORE
-> > +	select MII
-> > +	select REGULATOR_FIXED_VOLTAGE
-> > +        ---help---
-> > +          Support for Allwinner A10 EMAC ethernet driver.
+> > +		mdio@01c0b080 {
+> > +			status =3D "okay";
 > > +
-> > +          To compile this driver as a module, choose M here.  The =
-module
-> > +          will be called sun4i-emac.
-> > +
+> > +			phy0: ethernet-phy@0 {
+> > +				reg =3D <0>;
+> > +			};
 >=20
-> You also need to select REGULATOR when you select REGULATOR_FIXED_VOL=
-TAGE
+> During my testing I found out that I needed to use 1 as reg for the
+> driver to work. You can find a fixup patch enclosed that changes this=
+;
+> it's possible that some extra changes may also be needed (s/phy0/phy1=
+/
+> on the node?)
 
-Actually, this should be in patch 2/6.
-
-Thanks for noticing!
+Merged, thanks for noticing!
 
 Maxime
 
