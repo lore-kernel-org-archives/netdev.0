@@ -1,37 +1,44 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH iproute2] man: describe --bpf option of ss
-Date: Fri, 24 May 2013 14:25:41 +0200
-Message-ID: <1369398341-20145-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: shemminger@vyatta.com
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [Xen-devel] [PATCH net-next 2/3] xen-netback: switch to per-cpu
+ scratch space
+Date: Fri, 24 May 2013 13:31:30 +0100
+Message-ID: <20130524123130.GB16745@zion.uk.xensource.com>
+References: <1369391553-16835-1-git-send-email-wei.liu2@citrix.com>
+ <1369391553-16835-3-git-send-email-wei.liu2@citrix.com>
+ <519F5C09.3030502@citrix.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Wei Liu <wei.liu2@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>, <ian.campbell@citrix.com>,
+	<konrad.wilk@oracle.com>
+To: David Vrabel <david.vrabel@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:38205 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751767Ab3EXM0O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 08:26:14 -0400
+Received: from smtp02.citrix.com ([66.165.176.63]:3645 "EHLO SMTP02.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753341Ab3EXMbc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 May 2013 08:31:32 -0400
+Content-Disposition: inline
+In-Reply-To: <519F5C09.3030502@citrix.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This option has been recently added to ss utility.
+On Fri, May 24, 2013 at 01:24:41PM +0100, David Vrabel wrote:
+> On 24/05/13 11:32, Wei Liu wrote:
+> > There are maximum nr_onlie_cpus netback threads running. We can make use of
+> > per-cpu scratch space to reduce the size of buffer space when we move to 1:1
+> > model.
+> 
+> How much memory does this actually save?  At first glance the savings
+> don't seem worth it for the extra complexity wrt hotplugged VCPUs etc.
+> 
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- man/man8/ss.8 | 3 +++
- 1 file changed, 3 insertions(+)
+It would not save any for the old model netback. But if we switch to 1:1
+model the saving depends on how many vifs you run.
 
-diff --git a/man/man8/ss.8 b/man/man8/ss.8
-index f03c6d8..7e8d8e8 100644
---- a/man/man8/ss.8
-+++ b/man/man8/ss.8
-@@ -57,6 +57,9 @@ Print summary statistics. This option does not parse socket lists obtaining
- summary from various sources. It is useful when amount of sockets is so huge
- that parsing /proc/net/tcp is painful.
- .TP
-+.B \-b, \-\-bpf
-+Show socket BPF filters (only administrators are allowed to get these information).
-+.TP
- .B \-4, \-\-ipv4
- Display only IP version 4 sockets (alias for -f inet).
- .TP
--- 
-1.8.2.1
+This can be calculated by:
+(nr_vifs - nr_cpus) * sizeof(scratch space)
+
+
+Wei.
+
+> David
