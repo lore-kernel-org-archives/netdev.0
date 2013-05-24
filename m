@@ -1,101 +1,149 @@
-From: =?ISO-8859-1?Q?Emilio_L=F3pez?= <emilio@elopez.com.ar>
-Subject: Re: [PATCHv3 5/6] ARM: cubieboard: Enable ethernet (EMAC) support
- in dts
-Date: Fri, 24 May 2013 09:53:07 -0300
-Message-ID: <519F62B3.8090302@elopez.com.ar>
-References: <1369387394-9453-1-git-send-email-maxime.ripard@free-electrons.com> <1369387394-9453-6-git-send-email-maxime.ripard@free-electrons.com>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
+ spinlock
+Date: Fri, 24 May 2013 15:16:47 +0200
+Message-ID: <20130524151647.18388e27@redhat.com>
+References: <1368068665.13473.81.camel@edumazet-glaptop>
+	<1369244868.3301.343.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060108070901020907050906"
-Cc: davem@davemloft.net, linux-arm-kernel@lists.infradead.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Stefan Roese <sr@denx.de>,
-	Florian Fainelli <florian@openwrt.org>,
-	kevin@allwinnertech.com, sunny@allwinnertech.com,
-	shuge@allwinnertech.com
-To: Maxime Ripard <maxime.ripard@free-electrons.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369387394-9453-6-git-send-email-maxime.ripard@free-electrons.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Tom Herbert <therbert@google.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1369244868.3301.343.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060108070901020907050906
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+On Wed, 22 May 2013 10:47:48 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Hi,
-
-El 24/05/13 06:23, Maxime Ripard escribió:
-> From: Stefan Roese <sr@denx.de>
+> nf_conntrack_lock is a monolithic lock and suffers from huge
+> contention on current generation servers (8 or more core/threads).
 > 
-> Signed-off-by: Stefan Roese <sr@denx.de>
-> ---
->  arch/arm/boot/dts/sun4i-a10-cubieboard.dts | 15 +++++++++++++++
->  1 file changed, 15 insertions(+)
+[...]
+> Results on a 32 threads machine, 200 concurrent instances of "netperf
+> -t TCP_CRR" : 
 > 
-> diff --git a/arch/arm/boot/dts/sun4i-a10-cubieboard.dts b/arch/arm/boot/dts/sun4i-a10-cubieboard.dts
-> index b70fe0d..32d9b18 100644
-> --- a/arch/arm/boot/dts/sun4i-a10-cubieboard.dts
-> +++ b/arch/arm/boot/dts/sun4i-a10-cubieboard.dts
-> @@ -27,6 +27,21 @@
->  	};
->  
->  	soc@01c20000 {
-> +		emac: ethernet@01c0b000 {
-> +			pinctrl-names = "default";
-> +			pinctrl-0 = <&emac_pins_a>;
-> +			phy = <&phy0>;
-> +			status = "okay";
-> +		};
-> +
-> +		mdio@01c0b080 {
-> +			status = "okay";
-> +
-> +			phy0: ethernet-phy@0 {
-> +				reg = <0>;
-> +			};
+> ~390000 tps instead of ~300000 tps.
 
-During my testing I found out that I needed to use 1 as reg for the
-driver to work. You can find a fixup patch enclosed that changes this;
-it's possible that some extra changes may also be needed (s/phy0/phy1/
-on the node?)
+Tested-by: Jesper Dangaard Brouer <brouer@redhat.com>
 
-Cheers,
+I gave the patch a quick run in my testlab, and the results are
+amazing, you are amazing Eric! :-)
 
-Emilio
+Basic testlab setup:
+ I'm generating a 2700 Kpps SYN-flood against port 80 (with trafgen)
 
---------------060108070901020907050906
-Content-Type: text/x-diff;
- name="fixup-reg.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename="fixup-reg.patch"
+Baseline result from a  3.9.0-rc5 kernel:
+- With nf_conntrack my performance is 749 Kpps.
 
->From f8a76c66fff0700e3c87f89b8b250effc0f2b37f Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Emilio=20L=C3=B3pez?= <emilio@elopez.com.ar>
-Date: Fri, 17 May 2013 10:11:48 -0300
-Subject: [PATCH] fixup! ARM: cubieboard: Enable ethernet (EMAC) support in dts
+If removing all iptables and nf_contrack modules:
+- the performance hits 1095 Kpps.
+But it looks like we are hitting a new spin_lock in ip_send_reply()
 
----
- arch/arm/boot/dts/sun4i-a10-cubieboard.dts | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If start a LISTEN process on the port, then we hit the "old" SYN
+scalability issues again, performance drops tp 227 Kpps.
 
-diff --git a/arch/arm/boot/dts/sun4i-a10-cubieboard.dts b/arch/arm/boot/dts/sun4i-a10-cubieboard.dts
-index cd69799..21f0197 100644
---- a/arch/arm/boot/dts/sun4i-a10-cubieboard.dts
-+++ b/arch/arm/boot/dts/sun4i-a10-cubieboard.dts
-@@ -38,7 +38,7 @@
- 			status = "okay";
- 
- 			phy0: ethernet-phy@0 {
--				reg = <0>;
-+				reg = <1>;
- 			};
- 		};
- 
+On a patched net-next (close to 3.10.0-rc1) kernel, with Eric's new
+locking scheme patch:
+- I measured an amazing 2431 Kpps.
+
+ 13.45%  [kernel]                [k] fib_table_lookup
+  9.07%  [nf_conntrack]          [k] __nf_conntrack_alloc
+  6.50%  [nf_conntrack]          [k] nf_conntrack_free
+  5.24%  [ip_tables]             [k] ipt_do_table
+  3.66%  [nf_conntrack]          [k] nf_conntrack_in
+  3.54%  [kernel]                [k] inet_getpeer
+  3.52%  [nf_conntrack]          [k] tcp_packet
+  2.44%  [ixgbe]                 [k] ixgbe_poll
+  2.30%  [kernel]                [k] __ip_route_output_key
+  2.04%  [nf_conntrack]          [k] nf_conntrack_tuple_taken
+  1.98%  [kernel]                [k] icmp_send
+
+Then, I realized that I didn't have any iptables rules that accepted
+port 80 on my testlab system, thus this were basically a drop packets
+test with a nf_conntrack lookup.
+
+If I add a rule that accept new connection to that port e.g:
+ iptables -I INPUT -p tcp -m state --state NEW -m tcp --dport 80 -j
+ACCEPT
+
+New ruleset:
+ -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT 
+ -A INPUT -p icmp -j ACCEPT 
+ -A INPUT -i lo -j ACCEPT 
+ -A INPUT -p tcp -m state --state NEW -m tcp --dport 22 -j ACCEPT 
+ -A INPUT -p tcp -m state --state NEW -m tcp --dport 80 -j ACCEPT 
+ -A INPUT -j REJECT --reject-with icmp-host-prohibited 
+
+Then, performance drops again:
+- to approx 883 Kpps.
+
+Discover that the NAT stuff is to blame:
+
+-  17.71%        swapper  [kernel.kallsyms]       [k] _raw_spin_lock_bh
+   - _raw_spin_lock_bh
+      + 47.17% nf_nat_cleanup_conntrack
+      + 45.81% nf_nat_setup_info
+      + 6.43% nf_nat_get_offset
+
+Removing the nat modules, improves the performance:
+- to 1182 Kpps (not listen on port 80)
+
+ sudo iptables -t nat -F
+ sudo rmmod iptable_nat nf_nat_ipv4
+
+And the perf output looks more like what I would expect:
+
+-  14.85%       swapper  [kernel.kallsyms]        [k] _raw_spin_lock
+   - _raw_spin_lock
+      + 82.86% mod_timer
+      + 11.14% nf_conntrack_double_lock
+      + 2.50% nf_ct_del_from_dying_or_unconfirmed_list
+      + 1.48% nf_conntrack_in
+      + 1.30% nf_ct_delete_from_lists
+-  12.78%       swapper  [kernel.kallsyms]        [k]
+  _raw_spin_lock_irqsave
+   - _raw_spin_lock_irqsave
+      - 99.44% lock_timer_base
+         + 99.07% del_timer
+         + 0.93% mod_timer
++   2.69%       swapper  [ip_tables]              [k] ipt_do_table
++   2.28%   ksoftirqd/0  [kernel.kallsyms]        [k]
+  _raw_spin_lock_irqsave
++   2.18%       swapper  [nf_conntrack]           [k] tcp_packet
++   2.16%       swapper  [kernel.kallsyms]        [k] fib_table_lookup
+
+
+Again if I start a LISTEN process on the port, performance drops to
+169Kpps, due to the LISTEN and SYN-cookie scalability issues.
+
+I'm amazed, this patch will actually make it a viable choice to load
+the conntrack modules on a DDoS based filtering box, and use the
+conntracks to protect against ACK and SYN+ACK attacks.
+
+Simply by not accepting the ACK or SYN+ACK to create a conntrack entry.
+Via the command:
+ sysctl -w net/netfilter/nf_conntrack_tcp_loose=0
+
+A quick test show; now I can run a LISTEN process on the port, and
+handle an SYN+ACK attack of approx 2580Kpps (and the same for ACK
+attacks), while running a LISTEN process on the port.
+
+Thanks for the great work Eric!
+
+ps. also tested resizing the hash tables, both:
+ /proc/sys/net/netfilter/nf_conntrack_max
+and resizing the buckets via:
+ /sys/module/nf_conntrack/parameters/hashsize
+
 -- 
-1.8.1.6
-
-
---------------060108070901020907050906--
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
