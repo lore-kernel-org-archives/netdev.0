@@ -1,74 +1,288 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 06/12] qlcnic: Convert nested if-else to switch-case
-Date: Fri, 24 May 2013 03:04:30 -0400
-Message-ID: <1369379076-4718-7-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 09/12] qlcnic: Implement GET_LED_STATUS command for 82xx adapter.
+Date: Fri, 24 May 2013 03:04:33 -0400
+Message-ID: <1369379076-4718-10-git-send-email-shahed.shaikh@qlogic.com>
 References: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0188.outbound.messaging.microsoft.com ([213.199.154.188]:7687
-	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759970Ab3EXH36 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 03:29:58 -0400
+Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:2221 "EHLO
+	co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1759920Ab3EXHaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 03:30:05 -0400
 In-Reply-To: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+o GET_LED_STATUS command will be used by driver to get
+  current beacon state from 82xx adapter.
+o Refactored qlcnic_store_beacon() to split 8200 and 8300
+  specific calls.
+
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  |   18 +++++++++++-------
- 1 files changed, 11 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h       |    5 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c   |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c    |   15 +++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h    |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c |  126 +++++++++++++--------
+ 5 files changed, 100 insertions(+), 48 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-index 55e5e1b..b5054e1 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-@@ -187,20 +187,24 @@ int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *adapter)
- 	else
- 		priv_level = QLC_83XX_GET_FUNC_PRIVILEGE(op_mode,
- 							 ahw->pci_func);
--
--	if (priv_level == QLCNIC_NON_PRIV_FUNC) {
-+	switch (priv_level) {
-+	case QLCNIC_NON_PRIV_FUNC:
- 		ahw->op_mode = QLCNIC_NON_PRIV_FUNC;
- 		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
- 		nic_ops->init_driver = qlcnic_83xx_init_non_privileged_vnic;
--	} else if (priv_level == QLCNIC_PRIV_FUNC) {
-+		break;
-+	case QLCNIC_PRIV_FUNC:
- 		ahw->op_mode = QLCNIC_PRIV_FUNC;
- 		ahw->idc.state_entry = qlcnic_83xx_idc_vnic_pf_entry;
- 		nic_ops->init_driver = qlcnic_83xx_init_privileged_vnic;
--	} else if (priv_level == QLCNIC_MGMT_FUNC) {
-+		break;
-+	case QLCNIC_MGMT_FUNC:
- 		ahw->op_mode = QLCNIC_MGMT_FUNC;
- 		ahw->idc.state_entry = qlcnic_83xx_idc_ready_state_entry;
- 		nic_ops->init_driver = qlcnic_83xx_init_mgmt_vnic;
--	} else {
-+		break;
-+	default:
-+		dev_err(&adapter->pdev->dev, "Invalid Virtual NIC opmode\n");
- 		return -EIO;
- 	}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+index 765fee5..8cdcb84 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+@@ -815,6 +815,7 @@ struct qlcnic_mac_list_s {
+ #define QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG	BIT_2
+ #define QLCNIC_FW_CAP2_HW_LRO_IPV6		BIT_3
+ #define QLCNIC_FW_CAPABILITY_2_OCBB		BIT_5
++#define QLCNIC_FW_CAPABILITY_2_BEACON		BIT_7
  
-@@ -209,8 +213,8 @@ int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *adapter)
- 	else
- 		adapter->flags &= ~QLCNIC_ESWITCH_ENABLED;
+ /* module types */
+ #define LINKEVENT_MODULE_NOT_PRESENT			1
+@@ -909,6 +910,9 @@ struct qlcnic_ipaddr {
+ #define QLCNIC_IS_MSI_FAMILY(adapter) \
+ 	((adapter)->flags & (QLCNIC_MSI_ENABLED | QLCNIC_MSIX_ENABLED))
  
--	adapter->ahw->idc.vnic_state = QLCNIC_DEV_NPAR_NON_OPER;
--	adapter->ahw->idc.vnic_wait_limit = QLCNIC_DEV_NPAR_OPER_TIMEO;
-+	ahw->idc.vnic_state = QLCNIC_DEV_NPAR_NON_OPER;
-+	ahw->idc.vnic_wait_limit = QLCNIC_DEV_NPAR_OPER_TIMEO;
++#define QLCNIC_BEACON_EANBLE		0xC
++#define QLCNIC_BEACON_DISABLE		0xD
++
+ #define QLCNIC_DEF_NUM_STS_DESC_RINGS	4
+ #define QLCNIC_MSIX_TBL_SPACE		8192
+ #define QLCNIC_PCI_REG_MSIX_TBL 	0x44
+@@ -1539,6 +1543,7 @@ int qlcnic_set_default_offload_settings(struct qlcnic_adapter *);
+ int qlcnic_reset_npar_config(struct qlcnic_adapter *);
+ int qlcnic_set_eswitch_port_config(struct qlcnic_adapter *);
+ void qlcnic_add_lb_filter(struct qlcnic_adapter *, struct sk_buff *, int, u16);
++int qlcnic_get_beacon_state(struct qlcnic_adapter *, u8 *);
+ int qlcnic_83xx_configure_opmode(struct qlcnic_adapter *adapter);
+ int qlcnic_read_mac_addr(struct qlcnic_adapter *);
+ int qlcnic_setup_netdev(struct qlcnic_adapter *, struct net_device *, int);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+index 43562c2..d63b5f7 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+@@ -37,6 +37,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_mbx_tbl[] = {
+ 	{QLCNIC_CMD_TEMP_SIZE, 4, 4},
+ 	{QLCNIC_CMD_GET_TEMP_HDR, 4, 1},
+ 	{QLCNIC_CMD_SET_DRV_VER, 4, 1},
++	{QLCNIC_CMD_GET_LED_STATUS, 4, 2},
+ };
  
+ static inline u32 qlcnic_get_cmd_signature(struct qlcnic_hardware_context *ahw)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index 6a6512b..b868ca3 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -1462,6 +1462,21 @@ int qlcnic_82xx_config_led(struct qlcnic_adapter *adapter, u32 state, u32 rate)
+ 	return rv;
+ }
+ 
++int qlcnic_get_beacon_state(struct qlcnic_adapter *adapter, u8 *h_state)
++{
++	struct qlcnic_cmd_args cmd;
++	int err;
++
++	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_GET_LED_STATUS);
++	if (!err) {
++		err = qlcnic_issue_cmd(adapter, &cmd);
++		if (!err)
++			*h_state = cmd.rsp.arg[1];
++	}
++	qlcnic_free_mbx_args(&cmd);
++	return err;
++}
++
+ void qlcnic_82xx_get_func_no(struct qlcnic_adapter *adapter)
+ {
+ 	void __iomem *msix_base_addr;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
+index b6818f4..812fd07 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
+@@ -87,6 +87,7 @@ enum qlcnic_regs {
+ #define	QLCNIC_CMD_CONFIG_VPORT			0x32
+ #define QLCNIC_CMD_GET_MAC_STATS		0x37
+ #define QLCNIC_CMD_SET_DRV_VER			0x38
++#define QLCNIC_CMD_GET_LED_STATUS		0x3C
+ #define QLCNIC_CMD_CONFIGURE_RSS		0x41
+ #define QLCNIC_CMD_CONFIG_INTR_COAL		0x43
+ #define QLCNIC_CMD_CONFIGURE_LED		0x44
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+index 4e22e79..ece0dc9 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+@@ -114,57 +114,51 @@ static int qlcnic_validate_beacon(struct qlcnic_adapter *adapter, u16 beacon,
  	return 0;
  }
+ 
+-static ssize_t qlcnic_store_beacon(struct device *dev,
+-				   struct device_attribute *attr,
+-				   const char *buf, size_t len)
++static int qlcnic_83xx_store_beacon(struct qlcnic_adapter *adapter,
++				    const char *buf, size_t len)
+ {
+-	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+-	int err, max_sds_rings = adapter->max_sds_rings;
+-	u16 beacon;
+-	u8 b_state, b_rate;
+ 	unsigned long h_beacon;
++	int err;
+ 
+-	if (adapter->ahw->op_mode == QLCNIC_NON_PRIV_FUNC) {
+-		dev_warn(dev,
+-			 "LED test not supported in non privileged mode\n");
+-		return -EOPNOTSUPP;
+-	}
++	if (test_bit(__QLCNIC_RESETTING, &adapter->state))
++		return -EIO;
+ 
+-	if (qlcnic_83xx_check(adapter) &&
+-	    !test_bit(__QLCNIC_RESETTING, &adapter->state)) {
+-		if (kstrtoul(buf, 2, &h_beacon))
+-			return -EINVAL;
++	if (kstrtoul(buf, 2, &h_beacon))
++		return -EINVAL;
+ 
+-		if (ahw->beacon_state == h_beacon)
+-			return len;
++	if (ahw->beacon_state == h_beacon)
++		return len;
+ 
+-		rtnl_lock();
+-		if (!ahw->beacon_state) {
+-			if (test_and_set_bit(__QLCNIC_LED_ENABLE,
+-					     &adapter->state)) {
+-				rtnl_unlock();
+-				return -EBUSY;
+-			}
+-		}
+-		if (h_beacon) {
+-			err = qlcnic_83xx_config_led(adapter, 1, h_beacon);
+-			if (err)
+-				goto beacon_err;
+-		} else {
+-			err = qlcnic_83xx_config_led(adapter, 0, !h_beacon);
+-			if (err)
+-				goto beacon_err;
++	rtnl_lock();
++	if (!ahw->beacon_state) {
++		if (test_and_set_bit(__QLCNIC_LED_ENABLE, &adapter->state)) {
++			rtnl_unlock();
++			return -EBUSY;
+ 		}
+-		/* set the current beacon state */
++	}
++
++	if (h_beacon)
++		err = qlcnic_83xx_config_led(adapter, 1, h_beacon);
++	else
++		err = qlcnic_83xx_config_led(adapter, 0, !h_beacon);
++	if (!err)
+ 		ahw->beacon_state = h_beacon;
+-beacon_err:
+-		if (!ahw->beacon_state)
+-			clear_bit(__QLCNIC_LED_ENABLE, &adapter->state);
+ 
+-		rtnl_unlock();
+-		return len;
+-	}
++	if (!ahw->beacon_state)
++		clear_bit(__QLCNIC_LED_ENABLE, &adapter->state);
++
++	rtnl_unlock();
++	return len;
++}
++
++static int qlcnic_82xx_store_beacon(struct qlcnic_adapter *adapter,
++				    const char *buf, size_t len)
++{
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	int err, max_sds_rings = adapter->max_sds_rings;
++	u16 beacon;
++	u8 h_beacon_state, b_state, b_rate;
+ 
+ 	if (len != sizeof(u16))
+ 		return QL_STATUS_INVALID_PARAM;
+@@ -174,16 +168,29 @@ beacon_err:
+ 	if (err)
+ 		return err;
+ 
+-	if (adapter->ahw->beacon_state == b_state)
++	if ((ahw->capabilities2 & QLCNIC_FW_CAPABILITY_2_BEACON)) {
++		err = qlcnic_get_beacon_state(adapter, &h_beacon_state);
++		if (!err) {
++			dev_info(&adapter->pdev->dev,
++				 "Failed to get current beacon state\n");
++		} else {
++			if (h_beacon_state == QLCNIC_BEACON_DISABLE)
++				ahw->beacon_state = 0;
++			else if (h_beacon_state == QLCNIC_BEACON_EANBLE)
++				ahw->beacon_state = 2;
++		}
++	}
++
++	if (ahw->beacon_state == b_state)
+ 		return len;
+ 
+ 	rtnl_lock();
+-
+-	if (!adapter->ahw->beacon_state)
++	if (!ahw->beacon_state) {
+ 		if (test_and_set_bit(__QLCNIC_LED_ENABLE, &adapter->state)) {
+ 			rtnl_unlock();
+ 			return -EBUSY;
+ 		}
++	}
+ 
+ 	if (test_bit(__QLCNIC_RESETTING, &adapter->state)) {
+ 		err = -EIO;
+@@ -206,14 +213,37 @@ beacon_err:
+ 	if (test_and_clear_bit(__QLCNIC_DIAG_RES_ALLOC, &adapter->state))
+ 		qlcnic_diag_free_res(adapter->netdev, max_sds_rings);
+ 
+- out:
+-	if (!adapter->ahw->beacon_state)
++out:
++	if (!ahw->beacon_state)
+ 		clear_bit(__QLCNIC_LED_ENABLE, &adapter->state);
+ 	rtnl_unlock();
+ 
+ 	return err;
+ }
+ 
++static ssize_t qlcnic_store_beacon(struct device *dev,
++				   struct device_attribute *attr,
++				   const char *buf, size_t len)
++{
++	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
++	int err = 0;
++
++	if (adapter->ahw->op_mode == QLCNIC_NON_PRIV_FUNC) {
++		dev_warn(dev,
++			 "LED test not supported in non privileged mode\n");
++		return -EOPNOTSUPP;
++	}
++
++	if (qlcnic_82xx_check(adapter))
++		err = qlcnic_82xx_store_beacon(adapter, buf, len);
++	else if (qlcnic_83xx_check(adapter))
++		err = qlcnic_83xx_store_beacon(adapter, buf, len);
++	else
++		return -EIO;
++
++	return err;
++}
++
+ static ssize_t qlcnic_show_beacon(struct device *dev,
+ 				  struct device_attribute *attr, char *buf)
+ {
 -- 
 1.5.6
