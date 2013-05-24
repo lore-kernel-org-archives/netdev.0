@@ -1,47 +1,116 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
-Date: Fri, 24 May 2013 09:58:56 -0700
-Message-ID: <1369414736.3301.420.camel@edumazet-glaptop>
-References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com>
-	 <20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH 2/2] net: mv643xx_eth: proper initialization for
+ Kirkwood SoCs
+Date: Fri, 24 May 2013 13:01:25 -0400
+Message-ID: <20130524170125.GX31290@titan.lakedaemon.net>
+References: <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369253042-15082-2-git-send-email-sebastian.hesselbarth@gmail.com>
+ <20130522201607.GA18823@obsidianresearch.com>
+ <20130523160111.GP31290@titan.lakedaemon.net>
+ <20130523171112.GB31281@obsidianresearch.com>
+ <20130523172339.GQ31290@titan.lakedaemon.net>
+ <20130523175357.GB2821@obsidianresearch.com>
+ <20130523184028.GU31290@titan.lakedaemon.net>
+ <519E9ADA.3040204@gmail.com>
+ <CACRpkdbsicPkPAiaQCOg2mQF2Ce2dg_K=BKqqx=FCdAH7Y+QBg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Or Gerlitz <or.gerlitz@gmail.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Rony Efraim <ronye@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f44.google.com ([209.85.160.44]:55312 "EHLO
-	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751406Ab3EXQ66 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 12:58:58 -0400
-Received: by mail-pb0-f44.google.com with SMTP id wz12so4446501pbc.31
-        for <netdev@vger.kernel.org>; Fri, 24 May 2013 09:58:57 -0700 (PDT)
-In-Reply-To: <20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Gunthorpe <jgunthorpe@obsidianresearch.com>,
+ Andrew Lunn <andrew@lunn.ch>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "devicetree-discuss@lists.ozlabs.org" <devicetree-discuss@lists.ozlabs.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ Grant Likely <grant.likely@secretlab.ca>,
+ Lennert Buytenhek <buytenh@wantstofly.org>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ "linuxppc-dev@lists.ozlabs.org list" <linuxppc-dev@lists.ozlabs.org>,
+ David Miller <davem@davemloft.net>,
+ "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Linus Walleij <linus.walleij@linaro.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <CACRpkdbsicPkPAiaQCOg2mQF2Ce2dg_K=BKqqx=FCdAH7Y+QBg@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-05-24 at 11:34 -0500, Shawn Bohrer wrote:
-> On Fri, May 24, 2013 at 10:49:31AM -0500, Shawn Bohrer wrote:
-> > I just started testing the 3.10 kernel, previously we were on 3.4 so
-> > there is a fairly large jump.  I've additionally applied the following
-> > four patches to the 3.10.0-rc2 kernel that I'm testing:
-> > 
-> > https://patchwork.kernel.org/patch/2484651/
-> > https://patchwork.kernel.org/patch/2484671/
-> > https://patchwork.kernel.org/patch/2484681/
-> > https://patchwork.kernel.org/patch/2484641/
-> > 
-> > I don't know if those patches are related to my issues or not but I
-> > plan on trying to reproduce without them soon.
+On Fri, May 24, 2013 at 01:03:25PM +0200, Linus Walleij wrote:
+> On Fri, May 24, 2013 at 12:40 AM, Sebastian Hesselbarth
+> <sebastian.hesselbarth@gmail.com> wrote:
+> > On 05/23/2013 08:40 PM, Jason Cooper wrote:
 > 
-> I've reverted the four patches above from my test kernel and still see
-> the issue so they don't appear to be the cause.
+> >> I think marvell,psc1_reset =<>; gives us the most flexibility in
+> >> accurately describing the hardware.
+> >
+> >
+> > IMHO using that is just another workaround for a broken driver. We
+> > could hack the whole register setup in DT as it would still accurately
+> > describe HW. Don't get me wrong, but I don't like it.
+> >
+> > Haven't checked how happy Linus Walleij is about pinctrl drivers with
+> > reg values hacked in lately.
+> 
+> One of the things I've been ranting about lately is that Linux
+> subsystem maintainers have become de-facto device tree
+> standard commite chairs. :-(
 
-I suggest adding in tools/testing/selftests/net tests about multicast
-stuff.
+This is the first I've heard this rant.  :(
 
-It seems many NIC suffer from bugs in this area, especially when dealing
-with a lot of groups.
+To that end, I agree with you.  My frustration boiled down to trying to
+predict the future, which is futile. :-P
+
+For our scenario, once we can confirm our least popular kirkwood
+variant, the 6282, behaves the same as we've seen so far, then
+"marvell,kirkwood-eth" is fine by me.
+
+> So to the actual question:
+> 
+> In general I think we need to draw a line and define what we
+> mean with "describing the hardware" in a device tree.
+> 
+> We have some consensus:
+> - <reg> properties to describe regsiter BASE offset in physical
+>   memory and size.
+> - Resources like IRQ, DMA channel, regulator, GPIO pin control
+>   handles, are passed using <&ampersand> notation.
+> 
+> And so it goes on.
+> 
+> When it comes to defining different registers and their individual
+> bits and the meaning of these and/or default values, I personally
+> think that is making things harder for developers rather than
+> simplifying things. I know that pinctrl-single is anyway doing this
+> and I was talked into accepting it under circumstances where
+> developers are being passed opaque machine-generated
+> data that would otherwise be translated into unreadable header
+> files littering the kernel.
+> 
+> For a coder it is definately better if the *driver* know these
+> details, but whether that is possible seems to depend on things
+> like hardware development process.
+
+Agree.
+
+> IMO: if you want to go down that road, what you really want is not
+> ever more expressible device trees, but real open firmware,
+> or ACPI or UEFI that can interpret and run bytecode as some
+> "bios" for you. With DT coming from OF maybe this is a natural
+> progression of things, but one has to realize when we reach the
+> point where what we really want is a bios. Then your time is
+> likely better spent with Tianocore or something than with the
+> kernel.
+
+shudder.  I like embedded systems because the *don't* have a bios.
+
+thx,
+
+Jason.
