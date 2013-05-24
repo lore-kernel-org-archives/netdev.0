@@ -1,46 +1,36 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH v2] ipv4: netfilter: always let NUL terminated string
- ended by '\0'
-Date: Fri, 24 May 2013 09:11:08 +0800
-Message-ID: <519EBE2C.1010005@asianux.com>
-References: <5195ECB3.5000006@asianux.com> <20130523110832.GB22553@localhost> <519E0296.6010601@asianux.com> <20130523122631.GA32141@localhost>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tcp: xps: fix reordering issues
+Date: Thu, 23 May 2013 18:29:39 -0700 (PDT)
+Message-ID: <20130523.182939.1656578741039330554.davem@davemloft.net>
+References: <1369331060.3301.396.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, David Miller <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20130523122631.GA32141@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, therbert@google.com, ycheng@google.com,
+	ncardwell@google.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758000Ab3EXB3k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 21:29:40 -0400
+In-Reply-To: <1369331060.3301.396.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2013 08:26 PM, Pablo Neira Ayuso wrote:
-> On Thu, May 23, 2013 at 07:50:46PM +0800, Chen Gang wrote:
->> > 
->> > For NUL terminated string, need always be sure of ended by '\0'.
->> > 
->> > 'prefix' max length is 128 (NF_LOG_PREFIXLEN), and 'pm->prefix' max
->> > length is 32 (ULOG_PREFIX_LEN), so really need notice it.
->> > 
->> > 'pm' is 'struct ulog_packet_msg_t' which may be copied to user mode
->> > (defined in "include/uapi/..."), so can not use strlcpy() instead of.
-> That's fixing a real bug. We're passing strings that are longer than
-> 32 bytes from nf_conntrack_tcp via nf_log, if ipt_ULOG is used, it
-> will pass a non-null terminated string.
-> 
-> I'm going to rework the patch description to include this and apply
-> this patch.
-> 
-> Thanks Chen.
-> 
-> 
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 23 May 2013 10:44:20 -0700
 
-Thank you too.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> commit 3853b5841c01a ("xps: Improvements in TX queue selection")
+> introduced ooo_okay flag, but the condition to set it is slightly wrong.
+> 
+> In our traces, we have seen ACK packets being received out of order,
+> and RST packets sent in response.
+> 
+> We should test if we have any packets still in host queue.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
--- 
-Chen Gang
-
-Asianux Corporation
+Applied, thanks Eric.
