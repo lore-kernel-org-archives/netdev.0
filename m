@@ -1,49 +1,42 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next 1/2] net: Export skb_zerocopy() to zerocopy from
- one skb to another
-Date: Fri, 24 May 2013 17:01:06 +0100
-Message-ID: <20130524160106.GA30252@casper.infradead.org>
-References: <cover.1369406826.git.tgraf@suug.ch>
- <d209be514b6eff718e0b6562da289faadd014806.1369406826.git.tgraf@suug.ch>
- <1369409516.3301.407.camel@edumazet-glaptop>
+From: Shawn Bohrer <shawn.bohrer@gmail.com>
+Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
+Date: Fri, 24 May 2013 11:34:46 -0500
+Message-ID: <20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com>
+References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jesse@nicira.com, dev@openvswitch.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Rony Efraim <ronye@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:51926 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754721Ab3EXQBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 12:01:08 -0400
+Received: from mail-ob0-f173.google.com ([209.85.214.173]:57464 "EHLO
+	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752007Ab3EXQet (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 12:34:49 -0400
+Received: by mail-ob0-f173.google.com with SMTP id eh20so5638224obb.4
+        for <netdev@vger.kernel.org>; Fri, 24 May 2013 09:34:49 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1369409516.3301.407.camel@edumazet-glaptop>
+In-Reply-To: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/24/13 at 08:31am, Eric Dumazet wrote:
-> Hmm. Big warning here : In the nfnetlink case, we specifically made sure
-> that this path was taken only if skb->head_frag was set (all incoming
-> packets have this property, but not outgoing ones yet)
+On Fri, May 24, 2013 at 10:49:31AM -0500, Shawn Bohrer wrote:
+> I just started testing the 3.10 kernel, previously we were on 3.4 so
+> there is a fairly large jump.  I've additionally applied the following
+> four patches to the 3.10.0-rc2 kernel that I'm testing:
 > 
-> This should be documented if we move it to net/core/skbuff.c, or we
-> should add a BUG_ON()
-
-Good point.
-
-I guess we could ensure in skb_zerocopy() that if !head_frag then we
-enforce hlen = max(hlen, skb_headlen(skb)) to always fall back to
-skb_copy_bits() for !head_frag.
-
-> I see your openvswitch code seems OK.
+> https://patchwork.kernel.org/patch/2484651/
+> https://patchwork.kernel.org/patch/2484671/
+> https://patchwork.kernel.org/patch/2484681/
+> https://patchwork.kernel.org/patch/2484641/
 > 
-> Maybe also put in net/core/skbuff.c the code dealing with  this stuff ?
-> 
-> +       if (!skb->head_frag ||
-> +           skb_headlen(skb) < L1_CACHE_BYTES ||
-> +           skb_shinfo(skb)->nr_frags >= MAX_SKB_FRAGS)
-> +               hlen = skb_headlen(skb);
-> +
-> +       if (skb_has_frag_list(skb))
-> +               hlen = skb->len;
+> I don't know if those patches are related to my issues or not but I
+> plan on trying to reproduce without them soon.
 
-I'll put this into skb_zerocopy_hdrlen()
+I've reverted the four patches above from my test kernel and still see
+the issue so they don't appear to be the cause.
+
+--
+Shawn
