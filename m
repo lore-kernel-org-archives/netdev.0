@@ -1,61 +1,60 @@
-From: Holger Brunck <holger.brunck@keymile.com>
-Subject: Re: napi layer and packet throttling
-Date: Fri, 24 May 2013 11:39:03 +0200
-Message-ID: <519F3537.8050603@keymile.com>
-References: <519E030E.5040903@keymile.com> <1369348056.6963.25.camel@bwh-desktop.uk.level5networks.com> <519F1698.3050301@keymile.com> <CAHdPZaPChc_EUW_Y+Dvu16nsAGZpe00BRm08-2NW=p+8hDt1yA@mail.gmail.com>
+From: Daniel Petre <daniel.petre@rcs-rds.ro>
+Subject: Re: [PATCH] ip_gre: fix kernel panic with icmp_dest_unreach
+Date: Fri, 24 May 2013 12:40:02 +0300
+Message-ID: <519F3572.7060503@rcs-rds.ro>
+References: <D2CA09D3-A93C-48CF-A23B-DC1B76D66818@rcs-rds.ro>  <1369170063.3301.251.camel@edumazet-glaptop> <519C839E.1000309@rcs-rds.ro>   <1369222666.3301.304.camel@edumazet-glaptop> <519CB0D3.8000406@rcs-rds.ro>  <1369230739.3301.334.camel@edumazet-glaptop> <519CE6F0.3040703@rcs-rds.ro>  <519DD7A4.9090801@rcs-rds.ro> <1369324409.3301.382.camel@edumazet-glaptop> <1369329033.3301.389.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: "devendra.aaru" <devendra.aaru@gmail.com>
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-de.keymile.com ([195.8.104.250]:58816 "EHLO
-	mail-de.keymile.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1760070Ab3EXJjI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 05:39:08 -0400
-In-Reply-To: <CAHdPZaPChc_EUW_Y+Dvu16nsAGZpe00BRm08-2NW=p+8hDt1yA@mail.gmail.com>
+Received: from mailproxy.rcs-rds.ro ([212.54.120.14]:42129 "EHLO
+	mailproxy.rcs-rds.ro" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750933Ab3EXJkF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 05:40:05 -0400
+In-Reply-To: <1369329033.3301.389.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/24/2013 11:20 AM, devendra.aaru wrote:
-> On Fri, May 24, 2013 at 12:58 PM, Holger Brunck
+On 05/23/2013 08:10 PM, Eric Dumazet wrote:
+> On Thu, 2013-05-23 at 08:53 -0700, Eric Dumazet wrote:
+>> On Thu, 2013-05-23 at 11:47 +0300, Daniel Petre wrote:
 >>
->> On 05/24/2013 12:27 AM, Ben Hutchings wrote:
->>> On Thu, 2013-05-23 at 13:52 +0200, Holger Brunck wrote:
->>>> b) Packet-Throttling
->>>> Here the description says "NAPI-compliant drivers can often cause packets to be
->>>> dropped in the network adaptor itself, before the kernel sees them at all."
->>>>
->>>> This is exactly what I need for my usecase. But I don't see any hints how this
->>>> can be implemented with the napi layer.
->>> [...]
 >>>
->>> If the RX ring is not cleaned and refilled quickly enough, the network
->>> controller will naturally start to drop packets.  It's not something you
->>> should do explicitly in the driver.
+>>> Hello again Eric,
+>>> we applied the little patch from:
+>>> http://lkml.indiana.edu/hypermail/linux/kernel/1007.0/00961.html
+>>> we have flapped the link few times and everything recovered smooth.
 >>>
 >>
->> yes. But what if the remaining amount of packets which are getting through the
->> napi_poll function into the linux system are still to many and generate
->> therefore a to high softirq load on the system which leads to the problems I
->> see. Ok I could use a smaller amount of RX ring buffers, but then the system
->> would get more intolerant for RX bursts what I don't want. I would like to
->> protect the system if someone sends continuously a high packet rate to the
->> interface, similar to DoS attacks.
+>> Thats a very good catch, now we have to fix the bug at the right place.
 > 
 > 
-> what if i measure no. of packets over a period of time and find the
-> rate of arrival (packets/msec) and if that rate is greater than the
-> choosen rate, allow only packets that are in the window that you can
-> accept, This window can be time window or the number of packets (like
-> 1 packet in 10 usec or 1 packet out of 100 packets). Like wise this
-> measurement can be repeated after every full period.
-> 
+> Please try the following patch :
 
-thats similar to what I have implemented in ucc_geth.c for my workspace and yes
-whith such a mechanism my problems seems to be fixed. But I still ask myself if
-there is a common approach for such a problem already implemented in similar
-drivers...
+we have compiled it, tested it few times and.. nothing evil happens anymore!
 
-Regards
-Holger
+> 
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> index 91d66db..563358e 100644
+> --- a/net/ipv4/ip_gre.c
+> +++ b/net/ipv4/ip_gre.c
+> @@ -795,6 +795,7 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+>  
+>  	if (dev->type == ARPHRD_ETHER)
+>  		IPCB(skb)->flags = 0;
+> +	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+>  
+>  	if (dev->header_ops && dev->type == ARPHRD_IPGRE) {
+>  		gre_hlen = 0;
+> @@ -952,7 +953,6 @@ static netdev_tx_t ipgre_tunnel_xmit(struct sk_buff *skb, struct net_device *dev
+>  	skb_push(skb, gre_hlen);
+>  	skb_reset_network_header(skb);
+>  	skb_set_transport_header(skb, sizeof(*iph));
+> -	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
+>  	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
+>  			      IPSKB_REROUTED);
+>  	skb_dst_drop(skb);
+> 
+> 
