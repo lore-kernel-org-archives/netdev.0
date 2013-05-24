@@ -1,27 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 3/4] ppp_mppe: cleanup kernel log messages
-Date: Thu, 23 May 2013 18:32:52 -0700 (PDT)
-Message-ID: <20130523.183252.2126974375260355007.davem@davemloft.net>
-References: <1369222373-7701-1-git-send-email-jorge@dti2.net>
-	<1369222373-7701-3-git-send-email-jorge@dti2.net>
+Subject: Re: [PATCH next-next v4 1/2] net: Use 16bits for inner_*_headers
+ fields of struct skbuff
+Date: Thu, 23 May 2013 18:38:17 -0700 (PDT)
+Message-ID: <20130523.183817.86513902587870539.davem@davemloft.net>
+References: <1369205836-9407-1-git-send-email-horms@verge.net.au>
+	<1369205836-9407-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-ppp@vger.kernel.org
-To: jorge@dti2.net
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1369222373-7701-3-git-send-email-jorge@dti2.net>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: dev@openvswitch.org, netdev@vger.kernel.org, jesse@nicira.com,
+	pshelar@nicira.com, jarno.rajahalme@nsn.com,
+	eric.dumazet@gmail.com, maze@google.com
+To: horms@verge.net.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37423 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758000Ab3EXBiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 21:38:18 -0400
+In-Reply-To: <1369205836-9407-2-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Jorge Boncompte [DTI2]" <jorge@dti2.net>
-Date: Wed, 22 May 2013 13:32:52 +0200
+From: Simon Horman <horms@verge.net.au>
+Date: Wed, 22 May 2013 15:57:15 +0900
 
-> @@ -43,6 +43,8 @@
->   *                    deprecated in 2.6
->   */
+> @@ -509,9 +509,9 @@ struct sk_buff {
+>  		__u32		reserved_tailroom;
+>  	};
 >  
-> +#define DEBUG
-> +
+> -	sk_buff_data_t		inner_transport_header;
+> -	sk_buff_data_t		inner_network_header;
+> -	sk_buff_data_t		inner_mac_header;
+> +	__u16			inner_transport_header;
+> +	__u16			inner_network_header;
+> +	__u16			inner_mac_header;
+>  	sk_buff_data_t		transport_header;
+>  	sk_buff_data_t		network_header;
+>  	sk_buff_data_t		mac_header;
 
-You've got to be kidding me.  Don't do this.
+As Pekka suggested, let's try to convert them allto __u16.
+
+Thanks.
