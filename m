@@ -1,38 +1,45 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [ PATCH iproute2] ss: replace bfp with bpf in usage().
-Date: Fri, 24 May 2013 12:42:40 +0300
-Message-ID: <1369388560-6030-1-git-send-email-ramirose@gmail.com>
-Cc: stephen@networkplumber.org, Rami Rosen <ramirose@gmail.com>
+From: Ajith Adapa <adapa.ajith@gmail.com>
+Subject: Regarding processing IGMPv2 reports from a snooping switch
+Date: Fri, 24 May 2013 15:31:21 +0530
+Message-ID: <CADAe=++aQH+p-4HxOBa6tznOB=CKQbhyFCm=fMv7SZUR34jLVg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f181.google.com ([209.85.215.181]:62432 "EHLO
-	mail-ea0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751998Ab3EXJoL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 05:44:11 -0400
-Received: by mail-ea0-f181.google.com with SMTP id a11so2433691eae.40
-        for <netdev@vger.kernel.org>; Fri, 24 May 2013 02:44:09 -0700 (PDT)
+Received: from mail-ee0-f48.google.com ([74.125.83.48]:36718 "EHLO
+	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759561Ab3EXKBx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 06:01:53 -0400
+Received: by mail-ee0-f48.google.com with SMTP id b47so2548328eek.35
+        for <netdev@vger.kernel.org>; Fri, 24 May 2013 03:01:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes usage() of misc/ss.c to use bpf instead of bfp.
+Hi,
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- misc/ss.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Router -- snooping switch -- host(s)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 9f6354e..418dd6f 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2926,7 +2926,7 @@ static void _usage(FILE *dest)
- "   -p, --processes	show process using socket\n"
- "   -i, --info		show internal TCP information\n"
- "   -s, --summary	show socket usage summary\n"
--"   -b, --bfp           show bpf filter socket information\n"
-+"   -b, --bpf           show bpf filter socket information\n"
- "\n"
- "   -4, --ipv4          display only IP version 4 sockets\n"
- "   -6, --ipv6          display only IP version 6 sockets\n"
--- 
-1.8.1.4
+Router sends a general igmpv2 query which is forwarded to host(s).
+
+Hosts reply back with report messages that they r intrested in group G
+(i.e. 234.1.1.1) as destination address.
+
+Let us say report suppression is enabled in igmp snooping switch. So
+switch sends a single report message to router with source address as
+0.0.0.0 and destination address as group address  G (for e.g.
+234.1.1.1).
+
+But linux kernel in multicast router is dropping the packet.
+
+in ipv4/route.c in ip_route_input_mc function
+
+        if (ipv4_is_zeronet(saddr)) {
+                if (!ipv4_is_local_multicast(daddr))
+                        goto e_inval;
+
+Ideally packet is dropped in above code. Is it expected behaviour ?
+
+Regards,
+Ajith
+--------------------------------------------
+codingfreak.in
