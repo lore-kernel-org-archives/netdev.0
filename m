@@ -1,68 +1,44 @@
-From: Rob Landley <rob@landley.net>
-Subject: Re: [PATCH] build some drivers only when compile-testing
-Date: Thu, 23 May 2013 23:50:30 -0500
-Message-ID: <1369371030.2776.17@driftwood>
-References: <1369317700.3469.256.camel@deadeye.wl.decadent.org.uk>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v8 02/11] ipv6: make ip6_dst_hoplimit() static
+ inline
+Date: Fri, 24 May 2013 13:10:18 +0800
+Message-ID: <1369372218.5590.1.camel@cr0>
+References: <1368750099-14086-3-git-send-email-amwang@redhat.com>
+	 <20130517.141327.2084320693913331713.davem@davemloft.net>
+	 <1369198453.5722.12.camel@cr0>
+	 <20130522.001453.864958570289931561.davem@davemloft.net>
+	 <1369218521.5097.20.camel@cr0>
+	 <CAF1J0HNZS_s9pA1jetaFHZgqdgT+BfS6wASDpTL5UV8SzpH6Fg@mail.gmail.com>
+	 <703447758.6014383.1369238603475.JavaMail.root@redhat.com>
+	 <20130522161013.GA10184@zed>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; DelSp=Yes; Format=Flowed
-Content-Transfer-Encoding: 8BIT
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jiri Slaby <jslaby@suse.cz>, jirislaby@gmail.com,
-	linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Jeff Mahoney <jeffm@suse.com>,
-	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-	linux-usb@vger.kernel.org,
-	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
-	linux-geode@lists.infradead.org, linux-fbdev@vger.kernel.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369317700.3469.256.camel@deadeye.wl.decadent.org.uk> (from
-	ben@decadent.org.uk on Thu May 23 09:01:40 2013)
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46106 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752685Ab3EXFKf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 May 2013 01:10:35 -0400
+In-Reply-To: <20130522161013.GA10184@zed>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/23/2013 09:01:40 AM, Ben Hutchings wrote:
-> On Wed, 2013-05-22 at 19:23 -0700, Greg Kroah-Hartman wrote:
-> > On Wed, May 22, 2013 at 11:18:46AM +0200, Jiri Slaby wrote:
-> > > Some drivers can be built on more platforms than they run on. This
-> > > causes users and distributors packaging burden when they have to
-> > > manually deselect some drivers from their allmodconfigs. Or  
-> sometimes
-> > > it is even impossible to disable the drivers without patching the
-> > > kernel.
-> > >
-> > > Introduce a new config option COMPILE_TEST and make all those  
-> drivers
-> > > to depend on the platform they run on, or on the COMPILE_TEST  
-> option.
-> > > Now, when users/distributors choose COMPILE_TEST=n they will not  
-> have
-> > > the drivers in their allmodconfig setups, but developers still can
-> > > compile-test them with COMPILE_TEST=y.
-> >
-> > I understand the urge, and it's getting hard for distros to handle  
-> these
-> > drivers that just don't work on other architectures, but it's really
-> > valuable to ensure that they build properly, for those of us that  
-> don't
-> > have many/any cross compilers set up.
+On Wed, 2013-05-22 at 19:10 +0300, Mike Rapoport wrote:
+> I've lost you here... Why not just:
+> 
+> static inline
+> bool vxlan_addr_equal(const union vxlan_addr *a, const union vxlan_addr *b)
+> {
+>        if (a->sa.sa_family != b->sa.sa_family)
+>                return false;
+>        if (a->sa.sa_family == AF_INET6)
+>                return ipv6_addr_equal(&a->sin6.sin6_addr, &b->sin6.sin6_addr);
+>        else
+>                return a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr;
+> }
 
-In http://landley.net/aboriginal/bin grab the cross-compiler-*.tar.bz2  
-tarballs, extract them, add the "bin" subdirectory of each to the  
-$PATH. Congratulations, you have cross compilers set up. (They're  
-statically linked and relocatable, so should run just about anywhere.  
-If they don't, let me know and I'll fix it.)
-
-Example build:
-
-   make ARCH=sparc sparc32_defconfig
-   PATH=/home/landley/simple-cross-compiler-sparc/bin:$PATH \
-     make ARCH=sparc CROSS_COMPILE=sparc-
-
-Rob
+I see your point now, but for !CONFIG_IPV6, the first two 'if' is
+obviously useless. Is GCC smart enough to know ->sa.sa_family ==
+AF_INET4 is always true in such case? I doubt...
