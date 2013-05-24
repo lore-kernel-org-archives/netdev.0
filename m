@@ -1,213 +1,131 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 11/12] qlcnic: Enhance virtual NIC logging
-Date: Fri, 24 May 2013 03:04:35 -0400
-Message-ID: <1369379076-4718-12-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 08/12] qlcnic: modify reset recovery path in diag mode
+Date: Fri, 24 May 2013 03:04:32 -0400
+Message-ID: <1369379076-4718-9-git-send-email-shahed.shaikh@qlogic.com>
 References: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Manish Chopra <manish.chopra@qlogic.com>
+	Sony Chacko <sony.chacko@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0184.outbound.messaging.microsoft.com ([213.199.154.184]:45448
+Received: from mail-db8lp0185.outbound.messaging.microsoft.com ([213.199.154.185]:53674
 	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759920Ab3EXHaM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 03:30:12 -0400
+	by vger.kernel.org with ESMTP id S1759944Ab3EXHaF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 03:30:05 -0400
 In-Reply-To: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Manish Chopra <manish.chopra@qlogic.com>
+From: Sony Chacko <sony.chacko@qlogic.com>
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
+Provide diagnostics routines enough time to unwind before
+proceeding with reset recovery.
+
+Signed-off-by: Sony Chacko <sony.chacko@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   36 ++++++++--------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |   44 +++++++++----------
- 3 files changed, 41 insertions(+), 40 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    6 +++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    1 +
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   35 ++++++++++++++++----
+ 3 files changed, 34 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 8cdcb84..70681ad 100644
+index 3e8941a..765fee5 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -442,6 +442,7 @@ struct qlcnic_hardware_context {
- 	u16 max_mtu;
- 	u32 msg_enable;
- 	u16 act_pci_func;
-+	u16 max_pci_func;
+@@ -1473,7 +1473,6 @@ int qlcnic_send_lro_cleanup(struct qlcnic_adapter *adapter);
+ void qlcnic_update_cmd_producer(struct qlcnic_host_tx_ring *);
  
- 	u32 capabilities;
- 	u32 capabilities2;
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 1e699e6..f63a695 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -2134,26 +2134,25 @@ out:
- int qlcnic_83xx_get_pci_info(struct qlcnic_adapter *adapter,
- 			     struct qlcnic_pci_info *pci_info)
- {
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct device *dev = &adapter->pdev->dev;
-+	struct qlcnic_cmd_args cmd;
- 	int i, err = 0, j = 0;
- 	u32 temp;
--	struct qlcnic_cmd_args cmd;
- 
- 	qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_GET_PCI_INFO);
- 	err = qlcnic_issue_cmd(adapter, &cmd);
- 
--	adapter->ahw->act_pci_func = 0;
-+	ahw->act_pci_func = 0;
- 	if (err == QLCNIC_RCODE_SUCCESS) {
--		pci_info->func_count = cmd.rsp.arg[1] & 0xFF;
--		dev_info(&adapter->pdev->dev,
--			 "%s: total functions = %d\n",
--			 __func__, pci_info->func_count);
-+		ahw->max_pci_func = cmd.rsp.arg[1] & 0xFF;
- 		for (i = 2, j = 0; j < QLCNIC_MAX_PCI_FUNC; j++, pci_info++) {
- 			pci_info->id = cmd.rsp.arg[i] & 0xFFFF;
- 			pci_info->active = (cmd.rsp.arg[i] & 0xFFFF0000) >> 16;
- 			i++;
- 			pci_info->type = cmd.rsp.arg[i] & 0xFFFF;
- 			if (pci_info->type == QLCNIC_TYPE_NIC)
--				adapter->ahw->act_pci_func++;
-+				ahw->act_pci_func++;
- 			temp = (cmd.rsp.arg[i] & 0xFFFF0000) >> 16;
- 			pci_info->default_port = temp;
- 			i++;
-@@ -2165,18 +2164,21 @@ int qlcnic_83xx_get_pci_info(struct qlcnic_adapter *adapter,
- 			i++;
- 			memcpy(pci_info->mac + sizeof(u32), &cmd.rsp.arg[i], 2);
- 			i = i + 3;
+ /* Functions from qlcnic_ethtool.c */
 -
--			dev_info(&adapter->pdev->dev, "%s:\n"
--				 "\tid = %d active = %d type = %d\n"
--				 "\tport = %d min bw = %d max bw = %d\n"
--				 "\tmac_addr =  %pM\n", __func__,
--				 pci_info->id, pci_info->active, pci_info->type,
--				 pci_info->default_port, pci_info->tx_min_bw,
--				 pci_info->tx_max_bw, pci_info->mac);
-+			if (ahw->op_mode == QLCNIC_MGMT_FUNC)
-+				dev_info(dev, "id = %d active = %d type = %d\n"
-+					 "\tport = %d min bw = %d max bw = %d\n"
-+					 "\tmac_addr =  %pM\n", pci_info->id,
-+					 pci_info->active, pci_info->type,
-+					 pci_info->default_port,
-+					 pci_info->tx_min_bw,
-+					 pci_info->tx_max_bw, pci_info->mac);
- 		}
-+		if (ahw->op_mode == QLCNIC_MGMT_FUNC)
-+			dev_info(dev, "Max vNIC functions = %d, active vNIC functions = %d\n",
-+				 ahw->max_pci_func, ahw->act_pci_func);
+ int qlcnic_check_loopback_buff(unsigned char *, u8 []);
+ int qlcnic_do_lb_test(struct qlcnic_adapter *, u8);
+ int qlcnic_loopback_test(struct net_device *, u8);
+@@ -1891,6 +1890,11 @@ static inline void qlcnic_release_diag_lock(struct qlcnic_adapter *adapter)
+ 	clear_bit(__QLCNIC_DIAG_MODE, &adapter->state);
+ }
+ 
++static inline int qlcnic_check_diag_status(struct qlcnic_adapter *adapter)
++{
++	return test_bit(__QLCNIC_DIAG_MODE, &adapter->state);
++}
 +
- 	} else {
--		dev_err(&adapter->pdev->dev, "Failed to get PCI Info%d\n",
--			err);
-+		dev_err(dev, "Failed to get PCI Info, error = %d\n", err);
- 		err = -EIO;
+ extern const struct ethtool_ops qlcnic_sriov_vf_ethtool_ops;
+ extern const struct ethtool_ops qlcnic_ethtool_ops;
+ extern const struct ethtool_ops qlcnic_ethtool_failed_ops;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+index f5db67f..1bfe283 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+@@ -314,6 +314,7 @@ struct qlc_83xx_idc {
+ 	u8		vnic_state;
+ 	u8		vnic_wait_limit;
+ 	u8		quiesce_req;
++	u8		delay_reset;
+ 	char		**name;
+ };
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index c67d1eb..fe18730 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -651,6 +651,7 @@ static void qlcnic_83xx_idc_update_idc_params(struct qlcnic_adapter *adapter)
+ 	ahw->idc.collect_dump = 0;
+ 	ahw->reset_context = 0;
+ 	adapter->tx_timeo_cnt = 0;
++	ahw->idc.delay_reset = 0;
+ 
+ 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
+ }
+@@ -885,21 +886,41 @@ static int qlcnic_83xx_idc_need_reset_state(struct qlcnic_adapter *adapter)
+ 	int ret = 0;
+ 
+ 	if (adapter->ahw->idc.prev_state != QLC_83XX_IDC_DEV_NEED_RESET) {
+-		qlcnic_83xx_idc_update_drv_ack_reg(adapter, 1, 1);
+ 		qlcnic_83xx_idc_update_audit_reg(adapter, 0, 1);
+ 		set_bit(__QLCNIC_RESETTING, &adapter->state);
+ 		clear_bit(QLC_83XX_MBX_READY, &adapter->ahw->idc.status);
+ 		if (adapter->ahw->nic_mode == QLC_83XX_VIRTUAL_NIC_MODE)
+ 			qlcnic_83xx_disable_vnic_mode(adapter, 1);
+-		qlcnic_83xx_idc_detach_driver(adapter);
++
++		if (qlcnic_check_diag_status(adapter)) {
++			dev_info(&adapter->pdev->dev,
++				 "%s: Wait for diag completion\n", __func__);
++			adapter->ahw->idc.delay_reset = 1;
++			return 0;
++		} else {
++			qlcnic_83xx_idc_update_drv_ack_reg(adapter, 1, 1);
++			qlcnic_83xx_idc_detach_driver(adapter);
++		}
  	}
  
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-index d63b5f7..9d0ae11 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
-@@ -883,11 +883,12 @@ int qlcnic_82xx_get_pci_info(struct qlcnic_adapter *adapter,
+-	/* Check ACK from other functions */
+-	ret = qlcnic_83xx_idc_check_reset_ack_reg(adapter);
+-	if (ret) {
++	if (qlcnic_check_diag_status(adapter)) {
+ 		dev_info(&adapter->pdev->dev,
+-			 "%s: Waiting for reset ACK\n", __func__);
+-		return 0;
++			 "%s: Wait for diag completion\n", __func__);
++		return  -1;
++	} else {
++		if (adapter->ahw->idc.delay_reset) {
++			qlcnic_83xx_idc_update_drv_ack_reg(adapter, 1, 1);
++			qlcnic_83xx_idc_detach_driver(adapter);
++			adapter->ahw->idc.delay_reset = 0;
++		}
++
++		/* Check for ACK from other functions */
++		ret = qlcnic_83xx_idc_check_reset_ack_reg(adapter);
++		if (ret) {
++			dev_info(&adapter->pdev->dev,
++				 "%s: Waiting for reset ACK\n", __func__);
++			return -1;
++		}
+ 	}
  
- /* Configure eSwitch for port mirroring */
- int qlcnic_config_port_mirroring(struct qlcnic_adapter *adapter, u8 id,
--				u8 enable_mirroring, u8 pci_func)
-+				 u8 enable_mirroring, u8 pci_func)
- {
-+	struct device *dev = &adapter->pdev->dev;
-+	struct qlcnic_cmd_args cmd;
- 	int err = -EIO;
- 	u32 arg1;
--	struct qlcnic_cmd_args cmd;
- 
- 	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC ||
- 	    !(adapter->eswitch[id].flags & QLCNIC_SWITCH_ENABLE))
-@@ -901,13 +902,11 @@ int qlcnic_config_port_mirroring(struct qlcnic_adapter *adapter, u8 id,
- 	err = qlcnic_issue_cmd(adapter, &cmd);
- 
- 	if (err != QLCNIC_RCODE_SUCCESS)
--		dev_err(&adapter->pdev->dev,
--			"Failed to configure port mirroring%d on eswitch:%d\n",
-+		dev_err(dev, "Failed to configure port mirroring for vNIC function %d on eSwitch %d\n",
- 			pci_func, id);
- 	else
--		dev_info(&adapter->pdev->dev,
--			"Configured eSwitch %d for port mirroring:%d\n",
--			id, pci_func);
-+		dev_info(dev, "Configured port mirroring for vNIC function %d on eSwitch %d\n",
-+			 pci_func, id);
- 	qlcnic_free_mbx_args(&cmd);
- 
- 	return err;
-@@ -1122,14 +1121,13 @@ err_ret:
- 	return -EIO;
- }
- 
--static int
--__qlcnic_get_eswitch_port_config(struct qlcnic_adapter *adapter,
--					u32 *arg1, u32 *arg2)
-+static int __qlcnic_get_eswitch_port_config(struct qlcnic_adapter *adapter,
-+					    u32 *arg1, u32 *arg2)
- {
--	int err = -EIO;
-+	struct device *dev = &adapter->pdev->dev;
- 	struct qlcnic_cmd_args cmd;
--	u8 pci_func;
--	pci_func = (*arg1 >> 8);
-+	u8 pci_func = *arg1 >> 8;
-+	int err = -EIO;
- 
- 	qlcnic_alloc_mbx_args(&cmd, adapter,
- 			      QLCNIC_CMD_GET_ESWITCH_PORT_CONFIG);
-@@ -1140,12 +1138,11 @@ __qlcnic_get_eswitch_port_config(struct qlcnic_adapter *adapter,
- 	qlcnic_free_mbx_args(&cmd);
- 
- 	if (err == QLCNIC_RCODE_SUCCESS)
--		dev_info(&adapter->pdev->dev,
--			 "eSwitch port config for pci func %d\n", pci_func);
-+		dev_info(dev, "Get eSwitch port config for vNIC function %d\n",
-+			 pci_func);
- 	else
--		dev_err(&adapter->pdev->dev,
--			"Failed to get eswitch port config for pci func %d\n",
--								pci_func);
-+		dev_err(dev, "Failed to get eswitch port config for vNIC function %d\n",
-+			pci_func);
- 	return err;
- }
- /* Configure eSwitch port
-@@ -1158,9 +1155,10 @@ op_type = 1 for port vlan_id
- int qlcnic_config_switch_port(struct qlcnic_adapter *adapter,
- 		struct qlcnic_esw_func_cfg *esw_cfg)
- {
-+	struct device *dev = &adapter->pdev->dev;
-+	struct qlcnic_cmd_args cmd;
- 	int err = -EIO, index;
- 	u32 arg1, arg2 = 0;
--	struct qlcnic_cmd_args cmd;
- 	u8 pci_func;
- 
- 	if (adapter->ahw->op_mode != QLCNIC_MGMT_FUNC)
-@@ -1217,11 +1215,11 @@ int qlcnic_config_switch_port(struct qlcnic_adapter *adapter,
- 	qlcnic_free_mbx_args(&cmd);
- 
- 	if (err != QLCNIC_RCODE_SUCCESS)
--		dev_err(&adapter->pdev->dev,
--			"Failed to configure eswitch pci func %d\n", pci_func);
-+		dev_err(dev, "Failed to configure eswitch for vNIC function %d\n",
-+			pci_func);
- 	else
--		dev_info(&adapter->pdev->dev,
--			 "Configured eSwitch for pci func %d\n", pci_func);
-+		dev_info(dev, "Configured eSwitch for vNIC function %d\n",
-+			 pci_func);
- 
- 	return err;
- }
+ 	/* Transit to INIT state and restart the HW */
 -- 
 1.5.6
