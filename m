@@ -1,35 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHv2 net-next] bridge: Set vlan_features to allow
- offloads on vlans.
-Date: Thu, 23 May 2013 18:51:43 -0700 (PDT)
-Message-ID: <20130523.185143.2153136693537557435.davem@davemloft.net>
-References: <1369244974-10160-1-git-send-email-vyasevic@redhat.com>
+Subject: Re: [PATCH net-next] rps: document flow limit in scaling.txt
+Date: Thu, 23 May 2013 18:54:58 -0700 (PDT)
+Message-ID: <20130523.185458.1115094569787922552.davem@davemloft.net>
+References: <1369245280-9585-1-git-send-email-willemb@google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org
-To: vyasevic@redhat.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <1369244974-10160-1-git-send-email-vyasevic@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: willemb@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37711 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758618Ab3EXBy7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 May 2013 21:54:59 -0400
+In-Reply-To: <1369245280-9585-1-git-send-email-willemb@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vlad Yasevich <vyasevic@redhat.com>
-Date: Wed, 22 May 2013 13:49:34 -0400
+From: Willem de Bruijn <willemb@google.com>
+Date: Wed, 22 May 2013 13:54:40 -0400
 
-> When vlan device is configured on top of the brige, it does
-> not support any offload capabilities because the bridge
-> device does not initiliaze vlan_fatures.  Set vlan_fatures to
-> be equivalent to hw_fatures.
+> Explain the mechanism and API of the recently merged
+> rps flow limit patch.
 > 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
 
-Applied to net-next, thanks Vlad.
+Applied.
