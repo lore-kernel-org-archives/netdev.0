@@ -1,82 +1,58 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 00/12] qlcnic: Enhancements and cleanup
-Date: Fri, 24 May 2013 03:04:24 -0400
-Message-ID: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 02/12] qlcnic: Disable INT-x interrupt for 83xx on driver unload
+Date: Fri, 24 May 2013 03:04:26 -0400
+Message-ID: <1369379076-4718-3-git-send-email-shahed.shaikh@qlogic.com>
+References: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>
+	Himanshu Madhani <himanshu.madhani@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:32902
+Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:39052
 	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757260Ab3EXH3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 03:29:44 -0400
+	by vger.kernel.org with ESMTP id S1759561Ab3EXH3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 03:29:47 -0400
+In-Reply-To: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Himanshu Madhani <himanshu.madhani@qlogic.com>
 
-This patch series includes following changes:
-* Support for spoof check configuration per VF using
-  iproute2 tool.
-* Set HW mask for 8300 adapter in INT-x mode to stop generating
-  interrupts.
-* Updated IRQ name for 8200 and 8300 Series adapter as per
-  format used by other multiqueue drivers.
-* Remove qlcnic_config_npars module parameter.
-* Initialize trans_work and idc_aen_work at VF probe.
-* Convert netsted if-else into switch-case statement.
-* Change in diagnostics routine.
-* Modify reset recovery path in diag mode by providing diagnostics
-  routines enough time to unwind before proceeding with reset recovery.
-* Implement GET_LED_STATUS command for 82xx adapter and refactor
-  qlcnic_store_beacon() to split 8200 and 8300 specific calls.
-* Some cleanup and log enhancements
+o Set HW mask for 8300 Series adapter, in INT-x mode, to
+  stop generating interrupt during driver unload.
 
-Please apply to net-next.
+Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |    8 ++++++++
+ 1 files changed, 8 insertions(+), 0 deletions(-)
 
-Thanks,
-Shahed
-
-
-Himanshu Madhani (3):
-  qlcnic: Disable INT-x interrupt for 83xx on driver unload
-  qlcnic: Update IRQ name for 8200 and 8300 Series adapter.
-  qlcnic: Implement GET_LED_STATUS command for 82xx adapter.
-
-Jitendra Kalsaria (1):
-  qlcnic: Convert nested if-else to switch-case
-
-Manish Chopra (2):
-  qlcnic: qlcnic_get_board_name() function cleanup
-  qlcnic: Enhance virtual NIC logging
-
-Rajesh Borundia (1):
-  qlcnic: Support spoof check config.
-
-Shahed Shaikh (2):
-  qlcnic: Remove qlcnic_config_npars module parameter
-  qlcnic: Update version to 5.2.43
-
-Sony Chacko (2):
-  qlcnic: diagnostics routine changes
-  qlcnic: modify reset recovery path in diag mode
-
-Sucheta Chakraborty (1):
-  qlcnic: Initialize trans_work and idc_aen_work at VF probe.
-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   27 ++++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   77 +++++++-----
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    1 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   35 +++++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  |   39 +++----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |   45 ++++----
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |   15 +++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    1 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   85 ++++++++------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    2 +
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    7 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |   36 ++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  |  126 ++++++++++++--------
- 13 files changed, 326 insertions(+), 170 deletions(-)
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index b4ff1e3..9b91d6a 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -312,6 +312,11 @@ inline void qlcnic_83xx_clear_legacy_intr_mask(struct qlcnic_adapter *adapter)
+ 	writel(0, adapter->tgt_mask_reg);
+ }
+ 
++inline void qlcnic_83xx_set_legacy_intr_mask(struct qlcnic_adapter *adapter)
++{
++	writel(1, adapter->tgt_mask_reg);
++}
++
+ /* Enable MSI-x and INT-x interrupts */
+ void qlcnic_83xx_enable_intr(struct qlcnic_adapter *adapter,
+ 			     struct qlcnic_host_sds_ring *sds_ring)
+@@ -458,6 +463,9 @@ void qlcnic_83xx_free_mbx_intr(struct qlcnic_adapter *adapter)
+ {
+ 	u32 num_msix;
+ 
++	if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
++		qlcnic_83xx_set_legacy_intr_mask(adapter);
++
+ 	qlcnic_83xx_disable_mbx_intr(adapter);
+ 
+ 	if (adapter->flags & QLCNIC_MSIX_ENABLED)
+-- 
+1.5.6
