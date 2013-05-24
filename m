@@ -1,45 +1,57 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Regarding processing IGMPv2 reports from a snooping switch
-Date: Fri, 24 May 2013 15:31:21 +0530
-Message-ID: <CADAe=++aQH+p-4HxOBa6tznOB=CKQbhyFCm=fMv7SZUR34jLVg@mail.gmail.com>
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Subject: Re: [PATCHv3 2/6] net: Add MDIO bus driver for the Allwinner EMAC
+Date: Fri, 24 May 2013 12:14:19 +0200
+Message-ID: <20130524101419.GC8785@lukather>
+References: <1369387394-9453-1-git-send-email-maxime.ripard@free-electrons.com>
+ <1369387394-9453-3-git-send-email-maxime.ripard@free-electrons.com>
+ <CAGVrzcbyXiKCKxtOAj0gnG8eCQag8_xvmd9dUKACCbfW-2HN9Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f48.google.com ([74.125.83.48]:36718 "EHLO
-	mail-ee0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759561Ab3EXKBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 06:01:53 -0400
-Received: by mail-ee0-f48.google.com with SMTP id b47so2548328eek.35
-        for <netdev@vger.kernel.org>; Fri, 24 May 2013 03:01:52 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Stefan Roese <sr@denx.de>,
+	Emilio Lopez <emilio@elopez.com.ar>, kevin@allwinnertech.com,
+	sunny@allwinnertech.com, shuge@allwinnertech.com
+To: Florian Fainelli <florian@openwrt.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAGVrzcbyXiKCKxtOAj0gnG8eCQag8_xvmd9dUKACCbfW-2HN9Q@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi Florian,
 
-Router -- snooping switch -- host(s)
+On Fri, May 24, 2013 at 10:42:30AM +0100, Florian Fainelli wrote:
+> Hello Maxime,
+> 
+> 2013/5/24 Maxime Ripard <maxime.ripard@free-electrons.com>
+> >
+> > This patch adds a separate driver for the MDIO interface of the
+> > Allwinner ethernet controllers.
+> >
+> > Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+> > ---
+> >  .../bindings/net/allwinner,sun4i-mdio.txt          |  26 +++
+> >  drivers/net/ethernet/allwinner/Kconfig             |   8 +
+> >  drivers/net/ethernet/allwinner/Makefile            |   1 +
+> >  drivers/net/ethernet/allwinner/sun4i-mdio.c        | 191 +++++++++++++++++++++
+> 
+> Ok, so you probably followed Thomas's example here with mvneta/mvmdio,
+> but all other MDIO bus drivers live in drivers/net/phy.
 
-Router sends a general igmpv2 query which is forwarded to host(s).
+Indeed I shamelessly followed Thomas here.
 
-Hosts reply back with report messages that they r intrested in group G
-(i.e. 234.1.1.1) as destination address.
+> Unfortunately, mvmdio lives in drivers/net/ethernet/marvell/mvmdio.c
+> which I should have noticed before. Whatever is good for you guys, but
+> we should probably start normalizing this now before more mdio drivers
+> get merged alongside their corresponding ethernet MAC users.
 
-Let us say report suppression is enabled in igmp snooping switch. So
-switch sends a single report message to router with source address as
-0.0.0.0 and destination address as group address  G (for e.g.
-234.1.1.1).
+I'm fine with either way, just tell me where to put it and I'll happily
+do so.
 
-But linux kernel in multicast router is dropping the packet.
+Maxime
 
-in ipv4/route.c in ip_route_input_mc function
-
-        if (ipv4_is_zeronet(saddr)) {
-                if (!ipv4_is_local_multicast(daddr))
-                        goto e_inval;
-
-Ideally packet is dropped in above code. Is it expected behaviour ?
-
-Regards,
-Ajith
---------------------------------------------
-codingfreak.in
+-- 
+Maxime Ripard, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
