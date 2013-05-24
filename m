@@ -1,100 +1,70 @@
 From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-Subject: [PATCH net-next 03/12] qlcnic: Update IRQ name for 8200 and 8300 Series adapter.
-Date: Fri, 24 May 2013 03:04:27 -0400
-Message-ID: <1369379076-4718-4-git-send-email-shahed.shaikh@qlogic.com>
+Subject: [PATCH net-next 05/12] qlcnic: Initialize trans_work and idc_aen_work at VF probe.
+Date: Fri, 24 May 2013 03:04:29 -0400
+Message-ID: <1369379076-4718-6-git-send-email-shahed.shaikh@qlogic.com>
 References: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Himanshu Madhani <himanshu.madhani@qlogic.com>
+	Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from co9ehsobe005.messaging.microsoft.com ([207.46.163.28]:19746
+Received: from co9ehsobe005.messaging.microsoft.com ([207.46.163.28]:32948
 	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759561Ab3EXH3v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 03:29:51 -0400
+	by vger.kernel.org with ESMTP id S1759970Ab3EXH3x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 03:29:53 -0400
 In-Reply-To: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Himanshu Madhani <himanshu.madhani@qlogic.com>
+From: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 
-o Updated IRQ name for 8200 and 8300 Series adapter as per
-  format used by other multiqueue drivers.
+o work_struct should be initialized before cancel_delayed_work
+  call to destroy it.
 
-Signed-off-by: Himanshu Madhani <himanshu.madhani@qlogic.com>
+Signed-off-by: Sucheta Chakraborty <sucheta.chakraborty@qlogic.com>
 Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
 ---
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |    5 +---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   23 +++++++++++++-------
- 2 files changed, 16 insertions(+), 12 deletions(-)
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 9b91d6a..9f5683f 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -482,7 +482,6 @@ int qlcnic_83xx_setup_mbx_intr(struct qlcnic_adapter *adapter)
- {
- 	irq_handler_t handler;
- 	u32 val;
--	char name[32];
- 	int err = 0;
- 	unsigned long flags = 0;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+index a49bce7..f8e3a74 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
+@@ -35,6 +35,7 @@ static void qlcnic_sriov_vf_cancel_fw_work(struct qlcnic_adapter *);
+ static void qlcnic_sriov_cleanup_transaction(struct qlcnic_bc_trans *);
+ static int qlcnic_sriov_vf_mbx_op(struct qlcnic_adapter *,
+ 				  struct qlcnic_cmd_args *);
++static void qlcnic_sriov_process_bc_cmd(struct work_struct *);
  
-@@ -493,9 +492,7 @@ int qlcnic_83xx_setup_mbx_intr(struct qlcnic_adapter *adapter)
- 	if (adapter->flags & QLCNIC_MSIX_ENABLED) {
- 		handler = qlcnic_83xx_handle_aen;
- 		val = adapter->msix_entries[adapter->ahw->num_msix - 1].vector;
--		snprintf(name, (IFNAMSIZ + 4),
--			 "%s[%s]", "qlcnic", "aen");
--		err = request_irq(val, handler, flags, name, adapter);
-+		err = request_irq(val, handler, flags, "qlcnic-MB", adapter);
- 		if (err) {
- 			dev_err(&adapter->pdev->dev,
- 				"failed to register MBX interrupt\n");
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 5d42ec1..4099cf2 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -1431,16 +1431,23 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
- 			for (ring = 0; ring < num_sds_rings; ring++) {
- 				sds_ring = &recv_ctx->sds_rings[ring];
- 				if (qlcnic_82xx_check(adapter) &&
--				    (ring == (num_sds_rings - 1)))
-+				    (ring == (num_sds_rings - 1))) {
-+					if (!(adapter->flags &
-+					      QLCNIC_MSIX_ENABLED))
-+						snprintf(sds_ring->name,
-+							 sizeof(sds_ring->name),
-+							 "qlcnic");
-+					else
-+						snprintf(sds_ring->name,
-+							 sizeof(sds_ring->name),
-+							 "%s-tx-0-rx-%d",
-+							 netdev->name, ring);
-+				} else {
- 					snprintf(sds_ring->name,
- 						 sizeof(sds_ring->name),
--						 "qlcnic-%s[Tx0+Rx%d]",
--						 netdev->name, ring);
--				else
--					snprintf(sds_ring->name,
--						 sizeof(sds_ring->name),
--						 "qlcnic-%s[Rx%d]",
-+						 "%s-rx-%d",
- 						 netdev->name, ring);
-+				}
- 				err = request_irq(sds_ring->irq, handler, flags,
- 						  sds_ring->name, sds_ring);
- 				if (err)
-@@ -1455,7 +1462,7 @@ qlcnic_request_irq(struct qlcnic_adapter *adapter)
- 			     ring++) {
- 				tx_ring = &adapter->tx_ring[ring];
- 				snprintf(tx_ring->name, sizeof(tx_ring->name),
--					 "qlcnic-%s[Tx%d]", netdev->name, ring);
-+					 "%s-tx-%d", netdev->name, ring);
- 				err = request_irq(tx_ring->irq, handler, flags,
- 						  tx_ring->name, tx_ring);
- 				if (err)
+ static struct qlcnic_hardware_ops qlcnic_sriov_vf_hw_ops = {
+ 	.read_crb			= qlcnic_83xx_read_crb,
+@@ -179,6 +180,8 @@ int qlcnic_sriov_init(struct qlcnic_adapter *adapter, int num_vfs)
+ 		spin_lock_init(&vf->rcv_pend.lock);
+ 		init_completion(&vf->ch_free_cmpl);
+ 
++		INIT_WORK(&vf->trans_work, qlcnic_sriov_process_bc_cmd);
++
+ 		if (qlcnic_sriov_pf_check(adapter)) {
+ 			vp = kzalloc(sizeof(struct qlcnic_vport), GFP_KERNEL);
+ 			if (!vp) {
+@@ -653,6 +656,8 @@ int qlcnic_sriov_vf_init(struct qlcnic_adapter *adapter, int pci_using_dac)
+ 	if (qlcnic_read_mac_addr(adapter))
+ 		dev_warn(&adapter->pdev->dev, "failed to read mac addr\n");
+ 
++	INIT_DELAYED_WORK(&adapter->idc_aen_work, qlcnic_83xx_idc_aen_work);
++
+ 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
+ 	return 0;
+ }
+@@ -865,7 +870,6 @@ static void qlcnic_sriov_schedule_bc_cmd(struct qlcnic_sriov *sriov,
+ 	    vf->adapter->need_fw_reset)
+ 		return;
+ 
+-	INIT_WORK(&vf->trans_work, func);
+ 	queue_work(sriov->bc.bc_trans_wq, &vf->trans_work);
+ }
+ 
 -- 
 1.5.6
