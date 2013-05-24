@@ -1,49 +1,68 @@
-From: Lance Lassetter <lancelassetter@gmail.com>
-Subject: Re: r8169 with 3.9.0-rc9
-Date: Thu, 23 May 2013 23:45:59 -0500
-Message-ID: <20130524044557.GA32073@gmail.com>
-References: <20130427041230.GA18709@gmail.com>
- <20130428011232.GA4236@gmail.com>
- <20130501100733.GA16115@gmail.com>
- <20130501121502.GA5456@electric-eye.fr.zoreil.com>
- <20130501212803.GA3342@gmail.com>
- <20130501223155.GA15261@electric-eye.fr.zoreil.com>
- <20130502021848.GA30099@gmail.com>
- <20130502221837.GA9898@electric-eye.fr.zoreil.com>
- <20130505151732.GA9096@gmail.com>
- <20130505193323.GA21121@electric-eye.fr.zoreil.com>
+From: Rob Landley <rob@landley.net>
+Subject: Re: [PATCH] build some drivers only when compile-testing
+Date: Thu, 23 May 2013 23:50:30 -0500
+Message-ID: <1369371030.2776.17@driftwood>
+References: <1369317700.3469.256.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f178.google.com ([209.85.160.178]:64215 "EHLO
-	mail-gh0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752280Ab3EXEqF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 00:46:05 -0400
-Received: by mail-gh0-f178.google.com with SMTP id g15so1437825ghb.37
-        for <netdev@vger.kernel.org>; Thu, 23 May 2013 21:46:03 -0700 (PDT)
+Content-Type: text/plain; charset=us-ascii; DelSp=Yes; Format=Flowed
+Content-Transfer-Encoding: 8BIT
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jiri Slaby <jslaby@suse.cz>, jirislaby@gmail.com,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jeff Mahoney <jeffm@suse.com>,
+	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+	linux-usb@vger.kernel.org,
+	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
+	linux-geode@lists.infradead.org, linux-fbdev@vger.kernel.org,
+	Richard Cochran <richardcochran@gmail.com>,
+	netdev@vger.kernel.org,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369317700.3469.256.camel@deadeye.wl.decadent.org.uk> (from
+	ben@decadent.org.uk on Thu May 23 09:01:40 2013)
 Content-Disposition: inline
-In-Reply-To: <20130505193323.GA21121@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, May 05, 2013 at 09:33:23PM +0200, Francois Romieu wrote:
-> Lance Lassetter <lancelassetter@gmail.com> :
-> [...]
-> > What do you think, Ueimor ?
-> 
-> I think you should try a post 3.9 kernel including commit
-> 4ada8db38a44654446fe35ceb20a1972220e0f69 ("net: Restore NETIF_F_* bit
-> ordering.").
-> 
-> -- 
-> Ueimor
+On 05/23/2013 09:01:40 AM, Ben Hutchings wrote:
+> On Wed, 2013-05-22 at 19:23 -0700, Greg Kroah-Hartman wrote:
+> > On Wed, May 22, 2013 at 11:18:46AM +0200, Jiri Slaby wrote:
+> > > Some drivers can be built on more platforms than they run on. This
+> > > causes users and distributors packaging burden when they have to
+> > > manually deselect some drivers from their allmodconfigs. Or  
+> sometimes
+> > > it is even impossible to disable the drivers without patching the
+> > > kernel.
+> > >
+> > > Introduce a new config option COMPILE_TEST and make all those  
+> drivers
+> > > to depend on the platform they run on, or on the COMPILE_TEST  
+> option.
+> > > Now, when users/distributors choose COMPILE_TEST=n they will not  
+> have
+> > > the drivers in their allmodconfig setups, but developers still can
+> > > compile-test them with COMPILE_TEST=y.
+> >
+> > I understand the urge, and it's getting hard for distros to handle  
+> these
+> > drivers that just don't work on other architectures, but it's really
+> > valuable to ensure that they build properly, for those of us that  
+> don't
+> > have many/any cross compilers set up.
 
-Ueimor,
+In http://landley.net/aboriginal/bin grab the cross-compiler-*.tar.bz2  
+tarballs, extract them, add the "bin" subdirectory of each to the  
+$PATH. Congratulations, you have cross compilers set up. (They're  
+statically linked and relocatable, so should run just about anywhere.  
+If they don't, let me know and I'll fix it.)
 
-I fixed the problem with grub2 bootloader kenel parameter: clocksource=acpi_pm  Evidently it was an AMD PowerNow bug with linux.  Fixing the timer resolved the constant loss of ether link.
+Example build:
 
-Appreciate your time and support.
+   make ARCH=sparc sparc32_defconfig
+   PATH=/home/landley/simple-cross-compiler-sparc/bin:$PATH \
+     make ARCH=sparc CROSS_COMPILE=sparc-
 
-Lance Lassetter
+Rob
