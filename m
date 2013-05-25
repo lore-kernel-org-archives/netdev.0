@@ -1,27 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: updating net-next
-Date: Fri, 24 May 2013 16:33:38 -0700 (PDT)
-Message-ID: <20130524.163338.84274071563865721.davem@davemloft.net>
-References: <1369426985.3301.438.camel@edumazet-glaptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH next-next v4 0/2] MPLS: Add limited GSO support
+Date: Sat, 25 May 2013 09:02:44 +0900
+Message-ID: <20130525000244.GA32093@verge.net.au>
+References: <1369378295-17779-1-git-send-email-horms@verge.net.au>
+ <CAEH94Litbbgya=YPyDUDkQZnV2Rod=EwwUZDfgq2f4J77a8wew@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@openvswitch.org, netdev@vger.kernel.org,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	jarno.rajahalme@nsn.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	Maciej =?utf-8?Q?=C5=BBenczykowski?= <maze@google.com>
+To: Zhi Yong Wu <zwu.kernel@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54532 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751610Ab3EXXdl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 19:33:41 -0400
-In-Reply-To: <1369426985.3301.438.camel@edumazet-glaptop>
+Received: from kirsty.vergenet.net ([202.4.237.240]:53825 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751610Ab3EYACs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 20:02:48 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEH94Litbbgya=YPyDUDkQZnV2Rod=EwwUZDfgq2f4J77a8wew@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 24 May 2013 13:23:05 -0700
-
-> Could you please pull net tree into net-next, now Linus pulled it ?
+On Fri, May 24, 2013 at 03:12:33PM +0800, Zhi Yong Wu wrote:
+> HI,
 > 
-> We have some pending patches that need this.
+>    By the way, will this label is allocated statically or via
+> auto-negotiation between two switches such as LDP?
 
-I will do this right now, thanks Eric.
+Hi,
+
+The support that I have been working on is for Open vSwtich.
+As such the label is added by Open vSwtich which may be configured in
+a variety of ways including static configuration using ovs-odpctl
+and dynamic configuration using an Open Flow controller.
+
+However, this small patch-set only adds limited GSO support for MPLS.
+It does not handle manipulation of labels.
