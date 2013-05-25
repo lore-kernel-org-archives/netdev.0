@@ -1,33 +1,40 @@
-From: Kyle McMartin <kyle@redhat.com>
-Subject: [PATCH] ptp_pch: depends on PCI
-Date: Sat, 25 May 2013 12:55:07 -0400
-Message-ID: <20130525165507.GE30204@redacted.bos.redhat.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
+Date: Sat, 25 May 2013 22:41:39 +0300
+Message-ID: <CAJZOPZJm94XLw55kREardA-rY+AA4zYSPO7mtOZL822i7pyK=g@mail.gmail.com>
+References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com>
+	<20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com>
+	<CAJZOPZJwe6xAj7xRK5_BnWN2wNT+oVS329+iYtE4hYTqPMLwJQ@mail.gmail.com>
+	<20130525151347.GB25744@lintop.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: richardcochran@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>
+To: Shawn Bohrer <shawn.bohrer@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53601 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757137Ab3EYQzL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 May 2013 12:55:11 -0400
-Content-Disposition: inline
+Received: from mail-qc0-f179.google.com ([209.85.216.179]:64723 "EHLO
+	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757816Ab3EYTll (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 May 2013 15:41:41 -0400
+Received: by mail-qc0-f179.google.com with SMTP id e1so2927373qcx.24
+        for <netdev@vger.kernel.org>; Sat, 25 May 2013 12:41:40 -0700 (PDT)
+In-Reply-To: <20130525151347.GB25744@lintop.rgmadvisors.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It's only accessible via PCI, but has no dependencies, so it ends up
-being selected on s390 where a bunch of primitives only exist if
-CONFIG_PCI=y (such as {request,free}_irq)
+On Sat, May 25, 2013 at 6:13 PM, Shawn Bohrer <shawn.bohrer@gmail.com> wrote:
+[...]
+> 5. Debugging I noticed that tcpdump on machine #1 or #2 caused them to
+> suddenly receive data, and simply putting the interface in promiscuous
+> mode had the same result.  I rebooted both machine #1 and #2 several
+> times and each time they had the same issue.  I then rebooted them
+> back into 3.4 and they both functioned as expected and received data
+> on all 350 groups.  Rebooted them both back into 3.10 and they were
+> both still broken.  This is when I sent my initial email to netdev.
+[..]
 
-Signed-off-by: Kyle McMartin <kyle@redhat.com>
+Shawn, thanks for all the details, just one small confirmation, when
+you moved from 3.4 to 3.10 have you done ANY change to your app? e.g
+do you still use the same QP type (UD) or moved to RAW PACKET?
 
---- a/drivers/ptp/Kconfig
-+++ b/drivers/ptp/Kconfig
-@@ -72,6 +72,7 @@ config DP83640_PHY
- 
- config PTP_1588_CLOCK_PCH
- 	tristate "Intel PCH EG20T as PTP clock"
-+	depends on PCI
- 	select PTP_1588_CLOCK
- 	help
- 	  This driver adds support for using the PCH EG20T as a PTP
+Or.
