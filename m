@@ -1,47 +1,38 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
-Date: Sat, 25 May 2013 16:37:14 -0500
-Message-ID: <20130525213714.GA2843@lintop>
-References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com>
- <20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com>
- <CAJZOPZJwe6xAj7xRK5_BnWN2wNT+oVS329+iYtE4hYTqPMLwJQ@mail.gmail.com>
- <20130525151347.GB25744@lintop.rgmadvisors.com>
- <CAJZOPZJm94XLw55kREardA-rY+AA4zYSPO7mtOZL822i7pyK=g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f174.google.com ([209.85.214.174]:57226 "EHLO
-	mail-ob0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758094Ab3EYVh0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 May 2013 17:37:26 -0400
-Received: by mail-ob0-f174.google.com with SMTP id wd20so524154obb.33
-        for <netdev@vger.kernel.org>; Sat, 25 May 2013 14:37:23 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZJm94XLw55kREardA-rY+AA4zYSPO7mtOZL822i7pyK=g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [GIT PULL nf] IPVS fixes for v3.10
+Date: Sun, 26 May 2013 08:16:38 +0900
+Message-ID: <1369523799-27082-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, May 25, 2013 at 10:41:39PM +0300, Or Gerlitz wrote:
-> On Sat, May 25, 2013 at 6:13 PM, Shawn Bohrer <shawn.bohrer@gmail.com> wrote:
-> [...]
-> > 5. Debugging I noticed that tcpdump on machine #1 or #2 caused them to
-> > suddenly receive data, and simply putting the interface in promiscuous
-> > mode had the same result.  I rebooted both machine #1 and #2 several
-> > times and each time they had the same issue.  I then rebooted them
-> > back into 3.4 and they both functioned as expected and received data
-> > on all 350 groups.  Rebooted them both back into 3.10 and they were
-> > both still broken.  This is when I sent my initial email to netdev.
-> [..]
-> 
-> Shawn, thanks for all the details, just one small confirmation, when
-> you moved from 3.4 to 3.10 have you done ANY change to your app? e.g
-> do you still use the same QP type (UD) or moved to RAW PACKET?
+Hi Pablo,
 
-No modifications have been made to the application.  In this case I'm
-using plain old UDP multicast sockets over 10g Ethernet.
+The following changes since commit 4f36ea6eed2081340c7a7aa98c73187ecfccebff:
 
---
-Shawn
+  netfilter: ipt_ULOG: fix non-null terminated string in the nf_log path (2013-05-23 14:25:40 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.10
+
+for you to fetch changes up to 1fb4f80a593231770eae3192e4a52fa7631bd897:
+
+  ipvs: Fix reuse connection if real server is dead (2013-05-26 08:10:47 +0900)
+
+----------------------------------------------------------------
+IPVS fixes for v3.10
+
+Correct connection reuse for TCP and SCTP
+
+----------------------------------------------------------------
+Grzegorz Lyczba (1):
+      ipvs: Fix reuse connection if real server is dead
+
+ net/netfilter/ipvs/ip_vs_core.c |   35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
