@@ -1,31 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] tg3: Misc cleanups and refactoring
-Date: Fri, 24 May 2013 22:23:49 -0700 (PDT)
-Message-ID: <20130524.222349.1846242697618713539.davem@davemloft.net>
-References: <1369343487-6453-1-git-send-email-nsujir@broadcom.com>
+Subject: Re: [PATCH net-next 00/12] qlcnic: Enhancements and cleanup
+Date: Fri, 24 May 2013 23:05:36 -0700 (PDT)
+Message-ID: <20130524.230536.1061694307345896229.davem@davemloft.net>
+References: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: nsujir@broadcom.com
+Cc: netdev@vger.kernel.org, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: shahed.shaikh@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58527 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58870 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954Ab3EYFXw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 May 2013 01:23:52 -0400
-In-Reply-To: <1369343487-6453-1-git-send-email-nsujir@broadcom.com>
+	with ESMTP id S1750862Ab3EYGFj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 May 2013 02:05:39 -0400
+In-Reply-To: <1369379076-4718-1-git-send-email-shahed.shaikh@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Date: Thu, 23 May 2013 14:11:21 -0700
+From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Date: Fri, 24 May 2013 03:04:24 -0400
 
-> Nithin Nayak Sujir (6):
->   tg3: Split APE driver state change out of boot reset signature update
->   tg3: Simplify ring control block setup
->   tg3: Make tg3_rings_reset() more concise
->   tg3: Use descriptive label names in tg3_start
->   tg3: Fix misplaced empty line
->   tg3: Remove unnecessary lock around tg3_flag_set
+> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+> 
+> This patch series includes following changes:
+> * Support for spoof check configuration per VF using
+>   iproute2 tool.
+> * Set HW mask for 8300 adapter in INT-x mode to stop generating
+>   interrupts.
+> * Updated IRQ name for 8200 and 8300 Series adapter as per
+>   format used by other multiqueue drivers.
+> * Remove qlcnic_config_npars module parameter.
+> * Initialize trans_work and idc_aen_work at VF probe.
+> * Convert netsted if-else into switch-case statement.
+> * Change in diagnostics routine.
+> * Modify reset recovery path in diag mode by providing diagnostics
+>   routines enough time to unwind before proceeding with reset recovery.
+> * Implement GET_LED_STATUS command for 82xx adapter and refactor
+>   qlcnic_store_beacon() to split 8200 and 8300 specific calls.
+> * Some cleanup and log enhancements
+> 
+> Please apply to net-next.
 
 Series applied, thanks.
