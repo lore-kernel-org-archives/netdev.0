@@ -1,40 +1,71 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
-Date: Sat, 25 May 2013 22:41:39 +0300
-Message-ID: <CAJZOPZJm94XLw55kREardA-rY+AA4zYSPO7mtOZL822i7pyK=g@mail.gmail.com>
-References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com>
-	<20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com>
-	<CAJZOPZJwe6xAj7xRK5_BnWN2wNT+oVS329+iYtE4hYTqPMLwJQ@mail.gmail.com>
-	<20130525151347.GB25744@lintop.rgmadvisors.com>
+From: Adam Baker <linux@baker-net.org.uk>
+Subject: Re: [Patch net-next v5 1/3] bridge: use the bridge IP addr as source
+ addr for querier
+Date: Sat, 25 May 2013 21:52:24 +0100
+Message-ID: <51A12488.7080203@baker-net.org.uk>
+References: <1369209176-6841-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f179.google.com ([209.85.216.179]:64723 "EHLO
-	mail-qc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757816Ab3EYTll (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 May 2013 15:41:41 -0400
-Received: by mail-qc0-f179.google.com with SMTP id e1so2927373qcx.24
-        for <netdev@vger.kernel.org>; Sat, 25 May 2013 12:41:40 -0700 (PDT)
-In-Reply-To: <20130525151347.GB25744@lintop.rgmadvisors.com>
+Received: from anakin.london.02.net ([87.194.255.134]:49388 "EHLO
+	anakin.london.02.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758016Ab3EYU6g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 May 2013 16:58:36 -0400
+In-Reply-To: <1369209176-6841-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, May 25, 2013 at 6:13 PM, Shawn Bohrer <shawn.bohrer@gmail.com> wrote:
-[...]
-> 5. Debugging I noticed that tcpdump on machine #1 or #2 caused them to
-> suddenly receive data, and simply putting the interface in promiscuous
-> mode had the same result.  I rebooted both machine #1 and #2 several
-> times and each time they had the same issue.  I then rebooted them
-> back into 3.4 and they both functioned as expected and received data
-> on all 350 groups.  Rebooted them both back into 3.10 and they were
-> both still broken.  This is when I sent my initial email to netdev.
-[..]
+On 22/05/13 08:52, Cong Wang wrote:
+> From: Cong Wang<amwang@redhat.com>
+>
+> Quote from Adam:
+> "If it is believed that the use of 0.0.0.0
+> as the IP address is what is causing strange behaviour on other devices
+> then is there a good reason that a bridge rather than a router shouldn't
+> be the active querier? If not then using the bridge IP address and
+> having the querier enabled by default may be a reasonable solution
+> (provided that our querier obeys the election rules and shuts up if it
+> sees a query from a lower IP address that isn't 0.0.0.0). Just because a
+> device is the elected querier for IGMP doesn't appear to mean it is
+> required to perform any other routing functions."
+>
+> And introduce a new troggle for it, as suggested by Herbert.
 
-Shawn, thanks for all the details, just one small confirmation, when
-you moved from 3.4 to 3.10 have you done ANY change to your app? e.g
-do you still use the same QP type (UD) or moved to RAW PACKET?
+I've now tested this series applied to a 3.9.4 kernel
 
-Or.
+Using wireshark I can see that if the multicast_querier and 
+multicast_query_use_ifaddr flags are set then queries do get the correct 
+IP address in them and if multicast_querier is set and 
+multicast_query_use_ifaddr isn't we get queries with the address set to 
+0.0.0.0
+
+I next tested with 2 bridges configured on different nodes (this is my 
+normal network configuration with the 2 bridge devices acting as 
+wireless routers with different coverage areas with a wired network 
+between them). If multicast_query_use_ifaddr is set whichever device 
+starts querying first will act as the querier and the other will shut 
+up. According to RFC 2236 it should be the device with the lower IP 
+address that ends up as the querier in that scenario but I can't imagine 
+a situation where that exact behaviour matters
+
+If multicast_query_use_ifaddr is not set but multicast_querier is then 
+both bridges end up generating queries with a source address of 0.0.0.0. 
+Whilst this results in a small amount of unnecessary network traffic it 
+does provide a functional setup.
+
+In all of these cases I also verified that multicast UPnP AV 
+applications on different network segments remain able to talk to each 
+other.
+
+I would therefore suggest that making multicast_query_use_ifaddr the 
+default and making the querier only shut up if it sees a query from a 
+lower non zero address rather than any non zero address would constitute 
+minor improvements to this patch but as it stands it is still an 
+improvement on the current behaviour.
+
+Tested-By: Adam Baker <linux@baker-net.org.uk>
