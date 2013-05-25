@@ -1,40 +1,55 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 2/2] openvswitch: Use zerocopy if applicable when
- performing the upcall
-Date: Fri, 24 May 2013 17:08:13 -0700
-Message-ID: <CAEP_g=_SCmqik=vOQeNF_z7VskG15rovBOLMFx6wPKru0CBDQQ@mail.gmail.com>
-References: <cover.1369406826.git.tgraf@suug.ch> <064a09fffe48540b66a3ee503860ed9e8a1eb5f1.1369406826.git.tgraf@suug.ch>
- <CAEP_g=87CuiS92YtCZ1V1ME05qq0jGWD9p1WgKZ2jaaG1AWS7w@mail.gmail.com>
- <1369421900.3301.431.camel@edumazet-glaptop> <CAEP_g=898=iOWV15Y_bcjvS9sGSfDQSP1zQLNkffoXB5imdU7g@mail.gmail.com>
- <1369432621.3301.445.camel@edumazet-glaptop> <CAEP_g=9Yqcf6_cpPYNAbiQUGjQa46PEz6gQdKAopiNNUDRhGYA@mail.gmail.com>
- <1369434870.3301.452.camel@edumazet-glaptop>
+From: Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: Mobile Broadband Interface Model (MBIM) support?
+Date: Fri, 24 May 2013 19:11:52 -0500
+Message-ID: <1369440712.8000.11.camel@dcbw.foobar.com>
+References: <20130524170915.GA15788@xanatos>
+	 <20130524181051.GB15788@xanatos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Thomas Graf <tgraf@suug.ch>, netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog113.obsmtp.com ([74.125.149.209]:40172 "HELO
-	na3sys009aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751685Ab3EYAId (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 May 2013 20:08:33 -0400
-Received: by mail-ie0-f172.google.com with SMTP id 16so14103278iea.31
-        for <netdev@vger.kernel.org>; Fri, 24 May 2013 17:08:33 -0700 (PDT)
-In-Reply-To: <1369434870.3301.452.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	"Ismail, Rahman" <abdul.r.ismail-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Wallick, Stephanie S" <stephanie.s.wallick-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: Sarah Sharp <sarah.a.sharp-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130524181051.GB15788@xanatos>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 24, 2013 at 3:34 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Fri, 2013-05-24 at 15:18 -0700, Jesse Gross wrote:
->
->> Offloads are supported. What I want to know is how they affect
->> performance with this change.
->
-> Hmm, I do not understand why you are checksumming then.
+On Fri, 2013-05-24 at 11:10 -0700, Sarah Sharp wrote:
+> Ccing Dan Williams, since Johannes Berg mentioned on IRC that Dan might
+> know the status of MBIM support.
 
-Checksum offloading is an internal kernel optimization, so the goal is
-to shield userspace from needing to know about it.
+As Bjorn mentioned, libmbim just got a 1.0 release, and ModemManager
+0.7.x (git master, basically) has support for MBIM devices via libmbim.
+0.7.x will turn into an official 0.8 release Real Soon Now; it's already
+built for Fedora 20, though we don't have libmbim capability in F20
+quite yet.
 
-> skb_copy_and_csum_dev() is a killer.
+Dan
 
-What's the alternative?
+> On Fri, May 24, 2013 at 10:09:15AM -0700, Sarah Sharp wrote:
+> > Do we have support for the new extensions for USB communication devices
+> > that use the Mobile Broadband Interface Model (MBIM) spec?
+> > 
+> > http://www.usb.org/developers/devclass_docs/MBIM10Errata1.zip
+> > 
+> > The spec was released pretty recently, which is why I'm asking on the
+> > mailing lists, rather than digging around the kernel tree for a driver.
+> > 
+> > Sarah Sharp
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+> > the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
