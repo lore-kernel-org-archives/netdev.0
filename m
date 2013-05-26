@@ -1,37 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3 v3] phy: allow flagging PHY devices as internal
-Date: Sat, 25 May 2013 23:36:14 -0700 (PDT)
-Message-ID: <20130525.233614.1065887557816421262.davem@davemloft.net>
-References: <1369307473-20696-1-git-send-email-f.fainelli@gmail.com>
-	<201305242231.11632.f.fainelli@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [net-next PATCH v2 1/6] net: cpsw: enhance pinctrl support
+Date: Sat, 25 May 2013 23:42:48 -0700 (PDT)
+Message-ID: <20130525.234248.683332656832128763.davem@davemloft.net>
+References: <1369312228-3308-1-git-send-email-mugunthanvnm@ti.com>
+ <1369312228-3308-2-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, afleming@freescale.com, jogo@openwrt.org,
-	bhutchings@solarflare.com
-To: f.fainelli@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44692 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754657Ab3EZGgP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 May 2013 02:36:15 -0400
-In-Reply-To: <201305242231.11632.f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ gururaja.hebbar-l0cyMroinI0@public.gmane.org, benoit.cousson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: mugunthanvnm-l0cyMroinI0@public.gmane.org
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <1369312228-3308-2-git-send-email-mugunthanvnm-l0cyMroinI0@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-=46rom: Florian Fainelli <f.fainelli@gmail.com>
-Date: Fri, 24 May 2013 22:31:11 +0100
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Date: Thu, 23 May 2013 18:00:23 +0530
 
-> Ben,
->=20
-> Le jeudi 23 mai 2013 12:11:10, Florian Fainelli a =E9crit :
->> David, Andy,
->>=20
->> This small patch set updates libphy to allow PHY drivers to flag a
->> specific PHY device as internal, which is then used to accurately
->> report the transceiver type (internal vs external) in ethtool.
->=20
-> Does the first patch works for you or you do want me to be more descr=
-iptive?
+> From: Hebbar Gururaja <gururaja.hebbar-l0cyMroinI0@public.gmane.org>
+> 
+> Amend cpsw controller to optionally take a pin control handle and set
+> the state of the pins to:
+> 
+> - "default" on boot, resume
+> - "sleep" on suspend()
+> 
+> This should make it possible to optimize energy usage for the pins
+> for the suspend/resume cycle.
+> 
+> If any of the above pin states are missing in dt, a warning message
+> about the missing state is displayed.
+> If certain pin-states are not available, to remove this warning message
+> pass respective state name with null phandler.
+> 
+> Signed-off-by: Hebbar Gururaja <gururaja.hebbar-l0cyMroinI0@public.gmane.org>
+> Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
 
-I'll apply this series once Ben gets a change to look it over.
+This still needs some work:
+
+> +		/*
+> +		* Since we continue even when pinctrl node is not found,
+> +		* Invalidate pins as not available. This is to make sure that
+> +		* IS_ERR(pins_xxx) results in failure when used.
+> +		*/
+
+The second, third, fourth, and fifth lines are not tabbed correctly.  They
+should all be two TABs and a SPACE.
+
+Secondly, comments in the networking are to be formatted:
+
+	/* Like
+	 * this.
+	 */
