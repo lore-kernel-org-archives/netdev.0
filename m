@@ -1,132 +1,49 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
- macro
-Date: Sat, 25 May 2013 04:37:15 -0700
-Message-ID: <20130525113715.GA3795@linux.vnet.ibm.com>
-References: <519B8908.9080007@yandex-team.ru>
- <1369150693.3301.233.camel@edumazet-glaptop>
- <519BB90B.6080706@yandex-team.ru>
- <1369188080.3301.268.camel@edumazet-glaptop>
- <1369201765.3301.299.camel@edumazet-glaptop>
- <519CB2D8.103@yandex-team.ru>
- <1369225837.3301.324.camel@edumazet-glaptop>
- <519CC2FB.2010006@yandex-team.ru>
- <20130522174532.GC3431@linux.vnet.ibm.com>
- <519D19DA.50400@yandex-team.ru>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: =?UTF-8?Q?St=C3=A9phane?= Glondu <glondu@debian.org>
+Subject: Bug#709616: floods the network with pause packets
+Date: Sun, 26 May 2013 11:02:47 +0200
+Message-ID: <51A1CFB7.1080808@debian.org>
+References: <20130524124059.12781.51344.reportbug@wencory.loria.fr>  <20130524160727.GM4752@decadent.org.uk> <51A07081.5010104@debian.org> <1369533273.3469.301.camel@deadeye.wl.decadent.org.uk>
+Reply-To: =?UTF-8?Q?St=C3=A9phane?= Glondu <glondu@debian.org>, 709616@bugs.debian.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Roman Gushchin <klamm@yandex-team.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <519D19DA.50400@yandex-team.ru>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: 709616@bugs.debian.org, e1000-devel@lists.sourceforge.net,
+ netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.709616.B709616.13695589725618@bugs.debian.org>
+In-Reply-To: <1369533273.3469.301.camel@deadeye.wl.decadent.org.uk>
+List-URL: <http://lists.debian.org/debian-bugs-dist/>
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 22, 2013 at 11:17:46PM +0400, Roman Gushchin wrote:
-> On 22.05.2013 21:45, Paul E. McKenney wrote:
-> >On Wed, May 22, 2013 at 05:07:07PM +0400, Roman Gushchin wrote:
-> >>On 22.05.2013 16:30, Eric Dumazet wrote:
-> >>>On Wed, 2013-05-22 at 15:58 +0400, Roman Gushchin wrote:
-> >>>
-> >>>>+/*
-> >>>>+ * Same as ACCESS_ONCE(), but used for accessing field of a structure.
-> >>>>+ * The main goal is preventing compiler to store &ptr->field in a register.
-> >>>
-> >>>But &ptr->field is a constant during the whole duration of
-> >>>udp4_lib_lookup2() and could be in a register, in my case field is at
-> >>>offset 0, and ptr is a parameter (so could be in a 'register')
-> >>>
-> >>>The bug you found is that compiler caches the indirection  (ptr->field)
-> >>>into a register, not that compiler stores &ptr->field into a register.
-> >>>
-> >>>>+ */
-> >>>>+#define ACCESS_FIELD_ONCE(PTR, FIELD) (((volatile typeof(*PTR) *)PTR)->FIELD)
-> >>>>+
-> >>>
-> >>>Here we force the compiler to consider ptr as volatile, but semantically
-> >>>it is not required in rcu_dereference(ptr->field)
-> >>
-> >>Actually, we need to mark an "address of a place" where the field value is
-> >>located as volatile before dereferencing. I have no idea how to do it in another way,
-> >>except using multiple casts and offsetof's, but, IMHO, it will be even more complex:
-> >>	ACCESS_ONCE(typeof(&ptr->field)((char*)ptr + offsetof(typeof(*ptr), field)))
-> 
-> Probably I miss one more ACCESS_ONCE() in this expression. Should be something like
-> ACCESS_ONCE(typeof(&ptr->field)((char*)ACCESS_ONCE(ptr) + offsetof(typeof(*ptr), field))) .
-> But this is not a working example, just an illustration against using ACCESS_ONCE() here.
-> 
-> >Why not just ACCESS_ONCE(ptr->field)?  Or if it is the thing that
-> >ptr->field points to that is subject to change, ACCESS_ONCE(*ptr->field)?
-> >
-> >Or rcu_dereference(ptr->field), as appropriate?
-> 
-> It's not enough. So is the code now, and it doesn't work as expected.
-> You can't write (ptr->field) without ptr being marked as a volatile pointer.
-> 
-> I try to explain the problem once more from scratch:
-> 
-> 1) We have the following pseudo-code (based on udp4_lib_lookup2()):
-> 
-> static void some_func(struct hlist_nulls_head *head) {
-> 	struct hlist_nulls_node *node;
-> 
-> begin:
-> 	for (node = rcu_dereference(head->first);
-> 		!is_nulls(node) & ...;
-> 		node = rcu_dereference(node->next)) {
-> 		<...>
-> 	}
-> 
-> 	if (restart_condition)
-> 		goto begin;
-> 
-> 2) A problem occurs when restart_condition is true and we jump to the begin label.
-> We do not recalculate (head + offsetof(head, first)) address, we just dereference
-> again the OLD (head->first) pointer. So, we get a node, that WAS the first node in a
-> previous time instead of current first node. That node can be dead, or, for instance,
-> can be a head of another chain.
+Le 26/05/2013 03:54, Ben Hutchings a =C3=A9crit :
+> I forgot, e1000e still doesn't report autoneg state completely through
+> ethtool.  How about 'mii-tool -v eth0'?
 
-OK, this is what I was referring to when I said that the RCU list macros
-assume that the list header is static (or equivalently, appropriately
-protected).
+# mii-tool -v eth0
+SIOCGMIIREG on eth0 failed: Input/output error
+SIOCGMIIREG on eth0 failed: Input/output error
+eth0: negotiated 100baseTx-FD flow-control, link ok
+  product info: vendor 00:55:00, model 9 rev 0
+  basic mode:   autonegotiation enabled
+  basic status: autonegotiation complete, link ok
+  capabilities: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT=
+-HD
+  advertising:  100baseTx-FD 100baseTx-HD 10baseT-FD 10baseT-HD flow-cont=
+rol
+  link partner: 1000baseT-FD 100baseTx-FD 100baseTx-HD 10baseT-FD
+10baseT-HD flow-control
 
-With some_func() as written above, you would need to return some sort
-of failure indication from some_func(), and have the caller refetch head.
-Otherwise, as far as gcc is concerned, the value of the parameter head
-is constant throughout some_func().
 
-> It is correct from gcc's point of view, since it doesn't expect the head pointer
-> to change, and this address is just (head + constant offset).
+I am not sure about who to put in CC of this mail; I've just put the
+Debian bug.
 
-Agreed.
 
-How does the caller calculate the value to pass in through the argument "head"?
+Cheers,
 
-> 3) If we start with a wrong first element, restart_condition can be always true, so,
-> we get an infinite loop. In any case, we do not scan the whole (socket) chain,
-> as expected.
-
-Agreed.
-
-> This scenario is absolutely real and causes our DNS servers to hang
-> sometimes under high load.
-
-I completely believe that such a hang could happen.
-
-> Note, that there are no problems if we don't restart a loop. Also, it is highly
-> dependent on gcc options, and the code in the body of the loop. Even small changes
-> in the code (like adding debugging print) preventing reproducing of the issue.
-
-Again, I believe that your retry logic needs to extend back into the
-calling function for your some_func() example above.
-
-							Thanx, Paul
+--=20
+St=C3=A9phane
