@@ -1,54 +1,68 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next] net: add netnotifier event for upper device
- change
-Date: Sun, 26 May 2013 09:10:39 +0200
-Message-ID: <20130526071039.GA1560@minipsycho.orion>
-References: <1369491130-7412-1-git-send-email-jiri@resnulli.us>
- <20130525.231413.1228840457158928295.davem@davemloft.net>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: Re: [net-next PATCH v2 1/6] net: cpsw: enhance pinctrl support
+Date: Sun, 26 May 2013 12:49:14 +0530
+Message-ID: <51A1B772.4070201@ti.com>
+References: <1369312228-3308-1-git-send-email-mugunthanvnm@ti.com>
+ <1369312228-3308-2-git-send-email-mugunthanvnm@ti.com>
+ <20130525.234248.683332656832128763.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	alexander.h.duyck@intel.com, xiyou.wangcong@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f176.google.com ([209.85.215.176]:65048 "EHLO
-	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757765Ab3EZHKo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 May 2013 03:10:44 -0400
-Received: by mail-ea0-f176.google.com with SMTP id k11so3445525eaj.35
-        for <netdev@vger.kernel.org>; Sun, 26 May 2013 00:10:42 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130525.231413.1228840457158928295.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ gururaja.hebbar-l0cyMroinI0@public.gmane.org, benoit.cousson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <20130525.234248.683332656832128763.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-Sun, May 26, 2013 at 08:14:13AM CEST, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Sat, 25 May 2013 16:12:10 +0200
+On 5/26/2013 12:12 PM, David Miller wrote:
+> From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+> Date: Thu, 23 May 2013 18:00:23 +0530
 >
->> Now when upper device is changed, event is not propagated via RT Netlink
->> to userspace. Userspace might never now about the change. Fix this by
->> adding upper-device-change notifier event.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> From: Hebbar Gururaja <gururaja.hebbar-l0cyMroinI0@public.gmane.org>
+>>
+>> Amend cpsw controller to optionally take a pin control handle and set
+>> the state of the pins to:
+>>
+>> - "default" on boot, resume
+>> - "sleep" on suspend()
+>>
+>> This should make it possible to optimize energy usage for the pins
+>> for the suspend/resume cycle.
+>>
+>> If any of the above pin states are missing in dt, a warning message
+>> about the missing state is displayed.
+>> If certain pin-states are not available, to remove this warning message
+>> pass respective state name with null phandler.
+>>
+>> Signed-off-by: Hebbar Gururaja <gururaja.hebbar-l0cyMroinI0@public.gmane.org>
+>> Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+> This still needs some work:
 >
->Looks good, applied, thanks Jiri.
+>> +		/*
+>> +		* Since we continue even when pinctrl node is not found,
+>> +		* Invalidate pins as not available. This is to make sure that
+>> +		* IS_ERR(pins_xxx) results in failure when used.
+>> +		*/
+> The second, third, fourth, and fifth lines are not tabbed correctly.  They
+> should all be two TABs and a SPACE.
 >
->If someone is looking for a useful project, switching networking over to
->a more typed notifier system would be a worthwhile improvement.
+> Secondly, comments in the networking are to be formatted:
 >
->It's hard to right now to communicate what changed beyond "action X
->happened to this object, you have to check to see exactly how it
->changed"
+> 	/* Like
+> 	 * this.
+> 	 */
+Will fix this and will resubmit the next version today.
 
-Hmm. Do you have something particular in mind? My first thought was
-passing some union instead of NETDEV_* numbers.
-
->
->This came up recently with the IFF_NOARP stuff.
-
-Can you point me to the discussion?
-
-Thanks
-
-Jiri
+Regards
+Mugunthan V N
