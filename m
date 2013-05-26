@@ -1,50 +1,43 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: igb: acknowledging time sync interrupts
-Date: Sun, 26 May 2013 12:39:00 +0200
-Message-ID: <20130526103900.GA11682@netboy>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: Matthew Vick <matthew.vick@intel.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f179.google.com ([74.125.82.179]:38660 "EHLO
-	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752315Ab3EZKjK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 May 2013 06:39:10 -0400
-Received: by mail-we0-f179.google.com with SMTP id m46so3742537wev.10
-        for <netdev@vger.kernel.org>; Sun, 26 May 2013 03:39:08 -0700 (PDT)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: atomlin@redhat.com
+Subject: [Patch v1] skbuff: Hide GFP_ATOMIC page allocation failures for dropped packets
+Date: Sun, 26 May 2013 14:17:21 +0100
+Message-ID: <1369574241-21397-1-git-send-email-atomlin@redhat.com>
+Cc: davem@davemloft.net, edumazet@google.com, pshelar@nicira.com,
+	mst@redhat.com, alexander.h.duyck@intel.com,
+	linux-kernel@vger.kernel.org, Aaron Tomlin <atomlin@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Matt,
+From: Aaron Tomlin <atomlin@redhat.com>
 
-In igb_main.c you have ISR code like:
+Failed GFP_ATOMIC allocations by the network stack result in dropped
+packets, which will be received on a subsequent retransmit, and an
+unnecessary, noisy warning with a kernel backtrace.
 
-	if (icr & E1000_ICR_TS) {
-		u32 tsicr = rd32(E1000_TSICR);
+These warnings are harmless, but they still cause users to panic and
+file bug reports over dropped packets. It would be better to hide the
+failed allocation warnings and backtraces, and let retransmits handle
+dropped packets quietly.
 
-		if (tsicr & E1000_TSICR_TXTS) {
-			/* acknowledge the interrupt */
-			wr32(E1000_TSICR, E1000_TSICR_TXTS);
-			/* retrieve hardware timestamp */
-			schedule_work(&adapter->ptp_tx_work);
-		}
-	}
+Signed-off-by: Aaron Tomlin <atomlin@redhat.com>
+---
+ net/core/skbuff.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-In the datasheet for the 82580 and the i210, for TSICR it says,
-
-   Note: Once ICR.Time_Sync is set, the internal value of this
-         register should be cleared by writing 1b to all bits
-         or cleared by a read to enable receiving an additional
-         ^^^^^^^^^^^^^^^^^^^^
-         ICR.Time_Sync interrupt.
-
-and that implies that your write to acknowledge the interrupt is
-superfluous, since you already read the TSICR.
-
-Is this an error in the datasheets, or is the code doing extra,
-unneeded work?
-
-Thanks,
-Richard
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index af9185d..02139d6 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -236,7 +236,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 		? skbuff_fclone_cache : skbuff_head_cache;
+ 
+ 	if (sk_memalloc_socks() && (flags & SKB_ALLOC_RX))
+-		gfp_mask |= __GFP_MEMALLOC;
++		gfp_mask |= (__GFP_MEMALLOC|__GFP_NOWARN);
+ 
+ 	/* Get the HEAD */
+ 	skb = kmem_cache_alloc_node(cache, gfp_mask & ~__GFP_DMA, node);
+-- 
+1.8.1.4
