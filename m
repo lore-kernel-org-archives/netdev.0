@@ -1,98 +1,125 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: change type of netns_ipvs->sysctl_sync_qlen_max
-Date: Sun, 26 May 2013 08:41:17 +0900
-Message-ID: <1369525277-2687-2-git-send-email-horms@verge.net.au>
-References: <1369525277-2687-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Zhang Yanfei <zhangyanfei@cn.fujitsu.com>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1369525277-2687-1-git-send-email-horms@verge.net.au>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Bug#709616: floods the network with pause packets
+Date: Sun, 26 May 2013 02:54:33 +0100
+Message-ID: <1369533273.3469.301.camel@deadeye.wl.decadent.org.uk>
+References: <20130524124059.12781.51344.reportbug@wencory.loria.fr>
+	 <20130524160727.GM4752@decadent.org.uk> <51A07081.5010104@debian.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-cxoou8aOVtoMP6WqPD+t"
+Cc: 709616@bugs.debian.org, netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?St=E9phane?= Glondu <glondu@debian.org>,
+	e1000-devel@lists.sourceforge.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:47551 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1758789Ab3EZByu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 May 2013 21:54:50 -0400
+In-Reply-To: <51A07081.5010104@debian.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
 
-This member of struct netns_ipvs is calculated from nr_free_buffer_pages
-so change its type to unsigned long in case of overflow.  Also, type of
-its related proc var sync_qlen_max and the return type of function
-sysctl_sync_qlen_max() should be changed to unsigned long, too.
+--=-cxoou8aOVtoMP6WqPD+t
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Besides, the type of ipvs_master_sync_state->sync_queue_len should be
-changed to unsigned long accordingly.
+On Sat, 2013-05-25 at 10:04 +0200, St=C3=A9phane Glondu wrote:
+> Le 24/05/2013 18:07, Ben Hutchings a =C3=A9crit :
+> >> With Linux 3.8, my computer starts (after some time) flooding its
+> >> network interface with pause packets, effectively freezing it and
+> >> other network-dependent computers connected to the same switch.
 
-Signed-off-by: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
-Cc: Julian Anastasov <ja@ssi.bg>
-Cc: David Miller <davem@davemloft.net>
-Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h            |    8 ++++----
- net/netfilter/ipvs/ip_vs_ctl.c |    4 ++--
- 2 files changed, 6 insertions(+), 6 deletions(-)
+This is still the important issue, and regardless of whether pause
+frames are being handled properly it sounds like the hardware RX path
+may be locking up and that causes it to generate them continuously.  I
+don't know how to investigate that, so this message is going to the
+e1000e developers.
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index 4c062cc..4405886 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -905,7 +905,7 @@ struct ip_vs_app {
- struct ipvs_master_sync_state {
- 	struct list_head	sync_queue;
- 	struct ip_vs_sync_buff	*sync_buff;
--	int			sync_queue_len;
-+	unsigned long		sync_queue_len;
- 	unsigned int		sync_queue_delay;
- 	struct task_struct	*master_thread;
- 	struct delayed_work	master_wakeup_work;
-@@ -998,7 +998,7 @@ struct netns_ipvs {
- 	int			sysctl_snat_reroute;
- 	int			sysctl_sync_ver;
- 	int			sysctl_sync_ports;
--	int			sysctl_sync_qlen_max;
-+	unsigned long		sysctl_sync_qlen_max;
- 	int			sysctl_sync_sock_size;
- 	int			sysctl_cache_bypass;
- 	int			sysctl_expire_nodest_conn;
-@@ -1085,7 +1085,7 @@ static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
- 	return ACCESS_ONCE(ipvs->sysctl_sync_ports);
- }
- 
--static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
-+static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
- {
- 	return ipvs->sysctl_sync_qlen_max;
- }
-@@ -1138,7 +1138,7 @@ static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
- 	return 1;
- }
- 
--static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
-+static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
- {
- 	return IPVS_SYNC_QLEN_MAX;
- }
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index 5b142fb..7014649 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -1716,9 +1716,9 @@ static struct ctl_table vs_vars[] = {
- 	},
- 	{
- 		.procname	= "sync_qlen_max",
--		.maxlen		= sizeof(int),
-+		.maxlen		= sizeof(unsigned long),
- 		.mode		= 0644,
--		.proc_handler	= proc_dointvec,
-+		.proc_handler	= proc_doulongvec_minmax,
- 	},
- 	{
- 		.procname	= "sync_sock_size",
--- 
-1.7.10.4
+> > Switches should normally be configured to generate but not respond
+> > to pause frames.  I don't know how unmanaged switches are typically
+> > configured.  What do ethtool (no options and 'ethtool -a' report for
+> > this device?
+>=20
+> The other frozen computers are connected via an unmanaged switch.
+>=20
+> # ethtool eth0
+> Settings for eth0:
+>         Supported ports: [ TP ]
+>         Supported link modes:   10baseT/Half 10baseT/Full
+>                                 100baseT/Half 100baseT/Full
+>                                 1000baseT/Full
+>         Supported pause frame use: No
+>         Supports auto-negotiation: Yes
+>         Advertised link modes:  10baseT/Half 10baseT/Full
+>                                 100baseT/Half 100baseT/Full
+>                                 1000baseT/Full
+>         Advertised pause frame use: No
+>         Advertised auto-negotiation: Yes
 
+I forgot, e1000e still doesn't report autoneg state completely through
+ethtool.  How about 'mii-tool -v eth0'?
+
+>         Speed: 100Mb/s
+>         Duplex: Full
+>         Port: Twisted Pair
+>         PHYAD: 2
+>         Transceiver: internal
+>         Auto-negotiation: on
+>         MDI-X: off
+>         Supports Wake-on: pumbg
+>         Wake-on: g
+>         Current message level: 0x00000001 (1)
+>                                drv
+>         Link detected: yes
+> # ethtool -a eth0
+> Pause parameters for eth0:
+> Autonegotiate:  on
+> RX:             on
+> TX:             on
+>=20
+> >> When I connect directly my laptop to the computer, and run tcpdump on
+> >> the laptop, I see:
+> >> [...]
+> > There seems to be a bug in your laptop's network driver, because pause
+> > frames should not be passed to the kernel.  (Usually they are
+> > discarded by the MAC.)
+>=20
+> Even in promiscuous mode?
+[...]
+
+MAC control frames, which include pause frames, should never be passed
+to the host (specified in IEEE 802.3 clause 31.3).  In case the hardware
+still delivers them to the host, it's the driver's responsibility to
+discard them.  This is the same as for frames that have an error at the
+Ethernet level, e.g. bad CRC.
+
+Ben.
+
+--=20
+Ben Hutchings
+Computers are not intelligent.	They only think they are.
+
+--=-cxoou8aOVtoMP6WqPD+t
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUaFrWee/yOyVhhEJAQqteA//em6ah7ttJYXVgHZK3oTVQ3cOSmEnHkZK
+SXxApBtxqZjG7ExNvHcvhdxqQEFSrwK39+6dMyRfM5dmK3Kk7iURbvxL0DWJrbg0
+1Y41UU8opvOY5Qhh7IJI/sTvAhmqFTqdmKsHGFTO8EBh5vLQjEGqaa1v+eSMGSQ1
+d184uaGO1HXXYDBOUfwAyKtnKNOxLex07zm9RhhKNOYmTdqgU3/DU9ejsySGrGcE
+f06UXxMtuEvApuKwALL0HJdHl9NSeS6wTr89eHVdwwWY+yKwoKPTTdGVeayCBpM6
+9xLwg9N4PwdSKnJCD8Ui6dK0F0Ol5NH5es/KWVsPQsyQBf2nTJXrccUUs/bsM7BS
+xn2ApDnQAzho71HGbZyUoXBGBayy9i96fpLCAzSYF78LxTw/2ayX9bPQ4lrpu3PL
+Blfz32bsUVeRR1fbfg+2zYq/ufj6/zsXqfcLX9TMrXp8Ei4IxvE5IG/7Y424ASgD
+NUl8lbAc3RLVY7dQOvW4vKyPs1Q664ibGCGVkd9XXs5XjQIBLVUPgdXHasppppYh
+SbpHD72rT+bCbRnoWLzOciiWF1MjAi0ERypLtAZuMrjxKkd65wRHztQ/gjxHBRRC
+1bYAJxyrGSwI8Uq8dlDfg9t6q2YwpMDUrouGVS9D5FO38DO0evSVykJh6Hj4V5F6
+C+/u48iLyyo=
+=THxJ
+-----END PGP SIGNATURE-----
+
+--=-cxoou8aOVtoMP6WqPD+t--
