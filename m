@@ -1,34 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ptp_pch: depends on PCI
-Date: Sat, 25 May 2013 23:11:29 -0700 (PDT)
-Message-ID: <20130525.231129.392417150870789444.davem@davemloft.net>
-References: <20130525165507.GE30204@redacted.bos.redhat.com>
+Subject: Re: [patch net-next] net: add netnotifier event for upper device
+ change
+Date: Sat, 25 May 2013 23:14:13 -0700 (PDT)
+Message-ID: <20130525.231413.1228840457158928295.davem@davemloft.net>
+References: <1369491130-7412-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, richardcochran@gmail.com
-To: kyle@redhat.com
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	alexander.h.duyck@intel.com, xiyou.wangcong@gmail.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44458 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44533 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753413Ab3EZGLc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 May 2013 02:11:32 -0400
-In-Reply-To: <20130525165507.GE30204@redacted.bos.redhat.com>
+	with ESMTP id S1753864Ab3EZGOO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 May 2013 02:14:14 -0400
+In-Reply-To: <1369491130-7412-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Kyle McMartin <kyle@redhat.com>
-Date: Sat, 25 May 2013 12:55:07 -0400
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Sat, 25 May 2013 16:12:10 +0200
 
-> It's only accessible via PCI, but has no dependencies, so it ends up
-> being selected on s390 where a bunch of primitives only exist if
-> CONFIG_PCI=y (such as {request,free}_irq)
+> Now when upper device is changed, event is not propagated via RT Netlink
+> to userspace. Userspace might never now about the change. Fix this by
+> adding upper-device-change notifier event.
 > 
-> Signed-off-by: Kyle McMartin <kyle@redhat.com>
+> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 
-I've already told the s390 people they have to fix this properly.
+Looks good, applied, thanks Jiri.
 
-They have to provide stubs for request_irq() et al. when CONFIG_PCI
-is not enabled.
+If someone is looking for a useful project, switching networking over to
+a more typed notifier system would be a worthwhile improvement.
 
-This Kconfig change is therefore not appropriate.
+It's hard to right now to communicate what changed beyond "action X
+happened to this object, you have to check to see exactly how it
+changed"
+
+This came up recently with the IFF_NOARP stuff.
