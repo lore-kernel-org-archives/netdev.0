@@ -1,46 +1,64 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH -resend 4/6] netfilter: Implement RFC 1123 for FTP
- conntrack
-Date: Mon, 27 May 2013 14:20:33 +0200
-Message-ID: <20130527122033.GA16107@localhost>
-References: <1369227552-11743-1-git-send-email-jslaby@suse.cz>
- <1369227552-11743-4-git-send-email-jslaby@suse.cz>
+Subject: Re: Some netfilter compile errors when CONFIG_IPV6=m
+Date: Mon, 27 May 2013 14:33:39 +0200
+Message-ID: <20130527123339.GA16150@localhost>
+References: <1368499552.2507.5.camel@cr0>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jirislaby@gmail.com, akpm@linux-foundation.org,
-	linux-kernel@vger.kernel.org, Jeff Mahoney <jeffm@suse.com>,
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org,
 	Patrick McHardy <kaber@trash.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
-	coreteam@netfilter.org, netdev@vger.kernel.org
-To: Jiri Slaby <jslaby@suse.cz>
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42748 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:46432 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932177Ab3E0MUj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 08:20:39 -0400
+	id S932138Ab3E0Mdq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 08:33:46 -0400
 Content-Disposition: inline
-In-Reply-To: <1369227552-11743-4-git-send-email-jslaby@suse.cz>
+In-Reply-To: <1368499552.2507.5.camel@cr0>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 22, 2013 at 02:59:10PM +0200, Jiri Slaby wrote:
-> From: Jeff Mahoney <jeffm@suse.com>
+On Tue, May 14, 2013 at 10:45:52AM +0800, Cong Wang wrote:
+> Hi, all
 > 
->  The FTP conntrack code currently only accepts the following format for
->  the 227 response for PASV:
->  227 Entering Passive Mode (148,100,81,40,31,161).
+> I got the following compile errors when I compile IPv6 as a module and
+> most of the rest are built into core kernel. David Miller insists we
+> should fix this kind of error and not by adding Kconfig tricks.
 > 
->  It doesn't accept the following format from an obscure server:
->  227 Data transfer will passively listen to 67,218,99,134,50,144
-> 
->  From RFC 1123:
->  The format of the 227 reply to a PASV command is not
->  well standardized.  In particular, an FTP client cannot
->  assume that the parentheses shown on page 40 of RFC-959
->  will be present (and in fact, Figure 3 on page 43 omits
->  them).  Therefore, a User-FTP program that interprets
->  the PASV reply must scan the reply for the first digit
->  of the host and port numbers.
+> net/built-in.o: In function `nf_tproxy_get_sock_v6':
+> /home/wangcong/linux/include/net/netfilter/nf_tproxy_core.h:177:
+> undefined reference to `udp6_lib_lookup'
+> /home/wangcong/linux/include/net/netfilter/nf_tproxy_core.h:177:
+> undefined reference to `udp6_lib_lookup'
+> net/built-in.o: In function `tproxy_tg_init':
+> /home/wangcong/linux/net/netfilter/xt_TPROXY.c:415: undefined reference
+> to `nf_defrag_ipv6_enable'
+> net/built-in.o: In function `socket_mt_init':
+> /home/wangcong/linux/net/netfilter/xt_socket.c:366: undefined reference
+> to `nf_defrag_ipv6_enable'
 
-Applied, thanks.
+Looking at your incomplete .config, I don't see how you set xt_TPROXY
+and xt_socket but I bet they are =y.
+
+For the udp6_lib_lookup dependency, you can use the ipv6 hooks added
+here:
+
+commit 2a7851bffb008ff4882eee673da74718997b4265
+Author: Florian Westphal <fw@strlen.de>
+Date:   Fri May 17 03:56:10 2013 +0000
+
+    netfilter: add nf_ipv6_ops hook to fix xt_addrtype with IPv6
+
+Already in the nf tree, to resolve it. It would be fairly easy to make
+a patch for it.
+
+For the nf_defrag_ipv6_enable, as I already mentioned, that's an
+artificial function to enforce the dependency between those two
+modules. We can add runtime checks in socket and TPROXY to skip
+further processing is nf_defrag_ipv6 is not loaded. But that's a
+problem because users will assume that their socket/TPROXY rule got
+loaded but it will not actually work since defrag is not loaded.  I
+think that really needs some Kconfig tricks for that specific case.
+
+Regards.
