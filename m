@@ -1,84 +1,223 @@
 From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-Subject: [PATCH net-next 1/6] net: inform NETDEV_CHANGE callbacks which flags were changed
-Date: Mon, 27 May 2013 14:16:11 +0300
-Message-ID: <1369653376-4731-2-git-send-email-timo.teras@iki.fi>
+Subject: [PATCH net-next 3/6] ipv4: properly refresh rtable entries on pmtu/redirect events
+Date: Mon, 27 May 2013 14:16:13 +0300
+Message-ID: <1369653376-4731-4-git-send-email-timo.teras@iki.fi>
 References: <1369653376-4731-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
+Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>,
+	Steffen Klassert <steffen.klassert@secunet.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:47015 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757704Ab3E0LOm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 07:14:42 -0400
-Received: by mail-ea0-f178.google.com with SMTP id q16so3821979ead.37
-        for <netdev@vger.kernel.org>; Mon, 27 May 2013 04:14:41 -0700 (PDT)
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:48851 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757832Ab3E0LOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 07:14:45 -0400
+Received: by mail-ee0-f50.google.com with SMTP id c41so3887727eek.37
+        for <netdev@vger.kernel.org>; Mon, 27 May 2013 04:14:44 -0700 (PDT)
 In-Reply-To: <1369653376-4731-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In certain cases (like the follow up commit to arp.c) will need to
-check which flags actually changed to avoid excessive work.
+This reverts commit 05ab86c5 (xfrm4: Invalidate all ipv4 routes on
+IPsec pmtu events). Flushing all cached entries is not needed.
 
-Ben Hutchings nicely worded why to put these transient flags to
-struct net_device for the time being:
-> It's inelegant to put transient data associated with an event in a
-> persistent data structure.  On the other hand, having every user cach=
-e
-> the old state is pretty awful as well.
->
-> Really, netdev notifiers should be changed to accept a structure that
-> encapsulates the changes rather than just a pointer to the net_device=
-=2E
-> But making such a change would be an enormous pain and error-prone
-> because notifier functions aren't type-safe.
->
-> As an interim solution, I think either the general flags_changed or
-> old_flags would be preferable to defining extra transient flags.
+Instead, invalidate only the related next hop dsts to recheck for
+the added next hop exception where needed. This also fixes a subtle
+race due to bumping generation id's before updating the pmtu.
 
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
 Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
-Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/linux/netdevice.h | 4 +++-
- net/core/dev.c            | 5 ++++-
- 2 files changed, 7 insertions(+), 2 deletions(-)
+ net/ipv4/ah4.c    |  7 ++-----
+ net/ipv4/esp4.c   |  7 ++-----
+ net/ipv4/ipcomp.c |  7 ++-----
+ net/ipv4/route.c  | 63 ++++++++++++++++++++++++++++++++---------------=
+--------
+ 4 files changed, 43 insertions(+), 41 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index ea7b6bc..f336e03 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1112,7 +1112,9 @@ struct net_device {
- 	/* Hardware header description */
- 	const struct header_ops *header_ops;
+diff --git a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+index 2e7f194..7179026 100644
+--- a/net/ipv4/ah4.c
++++ b/net/ipv4/ah4.c
+@@ -419,12 +419,9 @@ static void ah4_err(struct sk_buff *skb, u32 info)
+ 	if (!x)
+ 		return;
 =20
--	unsigned int		flags;	/* interface flags (a la BSD)	*/
-+	unsigned int		flags;		/* interface flags (a la BSD)	*/
-+	unsigned int		flags_changed;	/* flags that are being changed
-+						 * valid during NETDEV_CHANGE notifier */
- 	unsigned int		priv_flags; /* Like 'flags' but invisible to userspace.
- 					     * See if.h for definitions. */
- 	unsigned short		gflags;
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 50c02de..bbaa3c2 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4742,8 +4742,11 @@ void __dev_notify_flags(struct net_device *dev, =
-unsigned int old_flags)
- 	}
-=20
- 	if (dev->flags & IFF_UP &&
--	    (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE))=
+-	if (icmp_hdr(skb)->type =3D=3D ICMP_DEST_UNREACH) {
+-		atomic_inc(&flow_cache_genid);
+-		rt_genid_bump(net);
+-
++	if (icmp_hdr(skb)->type =3D=3D ICMP_DEST_UNREACH)
+ 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_AH, 0);
+-	} else
++	else
+ 		ipv4_redirect(skb, net, 0, 0, IPPROTO_AH, 0);
+ 	xfrm_state_put(x);
+ }
+diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+index 4cfe34d..ab3d814 100644
+--- a/net/ipv4/esp4.c
++++ b/net/ipv4/esp4.c
+@@ -502,12 +502,9 @@ static void esp4_err(struct sk_buff *skb, u32 info=
 )
-+	    (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE))=
-) {
-+		dev->flags_changed =3D changes;
- 		call_netdevice_notifiers(NETDEV_CHANGE, dev);
-+		dev->flags_changed =3D 0;
-+	}
+ 	if (!x)
+ 		return;
+=20
+-	if (icmp_hdr(skb)->type =3D=3D ICMP_DEST_UNREACH) {
+-		atomic_inc(&flow_cache_genid);
+-		rt_genid_bump(net);
+-
++	if (icmp_hdr(skb)->type =3D=3D ICMP_DEST_UNREACH)
+ 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_ESP, 0);
+-	} else
++	else
+ 		ipv4_redirect(skb, net, 0, 0, IPPROTO_ESP, 0);
+ 	xfrm_state_put(x);
+ }
+diff --git a/net/ipv4/ipcomp.c b/net/ipv4/ipcomp.c
+index 59cb8c7..826be4c 100644
+--- a/net/ipv4/ipcomp.c
++++ b/net/ipv4/ipcomp.c
+@@ -47,12 +47,9 @@ static void ipcomp4_err(struct sk_buff *skb, u32 inf=
+o)
+ 	if (!x)
+ 		return;
+=20
+-	if (icmp_hdr(skb)->type =3D=3D ICMP_DEST_UNREACH) {
+-		atomic_inc(&flow_cache_genid);
+-		rt_genid_bump(net);
+-
++	if (icmp_hdr(skb)->type =3D=3D ICMP_DEST_UNREACH)
+ 		ipv4_update_pmtu(skb, net, info, 0, 0, IPPROTO_COMP, 0);
+-	} else
++	else
+ 		ipv4_redirect(skb, net, 0, 0, IPPROTO_COMP, 0);
+ 	xfrm_state_put(x);
+ }
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 550781a..561a378 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -594,11 +594,25 @@ static inline u32 fnhe_hashfun(__be32 daddr)
+ 	return hval & (FNHE_HASH_SIZE - 1);
  }
 =20
- /**
++static void fill_route_from_fnhe(struct rtable *rt, struct fib_nh_exce=
+ption *fnhe)
++{
++	rt->rt_pmtu =3D fnhe->fnhe_pmtu;
++	rt->dst.expires =3D fnhe->fnhe_expires;
++
++	if (fnhe->fnhe_gw) {
++		rt->rt_flags |=3D RTCF_REDIRECTED;
++		rt->rt_gateway =3D fnhe->fnhe_gw;
++		rt->rt_uses_gateway =3D 1;
++	}
++}
++
+ static void update_or_create_fnhe(struct fib_nh *nh, __be32 daddr, __b=
+e32 gw,
+ 				  u32 pmtu, unsigned long expires)
+ {
+ 	struct fnhe_hash_bucket *hash;
+ 	struct fib_nh_exception *fnhe;
++	struct rtable *rt;
++	unsigned int i;
+ 	int depth;
+ 	u32 hval =3D fnhe_hashfun(daddr);
+=20
+@@ -627,8 +641,12 @@ static void update_or_create_fnhe(struct fib_nh *n=
+h, __be32 daddr, __be32 gw,
+ 			fnhe->fnhe_gw =3D gw;
+ 		if (pmtu) {
+ 			fnhe->fnhe_pmtu =3D pmtu;
+-			fnhe->fnhe_expires =3D expires;
++			fnhe->fnhe_expires =3D max(1UL, expires);
+ 		}
++		/* Update all cached dsts too */
++		rt =3D rcu_dereference(fnhe->fnhe_rth);
++		if (rt)
++			fill_route_from_fnhe(rt, fnhe);
+ 	} else {
+ 		if (depth > FNHE_RECLAIM_DEPTH)
+ 			fnhe =3D fnhe_oldest(hash);
+@@ -644,6 +662,18 @@ static void update_or_create_fnhe(struct fib_nh *n=
+h, __be32 daddr, __be32 gw,
+ 		fnhe->fnhe_gw =3D gw;
+ 		fnhe->fnhe_pmtu =3D pmtu;
+ 		fnhe->fnhe_expires =3D expires;
++
++		/* Exception created; mark the cached routes for the nexthop
++		 * stale, so anyone caching it rechecks if this exception
++		 * applies to them.
++		 */
++		for_each_possible_cpu(i) {
++			struct rtable __rcu **prt;
++			prt =3D per_cpu_ptr(nh->nh_pcpu_rth_output, i);
++			rt =3D rcu_dereference(*prt);
++			if (rt)
++				rt->dst.obsolete =3D DST_OBSOLETE_KILL;
++		}
+ 	}
+=20
+ 	fnhe->fnhe_stamp =3D jiffies;
+@@ -917,13 +947,6 @@ static void __ip_rt_update_pmtu(struct rtable *rt,=
+ struct flowi4 *fl4, u32 mtu)
+ 	if (mtu < ip_rt_min_pmtu)
+ 		mtu =3D ip_rt_min_pmtu;
+=20
+-	if (!rt->rt_pmtu) {
+-		dst->obsolete =3D DST_OBSOLETE_KILL;
+-	} else {
+-		rt->rt_pmtu =3D mtu;
+-		dst->expires =3D max(1UL, jiffies + ip_rt_mtu_expires);
+-	}
+-
+ 	rcu_read_lock();
+ 	if (fib_lookup(dev_net(dst->dev), fl4, &res) =3D=3D 0) {
+ 		struct fib_nh *nh =3D &FIB_RES_NH(res);
+@@ -1063,11 +1086,11 @@ static struct dst_entry *ipv4_dst_check(struct =
+dst_entry *dst, u32 cookie)
+ 	 * DST_OBSOLETE_FORCE_CHK which forces validation calls down
+ 	 * into this function always.
+ 	 *
+-	 * When a PMTU/redirect information update invalidates a
+-	 * route, this is indicated by setting obsolete to
+-	 * DST_OBSOLETE_KILL.
++	 * When a PMTU/redirect information update invalidates a route,
++	 * this is indicated by setting obsolete to DST_OBSOLETE_KILL or
++	 * DST_OBSOLETE_DEAD by dst_free().
+ 	 */
+-	if (dst->obsolete =3D=3D DST_OBSOLETE_KILL || rt_is_expired(rt))
++	if (dst->obsolete !=3D DST_OBSOLETE_FORCE_CHK || rt_is_expired(rt))
+ 		return NULL;
+ 	return dst;
+ }
+@@ -1215,20 +1238,8 @@ static bool rt_bind_exception(struct rtable *rt,=
+ struct fib_nh_exception *fnhe,
+ 			fnhe->fnhe_pmtu =3D 0;
+ 			fnhe->fnhe_expires =3D 0;
+ 		}
+-		if (fnhe->fnhe_pmtu) {
+-			unsigned long expires =3D fnhe->fnhe_expires;
+-			unsigned long diff =3D expires - jiffies;
+-
+-			if (time_before(jiffies, expires)) {
+-				rt->rt_pmtu =3D fnhe->fnhe_pmtu;
+-				dst_set_expires(&rt->dst, diff);
+-			}
+-		}
+-		if (fnhe->fnhe_gw) {
+-			rt->rt_flags |=3D RTCF_REDIRECTED;
+-			rt->rt_gateway =3D fnhe->fnhe_gw;
+-			rt->rt_uses_gateway =3D 1;
+-		} else if (!rt->rt_gateway)
++		fill_route_from_fnhe(rt, fnhe);
++		if (!rt->rt_gateway)
+ 			rt->rt_gateway =3D daddr;
+=20
+ 		rcu_assign_pointer(fnhe->fnhe_rth, rt);
 --=20
 1.8.2.3
