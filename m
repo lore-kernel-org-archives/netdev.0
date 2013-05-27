@@ -1,51 +1,46 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 1/1] net/phy: Use module_spi_driver in spi_ks8995.c
-Date: Mon, 27 May 2013 17:21:39 +0530
-Message-ID: <1369655499-17192-1-git-send-email-sachin.kamat@linaro.org>
-Cc: davem@davemloft.net, sachin.kamat@linaro.org, juhosg@openwrt.org
-To: netdev@vger.kernel.org
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH -resend 4/6] netfilter: Implement RFC 1123 for FTP
+ conntrack
+Date: Mon, 27 May 2013 14:20:33 +0200
+Message-ID: <20130527122033.GA16107@localhost>
+References: <1369227552-11743-1-git-send-email-jslaby@suse.cz>
+ <1369227552-11743-4-git-send-email-jslaby@suse.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jirislaby@gmail.com, akpm@linux-foundation.org,
+	linux-kernel@vger.kernel.org, Jeff Mahoney <jeffm@suse.com>,
+	Patrick McHardy <kaber@trash.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, netfilter@vger.kernel.org,
+	coreteam@netfilter.org, netdev@vger.kernel.org
+To: Jiri Slaby <jslaby@suse.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f54.google.com ([209.85.160.54]:38529 "EHLO
-	mail-pb0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932072Ab3E0MFh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 08:05:37 -0400
-Received: by mail-pb0-f54.google.com with SMTP id ro12so6710552pbb.27
-        for <netdev@vger.kernel.org>; Mon, 27 May 2013 05:05:37 -0700 (PDT)
+Received: from mail.us.es ([193.147.175.20]:42748 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932177Ab3E0MUj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 08:20:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1369227552-11743-4-git-send-email-jslaby@suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-module_spi_driver() removes some boilerplate and makes the code
-simpler.
+On Wed, May 22, 2013 at 02:59:10PM +0200, Jiri Slaby wrote:
+> From: Jeff Mahoney <jeffm@suse.com>
+> 
+>  The FTP conntrack code currently only accepts the following format for
+>  the 227 response for PASV:
+>  227 Entering Passive Mode (148,100,81,40,31,161).
+> 
+>  It doesn't accept the following format from an obscure server:
+>  227 Data transfer will passively listen to 67,218,99,134,50,144
+> 
+>  From RFC 1123:
+>  The format of the 227 reply to a PASV command is not
+>  well standardized.  In particular, an FTP client cannot
+>  assume that the parentheses shown on page 40 of RFC-959
+>  will be present (and in fact, Figure 3 on page 43 omits
+>  them).  Therefore, a User-FTP program that interprets
+>  the PASV reply must scan the reply for the first digit
+>  of the host and port numbers.
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
----
- drivers/net/phy/spi_ks8995.c |   14 +-------------
- 1 file changed, 1 insertion(+), 13 deletions(-)
-
-diff --git a/drivers/net/phy/spi_ks8995.c b/drivers/net/phy/spi_ks8995.c
-index d11c93e..f3bea13 100644
---- a/drivers/net/phy/spi_ks8995.c
-+++ b/drivers/net/phy/spi_ks8995.c
-@@ -354,19 +354,7 @@ static struct spi_driver ks8995_driver = {
- 	.remove	  = ks8995_remove,
- };
- 
--static int __init ks8995_init(void)
--{
--	pr_info(DRV_DESC " version " DRV_VERSION "\n");
--
--	return spi_register_driver(&ks8995_driver);
--}
--module_init(ks8995_init);
--
--static void __exit ks8995_exit(void)
--{
--	spi_unregister_driver(&ks8995_driver);
--}
--module_exit(ks8995_exit);
-+module_spi_driver(ks8995_driver);
- 
- MODULE_DESCRIPTION(DRV_DESC);
- MODULE_VERSION(DRV_VERSION);
--- 
-1.7.9.5
+Applied, thanks.
