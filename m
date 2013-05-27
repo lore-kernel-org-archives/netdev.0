@@ -1,186 +1,44 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v5 net-next 5/5] ixgbe: add extra stats for ndo_ll_poll
-Date: Mon, 27 May 2013 10:44:44 +0300
-Message-ID: <20130527074443.29882.549.stgit@ladj378.jer.intel.com>
-References: <20130527074351.29882.51106.stgit@ladj378.jer.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Dave Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130527074351.29882.51106.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: [PATCH (net.git)] net: phy: fix a bug when verify the EEE support
+Date: Mon, 27 May 2013 09:31:28 +0200
+Message-ID: <1369639888-11805-1-git-send-email-peppe.cavallaro@st.com>
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:52815 "EHLO
+	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754364Ab3E0HwG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 03:52:06 -0400
+Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
+	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 546F11EE
+	for <netdev@vger.kernel.org>; Mon, 27 May 2013 07:31:37 +0000 (GMT)
+Received: from mail7.sgp.st.com (unknown [164.129.223.81])
+	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id DB82A4536
+	for <netdev@vger.kernel.org>; Mon, 27 May 2013 07:31:21 +0000 (GMT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add additional statistics to the ixgbe driver for ndo_ll_poll
-Defined under LL_EXTENDED_STATS
+The phy_init_eee has to exit with an error when the
+local device and its link partner both do not support EEE.
+So this patch fixes a problem when verify this.
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 ---
+ drivers/net/phy/phy.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   14 ++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   40 ++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    6 +++
- 3 files changed, 60 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 04fdbf6..9765772 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -54,6 +54,9 @@
+diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
+index c14f147..38f0b31 100644
+--- a/drivers/net/phy/phy.c
++++ b/drivers/net/phy/phy.c
+@@ -1044,7 +1044,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
+ 		adv = mmd_eee_adv_to_ethtool_adv_t(eee_adv);
+ 		lp = mmd_eee_adv_to_ethtool_adv_t(eee_lp);
+ 		idx = phy_find_setting(phydev->speed, phydev->duplex);
+-		if ((lp & adv & settings[idx].setting))
++		if (!(lp & adv & settings[idx].setting))
+ 			goto eee_exit;
  
- #include <net/ll_poll.h>
- 
-+#ifdef CONFIG_NET_LL_RX_POLL
-+#define LL_EXTENDED_STATS
-+#endif
- /* common prefix used by pr_<> macros */
- #undef pr_fmt
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-@@ -184,6 +187,11 @@ struct ixgbe_rx_buffer {
- struct ixgbe_queue_stats {
- 	u64 packets;
- 	u64 bytes;
-+#ifdef LL_EXTENDED_STATS
-+	u64 yields;
-+	u64 misses;
-+	u64 cleaned;
-+#endif  /* LL_EXTENDED_STATS */
- };
- 
- struct ixgbe_tx_queue_stats {
-@@ -391,6 +399,9 @@ static inline int ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
- 		WARN_ON(q_vector->state & IXGBE_QV_STATE_NAPI);
- 		q_vector->state |= IXGBE_QV_STATE_NAPI_YIELD;
- 		rc = false;
-+#ifdef LL_EXTENDED_STATS
-+		q_vector->tx.ring->stats.yields++;
-+#endif
- 	} else
- 		/* we don't care if someone yielded */
- 		q_vector->state = IXGBE_QV_STATE_NAPI;
-@@ -421,6 +432,9 @@ static inline int ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
- 	if ((q_vector->state & IXGBE_QV_LOCKED)) {
- 		q_vector->state |= IXGBE_QV_STATE_POLL_YIELD;
- 		rc = false;
-+#ifdef LL_EXTENDED_STATS
-+		q_vector->rx.ring->stats.yields++;
-+#endif
- 	} else
- 		/* preserve yield marks */
- 		q_vector->state |= IXGBE_QV_STATE_POLL;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index d375472..24e2e7a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1054,6 +1054,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
-+#ifdef LL_EXTENDED_STATS
-+			data[i] = 0;
-+			data[i+1] = 0;
-+			data[i+2] = 0;
-+			i += 3;
-+#endif
- 			continue;
- 		}
- 
-@@ -1063,6 +1069,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
-+#ifdef LL_EXTENDED_STATS
-+		data[i] = ring->stats.yields;
-+		data[i+1] = ring->stats.misses;
-+		data[i+2] = ring->stats.cleaned;
-+		i += 3;
-+#endif
- 	}
- 	for (j = 0; j < IXGBE_NUM_RX_QUEUES; j++) {
- 		ring = adapter->rx_ring[j];
-@@ -1070,6 +1082,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
-+#ifdef LL_EXTENDED_STATS
-+			data[i] = 0;
-+			data[i+1] = 0;
-+			data[i+2] = 0;
-+			i += 3;
-+#endif
- 			continue;
- 		}
- 
-@@ -1079,6 +1097,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
-+#ifdef LL_EXTENDED_STATS
-+		data[i] = ring->stats.yields;
-+		data[i+1] = ring->stats.misses;
-+		data[i+2] = ring->stats.cleaned;
-+		i += 3;
-+#endif
- 	}
- 
- 	for (j = 0; j < IXGBE_MAX_PACKET_BUFFERS; j++) {
-@@ -1115,12 +1139,28 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "tx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
-+#ifdef LL_EXTENDED_STATS
-+			sprintf(p, "tx_q_%u_napi_yield", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "tx_q_%u_misses", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "tx_q_%u_cleaned", i);
-+			p += ETH_GSTRING_LEN;
-+#endif /* LL_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_NUM_RX_QUEUES; i++) {
- 			sprintf(p, "rx_queue_%u_packets", i);
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "rx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
-+#ifdef LL_EXTENDED_STATS
-+			sprintf(p, "rx_q_%u_ll_poll_yield", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_q_%u_misses", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_q_%u_cleaned", i);
-+			p += ETH_GSTRING_LEN;
-+#endif /* LL_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
- 			sprintf(p, "tx_pb_%u_pxon", i);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 9a7dc40..047ebaa 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2016,6 +2016,12 @@ static int ixgbe_low_latency_recv(struct napi_struct *napi)
- 
- 	ixgbe_for_each_ring(ring, q_vector->rx) {
- 		found = ixgbe_clean_rx_irq(q_vector, ring, 4);
-+#ifdef LL_EXTENDED_STATS
-+		if (found)
-+			ring->stats.cleaned += found;
-+		else
-+			ring->stats.misses++;
-+#endif
- 		if (found)
- 			break;
- 	}
+ 		if (clk_stop_enable) {
+-- 
+1.7.4.4
