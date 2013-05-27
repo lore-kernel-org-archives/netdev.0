@@ -1,71 +1,109 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v9 02/11] vxlan: use unsigned int instead of unsigned
-Date: Mon, 27 May 2013 12:16:24 +0800
-Message-ID: <1369628193-14925-3-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v9 03/11] ipv6: make ip6_dst_hoplimit() static inline
+Date: Mon, 27 May 2013 12:16:25 +0800
+Message-ID: <1369628193-14925-4-git-send-email-amwang@redhat.com>
 References: <1369628193-14925-1-git-send-email-amwang@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:21716 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:36860 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750846Ab3E0ERG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 00:17:06 -0400
+	id S1750846Ab3E0ERO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 00:17:14 -0400
 In-Reply-To: <1369628193-14925-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-'unsigned int' is better.
+It will be used by vxlan module, so move it from ipv6 module
+to core kernel. I think it is small enough to be inlined.
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: David S. Miller <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/vxlan.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+ include/net/ip6_route.h |   23 +++++++++++++++++++++--
+ net/ipv6/route.c        |   19 -------------------
+ 2 files changed, 21 insertions(+), 21 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 0e3eca3..5b37f76 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1270,7 +1270,7 @@ static int vxlan_open(struct net_device *dev)
- /* Purge the forwarding table */
- static void vxlan_flush(struct vxlan_dev *vxlan)
- {
--	unsigned h;
-+	unsigned int h;
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index 260f83f..7e9192e 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -21,6 +21,7 @@ struct route_info {
+ #include <net/flow.h>
+ #include <net/ip6_fib.h>
+ #include <net/sock.h>
++#include <net/addrconf.h>
+ #include <linux/ip.h>
+ #include <linux/ipv6.h>
+ #include <linux/route.h>
+@@ -112,8 +113,6 @@ extern struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 					   const struct in6_addr *addr,
+ 					   bool anycast);
  
- 	spin_lock_bh(&vxlan->hash_lock);
- 	for (h = 0; h < FDB_HASH_SIZE; ++h) {
-@@ -1334,7 +1334,7 @@ static void vxlan_free(struct net_device *dev)
- static void vxlan_setup(struct net_device *dev)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
--	unsigned h;
-+	unsigned int h;
- 	int low, high;
+-extern int			ip6_dst_hoplimit(struct dst_entry *dst);
+-
+ /*
+  *	support functions for ND
+  *
+@@ -201,4 +200,24 @@ static inline struct in6_addr *rt6_nexthop(struct rt6_info *rt, struct in6_addr
+ 	return dest;
+ }
  
- 	eth_hw_addr_random(dev);
-@@ -1460,7 +1460,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port)
- 		.sin_addr.s_addr = htonl(INADDR_ANY),
- 	};
- 	int rc;
--	unsigned h;
-+	unsigned int h;
++#if IS_ENABLED(CONFIG_IPV6)
++static inline int ip6_dst_hoplimit(struct dst_entry *dst)
++{
++	int hoplimit = dst_metric_raw(dst, RTAX_HOPLIMIT);
++	if (hoplimit == 0) {
++		struct net_device *dev = dst->dev;
++		struct inet6_dev *idev;
++
++		rcu_read_lock();
++		idev = __in6_dev_get(dev);
++		if (idev)
++			hoplimit = idev->cnf.hop_limit;
++		else
++			hoplimit = dev_net(dev)->ipv6.devconf_all->hop_limit;
++		rcu_read_unlock();
++	}
++	return hoplimit;
++}
++#endif
++
+ #endif
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ad0aa6b..0d9c531 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1310,25 +1310,6 @@ out:
+ 	return entries > rt_max_size;
+ }
  
- 	vs = kmalloc(sizeof(*vs), GFP_KERNEL);
- 	if (!vs)
-@@ -1723,7 +1723,7 @@ static struct rtnl_link_ops vxlan_link_ops __read_mostly = {
- static __net_init int vxlan_init_net(struct net *net)
- {
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
--	unsigned h;
-+	unsigned int h;
- 
- 	INIT_LIST_HEAD(&vn->vxlan_list);
- 
+-int ip6_dst_hoplimit(struct dst_entry *dst)
+-{
+-	int hoplimit = dst_metric_raw(dst, RTAX_HOPLIMIT);
+-	if (hoplimit == 0) {
+-		struct net_device *dev = dst->dev;
+-		struct inet6_dev *idev;
+-
+-		rcu_read_lock();
+-		idev = __in6_dev_get(dev);
+-		if (idev)
+-			hoplimit = idev->cnf.hop_limit;
+-		else
+-			hoplimit = dev_net(dev)->ipv6.devconf_all->hop_limit;
+-		rcu_read_unlock();
+-	}
+-	return hoplimit;
+-}
+-EXPORT_SYMBOL(ip6_dst_hoplimit);
+-
+ /*
+  *
+  */
 -- 
 1.7.7.6
