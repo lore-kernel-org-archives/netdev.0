@@ -1,69 +1,101 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: atl1c issues on 3.8.2
-Date: Mon, 27 May 2013 18:43:22 +0200
-Message-ID: <20130527184322.1e9aa80f@milhouse>
-References: <20130312161753.281681f2@milhouse>
-	<1363103144.13690.12.camel@edumazet-glaptop>
-	<20130312180942.4198e88e@milhouse>
-	<1363154258.13690.40.camel@edumazet-glaptop>
-	<1363271460.29475.14.camel@edumazet-glaptop>
-	<20130314231746.44a93e4d@milhouse>
-	<1363302362.29475.42.camel@edumazet-glaptop>
-	<20130315204457.21d46b89@milhouse>
-	<20130322122849.72b3eccd@milhouse>
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Subject: Re: [PATCH 1/3] net: phy: prevent linking breakage
+Date: Mon, 27 May 2013 19:37:26 +0200
+Message-ID: <51A399D6.8030000@free-electrons.com>
+References: <1369671524-14797-1-git-send-email-alexandre.belloni@free-electrons.com> <1369671524-14797-2-git-send-email-alexandre.belloni@free-electrons.com> <20130527163913.GO32299@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=PGP-SHA1;
- boundary="Sig_/oxvyeihr7JF20jdr7XZT0Z="; protocol="application/pgp-signature"
-Cc: Pavel Emelyanov <xemul@parallels.com>,
-	Eric Dumazet <edumazet@google.com>,
-	linux-netdev <netdev@vger.kernel.org>,
-	"David S.Miller" <davem@davemloft.net>,
-	Mel Gorman <mgorman@suse.de>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bues.ch ([80.190.117.144]:36678 "EHLO bues.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752185Ab3E0RFV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 13:05:21 -0400
-In-Reply-To: <20130322122849.72b3eccd@milhouse>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org,
+	Russell King <linux@arm.linux.org.uk>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Sascha Hauer <kernel@pengutronix.de>
+To: Sascha Hauer <s.hauer@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130527163913.GO32299@pengutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Sig_/oxvyeihr7JF20jdr7XZT0Z=
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On 27/05/2013 18:39, Sascha Hauer wrote:
+> On Mon, May 27, 2013 at 06:18:42PM +0200, Alexandre Belloni wrote:
+>> phy_register_fixup{,_for_uid,_for_id} are called from arch/, quite
+>> often, there is no protection to check whether CONFIG_PHYLIB=y which is
+>> the only case where this would work. Having phylib as a module or not
+>> compiled at all will result in that kind of linking failure:
+>>
+>> arch/arm/mach-at91/built-in.o: In function `ksz9021rn_phy_fixup':
+>> :(.text+0x1174): undefined reference to `mdiobus_write'
+>> :(.text+0x1188): undefined reference to `mdiobus_write'
+>> :(.text+0x119c): undefined reference to `mdiobus_write'
+>> :(.text+0x11b0): undefined reference to `mdiobus_write'
+>> arch/arm/mach-at91/built-in.o: In function `sama5_dt_device_init':
+>> :(.init.text+0x1e34): undefined reference to `phy_register_fixup_for_uid'
+>>
+>> Signed-off-by: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+>> ---
+>>  drivers/net/phy/phy_device.c |  6 ++++++
+>>  include/linux/phy.h          | 12 ++++++++++++
+>>  2 files changed, 18 insertions(+)
+>>
+>> diff --git a/drivers/net/phy/phy_device.c b/drivers/net/phy/phy_device.c
+>> index 3657b4a..df36367 100644
+>> --- a/drivers/net/phy/phy_device.c
+>> +++ b/drivers/net/phy/phy_device.c
+>> @@ -64,6 +64,11 @@ static int phy_attach_direct(struct net_device *dev, struct phy_device *phydev,
+>>  			     u32 flags, phy_interface_t interface);
+>>  
+>>  /*
+>> + *  phy_register_fixup{,_for_uid,_for_id} are called from arch/ so this won't
+>> + *  work unless phylib is compiled in the kernel.
+>> + */
+>> +#ifdef CONFIG_PHYLIB
+>> +/*
+>>   * Creates a new phy_fixup and adds it to the list
+>>   * @bus_id: A string which matches phydev->dev.bus_id (or PHY_ANY_ID)
+>>   * @phy_uid: Used to match against phydev->phy_id (the UID of the PHY)
+>> @@ -109,6 +114,7 @@ int phy_register_fixup_for_id(const char *bus_id,
+>>  	return phy_register_fixup(bus_id, PHY_ANY_UID, 0xffffffff, run);
+>>  }
+>>  EXPORT_SYMBOL(phy_register_fixup_for_id);
+>> +#endif /* CONFIG_PHYLIB */
+>>  
+>>  /*
+>>   * Returns 1 if fixup matches phydev in bus_id and phy_uid.
+>> diff --git a/include/linux/phy.h b/include/linux/phy.h
+>> index 9e11039..3f998a6 100644
+>> --- a/include/linux/phy.h
+>> +++ b/include/linux/phy.h
+>> @@ -556,12 +556,24 @@ int phy_start_interrupts(struct phy_device *phydev);
+>>  void phy_print_status(struct phy_device *phydev);
+>>  void phy_device_free(struct phy_device *phydev);
+>>  
+>> +/*
+>> + *  phy_register_fixup{,_for_uid,_for_id} are called from arch/ so this won't
+>> + *  work unless phylib is compiled in the kernel.
+>> + *  Defining stubs allows to prevent linking errors.
+>> + */
+>> +#ifdef CONFIG_PHYLIB
+>>  int phy_register_fixup(const char *bus_id, u32 phy_uid, u32 phy_uid_mask,
+>>  		int (*run)(struct phy_device *));
+>>  int phy_register_fixup_for_id(const char *bus_id,
+>>  		int (*run)(struct phy_device *));
+>>  int phy_register_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask,
+>>  		int (*run)(struct phy_device *));
+>> +#else
+>> +#define phy_register_fixup(a, b, c, d) do { } while (0)
+>> +#define phy_register_fixup_for_id(a, b) do { } while (0)
+>> +#define phy_register_fixup_for_uid(a, b, c) do { } while (0)
+> Use static inline functions here. This breaks if someone does result
+> checking on the functions which then expands to ret = do {} while (0);
+> Also we still have type safety for !CONFIG_PHYLIB.
 
-Any news on this?
+Right, I tried that first but forgot static so I had issues with
+redefinition of the functions. I even played with __weak at some point...
 
-Am I still the only one with this issue?
-It's still 100% reproducible and I can workaround it by reverting=20
-69b08f62e17439ee3d436faf0b9a7ca6fffb78db
+I'll wait a bit for comments before sending v2.
 
-It can't possibly be that I'm the only one on this planet seeing this...
-
---=20
-Michael
-
---Sig_/oxvyeihr7JF20jdr7XZT0Z=
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Disposition: attachment; filename=signature.asc
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRo40sAAoJEPUyvh2QjYsOmYcP/iAQyB2PDEB1OBxz1pj/ZoZv
-MeQp+gIYA3l1PDCi3rE6AQyZSbLBpvv0/TftTHyAEsxJyIBVNIRZ5o3uaDYXVtGS
-PBx1M130YERF1Pk6IzZbUqpmI9Lhn5YH6Sd4Uv3yj+WJODupM8YRhzcxiiuBnwrY
-AnLTe0ptNp2tcnapK9E8reLlXQdA9TunRQvGY9bFsfViclEJTIim4xyVIQ/ead19
-CunaCzesX+OteB9mit6a2SkJ02gF+yVJ8419GM8nM+z/qbGLUEhciSmyBR31aYjs
-BEFRy/oc/VY2/RCFKaYiKW2Cz8F4vZVkPBk/vCzWEp53J6n1CIUe1PuR7Epmjt+2
-QtEuSbUKE1Dyhw2ByxF3zESIt9NUU9Q76UJXk3NHPzgSEfaf70iBgLDRPwZSV2tA
-Yc4tOfPUFUN+OhXBJf2+WLkT2YFxgWs8/wwxtZ7N28xEaHqrmKXfyuYrKkyI0j+k
-/USfKlNp/rrWh4gJimA04IlsxX1NYI3PzEJ6Toc/bfXoOExTWjGB32F+WvBCkAty
-CPPTUOA1VO21/M5vg5Wk2s9sHsIVBr9G/0aIIPxzISxbF/T631GsHI498YhSicGR
-olTQ8pvkCCxAgspHsnjAjgi2jt/Tx4rQNQVqQx651buES7bLxv9jNsoIOngH/WvW
-F1/gITFJW3B2URPMQ5v4
-=fz/b
------END PGP SIGNATURE-----
-
---Sig_/oxvyeihr7JF20jdr7XZT0Z=--
+-- 
+Alexandre Belloni, Free Electrons
+Embedded Linux, Kernel and Android engineering
+http://free-electrons.com
