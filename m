@@ -1,33 +1,29 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v5 net-next 3/5] tcp: add TCP support for low
- latency receive poll.
-Date: Mon, 27 May 2013 10:44:21 +0300
-Message-ID: <20130527074421.29882.73968.stgit@ladj378.jer.intel.com>
+Subject: [PATCH v5 net-next 5/5] ixgbe: add extra stats for ndo_ll_poll
+Date: Mon, 27 May 2013 10:44:44 +0300
+Message-ID: <20130527074443.29882.549.stgit@ladj378.jer.intel.com>
 References: <20130527074351.29882.51106.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, linux-kernel@vger.kernel.org,
-	Alex Rosenbaum <alexr@mellanox.com>,
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Eilon Greenstien <eilong@broadcom.com>
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
 To: Dave Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130527074351.29882.51106.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-adds busy-poll support for TCP.
+Add additional statistics to the ixgbe driver for ndo_ll_poll
+Defined under LL_EXTENDED_STATS
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
@@ -35,76 +31,156 @@ Tested-by: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 ---
 
- net/ipv4/tcp.c       |    5 +++++
- net/ipv4/tcp_input.c |    1 +
- net/ipv4/tcp_ipv4.c  |    2 ++
- 3 files changed, 8 insertions(+), 0 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   14 ++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   40 ++++++++++++++++++++++
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    6 +++
+ 3 files changed, 60 insertions(+), 0 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index d87ce72..652c75a 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -279,6 +279,7 @@
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+index 04fdbf6..9765772 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
+@@ -54,6 +54,9 @@
  
- #include <asm/uaccess.h>
- #include <asm/ioctls.h>
-+#include <net/ll_poll.h>
+ #include <net/ll_poll.h>
  
- int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
++#ifdef CONFIG_NET_LL_RX_POLL
++#define LL_EXTENDED_STATS
++#endif
+ /* common prefix used by pr_<> macros */
+ #undef pr_fmt
+ #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+@@ -184,6 +187,11 @@ struct ixgbe_rx_buffer {
+ struct ixgbe_queue_stats {
+ 	u64 packets;
+ 	u64 bytes;
++#ifdef LL_EXTENDED_STATS
++	u64 yields;
++	u64 misses;
++	u64 cleaned;
++#endif  /* LL_EXTENDED_STATS */
+ };
  
-@@ -1551,6 +1552,10 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	struct sk_buff *skb;
- 	u32 urg_hole = 0;
+ struct ixgbe_tx_queue_stats {
+@@ -391,6 +399,9 @@ static inline int ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
+ 		WARN_ON(q_vector->state & IXGBE_QV_STATE_NAPI);
+ 		q_vector->state |= IXGBE_QV_STATE_NAPI_YIELD;
+ 		rc = false;
++#ifdef LL_EXTENDED_STATS
++		q_vector->tx.ring->stats.yields++;
++#endif
+ 	} else
+ 		/* we don't care if someone yielded */
+ 		q_vector->state = IXGBE_QV_STATE_NAPI;
+@@ -421,6 +432,9 @@ static inline int ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
+ 	if ((q_vector->state & IXGBE_QV_LOCKED)) {
+ 		q_vector->state |= IXGBE_QV_STATE_POLL_YIELD;
+ 		rc = false;
++#ifdef LL_EXTENDED_STATS
++		q_vector->rx.ring->stats.yields++;
++#endif
+ 	} else
+ 		/* preserve yield marks */
+ 		q_vector->state |= IXGBE_QV_STATE_POLL;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+index d375472..24e2e7a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
+@@ -1054,6 +1054,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 			data[i] = 0;
+ 			data[i+1] = 0;
+ 			i += 2;
++#ifdef LL_EXTENDED_STATS
++			data[i] = 0;
++			data[i+1] = 0;
++			data[i+2] = 0;
++			i += 3;
++#endif
+ 			continue;
+ 		}
  
-+	if (sk_valid_ll(sk) && skb_queue_empty(&sk->sk_receive_queue)
-+	    && (sk->sk_state == TCP_ESTABLISHED))
-+		sk_poll_ll(sk, nonblock);
-+
- 	lock_sock(sk);
+@@ -1063,6 +1069,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 			data[i+1] = ring->stats.bytes;
+ 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
+ 		i += 2;
++#ifdef LL_EXTENDED_STATS
++		data[i] = ring->stats.yields;
++		data[i+1] = ring->stats.misses;
++		data[i+2] = ring->stats.cleaned;
++		i += 3;
++#endif
+ 	}
+ 	for (j = 0; j < IXGBE_NUM_RX_QUEUES; j++) {
+ 		ring = adapter->rx_ring[j];
+@@ -1070,6 +1082,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 			data[i] = 0;
+ 			data[i+1] = 0;
+ 			i += 2;
++#ifdef LL_EXTENDED_STATS
++			data[i] = 0;
++			data[i+1] = 0;
++			data[i+2] = 0;
++			i += 3;
++#endif
+ 			continue;
+ 		}
  
- 	err = -ENOTCONN;
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index 9579e1a..4d82939 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -74,6 +74,7 @@
- #include <linux/ipsec.h>
- #include <asm/unaligned.h>
- #include <net/netdma.h>
-+#include <net/ll_poll.h>
+@@ -1079,6 +1097,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
+ 			data[i+1] = ring->stats.bytes;
+ 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
+ 		i += 2;
++#ifdef LL_EXTENDED_STATS
++		data[i] = ring->stats.yields;
++		data[i+1] = ring->stats.misses;
++		data[i+2] = ring->stats.cleaned;
++		i += 3;
++#endif
+ 	}
  
- int sysctl_tcp_timestamps __read_mostly = 1;
- int sysctl_tcp_window_scaling __read_mostly = 1;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d20ede0..35fd8bc 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -75,6 +75,7 @@
- #include <net/netdma.h>
- #include <net/secure_seq.h>
- #include <net/tcp_memcontrol.h>
-+#include <net/ll_poll.h>
+ 	for (j = 0; j < IXGBE_MAX_PACKET_BUFFERS; j++) {
+@@ -1115,12 +1139,28 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
+ 			p += ETH_GSTRING_LEN;
+ 			sprintf(p, "tx_queue_%u_bytes", i);
+ 			p += ETH_GSTRING_LEN;
++#ifdef LL_EXTENDED_STATS
++			sprintf(p, "tx_q_%u_napi_yield", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "tx_q_%u_misses", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "tx_q_%u_cleaned", i);
++			p += ETH_GSTRING_LEN;
++#endif /* LL_EXTENDED_STATS */
+ 		}
+ 		for (i = 0; i < IXGBE_NUM_RX_QUEUES; i++) {
+ 			sprintf(p, "rx_queue_%u_packets", i);
+ 			p += ETH_GSTRING_LEN;
+ 			sprintf(p, "rx_queue_%u_bytes", i);
+ 			p += ETH_GSTRING_LEN;
++#ifdef LL_EXTENDED_STATS
++			sprintf(p, "rx_q_%u_ll_poll_yield", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_q_%u_misses", i);
++			p += ETH_GSTRING_LEN;
++			sprintf(p, "rx_q_%u_cleaned", i);
++			p += ETH_GSTRING_LEN;
++#endif /* LL_EXTENDED_STATS */
+ 		}
+ 		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
+ 			sprintf(p, "tx_pb_%u_pxon", i);
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 9a7dc40..047ebaa 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -2016,6 +2016,12 @@ static int ixgbe_low_latency_recv(struct napi_struct *napi)
  
- #include <linux/inet.h>
- #include <linux/ipv6.h>
-@@ -2011,6 +2012,7 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
-+	sk_mark_ll(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-
-
-------------------------------------------------------------------------------
-Try New Relic Now & We'll Send You this Cool Shirt
-New Relic is the only SaaS-based application performance monitoring service 
-that delivers powerful full stack analytics. Optimize and monitor your
-browser, app, & servers with just a few lines of code. Try New Relic
-and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+ 	ixgbe_for_each_ring(ring, q_vector->rx) {
+ 		found = ixgbe_clean_rx_irq(q_vector, ring, 4);
++#ifdef LL_EXTENDED_STATS
++		if (found)
++			ring->stats.cleaned += found;
++		else
++			ring->stats.misses++;
++#endif
+ 		if (found)
+ 			break;
+ 	}
