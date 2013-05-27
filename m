@@ -1,119 +1,142 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 4/6] bnx2x: Count number of possible FCoE
- interfaces
-Date: Mon, 27 May 2013 17:08:29 +0300
-Message-ID: <1369663711-32146-5-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 6/6] bnx2x: Change to D3hot only on removal
+Date: Mon, 27 May 2013 17:08:31 +0300
+Message-ID: <1369663711-32146-7-git-send-email-yuvalmin@broadcom.com>
 References: <1369663711-32146-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: eilong@broadcom.com, ariele@broadcom.com,
-	"Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Bhanu Prakash Gollapudi" <bprakash@broadcom.com>,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4941 "EHLO mms3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:1742 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932663Ab3E0OI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 10:08:56 -0400
+	id S932690Ab3E0OJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 10:09:03 -0400
 In-Reply-To: <1369663711-32146-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dmitry@broadcom.com>
+This changes the PCI power management scheme of the bnx2x driver to be similar
+to those of most network drivers - the driver will now changes the power state
+into D3hot whenever the driver will be removed, instead of whenever an
+interface is unloaded.
 
-Commit 0eb43b4bb081a1a22574daab9c05286a600dd7fe
-"bnx2x, bnx2fc: Use per port max exchange resources" has changed the number
-of available FCoE exchanges, even in scenarios when some of the functions has
-no FCoE support; This needlessly degraded the available resources.
+This change enables the driver to access its eeprom via ethtool callbacks
+even when interfaces are unloaded (such access requires the function to be
+in D0active).
 
-Remedy this by calculating the maximal number of functions that may actually
-utilize said connection.
-
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-CC: Bhanu Prakash Gollapudi <bprakash@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 51 ++++++++++++++++++++++--
- 1 file changed, 48 insertions(+), 3 deletions(-)
+ .../net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c    | 31 +++++++++++++++++-----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c   |  3 ---
+ 2 files changed, 24 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 04fa510..0a3bb53 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -10795,12 +10795,56 @@ static void bnx2x_get_ext_wwn_info(struct bnx2x *bp, int func)
- 	bp->cnic_eth_dev.fcoe_wwn_node_name_lo =
- 		MF_CFG_RD(bp, func_ext_config[func].fcoe_wwn_node_name_lower);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 32aa88f..263950c 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1381,12 +1381,28 @@ static int bnx2x_nvram_read32(struct bnx2x *bp, u32 offset, u32 *buf,
+ 	return rc;
  }
-+
-+static int bnx2x_shared_fcoe_funcs(struct bnx2x *bp)
+ 
++static bool bnx2x_is_nvm_accessible(struct bnx2x *bp)
 +{
-+	u8 count = 0;
++	int rc = 1;
++	u16 pm = 0;
++	struct net_device *dev = pci_get_drvdata(bp->pdev);
 +
-+	if (IS_MF(bp)) {
-+		u8 fid;
++	if (bp->pm_cap)
++		rc = pci_read_config_word(bp->pdev,
++					  bp->pm_cap + PCI_PM_CTRL, &pm);
 +
-+		/* iterate over absolute function ids for this path: */
-+		for (fid = BP_PATH(bp); fid < E2_FUNC_MAX * 2; fid += 2) {
-+			if (IS_MF_SD(bp)) {
-+				u32 cfg = MF_CFG_RD(bp,
-+						    func_mf_config[fid].config);
++	if ((rc && !netif_running(dev)) || (!rc && ((pm & PCI_D0) != PCI_D0)))
++		return false;
 +
-+				if (!(cfg & FUNC_MF_CFG_FUNC_HIDE) &&
-+				    ((cfg & FUNC_MF_CFG_PROTOCOL_MASK) ==
-+					    FUNC_MF_CFG_PROTOCOL_FCOE))
-+					count++;
-+			} else {
-+				u32 cfg = MF_CFG_RD(bp,
-+						    func_ext_config[fid].
-+								      func_cfg);
-+
-+				if ((cfg & MACP_FUNC_CFG_FLAGS_ENABLED) &&
-+				    (cfg & MACP_FUNC_CFG_FLAGS_FCOE_OFFLOAD))
-+					count++;
-+			}
-+		}
-+	} else { /* SF */
-+		int port, port_cnt = CHIP_MODE_IS_4_PORT(bp) ? 2 : 1;
-+
-+		for (port = 0; port < port_cnt; port++) {
-+			u32 lic = SHMEM_RD(bp,
-+					   drv_lic_key[port].max_fcoe_conn) ^
-+				  FW_ENCODE_32BIT_PATTERN;
-+			if (lic)
-+				count++;
-+		}
-+	}
-+
-+	return count;
++	return true;
 +}
 +
- static void bnx2x_get_fcoe_info(struct bnx2x *bp)
+ static int bnx2x_get_eeprom(struct net_device *dev,
+ 			    struct ethtool_eeprom *eeprom, u8 *eebuf)
  {
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 
+-	if (!netif_running(dev)) {
++	if (!bnx2x_is_nvm_accessible(bp)) {
+ 		DP(BNX2X_MSG_ETHTOOL  | BNX2X_MSG_NVM,
+ 		   "cannot access eeprom when the interface is down\n");
+ 		return -EAGAIN;
+@@ -1411,7 +1427,7 @@ static int bnx2x_get_module_eeprom(struct net_device *dev,
+ 	u8 *user_data = data;
+ 	unsigned int start_addr = ee->offset, xfer_size = 0;
+ 
+-	if (!netif_running(dev)) {
++	if (!bnx2x_is_nvm_accessible(bp)) {
+ 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+ 		   "cannot access eeprom when the interface is down\n");
+ 		return -EAGAIN;
+@@ -1474,7 +1490,7 @@ static int bnx2x_get_module_info(struct net_device *dev,
+ 	int phy_idx, rc;
+ 	u8 sff8472_comp, diag_type;
+ 
+-	if (!netif_running(dev)) {
++	if (!bnx2x_is_nvm_accessible(bp)) {
+ 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+ 		   "cannot access eeprom when the interface is down\n");
+ 		return -EAGAIN;
+@@ -1676,7 +1692,8 @@ static int bnx2x_set_eeprom(struct net_device *dev,
  	int port = BP_PORT(bp);
- 	int func = BP_ABS_FUNC(bp);
- 	u32 max_fcoe_conn = FW_ENCODE_32BIT_PATTERN ^ SHMEM_RD(bp,
- 				drv_lic_key[port].max_fcoe_conn);
-+	u8 num_fcoe_func = bnx2x_shared_fcoe_funcs(bp);
- 
- 	if (!CNIC_SUPPORT(bp)) {
- 		bp->flags |= NO_FCOE_FLAG;
-@@ -10814,9 +10858,10 @@ static void bnx2x_get_fcoe_info(struct bnx2x *bp)
- 
- 	/* Calculate the number of maximum allowed FCoE tasks */
- 	bp->cnic_eth_dev.max_fcoe_exchanges = MAX_NUM_FCOE_TASKS_PER_ENGINE;
--	if (IS_MF(bp) || CHIP_MODE_IS_4_PORT(bp))
--		bp->cnic_eth_dev.max_fcoe_exchanges /=
--						MAX_FCOE_FUNCS_PER_ENGINE;
+ 	int rc = 0;
+ 	u32 ext_phy_config;
+-	if (!netif_running(dev)) {
 +
-+	/* check if FCoE resources must be shared between different functions */
-+	if (num_fcoe_func)
-+		bp->cnic_eth_dev.max_fcoe_exchanges /= num_fcoe_func;
++	if (!bnx2x_is_nvm_accessible(bp)) {
+ 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+ 		   "cannot access eeprom when the interface is down\n");
+ 		return -EAGAIN;
+@@ -2173,7 +2190,7 @@ static int bnx2x_test_registers(struct bnx2x *bp)
+ 		{ BNX2X_CHIP_MASK_ALL, 0xffffffff, 0, 0x00000000 }
+ 	};
  
- 	/* Read the WWN: */
- 	if (!IS_MF(bp)) {
+-	if (!netif_running(bp->dev)) {
++	if (!bnx2x_is_nvm_accessible(bp)) {
+ 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+ 		   "cannot access eeprom when the interface is down\n");
+ 		return rc;
+@@ -2277,7 +2294,7 @@ static int bnx2x_test_memory(struct bnx2x *bp)
+ 		{ NULL, 0xffffffff, {0, 0, 0, 0} }
+ 	};
+ 
+-	if (!netif_running(bp->dev)) {
++	if (!bnx2x_is_nvm_accessible(bp)) {
+ 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+ 		   "cannot access eeprom when the interface is down\n");
+ 		return rc;
+@@ -3140,7 +3157,7 @@ static int bnx2x_set_phys_id(struct net_device *dev,
+ {
+ 	struct bnx2x *bp = netdev_priv(dev);
+ 
+-	if (!netif_running(dev)) {
++	if (!bnx2x_is_nvm_accessible(bp)) {
+ 		DP(BNX2X_MSG_ETHTOOL | BNX2X_MSG_NVM,
+ 		   "cannot access eeprom when the interface is down\n");
+ 		return -EAGAIN;
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 13f8144..f6d0e20 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -11643,9 +11643,6 @@ static int bnx2x_close(struct net_device *dev)
+ 	/* Unload the driver, release IRQs */
+ 	bnx2x_nic_unload(bp, UNLOAD_CLOSE, false);
+ 
+-	/* Power off */
+-	bnx2x_set_power_state(bp, PCI_D3hot);
+-
+ 	return 0;
+ }
+ 
 -- 
 1.8.1.227.g44fe835
