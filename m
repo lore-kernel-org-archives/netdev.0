@@ -1,64 +1,58 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 1/3] net: phy: prevent linking breakage
-Date: Tue, 28 May 2013 00:20:05 +0200
-Message-ID: <201305272320.08296.f.fainelli@gmail.com>
-References: <1369671524-14797-1-git-send-email-alexandre.belloni@free-electrons.com>
-	<1369671524-14797-2-git-send-email-alexandre.belloni@free-electrons.com>
-	<20130527163913.GO32299@pengutronix.de>
-	<51A399D6.8030000@free-electrons.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch v2] skbuff: Hide GFP_ATOMIC page allocation failures for
+ dropped packets
+Date: Mon, 27 May 2013 15:25:20 -0700
+Message-ID: <1369693520.3301.477.camel@edumazet-glaptop>
+References: <1369599557-22677-1-git-send-email-atomlin@redhat.com>
+	 <51A39A3F.8080903@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Russell King <linux@arm.linux.org.uk>,
-	Sascha Hauer <kernel@pengutronix.de>,
-	linux-kernel@vger.kernel.org, Sascha Hauer <s.hauer@pengutronix.de>
-To: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: atomlin@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
+	edumazet@google.com, pshelar@nicira.com, mst@redhat.com,
+	alexander.h.duyck@intel.com, aquini@redhat.com,
+	sergei.shtylyov@cogentembedded.com, linux-kernel@vger.kernel.org
+To: Rik van Riel <riel@redhat.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51A399D6.8030000@free-electrons.com>
+In-Reply-To: <51A39A3F.8080903@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Mon, 2013-05-27 at 13:39 -0400, Rik van Riel wrote:
+> On 05/26/2013 04:19 PM, atomlin@redhat.com wrote:
+> > From: Aaron Tomlin <atomlin@redhat.com>
+> >
+> > Since v1:
+> >   - Removed unnecessary parentheses
+> >
+> > ---8<---
+> >
+> > Failed GFP_ATOMIC allocations by the network stack result in dropped
+> > packets, which will be received on a subsequent retransmit, and an
+> > unnecessary, noisy warning with a kernel backtrace.
 
-Le 27 mai 2013 19:38, "Alexandre Belloni" <alexandre.belloni@free-
-electrons.com> a =C3=A9crit :
+This claim is wrong, only some protocols deal with retransmits.
 
-[snip]
+> >
+> > These warnings are harmless, but they still cause users to panic and
+> > file bug reports over dropped packets. It would be better to hide the
+> > failed allocation warnings and backtraces, and let retransmits handle
+> > dropped packets quietly.
+> 
+> Yes please. Getting memory management bug reports for
+> dropped network packets got old years ago.  Lets get
+> rid of those messages.
 
-> >> +/*
-> >> + *  phy_register_fixup{,_for_uid,_for_id} are called from arch/ s=
-o this=20
-won't
-> >> + *  work unless phylib is compiled in the kernel.
-> >> + *  Defining stubs allows to prevent linking errors.
-> >> + */
-> >> +#ifdef CONFIG_PHYLIB
-> >>  int phy_register_fixup(const char *bus_id, u32 phy_uid, u32 phy_u=
-id_mask,
-> >>              int (*run)(struct phy_device *));
-> >>  int phy_register_fixup_for_id(const char *bus_id,
-> >>              int (*run)(struct phy_device *));
-> >>  int phy_register_fixup_for_uid(u32 phy_uid, u32 phy_uid_mask,
-> >>              int (*run)(struct phy_device *));
-> >> +#else
-> >> +#define phy_register_fixup(a, b, c, d) do { } while (0)
-> >> +#define phy_register_fixup_for_id(a, b) do { } while (0)
-> >> +#define phy_register_fixup_for_uid(a, b, c) do { } while (0)
-> > Use static inline functions here. This breaks if someone does resul=
-t
-> > checking on the functions which then expands to ret =3D do {} while=
- (0);
-> > Also we still have
-> Right, I tried that first but forgot static so I had issues with
-> redefinition of the functions. I even played with __weak at some poin=
-t...
+I am only wondering why this path has anything needing special
+attention, over thousands of kmalloc() like call sites in the kernel.
 
-You might even want to make these static inlines as mentionned earlier,=
- and=20
-return something like -ENOTSUPP so that someone using these in board co=
-de and=20
-wondering why they do not work gets a chance to enable CONIFG_PHYLIB.
---
-=46lorian
+If mm allocation warnings are useless, just make __GFP_NOWARN the
+default, and save us thousand of patches (adding the __GFP_NOWARN
+everywhere)
+
+Truth is : some network drivers don't deal very well with allocation
+errors. mlx4 for example absolutely wants order-2 pages in RX path, with
+no fallback to order-0 pages.
+
+So I am not against this patch, but I can not really acknowledge it,
+sorry.
