@@ -1,66 +1,48 @@
 From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-Subject: [PATCH net-next 0/6] ipv4 fixes for dmvpn
-Date: Mon, 27 May 2013 14:16:10 +0300
-Message-ID: <1369653376-4731-1-git-send-email-timo.teras@iki.fi>
+Subject: [PATCH net-next 2/6] arp: flush arp cache on IFF_NOARP change
+Date: Mon, 27 May 2013 14:16:12 +0300
+Message-ID: <1369653376-4731-3-git-send-email-timo.teras@iki.fi>
+References: <1369653376-4731-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f182.google.com ([209.85.215.182]:59968 "EHLO
-	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757672Ab3E0LOl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 07:14:41 -0400
-Received: by mail-ea0-f182.google.com with SMTP id r16so3853806ead.41
-        for <netdev@vger.kernel.org>; Mon, 27 May 2013 04:14:40 -0700 (PDT)
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:54055 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757672Ab3E0LOn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 07:14:43 -0400
+Received: by mail-ee0-f44.google.com with SMTP id b57so3939763eek.3
+        for <netdev@vger.kernel.org>; Mon, 27 May 2013 04:14:42 -0700 (PDT)
+In-Reply-To: <1369653376-4731-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Collection of pending fixes which mostly hit DMVPN setups, but some
-are doing good to generic setups too.
+IFF_NOARP affects what kind of neighbor entries are created
+(nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
+cache to refresh all entries.
 
-Patches 1 & 2 fix the NOARP flag change to flush nud NOARP entries
-from ARP cache. The only change from previous send is updating the
-commit message per request, and adding Ben's Acked-By.
+Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+---
+ net/ipv4/arp.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Patch 3 reworks IPsec PMTU propagation to be less invasive, and fixes
-certain subtle caching issues.
-
-Patch 4 and 5 are performance improvements. Both are especially useful
-on dmvpn setups, but the latter patch helps general setups too.
-
-And finally the patch 6 is a respin of the input route caching so
-we get proper pmtu and fragmentation in forwarding path (needed for
-tunnel devices and TCPMSS clamp-to-pmtu). While it would be better if
-we could avoid input route caching, this was the only non-intrusive way
-to fix all issues I came up with.
-
-The whole patchset is tested on top of 3.9.x and fixes the issues
-I've encountered.
-
-Please review and consider applying to net-next.
-
-Timo Ter=C3=A4s (6):
-  net: inform NETDEV_CHANGE callbacks which flags were changed
-  arp: flush arp cache on IFF_NOARP change
-  ipv4: properly refresh rtable entries on pmtu/redirect events
-  ipv4: rate limit updating of next hop exceptions with same pmtu
-  ipv4: use separate genid for next hop exceptions
-  ipv4: use next hop exceptions also for input routes
-
- include/linux/netdevice.h   |   4 +-
- include/net/ip_fib.h        |   4 +-
- include/net/net_namespace.h |  11 ++++
- net/core/dev.c              |   5 +-
- net/ipv4/ah4.c              |   7 +--
- net/ipv4/arp.c              |   4 ++
- net/ipv4/esp4.c             |   7 +--
- net/ipv4/fib_semantics.c    |   3 +-
- net/ipv4/ipcomp.c           |   7 +--
- net/ipv4/route.c            | 140 +++++++++++++++++++++++++++++++-----=
---------
- 10 files changed, 132 insertions(+), 60 deletions(-)
-
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index 247ec19..0a15fb7 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1241,6 +1241,10 @@ static int arp_netdev_event(struct notifier_bloc=
+k *this, unsigned long event,
+ 		neigh_changeaddr(&arp_tbl, dev);
+ 		rt_cache_flush(dev_net(dev));
+ 		break;
++	case NETDEV_CHANGE:
++		if (dev->flags_changed & IFF_NOARP)
++			neigh_changeaddr(&arp_tbl, dev);
++		break;
+ 	default:
+ 		break;
+ 	}
 --=20
 1.8.2.3
