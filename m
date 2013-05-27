@@ -1,89 +1,44 @@
-From: Roman Gushchin <klamm@yandex-team.ru>
-Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
- macro
-Date: Mon, 27 May 2013 21:55:29 +0400
-Message-ID: <51A39E11.5020405@yandex-team.ru>
-References: <519B8908.9080007@yandex-team.ru> <1369150693.3301.233.camel@edumazet-glaptop> <519BB90B.6080706@yandex-team.ru> <1369188080.3301.268.camel@edumazet-glaptop> <1369201765.3301.299.camel@edumazet-glaptop> <519CB2D8.103@yandex-team.ru> <1369225837.3301.324.camel@edumazet-glaptop> <519CC2FB.2010006@yandex-team.ru> <20130522174532.GC3431@linux.vnet.ibm.com> <519D19DA.50400@yandex-team.ru> <20130525113715.GA3795@linux.vnet.ibm.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [Patch v2] skbuff: Hide GFP_ATOMIC page allocation failures for
+ dropped packets
+Date: Mon, 27 May 2013 21:56:00 +0400
+Message-ID: <51A39E30.5030708@cogentembedded.com>
+References: <1369599557-22677-1-git-send-email-atomlin@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: paulmck@linux.vnet.ibm.com
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	pshelar@nicira.com, mst@redhat.com, alexander.h.duyck@intel.com,
+	riel@redhat.com, aquini@redhat.com, linux-kernel@vger.kernel.org
+To: atomlin@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130525113715.GA3795@linux.vnet.ibm.com>
+In-Reply-To: <1369599557-22677-1-git-send-email-atomlin@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi, Paul!
+Hello.
 
-> On 25.05.2013 15:37, Paul E. McKenney wrote:
->> Again, I believe that your retry logic needs to extend back into the
->> calling function for your some_func() example above.
+On 27-05-2013 0:19, atomlin@redhat.com wrote:
 
-And what do you think about the following approach (diff below)?
+> From: Aaron Tomlin <atomlin@redhat.com>
 
-It seems to me, it's enough clear (especially with good accompanying comments)
-and produces a good binary code (without significant overhead).
-Also, we will remove a hidden reef in using rcu-protected (h)list traverses with restarts.
+> Since v1:
+>   - Removed unnecessary parentheses
 
-diff --git a/include/linux/rculist.h b/include/linux/rculist.h
-index 6f95e24..8d8b1eb 100644
---- a/include/linux/rculist.h
-+++ b/include/linux/rculist.h
-@@ -269,7 +269,8 @@ static inline void list_splice_init_rcu(struct list_head *list,
-   * as long as the traversal is guarded by rcu_read_lock().
-   */
-  #define list_for_each_entry_rcu(pos, head, member) \
--       for (pos = list_entry_rcu((head)->next, typeof(*pos), member); \
-+       for (ACCESS_ONCE(*(head)), \
-+               pos = list_entry_rcu((head)->next, typeof(*pos), member); \
-                 &pos->member != (head); \
-                 pos = list_entry_rcu(pos->member.next, typeof(*pos), member))
+    The "changes since version X" section should typically go after --- 
+tearline, else the mainatiner will have to edit your patch before applying.
 
-@@ -459,7 +460,8 @@ static inline void hlist_add_after_rcu(struct hlist_node *prev,
-   * as long as the traversal is guarded by rcu_read_lock().
-   */
-  #define hlist_for_each_entry_rcu(tpos, pos, head, member)              \
--       for (pos = rcu_dereference_raw(hlist_first_rcu(head));          \
-+       for (ACCESS_ONCE(*(head)),                                      \
-+               pos = rcu_dereference_raw(hlist_first_rcu(head));       \
-                 pos &&                                                   \
-                 ({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; }); \
-                 pos = rcu_dereference_raw(hlist_next_rcu(pos)))
-@@ -476,7 +478,7 @@ static inline void hlist_add_after_rcu(struct hlist_node *prev,
-   * as long as the traversal is guarded by rcu_read_lock().
-   */
-  #define hlist_for_each_entry_rcu_bh(tpos, pos, head, member)            \
--       for (pos = rcu_dereference_bh((head)->first);                    \
-+       for (ACCESS_ONCE(*(head)), pos = rcu_dereference_bh((head)->first); \
-                 pos &&                                                   \
-                 ({ tpos = hlist_entry(pos, typeof(*tpos), member); 1; }); \
-                 pos = rcu_dereference_bh(pos->next))
-diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
-index 2ae1371..4af5ee5 100644
---- a/include/linux/rculist_nulls.h
-+++ b/include/linux/rculist_nulls.h
-@@ -107,7 +107,8 @@ static inline void hlist_nulls_add_head_rcu(struct hlist_nulls_node *n,
-   *
-   */
-  #define hlist_nulls_for_each_entry_rcu(tpos, pos, head, member)                        \
--       for (pos = rcu_dereference_raw(hlist_nulls_first_rcu(head));            \
-+       for (ACCESS_ONCE(*(head)),                                              \
-+               pos = rcu_dereference_raw(hlist_nulls_first_rcu(head));         \
-                 (!is_a_nulls(pos)) &&                                           \
-                 ({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1; }); \
-                 pos = rcu_dereference_raw(hlist_nulls_next_rcu(pos)))
+> ---8<---
 
----
+> Failed GFP_ATOMIC allocations by the network stack result in dropped
+> packets, which will be received on a subsequent retransmit, and an
+> unnecessary, noisy warning with a kernel backtrace.
 
-Thanks!
+> These warnings are harmless, but they still cause users to panic and
+> file bug reports over dropped packets. It would be better to hide the
+> failed allocation warnings and backtraces, and let retransmits handle
+> dropped packets quietly.
 
-Regards,
-Roman
+> Signed-off-by: Aaron Tomlin <atomlin@redhat.com>
+
+WBR, Sergei
