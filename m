@@ -1,52 +1,52 @@
 From: Libo Chen <libo.chen@huawei.com>
-Subject: [PATCH 11/24] drivers/ptp/ptp_pch: Convert to module_pci_driver
-Date: Mon, 27 May 2013 10:29:03 +0800
-Message-ID: <1369621743-7732-1-git-send-email-libo.chen@huawei.com>
+Subject: [PATCH 06/24] drivers/net/irda/donauboe: Convert to module_pci_driver
+Date: Mon, 27 May 2013 10:28:43 +0800
+Message-ID: <1369621723-31760-1-git-send-email-libo.chen@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
 	<lizefan@huawei.com>, <libo.chen@huawei.com>,
 	<gregkh@linuxfoundation.org>
-To: <richardcochran@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: <samuel@sortiz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([119.145.14.64]:23831 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756009Ab3E0CaH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 May 2013 22:30:07 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-use module_pci_driver instead of init/exit, make code clean
+use module_pci_driver instead of init/exit, make code clean.
 
 Signed-off-by: Libo Chen <libo.chen@huawei.com>
 ---
- drivers/ptp/ptp_pch.c |   18 +-----------------
- 1 files changed, 1 insertions(+), 17 deletions(-)
+ drivers/net/irda/donauboe.c |   15 +--------------
+ 1 files changed, 1 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/ptp/ptp_pch.c b/drivers/ptp/ptp_pch.c
-index bea9451..e63ca00 100644
---- a/drivers/ptp/ptp_pch.c
-+++ b/drivers/ptp/ptp_pch.c
-@@ -705,23 +705,7 @@ static struct pci_driver pch_driver = {
- 	.resume = pch_resume,
+diff --git a/drivers/net/irda/donauboe.c b/drivers/net/irda/donauboe.c
+old mode 100644
+new mode 100755
+index 510b9c8..c6bfc4a
+--- a/drivers/net/irda/donauboe.c
++++ b/drivers/net/irda/donauboe.c
+@@ -1755,17 +1755,4 @@ static struct pci_driver donauboe_pci_driver = {
+ 	.resume		= toshoboe_wakeup 
  };
  
--static void __exit ptp_pch_exit(void)
+-static int __init
+-donauboe_init (void)
 -{
--	pci_unregister_driver(&pch_driver);
+-  return pci_register_driver(&donauboe_pci_driver);
 -}
 -
--static s32 __init ptp_pch_init(void)
+-static void __exit
+-donauboe_cleanup (void)
 -{
--	s32 ret;
--
--	/* register the driver with the pci core */
--	ret = pci_register_driver(&pch_driver);
--
--	return ret;
+-  pci_unregister_driver(&donauboe_pci_driver);
 -}
 -
--module_init(ptp_pch_init);
--module_exit(ptp_pch_exit);
-+module_pci_driver(pch_driver);
- 
- module_param_string(station,
- 		    pch_param.station, sizeof(pch_param.station), 0444);
+-module_init(donauboe_init);
+-module_exit(donauboe_cleanup);
++module_pci_driver(donauboe_pci_driver);
 -- 
 1.7.1
