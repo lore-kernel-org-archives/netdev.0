@@ -1,58 +1,46 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 1/6] bnx2x: Zero VFs starting MACs
-Date: Mon, 27 May 2013 17:08:26 +0300
-Message-ID: <1369663711-32146-2-git-send-email-yuvalmin@broadcom.com>
-References: <1369663711-32146-1-git-send-email-yuvalmin@broadcom.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH] ptp_pch: depends on PCI
+Date: Mon, 27 May 2013 15:33:10 +0100
+Message-ID: <1369665190.3469.344.camel@deadeye.wl.decadent.org.uk>
+References: <20130525165507.GE30204@redacted.bos.redhat.com>
+	 <20130525.231129.392417150870789444.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: eilong@broadcom.com, ariele@broadcom.com,
-	"Yuval Mintz" <yuvalmin@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Cc: <kyle@redhat.com>, <netdev@vger.kernel.org>,
+	<richardcochran@gmail.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1744 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932610Ab3E0OIx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 10:08:53 -0400
-In-Reply-To: <1369663711-32146-1-git-send-email-yuvalmin@broadcom.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:33896 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758054Ab3E0OdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 10:33:16 -0400
+In-Reply-To: <20130525.231129.392417150870789444.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ariel Elior <ariele@broadcom.com>
+On Sat, 2013-05-25 at 23:11 -0700, David Miller wrote:
+> From: Kyle McMartin <kyle@redhat.com>
+> Date: Sat, 25 May 2013 12:55:07 -0400
+> 
+> > It's only accessible via PCI, but has no dependencies, so it ends up
+> > being selected on s390 where a bunch of primitives only exist if
+> > CONFIG_PCI=y (such as {request,free}_irq)
+> > 
+> > Signed-off-by: Kyle McMartin <kyle@redhat.com>
+> 
+> I've already told the s390 people they have to fix this properly.
+> 
+> They have to provide stubs for request_irq() et al. when CONFIG_PCI
+> is not enabled.
+> 
+> This Kconfig change is therefore not appropriate.
 
-Hypervisor/Supervisor should set the VF's MAC prior to its load;
-Using a randomly generated MAC as a default is a bad practice.
+You are quite right about request_irq(), but this is a PCI driver.
 
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+Ben.
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 7ed9cdf..80982c3 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -11406,7 +11406,7 @@ static int bnx2x_init_bp(struct bnx2x *bp)
- 		if (rc)
- 			return rc;
- 	} else {
--		random_ether_addr(bp->dev->dev_addr);
-+		eth_zero_addr(bp->dev->dev_addr);
- 	}
- 
- 	bnx2x_set_modes_bitmap(bp);
-@@ -11865,6 +11865,10 @@ static int bnx2x_validate_addr(struct net_device *dev)
- {
- 	struct bnx2x *bp = netdev_priv(dev);
- 
-+	/* query the bulletin board for mac address configured by the PF */
-+	if (IS_VF(bp))
-+		bnx2x_sample_bulletin(bp);
-+
- 	if (!bnx2x_is_valid_ether_addr(bp, dev->dev_addr)) {
- 		BNX2X_ERR("Non-valid Ethernet address\n");
- 		return -EADDRNOTAVAIL;
 -- 
-1.8.1.227.g44fe835
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
