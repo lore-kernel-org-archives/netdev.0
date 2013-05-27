@@ -1,133 +1,84 @@
 From: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
-Subject: [PATCH net-next 5/6] ipv4: use separate genid for next hop exceptions
-Date: Mon, 27 May 2013 14:16:15 +0300
-Message-ID: <1369653376-4731-6-git-send-email-timo.teras@iki.fi>
+Subject: [PATCH net-next 1/6] net: inform NETDEV_CHANGE callbacks which flags were changed
+Date: Mon, 27 May 2013 14:16:11 +0300
+Message-ID: <1369653376-4731-2-git-send-email-timo.teras@iki.fi>
 References: <1369653376-4731-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>,
-	Steffen Klassert <steffen.klassert@secunet.com>
+Cc: =?UTF-8?q?Timo=20Ter=C3=A4s?= <timo.teras@iki.fi>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f53.google.com ([74.125.83.53]:62049 "EHLO
-	mail-ee0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757672Ab3E0LOr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 07:14:47 -0400
-Received: by mail-ee0-f53.google.com with SMTP id c1so3764258eek.26
-        for <netdev@vger.kernel.org>; Mon, 27 May 2013 04:14:46 -0700 (PDT)
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:47015 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757704Ab3E0LOm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 07:14:42 -0400
+Received: by mail-ea0-f178.google.com with SMTP id q16so3821979ead.37
+        for <netdev@vger.kernel.org>; Mon, 27 May 2013 04:14:41 -0700 (PDT)
 In-Reply-To: <1369653376-4731-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 13d82bf5 (ipv4: Fix flushing of cached routing informations)
-added the support to flush learned pmtu information.
+In certain cases (like the follow up commit to arp.c) will need to
+check which flags actually changed to avoid excessive work.
 
-However, using rt_genid is quite heavy as it is bumped on route
-add/change and multicast events amongst other places. These can
-happen quote often, especially if using dynamic routing protocols.
+Ben Hutchings nicely worded why to put these transient flags to
+struct net_device for the time being:
+> It's inelegant to put transient data associated with an event in a
+> persistent data structure.  On the other hand, having every user cach=
+e
+> the old state is pretty awful as well.
+>
+> Really, netdev notifiers should be changed to accept a structure that
+> encapsulates the changes rather than just a pointer to the net_device=
+=2E
+> But making such a change would be an enormous pain and error-prone
+> because notifier functions aren't type-safe.
+>
+> As an interim solution, I think either the general flags_changed or
+> old_flags would be preferable to defining extra transient flags.
 
-While this is ok with routes (as they are just recreated locally),
-the pmtu information is learned from remote systems and the icmp
-notification can come with long delays. It is worthy to have separate
-genid to avoid excessive pmtu resets.
-
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
 Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+Acked-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- include/net/ip_fib.h        |  1 +
- include/net/net_namespace.h | 11 +++++++++++
- net/ipv4/route.c            | 12 ++++++++++--
- 3 files changed, 22 insertions(+), 2 deletions(-)
+ include/linux/netdevice.h | 4 +++-
+ net/core/dev.c            | 5 ++++-
+ 2 files changed, 7 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/ip_fib.h b/include/net/ip_fib.h
-index e49db91..44424e9 100644
---- a/include/net/ip_fib.h
-+++ b/include/net/ip_fib.h
-@@ -51,6 +51,7 @@ struct rtable;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index ea7b6bc..f336e03 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1112,7 +1112,9 @@ struct net_device {
+ 	/* Hardware header description */
+ 	const struct header_ops *header_ops;
 =20
- struct fib_nh_exception {
- 	struct fib_nh_exception __rcu	*fnhe_next;
-+	int				fnhe_genid;
- 	__be32				fnhe_daddr;
- 	u32				fnhe_pmtu;
- 	__be32				fnhe_gw;
-diff --git a/include/net/net_namespace.h b/include/net/net_namespace.h
-index b176978..495bc57 100644
---- a/include/net/net_namespace.h
-+++ b/include/net/net_namespace.h
-@@ -118,6 +118,7 @@ struct net {
- 	struct netns_ipvs	*ipvs;
- 	struct sock		*diag_nlsk;
- 	atomic_t		rt_genid;
-+	atomic_t		fnhe_genid;
- };
-=20
- /*
-@@ -340,4 +341,14 @@ static inline void rt_genid_bump(struct net *net)
- 	atomic_inc(&net->rt_genid);
- }
-=20
-+static inline int fnhe_genid(struct net *net)
-+{
-+	return atomic_read(&net->fnhe_genid);
-+}
-+
-+static inline void fnhe_genid_bump(struct net *net)
-+{
-+	atomic_inc(&net->fnhe_genid);
-+}
-+
- #endif /* __NET_NET_NAMESPACE_H */
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index a4082be..403e283 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -658,6 +658,7 @@ static void update_or_create_fnhe(struct fib_nh *nh=
-, __be32 daddr, __be32 gw,
- 			fnhe->fnhe_next =3D hash->chain;
- 			rcu_assign_pointer(hash->chain, fnhe);
- 		}
-+		fnhe->fnhe_genid =3D fnhe_genid(dev_net(nh->nh_dev));
- 		fnhe->fnhe_daddr =3D daddr;
- 		fnhe->fnhe_gw =3D gw;
- 		fnhe->fnhe_pmtu =3D pmtu;
-@@ -1236,8 +1237,11 @@ static bool rt_bind_exception(struct rtable *rt,=
- struct fib_nh_exception *fnhe,
- 	spin_lock_bh(&fnhe_lock);
-=20
- 	if (daddr =3D=3D fnhe->fnhe_daddr) {
-+		int genid =3D fnhe_genid(dev_net(rt->dst.dev));
- 		struct rtable *orig =3D rcu_dereference(fnhe->fnhe_rth);
--		if (orig && rt_is_expired(orig)) {
-+
-+		if (fnhe->fnhe_genid !=3D genid) {
-+			fnhe->fnhe_genid =3D genid;
- 			fnhe->fnhe_gw =3D 0;
- 			fnhe->fnhe_pmtu =3D 0;
- 			fnhe->fnhe_expires =3D 0;
-@@ -2443,8 +2447,11 @@ static int ipv4_sysctl_rtcache_flush(ctl_table *=
-__ctl, int write,
- 					void __user *buffer,
- 					size_t *lenp, loff_t *ppos)
- {
-+	struct net *net =3D (struct net *)__ctl->extra1;
-+
- 	if (write) {
--		rt_cache_flush((struct net *)__ctl->extra1);
-+		rt_cache_flush(net);
-+		fnhe_genid_bump(net);
- 		return 0;
+-	unsigned int		flags;	/* interface flags (a la BSD)	*/
++	unsigned int		flags;		/* interface flags (a la BSD)	*/
++	unsigned int		flags_changed;	/* flags that are being changed
++						 * valid during NETDEV_CHANGE notifier */
+ 	unsigned int		priv_flags; /* Like 'flags' but invisible to userspace.
+ 					     * See if.h for definitions. */
+ 	unsigned short		gflags;
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 50c02de..bbaa3c2 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4742,8 +4742,11 @@ void __dev_notify_flags(struct net_device *dev, =
+unsigned int old_flags)
  	}
 =20
-@@ -2619,6 +2626,7 @@ static __net_initdata struct pernet_operations sy=
-sctl_route_ops =3D {
- static __net_init int rt_genid_init(struct net *net)
- {
- 	atomic_set(&net->rt_genid, 0);
-+	atomic_set(&net->fnhe_genid, 0);
- 	get_random_bytes(&net->ipv4.dev_addr_genid,
- 			 sizeof(net->ipv4.dev_addr_genid));
- 	return 0;
+ 	if (dev->flags & IFF_UP &&
+-	    (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE))=
+)
++	    (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE))=
+) {
++		dev->flags_changed =3D changes;
+ 		call_netdevice_notifiers(NETDEV_CHANGE, dev);
++		dev->flags_changed =3D 0;
++	}
+ }
+=20
+ /**
 --=20
 1.8.2.3
