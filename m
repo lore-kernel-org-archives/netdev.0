@@ -1,36 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ARM: kirkwood: proper retain MAC address
- workaround on DT ethernet
-Date: Mon, 27 May 2013 13:18:57 -0700 (PDT)
-Message-ID: <20130527.131857.945196320286011406.davem@davemloft.net>
-References: <1369647565.3557.28.camel@pasglop>
-	<51A33447.80305@gmail.com>
-	<1369655404.3557.33.camel@pasglop>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [net-next PATCH v3 1/6] net: cpsw: enhance pinctrl support
+Date: Mon, 27 May 2013 14:36:01 -0700
+Message-ID: <20130527213600.GO13507@atomide.com>
+References: <1369592616-23972-1-git-send-email-mugunthanvnm@ti.com>
+ <1369592616-23972-2-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sebastian.hesselbarth@gmail.com, buytenh@wantstofly.org,
-	jason@lakedaemon.net, andrew@lunn.ch, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	grant.likely@linaro.org
-To: benh@kernel.crashing.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369655404.3557.33.camel@pasglop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	Hebbar Gururaja <gururaja.hebbar@ti.com>,
+	benoit.cousson@linaro.org, linux-omap@vger.kernel.org,
+	davem@davemloft.net
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1369592616-23972-2-git-send-email-mugunthanvnm@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Mon, 27 May 2013 21:50:04 +1000
-
-> It would be handy to be able to just do something like
+* Mugunthan V N <mugunthanvnm@ti.com> [130526 11:28]:
+> From: Hebbar Gururaja <gururaja.hebbar@ti.com>
 > 
-> 	of_set_property(node, name, ptr, len);
+> Amend cpsw controller to optionally take a pin control handle and set
+> the state of the pins to:
 > 
-> However, that wouldn't help much with the allocation/leak problem,
-> though at least it would be easier to use. It could also *try* to re-use
-> the current allocation if the new content is of smaller or equal size.
+> - "default" on boot, resume
+> - "sleep" on suspend()
+> 
+> This should make it possible to optimize energy usage for the pins
+> for the suspend/resume cycle.
+> 
+> If any of the above pin states are missing in dt, a warning message
+> about the missing state is displayed.
+> If certain pin-states are not available, to remove this warning message
+> pass respective state name with null phandler.
+> 
+> Signed-off-by: Hebbar Gururaja <gururaja.hebbar@ti.com>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> ---
+>  drivers/net/ethernet/ti/cpsw.c |   48 ++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 48 insertions(+)
+> 
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index 21a5b29..c9ed730 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -35,6 +35,7 @@
+>  #include <linux/if_vlan.h>
+>  
+>  #include <linux/platform_data/cpsw.h>
+> +#include <linux/pinctrl/consumer.h>
+>  
+>  #include "cpsw_ale.h"
+>  #include "cpts.h"
+> @@ -351,6 +352,11 @@ struct cpsw_priv {
+>  	bool irq_enabled;
+>  	struct cpts *cpts;
+>  	u32 emac_port;
+> +
+> +	/* Two optional pin states - default & sleep */
+> +	struct pinctrl		*pinctrl;
+> +	struct pinctrl_state	*pins_def;
+> +	struct pinctrl_state	*pins_sleep;
+>  };
 
-And this is so much better of an interface because it allows the
-OF implementation to decide how to deal with memory allocation
-and freeing.
+Which pins do you need to dynamically remux? If it's not all
+the pins, you should have three sets: default, active and idle.
+This way the static pins in the default group don't need to be
+constantly toggled.
+
+Regards,
+
+Tony
