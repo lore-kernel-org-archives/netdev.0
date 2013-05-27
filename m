@@ -1,33 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] ARM: kirkwood: proper retain MAC address
- workaround on DT ethernet
-Date: Mon, 27 May 2013 02:23:39 -0700 (PDT)
-Message-ID: <20130527.022339.791886107453761860.davem@davemloft.net>
-References: <1369253042-15082-1-git-send-email-sebastian.hesselbarth@gmail.com>
-	<20130525.210441.818472895703230779.davem@davemloft.net>
-	<51A26B62.4050009@gmail.com>
+Subject: Re: [Patch net-next v9 00/11] vxlan: add ipv6 support
+Date: Mon, 27 May 2013 02:30:39 -0700 (PDT)
+Message-ID: <20130527.023039.165030551447378095.davem@davemloft.net>
+References: <1369628193-14925-1-git-send-email-amwang@redhat.com>
+	<87a9ngddfv.fsf@nemi.mork.no>
+	<8761y4dcm7.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: buytenh@wantstofly.org, jason@lakedaemon.net, andrew@lunn.ch,
-	benh@kernel.crashing.org, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
-	grant.likely@linaro.org
-To: sebastian.hesselbarth@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51A26B62.4050009@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: amwang@redhat.com, netdev@vger.kernel.org
+To: bjorn@mork.no
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33652 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754525Ab3E0Jaj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 05:30:39 -0400
+In-Reply-To: <8761y4dcm7.fsf@nemi.mork.no>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Date: Sun, 26 May 2013 22:06:58 +0200
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Mon, 27 May 2013 10:57:04 +0200
 
-> good you mention it. I added Grant on Cc and will give a short
-> sum-up why I casted the const from property->value away here.
-> 
-> Maybe I overlooked the API for modifying the DT property but as
-> far as I've seen - there is no API for modifying it. And yes,
-> you are right, it is kind of an abuse of DT here.
+> Bj=F8rn Mork <bjorn@mork.no> writes:
+>=20
+>> I see that you don't bother listen to advice.
+>>
+>>  ERROR: "nd_tbl" [drivers/net/vxlan.ko] undefined!
+>=20
+>=20
+> And building with CONFIG_IPV6=3Dm is even more fun:
+>=20
+> ERROR: "in6addr_linklocal_allnodes" [net/ipv6/ipv6.ko] undefined!
+> ERROR: "in6addr_interfacelocal_allrouters" [net/ipv6/ipv6.ko] undefin=
+ed!
+> ERROR: "in6addr_interfacelocal_allnodes" [net/ipv6/ipv6.ko] undefined=
+!
+> ERROR: "in6addr_linklocal_allrouters" [net/ipv6/ipv6.ko] undefined!
+> ERROR: "in6addr_sitelocal_allrouters" [net/ipv6/ipv6.ko] undefined!
+> ERROR: "in6addr_any" [net/ipv6/ipv6.ko] undefined!
+> ERROR: "nd_tbl" [drivers/net/vxlan.ko] undefined!
+>=20
+>=20
+> Nice...
 
-Sparc has an of_set_property(), it needs to become generic.
+Cong, this is getting utterly rediculous.
+
+And you had the nerve to complain when we were unwilling to merge this
+not-ready garbage into 3.10?!?!  Are you kidding me?
