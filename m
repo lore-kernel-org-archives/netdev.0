@@ -1,59 +1,52 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2 nf-next] netfilter: conntrack: remove the central
- spinlock
-Date: Mon, 27 May 2013 14:36:56 +0200
-Message-ID: <20130527123656.GA16212@localhost>
-References: <1368068665.13473.81.camel@edumazet-glaptop>
- <1369244868.3301.343.camel@edumazet-glaptop>
- <20130524151647.18388e27@redhat.com>
- <1369403496.3301.401.camel@edumazet-glaptop>
- <20130527143346.2d19e854@redhat.com>
+From: Tino Keitel <tino.keitel@alcnetworx.de>
+Subject: Re: BQL support in gianfar causes network hickup
+Date: Mon, 27 May 2013 14:47:12 +0200
+Message-ID: <1369658832.4182.23.camel@keitelt1-d1.lawo.de>
+References: <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6E@Exchange1.lawo.de>
+	 <50AFA599.9040108@windriver.com> <loom.20121124T213422-650@post.gmane.org>
+	 <1353800616.2590.4562.camel@edumazet-glaptop>
+	 <20121126100111.GA3728@mac.home> <1353947677.7553.2.camel@edumazet-glaptop>
+	 <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE6F@Exchange1.lawo.de>
+	 <1353950255.7553.6.camel@edumazet-glaptop>
+	 <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE70@Exchange1.lawo.de>
+	 <1354019816.7553.1585.camel@edumazet-glaptop>
+	 <9AA65D849A88EB44B5D9B6A8BA098E23040A60D6EE71@Exchange1.lawo.de>
+	 <1354023162.7553.1708.camel@edumazet-glaptop>
+	 <9AA65D849A88EB44B5D9B6A8BA098E23042DCF04C8BB@Exchange1.lawo.de>
+	 <CAP=VYLrbFz4UBMthg+FOqc4g0jW_4=etE+jJK6YE_EaSj8cNLA@mail.gmail.com>
+	 <9AA65D849A88EB44B5D9B6A8BA098E23042DCF04C8BE@Exchange1.lawo.de>
+	 <517E722D.4060808@freescale.com>
+	 <1367241659.6393.30.camel@keitelt1-d1.lawo.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netfilter-devel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	Tom Herbert <therbert@google.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Tino Keitel <tino.keitel@tikei.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Claudiu Manoil <claudiu.manoil@freescale.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:47170 "EHLO mail.us.es"
+Received: from mail2.lawo.de ([80.149.95.33]:17984 "EHLO mail2.lawo.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932143Ab3E0MhC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 08:37:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20130527143346.2d19e854@redhat.com>
+	id S932203Ab3E0Mrd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 08:47:33 -0400
+In-Reply-To: <1367241659.6393.30.camel@keitelt1-d1.lawo.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 27, 2013 at 02:33:46PM +0200, Jesper Dangaard Brouer wrote:
-> On Fri, 24 May 2013 06:51:36 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Mo, 2013-04-29 at 15:20 +0200, Tino Keitel wrote:
+> On Mo, 2013-04-29 at 15:14 +0200, Claudiu Manoil wrote:
 > 
-> > On Fri, 2013-05-24 at 15:16 +0200, Jesper Dangaard Brouer wrote:
-> [...cut...]
-> > > I'm amazed, this patch will actually make it a viable choice to load
-> > > the conntrack modules on a DDoS based filtering box, and use the
-> > > conntracks to protect against ACK and SYN+ACK attacks.
-> > > 
-> > > Simply by not accepting the ACK or SYN+ACK to create a conntrack
-> > > entry. Via the command:
-> > >  sysctl -w net/netfilter/nf_conntrack_tcp_loose=0
-> > > 
-> > > A quick test show; now I can run a LISTEN process on the port, and
-> > > handle an SYN+ACK attack of approx 2580Kpps (and the same for ACK
-> > > attacks), while running a LISTEN process on the port.
-> > > 
-> [...]
-> > > 
+> > The proposed fix (passes this test):
+> > http://patchwork.ozlabs.org/patch/240365/
 > > 
-> > Wow, this is very interesting !
-> > 
-> > Did you test the thing when expectations are possible ? (say ftp
-> > module loaded)
-> 
-> Nope. I'm not sure how to create a test case, that causes an
-> expectation to be created.
+> > Does it work for you?
 
-This is still in my queue, I didn't forget about this. I need to find
-some spare time to give this a test with expectations enabled and also
-with conntrackd/state-sync.
+Hi,
+
+I tested the patch over the weekend and it looks fine. I then re-checked
+without the patch and got the bug immediately. So the patch seems to
+work fine.
+
+Thanks a lot and regards,
+Tino Keitel
