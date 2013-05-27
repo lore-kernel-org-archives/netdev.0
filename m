@@ -1,63 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 1/3 net-next v3] net: ethtool: disambiguate XCVR_*
- meaning
-Date: Mon, 27 May 2013 17:49:56 +0100
-Message-ID: <1369673396.3469.389.camel@deadeye.wl.decadent.org.uk>
-References: <1369307473-20696-1-git-send-email-f.fainelli@gmail.com>
-	 <1369307473-20696-2-git-send-email-f.fainelli@gmail.com>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: atl1c issues on 3.8.2
+Date: Mon, 27 May 2013 18:43:22 +0200
+Message-ID: <20130527184322.1e9aa80f@milhouse>
+References: <20130312161753.281681f2@milhouse>
+	<1363103144.13690.12.camel@edumazet-glaptop>
+	<20130312180942.4198e88e@milhouse>
+	<1363154258.13690.40.camel@edumazet-glaptop>
+	<1363271460.29475.14.camel@edumazet-glaptop>
+	<20130314231746.44a93e4d@milhouse>
+	<1363302362.29475.42.camel@edumazet-glaptop>
+	<20130315204457.21d46b89@milhouse>
+	<20130322122849.72b3eccd@milhouse>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<afleming@freescale.com>, <jogo@openwrt.org>
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: multipart/signed; micalg=PGP-SHA1;
+ boundary="Sig_/oxvyeihr7JF20jdr7XZT0Z="; protocol="application/pgp-signature"
+Cc: Pavel Emelyanov <xemul@parallels.com>,
+	Eric Dumazet <edumazet@google.com>,
+	linux-netdev <netdev@vger.kernel.org>,
+	"David S.Miller" <davem@davemloft.net>,
+	Mel Gorman <mgorman@suse.de>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:15986 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754900Ab3E0QuB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 12:50:01 -0400
-In-Reply-To: <1369307473-20696-2-git-send-email-f.fainelli@gmail.com>
+Received: from bues.ch ([80.190.117.144]:36678 "EHLO bues.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752185Ab3E0RFV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 13:05:21 -0400
+In-Reply-To: <20130322122849.72b3eccd@milhouse>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-05-23 at 12:11 +0100, Florian Fainelli wrote:
-> Add a comment which explains the real meaning of XCVR_INTERNAL (PHY and
-> Ethernet MAC in the same package/die) and XCVR_EXTERNAL (PHY and
-> Ethernet MAC in a different package/die). Most if not all of the drivers
-> setting their transceiver type already do it the way the comment
-> describes it.
-> 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+--Sig_/oxvyeihr7JF20jdr7XZT0Z=
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-I had another look over the drivers that use both values, and I think
-there aren't any remaining exceptions to the definition you're giving.
-Sorry for holding this up.
+Any news on this?
 
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+Am I still the only one with this issue?
+It's still 100% reproducible and I can workaround it by reverting=20
+69b08f62e17439ee3d436faf0b9a7ca6fffb78db
 
-Ben.
+It can't possibly be that I'm the only one on this planet seeing this...
 
-> ---
->  include/uapi/linux/ethtool.h | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
-> index 0c9b448..38dbafa 100644
-> --- a/include/uapi/linux/ethtool.h
-> +++ b/include/uapi/linux/ethtool.h
-> @@ -993,8 +993,8 @@ enum ethtool_sfeatures_retval_bits {
->  #define PORT_OTHER		0xff
->  
->  /* Which transceiver to use. */
-> -#define XCVR_INTERNAL		0x00
-> -#define XCVR_EXTERNAL		0x01
-> +#define XCVR_INTERNAL		0x00 /* PHY and MAC are in the same package */
-> +#define XCVR_EXTERNAL		0x01 /* PHY and MAC are in different packages */
->  #define XCVR_DUMMY1		0x02
->  #define XCVR_DUMMY2		0x03
->  #define XCVR_DUMMY3		0x04
+--=20
+Michael
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--Sig_/oxvyeihr7JF20jdr7XZT0Z=
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Disposition: attachment; filename=signature.asc
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRo40sAAoJEPUyvh2QjYsOmYcP/iAQyB2PDEB1OBxz1pj/ZoZv
+MeQp+gIYA3l1PDCi3rE6AQyZSbLBpvv0/TftTHyAEsxJyIBVNIRZ5o3uaDYXVtGS
+PBx1M130YERF1Pk6IzZbUqpmI9Lhn5YH6Sd4Uv3yj+WJODupM8YRhzcxiiuBnwrY
+AnLTe0ptNp2tcnapK9E8reLlXQdA9TunRQvGY9bFsfViclEJTIim4xyVIQ/ead19
+CunaCzesX+OteB9mit6a2SkJ02gF+yVJ8419GM8nM+z/qbGLUEhciSmyBR31aYjs
+BEFRy/oc/VY2/RCFKaYiKW2Cz8F4vZVkPBk/vCzWEp53J6n1CIUe1PuR7Epmjt+2
+QtEuSbUKE1Dyhw2ByxF3zESIt9NUU9Q76UJXk3NHPzgSEfaf70iBgLDRPwZSV2tA
+Yc4tOfPUFUN+OhXBJf2+WLkT2YFxgWs8/wwxtZ7N28xEaHqrmKXfyuYrKkyI0j+k
+/USfKlNp/rrWh4gJimA04IlsxX1NYI3PzEJ6Toc/bfXoOExTWjGB32F+WvBCkAty
+CPPTUOA1VO21/M5vg5Wk2s9sHsIVBr9G/0aIIPxzISxbF/T631GsHI498YhSicGR
+olTQ8pvkCCxAgspHsnjAjgi2jt/Tx4rQNQVqQx651buES7bLxv9jNsoIOngH/WvW
+F1/gITFJW3B2URPMQ5v4
+=fz/b
+-----END PGP SIGNATURE-----
+
+--Sig_/oxvyeihr7JF20jdr7XZT0Z=--
