@@ -1,8 +1,8 @@
 From: Richard Cochran <richardcochran@gmail.com>
-Subject: [PATCH net-next 2/4] igb: add more register
-	definitions for time sync functions.
-Date: Mon, 27 May 2013 11:21:43 +0200
-Message-ID: <a5df1f05bf9734924969c25879d177c9b16924ea.1369645944.git.richardcochran@gmail.com>
+Subject: [PATCH net-next 4/4] igb: enable auxiliary PHC
+	functions for the i210.
+Date: Mon, 27 May 2013 11:21:45 +0200
+Message-ID: <cfbb4fdcf968d81b2211b97c75c9b5bf820570e4.1369645944.git.richardcochran@gmail.com>
 References: <cover.1369645944.git.richardcochran@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,159 +24,278 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This patch adds missing definitions needed for implementing the
-auxiliary time sync functions.
+The i210 device offers a number of special PTP Hardware Clock features on
+the Software Defined Pins (SDPs). This patch adds support for three of the
+possible functions, namely time stamping external events, a periodic
+output signal, and an internal PPS event for adjusting the kernel system
+time.
+
+A pair of module parameters lets the user choose which of the four SDPs
+will be used as the input signal and which as the output.
 
 Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 ---
- drivers/net/ethernet/intel/igb/e1000_defines.h |   68 ++++++++++++++++++++++--
- drivers/net/ethernet/intel/igb/e1000_regs.h    |    9 ++++
- drivers/net/ethernet/intel/igb/igb_ptp.c       |    4 +-
- 3 files changed, 76 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/intel/igb/igb.h      |    2 +
+ drivers/net/ethernet/intel/igb/igb_main.c |   30 ++++++
+ drivers/net/ethernet/intel/igb/igb_ptp.c  |  157 ++++++++++++++++++++++++++++-
+ 3 files changed, 188 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/e1000_defines.h b/drivers/net/ethernet/intel/igb/e1000_defines.h
-index aa201ab..7451f42 100644
---- a/drivers/net/ethernet/intel/igb/e1000_defines.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_defines.h
-@@ -44,7 +44,10 @@
- #define E1000_WUFC_BC   0x00000010 /* Broadcast Wakeup Enable */
+diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
+index 15ea8dc..802b79c 100644
+--- a/drivers/net/ethernet/intel/igb/igb.h
++++ b/drivers/net/ethernet/intel/igb/igb.h
+@@ -435,6 +435,8 @@ struct igb_adapter {
+ 	struct timecounter tc;
+ 	u32 tx_hwtstamp_timeouts;
+ 	u32 rx_hwtstamp_cleared;
++	struct timespec start;
++	struct timespec period;
  
- /* Extended Device Control */
-+#define E1000_CTRL_EXT_SDP2_DATA 0x00000040 /* Value of SW Defineable Pin 2 */
- #define E1000_CTRL_EXT_SDP3_DATA 0x00000080 /* Value of SW Defineable Pin 3 */
-+#define E1000_CTRL_EXT_SDP2_DIR  0x00000400 /* SDP2 data direction */
-+#define E1000_CTRL_EXT_SDP3_DIR  0x00000800 /* SDP3 data direction */
- /* Physical Func Reset Done Indication */
- #define E1000_CTRL_EXT_PFRSTD    0x00004000
- #define E1000_CTRL_EXT_LINK_MODE_MASK 0x00C00000
-@@ -191,7 +194,8 @@
- /* enable link status from external LINK_0 and LINK_1 pins */
- #define E1000_CTRL_SWDPIN0  0x00040000  /* SWDPIN 0 value */
- #define E1000_CTRL_SWDPIN1  0x00080000  /* SWDPIN 1 value */
--#define E1000_CTRL_SWDPIO0  0x00400000  /* SWDPIN 0 Input or output */
-+#define E1000_CTRL_SDP0_DIR 0x00400000  /* SDP0 data direction */
-+#define E1000_CTRL_SDP1_DIR 0x00800000  /* SDP1 data direction */
- #define E1000_CTRL_RST      0x04000000  /* Global reset */
- #define E1000_CTRL_RFCE     0x08000000  /* Receive Flow Control enable */
- #define E1000_CTRL_TFCE     0x10000000  /* Transmit flow control enable */
-@@ -524,8 +528,66 @@
+ 	char fw_version[32];
+ #ifdef CONFIG_IGB_HWMON
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index d25a965..58120cd 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -5038,12 +5038,42 @@ void igb_update_stats(struct igb_adapter *adapter,
+ static void igb_tsync_interrupt(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
++	struct ptp_clock_event event;
+ 	u32 tsicr = rd32(E1000_TSICR);
  
- #define E1000_TIMINCA_16NS_SHIFT 24
- 
--#define E1000_TSICR_TXTS 0x00000002
--#define E1000_TSIM_TXTS 0x00000002
-+/* Time Sync Interrupt Cause/Mask Regsiter Bits */
-+#define TSINTR_SYS_WRAP  (1 << 0) /* SYSTIM Wrap around. */
-+#define TSINTR_TXTS      (1 << 1) /* Transmit Timestamp. */
-+#define TSINTR_RXTS      (1 << 2) /* Receive Timestamp. */
-+#define TSINTR_TT0       (1 << 3) /* Target Time 0 Trigger. */
-+#define TSINTR_TT1       (1 << 4) /* Target Time 1 Trigger. */
-+#define TSINTR_AUTT0     (1 << 5) /* Auxiliary Timestamp 0 Taken. */
-+#define TSINTR_AUTT1     (1 << 6) /* Auxiliary Timestamp 1 Taken. */
-+#define TSINTR_TADJ      (1 << 7) /* Time Adjust Done. */
++	if (tsicr & TSINTR_SYS_WRAP) {
++		event.type = PTP_CLOCK_PPS;
++		ptp_clock_event(adapter->ptp_clock, &event);
++	}
 +
-+#define TSYNC_INTERRUPTS TSINTR_TXTS
-+#define E1000_TSICR_TXTS TSINTR_TXTS
+ 	if (tsicr & E1000_TSICR_TXTS) {
+ 		/* retrieve hardware timestamp */
+ 		schedule_work(&adapter->ptp_tx_work);
+ 	}
 +
-+/* TSAUXC Configuration Bits */
-+#define TSAUXC_EN_TT0    (1 << 0)  /* Enable target time 0. */
-+#define TSAUXC_EN_TT1    (1 << 1)  /* Enable target time 1. */
-+#define TSAUXC_EN_CLK0   (1 << 2)  /* Enable Configurable Frequency Clock 0. */
-+#define TSAUXC_SAMP_AUT0 (1 << 3)  /* Latch SYSTIML/H into AUXSTMPL/0. */
-+#define TSAUXC_ST0       (1 << 4)  /* Start Clock 0 Toggle on Target Time 0. */
-+#define TSAUXC_EN_CLK1   (1 << 5)  /* Enable Configurable Frequency Clock 1. */
-+#define TSAUXC_SAMP_AUT1 (1 << 6)  /* Latch SYSTIML/H into AUXSTMPL/1. */
-+#define TSAUXC_ST1       (1 << 7)  /* Start Clock 1 Toggle on Target Time 1. */
-+#define TSAUXC_EN_TS0    (1 << 8)  /* Enable hardware timestamp 0. */
-+#define TSAUXC_AUTT0     (1 << 9)  /* Auxiliary Timestamp Taken. */
-+#define TSAUXC_EN_TS1    (1 << 10) /* Enable hardware timestamp 0. */
-+#define TSAUXC_AUTT1     (1 << 11) /* Auxiliary Timestamp Taken. */
-+#define TSAUXC_PLSG      (1 << 17) /* Generate a pulse. */
-+#define TSAUXC_DISABLE   (1 << 31) /* Disable SYSTIM Count Operation. */
++	if (tsicr & TSINTR_TT0) {
++		struct timespec ts;
++		u32 tsauxc;
++		spin_lock(&adapter->tmreg_lock);
++		ts = timespec_add(adapter->start, adapter->period);
++		wr32(E1000_TRGTTIML0, ts.tv_nsec);
++		wr32(E1000_TRGTTIMH0, ts.tv_sec);
++		tsauxc = rd32(E1000_TSAUXC);
++		tsauxc |= TSAUXC_EN_TT0;
++		wr32(E1000_TSAUXC, tsauxc);
++		adapter->start = ts;
++		spin_unlock(&adapter->tmreg_lock);
++	}
 +
-+/* SDP Configuration Bits */
-+#define AUX0_SEL_SDP0    (0 << 0)  /* Assign SDP0 to auxiliary time stamp 0. */
-+#define AUX0_SEL_SDP1    (1 << 0)  /* Assign SDP1 to auxiliary time stamp 0. */
-+#define AUX0_SEL_SDP2    (2 << 0)  /* Assign SDP2 to auxiliary time stamp 0. */
-+#define AUX0_SEL_SDP3    (3 << 0)  /* Assign SDP3 to auxiliary time stamp 0. */
-+#define AUX0_TS_SDP_EN   (1 << 2)  /* Enable auxiliary time stamp trigger 0. */
-+#define AUX1_SEL_SDP0    (0 << 3)  /* Assign SDP0 to auxiliary time stamp 1. */
-+#define AUX1_SEL_SDP1    (1 << 3)  /* Assign SDP1 to auxiliary time stamp 1. */
-+#define AUX1_SEL_SDP2    (2 << 3)  /* Assign SDP2 to auxiliary time stamp 1. */
-+#define AUX1_SEL_SDP3    (3 << 3)  /* Assign SDP3 to auxiliary time stamp 1. */
-+#define AUX1_TS_SDP_EN   (1 << 5)  /* Enable auxiliary time stamp trigger 1. */
-+#define TS_SDP0_SEL_TT0  (0 << 6)  /* Target time 0 is output on SDP0. */
-+#define TS_SDP0_SEL_TT1  (1 << 6)  /* Target time 1 is output on SDP0. */
-+#define TS_SDP0_SEL_FC0  (2 << 6)  /* Freq clock  0 is output on SDP0. */
-+#define TS_SDP0_SEL_FC1  (3 << 6)  /* Freq clock  1 is output on SDP0. */
-+#define TS_SDP0_EN       (1 << 8)  /* SDP0 is assigned to Tsync. */
-+#define TS_SDP1_SEL_TT0  (0 << 9)  /* Target time 0 is output on SDP1. */
-+#define TS_SDP1_SEL_TT1  (1 << 9)  /* Target time 1 is output on SDP1. */
-+#define TS_SDP1_SEL_FC0  (2 << 9)  /* Freq clock  0 is output on SDP1. */
-+#define TS_SDP1_SEL_FC1  (3 << 9)  /* Freq clock  1 is output on SDP1. */
-+#define TS_SDP1_EN       (1 << 11) /* SDP1 is assigned to Tsync. */
-+#define TS_SDP2_SEL_TT0  (0 << 12) /* Target time 0 is output on SDP2. */
-+#define TS_SDP2_SEL_TT1  (1 << 12) /* Target time 1 is output on SDP2. */
-+#define TS_SDP2_SEL_FC0  (2 << 12) /* Freq clock  0 is output on SDP2. */
-+#define TS_SDP2_SEL_FC1  (3 << 12) /* Freq clock  1 is output on SDP2. */
-+#define TS_SDP2_EN       (1 << 14) /* SDP2 is assigned to Tsync. */
-+#define TS_SDP3_SEL_TT0  (0 << 15) /* Target time 0 is output on SDP3. */
-+#define TS_SDP3_SEL_TT1  (1 << 15) /* Target time 1 is output on SDP3. */
-+#define TS_SDP3_SEL_FC0  (2 << 15) /* Freq clock  0 is output on SDP3. */
-+#define TS_SDP3_SEL_FC1  (3 << 15) /* Freq clock  1 is output on SDP3. */
-+#define TS_SDP3_EN       (1 << 17) /* SDP3 is assigned to Tsync. */
++	if (tsicr & TSINTR_AUTT0) {
++		u32 sec, nsec;
++		nsec = rd32(E1000_AUXSTMPL0);
++		sec  = rd32(E1000_AUXSTMPH0);
++		event.type = PTP_CLOCK_EXTTS;
++		event.index = 0;
++		event.timestamp = sec * 1000000000ULL + nsec;
++		ptp_clock_event(adapter->ptp_clock, &event);
++	}
+ }
  
- #define E1000_MDICNFG_EXT_MDIO    0x80000000      /* MDI ext/int destination */
- #define E1000_MDICNFG_COM_MDIO    0x40000000      /* MDI shared w/ lan 0 */
-diff --git a/drivers/net/ethernet/intel/igb/e1000_regs.h b/drivers/net/ethernet/intel/igb/e1000_regs.h
-index 82632c6..be841d1 100644
---- a/drivers/net/ethernet/intel/igb/e1000_regs.h
-+++ b/drivers/net/ethernet/intel/igb/e1000_regs.h
-@@ -41,6 +41,7 @@
- #define E1000_FCT      0x00030  /* Flow Control Type - RW */
- #define E1000_CONNSW   0x00034  /* Copper/Fiber switch control - RW */
- #define E1000_VET      0x00038  /* VLAN Ether Type - RW */
-+#define E1000_TSSDP    0x0003C  /* Time Sync SDP Configuration Register - RW */
- #define E1000_ICR      0x000C0  /* Interrupt Cause Read - R/clr */
- #define E1000_ITR      0x000C4  /* Interrupt Throttling Rate - RW */
- #define E1000_ICS      0x000C8  /* Interrupt Cause Set - WO */
-@@ -102,6 +103,14 @@
- #define E1000_SYSTIMH    0x0B604 /* System time register High - RO */
- #define E1000_TIMINCA    0x0B608 /* Increment attributes register - RW */
- #define E1000_TSAUXC     0x0B640 /* Timesync Auxiliary Control register */
-+#define E1000_TRGTTIML0  0x0B644 /* Target Time Register 0 Low  - RW */
-+#define E1000_TRGTTIMH0  0x0B648 /* Target Time Register 0 High - RW */
-+#define E1000_TRGTTIML1  0x0B64C /* Target Time Register 1 Low  - RW */
-+#define E1000_TRGTTIMH1  0x0B650 /* Target Time Register 1 High - RW */
-+#define E1000_AUXSTMPL0  0x0B65C /* Auxiliary Time Stamp 0 Register Low  - RO */
-+#define E1000_AUXSTMPH0  0x0B660 /* Auxiliary Time Stamp 0 Register High - RO */
-+#define E1000_AUXSTMPL1  0x0B664 /* Auxiliary Time Stamp 1 Register Low  - RO */
-+#define E1000_AUXSTMPH1  0x0B668 /* Auxiliary Time Stamp 1 Register High - RO */
- #define E1000_SYSTIMR    0x0B6F8 /* System time register Residue */
- #define E1000_TSICR      0x0B66C /* Interrupt Cause Register */
- #define E1000_TSIM       0x0B674 /* Interrupt Mask Register */
+ static irqreturn_t igb_msix_other(int irq, void *data)
 diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index 7e8c477..ebc2f72 100644
+index 5944de0..8cf4b8a 100644
 --- a/drivers/net/ethernet/intel/igb/igb_ptp.c
 +++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -798,7 +798,7 @@ void igb_ptp_init(struct igb_adapter *adapter)
+@@ -23,6 +23,15 @@
  
- 	/* Initialize the time sync interrupts for devices that support it. */
- 	if (hw->mac.type >= e1000_82580) {
--		wr32(E1000_TSIM, E1000_TSIM_TXTS);
-+		wr32(E1000_TSIM, TSYNC_INTERRUPTS);
- 		wr32(E1000_IMS, E1000_IMS_TS);
- 	}
+ #include "igb.h"
  
-@@ -876,7 +876,7 @@ void igb_ptp_reset(struct igb_adapter *adapter)
- 	case e1000_i211:
- 		/* Enable the timer functions and interrupts. */
++static int igb_input_sdp = 0;
++static int igb_output_sdp = 1;
++module_param(igb_input_sdp, int, 0444);
++module_param(igb_output_sdp, int, 0444);
++MODULE_PARM_DESC(igb_input_sdp,
++		 "The SDP used as an input, to time stamp external events");
++MODULE_PARM_DESC(igb_output_sdp,
++		 "The SDP used to output the programmable periodic signal");
++
+ #define INCVALUE_MASK		0x7fffffff
+ #define ISGN			0x80000000
+ 
+@@ -359,6 +368,86 @@ static int igb_ptp_settime_i210(struct ptp_clock_info *ptp,
+ 	return 0;
+ }
+ 
++static int igb_ptp_enable_i210(struct ptp_clock_info *ptp,
++			       struct ptp_clock_request *rq, int on)
++{
++	struct igb_adapter *igb = container_of(ptp, struct igb_adapter,
++					       ptp_caps);
++	struct e1000_hw *hw = &igb->hw;
++	unsigned long flags;
++	struct timespec ts;
++	u32 tsauxc, tsim;
++	s64 ns;
++
++	switch (rq->type) {
++	case PTP_CLK_REQ_EXTTS:
++		if (rq->extts.index != 0)
++			return -EINVAL;
++		spin_lock_irqsave(&igb->tmreg_lock, flags);
++		tsauxc = rd32(E1000_TSAUXC);
++		tsim = rd32(E1000_TSIM);
++		if (on) {
++			tsauxc |= TSAUXC_EN_TS0;
++			tsim |= TSINTR_AUTT0;
++		} else {
++			tsauxc &= ~TSAUXC_EN_TS0;
++			tsim &= ~TSINTR_AUTT0;
++		}
++		wr32(E1000_TSAUXC, tsauxc);
++		wr32(E1000_TSIM, tsim);
++		spin_unlock_irqrestore(&igb->tmreg_lock, flags);
++		return 0;
++
++	case PTP_CLK_REQ_PEROUT:
++		if (rq->perout.index != 0)
++			return -EINVAL;
++
++		ts.tv_sec = rq->perout.period.sec;
++		ts.tv_nsec = rq->perout.period.nsec;
++		ns = timespec_to_ns(&ts);
++		ns = ns >> 1;
++		if (on && ns < 500000LL) {
++			/* 2k interrupts per second is an awful lot. */
++			return -EINVAL;
++		}
++		ts = ns_to_timespec(ns);
++
++		spin_lock_irqsave(&igb->tmreg_lock, flags);
++		tsauxc = rd32(E1000_TSAUXC);
++		tsim = rd32(E1000_TSIM);
++		if (on) {
++			igb->start.tv_sec = rq->perout.start.sec;
++			igb->start.tv_nsec = rq->perout.start.nsec;
++			igb->period.tv_sec = ts.tv_sec;
++			igb->period.tv_nsec = ts.tv_nsec;
++			wr32(E1000_TRGTTIML0, rq->perout.start.sec);
++			wr32(E1000_TRGTTIMH0, rq->perout.start.nsec);
++			tsauxc |= TSAUXC_EN_TT0;
++			tsim |= TSINTR_TT0;
++		} else {
++			tsauxc &= ~TSAUXC_EN_TT0;
++			tsim &= ~TSINTR_TT0;
++		}
++		wr32(E1000_TSAUXC, tsauxc);
++		wr32(E1000_TSIM, tsim);
++		spin_unlock_irqrestore(&igb->tmreg_lock, flags);
++		return 0;
++
++	case PTP_CLK_REQ_PPS:
++		spin_lock_irqsave(&igb->tmreg_lock, flags);
++		tsim = rd32(E1000_TSIM);
++		if (on)
++			tsim |= TSINTR_SYS_WRAP;
++		else
++			tsim &= ~TSINTR_SYS_WRAP;
++		wr32(E1000_TSIM, tsim);
++		spin_unlock_irqrestore(&igb->tmreg_lock, flags);
++		return 0;
++	}
++
++	return -EOPNOTSUPP;
++}
++
+ static int igb_ptp_enable(struct ptp_clock_info *ptp,
+ 			  struct ptp_clock_request *rq, int on)
+ {
+@@ -711,6 +800,68 @@ int igb_ptp_hwtstamp_ioctl(struct net_device *netdev,
+ 		-EFAULT : 0;
+ }
+ 
++static int igb_sdp_init(struct igb_adapter *adapter)
++{
++	struct e1000_hw *hw = &adapter->hw;
++	u32 ctrl, ctrl_ext, tssdp = 0;
++
++	if (igb_input_sdp == igb_output_sdp) {
++		pr_err("SDP %d set as both input and output\n", igb_input_sdp);
++		return -1;
++	}
++
++	ctrl     = rd32(E1000_CTRL);
++	ctrl_ext = rd32(E1000_CTRL_EXT);
++
++	switch (igb_input_sdp) {
++	case 0:
++		tssdp |= AUX0_TS_SDP_EN | AUX0_SEL_SDP0;
++		ctrl  &= ~E1000_CTRL_SDP0_DIR;
++		break;
++	case 1:
++		tssdp |= AUX0_TS_SDP_EN | AUX0_SEL_SDP1;
++		ctrl  &= ~E1000_CTRL_SDP1_DIR;
++		break;
++	case 2:
++		tssdp |= AUX0_TS_SDP_EN | AUX0_SEL_SDP2;
++		ctrl_ext &= ~E1000_CTRL_EXT_SDP2_DIR;
++		break;
++	case 3:
++		tssdp |= AUX0_TS_SDP_EN | AUX0_SEL_SDP3;
++		ctrl_ext &= ~E1000_CTRL_EXT_SDP3_DIR;
++		break;
++	default:
++		pr_err("Input SDP %d out of range\n", igb_input_sdp);
++	}
++
++	switch (igb_output_sdp) {
++	case 0:
++		tssdp |= TS_SDP0_SEL_TT0 | TS_SDP0_EN;
++		ctrl |= E1000_CTRL_SDP0_DIR;
++		break;
++	case 1:
++		tssdp |= TS_SDP1_SEL_TT0 | TS_SDP1_EN;
++		ctrl |= E1000_CTRL_SDP1_DIR;
++		break;
++	case 2:
++		tssdp |= TS_SDP2_SEL_TT0 | TS_SDP2_EN;
++		ctrl_ext |= E1000_CTRL_EXT_SDP2_DIR;
++		break;
++	case 3:
++		tssdp |= TS_SDP3_SEL_TT0 | TS_SDP3_EN;
++		ctrl_ext |= E1000_CTRL_EXT_SDP3_DIR;
++		break;
++	default:
++		pr_err("Output SDP %d out of range\n", igb_output_sdp);
++	}
++
++	wr32(E1000_TSSDP, tssdp);
++	wr32(E1000_CTRL, ctrl);
++	wr32(E1000_CTRL_EXT, ctrl_ext);
++
++	return 0;
++}
++
+ void igb_ptp_init(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+@@ -766,7 +917,7 @@ void igb_ptp_init(struct igb_adapter *adapter)
+ 		adapter->ptp_caps.adjtime = igb_ptp_adjtime_i210;
+ 		adapter->ptp_caps.gettime = igb_ptp_gettime_i210;
+ 		adapter->ptp_caps.settime = igb_ptp_settime_i210;
+-		adapter->ptp_caps.enable = igb_ptp_enable;
++		adapter->ptp_caps.enable = igb_ptp_enable_i210;
+ 		/* Enable the timer functions by clearing bit 31. */
  		wr32(E1000_TSAUXC, 0x0);
--		wr32(E1000_TSIM, E1000_TSIM_TXTS);
-+		wr32(E1000_TSIM, TSYNC_INTERRUPTS);
- 		wr32(E1000_IMS, E1000_IMS_TS);
  		break;
- 	default:
+@@ -785,6 +936,10 @@ void igb_ptp_init(struct igb_adapter *adapter)
+ 		struct timespec ts = ktime_to_timespec(ktime_get_real());
+ 
+ 		igb_ptp_settime_i210(&adapter->ptp_caps, &ts);
++		igb_sdp_init(adapter);
++		adapter->ptp_caps.n_ext_ts = 1;
++		adapter->ptp_caps.n_per_out = 1;
++		adapter->ptp_caps.pps = 1;
+ 	} else {
+ 		timecounter_init(&adapter->tc, &adapter->cc,
+ 				 ktime_to_ns(ktime_get_real()));
 -- 
 1.7.10.4
 
