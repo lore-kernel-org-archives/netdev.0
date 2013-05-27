@@ -1,58 +1,251 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v9 10/11] vxlan: respect scope_id for ll addr
-Date: Mon, 27 May 2013 12:16:32 +0800
-Message-ID: <1369628193-14925-11-git-send-email-amwang@redhat.com>
+Subject: [Patch net-next v9 11/11] ipv6: Add generic UDP Tunnel segmentation
+Date: Mon, 27 May 2013 12:16:33 +0800
+Message-ID: <1369628193-14925-12-git-send-email-amwang@redhat.com>
 References: <1369628193-14925-1-git-send-email-amwang@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	David Stevens <dlstevens@us.ibm.com>,
+Cc: Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54562 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56309 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751135Ab3E0ER7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 00:17:59 -0400
+	id S1751252Ab3E0ESU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 00:18:20 -0400
 In-Reply-To: <1369628193-14925-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-As pointed out by David, we should take care of scope id for ll
-addr, so use it for route lookup.
+Similar to commit 731362674580cb0c696cd1b1a03d8461a10cf90a
+(tunneling: Add generic Tunnel segmentation)
 
+This patch adds generic tunneling offloading support for
+IPv6-UDP based tunnels.
+
+This can be used by tunneling protocols like VXLAN.
+
+Cc: Jesse Gross <jesse@nicira.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
 Cc: David S. Miller <davem@davemloft.net>
-Cc: David Stevens <dlstevens@us.ibm.com>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
- drivers/net/vxlan.c |    8 +++++++-
- 1 files changed, 7 insertions(+), 1 deletions(-)
+ net/ipv6/ip6_offload.c |    4 +-
+ net/ipv6/udp_offload.c |  153 +++++++++++++++++++++++++++++++++---------------
+ 2 files changed, 108 insertions(+), 49 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 4c9709e..bcb8a42 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1306,7 +1306,7 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	struct sock *sk = vxlan->vn_sock->sock->sk;
- 	struct ipv6hdr *ip6h;
- #endif
--	const union vxlan_addr *dst;
-+	union vxlan_addr *dst;
- 	struct dst_entry *ndst = NULL;
- 	__be16 src_port = 0, dst_port;
-         u32 vni;
-@@ -1401,6 +1401,12 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
+diff --git a/net/ipv6/ip6_offload.c b/net/ipv6/ip6_offload.c
+index 71b766e..87fbf2e 100644
+--- a/net/ipv6/ip6_offload.c
++++ b/net/ipv6/ip6_offload.c
+@@ -91,6 +91,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	unsigned int unfrag_ip6hlen;
+ 	u8 *prevhdr;
+ 	int offset = 0;
++	bool tunnel;
  
- 		src_port = vxlan_src_port(vxlan, skb);
+ 	if (unlikely(skb_shinfo(skb)->gso_type &
+ 		     ~(SKB_GSO_UDP |
+@@ -105,6 +106,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 	if (unlikely(!pskb_may_pull(skb, sizeof(*ipv6h))))
+ 		goto out;
  
-+		if (ipv6_addr_type(&dst->sin6.sin6_addr) & IPV6_ADDR_LINKLOCAL) {
-+			dst->sin6.sin6_scope_id = ipv6_iface_scope_id(&dst->sin6.sin6_addr,
-+								rdst->remote_ifindex);
-+			rdst->remote_ifindex = dst->sin6.sin6_scope_id;
-+		}
++	tunnel = skb->encapsulation;
+ 	ipv6h = ipv6_hdr(skb);
+ 	__skb_pull(skb, sizeof(*ipv6h));
+ 	segs = ERR_PTR(-EPROTONOSUPPORT);
+@@ -125,7 +127,7 @@ static struct sk_buff *ipv6_gso_segment(struct sk_buff *skb,
+ 		ipv6h = ipv6_hdr(skb);
+ 		ipv6h->payload_len = htons(skb->len - skb->mac_len -
+ 					   sizeof(*ipv6h));
+-		if (proto == IPPROTO_UDP) {
++		if (!tunnel && proto == IPPROTO_UDP) {
+ 			unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+ 			fptr = (struct frag_hdr *)(skb_network_header(skb) +
+ 				unfrag_ip6hlen);
+diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+index 3bb3a89..2c3fa3b 100644
+--- a/net/ipv6/udp_offload.c
++++ b/net/ipv6/udp_offload.c
+@@ -21,26 +21,79 @@ static int udp6_ufo_send_check(struct sk_buff *skb)
+ 	const struct ipv6hdr *ipv6h;
+ 	struct udphdr *uh;
+ 
+-	/* UDP Tunnel offload on ipv6 is not yet supported. */
+-	if (skb->encapsulation)
+-		return -EINVAL;
+-
+ 	if (!pskb_may_pull(skb, sizeof(*uh)))
+ 		return -EINVAL;
+ 
+-	ipv6h = ipv6_hdr(skb);
+-	uh = udp_hdr(skb);
++	if (likely(!skb->encapsulation)) {
++		ipv6h = ipv6_hdr(skb);
++		uh = udp_hdr(skb);
 +
- 		memset(&fl6, 0, sizeof(fl6));
- 		fl6.flowi6_oif = rdst->remote_ifindex;
- 		fl6.flowi6_tos = RT_TOS(tos);
++		uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, skb->len,
++					     IPPROTO_UDP, 0);
++		skb->csum_start = skb_transport_header(skb) - skb->head;
++		skb->csum_offset = offsetof(struct udphdr, check);
++		skb->ip_summed = CHECKSUM_PARTIAL;
++	}
+ 
+-	uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr, skb->len,
+-				     IPPROTO_UDP, 0);
+-	skb->csum_start = skb_transport_header(skb) - skb->head;
+-	skb->csum_offset = offsetof(struct udphdr, check);
+-	skb->ip_summed = CHECKSUM_PARTIAL;
+ 	return 0;
+ }
+ 
++static struct sk_buff *skb_udp6_tunnel_segment(struct sk_buff *skb,
++					       netdev_features_t features)
++{
++	struct sk_buff *segs = ERR_PTR(-EINVAL);
++	int mac_len = skb->mac_len;
++	int tnl_hlen = skb_inner_mac_header(skb) - skb_transport_header(skb);
++	int outer_hlen;
++	netdev_features_t enc_features;
++
++	if (unlikely(!pskb_may_pull(skb, tnl_hlen)))
++		goto out;
++
++	skb->encapsulation = 0;
++	__skb_pull(skb, tnl_hlen);
++	skb_reset_mac_header(skb);
++	skb_set_network_header(skb, skb_inner_network_offset(skb));
++	skb->mac_len = skb_inner_network_offset(skb);
++
++	/* segment inner packet. */
++	enc_features = skb->dev->hw_enc_features & netif_skb_features(skb);
++	segs = skb_mac_gso_segment(skb, enc_features);
++	if (!segs || IS_ERR(segs))
++		goto out;
++
++	outer_hlen = skb_tnl_header_len(skb);
++	skb = segs;
++	do {
++		struct udphdr *uh;
++		struct ipv6hdr *ipv6h;
++		int udp_offset = outer_hlen - tnl_hlen;
++		u32 len;
++
++		skb->mac_len = mac_len;
++
++		skb_push(skb, outer_hlen);
++		skb_reset_mac_header(skb);
++		skb_set_network_header(skb, mac_len);
++		skb_set_transport_header(skb, udp_offset);
++		uh = udp_hdr(skb);
++		uh->len = htons(skb->len - udp_offset);
++		ipv6h = ipv6_hdr(skb);
++		len = skb->len - udp_offset;
++
++		uh->check = ~csum_ipv6_magic(&ipv6h->saddr, &ipv6h->daddr,
++					     len, IPPROTO_UDP, 0);
++		uh->check = csum_fold(skb_checksum(skb, udp_offset, len, 0));
++		if (uh->check == 0)
++			uh->check = CSUM_MANGLED_0;
++		skb->ip_summed = CHECKSUM_NONE;
++	} while ((skb = skb->next));
++out:
++	return segs;
++}
++
+ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+-	netdev_features_t features)
++					 netdev_features_t features)
+ {
+ 	struct sk_buff *segs = ERR_PTR(-EINVAL);
+ 	unsigned int mss;
+@@ -73,43 +126,47 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+ 		goto out;
+ 	}
+ 
+-	/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
+-	 * do checksum of UDP packets sent as multiple IP fragments.
+-	 */
+-	offset = skb_checksum_start_offset(skb);
+-	csum = skb_checksum(skb, offset, skb->len - offset, 0);
+-	offset += skb->csum_offset;
+-	*(__sum16 *)(skb->data + offset) = csum_fold(csum);
+-	skb->ip_summed = CHECKSUM_NONE;
+-
+-	/* Check if there is enough headroom to insert fragment header. */
+-	if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
+-	    pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
+-		goto out;
++	if (skb->encapsulation && skb_shinfo(skb)->gso_type & SKB_GSO_UDP_TUNNEL)
++		segs = skb_udp6_tunnel_segment(skb, features);
++	else {
++		/* Do software UFO. Complete and fill in the UDP checksum as HW cannot
++		 * do checksum of UDP packets sent as multiple IP fragments.
++		 */
++		offset = skb_checksum_start_offset(skb);
++		csum = skb_checksum(skb, offset, skb->len - offset, 0);
++		offset += skb->csum_offset;
++		*(__sum16 *)(skb->data + offset) = csum_fold(csum);
++		skb->ip_summed = CHECKSUM_NONE;
++
++		/* Check if there is enough headroom to insert fragment header. */
++		if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
++		    pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
++			goto out;
+ 
+-	/* Find the unfragmentable header and shift it left by frag_hdr_sz
+-	 * bytes to insert fragment header.
+-	 */
+-	unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+-	nexthdr = *prevhdr;
+-	*prevhdr = NEXTHDR_FRAGMENT;
+-	unfrag_len = skb_network_header(skb) - skb_mac_header(skb) +
+-		     unfrag_ip6hlen;
+-	mac_start = skb_mac_header(skb);
+-	memmove(mac_start-frag_hdr_sz, mac_start, unfrag_len);
+-
+-	skb->mac_header -= frag_hdr_sz;
+-	skb->network_header -= frag_hdr_sz;
+-
+-	fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
+-	fptr->nexthdr = nexthdr;
+-	fptr->reserved = 0;
+-	ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
+-
+-	/* Fragment the skb. ipv6 header and the remaining fields of the
+-	 * fragment header are updated in ipv6_gso_segment()
+-	 */
+-	segs = skb_segment(skb, features);
++		/* Find the unfragmentable header and shift it left by frag_hdr_sz
++		 * bytes to insert fragment header.
++		 */
++		unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
++		nexthdr = *prevhdr;
++		*prevhdr = NEXTHDR_FRAGMENT;
++		unfrag_len = skb_network_header(skb) - skb_mac_header(skb) +
++			     unfrag_ip6hlen;
++		mac_start = skb_mac_header(skb);
++		memmove(mac_start-frag_hdr_sz, mac_start, unfrag_len);
++
++		skb->mac_header -= frag_hdr_sz;
++		skb->network_header -= frag_hdr_sz;
++
++		fptr = (struct frag_hdr *)(skb_network_header(skb) + unfrag_ip6hlen);
++		fptr->nexthdr = nexthdr;
++		fptr->reserved = 0;
++		ipv6_select_ident(fptr, (struct rt6_info *)skb_dst(skb));
++
++		/* Fragment the skb. ipv6 header and the remaining fields of the
++		 * fragment header are updated in ipv6_gso_segment()
++		 */
++		segs = skb_segment(skb, features);
++	}
+ 
+ out:
+ 	return segs;
 -- 
 1.7.7.6
