@@ -1,44 +1,56 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: [PATCH (net.git)] net: phy: fix a bug when verify the EEE support
-Date: Mon, 27 May 2013 09:31:28 +0200
-Message-ID: <1369639888-11805-1-git-send-email-peppe.cavallaro@st.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net] ipv4: fix redirect handling for TCP packets
+Date: Mon, 27 May 2013 09:47:56 +0200
+Message-ID: <20130527080120.424C662C67@unicorn.suse.cz>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog114.obsmtp.com ([207.126.144.137]:52815 "EHLO
-	eu1sys200aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754364Ab3E0HwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 03:52:06 -0400
-Received: from zeta.dmz-eu.st.com (zeta.dmz-eu.st.com [164.129.230.9])
-	by beta.dmz-eu.st.com (STMicroelectronics) with ESMTP id 546F11EE
-	for <netdev@vger.kernel.org>; Mon, 27 May 2013 07:31:37 +0000 (GMT)
-Received: from mail7.sgp.st.com (unknown [164.129.223.81])
-	by zeta.dmz-eu.st.com (STMicroelectronics) with ESMTP id DB82A4536
-	for <netdev@vger.kernel.org>; Mon, 27 May 2013 07:31:21 +0000 (GMT)
+Received: from cantor2.suse.de ([195.135.220.15]:47103 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756280Ab3E0IBX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 04:01:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The phy_init_eee has to exit with an error when the
-local device and its link partner both do not support EEE.
-So this patch fixes a problem when verify this.
+Unlike ipv4_redirect() and ipv4_sk_redirect(), ip_do_redirect()
+doesn't call __build_flow_key() directly but via
+ip_rt_build_flow_key() wrapper. This leads to __build_flow_key()
+getting pointer to IPv4 header of the ICMP redirect packet
+rather than pointer to the embedded IPv4 header of the packet
+initiating the redirect.
 
-Signed-off-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+As a result, handling of ICMP redirects initiated by TCP packets
+is broken. Issue was introduced by commit 4895c771c (v3.6-rc1).
+
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- drivers/net/phy/phy.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ net/ipv4/route.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/phy.c b/drivers/net/phy/phy.c
-index c14f147..38f0b31 100644
---- a/drivers/net/phy/phy.c
-+++ b/drivers/net/phy/phy.c
-@@ -1044,7 +1044,7 @@ int phy_init_eee(struct phy_device *phydev, bool clk_stop_enable)
- 		adv = mmd_eee_adv_to_ethtool_adv_t(eee_adv);
- 		lp = mmd_eee_adv_to_ethtool_adv_t(eee_lp);
- 		idx = phy_find_setting(phydev->speed, phydev->duplex);
--		if ((lp & adv & settings[idx].setting))
-+		if (!(lp & adv & settings[idx].setting))
- 			goto eee_exit;
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index 550781a..d35bbf0 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -737,10 +737,15 @@ static void ip_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_buf
+ {
+ 	struct rtable *rt;
+ 	struct flowi4 fl4;
++	const struct iphdr *iph = (const struct iphdr *) skb->data;
++	int oif = skb->dev->ifindex;
++	u8 tos = RT_TOS(iph->tos);
++	u8 prot = iph->protocol;
++	u32 mark = skb->mark;
  
- 		if (clk_stop_enable) {
+ 	rt = (struct rtable *) dst;
+ 
+-	ip_rt_build_flow_key(&fl4, sk, skb);
++	__build_flow_key(&fl4, sk, iph, oif, tos, prot, mark, 0);
+ 	__ip_do_redirect(rt, skb, &fl4, true);
+ }
+ 
 -- 
-1.7.4.4
+1.8.1.4
