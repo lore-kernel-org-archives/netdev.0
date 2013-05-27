@@ -1,40 +1,34 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [Patch v2] skbuff: Hide GFP_ATOMIC page allocation failures for
- dropped packets
-Date: Tue, 28 May 2013 00:41:49 +0200
-Message-ID: <20130527224149.GA4384@electric-eye.fr.zoreil.com>
-References: <1369601101-23057-1-git-send-email-atomlin@redhat.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] ipvs: Fix reuse connection if real server is dead
+Date: Tue, 28 May 2013 08:48:52 +0900
+Message-ID: <20130527234849.GA8096@verge.net.au>
+References: <1369523799-27082-1-git-send-email-horms@verge.net.au>
+ <1369523799-27082-2-git-send-email-horms@verge.net.au>
+ <20130527114911.GA30491@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	pshelar@nicira.com, mst@redhat.com, alexander.h.duyck@intel.com,
-	riel@redhat.com, aquini@redhat.com,
-	sergei.shtylyov@cogentembedded.com, linux-kernel@vger.kernel.org
-To: atomlin@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:60510 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752201Ab3E0WmM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 18:42:12 -0400
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <1369601101-23057-1-git-send-email-atomlin@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20130527114911.GA30491@localhost>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-atomlin@redhat.com <atomlin@redhat.com> :
-[...]
-> Failed GFP_ATOMIC allocations by the network stack result in dropped
-> packets, which will be received on a subsequent retransmit, and an
-> unnecessary, noisy warning with a kernel backtrace.
+On Mon, May 27, 2013 at 01:49:11PM +0200, Pablo Neira Ayuso wrote:
+> On Sun, May 26, 2013 at 08:16:39AM +0900, Simon Horman wrote:
+> > From: Grzegorz Lyczba <grzegorz.lyczba@gmail.com>
+> > 
+> > Expire cached connection for new TCP/SCTP connection if real server is down
 > 
-> These warnings are harmless, but they still cause users to panic and
-> file bug reports over dropped packets. It would be better to hide the
-> failed allocation warnings and backtraces, and let retransmits handle
-> dropped packets quietly.
+> Applied, thanks Simon.
+> 
+> I have mangled the description to insist on the fact that newly
+> (reused) connections break as they will be directed to the dead
+> server.
 
-Linux VM may be perfect but device drivers do stupid things.
-
-Please don't paper over it just because some shit ends in your backyard.
-
--- 
-Ueimor
+Thanks.
