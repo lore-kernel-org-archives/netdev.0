@@ -1,20 +1,52 @@
-From: "=?utf-8?Q?Candance_Grieco?=" <mcastillo@invercro.net>
-Subject: =?utf-8?Q?=E1=B9=BD=E2=80=82=E1=BC=B3=E2=80=82=E1=BA=B0=E2=80=82=C7=B4=E2=80=82=E2=84=9C=E2=80=82=E1=BA=B0?=
-Date: Sun, 26 May 2013 18:41:51 +0000
-Message-ID: <3974909208.20130526184151@invercro.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 8bit
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Subject: [PATCH 0/3] net: phy: prevent linking breakage
+Date: Mon, 27 May 2013 18:18:41 +0200
+Message-ID: <1369671524-14797-1-git-send-email-alexandre.belloni@free-electrons.com>
+Cc: linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Russell King <linux@arm.linux.org.uk>,
+	Shawn Guo <shawn.guo@linaro.org>,
+	Sascha Hauer <kernel@pengutronix.de>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [190.5.71.36] ([190.5.71.36]:45551 "EHLO control.yourdomain.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751325Ab3E0Pwe (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 11:52:34 -0400
-Received: from invercro.net (unknown [94.236.103.72])
-	by control.yourdomain.com (Postfix) with ESMTPA id 7AA2C6C5D8E
-	for <netdev@vger.kernel.org>; Sun, 26 May 2013 12:45:33 -0600 (CST)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-http://www.euridice-dev.com/language/blogfotos.php?id4778996
+There is a linking issue when using phy_register_fixup{,_for_uid,_for_id} and
+CONFIG_PHYLIB is not a builtin:
+
+arch/arm/mach-at91/built-in.o: In function `ksz9021rn_phy_fixup':
+:(.text+0x1174): undefined reference to `mdiobus_write'
+:(.text+0x1188): undefined reference to `mdiobus_write'
+:(.text+0x119c): undefined reference to `mdiobus_write'
+:(.text+0x11b0): undefined reference to `mdiobus_write'
+arch/arm/mach-at91/built-in.o: In function `sama5_dt_device_init':
+:(.init.text+0x1e34): undefined reference to `phy_register_fixup_for_uid'
+
+This has been solved for arch/arm/mach-mxs/ and arch/arm/mach-imx/ by testing
+IS_BUILTIN(CONFIG_PHYLIB) before calling the functions.
+
+The first patch is an attempt at solving that issue globally.
+
+The following patches remove the unnecessary IS_BUILTIN(CONFIG_PHYLIB) checks.
+
+Quickly greping into the code shows that the issue may arise in:
+
+arch/powerpc/platforms/85xx/mpc85xx_mds.c
+arch/arm/mach-davinci/board-dm644x-evm.c
+arch/arm/mach-orion5x/dns323-setup.c
+arch/arm/mach-at91/board-dt-sama5.c
+
+Alexandre Belloni (3):
+  net: phy: prevent linking breakage
+  arm: mxs: don't check for CONFIG_PHYLIB as builtin
+  arm: imx: don't check for CONFIG_PHYLIB as builtin
+
+ arch/arm/mach-imx/mach-imx6q.c | 23 ++++++++++-------------
+ arch/arm/mach-mxs/mach-mxs.c   |  5 ++---
+ drivers/net/phy/phy_device.c   |  6 ++++++
+ include/linux/phy.h            | 12 ++++++++++++
+ 4 files changed, 30 insertions(+), 16 deletions(-)
+
+-- 
+1.8.1.2
