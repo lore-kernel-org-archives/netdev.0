@@ -1,7 +1,7 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 5/6] bnx2x: Implement PCI shutdown
-Date: Mon, 27 May 2013 17:08:30 +0300
-Message-ID: <1369663711-32146-6-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 3/6] bnx2x: Ack unknown VF messages
+Date: Mon, 27 May 2013 17:08:28 +0300
+Message-ID: <1369663711-32146-4-git-send-email-yuvalmin@broadcom.com>
 References: <1369663711-32146-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,154 +10,43 @@ Cc: eilong@broadcom.com, ariele@broadcom.com,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4947 "EHLO mms3.broadcom.com"
+Received: from mms1.broadcom.com ([216.31.210.17]:4341 "EHLO mms1.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932608Ab3E0OI4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 10:08:56 -0400
+	id S932608Ab3E0OJC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 10:09:02 -0400
 In-Reply-To: <1369663711-32146-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Implement the PCI shutdown callback to support un-orderly shutdown, i.e.,
-shutdowns in which the remove callback will not be called.
+From: Ariel Elior <ariele@broadcom.com>
 
-Due to the lack of this functionality, when an un-orderly shutdown occurred,
-it was possible for wake-on-lan to remain disabled.
+A PF should ack the firmware when receiving unknown messages through the VF's
+mailbox. This prevents the VF mailbox from being stuck in case of a VF sending
+a message unknown to the PF (e.g. VF with more advanced version).
 
-This is now fixed as the callback introduces the correct place in which
-`system_state' can be queried and wake-on-lan be configured accordingly.
-
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 71 ++++++++++++++++++++----
- 1 file changed, 59 insertions(+), 12 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index 0a3bb53..13f8144 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -12721,17 +12721,11 @@ init_one_exit:
- 	return rc;
- }
- 
--static void bnx2x_remove_one(struct pci_dev *pdev)
-+static void __bnx2x_remove(struct pci_dev *pdev,
-+			   struct net_device *dev,
-+			   struct bnx2x *bp,
-+			   bool remove_netdev)
- {
--	struct net_device *dev = pci_get_drvdata(pdev);
--	struct bnx2x *bp;
--
--	if (!dev) {
--		dev_err(&pdev->dev, "BAD net device from bnx2x_init_one\n");
--		return;
--	}
--	bp = netdev_priv(dev);
--
- 	/* Delete storage MAC address */
- 	if (!NO_FCOE(bp)) {
- 		rtnl_lock();
-@@ -12744,7 +12738,15 @@ static void bnx2x_remove_one(struct pci_dev *pdev)
- 	bnx2x_dcbnl_update_applist(bp, true);
- #endif
- 
--	unregister_netdev(dev);
-+	/* Close the interface - either directly or implicitly */
-+	if (remove_netdev) {
-+		unregister_netdev(dev);
-+	} else {
-+		rtnl_lock();
-+		if (netif_running(dev))
-+			bnx2x_close(dev);
-+		rtnl_unlock();
-+	}
- 
- 	/* Power on: we can't let PCI layer write to us while we are in D3 */
- 	if (IS_PF(bp))
-@@ -12766,6 +12768,12 @@ static void bnx2x_remove_one(struct pci_dev *pdev)
- 	if (IS_VF(bp))
- 		bnx2x_vfpf_release(bp);
- 
-+	/* Assumes no further PCIe PM changes will occur */
-+	if (system_state == SYSTEM_POWER_OFF) {
-+		pci_wake_from_d3(pdev, bp->wol);
-+		pci_set_power_state(pdev, PCI_D3hot);
-+	}
-+
- 	if (bp->regview)
- 		iounmap(bp->regview);
- 
-@@ -12780,7 +12788,8 @@ static void bnx2x_remove_one(struct pci_dev *pdev)
- 	}
- 	bnx2x_free_mem_bp(bp);
- 
--	free_netdev(dev);
-+	if (remove_netdev)
-+		free_netdev(dev);
- 
- 	if (atomic_read(&pdev->enable_cnt) == 1)
- 		pci_release_regions(pdev);
-@@ -12789,6 +12798,20 @@ static void bnx2x_remove_one(struct pci_dev *pdev)
- 	pci_set_drvdata(pdev, NULL);
- }
- 
-+static void bnx2x_remove_one(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct bnx2x *bp;
-+
-+	if (!dev) {
-+		dev_err(&pdev->dev, "BAD net device from bnx2x_init_one\n");
-+		return;
-+	}
-+	bp = netdev_priv(dev);
-+
-+	__bnx2x_remove(pdev, dev, bp, true);
-+}
-+
- static int bnx2x_eeh_nic_unload(struct bnx2x *bp)
- {
- 	bp->state = BNX2X_STATE_CLOSING_WAIT4_HALT;
-@@ -12968,6 +12991,29 @@ static const struct pci_error_handlers bnx2x_err_handler = {
- 	.resume         = bnx2x_io_resume,
- };
- 
-+static void bnx2x_shutdown(struct pci_dev *pdev)
-+{
-+	struct net_device *dev = pci_get_drvdata(pdev);
-+	struct bnx2x *bp;
-+
-+	if (!dev)
-+		return;
-+
-+	bp = netdev_priv(dev);
-+	if (!bp)
-+		return;
-+
-+	rtnl_lock();
-+	netif_device_detach(dev);
-+	rtnl_unlock();
-+
-+	/* Don't remove the netdevice, as there are scenarios which will cause
-+	 * the kernel to hang, e.g., when trying to remove bnx2i while the
-+	 * rootfs is mounted from SAN.
-+	 */
-+	__bnx2x_remove(pdev, dev, bp, false);
-+}
-+
- static struct pci_driver bnx2x_pci_driver = {
- 	.name        = DRV_MODULE_NAME,
- 	.id_table    = bnx2x_pci_tbl,
-@@ -12979,6 +13025,7 @@ static struct pci_driver bnx2x_pci_driver = {
- #ifdef CONFIG_BNX2X_SRIOV
- 	.sriov_configure = bnx2x_sriov_configure,
- #endif
-+	.shutdown    = bnx2x_shutdown,
- };
- 
- static int __init bnx2x_init(void)
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index 928b074..2826066 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -1605,8 +1605,11 @@ static void bnx2x_vf_mbx_request(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 			bnx2x_vf_mbx_resp(bp, vf);
+ 		} else {
+ 			/* can't send a response since this VF is unknown to us
+-			 * just unlock the channel and be done with.
++			 * just ack the FW to release the mailbox and unlock
++			 * the channel.
+ 			 */
++			storm_memset_vf_mbx_ack(bp, vf->abs_vfid);
++			mmiowb();
+ 			bnx2x_unlock_vf_pf_channel(bp, vf,
+ 						   mbx->first_tlv.tl.type);
+ 		}
 -- 
 1.8.1.227.g44fe835
