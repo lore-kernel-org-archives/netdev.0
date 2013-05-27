@@ -1,62 +1,122 @@
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Subject: [PATCH 3/5] fec: Disable the PHY regulator on error and removal
-Date: Mon, 27 May 2013 10:48:31 -0300
-Message-ID: <1369662513-32133-4-git-send-email-fabio.estevam@freescale.com>
-References: <1369662513-32133-1-git-send-email-fabio.estevam@freescale.com>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net-next 2/6] bnx2x: Add and correct PCI link speed
+ prints
+Date: Mon, 27 May 2013 17:08:27 +0300
+Message-ID: <1369663711-32146-3-git-send-email-yuvalmin@broadcom.com>
+References: <1369663711-32146-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <shawn.guo@linaro.org>, <kernel@pengutronix.de>,
-	<netdev@vger.kernel.org>,
-	Fabio Estevam <fabio.estevam@freescale.com>
-To: <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: eilong@broadcom.com, ariele@broadcom.com,
+	"Dmitry Kravkov" <dmitry@broadcom.com>,
+	"Yuval Mintz" <yuvalmin@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:43460
-	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932379Ab3E0Ns6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 May 2013 09:48:58 -0400
-In-Reply-To: <1369662513-32133-1-git-send-email-fabio.estevam@freescale.com>
+Received: from mms2.broadcom.com ([216.31.210.18]:1742 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932608Ab3E0OIx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 10:08:53 -0400
+In-Reply-To: <1369663711-32146-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In the case of error during probe, disable the PHY regulator.
+From: Dmitry Kravkov <dmitry@broadcom.com>
 
-Do the same in fec_drv_remove().
+This adds the print of the PCI gen3 link speed (8GHz), as well as correcting
+the same print for 57712 boards (the print erroneously showed a 2.5GHz speed).
 
-Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      |  5 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c | 40 +++++++++++++++---------
+ 2 files changed, 31 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index dc7388e..58ac0c7 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1926,6 +1926,8 @@ fec_probe(struct platform_device *pdev)
- 				"Failed to enable phy regulator: %d\n", ret);
- 			goto failed_regulator;
- 		}
-+	} else {
-+		fep->reg_phy = NULL;
- 	}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index 946450d..47b06fc 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -2342,4 +2342,9 @@ enum {
  
- 	fec_reset_phy(pdev);
-@@ -1982,6 +1984,8 @@ failed_irq:
- 			free_irq(irq, ndev);
- 	}
- failed_init:
-+	if (fep->reg_phy)
-+		regulator_disable(fep->reg_phy);
- failed_regulator:
- 	clk_disable_unprepare(fep->clk_ahb);
- 	clk_disable_unprepare(fep->clk_ipg);
-@@ -2005,6 +2009,8 @@ fec_drv_remove(struct platform_device *pdev)
- 	unregister_netdev(ndev);
- 	fec_enet_mii_remove(fep);
- 	del_timer_sync(&fep->time_keep);
-+	if (fep->reg_phy)
-+		regulator_disable(fep->reg_phy);
- 	clk_disable_unprepare(fep->clk_ptp);
- 	if (fep->ptp_clock)
- 		ptp_clock_unregister(fep->ptp_clock);
+ #define NUM_MACS	8
+ 
++enum bnx2x_pci_bus_speed {
++	BNX2X_PCI_LINK_SPEED_2500 = 2500,
++	BNX2X_PCI_LINK_SPEED_5000 = 5000,
++	BNX2X_PCI_LINK_SPEED_8000 = 8000
++};
+ #endif /* bnx2x.h */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 80982c3..04fa510 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -12111,15 +12111,26 @@ err_out:
+ 	return rc;
+ }
+ 
+-static void bnx2x_get_pcie_width_speed(struct bnx2x *bp, int *width, int *speed)
++static void bnx2x_get_pcie_width_speed(struct bnx2x *bp, int *width,
++				       enum bnx2x_pci_bus_speed *speed)
+ {
+-	u32 val = 0;
++	u32 link_speed, val = 0;
+ 
+ 	pci_read_config_dword(bp->pdev, PCICFG_LINK_CONTROL, &val);
+ 	*width = (val & PCICFG_LINK_WIDTH) >> PCICFG_LINK_WIDTH_SHIFT;
+ 
+-	/* return value of 1=2.5GHz 2=5GHz */
+-	*speed = (val & PCICFG_LINK_SPEED) >> PCICFG_LINK_SPEED_SHIFT;
++	link_speed = (val & PCICFG_LINK_SPEED) >> PCICFG_LINK_SPEED_SHIFT;
++
++	switch (link_speed) {
++	case 3:
++		*speed = BNX2X_PCI_LINK_SPEED_8000;
++		break;
++	case 2:
++		*speed = BNX2X_PCI_LINK_SPEED_5000;
++		break;
++	default:
++		*speed = BNX2X_PCI_LINK_SPEED_2500;
++	}
+ }
+ 
+ static int bnx2x_check_firmware(struct bnx2x *bp)
+@@ -12482,7 +12493,8 @@ static int bnx2x_init_one(struct pci_dev *pdev,
+ {
+ 	struct net_device *dev = NULL;
+ 	struct bnx2x *bp;
+-	int pcie_width, pcie_speed;
++	int pcie_width;
++	enum bnx2x_pci_bus_speed pcie_speed;
+ 	int rc, max_non_def_sbs;
+ 	int rx_count, tx_count, rss_count, doorbell_size;
+ 	int max_cos_est;
+@@ -12634,15 +12646,15 @@ static int bnx2x_init_one(struct pci_dev *pdev,
+ 	BNX2X_DEV_INFO("got pcie width %d and speed %d\n",
+ 		       pcie_width, pcie_speed);
+ 
+-	BNX2X_DEV_INFO(
+-		"%s (%c%d) PCI-E x%d %s found at mem %lx, IRQ %d, node addr %pM\n",
+-		    board_info[ent->driver_data].name,
+-		    (CHIP_REV(bp) >> 12) + 'A', (CHIP_METAL(bp) >> 4),
+-		    pcie_width,
+-		    ((!CHIP_IS_E2(bp) && pcie_speed == 2) ||
+-		     (CHIP_IS_E2(bp) && pcie_speed == 1)) ?
+-		    "5GHz (Gen2)" : "2.5GHz",
+-		    dev->base_addr, bp->pdev->irq, dev->dev_addr);
++	BNX2X_DEV_INFO("%s (%c%d) PCI-E x%d %s found at mem %lx, IRQ %d, node addr %pM\n",
++		       board_info[ent->driver_data].name,
++		       (CHIP_REV(bp) >> 12) + 'A', (CHIP_METAL(bp) >> 4),
++		       pcie_width,
++		       pcie_speed == BNX2X_PCI_LINK_SPEED_2500 ? "2.5GHz" :
++		       pcie_speed == BNX2X_PCI_LINK_SPEED_5000 ? "5.0GHz" :
++		       pcie_speed == BNX2X_PCI_LINK_SPEED_8000 ? "8.0GHz" :
++		       "Unknown",
++		       dev->base_addr, bp->pdev->irq, dev->dev_addr);
+ 
+ 	return 0;
+ 
 -- 
-1.8.1.2
+1.8.1.227.g44fe835
