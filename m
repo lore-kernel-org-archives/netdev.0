@@ -1,47 +1,43 @@
-From: Debabrata Banerjee <dbavatar@gmail.com>
+From: Joe Perches <joe@perches.com>
 Subject: Re: [Patch v2] skbuff: Hide GFP_ATOMIC page allocation failures for
  dropped packets
-Date: Tue, 28 May 2013 13:15:41 -0400
-Message-ID: <CAATkVEz9QzYfLhfv6LgGVatPxP3Q1v9DdWaSsFTKgfKrdvQYhw@mail.gmail.com>
-References: <1369599557-22677-1-git-send-email-atomlin@redhat.com>
-	<51A39A3F.8080903@redhat.com>
-	<1369693520.3301.477.camel@edumazet-glaptop>
-	<1369715506.2034.30.camel@joe-AO722>
+Date: Tue, 28 May 2013 10:29:45 -0700
+Message-ID: <1369762185.22004.54.camel@joe-AO722>
+References: <1369601101-23057-1-git-send-email-atomlin@redhat.com>
+	 <20130527224149.GA4384@electric-eye.fr.zoreil.com>
+	 <51A4D4AD.2010507@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rik van Riel <riel@redhat.com>, atomlin@redhat.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>, edumazet@google.com,
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, atomlin@redhat.com,
+	netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
 	pshelar@nicira.com, mst@redhat.com, alexander.h.duyck@intel.com,
-	aquini@redhat.com, sergei.shtylyov@cogentembedded.com,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"Banerjee, Debabrata" <dbanerje@akamai.com>,
-	Joshua Hunt <johunt@akamai.com>
-To: Joe Perches <joe@perches.com>
+	riel@redhat.com, aquini@redhat.com,
+	sergei.shtylyov@cogentembedded.com, linux-kernel@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369715506.2034.30.camel@joe-AO722>
+In-Reply-To: <51A4D4AD.2010507@candelatech.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 28, 2013 at 12:31 AM, Joe Perches <joe@perches.com> wrote:
->
-> I think the __alloc_skb alloc failure message is ok,
-> but maybe there shouldn't be something "scary" like
-> a dump_stack.
->
-> Maybe this site should use a trivial debug error
-> message like below instead.
+On Tue, 2013-05-28 at 09:00 -0700, Ben Greear wrote:
+> On 05/27/2013 03:41 PM, Francois Romieu wrote:
+> > atomlin@redhat.com <atomlin@redhat.com> :
+> > [...]
+> >> Failed GFP_ATOMIC allocations by the network stack result in dropped
+> >> packets, which will be received on a subsequent retransmit, and an
+> >> unnecessary, noisy warning with a kernel backtrace.
+[]
+> > Please don't paper over it just because some shit ends in your backyard.
+> We should rate-limit these messages at least.
 
-The stack trace may or may not be important for debugging, however
-what is important is that we know how often this is happening. That
-implies that there should be a percpu counter of allocation failures
-here, regardless of a dump_stack, rate limited or not. I would suppose
-it's ok for no stack by default as long as there is a counter, for
-this specific call only.
+Already done.
+Look in mm/page_alloc:warn_alloc_failed()
 
-There are some scary ways this code is called, for example from
-tcp_send_fin(). It does yield() in that loop, but otherwise it just
-spins.
+void warn_alloc_failed(gfp_t gfp_mask, int order, const char *fmt, ...)
+{
+	unsigned int filter = SHOW_MEM_FILTER_NODES;
 
--Deb
+	if ((gfp_mask & __GFP_NOWARN) || !__ratelimit(&nopage_rs) ||
+	    debug_guardpage_minorder() > 0)
+		return;
