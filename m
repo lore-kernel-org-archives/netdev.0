@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 0/3] net: extend netdevice notifier and use it for flags change
-Date: Tue, 28 May 2013 10:10:52 +0200
-Message-ID: <1369728655-26649-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/3] net: pass changed flags along with NETDEV_CHANGE event
+Date: Tue, 28 May 2013 10:10:54 +0200
+Message-ID: <1369728655-26649-3-git-send-email-jiri@resnulli.us>
+References: <1369728655-26649-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -10,104 +11,64 @@ Cc: davem@davemloft.net, eric.dumazet@gmail.com, timo.teras@iki.fi,
 	kaber@trash.net, bhutchings@solarflare.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:48925 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933327Ab3E1ILA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 04:11:00 -0400
-Received: by mail-we0-f180.google.com with SMTP id t60so4003661wes.25
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 01:10:58 -0700 (PDT)
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:43724 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933327Ab3E1ILG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 04:11:06 -0400
+Received: by mail-wi0-f181.google.com with SMTP id hi5so2200754wib.14
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 01:11:04 -0700 (PDT)
+In-Reply-To: <1369728655-26649-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jiri Pirko (2):
-  net: pass info struct via netdevice notifier
-  net: pass changed flags along with NETDEV_CHANGE event
+Use new netdevice notifier infrastructure to pass along changed flags.
 
-Timo Ter=C3=A4s (1):
-  arp: flush arp cache on IFF_NOARP change
+Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ include/linux/netdevice.h | 5 +++++
+ net/core/dev.c            | 9 +++++++--
+ 2 files changed, 12 insertions(+), 2 deletions(-)
 
- arch/ia64/hp/sim/simeth.c                          |  2 +-
- arch/mips/txx9/generic/setup_tx4939.c              |  3 +-
- drivers/infiniband/core/cma.c                      |  4 +-
- drivers/infiniband/hw/mlx4/main.c                  |  2 +-
- drivers/net/bonding/bond_main.c                    |  2 +-
- drivers/net/can/led.c                              |  4 +-
- drivers/net/ethernet/broadcom/cnic.c               |  2 +-
- drivers/net/ethernet/marvell/skge.c                |  2 +-
- drivers/net/ethernet/marvell/sky2.c                |  2 +-
- .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |  2 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  2 +-
- drivers/net/ethernet/sfc/efx.c                     |  2 +-
- drivers/net/hamradio/bpqether.c                    |  7 ++-
- drivers/net/macvlan.c                              |  2 +-
- drivers/net/macvtap.c                              |  2 +-
- drivers/net/netconsole.c                           |  5 +-
- drivers/net/ppp/pppoe.c                            |  2 +-
- drivers/net/team/team.c                            |  2 +-
- drivers/net/wan/dlci.c                             |  2 +-
- drivers/net/wan/hdlc.c                             |  2 +-
- drivers/net/wan/lapbether.c                        |  2 +-
- drivers/scsi/fcoe/fcoe.c                           |  2 +-
- drivers/scsi/fcoe/fcoe_transport.c                 |  2 +-
- drivers/staging/csr/netdev.c                       |  2 +-
- drivers/staging/ft1000/ft1000-pcmcia/ft1000_proc.c |  2 +-
- drivers/staging/ft1000/ft1000-usb/ft1000_proc.c    |  2 +-
- drivers/staging/silicom/bpctl_mod.c                |  2 +-
- include/linux/netdevice.h                          | 18 ++++++
- net/8021q/vlan.c                                   |  2 +-
- net/appletalk/aarp.c                               |  2 +-
- net/appletalk/ddp.c                                |  2 +-
- net/atm/clip.c                                     |  4 +-
- net/atm/mpc.c                                      |  6 +-
- net/ax25/af_ax25.c                                 |  6 +-
- net/batman-adv/hard-interface.c                    |  2 +-
- net/bridge/br_notify.c                             |  2 +-
- net/caif/caif_dev.c                                |  4 +-
- net/caif/caif_usb.c                                |  4 +-
- net/can/af_can.c                                   |  4 +-
- net/can/bcm.c                                      |  4 +-
- net/can/gw.c                                       |  4 +-
- net/can/raw.c                                      |  4 +-
- net/core/dev.c                                     | 65 ++++++++++++++=
-++++----
- net/core/drop_monitor.c                            |  4 +-
- net/core/dst.c                                     |  2 +-
- net/core/fib_rules.c                               |  4 +-
- net/core/netprio_cgroup.c                          |  2 +-
- net/core/pktgen.c                                  |  2 +-
- net/core/rtnetlink.c                               |  2 +-
- net/decnet/af_decnet.c                             |  4 +-
- net/ieee802154/6lowpan.c                           |  5 +-
- net/ipv4/arp.c                                     |  8 ++-
- net/ipv4/devinet.c                                 |  2 +-
- net/ipv4/fib_frontend.c                            |  2 +-
- net/ipv4/ipmr.c                                    |  2 +-
- net/ipv4/netfilter/ipt_MASQUERADE.c                |  2 +-
- net/ipv6/addrconf.c                                |  4 +-
- net/ipv6/ip6mr.c                                   |  2 +-
- net/ipv6/ndisc.c                                   |  2 +-
- net/ipv6/netfilter/ip6t_MASQUERADE.c               |  2 +-
- net/ipv6/route.c                                   |  4 +-
- net/ipx/af_ipx.c                                   |  2 +-
- net/iucv/af_iucv.c                                 |  2 +-
- net/mac80211/iface.c                               |  5 +-
- net/netfilter/ipvs/ip_vs_ctl.c                     |  4 +-
- net/netfilter/nfnetlink_queue_core.c               |  2 +-
- net/netfilter/xt_TEE.c                             |  2 +-
- net/netlabel/netlabel_unlabeled.c                  |  7 +--
- net/netrom/af_netrom.c                             |  2 +-
- net/openvswitch/dp_notify.c                        |  2 +-
- net/packet/af_packet.c                             |  5 +-
- net/phonet/pn_dev.c                                |  4 +-
- net/rose/af_rose.c                                 |  6 +-
- net/sched/act_mirred.c                             |  2 +-
- net/tipc/eth_media.c                               |  4 +-
- net/tipc/ib_media.c                                |  4 +-
- net/wireless/core.c                                |  5 +-
- net/x25/af_x25.c                                   |  2 +-
- net/xfrm/xfrm_policy.c                             |  2 +-
- security/selinux/netif.c                           |  2 +-
- 80 files changed, 190 insertions(+), 129 deletions(-)
-
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 153127b..38dae4f 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1602,6 +1602,11 @@ struct netdevice_notifier_info {
+ 	struct net_device *dev;
+ };
+=20
++struct netdevice_notifier_change_info {
++	struct netdevice_notifier_info info; /* must be first */
++	unsigned int flags_changed;
++};
++
+ static inline struct net_device *
+ get_netdevice_notifier_info_dev(const struct netdevice_notifier_info *=
+info)
+ {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 9a891e0..77f1653 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4778,8 +4778,13 @@ void __dev_notify_flags(struct net_device *dev, =
+unsigned int old_flags)
+ 	}
+=20
+ 	if (dev->flags & IFF_UP &&
+-	    (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE))=
+)
+-		call_netdevice_notifiers(NETDEV_CHANGE, dev);
++	    (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE))=
+) {
++		struct netdevice_notifier_change_info change_info;
++
++		change_info.flags_changed =3D changes;
++		call_netdevice_notifiers_info(NETDEV_CHANGE, dev,
++					      &change_info.info);
++	}
+ }
+=20
+ /**
 --=20
 1.7.11.7
