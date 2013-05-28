@@ -1,52 +1,54 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [Patch net-next 1/3] vxlan: remove the unused rcu head from
- struct vxlan_rdst
-Date: Tue, 28 May 2013 09:07:06 -0700
-Message-ID: <20130528090706.0d4e9bee@nehalam.linuxnetplumber.net>
-References: <1369730153-11214-1-git-send-email-amwang@redhat.com>
+From: "Jens Renner (EFE)" <renner@efe-gmbh.de>
+Subject: [PATCH] net: ethernet: xilinx_emaclite: keep protocol selector bits
+ by reading ANAR
+Date: Tue, 28 May 2013 18:10:38 +0200
+Message-ID: <51A4D6FE.3080308@efe-gmbh.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Cc: davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:46172 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934771Ab3E1QHK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 12:07:10 -0400
-Received: by mail-pa0-f46.google.com with SMTP id fa1so652509pad.5
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 09:07:09 -0700 (PDT)
-In-Reply-To: <1369730153-11214-1-git-send-email-amwang@redhat.com>
+Received: from moutng.kundenserver.de ([212.227.126.186]:64896 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934694Ab3E1QK2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 12:10:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 28 May 2013 16:35:51 +0800
-Cong Wang <amwang@redhat.com> wrote:
+This patch reads the PHY's MII_ADVERTISE register (ANAR) before modifying it.
+Hence, the protocol selector bits (4:0) which indicate IEEE 803.3u support are
+prevented from being cleared. While the selector bits are fixed / read-only on
+some PHYs, not setting them correctly on others (like TI DP83630) makes the
+PHY fall back to 10/half mode which should be avoided.
 
-> From: Cong Wang <amwang@redhat.com>
-> 
-> Cc: Stephen Hemminger <stephen@networkplumber.org>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> ---
->  drivers/net/vxlan.c |    1 -
->  1 files changed, 0 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 5ed64d4..289d79a 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -97,7 +97,6 @@ struct vxlan_net {
->  };
->  
->  struct vxlan_rdst {
-> -	struct rcu_head		 rcu;
->  	__be32			 remote_ip;
->  	__be16			 remote_port;
->  	u32			 remote_vni;
+Signed-off-by: Jens Renner <renner@efe-gmbh.de>
+---
+drivers/net/ethernet/xilinx/xilinx_emaclite.c               |    7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index 919b983..4a67af1 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -922,7 +922,7 @@ void xemaclite_adjust_link(struct net_device *ndev)
+ static int xemaclite_open(struct net_device *dev)
+ {
+        struct net_local *lp = netdev_priv(dev);
+-       int retval;
++       int retval, adv;
 
-Correct, rdst is freed with fdb and that is already
-in RCU call back
+        /* Just to be safe, stop the device first */
+        xemaclite_disable_interrupts(lp);
+@@ -946,7 +946,10 @@ static int xemaclite_open(struct net_device *dev)
+                phy_write(lp->phy_dev, MII_CTRL1000, 0);
 
-Acked-by: Stephen Hemminger <stephen@networkplumber.org>
+                /* Advertise only 10 and 100mbps full/half duplex speeds */
+-               phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL);
++               adv = phy_read(lp->phy_dev, MII_ADVERTISE);
++               if (adv < 0)
++                       return adv;
++               phy_write(lp->phy_dev, MII_ADVERTISE, adv | ADVERTISE_ALL);
+
+                /* Restart auto negotiation */
+                bmcr = phy_read(lp->phy_dev, MII_BMCR);
