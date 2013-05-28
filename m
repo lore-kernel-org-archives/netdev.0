@@ -1,54 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5 net-next 3/5] tcp: add TCP support for
- low latency receive poll.
-Date: Tue, 28 May 2013 06:44:10 -0700
-Message-ID: <1369748650.3301.535.camel@edumazet-glaptop>
-References: <20130527074351.29882.51106.stgit@ladj378.jer.intel.com>
-	<20130527074421.29882.73968.stgit@ladj378.jer.intel.com>
-	<1369701413.3301.506.camel@edumazet-glaptop>
-	<51A46A21.9060305@linux.intel.com> <51A49FDC.2020608@linux.intel.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [net-next PATCH v3 1/6] net: cpsw: enhance pinctrl support
+Date: Tue, 28 May 2013 19:35:09 +0530
+Message-ID: <51A4B995.9050203@ti.com>
+References: <1369592616-23972-1-git-send-email-mugunthanvnm@ti.com> <1369592616-23972-2-git-send-email-mugunthanvnm@ti.com> <20130527213600.GO13507@atomide.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Don,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Eilon Greenstien <eilong@broadcom.com>, Dave Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <51A49FDC.2020608@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <devicetree-discuss@lists.ozlabs.org>,
+	Hebbar Gururaja <gururaja.hebbar@ti.com>,
+	<benoit.cousson@linaro.org>, <linux-omap@vger.kernel.org>,
+	<davem@davemloft.net>
+To: Tony Lindgren <tony@atomide.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:34938 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759087Ab3E1OFZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 May 2013 10:05:25 -0400
+In-Reply-To: <20130527213600.GO13507@atomide.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-28 at 15:15 +0300, Eliezer Tamir wrote:
+On 5/28/2013 3:06 AM, Tony Lindgren wrote:
+> * Mugunthan V N <mugunthanvnm@ti.com> [130526 11:28]:
+>> From: Hebbar Gururaja <gururaja.hebbar@ti.com>
+>>
+>> Amend cpsw controller to optionally take a pin control handle and set
+>> the state of the pins to:
+>>
+>> - "default" on boot, resume
+>> - "sleep" on suspend()
+>>
+>> This should make it possible to optimize energy usage for the pins
+>> for the suspend/resume cycle.
+>>
+>> If any of the above pin states are missing in dt, a warning message
+>> about the missing state is displayed.
+>> If certain pin-states are not available, to remove this warning message
+>> pass respective state name with null phandler.
+>>
+>> Signed-off-by: Hebbar Gururaja <gururaja.hebbar@ti.com>
+>> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+>> ---
+>>   drivers/net/ethernet/ti/cpsw.c |   48 ++++++++++++++++++++++++++++++++++++++++
+>>   1 file changed, 48 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+>> index 21a5b29..c9ed730 100644
+>> --- a/drivers/net/ethernet/ti/cpsw.c
+>> +++ b/drivers/net/ethernet/ti/cpsw.c
+>> @@ -35,6 +35,7 @@
+>>   #include <linux/if_vlan.h>
+>>   
+>>   #include <linux/platform_data/cpsw.h>
+>> +#include <linux/pinctrl/consumer.h>
+>>   
+>>   #include "cpsw_ale.h"
+>>   #include "cpts.h"
+>> @@ -351,6 +352,11 @@ struct cpsw_priv {
+>>   	bool irq_enabled;
+>>   	struct cpts *cpts;
+>>   	u32 emac_port;
+>> +
+>> +	/* Two optional pin states - default & sleep */
+>> +	struct pinctrl		*pinctrl;
+>> +	struct pinctrl_state	*pins_def;
+>> +	struct pinctrl_state	*pins_sleep;
+>>   };
+> Which pins do you need to dynamically remux? If it's not all
+> the pins, you should have three sets: default, active and idle.
+> This way the static pins in the default group don't need to be
+> constantly toggled.
+>
+> Regards,
+>
+> Tony
+Tony
 
-> >> How IPv6 is handled ?
-> 
-> It turns out that adding TCPv6/UDPv6 is very simple.
+I am using this for all the pins, in probe all the cpsw pins will be 
+configured
+and i have used the same in suspend/resume callback for power saving.
 
-Yep, I was about to send you the needed lines after my breakfast ;)
-
-
-
-
-------------------------------------------------------------------------------
-Try New Relic Now & We'll Send You this Cool Shirt
-New Relic is the only SaaS-based application performance monitoring service 
-that delivers powerful full stack analytics. Optimize and monitor your
-browser, app, & servers with just a few lines of code. Try New Relic
-and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Regards
+Mugunthan V N
