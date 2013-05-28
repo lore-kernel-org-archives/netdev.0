@@ -1,42 +1,159 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [patch net-next v2 1/3] net: pass info struct via netdevice
- notifier
-Date: Tue, 28 May 2013 08:54:28 +0000 (UTC)
-Message-ID: <ko1rc4$nbp$1@ger.gmane.org>
-References: <1369729460-28421-1-git-send-email-jiri@resnulli.us>
- <1369729460-28421-2-git-send-email-jiri@resnulli.us>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: [PATCH/FIX] net: Block MSG_CMSG_COMPAT in send(m)msg and recv(m)msg
+Date: Tue, 28 May 2013 10:56:00 +0200
+Message-ID: <20130528085600.GD30172@gmail.com>
+References: <cover.1369177867.git.luto@amacapital.net>
+ <aa015609319786835bcab445d507faa75c11f111.1369177867.git.luto@amacapital.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:39135 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933682Ab3E1Iyr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 May 2013 04:54:47 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UhFg3-0003ax-JA
-	for netdev@vger.kernel.org; Tue, 28 May 2013 10:54:43 +0200
-Received: from 180.183.220.200 ([180.183.220.200])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 10:54:43 +0200
-Received: from xiyou.wangcong by 180.183.220.200 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 10:54:43 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, x86@kernel.org,
+	trinity@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Andy Lutomirski <luto@amacapital.net>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <aa015609319786835bcab445d507faa75c11f111.1369177867.git.luto@amacapital.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 28 May 2013 at 08:24 GMT, Jiri Pirko <jiri@resnulli.us> wrote:
->  simeth_device_event(struct notifier_block *this,unsigned long event, void *ptr)
->  {
-> -	struct net_device *dev = ptr;
-> +	struct net_device *dev = get_netdevice_nofifier_info_dev(ptr);
 
-typo above....
+(edited the title to make sure everyone sees that this fix is standalone.)
 
-BTW, get_netdevice_notifier_info_dev() really sucks, can we make it
-shorter? For example, notifier_into_to_dev()?
+----- Forwarded message from Andy Lutomirski <luto@amacapital.net> -----
 
-Thanks.
+Date: Wed, 22 May 2013 14:07:44 -0700
+From: Andy Lutomirski <luto@amacapital.net>
+To: linux-kernel@vger.kernel.org
+Cc: x86@kernel.org, trinity@vger.kernel.org, Andy Lutomirski <luto@amacapital.net>, netdev@vger.kernel.org, "David S.
+	Miller" <davem@davemloft.net>
+Subject: [PATCH 5/5] net: Block MSG_CMSG_COMPAT in send(m)msg and recv(m)msg
+
+MSG_CMSG_COMPAT is (AFAIK) not intended to be part of the API --
+it's a hack that steals a bit to indicate to other networking code
+that a compat entry was used.  So don't allow it from a non-compat
+syscall.
+
+This prevents an oops when running this code:
+
+int main()
+{
+	int s;
+	struct sockaddr_in addr;
+	struct msghdr *hdr;
+
+	char *highpage = mmap((void*)(TASK_SIZE_MAX - 4096), 4096,
+	                      PROT_READ | PROT_WRITE,
+	                      MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+	if (highpage == MAP_FAILED)
+		err(1, "mmap");
+
+	s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (s == -1)
+		err(1, "socket");
+
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(1);
+        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	if (connect(s, (struct sockaddr*)&addr, sizeof(addr)) != 0)
+		err(1, "connect");
+
+	void *evil = highpage + 4096 - COMPAT_MSGHDR_SIZE;
+	printf("Evil address is %p\n", evil);
+
+	if (syscall(__NR_sendmmsg, s, evil, 1, MSG_CMSG_COMPAT) < 0)
+		err(1, "sendmmsg");
+
+	return 0;
+}
+
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+---
+ net/socket.c | 33 +++++++++++++++++++++++++++++++--
+ 1 file changed, 31 insertions(+), 2 deletions(-)
+
+diff --git a/net/socket.c b/net/socket.c
+index 88f759a..0e16888 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2097,8 +2097,12 @@ SYSCALL_DEFINE3(sendmsg, int, fd, struct msghdr __user *, msg, unsigned int, fla
+ {
+ 	int fput_needed, err;
+ 	struct msghdr msg_sys;
+-	struct socket *sock = sockfd_lookup_light(fd, &err, &fput_needed);
++	struct socket *sock;
++
++	if (flags & MSG_CMSG_COMPAT)
++		return -EINVAL;
+ 
++	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (!sock)
+ 		goto out;
+ 
+@@ -2171,6 +2175,8 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+ SYSCALL_DEFINE4(sendmmsg, int, fd, struct mmsghdr __user *, mmsg,
+ 		unsigned int, vlen, unsigned int, flags)
+ {
++	if (flags & MSG_CMSG_COMPAT)
++		return -EINVAL;
+ 	return __sys_sendmmsg(fd, mmsg, vlen, flags);
+ }
+ 
+@@ -2271,8 +2277,12 @@ SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr __user *, msg,
+ {
+ 	int fput_needed, err;
+ 	struct msghdr msg_sys;
+-	struct socket *sock = sockfd_lookup_light(fd, &err, &fput_needed);
++	struct socket *sock;
++
++	if (flags & MSG_CMSG_COMPAT)
++		return -EINVAL;
+ 
++	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+ 	if (!sock)
+ 		goto out;
+ 
+@@ -2397,6 +2407,9 @@ SYSCALL_DEFINE5(recvmmsg, int, fd, struct mmsghdr __user *, mmsg,
+ 	int datagrams;
+ 	struct timespec timeout_sys;
+ 
++	if (flags & MSG_CMSG_COMPAT)
++		return -EINVAL;
++
+ 	if (!timeout)
+ 		return __sys_recvmmsg(fd, mmsg, vlen, flags, NULL);
+ 
+@@ -2512,15 +2525,31 @@ SYSCALL_DEFINE2(socketcall, int, call, unsigned long __user *, args)
+ 				   (int __user *)a[4]);
+ 		break;
+ 	case SYS_SENDMSG:
++		if (a[2] & MSG_CMSG_COMPAT) {
++			err = -EINVAL;
++			break;
++		}
+ 		err = sys_sendmsg(a0, (struct msghdr __user *)a1, a[2]);
+ 		break;
+ 	case SYS_SENDMMSG:
++		if (a[3] & MSG_CMSG_COMPAT) {
++			err = -EINVAL;
++			break;
++		}
+ 		err = sys_sendmmsg(a0, (struct mmsghdr __user *)a1, a[2], a[3]);
+ 		break;
+ 	case SYS_RECVMSG:
++		if (a[2] & MSG_CMSG_COMPAT) {
++			err = -EINVAL;
++			break;
++		}
+ 		err = sys_recvmsg(a0, (struct msghdr __user *)a1, a[2]);
+ 		break;
+ 	case SYS_RECVMMSG:
++		if (a[3] & MSG_CMSG_COMPAT) {
++			err = -EINVAL;
++			break;
++		}
+ 		err = sys_recvmmsg(a0, (struct mmsghdr __user *)a1, a[2], a[3],
+ 				   (struct timespec __user *)a[4]);
+ 		break;
+-- 
+1.8.1.4
