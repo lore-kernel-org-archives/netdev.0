@@ -1,64 +1,180 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v3 3/3] arp: flush arp cache on IFF_NOARP change
-Date: Tue, 28 May 2013 13:30:23 +0200
-Message-ID: <1369740623-17601-4-git-send-email-jiri@resnulli.us>
-References: <1369740623-17601-1-git-send-email-jiri@resnulli.us>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v2 2/2] vxlan: allow specifying multiple default
+ destinations
+Date: Tue, 28 May 2013 12:43:23 +0100
+Message-ID: <20130528114323.GA1726@casper.infradead.org>
+References: <1369729878-9690-1-git-send-email-mike.rapoport@ravellosystems.com>
+ <1369729878-9690-3-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, timo.teras@iki.fi,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, bhutchings@solarflare.com,
-	xiyou.wangcong@gmail.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f51.google.com ([74.125.83.51]:43626 "EHLO
-	mail-ee0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932947Ab3E1Lai (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 07:30:38 -0400
-Received: by mail-ee0-f51.google.com with SMTP id e51so4565313eek.38
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 04:30:36 -0700 (PDT)
-In-Reply-To: <1369740623-17601-1-git-send-email-jiri@resnulli.us>
+Received: from casper.infradead.org ([85.118.1.10]:59160 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932878Ab3E1LnY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 07:43:24 -0400
+Content-Disposition: inline
+In-Reply-To: <1369729878-9690-3-git-send-email-mike.rapoport@ravellosystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Ter=C3=A4s <timo.teras@iki.fi>
+On 05/28/13 at 11:31am, Mike Rapoport wrote:
+> +/* Add remote to default destinations list */
+> +static int vxlan_remote_add(struct vxlan_dev *vxlan, struct nlattr *attr)
+> +{
+> +	struct nlattr *i;
+> +	__be32 ip;
+> +	__be16 port;
+> +	u32 ifindex, vni;
+> +	int rem, err = 0;
+> +	bool addr_set = false;
+> +
+> +	port = vxlan->dst_port;
+> +	vni = vxlan->default_dst.remote_vni;
+> +	ifindex = vxlan->default_dst.remote_ifindex;
+> +
+> +	nla_for_each_nested(i, attr, rem) {
+> +		switch (nla_type(i)) {
+> +		case IFLA_VXLAN_REMOTE_ADDR:
+> +			ip = nla_get_be32(i);
+> +			addr_set = true;
+> +			break;
+> +		case IFLA_VXLAN_REMOTE_PORT:
+> +			port = nla_get_be16(i);
+> +			break;
+> +		case IFLA_VXLAN_REMOTE_VNI:
+> +			vni = nla_get_u32(i);
+> +			break;
+> +		case IFLA_VXLAN_REMOTE_IFINDEX:
+> +			ifindex = nla_get_u32(i);
+> +			break;
+> +		default:
+> +			err = -EINVAL;
+> +			break;
+> +		};
+> +
+> +		if (err)
+> +			return err;
+> +	}
+> +
+> +	if (!addr_set)
+> +		return -EINVAL;
+> +
+> +	err = vxlan_rdst_append(&vxlan->default_dst, ip, port, vni, ifindex);
+> +	if (err < 0)
+> +		return err;
 
-IFF_NOARP affects what kind of neighbor entries are created
-(nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
-cache to refresh all entries.
+You must be seeing a warning about a possible use of uninitialized
+data here. 'ip' could be uninitialized.
 
-Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+In fact you are using these Netlink attributes blindy without
+validation. You need to extend vxlan_validate() and verify the
+type and length of each attribute. User space is not guaranteed
+to send the data you expect.
 
-v2->v3: shortened notifier_info struct name
----
- net/ipv4/arp.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+> +	netdev_dbg(vxlan->dev, "dstadd %pI4\n", &ip);
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index bf57402..4429b01 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -1235,12 +1235,18 @@ static int arp_netdev_event(struct notifier_blo=
-ck *this, unsigned long event,
- 			    void *ptr)
- {
- 	struct net_device *dev =3D netdev_notifier_info_to_dev(ptr);
-+	struct netdev_notifier_change_info *change_info;
-=20
- 	switch (event) {
- 	case NETDEV_CHANGEADDR:
- 		neigh_changeaddr(&arp_tbl, dev);
- 		rt_cache_flush(dev_net(dev));
- 		break;
-+	case NETDEV_CHANGE:
-+		change_info =3D ptr;
-+		if (change_info->flags_changed & IFF_NOARP)
-+			neigh_changeaddr(&arp_tbl, dev);
-+		break;
- 	default:
- 		break;
- 	}
---=20
-1.7.11.7
+This doesn't look suitable for inclusion.
+
+> @@ -1513,6 +1601,27 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port)
+>  	return vs;
+>  }
+>  
+> +static int vxlan_changelink(struct net_device *dev,
+> +			    struct nlattr *tb[], struct nlattr *data[])
+> +{
+> +	struct vxlan_dev *vxlan = netdev_priv(dev);
+> +	int err;
+> +
+> +	if (data[IFLA_VXLAN_REMOTE_ADD]) {
+> +		err = vxlan_remote_add(vxlan, data[IFLA_VXLAN_REMOTE_ADD]);
+> +		if (err)
+> +			return err;
+> +	}
+> +
+> +	if (data[IFLA_VXLAN_REMOTE_DEL]) {
+> +		err = vxlan_remote_delete(vxlan, data[IFLA_VXLAN_REMOTE_DEL]);
+> +		if (err)
+> +			return err;
+> +	}
+
+First of all please use NEW and DEL because that is what we use
+everywhere in Netlink and everyone is used to it.
+
+I would also make both of these a list of nested attribute to allow
+for multiple additions and deletions in the future. And please use
+the same format for NEW and DEL. Using a u32 directly for deletions
+sets the format in stone and we can't extend it in the future.
+
+Using attributes as you do in the addition case allows to support
+IPv6 addresses in the future.
+
+Why not make it even more generic and encode changes like this:
+
+enum {
+  IFLA_VXLAN_REMOTE_NEW,
+  IFLA_VXLAN_REMOTE_DEL,
+};
+
+IFLA_VXLAN_REMOTES = {
+  [IFLA_VXLAN_REMOTE_NEW] = {
+    [IFLA_VXLAN_REMOTE_PORT] = ...,
+    [IFLA_VXLAN_REMOTE_ADDR] = ...,
+  },
+  [IFLA_VXLAN_REMOTE_NEW] = {
+    ...,
+  },
+  [IFLA_VXLAN_REMOTE_DEL] = {
+    [IFLA_VXLAN_REMOTE_ADDR] = ...,
+  },
+}
+
+> @@ -1707,6 +1838,24 @@ static int vxlan_fill_info(struct sk_buff *skb, const struct net_device *dev)
+>  	if (nla_put(skb, IFLA_VXLAN_PORT_RANGE, sizeof(ports), &ports))
+>  		goto nla_put_failure;
+>  
+> +	if (vxlan->remote_cnt) {
+> +		struct vxlan_rdst *rdst;
+> +		struct nlattr *nest;
+> +
+> +		nest = nla_nest_start(skb, IFLA_VXLAN_REMOTE_LST);
+> +		if (nest == NULL)
+> +			goto nla_put_failure;
+> +
+> +		for (rdst = vxlan->default_dst.remote_next; rdst;
+> +		     rdst = rdst->remote_next) {
+> +			__be32 ip = rdst->remote_ip;
+> +			if (nla_put_be32(skb, IFLA_VXLAN_REMOTE_ADDR, ip))
+> +				goto nla_put_failure;
+
+
+Are you sure that you never want to extend this in the future? What
+about providing IFLA_VXLAN_REMOTE_PORT in the future?
+
+I suggest to encode it as:
+
+IFLA_VXLAN_REMOTES = {
+  [0] = {
+    [IFLA_VXLAN_REMOTE_ADDR] = <ADDR1>
+  },
+  [1] = {
+    [IFLA_VXLAN_REMOTE_ADDR] = <ADDR2>
+  }
+},
+
+Allowing to extend it to further attributes in the future.
+
+> +enum {
+> +	IFLA_VXLAN_REMOTE_UNSPEC,
+> +	IFLA_VXLAN_REMOTE_ADDR,
+> +	IFLA_VXLAN_REMOTE_IFINDEX,
+> +	IFLA_VXLAN_REMOTE_PORT,
+> +	IFLA_VXLAN_REMOTE_VNI,
+> +	__IFLA_VXLAN_REMOTE_MAX
+> +};
+> +
+> +#define IFLA_VXLAN_REMOTE_MAX	(__IFLA_VXLAN_REMOTE_MAX - 1)
+
+Each of these new attributes must have an struct nla_policy
+entry that is enforced.
