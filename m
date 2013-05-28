@@ -1,120 +1,53 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH] netpoll: remove return value from netpoll_rx_disable()
-Date: Tue, 28 May 2013 13:53:31 +0800
-Message-ID: <51A4465B.4010901@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch v2] skbuff: Hide GFP_ATOMIC page allocation failures for
+ dropped packets
+Date: Mon, 27 May 2013 23:04:14 -0700
+Message-ID: <1369721054.3301.531.camel@edumazet-glaptop>
+References: <1369599557-22677-1-git-send-email-atomlin@redhat.com>
+	 <51A39A3F.8080903@redhat.com> <1369693520.3301.477.camel@edumazet-glaptop>
+	 <1369715506.2034.30.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Netdev <netdev@vger.kernel.org>
+Cc: Rik van Riel <riel@redhat.com>, atomlin@redhat.com,
+	netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	pshelar@nicira.com, mst@redhat.com, alexander.h.duyck@intel.com,
+	aquini@redhat.com, sergei.shtylyov@cogentembedded.com,
+	linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:33767 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932109Ab3E1FyA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 01:54:00 -0400
+Received: from mail-pb0-f51.google.com ([209.85.160.51]:35187 "EHLO
+	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932969Ab3E1GER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 02:04:17 -0400
+In-Reply-To: <1369715506.2034.30.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The netpoll_rx_disable() will always return 0, it is no use and looks wordy,
-so remove the unnecessary code and get rid of it in _dev_open and _dev_close.
+On Mon, 2013-05-27 at 21:31 -0700, Joe Perches wrote:
 
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- include/linux/netpoll.h |  4 ++--
- net/core/dev.c          | 15 ++++-----------
- net/core/netpoll.c      |  3 +--
- 3 files changed, 7 insertions(+), 15 deletions(-)
+> I think the __alloc_skb alloc failure message is ok,
+> but maybe there shouldn't be something "scary" like
+> a dump_stack.
+> 
+> Maybe this site should use a trivial debug error
+> message like below instead.
+> ---
 
-diff --git a/include/linux/netpoll.h b/include/linux/netpoll.h
-index fa2cb76..f3c7c24 100644
---- a/include/linux/netpoll.h
-+++ b/include/linux/netpoll.h
-@@ -53,10 +53,10 @@ struct netpoll_info {
- };
- 
- #ifdef CONFIG_NETPOLL
--extern int netpoll_rx_disable(struct net_device *dev);
-+extern void netpoll_rx_disable(struct net_device *dev);
- extern void netpoll_rx_enable(struct net_device *dev);
- #else
--static inline int netpoll_rx_disable(struct net_device *dev) { return 0; }
-+static inline void netpoll_rx_disable(struct net_device *dev) { return; }
- static inline void netpoll_rx_enable(struct net_device *dev) { return; }
- #endif
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fc1e289..20300d4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1198,9 +1198,7 @@ static int __dev_open(struct net_device *dev)
- 	 * If we don't do this there is a chance ndo_poll_controller
- 	 * or ndo_poll may be running while we open the device
- 	 */
--	ret = netpoll_rx_disable(dev);
--	if (ret)
--		return ret;
-+	netpoll_rx_disable(dev);
- 
- 	ret = call_netdevice_notifiers(NETDEV_PRE_UP, dev);
- 	ret = notifier_to_errno(ret);
-@@ -1309,9 +1307,7 @@ static int __dev_close(struct net_device *dev)
- 	LIST_HEAD(single);
- 
- 	/* Temporarily disable netpoll until the interface is down */
--	retval = netpoll_rx_disable(dev);
--	if (retval)
--		return retval;
-+	netpoll_rx_disable(dev);
- 
- 	list_add(&dev->unreg_list, &single);
- 	retval = __dev_close_many(&single);
-@@ -1353,14 +1349,11 @@ static int dev_close_many(struct list_head *head)
-  */
- int dev_close(struct net_device *dev)
- {
--	int ret = 0;
- 	if (dev->flags & IFF_UP) {
- 		LIST_HEAD(single);
- 
- 		/* Block netpoll rx while the interface is going down */
--		ret = netpoll_rx_disable(dev);
--		if (ret)
--			return ret;
-+		netpoll_rx_disable(dev);
- 
- 		list_add(&dev->unreg_list, &single);
- 		dev_close_many(&single);
-@@ -1368,7 +1361,7 @@ int dev_close(struct net_device *dev)
- 
- 		netpoll_rx_enable(dev);
- 	}
--	return ret;
-+	return 0;
- }
- EXPORT_SYMBOL(dev_close);
- 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index cec074b..37deedd 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -247,7 +247,7 @@ static void netpoll_poll_dev(struct net_device *dev)
- 	zap_completion_queue();
- }
- 
--int netpoll_rx_disable(struct net_device *dev)
-+void netpoll_rx_disable(struct net_device *dev)
- {
- 	struct netpoll_info *ni;
- 	int idx;
-@@ -257,7 +257,6 @@ int netpoll_rx_disable(struct net_device *dev)
- 	if (ni)
- 		down(&ni->dev_lock);
- 	srcu_read_unlock(&netpoll_srcu, idx);
--	return 0;
- }
- EXPORT_SYMBOL(netpoll_rx_disable);
- 
--- 
-1.8.0
+Oh well.
+
+If dump_stack are scary, they are scary for every k[mz]alloc() users,
+not only __alloc_skb_alloc()
+
+I just said : Please do not add GFP_NOWARN to thousand of call sites,
+and you suggest adding more code in network fast path. (???)
+
+This is not a trivial code, we are speaking of a very sensitive one.
+
+Let mm guys explain in what cases a full stack trace is nice to have,
+and in what cases its useless. An heuristic should be defined in mm tree
+for that, and not spread everywhere.
+
+There must be a reason GFP_NOWARN is seldom used in the kernel, even if
+most callers are able to recover properly from a failed memory
+allocation.
