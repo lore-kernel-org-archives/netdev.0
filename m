@@ -1,61 +1,77 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 3/3] arp: flush arp cache on IFF_NOARP change
-Date: Tue, 28 May 2013 10:10:55 +0200
-Message-ID: <1369728655-26649-4-git-send-email-jiri@resnulli.us>
-References: <1369728655-26649-1-git-send-email-jiri@resnulli.us>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next 1/3] ipv4: properly refresh rtable entries on
+ pmtu/redirect events
+Date: Tue, 28 May 2013 11:25:55 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1305281117190.1693@ja.ssi.bg>
+References: <20130527.233844.2081972819091665848.davem@davemloft.net> <1369723593-5307-1-git-send-email-timo.teras@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: davem@davemloft.net, eric.dumazet@gmail.com, timo.teras@iki.fi,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, bhutchings@solarflare.com
-To: netdev@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="280144257-231941632-1369729555=:1693"
+Cc: netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: =?UTF-8?Q?Timo_Ter=C3=A4s?= <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f177.google.com ([209.85.212.177]:57539 "EHLO
-	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933368Ab3E1ILI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 04:11:08 -0400
-Received: by mail-wi0-f177.google.com with SMTP id hr14so2200060wib.10
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 01:11:07 -0700 (PDT)
-In-Reply-To: <1369728655-26649-1-git-send-email-jiri@resnulli.us>
+Received: from ja.ssi.bg ([178.16.129.10]:52173 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S933383Ab3E1IWU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 May 2013 04:22:20 -0400
+In-Reply-To: <1369723593-5307-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-=46rom: Timo Ter=C3=A4s <timo.teras@iki.fi>
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-IFF_NOARP affects what kind of neighbor entries are created
-(nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
-cache to refresh all entries.
+--280144257-231941632-1369729555=:1693
+Content-Type: TEXT/PLAIN; charset=UTF-8
+Content-Transfer-Encoding: 8BIT
 
-Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- net/ipv4/arp.c | 6 ++++++
- 1 file changed, 6 insertions(+)
 
-diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
-index b455213..8c8eb40 100644
---- a/net/ipv4/arp.c
-+++ b/net/ipv4/arp.c
-@@ -1235,12 +1235,18 @@ static int arp_netdev_event(struct notifier_blo=
-ck *this, unsigned long event,
- 			    void *ptr)
- {
- 	struct net_device *dev =3D get_netdevice_notifier_info_dev(ptr);
-+	struct netdevice_notifier_change_info *change_info;
-=20
- 	switch (event) {
- 	case NETDEV_CHANGEADDR:
- 		neigh_changeaddr(&arp_tbl, dev);
- 		rt_cache_flush(dev_net(dev));
- 		break;
-+	case NETDEV_CHANGE:
-+		change_info =3D ptr;
-+		if (change_info->flags_changed & IFF_NOARP)
-+			neigh_changeaddr(&arp_tbl, dev);
-+		break;
- 	default:
- 		break;
- 	}
---=20
-1.7.11.7
+	Hello,
+
+On Tue, 28 May 2013, Timo Teräs wrote:
+
+> This reverts commit 05ab86c5 (xfrm4: Invalidate all ipv4 routes on
+> IPsec pmtu events). Flushing all cached entries is not needed.
+> 
+> Instead, invalidate only the related next hop dsts to recheck for
+> the added next hop exception where needed. This also fixes a subtle
+> race due to bumping generation id's before updating the pmtu.
+> 
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Signed-off-by: Timo Teräs <timo.teras@iki.fi>
+> ---
+
+> diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> index 550781a..561a378 100644
+> --- a/net/ipv4/route.c
+> +++ b/net/ipv4/route.c
+> @@ -594,11 +594,25 @@ static inline u32 fnhe_hashfun(__be32 daddr)
+>  	return hval & (FNHE_HASH_SIZE - 1);
+>  }
+>  
+> +static void fill_route_from_fnhe(struct rtable *rt, struct fib_nh_exception *fnhe)
+> +{
+> +	rt->rt_pmtu = fnhe->fnhe_pmtu;
+> +	rt->dst.expires = fnhe->fnhe_expires;
+
+	The 'if (time_before' ... dst_set_expires() logic from
+rt_bind_exception() is removed, may be it should be moved here,
+i.e. fnhe_pmtu should be ignored if expired.
+
+> @@ -627,8 +641,12 @@ static void update_or_create_fnhe(struct fib_nh *nh, __be32 daddr, __be32 gw,
+>  			fnhe->fnhe_gw = gw;
+>  		if (pmtu) {
+>  			fnhe->fnhe_pmtu = pmtu;
+> -			fnhe->fnhe_expires = expires;
+> +			fnhe->fnhe_expires = max(1UL, expires);
+>  		}
+> +		/* Update all cached dsts too */
+> +		rt = rcu_dereference(fnhe->fnhe_rth);
+
+	rt = rcu_dereference_protected(fnhe->fnhe_rth, 1);
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+--280144257-231941632-1369729555=:1693--
