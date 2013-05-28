@@ -1,96 +1,41 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [Patch v2] skbuff: Hide GFP_ATOMIC page allocation failures for
- dropped packets
-Date: Tue, 28 May 2013 09:19:27 -0700
-Message-ID: <51A4D90F.2020304@candelatech.com>
-References: <1369601101-23057-1-git-send-email-atomlin@redhat.com> <20130527224149.GA4384@electric-eye.fr.zoreil.com> <51A4D4AD.2010507@candelatech.com> <20130528161518.GC11614@optiplex.redhat.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: ethernet: xilinx_emaclite: keep protocol selector bits by reading ANAR
+Date: Tue, 28 May 2013 17:22:07 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7251@saturn3.aculab.com>
+References: <51A4D6FE.3080308@efe-gmbh.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, atomlin@redhat.com,
-	netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
-	pshelar@nicira.com, mst@redhat.com, alexander.h.duyck@intel.com,
-	riel@redhat.com, sergei.shtylyov@cogentembedded.com,
-	linux-kernel@vger.kernel.org
-To: Rafael Aquini <aquini@redhat.com>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <davem@davemloft.net>
+To: "Jens Renner (EFE)" <renner@efe-gmbh.de>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:58212 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934660Ab3E1QTg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 12:19:36 -0400
-In-Reply-To: <20130528161518.GC11614@optiplex.redhat.com>
+Received: from mx0.aculab.com ([213.249.233.131]:51825 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S934660Ab3E1QWl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 May 2013 12:22:41 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 30518-06 for <netdev@vger.kernel.org>;
+ Tue, 28 May 2013 17:22:37 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <51A4D6FE.3080308@efe-gmbh.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/28/2013 09:15 AM, Rafael Aquini wrote:
-> On Tue, May 28, 2013 at 09:00:45AM -0700, Ben Greear wrote:
->> On 05/27/2013 03:41 PM, Francois Romieu wrote:
->>> atomlin@redhat.com <atomlin@redhat.com> :
->>> [...]
->>>> Failed GFP_ATOMIC allocations by the network stack result in dropped
->>>> packets, which will be received on a subsequent retransmit, and an
->>>> unnecessary, noisy warning with a kernel backtrace.
->>>>
->>>> These warnings are harmless, but they still cause users to panic and
->>>> file bug reports over dropped packets. It would be better to hide the
->>>> failed allocation warnings and backtraces, and let retransmits handle
->>>> dropped packets quietly.
->>>
->>> Linux VM may be perfect but device drivers do stupid things.
->>>
->>> Please don't paper over it just because some shit ends in your backyard.
->>
->> We should rate-limit these messages at least.  When a system is low on memory
->> the logs can quickly fill up with useless OOM messages, further slowing
->> the system...
->>
->
-> The real problem seems to be that more and more the network stack (drivers, perhaps)
-> is relying on chunks of contiguous page-blocks without a fallback mechanism to
-> order-0 page allocations. When memory gets fragmented, these alloc failures
-> start to pop up more often and they scare ordinary sysadmins out of their paints.
->
-> The big point of this change was to attempt to relief some of these warnings
-> which we believed as being useless, since the net stack would recover from it
-> by re-transmissions.
-> We might have misjudged the scenario, though. Perhaps a better approach would be
-> making the warning less verbose for all page-alloc failures. We could, perhaps,
-> only print a stack-dump out, if some debug flag is passed along, either as
-> reference, or by some CONFIG_DEBUG_ preprocessor directive.
-
-I have seen the logs spam with 0rder-0 allocation errors.  Maybe the system had
-legitimate issues, but continuously spamming made it even harder to figure out
-the problem, and constantly trying to write that much text to the serial console
-has a big performance impact, further slowing the system when it should instead
-be clearing it's packet backlog or whatever.
-
-Maybe print the first OOM message with lots of details, and then use
-some rate-limiting stuff to print out summary details at most every 5 seconds
-or so after that.  Could reset the verbose timer after some period of no
-OOM messages.
-
-Ben
-
->
-> Rafael
->
->> Ben
->>
->>>
->>
->>
->> --
->> Ben Greear <greearb@candelatech.com>
->> Candela Technologies Inc  http://www.candelatech.com
->>
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+PiBUaGlzIHBhdGNoIHJlYWRzIHRoZSBQSFkncyBNSUlfQURWRVJUSVNFIHJlZ2lzdGVyIChBTkFS
+KSBiZWZvcmUgbW9kaWZ5aW5nIGl0Lg0KPiBIZW5jZSwgdGhlIHByb3RvY29sIHNlbGVjdG9yIGJp
+dHMgKDQ6MCkgd2hpY2ggaW5kaWNhdGUgSUVFRSA4MDMuM3Ugc3VwcG9ydCBhcmUNCj4gcHJldmVu
+dGVkIGZyb20gYmVpbmcgY2xlYXJlZC4NCj4gLi4uDQo+ICAgICAgICAgICAgICAgICAvKiBBZHZl
+cnRpc2Ugb25seSAxMCBhbmQgMTAwbWJwcyBmdWxsL2hhbGYgZHVwbGV4IHNwZWVkcyAqLw0KPiAt
+ICAgICAgICAgICAgICAgcGh5X3dyaXRlKGxwLT5waHlfZGV2LCBNSUlfQURWRVJUSVNFLCBBRFZF
+UlRJU0VfQUxMKTsNCj4gKyAgICAgICAgICAgICAgIGFkdiA9IHBoeV9yZWFkKGxwLT5waHlfZGV2
+LCBNSUlfQURWRVJUSVNFKTsNCj4gKyAgICAgICAgICAgICAgIGlmIChhZHYgPCAwKQ0KPiArICAg
+ICAgICAgICAgICAgICAgICAgICByZXR1cm4gYWR2Ow0KPiArICAgICAgICAgICAgICAgcGh5X3dy
+aXRlKGxwLT5waHlfZGV2LCBNSUlfQURWRVJUSVNFLCBhZHYgfCBBRFZFUlRJU0VfQUxMKTsNCg0K
+R2l2ZW4gdGhlIGNvbW1lbnQgc2hvdWxkbid0IHRoaXMgYmUgcmVtb3Zpbmcgc29tZSBiaXRzPw0K
+DQpJdCBpcyBhIGxvbmcgdGltZSBzaW5jZSBJIHJlYWQgdGhlIGRlZmluaXRpb25zIG9mIHRoZSBB
+TkFSIChldGMpLg0KQnV0IEkgcmVtZW1iZXIgaXQgaGF2aW5nIGF0IGxlYXN0IDUgYml0cyBkZWZp
+bmVkIGZvciAxME0gYW5kIDEwME0NCm9wZXJhdGlvbiAoaW5jbHVkaW5nIDEwMFQ0KSwgc28gdGhl
+IHJlZmVyZW5jZSB0byBrZWVwaW5nIGJpdHMgKDQ6MCkNCnNlZW1zIGNvbmZ1c2luZy4NCg0KCURh
+dmlkDQoNCg==
