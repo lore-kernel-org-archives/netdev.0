@@ -1,47 +1,35 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [Patch v2] skbuff: Hide GFP_ATOMIC page allocation failures for
- dropped packets
-Date: Tue, 28 May 2013 09:00:45 -0700
-Message-ID: <51A4D4AD.2010507@candelatech.com>
-References: <1369601101-23057-1-git-send-email-atomlin@redhat.com> <20130527224149.GA4384@electric-eye.fr.zoreil.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: igb: acknowledging time sync interrupts
+Date: Tue, 28 May 2013 18:06:54 +0200
+Message-ID: <20130528160654.GC4678@netboy>
+References: <20130526103900.GA11682@netboy>
+ <CDCA1885.1E850%matthew.vick@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: atomlin@redhat.com, netdev@vger.kernel.org, davem@davemloft.net,
-	edumazet@google.com, pshelar@nicira.com, mst@redhat.com,
-	alexander.h.duyck@intel.com, riel@redhat.com, aquini@redhat.com,
-	sergei.shtylyov@cogentembedded.com, linux-kernel@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130527224149.GA4384@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Vick, Matthew" <matthew.vick@intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-we0-f182.google.com ([74.125.82.182]:43761 "EHLO
+	mail-we0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934630Ab3E1QHD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 12:07:03 -0400
+Received: by mail-we0-f182.google.com with SMTP id q57so5353270wes.27
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 09:07:01 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CDCA1885.1E850%matthew.vick@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/27/2013 03:41 PM, Francois Romieu wrote:
-> atomlin@redhat.com <atomlin@redhat.com> :
-> [...]
->> Failed GFP_ATOMIC allocations by the network stack result in dropped
->> packets, which will be received on a subsequent retransmit, and an
->> unnecessary, noisy warning with a kernel backtrace.
->>
->> These warnings are harmless, but they still cause users to panic and
->> file bug reports over dropped packets. It would be better to hide the
->> failed allocation warnings and backtraces, and let retransmits handle
->> dropped packets quietly.
->
-> Linux VM may be perfect but device drivers do stupid things.
->
-> Please don't paper over it just because some shit ends in your backyard.
+On Tue, May 28, 2013 at 03:20:10PM +0000, Vick, Matthew wrote:
+> 
+> I'll start some internal discussion to see if I can get an official answer
+> on the 82580.
 
-We should rate-limit these messages at least.  When a system is low on memory
-the logs can quickly fill up with useless OOM messages, further slowing
-the system...
+Okay, that sounds good. I just posted a patch that removes the wr32(),
+and I can report that it does work on the i210. If the 82580 needs
+this workaround, then I can add it back in again.
 
-Ben
-
->
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Thanks,
+Richard
