@@ -1,55 +1,30 @@
-From: David Miller <davem@davemloft.net>
-Subject: [PATCH] net: Fix build warnings after mac_header and
-Date: Tue, 28 May 2013 13:16:14 -0700 (PDT)
-Message-ID: <20130528.131614.2137913181835631312.davem@davemloft.net>
+From: Peter Portante <pportant@redhat.com>
+Subject: Another request for status of loopback-tcp-bypass aka "TCP Friends"
+Date: Tue, 28 May 2013 16:25:06 -0400 (EDT)
+Message-ID: <1193903554.8236268.1369772706073.JavaMail.root@redhat.com>
+References: <1680686379.8235475.1369772654814.JavaMail.root@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51319 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755546Ab3E1UQP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 16:16:15 -0400
-Received: from localhost (74-93-104-98-Washington.hfc.comcastbusiness.net [74.93.104.98])
-	(Authenticated sender: davem-davemloft)
-	by shards.monkeyblade.net (Postfix) with ESMTPSA id 5B9CE584947
-	for <netdev@vger.kernel.org>; Tue, 28 May 2013 13:16:15 -0700 (PDT)
+Received: from mx3-phx2.redhat.com ([209.132.183.24]:33830 "EHLO
+	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755587Ab3E1UZG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 16:25:06 -0400
+Received: from zmail09.collab.prod.int.phx2.redhat.com (zmail09.collab.prod.int.phx2.redhat.com [10.5.83.11])
+	by mx3-phx2.redhat.com (8.13.8/8.13.8) with ESMTP id r4SKP6Ex008686
+	for <netdev@vger.kernel.org>; Tue, 28 May 2013 16:25:06 -0400
+In-Reply-To: <1680686379.8235475.1369772654814.JavaMail.root@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpuZXQvY29yZS9za2J1ZmYuYzogSW4gZnVuY3Rpb24goV9fYWxsb2Nfc2tiX2hlYWSiOg0KbmV0
-L2NvcmUvc2tidWZmLmM6MjAzOjI6IHdhcm5pbmc6IGxhcmdlIGludGVnZXIgaW1wbGljaXRseSB0
-cnVuY2F0ZWQgdG8gdW5zaWduZWQgdHlwZSBbLVdvdmVyZmxvd10NCm5ldC9jb3JlL3NrYnVmZi5j
-OiBJbiBmdW5jdGlvbiChX19hbGxvY19za2KiOg0KbmV0L2NvcmUvc2tidWZmLmM6Mjc5OjI6IHdh
-cm5pbmc6IGxhcmdlIGludGVnZXIgaW1wbGljaXRseSB0cnVuY2F0ZWQgdG8gdW5zaWduZWQgdHlw
-ZSBbLVdvdmVyZmxvd10NCm5ldC9jb3JlL3NrYnVmZi5jOjI4MDoyOiB3YXJuaW5nOiBsYXJnZSBp
-bnRlZ2VyIGltcGxpY2l0bHkgdHJ1bmNhdGVkIHRvIHVuc2lnbmVkIHR5cGUgWy1Xb3ZlcmZsb3dd
-DQpuZXQvY29yZS9za2J1ZmYuYzogSW4gZnVuY3Rpb24goWJ1aWxkX3NrYqI6DQpuZXQvY29yZS9z
-a2J1ZmYuYzozNDg6Mjogd2FybmluZzogbGFyZ2UgaW50ZWdlciBpbXBsaWNpdGx5IHRydW5jYXRl
-ZCB0byB1bnNpZ25lZCB0eXBlIFstV292ZXJmbG93XQ0KbmV0L2NvcmUvc2tidWZmLmM6MzQ5OjI6
-IHdhcm5pbmc6IGxhcmdlIGludGVnZXIgaW1wbGljaXRseSB0cnVuY2F0ZWQgdG8gdW5zaWduZWQg
-dHlwZSBbLVdvdmVyZmxvd10NCg0KU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZl
-bUBkYXZlbWxvZnQubmV0Pg0KLS0tDQogbmV0L2NvcmUvc2tidWZmLmMgfCAxMCArKysrKy0tLS0t
-DQogMSBmaWxlIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkNCg0KZGlm
-ZiAtLWdpdCBhL25ldC9jb3JlL3NrYnVmZi5jIGIvbmV0L2NvcmUvc2tidWZmLmMNCmluZGV4IGQ2
-Mjk4OTEuLmY0NWRlMDcgMTAwNjQ0DQotLS0gYS9uZXQvY29yZS9za2J1ZmYuYw0KKysrIGIvbmV0
-L2NvcmUvc2tidWZmLmMNCkBAIC0yMDAsNyArMjAwLDcgQEAgc3RydWN0IHNrX2J1ZmYgKl9fYWxs
-b2Nfc2tiX2hlYWQoZ2ZwX3QgZ2ZwX21hc2ssIGludCBub2RlKQ0KIAlhdG9taWNfc2V0KCZza2It
-PnVzZXJzLCAxKTsNCiANCiAjaWZkZWYgTkVUX1NLQlVGRl9EQVRBX1VTRVNfT0ZGU0VUDQotCXNr
-Yi0+bWFjX2hlYWRlciA9IH4wVTsNCisJc2tiLT5tYWNfaGVhZGVyID0gKF9fdTE2KSB+MFU7DQog
-I2VuZGlmDQogb3V0Og0KIAlyZXR1cm4gc2tiOw0KQEAgLTI3Niw4ICsyNzYsOCBAQCBzdHJ1Y3Qg
-c2tfYnVmZiAqX19hbGxvY19za2IodW5zaWduZWQgaW50IHNpemUsIGdmcF90IGdmcF9tYXNrLA0K
-IAlza2JfcmVzZXRfdGFpbF9wb2ludGVyKHNrYik7DQogCXNrYi0+ZW5kID0gc2tiLT50YWlsICsg
-c2l6ZTsNCiAjaWZkZWYgTkVUX1NLQlVGRl9EQVRBX1VTRVNfT0ZGU0VUDQotCXNrYi0+bWFjX2hl
-YWRlciA9IH4wVTsNCi0Jc2tiLT50cmFuc3BvcnRfaGVhZGVyID0gfjBVOw0KKwlza2ItPm1hY19o
-ZWFkZXIgPSAoX191MTYpIH4wVTsNCisJc2tiLT50cmFuc3BvcnRfaGVhZGVyID0gKF9fdTE2KSB+
-MFU7DQogI2VuZGlmDQogDQogCS8qIG1ha2Ugc3VyZSB3ZSBpbml0aWFsaXplIHNoaW5mbyBzZXF1
-ZW50aWFsbHkgKi8NCkBAIC0zNDUsOCArMzQ1LDggQEAgc3RydWN0IHNrX2J1ZmYgKmJ1aWxkX3Nr
-Yih2b2lkICpkYXRhLCB1bnNpZ25lZCBpbnQgZnJhZ19zaXplKQ0KIAlza2JfcmVzZXRfdGFpbF9w
-b2ludGVyKHNrYik7DQogCXNrYi0+ZW5kID0gc2tiLT50YWlsICsgc2l6ZTsNCiAjaWZkZWYgTkVU
-X1NLQlVGRl9EQVRBX1VTRVNfT0ZGU0VUDQotCXNrYi0+bWFjX2hlYWRlciA9IH4wVTsNCi0Jc2ti
-LT50cmFuc3BvcnRfaGVhZGVyID0gfjBVOw0KKwlza2ItPm1hY19oZWFkZXIgPSAoX191MTYpIH4w
-VTsNCisJc2tiLT50cmFuc3BvcnRfaGVhZGVyID0gKF9fdTE2KSB+MFU7DQogI2VuZGlmDQogDQog
-CS8qIG1ha2Ugc3VyZSB3ZSBpbml0aWFsaXplIHNoaW5mbyBzZXF1ZW50aWFsbHkgKi8NCi0tIA0K
-MS43LjExLjcNCg0K
+Hello folks,
+
+Just wondering what the status is of the work for the loopback-tcp-bypass, aka "TCP Friends".
+
+Is this work likely to go forward eventually?
+
+Thanks,
+
+-peter
