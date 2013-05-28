@@ -1,36 +1,57 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v2 2/2] vxlan: allow specifying multiple
- default destinations
-Date: Tue, 28 May 2013 08:46:20 +0000 (UTC)
-Message-ID: <ko1qss$gu8$1@ger.gmane.org>
-References: <1369729878-9690-1-git-send-email-mike.rapoport@ravellosystems.com>
- <1369729878-9690-3-git-send-email-mike.rapoport@ravellosystems.com>
+From: Ingo Molnar <mingo@kernel.org>
+Subject: Re: [PATCH ipvs-next v3 0/2] sched: Add cond_resched_rcu_lock()
+ helper
+Date: Tue, 28 May 2013 10:51:36 +0200
+Message-ID: <20130528085136.GB30172@gmail.com>
+References: <1369201832-17163-1-git-send-email-horms@verge.net.au>
+ <20130522075438.GO26912@twins.programming.kicks-ass.net>
+ <20130522.013108.58504645261021804.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:41386 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933576Ab3E1Iqh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 May 2013 04:46:37 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UhFYC-0004Es-R3
-	for netdev@vger.kernel.org; Tue, 28 May 2013 10:46:36 +0200
-Received: from 180.183.220.200 ([180.183.220.200])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 10:46:36 +0200
-Received: from xiyou.wangcong by 180.183.220.200 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 10:46:36 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: peterz@infradead.org, horms@verge.net.au, eric.dumazet@gmail.com,
+	ja@ssi.bg, mingo@redhat.com, paulmck@linux.vnet.ibm.com,
+	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pablo@netfilter.org, dipankar@in.ibm.com
+To: David Miller <davem@davemloft.net>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130522.013108.58504645261021804.davem@davemloft.net>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 28 May 2013 at 08:31 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
-> +	IFLA_VXLAN_REMOTE_ADD,
-> +	IFLA_VXLAN_REMOTE_DEL,
-> +	IFLA_VXLAN_REMOTE_LST,
 
-Usually we use NEW_* and GET_* instead of *_ADD and *_LST.
+* David Miller <davem@davemloft.net> wrote:
+
+> From: Peter Zijlstra <peterz@infradead.org>
+> Date: Wed, 22 May 2013 09:54:38 +0200
+> 
+> > On Wed, May 22, 2013 at 02:50:30PM +0900, Simon Horman wrote:
+> >> Add a helper that for use in loops which read data protected by RCU and
+> >> may have a large number of iterations.  Such an example is dumping the list
+> >> of connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+> >> 
+> >> This series also updates IPVS to use the helper.
+> >> 
+> >> Simon Horman (2):
+> >>   sched: add cond_resched_rcu() helper
+> >>   ipvs: use cond_resched_rcu() helper when walking connections
+> >> 
+> >>  include/linux/sched.h           |  9 +++++++++
+> >>  net/netfilter/ipvs/ip_vs_conn.c | 23 ++++++++---------------
+> >>  2 files changed, 17 insertions(+), 15 deletions(-)
+> > 
+> > Acked-by: Peter Zijlstra <peterz@infradead.org>
+> > 
+> > How do you want to go about merging this? Do you want to route it
+> > through the net tree or through -tip?
+> 
+> I think we can have Pablo merge it into his netfilter tree.
+
+Yeah, that's what we agreed upon earlier during the review of these 
+patches.
+
+Thanks,
+
+	Ingo
+
