@@ -1,57 +1,114 @@
-From: Luis Henriques <luis.henriques@canonical.com>
-Subject: Re: xen-netback stable backports request (regression fixes)
-Date: Tue, 28 May 2013 12:27:57 +0100
-Message-ID: <87wqqjpcn6.fsf@canonical.com>
-References: <1369734465.3469.52.camel@zakaz.uk.xensource.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next v3 0/3] net: extend netdevice notifier and use it for flags change
+Date: Tue, 28 May 2013 13:30:20 +0200
+Message-ID: <1369740623-17601-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <stable@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
-	xen-devel <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
-	Wei Liu <wei.liu2@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1369734465.3469.52.camel@zakaz.uk.xensource.com> (Ian Campbell's
-	message of "Tue, 28 May 2013 10:47:45 +0100")
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, timo.teras@iki.fi,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, bhutchings@solarflare.com,
+	xiyou.wangcong@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f54.google.com ([74.125.83.54]:33454 "EHLO
+	mail-ee0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932877Ab3E1La2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 07:30:28 -0400
+Received: by mail-ee0-f54.google.com with SMTP id e50so4721016eek.13
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 04:30:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ian Campbell <Ian.Campbell@citrix.com> writes:
+Jiri Pirko (2):
+  net: pass info struct via netdevice notifier
+  net: pass changed flags along with NETDEV_CHANGE event
 
-> Hi Dave, stable folks,
->
-> The following set of patches fix a xen netback regression caused by the
-> fixes for CVE-2013-0216 / CVE-2013-0217 / XSA-39 (the original change
-> was several patches starting at 48856286b64e), we'd like to see them
-> backported to stable branches if possible. I think the fixups have now
-> been in Linus tree since around the start of May.
->
-> Wei and I are happy to help with backports if necessary. Some of the
-> patches are cleanups which make backports easier but if you would prefer
-> we could produce backports without them.
->
-> 27f85228 xen-netback: remove skb in xen_netbk_alloc_page
-> 2810e5b9 xen-netback: coalesce slots in TX path and fix regressions
-> 03393fd5 xen-netback: don't disconnect frontend when seeing oversize packet
-> ac69c26e xen-netback: remove redundent parameter in netbk_count_requests
-> 59ccb4eb xen-netback: avoid allocating variable size array on stack
-> 37641494 xen-netback: better names for thresholds
->
-> In addition there are some useful related (but not security relevant)
-> fixes to netfront:
->
-> e2d617c0 xen-netfront: remove unused variable `extra'
-> 7158ff6d xen-netfront: frags -> slots in xennet_get_responses
-> 697089dc xen-netfront: frags -> slots in log message
-> 9ecd1a75 xen-netfront: reduce gso_max_size to account for max TCP header
+Timo Ter=C3=A4s (1):
+  arp: flush arp cache on IFF_NOARP change
 
-Thanks Ian.
+ arch/ia64/hp/sim/simeth.c                          |  2 +-
+ arch/mips/txx9/generic/setup_tx4939.c              |  3 +-
+ drivers/infiniband/core/cma.c                      |  4 +-
+ drivers/infiniband/hw/mlx4/main.c                  |  2 +-
+ drivers/net/bonding/bond_main.c                    |  2 +-
+ drivers/net/can/led.c                              |  4 +-
+ drivers/net/ethernet/broadcom/cnic.c               |  2 +-
+ drivers/net/ethernet/marvell/skge.c                |  2 +-
+ drivers/net/ethernet/marvell/sky2.c                |  2 +-
+ .../net/ethernet/qlogic/netxen/netxen_nic_main.c   |  2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  2 +-
+ drivers/net/ethernet/sfc/efx.c                     |  2 +-
+ drivers/net/hamradio/bpqether.c                    |  7 ++-
+ drivers/net/macvlan.c                              |  2 +-
+ drivers/net/macvtap.c                              |  2 +-
+ drivers/net/netconsole.c                           |  5 +-
+ drivers/net/ppp/pppoe.c                            |  2 +-
+ drivers/net/team/team.c                            |  2 +-
+ drivers/net/wan/dlci.c                             |  2 +-
+ drivers/net/wan/hdlc.c                             |  2 +-
+ drivers/net/wan/lapbether.c                        |  2 +-
+ drivers/scsi/fcoe/fcoe.c                           |  2 +-
+ drivers/scsi/fcoe/fcoe_transport.c                 |  2 +-
+ drivers/staging/csr/netdev.c                       |  2 +-
+ drivers/staging/ft1000/ft1000-pcmcia/ft1000_proc.c |  2 +-
+ drivers/staging/ft1000/ft1000-usb/ft1000_proc.c    |  2 +-
+ drivers/staging/silicom/bpctl_mod.c                |  2 +-
+ include/linux/netdevice.h                          | 18 ++++++
+ net/8021q/vlan.c                                   |  2 +-
+ net/appletalk/aarp.c                               |  2 +-
+ net/appletalk/ddp.c                                |  2 +-
+ net/atm/clip.c                                     |  4 +-
+ net/atm/mpc.c                                      |  6 +-
+ net/ax25/af_ax25.c                                 |  6 +-
+ net/batman-adv/hard-interface.c                    |  2 +-
+ net/bridge/br_notify.c                             |  2 +-
+ net/caif/caif_dev.c                                |  4 +-
+ net/caif/caif_usb.c                                |  4 +-
+ net/can/af_can.c                                   |  4 +-
+ net/can/bcm.c                                      |  4 +-
+ net/can/gw.c                                       |  4 +-
+ net/can/raw.c                                      |  4 +-
+ net/core/dev.c                                     | 65 ++++++++++++++=
+++++----
+ net/core/drop_monitor.c                            |  4 +-
+ net/core/dst.c                                     |  2 +-
+ net/core/fib_rules.c                               |  4 +-
+ net/core/netprio_cgroup.c                          |  2 +-
+ net/core/pktgen.c                                  |  2 +-
+ net/core/rtnetlink.c                               |  2 +-
+ net/decnet/af_decnet.c                             |  4 +-
+ net/ieee802154/6lowpan.c                           |  5 +-
+ net/ipv4/arp.c                                     |  8 ++-
+ net/ipv4/devinet.c                                 |  2 +-
+ net/ipv4/fib_frontend.c                            |  2 +-
+ net/ipv4/ipmr.c                                    |  2 +-
+ net/ipv4/netfilter/ipt_MASQUERADE.c                |  2 +-
+ net/ipv6/addrconf.c                                |  4 +-
+ net/ipv6/ip6mr.c                                   |  2 +-
+ net/ipv6/ndisc.c                                   |  2 +-
+ net/ipv6/netfilter/ip6t_MASQUERADE.c               |  2 +-
+ net/ipv6/route.c                                   |  4 +-
+ net/ipx/af_ipx.c                                   |  2 +-
+ net/iucv/af_iucv.c                                 |  2 +-
+ net/mac80211/iface.c                               |  5 +-
+ net/netfilter/ipvs/ip_vs_ctl.c                     |  4 +-
+ net/netfilter/nfnetlink_queue_core.c               |  2 +-
+ net/netfilter/xt_TEE.c                             |  2 +-
+ net/netlabel/netlabel_unlabeled.c                  |  7 +--
+ net/netrom/af_netrom.c                             |  2 +-
+ net/openvswitch/dp_notify.c                        |  2 +-
+ net/packet/af_packet.c                             |  5 +-
+ net/phonet/pn_dev.c                                |  4 +-
+ net/rose/af_rose.c                                 |  6 +-
+ net/sched/act_mirred.c                             |  2 +-
+ net/tipc/eth_media.c                               |  4 +-
+ net/tipc/ib_media.c                                |  4 +-
+ net/wireless/core.c                                |  5 +-
+ net/x25/af_x25.c                                   |  2 +-
+ net/xfrm/xfrm_policy.c                             |  2 +-
+ security/selinux/netif.c                           |  2 +-
+ 80 files changed, 190 insertions(+), 129 deletions(-)
 
-For the 3.5 kernel, the only one that seems to cause problems is the
-last one (9ecd1a75d977e2e8c48139c7d3efed183f898d94).  However, if I
-also pick f36c374782e40a3812f729838b5b80d2ce601725 ("xen/netfront:
-handle compound page fragments on transmit"), it applies cleanly.  Do
-you see any problem picking this one as well?
-
-Cheers,
--- 
-Luis
+--=20
+1.7.11.7
