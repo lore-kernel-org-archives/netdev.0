@@ -1,57 +1,76 @@
-From: Ingo Molnar <mingo@kernel.org>
-Subject: Re: [PATCH ipvs-next v3 0/2] sched: Add cond_resched_rcu_lock()
- helper
-Date: Tue, 28 May 2013 10:51:36 +0200
-Message-ID: <20130528085136.GB30172@gmail.com>
-References: <1369201832-17163-1-git-send-email-horms@verge.net.au>
- <20130522075438.GO26912@twins.programming.kicks-ass.net>
- <20130522.013108.58504645261021804.davem@davemloft.net>
+From: Timo Teras <timo.teras@iki.fi>
+Subject: Re: [PATCH net-next 1/3] ipv4: properly refresh rtable entries on
+ pmtu/redirect events
+Date: Tue, 28 May 2013 11:53:57 +0300
+Message-ID: <20130528115357.4d9d281e@vostro>
+References: <20130527.233844.2081972819091665848.davem@davemloft.net>
+	<1369723593-5307-1-git-send-email-timo.teras@iki.fi>
+	<alpine.LFD.2.00.1305281117190.1693@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: peterz@infradead.org, horms@verge.net.au, eric.dumazet@gmail.com,
-	ja@ssi.bg, mingo@redhat.com, paulmck@linux.vnet.ibm.com,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pablo@netfilter.org, dipankar@in.ibm.com
-To: David Miller <davem@davemloft.net>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130522.013108.58504645261021804.davem@davemloft.net>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:48701 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933619Ab3E1IwR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 04:52:17 -0400
+Received: by mail-ea0-f172.google.com with SMTP id d10so4555842eaj.31
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 01:52:15 -0700 (PDT)
+In-Reply-To: <alpine.LFD.2.00.1305281117190.1693@ja.ssi.bg>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 28 May 2013 11:25:55 +0300 (EEST)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-* David Miller <davem@davemloft.net> wrote:
+>=20
+> 	Hello,
+>=20
+> On Tue, 28 May 2013, Timo Ter=C3=A4s wrote:
+>=20
+> > This reverts commit 05ab86c5 (xfrm4: Invalidate all ipv4 routes on
+> > IPsec pmtu events). Flushing all cached entries is not needed.
+> >=20
+> > Instead, invalidate only the related next hop dsts to recheck for
+> > the added next hop exception where needed. This also fixes a subtle
+> > race due to bumping generation id's before updating the pmtu.
+> >=20
+> > Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> > Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
+> > ---
+>=20
+> > diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+> > index 550781a..561a378 100644
+> > --- a/net/ipv4/route.c
+> > +++ b/net/ipv4/route.c
+> > @@ -594,11 +594,25 @@ static inline u32 fnhe_hashfun(__be32 daddr)
+> >  	return hval & (FNHE_HASH_SIZE - 1);
+> >  }
+> > =20
+> > +static void fill_route_from_fnhe(struct rtable *rt, struct
+> > fib_nh_exception *fnhe) +{
+> > +	rt->rt_pmtu =3D fnhe->fnhe_pmtu;
+> > +	rt->dst.expires =3D fnhe->fnhe_expires;
+>=20
+> 	The 'if (time_before' ... dst_set_expires() logic from
+> rt_bind_exception() is removed, may be it should be moved here,
+> i.e. fnhe_pmtu should be ignored if expired.
 
-> From: Peter Zijlstra <peterz@infradead.org>
-> Date: Wed, 22 May 2013 09:54:38 +0200
-> 
-> > On Wed, May 22, 2013 at 02:50:30PM +0900, Simon Horman wrote:
-> >> Add a helper that for use in loops which read data protected by RCU and
-> >> may have a large number of iterations.  Such an example is dumping the list
-> >> of connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
-> >> 
-> >> This series also updates IPVS to use the helper.
-> >> 
-> >> Simon Horman (2):
-> >>   sched: add cond_resched_rcu() helper
-> >>   ipvs: use cond_resched_rcu() helper when walking connections
-> >> 
-> >>  include/linux/sched.h           |  9 +++++++++
-> >>  net/netfilter/ipvs/ip_vs_conn.c | 23 ++++++++---------------
-> >>  2 files changed, 17 insertions(+), 15 deletions(-)
-> > 
-> > Acked-by: Peter Zijlstra <peterz@infradead.org>
-> > 
-> > How do you want to go about merging this? Do you want to route it
-> > through the net tree or through -tip?
-> 
-> I think we can have Pablo merge it into his netfilter tree.
+That code would not help much. The route's rt_pmtu is never reset to
+zero after the fnhe expires, so this would not make much difference.
+The old rt_pmtu and dst.expires would be left there anyway. All rt
+accesses check for expires too.
 
-Yeah, that's what we agreed upon earlier during the review of these 
-patches.
+This was actually intentional on the old code, as non-zero rt_pmtu
+implied that we had "next hop exception route" instead of "next hop
+route" and affected how the rt was invalidated in pmtu update.
 
-Thanks,
+If we want to clear out these fields, then it would make sense to have
+rt_bind_exception() to reset these on expiry to the struct
+fib_nh_exception directly and keep the direct assignments in
+fill_route_from_fnhe().
 
-	Ingo
-
+- Timo
