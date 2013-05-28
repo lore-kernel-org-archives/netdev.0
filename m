@@ -1,259 +1,57 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH 3/3] net: ipv6: Implement /proc/net/icmp6.
-Date: Tue, 28 May 2013 23:45:15 +0900
-Message-ID: <1369752315-11167-3-git-send-email-lorenzo@google.com>
-References: <1369752315-11167-1-git-send-email-lorenzo@google.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-	David Miller <davem@davemloft.net>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Vasiliy Kulikov <segoon@openwall.com>,
-	Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f74.google.com ([209.85.213.74]:52868 "EHLO
-	mail-yh0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934176Ab3E1Oxq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 10:53:46 -0400
-Received: by mail-yh0-f74.google.com with SMTP id t59so477144yho.5
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 07:53:44 -0700 (PDT)
-In-Reply-To: <1369752315-11167-1-git-send-email-lorenzo@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Federico Vaga <federico.vaga@gmail.com>
+Subject: [PATCH] net/core/sock.c: add missing VSOCK string in af_family_*_key_strings
+Date: Tue, 28 May 2013 17:02:44 +0200
+Message-ID: <1369753364-10043-1-git-send-email-federico.vaga@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Federico Vaga <federico.vaga@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Neil Horman <nhorman@tuxdriver.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Li Zefan <lizefan@huawei.com>,
+	Andrew Morton <akpm@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The format is based on /proc/net/icmp and /proc/net/{udp,raw}6.
+The three arrays of strings: af_family_kay_strings,
+af_family_slock_key_strings and af_family_clock_key_strings have not
+VSOCK's string
 
-Compiles and displays reasonable results with CONFIG_IPV6={n,m,y}
-Couldn't figure out how to test without CONFIG_PROC_FS enabled.
-
-Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
+Signed-off-by: Federico Vaga <federico.vaga@gmail.com>
 ---
- include/net/ping.h |   8 +++++
- net/ipv4/ping.c    |  21 ++++++-----
- net/ipv6/ping.c    | 103 +++++++++++++++++++++++++++++++++++++++++------------
- 3 files changed, 100 insertions(+), 32 deletions(-)
+ net/core/sock.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/ping.h b/include/net/ping.h
-index b9282f0..db04802 100644
---- a/include/net/ping.h
-+++ b/include/net/ping.h
-@@ -95,6 +95,14 @@ struct ping_seq_afinfo {
- 	const struct seq_operations	seq_ops;
+diff --git a/net/core/sock.c b/net/core/sock.c
+index 6ba327d..88868a9 100644
+--- a/net/core/sock.c
++++ b/net/core/sock.c
+@@ -210,7 +210,7 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
+   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
+   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
+   "sk_lock-AF_IEEE802154", "sk_lock-AF_CAIF" , "sk_lock-AF_ALG"      ,
+-  "sk_lock-AF_NFC"   , "sk_lock-AF_MAX"
++  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_MAX"
+ };
+ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
+@@ -226,7 +226,7 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
+   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
+   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
+   "slock-AF_IEEE802154", "slock-AF_CAIF" , "slock-AF_ALG"      ,
+-  "slock-AF_NFC"   , "slock-AF_MAX"
++  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_MAX"
+ };
+ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
+@@ -242,7 +242,7 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
+   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
+   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
+   "clock-AF_IEEE802154", "clock-AF_CAIF" , "clock-AF_ALG"      ,
+-  "clock-AF_NFC"   , "clock-AF_MAX"
++  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_MAX"
  };
  
-+extern const struct file_operations ping_seq_fops;
-+
-+void *ping_seq_start(struct seq_file *seq, loff_t *pos, sa_family_t family);
-+void *ping_seq_next(struct seq_file *seq, void *v, loff_t *pos);
-+void ping_seq_stop(struct seq_file *seq, void *v);
-+int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo);
-+void ping_proc_unregister(struct net *net, struct ping_seq_afinfo *afinfo);
-+
- extern int __init ping_proc_init(void);
- extern void ping_proc_exit(void);
- #endif
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 8c2da9b..3552a45 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -1035,8 +1035,7 @@ static struct sock *ping_get_idx(struct seq_file *seq, loff_t pos)
- 	return pos ? NULL : sk;
- }
- 
--static void *ping_seq_start(struct seq_file *seq, loff_t *pos,
--			    sa_family_t family)
-+void *ping_seq_start(struct seq_file *seq, loff_t *pos, sa_family_t family)
- {
- 	struct ping_iter_state *state = seq->private;
- 	state->bucket = 0;
-@@ -1046,13 +1045,14 @@ static void *ping_seq_start(struct seq_file *seq, loff_t *pos,
- 
- 	return *pos ? ping_get_idx(seq, *pos-1) : SEQ_START_TOKEN;
- }
-+EXPORT_SYMBOL_GPL(ping_seq_start);
- 
- static void *ping_v4_seq_start(struct seq_file *seq, loff_t *pos)
- {
- 	return ping_seq_start(seq, pos, AF_INET);
- }
- 
--static void *ping_seq_next(struct seq_file *seq, void *v, loff_t *pos)
-+void *ping_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- {
- 	struct sock *sk;
- 
-@@ -1064,11 +1064,13 @@ static void *ping_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 	++*pos;
- 	return sk;
- }
-+EXPORT_SYMBOL_GPL(ping_seq_next);
- 
--static void ping_seq_stop(struct seq_file *seq, void *v)
-+void ping_seq_stop(struct seq_file *seq, void *v)
- {
- 	read_unlock_bh(&ping_table.lock);
- }
-+EXPORT_SYMBOL_GPL(ping_seq_stop);
- 
- static void ping_v4_format_sock(struct sock *sp, struct seq_file *f,
- 		int bucket, int *len)
-@@ -1122,12 +1124,13 @@ static int ping_seq_open(struct inode *inode, struct file *file)
- 			   sizeof(struct ping_iter_state));
- }
- 
--static const struct file_operations ping_seq_fops = {
-+const struct file_operations ping_seq_fops = {
- 	.open		= ping_seq_open,
- 	.read		= seq_read,
- 	.llseek		= seq_lseek,
- 	.release	= seq_release_net,
- };
-+EXPORT_SYMBOL_GPL(ping_seq_fops);
- 
- static struct ping_seq_afinfo ping_v4_seq_afinfo = {
- 	.name		= "icmp",
-@@ -1141,7 +1144,7 @@ static struct ping_seq_afinfo ping_v4_seq_afinfo = {
- 	},
- };
- 
--static int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo)
-+int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo)
- {
- 	struct proc_dir_entry *p;
- 	p = proc_create_data(afinfo->name, S_IRUGO, net->proc_net,
-@@ -1150,13 +1153,13 @@ static int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo)
- 		return -ENOMEM;
- 	return 0;
- }
-+EXPORT_SYMBOL_GPL(ping_proc_register);
- 
--static void ping_proc_unregister(struct net *net,
--				 struct ping_seq_afinfo *afinfo)
-+void ping_proc_unregister(struct net *net, struct ping_seq_afinfo *afinfo)
- {
- 	remove_proc_entry(afinfo->name, net->proc_net);
- }
--
-+EXPORT_SYMBOL_GPL(ping_proc_unregister);
- 
- static int __net_init ping_v4_proc_init_net(struct net *net)
- {
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index a6462d6..46461b0 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -78,29 +78,6 @@ int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- 	return 0;
- }
- 
--int __init pingv6_init(void)
--{
--	pingv6_ops.ipv6_recv_error = ipv6_recv_error;
--	pingv6_ops.ip6_datagram_recv_ctl = ip6_datagram_recv_ctl;
--	pingv6_ops.icmpv6_err_convert = icmpv6_err_convert;
--	pingv6_ops.ipv6_icmp_error = ipv6_icmp_error;
--	pingv6_ops.ipv6_chk_addr = ipv6_chk_addr;
--	return inet6_register_protosw(&pingv6_protosw);
--}
--
--/* This never gets called because it's not possible to unload the ipv6 module,
-- * but just in case.
-- */
--void pingv6_exit(void)
--{
--	pingv6_ops.ipv6_recv_error = dummy_ipv6_recv_error;
--	pingv6_ops.ip6_datagram_recv_ctl = dummy_ip6_datagram_recv_ctl;
--	pingv6_ops.icmpv6_err_convert = dummy_icmpv6_err_convert;
--	pingv6_ops.ipv6_icmp_error = dummy_ipv6_icmp_error;
--	pingv6_ops.ipv6_chk_addr = dummy_ipv6_chk_addr;
--	inet6_unregister_protosw(&pingv6_protosw);
--}
--
- int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		    size_t len)
- {
-@@ -214,3 +191,83 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 
- 	return err;
- }
-+
-+#ifdef CONFIG_PROC_FS
-+static void *ping_v6_seq_start(struct seq_file *seq, loff_t *pos)
-+{
-+	return ping_seq_start(seq, pos, AF_INET6);
-+}
-+
-+int ping_v6_seq_show(struct seq_file *seq, void *v)
-+{
-+	if (v == SEQ_START_TOKEN) {
-+		seq_puts(seq, IPV6_SEQ_DGRAM_HEADER);
-+	} else {
-+		int bucket = ((struct ping_iter_state *) seq->private)->bucket;
-+		struct inet_sock *inet = inet_sk(v);
-+		__u16 srcp = ntohs(inet->inet_sport);
-+		__u16 destp = ntohs(inet->inet_dport);
-+		ip6_dgram_sock_seq_show(seq, v, srcp, destp, bucket);
-+	}
-+	return 0;
-+}
-+
-+static struct ping_seq_afinfo ping_v6_seq_afinfo = {
-+	.name		= "icmp6",
-+	.family		= AF_INET6,
-+	.seq_fops       = &ping_seq_fops,
-+	.seq_ops	= {
-+		.start		= ping_v6_seq_start,
-+		.show		= ping_v6_seq_show,
-+		.next		= ping_seq_next,
-+		.stop		= ping_seq_stop,
-+	},
-+};
-+
-+static int __net_init ping_v6_proc_init_net(struct net *net)
-+{
-+	return ping_proc_register(net, &ping_v6_seq_afinfo);
-+}
-+
-+static void __net_init ping_v6_proc_exit_net(struct net *net)
-+{
-+	return ping_proc_unregister(net, &ping_v6_seq_afinfo);
-+}
-+
-+static struct pernet_operations ping_v6_net_ops = {
-+	.init = ping_v6_proc_init_net,
-+	.exit = ping_v6_proc_exit_net,
-+};
-+#endif
-+
-+int __init pingv6_init(void)
-+{
-+	int ret;
-+	pingv6_ops.ipv6_recv_error = ipv6_recv_error;
-+	pingv6_ops.ip6_datagram_recv_ctl = ip6_datagram_recv_ctl;
-+	pingv6_ops.icmpv6_err_convert = icmpv6_err_convert;
-+	pingv6_ops.ipv6_icmp_error = ipv6_icmp_error;
-+	pingv6_ops.ipv6_chk_addr = ipv6_chk_addr;
-+#ifdef CONFIG_PROC_FS
-+	ret = register_pernet_subsys(&ping_v6_net_ops);
-+	if (ret)
-+		return ret;
-+#endif
-+	return inet6_register_protosw(&pingv6_protosw);
-+}
-+
-+/* This never gets called because it's not possible to unload the ipv6 module,
-+ * but just in case.
-+ */
-+void pingv6_exit(void)
-+{
-+	pingv6_ops.ipv6_recv_error = dummy_ipv6_recv_error;
-+	pingv6_ops.ip6_datagram_recv_ctl = dummy_ip6_datagram_recv_ctl;
-+	pingv6_ops.icmpv6_err_convert = dummy_icmpv6_err_convert;
-+	pingv6_ops.ipv6_icmp_error = dummy_ipv6_icmp_error;
-+	pingv6_ops.ipv6_chk_addr = dummy_ipv6_chk_addr;
-+#ifdef CONFIG_PROC_FS
-+	unregister_pernet_subsys(&ping_v6_net_ops);
-+#endif
-+	inet6_unregister_protosw(&pingv6_protosw);
-+}
+ /*
 -- 
-1.8.2.1
+1.8.1.4
