@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 2/3] net: pass changed flags along with NETDEV_CHANGE event
-Date: Tue, 28 May 2013 10:24:19 +0200
-Message-ID: <1369729460-28421-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next v2 3/3] arp: flush arp cache on IFF_NOARP change
+Date: Tue, 28 May 2013 10:24:20 +0200
+Message-ID: <1369729460-28421-4-git-send-email-jiri@resnulli.us>
 References: <1369729460-28421-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -11,64 +11,51 @@ Cc: davem@davemloft.net, eric.dumazet@gmail.com, timo.teras@iki.fi,
 	kaber@trash.net, bhutchings@solarflare.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f43.google.com ([74.125.82.43]:59403 "EHLO
-	mail-wg0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933449Ab3E1IYb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 04:24:31 -0400
-Received: by mail-wg0-f43.google.com with SMTP id x12so2859460wgg.22
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 01:24:29 -0700 (PDT)
+Received: from mail-wg0-f51.google.com ([74.125.82.51]:43445 "EHLO
+	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933433Ab3E1IYe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 04:24:34 -0400
+Received: by mail-wg0-f51.google.com with SMTP id b13so2208773wgh.30
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 01:24:32 -0700 (PDT)
 In-Reply-To: <1369729460-28421-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use new netdevice notifier infrastructure to pass along changed flags.
+=46rom: Timo Ter=C3=A4s <timo.teras@iki.fi>
+
+IFF_NOARP affects what kind of neighbor entries are created
+(nud NOARP or nud INCOMPLETE). If the flag changes, flush the arp
+cache to refresh all entries.
 
 Signed-off-by: Timo Ter=C3=A4s <timo.teras@iki.fi>
 Signed-off-by: Jiri Pirko <jiri@resnulli.us>
 ---
- include/linux/netdevice.h | 5 +++++
- net/core/dev.c            | 9 +++++++--
- 2 files changed, 12 insertions(+), 2 deletions(-)
+ net/ipv4/arp.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 153127b..38dae4f 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1602,6 +1602,11 @@ struct netdevice_notifier_info {
- 	struct net_device *dev;
- };
-=20
-+struct netdevice_notifier_change_info {
-+	struct netdevice_notifier_info info; /* must be first */
-+	unsigned int flags_changed;
-+};
-+
- static inline struct net_device *
- get_netdevice_notifier_info_dev(const struct netdevice_notifier_info *=
-info)
+diff --git a/net/ipv4/arp.c b/net/ipv4/arp.c
+index b455213..8c8eb40 100644
+--- a/net/ipv4/arp.c
++++ b/net/ipv4/arp.c
+@@ -1235,12 +1235,18 @@ static int arp_netdev_event(struct notifier_blo=
+ck *this, unsigned long event,
+ 			    void *ptr)
  {
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 4b1cc90..42a39b9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4778,8 +4778,13 @@ void __dev_notify_flags(struct net_device *dev, =
-unsigned int old_flags)
+ 	struct net_device *dev =3D get_netdevice_notifier_info_dev(ptr);
++	struct netdevice_notifier_change_info *change_info;
+=20
+ 	switch (event) {
+ 	case NETDEV_CHANGEADDR:
+ 		neigh_changeaddr(&arp_tbl, dev);
+ 		rt_cache_flush(dev_net(dev));
+ 		break;
++	case NETDEV_CHANGE:
++		change_info =3D ptr;
++		if (change_info->flags_changed & IFF_NOARP)
++			neigh_changeaddr(&arp_tbl, dev);
++		break;
+ 	default:
+ 		break;
  	}
-=20
- 	if (dev->flags & IFF_UP &&
--	    (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE))=
-)
--		call_netdevice_notifiers(NETDEV_CHANGE, dev);
-+	    (changes & ~(IFF_UP | IFF_PROMISC | IFF_ALLMULTI | IFF_VOLATILE))=
-) {
-+		struct netdevice_notifier_change_info change_info;
-+
-+		change_info.flags_changed =3D changes;
-+		call_netdevice_notifiers_info(NETDEV_CHANGE, dev,
-+					      &change_info.info);
-+	}
- }
-=20
- /**
 --=20
 1.7.11.7
