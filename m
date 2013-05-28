@@ -1,31 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/3 v3] phy: allow flagging PHY devices as internal
-Date: Mon, 27 May 2013 22:46:03 -0700 (PDT)
-Message-ID: <20130527.224603.939199586314970626.davem@davemloft.net>
-References: <1369307473-20696-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v5 0/2] MPLS: Add limited GSO support
+Date: Mon, 27 May 2013 22:51:31 -0700 (PDT)
+Message-ID: <20130527.225131.2103824917751166166.davem@davemloft.net>
+References: <1369378972-22728-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, afleming@freescale.com, jogo@openwrt.org,
-	bhutchings@solarflare.com
-To: f.fainelli@gmail.com
+Cc: dev@openvswitch.org, netdev@vger.kernel.org, jesse@nicira.com,
+	pshelar@nicira.com, jarno.rajahalme@nsn.com,
+	eric.dumazet@gmail.com, maze@google.com
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35710 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37735 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932798Ab3E1FqF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 01:46:05 -0400
-In-Reply-To: <1369307473-20696-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S932868Ab3E1Fvc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 01:51:32 -0400
+In-Reply-To: <1369378972-22728-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Florian Fainelli" <f.fainelli@gmail.com>
-Date: Thu, 23 May 2013 12:11:10 +0100
+From: Simon Horman <horms@verge.net.au>
+Date: Fri, 24 May 2013 16:02:50 +0900
 
-> This small patch set updates libphy to allow PHY drivers to flag a
-> specific PHY device as internal, which is then used to accurately
-> report the transceiver type (internal vs external) in ethtool.
+> In the case where a non-MPLS packet is received and an MPLS stack is
+> added it may well be the case that the original skb is GSO but the
+> NIC used for transmit does not support GSO of MPLS packets.
 > 
-> As far as I can tell we only have one in-tree driver for the moment
-> which is known to be for internal PHYs.
+> The aim of this short series is to provide GSO in software for MPLS packets
+> whose skbs are GSO.
 
-Series applied, thanks Florian.
+Looks good, and harmless, applied, thanks!
