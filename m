@@ -1,32 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/5] fec: Control the PHY regulator in suspend/resume
-Date: Mon, 27 May 2013 22:30:47 -0700 (PDT)
-Message-ID: <20130527.223047.2135277761579838349.davem@davemloft.net>
-References: <1369662513-32133-1-git-send-email-fabio.estevam@freescale.com>
+Subject: Re: [PATCH V2 1/4] net: ethernet: remove unnecessary
+ platform_set_drvdata()
+Date: Mon, 27 May 2013 22:36:49 -0700 (PDT)
+Message-ID: <20130527.223649.1171764029650198407.davem@davemloft.net>
+References: <000101ce5b60$5fcef5f0$1f6ce1d0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shawn.guo@linaro.org, kernel@pengutronix.de, netdev@vger.kernel.org
-To: fabio.estevam@freescale.com
+Cc: netdev@vger.kernel.org, nicolas.ferre@atmel.com,
+	rob.herring@calxeda.com, stigge@antcom.de, mugunthanvnm@ti.com,
+	hsweeten@visionengravers.com
+To: jg1.han@samsung.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34586 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34836 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932629Ab3E1Fas (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 01:30:48 -0400
-In-Reply-To: <1369662513-32133-1-git-send-email-fabio.estevam@freescale.com>
+	with ESMTP id S932643Ab3E1Fgu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 01:36:50 -0400
+In-Reply-To: <000101ce5b60$5fcef5f0$1f6ce1d0$@samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fabio Estevam <fabio.estevam@freescale.com>
-Date: Mon, 27 May 2013 10:48:28 -0300
+From: Jingoo Han <jg1.han@samsung.com>
+Date: Tue, 28 May 2013 14:01:12 +0900
 
-> This series provides support for controlling the PHY regulator in suspend/resume.
+> The driver core clears the driver data to NULL after device_release
+> or on probe failure, since commit 0998d0631001288a5974afc0b2a5f568bcdecb4d
+> (device-core: Ensure drvdata = NULL when no driver is bound).
+> Thus, it is not needed to manually clear the device driver data to NULL.
 > 
-> Fabio Estevam (5):
->   fec: Place the phy regulator in the private structure
->   fec: Invert the order of error path sequence
->   fec: Disable the PHY regulator on error and removal
->   fec: Remove irqs first
->   fec: Handle the regulator in suspend/resume
+> Signed-off-by: Jingoo Han <jg1.han@samsung.com>
+> Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Acked-by: Rob Herring <rob.herring@calxeda.com>
+> Acked-by: Roland Stigge <stigge@antcom.de>
+> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Reviewed-by: H Hartley Sweeten <hsweeten@visionengravers.com>
+> Tested-by: Roland Stigge <stigge@antcom.de>
 
-Series applied, thanks.
+Applied.
