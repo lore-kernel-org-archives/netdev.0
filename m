@@ -1,41 +1,37 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v5 net-next 0/5] net: low latency Ethernet device polling
-Date: Tue, 28 May 2013 11:29:17 +0300
-Message-ID: <51A46ADD.5070101@linux.intel.com>
-References: <20130527074351.29882.51106.stgit@ladj378.jer.intel.com> <1369701340.3301.504.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369701340.3301.504.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: [PATCH net-next v2 0/2] vxlan: allow specifying multiple default destinations
+Date: Tue, 28 May 2013 11:31:16 +0300
+Message-ID: <1369729878-9690-1-git-send-email-mike.rapoport@ravellosystems.com>
+Cc: Mike Rapoport <mike.rapoport@ravellosystems.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys010aog111.obsmtp.com ([74.125.245.90]:44381 "HELO
+	na3sys010aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S933515Ab3E1Ib3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 04:31:29 -0400
+Received: by mail-ea0-f175.google.com with SMTP id h10so4348921eaj.6
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 01:31:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28/05/2013 03:35, Eric Dumazet wrote:
-> On Mon, 2013-05-27 at 10:43 +0300, Eliezer Tamir wrote:
->> Hello Dave,
->>
->> There are many small changes from the last time.
->> The two big changes are:
->> * Skb and sk now store a napi_id instead of a pointer.
->> * Very naive poll/select support. There is a dramatic improvement in both
->>    latencey and jitter, but clearly more work needs to be done here.
->
-> Sorry I couldn't figure out how poll() was supported.
+Hi,
 
-It's the fs/select changes in the second patch.
-Should I will split it into a separate one? (it's just 7 lines)
+These patches add ability to specify multiple default destinations to
+vxlan. This ability is usefull in cases when multicast are disabled on
+infrastructure level, for instance in public clouds.
 
--Eliezer
+v2 changes:
+* rebased on current net-next
+* flush default destinations list at dellink as per Atzm Watanabe comment
+* support only IPv4
+
+Mike Rapoport (2):
+  vxlan: introduce vxlan_rdst_append
+  vxlan: allow specifying multiple default destinations
+
+ drivers/net/vxlan.c          | 164 +++++++++++++++++++++++++++++++++++++++++--
+ include/uapi/linux/if_link.h |  14 ++++
+ 2 files changed, 174 insertions(+), 4 deletions(-)
+
+-- 
+1.8.1.5
