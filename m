@@ -1,48 +1,50 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH net-next 2/4] igb: add more register definitions for
- time sync functions.
-Date: Mon, 27 May 2013 17:44:34 -0700
-Message-ID: <1369701874.2116.136.camel@jtkirshe-mobl>
+Subject: Re: [PATCH net-next 3/4] igb: do not clobber the TSAUXC bits on
+ reset.
+Date: Mon, 27 May 2013 17:44:49 -0700
+Message-ID: <1369701889.2116.137.camel@jtkirshe-mobl>
 References: <cover.1369645944.git.richardcochran@gmail.com>
-	 <a5df1f05bf9734924969c25879d177c9b16924ea.1369645944.git.richardcochran@gmail.com>
+	 <0c838f7cd866c88eb85bb8d2aaaef21048a7d0e9.1369645944.git.richardcochran@gmail.com>
 Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-O6WQ9EZwpyHcqcOjf2Cc"
+	protocol="application/pgp-signature"; boundary="=-HByPbCK17YyqABamv2+1"
 Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>,
 	e1000-devel@lists.sourceforge.net,
 	Jacob Keller <jacob.e.keller@intel.com>,
 	Matthew Vick <matthew.vick@intel.com>
 To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:14589 "EHLO mga11.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:12897 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758328Ab3E1Aoh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 May 2013 20:44:37 -0400
-In-Reply-To: <a5df1f05bf9734924969c25879d177c9b16924ea.1369645944.git.richardcochran@gmail.com>
+	id S1753145Ab3E1Aov (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 May 2013 20:44:51 -0400
+In-Reply-To: <0c838f7cd866c88eb85bb8d2aaaef21048a7d0e9.1369645944.git.richardcochran@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---=-O6WQ9EZwpyHcqcOjf2Cc
+--=-HByPbCK17YyqABamv2+1
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 
 On Mon, 2013-05-27 at 11:21 +0200, Richard Cochran wrote:
-> This patch adds missing definitions needed for implementing the
-> auxiliary time sync functions.
+> The TSAUXC register has a number of different bits, one of which
+> disables
+> the main clock function. Previously, the clock was re-enabled by
+> clearing
+> the entire register. This patch changes the code to preserve the
+> values
+> of the other bits in that register.
 >=20
 > Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 > ---
->  drivers/net/ethernet/intel/igb/e1000_defines.h |   68
-> ++++++++++++++++++++++--
->  drivers/net/ethernet/intel/igb/e1000_regs.h    |    9 ++++
->  drivers/net/ethernet/intel/igb/igb_ptp.c       |    4 +-
->  3 files changed, 76 insertions(+), 5 deletions(-)=20
+>  drivers/net/ethernet/intel/igb/igb_ptp.c |    8 +++++++-
+>  1 file changed, 7 insertions(+), 1 deletion(-)=20
 
 Thanks Richard, I will add this to my queue.
 
---=-O6WQ9EZwpyHcqcOjf2Cc
+--=-HByPbCK17YyqABamv2+1
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: This is a digitally signed message part
 Content-Transfer-Encoding: 7bit
@@ -50,19 +52,19 @@ Content-Transfer-Encoding: 7bit
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.13 (GNU/Linux)
 
-iQIcBAABCgAGBQJRo/3yAAoJEOVv75VaS+3Ox5YP+wZ/rFvGDaWIsa5Z7QF/dPOV
-cVYYG48JIYhjj1VQidVCIbPE6wDBGW2CfGu0KNY2Lczy7HOgttGvnVN2EmOQ0Z/c
-w6AxrGK6IerI++gyYQ1q25luEt0kXxV1xoM4EWIysIyX+2RyWhyhteYDNRNKxaEK
-MiCsqsMOg0Y/0bCNUY056pLyLq/GPxdm4loROxAhoRHrk5iKCYsmgPxWy/IIh0Er
-VNRt188GT9tDzf5C3P+RRp+5Nnbh0RyiwxrZMGcAaKQLHo4jmwf65hWhJkT5TaKy
-Ic0wUdf/fZEsZOuM3RtVDgOdjjhnnAvg+08/F2yzNWPepblQ2sh/dB1CQEqSRdlU
-r5GpolHwHBqe2w9NfJzoUK2Xil8NLyzogta8k7gkpKR8pcVVJ62HtPqzUd8cLnY3
-9Ufv/+vFeRWalH0+Rf4sGI35DVAhdlVSM9C+DOHfqTEib3RTHAh/oxa1p2171zzg
-IUnAAdd2x1gQHk8+blJZTvRSZz8k9eZFXK+BgfKWGR/L1viuYcbzxSBz/WJ5maaz
-wMKJ1T0LbXZhaUGTBPkX+b7ABqYBazZIS+6Nl/vkqOqKelRFpu/9CfhahSlgk4Wg
-dx2aD2l56hu/G6Puqi3mlP2bU1lSI8YcmtNe7Hzhc58NG66GGsioJATgaHXDJQZK
-lZ7ft/XuPV/GTFKzhYg/
-=cAI7
+iQIcBAABCgAGBQJRo/4BAAoJEOVv75VaS+3OlRkQAKOI5xjsVIfw9SRsueHkfK0s
+k2VKp3T7Ah3ht5MY9AcvG/aNNMPNgOfGZh2dtEbDKLYj149MqGj/GoNPW441vVpD
+euO3ClQ/5tkkaAlcLrAodH5jhRKgVtFY8FR2nu+qTMPNYyxFPSVNNob1y+aUOOTm
+029BpXWeVqN/32OComAhlogYdhc5ssSUJ0CmLHcTQ3F/ewmiy0E4fSz16jTe8RNU
+zTl8QEN+itOhBZbupf2jzlgWGIyDIVrVDtybI4m0sDN5ExtoLpT3or1vD7DHjJE8
+j2kwhBip060spROaAY8w9e58miasVBvMvSCyYc9cTt8V87DD1WZCjhDl+y19RlbC
+R6d8ig9DPqPU/Z3NU1oG3h7JRAUFPqGX7pM6sIHPFBJw19wKSQvBpK6jez8xjWFl
+IQWnX14XrlHAhCCNqxlAqq8SuxRA6NaX2BLJtLsVyGyLG7yYQ7/4WVFibDB9syfH
+8buxVgVcecLipUnSFkbFnQ6Y9Z11RF7da0QfrdS7SX/nLXnIPv/ZTcm95puNTR10
+/kncgaVkEHnY3JbbgKPQmlrS+mtjIyS4k/GhKXz4gknTIb/vLyoxsR7XlgwfPzxE
+GaGEIyhp9FRu3mYT2tGcwsxPTIsSWNromfpnJKnULpk38uWwb0kCvMHg3rsvSl5+
+1k170CmNoqbfxThLXR/d
+=FsdP
 -----END PGP SIGNATURE-----
 
---=-O6WQ9EZwpyHcqcOjf2Cc--
+--=-HByPbCK17YyqABamv2+1--
