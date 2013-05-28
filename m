@@ -1,54 +1,68 @@
-From: "Jens Renner (EFE)" <renner@efe-gmbh.de>
-Subject: [PATCH] net: ethernet: xilinx_emaclite: keep protocol selector bits
- by reading ANAR
-Date: Tue, 28 May 2013 18:10:38 +0200
-Message-ID: <51A4D6FE.3080308@efe-gmbh.de>
+From: Rafael Aquini <aquini@redhat.com>
+Subject: Re: [Patch v2] skbuff: Hide GFP_ATOMIC page allocation failures for
+ dropped packets
+Date: Tue, 28 May 2013 13:15:19 -0300
+Message-ID: <20130528161518.GC11614@optiplex.redhat.com>
+References: <1369601101-23057-1-git-send-email-atomlin@redhat.com>
+ <20130527224149.GA4384@electric-eye.fr.zoreil.com>
+ <51A4D4AD.2010507@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:64896 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934694Ab3E1QK2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 12:10:28 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>, atomlin@redhat.com,
+	netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com,
+	pshelar@nicira.com, mst@redhat.com, alexander.h.duyck@intel.com,
+	riel@redhat.com, sergei.shtylyov@cogentembedded.com,
+	linux-kernel@vger.kernel.org
+To: Ben Greear <greearb@candelatech.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51A4D4AD.2010507@candelatech.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch reads the PHY's MII_ADVERTISE register (ANAR) before modifying it.
-Hence, the protocol selector bits (4:0) which indicate IEEE 803.3u support are
-prevented from being cleared. While the selector bits are fixed / read-only on
-some PHYs, not setting them correctly on others (like TI DP83630) makes the
-PHY fall back to 10/half mode which should be avoided.
+On Tue, May 28, 2013 at 09:00:45AM -0700, Ben Greear wrote:
+> On 05/27/2013 03:41 PM, Francois Romieu wrote:
+> >atomlin@redhat.com <atomlin@redhat.com> :
+> >[...]
+> >>Failed GFP_ATOMIC allocations by the network stack result in dropped
+> >>packets, which will be received on a subsequent retransmit, and an
+> >>unnecessary, noisy warning with a kernel backtrace.
+> >>
+> >>These warnings are harmless, but they still cause users to panic and
+> >>file bug reports over dropped packets. It would be better to hide the
+> >>failed allocation warnings and backtraces, and let retransmits handle
+> >>dropped packets quietly.
+> >
+> >Linux VM may be perfect but device drivers do stupid things.
+> >
+> >Please don't paper over it just because some shit ends in your backyard.
+> 
+> We should rate-limit these messages at least.  When a system is low on memory
+> the logs can quickly fill up with useless OOM messages, further slowing
+> the system...
+>
 
-Signed-off-by: Jens Renner <renner@efe-gmbh.de>
----
-drivers/net/ethernet/xilinx/xilinx_emaclite.c               |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+The real problem seems to be that more and more the network stack (drivers, perhaps)
+is relying on chunks of contiguous page-blocks without a fallback mechanism to
+order-0 page allocations. When memory gets fragmented, these alloc failures
+start to pop up more often and they scare ordinary sysadmins out of their paints.
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 919b983..4a67af1 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -922,7 +922,7 @@ void xemaclite_adjust_link(struct net_device *ndev)
- static int xemaclite_open(struct net_device *dev)
- {
-        struct net_local *lp = netdev_priv(dev);
--       int retval;
-+       int retval, adv;
+The big point of this change was to attempt to relief some of these warnings 
+which we believed as being useless, since the net stack would recover from it
+by re-transmissions.
+We might have misjudged the scenario, though. Perhaps a better approach would be
+making the warning less verbose for all page-alloc failures. We could, perhaps,
+only print a stack-dump out, if some debug flag is passed along, either as
+reference, or by some CONFIG_DEBUG_ preprocessor directive.
 
-        /* Just to be safe, stop the device first */
-        xemaclite_disable_interrupts(lp);
-@@ -946,7 +946,10 @@ static int xemaclite_open(struct net_device *dev)
-                phy_write(lp->phy_dev, MII_CTRL1000, 0);
-
-                /* Advertise only 10 and 100mbps full/half duplex speeds */
--               phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL);
-+               adv = phy_read(lp->phy_dev, MII_ADVERTISE);
-+               if (adv < 0)
-+                       return adv;
-+               phy_write(lp->phy_dev, MII_ADVERTISE, adv | ADVERTISE_ALL);
-
-                /* Restart auto negotiation */
-                bmcr = phy_read(lp->phy_dev, MII_BMCR);
+Rafael
+ 
+> Ben
+> 
+> >
+> 
+> 
+> -- 
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc  http://www.candelatech.com
+> 
