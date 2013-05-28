@@ -1,109 +1,102 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v5 net-next 3/5] tcp: add TCP support for low latency
- receive poll.
-Date: Mon, 27 May 2013 17:36:53 -0700
-Message-ID: <1369701413.3301.506.camel@edumazet-glaptop>
-References: <20130527074351.29882.51106.stgit@ladj378.jer.intel.com>
-	 <20130527074421.29882.73968.stgit@ladj378.jer.intel.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 1/4] igb: refactor and simplify
+ time sync interrupt handling
+Date: Mon, 27 May 2013 17:44:20 -0700
+Message-ID: <1369701860.2116.135.camel@jtkirshe-mobl>
+References: <cover.1369645944.git.richardcochran@gmail.com>
+	<e81791002acaf082ace4ec7bb1fa24ab6633fd49.1369645944.git.richardcochran@gmail.com>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130527074421.29882.73968.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============7563778729771357615=="
+Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	David Miller <davem@davemloft.net>, Jacob Keller <jacob.e.keller@intel.com>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <e81791002acaf082ace4ec7bb1fa24ab6633fd49.1369645944.git.richardcochran@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-05-27 at 10:44 +0300, Eliezer Tamir wrote:
-> adds busy-poll support for TCP.
-> 
 
-Really, this is a small changelog for such an addition :(
+--===============7563778729771357615==
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-jvgvIVFO/H6MSfGDcm97"
 
-How poll()/epoll() is supported ?
 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Willem de Bruijn <willemb@google.com>
-> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+--=-jvgvIVFO/H6MSfGDcm97
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 2013-05-27 at 11:21 +0200, Richard Cochran wrote:
+> The code that handles the time sync interrupt is repeated in three
+> different places. This patch refactors the identical code blocks into
+> a single helper function. Also, reading the TSICR register already
+> acknowledges the time sync interrupts, and so there is no need to
+> write that register at all.
+>=20
+> Signed-off-by: Richard Cochran <richardcochran@gmail.com>
 > ---
-> 
->  net/ipv4/tcp.c       |    5 +++++
->  net/ipv4/tcp_input.c |    1 +
->  net/ipv4/tcp_ipv4.c  |    2 ++
->  3 files changed, 8 insertions(+), 0 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-> index d87ce72..652c75a 100644
-> --- a/net/ipv4/tcp.c
-> +++ b/net/ipv4/tcp.c
-> @@ -279,6 +279,7 @@
->  
->  #include <asm/uaccess.h>
->  #include <asm/ioctls.h>
-> +#include <net/ll_poll.h>
->  
->  int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
->  
-> @@ -1551,6 +1552,10 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
->  	struct sk_buff *skb;
->  	u32 urg_hole = 0;
->  
-> +	if (sk_valid_ll(sk) && skb_queue_empty(&sk->sk_receive_queue)
-> +	    && (sk->sk_state == TCP_ESTABLISHED))
-> +		sk_poll_ll(sk, nonblock);
-> +
->  	lock_sock(sk);
->  
->  	err = -ENOTCONN;
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 9579e1a..4d82939 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -74,6 +74,7 @@
->  #include <linux/ipsec.h>
->  #include <asm/unaligned.h>
->  #include <net/netdma.h>
-> +#include <net/ll_poll.h>
->  
+>  drivers/net/ethernet/intel/igb/igb_main.c |   47
+> +++++++++++------------------
+>  1 file changed, 17 insertions(+), 30 deletions(-)=20
+
+Thanks Richard, I will add this to my queue.
+
+--=-jvgvIVFO/H6MSfGDcm97
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iQIcBAABCgAGBQJRo/3kAAoJEOVv75VaS+3OtkMQAJfkwJnXWvlC8/He5cnl/fPI
+qhjcQiLvDtn/7Lq2Xtm+mqe/nuUaj3QDWJS+uYTFkA0t3AWqdhUJ3mMoZoM49iEk
+8vNjH/Hw/5jP6qrre5PUfpxPgWg+cV8mh2+APmB26GTUf2YbXNR63NYnxS9470MR
+unSZHbEoulwBONJtWLsFET+fd747DayI/KqHrqDz0xco6Li0iKs7JOGSyAdPYgb5
+3lN1+eKRVvC8E/2SArdWZ9QAr0StfmKqbJMs4uq1iYOpgTg4nnb7saKQzcOgX6mJ
+WuZqP6g8k8TZc2dG48Mi3KVr9bkbT0GelOWjFrOyJ6wxBmFppPVBdOIUWqb7Sw+q
+zYfP4Esa6szxSYtDMPGCjrxsKqrRAKgln0VHLd6nWwLqy+MqSTtd/Snu1/OhXHqw
+yOHfIsXBOpoUvD4FRHzXUoKt1L3pbJYmssgeCj6senVEIsiLl+MNDmI1nWDB7X3k
+ENmyM2ywz9CeC6UbHyd5yH0dY7SC3c+QJdxoEloa+u7/pKFMQzxHKlaGzAJVI2Ok
+cwqmGwC4v6Cvg6MGx0Fy2F3JA7eBNO9lx3sVfCAKlHAplG4OKzPxIoXXJNb/h6l4
+Ng8mYrBPAuVWlnAqDc2jsAVaOjQRosEBTHDK3kBBiOgoMwCn+l310c5kJ9AQFmVt
+nKX7Lk8oKeUDXOGrFOXY
+=Pure
+-----END PGP SIGNATURE-----
+
+--=-jvgvIVFO/H6MSfGDcm97--
 
 
-Not sure why this include is needed in this file ?
 
-You added nothing else but this line.
+--===============7563778729771357615==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
->  int sysctl_tcp_timestamps __read_mostly = 1;
->  int sysctl_tcp_window_scaling __read_mostly = 1;
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index d20ede0..35fd8bc 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -75,6 +75,7 @@
->  #include <net/netdma.h>
->  #include <net/secure_seq.h>
->  #include <net/tcp_memcontrol.h>
-> +#include <net/ll_poll.h>
->  
->  #include <linux/inet.h>
->  #include <linux/ipv6.h>
-> @@ -2011,6 +2012,7 @@ process:
->  	if (sk_filter(sk, skb))
->  		goto discard_and_relse;
->  
-> +	sk_mark_ll(sk, skb);
->  	skb->dev = NULL;
->  
->  	bh_lock_sock_nested(sk);
+------------------------------------------------------------------------------
+Try New Relic Now & We'll Send You this Cool Shirt
+New Relic is the only SaaS-based application performance monitoring service 
+that delivers powerful full stack analytics. Optimize and monitor your
+browser, app, & servers with just a few lines of code. Try New Relic
+and get this awesome Nerd Life shirt! http://p.sf.net/sfu/newrelic_d2d_may
+--===============7563778729771357615==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-How IPv6 is handled ?
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============7563778729771357615==--
