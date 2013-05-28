@@ -1,57 +1,50 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v5 net-next 2/5] net: implement support for low latency
- socket polling
-Date: Tue, 28 May 2013 11:04:23 +0300
-Message-ID: <51A46507.3060901@linux.intel.com>
-References: <20130527074351.29882.51106.stgit@ladj378.jer.intel.com>  <20130527074411.29882.88391.stgit@ladj378.jer.intel.com> <1369700781.3301.497.camel@edumazet-glaptop>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 3/3 v3] net/macb: Try to optimize struct macb layout
+Date: Tue, 28 May 2013 10:08:40 +0200
+Message-ID: <51A46608.2020906@atmel.com>
+References: <cover.1368608928.git.nicolas.ferre@atmel.com> <d0bc206ace3baaf681e111ba07c4d0b576839bb4.1368608928.git.nicolas.ferre@atmel.com> <AE90C24D6B3A694183C094C60CF0A2F6026B723A@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="windows-1252"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Dave Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>,
+	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
+	<hein_tibosch@yahoo.es>, <s.trumtrar@pengutronix.de>,
+	<michal.simek@xilinx.com>, <monstr@monstr.eu>,
+	Havard Skinnemoen <havard@skinnemoen.net>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369700781.3301.497.camel@edumazet-glaptop>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B723A@saturn3.aculab.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 28/05/2013 03:26, Eric Dumazet wrote:
-> On Mon, 2013-05-27 at 10:44 +0300, Eliezer Tamir wrote:
-
->> diff --git a/include/net/sock.h b/include/net/sock.h
->> index 66772cf..c7c3ea6 100644
->> --- a/include/net/sock.h
->> +++ b/include/net/sock.h
->> @@ -281,6 +281,7 @@ struct cg_proto;
->>     *	@sk_error_report: callback to indicate errors (e.g. %MSG_ERRQUEUE)
->>     *	@sk_backlog_rcv: callback to process the backlog
->>     *	@sk_destruct: called at sock freeing time, i.e. when all refcnt == 0
->> +  *	@sk_napi_id: id of the last napi context to receive data for sk
->>    */
->>   struct sock {
->>   	/*
->> @@ -399,6 +400,9 @@ struct sock {
->>   	int			(*sk_backlog_rcv)(struct sock *sk,
->>   						  struct sk_buff *skb);
->>   	void                    (*sk_destruct)(struct sock *sk);
->> +#ifdef CONFIG_NET_LL_RX_POLL
->> +	unsigned int		sk_napi_id;
->> +#endif
->>   };
+On 15/05/2013 11:37, David Laight :
+>> From: Havard Skinnemoen <havard@skinnemoen.net>
 >
-> I believe this is a bad choice for data locality.
+>> Move the NAPI struct below that since it is used
+>> from the interrupt handler. This field is also marked as
+>> ___cacheline_aligned_in_smp.
 >
-> I would rather move it in the same cache line than sk_rxhash
+> Is that a good idea if the cache line size is 256 bytes?
+> Indeed is that ever sane - except for a few special structures
+> that really need it, and are guaranteed to be allocated
+> with that much alignment.
 
-I will move it to right after sk_rxhash.
+I do not know if that was really needed, it was a recommendation by Ben.
+(previous email here:
+https://patchwork.kernel.org/patch/1887101/
+)
 
--Eliezer
+Anyway, it seems that this patch needs more work whereas the others of 
+the series are not commented.
+
+So maybe, I can resend patches 1, 2 for making this big enhancement go 
+forward (as it is in review process for quite a long time...).
+David, do you want me to resend or can you retrieve these v3 patches in 
+patchwork?
+
+Best regards,
+-- 
+Nicolas Ferre
