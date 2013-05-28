@@ -1,60 +1,37 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net v2] ipv4: fix redirect handling for TCP packets
-Date: Tue, 28 May 2013 08:26:49 +0200
-Message-ID: <20130528063301.11B7662C67@unicorn.suse.cz>
-References: <20130527.232350.1126293930261151421.davem@davemloft.net>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] bonding: remove ifenslave.c from kernel source
+Date: Mon, 27 May 2013 23:35:57 -0700 (PDT)
+Message-ID: <20130527.233557.337411213231291183.davem@davemloft.net>
+References: <1369705756-11171-1-git-send-email-amwang@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org,
+	fubar@us.ibm.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:54093 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933037Ab3E1GdD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 May 2013 02:33:03 -0400
-In-Reply-To: <20130527.232350.1126293930261151421.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53383 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933056Ab3E1Gf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 02:35:59 -0400
+In-Reply-To: <1369705756-11171-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unlike ipv4_redirect() and ipv4_sk_redirect(), ip_do_redirect()
-doesn't call __build_flow_key() directly but via
-ip_rt_build_flow_key() wrapper. This leads to __build_flow_key()
-getting pointer to IPv4 header of the ICMP redirect packet
-rather than pointer to the embedded IPv4 header of the packet
-initiating the redirect.
+From: Cong Wang <amwang@redhat.com>
+Date: Tue, 28 May 2013 09:49:16 +0800
 
-As a result, handling of ICMP redirects initiated by TCP packets
-is broken. Issue was introduced by
+> From: Cong Wang <amwang@redhat.com>
+> 
+> As Stephen proposed:
+> Since bonding supports configuration via iproute (netlink) and sysfs, I think
+> it is time to purge the old ifenslave code out of Documentation/networking
+> and update the documentation.
+> 
+> Suggested-by: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: Jay Vosburgh <fubar@us.ibm.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-	4895c771c ("ipv4: Add FIB nexthop exceptions.")
-
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/ipv4/route.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/route.c b/net/ipv4/route.c
-index 550781a..d35bbf0 100644
---- a/net/ipv4/route.c
-+++ b/net/ipv4/route.c
-@@ -737,10 +737,15 @@ static void ip_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_buf
- {
- 	struct rtable *rt;
- 	struct flowi4 fl4;
-+	const struct iphdr *iph = (const struct iphdr *) skb->data;
-+	int oif = skb->dev->ifindex;
-+	u8 tos = RT_TOS(iph->tos);
-+	u8 prot = iph->protocol;
-+	u32 mark = skb->mark;
- 
- 	rt = (struct rtable *) dst;
- 
--	ip_rt_build_flow_key(&fl4, sk, skb);
-+	__build_flow_key(&fl4, sk, iph, oif, tos, prot, mark, 0);
- 	__ip_do_redirect(rt, skb, &fl4, true);
- }
- 
--- 
-1.8.1.4
+Yep, time to let this one go, applied, thanks!
