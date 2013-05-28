@@ -1,192 +1,44 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] vxlan: do real refcnt for vn_sock
-Date: Tue, 28 May 2013 19:07:22 +0800
-Message-ID: <1369739242-5944-1-git-send-email-amwang@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH] bonding: trivial: update the comments to reflect the reality
+Date: Tue, 28 May 2013 13:26:13 +0200
+Message-ID: <1369740373-27712-1-git-send-email-vfalico@redhat.com>
+Cc: andy@greyhouse.net, fubar@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:16749 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:35995 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751700Ab3E1LHg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 May 2013 07:07:36 -0400
+	id S932457Ab3E1LZs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 May 2013 07:25:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
 
-In commit 553675fb5e9ce3d71a (vxlan: listen on multiple ports),
-we use kfree_rcu() to free ->vn_sock, but a) there is no use
-of RCU API to access this filed, b) RCU is not enough to do refcnt
-here, because in vxlan_leave_group() we drop RTNL lock before
-locking the socket, it could be possible that this field is
-freed during this period.
-
-So, instead making things complex, just do basic refcnt for
-the ->vn_sock, like we do for others.
-
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 5ed64d4..73a674e 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -83,9 +83,8 @@ static unsigned int vxlan_net_id;
- /* per UDP socket information */
- struct vxlan_sock {
- 	struct hlist_node hlist;
--	struct rcu_head	  rcu;
- 	struct work_struct del_work;
--	unsigned int	  refcnt;
-+	atomic_t	  refcnt;
- 	struct socket	  *sock;
- 	struct hlist_head vni_list[VNI_HASH_SIZE];
- };
-@@ -164,14 +163,30 @@ static inline struct hlist_head *vs_head(struct net *net, __be16 port)
- 	return &vn->sock_list[hash_32(ntohs(port), PORT_HASH_BITS)];
+ drivers/net/bonding/bond_sysfs.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index 3d269a5..f8bee4c 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -231,8 +231,7 @@ static ssize_t bonding_show_slaves(struct device *d,
  }
  
-+static inline void vxlan_sock_get(struct vxlan_sock *vs)
-+{
-+	atomic_inc(&vs->refcnt);
-+}
-+
-+static inline void vxlan_sock_put(struct vxlan_sock *vs)
-+{
-+	if (atomic_dec_and_test(&vs->refcnt)) {
-+		hlist_del_rcu(&vs->hlist);
-+		schedule_work(&vs->del_work);
-+	}
-+}
-+
-+
- /* Find VXLAN socket based on network namespace and UDP port */
- static struct vxlan_sock *vxlan_find_port(struct net *net, __be16 port)
- {
- 	struct vxlan_sock *vs;
+ /*
+- * Set the slaves in the current bond.  The bond interface must be
+- * up for this to succeed.
++ * Set the slaves in the current bond.
+  * This is supposed to be only thin wrapper for bond_enslave and bond_release.
+  * All hard work should be done there.
+  */
+@@ -363,7 +362,6 @@ static DEVICE_ATTR(mode, S_IRUGO | S_IWUSR,
  
- 	hlist_for_each_entry_rcu(vs, vs_head(net, port), hlist) {
-+		vxlan_sock_get(vs);
- 		if (inet_sk(vs->sock->sk)->inet_sport == port)
- 			return vs;
-+		vxlan_sock_put(vs);
- 	}
- 	return NULL;
- }
-@@ -187,10 +202,13 @@ static struct vxlan_dev *vxlan_find_vni(struct net *net, u32 id, __be16 port)
- 		return NULL;
- 
- 	hlist_for_each_entry_rcu(vxlan, vni_head(vs, id), hlist) {
--		if (vxlan->default_dst.remote_vni == id)
-+		if (vxlan->default_dst.remote_vni == id) {
-+			vxlan_sock_put(vs);
- 			return vxlan;
-+		}
- 	}
- 
-+	vxlan_sock_put(vs);
- 	return NULL;
- }
- 
-@@ -926,7 +944,7 @@ static bool route_shortcircuit(struct net_device *dev, struct sk_buff *skb)
- 	return false;
- }
- 
--static void vxlan_sock_put(struct sk_buff *skb)
-+static void vxlan_sock_destructor(struct sk_buff *skb)
- {
- 	sock_put(skb->sk);
- }
-@@ -940,7 +958,7 @@ static void vxlan_set_owner(struct net_device *dev, struct sk_buff *skb)
- 	skb_orphan(skb);
- 	sock_hold(sk);
- 	skb->sk = sk;
--	skb->destructor = vxlan_sock_put;
-+	skb->destructor = vxlan_sock_destructor;
- }
- 
- /* Compute source port for outgoing packet
-@@ -1255,10 +1273,14 @@ static int vxlan_open(struct net_device *dev)
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	int err;
- 
-+	vxlan_sock_get(vxlan->vn_sock);
-+
- 	if (IN_MULTICAST(ntohl(vxlan->default_dst.remote_ip))) {
- 		err = vxlan_join_group(dev);
--		if (err)
-+		if (err) {
-+			vxlan_sock_put(vxlan->vn_sock);
- 			return err;
-+		}
- 	}
- 
- 	if (vxlan->age_interval)
-@@ -1294,6 +1316,8 @@ static int vxlan_stop(struct net_device *dev)
- 
- 	del_timer_sync(&vxlan->age_timer);
- 
-+	vxlan_sock_put(vxlan->vn_sock);
-+
- 	vxlan_flush(vxlan);
- 
- 	return 0;
-@@ -1447,7 +1471,7 @@ static void vxlan_del_work(struct work_struct *work)
- 	struct vxlan_sock *vs = container_of(work, struct vxlan_sock, del_work);
- 
- 	sk_release_kernel(vs->sock->sk);
--	kfree_rcu(vs, rcu);
-+	kfree(vs);
- }
- 
- /* Create new listen socket if needed */
-@@ -1503,7 +1527,7 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port)
- 	udp_sk(sk)->encap_rcv = vxlan_udp_encap_recv;
- 	udp_encap_enable();
- 
--	vs->refcnt = 1;
-+	atomic_set(&vs->refcnt, 1);
- 	return vs;
- }
- 
-@@ -1592,9 +1616,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 	}
- 
- 	vs = vxlan_find_port(net, vxlan->dst_port);
--	if (vs)
--		++vs->refcnt;
--	else {
-+	if (!vs) {
- 		/* Drop lock because socket create acquires RTNL lock */
- 		rtnl_unlock();
- 		vs = vxlan_socket_create(net, vxlan->dst_port);
-@@ -1610,12 +1632,7 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 
- 	err = register_netdevice(dev);
- 	if (err) {
--		if (--vs->refcnt == 0) {
--			rtnl_unlock();
--			sk_release_kernel(vs->sock->sk);
--			kfree(vs);
--			rtnl_lock();
--		}
-+		vxlan_sock_put(vs);
- 		return err;
- 	}
- 
-@@ -1634,10 +1651,7 @@ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
- 	list_del(&vxlan->next);
- 	unregister_netdevice_queue(dev, head);
- 
--	if (--vs->refcnt == 0) {
--		hlist_del_rcu(&vs->hlist);
--		schedule_work(&vs->del_work);
--	}
-+	vxlan_sock_put(vs);
- }
- 
- static size_t vxlan_get_size(const struct net_device *dev)
+ /*
+  * Show and set the bonding transmit hash method.
+- * The bond interface must be down to change the xmit hash policy.
+  */
+ static ssize_t bonding_show_xmit_hash(struct device *d,
+ 				      struct device_attribute *attr,
+-- 
+1.7.1
