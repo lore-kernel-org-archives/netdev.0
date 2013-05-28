@@ -1,64 +1,58 @@
-From: "renner@efe-gmbh.de" <renner@efe-gmbh.de>
-Subject: RE: [PATCH] net: ethernet: xilinx_emaclite: keep protocol selector
- bits by reading ANAR
-Date: Tue, 28 May 2013 21:35:45 +0200 (CEST)
-Message-ID: <635022046.487018.1369769745682.open-xchange@email.1und1.de>
-References: <51A4D6FE.3080308@efe-gmbh.de> <AE90C24D6B3A694183C094C60CF0A2F6026B7251@saturn3.aculab.com>
-Reply-To: "renner@efe-gmbh.de" <renner@efe-gmbh.de>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next 1/3] ipv4: properly refresh rtable entries on
+ pmtu/redirect events
+Date: Tue, 28 May 2013 22:44:30 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1305282237020.1713@ja.ssi.bg>
+References: <20130527.233844.2081972819091665848.davem@davemloft.net> <1369723593-5307-1-git-send-email-timo.teras@iki.fi> <alpine.LFD.2.00.1305281117190.1693@ja.ssi.bg> <20130528115357.4d9d281e@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: netdev@vger.kernel.org, David Laight <David.Laight@ACULAB.COM>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org,
+	Steffen Klassert <steffen.klassert@secunet.com>
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:60383 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753578Ab3E1Tfr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 15:35:47 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7251@saturn3.aculab.com>
+Received: from ja.ssi.bg ([178.16.129.10]:43806 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753578Ab3E1Tk7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 May 2013 15:40:59 -0400
+In-Reply-To: <20130528115357.4d9d281e@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> David Laight <David.Laight@ACULAB.COM> hat am 28. Mai 2013 um 18:22
-> geschrieben:
->
->
-> > This patch reads the PHY's MII_ADVERTISE register (ANAR) before modifying
-> > it.
-> > Hence, the protocol selector bits (4:0) which indicate IEEE 803.3u support
-> > are
-> > prevented from being cleared.
-> > ...
-> >                 /* Advertise only 10 and 100mbps full/half duplex speeds */
-> > -               phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL);
-> > +               adv = phy_read(lp->phy_dev, MII_ADVERTISE);
-> > +               if (adv < 0)
-> > +                       return adv;
-> > +               phy_write(lp->phy_dev, MII_ADVERTISE, adv | ADVERTISE_ALL);
->
-> Given the comment shouldn't this be removing some bits?
->
-> It is a long time since I read the definitions of the ANAR (etc).
-> But I remember it having at least 5 bits defined for 10M and 100M
-> operation (including 100T4), so the reference to keeping bits (4:0)
-> seems confusing.
->
->    David
->
 
-David, thanks for your feedback!
-The bits I mentioned (the 5 least bits in ANAR) are the so-called protocol
-selection bits (at least that's what they call it at Intel, TI, Marvell, Maxim,
-etc.). The only value that seems actually to be used is 1 (0b00001) which means
-802.3 / fast ethernet capability (maybe 0 for slower devices?). 1 is the
-default value for all the 10/100(/1000) PHYs I know of, in some PHYs it is even
-hardcoded (i.e. read-only). It must not be confused with ANAR bits 9:5 where
-the actual speed and duplex mode can be selected.
-ADVERTISE_ALL as defined in mii.h lacks this bit, in contrast to ADVERTISE_FULL
-where it is set through ADVERTISE_CSMA. Whether this is correct or not; at
-least it makes some sense to me to read what's actually written in these
-register bits and not to clear them. Otherwise some PHYs might fall back to
-10-half as seen for the TI DP83640 which has been used to test this patch.
-I hope this explains the reason for this patch.
+	Hello,
 
-Jens.
+On Tue, 28 May 2013, Timo Teras wrote:
+
+> > > +static void fill_route_from_fnhe(struct rtable *rt, struct
+> > > fib_nh_exception *fnhe) +{
+> > > +	rt->rt_pmtu = fnhe->fnhe_pmtu;
+> > > +	rt->dst.expires = fnhe->fnhe_expires;
+> > 
+> > 	The 'if (time_before' ... dst_set_expires() logic from
+> > rt_bind_exception() is removed, may be it should be moved here,
+> > i.e. fnhe_pmtu should be ignored if expired.
+> 
+> That code would not help much. The route's rt_pmtu is never reset to
+> zero after the fnhe expires, so this would not make much difference.
+> The old rt_pmtu and dst.expires would be left there anyway. All rt
+> accesses check for expires too.
+
+	I see, ipv4_mtu validates rt_pmtu expiration, so
+such checks are not needed in rt_bind_exception and
+fill_route_from_fnhe.
+
+> This was actually intentional on the old code, as non-zero rt_pmtu
+> implied that we had "next hop exception route" instead of "next hop
+> route" and affected how the rt was invalidated in pmtu update.
+> 
+> If we want to clear out these fields, then it would make sense to have
+> rt_bind_exception() to reset these on expiry to the struct
+> fib_nh_exception directly and keep the direct assignments in
+> fill_route_from_fnhe().
+> 
+> - Timo
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
