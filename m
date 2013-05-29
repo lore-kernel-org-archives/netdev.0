@@ -1,32 +1,37 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v5 09/13] ARM: orion5x: add gigabit ethernet and mvmdio device tree nodes
-Date: Wed, 29 May 2013 21:32:51 +0200
-Message-ID: <1369855975-21489-10-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v5 03/13] net: mv643xx_eth: add phy_node to platform_data
+ struct
+Date: Wed, 29 May 2013 21:32:45 +0200
+Message-ID: <1369855975-21489-4-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
  <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Cc: David Miller <davem@davemloft.net>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	Jason Cooper <jason@lakedaemon.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
+ David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@wantstofly.org>
 To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 In-Reply-To: <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-This patch adds mv643xx_eth and mvmdio device tree nodes for DT enabled
-Orion5x boards. Phy nodes are also added with reg property set on a
-per-board basis.
+This adds a struct device_node pointer for a phy passed by phandle
+to mv643xx_eth node.
 
 Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
-Changelog:
-v3->v4:
-- convert to new device tree binding
-
 Cc: David Miller <davem@davemloft.net>
 Cc: Lennert Buytenhek <buytenh@wantstofly.org>
 Cc: Jason Cooper <jason@lakedaemon.net>
@@ -37,73 +42,28 @@ Cc: linux-arm-kernel@lists.infradead.org
 Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-kernel@vger.kernel.org
 ---
- .../dts/orion5x-lacie-ethernet-disk-mini-v2.dts    |   17 ++++++++++++
- arch/arm/boot/dts/orion5x.dtsi                     |   29 ++++++++++++++++++++
- 2 files changed, 46 insertions(+)
+ include/linux/mv643xx_eth.h |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts b/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts
-index 0077fc8..c7e2efd 100644
---- a/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts
-+++ b/arch/arm/boot/dts/orion5x-lacie-ethernet-disk-mini-v2.dts
-@@ -53,3 +53,20 @@
- 		};
- 	};
- };
-+
-+&mdio {
-+	status = "okay";
-+
-+	&ethphy: ethernet-phy {
-+		device-type = "ethernet-phy";
-+		reg = <8>;
-+	};
-+};
-+
-+&eth {
-+	status = "okay";
-+
-+	ethernet-port@0 {
-+		phy-handle = <&ethphy>;
-+	};
-+};
-diff --git a/arch/arm/boot/dts/orion5x.dtsi b/arch/arm/boot/dts/orion5x.dtsi
-index 892c64e..6fe45d5 100644
---- a/arch/arm/boot/dts/orion5x.dtsi
-+++ b/arch/arm/boot/dts/orion5x.dtsi
-@@ -132,5 +132,34 @@
- 			interrupts = <28>;
- 			status = "okay";
- 		};
-+
-+		mdio: mdio-bus@72004 {
-+			compatible = "marvell,orion-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0x72004 0x84>;
-+			interrupts = <22>;
-+			status = "disabled";
-+
-+			/* add phy nodes in board file */
-+		};
-+
-+		eth: ethernet-controller@72000 {
-+			compatible = "marvell,orion-eth";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0x72000 0x4000>;
-+			marvell,tx-checksum-limit = <1600>;
-+			status = "disabled";
-+
-+			ethernet-port@0 {
-+				device_type = "network";
-+				compatible = "marvell,orion-eth-port";
-+				reg = <0>;
-+				/* overwrite MAC address in bootloader */
-+				local-mac-address = [00 00 00 00 00 00];
-+				/* set phy-handle property in board file */
-+			};
-+		};
- 	};
- };
+diff --git a/include/linux/mv643xx_eth.h b/include/linux/mv643xx_eth.h
+index 141d395..6e8215b 100644
+--- a/include/linux/mv643xx_eth.h
++++ b/include/linux/mv643xx_eth.h
+@@ -30,6 +30,7 @@ struct mv643xx_eth_shared_platform_data {
+ #define MV643XX_ETH_PHY_ADDR(x)		(0x80 | (x))
+ #define MV643XX_ETH_PHY_NONE		0xff
+ 
++struct device_node;
+ struct mv643xx_eth_platform_data {
+ 	/*
+ 	 * Pointer back to our parent instance, and our port number.
+@@ -41,6 +42,7 @@ struct mv643xx_eth_platform_data {
+ 	 * Whether a PHY is present, and if yes, at which address.
+ 	 */
+ 	int			phy_addr;
++	struct device_node	*phy_node;
+ 
+ 	/*
+ 	 * Use this MAC address if it is valid, overriding the
 -- 
 1.7.10.4
