@@ -1,27 +1,36 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request: batman-adv 2013-05-29
-Date: Tue, 28 May 2013 23:34:13 -0700 (PDT)
-Message-ID: <20130528.233413.727546400524779763.davem@davemloft.net>
-References: <1369789186-3600-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next] net: clean up skb headers code
+Date: Tue, 28 May 2013 23:36:47 -0700 (PDT)
+Message-ID: <20130528.233647.1209227470109213894.davem@davemloft.net>
+References: <1369807740-12324-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1369789186-3600-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, horms@verge.net.au
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45833 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753589Ab3E2Ggs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 02:36:48 -0400
+In-Reply-To: <1369807740-12324-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Cong Wang <amwang@redhat.com>
+Date: Wed, 29 May 2013 14:09:00 +0800
 
-Only 13 of the 21 patches made it to netdev.
+> commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
+> fields of struct skbuff) converts skb->*_header to u16,
+> therefore 1) we could just use 0xFFFFF instead of (__u16) ~0U
+> 2) some #if NET_SKBUFF_DATA_USES_OFFSET is useless now.
+> 
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Simon Horman <horms@verge.net.au>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
+
+I want to use something that will either break the build or
+automatically work if the type changes again.
+
+So something like "X = (typeof(X)) ~0U;".
