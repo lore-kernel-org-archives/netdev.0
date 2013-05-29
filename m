@@ -1,121 +1,35 @@
-From: sean.hefty@intel.com
-Subject: [PATCH v5 23/28] rdma/ucm: Add ability to query GID addresses
-Date: Wed, 29 May 2013 10:09:29 -0700
-Message-ID: <1369847374-12176-24-git-send-email-sean.hefty@intel.com>
-References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
-Cc: Sean Hefty <sean.hefty@intel.com>
-To: roland@purestorage.com, linux-rdma@vger.kernel.org,
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 11/11] net: emaclite: Update driver header
+Date: Wed, 29 May 2013 21:11:48 +0400
+Message-ID: <51A636D4.3050200@cogentembedded.com>
+References: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369841519.git.michal.simek@xilinx.com> <c0a6ab3410dd6e6a9198a4605993164700d1b965.1369841519.git.michal.simek@xilinx.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	netdev@vger.kernel.org
+To: Michal Simek <michal.simek@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:18285 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759693Ab3E2RKD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 13:10:03 -0400
-In-Reply-To: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
+Received: from mail-la0-f48.google.com ([209.85.215.48]:58964 "EHLO
+	mail-la0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932922Ab3E2RLu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 13:11:50 -0400
+Received: by mail-la0-f48.google.com with SMTP id fs12so8840308lab.21
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 10:11:48 -0700 (PDT)
+In-Reply-To: <c0a6ab3410dd6e6a9198a4605993164700d1b965.1369841519.git.michal.simek@xilinx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sean Hefty <sean.hefty@intel.com>
+Hello.
 
-Part of address resolution is mapping IP addresses to IB GIDs.
-With the changes to support querying larger addresses and more
-path records, also provide a way to query IB GIDs after
-resolution completes.
+On 05/29/2013 07:33 PM, Michal Simek wrote:
 
-Signed-off-by: Sean Hefty <sean.hefty@intel.com>
----
- drivers/infiniband/core/ucma.c   |   50 ++++++++++++++++++++++++++++++++++++++
- include/uapi/rdma/rdma_user_cm.h |    3 +-
- 2 files changed, 52 insertions(+), 1 deletions(-)
+> Corrent email address and years.
 
-diff --git a/drivers/infiniband/core/ucma.c b/drivers/infiniband/core/ucma.c
-index 722f2ff..45bb052 100644
---- a/drivers/infiniband/core/ucma.c
-+++ b/drivers/infiniband/core/ucma.c
-@@ -48,6 +48,7 @@
- #include <rdma/rdma_cm.h>
- #include <rdma/rdma_cm_ib.h>
- #include <rdma/ib_addr.h>
-+#include <rdma/ib.h>
- 
- MODULE_AUTHOR("Sean Hefty");
- MODULE_DESCRIPTION("RDMA Userspace Connection Manager Access");
-@@ -782,6 +783,52 @@ static ssize_t ucma_query_path(struct ucma_context *ctx,
- 	return ret;
- }
- 
-+static ssize_t ucma_query_gid(struct ucma_context *ctx,
-+			      void __user *response, int out_len)
-+{
-+	struct rdma_ucm_query_addr_resp resp;
-+	struct sockaddr_ib *addr;
-+	int ret = 0;
-+
-+	if (out_len < sizeof(resp))
-+		return -ENOSPC;
-+
-+	memset(&resp, 0, sizeof resp);
-+
-+	ucma_query_device_addr(ctx->cm_id, &resp);
-+
-+	addr = (struct sockaddr_ib *) &resp.src_addr;
-+	resp.src_size = sizeof(*addr);
-+	if (ctx->cm_id->route.addr.src_addr.ss_family == AF_IB) {
-+		memcpy(addr, &ctx->cm_id->route.addr.src_addr, resp.src_size);
-+	} else {
-+		addr->sib_family = AF_IB;
-+		addr->sib_pkey = (__force __be16) resp.pkey;
-+		rdma_addr_get_sgid(&ctx->cm_id->route.addr.dev_addr,
-+				   (union ib_gid *) &addr->sib_addr);
-+		addr->sib_sid = rdma_get_service_id(ctx->cm_id, (struct sockaddr *)
-+						    &ctx->cm_id->route.addr.src_addr);
-+	}
-+
-+	addr = (struct sockaddr_ib *) &resp.dst_addr;
-+	resp.dst_size = sizeof(*addr);
-+	if (ctx->cm_id->route.addr.dst_addr.ss_family == AF_IB) {
-+		memcpy(addr, &ctx->cm_id->route.addr.dst_addr, resp.dst_size);
-+	} else {
-+		addr->sib_family = AF_IB;
-+		addr->sib_pkey = (__force __be16) resp.pkey;
-+		rdma_addr_get_dgid(&ctx->cm_id->route.addr.dev_addr,
-+				   (union ib_gid *) &addr->sib_addr);
-+		addr->sib_sid = rdma_get_service_id(ctx->cm_id, (struct sockaddr *)
-+						    &ctx->cm_id->route.addr.dst_addr);
-+	}
-+
-+	if (copy_to_user(response, &resp, sizeof(resp)))
-+		ret = -EFAULT;
-+
-+	return ret;
-+}
-+
- static ssize_t ucma_query(struct ucma_file *file,
- 			  const char __user *inbuf,
- 			  int in_len, int out_len)
-@@ -806,6 +853,9 @@ static ssize_t ucma_query(struct ucma_file *file,
- 	case RDMA_USER_CM_QUERY_PATH:
- 		ret = ucma_query_path(ctx, response, out_len);
- 		break;
-+	case RDMA_USER_CM_QUERY_GID:
-+		ret = ucma_query_gid(ctx, response, out_len);
-+		break;
- 	default:
- 		ret = -ENOSYS;
- 		break;
-diff --git a/include/uapi/rdma/rdma_user_cm.h b/include/uapi/rdma/rdma_user_cm.h
-index 07eb6cf..ea79253 100644
---- a/include/uapi/rdma/rdma_user_cm.h
-+++ b/include/uapi/rdma/rdma_user_cm.h
-@@ -116,7 +116,8 @@ struct rdma_ucm_resolve_route {
- 
- enum {
- 	RDMA_USER_CM_QUERY_ADDR,
--	RDMA_USER_CM_QUERY_PATH
-+	RDMA_USER_CM_QUERY_PATH,
-+	RDMA_USER_CM_QUERY_GID
- };
- 
- struct rdma_ucm_query {
--- 
-1.7.3
+    s/Corrent/Correct/. Perhaps the committer can fix.
+
+> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+
+WBR, Sergei
