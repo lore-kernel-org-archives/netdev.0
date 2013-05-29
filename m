@@ -1,42 +1,65 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 1/7] isdn: Correct comparison of skb->tail and skb-transport_header
-Date: Wed, 29 May 2013 14:27:42 +0900
-Message-ID: <1369805268-6291-2-git-send-email-horms@verge.net.au>
-References: <1369805268-6291-1-git-send-email-horms@verge.net.au>
-Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46186 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752409Ab3E2F1I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:27:08 -0400
-In-Reply-To: <1369805268-6291-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the final tree
+Date: Wed, 29 May 2013 15:29:15 +1000
+Message-ID: <20130529152915.efba860c7e825fe786b1ee99@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__29_May_2013_15_29_15_+1000_b=x_FMU/gJ=Q=ovg"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Simon Horman <horms@verge.net.au>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This corrects an regression introduced by "net: Use 16bits for *_headers
-fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
-that case skb->tail will be a pointer whereas skb->transport_header
-will be an offset from head. This is corrected by using wrappers that
-ensure that the comparison is always between pointers.
+--Signature=_Wed__29_May_2013_15_29_15_+1000_b=x_FMU/gJ=Q=ovg
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- drivers/isdn/i4l/isdn_net.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Hi all,
 
-diff --git a/drivers/isdn/i4l/isdn_net.c b/drivers/isdn/i4l/isdn_net.c
-index 88d657d..8b98d53 100644
---- a/drivers/isdn/i4l/isdn_net.c
-+++ b/drivers/isdn/i4l/isdn_net.c
-@@ -885,7 +885,7 @@ isdn_net_log_skb(struct sk_buff *skb, isdn_net_local *lp)
- 
- 	addinfo[0] = '\0';
- 	/* This check stolen from 2.1.72 dev_queue_xmit_nit() */
--	if (p < skb->data || skb->network_header >= skb->tail) {
-+	if (p < skb->data || skb_network_header(skb) >= skb_tail_pointer(skb)) {
- 		/* fall back to old isdn_net_log_packet method() */
- 		char *buf = skb->data;
- 
--- 
-1.7.10.4
+After merging the final tree, today's linux-next build (powerpc
+ppc44x_defconfig, i386 defconfig, sparc32 defconfig) produced these
+warning:
+
+In file included from /scratch/sfr/next/include/net/tcp.h:44:0,
+                 from /scratch/sfr/next/net/core/sock.c:139:
+/scratch/sfr/next/include/net/inet_ecn.h: In function 'INET_ECN_set_ce':
+/scratch/sfr/next/include/net/inet_ecn.h:137:50: warning: comparison betwee=
+n pointer and integer [enabled by default]
+/scratch/sfr/next/include/net/inet_ecn.h:142:52: warning: comparison betwee=
+n pointer and integer [enabled by default]
+
+I got lots of these :-(
+
+Introduced by commit 1a37e412a022 ("net: Use 16bits for *_headers fields
+of struct skbuff") from the net-next tree.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Wed__29_May_2013_15_29_15_+1000_b=x_FMU/gJ=Q=ovg
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRpZIvAAoJEECxmPOUX5FE/rYP/3x6OkJJbYePE/Hp0wFyQwDE
+zz6F2mQpukPaRLHx0mBZAMQe4ey7iMxQPAkP5g3/LsATJAoi6+fOrP/uvhUzV1hZ
+iNqTQAVrVDctOCXX26d7cOLomNwLo4tJkxypsHYPEdqzEwY/hkr87n/cikbI+W5s
+Y1vOVRhn5CX9K7vnRAZHfxLX0PnPUuh3a0boEh/iVjTdLP5Zcv76qaXxesJaD1U+
+LUwlSpJcYK3VguVSg9swPAPlDLhPfFMetSIxBU4/JjqoLVPHfq8SGg51CPoQGEHt
+x7bM+Z00+4FHYwQBArdKklfZykHYLrlXzmdtsdWlMJOEOABm5HorAVH2z1S9niYr
+w8eSQwWtTPV0e28JY4zzinwSjBsjIiTmdTfAXjWo/A0gkoNSHyibTzP0DBTgwQBI
+fnyDKsLiEFIvS809+3UKJdKE1Lndd1ghWtoAh1J3PwKbz1v4+l1HzwuZEyqN58mJ
+stCOELhwBZ01MKPhUeV8mBMFupCWOE+kDBu+ICx833X1Ub8G2+d3hgNtk++LLrK1
+Em2X64f3tR6ExY1DjTt0wrOasusexB6Z0MM5HANvcTL9bDFDL7UjrbSqQvJIgOrw
+kn7nJD1pEBaRni+d61Y7Ph6S0Bdn2lGccYW4ghr9+0QcdkBlPwkxDja20NrKdhiZ
+Y8mMo34idv7Q8IZgTM7V
+=tNiV
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__29_May_2013_15_29_15_+1000_b=x_FMU/gJ=Q=ovg--
