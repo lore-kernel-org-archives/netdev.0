@@ -1,56 +1,79 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH v6 net-next 2/5] net: implement support
- for low latency socket polling
-Date: Wed, 29 May 2013 17:14:31 +0300
-Message-ID: <CAJZOPZJqF1FTLH3a3ZKUTA4ViesAZEkRi=dgd-ux8eRu9TyhBw@mail.gmail.com>
-References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
-	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] iptables 1.4.19.1 release
+Date: Wed, 29 May 2013 16:18:47 +0200
+Message-ID: <20130529141847.GA18810@localhost>
+References: <20130529133340.GA14566@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, HPA <hpa@zytor.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Eric Dumazet <erdnetdev@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130529133340.GA14566@localhost>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 29, 2013 at 9:39 AM, Eliezer Tamir
-<eliezer.tamir@linux.intel.com> wrote:
-> Adds a new ndo_ll_poll method and the code that supports and uses it.
-> This method can be used by low latency applications to busy poll Ethernet
-> device queues directly from the socket code. The value of sysctl_net_ll_poll
-> controls how many microseconds to poll. Set to zero to disable.
+Hi!
 
-Unlike with TCP sockets, UDP sockets may receive packets from multiple
-sources and hence the receiving context may be steered to be executed
-on different cores through RSS or other Flow-Steering HW mechanisms
-which could mean different napi contexts for the same socket, is that
-a problem here? what's the severity?
+I'm releasing 1.4.19.1
 
-Or.
+Unfortunately, the previous release was missing a couple of patches
+that Florian applied that I didn't have in my tree.
 
-------------------------------------------------------------------------------
-Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
-Get 100% visibility into your production application - at no cost.
-Code-level diagnostics for performance bottlenecks with <2% overhead
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Very sorry for the inconvenience.
+
+On Wed, May 29, 2013 at 03:33:40PM +0200, Pablo Neira Ayuso wrote:
+> Hi!
+> 
+> The Netfilter project proudly presents:
+> 
+>         iptables 1.4.19
+> 
+> This release includes support for the new connlabel and bpf matches
+> available in Linux 3.9, several fixes and manpage updates.
+> 
+> See ChangeLog that comes attached to this email for more details.
+> 
+> You can download it from:
+> 
+> http://www.netfilter.org/projects/iptables/downloads.html
+> ftp://ftp.netfilter.org/pub/iptables/
+> 
+> Have fun!
+> 
+
+> Florian Westphal (3):
+>       libxt_NFQUEUE: fix bypass option documentation
+>       extensions: add connlabel match
+>       extensions: add connlabel match
+> 
+> Mart Frauenlob (3):
+>       ip[6]tables: show --protocol instead of --proto in usage
+>       libxt_recent: Fix missing space in manpage for --mask option
+>       extensions: libxt_multiport: Update manpage to list valid protocols
+> 
+> Nicolas Dichtel (1):
+>       utils: nfnl_osf: use the right nfnetlink lib
+> 
+> Pablo Neira Ayuso (11):
+>       libip6t_NETMAP: Use xtables_ip6mask_to_cidr and get rid of libip6tc dependency
+>       Revert "build: resolve link failure for ip6t_NETMAP"
+>       libxt_osf: fix missing --ttl and --log in save output
+>       libxt_osf: fix bad location for location in --genre
+>       libip6t_SNPT: add manpage
+>       libip6t_DNPT: add manpage
+>       Merge branch 'stable'
+>       utils: updates .gitignore to include nfbpf_compile
+>       extensions: libxt_bpf: clarify --bytecode argument
+>       libxtables: fix parsing of dotted network mask format
+>       build: bump version to 1.4.19
+> 
+> Patrick McHardy (1):
+>       libxt_conntrack: fix state match alias state parsing
+> 
+> Willem de Bruijn (2):
+>       extensions: add libxt_bpf extension
+>       utils: nfbpf_compile
+> 
+
