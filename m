@@ -1,113 +1,115 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 04/21] batman-adv: drop useless argument seqno in neighbor creation
-Date: Wed, 29 May 2013 10:10:34 +0200
-Message-ID: <1369815051-708-5-git-send-email-ordex@autistici.org>
+Subject: [PATCH 02/21] batman-adv: send each broadcast only once on non-wireless interfaces
+Date: Wed, 29 May 2013 10:10:32 +0200
+Message-ID: <1369815051-708-3-git-send-email-ordex@autistici.org>
 References: <1369815051-708-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Marek Lindner <lindner_marek@yahoo.de>
+	Matthias Schiffer <mschiffer@universe-factory.net>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:39839 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:39807 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965027Ab3E2IM4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 04:12:56 -0400
+	with ESMTP id S1759520Ab3E2IMy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 04:12:54 -0400
 In-Reply-To: <1369815051-708-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+From: Matthias Schiffer <mschiffer@universe-factory.net>
 
-the sequence number is not stored in struct neigh_node,
-therefore there is no need to pass such value to the
-neigh_node creation procedure.
+While it makes sense to send each broadcast thrice on 802.11 (WLAN) interfaces
+as broadcasts are often unreliable on these, there is no reason to do so on
+other interface types.
 
-At the moment the value is only used by a debug message, but
-given the fact that the seqno is not related to the neighbor
-object, it is better to print it elsewhere.
+The increased the overhead can be harmful on low-bandwidth links like VPN
+connections over slow internet lines, therefore it is better to reduce the
+number of broadcast packets sent on non-wireless links to one.
 
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/bat_iv_ogm.c | 11 ++++-------
- net/batman-adv/originator.c |  5 ++---
- net/batman-adv/originator.h |  2 +-
- 3 files changed, 7 insertions(+), 11 deletions(-)
+ net/batman-adv/hard-interface.c | 4 ++++
+ net/batman-adv/main.h           | 5 +++++
+ net/batman-adv/send.c           | 5 ++++-
+ net/batman-adv/types.h          | 2 ++
+ 4 files changed, 15 insertions(+), 1 deletion(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index 071f288..da239c5 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -33,12 +33,11 @@ static struct batadv_neigh_node *
- batadv_iv_ogm_neigh_new(struct batadv_hard_iface *hard_iface,
- 			const uint8_t *neigh_addr,
- 			struct batadv_orig_node *orig_node,
--			struct batadv_orig_node *orig_neigh, __be32 seqno)
-+			struct batadv_orig_node *orig_neigh)
- {
- 	struct batadv_neigh_node *neigh_node;
+diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
+index d5ec67b..4a76ed6 100644
+--- a/net/batman-adv/hard-interface.c
++++ b/net/batman-adv/hard-interface.c
+@@ -593,6 +593,10 @@ batadv_hardif_add_interface(struct net_device *net_dev)
+ 	INIT_WORK(&hard_iface->cleanup_work,
+ 		  batadv_hardif_remove_interface_finish);
  
--	neigh_node = batadv_neigh_node_new(hard_iface, neigh_addr,
--					   ntohl(seqno));
-+	neigh_node = batadv_neigh_node_new(hard_iface, neigh_addr);
- 	if (!neigh_node)
- 		goto out;
++	hard_iface->num_bcasts = BATADV_NUM_BCASTS_DEFAULT;
++	if (batadv_is_wifi_netdev(net_dev))
++		hard_iface->num_bcasts = BATADV_NUM_BCASTS_WIRELESS;
++
+ 	/* extra reference for return */
+ 	atomic_set(&hard_iface->refcount, 2);
  
-@@ -696,8 +695,7 @@ batadv_iv_ogm_orig_update(struct batadv_priv *bat_priv,
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 59a0d6a..ea1a3ba 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -76,6 +76,11 @@
  
- 		neigh_node = batadv_iv_ogm_neigh_new(if_incoming,
- 						     ethhdr->h_source,
--						     orig_node, orig_tmp,
--						     batadv_ogm_packet->seqno);
-+						     orig_node, orig_tmp);
+ #define BATADV_LOG_BUF_LEN 8192	  /* has to be a power of 2 */
  
- 		batadv_orig_node_free_ref(orig_tmp);
- 		if (!neigh_node)
-@@ -829,8 +827,7 @@ static int batadv_iv_ogm_calc_tq(struct batadv_orig_node *orig_node,
- 		neigh_node = batadv_iv_ogm_neigh_new(if_incoming,
- 						     orig_neigh_node->orig,
- 						     orig_neigh_node,
--						     orig_neigh_node,
--						     batadv_ogm_packet->seqno);
-+						     orig_neigh_node);
++/* number of packets to send for broadcasts on different interface types */
++#define BATADV_NUM_BCASTS_DEFAULT 1
++#define BATADV_NUM_BCASTS_WIRELESS 3
++#define BATADV_NUM_BCASTS_MAX 3
++
+ /* msecs after which an ARP_REQUEST is sent in broadcast as fallback */
+ #define ARP_REQ_DELAY 250
+ /* numbers of originator to contact for any PUT/GET DHT operation */
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 263cfd1..eb16b04 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -260,6 +260,9 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
+ 		if (hard_iface->soft_iface != soft_iface)
+ 			continue;
  
- 	if (!neigh_node)
- 		goto out;
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index fad1a20..ddf5634 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -92,7 +92,7 @@ batadv_orig_node_get_router(struct batadv_orig_node *orig_node)
++		if (forw_packet->num_packets >= hard_iface->num_bcasts)
++			continue;
++
+ 		/* send a copy of the saved skb */
+ 		skb1 = skb_clone(forw_packet->skb, GFP_ATOMIC);
+ 		if (skb1)
+@@ -271,7 +274,7 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
+ 	forw_packet->num_packets++;
  
- struct batadv_neigh_node *
- batadv_neigh_node_new(struct batadv_hard_iface *hard_iface,
--		      const uint8_t *neigh_addr, uint32_t seqno)
-+		      const uint8_t *neigh_addr)
- {
- 	struct batadv_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
- 	struct batadv_neigh_node *neigh_node;
-@@ -110,8 +110,7 @@ batadv_neigh_node_new(struct batadv_hard_iface *hard_iface,
- 	atomic_set(&neigh_node->refcount, 2);
- 
- 	batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
--		   "Creating new neighbor %pM, initial seqno %d\n",
--		   neigh_addr, seqno);
-+		   "Creating new neighbor %pM\n", neigh_addr);
- 
- out:
- 	return neigh_node;
-diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
-index 734e5a3..7887b84 100644
---- a/net/batman-adv/originator.h
-+++ b/net/batman-adv/originator.h
-@@ -31,7 +31,7 @@ struct batadv_orig_node *batadv_get_orig_node(struct batadv_priv *bat_priv,
- 					      const uint8_t *addr);
- struct batadv_neigh_node *
- batadv_neigh_node_new(struct batadv_hard_iface *hard_iface,
--		      const uint8_t *neigh_addr, uint32_t seqno);
-+		      const uint8_t *neigh_addr);
- void batadv_neigh_node_free_ref(struct batadv_neigh_node *neigh_node);
- struct batadv_neigh_node *
- batadv_orig_node_get_router(struct batadv_orig_node *orig_node);
+ 	/* if we still have some more bcasts to send */
+-	if (forw_packet->num_packets < 3) {
++	if (forw_packet->num_packets < BATADV_NUM_BCASTS_MAX) {
+ 		_batadv_add_bcast_packet_to_list(bat_priv, forw_packet,
+ 						 msecs_to_jiffies(5));
+ 		return;
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index aba8364..5f542bd 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -61,6 +61,7 @@ struct batadv_hard_iface_bat_iv {
+  * @if_status: status of the interface for batman-adv
+  * @net_dev: pointer to the net_device
+  * @frag_seqno: last fragment sequence number sent by this interface
++ * @num_bcasts: number of payload re-broadcasts on this interface (ARQ)
+  * @hardif_obj: kobject of the per interface sysfs "mesh" directory
+  * @refcount: number of contexts the object is used
+  * @batman_adv_ptype: packet type describing packets that should be processed by
+@@ -76,6 +77,7 @@ struct batadv_hard_iface {
+ 	char if_status;
+ 	struct net_device *net_dev;
+ 	atomic_t frag_seqno;
++	uint8_t num_bcasts;
+ 	struct kobject *hardif_obj;
+ 	atomic_t refcount;
+ 	struct packet_type batman_adv_ptype;
 -- 
 1.8.1.5
