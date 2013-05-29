@@ -1,10 +1,9 @@
 From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
  macro
-Date: Tue, 28 May 2013 18:19:52 -0700
-Message-ID: <20130529011952.GQ6172@linux.vnet.ibm.com>
-References: <1369201765.3301.299.camel@edumazet-glaptop>
- <519CB2D8.103@yandex-team.ru>
+Date: Tue, 28 May 2013 18:31:11 -0700
+Message-ID: <20130529013111.GS6172@linux.vnet.ibm.com>
+References: <519CB2D8.103@yandex-team.ru>
  <1369225837.3301.324.camel@edumazet-glaptop>
  <519CC2FB.2010006@yandex-team.ru>
  <20130522174532.GC3431@linux.vnet.ibm.com>
@@ -13,10 +12,13 @@ References: <1369201765.3301.299.camel@edumazet-glaptop>
  <51A39E11.5020405@yandex-team.ru>
  <1369699930.3301.494.camel@edumazet-glaptop>
  <51A47496.6000100@yandex-team.ru>
+ <1369787693.3301.586.camel@edumazet-glaptop>
 Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Roman Gushchin <klamm@yandex-team.ru>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
 	Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
 	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
@@ -24,73 +26,36 @@ Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	James Morris <jmorris@namei.org>,
 	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
 	Patrick McHardy <kaber@trash.net>
-To: Roman Gushchin <klamm@yandex-team.ru>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <51A47496.6000100@yandex-team.ru>
+In-Reply-To: <1369787693.3301.586.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, May 28, 2013 at 01:10:46PM +0400, Roman Gushchin wrote:
-> On 28.05.2013 04:12, Eric Dumazet wrote:
-> >On Mon, 2013-05-27 at 21:55 +0400, Roman Gushchin wrote:
-> >>Hi, Paul!
-> >>
-> >>>On 25.05.2013 15:37, Paul E. McKenney wrote:
-> >>>>Again, I believe that your retry logic needs to extend back into the
-> >>>>calling function for your some_func() example above.
-> >>
-> >>And what do you think about the following approach (diff below)?
-> >>
-> >>It seems to me, it's enough clear (especially with good accompanying comments)
-> >>and produces a good binary code (without significant overhead).
-> >>Also, we will remove a hidden reef in using rcu-protected (h)list traverses with restarts.
-> >>
-> >
-> >>diff --git a/include/linux/rculist_nulls.h b/include/linux/rculist_nulls.h
-> >>index 2ae1371..4af5ee5 100644
-> >>--- a/include/linux/rculist_nulls.h
-> >>+++ b/include/linux/rculist_nulls.h
-> >>@@ -107,7 +107,8 @@ static inline void hlist_nulls_add_head_rcu(struct hlist_nulls_node *n,
-> >>    *
-> >>    */
-> >>   #define hlist_nulls_for_each_entry_rcu(tpos, pos, head, member)                        \
-> >>-       for (pos = rcu_dereference_raw(hlist_nulls_first_rcu(head));            \
-> >>+       for (ACCESS_ONCE(*(head)),                                              \
-> >>+               pos = rcu_dereference_raw(hlist_nulls_first_rcu(head));         \
-> >>                  (!is_a_nulls(pos)) &&                                           \
-> >>                  ({ tpos = hlist_nulls_entry(pos, typeof(*tpos), member); 1; }); \
-> >>                  pos = rcu_dereference_raw(hlist_nulls_next_rcu(pos)))
-> >
-> >It looks like this still relies on gcc being friendly here.
-> >
-> >I repeat again : @head here is a constant.
-> 
-> No.
-> Actually, there are two volatile objects: pointer to the first element (as a part of the head structure),
-> and the first element by itself. So, to be strict, head as a structure contains a volatile field.
-> Head->first should be treated as a volatile pointer to a volatile data. So, the whole head object is volatile.
-> 
-> >
-> >Macro already uses ACCESS_ONCE(), we only have to instruct gcc that
-> >caching the value is forbidden if we restart the loop
-> >(aka "goto begin;" see Documentation/RCU/rculist_nulls.txt line 146)
-> 
-> My patch seems to be correct, because, ACCESS_ONCE(*(head)) will cause gcc to (re)read head data from the memory.
-> According to gcc documentation:
-> 	"A scalar volatile object is read when it is accessed in a void context:
->      		volatile int *src = somevalue;
->      		*src;
-> 	Such expressions are rvalues, and GCC implements this as a read of the volatile object being pointed to."
-> And this is exactly our case.
-> 
-> >Adding a barrier() is probably what we want.
-> 
-> I agree, inserting barrier() is also a correct and working fix.
+On Tue, May 28, 2013 at 05:34:53PM -0700, Eric Dumazet wrote:
+> On Tue, 2013-05-28 at 13:10 +0400, Roman Gushchin wrote:
+> > On 28.05.2013 04:12, Eric Dumazet wrote:
+>=20
+> > > Adding a barrier() is probably what we want.
+> >=20
+> > I agree, inserting barrier() is also a correct and working fix.
+>=20
+> Yeah, but I can not find a clean way to put it inside the "for (;;)"
+>=20
+> for (barrier();;)  ->
+>=20
+> error: expected expression before =E2=80=98__asm__=E2=80=99
+>=20
+> No user currently does :
+>=20
+> if (condition)
+> 	hlist_nulls_for_each_entry_rcu(tpos, pos, head, member)
+>=20
+> But who knows...
 
-I have to ask this question of both of you...
-
-Are either of Eric's or Roman's fixes really guaranteed to work if gcc
-elects not to inline the function containing the RCU list traversal?
+I still have my earlier question, but I suggest "({ barrier(); XXX })"
+to put the barrier into the for loop, either in the second or third
+clause, where XXX was the original second or third clause.
 
 							Thanx, Paul
