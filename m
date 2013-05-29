@@ -1,116 +1,107 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH] net: ethernet: xilinx_emaclite: keep protocol selector
- bits by reading ANAR
-Date: Wed, 29 May 2013 18:59:29 +0200
-Message-ID: <51A633F1.9000108@monstr.eu>
-References: <51A4D6FE.3080308@efe-gmbh.de> <51A61D8C.6090100@monstr.eu> <51A632B7.8020201@efe-gmbh.de>
-Reply-To: monstr@monstr.eu
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2VHDPQMOQCLBUMLWBPTSK"
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: "Jens Renner (EFE)" <renner@efe-gmbh.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f169.google.com ([74.125.82.169]:43153 "EHLO
-	mail-we0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755533Ab3E2Q7c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 12:59:32 -0400
-Received: by mail-we0-f169.google.com with SMTP id q55so6693322wes.0
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 09:59:31 -0700 (PDT)
-In-Reply-To: <51A632B7.8020201@efe-gmbh.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Subject: [PATCH v5 00/28] rdma/cm: Add support for native IB addressing
+Date: Wed, 29 May 2013 10:09:06 -0700
+Message-ID: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
+Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2VHDPQMOQCLBUMLWBPTSK
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-On 05/29/2013 06:54 PM, Jens Renner (EFE) wrote:
-> Am 29.05.2013 17:23, schrieb Michal Simek:
->> On 05/28/2013 06:10 PM, Jens Renner (EFE) wrote:
->>> This patch reads the PHY's MII_ADVERTISE register (ANAR) before modif=
-ying
->>> it. Hence, the protocol selector bits (4:0) which indicate IEEE 803.3=
-u
->>> support are prevented from being cleared. While the selector bits are=
+This patch series adds support for native IB addressing to the
+rdma cm.  The full patch series is available from:
 
->>> fixed / read-only on some PHYs, not setting them correctly on others
->>> (like TI DP83630) makes the PHY fall back to 10/half mode which shoul=
-d be
->>> avoided.
->>>
->>> Signed-off-by: Jens Renner <renner@efe-gmbh.de> ---=20
->>> drivers/net/ethernet/xilinx/xilinx_emaclite.c               |    7
->>> +++++-- 1 file changed, 5 insertions(+), 2 deletions(-)
->>>
->>> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
->>> b/drivers/net/ethernet/xilinx/xilinx_emaclite.c index 919b983..4a67af=
-1
->>> 100644 --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c +++
->>> b/drivers/net/ethernet/xilinx/xilinx_emaclite.c @@ -922,7 +922,7 @@ v=
-oid
->>> xemaclite_adjust_link(struct net_device *ndev) static int
->>> xemaclite_open(struct net_device *dev) { struct net_local *lp =3D
->>> netdev_priv(dev); -       int retval; +       int retval, adv;
->>>
->>> /* Just to be safe, stop the device first */=20
->>> xemaclite_disable_interrupts(lp); @@ -946,7 +946,10 @@ static int
->>> xemaclite_open(struct net_device *dev) phy_write(lp->phy_dev,
->>> MII_CTRL1000, 0);
->>>
->>> /* Advertise only 10 and 100mbps full/half duplex speeds */ -
->>> phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL); +              =
- adv
->>> =3D phy_read(lp->phy_dev, MII_ADVERTISE); +               if (adv < 0=
-) +
->>> return adv; +               phy_write(lp->phy_dev, MII_ADVERTISE, adv=
- |
->>> ADVERTISE_ALL);
->>>
->>> /* Restart auto negotiation */ bmcr =3D phy_read(lp->phy_dev, MII_BMC=
-R);
->>
->> Acked-by: Michal Simek <monstr@monstr.eu>
->>
->> Thanks, Michal
->>
->>
->=20
-> Michal, please mind the follow-ups to my original list mail:
-> http://lists.openwall.net/netdev/2013/05/28/126
-> http://lists.openwall.net/netdev/2013/05/29/140
-> There will be a patch v2 later this day (I will put you in CC).
+        git://git.openfabrics.org/~shefty/rdma-dev.git for-next
 
-Ok. I have tested it on xilinx qemu model and your patch doesn't
-break our existing driver usage that's why I gave you my ACK.
-And yes, please CC me I will retest your v2.
+The rdma cm is the only widely usable interface for establishing
+communication over Infiniband.  Other interfaces are either privileged
+(e.g. umad) or incomplete in that they do not contact the IB SA
+for necessary data (e.g. ucm).  The rdma cm is the only interface
+which provides support for path record queries and multicast joins.
+However, users of the rdma cm interface are restricted to using IP
+addresses, which must be translated into IB addresses.
 
-Thanks,
-Michal
+Allowing the use of native IB addresses removes the requirement
+for IPoIB, which in turn allows us to offload name and/or address
+translation services to a user space daemon.  The primary motivation
+is to support large scale fabrics, with address and name services
+either cached or bypassed completely.  For example, IB GIDs are
+known or the information is exchanged out of band by an MPI process
+manager.  However, another use case involves load balancing software.
+Currently the rdma cm cannot establish rdma connections through
+a load balancer, since the IP -> GID mapping is not well defined.
+An out of band mechanism could be used in such situations to
+determine the correct mapping, with the rdma cm still managing
+the connection.
 
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+The patch set introduces af_ib and sockaddr_ib.  The kernel
+rdma_cm is updated accordingly, mainly to make its handling of
+addresses more generic.  However, since sockaddr_ib is larger
+than sockaddr_in6, the rdma_ucm requires changes to its user to
+kernel interface.  To provide backwards compatibility, the userspace
+ABI is extended to support the larger address size.
 
+Note that this series only touches the main networking stack to
+define AF_IB.
 
+Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-------enig2VHDPQMOQCLBUMLWBPTSK
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Changes from v4:
+Updated to newer base kernel.
+Removed unused SDP header definitions and related code.
+Exposed private data to servers bound to AF_IB addresses.
+Fixed issue on client side accessing NULL private data.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+Sean Hefty (28):
+  rdma/cm: define native IB address
+  rdma/cm: Allow enabling reuseaddr in any state
+  rdma/cm: Include AF_IB in loopback and any address checks
+  ib/addr: Add AF_IB support to ip_addr_size
+  rdma/cm: Update port reservation to support AF_IB
+  rdma/cm: Allow user to specify AF_IB when binding
+  rdma/cm: Do not modify sa_family when setting loopback address
+  rdma/cm: Add helper functions to return id address information
+  rdma/cm: Restrict AF_IB loopback to binding to IB devices only
+  rdma/cm: Verify that source and dest sa_family are the same
+  rdma/cm: Add support for AF_IB to rdma_resolve_addr
+  rdma/cm: Add support for AF_IB to rdma_resolve_route
+  rdma/cm: Add support for AF_IB to cma_get_service_id
+  rdma/cm: Remove unused SDP related code
+  rdma/cm: Merge cma_get/save_net_info
+  rdma/cm: Expose private data when using AF_IB
+  rdma/cm: Set qkey for AF_IB
+  rdma/cm: Only listen on IB devices when using AF_IB
+  rdma/ucm: Support querying for AF_IB addresses
+  ib/sa: Export function to pack a path record into wire format
+  rdma/ucm: Support querying when IB paths are not reversible
+  rdma/cm: Export cma_get_service_id
+  rdma/ucm: Add ability to query GID addresses
+  rdma/ucm: Name changes to indicate only IP addresses supported
+  rdma/ucm: Allow user space to bind to AF_IB
+  rdma/ucm: Allow user space to pass AF_IB into resolve
+  rdma/ucm: Allow user space to specify AF_IB when joining multicast
+  rdma/cm: Export AF_IB statistics
 
-iEYEARECAAYFAlGmM/EACgkQykllyylKDCHVSQCfRDOJjZoCBC/nIpQJaBJxIfWX
-yh0AniB9IbVW11qXqLxstGzB2gkVemtf
-=Ykfg
------END PGP SIGNATURE-----
+ drivers/infiniband/core/addr.c     |   20 +-
+ drivers/infiniband/core/cma.c      |  906 +++++++++++++++++++++---------------
+ drivers/infiniband/core/sa_query.c |    6 +
+ drivers/infiniband/core/ucma.c     |  321 +++++++++++--
+ include/linux/socket.h             |    2 +
+ include/rdma/ib.h                  |   89 ++++
+ include/rdma/ib_addr.h             |    6 +-
+ include/rdma/ib_sa.h               |    7 +
+ include/rdma/rdma_cm.h             |   13 +
+ include/uapi/rdma/rdma_user_cm.h   |   73 +++-
+ 10 files changed, 1001 insertions(+), 442 deletions(-)
+ create mode 100644 include/rdma/ib.h
 
-------enig2VHDPQMOQCLBUMLWBPTSK--
+-- 
+1.7.3
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
