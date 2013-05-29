@@ -1,82 +1,80 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH net-next 2/3] ipv4: rate limit updating of next hop
- exceptions with same pmtu
-Date: Thu, 30 May 2013 01:49:06 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1305300013240.1951@ja.ssi.bg>
-References: <20130527.233844.2081972819091665848.davem@davemloft.net> <1369723593-5307-1-git-send-email-timo.teras@iki.fi> <1369723593-5307-2-git-send-email-timo.teras@iki.fi> <alpine.LFD.2.00.1305281127340.1693@ja.ssi.bg> <20130528130757.4bf59c6b@vostro>
- <alpine.LFD.2.00.1305282245340.1713@ja.ssi.bg> <20130529080725.5de3477b@vostro>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
+ improved accuracy at high rates)
+Date: Wed, 29 May 2013 15:50:34 -0700
+Message-ID: <20130529155034.334092c5@nehalam.linuxnetplumber.net>
+References: <20130529151330.22c5c89e@redhat.com>
+	<1369842724.5109.44.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@redhat.com>, j.vimal@gmail.com,
+	Michal Soltys <soltys@ziu.info>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Toke =?ISO-8859-1?B?SPhpbGFuZC1K+HJnZW5zZW4=?= <toke@toke.dk>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
+	Jim Gettys <jg@freedesktop.org>,
+	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
+	Jiri Benc <jbenc@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:44540 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755938Ab3E2WpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 18:45:25 -0400
-In-Reply-To: <20130529080725.5de3477b@vostro>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:49578 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966799Ab3E2Wuj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 18:50:39 -0400
+Received: by mail-pb0-f48.google.com with SMTP id md12so9899183pbc.35
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 15:50:39 -0700 (PDT)
+In-Reply-To: <1369842724.5109.44.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Wed, 29 May 2013 08:52:04 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-	Hello,
-
-On Wed, 29 May 2013, Timo Teras wrote:
-
-> On Wed, 29 May 2013 00:04:47 +0300 (EEST)
-> Julian Anastasov <ja@ssi.bg> wrote:
-> 
-> > 	So, my idea is something like this. If cached
-> > route detects change in gw on redirect, it calls
-> > update_or_create_fnhe but FNHE can already know this gw,
-> > we should invalidate the fnhe_rth only if gw changes.
-> > As caller has some stale cache route, it should be
-> > invalidated as before, I assume 'kill_route' is properly
-> > provided.
+> On Wed, 2013-05-29 at 15:13 +0200, Jesper Dangaard Brouer wrote:
+> > I recently discovered that the (traffic control) tc linklayer
+> > calculations for ATM/ADSL have been broken by:
+> >  commit 56b765b79 (htb: improved accuracy at high rates).
 > > 
-> > 	if (fnhe) {
-> > 		if (fnhe->fnhe_gw != gw && gw) {
-> > 			rt =
-> > rcu_dereference_protected(fnhe->fnhe_rth, 1); if (rt)
-> > 				rt->dst.obsolete = DST_OBSOLETE_KILL;
-> > 			fnhe->fnhe_gw = gw;
-> > 		}
-> > 		...
-> > 	}
-> > 	...
-> > }
+> > Thus, people shaping on ADSL links, using e.g.:
+> >  tc class add ... htb rate X ceil Y linklayer atm overhead 10
+> > 
+> > Will no-longer get ATM cell tax/overhead adjusted.
+> > 
+> > How can we solve/fix this?
+> > Perhaps we can change to use the "stab" system instead (as it does
+> > not seem to be broken by the commit).
+> > 
+> > But how do we facilitate a change to use "stab" system (for all the
+> > scripts using the old option)?
+> > 
+> > Can we change the iproute2/tc command to handle this transparently, or
+> > should we give an error/warning if someone uses "tc" and "linklayer" on
+> > a kernel above v.3.8. ?
+> > 
+> > 
+> > History:
+> >  - My linklayer ATM changes appeared in kernel 2.6.24 (and iproute2 2.6.25)
+> >  - The STAB changes appeared in kernel 2.6.27
+> > 
 > 
-> This is already done by the caller of update_or_create_fnhe for the
-> case of gw change. It might be worth to put all this to the same place,
-> but would be worth of separate patch.
-
-	Looking at do_redirect() for TCP and __sk_dst_check
-may be such race is very small because first gw change
-for another socket will invalidate our cached entry and
-our socket will fail to deliver the new gw to FNHE
-without a two-step validation as done in inet_csk_update_pmtu().
-Still, it should be more safe to change and invalidate
-at the same place - update_or_create_fnhe. But we can
-investigate it later.
-
-> > 	Also, I don't know the XFRM code well but
-> > xfrm_bundle_ok() calls dst_check. Now ipv4_dst_check
-> > will not give any indication for recent change in
-> > rt_pmtu. I hope this is not a problem because I see
-> > some comparisons with cached pmtus. I.e. the main
-> > question is: are there any dst_check and ->check users
-> > that needs to know for changes in rt_pmtu or all
-> > of them just use dst_mtu().
+> Hi Jesper
 > 
-> In XFRM case, xfrm_bundle_ok() will propagate the pmtu by calling
-> dst_mtu() for each target. All caching users need to use dst_mtu() to
-> check it, so the route.c code is correct - this is how it worked before
-> my patches too.
+> stab suffers from the same problem : its table driven, so works only for
+> packet smaller than a given size.
+> 
+> I am not sure it will solve the ATM logic (with the 5 bytes overhead per
+> 48 bytes cell)
+> 
+> btw, even on old kernels :
 
-	Aha, so nobody needs DST_OBSOLETE_KILL when
-fnhe_pmtu changes. Thanks for answering my questions!
 
-Regards
+How bad is the failure? If it is fixed, will it break existing installations?
 
---
-Julian Anastasov <ja@ssi.bg>
+Which probably means, is anyone but the original developers ever using it
+and therefore likely to notice?
