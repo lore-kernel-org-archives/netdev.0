@@ -1,32 +1,90 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH 7/7] net,ipv4,ipv6: Correct assignment of
- skb->network_header to skb->tail
-Date: Wed, 29 May 2013 15:01:46 +0900
-Message-ID: <20130529060143.GA20197@verge.net.au>
-References: <1369805268-6291-1-git-send-email-horms@verge.net.au>
- <1369805268-6291-8-git-send-email-horms@verge.net.au>
- <1369805751.5109.1.camel@edumazet-glaptop>
- <20130528.224433.533003178906165918.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] net: clean up skb headers code
+Date: Wed, 29 May 2013 14:09:00 +0800
+Message-ID: <1369807740-12324-1-git-send-email-amwang@redhat.com>
+Cc: Cong Wang <amwang@redhat.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:52506 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754523Ab3E2GBF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 02:01:05 -0400
-Content-Disposition: inline
-In-Reply-To: <20130528.224433.533003178906165918.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:37492 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752930Ab3E2GJP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 02:09:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 28, 2013 at 10:44:33PM -0700, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Tue, 28 May 2013 22:35:51 -0700
-> 
-> > Are you sure __u64 is needed on 32bit arches ?
-> 
-> It should be "unsigned long" or similar.
+commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
+fields of struct skbuff) converts skb->*_header to u16,
+therefore 1) we could just use 0xFFFFF instead of (__u16) ~0U
+2) some #if NET_SKBUFF_DATA_USES_OFFSET is useless now.
 
-Thanks, I will fix that and re-post.
+
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Simon Horman <horms@verge.net.au>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+---
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 8f2b830..3c896b7 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1584,7 +1584,7 @@ static inline void skb_set_inner_mac_header(struct sk_buff *skb,
+ }
+ static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
+ {
+-	return skb->transport_header != ~0U;
++	return skb->transport_header != 0xFFFF;
+ }
+ 
+ static inline unsigned char *skb_transport_header(const struct sk_buff *skb)
+@@ -1627,7 +1627,7 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
+ 
+ static inline int skb_mac_header_was_set(const struct sk_buff *skb)
+ {
+-	return skb->mac_header != ~0U;
++	return skb->mac_header != 0xFFFF;
+ }
+ 
+ static inline void skb_reset_mac_header(struct sk_buff *skb)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f45de07..0c3742f 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -199,9 +199,7 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
+ 	skb->truesize = sizeof(struct sk_buff);
+ 	atomic_set(&skb->users, 1);
+ 
+-#ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	skb->mac_header = (__u16) ~0U;
+-#endif
++	skb->mac_header = 0xFFFF;
+ out:
+ 	return skb;
+ }
+@@ -275,10 +273,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 	skb->data = data;
+ 	skb_reset_tail_pointer(skb);
+ 	skb->end = skb->tail + size;
+-#ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	skb->mac_header = (__u16) ~0U;
+-	skb->transport_header = (__u16) ~0U;
+-#endif
++	skb->mac_header = 0xFFFF;
++	skb->transport_header = 0xFFFF;
+ 
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
+@@ -344,10 +340,8 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
+ 	skb->data = data;
+ 	skb_reset_tail_pointer(skb);
+ 	skb->end = skb->tail + size;
+-#ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	skb->mac_header = (__u16) ~0U;
+-	skb->transport_header = (__u16) ~0U;
+-#endif
++	skb->mac_header = 0xFFFF;
++	skb->transport_header = 0xFFFF;
+ 
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
