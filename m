@@ -1,53 +1,82 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 4/4] igb: enable auxiliary PHC functions for
- the i210.
-Date: Wed, 29 May 2013 21:32:10 +0100
-Message-ID: <1369859530.1971.29.camel@bwh-desktop.uk.level5networks.com>
-References: <20130528162325.GD4678@netboy>
-	 <CDCA3AA1.1E8D4%matthew.vick@intel.com>
-	 <02874ECE860811409154E81DA85FBB58564F1C88@ORSMSX104.amr.corp.intel.com>
-	 <20130529072445.GA4868@netboy>
+Subject: Re: [Patch net-next] net: clean up skb headers code
+Date: Wed, 29 May 2013 22:02:06 +0100
+Message-ID: <1369861326.1971.43.camel@bwh-desktop.uk.level5networks.com>
+References: <1369807740-12324-1-git-send-email-amwang@redhat.com>
+	 <20130528.233647.1209227470109213894.davem@davemloft.net>
+	 <1369856073.1971.2.camel@bwh-desktop.uk.level5networks.com>
+	 <20130529194438.GY3333@ritirata.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>,
-	"Vick, Matthew" <matthew.vick@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
-To: Richard Cochran <richardcochran@gmail.com>
+Cc: David Miller <davem@davemloft.net>, <amwang@redhat.com>,
+	<netdev@vger.kernel.org>, <horms@verge.net.au>
+To: Antonio Quartulli <ordex@autistici.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:14961 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:56593 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966083Ab3E2UcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 16:32:15 -0400
-In-Reply-To: <20130529072445.GA4868@netboy>
+	with ESMTP id S966862Ab3E2VCK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 17:02:10 -0400
+In-Reply-To: <20130529194438.GY3333@ritirata.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-29 at 09:24 +0200, Richard Cochran wrote:
-> On Tue, May 28, 2013 at 09:12:02PM +0000, Keller, Jacob E wrote:
+On Wed, 2013-05-29 at 21:44 +0200, Antonio Quartulli wrote:
+> On Wed, May 29, 2013 at 08:34:33PM +0100, Ben Hutchings wrote:
+> > On Tue, 2013-05-28 at 23:36 -0700, David Miller wrote:
+> > > From: Cong Wang <amwang@redhat.com>
+> > > Date: Wed, 29 May 2013 14:09:00 +0800
+> > > 
+> > > > commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
+> > > > fields of struct skbuff) converts skb->*_header to u16,
+> > > > therefore 1) we could just use 0xFFFFF instead of (__u16) ~0U
+> > > > 2) some #if NET_SKBUFF_DATA_USES_OFFSET is useless now.
+> > > > 
+> > > > 
+> > > > Cc: David S. Miller <davem@davemloft.net>
+> > > > Cc: Simon Horman <horms@verge.net.au>
+> > > > Signed-off-by: Cong Wang <amwang@redhat.com>
+> > > 
+> > > I want to use something that will either break the build or
+> > > automatically work if the type changes again.
+> > > 
+> > > So something like "X = (typeof(X)) ~0U;".
 > > 
-> > I think ethtool would be good, but what about using sysfs?
+> > I think you mean ~(typeof(X))0.
 > 
-> The problem I see with ethtool is that configuring GPIOs (and these
-> SDPs are really just GPIOs by a different name) is really the job of
-> the device tree. But of course, most x86 users of the i210 don't have
-> this option.
+> Am I wrong or you should cast the value once again, like this:
 > 
-> Also, using ethtool or sysfs is not really attractive for embedded
-> designs (let's not forget the poor embedded guys). I think we need to
-> have a way to specify the pin functions at (or before) kernel boot
-> time.  Barring DT and kconfig, using a module parameter is the only
-> way to accomplish this.
+> ((typeof(X))~(typeof(X))0)
+> 
+> because the ~ operator will implicitly cast the argument to int (if I remember
+> correctly).
 
-On x86 the correct place to put this information would presumably be an
-ACPI table.  And if the BIOS doesn't provide it, there is
-CONFIG_ACPI_CUSTOM_DSDT, though that may be a bit of a sledgehammer...
+It will promote to at least int, but that still results in the right
+value and doesn't provoke a warning.  Try this test (with -Wall
+-Wextra):
 
-Ben.
+#include <stdio.h>
+
+#define ALL_ONES(v) (~(typeof(v))0)
+/* #define ALL_ONES(v) (typeof(v))~0U) */
+
+int main(void)
+{
+    char a = ALL_ONES(a);
+    unsigned char b = ALL_ONES(b);
+    short c = ALL_ONES(c);
+    unsigned short d = ALL_ONES(d);
+    int e = ALL_ONES(e);
+    unsigned int f = ALL_ONES(f);
+    long g = ALL_ONES(g);
+    unsigned long h = ALL_ONES(h);
+    long long i = ALL_ONES(i);
+    unsigned long long j = ALL_ONES(j);
+
+    printf("%hhx %hhx %hx %hx %x %x %lx %lx %llx %llx\n",
+	   a, b, c, d, e, f, g, h, i, j);
+    return 0;
+}
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
