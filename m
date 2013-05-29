@@ -1,7 +1,7 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH v3 1/3] net: ipv6: Unify {raw,udp}6_sock_seq_show.
-Date: Wed, 29 May 2013 14:47:37 +0900
-Message-ID: <1369806459-26901-2-git-send-email-lorenzo@google.com>
+Subject: [PATCH v3 3/3] net: ipv6: Implement /proc/net/icmp6.
+Date: Wed, 29 May 2013 14:47:39 +0900
+Message-ID: <1369806459-26901-4-git-send-email-lorenzo@google.com>
 References: <ko3rsc@ger.gmane.org>
  <1369806459-26901-1-git-send-email-lorenzo@google.com>
 Cc: Eric Dumazet <edumazet@google.com>,
@@ -11,275 +11,249 @@ Cc: Eric Dumazet <edumazet@google.com>,
 	Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f202.google.com ([209.85.216.202]:61372 "EHLO
-	mail-qc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754425Ab3E2Frv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:47:51 -0400
-Received: by mail-qc0-f202.google.com with SMTP id d1so904898qcz.3
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 22:47:50 -0700 (PDT)
+Received: from mail-vb0-f74.google.com ([209.85.212.74]:47854 "EHLO
+	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754425Ab3E2Fry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:47:54 -0400
+Received: by mail-vb0-f74.google.com with SMTP id w15so759184vbf.5
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 22:47:53 -0700 (PDT)
 In-Reply-To: <1369806459-26901-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-udp6_sock_seq_show and raw6_sock_seq_show are identical, except
-the UDP version displays ports and the raw version displays the
-protocol. Refactor most of the code in these two functions into
-a new common ip6_dgram_sock_seq_show function, in preparation
-for using it to display ICMPv6 sockets as well.
-
-Also reduce the indentation in parts of include/net/transp_v6.h
-to improve readability.
+The format is based on /proc/net/icmp and /proc/net/{udp,raw}6.
 
 Compiles and displays reasonable results with CONFIG_IPV6={n,m,y}
+Couldn't figure out how to test without CONFIG_PROC_FS enabled.
 
 Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- include/net/transp_v6.h | 73 +++++++++++++++++++++++++++++--------------------
- net/ipv6/datagram.c     | 27 ++++++++++++++++++
- net/ipv6/raw.c          | 45 ++++++------------------------
- net/ipv6/udp.c          | 49 ++++++---------------------------
- 4 files changed, 87 insertions(+), 107 deletions(-)
+ include/net/ping.h |   8 +++++
+ net/ipv4/ping.c    |  21 ++++++-----
+ net/ipv6/ping.c    | 102 +++++++++++++++++++++++++++++++++++++++++------------
+ 3 files changed, 99 insertions(+), 32 deletions(-)
 
-diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
-index eb40e71..841c33e 100644
---- a/include/net/transp_v6.h
-+++ b/include/net/transp_v6.h
-@@ -16,38 +16,51 @@ extern struct proto pingv6_prot;
- struct flowi6;
- 
- /* extension headers */
--extern int				ipv6_exthdrs_init(void);
--extern void				ipv6_exthdrs_exit(void);
--extern int				ipv6_frag_init(void);
--extern void				ipv6_frag_exit(void);
-+extern int		ipv6_exthdrs_init(void);
-+extern void		ipv6_exthdrs_exit(void);
-+extern int		ipv6_frag_init(void);
-+extern void		ipv6_frag_exit(void);
- 
- /* transport protocols */
--extern int				pingv6_init(void);
--extern void				pingv6_exit(void);
--extern int				rawv6_init(void);
--extern void				rawv6_exit(void);
--extern int				udpv6_init(void);
--extern void				udpv6_exit(void);
--extern int 				udplitev6_init(void);
--extern void 				udplitev6_exit(void);
--extern int				tcpv6_init(void);
--extern void				tcpv6_exit(void);
--
--extern int				udpv6_connect(struct sock *sk,
--						      struct sockaddr *uaddr,
--						      int addr_len);
--
--extern int			ip6_datagram_recv_ctl(struct sock *sk,
--						      struct msghdr *msg,
--						      struct sk_buff *skb);
--
--extern int			ip6_datagram_send_ctl(struct net *net,
--						      struct sock *sk,
--						      struct msghdr *msg,
--						      struct flowi6 *fl6,
--						      struct ipv6_txoptions *opt,
--						      int *hlimit, int *tclass,
--						      int *dontfrag);
-+extern int		pingv6_init(void);
-+extern void		pingv6_exit(void);
-+extern int		rawv6_init(void);
-+extern void		rawv6_exit(void);
-+extern int		udpv6_init(void);
-+extern void		udpv6_exit(void);
-+extern int		udplitev6_init(void);
-+extern void		udplitev6_exit(void);
-+extern int		tcpv6_init(void);
-+extern void		tcpv6_exit(void);
-+
-+extern int		udpv6_connect(struct sock *sk,
-+				      struct sockaddr *uaddr,
-+				      int addr_len);
-+
-+extern int		ip6_datagram_recv_ctl(struct sock *sk,
-+					      struct msghdr *msg,
-+					      struct sk_buff *skb);
-+
-+extern int		ip6_datagram_send_ctl(struct net *net,
-+					      struct sock *sk,
-+					      struct msghdr *msg,
-+					      struct flowi6 *fl6,
-+					      struct ipv6_txoptions *opt,
-+					      int *hlimit, int *tclass,
-+					      int *dontfrag);
-+
-+#define IPV6_SEQ_DGRAM_HEADER \
-+			   "  sl  "					\
-+			   "local_address                         "	\
-+			   "remote_address                        "	\
-+			   "st tx_queue rx_queue tr tm->when retrnsmt"	\
-+			   "   uid  timeout inode ref pointer drops\n"
-+
-+extern void		ip6_dgram_sock_seq_show(struct seq_file *seq,
-+						struct sock *sp,
-+						__u16 srcp,
-+						__u16 destp,
-+						int bucket);
- 
- #define		LOOPBACK4_IPV6		cpu_to_be32(0x7f000006)
- 
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 4b56cbb..197e6f4 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -879,3 +879,30 @@ exit_f:
- 	return err;
- }
- EXPORT_SYMBOL_GPL(ip6_datagram_send_ctl);
-+
-+void ip6_dgram_sock_seq_show(struct seq_file *seq, struct sock *sp,
-+			     __u16 srcp, __u16 destp, int bucket)
-+{
-+	struct ipv6_pinfo *np = inet6_sk(sp);
-+	const struct in6_addr *dest, *src;
-+
-+	dest  = &np->daddr;
-+	src   = &np->rcv_saddr;
-+	seq_printf(seq,
-+		   "%5d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
-+		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %pK %d\n",
-+		   bucket,
-+		   src->s6_addr32[0], src->s6_addr32[1],
-+		   src->s6_addr32[2], src->s6_addr32[3], srcp,
-+		   dest->s6_addr32[0], dest->s6_addr32[1],
-+		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
-+		   sp->sk_state,
-+		   sk_wmem_alloc_get(sp),
-+		   sk_rmem_alloc_get(sp),
-+		   0, 0L, 0,
-+		   from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
-+		   0,
-+		   sock_i_ino(sp),
-+		   atomic_read(&sp->sk_refcnt), sp,
-+		   atomic_read(&sp->sk_drops));
-+}
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index eedff8c..83bef86 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -1226,45 +1226,16 @@ struct proto rawv6_prot = {
+diff --git a/include/net/ping.h b/include/net/ping.h
+index b9282f0..db04802 100644
+--- a/include/net/ping.h
++++ b/include/net/ping.h
+@@ -95,6 +95,14 @@ struct ping_seq_afinfo {
+ 	const struct seq_operations	seq_ops;
  };
  
- #ifdef CONFIG_PROC_FS
--static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
--{
--	struct ipv6_pinfo *np = inet6_sk(sp);
--	const struct in6_addr *dest, *src;
--	__u16 destp, srcp;
--
--	dest  = &np->daddr;
--	src   = &np->rcv_saddr;
--	destp = 0;
--	srcp  = inet_sk(sp)->inet_num;
--	seq_printf(seq,
--		   "%4d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
--		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %pK %d\n",
--		   i,
--		   src->s6_addr32[0], src->s6_addr32[1],
--		   src->s6_addr32[2], src->s6_addr32[3], srcp,
--		   dest->s6_addr32[0], dest->s6_addr32[1],
--		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
--		   sp->sk_state,
--		   sk_wmem_alloc_get(sp),
--		   sk_rmem_alloc_get(sp),
--		   0, 0L, 0,
--		   from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
--		   0,
--		   sock_i_ino(sp),
--		   atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
--}
--
- static int raw6_seq_show(struct seq_file *seq, void *v)
++extern const struct file_operations ping_seq_fops;
++
++void *ping_seq_start(struct seq_file *seq, loff_t *pos, sa_family_t family);
++void *ping_seq_next(struct seq_file *seq, void *v, loff_t *pos);
++void ping_seq_stop(struct seq_file *seq, void *v);
++int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo);
++void ping_proc_unregister(struct net *net, struct ping_seq_afinfo *afinfo);
++
+ extern int __init ping_proc_init(void);
+ extern void ping_proc_exit(void);
+ #endif
+diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+index 8c2da9b..3552a45 100644
+--- a/net/ipv4/ping.c
++++ b/net/ipv4/ping.c
+@@ -1035,8 +1035,7 @@ static struct sock *ping_get_idx(struct seq_file *seq, loff_t pos)
+ 	return pos ? NULL : sk;
+ }
+ 
+-static void *ping_seq_start(struct seq_file *seq, loff_t *pos,
+-			    sa_family_t family)
++void *ping_seq_start(struct seq_file *seq, loff_t *pos, sa_family_t family)
  {
--	if (v == SEQ_START_TOKEN)
--		seq_printf(seq,
--			   "  sl  "
--			   "local_address                         "
--			   "remote_address                        "
--			   "st tx_queue rx_queue tr tm->when retrnsmt"
--			   "   uid  timeout inode ref pointer drops\n");
--	else
--		raw6_sock_seq_show(seq, v, raw_seq_private(seq)->bucket);
-+	if (v == SEQ_START_TOKEN) {
-+		seq_puts(seq, IPV6_SEQ_DGRAM_HEADER);
-+	} else {
-+		struct sock *sp = v;
-+		__u16 srcp  = inet_sk(sp)->inet_num;
-+		ip6_dgram_sock_seq_show(seq, v, srcp, 0,
-+					raw_seq_private(seq)->bucket);
-+	}
+ 	struct ping_iter_state *state = seq->private;
+ 	state->bucket = 0;
+@@ -1046,13 +1045,14 @@ static void *ping_seq_start(struct seq_file *seq, loff_t *pos,
+ 
+ 	return *pos ? ping_get_idx(seq, *pos-1) : SEQ_START_TOKEN;
+ }
++EXPORT_SYMBOL_GPL(ping_seq_start);
+ 
+ static void *ping_v4_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	return ping_seq_start(seq, pos, AF_INET);
+ }
+ 
+-static void *ping_seq_next(struct seq_file *seq, void *v, loff_t *pos)
++void *ping_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ {
+ 	struct sock *sk;
+ 
+@@ -1064,11 +1064,13 @@ static void *ping_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+ 	++*pos;
+ 	return sk;
+ }
++EXPORT_SYMBOL_GPL(ping_seq_next);
+ 
+-static void ping_seq_stop(struct seq_file *seq, void *v)
++void ping_seq_stop(struct seq_file *seq, void *v)
+ {
+ 	read_unlock_bh(&ping_table.lock);
+ }
++EXPORT_SYMBOL_GPL(ping_seq_stop);
+ 
+ static void ping_v4_format_sock(struct sock *sp, struct seq_file *f,
+ 		int bucket, int *len)
+@@ -1122,12 +1124,13 @@ static int ping_seq_open(struct inode *inode, struct file *file)
+ 			   sizeof(struct ping_iter_state));
+ }
+ 
+-static const struct file_operations ping_seq_fops = {
++const struct file_operations ping_seq_fops = {
+ 	.open		= ping_seq_open,
+ 	.read		= seq_read,
+ 	.llseek		= seq_lseek,
+ 	.release	= seq_release_net,
+ };
++EXPORT_SYMBOL_GPL(ping_seq_fops);
+ 
+ static struct ping_seq_afinfo ping_v4_seq_afinfo = {
+ 	.name		= "icmp",
+@@ -1141,7 +1144,7 @@ static struct ping_seq_afinfo ping_v4_seq_afinfo = {
+ 	},
+ };
+ 
+-static int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo)
++int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo)
+ {
+ 	struct proc_dir_entry *p;
+ 	p = proc_create_data(afinfo->name, S_IRUGO, net->proc_net,
+@@ -1150,13 +1153,13 @@ static int ping_proc_register(struct net *net, struct ping_seq_afinfo *afinfo)
+ 		return -ENOMEM;
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(ping_proc_register);
+ 
+-static void ping_proc_unregister(struct net *net,
+-				 struct ping_seq_afinfo *afinfo)
++void ping_proc_unregister(struct net *net, struct ping_seq_afinfo *afinfo)
+ {
+ 	remove_proc_entry(afinfo->name, net->proc_net);
+ }
+-
++EXPORT_SYMBOL_GPL(ping_proc_unregister);
+ 
+ static int __net_init ping_v4_proc_init_net(struct net *net)
+ {
+diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+index a6462d6..62ac5f2 100644
+--- a/net/ipv6/ping.c
++++ b/net/ipv6/ping.c
+@@ -78,29 +78,6 @@ int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
  	return 0;
  }
  
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 42923b1..b580853 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1359,48 +1359,17 @@ static const struct inet6_protocol udpv6_protocol = {
- 
- /* ------------------------------------------------------------------------ */
- #ifdef CONFIG_PROC_FS
--
--static void udp6_sock_seq_show(struct seq_file *seq, struct sock *sp, int bucket)
+-int __init pingv6_init(void)
 -{
--	struct inet_sock *inet = inet_sk(sp);
--	struct ipv6_pinfo *np = inet6_sk(sp);
--	const struct in6_addr *dest, *src;
--	__u16 destp, srcp;
--
--	dest  = &np->daddr;
--	src   = &np->rcv_saddr;
--	destp = ntohs(inet->inet_dport);
--	srcp  = ntohs(inet->inet_sport);
--	seq_printf(seq,
--		   "%5d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
--		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %pK %d\n",
--		   bucket,
--		   src->s6_addr32[0], src->s6_addr32[1],
--		   src->s6_addr32[2], src->s6_addr32[3], srcp,
--		   dest->s6_addr32[0], dest->s6_addr32[1],
--		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
--		   sp->sk_state,
--		   sk_wmem_alloc_get(sp),
--		   sk_rmem_alloc_get(sp),
--		   0, 0L, 0,
--		   from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
--		   0,
--		   sock_i_ino(sp),
--		   atomic_read(&sp->sk_refcnt), sp,
--		   atomic_read(&sp->sk_drops));
+-	pingv6_ops.ipv6_recv_error = ipv6_recv_error;
+-	pingv6_ops.ip6_datagram_recv_ctl = ip6_datagram_recv_ctl;
+-	pingv6_ops.icmpv6_err_convert = icmpv6_err_convert;
+-	pingv6_ops.ipv6_icmp_error = ipv6_icmp_error;
+-	pingv6_ops.ipv6_chk_addr = ipv6_chk_addr;
+-	return inet6_register_protosw(&pingv6_protosw);
 -}
 -
- int udp6_seq_show(struct seq_file *seq, void *v)
+-/* This never gets called because it's not possible to unload the ipv6 module,
+- * but just in case.
+- */
+-void pingv6_exit(void)
+-{
+-	pingv6_ops.ipv6_recv_error = dummy_ipv6_recv_error;
+-	pingv6_ops.ip6_datagram_recv_ctl = dummy_ip6_datagram_recv_ctl;
+-	pingv6_ops.icmpv6_err_convert = dummy_icmpv6_err_convert;
+-	pingv6_ops.ipv6_icmp_error = dummy_ipv6_icmp_error;
+-	pingv6_ops.ipv6_chk_addr = dummy_ipv6_chk_addr;
+-	inet6_unregister_protosw(&pingv6_protosw);
+-}
+-
+ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 		    size_t len)
  {
--	if (v == SEQ_START_TOKEN)
--		seq_printf(seq,
--			   "  sl  "
--			   "local_address                         "
--			   "remote_address                        "
--			   "st tx_queue rx_queue tr tm->when retrnsmt"
--			   "   uid  timeout inode ref pointer drops\n");
--	else
--		udp6_sock_seq_show(seq, v, ((struct udp_iter_state *)seq->private)->bucket);
+@@ -214,3 +191,82 @@ int ping_v6_sendmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
+ 
+ 	return err;
+ }
++
++#ifdef CONFIG_PROC_FS
++static void *ping_v6_seq_start(struct seq_file *seq, loff_t *pos)
++{
++	return ping_seq_start(seq, pos, AF_INET6);
++}
++
++int ping_v6_seq_show(struct seq_file *seq, void *v)
++{
 +	if (v == SEQ_START_TOKEN) {
 +		seq_puts(seq, IPV6_SEQ_DGRAM_HEADER);
 +	} else {
-+		int bucket = ((struct udp_iter_state *)seq->private)->bucket;
++		int bucket = ((struct ping_iter_state *) seq->private)->bucket;
 +		struct inet_sock *inet = inet_sk(v);
 +		__u16 srcp = ntohs(inet->inet_sport);
 +		__u16 destp = ntohs(inet->inet_dport);
 +		ip6_dgram_sock_seq_show(seq, v, srcp, destp, bucket);
 +	}
- 	return 0;
- }
- 
++	return 0;
++}
++
++static struct ping_seq_afinfo ping_v6_seq_afinfo = {
++	.name		= "icmp6",
++	.family		= AF_INET6,
++	.seq_fops       = &ping_seq_fops,
++	.seq_ops	= {
++		.start		= ping_v6_seq_start,
++		.show		= ping_v6_seq_show,
++		.next		= ping_seq_next,
++		.stop		= ping_seq_stop,
++	},
++};
++
++static int __net_init ping_v6_proc_init_net(struct net *net)
++{
++	return ping_proc_register(net, &ping_v6_seq_afinfo);
++}
++
++static void __net_init ping_v6_proc_exit_net(struct net *net)
++{
++	return ping_proc_unregister(net, &ping_v6_seq_afinfo);
++}
++
++static struct pernet_operations ping_v6_net_ops = {
++	.init = ping_v6_proc_init_net,
++	.exit = ping_v6_proc_exit_net,
++};
++#endif
++
++int __init pingv6_init(void)
++{
++#ifdef CONFIG_PROC_FS
++	int ret = register_pernet_subsys(&ping_v6_net_ops);
++	if (ret)
++		return ret;
++#endif
++	pingv6_ops.ipv6_recv_error = ipv6_recv_error;
++	pingv6_ops.ip6_datagram_recv_ctl = ip6_datagram_recv_ctl;
++	pingv6_ops.icmpv6_err_convert = icmpv6_err_convert;
++	pingv6_ops.ipv6_icmp_error = ipv6_icmp_error;
++	pingv6_ops.ipv6_chk_addr = ipv6_chk_addr;
++	return inet6_register_protosw(&pingv6_protosw);
++}
++
++/* This never gets called because it's not possible to unload the ipv6 module,
++ * but just in case.
++ */
++void pingv6_exit(void)
++{
++	pingv6_ops.ipv6_recv_error = dummy_ipv6_recv_error;
++	pingv6_ops.ip6_datagram_recv_ctl = dummy_ip6_datagram_recv_ctl;
++	pingv6_ops.icmpv6_err_convert = dummy_icmpv6_err_convert;
++	pingv6_ops.ipv6_icmp_error = dummy_ipv6_icmp_error;
++	pingv6_ops.ipv6_chk_addr = dummy_ipv6_chk_addr;
++#ifdef CONFIG_PROC_FS
++	unregister_pernet_subsys(&ping_v6_net_ops);
++#endif
++	inet6_unregister_protosw(&pingv6_protosw);
++}
 -- 
 1.8.2.1
