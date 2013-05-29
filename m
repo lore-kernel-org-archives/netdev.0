@@ -1,35 +1,70 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] ip_vs_sh: fix build
-Date: Wed, 29 May 2013 17:51:57 +0200
-Message-ID: <20130529155157.GA23067@localhost>
-References: <51A611CF02000078000D99A6@nat28.tlf.novell.com>
- <20130529145906.GA9929@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
+ improved accuracy at high rates)
+Date: Wed, 29 May 2013 08:52:04 -0700
+Message-ID: <1369842724.5109.44.camel@edumazet-glaptop>
+References: <20130529151330.22c5c89e@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jan Beulich <JBeulich@suse.com>, wensong@linux-vs.org, ja@ssi.bg,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@redhat.com>, j.vimal@gmail.com,
+	Michal Soltys <soltys@ziu.info>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
+	Jim Gettys <jg@freedesktop.org>,
+	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
+	Jiri Benc <jbenc@redhat.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:33336 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932801Ab3E2PwD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 11:52:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20130529145906.GA9929@verge.net.au>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:60009 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932934Ab3E2PwH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 11:52:07 -0400
+Received: by mail-pd0-f178.google.com with SMTP id w11so6036159pde.37
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 08:52:06 -0700 (PDT)
+In-Reply-To: <20130529151330.22c5c89e@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, May 29, 2013 at 11:59:06PM +0900, Simon Horman wrote:
-> On Wed, May 29, 2013 at 01:33:51PM +0100, Jan Beulich wrote:
-> > kfree_rcu() requires offsetof(..., rcu_head) < 4096, which can get
-> > violated with a sufficiently high CONFIG_IP_VS_SH_TAB_BITS.
-> > 
-> > Signed-off-by: Jan Beulich <jbeulich@suse.com>
+On Wed, 2013-05-29 at 15:13 +0200, Jesper Dangaard Brouer wrote:
+> I recently discovered that the (traffic control) tc linklayer
+> calculations for ATM/ADSL have been broken by:
+>  commit 56b765b79 (htb: improved accuracy at high rates).
 > 
-> Thanks Jan.
+> Thus, people shaping on ADSL links, using e.g.:
+>  tc class add ... htb rate X ceil Y linklayer atm overhead 10
 > 
-> Pablo, could you take this one directly into your tree?
+> Will no-longer get ATM cell tax/overhead adjusted.
 > 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
+> How can we solve/fix this?
+> Perhaps we can change to use the "stab" system instead (as it does
+> not seem to be broken by the commit).
+> 
+> But how do we facilitate a change to use "stab" system (for all the
+> scripts using the old option)?
+> 
+> Can we change the iproute2/tc command to handle this transparently, or
+> should we give an error/warning if someone uses "tc" and "linklayer" on
+> a kernel above v.3.8. ?
+> 
+> 
+> History:
+>  - My linklayer ATM changes appeared in kernel 2.6.24 (and iproute2 2.6.25)
+>  - The STAB changes appeared in kernel 2.6.27
+> 
 
-Applied, thanks Simon.
+Hi Jesper
+
+stab suffers from the same problem : its table driven, so works only for
+packet smaller than a given size.
+
+I am not sure it will solve the ATM logic (with the 5 bytes overhead per
+48 bytes cell)
+
+btw, even on old kernels :
