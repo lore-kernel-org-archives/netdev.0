@@ -1,73 +1,89 @@
-From: Olof Johansson <olof@lixom.net>
-Subject: Re: [PATCH net-next v5 1/2] net: Use 16bits for *_headers fields of
- struct skbuff
-Date: Wed, 29 May 2013 16:02:12 -0700
-Message-ID: <CAOesGMjuOaSr6vG+bPQGAdNKa4yeAOFLA+eyBHS+rDvevQASHQ@mail.gmail.com>
-References: <1369378295-17779-1-git-send-email-horms@verge.net.au>
-	<1369378295-17779-2-git-send-email-horms@verge.net.au>
-	<CAOesGMg2-CgJeqFM7K1QBAhG+xOc33t0vV1xR1J_4-iJJ58r8A@mail.gmail.com>
-	<CAOesGMimq2agyihTHkrGox26QVX_n9MZkcU7XSMWb941-kfg8Q@mail.gmail.com>
-	<20130529225419.GA6475@verge.net.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
+ improved accuracy at high rates)
+Date: Wed, 29 May 2013 16:18:26 -0700
+Message-ID: <1369869506.5109.87.camel@edumazet-glaptop>
+References: <20130529151330.22c5c89e@redhat.com>
+	 <1369842724.5109.44.camel@edumazet-glaptop>
+	 <20130529155034.334092c5@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: dev <dev@openvswitch.org>,
-	Network Development <netdev@vger.kernel.org>,
-	Jesse Gross <jesse@nicira.com>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	"jarno.rajahalme" <jarno.rajahalme@nsn.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
-	David Miller <davem@davemloft.net>
-To: Simon Horman <horms@verge.net.au>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	David Miller <davem@redhat.com>, j.vimal@gmail.com,
+	Michal Soltys <soltys@ziu.info>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
+	Jim Gettys <jg@freedesktop.org>,
+	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
+	Jiri Benc <jbenc@redhat.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f43.google.com ([209.85.216.43]:47484 "EHLO
-	mail-qa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966322Ab3E2XCO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 19:02:14 -0400
-Received: by mail-qa0-f43.google.com with SMTP id j11so2562258qag.16
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 16:02:13 -0700 (PDT)
-In-Reply-To: <20130529225419.GA6475@verge.net.au>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:61233 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967230Ab3E2XS3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 19:18:29 -0400
+Received: by mail-pb0-f50.google.com with SMTP id wy17so9982478pbc.37
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 16:18:28 -0700 (PDT)
+In-Reply-To: <20130529155034.334092c5@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, 2013-05-29 at 15:50 -0700, Stephen Hemminger wrote:
+> On Wed, 29 May 2013 08:52:04 -0700
+> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > On Wed, 2013-05-29 at 15:13 +0200, Jesper Dangaard Brouer wrote:
+> > > I recently discovered that the (traffic control) tc linklayer
+> > > calculations for ATM/ADSL have been broken by:
+> > >  commit 56b765b79 (htb: improved accuracy at high rates).
+> > > 
+> > > Thus, people shaping on ADSL links, using e.g.:
+> > >  tc class add ... htb rate X ceil Y linklayer atm overhead 10
+> > > 
+> > > Will no-longer get ATM cell tax/overhead adjusted.
+> > > 
+> > > How can we solve/fix this?
+> > > Perhaps we can change to use the "stab" system instead (as it does
+> > > not seem to be broken by the commit).
+> > > 
+> > > But how do we facilitate a change to use "stab" system (for all the
+> > > scripts using the old option)?
+> > > 
+> > > Can we change the iproute2/tc command to handle this transparently, or
+> > > should we give an error/warning if someone uses "tc" and "linklayer" on
+> > > a kernel above v.3.8. ?
+> > > 
+> > > 
+> > > History:
+> > >  - My linklayer ATM changes appeared in kernel 2.6.24 (and iproute2 2.6.25)
+> > >  - The STAB changes appeared in kernel 2.6.27
+> > > 
+> > 
+> > Hi Jesper
+> > 
+> > stab suffers from the same problem : its table driven, so works only for
+> > packet smaller than a given size.
+> > 
+> > I am not sure it will solve the ATM logic (with the 5 bytes overhead per
+> > 48 bytes cell)
+> > 
+> > btw, even on old kernels :
+> 
+> 
+> How bad is the failure? If it is fixed, will it break existing installations?
+> 
+> Which probably means, is anyone but the original developers ever using it
+> and therefore likely to notice?
 
-On Wed, May 29, 2013 at 3:54 PM, Simon Horman <horms@verge.net.au> wrote:
-> On Wed, May 29, 2013 at 02:46:05PM -0700, Olof Johansson wrote:
->> Sorry, that was not a great bug report.
->>
->> So, looks like it's the removal of NET_SKBUFF_DATA_USES_OFFSET that
->> does it for me.
->>
->> The devices I've seen it with are with asix usb-ethernet adapters (on
->> Tegra seaboard) and with mv643xx_eth on cubox (dove).
->>
->> I'll try to get a better stacktrace out of it. Simon, maybe you can
->> reproduce on shmobile hardware?
->
-> Sure, I will try and reproduce it.
->
-> I did subsequently post some fixes for fallout resulting from
-> the patch listed below. Those changes are now net-next.
-> Are you seeing the crash with those patches?
->
-> The fix-up patches are:
->
-> net,ipv4,ipv6: Correct assignment of skb->network_header to skb->tail
-> sctp: Correct access to skb->{network,transport}_header
-> ipv4: Correct comparisons and calculations using skb->tail and skb-transport_header
-> ipv6: Correct comparisons and calculations using skb->tail and skb-transport_header
-> net: Correct comparisons and calculations using skb->tail and skb-transport_header
-> cxgb3: Correct comparisons and calculations using skb->tail and skb-transport_header
-> isdn: Correct comparison of skb->tail and skb-transport_header
-> net: Fix build warnings after mac_header and transport_header became __u16.
+Adding the logic on the kernel is doable, by adding some clean
+attributes so that tc can setup the feature, and report the attributes
+back.
 
-Ah, no, looks like those didn't make it into the 0529 linux-next.
-
-I've merged net-next on top and retested, and I no longer see the panics.
-
-
-Thanks!
-
-
--Olof
+cpus are fast today and can perform the atm cell/overhead faster than a
+table lookup.
