@@ -1,50 +1,48 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next] vxlan: do real refcnt for vn_sock
-Date: Wed, 29 May 2013 10:08:53 +0800
-Message-ID: <1369793333.12227.4.camel@cr0>
-References: <1369739242-5944-1-git-send-email-amwang@redhat.com>
-	 <20130528082237.101a1213@nehalam.linuxnetplumber.net>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH 3/3] net: ipv6: Implement /proc/net/icmp6.
+Date: Wed, 29 May 2013 11:31:04 +0900
+Message-ID: <CAKD1Yr0YXy+xoE4rVRFmd6pQbE+biw+8008Nd_VbyaSMn8c9+w@mail.gmail.com>
+References: <1369752315-11167-1-git-send-email-lorenzo@google.com> <1369752315-11167-3-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Vasiliy Kulikov <segoon@openwall.com>,
+	Lorenzo Colitti <lorenzo@google.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56400 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934950Ab3E2CJB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 May 2013 22:09:01 -0400
-In-Reply-To: <20130528082237.101a1213@nehalam.linuxnetplumber.net>
+Received: from mail-qc0-f171.google.com ([209.85.216.171]:37838 "EHLO
+	mail-qc0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753085Ab3E2CbZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 22:31:25 -0400
+Received: by mail-qc0-f171.google.com with SMTP id n1so4439665qcx.16
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 19:31:24 -0700 (PDT)
+In-Reply-To: <1369752315-11167-3-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-28 at 08:22 -0700, Stephen Hemminger wrote:
-> On Tue, 28 May 2013 19:07:22 +0800
-> Cong Wang <amwang@redhat.com> wrote:
-> 
-> > From: Cong Wang <amwang@redhat.com>
-> > 
-> > In commit 553675fb5e9ce3d71a (vxlan: listen on multiple ports),
-> > we use kfree_rcu() to free ->vn_sock, but a) there is no use
-> > of RCU API to access this filed, b) RCU is not enough to do refcnt
-> > here, because in vxlan_leave_group() we drop RTNL lock before
-> > locking the socket, it could be possible that this field is
-> > freed during this period.
-> > 
-> > So, instead making things complex, just do basic refcnt for
-> > the ->vn_sock, like we do for others.
-> > 
-...
-> 
-> Not needed all access is under RTNL
+On Tue, May 28, 2013 at 11:45 PM, Lorenzo Colitti <lorenzo@google.com> wrote:
+> +int __init pingv6_init(void)
+> +{
+> +       int ret;
+> +       pingv6_ops.ipv6_recv_error = ipv6_recv_error;
+> +       pingv6_ops.ip6_datagram_recv_ctl = ip6_datagram_recv_ctl;
+> +       pingv6_ops.icmpv6_err_convert = icmpv6_err_convert;
+> +       pingv6_ops.ipv6_icmp_error = ipv6_icmp_error;
+> +       pingv6_ops.ipv6_chk_addr = ipv6_chk_addr;
+> +#ifdef CONFIG_PROC_FS
+> +       ret = register_pernet_subsys(&ping_v6_net_ops);
+> +       if (ret)
+> +               return ret;
 
-I know, this is why I had a patch (not posted) which adds the missing
-rtnl_dereference(), but even if we had these, it is still not correct.
+Nit: if register_pernet_subsys fails (ENOMEM?) then we return failure
+and stop the IPv6 module from loading, but the function pointers
+inside pingv6_ops are never cleared.
 
-As I explained in the changelog, vxlan_leave_group() has a problem,
-because it releases rtnl lock before locking the socket, _and_ it is
-called after vxlan_dellink() which schedules a work to cleanup the
-struct. Therefore the ->vn_sock could be freed right after rtnl lock is
-released.
-
-Am I miss anything?
+I don't think this has any impact, because if this happens, the proto
+isn't registered, so there's no way to create an IPv6 socket and call
+these function pointers. Still, for completeness' sake I'll shortly
+send out another patch 3/3 that checks the result of
+register_pernet_subsys before updating the function pointers. The
+other two patches in the set don't need to change.
