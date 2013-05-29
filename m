@@ -1,15 +1,16 @@
 From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH 06/11] net: emaclite: Report failures in mdio setup
-Date: Wed, 29 May 2013 17:33:06 +0200
-Message-ID: <eaeecf9ad936704028401e97b315d2bfc18ad175.1369841519.git.michal.simek@xilinx.com>
+Subject: [PATCH 02/11] phy: Add Vitesse 8211 phy ID
+Date: Wed, 29 May 2013 17:33:02 +0200
+Message-ID: <804de6a875a407fb0379a437f83915e7158f2f2a.1369841519.git.michal.simek@xilinx.com>
 References: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369841519.git.michal.simek@xilinx.com>
 Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-27621-1369841611-0001";
+    boundary="=_mimegpg-monstr-desktop-27574-1369841599-0001";
     micalg=pgp-sha1; protocol="application/pgp-signature"
 Cc: Michal Simek <monstr@monstr.eu>,
 	Michal Simek <michal.simek@xilinx.com>,
-	Bill Pemberton <wfp5p@virginia.edu>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Christian Hohnstaedt <chohnstaedt@innominate.com>,
 	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -25,69 +26,69 @@ The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
 To open this message correctly you will need to install E-mail or Usenet
 software that supports modern Internet standards.
 
---=_mimegpg-monstr-desktop-27621-1369841611-0001
+--=_mimegpg-monstr-desktop-27574-1369841599-0001
 
-Be more verbose when any problem happens.
+Phy is compatible with Vitesse 8221.
 
 Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
- drivers/net/ethernet/xilinx/xilinx_emaclite.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
+ drivers/net/phy/vitesse.c | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 919b983..a16dc35 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -852,8 +852,10 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
- 	/* Don't register the MDIO bus if the phy_node or its parent node
- 	 * can't be found.
- 	 */
--	if (!np)
-+	if (!np) {
-+		dev_err(dev, "Failed to register mdio bus.\n");
- 		return -ENODEV;
-+	}
+diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+index d6e988f..69b482b 100644
+--- a/drivers/net/phy/vitesse.c
++++ b/drivers/net/phy/vitesse.c
+@@ -56,6 +56,7 @@
 
- 	/* Enable the MDIO bus by asserting the enable bit in MDIO Control
- 	 * register.
-@@ -862,8 +864,10 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
- 		 XEL_MDIOCTRL_MDIOEN_MASK);
+ #define PHY_ID_VSC8244			0x000fc6c0
+ #define PHY_ID_VSC8221			0x000fc550
++#define PHY_ID_VSC8211			0x000fc4b0
 
- 	bus = mdiobus_alloc();
--	if (!bus)
-+	if (!bus) {
-+		dev_err(dev, "Failed to allocal mdiobus\n");
- 		return -ENOMEM;
-+	}
+ MODULE_DESCRIPTION("Vitesse PHY driver");
+ MODULE_AUTHOR("Kriston Carson");
+@@ -175,6 +176,19 @@ static struct phy_driver vsc82xx_driver[] = {
+ 	.ack_interrupt	= &vsc824x_ack_interrupt,
+ 	.config_intr	= &vsc82xx_config_intr,
+ 	.driver		= { .owner = THIS_MODULE,},
++}, {
++	/* Vitesse 8211 */
++	.phy_id		= PHY_ID_VSC8211,
++	.phy_id_mask	= 0x000ffff0,
++	.name		= "Vitesse VSC8211",
++	.features	= PHY_GBIT_FEATURES,
++	.flags		= PHY_HAS_INTERRUPT,
++	.config_init	= &vsc8221_config_init,
++	.config_aneg	= &genphy_config_aneg,
++	.read_status	= &genphy_read_status,
++	.ack_interrupt	= &vsc824x_ack_interrupt,
++	.config_intr	= &vsc82xx_config_intr,
++	.driver		= { .owner = THIS_MODULE,},
+ } };
 
- 	of_address_to_resource(np, 0, &res);
- 	snprintf(bus->id, MII_BUS_ID_SIZE, "%.8llx",
-@@ -879,8 +883,10 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
- 	lp->mii_bus = bus;
-
- 	rc = of_mdiobus_register(bus, np);
--	if (rc)
-+	if (rc) {
-+		dev_err(dev, "Failed to register mdio bus.\n");
- 		goto err_register;
-+	}
-
- 	return 0;
+ static int __init vsc82xx_init(void)
+@@ -195,6 +209,7 @@ module_exit(vsc82xx_exit);
+ static struct mdio_device_id __maybe_unused vitesse_tbl[] = {
+ 	{ PHY_ID_VSC8244, 0x000fffc0 },
+ 	{ PHY_ID_VSC8221, 0x000ffff0 },
++	{ PHY_ID_VSC8211, 0x000ffff0 },
+ 	{ }
+ };
 
 --
 1.8.2.3
 
 
---=_mimegpg-monstr-desktop-27621-1369841611-0001
+--=_mimegpg-monstr-desktop-27574-1369841599-0001
 Content-Type: application/pgp-signature
 Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEABECAAYFAlGmH8sACgkQykllyylKDCFx2wCcDMGJ7P96nYDCyVw/TFXl9Fr4
-OecAoJbu2p2vjc+1PDjHriHv3PgNdwlM
-=1kUD
+iEYEABECAAYFAlGmH78ACgkQykllyylKDCHxkwCfWDDCVVSXyQdHXE9WItVDMAdZ
+a0gAn3UVsFV5PWtWUMWQxRToh+mVcf/a
+=lFQm
 -----END PGP SIGNATURE-----
 
---=_mimegpg-monstr-desktop-27621-1369841611-0001--
+--=_mimegpg-monstr-desktop-27574-1369841599-0001--
