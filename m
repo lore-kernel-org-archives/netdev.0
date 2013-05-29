@@ -1,47 +1,86 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Patch net-next] net: clean up skb headers code
-Date: Wed, 29 May 2013 20:34:33 +0100
-Message-ID: <1369856073.1971.2.camel@bwh-desktop.uk.level5networks.com>
-References: <1369807740-12324-1-git-send-email-amwang@redhat.com>
-	 <20130528.233647.1209227470109213894.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <amwang@redhat.com>, <netdev@vger.kernel.org>, <horms@verge.net.au>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:55294 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966717Ab3E2Teg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 15:34:36 -0400
-In-Reply-To: <20130528.233647.1209227470109213894.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v5 04/13] net: mv643xx_eth: use of_phy_connect if phy_node present
+Date: Wed, 29 May 2013 21:32:46 +0200
+Message-ID: <1369855975-21489-5-git-send-email-sebastian.hesselbarth@gmail.com>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-05-28 at 23:36 -0700, David Miller wrote:
-> From: Cong Wang <amwang@redhat.com>
-> Date: Wed, 29 May 2013 14:09:00 +0800
-> 
-> > commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
-> > fields of struct skbuff) converts skb->*_header to u16,
-> > therefore 1) we could just use 0xFFFFF instead of (__u16) ~0U
-> > 2) some #if NET_SKBUFF_DATA_USES_OFFSET is useless now.
-> > 
-> > 
-> > Cc: David S. Miller <davem@davemloft.net>
-> > Cc: Simon Horman <horms@verge.net.au>
-> > Signed-off-by: Cong Wang <amwang@redhat.com>
-> 
-> I want to use something that will either break the build or
-> automatically work if the type changes again.
-> 
-> So something like "X = (typeof(X)) ~0U;".
+This connects to a phy node passed to the port device instead of probing
+the phy by phy_addr.
 
-I think you mean ~(typeof(X))0.
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+---
+Cc: David Miller <davem@davemloft.net>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: Jason Cooper <jason@lakedaemon.net>
+Cc: Andrew Lunn <andrew@lunn.ch>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/marvell/mv643xx_eth.c |   25 ++++++++++++++++++-------
+ 1 file changed, 18 insertions(+), 7 deletions(-)
 
-Ben.
-
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 19964e9..fa8c84a 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -60,6 +60,7 @@
+ #include <linux/types.h>
+ #include <linux/slab.h>
+ #include <linux/clk.h>
++#include <linux/of_mdio.h>
+ 
+ static char mv643xx_eth_driver_name[] = "mv643xx_eth";
+ static char mv643xx_eth_driver_version[] = "1.4";
+@@ -2715,17 +2716,27 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
+ 	netif_set_real_num_tx_queues(dev, mp->txq_count);
+ 	netif_set_real_num_rx_queues(dev, mp->rxq_count);
+ 
+-	if (pd->phy_addr != MV643XX_ETH_PHY_NONE) {
++	err = 0;
++	if (pd->phy_node) {
++		mp->phy = of_phy_connect(mp->dev, pd->phy_node,
++					 mv643xx_eth_adjust_link, 0,
++					 PHY_INTERFACE_MODE_GMII);
++		if (!mp->phy)
++			err = -ENODEV;
++	} else if (pd->phy_addr != MV643XX_ETH_PHY_NONE) {
+ 		mp->phy = phy_scan(mp, pd->phy_addr);
+ 
+-		if (IS_ERR(mp->phy)) {
++		if (IS_ERR(mp->phy))
+ 			err = PTR_ERR(mp->phy);
+-			if (err == -ENODEV)
+-				err = -EPROBE_DEFER;
+-			goto out;
+-		}
+-		phy_init(mp, pd->speed, pd->duplex);
++		else
++			phy_init(mp, pd->speed, pd->duplex);
+ 	}
++	if (err == -ENODEV) {
++		err = -EPROBE_DEFER;
++		goto out;
++	}
++	if (err)
++		goto out;
+ 
+ 	SET_ETHTOOL_OPS(dev, &mv643xx_eth_ethtool_ops);
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.10.4
