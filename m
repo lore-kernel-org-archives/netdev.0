@@ -1,61 +1,40 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
- macro
-Date: Tue, 28 May 2013 18:31:11 -0700
-Message-ID: <20130529013111.GS6172@linux.vnet.ibm.com>
-References: <519CB2D8.103@yandex-team.ru>
- <1369225837.3301.324.camel@edumazet-glaptop>
- <519CC2FB.2010006@yandex-team.ru>
- <20130522174532.GC3431@linux.vnet.ibm.com>
- <519D19DA.50400@yandex-team.ru>
- <20130525113715.GA3795@linux.vnet.ibm.com>
- <51A39E11.5020405@yandex-team.ru>
- <1369699930.3301.494.camel@edumazet-glaptop>
- <51A47496.6000100@yandex-team.ru>
- <1369787693.3301.586.camel@edumazet-glaptop>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Another request for status of loopback-tcp-bypass aka "TCP
+ Friends"
+Date: Wed, 29 May 2013 01:39:01 +0000 (UTC)
+Message-ID: <ko3m7l$546$1@ger.gmane.org>
+References: <1680686379.8235475.1369772654814.JavaMail.root@redhat.com>
+ <1193903554.8236268.1369772706073.JavaMail.root@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Roman Gushchin <klamm@yandex-team.ru>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1369787693.3301.586.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:42788 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932863Ab3E2BjT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 May 2013 21:39:19 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UhVMD-0000Wt-RK
+	for netdev@vger.kernel.org; Wed, 29 May 2013 03:39:17 +0200
+Received: from 180.183.217.220 ([180.183.217.220])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 03:39:17 +0200
+Received: from xiyou.wangcong by 180.183.217.220 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 03:39:17 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 28, 2013 at 05:34:53PM -0700, Eric Dumazet wrote:
-> On Tue, 2013-05-28 at 13:10 +0400, Roman Gushchin wrote:
-> > On 28.05.2013 04:12, Eric Dumazet wrote:
->=20
-> > > Adding a barrier() is probably what we want.
-> >=20
-> > I agree, inserting barrier() is also a correct and working fix.
->=20
-> Yeah, but I can not find a clean way to put it inside the "for (;;)"
->=20
-> for (barrier();;)  ->
->=20
-> error: expected expression before =E2=80=98__asm__=E2=80=99
->=20
-> No user currently does :
->=20
-> if (condition)
-> 	hlist_nulls_for_each_entry_rcu(tpos, pos, head, member)
->=20
-> But who knows...
+On Tue, 28 May 2013 at 20:25 GMT, Peter Portante <pportant@redhat.com> wrote:
+> Hello folks,
+>
+> Just wondering what the status is of the work for the loopback-tcp-bypass, aka "TCP Friends".
+>
+> Is this work likely to go forward eventually?
+>
 
-I still have my earlier question, but I suggest "({ barrier(); XXX })"
-to put the barrier into the for loop, either in the second or third
-clause, where XXX was the original second or third clause.
-
-							Thanx, Paul
+I am working on it recently, start with the previous version submitted
+in netdev list.
