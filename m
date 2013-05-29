@@ -1,19 +1,15 @@
 From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH 05/11] phy: Add Marvell 88E1510 phy ID
-Date: Wed, 29 May 2013 17:33:05 +0200
-Message-ID: <7eb71ca9746285a667a4754178ca4e04a53f2520.1369841519.git.michal.simek@xilinx.com>
+Subject: [PATCH 07/11] net: emaclite: Support multiple phys connected to one MDIO bus
+Date: Wed, 29 May 2013 17:33:07 +0200
+Message-ID: <7c5f92357e1b6614ea1f51df616a703865f0dd70.1369841519.git.michal.simek@xilinx.com>
 References: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369841519.git.michal.simek@xilinx.com>
 Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-27609-1369841608-0001";
+    boundary="=_mimegpg-monstr-desktop-27631-1369841613-0001";
     micalg=pgp-sha1; protocol="application/pgp-signature"
 Cc: Michal Simek <monstr@monstr.eu>,
 	Michal Simek <michal.simek@xilinx.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Lars-Peter Clausen <lars@metafoo.de>,
-	Christian Hohnstaedt <chohnstaedt@innominate.com>,
-	Rick Hoover <RHoover@digilentinc.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	Steven Wang <steven.wang@digilentinc.com>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
@@ -29,95 +25,110 @@ The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
 To open this message correctly you will need to install E-mail or Usenet
 software that supports modern Internet standards.
 
---=_mimegpg-monstr-desktop-27609-1369841608-0001
+--=_mimegpg-monstr-desktop-27631-1369841613-0001
 
-Add support for this new phy ID.
+For system which contains at least two ethernet IP where
+one IP manage MDIO bus with several PHYs.
 
-Signed-off-by: Rick Hoover <RHoover@digilentinc.com>
-Signed-off-by: Steven Wang <steven.wang@digilentinc.com>
-Signed-off-by: Lars-Peter Clausen <lars@metafoo.de>
+Example dts node:
+ethernet_mac0: ethernet@81000000 {
+	compatible = "xlnx,xps-ethernetlite-1.00.a";
+	device_type = "network";
+	interrupt-parent = <&xps_intc_0>;
+	interrupts = < 1 0 >;
+		local-mac-address = [ 00 0a 35 00 db bb ];
+	phy-handle = <&ethernet_mac0_phy0>;
+	reg = < 0x81000000 0x10000 >;
+	xlnx,duplex = <0x1>;
+	xlnx,family = "spartan3e";
+	xlnx,include-internal-loopback = <0x0>;
+	xlnx,include-mdio = <0x1>;
+	xlnx,rx-ping-pong = <0x0>;
+	xlnx,tx-ping-pong = <0x0>;
+	ethernet_mac0_mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		ethernet_mac0_phy0: phy@1 {
+			reg = <0x1>;
+		} ;
+		ethernet_mac0_phy1: phy@3 {
+			reg = <0x3>;
+		} ;
+	} ;
+} ;
+ethernet_mac2: ethernet@81040000 {
+	compatible = "xlnx,xps-ethernetlite-1.00.a";
+	device_type = "network";
+	interrupt-parent = <&xps_intc_0>;
+	interrupts = < 11 0 >;
+		local-mac-address = [ 00 0a 35 00 db bb ];
+	phy-handle = <&ethernet_mac0_phy1>;
+	reg = < 0x81040000 0x10000 >;
+	xlnx,duplex = <0x1>;
+	xlnx,family = "spartan3e";
+	xlnx,include-internal-loopback = <0x0>;
+	xlnx,include-mdio = <0x0>;
+	xlnx,rx-ping-pong = <0x0>;
+	xlnx,tx-ping-pong = <0x0>;
+} ;
+
 Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
- drivers/net/phy/marvell.c   | 25 +++++++++++++++++++++++++
- include/linux/marvell_phy.h |  1 +
- 2 files changed, 26 insertions(+)
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index df5a9f6..2e91477 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -374,6 +374,17 @@ static int m88e1318_config_aneg(struct phy_device *phydev)
- 	return m88e1121_config_aneg(phydev);
- }
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index a16dc35..fcd1e0b 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -848,6 +848,7 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
+ 	int rc;
+ 	struct resource res;
+ 	struct device_node *np = of_get_parent(lp->phy_node);
++	struct device_node *npp;
 
-+static int m88e1510_config_aneg(struct phy_device *phydev)
-+{
-+	int err;
+ 	/* Don't register the MDIO bus if the phy_node or its parent node
+ 	 * can't be found.
+@@ -856,6 +857,17 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
+ 		dev_err(dev, "Failed to register mdio bus.\n");
+ 		return -ENODEV;
+ 	}
++	npp = of_get_parent(np);
 +
-+	err = m88e1318_config_aneg(phydev);
-+	if (err < 0)
-+		return err;
-+
-+	return marvell_of_reg_init(phydev);
-+}
-+
- static int m88e1116r_config_init(struct phy_device *phydev)
- {
- 	int temp;
-@@ -1004,6 +1015,19 @@ static struct phy_driver marvell_drivers[] = {
- 		.config_intr = &marvell_config_intr,
- 		.driver = { .owner = THIS_MODULE },
- 	},
-+	{
-+		.phy_id = MARVELL_PHY_ID_88E1510,
-+		.phy_id_mask = MARVELL_PHY_ID_MASK,
-+		.name = "Marvell 88E1510",
-+		.features = PHY_GBIT_FEATURES,
-+		.flags = PHY_HAS_INTERRUPT,
-+		.config_aneg = &m88e1510_config_aneg,
-+		.read_status = &marvell_read_status,
-+		.ack_interrupt = &marvell_ack_interrupt,
-+		.config_intr = &marvell_config_intr,
-+		.did_interrupt = &m88e1121_did_interrupt,
-+		.driver = { .owner = THIS_MODULE },
-+	},
- };
++	of_address_to_resource(npp, 0, &res);
++	if (lp->ndev->mem_start != res.start) {
++		struct phy_device *phydev;
++		phydev = of_phy_find_device(lp->phy_node);
++		if (!phydev)
++			dev_info(dev,
++				 "MDIO of the phy is not registered yet\n");
++		return 0;
++	}
 
- static int __init marvell_init(void)
-@@ -1032,6 +1056,7 @@ static struct mdio_device_id __maybe_unused marvell_tbl[] = {
- 	{ MARVELL_PHY_ID_88E1240, MARVELL_PHY_ID_MASK },
- 	{ MARVELL_PHY_ID_88E1318S, MARVELL_PHY_ID_MASK },
- 	{ MARVELL_PHY_ID_88E1116R, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E1510, MARVELL_PHY_ID_MASK },
- 	{ }
- };
+ 	/* Enable the MDIO bus by asserting the enable bit in MDIO Control
+ 	 * register.
+@@ -869,7 +881,6 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
+ 		return -ENOMEM;
+ 	}
 
-diff --git a/include/linux/marvell_phy.h b/include/linux/marvell_phy.h
-index ec41025..8e9a029 100644
---- a/include/linux/marvell_phy.h
-+++ b/include/linux/marvell_phy.h
-@@ -15,6 +15,7 @@
- #define MARVELL_PHY_ID_88E1240		0x01410e30
- #define MARVELL_PHY_ID_88E1318S		0x01410e90
- #define MARVELL_PHY_ID_88E1116R		0x01410e40
-+#define MARVELL_PHY_ID_88E1510		0x01410dd0
-
- /* struct phy_device dev_flags definitions */
- #define MARVELL_PHY_M1145_FLAGS_RESISTANCE	0x00000001
+-	of_address_to_resource(np, 0, &res);
+ 	snprintf(bus->id, MII_BUS_ID_SIZE, "%.8llx",
+ 		 (unsigned long long)res.start);
+ 	bus->priv = lp;
 --
 1.8.2.3
 
 
---=_mimegpg-monstr-desktop-27609-1369841608-0001
+--=_mimegpg-monstr-desktop-27631-1369841613-0001
 Content-Type: application/pgp-signature
 Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEABECAAYFAlGmH8gACgkQykllyylKDCFacACdF5X4/618B6WiORId4CmukrvG
-PuwAoJpEEUkAqrvAxCCQPTOykzwpv4X9
-=CpSZ
+iEYEABECAAYFAlGmH80ACgkQykllyylKDCHEugCfYIgywNdnlNiFkNmsYvZ0wJ7Y
+kY4An1NAMRwxvkmIeH0G+ESWEUpdrHWd
+=b7E2
 -----END PGP SIGNATURE-----
 
---=_mimegpg-monstr-desktop-27609-1369841608-0001--
+--=_mimegpg-monstr-desktop-27631-1369841613-0001--
