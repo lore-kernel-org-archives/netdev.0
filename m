@@ -1,90 +1,184 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] net: clean up skb headers code
-Date: Wed, 29 May 2013 14:09:00 +0800
-Message-ID: <1369807740-12324-1-git-send-email-amwang@redhat.com>
-Cc: Cong Wang <amwang@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Simon Horman <horms@verge.net.au>
-To: netdev@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH net-next v2 4/7] ipv6: Correct comparisons and calculations using skb->tail and skb-transport_header
+Date: Wed, 29 May 2013 15:34:26 +0900
+Message-ID: <1369809269-13130-5-git-send-email-horms@verge.net.au>
+References: <1369809269-13130-1-git-send-email-horms@verge.net.au>
+Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37492 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752930Ab3E2GJP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 02:09:15 -0400
+Received: from kirsty.vergenet.net ([202.4.237.240]:53142 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756378Ab3E2Gds (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 02:33:48 -0400
+In-Reply-To: <1369809269-13130-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
-fields of struct skbuff) converts skb->*_header to u16,
-therefore 1) we could just use 0xFFFFF instead of (__u16) ~0U
-2) some #if NET_SKBUFF_DATA_USES_OFFSET is useless now.
+This corrects an regression introduced by "net: Use 16bits for *_headers
+fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
+that case skb->tail will be a pointer whereas skb->transport_header
+will be an offset from head. This is corrected by using wrappers that
+ensure that comparisons and calculations are always made using pointers.
 
-
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Simon Horman <horms@verge.net.au>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
+Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 8f2b830..3c896b7 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -1584,7 +1584,7 @@ static inline void skb_set_inner_mac_header(struct sk_buff *skb,
- }
- static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
+ net/ipv6/exthdrs_core.c |    2 +-
+ net/ipv6/icmp.c         |    2 +-
+ net/ipv6/mcast.c        |    5 +++--
+ net/ipv6/mip6.c         |    6 ++++--
+ net/ipv6/ndisc.c        |    9 +++++----
+ net/ipv6/output_core.c  |    3 ++-
+ net/ipv6/raw.c          |    3 ++-
+ net/ipv6/route.c        |    2 +-
+ 8 files changed, 19 insertions(+), 13 deletions(-)
+
+diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
+index c5e83fa..140748d 100644
+--- a/net/ipv6/exthdrs_core.c
++++ b/net/ipv6/exthdrs_core.c
+@@ -115,7 +115,7 @@ EXPORT_SYMBOL(ipv6_skip_exthdr);
+ int ipv6_find_tlv(struct sk_buff *skb, int offset, int type)
  {
--	return skb->transport_header != ~0U;
-+	return skb->transport_header != 0xFFFF;
- }
+ 	const unsigned char *nh = skb_network_header(skb);
+-	int packet_len = skb->tail - skb->network_header;
++	int packet_len = skb_tail_pointer(skb) - skb_network_header(skb);
+ 	struct ipv6_opt_hdr *hdr;
+ 	int len;
  
- static inline unsigned char *skb_transport_header(const struct sk_buff *skb)
-@@ -1627,7 +1627,7 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index 1d2902e..4b4890b 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -399,7 +399,7 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	int err = 0;
  
- static inline int skb_mac_header_was_set(const struct sk_buff *skb)
- {
--	return skb->mac_header != ~0U;
-+	return skb->mac_header != 0xFFFF;
- }
+ 	if ((u8 *)hdr < skb->head ||
+-	    (skb->network_header + sizeof(*hdr)) > skb->tail)
++	    (skb_network_header(skb) + sizeof(*hdr)) > skb_tail_pointer(skb))
+ 		return;
  
- static inline void skb_reset_mac_header(struct sk_buff *skb)
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f45de07..0c3742f 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -199,9 +199,7 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
- 	skb->truesize = sizeof(struct sk_buff);
- 	atomic_set(&skb->users, 1);
+ 	/*
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index bfa6cc3..72c8bfe 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -1409,8 +1409,9 @@ static void mld_sendpack(struct sk_buff *skb)
+ 	idev = __in6_dev_get(skb->dev);
+ 	IP6_UPD_PO_STATS(net, idev, IPSTATS_MIB_OUT, skb->len);
  
--#ifdef NET_SKBUFF_DATA_USES_OFFSET
--	skb->mac_header = (__u16) ~0U;
--#endif
-+	skb->mac_header = 0xFFFF;
- out:
- 	return skb;
- }
-@@ -275,10 +273,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	skb->data = data;
- 	skb_reset_tail_pointer(skb);
- 	skb->end = skb->tail + size;
--#ifdef NET_SKBUFF_DATA_USES_OFFSET
--	skb->mac_header = (__u16) ~0U;
--	skb->transport_header = (__u16) ~0U;
--#endif
-+	skb->mac_header = 0xFFFF;
-+	skb->transport_header = 0xFFFF;
+-	payload_len = (skb->tail - skb->network_header) - sizeof(*pip6);
+-	mldlen = skb->tail - skb->transport_header;
++	payload_len = (skb_tail_pointer(skb) - skb_network_header(skb)) -
++		sizeof(*pip6);
++	mldlen = skb_tail_pointer(skb) - skb_transport_header(skb);
+ 	pip6->payload_len = htons(payload_len);
  
- 	/* make sure we initialize shinfo sequentially */
- 	shinfo = skb_shinfo(skb);
-@@ -344,10 +340,8 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
- 	skb->data = data;
- 	skb_reset_tail_pointer(skb);
- 	skb->end = skb->tail + size;
--#ifdef NET_SKBUFF_DATA_USES_OFFSET
--	skb->mac_header = (__u16) ~0U;
--	skb->transport_header = (__u16) ~0U;
--#endif
-+	skb->mac_header = 0xFFFF;
-+	skb->transport_header = 0xFFFF;
+ 	pmr->mld2r_cksum = csum_ipv6_magic(&pip6->saddr, &pip6->daddr, mldlen,
+diff --git a/net/ipv6/mip6.c b/net/ipv6/mip6.c
+index 0f9bdc5..9ac01dc 100644
+--- a/net/ipv6/mip6.c
++++ b/net/ipv6/mip6.c
+@@ -268,7 +268,8 @@ static int mip6_destopt_offset(struct xfrm_state *x, struct sk_buff *skb,
+ 	struct ipv6_opt_hdr *exthdr =
+ 				   (struct ipv6_opt_hdr *)(ipv6_hdr(skb) + 1);
+ 	const unsigned char *nh = skb_network_header(skb);
+-	unsigned int packet_len = skb->tail - skb->network_header;
++	unsigned int packet_len = skb_tail_pointer(skb) -
++		skb_network_header(skb);
+ 	int found_rhdr = 0;
  
- 	/* make sure we initialize shinfo sequentially */
- 	shinfo = skb_shinfo(skb);
+ 	*nexthdr = &ipv6_hdr(skb)->nexthdr;
+@@ -404,7 +405,8 @@ static int mip6_rthdr_offset(struct xfrm_state *x, struct sk_buff *skb,
+ 	struct ipv6_opt_hdr *exthdr =
+ 				   (struct ipv6_opt_hdr *)(ipv6_hdr(skb) + 1);
+ 	const unsigned char *nh = skb_network_header(skb);
+-	unsigned int packet_len = skb->tail - skb->network_header;
++	unsigned int packet_len = skb_tail_pointer(skb) -
++		skb_network_header(skb);
+ 	int found_rhdr = 0;
+ 
+ 	*nexthdr = &ipv6_hdr(skb)->nexthdr;
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index a096269..781dd3c 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -693,7 +693,7 @@ static void ndisc_recv_ns(struct sk_buff *skb)
+ 	const struct in6_addr *saddr = &ipv6_hdr(skb)->saddr;
+ 	const struct in6_addr *daddr = &ipv6_hdr(skb)->daddr;
+ 	u8 *lladdr = NULL;
+-	u32 ndoptlen = skb->tail - (skb->transport_header +
++	u32 ndoptlen = skb_tail_pointer(skb) - (skb_transport_header(skb) +
+ 				    offsetof(struct nd_msg, opt));
+ 	struct ndisc_options ndopts;
+ 	struct net_device *dev = skb->dev;
+@@ -853,7 +853,7 @@ static void ndisc_recv_na(struct sk_buff *skb)
+ 	const struct in6_addr *saddr = &ipv6_hdr(skb)->saddr;
+ 	const struct in6_addr *daddr = &ipv6_hdr(skb)->daddr;
+ 	u8 *lladdr = NULL;
+-	u32 ndoptlen = skb->tail - (skb->transport_header +
++	u32 ndoptlen = skb_tail_pointer(skb) - (skb_transport_header(skb) +
+ 				    offsetof(struct nd_msg, opt));
+ 	struct ndisc_options ndopts;
+ 	struct net_device *dev = skb->dev;
+@@ -1069,7 +1069,8 @@ static void ndisc_router_discovery(struct sk_buff *skb)
+ 
+ 	__u8 * opt = (__u8 *)(ra_msg + 1);
+ 
+-	optlen = (skb->tail - skb->transport_header) - sizeof(struct ra_msg);
++	optlen = (skb_tail_pointer(skb) - skb_transport_header(skb)) -
++		sizeof(struct ra_msg);
+ 
+ 	if (!(ipv6_addr_type(&ipv6_hdr(skb)->saddr) & IPV6_ADDR_LINKLOCAL)) {
+ 		ND_PRINTK(2, warn, "RA: source address is not link-local\n");
+@@ -1346,7 +1347,7 @@ static void ndisc_redirect_rcv(struct sk_buff *skb)
+ 	u8 *hdr;
+ 	struct ndisc_options ndopts;
+ 	struct rd_msg *msg = (struct rd_msg *)skb_transport_header(skb);
+-	u32 ndoptlen = skb->tail - (skb->transport_header +
++	u32 ndoptlen = skb_tail_pointer(skb) - (skb_transport_header(skb) +
+ 				    offsetof(struct rd_msg, opt));
+ 
+ #ifdef CONFIG_IPV6_NDISC_NODETYPE
+diff --git a/net/ipv6/output_core.c b/net/ipv6/output_core.c
+index c2e73e6..ab92a36 100644
+--- a/net/ipv6/output_core.c
++++ b/net/ipv6/output_core.c
+@@ -40,7 +40,8 @@ int ip6_find_1stfragopt(struct sk_buff *skb, u8 **nexthdr)
+ 	u16 offset = sizeof(struct ipv6hdr);
+ 	struct ipv6_opt_hdr *exthdr =
+ 				(struct ipv6_opt_hdr *)(ipv6_hdr(skb) + 1);
+-	unsigned int packet_len = skb->tail - skb->network_header;
++	unsigned int packet_len = skb_tail_pointer(skb) -
++		skb_network_header(skb);
+ 	int found_rhdr = 0;
+ 	*nexthdr = &ipv6_hdr(skb)->nexthdr;
+ 
+diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
+index eedff8c..4f8886a 100644
+--- a/net/ipv6/raw.c
++++ b/net/ipv6/raw.c
+@@ -1132,7 +1132,8 @@ static int rawv6_ioctl(struct sock *sk, int cmd, unsigned long arg)
+ 		spin_lock_bh(&sk->sk_receive_queue.lock);
+ 		skb = skb_peek(&sk->sk_receive_queue);
+ 		if (skb != NULL)
+-			amount = skb->tail - skb->transport_header;
++			amount = skb_tail_pointer(skb) -
++				skb_transport_header(skb);
+ 		spin_unlock_bh(&sk->sk_receive_queue.lock);
+ 		return put_user(amount, (int __user *)arg);
+ 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 194c3cd..2b87418 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1649,7 +1649,7 @@ static void rt6_do_redirect(struct dst_entry *dst, struct sock *sk, struct sk_bu
+ 	int optlen, on_link;
+ 	u8 *lladdr;
+ 
+-	optlen = skb->tail - skb->transport_header;
++	optlen = skb_tail_pointer(skb) - skb_transport_header(skb);
+ 	optlen -= sizeof(*msg);
+ 
+ 	if (optlen < 0) {
+-- 
+1.7.10.4
