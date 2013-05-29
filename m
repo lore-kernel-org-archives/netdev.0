@@ -1,107 +1,44 @@
-From: Paul Moore <pmoore@redhat.com>
-Subject: [PATCH v3 2/2] selinux: fix the labeled xfrm/IPsec reference count
- handling
-Date: Wed, 29 May 2013 13:36:32 -0400
-Message-ID: <20130529173632.31888.39884.stgit@localhost>
-References: <20130529173336.31888.29695.stgit@localhost>
+From: "Vick, Matthew" <matthew.vick@intel.com>
+Subject: Re: igb: acknowledging time sync interrupts
+Date: Wed, 29 May 2013 17:42:50 +0000
+Message-ID: <CDCB8BE0.1EC2C%matthew.vick@intel.com>
+References: <20130528160654.GC4678@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: omoris@redhat.com, pwouters@redhat.com
-To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:23093 "EHLO mx1.redhat.com"
+Received: from mga14.intel.com ([143.182.124.37]:30108 "EHLO mga14.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932934Ab3E2Rge (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 13:36:34 -0400
-In-Reply-To: <20130529173336.31888.29695.stgit@localhost>
+	id S932812Ab3E2RnO convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 13:43:14 -0400
+In-Reply-To: <20130528160654.GC4678@netboy>
+Content-Language: en-US
+Content-ID: <4547455BCB6EBE42BF7780B6B5E35CEC@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The SELinux labeled IPsec code was improperly handling its reference
-counting, dropping a reference on a delete operation instead of on a
-free/release operation.
+On 5/28/13 9:06 AM, "Richard Cochran" <richardcochran@gmail.com> wrote:
 
-Reported-by: Ondrej Moris <omoris@redhat.com>
-Signed-off-by: Paul Moore <pmoore@redhat.com>
----
- security/selinux/xfrm.c |   34 ++++++++++++++--------------------
- 1 file changed, 14 insertions(+), 20 deletions(-)
+>On Tue, May 28, 2013 at 03:20:10PM +0000, Vick, Matthew wrote:
+>> 
+>> I'll start some internal discussion to see if I can get an official
+>>answer
+>> on the 82580.
+>
+>Okay, that sounds good. I just posted a patch that removes the wr32(),
+>and I can report that it does work on the i210. If the 82580 needs
+>this workaround, then I can add it back in again.
+>
+>Thanks,
+>Richard
 
-diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
-index 8ab2951..d030818 100644
---- a/security/selinux/xfrm.c
-+++ b/security/selinux/xfrm.c
-@@ -316,6 +316,7 @@ int selinux_xfrm_policy_clone(struct xfrm_sec_ctx *old_ctx,
- 
- 		memcpy(new_ctx, old_ctx, sizeof(*new_ctx));
- 		memcpy(new_ctx->ctx_str, old_ctx->ctx_str, new_ctx->ctx_len);
-+		atomic_inc(&selinux_xfrm_refcount);
- 		*new_ctxp = new_ctx;
- 	}
- 	return 0;
-@@ -326,6 +327,7 @@ int selinux_xfrm_policy_clone(struct xfrm_sec_ctx *old_ctx,
-  */
- void selinux_xfrm_policy_free(struct xfrm_sec_ctx *ctx)
- {
-+	atomic_dec(&selinux_xfrm_refcount);
- 	kfree(ctx);
- }
- 
-@@ -335,17 +337,13 @@ void selinux_xfrm_policy_free(struct xfrm_sec_ctx *ctx)
- int selinux_xfrm_policy_delete(struct xfrm_sec_ctx *ctx)
- {
- 	const struct task_security_struct *tsec = current_security();
--	int rc = 0;
- 
--	if (ctx) {
--		rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
--				  SECCLASS_ASSOCIATION,
--				  ASSOCIATION__SETCONTEXT, NULL);
--		if (rc == 0)
--			atomic_dec(&selinux_xfrm_refcount);
--	}
-+	if (!ctx)
-+		return 0;
- 
--	return rc;
-+	return avc_has_perm(tsec->sid, ctx->ctx_sid,
-+			    SECCLASS_ASSOCIATION, ASSOCIATION__SETCONTEXT,
-+			    NULL);
- }
- 
- /*
-@@ -370,8 +368,8 @@ int selinux_xfrm_state_alloc(struct xfrm_state *x, struct xfrm_user_sec_ctx *uct
-  */
- void selinux_xfrm_state_free(struct xfrm_state *x)
- {
--	struct xfrm_sec_ctx *ctx = x->security;
--	kfree(ctx);
-+	atomic_dec(&selinux_xfrm_refcount);
-+	kfree(x->security);
- }
- 
-  /*
-@@ -381,17 +379,13 @@ int selinux_xfrm_state_delete(struct xfrm_state *x)
- {
- 	const struct task_security_struct *tsec = current_security();
- 	struct xfrm_sec_ctx *ctx = x->security;
--	int rc = 0;
- 
--	if (ctx) {
--		rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
--				  SECCLASS_ASSOCIATION,
--				  ASSOCIATION__SETCONTEXT, NULL);
--		if (rc == 0)
--			atomic_dec(&selinux_xfrm_refcount);
--	}
-+	if (!ctx)
-+		return 0;
- 
--	return rc;
-+	return avc_has_perm(tsec->sid, ctx->ctx_sid,
-+			    SECCLASS_ASSOCIATION, ASSOCIATION__SETCONTEXT,
-+			    NULL);
- }
- 
- /*
+Following up internally, we got confirmation 82580 does have an issue with
+the read of TSICR not clearing it. Please do add the wr32 back in and keep
+an eye out for updated documentation.
+
+Cheers,
+Matthew
