@@ -1,93 +1,69 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: Re: [PATCH] e100: dump small buffers via %*ph
-Date: Wed, 29 May 2013 03:47:16 -0700
-Message-ID: <1369824436.2116.175.camel@jtkirshe-mobl>
-References: <1369821718-1460-1-git-send-email-andriy.shevchenko@linux.intel.com>
-Reply-To: jeffrey.t.kirsher@intel.com
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [PATCH iproute2] vxlan: allow specifying multiple default destinations
+Date: Wed, 29 May 2013 13:52:55 +0300
+Message-ID: <CAF1J0HPDAkhAybQt-tOFLLTLzaXiWy_TSbFF2FT3PMaXbnxJuw@mail.gmail.com>
+References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
+	<1369821617-29098-4-git-send-email-mike.rapoport@ravellosystems.com>
+	<ko4kcr$h8j$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============4956977214268563004=="
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	John Ronciak <john.ronciak@intel.com>
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1369821718-1460-1-git-send-email-andriy.shevchenko@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys010aog105.obsmtp.com ([74.125.245.78]:58336 "HELO
+	na3sys010aog105.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965467Ab3E2Kw5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 06:52:57 -0400
+Received: by mail-qc0-f172.google.com with SMTP id z1so4672002qcx.31
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 03:52:56 -0700 (PDT)
+In-Reply-To: <ko4kcr$h8j$1@ger.gmane.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, May 29, 2013 at 1:13 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Wed, 29 May 2013 at 10:00 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+>> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
+>> ---
+>>  ip/iplink_vxlan.c | 125 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>>  1 file changed, 125 insertions(+)
+>>
+>> diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
+>> index 1025326..be6c0ac 100644
+>> --- a/ip/iplink_vxlan.c
+>> +++ b/ip/iplink_vxlan.c
+>> @@ -28,11 +28,87 @@ static void explain(void)
+>>       fprintf(stderr, "                 [ port MIN MAX ] [ [no]learning ]\n");
+>>       fprintf(stderr, "                 [ [no]proxy ] [ [no]rsc ]\n");
+>>       fprintf(stderr, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
+>> +     fprintf(stderr, "                 [ dstadd DST ]\n");
+>> +     fprintf(stderr, "                 [ dstdel ADDR ]\n");
+>
+> Excuse me, but this looks like a design failure as you manipulate
+> remotes with `ip link` while creating vxlan devices, shouldn't this be
+> in a standard alone tool if we can't reuse any existing tool? Or am I
+> missing anything?
 
---===============4956977214268563004==
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-A7Us0kXusjjN3vuJITrH"
+Frankly, I had a long hesitation about the userspace implementation.
+>From one side it seems very logical to use ip/iplink_vxlan for vxlan
+device manipulations. Moreover, since the remotes are used pretty much
+the same way as the group address, adding the remotes management to
+ip/iplink_vxlan makes a lot of sense. Besides, creation of stand alone
+tool for remote list manipulation in vxlan seemed to me little bit far
+fetched.
 
+On the other hand, I quite agree with you that
+ip link add vxlan0 ... dstadd 192.168.1.1
+or
+ip link set vxlan0 ... dstdel 192.168.1.1
+looks weird at least.
 
---=-A7Us0kXusjjN3vuJITrH
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, 2013-05-29 at 13:01 +0300, Andy Shevchenko wrote:
-> Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-> ---
->  drivers/net/ethernet/intel/e100.c | 15 ++++++---------
->  1 file changed, 6 insertions(+), 9 deletions(-)=20
-
-Thanks Andy, I have added the patch to my queue.
-
---=-A7Us0kXusjjN3vuJITrH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQIcBAABCgAGBQJRpdy0AAoJEOVv75VaS+3O49kQAIHXTcrcvIvMpSyY1bZ55hZw
-X2qEdti8vVwEzyPbnPtIDf8VaB4BtYR56ChVCDga8bhlnFgJIGFNWDQTGZFs2Frq
-xb992C0b9AHvOYh3zZ6s+BDajykzT4TJiNfQg6eOx8vbJ4vSI+AxktAGl0W9siJi
-Sqnrr8Yg0nbTxxYjpNEEwlLgnp2jfImyEiWVQqoECzmttF4qVot2QhmRpSTebbA3
-Z0pmlRQGFYcaUrvs7KiRTcH229MJlhBbmuGB10v5DZy2ie+UDwMs2sQKIdVOt7SG
-kB9KuYI2hiLpPKuOhISh39rkrqHurqi1ukIFsCCpUH+r6s/e1zRRHwacp/tDMYMN
-MpsgX4JOnOHn3XNFihXv/p4lUH6ysYsHUiXCGLCgVVZt9XT0ridrmlb9/8MerSGo
-drsweF2V0v0sk8xRIR38sk7kop934OjPjcRPuKL3kdMIKXSsBzRmpjvXrLaKEmDl
-lPxuBkbvHCk9FtB9r13FlcefjP6MALdoiaUEkLi3z3cFdubzV49ehM8e0F1Ex7+i
-Z2Df+wBPgNp2l5ri6Rcfji8TOxOMq8BKthgCkKVCNBDdNLh2nL1tG5yhD/AziUkq
-sPJufk46An/t7kmt2+0I49GvBAnqwW+0NPYUInTDtONKOkgyKxLCWTV1vbUaK0Iw
-OpZtIWyiheB3VWbiNO+p
-=NPRh
------END PGP SIGNATURE-----
-
---=-A7Us0kXusjjN3vuJITrH--
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
 
 
---===============4956977214268563004==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
-Get 100% visibility into your production application - at no cost.
-Code-level diagnostics for performance bottlenecks with <2% overhead
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap1
---===============4956977214268563004==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============4956977214268563004==--
+--
+Sincerely yours,
+Mike.
