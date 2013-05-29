@@ -1,50 +1,109 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
-Date: Wed, 29 May 2013 16:55:32 +0300
-Message-ID: <CAJZOPZLZmLi3V-3D_16FZHQLsCsHKZY7ZhvaEH1k=Pw_i+ciwQ@mail.gmail.com>
-References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com>
-	<20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com>
-	<CAJZOPZJwe6xAj7xRK5_BnWN2wNT+oVS329+iYtE4hYTqPMLwJQ@mail.gmail.com>
-	<20130525151347.GB25744@lintop.rgmadvisors.com>
-	<20130528201508.GA6409@sbohrermbp13-local.rgmadvisors.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Hadar Hen Zion <hadarh@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: Shawn Bohrer <shawn.bohrer@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f182.google.com ([209.85.216.182]:57078 "EHLO
-	mail-qc0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759565Ab3E2Nzd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 09:55:33 -0400
-Received: by mail-qc0-f182.google.com with SMTP id n1so4761414qcw.13
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 06:55:32 -0700 (PDT)
-In-Reply-To: <20130528201508.GA6409@sbohrermbp13-local.rgmadvisors.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jiang Liu <liuj97@gmail.com>
+Subject: [PATCH v6, part4 09/41] mm: use totalram_pages instead of num_physpages at runtime
+Date: Wed, 29 May 2013 21:57:27 +0800
+Message-ID: <1369835879-23553-10-git-send-email-jiang.liu@huawei.com>
+References: <1369835879-23553-1-git-send-email-jiang.liu@huawei.com>
+Cc: Jiang Liu <jiang.liu@huawei.com>,
+	David Rientjes <rientjes@google.com>,
+	Wen Congyang <wency@cn.fujitsu.com>,
+	Mel Gorman <mgorman@suse.de>,
+	Minchan Kim <minchan@kernel.org>,
+	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
+	Michal Hocko <mhocko@suse.cz>,
+	James Bottomley <James.Bottomley@HansenPartnership.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	David Howells <dhowells@redhat.com>,
+	Mark Salter <msalter@redhat.com>,
+	Jianguo Wu <wujianguo@huawei.com>,
+	linux-mm@kvack.org,
+	linux-arch@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Miklos Szeredi <miklos@szeredi.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	fuse-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org
+To: Andrew Morton <akpm@linux-foundation.org>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <1369835879-23553-1-git-send-email-jiang.liu@huawei.com>
+Sender: owner-linux-mm@kvack.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, May 28, 2013 at 11:15 PM, Shawn Bohrer <shawn.bohrer@gmail.com> wrote:
-> Naturally I was wrong and we set more than the above non-default
-> values.  We additionally set high_rate_steer=1 on mlx4_core. As
-> you may know this parameter isn't currently available in the upstream
-> driver, so I've been carrying the following patch in my 3.4 and 3.10 trees:
+The global variable num_physpages is scheduled to be removed, so use
+totalram_pages instead of num_physpages at runtime.
 
-[...]
+Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
+Cc: Miklos Szeredi <miklos@szeredi.hu>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: fuse-devel@lists.sourceforge.net
+Cc: linux-kernel@vger.kernel.org
+Cc: netdev@vger.kernel.org
+---
+ fs/fuse/inode.c          | 2 +-
+ kernel/power/snapshot.c  | 4 ++--
+ net/ipv4/inet_fragment.c | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
 
-> I've confirmed that with the above high_rate_steer patch and
-> high_rate_steer=1 I receive data on 3.10.0-rc3 and with
-> high_rate_steer=0 I only receive data on a small number of multicast
-> addresses.  With 3.4 and the same patch I receive data in both cases.
+diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
+index 6201f81..c2d44ef 100644
+--- a/fs/fuse/inode.c
++++ b/fs/fuse/inode.c
+@@ -785,7 +785,7 @@ static const struct super_operations fuse_super_operations = {
+ static void sanitize_global_limit(unsigned *limit)
+ {
+ 	if (*limit == 0)
+-		*limit = ((num_physpages << PAGE_SHIFT) >> 13) /
++		*limit = ((totalram_pages << PAGE_SHIFT) >> 13) /
+ 			 sizeof(struct fuse_req);
+ 
+ 	if (*limit >= 1 << 16)
+diff --git a/kernel/power/snapshot.c b/kernel/power/snapshot.c
+index 0de2857..8b5d1cd 100644
+--- a/kernel/power/snapshot.c
++++ b/kernel/power/snapshot.c
+@@ -1651,7 +1651,7 @@ unsigned long snapshot_get_image_size(void)
+ static int init_header(struct swsusp_info *info)
+ {
+ 	memset(info, 0, sizeof(struct swsusp_info));
+-	info->num_physpages = num_physpages;
++	info->num_physpages = get_num_physpages();
+ 	info->image_pages = nr_copy_pages;
+ 	info->pages = snapshot_get_image_size();
+ 	info->size = info->pages;
+@@ -1795,7 +1795,7 @@ static int check_header(struct swsusp_info *info)
+ 	char *reason;
+ 
+ 	reason = check_image_kernel(info);
+-	if (!reason && info->num_physpages != num_physpages)
++	if (!reason && info->num_physpages != get_num_physpages())
+ 		reason = "memory size";
+ 	if (reason) {
+ 		printk(KERN_ERR "PM: Image mismatch: %s\n", reason);
+diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
+index 7e06641..cec5394 100644
+--- a/net/ipv4/inet_fragment.c
++++ b/net/ipv4/inet_fragment.c
+@@ -93,7 +93,7 @@ void inet_frags_init(struct inet_frags *f)
+ 	}
+ 	rwlock_init(&f->lock);
+ 
+-	f->rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
++	f->rnd = (u32) ((totalram_pages ^ (totalram_pages >> 7)) ^
+ 				   (jiffies ^ (jiffies >> 6)));
+ 
+ 	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
+-- 
+1.8.1.2
 
-[...]
-
-Shawn, so end-in mind you want the NIC steering mode to be DMFS
-(Device Managed Flow Steering) e.g for the processes bypassing the
-kernel, correct? since the NIC steering mode is global, you will not
-be able to use that non-upstream patch moving forward. So we need to
-debug/bisect why without the patch (what you call high_rate_steer=0)
-you don't get data on all groups. Can you bisect that on a single
-node, e.g set the rest of the environment with 3.4 that works, and on
-a given node see what is the commit that breaks that?
-
-Or.
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
