@@ -1,119 +1,150 @@
-From: yaniv saar <yaniv.mellanox@gmail.com>
-Subject: Re: [PATCH v6 net-next 2/5] net: implement support
- for low latency socket polling
-Date: Wed, 29 May 2013 17:20:50 +0300
-Message-ID: <CALuTh9EvzhDaqnVV35wytNg6kJhm+HbOjp5tdxWS9bCTVM5YSA@mail.gmail.com>
-References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
-	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
-	<1369834647.5109.15.camel@edumazet-glaptop>
-	<51A60A42.20905@linux.intel.com>
+From: =?KOI8-U?B?4c7E0sXKIPPPzM/az8LP1w==?= <andrei.solozobov@gmail.com>
+Subject: Re: Loose source routing option in IP headers is processed incorrectly
+Date: Wed, 29 May 2013 18:29:15 +0400
+Message-ID: <CAGiC5RNM=NrshsTjBO40SVD6Ot9h38eRi+2-jAXPjDuSeY6vKA@mail.gmail.com>
+References: <CAGiC5RN=78F4=nOby8n-voCADQWb_H154kNNGOBmP_wTu-c-Vw@mail.gmail.com>
+ <1369836178.5109.29.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5023641541171195404=="
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <51A60A42.20905@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=KOI8-U
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f49.google.com ([209.85.214.49]:36715 "EHLO
+	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966092Ab3E2O3i convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 10:29:38 -0400
+Received: by mail-bk0-f49.google.com with SMTP id 6so395364bkj.22
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 07:29:36 -0700 (PDT)
+In-Reply-To: <1369836178.5109.29.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---===============5023641541171195404==
-Content-Type: multipart/alternative; boundary=001a11c1cf8ec090f804dddc16d0
+=46orwarded letter:
 
---001a11c1cf8ec090f804dddc16d0
-Content-Type: text/plain; charset=ISO-8859-1
-
-Hi Eliezer,
-
-(If I'm too late then a future note...)
-Why make polling a system-wide configuration?
-Wouldn't it make more sense to implement a sock option?
-An even better solution might be aggregation/combination of both types of
-configurations.
-
--- Yaniv Sa'ar
-
-
-
-On Wed, May 29, 2013 at 5:01 PM, Eliezer Tamir <
-eliezer.tamir@linux.intel.com> wrote:
-
-> On 29/05/2013 16:37, Eric Dumazet wrote:
->
->> On Wed, 2013-05-29 at 09:39 +0300, Eliezer Tamir wrote:
+2013/5/29 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Wed, 2013-05-29 at 10:19 +0300, =E1=CE=C4=D2=C5=CA =F3=CF=CC=CF=DA=
+=CF=C2=CF=D7 wrote:
+>> Hi!
 >>
->
->  +static inline unsigned long ll_end_time(void)
->>> +{
->>> +       return TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_**poll) +
->>> get_cycles();
->>> +}
->>>
+>> I'm a student and while doing my course work experiments I found out
+>> this problem:
 >>
->> This can overflow.
+>> I found that loose source routing option in IP headers is processed
+>> incorrectly (I think that correct way is explained in RFC791
+>> http://tools.ietf.org/html/rfc791#page-18). It don't replace the
+>> destination address with new one from rote and don't increment the
+>> option pointer.
 >>
->> Multiply is giving 32bits, as tsc_khz is an int, and sysctl_net_ll_poll
->> is an int.
+>> I made an experiment:
 >>
->> unsigned long sysctl_net_ll_poll ?
+>> Three hosts 10.0.1.1, 10.0.1.2, 10.0.1.3 - all are running under
+>> Ubuntu 12.10 quantal Linux 3.5.0-17-generic #28-Ubuntu SMP Tue Oct 9
+>> 19:32:08 UTC 2012 i686
+>> 10.0.1.1 and 10.0.1.2 connected by Ethernet cable
+>> 10.0.1.2 and 10.0.1.3 connected by WiFi ad hoc connection
+>> 10.0.1.2 has network bridge between wireless network connection and
+>> local area connection
+>> 10.0.1.2 has Routing and Remote Access service running and in window=
+s
+>> register folder
 >>
-> OK
->
->
->  Also, if we want this to work on i386, the correct type to use for
->> ll_end_time(void) would be cycles_t
+>> /etc/sysctl.conf on 10.0.1.2 and 10.0.1.3 got entries:
 >>
+>> net.ipv4.ip_forward =3D 1
+>>
+>> net.ipv4.conf.all.accept_source_route =3D 1
+>> net.ipv4.conf.lo.accept_source_route =3D 1
+>> net.ipv4.conf.eth0.accept_source_route =3D 1
+>> net.ipv4.conf.default.accept_source_route =3D 1
+>>
+>> net.ipv4.conf.all.log_martians =3D 1
+>> net.ipv4.conf.lo.log_martians =3D 1
+>> net.ipv4.conf.eth0.log_martians =3D 1
+>>
+>> Example of ping ICMP request processing (Ethernet frame captures mad=
+e
+>> with Wireshark):
+>>
+>> sent by 10.0.1.1
+>> 0000  00 04 00 01 00 06 00 22  4d 4f a0 9d 00 00 08 00   ......." MO=
+=2E.....
+>> 0010  47 00 00 5c 00 00 40 00  40 01 0e 16 0a 00 01 01   G..\..@. @.=
+=2E.....
+>> 0020  0a 00 01 02 01 83 07 04  0a 00 02 02 08 00 5d 08   ........ ..=
+=2E...].
+>> 0030  3c 83 00 01 18 d8 a0 51  b9 46 01 00 08 09 0a 0b   <......Q .F=
+=2E.....
+>> 0040  0c 0d 0e 0f 10 11 12 13  14 15 16 17 18 19 1a 1b   ........ ..=
+=2E.....
+>> 0050  1c 1d 1e 1f 20 21 22 23  24 25 26 27 28 29 2a 2b   .... !"# $%=
+&'()*+
+>> 0060  2c 2d 2e 2f 30 31 32 33  34 35 36 37               ,-./0123 45=
+67
+>>
+>> received by 10.0.1.2
+>> 0000  00 00 00 01 00 06 00 22  4d 4f a0 9d 00 00 08 00   ......." MO=
+=2E.....
+>> 0010  47 00 00 5c 00 00 40 00  40 01 0e 16 0a 00 01 01   G..\..@. @.=
+=2E.....
+>> 0020  0a 00 01 02 01 83 07 04  0a 00 02 02 08 00 5d 08   ........ ..=
+=2E...].
+>> 0030  3c 83 00 01 18 d8 a0 51  b9 46 01 00 08 09 0a 0b   <......Q .F=
+=2E.....
+>> 0040  0c 0d 0e 0f 10 11 12 13  14 15 16 17 18 19 1a 1b   ........ ..=
+=2E.....
+>> 0050  1c 1d 1e 1f 20 21 22 23  24 25 26 27 28 29 2a 2b   .... !"# $%=
+&'()*+
+>> 0060  2c 2d 2e 2f 30 31 32 33  34 35 36 37               ,-./0123 45=
+67
+>>
+>> sent by 10.0.2.1 (destination IP  and next IP from option not swappe=
+d,
+>> option pointer not moved (must be 8), but packet sent to 10.0.2.2)
+>> 0000  00 04 00 01 00 06 14 d6  4d 0e ec d8 00 00 08 00   ........ M.=
+=2E.....
+>> 0010  47 00 00 5c 00 00 40 00  3f 01 0f 16 0a 00 01 01   G..\..@. ?.=
+=2E.....
+>> 0020  0a 00 01 02 01 83 07 04  0a 00 02 02 08 00 5d 08   ........ ..=
+=2E...].
+>> 0030  3c 83 00 01 18 d8 a0 51  b9 46 01 00 08 09 0a 0b   <......Q .F=
+=2E.....
+>> 0040  0c 0d 0e 0f 10 11 12 13  14 15 16 17 18 19 1a 1b   ........ ..=
+=2E.....
+>> 0050  1c 1d 1e 1f 20 21 22 23  24 25 26 27 28 29 2a 2b   .... !"# $%=
+&'()*+
+>> 0060  2c 2d 2e 2f 30 31 32 33  34 35 36 37               ,-./0123 45=
+67
+>>
+>> received by 10.0.2.2 and not processed
+>> 0000  00 00 00 01 00 06 14 d6  4d 0e ec d8 00 00 08 00   ........ M.=
+=2E.....
+>> 0010  47 00 00 5c 00 00 40 00  3f 01 0f 16 0a 00 01 01   G..\..@. ?.=
+=2E.....
+>> 0020  0a 00 01 02 01 83 07 04  0a 00 02 02 08 00 5d 08   ........ ..=
+=2E...].
+>> 0030  3c 83 00 01 18 d8 a0 51  b9 46 01 00 08 09 0a 0b   <......Q .F=
+=2E.....
+>> 0040  0c 0d 0e 0f 10 11 12 13  14 15 16 17 18 19 1a 1b   ........ ..=
+=2E.....
+>> 0050  1c 1d 1e 1f 20 21 22 23  24 25 26 27 28 29 2a 2b   .... !"# $%=
+&'()*+
+>> 0060  2c 2d 2e 2f 30 31 32 33  34 35 36 37               ,-./0123 45=
+67
+>>
+>> 10.0.2.2 writes to /var/log/syslog record:
+>> "May 25 19:24:57 student4 kernel: [ 1464.555708] ip_forward(): Argh!
+>> Destination lost!" (I found that it's /net/ipv4/ip_options.c module
+>> http://lxr.free-electrons.com/source/net/ipv4/ip_options.c?v=3D3.5#L=
+550
+>> record). It's right that there is no destination Address in the LSRR
+>> list, because it must be replaced with emitting interface address.
+>>
+>> Is it a bug or a feature?
+>>
+>> Andrew Solozobov
 >
-> OK
-> I would be really surprised if someone uses this on an i386, but I guess
-> you never know.
 >
-> Thanks!
-> -Eliezer
+> Post this to netdev instead of lkml
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/**majordomo-info.html<http://vger.kernel.org/majordomo-info.html>
-> Please read the FAQ at  http://www.tux.org/lkml/
 >
-
---001a11c1cf8ec090f804dddc16d0--
-
-
---===============5023641541171195404==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-------------------------------------------------------------------------------
-Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
-Get 100% visibility into your production application - at no cost.
-Code-level diagnostics for performance bottlenecks with <2% overhead
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap1
---===============5023641541171195404==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
-
---===============5023641541171195404==--
