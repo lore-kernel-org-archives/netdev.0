@@ -1,22 +1,25 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v6 net-next 1/5] net: add napi_id and hash
-Date: Wed, 29 May 2013 21:09:52 +0100
-Message-ID: <1369858192.1971.21.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [PATCH v6 net-next 2/5] net: implement support
+ for low latency socket polling
+Date: Wed, 29 May 2013 21:20:35 +0100
+Message-ID: <1369858835.1971.26.camel@bwh-desktop.uk.level5networks.com>
 References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
-	<20130529063925.27486.46649.stgit@ladj378.jer.intel.com>
+	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
+	<CAJZOPZJqF1FTLH3a3ZKUTA4ViesAZEkRi=dgd-ux8eRu9TyhBw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
+Cc: Willem de Bruijn <willemb@google.com>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
 	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
 	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
 	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>,
 	David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130529063925.27486.46649.stgit@ladj378.jer.intel.com>
+In-Reply-To: <CAJZOPZJqF1FTLH3a3ZKUTA4ViesAZEkRi=dgd-ux8eRu9TyhBw@mail.gmail.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -27,53 +30,24 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-29 at 09:39 +0300, Eliezer Tamir wrote:
-> Adds a napi_id and a hashing mechanism to lookup a napi by id.
-> This will be used by subsequent patches to implement low latency
-> Ethernet device polling.
-> Based on a code sample by Eric Dumazet.
+On Wed, 2013-05-29 at 17:14 +0300, Or Gerlitz wrote:
+> On Wed, May 29, 2013 at 9:39 AM, Eliezer Tamir
+> <eliezer.tamir@linux.intel.com> wrote:
+> > Adds a new ndo_ll_poll method and the code that supports and uses it.
+> > This method can be used by low latency applications to busy poll Ethernet
+> > device queues directly from the socket code. The value of sysctl_net_ll_poll
+> > controls how many microseconds to poll. Set to zero to disable.
 > 
-> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-[...]
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-[...]
-> @@ -4136,6 +4143,53 @@ void napi_complete(struct napi_struct *n)
->  }
->  EXPORT_SYMBOL(napi_complete);
->  
-> +void napi_hash_add(struct napi_struct *napi)
-> +{
-> +	if (!test_and_set_bit(NAPI_STATE_HASHED, &napi->state)) {
-> +
-> +		spin_lock(&napi_hash_lock);
-> +
-> +		/* 0 is not a valid id */
-> +		napi->napi_id = 0;
-> +		while (!napi->napi_id)
-> +			napi->napi_id = ++napi_gen_id;
+> Unlike with TCP sockets, UDP sockets may receive packets from multiple
+> sources and hence the receiving context may be steered to be executed
+> on different cores through RSS or other Flow-Steering HW mechanisms
+> which could mean different napi contexts for the same socket, is that
+> a problem here? what's the severity?
 
-Suppose we're loading/unloading one driver repeatedly while another one
-remains loaded the whole time.  Then once napi_gen_id wraps around, the
-same ID can be assigned to multiple contexts.
-
-So far as I can see, assigning the same ID twice will just make polling
-stop working for one of the NAPI contexts; I don't think it causes a
-crash.  And it is exceedingly unlikely to happen in production.  But if
-you're going to the trouble of handling wrap-around at all, you'd better
-handle this.
-
-[...]
-> +/* must be called under rcu_read_lock(), as we dont take a reference */
-> +struct napi_struct *napi_by_id(int napi_id)
-> +{
-> +	unsigned int hash = napi_id % HASH_SIZE(napi_hash);
-[...]
-
-napi_id should be declared unsigned int here, as elsewhere.  The
-division can't actually yield a negative result because HASH_SIZE() has
-type size_t and napi_id is promoted to match, but I had to go and look
-at hashtable.h to check that.
+Maybe ARFS could be extended so the driver can tell whether a UDP socket
+it's steering for is connected or not.  Then for disconnected sockets
+the driver can use a filter that only matches destination address.
+(Though that's probably undesirable if the socket has SO_REUSEPORT set.)
 
 Ben.
 
