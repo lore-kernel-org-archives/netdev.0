@@ -1,23 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: linux-next: build warning after merge of the final tree
-Date: Tue, 28 May 2013 22:44:06 -0700 (PDT)
-Message-ID: <20130528.224406.1354723685523430708.davem@davemloft.net>
-References: <20130529152915.efba860c7e825fe786b1ee99@canb.auug.org.au>
+Subject: Re: [PATCH 7/7] net,ipv4,ipv6: Correct assignment of
+ skb->network_header to skb->tail
+Date: Tue, 28 May 2013 22:44:33 -0700 (PDT)
+Message-ID: <20130528.224433.533003178906165918.davem@davemloft.net>
+References: <1369805268-6291-1-git-send-email-horms@verge.net.au>
+	<1369805268-6291-8-git-send-email-horms@verge.net.au>
+	<1369805751.5109.1.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, horms@verge.net.au
-To: sfr@canb.auug.org.au
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130529152915.efba860c7e825fe786b1ee99@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: horms@verge.net.au, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42291 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759425Ab3E2Fod (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:44:33 -0400
+In-Reply-To: <1369805751.5109.1.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Date: Wed, 29 May 2013 15:29:15 +1000
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 28 May 2013 22:35:51 -0700
 
-> Introduced by commit 1a37e412a022 ("net: Use 16bits for *_headers fields
-> of struct skbuff") from the net-next tree.
+> Are you sure __u64 is needed on 32bit arches ?
 
-Simon just posted fixes for this, sorry about that.
+It should be "unsigned long" or similar.
