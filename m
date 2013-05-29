@@ -1,36 +1,107 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tuntap: forbid changing mq flag for persistent device
-Date: Wed, 29 May 2013 00:22:08 -0700 (PDT)
-Message-ID: <20130529.002208.1948977466672387293.davem@davemloft.net>
-References: <1369801931-6856-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369801931-6856-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: [PATCH v2] net/usb/kalmia: use %*phC to dump small buffers
+Date: Wed, 29 May 2013 10:22:30 +0300
+Message-ID: <1369812150-27599-1-git-send-email-andriy.shevchenko@linux.intel.com>
+Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-usb@vger.kernel.org, netdev@vger.kernel.org,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga02.intel.com ([134.134.136.20]:11407 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964799Ab3E2HWf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 03:22:35 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed, 29 May 2013 12:32:11 +0800
+Instead of dereferencing pointer and put values on stack we could use nice
+%*phC specifier.
 
-> We currently allow changing the mq flag (IFF_MULTI_QUEUE) for a persistent
-> device. This will result a mismatch between the number the queues in netdev and
-> tuntap. This is because we only allocate a 1q netdevice when IFF_MULTI_QUEUE was
-> not specified, so when we set the IFF_MULTI_QUEUE and try to attach more queues
-> later, netif_set_real_num_tx_queues() may fail which result a single queue
-> netdevice with multiple sockets attached.
-> 
-> Solve this by disallowing changing the mq flag for persistent device.
-> 
-> Bug was introduced by commit edfb6a148ce62e5e19354a1dcd9a34e00815c2a1
-> (tuntap: reduce memory using of queues).
-> 
-> Reported-by: Sriram Narasimhan <sriram.narasimhan@hp.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+---
+Since v1:
+- don't split message strings
 
-Applied, thanks Jason.
+ drivers/net/usb/kalmia.c | 45 +++++++++++++++------------------------------
+ 1 file changed, 15 insertions(+), 30 deletions(-)
+
+diff --git a/drivers/net/usb/kalmia.c b/drivers/net/usb/kalmia.c
+index 0192073..6866eae 100644
+--- a/drivers/net/usb/kalmia.c
++++ b/drivers/net/usb/kalmia.c
+@@ -221,12 +221,9 @@ done:
+ 		memset(skb_put(skb, padlen), 0, padlen);
+ 	}
+ 
+-	netdev_dbg(
+-		dev->net,
+-		"Sending package with length %i and padding %i. Header: %02x:%02x:%02x:%02x:%02x:%02x.",
+-		content_len, padlen, header_start[0], header_start[1],
+-		header_start[2], header_start[3], header_start[4],
+-		header_start[5]);
++	netdev_dbg(dev->net,
++		"Sending package with length %i and padding %i. Header: %6phC.",
++		content_len, padlen, header_start);
+ 
+ 	return skb;
+ }
+@@ -263,32 +260,23 @@ kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 				sizeof(EXPECTED_UNKNOWN_HEADER_1)) || !memcmp(
+ 				header_start, EXPECTED_UNKNOWN_HEADER_2,
+ 				sizeof(EXPECTED_UNKNOWN_HEADER_2))) {
+-				netdev_dbg(
+-					dev->net,
+-					"Received expected unknown frame header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
+-					header_start[0], header_start[1],
+-					header_start[2], header_start[3],
+-					header_start[4], header_start[5],
++				netdev_dbg(dev->net,
++					"Received expected unknown frame header: %6phC. Package length: %i\n",
++					header_start,
+ 					skb->len - KALMIA_HEADER_LENGTH);
+ 			}
+ 			else {
+-				netdev_err(
+-					dev->net,
+-					"Received unknown frame header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
+-					header_start[0], header_start[1],
+-					header_start[2], header_start[3],
+-					header_start[4], header_start[5],
++				netdev_err(dev->net,
++					"Received unknown frame header: %6phC. Package length: %i\n",
++					header_start,
+ 					skb->len - KALMIA_HEADER_LENGTH);
+ 				return 0;
+ 			}
+ 		}
+ 		else
+-			netdev_dbg(
+-				dev->net,
+-				"Received header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
+-				header_start[0], header_start[1], header_start[2],
+-				header_start[3], header_start[4], header_start[5],
+-				skb->len - KALMIA_HEADER_LENGTH);
++			netdev_dbg(dev->net,
++				"Received header: %6phC. Package length: %i\n",
++				header_start, skb->len - KALMIA_HEADER_LENGTH);
+ 
+ 		/* subtract start header and end header */
+ 		usb_packet_length = skb->len - (2 * KALMIA_HEADER_LENGTH);
+@@ -310,12 +298,9 @@ kalmia_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
+ 				sizeof(HEADER_END_OF_USB_PACKET)) == 0);
+ 			if (!is_last) {
+ 				header_start = skb->data + ether_packet_length;
+-				netdev_dbg(
+-					dev->net,
+-					"End header: %02x:%02x:%02x:%02x:%02x:%02x. Package length: %i\n",
+-					header_start[0], header_start[1],
+-					header_start[2], header_start[3],
+-					header_start[4], header_start[5],
++				netdev_dbg(dev->net,
++					"End header: %6phC. Package length: %i\n",
++					header_start,
+ 					skb->len - KALMIA_HEADER_LENGTH);
+ 			}
+ 		}
+-- 
+1.8.2.rc0.22.gb3600c3
