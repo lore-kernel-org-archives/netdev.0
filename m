@@ -1,65 +1,60 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 2/7] cxgb3: Correct comparisons and calculations using skb->tail and skb-transport_header
-Date: Wed, 29 May 2013 14:27:43 +0900
-Message-ID: <1369805268-6291-3-git-send-email-horms@verge.net.au>
-References: <1369805268-6291-1-git-send-email-horms@verge.net.au>
+Subject: [PATCH 0/7] Fix fallout from conversion of skb headers to 16bit offsets
+Date: Wed, 29 May 2013 14:27:41 +0900
+Message-ID: <1369805268-6291-1-git-send-email-horms@verge.net.au>
 Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46200 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:46187 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753320Ab3E2F1M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:27:12 -0400
-In-Reply-To: <1369805268-6291-1-git-send-email-horms@verge.net.au>
+	with ESMTP id S1752417Ab3E2F1J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:27:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This corrects an regression introduced by "net: Use 16bits for *_headers
-fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
-that case skb->tail will be a pointer whereas skb->transport_header
-will be an offset from head. This is corrected by using wrappers that
-ensure that comparisons and calculations are always made using pointers.
+Many apologies for not having the foresight to spot these problems earlier.
 
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
+These problems relate to comparisons between integer offsets and pointers
+that occur when NET_SKBUFF_DATA_USES_OFFSET is not set
+
+These are regressions caused by "net: Use 16bits for *_headers fields of
+struct skbuff".
+
+Simon Horman (7):
+  isdn: Correct comparison of skb->tail and skb-transport_header
+  cxgb3: Correct comparisons and calculations using skb->tail and
+    skb-transport_header
+  net: Correct comparisons and calculations using skb->tail and
+    skb-transport_header
+  ipv6: Correct comparisons and calculations using skb->tail and
+    skb-transport_header
+  ipv4: Correct comparisons and calculations using skb->tail and
+    skb-transport_header
+  sctp: Correct access to skb->{network,transport}_header
+  net,ipv4,ipv6: Correct assignment of skb->network_header to skb->tail
+
+ drivers/isdn/i4l/isdn_net.c              |    2 +-
  drivers/net/ethernet/chelsio/cxgb3/sge.c |   11 +++++------
- 1 file changed, 5 insertions(+), 6 deletions(-)
+ include/linux/skbuff.h                   |    9 +++++++++
+ include/net/inet_ecn.h                   |    6 ++++--
+ net/core/dev.c                           |    4 ++--
+ net/core/netpoll.c                       |    9 ++++++++-
+ net/core/pktgen.c                        |   16 ++++++++++++++--
+ net/ipv4/icmp.c                          |    3 ++-
+ net/ipv4/igmp.c                          |    2 +-
+ net/ipv4/ipmr.c                          |    8 +++++++-
+ net/ipv4/tcp.c                           |    3 ++-
+ net/ipv6/exthdrs_core.c                  |    2 +-
+ net/ipv6/icmp.c                          |    2 +-
+ net/ipv6/mcast.c                         |    5 +++--
+ net/ipv6/mip6.c                          |    6 ++++--
+ net/ipv6/ndisc.c                         |    9 +++++----
+ net/ipv6/output_core.c                   |    3 ++-
+ net/ipv6/raw.c                           |    3 ++-
+ net/ipv6/route.c                         |    2 +-
+ net/sctp/input.c                         |    2 +-
+ net/sctp/ipv6.c                          |    2 +-
+ 21 files changed, 76 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-index 2fd773e..46d1efc 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-@@ -1584,9 +1584,8 @@ static void deferred_unmap_destructor(struct sk_buff *skb)
- 	p = dui->addr;
- 
- 	if (skb->tail - skb->transport_header)
--		pci_unmap_single(dui->pdev, *p++,
--				 skb->tail - skb->transport_header,
--				 PCI_DMA_TODEVICE);
-+		pci_unmap_single(dui->pdev, *p++, skb_tail_pointer(skb) -
-+				 skb_transport_header(skb), PCI_DMA_TODEVICE);
- 
- 	si = skb_shinfo(skb);
- 	for (i = 0; i < si->nr_frags; i++)
-@@ -1647,8 +1646,8 @@ static void write_ofld_wr(struct adapter *adap, struct sk_buff *skb,
- 	flits = skb_transport_offset(skb) / 8;
- 	sgp = ndesc == 1 ? (struct sg_ent *)&d->flit[flits] : sgl;
- 	sgl_flits = write_sgl(skb, sgp, skb_transport_header(skb),
--			     skb->tail - skb->transport_header,
--			     addr);
-+			     skb_tail_pointer(skb) -
-+			     skb_transport_header(skb), addr);
- 	if (need_skb_unmap()) {
- 		setup_deferred_unmapping(skb, adap->pdev, sgp, sgl_flits);
- 		skb->destructor = deferred_unmap_destructor;
-@@ -1674,7 +1673,7 @@ static inline unsigned int calc_tx_descs_ofld(const struct sk_buff *skb)
- 
- 	flits = skb_transport_offset(skb) / 8;	/* headers */
- 	cnt = skb_shinfo(skb)->nr_frags;
--	if (skb->tail != skb->transport_header)
-+	if (skb_tail_pointer(skb) != skb_transport_header(skb))
- 		cnt++;
- 	return flits_to_desc(flits + sgl_len(cnt));
- }
 -- 
 1.7.10.4
