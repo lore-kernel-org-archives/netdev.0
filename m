@@ -1,57 +1,57 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH v6 net-next 2/5] net: implement support
- for low latency socket polling
-Date: Wed, 29 May 2013 21:52:16 +0300
-Message-ID: <CAJZOPZLC=drE9dTpnj2hLdDmfnL+T4gOU1j1xYwbmYy-J9HaAQ@mail.gmail.com>
-References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
-	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
-	<CAJZOPZJqF1FTLH3a3ZKUTA4ViesAZEkRi=dgd-ux8eRu9TyhBw@mail.gmail.com>
-	<51A617D7.6000406@linux.intel.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: Network issue on 3.10 rcs, bisected
+Date: Wed, 29 May 2013 11:59:58 -0700
+Message-ID: <CALnjE+p3vFkYBu=XioeDTEL1cyXh_379ix84Yoojj1eB11q57Q@mail.gmail.com>
+References: <CACG0VPV3-x5Ncp+_hci8wVNYUeqAUZ0KFm0MAuHMntXzaL9Nqw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, HPA <hpa@zytor.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>,
-	David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <51A617D7.6000406@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Joao Correia <joaomiguelcorreia@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:48996 "HELO
+	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965653Ab3E2S76 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 14:59:58 -0400
+Received: by mail-qa0-f49.google.com with SMTP id j11so2383125qag.8
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 11:59:58 -0700 (PDT)
+In-Reply-To: <CACG0VPV3-x5Ncp+_hci8wVNYUeqAUZ0KFm0MAuHMntXzaL9Nqw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
-> Or Gerlitz wrote:
+On Wed, May 29, 2013 at 4:37 AM, Joao Correia
+<joaomiguelcorreia@gmail.com> wrote:
+> Hello list
+>
+> While trying the rc's for 3.10, i've stumbled upon a problem where
+> networking does not work at all. Iptables will show packet counts going up,
+> but nothing actually reaches the programs.
+>
+> I'm running fedora under hyper-v 3 (a windows 2012 host). Only tested ipv4
+> traffic, and everything times out (ping, telnet to open ports) on both
+> directions. The networking devices come up apparently ok - has static ip
+> set, and dmesg shows no errors (although i don't have many debugging options
+> enabled).
+>
+> I bisected this, and git blames commit
+> ec5f061564238892005257c83565a0b58ec79295 (net: ill link between CSUM and SG
+> features.). I can't revert it cleanly on current rc's.
+>
+Can you also send network features set on the device?
+ethtool -k <dev>
 
->> Unlike with TCP sockets, UDP sockets may receive packets from multiple
->> sources and hence the receiving context may be steered to be executed
->> on different cores through RSS or other Flow-Steering HW mechanisms
->> which could mean different napi contexts for the same socket, is that
->> a problem here? what's the severity?
-
-> Nothing will break if you poll on the wrong queue.
-> Your data will come through normal NAPI processing of the right queue.
-
-Can you elaborate a little further, why you call this "wrong" and "right"?
-
-------------------------------------------------------------------------------
-Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
-Get 100% visibility into your production application - at no cost.
-Code-level diagnostics for performance bottlenecks with <2% overhead
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Thanks,
+Pravin.
+> Please find the attached config used, as well as lshw output. Logs show no
+> errors.
+>
+> I'm willing and able to test fixes.
+>
+> Thank you for your time,
+> Joao Correia
+> CIUBI
+> Universidade da Beira Interior
+> Portugal
+>
+>
+>
