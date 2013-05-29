@@ -1,121 +1,42 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v6 net-next 3/5] tcp: add TCP support for low
- latency receive poll.
-Date: Wed, 29 May 2013 09:39:45 +0300
-Message-ID: <20130529063945.27486.61442.stgit@ladj378.jer.intel.com>
-References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] net: clean up skb headers code
+Date: Wed, 29 May 2013 14:48:06 +0800
+Message-ID: <1369810086.12227.18.camel@cr0>
+References: <1369807740-12324-1-git-send-email-amwang@redhat.com>
+	 <20130528.233647.1209227470109213894.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, linux-kernel@vger.kernel.org,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>
+Cc: netdev@vger.kernel.org, horms@verge.net.au
 To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:3549 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S935020Ab3E2GsP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 02:48:15 -0400
+In-Reply-To: <20130528.233647.1209227470109213894.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adds busy-poll support for TCP.
-Copy the napi_id from an incomming skb to the sk in tcp_v[46]_rcv().
-when there is no data in the socket we busy-poll in tcp_recvmsg().
-This is a good example of how to add busy-poll support to new protocols.
+On Tue, 2013-05-28 at 23:36 -0700, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Wed, 29 May 2013 14:09:00 +0800
+> 
+> > commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
+> > fields of struct skbuff) converts skb->*_header to u16,
+> > therefore 1) we could just use 0xFFFFF instead of (__u16) ~0U
+> > 2) some #if NET_SKBUFF_DATA_USES_OFFSET is useless now.
+> > 
+> > 
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Cc: Simon Horman <horms@verge.net.au>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> I want to use something that will either break the build or
+> automatically work if the type changes again.
+> 
+> So something like "X = (typeof(X)) ~0U;".
 
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
+Yeah, this is even better. I will update this patch.
 
- net/ipv4/tcp.c      |    5 +++++
- net/ipv4/tcp_ipv4.c |    2 ++
- net/ipv6/tcp_ipv6.c |    2 ++
- 3 files changed, 9 insertions(+), 0 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index ba4186e..becd105 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -279,6 +279,7 @@
- 
- #include <asm/uaccess.h>
- #include <asm/ioctls.h>
-+#include <net/ll_poll.h>
- 
- int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
- 
-@@ -1551,6 +1552,10 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	struct sk_buff *skb;
- 	u32 urg_hole = 0;
- 
-+	if (sk_valid_ll(sk) && skb_queue_empty(&sk->sk_receive_queue)
-+	    && (sk->sk_state == TCP_ESTABLISHED))
-+		sk_poll_ll(sk, nonblock);
-+
- 	lock_sock(sk);
- 
- 	err = -ENOTCONN;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d20ede0..35fd8bc 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -75,6 +75,7 @@
- #include <net/netdma.h>
- #include <net/secure_seq.h>
- #include <net/tcp_memcontrol.h>
-+#include <net/ll_poll.h>
- 
- #include <linux/inet.h>
- #include <linux/ipv6.h>
-@@ -2011,6 +2012,7 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
-+	sk_mark_ll(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 0a17ed9..5cffa5c 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -63,6 +63,7 @@
- #include <net/inet_common.h>
- #include <net/secure_seq.h>
- #include <net/tcp_memcontrol.h>
-+#include <net/ll_poll.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -1498,6 +1499,7 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
-+	sk_mark_ll(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-
-
-------------------------------------------------------------------------------
-Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
-Get 100% visibility into your production application - at no cost.
-Code-level diagnostics for performance bottlenecks with <2% overhead
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Thanks.
