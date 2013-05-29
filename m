@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] openvswitch: use -EEXIST as return error to be more
- precise
-Date: Tue, 28 May 2013 23:50:52 -0700 (PDT)
-Message-ID: <20130528.235052.437523769251063741.davem@davemloft.net>
-References: <1369722676-7898-1-git-send-email-fan.du@windriver.com>
+Subject: Re: [Patch net-next 1/3] vxlan: remove the unused rcu head from
+ struct vxlan_rdst
+Date: Tue, 28 May 2013 23:54:24 -0700 (PDT)
+Message-ID: <20130528.235424.719442355699717727.davem@davemloft.net>
+References: <1369730153-11214-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jesse@nicira.com, netdev@vger.kernel.org
-To: fan.du@windriver.com
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55188 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:57505 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934364Ab3E2Gux (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 02:50:53 -0400
-In-Reply-To: <1369722676-7898-1-git-send-email-fan.du@windriver.com>
+	with ESMTP id S934396Ab3E2GyZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 02:54:25 -0400
+In-Reply-To: <1369730153-11214-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Fan Du <fan.du@windriver.com>
-Date: Tue, 28 May 2013 14:31:16 +0800
+From: Cong Wang <amwang@redhat.com>
+Date: Tue, 28 May 2013 16:35:51 +0800
 
-> ovs_vport_cmd_new create a new vport with port num specified by user.
-> when this port num is already occupied, it's more clear to return
-> -EEXIST as the reason than -EBUSY.
+> From: Cong Wang <amwang@redhat.com>
 > 
-> Signed-off-by: Fan Du <fan.du@windriver.com>
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Jesse?
+Applied.
