@@ -1,62 +1,77 @@
-From: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
- improved accuracy at high rates)
-Date: Wed, 29 May 2013 15:13:30 +0200
-Message-ID: <20130529151330.22c5c89e@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [ANNOUNCE] iptables 1.4.19 release
+Date: Wed, 29 May 2013 15:33:40 +0200
+Message-ID: <20130529133340.GA14566@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNlbg==?= <toke-LJ9M9ZcSy1A@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Steven Barth <cyrus-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org, Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
-To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, Eric Dumazet
-	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Miller <davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, j.vimal-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Michal Soltys <soltys-R61QfzASbfY@public.gmane.org>, Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
-	Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>, Patrick
-	McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
-List-Unsubscribe: <https://lists.bufferbloat.net/options/bloat>,
-	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=unsubscribe>
-List-Archive: <https://lists.bufferbloat.net/pipermail/bloat>
-List-Post: <mailto:bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
-List-Help: <mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.bufferbloat.net/listinfo/bloat>,
-	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=subscribe>
-Sender: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
-Errors-To: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
+Content-Type: multipart/mixed; boundary="rwEMma7ioTxnRzrJ"
+Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
+	netfilter-announce@lists.netfilter.org, lwn@lwn.net
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-I recently discovered that the (traffic control) tc linklayer
-calculations for ATM/ADSL have been broken by:
- commit 56b765b79 (htb: improved accuracy at high rates).
+--rwEMma7ioTxnRzrJ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Thus, people shaping on ADSL links, using e.g.:
- tc class add ... htb rate X ceil Y linklayer atm overhead 10
+Hi!
 
-Will no-longer get ATM cell tax/overhead adjusted.
+The Netfilter project proudly presents:
 
-How can we solve/fix this?
-Perhaps we can change to use the "stab" system instead (as it does
-not seem to be broken by the commit).
+        iptables 1.4.19
 
-But how do we facilitate a change to use "stab" system (for all the
-scripts using the old option)?
+This release includes support for the new connlabel and bpf matches
+available in Linux 3.9, several fixes and manpage updates.
 
-Can we change the iproute2/tc command to handle this transparently, or
-should we give an error/warning if someone uses "tc" and "linklayer" on
-a kernel above v.3.8. ?
+See ChangeLog that comes attached to this email for more details.
+
+You can download it from:
+
+http://www.netfilter.org/projects/iptables/downloads.html
+ftp://ftp.netfilter.org/pub/iptables/
+
+Have fun!
 
 
-History:
- - My linklayer ATM changes appeared in kernel 2.6.24 (and iproute2 2.6.25)
- - The STAB changes appeared in kernel 2.6.27
+--rwEMma7ioTxnRzrJ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="changes-iptables-1.4.19.txt"
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Florian Westphal (3):
+      libxt_NFQUEUE: fix bypass option documentation
+      extensions: add connlabel match
+      extensions: add connlabel match
+
+Mart Frauenlob (3):
+      ip[6]tables: show --protocol instead of --proto in usage
+      libxt_recent: Fix missing space in manpage for --mask option
+      extensions: libxt_multiport: Update manpage to list valid protocols
+
+Nicolas Dichtel (1):
+      utils: nfnl_osf: use the right nfnetlink lib
+
+Pablo Neira Ayuso (11):
+      libip6t_NETMAP: Use xtables_ip6mask_to_cidr and get rid of libip6tc dependency
+      Revert "build: resolve link failure for ip6t_NETMAP"
+      libxt_osf: fix missing --ttl and --log in save output
+      libxt_osf: fix bad location for location in --genre
+      libip6t_SNPT: add manpage
+      libip6t_DNPT: add manpage
+      Merge branch 'stable'
+      utils: updates .gitignore to include nfbpf_compile
+      extensions: libxt_bpf: clarify --bytecode argument
+      libxtables: fix parsing of dotted network mask format
+      build: bump version to 1.4.19
+
+Patrick McHardy (1):
+      libxt_conntrack: fix state match alias state parsing
+
+Willem de Bruijn (2):
+      extensions: add libxt_bpf extension
+      utils: nfbpf_compile
+
+
+--rwEMma7ioTxnRzrJ--
