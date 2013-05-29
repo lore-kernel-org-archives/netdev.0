@@ -1,72 +1,67 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] net: ethernet: xilinx_emaclite: keep protocol selector bits by reading ANAR
-Date: Wed, 29 May 2013 09:51:30 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7253@saturn3.aculab.com>
-References: <51A4D6FE.3080308@efe-gmbh.de> <AE90C24D6B3A694183C094C60CF0A2F6026B7251@saturn3.aculab.com> <635022046.487018.1369769745682.open-xchange@email.1und1.de>
+From: Yijing Wang <wangyijing@huawei.com>
+Subject: [PATCH] tg3: remove redundant pm init code
+Date: Wed, 29 May 2013 17:00:32 +0800
+Message-ID: <1369818032-36272-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <davem@davemloft.net>
-To: <renner@efe-gmbh.de>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:59532 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S965117Ab3E2IwH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 04:52:07 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24485-03 for <netdev@vger.kernel.org>;
- Wed, 29 May 2013 09:52:02 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <635022046.487018.1369769745682.open-xchange@email.1und1.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-pci@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Hanjun Guo <guohanjun@huawei.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	Yijing Wang <wangyijing@huawei.com>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>,
+	Michael Chan <mchan@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-PiA+IERhdmlkIExhaWdodCA8RGF2aWQuTGFpZ2h0QEFDVUxBQi5DT00+IGhhdCBhbSAyOC4gTWFp
-IDIwMTMgdW0gMTg6MjINCj4gPiBnZXNjaHJpZWJlbjoNCj4gPg0KPiA+DQo+ID4gPiBUaGlzIHBh
-dGNoIHJlYWRzIHRoZSBQSFkncyBNSUlfQURWRVJUSVNFIHJlZ2lzdGVyIChBTkFSKSBiZWZvcmUg
-bW9kaWZ5aW5nDQo+ID4gPiBpdC4NCj4gPiA+IEhlbmNlLCB0aGUgcHJvdG9jb2wgc2VsZWN0b3Ig
-Yml0cyAoNDowKSB3aGljaCBpbmRpY2F0ZSBJRUVFIDgwMy4zdSBzdXBwb3J0DQo+ID4gPiBhcmUN
-Cj4gPiA+IHByZXZlbnRlZCBmcm9tIGJlaW5nIGNsZWFyZWQuDQo+ID4gPiAuLi4NCj4gPiA+ICAg
-ICAgICAgICAgICAgICAvKiBBZHZlcnRpc2Ugb25seSAxMCBhbmQgMTAwbWJwcyBmdWxsL2hhbGYg
-ZHVwbGV4IHNwZWVkcyAqLw0KPiA+ID4gLSAgICAgICAgICAgICAgIHBoeV93cml0ZShscC0+cGh5
-X2RldiwgTUlJX0FEVkVSVElTRSwgQURWRVJUSVNFX0FMTCk7DQo+ID4gPiArICAgICAgICAgICAg
-ICAgYWR2ID0gcGh5X3JlYWQobHAtPnBoeV9kZXYsIE1JSV9BRFZFUlRJU0UpOw0KPiA+ID4gKyAg
-ICAgICAgICAgICAgIGlmIChhZHYgPCAwKQ0KPiA+ID4gKyAgICAgICAgICAgICAgICAgICAgICAg
-cmV0dXJuIGFkdjsNCj4gPiA+ICsgICAgICAgICAgICAgICBwaHlfd3JpdGUobHAtPnBoeV9kZXYs
-IE1JSV9BRFZFUlRJU0UsIGFkdiB8IEFEVkVSVElTRV9BTEwpOw0KPiA+DQo+ID4gR2l2ZW4gdGhl
-IGNvbW1lbnQgc2hvdWxkbid0IHRoaXMgYmUgcmVtb3Zpbmcgc29tZSBiaXRzPw0KPiA+DQo+ID4g
-SXQgaXMgYSBsb25nIHRpbWUgc2luY2UgSSByZWFkIHRoZSBkZWZpbml0aW9ucyBvZiB0aGUgQU5B
-UiAoZXRjKS4NCj4gPiBCdXQgSSByZW1lbWJlciBpdCBoYXZpbmcgYXQgbGVhc3QgNSBiaXRzIGRl
-ZmluZWQgZm9yIDEwTSBhbmQgMTAwTQ0KPiA+IG9wZXJhdGlvbiAoaW5jbHVkaW5nIDEwMFQ0KSwg
-c28gdGhlIHJlZmVyZW5jZSB0byBrZWVwaW5nIGJpdHMgKDQ6MCkNCj4gPiBzZWVtcyBjb25mdXNp
-bmcuDQo+ID4NCj4gPiAgICBEYXZpZA0KPiA+DQo+IA0KPiBEYXZpZCwgdGhhbmtzIGZvciB5b3Vy
-IGZlZWRiYWNrIQ0KPiBUaGUgYml0cyBJIG1lbnRpb25lZCAodGhlIDUgbGVhc3QgYml0cyBpbiBB
-TkFSKSBhcmUgdGhlIHNvLWNhbGxlZCBwcm90b2NvbA0KPiBzZWxlY3Rpb24gYml0cyAoYXQgbGVh
-c3QgdGhhdCdzIHdoYXQgdGhleSBjYWxsIGl0IGF0IEludGVsLCBUSSwgTWFydmVsbCwgTWF4aW0s
-DQo+IGV0Yy4pLiBUaGUgb25seSB2YWx1ZSB0aGF0IHNlZW1zIGFjdHVhbGx5IHRvIGJlIHVzZWQg
-aXMgMSAoMGIwMDAwMSkgd2hpY2ggbWVhbnMNCj4gODAyLjMgLyBmYXN0IGV0aGVybmV0IGNhcGFi
-aWxpdHkgKG1heWJlIDAgZm9yIHNsb3dlciBkZXZpY2VzPykuIDEgaXMgdGhlDQo+IGRlZmF1bHQg
-dmFsdWUgZm9yIGFsbCB0aGUgMTAvMTAwKC8xMDAwKSBQSFlzIEkga25vdyBvZiwgaW4gc29tZSBQ
-SFlzIGl0IGlzIGV2ZW4NCj4gaGFyZGNvZGVkIChpLmUuIHJlYWQtb25seSkuIEl0IG11c3Qgbm90
-IGJlIGNvbmZ1c2VkIHdpdGggQU5BUiBiaXRzIDk6NSB3aGVyZQ0KPiB0aGUgYWN0dWFsIHNwZWVk
-IGFuZCBkdXBsZXggbW9kZSBjYW4gYmUgc2VsZWN0ZWQuDQo+IEFEVkVSVElTRV9BTEwgYXMgZGVm
-aW5lZCBpbiBtaWkuaCBsYWNrcyB0aGlzIGJpdCwgaW4gY29udHJhc3QgdG8gQURWRVJUSVNFX0ZV
-TEwNCj4gd2hlcmUgaXQgaXMgc2V0IHRocm91Z2ggQURWRVJUSVNFX0NTTUEuIFdoZXRoZXIgdGhp
-cyBpcyBjb3JyZWN0IG9yIG5vdDsgYXQNCj4gbGVhc3QgaXQgbWFrZXMgc29tZSBzZW5zZSB0byBt
-ZSB0byByZWFkIHdoYXQncyBhY3R1YWxseSB3cml0dGVuIGluIHRoZXNlDQo+IHJlZ2lzdGVyIGJp
-dHMgYW5kIG5vdCB0byBjbGVhciB0aGVtLiBPdGhlcndpc2Ugc29tZSBQSFlzIG1pZ2h0IGZhbGwg
-YmFjayB0bw0KPiAxMC1oYWxmIGFzIHNlZW4gZm9yIHRoZSBUSSBEUDgzNjQwIHdoaWNoIGhhcyBi
-ZWVuIHVzZWQgdG8gdGVzdCB0aGlzIHBhdGNoLg0KPiBJIGhvcGUgdGhpcyBleHBsYWlucyB0aGUg
-cmVhc29uIGZvciB0aGlzIHBhdGNoLg0KDQpQYXJ0IG9mIG15IGNvbmZ1c2lvbiB3YXMgdGhhdCBJ
-J2QgZm9yZ290dGVuIHRoYXQgdGhlIE1JSSByZWdpc3RlcnMgYXJlIDE2Yml0IQ0KKEkgc2FpZCBp
-dCBoYWQgYmVlbiBhIGxvbmcgdGltZSEpDQoNCkhvd2V2ZXIgaWYgeW91IHdhbnQgdG8gYWR2ZXJ0
-aXNlIDEwTS8xMDBNIEhEWCBhbmQgRkRYIHlvdSBuZWVkIHRvIHVuc2V0DQp0aGUgb3RoZXIgc3Bl
-ZWQgYml0cyAoMTAwVDQgd2FzIGFzc2lnbmVkIGEgYml0LCBhbmQgSSdtIHN1cmUgdGhlcmUgd2Vy
-ZQ0KZXh0cmEgYml0cyByZXNlcnZlZCBmb3IgaGlnaGVyIHNwZWVkcyAtIHdoaWNoIGFsc28gbmVl
-ZCBjbGVhcmluZykuDQpHaXZlbiB0aGF0IHRoZSBBTkFSIGlzIGRlZmluZWQgYnkgODAzLnggeW91
-IHNob3VsZG4ndCByZWFsbHkgaGF2ZSBhIHByb2JsZW0hDQoNCk15IHJlYWwgYnVnYmVhciBpcyB0
-aGF0IG5vbmUgb2YgdGhlIHN0YW5kYXJkIE1JSSByZWdpc3RlcnMgYWN0dWFsbHkgdGVsbHMNCnlv
-dSB0aGUgbW9kZSB0aGUgUEhZIGlzIHdvcmtpbmcgaW4hIE5vdCBzdXJlIGhvdyB0aGF0IGdvdCB0
-aHJvdWdoIHRoZQ0Kc3RhbmRhcmRzIGJvZHkuDQoNCglEYXZpZA0KDQo=
+Pci_enable_device() will set device pm state to D0, so
+it's no need to do it again in tg3_init_one().
+
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   20 +-------------------
+ 1 files changed, 1 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 728d42a..1396ab3 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -17042,25 +17042,10 @@ static int tg3_init_one(struct pci_dev *pdev,
+ 
+ 	pci_set_master(pdev);
+ 
+-	/* Find power-management capability. */
+-	pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
+-	if (pm_cap == 0) {
+-		dev_err(&pdev->dev,
+-			"Cannot find Power Management capability, aborting\n");
+-		err = -EIO;
+-		goto err_out_free_res;
+-	}
+-
+-	err = pci_set_power_state(pdev, PCI_D0);
+-	if (err) {
+-		dev_err(&pdev->dev, "Transition to D0 failed, aborting\n");
+-		goto err_out_free_res;
+-	}
+-
+ 	dev = alloc_etherdev_mq(sizeof(*tp), TG3_IRQ_MAX_VECS);
+ 	if (!dev) {
+ 		err = -ENOMEM;
+-		goto err_out_power_down;
++		goto err_out_free_res;
+ 	}
+ 
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+@@ -17406,9 +17391,6 @@ err_out_iounmap:
+ err_out_free_dev:
+ 	free_netdev(dev);
+ 
+-err_out_power_down:
+-	pci_set_power_state(pdev, PCI_D3hot);
+-
+ err_out_free_res:
+ 	pci_release_regions(pdev);
+ 
+-- 
+1.7.1
