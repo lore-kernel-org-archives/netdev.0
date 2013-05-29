@@ -1,49 +1,62 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: Re: [PATCH v6 net-next 1/5] net: add napi_id and hash
-Date: Wed, 29 May 2013 14:09:10 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7256@saturn3.aculab.com>
-References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
-	<20130529063925.27486.46649.stgit@ladj378.jer.intel.com>
-	<1369832201.5109.8.camel@edumazet-glaptop>
+From: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
+ improved accuracy at high rates)
+Date: Wed, 29 May 2013 15:13:30 +0200
+Message-ID: <20130529151330.22c5c89e@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Eliezer Tamir" <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-class: urn:content-classes:message
-In-Reply-To: <1369832201.5109.8.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNlbg==?= <toke-LJ9M9ZcSy1A@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Steven Barth <cyrus-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+	bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org, Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
+To: Stephen Hemminger <stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org>, Eric Dumazet
+	<eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Miller <davem-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, j.vimal-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	Michal Soltys <soltys-R61QfzASbfY@public.gmane.org>, Mike Frysinger <vapier-aBrp7R+bbdUdnm+yROfE0A@public.gmane.org>,
+	Jussi Kivilinna <jussi.kivilinna-E01nCVcF24I@public.gmane.org>, Patrick
+	McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>, Jiri Pirko <jpirko-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
+List-Unsubscribe: <https://lists.bufferbloat.net/options/bloat>,
+	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=unsubscribe>
+List-Archive: <https://lists.bufferbloat.net/pipermail/bloat>
+List-Post: <mailto:bloat-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org>
+List-Help: <mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.bufferbloat.net/listinfo/bloat>,
+	<mailto:bloat-request-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org?subject=subscribe>
+Sender: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
+Errors-To: bloat-bounces-JXvr2/1DY2fm6VMwtOF2vx4hnT+Y9+D1@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> > Adds a napi_id and a hashing mechanism to lookup a napi by id.
 
-Is this one of the places where the 'id' can be selected
-so that the 'hash' lookup never collides?
+I recently discovered that the (traffic control) tc linklayer
+calculations for ATM/ADSL have been broken by:
+ commit 56b765b79 (htb: improved accuracy at high rates).
 
-	David
+Thus, people shaping on ADSL links, using e.g.:
+ tc class add ... htb rate X ceil Y linklayer atm overhead 10
 
-------------------------------------------------------------------------------
-Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
-Get 100% visibility into your production application - at no cost.
-Code-level diagnostics for performance bottlenecks with <2% overhead
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Will no-longer get ATM cell tax/overhead adjusted.
+
+How can we solve/fix this?
+Perhaps we can change to use the "stab" system instead (as it does
+not seem to be broken by the commit).
+
+But how do we facilitate a change to use "stab" system (for all the
+scripts using the old option)?
+
+Can we change the iproute2/tc command to handle this transparently, or
+should we give an error/warning if someone uses "tc" and "linklayer" on
+a kernel above v.3.8. ?
+
+
+History:
+ - My linklayer ATM changes appeared in kernel 2.6.24 (and iproute2 2.6.25)
+ - The STAB changes appeared in kernel 2.6.27
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
