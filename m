@@ -1,105 +1,121 @@
-From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Subject: [PATCH v5 22/28] rdma/cm: Export cma_get_service_id
-Date: Wed, 29 May 2013 10:09:28 -0700
-Message-ID: <1369847374-12176-23-git-send-email-sean.hefty@intel.com>
+From: sean.hefty@intel.com
+Subject: [PATCH v5 23/28] rdma/ucm: Add ability to query GID addresses
+Date: Wed, 29 May 2013 10:09:29 -0700
+Message-ID: <1369847374-12176-24-git-send-email-sean.hefty@intel.com>
 References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
-Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1369847374-12176-1-git-send-email-sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Sean Hefty <sean.hefty@intel.com>
+To: roland@purestorage.com, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:18285 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759693Ab3E2RKD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 13:10:03 -0400
+In-Reply-To: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+From: Sean Hefty <sean.hefty@intel.com>
 
-Allow the rdma_ucm to query the IB service ID formed or
-allocated by the rdma_cm by exporting the cma_get_service_id
-functionality.
+Part of address resolution is mapping IP addresses to IB GIDs.
+With the changes to support querying larger addresses and more
+path records, also provide a way to query IB GIDs after
+resolution completes.
 
-Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Sean Hefty <sean.hefty@intel.com>
 ---
- drivers/infiniband/core/cma.c |   13 +++++++------
- include/rdma/rdma_cm.h        |    7 +++++++
- 2 files changed, 14 insertions(+), 6 deletions(-)
+ drivers/infiniband/core/ucma.c   |   50 ++++++++++++++++++++++++++++++++++++++
+ include/uapi/rdma/rdma_user_cm.h |    3 +-
+ 2 files changed, 52 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 797fb05..7034c84 100644
---- a/drivers/infiniband/core/cma.c
-+++ b/drivers/infiniband/core/cma.c
-@@ -1336,13 +1336,14 @@ err1:
+diff --git a/drivers/infiniband/core/ucma.c b/drivers/infiniband/core/ucma.c
+index 722f2ff..45bb052 100644
+--- a/drivers/infiniband/core/ucma.c
++++ b/drivers/infiniband/core/ucma.c
+@@ -48,6 +48,7 @@
+ #include <rdma/rdma_cm.h>
+ #include <rdma/rdma_cm_ib.h>
+ #include <rdma/ib_addr.h>
++#include <rdma/ib.h>
+ 
+ MODULE_AUTHOR("Sean Hefty");
+ MODULE_DESCRIPTION("RDMA Userspace Connection Manager Access");
+@@ -782,6 +783,52 @@ static ssize_t ucma_query_path(struct ucma_context *ctx,
  	return ret;
  }
  
--static __be64 cma_get_service_id(enum rdma_port_space ps, struct sockaddr *addr)
-+__be64 rdma_get_service_id(struct rdma_cm_id *id, struct sockaddr *addr)
- {
- 	if (addr->sa_family == AF_IB)
- 		return ((struct sockaddr_ib *) addr)->sib_sid;
- 
--	return cpu_to_be64(((u64)ps << 16) + be16_to_cpu(cma_port(addr)));
-+	return cpu_to_be64(((u64)id->ps << 16) + be16_to_cpu(cma_port(addr)));
- }
-+EXPORT_SYMBOL(rdma_get_service_id);
- 
- static void cma_set_compare_data(enum rdma_port_space ps, struct sockaddr *addr,
- 				 struct ib_cm_compare_data *compare)
-@@ -1556,7 +1557,7 @@ static int cma_ib_listen(struct rdma_id_private *id_priv)
- 	id_priv->cm_id.ib = id;
- 
- 	addr = cma_src_addr(id_priv);
--	svc_id = cma_get_service_id(id_priv->id.ps, addr);
-+	svc_id = rdma_get_service_id(&id_priv->id, addr);
- 	if (cma_any_addr(addr) && !id_priv->afonly)
- 		ret = ib_cm_listen(id_priv->cm_id.ib, svc_id, 0, NULL);
- 	else {
-@@ -1699,7 +1700,7 @@ static int cma_query_ib_route(struct rdma_id_private *id_priv, int timeout_ms,
- 	path_rec.pkey = cpu_to_be16(ib_addr_get_pkey(dev_addr));
- 	path_rec.numb_path = 1;
- 	path_rec.reversible = 1;
--	path_rec.service_id = cma_get_service_id(id_priv->id.ps, cma_dst_addr(id_priv));
-+	path_rec.service_id = rdma_get_service_id(&id_priv->id, cma_dst_addr(id_priv));
- 
- 	comp_mask = IB_SA_PATH_REC_DGID | IB_SA_PATH_REC_SGID |
- 		    IB_SA_PATH_REC_PKEY | IB_SA_PATH_REC_NUMB_PATH |
-@@ -2710,7 +2711,7 @@ static int cma_resolve_ib_udp(struct rdma_id_private *id_priv,
- 	id_priv->cm_id.ib = id;
- 
- 	req.path = id_priv->id.route.path_rec;
--	req.service_id = cma_get_service_id(id_priv->id.ps, cma_dst_addr(id_priv));
-+	req.service_id = rdma_get_service_id(&id_priv->id, cma_dst_addr(id_priv));
- 	req.timeout_ms = 1 << (CMA_CM_RESPONSE_TIMEOUT - 8);
- 	req.max_cm_retries = CMA_MAX_CM_RETRIES;
- 
-@@ -2770,7 +2771,7 @@ static int cma_connect_ib(struct rdma_id_private *id_priv,
- 	if (route->num_paths == 2)
- 		req.alternate_path = &route->path_rec[1];
- 
--	req.service_id = cma_get_service_id(id_priv->id.ps, cma_dst_addr(id_priv));
-+	req.service_id = rdma_get_service_id(&id_priv->id, cma_dst_addr(id_priv));
- 	req.qp_num = id_priv->qp_num;
- 	req.qp_type = id_priv->id.qp_type;
- 	req.starting_psn = id_priv->seq_num;
-diff --git a/include/rdma/rdma_cm.h b/include/rdma/rdma_cm.h
-index 966f90b..1ed2088 100644
---- a/include/rdma/rdma_cm.h
-+++ b/include/rdma/rdma_cm.h
-@@ -373,4 +373,11 @@ int rdma_set_reuseaddr(struct rdma_cm_id *id, int reuse);
-  */
- int rdma_set_afonly(struct rdma_cm_id *id, int afonly);
- 
-+ /**
-+ * rdma_get_service_id - Return the IB service ID for a specified address.
-+ * @id: Communication identifier associated with the address.
-+ * @addr: Address for the service ID.
-+ */
-+__be64 rdma_get_service_id(struct rdma_cm_id *id, struct sockaddr *addr);
++static ssize_t ucma_query_gid(struct ucma_context *ctx,
++			      void __user *response, int out_len)
++{
++	struct rdma_ucm_query_addr_resp resp;
++	struct sockaddr_ib *addr;
++	int ret = 0;
 +
- #endif /* RDMA_CM_H */
++	if (out_len < sizeof(resp))
++		return -ENOSPC;
++
++	memset(&resp, 0, sizeof resp);
++
++	ucma_query_device_addr(ctx->cm_id, &resp);
++
++	addr = (struct sockaddr_ib *) &resp.src_addr;
++	resp.src_size = sizeof(*addr);
++	if (ctx->cm_id->route.addr.src_addr.ss_family == AF_IB) {
++		memcpy(addr, &ctx->cm_id->route.addr.src_addr, resp.src_size);
++	} else {
++		addr->sib_family = AF_IB;
++		addr->sib_pkey = (__force __be16) resp.pkey;
++		rdma_addr_get_sgid(&ctx->cm_id->route.addr.dev_addr,
++				   (union ib_gid *) &addr->sib_addr);
++		addr->sib_sid = rdma_get_service_id(ctx->cm_id, (struct sockaddr *)
++						    &ctx->cm_id->route.addr.src_addr);
++	}
++
++	addr = (struct sockaddr_ib *) &resp.dst_addr;
++	resp.dst_size = sizeof(*addr);
++	if (ctx->cm_id->route.addr.dst_addr.ss_family == AF_IB) {
++		memcpy(addr, &ctx->cm_id->route.addr.dst_addr, resp.dst_size);
++	} else {
++		addr->sib_family = AF_IB;
++		addr->sib_pkey = (__force __be16) resp.pkey;
++		rdma_addr_get_dgid(&ctx->cm_id->route.addr.dev_addr,
++				   (union ib_gid *) &addr->sib_addr);
++		addr->sib_sid = rdma_get_service_id(ctx->cm_id, (struct sockaddr *)
++						    &ctx->cm_id->route.addr.dst_addr);
++	}
++
++	if (copy_to_user(response, &resp, sizeof(resp)))
++		ret = -EFAULT;
++
++	return ret;
++}
++
+ static ssize_t ucma_query(struct ucma_file *file,
+ 			  const char __user *inbuf,
+ 			  int in_len, int out_len)
+@@ -806,6 +853,9 @@ static ssize_t ucma_query(struct ucma_file *file,
+ 	case RDMA_USER_CM_QUERY_PATH:
+ 		ret = ucma_query_path(ctx, response, out_len);
+ 		break;
++	case RDMA_USER_CM_QUERY_GID:
++		ret = ucma_query_gid(ctx, response, out_len);
++		break;
+ 	default:
+ 		ret = -ENOSYS;
+ 		break;
+diff --git a/include/uapi/rdma/rdma_user_cm.h b/include/uapi/rdma/rdma_user_cm.h
+index 07eb6cf..ea79253 100644
+--- a/include/uapi/rdma/rdma_user_cm.h
++++ b/include/uapi/rdma/rdma_user_cm.h
+@@ -116,7 +116,8 @@ struct rdma_ucm_resolve_route {
+ 
+ enum {
+ 	RDMA_USER_CM_QUERY_ADDR,
+-	RDMA_USER_CM_QUERY_PATH
++	RDMA_USER_CM_QUERY_PATH,
++	RDMA_USER_CM_QUERY_GID
+ };
+ 
+ struct rdma_ucm_query {
 -- 
 1.7.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
