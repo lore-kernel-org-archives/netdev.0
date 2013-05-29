@@ -1,7 +1,7 @@
 From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Subject: [PATCH v5 07/28] rdma/cm: Do not modify sa_family when setting loopback address
-Date: Wed, 29 May 2013 10:09:13 -0700
-Message-ID: <1369847374-12176-8-git-send-email-sean.hefty@intel.com>
+Subject: [PATCH v5 06/28] rdma/cm: Allow user to specify AF_IB when binding
+Date: Wed, 29 May 2013 10:09:12 -0700
+Message-ID: <1369847374-12176-7-git-send-email-sean.hefty@intel.com>
 References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
 Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -13,87 +13,89 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-cma_resolve_loopback is called after an rdma_cm_id has been
-bound to a specific sa_family and port.  Once the
-source sa_family for the id has been set, do not modify it.
-Only the actual IP address portion of the source address
-needs to be set.
-
-As part of this fix, we can simplify setting the source address
-by moving the loopback address assignment from cma_resolve_loopback
-to cma_bind_loopback.  cma_bind_loopback is only invoked when
-the source address is the loopback address.
-
-Finally, add loopback support for AF_IB as part of the change.
+Modify rdma_bind_addr to allow the user to specify AF_IB when
+binding to a device.  AF_IB indicates that the user is not
+mapping an IP address to the native IB addressing.  (The mapping
+may have already been done, or is not needed.)
 
 Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/infiniband/core/cma.c |   31 ++++++++++++++++++-------------
- 1 files changed, 18 insertions(+), 13 deletions(-)
+ drivers/infiniband/core/cma.c |   34 ++++++++++++++++++++++++++++------
+ 1 files changed, 28 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 92dcdfe..46a9b5c 100644
+index f56c62a..92dcdfe 100644
 --- a/drivers/infiniband/core/cma.c
 +++ b/drivers/infiniband/core/cma.c
-@@ -1952,6 +1952,23 @@ err:
+@@ -359,6 +359,27 @@ static int find_gid_port(struct ib_device *device, union ib_gid *gid, u8 port_nu
+ 	return -EADDRNOTAVAIL;
  }
- EXPORT_SYMBOL(rdma_resolve_route);
  
-+static void cma_set_loopback(struct sockaddr *addr)
++static void cma_translate_ib(struct sockaddr_ib *sib, struct rdma_dev_addr *dev_addr)
 +{
-+	switch (addr->sa_family) {
-+	case AF_INET:
-+		((struct sockaddr_in *) addr)->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-+		break;
-+	case AF_INET6:
-+		ipv6_addr_set(&((struct sockaddr_in6 *) addr)->sin6_addr,
-+			      0, 0, 0, htonl(1));
-+		break;
-+	default:
-+		ib_addr_set(&((struct sockaddr_ib *) addr)->sib_addr,
-+			    0, 0, 0, htonl(1));
-+		break;
-+	}
++	dev_addr->dev_type = ARPHRD_INFINIBAND;
++	rdma_addr_set_sgid(dev_addr, (union ib_gid *) &sib->sib_addr);
++	ib_addr_set_pkey(dev_addr, ntohs(sib->sib_pkey));
 +}
 +
- static int cma_bind_loopback(struct rdma_id_private *id_priv)
++static int cma_translate_addr(struct sockaddr *addr, struct rdma_dev_addr *dev_addr)
++{
++	int ret;
++
++	if (addr->sa_family != AF_IB) {
++		ret = rdma_translate_ip(addr, dev_addr);
++	} else {
++		cma_translate_ib((struct sockaddr_ib *) addr, dev_addr);
++		ret = 0;
++	}
++
++	return ret;
++}
++
+ static int cma_acquire_dev(struct rdma_id_private *id_priv)
  {
- 	struct cma_device *cma_dev;
-@@ -1992,6 +2009,7 @@ port_found:
- 	ib_addr_set_pkey(&id_priv->id.route.addr.dev_addr, pkey);
- 	id_priv->id.port_num = p;
- 	cma_attach_to_dev(id_priv, cma_dev);
-+	cma_set_loopback((struct sockaddr *) &id_priv->id.route.addr.src_addr);
- out:
- 	mutex_unlock(&lock);
- 	return ret;
-@@ -2039,7 +2057,6 @@ out:
- static int cma_resolve_loopback(struct rdma_id_private *id_priv)
- {
- 	struct cma_work *work;
--	struct sockaddr *src, *dst;
- 	union ib_gid gid;
+ 	struct rdma_dev_addr *dev_addr = &id_priv->id.route.addr.dev_addr;
+@@ -1136,8 +1157,8 @@ static struct rdma_id_private *cma_new_conn_id(struct rdma_cm_id *listen_id,
+ 		rdma_addr_set_sgid(&rt->addr.dev_addr, &rt->path_rec[0].sgid);
+ 		ib_addr_set_pkey(&rt->addr.dev_addr, be16_to_cpu(rt->path_rec[0].pkey));
+ 	} else {
+-		ret = rdma_translate_ip((struct sockaddr *) &rt->addr.src_addr,
+-					&rt->addr.dev_addr);
++		ret = cma_translate_addr((struct sockaddr *) &rt->addr.src_addr,
++					 &rt->addr.dev_addr);
+ 		if (ret)
+ 			goto err;
+ 	}
+@@ -1176,8 +1197,8 @@ static struct rdma_id_private *cma_new_udp_id(struct rdma_cm_id *listen_id,
+ 			  ip_ver, port, src, dst);
+ 
+ 	if (!cma_any_addr((struct sockaddr *) &id->route.addr.src_addr)) {
+-		ret = rdma_translate_ip((struct sockaddr *) &id->route.addr.src_addr,
+-					&id->route.addr.dev_addr);
++		ret = cma_translate_addr((struct sockaddr *) &id->route.addr.src_addr,
++					 &id->route.addr.dev_addr);
+ 		if (ret)
+ 			goto err;
+ 	}
+@@ -2443,7 +2464,8 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
+ 	struct rdma_id_private *id_priv;
  	int ret;
  
-@@ -2056,18 +2073,6 @@ static int cma_resolve_loopback(struct rdma_id_private *id_priv)
- 	rdma_addr_get_sgid(&id_priv->id.route.addr.dev_addr, &gid);
- 	rdma_addr_set_dgid(&id_priv->id.route.addr.dev_addr, &gid);
+-	if (addr->sa_family != AF_INET && addr->sa_family != AF_INET6)
++	if (addr->sa_family != AF_INET && addr->sa_family != AF_INET6 &&
++	    addr->sa_family != AF_IB)
+ 		return -EAFNOSUPPORT;
  
--	src = (struct sockaddr *) &id_priv->id.route.addr.src_addr;
--	if (cma_zero_addr(src)) {
--		dst = (struct sockaddr *) &id_priv->id.route.addr.dst_addr;
--		if ((src->sa_family = dst->sa_family) == AF_INET) {
--			((struct sockaddr_in *)src)->sin_addr =
--				((struct sockaddr_in *)dst)->sin_addr;
--		} else {
--			((struct sockaddr_in6 *)src)->sin6_addr =
--				((struct sockaddr_in6 *)dst)->sin6_addr;
--		}
--	}
--
- 	work->id = id_priv;
- 	INIT_WORK(&work->work, cma_work_handler);
- 	work->old_state = RDMA_CM_ADDR_QUERY;
+ 	id_priv = container_of(id, struct rdma_id_private, id);
+@@ -2455,7 +2477,7 @@ int rdma_bind_addr(struct rdma_cm_id *id, struct sockaddr *addr)
+ 		goto err1;
+ 
+ 	if (!cma_any_addr(addr)) {
+-		ret = rdma_translate_ip(addr, &id->route.addr.dev_addr);
++		ret = cma_translate_addr(addr, &id->route.addr.dev_addr);
+ 		if (ret)
+ 			goto err1;
+ 
 -- 
 1.7.3
 
