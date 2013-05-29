@@ -1,41 +1,57 @@
-From: Sergey Kaydalov <kayserg@gmail.com>
-Subject: Re: SMSC9215 Issue
-Date: Wed, 29 May 2013 18:40:54 +0000 (UTC)
-Message-ID: <loom.20130529T203633-104@post.gmane.org>
-References: <5D308BD40154E4439D82454FE483A50205BB46AD@EVS4.nam.ci.root>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH v6 net-next 2/5] net: implement support
+ for low latency socket polling
+Date: Wed, 29 May 2013 21:52:16 +0300
+Message-ID: <CAJZOPZLC=drE9dTpnj2hLdDmfnL+T4gOU1j1xYwbmYy-J9HaAQ@mail.gmail.com>
+References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
+	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
+	<CAJZOPZJqF1FTLH3a3ZKUTA4ViesAZEkRi=dgd-ux8eRu9TyhBw@mail.gmail.com>
+	<51A617D7.6000406@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:46012 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757319Ab3E2SpH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 14:45:07 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UhlMt-0003ar-B2
-	for netdev@vger.kernel.org; Wed, 29 May 2013 20:45:03 +0200
-Received: from nat150.iteam.ua ([194.146.132.150])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 20:45:03 +0200
-Received: from kayserg by nat150.iteam.ua with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 20:45:03 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, HPA <hpa@zytor.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
+	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
+	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <51A617D7.6000406@linux.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Bishop, Mark <Mark.Bishop <at> cooperindustries.com> writes:
+Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
+> Or Gerlitz wrote:
 
-> 
-> I am having an issue interfacing my uClinux platform with a SMSC9215.
-> 
-> The part doesn't have link with the Micrel KSZ8995 it is attached too
-> before it tries to execute smsc911x_phy_check_loopbackpkt() in
-> smsc911x.x  
->  
-Hello, Bishop!
-I got very similar problem with LAN9221 connected to am3359 MCU. uboot work 
-well, but kernel gives me output exactly like you got. Have you managed to 
-solve the problem?
+>> Unlike with TCP sockets, UDP sockets may receive packets from multiple
+>> sources and hence the receiving context may be steered to be executed
+>> on different cores through RSS or other Flow-Steering HW mechanisms
+>> which could mean different napi contexts for the same socket, is that
+>> a problem here? what's the severity?
+
+> Nothing will break if you poll on the wrong queue.
+> Your data will come through normal NAPI processing of the right queue.
+
+Can you elaborate a little further, why you call this "wrong" and "right"?
+
+------------------------------------------------------------------------------
+Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
+Get 100% visibility into your production application - at no cost.
+Code-level diagnostics for performance bottlenecks with <2% overhead
+Download for free and get started troubleshooting in minutes.
+http://p.sf.net/sfu/appdyn_d2d_ap1
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
