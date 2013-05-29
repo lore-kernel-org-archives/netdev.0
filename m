@@ -1,7 +1,7 @@
 From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Subject: [PATCH v5 02/28] rdma/cm: Allow enabling reuseaddr in any state
-Date: Wed, 29 May 2013 10:09:08 -0700
-Message-ID: <1369847374-12176-3-git-send-email-sean.hefty@intel.com>
+Subject: [PATCH v5 03/28] rdma/cm: Include AF_IB in loopback and any address checks
+Date: Wed, 29 May 2013 10:09:09 -0700
+Message-ID: <1369847374-12176-4-git-send-email-sean.hefty@intel.com>
 References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
 Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -13,29 +13,87 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-The rdma_cm only allows setting reuseaddr if the corresponding
-rdma_cm_id is in the idle state.  Allow setting this value in
-other states.  This brings the behavior more inline with
-sockets.
+Enhance checks for loopback and any address to support AF_IB
+in addition to AF_INET and AF_INT6.  This will allow future
+patches to use AF_IB when binding and resolving addresses.
 
 Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/infiniband/core/cma.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/infiniband/core/cma.c |   40 ++++++++++++++++++++++++----------------
+ 1 files changed, 24 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 71c2c71..f971a50 100644
+index f971a50..1cd35d1 100644
 --- a/drivers/infiniband/core/cma.c
 +++ b/drivers/infiniband/core/cma.c
-@@ -2097,7 +2097,7 @@ int rdma_set_reuseaddr(struct rdma_cm_id *id, int reuse)
+@@ -50,6 +50,7 @@
+ #include <rdma/rdma_cm.h>
+ #include <rdma/rdma_cm_ib.h>
+ #include <rdma/rdma_netlink.h>
++#include <rdma/ib.h>
+ #include <rdma/ib_cache.h>
+ #include <rdma/ib_cm.h>
+ #include <rdma/ib_sa.h>
+@@ -679,26 +680,30 @@ EXPORT_SYMBOL(rdma_init_qp_attr);
  
- 	id_priv = container_of(id, struct rdma_id_private, id);
- 	spin_lock_irqsave(&id_priv->lock, flags);
--	if (id_priv->state == RDMA_CM_IDLE) {
-+	if (reuse || id_priv->state == RDMA_CM_IDLE) {
- 		id_priv->reuseaddr = reuse;
- 		ret = 0;
- 	} else {
+ static inline int cma_zero_addr(struct sockaddr *addr)
+ {
+-	struct in6_addr *ip6;
+-
+-	if (addr->sa_family == AF_INET)
+-		return ipv4_is_zeronet(
+-			((struct sockaddr_in *)addr)->sin_addr.s_addr);
+-	else {
+-		ip6 = &((struct sockaddr_in6 *) addr)->sin6_addr;
+-		return (ip6->s6_addr32[0] | ip6->s6_addr32[1] |
+-			ip6->s6_addr32[2] | ip6->s6_addr32[3]) == 0;
++	switch (addr->sa_family) {
++	case AF_INET:
++		return ipv4_is_zeronet(((struct sockaddr_in *)addr)->sin_addr.s_addr);
++	case AF_INET6:
++		return ipv6_addr_any(&((struct sockaddr_in6 *) addr)->sin6_addr);
++	case AF_IB:
++		return ib_addr_any(&((struct sockaddr_ib *) addr)->sib_addr);
++	default:
++		return 0;
+ 	}
+ }
+ 
+ static inline int cma_loopback_addr(struct sockaddr *addr)
+ {
+-	if (addr->sa_family == AF_INET)
+-		return ipv4_is_loopback(
+-			((struct sockaddr_in *) addr)->sin_addr.s_addr);
+-	else
+-		return ipv6_addr_loopback(
+-			&((struct sockaddr_in6 *) addr)->sin6_addr);
++	switch (addr->sa_family) {
++	case AF_INET:
++		return ipv4_is_loopback(((struct sockaddr_in *) addr)->sin_addr.s_addr);
++	case AF_INET6:
++		return ipv6_addr_loopback(&((struct sockaddr_in6 *) addr)->sin6_addr);
++	case AF_IB:
++		return ib_addr_loopback(&((struct sockaddr_ib *) addr)->sib_addr);
++	default:
++		return 0;
++	}
+ }
+ 
+ static inline int cma_any_addr(struct sockaddr *addr)
+@@ -715,9 +720,12 @@ static int cma_addr_cmp(struct sockaddr *src, struct sockaddr *dst)
+ 	case AF_INET:
+ 		return ((struct sockaddr_in *) src)->sin_addr.s_addr !=
+ 		       ((struct sockaddr_in *) dst)->sin_addr.s_addr;
+-	default:
++	case AF_INET6:
+ 		return ipv6_addr_cmp(&((struct sockaddr_in6 *) src)->sin6_addr,
+ 				     &((struct sockaddr_in6 *) dst)->sin6_addr);
++	default:
++		return ib_addr_cmp(&((struct sockaddr_ib *) src)->sib_addr,
++				   &((struct sockaddr_ib *) dst)->sib_addr);
+ 	}
+ }
+ 
 -- 
 1.7.3
 
