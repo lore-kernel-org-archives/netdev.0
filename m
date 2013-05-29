@@ -1,68 +1,65 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: [PATCH] e100: dump small buffers via %*ph
-Date: Wed, 29 May 2013 13:01:58 +0300
-Message-ID: <1369821718-1460-1-git-send-email-andriy.shevchenko@linux.intel.com>
+From: Roman Gushchin <klamm@yandex-team.ru>
+Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
+ macro
+Date: Wed, 29 May 2013 14:09:29 +0400
+Message-ID: <51A5D3D9.1000106@yandex-team.ru>
+References: <519CB2D8.103@yandex-team.ru>  <1369225837.3301.324.camel@edumazet-glaptop>  <519CC2FB.2010006@yandex-team.ru>  <20130522174532.GC3431@linux.vnet.ibm.com> <519D19DA.50400@yandex-team.ru>  <20130525113715.GA3795@linux.vnet.ibm.com>  <51A39E11.5020405@yandex-team.ru>  <1369699930.3301.494.camel@edumazet-glaptop>  <51A47496.6000100@yandex-team.ru>  <1369787693.3301.586.camel@edumazet-glaptop>  <20130529013111.GS6172@linux.vnet.ibm.com> <1369804097.3301.615.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-To: netdev@vger.kernel.org, e1000-devel@lists.sourceforge.net,
-	John Ronciak <john.ronciak@intel.com>,
-	Tushar Dave <tushar.n.dave@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>, paulmck@linux.vnet.ibm.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369804097.3301.615.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
----
- drivers/net/ethernet/intel/e100.c | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+On 29.05.2013 09:08, Eric Dumazet wrote:
+> On Tue, 2013-05-28 at 18:31 -0700, Paul E. McKenney wrote:
+>> On Tue, May 28, 2013 at 05:34:53PM -0700, Eric Dumazet wrote:
+>>> On Tue, 2013-05-28 at 13:10 +0400, Roman Gushchin wrote:
+>>>> On 28.05.2013 04:12, Eric Dumazet wrote:
 
-diff --git a/drivers/net/ethernet/intel/e100.c b/drivers/net/ethernet/intel/e100.c
-index d2bea3f..68849cc 100644
---- a/drivers/net/ethernet/intel/e100.c
-+++ b/drivers/net/ethernet/intel/e100.c
-@@ -1175,15 +1175,12 @@ static int e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
- 		config->rx_discard_short_frames = 0x0;  /* 1=discard, 0=save */
- 	}
- 
--	netif_printk(nic, hw, KERN_DEBUG, nic->netdev,
--		     "[00-07]=%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n",
--		     c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]);
--	netif_printk(nic, hw, KERN_DEBUG, nic->netdev,
--		     "[08-15]=%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n",
--		     c[8], c[9], c[10], c[11], c[12], c[13], c[14], c[15]);
--	netif_printk(nic, hw, KERN_DEBUG, nic->netdev,
--		     "[16-23]=%02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X\n",
--		     c[16], c[17], c[18], c[19], c[20], c[21], c[22], c[23]);
-+	netif_printk(nic, hw, KERN_DEBUG, nic->netdev, "[00-07]=%8ph\n",
-+		     c + 0);
-+	netif_printk(nic, hw, KERN_DEBUG, nic->netdev, "[08-15]=%8ph\n",
-+		     c + 8);
-+	netif_printk(nic, hw, KERN_DEBUG, nic->netdev, "[16-23]=%8ph\n",
-+		     c + 16);
- 	return 0;
- }
- 
--- 
-1.8.2.rc0.22.gb3600c3
+> About your earlier question, I really don't know why compiler would
+> cache a memory read if we explicitly use barrier() to prevent this from
+> happening.
 
+I agree.
 
-------------------------------------------------------------------------------
-Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
-Get 100% visibility into your production application - at no cost.
-Code-level diagnostics for performance bottlenecks with <2% overhead
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> BTW Roman patch generates a double load as in :
+>
+> 2cb1:       49 8b 07                mov    (%r15),%rax
+> 2cb4:       49 8b 07                mov    (%r15),%rax
+>
+>
+> ...
+> 2ea2:       e8 f9 dc ff ff          callq  ba0 <sock_put>
+> 2ea7:       8b 0c 24                mov    (%rsp),%ecx
+> 2eaa:       e9 02 fe ff ff          jmpq   2cb1 <udp4_lib_lookup2+0x91>
+>
+> because of ACCESS_ONCE() used twice, once explicitly in
+> hlist_nulls_for_each_entry_rcu(), and once in rcu_dereference_raw()
+>
+> While barrier();ptr = rcu_dereference(X); does generate a single load.
+
+It's true.
+
+Unfortunately, using barrier() can also prevent gcc from making some
+(acceptable) code optimizations, because barrier() has a global effect,
+and everything we want to reload is the (head->first) pointer.
+So, to be absolutely precise, we have to introduce and use
+the ACCESS_FIELD_ONCE() macro.
+
+In any case, it doesn't look like a big problem.
+In my mind, the best solution is to use the ACCESS_FIELD_ONCE() macro,
+but using barrier() is also an acceptable solution.
+
+Regards,
+Roman
