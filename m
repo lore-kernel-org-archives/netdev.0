@@ -1,44 +1,56 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next] ibm-ethernet: delete stale MCA and duplicate PSERIES dependency
-Date: Wed, 29 May 2013 10:13:54 -0400
-Message-ID: <1369836834-9941-1-git-send-email-paul.gortmaker@windriver.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH v6 net-next 2/5] net: implement support
+ for low latency socket polling
+Date: Wed, 29 May 2013 17:14:31 +0300
+Message-ID: <CAJZOPZJqF1FTLH3a3ZKUTA4ViesAZEkRi=dgd-ux8eRu9TyhBw@mail.gmail.com>
+References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
+	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:59547 "EHLO
-	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759591Ab3E2OOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 10:14:04 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, HPA <hpa@zytor.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
+	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Eric Dumazet <erdnetdev@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-MCA support has been removed but this dependency escaped removal.
-Also, there is a duplicate PPC_PSERIES dependency that appeared
-when the ethernet drivers were separated into vendor/model
-specific directories, so we remove that here as well.
+On Wed, May 29, 2013 at 9:39 AM, Eliezer Tamir
+<eliezer.tamir@linux.intel.com> wrote:
+> Adds a new ndo_ll_poll method and the code that supports and uses it.
+> This method can be used by low latency applications to busy poll Ethernet
+> device queues directly from the socket code. The value of sysctl_net_ll_poll
+> controls how many microseconds to poll. Set to zero to disable.
 
-Reported-by: Robert de Rooy <robert.de.rooy@gmail.com>
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- drivers/net/ethernet/ibm/Kconfig | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Unlike with TCP sockets, UDP sockets may receive packets from multiple
+sources and hence the receiving context may be steered to be executed
+on different cores through RSS or other Flow-Steering HW mechanisms
+which could mean different napi contexts for the same socket, is that
+a problem here? what's the severity?
 
-diff --git a/drivers/net/ethernet/ibm/Kconfig b/drivers/net/ethernet/ibm/Kconfig
-index 6529d31..563a1ac 100644
---- a/drivers/net/ethernet/ibm/Kconfig
-+++ b/drivers/net/ethernet/ibm/Kconfig
-@@ -5,8 +5,7 @@
- config NET_VENDOR_IBM
- 	bool "IBM devices"
- 	default y
--	depends on MCA || PPC_PSERIES || PPC_PSERIES || PPC_DCR || \
--		   (IBMEBUS && SPARSEMEM)
-+	depends on PPC_PSERIES || PPC_DCR || (IBMEBUS && SPARSEMEM)
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y
- 	  and read the Ethernet-HOWTO, available from
--- 
-1.8.1.2
+Or.
+
+------------------------------------------------------------------------------
+Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
+Get 100% visibility into your production application - at no cost.
+Code-level diagnostics for performance bottlenecks with <2% overhead
+Download for free and get started troubleshooting in minutes.
+http://p.sf.net/sfu/appdyn_d2d_ap1
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
