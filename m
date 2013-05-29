@@ -1,126 +1,183 @@
-From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Subject: [PATCH v5 21/28] rdma/ucm: Support querying when IB paths are not reversible
-Date: Wed, 29 May 2013 10:09:27 -0700
-Message-ID: <1369847374-12176-22-git-send-email-sean.hefty@intel.com>
+From: sean.hefty@intel.com
+Subject: [PATCH v5 24/28] rdma/ucm: Name changes to indicate only IP addresses supported
+Date: Wed, 29 May 2013 10:09:30 -0700
+Message-ID: <1369847374-12176-25-git-send-email-sean.hefty@intel.com>
 References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
-Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1369847374-12176-1-git-send-email-sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Sean Hefty <sean.hefty@intel.com>
+To: roland@purestorage.com, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:31900 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759714Ab3E2RKH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 13:10:07 -0400
+In-Reply-To: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+From: Sean Hefty <sean.hefty@intel.com>
 
-The current query_route call can return up to two path records.
-The assumption being that one is the primary path, with optional
-support for an alternate path.  In both cases, the paths are
-assumed to be reversible and are used to send CM MADs.
+Several commands into the RDMA CM from user space are
+restricted to supporting addresses which fit into a sockaddr_in6
+structure: bind address, resolve address, and join multicast.
 
-With the ability to manually set IB path data, the rdma cm
-can eventually be capable of using up to 6 paths per
-connection:
+With the addition of AF_IB, we need to support addresses
+which are larger than sockaddr_in6.  This will be done by
+adding new commands that exchange address information using
+sockaddr_storage.  However, to support existing applications,
+we maintain the current commands and structures, but rename
+them to indicate that they only support IPv4 and v6 addresses.
 
-	forward primary, reverse primary,
-	forward alternate, reverse alternate,
-	reversible primary path for CM MADs
-	reversible alternate path for CM MADs.
-
-(It is unclear at this time if IB routing will complicate this.)
-In order to handle more flexible routing topologies, add a new
-command to report any number of paths.
-
-Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Sean Hefty <sean.hefty@intel.com>
 ---
- drivers/infiniband/core/ucma.c   |   35 +++++++++++++++++++++++++++++++++++
- include/uapi/rdma/rdma_user_cm.h |    9 ++++++++-
- 2 files changed, 43 insertions(+), 1 deletions(-)
+ drivers/infiniband/core/ucma.c   |   60 +++++++++++++++++++-------------------
+ include/uapi/rdma/rdma_user_cm.h |   12 ++++----
+ 2 files changed, 36 insertions(+), 36 deletions(-)
 
 diff --git a/drivers/infiniband/core/ucma.c b/drivers/infiniband/core/ucma.c
-index 18bdccc..722f2ff 100644
+index 45bb052..82fb1e6 100644
 --- a/drivers/infiniband/core/ucma.c
 +++ b/drivers/infiniband/core/ucma.c
-@@ -750,6 +750,38 @@ static ssize_t ucma_query_addr(struct ucma_context *ctx,
+@@ -512,10 +512,10 @@ static ssize_t ucma_destroy_id(struct ucma_file *file, const char __user *inbuf,
  	return ret;
  }
  
-+static ssize_t ucma_query_path(struct ucma_context *ctx,
-+			       void __user *response, int out_len)
-+{
-+	struct rdma_ucm_query_path_resp *resp;
-+	int i, ret = 0;
-+
-+	if (out_len < sizeof(*resp))
-+		return -ENOSPC;
-+
-+	resp = kzalloc(out_len, GFP_KERNEL);
-+	if (!resp)
-+		return -ENOMEM;
-+
-+	resp->num_paths = ctx->cm_id->route.num_paths;
-+	for (i = 0, out_len -= sizeof(*resp);
-+	     i < resp->num_paths && out_len > sizeof(struct ib_path_rec_data);
-+	     i++, out_len -= sizeof(struct ib_path_rec_data)) {
-+
-+		resp->path_data[i].flags = IB_PATH_GMP | IB_PATH_PRIMARY |
-+					   IB_PATH_BIDIRECTIONAL;
-+		ib_sa_pack_path(&ctx->cm_id->route.path_rec[i],
-+				&resp->path_data[i].path_rec);
-+	}
-+
-+	if (copy_to_user(response, resp,
-+			 sizeof(*resp) + (i * sizeof(struct ib_path_rec_data))))
-+		ret = -EFAULT;
-+
-+	kfree(resp);
-+	return ret;
-+}
-+
- static ssize_t ucma_query(struct ucma_file *file,
- 			  const char __user *inbuf,
- 			  int in_len, int out_len)
-@@ -771,6 +803,9 @@ static ssize_t ucma_query(struct ucma_file *file,
- 	case RDMA_USER_CM_QUERY_ADDR:
- 		ret = ucma_query_addr(ctx, response, out_len);
- 		break;
-+	case RDMA_USER_CM_QUERY_PATH:
-+		ret = ucma_query_path(ctx, response, out_len);
-+		break;
- 	default:
- 		ret = -ENOSYS;
- 		break;
+-static ssize_t ucma_bind_addr(struct ucma_file *file, const char __user *inbuf,
++static ssize_t ucma_bind_ip(struct ucma_file *file, const char __user *inbuf,
+ 			      int in_len, int out_len)
+ {
+-	struct rdma_ucm_bind_addr cmd;
++	struct rdma_ucm_bind_ip cmd;
+ 	struct ucma_context *ctx;
+ 	int ret;
+ 
+@@ -531,11 +531,11 @@ static ssize_t ucma_bind_addr(struct ucma_file *file, const char __user *inbuf,
+ 	return ret;
+ }
+ 
+-static ssize_t ucma_resolve_addr(struct ucma_file *file,
+-				 const char __user *inbuf,
+-				 int in_len, int out_len)
++static ssize_t ucma_resolve_ip(struct ucma_file *file,
++			       const char __user *inbuf,
++			       int in_len, int out_len)
+ {
+-	struct rdma_ucm_resolve_addr cmd;
++	struct rdma_ucm_resolve_ip cmd;
+ 	struct ucma_context *ctx;
+ 	int ret;
+ 
+@@ -1178,11 +1178,11 @@ static ssize_t ucma_notify(struct ucma_file *file, const char __user *inbuf,
+ 	return ret;
+ }
+ 
+-static ssize_t ucma_join_multicast(struct ucma_file *file,
+-				   const char __user *inbuf,
+-				   int in_len, int out_len)
++static ssize_t ucma_join_ip_multicast(struct ucma_file *file,
++				      const char __user *inbuf,
++				      int in_len, int out_len)
+ {
+-	struct rdma_ucm_join_mcast cmd;
++	struct rdma_ucm_join_ip_mcast cmd;
+ 	struct rdma_ucm_create_id_resp resp;
+ 	struct ucma_context *ctx;
+ 	struct ucma_multicast *mc;
+@@ -1379,26 +1379,26 @@ file_put:
+ static ssize_t (*ucma_cmd_table[])(struct ucma_file *file,
+ 				   const char __user *inbuf,
+ 				   int in_len, int out_len) = {
+-	[RDMA_USER_CM_CMD_CREATE_ID]	= ucma_create_id,
+-	[RDMA_USER_CM_CMD_DESTROY_ID]	= ucma_destroy_id,
+-	[RDMA_USER_CM_CMD_BIND_ADDR]	= ucma_bind_addr,
+-	[RDMA_USER_CM_CMD_RESOLVE_ADDR]	= ucma_resolve_addr,
+-	[RDMA_USER_CM_CMD_RESOLVE_ROUTE]= ucma_resolve_route,
+-	[RDMA_USER_CM_CMD_QUERY_ROUTE]	= ucma_query_route,
+-	[RDMA_USER_CM_CMD_CONNECT]	= ucma_connect,
+-	[RDMA_USER_CM_CMD_LISTEN]	= ucma_listen,
+-	[RDMA_USER_CM_CMD_ACCEPT]	= ucma_accept,
+-	[RDMA_USER_CM_CMD_REJECT]	= ucma_reject,
+-	[RDMA_USER_CM_CMD_DISCONNECT]	= ucma_disconnect,
+-	[RDMA_USER_CM_CMD_INIT_QP_ATTR]	= ucma_init_qp_attr,
+-	[RDMA_USER_CM_CMD_GET_EVENT]	= ucma_get_event,
+-	[RDMA_USER_CM_CMD_GET_OPTION]	= NULL,
+-	[RDMA_USER_CM_CMD_SET_OPTION]	= ucma_set_option,
+-	[RDMA_USER_CM_CMD_NOTIFY]	= ucma_notify,
+-	[RDMA_USER_CM_CMD_JOIN_MCAST]	= ucma_join_multicast,
+-	[RDMA_USER_CM_CMD_LEAVE_MCAST]	= ucma_leave_multicast,
+-	[RDMA_USER_CM_CMD_MIGRATE_ID]	= ucma_migrate_id,
+-	[RDMA_USER_CM_CMD_QUERY]	= ucma_query
++	[RDMA_USER_CM_CMD_CREATE_ID] 	 = ucma_create_id,
++	[RDMA_USER_CM_CMD_DESTROY_ID]	 = ucma_destroy_id,
++	[RDMA_USER_CM_CMD_BIND_IP]	 = ucma_bind_ip,
++	[RDMA_USER_CM_CMD_RESOLVE_IP]	 = ucma_resolve_ip,
++	[RDMA_USER_CM_CMD_RESOLVE_ROUTE] = ucma_resolve_route,
++	[RDMA_USER_CM_CMD_QUERY_ROUTE]	 = ucma_query_route,
++	[RDMA_USER_CM_CMD_CONNECT]	 = ucma_connect,
++	[RDMA_USER_CM_CMD_LISTEN]	 = ucma_listen,
++	[RDMA_USER_CM_CMD_ACCEPT]	 = ucma_accept,
++	[RDMA_USER_CM_CMD_REJECT]	 = ucma_reject,
++	[RDMA_USER_CM_CMD_DISCONNECT]	 = ucma_disconnect,
++	[RDMA_USER_CM_CMD_INIT_QP_ATTR]	 = ucma_init_qp_attr,
++	[RDMA_USER_CM_CMD_GET_EVENT]	 = ucma_get_event,
++	[RDMA_USER_CM_CMD_GET_OPTION]	 = NULL,
++	[RDMA_USER_CM_CMD_SET_OPTION]	 = ucma_set_option,
++	[RDMA_USER_CM_CMD_NOTIFY]	 = ucma_notify,
++	[RDMA_USER_CM_CMD_JOIN_IP_MCAST] = ucma_join_ip_multicast,
++	[RDMA_USER_CM_CMD_LEAVE_MCAST]	 = ucma_leave_multicast,
++	[RDMA_USER_CM_CMD_MIGRATE_ID]	 = ucma_migrate_id,
++	[RDMA_USER_CM_CMD_QUERY]	 = ucma_query
+ };
+ 
+ static ssize_t ucma_write(struct file *filp, const char __user *buf,
 diff --git a/include/uapi/rdma/rdma_user_cm.h b/include/uapi/rdma/rdma_user_cm.h
-index 3ea7e7a..07eb6cf 100644
+index ea79253..79f68f7 100644
 --- a/include/uapi/rdma/rdma_user_cm.h
 +++ b/include/uapi/rdma/rdma_user_cm.h
-@@ -115,7 +115,8 @@ struct rdma_ucm_resolve_route {
- };
- 
+@@ -45,8 +45,8 @@
  enum {
--	RDMA_USER_CM_QUERY_ADDR
-+	RDMA_USER_CM_QUERY_ADDR,
-+	RDMA_USER_CM_QUERY_PATH
+ 	RDMA_USER_CM_CMD_CREATE_ID,
+ 	RDMA_USER_CM_CMD_DESTROY_ID,
+-	RDMA_USER_CM_CMD_BIND_ADDR,
+-	RDMA_USER_CM_CMD_RESOLVE_ADDR,
++	RDMA_USER_CM_CMD_BIND_IP,
++	RDMA_USER_CM_CMD_RESOLVE_IP,
+ 	RDMA_USER_CM_CMD_RESOLVE_ROUTE,
+ 	RDMA_USER_CM_CMD_QUERY_ROUTE,
+ 	RDMA_USER_CM_CMD_CONNECT,
+@@ -59,7 +59,7 @@ enum {
+ 	RDMA_USER_CM_CMD_GET_OPTION,
+ 	RDMA_USER_CM_CMD_SET_OPTION,
+ 	RDMA_USER_CM_CMD_NOTIFY,
+-	RDMA_USER_CM_CMD_JOIN_MCAST,
++	RDMA_USER_CM_CMD_JOIN_IP_MCAST,
+ 	RDMA_USER_CM_CMD_LEAVE_MCAST,
+ 	RDMA_USER_CM_CMD_MIGRATE_ID,
+ 	RDMA_USER_CM_CMD_QUERY
+@@ -96,13 +96,13 @@ struct rdma_ucm_destroy_id_resp {
+ 	__u32 events_reported;
  };
  
- struct rdma_ucm_query {
-@@ -145,6 +146,12 @@ struct rdma_ucm_query_addr_resp {
- 	struct sockaddr_storage dst_addr;
+-struct rdma_ucm_bind_addr {
++struct rdma_ucm_bind_ip {
+ 	__u64 response;
+ 	struct sockaddr_in6 addr;
+ 	__u32 id;
  };
  
-+struct rdma_ucm_query_path_resp {
-+	__u32 num_paths;
-+	__u32 reserved;
-+	struct ib_path_rec_data path_data[0];
-+};
-+
- struct rdma_ucm_conn_param {
- 	__u32 qp_num;
- 	__u32 qkey;
+-struct rdma_ucm_resolve_addr {
++struct rdma_ucm_resolve_ip {
+ 	struct sockaddr_in6 src_addr;
+ 	struct sockaddr_in6 dst_addr;
+ 	__u32 id;
+@@ -216,7 +216,7 @@ struct rdma_ucm_notify {
+ 	__u32 event;
+ };
+ 
+-struct rdma_ucm_join_mcast {
++struct rdma_ucm_join_ip_mcast {
+ 	__u64 response;		/* rdma_ucm_create_id_resp */
+ 	__u64 uid;
+ 	struct sockaddr_in6 addr;
 -- 
 1.7.3
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
