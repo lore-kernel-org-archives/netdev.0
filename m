@@ -1,151 +1,126 @@
-From: Matthias Schiffer <mschiffer@universe-factory.net>
-Subject: Kernel panic in IPv6 ndisc/redirect in kernel 3.9.4
-Date: Wed, 29 May 2013 23:02:43 +0200
-Message-ID: <51A66CF3.7010202@universe-factory.net>
+From: Olof Johansson <olof@lixom.net>
+Subject: Re: [PATCH net-next v5 1/2] net: Use 16bits for *_headers fields of
+ struct skbuff
+Date: Wed, 29 May 2013 14:21:38 -0700
+Message-ID: <CAOesGMg2-CgJeqFM7K1QBAhG+xOc33t0vV1xR1J_4-iJJ58r8A@mail.gmail.com>
+References: <1369378295-17779-1-git-send-email-horms@verge.net.au>
+	<1369378295-17779-2-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2LMLMCLVKTLJTVBLRQOXH"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: dev@openvswitch.org, Network Development <netdev@vger.kernel.org>,
+	Jesse Gross <jesse@nicira.com>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	jarno.rajahalme@nsn.com, Eric Dumazet <eric.dumazet@gmail.com>,
+	=?ISO-8859-2?Q?Maciej_=AFenczykowski?= <maze@google.com>,
+	David Miller <davem@davemloft.net>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from chaos.universe-factory.net ([5.9.180.86]:55744 "EHLO
-	chaos.universe-factory.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S966994Ab3E2VMW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 17:12:22 -0400
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:57204 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750964Ab3E2VVk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 17:21:40 -0400
+Received: by mail-qa0-f51.google.com with SMTP id i13so642227qae.3
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 14:21:39 -0700 (PDT)
+In-Reply-To: <1369378295-17779-2-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2LMLMCLVKTLJTVBLRQOXH
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Simon,
 
-Hi,
-we've hit the following panic several times in the last days on some of
-our servers running kernel 3.9.4. Is seems to be a regression in the 3.9
-series, as we never hit it with 3.8.x or earlier.
+On Thu, May 23, 2013 at 11:51 PM, Simon Horman <horms@verge.net.au> wrote:
+> In order to mitigate ongoing incresase in the size of struct skbuff
+> use 16 bit integer offsets rather than pointers for inner_*_headers.
+>
+> This appears to reduce the size of struct skbuff from 0xd0 to 0xc0
+> bytes on x86_64 with the following all unset.
+>
+>         CONFIG_XFRM
+>         CONFIG_NF_CONNTRACK
+>         CONFIG_NF_CONNTRACK_MODULE
+>         NET_SKBUFF_NF_DEFRAG_NEEDED
+>         CONFIG_BRIDGE_NETFILTER
+>         CONFIG_NET_SCHED
+>         CONFIG_IPV6_NDISC_NODETYPE
+>         CONFIG_NET_DMA
+>         CONFIG_NETWORK_SECMARK
+>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 
-Please let me know if there is anything more I can do to help fix this;
-I probably won't have time to try to reproduce this on a test machine
-and/or bisect it till weekend.
+I'm getting crashes in csum_partial() on several ARM platforms that I
+bisected down to this patch (and reverting this + "MPLS:
+Add limited GSO support" due to conflicts) results in a working kernel.
 
+The failures started with the 0529 linux-next, didn't exist in 0528.
 
-[25743.461449] skbuff: skb_over_panic: text:ffffffff814866d8 len:608
-put:8 head:ffff88001d643400 data:ffff88001d643466 tail:0x2c6 end:0x2c0
-dev:freifunk-hl
-[25743.471582] ------------[ cut here ]------------
-[25743.473301] kernel BUG at net/core/skbuff.c:126!
-[25743.474113] invalid opcode: 0000 [#1] PREEMPT SMP
-[25743.474113] Modules linked in: sit tunnel4 bridge stp llc tun
-ipt_MASQUERADE iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4
-nf_nat nf_conntrack ip6t_NPT iptable_mangle iptable_filter xt_mark
-ip6table_mangle ip_tables ip6_tables x_tables kvm_amd kvm psmouse evdev
-serio_raw pcspkr i2c_piix4 intel_agp processor i2c_core button intel_gtt
-batman_adv crc32c libcrc32c ext4 crc16 mbcache jbd2 ata_generic
-pata_acpi uhci_hcd ata_piix usbcore usb_common libata scsi_mod floppy
-virtio_balloon virtio_net virtio_pci virtio_blk virtio_ring virtio
-[25743.474113] CPU 0
-[25743.474113] Pid: 317, comm: fastd Not tainted 3.9.4-1-ARCH #1 Bochs Bo=
-chs
-[25743.474113] RIP: 0010:[<ffffffff814ce613>]  [<ffffffff814ce613>]
-skb_panic+0x63/0x65
-[25743.474113] RSP: 0018:ffff88001fc03998  EFLAGS: 00010282
-[25743.474113] RAX: 000000000000008c RBX: 0000000000000008 RCX:
-ffff88001fc0fed0
-[25743.474113] RDX: 0000000000000000 RSI: ffff88001fc0dfc8 RDI:
-0000000000000246
-[25743.474113] RBP: ffff88001fc039b8 R08: ffffffff818b4220 R09:
-00000000000001eb
-[25743.474113] R10: 303a646e65203663 R11: 7665642030633278 R12:
-0000000000000000
-[25743.474113] R13: ffff88001ccfff00 R14: 0000000000000008 R15:
-0000000000000006
-[25743.474113] FS:  00007fd1e10d2700(0000) GS:ffff88001fc00000(0000)
-knlGS:0000000000000000
-[25743.474113] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[25743.474113] CR2: 00007f777b64d838 CR3: 000000001d7fc000 CR4:
-00000000000006f0
-[25743.474113] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-0000000000000000
-[25743.474113] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-0000000000000400
-[25743.474113] Process fastd (pid: 317, threadinfo ffff88001df30000,
-task ffff88001f764300)
-[25743.474113] Stack:
-[25743.474113]  ffff88001d643466 00000000000002c6 00000000000002c0
-ffff88001cd90000
-[25743.474113]  ffff88001fc039c8 ffffffff813ca996 ffff88001fc03a10
-ffffffff814866d8
-[25743.474113]  0000000000000002 ffff88001fc03a68 ffff88001ccff100
-ffff88001ccfff00
-[25743.474113] Call Trace:
-[25743.474113]  <IRQ>
-[25743.474113]  [<ffffffff813ca996>] skb_put+0x46/0x50
-[25743.474113]  [<ffffffff814866d8>] ndisc_fill_addr_option+0x68/0xd0
-[25743.474113]  [<ffffffff814884c9>] ndisc_send_redirect+0x329/0x3d0
-[25743.474113]  [<ffffffff813f1611>] ? fib_rules_lookup+0x101/0x160
-[25743.474113]  [<ffffffff814724c1>] ip6_forward+0x7d1/0x820
-[25743.474113]  [<ffffffff81473150>] ip6_rcv_finish+0x80/0x90
-[25743.474113]  [<ffffffff81473839>] ipv6_rcv+0x289/0x400
-[25743.474113]  [<ffffffff813d69ea>] __netif_receive_skb_core+0x65a/0x8b0=
+Unfortunately I'm not getting a useful stack from the crashes:
 
-[25743.474113]  [<ffffffff813d6c58>] __netif_receive_skb+0x18/0x60
-[25743.474113]  [<ffffffff813d6cd3>] netif_receive_skb+0x33/0xc0
-[25743.474113]  [<ffffffffa038d5a0>] br_handle_frame_finish+0x230/0x330
-[bridge]
-[25743.474113]  [<ffffffffa0393a67>]
-br_nf_pre_routing_finish_ipv6+0xe7/0x160 [bridge]
-[25743.474113]  [<ffffffffa0394ac9>] br_nf_pre_routing+0x589/0x6f0 [bridg=
-e]
-[25743.474113]  [<ffffffff814043ab>] nf_iterate+0x8b/0xa0
-[25743.474113]  [<ffffffffa038d370>] ? br_handle_local_finish+0x60/0x60
-[bridge]
-[25743.474113]  [<ffffffff8140443c>] nf_hook_slow+0x7c/0x120
-[25743.474113]  [<ffffffffa038d370>] ? br_handle_local_finish+0x60/0x60
-[bridge]
-[25743.474113]  [<ffffffffa038d870>] br_handle_frame+0x1d0/0x270 [bridge]=
-
-[25743.474113]  [<ffffffff813d65c2>] __netif_receive_skb_core+0x232/0x8b0=
-
-[25743.474113]  [<ffffffff813d6c58>] __netif_receive_skb+0x18/0x60
-[25743.474113]  [<ffffffff813d806e>] process_backlog+0xae/0x1a0
-[25743.474113]  [<ffffffff813d7ea1>] net_rx_action+0x161/0x280
-[25743.474113]  [<ffffffff810606a7>] __do_softirq+0xe7/0x2a0
-[25743.474113]  [<ffffffff814db31c>] call_softirq+0x1c/0x30
-[25743.474113]  <EOI>
-[25743.474113]  [<ffffffff810176a5>] do_softirq+0x55/0x90
-[25743.474113]  [<ffffffff813d54e0>] netif_rx_ni+0x60/0x80
-[25743.474113]  [<ffffffffa0379e7d>] tun_get_user+0x3fd/0x7b0 [tun]
-[25743.474113]  [<ffffffffa037a329>] tun_chr_aio_write+0x79/0xb0 [tun]
-[25743.474113]  [<ffffffff8118b0e0>] do_sync_write+0xa0/0xe0
-[25743.474113]  [<ffffffff8118b4c2>] ? rw_verify_area+0x52/0xd0
-[25743.474113]  [<ffffffff8118b74b>] vfs_write+0x9b/0x170
-[25743.474113]  [<ffffffff8118ba49>] sys_write+0x49/0xa0
-[25743.474113]  [<ffffffff814d9e9d>] system_call_fastpath+0x1a/0x1f
-[25743.474113] Code: 00 00 48 89 44 24 10 8b 87 d4 00 00 00 48 89 44 24
-08 48 8b 87 e8 00 00 00 48 c7 c7 a8 91 74 81 48 89 04 24 31 c0 e8 73 b7
-ff ff <0f> 0b 66 66 66 66 90 55 48 89 e5 41 56 41 55 41 54 53 48 89 fb
-[25743.474113] RIP  [<ffffffff814ce613>] skb_panic+0x63/0x65
-[25743.474113]  RSP <ffff88001fc03998>
-[25743.615687] ---[ end trace 49c54f3f1691b26e ]---
-[25743.617203] Kernel panic - not syncing: Fatal exception in interrupt
+[    6.495560] Unable to handle kernel paging request at virtual
+address eb000000
+[    6.502769] pgd = e9084000
+[    6.505465] [eb000000] *pgd=00000000
+[    6.509034] Internal error: Oops: 5 [#1] PREEMPT SMP ARM
+[    6.514329] Modules linked in:
+[    6.517378] CPU: 0 PID: 0 Comm: swapper/0 Not tainted
+3.10.0-rc2-00483-g1a37e41 #27
+[    6.525015] task: c06e1980 ti: c06d6000 task.ti: c06d6000
+[    6.530402] PC is at csum_partial+0x40/0x130
+[    6.534658] LR is at 0x0
+[    6.537181] pc : [<c01e3150>]    lr : [<00000000>]    psr: 000f0113
+[    6.537181] sp : c06d7d88  ip : e700c060  fp : c06d80c0
+[    6.548631] r10: e90e2140  r9 : e9006050  r8 : 00000001
+[    6.553839] r7 : e9006020  r6 : e9b7e400  r5 : 00000000  r4 : 00000000
+[    6.560348] r3 : 00000000  r2 : 73129f9e  r1 : e900601c  r0 : eb000000
+[    6.566857] Flags: nzcv  IRQs on  FIQs on  Mode SVC_32  ISA ARM
+Segment kernel
+[    6.574146] Control: 10c5387d  Table: 2908404a  DAC: 00000015
+[    6.579874] Process swapper/0 (pid: 0, stack limit = 0xc06d6238)
+[    6.585862] Stack: (0xc06d7d88 to 0xc06d8000)
+[    6.590207] 7d80:                   c0714fc0 e900601c e9006050
+c043a0b8 00000000 e92737b0
+[    6.598365] 7da0: e9273740 c043c1d4 c0010208 c0f83cc0 c06d4cc0
+c0f83cc0 00000000 e9b32000
+[    6.606523] 7dc0: c06d4cc0 00000001 c06d80c0 e9273758 00989680
+00000000 00000001 e9b7aec0
+[    6.614680] 7de0: 00000000 e90e2140 e9b7af30 e9b7e400 e9b7e490
+00000000 00000001 c043c5d4
+[    6.622838] 7e00: 00000001 7cdfa980 00000001 e9b7e458 c06d6000
+00000101 c06d6030 c043c414
+[    6.630995] 7e20: 00200200 00000000 c06d80c0 c002fbe8 00000002
+7c4716e8 e9b7e458 c073fb80
+[    6.639153] 7e40: c043c414 e9b7e400 c06d7e68 c002fde8 00000000
+c0f82678 00000000 c0740394
+[    6.647310] 7e60: c0740594 c0740794 c06d7e68 c06d7e68 00000006
+00000001 00000004 c06d8088
+[    6.655468] 7e80: c06d8080 c06d6000 00000001 00000004 00000101
+c002a57c 7c4716e8 00000001
+[    6.663625] 7ea0: c06d37e0 00000000 c073f940 c06d80c0 ffff8d4f
+c06e4970 00200000 c06d6018
+[    6.671783] 7ec0: c02025e8 c06d6028 0000001d 00000000 fe000100
+00000000 00000000 c06d6000
+[    6.679940] 7ee0: c06de42c c002a9a4 c06d3fac c000eaa0 fe00010c
+c06df074 c06d7f18 c00086f8
+[    6.688098] 7f00: c0061288 c032b560 600f0013 ffffffff c06d7f4c
+c000de60 c06d7f60 00000006
+[    6.696255] 7f20: 7c471300 00000001 7c3bbca8 00000001 c0f83110
+c06e3cd4 00000000 00000000
+[    6.704413] 7f40: c06d6000 c06de42c 00000015 c06d7f60 c0061288
+c032b560 600f0013 ffffffff
+[    6.712571] 7f60: 7c471300 00000001 c0765ac8 c04fe16c c0f83110
+c0765ac8 00000000 c06e3cd4
+[    6.720728] 7f80: 00000000 c032b6b8 00004c9c c071ddc7 c06de490
+c04fe16c c06d6000 c071ddc7
+[    6.728886] 7fa0: c06d6000 c000edb4 00004c9c c0060b3c c04fe5fc
+c0f7f9c0 00000000 c069f828
+[    6.737043] 7fc0: ffffffff ffffffff c069f2e8 00000000 00000000
+c06cbac0 00000000 10c5387d
+[    6.745200] 7fe0: c06de3f4 c06cbabc c06e28e4 0000406a 411fc090
+00008074 00000000 00000000
+[    6.753359] Code: e0b22003 e0b22004 e0b22005 e0b2200e (e8b04038)
+[    6.759438] ---[ end trace 40c34f89615c2c53 ]---
+[    6.764041] Kernel panic - not syncing: Fatal exception in interrupt
+[    6.770386] CPU1: stopping
+[    6.773086] CPU: 1 PID: 0 Comm: swapper/1 Tainted: G      D
+3.10.0-rc2-00483-g1a37e41 #27
 
 
-
-------enig2LMLMCLVKTLJTVBLRQOXH
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlGmbPMACgkQq3qIxbiQM9hH0gCdHdlF4oaH5cnTKsLJZwLLltVQ
-aIUAnAgj943ovtcVoJwSkHifppv+aldM
-=RUR3
------END PGP SIGNATURE-----
-
-------enig2LMLMCLVKTLJTVBLRQOXH--
+-Olof
