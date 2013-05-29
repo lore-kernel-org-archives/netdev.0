@@ -1,22 +1,18 @@
 From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH 03/11] phy: Use macros instead of hardcoded values in marvell phy driver
-Date: Wed, 29 May 2013 17:33:03 +0200
-Message-ID: <1ce55f2ae709b48733bb68e05253c23a4e90f1ae.1369841519.git.michal.simek@xilinx.com>
-References: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369841519.git.michal.simek@xilinx.com>
+Subject: [PATCH 01/11] phy: Clean coding style in vitesse phy
+Date: Wed, 29 May 2013 17:33:01 +0200
+Message-ID: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369841519.git.michal.simek@xilinx.com>
 Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-27586-1369841601-0001";
+    boundary="=_mimegpg-monstr-desktop-27560-1369841591-0001";
     micalg=pgp-sha1; protocol="application/pgp-signature"
 Cc: Michal Simek <monstr@monstr.eu>,
 	Michal Simek <michal.simek@xilinx.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Lars-Peter Clausen <lars@metafoo.de>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	Christian Hohnstaedt <chohnstaedt@innominate.com>,
-	Rick Hoover <RHoover@digilentinc.com>, netdev@vger.kernel.org
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369841519.git.michal.simek@xilinx.com>
-In-Reply-To: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369841519.git.michal.simek@xilinx.com>
-References: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369841519.git.michal.simek@xilinx.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
@@ -26,59 +22,86 @@ The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
 To open this message correctly you will need to install E-mail or Usenet
 software that supports modern Internet standards.
 
---=_mimegpg-monstr-desktop-27586-1369841601-0001
+--=_mimegpg-monstr-desktop-27560-1369841591-0001
 
-Use macros from linux/marvell_phy.h instead of duplicate
-magic phy ID in the driver.
+- Remove trailing white space
+- Remove spaces before tag
+- Fix comments
 
 Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
- drivers/net/phy/marvell.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/phy/vitesse.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 202fe1f..371353c 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -958,15 +958,15 @@ module_init(marvell_init);
- module_exit(marvell_exit);
+diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+index 3492b53..d6e988f 100644
+--- a/drivers/net/phy/vitesse.c
++++ b/drivers/net/phy/vitesse.c
+@@ -44,12 +44,12 @@
+ #define MII_VSC8244_ISTAT_DUPLEX	0x1000
 
- static struct mdio_device_id __maybe_unused marvell_tbl[] = {
--	{ 0x01410c60, 0xfffffff0 },
--	{ 0x01410c90, 0xfffffff0 },
--	{ 0x01410cc0, 0xfffffff0 },
--	{ 0x01410e10, 0xfffffff0 },
--	{ 0x01410cb0, 0xfffffff0 },
--	{ 0x01410cd0, 0xfffffff0 },
--	{ 0x01410e50, 0xfffffff0 },
--	{ 0x01410e30, 0xfffffff0 },
--	{ 0x01410e90, 0xfffffff0 },
-+	{ MARVELL_PHY_ID_88E1101, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E1112, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E1111, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E1118, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E1121R, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E1145, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E1149R, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E1240, MARVELL_PHY_ID_MASK },
-+	{ MARVELL_PHY_ID_88E1318S, MARVELL_PHY_ID_MASK },
- 	{ }
- };
+ /* Vitesse Auxiliary Control/Status Register */
+-#define MII_VSC8244_AUX_CONSTAT        	0x1c
+-#define MII_VSC8244_AUXCONSTAT_INIT    	0x0000
+-#define MII_VSC8244_AUXCONSTAT_DUPLEX  	0x0020
+-#define MII_VSC8244_AUXCONSTAT_SPEED   	0x0018
+-#define MII_VSC8244_AUXCONSTAT_GBIT    	0x0010
+-#define MII_VSC8244_AUXCONSTAT_100     	0x0008
++#define MII_VSC8244_AUX_CONSTAT		0x1c
++#define MII_VSC8244_AUXCONSTAT_INIT	0x0000
++#define MII_VSC8244_AUXCONSTAT_DUPLEX	0x0020
++#define MII_VSC8244_AUXCONSTAT_SPEED	0x0018
++#define MII_VSC8244_AUXCONSTAT_GBIT	0x0010
++#define MII_VSC8244_AUXCONSTAT_100	0x0008
 
+ #define MII_VSC8221_AUXCONSTAT_INIT	0x0004 /* need to set this bit? */
+ #define MII_VSC8221_AUXCONSTAT_RESERVED	0x0004
+@@ -100,9 +100,8 @@ static int vsc824x_config_init(struct phy_device *phydev)
+ static int vsc824x_ack_interrupt(struct phy_device *phydev)
+ {
+ 	int err = 0;
+-	
+-	/*
+-	 * Don't bother to ACK the interrupts if interrupts
++
++	/* Don't bother to ACK the interrupts if interrupts
+ 	 * are disabled.  The 824x cannot clear the interrupts
+ 	 * if they are disabled.
+ 	 */
+@@ -122,8 +121,7 @@ static int vsc82xx_config_intr(struct phy_device *phydev)
+ 				MII_VSC8244_IMASK_MASK :
+ 				MII_VSC8221_IMASK_MASK);
+ 	else {
+-		/*
+-		 * The Vitesse PHY cannot clear the interrupt
++		/* The Vitesse PHY cannot clear the interrupt
+ 		 * once it has disabled them, so we clear them first
+ 		 */
+ 		err = phy_read(phydev, MII_VSC8244_ISTAT);
+@@ -146,7 +144,8 @@ static int vsc8221_config_init(struct phy_device *phydev)
+ 	return err;
+
+ 	/* Perhaps we should set EXT_CON1 based on the interface?
+-	   Options are 802.3Z SerDes or SGMII */
++	 * Options are 802.3Z SerDes or SGMII
++	 */
+ }
+
+ /* Vitesse 824x */
 --
 1.8.2.3
 
 
---=_mimegpg-monstr-desktop-27586-1369841601-0001
+--=_mimegpg-monstr-desktop-27560-1369841591-0001
 Content-Type: application/pgp-signature
 Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEABECAAYFAlGmH8EACgkQykllyylKDCFtVACdEckRxRko1/4xuch1ONcuJa5N
-X2UAnReC9SBYN054F9cxAhAt/eUYit+z
-=lCLx
+iEYEABECAAYFAlGmH7cACgkQykllyylKDCGj2wCfd6UQyyFeHANN3uOZ/d+m5217
+WEkAn3y5uvKayQdre+S/jtmaJMmykYhW
+=Iu+F
 -----END PGP SIGNATURE-----
 
---=_mimegpg-monstr-desktop-27586-1369841601-0001--
+--=_mimegpg-monstr-desktop-27560-1369841591-0001--
