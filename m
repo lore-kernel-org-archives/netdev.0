@@ -1,84 +1,47 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 2/2] net: wireless: p54spi: Fix commenting style
-Date: Wed, 29 May 2013 15:31:41 +0530
-Message-ID: <1369821701-4867-2-git-send-email-sachin.kamat@linaro.org>
-References: <1369821701-4867-1-git-send-email-sachin.kamat@linaro.org>
-Cc: netdev@vger.kernel.org, chunkeey@googlemail.com,
-	linville@tuxdriver.com, davem@davemloft.net,
-	sachin.kamat@linaro.org
-To: linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:44879 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965404Ab3E2KPo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 06:15:44 -0400
-Received: by mail-pb0-f48.google.com with SMTP id md12so8948923pbc.7
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 03:15:44 -0700 (PDT)
-In-Reply-To: <1369821701-4867-1-git-send-email-sachin.kamat@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sachin Kamat <sachin.kamat-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
+Subject: [PATCH 1/2] net: wireless: wl1251: Use module_spi_driver macro
+Date: Wed, 29 May 2013 15:48:22 +0530
+Message-ID: <1369822703-27769-1-git-send-email-sachin.kamat@linaro.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, coelho-l0cyMroinI0@public.gmane.org,
+	linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, sachin.kamat-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org
+To: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Make the commenting style consistent with networking block comment
-style as suggested by checkpatch.
+module_spi_driver() eliminates some boiler plate and makes code
+simpler.
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+Signed-off-by: Sachin Kamat <sachin.kamat-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>
 ---
- drivers/net/wireless/p54/p54spi.c |   15 +++++++--------
- 1 file changed, 7 insertions(+), 8 deletions(-)
+ drivers/net/wireless/ti/wl1251/spi.c |   24 +-----------------------
+ 1 file changed, 1 insertion(+), 23 deletions(-)
 
-diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
-index 146e653..7fc46f2 100644
---- a/drivers/net/wireless/p54/p54spi.c
-+++ b/drivers/net/wireless/p54/p54spi.c
-@@ -42,8 +42,7 @@
+diff --git a/drivers/net/wireless/ti/wl1251/spi.c b/drivers/net/wireless/ti/wl1251/spi.c
+index 4c67c2f..dfd0877 100644
+--- a/drivers/net/wireless/ti/wl1251/spi.c
++++ b/drivers/net/wireless/ti/wl1251/spi.c
+@@ -329,29 +329,7 @@ static struct spi_driver wl1251_spi_driver = {
+ 	.remove		= wl1251_spi_remove,
+ };
  
- MODULE_FIRMWARE("3826.arm");
- 
--/*
-- * gpios should be handled in board files and provided via platform data,
-+/* gpios should be handled in board files and provided via platform data,
-  * but because it's currently impossible for p54spi to have a header file
-  * in include/linux, let's use module paramaters for now
-  */
-@@ -191,8 +190,7 @@ static int p54spi_request_eeprom(struct ieee80211_hw *dev)
- 	const struct firmware *eeprom;
- 	int ret;
- 
--	/*
--	 * allow users to customize their eeprom.
-+	/* allow users to customize their eeprom.
- 	 */
- 
- 	ret = request_firmware(&eeprom, "3826.eeprom", &priv->spi->dev);
-@@ -285,8 +283,7 @@ static void p54spi_power_on(struct p54s_priv *priv)
- 	gpio_set_value(p54spi_gpio_power, 1);
- 	enable_irq(gpio_to_irq(p54spi_gpio_irq));
- 
--	/*
--	 * need to wait a while before device can be accessed, the length
-+	/* need to wait a while before device can be accessed, the length
- 	 * is just a guess
- 	 */
- 	msleep(10);
-@@ -365,7 +362,8 @@ static int p54spi_rx(struct p54s_priv *priv)
- 	/* Firmware may insert up to 4 padding bytes after the lmac header,
- 	 * but it does not amend the size of SPI data transfer.
- 	 * Such packets has correct data size in header, thus referencing
--	 * past the end of allocated skb. Reserve extra 4 bytes for this case */
-+	 * past the end of allocated skb. Reserve extra 4 bytes for this case
-+	 */
- 	skb = dev_alloc_skb(len + 4);
- 	if (!skb) {
- 		p54spi_sleep(priv);
-@@ -383,7 +381,8 @@ static int p54spi_rx(struct p54s_priv *priv)
- 	}
- 	p54spi_sleep(priv);
- 	/* Put additional bytes to compensate for the possible
--	 * alignment-caused truncation */
-+	 * alignment-caused truncation
-+	 */
- 	skb_put(skb, 4);
- 
- 	if (p54_rx(priv->hw, skb) == 0)
--- 
-1.7.9.5
+-static int __init wl1251_spi_init(void)
+-{
+-	int ret;
+-
+-	ret = spi_register_driver(&wl1251_spi_driver);
+-	if (ret < 0) {
+-		wl1251_error("failed to register spi driver: %d", ret);
+-		goto out;
+-	}
+-
+-out:
+-	return ret;
+-}
+-
+-static void __exit wl1251_spi_exit(void)
+-{
+-	spi_unregister_driver(&wl1251_spi_driver);
+-
+-	wl1251_notice("unloaded");
+-}
