@@ -1,125 +1,133 @@
-From: majnemer@google.com
-Subject: [PATCH] net: Update RPS target at poll for inet
-Date: Tue, 28 May 2013 17:47:30 -0700 (PDT)
-Message-ID: <20130529004731.0CC5280D76@donbot.mtv.corp.google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gg0-f202.google.com ([209.85.161.202]:43843 "EHLO
-	mail-gg0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757098Ab3E2Arc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 20:47:32 -0400
-Received: by mail-gg0-f202.google.com with SMTP id o1so892037ggn.3
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 17:47:31 -0700 (PDT)
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: pull request: batman-adv 2013-05-29
+Date: Wed, 29 May 2013 02:59:25 +0200
+Message-ID: <1369789186-3600-1-git-send-email-ordex@autistici.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
 To: davem@davemloft.net
-To: netdev@vger.kernel.org
-To: pjt@google.com
-To: maze@google.com
-To: therbert@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from contumacia.investici.org ([178.255.144.35]:43797 "EHLO
+	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757898Ab3E2BBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 21:01:46 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hello David,
 
-The current state of affairs is that read(2)/write(2) will engage
-RPS (receive packet steering) for internet protocol sockets while
-poll(2) does not.
+this is our pull request intended for net-next/linux-3.11.
 
-We noticed that this is suboptimal for scenarios similar to the following:
-1. Perform a poll(2) on a socket.
-2. Block in sock_poll_wait (or something similar).
-3. Perform a read(2) on the previously mentioned socket.
+The only real behavioural change in this batch is the broadcast overhea=
+d
+reduction on non-wireless interfaces brought by Matthias Schiffer.
 
-This patch updates the RPS target during poll(2) which improves this scenario.
+The rest is made up by code cleanups and refactoring.
 
-Concretely, we saw improvements on the order of ~20% for the median and
-~6% for the mean on our internal packet forwarding workload. Let me know if
-there is another workload I should take a look at.
+Two highlights on the refactoring are the introduction of
+netdev_alloc_skb_ip_align() to avoid to deal with NET_IP_ALIGN manually=
+ and the
+introduction of the eth_hdr() wherever it was possible in order to impr=
+ove
+readability.
 
-Thanks,
-David
 
------------------------------8<---------------------------
+Please pull or let me know of any problem.
 
-When poll(2) gets called with an ip socket, update the flow target to be the
-poller. The data will be on the appropriate CPU when the poller later calls
-recvmsg(2).
+Thanks a lot,
+	Antonio
 
-Signed-off-by: David Majnemer <majnemer@google.com>
----
- include/net/inet_common.h |  2 ++
- net/ipv4/af_inet.c        | 13 ++++++++++++-
- net/ipv4/tcp.c            |  2 ++
- net/ipv4/udp.c            |  2 ++
- 4 files changed, 18 insertions(+), 1 deletion(-)
 
-diff --git a/include/net/inet_common.h b/include/net/inet_common.h
-index 2340087..21ecdb3 100644
---- a/include/net/inet_common.h
-+++ b/include/net/inet_common.h
-@@ -20,6 +20,8 @@ extern int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
- 				 int addr_len, int flags);
- extern int inet_dgram_connect(struct socket *sock, struct sockaddr *uaddr,
- 			      int addr_len, int flags);
-+extern unsigned int inet_dgram_poll(struct file *file, struct socket *sock,
-+				    poll_table *wait);
- extern int inet_accept(struct socket *sock, struct socket *newsock, int flags);
- extern int inet_sendmsg(struct kiocb *iocb, struct socket *sock,
- 			struct msghdr *msg, size_t size);
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index b05ae96..e864612 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -567,6 +567,17 @@ int inet_dgram_connect(struct socket *sock, struct sockaddr *uaddr,
- }
- EXPORT_SYMBOL(inet_dgram_connect);
- 
-+unsigned int inet_dgram_poll(struct file *file, struct socket *sock,
-+			     poll_table *wait)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	sock_rps_record_flow(sk);
-+
-+	return datagram_poll(file, sock, wait);
-+}
-+EXPORT_SYMBOL(inet_dgram_poll);
-+
- static long inet_wait_for_connect(struct sock *sk, long timeo, int writebias)
- {
- 	DEFINE_WAIT(wait);
-@@ -1001,7 +1012,7 @@ static const struct proto_ops inet_sockraw_ops = {
- 	.socketpair	   = sock_no_socketpair,
- 	.accept		   = sock_no_accept,
- 	.getname	   = inet_getname,
--	.poll		   = datagram_poll,
-+	.poll		   = inet_dgram_poll,
- 	.ioctl		   = inet_ioctl,
- 	.listen		   = sock_no_listen,
- 	.shutdown	   = inet_shutdown,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index ba4186e..6aa930a 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -436,6 +436,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 	struct sock *sk = sock->sk;
- 	const struct tcp_sock *tp = tcp_sk(sk);
- 
-+	sock_rps_record_flow(sk);
-+
- 	sock_poll_wait(file, sk_sleep(sk), wait);
- 	if (sk->sk_state == TCP_LISTEN)
- 		return inet_csk_listen_poll(sk);
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index aa5eff4..c7338ec 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1967,6 +1967,8 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 	unsigned int mask = datagram_poll(file, sock, wait);
- 	struct sock *sk = sock->sk;
- 
-+	sock_rps_record_flow(sk);
-+
- 	/* Check for false positives due to checksum errors */
- 	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
- 	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
--- 
-1.8.2.1
+
+The following changes since commit 06ecf24bdf2b7afc6c8fd13de6dba2a96dd3=
+31b6:
+
+  net: Fix build warnings after mac_header and transport_header became =
+__u16. (2013-05-28 13:15:50 -0700)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
+
+for you to fetch changes up to 6715fd3f0538e805b6a769d66823ec16b8b647ac=
+:
+
+  batman-adv: Start new development cycle (2013-05-29 02:44:56 +0200)
+
+----------------------------------------------------------------
+Included changes:
+- reduce broadcast overhead on non-lossy wired links
+- fix typos in kernel doc
+- use eth_hdr() when possible
+- use netdev_allock_skb_ip_align() and don't deal with NET_IP_ALIGN
+- change VID semantic in the BLA component
+- other minor cleanups and code refactoring
+
+----------------------------------------------------------------
+Antonio Quartulli (14):
+      batman-adv: drop useless argument seqno in neighbor creation
+      batman-adv: slightly improve neighbor creation debug message
+      batman-adv: don't check the source address twice
+      batman-adv: don't check compat version twice
+      batman-adv: do not silently ignore wrong condition
+      batman-adv: don't initialise batman_iv private members in hard-in=
+terface.c
+      batman-adv: use eth_hdr() when it makes sense
+      batman-adv: move ring_buffer helper functions in bat_iv_ogm
+      batman-adv: move batadv_slide_own_bcast_window to bat_iv_ogm.c
+      batman-adv: refactor batadv_tt_local_event()
+      batman-adv: don't deal with NET_IP_ALIGN manually
+      batman-adv: pass a 16bit long flag argument to tt_global_add()
+      batman-adv: change VID semantic in the BLA code
+      batman-adv: print the VID properly
+
+Linus L=C3=BCssing (1):
+      batman-adv: Remove unnecessary INIT_HLIST_NODE() calls
+
+Marek Lindner (2):
+      batman-adv: fix typos in kernel doc & comments
+      batman-adv: do not print orig nodes without nc neighbors on nc ta=
+ble print
+
+Martin Hundeb=C3=B8ll (1):
+      batman-adv: Move call to batadv_nc_skb_forward() from routing.c t=
+o send.c
+
+Matthias Schiffer (2):
+      batman-adv: split batadv_is_wifi_iface() into two functions
+      batman-adv: send each broadcast only once on non-wireless interfa=
+ces
+
+Simon Wunderlich (1):
+      batman-adv: Start new development cycle
+
+ net/batman-adv/Makefile                |   1 -
+ net/batman-adv/bat_iv_ogm.c            | 122 ++++++++++++++++++++++++-=
+--------
+ net/batman-adv/bridge_loop_avoidance.c |  94 +++++++++++++------------
+ net/batman-adv/bridge_loop_avoidance.h |  12 ++--
+ net/batman-adv/distributed-arp-table.c |  82 +++++++++++-----------
+ net/batman-adv/hard-interface.c        |  96 +++++++++++++++----------=
+-
+ net/batman-adv/icmp_socket.c           |   4 +-
+ net/batman-adv/main.h                  |  18 ++++-
+ net/batman-adv/network-coding.c        |  22 +++---
+ net/batman-adv/network-coding.h        |   6 +-
+ net/batman-adv/originator.c            |   6 +-
+ net/batman-adv/originator.h            |   2 +-
+ net/batman-adv/ring_buffer.c           |  51 --------------
+ net/batman-adv/ring_buffer.h           |  27 --------
+ net/batman-adv/routing.c               |  64 +++++------------
+ net/batman-adv/routing.h               |   1 -
+ net/batman-adv/send.c                  |  36 ++++++----
+ net/batman-adv/send.h                  |   6 +-
+ net/batman-adv/soft-interface.c        |   6 +-
+ net/batman-adv/translation-table.c     |  74 +++++++++++++-------
+ net/batman-adv/translation-table.h     |   2 +-
+ net/batman-adv/types.h                 |   6 +-
+ net/batman-adv/unicast.c               |   2 +-
+ net/batman-adv/vis.c                   |  19 ++---
+ 24 files changed, 395 insertions(+), 364 deletions(-)
+ delete mode 100644 net/batman-adv/ring_buffer.c
+ delete mode 100644 net/batman-adv/ring_buffer.h
