@@ -1,42 +1,50 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 21/21] batman-adv: Start new development cycle
-Date: Wed, 29 May 2013 10:12:32 +0200
-Message-ID: <1369815152-2750-4-git-send-email-ordex@autistici.org>
+Subject: [PATCH 07/21] batman-adv: don't check compat version twice
+Date: Wed, 29 May 2013 10:10:37 +0200
+Message-ID: <1369815051-708-8-git-send-email-ordex@autistici.org>
 References: <1369815051-708-1-git-send-email-ordex@autistici.org>
- <1369815152-2750-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Simon Wunderlich <siwu@hrz.tu-chemnitz.de>,
-	Antonio Quartulli <ordex@autistici.org>
+	Antonio Quartulli <antonio@open-mesh.com>,
+	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from diserzione.investici.org ([82.221.99.153]:50593 "EHLO
-	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965124Ab3E2IOb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 04:14:31 -0400
-In-Reply-To: <1369815152-2750-1-git-send-email-ordex@autistici.org>
+Received: from latitanza.investici.org ([82.94.249.234]:39926 "EHLO
+	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759523Ab3E2IM6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 04:12:58 -0400
+In-Reply-To: <1369815051-708-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-Signed-off-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+Compatibility version is checked upon packet reception
+before calling any handler. For this reason it does need to
+be checked once more in the handler itself.
+
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/main.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/batman-adv/bat_iv_ogm.c | 7 -------
+ 1 file changed, 7 deletions(-)
 
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index 6f25ef2..5e9aebb 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -26,7 +26,7 @@
- #define BATADV_DRIVER_DEVICE "batman-adv"
+diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
+index 6d62e29..38183dc 100644
+--- a/net/batman-adv/bat_iv_ogm.c
++++ b/net/batman-adv/bat_iv_ogm.c
+@@ -1054,13 +1054,6 @@ static void batadv_iv_ogm_process(const struct ethhdr *ethhdr,
+ 	}
+ 	rcu_read_unlock();
  
- #ifndef BATADV_SOURCE_VERSION
--#define BATADV_SOURCE_VERSION "2013.2.0"
-+#define BATADV_SOURCE_VERSION "2013.3.0"
- #endif
- 
- /* B.A.T.M.A.N. parameters */
+-	if (batadv_ogm_packet->header.version != BATADV_COMPAT_VERSION) {
+-		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
+-			   "Drop packet: incompatible batman version (%i)\n",
+-			   batadv_ogm_packet->header.version);
+-		return;
+-	}
+-
+ 	if (is_my_addr) {
+ 		batadv_dbg(BATADV_DBG_BATMAN, bat_priv,
+ 			   "Drop packet: received my own broadcast (sender: %pM)\n",
 -- 
 1.8.1.5
