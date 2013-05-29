@@ -1,41 +1,39 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next v5 0/2] MPLS: Add limited GSO support
-Date: Wed, 29 May 2013 11:12:26 +0900
-Message-ID: <20130529021226.GD16836@verge.net.au>
-References: <1369378972-22728-1-git-send-email-horms@verge.net.au>
- <20130527.225131.2103824917751166166.davem@davemloft.net>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH 3/3] net: ipv6: Implement /proc/net/icmp6.
+Date: Wed, 29 May 2013 03:15:24 +0000 (UTC)
+Message-ID: <ko3rsc$qss$1@ger.gmane.org>
+References: <1369752315-11167-1-git-send-email-lorenzo@google.com>
+ <1369752315-11167-3-git-send-email-lorenzo@google.com>
+ <CAKD1Yr0YXy+xoE4rVRFmd6pQbE+biw+8008Nd_VbyaSMn8c9+w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: dev@openvswitch.org, netdev@vger.kernel.org, jesse@nicira.com,
-	pshelar@nicira.com, jarno.rajahalme@nsn.com,
-	eric.dumazet@gmail.com, maze@google.com
-To: David Miller <davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:60368 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753075Ab3E2C5K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 22:57:10 -0400
-Content-Disposition: inline
-In-Reply-To: <20130527.225131.2103824917751166166.davem@davemloft.net>
+Received: from plane.gmane.org ([80.91.229.3]:46565 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759194Ab3E2DPm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 May 2013 23:15:42 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UhWrU-0001sv-K8
+	for netdev@vger.kernel.org; Wed, 29 May 2013 05:15:40 +0200
+Received: from 180.183.217.220 ([180.183.217.220])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 05:15:40 +0200
+Received: from xiyou.wangcong by 180.183.217.220 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 05:15:40 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, May 27, 2013 at 10:51:31PM -0700, David Miller wrote:
-> From: Simon Horman <horms@verge.net.au>
-> Date: Fri, 24 May 2013 16:02:50 +0900
-> 
-> > In the case where a non-MPLS packet is received and an MPLS stack is
-> > added it may well be the case that the original skb is GSO but the
-> > NIC used for transmit does not support GSO of MPLS packets.
-> > 
-> > The aim of this short series is to provide GSO in software for MPLS packets
-> > whose skbs are GSO.
-> 
-> Looks good, and harmless, applied, thanks!
+On Wed, 29 May 2013 at 02:31 GMT, Lorenzo Colitti <lorenzo@google.com> wrote:
+> I don't think this has any impact, because if this happens, the proto
+> isn't registered, so there's no way to create an IPv6 socket and call
+> these function pointers. Still, for completeness' sake I'll shortly
+> send out another patch 3/3 that checks the result of
+> register_pernet_subsys before updating the function pointers. The
+> other two patches in the set don't need to change.
 
-Thanks!
-
-
-kbuild tells me that the change to use 16 bit offsets for the header
-elements of skb appears to have added some build warnings. I will track
-them down and fix them ASAP.
+You have to resend all of them, not just one, per netdev rules.
