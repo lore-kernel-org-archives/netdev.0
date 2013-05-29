@@ -1,7 +1,7 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v5 07/13] ARM: dove: add gigabit ethernet and mvmdio device tree nodes
-Date: Wed, 29 May 2013 21:32:49 +0200
-Message-ID: <1369855975-21489-8-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v5 10/13] ARM: dove: remove legacy mv643xx_eth setup
+Date: Wed, 29 May 2013 21:32:52 +0200
+Message-ID: <1369855975-21489-11-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
  <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Cc: David Miller <davem@davemloft.net>,
@@ -17,17 +17,11 @@ In-Reply-To: <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds orion-eth and mvmdio device tree nodes for DT enabled
-Dove boards. As there is only one ethernet controller on Dove, a default
-phy node is also added with a note to set its reg property on a per-board
-basis.
+With DT support for mv643xx_eth we do not need legacy platform_data
+based setup for DT enabled boards anymore.
 
 Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
-Changelog:
-v3->v4:
-- convert to new device tree binding
-
 Cc: David Miller <davem@davemloft.net>
 Cc: Lennert Buytenhek <buytenh@wantstofly.org>
 Cc: Jason Cooper <jason@lakedaemon.net>
@@ -38,72 +32,42 @@ Cc: linux-arm-kernel@lists.infradead.org
 Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-kernel@vger.kernel.org
 ---
- arch/arm/boot/dts/dove-cubox.dts |    7 +++++++
- arch/arm/boot/dts/dove.dtsi      |   35 +++++++++++++++++++++++++++++++++++
- 2 files changed, 42 insertions(+)
+ arch/arm/mach-dove/board-dt.c |    9 ---------
+ 1 file changed, 9 deletions(-)
 
-diff --git a/arch/arm/boot/dts/dove-cubox.dts b/arch/arm/boot/dts/dove-cubox.dts
-index 7e3065a..02618fa 100644
---- a/arch/arm/boot/dts/dove-cubox.dts
-+++ b/arch/arm/boot/dts/dove-cubox.dts
-@@ -49,6 +49,13 @@
- &uart0 { status = "okay"; };
- &sata0 { status = "okay"; };
- &i2c0 { status = "okay"; };
-+&mdio { status = "okay"; };
-+&eth { status = "okay"; };
-+
-+&ethphy {
-+	compatible = "marvell,88e1310";
-+	reg = <1>;
-+};
+diff --git a/arch/arm/mach-dove/board-dt.c b/arch/arm/mach-dove/board-dt.c
+index 0b14280..048e942 100644
+--- a/arch/arm/mach-dove/board-dt.c
++++ b/arch/arm/mach-dove/board-dt.c
+@@ -34,10 +34,6 @@ static void __init dove_legacy_clk_init(void)
+ 	clkspec.np = np;
+ 	clkspec.args_count = 1;
  
- &sdio0 {
- 	status = "okay";
-diff --git a/arch/arm/boot/dts/dove.dtsi b/arch/arm/boot/dts/dove.dtsi
-index 6cab468..8612658 100644
---- a/arch/arm/boot/dts/dove.dtsi
-+++ b/arch/arm/boot/dts/dove.dtsi
-@@ -258,5 +258,40 @@
- 				dmacap,xor;
- 			};
- 		};
-+
-+		mdio: mdio-bus@72004 {
-+			compatible = "marvell,orion-mdio";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0x72004 0x84>;
-+			interrupts = <30>;
-+			clocks = <&gate_clk 2>;
-+			status = "disabled";
-+
-+			ethphy: ethernet-phy {
-+				device-type = "ethernet-phy";
-+				/* set phy address in board file */
-+			};
-+		};
-+
-+		eth: ethernet-controller@72000 {
-+			compatible = "marvell,orion-eth";
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+			reg = <0x72000 0x4000>;
-+			clocks = <&gate_clk 2>;
-+			marvell,tx-checksum-limit = <1600>;
-+			status = "disabled";
-+
-+			ethernet-port@0 {
-+				device_type = "network";
-+				compatible = "marvell,orion-eth-port";
-+				reg = <0>;
-+				interrupts = <29>;
-+				/* overwrite MAC address in bootloader */
-+				local-mac-address = [00 00 00 00 00 00];
-+				phy-handle = <&ethphy>;
-+			};
-+		};
- 	};
- };
+-	clkspec.args[0] = CLOCK_GATING_BIT_GBE;
+-	orion_clkdev_add(NULL, "mv643xx_eth_port.0",
+-			 of_clk_get_from_provider(&clkspec));
+-
+ 	clkspec.args[0] = CLOCK_GATING_BIT_PCIE0;
+ 	orion_clkdev_add("0", "pcie",
+ 			 of_clk_get_from_provider(&clkspec));
+@@ -53,10 +49,6 @@ static void __init dove_of_clk_init(void)
+ 	dove_legacy_clk_init();
+ }
+ 
+-static struct mv643xx_eth_platform_data dove_dt_ge00_data = {
+-	.phy_addr = MV643XX_ETH_PHY_ADDR_DEFAULT,
+-};
+-
+ static void __init dove_dt_init(void)
+ {
+ 	pr_info("Dove 88AP510 SoC\n");
+@@ -70,7 +62,6 @@ static void __init dove_dt_init(void)
+ 	dove_of_clk_init();
+ 
+ 	/* Internal devices not ported to DT yet */
+-	dove_ge00_init(&dove_dt_ge00_data);
+ 	dove_pcie_init(1, 1);
+ 
+ 	of_platform_populate(NULL, of_default_bus_match_table, NULL, NULL);
 -- 
 1.7.10.4
