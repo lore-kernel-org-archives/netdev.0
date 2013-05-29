@@ -1,70 +1,88 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
- improved accuracy at high rates)
-Date: Wed, 29 May 2013 08:52:04 -0700
-Message-ID: <1369842724.5109.44.camel@edumazet-glaptop>
-References: <20130529151330.22c5c89e@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/5] netfilter fixes for 3.10-rc3
+Date: Wed, 29 May 2013 18:03:08 +0200
+Message-ID: <1369843394-24251-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@redhat.com>, j.vimal@gmail.com,
-	Michal Soltys <soltys@ziu.info>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
-	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
-	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
-	Jim Gettys <jg@freedesktop.org>,
-	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
-	Jiri Benc <jbenc@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:60009 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932934Ab3E2PwH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 11:52:07 -0400
-Received: by mail-pd0-f178.google.com with SMTP id w11so6036159pde.37
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 08:52:06 -0700 (PDT)
-In-Reply-To: <20130529151330.22c5c89e@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-29 at 15:13 +0200, Jesper Dangaard Brouer wrote:
-> I recently discovered that the (traffic control) tc linklayer
-> calculations for ATM/ADSL have been broken by:
->  commit 56b765b79 (htb: improved accuracy at high rates).
-> 
-> Thus, people shaping on ADSL links, using e.g.:
->  tc class add ... htb rate X ceil Y linklayer atm overhead 10
-> 
-> Will no-longer get ATM cell tax/overhead adjusted.
-> 
-> How can we solve/fix this?
-> Perhaps we can change to use the "stab" system instead (as it does
-> not seem to be broken by the commit).
-> 
-> But how do we facilitate a change to use "stab" system (for all the
-> scripts using the old option)?
-> 
-> Can we change the iproute2/tc command to handle this transparently, or
-> should we give an error/warning if someone uses "tc" and "linklayer" on
-> a kernel above v.3.8. ?
-> 
-> 
-> History:
->  - My linklayer ATM changes appeared in kernel 2.6.24 (and iproute2 2.6.25)
->  - The STAB changes appeared in kernel 2.6.27
-> 
+Hi David,
 
-Hi Jesper
+The following patchset contains Netfilter/IPVS fixes for 3.10-rc3,
+they are:
 
-stab suffers from the same problem : its table driven, so works only for
-packet smaller than a given size.
+* fix xt_addrtype with IPv6, from Florian Westphal. This required
+  a new hook for IPv6 functions in the netfilter core to avoid
+  hard dependencies with the ipv6 subsystem when this match is
+  only used for IPv4.
 
-I am not sure it will solve the ATM logic (with the 5 bytes overhead per
-48 bytes cell)
+* fix connection reuse case in IPVS. Currently, if an reused
+  connection are directed to the same server. If that server is
+  down, those connection would fail. Therefore, clear the
+  connection and choose a new server among the available ones.
 
-btw, even on old kernels :
+* fix possible non-nul terminated string sent to user-space if
+  ipt_ULOG is used as the default netfilter logging stub, from
+  Chen Gang.
+
+* fix mark logging of IPv6 packets in xt_LOG, from Michal Kubecek.
+  This bug has been there since 2.6.26.
+
+* Fix breakage ip_vs_sh due to incorrect structure layout for
+  RCU, from Jan Beulich.
+
+The following changes since commit 497574c72c9922cf20c12aed15313c389f72=
+2fa0:
+
+  xfrm: properly handle invalid states as an error (2013-05-23 01:20:07=
+ -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to a70b9641e6a90d6821e4354a2c2fede74015db29=
+:
+
+  ipvs: ip_vs_sh: fix build (2013-05-29 17:50:39 +0200)
+
+----------------------------------------------------------------
+Chen Gang (1):
+      netfilter: ipt_ULOG: fix non-null terminated string in the nf_log=
+ path
+
+=46lorian Westphal (1):
+      netfilter: add nf_ipv6_ops hook to fix xt_addrtype with IPv6
+
+Grzegorz Lyczba (1):
+      ipvs: Fix reuse connection if real server is dead
+
+Jan Beulich (1):
+      ipvs: ip_vs_sh: fix build
+
+Michal Kube=C4=8Dek (1):
+      netfilter: xt_LOG: fix mark logging for IPv6 packets
+
+ include/linux/netfilter_ipv6.h  |   16 ++++++++++++++++
+ include/net/addrconf.h          |    2 +-
+ net/ipv4/netfilter/ipt_ULOG.c   |    6 ++++--
+ net/ipv6/addrconf.c             |    2 +-
+ net/ipv6/netfilter.c            |    7 +++++++
+ net/netfilter/core.c            |    2 ++
+ net/netfilter/ipvs/ip_vs_core.c |   35 +++++++++++++++++++++++++++++++=
+++++
+ net/netfilter/ipvs/ip_vs_sh.c   |    2 +-
+ net/netfilter/xt_LOG.c          |    2 +-
+ net/netfilter/xt_addrtype.c     |   27 ++++++++++++++++-----------
+ 10 files changed, 84 insertions(+), 17 deletions(-)
+
+--
+To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
+el" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
