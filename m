@@ -1,115 +1,135 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 02/21] batman-adv: send each broadcast only once on non-wireless interfaces
-Date: Wed, 29 May 2013 02:59:27 +0200
-Message-ID: <1369789186-3600-3-git-send-email-ordex@autistici.org>
-References: <1369789186-3600-1-git-send-email-ordex@autistici.org>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Matthias Schiffer <mschiffer@universe-factory.net>,
-	Marek Lindner <lindner_marek@yahoo.de>,
-	Antonio Quartulli <ordex@autistici.org>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Update RPS target at poll for inet
+Date: Tue, 28 May 2013 18:07:57 -0700
+Message-ID: <1369789677.3301.589.camel@edumazet-glaptop>
+References: <20130529004731.0CC5280D76@donbot.mtv.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org, pjt@google.com,
+	maze@google.com, therbert@google.com
+To: majnemer@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:43818 "EHLO
-	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759062Ab3E2BBq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 21:01:46 -0400
-In-Reply-To: <1369789186-3600-1-git-send-email-ordex@autistici.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:52232 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932863Ab3E2BIA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 21:08:00 -0400
+Received: by mail-pb0-f41.google.com with SMTP id xb12so8575682pbc.14
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 18:08:00 -0700 (PDT)
+In-Reply-To: <20130529004731.0CC5280D76@donbot.mtv.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Matthias Schiffer <mschiffer@universe-factory.net>
+On Tue, 2013-05-28 at 17:47 -0700, majnemer@google.com wrote:
+> Hello,
+> 
+> The current state of affairs is that read(2)/write(2) will engage
+> RPS (receive packet steering) for internet protocol sockets while
+> poll(2) does not.
+> 
+> We noticed that this is suboptimal for scenarios similar to the following:
+> 1. Perform a poll(2) on a socket.
+> 2. Block in sock_poll_wait (or something similar).
+> 3. Perform a read(2) on the previously mentioned socket.
+> 
+> This patch updates the RPS target during poll(2) which improves this scenario.
+> 
+> Concretely, we saw improvements on the order of ~20% for the median and
+> ~6% for the mean on our internal packet forwarding workload. Let me know if
+> there is another workload I should take a look at.
+> 
+> Thanks,
+> David
+> 
+> -----------------------------8<---------------------------
+> 
+> When poll(2) gets called with an ip socket, update the flow target to be the
+> poller. The data will be on the appropriate CPU when the poller later calls
+> recvmsg(2).
+> 
+> Signed-off-by: David Majnemer <majnemer@google.com>
+> ---
+>  include/net/inet_common.h |  2 ++
+>  net/ipv4/af_inet.c        | 13 ++++++++++++-
+>  net/ipv4/tcp.c            |  2 ++
+>  net/ipv4/udp.c            |  2 ++
+>  4 files changed, 18 insertions(+), 1 deletion(-)
+> 
+> diff --git a/include/net/inet_common.h b/include/net/inet_common.h
+> index 2340087..21ecdb3 100644
+> --- a/include/net/inet_common.h
+> +++ b/include/net/inet_common.h
+> @@ -20,6 +20,8 @@ extern int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+>  				 int addr_len, int flags);
+>  extern int inet_dgram_connect(struct socket *sock, struct sockaddr *uaddr,
+>  			      int addr_len, int flags);
+> +extern unsigned int inet_dgram_poll(struct file *file, struct socket *sock,
+> +				    poll_table *wait);
+>  extern int inet_accept(struct socket *sock, struct socket *newsock, int flags);
+>  extern int inet_sendmsg(struct kiocb *iocb, struct socket *sock,
+>  			struct msghdr *msg, size_t size);
+> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+> index b05ae96..e864612 100644
+> --- a/net/ipv4/af_inet.c
+> +++ b/net/ipv4/af_inet.c
+> @@ -567,6 +567,17 @@ int inet_dgram_connect(struct socket *sock, struct sockaddr *uaddr,
+>  }
+>  EXPORT_SYMBOL(inet_dgram_connect);
+>  
+> +unsigned int inet_dgram_poll(struct file *file, struct socket *sock,
+> +			     poll_table *wait)
+> +{
+> +	struct sock *sk = sock->sk;
+> +
+> +	sock_rps_record_flow(sk);
+> +
+> +	return datagram_poll(file, sock, wait);
+> +}
+> +EXPORT_SYMBOL(inet_dgram_poll);
+> +
+>  static long inet_wait_for_connect(struct sock *sk, long timeo, int writebias)
+>  {
+>  	DEFINE_WAIT(wait);
+> @@ -1001,7 +1012,7 @@ static const struct proto_ops inet_sockraw_ops = {
+>  	.socketpair	   = sock_no_socketpair,
+>  	.accept		   = sock_no_accept,
+>  	.getname	   = inet_getname,
+> -	.poll		   = datagram_poll,
+> +	.poll		   = inet_dgram_poll,
+>  	.ioctl		   = inet_ioctl,
+>  	.listen		   = sock_no_listen,
+>  	.shutdown	   = inet_shutdown,
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index ba4186e..6aa930a 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -436,6 +436,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+>  	struct sock *sk = sock->sk;
+>  	const struct tcp_sock *tp = tcp_sk(sk);
+>  
+> +	sock_rps_record_flow(sk);
+> +
+>  	sock_poll_wait(file, sk_sleep(sk), wait);
+>  	if (sk->sk_state == TCP_LISTEN)
+>  		return inet_csk_listen_poll(sk);
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index aa5eff4..c7338ec 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1967,6 +1967,8 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
+>  	unsigned int mask = datagram_poll(file, sock, wait);
+>  	struct sock *sk = sock->sk;
+>  
+> +	sock_rps_record_flow(sk);
+> +
+>  	/* Check for false positives due to checksum errors */
+>  	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
+>  	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
 
-While it makes sense to send each broadcast thrice on 802.11 (WLAN) interfaces
-as broadcasts are often unreliable on these, there is no reason to do so on
-other interface types.
+I do understand the UDP/TCP parts in udp_poll()/tcp_poll()
 
-The increased the overhead can be harmful on low-bandwidth links like VPN
-connections over slow internet lines, therefore it is better to reduce the
-number of broadcast packets sent on non-wireless links to one.
+But I don't see how inet_dgram_poll() is expected to work.
 
-Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
-Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
----
- net/batman-adv/hard-interface.c | 4 ++++
- net/batman-adv/main.h           | 5 +++++
- net/batman-adv/send.c           | 5 ++++-
- net/batman-adv/types.h          | 2 ++
- 4 files changed, 15 insertions(+), 1 deletion(-)
+I do not think raw socket calls sock_rps_save_rxhash(sk, skb).
 
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index d5ec67b..4a76ed6 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -593,6 +593,10 @@ batadv_hardif_add_interface(struct net_device *net_dev)
- 	INIT_WORK(&hard_iface->cleanup_work,
- 		  batadv_hardif_remove_interface_finish);
- 
-+	hard_iface->num_bcasts = BATADV_NUM_BCASTS_DEFAULT;
-+	if (batadv_is_wifi_netdev(net_dev))
-+		hard_iface->num_bcasts = BATADV_NUM_BCASTS_WIRELESS;
-+
- 	/* extra reference for return */
- 	atomic_set(&hard_iface->refcount, 2);
- 
-diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
-index 59a0d6a..ea1a3ba 100644
---- a/net/batman-adv/main.h
-+++ b/net/batman-adv/main.h
-@@ -76,6 +76,11 @@
- 
- #define BATADV_LOG_BUF_LEN 8192	  /* has to be a power of 2 */
- 
-+/* number of packets to send for broadcasts on different interface types */
-+#define BATADV_NUM_BCASTS_DEFAULT 1
-+#define BATADV_NUM_BCASTS_WIRELESS 3
-+#define BATADV_NUM_BCASTS_MAX 3
-+
- /* msecs after which an ARP_REQUEST is sent in broadcast as fallback */
- #define ARP_REQ_DELAY 250
- /* numbers of originator to contact for any PUT/GET DHT operation */
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index 263cfd1..eb16b04 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -260,6 +260,9 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
- 		if (hard_iface->soft_iface != soft_iface)
- 			continue;
- 
-+		if (forw_packet->num_packets >= hard_iface->num_bcasts)
-+			continue;
-+
- 		/* send a copy of the saved skb */
- 		skb1 = skb_clone(forw_packet->skb, GFP_ATOMIC);
- 		if (skb1)
-@@ -271,7 +274,7 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
- 	forw_packet->num_packets++;
- 
- 	/* if we still have some more bcasts to send */
--	if (forw_packet->num_packets < 3) {
-+	if (forw_packet->num_packets < BATADV_NUM_BCASTS_MAX) {
- 		_batadv_add_bcast_packet_to_list(bat_priv, forw_packet,
- 						 msecs_to_jiffies(5));
- 		return;
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index aba8364..5f542bd 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -61,6 +61,7 @@ struct batadv_hard_iface_bat_iv {
-  * @if_status: status of the interface for batman-adv
-  * @net_dev: pointer to the net_device
-  * @frag_seqno: last fragment sequence number sent by this interface
-+ * @num_bcasts: number of payload re-broadcasts on this interface (ARQ)
-  * @hardif_obj: kobject of the per interface sysfs "mesh" directory
-  * @refcount: number of contexts the object is used
-  * @batman_adv_ptype: packet type describing packets that should be processed by
-@@ -76,6 +77,7 @@ struct batadv_hard_iface {
- 	char if_status;
- 	struct net_device *net_dev;
- 	atomic_t frag_seqno;
-+	uint8_t num_bcasts;
- 	struct kobject *hardif_obj;
- 	atomic_t refcount;
- 	struct packet_type batman_adv_ptype;
--- 
-1.8.1.5
+Its done only for tcp sockets, and connected udp sockets.
