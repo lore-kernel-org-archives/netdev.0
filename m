@@ -1,95 +1,138 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] net: Fix build warnings after mac_header and
-Date: Wed, 29 May 2013 12:14:09 +0900
-Message-ID: <20130529031409.GA16040@verge.net.au>
-References: <20130528.131614.2137913181835631312.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next] net: always pass struct netdev_notifier_info to netdevice notifiers
+Date: Wed, 29 May 2013 11:30:50 +0800
+Message-ID: <1369798250-25798-1-git-send-email-amwang@redhat.com>
+Cc: Jiri Pirko <jiri@resnulli.us>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:55293 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759194Ab3E2DRR convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 23:17:17 -0400
-Content-Disposition: inline
-In-Reply-To: <20130528.131614.2137913181835631312.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:47227 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932280Ab3E2DbJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 May 2013 23:31:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 28, 2013 at 01:16:14PM -0700, David Miller wrote:
->=20
-> net/core/skbuff.c: In function =E2=80=98__alloc_skb_head=E2=80=99:
-> net/core/skbuff.c:203:2: warning: large integer implicitly truncated =
-to unsigned type [-Woverflow]
-> net/core/skbuff.c: In function =E2=80=98__alloc_skb=E2=80=99:
-> net/core/skbuff.c:279:2: warning: large integer implicitly truncated =
-to unsigned type [-Woverflow]
-> net/core/skbuff.c:280:2: warning: large integer implicitly truncated =
-to unsigned type [-Woverflow]
-> net/core/skbuff.c: In function =E2=80=98build_skb=E2=80=99:
-> net/core/skbuff.c:348:2: warning: large integer implicitly truncated =
-to unsigned type [-Woverflow]
-> net/core/skbuff.c:349:2: warning: large integer implicitly truncated =
-to unsigned type [-Woverflow]
->=20
-> Signed-off-by: David S. Miller <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
 
-Sorry about that. I think there are also some other warnings which show=
- up
-on i386 (at least). I will work on fixing them too.
+commit 351638e7deeed2ec8ce451b53d3 (net: pass info struct via netdevice notifier)
+breaks booting of my KVM guest, this is due to we still forget to pass
+struct netdev_notifier_info in several places. This patch completes it.
 
-> ---
->  net/core/skbuff.c | 10 +++++-----
->  1 file changed, 5 insertions(+), 5 deletions(-)
->=20
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index d629891..f45de07 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -200,7 +200,7 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, =
-int node)
->  	atomic_set(&skb->users, 1);
-> =20
->  #ifdef NET_SKBUFF_DATA_USES_OFFSET
-> -	skb->mac_header =3D ~0U;
-> +	skb->mac_header =3D (__u16) ~0U;
->  #endif
->  out:
->  	return skb;
-> @@ -276,8 +276,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gf=
-p_t gfp_mask,
->  	skb_reset_tail_pointer(skb);
->  	skb->end =3D skb->tail + size;
->  #ifdef NET_SKBUFF_DATA_USES_OFFSET
-> -	skb->mac_header =3D ~0U;
-> -	skb->transport_header =3D ~0U;
-> +	skb->mac_header =3D (__u16) ~0U;
-> +	skb->transport_header =3D (__u16) ~0U;
->  #endif
-> =20
->  	/* make sure we initialize shinfo sequentially */
-> @@ -345,8 +345,8 @@ struct sk_buff *build_skb(void *data, unsigned in=
-t frag_size)
->  	skb_reset_tail_pointer(skb);
->  	skb->end =3D skb->tail + size;
->  #ifdef NET_SKBUFF_DATA_USES_OFFSET
-> -	skb->mac_header =3D ~0U;
-> -	skb->transport_header =3D ~0U;
-> +	skb->mac_header =3D (__u16) ~0U;
-> +	skb->transport_header =3D (__u16) ~0U;
->  #endif
-> =20
->  	/* make sure we initialize shinfo sequentially */
-> --=20
-> 1.7.11.7
->=20
-> N=C2=8B=C2=A7=C2=B2=CE=B6=CE=BCr=CE=88=C2=9By=CF=8A=CE=B8=C2=9A=CE=A8=
-b=C2=B2X=C2=AC=CE=86=CE=97=C2=A7v=CE=A8^=C2=96)=CE=AE=CE=8A{.n=CE=97+=C2=
-=89=C2=B7=C2=A7z=CE=A7^=CE=8E)=CE=BD=C2=85=CE=B6=CE=B8w*=1Fjg=C2=AC=C2=B1=
-=C2=A8=1E=CE=86=C2=89=C2=9A=C2=8E=C2=8A=CE=AD=E2=80=99j/=C2=81=CE=BA=CE=
-=B4z=CE=89=CE=AE=C2=96=C2=8A=CE=B02=C2=8A=CE=AE=C2=99=C2=A8=CE=B8=C2=AD=
-=CE=AA&=E2=80=99)=CE=AF=E2=80=98=C2=ABa=CE=86=CE=AA=7F=CF=8E=CF=88=1E?G=
-=C2=AB=C2=9D=CE=B9h?=0F=CE=B6j:+v=C2=89=C2=A8=C2=8Aw=CE=B8=C2=86=CE=A9=E2=
-=82=AF
+Cc: Jiri Pirko <jiri@resnulli.us>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
+---
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 8502718..8f967e3 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1609,6 +1609,12 @@ struct netdev_notifier_change_info {
+ 	unsigned int flags_changed;
+ };
+ 
++static inline void netdev_notifier_info_init(struct netdev_notifier_info *info,
++					     struct net_device *dev)
++{
++	info->dev = dev;
++}
++
+ static inline struct net_device *
+ netdev_notifier_info_to_dev(const struct netdev_notifier_info *info)
+ {
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index cce241e..8215f7c 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -575,6 +575,7 @@ static int clip_inet_event(struct notifier_block *this, unsigned long event,
+ 			   void *ifa)
+ {
+ 	struct in_device *in_dev;
++	struct netdev_notifier_info info;
+ 
+ 	in_dev = ((struct in_ifaddr *)ifa)->ifa_dev;
+ 	/*
+@@ -583,7 +584,8 @@ static int clip_inet_event(struct notifier_block *this, unsigned long event,
+ 	 */
+ 	if (event != NETDEV_UP)
+ 		return NOTIFY_DONE;
+-	return clip_device_event(this, NETDEV_CHANGE, in_dev->dev);
++	netdev_notifier_info_init(&info, in_dev->dev);
++	return clip_device_event(this, NETDEV_CHANGE, &info);
+ }
+ 
+ static struct notifier_block clip_dev_notifier = {
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 6eb621c..b2e9057 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1391,12 +1391,6 @@ void dev_disable_lro(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(dev_disable_lro);
+ 
+-static void netdev_notifier_info_init(struct netdev_notifier_info *info,
+-				      struct net_device *dev)
+-{
+-	info->dev = dev;
+-}
+-
+ static int call_netdevice_notifier(struct notifier_block *nb, unsigned long val,
+ 				   struct net_device *dev)
+ {
+diff --git a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
+index dd5508b..30e4de9 100644
+--- a/net/ipv4/netfilter/ipt_MASQUERADE.c
++++ b/net/ipv4/netfilter/ipt_MASQUERADE.c
+@@ -129,7 +129,10 @@ static int masq_inet_event(struct notifier_block *this,
+ 			   void *ptr)
+ {
+ 	struct net_device *dev = ((struct in_ifaddr *)ptr)->ifa_dev->dev;
+-	return masq_device_event(this, event, dev);
++	struct netdev_notifier_info info;
++
++	netdev_notifier_info_init(&info, dev);
++	return masq_device_event(this, event, &info);
+ }
+ 
+ static struct notifier_block masq_dev_notifier = {
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index bce073b..7b34f06 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -4645,13 +4645,16 @@ int addrconf_sysctl_forward(ctl_table *ctl, int write,
+ 
+ static void dev_disable_change(struct inet6_dev *idev)
+ {
++	struct netdev_notifier_info info;
++
+ 	if (!idev || !idev->dev)
+ 		return;
+ 
++	netdev_notifier_info_init(&info, idev->dev);
+ 	if (idev->cnf.disable_ipv6)
+-		addrconf_notify(NULL, NETDEV_DOWN, idev->dev);
++		addrconf_notify(NULL, NETDEV_DOWN, &info);
+ 	else
+-		addrconf_notify(NULL, NETDEV_UP, idev->dev);
++		addrconf_notify(NULL, NETDEV_UP, &info);
+ }
+ 
+ static void addrconf_disable_change(struct net *net, __s32 newf)
+diff --git a/net/ipv6/netfilter/ip6t_MASQUERADE.c b/net/ipv6/netfilter/ip6t_MASQUERADE.c
+index b76257c..47bff61 100644
+--- a/net/ipv6/netfilter/ip6t_MASQUERADE.c
++++ b/net/ipv6/netfilter/ip6t_MASQUERADE.c
+@@ -89,8 +89,10 @@ static int masq_inet_event(struct notifier_block *this,
+ 			   unsigned long event, void *ptr)
+ {
+ 	struct inet6_ifaddr *ifa = ptr;
++	struct netdev_notifier_info info;
+ 
+-	return masq_device_event(this, event, ifa->idev->dev);
++	netdev_notifier_info_init(&info, ifa->idev->dev);
++	return masq_device_event(this, event, &info);
+ }
+ 
+ static struct notifier_block masq_inet_notifier = {
