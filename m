@@ -1,109 +1,67 @@
-From: Jiang Liu <liuj97@gmail.com>
-Subject: [PATCH v6, part4 09/41] mm: use totalram_pages instead of num_physpages at runtime
-Date: Wed, 29 May 2013 21:57:27 +0800
-Message-ID: <1369835879-23553-10-git-send-email-jiang.liu@huawei.com>
-References: <1369835879-23553-1-git-send-email-jiang.liu@huawei.com>
-Cc: Jiang Liu <jiang.liu@huawei.com>,
-	David Rientjes <rientjes@google.com>,
-	Wen Congyang <wency@cn.fujitsu.com>,
-	Mel Gorman <mgorman@suse.de>,
-	Minchan Kim <minchan@kernel.org>,
-	KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>,
-	Michal Hocko <mhocko@suse.cz>,
-	James Bottomley <James.Bottomley@HansenPartnership.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Howells <dhowells@redhat.com>,
-	Mark Salter <msalter@redhat.com>,
-	Jianguo Wu <wujianguo@huawei.com>,
-	linux-mm@kvack.org,
-	linux-arch@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Miklos Szeredi <miklos@szeredi.hu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	fuse-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org
-To: Andrew Morton <akpm@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1369835879-23553-1-git-send-email-jiang.liu@huawei.com>
-Sender: owner-linux-mm@kvack.org
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v6 net-next 2/5] net: implement support
+ for low latency socket polling
+Date: Wed, 29 May 2013 17:01:38 +0300
+Message-ID: <51A60A42.20905@linux.intel.com>
+References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
+	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
+	<1369834647.5109.15.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
+	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1369834647.5109.15.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-The global variable num_physpages is scheduled to be removed, so use
-totalram_pages instead of num_physpages at runtime.
+On 29/05/2013 16:37, Eric Dumazet wrote:
+> On Wed, 2013-05-29 at 09:39 +0300, Eliezer Tamir wrote:
 
-Signed-off-by: Jiang Liu <jiang.liu@huawei.com>
-Cc: Miklos Szeredi <miklos@szeredi.hu>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: fuse-devel@lists.sourceforge.net
-Cc: linux-kernel@vger.kernel.org
-Cc: netdev@vger.kernel.org
----
- fs/fuse/inode.c          | 2 +-
- kernel/power/snapshot.c  | 4 ++--
- net/ipv4/inet_fragment.c | 2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+>> +static inline unsigned long ll_end_time(void)
+>> +{
+>> +	return TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll) + get_cycles();
+>> +}
+>
+> This can overflow.
+>
+> Multiply is giving 32bits, as tsc_khz is an int, and sysctl_net_ll_poll
+> is an int.
+>
+> unsigned long sysctl_net_ll_poll ?
+OK
 
-diff --git a/fs/fuse/inode.c b/fs/fuse/inode.c
-index 6201f81..c2d44ef 100644
---- a/fs/fuse/inode.c
-+++ b/fs/fuse/inode.c
-@@ -785,7 +785,7 @@ static const struct super_operations fuse_super_operations = {
- static void sanitize_global_limit(unsigned *limit)
- {
- 	if (*limit == 0)
--		*limit = ((num_physpages << PAGE_SHIFT) >> 13) /
-+		*limit = ((totalram_pages << PAGE_SHIFT) >> 13) /
- 			 sizeof(struct fuse_req);
- 
- 	if (*limit >= 1 << 16)
-diff --git a/kernel/power/snapshot.c b/kernel/power/snapshot.c
-index 0de2857..8b5d1cd 100644
---- a/kernel/power/snapshot.c
-+++ b/kernel/power/snapshot.c
-@@ -1651,7 +1651,7 @@ unsigned long snapshot_get_image_size(void)
- static int init_header(struct swsusp_info *info)
- {
- 	memset(info, 0, sizeof(struct swsusp_info));
--	info->num_physpages = num_physpages;
-+	info->num_physpages = get_num_physpages();
- 	info->image_pages = nr_copy_pages;
- 	info->pages = snapshot_get_image_size();
- 	info->size = info->pages;
-@@ -1795,7 +1795,7 @@ static int check_header(struct swsusp_info *info)
- 	char *reason;
- 
- 	reason = check_image_kernel(info);
--	if (!reason && info->num_physpages != num_physpages)
-+	if (!reason && info->num_physpages != get_num_physpages())
- 		reason = "memory size";
- 	if (reason) {
- 		printk(KERN_ERR "PM: Image mismatch: %s\n", reason);
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 7e06641..cec5394 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -93,7 +93,7 @@ void inet_frags_init(struct inet_frags *f)
- 	}
- 	rwlock_init(&f->lock);
- 
--	f->rnd = (u32) ((num_physpages ^ (num_physpages>>7)) ^
-+	f->rnd = (u32) ((totalram_pages ^ (totalram_pages >> 7)) ^
- 				   (jiffies ^ (jiffies >> 6)));
- 
- 	setup_timer(&f->secret_timer, inet_frag_secret_rebuild,
--- 
-1.8.1.2
+> Also, if we want this to work on i386, the correct type to use for
+> ll_end_time(void) would be cycles_t
 
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+OK
+I would be really surprised if someone uses this on an i386, but I guess 
+you never know.
+
+Thanks!
+-Eliezer
+
+------------------------------------------------------------------------------
+Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
+Get 100% visibility into your production application - at no cost.
+Code-level diagnostics for performance bottlenecks with <2% overhead
+Download for free and get started troubleshooting in minutes.
+http://p.sf.net/sfu/appdyn_d2d_ap1
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
