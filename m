@@ -1,126 +1,91 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: [PATCH net-next 2/3] ipv4: rate limit updating of next hop
- exceptions with same pmtu
-Date: Wed, 29 May 2013 08:07:25 +0300
-Message-ID: <20130529080725.5de3477b@vostro>
-References: <20130527.233844.2081972819091665848.davem@davemloft.net>
-	<1369723593-5307-1-git-send-email-timo.teras@iki.fi>
-	<1369723593-5307-2-git-send-email-timo.teras@iki.fi>
-	<alpine.LFD.2.00.1305281127340.1693@ja.ssi.bg>
-	<20130528130757.4bf59c6b@vostro>
-	<alpine.LFD.2.00.1305282245340.1713@ja.ssi.bg>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: updated: kvm networking todo wiki
+Date: Wed, 29 May 2013 09:37:49 +0930
+Message-ID: <87li6yodgq.fsf@rustcorp.com.au>
+References: <20130523085034.GA16142@redhat.com> <519F35B7.6010408@redhat.com> <20130524113542.GA7046@redhat.com> <8738tctrox.fsf@codemonkey.ws> <20130524140024.GA12024@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+	David Stevens <dlstevens@us.ibm.com>, sri@linux.vnet.ibm.com,
+	Krishna Kumar2 <krkumar2@in.ibm.com>,
+	Shirley Ma <mashirle@us.ibm.com>,
+	"Xin\, Xiaohui" <xiaohui.xin@intel.com>, jdike@linux.intel.com,
+	herbert@gondor.hengli.com.au, lmr@redhat.com, akong@redhat.com,
+	vyasevic@redhat.com, sriram.narasimhan@hp.com, kvm@vger.kernel.org,
+	qemu-devel@nongnu.org, netdev@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Anthony Liguori <anthony@codemonkey.ws>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:60988 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751073Ab3E2FFp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:05:45 -0400
-Received: by mail-ea0-f172.google.com with SMTP id d10so5158855eaj.31
-        for <netdev@vger.kernel.org>; Tue, 28 May 2013 22:05:43 -0700 (PDT)
-In-Reply-To: <alpine.LFD.2.00.1305282245340.1713@ja.ssi.bg>
+Received: from ozlabs.org ([203.10.76.45]:49609 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752409Ab3E2FHj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 01:07:39 -0400
+In-Reply-To: <20130524140024.GA12024@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 May 2013 00:04:47 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+"Michael S. Tsirkin" <mst@redhat.com> writes:
+> On Fri, May 24, 2013 at 08:47:58AM -0500, Anthony Liguori wrote:
+>> "Michael S. Tsirkin" <mst@redhat.com> writes:
+>> 
+>> > On Fri, May 24, 2013 at 05:41:11PM +0800, Jason Wang wrote:
+>> >> On 05/23/2013 04:50 PM, Michael S. Tsirkin wrote:
+>> >> > Hey guys,
+>> >> > I've updated the kvm networking todo wiki with current projects.
+>> >> > Will try to keep it up to date more often.
+>> >> > Original announcement below.
+>> >> 
+>> >> Thanks a lot. I've added the tasks I'm currently working on to the wiki.
+>> >> 
+>> >> btw. I notice the virtio-net data plane were missed in the wiki. Is the
+>> >> project still being considered?
+>> >
+>> > It might have been interesting several years ago, but now that linux has
+>> > vhost-net in kernel, the only point seems to be to
+>> > speed up networking on non-linux hosts.
+>> 
+>> Data plane just means having a dedicated thread for virtqueue processing
+>> that doesn't hold qemu_mutex.
+>> 
+>> Of course we're going to do this in QEMU.  It's a no brainer.  But not
+>> as a separate device, just as an improvement to the existing userspace
+>> virtio-net.
+>> 
+>> > Since non-linux does not have kvm, I doubt virtio is a bottleneck.
+>> 
+>> FWIW, I think what's more interesting is using vhost-net as a networking
+>> backend with virtio-net in QEMU being what's guest facing.
+>> 
+>> In theory, this gives you the best of both worlds: QEMU acts as a first
+>> line of defense against a malicious guest while still getting the
+>> performance advantages of vhost-net (zero-copy).
+>
+> Great idea, that sounds very intresting.
+>
+> I'll add it to the wiki.
+>
+> In fact a bit of complexity in vhost was put there in the vague hope to
+> support something like this: virtio rings are not translated through
+> regular memory tables, instead, vhost gets a pointer to ring address.
+>
+> This allows qemu acting as a man in the middle,
+> verifying the descriptors but not touching the
+>
+> Anyone interested in working on such a project?
 
-> 
-> 	Hello,
-> 
-> On Tue, 28 May 2013, Timo Teras wrote:
-> 
-> > > > --- a/net/ipv4/route.c
-> > > > +++ b/net/ipv4/route.c
-> > > > @@ -947,6 +947,10 @@ static void __ip_rt_update_pmtu(struct
-> > > > rtable *rt, struct flowi4 *fl4, u32 mtu) if (mtu <
-> > > > ip_rt_min_pmtu) mtu = ip_rt_min_pmtu;
-> > > >  
-> > > > +	if (rt->rt_pmtu == mtu &&
-> > > > +	    time_before(jiffies, dst->expires -
-> > > > ip_rt_mtu_expires / 2))
-> > > > +		return;
-> > > > +
-> > > 
-> > > 	Can we also add logic in this patch in
-> > > update_or_create_fnhe, so that we avoid invalidation for cached
-> > > routes when only pmtu expiration is updated (same pmtu), i.e.:
-> > > 
-> > > +	if (gw || pmtu != fnhe->fnhe_pmtu) {
-> > > +		/* Exception created; mark the cached routes for
-> > > the nexthop
-> > > +		...
-> > > +	}
-> > > 
-> > > 	BTW, I now see that previous patch should
-> > > call for_each_possible_cpu for the both cases, not
-> > > only when fnhe is created but also on update:
-> > 
-> > Why would this be needed?
-> > 
-> > The idea is that if there is no next hop exception, everyone is
-> > using the next hop's dsts. If there is a next hop exception hashed,
-> > they will be using those routes in the exception entry.
-> > 
-> > When the exception is created, we need to invalidate the nexthop's
-> > routes, to force relookup of these dst's if should go to the
-> > exception. Basically it flushes the nexthop's 'default' dst.
-> > 
-> > But if we have a valid exception, and we are just updating it.
-> > Everyone is already using the right dst. The
-> > update_or_create_fnhe() updates all exception's dst's that are
-> > effected. Since the set of hosts to which that exception applies is
-> > the same, I don't see why we would need to invalidate the nexthop's
-> > 'default' dst.
-> 
-> 	Agreed for the NH route. But there is another case:
-> when fnhe exists for fnhe_pmtu!=0 and fnhe_gw=0 and the cached
-> FNHE route has just rt_pmtu!=0 and rt_uses_gateway=0. In the
-> event of redirect we should invalidate fnhe_rth.
-> Users should come again to get the new gw from the
-> same fnhe. As you note, nh_pcpu_rth_output does not need
-> to be invalidated, it was already invalidated when
-> fnhe was created.
-> 
-> 	So, my idea is something like this. If cached
-> route detects change in gw on redirect, it calls
-> update_or_create_fnhe but FNHE can already know this gw,
-> we should invalidate the fnhe_rth only if gw changes.
-> As caller has some stale cache route, it should be
-> invalidated as before, I assume 'kill_route' is properly
-> provided.
-> 
-> 	if (fnhe) {
-> 		if (fnhe->fnhe_gw != gw && gw) {
-> 			rt =
-> rcu_dereference_protected(fnhe->fnhe_rth, 1); if (rt)
-> 				rt->dst.obsolete = DST_OBSOLETE_KILL;
-> 			fnhe->fnhe_gw = gw;
-> 		}
-> 		...
-> 	}
-> 	...
-> }
+It would be an interesting idea if we didn't already have the vhost
+model where we don't need the userspace bounce.  We already have two
+sets of host side ring code in the kernel (vhost and vringh, though
+they're being unified).
 
-This is already done by the caller of update_or_create_fnhe for the
-case of gw change. It might be worth to put all this to the same place,
-but would be worth of separate patch.
+All an accelerator can offer on the tx side is zero copy and direct
+update of the used ring.  On rx userspace could register the buffers and
+the accelerator could fill them and update the used ring.  It still
+needs to deal with merged buffers, for example.
 
-> 	Also, I don't know the XFRM code well but
-> xfrm_bundle_ok() calls dst_check. Now ipv4_dst_check
-> will not give any indication for recent change in
-> rt_pmtu. I hope this is not a problem because I see
-> some comparisons with cached pmtus. I.e. the main
-> question is: are there any dst_check and ->check users
-> that needs to know for changes in rt_pmtu or all
-> of them just use dst_mtu().
+You avoid the address translation in the kernel, but I'm not convinced
+that's a key problem.
 
-In XFRM case, xfrm_bundle_ok() will propagate the pmtu by calling
-dst_mtu() for each target. All caching users need to use dst_mtu() to
-check it, so the route.c code is correct - this is how it worked before
-my patches too.
-
-- Timo
+Cheers,
+Rusty.
