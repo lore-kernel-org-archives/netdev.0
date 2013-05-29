@@ -1,15 +1,15 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH 3/7] net: Correct comparisons and calculations using skb->tail and skb-transport_header
-Date: Wed, 29 May 2013 14:27:44 +0900
-Message-ID: <1369805268-6291-4-git-send-email-horms@verge.net.au>
+Subject: [PATCH 5/7] ipv4: Correct comparisons and calculations using skb->tail and skb-transport_header
+Date: Wed, 29 May 2013 14:27:46 +0900
+Message-ID: <1369805268-6291-6-git-send-email-horms@verge.net.au>
 References: <1369805268-6291-1-git-send-email-horms@verge.net.au>
 Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:46188 "EHLO
+Received: from kirsty.vergenet.net ([202.4.237.240]:46193 "EHLO
 	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753027Ab3E2F1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:27:09 -0400
+	with ESMTP id S1754030Ab3E2F1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:27:10 -0400
 In-Reply-To: <1369805268-6291-1-git-send-email-horms@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,52 +22,51 @@ ensure that comparisons and calculations are always made using pointers.
 
 Signed-off-by: Simon Horman <horms@verge.net.au>
 ---
- include/net/inet_ecn.h |    6 ++++--
- net/core/dev.c         |    4 ++--
- 2 files changed, 6 insertions(+), 4 deletions(-)
+ net/ipv4/icmp.c |    3 ++-
+ net/ipv4/igmp.c |    2 +-
+ net/ipv4/tcp.c  |    3 ++-
+ 3 files changed, 5 insertions(+), 3 deletions(-)
 
-diff --git a/include/net/inet_ecn.h b/include/net/inet_ecn.h
-index aab7375..3bd2279 100644
---- a/include/net/inet_ecn.h
-+++ b/include/net/inet_ecn.h
-@@ -134,12 +134,14 @@ static inline int INET_ECN_set_ce(struct sk_buff *skb)
+diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+index 562efd9..5d0d379 100644
+--- a/net/ipv4/icmp.c
++++ b/net/ipv4/icmp.c
+@@ -503,7 +503,8 @@ void icmp_send(struct sk_buff *skb_in, int type, int code, __be32 info)
+ 	iph = ip_hdr(skb_in);
+ 
+ 	if ((u8 *)iph < skb_in->head ||
+-	    (skb_in->network_header + sizeof(*iph)) > skb_in->tail)
++	    (skb_network_header(skb_in) + sizeof(*iph)) >
++	    skb_tail_pointer(skb_in))
+ 		goto out;
+ 
+ 	/*
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index d8c2327..450f625 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -363,7 +363,7 @@ static struct sk_buff *igmpv3_newpack(struct net_device *dev, int size)
+ static int igmpv3_sendpack(struct sk_buff *skb)
  {
- 	switch (skb->protocol) {
- 	case cpu_to_be16(ETH_P_IP):
--		if (skb->network_header + sizeof(struct iphdr) <= skb->tail)
-+		if (skb_network_header(skb) + sizeof(struct iphdr) <=
-+		    skb_tail_pointer(skb))
- 			return IP_ECN_set_ce(ip_hdr(skb));
- 		break;
+ 	struct igmphdr *pig = igmp_hdr(skb);
+-	const int igmplen = skb->tail - skb->transport_header;
++	const int igmplen = skb_tail_pointer(skb) - skb_transport_header(skb);
  
- 	case cpu_to_be16(ETH_P_IPV6):
--		if (skb->network_header + sizeof(struct ipv6hdr) <= skb->tail)
-+		if (skb_network_header(skb) + sizeof(struct ipv6hdr) <=
-+		    skb_tail_pointer(skb))
- 			return IP6_ECN_set_ce(ipv6_hdr(skb));
- 		break;
+ 	pig->csum = ip_compute_csum(igmp_hdr(skb), igmplen);
+ 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index ba4186e..1f58594 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2989,7 +2989,8 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb,
+ 		swap(gso_skb->truesize, skb->truesize);
  	}
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 6eb621c..f5c9aa3 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -1730,7 +1730,7 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
- 			skb_reset_mac_header(skb2);
  
- 			if (skb_network_header(skb2) < skb2->data ||
--			    skb2->network_header > skb2->tail) {
-+			    skb_network_header(skb2) > skb_tail_pointer(skb2)) {
- 				net_crit_ratelimited("protocol %04x is buggy, dev %s\n",
- 						     ntohs(skb2->protocol),
- 						     dev->name);
-@@ -3898,7 +3898,7 @@ static void skb_gro_reset_offset(struct sk_buff *skb)
- 	NAPI_GRO_CB(skb)->frag0 = NULL;
- 	NAPI_GRO_CB(skb)->frag0_len = 0;
- 
--	if (skb->mac_header == skb->tail &&
-+	if (skb_mac_header(skb) == skb_tail_pointer(skb) &&
- 	    pinfo->nr_frags &&
- 	    !PageHighMem(skb_frag_page(frag0))) {
- 		NAPI_GRO_CB(skb)->frag0 = skb_frag_address(frag0);
+-	delta = htonl(oldlen + (skb->tail - skb->transport_header) +
++	delta = htonl(oldlen + (skb_tail_pointer(skb) -
++				skb_transport_header(skb)) +
+ 		      skb->data_len);
+ 	th->check = ~csum_fold((__force __wsum)((__force u32)th->check +
+ 				(__force u32)delta));
 -- 
 1.7.10.4
