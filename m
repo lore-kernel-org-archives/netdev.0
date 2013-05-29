@@ -1,39 +1,95 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH 3/3] net: ipv6: Implement /proc/net/icmp6.
-Date: Wed, 29 May 2013 03:15:24 +0000 (UTC)
-Message-ID: <ko3rsc$qss$1@ger.gmane.org>
-References: <1369752315-11167-1-git-send-email-lorenzo@google.com>
- <1369752315-11167-3-git-send-email-lorenzo@google.com>
- <CAKD1Yr0YXy+xoE4rVRFmd6pQbE+biw+8008Nd_VbyaSMn8c9+w@mail.gmail.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] net: Fix build warnings after mac_header and
+Date: Wed, 29 May 2013 12:14:09 +0900
+Message-ID: <20130529031409.GA16040@verge.net.au>
+References: <20130528.131614.2137913181835631312.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:46565 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1759194Ab3E2DPm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 May 2013 23:15:42 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UhWrU-0001sv-K8
-	for netdev@vger.kernel.org; Wed, 29 May 2013 05:15:40 +0200
-Received: from 180.183.217.220 ([180.183.217.220])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 05:15:40 +0200
-Received: from xiyou.wangcong by 180.183.217.220 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 05:15:40 +0200
+Received: from kirsty.vergenet.net ([202.4.237.240]:55293 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759194Ab3E2DRR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 23:17:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20130528.131614.2137913181835631312.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 May 2013 at 02:31 GMT, Lorenzo Colitti <lorenzo@google.com> wrote:
-> I don't think this has any impact, because if this happens, the proto
-> isn't registered, so there's no way to create an IPv6 socket and call
-> these function pointers. Still, for completeness' sake I'll shortly
-> send out another patch 3/3 that checks the result of
-> register_pernet_subsys before updating the function pointers. The
-> other two patches in the set don't need to change.
+On Tue, May 28, 2013 at 01:16:14PM -0700, David Miller wrote:
+>=20
+> net/core/skbuff.c: In function =E2=80=98__alloc_skb_head=E2=80=99:
+> net/core/skbuff.c:203:2: warning: large integer implicitly truncated =
+to unsigned type [-Woverflow]
+> net/core/skbuff.c: In function =E2=80=98__alloc_skb=E2=80=99:
+> net/core/skbuff.c:279:2: warning: large integer implicitly truncated =
+to unsigned type [-Woverflow]
+> net/core/skbuff.c:280:2: warning: large integer implicitly truncated =
+to unsigned type [-Woverflow]
+> net/core/skbuff.c: In function =E2=80=98build_skb=E2=80=99:
+> net/core/skbuff.c:348:2: warning: large integer implicitly truncated =
+to unsigned type [-Woverflow]
+> net/core/skbuff.c:349:2: warning: large integer implicitly truncated =
+to unsigned type [-Woverflow]
+>=20
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-You have to resend all of them, not just one, per netdev rules.
+Sorry about that. I think there are also some other warnings which show=
+ up
+on i386 (at least). I will work on fixing them too.
+
+> ---
+>  net/core/skbuff.c | 10 +++++-----
+>  1 file changed, 5 insertions(+), 5 deletions(-)
+>=20
+> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+> index d629891..f45de07 100644
+> --- a/net/core/skbuff.c
+> +++ b/net/core/skbuff.c
+> @@ -200,7 +200,7 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, =
+int node)
+>  	atomic_set(&skb->users, 1);
+> =20
+>  #ifdef NET_SKBUFF_DATA_USES_OFFSET
+> -	skb->mac_header =3D ~0U;
+> +	skb->mac_header =3D (__u16) ~0U;
+>  #endif
+>  out:
+>  	return skb;
+> @@ -276,8 +276,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gf=
+p_t gfp_mask,
+>  	skb_reset_tail_pointer(skb);
+>  	skb->end =3D skb->tail + size;
+>  #ifdef NET_SKBUFF_DATA_USES_OFFSET
+> -	skb->mac_header =3D ~0U;
+> -	skb->transport_header =3D ~0U;
+> +	skb->mac_header =3D (__u16) ~0U;
+> +	skb->transport_header =3D (__u16) ~0U;
+>  #endif
+> =20
+>  	/* make sure we initialize shinfo sequentially */
+> @@ -345,8 +345,8 @@ struct sk_buff *build_skb(void *data, unsigned in=
+t frag_size)
+>  	skb_reset_tail_pointer(skb);
+>  	skb->end =3D skb->tail + size;
+>  #ifdef NET_SKBUFF_DATA_USES_OFFSET
+> -	skb->mac_header =3D ~0U;
+> -	skb->transport_header =3D ~0U;
+> +	skb->mac_header =3D (__u16) ~0U;
+> +	skb->transport_header =3D (__u16) ~0U;
+>  #endif
+> =20
+>  	/* make sure we initialize shinfo sequentially */
+> --=20
+> 1.7.11.7
+>=20
+> N=C2=8B=C2=A7=C2=B2=CE=B6=CE=BCr=CE=88=C2=9By=CF=8A=CE=B8=C2=9A=CE=A8=
+b=C2=B2X=C2=AC=CE=86=CE=97=C2=A7v=CE=A8^=C2=96)=CE=AE=CE=8A{.n=CE=97+=C2=
+=89=C2=B7=C2=A7z=CE=A7^=CE=8E)=CE=BD=C2=85=CE=B6=CE=B8w*=1Fjg=C2=AC=C2=B1=
+=C2=A8=1E=CE=86=C2=89=C2=9A=C2=8E=C2=8A=CE=AD=E2=80=99j/=C2=81=CE=BA=CE=
+=B4z=CE=89=CE=AE=C2=96=C2=8A=CE=B02=C2=8A=CE=AE=C2=99=C2=A8=CE=B8=C2=AD=
+=CE=AA&=E2=80=99)=CE=AF=E2=80=98=C2=ABa=CE=86=CE=AA=7F=CF=8E=CF=88=1E?G=
+=C2=AB=C2=9D=CE=B9h?=0F=CE=B6j:+v=C2=89=C2=A8=C2=8Aw=CE=B8=C2=86=CE=A9=E2=
+=82=AF
