@@ -1,89 +1,72 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
- improved accuracy at high rates)
-Date: Wed, 29 May 2013 16:18:26 -0700
-Message-ID: <1369869506.5109.87.camel@edumazet-glaptop>
-References: <20130529151330.22c5c89e@redhat.com>
-	 <1369842724.5109.44.camel@edumazet-glaptop>
-	 <20130529155034.334092c5@nehalam.linuxnetplumber.net>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH] tg3: remove redundant pm init code
+Date: Wed, 29 May 2013 23:22:38 +0000
+Message-ID: <1369869759.8868.52.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1369818032-36272-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain;
+ charset=cp1252
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	David Miller <davem@redhat.com>, j.vimal@gmail.com,
-	Michal Soltys <soltys@ziu.info>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
-	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
-	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
-	Jim Gettys <jg@freedesktop.org>,
-	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
-	Jiri Benc <jbenc@redhat.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:61233 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967230Ab3E2XS3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 19:18:29 -0400
-Received: by mail-pb0-f50.google.com with SMTP id wy17so9982478pbc.37
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 16:18:28 -0700 (PDT)
-In-Reply-To: <20130529155034.334092c5@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Nithin Nayak Sujir" <nsujir@broadcom.com>,
+	linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, "Hanjun Guo" <guohanjun@huawei.com>,
+	"Jiang Liu" <liuj97@gmail.com>
+To: "Yijing Wang" <wangyijing@huawei.com>
+Return-path: <linux-pci-owner@vger.kernel.org>
+In-Reply-To: <1369818032-36272-1-git-send-email-wangyijing@huawei.com>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-05-29 at 15:50 -0700, Stephen Hemminger wrote:
-> On Wed, 29 May 2013 08:52:04 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Wed, 2013-05-29 at 17:00 +0800, Yijing Wang wrote: 
+> Pci_enable_device() will set device pm state to D0, so
+> it's no need to do it again in tg3_init_one().
 > 
-> > On Wed, 2013-05-29 at 15:13 +0200, Jesper Dangaard Brouer wrote:
-> > > I recently discovered that the (traffic control) tc linklayer
-> > > calculations for ATM/ADSL have been broken by:
-> > >  commit 56b765b79 (htb: improved accuracy at high rates).
-> > > 
-> > > Thus, people shaping on ADSL links, using e.g.:
-> > >  tc class add ... htb rate X ceil Y linklayer atm overhead 10
-> > > 
-> > > Will no-longer get ATM cell tax/overhead adjusted.
-> > > 
-> > > How can we solve/fix this?
-> > > Perhaps we can change to use the "stab" system instead (as it does
-> > > not seem to be broken by the commit).
-> > > 
-> > > But how do we facilitate a change to use "stab" system (for all the
-> > > scripts using the old option)?
-> > > 
-> > > Can we change the iproute2/tc command to handle this transparently, or
-> > > should we give an error/warning if someone uses "tc" and "linklayer" on
-> > > a kernel above v.3.8. ?
-> > > 
-> > > 
-> > > History:
-> > >  - My linklayer ATM changes appeared in kernel 2.6.24 (and iproute2 2.6.25)
-> > >  - The STAB changes appeared in kernel 2.6.27
-> > > 
-> > 
-> > Hi Jesper
-> > 
-> > stab suffers from the same problem : its table driven, so works only for
-> > packet smaller than a given size.
-> > 
-> > I am not sure it will solve the ATM logic (with the 5 bytes overhead per
-> > 48 bytes cell)
-> > 
-> > btw, even on old kernels :
-> 
-> 
-> How bad is the failure? If it is fixed, will it break existing installations?
-> 
-> Which probably means, is anyone but the original developers ever using it
-> and therefore likely to notice?
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 
-Adding the logic on the kernel is doable, by adding some clean
-attributes so that tc can setup the feature, and report the attributes
-back.
+Acked-by: Michael Chan <mchan@broadcom.com>
 
-cpus are fast today and can perform the atm cell/overhead faster than a
-table lookup.
+> ---
+>  drivers/net/ethernet/broadcom/tg3.c |   20 +-------------------
+>  1 files changed, 1 insertions(+), 19 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+> index 728d42a..1396ab3 100644
+> --- a/drivers/net/ethernet/broadcom/tg3.c
+> +++ b/drivers/net/ethernet/broadcom/tg3.c
+> @@ -17042,25 +17042,10 @@ static int tg3_init_one(struct pci_dev *pdev,
+>  
+>  	pci_set_master(pdev);
+>  
+> -	/* Find power-management capability. */
+> -	pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
+> -	if (pm_cap == 0) {
+> -		dev_err(&pdev->dev,
+> -			"Cannot find Power Management capability, aborting\n");
+> -		err = -EIO;
+> -		goto err_out_free_res;
+> -	}
+> -
+> -	err = pci_set_power_state(pdev, PCI_D0);
+> -	if (err) {
+> -		dev_err(&pdev->dev, "Transition to D0 failed, aborting\n");
+> -		goto err_out_free_res;
+> -	}
+> -
+>  	dev = alloc_etherdev_mq(sizeof(*tp), TG3_IRQ_MAX_VECS);
+>  	if (!dev) {
+>  		err = -ENOMEM;
+> -		goto err_out_power_down;
+> +		goto err_out_free_res;
+>  	}
+>  
+>  	SET_NETDEV_DEV(dev, &pdev->dev);
+> @@ -17406,9 +17391,6 @@ err_out_iounmap:
+>  err_out_free_dev:
+>  	free_netdev(dev);
+>  
+> -err_out_power_down:
+> -	pci_set_power_state(pdev, PCI_D3hot);
+> -
+>  err_out_free_res:
+>  	pci_release_regions(pdev);
+>  
