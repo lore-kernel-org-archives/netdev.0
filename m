@@ -1,7 +1,7 @@
 From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v5 06/13] net: mv643xx_eth: add DT parsing support
-Date: Wed, 29 May 2013 21:32:48 +0200
-Message-ID: <1369855975-21489-7-git-send-email-sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v5 13/13] ARM: orion5x: remove legacy mv643xx_eth board setup
+Date: Wed, 29 May 2013 21:32:55 +0200
+Message-ID: <1369855975-21489-14-git-send-email-sebastian.hesselbarth@gmail.com>
 References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
  <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Cc: David Miller <davem@davemloft.net>,
@@ -13,41 +13,20 @@ Cc: David Miller <davem@davemloft.net>,
 	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
 To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f176.google.com ([209.85.215.176]:55023 "EHLO
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:47152 "EHLO
 	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966335Ab3E2TdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 15:33:16 -0400
+	with ESMTP id S966435Ab3E2TdV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 15:33:21 -0400
 In-Reply-To: <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds device tree parsing support for the shared driver of mv643xx_eth.
-As the bindings are slightly different from current PPC bindings new binding
-documentation is also added. Following PPC-style device setup, the shared
-driver now also adds port platform_devices and sets up port platform_data.
+With DT support for mv643xx_eth we do not need legacy platform_data
+based setup for DT enabled boards. This patch removes eth setup
+for all orion5x DT board files.
 
 Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 ---
-Note: Although different, device tree bindings are compatible with PPC
-bindings. As I do not have access to any PPC platform using mv643xx_eth,
-I leave conversion ("phy" vs "phy-handle") and compatible string name
-up to PPC guys.
-
-Due to hang reports for modular built mvmdio and mv643xx_eth, I have
-tested module loading/unloading/reloading on CuBox (Dove) and Dockstar
-(Kirkwood) without any issues for the whole patch set.
-
-Changelog:
-v5->v4:
-- add Kirkwood specific compatible string
-
-v3->v4:
-- separation of independent patches (phy, of_mdio, devm)
-- stand-alone device tree binding compatible to existing mv64x60 binding
-- device node match for shared driver only
-- device node registration for port drivers
-- properly return -EPROBE_DEFER on missing of phy (Reported by Simon Baatz)
-
 Cc: David Miller <davem@davemloft.net>
 Cc: Lennert Buytenhek <buytenh@wantstofly.org>
 Cc: Jason Cooper <jason@lakedaemon.net>
@@ -58,319 +37,43 @@ Cc: linux-arm-kernel@lists.infradead.org
 Cc: linuxppc-dev@lists.ozlabs.org
 Cc: linux-kernel@vger.kernel.org
 ---
- .../devicetree/bindings/net/marvell-orion-net.txt  |   85 +++++++++++
- drivers/net/ethernet/marvell/mv643xx_eth.c         |  153 +++++++++++++++++++-
- 2 files changed, 234 insertions(+), 4 deletions(-)
- create mode 100644 Documentation/devicetree/bindings/net/marvell-orion-net.txt
+ arch/arm/mach-orion5x/edmini_v2-setup.c |   10 ----------
+ 1 file changed, 10 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/marvell-orion-net.txt b/Documentation/devicetree/bindings/net/marvell-orion-net.txt
-new file mode 100644
-index 0000000..a73b79f
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/marvell-orion-net.txt
-@@ -0,0 +1,85 @@
-+Marvell Orion/Discovery ethernet controller
-+=============================================
-+
-+The Marvell Discovery ethernet controller can be found on Marvell Orion SoCs
-+(Kirkwood, Dove, Orion5x, and Discovery Innovation) and as part of Marvell
-+Discovery system controller chips (mv64[345]60).
-+
-+The Discovery ethernet controller is described with two levels of nodes. The
-+first level describes the ethernet controller itself and the second level
-+describes up to 3 ethernet port nodes within that controller. The reason for
-+the multiple levels is that the port registers are interleaved within a single
-+set of controller registers. Each port node describes port-specific properties.
-+
-+Note: The above separation is only true for Discovery system controllers.
-+For Orion SoCs we stick to the separation, although there each controller has
-+only one port associated. Multiple ports are implemented as multiple single-port
-+controllers. As Kirkwood has some issues with proper initialization after reset,
-+an extra compatible string is added for it.
-+
-+* Ethernet controller node
-+
-+Required controller properties:
-+ - #address-cells: shall be 1.
-+ - #size-cells: shall be 0.
-+ - compatible: shall be one of "marvell,orion-eth", "marvell,kirkwood-eth".
-+ - reg: address and length of the controller registers.
-+
-+Optional controller properties:
-+ - clocks: phandle reference to the controller clock.
-+ - marvell,tx-checksum-limit: max tx packet size for hardware checksum.
-+
-+* Ethernet port node
-+
-+Required port properties:
-+ - device_type: shall be "network".
-+ - compatible: shall be one of "marvell,orion-eth-port",
-+      "marvell,kirkwood-eth-port".
-+ - reg: port number relative to ethernet controller, shall be 0, 1, or 2.
-+ - interrupts: port interrupt.
-+ - local-mac-address: 6 bytes MAC address.
-+
-+Optional port properties:
-+ - marvell,tx-queue-size: size of the transmit ring buffer.
-+ - marvell,tx-sram-addr: address of transmit descriptor buffer located in SRAM.
-+ - marvell,tx-sram-size: size of transmit descriptor buffer located in SRAM.
-+ - marvell,rx-queue-size: size of the receive ring buffer.
-+ - marvell,rx-sram-addr: address of receive descriptor buffer located in SRAM.
-+ - marvell,rx-sram-size: size of receive descriptor buffer located in SRAM.
-+
-+and
-+
-+ - phy-handle: phandle reference to ethernet PHY.
-+
-+or
-+
-+ - speed: port speed if no PHY connected.
-+ - duplex: port mode if no PHY connected.
-+
-+* Node example:
-+
-+mdio-bus {
-+	...
-+	ethphy: ethernet-phy@8 {
-+		device_type = "ethernet-phy";
-+		...
-+	};
-+};
-+
-+eth: ethernet-controller@72000 {
-+	compatible = "marvell,orion-eth";
-+	#address-cells = <1>;
-+	#size-cells = <0>;
-+	reg = <0x72000 0x2000>;
-+	clocks = <&gate_clk 2>;
-+	marvell,tx-checksum-limit = <1600>;
-+
-+	ethernet@0 {
-+		device_type = "network";
-+		compatible = "marvell,orion-eth-port";
-+		reg = <0>;
-+		interrupts = <29>;
-+		phy-handle = <&ethphy>;
-+		local-mac-address = [00 00 00 00 00 00];
-+	};
-+};
-diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
-index 5b375ee..5acaaad 100644
---- a/drivers/net/ethernet/marvell/mv643xx_eth.c
-+++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
-@@ -60,6 +60,9 @@
- #include <linux/types.h>
- #include <linux/slab.h>
- #include <linux/clk.h>
-+#include <linux/of.h>
-+#include <linux/of_irq.h>
-+#include <linux/of_net.h>
- #include <linux/of_mdio.h>
- 
- static char mv643xx_eth_driver_name[] = "mv643xx_eth";
-@@ -2453,13 +2456,148 @@ static void infer_hw_params(struct mv643xx_eth_shared_private *msp)
- 	}
- }
- 
-+#if defined(CONFIG_OF)
-+static const struct of_device_id mv643xx_eth_shared_ids[] = {
-+	{ .compatible = "marvell,orion-eth", },
-+	{ .compatible = "marvell,kirkwood-eth", },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, mv643xx_eth_shared_ids);
-+#endif
-+
-+#if defined(CONFIG_OF) && !defined(CONFIG_MV64X60)
-+#define mv643xx_eth_property(_np, _name, _v)				\
-+	do {								\
-+		u32 tmp;						\
-+		if (!of_property_read_u32(_np, "marvell," _name, &tmp))	\
-+			_v = tmp;					\
-+	} while (0)
-+
-+static struct platform_device *port_platdev[3];
-+
-+static int mv643xx_eth_shared_of_add_port(struct platform_device *pdev,
-+					  struct device_node *pnp)
-+{
-+	struct platform_device *ppdev;
-+	struct mv643xx_eth_platform_data ppd;
-+	struct resource res;
-+	const char *mac_addr;
-+	int ret;
-+
-+	memset(&ppd, 0, sizeof(ppd));
-+	ppd.shared = pdev;
-+
-+	memset(&res, 0, sizeof(res));
-+	if (!of_irq_to_resource(pnp, 0, &res)) {
-+		dev_err(&pdev->dev, "missing interrupt on %s\n", pnp->name);
-+		return -EINVAL;
-+	}
-+
-+	if (of_property_read_u32(pnp, "reg", &ppd.port_number)) {
-+		dev_err(&pdev->dev, "missing reg property on %s\n", pnp->name);
-+		return -EINVAL;
-+	}
-+
-+	if (ppd.port_number >= 3) {
-+		dev_err(&pdev->dev, "invalid reg property on %s\n", pnp->name);
-+		return -EINVAL;
-+	}
-+
-+	mac_addr = of_get_mac_address(pnp);
-+	if (mac_addr)
-+		memcpy(ppd.mac_addr, mac_addr, 6);
-+
-+	mv643xx_eth_property(pnp, "tx-queue-size", ppd.tx_queue_size);
-+	mv643xx_eth_property(pnp, "tx-sram-addr", ppd.tx_sram_addr);
-+	mv643xx_eth_property(pnp, "tx-sram-size", ppd.tx_sram_size);
-+	mv643xx_eth_property(pnp, "rx-queue-size", ppd.rx_queue_size);
-+	mv643xx_eth_property(pnp, "rx-sram-addr", ppd.rx_sram_addr);
-+	mv643xx_eth_property(pnp, "rx-sram-size", ppd.rx_sram_size);
-+
-+	ppd.phy_node = of_parse_phandle(pnp, "phy-handle", 0);
-+	if (!ppd.phy_node) {
-+		ppd.phy_addr = MV643XX_ETH_PHY_NONE;
-+		of_property_read_u32(pnp, "speed", &ppd.speed);
-+		of_property_read_u32(pnp, "duplex", &ppd.duplex);
-+	}
-+
-+	ppdev = platform_device_alloc(MV643XX_ETH_NAME, ppd.port_number);
-+	if (!ppdev)
-+		return -ENOMEM;
-+	ppdev->dev.coherent_dma_mask = DMA_BIT_MASK(32);
-+
-+	ret = platform_device_add_resources(ppdev, &res, 1);
-+	if (ret)
-+		goto port_err;
-+
-+	ret = platform_device_add_data(ppdev, &ppd, sizeof(ppd));
-+	if (ret)
-+		goto port_err;
-+
-+	ret = platform_device_add(ppdev);
-+	if (ret)
-+		goto port_err;
-+
-+	port_platdev[ppd.port_number] = ppdev;
-+
-+	return 0;
-+
-+port_err:
-+	platform_device_put(ppdev);
-+	return ret;
-+}
-+
-+static int mv643xx_eth_shared_of_probe(struct platform_device *pdev)
-+{
-+	struct mv643xx_eth_shared_platform_data *pd;
-+	struct device_node *pnp, *np = pdev->dev.of_node;
-+	int ret;
-+
-+	/* bail out if not registered from DT */
-+	if (!np)
-+		return 0;
-+
-+	pd = devm_kzalloc(&pdev->dev, sizeof(*pd), GFP_KERNEL);
-+	if (!pd)
-+		return -ENOMEM;
-+	pdev->dev.platform_data = pd;
-+
-+	mv643xx_eth_property(np, "tx-checksum-limit", pd->tx_csum_limit);
-+
-+	for_each_available_child_of_node(np, pnp) {
-+		ret = mv643xx_eth_shared_of_add_port(pdev, pnp);
-+		if (ret)
-+			return ret;
-+	}
-+	return 0;
-+}
-+
-+static void mv643xx_eth_shared_of_remove(void)
-+{
-+	int n;
-+
-+	for (n = 0; n < 3; n++) {
-+		platform_device_del(port_platdev[n]);
-+		port_platdev[n] = NULL;
-+	}
-+}
-+#else
-+static int mv643xx_eth_shared_of_probe(struct platform_device *pdev)
-+{
-+	return 0
-+}
-+
-+#define mv643xx_eth_shared_of_remove()
-+#endif
-+
- static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- {
- 	static int mv643xx_eth_version_printed;
--	struct mv643xx_eth_shared_platform_data *pd = pdev->dev.platform_data;
-+	struct mv643xx_eth_shared_platform_data *pd;
- 	struct mv643xx_eth_shared_private *msp;
- 	const struct mbus_dram_target_info *dram;
- 	struct resource *res;
-+	int ret;
- 
- 	if (!mv643xx_eth_version_printed++)
- 		pr_notice("MV-643xx 10/100/1000 ethernet driver version %s\n",
-@@ -2472,6 +2610,7 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 	msp = devm_kzalloc(&pdev->dev, sizeof(*msp), GFP_KERNEL);
- 	if (msp == NULL)
- 		return -ENOMEM;
-+	platform_set_drvdata(pdev, msp);
- 
- 	msp->base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
- 	if (msp->base == NULL)
-@@ -2488,12 +2627,15 @@ static int mv643xx_eth_shared_probe(struct platform_device *pdev)
- 	if (dram)
- 		mv643xx_eth_conf_mbus_windows(msp, dram);
- 
-+	ret = mv643xx_eth_shared_of_probe(pdev);
-+	if (ret)
-+		return ret;
-+	pd = pdev->dev.platform_data;
-+
- 	msp->tx_csum_limit = (pd != NULL && pd->tx_csum_limit) ?
- 					pd->tx_csum_limit : 9 * 1024;
- 	infer_hw_params(msp);
- 
--	platform_set_drvdata(pdev, msp);
--
- 	return 0;
- }
- 
-@@ -2501,9 +2643,9 @@ static int mv643xx_eth_shared_remove(struct platform_device *pdev)
- {
- 	struct mv643xx_eth_shared_private *msp = platform_get_drvdata(pdev);
- 
-+	mv643xx_eth_shared_of_remove();
- 	if (!IS_ERR(msp->clk))
- 		clk_disable_unprepare(msp->clk);
--
- 	return 0;
- }
- 
-@@ -2513,6 +2655,7 @@ static struct platform_driver mv643xx_eth_shared_driver = {
- 	.driver = {
- 		.name	= MV643XX_ETH_SHARED_NAME,
- 		.owner	= THIS_MODULE,
-+		.of_match_table = of_match_ptr(mv643xx_eth_shared_ids),
- 	},
+diff --git a/arch/arm/mach-orion5x/edmini_v2-setup.c b/arch/arm/mach-orion5x/edmini_v2-setup.c
+index 1476155..d9de926 100644
+--- a/arch/arm/mach-orion5x/edmini_v2-setup.c
++++ b/arch/arm/mach-orion5x/edmini_v2-setup.c
+@@ -24,7 +24,6 @@
+ #include <linux/pci.h>
+ #include <linux/irq.h>
+ #include <linux/mtd/physmap.h>
+-#include <linux/mv643xx_eth.h>
+ #include <linux/leds.h>
+ #include <linux/gpio_keys.h>
+ #include <linux/input.h>
+@@ -96,14 +95,6 @@ static struct platform_device edmini_v2_nor_flash = {
  };
  
-@@ -2721,6 +2864,8 @@ static int mv643xx_eth_probe(struct platform_device *pdev)
- 	if (!IS_ERR(mp->clk)) {
- 		clk_prepare_enable(mp->clk);
- 		mp->t_clk = clk_get_rate(mp->clk);
-+	} else if (!IS_ERR(mp->shared->clk)) {
-+		mp->t_clk = clk_get_rate(mp->shared->clk);
- 	}
+ /*****************************************************************************
+- * Ethernet
+- ****************************************************************************/
+-
+-static struct mv643xx_eth_platform_data edmini_v2_eth_data = {
+-	.phy_addr	= 8,
+-};
+-
+-/*****************************************************************************
+  * RTC 5C372a on I2C bus
+  ****************************************************************************/
  
- 	set_params(mp, pd);
+@@ -152,7 +143,6 @@ void __init edmini_v2_init(void)
+ 	 * Configure peripherals.
+ 	 */
+ 	orion5x_ehci0_init();
+-	orion5x_eth_init(&edmini_v2_eth_data);
+ 
+ 	mvebu_mbus_add_window("devbus-boot", EDMINI_V2_NOR_BOOT_BASE,
+ 			      EDMINI_V2_NOR_BOOT_SIZE);
 -- 
 1.7.10.4
