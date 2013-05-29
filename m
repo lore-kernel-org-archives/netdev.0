@@ -1,59 +1,49 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 2/2] team: fix port list dump for big number of ports
-Date: Wed, 29 May 2013 17:02:57 +0200
-Message-ID: <1369839777-19158-3-git-send-email-jiri@resnulli.us>
-References: <1369839777-19158-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, eric.dumazet@gmail.com,
-	paulmck@linux.vnet.ibm.com, sasha.levin@oracle.com,
-	akpm@linux-foundation.org
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f180.google.com ([74.125.82.180]:53725 "EHLO
-	mail-we0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966551Ab3E2PDH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 11:03:07 -0400
-Received: by mail-we0-f180.google.com with SMTP id t60so5358857wes.39
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 08:03:05 -0700 (PDT)
-In-Reply-To: <1369839777-19158-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v6 net-next 1/5] net: add napi_id and hash
+Date: Wed, 29 May 2013 18:04:19 +0300
+Message-ID: <51A618F3.7050407@linux.intel.com>
+References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>  <20130529063925.27486.46649.stgit@ladj378.jer.intel.com> <1369832201.5109.8.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369832201.5109.8.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In case the port list dump does not fit into one skb currently the
-dump would start over again. Fix this by continue from the last dumped
-port.
+On 29/05/2013 15:56, Eric Dumazet wrote:
+> On Wed, 2013-05-29 at 09:39 +0300, Eliezer Tamir wrote:
+>> Adds a napi_id and a hashing mechanism to lookup a napi by id.
+>> This will be used by subsequent patches to implement low latency
+>> Ethernet device polling.
+>> Based on a code sample by Eric Dumazet.
+>>
+>> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+>> ---
+>
+> OK this looks good enough for inclusion.
+>
+> If a v7 ever is submitted, please add a 'static' for
+>
+> static DEFINE_SPINLOCK(napi_hash_lock);
+> static unsigned int napi_gen_id;
+> static DEFINE_HASHTABLE(napi_hash, 8);
+>
 
-Introduced by commit d90f889e9c (team: handle sending port list in the
-same way option list is sent)
+I will post a v7 along with the changes you suggested to 2/5, I will 
+wait a bit to see if there are other things to fix.
 
-Signed-off-by: Jiri Pirko <jiri@resnulli.us>
----
- drivers/net/team/team.c | 7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 7c43261..d016a76 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -2374,7 +2374,8 @@ static int team_nl_send_port_list_get(struct team *team, u32 portid, u32 seq,
- 	bool incomplete;
- 	int i;
- 
--	port = list_first_entry(&team->port_list, struct team_port, list);
-+	port = list_first_entry_or_null(&team->port_list,
-+					struct team_port, list);
- 
- start_again:
- 	err = __send_and_alloc_skb(&skb, team, portid, send_func);
-@@ -2402,8 +2403,8 @@ start_again:
- 		err = team_nl_fill_one_port_get(skb, one_port);
- 		if (err)
- 			goto errout;
--	} else {
--		list_for_each_entry(port, &team->port_list, list) {
-+	} else if (port) {
-+		list_for_each_entry_from(port, &team->port_list, list) {
- 			err = team_nl_fill_one_port_get(skb, port);
- 			if (err) {
- 				if (err == -EMSGSIZE) {
--- 
-1.7.11.7
+Thanks,
+Eliezer
