@@ -1,67 +1,94 @@
-From: Antonio Quartulli <ordex@autistici.org>
-Subject: Re: pull request: batman-adv 2013-05-29
-Date: Wed, 29 May 2013 09:10:14 +0200
-Message-ID: <20130529071014.GM3333@ritirata.org>
-References: <1369789186-3600-1-git-send-email-ordex@autistici.org>
- <20130528.233413.727546400524779763.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="5mZBmBd1ZkdwT1ny"
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
-To: David Miller <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v2] net: clean up skb headers code
+Date: Wed, 29 May 2013 15:16:05 +0800
+Message-ID: <1369811765-22282-1-git-send-email-amwang@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Simon Horman <horms@verge.net.au>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:26245 "EHLO
-	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935045Ab3E2HMG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 03:12:06 -0400
-Content-Disposition: inline
-In-Reply-To: <20130528.233413.727546400524779763.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:42214 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933784Ab3E2HQT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 03:16:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Cong Wang <amwang@redhat.com>
 
---5mZBmBd1ZkdwT1ny
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
+fields of struct skbuff) converts skb->*_header to u16,
+some #if NET_SKBUFF_DATA_USES_OFFSET are now useless,
+and to be safe, we could just use "X = (typeof(X)) ~0U;"
+as suggested by David.
 
-On Tue, May 28, 2013 at 11:34:13PM -0700, David Miller wrote:
->=20
-> Only 13 of the 21 patches made it to netdev.
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Simon Horman <horms@verge.net.au>
+Signed-off-by: Cong Wang <amwang@redhat.com>
 
+---
+v2: use typeof
 
-uhm. I see. I don't know what went wrong.
-I'll check and resend the pull request later.
-
-
-Cheers,
-
---=20
-Antonio Quartulli
-
-=2E.each of us alone is worth nothing..
-Ernesto "Che" Guevara
-
---5mZBmBd1ZkdwT1ny
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.19 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRpanWAAoJEADl0hg6qKeOsasP/2jUrcUhaCOGHpMywjnAiayg
-6WMn3vfxnXHXt58sj+6KlhUiiLAJTlwTFf0b7GXtN7l0079YLrx0HK9O1ML1oKEw
-kFen2qd2l0UmcHLPCH0sXNe+NBeCENe1djquMntvZpZbDs+SNHP5e+wr2uV01z2y
-RBOLVouFn7VQvUefwdGb2+7Ql+0CdU7qHmtZfiHbLudo3kyI5YZ2kiHYHo/mt9t6
-1l2/JR4NHZo2Y1vqHLIeaLXVDdbJgGKfonIIfcjfPofzewvYgQUUEKRMtncAR1pf
-ItivyEDyPiray28KnDO/5xNg8/anONZXaxw7gwXQerQ+/NMClzK8TtUFiXttbw2M
-nu5Sp/nK+s8Vk0wmG6aNwcsBiWOSVVJGW5KuacOmI0utn1rKflSQaM0qZadhvbtq
-jPAPppopbbrFr69cxpg/YJbYBpKRRjwz7vRObl9sl5hTYket0YkUlIyv5JXMRsnR
-bleezp7C7ZV6pXm+uGIVaKw+kPp5/od2IgqCjE2IOQnAw4LgsHjtO8VSn8MRupUD
-vkiI/FLVP/MMKlbgwHDrLJqfRt2SEmKgzK2Tsrxn04VwmQugE8Py+KXZX00C1uF5
-tRy0nhpmeqSsuXztZrZ9Lak0/LABv6ixzvR/nm9EPwz6a2yTkqqM1LacMIbyNQ4P
-T1zhhEnuGed767zfMANB
-=itvy
------END PGP SIGNATURE-----
-
---5mZBmBd1ZkdwT1ny--
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 5f93119..b999790 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1593,7 +1593,7 @@ static inline void skb_set_inner_mac_header(struct sk_buff *skb,
+ }
+ static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
+ {
+-	return skb->transport_header != ~0U;
++	return skb->transport_header != (typeof(skb->transport_header))~0U;
+ }
+ 
+ static inline unsigned char *skb_transport_header(const struct sk_buff *skb)
+@@ -1636,7 +1636,7 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
+ 
+ static inline int skb_mac_header_was_set(const struct sk_buff *skb)
+ {
+-	return skb->mac_header != ~0U;
++	return skb->mac_header != (typeof(skb->mac_header))~0U;
+ }
+ 
+ static inline void skb_reset_mac_header(struct sk_buff *skb)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f45de07..6b1b52c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -199,9 +199,7 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
+ 	skb->truesize = sizeof(struct sk_buff);
+ 	atomic_set(&skb->users, 1);
+ 
+-#ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	skb->mac_header = (__u16) ~0U;
+-#endif
++	skb->mac_header = (typeof(skb->mac_header))~0U;
+ out:
+ 	return skb;
+ }
+@@ -275,10 +273,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 	skb->data = data;
+ 	skb_reset_tail_pointer(skb);
+ 	skb->end = skb->tail + size;
+-#ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	skb->mac_header = (__u16) ~0U;
+-	skb->transport_header = (__u16) ~0U;
+-#endif
++	skb->mac_header = (typeof(skb->mac_header))~0U;
++	skb->transport_header = (typeof(skb->transport_header))~0U;
+ 
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
+@@ -344,10 +340,8 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
+ 	skb->data = data;
+ 	skb_reset_tail_pointer(skb);
+ 	skb->end = skb->tail + size;
+-#ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	skb->mac_header = (__u16) ~0U;
+-	skb->transport_header = (__u16) ~0U;
+-#endif
++	skb->mac_header = (typeof(skb->mac_header))~0U;
++	skb->transport_header = (typeof(skb->transport_header))~0U;
+ 
+ 	/* make sure we initialize shinfo sequentially */
+ 	shinfo = skb_shinfo(skb);
