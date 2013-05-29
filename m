@@ -1,95 +1,82 @@
-From: "renner@efe-gmbh.de" <renner@efe-gmbh.de>
-Subject: [PATCH v2] net: ethernet: xilinx_emaclite: set protocol selector
- bits when writing ANAR
-Date: Thu, 30 May 2013 00:36:18 +0200 (CEST)
-Message-ID: <1382011039.590745.1369866978593.open-xchange@email.1und1.de>
-Reply-To: "renner@efe-gmbh.de" <renner@efe-gmbh.de>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net-next 2/3] ipv4: rate limit updating of next hop
+ exceptions with same pmtu
+Date: Thu, 30 May 2013 01:49:06 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1305300013240.1951@ja.ssi.bg>
+References: <20130527.233844.2081972819091665848.davem@davemloft.net> <1369723593-5307-1-git-send-email-timo.teras@iki.fi> <1369723593-5307-2-git-send-email-timo.teras@iki.fi> <alpine.LFD.2.00.1305281127340.1693@ja.ssi.bg> <20130528130757.4bf59c6b@vostro>
+ <alpine.LFD.2.00.1305282245340.1713@ja.ssi.bg> <20130529080725.5de3477b@vostro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Michal Simek <monstr@monstr.eu>, davem@davemloft.net
-To: netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org
+To: Timo Teras <timo.teras@iki.fi>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:58894 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754316Ab3E2WgW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 18:36:22 -0400
+Received: from ja.ssi.bg ([178.16.129.10]:44540 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755938Ab3E2WpZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 18:45:25 -0400
+In-Reply-To: <20130529080725.5de3477b@vostro>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch sets the protocol selector bits (4:0) of the PHY's MII_ADVERTISE
-register (ANAR) when writing ADVERTISE_ALL. The protocol selector bits are
-indicating IEEE 803.3u support and are fixed / read-only on some PHYs. Not
-setting them correctly on others (like TI DP83630) makes the PHY fall back
-to 10M HDX mode which should be avoided.
 
-Tested for TI DP83630 PHY on Microblaze platform.
+	Hello,
 
-Signed-off-by: Jens Renner <renner@efe-gmbh.de>
----
-Changes in v2:
-- set ADVERTISE_ALL and protocol selector ADVERTISE_CSMA while all other
-  bits will be cleared
-- adapted patch title & description (original title: "net: ethernet:
-  xilinx_emaclite: keep protocol selector bits by reading ANAR")
+On Wed, 29 May 2013, Timo Teras wrote:
 
->>> David Laight <David.Laight@ACULAB.COM> hat am 28. Mai 2013 um 18:22
->>> geschrieben:
-[...]
->>> Given the comment shouldn't this be removing some bits?
->>>
->>> It is a long time since I read the definitions of the ANAR (etc).
->>> But I remember it having at least 5 bits defined for 10M and 100M
->>> operation (including 100T4), so the reference to keeping bits (4:0)
->>> seems confusing.
->>>
->>>    David
->>>
->>
->> David, thanks for your feedback!
->> The bits I mentioned (the 5 least bits in ANAR) are the so-called protocol
->> selection bits (at least that's what they call it at Intel, TI, Marvell,
->> Maxim,
->> etc.). The only value that seems actually to be used is 1 (0b00001) which
->> means
->> 802.3 / fast ethernet capability (maybe 0 for slower devices?). 1 is the
->> default value for all the 10/100(/1000) PHYs I know of, in some PHYs it is
->> even
->> hardcoded (i.e. read-only). It must not be confused with ANAR bits 9:5 where
->> the actual speed and duplex mode can be selected.
->> ADVERTISE_ALL as defined in mii.h lacks this bit, in contrast to
->> ADVERTISE_FULL
->> where it is set through ADVERTISE_CSMA. Whether this is correct or not; at
->> least it makes some sense to me to read what's actually written in these
->> register bits and not to clear them. Otherwise some PHYs might fall back to
->> 10-half as seen for the TI DP83640 which has been used to test this patch.
->> I hope this explains the reason for this patch.
->
-[...]
-> However if you want to advertise 10M/100M HDX and FDX you need to unset
-> the other speed bits (100T4 was assigned a bit, and I'm sure there were
-> extra bits reserved for higher speeds - which also need clearing).
-> Given that the ANAR is defined by 803.x you shouldn't really have a problem!
-[...]
-You are right. The 1000BASE-T capability is advertised in another register and
-already gets cleared one code line before (see original list mail), while the
-100BASE-T4 bit now remains unchanged with my patch which is not intended.
+> On Wed, 29 May 2013 00:04:47 +0300 (EEST)
+> Julian Anastasov <ja@ssi.bg> wrote:
+> 
+> > 	So, my idea is something like this. If cached
+> > route detects change in gw on redirect, it calls
+> > update_or_create_fnhe but FNHE can already know this gw,
+> > we should invalidate the fnhe_rth only if gw changes.
+> > As caller has some stale cache route, it should be
+> > invalidated as before, I assume 'kill_route' is properly
+> > provided.
+> > 
+> > 	if (fnhe) {
+> > 		if (fnhe->fnhe_gw != gw && gw) {
+> > 			rt =
+> > rcu_dereference_protected(fnhe->fnhe_rth, 1); if (rt)
+> > 				rt->dst.obsolete = DST_OBSOLETE_KILL;
+> > 			fnhe->fnhe_gw = gw;
+> > 		}
+> > 		...
+> > 	}
+> > 	...
+> > }
+> 
+> This is already done by the caller of update_or_create_fnhe for the
+> case of gw change. It might be worth to put all this to the same place,
+> but would be worth of separate patch.
 
-drivers/net/ethernet/xilinx/xilinx_emaclite.c   |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+	Looking at do_redirect() for TCP and __sk_dst_check
+may be such race is very small because first gw change
+for another socket will invalidate our cached entry and
+our socket will fail to deliver the new gw to FNHE
+without a two-step validation as done in inet_csk_update_pmtu().
+Still, it should be more safe to change and invalidate
+at the same place - update_or_create_fnhe. But we can
+investigate it later.
 
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index 919b983..b7268b3 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -946,7 +946,8 @@ static int xemaclite_open(struct net_device *dev)
-                phy_write(lp->phy_dev, MII_CTRL1000, 0);
+> > 	Also, I don't know the XFRM code well but
+> > xfrm_bundle_ok() calls dst_check. Now ipv4_dst_check
+> > will not give any indication for recent change in
+> > rt_pmtu. I hope this is not a problem because I see
+> > some comparisons with cached pmtus. I.e. the main
+> > question is: are there any dst_check and ->check users
+> > that needs to know for changes in rt_pmtu or all
+> > of them just use dst_mtu().
+> 
+> In XFRM case, xfrm_bundle_ok() will propagate the pmtu by calling
+> dst_mtu() for each target. All caching users need to use dst_mtu() to
+> check it, so the route.c code is correct - this is how it worked before
+> my patches too.
 
-                /* Advertise only 10 and 100mbps full/half duplex speeds */
--               phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL);
-+               phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL |
-+                         ADVERTISE_CSMA);
+	Aha, so nobody needs DST_OBSOLETE_KILL when
+fnhe_pmtu changes. Thanks for answering my questions!
 
-                /* Restart auto negotiation */
-                bmcr = phy_read(lp->phy_dev, MII_BMCR);
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
