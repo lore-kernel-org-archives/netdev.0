@@ -1,39 +1,76 @@
-From: Dmitry Kravkov <dkravkov@gmail.com>
-Subject: GREv4 ipv6 is broken for UDP stream on 3.9
-Date: Wed, 29 May 2013 11:16:21 +0300
-Message-ID: <CAM8tLiOQq2a_Z=F_V5A2saPN+JfwN7Ey29r+UmUK_f9oYF5vCw@mail.gmail.com>
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: Re: pull request: batman-adv 2013-05-29b
+Date: Wed, 29 May 2013 10:17:37 +0200
+Message-ID: <20130529081736.GO3333@ritirata.org>
+References: <1369815051-708-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Pravin B Shelar <pshelar@nicira.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+	protocol="application/pgp-signature"; boundary="UUMz/kfoogzZ9WLZ"
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f53.google.com ([209.85.214.53]:59965 "EHLO
-	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965050Ab3E2IQY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 04:16:24 -0400
-Received: by mail-bk0-f53.google.com with SMTP id mx10so208356bkb.12
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 01:16:22 -0700 (PDT)
+Received: from diserzione.investici.org ([82.221.99.153]:54603 "EHLO
+	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965132Ab3E2IT2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 04:19:28 -0400
+Content-Disposition: inline
+In-Reply-To: <1369815051-708-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-since 3.9-rc1 i see that rx side drops all data packets for:
+--UUMz/kfoogzZ9WLZ
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-netperf -6 -t UDP_STREAM -H fe80::5efe:c0a8:630c%gre_7 -l 1
+On Wed, May 29, 2013 at 10:10:30AM +0200, Antonio Quartulli wrote:
+> Hello David,
+>=20
+> this is again our pull request intended for net-next/linux-3.11.
+>=20
+> Apparently my mail server decided that 14/21 was spam and refused all the
+> subsequent emails. It's a first step towards the automatic kernel mainten=
+ance
+> :-)
 
-when gre_7 is:
+David, sorry but it happened again.
 
-13: gre_7: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1476 qdisc noqueue state UNKNOWN
-    link/gre 192.168.99.29 peer 192.168.99.12
+I'm in touch with my provider admin in order to solve the issue.
+Meanwhile I sent the patches divided in two subsets and I hope it did not c=
+reate
+troubles to patchwork.
 
-The packets just gets corrupted.
+Sorry for the noise.
 
-This bisected to:
-commit 68c331631143f5f039baac99a650e0b9e1ea02b6
-Author: Pravin B Shelar <pshelar@nicira.com>
-Date:   Thu Feb 14 14:02:41 2013 +0000
+Regards,
 
-    v4 GRE: Add TCP segmentation offload for GRE
+--=20
+Antonio Quartulli
 
-Looks like gre_gso_segment build wrong segments for GSO flow.
+=2E.each of us alone is worth nothing..
+Ernesto "Che" Guevara
+
+--UUMz/kfoogzZ9WLZ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.19 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRpbmgAAoJEADl0hg6qKeOtjEP/j7HYFa2QRGtCUuVBm4UO0Tm
+FkkE5cmFjo9/jsuXeh4+XcKE38IFWtGsnUbXby7kpvw7ow1eCts377nlhxxbhHzY
+CP5qcTu1oa14Ouzg3LoPhVNQHs7k6PCUbHQ/SF9dG4Eqgkbr36bzzJk8PQJguIm0
+u7w1igU7aViWh6OndQH5IjQvvwMShA+kqvoLtZ+H9PGuMGjDvjs54uIOSx98VKIq
+gS0OexUvrrCb908NZoKAi1dX6kRmiDmyXTU723NbO7oZ2iXpxRR3l8UMPM64Uv4N
+VUdRmJOd6sPXkYlii9Gwzg7NymOH25UA9TViiqHj7KV0upiK+y9O67hYqrGi7KtD
+2Y+h9pIHhxRFjvQwNu+CIXIhHpVhhApm/4QxwFXxaO+K0m9QfHWy5QZR5ydG65oO
+LQLDBQWQ3uBSDRYJIk/9LXGhC2hXgD5lJNkavdheRrMF0maPudAyT8tZLrxkspXw
+2KBDWWBE5707LyxlocQKTweZJ6/7cAWPs2eFr3HLMZjJoI4ht9TtFw2DTwqqdKQ6
+euSLY+rSeNuPC46T9lrZXNMeC4DklxpdSu6tlEJmWJPASZCHCQTeljYdCIMPHneB
+D/Z4U/U63KJRQOb+yr9ii97bWJG0xisgPrZtPU/DiQbbFAXcgLSjJnPw5vDi7mFb
+SSZ/RMJqaku57N+y+sjT
+=E0R8
+-----END PGP SIGNATURE-----
+
+--UUMz/kfoogzZ9WLZ--
