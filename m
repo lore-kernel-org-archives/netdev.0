@@ -1,60 +1,115 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 09/21] batman-adv: don't initialise batman_iv private members in hard-interface.c
-Date: Wed, 29 May 2013 02:59:34 +0200
-Message-ID: <1369789186-3600-10-git-send-email-ordex@autistici.org>
+Subject: [PATCH 02/21] batman-adv: send each broadcast only once on non-wireless interfaces
+Date: Wed, 29 May 2013 02:59:27 +0200
+Message-ID: <1369789186-3600-3-git-send-email-ordex@autistici.org>
 References: <1369789186-3600-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <antonio@open-mesh.com>,
-	Marek Lindner <lindner_marek@yahoo.de>
+	Matthias Schiffer <mschiffer@universe-factory.net>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from contumacia.investici.org ([178.255.144.35]:43859 "EHLO
+Received: from contumacia.investici.org ([178.255.144.35]:43818 "EHLO
 	contumacia.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934243Ab3E2BBv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 21:01:51 -0400
+	with ESMTP id S1759062Ab3E2BBq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 21:01:46 -0400
 In-Reply-To: <1369789186-3600-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <antonio@open-mesh.com>
+From: Matthias Schiffer <mschiffer@universe-factory.net>
 
-hard-interface.c has to do not contain any routing algorithm
-specific code.
+While it makes sense to send each broadcast thrice on 802.11 (WLAN) interfaces
+as broadcasts are often unreliable on these, there is no reason to do so on
+other interface types.
 
-Allocate the hard-interface with kzalloc() and remove any
-useless and algorithm specific member initialisation
+The increased the overhead can be harmful on low-bandwidth links like VPN
+connections over slow internet lines, therefore it is better to reduce the
+number of broadcast packets sent on non-wireless links to one.
 
-Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
+Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
 ---
- net/batman-adv/hard-interface.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+ net/batman-adv/hard-interface.c | 4 ++++
+ net/batman-adv/main.h           | 5 +++++
+ net/batman-adv/send.c           | 5 ++++-
+ net/batman-adv/types.h          | 2 ++
+ 4 files changed, 15 insertions(+), 1 deletion(-)
 
 diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index 4a76ed6..c478e6b 100644
+index d5ec67b..4a76ed6 100644
 --- a/net/batman-adv/hard-interface.c
 +++ b/net/batman-adv/hard-interface.c
-@@ -577,7 +577,7 @@ batadv_hardif_add_interface(struct net_device *net_dev)
+@@ -593,6 +593,10 @@ batadv_hardif_add_interface(struct net_device *net_dev)
+ 	INIT_WORK(&hard_iface->cleanup_work,
+ 		  batadv_hardif_remove_interface_finish);
  
- 	dev_hold(net_dev);
++	hard_iface->num_bcasts = BATADV_NUM_BCASTS_DEFAULT;
++	if (batadv_is_wifi_netdev(net_dev))
++		hard_iface->num_bcasts = BATADV_NUM_BCASTS_WIRELESS;
++
+ 	/* extra reference for return */
+ 	atomic_set(&hard_iface->refcount, 2);
  
--	hard_iface = kmalloc(sizeof(*hard_iface), GFP_ATOMIC);
-+	hard_iface = kzalloc(sizeof(*hard_iface), GFP_ATOMIC);
- 	if (!hard_iface)
- 		goto release_dev;
+diff --git a/net/batman-adv/main.h b/net/batman-adv/main.h
+index 59a0d6a..ea1a3ba 100644
+--- a/net/batman-adv/main.h
++++ b/net/batman-adv/main.h
+@@ -76,6 +76,11 @@
  
-@@ -603,12 +603,6 @@ batadv_hardif_add_interface(struct net_device *net_dev)
- 	batadv_check_known_mac_addr(hard_iface->net_dev);
- 	list_add_tail_rcu(&hard_iface->list, &batadv_hardif_list);
+ #define BATADV_LOG_BUF_LEN 8192	  /* has to be a power of 2 */
  
--	/* This can't be called via a bat_priv callback because
--	 * we have no bat_priv yet.
--	 */
--	atomic_set(&hard_iface->bat_iv.ogm_seqno, 1);
--	hard_iface->bat_iv.ogm_buff = NULL;
--
- 	return hard_iface;
++/* number of packets to send for broadcasts on different interface types */
++#define BATADV_NUM_BCASTS_DEFAULT 1
++#define BATADV_NUM_BCASTS_WIRELESS 3
++#define BATADV_NUM_BCASTS_MAX 3
++
+ /* msecs after which an ARP_REQUEST is sent in broadcast as fallback */
+ #define ARP_REQ_DELAY 250
+ /* numbers of originator to contact for any PUT/GET DHT operation */
+diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
+index 263cfd1..eb16b04 100644
+--- a/net/batman-adv/send.c
++++ b/net/batman-adv/send.c
+@@ -260,6 +260,9 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
+ 		if (hard_iface->soft_iface != soft_iface)
+ 			continue;
  
- free_if:
++		if (forw_packet->num_packets >= hard_iface->num_bcasts)
++			continue;
++
+ 		/* send a copy of the saved skb */
+ 		skb1 = skb_clone(forw_packet->skb, GFP_ATOMIC);
+ 		if (skb1)
+@@ -271,7 +274,7 @@ static void batadv_send_outstanding_bcast_packet(struct work_struct *work)
+ 	forw_packet->num_packets++;
+ 
+ 	/* if we still have some more bcasts to send */
+-	if (forw_packet->num_packets < 3) {
++	if (forw_packet->num_packets < BATADV_NUM_BCASTS_MAX) {
+ 		_batadv_add_bcast_packet_to_list(bat_priv, forw_packet,
+ 						 msecs_to_jiffies(5));
+ 		return;
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index aba8364..5f542bd 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -61,6 +61,7 @@ struct batadv_hard_iface_bat_iv {
+  * @if_status: status of the interface for batman-adv
+  * @net_dev: pointer to the net_device
+  * @frag_seqno: last fragment sequence number sent by this interface
++ * @num_bcasts: number of payload re-broadcasts on this interface (ARQ)
+  * @hardif_obj: kobject of the per interface sysfs "mesh" directory
+  * @refcount: number of contexts the object is used
+  * @batman_adv_ptype: packet type describing packets that should be processed by
+@@ -76,6 +77,7 @@ struct batadv_hard_iface {
+ 	char if_status;
+ 	struct net_device *net_dev;
+ 	atomic_t frag_seqno;
++	uint8_t num_bcasts;
+ 	struct kobject *hardif_obj;
+ 	atomic_t refcount;
+ 	struct packet_type batman_adv_ptype;
 -- 
 1.8.1.5
