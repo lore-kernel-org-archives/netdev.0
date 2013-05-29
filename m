@@ -1,8 +1,8 @@
 From: Paul Moore <pmoore@redhat.com>
-Subject: [PATCH v3 1/2] xfrm: force a garbage collection after deleting a
- policy
-Date: Wed, 29 May 2013 13:36:25 -0400
-Message-ID: <20130529173625.31888.4007.stgit@localhost>
+Subject: [PATCH v3 2/2] selinux: fix the labeled xfrm/IPsec reference count
+ handling
+Date: Wed, 29 May 2013 13:36:32 -0400
+Message-ID: <20130529173632.31888.39884.stgit@localhost>
 References: <20130529173336.31888.29695.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,103 +10,98 @@ Content-Transfer-Encoding: 7bit
 Cc: omoris@redhat.com, pwouters@redhat.com
 To: netdev@vger.kernel.org, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61611 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:23093 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932934Ab3E2Rg2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 13:36:28 -0400
+	id S932934Ab3E2Rge (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 13:36:34 -0400
 In-Reply-To: <20130529173336.31888.29695.stgit@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In some cases after deleting a policy from the SPD the policy would
-remain in the dst/flow/route cache for an extended period of time
-which caused problems for SELinux as its dynamic network access
-controls key off of the number of XFRM policy and state entries.
-This patch corrects this problem by forcing a XFRM garbage collection
-whenever a policy is sucessfully removed.
+The SELinux labeled IPsec code was improperly handling its reference
+counting, dropping a reference on a delete operation instead of on a
+free/release operation.
 
 Reported-by: Ondrej Moris <omoris@redhat.com>
 Signed-off-by: Paul Moore <pmoore@redhat.com>
 ---
- include/net/xfrm.h     |    5 +++++
- net/key/af_key.c       |    4 ++++
- net/xfrm/xfrm_policy.c |    3 ++-
- net/xfrm/xfrm_user.c   |    2 ++
- 4 files changed, 13 insertions(+), 1 deletion(-)
+ security/selinux/xfrm.c |   34 ++++++++++++++--------------------
+ 1 file changed, 14 insertions(+), 20 deletions(-)
 
-diff --git a/include/net/xfrm.h b/include/net/xfrm.h
-index ae16531..94ce082 100644
---- a/include/net/xfrm.h
-+++ b/include/net/xfrm.h
-@@ -1160,6 +1160,8 @@ static inline void xfrm_sk_free_policy(struct sock *sk)
+diff --git a/security/selinux/xfrm.c b/security/selinux/xfrm.c
+index 8ab2951..d030818 100644
+--- a/security/selinux/xfrm.c
++++ b/security/selinux/xfrm.c
+@@ -316,6 +316,7 @@ int selinux_xfrm_policy_clone(struct xfrm_sec_ctx *old_ctx,
+ 
+ 		memcpy(new_ctx, old_ctx, sizeof(*new_ctx));
+ 		memcpy(new_ctx->ctx_str, old_ctx->ctx_str, new_ctx->ctx_len);
++		atomic_inc(&selinux_xfrm_refcount);
+ 		*new_ctxp = new_ctx;
  	}
- }
- 
-+extern void xfrm_garbage_collect(struct net *net);
-+
- #else
- 
- static inline void xfrm_sk_free_policy(struct sock *sk) {}
-@@ -1194,6 +1196,9 @@ static inline int xfrm6_policy_check_reverse(struct sock *sk, int dir,
+ 	return 0;
+@@ -326,6 +327,7 @@ int selinux_xfrm_policy_clone(struct xfrm_sec_ctx *old_ctx,
+  */
+ void selinux_xfrm_policy_free(struct xfrm_sec_ctx *ctx)
  {
- 	return 1;
- }
-+static inline void xfrm_garbage_collect(struct net *net)
-+{
-+}
- #endif
- 
- static __inline__
-diff --git a/net/key/af_key.c b/net/key/af_key.c
-index 5b1e5af..c5fbd75 100644
---- a/net/key/af_key.c
-+++ b/net/key/af_key.c
-@@ -2366,6 +2366,8 @@ static int pfkey_spddelete(struct sock *sk, struct sk_buff *skb, const struct sa
- 
- out:
- 	xfrm_pol_put(xp);
-+	if (err == 0)
-+		xfrm_garbage_collect(net);
- 	return err;
++	atomic_dec(&selinux_xfrm_refcount);
+ 	kfree(ctx);
  }
  
-@@ -2615,6 +2617,8 @@ static int pfkey_spdget(struct sock *sk, struct sk_buff *skb, const struct sadb_
- 
- out:
- 	xfrm_pol_put(xp);
-+	if (delete && err == 0)
-+		xfrm_garbage_collect(net);
- 	return err;
- }
- 
-diff --git a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
-index 23cea0f..ea970b8 100644
---- a/net/xfrm/xfrm_policy.c
-+++ b/net/xfrm/xfrm_policy.c
-@@ -2557,11 +2557,12 @@ static void __xfrm_garbage_collect(struct net *net)
- 	}
- }
- 
--static void xfrm_garbage_collect(struct net *net)
-+void xfrm_garbage_collect(struct net *net)
+@@ -335,17 +337,13 @@ void selinux_xfrm_policy_free(struct xfrm_sec_ctx *ctx)
+ int selinux_xfrm_policy_delete(struct xfrm_sec_ctx *ctx)
  {
- 	flow_cache_flush();
- 	__xfrm_garbage_collect(net);
- }
-+EXPORT_SYMBOL(xfrm_garbage_collect);
+ 	const struct task_security_struct *tsec = current_security();
+-	int rc = 0;
  
- static void xfrm_garbage_collect_deferred(struct net *net)
+-	if (ctx) {
+-		rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
+-				  SECCLASS_ASSOCIATION,
+-				  ASSOCIATION__SETCONTEXT, NULL);
+-		if (rc == 0)
+-			atomic_dec(&selinux_xfrm_refcount);
+-	}
++	if (!ctx)
++		return 0;
+ 
+-	return rc;
++	return avc_has_perm(tsec->sid, ctx->ctx_sid,
++			    SECCLASS_ASSOCIATION, ASSOCIATION__SETCONTEXT,
++			    NULL);
+ }
+ 
+ /*
+@@ -370,8 +368,8 @@ int selinux_xfrm_state_alloc(struct xfrm_state *x, struct xfrm_user_sec_ctx *uct
+  */
+ void selinux_xfrm_state_free(struct xfrm_state *x)
  {
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index aa77874..3f565e4 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -1681,6 +1681,8 @@ static int xfrm_get_policy(struct sk_buff *skb, struct nlmsghdr *nlh,
- 
- out:
- 	xfrm_pol_put(xp);
-+	if (delete && err == 0)
-+		xfrm_garbage_collect(net);
- 	return err;
+-	struct xfrm_sec_ctx *ctx = x->security;
+-	kfree(ctx);
++	atomic_dec(&selinux_xfrm_refcount);
++	kfree(x->security);
  }
  
+  /*
+@@ -381,17 +379,13 @@ int selinux_xfrm_state_delete(struct xfrm_state *x)
+ {
+ 	const struct task_security_struct *tsec = current_security();
+ 	struct xfrm_sec_ctx *ctx = x->security;
+-	int rc = 0;
+ 
+-	if (ctx) {
+-		rc = avc_has_perm(tsec->sid, ctx->ctx_sid,
+-				  SECCLASS_ASSOCIATION,
+-				  ASSOCIATION__SETCONTEXT, NULL);
+-		if (rc == 0)
+-			atomic_dec(&selinux_xfrm_refcount);
+-	}
++	if (!ctx)
++		return 0;
+ 
+-	return rc;
++	return avc_has_perm(tsec->sid, ctx->ctx_sid,
++			    SECCLASS_ASSOCIATION, ASSOCIATION__SETCONTEXT,
++			    NULL);
+ }
+ 
+ /*
