@@ -1,54 +1,57 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ip_vs_sh: fix build
-Date: Wed, 29 May 2013 22:31:19 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1305292219170.1951@ja.ssi.bg>
-References: <51A611CF02000078000D99A6@nat28.tlf.novell.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 6/7] sctp: Correct access to
+ skb->{network,transport}_header
+Date: Wed, 29 May 2013 20:31:12 +0100
+Message-ID: <1369855872.1971.1.camel@bwh-desktop.uk.level5networks.com>
+References: <1369805268-6291-1-git-send-email-horms@verge.net.au>
+	 <1369805268-6291-7-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: wensong@linux-vs.org, horms@verge.net.au, pablo@netfilter.org,
-	lvs-devel@vger.kernel.org, netdev@vger.kernel.org
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <51A611CF02000078000D99A6@nat28.tlf.novell.com>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:55224 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966032Ab3E2TbV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 15:31:21 -0400
+In-Reply-To: <1369805268-6291-7-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Wed, 2013-05-29 at 14:27 +0900, Simon Horman wrote:
+> This corrects an regression introduced by "net: Use 16bits for *_headers
+> fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set.
 
-	Hello,
+So how about adding 'typedef u16 sk_buff_data_t;'?
 
-On Wed, 29 May 2013, Jan Beulich wrote:
-
-> kfree_rcu() requires offsetof(..., rcu_head) < 4096, which can get
-> violated with a sufficiently high CONFIG_IP_VS_SH_TAB_BITS.
+> In
+> that case sk_buff_data_t will be a pointer, however,
+> skb->{network,transport}_header is now __u16.
 > 
-> Signed-off-by: Jan Beulich <jbeulich@suse.com>
-> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
 > ---
->  net/netfilter/ipvs/ip_vs_sh.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+>  net/sctp/input.c |    2 +-
+>  net/sctp/ipv6.c  |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
 > 
-> --- 3.10-rc3/net/netfilter/ipvs/ip_vs_sh.c
-> +++ 3.10-rc3-ip_vs_sh-build/net/netfilter/ipvs/ip_vs_sh.c
-> @@ -67,8 +67,8 @@ struct ip_vs_sh_bucket {
->  #define IP_VS_SH_TAB_MASK               (IP_VS_SH_TAB_SIZE - 1)
->  
->  struct ip_vs_sh_state {
-> -	struct ip_vs_sh_bucket		buckets[IP_VS_SH_TAB_SIZE];
->  	struct rcu_head			rcu_head;
-> +	struct ip_vs_sh_bucket		buckets[IP_VS_SH_TAB_SIZE];
+> diff --git a/net/sctp/input.c b/net/sctp/input.c
+> index 4b2c831..e328fe8 100644
+> --- a/net/sctp/input.c
+> +++ b/net/sctp/input.c
+> @@ -589,7 +589,7 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
+>  	struct sctp_association *asoc = NULL;
+>  	struct sctp_transport *transport;
+>  	struct inet_sock *inet;
+> -	sk_buff_data_t saveip, savesctp;
+> +	__be16 saveip, savesctp;
+[...]
 
-	Your fix reminds me about the same problem
-I noticed for LBLC (may be due to 10 bits) during development
-but forgot to check the other schedulers. The same solution
-is needed also for DH. OTOH, LBLC and LBLCR are correct.
-Do you prefer to provide similar fix for ip_vs_dh.c or
-I have to take care?
+__be16??
 
->  };
->  
->  /*
+Ben.
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
