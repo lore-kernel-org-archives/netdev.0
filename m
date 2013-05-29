@@ -1,199 +1,143 @@
 From: Antonio Quartulli <ordex@autistici.org>
-Subject: [PATCH 11/21] batman-adv: move ring_buffer helper functions in bat_iv_ogm
-Date: Wed, 29 May 2013 10:10:41 +0200
-Message-ID: <1369815051-708-12-git-send-email-ordex@autistici.org>
+Subject: [PATCH 12/21] batman-adv: move batadv_slide_own_bcast_window to bat_iv_ogm.c
+Date: Wed, 29 May 2013 10:10:42 +0200
+Message-ID: <1369815051-708-13-git-send-email-ordex@autistici.org>
 References: <1369815051-708-1-git-send-email-ordex@autistici.org>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Antonio Quartulli <ordex@autistici.org>,
+	Antonio Quartulli <antonio@open-mesh.com>,
 	Marek Lindner <lindner_marek@yahoo.de>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from latitanza.investici.org ([82.94.249.234]:39988 "EHLO
+Received: from latitanza.investici.org ([82.94.249.234]:39989 "EHLO
 	latitanza.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965058Ab3E2INC (ORCPT
+	with ESMTP id S965066Ab3E2INC (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 04:13:02 -0400
 In-Reply-To: <1369815051-708-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-the two lonely ring_buffer helper functions are used by the
-bat_iv_ogm module only and therefore they can be moved
-inside it.
+From: Antonio Quartulli <antonio@open-mesh.com>
 
-Reported-by: Marek Lindner <lindner_marek@yahoo.de>
-Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+batadv_slide_own_bcast_window() is used only in bat_iv_ogm.c
+and it is currently touching only batman_iv specific
+attributes.
+
+Move it into bat_iv_ogm.c and make it static.
+
+Signed-off-by: Antonio Quartulli <antonio@open-mesh.com>
 Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
 ---
- net/batman-adv/Makefile      |  1 -
- net/batman-adv/bat_iv_ogm.c  | 43 ++++++++++++++++++++++++++++++++++++-
- net/batman-adv/ring_buffer.c | 51 --------------------------------------------
- net/batman-adv/ring_buffer.h | 27 -----------------------
- 4 files changed, 42 insertions(+), 80 deletions(-)
- delete mode 100644 net/batman-adv/ring_buffer.c
- delete mode 100644 net/batman-adv/ring_buffer.h
+ net/batman-adv/bat_iv_ogm.c | 37 ++++++++++++++++++++++++++++++++++++-
+ net/batman-adv/routing.c    | 29 -----------------------------
+ net/batman-adv/routing.h    |  1 -
+ 3 files changed, 36 insertions(+), 31 deletions(-)
 
-diff --git a/net/batman-adv/Makefile b/net/batman-adv/Makefile
-index acbac2a..489bb36 100644
---- a/net/batman-adv/Makefile
-+++ b/net/batman-adv/Makefile
-@@ -32,7 +32,6 @@ batman-adv-y += icmp_socket.o
- batman-adv-y += main.o
- batman-adv-$(CONFIG_BATMAN_ADV_NC) += network-coding.o
- batman-adv-y += originator.o
--batman-adv-y += ring_buffer.o
- batman-adv-y += routing.o
- batman-adv-y += send.o
- batman-adv-y += soft-interface.o
 diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index ef41be4..31c2891 100644
+index 31c2891..42b7a94 100644
 --- a/net/batman-adv/bat_iv_ogm.c
 +++ b/net/batman-adv/bat_iv_ogm.c
-@@ -19,7 +19,6 @@
- 
- #include "main.h"
- #include "translation-table.h"
--#include "ring_buffer.h"
- #include "originator.h"
- #include "routing.h"
- #include "gateway_common.h"
-@@ -29,6 +28,48 @@
- #include "bat_algo.h"
- #include "network-coding.h"
+@@ -630,6 +630,41 @@ static void batadv_iv_ogm_forward(struct batadv_orig_node *orig_node,
+ 				if_incoming, 0, batadv_iv_ogm_fwd_send_time());
+ }
  
 +/**
-+ * batadv_ring_buffer_set - update the ring buffer with the given value
-+ * @lq_recv: pointer to the ring buffer
-+ * @lq_index: index to store the value at
-+ * @value: value to store in the ring buffer
++ * batadv_iv_ogm_slide_own_bcast_window - bitshift own OGM broadcast windows for
++ * the given interface
++ * @hard_iface: the interface for which the windows have to be shifted
 + */
-+static void batadv_ring_buffer_set(uint8_t lq_recv[], uint8_t *lq_index,
-+				   uint8_t value)
++static void
++batadv_iv_ogm_slide_own_bcast_window(struct batadv_hard_iface *hard_iface)
 +{
-+	lq_recv[*lq_index] = value;
-+	*lq_index = (*lq_index + 1) % BATADV_TQ_GLOBAL_WINDOW_SIZE;
-+}
++	struct batadv_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
++	struct batadv_hashtable *hash = bat_priv->orig_hash;
++	struct hlist_head *head;
++	struct batadv_orig_node *orig_node;
++	unsigned long *word;
++	uint32_t i;
++	size_t word_index;
++	uint8_t *w;
 +
-+/**
-+ * batadv_ring_buffer_set - compute the average of all non-zero values stored
-+ * in the given ring buffer
-+ * @lq_recv: pointer to the ring buffer
-+ *
-+ * Returns computed average value.
-+ */
-+static uint8_t batadv_ring_buffer_avg(const uint8_t lq_recv[])
-+{
-+	const uint8_t *ptr;
-+	uint16_t count = 0, i = 0, sum = 0;
++	for (i = 0; i < hash->size; i++) {
++		head = &hash->table[i];
 +
-+	ptr = lq_recv;
++		rcu_read_lock();
++		hlist_for_each_entry_rcu(orig_node, head, hash_entry) {
++			spin_lock_bh(&orig_node->ogm_cnt_lock);
++			word_index = hard_iface->if_num * BATADV_NUM_WORDS;
++			word = &(orig_node->bcast_own[word_index]);
 +
-+	while (i < BATADV_TQ_GLOBAL_WINDOW_SIZE) {
-+		if (*ptr != 0) {
-+			count++;
-+			sum += *ptr;
++			batadv_bit_get_packet(bat_priv, word, 1, 0);
++			w = &orig_node->bcast_own_sum[hard_iface->if_num];
++			*w = bitmap_weight(word, BATADV_TQ_LOCAL_WINDOW_SIZE);
++			spin_unlock_bh(&orig_node->ogm_cnt_lock);
 +		}
-+
-+		i++;
-+		ptr++;
++		rcu_read_unlock();
 +	}
-+
-+	if (count == 0)
-+		return 0;
-+
-+	return (uint8_t)(sum / count);
 +}
- static struct batadv_neigh_node *
- batadv_iv_ogm_neigh_new(struct batadv_hard_iface *hard_iface,
- 			const uint8_t *neigh_addr,
-diff --git a/net/batman-adv/ring_buffer.c b/net/batman-adv/ring_buffer.c
-deleted file mode 100644
-index ccab0bb..0000000
---- a/net/batman-adv/ring_buffer.c
-+++ /dev/null
-@@ -1,51 +0,0 @@
--/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-- *
-- * Marek Lindner
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of version 2 of the GNU General Public
-- * License as published by the Free Software Foundation.
-- *
-- * This program is distributed in the hope that it will be useful, but
-- * WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-- * General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-- */
--
--#include "main.h"
--#include "ring_buffer.h"
--
--void batadv_ring_buffer_set(uint8_t lq_recv[], uint8_t *lq_index,
--			    uint8_t value)
++
+ static void batadv_iv_ogm_schedule(struct batadv_hard_iface *hard_iface)
+ {
+ 	struct batadv_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
+@@ -674,7 +709,7 @@ static void batadv_iv_ogm_schedule(struct batadv_hard_iface *hard_iface)
+ 		batadv_ogm_packet->gw_flags = BATADV_NO_FLAGS;
+ 	}
+ 
+-	batadv_slide_own_bcast_window(hard_iface);
++	batadv_iv_ogm_slide_own_bcast_window(hard_iface);
+ 	batadv_iv_ogm_queue_add(bat_priv, hard_iface->bat_iv.ogm_buff,
+ 				hard_iface->bat_iv.ogm_buff_len, hard_iface, 1,
+ 				batadv_iv_ogm_emit_send_time(bat_priv));
+diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
+index beeab2e..fad0846 100644
+--- a/net/batman-adv/routing.c
++++ b/net/batman-adv/routing.c
+@@ -34,35 +34,6 @@
+ static int batadv_route_unicast_packet(struct sk_buff *skb,
+ 				       struct batadv_hard_iface *recv_if);
+ 
+-void batadv_slide_own_bcast_window(struct batadv_hard_iface *hard_iface)
 -{
--	lq_recv[*lq_index] = value;
--	*lq_index = (*lq_index + 1) % BATADV_TQ_GLOBAL_WINDOW_SIZE;
--}
+-	struct batadv_priv *bat_priv = netdev_priv(hard_iface->soft_iface);
+-	struct batadv_hashtable *hash = bat_priv->orig_hash;
+-	struct hlist_head *head;
+-	struct batadv_orig_node *orig_node;
+-	unsigned long *word;
+-	uint32_t i;
+-	size_t word_index;
+-	uint8_t *w;
 -
--uint8_t batadv_ring_buffer_avg(const uint8_t lq_recv[])
--{
--	const uint8_t *ptr;
--	uint16_t count = 0, i = 0, sum = 0;
+-	for (i = 0; i < hash->size; i++) {
+-		head = &hash->table[i];
 -
--	ptr = lq_recv;
+-		rcu_read_lock();
+-		hlist_for_each_entry_rcu(orig_node, head, hash_entry) {
+-			spin_lock_bh(&orig_node->ogm_cnt_lock);
+-			word_index = hard_iface->if_num * BATADV_NUM_WORDS;
+-			word = &(orig_node->bcast_own[word_index]);
 -
--	while (i < BATADV_TQ_GLOBAL_WINDOW_SIZE) {
--		if (*ptr != 0) {
--			count++;
--			sum += *ptr;
+-			batadv_bit_get_packet(bat_priv, word, 1, 0);
+-			w = &orig_node->bcast_own_sum[hard_iface->if_num];
+-			*w = bitmap_weight(word, BATADV_TQ_LOCAL_WINDOW_SIZE);
+-			spin_unlock_bh(&orig_node->ogm_cnt_lock);
 -		}
--
--		i++;
--		ptr++;
+-		rcu_read_unlock();
 -	}
--
--	if (count == 0)
--		return 0;
--
--	return (uint8_t)(sum / count);
 -}
-diff --git a/net/batman-adv/ring_buffer.h b/net/batman-adv/ring_buffer.h
-deleted file mode 100644
-index 3f92ae2..0000000
---- a/net/batman-adv/ring_buffer.h
-+++ /dev/null
-@@ -1,27 +0,0 @@
--/* Copyright (C) 2007-2013 B.A.T.M.A.N. contributors:
-- *
-- * Marek Lindner
-- *
-- * This program is free software; you can redistribute it and/or
-- * modify it under the terms of version 2 of the GNU General Public
-- * License as published by the Free Software Foundation.
-- *
-- * This program is distributed in the hope that it will be useful, but
-- * WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-- * General Public License for more details.
-- *
-- * You should have received a copy of the GNU General Public License
-- * along with this program; if not, write to the Free Software
-- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-- * 02110-1301, USA
-- */
 -
--#ifndef _NET_BATMAN_ADV_RING_BUFFER_H_
--#define _NET_BATMAN_ADV_RING_BUFFER_H_
--
--void batadv_ring_buffer_set(uint8_t lq_recv[], uint8_t *lq_index,
--			    uint8_t value);
--uint8_t batadv_ring_buffer_avg(const uint8_t lq_recv[]);
--
--#endif /* _NET_BATMAN_ADV_RING_BUFFER_H_ */
+ static void _batadv_update_route(struct batadv_priv *bat_priv,
+ 				 struct batadv_orig_node *orig_node,
+ 				 struct batadv_neigh_node *neigh_node)
+diff --git a/net/batman-adv/routing.h b/net/batman-adv/routing.h
+index 99eeafa..72a29bd 100644
+--- a/net/batman-adv/routing.h
++++ b/net/batman-adv/routing.h
+@@ -20,7 +20,6 @@
+ #ifndef _NET_BATMAN_ADV_ROUTING_H_
+ #define _NET_BATMAN_ADV_ROUTING_H_
+ 
+-void batadv_slide_own_bcast_window(struct batadv_hard_iface *hard_iface);
+ bool batadv_check_management_packet(struct sk_buff *skb,
+ 				    struct batadv_hard_iface *hard_iface,
+ 				    int header_len);
 -- 
 1.8.1.5
