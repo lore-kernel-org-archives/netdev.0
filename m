@@ -1,25 +1,25 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: Re: [PATCH v6 net-next 2/5] net: implement support
-	for low latency socket polling
-Date: Wed, 29 May 2013 14:42:11 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7257@saturn3.aculab.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v6 net-next 1/5] net: add napi_id and hash
+Date: Wed, 29 May 2013 06:43:45 -0700
+Message-ID: <1369835025.5109.21.camel@edumazet-glaptop>
 References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
-	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
-	<1369834647.5109.15.camel@edumazet-glaptop>
+	<20130529063925.27486.46649.stgit@ladj378.jer.intel.com>
+	<1369832201.5109.8.camel@edumazet-glaptop>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B7256@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
+Cc: Willem de Bruijn <willemb@google.com>, Don,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
 	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
 	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
 	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Eliezer Tamir" <eliezer.tamir@linux.intel.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-class: urn:content-classes:message
-In-Reply-To: <1369834647.5109.15.camel@edumazet-glaptop>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7256@saturn3.aculab.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -30,12 +30,21 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-> > +/* we don't mind a ~2.5% imprecision */
-> > +#define TSC_MHZ (tsc_khz >> 10)
+On Wed, 2013-05-29 at 14:09 +0100, David Laight wrote:
+> > > Adds a napi_id and a hashing mechanism to lookup a napi by id.
+> 
+> Is this one of the places where the 'id' can be selected
+> so that the 'hash' lookup never collides?
 
-Wouldn't (tsc_khz << 10) be better?
+Very few devices will ever call napi_hash_add()
 
-	David
+[ Real NIC RX queues, not virtual devices ]
+
+We use a hash table with 256 slots, the chance of collision is about 0%
+
+Lets not over engineer the thing before its even used.
+
+
 
 ------------------------------------------------------------------------------
 Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
