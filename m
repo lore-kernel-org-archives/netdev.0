@@ -1,65 +1,70 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning after merge of the final tree
-Date: Wed, 29 May 2013 15:29:15 +1000
-Message-ID: <20130529152915.efba860c7e825fe786b1ee99@canb.auug.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 7/7] net,ipv4,ipv6: Correct assignment of
+ skb->network_header to skb->tail
+Date: Tue, 28 May 2013 22:35:51 -0700
+Message-ID: <1369805751.5109.1.camel@edumazet-glaptop>
+References: <1369805268-6291-1-git-send-email-horms@verge.net.au>
+	 <1369805268-6291-8-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Wed__29_May_2013_15_29_15_+1000_b=x_FMU/gJ=Q=ovg"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Simon Horman <horms@verge.net.au>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:64049 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753883Ab3E2Ffx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 01:35:53 -0400
+Received: by mail-pd0-f180.google.com with SMTP id 14so6068073pdc.39
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 22:35:53 -0700 (PDT)
+In-Reply-To: <1369805268-6291-8-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---Signature=_Wed__29_May_2013_15_29_15_+1000_b=x_FMU/gJ=Q=ovg
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Wed, 2013-05-29 at 14:27 +0900, Simon Horman wrote:
+> This corrects an regression introduced by "net: Use 16bits for *_headers
+> fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
+> that case skb->tail will be a pointer however skb->network_header is now
+> an offset.
+> 
+> This patch corrects the problem by adding a wrapper to return skb tail as
+> an offset regardless of the value of NET_SKBUFF_DATA_USES_OFFSET. It seems
+> that skb->tail that this offset may be more than 64k and some care has been
+> taken to treat such cases as an error.
+> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> ---
+>  include/linux/skbuff.h |    9 +++++++++
+>  net/core/netpoll.c     |    9 ++++++++-
+>  net/core/pktgen.c      |   16 ++++++++++++++--
+>  net/ipv4/ipmr.c        |    8 +++++++-
+>  4 files changed, 38 insertions(+), 4 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 8f2b830..26ed287 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -1391,6 +1391,11 @@ static inline void skb_set_tail_pointer(struct sk_buff *skb, const int offset)
+>  	skb_reset_tail_pointer(skb);
+>  	skb->tail += offset;
+>  }
+> +
+> +static inline __u64 skb_tail_offset(const struct sk_buff *skb)
+> +{
+> +	return skb->tail;
+> +}
+>  #else /* NET_SKBUFF_DATA_USES_OFFSET */
+>  static inline unsigned char *skb_tail_pointer(const struct sk_buff *skb)
+>  {
+> @@ -1407,6 +1412,10 @@ static inline void skb_set_tail_pointer(struct sk_buff *skb, const int offset)
+>  	skb->tail = skb->data + offset;
+>  }
+>  
+> +static inline __u64 skb_tail_offset(const struct sk_buff *skb)
+> +{
+> +	return skb->tail - skb->head;
+> +}
+>  #endif /* NET_SKBUFF_DATA_USES_OFFSET */
+>  
 
-Hi all,
-
-After merging the final tree, today's linux-next build (powerpc
-ppc44x_defconfig, i386 defconfig, sparc32 defconfig) produced these
-warning:
-
-In file included from /scratch/sfr/next/include/net/tcp.h:44:0,
-                 from /scratch/sfr/next/net/core/sock.c:139:
-/scratch/sfr/next/include/net/inet_ecn.h: In function 'INET_ECN_set_ce':
-/scratch/sfr/next/include/net/inet_ecn.h:137:50: warning: comparison betwee=
-n pointer and integer [enabled by default]
-/scratch/sfr/next/include/net/inet_ecn.h:142:52: warning: comparison betwee=
-n pointer and integer [enabled by default]
-
-I got lots of these :-(
-
-Introduced by commit 1a37e412a022 ("net: Use 16bits for *_headers fields
-of struct skbuff") from the net-next tree.
-
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
-
---Signature=_Wed__29_May_2013_15_29_15_+1000_b=x_FMU/gJ=Q=ovg
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBCAAGBQJRpZIvAAoJEECxmPOUX5FE/rYP/3x6OkJJbYePE/Hp0wFyQwDE
-zz6F2mQpukPaRLHx0mBZAMQe4ey7iMxQPAkP5g3/LsATJAoi6+fOrP/uvhUzV1hZ
-iNqTQAVrVDctOCXX26d7cOLomNwLo4tJkxypsHYPEdqzEwY/hkr87n/cikbI+W5s
-Y1vOVRhn5CX9K7vnRAZHfxLX0PnPUuh3a0boEh/iVjTdLP5Zcv76qaXxesJaD1U+
-LUwlSpJcYK3VguVSg9swPAPlDLhPfFMetSIxBU4/JjqoLVPHfq8SGg51CPoQGEHt
-x7bM+Z00+4FHYwQBArdKklfZykHYLrlXzmdtsdWlMJOEOABm5HorAVH2z1S9niYr
-w8eSQwWtTPV0e28JY4zzinwSjBsjIiTmdTfAXjWo/A0gkoNSHyibTzP0DBTgwQBI
-fnyDKsLiEFIvS809+3UKJdKE1Lndd1ghWtoAh1J3PwKbz1v4+l1HzwuZEyqN58mJ
-stCOELhwBZ01MKPhUeV8mBMFupCWOE+kDBu+ICx833X1Ub8G2+d3hgNtk++LLrK1
-Em2X64f3tR6ExY1DjTt0wrOasusexB6Z0MM5HANvcTL9bDFDL7UjrbSqQvJIgOrw
-kn7nJD1pEBaRni+d61Y7Ph6S0Bdn2lGccYW4ghr9+0QcdkBlPwkxDja20NrKdhiZ
-Y8mMo34idv7Q8IZgTM7V
-=tNiV
------END PGP SIGNATURE-----
-
---Signature=_Wed__29_May_2013_15_29_15_+1000_b=x_FMU/gJ=Q=ovg--
+Are you sure __u64 is needed on 32bit arches ?
