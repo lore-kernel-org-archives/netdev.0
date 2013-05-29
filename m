@@ -1,7 +1,7 @@
 From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Subject: [PATCH v5 15/28] rdma/cm: Merge cma_get/save_net_info
-Date: Wed, 29 May 2013 10:09:21 -0700
-Message-ID: <1369847374-12176-16-git-send-email-sean.hefty@intel.com>
+Subject: [PATCH v5 16/28] rdma/cm: Expose private data when using AF_IB
+Date: Wed, 29 May 2013 10:09:22 -0700
+Message-ID: <1369847374-12176-17-git-send-email-sean.hefty@intel.com>
 References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
 Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -13,196 +13,134 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-With the removal of SDP related code, we can merge
-cma_get_net_info with cma_save_net_info, since we're
-only ever dealing with a single header format.
+If the source or destination address is AF_IB, then do not
+reserve a portion of the private data in the IB CM REQ or SIDR
+REQ messages for the cma header.  Instead, all private data
+should be exported to the user.  When AF_IB is used, the
+rdma cm does not have sufficient information to fill in the
+cma header.  Additionally, this will be necessary to support
+any IB connection through the rdma cm interface,
 
 Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/infiniband/core/cma.c |  126 +++++++++++++++++++++++------------------
- 1 files changed, 70 insertions(+), 56 deletions(-)
+ drivers/infiniband/core/cma.c |   56 +++++++++++++++++++++++++----------------
+ 1 files changed, 34 insertions(+), 22 deletions(-)
 
 diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index d53d056..69217f5 100644
+index 69217f5..a807b18 100644
 --- a/drivers/infiniband/core/cma.c
 +++ b/drivers/infiniband/core/cma.c
-@@ -810,59 +810,87 @@ static inline int cma_any_port(struct sockaddr *addr)
- 	return !cma_port(addr);
+@@ -893,9 +893,9 @@ static int cma_save_net_info(struct rdma_cm_id *id, struct rdma_cm_id *listen_id
+ 	return 0;
  }
  
--static int cma_get_net_info(void *hdr, enum rdma_port_space ps,
--			    u8 *ip_ver, __be16 *port,
--			    union cma_ip_addr **src, union cma_ip_addr **dst)
-+static void cma_save_ib_info(struct rdma_cm_id *id, struct rdma_cm_id *listen_id,
-+			     struct ib_sa_path_rec *path)
+-static inline int cma_user_data_offset(enum rdma_port_space ps)
++static inline int cma_user_data_offset(struct rdma_id_private *id_priv)
  {
--	if (((struct cma_hdr *) hdr)->cma_version != CMA_VERSION)
--		return -EINVAL;
-+	struct sockaddr_ib *listen_ib, *ib;
- 
--	*ip_ver	= cma_get_ip_ver(hdr);
--	*port	= ((struct cma_hdr *) hdr)->port;
--	*src	= &((struct cma_hdr *) hdr)->src_addr;
--	*dst	= &((struct cma_hdr *) hdr)->dst_addr;
-+	listen_ib = (struct sockaddr_ib *) &listen_id->route.addr.src_addr;
-+	ib = (struct sockaddr_ib *) &id->route.addr.src_addr;
-+	ib->sib_family = listen_ib->sib_family;
-+	ib->sib_pkey = path->pkey;
-+	ib->sib_flowinfo = path->flow_label;
-+	memcpy(&ib->sib_addr, &path->sgid, 16);
-+	ib->sib_sid = listen_ib->sib_sid;
-+	ib->sib_sid_mask = 0xFFFFFFFFFFFFFFFFULL;
-+	ib->sib_scope_id = listen_ib->sib_scope_id;
- 
--	if (*ip_ver != 4 && *ip_ver != 6)
--		return -EINVAL;
--	return 0;
-+	ib = (struct sockaddr_ib *) &id->route.addr.dst_addr;
-+	ib->sib_family = listen_ib->sib_family;
-+	ib->sib_pkey = path->pkey;
-+	ib->sib_flowinfo = path->flow_label;
-+	memcpy(&ib->sib_addr, &path->dgid, 16);
+-	return sizeof(struct cma_hdr);
++	return cma_family(id_priv) == AF_IB ? 0 : sizeof(struct cma_hdr);
  }
  
--static void cma_save_net_info(struct rdma_addr *addr,
--			      struct rdma_addr *listen_addr,
--			      u8 ip_ver, __be16 port,
--			      union cma_ip_addr *src, union cma_ip_addr *dst)
-+static void cma_save_ip4_info(struct rdma_cm_id *id, struct rdma_cm_id *listen_id,
-+			      struct cma_hdr *hdr)
- {
- 	struct sockaddr_in *listen4, *ip4;
-+
-+	listen4 = (struct sockaddr_in *) &listen_id->route.addr.src_addr;
-+	ip4 = (struct sockaddr_in *) &id->route.addr.src_addr;
-+	ip4->sin_family = listen4->sin_family;
-+	ip4->sin_addr.s_addr = hdr->dst_addr.ip4.addr;
-+	ip4->sin_port = listen4->sin_port;
-+
-+	ip4 = (struct sockaddr_in *) &id->route.addr.dst_addr;
-+	ip4->sin_family = listen4->sin_family;
-+	ip4->sin_addr.s_addr = hdr->src_addr.ip4.addr;
-+	ip4->sin_port = hdr->port;
-+}
-+
-+static void cma_save_ip6_info(struct rdma_cm_id *id, struct rdma_cm_id *listen_id,
-+			      struct cma_hdr *hdr)
-+{
- 	struct sockaddr_in6 *listen6, *ip6;
+ static void cma_cancel_route(struct rdma_id_private *id_priv)
+@@ -1265,7 +1265,7 @@ static int cma_req_handler(struct ib_cm_id *cm_id, struct ib_cm_event *ib_event)
+ 		return -ECONNABORTED;
  
--	switch (ip_ver) {
-+	listen6 = (struct sockaddr_in6 *) &listen_id->route.addr.src_addr;
-+	ip6 = (struct sockaddr_in6 *) &id->route.addr.src_addr;
-+	ip6->sin6_family = listen6->sin6_family;
-+	ip6->sin6_addr = hdr->dst_addr.ip6;
-+	ip6->sin6_port = listen6->sin6_port;
-+
-+	ip6 = (struct sockaddr_in6 *) &id->route.addr.dst_addr;
-+	ip6->sin6_family = listen6->sin6_family;
-+	ip6->sin6_addr = hdr->src_addr.ip6;
-+	ip6->sin6_port = hdr->port;
-+}
-+
-+static int cma_save_net_info(struct rdma_cm_id *id, struct rdma_cm_id *listen_id,
-+			     struct ib_cm_event *ib_event)
-+{
-+	struct cma_hdr *hdr;
-+
-+	if (listen_id->route.addr.src_addr.ss_family == AF_IB) {
-+		cma_save_ib_info(id, listen_id, ib_event->param.req_rcvd.primary_path);
-+		return 0;
+ 	memset(&event, 0, sizeof event);
+-	offset = cma_user_data_offset(listen_id->id.ps);
++	offset = cma_user_data_offset(listen_id);
+ 	event.event = RDMA_CM_EVENT_CONNECT_REQUEST;
+ 	if (ib_event->event == IB_CM_SIDR_REQ_RECEIVED) {
+ 		conn_id = cma_new_udp_id(&listen_id->id, ib_event);
+@@ -2585,7 +2585,7 @@ static int cma_format_hdr(void *hdr, struct rdma_id_private *id_priv)
+ 		cma_hdr->src_addr.ip4.addr = src4->sin_addr.s_addr;
+ 		cma_hdr->dst_addr.ip4.addr = dst4->sin_addr.s_addr;
+ 		cma_hdr->port = src4->sin_port;
+-	} else {
++	} else if (cma_family(id_priv) == AF_INET6) {
+ 		struct sockaddr_in6 *src6, *dst6;
+ 
+ 		src6 = (struct sockaddr_in6 *) cma_src_addr(id_priv);
+@@ -2668,24 +2668,30 @@ static int cma_resolve_ib_udp(struct rdma_id_private *id_priv,
+ {
+ 	struct ib_cm_sidr_req_param req;
+ 	struct ib_cm_id	*id;
+-	int ret;
++	int offset, ret;
+ 
+-	req.private_data_len = sizeof(struct cma_hdr) +
+-			       conn_param->private_data_len;
++	offset = cma_user_data_offset(id_priv);
++	req.private_data_len = offset + conn_param->private_data_len;
+ 	if (req.private_data_len < conn_param->private_data_len)
+ 		return -EINVAL;
+ 
+-	req.private_data = kzalloc(req.private_data_len, GFP_ATOMIC);
+-	if (!req.private_data)
+-		return -ENOMEM;
++	if (req.private_data_len) {
++		req.private_data = kzalloc(req.private_data_len, GFP_ATOMIC);
++		if (!req.private_data)
++			return -ENOMEM;
++	} else {
++		req.private_data = NULL;
 +	}
-+
-+	hdr = ib_event->private_data;
-+	if (hdr->cma_version != CMA_VERSION)
-+		return -EINVAL;
-+
-+	switch (cma_get_ip_ver(hdr)) {
- 	case 4:
--		listen4 = (struct sockaddr_in *) &listen_addr->src_addr;
--		ip4 = (struct sockaddr_in *) &addr->src_addr;
--		ip4->sin_family = listen4->sin_family;
--		ip4->sin_addr.s_addr = dst->ip4.addr;
--		ip4->sin_port = listen4->sin_port;
--
--		ip4 = (struct sockaddr_in *) &addr->dst_addr;
--		ip4->sin_family = listen4->sin_family;
--		ip4->sin_addr.s_addr = src->ip4.addr;
--		ip4->sin_port = port;
-+		cma_save_ip4_info(id, listen_id, hdr);
- 		break;
- 	case 6:
--		listen6 = (struct sockaddr_in6 *) &listen_addr->src_addr;
--		ip6 = (struct sockaddr_in6 *) &addr->src_addr;
--		ip6->sin6_family = listen6->sin6_family;
--		ip6->sin6_addr = dst->ip6;
--		ip6->sin6_port = listen6->sin6_port;
--
--		ip6 = (struct sockaddr_in6 *) &addr->dst_addr;
--		ip6->sin6_family = listen6->sin6_family;
--		ip6->sin6_addr = src->ip6;
--		ip6->sin6_port = port;
-+		cma_save_ip6_info(id, listen_id, hdr);
- 		break;
- 	default:
--		break;
-+		return -EINVAL;
- 	}
-+	return 0;
- }
  
- static inline int cma_user_data_offset(enum rdma_port_space ps)
-@@ -1129,23 +1157,16 @@ static struct rdma_id_private *cma_new_conn_id(struct rdma_cm_id *listen_id,
- 	struct rdma_id_private *id_priv;
- 	struct rdma_cm_id *id;
- 	struct rdma_route *rt;
--	union cma_ip_addr *src, *dst;
--	__be16 port;
--	u8 ip_ver;
- 	int ret;
+ 	if (conn_param->private_data && conn_param->private_data_len)
+-		memcpy((void *) req.private_data + sizeof(struct cma_hdr),
++		memcpy((void *) req.private_data + offset,
+ 		       conn_param->private_data, conn_param->private_data_len);
  
--	if (cma_get_net_info(ib_event->private_data, listen_id->ps,
--			     &ip_ver, &port, &src, &dst))
--		return NULL;
--
- 	id = rdma_create_id(listen_id->event_handler, listen_id->context,
- 			    listen_id->ps, ib_event->param.req_rcvd.qp_type);
- 	if (IS_ERR(id))
- 		return NULL;
+-	ret = cma_format_hdr((void *) req.private_data, id_priv);
+-	if (ret)
+-		goto out;
++	if (req.private_data) {
++		ret = cma_format_hdr((void *) req.private_data, id_priv);
++		if (ret)
++			goto out;
++	}
  
- 	id_priv = container_of(id, struct rdma_id_private, id);
--	cma_save_net_info(&id->route.addr, &listen_id->route.addr,
--			  ip_ver, port, src, dst);
-+	if (cma_save_net_info(id, listen_id, ib_event))
-+		goto err;
+ 	id = ib_create_cm_id(id_priv->id.device, cma_sidr_rep_handler,
+ 			     id_priv);
+@@ -2720,14 +2726,18 @@ static int cma_connect_ib(struct rdma_id_private *id_priv,
+ 	int offset, ret;
  
- 	rt = &id->route;
- 	rt->num_paths = ib_event->param.req_rcvd.alternate_path ? 2 : 1;
-@@ -1182,9 +1203,6 @@ static struct rdma_id_private *cma_new_udp_id(struct rdma_cm_id *listen_id,
- {
- 	struct rdma_id_private *id_priv;
- 	struct rdma_cm_id *id;
--	union cma_ip_addr *src, *dst;
--	__be16 port;
--	u8 ip_ver;
- 	int ret;
+ 	memset(&req, 0, sizeof req);
+-	offset = cma_user_data_offset(id_priv->id.ps);
++	offset = cma_user_data_offset(id_priv);
+ 	req.private_data_len = offset + conn_param->private_data_len;
+ 	if (req.private_data_len < conn_param->private_data_len)
+ 		return -EINVAL;
  
- 	id = rdma_create_id(listen_id->event_handler, listen_id->context,
-@@ -1193,13 +1211,9 @@ static struct rdma_id_private *cma_new_udp_id(struct rdma_cm_id *listen_id,
- 		return NULL;
+-	private_data = kzalloc(req.private_data_len, GFP_ATOMIC);
+-	if (!private_data)
+-		return -ENOMEM;
++	if (req.private_data_len) {
++		private_data = kzalloc(req.private_data_len, GFP_ATOMIC);
++		if (!private_data)
++			return -ENOMEM;
++	} else {
++		private_data = NULL;
++	}
  
- 	id_priv = container_of(id, struct rdma_id_private, id);
--	if (cma_get_net_info(ib_event->private_data, listen_id->ps,
--			     &ip_ver, &port, &src, &dst))
-+	if (cma_save_net_info(id, listen_id, ib_event))
- 		goto err;
+ 	if (conn_param->private_data && conn_param->private_data_len)
+ 		memcpy(private_data + offset, conn_param->private_data,
+@@ -2741,10 +2751,12 @@ static int cma_connect_ib(struct rdma_id_private *id_priv,
+ 	id_priv->cm_id.ib = id;
  
--	cma_save_net_info(&id->route.addr, &listen_id->route.addr,
--			  ip_ver, port, src, dst);
--
- 	if (!cma_any_addr((struct sockaddr *) &id->route.addr.src_addr)) {
- 		ret = cma_translate_addr(cma_src_addr(id_priv), &id->route.addr.dev_addr);
- 		if (ret)
+ 	route = &id_priv->id.route;
+-	ret = cma_format_hdr(private_data, id_priv);
+-	if (ret)
+-		goto out;
+-	req.private_data = private_data;
++	if (private_data) {
++		ret = cma_format_hdr(private_data, id_priv);
++		if (ret)
++			goto out;
++		req.private_data = private_data;
++	}
+ 
+ 	req.primary_path = &route->path_rec[0];
+ 	if (route->num_paths == 2)
 -- 
 1.7.3
 
