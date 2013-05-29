@@ -1,89 +1,66 @@
-From: Tom Parkin <tparkin@katalix.com>
-Subject: Re: [PATCH][RESEND] Fix checksum related BUG in l2tp_ppp receive path
-Date: Wed, 29 May 2013 17:49:24 +0100
-Message-ID: <20130529164924.GA3179@raven>
-References: <1369724604.7764.1.camel@localhost>
+From: "Jens Renner (EFE)" <renner@efe-gmbh.de>
+Subject: Re: [PATCH] net: ethernet: xilinx_emaclite: keep protocol selector
+ bits by reading ANAR
+Date: Wed, 29 May 2013 18:54:15 +0200
+Message-ID: <51A632B7.8020201@efe-gmbh.de>
+References: <51A4D6FE.3080308@efe-gmbh.de> <51A61D8C.6090100@monstr.eu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="9amGYk9869ThD9tj"
-Cc: jchapman@katalix.com, davem@davemloft.net,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Jana Saout <jana@saout.de>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net
+To: monstr@monstr.eu, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from katalix.com ([82.103.140.233]:40951 "EHLO bert.katalix.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757827Ab3E2Qt1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 12:49:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1369724604.7764.1.camel@localhost>
+Received: from moutng.kundenserver.de ([212.227.17.8]:61124 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759039Ab3E2QyH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 12:54:07 -0400
+In-Reply-To: <51A61D8C.6090100@monstr.eu>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Am 29.05.2013 17:23, schrieb Michal Simek:
+> On 05/28/2013 06:10 PM, Jens Renner (EFE) wrote:
+>> This patch reads the PHY's MII_ADVERTISE register (ANAR) before modifying
+>> it. Hence, the protocol selector bits (4:0) which indicate IEEE 803.3u
+>> support are prevented from being cleared. While the selector bits are
+>> fixed / read-only on some PHYs, not setting them correctly on others
+>> (like TI DP83630) makes the PHY fall back to 10/half mode which should be
+>> avoided.
+>> 
+>> Signed-off-by: Jens Renner <renner@efe-gmbh.de> --- 
+>> drivers/net/ethernet/xilinx/xilinx_emaclite.c               |    7
+>> +++++-- 1 file changed, 5 insertions(+), 2 deletions(-)
+>> 
+>> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+>> b/drivers/net/ethernet/xilinx/xilinx_emaclite.c index 919b983..4a67af1
+>> 100644 --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c +++
+>> b/drivers/net/ethernet/xilinx/xilinx_emaclite.c @@ -922,7 +922,7 @@ void
+>> xemaclite_adjust_link(struct net_device *ndev) static int
+>> xemaclite_open(struct net_device *dev) { struct net_local *lp =
+>> netdev_priv(dev); -       int retval; +       int retval, adv;
+>> 
+>> /* Just to be safe, stop the device first */ 
+>> xemaclite_disable_interrupts(lp); @@ -946,7 +946,10 @@ static int
+>> xemaclite_open(struct net_device *dev) phy_write(lp->phy_dev,
+>> MII_CTRL1000, 0);
+>> 
+>> /* Advertise only 10 and 100mbps full/half duplex speeds */ -
+>> phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL); +               adv
+>> = phy_read(lp->phy_dev, MII_ADVERTISE); +               if (adv < 0) +
+>> return adv; +               phy_write(lp->phy_dev, MII_ADVERTISE, adv |
+>> ADVERTISE_ALL);
+>> 
+>> /* Restart auto negotiation */ bmcr = phy_read(lp->phy_dev, MII_BMCR);
+> 
+> Acked-by: Michal Simek <monstr@monstr.eu>
+> 
+> Thanks, Michal
+> 
+> 
 
---9amGYk9869ThD9tj
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-Hi Jana,
-
-Thanks for the patch, and sorry for missing it the first time around!
-
-On Tue, May 28, 2013 at 09:03:24AM +0200, Jana Saout wrote:
-> Interestingly, the PPP over L2TP (with xl2tpd) is working fine when
-> using my Linux client, but a simple ping from my Android phone causes
-> the BUG on the first packet.  It happens on the L2TP -> PPP path, as the
-> ping request never leaves the ppp devices to the local network.
->=20
-> What *might* be different from other setups, is that the machine on
-> which the L2TP packets are decapsulated is a Xen VM, so the packets
-> arrive with CHECKSUM_PARTIAL set.
-
-Could you advise what Android client you're using?  I'd like to
-attempt to reproduce this here.  We do a lot of L2TP testing in VM
-environments (albeit not Xen), so I'm interested as to why we've not
-hit this.
-
-> I believe that since the L2TP checksum has already been checked and
-> everything, the decapsulated packet is supposedly "fine" and I also saw
-> the following line in l2tp_eth.c:
->=20
->         /* checksums verified by L2TP */
->         skb->ip_summed =3D CHECKSUM_NONE;
->=20
-> which sounds to mike like the right thing to do, so I modified
-> l2tp_ppp.c accordingly and voila - no more crashes.  In case it helps, I
-> would like to share that patch for inclusion or, in case I'm wrong, to
-> ask you to find the correct fix. :)
-
-I think your analysis is correct, but I'm not sure whether setting
-skb->ip_summed to CHECKSUM_NONE is the right thing to do.  It seems
-like this would disable checksumming for the ICMP echo response.
-Although that may avoid the BUG, it may not be entirely ideal
-behaviour.
-
-I'll have a dig into the other tunnelling protocol implementation and
-see what they do.
---=20
-Tom Parkin
-Katalix Systems Ltd
-http://www.katalix.com
-Catalysts for your Embedded Linux software development
-
---9amGYk9869ThD9tj
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iQEcBAEBAgAGBQJRpjGUAAoJEJSMBmUKuovQ8xIIAJPRA1fWUDmsp0yzMQB2/4Kt
-jB8PXilvU+J3Wv+Q5NKyW+fExd008wD9aUlI8DhpNNCb5ML1kJIoqQYgfHSIJfYp
-Iw3Zl8JFvBUmrH3I+w4/8JynJIrdejGLI5mbgFIRHdLVXOKfStcpLyoDac1tI78t
-g08fcaN/jJkA6kiwvIn2410ZBplIkKNyAO5sZlmKXL570rYBpZl7MXsqJRYM4+jc
-hkudXpQV7ro/hjP8chMluB87la+is7QpeekNjJhKejdr4R6YFafSroe29nHQ9x4J
-IFRDRi1IUhTXRX3qz7Pe6gT65sCxbtclPomGSBuxcHBBztWchtiRQJjI8LKPQdM=
-=DI4+
------END PGP SIGNATURE-----
-
---9amGYk9869ThD9tj--
+Michal, please mind the follow-ups to my original list mail:
+http://lists.openwall.net/netdev/2013/05/28/126
+http://lists.openwall.net/netdev/2013/05/29/140
+There will be a patch v2 later this day (I will put you in CC).
+Thanks,
+Jens.
