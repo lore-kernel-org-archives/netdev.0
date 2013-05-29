@@ -1,103 +1,143 @@
 From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Subject: [PATCH v5 00/28] rdma/cm: Add support for native IB addressing
-Date: Wed, 29 May 2013 10:09:06 -0700
-Message-ID: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
+Subject: [PATCH v5 01/28] rdma/cm: define native IB address
+Date: Wed, 29 May 2013 10:09:07 -0700
+Message-ID: <1369847374-12176-2-git-send-email-sean.hefty@intel.com>
+References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
 Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1369847374-12176-1-git-send-email-sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-This patch series adds support for native IB addressing to the
-rdma cm.  The full patch series is available from:
-
-        git://git.openfabrics.org/~shefty/rdma-dev.git for-next
-
-The rdma cm is the only widely usable interface for establishing
-communication over Infiniband.  Other interfaces are either privileged
-(e.g. umad) or incomplete in that they do not contact the IB SA
-for necessary data (e.g. ucm).  The rdma cm is the only interface
-which provides support for path record queries and multicast joins.
-However, users of the rdma cm interface are restricted to using IP
-addresses, which must be translated into IB addresses.
-
-Allowing the use of native IB addresses removes the requirement
-for IPoIB, which in turn allows us to offload name and/or address
-translation services to a user space daemon.  The primary motivation
-is to support large scale fabrics, with address and name services
-either cached or bypassed completely.  For example, IB GIDs are
-known or the information is exchanged out of band by an MPI process
-manager.  However, another use case involves load balancing software.
-Currently the rdma cm cannot establish rdma connections through
-a load balancer, since the IP -> GID mapping is not well defined.
-An out of band mechanism could be used in such situations to
-determine the correct mapping, with the rdma cm still managing
-the connection.
-
-The patch set introduces af_ib and sockaddr_ib.  The kernel
-rdma_cm is updated accordingly, mainly to make its handling of
-addresses more generic.  However, since sockaddr_ib is larger
-than sockaddr_in6, the rdma_ucm requires changes to its user to
-kernel interface.  To provide backwards compatibility, the userspace
-ABI is extended to support the larger address size.
-
-Note that this series only touches the main networking stack to
-define AF_IB.
+Define AF_IB and sockaddr_ib to allow the rdma_cm to use native IB
+addressing.
 
 Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-
-Changes from v4:
-Updated to newer base kernel.
-Removed unused SDP header definitions and related code.
-Exposed private data to servers bound to AF_IB addresses.
-Fixed issue on client side accessing NULL private data.
-
-Sean Hefty (28):
-  rdma/cm: define native IB address
-  rdma/cm: Allow enabling reuseaddr in any state
-  rdma/cm: Include AF_IB in loopback and any address checks
-  ib/addr: Add AF_IB support to ip_addr_size
-  rdma/cm: Update port reservation to support AF_IB
-  rdma/cm: Allow user to specify AF_IB when binding
-  rdma/cm: Do not modify sa_family when setting loopback address
-  rdma/cm: Add helper functions to return id address information
-  rdma/cm: Restrict AF_IB loopback to binding to IB devices only
-  rdma/cm: Verify that source and dest sa_family are the same
-  rdma/cm: Add support for AF_IB to rdma_resolve_addr
-  rdma/cm: Add support for AF_IB to rdma_resolve_route
-  rdma/cm: Add support for AF_IB to cma_get_service_id
-  rdma/cm: Remove unused SDP related code
-  rdma/cm: Merge cma_get/save_net_info
-  rdma/cm: Expose private data when using AF_IB
-  rdma/cm: Set qkey for AF_IB
-  rdma/cm: Only listen on IB devices when using AF_IB
-  rdma/ucm: Support querying for AF_IB addresses
-  ib/sa: Export function to pack a path record into wire format
-  rdma/ucm: Support querying when IB paths are not reversible
-  rdma/cm: Export cma_get_service_id
-  rdma/ucm: Add ability to query GID addresses
-  rdma/ucm: Name changes to indicate only IP addresses supported
-  rdma/ucm: Allow user space to bind to AF_IB
-  rdma/ucm: Allow user space to pass AF_IB into resolve
-  rdma/ucm: Allow user space to specify AF_IB when joining multicast
-  rdma/cm: Export AF_IB statistics
-
- drivers/infiniband/core/addr.c     |   20 +-
- drivers/infiniband/core/cma.c      |  906 +++++++++++++++++++++---------------
- drivers/infiniband/core/sa_query.c |    6 +
- drivers/infiniband/core/ucma.c     |  321 +++++++++++--
- include/linux/socket.h             |    2 +
- include/rdma/ib.h                  |   89 ++++
- include/rdma/ib_addr.h             |    6 +-
- include/rdma/ib_sa.h               |    7 +
- include/rdma/rdma_cm.h             |   13 +
- include/uapi/rdma/rdma_user_cm.h   |   73 +++-
- 10 files changed, 1001 insertions(+), 442 deletions(-)
+---
+ include/linux/socket.h |    2 +
+ include/rdma/ib.h      |   89 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 91 insertions(+), 0 deletions(-)
  create mode 100644 include/rdma/ib.h
 
+diff --git a/include/linux/socket.h b/include/linux/socket.h
+index 2b9f74b..68f7120 100644
+--- a/include/linux/socket.h
++++ b/include/linux/socket.h
+@@ -167,6 +167,7 @@ struct ucred {
+ #define AF_PPPOX	24	/* PPPoX sockets		*/
+ #define AF_WANPIPE	25	/* Wanpipe API Sockets */
+ #define AF_LLC		26	/* Linux LLC			*/
++#define AF_IB		27	/* Native InfiniBand address	*/
+ #define AF_CAN		29	/* Controller Area Network      */
+ #define AF_TIPC		30	/* TIPC sockets			*/
+ #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
+@@ -211,6 +212,7 @@ struct ucred {
+ #define PF_PPPOX	AF_PPPOX
+ #define PF_WANPIPE	AF_WANPIPE
+ #define PF_LLC		AF_LLC
++#define PF_IB		AF_IB
+ #define PF_CAN		AF_CAN
+ #define PF_TIPC		AF_TIPC
+ #define PF_BLUETOOTH	AF_BLUETOOTH
+diff --git a/include/rdma/ib.h b/include/rdma/ib.h
+new file mode 100644
+index 0000000..cf8f9e7
+--- /dev/null
++++ b/include/rdma/ib.h
+@@ -0,0 +1,89 @@
++/*
++ * Copyright (c) 2010 Intel Corporation.  All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#if !defined(_RDMA_IB_H)
++#define _RDMA_IB_H
++
++#include <linux/types.h>
++
++struct ib_addr {
++	union {
++		__u8		uib_addr8[16];
++		__be16		uib_addr16[8];
++		__be32		uib_addr32[4];
++		__be64		uib_addr64[2];
++	} ib_u;
++#define sib_addr8		ib_u.uib_addr8
++#define sib_addr16		ib_u.uib_addr16
++#define sib_addr32		ib_u.uib_addr32
++#define sib_addr64		ib_u.uib_addr64
++#define sib_raw			ib_u.uib_addr8
++#define sib_subnet_prefix	ib_u.uib_addr64[0]
++#define sib_interface_id	ib_u.uib_addr64[1]
++};
++
++static inline int ib_addr_any(const struct ib_addr *a)
++{
++	return ((a->sib_addr64[0] | a->sib_addr64[1]) == 0);
++}
++
++static inline int ib_addr_loopback(const struct ib_addr *a)
++{
++	return ((a->sib_addr32[0] | a->sib_addr32[1] |
++		 a->sib_addr32[2] | (a->sib_addr32[3] ^ htonl(1))) == 0);
++}
++
++static inline void ib_addr_set(struct ib_addr *addr,
++			       __be32 w1, __be32 w2, __be32 w3, __be32 w4)
++{
++	addr->sib_addr32[0] = w1;
++	addr->sib_addr32[1] = w2;
++	addr->sib_addr32[2] = w3;
++	addr->sib_addr32[3] = w4;
++}
++
++static inline int ib_addr_cmp(const struct ib_addr *a1, const struct ib_addr *a2)
++{
++	return memcmp(a1, a2, sizeof(struct ib_addr));
++}
++
++struct sockaddr_ib {
++	unsigned short int	sib_family;	/* AF_IB */
++	__be16			sib_pkey;
++	__be32			sib_flowinfo;
++	struct ib_addr		sib_addr;
++	__be64			sib_sid;
++	__be64			sib_sid_mask;
++	__u64			sib_scope_id;
++};
++
++#endif /* _RDMA_IB_H */
 -- 
 1.7.3
 
