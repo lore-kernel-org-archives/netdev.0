@@ -1,79 +1,119 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] iptables 1.4.19.1 release
-Date: Wed, 29 May 2013 16:18:47 +0200
-Message-ID: <20130529141847.GA18810@localhost>
-References: <20130529133340.GA14566@localhost>
+From: yaniv saar <yaniv.mellanox@gmail.com>
+Subject: Re: [PATCH v6 net-next 2/5] net: implement support
+ for low latency socket polling
+Date: Wed, 29 May 2013 17:20:50 +0300
+Message-ID: <CALuTh9EvzhDaqnVV35wytNg6kJhm+HbOjp5tdxWS9bCTVM5YSA@mail.gmail.com>
+References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
+	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
+	<1369834647.5109.15.camel@edumazet-glaptop>
+	<51A60A42.20905@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter@vger.kernel.org,
-	netfilter-announce@lists.netfilter.org, lwn@lwn.net
-To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130529133340.GA14566@localhost>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============5023641541171195404=="
+Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
+	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <51A60A42.20905@linux.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Hi!
+--===============5023641541171195404==
+Content-Type: multipart/alternative; boundary=001a11c1cf8ec090f804dddc16d0
 
-I'm releasing 1.4.19.1
+--001a11c1cf8ec090f804dddc16d0
+Content-Type: text/plain; charset=ISO-8859-1
 
-Unfortunately, the previous release was missing a couple of patches
-that Florian applied that I didn't have in my tree.
+Hi Eliezer,
 
-Very sorry for the inconvenience.
+(If I'm too late then a future note...)
+Why make polling a system-wide configuration?
+Wouldn't it make more sense to implement a sock option?
+An even better solution might be aggregation/combination of both types of
+configurations.
 
-On Wed, May 29, 2013 at 03:33:40PM +0200, Pablo Neira Ayuso wrote:
-> Hi!
-> 
-> The Netfilter project proudly presents:
-> 
->         iptables 1.4.19
-> 
-> This release includes support for the new connlabel and bpf matches
-> available in Linux 3.9, several fixes and manpage updates.
-> 
-> See ChangeLog that comes attached to this email for more details.
-> 
-> You can download it from:
-> 
-> http://www.netfilter.org/projects/iptables/downloads.html
-> ftp://ftp.netfilter.org/pub/iptables/
-> 
-> Have fun!
-> 
+-- Yaniv Sa'ar
 
-> Florian Westphal (3):
->       libxt_NFQUEUE: fix bypass option documentation
->       extensions: add connlabel match
->       extensions: add connlabel match
-> 
-> Mart Frauenlob (3):
->       ip[6]tables: show --protocol instead of --proto in usage
->       libxt_recent: Fix missing space in manpage for --mask option
->       extensions: libxt_multiport: Update manpage to list valid protocols
-> 
-> Nicolas Dichtel (1):
->       utils: nfnl_osf: use the right nfnetlink lib
-> 
-> Pablo Neira Ayuso (11):
->       libip6t_NETMAP: Use xtables_ip6mask_to_cidr and get rid of libip6tc dependency
->       Revert "build: resolve link failure for ip6t_NETMAP"
->       libxt_osf: fix missing --ttl and --log in save output
->       libxt_osf: fix bad location for location in --genre
->       libip6t_SNPT: add manpage
->       libip6t_DNPT: add manpage
->       Merge branch 'stable'
->       utils: updates .gitignore to include nfbpf_compile
->       extensions: libxt_bpf: clarify --bytecode argument
->       libxtables: fix parsing of dotted network mask format
->       build: bump version to 1.4.19
-> 
-> Patrick McHardy (1):
->       libxt_conntrack: fix state match alias state parsing
-> 
-> Willem de Bruijn (2):
->       extensions: add libxt_bpf extension
->       utils: nfbpf_compile
-> 
 
+
+On Wed, May 29, 2013 at 5:01 PM, Eliezer Tamir <
+eliezer.tamir@linux.intel.com> wrote:
+
+> On 29/05/2013 16:37, Eric Dumazet wrote:
+>
+>> On Wed, 2013-05-29 at 09:39 +0300, Eliezer Tamir wrote:
+>>
+>
+>  +static inline unsigned long ll_end_time(void)
+>>> +{
+>>> +       return TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_**poll) +
+>>> get_cycles();
+>>> +}
+>>>
+>>
+>> This can overflow.
+>>
+>> Multiply is giving 32bits, as tsc_khz is an int, and sysctl_net_ll_poll
+>> is an int.
+>>
+>> unsigned long sysctl_net_ll_poll ?
+>>
+> OK
+>
+>
+>  Also, if we want this to work on i386, the correct type to use for
+>> ll_end_time(void) would be cycles_t
+>>
+>
+> OK
+> I would be really surprised if someone uses this on an i386, but I guess
+> you never know.
+>
+> Thanks!
+> -Eliezer
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/**majordomo-info.html<http://vger.kernel.org/majordomo-info.html>
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
+
+--001a11c1cf8ec090f804dddc16d0--
+
+
+--===============5023641541171195404==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+------------------------------------------------------------------------------
+Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
+Get 100% visibility into your production application - at no cost.
+Code-level diagnostics for performance bottlenecks with <2% overhead
+Download for free and get started troubleshooting in minutes.
+http://p.sf.net/sfu/appdyn_d2d_ap1
+--===============5023641541171195404==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+
+--===============5023641541171195404==--
