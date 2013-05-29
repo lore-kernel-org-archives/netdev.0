@@ -1,53 +1,125 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
- macro
-Date: Tue, 28 May 2013 17:34:53 -0700
-Message-ID: <1369787693.3301.586.camel@edumazet-glaptop>
-References: <519B8908.9080007@yandex-team.ru>
-	  <1369150693.3301.233.camel@edumazet-glaptop>
-	  <519BB90B.6080706@yandex-team.ru>
-	  <1369188080.3301.268.camel@edumazet-glaptop>
-	  <1369201765.3301.299.camel@edumazet-glaptop> <519CB2D8.103@yandex-team.ru>
-	  <1369225837.3301.324.camel@edumazet-glaptop>
-	  <519CC2FB.2010006@yandex-team.ru>
-	  <20130522174532.GC3431@linux.vnet.ibm.com> <519D19DA.50400@yandex-team.ru>
-	  <20130525113715.GA3795@linux.vnet.ibm.com>
-	  <51A39E11.5020405@yandex-team.ru>
-	 <1369699930.3301.494.camel@edumazet-glaptop>
-	 <51A47496.6000100@yandex-team.ru>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: paulmck@linux.vnet.ibm.com, Dipankar Sarma <dipankar@in.ibm.com>,
-	zhmurov@yandex-team.ru, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Roman Gushchin <klamm@yandex-team.ru>,
-	Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51A47496.6000100@yandex-team.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: majnemer@google.com
+Subject: [PATCH] net: Update RPS target at poll for inet
+Date: Tue, 28 May 2013 17:47:30 -0700 (PDT)
+Message-ID: <20130529004731.0CC5280D76@donbot.mtv.corp.google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-gg0-f202.google.com ([209.85.161.202]:43843 "EHLO
+	mail-gg0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757098Ab3E2Arc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 May 2013 20:47:32 -0400
+Received: by mail-gg0-f202.google.com with SMTP id o1so892037ggn.3
+        for <netdev@vger.kernel.org>; Tue, 28 May 2013 17:47:31 -0700 (PDT)
+To: davem@davemloft.net
+To: netdev@vger.kernel.org
+To: pjt@google.com
+To: maze@google.com
+To: therbert@google.com
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-05-28 at 13:10 +0400, Roman Gushchin wrote:
-> On 28.05.2013 04:12, Eric Dumazet wrote:
+Hello,
 
-> > Adding a barrier() is probably what we want.
->=20
-> I agree, inserting barrier() is also a correct and working fix.
+The current state of affairs is that read(2)/write(2) will engage
+RPS (receive packet steering) for internet protocol sockets while
+poll(2) does not.
 
-Yeah, but I can not find a clean way to put it inside the "for (;;)"
+We noticed that this is suboptimal for scenarios similar to the following:
+1. Perform a poll(2) on a socket.
+2. Block in sock_poll_wait (or something similar).
+3. Perform a read(2) on the previously mentioned socket.
 
-for (barrier();;)  ->
+This patch updates the RPS target during poll(2) which improves this scenario.
 
-error: expected expression before =E2=80=98__asm__=E2=80=99
+Concretely, we saw improvements on the order of ~20% for the median and
+~6% for the mean on our internal packet forwarding workload. Let me know if
+there is another workload I should take a look at.
 
-No user currently does :
+Thanks,
+David
 
-if (condition)
-	hlist_nulls_for_each_entry_rcu(tpos, pos, head, member)
+-----------------------------8<---------------------------
 
-But who knows...
+When poll(2) gets called with an ip socket, update the flow target to be the
+poller. The data will be on the appropriate CPU when the poller later calls
+recvmsg(2).
+
+Signed-off-by: David Majnemer <majnemer@google.com>
+---
+ include/net/inet_common.h |  2 ++
+ net/ipv4/af_inet.c        | 13 ++++++++++++-
+ net/ipv4/tcp.c            |  2 ++
+ net/ipv4/udp.c            |  2 ++
+ 4 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/include/net/inet_common.h b/include/net/inet_common.h
+index 2340087..21ecdb3 100644
+--- a/include/net/inet_common.h
++++ b/include/net/inet_common.h
+@@ -20,6 +20,8 @@ extern int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 				 int addr_len, int flags);
+ extern int inet_dgram_connect(struct socket *sock, struct sockaddr *uaddr,
+ 			      int addr_len, int flags);
++extern unsigned int inet_dgram_poll(struct file *file, struct socket *sock,
++				    poll_table *wait);
+ extern int inet_accept(struct socket *sock, struct socket *newsock, int flags);
+ extern int inet_sendmsg(struct kiocb *iocb, struct socket *sock,
+ 			struct msghdr *msg, size_t size);
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index b05ae96..e864612 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -567,6 +567,17 @@ int inet_dgram_connect(struct socket *sock, struct sockaddr *uaddr,
+ }
+ EXPORT_SYMBOL(inet_dgram_connect);
+ 
++unsigned int inet_dgram_poll(struct file *file, struct socket *sock,
++			     poll_table *wait)
++{
++	struct sock *sk = sock->sk;
++
++	sock_rps_record_flow(sk);
++
++	return datagram_poll(file, sock, wait);
++}
++EXPORT_SYMBOL(inet_dgram_poll);
++
+ static long inet_wait_for_connect(struct sock *sk, long timeo, int writebias)
+ {
+ 	DEFINE_WAIT(wait);
+@@ -1001,7 +1012,7 @@ static const struct proto_ops inet_sockraw_ops = {
+ 	.socketpair	   = sock_no_socketpair,
+ 	.accept		   = sock_no_accept,
+ 	.getname	   = inet_getname,
+-	.poll		   = datagram_poll,
++	.poll		   = inet_dgram_poll,
+ 	.ioctl		   = inet_ioctl,
+ 	.listen		   = sock_no_listen,
+ 	.shutdown	   = inet_shutdown,
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index ba4186e..6aa930a 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -436,6 +436,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	struct sock *sk = sock->sk;
+ 	const struct tcp_sock *tp = tcp_sk(sk);
+ 
++	sock_rps_record_flow(sk);
++
+ 	sock_poll_wait(file, sk_sleep(sk), wait);
+ 	if (sk->sk_state == TCP_LISTEN)
+ 		return inet_csk_listen_poll(sk);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index aa5eff4..c7338ec 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1967,6 +1967,8 @@ unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 	unsigned int mask = datagram_poll(file, sock, wait);
+ 	struct sock *sk = sock->sk;
+ 
++	sock_rps_record_flow(sk);
++
+ 	/* Check for false positives due to checksum errors */
+ 	if ((mask & POLLRDNORM) && !(file->f_flags & O_NONBLOCK) &&
+ 	    !(sk->sk_shutdown & RCV_SHUTDOWN) && !first_packet_length(sk))
+-- 
+1.8.2.1
