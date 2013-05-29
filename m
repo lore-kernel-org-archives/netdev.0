@@ -1,7 +1,7 @@
 From: sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Subject: [PATCH v5 18/28] rdma/cm: Only listen on IB devices when using AF_IB
-Date: Wed, 29 May 2013 10:09:24 -0700
-Message-ID: <1369847374-12176-19-git-send-email-sean.hefty@intel.com>
+Subject: [PATCH v5 28/28] rdma/cm: Export AF_IB statistics
+Date: Wed, 29 May 2013 10:09:34 -0700
+Message-ID: <1369847374-12176-29-git-send-email-sean.hefty@intel.com>
 References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
 Cc: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 To: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
@@ -13,29 +13,62 @@ List-Id: netdev.vger.kernel.org
 
 From: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-If an rdma_cm_id is bound to AF_IB, with a wild card address,
-only listen on IB devices.
+Report AF_IB source and destination addresses through
+netlink interface.
 
 Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 ---
- drivers/infiniband/core/cma.c |    4 ++++
- 1 files changed, 4 insertions(+), 0 deletions(-)
+ drivers/infiniband/core/cma.c |   37 ++++++++++---------------------------
+ 1 files changed, 10 insertions(+), 27 deletions(-)
 
 diff --git a/drivers/infiniband/core/cma.c b/drivers/infiniband/core/cma.c
-index 6ea5ce7..797fb05 100644
+index 6445650..d1e4d09 100644
 --- a/drivers/infiniband/core/cma.c
 +++ b/drivers/infiniband/core/cma.c
-@@ -1616,6 +1616,10 @@ static void cma_listen_on_dev(struct rdma_id_private *id_priv,
- 	struct rdma_cm_id *id;
- 	int ret;
+@@ -3586,33 +3586,16 @@ static int cma_get_id_stats(struct sk_buff *skb, struct netlink_callback *cb)
+ 			id_stats->bound_dev_if =
+ 				id->route.addr.dev_addr.bound_dev_if;
  
-+	if (cma_family(id_priv) == AF_IB &&
-+	    rdma_node_get_transport(cma_dev->device->node_type) != RDMA_TRANSPORT_IB)
-+		return;
-+
- 	id = rdma_create_id(cma_listen_handler, id_priv, id_priv->id.ps,
- 			    id_priv->id.qp_type);
- 	if (IS_ERR(id))
+-			if (cma_family(id_priv) == AF_INET) {
+-				if (ibnl_put_attr(skb, nlh,
+-						  sizeof(struct sockaddr_in),
+-						  cma_src_addr(id_priv),
+-						  RDMA_NL_RDMA_CM_ATTR_SRC_ADDR)) {
+-					goto out;
+-				}
+-				if (ibnl_put_attr(skb, nlh,
+-						  sizeof(struct sockaddr_in),
+-						  cma_dst_addr(id_priv),
+-						  RDMA_NL_RDMA_CM_ATTR_DST_ADDR)) {
+-					goto out;
+-				}
+-			} else if (cma_family(id_priv) == AF_INET6) {
+-				if (ibnl_put_attr(skb, nlh,
+-						  sizeof(struct sockaddr_in6),
+-						  cma_src_addr(id_priv),
+-						  RDMA_NL_RDMA_CM_ATTR_SRC_ADDR)) {
+-					goto out;
+-				}
+-				if (ibnl_put_attr(skb, nlh,
+-						  sizeof(struct sockaddr_in6),
+-						  cma_dst_addr(id_priv),
+-						  RDMA_NL_RDMA_CM_ATTR_DST_ADDR)) {
+-					goto out;
+-				}
+-			}
++			if (ibnl_put_attr(skb, nlh,
++					  rdma_addr_size(cma_src_addr(id_priv)),
++					  cma_src_addr(id_priv),
++					  RDMA_NL_RDMA_CM_ATTR_SRC_ADDR))
++				goto out;
++			if (ibnl_put_attr(skb, nlh,
++					  rdma_addr_size(cma_src_addr(id_priv)),
++					  cma_dst_addr(id_priv),
++					  RDMA_NL_RDMA_CM_ATTR_DST_ADDR))
++				goto out;
+ 
+ 			id_stats->pid		= id_priv->owner;
+ 			id_stats->port_space	= id->ps;
 -- 
 1.7.3
 
