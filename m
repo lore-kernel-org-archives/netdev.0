@@ -1,57 +1,68 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 6/7] sctp: Correct access to
- skb->{network,transport}_header
-Date: Wed, 29 May 2013 20:31:12 +0100
-Message-ID: <1369855872.1971.1.camel@bwh-desktop.uk.level5networks.com>
-References: <1369805268-6291-1-git-send-email-horms@verge.net.au>
-	 <1369805268-6291-7-git-send-email-horms@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Simon Horman <horms@verge.net.au>
+From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+Subject: [PATCH v5 01/13] net: mv643xx_eth: use phy_disconnect instead of phy_detach
+Date: Wed, 29 May 2013 21:32:43 +0200
+Message-ID: <1369855975-21489-2-git-send-email-sebastian.hesselbarth@gmail.com>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
+Cc: David Miller <davem@davemloft.net>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	Jason Cooper <jason@lakedaemon.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:55224 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S966032Ab3E2TbV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 15:31:21 -0400
-In-Reply-To: <1369805268-6291-7-git-send-email-horms@verge.net.au>
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:40778 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966191Ab3E2TdJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 15:33:09 -0400
+In-Reply-To: <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-29 at 14:27 +0900, Simon Horman wrote:
-> This corrects an regression introduced by "net: Use 16bits for *_headers
-> fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set.
+Using a separated mdio bus driver with mvmdio, phy_detach on network device
+removal will not stop the phy and finally lead to NULL pointer dereference
+in mvmdio due to non-existent network device. Use phy_disconnect instead
+to properly stop phy device from accessing network device prior removal of
+the network device.
 
-So how about adding 'typedef u16 sk_buff_data_t;'?
+Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+---
+Note: I observed this behavior when removing a modular mv643xx_eth driver
+after attaching it to a phy handled by (also modular) mvmdio. The mvmdio
+conversion has been done in
 
-> In
-> that case sk_buff_data_t will be a pointer, however,
-> skb->{network,transport}_header is now __u16.
-> 
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> ---
->  net/sctp/input.c |    2 +-
->  net/sctp/ipv6.c  |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/sctp/input.c b/net/sctp/input.c
-> index 4b2c831..e328fe8 100644
-> --- a/net/sctp/input.c
-> +++ b/net/sctp/input.c
-> @@ -589,7 +589,7 @@ void sctp_v4_err(struct sk_buff *skb, __u32 info)
->  	struct sctp_association *asoc = NULL;
->  	struct sctp_transport *transport;
->  	struct inet_sock *inet;
-> -	sk_buff_data_t saveip, savesctp;
-> +	__be16 saveip, savesctp;
-[...]
+commit c3a07134e6aa5b93a37f72ffa3d11fadf72bf757
+ ("mv643xx_eth: convert to use the Marvell Orion MDIO driver")
 
-__be16??
+and should go back any -stable version with that commit (propably only 3.9)
 
-Ben.
+Cc: David Miller <davem@davemloft.net>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+Cc: Jason Cooper <jason@lakedaemon.net>
+Cc: Andrew Lunn <andrew@lunn.ch>
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/marvell/mv643xx_eth.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/marvell/mv643xx_eth.c b/drivers/net/ethernet/marvell/mv643xx_eth.c
+index 2ad1494..2480a2f 100644
+--- a/drivers/net/ethernet/marvell/mv643xx_eth.c
++++ b/drivers/net/ethernet/marvell/mv643xx_eth.c
+@@ -2805,7 +2805,7 @@ static int mv643xx_eth_remove(struct platform_device *pdev)
+ 
+ 	unregister_netdev(mp->dev);
+ 	if (mp->phy != NULL)
+-		phy_detach(mp->phy);
++		phy_disconnect(mp->phy);
+ 	cancel_work_sync(&mp->tx_timeout_task);
+ 
+ 	if (!IS_ERR(mp->clk))
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.10.4
