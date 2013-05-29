@@ -1,69 +1,47 @@
-From: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Subject: [PATCH v5 03/13] net: mv643xx_eth: add phy_node to platform_data
- struct
-Date: Wed, 29 May 2013 21:32:45 +0200
-Message-ID: <1369855975-21489-4-git-send-email-sebastian.hesselbarth@gmail.com>
-References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [Patch net-next] net: clean up skb headers code
+Date: Wed, 29 May 2013 20:34:33 +0100
+Message-ID: <1369856073.1971.2.camel@bwh-desktop.uk.level5networks.com>
+References: <1369807740-12324-1-git-send-email-amwang@redhat.com>
+	 <20130528.233647.1209227470109213894.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Lunn <andrew@lunn.ch>, Jason Cooper <jason@lakedaemon.net>,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, linuxppc-dev@lists.ozlabs.org,
- David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@wantstofly.org>
-To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Cc: <amwang@redhat.com>, <netdev@vger.kernel.org>, <horms@verge.net.au>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:55294 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S966717Ab3E2Teg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 15:34:36 -0400
+In-Reply-To: <20130528.233647.1209227470109213894.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This adds a struct device_node pointer for a phy passed by phandle
-to mv643xx_eth node.
+On Tue, 2013-05-28 at 23:36 -0700, David Miller wrote:
+> From: Cong Wang <amwang@redhat.com>
+> Date: Wed, 29 May 2013 14:09:00 +0800
+> 
+> > commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
+> > fields of struct skbuff) converts skb->*_header to u16,
+> > therefore 1) we could just use 0xFFFFF instead of (__u16) ~0U
+> > 2) some #if NET_SKBUFF_DATA_USES_OFFSET is useless now.
+> > 
+> > 
+> > Cc: David S. Miller <davem@davemloft.net>
+> > Cc: Simon Horman <horms@verge.net.au>
+> > Signed-off-by: Cong Wang <amwang@redhat.com>
+> 
+> I want to use something that will either break the build or
+> automatically work if the type changes again.
+> 
+> So something like "X = (typeof(X)) ~0U;".
 
-Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
----
-Cc: David Miller <davem@davemloft.net>
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-Cc: Jason Cooper <jason@lakedaemon.net>
-Cc: Andrew Lunn <andrew@lunn.ch>
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: netdev@vger.kernel.org
-Cc: linux-arm-kernel@lists.infradead.org
-Cc: linuxppc-dev@lists.ozlabs.org
-Cc: linux-kernel@vger.kernel.org
----
- include/linux/mv643xx_eth.h |    2 ++
- 1 file changed, 2 insertions(+)
+I think you mean ~(typeof(X))0.
 
-diff --git a/include/linux/mv643xx_eth.h b/include/linux/mv643xx_eth.h
-index 141d395..6e8215b 100644
---- a/include/linux/mv643xx_eth.h
-+++ b/include/linux/mv643xx_eth.h
-@@ -30,6 +30,7 @@ struct mv643xx_eth_shared_platform_data {
- #define MV643XX_ETH_PHY_ADDR(x)		(0x80 | (x))
- #define MV643XX_ETH_PHY_NONE		0xff
- 
-+struct device_node;
- struct mv643xx_eth_platform_data {
- 	/*
- 	 * Pointer back to our parent instance, and our port number.
-@@ -41,6 +42,7 @@ struct mv643xx_eth_platform_data {
- 	 * Whether a PHY is present, and if yes, at which address.
- 	 */
- 	int			phy_addr;
-+	struct device_node	*phy_node;
- 
- 	/*
- 	 * Use this MAC address if it is valid, overriding the
+Ben.
+
 -- 
-1.7.10.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
