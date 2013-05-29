@@ -1,51 +1,61 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH iproute2] vxlan: allow specifying multiple default
- destinations
-Date: Wed, 29 May 2013 10:13:48 +0000 (UTC)
-Message-ID: <ko4kcr$h8j$1@ger.gmane.org>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
- <1369821617-29098-4-git-send-email-mike.rapoport@ravellosystems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+From: Sachin Kamat <sachin.kamat@linaro.org>
+Subject: [PATCH 1/2] net: wireless: p54spi: Use module_spi_driver macro
+Date: Wed, 29 May 2013 15:31:40 +0530
+Message-ID: <1369821701-4867-1-git-send-email-sachin.kamat@linaro.org>
+Cc: netdev@vger.kernel.org, chunkeey@googlemail.com,
+	linville@tuxdriver.com, davem@davemloft.net,
+	sachin.kamat@linaro.org
+To: linux-wireless@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:38562 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965275Ab3E2KOG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 06:14:06 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UhdOO-0003nE-5m
-	for netdev@vger.kernel.org; Wed, 29 May 2013 12:14:04 +0200
-Received: from 180.183.217.220 ([180.183.217.220])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 12:14:04 +0200
-Received: from xiyou.wangcong by 180.183.217.220 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 12:14:04 +0200
+Received: from mail-pa0-f54.google.com ([209.85.220.54]:42225 "EHLO
+	mail-pa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965275Ab3E2KPl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 06:15:41 -0400
+Received: by mail-pa0-f54.google.com with SMTP id kx1so9055718pab.41
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 03:15:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 May 2013 at 10:00 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
-> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
-> ---
->  ip/iplink_vxlan.c | 125 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 125 insertions(+)
->
-> diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
-> index 1025326..be6c0ac 100644
-> --- a/ip/iplink_vxlan.c
-> +++ b/ip/iplink_vxlan.c
-> @@ -28,11 +28,87 @@ static void explain(void)
->  	fprintf(stderr, "                 [ port MIN MAX ] [ [no]learning ]\n");
->  	fprintf(stderr, "                 [ [no]proxy ] [ [no]rsc ]\n");
->  	fprintf(stderr, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
-> +	fprintf(stderr, "                 [ dstadd DST ]\n");
-> +	fprintf(stderr, "                 [ dstdel ADDR ]\n");
+module_spi_driver() eliminates some boiler plate and makes code
+simpler.
 
-Excuse me, but this looks like a design failure as you manipulate
-remotes with `ip link` while creating vxlan devices, shouldn't this be
-in a standard alone tool if we can't reuse any existing tool? Or am I
-missing anything?
+Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
+---
+ drivers/net/wireless/p54/p54spi.c |   22 +---------------------
+ 1 file changed, 1 insertion(+), 21 deletions(-)
+
+diff --git a/drivers/net/wireless/p54/p54spi.c b/drivers/net/wireless/p54/p54spi.c
+index 978e7eb..146e653 100644
+--- a/drivers/net/wireless/p54/p54spi.c
++++ b/drivers/net/wireless/p54/p54spi.c
+@@ -713,27 +713,7 @@ static struct spi_driver p54spi_driver = {
+ 	.remove		= p54spi_remove,
+ };
+ 
+-static int __init p54spi_init(void)
+-{
+-	int ret;
+-
+-	ret = spi_register_driver(&p54spi_driver);
+-	if (ret < 0) {
+-		printk(KERN_ERR "failed to register SPI driver: %d", ret);
+-		goto out;
+-	}
+-
+-out:
+-	return ret;
+-}
+-
+-static void __exit p54spi_exit(void)
+-{
+-	spi_unregister_driver(&p54spi_driver);
+-}
+-
+-module_init(p54spi_init);
+-module_exit(p54spi_exit);
++module_spi_driver(p54spi_driver);
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Christian Lamparter <chunkeey@web.de>");
+-- 
+1.7.9.5
