@@ -1,42 +1,72 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH nf] netfilter: xt_LOG: fix mark logging for IPv6 packets
-Date: Wed, 29 May 2013 10:37:03 +0200
-Message-ID: <20130529084118.6676862C72@unicorn.suse.cz>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netdev@vger.kernel.org, coreteam@netfilter.org
-To: netfilter-devel@vger.kernel.org
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH] net: ethernet: xilinx_emaclite: keep protocol selector bits by reading ANAR
+Date: Wed, 29 May 2013 09:51:30 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7253@saturn3.aculab.com>
+References: <51A4D6FE.3080308@efe-gmbh.de> <AE90C24D6B3A694183C094C60CF0A2F6026B7251@saturn3.aculab.com> <635022046.487018.1369769745682.open-xchange@email.1und1.de>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <davem@davemloft.net>
+To: <renner@efe-gmbh.de>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:44878 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965069Ab3E2IlU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 May 2013 04:41:20 -0400
+Received: from mx0.aculab.com ([213.249.233.131]:59532 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S965117Ab3E2IwH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 May 2013 04:52:07 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 24485-03 for <netdev@vger.kernel.org>;
+ Wed, 29 May 2013 09:52:02 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <635022046.487018.1369769745682.open-xchange@email.1und1.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In dump_ipv6_packet(), the "recurse" parameter is zero only if
-dumping contents of a packet embedded into an ICMPv6 error
-message. Therefore we want to log packet mark if recurse is
-non-zero, not when it is zero.
-
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/netfilter/xt_LOG.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/xt_LOG.c b/net/netfilter/xt_LOG.c
-index 491c7d8..5ab2484 100644
---- a/net/netfilter/xt_LOG.c
-+++ b/net/netfilter/xt_LOG.c
-@@ -737,7 +737,7 @@ static void dump_ipv6_packet(struct sbuff *m,
- 		dump_sk_uid_gid(m, skb->sk);
- 
- 	/* Max length: 16 "MARK=0xFFFFFFFF " */
--	if (!recurse && skb->mark)
-+	if (recurse && skb->mark)
- 		sb_add(m, "MARK=0x%x ", skb->mark);
- }
- 
--- 
-1.8.1.4
+PiA+IERhdmlkIExhaWdodCA8RGF2aWQuTGFpZ2h0QEFDVUxBQi5DT00+IGhhdCBhbSAyOC4gTWFp
+IDIwMTMgdW0gMTg6MjINCj4gPiBnZXNjaHJpZWJlbjoNCj4gPg0KPiA+DQo+ID4gPiBUaGlzIHBh
+dGNoIHJlYWRzIHRoZSBQSFkncyBNSUlfQURWRVJUSVNFIHJlZ2lzdGVyIChBTkFSKSBiZWZvcmUg
+bW9kaWZ5aW5nDQo+ID4gPiBpdC4NCj4gPiA+IEhlbmNlLCB0aGUgcHJvdG9jb2wgc2VsZWN0b3Ig
+Yml0cyAoNDowKSB3aGljaCBpbmRpY2F0ZSBJRUVFIDgwMy4zdSBzdXBwb3J0DQo+ID4gPiBhcmUN
+Cj4gPiA+IHByZXZlbnRlZCBmcm9tIGJlaW5nIGNsZWFyZWQuDQo+ID4gPiAuLi4NCj4gPiA+ICAg
+ICAgICAgICAgICAgICAvKiBBZHZlcnRpc2Ugb25seSAxMCBhbmQgMTAwbWJwcyBmdWxsL2hhbGYg
+ZHVwbGV4IHNwZWVkcyAqLw0KPiA+ID4gLSAgICAgICAgICAgICAgIHBoeV93cml0ZShscC0+cGh5
+X2RldiwgTUlJX0FEVkVSVElTRSwgQURWRVJUSVNFX0FMTCk7DQo+ID4gPiArICAgICAgICAgICAg
+ICAgYWR2ID0gcGh5X3JlYWQobHAtPnBoeV9kZXYsIE1JSV9BRFZFUlRJU0UpOw0KPiA+ID4gKyAg
+ICAgICAgICAgICAgIGlmIChhZHYgPCAwKQ0KPiA+ID4gKyAgICAgICAgICAgICAgICAgICAgICAg
+cmV0dXJuIGFkdjsNCj4gPiA+ICsgICAgICAgICAgICAgICBwaHlfd3JpdGUobHAtPnBoeV9kZXYs
+IE1JSV9BRFZFUlRJU0UsIGFkdiB8IEFEVkVSVElTRV9BTEwpOw0KPiA+DQo+ID4gR2l2ZW4gdGhl
+IGNvbW1lbnQgc2hvdWxkbid0IHRoaXMgYmUgcmVtb3Zpbmcgc29tZSBiaXRzPw0KPiA+DQo+ID4g
+SXQgaXMgYSBsb25nIHRpbWUgc2luY2UgSSByZWFkIHRoZSBkZWZpbml0aW9ucyBvZiB0aGUgQU5B
+UiAoZXRjKS4NCj4gPiBCdXQgSSByZW1lbWJlciBpdCBoYXZpbmcgYXQgbGVhc3QgNSBiaXRzIGRl
+ZmluZWQgZm9yIDEwTSBhbmQgMTAwTQ0KPiA+IG9wZXJhdGlvbiAoaW5jbHVkaW5nIDEwMFQ0KSwg
+c28gdGhlIHJlZmVyZW5jZSB0byBrZWVwaW5nIGJpdHMgKDQ6MCkNCj4gPiBzZWVtcyBjb25mdXNp
+bmcuDQo+ID4NCj4gPiAgICBEYXZpZA0KPiA+DQo+IA0KPiBEYXZpZCwgdGhhbmtzIGZvciB5b3Vy
+IGZlZWRiYWNrIQ0KPiBUaGUgYml0cyBJIG1lbnRpb25lZCAodGhlIDUgbGVhc3QgYml0cyBpbiBB
+TkFSKSBhcmUgdGhlIHNvLWNhbGxlZCBwcm90b2NvbA0KPiBzZWxlY3Rpb24gYml0cyAoYXQgbGVh
+c3QgdGhhdCdzIHdoYXQgdGhleSBjYWxsIGl0IGF0IEludGVsLCBUSSwgTWFydmVsbCwgTWF4aW0s
+DQo+IGV0Yy4pLiBUaGUgb25seSB2YWx1ZSB0aGF0IHNlZW1zIGFjdHVhbGx5IHRvIGJlIHVzZWQg
+aXMgMSAoMGIwMDAwMSkgd2hpY2ggbWVhbnMNCj4gODAyLjMgLyBmYXN0IGV0aGVybmV0IGNhcGFi
+aWxpdHkgKG1heWJlIDAgZm9yIHNsb3dlciBkZXZpY2VzPykuIDEgaXMgdGhlDQo+IGRlZmF1bHQg
+dmFsdWUgZm9yIGFsbCB0aGUgMTAvMTAwKC8xMDAwKSBQSFlzIEkga25vdyBvZiwgaW4gc29tZSBQ
+SFlzIGl0IGlzIGV2ZW4NCj4gaGFyZGNvZGVkIChpLmUuIHJlYWQtb25seSkuIEl0IG11c3Qgbm90
+IGJlIGNvbmZ1c2VkIHdpdGggQU5BUiBiaXRzIDk6NSB3aGVyZQ0KPiB0aGUgYWN0dWFsIHNwZWVk
+IGFuZCBkdXBsZXggbW9kZSBjYW4gYmUgc2VsZWN0ZWQuDQo+IEFEVkVSVElTRV9BTEwgYXMgZGVm
+aW5lZCBpbiBtaWkuaCBsYWNrcyB0aGlzIGJpdCwgaW4gY29udHJhc3QgdG8gQURWRVJUSVNFX0ZV
+TEwNCj4gd2hlcmUgaXQgaXMgc2V0IHRocm91Z2ggQURWRVJUSVNFX0NTTUEuIFdoZXRoZXIgdGhp
+cyBpcyBjb3JyZWN0IG9yIG5vdDsgYXQNCj4gbGVhc3QgaXQgbWFrZXMgc29tZSBzZW5zZSB0byBt
+ZSB0byByZWFkIHdoYXQncyBhY3R1YWxseSB3cml0dGVuIGluIHRoZXNlDQo+IHJlZ2lzdGVyIGJp
+dHMgYW5kIG5vdCB0byBjbGVhciB0aGVtLiBPdGhlcndpc2Ugc29tZSBQSFlzIG1pZ2h0IGZhbGwg
+YmFjayB0bw0KPiAxMC1oYWxmIGFzIHNlZW4gZm9yIHRoZSBUSSBEUDgzNjQwIHdoaWNoIGhhcyBi
+ZWVuIHVzZWQgdG8gdGVzdCB0aGlzIHBhdGNoLg0KPiBJIGhvcGUgdGhpcyBleHBsYWlucyB0aGUg
+cmVhc29uIGZvciB0aGlzIHBhdGNoLg0KDQpQYXJ0IG9mIG15IGNvbmZ1c2lvbiB3YXMgdGhhdCBJ
+J2QgZm9yZ290dGVuIHRoYXQgdGhlIE1JSSByZWdpc3RlcnMgYXJlIDE2Yml0IQ0KKEkgc2FpZCBp
+dCBoYWQgYmVlbiBhIGxvbmcgdGltZSEpDQoNCkhvd2V2ZXIgaWYgeW91IHdhbnQgdG8gYWR2ZXJ0
+aXNlIDEwTS8xMDBNIEhEWCBhbmQgRkRYIHlvdSBuZWVkIHRvIHVuc2V0DQp0aGUgb3RoZXIgc3Bl
+ZWQgYml0cyAoMTAwVDQgd2FzIGFzc2lnbmVkIGEgYml0LCBhbmQgSSdtIHN1cmUgdGhlcmUgd2Vy
+ZQ0KZXh0cmEgYml0cyByZXNlcnZlZCBmb3IgaGlnaGVyIHNwZWVkcyAtIHdoaWNoIGFsc28gbmVl
+ZCBjbGVhcmluZykuDQpHaXZlbiB0aGF0IHRoZSBBTkFSIGlzIGRlZmluZWQgYnkgODAzLnggeW91
+IHNob3VsZG4ndCByZWFsbHkgaGF2ZSBhIHByb2JsZW0hDQoNCk15IHJlYWwgYnVnYmVhciBpcyB0
+aGF0IG5vbmUgb2YgdGhlIHN0YW5kYXJkIE1JSSByZWdpc3RlcnMgYWN0dWFsbHkgdGVsbHMNCnlv
+dSB0aGUgbW9kZSB0aGUgUEhZIGlzIHdvcmtpbmcgaW4hIE5vdCBzdXJlIGhvdyB0aGF0IGdvdCB0
+aHJvdWdoIHRoZQ0Kc3RhbmRhcmRzIGJvZHkuDQoNCglEYXZpZA0KDQo=
