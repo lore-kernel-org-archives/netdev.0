@@ -1,66 +1,58 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] include/linux/skbuff.h: using '0xffff' instead of '~0U'
-Date: Thu, 30 May 2013 16:30:06 +0100
-Message-ID: <1369927806.2414.2.camel@bwh-desktop.uk.level5networks.com>
-References: <51A6EBC5.7040601@asianux.com>
+From: Grant Grundler <grantgrundler@gmail.com>
+Subject: Re: [PATCH 7/7] tulip: remove redundant D0 power state set
+Date: Thu, 30 May 2013 08:31:38 -0700
+Message-ID: <CAP6odjieAiXxotVpE6fyFp7KS-1GXHdKpWXymtT96fRek5ewoQ@mail.gmail.com>
+References: <1369909626-37832-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <edumazet@google.com>, Pravin Shelar <pshelar@nicira.com>,
-	<mgorman@suse.de>, David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Chen Gang <gang.chen@asianux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51A6EBC5.7040601@asianux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Grant Grundler <grundler@parisc-linux.org>,
+	Hanjun Guo <guohanjun@huawei.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	LKML <linux-kernel@vger.kernel.org>,
+	NetDev <netdev@vger.kernel.org>
+To: Yijing Wang <wangyijing@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f181.google.com ([209.85.214.181]:34190 "EHLO
+	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932445Ab3E3Pbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 11:31:39 -0400
+In-Reply-To: <1369909626-37832-1-git-send-email-wangyijing@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-05-30 at 14:03 +0800, Chen Gang wrote:
-> Both 'transport_header' and 'mac_header' are u16, which are never equal
-> to '~0U'.
-> 
-> So need use '0xffff' instead of '~0U'.
+On Thu, May 30, 2013 at 3:27 AM, Yijing Wang <wangyijing@huawei.com> wrote:
+> Pci_enable_device() will set device power state to D0,
+> so it's no need to do it again in tulip_init_one().
+>
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
 
-...and give this magic number a name?
+Ack-by: Grant Grundler <grundler@parisc-linux.org>
 
-Ben.
+thanks!
+grant
 
-> The related warning (with EXTRA_CFLAGS=-W ARCH=m68k for allmodconfig)
->   include/linux/skbuff.h:1587:2: warning: comparison is always true due to limited range of data type [-Wtype-limits]
->   ...
-> 
-> 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
 > ---
->  include/linux/skbuff.h |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 2e0ced1..03ba058 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -1581,7 +1581,7 @@ static inline void skb_set_inner_mac_header(struct sk_buff *skb,
->  }
->  static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
->  {
-> -	return skb->transport_header != ~0U;
-> +	return skb->transport_header != 0xffff;
->  }
->  
->  static inline unsigned char *skb_transport_header(const struct sk_buff *skb)
-> @@ -1624,7 +1624,7 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
->  
->  static inline int skb_mac_header_was_set(const struct sk_buff *skb)
->  {
-> -	return skb->mac_header != ~0U;
-> +	return skb->mac_header != 0xffff;
->  }
->  
->  static inline void skb_reset_mac_header(struct sk_buff *skb)
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>  drivers/net/ethernet/dec/tulip/tulip_core.c |    6 ------
+>  1 files changed, 0 insertions(+), 6 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> index 1e9443d..c94152f 100644
+> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
+> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
+> @@ -1410,12 +1410,6 @@ static int tulip_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+>                 return i;
+>         }
+>
+> -       /* The chip will fail to enter a low-power state later unless
+> -        * first explicitly commanded into D0 */
+> -       if (pci_set_power_state(pdev, PCI_D0)) {
+> -               pr_notice("Failed to set power state to D0\n");
+> -       }
+> -
+>         irq = pdev->irq;
+>
+>         /* alloc_etherdev ensures aligned and zeroed private structures */
+> --
+> 1.7.1
+>
+>
