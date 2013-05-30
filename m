@@ -1,65 +1,118 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: RFC - VXLAN port range facility
-Date: Thu, 30 May 2013 14:00:51 -0400
-Message-ID: <OFD5BD589B.1842E46B-ON85257B7B.00610E03-85257B7B.0062F480@us.ibm.com>
-References: <OF673FF136.10B22631-ON85257B7B.00436301-85257B7B.0045AAB7@us.ibm.com> <20130530094141.7c125947@nehalam.linuxnetplumber.net>
+From: Dmitry Kravkov <dkravkov@gmail.com>
+Subject: Re: [PATCH] udp6: Fix udp fragmentation for tunnel traffic.
+Date: Thu, 30 May 2013 21:53:37 +0300
+Message-ID: <CAM8tLiOi3sMeMecKgRLXq+RtEtY1Pvfeg9v2n-6M9k6WDiG9gg@mail.gmail.com>
+References: <1369932327-7913-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:48083 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757308Ab3E3SGB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 14:06:01 -0400
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Thu, 30 May 2013 12:05:58 -0600
-In-Reply-To: <20130530094141.7c125947@nehalam.linuxnetplumber.net>
+Received: from mail-vc0-f180.google.com ([209.85.220.180]:63299 "EHLO
+	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758266Ab3E3Sxi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 14:53:38 -0400
+Received: by mail-vc0-f180.google.com with SMTP id gd11so435385vcb.39
+        for <netdev@vger.kernel.org>; Thu, 30 May 2013 11:53:37 -0700 (PDT)
+In-Reply-To: <1369932327-7913-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev-owner@vger.kernel.org wrote on 05/30/2013 12:41:41 PM:
+On Thu, May 30, 2013 at 7:45 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> udp6 over GRE tunnel does not work after to GRE tso changes. GRE
+> tso handler passes inner packet but keeps track of outer header
+> start in SKB_GSO_CB(skb)->mac_offset.  udp6 fragment need to
+> take care of outer header, which start at the mac_offset, while
+> adding fragment header.
+> This bug is introduced by commit 68c3316311 (GRE: Add TCP
+> segmentation offload for GRE).
+>
+> Reported-by: Dmitry Kravkov <dkravkov@gmail.com>
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+>  include/linux/skbuff.h |   15 +++++++++++++++
+>  net/ipv6/udp_offload.c |   20 ++++++++++++--------
+>  2 files changed, 27 insertions(+), 8 deletions(-)
+>
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index 5f93119..f7fdf71 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2758,6 +2758,21 @@ static inline int skb_tnl_header_len(const struct sk_buff *inner_skb)
+>                 SKB_GSO_CB(inner_skb)->mac_offset;
+>  }
+>
+> +static inline int gso_pskb_expand_head(struct sk_buff *skb, int extra)
+> +{
+> +       int new_headroom, headroom;
+> +       int ret;
+> +
+> +       headroom = skb_headroom(skb);
+> +       ret = pskb_expand_head(skb, extra, 0, GFP_ATOMIC);
+> +       if (ret)
+> +               return ret;
+> +
+> +       new_headroom = skb_headroom(skb);
+> +       SKB_GSO_CB(skb)->mac_offset += (new_headroom - headroom);
+> +       return 0;
+> +}
+> +
+>  static inline bool skb_is_gso(const struct sk_buff *skb)
+>  {
+>         return skb_shinfo(skb)->gso_size;
+> diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
+> index 76d401a..5d1b8d7 100644
+> --- a/net/ipv6/udp_offload.c
+> +++ b/net/ipv6/udp_offload.c
+> @@ -46,11 +46,12 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+>         unsigned int mss;
+>         unsigned int unfrag_ip6hlen, unfrag_len;
+>         struct frag_hdr *fptr;
+> -       u8 *mac_start, *prevhdr;
+> +       u8 *packet_start, *prevhdr;
+>         u8 nexthdr;
+>         u8 frag_hdr_sz = sizeof(struct frag_hdr);
+>         int offset;
+>         __wsum csum;
+> +       int tnl_hlen;
+>
+>         mss = skb_shinfo(skb)->gso_size;
+>         if (unlikely(skb->len <= mss))
+> @@ -84,9 +85,11 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+>         skb->ip_summed = CHECKSUM_NONE;
+>
+>         /* Check if there is enough headroom to insert fragment header. */
+> -       if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
+> -           pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
+> -               goto out;
+> +       tnl_hlen = skb_tnl_header_len(skb);
+> +       if (skb_headroom(skb) < (tnl_hlen + frag_hdr_sz)) {
+> +               if (gso_pskb_expand_head(skb, tnl_hlen + frag_hdr_sz))
+> +                       goto out;
+> +       }
+>
+>         /* Find the unfragmentable header and shift it left by frag_hdr_sz
+>          * bytes to insert fragment header.
+> @@ -94,11 +97,12 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
+>         unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
+>         nexthdr = *prevhdr;
+>         *prevhdr = NEXTHDR_FRAGMENT;
+> -       unfrag_len = skb_network_header(skb) - skb_mac_header(skb) +
+> -                    unfrag_ip6hlen;
+> -       mac_start = skb_mac_header(skb);
+> -       memmove(mac_start-frag_hdr_sz, mac_start, unfrag_len);
+> +       unfrag_len = (skb_network_header(skb) - skb_mac_header(skb)) +
+> +                    unfrag_ip6hlen + tnl_hlen;
+> +       packet_start = (u8 *) skb->head + SKB_GSO_CB(skb)->mac_offset;
+> +       memmove(packet_start-frag_hdr_sz, packet_start, unfrag_len);
+>
+> +       SKB_GSO_CB(skb)->mac_offset -= frag_hdr_sz;
+>         skb->mac_header -= frag_hdr_sz;
+>         skb->network_header -= frag_hdr_sz;
+>
+> --
 
-> From: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> The source port is not related to what some application receives.
-> A RFC conforming VXLAN endpoint will never send traffic back tot the
-> senders source
-> port. If VXLAN traffic got an ICMP response form an router like
-> DESTINATION_UNREACHABLE there should be a match on destination port as 
-well.
 
-It'd be sent to the source port of the sender and it need not be bound to
-a remote port -- for example, a netfilter rule blocking the destination
-would send an administratively-prohibited ICMP error to a UDP
-application that did not trigger the traffic that caused the error.
+Yeah, this fixes reported issue. Thanks.
 
-Quite simply, VXLAN uses UDP so it needs to follow the rules of UDP.
-
-But I don't think there's particular advantage in splitting it up 30,000
-ways when 10 ways would be both practical, for binding, and spread
-traffic to 10 flows potentially.
-
-> 
-> Port ranges are critical to retaining scaling in multi-path 
-infrastructure.
-> Otherwise all traffic will arrive on a single queue in NIC.
-
-I agree, but I don't think there need to be so many, and whatever
-the VXLAN draft says, it can't  start causing problems for existing
-UDP applications. VXLAN simply shouldn't be using ports allocated
-to other applications; it can only do this because the implementation
-is not using the real UDP stack to send the packets, but it still
-should follow the rules  just as all other UDP servers must do. How
-that's enforced is an implementation issue, but I think it must be
-enforced.
-
-I think it should be binding to all ports it uses as sources, and
-the default range should be min and max of the bind port. People
-who need to spread flows have the capability, but that doesn't mean
-they need it on by default, or that it has to be so many, or that
-it has carte blanche to interfere with existing UDP applications.
-
-                                                                +-DLS
+Tested-by: Dmitry Kravkov <dmitry@broadcom.com>
