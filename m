@@ -1,10 +1,10 @@
 From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH v2 2/6] net: emaclite: Support multiple phys connected to one MDIO bus
-Date: Thu, 30 May 2013 12:28:04 +0200
-Message-ID: <803bba7dfb86277c18cfb455518f22fb35bd5eb6.1369909618.git.michal.simek@xilinx.com>
+Subject: [PATCH v2 1/6] net: emaclite: Report failures in mdio setup
+Date: Thu, 30 May 2013 12:28:03 +0200
+Message-ID: <286fceaa6f4268594b89707d6e5d9ce5bd309c2d.1369909618.git.michal.simek@xilinx.com>
 References: <cover.1369909618.git.michal.simek@xilinx.com>
 Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-5447-1369909693-0001";
+    boundary="=_mimegpg-monstr-desktop-5436-1369909691-0001";
     micalg=pgp-sha1; protocol="application/pgp-signature"
 Cc: Michal Simek <monstr@monstr.eu>,
 	Michal Simek <michal.simek@xilinx.com>, renner@efe-gmbh.de,
@@ -12,18 +12,12 @@ Cc: Michal Simek <monstr@monstr.eu>,
 	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f45.google.com ([74.125.82.45]:39288 "EHLO
-	mail-wg0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S968201Ab3E3K2R (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 06:28:17 -0400
-Received: by mail-wg0-f45.google.com with SMTP id n12so68093wgh.0
-        for <netdev@vger.kernel.org>; Thu, 30 May 2013 03:28:15 -0700 (PDT)
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1369909618.git.michal.simek@xilinx.com>
 In-Reply-To: <cover.1369909618.git.michal.simek@xilinx.com>
 References: <cover.1369909618.git.michal.simek@xilinx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 This is a MIME GnuPG-signed message.  If you see this text, it means that
 your E-mail or Usenet software does not support MIME signed messages.
@@ -31,112 +25,71 @@ The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
 To open this message correctly you will need to install E-mail or Usenet
 software that supports modern Internet standards.
 
---=_mimegpg-monstr-desktop-5447-1369909693-0001
+--=_mimegpg-monstr-desktop-5436-1369909691-0001
 
-For system which contains at least two ethernet IP where
-one IP manage MDIO bus with several PHYs.
-
-Example dts node:
-ethernet_mac0: ethernet@81000000 {
-	compatible = "xlnx,xps-ethernetlite-1.00.a";
-	device_type = "network";
-	interrupt-parent = <&xps_intc_0>;
-	interrupts = < 1 0 >;
-		local-mac-address = [ 00 0a 35 00 db bb ];
-	phy-handle = <&ethernet_mac0_phy0>;
-	reg = < 0x81000000 0x10000 >;
-	xlnx,duplex = <0x1>;
-	xlnx,family = "spartan3e";
-	xlnx,include-internal-loopback = <0x0>;
-	xlnx,include-mdio = <0x1>;
-	xlnx,rx-ping-pong = <0x0>;
-	xlnx,tx-ping-pong = <0x0>;
-	ethernet_mac0_mdio {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		ethernet_mac0_phy0: phy@1 {
-			reg = <0x1>;
-		} ;
-		ethernet_mac0_phy1: phy@3 {
-			reg = <0x3>;
-		} ;
-	} ;
-} ;
-ethernet_mac2: ethernet@81040000 {
-	compatible = "xlnx,xps-ethernetlite-1.00.a";
-	device_type = "network";
-	interrupt-parent = <&xps_intc_0>;
-	interrupts = < 11 0 >;
-		local-mac-address = [ 00 0a 35 00 db bb ];
-	phy-handle = <&ethernet_mac0_phy1>;
-	reg = < 0x81040000 0x10000 >;
-	xlnx,duplex = <0x1>;
-	xlnx,family = "spartan3e";
-	xlnx,include-internal-loopback = <0x0>;
-	xlnx,include-mdio = <0x0>;
-	xlnx,rx-ping-pong = <0x0>;
-	xlnx,tx-ping-pong = <0x0>;
-} ;
+Be more verbose when any problem happens.
 
 Signed-off-by: Michal Simek <michal.simek@xilinx.com>
 ---
 Changes in v2: None
 
- drivers/net/ethernet/xilinx/xilinx_emaclite.c | 13 ++++++++++++-
- 1 file changed, 12 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c | 12 +++++++++---
+ 1 file changed, 9 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index a16dc35..fcd1e0b 100644
+index 919b983..a16dc35 100644
 --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
 +++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -848,6 +848,7 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
- 	int rc;
- 	struct resource res;
- 	struct device_node *np = of_get_parent(lp->phy_node);
-+	struct device_node *npp;
-
+@@ -852,8 +852,10 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
  	/* Don't register the MDIO bus if the phy_node or its parent node
  	 * can't be found.
-@@ -856,6 +857,17 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
- 		dev_err(dev, "Failed to register mdio bus.\n");
+ 	 */
+-	if (!np)
++	if (!np) {
++		dev_err(dev, "Failed to register mdio bus.\n");
  		return -ENODEV;
- 	}
-+	npp = of_get_parent(np);
-+
-+	of_address_to_resource(npp, 0, &res);
-+	if (lp->ndev->mem_start != res.start) {
-+		struct phy_device *phydev;
-+		phydev = of_phy_find_device(lp->phy_node);
-+		if (!phydev)
-+			dev_info(dev,
-+				 "MDIO of the phy is not registered yet\n");
-+		return 0;
 +	}
 
  	/* Enable the MDIO bus by asserting the enable bit in MDIO Control
  	 * register.
-@@ -869,7 +881,6 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
- 		return -ENOMEM;
- 	}
+@@ -862,8 +864,10 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
+ 		 XEL_MDIOCTRL_MDIOEN_MASK);
 
--	of_address_to_resource(np, 0, &res);
+ 	bus = mdiobus_alloc();
+-	if (!bus)
++	if (!bus) {
++		dev_err(dev, "Failed to allocal mdiobus\n");
+ 		return -ENOMEM;
++	}
+
+ 	of_address_to_resource(np, 0, &res);
  	snprintf(bus->id, MII_BUS_ID_SIZE, "%.8llx",
- 		 (unsigned long long)res.start);
- 	bus->priv = lp;
+@@ -879,8 +883,10 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
+ 	lp->mii_bus = bus;
+
+ 	rc = of_mdiobus_register(bus, np);
+-	if (rc)
++	if (rc) {
++		dev_err(dev, "Failed to register mdio bus.\n");
+ 		goto err_register;
++	}
+
+ 	return 0;
+
 --
 1.8.2.3
 
 
---=_mimegpg-monstr-desktop-5447-1369909693-0001
+--=_mimegpg-monstr-desktop-5436-1369909691-0001
 Content-Type: application/pgp-signature
 Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEABECAAYFAlGnKb0ACgkQykllyylKDCF2tACcCZFEAlXG8wQEH2NUMLLhSzPG
-5lEAn1BEZ7G/X4aEB4gGZOLByPOxCanH
-=C3Qw
+iEYEABECAAYFAlGnKbsACgkQykllyylKDCE6pQCfYavTqYoY8FBtImYNpBGhclth
+aKcAni3mFVwF1ZVlO1kcJI/dktjVLSYZ
+=YFLe
 -----END PGP SIGNATURE-----
 
---=_mimegpg-monstr-desktop-5447-1369909693-0001--
+--=_mimegpg-monstr-desktop-5436-1369909691-0001--
