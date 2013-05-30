@@ -1,73 +1,61 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v6 net-next 2/5] net: implement support
- for low latency socket polling
-Date: Thu, 30 May 2013 09:04:18 +0300
-Message-ID: <51A6EBE2.6050108@linux.intel.com>
-References: <20130529063916.27486.3841.stgit@ladj378.jer.intel.com>
-	<20130529063935.27486.18610.stgit@ladj378.jer.intel.com>
-	<CAJZOPZJqF1FTLH3a3ZKUTA4ViesAZEkRi=dgd-ux8eRu9TyhBw@mail.gmail.com>
-	<51A617D7.6000406@linux.intel.com>
-	<CAJZOPZLC=drE9dTpnj2hLdDmfnL+T4gOU1j1xYwbmYy-J9HaAQ@mail.gmail.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH] include/linux/skbuff.h: using '0xffff' instead of '~0U'
+Date: Thu, 30 May 2013 14:03:49 +0800
+Message-ID: <51A6EBC5.7040601@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, HPA <hpa@zytor.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>,
-	David Miller <davem@davemloft.net>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAJZOPZLC=drE9dTpnj2hLdDmfnL+T4gOU1j1xYwbmYy-J9HaAQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
-
-On 29/05/2013 21:52, Or Gerlitz wrote:
-> Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
->> Or Gerlitz wrote:
->
->>> Unlike with TCP sockets, UDP sockets may receive packets from multiple
->>> sources and hence the receiving context may be steered to be executed
->>> on different cores through RSS or other Flow-Steering HW mechanisms
->>> which could mean different napi contexts for the same socket, is that
->>> a problem here? what's the severity?
->
->> Nothing will break if you poll on the wrong queue.
->> Your data will come through normal NAPI processing of the right queue.
->
-> Can you elaborate a little further, why you call this "wrong" and "right"?
-
-Right == the queue the packets arrive on.
-Wrong == any other queue.
-
-BTW, if you have an application that receives UDP data to an unbound 
-socket, wouldn't it be better in any case to steer all of the incoming 
-packets for this UDP socket to a single queue disregarding the source 
-address? (Can't your hardware do that?)
-
-The general approach is that userspace needs to make sure that threads, 
-connections and IRQs are bound to the right CPUs.
-
--Eliezer
+Cc: David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: edumazet@google.com, Pravin Shelar <pshelar@nicira.com>,
+	mgorman@suse.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:45947 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967530Ab3E3GEl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 02:04:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-------------------------------------------------------------------------------
-Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
-Get 100% visibility into your production application - at no cost.
-Code-level diagnostics for performance bottlenecks with <2% overhead
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Both 'transport_header' and 'mac_header' are u16, which are never equal
+to '~0U'.
+
+So need use '0xffff' instead of '~0U'.
+
+The related warning (with EXTRA_CFLAGS=-W ARCH=m68k for allmodconfig)
+  include/linux/skbuff.h:1587:2: warning: comparison is always true due to limited range of data type [-Wtype-limits]
+  ...
+
+
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ include/linux/skbuff.h |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 2e0ced1..03ba058 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -1581,7 +1581,7 @@ static inline void skb_set_inner_mac_header(struct sk_buff *skb,
+ }
+ static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
+ {
+-	return skb->transport_header != ~0U;
++	return skb->transport_header != 0xffff;
+ }
+ 
+ static inline unsigned char *skb_transport_header(const struct sk_buff *skb)
+@@ -1624,7 +1624,7 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
+ 
+ static inline int skb_mac_header_was_set(const struct sk_buff *skb)
+ {
+-	return skb->mac_header != ~0U;
++	return skb->mac_header != 0xffff;
+ }
+ 
+ static inline void skb_reset_mac_header(struct sk_buff *skb)
+-- 
+1.7.7.6
