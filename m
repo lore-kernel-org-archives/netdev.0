@@ -1,87 +1,87 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 10/12] tipc: convert config_lock from spinlock to mutex
-Date: Thu, 30 May 2013 15:36:15 -0400
-Message-ID: <1369942577-39563-11-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 01/12] tipc: change socket buffer overflow control to respect sk_rcvbuf
+Date: Thu, 30 May 2013 15:36:06 -0400
+Message-ID: <1369942577-39563-2-git-send-email-paul.gortmaker@windriver.com>
 References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
 	Ying Xue <ying.xue@windriver.com>,
 	Erik Hugne <erik.hugne@ericsson.com>,
+	Neil Horman <nhorman@tuxdriver.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:51502 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932218Ab3E3Tgn (ORCPT
+Received: from mail.windriver.com ([147.11.1.11]:59179 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932312Ab3E3Tgn (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 15:36:43 -0400
 In-Reply-To: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ying Xue <ying.xue@windriver.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
 
-As the configuration server is now running under process context,
-it's unnecessary for us to have a spinlock serializing the TIPC
-configuration process. Instead, we replace it with a mutex lock,
-which gives us more freedom. For instance, we can now call
-pre-emptable functions within the protected area.
+As per feedback from the netdev community, we change the buffer
+overflow protection algorithm in receiving sockets so that it
+always respects the nominal upper limit set in sk_rcvbuf.
 
-Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Instead of scaling up from a small sk_rcvbuf value, which leads to
+violation of the configured sk_rcvbuf limit, we now calculate the
+weighted per-message limit by scaling down from a much bigger value,
+still in the same field, according to the importance priority of the
+received message.
+
+Cc: Neil Horman <nhorman@tuxdriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/config.c | 17 +++--------------
- 1 file changed, 3 insertions(+), 14 deletions(-)
+ net/tipc/socket.c | 13 +++++++------
+ 1 file changed, 7 insertions(+), 6 deletions(-)
 
-diff --git a/net/tipc/config.c b/net/tipc/config.c
-index d183479..8be6052 100644
---- a/net/tipc/config.c
-+++ b/net/tipc/config.c
-@@ -42,7 +42,7 @@
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 515ce38..2dfabc7 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -1,7 +1,7 @@
+ /*
+  * net/tipc/socket.c: TIPC socket API
+  *
+- * Copyright (c) 2001-2007, 2012 Ericsson AB
++ * Copyright (c) 2001-2007, 2012-2013, Ericsson AB
+  * Copyright (c) 2004-2008, 2010-2012, Wind River Systems
+  * All rights reserved.
+  *
+@@ -203,6 +203,7 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol,
  
- #define REPLY_TRUNCATED "<truncated>\n"
- 
--static DEFINE_SPINLOCK(config_lock);
-+static DEFINE_MUTEX(config_mutex);
- static struct tipc_server cfgsrv;
- 
- static const void *req_tlv_area;	/* request message TLV area */
-@@ -181,18 +181,7 @@ static struct sk_buff *cfg_set_own_addr(void)
- 	if (tipc_own_addr)
- 		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
- 						   " (cannot change node address once assigned)");
--
--	/*
--	 * Must temporarily release configuration spinlock while switching into
--	 * networking mode as it calls tipc_eth_media_start(), which may sleep.
--	 * Releasing the lock is harmless as other locally-issued configuration
--	 * commands won't occur until this one completes, and remotely-issued
--	 * configuration commands can't be received until a local configuration
--	 * command to enable the first bearer is received and processed.
--	 */
--	spin_unlock_bh(&config_lock);
- 	tipc_core_start_net(addr);
--	spin_lock_bh(&config_lock);
- 	return tipc_cfg_reply_none();
- }
- 
-@@ -232,7 +221,7 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- {
- 	struct sk_buff *rep_tlv_buf;
- 
--	spin_lock_bh(&config_lock);
-+	mutex_lock(&config_mutex);
- 
- 	/* Save request and reply details in a well-known location */
- 	req_tlv_area = request_area;
-@@ -359,7 +348,7 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 
- 	/* Return reply buffer */
- exit:
--	spin_unlock_bh(&config_lock);
-+	mutex_unlock(&config_mutex);
- 	return rep_tlv_buf;
+ 	sock_init_data(sock, sk);
+ 	sk->sk_backlog_rcv = backlog_rcv;
++	sk->sk_rcvbuf = CONN_OVERLOAD_LIMIT;
+ 	sk->sk_data_ready = tipc_data_ready;
+ 	sk->sk_write_space = tipc_write_space;
+ 	tipc_sk(sk)->p = tp_ptr;
+@@ -1233,10 +1234,10 @@ static u32 filter_connect(struct tipc_sock *tsock, struct sk_buff **buf)
+  * For all connectionless messages, by default new queue limits are
+  * as belows:
+  *
+- * TIPC_LOW_IMPORTANCE       (5MB)
+- * TIPC_MEDIUM_IMPORTANCE    (10MB)
+- * TIPC_HIGH_IMPORTANCE      (20MB)
+- * TIPC_CRITICAL_IMPORTANCE  (40MB)
++ * TIPC_LOW_IMPORTANCE       (4 MB)
++ * TIPC_MEDIUM_IMPORTANCE    (8 MB)
++ * TIPC_HIGH_IMPORTANCE      (16 MB)
++ * TIPC_CRITICAL_IMPORTANCE  (32 MB)
+  *
+  * Returns overload limit according to corresponding message importance
+  */
+@@ -1248,7 +1249,7 @@ static unsigned int rcvbuf_limit(struct sock *sk, struct sk_buff *buf)
+ 	if (msg_connected(msg))
+ 		limit = CONN_OVERLOAD_LIMIT;
+ 	else
+-		limit = sk->sk_rcvbuf << (msg_importance(msg) + 5);
++		limit = sk->sk_rcvbuf >> 4 << msg_importance(msg);
+ 	return limit;
  }
  
 -- 
