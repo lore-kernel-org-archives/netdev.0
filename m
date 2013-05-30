@@ -1,49 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net: clean up skb headers code
-Date: Thu, 30 May 2013 03:40:21 -0700 (PDT)
-Message-ID: <20130530.034021.851099674189749250.davem@davemloft.net>
-References: <1369807740-12324-1-git-send-email-amwang@redhat.com>
-	<20130528.233647.1209227470109213894.davem@davemloft.net>
-	<1369856073.1971.2.camel@bwh-desktop.uk.level5networks.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH] net: skbuff: use _RET_IP_
+Date: Thu, 30 May 2013 13:08:10 +0200
+Message-ID: <87obbsohd1.fsf@nemi.mork.no>
+References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
+	<51A6768B.5050603@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org, horms@verge.net.au
-To: bhutchings@solarflare.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Davidlohr Bueso <davidlohr.bueso@hp.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46041 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030549Ab3E3KkY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 06:40:24 -0400
-In-Reply-To: <1369856073.1971.2.camel@bwh-desktop.uk.level5networks.com>
+Received: from canardo.mork.no ([148.122.252.1]:55335 "EHLO canardo.mork.no"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S968169Ab3E3LIh convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 07:08:37 -0400
+In-Reply-To: <51A6768B.5050603@cogentembedded.com> (Sergei Shtylyov's message
+	of "Thu, 30 May 2013 01:43:39 +0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Wed, 29 May 2013 20:34:33 +0100
+Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
 
-> On Tue, 2013-05-28 at 23:36 -0700, David Miller wrote:
->> From: Cong Wang <amwang@redhat.com>
->> Date: Wed, 29 May 2013 14:09:00 +0800
->> 
->> > commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
->> > fields of struct skbuff) converts skb->*_header to u16,
->> > therefore 1) we could just use 0xFFFFF instead of (__u16) ~0U
->> > 2) some #if NET_SKBUFF_DATA_USES_OFFSET is useless now.
->> > 
->> > 
->> > Cc: David S. Miller <davem@davemloft.net>
->> > Cc: Simon Horman <horms@verge.net.au>
->> > Signed-off-by: Cong Wang <amwang@redhat.com>
->> 
->> I want to use something that will either break the build or
->> automatically work if the type changes again.
->> 
->> So something like "X = (typeof(X)) ~0U;".
-> 
-> I think you mean ~(typeof(X))0.
+>     Why not "text:%#lx" as already used in this string? It's
+> equivalent to "0x%lx".
 
-Take a look at what that does for ~(u8)0.
+Well, I don't know the reasoning in this case, but I'd like to note tha=
+t
+those are not strictly equivalent.  Personally I find the formatting of=
+ 0
+annoying enough to avoid %#x for any value which may be 0.  It's
+especially bad if you try to line up things by adding leading zeros.
 
-We had a bug fix in this are recently in ieee802154 if I remember
-correctly.
+I would expect these to produce the same result, but they don't:
+
+	printf("0x%02hhx\n", 0);
+	printf("%#04hhx\n", 0);
+
+Ending up with a 4 digit output when you expect 2 is very confusing.  I=
+t
+doesn't matter that 0 is 0 in any case.  Why doesn't the same happen to
+1 then?  This is just inconsistent behaviour, and I see no valid excuse
+for it.
+
+IMHO the single format character saved isn't worth this at all.  I'll
+continue using 0x%x
+
+
+Bj=C3=B8rn
