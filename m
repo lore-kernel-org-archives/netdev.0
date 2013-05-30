@@ -1,44 +1,76 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: updated: kvm networking todo wiki
-Date: Thu, 30 May 2013 16:48:29 +0930
-Message-ID: <87fvx5kkai.fsf@rustcorp.com.au>
-References: <20130523085034.GA16142@redhat.com> <519F35B7.6010408@redhat.com>
-	<20130524113542.GA7046@redhat.com> <8738tctrox.fsf@codemonkey.ws>
-	<20130524140024.GA12024@redhat.com>
-	<87li6yodgq.fsf@rustcorp.com.au> <87k3miq6sw.fsf@codemonkey.ws>
-	<87r4gpkplc.fsf@rustcorp.com.au>
-	<CAJSP0QWY3z_oGaHNwR0=whYgnDCiGLBC+3Z5oM0x5nwN1RQVqg@mail.gmail.com>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
+ improved accuracy at high rates)
+Date: Thu, 30 May 2013 09:51:17 +0200
+Message-ID: <20130530095117.503eeee7@redhat.com>
+References: <20130529151330.22c5c89e@redhat.com>
+	<1369842724.5109.44.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kvm <kvm@vger.kernel.org>, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, qemu-devel <qemu-devel@nongnu.org>,
-	Linux Virtualization <virtualization@lists.linux-foundation.org>,
-	herbert@gondor.hengli.com.au, Anthony Liguori <anthony@codemonkey.ws>
-To: Stefan Hajnoczi <stefanha@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <CAJSP0QWY3z_oGaHNwR0=whYgnDCiGLBC+3Z5oM0x5nwN1RQVqg@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@redhat.com>, j.vimal@gmail.com,
+	Michal Soltys <soltys@ziu.info>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNlbg==?= <toke@toke.dk>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
+	Jim Gettys <jg@freedesktop.org>,
+	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
+	Jiri Benc <jbenc@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:7658 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S967758Ab3E3Hv5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 May 2013 03:51:57 -0400
+In-Reply-To: <1369842724.5109.44.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Stefan Hajnoczi <stefanha@gmail.com> writes:
-> On Thu, May 30, 2013 at 7:23 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
->> On the receive side, what can we do better than readv?  If we need to
->> return to userspace to tell the guest that we've got a new packet, we
->> don't win on latency.  We might reduce syscall overhead with a
->> multi-dimensional readv to read multiple packets at once?
->
-> Sounds like recvmmsg(2).
+On Wed, 29 May 2013 08:52:04 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Wow... the future is here, today!
+> On Wed, 2013-05-29 at 15:13 +0200, Jesper Dangaard Brouer wrote:
+> > I recently discovered that the (traffic control) tc linklayer
+> > calculations for ATM/ADSL have been broken by:
+> >  commit 56b765b79 (htb: improved accuracy at high rates).
+> > 
+> > Thus, people shaping on ADSL links, using e.g.:
+> >  tc class add ... htb rate X ceil Y linklayer atm overhead 10
+> > 
+> > Will no-longer get ATM cell tax/overhead adjusted.
+> > 
+> > How can we solve/fix this?
+> > Perhaps we can change to use the "stab" system instead (as it does
+> > not seem to be broken by the commit).
+> > 
+[...]
+> 
+> stab suffers from the same problem : its table driven, so works only
+> for packet smaller than a given size.
 
-Thanks,
-Rusty.
+You are referring to GSO/GRO packets. Yes, one must disable GSO for
+this to work. Regardless ATM/ADSL, you should disable GSO when shaping
+at low speeds.  Sending 64000 byte on a 512Kbit/s takes approx 1 sec.
+
+http://netoptimizer.blogspot.dk/2010/12/buffer-bloat-calculations.html
+
+
+> I am not sure it will solve the ATM logic (with the 5 bytes overhead
+> per 48 bytes cell)
+
+Are you talking about, that for GSO frames we are not adding a encap
+overhead to each "sub" skb.
+
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
