@@ -1,54 +1,61 @@
-From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: [PATCHv4 3/6] ARM: sun4i: Add muxing options for the ethernet controller
-Date: Thu, 30 May 2013 15:49:22 +0200
-Message-ID: <1369921765-3367-4-git-send-email-maxime.ripard@free-electrons.com>
-References: <1369921765-3367-1-git-send-email-maxime.ripard@free-electrons.com>
-Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Stefan Roese <sr@denx.de>,
-	Florian Fainelli <florian@openwrt.org>,
-	Emilio Lopez <emilio@elopez.com.ar>, kevin@allwinnertech.com,
-	sunny@allwinnertech.com, shuge@allwinnertech.com,
-	Maxime Ripard <maxime.ripard@free-electrons.com>
-To: davem@davemloft.net
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [Qemu-devel] [PATCH v2 1/2] net: introduce MAC_TABLE_CHANGED
+ event
+Date: Thu, 30 May 2013 16:57:45 +0300
+Message-ID: <20130530135745.GB21440@redhat.com>
+References: <20130523171834.GA31349@redhat.com>
+ <20130523132633.388ee1c5@redhat.com>
+ <20130524121016.GC8669@redhat.com>
+ <20130524085136.4e13ab49@redhat.com>
+ <20130527093425.GC6120@t430s.nay.redhat.com>
+ <20130527091011.1a8bf205@redhat.com>
+ <20130527092428.0ce3581d@redhat.com>
+ <20130527224304.GA1822@t430s.nay.redhat.com>
+ <20130528082556.2deb1095@redhat.com>
+ <20130530135035.GB3860@t430s.nay.redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Luiz Capitulino <lcapitulino@redhat.com>, qemu-devel@nongnu.org,
+	stefanha@redhat.com, vyasevic@redhat.com, netdev@vger.kernel.org
+To: Amos Kong <akong@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:39051 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755861Ab3E3Ntm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 09:49:42 -0400
-In-Reply-To: <1369921765-3367-1-git-send-email-maxime.ripard@free-electrons.com>
+Received: from mx1.redhat.com ([209.132.183.28]:65219 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756517Ab3E3N5T (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 May 2013 09:57:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20130530135035.GB3860@t430s.nay.redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The EMAC only has one pinset available for muxing, so hopefully, we
-cover all cases.
+On Thu, May 30, 2013 at 09:50:35PM +0800, Amos Kong wrote:
+> On Tue, May 28, 2013 at 08:25:56AM -0400, Luiz Capitulino wrote:
+> > On Tue, 28 May 2013 06:43:04 +0800
+> > Amos Kong <akong@redhat.com> wrote:
+> 
+> CC: netdev, vlad
+> 
+> Currently we create & open macvtap device by libvirt(management),
+> and pass the fd to qemu process. And macvtap works in promiscuous
+> mode, we want to sync the rx-filter setup of virtio-net to macvtap
+> device for better performance.
+> 
+> qemu might be a non-privileged process, it doesn't have permission
+> to setup macvtap device. So we want to add an QMP event to notify
+> management to execute the setup.
+> 
+> mac-programming over macvtap patch for qemu:
+> http://lists.nongnu.org/archive/html/qemu-devel/2013-05/msg03337.html
+> 
+> 
+> Can we re-consider to setup macvtap in qemu directly? open some setup
+> permission of rx-filter to qemu process? will do some investigation.
+>  
 
-Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
-Tested-by: Richard Genoud <richard.genoud@gmail.com>
----
- arch/arm/boot/dts/sun4i-a10.dtsi | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+I don't think that's a good idea. I expect management to do more
+than blindly apply anything qemu tells it to.
+For example, check that host admin actually allowed this,
+or verify that MAC is unique on this host.
 
-diff --git a/arch/arm/boot/dts/sun4i-a10.dtsi b/arch/arm/boot/dts/sun4i-a10.dtsi
-index e7ef619..ff1f41f 100644
---- a/arch/arm/boot/dts/sun4i-a10.dtsi
-+++ b/arch/arm/boot/dts/sun4i-a10.dtsi
-@@ -199,6 +199,17 @@
- 				allwinner,drive = <0>;
- 				allwinner,pull = <0>;
- 			};
-+
-+			emac_pins_a: emac0@0 {
-+				allwinner,pins = "PA0", "PA1", "PA2",
-+						"PA3", "PA4", "PA5", "PA6",
-+						"PA7", "PA8", "PA9", "PA10",
-+						"PA11", "PA12", "PA13", "PA14",
-+						"PA15", "PA16";
-+				allwinner,function = "emac";
-+				allwinner,drive = <0>;
-+				allwinner,pull = <0>;
-+			};
- 		};
- 
- 		timer@01c20c00 {
 -- 
-1.8.2.3
+MST
