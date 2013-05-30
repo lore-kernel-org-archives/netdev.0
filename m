@@ -1,144 +1,101 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: Re: BQL-related tg3 transmit timeout on 5720 / Dell R720
-Date: Thu, 30 May 2013 02:05:17 -0700
-Message-ID: <CAL1RGDW=SC3E9VvQXki0Gajj0xBqwHjBWM95k00J6zn1tF1mgg@mail.gmail.com>
+From: arno@natisbad.org (Arnaud Ebalard)
+Subject: Re: [PATCH v5 12/13] ARM: kirkwood: remove redundant DT board files
+Date: Thu, 30 May 2013 11:06:08 +0200
+Message-ID: <8738t4q1kv.fsf@natisbad.org>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369855975-21489-13-git-send-email-sebastian.hesselbarth@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Nithin Nayak Sujir <nsujir@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog101.obsmtp.com ([74.125.245.70]:60806 "HELO
-	na3sys010aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S967960Ab3E3JFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 05:05:39 -0400
-Received: by mail-qa0-f52.google.com with SMTP id cr7so163066qab.18
-        for <netdev@vger.kernel.org>; Thu, 30 May 2013 02:05:37 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ linux-kernel@vger.kernel.org, Lennert Buytenhek <buytenh@wantstofly.org>,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ David Miller <davem@davemloft.net>, linux-arm-kernel@lists.infradead.org
+To: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>,
+ Jason Cooper <jason@lakedaemon.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, May 22, 2013 at 3:02 PM, Roland Dreier <roland@kernel.org> wrote:
-> I'll try to find a kernel where tg3 works on this system so I can bisect.
+Hi Jason and Sebastian,
 
-So I finally was able to successfully bisect our problem with tg3
-transmit timeouts with recent kernels.  Recall this was on on _some_
-of our Dell R720 systems with 4X tg3 ethernet with devices like:
+Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com> writes:
 
-    tg3 0000:02:00.0: eth0: Tigon3 [partno(BCM95720) rev 5720000] (PCI
-Express) MAC address 90:b1:1c:3f:46:b8
-    tg3 0000:02:00.0: eth0: attached PHY is 5720C (10/100/1000Base-T
-Ethernet) (WireSpeed[1], EEE[1])
+> With DT support for mv643xx_eth board specific init for some boards now
+> is unneccessary. Remove those board files, Kconfig entries, and
+> corresponding entries in kirkwood_defconfig.
+>
+> Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> ---
+> Note: board-km_kirkwood.c is also removed, as Valentin Longchamp confirmed
+> the lock-up is not caused by accessing clock gating registers but rather
+> non-existent device registers. This will be addressed by dtsi separation
+> for kirkwood and bobcat SoC variants.
+>
+> Changelog:
+> v3->v4:
+> - remove more boards that don't require board specific setup
+>
+> Cc: David Miller <davem@davemloft.net>
+> Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> Cc: Jason Cooper <jason@lakedaemon.net>
+> Cc: Andrew Lunn <andrew@lunn.ch>
+> Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-arm-kernel@lists.infradead.org
+> Cc: linuxppc-dev@lists.ozlabs.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  arch/arm/configs/kirkwood_defconfig           |   16 ----
+>  arch/arm/mach-kirkwood/Kconfig                |  117 -------------------------
+>  arch/arm/mach-kirkwood/Makefile               |   16 ----
+>  arch/arm/mach-kirkwood/board-dnskw.c          |    7 --
+>  arch/arm/mach-kirkwood/board-dockstar.c       |   32 -------
+>  arch/arm/mach-kirkwood/board-dreamplug.c      |   35 --------
+>  arch/arm/mach-kirkwood/board-dt.c             |   62 +------------
+>  arch/arm/mach-kirkwood/board-goflexnet.c      |   34 -------
+>  arch/arm/mach-kirkwood/board-guruplug.c       |   33 -------
+>  arch/arm/mach-kirkwood/board-ib62x0.c         |   29 ------
+>  arch/arm/mach-kirkwood/board-iconnect.c       |   10 ---
+>  arch/arm/mach-kirkwood/board-iomega_ix2_200.c |   34 -------
+>  arch/arm/mach-kirkwood/board-km_kirkwood.c    |   44 ----------
+>  arch/arm/mach-kirkwood/board-lsxl.c           |   16 ----
+>  arch/arm/mach-kirkwood/board-mplcec4.c        |   14 ---
+>  arch/arm/mach-kirkwood/board-ns2.c            |   35 --------
+>  arch/arm/mach-kirkwood/board-openblocks_a6.c  |   26 ------
+>  arch/arm/mach-kirkwood/board-readynas.c       |    6 --
 
-The bisection came down to
+Just a stupid note: With Thomas ongoing work to get mvebu-pcie driver in
+place and enabled for kirkwood, some boards setup files will also lose
+their pcie init routines, which may allow you to kill those additonal
+files soon.
 
-    commit 298376d3e8f00147548c426959ce79efc47b669a
-    Author: Tom Herbert <therbert@google.com>
-    Date:   Mon Nov 28 08:33:30 2011
+For instance 6bd98481ab34 (arm: kirkwood: NETGEAR ReadyNAS Duo v2 init
+PCIe via DT) currently sitting in jcooper/mvebu/pcie_kirkwood removes
+the PCIE init routine in board-readynas.c, and yours remove ge00
+init. With both applied, the whole file can go away.
 
-        tg3: Support for byte queue limits
+AFAICT, this may be the case soon for:
 
-        Changes to tg3 to use byte queue limits.
+ arch/arm/mach-kirkwood/board-iconnect.c   (36e5722089)
+ arch/arm/mach-kirkwood/board-mplcec4.c    (9470fbfb8d)
+ arch/arm/mach-kirkwood/board-nsa310.c     (40fa8e5da2)
+ arch/arm/mach-kirkwood/board-readynas.c   (6bd98481ab)
+ arch/arm/mach-kirkwood/board-ts219.c      (259e234608)
 
-and indeed reverting that patch (and the follow-on fix
-5cb917bc4f38/"tg3: Fix to use multi queue BQL interfaces") makes
-things work on our 3.6.11 kernel and on net-next.
+Anyway, thanks for this work Sebastian.
 
-The mysterious thing is that after running a "working" (no TX timeout)
-kernel, doing a warm reboot into any version of tg3 continues to
-work.  However, I think I have the beginnings of an explanation:
+Cheers,
 
-initially, BQL stops the queue after the first TX packet is queued
-up.  For "bad" systems/devices (the ones that hit the TX timeout),
-that first TX never completes.  However, if I get rid of the
-netdev_tx_sent_queue() call (so BQL never stops the queue), the net
-stack goes on ahead and queues up 3 more packets, and at that point,
-all 4 sends complete.
-
-Then, once we've gotten that first send completion, the hardware state
-seems to be "fixed" so that even after a warm reboot, the next kernel
-gets its first send to complete (so BQL works OK).
-
-I turned the BQL-related calls into just trace_printk(), and got the
-following trace for a system in the cold-rebooted state:
-
-#                              _-----=> irqs-off
-#                             / _----=> need-resched
-#                            | / _---=> hardirq/softirq
-#                            || / _--=> preempt-depth
-#                            ||| /     delay
-#           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
-#              | |       |   ||||       |         |
-          <idle>-0     [001] .Ns.    21.094020: tg3_start_xmit: start
-xmit for queue 3
-          <idle>-0     [001] .Ns.    21.094023: tg3_start_xmit:
-queueing 90 bytes
-          <idle>-0     [001] ..s.    21.762540: tg3_start_xmit: start
-xmit for queue 3
-          <idle>-0     [001] ..s.    21.762554: tg3_start_xmit:
-queueing 78 bytes
-           <...>-10    [001] ..s.    22.760736: tg3_start_xmit: start
-xmit for queue 3
-           <...>-10    [001] ..s.    22.760737: tg3_start_xmit:
-queueing 70 bytes
-          <idle>-0     [001] ..s.    26.761697: tg3_start_xmit: start
-xmit for queue 3
-          <idle>-0     [001] ..s.    26.761699: tg3_start_xmit:
-queueing 70 bytes
-          <idle>-0     [001] ..s.    26.761817: tg3_poll_work: TX comp
-for index 3
-          <idle>-0     [001] ..s.    26.761820: tg3_poll_work: sw_idx
-0 hw_idx 4 pkts_compl 0 bytes_compl 0
-          <idle>-0     [001] ..s.    26.761823: tg3_poll_work: sw_idx
-1 hw_idx 4 pkts_compl 1 bytes_compl 90
-          <idle>-0     [001] ..s.    26.761825: tg3_poll_work: sw_idx
-2 hw_idx 4 pkts_compl 2 bytes_compl 168
-          <idle>-0     [001] ..s.    26.761826: tg3_poll_work: sw_idx
-3 hw_idx 4 pkts_compl 3 bytes_compl 238
-          <idle>-0     [001] ..s.    26.761828: tg3_poll_work:
-completing 4 packets, 308 bytes
-
-So you can see that it isn't until 3 more packets and 600+ msec that
-the first send completes.
-
-After a warm reboot, the same system gives the following trace:
-
-#                              _-----=> irqs-off
-#                             / _----=> need-resched
-#                            | / _---=> hardirq/softirq
-#                            || / _--=> preempt-depth
-#                            ||| /     delay
-#           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION
-#              | |       |   ||||       |         |
-          <idle>-0     [001] .Ns.    16.813248: tg3_start_xmit: start
-xmit for queue 0
-          <idle>-0     [001] .Ns.    16.813252: tg3_start_xmit:
-queueing 78 bytes
-          <idle>-0     [001] ..s.    16.813370: tg3_poll_work: TX comp
-for index 0
-          <idle>-0     [001] ..s.    16.813372: tg3_poll_work: sw_idx
-0 hw_idx 1 pkts_compl 0 bytes_compl 0
-          <idle>-0     [001] ..s.    16.813375: tg3_poll_work:
-completing 1 packets, 78 bytes
-          <idle>-0     [001] .Ns.    16.823231: tg3_start_xmit: start
-xmit for queue 0
-          <idle>-0     [001] .Ns.    16.823231: tg3_start_xmit:
-queueing 90 bytes
-           <...>-869   [001] ..s.    16.823310: tg3_poll_work: TX comp
-for index 0
-           <...>-869   [001] ..s.    16.823310: tg3_poll_work: sw_idx
-1 hw_idx 2 pkts_compl 0 bytes_compl 0
-           <...>-869   [001] ..s.    16.823311: tg3_poll_work:
-completing 1 packets, 90 bytes
-
-and each send completes in turn.
-
-For now I can work around the issue by hacking BQL out of tg3 in our
-kernel, but I guess it would be good to understand this tg3-specific
-issue of sends not completing and handle that in the tg3 driver.
-
-I have a system that reproduces this very reliably, so let me know if
-there is any further logging or other info that would help understand
-this further.
-
-Thanks,
-  Roland
+a+
