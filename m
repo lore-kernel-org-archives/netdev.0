@@ -1,121 +1,44 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: Network issue on 3.10 rcs, bisected
-Date: Thu, 30 May 2013 16:13:24 -0700
-Message-ID: <CALnjE+qTqQDfrBxEogo6UJm63=USX7rgO=d4fasF1Cc-S3nQ1g@mail.gmail.com>
-References: <CACG0VPV3-x5Ncp+_hci8wVNYUeqAUZ0KFm0MAuHMntXzaL9Nqw@mail.gmail.com>
-	<CALnjE+p3vFkYBu=XioeDTEL1cyXh_379ix84Yoojj1eB11q57Q@mail.gmail.com>
-	<CACG0VPWeu8JoMYJNnQ39zvubftpeTB_EvKNrxZm7Op9q6HUVXA@mail.gmail.com>
-	<CALnjE+q-dbK0bha_J848mb7sdmLi7a5-BMjKng+wQ8KaDFL=LQ@mail.gmail.com>
-	<CACG0VPXWoD=33rSv9S_C2t7XSHny9vHwKysoiTdwWueQM7MLsA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/5] netfilter fixes for 3.10-rc3
+Date: Thu, 30 May 2013 16:39:00 -0700 (PDT)
+Message-ID: <20130530.163900.728264038534322099.davem@davemloft.net>
+References: <1369843394-24251-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Joao Correia <joaomiguelcorreia@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog118.obsmtp.com ([74.125.149.244]:56334 "HELO
-	na3sys009aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750818Ab3E3XNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 19:13:25 -0400
-Received: by mail-qe0-f49.google.com with SMTP id a11so526081qen.36
-        for <netdev@vger.kernel.org>; Thu, 30 May 2013 16:13:24 -0700 (PDT)
-In-Reply-To: <CACG0VPXWoD=33rSv9S_C2t7XSHny9vHwKysoiTdwWueQM7MLsA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1369843394-24251-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 30, 2013 at 2:14 PM, Joao Correia
-<joaomiguelcorreia@gmail.com> wrote:
-> On Thu, May 30, 2013 at 5:48 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->> On Wed, May 29, 2013 at 12:53 PM, Joao Correia
->> <joaomiguelcorreia@gmail.com> wrote:
->>> On Wed, May 29, 2013 at 7:59 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>>
->>>> On Wed, May 29, 2013 at 4:37 AM, Joao Correia
->>>> <joaomiguelcorreia@gmail.com> wrote:
->>>> > Hello list
->>>> >
->>>> > While trying the rc's for 3.10, i've stumbled upon a problem where
->>>> > networking does not work at all. Iptables will show packet counts going up,
->>>> > but nothing actually reaches the programs.
->>>> >
->>>> > I'm running fedora under hyper-v 3 (a windows 2012 host). Only tested ipv4
->>>> > traffic, and everything times out (ping, telnet to open ports) on both
->>>> > directions. The networking devices come up apparently ok - has static ip
->>>> > set, and dmesg shows no errors (although i don't have many debugging options
->>>> > enabled).
->>>> >
->>>> > I bisected this, and git blames commit
->>>> > ec5f061564238892005257c83565a0b58ec79295 (net: ill link between CSUM and SG
->>>> > features.). I can't revert it cleanly on current rc's.
->>>> >
->>>> Can you also send network features set on the device?
->>>> ethtool -k <dev>
->>>
->>>
->>> As requested:
->>> Features for eth0:
->>> rx-checksumming: off [fixed]
->>> tx-checksumming: off
->>>     tx-checksum-ipv4: off [fixed]
->>>     tx-checksum-ip-generic: off [fixed]
->>>     tx-checksum-ipv6: off [fixed]
->>>     tx-checksum-fcoe-crc: off [fixed]
->>>     tx-checksum-sctp: off [fixed]
->>> scatter-gather: on
->>>     tx-scatter-gather: on
->>>     tx-scatter-gather-fraglist: off [fixed]
->>> tcp-segmentation-offload: off
->>>     tx-tcp-segmentation: off [fixed]
->>>     tx-tcp-ecn-segmentation: off [fixed]
->>>     tx-tcp6-segmentation: off [fixed]
->>> udp-fragmentation-offload: off [fixed]
->>> generic-segmentation-offload: on
->>> generic-receive-offload: on
->>> large-receive-offload: off [fixed]
->>> rx-vlan-offload: off
->>> tx-vlan-offload: on
->>> ntuple-filters: off [fixed]
->>> receive-hashing: off [fixed]
->>> highdma: off [fixed]
->>> tx-vlan-ctag-hw-insert: on [fixed]
->>> rx-vlan-ctag-hw-parse: off [fixed]
->>> rx-vlan-ctag-filter: off [fixed]
->>> tx-vlan-stag-hw-insert: off [fixed]
->>> rx-vlan-stag-hw-parse: off [fixed]
->>> rx-vlan-stag-filter: off [fixed]
->>> vlan-challenged: off [fixed]
->>> tx-lockless: off [fixed]
->>> netns-local: off [fixed]
->>> tx-gso-robust: off [fixed]
->>> tx-fcoe-segmentation: off [fixed]
->>> tx-gre-segmentation: off [fixed]
->>> tx-udp_tnl-segmentation: off [fixed]
->>> fcoe-mtu: off [fixed]
->>> tx-nocache-copy: off
->>> loopback: off [fixed]
->>> rx-fcs: off [fixed]
->>> rx-all: off [fixed]
->>>
->>> The output is similar on a working (3.9) and a bad (3.10) kernel.
->>> diff-ing both outputs shows:
->>> tx-vlan-stag-hw-insert: off [fixed]
->>> rx-vlan-stag-hw-parse: off [fixed]
->>> rx-vlan-stag-filter: off [fixed]
->>> as last on the broken kernels.
->>>
->>
->> I could not reproduce it, I will try it on VM. Meanwhile can you turn
->> off feature "sg" and try same test ?
->
-> Hello
->
-> Your hint was spot-on. With sg off, i can't reproduce the problem and
-> networking seems fine. It works fine either way on 3.9, so this is a
-> regression for 3.10.
->
-Nice.
-but still this does not look right. Can you tell me driver for the nic?
-`ethtool -i <dev>`
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Wed, 29 May 2013 18:03:08 +0200
 
-Thanks,
-Pravin.
+> The following patchset contains Netfilter/IPVS fixes for 3.10-rc3,
+> they are:
+> 
+> * fix xt_addrtype with IPv6, from Florian Westphal. This required
+>   a new hook for IPv6 functions in the netfilter core to avoid
+>   hard dependencies with the ipv6 subsystem when this match is
+>   only used for IPv4.
+> 
+> * fix connection reuse case in IPVS. Currently, if an reused
+>   connection are directed to the same server. If that server is
+>   down, those connection would fail. Therefore, clear the
+>   connection and choose a new server among the available ones.
+> 
+> * fix possible non-nul terminated string sent to user-space if
+>   ipt_ULOG is used as the default netfilter logging stub, from
+>   Chen Gang.
+> 
+> * fix mark logging of IPv6 packets in xt_LOG, from Michal Kubecek.
+>   This bug has been there since 2.6.26.
+> 
+> * Fix breakage ip_vs_sh due to incorrect structure layout for
+>   RCU, from Jan Beulich.
+ ...
+>   git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+Pulled, thanks Pablo!
