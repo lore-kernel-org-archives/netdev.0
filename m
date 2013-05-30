@@ -1,65 +1,87 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH net-next v3 2/2] vxlan: allow specifying multiple default
- destinations
-Date: Thu, 30 May 2013 12:37:39 +0100
-Message-ID: <20130530113739.GB10532@casper.infradead.org>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
- <1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
- <20130530110948.GA10532@casper.infradead.org>
- <CAF1J0HP+Wu9HjEELDaXM2BMREMuKByWr_zz=PwHeNUt=EVbdvw@mail.gmail.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH v7 net-next 0/5] net: low latency Ethernet device polling
+Date: Thu, 30 May 2013 14:40:45 +0300
+Message-ID: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:54049 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751930Ab3E3Lhl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 07:37:41 -0400
-Content-Disposition: inline
-In-Reply-To: <CAF1J0HP+Wu9HjEELDaXM2BMREMuKByWr_zz=PwHeNUt=EVbdvw@mail.gmail.com>
+Received: from mga14.intel.com ([143.182.124.37]:5171 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751113Ab3E3Lkv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 May 2013 07:40:51 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/13 at 02:16pm, Mike Rapoport wrote:
-> On Thu, May 30, 2013 at 12:09:48PM +0100, Thomas Graf wrote:
-> > Looks much better, thanks for taking the feedback. Some additional
-> > feedback inlined:
-> >
-> > > +   const struct vxlan_dev *vxlan)
-> > > +{
-> > > + struct vxlan_rdst *rdst;
-> > > + struct nlattr *nest, *rdst_nest;
-> > > + __be32 ip;
-> > > + int i;
-> > > +
-> > > + if (vxlan->remote_cnt) {
-> > > + nest = nla_nest_start(skb, IFLA_VXLAN_REMOTES);
-> > > + if (nest == NULL)
-> > > + goto nla_put_failure;
-> > > +
-> > > + for (rdst = vxlan->default_dst.remote_next, i = 0; rdst;
-> > > +     rdst = rdst->remote_next, i++) {
-> > > + ip = rdst->remote_ip;
-> > > +
-> > > + rdst_nest = nla_nest_start(skb, i);
-> >
-> > Attribute type '0' is reserved, please don't use it. Start with '1'.
-> >
-> > > +enum {
-> > > + IFLA_VXLAN_REMOTE_NEW,
-> > > + IFLA_VXLAN_REMOTE_DEL,
-> > > +};
-> >
-> > Same here, attribute type '0' is reserved.
-> 
-> Does it mean I have to add _UNSPEC and _MAX? And, consequently, rename
-> either REMOTE_{NEW,DEL} or REMOTE_ADDR and friends to avoid redefinition
-> of _MAX attribute?
+more fixes.
+Thank you all for your input.
 
-I think this is good enough:
+-Eliezer
 
-enum {
-	IFLA_VXLAN_REMOTE_NEW = 1,
-	IFLA_VXLAN_REMOTE_DEL,
-};
+change log:
+v7
+- suggested by Ben Hutchings and Eric Dumazet:
+  type fixes, static for globals in net/core.c,
+  avoid napi_id collisions in napi_hash_add()
+
+v6
+- many small fixes suggested by Eric Dumazet:
+  data locality, typos, documentation
+  protect napi_hash insert/delete with a spinlock (napi_gen_id is no
+  longer atomic_t since it's only accessed with the spinlock held.)
+- added IPv6 TCP and UDP support (only minimally tested)
+
+v5
+- corrections suggested by Ben Hutchings:
+  fixed typos, moved the config option and sysctl value from IPv4 to net
+- moved sk_mark_ll() to the protocol handlers
+- removed global id mechanism, replaced with a hashed napi_id.
+  based on code sample from Eric Dumazet
+  Note that ixgbe_free_q_vector() already waits an rcu grace period
+  before freeing the q_vector, so nothing additional needs to be done
+  when adding a call to napi_hash_del().
+- simple poll/select support
+
+v4
+- removed separate config option for TCP as suggested Eric Dumazet.
+- added linux mib counter for packets received through the low latency path,
+  as suggested by Andi Kleen.
+- re-allow module unloading, remove module param, use a global generation id
+  instead to prevent the use of a stale napi pointer, as suggested
+  by Eric Dumazet
+- updated Documentation/networking/ip-sysctl.txt text
+
+v3
+- coding style changes suggested by Dave Miller
+
+v2
+- the sysctl knob is now in microseconds. The default value is now 0 (off).
+- for now the code depends at configure time on CONFIG_I86_TSC 
+- the napi reference in struct skb is now a union with the dma cookie
+  since the former is only used on RX and the latter on TX,
+  as suggested by Eric Dumazet.
+- we do a better job at honoring non-blocking operations.
+- removed busy-polling support for tcp_read_sock()
+- remove dynamic disabling of GRO
+- coding style fixes
+- disallow unloading the device module after the feature has been used
+
+Credit:
+Jesse Brandeburg, Arun Chekhov Ilango, Julie Cummings,
+Alexander Duyck, Eric Geisler, Jason Neighbors, Yadong Li,
+Mike Polehn, Anil Vasudevan, Don Wood
+Special thanks for finding bugs in earlier versions:
+Willem de Bruijn and Andi Kleen
