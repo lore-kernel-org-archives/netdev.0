@@ -1,81 +1,258 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH iproute2] vxlan: allow specifying multiple default
- destinations
-Date: Thu, 30 May 2013 15:46:52 +0300
-Message-ID: <20130530124652.GA29547@zed.ravello.local>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
- <1369821617-29098-4-git-send-email-mike.rapoport@ravellosystems.com>
- <ko4kcr$h8j$1@ger.gmane.org>
- <CAF1J0HPDAkhAybQt-tOFLLTLzaXiWy_TSbFF2FT3PMaXbnxJuw@mail.gmail.com>
- <20130529155625.2ee5f6bb@nehalam.linuxnetplumber.net>
- <CAF1J0HNiBED=BLHqPPk8w2=DDvSWdZwMPvtag6rpPhxnboT4GA@mail.gmail.com>
- <20130530114424.GC10532@casper.infradead.org>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net-next] be2net: Implement initiate FW dump feature for Lancer
+Date: Thu, 30 May 2013 18:22:23 +0530
+Message-ID: <ea8e2d9b-86e7-4ce3-a7a8-a576c73582ce@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>,
+	Kalesh AP <kalesh.purayil@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog113.obsmtp.com ([74.125.245.94]:57384 "HELO
-	na3sys010aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752464Ab3E3Mq7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 08:46:59 -0400
-Received: by mail-ea0-f173.google.com with SMTP id n15so257217ead.32
-        for <netdev@vger.kernel.org>; Thu, 30 May 2013 05:46:56 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130530114424.GC10532@casper.infradead.org>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:23082 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752238Ab3E3Mx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 08:53:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 30, 2013 at 12:44:24PM +0100, Thomas Graf wrote:
-> On 05/30/13 at 11:42am, Mike Rapoport wrote:
-> > On Thu, May 30, 2013 at 1:56 AM, Stephen Hemminger
-> > <stephen@networkplumber.org> wrote:
-> > > On Wed, 29 May 2013 13:52:55 +0300
-> > > Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
-> > >> Frankly, I had a long hesitation about the userspace implementation.
-> > >> From one side it seems very logical to use ip/iplink_vxlan for vxlan
-> > >> device manipulations. Moreover, since the remotes are used pretty much
-> > >> the same way as the group address, adding the remotes management to
-> > >> ip/iplink_vxlan makes a lot of sense. Besides, creation of stand alone
-> > >> tool for remote list manipulation in vxlan seemed to me little bit far
-> > >> fetched.
-> > >>
-> > >> On the other hand, I quite agree with you that
-> > >> ip link add vxlan0 ... dstadd 192.168.1.1
-> > >> or
-> > >> ip link set vxlan0 ... dstdel 192.168.1.1
-> > >> looks weird at least.
-> > >
-> > > Don't like add/delete semantics here either.
-> > > Maybe replace or modify,
-> > 
-> > I think that replace or modify do not express the actual operation
-> > meaning. My intention with dstadd was "add remote host X to
-> > pseudo-multicast group". Replace/modify maybe nice to have features to
-> > avoid doing delete+ add.
-> 
-> The alternative would be to require iproute2 to always provide the
-> full list of remote addresses like we do we route nexthops.
-> 
-> I do like the add/del though and don't see a problem with requiring
-> an ''ip link set [..] dstadd/dstdel''
+Added code to initiate FW dump via ethtool. Driver checks if the previous dump
+has been cleared before initiating the dump. It doesn't initiate the dump
+if it is not cleared.
 
-I'm feeling Ok about "ip link set [..] dstadd/dstdel". What does bother
-me is that you can't have different parameters for "ip link add" and "ip
-link set" for vxlan (and other iplink) utility. So, one can use
-ip link add [..] dstdel
-which does not make sense...
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h         |    3 +
+ drivers/net/ethernet/emulex/benet/be_cmds.c    |   66 ++++++++++++++++++++++++
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |    3 +
+ drivers/net/ethernet/emulex/benet/be_ethtool.c |   29 ++++++++++
+ drivers/net/ethernet/emulex/benet/be_hw.h      |    2 +
+ drivers/net/ethernet/emulex/benet/be_main.c    |   37 +-------------
+ 6 files changed, 105 insertions(+), 35 deletions(-)
 
-> > > or has this grown enough that having its own
-> > > command line tool "vxlan ..." makes sense?
-> > 
-> > Say, misc/vxlan that will handle remote destinations management? Or
-> > should it take care of some vxlan parameters currently implemented in
-> > ip/iplink_vxlan and bridge/fdb?
-> 
-> What do we gain from a separate tool?
-
---
-Sincerely yours,
-Mike.
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index 6fdbbd5..c827b1b 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -333,6 +333,9 @@ enum vf_state {
+ #define BE_VF_UC_PMAC_COUNT		2
+ #define BE_FLAGS_QNQ_ASYNC_EVT_RCVD		(1 << 11)
+ 
++/* Ethtool set_dump flags */
++#define LANCER_INITIATE_FW_DUMP			0x1
++
+ struct phy_info {
+ 	u8 transceiver;
+ 	u8 autoneg;
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
+index 1db2df6..6e6e0a1 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.c
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
+@@ -3255,6 +3255,72 @@ err:
+ 	return status;
+ }
+ 
++static int lancer_wait_idle(struct be_adapter *adapter)
++{
++#define SLIPORT_IDLE_TIMEOUT 30
++	u32 reg_val;
++	int status = 0, i;
++
++	for (i = 0; i < SLIPORT_IDLE_TIMEOUT; i++) {
++		reg_val = ioread32(adapter->db + PHYSDEV_CONTROL_OFFSET);
++		if ((reg_val & PHYSDEV_CONTROL_INP_MASK) == 0)
++			break;
++
++		ssleep(1);
++	}
++
++	if (i == SLIPORT_IDLE_TIMEOUT)
++		status = -1;
++
++	return status;
++}
++
++int lancer_physdev_ctrl(struct be_adapter *adapter, u32 mask)
++{
++	int status = 0;
++
++	status = lancer_wait_idle(adapter);
++	if (status)
++		return status;
++
++	iowrite32(mask, adapter->db + PHYSDEV_CONTROL_OFFSET);
++
++	return status;
++}
++
++/* Routine to check whether dump image is present or not */
++bool dump_present(struct be_adapter *adapter)
++{
++	u32 sliport_status = 0;
++
++	sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
++	return !!(sliport_status & SLIPORT_STATUS_DIP_MASK);
++}
++
++int lancer_initiate_dump(struct be_adapter *adapter)
++{
++	int status;
++
++	/* give firmware reset and diagnostic dump */
++	status = lancer_physdev_ctrl(adapter, PHYSDEV_CONTROL_FW_RESET_MASK |
++				     PHYSDEV_CONTROL_DD_MASK);
++	if (status < 0) {
++		dev_err(&adapter->pdev->dev, "Firmware reset failed\n");
++		return status;
++	}
++
++	status = lancer_wait_idle(adapter);
++	if (status)
++		return status;
++
++	if (!dump_present(adapter)) {
++		dev_err(&adapter->pdev->dev, "Dump image not present\n");
++		return -1;
++	}
++
++	return 0;
++}
++
+ /* Uses sync mcc */
+ int be_cmd_enable_vf(struct be_adapter *adapter, u8 domain)
+ {
+diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
+index 025bdb0..5228d88 100644
+--- a/drivers/net/ethernet/emulex/benet/be_cmds.h
++++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
+@@ -1937,6 +1937,9 @@ extern int be_cmd_set_ext_fat_capabilites(struct be_adapter *adapter,
+ 					  struct be_dma_mem *cmd,
+ 					  struct be_fat_conf_params *cfgs);
+ extern int lancer_wait_ready(struct be_adapter *adapter);
++extern int lancer_physdev_ctrl(struct be_adapter *adapter, u32 mask);
++extern int lancer_initiate_dump(struct be_adapter *adapter);
++extern bool dump_present(struct be_adapter *adapter);
+ extern int lancer_test_and_set_rdy_state(struct be_adapter *adapter);
+ extern int be_cmd_query_port_name(struct be_adapter *adapter, u8 *port_name);
+ extern int be_cmd_get_func_config(struct be_adapter *adapter);
+diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+index f3ee077..4f8c941 100644
+--- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
++++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
+@@ -669,6 +669,34 @@ be_set_phys_id(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++static int be_set_dump(struct net_device *netdev, struct ethtool_dump *dump)
++{
++	struct be_adapter *adapter = netdev_priv(netdev);
++	struct device *dev = &adapter->pdev->dev;
++	int status;
++
++	if (!lancer_chip(adapter)) {
++		dev_err(dev, "FW dump not supported\n");
++		return -EOPNOTSUPP;
++	}
++
++	if (dump_present(adapter)) {
++		dev_err(dev, "Previous dump not cleared, not forcing dump\n");
++		return 0;
++	}
++
++	switch (dump->flag) {
++	case LANCER_INITIATE_FW_DUMP:
++		status = lancer_initiate_dump(adapter);
++		if (!status)
++			dev_info(dev, "F/w dump initiated successfully\n");
++		break;
++	default:
++		dev_err(dev, "Invalid dump level: 0x%x\n", dump->flag);
++		return -EINVAL;
++	}
++	return status;
++}
+ 
+ static void
+ be_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+@@ -1106,6 +1134,7 @@ const struct ethtool_ops be_ethtool_ops = {
+ 	.set_pauseparam = be_set_pauseparam,
+ 	.get_strings = be_get_stat_strings,
+ 	.set_phys_id = be_set_phys_id,
++	.set_dump = be_set_dump,
+ 	.get_msglevel = be_get_msg_level,
+ 	.set_msglevel = be_set_msg_level,
+ 	.get_sset_count = be_get_sset_count,
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 8780183..3e21621 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -53,10 +53,12 @@
+ #define PHYSDEV_CONTROL_OFFSET		0x414
+ 
+ #define SLIPORT_STATUS_ERR_MASK		0x80000000
++#define SLIPORT_STATUS_DIP_MASK		0x02000000
+ #define SLIPORT_STATUS_RN_MASK		0x01000000
+ #define SLIPORT_STATUS_RDY_MASK		0x00800000
+ #define SLI_PORT_CONTROL_IP_MASK	0x08000000
+ #define PHYSDEV_CONTROL_FW_RESET_MASK	0x00000002
++#define PHYSDEV_CONTROL_DD_MASK		0x00000004
+ #define PHYSDEV_CONTROL_INP_MASK	0x40000000
+ 
+ #define SLIPORT_ERROR_NO_RESOURCE1	0x2
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index d99818f..9aef457 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3556,40 +3556,6 @@ static int be_flash_skyhawk(struct be_adapter *adapter,
+ 	return 0;
+ }
+ 
+-static int lancer_wait_idle(struct be_adapter *adapter)
+-{
+-#define SLIPORT_IDLE_TIMEOUT 30
+-	u32 reg_val;
+-	int status = 0, i;
+-
+-	for (i = 0; i < SLIPORT_IDLE_TIMEOUT; i++) {
+-		reg_val = ioread32(adapter->db + PHYSDEV_CONTROL_OFFSET);
+-		if ((reg_val & PHYSDEV_CONTROL_INP_MASK) == 0)
+-			break;
+-
+-		ssleep(1);
+-	}
+-
+-	if (i == SLIPORT_IDLE_TIMEOUT)
+-		status = -1;
+-
+-	return status;
+-}
+-
+-static int lancer_fw_reset(struct be_adapter *adapter)
+-{
+-	int status = 0;
+-
+-	status = lancer_wait_idle(adapter);
+-	if (status)
+-		return status;
+-
+-	iowrite32(PHYSDEV_CONTROL_FW_RESET_MASK, adapter->db +
+-		  PHYSDEV_CONTROL_OFFSET);
+-
+-	return status;
+-}
+-
+ static int lancer_fw_download(struct be_adapter *adapter,
+ 				const struct firmware *fw)
+ {
+@@ -3667,7 +3633,8 @@ static int lancer_fw_download(struct be_adapter *adapter,
+ 	}
+ 
+ 	if (change_status == LANCER_FW_RESET_NEEDED) {
+-		status = lancer_fw_reset(adapter);
++		status = lancer_physdev_ctrl(adapter,
++					     PHYSDEV_CONTROL_FW_RESET_MASK);
+ 		if (status) {
+ 			dev_err(&adapter->pdev->dev,
+ 				"Adapter busy for FW reset.\n"
+-- 
+1.6.0.2
