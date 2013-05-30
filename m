@@ -1,84 +1,86 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH iproute2] vxlan: allow specifying multiple default destinations
-Date: Thu, 30 May 2013 11:42:59 +0300
-Message-ID: <CAF1J0HNiBED=BLHqPPk8w2=DDvSWdZwMPvtag6rpPhxnboT4GA@mail.gmail.com>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<1369821617-29098-4-git-send-email-mike.rapoport@ravellosystems.com>
-	<ko4kcr$h8j$1@ger.gmane.org>
-	<CAF1J0HPDAkhAybQt-tOFLLTLzaXiWy_TSbFF2FT3PMaXbnxJuw@mail.gmail.com>
-	<20130529155625.2ee5f6bb@nehalam.linuxnetplumber.net>
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net 1/2] be2net: Mark checksum fail for IP fragmented packets
+Date: Thu, 30 May 2013 14:25:56 +0530
+Message-ID: <506aab59-7a41-4b4f-97e6-35f587fe9705@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>,
+	Kalesh AP <kalesh.purayil@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog111.obsmtp.com ([74.125.245.90]:47082 "HELO
-	na3sys010aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S967186Ab3E3InC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 04:43:02 -0400
-Received: by mail-ob0-f180.google.com with SMTP id eh20so4385558obb.11
-        for <netdev@vger.kernel.org>; Thu, 30 May 2013 01:43:00 -0700 (PDT)
-In-Reply-To: <20130529155625.2ee5f6bb@nehalam.linuxnetplumber.net>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:8140 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967933Ab3E3I5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 04:57:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 30, 2013 at 1:56 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Wed, 29 May 2013 13:52:55 +0300
-> Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
->
->> On Wed, May 29, 2013 at 1:13 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> > On Wed, 29 May 2013 at 10:00 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
->> >> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
->> >> ---
->> >>  ip/iplink_vxlan.c | 125 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
->> >>  1 file changed, 125 insertions(+)
->> >>
->> >> diff --git a/ip/iplink_vxlan.c b/ip/iplink_vxlan.c
->> >> index 1025326..be6c0ac 100644
->> >> --- a/ip/iplink_vxlan.c
->> >> +++ b/ip/iplink_vxlan.c
->> >> @@ -28,11 +28,87 @@ static void explain(void)
->> >>       fprintf(stderr, "                 [ port MIN MAX ] [ [no]learning ]\n");
->> >>       fprintf(stderr, "                 [ [no]proxy ] [ [no]rsc ]\n");
->> >>       fprintf(stderr, "                 [ [no]l2miss ] [ [no]l3miss ]\n");
->> >> +     fprintf(stderr, "                 [ dstadd DST ]\n");
->> >> +     fprintf(stderr, "                 [ dstdel ADDR ]\n");
->> >
->> > Excuse me, but this looks like a design failure as you manipulate
->> > remotes with `ip link` while creating vxlan devices, shouldn't this be
->> > in a standard alone tool if we can't reuse any existing tool? Or am I
->> > missing anything?
->>
->> Frankly, I had a long hesitation about the userspace implementation.
->> From one side it seems very logical to use ip/iplink_vxlan for vxlan
->> device manipulations. Moreover, since the remotes are used pretty much
->> the same way as the group address, adding the remotes management to
->> ip/iplink_vxlan makes a lot of sense. Besides, creation of stand alone
->> tool for remote list manipulation in vxlan seemed to me little bit far
->> fetched.
->>
->> On the other hand, I quite agree with you that
->> ip link add vxlan0 ... dstadd 192.168.1.1
->> or
->> ip link set vxlan0 ... dstdel 192.168.1.1
->> looks weird at least.
->
-> Don't like add/delete semantics here either.
-> Maybe replace or modify,
+HW does not compute L4 checksum for IP Fragmented packets.
 
-I think that replace or modify do not express the actual operation
-meaning. My intention with dstadd was "add remote host X to
-pseudo-multicast group". Replace/modify maybe nice to have features to
-avoid doing delete+ add.
+Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
+Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be.h      |    1 +
+ drivers/net/ethernet/emulex/benet/be_hw.h   |    2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c |    7 ++++++-
+ 3 files changed, 8 insertions(+), 2 deletions(-)
 
-> or has this grown enough that having its own
-> command line tool "vxlan ..." makes sense?
-
-Say, misc/vxlan that will handle remote destinations management? Or
-should it take care of some vxlan parameters currently implemented in
-ip/iplink_vxlan and bridge/fdb?
-
---
-Sincerely yours,
-Mike.
+diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
+index f544b29..0a51068 100644
+--- a/drivers/net/ethernet/emulex/benet/be.h
++++ b/drivers/net/ethernet/emulex/benet/be.h
+@@ -262,6 +262,7 @@ struct be_rx_compl_info {
+ 	u8 ipv6;
+ 	u8 vtm;
+ 	u8 pkt_type;
++	u8 ip_frag;
+ };
+ 
+ struct be_rx_obj {
+diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
+index 3c1099b..8780183 100644
+--- a/drivers/net/ethernet/emulex/benet/be_hw.h
++++ b/drivers/net/ethernet/emulex/benet/be_hw.h
+@@ -356,7 +356,7 @@ struct amap_eth_rx_compl_v0 {
+ 	u8 ip_version;		/* dword 1 */
+ 	u8 macdst[6];		/* dword 1 */
+ 	u8 vtp;			/* dword 1 */
+-	u8 rsvd0;		/* dword 1 */
++	u8 ip_frag;		/* dword 1 */
+ 	u8 fragndx[10];		/* dword 1 */
+ 	u8 ct[2];		/* dword 1 */
+ 	u8 sw;			/* dword 1 */
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index ca2967b..32a6927 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1599,6 +1599,8 @@ static void be_parse_rx_compl_v0(struct be_eth_rx_compl *compl,
+ 					       compl);
+ 	}
+ 	rxcp->port = AMAP_GET_BITS(struct amap_eth_rx_compl_v0, port, compl);
++	rxcp->ip_frag = AMAP_GET_BITS(struct amap_eth_rx_compl_v0,
++				      ip_frag, compl);
+ }
+ 
+ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+@@ -1620,6 +1622,9 @@ static struct be_rx_compl_info *be_rx_compl_get(struct be_rx_obj *rxo)
+ 	else
+ 		be_parse_rx_compl_v0(compl, rxcp);
+ 
++	if (rxcp->ip_frag)
++		rxcp->l4_csum = 0;
++
+ 	if (rxcp->vlanf) {
+ 		/* vlanf could be wrongly set in some cards.
+ 		 * ignore if vtm is not set */
+@@ -2168,7 +2173,7 @@ static irqreturn_t be_msix(int irq, void *dev)
+ 
+ static inline bool do_gro(struct be_rx_compl_info *rxcp)
+ {
+-	return (rxcp->tcpf && !rxcp->err) ? true : false;
++	return (rxcp->tcpf && !rxcp->err && rxcp->l4_csum) ? true : false;
+ }
+ 
+ static int be_process_rx(struct be_rx_obj *rxo, struct napi_struct *napi,
+-- 
+1.6.0.2
