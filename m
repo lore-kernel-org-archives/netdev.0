@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 07/12] tipc: delete code orphaned by new server infrastructure
-Date: Thu, 30 May 2013 15:36:12 -0400
-Message-ID: <1369942577-39563-8-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 09/12] tipc: rename tipc_createport_raw to tipc_createport
+Date: Thu, 30 May 2013 15:36:14 -0400
+Message-ID: <1369942577-39563-10-git-send-email-paul.gortmaker@windriver.com>
 References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,536 +11,74 @@ Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:59133 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:59178 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759645Ab3E3Tgi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 15:36:38 -0400
+	with ESMTP id S932186Ab3E3Tgm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 15:36:42 -0400
 In-Reply-To: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ying Xue <ying.xue@windriver.com>
 
-Having completed the conversion of the topology server and
-configuration server to use the new server infrastructure,
-the following functions become unused, and can be deleted:
-
-   - tipc_createport()
-   - port_wakeup_sh()
-   - port_dispatcher()
-   - port_dispatcher_sigh()
-   - tipc_send_buf_fast()
-   - tipc_send_buf2port
-
-Additionally, the following variables become orphaned,
-and can be deleted:
-
-   - tipc_msg_err_event
-   - tipc_named_msg_err_event
-   - tipc_conn_shutdown_event
-   - tipc_msg_event
-   - tipc_named_msg_event
-   - tipc_conn_msg_event
-   - tipc_continue_event
-   - msg_queue_head
-   - msg_queue_tail
-   - queue_lock
-
-Deletion is done here in a separate commit in order to allow
-the actual conversion changes to be more easily viewed.
+After the removal of the native API, there is now only one way to
+to create a TIPC port instance -- the function tipc_createport_raw().
+We make it more readable by renaming it to tipc_createport().
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/link.c |  36 +------
- net/tipc/port.c | 299 +-------------------------------------------------------
- net/tipc/port.h |  53 +---------
- 3 files changed, 3 insertions(+), 385 deletions(-)
+ net/tipc/port.c   | 4 ++--
+ net/tipc/port.h   | 2 +-
+ net/tipc/socket.c | 4 ++--
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index a80feee..0a4c3a1 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -2,7 +2,7 @@
-  * net/tipc/link.c: TIPC link code
-  *
-  * Copyright (c) 1996-2007, 2012, Ericsson AB
-- * Copyright (c) 2004-2007, 2010-2011, Wind River Systems
-+ * Copyright (c) 2004-2007, 2010-2013, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -1057,40 +1057,6 @@ static int link_send_buf_fast(struct tipc_link *l_ptr, struct sk_buff *buf,
- }
- 
- /*
-- * tipc_send_buf_fast: Entry for data messages where the
-- * destination node is known and the header is complete,
-- * inclusive total message length.
-- * Returns user data length.
-- */
--int tipc_send_buf_fast(struct sk_buff *buf, u32 destnode)
--{
--	struct tipc_link *l_ptr;
--	struct tipc_node *n_ptr;
--	int res;
--	u32 selector = msg_origport(buf_msg(buf)) & 1;
--	u32 dummy;
--
--	read_lock_bh(&tipc_net_lock);
--	n_ptr = tipc_node_find(destnode);
--	if (likely(n_ptr)) {
--		tipc_node_lock(n_ptr);
--		l_ptr = n_ptr->active_links[selector];
--		if (likely(l_ptr)) {
--			res = link_send_buf_fast(l_ptr, buf, &dummy);
--			tipc_node_unlock(n_ptr);
--			read_unlock_bh(&tipc_net_lock);
--			return res;
--		}
--		tipc_node_unlock(n_ptr);
--	}
--	read_unlock_bh(&tipc_net_lock);
--	res = msg_data_sz(buf_msg(buf));
--	tipc_reject_msg(buf, TIPC_ERR_NO_NODE);
--	return res;
--}
--
--
--/*
-  * tipc_link_send_sections_fast: Entry for messages where the
-  * destination processor is known and the header is complete,
-  * except for total message length.
 diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 18098ca..0651522 100644
+index f628c84..84b2a57 100644
 --- a/net/tipc/port.c
 +++ b/net/tipc/port.c
-@@ -2,7 +2,7 @@
-  * net/tipc/port.c: TIPC port code
+@@ -202,11 +202,11 @@ exit:
+ }
+ 
+ /**
+- * tipc_createport_raw - create a generic TIPC port
++ * tipc_createport - create a generic TIPC port
   *
-  * Copyright (c) 1992-2007, Ericsson AB
-- * Copyright (c) 2004-2008, 2010-2011, Wind River Systems
-+ * Copyright (c) 2004-2008, 2010-2013, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -46,11 +46,7 @@
- 
- #define MAX_REJECT_SIZE 1024
- 
--static struct sk_buff *msg_queue_head;
--static struct sk_buff *msg_queue_tail;
--
- DEFINE_SPINLOCK(tipc_port_list_lock);
--static DEFINE_SPINLOCK(queue_lock);
- 
- static LIST_HEAD(ports);
- static void port_handle_node_down(unsigned long ref);
-@@ -668,215 +664,6 @@ void tipc_port_reinit(void)
- 	spin_unlock_bh(&tipc_port_list_lock);
- }
- 
--
--/*
-- *  port_dispatcher_sigh(): Signal handler for messages destinated
-- *                          to the tipc_port interface.
-- */
--static void port_dispatcher_sigh(void *dummy)
--{
--	struct sk_buff *buf;
--
--	spin_lock_bh(&queue_lock);
--	buf = msg_queue_head;
--	msg_queue_head = NULL;
--	spin_unlock_bh(&queue_lock);
--
--	while (buf) {
--		struct tipc_port *p_ptr;
--		struct user_port *up_ptr;
--		struct tipc_portid orig;
--		struct tipc_name_seq dseq;
--		void *usr_handle;
--		int connected;
--		int peer_invalid;
--		int published;
--		u32 message_type;
--
--		struct sk_buff *next = buf->next;
--		struct tipc_msg *msg = buf_msg(buf);
--		u32 dref = msg_destport(msg);
--
--		message_type = msg_type(msg);
--		if (message_type > TIPC_DIRECT_MSG)
--			goto reject;	/* Unsupported message type */
--
--		p_ptr = tipc_port_lock(dref);
--		if (!p_ptr)
--			goto reject;	/* Port deleted while msg in queue */
--
--		orig.ref = msg_origport(msg);
--		orig.node = msg_orignode(msg);
--		up_ptr = p_ptr->user_port;
--		usr_handle = up_ptr->usr_handle;
--		connected = p_ptr->connected;
--		peer_invalid = connected && !tipc_port_peer_msg(p_ptr, msg);
--		published = p_ptr->published;
--
--		if (unlikely(msg_errcode(msg)))
--			goto err;
--
--		switch (message_type) {
--
--		case TIPC_CONN_MSG:{
--				tipc_conn_msg_event cb = up_ptr->conn_msg_cb;
--				u32 dsz;
--
--				tipc_port_unlock(p_ptr);
--				if (unlikely(!cb))
--					goto reject;
--				if (unlikely(!connected)) {
--					if (tipc_connect(dref, &orig))
--						goto reject;
--				} else if (peer_invalid)
--					goto reject;
--				dsz = msg_data_sz(msg);
--				if (unlikely(dsz &&
--					     (++p_ptr->conn_unacked >=
--					      TIPC_FLOW_CONTROL_WIN)))
--					tipc_acknowledge(dref,
--							 p_ptr->conn_unacked);
--				skb_pull(buf, msg_hdr_sz(msg));
--				cb(usr_handle, dref, &buf, msg_data(msg), dsz);
--				break;
--			}
--		case TIPC_DIRECT_MSG:{
--				tipc_msg_event cb = up_ptr->msg_cb;
--
--				tipc_port_unlock(p_ptr);
--				if (unlikely(!cb || connected))
--					goto reject;
--				skb_pull(buf, msg_hdr_sz(msg));
--				cb(usr_handle, dref, &buf, msg_data(msg),
--				   msg_data_sz(msg), msg_importance(msg),
--				   &orig);
--				break;
--			}
--		case TIPC_MCAST_MSG:
--		case TIPC_NAMED_MSG:{
--				tipc_named_msg_event cb = up_ptr->named_msg_cb;
--
--				tipc_port_unlock(p_ptr);
--				if (unlikely(!cb || connected || !published))
--					goto reject;
--				dseq.type =  msg_nametype(msg);
--				dseq.lower = msg_nameinst(msg);
--				dseq.upper = (message_type == TIPC_NAMED_MSG)
--					? dseq.lower : msg_nameupper(msg);
--				skb_pull(buf, msg_hdr_sz(msg));
--				cb(usr_handle, dref, &buf, msg_data(msg),
--				   msg_data_sz(msg), msg_importance(msg),
--				   &orig, &dseq);
--				break;
--			}
--		}
--		if (buf)
--			kfree_skb(buf);
--		buf = next;
--		continue;
--err:
--		switch (message_type) {
--
--		case TIPC_CONN_MSG:{
--				tipc_conn_shutdown_event cb =
--					up_ptr->conn_err_cb;
--
--				tipc_port_unlock(p_ptr);
--				if (!cb || !connected || peer_invalid)
--					break;
--				tipc_disconnect(dref);
--				skb_pull(buf, msg_hdr_sz(msg));
--				cb(usr_handle, dref, &buf, msg_data(msg),
--				   msg_data_sz(msg), msg_errcode(msg));
--				break;
--			}
--		case TIPC_DIRECT_MSG:{
--				tipc_msg_err_event cb = up_ptr->err_cb;
--
--				tipc_port_unlock(p_ptr);
--				if (!cb || connected)
--					break;
--				skb_pull(buf, msg_hdr_sz(msg));
--				cb(usr_handle, dref, &buf, msg_data(msg),
--				   msg_data_sz(msg), msg_errcode(msg), &orig);
--				break;
--			}
--		case TIPC_MCAST_MSG:
--		case TIPC_NAMED_MSG:{
--				tipc_named_msg_err_event cb =
--					up_ptr->named_err_cb;
--
--				tipc_port_unlock(p_ptr);
--				if (!cb || connected)
--					break;
--				dseq.type =  msg_nametype(msg);
--				dseq.lower = msg_nameinst(msg);
--				dseq.upper = (message_type == TIPC_NAMED_MSG)
--					? dseq.lower : msg_nameupper(msg);
--				skb_pull(buf, msg_hdr_sz(msg));
--				cb(usr_handle, dref, &buf, msg_data(msg),
--				   msg_data_sz(msg), msg_errcode(msg), &dseq);
--				break;
--			}
--		}
--		if (buf)
--			kfree_skb(buf);
--		buf = next;
--		continue;
--reject:
--		tipc_reject_msg(buf, TIPC_ERR_NO_PORT);
--		buf = next;
--	}
--}
--
--/*
-- *  port_dispatcher(): Dispatcher for messages destinated
-- *  to the tipc_port interface. Called with port locked.
-- */
--static u32 port_dispatcher(struct tipc_port *dummy, struct sk_buff *buf)
--{
--	buf->next = NULL;
--	spin_lock_bh(&queue_lock);
--	if (msg_queue_head) {
--		msg_queue_tail->next = buf;
--		msg_queue_tail = buf;
--	} else {
--		msg_queue_tail = msg_queue_head = buf;
--		tipc_k_signal((Handler)port_dispatcher_sigh, 0);
--	}
--	spin_unlock_bh(&queue_lock);
--	return 0;
--}
--
--/*
-- * Wake up port after congestion: Called with port locked
-- */
--static void port_wakeup_sh(unsigned long ref)
--{
--	struct tipc_port *p_ptr;
--	struct user_port *up_ptr;
--	tipc_continue_event cb = NULL;
--	void *uh = NULL;
--
--	p_ptr = tipc_port_lock(ref);
--	if (p_ptr) {
--		up_ptr = p_ptr->user_port;
--		if (up_ptr) {
--			cb = up_ptr->continue_event_cb;
--			uh = up_ptr->usr_handle;
--		}
--		tipc_port_unlock(p_ptr);
--	}
--	if (cb)
--		cb(uh, ref);
--}
--
--
--static void port_wakeup(struct tipc_port *p_ptr)
--{
--	tipc_k_signal((Handler)port_wakeup_sh, p_ptr->ref);
--}
--
- void tipc_acknowledge(u32 ref, u32 ack)
- {
- 	struct tipc_port *p_ptr;
-@@ -893,50 +680,6 @@ void tipc_acknowledge(u32 ref, u32 ack)
- 	tipc_net_route_msg(buf);
- }
- 
--/*
-- * tipc_createport(): user level call.
-- */
--int tipc_createport(void *usr_handle,
--		    unsigned int importance,
--		    tipc_msg_err_event error_cb,
--		    tipc_named_msg_err_event named_error_cb,
--		    tipc_conn_shutdown_event conn_error_cb,
--		    tipc_msg_event msg_cb,
--		    tipc_named_msg_event named_msg_cb,
--		    tipc_conn_msg_event conn_msg_cb,
--		    tipc_continue_event continue_event_cb, /* May be zero */
--		    u32 *portref)
--{
--	struct user_port *up_ptr;
--	struct tipc_port *p_ptr;
--
--	up_ptr = kmalloc(sizeof(*up_ptr), GFP_ATOMIC);
--	if (!up_ptr) {
--		pr_warn("Port creation failed, no memory\n");
--		return -ENOMEM;
--	}
--	p_ptr = tipc_createport_raw(NULL, port_dispatcher, port_wakeup,
--				    importance);
--	if (!p_ptr) {
--		kfree(up_ptr);
--		return -ENOMEM;
--	}
--
--	p_ptr->user_port = up_ptr;
--	up_ptr->usr_handle = usr_handle;
--	up_ptr->ref = p_ptr->ref;
--	up_ptr->err_cb = error_cb;
--	up_ptr->named_err_cb = named_error_cb;
--	up_ptr->conn_err_cb = conn_error_cb;
--	up_ptr->msg_cb = msg_cb;
--	up_ptr->named_msg_cb = named_msg_cb;
--	up_ptr->conn_msg_cb = conn_msg_cb;
--	up_ptr->continue_event_cb = continue_event_cb;
--	*portref = p_ptr->ref;
--	tipc_port_unlock(p_ptr);
--	return 0;
--}
--
- int tipc_portimportance(u32 ref, unsigned int *importance)
- {
- 	struct tipc_port *p_ptr;
-@@ -1322,43 +1065,3 @@ int tipc_send2port(u32 ref, struct tipc_portid const *dest,
- 	}
- 	return -ELINKCONG;
- }
--
--/**
-- * tipc_send_buf2port - send message buffer to port identity
-- */
--int tipc_send_buf2port(u32 ref, struct tipc_portid const *dest,
--	       struct sk_buff *buf, unsigned int dsz)
--{
--	struct tipc_port *p_ptr;
--	struct tipc_msg *msg;
--	int res;
--
--	p_ptr = (struct tipc_port *)tipc_ref_deref(ref);
--	if (!p_ptr || p_ptr->connected)
--		return -EINVAL;
--
--	msg = &p_ptr->phdr;
--	msg_set_type(msg, TIPC_DIRECT_MSG);
--	msg_set_destnode(msg, dest->node);
--	msg_set_destport(msg, dest->ref);
--	msg_set_hdr_sz(msg, BASIC_H_SIZE);
--	msg_set_size(msg, BASIC_H_SIZE + dsz);
--	if (skb_cow(buf, BASIC_H_SIZE))
--		return -ENOMEM;
--
--	skb_push(buf, BASIC_H_SIZE);
--	skb_copy_to_linear_data(buf, msg, BASIC_H_SIZE);
--
--	if (in_own_node(dest->node))
--		res = tipc_port_recv_msg(buf);
--	else
--		res = tipc_send_buf_fast(buf, dest->node);
--	if (likely(res != -ELINKCONG)) {
--		if (res > 0)
--			p_ptr->sent++;
--		return res;
--	}
--	if (port_unreliable(p_ptr))
--		return dsz;
--	return -ELINKCONG;
--}
+  * Returns pointer to (locked) TIPC port, or NULL if unable to create it
+  */
+-struct tipc_port *tipc_createport_raw(void *usr_handle,
++struct tipc_port *tipc_createport(void *usr_handle,
+ 			u32 (*dispatcher)(struct tipc_port *, struct sk_buff *),
+ 			void (*wakeup)(struct tipc_port *),
+ 			const u32 importance)
 diff --git a/net/tipc/port.h b/net/tipc/port.h
-index fb66e2e..9d8557a 100644
+index 71d1cd3..6579e47 100644
 --- a/net/tipc/port.h
 +++ b/net/tipc/port.h
-@@ -2,7 +2,7 @@
-  * net/tipc/port.h: Include file for TIPC port code
-  *
-  * Copyright (c) 1994-2007, Ericsson AB
-- * Copyright (c) 2004-2007, 2010-2011, Wind River Systems
-+ * Copyright (c) 2004-2007, 2010-2013, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -44,37 +44,6 @@
+@@ -104,7 +104,7 @@ struct tipc_port_list;
+ /*
+  * TIPC port manipulation routines
+  */
+-struct tipc_port *tipc_createport_raw(void *usr_handle,
++struct tipc_port *tipc_createport(void *usr_handle,
+ 		u32 (*dispatcher)(struct tipc_port *, struct sk_buff *),
+ 		void (*wakeup)(struct tipc_port *), const u32 importance);
  
- #define TIPC_FLOW_CONTROL_WIN 512
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 6259068..258e98d 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -197,8 +197,8 @@ static int tipc_sk_create(struct net *net, struct socket *sock, int protocol,
+ 		return -ENOMEM;
  
--typedef void (*tipc_msg_err_event) (void *usr_handle, u32 portref,
--		struct sk_buff **buf, unsigned char const *data,
--		unsigned int size, int reason,
--		struct tipc_portid const *attmpt_destid);
--
--typedef void (*tipc_named_msg_err_event) (void *usr_handle, u32 portref,
--		struct sk_buff **buf, unsigned char const *data,
--		unsigned int size, int reason,
--		struct tipc_name_seq const *attmpt_dest);
--
--typedef void (*tipc_conn_shutdown_event) (void *usr_handle, u32 portref,
--		struct sk_buff **buf, unsigned char const *data,
--		unsigned int size, int reason);
--
--typedef void (*tipc_msg_event) (void *usr_handle, u32 portref,
--		struct sk_buff **buf, unsigned char const *data,
--		unsigned int size, unsigned int importance,
--		struct tipc_portid const *origin);
--
--typedef void (*tipc_named_msg_event) (void *usr_handle, u32 portref,
--		struct sk_buff **buf, unsigned char const *data,
--		unsigned int size, unsigned int importance,
--		struct tipc_portid const *orig,
--		struct tipc_name_seq const *dest);
--
--typedef void (*tipc_conn_msg_event) (void *usr_handle, u32 portref,
--		struct sk_buff **buf, unsigned char const *data,
--		unsigned int size);
--
--typedef void (*tipc_continue_event) (void *usr_handle, u32 portref);
--
- /**
-  * struct user_port - TIPC user port (used with native API)
-  * @usr_handle: user-specified field
-@@ -85,13 +54,6 @@ typedef void (*tipc_continue_event) (void *usr_handle, u32 portref);
- struct user_port {
- 	void *usr_handle;
- 	u32 ref;
--	tipc_msg_err_event err_cb;
--	tipc_named_msg_err_event named_err_cb;
--	tipc_conn_shutdown_event conn_err_cb;
--	tipc_msg_event msg_cb;
--	tipc_named_msg_event named_msg_cb;
--	tipc_conn_msg_event conn_msg_cb;
--	tipc_continue_event continue_event_cb;
- };
- 
- /**
-@@ -162,18 +124,8 @@ struct tipc_port *tipc_createport_raw(void *usr_handle,
- 
- int tipc_reject_msg(struct sk_buff *buf, u32 err);
- 
--int tipc_send_buf_fast(struct sk_buff *buf, u32 destnode);
--
- void tipc_acknowledge(u32 port_ref, u32 ack);
- 
--int tipc_createport(void *usr_handle,
--		unsigned int importance, tipc_msg_err_event error_cb,
--		tipc_named_msg_err_event named_error_cb,
--		tipc_conn_shutdown_event conn_error_cb, tipc_msg_event msg_cb,
--		tipc_named_msg_event named_msg_cb,
--		tipc_conn_msg_event conn_msg_cb,
--		tipc_continue_event continue_event_cb, u32 *portref);
--
- int tipc_deleteport(u32 portref);
- 
- int tipc_portimportance(u32 portref, unsigned int *importance);
-@@ -220,9 +172,6 @@ int tipc_send2port(u32 portref, struct tipc_portid const *dest,
- 		   unsigned int num_sect, struct iovec const *msg_sect,
- 		   unsigned int total_len);
- 
--int tipc_send_buf2port(u32 portref, struct tipc_portid const *dest,
--		struct sk_buff *buf, unsigned int dsz);
--
- int tipc_multicast(u32 portref, struct tipc_name_seq const *seq,
- 		   unsigned int section_count, struct iovec const *msg,
- 		   unsigned int total_len);
+ 	/* Allocate TIPC port for socket to use */
+-	tp_ptr = tipc_createport_raw(sk, &dispatch, &wakeupdispatch,
+-				     TIPC_LOW_IMPORTANCE);
++	tp_ptr = tipc_createport(sk, &dispatch, &wakeupdispatch,
++				 TIPC_LOW_IMPORTANCE);
+ 	if (unlikely(!tp_ptr)) {
+ 		sk_free(sk);
+ 		return -ENOMEM;
 -- 
 1.8.1.2
