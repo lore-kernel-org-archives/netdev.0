@@ -1,35 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] netxen_nic: Code cleanup and enhancements
-Date: Thu, 30 May 2013 16:53:16 -0700 (PDT)
-Message-ID: <20130530.165316.1509099384783499212.davem@davemloft.net>
-References: <1369943498-1732-1-git-send-email-manish.chopra@qlogic.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rajesh.borundia@qlogic.com,
-	Dept_NX_Linux_NIC_Driver@qlogic.com
-To: manish.chopra@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59319 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751259Ab3E3XxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 19:53:17 -0400
-In-Reply-To: <1369943498-1732-1-git-send-email-manish.chopra@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH] netfilter: Correct calculation using skb->tail and skb-network_header
+Date: Fri, 31 May 2013 08:55:33 +0900
+Message-ID: <1369958133-20576-1-git-send-email-horms@verge.net.au>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Chen Gang <gang.chen@asianux.com>,
+	Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Manish Chopra <manish.chopra@qlogic.com>
-Date: Thu, 30 May 2013 15:51:33 -0400
+This corrects an regression introduced by "net: Use 16bits for *_headers
+fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
+that case skb->tail will be a pointer whereas skb->network_header
+will be an offset from head. This is corrected by using wrappers that
+ensure that calculations are always made using pointers.
 
-> This patch series includes following changes:
-> 
-> * Log driver version information with firmware version information.
-> * Log "Unknown" adapter name and serial number in case of
->   mismatched adapter type.
-> * netxen_setup_intr() function code cleanup and changes to avoid attaching
->   of multiple pci functions on an adapter with mixed interrupts mode
->   [MSI-X/MSI + INTx].
-> 
-> Please apply this series to net-next.
+Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+Reported-by: Chen Gang <gang.chen@asianux.com>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/nf_nat_helper.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Series applied, thanks.
+diff --git a/net/netfilter/nf_nat_helper.c b/net/netfilter/nf_nat_helper.c
+index 5fea563..fdbdfec 100644
+--- a/net/netfilter/nf_nat_helper.c
++++ b/net/netfilter/nf_nat_helper.c
+@@ -104,7 +104,7 @@ static void mangle_contents(struct sk_buff *skb,
+ 	/* move post-replacement */
+ 	memmove(data + match_offset + rep_len,
+ 		data + match_offset + match_len,
+-		skb->tail - (skb->network_header + dataoff +
++		skb->tail - (skb_network_header(skb) + dataoff +
+ 			     match_offset + match_len));
+ 
+ 	/* insert data from buffer */
+-- 
+1.7.10.4
+
