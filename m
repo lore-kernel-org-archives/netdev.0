@@ -1,205 +1,53 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v7 net-next 5/5] ixgbe: add extra stats for
-	ndo_ll_poll
-Date: Thu, 30 May 2013 14:41:42 +0300
-Message-ID: <20130530114142.12653.83963.stgit@ladj378.jer.intel.com>
-References: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [Patch net-next] net: clean up skb headers code
+Date: Thu, 30 May 2013 12:41:03 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7259@saturn3.aculab.com>
+References: <1369807740-12324-1-git-send-email-amwang@redhat.com> <20130528.233647.1209227470109213894.davem@davemloft.net> <1369856073.1971.2.camel@bwh-desktop.uk.level5networks.com> <20130529194438.GY3333@ritirata.org> <1369861326.1971.43.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, linux-kernel@vger.kernel.org,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David Miller" <davem@davemloft.net>, <amwang@redhat.com>,
+	<netdev@vger.kernel.org>, <horms@verge.net.au>
+To: "Ben Hutchings" <bhutchings@solarflare.com>,
+	"Antonio Quartulli" <ordex@autistici.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:49686 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S934952Ab3E3Llt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 May 2013 07:41:49 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 12478-09 for <netdev@vger.kernel.org>;
+ Thu, 30 May 2013 12:41:46 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1369861326.1971.43.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add additional statistics to the ixgbe driver for ndo_ll_poll
-Defined under LL_EXTENDED_STATS
-
-Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Tested-by: Willem de Bruijn <willemb@google.com>
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
-
- drivers/net/ethernet/intel/ixgbe/ixgbe.h         |   14 ++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c |   40 ++++++++++++++++++++++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c    |    6 +++
- 3 files changed, 60 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 04fdbf6..9765772 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -54,6 +54,9 @@
- 
- #include <net/ll_poll.h>
- 
-+#ifdef CONFIG_NET_LL_RX_POLL
-+#define LL_EXTENDED_STATS
-+#endif
- /* common prefix used by pr_<> macros */
- #undef pr_fmt
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-@@ -184,6 +187,11 @@ struct ixgbe_rx_buffer {
- struct ixgbe_queue_stats {
- 	u64 packets;
- 	u64 bytes;
-+#ifdef LL_EXTENDED_STATS
-+	u64 yields;
-+	u64 misses;
-+	u64 cleaned;
-+#endif  /* LL_EXTENDED_STATS */
- };
- 
- struct ixgbe_tx_queue_stats {
-@@ -391,6 +399,9 @@ static inline int ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
- 		WARN_ON(q_vector->state & IXGBE_QV_STATE_NAPI);
- 		q_vector->state |= IXGBE_QV_STATE_NAPI_YIELD;
- 		rc = false;
-+#ifdef LL_EXTENDED_STATS
-+		q_vector->tx.ring->stats.yields++;
-+#endif
- 	} else
- 		/* we don't care if someone yielded */
- 		q_vector->state = IXGBE_QV_STATE_NAPI;
-@@ -421,6 +432,9 @@ static inline int ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
- 	if ((q_vector->state & IXGBE_QV_LOCKED)) {
- 		q_vector->state |= IXGBE_QV_STATE_POLL_YIELD;
- 		rc = false;
-+#ifdef LL_EXTENDED_STATS
-+		q_vector->rx.ring->stats.yields++;
-+#endif
- 	} else
- 		/* preserve yield marks */
- 		q_vector->state |= IXGBE_QV_STATE_POLL;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-index d375472..24e2e7a 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_ethtool.c
-@@ -1054,6 +1054,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
-+#ifdef LL_EXTENDED_STATS
-+			data[i] = 0;
-+			data[i+1] = 0;
-+			data[i+2] = 0;
-+			i += 3;
-+#endif
- 			continue;
- 		}
- 
-@@ -1063,6 +1069,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
-+#ifdef LL_EXTENDED_STATS
-+		data[i] = ring->stats.yields;
-+		data[i+1] = ring->stats.misses;
-+		data[i+2] = ring->stats.cleaned;
-+		i += 3;
-+#endif
- 	}
- 	for (j = 0; j < IXGBE_NUM_RX_QUEUES; j++) {
- 		ring = adapter->rx_ring[j];
-@@ -1070,6 +1082,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i] = 0;
- 			data[i+1] = 0;
- 			i += 2;
-+#ifdef LL_EXTENDED_STATS
-+			data[i] = 0;
-+			data[i+1] = 0;
-+			data[i+2] = 0;
-+			i += 3;
-+#endif
- 			continue;
- 		}
- 
-@@ -1079,6 +1097,12 @@ static void ixgbe_get_ethtool_stats(struct net_device *netdev,
- 			data[i+1] = ring->stats.bytes;
- 		} while (u64_stats_fetch_retry_bh(&ring->syncp, start));
- 		i += 2;
-+#ifdef LL_EXTENDED_STATS
-+		data[i] = ring->stats.yields;
-+		data[i+1] = ring->stats.misses;
-+		data[i+2] = ring->stats.cleaned;
-+		i += 3;
-+#endif
- 	}
- 
- 	for (j = 0; j < IXGBE_MAX_PACKET_BUFFERS; j++) {
-@@ -1115,12 +1139,28 @@ static void ixgbe_get_strings(struct net_device *netdev, u32 stringset,
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "tx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
-+#ifdef LL_EXTENDED_STATS
-+			sprintf(p, "tx_q_%u_napi_yield", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "tx_q_%u_misses", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "tx_q_%u_cleaned", i);
-+			p += ETH_GSTRING_LEN;
-+#endif /* LL_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_NUM_RX_QUEUES; i++) {
- 			sprintf(p, "rx_queue_%u_packets", i);
- 			p += ETH_GSTRING_LEN;
- 			sprintf(p, "rx_queue_%u_bytes", i);
- 			p += ETH_GSTRING_LEN;
-+#ifdef LL_EXTENDED_STATS
-+			sprintf(p, "rx_q_%u_ll_poll_yield", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_q_%u_misses", i);
-+			p += ETH_GSTRING_LEN;
-+			sprintf(p, "rx_q_%u_cleaned", i);
-+			p += ETH_GSTRING_LEN;
-+#endif /* LL_EXTENDED_STATS */
- 		}
- 		for (i = 0; i < IXGBE_MAX_PACKET_BUFFERS; i++) {
- 			sprintf(p, "tx_pb_%u_pxon", i);
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 9a7dc40..047ebaa 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -2016,6 +2016,12 @@ static int ixgbe_low_latency_recv(struct napi_struct *napi)
- 
- 	ixgbe_for_each_ring(ring, q_vector->rx) {
- 		found = ixgbe_clean_rx_irq(q_vector, ring, 4);
-+#ifdef LL_EXTENDED_STATS
-+		if (found)
-+			ring->stats.cleaned += found;
-+		else
-+			ring->stats.misses++;
-+#endif
- 		if (found)
- 			break;
- 	}
-
-
-------------------------------------------------------------------------------
-Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
-Get 100% visibility into your production application - at no cost.
-Code-level diagnostics for performance bottlenecks with <2% overhead
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap1
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+PiA+ID4gPiBJIHdhbnQgdG8gdXNlIHNvbWV0aGluZyB0aGF0IHdpbGwgZWl0aGVyIGJyZWFrIHRo
+ZSBidWlsZCBvcg0KPiA+ID4gPiBhdXRvbWF0aWNhbGx5IHdvcmsgaWYgdGhlIHR5cGUgY2hhbmdl
+cyBhZ2Fpbi4NCj4gPiA+ID4NCj4gPiA+ID4gU28gc29tZXRoaW5nIGxpa2UgIlggPSAodHlwZW9m
+KFgpKSB+MFU7Ii4NCj4gPiA+DQo+ID4gPiBJIHRoaW5rIHlvdSBtZWFuIH4odHlwZW9mKFgpKTAu
+DQo+ID4NCj4gPiBBbSBJIHdyb25nIG9yIHlvdSBzaG91bGQgY2FzdCB0aGUgdmFsdWUgb25jZSBh
+Z2FpbiwgbGlrZSB0aGlzOg0KPiA+DQo+ID4gKCh0eXBlb2YoWCkpfih0eXBlb2YoWCkpMCkNCj4g
+Pg0KPiA+IGJlY2F1c2UgdGhlIH4gb3BlcmF0b3Igd2lsbCBpbXBsaWNpdGx5IGNhc3QgdGhlIGFy
+Z3VtZW50IHRvIGludCAoaWYgSSByZW1lbWJlcg0KPiA+IGNvcnJlY3RseSkuDQo+IA0KPiBJdCB3
+aWxsIHByb21vdGUgdG8gYXQgbGVhc3QgaW50LCBidXQgdGhhdCBzdGlsbCByZXN1bHRzIGluIHRo
+ZSByaWdodA0KPiB2YWx1ZSBhbmQgZG9lc24ndCBwcm92b2tlIGEgd2FybmluZy4gIFRyeSB0aGlz
+IHRlc3QgKHdpdGggLVdhbGwNCj4gLVdleHRyYSk6DQo+IA0KPiAjaW5jbHVkZSA8c3RkaW8uaD4N
+Cj4gDQo+ICNkZWZpbmUgQUxMX09ORVModikgKH4odHlwZW9mKHYpKTApDQo+IC8qICNkZWZpbmUg
+QUxMX09ORVModikgKHR5cGVvZih2KSl+MFUpICovDQo+IA0KPiBpbnQgbWFpbih2b2lkKQ0KPiB7
+DQo+ICAgICBjaGFyIGEgPSBBTExfT05FUyhhKTsNCj4gICAgIHVuc2lnbmVkIGNoYXIgYiA9IEFM
+TF9PTkVTKGIpOw0KPiAgICAgc2hvcnQgYyA9IEFMTF9PTkVTKGMpOw0KPiAgICAgdW5zaWduZWQg
+c2hvcnQgZCA9IEFMTF9PTkVTKGQpOw0KPiAgICAgaW50IGUgPSBBTExfT05FUyhlKTsNCj4gICAg
+IHVuc2lnbmVkIGludCBmID0gQUxMX09ORVMoZik7DQo+ICAgICBsb25nIGcgPSBBTExfT05FUyhn
+KTsNCj4gICAgIHVuc2lnbmVkIGxvbmcgaCA9IEFMTF9PTkVTKGgpOw0KPiAgICAgbG9uZyBsb25n
+IGkgPSBBTExfT05FUyhpKTsNCj4gICAgIHVuc2lnbmVkIGxvbmcgbG9uZyBqID0gQUxMX09ORVMo
+aik7DQo+IA0KPiAgICAgcHJpbnRmKCIlaGh4ICVoaHggJWh4ICVoeCAleCAleCAlbHggJWx4ICVs
+bHggJWxseFxuIiwNCj4gCSAgIGEsIGIsIGMsIGQsIGUsIGYsIGcsIGgsIGksIGopOw0KPiAgICAg
+cmV0dXJuIDA7DQo+IH0NCg0KVGhlIHByaW50ZiBmb3JtYXQgaXMgbWFza2luZyB0aGUgaGlnaCBi
+aXRzIGZvciB5b3UuDQpJZiB5b3UgY2hhbmdlIHRvOg0KCXByaW50ZigiJXggJXggJXggJXggJXgg
+JXggJWx4ICVseCAlbGx4ICVsbHhcbiIsIC4uLikNCnlvdSBnZXQgZGlmZmVyZW50IHZhbHVlcy4N
+ClRvIGdldCB0aGUgJ2V4cGVjdGVkJyB2YWx1ZXMgeW91IG5lZWQgY2FzdHMgYm90aCBzaWRlcyBv
+ZiB0aGUgfg0KDQoJRGF2aWQNCg0K
