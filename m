@@ -1,49 +1,45 @@
-From: =?UTF-8?Q?St=C3=A9phane?= Glondu <glondu@debian.org>
-Subject: Bug#709616: floods the network with pause packets
-Date: Thu, 30 May 2013 11:21:01 +0200
-Message-ID: <51A719FD.9020506@debian.org>
-References: <20130524124059.12781.51344.reportbug@wencory.loria.fr>   <20130524160727.GM4752@decadent.org.uk> <51A07081.5010104@debian.org>  <1369533273.3469.301.camel@deadeye.wl.decadent.org.uk>  <51A1CFB7.1080808@debian.org> <1369584645.3469.343.camel@deadeye.wl.decadent.org.uk>
-Reply-To: =?UTF-8?Q?St=C3=A9phane?= Glondu <glondu@debian.org>, 709616@bugs.debian.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 1/3] net: phy: prevent linking breakage
+Date: Thu, 30 May 2013 02:42:01 -0700 (PDT)
+Message-ID: <20130530.024201.1913984663902628192.davem@davemloft.net>
+References: <1369741403-25315-2-git-send-email-alexandre.belloni@free-electrons.com>
+	<20130528.130920.1604291112518863799.davem@davemloft.net>
+	<51A5BA86.3070609@free-electrons.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: 709616@bugs.debian.org, e1000-devel@lists.sourceforge.net,
- netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
-Resent-Message-ID: <handler.709616.B709616.136990567111262@bugs.debian.org>
-In-Reply-To: <1369584645.3469.343.camel@deadeye.wl.decadent.org.uk>
-List-URL: <http://lists.debian.org/debian-bugs-dist/>
-List-Post: <mailto:debian-bugs-dist@lists.debian.org>
-List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
-List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
-List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux@arm.linux.org.uk,
+	shawn.guo@linaro.org, kernel@pengutronix.de
+To: alexandre.belloni@free-electrons.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45032 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968041Ab3E3JmF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 05:42:05 -0400
+In-Reply-To: <51A5BA86.3070609@free-electrons.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 26/05/2013 18:10, Ben Hutchings a =C3=A9crit :
-> OK, so the switch is indeed defective: it says it can handle pause
-> frames, but it can't.
+From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+Date: Wed, 29 May 2013 10:21:26 +0200
 
-The problem happened on (at least) two different switches from different
-manufacturers (Transtec and Netgear).
+> On 28/05/2013 22:09, David Miller wrote:
+>>
+>> This is the wrong way to go about this.
+>>
+>> If the arch code absolutely requires CONFIG_PHYLIB=y then express that
+>> dependency in the arch Kconfig.  The arch code in question should not
+>> be compiled at all if CONFIG_PHYLIB has an incompatible setting.
+> But that is making it impossible to compile a kernel without any network
+> stack for those platforms or we are going back to either enclosing the
+> calls to phy_register_fixup{,_for_uid,_for_id} with #ifdef CONFIG_PHYLIB
+> or if(IS_BUILTIN(CONFIG_PHYLIB)). And as you can see, it is quite error
+> prone and is done only done for 2 platforms on a total of 6. I believe
+> fixing that in phy.h is more foolproof.
 
-FWIW, the problem just happened on another machine (with same hardware)
-this morning. It is running Ubuntu with kernel 3.5.0-31-generic.
+Or you properly segregate the networking bits of the platform code so
+that it can be built only when the necessary networking portions are
+enabled.
 
-> Could you check whether the switch is also sending pause frames back to
-> the port that's generating them?
-
-How exactly do I do that? Is disconnecting the faulty computer and
-connecting my laptop in its place right?
-
-
-Cheers,
-
---=20
-St=C3=A9phane
-
-
---=20
-To UNSUBSCRIBE, email to debian-bugs-dist-REQUEST@lists.debian.org
-with a subject of "unsubscribe". Trouble? Contact listmaster@lists.debian=
-.org
+Sometimes having dummy stubs makes sense, but not in this situation.
