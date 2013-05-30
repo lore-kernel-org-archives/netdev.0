@@ -1,50 +1,69 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: RFC - VXLAN port range facility
-Date: Thu, 30 May 2013 20:33:07 +0100
-Message-ID: <1369942387.2414.24.camel@bwh-desktop.uk.level5networks.com>
-References: <OF673FF136.10B22631-ON85257B7B.00436301-85257B7B.0045AAB7@us.ibm.com>
-	 <20130530094141.7c125947@nehalam.linuxnetplumber.net>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 03/12] tipc: allow implicit connect for stream sockets
+Date: Thu, 30 May 2013 15:36:08 -0400
+Message-ID: <1369942577-39563-4-git-send-email-paul.gortmaker@windriver.com>
+References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>, <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Erik Hugne <erik.hugne@ericsson.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29291 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759603Ab3E3TdM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 15:33:12 -0400
-In-Reply-To: <20130530094141.7c125947@nehalam.linuxnetplumber.net>
+Received: from mail.windriver.com ([147.11.1.11]:59123 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1759645Ab3E3Tgf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 15:36:35 -0400
+In-Reply-To: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-05-30 at 09:41 -0700, Stephen Hemminger wrote:
-> On Thu, 30 May 2013 08:40:56 -0400
-> David Stevens <dlstevens@us.ibm.com> wrote:
-[...]
-> > I think a port ranges may be useful in the context of a small number (say 
-> > 10)
-> > of ports that you are actually bound to, so then as part of multi-port 
-> > binding
-> > support. But then a default range of 32K-61K is too large. It then, at 
-> > least,
-> > has the potential to manage ICMP errors triggered by VXLAN.
-> 
-> Port ranges are critical to retaining scaling in multi-path infrastructure.
-> Otherwise all traffic will arrive on a single queue in NIC.
-[...]
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-If you include UDP port numbers in the flow hash, a UDP flow with a
-mixture of fragmented and unfragmented datagrams is likely to be split
-between two queues.  Most multiqueue NICs follow the Microsoft RSS spec
-which says to include the port numbers in the flow hash for TCP only.
-Some hardware and drivers provide the option to override the hashing
-behaviour for UDP or to steer by port number, but perhaps it would be
-more portable to support the use of a range of IP addresses?
+TIPC's implied connect feature, aka piggyback connect, allows
+applications to save one syscall and all SYN/SYN-ACK signalling
+overhead when setting up a connection.  Until now, this has only
+been supported for SEQPACKET sockets.  Here, we make it possible
+to use this feature even with stream sockets.
 
-Ben.
+At the connecting side, the connection is completed when the
+first data message arrives from the accepting peer.  This means
+that we must allow the connecting user to call blocking recv()
+before the socket has reached state SS_CONNECTED.  So we must must
+relax the state machine check at recv_stream(), and allow the
+recv() call even if socket is in state SS_CONNECTING.
 
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ net/tipc/socket.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 2dfabc7..10eba4d 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -520,8 +520,7 @@ static int send_msg(struct kiocb *iocb, struct socket *sock,
+ 			res = -EISCONN;
+ 			goto exit;
+ 		}
+-		if ((tport->published) ||
+-		    ((sock->type == SOCK_STREAM) && (total_len != 0))) {
++		if (tport->published) {
+ 			res = -EOPNOTSUPP;
+ 			goto exit;
+ 		}
+@@ -1012,8 +1011,7 @@ static int recv_stream(struct kiocb *iocb, struct socket *sock,
+ 
+ 	lock_sock(sk);
+ 
+-	if (unlikely((sock->state == SS_UNCONNECTED) ||
+-		     (sock->state == SS_CONNECTING))) {
++	if (unlikely((sock->state == SS_UNCONNECTED))) {
+ 		res = -ENOTCONN;
+ 		goto exit;
+ 	}
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1.2
