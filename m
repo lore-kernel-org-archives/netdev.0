@@ -1,60 +1,86 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net-next v3 2/2] vxlan: allow specifying multiple default destinations
-Date: Thu, 30 May 2013 14:16:26 +0300
-Message-ID: <CAF1J0HP+Wu9HjEELDaXM2BMREMuKByWr_zz=PwHeNUt=EVbdvw@mail.gmail.com>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
-	<20130530110948.GA10532@casper.infradead.org>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [Regression net-next] include/linux/skbuff.h: "1a37e41 net: Use 16bits
+ for *_headers fields of struct skbuff"
+Date: Thu, 30 May 2013 19:21:17 +0800
+Message-ID: <51A7362D.4070501@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: horms@verge.net.au
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog109.obsmtp.com ([74.125.245.86]:44337 "HELO
-	na3sys010aog109.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1030406Ab3E3LQ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 07:16:27 -0400
-Received: by mail-ob0-f176.google.com with SMTP id v19so236215obq.21
-        for <netdev@vger.kernel.org>; Thu, 30 May 2013 04:16:26 -0700 (PDT)
-In-Reply-To: <20130530110948.GA10532@casper.infradead.org>
+Received: from intranet.asianux.com ([58.214.24.6]:12839 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968151Ab3E3LWJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 07:22:09 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 30, 2013 at 12:09:48PM +0100, Thomas Graf wrote:
-> Looks much better, thanks for taking the feedback. Some additional
-> feedback inlined:
->
-> > +   const struct vxlan_dev *vxlan)
-> > +{
-> > + struct vxlan_rdst *rdst;
-> > + struct nlattr *nest, *rdst_nest;
-> > + __be32 ip;
-> > + int i;
-> > +
-> > + if (vxlan->remote_cnt) {
-> > + nest = nla_nest_start(skb, IFLA_VXLAN_REMOTES);
-> > + if (nest == NULL)
-> > + goto nla_put_failure;
-> > +
-> > + for (rdst = vxlan->default_dst.remote_next, i = 0; rdst;
-> > +     rdst = rdst->remote_next, i++) {
-> > + ip = rdst->remote_ip;
-> > +
-> > + rdst_nest = nla_nest_start(skb, i);
->
-> Attribute type '0' is reserved, please don't use it. Start with '1'.
->
-> > +enum {
-> > + IFLA_VXLAN_REMOTE_NEW,
-> > + IFLA_VXLAN_REMOTE_DEL,
-> > +};
->
-> Same here, attribute type '0' is reserved.
+Hello Maintainers:
 
-Does it mean I have to add _UNSPEC and _MAX? And, consequently, rename
-either REMOTE_{NEW,DEL} or REMOTE_ADDR and friends to avoid redefinition
-of _MAX attribute?
+When not define NET_SKBUFF_DATA_USES_OFFSET, 'sk_buff_data_t' will be a
+pointer, then the last parameter of memmove() in mangle_contents() will
+be a pointer in "net/netfilter/nf_nat_helper.c".
 
---
-Sincerely yours,
-Mike.
+The reason is from the patch "1a37e41 net: Use 16bits for *_headers
+fields of struct skbuff", it changed the type of 'skb->network_header'
+for saving size, it needs additional improvement.
+
+The related warning (make EXTRA_CFLAGS=3D-W ARCH=3Dm68k allmodconfig):
+  arch/m68k/include/asm/string.h:61:14: note: expected =91__kernel_size=
+_t=92 but argument is of type =91sk_buff_data_t=92
+
+
+in "net/netfilter/nf_nat_helper.c"
+
+ 91 /* Frobs data inside this packet, which is linear. */
+ 92 static void mangle_contents(struct sk_buff *skb,
+ 93                             unsigned int dataoff,
+ 94                             unsigned int match_offset,
+ 95                             unsigned int match_len,
+ 96                             const char *rep_buffer,
+ 97                             unsigned int rep_len)
+ 98 {
+ 99         unsigned char *data;
+100=20
+101         BUG_ON(skb_is_nonlinear(skb));
+102         data =3D skb_network_header(skb) + dataoff;
+103=20
+104         /* move post-replacement */
+105         memmove(data + match_offset + rep_len,
+106                 data + match_offset + match_len,
+107                 skb->tail - (skb->network_header + dataoff +
+108                              match_offset + match_len));
+109=20
+
+
+in "include/linux/skbuff.h":
+
+ 409 struct sk_buff {
+ 410         /* These two members must be first. */
+ 411         struct sk_buff          *next;
+ 412         struct sk_buff          *prev;
+ 413=20
+ 414         ktime_t                 tstamp;
+ 415=20
+ 416         struct sock             *sk;
+ 417         struct net_device       *dev;
+ 418=20
+ ...
+ 515         __be16                  inner_protocol;
+ 516         __u16                   inner_transport_header;
+ 517         __u16                   inner_network_header;
+ 518         __u16                   inner_mac_header;
+ 519         __u16                   transport_header;
+ 520         __u16                   network_header;
+ 521         __u16                   mac_header;
+ 522         /* These elements must be at the end, see alloc_skb() for =
+details.  */
+ 523         sk_buff_data_t          tail;
+ 524         sk_buff_data_t          end;
+ 525         unsigned char           *head,
+ 526                                 *data;
+ 527         unsigned int            truesize;
+ 528         atomic_t                users;
+ 529 };
+ 530=20
