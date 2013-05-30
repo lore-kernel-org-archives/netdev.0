@@ -1,258 +1,78 @@
-From: Somnath Kotur <somnath.kotur@emulex.com>
-Subject: [PATCH net-next] be2net: Implement initiate FW dump feature for Lancer
-Date: Thu, 30 May 2013 18:22:23 +0530
-Message-ID: <ea8e2d9b-86e7-4ce3-a7a8-a576c73582ce@CMEXHTCAS2.ad.emulex.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: Bug#709616: floods the network with pause packets
+Date: Thu, 30 May 2013 13:58:44 +0100
+Message-ID: <1369918724.3469.445.camel@deadeye.wl.decadent.org.uk>
+References: <20130524124059.12781.51344.reportbug@wencory.loria.fr>
+	   <20130524160727.GM4752@decadent.org.uk> <51A07081.5010104@debian.org>
+	  <1369533273.3469.301.camel@deadeye.wl.decadent.org.uk>
+	  <51A1CFB7.1080808@debian.org>
+	 <1369584645.3469.343.camel@deadeye.wl.decadent.org.uk>
+	 <51A719FD.9020506@debian.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>,
-	Kalesh AP <kalesh.purayil@emulex.com>
-To: <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-bXC8hIp4znNwy8Tski3Z"
+Cc: 709616@bugs.debian.org, e1000-devel@lists.sourceforge.net,
+	netdev <netdev@vger.kernel.org>
+To: =?ISO-8859-1?Q?St=E9phane?= Glondu <glondu@debian.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:23082 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752238Ab3E3Mx1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 08:53:27 -0400
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:59211 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752877Ab3E3M66 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 08:58:58 -0400
+In-Reply-To: <51A719FD.9020506@debian.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Added code to initiate FW dump via ethtool. Driver checks if the previous dump
-has been cleared before initiating the dump. It doesn't initiate the dump
-if it is not cleared.
 
-Signed-off-by: Kalesh AP <kalesh.purayil@emulex.com>
-Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
----
- drivers/net/ethernet/emulex/benet/be.h         |    3 +
- drivers/net/ethernet/emulex/benet/be_cmds.c    |   66 ++++++++++++++++++++++++
- drivers/net/ethernet/emulex/benet/be_cmds.h    |    3 +
- drivers/net/ethernet/emulex/benet/be_ethtool.c |   29 ++++++++++
- drivers/net/ethernet/emulex/benet/be_hw.h      |    2 +
- drivers/net/ethernet/emulex/benet/be_main.c    |   37 +-------------
- 6 files changed, 105 insertions(+), 35 deletions(-)
+--=-bXC8hIp4znNwy8Tski3Z
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/drivers/net/ethernet/emulex/benet/be.h b/drivers/net/ethernet/emulex/benet/be.h
-index 6fdbbd5..c827b1b 100644
---- a/drivers/net/ethernet/emulex/benet/be.h
-+++ b/drivers/net/ethernet/emulex/benet/be.h
-@@ -333,6 +333,9 @@ enum vf_state {
- #define BE_VF_UC_PMAC_COUNT		2
- #define BE_FLAGS_QNQ_ASYNC_EVT_RCVD		(1 << 11)
- 
-+/* Ethtool set_dump flags */
-+#define LANCER_INITIATE_FW_DUMP			0x1
-+
- struct phy_info {
- 	u8 transceiver;
- 	u8 autoneg;
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.c b/drivers/net/ethernet/emulex/benet/be_cmds.c
-index 1db2df6..6e6e0a1 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.c
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.c
-@@ -3255,6 +3255,72 @@ err:
- 	return status;
- }
- 
-+static int lancer_wait_idle(struct be_adapter *adapter)
-+{
-+#define SLIPORT_IDLE_TIMEOUT 30
-+	u32 reg_val;
-+	int status = 0, i;
-+
-+	for (i = 0; i < SLIPORT_IDLE_TIMEOUT; i++) {
-+		reg_val = ioread32(adapter->db + PHYSDEV_CONTROL_OFFSET);
-+		if ((reg_val & PHYSDEV_CONTROL_INP_MASK) == 0)
-+			break;
-+
-+		ssleep(1);
-+	}
-+
-+	if (i == SLIPORT_IDLE_TIMEOUT)
-+		status = -1;
-+
-+	return status;
-+}
-+
-+int lancer_physdev_ctrl(struct be_adapter *adapter, u32 mask)
-+{
-+	int status = 0;
-+
-+	status = lancer_wait_idle(adapter);
-+	if (status)
-+		return status;
-+
-+	iowrite32(mask, adapter->db + PHYSDEV_CONTROL_OFFSET);
-+
-+	return status;
-+}
-+
-+/* Routine to check whether dump image is present or not */
-+bool dump_present(struct be_adapter *adapter)
-+{
-+	u32 sliport_status = 0;
-+
-+	sliport_status = ioread32(adapter->db + SLIPORT_STATUS_OFFSET);
-+	return !!(sliport_status & SLIPORT_STATUS_DIP_MASK);
-+}
-+
-+int lancer_initiate_dump(struct be_adapter *adapter)
-+{
-+	int status;
-+
-+	/* give firmware reset and diagnostic dump */
-+	status = lancer_physdev_ctrl(adapter, PHYSDEV_CONTROL_FW_RESET_MASK |
-+				     PHYSDEV_CONTROL_DD_MASK);
-+	if (status < 0) {
-+		dev_err(&adapter->pdev->dev, "Firmware reset failed\n");
-+		return status;
-+	}
-+
-+	status = lancer_wait_idle(adapter);
-+	if (status)
-+		return status;
-+
-+	if (!dump_present(adapter)) {
-+		dev_err(&adapter->pdev->dev, "Dump image not present\n");
-+		return -1;
-+	}
-+
-+	return 0;
-+}
-+
- /* Uses sync mcc */
- int be_cmd_enable_vf(struct be_adapter *adapter, u8 domain)
- {
-diff --git a/drivers/net/ethernet/emulex/benet/be_cmds.h b/drivers/net/ethernet/emulex/benet/be_cmds.h
-index 025bdb0..5228d88 100644
---- a/drivers/net/ethernet/emulex/benet/be_cmds.h
-+++ b/drivers/net/ethernet/emulex/benet/be_cmds.h
-@@ -1937,6 +1937,9 @@ extern int be_cmd_set_ext_fat_capabilites(struct be_adapter *adapter,
- 					  struct be_dma_mem *cmd,
- 					  struct be_fat_conf_params *cfgs);
- extern int lancer_wait_ready(struct be_adapter *adapter);
-+extern int lancer_physdev_ctrl(struct be_adapter *adapter, u32 mask);
-+extern int lancer_initiate_dump(struct be_adapter *adapter);
-+extern bool dump_present(struct be_adapter *adapter);
- extern int lancer_test_and_set_rdy_state(struct be_adapter *adapter);
- extern int be_cmd_query_port_name(struct be_adapter *adapter, u8 *port_name);
- extern int be_cmd_get_func_config(struct be_adapter *adapter);
-diff --git a/drivers/net/ethernet/emulex/benet/be_ethtool.c b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-index f3ee077..4f8c941 100644
---- a/drivers/net/ethernet/emulex/benet/be_ethtool.c
-+++ b/drivers/net/ethernet/emulex/benet/be_ethtool.c
-@@ -669,6 +669,34 @@ be_set_phys_id(struct net_device *netdev,
- 	return 0;
- }
- 
-+static int be_set_dump(struct net_device *netdev, struct ethtool_dump *dump)
-+{
-+	struct be_adapter *adapter = netdev_priv(netdev);
-+	struct device *dev = &adapter->pdev->dev;
-+	int status;
-+
-+	if (!lancer_chip(adapter)) {
-+		dev_err(dev, "FW dump not supported\n");
-+		return -EOPNOTSUPP;
-+	}
-+
-+	if (dump_present(adapter)) {
-+		dev_err(dev, "Previous dump not cleared, not forcing dump\n");
-+		return 0;
-+	}
-+
-+	switch (dump->flag) {
-+	case LANCER_INITIATE_FW_DUMP:
-+		status = lancer_initiate_dump(adapter);
-+		if (!status)
-+			dev_info(dev, "F/w dump initiated successfully\n");
-+		break;
-+	default:
-+		dev_err(dev, "Invalid dump level: 0x%x\n", dump->flag);
-+		return -EINVAL;
-+	}
-+	return status;
-+}
- 
- static void
- be_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-@@ -1106,6 +1134,7 @@ const struct ethtool_ops be_ethtool_ops = {
- 	.set_pauseparam = be_set_pauseparam,
- 	.get_strings = be_get_stat_strings,
- 	.set_phys_id = be_set_phys_id,
-+	.set_dump = be_set_dump,
- 	.get_msglevel = be_get_msg_level,
- 	.set_msglevel = be_set_msg_level,
- 	.get_sset_count = be_get_sset_count,
-diff --git a/drivers/net/ethernet/emulex/benet/be_hw.h b/drivers/net/ethernet/emulex/benet/be_hw.h
-index 8780183..3e21621 100644
---- a/drivers/net/ethernet/emulex/benet/be_hw.h
-+++ b/drivers/net/ethernet/emulex/benet/be_hw.h
-@@ -53,10 +53,12 @@
- #define PHYSDEV_CONTROL_OFFSET		0x414
- 
- #define SLIPORT_STATUS_ERR_MASK		0x80000000
-+#define SLIPORT_STATUS_DIP_MASK		0x02000000
- #define SLIPORT_STATUS_RN_MASK		0x01000000
- #define SLIPORT_STATUS_RDY_MASK		0x00800000
- #define SLI_PORT_CONTROL_IP_MASK	0x08000000
- #define PHYSDEV_CONTROL_FW_RESET_MASK	0x00000002
-+#define PHYSDEV_CONTROL_DD_MASK		0x00000004
- #define PHYSDEV_CONTROL_INP_MASK	0x40000000
- 
- #define SLIPORT_ERROR_NO_RESOURCE1	0x2
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index d99818f..9aef457 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3556,40 +3556,6 @@ static int be_flash_skyhawk(struct be_adapter *adapter,
- 	return 0;
- }
- 
--static int lancer_wait_idle(struct be_adapter *adapter)
--{
--#define SLIPORT_IDLE_TIMEOUT 30
--	u32 reg_val;
--	int status = 0, i;
--
--	for (i = 0; i < SLIPORT_IDLE_TIMEOUT; i++) {
--		reg_val = ioread32(adapter->db + PHYSDEV_CONTROL_OFFSET);
--		if ((reg_val & PHYSDEV_CONTROL_INP_MASK) == 0)
--			break;
--
--		ssleep(1);
--	}
--
--	if (i == SLIPORT_IDLE_TIMEOUT)
--		status = -1;
--
--	return status;
--}
--
--static int lancer_fw_reset(struct be_adapter *adapter)
--{
--	int status = 0;
--
--	status = lancer_wait_idle(adapter);
--	if (status)
--		return status;
--
--	iowrite32(PHYSDEV_CONTROL_FW_RESET_MASK, adapter->db +
--		  PHYSDEV_CONTROL_OFFSET);
--
--	return status;
--}
--
- static int lancer_fw_download(struct be_adapter *adapter,
- 				const struct firmware *fw)
- {
-@@ -3667,7 +3633,8 @@ static int lancer_fw_download(struct be_adapter *adapter,
- 	}
- 
- 	if (change_status == LANCER_FW_RESET_NEEDED) {
--		status = lancer_fw_reset(adapter);
-+		status = lancer_physdev_ctrl(adapter,
-+					     PHYSDEV_CONTROL_FW_RESET_MASK);
- 		if (status) {
- 			dev_err(&adapter->pdev->dev,
- 				"Adapter busy for FW reset.\n"
--- 
-1.6.0.2
+On Thu, 2013-05-30 at 11:21 +0200, St=C3=A9phane Glondu wrote:
+> Le 26/05/2013 18:10, Ben Hutchings a =C3=A9crit :
+> > OK, so the switch is indeed defective: it says it can handle pause
+> > frames, but it can't.
+>=20
+> The problem happened on (at least) two different switches from different
+> manufacturers (Transtec and Netgear).
+>=20
+> FWIW, the problem just happened on another machine (with same hardware)
+> this morning. It is running Ubuntu with kernel 3.5.0-31-generic.
+>=20
+> > Could you check whether the switch is also sending pause frames back to
+> > the port that's generating them?
+>=20
+> How exactly do I do that? Is disconnecting the faulty computer and
+> connecting my laptop in its place right?
+
+ethtool -S eth0 | grep flow_control
+
+Ben.
+
+--=20
+Ben Hutchings
+If at first you don't succeed, you're doing about average.
+
+--=-bXC8hIp4znNwy8Tski3Z
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUadNBee/yOyVhhEJAQobPhAAhi+szyAaudMEy5dTN7iMAs+AjqB8BqBQ
+8F7bJPra64G3PnxRLJhzF1nx47i+Y7STeYfqQ59v4fjWMHgaPptKQsesmJTfx7EH
+EyZ1BbLw3lnY5yuXW3TXd9EFtChh0bcSyaMrcqQN9C2BPPxVRdzX1JzRPoItIZ5/
+0oaFBmD3EJTWDB57ivdEa8+d1g1FUeklWyjwsHwDgXQlSWGn3p9wgGUQQC95JCMy
+SeCk5kIrB0Eiq3+pG5Lfm/TYwCepqgw7QLpZLp38rGaXYBOLTMp8Mfxi2kSQAXMq
+Zpci8ZP2ZA2Rd4WnIshnn0Yy/Es17XI57jyRn7qZLe4Kz9yLdHg59GHWKfJ1XKL+
+22fwZRoisyTF04KTbsuSfKjcQT6O/uScs0DAj2+er5EiVBVoo0lu74mcNVez7cZ0
+WGwGUOAJM0b1Xc3cncmEAMUyHYEsLJSyZFI8++Oyg9xMgzX+RFXUSyxFLV93n1sQ
+Q69C/dGFxM8rsGH9REZ+WdlDytIh2H2GVZ8y7izolxpZxbCXJKdJMgQ8NBMx28+4
+/V2kwrhjJ1jBG/WxoccOpgPmA5umSLjRvr32SMtYiHTdz3b3Dm1WC2Zy28Lrh9l5
+O/IEPO08PioaOVL2GdIFWLDMzSOfjm6wXEd0mNYqqZiqJDM3++Bi5aGfMJruPWGK
+J8n/XOnvtps=
+=RA2H
+-----END PGP SIGNATURE-----
+
+--=-bXC8hIp4znNwy8Tski3Z--
