@@ -1,89 +1,49 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
- improved accuracy at high rates)
-Date: Thu, 30 May 2013 11:15:47 +0200
-Message-ID: <20130530111547.07397287@redhat.com>
-References: <20130529151330.22c5c89e@redhat.com>
-	<1369842724.5109.44.camel@edumazet-glaptop>
-	<20130529155034.334092c5@nehalam.linuxnetplumber.net>
-	<1369869506.5109.87.camel@edumazet-glaptop>
+From: =?UTF-8?Q?St=C3=A9phane?= Glondu <glondu@debian.org>
+Subject: Bug#709616: floods the network with pause packets
+Date: Thu, 30 May 2013 11:21:01 +0200
+Message-ID: <51A719FD.9020506@debian.org>
+References: <20130524124059.12781.51344.reportbug@wencory.loria.fr>   <20130524160727.GM4752@decadent.org.uk> <51A07081.5010104@debian.org>  <1369533273.3469.301.camel@deadeye.wl.decadent.org.uk>  <51A1CFB7.1080808@debian.org> <1369584645.3469.343.camel@deadeye.wl.decadent.org.uk>
+Reply-To: =?UTF-8?Q?St=C3=A9phane?= Glondu <glondu@debian.org>, 709616@bugs.debian.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	David Miller <davem@redhat.com>, j.vimal@gmail.com,
-	Michal Soltys <soltys@ziu.info>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNl?= =?UTF-8?B?bg==?=
-	<toke@toke.dk>, Dave Taht <dave.taht@gmail.com>,
-	netdev@vger.kernel.org, bloat@lists.bufferbloat.net,
-	Dan Siemon <dan@coverfire.com>,
-	Jim Gettys <jg@freedesktop.org>,
-	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
-	Jiri Benc <jbenc@redhat.com>,
-	"russell-tcatm@stuart.id.au" <russell-tcatm@stuart.id.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:37580 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1030276Ab3E3JQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 May 2013 05:16:33 -0400
-In-Reply-To: <1369869506.5109.87.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: 709616@bugs.debian.org, e1000-devel@lists.sourceforge.net,
+ netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <bounce-debian-bugs-dist=glddb-debian-bugs-dist=m.gmane.org@lists.debian.org>
+Resent-Message-ID: <handler.709616.B709616.136990567111262@bugs.debian.org>
+In-Reply-To: <1369584645.3469.343.camel@deadeye.wl.decadent.org.uk>
+List-URL: <http://lists.debian.org/debian-bugs-dist/>
+List-Post: <mailto:debian-bugs-dist@lists.debian.org>
+List-Help: <mailto:debian-bugs-dist-request@lists.debian.org?subject=help>
+List-Subscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=subscribe>
+List-Unsubscribe: <mailto:debian-bugs-dist-request@lists.debian.org?subject=unsubscribe>
+List-Id: netdev.vger.kernel.org
+
+Le 26/05/2013 18:10, Ben Hutchings a =C3=A9crit :
+> OK, so the switch is indeed defective: it says it can handle pause
+> frames, but it can't.
+
+The problem happened on (at least) two different switches from different
+manufacturers (Transtec and Netgear).
+
+FWIW, the problem just happened on another machine (with same hardware)
+this morning. It is running Ubuntu with kernel 3.5.0-31-generic.
+
+> Could you check whether the switch is also sending pause frames back to
+> the port that's generating them?
+
+How exactly do I do that? Is disconnecting the faulty computer and
+connecting my laptop in its place right?
 
 
-On Wed, 29 May 2013 16:18:26 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Wed, 2013-05-29 at 15:50 -0700, Stephen Hemminger wrote:
-> > On Wed, 29 May 2013 08:52:04 -0700
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > 
-> > > On Wed, 2013-05-29 at 15:13 +0200, Jesper Dangaard Brouer wrote:
-> > > > I recently discovered that the (traffic control) tc linklayer
-> > > > calculations for ATM/ADSL have been broken by:
-> > > >  commit 56b765b79 (htb: improved accuracy at high rates).
-> > > > 
-> > > > Thus, people shaping on ADSL links, using e.g.:
-> > > >  tc class add ... htb rate X ceil Y linklayer atm overhead 10
-> > > > 
-> > > > Will no-longer get ATM cell tax/overhead adjusted.
-> > > > 
-> 
-> Adding the logic on the kernel is doable, by adding some clean
-> attributes so that tc can setup the feature, and report the attributes
-> back.
+Cheers,
 
-Yes, doing the logic in the kernel might be a better solution.
-But the question is how do we keep iproute2 backward compatible with
-older kernels?
+--=20
+St=C3=A9phane
 
 
-
-> cpus are fast today and can perform the atm cell/overhead faster than
-> a table lookup.
-
-Do remember that the target CPU is small embedded router boxes.
-BUT I do agree that, the following code required, is probably faster
-than a table lookup:
-
- int pkt_len = skb->len + (encap_overhead * gso_segments);
- int wire_sz = DIV_ROUND_UP(pkt_len,48)*53;
-
-(I suspect, that the compiler might even optimize and remove any
-real divisions, I bet Eric can tell us.)
-
-Looking at how simple the above code is, I'm a little appalled by all
-the table lookup infrastructure and hacks we added, to
-support/implement this.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+--=20
+To UNSUBSCRIBE, email to debian-bugs-dist-REQUEST@lists.debian.org
+with a subject of "unsubscribe". Trouble? Contact listmaster@lists.debian=
+.org
