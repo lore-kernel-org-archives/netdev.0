@@ -1,37 +1,32 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH iproute2] vxlan: allow specifying multiple default
- destinations
-Date: Thu, 30 May 2013 16:57:19 +0100
-Message-ID: <20130530155719.GD10532@casper.infradead.org>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
- <1369821617-29098-4-git-send-email-mike.rapoport@ravellosystems.com>
- <ko4kcr$h8j$1@ger.gmane.org>
- <CAF1J0HPDAkhAybQt-tOFLLTLzaXiWy_TSbFF2FT3PMaXbnxJuw@mail.gmail.com>
- <20130529155625.2ee5f6bb@nehalam.linuxnetplumber.net>
- <CAF1J0HNiBED=BLHqPPk8w2=DDvSWdZwMPvtag6rpPhxnboT4GA@mail.gmail.com>
- <20130530114424.GC10532@casper.infradead.org>
- <20130530124652.GA29547@zed.ravello.local>
+From: Roland Dreier <roland@kernel.org>
+Subject: Re: BQL-related tg3 transmit timeout on 5720 / Dell R720
+Date: Thu, 30 May 2013 09:19:26 -0700
+Message-ID: <CAG4TOxPy1mkY68sO=SttS78evL1dkFZ4ZNUUOnKPmUjifq-92Q@mail.gmail.com>
+References: <CAL1RGDW=SC3E9VvQXki0Gajj0xBqwHjBWM95k00J6zn1tF1mgg@mail.gmail.com>
+ <51A7638A.5030108@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
-To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from casper.infradead.org ([85.118.1.10]:44640 "EHLO
-	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933729Ab3E3P5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 11:57:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20130530124652.GA29547@zed.ravello.local>
+Received: from mail-we0-f176.google.com ([74.125.82.176]:47091 "EHLO
+	mail-we0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935006Ab3E3QTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 12:19:48 -0400
+Received: by mail-we0-f176.google.com with SMTP id p58so428355wes.7
+        for <netdev@vger.kernel.org>; Thu, 30 May 2013 09:19:46 -0700 (PDT)
+In-Reply-To: <51A7638A.5030108@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/13 at 03:46pm, Mike Rapoport wrote:
-> I'm feeling Ok about "ip link set [..] dstadd/dstdel". What does bother
-> me is that you can't have different parameters for "ip link add" and "ip
-> link set" for vxlan (and other iplink) utility. So, one can use
-> ip link add [..] dstdel
-> which does not make sense...
+On Thu, May 30, 2013 at 7:34 AM, Nithin Nayak Sujir <nsujir@broadcom.com> wrote:
+> Is the 5720 a NIC or a LOM? If it's a NIC would it be possible to try it on
+> a different system to see if the behaviour depends on the system at all?
 
-You can easily pass an additional argument into iplink_modify()
-and exclude certain options in the "add" use case.
+This is the LOM.  On the Dell it's a daughtercard but I don't think
+it's user-replaceable.
+
+In other words, sorry, I don't think I can try it on a different system.
+
+ - R.
