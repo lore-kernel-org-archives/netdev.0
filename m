@@ -1,72 +1,43 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH] include/linux/skbuff.h: using '0xffff' instead of '~0U'
-Date: Thu, 30 May 2013 17:55:33 +0800
-Message-ID: <51A72215.5060500@asianux.com>
-References: <51A6EBC5.7040601@asianux.com>
+From: Yijing Wang <wangyijing@huawei.com>
+Subject: [PATCH 3/7] net, ipw2x00: remove redundant D0 power state set
+Date: Thu, 30 May 2013 18:21:29 +0800
+Message-ID: <1369909289-35752-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: edumazet@google.com, Pravin Shelar <pshelar@nicira.com>,
-	mgorman@suse.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51A6EBC5.7040601@asianux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, <linux-wireless@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Hanjun Guo <guohanjun@huawei.com>,
+	Jiang Liu <liuj97@gmail.com>,
+	Yijing Wang <wangyijing@huawei.com>
+To: Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	"John W. Linville" <linville@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:11209 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030344Ab3E3KVq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 06:21:46 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Pci_enable_device() will set device power state to D0,
+so it's no need to do it again in ipw2100_pci_init_one().
 
-It seems a good idea to "fgrep -rn '~0U'" all source code, and check
-each one by one.
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+---
+ drivers/net/wireless/ipw2x00/ipw2100.c |    2 --
+ 1 files changed, 0 insertions(+), 2 deletions(-)
 
-:-)
-
-
-On 05/30/2013 02:03 PM, Chen Gang wrote:
-> 
-> Both 'transport_header' and 'mac_header' are u16, which are never equal
-> to '~0U'.
-> 
-> So need use '0xffff' instead of '~0U'.
-> 
-> The related warning (with EXTRA_CFLAGS=-W ARCH=m68k for allmodconfig)
->   include/linux/skbuff.h:1587:2: warning: comparison is always true due to limited range of data type [-Wtype-limits]
->   ...
-> 
-> 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
-> ---
->  include/linux/skbuff.h |    4 ++--
->  1 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 2e0ced1..03ba058 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -1581,7 +1581,7 @@ static inline void skb_set_inner_mac_header(struct sk_buff *skb,
->  }
->  static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
->  {
-> -	return skb->transport_header != ~0U;
-> +	return skb->transport_header != 0xffff;
->  }
->  
->  static inline unsigned char *skb_transport_header(const struct sk_buff *skb)
-> @@ -1624,7 +1624,7 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
->  
->  static inline int skb_mac_header_was_set(const struct sk_buff *skb)
->  {
-> -	return skb->mac_header != ~0U;
-> +	return skb->mac_header != 0xffff;
->  }
->  
->  static inline void skb_reset_mac_header(struct sk_buff *skb)
-> 
-
-
+diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
+index 15920aa..f8ab193 100644
+--- a/drivers/net/wireless/ipw2x00/ipw2100.c
++++ b/drivers/net/wireless/ipw2x00/ipw2100.c
+@@ -6242,8 +6242,6 @@ static int ipw2100_pci_init_one(struct pci_dev *pci_dev,
+ 	if ((val & 0x0000ff00) != 0)
+ 		pci_write_config_dword(pci_dev, 0x40, val & 0xffff00ff);
+ 
+-	pci_set_power_state(pci_dev, PCI_D0);
+-
+ 	if (!ipw2100_hw_is_adapter_in_system(dev)) {
+ 		printk(KERN_WARNING DRV_NAME
+ 		       "Device not found via register read.\n");
 -- 
-Chen Gang
-
-Asianux Corporation
+1.7.1
