@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 02/12] tipc: Add "max_ports" configuration parameter
-Date: Thu, 30 May 2013 15:36:07 -0400
-Message-ID: <1369942577-39563-3-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 04/12] tipc: introduce new TIPC server infrastructure
+Date: Thu, 30 May 2013 15:36:09 -0400
+Message-ID: <1369942577-39563-5-git-send-email-paul.gortmaker@windriver.com>
 References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,169 +11,977 @@ Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:51482 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:51486 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759830Ab3E3Tgg (ORCPT
+	with ESMTP id S1759825Ab3E3Tgg (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 15:36:36 -0400
 In-Reply-To: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+From: Ying Xue <ying.xue@windriver.com>
 
-Introduce the "max_ports" module parameter, which allows the maximum
-number of ports supported by TIPC to be changed from the default value
-at boot, or at module load time. Because of the way the port reference
-table is structured and initiated, this value must be known at module
-start time, and can not be changed later.
+TIPC has two internal servers, one providing a subscription
+service for topology events, and another providing the
+configuration interface. These servers have previously been running
+in BH context, accessing the TIPC-port (aka native) API directly.
+Apart from these servers, even the TIPC socket implementation is
+partially built on this API.
 
-Until now this value has been set via a macro, and hence things
-have to be recompiled if the value is to be changed. The Kconfig
-knob and the dead code intended to change this parameter at runtime
-are dropped.
+As this API may simultaneously be called via different paths and in
+different contexts, a complex and costly lock policiy is required
+in order to protect TIPC internal resources.
 
-Considering TIPC node addresses are unique on the entire node, the
-64k port limit has proven to be a little too strict.  We increase the
-allowed max to 128k. This is safe since the protocol headers allow
-for up to 2^32 -1 ports.
+To eliminate the need for this complex lock policiy, we introduce
+a new, generic service API that uses kernel sockets for message
+passing instead of the native API. Once the toplogy and configuration
+servers are converted to use this new service, all code pertaining
+to the native API can be removed. This entails a significant
+reduction in code amount and complexity, and opens up for a complete
+rework of the locking policy in TIPC.
 
-Usage for module: "insmod tipc.ko max_ports=<value>" ; at boot, append
-"tipc.max_ports=<value>" to the kernel command line.
+The new service also solves another problem:
 
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+As the current topology server works in BH context, it cannot easily
+be blocked when sending of events fails due to congestion. In such
+cases events may have to be silently dropped, something that is
+unacceptable. Therefore, the new service keeps a dedicated outbound
+queue receiving messages from BH context. Once messages are
+inserted into this queue, we will immediately schedule a work from a
+special workqueue. This way, messages/events from the topology server
+are in reality sent in process context, and the server can block
+if necessary.
+
+Analogously, there is a new workqueue for receiving messages. Once a
+notification about an arriving message is received in BH context, we
+schedule a work from the receive workqueue to do the job of
+receiving the message in process context.
+
+As both sending and receive messages are now finished in processes,
+subscribed events cannot be dropped any more.
+
+As of this commit, this new server infrastructure is built, but
+not actually yet called by the existing TIPC code, but since the
+conversion changes required in order to use it are significant,
+the addition is kept here as a separate commit.
+
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/Kconfig  | 12 ------------
- net/tipc/config.c | 20 +-------------------
- net/tipc/core.c   |  9 +++++++--
- net/tipc/core.h   |  5 ++++-
- 4 files changed, 12 insertions(+), 34 deletions(-)
+ net/tipc/Makefile |   2 +-
+ net/tipc/core.h   |   9 +-
+ net/tipc/server.c | 591 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ net/tipc/server.h |  92 +++++++++
+ net/tipc/socket.c |  98 ++++++++-
+ 5 files changed, 781 insertions(+), 11 deletions(-)
+ create mode 100644 net/tipc/server.c
+ create mode 100644 net/tipc/server.h
 
-diff --git a/net/tipc/Kconfig b/net/tipc/Kconfig
-index c890848..91c8a8e 100644
---- a/net/tipc/Kconfig
-+++ b/net/tipc/Kconfig
-@@ -20,18 +20,6 @@ menuconfig TIPC
+diff --git a/net/tipc/Makefile b/net/tipc/Makefile
+index 4df8e02..d1005b5 100644
+--- a/net/tipc/Makefile
++++ b/net/tipc/Makefile
+@@ -8,6 +8,6 @@ tipc-y	+= addr.o bcast.o bearer.o config.o \
+ 	   core.o handler.o link.o discover.o msg.o  \
+ 	   name_distr.o  subscr.o name_table.o net.o  \
+ 	   netlink.o node.o node_subscr.o port.o ref.o  \
+-	   socket.o log.o eth_media.o
++	   socket.o log.o eth_media.o server.o
  
- 	  If in doubt, say N.
- 
--config TIPC_PORTS
--	int "Maximum number of ports in a node"
--	depends on TIPC
--	range 127 65535
--	default "8191"
--	help
--	  Specifies how many ports can be supported by a node.
--	  Can range from 127 to 65535 ports; default is 8191.
--
--	  Setting this to a smaller value saves some memory,
--	  setting it to higher allows for more ports.
--
- config TIPC_MEDIA_IB
- 	bool "InfiniBand media type support"
- 	depends on TIPC && INFINIBAND_IPOIB
-diff --git a/net/tipc/config.c b/net/tipc/config.c
-index f67866c..79cada1 100644
---- a/net/tipc/config.c
-+++ b/net/tipc/config.c
-@@ -208,22 +208,6 @@ static struct sk_buff *cfg_set_remote_mng(void)
- 	return tipc_cfg_reply_none();
- }
- 
--static struct sk_buff *cfg_set_max_ports(void)
--{
--	u32 value;
--
--	if (!TLV_CHECK(req_tlv_area, req_tlv_space, TIPC_TLV_UNSIGNED))
--		return tipc_cfg_reply_error_string(TIPC_CFG_TLV_ERROR);
--	value = ntohl(*(__be32 *)TLV_DATA(req_tlv_area));
--	if (value == tipc_max_ports)
--		return tipc_cfg_reply_none();
--	if (value < 127 || value > 65535)
--		return tipc_cfg_reply_error_string(TIPC_CFG_INVALID_VALUE
--						   " (max ports must be 127-65535)");
--	return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
--		" (cannot change max ports while TIPC is active)");
--}
--
- static struct sk_buff *cfg_set_netid(void)
- {
- 	u32 value;
-@@ -324,9 +308,6 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 	case TIPC_CMD_SET_REMOTE_MNG:
- 		rep_tlv_buf = cfg_set_remote_mng();
- 		break;
--	case TIPC_CMD_SET_MAX_PORTS:
--		rep_tlv_buf = cfg_set_max_ports();
--		break;
- 	case TIPC_CMD_SET_NETID:
- 		rep_tlv_buf = cfg_set_netid();
- 		break;
-@@ -356,6 +337,7 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 	case TIPC_CMD_SET_MAX_PUBL:
- 	case TIPC_CMD_GET_MAX_PUBL:
- 	case TIPC_CMD_SET_LOG_SIZE:
-+	case TIPC_CMD_SET_MAX_PORTS:
- 	case TIPC_CMD_DUMP_LOG:
- 		rep_tlv_buf = tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
- 							  " (obsolete command)");
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index 7ec2c1e..f8abe8e 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
-@@ -47,10 +47,11 @@ int tipc_random __read_mostly;
- 
- /* configurable TIPC parameters */
- u32 tipc_own_addr __read_mostly;
--int tipc_max_ports __read_mostly;
-+unsigned int tipc_max_ports __read_mostly;
- int tipc_net_id __read_mostly;
- int tipc_remote_management __read_mostly;
- 
-+static unsigned int max_ports = TIPC_DEFAULT_PORTS;
- 
- /**
-  * tipc_buf_acquire - creates a TIPC message buffer
-@@ -157,7 +158,8 @@ static int __init tipc_init(void)
- 
- 	tipc_own_addr = 0;
- 	tipc_remote_management = 1;
--	tipc_max_ports = CONFIG_TIPC_PORTS;
-+	tipc_max_ports = clamp_t(unsigned int, max_ports,
-+				 TIPC_MIN_PORTS, TIPC_MAX_PORTS);
- 	tipc_net_id = 4711;
- 
- 	res = tipc_core_start();
-@@ -181,3 +183,6 @@ module_exit(tipc_exit);
- MODULE_DESCRIPTION("TIPC: Transparent Inter Process Communication");
- MODULE_LICENSE("Dual BSD/GPL");
- MODULE_VERSION(TIPC_MOD_VER);
-+
-+module_param(max_ports, uint, S_IRUGO);
-+MODULE_PARM_DESC(max_ports, "Maximum number of ports (127 - 128K)");
+ tipc-$(CONFIG_TIPC_MEDIA_IB)	+= ib_media.o
 diff --git a/net/tipc/core.h b/net/tipc/core.h
-index 0207db0..9d6a47e 100644
+index 9d6a47e..b173d20 100644
 --- a/net/tipc/core.h
 +++ b/net/tipc/core.h
-@@ -63,6 +63,9 @@
- #define ULTRA_STRING_MAX_LEN	32768
- #define TIPC_MAX_SUBSCRIPTIONS	65535
- #define TIPC_MAX_PUBLICATIONS	65535
-+#define TIPC_DEFAULT_PORTS	8192
-+#define TIPC_MIN_PORTS		127
-+#define TIPC_MAX_PORTS		131072
- 
- struct tipc_msg;	/* msg.h */
- 
-@@ -77,7 +80,7 @@ int tipc_snprintf(char *buf, int len, const char *fmt, ...);
-  * Global configuration variables
+@@ -1,8 +1,8 @@
+ /*
+  * net/tipc/core.h: Include file for TIPC global declarations
+  *
+- * Copyright (c) 2005-2006, Ericsson AB
+- * Copyright (c) 2005-2007, 2010-2011, Wind River Systems
++ * Copyright (c) 2005-2006, 2013 Ericsson AB
++ * Copyright (c) 2005-2007, 2010-2013, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -99,7 +99,10 @@ extern int  tipc_netlink_start(void);
+ extern void tipc_netlink_stop(void);
+ extern int  tipc_socket_init(void);
+ extern void tipc_socket_stop(void);
+-
++extern int tipc_sock_create_local(int type, struct socket **res);
++extern void tipc_sock_release_local(struct socket *sock);
++extern int tipc_sock_accept_local(struct socket *sock,
++				  struct socket **newsock, int flags);
+ /*
+  * TIPC timer and signal code
   */
- extern u32 tipc_own_addr __read_mostly;
--extern int tipc_max_ports __read_mostly;
-+extern unsigned int tipc_max_ports __read_mostly;
- extern int tipc_net_id __read_mostly;
- extern int tipc_remote_management __read_mostly;
+diff --git a/net/tipc/server.c b/net/tipc/server.c
+new file mode 100644
+index 0000000..ac5d4db
+--- /dev/null
++++ b/net/tipc/server.c
+@@ -0,0 +1,591 @@
++/*
++ * net/tipc/server.c: TIPC server infrastructure
++ *
++ * Copyright (c) 2012-2013, Wind River Systems
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#include "server.h"
++#include "core.h"
++#include <net/sock.h>
++
++/* Number of messages to send before rescheduling */
++#define MAX_SEND_MSG_COUNT	25
++#define MAX_RECV_MSG_COUNT	25
++#define CF_CONNECTED		1
++
++#define sock2con(x) ((struct tipc_conn *)(x)->sk_user_data)
++
++/**
++ * struct tipc_conn - TIPC connection structure
++ * @kref: reference counter to connection object
++ * @conid: connection identifier
++ * @sock: socket handler associated with connection
++ * @flags: indicates connection state
++ * @server: pointer to connected server
++ * @rwork: receive work item
++ * @usr_data: user-specified field
++ * @rx_action: what to do when connection socket is active
++ * @outqueue: pointer to first outbound message in queue
++ * @outqueue_lock: controll access to the outqueue
++ * @outqueue: list of connection objects for its server
++ * @swork: send work item
++ */
++struct tipc_conn {
++	struct kref kref;
++	int conid;
++	struct socket *sock;
++	unsigned long flags;
++	struct tipc_server *server;
++	struct work_struct rwork;
++	int (*rx_action) (struct tipc_conn *con);
++	void *usr_data;
++	struct list_head outqueue;
++	spinlock_t outqueue_lock;
++	struct work_struct swork;
++};
++
++/* An entry waiting to be sent */
++struct outqueue_entry {
++	struct list_head list;
++	struct kvec iov;
++	struct sockaddr_tipc dest;
++};
++
++static void tipc_recv_work(struct work_struct *work);
++static void tipc_send_work(struct work_struct *work);
++static void tipc_clean_outqueues(struct tipc_conn *con);
++
++static void tipc_conn_kref_release(struct kref *kref)
++{
++	struct tipc_conn *con = container_of(kref, struct tipc_conn, kref);
++	struct tipc_server *s = con->server;
++
++	if (con->sock) {
++		tipc_sock_release_local(con->sock);
++		con->sock = NULL;
++	}
++
++	tipc_clean_outqueues(con);
++
++	if (con->conid)
++		s->tipc_conn_shutdown(con->conid, con->usr_data);
++
++	kfree(con);
++}
++
++static void conn_put(struct tipc_conn *con)
++{
++	kref_put(&con->kref, tipc_conn_kref_release);
++}
++
++static void conn_get(struct tipc_conn *con)
++{
++	kref_get(&con->kref);
++}
++
++static struct tipc_conn *tipc_conn_lookup(struct tipc_server *s, int conid)
++{
++	struct tipc_conn *con;
++
++	spin_lock_bh(&s->idr_lock);
++	con = idr_find(&s->conn_idr, conid);
++	if (con)
++		conn_get(con);
++	spin_unlock_bh(&s->idr_lock);
++	return con;
++}
++
++static void sock_data_ready(struct sock *sk, int unused)
++{
++	struct tipc_conn *con;
++
++	read_lock(&sk->sk_callback_lock);
++	con = sock2con(sk);
++	if (con && test_bit(CF_CONNECTED, &con->flags)) {
++		conn_get(con);
++		if (!queue_work(con->server->rcv_wq, &con->rwork))
++			conn_put(con);
++	}
++	read_unlock(&sk->sk_callback_lock);
++}
++
++static void sock_write_space(struct sock *sk)
++{
++	struct tipc_conn *con;
++
++	read_lock(&sk->sk_callback_lock);
++	con = sock2con(sk);
++	if (con && test_bit(CF_CONNECTED, &con->flags)) {
++		conn_get(con);
++		if (!queue_work(con->server->send_wq, &con->swork))
++			conn_put(con);
++	}
++	read_unlock(&sk->sk_callback_lock);
++}
++
++static void tipc_register_callbacks(struct socket *sock, struct tipc_conn *con)
++{
++	struct sock *sk = sock->sk;
++
++	write_lock_bh(&sk->sk_callback_lock);
++
++	sk->sk_data_ready = sock_data_ready;
++	sk->sk_write_space = sock_write_space;
++	sk->sk_user_data = con;
++
++	con->sock = sock;
++
++	write_unlock_bh(&sk->sk_callback_lock);
++}
++
++static void tipc_unregister_callbacks(struct tipc_conn *con)
++{
++	struct sock *sk = con->sock->sk;
++
++	write_lock_bh(&sk->sk_callback_lock);
++	sk->sk_user_data = NULL;
++	write_unlock_bh(&sk->sk_callback_lock);
++}
++
++static void tipc_close_conn(struct tipc_conn *con)
++{
++	struct tipc_server *s = con->server;
++
++	if (test_and_clear_bit(CF_CONNECTED, &con->flags)) {
++		spin_lock_bh(&s->idr_lock);
++		idr_remove(&s->conn_idr, con->conid);
++		s->idr_in_use--;
++		spin_unlock_bh(&s->idr_lock);
++
++		tipc_unregister_callbacks(con);
++
++		/* We shouldn't flush pending works as we may be in the
++		 * thread. In fact the races with pending rx/tx work structs
++		 * are harmless for us here as we have already deleted this
++		 * connection from server connection list and set
++		 * sk->sk_user_data to 0 before releasing connection object.
++		 */
++		kernel_sock_shutdown(con->sock, SHUT_RDWR);
++
++		conn_put(con);
++	}
++}
++
++static struct tipc_conn *tipc_alloc_conn(struct tipc_server *s)
++{
++	struct tipc_conn *con;
++	int ret;
++
++	con = kzalloc(sizeof(struct tipc_conn), GFP_ATOMIC);
++	if (!con)
++		return ERR_PTR(-ENOMEM);
++
++	kref_init(&con->kref);
++	INIT_LIST_HEAD(&con->outqueue);
++	spin_lock_init(&con->outqueue_lock);
++	INIT_WORK(&con->swork, tipc_send_work);
++	INIT_WORK(&con->rwork, tipc_recv_work);
++
++	spin_lock_bh(&s->idr_lock);
++	ret = idr_alloc(&s->conn_idr, con, 0, 0, GFP_ATOMIC);
++	if (ret < 0) {
++		kfree(con);
++		spin_unlock_bh(&s->idr_lock);
++		return ERR_PTR(-ENOMEM);
++	}
++	con->conid = ret;
++	s->idr_in_use++;
++	spin_unlock_bh(&s->idr_lock);
++
++	set_bit(CF_CONNECTED, &con->flags);
++	con->server = s;
++
++	return con;
++}
++
++static int tipc_receive_from_sock(struct tipc_conn *con)
++{
++	struct msghdr msg = {};
++	struct tipc_server *s = con->server;
++	struct sockaddr_tipc addr;
++	struct kvec iov;
++	void *buf;
++	int ret;
++
++	buf = kmem_cache_alloc(s->rcvbuf_cache, GFP_ATOMIC);
++	if (!buf) {
++		ret = -ENOMEM;
++		goto out_close;
++	}
++
++	iov.iov_base = buf;
++	iov.iov_len = s->max_rcvbuf_size;
++	msg.msg_name = &addr;
++	ret = kernel_recvmsg(con->sock, &msg, &iov, 1, iov.iov_len,
++			     MSG_DONTWAIT);
++	if (ret <= 0) {
++		kmem_cache_free(s->rcvbuf_cache, buf);
++		goto out_close;
++	}
++
++	s->tipc_conn_recvmsg(con->conid, &addr, con->usr_data, buf, ret);
++
++	kmem_cache_free(s->rcvbuf_cache, buf);
++
++	return 0;
++
++out_close:
++	if (ret != -EWOULDBLOCK)
++		tipc_close_conn(con);
++	else if (ret == 0)
++		/* Don't return success if we really got EOF */
++		ret = -EAGAIN;
++
++	return ret;
++}
++
++static int tipc_accept_from_sock(struct tipc_conn *con)
++{
++	struct tipc_server *s = con->server;
++	struct socket *sock = con->sock;
++	struct socket *newsock;
++	struct tipc_conn *newcon;
++	int ret;
++
++	ret = tipc_sock_accept_local(sock, &newsock, O_NONBLOCK);
++	if (ret < 0)
++		return ret;
++
++	newcon = tipc_alloc_conn(con->server);
++	if (IS_ERR(newcon)) {
++		ret = PTR_ERR(newcon);
++		sock_release(newsock);
++		return ret;
++	}
++
++	newcon->rx_action = tipc_receive_from_sock;
++	tipc_register_callbacks(newsock, newcon);
++
++	/* Notify that new connection is incoming */
++	newcon->usr_data = s->tipc_conn_new(newcon->conid);
++
++	/* Wake up receive process in case of 'SYN+' message */
++	newsock->sk->sk_data_ready(newsock->sk, 0);
++	return ret;
++}
++
++static struct socket *tipc_create_listen_sock(struct tipc_conn *con)
++{
++	struct tipc_server *s = con->server;
++	struct socket *sock = NULL;
++	int ret;
++
++	ret = tipc_sock_create_local(s->type, &sock);
++	if (ret < 0)
++		return NULL;
++	ret = kernel_setsockopt(sock, SOL_TIPC, TIPC_IMPORTANCE,
++				(char *)&s->imp, sizeof(s->imp));
++	if (ret < 0)
++		goto create_err;
++	ret = kernel_bind(sock, (struct sockaddr *)s->saddr, sizeof(*s->saddr));
++	if (ret < 0)
++		goto create_err;
++
++	switch (s->type) {
++	case SOCK_STREAM:
++	case SOCK_SEQPACKET:
++		con->rx_action = tipc_accept_from_sock;
++
++		ret = kernel_listen(sock, 0);
++		if (ret < 0)
++			goto create_err;
++		break;
++	case SOCK_DGRAM:
++	case SOCK_RDM:
++		con->rx_action = tipc_receive_from_sock;
++		break;
++	default:
++		pr_err("Unknown socket type %d\n", s->type);
++		goto create_err;
++	}
++	return sock;
++
++create_err:
++	sock_release(sock);
++	con->sock = NULL;
++	return NULL;
++}
++
++static int tipc_open_listening_sock(struct tipc_server *s)
++{
++	struct socket *sock;
++	struct tipc_conn *con;
++
++	con = tipc_alloc_conn(s);
++	if (IS_ERR(con))
++		return PTR_ERR(con);
++
++	sock = tipc_create_listen_sock(con);
++	if (!sock)
++		return -EINVAL;
++
++	tipc_register_callbacks(sock, con);
++	return 0;
++}
++
++static struct outqueue_entry *tipc_alloc_entry(void *data, int len)
++{
++	struct outqueue_entry *entry;
++	void *buf;
++
++	entry = kmalloc(sizeof(struct outqueue_entry), GFP_ATOMIC);
++	if (!entry)
++		return NULL;
++
++	buf = kmalloc(len, GFP_ATOMIC);
++	if (!buf) {
++		kfree(entry);
++		return NULL;
++	}
++
++	memcpy(buf, data, len);
++	entry->iov.iov_base = buf;
++	entry->iov.iov_len = len;
++
++	return entry;
++}
++
++static void tipc_free_entry(struct outqueue_entry *e)
++{
++	kfree(e->iov.iov_base);
++	kfree(e);
++}
++
++static void tipc_clean_outqueues(struct tipc_conn *con)
++{
++	struct outqueue_entry *e, *safe;
++
++	spin_lock_bh(&con->outqueue_lock);
++	list_for_each_entry_safe(e, safe, &con->outqueue, list) {
++		list_del(&e->list);
++		tipc_free_entry(e);
++	}
++	spin_unlock_bh(&con->outqueue_lock);
++}
++
++int tipc_conn_sendmsg(struct tipc_server *s, int conid,
++		      struct sockaddr_tipc *addr, void *data, size_t len)
++{
++	struct outqueue_entry *e;
++	struct tipc_conn *con;
++
++	con = tipc_conn_lookup(s, conid);
++	if (!con)
++		return -EINVAL;
++
++	e = tipc_alloc_entry(data, len);
++	if (!e) {
++		conn_put(con);
++		return -ENOMEM;
++	}
++
++	if (addr)
++		memcpy(&e->dest, addr, sizeof(struct sockaddr_tipc));
++
++	spin_lock_bh(&con->outqueue_lock);
++	list_add_tail(&e->list, &con->outqueue);
++	spin_unlock_bh(&con->outqueue_lock);
++
++	if (test_bit(CF_CONNECTED, &con->flags))
++		if (!queue_work(s->send_wq, &con->swork))
++			conn_put(con);
++
++	return 0;
++}
++
++void tipc_conn_terminate(struct tipc_server *s, int conid)
++{
++	struct tipc_conn *con;
++
++	con = tipc_conn_lookup(s, conid);
++	if (con) {
++		tipc_close_conn(con);
++		conn_put(con);
++	}
++}
++
++static void tipc_send_to_sock(struct tipc_conn *con)
++{
++	int count = 0;
++	struct tipc_server *s = con->server;
++	struct outqueue_entry *e;
++	struct msghdr msg;
++	int ret;
++
++	spin_lock_bh(&con->outqueue_lock);
++	while (1) {
++		e = list_entry(con->outqueue.next, struct outqueue_entry,
++			       list);
++		if ((struct list_head *) e == &con->outqueue)
++			break;
++		spin_unlock_bh(&con->outqueue_lock);
++
++		memset(&msg, 0, sizeof(msg));
++		msg.msg_flags = MSG_DONTWAIT;
++
++		if (s->type == SOCK_DGRAM || s->type == SOCK_RDM) {
++			msg.msg_name = &e->dest;
++			msg.msg_namelen = sizeof(struct sockaddr_tipc);
++		}
++		ret = kernel_sendmsg(con->sock, &msg, &e->iov, 1,
++				     e->iov.iov_len);
++		if (ret == -EWOULDBLOCK || ret == 0) {
++			cond_resched();
++			goto out;
++		} else if (ret < 0) {
++			goto send_err;
++		}
++
++		/* Don't starve users filling buffers */
++		if (++count >= MAX_SEND_MSG_COUNT) {
++			cond_resched();
++			count = 0;
++		}
++
++		spin_lock_bh(&con->outqueue_lock);
++		list_del(&e->list);
++		tipc_free_entry(e);
++	}
++	spin_unlock_bh(&con->outqueue_lock);
++out:
++	return;
++
++send_err:
++	tipc_close_conn(con);
++}
++
++static void tipc_recv_work(struct work_struct *work)
++{
++	struct tipc_conn *con = container_of(work, struct tipc_conn, rwork);
++	int count = 0;
++
++	while (test_bit(CF_CONNECTED, &con->flags)) {
++		if (con->rx_action(con))
++			break;
++
++		/* Don't flood Rx machine */
++		if (++count >= MAX_RECV_MSG_COUNT) {
++			cond_resched();
++			count = 0;
++		}
++	}
++	conn_put(con);
++}
++
++static void tipc_send_work(struct work_struct *work)
++{
++	struct tipc_conn *con = container_of(work, struct tipc_conn, swork);
++
++	if (test_bit(CF_CONNECTED, &con->flags))
++		tipc_send_to_sock(con);
++
++	conn_put(con);
++}
++
++static void tipc_work_stop(struct tipc_server *s)
++{
++	destroy_workqueue(s->rcv_wq);
++	destroy_workqueue(s->send_wq);
++}
++
++static int tipc_work_start(struct tipc_server *s)
++{
++	s->rcv_wq = alloc_workqueue("tipc_rcv", WQ_UNBOUND, 1);
++	if (!s->rcv_wq) {
++		pr_err("can't start tipc receive workqueue\n");
++		return -ENOMEM;
++	}
++
++	s->send_wq = alloc_workqueue("tipc_send", WQ_UNBOUND, 1);
++	if (!s->send_wq) {
++		pr_err("can't start tipc send workqueue\n");
++		destroy_workqueue(s->rcv_wq);
++		return -ENOMEM;
++	}
++
++	return 0;
++}
++
++int tipc_server_start(struct tipc_server *s)
++{
++	int ret;
++
++	spin_lock_init(&s->idr_lock);
++	idr_init(&s->conn_idr);
++	s->idr_in_use = 0;
++
++	s->rcvbuf_cache = kmem_cache_create("tipc_rcvbuf", s->max_rcvbuf_size,
++					    0, SLAB_HWCACHE_ALIGN, NULL);
++	if (!s->rcvbuf_cache)
++		return -ENOMEM;
++
++	ret = tipc_work_start(s);
++	if (ret < 0) {
++		kmem_cache_destroy(s->rcvbuf_cache);
++		return ret;
++	}
++
++	return tipc_open_listening_sock(s);
++}
++
++void tipc_server_stop(struct tipc_server *s)
++{
++	struct tipc_conn *con;
++	int total = 0;
++	int id;
++
++	spin_lock_bh(&s->idr_lock);
++	for (id = 0; total < s->idr_in_use; id++) {
++		con = idr_find(&s->conn_idr, id);
++		if (con) {
++			total++;
++			spin_unlock_bh(&s->idr_lock);
++			tipc_close_conn(con);
++			spin_lock_bh(&s->idr_lock);
++		}
++	}
++	spin_unlock_bh(&s->idr_lock);
++
++	tipc_work_stop(s);
++	kmem_cache_destroy(s->rcvbuf_cache);
++	idr_destroy(&s->conn_idr);
++}
+diff --git a/net/tipc/server.h b/net/tipc/server.h
+new file mode 100644
+index 0000000..be817b0
+--- /dev/null
++++ b/net/tipc/server.h
+@@ -0,0 +1,92 @@
++/*
++ * net/tipc/server.h: Include file for TIPC server code
++ *
++ * Copyright (c) 2012-2013, Wind River Systems
++ * All rights reserved.
++ *
++ * Redistribution and use in source and binary forms, with or without
++ * modification, are permitted provided that the following conditions are met:
++ *
++ * 1. Redistributions of source code must retain the above copyright
++ *    notice, this list of conditions and the following disclaimer.
++ * 2. Redistributions in binary form must reproduce the above copyright
++ *    notice, this list of conditions and the following disclaimer in the
++ *    documentation and/or other materials provided with the distribution.
++ * 3. Neither the names of the copyright holders nor the names of its
++ *    contributors may be used to endorse or promote products derived from
++ *    this software without specific prior written permission.
++ *
++ * Alternatively, this software may be distributed under the terms of the
++ * GNU General Public License ("GPL") version 2 as published by the Free
++ * Software Foundation.
++ *
++ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
++ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
++ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
++ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
++ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
++ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
++ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
++ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
++ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
++ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
++ * POSSIBILITY OF SUCH DAMAGE.
++ */
++
++#ifndef _TIPC_SERVER_H
++#define _TIPC_SERVER_H
++
++#include "core.h"
++
++#define TIPC_SERVER_NAME_LEN	32
++
++/**
++ * struct tipc_server - TIPC server structure
++ * @conn_idr: identifier set of connection
++ * @idr_lock: protect the connection identifier set
++ * @idr_in_use: amount of allocated identifier entry
++ * @rcvbuf_cache: memory cache of server receive buffer
++ * @rcv_wq: receive workqueue
++ * @send_wq: send workqueue
++ * @max_rcvbuf_size: maximum permitted receive message length
++ * @tipc_conn_new: callback will be called when new connection is incoming
++ * @tipc_conn_shutdown: callback will be called when connection is shut down
++ * @tipc_conn_recvmsg: callback will be called when message arrives
++ * @saddr: TIPC server address
++ * @name: server name
++ * @imp: message importance
++ * @type: socket type
++ */
++struct tipc_server {
++	struct idr conn_idr;
++	spinlock_t idr_lock;
++	int idr_in_use;
++	struct kmem_cache *rcvbuf_cache;
++	struct workqueue_struct *rcv_wq;
++	struct workqueue_struct *send_wq;
++	int max_rcvbuf_size;
++	void *(*tipc_conn_new) (int conid);
++	void (*tipc_conn_shutdown) (int conid, void *usr_data);
++	void (*tipc_conn_recvmsg) (int conid, struct sockaddr_tipc *addr,
++				   void *usr_data, void *buf, size_t len);
++	struct sockaddr_tipc *saddr;
++	const char name[TIPC_SERVER_NAME_LEN];
++	int imp;
++	int type;
++};
++
++int tipc_conn_sendmsg(struct tipc_server *s, int conid,
++		      struct sockaddr_tipc *addr, void *data, size_t len);
++
++/**
++ * tipc_conn_terminate - terminate connection with server
++ *
++ * Note: Must call it in process context since it might sleep
++ */
++void tipc_conn_terminate(struct tipc_server *s, int conid);
++
++int tipc_server_start(struct tipc_server *s);
++
++void tipc_server_stop(struct tipc_server *s);
++
++#endif
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index 10eba4d..17d87a7 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -2,7 +2,7 @@
+  * net/tipc/socket.c: TIPC socket API
+  *
+  * Copyright (c) 2001-2007, 2012-2013, Ericsson AB
+- * Copyright (c) 2004-2008, 2010-2012, Wind River Systems
++ * Copyright (c) 2004-2008, 2010-2013, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -65,12 +65,15 @@ static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf);
+ static void wakeupdispatch(struct tipc_port *tport);
+ static void tipc_data_ready(struct sock *sk, int len);
+ static void tipc_write_space(struct sock *sk);
++static int release(struct socket *sock);
++static int accept(struct socket *sock, struct socket *new_sock, int flags);
  
+ static const struct proto_ops packet_ops;
+ static const struct proto_ops stream_ops;
+ static const struct proto_ops msg_ops;
+ 
+ static struct proto tipc_proto;
++static struct proto tipc_proto_kern;
+ 
+ static int sockets_enabled;
+ 
+@@ -143,7 +146,7 @@ static void reject_rx_queue(struct sock *sk)
+ }
+ 
+ /**
+- * tipc_create - create a TIPC socket
++ * tipc_sk_create - create a TIPC socket
+  * @net: network namespace (must be default network)
+  * @sock: pre-allocated socket structure
+  * @protocol: protocol indicator (must be 0)
+@@ -154,8 +157,8 @@ static void reject_rx_queue(struct sock *sk)
+  *
+  * Returns 0 on success, errno otherwise
+  */
+-static int tipc_create(struct net *net, struct socket *sock, int protocol,
+-		       int kern)
++static int tipc_sk_create(struct net *net, struct socket *sock, int protocol,
++			  int kern)
+ {
+ 	const struct proto_ops *ops;
+ 	socket_state state;
+@@ -185,7 +188,11 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol,
+ 	}
+ 
+ 	/* Allocate socket's protocol area */
+-	sk = sk_alloc(net, AF_TIPC, GFP_KERNEL, &tipc_proto);
++	if (!kern)
++		sk = sk_alloc(net, AF_TIPC, GFP_KERNEL, &tipc_proto);
++	else
++		sk = sk_alloc(net, AF_TIPC, GFP_KERNEL, &tipc_proto_kern);
++
+ 	if (sk == NULL)
+ 		return -ENOMEM;
+ 
+@@ -221,6 +228,78 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol,
+ }
+ 
+ /**
++ * tipc_sock_create_local - create TIPC socket from inside TIPC module
++ * @type: socket type - SOCK_RDM or SOCK_SEQPACKET
++ *
++ * We cannot use sock_creat_kern here because it bumps module user count.
++ * Since socket owner and creator is the same module we must make sure
++ * that module count remains zero for module local sockets, otherwise
++ * we cannot do rmmod.
++ *
++ * Returns 0 on success, errno otherwise
++ */
++int tipc_sock_create_local(int type, struct socket **res)
++{
++	int rc;
++	struct sock *sk;
++
++	rc = sock_create_lite(AF_TIPC, type, 0, res);
++	if (rc < 0) {
++		pr_err("Failed to create kernel socket\n");
++		return rc;
++	}
++	tipc_sk_create(&init_net, *res, 0, 1);
++
++	sk = (*res)->sk;
++
++	return 0;
++}
++
++/**
++ * tipc_sock_release_local - release socket created by tipc_sock_create_local
++ * @sock: the socket to be released.
++ *
++ * Module reference count is not incremented when such sockets are created,
++ * so we must keep it from being decremented when they are released.
++ */
++void tipc_sock_release_local(struct socket *sock)
++{
++	release(sock);
++	sock->ops = NULL;
++	sock_release(sock);
++}
++
++/**
++ * tipc_sock_accept_local - accept a connection on a socket created
++ * with tipc_sock_create_local. Use this function to avoid that
++ * module reference count is inadvertently incremented.
++ *
++ * @sock:    the accepting socket
++ * @newsock: reference to the new socket to be created
++ * @flags:   socket flags
++ */
++
++int tipc_sock_accept_local(struct socket *sock, struct socket **newsock,
++			    int flags)
++{
++	struct sock *sk = sock->sk;
++	int ret;
++
++	ret = sock_create_lite(sk->sk_family, sk->sk_type,
++			       sk->sk_protocol, newsock);
++	if (ret < 0)
++		return ret;
++
++	ret = accept(sock, *newsock, flags);
++	if (ret < 0) {
++		sock_release(*newsock);
++		return ret;
++	}
++	(*newsock)->ops = sock->ops;
++	return ret;
++}
++
++/**
+  * release - destroy a TIPC socket
+  * @sock: socket to destroy
+  *
+@@ -1530,7 +1609,7 @@ static int accept(struct socket *sock, struct socket *new_sock, int flags)
+ 
+ 	buf = skb_peek(&sk->sk_receive_queue);
+ 
+-	res = tipc_create(sock_net(sock->sk), new_sock, 0, 0);
++	res = tipc_sk_create(sock_net(sock->sk), new_sock, 0, 1);
+ 	if (res)
+ 		goto exit;
+ 
+@@ -1840,7 +1919,7 @@ static const struct proto_ops stream_ops = {
+ static const struct net_proto_family tipc_family_ops = {
+ 	.owner		= THIS_MODULE,
+ 	.family		= AF_TIPC,
+-	.create		= tipc_create
++	.create		= tipc_sk_create
+ };
+ 
+ static struct proto tipc_proto = {
+@@ -1849,6 +1928,11 @@ static struct proto tipc_proto = {
+ 	.obj_size	= sizeof(struct tipc_sock)
+ };
+ 
++static struct proto tipc_proto_kern = {
++	.name		= "TIPC",
++	.obj_size	= sizeof(struct tipc_sock)
++};
++
+ /**
+  * tipc_socket_init - initialize TIPC socket interface
+  *
 -- 
 1.8.1.2
