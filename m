@@ -1,54 +1,45 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: updated: kvm networking todo wiki
-Date: Thu, 30 May 2013 14:53:59 +0930
-Message-ID: <87r4gpkplc.fsf@rustcorp.com.au>
-References: <20130523085034.GA16142@redhat.com> <519F35B7.6010408@redhat.com> <20130524113542.GA7046@redhat.com> <8738tctrox.fsf@codemonkey.ws> <20130524140024.GA12024@redhat.com> <87li6yodgq.fsf@rustcorp.com.au> <87k3miq6sw.fsf@codemonkey.ws>
+From: "Jan Beulich" <jbeulich@suse.com>
+Subject: Re: [PATCH] ip_vs_sh: fix build
+Date: Thu, 30 May 2013 06:48:34 +0100
+Message-ID: <51A6F642020000780009B66A@nat28.tlf.novell.com>
+References: <51A611CF02000078000D99A6@nat28.tlf.novell.com>
+ <alpine.LFD.2.00.1305292219170.1951@ja.ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, herbert@gondor.hengli.com.au,
-	kvm@vger.kernel.org, qemu-devel@nongnu.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	Dmitry Fleytman <dmitry@daynix.com>
-To: Anthony Liguori <anthony@codemonkey.ws>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([203.10.76.45]:45174 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S967416Ab3E3Fec (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 May 2013 01:34:32 -0400
-In-Reply-To: <87k3miq6sw.fsf@codemonkey.ws>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <wensong@linux-vs.org>, <pablo@netfilter.org>,
+	<horms@verge.net.au>, <lvs-devel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+To: <ja@ssi.bg>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LFD.2.00.1305292219170.1951@ja.ssi.bg>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Anthony Liguori <anthony@codemonkey.ws> writes:
-> Rusty Russell <rusty@rustcorp.com.au> writes:
->> On Fri, May 24, 2013 at 08:47:58AM -0500, Anthony Liguori wrote:
->>> FWIW, I think what's more interesting is using vhost-net as a networking
->>> backend with virtio-net in QEMU being what's guest facing.
->>> 
->>> In theory, this gives you the best of both worlds: QEMU acts as a first
->>> line of defense against a malicious guest while still getting the
->>> performance advantages of vhost-net (zero-copy).
->>>
->> It would be an interesting idea if we didn't already have the vhost
->> model where we don't need the userspace bounce.
+>>> Julian Anastasov <ja@ssi.bg> 05/29/13 9:28 PM >>>
+>On Wed, 29 May 2013, Jan Beulich wrote:
+>> --- 3.10-rc3/net/netfilter/ipvs/ip_vs_sh.c
+>> +++ 3.10-rc3-ip_vs_sh-build/net/netfilter/ipvs/ip_vs_sh.c
+>> @@ -67,8 +67,8 @@ struct ip_vs_sh_bucket {
+>>  #define IP_VS_SH_TAB_MASK               (IP_VS_SH_TAB_SIZE - 1)
+>>  
+>>  struct ip_vs_sh_state {
+>> -    struct ip_vs_sh_bucket        buckets[IP_VS_SH_TAB_SIZE];
+>>      struct rcu_head            rcu_head;
+>> +    struct ip_vs_sh_bucket        buckets[IP_VS_SH_TAB_SIZE];
 >
-> The model is very interesting for QEMU because then we can use vhost as
-> a backend for other types of network adapters (like vmxnet3 or even
-> e1000).
->
-> It also helps for things like fault tolerance where we need to be able
-> to control packet flow within QEMU.
+>    Your fix reminds me about the same problem
+>I noticed for LBLC (may be due to 10 bits) during development
+>but forgot to check the other schedulers. The same solution
+>is needed also for DH. OTOH, LBLC and LBLCR are correct.
+>Do you prefer to provide similar fix for ip_vs_dh.c or
+>I have to take care?
 
-(CC's reduced, context added, Dmitry Fleytman added for vmxnet3 thoughts).
+CONFIG_IP_VS_DH_TAB_BITS is always 8 (due to not coming from any
+Kconfig setting), and hence not a problem at this point. If it is being planned
+to make configurable, then that change should at once flip the structure
+members.
 
-Then I'm really confused as to what this would look like.  A zero copy
-sendmsg?  We should be able to implement that today.
+Jan
 
-On the receive side, what can we do better than readv?  If we need to
-return to userspace to tell the guest that we've got a new packet, we
-don't win on latency.  We might reduce syscall overhead with a
-multi-dimensional readv to read multiple packets at once?
-
-Confused,
-Rusty.
