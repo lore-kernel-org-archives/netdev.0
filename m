@@ -1,79 +1,55 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
-Date: Thu, 30 May 2013 16:57:38 -0400
-Message-ID: <51A7BD42.8060504@redhat.com>
-References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com> <20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com> <CAJZOPZJwe6xAj7xRK5_BnWN2wNT+oVS329+iYtE4hYTqPMLwJQ@mail.gmail.com> <20130525151347.GB25744@lintop.rgmadvisors.com> <20130528201508.GA6409@sbohrermbp13-local.rgmadvisors.com> <CAJZOPZLZmLi3V-3D_16FZHQLsCsHKZY7ZhvaEH1k=Pw_i+ciwQ@mail.gmail.com> <20130530203113.GA4891@sbohrermbp13-local.rgmadvisors.com> <CAJZOPZ+YSWhz0Hw+BWHeT=cEDqRj-s7uY4M-5CTiXcRgJND_+Q@mail.gmail.com>
-Reply-To: vyasevic@redhat.com
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [Patch net-next v3] net: clean up skb headers code
+Date: Thu, 30 May 2013 22:05:18 +0100
+Message-ID: <1369947918.2414.28.camel@bwh-desktop.uk.level5networks.com>
+References: <1369879575-18701-1-git-send-email-amwang@redhat.com>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B7258@saturn3.aculab.com>
+	 <20130530.131603.1155012584617016387.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Shawn Bohrer <shawn.bohrer@gmail.com>, netdev@vger.kernel.org,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, Jiri Pirko <jiri@resnulli.us>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Cc: <David.Laight@ACULAB.COM>, <amwang@redhat.com>,
+	<netdev@vger.kernel.org>, <horms@verge.net.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14128 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750811Ab3E3U5r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 May 2013 16:57:47 -0400
-In-Reply-To: <CAJZOPZ+YSWhz0Hw+BWHeT=cEDqRj-s7uY4M-5CTiXcRgJND_+Q@mail.gmail.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:50994 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757690Ab3E3VFX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 17:05:23 -0400
+In-Reply-To: <20130530.131603.1155012584617016387.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/30/2013 04:42 PM, Or Gerlitz wrote:
-> On Thu, May 30, 2013 at 11:31 PM, Shawn Bohrer <shawn.bohrer@gmail.com> wrote:
->>> So we need to
->>> debug/bisect why without the patch (what you call high_rate_steer=0)
->>> you don't get data on all groups. Can you bisect that on a single
->>> node, e.g set the rest of the environment with 3.4 that works, and on
->>> a given node see what is the commit that breaks that?
->
->> Done. It appears that the patch that breaks receiving packets on many
->> different multicast groups/sockets is:
->>
->> commit 4cd729b04285b7330edaf5a7080aa795d6d15ff3
->> Author: Vlad Yasevich <vyasevic@redhat.com>
->> Date:   Mon Apr 15 09:54:25 2013 +0000
->>
->>      net: add dev_uc_sync_multiple() and dev_mc_sync_multiple() api
->>
->>      The current implementation of dev_uc_sync/unsync() assumes that there is
->>      a strict 1-to-1 relationship between the source and destination of the sync.
->>      In other words, once an address has been synced to a destination device, it
->>      will not be synced to any other device through the sync API.
->>      However, there are some virtual devices that aggreate a number of lower
->>      devices and need to sync addresses to all of them.  The current
->>      API falls short there.
->>
->>      This patch introduces a new dev_uc_sync_multiple() api that can be called
->>      in the above circumstances and allows sync to work for every invocation.
->>
->>      CC: Jiri Pirko <jiri@resnulli.us>
->>      Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>      Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->> I've confirmed that reverting this patch on top of 3.10-rc3 allows me
->> to receive packets on all of my multicast groups without the Mellanox
->> high_rate_steer option set.
->
-> OK, impressive debugging... so what do we do from here? Vlad, Shawn
-> observes a regression once this patch is used on a large scale setup
-> that uses many multicast groups (you can read the posts done earlier
-> on this thread), does this rings any bell w.r.t to the actual problem
-> in the patch?
+On Thu, 2013-05-30 at 13:16 -0700, David Miller wrote:
+> From: "David Laight" <David.Laight@ACULAB.COM>
+> Date: Thu, 30 May 2013 12:18:13 +0100
+> 
+> >> commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
+> >> fields of struct skbuff) converts skb->*_header to u16,
+> >> some #if NET_SKBUFF_DATA_USES_OFFSET are now useless,
+> >> and to be safe, we could just use "X = ~(typeof(X))0;"
+> >> as suggested by David and Ben.
+> > 
+> > IIRC ~(unsigned short)0 is the same as ~0 and will be -1.
+> > define an actual constant with value 0xffff
+> 
+> The problem with doing that is that if this type is changed again,
+> we'lll go through this same circus changing the constant everywhere
+> and missing some cases.
+> 
+> I absolutely want to see a version of this fix that makes sure that if
+> the type changes, either the constantly automatically change (that's
+> the "typeof(X)" approach) or the build breaks spectacularly until the
+> value is fixed up.
 
-I haven't seen that, but I didn't test with that many multicast groups. 
-  I had 20 groups working.
+Let's just give the 'invalid' value a name and define it right next to
+those fields.  It might be worth reintroducing sk_buff_data_t too, since
+there was at least one place which wanted to save and restore offsets in
+local variables.
 
-I'll take a look and see what might be going on.
+Ben.
 
-Thanks
--vlad
-
->
-> Or.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
