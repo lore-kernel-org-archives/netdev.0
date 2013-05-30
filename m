@@ -1,52 +1,123 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH] net: skbuff: use _RET_IP_
-Date: Thu, 30 May 2013 13:08:10 +0200
-Message-ID: <87obbsohd1.fsf@nemi.mork.no>
-References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
-	<51A6768B.5050603@cogentembedded.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next v3 2/2] vxlan: allow specifying multiple default
+ destinations
+Date: Thu, 30 May 2013 12:09:48 +0100
+Message-ID: <20130530110948.GA10532@casper.infradead.org>
+References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
+ <1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Davidlohr Bueso <davidlohr.bueso@hp.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:55335 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S968169Ab3E3LIh convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 07:08:37 -0400
-In-Reply-To: <51A6768B.5050603@cogentembedded.com> (Sergei Shtylyov's message
-	of "Thu, 30 May 2013 01:43:39 +0400")
+Received: from casper.infradead.org ([85.118.1.10]:40403 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S968169Ab3E3LJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 07:09:49 -0400
+Content-Disposition: inline
+In-Reply-To: <1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
+Looks much better, thanks for taking the feedback. Some additional
+feedback inlined:
 
->     Why not "text:%#lx" as already used in this string? It's
-> equivalent to "0x%lx".
+On 05/29/13 at 01:00pm, Mike Rapoport wrote:
+> +static int vxlan_remote_add(struct vxlan_dev *vxlan, struct nlattr *attr)
+> +{
+> +	struct nlattr *i;
+> +	__be32 ip = htonl(INADDR_NONE);
+> +	__be16 port;
+> +	u32 ifindex, vni;
+> +	int rem, err = 0;
+> +
+> +	port = vxlan->dst_port;
+> +	vni = vxlan->default_dst.remote_vni;
+> +	ifindex = vxlan->default_dst.remote_ifindex;
+> +
+> +	nla_for_each_nested(i, attr, rem) {
+> +		switch (nla_type(i)) {
+> +		case IFLA_VXLAN_REMOTE_ADDR:
+> +			ip = nla_get_be32(i);
+> +			break;
+> +		case IFLA_VXLAN_REMOTE_PORT:
+> +			port = nla_get_be16(i);
+> +			break;
+> +		case IFLA_VXLAN_REMOTE_VNI:
+> +			vni = nla_get_u32(i);
+> +			break;
+> +		case IFLA_VXLAN_REMOTE_IFINDEX:
+> +			ifindex = nla_get_u32(i);
+> +			break;
+> +		default:
+> +			err = -EINVAL;
+> +			break;
+> +		};
+> +
+> +		if (err)
+> +			return err;
+> +	}
 
-Well, I don't know the reasoning in this case, but I'd like to note tha=
-t
-those are not strictly equivalent.  Personally I find the formatting of=
- 0
-annoying enough to avoid %#x for any value which may be 0.  It's
-especially bad if you try to line up things by adding leading zeros.
+The above construct is not forward compatible. If we want to add
+more attributes in the future any older kernel will break with
+EINVAL. We typically support partial requests in older kernels.
 
-I would expect these to produce the same result, but they don't:
+> @@ -1380,6 +1478,13 @@ static void vxlan_setup(struct net_device *dev)
+>  		INIT_HLIST_HEAD(&vxlan->fdb_head[h]);
+>  }
+>  
+> +static const struct nla_policy vxlan_remotes_policy[IFLA_VXLAN_REMOTE_MAX + 1] = {
+> +	[IFLA_VXLAN_REMOTE_ADDR]	= { .len = FIELD_SIZEOF(struct iphdr, daddr) },
 
-	printf("0x%02hhx\n", 0);
-	printf("%#04hhx\n", 0);
+I would just make this a u32 for now.
 
-Ending up with a 4 digit output when you expect 2 is very confusing.  I=
-t
-doesn't matter that 0 is 0 in any case.  Why doesn't the same happen to
-1 then?  This is just inconsistent behaviour, and I see no valid excuse
-for it.
+> @@ -1512,6 +1646,46 @@ static struct vxlan_sock *vxlan_socket_create(struct net *net, __be16 port)
+>  	return vs;
+>  }
+>  
+> +static int vxlan_remotes_update(struct vxlan_dev *vxlan, struct nlattr *attr)
+> +{
+> +	struct nlattr *i;
+> +	int rem, err = 0;
+> +
+> +	nla_for_each_nested(i, attr, rem) {
+> +		switch (nla_type(i)) {
+> +		case IFLA_VXLAN_REMOTE_NEW:
+> +			err = vxlan_remote_add(vxlan, i);
+> +			break;
+> +		case IFLA_VXLAN_REMOTE_DEL:
+> +			err = vxlan_remote_delete(vxlan, i);
+> +			break;
+> +		default:
+> +			err = -EINVAL;
+> +			break;
 
-IMHO the single format character saved isn't worth this at all.  I'll
-continue using 0x%x
+I would return EOPNOTSUPP here
 
+> +static int vxlan_fill_remotes_info(struct sk_buff *skb,
+> +				   const struct vxlan_dev *vxlan)
+> +{
+> +	struct vxlan_rdst *rdst;
+> +	struct nlattr *nest, *rdst_nest;
+> +	__be32 ip;
+> +	int i;
+> +
+> +	if (vxlan->remote_cnt) {
+> +		nest = nla_nest_start(skb, IFLA_VXLAN_REMOTES);
+> +		if (nest == NULL)
+> +			goto nla_put_failure;
+> +
+> +		for (rdst = vxlan->default_dst.remote_next, i = 0; rdst;
+> +		     rdst = rdst->remote_next, i++) {
+> +			ip = rdst->remote_ip;
+> +
+> +			rdst_nest = nla_nest_start(skb, i);
 
-Bj=C3=B8rn
+Attribute type '0' is reserved, please don't use it. Start with '1'.
+
+> +enum {
+> +	IFLA_VXLAN_REMOTE_NEW,
+> +	IFLA_VXLAN_REMOTE_DEL,
+> +};
+
+Same here, attribute type '0' is reserved.
