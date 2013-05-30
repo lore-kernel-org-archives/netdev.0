@@ -1,58 +1,66 @@
-From: Grant Grundler <grantgrundler@gmail.com>
-Subject: Re: [PATCH 7/7] tulip: remove redundant D0 power state set
-Date: Thu, 30 May 2013 08:31:38 -0700
-Message-ID: <CAP6odjieAiXxotVpE6fyFp7KS-1GXHdKpWXymtT96fRek5ewoQ@mail.gmail.com>
-References: <1369909626-37832-1-git-send-email-wangyijing@huawei.com>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: tc linklayer ADSL calc broken after commit 56b765b79 (htb:
+ improved accuracy at high rates)
+Date: Thu, 30 May 2013 17:55:59 +0200
+Message-ID: <20130530175559.7cbb6851@redhat.com>
+References: <20130529151330.22c5c89e@redhat.com>
+	<1369842724.5109.44.camel@edumazet-glaptop>
+	<20130530095117.503eeee7@redhat.com>
+	<1369924750.5109.91.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Grant Grundler <grundler@parisc-linux.org>,
-	Hanjun Guo <guohanjun@huawei.com>,
-	Jiang Liu <liuj97@gmail.com>,
-	LKML <linux-kernel@vger.kernel.org>,
-	NetDev <netdev@vger.kernel.org>
-To: Yijing Wang <wangyijing@huawei.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@redhat.com>, j.vimal@gmail.com,
+	Michal Soltys <soltys@ziu.info>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Toke =?UTF-8?B?SMO4aWxhbmQtSsO4cmdlbnNlbg==?= <toke@toke.dk>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
+	Jim Gettys <jg@freedesktop.org>,
+	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
+	Jiri Benc <jbenc@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f181.google.com ([209.85.214.181]:34190 "EHLO
-	mail-ob0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932445Ab3E3Pbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 11:31:39 -0400
-In-Reply-To: <1369909626-37832-1-git-send-email-wangyijing@huawei.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53896 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757745Ab3E3P42 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 May 2013 11:56:28 -0400
+In-Reply-To: <1369924750.5109.91.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 30, 2013 at 3:27 AM, Yijing Wang <wangyijing@huawei.com> wrote:
-> Pci_enable_device() will set device power state to D0,
-> so it's no need to do it again in tulip_init_one().
->
-> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+On Thu, 30 May 2013 07:39:10 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-Ack-by: Grant Grundler <grundler@parisc-linux.org>
+> On Thu, 2013-05-30 at 09:51 +0200, Jesper Dangaard Brouer wrote:
+> > On Wed, 29 May 2013 08:52:04 -0700
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> 
+> > > I am not sure it will solve the ATM logic (with the 5 bytes
+> > > overhead per 48 bytes cell)
+> > 
+> > Are you talking about, that for GSO frames we are not adding a encap
+> > overhead to each "sub" skb.
+> 
+> This part is now done properly in qdisc_pkt_len_init() since linux-3.9
 
-thanks!
-grant
+Thanks for the pointer, but qdisc_pkt_len_init() only adds the
+EthMAC+IP+TCP header size for each GSO segment (stored in
+qdisc_skb_cb(skb)->pkt_len).
+It is still missing the AAL5 encapsulation overhead per GSO segment.
 
-> ---
->  drivers/net/ethernet/dec/tulip/tulip_core.c |    6 ------
->  1 files changed, 0 insertions(+), 6 deletions(-)
->
-> diff --git a/drivers/net/ethernet/dec/tulip/tulip_core.c b/drivers/net/ethernet/dec/tulip/tulip_core.c
-> index 1e9443d..c94152f 100644
-> --- a/drivers/net/ethernet/dec/tulip/tulip_core.c
-> +++ b/drivers/net/ethernet/dec/tulip/tulip_core.c
-> @@ -1410,12 +1410,6 @@ static int tulip_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
->                 return i;
->         }
->
-> -       /* The chip will fail to enter a low-power state later unless
-> -        * first explicitly commanded into D0 */
-> -       if (pci_set_power_state(pdev, PCI_D0)) {
-> -               pr_notice("Failed to set power state to D0\n");
-> -       }
-> -
->         irq = pdev->irq;
->
->         /* alloc_etherdev ensures aligned and zeroed private structures */
-> --
-> 1.7.1
->
->
+Besides I can see that __qdisc_calculate_pkt_len() "forgets" this
+information and overwrites qdisc_skb_cb(skb)->pkt_len (iif a stab is
+defined on the qdisc).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
