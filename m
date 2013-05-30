@@ -1,71 +1,93 @@
-From: Jussi Kivilinna <jussi.kivilinna@iki.fi>
-Subject: Re: tc linklayer ADSL calc broken after commit 56b765b79 (htb: improved
- accuracy at high rates)
-Date: Thu, 30 May 2013 19:29:06 +0300
-Message-ID: <51A77E52.2040205@iki.fi>
-References: <20130529151330.22c5c89e@redhat.com> <1369842724.5109.44.camel@edumazet-glaptop> <20130530095117.503eeee7@redhat.com> <1369924750.5109.91.camel@edumazet-glaptop> <20130530175559.7cbb6851@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: RFC - VXLAN port range facility
+Date: Thu, 30 May 2013 09:41:41 -0700
+Message-ID: <20130530094141.7c125947@nehalam.linuxnetplumber.net>
+References: <OF673FF136.10B22631-ON85257B7B.00436301-85257B7B.0045AAB7@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@redhat.com>, j.vimal@gmail.com,
-	Michal Soltys <soltys@ziu.info>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Patrick McHardy <kaber@trash.net>,
-	Jiri Pirko <jpirko@redhat.com>,
-	=?UTF-8?B?VG9rZSBIw7hpbGFuZC1Kw7hyZ2Vuc2U=?= =?UTF-8?B?bg==?=
-	<toke@toke.dk>, Dave Taht <dave.taht@gmail.com>,
-	netdev@vger.kernel.org, bloat@lists.bufferbloat.net,
-	Dan Siemon <dan@coverfire.com>,
-	Jim Gettys <jg@freedesktop.org>,
-	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
-	Jiri Benc <jbenc@redhat.com>
-To: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from sypressi.dnainternet.net ([83.102.40.135]:58730 "EHLO
-	sypressi.dnainternet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935436Ab3E3QgI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 12:36:08 -0400
-In-Reply-To: <20130530175559.7cbb6851@redhat.com>
+Received: from mail-pb0-f44.google.com ([209.85.160.44]:60275 "EHLO
+	mail-pb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935566Ab3E3Qlq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 12:41:46 -0400
+Received: by mail-pb0-f44.google.com with SMTP id wz12so667753pbc.31
+        for <netdev@vger.kernel.org>; Thu, 30 May 2013 09:41:45 -0700 (PDT)
+In-Reply-To: <OF673FF136.10B22631-ON85257B7B.00436301-85257B7B.0045AAB7@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30.05.2013 18:55, Jesper Dangaard Brouer wrote:
-> On Thu, 30 May 2013 07:39:10 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Thu, 30 May 2013 08:40:56 -0400
+David Stevens <dlstevens@us.ibm.com> wrote:
+
+> Stephen,
+>         I think there are some issues with the port range facility in
+> VXLAN. Currently, it picks a random port from a wide range (nearly half 
+> the
+> port space) and uses that random value as a source port for a generated
+> UDP packet.
+>         There are no checks to see if the port is in use by something 
+> else.
 > 
->> On Thu, 2013-05-30 at 09:51 +0200, Jesper Dangaard Brouer wrote:
->>> On Wed, 29 May 2013 08:52:04 -0700
->>> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->>
->>>> I am not sure it will solve the ATM logic (with the 5 bytes
->>>> overhead per 48 bytes cell)
->>>
->>> Are you talking about, that for GSO frames we are not adding a encap
->>> overhead to each "sub" skb.
->>
->> This part is now done properly in qdisc_pkt_len_init() since linux-3.9
+>         I can see the value of using a range of ports, but::
 > 
-> Thanks for the pointer, but qdisc_pkt_len_init() only adds the
-> EthMAC+IP+TCP header size for each GSO segment (stored in
-> qdisc_skb_cb(skb)->pkt_len).
-> It is still missing the AAL5 encapsulation overhead per GSO segment.
+> 1) VXLAN should use its listen port by default
+> 2) VXLAN should actually bind to any source ports it uses, because...
+> 3) VXLAN should never use a port already exclusively in use by something 
+> else.
+
+1. The receiver has to match based on src/dst port tuple anyway.
+   So it doesn't matter a whole lot.
+
+2. Current behaviour is in the RFC.
+
+3. The choice of source port should follow same rules of other UDP
+   send when port is not bound. I am worried that binding lots of ephemeral ports
+   up will easily clog the space when there are lots of destinations.
+
+4. The problem with binding for each destination used would be that
+   it would mean having a socket for each destination, which would get
+   resource intensive.
+
+
+> As is, VXLAN is not playing well with other UDP users because, for 
+> example,
+> it can trigger ICMP errors which will be delivered to some unwitting 
+> application
+> whose port it has hijacked.
+
+The source port is not related to what some application receives.
+A RFC conforming VXLAN endpoint will never send traffic back tot the senders source
+port. If VXLAN traffic got an ICMP response form an router like
+DESTINATION_UNREACHABLE there should be a match on destination port as well.
+
+> I think a port ranges may be useful in the context of a small number (say 
+> 10)
+> of ports that you are actually bound to, so then as part of multi-port 
+> binding
+> support. But then a default range of 32K-61K is too large. It then, at 
+> least,
+> has the potential to manage ICMP errors triggered by VXLAN.
+
+Port ranges are critical to retaining scaling in multi-path infrastructure.
+Otherwise all traffic will arrive on a single queue in NIC.
+
 > 
-> Besides I can see that __qdisc_calculate_pkt_len() "forgets" this
-> information and overwrites qdisc_skb_cb(skb)->pkt_len (iif a stab is
-> defined on the qdisc).
-> 
+> I think if you want to use port ranges like a range of empheremal ports, 
+> it's
+> less useful, but at a minimum it should be a port that you can legally 
+> bind
+> to at the time it's in use. Since actually binding/unbinding for each 
+> packet
+> would probably be too expensive, I think it'd be better to:
 
-Maybe change qdisc_pkt_len_init() to take the additional overhead value as
-input and change __qdisc_calculate_pkt_len() use
+The normal source port range should be the (if not overriden)
+is the UDP ephemeral port range.
 
-	qdisc_pkt_len_init(skb, stab->szopts.overhead);
-
-instead of
-
-	pkt_len = skb->len + stab->szopts.overhead;
-
--Jussi
+> 1) use smaller ranges by default
+> 2) actually bind to the entire range on start-up, to prevent other apps 
+> from using them
+> 3) fail if any in the range is already bound
+> 4) then, with a range of bound ports, select as currently on sends
