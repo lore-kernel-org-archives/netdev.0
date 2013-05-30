@@ -1,53 +1,65 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 1/1] drivers: net: davinci_cpdma: remove CRC bytes from skb added by CPDMA
-Date: Thu, 30 May 2013 11:52:01 +0530
-Message-ID: <1369894922-27116-1-git-send-email-mugunthanvnm@ti.com>
+From: Stefan Hajnoczi <stefanha@gmail.com>
+Subject: Re: updated: kvm networking todo wiki
+Date: Thu, 30 May 2013 08:38:17 +0200
+Message-ID: <CAJSP0QWY3z_oGaHNwR0=whYgnDCiGLBC+3Z5oM0x5nwN1RQVqg@mail.gmail.com>
+References: <20130523085034.GA16142@redhat.com>
+	<519F35B7.6010408@redhat.com>
+	<20130524113542.GA7046@redhat.com>
+	<8738tctrox.fsf@codemonkey.ws>
+	<20130524140024.GA12024@redhat.com>
+	<87li6yodgq.fsf@rustcorp.com.au>
+	<87k3miq6sw.fsf@codemonkey.ws>
+	<87r4gpkplc.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Anthony Liguori <anthony@codemonkey.ws>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>, herbert@gondor.hengli.com.au,
+	kvm <kvm@vger.kernel.org>, qemu-devel <qemu-devel@nongnu.org>,
+	netdev@vger.kernel.org,
+	Linux Virtualization <virtualization@lists.linux-foundation.org>,
+	Dmitry Fleytman <dmitry@daynix.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:33996 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S967549Ab3E3GU4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 02:20:56 -0400
+Received: from mail-qe0-f49.google.com ([209.85.128.49]:47890 "EHLO
+	mail-qe0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S967605Ab3E3GiS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 02:38:18 -0400
+In-Reply-To: <87r4gpkplc.fsf@rustcorp.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Additional 4 bytes found in the skb is the CRC calculated by the
-CPDMA hardware, check the CRC bit in CPDMA status field of
-Descriptor and remove the CRC length from the skb. This extra
-4 byte can be seen when capturing packets using tcpdump.
-This has been tested in TI816x platform.
+On Thu, May 30, 2013 at 7:23 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
+> Anthony Liguori <anthony@codemonkey.ws> writes:
+>> Rusty Russell <rusty@rustcorp.com.au> writes:
+>>> On Fri, May 24, 2013 at 08:47:58AM -0500, Anthony Liguori wrote:
+>>>> FWIW, I think what's more interesting is using vhost-net as a networking
+>>>> backend with virtio-net in QEMU being what's guest facing.
+>>>>
+>>>> In theory, this gives you the best of both worlds: QEMU acts as a first
+>>>> line of defense against a malicious guest while still getting the
+>>>> performance advantages of vhost-net (zero-copy).
+>>>>
+>>> It would be an interesting idea if we didn't already have the vhost
+>>> model where we don't need the userspace bounce.
+>>
+>> The model is very interesting for QEMU because then we can use vhost as
+>> a backend for other types of network adapters (like vmxnet3 or even
+>> e1000).
+>>
+>> It also helps for things like fault tolerance where we need to be able
+>> to control packet flow within QEMU.
+>
+> (CC's reduced, context added, Dmitry Fleytman added for vmxnet3 thoughts).
+>
+> Then I'm really confused as to what this would look like.  A zero copy
+> sendmsg?  We should be able to implement that today.
+>
+> On the receive side, what can we do better than readv?  If we need to
+> return to userspace to tell the guest that we've got a new packet, we
+> don't win on latency.  We might reduce syscall overhead with a
+> multi-dimensional readv to read multiple packets at once?
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/davinci_cpdma.c |    5 +++++
- 1 file changed, 5 insertions(+)
+Sounds like recvmmsg(2).
 
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 49dfd59..a377bc7 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -64,6 +64,7 @@
- #define CPDMA_DESC_TO_PORT_EN	BIT(20)
- #define CPDMA_TO_PORT_SHIFT	16
- #define CPDMA_DESC_PORT_MASK	(BIT(18) | BIT(17) | BIT(16))
-+#define CPDMA_DESC_CRC_LEN	4
- 
- #define CPDMA_TEARDOWN_VALUE	0xfffffffc
- 
-@@ -798,6 +799,10 @@ static int __cpdma_chan_process(struct cpdma_chan *chan)
- 		status = -EBUSY;
- 		goto unlock_ret;
- 	}
-+
-+	if (status & CPDMA_DESC_PASS_CRC)
-+		outlen -= CPDMA_DESC_CRC_LEN;
-+
- 	status	= status & (CPDMA_DESC_EOQ | CPDMA_DESC_TD_COMPLETE |
- 			    CPDMA_DESC_PORT_MASK);
- 
--- 
-1.7.9.5
+Stefan
