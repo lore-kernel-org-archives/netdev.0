@@ -1,7 +1,7 @@
 From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: [PATCHv4 2/6] net: Add MDIO bus driver for the Allwinner EMAC
-Date: Thu, 30 May 2013 15:49:21 +0200
-Message-ID: <1369921765-3367-3-git-send-email-maxime.ripard@free-electrons.com>
+Subject: [PATCHv4 6/6] ARM: sunxi: Add EMAC Controller to Hackberry dt
+Date: Thu, 30 May 2013 15:49:25 +0200
+Message-ID: <1369921765-3367-7-git-send-email-maxime.ripard@free-electrons.com>
 References: <1369921765-3367-1-git-send-email-maxime.ripard@free-electrons.com>
 Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, Stefan Roese <sr@denx.de>,
@@ -11,289 +11,78 @@ Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
 	Maxime Ripard <maxime.ripard@free-electrons.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:39044 "EHLO
+Received: from mail.free-electrons.com ([94.23.35.102]:39075 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756628Ab3E3Ntk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 09:49:40 -0400
+	with ESMTP id S1756661Ab3E3Nts (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 09:49:48 -0400
 In-Reply-To: <1369921765-3367-1-git-send-email-maxime.ripard@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds a separate driver for the MDIO interface of the
-Allwinner ethernet controllers.
+The Hackberry has a PHY that needs to be powered up through a GPIO, so
+we need to use a fixed regulator here.
 
 Signed-off-by: Maxime Ripard <maxime.ripard@free-electrons.com>
 Tested-by: Richard Genoud <richard.genoud@gmail.com>
 ---
- .../bindings/net/allwinner,sun4i-mdio.txt          |  26 +++
- drivers/net/phy/Kconfig                            |  10 ++
- drivers/net/phy/Makefile                           |   1 +
- drivers/net/phy/mdio-sun4i.c                       | 194 +++++++++++++++++++++
- 4 files changed, 231 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun4i-mdio.txt
- create mode 100644 drivers/net/phy/mdio-sun4i.c
+ arch/arm/boot/dts/sun4i-a10-hackberry.dts | 41 +++++++++++++++++++++++++++++++
+ 1 file changed, 41 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/allwinner,sun4i-mdio.txt b/Documentation/devicetree/bindings/net/allwinner,sun4i-mdio.txt
-new file mode 100644
-index 0000000..00b9f9a
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/allwinner,sun4i-mdio.txt
-@@ -0,0 +1,26 @@
-+* Allwinner A10 MDIO Ethernet Controller interface
+diff --git a/arch/arm/boot/dts/sun4i-a10-hackberry.dts b/arch/arm/boot/dts/sun4i-a10-hackberry.dts
+index b9efac1..3514b37 100644
+--- a/arch/arm/boot/dts/sun4i-a10-hackberry.dts
++++ b/arch/arm/boot/dts/sun4i-a10-hackberry.dts
+@@ -23,10 +23,51 @@
+ 	};
+ 
+ 	soc@01c20000 {
++		emac: ethernet@01c0b000 {
++			pinctrl-names = "default";
++			pinctrl-0 = <&emac_pins_a>;
++			phy = <&phy0>;
++			status = "okay";
++		};
 +
-+Required properties:
-+- compatible: should be "allwinner,sun4i-mdio".
-+- reg: address and length of the register set for the device.
++		mdio@01c0b080 {
++			phy-supply = <&reg_emac_3v3>;
++			status = "okay";
 +
-+Optional properties:
-+- phy-supply: phandle to a regulator if the PHY needs one
++			phy0: ethernet-phy@0 {
++				reg = <0>;
++			};
++		};
 +
-+Example at the SoC level:
-+mdio@01c0b080 {
-+	compatible = "allwinner,sun4i-mdio";
-+	reg = <0x01c0b080 0x14>;
-+	#address-cells = <1>;
-+	#size-cells = <0>;
-+};
++		pio: pinctrl@01c20800 {
++			pinctrl-names = "default";
++			pinctrl-0 = <&hackberry_hogs>;
 +
-+And at the board level:
++			hackberry_hogs: hogs@0 {
++				allwinner,pins = "PH19";
++				allwinner,function = "gpio_out";
++				allwinner,drive = <0>;
++				allwinner,pull = <0>;
++			};
++		};
 +
-+mdio@01c0b080 {
-+	phy-supply = <&reg_emac_3v3>;
+ 		uart0: serial@01c28000 {
+ 			pinctrl-names = "default";
+ 			pinctrl-0 = <&uart0_pins_a>;
+ 			status = "okay";
+ 		};
+ 	};
 +
-+	phy0: ethernet-phy@0 {
-+		reg = <0>;
++	regulators {
++		compatible = "simple-bus";
++
++		reg_emac_3v3: emac-3v3 {
++			compatible = "regulator-fixed";
++			regulator-name = "emac-3v3";
++			regulator-min-microvolt = <3300000>;
++			regulator-max-microvolt = <3300000>;
++			enable-active-high;
++			gpio = <&pio 7 19 0>;
++		};
 +	};
-+};
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 1e11f2b..3a316b3 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -144,6 +144,16 @@ config MDIO_OCTEON
- 
- 	  If in doubt, say Y.
- 
-+config MDIO_SUN4I
-+	tristate "Allwinner sun4i MDIO interface support"
-+	depends on ARCH_SUNXI
-+	select REGULATOR
-+	select REGULATOR_FIXED_VOLTAGE
-+	help
-+	  This driver supports the MDIO interface found in the network
-+	  interface units of the Allwinner SoC that have an EMAC (A10,
-+	  A12, A10s, etc.)
-+
- config MDIO_BUS_MUX
- 	tristate
- 	depends on OF_MDIO
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index 9645e38..23a2ab2 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -30,3 +30,4 @@ obj-$(CONFIG_AMD_PHY)		+= amd.o
- obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
- obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
- obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
-+obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
-diff --git a/drivers/net/phy/mdio-sun4i.c b/drivers/net/phy/mdio-sun4i.c
-new file mode 100644
-index 0000000..61d3f4e
---- /dev/null
-+++ b/drivers/net/phy/mdio-sun4i.c
-@@ -0,0 +1,194 @@
-+/*
-+ * Allwinner EMAC MDIO interface driver
-+ *
-+ * Copyright 2012-2013 Stefan Roese <sr@denx.de>
-+ * Copyright 2013 Maxime Ripard <maxime.ripard@free-electrons.com>
-+ *
-+ * Based on the Linux driver provided by Allwinner:
-+ * Copyright (C) 1997  Sten Wang
-+ *
-+ * This file is licensed under the terms of the GNU General Public
-+ * License version 2. This program is licensed "as is" without any
-+ * warranty of any kind, whether express or implied.
-+ */
-+
-+#include <linux/delay.h>
-+#include <linux/init.h>
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/mutex.h>
-+#include <linux/of_address.h>
-+#include <linux/of_mdio.h>
-+#include <linux/phy.h>
-+#include <linux/platform_device.h>
-+#include <linux/regulator/consumer.h>
-+
-+#define EMAC_MAC_MCMD_REG	(0x00)
-+#define EMAC_MAC_MADR_REG	(0x04)
-+#define EMAC_MAC_MWTD_REG	(0x08)
-+#define EMAC_MAC_MRDD_REG	(0x0c)
-+#define EMAC_MAC_MIND_REG	(0x10)
-+#define EMAC_MAC_SSRR_REG	(0x14)
-+
-+#define MDIO_TIMEOUT		(msecs_to_jiffies(100))
-+
-+struct sun4i_mdio_data {
-+	void __iomem		*membase;
-+	struct regulator	*regulator;
-+};
-+
-+static int sun4i_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
-+{
-+	struct sun4i_mdio_data *data = bus->priv;
-+	unsigned long start_jiffies;
-+	int value;
-+
-+	/* issue the phy address and reg */
-+	writel((mii_id << 8) | regnum, data->membase + EMAC_MAC_MADR_REG);
-+	/* pull up the phy io line */
-+	writel(0x1, data->membase + EMAC_MAC_MCMD_REG);
-+
-+	/* Wait read complete */
-+	start_jiffies = jiffies;
-+	while (readl(data->membase + EMAC_MAC_MIND_REG) & 0x1) {
-+		if (time_after(start_jiffies,
-+			       start_jiffies + MDIO_TIMEOUT))
-+			return -ETIMEDOUT;
-+		msleep(1);
-+	}
-+
-+	/* push down the phy io line */
-+	writel(0x0, data->membase + EMAC_MAC_MCMD_REG);
-+	/* and read data */
-+	value = readl(data->membase + EMAC_MAC_MRDD_REG);
-+
-+	return value;
-+}
-+
-+static int sun4i_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
-+			    u16 value)
-+{
-+	struct sun4i_mdio_data *data = bus->priv;
-+	unsigned long start_jiffies;
-+
-+	/* issue the phy address and reg */
-+	writel((mii_id << 8) | regnum, data->membase + EMAC_MAC_MADR_REG);
-+	/* pull up the phy io line */
-+	writel(0x1, data->membase + EMAC_MAC_MCMD_REG);
-+
-+	/* Wait read complete */
-+	start_jiffies = jiffies;
-+	while (readl(data->membase + EMAC_MAC_MIND_REG) & 0x1) {
-+		if (time_after(start_jiffies,
-+			       start_jiffies + MDIO_TIMEOUT))
-+			return -ETIMEDOUT;
-+		msleep(1);
-+	}
-+
-+	/* push down the phy io line */
-+	writel(0x0, data->membase + EMAC_MAC_MCMD_REG);
-+	/* and write data */
-+	writel(value, data->membase + EMAC_MAC_MWTD_REG);
-+
-+	return 0;
-+}
-+
-+static int sun4i_mdio_reset(struct mii_bus *bus)
-+{
-+	return 0;
-+}
-+
-+static int sun4i_mdio_probe(struct platform_device *pdev)
-+{
-+	struct device_node *np = pdev->dev.of_node;
-+	struct mii_bus *bus;
-+	struct sun4i_mdio_data *data;
-+	int ret, i;
-+
-+	bus = mdiobus_alloc_size(sizeof(*data));
-+	if (!bus)
-+		return -ENOMEM;
-+
-+	bus->name = "sun4i_mii_bus";
-+	bus->read = &sun4i_mdio_read;
-+	bus->write = &sun4i_mdio_write;
-+	bus->reset = &sun4i_mdio_reset;
-+	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-mii", dev_name(&pdev->dev));
-+	bus->parent = &pdev->dev;
-+
-+	bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
-+	if (!bus->irq) {
-+		ret = -ENOMEM;
-+		goto err_out_free_mdiobus;
-+	}
-+
-+	for (i = 0; i < PHY_MAX_ADDR; i++)
-+		bus->irq[i] = PHY_POLL;
-+
-+	data = bus->priv;
-+	data->membase = of_iomap(np, 0);
-+	if (!data->membase) {
-+		ret = -ENOMEM;
-+		goto err_out_free_mdio_irq;
-+	}
-+
-+	data->regulator = devm_regulator_get(&pdev->dev, "phy");
-+	if (IS_ERR(data->regulator)) {
-+		if (PTR_ERR(data->regulator) == -EPROBE_DEFER)
-+			return -EPROBE_DEFER;
-+
-+		dev_info(&pdev->dev, "no regulator found\n");
-+	} else {
-+		ret = regulator_enable(data->regulator);
-+		if (ret)
-+			goto err_out_free_mdio_irq;
-+	}
-+
-+	ret = of_mdiobus_register(bus, np);
-+	if (ret < 0)
-+		goto err_out_disable_regulator;
-+
-+	platform_set_drvdata(pdev, bus);
-+
-+	return 0;
-+
-+err_out_disable_regulator:
-+	regulator_disable(data->regulator);
-+err_out_free_mdio_irq:
-+	kfree(bus->irq);
-+err_out_free_mdiobus:
-+	mdiobus_free(bus);
-+	return ret;
-+}
-+
-+static int sun4i_mdio_remove(struct platform_device *pdev)
-+{
-+	struct mii_bus *bus = platform_get_drvdata(pdev);
-+
-+	mdiobus_unregister(bus);
-+	kfree(bus->irq);
-+	mdiobus_free(bus);
-+
-+	return 0;
-+}
-+
-+static const struct of_device_id sun4i_mdio_dt_ids[] = {
-+	{ .compatible = "allwinner,sun4i-mdio" },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(of, sun4i_mdio_dt_ids);
-+
-+static struct platform_driver sun4i_mdio_driver = {
-+	.probe = sun4i_mdio_probe,
-+	.remove = sun4i_mdio_remove,
-+	.driver = {
-+		.name = "sun4i-mdio",
-+		.of_match_table = sun4i_mdio_dt_ids,
-+	},
-+};
-+
-+module_platform_driver(sun4i_mdio_driver);
-+
-+MODULE_DESCRIPTION("Allwinner EMAC MDIO interface driver");
-+MODULE_AUTHOR("Maxime Ripard <maxime.ripard@free-electrons.com>");
-+MODULE_LICENSE("GPL");
+ };
 -- 
 1.8.2.3
