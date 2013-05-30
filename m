@@ -1,53 +1,67 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [Patch net-next] net: clean up skb headers code
-Date: Thu, 30 May 2013 12:41:03 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7259@saturn3.aculab.com>
-References: <1369807740-12324-1-git-send-email-amwang@redhat.com> <20130528.233647.1209227470109213894.davem@davemloft.net> <1369856073.1971.2.camel@bwh-desktop.uk.level5networks.com> <20130529194438.GY3333@ritirata.org> <1369861326.1971.43.camel@bwh-desktop.uk.level5networks.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH iproute2] vxlan: allow specifying multiple default
+ destinations
+Date: Thu, 30 May 2013 12:44:24 +0100
+Message-ID: <20130530114424.GC10532@casper.infradead.org>
+References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
+ <1369821617-29098-4-git-send-email-mike.rapoport@ravellosystems.com>
+ <ko4kcr$h8j$1@ger.gmane.org>
+ <CAF1J0HPDAkhAybQt-tOFLLTLzaXiWy_TSbFF2FT3PMaXbnxJuw@mail.gmail.com>
+ <20130529155625.2ee5f6bb@nehalam.linuxnetplumber.net>
+ <CAF1J0HNiBED=BLHqPPk8w2=DDvSWdZwMPvtag6rpPhxnboT4GA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>, <amwang@redhat.com>,
-	<netdev@vger.kernel.org>, <horms@verge.net.au>
-To: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"Antonio Quartulli" <ordex@autistici.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:49686 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S934952Ab3E3Llt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 May 2013 07:41:49 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 12478-09 for <netdev@vger.kernel.org>;
- Thu, 30 May 2013 12:41:46 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1369861326.1971.43.camel@bwh-desktop.uk.level5networks.com>
+Received: from casper.infradead.org ([85.118.1.10]:55749 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751474Ab3E3Lo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 07:44:26 -0400
+Content-Disposition: inline
+In-Reply-To: <CAF1J0HNiBED=BLHqPPk8w2=DDvSWdZwMPvtag6rpPhxnboT4GA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ID4gPiBJIHdhbnQgdG8gdXNlIHNvbWV0aGluZyB0aGF0IHdpbGwgZWl0aGVyIGJyZWFrIHRo
-ZSBidWlsZCBvcg0KPiA+ID4gPiBhdXRvbWF0aWNhbGx5IHdvcmsgaWYgdGhlIHR5cGUgY2hhbmdl
-cyBhZ2Fpbi4NCj4gPiA+ID4NCj4gPiA+ID4gU28gc29tZXRoaW5nIGxpa2UgIlggPSAodHlwZW9m
-KFgpKSB+MFU7Ii4NCj4gPiA+DQo+ID4gPiBJIHRoaW5rIHlvdSBtZWFuIH4odHlwZW9mKFgpKTAu
-DQo+ID4NCj4gPiBBbSBJIHdyb25nIG9yIHlvdSBzaG91bGQgY2FzdCB0aGUgdmFsdWUgb25jZSBh
-Z2FpbiwgbGlrZSB0aGlzOg0KPiA+DQo+ID4gKCh0eXBlb2YoWCkpfih0eXBlb2YoWCkpMCkNCj4g
-Pg0KPiA+IGJlY2F1c2UgdGhlIH4gb3BlcmF0b3Igd2lsbCBpbXBsaWNpdGx5IGNhc3QgdGhlIGFy
-Z3VtZW50IHRvIGludCAoaWYgSSByZW1lbWJlcg0KPiA+IGNvcnJlY3RseSkuDQo+IA0KPiBJdCB3
-aWxsIHByb21vdGUgdG8gYXQgbGVhc3QgaW50LCBidXQgdGhhdCBzdGlsbCByZXN1bHRzIGluIHRo
-ZSByaWdodA0KPiB2YWx1ZSBhbmQgZG9lc24ndCBwcm92b2tlIGEgd2FybmluZy4gIFRyeSB0aGlz
-IHRlc3QgKHdpdGggLVdhbGwNCj4gLVdleHRyYSk6DQo+IA0KPiAjaW5jbHVkZSA8c3RkaW8uaD4N
-Cj4gDQo+ICNkZWZpbmUgQUxMX09ORVModikgKH4odHlwZW9mKHYpKTApDQo+IC8qICNkZWZpbmUg
-QUxMX09ORVModikgKHR5cGVvZih2KSl+MFUpICovDQo+IA0KPiBpbnQgbWFpbih2b2lkKQ0KPiB7
-DQo+ICAgICBjaGFyIGEgPSBBTExfT05FUyhhKTsNCj4gICAgIHVuc2lnbmVkIGNoYXIgYiA9IEFM
-TF9PTkVTKGIpOw0KPiAgICAgc2hvcnQgYyA9IEFMTF9PTkVTKGMpOw0KPiAgICAgdW5zaWduZWQg
-c2hvcnQgZCA9IEFMTF9PTkVTKGQpOw0KPiAgICAgaW50IGUgPSBBTExfT05FUyhlKTsNCj4gICAg
-IHVuc2lnbmVkIGludCBmID0gQUxMX09ORVMoZik7DQo+ICAgICBsb25nIGcgPSBBTExfT05FUyhn
-KTsNCj4gICAgIHVuc2lnbmVkIGxvbmcgaCA9IEFMTF9PTkVTKGgpOw0KPiAgICAgbG9uZyBsb25n
-IGkgPSBBTExfT05FUyhpKTsNCj4gICAgIHVuc2lnbmVkIGxvbmcgbG9uZyBqID0gQUxMX09ORVMo
-aik7DQo+IA0KPiAgICAgcHJpbnRmKCIlaGh4ICVoaHggJWh4ICVoeCAleCAleCAlbHggJWx4ICVs
-bHggJWxseFxuIiwNCj4gCSAgIGEsIGIsIGMsIGQsIGUsIGYsIGcsIGgsIGksIGopOw0KPiAgICAg
-cmV0dXJuIDA7DQo+IH0NCg0KVGhlIHByaW50ZiBmb3JtYXQgaXMgbWFza2luZyB0aGUgaGlnaCBi
-aXRzIGZvciB5b3UuDQpJZiB5b3UgY2hhbmdlIHRvOg0KCXByaW50ZigiJXggJXggJXggJXggJXgg
-JXggJWx4ICVseCAlbGx4ICVsbHhcbiIsIC4uLikNCnlvdSBnZXQgZGlmZmVyZW50IHZhbHVlcy4N
-ClRvIGdldCB0aGUgJ2V4cGVjdGVkJyB2YWx1ZXMgeW91IG5lZWQgY2FzdHMgYm90aCBzaWRlcyBv
-ZiB0aGUgfg0KDQoJRGF2aWQNCg0K
+On 05/30/13 at 11:42am, Mike Rapoport wrote:
+> On Thu, May 30, 2013 at 1:56 AM, Stephen Hemminger
+> <stephen@networkplumber.org> wrote:
+> > On Wed, 29 May 2013 13:52:55 +0300
+> > Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+> >> Frankly, I had a long hesitation about the userspace implementation.
+> >> From one side it seems very logical to use ip/iplink_vxlan for vxlan
+> >> device manipulations. Moreover, since the remotes are used pretty much
+> >> the same way as the group address, adding the remotes management to
+> >> ip/iplink_vxlan makes a lot of sense. Besides, creation of stand alone
+> >> tool for remote list manipulation in vxlan seemed to me little bit far
+> >> fetched.
+> >>
+> >> On the other hand, I quite agree with you that
+> >> ip link add vxlan0 ... dstadd 192.168.1.1
+> >> or
+> >> ip link set vxlan0 ... dstdel 192.168.1.1
+> >> looks weird at least.
+> >
+> > Don't like add/delete semantics here either.
+> > Maybe replace or modify,
+> 
+> I think that replace or modify do not express the actual operation
+> meaning. My intention with dstadd was "add remote host X to
+> pseudo-multicast group". Replace/modify maybe nice to have features to
+> avoid doing delete+ add.
+
+The alternative would be to require iproute2 to always provide the
+full list of remote addresses like we do we route nexthops.
+
+I do like the add/del though and don't see a problem with requiring
+an ''ip link set [..] dstadd/dstdel''
+
+> > or has this grown enough that having its own
+> > command line tool "vxlan ..." makes sense?
+> 
+> Say, misc/vxlan that will handle remote destinations management? Or
+> should it take care of some vxlan parameters currently implemented in
+> ip/iplink_vxlan and bridge/fdb?
+
+What do we gain from a separate tool?
