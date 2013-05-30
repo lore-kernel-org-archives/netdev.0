@@ -1,67 +1,71 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [Bloat] tc linklayer ADSL calc broken after commit 56b765b79
- (htb: improved accuracy at high rates)
-Date: Thu, 30 May 2013 06:20:01 +0200
-Message-ID: <fgl2990m2s4w7vetl590cuie.1369887601987@email.android.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH 11/11] net: emaclite: Update driver header
+Date: Thu, 30 May 2013 07:14:36 +0200
+Message-ID: <51A6E03C.2040407@monstr.eu>
+References: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369841519.git.michal.simek@xilinx.com> <c0a6ab3410dd6e6a9198a4605993164700d1b965.1369841519.git.michal.simek@xilinx.com> <51A636D4.3050200@cogentembedded.com>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	=?ISO-8859-1?Q?Toke_H=F8iland-J=F8rgensen?= <toke@toke.dk>,
-	Mike Frysinger <vapier@gentoo.org>,
-	Jiri Benc <jbenc@redhat.com>, Jiri Pirko <jpirko@redhat.com>,
-	netdev@vger.kernel.org, bloat@lists.bufferbloat.net,
-	Patrick McHardy <kaber@trash.net>,
-	Steven Barth <cyrus@openwrt.org>,
-	David Miller <davem@redhat.com>,
-	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
-	Felix Fietkau <nbd@nbd.name>, Michal Soltys <soltys@ziu.info>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2NGUKMHBCKKCIABUDXPOH"
+Cc: Michal Simek <michal.simek@xilinx.com>,
+	linux-kernel@vger.kernel.org, Bill Pemberton <wfp5p@virginia.edu>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:47667 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750786Ab3E3EUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 00:20:23 -0400
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:59755 "EHLO
+	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751174Ab3E3FOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 01:14:45 -0400
+Received: by mail-ea0-f175.google.com with SMTP id h14so39214eaj.6
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 22:14:43 -0700 (PDT)
+In-Reply-To: <51A636D4.3050200@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tm90IHN1cmUgaWYgc3VpdGFibGUgYnV0IG5ldGVtIHJhdGUgaGF2ZSBhIGNlbGwgbWVjaGFuaXNt
-IGFzIHdlbGwuIFNlZSBtYW4gbmV0ZW0KCkVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWls
-LmNvbT4gc2NocmllYjoKCj5PbiBXZWQsIDIwMTMtMDUtMjkgYXQgMTU6NTAgLTA3MDAsIFN0ZXBo
-ZW4gSGVtbWluZ2VyIHdyb3RlOgo+PiBPbiBXZWQsIDI5IE1heSAyMDEzIDA4OjUyOjA0IC0wNzAw
-Cj4+IEVyaWMgRHVtYXpldCA8ZXJpYy5kdW1hemV0QGdtYWlsLmNvbT4gd3JvdGU6Cj4+IAo+PiA+
-IE9uIFdlZCwgMjAxMy0wNS0yOSBhdCAxNToxMyArMDIwMCwgSmVzcGVyIERhbmdhYXJkIEJyb3Vl
-ciB3cm90ZToKPj4gPiA+IEkgcmVjZW50bHkgZGlzY292ZXJlZCB0aGF0IHRoZSAodHJhZmZpYyBj
-b250cm9sKSB0YyBsaW5rbGF5ZXIKPj4gPiA+IGNhbGN1bGF0aW9ucyBmb3IgQVRNL0FEU0wgaGF2
-ZSBiZWVuIGJyb2tlbiBieToKPj4gPiA+ICBjb21taXQgNTZiNzY1Yjc5IChodGI6IGltcHJvdmVk
-IGFjY3VyYWN5IGF0IGhpZ2ggcmF0ZXMpLgo+PiA+ID4gCj4+ID4gPiBUaHVzLCBwZW9wbGUgc2hh
-cGluZyBvbiBBRFNMIGxpbmtzLCB1c2luZyBlLmcuOgo+PiA+ID4gIHRjIGNsYXNzIGFkZCAuLi4g
-aHRiIHJhdGUgWCBjZWlsIFkgbGlua2xheWVyIGF0bSBvdmVyaGVhZCAxMAo+PiA+ID4gCj4+ID4g
-PiBXaWxsIG5vLWxvbmdlciBnZXQgQVRNIGNlbGwgdGF4L292ZXJoZWFkIGFkanVzdGVkLgo+PiA+
-ID4gCj4+ID4gPiBIb3cgY2FuIHdlIHNvbHZlL2ZpeCB0aGlzPwo+PiA+ID4gUGVyaGFwcyB3ZSBj
-YW4gY2hhbmdlIHRvIHVzZSB0aGUgInN0YWIiIHN5c3RlbSBpbnN0ZWFkIChhcyBpdCBkb2VzCj4+
-ID4gPiBub3Qgc2VlbSB0byBiZSBicm9rZW4gYnkgdGhlIGNvbW1pdCkuCj4+ID4gPiAKPj4gPiA+
-IEJ1dCBob3cgZG8gd2UgZmFjaWxpdGF0ZSBhIGNoYW5nZSB0byB1c2UgInN0YWIiIHN5c3RlbSAo
-Zm9yIGFsbCB0aGUKPj4gPiA+IHNjcmlwdHMgdXNpbmcgdGhlIG9sZCBvcHRpb24pPwo+PiA+ID4g
-Cj4+ID4gPiBDYW4gd2UgY2hhbmdlIHRoZSBpcHJvdXRlMi90YyBjb21tYW5kIHRvIGhhbmRsZSB0
-aGlzIHRyYW5zcGFyZW50bHksIG9yCj4+ID4gPiBzaG91bGQgd2UgZ2l2ZSBhbiBlcnJvci93YXJu
-aW5nIGlmIHNvbWVvbmUgdXNlcyAidGMiIGFuZCAibGlua2xheWVyIiBvbgo+PiA+ID4gYSBrZXJu
-ZWwgYWJvdmUgdi4zLjguID8KPj4gPiA+IAo+PiA+ID4gCj4+ID4gPiBIaXN0b3J5Ogo+PiA+ID4g
-IC0gTXkgbGlua2xheWVyIEFUTSBjaGFuZ2VzIGFwcGVhcmVkIGluIGtlcm5lbCAyLjYuMjQgKGFu
-ZCBpcHJvdXRlMiAyLjYuMjUpCj4+ID4gPiAgLSBUaGUgU1RBQiBjaGFuZ2VzIGFwcGVhcmVkIGlu
-IGtlcm5lbCAyLjYuMjcKPj4gPiA+IAo+PiA+IAo+PiA+IEhpIEplc3Blcgo+PiA+IAo+PiA+IHN0
-YWIgc3VmZmVycyBmcm9tIHRoZSBzYW1lIHByb2JsZW0gOiBpdHMgdGFibGUgZHJpdmVuLCBzbyB3
-b3JrcyBvbmx5IGZvcgo+PiA+IHBhY2tldCBzbWFsbGVyIHRoYW4gYSBnaXZlbiBzaXplLgo+PiA+
-IAo+PiA+IEkgYW0gbm90IHN1cmUgaXQgd2lsbCBzb2x2ZSB0aGUgQVRNIGxvZ2ljICh3aXRoIHRo
-ZSA1IGJ5dGVzIG92ZXJoZWFkIHBlcgo+PiA+IDQ4IGJ5dGVzIGNlbGwpCj4+ID4gCj4+ID4gYnR3
-LCBldmVuIG9uIG9sZCBrZXJuZWxzIDoKPj4gCj4+IAo+PiBIb3cgYmFkIGlzIHRoZSBmYWlsdXJl
-PyBJZiBpdCBpcyBmaXhlZCwgd2lsbCBpdCBicmVhayBleGlzdGluZyBpbnN0YWxsYXRpb25zPwo+
-PiAKPj4gV2hpY2ggcHJvYmFibHkgbWVhbnMsIGlzIGFueW9uZSBidXQgdGhlIG9yaWdpbmFsIGRl
-dmVsb3BlcnMgZXZlciB1c2luZyBpdAo+PiBhbmQgdGhlcmVmb3JlIGxpa2VseSB0byBub3RpY2U/
-Cj4KPkFkZGluZyB0aGUgbG9naWMgb24gdGhlIGtlcm5lbCBpcyBkb2FibGUsIGJ5IGFkZGluZyBz
-b21lIGNsZWFuCj5hdHRyaWJ1dGVzIHNvIHRoYXQgdGMgY2FuIHNldHVwIHRoZSBmZWF0dXJlLCBh
-bmQgcmVwb3J0IHRoZSBhdHRyaWJ1dGVzCj5iYWNrLgo+Cj5jcHVzIGFyZSBmYXN0IHRvZGF5IGFu
-ZCBjYW4gcGVyZm9ybSB0aGUgYXRtIGNlbGwvb3ZlcmhlYWQgZmFzdGVyIHRoYW4gYQo+dGFibGUg
-bG9va3VwLgo+Cj4KPgo+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KPkJsb2F0IG1haWxpbmcgbGlzdAo+QmxvYXRAbGlzdHMuYnVmZmVyYmxvYXQubmV0Cj5o
-dHRwczovL2xpc3RzLmJ1ZmZlcmJsb2F0Lm5ldC9saXN0aW5mby9ibG9hdAo+Cg==
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2NGUKMHBCKKCIABUDXPOH
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 05/29/2013 07:11 PM, Sergei Shtylyov wrote:
+> Hello.
+>=20
+> On 05/29/2013 07:33 PM, Michal Simek wrote:
+>=20
+>> Corrent email address and years.
+>=20
+>    s/Corrent/Correct/. Perhaps the committer can fix.
+
+I will fix it in v2, one patch is broken anyway.
+
+Thanks,
+Michal
+
+
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+
+
+
+------enig2NGUKMHBCKKCIABUDXPOH
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlGm4DwACgkQykllyylKDCH0HACcCPQD0X+gjsrb6CoUeCTuUqZn
+fMkAnjTzzCjWEomC6BomRJadC9Esi7Zd
+=dATH
+-----END PGP SIGNATURE-----
+
+------enig2NGUKMHBCKKCIABUDXPOH--
