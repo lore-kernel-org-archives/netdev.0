@@ -1,93 +1,93 @@
-From: Anthony Liguori <anthony@codemonkey.ws>
-Subject: Re: updated: kvm networking todo wiki
-Date: Thu, 30 May 2013 09:41:07 -0500
-Message-ID: <8761y034zg.fsf@codemonkey.ws>
-References: <20130523085034.GA16142@redhat.com> <519F35B7.6010408@redhat.com>
-	<20130524113542.GA7046@redhat.com> <8738tctrox.fsf@codemonkey.ws>
-	<20130524140024.GA12024@redhat.com>
-	<87li6yodgq.fsf@rustcorp.com.au> <87k3miq6sw.fsf@codemonkey.ws>
-	<87r4gpkplc.fsf@rustcorp.com.au>
-	<CAJSP0QWY3z_oGaHNwR0=whYgnDCiGLBC+3Z5oM0x5nwN1RQVqg@mail.gmail.com>
-	<87k3mg60ww.fsf@codemonkey.ws> <20130530134449.GA31649@redhat.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH v7 net-next 2/5] net: implement support for low latency
+ socket polling
+Date: Thu, 30 May 2013 18:07:27 +0300
+Message-ID: <51A76B2F.8010904@mellanox.com>
+References: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com> <20130530114111.12653.25023.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: kvm <kvm@vger.kernel.org>, qemu-devel <qemu-devel@nongnu.org>,
-	Linux Virtualization <virtualization@lists.linux-foundation.org>,
-	herbert@gondor.hengli.com.au, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130530134449.GA31649@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	<e1000-devel@lists.sourceforge.net>,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:45635 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S933425Ab3E3PJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 11:09:27 -0400
+In-Reply-To: <20130530114111.12653.25023.stgit@ladj378.jer.intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
+On 30/05/2013 14:41, Eliezer Tamir wrote:
+> diff --git a/fs/select.c b/fs/select.c
+> index 8c1c96c..f116bf0 100644
+> --- a/fs/select.c
+> +++ b/fs/select.c
+> @@ -27,6 +27,7 @@
+>  #include <linux/rcupdate.h>
+>  #include <linux/hrtimer.h>
+>  #include <linux/sched/rt.h>
+> +#include <net/ll_poll.h>
+>  
+>  #include <asm/uaccess.h>
+>  
+> @@ -400,6 +401,7 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
+>  	poll_table *wait;
+>  	int retval, i, timed_out = 0;
+>  	unsigned long slack = 0;
+> +	cycles_t ll_time = ll_end_time();
+>  
+>  	rcu_read_lock();
+>  	retval = max_select_fd(n, fds);
+> @@ -486,6 +488,8 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
+>  			break;
+>  		}
+>  
+> +		if (can_poll_ll(ll_time))
+> +			continue;
+I don't see here discrimination between sockets that you want to poll
+and other sockets.
+So it means that select will busy poll every type of file descriptor
+instead of going to sleep.
+Should have a condition with something like sk_valid_ll()
 
-> On Thu, May 30, 2013 at 08:40:47AM -0500, Anthony Liguori wrote:
->> Stefan Hajnoczi <stefanha@gmail.com> writes:
->> 
->> > On Thu, May 30, 2013 at 7:23 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
->> >> Anthony Liguori <anthony@codemonkey.ws> writes:
->> >>> Rusty Russell <rusty@rustcorp.com.au> writes:
->> >>>> On Fri, May 24, 2013 at 08:47:58AM -0500, Anthony Liguori wrote:
->> >>>>> FWIW, I think what's more interesting is using vhost-net as a networking
->> >>>>> backend with virtio-net in QEMU being what's guest facing.
->> >>>>>
->> >>>>> In theory, this gives you the best of both worlds: QEMU acts as a first
->> >>>>> line of defense against a malicious guest while still getting the
->> >>>>> performance advantages of vhost-net (zero-copy).
->> >>>>>
->> >>>> It would be an interesting idea if we didn't already have the vhost
->> >>>> model where we don't need the userspace bounce.
->> >>>
->> >>> The model is very interesting for QEMU because then we can use vhost as
->> >>> a backend for other types of network adapters (like vmxnet3 or even
->> >>> e1000).
->> >>>
->> >>> It also helps for things like fault tolerance where we need to be able
->> >>> to control packet flow within QEMU.
->> >>
->> >> (CC's reduced, context added, Dmitry Fleytman added for vmxnet3 thoughts).
->> >>
->> >> Then I'm really confused as to what this would look like.  A zero copy
->> >> sendmsg?  We should be able to implement that today.
->> >>
->> >> On the receive side, what can we do better than readv?  If we need to
->> >> return to userspace to tell the guest that we've got a new packet, we
->> >> don't win on latency.  We might reduce syscall overhead with a
->> >> multi-dimensional readv to read multiple packets at once?
->> >
->> > Sounds like recvmmsg(2).
->> 
->> Could we map this to mergable rx buffers though?
->> 
->> Regards,
->> 
->> Anthony Liguori
->
-> Yes because we don't have to complete buffers in order.
+>  		/*
+>  		 * If this is the first loop and we have a timeout
+>  		 * given, then we convert to ktime_t and set the to
 
-What I meant though was for GRO, we don't know how large the received
-packet is going to be.  Mergable rx buffers lets us allocate a pool of
-data for all incoming packets instead of allocating max packet size *
-max packets.
 
-recvmmsg expects an array of msghdrs and I presume each needs to be
-given a fixed size.  So this seems incompatible with mergable rx
-buffers.
+...
 
-Regards,
+> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+> +{
+> +}
+> +
+> +static inline bool can_poll_ll(unsigned long end_time)
+should use here cycles_t too.
 
-Anthony Liguori
+> +{
+> +	return false;
+> +}
+> +
+> +#endif /* CONFIG_NET_LL_RX_POLL */
+> +#endif /* _LINUX_NET_LL_POLL_H */
 
->
->> >
->> > Stefan
+
+Also, something general about this patch. I think you should split out
+to separate patches all the users of the feature, like you did for TCP.
+I would suggest small patches for UDP, select and poll.
+
+Thanks,
+Amir
