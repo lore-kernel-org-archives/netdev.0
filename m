@@ -1,46 +1,43 @@
-From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH V3.10] rtlwifi: rtl8192cu: Fix problem in connecting to
- WEP or WPA(1) networks
-Date: Fri, 31 May 2013 07:13:39 +0900
-Message-ID: <20130530221339.GA1630@kroah.com>
-References: <1369949040-9513-1-git-send-email-Larry.Finger@lwfinger.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: batman-adv 2013-05-29b
+Date: Thu, 30 May 2013 15:53:59 -0700 (PDT)
+Message-ID: <20130530.155359.2022430388757359040.davem@davemloft.net>
+References: <1369815051-708-1-git-send-email-ordex@autistici.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1369949040-9513-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org
+To: ordex@autistici.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58884 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750842Ab3E3WyA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 18:54:00 -0400
+In-Reply-To: <1369815051-708-1-git-send-email-ordex@autistici.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 30, 2013 at 04:23:30PM -0500, Larry Finger wrote:
-> Driver rtl8192cu can connect to WPA2 networks, but fails for any other
-> encryption method. The cause is a failure to set the rate control data
-> blocks. These changes fix https://bugzilla.redhat.com/show_bug.cgi?id=952793
-> and https://bugzilla.redhat.com/show_bug.cgi?id=761525.
+From: Antonio Quartulli <ordex@autistici.org>
+Date: Wed, 29 May 2013 10:10:30 +0200
+
+> The only real behavioural change in this batch is the broadcast overhead
+> reduction on non-wireless interfaces brought by Matthias Schiffer.
 > 
-> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-> ---
+> The rest is made up by code cleanups and refactoring.
 > 
-> John,
+> Two highlights on the refactoring are the introduction of
+> netdev_alloc_skb_ip_align() to avoid to deal with NET_IP_ALIGN manually and the
+> introduction of the eth_hdr() wherever it was possible in order to improve
+> readability.
 > 
-> This patch is pretty large for this stage; however, it fixes a bad bug, and
-> it will only affect rtl8192cu even though it touches rtlwifi.
+> Please pull or let me know of any problem.
+ ...
+> The following changes since commit 06ecf24bdf2b7afc6c8fd13de6dba2a96dd331b6:
 > 
-> I held it for a while while Fedora and RHEL users tried it and responded.
-> As you well know, that can take a while.
+>   net: Fix build warnings after mac_header and transport_header became __u16. (2013-05-28 13:15:50 -0700)
+> 
+> are available in the git repository at:
+> 
+>   git://git.open-mesh.org/linux-merge.git tags/batman-adv-for-davem
 
-
-<formletter>
-
-This is not the correct way to submit patches for inclusion in the
-stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
-for how to do this properly.
-
-</formletter>
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks Antonio.
