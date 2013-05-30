@@ -1,65 +1,41 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH 4/4 net-next] tcp: undo on DSACK during recovery
-Date: Wed, 29 May 2013 17:20:14 -0700
-Message-ID: <1369873214-29502-4-git-send-email-ycheng@google.com>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH 3/4 net-next] tcp: fix undo on partial ack in recovery
+Date: Wed, 29 May 2013 20:49:31 -0400
+Message-ID: <CADVnQymm0jVboO5bfkAi8OB-3oz8JPm9TX6+POcLdE=XQ4HFgg@mail.gmail.com>
 References: <1369873214-29502-1-git-send-email-ycheng@google.com>
-Cc: aterzis@google.com, netdev@vger.kernel.org,
-	Yuchung Cheng <ycheng@google.com>
-To: davem@davemloft.net, ncardwell@google.com, edumazet@google.com,
-	nanditad@google.com
+	<1369873214-29502-3-git-send-email-ycheng@google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Andreas Terzis <aterzis@google.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f201.google.com ([209.85.213.201]:62800 "EHLO
-	mail-ye0-f201.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593Ab3E3At2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 20:49:28 -0400
-Received: by mail-ye0-f201.google.com with SMTP id q9so671864yen.4
-        for <netdev@vger.kernel.org>; Wed, 29 May 2013 17:49:27 -0700 (PDT)
-In-Reply-To: <1369873214-29502-1-git-send-email-ycheng@google.com>
+Received: from mail-ob0-f180.google.com ([209.85.214.180]:35083 "EHLO
+	mail-ob0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752593Ab3E3Atb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 May 2013 20:49:31 -0400
+Received: by mail-ob0-f180.google.com with SMTP id eh20so3537399obb.39
+        for <netdev@vger.kernel.org>; Wed, 29 May 2013 17:49:31 -0700 (PDT)
+In-Reply-To: <1369873214-29502-3-git-send-email-ycheng@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the receiver supports DSACK, sender can detect false recoveries and
-revert cwnd reductions triggered by either severe network reordering or
-concurrent reordering and loss event.
+On Wed, May 29, 2013 at 8:20 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> Upon detecting spurious fast retransmit via timestamps during recovery,
+> use PRR to clock out new data packet instead of retransmission. Once
+> all retransmission are proven spurious, the sender then reverts the
+> cwnd reduction and congestion state to open or disorder.
+>
+> The current code does the opposite: it undoes cwnd as soon as any
+> retransmission is spurious and continues to retransmit until all
+> data are acked. This nullifies the point to undo the cwnd because
+> the sender is still retransmistting spuriously. This patch fixes
+> it. The undo_ssthresh argument of tcp_undo_cwnd_reductiuon() is no
+> longer needed and is removed.
+>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
----
- net/ipv4/tcp_input.c | 8 +++++++-
- 1 file changed, 7 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c35b227..907311c 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -2315,7 +2315,7 @@ static bool tcp_try_undo_recovery(struct sock *sk)
- }
- 
- /* Try to undo cwnd reduction, because D-SACKs acked all retransmitted data */
--static void tcp_try_undo_dsack(struct sock *sk)
-+static bool tcp_try_undo_dsack(struct sock *sk)
- {
- 	struct tcp_sock *tp = tcp_sk(sk);
- 
-@@ -2323,7 +2323,9 @@ static void tcp_try_undo_dsack(struct sock *sk)
- 		DBGUNDO(sk, "D-SACK");
- 		tcp_undo_cwnd_reduction(sk, false);
- 		NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPDSACKUNDO);
-+		return true;
- 	}
-+	return false;
- }
- 
- /* We can clear retrans_stamp when there are no retransmissions in the
-@@ -2751,6 +2753,10 @@ static void tcp_fastretrans_alert(struct sock *sk, const int acked,
- 			do_lost = tcp_is_reno(tp) ||
- 				  tcp_fackets_out(tp) > tp->reordering;
- 		}
-+		if (tcp_try_undo_dsack(sk)) {
-+			tcp_try_keep_open(sk);
-+			return;
-+		}
- 		break;
- 	case TCP_CA_Loss:
- 		tcp_process_loss(sk, flag, is_dupack);
--- 
-1.8.2.1
+Acked-by: Neal Cardwell <ncardwell@google.com>
