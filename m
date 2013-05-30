@@ -1,59 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 02/12] tipc: Add "max_ports" configuration
- parameter
-Date: Thu, 30 May 2013 15:49:25 -0700 (PDT)
-Message-ID: <20130530.154925.298481337221579707.davem@davemloft.net>
-References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
-	<1369942577-39563-3-git-send-email-paul.gortmaker@windriver.com>
+From: Greg KH <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH V3.10] rtlwifi: rtl8192cu: Fix problem in connecting to
+ WEP or WPA(1) networks
+Date: Fri, 31 May 2013 07:13:39 +0900
+Message-ID: <20130530221339.GA1630@kroah.com>
+References: <1369949040-9513-1-git-send-email-Larry.Finger@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
-	ying.xue@windriver.com, erik.hugne@ericsson.com
-To: paul.gortmaker@windriver.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58799 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750724Ab3E3Wt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 18:49:26 -0400
-In-Reply-To: <1369942577-39563-3-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Stable <stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1369949040-9513-1-git-send-email-Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Thu, 30 May 2013 15:36:07 -0400
-
-> From: Erik Hugne <erik.hugne@ericsson.com>
+On Thu, May 30, 2013 at 04:23:30PM -0500, Larry Finger wrote:
+> Driver rtl8192cu can connect to WPA2 networks, but fails for any other
+> encryption method. The cause is a failure to set the rate control data
+> blocks. These changes fix https://bugzilla.redhat.com/show_bug.cgi?id=952793
+> and https://bugzilla.redhat.com/show_bug.cgi?id=761525.
 > 
-> Introduce the "max_ports" module parameter, which allows the maximum
-> number of ports supported by TIPC to be changed from the default value
-> at boot, or at module load time. Because of the way the port reference
-> table is structured and initiated, this value must be known at module
-> start time, and can not be changed later.
+> Signed-off-by: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+> ---
 > 
-> Until now this value has been set via a macro, and hence things
-> have to be recompiled if the value is to be changed. The Kconfig
-> knob and the dead code intended to change this parameter at runtime
-> are dropped.
+> John,
 > 
-> Considering TIPC node addresses are unique on the entire node, the
-> 64k port limit has proven to be a little too strict.  We increase the
-> allowed max to 128k. This is safe since the protocol headers allow
-> for up to 2^32 -1 ports.
+> This patch is pretty large for this stage; however, it fixes a bad bug, and
+> it will only affect rtl8192cu even though it touches rtlwifi.
 > 
-> Usage for module: "insmod tipc.ko max_ports=<value>" ; at boot, append
-> "tipc.max_ports=<value>" to the kernel command line.
-> 
-> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> I held it for a while while Fedora and RHEL users tried it and responded.
+> As you well know, that can take a while.
 
-View compile time constants and module parameters as artificial
-limits, they are terrible and unnecessary.
 
-There is no reason you cannot restructure this table so that you
-can dynamically size it at run time.
+<formletter>
 
-Please reimplement it in that way.
+This is not the correct way to submit patches for inclusion in the
+stable kernel tree.  Please read Documentation/stable_kernel_rules.txt
+for how to do this properly.
 
-Thanks.
+</formletter>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
