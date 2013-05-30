@@ -1,55 +1,123 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [Patch net-next v3] net: clean up skb headers code
-Date: Thu, 30 May 2013 22:05:18 +0100
-Message-ID: <1369947918.2414.28.camel@bwh-desktop.uk.level5networks.com>
-References: <1369879575-18701-1-git-send-email-amwang@redhat.com>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B7258@saturn3.aculab.com>
-	 <20130530.131603.1155012584617016387.davem@davemloft.net>
+From: Joao Correia <joaomiguelcorreia@gmail.com>
+Subject: Re: Network issue on 3.10 rcs, bisected
+Date: Thu, 30 May 2013 22:14:14 +0100
+Message-ID: <CACG0VPXWoD=33rSv9S_C2t7XSHny9vHwKysoiTdwWueQM7MLsA@mail.gmail.com>
+References: <CACG0VPV3-x5Ncp+_hci8wVNYUeqAUZ0KFm0MAuHMntXzaL9Nqw@mail.gmail.com>
+ <CALnjE+p3vFkYBu=XioeDTEL1cyXh_379ix84Yoojj1eB11q57Q@mail.gmail.com>
+ <CACG0VPWeu8JoMYJNnQ39zvubftpeTB_EvKNrxZm7Op9q6HUVXA@mail.gmail.com> <CALnjE+q-dbK0bha_J848mb7sdmLi7a5-BMjKng+wQ8KaDFL=LQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <David.Laight@ACULAB.COM>, <amwang@redhat.com>,
-	<netdev@vger.kernel.org>, <horms@verge.net.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:50994 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757690Ab3E3VFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 17:05:23 -0400
-In-Reply-To: <20130530.131603.1155012584617016387.davem@davemloft.net>
+Received: from mail-qe0-f42.google.com ([209.85.128.42]:61536 "EHLO
+	mail-qe0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758484Ab3E3VO4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 17:14:56 -0400
+In-Reply-To: <CALnjE+q-dbK0bha_J848mb7sdmLi7a5-BMjKng+wQ8KaDFL=LQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-05-30 at 13:16 -0700, David Miller wrote:
-> From: "David Laight" <David.Laight@ACULAB.COM>
-> Date: Thu, 30 May 2013 12:18:13 +0100
-> 
-> >> commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
-> >> fields of struct skbuff) converts skb->*_header to u16,
-> >> some #if NET_SKBUFF_DATA_USES_OFFSET are now useless,
-> >> and to be safe, we could just use "X = ~(typeof(X))0;"
-> >> as suggested by David and Ben.
-> > 
-> > IIRC ~(unsigned short)0 is the same as ~0 and will be -1.
-> > define an actual constant with value 0xffff
-> 
-> The problem with doing that is that if this type is changed again,
-> we'lll go through this same circus changing the constant everywhere
-> and missing some cases.
-> 
-> I absolutely want to see a version of this fix that makes sure that if
-> the type changes, either the constantly automatically change (that's
-> the "typeof(X)" approach) or the build breaks spectacularly until the
-> value is fixed up.
+On Thu, May 30, 2013 at 5:48 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+> On Wed, May 29, 2013 at 12:53 PM, Joao Correia
+> <joaomiguelcorreia@gmail.com> wrote:
+>> On Wed, May 29, 2013 at 7:59 PM, Pravin Shelar <pshelar@nicira.com> wrote:
+>>>
+>>> On Wed, May 29, 2013 at 4:37 AM, Joao Correia
+>>> <joaomiguelcorreia@gmail.com> wrote:
+>>> > Hello list
+>>> >
+>>> > While trying the rc's for 3.10, i've stumbled upon a problem where
+>>> > networking does not work at all. Iptables will show packet counts going up,
+>>> > but nothing actually reaches the programs.
+>>> >
+>>> > I'm running fedora under hyper-v 3 (a windows 2012 host). Only tested ipv4
+>>> > traffic, and everything times out (ping, telnet to open ports) on both
+>>> > directions. The networking devices come up apparently ok - has static ip
+>>> > set, and dmesg shows no errors (although i don't have many debugging options
+>>> > enabled).
+>>> >
+>>> > I bisected this, and git blames commit
+>>> > ec5f061564238892005257c83565a0b58ec79295 (net: ill link between CSUM and SG
+>>> > features.). I can't revert it cleanly on current rc's.
+>>> >
+>>> Can you also send network features set on the device?
+>>> ethtool -k <dev>
+>>
+>>
+>> As requested:
+>> Features for eth0:
+>> rx-checksumming: off [fixed]
+>> tx-checksumming: off
+>>     tx-checksum-ipv4: off [fixed]
+>>     tx-checksum-ip-generic: off [fixed]
+>>     tx-checksum-ipv6: off [fixed]
+>>     tx-checksum-fcoe-crc: off [fixed]
+>>     tx-checksum-sctp: off [fixed]
+>> scatter-gather: on
+>>     tx-scatter-gather: on
+>>     tx-scatter-gather-fraglist: off [fixed]
+>> tcp-segmentation-offload: off
+>>     tx-tcp-segmentation: off [fixed]
+>>     tx-tcp-ecn-segmentation: off [fixed]
+>>     tx-tcp6-segmentation: off [fixed]
+>> udp-fragmentation-offload: off [fixed]
+>> generic-segmentation-offload: on
+>> generic-receive-offload: on
+>> large-receive-offload: off [fixed]
+>> rx-vlan-offload: off
+>> tx-vlan-offload: on
+>> ntuple-filters: off [fixed]
+>> receive-hashing: off [fixed]
+>> highdma: off [fixed]
+>> tx-vlan-ctag-hw-insert: on [fixed]
+>> rx-vlan-ctag-hw-parse: off [fixed]
+>> rx-vlan-ctag-filter: off [fixed]
+>> tx-vlan-stag-hw-insert: off [fixed]
+>> rx-vlan-stag-hw-parse: off [fixed]
+>> rx-vlan-stag-filter: off [fixed]
+>> vlan-challenged: off [fixed]
+>> tx-lockless: off [fixed]
+>> netns-local: off [fixed]
+>> tx-gso-robust: off [fixed]
+>> tx-fcoe-segmentation: off [fixed]
+>> tx-gre-segmentation: off [fixed]
+>> tx-udp_tnl-segmentation: off [fixed]
+>> fcoe-mtu: off [fixed]
+>> tx-nocache-copy: off
+>> loopback: off [fixed]
+>> rx-fcs: off [fixed]
+>> rx-all: off [fixed]
+>>
+>> The output is similar on a working (3.9) and a bad (3.10) kernel.
+>> diff-ing both outputs shows:
+>> tx-vlan-stag-hw-insert: off [fixed]
+>> rx-vlan-stag-hw-parse: off [fixed]
+>> rx-vlan-stag-filter: off [fixed]
+>> as last on the broken kernels.
+>>
+>
+> I could not reproduce it, I will try it on VM. Meanwhile can you turn
+> off feature "sg" and try same test ?
 
-Let's just give the 'invalid' value a name and define it right next to
-those fields.  It might be worth reintroducing sk_buff_data_t too, since
-there was at least one place which wanted to save and restore offsets in
-local variables.
+Hello
 
-Ben.
+Your hint was spot-on. With sg off, i can't reproduce the problem and
+networking seems fine. It works fine either way on 3.9, so this is a
+regression for 3.10.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thank you very much for your assistance.
+Joao Correia
+CIUBI
+Universidade da Beira Interior
+Portugal
+
+>
+> Thanks.
+>
+>> Thank you for your time,
+>> Joao Correia
+>> CIUBI
+>> Universidade da Beira Interior
+>> Portugal
