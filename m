@@ -1,443 +1,115 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 12/12] tipc: cosmetic realignment of function arguments
-Date: Thu, 30 May 2013 15:36:17 -0400
-Message-ID: <1369942577-39563-13-git-send-email-paul.gortmaker@windriver.com>
-References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH v5 12/13] ARM: kirkwood: remove redundant DT board files
+Date: Thu, 30 May 2013 15:37:08 -0400
+Message-ID: <20130530193708.GC31290@titan.lakedaemon.net>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369855975-21489-13-git-send-email-sebastian.hesselbarth@gmail.com>
+ <8738t4q1kv.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
-	Ying Xue <ying.xue@windriver.com>,
-	Erik Hugne <erik.hugne@ericsson.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:51503 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932546Ab3E3Tgp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 15:36:45 -0400
-In-Reply-To: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@wantstofly.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Arnaud Ebalard <arno@natisbad.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <8738t4q1kv.fsf@natisbad.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-No runtime code changes here.  Just a realign of the function
-arguments to start where the 1st one was, and fit as many args
-as can be put in an 80 char line.
+On Thu, May 30, 2013 at 11:06:08AM +0200, Arnaud Ebalard wrote:
+> Hi Jason and Sebastian,
+> 
+> Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com> writes:
+> 
+> > With DT support for mv643xx_eth board specific init for some boards now
+> > is unneccessary. Remove those board files, Kconfig entries, and
+> > corresponding entries in kirkwood_defconfig.
+> >
+> > Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+> > ---
+> > Note: board-km_kirkwood.c is also removed, as Valentin Longchamp confirmed
+> > the lock-up is not caused by accessing clock gating registers but rather
+> > non-existent device registers. This will be addressed by dtsi separation
+> > for kirkwood and bobcat SoC variants.
+> >
+> > Changelog:
+> > v3->v4:
+> > - remove more boards that don't require board specific setup
+> >
+> > Cc: David Miller <davem@davemloft.net>
+> > Cc: Lennert Buytenhek <buytenh@wantstofly.org>
+> > Cc: Jason Cooper <jason@lakedaemon.net>
+> > Cc: Andrew Lunn <andrew@lunn.ch>
+> > Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+> > Cc: netdev@vger.kernel.org
+> > Cc: linux-arm-kernel@lists.infradead.org
+> > Cc: linuxppc-dev@lists.ozlabs.org
+> > Cc: linux-kernel@vger.kernel.org
+> > ---
+> >  arch/arm/configs/kirkwood_defconfig           |   16 ----
+> >  arch/arm/mach-kirkwood/Kconfig                |  117 -------------------------
+> >  arch/arm/mach-kirkwood/Makefile               |   16 ----
+> >  arch/arm/mach-kirkwood/board-dnskw.c          |    7 --
+> >  arch/arm/mach-kirkwood/board-dockstar.c       |   32 -------
+> >  arch/arm/mach-kirkwood/board-dreamplug.c      |   35 --------
+> >  arch/arm/mach-kirkwood/board-dt.c             |   62 +------------
+> >  arch/arm/mach-kirkwood/board-goflexnet.c      |   34 -------
+> >  arch/arm/mach-kirkwood/board-guruplug.c       |   33 -------
+> >  arch/arm/mach-kirkwood/board-ib62x0.c         |   29 ------
+> >  arch/arm/mach-kirkwood/board-iconnect.c       |   10 ---
+> >  arch/arm/mach-kirkwood/board-iomega_ix2_200.c |   34 -------
+> >  arch/arm/mach-kirkwood/board-km_kirkwood.c    |   44 ----------
+> >  arch/arm/mach-kirkwood/board-lsxl.c           |   16 ----
+> >  arch/arm/mach-kirkwood/board-mplcec4.c        |   14 ---
+> >  arch/arm/mach-kirkwood/board-ns2.c            |   35 --------
+> >  arch/arm/mach-kirkwood/board-openblocks_a6.c  |   26 ------
+> >  arch/arm/mach-kirkwood/board-readynas.c       |    6 --
+> 
+> Just a stupid note: With Thomas ongoing work to get mvebu-pcie driver in
+> place and enabled for kirkwood, some boards setup files will also lose
+> their pcie init routines, which may allow you to kill those additonal
+> files soon.
 
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
- net/tipc/bcast.c       |  3 +--
- net/tipc/bcast.h       |  3 ++-
- net/tipc/discover.c    |  7 +++----
- net/tipc/eth_media.c   |  2 +-
- net/tipc/link.c        | 18 +++++++-----------
- net/tipc/msg.c         |  4 ++--
- net/tipc/msg.h         |  4 ++--
- net/tipc/name_table.c  | 10 +++++-----
- net/tipc/name_table.h  | 11 ++++++-----
- net/tipc/node_subscr.c |  2 +-
- net/tipc/port.c        |  7 ++++---
- net/tipc/port.h        | 10 ++++++----
- net/tipc/socket.c      | 12 ++++++------
- net/tipc/subscr.c      | 14 ++++----------
- net/tipc/subscr.h      | 13 ++++---------
- 15 files changed, 54 insertions(+), 66 deletions(-)
+Yes, we're very excited about this ;-)
 
-diff --git a/net/tipc/bcast.c b/net/tipc/bcast.c
-index e5f3da5..716de1a 100644
---- a/net/tipc/bcast.c
-+++ b/net/tipc/bcast.c
-@@ -578,8 +578,7 @@ u32 tipc_bclink_acks_missing(struct tipc_node *n_ptr)
-  * Returns 0 (packet sent successfully) under all circumstances,
-  * since the broadcast link's pseudo-bearer never blocks
-  */
--static int tipc_bcbearer_send(struct sk_buff *buf,
--			      struct tipc_bearer *unused1,
-+static int tipc_bcbearer_send(struct sk_buff *buf, struct tipc_bearer *unused1,
- 			      struct tipc_media_addr *unused2)
- {
- 	int bp_index;
-diff --git a/net/tipc/bcast.h b/net/tipc/bcast.h
-index a933065..6ee587b 100644
---- a/net/tipc/bcast.h
-+++ b/net/tipc/bcast.h
-@@ -75,7 +75,8 @@ void tipc_nmap_remove(struct tipc_node_map *nm_ptr, u32 node);
- /**
-  * tipc_nmap_equal - test for equality of node maps
-  */
--static inline int tipc_nmap_equal(struct tipc_node_map *nm_a, struct tipc_node_map *nm_b)
-+static inline int tipc_nmap_equal(struct tipc_node_map *nm_a,
-+				  struct tipc_node_map *nm_b)
- {
- 	return !memcmp(nm_a, nm_b, sizeof(*nm_a));
- }
-diff --git a/net/tipc/discover.c b/net/tipc/discover.c
-index eedff58..ecc758c 100644
---- a/net/tipc/discover.c
-+++ b/net/tipc/discover.c
-@@ -70,8 +70,7 @@ struct tipc_link_req {
-  * @dest_domain: network domain of node(s) which should respond to message
-  * @b_ptr: ptr to bearer issuing message
-  */
--static struct sk_buff *tipc_disc_init_msg(u32 type,
--					  u32 dest_domain,
-+static struct sk_buff *tipc_disc_init_msg(u32 type, u32 dest_domain,
- 					  struct tipc_bearer *b_ptr)
- {
- 	struct sk_buff *buf = tipc_buf_acquire(INT_H_SIZE);
-@@ -346,8 +345,8 @@ exit:
-  *
-  * Returns 0 if successful, otherwise -errno.
-  */
--int tipc_disc_create(struct tipc_bearer *b_ptr,
--		     struct tipc_media_addr *dest, u32 dest_domain)
-+int tipc_disc_create(struct tipc_bearer *b_ptr, struct tipc_media_addr *dest,
-+		     u32 dest_domain)
- {
- 	struct tipc_link_req *req;
- 
-diff --git a/net/tipc/eth_media.c b/net/tipc/eth_media.c
-index fc60bea..c1aa37f 100644
---- a/net/tipc/eth_media.c
-+++ b/net/tipc/eth_media.c
-@@ -62,7 +62,7 @@ static struct eth_bearer eth_bearers[MAX_ETH_BEARERS];
- static int eth_started;
- 
- static int recv_notification(struct notifier_block *nb, unsigned long evt,
--			      void *dv);
-+			     void *dv);
- /*
-  * Network device notifier info
-  */
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index d34429d..b852c94 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -771,8 +771,7 @@ static void link_state_event(struct tipc_link *l_ptr, unsigned int event)
-  * link_bundle_buf(): Append contents of a buffer to
-  * the tail of an existing one.
-  */
--static int link_bundle_buf(struct tipc_link *l_ptr,
--			   struct sk_buff *bundler,
-+static int link_bundle_buf(struct tipc_link *l_ptr, struct sk_buff *bundler,
- 			   struct sk_buff *buf)
- {
- 	struct tipc_msg *bundler_msg = buf_msg(bundler);
-@@ -1064,8 +1063,7 @@ static int link_send_buf_fast(struct tipc_link *l_ptr, struct sk_buff *buf,
-  */
- int tipc_link_send_sections_fast(struct tipc_port *sender,
- 				 struct iovec const *msg_sect,
--				 const u32 num_sect,
--				 unsigned int total_len,
-+				 const u32 num_sect, unsigned int total_len,
- 				 u32 destaddr)
- {
- 	struct tipc_msg *hdr = &sender->phdr;
-@@ -1155,8 +1153,7 @@ exit:
-  */
- static int link_send_sections_long(struct tipc_port *sender,
- 				   struct iovec const *msg_sect,
--				   u32 num_sect,
--				   unsigned int total_len,
-+				   u32 num_sect, unsigned int total_len,
- 				   u32 destaddr)
- {
- 	struct tipc_link *l_ptr;
-@@ -1408,7 +1405,7 @@ static void link_reset_all(unsigned long addr)
- }
- 
- static void link_retransmit_failure(struct tipc_link *l_ptr,
--					struct sk_buff *buf)
-+				    struct sk_buff *buf)
- {
- 	struct tipc_msg *msg = buf_msg(buf);
- 
-@@ -1863,8 +1860,8 @@ static void link_handle_out_of_seq_msg(struct tipc_link *l_ptr,
-  * Send protocol message to the other endpoint.
-  */
- void tipc_link_send_proto_msg(struct tipc_link *l_ptr, u32 msg_typ,
--				int probe_msg, u32 gap, u32 tolerance,
--				u32 priority, u32 ack_mtu)
-+			      int probe_msg, u32 gap, u32 tolerance,
-+			      u32 priority, u32 ack_mtu)
- {
- 	struct sk_buff *buf = NULL;
- 	struct tipc_msg *msg = l_ptr->pmsg;
-@@ -2107,8 +2104,7 @@ exit:
-  * another bearer. Owner node is locked.
-  */
- static void tipc_link_tunnel(struct tipc_link *l_ptr,
--			     struct tipc_msg *tunnel_hdr,
--			     struct tipc_msg  *msg,
-+			     struct tipc_msg *tunnel_hdr, struct tipc_msg *msg,
- 			     u32 selector)
- {
- 	struct tipc_link *tunnel;
-diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index c2a2613..ced60e2 100644
---- a/net/tipc/msg.c
-+++ b/net/tipc/msg.c
-@@ -51,8 +51,8 @@ u32 tipc_msg_tot_importance(struct tipc_msg *m)
- }
- 
- 
--void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type,
--			    u32 hsize, u32 destnode)
-+void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type, u32 hsize,
-+		   u32 destnode)
- {
- 	memset(m, 0, hsize);
- 	msg_set_version(m);
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 511019a..5e4ccf5 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -719,8 +719,8 @@ static inline void msg_set_link_tolerance(struct tipc_msg *m, u32 n)
- }
- 
- u32 tipc_msg_tot_importance(struct tipc_msg *m);
--void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type,
--			    u32 hsize, u32 destnode);
-+void tipc_msg_init(struct tipc_msg *m, u32 user, u32 type, u32 hsize,
-+		   u32 destnode);
- int tipc_msg_build(struct tipc_msg *hdr, struct iovec const *msg_sect,
- 		   u32 num_sect, unsigned int total_len, int max_size,
- 		   struct sk_buff **buf);
-diff --git a/net/tipc/name_table.c b/net/tipc/name_table.c
-index 24b1679..09dcd54 100644
---- a/net/tipc/name_table.c
-+++ b/net/tipc/name_table.c
-@@ -440,7 +440,7 @@ found:
-  * sequence overlapping with the requested sequence
-  */
- static void tipc_nameseq_subscribe(struct name_seq *nseq,
--					struct tipc_subscription *s)
-+				   struct tipc_subscription *s)
- {
- 	struct sub_seq *sseq = nseq->sseqs;
- 
-@@ -662,7 +662,7 @@ exit:
-  * tipc_nametbl_publish - add name publication to network name tables
-  */
- struct publication *tipc_nametbl_publish(u32 type, u32 lower, u32 upper,
--				    u32 scope, u32 port_ref, u32 key)
-+					 u32 scope, u32 port_ref, u32 key)
- {
- 	struct publication *publ;
- 
-@@ -753,7 +753,7 @@ void tipc_nametbl_unsubscribe(struct tipc_subscription *s)
-  * subseq_list - print specified sub-sequence contents into the given buffer
-  */
- static int subseq_list(struct sub_seq *sseq, char *buf, int len, u32 depth,
--			u32 index)
-+		       u32 index)
- {
- 	char portIdStr[27];
- 	const char *scope_str[] = {"", " zone", " cluster", " node"};
-@@ -792,7 +792,7 @@ static int subseq_list(struct sub_seq *sseq, char *buf, int len, u32 depth,
-  * nameseq_list - print specified name sequence contents into the given buffer
-  */
- static int nameseq_list(struct name_seq *seq, char *buf, int len, u32 depth,
--			 u32 type, u32 lowbound, u32 upbound, u32 index)
-+			u32 type, u32 lowbound, u32 upbound, u32 index)
- {
- 	struct sub_seq *sseq;
- 	char typearea[11];
-@@ -849,7 +849,7 @@ static int nametbl_header(char *buf, int len, u32 depth)
-  * nametbl_list - print specified name table contents into the given buffer
-  */
- static int nametbl_list(char *buf, int len, u32 depth_info,
--			 u32 type, u32 lowbound, u32 upbound)
-+			u32 type, u32 lowbound, u32 upbound)
- {
- 	struct hlist_head *seq_head;
- 	struct name_seq *seq;
-diff --git a/net/tipc/name_table.h b/net/tipc/name_table.h
-index 71cb4dc..f02f48b 100644
---- a/net/tipc/name_table.h
-+++ b/net/tipc/name_table.h
-@@ -87,14 +87,15 @@ extern rwlock_t tipc_nametbl_lock;
- struct sk_buff *tipc_nametbl_get(const void *req_tlv_area, int req_tlv_space);
- u32 tipc_nametbl_translate(u32 type, u32 instance, u32 *node);
- int tipc_nametbl_mc_translate(u32 type, u32 lower, u32 upper, u32 limit,
--			 struct tipc_port_list *dports);
-+			      struct tipc_port_list *dports);
- struct publication *tipc_nametbl_publish(u32 type, u32 lower, u32 upper,
--				    u32 scope, u32 port_ref, u32 key);
-+					 u32 scope, u32 port_ref, u32 key);
- int tipc_nametbl_withdraw(u32 type, u32 lower, u32 ref, u32 key);
- struct publication *tipc_nametbl_insert_publ(u32 type, u32 lower, u32 upper,
--					u32 scope, u32 node, u32 ref, u32 key);
--struct publication *tipc_nametbl_remove_publ(u32 type, u32 lower,
--					u32 node, u32 ref, u32 key);
-+					     u32 scope, u32 node, u32 ref,
-+					     u32 key);
-+struct publication *tipc_nametbl_remove_publ(u32 type, u32 lower, u32 node,
-+					     u32 ref, u32 key);
- void tipc_nametbl_subscribe(struct tipc_subscription *s);
- void tipc_nametbl_unsubscribe(struct tipc_subscription *s);
- int tipc_nametbl_init(void);
-diff --git a/net/tipc/node_subscr.c b/net/tipc/node_subscr.c
-index 5e34b01..8a7384c 100644
---- a/net/tipc/node_subscr.c
-+++ b/net/tipc/node_subscr.c
-@@ -42,7 +42,7 @@
-  * tipc_nodesub_subscribe - create "node down" subscription for specified node
-  */
- void tipc_nodesub_subscribe(struct tipc_node_subscr *node_sub, u32 addr,
--		       void *usr_handle, net_ev_handler handle_down)
-+			    void *usr_handle, net_ev_handler handle_down)
- {
- 	if (in_own_node(addr)) {
- 		node_sub->node = NULL;
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 0bb185a..b3ed2fc 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -207,9 +207,10 @@ exit:
-  * Returns pointer to (locked) TIPC port, or NULL if unable to create it
-  */
- struct tipc_port *tipc_createport(struct sock *sk,
--			u32 (*dispatcher)(struct tipc_port *, struct sk_buff *),
--			void (*wakeup)(struct tipc_port *),
--			const u32 importance)
-+				  u32 (*dispatcher)(struct tipc_port *,
-+				  struct sk_buff *),
-+				  void (*wakeup)(struct tipc_port *),
-+				  const u32 importance)
- {
- 	struct tipc_port *p_ptr;
- 	struct tipc_msg *msg;
-diff --git a/net/tipc/port.h b/net/tipc/port.h
-index ef0df6a..0661246 100644
---- a/net/tipc/port.h
-+++ b/net/tipc/port.h
-@@ -105,8 +105,10 @@ struct tipc_port_list;
-  * TIPC port manipulation routines
-  */
- struct tipc_port *tipc_createport(struct sock *sk,
--		u32 (*dispatcher)(struct tipc_port *, struct sk_buff *),
--		void (*wakeup)(struct tipc_port *), const u32 importance);
-+				  u32 (*dispatcher)(struct tipc_port *,
-+				  struct sk_buff *),
-+				  void (*wakeup)(struct tipc_port *),
-+				  const u32 importance);
- 
- int tipc_reject_msg(struct sk_buff *buf, u32 err);
- 
-@@ -124,9 +126,9 @@ int tipc_portunreturnable(u32 portref, unsigned int *isunreturnable);
- int tipc_set_portunreturnable(u32 portref, unsigned int isunreturnable);
- 
- int tipc_publish(u32 portref, unsigned int scope,
--		struct tipc_name_seq const *name_seq);
-+		 struct tipc_name_seq const *name_seq);
- int tipc_withdraw(u32 portref, unsigned int scope,
--		struct tipc_name_seq const *name_seq);
-+		  struct tipc_name_seq const *name_seq);
- 
- int tipc_connect(u32 portref, struct tipc_portid const *port);
- 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 8c135c5..970c3a1 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -280,7 +280,7 @@ void tipc_sock_release_local(struct socket *sock)
-  */
- 
- int tipc_sock_accept_local(struct socket *sock, struct socket **newsock,
--			    int flags)
-+			   int flags)
- {
- 	struct sock *sk = sock->sk;
- 	int ret;
-@@ -891,7 +891,7 @@ static void set_orig_addr(struct msghdr *m, struct tipc_msg *msg)
-  * Returns 0 if successful, otherwise errno
-  */
- static int anc_data_recv(struct msghdr *m, struct tipc_msg *msg,
--				struct tipc_port *tport)
-+			 struct tipc_port *tport)
- {
- 	u32 anc_data[3];
- 	u32 err;
-@@ -1737,8 +1737,8 @@ restart:
-  *
-  * Returns 0 on success, errno otherwise
-  */
--static int setsockopt(struct socket *sock,
--		      int lvl, int opt, char __user *ov, unsigned int ol)
-+static int setsockopt(struct socket *sock, int lvl, int opt, char __user *ov,
-+		      unsigned int ol)
- {
- 	struct sock *sk = sock->sk;
- 	struct tipc_port *tport = tipc_sk_port(sk);
-@@ -1796,8 +1796,8 @@ static int setsockopt(struct socket *sock,
-  *
-  * Returns 0 on success, errno otherwise
-  */
--static int getsockopt(struct socket *sock,
--		      int lvl, int opt, char __user *ov, int __user *ol)
-+static int getsockopt(struct socket *sock, int lvl, int opt, char __user *ov,
-+		      int __user *ol)
- {
- 	struct sock *sk = sock->sk;
- 	struct tipc_port *tport = tipc_sk_port(sk);
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index b2bb565..05dc20a 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -117,10 +117,8 @@ static void subscr_send_event(struct tipc_subscription *sub, u32 found_lower,
-  *
-  * Returns 1 if there is overlap, otherwise 0.
-  */
--int tipc_subscr_overlap(struct tipc_subscription *sub,
--			u32 found_lower,
-+int tipc_subscr_overlap(struct tipc_subscription *sub, u32 found_lower,
- 			u32 found_upper)
--
- {
- 	if (found_lower < sub->seq.lower)
- 		found_lower = sub->seq.lower;
-@@ -136,13 +134,9 @@ int tipc_subscr_overlap(struct tipc_subscription *sub,
-  *
-  * Protected by nameseq.lock in name_table.c
-  */
--void tipc_subscr_report_overlap(struct tipc_subscription *sub,
--				u32 found_lower,
--				u32 found_upper,
--				u32 event,
--				u32 port_ref,
--				u32 node,
--				int must)
-+void tipc_subscr_report_overlap(struct tipc_subscription *sub, u32 found_lower,
-+				u32 found_upper, u32 event, u32 port_ref,
-+				u32 node, int must)
- {
- 	if (!tipc_subscr_overlap(sub, found_lower, found_upper))
- 		return;
-diff --git a/net/tipc/subscr.h b/net/tipc/subscr.h
-index 43e6d63..393e417 100644
---- a/net/tipc/subscr.h
-+++ b/net/tipc/subscr.h
-@@ -67,17 +67,12 @@ struct tipc_subscription {
- 	struct tipc_event evt;
- };
- 
--int tipc_subscr_overlap(struct tipc_subscription *sub,
--			u32 found_lower,
-+int tipc_subscr_overlap(struct tipc_subscription *sub, u32 found_lower,
- 			u32 found_upper);
- 
--void tipc_subscr_report_overlap(struct tipc_subscription *sub,
--				u32 found_lower,
--				u32 found_upper,
--				u32 event,
--				u32 port_ref,
--				u32 node,
--				int must_report);
-+void tipc_subscr_report_overlap(struct tipc_subscription *sub, u32 found_lower,
-+				u32 found_upper, u32 event, u32 port_ref,
-+				u32 node, int must);
- 
- int tipc_subscr_start(void);
- 
--- 
-1.8.1.2
+> For instance 6bd98481ab34 (arm: kirkwood: NETGEAR ReadyNAS Duo v2 init
+> PCIe via DT) currently sitting in jcooper/mvebu/pcie_kirkwood removes
+> the PCIE init routine in board-readynas.c, and yours remove ge00
+> init. With both applied, the whole file can go away.
+> 
+> AFAICT, this may be the case soon for:
+> 
+>  arch/arm/mach-kirkwood/board-iconnect.c   (36e5722089)
+>  arch/arm/mach-kirkwood/board-mplcec4.c    (9470fbfb8d)
+>  arch/arm/mach-kirkwood/board-nsa310.c     (40fa8e5da2)
+>  arch/arm/mach-kirkwood/board-readynas.c   (6bd98481ab)
+>  arch/arm/mach-kirkwood/board-ts219.c      (259e234608)
+
+Would you mind putting a patch together (for after v3.10 drops) to do
+this?  If you applied Sebastian's series on top of mvebu/pcie_kirkwood,
+that should get you almost there.  The last half of his series is going
+in after v3.10...
+
+You may want to try merging in mvebu/boards and mvebu/soc.  Those have
+the changes to use dt for the restart and power-off drivers.  That'll
+allow us to empty out a few more board files.  mvebu/dt also has a patch
+from Valentin allowing us to remove the keymile board as well.
+
+thx,
+
+Jason.
