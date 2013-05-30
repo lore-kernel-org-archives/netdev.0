@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 05/12] tipc: convert topology server to use new server facility
-Date: Thu, 30 May 2013 15:36:10 -0400
-Message-ID: <1369942577-39563-6-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 07/12] tipc: delete code orphaned by new server infrastructure
+Date: Thu, 30 May 2013 15:36:12 -0400
+Message-ID: <1369942577-39563-8-git-send-email-paul.gortmaker@windriver.com>
 References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,651 +11,536 @@ Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:59130 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:59133 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759919Ab3E3Tgh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 15:36:37 -0400
+	with ESMTP id S1759645Ab3E3Tgi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 15:36:38 -0400
 In-Reply-To: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ying Xue <ying.xue@windriver.com>
 
-As the new TIPC server infrastructure has been introduced, we can
-now convert the TIPC topology server to it.  We get two benefits
-from doing this:
+Having completed the conversion of the topology server and
+configuration server to use the new server infrastructure,
+the following functions become unused, and can be deleted:
 
-1) It simplifies the topology server locking policy.  In the
-original locking policy, we placed one spin lock pointer in the
-tipc_subscriber structure to reuse the lock of the subscriber's
-server port, controlling access to members of tipc_subscriber
-instance.  That is, we only used one lock to ensure both
-tipc_port and tipc_subscriber members were safely accessed.
+   - tipc_createport()
+   - port_wakeup_sh()
+   - port_dispatcher()
+   - port_dispatcher_sigh()
+   - tipc_send_buf_fast()
+   - tipc_send_buf2port
 
-Now we introduce another spin lock for tipc_subscriber structure
-only protecting themselves, to get a finer granularity locking
-policy.  Moreover, the change will allow us to make the topology
-server code more readable and maintainable.
+Additionally, the following variables become orphaned,
+and can be deleted:
 
-2) It fixes a bug where sent subscription events may be lost when
-the topology port is congested.  Using the new service, the
-topology server now queues sent events into an outgoing buffer,
-and then wakes up a sender process which has been blocked in
-workqueue context.  The process will keep picking events from the
-buffer and send them to their respective subscribers, using the
-kernel socket interface, until the buffer is empty. Even if the
-socket is congested during transmission there is no risk that
-events may be dropped, since the sender process may block when
-needed.
+   - tipc_msg_err_event
+   - tipc_named_msg_err_event
+   - tipc_conn_shutdown_event
+   - tipc_msg_event
+   - tipc_named_msg_event
+   - tipc_conn_msg_event
+   - tipc_continue_event
+   - msg_queue_head
+   - msg_queue_tail
+   - queue_lock
 
-Some minor reordering of initialization is done, since we now
-have a scenario where the topology server must be started after
-socket initialization has taken place, as the former depends
-on the latter.  And overall, we see a simplification of the
-TIPC subscriber code in making this changeover.
+Deletion is done here in a separate commit in order to allow
+the actual conversion changes to be more easily viewed.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/core.c   |   6 +-
- net/tipc/socket.c |   3 +-
- net/tipc/subscr.c | 334 +++++++++++++++---------------------------------------
- net/tipc/subscr.h |   8 +-
- 4 files changed, 104 insertions(+), 247 deletions(-)
+ net/tipc/link.c |  36 +------
+ net/tipc/port.c | 299 +-------------------------------------------------------
+ net/tipc/port.h |  53 +---------
+ 3 files changed, 3 insertions(+), 385 deletions(-)
 
-diff --git a/net/tipc/core.c b/net/tipc/core.c
-index f8abe8e..c898edf 100644
---- a/net/tipc/core.c
-+++ b/net/tipc/core.c
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index a80feee..0a4c3a1 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
 @@ -2,7 +2,7 @@
-  * net/tipc/core.c: TIPC module code
+  * net/tipc/link.c: TIPC link code
   *
-  * Copyright (c) 2003-2006, Ericsson AB
-- * Copyright (c) 2005-2006, 2010-2011, Wind River Systems
-+ * Copyright (c) 2005-2006, 2010-2013, Wind River Systems
+  * Copyright (c) 1996-2007, 2012, Ericsson AB
+- * Copyright (c) 2004-2007, 2010-2011, Wind River Systems
++ * Copyright (c) 2004-2007, 2010-2013, Wind River Systems
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
-@@ -136,13 +136,13 @@ static int tipc_core_start(void)
- 	if (!res)
- 		res = tipc_nametbl_init();
- 	if (!res)
--		res = tipc_subscr_start();
--	if (!res)
- 		res = tipc_cfg_init();
- 	if (!res)
- 		res = tipc_netlink_start();
- 	if (!res)
- 		res = tipc_socket_init();
-+	if (!res)
-+		res = tipc_subscr_start();
- 	if (res)
- 		tipc_core_stop();
+@@ -1057,40 +1057,6 @@ static int link_send_buf_fast(struct tipc_link *l_ptr, struct sk_buff *buf,
+ }
  
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 17d87a7..1f123c6 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -404,7 +404,8 @@ static int bind(struct socket *sock, struct sockaddr *uaddr, int uaddr_len)
- 	else if (addr->addrtype != TIPC_ADDR_NAMESEQ)
- 		return -EAFNOSUPPORT;
- 
--	if (addr->addr.nameseq.type < TIPC_RESERVED_TYPES)
-+	if ((addr->addr.nameseq.type < TIPC_RESERVED_TYPES) &&
-+	    (addr->addr.nameseq.type != TIPC_TOP_SRV))
- 		return -EACCES;
- 
- 	return (addr->scope > 0) ?
-diff --git a/net/tipc/subscr.c b/net/tipc/subscr.c
-index 6b42d47..b2bb565 100644
---- a/net/tipc/subscr.c
-+++ b/net/tipc/subscr.c
-@@ -2,7 +2,7 @@
-  * net/tipc/subscr.c: TIPC network topology service
-  *
-  * Copyright (c) 2000-2006, Ericsson AB
-- * Copyright (c) 2005-2007, 2010-2011, Wind River Systems
-+ * Copyright (c) 2005-2007, 2010-2013, Wind River Systems
-  * All rights reserved.
-  *
-  * Redistribution and use in source and binary forms, with or without
-@@ -41,33 +41,42 @@
- 
- /**
-  * struct tipc_subscriber - TIPC network topology subscriber
-- * @port_ref: object reference to server port connecting to subscriber
-- * @lock: pointer to spinlock controlling access to subscriber's server port
-- * @subscriber_list: adjacent subscribers in top. server's list of subscribers
-+ * @conid: connection identifier to server connecting to subscriber
-+ * @lock: controll access to subscriber
-  * @subscription_list: list of subscription objects for this subscriber
-  */
- struct tipc_subscriber {
--	u32 port_ref;
--	spinlock_t *lock;
--	struct list_head subscriber_list;
-+	int conid;
-+	spinlock_t lock;
- 	struct list_head subscription_list;
- };
- 
--/**
-- * struct top_srv - TIPC network topology subscription service
-- * @setup_port: reference to TIPC port that handles subscription requests
-- * @subscription_count: number of active subscriptions (not subscribers!)
-- * @subscriber_list: list of ports subscribing to service
-- * @lock: spinlock govering access to subscriber list
+ /*
+- * tipc_send_buf_fast: Entry for data messages where the
+- * destination node is known and the header is complete,
+- * inclusive total message length.
+- * Returns user data length.
 - */
--struct top_srv {
--	u32 setup_port;
--	atomic_t subscription_count;
--	struct list_head subscriber_list;
--	spinlock_t lock;
-+static void subscr_conn_msg_event(int conid, struct sockaddr_tipc *addr,
-+				  void *usr_data, void *buf, size_t len);
-+static void *subscr_named_msg_event(int conid);
-+static void subscr_conn_shutdown_event(int conid, void *usr_data);
-+
-+static atomic_t subscription_count = ATOMIC_INIT(0);
-+
-+static struct sockaddr_tipc topsrv_addr __read_mostly = {
-+	.family			= AF_TIPC,
-+	.addrtype		= TIPC_ADDR_NAMESEQ,
-+	.addr.nameseq.type	= TIPC_TOP_SRV,
-+	.addr.nameseq.lower	= TIPC_TOP_SRV,
-+	.addr.nameseq.upper	= TIPC_TOP_SRV,
-+	.scope			= TIPC_NODE_SCOPE
- };
- 
--static struct top_srv topsrv;
-+static struct tipc_server topsrv __read_mostly = {
-+	.saddr			= &topsrv_addr,
-+	.imp			= TIPC_CRITICAL_IMPORTANCE,
-+	.type			= SOCK_SEQPACKET,
-+	.max_rcvbuf_size	= sizeof(struct tipc_subscr),
-+	.name			= "topology server",
-+	.tipc_conn_recvmsg	= subscr_conn_msg_event,
-+	.tipc_conn_new		= subscr_named_msg_event,
-+	.tipc_conn_shutdown	= subscr_conn_shutdown_event,
-+};
- 
- /**
-  * htohl - convert value to endianness used by destination
-@@ -81,20 +90,13 @@ static u32 htohl(u32 in, int swap)
- 	return swap ? swab32(in) : in;
- }
- 
--/**
-- * subscr_send_event - send a message containing a tipc_event to the subscriber
-- *
-- * Note: Must not hold subscriber's server port lock, since tipc_send() will
-- *       try to take the lock if the message is rejected and returned!
-- */
--static void subscr_send_event(struct tipc_subscription *sub,
--			      u32 found_lower,
--			      u32 found_upper,
--			      u32 event,
--			      u32 port_ref,
-+static void subscr_send_event(struct tipc_subscription *sub, u32 found_lower,
-+			      u32 found_upper, u32 event, u32 port_ref,
- 			      u32 node)
- {
--	struct iovec msg_sect;
-+	struct tipc_subscriber *subscriber = sub->subscriber;
-+	struct kvec msg_sect;
-+	int ret;
- 
- 	msg_sect.iov_base = (void *)&sub->evt;
- 	msg_sect.iov_len = sizeof(struct tipc_event);
-@@ -104,7 +106,10 @@ static void subscr_send_event(struct tipc_subscription *sub,
- 	sub->evt.found_upper = htohl(found_upper, sub->swap);
- 	sub->evt.port.ref = htohl(port_ref, sub->swap);
- 	sub->evt.port.node = htohl(node, sub->swap);
--	tipc_send(sub->server_ref, 1, &msg_sect, msg_sect.iov_len);
-+	ret = tipc_conn_sendmsg(&topsrv, subscriber->conid, NULL,
-+				msg_sect.iov_base, msg_sect.iov_len);
-+	if (ret < 0)
-+		pr_err("Sending subscription event failed, no memory\n");
- }
- 
- /**
-@@ -147,21 +152,24 @@ void tipc_subscr_report_overlap(struct tipc_subscription *sub,
- 	subscr_send_event(sub, found_lower, found_upper, event, port_ref, node);
- }
- 
--/**
-- * subscr_timeout - subscription timeout has occurred
-- */
- static void subscr_timeout(struct tipc_subscription *sub)
- {
--	struct tipc_port *server_port;
-+	struct tipc_subscriber *subscriber = sub->subscriber;
- 
--	/* Validate server port reference (in case subscriber is terminating) */
--	server_port = tipc_port_lock(sub->server_ref);
--	if (server_port == NULL)
-+	/* The spin lock per subscriber is used to protect its members */
-+	spin_lock_bh(&subscriber->lock);
-+
-+	/* Validate if the connection related to the subscriber is
-+	 * closed (in case subscriber is terminating)
-+	 */
-+	if (subscriber->conid == 0) {
-+		spin_unlock_bh(&subscriber->lock);
- 		return;
-+	}
- 
- 	/* Validate timeout (in case subscription is being cancelled) */
- 	if (sub->timeout == TIPC_WAIT_FOREVER) {
--		tipc_port_unlock(server_port);
-+		spin_unlock_bh(&subscriber->lock);
- 		return;
- 	}
- 
-@@ -171,8 +179,7 @@ static void subscr_timeout(struct tipc_subscription *sub)
- 	/* Unlink subscription from subscriber */
- 	list_del(&sub->subscription_list);
- 
--	/* Release subscriber's server port */
--	tipc_port_unlock(server_port);
-+	spin_unlock_bh(&subscriber->lock);
- 
- 	/* Notify subscriber of timeout */
- 	subscr_send_event(sub, sub->evt.s.seq.lower, sub->evt.s.seq.upper,
-@@ -181,64 +188,54 @@ static void subscr_timeout(struct tipc_subscription *sub)
- 	/* Now destroy subscription */
- 	k_term_timer(&sub->timer);
- 	kfree(sub);
--	atomic_dec(&topsrv.subscription_count);
-+	atomic_dec(&subscription_count);
- }
- 
- /**
-  * subscr_del - delete a subscription within a subscription list
-  *
-- * Called with subscriber port locked.
-+ * Called with subscriber lock held.
-  */
- static void subscr_del(struct tipc_subscription *sub)
- {
- 	tipc_nametbl_unsubscribe(sub);
- 	list_del(&sub->subscription_list);
- 	kfree(sub);
--	atomic_dec(&topsrv.subscription_count);
-+	atomic_dec(&subscription_count);
- }
- 
- /**
-  * subscr_terminate - terminate communication with a subscriber
-  *
-- * Called with subscriber port locked.  Routine must temporarily release lock
-- * to enable subscription timeout routine(s) to finish without deadlocking;
-- * the lock is then reclaimed to allow caller to release it upon return.
-- * (This should work even in the unlikely event some other thread creates
-- * a new object reference in the interim that uses this lock; this routine will
-- * simply wait for it to be released, then claim it.)
-+ * Note: Must call it in process context since it might sleep.
-  */
- static void subscr_terminate(struct tipc_subscriber *subscriber)
- {
--	u32 port_ref;
-+	tipc_conn_terminate(&topsrv, subscriber->conid);
-+}
-+
-+static void subscr_release(struct tipc_subscriber *subscriber)
-+{
- 	struct tipc_subscription *sub;
- 	struct tipc_subscription *sub_temp;
- 
--	/* Invalidate subscriber reference */
--	port_ref = subscriber->port_ref;
--	subscriber->port_ref = 0;
--	spin_unlock_bh(subscriber->lock);
-+	spin_lock_bh(&subscriber->lock);
- 
--	/* Sever connection to subscriber */
--	tipc_shutdown(port_ref);
--	tipc_deleteport(port_ref);
-+	/* Invalidate subscriber reference */
-+	subscriber->conid = 0;
- 
- 	/* Destroy any existing subscriptions for subscriber */
- 	list_for_each_entry_safe(sub, sub_temp, &subscriber->subscription_list,
- 				 subscription_list) {
- 		if (sub->timeout != TIPC_WAIT_FOREVER) {
-+			spin_unlock_bh(&subscriber->lock);
- 			k_cancel_timer(&sub->timer);
- 			k_term_timer(&sub->timer);
-+			spin_lock_bh(&subscriber->lock);
- 		}
- 		subscr_del(sub);
- 	}
+-int tipc_send_buf_fast(struct sk_buff *buf, u32 destnode)
+-{
+-	struct tipc_link *l_ptr;
+-	struct tipc_node *n_ptr;
+-	int res;
+-	u32 selector = msg_origport(buf_msg(buf)) & 1;
+-	u32 dummy;
 -
--	/* Remove subscriber from topology server's subscriber list */
--	spin_lock_bh(&topsrv.lock);
--	list_del(&subscriber->subscriber_list);
--	spin_unlock_bh(&topsrv.lock);
--
--	/* Reclaim subscriber lock */
--	spin_lock_bh(subscriber->lock);
-+	spin_unlock_bh(&subscriber->lock);
- 
- 	/* Now destroy subscriber */
- 	kfree(subscriber);
-@@ -247,7 +244,7 @@ static void subscr_terminate(struct tipc_subscriber *subscriber)
- /**
-  * subscr_cancel - handle subscription cancellation request
-  *
-- * Called with subscriber port locked.  Routine must temporarily release lock
-+ * Called with subscriber lock held. Routine must temporarily release lock
-  * to enable the subscription timeout routine to finish without deadlocking;
-  * the lock is then reclaimed to allow caller to release it upon return.
-  *
-@@ -274,10 +271,10 @@ static void subscr_cancel(struct tipc_subscr *s,
- 	/* Cancel subscription timer (if used), then delete subscription */
- 	if (sub->timeout != TIPC_WAIT_FOREVER) {
- 		sub->timeout = TIPC_WAIT_FOREVER;
--		spin_unlock_bh(subscriber->lock);
-+		spin_unlock_bh(&subscriber->lock);
- 		k_cancel_timer(&sub->timer);
- 		k_term_timer(&sub->timer);
--		spin_lock_bh(subscriber->lock);
-+		spin_lock_bh(&subscriber->lock);
- 	}
- 	subscr_del(sub);
- }
-@@ -285,7 +282,7 @@ static void subscr_cancel(struct tipc_subscr *s,
- /**
-  * subscr_subscribe - create subscription for subscriber
-  *
-- * Called with subscriber port locked.
-+ * Called with subscriber lock held.
-  */
- static struct tipc_subscription *subscr_subscribe(struct tipc_subscr *s,
- 					     struct tipc_subscriber *subscriber)
-@@ -304,7 +301,7 @@ static struct tipc_subscription *subscr_subscribe(struct tipc_subscr *s,
- 	}
- 
- 	/* Refuse subscription if global limit exceeded */
--	if (atomic_read(&topsrv.subscription_count) >= TIPC_MAX_SUBSCRIPTIONS) {
-+	if (atomic_read(&subscription_count) >= TIPC_MAX_SUBSCRIPTIONS) {
- 		pr_warn("Subscription rejected, limit reached (%u)\n",
- 			TIPC_MAX_SUBSCRIPTIONS);
- 		subscr_terminate(subscriber);
-@@ -335,10 +332,10 @@ static struct tipc_subscription *subscr_subscribe(struct tipc_subscr *s,
- 	}
- 	INIT_LIST_HEAD(&sub->nameseq_list);
- 	list_add(&sub->subscription_list, &subscriber->subscription_list);
--	sub->server_ref = subscriber->port_ref;
-+	sub->subscriber = subscriber;
- 	sub->swap = swap;
- 	memcpy(&sub->evt.s, s, sizeof(struct tipc_subscr));
--	atomic_inc(&topsrv.subscription_count);
-+	atomic_inc(&subscription_count);
- 	if (sub->timeout != TIPC_WAIT_FOREVER) {
- 		k_init_timer(&sub->timer,
- 			     (Handler)subscr_timeout, (unsigned long)sub);
-@@ -348,196 +345,51 @@ static struct tipc_subscription *subscr_subscribe(struct tipc_subscr *s,
- 	return sub;
- }
- 
--/**
-- * subscr_conn_shutdown_event - handle termination request from subscriber
-- *
-- * Called with subscriber's server port unlocked.
-- */
--static void subscr_conn_shutdown_event(void *usr_handle,
--				       u32 port_ref,
--				       struct sk_buff **buf,
--				       unsigned char const *data,
--				       unsigned int size,
--				       int reason)
-+/* Handle one termination request for the subscriber */
-+static void subscr_conn_shutdown_event(int conid, void *usr_data)
- {
--	struct tipc_subscriber *subscriber = usr_handle;
--	spinlock_t *subscriber_lock;
--
--	if (tipc_port_lock(port_ref) == NULL)
--		return;
--
--	subscriber_lock = subscriber->lock;
--	subscr_terminate(subscriber);
--	spin_unlock_bh(subscriber_lock);
-+	subscr_release((struct tipc_subscriber *)usr_data);
- }
- 
--/**
-- * subscr_conn_msg_event - handle new subscription request from subscriber
-- *
-- * Called with subscriber's server port unlocked.
-- */
--static void subscr_conn_msg_event(void *usr_handle,
--				  u32 port_ref,
--				  struct sk_buff **buf,
--				  const unchar *data,
--				  u32 size)
-+/* Handle one request to create a new subscription for the subscriber */
-+static void subscr_conn_msg_event(int conid, struct sockaddr_tipc *addr,
-+				  void *usr_data, void *buf, size_t len)
- {
--	struct tipc_subscriber *subscriber = usr_handle;
--	spinlock_t *subscriber_lock;
-+	struct tipc_subscriber *subscriber = usr_data;
- 	struct tipc_subscription *sub;
- 
--	/*
--	 * Lock subscriber's server port (& make a local copy of lock pointer,
--	 * in case subscriber is deleted while processing subscription request)
--	 */
--	if (tipc_port_lock(port_ref) == NULL)
--		return;
--
--	subscriber_lock = subscriber->lock;
--
--	if (size != sizeof(struct tipc_subscr)) {
--		subscr_terminate(subscriber);
--		spin_unlock_bh(subscriber_lock);
--	} else {
--		sub = subscr_subscribe((struct tipc_subscr *)data, subscriber);
--		spin_unlock_bh(subscriber_lock);
--		if (sub != NULL) {
--
--			/*
--			 * We must release the server port lock before adding a
--			 * subscription to the name table since TIPC needs to be
--			 * able to (re)acquire the port lock if an event message
--			 * issued by the subscription process is rejected and
--			 * returned.  The subscription cannot be deleted while
--			 * it is being added to the name table because:
--			 * a) the single-threading of the native API port code
--			 *    ensures the subscription cannot be cancelled and
--			 *    the subscriber connection cannot be broken, and
--			 * b) the name table lock ensures the subscription
--			 *    timeout code cannot delete the subscription,
--			 * so the subscription object is still protected.
--			 */
--			tipc_nametbl_subscribe(sub);
+-	read_lock_bh(&tipc_net_lock);
+-	n_ptr = tipc_node_find(destnode);
+-	if (likely(n_ptr)) {
+-		tipc_node_lock(n_ptr);
+-		l_ptr = n_ptr->active_links[selector];
+-		if (likely(l_ptr)) {
+-			res = link_send_buf_fast(l_ptr, buf, &dummy);
+-			tipc_node_unlock(n_ptr);
+-			read_unlock_bh(&tipc_net_lock);
+-			return res;
 -		}
+-		tipc_node_unlock(n_ptr);
 -	}
-+	spin_lock_bh(&subscriber->lock);
-+	sub = subscr_subscribe((struct tipc_subscr *)buf, subscriber);
-+	if (sub)
-+		tipc_nametbl_subscribe(sub);
-+	spin_unlock_bh(&subscriber->lock);
+-	read_unlock_bh(&tipc_net_lock);
+-	res = msg_data_sz(buf_msg(buf));
+-	tipc_reject_msg(buf, TIPC_ERR_NO_NODE);
+-	return res;
+-}
+-
+-
+-/*
+  * tipc_link_send_sections_fast: Entry for messages where the
+  * destination processor is known and the header is complete,
+  * except for total message length.
+diff --git a/net/tipc/port.c b/net/tipc/port.c
+index 18098ca..0651522 100644
+--- a/net/tipc/port.c
++++ b/net/tipc/port.c
+@@ -2,7 +2,7 @@
+  * net/tipc/port.c: TIPC port code
+  *
+  * Copyright (c) 1992-2007, Ericsson AB
+- * Copyright (c) 2004-2008, 2010-2011, Wind River Systems
++ * Copyright (c) 2004-2008, 2010-2013, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -46,11 +46,7 @@
+ 
+ #define MAX_REJECT_SIZE 1024
+ 
+-static struct sk_buff *msg_queue_head;
+-static struct sk_buff *msg_queue_tail;
+-
+ DEFINE_SPINLOCK(tipc_port_list_lock);
+-static DEFINE_SPINLOCK(queue_lock);
+ 
+ static LIST_HEAD(ports);
+ static void port_handle_node_down(unsigned long ref);
+@@ -668,215 +664,6 @@ void tipc_port_reinit(void)
+ 	spin_unlock_bh(&tipc_port_list_lock);
  }
  
--/**
-- * subscr_named_msg_event - handle request to establish a new subscriber
+-
+-/*
+- *  port_dispatcher_sigh(): Signal handler for messages destinated
+- *                          to the tipc_port interface.
 - */
--static void subscr_named_msg_event(void *usr_handle,
--				   u32 port_ref,
--				   struct sk_buff **buf,
--				   const unchar *data,
--				   u32 size,
--				   u32 importance,
--				   struct tipc_portid const *orig,
--				   struct tipc_name_seq const *dest)
-+
-+/* Handle one request to establish a new subscriber */
-+static void *subscr_named_msg_event(int conid)
+-static void port_dispatcher_sigh(void *dummy)
+-{
+-	struct sk_buff *buf;
+-
+-	spin_lock_bh(&queue_lock);
+-	buf = msg_queue_head;
+-	msg_queue_head = NULL;
+-	spin_unlock_bh(&queue_lock);
+-
+-	while (buf) {
+-		struct tipc_port *p_ptr;
+-		struct user_port *up_ptr;
+-		struct tipc_portid orig;
+-		struct tipc_name_seq dseq;
+-		void *usr_handle;
+-		int connected;
+-		int peer_invalid;
+-		int published;
+-		u32 message_type;
+-
+-		struct sk_buff *next = buf->next;
+-		struct tipc_msg *msg = buf_msg(buf);
+-		u32 dref = msg_destport(msg);
+-
+-		message_type = msg_type(msg);
+-		if (message_type > TIPC_DIRECT_MSG)
+-			goto reject;	/* Unsupported message type */
+-
+-		p_ptr = tipc_port_lock(dref);
+-		if (!p_ptr)
+-			goto reject;	/* Port deleted while msg in queue */
+-
+-		orig.ref = msg_origport(msg);
+-		orig.node = msg_orignode(msg);
+-		up_ptr = p_ptr->user_port;
+-		usr_handle = up_ptr->usr_handle;
+-		connected = p_ptr->connected;
+-		peer_invalid = connected && !tipc_port_peer_msg(p_ptr, msg);
+-		published = p_ptr->published;
+-
+-		if (unlikely(msg_errcode(msg)))
+-			goto err;
+-
+-		switch (message_type) {
+-
+-		case TIPC_CONN_MSG:{
+-				tipc_conn_msg_event cb = up_ptr->conn_msg_cb;
+-				u32 dsz;
+-
+-				tipc_port_unlock(p_ptr);
+-				if (unlikely(!cb))
+-					goto reject;
+-				if (unlikely(!connected)) {
+-					if (tipc_connect(dref, &orig))
+-						goto reject;
+-				} else if (peer_invalid)
+-					goto reject;
+-				dsz = msg_data_sz(msg);
+-				if (unlikely(dsz &&
+-					     (++p_ptr->conn_unacked >=
+-					      TIPC_FLOW_CONTROL_WIN)))
+-					tipc_acknowledge(dref,
+-							 p_ptr->conn_unacked);
+-				skb_pull(buf, msg_hdr_sz(msg));
+-				cb(usr_handle, dref, &buf, msg_data(msg), dsz);
+-				break;
+-			}
+-		case TIPC_DIRECT_MSG:{
+-				tipc_msg_event cb = up_ptr->msg_cb;
+-
+-				tipc_port_unlock(p_ptr);
+-				if (unlikely(!cb || connected))
+-					goto reject;
+-				skb_pull(buf, msg_hdr_sz(msg));
+-				cb(usr_handle, dref, &buf, msg_data(msg),
+-				   msg_data_sz(msg), msg_importance(msg),
+-				   &orig);
+-				break;
+-			}
+-		case TIPC_MCAST_MSG:
+-		case TIPC_NAMED_MSG:{
+-				tipc_named_msg_event cb = up_ptr->named_msg_cb;
+-
+-				tipc_port_unlock(p_ptr);
+-				if (unlikely(!cb || connected || !published))
+-					goto reject;
+-				dseq.type =  msg_nametype(msg);
+-				dseq.lower = msg_nameinst(msg);
+-				dseq.upper = (message_type == TIPC_NAMED_MSG)
+-					? dseq.lower : msg_nameupper(msg);
+-				skb_pull(buf, msg_hdr_sz(msg));
+-				cb(usr_handle, dref, &buf, msg_data(msg),
+-				   msg_data_sz(msg), msg_importance(msg),
+-				   &orig, &dseq);
+-				break;
+-			}
+-		}
+-		if (buf)
+-			kfree_skb(buf);
+-		buf = next;
+-		continue;
+-err:
+-		switch (message_type) {
+-
+-		case TIPC_CONN_MSG:{
+-				tipc_conn_shutdown_event cb =
+-					up_ptr->conn_err_cb;
+-
+-				tipc_port_unlock(p_ptr);
+-				if (!cb || !connected || peer_invalid)
+-					break;
+-				tipc_disconnect(dref);
+-				skb_pull(buf, msg_hdr_sz(msg));
+-				cb(usr_handle, dref, &buf, msg_data(msg),
+-				   msg_data_sz(msg), msg_errcode(msg));
+-				break;
+-			}
+-		case TIPC_DIRECT_MSG:{
+-				tipc_msg_err_event cb = up_ptr->err_cb;
+-
+-				tipc_port_unlock(p_ptr);
+-				if (!cb || connected)
+-					break;
+-				skb_pull(buf, msg_hdr_sz(msg));
+-				cb(usr_handle, dref, &buf, msg_data(msg),
+-				   msg_data_sz(msg), msg_errcode(msg), &orig);
+-				break;
+-			}
+-		case TIPC_MCAST_MSG:
+-		case TIPC_NAMED_MSG:{
+-				tipc_named_msg_err_event cb =
+-					up_ptr->named_err_cb;
+-
+-				tipc_port_unlock(p_ptr);
+-				if (!cb || connected)
+-					break;
+-				dseq.type =  msg_nametype(msg);
+-				dseq.lower = msg_nameinst(msg);
+-				dseq.upper = (message_type == TIPC_NAMED_MSG)
+-					? dseq.lower : msg_nameupper(msg);
+-				skb_pull(buf, msg_hdr_sz(msg));
+-				cb(usr_handle, dref, &buf, msg_data(msg),
+-				   msg_data_sz(msg), msg_errcode(msg), &dseq);
+-				break;
+-			}
+-		}
+-		if (buf)
+-			kfree_skb(buf);
+-		buf = next;
+-		continue;
+-reject:
+-		tipc_reject_msg(buf, TIPC_ERR_NO_PORT);
+-		buf = next;
+-	}
+-}
+-
+-/*
+- *  port_dispatcher(): Dispatcher for messages destinated
+- *  to the tipc_port interface. Called with port locked.
+- */
+-static u32 port_dispatcher(struct tipc_port *dummy, struct sk_buff *buf)
+-{
+-	buf->next = NULL;
+-	spin_lock_bh(&queue_lock);
+-	if (msg_queue_head) {
+-		msg_queue_tail->next = buf;
+-		msg_queue_tail = buf;
+-	} else {
+-		msg_queue_tail = msg_queue_head = buf;
+-		tipc_k_signal((Handler)port_dispatcher_sigh, 0);
+-	}
+-	spin_unlock_bh(&queue_lock);
+-	return 0;
+-}
+-
+-/*
+- * Wake up port after congestion: Called with port locked
+- */
+-static void port_wakeup_sh(unsigned long ref)
+-{
+-	struct tipc_port *p_ptr;
+-	struct user_port *up_ptr;
+-	tipc_continue_event cb = NULL;
+-	void *uh = NULL;
+-
+-	p_ptr = tipc_port_lock(ref);
+-	if (p_ptr) {
+-		up_ptr = p_ptr->user_port;
+-		if (up_ptr) {
+-			cb = up_ptr->continue_event_cb;
+-			uh = up_ptr->usr_handle;
+-		}
+-		tipc_port_unlock(p_ptr);
+-	}
+-	if (cb)
+-		cb(uh, ref);
+-}
+-
+-
+-static void port_wakeup(struct tipc_port *p_ptr)
+-{
+-	tipc_k_signal((Handler)port_wakeup_sh, p_ptr->ref);
+-}
+-
+ void tipc_acknowledge(u32 ref, u32 ack)
  {
- 	struct tipc_subscriber *subscriber;
--	u32 server_port_ref;
- 
- 	/* Create subscriber object */
- 	subscriber = kzalloc(sizeof(struct tipc_subscriber), GFP_ATOMIC);
- 	if (subscriber == NULL) {
- 		pr_warn("Subscriber rejected, no memory\n");
--		return;
-+		return NULL;
- 	}
- 	INIT_LIST_HEAD(&subscriber->subscription_list);
--	INIT_LIST_HEAD(&subscriber->subscriber_list);
--
--	/* Create server port & establish connection to subscriber */
--	tipc_createport(subscriber,
--			importance,
--			NULL,
--			NULL,
--			subscr_conn_shutdown_event,
--			NULL,
--			NULL,
--			subscr_conn_msg_event,
--			NULL,
--			&subscriber->port_ref);
--	if (subscriber->port_ref == 0) {
--		pr_warn("Subscriber rejected, unable to create port\n");
--		kfree(subscriber);
--		return;
--	}
--	tipc_connect(subscriber->port_ref, orig);
--
--	/* Lock server port (& save lock address for future use) */
--	subscriber->lock = tipc_port_lock(subscriber->port_ref)->lock;
--
--	/* Add subscriber to topology server's subscriber list */
--	spin_lock_bh(&topsrv.lock);
--	list_add(&subscriber->subscriber_list, &topsrv.subscriber_list);
--	spin_unlock_bh(&topsrv.lock);
--
--	/* Unlock server port */
--	server_port_ref = subscriber->port_ref;
--	spin_unlock_bh(subscriber->lock);
--
--	/* Send an ACK- to complete connection handshaking */
--	tipc_send(server_port_ref, 0, NULL, 0);
-+	subscriber->conid = conid;
-+	spin_lock_init(&subscriber->lock);
- 
--	/* Handle optional subscription request */
--	if (size != 0) {
--		subscr_conn_msg_event(subscriber, server_port_ref,
--				      buf, data, size);
--	}
-+	return (void *)subscriber;
+ 	struct tipc_port *p_ptr;
+@@ -893,50 +680,6 @@ void tipc_acknowledge(u32 ref, u32 ack)
+ 	tipc_net_route_msg(buf);
  }
  
- int tipc_subscr_start(void)
+-/*
+- * tipc_createport(): user level call.
+- */
+-int tipc_createport(void *usr_handle,
+-		    unsigned int importance,
+-		    tipc_msg_err_event error_cb,
+-		    tipc_named_msg_err_event named_error_cb,
+-		    tipc_conn_shutdown_event conn_error_cb,
+-		    tipc_msg_event msg_cb,
+-		    tipc_named_msg_event named_msg_cb,
+-		    tipc_conn_msg_event conn_msg_cb,
+-		    tipc_continue_event continue_event_cb, /* May be zero */
+-		    u32 *portref)
+-{
+-	struct user_port *up_ptr;
+-	struct tipc_port *p_ptr;
+-
+-	up_ptr = kmalloc(sizeof(*up_ptr), GFP_ATOMIC);
+-	if (!up_ptr) {
+-		pr_warn("Port creation failed, no memory\n");
+-		return -ENOMEM;
+-	}
+-	p_ptr = tipc_createport_raw(NULL, port_dispatcher, port_wakeup,
+-				    importance);
+-	if (!p_ptr) {
+-		kfree(up_ptr);
+-		return -ENOMEM;
+-	}
+-
+-	p_ptr->user_port = up_ptr;
+-	up_ptr->usr_handle = usr_handle;
+-	up_ptr->ref = p_ptr->ref;
+-	up_ptr->err_cb = error_cb;
+-	up_ptr->named_err_cb = named_error_cb;
+-	up_ptr->conn_err_cb = conn_error_cb;
+-	up_ptr->msg_cb = msg_cb;
+-	up_ptr->named_msg_cb = named_msg_cb;
+-	up_ptr->conn_msg_cb = conn_msg_cb;
+-	up_ptr->continue_event_cb = continue_event_cb;
+-	*portref = p_ptr->ref;
+-	tipc_port_unlock(p_ptr);
+-	return 0;
+-}
+-
+ int tipc_portimportance(u32 ref, unsigned int *importance)
  {
--	struct tipc_name_seq seq = {TIPC_TOP_SRV, TIPC_TOP_SRV, TIPC_TOP_SRV};
+ 	struct tipc_port *p_ptr;
+@@ -1322,43 +1065,3 @@ int tipc_send2port(u32 ref, struct tipc_portid const *dest,
+ 	}
+ 	return -ELINKCONG;
+ }
+-
+-/**
+- * tipc_send_buf2port - send message buffer to port identity
+- */
+-int tipc_send_buf2port(u32 ref, struct tipc_portid const *dest,
+-	       struct sk_buff *buf, unsigned int dsz)
+-{
+-	struct tipc_port *p_ptr;
+-	struct tipc_msg *msg;
 -	int res;
 -
--	spin_lock_init(&topsrv.lock);
--	INIT_LIST_HEAD(&topsrv.subscriber_list);
+-	p_ptr = (struct tipc_port *)tipc_ref_deref(ref);
+-	if (!p_ptr || p_ptr->connected)
+-		return -EINVAL;
 -
--	res = tipc_createport(NULL,
--			      TIPC_CRITICAL_IMPORTANCE,
--			      NULL,
--			      NULL,
--			      NULL,
--			      NULL,
--			      subscr_named_msg_event,
--			      NULL,
--			      NULL,
--			      &topsrv.setup_port);
--	if (res)
--		goto failed;
+-	msg = &p_ptr->phdr;
+-	msg_set_type(msg, TIPC_DIRECT_MSG);
+-	msg_set_destnode(msg, dest->node);
+-	msg_set_destport(msg, dest->ref);
+-	msg_set_hdr_sz(msg, BASIC_H_SIZE);
+-	msg_set_size(msg, BASIC_H_SIZE + dsz);
+-	if (skb_cow(buf, BASIC_H_SIZE))
+-		return -ENOMEM;
 -
--	res = tipc_publish(topsrv.setup_port, TIPC_NODE_SCOPE, &seq);
--	if (res) {
--		tipc_deleteport(topsrv.setup_port);
--		topsrv.setup_port = 0;
--		goto failed;
+-	skb_push(buf, BASIC_H_SIZE);
+-	skb_copy_to_linear_data(buf, msg, BASIC_H_SIZE);
+-
+-	if (in_own_node(dest->node))
+-		res = tipc_port_recv_msg(buf);
+-	else
+-		res = tipc_send_buf_fast(buf, dest->node);
+-	if (likely(res != -ELINKCONG)) {
+-		if (res > 0)
+-			p_ptr->sent++;
+-		return res;
 -	}
--
--	return 0;
--
--failed:
--	pr_err("Failed to create subscription service\n");
--	return res;
-+	return tipc_server_start(&topsrv);
- }
- 
- void tipc_subscr_stop(void)
- {
--	struct tipc_subscriber *subscriber;
--	struct tipc_subscriber *subscriber_temp;
--	spinlock_t *subscriber_lock;
--
--	if (topsrv.setup_port) {
--		tipc_deleteport(topsrv.setup_port);
--		topsrv.setup_port = 0;
--
--		list_for_each_entry_safe(subscriber, subscriber_temp,
--					 &topsrv.subscriber_list,
--					 subscriber_list) {
--			subscriber_lock = subscriber->lock;
--			spin_lock_bh(subscriber_lock);
--			subscr_terminate(subscriber);
--			spin_unlock_bh(subscriber_lock);
--		}
--	}
-+	tipc_server_stop(&topsrv);
- }
-diff --git a/net/tipc/subscr.h b/net/tipc/subscr.h
-index 218d2e0..43e6d63 100644
---- a/net/tipc/subscr.h
-+++ b/net/tipc/subscr.h
+-	if (port_unreliable(p_ptr))
+-		return dsz;
+-	return -ELINKCONG;
+-}
+diff --git a/net/tipc/port.h b/net/tipc/port.h
+index fb66e2e..9d8557a 100644
+--- a/net/tipc/port.h
++++ b/net/tipc/port.h
 @@ -2,7 +2,7 @@
-  * net/tipc/subscr.h: Include file for TIPC network topology service
+  * net/tipc/port.h: Include file for TIPC port code
   *
-  * Copyright (c) 2003-2006, Ericsson AB
-- * Copyright (c) 2005-2007, Wind River Systems
-+ * Copyright (c) 2005-2007, 2012-2013, Wind River Systems
+  * Copyright (c) 1994-2007, Ericsson AB
+- * Copyright (c) 2004-2007, 2010-2011, Wind River Systems
++ * Copyright (c) 2004-2007, 2010-2013, Wind River Systems
   * All rights reserved.
   *
   * Redistribution and use in source and binary forms, with or without
-@@ -37,10 +37,14 @@
- #ifndef _TIPC_SUBSCR_H
- #define _TIPC_SUBSCR_H
+@@ -44,37 +44,6 @@
  
-+#include "server.h"
-+
- struct tipc_subscription;
-+struct tipc_subscriber;
+ #define TIPC_FLOW_CONTROL_WIN 512
+ 
+-typedef void (*tipc_msg_err_event) (void *usr_handle, u32 portref,
+-		struct sk_buff **buf, unsigned char const *data,
+-		unsigned int size, int reason,
+-		struct tipc_portid const *attmpt_destid);
+-
+-typedef void (*tipc_named_msg_err_event) (void *usr_handle, u32 portref,
+-		struct sk_buff **buf, unsigned char const *data,
+-		unsigned int size, int reason,
+-		struct tipc_name_seq const *attmpt_dest);
+-
+-typedef void (*tipc_conn_shutdown_event) (void *usr_handle, u32 portref,
+-		struct sk_buff **buf, unsigned char const *data,
+-		unsigned int size, int reason);
+-
+-typedef void (*tipc_msg_event) (void *usr_handle, u32 portref,
+-		struct sk_buff **buf, unsigned char const *data,
+-		unsigned int size, unsigned int importance,
+-		struct tipc_portid const *origin);
+-
+-typedef void (*tipc_named_msg_event) (void *usr_handle, u32 portref,
+-		struct sk_buff **buf, unsigned char const *data,
+-		unsigned int size, unsigned int importance,
+-		struct tipc_portid const *orig,
+-		struct tipc_name_seq const *dest);
+-
+-typedef void (*tipc_conn_msg_event) (void *usr_handle, u32 portref,
+-		struct sk_buff **buf, unsigned char const *data,
+-		unsigned int size);
+-
+-typedef void (*tipc_continue_event) (void *usr_handle, u32 portref);
+-
+ /**
+  * struct user_port - TIPC user port (used with native API)
+  * @usr_handle: user-specified field
+@@ -85,13 +54,6 @@ typedef void (*tipc_continue_event) (void *usr_handle, u32 portref);
+ struct user_port {
+ 	void *usr_handle;
+ 	u32 ref;
+-	tipc_msg_err_event err_cb;
+-	tipc_named_msg_err_event named_err_cb;
+-	tipc_conn_shutdown_event conn_err_cb;
+-	tipc_msg_event msg_cb;
+-	tipc_named_msg_event named_msg_cb;
+-	tipc_conn_msg_event conn_msg_cb;
+-	tipc_continue_event continue_event_cb;
+ };
  
  /**
-  * struct tipc_subscription - TIPC network topology subscription object
-+ * @subscriber: pointer to its subscriber
-  * @seq: name sequence associated with subscription
-  * @timeout: duration of subscription (in ms)
-  * @filter: event filtering to be done for subscription
-@@ -52,13 +56,13 @@ struct tipc_subscription;
-  * @evt: template for events generated by subscription
-  */
- struct tipc_subscription {
-+	struct tipc_subscriber *subscriber;
- 	struct tipc_name_seq seq;
- 	u32 timeout;
- 	u32 filter;
- 	struct timer_list timer;
- 	struct list_head nameseq_list;
- 	struct list_head subscription_list;
--	u32 server_ref;
- 	int swap;
- 	struct tipc_event evt;
- };
+@@ -162,18 +124,8 @@ struct tipc_port *tipc_createport_raw(void *usr_handle,
+ 
+ int tipc_reject_msg(struct sk_buff *buf, u32 err);
+ 
+-int tipc_send_buf_fast(struct sk_buff *buf, u32 destnode);
+-
+ void tipc_acknowledge(u32 port_ref, u32 ack);
+ 
+-int tipc_createport(void *usr_handle,
+-		unsigned int importance, tipc_msg_err_event error_cb,
+-		tipc_named_msg_err_event named_error_cb,
+-		tipc_conn_shutdown_event conn_error_cb, tipc_msg_event msg_cb,
+-		tipc_named_msg_event named_msg_cb,
+-		tipc_conn_msg_event conn_msg_cb,
+-		tipc_continue_event continue_event_cb, u32 *portref);
+-
+ int tipc_deleteport(u32 portref);
+ 
+ int tipc_portimportance(u32 portref, unsigned int *importance);
+@@ -220,9 +172,6 @@ int tipc_send2port(u32 portref, struct tipc_portid const *dest,
+ 		   unsigned int num_sect, struct iovec const *msg_sect,
+ 		   unsigned int total_len);
+ 
+-int tipc_send_buf2port(u32 portref, struct tipc_portid const *dest,
+-		struct sk_buff *buf, unsigned int dsz);
+-
+ int tipc_multicast(u32 portref, struct tipc_name_seq const *seq,
+ 		   unsigned int section_count, struct iovec const *msg,
+ 		   unsigned int total_len);
 -- 
 1.8.1.2
