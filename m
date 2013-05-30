@@ -1,109 +1,47 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH] udp6: Fix udp fragmentation for tunnel traffic.
-Date: Thu, 30 May 2013 09:45:27 -0700
-Message-ID: <1369932327-7913-1-git-send-email-pshelar@nicira.com>
-Cc: dkravkov@gmail.com, Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: GREv4 ipv6 is broken for UDP stream on 3.9
+Date: Thu, 30 May 2013 09:46:15 -0700
+Message-ID: <CALnjE+pHEqdZ9KADF9L+8WfGwi+q-NgXSR7bnEiz4BhArY7q-w@mail.gmail.com>
+References: <CAM8tLiOQq2a_Z=F_V5A2saPN+JfwN7Ey29r+UmUK_f9oYF5vCw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dmitry Kravkov <dkravkov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog118.obsmtp.com ([74.125.149.244]:58811 "HELO
-	na3sys009aog118.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S964828Ab3E3Qpk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 12:45:40 -0400
-Received: by mail-pb0-f47.google.com with SMTP id rr4so674070pbb.6
-        for <netdev@vger.kernel.org>; Thu, 30 May 2013 09:45:37 -0700 (PDT)
+Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:44682 "HELO
+	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965036Ab3E3QqQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 12:46:16 -0400
+Received: by mail-qc0-f179.google.com with SMTP id e1so242458qcx.24
+        for <netdev@vger.kernel.org>; Thu, 30 May 2013 09:46:15 -0700 (PDT)
+In-Reply-To: <CAM8tLiOQq2a_Z=F_V5A2saPN+JfwN7Ey29r+UmUK_f9oYF5vCw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-udp6 over GRE tunnel does not work after to GRE tso changes. GRE
-tso handler passes inner packet but keeps track of outer header
-start in SKB_GSO_CB(skb)->mac_offset.  udp6 fragment need to
-take care of outer header, which start at the mac_offset, while
-adding fragment header.
-This bug is introduced by commit 68c3316311 (GRE: Add TCP
-segmentation offload for GRE).
+I sent out fix "udp6: Fix udp fragmentation for tunnel traffic."
+Can you give it a try ?
 
-Reported-by: Dmitry Kravkov <dkravkov@gmail.com>
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- include/linux/skbuff.h |   15 +++++++++++++++
- net/ipv6/udp_offload.c |   20 ++++++++++++--------
- 2 files changed, 27 insertions(+), 8 deletions(-)
+Thanks.
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 5f93119..f7fdf71 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2758,6 +2758,21 @@ static inline int skb_tnl_header_len(const struct sk_buff *inner_skb)
- 		SKB_GSO_CB(inner_skb)->mac_offset;
- }
- 
-+static inline int gso_pskb_expand_head(struct sk_buff *skb, int extra)
-+{
-+	int new_headroom, headroom;
-+	int ret;
-+
-+	headroom = skb_headroom(skb);
-+	ret = pskb_expand_head(skb, extra, 0, GFP_ATOMIC);
-+	if (ret)
-+		return ret;
-+
-+	new_headroom = skb_headroom(skb);
-+	SKB_GSO_CB(skb)->mac_offset += (new_headroom - headroom);
-+	return 0;
-+}
-+
- static inline bool skb_is_gso(const struct sk_buff *skb)
- {
- 	return skb_shinfo(skb)->gso_size;
-diff --git a/net/ipv6/udp_offload.c b/net/ipv6/udp_offload.c
-index 76d401a..5d1b8d7 100644
---- a/net/ipv6/udp_offload.c
-+++ b/net/ipv6/udp_offload.c
-@@ -46,11 +46,12 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 	unsigned int mss;
- 	unsigned int unfrag_ip6hlen, unfrag_len;
- 	struct frag_hdr *fptr;
--	u8 *mac_start, *prevhdr;
-+	u8 *packet_start, *prevhdr;
- 	u8 nexthdr;
- 	u8 frag_hdr_sz = sizeof(struct frag_hdr);
- 	int offset;
- 	__wsum csum;
-+	int tnl_hlen;
- 
- 	mss = skb_shinfo(skb)->gso_size;
- 	if (unlikely(skb->len <= mss))
-@@ -84,9 +85,11 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 	skb->ip_summed = CHECKSUM_NONE;
- 
- 	/* Check if there is enough headroom to insert fragment header. */
--	if ((skb_mac_header(skb) < skb->head + frag_hdr_sz) &&
--	    pskb_expand_head(skb, frag_hdr_sz, 0, GFP_ATOMIC))
--		goto out;
-+	tnl_hlen = skb_tnl_header_len(skb);
-+	if (skb_headroom(skb) < (tnl_hlen + frag_hdr_sz)) {
-+		if (gso_pskb_expand_head(skb, tnl_hlen + frag_hdr_sz))
-+			goto out;
-+	}
- 
- 	/* Find the unfragmentable header and shift it left by frag_hdr_sz
- 	 * bytes to insert fragment header.
-@@ -94,11 +97,12 @@ static struct sk_buff *udp6_ufo_fragment(struct sk_buff *skb,
- 	unfrag_ip6hlen = ip6_find_1stfragopt(skb, &prevhdr);
- 	nexthdr = *prevhdr;
- 	*prevhdr = NEXTHDR_FRAGMENT;
--	unfrag_len = skb_network_header(skb) - skb_mac_header(skb) +
--		     unfrag_ip6hlen;
--	mac_start = skb_mac_header(skb);
--	memmove(mac_start-frag_hdr_sz, mac_start, unfrag_len);
-+	unfrag_len = (skb_network_header(skb) - skb_mac_header(skb)) +
-+		     unfrag_ip6hlen + tnl_hlen;
-+	packet_start = (u8 *) skb->head + SKB_GSO_CB(skb)->mac_offset;
-+	memmove(packet_start-frag_hdr_sz, packet_start, unfrag_len);
- 
-+	SKB_GSO_CB(skb)->mac_offset -= frag_hdr_sz;
- 	skb->mac_header -= frag_hdr_sz;
- 	skb->network_header -= frag_hdr_sz;
- 
--- 
-1.7.1
+On Wed, May 29, 2013 at 1:16 AM, Dmitry Kravkov <dkravkov@gmail.com> wrote:
+> Hi,
+>
+> since 3.9-rc1 i see that rx side drops all data packets for:
+>
+> netperf -6 -t UDP_STREAM -H fe80::5efe:c0a8:630c%gre_7 -l 1
+>
+> when gre_7 is:
+>
+> 13: gre_7: <POINTOPOINT,NOARP,UP,LOWER_UP> mtu 1476 qdisc noqueue state UNKNOWN
+>     link/gre 192.168.99.29 peer 192.168.99.12
+>
+> The packets just gets corrupted.
+>
+> This bisected to:
+> commit 68c331631143f5f039baac99a650e0b9e1ea02b6
+> Author: Pravin B Shelar <pshelar@nicira.com>
+> Date:   Thu Feb 14 14:02:41 2013 +0000
+>
+>     v4 GRE: Add TCP segmentation offload for GRE
+>
+> Looks like gre_gso_segment build wrong segments for GSO flow.
