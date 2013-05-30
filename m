@@ -1,115 +1,104 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH v5 12/13] ARM: kirkwood: remove redundant DT board files
-Date: Thu, 30 May 2013 15:37:08 -0400
-Message-ID: <20130530193708.GC31290@titan.lakedaemon.net>
-References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369855975-21489-13-git-send-email-sebastian.hesselbarth@gmail.com>
- <8738t4q1kv.fsf@natisbad.org>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v7 net-next 2/5] net: implement support
+ for low latency socket polling
+Date: Thu, 30 May 2013 23:01:13 +0300
+Message-ID: <51A7B009.3030709@linux.intel.com>
+References: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
+	<20130530114111.12653.25023.stgit@ladj378.jer.intel.com>
+	<51A76B2F.8010904@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@wantstofly.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Arnaud Ebalard <arno@natisbad.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <8738t4q1kv.fsf@natisbad.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
+	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: Amir Vadai <amirv@mellanox.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <51A76B2F.8010904@mellanox.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 30, 2013 at 11:06:08AM +0200, Arnaud Ebalard wrote:
-> Hi Jason and Sebastian,
-> 
-> Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com> writes:
-> 
-> > With DT support for mv643xx_eth board specific init for some boards now
-> > is unneccessary. Remove those board files, Kconfig entries, and
-> > corresponding entries in kirkwood_defconfig.
-> >
-> > Signed-off-by: Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-> > ---
-> > Note: board-km_kirkwood.c is also removed, as Valentin Longchamp confirmed
-> > the lock-up is not caused by accessing clock gating registers but rather
-> > non-existent device registers. This will be addressed by dtsi separation
-> > for kirkwood and bobcat SoC variants.
-> >
-> > Changelog:
-> > v3->v4:
-> > - remove more boards that don't require board specific setup
-> >
-> > Cc: David Miller <davem@davemloft.net>
-> > Cc: Lennert Buytenhek <buytenh@wantstofly.org>
-> > Cc: Jason Cooper <jason@lakedaemon.net>
-> > Cc: Andrew Lunn <andrew@lunn.ch>
-> > Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-> > Cc: netdev@vger.kernel.org
-> > Cc: linux-arm-kernel@lists.infradead.org
-> > Cc: linuxppc-dev@lists.ozlabs.org
-> > Cc: linux-kernel@vger.kernel.org
-> > ---
-> >  arch/arm/configs/kirkwood_defconfig           |   16 ----
-> >  arch/arm/mach-kirkwood/Kconfig                |  117 -------------------------
-> >  arch/arm/mach-kirkwood/Makefile               |   16 ----
-> >  arch/arm/mach-kirkwood/board-dnskw.c          |    7 --
-> >  arch/arm/mach-kirkwood/board-dockstar.c       |   32 -------
-> >  arch/arm/mach-kirkwood/board-dreamplug.c      |   35 --------
-> >  arch/arm/mach-kirkwood/board-dt.c             |   62 +------------
-> >  arch/arm/mach-kirkwood/board-goflexnet.c      |   34 -------
-> >  arch/arm/mach-kirkwood/board-guruplug.c       |   33 -------
-> >  arch/arm/mach-kirkwood/board-ib62x0.c         |   29 ------
-> >  arch/arm/mach-kirkwood/board-iconnect.c       |   10 ---
-> >  arch/arm/mach-kirkwood/board-iomega_ix2_200.c |   34 -------
-> >  arch/arm/mach-kirkwood/board-km_kirkwood.c    |   44 ----------
-> >  arch/arm/mach-kirkwood/board-lsxl.c           |   16 ----
-> >  arch/arm/mach-kirkwood/board-mplcec4.c        |   14 ---
-> >  arch/arm/mach-kirkwood/board-ns2.c            |   35 --------
-> >  arch/arm/mach-kirkwood/board-openblocks_a6.c  |   26 ------
-> >  arch/arm/mach-kirkwood/board-readynas.c       |    6 --
-> 
-> Just a stupid note: With Thomas ongoing work to get mvebu-pcie driver in
-> place and enabled for kirkwood, some boards setup files will also lose
-> their pcie init routines, which may allow you to kill those additonal
-> files soon.
+On 30/05/2013 18:07, Amir Vadai wrote:
+> On 30/05/2013 14:41, Eliezer Tamir wrote:
+>> diff --git a/fs/select.c b/fs/select.c
+>> @@ -486,6 +488,8 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
+>>   			break;
+>>   		}
+>>
+>> +		if (can_poll_ll(ll_time))
+>> +			continue;
+> I don't see here discrimination between sockets that you want to poll
+> and other sockets.
+> So it means that select will busy poll every type of file descriptor
+> instead of going to sleep.
+> Should have a condition with something like sk_valid_ll()
 
-Yes, we're very excited about this ;-)
+As I said earlier, select and poll are far from complete.
+We are working on this.
+Right now when you turn this on, all sockets get the same treatment.
+sk_valid_ll() can't work here, because we don't have a single socket to 
+work with.
 
-> For instance 6bd98481ab34 (arm: kirkwood: NETGEAR ReadyNAS Duo v2 init
-> PCIe via DT) currently sitting in jcooper/mvebu/pcie_kirkwood removes
-> the PCIE init routine in board-readynas.c, and yours remove ge00
-> init. With both applied, the whole file can go away.
-> 
-> AFAICT, this may be the case soon for:
-> 
->  arch/arm/mach-kirkwood/board-iconnect.c   (36e5722089)
->  arch/arm/mach-kirkwood/board-mplcec4.c    (9470fbfb8d)
->  arch/arm/mach-kirkwood/board-nsa310.c     (40fa8e5da2)
->  arch/arm/mach-kirkwood/board-readynas.c   (6bd98481ab)
->  arch/arm/mach-kirkwood/board-ts219.c      (259e234608)
+At the moment, I think the right way to solve this might be to add
+new flags to poll.h So that select/poll can signal to sock_poll
+that it wants to busy-wait and sock_poll can tell select/poll that
+it has found a socket that can support it.
 
-Would you mind putting a patch together (for after v3.10 drops) to do
-this?  If you applied Sebastian's series on top of mvebu/pcie_kirkwood,
-that should get you almost there.  The last half of his series is going
-in after v3.10...
+Remember that the information is dynamic so we can't know in advance
+which sockets can busy-poll.
 
-You may want to try merging in mvebu/boards and mvebu/soc.  Those have
-the changes to use dt for the restart and power-off drivers.  That'll
-allow us to empty out a few more board files.  mvebu/dt also has a patch
-from Valentin allowing us to remove the keymile board as well.
+If anyone else has a suggestion I would really like to hear it.
 
-thx,
+>
+>> +static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+>> +{
+>> +}
+>> +
+>> +static inline bool can_poll_ll(unsigned long end_time)
+> should use here cycles_t too.
 
-Jason.
+yes
+
+>
+>> +{
+>> +	return false;
+>> +}
+>> +
+>> +#endif /* CONFIG_NET_LL_RX_POLL */
+>> +#endif /* _LINUX_NET_LL_POLL_H */
+>
+>
+> Also, something general about this patch. I think you should split out
+> to separate patches all the users of the feature, like you did for TCP.
+> I would suggest small patches for UDP, select and poll.
+
+Splitting out the users of the features as you call it will only move 
+out about 30 lines of patch, I think it will make reviewing harder since 
+you will not be able to see the whole picture in one patch.
+But if anyone else thinks this is a good idea, I will do it.
+
+-Eliezer
+
+------------------------------------------------------------------------------
+Introducing AppDynamics Lite, a free troubleshooting tool for Java/.NET
+Get 100% visibility into your production application - at no cost.
+Code-level diagnostics for performance bottlenecks with <2% overhead
+Download for free and get started troubleshooting in minutes.
+http://p.sf.net/sfu/appdyn_d2d_ap1
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
