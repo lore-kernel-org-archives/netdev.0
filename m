@@ -1,123 +1,433 @@
-From: Joao Correia <joaomiguelcorreia@gmail.com>
-Subject: Re: Network issue on 3.10 rcs, bisected
-Date: Thu, 30 May 2013 22:14:14 +0100
-Message-ID: <CACG0VPXWoD=33rSv9S_C2t7XSHny9vHwKysoiTdwWueQM7MLsA@mail.gmail.com>
-References: <CACG0VPV3-x5Ncp+_hci8wVNYUeqAUZ0KFm0MAuHMntXzaL9Nqw@mail.gmail.com>
- <CALnjE+p3vFkYBu=XioeDTEL1cyXh_379ix84Yoojj1eB11q57Q@mail.gmail.com>
- <CACG0VPWeu8JoMYJNnQ39zvubftpeTB_EvKNrxZm7Op9q6HUVXA@mail.gmail.com> <CALnjE+q-dbK0bha_J848mb7sdmLi7a5-BMjKng+wQ8KaDFL=LQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Pravin Shelar <pshelar@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f42.google.com ([209.85.128.42]:61536 "EHLO
-	mail-qe0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758484Ab3E3VO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 17:14:56 -0400
-In-Reply-To: <CALnjE+q-dbK0bha_J848mb7sdmLi7a5-BMjKng+wQ8KaDFL=LQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH V3.10] rtlwifi: rtl8192cu: Fix problem in connecting to WEP or WPA(1) networks
+Date: Thu, 30 May 2013 16:23:30 -0500
+Message-ID: <1369949040-9513-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, Stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, May 30, 2013 at 5:48 PM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Wed, May 29, 2013 at 12:53 PM, Joao Correia
-> <joaomiguelcorreia@gmail.com> wrote:
->> On Wed, May 29, 2013 at 7:59 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>
->>> On Wed, May 29, 2013 at 4:37 AM, Joao Correia
->>> <joaomiguelcorreia@gmail.com> wrote:
->>> > Hello list
->>> >
->>> > While trying the rc's for 3.10, i've stumbled upon a problem where
->>> > networking does not work at all. Iptables will show packet counts going up,
->>> > but nothing actually reaches the programs.
->>> >
->>> > I'm running fedora under hyper-v 3 (a windows 2012 host). Only tested ipv4
->>> > traffic, and everything times out (ping, telnet to open ports) on both
->>> > directions. The networking devices come up apparently ok - has static ip
->>> > set, and dmesg shows no errors (although i don't have many debugging options
->>> > enabled).
->>> >
->>> > I bisected this, and git blames commit
->>> > ec5f061564238892005257c83565a0b58ec79295 (net: ill link between CSUM and SG
->>> > features.). I can't revert it cleanly on current rc's.
->>> >
->>> Can you also send network features set on the device?
->>> ethtool -k <dev>
->>
->>
->> As requested:
->> Features for eth0:
->> rx-checksumming: off [fixed]
->> tx-checksumming: off
->>     tx-checksum-ipv4: off [fixed]
->>     tx-checksum-ip-generic: off [fixed]
->>     tx-checksum-ipv6: off [fixed]
->>     tx-checksum-fcoe-crc: off [fixed]
->>     tx-checksum-sctp: off [fixed]
->> scatter-gather: on
->>     tx-scatter-gather: on
->>     tx-scatter-gather-fraglist: off [fixed]
->> tcp-segmentation-offload: off
->>     tx-tcp-segmentation: off [fixed]
->>     tx-tcp-ecn-segmentation: off [fixed]
->>     tx-tcp6-segmentation: off [fixed]
->> udp-fragmentation-offload: off [fixed]
->> generic-segmentation-offload: on
->> generic-receive-offload: on
->> large-receive-offload: off [fixed]
->> rx-vlan-offload: off
->> tx-vlan-offload: on
->> ntuple-filters: off [fixed]
->> receive-hashing: off [fixed]
->> highdma: off [fixed]
->> tx-vlan-ctag-hw-insert: on [fixed]
->> rx-vlan-ctag-hw-parse: off [fixed]
->> rx-vlan-ctag-filter: off [fixed]
->> tx-vlan-stag-hw-insert: off [fixed]
->> rx-vlan-stag-hw-parse: off [fixed]
->> rx-vlan-stag-filter: off [fixed]
->> vlan-challenged: off [fixed]
->> tx-lockless: off [fixed]
->> netns-local: off [fixed]
->> tx-gso-robust: off [fixed]
->> tx-fcoe-segmentation: off [fixed]
->> tx-gre-segmentation: off [fixed]
->> tx-udp_tnl-segmentation: off [fixed]
->> fcoe-mtu: off [fixed]
->> tx-nocache-copy: off
->> loopback: off [fixed]
->> rx-fcs: off [fixed]
->> rx-all: off [fixed]
->>
->> The output is similar on a working (3.9) and a bad (3.10) kernel.
->> diff-ing both outputs shows:
->> tx-vlan-stag-hw-insert: off [fixed]
->> rx-vlan-stag-hw-parse: off [fixed]
->> rx-vlan-stag-filter: off [fixed]
->> as last on the broken kernels.
->>
->
-> I could not reproduce it, I will try it on VM. Meanwhile can you turn
-> off feature "sg" and try same test ?
+Driver rtl8192cu can connect to WPA2 networks, but fails for any other
+encryption method. The cause is a failure to set the rate control data
+blocks. These changes fix https://bugzilla.redhat.com/show_bug.cgi?id=952793
+and https://bugzilla.redhat.com/show_bug.cgi?id=761525.
 
-Hello
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+---
 
-Your hint was spot-on. With sg off, i can't reproduce the problem and
-networking seems fine. It works fine either way on 3.9, so this is a
-regression for 3.10.
+John,
 
-Thank you very much for your assistance.
-Joao Correia
-CIUBI
-Universidade da Beira Interior
-Portugal
+This patch is pretty large for this stage; however, it fixes a bad bug, and
+it will only affect rtl8192cu even though it touches rtlwifi.
 
->
-> Thanks.
->
->> Thank you for your time,
->> Joao Correia
->> CIUBI
->> Universidade da Beira Interior
->> Portugal
+I held it for a while while Fedora and RHEL users tried it and responded.
+As you well know, that can take a while.
+
+Thanks,
+
+Larry
+---
+
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.c  | 134 ++++++++++++++++++++-------
+ drivers/net/wireless/rtlwifi/rtl8192cu/hw.h  |   4 -
+ drivers/net/wireless/rtlwifi/rtl8192cu/mac.c |  18 +++-
+ drivers/net/wireless/rtlwifi/rtl8192cu/sw.c  |   4 +-
+ drivers/net/wireless/rtlwifi/rtl8192cu/sw.h  |   3 +
+ drivers/net/wireless/rtlwifi/usb.c           |  13 +++
+ drivers/net/wireless/rtlwifi/wifi.h          |   4 +
+ 7 files changed, 139 insertions(+), 41 deletions(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+index 3d0498e..189ba12 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.c
+@@ -1973,26 +1973,35 @@ void rtl92cu_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val)
+ 	}
+ }
+ 
+-void rtl92cu_update_hal_rate_table(struct ieee80211_hw *hw,
+-				   struct ieee80211_sta *sta,
+-				   u8 rssi_level)
++static void rtl92cu_update_hal_rate_table(struct ieee80211_hw *hw,
++					  struct ieee80211_sta *sta)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rtl_phy *rtlphy = &(rtlpriv->phy);
+ 	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
+-	u32 ratr_value = (u32) mac->basic_rates;
+-	u8 *mcsrate = mac->mcs;
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	u32 ratr_value;
+ 	u8 ratr_index = 0;
+ 	u8 nmode = mac->ht_enable;
+-	u8 mimo_ps = 1;
+-	u16 shortgi_rate = 0;
+-	u32 tmp_ratr_value = 0;
++	u8 mimo_ps = IEEE80211_SMPS_OFF;
++	u16 shortgi_rate;
++	u32 tmp_ratr_value;
+ 	u8 curtxbw_40mhz = mac->bw_40;
+-	u8 curshortgi_40mhz = mac->sgi_40;
+-	u8 curshortgi_20mhz = mac->sgi_20;
++	u8 curshortgi_40mhz = (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_40) ?
++			       1 : 0;
++	u8 curshortgi_20mhz = (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_20) ?
++			       1 : 0;
+ 	enum wireless_mode wirelessmode = mac->mode;
+ 
+-	ratr_value |= ((*(u16 *) (mcsrate))) << 12;
++	if (rtlhal->current_bandtype == BAND_ON_5G)
++		ratr_value = sta->supp_rates[1] << 4;
++	else
++		ratr_value = sta->supp_rates[0];
++	if (mac->opmode == NL80211_IFTYPE_ADHOC)
++		ratr_value = 0xfff;
++
++	ratr_value |= (sta->ht_cap.mcs.rx_mask[1] << 20 |
++			sta->ht_cap.mcs.rx_mask[0] << 12);
+ 	switch (wirelessmode) {
+ 	case WIRELESS_MODE_B:
+ 		if (ratr_value & 0x0000000c)
+@@ -2006,7 +2015,7 @@ void rtl92cu_update_hal_rate_table(struct ieee80211_hw *hw,
+ 	case WIRELESS_MODE_N_24G:
+ 	case WIRELESS_MODE_N_5G:
+ 		nmode = 1;
+-		if (mimo_ps == 0) {
++		if (mimo_ps == IEEE80211_SMPS_STATIC) {
+ 			ratr_value &= 0x0007F005;
+ 		} else {
+ 			u32 ratr_mask;
+@@ -2016,8 +2025,7 @@ void rtl92cu_update_hal_rate_table(struct ieee80211_hw *hw,
+ 				ratr_mask = 0x000ff005;
+ 			else
+ 				ratr_mask = 0x0f0ff005;
+-			if (curtxbw_40mhz)
+-				ratr_mask |= 0x00000010;
++
+ 			ratr_value &= ratr_mask;
+ 		}
+ 		break;
+@@ -2026,41 +2034,74 @@ void rtl92cu_update_hal_rate_table(struct ieee80211_hw *hw,
+ 			ratr_value &= 0x000ff0ff;
+ 		else
+ 			ratr_value &= 0x0f0ff0ff;
++
+ 		break;
+ 	}
++
+ 	ratr_value &= 0x0FFFFFFF;
+-	if (nmode && ((curtxbw_40mhz && curshortgi_40mhz) ||
+-	    (!curtxbw_40mhz && curshortgi_20mhz))) {
++
++	if (nmode && ((curtxbw_40mhz &&
++			 curshortgi_40mhz) || (!curtxbw_40mhz &&
++					       curshortgi_20mhz))) {
++
+ 		ratr_value |= 0x10000000;
+ 		tmp_ratr_value = (ratr_value >> 12);
++
+ 		for (shortgi_rate = 15; shortgi_rate > 0; shortgi_rate--) {
+ 			if ((1 << shortgi_rate) & tmp_ratr_value)
+ 				break;
+ 		}
++
+ 		shortgi_rate = (shortgi_rate << 12) | (shortgi_rate << 8) |
+-			       (shortgi_rate << 4) | (shortgi_rate);
++		    (shortgi_rate << 4) | (shortgi_rate);
+ 	}
++
+ 	rtl_write_dword(rtlpriv, REG_ARFR0 + ratr_index * 4, ratr_value);
++
++	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG, "%x\n",
++		 rtl_read_dword(rtlpriv, REG_ARFR0));
+ }
+ 
+-void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level)
++static void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw,
++					 struct ieee80211_sta *sta,
++					 u8 rssi_level)
+ {
+ 	struct rtl_priv *rtlpriv = rtl_priv(hw);
+ 	struct rtl_phy *rtlphy = &(rtlpriv->phy);
+ 	struct rtl_mac *mac = rtl_mac(rtl_priv(hw));
+-	u32 ratr_bitmap = (u32) mac->basic_rates;
+-	u8 *p_mcsrate = mac->mcs;
+-	u8 ratr_index = 0;
+-	u8 curtxbw_40mhz = mac->bw_40;
+-	u8 curshortgi_40mhz = mac->sgi_40;
+-	u8 curshortgi_20mhz = mac->sgi_20;
+-	enum wireless_mode wirelessmode = mac->mode;
++	struct rtl_hal *rtlhal = rtl_hal(rtl_priv(hw));
++	struct rtl_sta_info *sta_entry = NULL;
++	u32 ratr_bitmap;
++	u8 ratr_index;
++	u8 curtxbw_40mhz = (sta->bandwidth >= IEEE80211_STA_RX_BW_40) ? 1 : 0;
++	u8 curshortgi_40mhz = curtxbw_40mhz &&
++			      (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_40) ?
++				1 : 0;
++	u8 curshortgi_20mhz = (sta->ht_cap.cap & IEEE80211_HT_CAP_SGI_20) ?
++				1 : 0;
++	enum wireless_mode wirelessmode = 0;
+ 	bool shortgi = false;
+ 	u8 rate_mask[5];
+ 	u8 macid = 0;
+-	u8 mimops = 1;
+-
+-	ratr_bitmap |= (p_mcsrate[1] << 20) | (p_mcsrate[0] << 12);
++	u8 mimo_ps = IEEE80211_SMPS_OFF;
++
++	sta_entry = (struct rtl_sta_info *) sta->drv_priv;
++	wirelessmode = sta_entry->wireless_mode;
++	if (mac->opmode == NL80211_IFTYPE_STATION ||
++	    mac->opmode == NL80211_IFTYPE_MESH_POINT)
++		curtxbw_40mhz = mac->bw_40;
++	else if (mac->opmode == NL80211_IFTYPE_AP ||
++		mac->opmode == NL80211_IFTYPE_ADHOC)
++		macid = sta->aid + 1;
++
++	if (rtlhal->current_bandtype == BAND_ON_5G)
++		ratr_bitmap = sta->supp_rates[1] << 4;
++	else
++		ratr_bitmap = sta->supp_rates[0];
++	if (mac->opmode == NL80211_IFTYPE_ADHOC)
++		ratr_bitmap = 0xfff;
++	ratr_bitmap |= (sta->ht_cap.mcs.rx_mask[1] << 20 |
++			sta->ht_cap.mcs.rx_mask[0] << 12);
+ 	switch (wirelessmode) {
+ 	case WIRELESS_MODE_B:
+ 		ratr_index = RATR_INX_WIRELESS_B;
+@@ -2071,6 +2112,7 @@ void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level)
+ 		break;
+ 	case WIRELESS_MODE_G:
+ 		ratr_index = RATR_INX_WIRELESS_GB;
++
+ 		if (rssi_level == 1)
+ 			ratr_bitmap &= 0x00000f00;
+ 		else if (rssi_level == 2)
+@@ -2085,7 +2127,8 @@ void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level)
+ 	case WIRELESS_MODE_N_24G:
+ 	case WIRELESS_MODE_N_5G:
+ 		ratr_index = RATR_INX_WIRELESS_NGB;
+-		if (mimops == 0) {
++
++		if (mimo_ps == IEEE80211_SMPS_STATIC) {
+ 			if (rssi_level == 1)
+ 				ratr_bitmap &= 0x00070000;
+ 			else if (rssi_level == 2)
+@@ -2128,8 +2171,10 @@ void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level)
+ 				}
+ 			}
+ 		}
++
+ 		if ((curtxbw_40mhz && curshortgi_40mhz) ||
+ 		    (!curtxbw_40mhz && curshortgi_20mhz)) {
++
+ 			if (macid == 0)
+ 				shortgi = true;
+ 			else if (macid == 1)
+@@ -2138,21 +2183,42 @@ void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level)
+ 		break;
+ 	default:
+ 		ratr_index = RATR_INX_WIRELESS_NGB;
++
+ 		if (rtlphy->rf_type == RF_1T2R)
+ 			ratr_bitmap &= 0x000ff0ff;
+ 		else
+ 			ratr_bitmap &= 0x0f0ff0ff;
+ 		break;
+ 	}
+-	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG, "ratr_bitmap :%x\n",
+-		 ratr_bitmap);
+-	*(u32 *)&rate_mask = ((ratr_bitmap & 0x0fffffff) |
+-				      ratr_index << 28);
++	sta_entry->ratr_index = ratr_index;
++
++	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
++		 "ratr_bitmap :%x\n", ratr_bitmap);
++	*(u32 *)&rate_mask = (ratr_bitmap & 0x0fffffff) |
++				     (ratr_index << 28);
+ 	rate_mask[4] = macid | (shortgi ? 0x20 : 0x00) | 0x80;
+ 	RT_TRACE(rtlpriv, COMP_RATR, DBG_DMESG,
+ 		 "Rate_index:%x, ratr_val:%x, %5phC\n",
+ 		 ratr_index, ratr_bitmap, rate_mask);
+-	rtl92c_fill_h2c_cmd(hw, H2C_RA_MASK, 5, rate_mask);
++	memcpy(rtlpriv->rate_mask, rate_mask, 5);
++	/* rtl92c_fill_h2c_cmd() does USB I/O and will result in a
++	 * "scheduled while atomic" if called directly */
++	schedule_work(&rtlpriv->works.fill_h2c_cmd);
++
++	if (macid != 0)
++		sta_entry->ratr_index = ratr_index;
++}
++
++void rtl92cu_update_hal_rate_tbl(struct ieee80211_hw *hw,
++				 struct ieee80211_sta *sta,
++				 u8 rssi_level)
++{
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++
++	if (rtlpriv->dm.useramask)
++		rtl92cu_update_hal_rate_mask(hw, sta, rssi_level);
++	else
++		rtl92cu_update_hal_rate_table(hw, sta);
+ }
+ 
+ void rtl92cu_update_channel_access_setting(struct ieee80211_hw *hw)
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.h b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.h
+index f41a3aa..8e3ec1e 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/hw.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/hw.h
+@@ -98,10 +98,6 @@ void rtl92cu_update_interrupt_mask(struct ieee80211_hw *hw,
+ 				   u32 add_msr, u32 rm_msr);
+ void rtl92cu_get_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val);
+ void rtl92cu_set_hw_reg(struct ieee80211_hw *hw, u8 variable, u8 *val);
+-void rtl92cu_update_hal_rate_table(struct ieee80211_hw *hw,
+-				   struct ieee80211_sta *sta,
+-				   u8 rssi_level);
+-void rtl92cu_update_hal_rate_mask(struct ieee80211_hw *hw, u8 rssi_level);
+ 
+ void rtl92cu_update_channel_access_setting(struct ieee80211_hw *hw);
+ bool rtl92cu_gpio_radio_on_off_checking(struct ieee80211_hw *hw, u8 * valid);
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c b/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c
+index 85b6bdb..da4f587 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/mac.c
+@@ -289,14 +289,30 @@ void rtl92c_set_key(struct ieee80211_hw *hw, u32 key_index,
+ 				macaddr = cam_const_broad;
+ 				entry_id = key_index;
+ 			} else {
++				if (mac->opmode == NL80211_IFTYPE_AP ||
++				    mac->opmode == NL80211_IFTYPE_MESH_POINT) {
++					entry_id = rtl_cam_get_free_entry(hw,
++								 p_macaddr);
++					if (entry_id >=  TOTAL_CAM_ENTRY) {
++						RT_TRACE(rtlpriv, COMP_SEC,
++							 DBG_EMERG,
++							 "Can not find free hw security cam entry\n");
++						return;
++					}
++				} else {
++					entry_id = CAM_PAIRWISE_KEY_POSITION;
++				}
++
+ 				key_index = PAIRWISE_KEYIDX;
+-				entry_id = CAM_PAIRWISE_KEY_POSITION;
+ 				is_pairwise = true;
+ 			}
+ 		}
+ 		if (rtlpriv->sec.key_len[key_index] == 0) {
+ 			RT_TRACE(rtlpriv, COMP_SEC, DBG_DMESG,
+ 				 "delete one entry\n");
++			if (mac->opmode == NL80211_IFTYPE_AP ||
++			    mac->opmode == NL80211_IFTYPE_MESH_POINT)
++				rtl_cam_del_entry(hw, p_macaddr);
+ 			rtl_cam_delete_one_entry(hw, p_macaddr, entry_id);
+ 		} else {
+ 			RT_TRACE(rtlpriv, COMP_SEC, DBG_LOUD,
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+index 23d640a..a00e7d7 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
+@@ -106,8 +106,7 @@ static struct rtl_hal_ops rtl8192cu_hal_ops = {
+ 	.update_interrupt_mask = rtl92cu_update_interrupt_mask,
+ 	.get_hw_reg = rtl92cu_get_hw_reg,
+ 	.set_hw_reg = rtl92cu_set_hw_reg,
+-	.update_rate_tbl = rtl92cu_update_hal_rate_table,
+-	.update_rate_mask = rtl92cu_update_hal_rate_mask,
++	.update_rate_tbl = rtl92cu_update_hal_rate_tbl,
+ 	.fill_tx_desc = rtl92cu_tx_fill_desc,
+ 	.fill_fake_txdesc = rtl92cu_fill_fake_txdesc,
+ 	.fill_tx_cmddesc = rtl92cu_tx_fill_cmddesc,
+@@ -137,6 +136,7 @@ static struct rtl_hal_ops rtl8192cu_hal_ops = {
+ 	.phy_lc_calibrate = _rtl92cu_phy_lc_calibrate,
+ 	.phy_set_bw_mode_callback = rtl92cu_phy_set_bw_mode_callback,
+ 	.dm_dynamic_txpower = rtl92cu_dm_dynamic_txpower,
++	.fill_h2c_cmd = rtl92c_fill_h2c_cmd,
+ };
+ 
+ static struct rtl_mod_params rtl92cu_mod_params = {
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.h b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.h
+index a1310ab..262e1e4 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.h
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.h
+@@ -49,5 +49,8 @@ bool rtl92cu_phy_set_rf_power_state(struct ieee80211_hw *hw,
+ u32 rtl92cu_phy_query_rf_reg(struct ieee80211_hw *hw,
+ 			    enum radio_path rfpath, u32 regaddr, u32 bitmask);
+ void rtl92cu_phy_set_bw_mode_callback(struct ieee80211_hw *hw);
++void rtl92cu_update_hal_rate_tbl(struct ieee80211_hw *hw,
++				 struct ieee80211_sta *sta,
++				 u8 rssi_level);
+ 
+ #endif
+diff --git a/drivers/net/wireless/rtlwifi/usb.c b/drivers/net/wireless/rtlwifi/usb.c
+index 76732b0..a3532e0 100644
+--- a/drivers/net/wireless/rtlwifi/usb.c
++++ b/drivers/net/wireless/rtlwifi/usb.c
+@@ -824,6 +824,7 @@ static void rtl_usb_stop(struct ieee80211_hw *hw)
+ 
+ 	/* should after adapter start and interrupt enable. */
+ 	set_hal_stop(rtlhal);
++	cancel_work_sync(&rtlpriv->works.fill_h2c_cmd);
+ 	/* Enable software */
+ 	SET_USB_STOP(rtlusb);
+ 	rtl_usb_deinit(hw);
+@@ -1026,6 +1027,16 @@ static bool rtl_usb_tx_chk_waitq_insert(struct ieee80211_hw *hw,
+ 	return false;
+ }
+ 
++static void rtl_fill_h2c_cmd_work_callback(struct work_struct *work)
++{
++	struct rtl_works *rtlworks =
++	    container_of(work, struct rtl_works, fill_h2c_cmd);
++	struct ieee80211_hw *hw = rtlworks->hw;
++	struct rtl_priv *rtlpriv = rtl_priv(hw);
++
++	rtlpriv->cfg->ops->fill_h2c_cmd(hw, H2C_RA_MASK, 5, rtlpriv->rate_mask);
++}
++
+ static struct rtl_intf_ops rtl_usb_ops = {
+ 	.adapter_start = rtl_usb_start,
+ 	.adapter_stop = rtl_usb_stop,
+@@ -1057,6 +1068,8 @@ int rtl_usb_probe(struct usb_interface *intf,
+ 
+ 	/* this spin lock must be initialized early */
+ 	spin_lock_init(&rtlpriv->locks.usb_lock);
++	INIT_WORK(&rtlpriv->works.fill_h2c_cmd,
++		  rtl_fill_h2c_cmd_work_callback);
+ 
+ 	rtlpriv->usb_data_index = 0;
+ 	init_completion(&rtlpriv->firmware_loading_complete);
+diff --git a/drivers/net/wireless/rtlwifi/wifi.h b/drivers/net/wireless/rtlwifi/wifi.h
+index 44328ba..cc03e7c 100644
+--- a/drivers/net/wireless/rtlwifi/wifi.h
++++ b/drivers/net/wireless/rtlwifi/wifi.h
+@@ -1736,6 +1736,8 @@ struct rtl_hal_ops {
+ 	void (*bt_wifi_media_status_notify) (struct ieee80211_hw *hw,
+ 					     bool mstate);
+ 	void (*bt_coex_off_before_lps) (struct ieee80211_hw *hw);
++	void (*fill_h2c_cmd) (struct ieee80211_hw *hw, u8 element_id,
++			      u32 cmd_len, u8 *p_cmdbuffer);
+ };
+ 
+ struct rtl_intf_ops {
+@@ -1869,6 +1871,7 @@ struct rtl_works {
+ 	struct delayed_work fwevt_wq;
+ 
+ 	struct work_struct lps_change_work;
++	struct work_struct fill_h2c_cmd;
+ };
+ 
+ struct rtl_debug {
+@@ -2048,6 +2051,7 @@ struct rtl_priv {
+ 		};
+ 	};
+ 	bool enter_ps;	/* true when entering PS */
++	u8 rate_mask[5];
+ 
+ 	/*This must be the last item so
+ 	   that it points to the data allocated
+-- 
+1.8.1.4
