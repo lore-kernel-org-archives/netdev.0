@@ -1,37 +1,36 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] include/linux/skbuff.h: using '0xffff' instead of '~0U'
-Date: Sat, 1 Jun 2013 00:05:07 +0300
-Message-ID: <CAHp75VfWvXkaoYQ_40idSsLYUA=YqaswnV2y-hODHjt7JMHQvQ@mail.gmail.com>
-References: <51A6EBC5.7040601@asianux.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] gro: should aggregate frames without DF
+Date: Fri, 31 May 2013 14:12:13 -0700
+Message-ID: <1370034733.5109.110.camel@edumazet-glaptop>
+References: <1370019752.5109.108.camel@edumazet-glaptop>
+	 <1370030944.2703.17.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: edumazet@google.com, Pravin Shelar <pshelar@nicira.com>,
-	mgorman@suse.de, David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Chen Gang <gang.chen@asianux.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:33913 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753294Ab3EaVFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 17:05:08 -0400
-In-Reply-To: <51A6EBC5.7040601@asianux.com>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:63749 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757138Ab3EaVMP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 17:12:15 -0400
+Received: by mail-pb0-f41.google.com with SMTP id xb12so2855689pbc.28
+        for <netdev@vger.kernel.org>; Fri, 31 May 2013 14:12:15 -0700 (PDT)
+In-Reply-To: <1370030944.2703.17.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 30, 2013 at 9:03 AM, Chen Gang <gang.chen@asianux.com> wrote:
->
-> Both 'transport_header' and 'mac_header' are u16, which are never equal
-> to '~0U'.
->
-> So need use '0xffff' instead of '~0U'.
+On Fri, 2013-05-31 at 21:09 +0100, Ben Hutchings wrote:
 
-Why not "(u16)~0" ?
-Or even better "!= USHORT_MAX"?
+> But this results in ignoring the actual offset bits of frag_off!
+> We should allow merging only if all packets have frag_off == IP_DF or
+> all have frag_off == 0.  The first assignment of flush therefore still
+> needs to check the combined id/frag_off word, but using (id & ~IP_DF)
+> instead of (id ^ IP_DF).
 
-Or mac_header + 1 == 0, though it less clear.
+You're right, I guess I wanted too much getting rid of black magic in
+this code ;)
 
---
-With Best Regards,
-Andy Shevchenko
+I'll send a v2
