@@ -1,66 +1,79 @@
-From: Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>
-Subject: Re: cw1200 "sbus" conflicts with SPARC "sbus"
-Date: Fri, 31 May 2013 08:05:54 -0400
-Message-ID: <20130531120553.GA31667@shaftnet.org>
-References: <alpine.DEB.2.00.1305311127200.4645@ayla.of.borg>
+From: <Narendra_K@Dell.com>
+Subject: Re: Generic interface to make physical port number used by a
+ netdevice available to user space
+Date: Fri, 31 May 2013 05:13:16 -0700
+Message-ID: <20130531121201.GA1311@fedora-17-guest.blr.amer.dell.com>
+References: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>
+ <20130523093421.3b20a0bd@nehalam.linuxnetplumber.net>
+ <E31FB011129F30488D5861F383904915210B96144A@BLRX7MCDC201.AMER.DELL.COM>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="HcAYCG3uE/tztfnV"
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <alpine.DEB.2.00.1305311127200.4645-97SZ98TBZzA1xEWliksxXw@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <netdev@vger.kernel.org>
+To: <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausc60pc101.us.dell.com ([143.166.85.206]:3996 "EHLO
+	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755105Ab3EaMNl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 08:13:41 -0400
+In-Reply-To: <E31FB011129F30488D5861F383904915210B96144A@BLRX7MCDC201.AMER.DELL.COM>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Mon, May 27, 2013 at 06:39:00PM +0530, Narendra_K@Dell.com wrote:
+> 
+> > -----Original Message-----
+> > From: Stephen Hemminger [mailto:stephen@networkplumber.org]
+> > Sent: Thursday, May 23, 2013 10:04 PM
+> > To: K, Narendra
+> > Cc: netdev@vger.kernel.org
+> > One idea would be to reuse the mostly outdated if_port field.
+> > As far as I can see only drivers using it are legacy drivers which support
+> AUI vs.
+> > TP back in the old bad days of BNC Ethernet.
+> 
+> Hi Stephen, thank you.
+> 
+> I think if_port or dev_id would be fine. The difference seems to be  that
+> dev_id is already exported to sysfs.
+> 
 
---HcAYCG3uE/tztfnV
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I think the following options could be explored -
 
-On Fri, May 31, 2013 at 11:31:05AM +0200, Geert Uytterhoeven wrote:
->=20
-> sparc64/allmodconfig:
->=20
-> drivers/net/wireless/cw1200/hwio.c:51:21: error: macro "sbus_memcpy_fromi=
-o" passed 4 arguments, but takes just 3
-> drivers/net/wireless/cw1200/hwio.c:66:19: error: macro "sbus_memcpy_toio"=
- passed 4 arguments, but takes just 3
->=20
-> http://kisskb.ellerman.id.au/kisskb/buildresult/8846508/
->=20
-> At first I thought it was a bad/old implementation of a real SPARC sbus
-> driver.  but it seems the two sbusses are completely unrelated.
+1. dev_id:
+Do not initialize it to -1, but use it to indicate physical port number
+used by netdevice.
 
-Yikes.=20
+It is currently being used for indicating physical port number and
+is also being used to differentiate OS instances as noted here.
+http://marc.info/?l=linux-netdev&m=136992115300526&w=2
 
-Would it be sufficient to just rename that pair of macros, or should I=20
-go and rename entire cw1200's "bus" subsystem?
+2. if_port:
 
-Either way, I'll add this to the to-do list for the weekend.
+Reuse if_port to indicate physical port number used by a netdevice as
+suggested.
 
- - Solomon
---=20
-Solomon Peachy        		       pizza at shaftnet dot org	=20
-Delray Beach, FL                          ^^ (mail/jabber) ^^
-Quidquid latine dictum sit, altum viditur.
+A quick look at the sources seems to indicate that it is also
+being used to indicate the physical port number and data transfer mode.
 
---HcAYCG3uE/tztfnV
-Content-Type: application/pgp-signature
+Used to indicate physical port number by
+	-drivers/net/ethernet/chelsio/cxgb/cxgb2.c
+	-drivers/net/ethernet/tehuti/tehuti.c
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
+Used to indicate data transfer mode by
+	-drivers/net/ethernet/realtek/atp.c
 
-iD8DBQFRqJIhPuLgii2759ARAqnIAKDuJmGl4GdnnN8FYROfmonYfRM2YACfU1oI
-2WFw0GyBMlsAqdXHjnUrw40=
-=SbeX
------END PGP SIGNATURE-----
+Also, 'if_port' seems to be available to userspace via 
+	-netlink (by rtnl_dump_ifinfo in net/core/rtnetlink.c)
+	-SIOCGIFMAP ioctl
 
---HcAYCG3uE/tztfnV--
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+3. Add a new field 'physport' to 'struct net_device' and export it to sysfs.
+
+It would be great to know your thoughts on which of the above would be
+preferable.
+
+-- 
+With regards,
+Narendra K
+Linux Engineering
+Dell Inc.
