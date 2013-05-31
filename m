@@ -1,52 +1,58 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH net-next 0/6] net/core, bonding: dev_uc_sync fixes, bonding update
-Date: Thu, 30 May 2013 17:55:38 -0700
-Message-ID: <1369961744-21460-1-git-send-email-fubar@us.ibm.com>
-Cc: David Miller <davem@davemloft.net>
+Subject: [PATCH net-next 4/6] net/core: dev_mc_sync_multiple calls wrong helper
+Date: Thu, 30 May 2013 17:55:42 -0700
+Message-ID: <1369961744-21460-5-git-send-email-fubar@us.ibm.com>
+References: <1369961744-21460-1-git-send-email-fubar@us.ibm.com>
+Cc: David Miller <davem@davemloft.net>,
+	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:33326 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752424Ab3EaAz6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 May 2013 20:55:58 -0400
+Received: from e39.co.us.ibm.com ([32.97.110.160]:59816 "EHLO
+	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752518Ab3EaA4F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 20:56:05 -0400
 Received: from /spool/local
-	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 30 May 2013 20:55:57 -0400
-Received: from d01relay03.pok.ibm.com (d01relay03.pok.ibm.com [9.56.227.235])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id BE9E338C804A
-	for <netdev@vger.kernel.org>; Thu, 30 May 2013 20:55:54 -0400 (EDT)
+	Thu, 30 May 2013 18:56:04 -0600
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by d01dlp02.pok.ibm.com (Postfix) with ESMTP id AE1326E8054
+	for <netdev@vger.kernel.org>; Thu, 30 May 2013 20:55:57 -0400 (EDT)
 Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay03.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4V0ttGr312786
-	for <netdev@vger.kernel.org>; Thu, 30 May 2013 20:55:55 -0400
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4V0u1Bk335686
+	for <netdev@vger.kernel.org>; Thu, 30 May 2013 20:56:01 -0400
 Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4V0tsCB011888
-	for <netdev@vger.kernel.org>; Thu, 30 May 2013 21:55:54 -0300
+	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4V0tx0M012322
+	for <netdev@vger.kernel.org>; Thu, 30 May 2013 21:56:00 -0300
+In-Reply-To: <1369961744-21460-1-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	This patch set includes 6 patches: four fixes to the dev_mc_sync /
-dev_mc_unsync system; and two patches to bonding, one to utilize the sync
-/ unsync functions, and another minor fix related to MAC address handling.
+	The dev_mc_sync_multiple function is currently calling
+__hw_addr_sync, and not __hw_addr_sync_multiple.  This will result in
+addresses only being synced to the first device from the set.
 
-	A brief description of each patch:
+	Corrected by calling the _multiple variant.
 
-	1. uninitialized variable in __hw_addr_create_ex
-
-	2. __hw_addr_unsync_one does not work because "from" addresses
-		aren't marked as "synced."
-
-	3. __hw_addr_sync_one as called by __hw_addr_sync_multiple will
-		not remove references properly
-
-	4. dev_mc_sync_multiple doesn't call the _multiple helper function
-
-	5. Convert bonding to use dev_{mc,uc}_sync / unsync
-
-	6. Disallow changes of bonding MAC if fail_over_mac is set to
-		"follow".
-
-	-J
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com> 
 
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ net/core/dev_addr_lists.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+index 8e2c2ef..6cda4e2 100644
+--- a/net/core/dev_addr_lists.c
++++ b/net/core/dev_addr_lists.c
+@@ -801,7 +801,7 @@ int dev_mc_sync_multiple(struct net_device *to, struct net_device *from)
+ 		return -EINVAL;
+ 
+ 	netif_addr_lock_nested(to);
+-	err = __hw_addr_sync(&to->mc, &from->mc, to->addr_len);
++	err = __hw_addr_sync_multiple(&to->mc, &from->mc, to->addr_len);
+ 	if (!err)
+ 		__dev_set_rx_mode(to);
+ 	netif_addr_unlock(to);
+-- 
+1.8.1.4
