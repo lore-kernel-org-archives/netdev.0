@@ -1,41 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net/3.9] ipv6: ndisc: fix ndisc_send_redirect writing
- to the wrong skb
-Date: Fri, 31 May 2013 01:42:44 -0700 (PDT)
-Message-ID: <20130531.014244.1871655049070137342.davem@davemloft.net>
-References: <51A66CF3.7010202@universe-factory.net>
-	<5578958b49fff222740711e091c2325100f5a440.1369963643.git.mschiffer@universe-factory.net>
-	<CAM_iQpWNAnRTgzjPTPxLU-eqz1nWqD=zyjTgwZaaxbwcpf4KMw@mail.gmail.com>
+Subject: Re: [PATCH net] rtnetlink: ndo_dflt_fdb_del() never works
+Date: Fri, 31 May 2013 01:46:07 -0700 (PDT)
+Message-ID: <20130531.014607.358769391044586124.davem@davemloft.net>
+References: <1369951315-14742-1-git-send-email-alanr@unix.sh>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mschiffer@universe-factory.net, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: xiyou.wangcong@gmail.com
+Cc: netdev@vger.kernel.org, davem@gavemloft.net, kuznet@ms2.inr.ac.ru,
+	vyasevic@redhat.com
+To: alanr@unix.sh
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34714 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34751 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751205Ab3EaImp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 04:42:45 -0400
-In-Reply-To: <CAM_iQpWNAnRTgzjPTPxLU-eqz1nWqD=zyjTgwZaaxbwcpf4KMw@mail.gmail.com>
+	with ESMTP id S1751478Ab3EaIqI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 04:46:08 -0400
+In-Reply-To: <1369951315-14742-1-git-send-email-alanr@unix.sh>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri, 31 May 2013 11:23:11 +0800
+From: Alan Robertson <alanr@unix.sh>
+Date: Thu, 30 May 2013 16:01:55 -0600
 
-> On Fri, May 31, 2013 at 9:27 AM, Matthias Schiffer
-> <mschiffer@universe-factory.net> wrote:
->> Since some refactoring in 5f5a011, ndisc_send_redirect called
->> ndisc_fill_redirect_hdr_option on the wrong skb, leading to data corruption or
->> in the worst case a panic when the skb_put failed.
->>
->> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+> ndo_dflt_fdb_del is checking for a condition which is opposite that
+> which ndo_dflt_fdb_add enforces.  ndo_dflt_fdb_add declares an error
+> if (ndm->ndm_state && !(ndm->ndm_state) & NUD_PERMANENT)) - that is, if the
+> entry is static.  This is consistent with the failure error message.
 > 
+> On the other hand, ndo_dflt_del() declares an error
+> if (ndm_state & NUD_PERMANENT) - which is inconsistent with the add
+> precondition, and inconsistent with its failure message text.
+> As it is now, you can't delete any entry which add allows to be added -
+> so entry deletion always fails.
 > 
-> Good catch!
-> 
-> Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Alan Robertson <alanr@unix.sh>
 
-I've queued this up for -stable.
+What about the ->ndm_state part of the add() test?  Why not include
+that in the del() check?
