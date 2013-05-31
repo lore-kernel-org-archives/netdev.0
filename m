@@ -1,62 +1,64 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: skbuff: use _RET_IP_
-Date: Fri, 31 May 2013 09:54:52 -0700
-Message-ID: <1370019292.10556.79.camel@joe-AO722>
-References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
-	 <51A6768B.5050603@cogentembedded.com> <87obbsohd1.fsf@nemi.mork.no>
-	 <1369962688.1751.6.camel@buesod1.americas.hpqcorp.net>
-	 <1369977659.10556.34.camel@joe-AO722> <51A8B4A4.1010204@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] gro: should aggregate frames without DF
+Date: Fri, 31 May 2013 10:02:32 -0700
+Message-ID: <1370019752.5109.108.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Davidlohr Bueso <davidlohr.bueso@hp.com>,
-	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:45703 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751977Ab3EaQyw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 May 2013 12:54:52 -0400
-In-Reply-To: <51A8B4A4.1010204@cogentembedded.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:54959 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751657Ab3EaRCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 13:02:34 -0400
+Received: by mail-pd0-f177.google.com with SMTP id u11so2511982pdi.36
+        for <netdev@vger.kernel.org>; Fri, 31 May 2013 10:02:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-31 at 18:33 +0400, Sergei Shtylyov wrote:
-> On 31-05-2013 9:20, Joe Perches wrote:
-> > Don't use a standalone gcc compiled program to
-> > determine what the kernel outputs.
-[]
-> > The kernel output is;
-> 
-> > 	printk("0x%lx\n", 0x100ul)		0x100
-> > 	printk("%p\n", (void *)0x100ul)		00000100
-> > 	printk("%#p\n", (void *)0x100ul)	0x00000100
-> 
-> > The last one isn't used at all in kernel source. (gcc complains)
-> > It's always "0x%p"
-> 
->      I was talking about using "%#lx", not "%#p". I don't see it in your 
-> example.
+From: Eric Dumazet <edumazet@google.com>
 
-"0x%lx" and "%#lx" produce the same output in the kernel.
+GRO on IPv4 doesn't aggregate frames if they don't have DF bit set.
 
-The latter isn't used very often though.
-I expect most coders don't know it exists/works.
+Some servers use IP_MTU_DISCOVER/IP_PMTUDISC_PROBE, so linux receivers
+are unable to aggregate this kind of traffic.
 
-$ git grep -E "0x%l{0,2}x" | wc -l
-12542
-$ git grep -E "%#l{0,2}x" | wc -l
-1737
+The right thing to do is to allow aggregation as long as the DF bit has
+same value on all segments.
 
-(some false positives there of course)
+bnx2x LRO does this correctly.
 
-Also, some might expect that "%#08lx", is 10 chars wide,
-but it's only 8, so maybe "0x%08lx" is better used.
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Jerry Chu <hkchu@google.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+---
+ net/ipv4/af_inet.c |    7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
 
-The "%#08lx" width defect seems pretty common:
-
-$ git grep -E -i "%#0(8|16)l{0,2}x" | wc -l
-253
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index b05ae96..328cc62 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -1384,9 +1384,9 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 	if (unlikely(ip_fast_csum((u8 *)iph, 5)))
+ 		goto out_unlock;
+ 
+-	id = ntohl(*(__be32 *)&iph->id);
+-	flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id ^ IP_DF));
+-	id >>= 16;
++	flush = ntohs(iph->tot_len) ^ skb_gro_len(skb);
++
++	id = ntohs(iph->id);
+ 
+ 	for (p = *head; p; p = p->next) {
+ 		struct iphdr *iph2;
+@@ -1407,6 +1407,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
+ 		NAPI_GRO_CB(p)->flush |=
+ 			(iph->ttl ^ iph2->ttl) |
+ 			(iph->tos ^ iph2->tos) |
++			((iph->frag_off ^ iph2->frag_off) & htons(IP_DF)) |
+ 			((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
+ 
+ 		NAPI_GRO_CB(p)->flush |= flush;
