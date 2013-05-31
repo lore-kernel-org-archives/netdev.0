@@ -1,49 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 02/12] tipc: Add "max_ports" configuration
- parameter
-Date: Fri, 31 May 2013 01:29:22 -0700 (PDT)
-Message-ID: <20130531.012922.204204156468438634.davem@davemloft.net>
-References: <1369942577-39563-3-git-send-email-paul.gortmaker@windriver.com>
-	<20130530.154925.298481337221579707.davem@davemloft.net>
-	<20130531082538.GB17727@eerihug-hybrid.ki.sw.ericsson.se>
+Subject: Re: [PATCH net-next 0/6] net/core, bonding: dev_uc_sync fixes,
+ bonding update
+Date: Fri, 31 May 2013 01:31:55 -0700 (PDT)
+Message-ID: <20130531.013155.25881045915195152.davem@davemloft.net>
+References: <1369961744-21460-1-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
-	jon.maloy@ericsson.com, ying.xue@windriver.com
-To: erik.hugne@ericsson.com
+Cc: netdev@vger.kernel.org
+To: fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34604 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34632 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754016Ab3EaI3X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 04:29:23 -0400
-In-Reply-To: <20130531082538.GB17727@eerihug-hybrid.ki.sw.ericsson.se>
+	with ESMTP id S1750791Ab3EaIb4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 04:31:56 -0400
+In-Reply-To: <1369961744-21460-1-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
-Date: Fri, 31 May 2013 10:25:38 +0200
+From: Jay Vosburgh <fubar@us.ibm.com>
+Date: Thu, 30 May 2013 17:55:38 -0700
 
-> On Thu, May 30, 2013 at 03:49:25PM -0700, David Miller wrote:
->> View compile time constants and module parameters as artificial
->> limits, they are terrible and unnecessary.
->> 
->> There is no reason you cannot restructure this table so that you
->> can dynamically size it at run time.
-> 
-> The TIPC ref table index is used directly as the port identity in the 
-> TIPC publications. When a socket is bound, this ID is published to all 
-> other nodes in the cluster.
-> If we where to allow the table to be changed dynamically, we would need
-> to change the port identities for already bound sockets/ports, withdraw
-> the old identity and publish the new one.
+> 	This patch set includes 6 patches: four fixes to the dev_mc_sync /
+> dev_mc_unsync system; and two patches to bonding, one to utilize the sync
+> / unsync functions, and another minor fix related to MAC address handling.
 
-No you do not, simply grow the table just like we dynamically grow
-hash tables in response to network/socket activity elsewhere in the
-kernel.  You'll only allocate new indexes from the newly allocated
-area, the existing indexes will remain the same.
+These look like fixes that should go into net, why target net-next?
 
-I really will accept no excuses for this limitation, especially if
-the response is an ugly module paramter.
+In any event, I'll let Vlad review this before applying anywhere.
 
 Thanks.
