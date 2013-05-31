@@ -1,112 +1,63 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [Patch net-next v3] net: clean up skb headers code
-Date: Fri, 31 May 2013 09:25:17 +0900
-Message-ID: <20130531002517.GC26684@verge.net.au>
-References: <1369879575-18701-1-git-send-email-amwang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Ben Hutchings <bhutchings@solarflare.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
+Date: Thu, 30 May 2013 17:23:20 -0700
+Message-ID: <20365.1369959800@death.nxdomain>
+References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com> <20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com> <CAJZOPZJwe6xAj7xRK5_BnWN2wNT+oVS329+iYtE4hYTqPMLwJQ@mail.gmail.com> <20130525151347.GB25744@lintop.rgmadvisors.com> <20130528201508.GA6409@sbohrermbp13-local.rgmadvisors.com> <CAJZOPZLZmLi3V-3D_16FZHQLsCsHKZY7ZhvaEH1k=Pw_i+ciwQ@mail.gmail.com> <20130530203113.GA4891@sbohrermbp13-local.rgmadvisors.com> <CAJZOPZ+YSWhz0Hw+BWHeT=cEDqRj-s7uY4M-5CTiXcRgJND_+Q@mail.gmail.com> <51A7BD42.8060504@redhat.com>
+Cc: Or Gerlitz <or.gerlitz@gmail.com>,
+	Shawn Bohrer <shawn.bohrer@gmail.com>, netdev@vger.kernel.org,
+	Hadar Hen Zion <hadarh@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>, Jiri Pirko <jiri@resnulli.us>
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:41307 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751505Ab3EaAYd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 20:24:33 -0400
-Content-Disposition: inline
-In-Reply-To: <1369879575-18701-1-git-send-email-amwang@redhat.com>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:55914 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505Ab3EaAYn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 20:24:43 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Thu, 30 May 2013 18:24:42 -0600
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 61C321FF001E
+	for <netdev@vger.kernel.org>; Thu, 30 May 2013 18:18:13 -0600 (MDT)
+Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4V0NN8n144506
+	for <netdev@vger.kernel.org>; Thu, 30 May 2013 18:23:23 -0600
+Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4V0NM60024193
+	for <netdev@vger.kernel.org>; Thu, 30 May 2013 18:23:23 -0600
+In-reply-to: <51A7BD42.8060504@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 30, 2013 at 10:06:15AM +0800, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
-> 
-> commit 1a37e412a0225fcba5587 (net: Use 16bits for *_headers
-> fields of struct skbuff) converts skb->*_header to u16,
-> some #if NET_SKBUFF_DATA_USES_OFFSET are now useless,
-> and to be safe, we could just use "X = ~(typeof(X))0;"
-> as suggested by David and Ben.
-> 
-> Cc: Ben Hutchings <bhutchings@solarflare.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Cc: Simon Horman <horms@verge.net.au>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+Vlad Yasevich <vyasevic@redhat.com> wrote:
 
-FWIW, I would prefer to see a patch that just removes the instances
-of #ifdef NET_SKBUFF_DATA_USES_OFFSET below, and then a separate
-patch to clean-up the use of ~0U once some consensus is reached on
-the best approach.
+>>>      CC: Jiri Pirko <jiri@resnulli.us>
+>>>      Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>>>      Signed-off-by: David S. Miller <davem@davemloft.net>
+>>>
+>>> I've confirmed that reverting this patch on top of 3.10-rc3 allows me
+>>> to receive packets on all of my multicast groups without the Mellanox
+>>> high_rate_steer option set.
+>>
+>> OK, impressive debugging... so what do we do from here? Vlad, Shawn
+>> observes a regression once this patch is used on a large scale setup
+>> that uses many multicast groups (you can read the posts done earlier
+>> on this thread), does this rings any bell w.r.t to the actual problem
+>> in the patch?
+>
+>I haven't seen that, but I didn't test with that many multicast groups. I
+>had 20 groups working.
+>
+>I'll take a look and see what might be going on.
 
-The reason is that I suspect that the #ifdef NET_SKBUFF_DATA_USES_OFFSET
-is a bug fix for cases where it is not defined. Whereas the ~0 discussion
-is more cosmetic.
+	I've actually been porting bonding to the dev_sync/unsync
+system, and have a patch series of 4 fixes to various internals of
+dev_sync/unsync; I'll post those under separate cover.  It may be that
+one or more of those things are the source of this problem (or I might
+have it all wrong).
 
-> 
-> ---
-> v2: use typeof
-> v3: use ~(typeof(X))0
-> 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index 5f93119..f3c18a0 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -1593,7 +1593,7 @@ static inline void skb_set_inner_mac_header(struct sk_buff *skb,
->  }
->  static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
->  {
-> -	return skb->transport_header != ~0U;
-> +	return skb->transport_header != ~(typeof(skb->transport_header))0;
->  }
->  
->  static inline unsigned char *skb_transport_header(const struct sk_buff *skb)
-> @@ -1636,7 +1636,7 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
->  
->  static inline int skb_mac_header_was_set(const struct sk_buff *skb)
->  {
-> -	return skb->mac_header != ~0U;
-> +	return skb->mac_header != ~(typeof(skb->mac_header))0;
->  }
->  
->  static inline void skb_reset_mac_header(struct sk_buff *skb)
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index f45de07..e121c4b 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -199,9 +199,7 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
->  	skb->truesize = sizeof(struct sk_buff);
->  	atomic_set(&skb->users, 1);
->  
-> -#ifdef NET_SKBUFF_DATA_USES_OFFSET
-> -	skb->mac_header = (__u16) ~0U;
-> -#endif
-> +	skb->mac_header = ~(typeof(skb->mac_header))0;
->  out:
->  	return skb;
->  }
-> @@ -275,10 +273,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
->  	skb->data = data;
->  	skb_reset_tail_pointer(skb);
->  	skb->end = skb->tail + size;
-> -#ifdef NET_SKBUFF_DATA_USES_OFFSET
-> -	skb->mac_header = (__u16) ~0U;
-> -	skb->transport_header = (__u16) ~0U;
-> -#endif
-> +	skb->mac_header = ~(typeof(skb->mac_header))0;
-> +	skb->transport_header = ~(typeof(skb->transport_header))0;
->  
->  	/* make sure we initialize shinfo sequentially */
->  	shinfo = skb_shinfo(skb);
-> @@ -344,10 +340,8 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
->  	skb->data = data;
->  	skb_reset_tail_pointer(skb);
->  	skb->end = skb->tail + size;
-> -#ifdef NET_SKBUFF_DATA_USES_OFFSET
-> -	skb->mac_header = (__u16) ~0U;
-> -	skb->transport_header = (__u16) ~0U;
-> -#endif
-> +	skb->mac_header = ~(typeof(skb->mac_header))0;
-> +	skb->transport_header = ~(typeof(skb->transport_header))0;
->  
->  	/* make sure we initialize shinfo sequentially */
->  	shinfo = skb_shinfo(skb);
-> 
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
