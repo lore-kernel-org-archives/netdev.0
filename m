@@ -1,49 +1,57 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: skbuff: use _RET_IP_
-Date: Fri, 31 May 2013 21:51:34 +0400
-Message-ID: <51A8E326.70800@cogentembedded.com>
-References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>  <51A6768B.5050603@cogentembedded.com> <87obbsohd1.fsf@nemi.mork.no>  <1369962688.1751.6.camel@buesod1.americas.hpqcorp.net>  <1369977659.10556.34.camel@joe-AO722> <51A8B4A4.1010204@cogentembedded.com> <1370019292.10556.79.camel@joe-AO722>
+Subject: Re: [PATCH net-next] net: fec: add fallback to random MAC address
+Date: Fri, 31 May 2013 21:57:21 +0400
+Message-ID: <51A8E481.802@cogentembedded.com>
+References: <1370020942-8342-1-git-send-email-l.stach@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Davidlohr Bueso <davidlohr.bueso@hp.com>,
-	=?ISO-8859-1?Q?Bj=F8rn_Mo?= =?ISO-8859-1?Q?rk?= <bjorn@mork.no>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Pavel Machek <pavel@denx.de>
+To: Lucas Stach <l.stach@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f49.google.com ([209.85.215.49]:45618 "EHLO
-	mail-la0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753869Ab3EaRvb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 13:51:31 -0400
-Received: by mail-la0-f49.google.com with SMTP id fp13so1616486lab.8
-        for <netdev@vger.kernel.org>; Fri, 31 May 2013 10:51:30 -0700 (PDT)
-In-Reply-To: <1370019292.10556.79.camel@joe-AO722>
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:45981 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753696Ab3EaR5S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 13:57:18 -0400
+Received: by mail-lb0-f177.google.com with SMTP id o10so1932338lbi.8
+        for <netdev@vger.kernel.org>; Fri, 31 May 2013 10:57:16 -0700 (PDT)
+In-Reply-To: <1370020942-8342-1-git-send-email-l.stach@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 05/31/2013 08:54 PM, Joe Perches wrote:
+On 05/31/2013 09:22 PM, Lucas Stach wrote:
 
->>> Don't use a standalone gcc compiled program to
->>> determine what the kernel outputs.
-> []
->>> The kernel output is;
->>> 	printk("0x%lx\n", 0x100ul)		0x100
->>> 	printk("%p\n", (void *)0x100ul)		00000100
->>> 	printk("%#p\n", (void *)0x100ul)	0x00000100
->>> The last one isn't used at all in kernel source. (gcc complains)
->>> It's always "0x%p"
->>       I was talking about using "%#lx", not "%#p". I don't see it in your
->> example.
-> "0x%lx" and "%#lx" produce the same output in the kernel.
+> From: Pavel Machek <pavel@denx.de>
 >
-> The latter isn't used very often though.
+> If no valid MAC address could be obtained from the hardware,
+> fall back to a randomly generated one.
+>
+> Signed-off-by: Pavel Machek <pavel@denx.de>
+> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+> ---
+>   drivers/net/ethernet/freescale/fec_main.c | 10 ++++++++++
+>   1 file changed, 10 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 9b0c647..3694a56 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1037,6 +1037,16 @@ static void fec_get_mac(struct net_device *ndev)
+>   		iap = &tmpaddr[0];
+>   	}
+>   
+> +	/*
+> +	 * 5) random mac address
+> +	 */
+> +	if (!is_valid_ether_addr(iap)) {
+> +		/* Report it and use a random ethernet address instead */
+> +		netdev_err(ndev, "Invalid MAC address: %pM\n", iap);
+> +		random_ether_addr(iap);
 
-    It's already used in the same format string in this case. That's why 
-I suggested
-not to deviate from the existing code.
+    eth_hw_addr_random(ndev) might be a bit better -- it classifies the MAC
+address in 'struct net_device' as random.
 
 WBR, Sergei
