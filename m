@@ -1,38 +1,79 @@
 From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net/3.9] ipv6: ndisc: fix ndisc_send_redirect writing to
- the wrong skb
-Date: Fri, 31 May 2013 11:23:11 +0800
-Message-ID: <CAM_iQpWNAnRTgzjPTPxLU-eqz1nWqD=zyjTgwZaaxbwcpf4KMw@mail.gmail.com>
-References: <51A66CF3.7010202@universe-factory.net>
-	<5578958b49fff222740711e091c2325100f5a440.1369963643.git.mschiffer@universe-factory.net>
+Subject: Re: [PATCH v7 net-next 4/5] ixgbe: Add support for
+	ndo_ll_poll
+Date: Fri, 31 May 2013 11:32:09 +0800
+Message-ID: <CAM_iQpWXuSwnRKeQYdi0bNVMMOvT=VEzF6jbHNHPa+VoUaUapA@mail.gmail.com>
+References: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
+	<20130530114132.12653.19059.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Matthias Schiffer <mschiffer@universe-factory.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vb0-f49.google.com ([209.85.212.49]:61537 "EHLO
-	mail-vb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752502Ab3EaDXM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 23:23:12 -0400
-In-Reply-To: <5578958b49fff222740711e091c2325100f5a440.1369963643.git.mschiffer@universe-factory.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alex Rosenbaum <alexr@mellanox.com>, LKML <linux-kernel@vger.kernel.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130530114132.12653.19059.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, May 31, 2013 at 9:27 AM, Matthias Schiffer
-<mschiffer@universe-factory.net> wrote:
-> Since some refactoring in 5f5a011, ndisc_send_redirect called
-> ndisc_fill_redirect_hdr_option on the wrong skb, leading to data corruption or
-> in the worst case a panic when the skb_put failed.
->
-> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+On Thu, May 30, 2013 at 7:41 PM, Eliezer Tamir
+<eliezer.tamir@linux.intel.com> wrote:
+....
+> +#else /* CONFIG_NET_LL_RX_POLL */
+> +static inline void ixgbe_qv_init_lock(struct ixgbe_q_vector *q_vector)
+> +{
+> +}
+> +
+> +static inline int ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
+> +{
+> +       return true;
+> +}
+> +
+> +static inline int ixgbe_qv_unlock_napi(struct ixgbe_q_vector *q_vector)
+> +{
+> +       return false;
+> +}
+> +
+> +static inline int ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
+> +{
+> +       return false;
+> +}
+> +
+> +static inline int ixgbe_qv_unlock_poll(struct ixgbe_q_vector *q_vector)
+> +{
+> +       return false;
+> +}
+> +
+> +static inline int ixgbe_qv_ll_polling(struct ixgbe_q_vector *q_vector)
+> +{
+> +       return false;
+> +}
 
 
-Good catch!
+Then please make them bool.
 
-Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
+------------------------------------------------------------------------------
+Get 100% visibility into Java/.NET code with AppDynamics Lite
+It's a free troubleshooting tool designed for production
+Get down to code-level detail for bottlenecks, with <2% overhead.
+Download for free and get started troubleshooting in minutes.
+http://p.sf.net/sfu/appdyn_d2d_ap2
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
