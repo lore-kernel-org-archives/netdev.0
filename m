@@ -1,27 +1,28 @@
 From: Michal Simek <michal.simek@xilinx.com>
-Subject: [PATCH v2 0/5] Phylib changes
-Date: Fri, 31 May 2013 08:08:22 +0200
-Message-ID: <cover.1369980470.git.michal.simek@xilinx.com>
+Subject: [PATCH v2 1/5] phy: Clean coding style in vitesse phy
+Date: Fri, 31 May 2013 08:08:23 +0200
+Message-ID: <131c9262c3094ee3c664bd729a66e0709ceae82c.1369980470.git.michal.simek@xilinx.com>
+References: <cover.1369980470.git.michal.simek@xilinx.com>
 Content-Type: multipart/signed;
-    boundary="=_mimegpg-monstr-desktop-1654-1369980507-0001";
+    boundary="=_mimegpg-monstr-desktop-1678-1369980513-0001";
     micalg=pgp-sha1; protocol="application/pgp-signature"
 Cc: Michal Simek <monstr@monstr.eu>,
 	Michal Simek <michal.simek@xilinx.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Anirudha Sarangi <anirudh@xilinx.com>, netdev@vger.kernel.org,
-	Christian Hohnstaedt <chohnstaedt@innominate.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Steven Wang <steven.wang@digilentinc.com>,
-	Lars-Peter Clausen <lars@metafoo.de>,
-	Rick Hoover <RHoover@digilentinc.com>
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Christian Hohnstaedt <chohnstaedt@innominate.com>,
+	netdev@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f181.google.com ([209.85.215.181]:42312 "EHLO
-	mail-ea0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751790Ab3EaGIe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 02:08:34 -0400
-Received: by mail-ea0-f181.google.com with SMTP id a11so1184302eae.12
-        for <netdev@vger.kernel.org>; Thu, 30 May 2013 23:08:33 -0700 (PDT)
+Received: from mail-ea0-f182.google.com ([209.85.215.182]:58691 "EHLO
+	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752041Ab3EaGIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 02:08:36 -0400
+Received: by mail-ea0-f182.google.com with SMTP id r16so1154053ead.13
+        for <netdev@vger.kernel.org>; Thu, 30 May 2013 23:08:35 -0700 (PDT)
+In-Reply-To: <cover.1369980470.git.michal.simek@xilinx.com>
+In-Reply-To: <cover.1369980470.git.michal.simek@xilinx.com>
+References: <cover.1369980470.git.michal.simek@xilinx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -31,46 +32,88 @@ The Internet standard for MIME PGP messages, RFC 2015, was published in 1996.
 To open this message correctly you will need to install E-mail or Usenet
 software that supports modern Internet standards.
 
---=_mimegpg-monstr-desktop-1654-1369980507-0001
+--=_mimegpg-monstr-desktop-1678-1369980513-0001
 
-We have these changes in our tree for quite a long
-time and I would like to ask you for review.
-All phys are used on xilinx zynq boards.
+- Remove trailing white space
+- Remove spaces before tag
+- Fix comments
 
-Thanks,
-Michal
+Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+---
+Changes in v2: None
 
-v2: Resent these phy patches without emaclite changes
+ drivers/net/phy/vitesse.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
 
-Changes in v2:
-- None
+diff --git a/drivers/net/phy/vitesse.c b/drivers/net/phy/vitesse.c
+index 3492b53..d6e988f 100644
+--- a/drivers/net/phy/vitesse.c
++++ b/drivers/net/phy/vitesse.c
+@@ -44,12 +44,12 @@
+ #define MII_VSC8244_ISTAT_DUPLEX	0x1000
 
-Michal Simek (5):
-  phy: Clean coding style in vitesse phy
-  phy: Add Vitesse 8211 phy ID
-  phy: Use macros instead of hardcoded values in marvell phy driver
-  phy: Add Marvell 88E1116R phy ID
-  phy: Add Marvell 88E1510 phy ID
+ /* Vitesse Auxiliary Control/Status Register */
+-#define MII_VSC8244_AUX_CONSTAT        	0x1c
+-#define MII_VSC8244_AUXCONSTAT_INIT    	0x0000
+-#define MII_VSC8244_AUXCONSTAT_DUPLEX  	0x0020
+-#define MII_VSC8244_AUXCONSTAT_SPEED   	0x0018
+-#define MII_VSC8244_AUXCONSTAT_GBIT    	0x0010
+-#define MII_VSC8244_AUXCONSTAT_100     	0x0008
++#define MII_VSC8244_AUX_CONSTAT		0x1c
++#define MII_VSC8244_AUXCONSTAT_INIT	0x0000
++#define MII_VSC8244_AUXCONSTAT_DUPLEX	0x0020
++#define MII_VSC8244_AUXCONSTAT_SPEED	0x0018
++#define MII_VSC8244_AUXCONSTAT_GBIT	0x0010
++#define MII_VSC8244_AUXCONSTAT_100	0x0008
 
- drivers/net/phy/marvell.c   | 108 ++++++++++++++++++++++++++++++++++++++++----
- drivers/net/phy/vitesse.c   |  38 +++++++++++-----
- include/linux/marvell_phy.h |   2 +
- 3 files changed, 127 insertions(+), 21 deletions(-)
+ #define MII_VSC8221_AUXCONSTAT_INIT	0x0004 /* need to set this bit? */
+ #define MII_VSC8221_AUXCONSTAT_RESERVED	0x0004
+@@ -100,9 +100,8 @@ static int vsc824x_config_init(struct phy_device *phydev)
+ static int vsc824x_ack_interrupt(struct phy_device *phydev)
+ {
+ 	int err = 0;
+-	
+-	/*
+-	 * Don't bother to ACK the interrupts if interrupts
++
++	/* Don't bother to ACK the interrupts if interrupts
+ 	 * are disabled.  The 824x cannot clear the interrupts
+ 	 * if they are disabled.
+ 	 */
+@@ -122,8 +121,7 @@ static int vsc82xx_config_intr(struct phy_device *phydev)
+ 				MII_VSC8244_IMASK_MASK :
+ 				MII_VSC8221_IMASK_MASK);
+ 	else {
+-		/*
+-		 * The Vitesse PHY cannot clear the interrupt
++		/* The Vitesse PHY cannot clear the interrupt
+ 		 * once it has disabled them, so we clear them first
+ 		 */
+ 		err = phy_read(phydev, MII_VSC8244_ISTAT);
+@@ -146,7 +144,8 @@ static int vsc8221_config_init(struct phy_device *phydev)
+ 	return err;
 
+ 	/* Perhaps we should set EXT_CON1 based on the interface?
+-	   Options are 802.3Z SerDes or SGMII */
++	 * Options are 802.3Z SerDes or SGMII
++	 */
+ }
+
+ /* Vitesse 824x */
 --
 1.8.2.3
 
 
---=_mimegpg-monstr-desktop-1654-1369980507-0001
+--=_mimegpg-monstr-desktop-1678-1369980513-0001
 Content-Type: application/pgp-signature
 Content-Transfer-Encoding: 7bit
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
-iEYEABECAAYFAlGoPlsACgkQykllyylKDCE5SACfTwa2mXp9R7xXIjF9oQtqB9ju
-bP0AoJOhA95EXqxyNoI5kY5j5hN3XYOL
-=3xt5
+iEYEABECAAYFAlGoPmEACgkQykllyylKDCGqcwCfRyrtsfbl1MV3L2jepKeBHwQF
+ro0AnRdxLWUTadpMWMqIOTmibe3gjzK1
+=/jWX
 -----END PGP SIGNATURE-----
 
---=_mimegpg-monstr-desktop-1654-1369980507-0001--
+--=_mimegpg-monstr-desktop-1678-1369980513-0001--
