@@ -1,76 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 net-next] gro: should aggregate frames without DF
-Date: Fri, 31 May 2013 22:27:36 +0100
-Message-ID: <1370035656.2703.18.camel@bwh-desktop.uk.level5networks.com>
-References: <1370019752.5109.108.camel@edumazet-glaptop>
-	 <1370030944.2703.17.camel@bwh-desktop.uk.level5networks.com>
-	 <1370035090.5109.113.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH v2 net 1/6] net/core: __hw_addr_create_ex does not initialize sync_cnt
+Date: Fri, 31 May 2013 14:57:26 -0700
+Message-ID: <1370037451-29466-2-git-send-email-fubar@us.ibm.com>
+References: <1370037451-29466-1-git-send-email-fubar@us.ibm.com>
 Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+	Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:26799 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755010Ab3EaV1l (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 17:27:41 -0400
-In-Reply-To: <1370035090.5109.113.camel@edumazet-glaptop>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:60903 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752017Ab3EaV5v (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 May 2013 17:57:51 -0400
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Fri, 31 May 2013 17:57:51 -0400
+Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id C69B6C90043
+	for <netdev@vger.kernel.org>; Fri, 31 May 2013 17:57:47 -0400 (EDT)
+Received: from d01av02.pok.ibm.com (d01av02.pok.ibm.com [9.56.224.216])
+	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4VLvmOn310018
+	for <netdev@vger.kernel.org>; Fri, 31 May 2013 17:57:48 -0400
+Received: from d01av02.pok.ibm.com (loopback [127.0.0.1])
+	by d01av02.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4VLvlo4025517
+	for <netdev@vger.kernel.org>; Fri, 31 May 2013 18:57:48 -0300
+In-Reply-To: <1370037451-29466-1-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-31 at 14:18 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> GRO on IPv4 doesn't aggregate frames if they don't have DF bit set.
-> 
-> Some servers use IP_MTU_DISCOVER/IP_PMTUDISC_PROBE, so linux receivers
-> are unable to aggregate this kind of traffic.
-> 
-> The right thing to do is to allow aggregation as long as the DF bit has
-> same value on all segments.
-> 
-> bnx2x LRO does this correctly.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Jerry Chu <hkchu@google.com>
-> Cc: Herbert Xu <herbert@gondor.apana.org.au>
-> Cc: Ben Hutchings <bhutchings@solarflare.com>
-> ---
-> v2 : fix from Ben Hutchings (Thanks !)
+	The sync_cnt field is not being initialized, which can result
+in arbitrary values in the field.  Fixed by initializing it to zero.
 
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com> 
 
->  net/ipv4/af_inet.c |    3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-> index b05ae96..9c090c7 100644
-> --- a/net/ipv4/af_inet.c
-> +++ b/net/ipv4/af_inet.c
-> @@ -1385,7 +1385,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
->  		goto out_unlock;
->  
->  	id = ntohl(*(__be32 *)&iph->id);
-> -	flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id ^ IP_DF));
-> +	flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id & ~IP_DF));
->  	id >>= 16;
->  
->  	for (p = *head; p; p = p->next) {
-> @@ -1407,6 +1407,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
->  		NAPI_GRO_CB(p)->flush |=
->  			(iph->ttl ^ iph2->ttl) |
->  			(iph->tos ^ iph2->tos) |
-> +			((iph->frag_off ^ iph2->frag_off) & htons(IP_DF)) |
->  			((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
->  
->  		NAPI_GRO_CB(p)->flush |= flush;
-> 
-> 
+---
+ net/core/dev_addr_lists.c |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
+diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
+index c013f38..1f919d9 100644
+--- a/net/core/dev_addr_lists.c
++++ b/net/core/dev_addr_lists.c
+@@ -39,6 +39,7 @@ static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
+ 	ha->refcount = 1;
+ 	ha->global_use = global;
+ 	ha->synced = sync;
++	ha->sync_cnt = 0;
+ 	list_add_tail_rcu(&ha->list, &list->list);
+ 	list->count++;
+ 
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.7.1
