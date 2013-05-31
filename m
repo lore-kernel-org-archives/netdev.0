@@ -1,35 +1,60 @@
-From: William Dauchy <wdauchy@gmail.com>
-Subject: Re: [Xen-devel] xen-netback stable backports request (regression fixes)
-Date: Fri, 31 May 2013 15:45:25 +0200
-Message-ID: <CAJ75kXZcdAc5x+p8789rKnS2mUJcd4wAS2NwBfKi7yPqYN1T-w@mail.gmail.com>
-References: <1369734465.3469.52.camel@zakaz.uk.xensource.com> <CAJ75kXbyqa=HJD7x9OoGTh99YoiUJz8ioEdMwh5Ryko5daev-g@mail.gmail.com>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH 6/7] qlcnic: remove redundant D0 power state set
+Date: Fri, 31 May 2013 13:48:27 +0000
+Message-ID: <C562D0E12CBDE44E8A0CCAB7706009673539F21B@AVMB1.qlogic.org>
+References: <1369909569-33096-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: stable@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, Wei Liu <wei.liu2@citrix.com>,
-	xen-devel <xen-devel@lists.xen.org>,
-	Luis Henriques <luis.henriques@canonical.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <CAJ75kXbyqa=HJD7x9OoGTh99YoiUJz8ioEdMwh5Ryko5daev-g@mail.gmail.com>
-Sender: stable-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
+	netdev <netdev@vger.kernel.org>,
+	Hanjun Guo <guohanjun@huawei.com>, Jiang Liu <liuj97@gmail.com>
+To: Yijing Wang <wangyijing@huawei.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	Sony Chacko <sony.chacko@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1369909569-33096-1-git-send-email-wangyijing@huawei.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, May 31, 2013 at 3:20 PM, William Dauchy <wdauchy@gmail.com> wrote:
-> I applied the patches on a 3.4.x kernel.
-> for netback I had to include:
-> 9eaee8b xen-netback: fix sparse warning
-> which I guess is ok to include in 3.4
+>-----Original Message-----
+>From: Yijing Wang [mailto:wangyijing@huawei.com]
+>Sent: Thursday, May 30, 2013 3:56 PM
+>To: Rajesh Borundia; Shahed Shaikh; Jitendra Kalsaria; Sony Chacko
+>Cc: linux-kernel; Dept-Eng Linux Driver; netdev; Hanjun Guo; Jiang Liu;
+>Yijing Wang
+>Subject: [PATCH 6/7] qlcnic: remove redundant D0 power state set
 >
-> for netfront, as Luis said, I also add to include:
-> f36c374 xen/netfront: handle compound page fragments on transmit
-> which is not a simple patch.
+>Pci_enable_device() will set device power state to D0,
+>so it's no need to do it again in qlcnic_attach_func().
+>
+>Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+>---
+> drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    1 -
+> 1 files changed, 0 insertions(+), 1 deletions(-)
+>
+>diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>index aeb26a8..3585c2c 100644
+>--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+>@@ -3219,7 +3219,6 @@ static int qlcnic_attach_func(struct pci_dev
+>*pdev)
+> 	if (err)
+> 		return err;
+>
+>-	pci_set_power_state(pdev, PCI_D0);
+> 	pci_set_master(pdev);
+> 	pci_restore_state(pdev);
+>
+>--
+>1.7.1
+>
+>
 
-at the end, it is not really clever to include f36c374 in 3.4.x since
-6a8ed46 xen: netback: handle compound page fragments on transmit.
-is not present in netback for 3.4.x
+Acked-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 
-at least the netback part is ok for me.
-
---
-William
+Thanks!
