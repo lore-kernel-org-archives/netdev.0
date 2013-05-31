@@ -1,42 +1,38 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 02/12] tipc: Add "max_ports" configuration parameter
-Date: Fri, 31 May 2013 10:25:34 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B725E@saturn3.aculab.com>
-References: <20130531082538.GB17727@eerihug-hybrid.ki.sw.ericsson.se> <20130531.012922.204204156468438634.davem@davemloft.net> <20130531083455.GA7568@eerihug-hybrid.ki.sw.ericsson.se> <20130531.014028.420559536226155172.davem@davemloft.net> <20130531092302.GA8131@eerihug-hybrid.ki.sw.ericsson.se>
+From: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Subject: cw1200 "sbus" conflicts with SPARC "sbus"
+Date: Fri, 31 May 2013 11:31:05 +0200 (CEST)
+Message-ID: <alpine.DEB.2.00.1305311127200.4645@ayla.of.borg>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <paul.gortmaker@windriver.com>, <netdev@vger.kernel.org>,
-	<jon.maloy@ericsson.com>, <ying.xue@windriver.com>
-To: "Erik Hugne" <erik.hugne@ericsson.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:34011 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754364Ab3EaJ2J convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 05:28:09 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 02898-08 for <netdev@vger.kernel.org>;
- Fri, 31 May 2013 10:28:03 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20130531092302.GA8131@eerihug-hybrid.ki.sw.ericsson.se>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-> > We never shrink the hash tables once we've grown them.  That's a
-> > reasonable way to behave.
-> 
-> Very well.
-> Currently, the refs/portID's are built up of a random part, and an index
-> part. The index is obtained by masking against the table size.
-> If the table is allowed to grow, we must remove the random part from the
-> portID. Otherwise we would index out a nonexistant or wrong port
-> from a received packet..
 
-No - you just copy the entry into the correct location in the
-new array.
-One of the 'random' bits becomes an 'index' bit.
+sparc64/allmodconfig:
 
-	David
+drivers/net/wireless/cw1200/hwio.c:51:21: error: macro "sbus_memcpy_fromio" passed 4 arguments, but takes just 3
+drivers/net/wireless/cw1200/hwio.c:66:19: error: macro "sbus_memcpy_toio" passed 4 arguments, but takes just 3
+
+http://kisskb.ellerman.id.au/kisskb/buildresult/8846508/
+
+At first I thought it was a bad/old implementation of a real SPARC sbus
+driver.  but it seems the two sbusses are completely unrelated.
+
+Gr{oetje,eeting}s,
+
+						Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+							    -- Linus Torvalds
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
