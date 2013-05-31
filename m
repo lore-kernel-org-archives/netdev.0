@@ -1,308 +1,79 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next rfc V2 7/8] macvtap: add TUNSETQUEUE ioctl
-Date: Fri, 31 May 2013 17:53:24 +0800
-Message-ID: <1369994005-5943-8-git-send-email-jasowang@redhat.com>
+Subject: [net-next rfc V2 3/8] macvtap: introduce macvtap_get_vlan()
+Date: Fri, 31 May 2013 17:53:20 +0800
+Message-ID: <1369994005-5943-4-git-send-email-jasowang@redhat.com>
 References: <1369994005-5943-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, mst@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:24278 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:16541 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754362Ab3EaKEL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 May 2013 06:04:11 -0400
+	id S1754045Ab3EaKDx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 May 2013 06:03:53 -0400
 In-Reply-To: <1369994005-5943-1-git-send-email-jasowang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds TUNSETQUEUE ioctl to let userspace can temporarily disable or
-enable a queue of macvtap. This is used to be compatible at API layer of tuntap
-to simplify the userspace to manage the queues.
-
-This is done by split the taps array into three different areas:
-
-- [0, numvtaps) : enabled taps
-- [numvtaps, numvtaps + numdisabled) : disabled taps
-- [numvtaps + numdisabled, MAX_MAXVTAP_QUEUES) : unused slots
-
-When a tap were enabled and disabled, it was moved to another area.
+Factor out the device holding logic to a macvtap_get_vlan(), this will be also
+used by multiqueue API.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/macvtap.c      |  167 ++++++++++++++++++++++++++++++++++++++++----
- include/linux/if_macvlan.h |    7 ++
- 2 files changed, 159 insertions(+), 15 deletions(-)
+ drivers/net/macvtap.c |   27 ++++++++++++++++++++-------
+ 1 files changed, 20 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index eac49cb..03b781c 100644
+index 2395062..56b38e9 100644
 --- a/drivers/net/macvtap.c
 +++ b/drivers/net/macvtap.c
-@@ -85,32 +85,126 @@ static const struct proto_ops macvtap_socket_ops;
-  */
- static DEFINE_SPINLOCK(macvtap_lock);
- 
--static int macvtap_set_queue(struct net_device *dev, struct file *file,
-+static void macvtap_swap_slot(struct macvlan_dev *vlan, int a, int b)
-+{
-+	struct macvtap_queue *q1, *q2;
-+
-+	if (a == b)
-+		return;
-+
-+	q1 = rcu_dereference_protected(vlan->taps[a],
-+				       lockdep_is_held(&macvtap_lock));
-+	q2 = rcu_dereference_protected(vlan->taps[b],
-+				       lockdep_is_held(&macvtap_lock));
-+
-+	BUG_ON(q1 == NULL || q2 == NULL);
-+
-+	rcu_assign_pointer(vlan->taps[a], q2);
-+	rcu_assign_pointer(vlan->taps[b], q1);
-+
-+	q1->queue_index = b;
-+	q2->queue_index = a;
-+}
-+
-+static int macvtap_enable_queue(struct net_device *dev, struct file *file,
- 				struct macvtap_queue *q)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
-+	int err = -EINVAL;
-+	int total;
-+
-+	spin_lock(&macvtap_lock);
-+	total = vlan->numvtaps + vlan->numdisabled;
-+
-+	if (q->queue_index < vlan->numvtaps)
-+		goto out;
-+
-+	err = 0;
-+
-+	BUG_ON(q->queue_index >= total);
-+	macvtap_swap_slot(vlan, q->queue_index, vlan->numvtaps);
-+
-+	/* Make sure the pointers were seen before indices. */
-+	wmb();
-+
-+	vlan->numdisabled--;
-+	vlan->numvtaps++;
-+out:
-+	spin_unlock(&macvtap_lock);
-+	return err;
-+}
-+
-+static int macvtap_set_queue(struct net_device *dev, struct file *file,
-+			     struct macvtap_queue *q)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
- 	int err = -EBUSY;
-+	int total;
- 
- 	spin_lock(&macvtap_lock);
--	if (vlan->numvtaps == MAX_MACVTAP_QUEUES)
-+
-+	total = vlan->numvtaps + vlan->numdisabled;
-+	if (total == MAX_MACVTAP_QUEUES)
- 		goto out;
- 
- 	err = 0;
-+
- 	rcu_assign_pointer(q->vlan, vlan);
--	rcu_assign_pointer(vlan->taps[vlan->numvtaps], q);
-+	rcu_assign_pointer(vlan->taps[total], q);
- 	sock_hold(&q->sk);
- 
- 	q->file = file;
--	q->queue_index = vlan->numvtaps;
-+	q->queue_index = total;
- 	file->private_data = q;
-+	if (vlan->numdisabled)
-+		macvtap_swap_slot(vlan, vlan->numvtaps, total);
- 
--	vlan->numvtaps++;
-+	/* Make sure the pointers were seen before indices. */
-+	wmb();
- 
-+	vlan->numvtaps++;
- out:
- 	spin_unlock(&macvtap_lock);
- 	return err;
+@@ -893,6 +893,24 @@ out:
+ 	return ret;
  }
  
-+static int macvtap_disable_queue(struct macvtap_queue *q)
++static struct macvlan_dev *macvtap_get_vlan(struct macvtap_queue *q)
 +{
 +	struct macvlan_dev *vlan;
-+	int err = -EINVAL;
 +
-+	spin_lock(&macvtap_lock);
-+	vlan = rcu_dereference_protected(q->vlan,
-+					 lockdep_is_held(&macvtap_lock));
++	rcu_read_lock_bh();
++	vlan = rcu_dereference_bh(q->vlan);
++	if (vlan)
++		dev_hold(vlan->dev);
++	rcu_read_unlock_bh();
 +
-+	if (vlan) {
-+		int total = vlan->numvtaps + vlan->numdisabled;
-+		int index = q->queue_index;
-+
-+		BUG_ON(q->queue_index >= total);
-+		if (q->queue_index >= vlan->numvtaps)
-+			goto out;
-+
-+		err = 0;
-+		macvtap_swap_slot(vlan, index, total - 1);
-+		if (vlan->numdisabled)
-+			/* If there's disabled taps, the above swap will cause
-+			 * a disabled tap to be moved to enabled area. So
-+			 * another swap is needed to keep the right order.
-+			 */
-+			macvtap_swap_slot(vlan, index, vlan->numvtaps - 1);
-+
-+		/* make sure the pointers were seen before indices */
-+		wmb();
-+
-+		vlan->numvtaps--;
-+		vlan->numdisabled++;
-+	}
-+
-+out:
-+	spin_unlock(&macvtap_lock);
-+	return err;
++	return vlan;
 +}
- /*
-  * The file owning the queue got closed, give up both
-  * the reference that the files holds as well as the
-@@ -121,25 +215,38 @@ out:
-  */
- static void macvtap_put_queue(struct macvtap_queue *q)
- {
--	struct macvtap_queue *nq;
- 	struct macvlan_dev *vlan;
- 
- 	spin_lock(&macvtap_lock);
- 	vlan = rcu_dereference_protected(q->vlan,
- 					 lockdep_is_held(&macvtap_lock));
 +
- 	if (vlan) {
-+		int total = vlan->numvtaps + vlan->numdisabled;
- 		int index = q->queue_index;
--		BUG_ON(index >= vlan->numvtaps);
-+		bool disabled = q->queue_index >= vlan->numvtaps;
-+
-+		BUG_ON(q->queue_index >= total);
-+		macvtap_swap_slot(vlan, index, total - 1);
-+		if (!disabled && vlan->numdisabled)
-+			/* If there's disabled taps, the above swap will cause
-+			 * a disabled tap to be moved to enabled area. So
-+			 * another swap is needed to keep the right order.
-+			 */
-+			macvtap_swap_slot(vlan, index, vlan->numvtaps - 1);
-+
-+		RCU_INIT_POINTER(vlan->taps[total - 1], NULL);
-+		RCU_INIT_POINTER(q->vlan, NULL);
-+		sock_put(&q->sk);
- 
--		nq = rcu_dereference_protected(vlan->taps[vlan->numvtaps - 1],
--					       lockdep_is_held(&macvtap_lock));
--		rcu_assign_pointer(vlan->taps[index], nq);
--		nq->queue_index = index;
-+		/* Make sure the pointers were seen before indices */
-+		wmb();
- 
--		RCU_INIT_POINTER(q->vlan, NULL);
-+		if (disabled)
-+			vlan->numdisabled--;
-+		else
-+			vlan->numvtaps--;
- 
--		sock_put(&q->sk);
--		--vlan->numvtaps;
- 	}
- 
- 	spin_unlock(&macvtap_lock);
-@@ -166,6 +273,9 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
- 	if (!numvtaps)
- 		goto out;
- 
-+	/* Check taps after numvtaps were exposed. */
-+	rmb();
-+
- 	/* Check if we can use flow to select a queue */
- 	rxq = skb_get_rxhash(skb);
- 	if (rxq) {
-@@ -201,7 +311,7 @@ static void macvtap_del_queues(struct net_device *dev)
- 
- 	/* macvtap_put_queue can free some slots, so go through all slots */
- 	spin_lock(&macvtap_lock);
--	for (i = 0; i < vlan->numvtaps; i++) {
-+	for (i = 0; i < vlan->numvtaps + vlan->numdisabled; i++) {
- 		q = rcu_dereference_protected(vlan->taps[i],
- 					      lockdep_is_held(&macvtap_lock));
- 		BUG_ON(q == NULL);
-@@ -211,6 +321,7 @@ static void macvtap_del_queues(struct net_device *dev)
- 	}
- 	/* guarantee that any future macvtap_set_queue will fail */
- 	vlan->numvtaps = MAX_MACVTAP_QUEUES;
-+	vlan->numdisabled = 0;
- 	spin_unlock(&macvtap_lock);
- 
- 	synchronize_rcu();
-@@ -927,6 +1038,27 @@ static int macvtap_set_iff(struct file *file, struct ifreq __user *ifr_u)
- 	return 0;
- }
- 
-+static int macvtap_ioctl_set_queue(struct file *file, unsigned int flags)
++static void macvtap_put_vlan(struct macvlan_dev *vlan)
 +{
-+	struct macvtap_queue *q = file->private_data;
-+	struct macvlan_dev *vlan;
-+	int ret = -EINVAL;
-+
-+	vlan = macvtap_get_vlan(q);
-+	if (!vlan)
-+		goto done;
-+
-+	if (flags & IFF_ATTACH_QUEUE)
-+		ret = macvtap_enable_queue(vlan->dev, file, q);
-+	else if (flags & IFF_DETACH_QUEUE)
-+		ret = macvtap_disable_queue(q);
-+
-+	macvtap_put_vlan(vlan);
-+
-+done:
-+	return ret;
++	dev_put(vlan->dev);
 +}
 +
  /*
   * provide compatibility with generic tun/tap interface
   */
-@@ -959,6 +1091,11 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		macvtap_put_vlan(vlan);
+@@ -924,12 +942,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
  		return ret;
  
-+	case TUNSETQUEUE:
-+		if (get_user(u, &ifr->ifr_flags))
-+			return -EFAULT;
-+		return macvtap_ioctl_set_queue(file, u);
-+
- 	case TUNGETFEATURES:
- 		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR, up))
- 			return -EFAULT;
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index 62d8bda..d528f38 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -69,8 +69,15 @@ struct macvlan_dev {
- 	u16			flags;
- 	int (*receive)(struct sk_buff *skb);
- 	int (*forward)(struct net_device *dev, struct sk_buff *skb);
-+	/* This array tracks all taps (include disabled ones) and will be
-+	 * reshuffled to keep the following order:
-+	 * [0, numvtaps) : enabled taps,
-+	 * [numvtaps, numvtaps + numdisabled) : disabled taps,
-+	 * [numvtaps + numdisabled, MAX_MACVTAP_QUEUES) : unused slots
-+	 */
- 	struct macvtap_queue	*taps[MAX_MACVTAP_QUEUES];
- 	int			numvtaps;
-+	int			numdisabled;
- 	int			minor;
- };
+ 	case TUNGETIFF:
+-		rcu_read_lock_bh();
+-		vlan = rcu_dereference_bh(q->vlan);
+-		if (vlan)
+-			dev_hold(vlan->dev);
+-		rcu_read_unlock_bh();
+-
++		vlan = macvtap_get_vlan(q);
+ 		if (!vlan)
+ 			return -ENOLINK;
  
+@@ -937,7 +950,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		if (copy_to_user(&ifr->ifr_name, vlan->dev->name, IFNAMSIZ) ||
+ 		    put_user(q->flags, &ifr->ifr_flags))
+ 			ret = -EFAULT;
+-		dev_put(vlan->dev);
++		macvtap_put_vlan(vlan);
+ 		return ret;
+ 
+ 	case TUNGETFEATURES:
 -- 
 1.7.1
