@@ -1,132 +1,49 @@
-From: Joao Correia <joaomiguelcorreia@gmail.com>
-Subject: Re: Network issue on 3.10 rcs, bisected
-Date: Fri, 31 May 2013 09:26:42 +0100
-Message-ID: <CACG0VPXVU1A_c23OYwYsKY8rambCLVWrapFD5OnFwFn66-WeBA@mail.gmail.com>
-References: <CACG0VPV3-x5Ncp+_hci8wVNYUeqAUZ0KFm0MAuHMntXzaL9Nqw@mail.gmail.com>
- <CALnjE+p3vFkYBu=XioeDTEL1cyXh_379ix84Yoojj1eB11q57Q@mail.gmail.com>
- <CACG0VPWeu8JoMYJNnQ39zvubftpeTB_EvKNrxZm7Op9q6HUVXA@mail.gmail.com>
- <CALnjE+q-dbK0bha_J848mb7sdmLi7a5-BMjKng+wQ8KaDFL=LQ@mail.gmail.com>
- <CACG0VPXWoD=33rSv9S_C2t7XSHny9vHwKysoiTdwWueQM7MLsA@mail.gmail.com> <CALnjE+qTqQDfrBxEogo6UJm63=USX7rgO=d4fasF1Cc-S3nQ1g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 02/12] tipc: Add "max_ports" configuration
+ parameter
+Date: Fri, 31 May 2013 01:29:22 -0700 (PDT)
+Message-ID: <20130531.012922.204204156468438634.davem@davemloft.net>
+References: <1369942577-39563-3-git-send-email-paul.gortmaker@windriver.com>
+	<20130530.154925.298481337221579707.davem@davemloft.net>
+	<20130531082538.GB17727@eerihug-hybrid.ki.sw.ericsson.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: LKML <linux-kernel@vger.kernel.org>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: Pravin Shelar <pshelar@nicira.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
+	jon.maloy@ericsson.com, ying.xue@windriver.com
+To: erik.hugne@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f52.google.com ([209.85.128.52]:40190 "EHLO
-	mail-qe0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750791Ab3EaI1Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 04:27:24 -0400
-In-Reply-To: <CALnjE+qTqQDfrBxEogo6UJm63=USX7rgO=d4fasF1Cc-S3nQ1g@mail.gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34604 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754016Ab3EaI3X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 04:29:23 -0400
+In-Reply-To: <20130531082538.GB17727@eerihug-hybrid.ki.sw.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 31, 2013 at 12:13 AM, Pravin Shelar <pshelar@nicira.com> wrote:
-> On Thu, May 30, 2013 at 2:14 PM, Joao Correia
-> <joaomiguelcorreia@gmail.com> wrote:
->> On Thu, May 30, 2013 at 5:48 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>> On Wed, May 29, 2013 at 12:53 PM, Joao Correia
->>> <joaomiguelcorreia@gmail.com> wrote:
->>>> On Wed, May 29, 2013 at 7:59 PM, Pravin Shelar <pshelar@nicira.com> wrote:
->>>>>
->>>>> On Wed, May 29, 2013 at 4:37 AM, Joao Correia
->>>>> <joaomiguelcorreia@gmail.com> wrote:
->>>>> > Hello list
->>>>> >
->>>>> > While trying the rc's for 3.10, i've stumbled upon a problem where
->>>>> > networking does not work at all. Iptables will show packet counts going up,
->>>>> > but nothing actually reaches the programs.
->>>>> >
->>>>> > I'm running fedora under hyper-v 3 (a windows 2012 host). Only tested ipv4
->>>>> > traffic, and everything times out (ping, telnet to open ports) on both
->>>>> > directions. The networking devices come up apparently ok - has static ip
->>>>> > set, and dmesg shows no errors (although i don't have many debugging options
->>>>> > enabled).
->>>>> >
->>>>> > I bisected this, and git blames commit
->>>>> > ec5f061564238892005257c83565a0b58ec79295 (net: ill link between CSUM and SG
->>>>> > features.). I can't revert it cleanly on current rc's.
->>>>> >
->>>>> Can you also send network features set on the device?
->>>>> ethtool -k <dev>
->>>>
->>>>
->>>> As requested:
->>>> Features for eth0:
->>>> rx-checksumming: off [fixed]
->>>> tx-checksumming: off
->>>>     tx-checksum-ipv4: off [fixed]
->>>>     tx-checksum-ip-generic: off [fixed]
->>>>     tx-checksum-ipv6: off [fixed]
->>>>     tx-checksum-fcoe-crc: off [fixed]
->>>>     tx-checksum-sctp: off [fixed]
->>>> scatter-gather: on
->>>>     tx-scatter-gather: on
->>>>     tx-scatter-gather-fraglist: off [fixed]
->>>> tcp-segmentation-offload: off
->>>>     tx-tcp-segmentation: off [fixed]
->>>>     tx-tcp-ecn-segmentation: off [fixed]
->>>>     tx-tcp6-segmentation: off [fixed]
->>>> udp-fragmentation-offload: off [fixed]
->>>> generic-segmentation-offload: on
->>>> generic-receive-offload: on
->>>> large-receive-offload: off [fixed]
->>>> rx-vlan-offload: off
->>>> tx-vlan-offload: on
->>>> ntuple-filters: off [fixed]
->>>> receive-hashing: off [fixed]
->>>> highdma: off [fixed]
->>>> tx-vlan-ctag-hw-insert: on [fixed]
->>>> rx-vlan-ctag-hw-parse: off [fixed]
->>>> rx-vlan-ctag-filter: off [fixed]
->>>> tx-vlan-stag-hw-insert: off [fixed]
->>>> rx-vlan-stag-hw-parse: off [fixed]
->>>> rx-vlan-stag-filter: off [fixed]
->>>> vlan-challenged: off [fixed]
->>>> tx-lockless: off [fixed]
->>>> netns-local: off [fixed]
->>>> tx-gso-robust: off [fixed]
->>>> tx-fcoe-segmentation: off [fixed]
->>>> tx-gre-segmentation: off [fixed]
->>>> tx-udp_tnl-segmentation: off [fixed]
->>>> fcoe-mtu: off [fixed]
->>>> tx-nocache-copy: off
->>>> loopback: off [fixed]
->>>> rx-fcs: off [fixed]
->>>> rx-all: off [fixed]
->>>>
->>>> The output is similar on a working (3.9) and a bad (3.10) kernel.
->>>> diff-ing both outputs shows:
->>>> tx-vlan-stag-hw-insert: off [fixed]
->>>> rx-vlan-stag-hw-parse: off [fixed]
->>>> rx-vlan-stag-filter: off [fixed]
->>>> as last on the broken kernels.
->>>>
->>>
->>> I could not reproduce it, I will try it on VM. Meanwhile can you turn
->>> off feature "sg" and try same test ?
->>
->> Hello
->>
->> Your hint was spot-on. With sg off, i can't reproduce the problem and
->> networking seems fine. It works fine either way on 3.9, so this is a
->> regression for 3.10.
->>
-> Nice.
-> but still this does not look right. Can you tell me driver for the nic?
-> `ethtool -i <dev>`
+From: Erik Hugne <erik.hugne@ericsson.com>
+Date: Fri, 31 May 2013 10:25:38 +0200
 
-ethtool -i eth0:
-driver: hv_netvsc
-version: 3.1
-firmware-version: N/A
-bus-info:
-supports-statistics: no
-supports-test: no
-supports-eeprom-access: no
-supports-register-dump: no
-supports-priv-flags: no
+> On Thu, May 30, 2013 at 03:49:25PM -0700, David Miller wrote:
+>> View compile time constants and module parameters as artificial
+>> limits, they are terrible and unnecessary.
+>> 
+>> There is no reason you cannot restructure this table so that you
+>> can dynamically size it at run time.
+> 
+> The TIPC ref table index is used directly as the port identity in the 
+> TIPC publications. When a socket is bound, this ID is published to all 
+> other nodes in the cluster.
+> If we where to allow the table to be changed dynamically, we would need
+> to change the port identities for already bound sockets/ports, withdraw
+> the old identity and publish the new one.
 
->
-> Thanks,
-> Pravin.
+No you do not, simply grow the table just like we dynamically grow
+hash tables in response to network/socket activity elsewhere in the
+kernel.  You'll only allocate new indexes from the newly allocated
+area, the existing indexes will remain the same.
+
+I really will accept no excuses for this limitation, especially if
+the response is an ugly module paramter.
+
+Thanks.
