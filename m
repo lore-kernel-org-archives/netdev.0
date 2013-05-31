@@ -1,40 +1,69 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: Another try at getting pktgen to work with wifi.
-Date: Fri, 31 May 2013 19:37:26 +0200
-Message-ID: <1370021846.14117.13.camel@jlt4.sipsolutions.net>
-References: <51A79E4A.7000609@candelatech.com>
-	 <51A7B049.9090201@openwrt.org> <51A7BA63.4080403@candelatech.com>
-	 <51A857BF.7070008@openwrt.org> <51A8DC1C.1040908@candelatech.com>
-	 (sfid-20130531_192143_291284_FB196B0A)
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next 02/12] tipc: Add "max_ports" configuration parameter
+Date: Fri, 31 May 2013 13:48:56 -0400
+Message-ID: <51A8E288.9020206@windriver.com>
+References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com> <1369942577-39563-3-git-send-email-paul.gortmaker@windriver.com> <20130530.154925.298481337221579707.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Felix Fietkau <nbd@openwrt.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
+Cc: <netdev@vger.kernel.org>, <jon.maloy@ericsson.com>,
+	<ying.xue@windriver.com>, <erik.hugne@ericsson.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:42049 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754155Ab3EaRhb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 13:37:31 -0400
-In-Reply-To: <51A8DC1C.1040908@candelatech.com> (sfid-20130531_192143_291284_FB196B0A)
+Received: from mail1.windriver.com ([147.11.146.13]:52425 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753696Ab3EaRsj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 13:48:39 -0400
+In-Reply-To: <20130530.154925.298481337221579707.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-05-31 at 10:21 -0700, Ben Greear wrote:
+On 13-05-30 06:49 PM, David Miller wrote:
+> From: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Date: Thu, 30 May 2013 15:36:07 -0400
+> 
+>> From: Erik Hugne <erik.hugne@ericsson.com>
+>>
+>> Introduce the "max_ports" module parameter, which allows the maximum
+>> number of ports supported by TIPC to be changed from the default value
+>> at boot, or at module load time. Because of the way the port reference
+>> table is structured and initiated, this value must be known at module
+>> start time, and can not be changed later.
+>>
+>> Until now this value has been set via a macro, and hence things
+>> have to be recompiled if the value is to be changed. The Kconfig
+>> knob and the dead code intended to change this parameter at runtime
+>> are dropped.
+>>
+>> Considering TIPC node addresses are unique on the entire node, the
+>> 64k port limit has proven to be a little too strict.  We increase the
+>> allowed max to 128k. This is safe since the protocol headers allow
+>> for up to 2^32 -1 ports.
+>>
+>> Usage for module: "insmod tipc.ko max_ports=<value>" ; at boot, append
+>> "tipc.max_ports=<value>" to the kernel command line.
+>>
+>> Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+>> Reviewed-by: Jon Maloy <jon.maloy@ericsson.com>
+>> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> 
+> View compile time constants and module parameters as artificial
+> limits, they are terrible and unnecessary.
 
-> Before I go work on this, does anyone have any preference over
-> whether pktgen packets should obey the QoS or the xmit-queue?
+I can't argue with that; I was thinking that the module param was
+better than a recompile, but as you say, not having it at all is
+yet better again.  I'll drop this patch, and if the reimplementation
+isn't ready before 3.10-rc6, I'll just resend the series without it.
 
-That's the core of the problem is that select_queue has the side effect
-of setting skb->priority in mac80211, no? Maybe that side effect needs
-to be removed?
+Thanks,
+Paul.
+--
 
-Actually that makes it seem like something else should be doing packet
-classification, not mac80211 in select_queue()?
-
-Where is skb->priority actually really used in mac80211? I don't see
-much?
-
-johannes
+> 
+> There is no reason you cannot restructure this table so that you
+> can dynamically size it at run time.
+> 
+> Please reimplement it in that way.
+> 
+> Thanks.
+> 
