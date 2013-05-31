@@ -1,34 +1,54 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/7] tulip: remove redundant D0 power state set
-Date: Fri, 31 May 2013 01:39:43 -0700 (PDT)
-Message-ID: <20130531.013943.1014215784313697848.davem@davemloft.net>
-References: <1369909626-37832-1-git-send-email-wangyijing@huawei.com>
-	<CAP6odjieAiXxotVpE6fyFp7KS-1GXHdKpWXymtT96fRek5ewoQ@mail.gmail.com>
+Subject: Re: [PATCH net-next 02/12] tipc: Add "max_ports" configuration
+ parameter
+Date: Fri, 31 May 2013 01:40:28 -0700 (PDT)
+Message-ID: <20130531.014028.420559536226155172.davem@davemloft.net>
+References: <20130531082538.GB17727@eerihug-hybrid.ki.sw.ericsson.se>
+	<20130531.012922.204204156468438634.davem@davemloft.net>
+	<20130531083455.GA7568@eerihug-hybrid.ki.sw.ericsson.se>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: wangyijing@huawei.com, grundler@parisc-linux.org,
-	guohanjun@huawei.com, liuj97@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: grantgrundler@gmail.com
+Cc: paul.gortmaker@windriver.com, netdev@vger.kernel.org,
+	jon.maloy@ericsson.com, ying.xue@windriver.com
+To: erik.hugne@ericsson.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34664 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34677 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751184Ab3EaIjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 04:39:44 -0400
-In-Reply-To: <CAP6odjieAiXxotVpE6fyFp7KS-1GXHdKpWXymtT96fRek5ewoQ@mail.gmail.com>
+	with ESMTP id S1751045Ab3EaIk3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 04:40:29 -0400
+In-Reply-To: <20130531083455.GA7568@eerihug-hybrid.ki.sw.ericsson.se>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Grant Grundler <grantgrundler@gmail.com>
-Date: Thu, 30 May 2013 08:31:38 -0700
+From: Erik Hugne <erik.hugne@ericsson.com>
+Date: Fri, 31 May 2013 10:34:55 +0200
 
-> On Thu, May 30, 2013 at 3:27 AM, Yijing Wang <wangyijing@huawei.com> wrote:
->> Pci_enable_device() will set device power state to D0,
->> so it's no need to do it again in tulip_init_one().
->>
->> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> On Fri, May 31, 2013 at 01:29:22AM -0700, David Miller wrote:
+>> From: Erik Hugne <erik.hugne@ericsson.com>
+>> Date: Fri, 31 May 2013 10:25:38 +0200
+>> 
+>> > On Thu, May 30, 2013 at 03:49:25PM -0700, David Miller wrote:
+>> >> View compile time constants and module parameters as artificial
+>> >> limits, they are terrible and unnecessary.
+>> >> 
+>> >> There is no reason you cannot restructure this table so that you
+>> >> can dynamically size it at run time.
+>> > 
+>> > The TIPC ref table index is used directly as the port identity in the 
+>> > TIPC publications. When a socket is bound, this ID is published to all 
+>> > other nodes in the cluster.
+>> > If we where to allow the table to be changed dynamically, we would need
+>> > to change the port identities for already bound sockets/ports, withdraw
+>> > the old identity and publish the new one.
+>> 
+>> No you do not, simply grow the table just like we dynamically grow
+>> hash tables in response to network/socket activity elsewhere in the
+>> kernel.  You'll only allocate new indexes from the newly allocated
+>> area, the existing indexes will remain the same.
 > 
-> Ack-by: Grant Grundler <grundler@parisc-linux.org>
+> And if someone tries to reduce the table size?
+> Should we simply disallow that?
 
-(it's Acked-by)  Applied, thanks.
+We never shrink the hash tables once we've grown them.  That's a
+reasonable way to behave.
