@@ -1,55 +1,56 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 02/12] tipc: Add "max_ports" configuration parameter
-Date: Fri, 31 May 2013 10:06:07 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B725D@saturn3.aculab.com>
-References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com> <1369942577-39563-3-git-send-email-paul.gortmaker@windriver.com> <20130530.154925.298481337221579707.davem@davemloft.net> <20130531082538.GB17727@eerihug-hybrid.ki.sw.ericsson.se>
+From: "Jens Renner (EFE)" <renner@efe-gmbh.de>
+Subject: Re: [PATCH v2 0/6] Emaclite patches
+Date: Fri, 31 May 2013 11:10:23 +0200
+Message-ID: <51A868FF.5070903@efe-gmbh.de>
+References: <cover.1369909618.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <paul.gortmaker@windriver.com>, <netdev@vger.kernel.org>,
-	<jon.maloy@ericsson.com>, <ying.xue@windriver.com>
-To: "Erik Hugne" <erik.hugne@ericsson.com>,
-	"David Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Michal Simek <monstr@monstr.eu>, netdev@vger.kernel.org
+To: Michal Simek <michal.simek@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:33747 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751489Ab3EaJGy convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 05:06:54 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 30584-08 for <netdev@vger.kernel.org>;
- Fri, 31 May 2013 10:06:48 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20130531082538.GB17727@eerihug-hybrid.ki.sw.ericsson.se>
+Received: from moutng.kundenserver.de ([212.227.17.10]:57817 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753278Ab3EaJKK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 05:10:10 -0400
+In-Reply-To: <cover.1369909618.git.michal.simek@xilinx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > View compile time constants and module parameters as artificial
-> > limits, they are terrible and unnecessary.
-> >
-> > There is no reason you cannot restructure this table so that you
-> > can dynamically size it at run time.
+Am 30.05.2013 12:28, schrieb Michal Simek:
+> I have separated these emaclite patches from phy patches because it is
+> easier for creating new versions.
 > 
-> The TIPC ref table index is used directly as the port identity in the
-> TIPC publications. When a socket is bound, this ID is published to all
-> other nodes in the cluster.
-> If we where to allow the table to be changed dynamically, we would need
-> to change the port identities for already bound sockets/ports, withdraw
-> the old identity and publish the new one.
-> In the best case, this will lead to a temporary interruption for all
-> TIPC services until the new port ID's have been propagated out to the cluster.
+> Thanks, Michal
+> 
+> Changes in v2: - Fix __raw_iowrite() to pass correct parameters -
+> s/Corrent/Correct/ in patch description
+> 
+> Michal Simek (6): net: emaclite: Report failures in mdio setup net:
+> emaclite: Support multiple phys connected to one MDIO bus net: emaclite:
+> Let's make xemaclite_adjust_link static net: emaclite: Do not use
+> microblaze and ppc IO functions net: emaclite: Enable emaclite for Xilinx
+> Arm Zynq platform net: emaclite: Update driver header
+> 
+> drivers/net/ethernet/xilinx/Kconfig           |   4 +- 
+> drivers/net/ethernet/xilinx/xilinx_emaclite.c | 169
+> ++++++++++++++------------ 2 files changed, 95 insertions(+), 78
+> deletions(-)
 
-Eh?
-Doubling the size of the array doesn't require that the old index
-be invalidated. At most it requires an rcu before the old index
-array is discarded.
+Works without problems on our Microblaze platform (as far as the patches affect
+our functionality). MDIO verbosity has been tested ok.
 
-If you use the low bits of the port indentity (32bits ?) as the
-table index and the higher bits as a seq value to identify stale
-references then you need to distribute the old entries into the
-correct places in the new table.
-This isn't hard and there could be generic 'reference allocator'
-that would do this for you.
+> @@ -862,8 +864,10 @@ static int xemaclite_mdio_setup(struct net_local *lp,
+struct device *dev)
+> XEL_MDIOCTRL_MDIOEN_MASK);
+> 
+> bus = mdiobus_alloc(); -	if (!bus) +	if (!bus) { +		dev_err(dev, "Failed to
+> allocal mdiobus\n"); return -ENOMEM; +	}
+> 
+> of_address_to_resource(np, 0, &res); snprintf(bus->id, MII_BUS_ID_SIZE,
+> "%.8llx",
 
-	David
+Shouldn't the wording be "allocate" instead of "allocal" in PATCH v2 1/6 (net:
+emaclite: Report failures in mdio setup)?
+Regards
+Jens.
