@@ -1,62 +1,62 @@
-From: Alan Robertson <alanr@unix.sh>
-Subject: Re: [PATCH net] rtnetlink: ndo_dflt_fdb_del() never works
-Date: Fri, 31 May 2013 10:43:46 -0600
-Message-ID: <51A8D342.2010802@unix.sh>
-References: <1369951315-14742-1-git-send-email-alanr@unix.sh> <20130531.014607.358769391044586124.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: skbuff: use _RET_IP_
+Date: Fri, 31 May 2013 09:54:52 -0700
+Message-ID: <1370019292.10556.79.camel@joe-AO722>
+References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
+	 <51A6768B.5050603@cogentembedded.com> <87obbsohd1.fsf@nemi.mork.no>
+	 <1369962688.1751.6.camel@buesod1.americas.hpqcorp.net>
+	 <1369977659.10556.34.camel@joe-AO722> <51A8B4A4.1010204@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@gavemloft.net, kuznet@ms2.inr.ac.ru,
-	vyasevic@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: Davidlohr Bueso <davidlohr.bueso@hp.com>,
+	=?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from c60.cesmail.net ([216.154.195.49]:46023 "EHLO c60.cesmail.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751041Ab3EaQnx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 May 2013 12:43:53 -0400
-In-Reply-To: <20130531.014607.358769391044586124.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:45703 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751977Ab3EaQyw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 May 2013 12:54:52 -0400
+In-Reply-To: <51A8B4A4.1010204@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/31/2013 02:46 AM, David Miller wrote:
-> From: Alan Robertson <alanr@unix.sh>
-> Date: Thu, 30 May 2013 16:01:55 -0600
->
->> ndo_dflt_fdb_del is checking for a condition which is opposite that
->> which ndo_dflt_fdb_add enforces.  ndo_dflt_fdb_add declares an error
->> if (ndm->ndm_state && !(ndm->ndm_state) & NUD_PERMANENT)) - that is, if the
->> entry is static.  This is consistent with the failure error message.
->>
->> On the other hand, ndo_dflt_del() declares an error
->> if (ndm_state & NUD_PERMANENT) - which is inconsistent with the add
->> precondition, and inconsistent with its failure message text.
->> As it is now, you can't delete any entry which add allows to be added -
->> so entry deletion always fails.
->>
->> Signed-off-by: Alan Robertson <alanr@unix.sh>
-> What about the ->ndm_state part of the add() test?  Why not include
-> that in the del() check?
-I had three different thoughts about this:
-  1) Replicated the add check in the delete
-  2) Do what I did - make it where you can only delete those really
-marked as static
-  3) Eliminate all delete checks
+On Fri, 2013-05-31 at 18:33 +0400, Sergei Shtylyov wrote:
+> On 31-05-2013 9:20, Joe Perches wrote:
+> > Don't use a standalone gcc compiled program to
+> > determine what the kernel outputs.
+[]
+> > The kernel output is;
+> 
+> > 	printk("0x%lx\n", 0x100ul)		0x100
+> > 	printk("%p\n", (void *)0x100ul)		00000100
+> > 	printk("%#p\n", (void *)0x100ul)	0x00000100
+> 
+> > The last one isn't used at all in kernel source. (gcc complains)
+> > It's always "0x%p"
+> 
+>      I was talking about using "%#lx", not "%#p". I don't see it in your 
+> example.
 
-The problem is -- I'm not sure why the ndm->ndm_state check is in there
--- I don't know how to make that condition occur.  It has the feel of a
-check to be made before things are fully initialized - or maybe even
-just leftover cruft.
+"0x%lx" and "%#lx" produce the same output in the kernel.
 
-You could make the argument that option (3) is the best -- if it's been
-added successfully, you ought to be able to delete it.
+The latter isn't used very often though.
+I expect most coders don't know it exists/works.
 
-If someone with more knowledge would comment that would be much appreciated!
+$ git grep -E "0x%l{0,2}x" | wc -l
+12542
+$ git grep -E "%#l{0,2}x" | wc -l
+1737
 
-I'm happy to submit any of these three versions of the patch.  Let me
-know what's wanted.
+(some false positives there of course)
 
+Also, some might expect that "%#08lx", is 10 chars wide,
+but it's only 8, so maybe "0x%08lx" is better used.
 
--- 
-    Alan Robertson <alanr@unix.sh> - @OSSAlanR
+The "%#08lx" width defect seems pretty common:
 
-"Openness is the foundation and preservative of friendship...  Let me claim from you at all times your undisguised opinions." - William Wilberforce
+$ git grep -E -i "%#0(8|16)l{0,2}x" | wc -l
+253
