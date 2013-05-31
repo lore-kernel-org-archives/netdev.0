@@ -1,64 +1,105 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] gro: should aggregate frames without DF
-Date: Fri, 31 May 2013 10:02:32 -0700
-Message-ID: <1370019752.5109.108.camel@edumazet-glaptop>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: RFC - VXLAN port range facility
+Date: Fri, 31 May 2013 13:08:56 -0400
+Message-ID: <OF19ABC0E6.77100D83-ON85257B7C.005AFB01-85257B7C.005E33DC@us.ibm.com>
+References: <OF673FF136.10B22631-ON85257B7B.00436301-85257B7B.0045AAB7@us.ibm.com>	<20130530094141.7c125947@nehalam.linuxnetplumber.net>
+	<OFD5BD589B.1842E46B-ON85257B7B.00610E03-85257B7B.0062F480@us.ibm.com> <20130531091338.12fc7df5@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Jerry Chu <hkchu@google.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f177.google.com ([209.85.192.177]:54959 "EHLO
-	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751657Ab3EaRCe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 13:02:34 -0400
-Received: by mail-pd0-f177.google.com with SMTP id u11so2511982pdi.36
-        for <netdev@vger.kernel.org>; Fri, 31 May 2013 10:02:34 -0700 (PDT)
+Received: from e38.co.us.ibm.com ([32.97.110.159]:35048 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752493Ab3EaRJ1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 13:09:27 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Fri, 31 May 2013 11:09:22 -0600
+In-Reply-To: <20130531091338.12fc7df5@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Stephen Hemminger <stephen@networkplumber.org> wrote on 05/31/2013 
+12:13:38 PM:
 
-GRO on IPv4 doesn't aggregate frames if they don't have DF bit set.
+> 
+> RFC text:
+>  Outer UDP Header:  This is the outer UDP header with a source
+>         port provided by the VTEP and the destination port being a well
+>         known UDP port to be obtained by IANA assignment. It is 
+recommended
+>         that the source port be a hash of the inner Ethernet frame's 
+headers
+>         to obtain a level of entropy for ECMP/load balancing of the VM 
+to VM
+>         traffic across the VXLAN overlay.
+> 
+> 
+> You can restrict to a smaller range if that is a requirement of your
+> infrastructure.
 
-Some servers use IP_MTU_DISCOVER/IP_PMTUDISC_PROBE, so linux receivers
-are unable to aggregate this kind of traffic.
-
-The right thing to do is to allow aggregation as long as the DF bit has
-same value on all segments.
-
-bnx2x LRO does this correctly.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Jerry Chu <hkchu@google.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
----
- net/ipv4/af_inet.c |    7 ++++---
- 1 file changed, 4 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index b05ae96..328cc62 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1384,9 +1384,9 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 	if (unlikely(ip_fast_csum((u8 *)iph, 5)))
- 		goto out_unlock;
+        I'm suggesting the smaller range, because the fix for the part
+that is broken would become a resource issue for the current, larger
+default range.
+        [and a "recommended" in a draft doesn't trump 35 years of UDP
+                usage, even if it did say not to bind the ports...]
  
--	id = ntohl(*(__be32 *)&iph->id);
--	flush = (u16)((ntohl(*(__be32 *)iph) ^ skb_gro_len(skb)) | (id ^ IP_DF));
--	id >>= 16;
-+	flush = ntohs(iph->tot_len) ^ skb_gro_len(skb);
-+
-+	id = ntohs(iph->id);
- 
- 	for (p = *head; p; p = p->next) {
- 		struct iphdr *iph2;
-@@ -1407,6 +1407,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 		NAPI_GRO_CB(p)->flush |=
- 			(iph->ttl ^ iph2->ttl) |
- 			(iph->tos ^ iph2->tos) |
-+			((iph->frag_off ^ iph2->frag_off) & htons(IP_DF)) |
- 			((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
- 
- 		NAPI_GRO_CB(p)->flush |= flush;
+> Normal UDP applications assign their source port from the ephemeral 
+> port range,
+> so that is what VXLAN does.
+
+        Normal UDP applications bind to the source port. If they are
+unbound, they bind just for the send and then unbind after. They
+cannot use a port already bound _because_the_bind_prohibits_it.
+        That is, in fact, the entire issue I'm raising. (!) If I have
+a UDP application that binds to port 35000, no other UDP application
+will ever use that port until I release it, and any ICMP errors delivered
+to my socket are triggered by my application.
+        That became no longer true with the addition of VXLAN port ranges,
+because VXLAN does not use UDP bind, or any of the UDP code, to enforce
+this. It simply generates a random number in the range, which _can_be_
+35000 or any other bound port, and then sends its own, constructed UDP
+header using that port.
+
+        The proper way to fix this would be to actually bind to a port in
+the range, and retry another port if the binding fails, until the binding
+succeeds. But as VXLAN picks a randomized source port _for_each_packet_,
+I'm not suggesting we do that.
+        I'm suggesting, instead, that we bind on all the source ports we
+will use at start-up, which then reserves those ports for VXLAN and
+prevents anyone else from binding on them.
+        That solves the issue of binding and unbinding on each packet,
+but I am not then suggesting that VXLAN should bind on 30,000 ports on
+start-up. That would be silly, especially on a system whose primary 
+function
+is not VXLAN.
+        So, the logical next question is: does VXLAN really need a range
+of 30,000 ports as the "normal" circumstance? I think the answer to that
+is definitely "no." In fact, just one port would work fine a lot of the
+time, and when multiple ports are needed, the capability is still there.
+That suggests changing the *default* range (I suggest to 1 port).
+
+        My conclusions from that reasoning:
+
+1) VXLAN use of UDP source ports is broken; it cannot use ports that are
+        already bound, and right now it does
+2) while a bind/unbind would work, doing that on every packet is slow
+
+so,
+
+3) the default port range should be much smaller and VXLAN should bind
+        in advance to the set of ports it wants to use.
+
+Now, maybe it wouldn't kill performance, and so doing a bind/unbind per
+packet is still an option, but that would definitely hurt performance
+for people who don't actually care about port entropy.
+
+Whether solved by a bind/unbind, pre-binding to a smaller default port
+range, or a switch between the two, I think VXLAN *must* follow the
+rules in its use of UDP and ensure that it doesn't send using source
+ports in use by something else. It can't just generate a random one
+and use it without checking it, as it does now.
+
+                                                                +-DLS
