@@ -1,105 +1,66 @@
-From: Jason Cooper <jason@lakedaemon.net>
-Subject: Re: [PATCH v5 12/13] ARM: kirkwood: remove redundant DT board files
-Date: Fri, 31 May 2013 07:54:50 -0400
-Message-ID: <20130531115450.GA3803@titan.lakedaemon.net>
-References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
- <1369855975-21489-13-git-send-email-sebastian.hesselbarth@gmail.com>
- <8738t4q1kv.fsf@natisbad.org>
- <20130530193708.GC31290@titan.lakedaemon.net>
- <87txlknluf.fsf@natisbad.org>
+From: Solomon Peachy <pizza-pCgMCH4qpMRg9hUCZPvPmw@public.gmane.org>
+Subject: Re: cw1200 "sbus" conflicts with SPARC "sbus"
+Date: Fri, 31 May 2013 08:05:54 -0400
+Message-ID: <20130531120553.GA31667@shaftnet.org>
+References: <alpine.DEB.2.00.1305311127200.4645@ayla.of.borg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
- Andrew Lunn <andrew@lunn.ch>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
- netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@wantstofly.org>,
- Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
-To: Arnaud Ebalard <arno@natisbad.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="HcAYCG3uE/tztfnV"
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <87txlknluf.fsf@natisbad.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+In-Reply-To: <alpine.DEB.2.00.1305311127200.4645-97SZ98TBZzA1xEWliksxXw@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Arnaud,
 
-On Fri, May 31, 2013 at 12:28:56AM +0200, Arnaud Ebalard wrote:
-> Hi,
-> 
-> Jason Cooper <jason@lakedaemon.net> writes:
-> 
-> >> For instance 6bd98481ab34 (arm: kirkwood: NETGEAR ReadyNAS Duo v2 init
-> >> PCIe via DT) currently sitting in jcooper/mvebu/pcie_kirkwood removes
-> >> the PCIE init routine in board-readynas.c, and yours remove ge00
-> >> init. With both applied, the whole file can go away.
-> >> 
-> >> AFAICT, this may be the case soon for:
-> >> 
-> >>  arch/arm/mach-kirkwood/board-iconnect.c   (36e5722089)
-> >>  arch/arm/mach-kirkwood/board-mplcec4.c    (9470fbfb8d)
-> >>  arch/arm/mach-kirkwood/board-nsa310.c     (40fa8e5da2)
-> >>  arch/arm/mach-kirkwood/board-readynas.c   (6bd98481ab)
-> >>  arch/arm/mach-kirkwood/board-ts219.c      (259e234608)
-> >
-> > Would you mind putting a patch together (for after v3.10 drops) to do
-> > this?  If you applied Sebastian's series on top of mvebu/pcie_kirkwood,
-> > that should get you almost there.  The last half of his series is going
-> > in after v3.10...
-> 
-> Something like the quick quilt-generated patch at the end of this email
-> (done after a dummy merge of Sebastian's set in mvebu/pcie_kirkwood)? 
+--HcAYCG3uE/tztfnV
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-yep.
+On Fri, May 31, 2013 at 11:31:05AM +0200, Geert Uytterhoeven wrote:
+>=20
+> sparc64/allmodconfig:
+>=20
+> drivers/net/wireless/cw1200/hwio.c:51:21: error: macro "sbus_memcpy_fromi=
+o" passed 4 arguments, but takes just 3
+> drivers/net/wireless/cw1200/hwio.c:66:19: error: macro "sbus_memcpy_toio"=
+ passed 4 arguments, but takes just 3
+>=20
+> http://kisskb.ellerman.id.au/kisskb/buildresult/8846508/
+>=20
+> At first I thought it was a bad/old implementation of a real SPARC sbus
+> driver.  but it seems the two sbusses are completely unrelated.
 
-> I will take a look at what remains after Sebastian's set hit one of
-> your branch but I guess he will have included most of what is in the
-> patch to help you with the merge.
-> 
-> Anyway, at the end here is what DT board files would remain:
-> 
-> $ ls -1 arch/arm/mach-kirkwood/board-*.c
-> arch/arm/mach-kirkwood/board-dnskw.c
+Yikes.=20
 
-This one seems to just be setting a gpio to enable reboot after power
-failure.  Should be simple to move to DT.
+Would it be sufficient to just rename that pair of macros, or should I=20
+go and rename entire cw1200's "bus" subsystem?
 
-> arch/arm/mach-kirkwood/board-dt.c
+Either way, I'll add this to the to-do list for the weekend.
 
-We obviously need this one. ;-)
+ - Solomon
+--=20
+Solomon Peachy        		       pizza at shaftnet dot org	=20
+Delray Beach, FL                          ^^ (mail/jabber) ^^
+Quidquid latine dictum sit, altum viditur.
 
-> arch/arm/mach-kirkwood/board-lsxl.c
+--HcAYCG3uE/tztfnV
+Content-Type: application/pgp-signature
 
-This is taken care of in mvebu/boards
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
 
-  391a16c ARM: Kirkwood: Convert LSXL to restart-poweroff driver.
+iD8DBQFRqJIhPuLgii2759ARAqnIAKDuJmGl4GdnnN8FYROfmonYfRM2YACfU1oI
+2WFw0GyBMlsAqdXHjnUrw40=
+=SbeX
+-----END PGP SIGNATURE-----
 
-> arch/arm/mach-kirkwood/board-ts219.c
-
-Also in mvebu/boards
-
-  4350a47 ARM: Kirkwood: Make use of the QNAP Power off driver.
-
-> Just one question though: the removal of MACH_*_DT in Kconfig removes
-> the automatic selection of useful board specific options like
-> ARM_APPENDED_DTB, ARM_ATAG_DTB_COMPAT, POWER_RESET_RESTART,
-> POWER_RESET_QNAP. Is that expected?
-
-I would select POWER_RESET_QNAP and POWER_RESET_RESTART in Kconfig for
-ARCH_KIRKWOOD_DT, and put ARM_APPENDED_DTB and ARM_ATAG_DTB_COMPAT into
-the defconfig.
-
-thx,
-
-Jason.
+--HcAYCG3uE/tztfnV--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
