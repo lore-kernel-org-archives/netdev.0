@@ -1,54 +1,69 @@
 From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH net-next 1/6] net/core: __hw_addr_create_ex does not initialize sync_cnt
-Date: Thu, 30 May 2013 17:55:39 -0700
-Message-ID: <1369961744-21460-2-git-send-email-fubar@us.ibm.com>
+Subject: [PATCH net-next 2/6] net/core: __hw_addr_unsync_one refcount leak  synced
+Date: Thu, 30 May 2013 17:55:40 -0700
+Message-ID: <1369961744-21460-3-git-send-email-fubar@us.ibm.com>
 References: <1369961744-21460-1-git-send-email-fubar@us.ibm.com>
 Cc: David Miller <davem@davemloft.net>,
 	Vlad Yasevich <vyasevic@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:59677 "EHLO
+Received: from e39.co.us.ibm.com ([32.97.110.160]:59741 "EHLO
 	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751791Ab3EaA4D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 20:56:03 -0400
+	with ESMTP id S1752502Ab3EaA4E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 20:56:04 -0400
 Received: from /spool/local
 	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 30 May 2013 18:56:01 -0600
+	Thu, 30 May 2013 18:56:02 -0600
 Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id E1861C90041
-	for <netdev@vger.kernel.org>; Thu, 30 May 2013 20:55:56 -0400 (EDT)
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id DED5DC90049
+	for <netdev@vger.kernel.org>; Thu, 30 May 2013 20:55:58 -0400 (EDT)
 Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4V0tvbR274840
-	for <netdev@vger.kernel.org>; Thu, 30 May 2013 20:55:57 -0400
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4V0txWP139286
+	for <netdev@vger.kernel.org>; Thu, 30 May 2013 20:55:59 -0400
 Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4V0ttgc011955
-	for <netdev@vger.kernel.org>; Thu, 30 May 2013 21:55:56 -0300
+	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4V0tvQC012086
+	for <netdev@vger.kernel.org>; Thu, 30 May 2013 21:55:58 -0300
 In-Reply-To: <1369961744-21460-1-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-	The sync_cnt field is not being initialized, which can result
-in arbitrary values in the field.  Fixed by initializing it to zero.
+	When an address is added to a subordinate interface (the "to"
+list), the address entry in the "from" list is not marked "synced" as
+the entry added to the "to" list is.
+
+	When performing the unsync operation (e.g., dev_mc_unsync),
+__hw_addr_unsync_one calls __hw_addr_del_entry with the "synced"
+parameter set to true for the case when the address reference is being
+released from the "from" list.  This causes a test inside to fail,
+with the result being that the reference count on the "from" address
+is not properly decremeted and the address on the "from" list will
+never be freed.
+
+	Correct this by having __hw_addr_unsync_one call the
+__hw_addr_del_entry function with the "sync" flag set to false for the
+"remove from the from list" case.
 
 Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 Cc: Vlad Yasevich <vyasevic@redhat.com> 
 
 ---
- net/core/dev_addr_lists.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/core/dev_addr_lists.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/dev_addr_lists.c b/net/core/dev_addr_lists.c
-index c013f38..1f919d9 100644
+index 1f919d9..c858e81 100644
 --- a/net/core/dev_addr_lists.c
 +++ b/net/core/dev_addr_lists.c
-@@ -39,6 +39,7 @@ static int __hw_addr_create_ex(struct netdev_hw_addr_list *list,
- 	ha->refcount = 1;
- 	ha->global_use = global;
- 	ha->synced = sync;
-+	ha->sync_cnt = 0;
- 	list_add_tail_rcu(&ha->list, &list->list);
- 	list->count++;
+@@ -160,7 +160,8 @@ static void __hw_addr_unsync_one(struct netdev_hw_addr_list *to_list,
+ 	if (err)
+ 		return;
+ 	ha->sync_cnt--;
+-	__hw_addr_del_entry(from_list, ha, false, true);
++	/* address on from list is not marked synced */
++	__hw_addr_del_entry(from_list, ha, false, false);
+ }
  
+ static int __hw_addr_sync_multiple(struct netdev_hw_addr_list *to_list,
 -- 
 1.8.1.4
