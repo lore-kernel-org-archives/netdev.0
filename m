@@ -1,63 +1,48 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: 3.10.0-rc2 mlx4 not receiving packets for some multicast groups
-Date: Thu, 30 May 2013 17:23:20 -0700
-Message-ID: <20365.1369959800@death.nxdomain>
-References: <20130524154931.GA9245@sbohrermbp13-local.rgmadvisors.com> <20130524163446.GC9245@sbohrermbp13-local.rgmadvisors.com> <CAJZOPZJwe6xAj7xRK5_BnWN2wNT+oVS329+iYtE4hYTqPMLwJQ@mail.gmail.com> <20130525151347.GB25744@lintop.rgmadvisors.com> <20130528201508.GA6409@sbohrermbp13-local.rgmadvisors.com> <CAJZOPZLZmLi3V-3D_16FZHQLsCsHKZY7ZhvaEH1k=Pw_i+ciwQ@mail.gmail.com> <20130530203113.GA4891@sbohrermbp13-local.rgmadvisors.com> <CAJZOPZ+YSWhz0Hw+BWHeT=cEDqRj-s7uY4M-5CTiXcRgJND_+Q@mail.gmail.com> <51A7BD42.8060504@redhat.com>
-Cc: Or Gerlitz <or.gerlitz@gmail.com>,
-	Shawn Bohrer <shawn.bohrer@gmail.com>, netdev@vger.kernel.org,
-	Hadar Hen Zion <hadarh@mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>, Jiri Pirko <jiri@resnulli.us>
-To: vyasevic@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e38.co.us.ibm.com ([32.97.110.159]:55914 "EHLO
-	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751505Ab3EaAYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 20:24:43 -0400
-Received: from /spool/local
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Thu, 30 May 2013 18:24:42 -0600
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 61C321FF001E
-	for <netdev@vger.kernel.org>; Thu, 30 May 2013 18:18:13 -0600 (MDT)
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r4V0NN8n144506
-	for <netdev@vger.kernel.org>; Thu, 30 May 2013 18:23:23 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r4V0NM60024193
-	for <netdev@vger.kernel.org>; Thu, 30 May 2013 18:23:23 -0600
-In-reply-to: <51A7BD42.8060504@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH 1/5] netfilter: add nf_ipv6_ops hook to fix xt_addrtype
+ with IPv6
+Date: Fri, 31 May 2013 09:24:35 +0900
+Message-ID: <CAKD1Yr3aauNq0NAi1-RDxcD_D5GDwzO87WxUARhyh=iQe91A5Q@mail.gmail.com>
+References: <1369843394-24251-1-git-send-email-pablo@netfilter.org> <1369843394-24251-2-git-send-email-pablo@netfilter.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netfilter-devel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1369843394-24251-2-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Vlad Yasevich <vyasevic@redhat.com> wrote:
-
->>>      CC: Jiri Pirko <jiri@resnulli.us>
->>>      Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->>>      Signed-off-by: David S. Miller <davem@davemloft.net>
->>>
->>> I've confirmed that reverting this patch on top of 3.10-rc3 allows me
->>> to receive packets on all of my multicast groups without the Mellanox
->>> high_rate_steer option set.
->>
->> OK, impressive debugging... so what do we do from here? Vlad, Shawn
->> observes a regression once this patch is used on a large scale setup
->> that uses many multicast groups (you can read the posts done earlier
->> on this thread), does this rings any bell w.r.t to the actual problem
->> in the patch?
+On Thu, May 30, 2013 at 1:03 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> 2) add new "nf_ipv6_ops" struct to register pointers to ipv6 functions.
 >
->I haven't seen that, but I didn't test with that many multicast groups. I
->had 20 groups working.
->
->I'll take a look and see what might be going on.
+> While the former might seem preferable, Pablo pointed out that there
+> are more xt modules with link-time dependeny issues regarding ipv6,
+> so lets go for 2).
 
-	I've actually been porting bonding to the dev_sync/unsync
-system, and have a patch series of 4 fixes to various internals of
-dev_sync/unsync; I'll post those under separate cover.  It may be that
-one or more of those things are the source of this problem (or I might
-have it all wrong).
+I had to do this recently for the ping socket as well:
 
-	-J
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=6d0bfe22611602f36617bc7aa2ffa1bbb2f54c67
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
++/* Compatibility glue so we can support IPv6 when it's compiled as a module */
++struct pingv6_ops {
+[...]
++ int (*ipv6_chk_addr)(struct net *net, const struct in6_addr *addr,
++     struct net_device *dev, int strict);
++};
+
+Is it a better idea to share these structures and have just one
+structure containing all IPv6 dummy functions? If it was in an include
+file, it would be easily accessible to most of the tree even when
+CONFIG_IPV6={n,m}, and we could have the ipv6 module init (and exit)
+code just set all the function pointers. That way, we wouldn't have to
+reinvent this particular wheel in multiple places of the code.
+
+David?
+
+[Personally, I'd just rather see CONFIG_IPV6=m go away, since it adds
+a lot of complexity like this and doesn't bring much benefit that I
+can see, but I doubt there will be agreement on that :-)]
