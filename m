@@ -1,47 +1,29 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH v2] netfilter: Correct calculation using skb->tail and skb-network_header
-Date: Fri, 31 May 2013 09:05:46 +0900
-Message-ID: <1369958746-26318-1-git-send-email-horms@verge.net.au>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Chen Gang <gang.chen@asianux.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 0/6] Emaclite patches
+Date: Thu, 30 May 2013 17:14:09 -0700 (PDT)
+Message-ID: <20130530.171409.2191175430296029025.davem@davemloft.net>
+References: <cover.1369909618.git.michal.simek@xilinx.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, monstr@monstr.eu, renner@efe-gmbh.de,
+	netdev@vger.kernel.org, gregkh@linuxfoundation.org,
+	wfp5p@virginia.edu
+To: michal.simek@xilinx.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59471 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505Ab3EaAOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 20:14:11 -0400
+In-Reply-To: <cover.1369909618.git.michal.simek@xilinx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This corrects an regression introduced by "net: Use 16bits for *_headers
-fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
-that case skb->tail will be a pointer whereas skb->network_header
-will be an offset from head. This is corrected by using wrappers that
-ensure that calculations are always made using pointers.
+From: Michal Simek <michal.simek@xilinx.com>
+Date: Thu, 30 May 2013 12:28:02 +0200
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Reported-by: Chen Gang <gang.chen@asianux.com>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+> I have separated these emaclite patches from
+> phy patches because it is easier for creating
+> new versions.
 
---
-v2
-* Use skb_tail_pointer() to ensure the tail portion of the calculation is
-  always a pointer - it is not if NET_SKBUFF_DATA_USES_OFFSET is not set.
----
- net/netfilter/nf_nat_helper.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/netfilter/nf_nat_helper.c b/net/netfilter/nf_nat_helper.c
-index 5fea563..85e20a9 100644
---- a/net/netfilter/nf_nat_helper.c
-+++ b/net/netfilter/nf_nat_helper.c
-@@ -104,7 +104,7 @@ static void mangle_contents(struct sk_buff *skb,
- 	/* move post-replacement */
- 	memmove(data + match_offset + rep_len,
- 		data + match_offset + match_len,
--		skb->tail - (skb->network_header + dataoff +
-+		skb_tail_pointer(skb) - (skb_network_header(skb) + dataoff +
- 			     match_offset + match_len));
- 
- 	/* insert data from buffer */
--- 
-1.7.10.4
-
+Series applied, thanks.
