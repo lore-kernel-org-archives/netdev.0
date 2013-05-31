@@ -1,42 +1,37 @@
-From: Bob Copeland <me-aXfl/3sk2vNUbtYUoyoikg@public.gmane.org>
-Subject: Re: Another try at getting pktgen to work with wifi.
-Date: Fri, 31 May 2013 16:51:17 -0400
-Message-ID: <20130531205117.GA27551@localhost>
-References: <51A79E4A.7000609@candelatech.com>
- <51A7B049.9090201@openwrt.org>
- <51A7BA63.4080403@candelatech.com>
- <51A857BF.7070008@openwrt.org>
- <51A8DC1C.1040908@candelatech.com>
- <1370021846.14117.13.camel@jlt4.sipsolutions.net>
- <51A8E53E.8030101@candelatech.com>
- <1370025698.14117.15.camel@jlt4.sipsolutions.net>
- <51A8F141.5050804@candelatech.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH] include/linux/skbuff.h: using '0xffff' instead of '~0U'
+Date: Sat, 1 Jun 2013 00:05:07 +0300
+Message-ID: <CAHp75VfWvXkaoYQ_40idSsLYUA=YqaswnV2y-hODHjt7JMHQvQ@mail.gmail.com>
+References: <51A6EBC5.7040601@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
-	Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Ben Greear <greearb-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <51A8F141.5050804-my8/4N5VtI7c+919tysfdA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: edumazet@google.com, Pravin Shelar <pshelar@nicira.com>,
+	mgorman@suse.de, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Chen Gang <gang.chen@asianux.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:33913 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753294Ab3EaVFI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 17:05:08 -0400
+In-Reply-To: <51A6EBC5.7040601@asianux.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 31, 2013 at 11:51:45AM -0700, Ben Greear wrote:
-> cfg80211_classify8021d uses it to determine the queue in if skb->priority is
-> set to a special range (hard coded un-documented hack from hell, it appears).
-> 
-> I didn't go looking to find out where those magic values might be set.
+On Thu, May 30, 2013 at 9:03 AM, Chen Gang <gang.chen@asianux.com> wrote:
+>
+> Both 'transport_header' and 'mac_header' are u16, which are never equal
+> to '~0U'.
+>
+> So need use '0xffff' instead of '~0U'.
 
-Actually, this hard coded hack from hell is documented :)
+Why not "(u16)~0" ?
+Or even better "!= USHORT_MAX"?
 
-http://wireless.kernel.org/en/developers/Documentation/mac80211/queues?highlight=%28so_priority%29
+Or mac_header + 1 == 0, though it less clear.
 
--- 
-Bob Copeland %% www.bobcopeland.com
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+With Best Regards,
+Andy Shevchenko
