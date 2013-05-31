@@ -1,55 +1,55 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next] vxlan: do real refcnt for vn_sock
-Date: Fri, 31 May 2013 12:12:11 +0800
-Message-ID: <1369973531.5304.4.camel@cr0>
-References: <1369739242-5944-1-git-send-email-amwang@redhat.com>
-	 <20130528214142.4e41db6f@nehalam.linuxnetplumber.net>
-	 <1369816780.12227.21.camel@cr0> <1369968945.5304.1.camel@cr0>
-	 <20130530205618.0d3a8d16@nehalam.linuxnetplumber.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] net: skbuff: use _RET_IP_
+Date: Thu, 30 May 2013 22:20:59 -0700
+Message-ID: <1369977659.10556.34.camel@joe-AO722>
+References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
+	 <51A6768B.5050603@cogentembedded.com> <87obbsohd1.fsf@nemi.mork.no>
+	 <1369962688.1751.6.camel@buesod1.americas.hpqcorp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Davidlohr Bueso <davidlohr.bueso@hp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:17321 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750763Ab3EaEMX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 31 May 2013 00:12:23 -0400
-In-Reply-To: <20130530205618.0d3a8d16@nehalam.linuxnetplumber.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:44090 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750743Ab3EaFU7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 May 2013 01:20:59 -0400
+In-Reply-To: <1369962688.1751.6.camel@buesod1.americas.hpqcorp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-05-30 at 20:56 -0700, Stephen Hemminger wrote:
-> On Fri, 31 May 2013 10:55:45 +0800
-> Cong Wang <amwang@redhat.com> wrote:
-> 
-> > On Wed, 2013-05-29 at 16:39 +0800, Cong Wang wrote:
-> > > On Tue, 2013-05-28 at 21:41 -0700, Stephen Hemminger wrote:
-> > > > Why not just fix the requirement to drop rtnl when calling igmp.
-> > > > The code comes out cleaner and safer as well.
-> > > 
-> > > Besides you forget to lock the socket before calling _ip_mc_join_group()
-> > > (and also the order is very important too), your patch doesn't fix the
-> > > problem I met. The full backtrace is below:
-> > > 
-> > 
-> > Hi, Stephen,
-> > 
-> > Do you think my patch is an easier solution? It at least fixes the
-> > crash, while your patch doesn't. :)
-> > 
-> > 
-> 
-> No. your patch doesn't fix the real problem.
-> The real fix is more complex because of how socket locking interacts with RTNL.
+On Thu, 2013-05-30 at 18:11 -0700, Davidlohr Bueso wrote:
+> On Thu, 2013-05-30 at 13:08 +0200, Bj=F8rn Mork wrote:
+> > Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
+> >=20
+> > >     Why not "text:%#lx" as already used in this string? It's
+> > > equivalent to "0x%lx".
+> >=20
+> > Well, I don't know the reasoning in this case, but I'd like to note=
+ that
+> > those are not strictly equivalent.  Personally I find the formattin=
+g of 0
+> > annoying enough to avoid %#x for any value which may be 0.  It's
+> > especially bad if you try to line up things by adding leading zeros=
+=2E
+>=20
+> Yep, I found that 0x%lx produced the same output as %p.
 
-Yeah, I am thinking if we could replace the RTNL lock with a spinlock in
-IPv4 multicast, as IPv6 multicast uses its own spin lock too. I don't
-see any reason why inet->mc_list has to be protected by RTNL.
+Don't use a standalone gcc compiled program to
+determine what the kernel outputs.
 
-> 
-> 
-> I have been busy with health stuff, so the going is slow.
+lib/vsprintf.c does not output the same. (32 bit)
 
-No problem, take care!
+The kernel output is;
+
+	printk("0x%lx\n", 0x100ul)		0x100
+	printk("%p\n", (void *)0x100ul)		00000100
+	printk("%#p\n", (void *)0x100ul)	0x00000100
+
+The last one isn't used at all in kernel source. (gcc complains)
+It's always "0x%p"
