@@ -1,79 +1,49 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v7 net-next 4/5] ixgbe: Add support for
-	ndo_ll_poll
-Date: Fri, 31 May 2013 11:32:09 +0800
-Message-ID: <CAM_iQpWXuSwnRKeQYdi0bNVMMOvT=VEzF6jbHNHPa+VoUaUapA@mail.gmail.com>
-References: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
-	<20130530114132.12653.19059.stgit@ladj378.jer.intel.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [Patch net-next] vxlan: do real refcnt for vn_sock
+Date: Thu, 30 May 2013 20:56:18 -0700
+Message-ID: <20130530205618.0d3a8d16@nehalam.linuxnetplumber.net>
+References: <1369739242-5944-1-git-send-email-amwang@redhat.com>
+	<20130528214142.4e41db6f@nehalam.linuxnetplumber.net>
+	<1369816780.12227.21.camel@cr0>
+	<1369968945.5304.1.camel@cr0>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, LKML <linux-kernel@vger.kernel.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>,
-	David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130530114132.12653.19059.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:57840 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750825Ab3EaD4X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 23:56:23 -0400
+Received: by mail-pb0-f41.google.com with SMTP id xb12so1514007pbc.28
+        for <netdev@vger.kernel.org>; Thu, 30 May 2013 20:56:23 -0700 (PDT)
+In-Reply-To: <1369968945.5304.1.camel@cr0>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 30, 2013 at 7:41 PM, Eliezer Tamir
-<eliezer.tamir@linux.intel.com> wrote:
-....
-> +#else /* CONFIG_NET_LL_RX_POLL */
-> +static inline void ixgbe_qv_init_lock(struct ixgbe_q_vector *q_vector)
-> +{
-> +}
-> +
-> +static inline int ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
-> +{
-> +       return true;
-> +}
-> +
-> +static inline int ixgbe_qv_unlock_napi(struct ixgbe_q_vector *q_vector)
-> +{
-> +       return false;
-> +}
-> +
-> +static inline int ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
-> +{
-> +       return false;
-> +}
-> +
-> +static inline int ixgbe_qv_unlock_poll(struct ixgbe_q_vector *q_vector)
-> +{
-> +       return false;
-> +}
-> +
-> +static inline int ixgbe_qv_ll_polling(struct ixgbe_q_vector *q_vector)
-> +{
-> +       return false;
-> +}
+On Fri, 31 May 2013 10:55:45 +0800
+Cong Wang <amwang@redhat.com> wrote:
+
+> On Wed, 2013-05-29 at 16:39 +0800, Cong Wang wrote:
+> > On Tue, 2013-05-28 at 21:41 -0700, Stephen Hemminger wrote:
+> > > Why not just fix the requirement to drop rtnl when calling igmp.
+> > > The code comes out cleaner and safer as well.
+> > 
+> > Besides you forget to lock the socket before calling _ip_mc_join_group()
+> > (and also the order is very important too), your patch doesn't fix the
+> > problem I met. The full backtrace is below:
+> > 
+> 
+> Hi, Stephen,
+> 
+> Do you think my patch is an easier solution? It at least fixes the
+> crash, while your patch doesn't. :)
+> 
+> 
+
+No. your patch doesn't fix the real problem.
+The real fix is more complex because of how socket locking interacts with RTNL.
 
 
-Then please make them bool.
-
-------------------------------------------------------------------------------
-Get 100% visibility into Java/.NET code with AppDynamics Lite
-It's a free troubleshooting tool designed for production
-Get down to code-level detail for bottlenecks, with <2% overhead.
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap2
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+I have been busy with health stuff, so the going is slow.
