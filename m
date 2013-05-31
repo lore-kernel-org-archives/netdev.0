@@ -1,31 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/4 net-next] tcp: undo on DSACK during recovery
-Date: Thu, 30 May 2013 18:07:34 -0700 (PDT)
-Message-ID: <20130530.180734.1622987677200418751.davem@davemloft.net>
-References: <1369873214-29502-1-git-send-email-ycheng@google.com>
-	<1369873214-29502-4-git-send-email-ycheng@google.com>
+From: Davidlohr Bueso <davidlohr.bueso@hp.com>
+Subject: Re: [PATCH] net: skbuff: use _RET_IP_
+Date: Thu, 30 May 2013 18:11:28 -0700
+Message-ID: <1369962688.1751.6.camel@buesod1.americas.hpqcorp.net>
+References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
+	 <51A6768B.5050603@cogentembedded.com> <87obbsohd1.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: ncardwell@google.com, edumazet@google.com, nanditad@google.com,
-	aterzis@google.com, netdev@vger.kernel.org
-To: ycheng@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59815 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752424Ab3EaBHf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 May 2013 21:07:35 -0400
-In-Reply-To: <1369873214-29502-4-git-send-email-ycheng@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87obbsohd1.fsf@nemi.mork.no>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Wed, 29 May 2013 17:20:14 -0700
+On Thu, 2013-05-30 at 13:08 +0200, Bj=C3=B8rn Mork wrote:
+> Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
+>=20
+> >     Why not "text:%#lx" as already used in this string? It's
+> > equivalent to "0x%lx".
+>=20
+> Well, I don't know the reasoning in this case, but I'd like to note t=
+hat
+> those are not strictly equivalent.  Personally I find the formatting =
+of 0
+> annoying enough to avoid %#x for any value which may be 0.  It's
+> especially bad if you try to line up things by adding leading zeros.
 
-> If the receiver supports DSACK, sender can detect false recoveries and
-> revert cwnd reductions triggered by either severe network reordering or
-> concurrent reordering and loss event.
-> 
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Yep, I found that 0x%lx produced the same output as %p. If you'd rather
+I use something else instead, I'm happy to update the patch.
 
-Applied.
+Thanks,
+Davidlohr
