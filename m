@@ -1,60 +1,57 @@
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
-Subject: RE: [PATCH 6/7] qlcnic: remove redundant D0 power state set
-Date: Fri, 31 May 2013 13:48:27 +0000
-Message-ID: <C562D0E12CBDE44E8A0CCAB7706009673539F21B@AVMB1.qlogic.org>
-References: <1369909569-33096-1-git-send-email-wangyijing@huawei.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: skbuff: use _RET_IP_
+Date: Fri, 31 May 2013 18:33:08 +0400
+Message-ID: <51A8B4A4.1010204@cogentembedded.com>
+References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>  <51A6768B.5050603@cogentembedded.com> <87obbsohd1.fsf@nemi.mork.no>  <1369962688.1751.6.camel@buesod1.americas.hpqcorp.net> <1369977659.10556.34.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	Dept-Eng Linux Driver <Linux-Driver@qlogic.com>,
-	netdev <netdev@vger.kernel.org>,
-	Hanjun Guo <guohanjun@huawei.com>, Jiang Liu <liuj97@gmail.com>
-To: Yijing Wang <wangyijing@huawei.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	Sony Chacko <sony.chacko@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1369909569-33096-1-git-send-email-wangyijing@huawei.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Davidlohr Bueso <davidlohr.bueso@hp.com>,
+	=?ISO-8859-1?Q?Bj=F8rn_Mo?= =?ISO-8859-1?Q?rk?= <bjorn@mork.no>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Joe Perches <joe@perches.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f179.google.com ([209.85.217.179]:54724 "EHLO
+	mail-lb0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750946Ab3EaOdG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 10:33:06 -0400
+Received: by mail-lb0-f179.google.com with SMTP id r11so1765434lbv.10
+        for <netdev@vger.kernel.org>; Fri, 31 May 2013 07:33:04 -0700 (PDT)
+In-Reply-To: <1369977659.10556.34.camel@joe-AO722>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: Yijing Wang [mailto:wangyijing@huawei.com]
->Sent: Thursday, May 30, 2013 3:56 PM
->To: Rajesh Borundia; Shahed Shaikh; Jitendra Kalsaria; Sony Chacko
->Cc: linux-kernel; Dept-Eng Linux Driver; netdev; Hanjun Guo; Jiang Liu;
->Yijing Wang
->Subject: [PATCH 6/7] qlcnic: remove redundant D0 power state set
->
->Pci_enable_device() will set device power state to D0,
->so it's no need to do it again in qlcnic_attach_func().
->
->Signed-off-by: Yijing Wang <wangyijing@huawei.com>
->---
-> drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c |    1 -
-> 1 files changed, 0 insertions(+), 1 deletions(-)
->
->diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
->b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
->index aeb26a8..3585c2c 100644
->--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
->+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
->@@ -3219,7 +3219,6 @@ static int qlcnic_attach_func(struct pci_dev
->*pdev)
-> 	if (err)
-> 		return err;
->
->-	pci_set_power_state(pdev, PCI_D0);
-> 	pci_set_master(pdev);
-> 	pci_restore_state(pdev);
->
->--
->1.7.1
->
->
+Hello.
 
-Acked-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
+On 31-05-2013 9:20, Joe Perches wrote:
 
-Thanks!
+>>>>      Why not "text:%#lx" as already used in this string? It's
+>>>> equivalent to "0x%lx".
+
+>>> Well, I don't know the reasoning in this case, but I'd like to note that
+>>> those are not strictly equivalent.  Personally I find the formatting of 0
+>>> annoying enough to avoid %#x for any value which may be 0.  It's
+>>> especially bad if you try to line up things by adding leading zeros.
+
+>> Yep, I found that 0x%lx produced the same output as %p.
+
+> Don't use a standalone gcc compiled program to
+> determine what the kernel outputs.
+
+> lib/vsprintf.c does not output the same. (32 bit)
+
+> The kernel output is;
+
+> 	printk("0x%lx\n", 0x100ul)		0x100
+> 	printk("%p\n", (void *)0x100ul)		00000100
+> 	printk("%#p\n", (void *)0x100ul)	0x00000100
+
+> The last one isn't used at all in kernel source. (gcc complains)
+> It's always "0x%p"
+
+     I was talking about using "%#lx", not "%#p". I don't see it in your 
+example.
+
+WBR, Sergei
