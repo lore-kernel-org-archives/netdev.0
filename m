@@ -1,80 +1,105 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH] net: emaclite: Fix typo in error message
-Date: Fri, 31 May 2013 12:36:34 +0200
-Message-ID: <51A87D32.9010006@monstr.eu>
-References: <51A87BB6.7060207@efe-gmbh.de>
-Reply-To: monstr@monstr.eu
+From: Jason Cooper <jason@lakedaemon.net>
+Subject: Re: [PATCH v5 12/13] ARM: kirkwood: remove redundant DT board files
+Date: Fri, 31 May 2013 07:54:50 -0400
+Message-ID: <20130531115450.GA3803@titan.lakedaemon.net>
+References: <1369154510-4927-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369855975-21489-1-git-send-email-sebastian.hesselbarth@gmail.com>
+ <1369855975-21489-13-git-send-email-sebastian.hesselbarth@gmail.com>
+ <8738t4q1kv.fsf@natisbad.org>
+ <20130530193708.GC31290@titan.lakedaemon.net>
+ <87txlknluf.fsf@natisbad.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2FTAFMNETMPHBAFAOJVIA"
-Cc: netdev@vger.kernel.org
-To: "Jens Renner (EFE)" <renner@efe-gmbh.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-we0-f173.google.com ([74.125.82.173]:48139 "EHLO
-	mail-we0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750879Ab3EaKgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 06:36:39 -0400
-Received: by mail-we0-f173.google.com with SMTP id p57so1091899wes.4
-        for <netdev@vger.kernel.org>; Fri, 31 May 2013 03:36:38 -0700 (PDT)
-In-Reply-To: <51A87BB6.7060207@efe-gmbh.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>,
+ Andrew Lunn <andrew@lunn.ch>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ David Miller <davem@davemloft.net>, Lennert Buytenhek <buytenh@wantstofly.org>,
+ Sebastian Hesselbarth <sebastian.hesselbarth@gmail.com>
+To: Arnaud Ebalard <arno@natisbad.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <87txlknluf.fsf@natisbad.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2FTAFMNETMPHBAFAOJVIA
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
+Arnaud,
 
-On 05/31/2013 12:30 PM, Jens Renner (EFE) wrote:
-> s/allocal/allocate/
->=20
-> Signed-off-by: Jens Renner <renner@efe-gmbh.de>
-> ---
-> drivers/net/ethernet/xilinx/xilinx_emaclite.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/ne=
-t/ethernet/xilinx/xilinx_emaclite.c
-> index aa14d8a..aaadf7e 100644
-> --- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-> +++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-> @@ -877,7 +877,7 @@ static int xemaclite_mdio_setup(struct net_local *l=
-p, struct device *dev)
->=20
->         bus =3D mdiobus_alloc();
->         if (!bus) {
-> -               dev_err(dev, "Failed to allocal mdiobus\n");
-> +               dev_err(dev, "Failed to allocate mdiobus\n");
->                 return -ENOMEM;
->         }
+On Fri, May 31, 2013 at 12:28:56AM +0200, Arnaud Ebalard wrote:
+> Hi,
+> 
+> Jason Cooper <jason@lakedaemon.net> writes:
+> 
+> >> For instance 6bd98481ab34 (arm: kirkwood: NETGEAR ReadyNAS Duo v2 init
+> >> PCIe via DT) currently sitting in jcooper/mvebu/pcie_kirkwood removes
+> >> the PCIE init routine in board-readynas.c, and yours remove ge00
+> >> init. With both applied, the whole file can go away.
+> >> 
+> >> AFAICT, this may be the case soon for:
+> >> 
+> >>  arch/arm/mach-kirkwood/board-iconnect.c   (36e5722089)
+> >>  arch/arm/mach-kirkwood/board-mplcec4.c    (9470fbfb8d)
+> >>  arch/arm/mach-kirkwood/board-nsa310.c     (40fa8e5da2)
+> >>  arch/arm/mach-kirkwood/board-readynas.c   (6bd98481ab)
+> >>  arch/arm/mach-kirkwood/board-ts219.c      (259e234608)
+> >
+> > Would you mind putting a patch together (for after v3.10 drops) to do
+> > this?  If you applied Sebastian's series on top of mvebu/pcie_kirkwood,
+> > that should get you almost there.  The last half of his series is going
+> > in after v3.10...
+> 
+> Something like the quick quilt-generated patch at the end of this email
+> (done after a dummy merge of Sebastian's set in mvebu/pcie_kirkwood)? 
 
-Acked-by: Michal Simek <monstr@monstr.eu>
+yep.
 
-Thanks,
-Michal
+> I will take a look at what remains after Sebastian's set hit one of
+> your branch but I guess he will have included most of what is in the
+> patch to help you with the merge.
+> 
+> Anyway, at the end here is what DT board files would remain:
+> 
+> $ ls -1 arch/arm/mach-kirkwood/board-*.c
+> arch/arm/mach-kirkwood/board-dnskw.c
 
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+This one seems to just be setting a gpio to enable reboot after power
+failure.  Should be simple to move to DT.
 
+> arch/arm/mach-kirkwood/board-dt.c
 
+We obviously need this one. ;-)
 
-------enig2FTAFMNETMPHBAFAOJVIA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+> arch/arm/mach-kirkwood/board-lsxl.c
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+This is taken care of in mvebu/boards
 
-iEYEARECAAYFAlGofTIACgkQykllyylKDCHCigCeMljfdPdj77JQ27ZTww5B4112
-AvQAmQFfI01k584/nPVLtZQhoPSK5Z3m
-=C3Ay
------END PGP SIGNATURE-----
+  391a16c ARM: Kirkwood: Convert LSXL to restart-poweroff driver.
 
-------enig2FTAFMNETMPHBAFAOJVIA--
+> arch/arm/mach-kirkwood/board-ts219.c
+
+Also in mvebu/boards
+
+  4350a47 ARM: Kirkwood: Make use of the QNAP Power off driver.
+
+> Just one question though: the removal of MACH_*_DT in Kconfig removes
+> the automatic selection of useful board specific options like
+> ARM_APPENDED_DTB, ARM_ATAG_DTB_COMPAT, POWER_RESET_RESTART,
+> POWER_RESET_QNAP. Is that expected?
+
+I would select POWER_RESET_QNAP and POWER_RESET_RESTART in Kconfig for
+ARCH_KIRKWOOD_DT, and put ARM_APPENDED_DTB and ARM_ATAG_DTB_COMPAT into
+the defconfig.
+
+thx,
+
+Jason.
