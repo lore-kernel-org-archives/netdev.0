@@ -1,41 +1,62 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v3 2/2] vxlan: allow specifying multiple
- default destinations
-Date: Fri, 31 May 2013 09:17:40 -0700
-Message-ID: <20130531091740.70b3e077@nehalam.linuxnetplumber.net>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
-	<20130530110948.GA10532@casper.infradead.org>
-	<CAF1J0HP+Wu9HjEELDaXM2BMREMuKByWr_zz=PwHeNUt=EVbdvw@mail.gmail.com>
-	<20130530113739.GB10532@casper.infradead.org>
+From: Alan Robertson <alanr@unix.sh>
+Subject: Re: [PATCH net] rtnetlink: ndo_dflt_fdb_del() never works
+Date: Fri, 31 May 2013 10:43:46 -0600
+Message-ID: <51A8D342.2010802@unix.sh>
+References: <1369951315-14742-1-git-send-email-alanr@unix.sh> <20130531.014607.358769391044586124.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Mike Rapoport <mike.rapoport@ravellosystems.com>,
-	netdev@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, davem@gavemloft.net, kuznet@ms2.inr.ac.ru,
+	vyasevic@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f179.google.com ([209.85.192.179]:40993 "EHLO
-	mail-pd0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756761Ab3EaQRp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 12:17:45 -0400
-Received: by mail-pd0-f179.google.com with SMTP id q11so2427639pdj.24
-        for <netdev@vger.kernel.org>; Fri, 31 May 2013 09:17:45 -0700 (PDT)
-In-Reply-To: <20130530113739.GB10532@casper.infradead.org>
+Received: from c60.cesmail.net ([216.154.195.49]:46023 "EHLO c60.cesmail.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751041Ab3EaQnx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 May 2013 12:43:53 -0400
+In-Reply-To: <20130531.014607.358769391044586124.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Looking at this code in more detail, I see a slew of problems.
+On 05/31/2013 02:46 AM, David Miller wrote:
+> From: Alan Robertson <alanr@unix.sh>
+> Date: Thu, 30 May 2013 16:01:55 -0600
+>
+>> ndo_dflt_fdb_del is checking for a condition which is opposite that
+>> which ndo_dflt_fdb_add enforces.  ndo_dflt_fdb_add declares an error
+>> if (ndm->ndm_state && !(ndm->ndm_state) & NUD_PERMANENT)) - that is, if the
+>> entry is static.  This is consistent with the failure error message.
+>>
+>> On the other hand, ndo_dflt_del() declares an error
+>> if (ndm_state & NUD_PERMANENT) - which is inconsistent with the add
+>> precondition, and inconsistent with its failure message text.
+>> As it is now, you can't delete any entry which add allows to be added -
+>> so entry deletion always fails.
+>>
+>> Signed-off-by: Alan Robertson <alanr@unix.sh>
+> What about the ->ndm_state part of the add() test?  Why not include
+> that in the del() check?
+I had three different thoughts about this:
+  1) Replicated the add check in the delete
+  2) Do what I did - make it where you can only delete those really
+marked as static
+  3) Eliminate all delete checks
 
-First the list of destinations isn't really a list. The default one is still
-embedded in the fdb entry. This means you can't change it safely.
+The problem is -- I'm not sure why the ndm->ndm_state check is in there
+-- I don't know how to make that condition occur.  It has the feel of a
+check to be made before things are fully initialized - or maybe even
+just leftover cruft.
 
-Also the notification via netlink only sends back a single destination
-value. 
+You could make the argument that option (3) is the best -- if it's been
+added successfully, you ought to be able to delete it.
 
-And the lack of locking on the open coded link list means it is not safe since
-the forwarding table is used with RCU. In order to be safe, proper RCU
-barriers would be needed or better yet convert to list_rcu..
+If someone with more knowledge would comment that would be much appreciated!
 
-Overall, I feel guilty for not inspecting this more closely and am surprised
-that others did not catch the lack of locking.
+I'm happy to submit any of these three versions of the patch.  Let me
+know what's wanted.
+
+
+-- 
+    Alan Robertson <alanr@unix.sh> - @OSSAlanR
+
+"Openness is the foundation and preservative of friendship...  Let me claim from you at all times your undisguised opinions." - William Wilberforce
