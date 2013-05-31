@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next rfc V2 2/8] macvlan: switch to use IS_ENABLED()
-Date: Fri, 31 May 2013 17:53:19 +0800
-Message-ID: <1369994005-5943-3-git-send-email-jasowang@redhat.com>
+Subject: [net-next rfc V2 6/8] macvtap: allow TUNSETIFF to create multiqueue device
+Date: Fri, 31 May 2013 17:53:23 +0800
+Message-ID: <1369994005-5943-7-git-send-email-jasowang@redhat.com>
 References: <1369994005-5943-1-git-send-email-jasowang@redhat.com>
 Cc: Jason Wang <jasowang@redhat.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
@@ -11,24 +11,91 @@ In-Reply-To: <1369994005-5943-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Though the queue were in fact created by open(), we still need to add this check
+to be compatible with tuntap which can let mgmt software use a single API to
+manage queues. This patch only validates the device name and moves the TUNSETIFF
+to a helper.
+
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/if_macvlan.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/macvtap.c |   51 ++++++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 40 insertions(+), 11 deletions(-)
 
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index 84dde1d..e47ad46 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -8,7 +8,7 @@
- #include <net/netlink.h>
- #include <linux/u64_stats_sync.h>
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index e76484c..eac49cb 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -870,6 +870,7 @@ out:
+ 	return ret;
+ }
  
--#if defined(CONFIG_MACVTAP) || defined(CONFIG_MACVTAP_MODULE)
-+#if IS_ENABLED(CONFIG_MACVTAP)
- struct socket *macvtap_get_socket(struct file *);
- #else
- #include <linux/err.h>
++
+ static struct macvlan_dev *macvtap_get_vlan(struct macvtap_queue *q)
+ {
+ 	struct macvlan_dev *vlan;
+@@ -888,6 +889,44 @@ static void macvtap_put_vlan(struct macvlan_dev *vlan)
+ 	dev_put(vlan->dev);
+ }
+ 
++static int macvtap_set_iff(struct file *file, struct ifreq __user *ifr_u)
++{
++	struct macvtap_queue *q = file->private_data;
++	struct net *net = current->nsproxy->net_ns;
++	struct inode *inode = file_inode(file);
++	struct net_device *dev, *dev2;
++	struct ifreq ifr;
++
++	if (copy_from_user(&ifr, ifr_u, sizeof(struct ifreq)))
++		return -EFAULT;
++
++	/* To keep the same behavior of tuntap, validate ifr_name */
++	if (ifr.ifr_flags & IFF_MULTI_QUEUE) {
++		dev = __dev_get_by_name(net, ifr.ifr_name);
++		if (!dev)
++			return -EINVAL;
++
++		dev2 = dev_get_by_macvtap_minor(iminor(inode));
++		if (!dev2)
++			return -EINVAL;
++
++		if (dev != dev2) {
++			dev_put(dev2);
++			return -EINVAL;
++		}
++
++		dev_put(dev2);
++	}
++
++	if ((ifr.ifr_flags & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
++	    (IFF_NO_PI | IFF_TAP))
++		return -EINVAL;
++	else
++		q->flags = ifr.ifr_flags;
++
++	return 0;
++}
++
+ /*
+  * provide compatibility with generic tun/tap interface
+  */
+@@ -906,17 +945,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 
+ 	switch (cmd) {
+ 	case TUNSETIFF:
+-		/* ignore the name, just look at flags */
+-		if (get_user(u, &ifr->ifr_flags))
+-			return -EFAULT;
+-
+-		ret = 0;
+-		if ((u & ~IFF_VNET_HDR) != (IFF_NO_PI | IFF_TAP))
+-			ret = -EINVAL;
+-		else
+-			q->flags = u;
+-
+-		return ret;
++		return macvtap_set_iff(file, ifr);
+ 
+ 	case TUNGETIFF:
+ 		vlan = macvtap_get_vlan(q);
 -- 
 1.7.1
