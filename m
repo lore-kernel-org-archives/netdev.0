@@ -1,40 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] udp6: Fix udp fragmentation for tunnel traffic.
-Date: Fri, 31 May 2013 17:07:02 -0700 (PDT)
-Message-ID: <20130531.170702.131332369869744840.davem@davemloft.net>
-References: <1369932327-7913-1-git-send-email-pshelar@nicira.com>
-	<CAM8tLiOi3sMeMecKgRLXq+RtEtY1Pvfeg9v2n-6M9k6WDiG9gg@mail.gmail.com>
+Subject: Re: [PATCH] net: skbuff: use _RET_IP_
+Date: Fri, 31 May 2013 17:10:23 -0700 (PDT)
+Message-ID: <20130531.171023.192971627043674196.davem@davemloft.net>
+References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pshelar@nicira.com, netdev@vger.kernel.org
-To: dkravkov@gmail.com
+Cc: edumazet@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: davidlohr.bueso@hp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43179 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43193 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754715Ab3FAAHD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 20:07:03 -0400
-In-Reply-To: <CAM8tLiOi3sMeMecKgRLXq+RtEtY1Pvfeg9v2n-6M9k6WDiG9gg@mail.gmail.com>
+	with ESMTP id S1754715Ab3FAAKZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 20:10:25 -0400
+In-Reply-To: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dmitry Kravkov <dkravkov@gmail.com>
-Date: Thu, 30 May 2013 21:53:37 +0300
+From: Davidlohr Bueso <davidlohr.bueso@hp.com>
+Date: Wed, 29 May 2013 14:09:03 -0700
 
-> On Thu, May 30, 2013 at 7:45 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->> udp6 over GRE tunnel does not work after to GRE tso changes. GRE
->> tso handler passes inner packet but keeps track of outer header
->> start in SKB_GSO_CB(skb)->mac_offset.  udp6 fragment need to
->> take care of outer header, which start at the mac_offset, while
->> adding fragment header.
->> This bug is introduced by commit 68c3316311 (GRE: Add TCP
->> segmentation offload for GRE).
->>
->> Reported-by: Dmitry Kravkov <dkravkov@gmail.com>
->> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
- ...
-> Yeah, this fixes reported issue. Thanks.
+> Use the already defined macro to pass the function return address.
 > 
-> Tested-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Davidlohr Bueso <davidlohr.bueso@hp.com>
 
-Applied, thanks everyone.
+I've decided that we should just leave this alone for now, because
+frankly the choice is arbitrary.
