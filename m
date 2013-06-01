@@ -1,61 +1,85 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: RFC - VXLAN port range facility
-Date: Fri, 31 May 2013 18:43:10 -0700
-Message-ID: <20130531184310.59c777fb@nehalam.linuxnetplumber.net>
-References: <OF673FF136.10B22631-ON85257B7B.00436301-85257B7B.0045AAB7@us.ibm.com>
-	<20130530094141.7c125947@nehalam.linuxnetplumber.net>
-	<OFD5BD589B.1842E46B-ON85257B7B.00610E03-85257B7B.0062F480@us.ibm.com>
-	<20130531091338.12fc7df5@nehalam.linuxnetplumber.net>
-	<OF19ABC0E6.77100D83-ON85257B7C.005AFB01-85257B7C.005E33DC@us.ibm.com>
-	<20130531102233.13e51cff@nehalam.linuxnetplumber.net>
-	<OF5DED87DF.8E295C17-ON85257B7C.0061E7B1-85257B7C.0064B099@us.ibm.com>
+Subject: [PATCH net-next]  igmp: remove useless (void) cast
+Date: Fri, 31 May 2013 18:44:38 -0700
+Message-ID: <20130531184438.21966f63@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: David Stevens <dlstevens@us.ibm.com>
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:64298 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755625Ab3FABnO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 21:43:14 -0400
-Received: by mail-pd0-f172.google.com with SMTP id 10so3058866pdi.17
-        for <netdev@vger.kernel.org>; Fri, 31 May 2013 18:43:14 -0700 (PDT)
-In-Reply-To: <OF5DED87DF.8E295C17-ON85257B7C.0061E7B1-85257B7C.0064B099@us.ibm.com>
+Received: from mail-pd0-f171.google.com ([209.85.192.171]:41153 "EHLO
+	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755625Ab3FABom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 21:44:42 -0400
+Received: by mail-pd0-f171.google.com with SMTP id z11so3060315pdj.2
+        for <netdev@vger.kernel.org>; Fri, 31 May 2013 18:44:41 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 31 May 2013 14:19:47 -0400
-David Stevens <dlstevens@us.ibm.com> wrote:
+Back in the old Unix lint days, it was common to put (void) in front
+of functions when return value was being ignored. Now this is considered
+unnecessary, catch up with the fashion.
 
-> Stephen Hemminger <stephen@networkplumber.org> wrote on 05/31/2013 
-> 01:22:33 PM:
-> 
-> > > Now, maybe it wouldn't kill performance, and so doing a bind/unbind 
-> per
-> > > packet is still an option, but that would definitely hurt performance
-> > > for people who don't actually care about port entropy.
-> > 
-> > What about a peek operation that just avoids existing ports.
-> 
->         That sounds like an excellent idea to me. But anything per-packet
-> interacting with other parts of the kernel has potential to be slow.
-> My concern there, if it is noticeably slower, is that someone who
-> doesn't need the entropy should not pay the penalty for it. So, if
-> whatever we do per-packet to ensure we're using unbound UDP ports
-> slows it down, I think we'd want a knob of some sort to allow just
-> using a pre-bound port or (smaller) set of ports, since those don't
-> require any per-packet checks.
->         But absolutely, if we just do the port lookup and rehash if
-> the port is in use, even without actually binding, I think that would
-> work well; we wouldn't cause any troubles for long-term UDP bound
-> sockets and other emphemeral ports can get stray traffic from prior
-> use already.
-> 
->                                                                 +-DLS
-> 
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-I am wondering if this is just a theoretical problem, or does it occur
-in real life. My simple tests are not causing ICMP to be delivered to
-UDP application (over the VXLAN) but it maybe because of the compare scoring
-in ICMP, or because of use of multicast versus unicast destinations.
+--- a/net/ipv4/igmp.c	2013-05-31 08:35:07.838917459 -0700
++++ b/net/ipv4/igmp.c	2013-05-31 08:37:21.345081065 -0700
+@@ -633,7 +633,7 @@ static void igmpv3_send_cr(struct in_dev
+ 
+ 	if (!skb)
+ 		return;
+-	(void) igmpv3_sendpack(skb);
++	igmpv3_sendpack(skb);
+ }
+ 
+ static int igmp_send_report(struct in_device *in_dev, struct ip_mc_list *pmc,
+@@ -1733,7 +1733,7 @@ static int ip_mc_add_src(struct in_devic
+ 		if (!delta)
+ 			pmc->sfcount[sfmode]--;
+ 		for (j=0; j<i; j++)
+-			(void) ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
++			ip_mc_del1_src(pmc, sfmode, &psfsrc[j]);
+ 	} else if (isexclude != (pmc->sfcount[MCAST_EXCLUDE] != 0)) {
+ #ifdef CONFIG_IP_MULTICAST
+ 		struct ip_sf_list *psf;
+@@ -1887,7 +1887,7 @@ int ip_mc_leave_group(struct sock *sk, s
+ 				iml->multi.imr_address.s_addr)
+ 			continue;
+ 
+-		(void) ip_mc_leave_src(sk, iml, in_dev);
++		ip_mc_leave_src(sk, iml, in_dev);
+ 
+ 		*imlp = iml->next_rcu;
+ 
+@@ -2106,18 +2106,18 @@ int ip_mc_msfilter(struct sock *sk, stru
+ 		}
+ 	} else {
+ 		newpsl = NULL;
+-		(void) ip_mc_add_src(in_dev, &msf->imsf_multiaddr,
++		ip_mc_add_src(in_dev, &msf->imsf_multiaddr,
+ 				     msf->imsf_fmode, 0, NULL, 0);
+ 	}
+ 	psl = rtnl_dereference(pmc->sflist);
+ 	if (psl) {
+-		(void) ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
++		ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
+ 			psl->sl_count, psl->sl_addr, 0);
+ 		/* decrease mem now to avoid the memleak warning */
+ 		atomic_sub(IP_SFLSIZE(psl->sl_max), &sk->sk_omem_alloc);
+ 		kfree_rcu(psl, rcu);
+ 	} else
+-		(void) ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
++		ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
+ 			0, NULL, 0);
+ 	rcu_assign_pointer(pmc->sflist, newpsl);
+ 	pmc->sfmode = msf->imsf_fmode;
+@@ -2307,7 +2307,7 @@ void ip_mc_drop_socket(struct sock *sk)
+ 
+ 		inet->mc_list = iml->next_rcu;
+ 		in_dev = inetdev_by_index(net, iml->multi.imr_ifindex);
+-		(void) ip_mc_leave_src(sk, iml, in_dev);
++		ip_mc_leave_src(sk, iml, in_dev);
+ 		if (in_dev != NULL)
+ 			ip_mc_dec_group(in_dev, iml->multi.imr_multiaddr.s_addr);
+ 		/* decrease mem now to avoid the memleak warning */
