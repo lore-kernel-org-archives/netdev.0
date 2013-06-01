@@ -1,44 +1,57 @@
-From: Philip Rakity <prakity@nvidia.com>
-Subject: TCP.h  #undef STATE_TRACE  question
-Date: Sat, 1 Jun 2013 12:14:02 +0200
-Message-ID: <F67CC1DB-8F2B-4186-A1C4-E42BA1D20602@nvidia.com>
-References: <50A540EE-1922-4648-8898-452DB90515DD@nvidia.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH net-next] bnx2x: use XPS if possible for
+ bnx2x_select_queue instead of pure hash
+Date: Sat, 1 Jun 2013 11:27:40 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20C955D6@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1370046775.24311.16.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain;
+ charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"govindarajulu.v" <govindarajulu90@gmail.com>,
+	"Havard Skinnemoen" <hskinnemoen@google.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Eric Dumazet" <eric.dumazet@gmail.com>,
+	"David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hqemgate14.nvidia.com ([216.228.121.143]:7927 "EHLO
-	hqemgate14.nvidia.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751526Ab3FAKN7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jun 2013 06:13:59 -0400
+Received: from mms2.broadcom.com ([216.31.210.18]:1658 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755918Ab3FAL1s (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Jun 2013 07:27:48 -0400
+In-Reply-To: <1370046775.24311.16.camel@edumazet-glaptop>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-> 
-> In include/net/tcp.h there is a 
-> #undef STATE_TRACE
-> 
-> just before the
-> #define STATE_TRACE
-> 
-> This breaks printing out the state info in tcp.c.
-> 
-> It is from a checkin from Linus when he moved the code base over to git in 2005.  
-> I did not try to go back before that.
-> 
-> Any reason why it is there ?  I can submit a patch to remove it.
-> 
-> regards,
-> 
-> Philip
-> 
-
------------------------------------------------------------------------------------
-This email message is for the sole use of the intended recipient(s) and may contain
-confidential information.  Any unauthorized review, use, disclosure or distribution
-is prohibited.  If you are not the intended recipient, please contact the sender by
-reply email and destroy all copies of the original message.
------------------------------------------------------------------------------------
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
+ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxm
+IE9mIEVyaWMgRHVtYXpldA0KPiBTZW50OiBTYXR1cmRheSwgSnVuZSAwMSwgMjAxMyAzOjMzIEFN
+DQo+IFRvOiBEYXZpZCBNaWxsZXINCj4gQ2M6IG5ldGRldjsgZ292aW5kYXJhanVsdS52OyBIYXZh
+cmQgU2tpbm5lbW9lbjsgRWlsb24gR3JlZW5zdGVpbg0KPiBTdWJqZWN0OiBbUEFUQ0ggbmV0LW5l
+eHRdIGJueDJ4OiB1c2UgWFBTIGlmIHBvc3NpYmxlIGZvciBibngyeF9zZWxlY3RfcXVldWUgaW5z
+dGVhZCBvZiBwdXJlIGhhc2gNCj4gDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29v
+Z2xlLmNvbT4NCj4gDQo+IFRoZSBibngyeF9zZWxlY3RfcXVldWUoKSB3YXMgdXNpbmcgX19za2Jf
+dHhfaGFzaCgpIHRvIHNlbGVjdCB0aGUNCj4gdHJhbnNtaXQgcXVldWUsIHRvdGFsbHkgaWdub3Jp
+bmcgWFBTIHNldHRpbmdzLCB3aGlsZSBYUFMgY2FuIGhlbHANCj4gcGVyZm9ybWFuY2UgcXVpdGUg
+c2lnbmlmaWNhbnRseSwgc28gY2hhbmdlIHRoZSBibngyeF9zZWxlY3RfcXVldWUoKQ0KPiB0byB1
+c2UgX19kZXZfcGlja190eCgpIGluc3RlYWQgd2hpY2ggd2lsbCB1c2UgWFBTIGlmIGNvbmZpZ3Vy
+ZWQuDQo+IA0KPiBCYXNlZCBvbiBwYXRjaGVzIGZyb20gWWluZyBDYWkgYW5kIEhhdmFyZCBTa2lu
+bmVtb2VuDQo+IA0KPiBSZXBvcnRlZC1ieTogZ292aW5kYXJhanVsdS52IDxnb3ZpbmRhcmFqdWx1
+OTBAZ21haWwuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdv
+b2dsZS5jb20+DQo+IENjOiBIYXZhcmQgU2tpbm5lbW9lbiA8aHNraW5uZW1vZW5AZ29vZ2xlLmNv
+bT4NCj4gQ2M6IFlpbmcgQ2FpIDx5Y2FpQGdvb2dsZS5jb20+DQo+IENjOiBFaWxvbiBHcmVlbnN0
+ZWluIDxlaWxvbmdAYnJvYWRjb20uY29tPg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0
+L2Jyb2FkY29tL2JueDJ4L2JueDJ4X2Ntbi5jIHwgICAgMiArLQ0KPiAgMSBmaWxlIGNoYW5nZWQs
+IDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfY21uLmMgYi9kcml2ZXJzL25ldC9l
+dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9jbW4uYw0KPiBpbmRleCBjODBmMWQyLi4zNjUx
+ZjZkIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9i
+bngyeF9jbW4uYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9i
+bngyeF9jbW4uYw0KPiBAQCAtMTgyOSw3ICsxODI5LDcgQEAgdTE2IGJueDJ4X3NlbGVjdF9xdWV1
+ZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQ0KPiAgCX0NCj4g
+DQo+ICAJLyogc2VsZWN0IGEgbm9uLUZDb0UgcXVldWUgKi8NCj4gLQlyZXR1cm4gX19za2JfdHhf
+aGFzaChkZXYsIHNrYiwgQk5YMlhfTlVNX0VUSF9RVUVVRVMoYnApKTsNCj4gKwlyZXR1cm4gX19u
+ZXRkZXZfcGlja190eChkZXYsIHNrYikgJSBCTlgyWF9OVU1fRVRIX1FVRVVFUyhicCk7DQo+ICB9
+DQo+IA0KPiAgdm9pZCBibngyeF9zZXRfbnVtX3F1ZXVlcyhzdHJ1Y3QgYm54MnggKmJwKQ0KDQpB
+Y2tlZC1ieTogRG1pdHJ5IEtyYXZrb3YgPGRtaXRyeUBicm9hZGNvbS5jb20+DQoNCg==
