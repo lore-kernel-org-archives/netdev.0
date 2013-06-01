@@ -1,50 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Force uninitialized state if
- FW_ON_ADAPTER is < FW_VERSION and we're the MASTER_PF
-Date: Fri, 31 May 2013 17:27:32 -0700 (PDT)
-Message-ID: <20130531.172732.1438540273906277034.davem@davemloft.net>
-References: <1369920254-12122-1-git-send-email-vipul@chelsio.com>
+Subject: Re: [PATCH v3 0/2] Fix the SELinux dynamic network access controls
+Date: Fri, 31 May 2013 17:31:08 -0700 (PDT)
+Message-ID: <20130531.173108.2170873839229968113.davem@davemloft.net>
+References: <20130529173336.31888.29695.stgit@localhost>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, divy@chelsio.com, dm@chelsio.com,
-	jay@chelsio.com
-To: vipul@chelsio.com
+Cc: netdev@vger.kernel.org, selinux@tycho.nsa.gov, omoris@redhat.com,
+	pwouters@redhat.com
+To: pmoore@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43314 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43336 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755009Ab3FAA1e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 20:27:34 -0400
-In-Reply-To: <1369920254-12122-1-git-send-email-vipul@chelsio.com>
+	with ESMTP id S1755037Ab3FAAbK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 20:31:10 -0400
+In-Reply-To: <20130529173336.31888.29695.stgit@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vipul Pandya <vipul@chelsio.com>
-Date: Thu, 30 May 2013 18:54:14 +0530
+From: Paul Moore <pmoore@redhat.com>
+Date: Wed, 29 May 2013 13:36:18 -0400
 
-> From: Jay Hernandez <jay@chelsio.com>
-> 
-> Forcing uninitialized state allows us to upgrade and reinitialize the adapter.
-> 
-> FW_VERSION_T4 = 1.4.0.0
-> FW_VERSION_T5 = 0.0.0.0
-> At this point driver supports above and greater than above version of firmware.
-> If it doesn't find the required firmware version than it forces the adapter to
-> be reinitialized as shown below.
-> 
-> 1) If FW_ON_ADAPTER < FW_VERSION and we're the MASTER_PF force uninitialized
->    state and a FW upgrade if available.
-> 
->        - If FW_ON_ADAPTER < /lib/firmware/cxgb4/t*fw.bin we will update the
->          adapters FW.
->        - If FW_ON_ADAPTER >= /lib/firmware/cxgb4/t*fw.bin don't upgrade FW.
->        - If upgrade_fw() fails force reinitialization of the adapter anyways,
->          it might still work.
-> 
->    Either way forcing the uninitialized state allows cxgb4 reinitialize FW.
-> 
-> 2) If FW_ON_ADAPTER >= FW_VERSION driver follows normal path.
-> 
-> Signed-off-by: Jay Hernandez <jay@chelsio.com>
+> Take #3 ... two changes here: the first is a simple reordering of the
+> two patches and the second is stripping the SELinux patch (2/2 in this
+> patchset) of everything but the bare bones changes needed to fix the
+> problem in the 3.10-rcX tree.
 
-Applied.
+Series applied, but longer term I'd like to see this handled by generation
+counts or similar during lookup time.
+
+Doing a GC every policy delete hurts policy delete performance, something
+we worked really hard to make as light weight as possible given the
+constraints.
+
+Thanks.
