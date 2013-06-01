@@ -1,29 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: skbuff: use _RET_IP_
-Date: Fri, 31 May 2013 17:10:23 -0700 (PDT)
-Message-ID: <20130531.171023.192971627043674196.davem@davemloft.net>
-References: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
+Subject: Re: [patch -next] bnx2x: fix a power state test
+Date: Fri, 31 May 2013 17:11:14 -0700 (PDT)
+Message-ID: <20130531.171114.1448993396211120979.davem@davemloft.net>
+References: <20130531075840.GA28370@debian>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: davidlohr.bueso@hp.com
+Cc: eilong@broadcom.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43193 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43198 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754715Ab3FAAKZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 20:10:25 -0400
-In-Reply-To: <1369861743.4188.33.camel@buesod1.americas.hpqcorp.net>
+	with ESMTP id S1754715Ab3FAALP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 20:11:15 -0400
+In-Reply-To: <20130531075840.GA28370@debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Davidlohr Bueso <davidlohr.bueso@hp.com>
-Date: Wed, 29 May 2013 14:09:03 -0700
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Fri, 31 May 2013 13:07:19 +0300
 
-> Use the already defined macro to pass the function return address.
+> PCI_D0 is zero so the original test is never true.
 > 
-> Signed-off-by: Davidlohr Bueso <davidlohr.bueso@hp.com>
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+> I don't have the hardware to test this, and I'm not positive on it.
+> Buyer beware!
 
-I've decided that we should just leave this alone for now, because
-frankly the choice is arbitrary.
+Someone please review/test this patch, thanks.
