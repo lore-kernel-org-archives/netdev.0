@@ -1,43 +1,21 @@
-From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-Subject: Re: [PATCH] ath6kl: Unify sg_sz and buf_sz in ath6kl_sdio_alloc_prep_scat_req()
-Date: Sat, 1 Jun 2013 15:17:14 +0300
-Message-ID: <87fvx2nhyt.fsf@kamboji.qca.qualcomm.com>
-References: <1366804954-20491-1-git-send-email-geert@linux-m68k.org>
+From: ifo@uk.com
+Subject: =?utf-8?q?Your_Email_ID_has_won_=C2=A31=2C000=2C000=2E00_GBP_in_our_UK_NA?=
+ =?utf-8?q?TIONAL_Online_Promo=2C_For_claims_send_your_Names_and_Country_t?=
+ =?utf-8?q?o_Dr=2EJones_Greene_Email=3A_inf=2Ejonesgreene=2Ewinclaims=40ho?=
+ =?utf-8?q?tmail=2Eco=2Euk?=
+Date: Sat, 01 Jun 2013 17:15:12 +0530
+Message-ID: <201306011136.r518huhZ031805__8516.79849806732$1370089424$gmane$org@lycasmtp.lycamobile.co.uk>
+Reply-To: inf.jonesgreene.winclaims@hotmail.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ath6kl-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
-To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1366804954-20491-1-git-send-email-geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> (Geert
-	Uytterhoeven's message of "Wed, 24 Apr 2013 14:02:34 +0200")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <ifo@uk.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:46556 "EHLO
+	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755380Ab3FAMX3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jun 2013 08:23:29 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> writes:
-
-> sg_sz and buf_sz are initialized and used in a mutual exclusive way.
-> However, some versions of gcc are not smart enough to see this:
->
-> drivers/net/wireless/ath/ath6kl/sdio.c: In function =E2=80=98ath6kl_s=
-dio_alloc_prep_scat_req=E2=80=99:
-> drivers/net/wireless/ath/ath6kl/sdio.c:338: warning: =E2=80=98sg_sz=E2=
-=80=99 may be used uninitialized in this function
->
-> Unify the sg_sz and buf_sz variables into a single size variable to k=
-ill
-> the compiler warning.
->
-> Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
-
-Thanks, applied. Sorry for taking so long.
-
---=20
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
