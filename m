@@ -1,57 +1,70 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: RFC - VXLAN port range facility
-Date: Sat, 1 Jun 2013 15:39:12 +0900
-Message-ID: <CAEP_g=_Kb6_iVwxwBvGzg+RkcE7JRuO2hGxc4pcSELVfn7qWFw@mail.gmail.com>
-References: <OF673FF136.10B22631-ON85257B7B.00436301-85257B7B.0045AAB7@us.ibm.com>
- <20130530094141.7c125947@nehalam.linuxnetplumber.net> <OFD5BD589B.1842E46B-ON85257B7B.00610E03-85257B7B.0062F480@us.ibm.com>
- <CAEP_g=8MkoK3DLJNGCrQYj_X9hB9P9fjH9hrpBwqOE=0OKWGdg@mail.gmail.com> <OF9DE1CF50.DAF9EEF0-ON85257B7C.0043CE0A-85257B7C.0044520B@us.ibm.com>
+From: kermani <somayeh.kermani@gmail.com>
+Subject: Re: Problem with vlan bridge
+Date: Sat, 1 Jun 2013 07:02:29 +0000 (UTC)
+Message-ID: <loom.20130601T085324-570@post.gmane.org>
+References: <loom.20130530T080452-121@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog110.obsmtp.com ([74.125.149.203]:51997 "HELO
-	na3sys009aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1755880Ab3FAGjd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jun 2013 02:39:33 -0400
-Received: by mail-ie0-f171.google.com with SMTP id s9so6129663iec.2
-        for <netdev@vger.kernel.org>; Fri, 31 May 2013 23:39:32 -0700 (PDT)
-In-Reply-To: <OF9DE1CF50.DAF9EEF0-ON85257B7C.0043CE0A-85257B7C.0044520B@us.ibm.com>
+Received: from plane.gmane.org ([80.91.229.3]:48415 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755880Ab3FAHFH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Jun 2013 03:05:07 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Uifs7-0002a0-TA
+	for netdev@vger.kernel.org; Sat, 01 Jun 2013 09:05:03 +0200
+Received: from 89.165.114.144 ([89.165.114.144])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 01 Jun 2013 09:05:03 +0200
+Received: from somayeh.kermani by 89.165.114.144 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 01 Jun 2013 09:05:03 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, May 31, 2013 at 9:26 PM, David Stevens <dlstevens@us.ibm.com> wrote:
-> Jesse Gross <jesse@nicira.com> wrote on 05/31/2013 02:09:34 AM:
->
->> On Fri, May 31, 2013 at 3:00 AM, David Stevens <dlstevens@us.ibm.com>
-> wrote:
->> > But I don't think there's particular advantage in splitting it up
-> 30,000
->> > ways when 10 ways would be both practical, for binding, and spread
->> > traffic to 10 flows potentially.
->>
->> Most people that run large data centers think that 16 bits of entropy
->> is barely sufficient. The issue is not CPUs or link aggregation but
->> Clos fabrics built using ECMP.
->>
->
-> And most people running embedded systems wouldn't want to bind to
-> 30,000 sockets by default, which is the proper way for VXLAN to
-> interact with UDP.
->
-> A casual user of VXLAN between a couple of small machines on ordinary
-> Ethernet generally won't require multiple ports at all.
->
-> I think the default case should lean towards the low end, and the
-> mechanisms are there to tune the high end.
+Molaei <zohrehmolaei <at> gmail.com> writes:
 
-This line of argument doesn't make a lot of sense because scalability
-and ECMP are the two reason that VXLAN was introduced in the first
-place. Without the entropy in the source port, it's basically the same
-as GRE.
+> 
+> i have fedora 19 with kernel 3.9 and want to use iproute for adding vlan
+> bridge. i do this configuration but vlan bridge not work.
+> 
+> ip link add dev br type bridge
+> ip link set dev br up
+> ip link add link eth0 name eth0.20 type vlan id 20
+> ip link set dev eth0.20 up
+> ip link add link eth1 name eth1.30 type vlan id 30
+> ip link set dev eth1.30 up
+> 
+> bridge vlan add dev eth0.20 vid 20 
+> bridge vlan add dev eth1.30 vid 30 
+> 
+> when i sen broadcast message from systemtha connected to eth0, systam
+> connected to eth1 get broadcast message with vid 200.
+> 
+> please help me
+> thanks
+> 
+> 
 
-Your solution needs to work reasonably across the entire range of use
-cases and based on your arguments, it clearly doesn't. This doesn't
-mean that those use cases don't exist or aren't important, it means
-that you need to find another solution.
+I have same problem and configuration is as a follow:
+
+ip link add dev br type bridge
+ip link set dev br up
+ip link add link eth0 name eth0.20 type vlan id 20
+ip link set dev eth0.20 up
+ip link add link eth1 name eth1.30 type vlan id 30
+ip link set dev eth1.30 up
+
+ip link set eth0.20 master br
+ip link set eth1.30 master br
+
+bridge vlan add dev eth0.20 vid 20 
+bridge vlan add dev eth1.30 vid 30 
+
+I can't find any document or example to perform that. 
+I appreciate your reply.
+Regards
