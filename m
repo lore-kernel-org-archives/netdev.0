@@ -1,53 +1,26 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: RE: [patch -next] bnx2x: fix a power state test
-Date: Sat, 1 Jun 2013 14:53:46 +0000
-Message-ID: <979A8436335E3744ADCD3A9F2A2B68A52AC61B5F@SJEXCHMB10.corp.ad.broadcom.com>
-References: <20130531075840.GA28370@debian>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: [PATCH v2 net 0/6] net/core, bonding: dev_uc_sync fixes, bonding update
+Date: Sat, 1 Jun 2013 20:00:04 +0300
+Message-ID: <CAJZOPZJ8onm0NhKMbQFmZFcoVzVZ=okikLzk=8rWrDvYGrL1Cw@mail.gmail.com>
+References: <1370037451-29466-1-git-send-email-fubar@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>
-To: "Dan Carpenter" <dan.carpenter@oracle.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:2586 "EHLO mms3.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754506Ab3FAOxx convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jun 2013 10:53:53 -0400
-In-Reply-To: <20130531075840.GA28370@debian>
-Content-Language: en-US
+Received: from mail-qe0-f46.google.com ([209.85.128.46]:65465 "EHLO
+	mail-qe0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750979Ab3FARAF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jun 2013 13:00:05 -0400
+Received: by mail-qe0-f46.google.com with SMTP id w7so745678qeb.33
+        for <netdev@vger.kernel.org>; Sat, 01 Jun 2013 10:00:05 -0700 (PDT)
+In-Reply-To: <1370037451-29466-1-git-send-email-fubar@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sat, Jun 1, 2013 at 12:57 AM, Jay Vosburgh <fubar@us.ibm.com> wrote:
+> This patch set includes 6 patches: four fixes to the dev_mc_sync /  dev_mc_unsync
+>system; and two patches to bonding, one to utilize the sync / unsync functions
 
-> PCI_D0 is zero so the original test is never true.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> ---
-> I don't have the hardware to test this, and I'm not positive on it.
-> Buyer beware!
-> 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> index 263950c..a9a1609 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-> @@ -1391,7 +1391,7 @@ static bool bnx2x_is_nvm_accessible(struct bnx2x
-> *bp)
->  		rc = pci_read_config_word(bp->pdev,
->  					  bp->pm_cap + PCI_PM_CTRL, &pm);
-> 
-> -	if ((rc && !netif_running(dev)) || (!rc && ((pm & PCI_D0) != PCI_D0)))
-> +	if ((rc && !netif_running(dev)) || (!rc && pm != PCI_D0))
->  		return false;
-
-Hi Dan,
-
-Thanks for the catch, but I think your fix might be incomplete; It should probably be
-+	if ((rc && !netif_running(dev)) || (!rc && ((pm & PCI_PM_CTRL_STATE_MASK) != PCI_D0)))
-Otherwise the condition will fail if other bits are set in the PM control register.
-
-Thanks,
-Yuval
+does anything here needs to go into -stable, or it was all introduced
+in 3.10-rc1?
