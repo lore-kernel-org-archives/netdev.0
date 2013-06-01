@@ -1,30 +1,62 @@
-From: uk@inf.net
-Subject: =?utf-8?q?Your_Email_ID_has_won_=C2=A31=2C000=2C000=2E00_GBP_in_our_UK_NA?=
- =?utf-8?q?TIONAL_Online_splash_Promo=2C_For_claims_send_info=3A?=
-Date: Sat, 01 Jun 2013 04:02:36 +0530
-Message-ID: <201305312224.r4VK2tHT029447@lycasmtp.lycamobile.co.uk>
-Reply-To: inf.greene@hotmail.co.uk
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v4 1/4] Clean up indentation in net/ipv6/transp_v6.h
+Date: Fri, 31 May 2013 18:25:40 -0700
+Message-ID: <1370049940.10556.100.camel@joe-AO722>
+References: <1370048750-28441-1-git-send-email-lorenzo@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <uk@inf.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
+	David Miller <davem@davemloft.net>,
+	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	Vasiliy Kulikov <segoon@openwall.com>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:34633 "EHLO
-	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753129Ab3FABZ1 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 21:25:27 -0400
-Content-Description: Mail message body
+Received: from perches-mx.perches.com ([206.117.179.246]:53665 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753129Ab3FABZl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 31 May 2013 21:25:41 -0400
+In-Reply-To: <1370048750-28441-1-git-send-email-lorenzo@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-File No: Ref NO.: XYL/26510460037/06
+On Sat, 2013-06-01 at 10:05 +0900, Lorenzo Colitti wrote:
+> Reduce the indentation of most of the functions and make it a
+> bit more consistent. This allows longer function and arg names
+> to be consistently indented without wrapping.
+[]
+> diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
+[]
+> @@ -7,47 +7,47 @@
+[]
+>  /* extension headers */
+> -extern int				ipv6_exthdrs_init(void);
+[]
+> +extern int		ipv6_exthdrs_init(void);
 
-Names:.............
-Tel/Mobile:........
-Address:...........
-Country:...........
-Age:............
+externs aren't useful here and I suggest prototypes like
+int ipv6_exthdrs_init(void);
 
-Congratulation once again,
-Dr.Jones Green 
-Email: inf.greene@hotmail.co.uk
+> -extern int			ip6_datagram_send_ctl(struct net *net,
+> -						      struct sock *sk,
+> -						      struct msghdr *msg,
+> -						      struct flowi6 *fl6,
+> -						      struct ipv6_txoptions *opt,
+> -						      int *hlimit, int *tclass,
+> -						      int *dontfrag);
+[]
+> +extern int		ip6_datagram_send_ctl(struct net *net,
+> +					      struct sock *sk,
+> +					      struct msghdr *msg,
+> +					      struct flowi6 *fl6,
+> +					      struct ipv6_txoptions *opt,
+> +					      int *hlimit, int *tclass,
+> +					      int *dontfrag);
+
+int ip6_datagram_send_ctl(struct net *net, struct sock *sk, struct msghdr *msg,
+			  struct flowi6 *fl6, struct ipv6_txoptions *opt,
+			  int *hlimit, int *tclass, int *dontfrag);
+
+etc...
+
+kernel_doc might be nice too
