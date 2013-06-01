@@ -1,18 +1,32 @@
 From: Jingoo Han <jg1.han@samsung.com>
-Subject: [PATCH] net: can: replace strict_strtoul() with kstrtoul()
-Date: Sat, 01 Jun 2013 16:18:55 +0900
-Message-ID: <000d01ce5e98$46b6d430$d4247c90$@samsung.com>
+Subject: [PATCH] net: ethernet: replace strict_strtoul() with kstrtoul()
+Date: Sat, 01 Jun 2013 16:21:35 +0900
+Message-ID: <000e01ce5e98$a65d5ee0$f3181ca0$@samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: 'Wolfgang Grandegger' <wg@grandegger.com>, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>
-To: "'David S. Miller'" <davem@davemloft.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, 'Jingoo Han' <jg1.han@samsung.com>,
+	'Manish Chopra' <manish.chopra@qlogic.com>,
+	'Sony Chacko' <sony.chacko@qlogic.com>,
+	'Rajesh Borundia' <rajesh.borundia@qlogic.com>,
+	'Shahed Shaikh' <shahed.shaikh@qlogic.com>,
+	'Jitendra Kalsaria' <jitendra.kalsaria@qlogic.com>,
+	linux-driver@qlogic.com
+To: "'David S. Miller'" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailout3.samsung.com ([203.254.224.33]:13277 "EHLO
+	mailout3.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750839Ab3FAHVh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jun 2013 03:21:37 -0400
+Received: from epcpsbgr2.samsung.com
+ (u142.gpu120.samsung.co.kr [203.254.230.142])
+ by mailout3.samsung.com (Oracle Communications Messaging Server 7u4-24.01
+ (7.0.4.24.0) 64bit (built Nov 17 2011))
+ with ESMTP id <0MNP0022ODRZBUE0@mailout3.samsung.com> for
+ netdev@vger.kernel.org; Sat, 01 Jun 2013 16:21:36 +0900 (KST)
 Content-language: ko
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 The usage of strict_strtoul() is not preferred, because
 strict_strtoul() is obsolete. Thus, kstrtoul() should be
@@ -20,65 +34,53 @@ used.
 
 Signed-off-by: Jingoo Han <jg1.han@samsung.com>
 ---
- drivers/net/can/at91_can.c             |    2 +-
- drivers/net/can/janz-ican3.c           |    2 +-
- drivers/net/can/slcan.c                |    2 +-
- drivers/net/can/softing/softing_main.c |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c |    4 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c    |    4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/can/at91_can.c b/drivers/net/can/at91_can.c
-index 5566566..ce8421a 100644
---- a/drivers/net/can/at91_can.c
-+++ b/drivers/net/can/at91_can.c
-@@ -1220,7 +1220,7 @@ static ssize_t at91_sysfs_set_mb0_id(struct device *dev,
- 		goto out;
- 	}
+diff --git a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+index 51e13d9..7fdf6b2 100644
+--- a/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
++++ b/drivers/net/ethernet/qlogic/netxen/netxen_nic_main.c
+@@ -2721,7 +2721,7 @@ netxen_store_bridged_mode(struct device *dev,
+ 	if (adapter->is_up != NETXEN_ADAPTER_UP_MAGIC)
+ 		goto err_out;
  
--	err = strict_strtoul(buf, 0, &can_id);
-+	err = kstrtoul(buf, 0, &can_id);
- 	if (err) {
- 		ret = err;
- 		goto out;
-diff --git a/drivers/net/can/janz-ican3.c b/drivers/net/can/janz-ican3.c
-index c4bc1d2..36bd6fa 100644
---- a/drivers/net/can/janz-ican3.c
-+++ b/drivers/net/can/janz-ican3.c
-@@ -1734,7 +1734,7 @@ static ssize_t ican3_sysfs_set_term(struct device *dev,
- 	unsigned long enable;
- 	int ret;
+-	if (strict_strtoul(buf, 2, &new))
++	if (kstrtoul(buf, 2, &new))
+ 		goto err_out;
  
--	if (strict_strtoul(buf, 0, &enable))
-+	if (kstrtoul(buf, 0, &enable))
+ 	if (!netxen_config_bridged_mode(adapter, !!new))
+@@ -2760,7 +2760,7 @@ netxen_store_diag_mode(struct device *dev,
+ 	struct netxen_adapter *adapter = dev_get_drvdata(dev);
+ 	unsigned long new;
+ 
+-	if (strict_strtoul(buf, 2, &new))
++	if (kstrtoul(buf, 2, &new))
  		return -EINVAL;
  
- 	ret = ican3_set_termination(mod, enable);
-diff --git a/drivers/net/can/slcan.c b/drivers/net/can/slcan.c
-index 06b7e09..874188b 100644
---- a/drivers/net/can/slcan.c
-+++ b/drivers/net/can/slcan.c
-@@ -161,7 +161,7 @@ static void slc_bump(struct slcan *sl)
+ 	if (!!new != !!(adapter->flags & NETXEN_NIC_DIAG_ENABLED))
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+index 025a719..7ec030a 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+@@ -47,7 +47,7 @@ static ssize_t qlcnic_store_bridged_mode(struct device *dev,
+ 	if (!test_bit(__QLCNIC_DEV_UP, &adapter->state))
+ 		goto err_out;
  
- 	sl->rbuff[dlc_pos] = 0; /* terminate can_id string */
+-	if (strict_strtoul(buf, 2, &new))
++	if (kstrtoul(buf, 2, &new))
+ 		goto err_out;
  
--	if (strict_strtoul(sl->rbuff+1, 16, &ultmp))
-+	if (kstrtoul(sl->rbuff+1, 16, &ultmp))
- 		return;
+ 	if (!qlcnic_config_bridged_mode(adapter, !!new))
+@@ -77,7 +77,7 @@ static ssize_t qlcnic_store_diag_mode(struct device *dev,
+ 	struct qlcnic_adapter *adapter = dev_get_drvdata(dev);
+ 	unsigned long new;
  
- 	cf.can_id = ultmp;
-diff --git a/drivers/net/can/softing/softing_main.c b/drivers/net/can/softing/softing_main.c
-index 3a2b456..65eef1e 100644
---- a/drivers/net/can/softing/softing_main.c
-+++ b/drivers/net/can/softing/softing_main.c
-@@ -594,7 +594,7 @@ static ssize_t store_output(struct device *dev, struct device_attribute *attr,
- 	unsigned long val;
- 	int ret;
+-	if (strict_strtoul(buf, 2, &new))
++	if (kstrtoul(buf, 2, &new))
+ 		return -EINVAL;
  
--	ret = strict_strtoul(buf, 0, &val);
-+	ret = kstrtoul(buf, 0, &val);
- 	if (ret < 0)
- 		return ret;
- 	val &= 0xFF;
+ 	if (!!new != !!(adapter->flags & QLCNIC_DIAG_ENABLED))
 -- 
 1.7.10.4
-
-
