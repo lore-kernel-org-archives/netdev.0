@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] phy: add reverse MII PHY connection type
-Date: Fri, 31 May 2013 17:20:27 -0700 (PDT)
-Message-ID: <20130531.172027.651766088600576429.davem@davemloft.net>
-References: <1369750041-30396-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCHv4 0/6] ARM: sunxi: Add support for A10 Ethernet
+ controller
+Date: Fri, 31 May 2013 17:23:36 -0700 (PDT)
+Message-ID: <20130531.172336.1848458955586893446.davem@davemloft.net>
+References: <1369921765-3367-1-git-send-email-maxime.ripard@free-electrons.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, afleming@freescale.com, jogo@openwrt.org
-To: f.fainelli@gmail.com
+Cc: linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sr@denx.de, florian@openwrt.org,
+	emilio@elopez.com.ar, kevin@allwinnertech.com,
+	sunny@allwinnertech.com, shuge@allwinnertech.com
+To: maxime.ripard@free-electrons.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43257 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43279 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755270Ab3FAAU2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 20:20:28 -0400
-In-Reply-To: <1369750041-30396-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1757851Ab3FAAXh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 20:23:37 -0400
+In-Reply-To: <1369921765-3367-1-git-send-email-maxime.ripard@free-electrons.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Florian Fainelli" <f.fainelli@gmail.com>
-Date: Tue, 28 May 2013 15:07:21 +0100
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Date: Thu, 30 May 2013 15:49:19 +0200
 
-> The PHY library currently does not know about the the reverse MII
-> connection type. Add it to the list of supported PHY modes and update
-> of_get_phy_mode() to support it and look for the string "rev-mii".
+> The Allwinner A10 SoC has an ethernet controller that seem to be specific to
+> Allwinner. This IP has no public documentation, so exact
+> details are quite sparse, and this code come from refactored Allwinner
+> code.
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> The rework to use NAPI is taking more time than expected, I'm still working
+> on it, but it could probably be sent as a follow-up patch.
 
-Applied.
+Looks good.
+
+All applied to net-next, thanks.
