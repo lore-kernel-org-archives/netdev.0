@@ -1,57 +1,43 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: RE: [PATCH net-next] bnx2x: use XPS if possible for
- bnx2x_select_queue instead of pure hash
-Date: Sat, 1 Jun 2013 11:27:40 +0000
-Message-ID: <504C9EFCA2D0054393414C9CB605C37F20C955D6@SJEXCHMB06.corp.ad.broadcom.com>
-References: <1370046775.24311.16.camel@edumazet-glaptop>
+From: Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+Subject: Re: [PATCH] ath6kl: Unify sg_sz and buf_sz in ath6kl_sdio_alloc_prep_scat_req()
+Date: Sat, 1 Jun 2013 15:17:14 +0300
+Message-ID: <87fvx2nhyt.fsf@kamboji.qca.qualcomm.com>
+References: <1366804954-20491-1-git-send-email-geert@linux-m68k.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	"govindarajulu.v" <govindarajulu90@gmail.com>,
-	"Havard Skinnemoen" <hskinnemoen@google.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"David Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1658 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755918Ab3FAL1s (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Jun 2013 07:27:48 -0400
-In-Reply-To: <1370046775.24311.16.camel@edumazet-glaptop>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <ath6kl-devel-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+To: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1366804954-20491-1-git-send-email-geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> (Geert
+	Uytterhoeven's message of "Wed, 24 Apr 2013 14:02:34 +0200")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBuZXRkZXYtb3duZXJAdmdlci5r
-ZXJuZWwub3JnIFttYWlsdG86bmV0ZGV2LW93bmVyQHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxm
-IE9mIEVyaWMgRHVtYXpldA0KPiBTZW50OiBTYXR1cmRheSwgSnVuZSAwMSwgMjAxMyAzOjMzIEFN
-DQo+IFRvOiBEYXZpZCBNaWxsZXINCj4gQ2M6IG5ldGRldjsgZ292aW5kYXJhanVsdS52OyBIYXZh
-cmQgU2tpbm5lbW9lbjsgRWlsb24gR3JlZW5zdGVpbg0KPiBTdWJqZWN0OiBbUEFUQ0ggbmV0LW5l
-eHRdIGJueDJ4OiB1c2UgWFBTIGlmIHBvc3NpYmxlIGZvciBibngyeF9zZWxlY3RfcXVldWUgaW5z
-dGVhZCBvZiBwdXJlIGhhc2gNCj4gDQo+IEZyb206IEVyaWMgRHVtYXpldCA8ZWR1bWF6ZXRAZ29v
-Z2xlLmNvbT4NCj4gDQo+IFRoZSBibngyeF9zZWxlY3RfcXVldWUoKSB3YXMgdXNpbmcgX19za2Jf
-dHhfaGFzaCgpIHRvIHNlbGVjdCB0aGUNCj4gdHJhbnNtaXQgcXVldWUsIHRvdGFsbHkgaWdub3Jp
-bmcgWFBTIHNldHRpbmdzLCB3aGlsZSBYUFMgY2FuIGhlbHANCj4gcGVyZm9ybWFuY2UgcXVpdGUg
-c2lnbmlmaWNhbnRseSwgc28gY2hhbmdlIHRoZSBibngyeF9zZWxlY3RfcXVldWUoKQ0KPiB0byB1
-c2UgX19kZXZfcGlja190eCgpIGluc3RlYWQgd2hpY2ggd2lsbCB1c2UgWFBTIGlmIGNvbmZpZ3Vy
-ZWQuDQo+IA0KPiBCYXNlZCBvbiBwYXRjaGVzIGZyb20gWWluZyBDYWkgYW5kIEhhdmFyZCBTa2lu
-bmVtb2VuDQo+IA0KPiBSZXBvcnRlZC1ieTogZ292aW5kYXJhanVsdS52IDxnb3ZpbmRhcmFqdWx1
-OTBAZ21haWwuY29tPg0KPiBTaWduZWQtb2ZmLWJ5OiBFcmljIER1bWF6ZXQgPGVkdW1hemV0QGdv
-b2dsZS5jb20+DQo+IENjOiBIYXZhcmQgU2tpbm5lbW9lbiA8aHNraW5uZW1vZW5AZ29vZ2xlLmNv
-bT4NCj4gQ2M6IFlpbmcgQ2FpIDx5Y2FpQGdvb2dsZS5jb20+DQo+IENjOiBFaWxvbiBHcmVlbnN0
-ZWluIDxlaWxvbmdAYnJvYWRjb20uY29tPg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L2V0aGVybmV0
-L2Jyb2FkY29tL2JueDJ4L2JueDJ4X2Ntbi5jIHwgICAgMiArLQ0KPiAgMSBmaWxlIGNoYW5nZWQs
-IDEgaW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+IA0KPiBkaWZmIC0tZ2l0IGEvZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvYnJvYWRjb20vYm54MngvYm54MnhfY21uLmMgYi9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9icm9hZGNvbS9ibngyeC9ibngyeF9jbW4uYw0KPiBpbmRleCBjODBmMWQyLi4zNjUx
-ZjZkIDEwMDY0NA0KPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9i
-bngyeF9jbW4uYw0KPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9icm9hZGNvbS9ibngyeC9i
-bngyeF9jbW4uYw0KPiBAQCAtMTgyOSw3ICsxODI5LDcgQEAgdTE2IGJueDJ4X3NlbGVjdF9xdWV1
-ZShzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQ0KPiAgCX0NCj4g
-DQo+ICAJLyogc2VsZWN0IGEgbm9uLUZDb0UgcXVldWUgKi8NCj4gLQlyZXR1cm4gX19za2JfdHhf
-aGFzaChkZXYsIHNrYiwgQk5YMlhfTlVNX0VUSF9RVUVVRVMoYnApKTsNCj4gKwlyZXR1cm4gX19u
-ZXRkZXZfcGlja190eChkZXYsIHNrYikgJSBCTlgyWF9OVU1fRVRIX1FVRVVFUyhicCk7DQo+ICB9
-DQo+IA0KPiAgdm9pZCBibngyeF9zZXRfbnVtX3F1ZXVlcyhzdHJ1Y3QgYm54MnggKmJwKQ0KDQpB
-Y2tlZC1ieTogRG1pdHJ5IEtyYXZrb3YgPGRtaXRyeUBicm9hZGNvbS5jb20+DQoNCg==
+Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org> writes:
+
+> sg_sz and buf_sz are initialized and used in a mutual exclusive way.
+> However, some versions of gcc are not smart enough to see this:
+>
+> drivers/net/wireless/ath/ath6kl/sdio.c: In function =E2=80=98ath6kl_s=
+dio_alloc_prep_scat_req=E2=80=99:
+> drivers/net/wireless/ath/ath6kl/sdio.c:338: warning: =E2=80=98sg_sz=E2=
+=80=99 may be used uninitialized in this function
+>
+> Unify the sg_sz and buf_sz variables into a single size variable to k=
+ill
+> the compiler warning.
+>
+> Signed-off-by: Geert Uytterhoeven <geert-Td1EMuHUCqxL1ZNQvxDV9g@public.gmane.org>
+
+Thanks, applied. Sorry for taking so long.
+
+--=20
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
