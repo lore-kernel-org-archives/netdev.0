@@ -1,8 +1,7 @@
 From: Lorenzo Colitti <lorenzo@google.com>
-Subject: [PATCH v4 2/4] net: ipv6: Unify {raw,udp}6_sock_seq_show.
-Date: Sat,  1 Jun 2013 10:05:48 +0900
-Message-ID: <1370048750-28441-2-git-send-email-lorenzo@google.com>
-References: <1370048750-28441-1-git-send-email-lorenzo@google.com>
+Subject: [PATCH v4 1/4] Clean up indentation in net/ipv6/transp_v6.h
+Date: Sat,  1 Jun 2013 10:05:47 +0900
+Message-ID: <1370048750-28441-1-git-send-email-lorenzo@google.com>
 Cc: Eric Dumazet <edumazet@google.com>,
 	David Miller <davem@davemloft.net>,
 	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
@@ -10,218 +9,110 @@ Cc: Eric Dumazet <edumazet@google.com>,
 	Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f202.google.com ([209.85.220.202]:39310 "EHLO
-	mail-vc0-f202.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755092Ab3FABLx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 21:11:53 -0400
-Received: by mail-vc0-f202.google.com with SMTP id ha11so110778vcb.5
-        for <netdev@vger.kernel.org>; Fri, 31 May 2013 18:11:52 -0700 (PDT)
-In-Reply-To: <1370048750-28441-1-git-send-email-lorenzo@google.com>
+Received: from mail-vb0-f74.google.com ([209.85.212.74]:38513 "EHLO
+	mail-vb0-f74.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755092Ab3FABMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 31 May 2013 21:12:17 -0400
+Received: by mail-vb0-f74.google.com with SMTP id w15so206164vbf.5
+        for <netdev@vger.kernel.org>; Fri, 31 May 2013 18:12:16 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-udp6_sock_seq_show and raw6_sock_seq_show are identical, except
-the UDP version displays ports and the raw version displays the
-protocol. Refactor most of the code in these two functions into
-a new common ip6_dgram_sock_seq_show function, in preparation
-for using it to display ICMPv6 sockets as well.
-
-Also reduce the indentation in parts of include/net/transp_v6.h
-to improve readability.
-
-Compiles and displays reasonable results with CONFIG_IPV6={n,m,y}
+Reduce the indentation of most of the functions and make it a
+bit more consistent. This allows longer function and arg names
+to be consistently indented without wrapping.
 
 Signed-off-by: Lorenzo Colitti <lorenzo@google.com>
 ---
- include/net/transp_v6.h | 13 +++++++++++++
- net/ipv6/datagram.c     | 27 +++++++++++++++++++++++++++
- net/ipv6/raw.c          | 45 ++++++++-------------------------------------
- net/ipv6/udp.c          | 49 +++++++++----------------------------------------
- 4 files changed, 57 insertions(+), 77 deletions(-)
+ include/net/transp_v6.h | 70 ++++++++++++++++++++++++-------------------------
+ 1 file changed, 35 insertions(+), 35 deletions(-)
 
 diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
-index 2d9d0e3..6dddc08 100644
+index eb40e71..2d9d0e3 100644
 --- a/include/net/transp_v6.h
 +++ b/include/net/transp_v6.h
-@@ -49,6 +49,12 @@ extern int		ip6_datagram_send_ctl(struct net *net,
- 					      int *hlimit, int *tclass,
- 					      int *dontfrag);
+@@ -7,47 +7,47 @@
+  *	IPv6 transport protocols
+  */
  
-+extern void		ip6_dgram_sock_seq_show(struct seq_file *seq,
-+						struct sock *sp,
-+						__u16 srcp,
-+						__u16 destp,
-+						int bucket);
+-extern struct proto rawv6_prot;
+-extern struct proto udpv6_prot;
+-extern struct proto udplitev6_prot;
+-extern struct proto tcpv6_prot;
+-extern struct proto pingv6_prot;
++extern struct proto     rawv6_prot;
++extern struct proto     udpv6_prot;
++extern struct proto     udplitev6_prot;
++extern struct proto     tcpv6_prot;
++extern struct proto     pingv6_prot;
+ 
+ struct flowi6;
+ 
+ /* extension headers */
+-extern int				ipv6_exthdrs_init(void);
+-extern void				ipv6_exthdrs_exit(void);
+-extern int				ipv6_frag_init(void);
+-extern void				ipv6_frag_exit(void);
++extern int		ipv6_exthdrs_init(void);
++extern void		ipv6_exthdrs_exit(void);
++extern int		ipv6_frag_init(void);
++extern void		ipv6_frag_exit(void);
+ 
+ /* transport protocols */
+-extern int				pingv6_init(void);
+-extern void				pingv6_exit(void);
+-extern int				rawv6_init(void);
+-extern void				rawv6_exit(void);
+-extern int				udpv6_init(void);
+-extern void				udpv6_exit(void);
+-extern int 				udplitev6_init(void);
+-extern void 				udplitev6_exit(void);
+-extern int				tcpv6_init(void);
+-extern void				tcpv6_exit(void);
+-
+-extern int				udpv6_connect(struct sock *sk,
+-						      struct sockaddr *uaddr,
+-						      int addr_len);
+-
+-extern int			ip6_datagram_recv_ctl(struct sock *sk,
+-						      struct msghdr *msg,
+-						      struct sk_buff *skb);
+-
+-extern int			ip6_datagram_send_ctl(struct net *net,
+-						      struct sock *sk,
+-						      struct msghdr *msg,
+-						      struct flowi6 *fl6,
+-						      struct ipv6_txoptions *opt,
+-						      int *hlimit, int *tclass,
+-						      int *dontfrag);
++extern int		pingv6_init(void);
++extern void		pingv6_exit(void);
++extern int		rawv6_init(void);
++extern void		rawv6_exit(void);
++extern int		udpv6_init(void);
++extern void		udpv6_exit(void);
++extern int		udplitev6_init(void);
++extern void		udplitev6_exit(void);
++extern int		tcpv6_init(void);
++extern void		tcpv6_exit(void);
 +
++extern int		udpv6_connect(struct sock *sk,
++				      struct sockaddr *uaddr,
++				      int addr_len);
++
++extern int		ip6_datagram_recv_ctl(struct sock *sk,
++					      struct msghdr *msg,
++					      struct sk_buff *skb);
++
++extern int		ip6_datagram_send_ctl(struct net *net,
++					      struct sock *sk,
++					      struct msghdr *msg,
++					      struct flowi6 *fl6,
++					      struct ipv6_txoptions *opt,
++					      int *hlimit, int *tclass,
++					      int *dontfrag);
+ 
  #define		LOOPBACK4_IPV6		cpu_to_be32(0x7f000006)
- 
- /*
-@@ -58,4 +64,11 @@ extern const struct inet_connection_sock_af_ops ipv4_specific;
- 
- extern void inet6_destroy_sock(struct sock *sk);
- 
-+#define IPV6_SEQ_DGRAM_HEADER \
-+			   "  sl  "					\
-+			   "local_address                         "	\
-+			   "remote_address                        "	\
-+			   "st tx_queue rx_queue tr tm->when retrnsmt"	\
-+			   "   uid  timeout inode ref pointer drops\n"
-+
- #endif
-diff --git a/net/ipv6/datagram.c b/net/ipv6/datagram.c
-index 4b56cbb..197e6f4 100644
---- a/net/ipv6/datagram.c
-+++ b/net/ipv6/datagram.c
-@@ -879,3 +879,30 @@ exit_f:
- 	return err;
- }
- EXPORT_SYMBOL_GPL(ip6_datagram_send_ctl);
-+
-+void ip6_dgram_sock_seq_show(struct seq_file *seq, struct sock *sp,
-+			     __u16 srcp, __u16 destp, int bucket)
-+{
-+	struct ipv6_pinfo *np = inet6_sk(sp);
-+	const struct in6_addr *dest, *src;
-+
-+	dest  = &np->daddr;
-+	src   = &np->rcv_saddr;
-+	seq_printf(seq,
-+		   "%5d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
-+		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %pK %d\n",
-+		   bucket,
-+		   src->s6_addr32[0], src->s6_addr32[1],
-+		   src->s6_addr32[2], src->s6_addr32[3], srcp,
-+		   dest->s6_addr32[0], dest->s6_addr32[1],
-+		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
-+		   sp->sk_state,
-+		   sk_wmem_alloc_get(sp),
-+		   sk_rmem_alloc_get(sp),
-+		   0, 0L, 0,
-+		   from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
-+		   0,
-+		   sock_i_ino(sp),
-+		   atomic_read(&sp->sk_refcnt), sp,
-+		   atomic_read(&sp->sk_drops));
-+}
-diff --git a/net/ipv6/raw.c b/net/ipv6/raw.c
-index 4f8886a..c45f7a5 100644
---- a/net/ipv6/raw.c
-+++ b/net/ipv6/raw.c
-@@ -1227,45 +1227,16 @@ struct proto rawv6_prot = {
- };
- 
- #ifdef CONFIG_PROC_FS
--static void raw6_sock_seq_show(struct seq_file *seq, struct sock *sp, int i)
--{
--	struct ipv6_pinfo *np = inet6_sk(sp);
--	const struct in6_addr *dest, *src;
--	__u16 destp, srcp;
--
--	dest  = &np->daddr;
--	src   = &np->rcv_saddr;
--	destp = 0;
--	srcp  = inet_sk(sp)->inet_num;
--	seq_printf(seq,
--		   "%4d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
--		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %pK %d\n",
--		   i,
--		   src->s6_addr32[0], src->s6_addr32[1],
--		   src->s6_addr32[2], src->s6_addr32[3], srcp,
--		   dest->s6_addr32[0], dest->s6_addr32[1],
--		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
--		   sp->sk_state,
--		   sk_wmem_alloc_get(sp),
--		   sk_rmem_alloc_get(sp),
--		   0, 0L, 0,
--		   from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
--		   0,
--		   sock_i_ino(sp),
--		   atomic_read(&sp->sk_refcnt), sp, atomic_read(&sp->sk_drops));
--}
--
- static int raw6_seq_show(struct seq_file *seq, void *v)
- {
--	if (v == SEQ_START_TOKEN)
--		seq_printf(seq,
--			   "  sl  "
--			   "local_address                         "
--			   "remote_address                        "
--			   "st tx_queue rx_queue tr tm->when retrnsmt"
--			   "   uid  timeout inode ref pointer drops\n");
--	else
--		raw6_sock_seq_show(seq, v, raw_seq_private(seq)->bucket);
-+	if (v == SEQ_START_TOKEN) {
-+		seq_puts(seq, IPV6_SEQ_DGRAM_HEADER);
-+	} else {
-+		struct sock *sp = v;
-+		__u16 srcp  = inet_sk(sp)->inet_num;
-+		ip6_dgram_sock_seq_show(seq, v, srcp, 0,
-+					raw_seq_private(seq)->bucket);
-+	}
- 	return 0;
- }
- 
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 42923b1..b580853 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -1359,48 +1359,17 @@ static const struct inet6_protocol udpv6_protocol = {
- 
- /* ------------------------------------------------------------------------ */
- #ifdef CONFIG_PROC_FS
--
--static void udp6_sock_seq_show(struct seq_file *seq, struct sock *sp, int bucket)
--{
--	struct inet_sock *inet = inet_sk(sp);
--	struct ipv6_pinfo *np = inet6_sk(sp);
--	const struct in6_addr *dest, *src;
--	__u16 destp, srcp;
--
--	dest  = &np->daddr;
--	src   = &np->rcv_saddr;
--	destp = ntohs(inet->inet_dport);
--	srcp  = ntohs(inet->inet_sport);
--	seq_printf(seq,
--		   "%5d: %08X%08X%08X%08X:%04X %08X%08X%08X%08X:%04X "
--		   "%02X %08X:%08X %02X:%08lX %08X %5d %8d %lu %d %pK %d\n",
--		   bucket,
--		   src->s6_addr32[0], src->s6_addr32[1],
--		   src->s6_addr32[2], src->s6_addr32[3], srcp,
--		   dest->s6_addr32[0], dest->s6_addr32[1],
--		   dest->s6_addr32[2], dest->s6_addr32[3], destp,
--		   sp->sk_state,
--		   sk_wmem_alloc_get(sp),
--		   sk_rmem_alloc_get(sp),
--		   0, 0L, 0,
--		   from_kuid_munged(seq_user_ns(seq), sock_i_uid(sp)),
--		   0,
--		   sock_i_ino(sp),
--		   atomic_read(&sp->sk_refcnt), sp,
--		   atomic_read(&sp->sk_drops));
--}
--
- int udp6_seq_show(struct seq_file *seq, void *v)
- {
--	if (v == SEQ_START_TOKEN)
--		seq_printf(seq,
--			   "  sl  "
--			   "local_address                         "
--			   "remote_address                        "
--			   "st tx_queue rx_queue tr tm->when retrnsmt"
--			   "   uid  timeout inode ref pointer drops\n");
--	else
--		udp6_sock_seq_show(seq, v, ((struct udp_iter_state *)seq->private)->bucket);
-+	if (v == SEQ_START_TOKEN) {
-+		seq_puts(seq, IPV6_SEQ_DGRAM_HEADER);
-+	} else {
-+		int bucket = ((struct udp_iter_state *)seq->private)->bucket;
-+		struct inet_sock *inet = inet_sk(v);
-+		__u16 srcp = ntohs(inet->inet_sport);
-+		__u16 destp = ntohs(inet->inet_dport);
-+		ip6_dgram_sock_seq_show(seq, v, srcp, destp, bucket);
-+	}
- 	return 0;
- }
  
 -- 
 1.8.2.1
