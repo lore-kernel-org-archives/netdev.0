@@ -1,30 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4 1/4] Clean up indentation in net/ipv6/transp_v6.h
-Date: Sun, 02 Jun 2013 01:29:18 -0700 (PDT)
-Message-ID: <20130602.012918.1216932529595713857.davem@davemloft.net>
-References: <1370049940.10556.100.camel@joe-AO722>
-	<20130601.195806.2024506377665086082.davem@davemloft.net>
-	<1370142368.2086.6.camel@joe-AO722>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH] netdev: Cocci spatch "ptr_ret.spatch"
+Date: Sun, 02 Jun 2013 11:02:30 +0200
+Message-ID: <51AB0A26.6070608@hartkopp.net>
+References: <1370080751.29224.37.camel@localhost.localdomain> <20130601.193717.2203825358470502762.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: lorenzo@google.com, netdev@vger.kernel.org, edumazet@google.com,
-	yoshfuji@linux-ipv6.org, segoon@openwall.com
-To: joe@perches.com
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: thomas@m3y3r.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54947 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750962Ab3FBI3W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 04:29:22 -0400
-In-Reply-To: <1370142368.2086.6.camel@joe-AO722>
+Received: from mo-p00-ob.rzone.de ([81.169.146.162]:63834 "EHLO
+	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751738Ab3FBJCd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 05:02:33 -0400
+In-Reply-To: <20130601.193717.2203825358470502762.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Sat, 01 Jun 2013 20:06:08 -0700
+Hello Thomas,
 
-> If a cleanup only patch is proffered, I think the
-> cleanup should be as complete as possible.
+additionally to provide a proper log message it is a usual to provide the
+coccinelle expression that found the source to be changed.
 
-Wanting to clean up one aspect does not require cleaning up
-other aspects, many contributors are volunteers remember. :-)
+http://lwn.net/Articles/315686/
+
+
+E.g. like these
+
+http://marc.info/?l=linux-netdev&m=135081679626023&w=2
+http://marc.info/?l=linux-netdev&m=135194048501621&w=2
+
+http://marc.info/?l=linux-netdev&m=135306967411758&w=2
+http://marc.info/?l=linux-netdev&m=135304902302198&w=2
+
+
+Regards,
+Oliver
+
+On 02.06.2013 04:37, David Miller wrote:
+> From: Thomas Meyer <thomas@m3y3r.de>
+> Date: Sat, 01 Jun 2013 11:59:11 +0200
+> 
+>>
+>> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
+> 
+> This obscure reference to the cocci path you used to find/fix
+> this problem is insufficient in detail for a commit log message.
+> 
+> You must explain exactly what the problem is, and how you fixed
+> it, in full sentences.   You must make your commit header lin
+> subject more appropriate as well.
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
