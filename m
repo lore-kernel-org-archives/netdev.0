@@ -1,50 +1,73 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 1/5] netfilter: add nf_ipv6_ops hook to fix xt_addrtype
- with IPv6
-Date: Mon, 3 Jun 2013 00:06:45 +0200
-Message-ID: <20130602220645.GA14760@breakpoint.cc>
-References: <1369843394-24251-1-git-send-email-pablo@netfilter.org>
- <1369843394-24251-2-git-send-email-pablo@netfilter.org>
- <CAKD1Yr3aauNq0NAi1-RDxcD_D5GDwzO87WxUARhyh=iQe91A5Q@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
+ macro
+Date: Sun, 02 Jun 2013 16:31:35 -0700
+Message-ID: <1370215895.24311.93.camel@edumazet-glaptop>
+References: <519CB2D8.103@yandex-team.ru>
+	   <1369225837.3301.324.camel@edumazet-glaptop>
+	   <519CC2FB.2010006@yandex-team.ru>
+	   <20130522174532.GC3431@linux.vnet.ibm.com>
+	 <519D19DA.50400@yandex-team.ru>
+	   <20130525113715.GA3795@linux.vnet.ibm.com>
+	   <51A39E11.5020405@yandex-team.ru>
+	   <1369699930.3301.494.camel@edumazet-glaptop>
+	   <51A47496.6000100@yandex-team.ru>
+	   <1369787693.3301.586.camel@edumazet-glaptop>
+	   <20130529013111.GS6172@linux.vnet.ibm.com>
+	  <1369804097.3301.615.camel@edumazet-glaptop>
+	  <51A5D3D9.1000106@yandex-team.ru>
+	 <1369854387.5109.77.camel@edumazet-glaptop>
+	 <51A70CF4.1020807@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
-To: Lorenzo Colitti <lorenzo@google.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAKD1Yr3aauNq0NAi1-RDxcD_D5GDwzO87WxUARhyh=iQe91A5Q@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Dipankar Sarma <dipankar@in.ibm.com>, zhmurov@yandex-team.ru,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>,
+	David Laight <David.Laight@ACULAB.COM>
+To: Roman Gushchin <klamm@yandex-team.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:51681 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755117Ab3FBXbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 19:31:38 -0400
+In-Reply-To: <51A70CF4.1020807@yandex-team.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Lorenzo Colitti <lorenzo@google.com> wrote:
-> > While the former might seem preferable, Pablo pointed out that there
-> > are more xt modules with link-time dependeny issues regarding ipv6,
-> > so lets go for 2).
+On Thu, 2013-05-30 at 12:25 +0400, Roman Gushchin wrote:
+> On 29.05.2013 23:06, Eric Dumazet wrote:
+> > On Wed, 2013-05-29 at 14:09 +0400, Roman Gushchin wrote:
+> >
+> > True, these lookup functions are usually structured the same around the
+> > hlist_nulls_for_each_entry_rcu() loop.
+> >
+> > A barrier() right before the loop seems to be a benefit, the size of
+> > assembly code is reduced by 48 bytes.
+> >
+> > And its one of the documented way to handle this kind of problems
+> > (Documentation/atomic_ops.txt line 114)
+> >
+> > I guess we should amend this documentation, eventually.
+> >
+> > Thanks, please add you "Signed-off-by" if you agree with the patch.
+> >
 > 
-> I had to do this recently for the ping socket as well:
+> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
 > 
-> http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=6d0bfe22611602f36617bc7aa2ffa1bbb2f54c67
->
-> +/* Compatibility glue so we can support IPv6 when it's compiled as a module */
-> +struct pingv6_ops {
-> [...]
-> + int (*ipv6_chk_addr)(struct net *net, const struct in6_addr *addr,
-> +     struct net_device *dev, int strict);
-> +};
->
-> Is it a better idea to share these structures and have just one
-> structure containing all IPv6 dummy functions?
+> Many thanks to you, Paul E. McKenney and David Laight for your
+> patches, help and participation in this discussion.
 
-I think so, yes.
+Thanks to you !
 
-> If it was in an include
-> file, it would be easily accessible to most of the tree even when
-> CONFIG_IPV6={n,m}, and we could have the ipv6 module init (and exit)
-> code just set all the function pointers. That way, we wouldn't have to
-> reinvent this particular wheel in multiple places of the code.
+David, is there any problem with the patch ?
 
-FWIW, I agree.  We should avoid having multiple copies of this.
+http://patchwork.ozlabs.org/patch/247360/ says "Not applicable", please
+tell me what is needed to get it merged.
+
+Thanks !
