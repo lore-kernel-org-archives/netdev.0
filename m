@@ -1,51 +1,49 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v4 1/4] Clean up indentation in net/ipv6/transp_v6.h
-Date: Sat, 01 Jun 2013 20:06:08 -0700
-Message-ID: <1370142368.2086.6.camel@joe-AO722>
-References: <1370048750-28441-1-git-send-email-lorenzo@google.com>
-	 <1370049940.10556.100.camel@joe-AO722>
-	 <20130601.195806.2024506377665086082.davem@davemloft.net>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: Re: [PATCH net-next 2/3] net: do not manually initialize enumerators
+Date: Sat, 1 Jun 2013 21:18:13 -0600
+Message-ID: <20130602031813.GC26681@mail.gmail.com>
+References: <1370139797-8912-1-git-send-email-sakiwit@gmail.com>
+ <1370139797-8912-2-git-send-email-sakiwit@gmail.com>
+ <1370140803.2086.0.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: lorenzo@google.com, netdev@vger.kernel.org, edumazet@google.com,
-	yoshfuji@linux-ipv6.org, segoon@openwall.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:51700 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750779Ab3FBDGK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Jun 2013 23:06:10 -0400
-In-Reply-To: <20130601.195806.2024506377665086082.davem@davemloft.net>
+Received: from mail-ie0-f176.google.com ([209.85.223.176]:55317 "EHLO
+	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779Ab3FBDTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jun 2013 23:19:42 -0400
+Received: by mail-ie0-f176.google.com with SMTP id at20so7289404iec.35
+        for <netdev@vger.kernel.org>; Sat, 01 Jun 2013 20:19:41 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1370140803.2086.0.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-06-01 at 19:58 -0700, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Fri, 31 May 2013 18:25:40 -0700
+From: Joe Perches <joe@perches.com>
+Date: Sat, 01 Jun 2013 19:40:03 -0700
+>
+> On Sat, 2013-06-01 at 20:23 -0600, Jean Sacren wrote:
+> > Clean up unnecessary initialization of enumerators as the compiler takes
+> > care of that.
+> []
+> > diff --git a/include/linux/net.h b/include/linux/net.h
+> []
+> >  enum sock_shutdown_cmd {
+> > -	SHUT_RD		= 0,
+> > -	SHUT_WR		= 1,
+> > -	SHUT_RDWR	= 2,
+> > +	SHUT_RD,
+> > +	SHUT_WR,
+> > +	SHUT_RDWR,
+> >  };
 > 
-> > externs aren't useful here and I suggest prototypes like
-> > int ipv6_exthdrs_init(void);
-> 
-> But this is the format used by the entire header file, all functions
-> are declared extern.
-> 
-> It is not reasonable to ask him to change this.  It's a seperate
-> cleanup, and that's assuming we actually agree to remove the externs.
-> I honestly see no reason to, they are harmless, and given that it's
-> just pure churn.
+> The compiler may do the same thing,
+> but specificity is good.
 
-<shrug>
+Thank you for your input. Could you elaborate on 'specificity' in this
+specific case?
 
-How is that churn different than the entire patch?
-
-extern _isn't_ useful and the tabbed indentation is
-different than most all includes.
-
-1 tab or 2 isn't a big thing.
-
-I think cleanup patches like this should strive for
-consistency with whatever preferred style exists.
-
-If a cleanup only patch is proffered, I think the
-cleanup should be as complete as possible.
+-- 
+Jean Sacren
