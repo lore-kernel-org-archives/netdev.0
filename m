@@ -1,58 +1,55 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] netdev: Cocci spatch "ptr_ret.spatch"
-Date: Sun, 02 Jun 2013 11:02:30 +0200
-Message-ID: <51AB0A26.6070608@hartkopp.net>
-References: <1370080751.29224.37.camel@localhost.localdomain> <20130601.193717.2203825358470502762.davem@davemloft.net>
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Subject: [PATCH net-next] bnx2x: fix a power state test
+Date: Sun, 2 Jun 2013 12:02:26 +0300
+Message-ID: <1370163746-30745-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: thomas@m3y3r.de
+Cc: kernel-janitors@vger.kernel.org,
+	"Yuval Mintz" <yuvalmin@broadcom.com>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p00-ob.rzone.de ([81.169.146.162]:63834 "EHLO
-	mo-p00-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751738Ab3FBJCd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 05:02:33 -0400
-In-Reply-To: <20130601.193717.2203825358470502762.davem@davemloft.net>
+Received: from mms2.broadcom.com ([216.31.210.18]:3935 "EHLO mms2.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753302Ab3FBJCi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Jun 2013 05:02:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello Thomas,
+If PCIe supports PM capabilities, bnx2x will always claim eeprom is accessible
+as PCI_D0 is zero.
 
-additionally to provide a proper log message it is a usual to provide the
-coccinelle expression that found the source to be changed.
+Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+Signed-off-by: Ariel Elior <ariele@broadcom.com>
+Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+---
+Hi Dave,
 
-http://lwn.net/Articles/315686/
+Please consider applying this to `net-next'.
 
+Thanks,
+Yuval
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-E.g. like these
-
-http://marc.info/?l=linux-netdev&m=135081679626023&w=2
-http://marc.info/?l=linux-netdev&m=135194048501621&w=2
-
-http://marc.info/?l=linux-netdev&m=135306967411758&w=2
-http://marc.info/?l=linux-netdev&m=135304902302198&w=2
-
-
-Regards,
-Oliver
-
-On 02.06.2013 04:37, David Miller wrote:
-> From: Thomas Meyer <thomas@m3y3r.de>
-> Date: Sat, 01 Jun 2013 11:59:11 +0200
-> 
->>
->> Signed-off-by: Thomas Meyer <thomas@m3y3r.de>
-> 
-> This obscure reference to the cocci path you used to find/fix
-> this problem is insufficient in detail for a commit log message.
-> 
-> You must explain exactly what the problem is, and how you fixed
-> it, in full sentences.   You must make your commit header lin
-> subject more appropriate as well.
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+index 263950c..04a2ad5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
+@@ -1391,7 +1391,8 @@ static bool bnx2x_is_nvm_accessible(struct bnx2x *bp)
+ 		rc = pci_read_config_word(bp->pdev,
+ 					  bp->pm_cap + PCI_PM_CTRL, &pm);
+ 
+-	if ((rc && !netif_running(dev)) || (!rc && ((pm & PCI_D0) != PCI_D0)))
++	if ((rc && !netif_running(dev)) ||
++	    (!rc && ((pm & PCI_PM_CTRL_STATE_MASK) != PCI_D0)))
+ 		return false;
+ 
+ 	return true;
+-- 
+1.8.1.227.g44fe835
