@@ -1,55 +1,36 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v7 net-next 0/5] net: low latency Ethernet device polling
-Date: Sun, 02 Jun 2013 17:02:33 +0300
-Message-ID: <51AB5079.7020904@linux.intel.com>
-References: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v4 1/4] Clean up indentation in net/ipv6/transp_v6.h
+Date: Sun, 02 Jun 2013 07:16:30 -0700
+Message-ID: <1370182590.24311.29.camel@edumazet-glaptop>
+References: <1370049940.10556.100.camel@joe-AO722>
+	 <20130601.195806.2024506377665086082.davem@davemloft.net>
+	 <1370142368.2086.6.camel@joe-AO722>
+	 <20130602.012918.1216932529595713857.davem@davemloft.net>
+	 <1370164995.2086.30.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, lorenzo@google.com,
+	netdev@vger.kernel.org, edumazet@google.com,
+	yoshfuji@linux-ipv6.org, segoon@openwall.com
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga14.intel.com ([143.182.124.37]:3895 "EHLO mga14.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751722Ab3FBOCj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Jun 2013 10:02:39 -0400
-In-Reply-To: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:40682 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750983Ab3FBOQd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 10:16:33 -0400
+Received: by mail-pd0-f169.google.com with SMTP id y11so4485093pdj.14
+        for <netdev@vger.kernel.org>; Sun, 02 Jun 2013 07:16:33 -0700 (PDT)
+In-Reply-To: <1370164995.2086.30.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 30/05/2013 14:40, Eliezer Tamir wrote:
-> more fixes.
-> Thank you all for your input.
->
-> -Eliezer
->
-> change log:
-> v7
-> - suggested by Ben Hutchings and Eric Dumazet:
->    type fixes, static for globals in net/core.c,
->    avoid napi_id collisions in napi_hash_add()
+On Sun, 2013-06-02 at 02:23 -0700, Joe Perches wrote:
 
-Dave,
+> I get the volunteer aspect, but from a google.com
+> address?
 
-Please tell my how you think I should proceed.
-If you think v7 is good enough I can send a cleanup patch for the
-type fixes that were suggested.
-Or I can submit a v8 with those fixes.
+So what ?
 
-Once we are done with what we have so far, I plan on working on adding
-all the things we think are needed for a fuller implementation.
-I hope to submit an RFC in a few weeks.
-
-Thanks,
-Eliezer
+Lorenzo days have 24 hours, and are not exclusive property of Google,
+thank you.
