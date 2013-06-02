@@ -1,38 +1,32 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net-next 3/3] Kconfig: remove dangling references to the deleted file
-Date: Sun, 02 Jun 2013 21:24:31 +0200
-Message-ID: <87zjv85n9s.fsf@nemi.mork.no>
-References: <1370139797-8912-1-git-send-email-sakiwit@gmail.com>
-	<1370139797-8912-3-git-send-email-sakiwit@gmail.com>
-	<df6f5786-e49c-4564-a9de-35825048f0a7@email.android.com>
-	<20130602172857.GE26681@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v7 net-next 0/5] net: low latency Ethernet device
+ polling
+Date: Sun, 02 Jun 2013 13:11:08 -0700 (PDT)
+Message-ID: <20130602.131108.1874343561471221274.davem@davemloft.net>
+References: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
+	<51AB5079.7020904@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Jean Sacren <sakiwit@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
+	e1000-devel@lists.sourceforge.net, willemb@google.com,
+	erdnetdev@gmail.com, bhutchings@solarflare.com,
+	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
+	or.gerlitz@gmail.com, alexr@mellanox.com, eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:60028 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755804Ab3FBTYd convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 15:24:33 -0400
-In-Reply-To: <20130602172857.GE26681@mail.gmail.com> (Jean Sacren's message of
-	"Sun, 2 Jun 2013 11:28:57 -0600")
+Received: from shards.monkeyblade.net ([149.20.54.216]:33282 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750825Ab3FBULM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 16:11:12 -0400
+In-Reply-To: <51AB5079.7020904@linux.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jean Sacren <sakiwit@gmail.com> writes:
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Sun, 02 Jun 2013 17:02:33 +0300
 
-> I did check this URL before I submitted the patch and it worked:
->
-> 	http://www.savetz.com/mbone/
->
-> I just checked again and it still works. Can you check one more time =
-for
-> me, please?
+> Or I can submit a v8 with those fixes.
 
-Yes, it works for me as well now. Strange. Sorry for the noise.
-
-
-
-Bj=C3=B8rn
+Please submit v8
