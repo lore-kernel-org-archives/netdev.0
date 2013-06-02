@@ -1,163 +1,61 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH net-next post Lorenzo] transp_v6.h: style neatening
-Date: Sun, 02 Jun 2013 10:04:26 -0700
-Message-ID: <1370192666.7400.16.camel@joe-AO722>
-References: <1370049940.10556.100.camel@joe-AO722>
-	 <20130601.195806.2024506377665086082.davem@davemloft.net>
-	 <1370142368.2086.6.camel@joe-AO722>
-	 <20130602.012918.1216932529595713857.davem@davemloft.net>
-	 <1370164995.2086.30.camel@joe-AO722>
-	 <CAKD1Yr0rRBWZ8WcMSo-xoG=X8kptBdhFBk36CjLX72BZkHuSvw@mail.gmail.com>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: Re: [PATCH net-next 3/3] Kconfig: remove dangling references to the
+ deleted file
+Date: Sun, 2 Jun 2013 11:28:57 -0600
+Message-ID: <20130602172857.GE26681@mail.gmail.com>
+References: <1370139797-8912-1-git-send-email-sakiwit@gmail.com>
+ <1370139797-8912-3-git-send-email-sakiwit@gmail.com>
+ <df6f5786-e49c-4564-a9de-35825048f0a7@email.android.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Vasiliy Kulikov <segoon@openwall.com>
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:41637 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754429Ab3FBRE1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Jun 2013 13:04:27 -0400
-In-Reply-To: <CAKD1Yr0rRBWZ8WcMSo-xoG=X8kptBdhFBk36CjLX72BZkHuSvw@mail.gmail.com>
+Received: from mail-ie0-f170.google.com ([209.85.223.170]:34478 "EHLO
+	mail-ie0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754664Ab3FBRa1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 13:30:27 -0400
+Received: by mail-ie0-f170.google.com with SMTP id e14so8429018iej.15
+        for <netdev@vger.kernel.org>; Sun, 02 Jun 2013 10:30:26 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <df6f5786-e49c-4564-a9de-35825048f0a7@email.android.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Use a more current code style.
+=46rom: Bj=F8rn Mork <bjorn@mork.no>
+Date: Sun, 02 Jun 2013 12:09:40 +0200
+>
+> Jean Sacren <sakiwit@gmail.com> wrote:
+>=20
+> >diff --git a/net/ipv4/Kconfig b/net/ipv4/Kconfig
+> >index 8603ca8..37cf1a6 100644
+> >--- a/net/ipv4/Kconfig
+> >+++ b/net/ipv4/Kconfig
+> >@@ -9,10 +9,7 @@ config IP_MULTICAST
+> > 	  intend to participate in the MBONE, a high bandwidth network on =
+top
+> > 	  of the Internet which carries audio and video broadcasts. More
+> > 	  information about the MBONE is on the WWW at
+> >-	  <http://www.savetz.com/mbone/>. Information about the multicast
+> >-	  capabilities of the various network cards is contained in
+> >-	  <file:Documentation/networking/multicast.txt>. For most people,
+> >it's
+> >-	  safe to say N.
+> >+	  <http://www.savetz.com/mbone/>. For most people, it's safe to sa=
+y
+> >N.
+>=20
+> This url results in a 404 error, so you might as well delete it while=
+ cleaning up this.
 
-Remove extern from function prototypes.
-Align function arguments and reflow to 80 cols.
-Use network comment styles.
+I did check this URL before I submitted the patch and it worked:
 
-Signed-off-by: Joe Perches <joe@perches.com>
-cc: Lorenzo Colitti <lorenzo@google.com>, 
----
-> I don't have strong feelings about indentation, but if possible I
-> would like to avoid re-spinning this patchset more than twice over
-> formatting changes to this file.
+	http://www.savetz.com/mbone/
 
-You could do nothing and David could apply this if
-he wants a more complete neatening.
+I just checked again and it still works. Can you check one more time fo=
+r
+me, please?
 
-Or do what David wants.  He's the maintainer.
-
- include/net/transp_v6.h | 89 ++++++++++++++++++++-----------------------------
- 1 file changed, 37 insertions(+), 52 deletions(-)
-
-diff --git a/include/net/transp_v6.h b/include/net/transp_v6.h
-index 6dddc08..48660e5 100644
---- a/include/net/transp_v6.h
-+++ b/include/net/transp_v6.h
-@@ -3,72 +3,57 @@
- 
- #include <net/checksum.h>
- 
--/*
-- *	IPv6 transport protocols
-- */
--
--extern struct proto     rawv6_prot;
--extern struct proto     udpv6_prot;
--extern struct proto     udplitev6_prot;
--extern struct proto     tcpv6_prot;
--extern struct proto     pingv6_prot;
-+/* IPv6 transport protocols */
-+extern struct proto rawv6_prot;
-+extern struct proto udpv6_prot;
-+extern struct proto udplitev6_prot;
-+extern struct proto tcpv6_prot;
-+extern struct proto pingv6_prot;
- 
- struct flowi6;
- 
- /* extension headers */
--extern int		ipv6_exthdrs_init(void);
--extern void		ipv6_exthdrs_exit(void);
--extern int		ipv6_frag_init(void);
--extern void		ipv6_frag_exit(void);
-+int ipv6_exthdrs_init(void);
-+void ipv6_exthdrs_exit(void);
-+int ipv6_frag_init(void);
-+void ipv6_frag_exit(void);
- 
- /* transport protocols */
--extern int		pingv6_init(void);
--extern void		pingv6_exit(void);
--extern int		rawv6_init(void);
--extern void		rawv6_exit(void);
--extern int		udpv6_init(void);
--extern void		udpv6_exit(void);
--extern int		udplitev6_init(void);
--extern void		udplitev6_exit(void);
--extern int		tcpv6_init(void);
--extern void		tcpv6_exit(void);
-+int pingv6_init(void);
-+void pingv6_exit(void);
-+int rawv6_init(void);
-+void rawv6_exit(void);
-+int udpv6_init(void);
-+void udpv6_exit(void);
-+int udplitev6_init(void);
-+void udplitev6_exit(void);
-+int tcpv6_init(void);
-+void tcpv6_exit(void);
- 
--extern int		udpv6_connect(struct sock *sk,
--				      struct sockaddr *uaddr,
--				      int addr_len);
-+int udpv6_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len);
- 
--extern int		ip6_datagram_recv_ctl(struct sock *sk,
--					      struct msghdr *msg,
--					      struct sk_buff *skb);
-+int ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
-+			  struct sk_buff *skb);
- 
--extern int		ip6_datagram_send_ctl(struct net *net,
--					      struct sock *sk,
--					      struct msghdr *msg,
--					      struct flowi6 *fl6,
--					      struct ipv6_txoptions *opt,
--					      int *hlimit, int *tclass,
--					      int *dontfrag);
-+int ip6_datagram_send_ctl(struct net *net, struct sock *sk, struct msghdr *msg,
-+			  struct flowi6 *fl6, struct ipv6_txoptions *opt,
-+			  int *hlimit, int *tclass, int *dontfrag);
- 
--extern void		ip6_dgram_sock_seq_show(struct seq_file *seq,
--						struct sock *sp,
--						__u16 srcp,
--						__u16 destp,
--						int bucket);
-+void ip6_dgram_sock_seq_show(struct seq_file *seq, struct sock *sp,
-+			     __u16 srcp, __u16 destp, int bucket);
- 
--#define		LOOPBACK4_IPV6		cpu_to_be32(0x7f000006)
-+#define LOOPBACK4_IPV6 cpu_to_be32(0x7f000006)
- 
--/*
-- *	address family specific functions
-- */
-+/* address family specific functions */
- extern const struct inet_connection_sock_af_ops ipv4_specific;
- 
--extern void inet6_destroy_sock(struct sock *sk);
-+void inet6_destroy_sock(struct sock *sk);
- 
--#define IPV6_SEQ_DGRAM_HEADER \
--			   "  sl  "					\
--			   "local_address                         "	\
--			   "remote_address                        "	\
--			   "st tx_queue rx_queue tr tm->when retrnsmt"	\
--			   "   uid  timeout inode ref pointer drops\n"
-+#define IPV6_SEQ_DGRAM_HEADER					       \
-+	"  sl  "						       \
-+	"local_address                         "		       \
-+	"remote_address                        "		       \
-+	"st tx_queue rx_queue tr tm->when retrnsmt"		       \
-+	"   uid  timeout inode ref pointer drops\n"
- 
- #endif
+--=20
+Jean Sacren
