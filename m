@@ -1,52 +1,66 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v4 1/4] Clean up indentation in net/ipv6/transp_v6.h
-Date: Sat, 01 Jun 2013 20:52:15 -0700
-Message-ID: <1370145135.2086.10.camel@joe-AO722>
-References: <1370048750-28441-1-git-send-email-lorenzo@google.com>
-	 <1370049940.10556.100.camel@joe-AO722>
-	 <20130601.195806.2024506377665086082.davem@davemloft.net>
-	 <1370142368.2086.6.camel@joe-AO722>
-	 <CAKD1Yr0rX4fR-fQfvZ_KpLbAf0+wehR=SmXzJtbPPGmKXTd7Gw@mail.gmail.com>
+From: Jean Sacren <sakiwit@gmail.com>
+Subject: Re: [PATCH net-next 2/3] net: do not manually initialize enumerators
+Date: Sat, 1 Jun 2013 22:05:09 -0600
+Message-ID: <20130602040509.GD26681@mail.gmail.com>
+References: <1370139797-8912-1-git-send-email-sakiwit@gmail.com>
+ <1370139797-8912-2-git-send-email-sakiwit@gmail.com>
+ <1370140803.2086.0.camel@joe-AO722>
+ <20130602031813.GC26681@mail.gmail.com>
+ <1370143454.2086.8.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-	Vasiliy Kulikov <segoon@openwall.com>
-To: Lorenzo Colitti <lorenzo@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:36160 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750856Ab3FBDwR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 1 Jun 2013 23:52:17 -0400
-In-Reply-To: <CAKD1Yr0rX4fR-fQfvZ_KpLbAf0+wehR=SmXzJtbPPGmKXTd7Gw@mail.gmail.com>
+Received: from mail-ie0-f182.google.com ([209.85.223.182]:54195 "EHLO
+	mail-ie0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750805Ab3FBEGi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 00:06:38 -0400
+Received: by mail-ie0-f182.google.com with SMTP id 9so2076727iec.41
+        for <netdev@vger.kernel.org>; Sat, 01 Jun 2013 21:06:38 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1370143454.2086.8.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-06-02 at 12:44 +0900, Lorenzo Colitti wrote:
-> On Sun, Jun 2, 2013 at 12:06 PM, Joe Perches <joe@perches.com> wrote:
-> > How is that churn different than the entire patch?
+From: Joe Perches <joe@perches.com>
+Date: Sat, 01 Jun 2013 20:24:14 -0700
+>
+> On Sat, 2013-06-01 at 21:18 -0600, Jean Sacren wrote:
+> > From: Joe Perches <joe@perches.com>
+> > Date: Sat, 01 Jun 2013 19:40:03 -0700
+> > >
+> > > On Sat, 2013-06-01 at 20:23 -0600, Jean Sacren wrote:
+> > > > Clean up unnecessary initialization of enumerators as the compiler takes
+> > > > care of that.
+> > > []
+> > > > diff --git a/include/linux/net.h b/include/linux/net.h
+> > > []
+> > > >  enum sock_shutdown_cmd {
+> > > > -	SHUT_RD		= 0,
+> > > > -	SHUT_WR		= 1,
+> > > > -	SHUT_RDWR	= 2,
+> > > > +	SHUT_RD,
+> > > > +	SHUT_WR,
+> > > > +	SHUT_RDWR,
+> > > >  };
+> > > 
+> > > The compiler may do the same thing,
+> > > but specificity is good.
+> > 
+> > Thank you for your input. Could you elaborate on 'specificity' in this
+> > specific case?
 > 
-> I changed the indentation because patch 2 in the set introduced
-> another function and I didn't know how to indent it. Currently, some
-> declarations are not tab-indented, some are tab-indented to column 40,
-> and some are tab-indented to column 32. I thought that while I was at
-> it I might change them to be consistent. So this patch changes it so
-> they're all tab-indented to column 24; I thought that was more
-> readable.
-> 
-> That said, I don't have strong feelings about the indentation - my
-> main goal here was removing code duplication. If I reverted the
-> indentation patch and just aligned the new function to the function
-> above it, would that be better?
+> Wpecifically, it's easier to see what the particular
+> SHUT_<foo> value is when you grep for without looking
+> through and counting the entire enum.
 
-Hey Lorenzo.
+You don't need to look through and count. 'wc -l' shall tell and it's a
+very small number.
 
-I think you should use whatever you think appropriate without
-trying to fix the other function prototypes.
+With the specificity, it undervalues the power of the order of those
+three enumerators. Nevertheless, I enjoyed learning from you and it's
+better than SNL.
 
-Otherwise, I'd do what I suggested in my first email.
-
-cheers, Joe
+-- 
+Jean Sacren
