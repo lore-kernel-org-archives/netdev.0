@@ -1,21 +1,40 @@
-From: ifo@uk.com
-Subject: =?utf-8?q?Your_Email_ID_has_won_=C2=A31=2C000=2C000=2E00_GBP_in_our_UK_NA?=
- =?utf-8?q?TIONAL_Online_Promo=2C_For_claims_send_your_Names_and_Country_t?=
- =?utf-8?q?o_Dr=2EJones_Greene_Email=3A_inf=2Ejonesgreene=2Ewinclaims=40ho?=
- =?utf-8?q?tmail=2Eco=2Euk?=
-Date: Sun, 02 Jun 2013 16:48:36 +0530
-Message-ID: <201306021110.r52AeiMK002582@lycasmtp.lycamobile.co.uk>
-Reply-To: inf.jonesgreene.winclaims@hotmail.co.uk
+From: "Jens Renner (EFE)" <renner@efe-gmbh.de>
+Subject: [PATCH v2] net: emaclite: Fix typo in error message
+Date: Sun, 02 Jun 2013 17:19:06 +0200
+Message-ID: <51AB626A.3040809@efe-gmbh.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <ifo@uk.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Michal Simek <monstr@monstr.eu>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:60132 "EHLO
-	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751492Ab3FBPRj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 11:17:39 -0400
-Content-Description: Mail message body
+Received: from moutng.kundenserver.de ([212.227.17.10]:64193 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751492Ab3FBPSt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 11:18:49 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+s/allocal/allocate/
+
+Signed-off-by: Jens Renner <renner@efe-gmbh.de>
+---
+Changes in v2:
+- fix whitespace problem
+
+drivers/net/ethernet/xilinx/xilinx_emaclite.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index aa14d8a..aaadf7e 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -877,7 +877,7 @@ static int xemaclite_mdio_setup(struct net_local *lp, struct device *dev)
+ 
+ 	bus = mdiobus_alloc();
+ 	if (!bus) {
+-		dev_err(dev, "Failed to allocal mdiobus\n");
++		dev_err(dev, "Failed to allocate mdiobus\n");
+ 		return -ENOMEM;
+ 	}
+ 
