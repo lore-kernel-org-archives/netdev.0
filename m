@@ -1,39 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: use XPS if possible for
- bnx2x_select_queue instead of pure hash
-Date: Sat, 01 Jun 2013 19:38:57 -0700 (PDT)
-Message-ID: <20130601.193857.1132434060524891436.davem@davemloft.net>
-References: <1370046775.24311.16.camel@edumazet-glaptop>
-	<504C9EFCA2D0054393414C9CB605C37F20C955D6@SJEXCHMB06.corp.ad.broadcom.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 2/3] net: do not manually initialize enumerators
+Date: Sat, 01 Jun 2013 19:40:03 -0700
+Message-ID: <1370140803.2086.0.camel@joe-AO722>
+References: <1370139797-8912-1-git-send-email-sakiwit@gmail.com>
+	 <1370139797-8912-2-git-send-email-sakiwit@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	govindarajulu90@gmail.com, hskinnemoen@google.com,
-	eilong@broadcom.com
-To: dmitry@broadcom.com
+Cc: netdev@vger.kernel.org
+To: Jean Sacren <sakiwit@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52810 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750779Ab3FBCi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jun 2013 22:38:58 -0400
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F20C955D6@SJEXCHMB06.corp.ad.broadcom.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:43769 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750779Ab3FBCkF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Jun 2013 22:40:05 -0400
+In-Reply-To: <1370139797-8912-2-git-send-email-sakiwit@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Date: Sat, 1 Jun 2013 11:27:40 +0000
+On Sat, 2013-06-01 at 20:23 -0600, Jean Sacren wrote:
+> Clean up unnecessary initialization of enumerators as the compiler takes
+> care of that.
+[]
+> diff --git a/include/linux/net.h b/include/linux/net.h
+[]
+>  enum sock_shutdown_cmd {
+> -	SHUT_RD		= 0,
+> -	SHUT_WR		= 1,
+> -	SHUT_RDWR	= 2,
+> +	SHUT_RD,
+> +	SHUT_WR,
+> +	SHUT_RDWR,
+>  };
 
->> The bnx2x_select_queue() was using __skb_tx_hash() to select the
->> transmit queue, totally ignoring XPS settings, while XPS can help
->> performance quite significantly, so change the bnx2x_select_queue()
->> to use __dev_pick_tx() instead which will use XPS if configured.
->> 
->> Based on patches from Ying Cai and Havard Skinnemoen
->> 
->> Reported-by: govindarajulu.v <govindarajulu90@gmail.com>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
- ...
-> Acked-by: Dmitry Kravkov <dmitry@broadcom.com>
-
-Applied, thanks everyone.
+The compiler may do the same thing,
+but specificity is good.
