@@ -1,21 +1,55 @@
-From: ifo@uk.com
-Subject: =?utf-8?q?Your_Email_ID_has_won_=C2=A31=2C000=2C000=2E00_GBP_in_our_UK_NA?=
- =?utf-8?q?TIONAL_Online_Promo=2C_For_claims_send_your_Names_and_Country_t?=
- =?utf-8?q?o_Dr=2EJones_Greene_Email=3A_inf=2Ejonesgreene=2Ewinclaims=40ho?=
- =?utf-8?q?tmail=2Eco=2Euk?=
-Date: Sun, 02 Jun 2013 16:51:44 +0530
-Message-ID: <201306021113.r52AeiZs002586__25178.0684259304$1370177962$gmane$org@lycasmtp.lycamobile.co.uk>
-Reply-To: inf.jonesgreene.winclaims@hotmail.co.uk
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v7 net-next 0/5] net: low latency Ethernet device polling
+Date: Sun, 02 Jun 2013 17:02:33 +0300
+Message-ID: <51AB5079.7020904@linux.intel.com>
+References: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <ifo@uk.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:38794 "EHLO
-	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751492Ab3FBM7I convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 08:59:08 -0400
-Content-Description: Mail message body
+Received: from mga14.intel.com ([143.182.124.37]:3895 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751722Ab3FBOCj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Jun 2013 10:02:39 -0400
+In-Reply-To: <20130530114045.12653.79183.stgit@ladj378.jer.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 30/05/2013 14:40, Eliezer Tamir wrote:
+> more fixes.
+> Thank you all for your input.
+>
+> -Eliezer
+>
+> change log:
+> v7
+> - suggested by Ben Hutchings and Eric Dumazet:
+>    type fixes, static for globals in net/core.c,
+>    avoid napi_id collisions in napi_hash_add()
+
+Dave,
+
+Please tell my how you think I should proceed.
+If you think v7 is good enough I can send a cleanup patch for the
+type fixes that were suggested.
+Or I can submit a v8 with those fixes.
+
+Once we are done with what we have so far, I plan on working on adding
+all the things we think are needed for a fuller implementation.
+I hope to submit an RFC in a few weeks.
+
+Thanks,
+Eliezer
