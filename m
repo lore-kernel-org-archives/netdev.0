@@ -1,39 +1,43 @@
-From: Shawn Bohrer <shawn.bohrer@gmail.com>
-Subject: Re: [PATCH v2 net 0/6] net/core, bonding: dev_uc_sync fixes, bonding
- update
-Date: Sat, 1 Jun 2013 14:04:11 -0500
-Message-ID: <20130601190411.GA13515@lintop.rgmadvisors.com>
-References: <1370037451-29466-1-git-send-email-fubar@us.ibm.com>
- <CAJZOPZJ8onm0NhKMbQFmZFcoVzVZ=okikLzk=8rWrDvYGrL1Cw@mail.gmail.com>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next] icmp: avoid allocating large struct on stack
+Date: Sun, 02 Jun 2013 09:14:42 +0800
+Message-ID: <1370135682.2637.1.camel@cr0>
+References: <1370057053-20519-1-git-send-email-amwang@redhat.com>
+	 <1370064152.24311.19.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jay Vosburgh <fubar@us.ibm.com>, netdev@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:48131 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753831Ab3FATEW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 1 Jun 2013 15:04:22 -0400
-Received: by mail-qc0-f178.google.com with SMTP id l11so1438057qcy.37
-        for <netdev@vger.kernel.org>; Sat, 01 Jun 2013 12:04:21 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJZOPZJ8onm0NhKMbQFmZFcoVzVZ=okikLzk=8rWrDvYGrL1Cw@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:1484 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752041Ab3FBBOx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 1 Jun 2013 21:14:53 -0400
+In-Reply-To: <1370064152.24311.19.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 01, 2013 at 08:00:04PM +0300, Or Gerlitz wrote:
-> On Sat, Jun 1, 2013 at 12:57 AM, Jay Vosburgh <fubar@us.ibm.com> wrote:
-> > This patch set includes 6 patches: four fixes to the dev_mc_sync /  dev_mc_unsync
-> >system; and two patches to bonding, one to utilize the sync / unsync functions
+On Fri, 2013-05-31 at 22:22 -0700, Eric Dumazet wrote:
+> On Sat, 2013-06-01 at 11:24 +0800, Cong Wang wrote:
+> > From: Cong Wang <amwang@redhat.com>
+> > 
+> > struct icmp_bxm is a large struct, reduce stack usage
+> > by allocating it on heap.
+> > 
 > 
-> does anything here needs to go into -stable, or it was all introduced
-> in 3.10-rc1?
+> Strange, I posted a patch like that some days ago.
 
-The commit that broke things for me was introduced in 3.10-rc1:
+Strange, why it isn't merged. :)
 
-$ git describe --contains 4cd729b04285b7330edaf5a7080aa795d6d15ff3
-v3.10-rc1~66^2~128^2~1
+> 
+> Please.
+> 
+> Read carefully this code and tell me if you do not leak memory.
 
---
-Shawn
+Right, I missed some kfree.
+
+> 
+> For the record my patch was saving more stack space :
+
+Please submit it as a normal patch?
