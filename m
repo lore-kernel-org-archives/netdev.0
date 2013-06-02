@@ -1,36 +1,55 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 1/4] Clean up indentation in net/ipv6/transp_v6.h
-Date: Sun, 02 Jun 2013 07:16:30 -0700
-Message-ID: <1370182590.24311.29.camel@edumazet-glaptop>
-References: <1370049940.10556.100.camel@joe-AO722>
-	 <20130601.195806.2024506377665086082.davem@davemloft.net>
-	 <1370142368.2086.6.camel@joe-AO722>
-	 <20130602.012918.1216932529595713857.davem@davemloft.net>
-	 <1370164995.2086.30.camel@joe-AO722>
+Subject: Re: v3.8.5: "TCP: snd_cwnd is nul, please report this bug."
+Date: Sun, 02 Jun 2013 07:22:36 -0700
+Message-ID: <1370182956.24311.34.camel@edumazet-glaptop>
+References: <87zjx9pf13.fsf@nemi.mork.no>
+	 <1365431422.3887.10.camel@edumazet-glaptop> <87li8tyrzs.fsf@nemi.mork.no>
+	 <1365434301.3887.14.camel@edumazet-glaptop> <87k3mcizlm.fsf@nemi.mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, lorenzo@google.com,
-	netdev@vger.kernel.org, edumazet@google.com,
-	yoshfuji@linux-ipv6.org, segoon@openwall.com
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Eric Dumazet <edumazet@google.com>, netdev@vger.kernel.org,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:40682 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750983Ab3FBOQd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 10:16:33 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y11so4485093pdj.14
-        for <netdev@vger.kernel.org>; Sun, 02 Jun 2013 07:16:33 -0700 (PDT)
-In-Reply-To: <1370164995.2086.30.camel@joe-AO722>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:59429 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750711Ab3FBOWi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 10:22:38 -0400
+Received: by mail-pb0-f42.google.com with SMTP id uo1so4537768pbc.15
+        for <netdev@vger.kernel.org>; Sun, 02 Jun 2013 07:22:38 -0700 (PDT)
+In-Reply-To: <87k3mcizlm.fsf@nemi.mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-06-02 at 02:23 -0700, Joe Perches wrote:
+On Sun, 2013-06-02 at 12:19 +0200, Bj=C3=B8rn Mork wrote:
 
-> I get the volunteer aspect, but from a google.com
-> address?
+> Just FYI, in case you wondered what happened here...
+>=20
+> I've been running with the debug patch since you sent it to me, and
+> still is.  But the warning has not yet reappeared.
+>=20
+> I'll continue using the patch for a while, but will eventually drop i=
+t
+> if the warning cannot be reproduced in another couple of weeks time.
+> There have been a few fixes to iwlwifi in the meantime, and I do not
+> rule out the possibility that some of these removed the triggering
+> event.
+>=20
 
-So what ?
+What exact tree are you running ?
 
-Lorenzo days have 24 hours, and are not exclusive property of Google,
-thank you.
+=46-RTO code was replaced by Yuching Cheng, and it might very well have
+solved these issues.
+
+commit e33099f96d99c391b3325caa9c44258de04aae86=20
+("tcp: implement RFC5682 F-RTO")
+
+commit ab42d9ee3d215ab74a49818ffc53771a88ce7ddf
+("tcp: refactor CA_Loss state processing")
+
+commit 9b44190dc114c1720b34975b5bfc65aece112ced
+("tcp: refactor F-RTO")
+
+Thanks
