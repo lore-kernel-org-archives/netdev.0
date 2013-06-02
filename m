@@ -1,55 +1,47 @@
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next] bnx2x: fix a power state test
-Date: Sun, 2 Jun 2013 12:02:26 +0300
-Message-ID: <1370163746-30745-1-git-send-email-yuvalmin@broadcom.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v4 1/4] Clean up indentation in net/ipv6/transp_v6.h
+Date: Sun, 02 Jun 2013 02:23:15 -0700
+Message-ID: <1370164995.2086.30.camel@joe-AO722>
+References: <1370049940.10556.100.camel@joe-AO722>
+	 <20130601.195806.2024506377665086082.davem@davemloft.net>
+	 <1370142368.2086.6.camel@joe-AO722>
+	 <20130602.012918.1216932529595713857.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: kernel-janitors@vger.kernel.org,
-	"Yuval Mintz" <yuvalmin@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	dan.carpenter@oracle.com
+Cc: lorenzo@google.com, netdev@vger.kernel.org, edumazet@google.com,
+	yoshfuji@linux-ipv6.org, segoon@openwall.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:3935 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753302Ab3FBJCi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Jun 2013 05:02:38 -0400
+Received: from perches-mx.perches.com ([206.117.179.246]:48101 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751354Ab3FBJXQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 2 Jun 2013 05:23:16 -0400
+In-Reply-To: <20130602.012918.1216932529595713857.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If PCIe supports PM capabilities, bnx2x will always claim eeprom is accessible
-as PCI_D0 is zero.
+On Sun, 2013-06-02 at 01:29 -0700, David Miller wrote:
+> From: Joe Perches <joe@perches.com>
+> Date: Sat, 01 Jun 2013 20:06:08 -0700
+> 
+> > If a cleanup only patch is proffered, I think the
+> > cleanup should be as complete as possible.
+> 
+> Wanting to clean up one aspect does not require cleaning up
+> other aspects,
 
-Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
-Hi Dave,
+Though I'm in favor of changing content to match any
+preferred style, what was that bit about pure churn again?
 
-Please consider applying this to `net-next'.
+Just about every line in that file was touched.
 
-Thanks,
-Yuval
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+>  many contributors are volunteers remember. :-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-index 263950c..04a2ad5 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_ethtool.c
-@@ -1391,7 +1391,8 @@ static bool bnx2x_is_nvm_accessible(struct bnx2x *bp)
- 		rc = pci_read_config_word(bp->pdev,
- 					  bp->pm_cap + PCI_PM_CTRL, &pm);
- 
--	if ((rc && !netif_running(dev)) || (!rc && ((pm & PCI_D0) != PCI_D0)))
-+	if ((rc && !netif_running(dev)) ||
-+	    (!rc && ((pm & PCI_PM_CTRL_STATE_MASK) != PCI_D0)))
- 		return false;
- 
- 	return true;
--- 
-1.8.1.227.g44fe835
+I get the volunteer aspect, but from a google.com
+address?
+
+Lorenzo, take any advice from me with whatever salts you
+think appropriate.  Avoid the designer bath ones though.
+
+cheers, Joe
