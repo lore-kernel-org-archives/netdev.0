@@ -1,110 +1,110 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCHv2 net-next] netlink: allow large data transfers from user-space
-Date: Mon,  3 Jun 2013 18:39:59 +0200
-Message-ID: <1370277599-27072-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, kaber@trash.net, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Subject: [PATCH] net: mvneta: read MAC address from hardware when available
+Date: Mon,  3 Jun 2013 18:41:47 +0200
+Message-ID: <1370277707-2468-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
+	Gregory Clement <gregory.clement@free-electrons.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
+	Lior Amsalem <alior@marvell.com>,
+	linux-arm-kernel@lists.infradead.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46718 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758652Ab3FCQkY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 12:40:24 -0400
+Received: from mail.free-electrons.com ([94.23.35.102]:52227 "EHLO
+	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758911Ab3FCQlu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 12:41:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I can hit ENOBUFS in the sendmsg() path with a large batch that is
-composed of many netlink messages. Here that limit is 8 MBytes of
-skbuff data area as kmalloc does not manage to get more than that.
+This patch improves the logic used by the mvneta driver to find a MAC
+address for a particular interface. Until now, it was only looking at
+the Device Tree, and if no address was found, was falling back to
+generating a random MAC address.
 
-While discussing atomic rule-set for nftables with Patrick McHardy,
-we decided to put all rule-set updates that need to be applied
-atomically in one single batch to simplify the existing approach.
-However, as explained above, the existing netlink code limits us
-to a maximum of ~20000 rules that fit in one single batch without
-hitting ENOBUFS. iptables does not have such limitation as it is
-using vmalloc.
+This patch adds the intermediate solution of reading the MAC address
+from the hardware registers, in case it has been set by the
+bootloader. So the order is now:
 
-This patch adds netlink_alloc_large_skb() which is only used in
-the netlink_sendmsg() path. It uses alloc_skb if the memory
-requested is <= one memory page, that should be the common case
-for most subsystems, else vmalloc for higher memory allocations.
+ 1) MAC address from the Device Tree
+ 2) MAC address from the hardware registers
+ 3) Random MAC address
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+This requires moving the MAC address initialization a little bit later
+in the ->probe() code, because it now requires the hardware registers
+to be remapped.
+
+Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
 ---
-v1: initial version
-v2: Use NLMSG_GOODSIZE instead of PAGE_SIZE, suggested by Eric Dumazet.
+ drivers/net/ethernet/marvell/mvneta.c | 35 +++++++++++++++++++++++++++--------
+ 1 file changed, 27 insertions(+), 8 deletions(-)
 
- net/netlink/af_netlink.c |   37 +++++++++++++++++++++++++++++++++++--
- 1 file changed, 35 insertions(+), 2 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 12ac6b4..7c71d07 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -750,6 +750,10 @@ static void netlink_skb_destructor(struct sk_buff *skb)
- 		skb->data = NULL;
- 	}
- #endif
-+	if (is_vmalloc_addr(skb->head)) {
-+		vfree(skb->head);
-+		skb->data = NULL;
-+	}
- 	if (skb->sk != NULL)
- 		sock_rfree(skb);
- }
-@@ -1420,6 +1424,35 @@ struct sock *netlink_getsockbyfilp(struct file *filp)
- 	return sock;
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index c966785..8c05cc5 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -2251,6 +2251,20 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
+ 	return 0;
  }
  
-+static struct sk_buff *netlink_alloc_large_skb(unsigned int size)
++/* Get mac address */
++static void mvneta_get_mac_addr(struct mvneta_port *pp, unsigned char *addr)
 +{
-+	struct sk_buff *skb;
-+	void *data;
-+
-+	if (size <= NLMSG_GOODSIZE)
-+		return alloc_skb(size, GFP_KERNEL);
-+
-+	skb = alloc_skb_head(GFP_KERNEL);
-+	if (skb == NULL)
-+		return NULL;
-+
-+	data = vmalloc(size);
-+	if (data == NULL)
-+		goto err;
-+
-+	skb->head	= data;
-+	skb->data	= data;
-+	skb_reset_tail_pointer(skb);
-+	skb->end	= skb->tail + size;
-+	skb->len	= 0;
-+	skb->destructor = netlink_skb_destructor;
-+
-+	return skb;
-+err:
-+	kfree_skb(skb);
-+	return NULL;
++	u32 mac_addr_l, mac_addr_h;
++	mac_addr_l = mvreg_read(pp, MVNETA_MAC_ADDR_LOW);
++	mac_addr_h = mvreg_read(pp, MVNETA_MAC_ADDR_HIGH);
++	addr[0] = (mac_addr_h >> 24) & 0xFF;
++	addr[1] = (mac_addr_h >> 16) & 0xFF;
++	addr[2] = (mac_addr_h >> 8) & 0xFF;
++	addr[3] = mac_addr_h & 0xFF;
++	addr[4] = (mac_addr_l >> 8) & 0xFF;
++	addr[5] = mac_addr_l & 0xFF;
 +}
 +
- /*
-  * Attach a skb to a netlink socket.
-  * The caller must hold a reference to the destination socket. On error, the
-@@ -1510,7 +1543,7 @@ static struct sk_buff *netlink_trim(struct sk_buff *skb, gfp_t allocation)
- 		return skb;
+ /* Handle setting mac address */
+ static int mvneta_set_mac_addr(struct net_device *dev, void *addr)
+ {
+@@ -2667,7 +2681,8 @@ static int mvneta_probe(struct platform_device *pdev)
+ 	u32 phy_addr;
+ 	struct mvneta_port *pp;
+ 	struct net_device *dev;
+-	const char *mac_addr;
++	const char *dt_mac_addr;
++	char hw_mac_addr[ETH_ALEN];
+ 	int phy_mode;
+ 	int err;
  
- 	delta = skb->end - skb->tail;
--	if (delta * 2 < skb->truesize)
-+	if (is_vmalloc_addr(skb->head) || delta * 2 < skb->truesize)
- 		return skb;
+@@ -2703,13 +2718,6 @@ static int mvneta_probe(struct platform_device *pdev)
+ 		goto err_free_irq;
+ 	}
  
- 	if (skb_shared(skb)) {
-@@ -2096,7 +2129,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (len > sk->sk_sndbuf - 32)
- 		goto out;
- 	err = -ENOBUFS;
--	skb = alloc_skb(len, GFP_KERNEL);
-+	skb = netlink_alloc_large_skb(len);
- 	if (skb == NULL)
- 		goto out;
+-	mac_addr = of_get_mac_address(dn);
+-
+-	if (!mac_addr || !is_valid_ether_addr(mac_addr))
+-		eth_hw_addr_random(dev);
+-	else
+-		memcpy(dev->dev_addr, mac_addr, ETH_ALEN);
+-
+ 	dev->tx_queue_len = MVNETA_MAX_TXD;
+ 	dev->watchdog_timeo = 5 * HZ;
+ 	dev->netdev_ops = &mvneta_netdev_ops;
+@@ -2740,6 +2748,17 @@ static int mvneta_probe(struct platform_device *pdev)
  
+ 	clk_prepare_enable(pp->clk);
+ 
++	dt_mac_addr = of_get_mac_address(dn);
++	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr))
++		memcpy(dev->dev_addr, dt_mac_addr, ETH_ALEN);
++	else {
++		mvneta_get_mac_addr(pp, hw_mac_addr);
++		if (is_valid_ether_addr(hw_mac_addr))
++			memcpy(dev->dev_addr, hw_mac_addr, ETH_ALEN);
++		else
++			eth_hw_addr_random(dev);
++	}
++
+ 	pp->tx_done_timer.data = (unsigned long)dev;
+ 
+ 	pp->tx_ring_size = MVNETA_MAX_TXD;
 -- 
-1.7.10.4
+1.8.1.2
