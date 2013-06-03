@@ -1,73 +1,73 @@
-From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH net] bnx2x: fix TCP offload for tunneling ipv4 over ipv6
-Date: Mon, 3 Jun 2013 12:28:41 +0300
-Message-ID: <1370251721-24668-1-git-send-email-dmitry@broadcom.com>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH v3] net: ethernet: xilinx_emaclite: set protocol selector
+ bits when writing ANAR
+Date: Mon, 03 Jun 2013 11:38:26 +0200
+Message-ID: <51AC6412.5090202@monstr.eu>
+References: <51AB6680.7010507@efe-gmbh.de>
+Reply-To: monstr@monstr.eu
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "Dmitry Kravkov" <dmitry@broadcom.com>,
-	"Ariel Elior" <ariele@broadcom.com>,
-	"Eilon Greenstein" <eilong@broadcom.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2EHHHDGUVAVNHRTRWDHTB"
+Cc: netdev@vger.kernel.org
+To: "Jens Renner (EFE)" <renner@efe-gmbh.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1164 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751179Ab3FCJ2v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 05:28:51 -0400
+Received: from mail-wi0-f181.google.com ([209.85.212.181]:54177 "EHLO
+	mail-wi0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753722Ab3FCJik (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 05:38:40 -0400
+Received: by mail-wi0-f181.google.com with SMTP id hi5so2446067wib.14
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 02:38:39 -0700 (PDT)
+In-Reply-To: <51AB6680.7010507@efe-gmbh.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-FW was initialized with data from wrong header, this caused TSO packets
-have wrong IP csum.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2EHHHDGUVAVNHRTRWDHTB
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-Signed-off-by: Ariel Elior <ariele@broadcom.com>
-Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
+On 06/02/2013 05:36 PM, Jens Renner (EFE) wrote:
+> This patch sets the protocol selector bits (4:0) of the PHY's MII_ADVER=
+TISE
+> register (ANAR) when writing ADVERTISE_ALL. The protocol selector bits =
+are
+> indicating IEEE 803.3u support and are fixed / read-only on some PHYs. =
+Not
+> setting them correctly on others (like TI DP83630) makes the PHY fall b=
+ack
+> to 10M HDX mode which should be avoided.
+>=20
+> Tested for TI DP83630 PHY on Microblaze platform.
+>=20
+> Signed-off-by: Jens Renner <renner@...-gmbh.de>
 
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index c80f1d2..37c1495 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -3198,11 +3198,11 @@ static u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
- 		rc |= XMIT_CSUM_TCP;
- 
- 	if (skb_is_gso_v6(skb)) {
--		rc |= (XMIT_GSO_V6 | XMIT_CSUM_TCP | XMIT_CSUM_V6);
-+		rc |= (XMIT_GSO_V6 | XMIT_CSUM_TCP);
- 		if (rc & XMIT_CSUM_ENC)
- 			rc |= XMIT_GSO_ENC_V6;
- 	} else if (skb_is_gso(skb)) {
--		rc |= (XMIT_GSO_V4 | XMIT_CSUM_V4 | XMIT_CSUM_TCP);
-+		rc |= (XMIT_GSO_V4 | XMIT_CSUM_TCP);
- 		if (rc & XMIT_CSUM_ENC)
- 			rc |= XMIT_GSO_ENC_V4;
- 	}
-@@ -3489,19 +3489,18 @@ static void bnx2x_update_pbds_gso_enc(struct sk_buff *skb,
- {
- 	u16 hlen_w = 0;
- 	u8 outerip_off, outerip_len = 0;
-+
- 	/* from outer IP to transport */
- 	hlen_w = (skb_inner_transport_header(skb) -
- 		  skb_network_header(skb)) >> 1;
- 
- 	/* transport len */
--	if (xmit_type & XMIT_CSUM_TCP)
--		hlen_w += inner_tcp_hdrlen(skb) >> 1;
--	else
--		hlen_w += sizeof(struct udphdr) >> 1;
-+	hlen_w += inner_tcp_hdrlen(skb) >> 1;
- 
- 	pbd2->fw_ip_hdr_to_payload_w = hlen_w;
- 
--	if (xmit_type & XMIT_CSUM_ENC_V4) {
-+	/* outer IP header info */
-+	if (xmit_type & XMIT_CSUM_V4) {
- 		struct iphdr *iph = ip_hdr(skb);
- 		pbd2->fw_ip_csum_wo_len_flags_frag =
- 			bswab16(csum_fold((~iph->check) -
--- 
-1.8.1.4
+You should probably fix this line too.
+
+Thanks,
+M
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+
+
+
+------enig2EHHHDGUVAVNHRTRWDHTB
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlGsZBMACgkQykllyylKDCG0tQCfQgeja28eV3jC/gsbFiXGZ806
+q2gAn2/gNf5FA2gg/4RmZ9NRPsknNmN3
+=U1LF
+-----END PGP SIGNATURE-----
+
+------enig2EHHHDGUVAVNHRTRWDHTB--
