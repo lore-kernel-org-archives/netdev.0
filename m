@@ -1,30 +1,110 @@
-From: Roland Dreier <roland@kernel.org>
-Subject: Re: BQL-related tg3 transmit timeout on 5720 / Dell R720
-Date: Mon, 3 Jun 2013 09:40:01 -0700
-Message-ID: <CAG4TOxPkCR66MY1U5jA+QX72hrfYy21XPMOba6M=mz=g-eB6Ew@mail.gmail.com>
-References: <CAL1RGDW=SC3E9VvQXki0Gajj0xBqwHjBWM95k00J6zn1tF1mgg@mail.gmail.com>
- <51A7638A.5030108@broadcom.com> <CAG4TOxPy1mkY68sO=SttS78evL1dkFZ4ZNUUOnKPmUjifq-92Q@mail.gmail.com>
- <51A7F413.5070702@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Michael Chan <mchan@broadcom.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Nithin Nayak Sujir <nsujir@broadcom.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCHv2 net-next] netlink: allow large data transfers from user-space
+Date: Mon,  3 Jun 2013 18:39:59 +0200
+Message-ID: <1370277599-27072-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, kaber@trash.net, eric.dumazet@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:39764 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752129Ab3FCQkW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 12:40:22 -0400
-Received: by mail-wi0-f171.google.com with SMTP id hq7so2893025wib.4
-        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 09:40:21 -0700 (PDT)
-In-Reply-To: <51A7F413.5070702@broadcom.com>
+Received: from mail.us.es ([193.147.175.20]:46718 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758652Ab3FCQkY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 12:40:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Could you test the attached patch on top of net-next?
+I can hit ENOBUFS in the sendmsg() path with a large batch that is
+composed of many netlink messages. Here that limit is 8 MBytes of
+skbuff data area as kmalloc does not manage to get more than that.
 
-Yep, that works.
+While discussing atomic rule-set for nftables with Patrick McHardy,
+we decided to put all rule-set updates that need to be applied
+atomically in one single batch to simplify the existing approach.
+However, as explained above, the existing netlink code limits us
+to a maximum of ~20000 rules that fit in one single batch without
+hitting ENOBUFS. iptables does not have such limitation as it is
+using vmalloc.
 
-Tested-by: Roland Dreier <roland@purestorage.com>
+This patch adds netlink_alloc_large_skb() which is only used in
+the netlink_sendmsg() path. It uses alloc_skb if the memory
+requested is <= one memory page, that should be the common case
+for most subsystems, else vmalloc for higher memory allocations.
 
-Thanks!
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+v1: initial version
+v2: Use NLMSG_GOODSIZE instead of PAGE_SIZE, suggested by Eric Dumazet.
+
+ net/netlink/af_netlink.c |   37 +++++++++++++++++++++++++++++++++++--
+ 1 file changed, 35 insertions(+), 2 deletions(-)
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 12ac6b4..7c71d07 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -750,6 +750,10 @@ static void netlink_skb_destructor(struct sk_buff *skb)
+ 		skb->data = NULL;
+ 	}
+ #endif
++	if (is_vmalloc_addr(skb->head)) {
++		vfree(skb->head);
++		skb->data = NULL;
++	}
+ 	if (skb->sk != NULL)
+ 		sock_rfree(skb);
+ }
+@@ -1420,6 +1424,35 @@ struct sock *netlink_getsockbyfilp(struct file *filp)
+ 	return sock;
+ }
+ 
++static struct sk_buff *netlink_alloc_large_skb(unsigned int size)
++{
++	struct sk_buff *skb;
++	void *data;
++
++	if (size <= NLMSG_GOODSIZE)
++		return alloc_skb(size, GFP_KERNEL);
++
++	skb = alloc_skb_head(GFP_KERNEL);
++	if (skb == NULL)
++		return NULL;
++
++	data = vmalloc(size);
++	if (data == NULL)
++		goto err;
++
++	skb->head	= data;
++	skb->data	= data;
++	skb_reset_tail_pointer(skb);
++	skb->end	= skb->tail + size;
++	skb->len	= 0;
++	skb->destructor = netlink_skb_destructor;
++
++	return skb;
++err:
++	kfree_skb(skb);
++	return NULL;
++}
++
+ /*
+  * Attach a skb to a netlink socket.
+  * The caller must hold a reference to the destination socket. On error, the
+@@ -1510,7 +1543,7 @@ static struct sk_buff *netlink_trim(struct sk_buff *skb, gfp_t allocation)
+ 		return skb;
+ 
+ 	delta = skb->end - skb->tail;
+-	if (delta * 2 < skb->truesize)
++	if (is_vmalloc_addr(skb->head) || delta * 2 < skb->truesize)
+ 		return skb;
+ 
+ 	if (skb_shared(skb)) {
+@@ -2096,7 +2129,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
+ 	if (len > sk->sk_sndbuf - 32)
+ 		goto out;
+ 	err = -ENOBUFS;
+-	skb = alloc_skb(len, GFP_KERNEL);
++	skb = netlink_alloc_large_skb(len);
+ 	if (skb == NULL)
+ 		goto out;
+ 
+-- 
+1.7.10.4
