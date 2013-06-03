@@ -1,83 +1,124 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [RFC] vxlan: convert remote list to list_rcu
-Date: Mon, 3 Jun 2013 17:46:46 -0400
-Message-ID: <OFB0EFD290.FD0EF659-ON85257B7F.00733AF7-85257B7F.0077A32C@us.ibm.com>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>	<1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
-	<20130530110948.GA10532@casper.infradead.org>	<CAF1J0HP+Wu9HjEELDaXM2BMREMuKByWr_zz=PwHeNUt=EVbdvw@mail.gmail.com>
-	<20130530113739.GB10532@casper.infradead.org>	<20130531091740.70b3e077@nehalam.linuxnetplumber.net>
-	<20130602102942.GA21706@zed>	<20130603112616.3ad018e2@nehalam.linuxnetplumber.net>
-	<OFE7269995.C8314337-ON85257B7F.006B4FC1-85257B7F.006F87F8@us.ibm.com> <20130603134512.46ce434f@nehalam.linuxnetplumber.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Mike Rapoport <mike.rapoport@ravellosystems.com>,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next v2] pktgen: Fix position of ip and udp header
+Date: Mon,  3 Jun 2013 23:49:23 +0200
+Message-ID: <08fe3153790311fbd98b1570a3e8134ddaac58a3.1370296008.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
+	Daniel Borkmann <dborkmann@redhat.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e34.co.us.ibm.com ([32.97.110.152]:44581 "EHLO
-	e34.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758570Ab3FCVqw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 17:46:52 -0400
-Received: from /spool/local
-	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Mon, 3 Jun 2013 15:46:52 -0600
-In-Reply-To: <20130603134512.46ce434f@nehalam.linuxnetplumber.net>
+Received: from merlin.infradead.org ([205.233.59.134]:40591 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753676Ab3FCVt1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 17:49:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
+skb_set_network_header() expects an offset based on the data pointer
+whereas skb_tail_offset() also includes the headroom. This resulted
+in the ip header being written in a wrong location.
 
-> 
-> Just being safe. need to audit to make sure not possible for all
-> destinations to be removed from FDB entry via netlink.
+Use return values of skb_put() directly and rely on skb->len to
+set mac, network, and transport header.
 
-        In the original code, you can't delete destinations at all.
-Because the netlink API only had fdb-entry-level operations, you
-can add with the NLM_F_APPEND flag to add new destinations to
-existing entries (it's an "add/create" if it didn't exist, and it
-appends the new dest if it did exist and has NLM_F_APPEND set),
-but an fdb delete deletes the entire fdb entry, and all destinations.
-So, you can't delete individual destinations, you can only delete
-all of them and rebuild it with appends to not include the entry
-you don't want.
-        This was for compatibility rather than adding new add/del of
-destinations within an fdb, it uses the existing fdb add/del and
-the existing exclusive/append flag. Deleting individual destinations
-from an fdb entry would require extensions for the generic fdb
-management, or a separate set of netlink handlers.
+Cc: Simon Horman <horms@verge.net.au>
+Cc: Daniel Borkmann <dborkmann@redhat.com>
+Assisted-by: Daniel Borkmann <dborkmann@redhat.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+---
+V2: removed now obsolete line setting mac_header, thanks Daniel!
 
-> > 
-> > Again, if rdst == NULL, why are we sending anything? It should never
-> > happen, so should be an error case if you check at all, shouldn't it?
-> 
-> It maybe possible to create or modify existing fdb entry so no 
-destinatons
-> left.
+ net/core/pktgen.c | 39 ++++++++++++---------------------------
+ 1 file changed, 12 insertions(+), 27 deletions(-)
 
-        It shouldn't be (by design). The only way you can shorten an fdb
-entry's destination list is by deleting it and rebuilding it with fewer
-entries. And all fdb_add's require an NDA_DST, though that can be
-0.0.0.0.
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index d2ede89..303412d 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2642,7 +2642,6 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 	__be16 *svlan_tci = NULL;                /* Encapsulates priority and SVLAN ID */
+ 	__be16 *svlan_encapsulated_proto = NULL; /* packet type ID field (or len) for SVLAN tag */
+ 	u16 queue_map;
+-	unsigned long tail_offset;
  
-> > This ignores the return value of vxlan_xmit_one(); the original
-> > code returns an error if any of the destinations fail, while this
-> > code ignores errors for all but the last destination.
-> 
-> Return value doesn't really matter here anyway, and certainly not
-> in the fanout case.
-
-        My intention in the code was to count any loss in the multiple
-destinations as a "drop", for the purposes of drawing attention to
-an admin. This new code reports only the sate of the last destination
-and ignores any errors from all the other destinations-- I don't
-agree with that. If it didn't work perfectly as intended, it should
-show up in stats for admin investigation.
-
-But i don't think any of this fdb code relates to the default
-destination directly, since the generic fdb code does not support
-default, or any other aggregate matching. VXLAN can define the
-netlink API for default destinations without affecting anything
-else, because it is already a per-device feature.
-
-                                                        +-DLS
+ 	if (pkt_dev->nr_labels)
+ 		protocol = htons(ETH_P_MPLS_UC);
+@@ -2709,20 +2708,15 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 		*vlan_encapsulated_proto = htons(ETH_P_IP);
+ 	}
+ 
+-	tail_offset = skb_tail_offset(skb);
+-	if (tail_offset > 0xffff) {
+-		kfree_skb(skb);
+-		return NULL;
+-	}
+-	skb_set_network_header(skb, tail_offset);
+-	skb->transport_header = skb->network_header + sizeof(struct iphdr);
+-	skb_put(skb, sizeof(struct iphdr) + sizeof(struct udphdr));
++	skb_set_mac_header(skb, 0);
++	skb_set_network_header(skb, skb->len);
++	iph = (struct iphdr *) skb_put(skb, sizeof(struct iphdr));
++
++	skb_set_transport_header(skb, skb->len);
++	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
+ 	skb_set_queue_mapping(skb, queue_map);
+ 	skb->priority = pkt_dev->skb_priority;
+ 
+-	iph = ip_hdr(skb);
+-	udph = udp_hdr(skb);
+-
+ 	memcpy(eth, pkt_dev->hh, 12);
+ 	*(__be16 *) & eth[12] = protocol;
+ 
+@@ -2752,8 +2746,6 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 	iph->check = 0;
+ 	iph->check = ip_fast_csum((void *)iph, iph->ihl);
+ 	skb->protocol = protocol;
+-	skb->mac_header = (skb->network_header - ETH_HLEN -
+-			   pkt_dev->pkt_overhead);
+ 	skb->dev = odev;
+ 	skb->pkt_type = PACKET_HOST;
+ 	pktgen_finalize_skb(pkt_dev, skb, datalen);
+@@ -2781,7 +2773,6 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 	__be16 *svlan_tci = NULL;                /* Encapsulates priority and SVLAN ID */
+ 	__be16 *svlan_encapsulated_proto = NULL; /* packet type ID field (or len) for SVLAN tag */
+ 	u16 queue_map;
+-	unsigned long tail_offset;
+ 
+ 	if (pkt_dev->nr_labels)
+ 		protocol = htons(ETH_P_MPLS_UC);
+@@ -2829,18 +2820,14 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 		*vlan_encapsulated_proto = htons(ETH_P_IPV6);
+ 	}
+ 
+-	tail_offset = skb_tail_offset(skb);
+-	if (tail_offset > 0xffff) {
+-		kfree_skb(skb);
+-		return NULL;
+-	}
+-	skb_set_network_header(skb, tail_offset);
+-	skb->transport_header = skb->network_header + sizeof(struct ipv6hdr);
+-	skb_put(skb, sizeof(struct ipv6hdr) + sizeof(struct udphdr));
++	skb_set_mac_header(skb, 0);
++	skb_set_network_header(skb, skb->len);
++	iph = (struct ipv6hdr *) skb_put(skb, sizeof(struct ipv6hdr));
++
++	skb_set_transport_header(skb, skb->len);
++	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
+ 	skb_set_queue_mapping(skb, queue_map);
+ 	skb->priority = pkt_dev->skb_priority;
+-	iph = ipv6_hdr(skb);
+-	udph = udp_hdr(skb);
+ 
+ 	memcpy(eth, pkt_dev->hh, 12);
+ 	*(__be16 *) &eth[12] = protocol;
+@@ -2875,8 +2862,6 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 	iph->daddr = pkt_dev->cur_in6_daddr;
+ 	iph->saddr = pkt_dev->cur_in6_saddr;
+ 
+-	skb->mac_header = (skb->network_header - ETH_HLEN -
+-			   pkt_dev->pkt_overhead);
+ 	skb->protocol = protocol;
+ 	skb->dev = odev;
+ 	skb->pkt_type = PACKET_HOST;
+-- 
+1.7.11.7
