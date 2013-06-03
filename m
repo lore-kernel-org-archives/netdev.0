@@ -1,59 +1,60 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] bnx2x: fix TCP offload for tunneling ipv4 over ipv6
-Date: Mon, 03 Jun 2013 15:27:47 +0400
-Message-ID: <51AC7DB3.70908@cogentembedded.com>
-References: <1370251721-24668-1-git-send-email-dmitry@broadcom.com>
+Subject: Re: [PATCHv2 net-next] net: fec: add fallback to random MAC address
+Date: Mon, 03 Jun 2013 15:30:14 +0400
+Message-ID: <51AC7E46.4010708@cogentembedded.com>
+References: <1370255919-12762-1-git-send-email-l.stach@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Ariel Elior <ariele@broadcom.com>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	Pavel Machek <pavel@denx.de>
+To: Lucas Stach <l.stach@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:37483 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757173Ab3FCL1v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 07:27:51 -0400
-Received: by mail-la0-f52.google.com with SMTP id fo13so3341207lab.11
-        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 04:27:49 -0700 (PDT)
-In-Reply-To: <1370251721-24668-1-git-send-email-dmitry@broadcom.com>
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:34734 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752448Ab3FCLaS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 07:30:18 -0400
+Received: by mail-lb0-f176.google.com with SMTP id z5so369639lbh.21
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 04:30:16 -0700 (PDT)
+In-Reply-To: <1370255919-12762-1-git-send-email-l.stach@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Hello.
 
-On 03-06-2013 13:28, Dmitry Kravkov wrote:
+On 03-06-2013 14:38, Lucas Stach wrote:
 
-> FW was initialized with data from wrong header, this caused TSO packets
-> have wrong IP csum.
+> If no valid MAC address could be obtained from the hardware,
+> fall back to a randomly generated one.
 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> Signed-off-by: Pavel Machek <pavel@denx.de>
+> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
 > ---
->   drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 13 ++++++-------
->   1 file changed, 6 insertions(+), 7 deletions(-)
+>   drivers/net/ethernet/freescale/fec_main.c | 12 ++++++++++++
+>   1 file changed, 12 insertions(+)
 
-> diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> index c80f1d2..37c1495 100644
-> --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-> @@ -3198,11 +3198,11 @@ static u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
->   		rc |= XMIT_CSUM_TCP;
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 927f4c6..0063761 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -1039,6 +1039,18 @@ static void fec_get_mac(struct net_device *ndev)
+>   		iap = &tmpaddr[0];
+>   	}
 >
->   	if (skb_is_gso_v6(skb)) {
-> -		rc |= (XMIT_GSO_V6 | XMIT_CSUM_TCP | XMIT_CSUM_V6);
-> +		rc |= (XMIT_GSO_V6 | XMIT_CSUM_TCP);
+> +	/*
+> +	 * 5) random mac address
+> +	 */
+> +	if (!is_valid_ether_addr(iap)) {
+> +		/* Report it and use a random ethernet address instead */
+> +		netdev_err(ndev, "Invalid MAC address: %pM\n", iap);
+> +		eth_hw_addr_random(ndev);
+> +		netdev_info(ndev, "Using random MAC address: %pM\n",
+> +			    ndev->dev_addr);
+> +		return;
+> +	}
+> +
+>   	memcpy(ndev->dev_addr, iap, ETH_ALEN);
 
-   Maybe it's time to drop the useless ()?
-
->   		if (rc & XMIT_CSUM_ENC)
->   			rc |= XMIT_GSO_ENC_V6;
->   	} else if (skb_is_gso(skb)) {
-> -		rc |= (XMIT_GSO_V4 | XMIT_CSUM_V4 | XMIT_CSUM_TCP);
-> +		rc |= (XMIT_GSO_V4 | XMIT_CSUM_TCP);
-
-    Oh, here as well...
+    This was you'll copy an invalid address over the random one again.
 
 WBR, Sergei
