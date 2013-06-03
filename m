@@ -1,146 +1,133 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v8 net-next 5/7] net: simple poll/select
- low latency socket poll
-Date: Mon, 03 Jun 2013 06:15:24 -0700
-Message-ID: <1370265324.24311.136.camel@edumazet-glaptop>
-References: <20130603080107.18273.34279.stgit@ladj378.jer.intel.com>
-	<20130603080200.18273.52073.stgit@ladj378.jer.intel.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 01/12] tipc: change socket buffer overflow
+ control to respect sk_rcvbuf
+Date: Mon, 3 Jun 2013 09:16:24 -0400
+Message-ID: <20130603131624.GA7860@hmsreliant.think-freely.org>
+References: <1369942577-39563-1-git-send-email-paul.gortmaker@windriver.com>
+ <1369942577-39563-2-git-send-email-paul.gortmaker@windriver.com>
+ <20130531133642.GA2727@hmsreliant.think-freely.org>
+ <51AC67FA.2040001@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Don,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130603080200.18273.52073.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Erik Hugne <erik.hugne@ericsson.com>
+To: Ying Xue <ying.xue@windriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:44758 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753958Ab3FCNQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 09:16:32 -0400
+Content-Disposition: inline
+In-Reply-To: <51AC67FA.2040001@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-03 at 11:02 +0300, Eliezer Tamir wrote:
-> A very naive select/poll busy-poll support.
-> Add busy-polling to sock_poll().
-> When poll/select have nothing to report, call the low-level
-> sock_poll() again untill we are out of time or we find something.
-> Rigth now we poll every socket once, this is subpotimal
-> but impoves latency when the number of sockets polled is not large.
+On Mon, Jun 03, 2013 at 05:55:06PM +0800, Ying Xue wrote:
+> On 05/31/2013 09:36 PM, Neil Horman wrote:
+> > On Thu, May 30, 2013 at 03:36:06PM -0400, Paul Gortmaker wrote:
+> >> From: Jon Maloy <jon.maloy@ericsson.com>
+> >>
+> >> As per feedback from the netdev community, we change the buffer
+> >> overflow protection algorithm in receiving sockets so that it
+> >> always respects the nominal upper limit set in sk_rcvbuf.
+> >>
+> >> Instead of scaling up from a small sk_rcvbuf value, which leads to
+> >> violation of the configured sk_rcvbuf limit, we now calculate the
+> >> weighted per-message limit by scaling down from a much bigger value,
+> >> still in the same field, according to the importance priority of the
+> >> received message.
+> >>
+> >> Cc: Neil Horman <nhorman@tuxdriver.com>
+> >> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> >> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> >> ---
+> >>  net/tipc/socket.c | 13 +++++++------
+> >>  1 file changed, 7 insertions(+), 6 deletions(-)
+> >>
+> >> diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+> >> index 515ce38..2dfabc7 100644
+> >> --- a/net/tipc/socket.c
+> >> +++ b/net/tipc/socket.c
+> >> @@ -1,7 +1,7 @@
+> >>  /*
+> >>   * net/tipc/socket.c: TIPC socket API
+> >>   *
+> >> - * Copyright (c) 2001-2007, 2012 Ericsson AB
+> >> + * Copyright (c) 2001-2007, 2012-2013, Ericsson AB
+> >>   * Copyright (c) 2004-2008, 2010-2012, Wind River Systems
+> >>   * All rights reserved.
+> >>   *
+> >> @@ -203,6 +203,7 @@ static int tipc_create(struct net *net, struct socket *sock, int protocol,
+> >>  
+> >>  	sock_init_data(sock, sk);
+> >>  	sk->sk_backlog_rcv = backlog_rcv;
+> >> +	sk->sk_rcvbuf = CONN_OVERLOAD_LIMIT;
+> > The last time Jon and I discussed this, I thought the consensus was to export
+> > sk_rcvbuf via its own sysctl, or tie it to sysctl_rmem (while requiring a
+> > protocol specific minimum on top of that), so administrators on memory
+> > constrained systems didn't wonder why their sysctl changes weren't being
+> > honored.
 > 
-> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Tested-by: Willem de Bruijn <willemb@google.com>
-> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> ---
+> Yes, your suggestion is reasonable, and I prefer to involve
+> net.tipc.sysctl_rmem. But I have one question about it:
 > 
->  fs/select.c  |    7 +++++++
->  net/socket.c |   10 +++++++++-
->  2 files changed, 16 insertions(+), 1 deletions(-)
+> As you suggested as belows, the default value of sk->sk_rcvbuf is set to
+> sk->sk_rcvbuf >> 4 << msg_importance(TIPC_CRITICAL_IMPORTANCE), that is,
+> sk->sk_rcvbuf is about 32MB.
 > 
-> diff --git a/fs/select.c b/fs/select.c
-> index 8c1c96c..f116bf0 100644
-> --- a/fs/select.c
-> +++ b/fs/select.c
-> @@ -27,6 +27,7 @@
->  #include <linux/rcupdate.h>
->  #include <linux/hrtimer.h>
->  #include <linux/sched/rt.h>
-> +#include <net/ll_poll.h>
->  
->  #include <asm/uaccess.h>
->  
-> @@ -400,6 +401,7 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
->  	poll_table *wait;
->  	int retval, i, timed_out = 0;
->  	unsigned long slack = 0;
-> +	cycles_t ll_time = ll_end_time();
->  
->  	rcu_read_lock();
->  	retval = max_select_fd(n, fds);
-> @@ -486,6 +488,8 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
->  			break;
->  		}
->  
-> +		if (can_poll_ll(ll_time))
-> +			continue;
->  		/*
->  		 * If this is the first loop and we have a timeout
->  		 * given, then we convert to ktime_t and set the to
-> @@ -750,6 +754,7 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
->  	ktime_t expire, *to = NULL;
->  	int timed_out = 0, count = 0;
->  	unsigned long slack = 0;
-> +	cycles_t ll_time = ll_end_time();
->  
->  	/* Optimise the no-wait case */
->  	if (end_time && !end_time->tv_sec && !end_time->tv_nsec) {
-> @@ -795,6 +800,8 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
->  		if (count || timed_out)
->  			break;
->  
-> +		if (can_poll_ll(ll_time))
-> +			continue;
->  		/*
->  		 * If this is the first loop and we have a timeout
->  		 * given, then we convert to ktime_t and set the to
-> diff --git a/net/socket.c b/net/socket.c
-> index 721f4e7..02d0e15 100644
-> --- a/net/socket.c
-> +++ b/net/socket.c
-> @@ -1148,13 +1148,21 @@ EXPORT_SYMBOL(sock_create_lite);
->  /* No kernel lock held - perfect */
->  static unsigned int sock_poll(struct file *file, poll_table *wait)
->  {
-> +	unsigned int poll_result;
->  	struct socket *sock;
->  
->  	/*
->  	 *      We can't return errors to poll, so it's either yes or no.
->  	 */
->  	sock = file->private_data;
-> -	return sock->ops->poll(file, sock, wait);
-> +
-> +	poll_result = sock->ops->poll(file, sock, wait);
-> +
-> +	if (!(poll_result & (POLLRDNORM | POLLERR | POLLRDHUP | POLLHUP)) &&
-> +		sk_valid_ll(sock->sk) && sk_poll_ll(sock->sk, 1))
-> +			poll_result = sock->ops->poll(file, sock, NULL);
-> +
-> +	return poll_result;
->  }
->  
->  static int sock_mmap(struct file *file, struct vm_area_struct *vma)
+> However, please see below code:
 > 
+> int sock_setsockopt()
+> {
+> ...
+> 	        case SO_RCVBUF:
+>                 /* Don't error on this BSD doesn't and if you think
+>                  * about it this is right. Otherwise apps have to
+>                  * play 'guess the biggest size' games. RCVBUF/SNDBUF
+>                  * are treated in BSD as hints
+>                  */
+>                 val = min_t(u32, val, sysctl_rmem_max);
+> set_rcvbuf:
+>                 sk->sk_userlocks |= SOCK_RCVBUF_LOCK;
+>                 /*
+>                  * We double it on the way in to account for
+>                  * "struct sk_buff" etc. overhead.   Applications
+>                  * assume that the SO_RCVBUF setting they make will
+>                  * allow that much actual data to be received on that
+>                  * socket.
+>                  *
+>                  * Applications are unaware that "struct sk_buff" and
+>                  * other overheads allocate from the receive buffer
+>                  * during socket buffer allocation.
+>                  *
+>                  * And after considering the possible alternatives,
+>                  * returning the value we actually used in getsockopt
+>                  * is the most desirable behavior.
+>                  */
+>                 sk->sk_rcvbuf = max_t(u32, val * 2, SOCK_MIN_RCVBUF);
+>                 break;
+> ...
+> }
+> 
+> From above logic of setting sk->sk_rcvbuf with SO_RCVBUF, it only
+> permits the maximum value of sk->sk_rcvbuf to sysctl_rmem_max * 2(ie,
+> about 400KB normally).
+> 
+> So, even if the default value of sk->sk_rcvbuf is set to 32MB with
+> net.tipc.sysctl_rmem, a bit smaller value than the default value can
+> never be set to sk->sk_rcvbuf successfully with SO_RCVBUF option.
+> 
+> How can we avoid the limit?
+> 
+By administratively adjusting sysctl_rmem_max to be a sufficiently large value
+such that using SO_RCVBUF won't be clamed to a lower limit.
 
+If you don't want to force users to have to manually adjust the sysctl, there
+might be support for you to automatically update sysctl_rmem_max in your
+tipc_init routine, and print an informational message indicating that tipc
+requires the additional space (although I still maintain its not strictly
+needed, but thats another argument).
 
-In fact, for TCP, POLLOUT event being ready can also be triggered by
-incoming messages, as the ACK might allow the user application to push
-more data in the write queue.
-
-And you might check wait->_key to avoid testing flags that user is not
-interested into.
-
-
-
-
-------------------------------------------------------------------------------
-Get 100% visibility into Java/.NET code with AppDynamics Lite
-It's a free troubleshooting tool designed for production
-Get down to code-level detail for bottlenecks, with <2% overhead.
-Download for free and get started troubleshooting in minutes.
-http://p.sf.net/sfu/appdyn_d2d_ap2
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Neil
