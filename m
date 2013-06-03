@@ -1,52 +1,29 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [patch] ipvs: info leak in __ip_vs_get_dest_entries()
-Date: Mon, 3 Jun 2013 23:00:46 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1306032258190.1767@ja.ssi.bg>
-References: <20130603090049.GA16171@debian>
+From: Lawrence Lee <lawrenceqli@gmail.com>
+Subject: Using dev_queue_xmit causes a system halt problem.
+Date: Mon, 3 Jun 2013 22:05:04 +0200
+Message-ID: <CAGXkBO8tYr9c2=m6O=ZmB7u9=xvn9bCrjqsFozTTzSnz4n-n3g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130603090049.GA16171@debian>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f179.google.com ([209.85.223.179]:53232 "EHLO
+	mail-ie0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758444Ab3FCUFF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 16:05:05 -0400
+Received: by mail-ie0-f179.google.com with SMTP id c13so156992ieb.38
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 13:05:04 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Hi all,
 
-	Hello,
+I use netfilter to hook packets at the NF_INET_LOCAL_OUT hook and send
+the packets using dev_queue_xmit(). My module can successfully sends
+packets. Unfortunately, the system always halts when my module is
+installed. It seems that using dev_queue_xmit() causes an issue of a
+deadlock. The problem is same when I use ndo_start_xmit() to send
+packets. However, I am not sure what the exact problem is. May I know
+how I can fix this problem. Thank you!
 
-On Mon, 3 Jun 2013, Dan Carpenter wrote:
-
-> The entry struct has a 2 byte hole after ->port and another 4 byte
-> hole after ->stats.outpkts.  You must have CAP_NET_ADMIN in your
-> namespace to hit this information leak.
-> 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index df05c1c..e336535 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -2542,6 +2542,7 @@ __ip_vs_get_dest_entries(struct net *net, const struct ip_vs_get_dests *get,
->  		struct ip_vs_dest *dest;
->  		struct ip_vs_dest_entry entry;
->  
-> +		memset(&entry, 0, sizeof(entry));
->  		list_for_each_entry(dest, &svc->destinations, n_list) {
->  			if (count >= get->num_dests)
->  				break;
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Best,
+Lawrence
