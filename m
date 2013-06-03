@@ -1,44 +1,102 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: Adding ND to bonding?
-Date: Mon, 03 Jun 2013 13:53:06 -0700
-Message-ID: <10725.1370292786@death.nxdomain>
-References: <30520718.20.1370268797936.JavaMail.root@zimbra>
-Cc: netdev <netdev@vger.kernel.org>
-To: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH net-next] pktgen: Fix position of ip and udp header
+Date: Mon,  3 Jun 2013 23:18:52 +0200
+Message-ID: <10b1d385b151b94946b77183c34e34a07945983c.1370293920.git.tgraf@suug.ch>
+Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:45465 "EHLO e7.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756753Ab3FCUxK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 16:53:10 -0400
-Received: from /spool/local
-	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Mon, 3 Jun 2013 16:53:09 -0400
-Received: from d01relay05.pok.ibm.com (d01relay05.pok.ibm.com [9.56.227.237])
-	by d01dlp01.pok.ibm.com (Postfix) with ESMTP id 9ADDC38C8042
-	for <netdev@vger.kernel.org>; Mon,  3 Jun 2013 16:53:07 -0400 (EDT)
-Received: from d01av03.pok.ibm.com (d01av03.pok.ibm.com [9.56.224.217])
-	by d01relay05.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r53Kr706277682
-	for <netdev@vger.kernel.org>; Mon, 3 Jun 2013 16:53:07 -0400
-Received: from d01av03.pok.ibm.com (loopback [127.0.0.1])
-	by d01av03.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r53Kr7X9009279
-	for <netdev@vger.kernel.org>; Mon, 3 Jun 2013 17:53:07 -0300
-In-reply-to: <30520718.20.1370268797936.JavaMail.root@zimbra>
+Received: from merlin.infradead.org ([205.233.59.134]:40140 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757714Ab3FCVS6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 17:18:58 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Roy Sigurd Karlsbakk <roy@karlsbakk.net> wrote:
-[...]
->We're hoping one day we can move to an IPv6-only network (with some
->gatewaying to IPv4 land), and I wonder if it would be hard to add
->Neighbor Discovery Protocol to bonding as to allow for bonding on
->ipv6. I'm not much of a kernel coder, but for what I could see, it looks
->doable.
+skb_set_network_header() expects an offset based on the data pointer
+whereas skb_tail_offset() also includes the headroom. This resulted
+in the ip header being written in a wrong location.
 
-	I haven't tested it lately, but I'm reasonably sure that ND runs
-over bonding.  Is there something specific you have in mind here?
+Use return values of skb_put() directly and rely on skb->len to
+set mac, network, and transport header.
 
-	-J
-
+Cc: Simon Horman <horms@verge.net.au>
+Assisted-by: Daniel Borkmann <dborkmann@redhat.com>
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ net/core/pktgen.c | 35 ++++++++++++-----------------------
+ 1 file changed, 12 insertions(+), 23 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index d2ede89..0f1fc29b 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -2642,7 +2642,6 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 	__be16 *svlan_tci = NULL;                /* Encapsulates priority and SVLAN ID */
+ 	__be16 *svlan_encapsulated_proto = NULL; /* packet type ID field (or len) for SVLAN tag */
+ 	u16 queue_map;
+-	unsigned long tail_offset;
+ 
+ 	if (pkt_dev->nr_labels)
+ 		protocol = htons(ETH_P_MPLS_UC);
+@@ -2709,20 +2708,15 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
+ 		*vlan_encapsulated_proto = htons(ETH_P_IP);
+ 	}
+ 
+-	tail_offset = skb_tail_offset(skb);
+-	if (tail_offset > 0xffff) {
+-		kfree_skb(skb);
+-		return NULL;
+-	}
+-	skb_set_network_header(skb, tail_offset);
+-	skb->transport_header = skb->network_header + sizeof(struct iphdr);
+-	skb_put(skb, sizeof(struct iphdr) + sizeof(struct udphdr));
++	skb_set_mac_header(skb, 0);
++	skb_set_network_header(skb, skb->len);
++	iph = (struct iphdr *) skb_put(skb, sizeof(struct iphdr));
++
++	skb_set_transport_header(skb, skb->len);
++	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
+ 	skb_set_queue_mapping(skb, queue_map);
+ 	skb->priority = pkt_dev->skb_priority;
+ 
+-	iph = ip_hdr(skb);
+-	udph = udp_hdr(skb);
+-
+ 	memcpy(eth, pkt_dev->hh, 12);
+ 	*(__be16 *) & eth[12] = protocol;
+ 
+@@ -2781,7 +2775,6 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 	__be16 *svlan_tci = NULL;                /* Encapsulates priority and SVLAN ID */
+ 	__be16 *svlan_encapsulated_proto = NULL; /* packet type ID field (or len) for SVLAN tag */
+ 	u16 queue_map;
+-	unsigned long tail_offset;
+ 
+ 	if (pkt_dev->nr_labels)
+ 		protocol = htons(ETH_P_MPLS_UC);
+@@ -2829,18 +2822,14 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
+ 		*vlan_encapsulated_proto = htons(ETH_P_IPV6);
+ 	}
+ 
+-	tail_offset = skb_tail_offset(skb);
+-	if (tail_offset > 0xffff) {
+-		kfree_skb(skb);
+-		return NULL;
+-	}
+-	skb_set_network_header(skb, tail_offset);
+-	skb->transport_header = skb->network_header + sizeof(struct ipv6hdr);
+-	skb_put(skb, sizeof(struct ipv6hdr) + sizeof(struct udphdr));
++	skb_set_mac_header(skb, 0);
++	skb_set_network_header(skb, skb->len);
++	iph = (struct ipv6hdr *) skb_put(skb, sizeof(struct ipv6hdr));
++
++	skb_set_transport_header(skb, skb->len);
++	udph = (struct udphdr *) skb_put(skb, sizeof(struct udphdr));
+ 	skb_set_queue_mapping(skb, queue_map);
+ 	skb->priority = pkt_dev->skb_priority;
+-	iph = ipv6_hdr(skb);
+-	udph = udp_hdr(skb);
+ 
+ 	memcpy(eth, pkt_dev->hh, 12);
+ 	*(__be16 *) &eth[12] = protocol;
+-- 
+1.7.11.7
