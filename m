@@ -1,107 +1,45 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH net-next] netlink: allow large data transfers from user-space
-Date: Mon,  3 Jun 2013 17:10:03 +0200
-Message-ID: <1370272203-25062-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, kaber@trash.net
-To: netdev@vger.kernel.org
+From: Paul Moore <pmoore@redhat.com>
+Subject: Re: [PATCH v3 0/2] Fix the SELinux dynamic network access controls
+Date: Mon, 03 Jun 2013 11:11:38 -0400
+Message-ID: <8410550.MlrVbe5Pkl@sifl>
+References: <20130529173336.31888.29695.stgit@localhost> <20130531.173108.2170873839229968113.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, omoris@redhat.com, pwouters@redhat.com
+To: David Miller <davem@davemloft.net>, selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57419 "EHLO mail.us.es"
+Received: from mx1.redhat.com ([209.132.183.28]:10341 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752723Ab3FCPKa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 11:10:30 -0400
+	id S1752723Ab3FCPLl (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 11:11:41 -0400
+In-Reply-To: <20130531.173108.2170873839229968113.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I can hit ENOBUFS in the sendmsg() path with a large batch that is
-composed of many netlink messages. Here that limit is 8 MBytes of
-skbuff data area as kmalloc does not manage to get more than that.
+On Friday, May 31, 2013 05:31:08 PM David Miller wrote:
+> From: Paul Moore <pmoore@redhat.com>
+> Date: Wed, 29 May 2013 13:36:18 -0400
+> 
+> > Take #3 ... two changes here: the first is a simple reordering of the
+> > two patches and the second is stripping the SELinux patch (2/2 in this
+> > patchset) of everything but the bare bones changes needed to fix the
+> > problem in the 3.10-rcX tree.
+> 
+> Series applied, but longer term I'd like to see this handled by generation
+> counts or similar during lookup time.
+> 
+> Doing a GC every policy delete hurts policy delete performance, something
+> we worked really hard to make as light weight as possible given the
+> constraints.
 
-While discussing atomic rule-set for nftables with Patrick McHardy,
-we decided to put all rule-set updates that need to be applied
-atomically in one single batch to simplify the existing approach.
-However, as explained above, the existing netlink code limits us
-to a maximum of ~20000 rules that fit in one single batch without
-hitting ENOBUFS. iptables does not have such limitation as it is
-using vmalloc.
+Thanks for pulling in the fixes for 3.10-rcX.
 
-This patch adds netlink_alloc_large_skb() which is only used in
-the netlink_sendmsg() path. It uses alloc_skb if the memory
-requested is <= one memory page, that should be the common case
-for most subsystems, else vmalloc for higher memory allocations.
+I promise to take a look at changing our approach to detecting an active 
+labeled IPsec configuration for future releases.  I need to cleanup our 
+labeled IPsec code anyway, it is in need of some TLC (you saw some of the 
+changes in the earlier version of this patchset).
 
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netlink/af_netlink.c |   37 +++++++++++++++++++++++++++++++++++--
- 1 file changed, 35 insertions(+), 2 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 12ac6b4..0cb216b 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -750,6 +750,10 @@ static void netlink_skb_destructor(struct sk_buff *skb)
- 		skb->data = NULL;
- 	}
- #endif
-+	if (is_vmalloc_addr(skb->head)) {
-+		vfree(skb->head);
-+		skb->data = NULL;
-+	}
- 	if (skb->sk != NULL)
- 		sock_rfree(skb);
- }
-@@ -1420,6 +1424,35 @@ struct sock *netlink_getsockbyfilp(struct file *filp)
- 	return sock;
- }
- 
-+static struct sk_buff *netlink_alloc_large_skb(unsigned int size)
-+{
-+	struct sk_buff *skb;
-+	void *data;
-+
-+	if (size <= PAGE_SIZE)
-+		return alloc_skb(size, GFP_KERNEL);
-+
-+	skb = alloc_skb_head(GFP_KERNEL);
-+	if (skb == NULL)
-+		return NULL;
-+
-+	data = vmalloc(size);
-+	if (data == NULL)
-+		goto err;
-+
-+	skb->head	= data;
-+	skb->data	= data;
-+	skb_reset_tail_pointer(skb);
-+	skb->end	= skb->tail + size;
-+	skb->len	= 0;
-+	skb->destructor = netlink_skb_destructor;
-+
-+	return skb;
-+err:
-+	kfree_skb(skb);
-+	return NULL;
-+}
-+
- /*
-  * Attach a skb to a netlink socket.
-  * The caller must hold a reference to the destination socket. On error, the
-@@ -1510,7 +1543,7 @@ static struct sk_buff *netlink_trim(struct sk_buff *skb, gfp_t allocation)
- 		return skb;
- 
- 	delta = skb->end - skb->tail;
--	if (delta * 2 < skb->truesize)
-+	if (is_vmalloc_addr(skb->head) || delta * 2 < skb->truesize)
- 		return skb;
- 
- 	if (skb_shared(skb)) {
-@@ -2096,7 +2129,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (len > sk->sk_sndbuf - 32)
- 		goto out;
- 	err = -ENOBUFS;
--	skb = alloc_skb(len, GFP_KERNEL);
-+	skb = netlink_alloc_large_skb(len);
- 	if (skb == NULL)
- 		goto out;
- 
 -- 
-1.7.10.4
+paul moore
+security and virtualization @ redhat
