@@ -1,48 +1,37 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] net: sun4i-emac: remove erroneous assignment
-Date: Mon, 03 Jun 2013 23:36:50 +0200
-Message-ID: <3298610.K0DeJZEM4E@wuerfel>
+Subject: [PATCH] net: emaclite: include linux/of_irq.h
+Date: Mon, 03 Jun 2013 23:39:29 +0200
+Message-ID: <2244203.EL457oABTU@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: linux-kernel@vger.kernel.org, Stefan Roese <sr@denx.de>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Richard Genoud <richard.genoud@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
+Cc: linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
+	Michal Simek <michal.simek@xilinx.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.186]:57699 "EHLO
+Received: from moutng.kundenserver.de ([212.227.126.187]:54156 "EHLO
 	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757315Ab3FCVgk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 17:36:40 -0400
+	with ESMTP id S1753676Ab3FCVjO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 17:39:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The newly added sun4i-emac driver causes a build error when
-CONFIG_NET_POLL_CONTROLLER is set, because it attempts to
-assign a pointer to netdev->poll_controller, which has
-been replaced with ops->ndo_poll_controller in 2.6.31!
-
-The correct assignment is present as well, so we just need
-to remove the wrong one.
+The emaclite driver now calls of_irq_to_resource, which is
+declared in linux/of_irq.h. Without this patch, I get a build
+error on ARM.
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Cc: Stefan Roese <sr@denx.de>
-Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
-Cc: Richard Genoud <richard.genoud@gmail.com>
----
-diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-index b411344..3e7b220 100644
---- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-@@ -869,10 +869,6 @@ static int emac_probe(struct platform_device *pdev)
- 	ndev->watchdog_timeo = msecs_to_jiffies(watchdog);
- 	ndev->ethtool_ops = &emac_ethtool_ops;
- 
--#ifdef CONFIG_NET_POLL_CONTROLLER
--	ndev->poll_controller = &emac_poll_controller;
--#endif
--
- 	platform_set_drvdata(pdev, ndev);
- 
- 	/* Carrier starts down, phylib will bring it up */
+Cc: Michal Simek <michal.simek@xilinx.com>
+
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index aa14d8a..9559a3d 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -22,6 +22,7 @@
+ #include <linux/slab.h>
+ #include <linux/of_address.h>
+ #include <linux/of_device.h>
++#include <linux/of_irq.h>
+ #include <linux/of_platform.h>
+ #include <linux/of_mdio.h>
+ #include <linux/of_net.h>
