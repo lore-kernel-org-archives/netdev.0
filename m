@@ -1,96 +1,45 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [PATCH net-next] net/mlx4: use one page fragment per incoming
- frame
-Date: Mon, 03 Jun 2013 11:05:41 -0700
-Message-ID: <51ACDAF5.2040008@hp.com>
-References: <1370282095.24311.171.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: "govindarajulu.v" <govindarajulu90@gmail.com>
+Subject: [PATCH net-next] mlx4: use __netdev_pick_tx instead of __skb_tx_hash in mlx4_en_select_queue
+Date: Mon,  3 Jun 2013 23:37:42 +0530
+Message-ID: <1370282862-13302-1-git-send-email-govindarajulu90@gmail.com>
+Cc: eric.dumazet@gmail.com,
+	"govindarajulu.v" <govindarajulu90@gmail.com>
+To: amirv@mellanox.com, davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:21434 "EHLO
-	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758131Ab3FCSFn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 14:05:43 -0400
-In-Reply-To: <1370282095.24311.171.camel@edumazet-glaptop>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:39949 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753883Ab3FCSIM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 14:08:12 -0400
+Received: by mail-pa0-f49.google.com with SMTP id lj1so993155pab.22
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 11:08:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/03/2013 10:54 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> mlx4 driver has a suboptimal memory allocation strategy for regular
-> MTU=1500 frames, as it uses two page fragments :
->
-> One of 512 bytes and one of 1024 bytes.
->
-> This makes GRO less effective, as each GSO packet contains 8 MSS instead
-> of 16 MSS.
->
-> Performance of a single TCP flow gains 25 % increase with the following
-> patch.
- >
-> Before patch :
->
-> A:~# netperf -H 192.168.0.2 -Cc
-> MIGRATED TCP STREAM TEST ...
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
->
->   87380  16384  16384    10.00      13798.47   3.06     4.20     0.436   0.598
->
-> After patch :
->
-> A:~# netperf -H 192.68.0.2 -Cc
-> MIGRATED TCP STREAM TEST ...
-> Recv   Send    Send                          Utilization       Service Demand
-> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
-> Size   Size    Size     Time     Throughput  local    remote   local   remote
-> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
->
->   87380  16384  16384    10.00      17273.80   3.44     4.19     0.391   0.477
+From: "govindarajulu.v" <govindarajulu90@gmail.com>
 
+mlx4_en_select_queue() uses __skb_tx_hash to select the transmit queue.
+XPS settings are ignored by this. Instead, we can use __netdev_pick_tx
+to select the transmit queue.
 
-I take it this is a > 10 Gbit/s NIC?
+Compile test only.
 
-What if any is the downside to an incoming stream of small packets?
+Signed-off-by: govindarajulu.v <govindarajulu90@gmail.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-rick jones
-
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Amir Vadai <amirv@mellanox.com>
-> ---
->   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    6 +++---
->   1 file changed, 3 insertions(+), 3 deletions(-)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> index b1d7657..b1f51c1 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-> @@ -98,11 +98,11 @@
->   #define MLX4_EN_ALLOC_SIZE	PAGE_ALIGN(16384)
->   #define MLX4_EN_ALLOC_ORDER	get_order(MLX4_EN_ALLOC_SIZE)
->
-> -/* Receive fragment sizes; we use at most 4 fragments (for 9600 byte MTU
-> +/* Receive fragment sizes; we use at most 3 fragments (for 9600 byte MTU
->    * and 4K allocations) */
->   enum {
-> -	FRAG_SZ0 = 512 - NET_IP_ALIGN,
-> -	FRAG_SZ1 = 1024,
-> +	FRAG_SZ0 = 1536 - NET_IP_ALIGN,
-> +	FRAG_SZ1 = 4096,
->   	FRAG_SZ2 = 4096,
->   	FRAG_SZ3 = MLX4_EN_ALLOC_SIZE
->   };
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 4e6877a..7c49238 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -544,7 +544,7 @@ u16 mlx4_en_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	if (vlan_tx_tag_present(skb))
+ 		up = vlan_tx_tag_get(skb) >> VLAN_PRIO_SHIFT;
+ 
+-	return __skb_tx_hash(dev, skb, rings_p_up) + up * rings_p_up;
++	return __netdev_pick_tx(dev, skb) % rings_p_up + up * rings_p_up;
+ }
+ 
+ static void mlx4_bf_copy(void __iomem *dst, unsigned long *src, unsigned bytecnt)
+-- 
+1.8.2.3
