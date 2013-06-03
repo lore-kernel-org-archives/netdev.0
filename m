@@ -1,63 +1,52 @@
-From: Jussi Kivilinna <jussi.kivilinna@iki.fi>
-Subject: Re: [PATCH iproute2] htb: report overhead attribute
-Date: Mon, 03 Jun 2013 22:50:10 +0300
-Message-ID: <51ACF372.9060607@iki.fi>
-References: <20130529151330.22c5c89e@redhat.com> <1370207755.24311.81.camel@edumazet-glaptop> <1370208781.24311.89.camel@edumazet-glaptop> <51ACB9FE.1020100@hp.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [patch] ipvs: info leak in __ip_vs_get_dest_entries()
+Date: Mon, 3 Jun 2013 23:00:46 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1306032258190.1767@ja.ssi.bg>
+References: <20130603090049.GA16171@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Rick Jones <rick.jones2@hp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sinikuusama.dnainternet.net ([83.102.40.134]:60808 "EHLO
-	sinikuusama.dnainternet.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1759748Ab3FCTuT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 15:50:19 -0400
-In-Reply-To: <51ACB9FE.1020100@hp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <20130603090049.GA16171@debian>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 03.06.2013 18:45, Rick Jones wrote:
-> On 06/02/2013 02:33 PM, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
->>
->> "tc class show dev ..." omits the overhead attribute for HTB.
->>
->> After patch I have :
->>
->> tc class add dev $DEV parent 1: classid 1:1 est 1sec 4sec htb \
->>      rate 12Mbit mtu 1500 quantum 1514 overhead 20
->>
->> tc class show dev $DEV
->> class htb 1:1 root prio 0 rate 12000Kbit overhead 20 ceil 12000Kbit
->> burst 1500b cburst 1500b
->>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
->> ---
->>   tc/q_htb.c |    2 ++
->>   1 file changed, 2 insertions(+)
->>
->> diff --git a/tc/q_htb.c b/tc/q_htb.c
->> index caa47c2..e6b09bb 100644
->> --- a/tc/q_htb.c
->> +++ b/tc/q_htb.c
->> @@ -264,6 +264,8 @@ static int htb_print_opt(struct qdisc_util *qu, FILE *f, struct rtattr *opt)
->>                   fprintf(f, "quantum %d ", (int)hopt->quantum);
->>           }
->>           fprintf(f, "rate %s ", sprint_rate(hopt->rate.rate, b1));
->> +        if (hopt->rate.overhead)
->> +        fprintf(f, "overhead %u ", hopt->rate.overhead);
+
+	Hello,
+
+On Mon, 3 Jun 2013, Dan Carpenter wrote:
+
+> The entry struct has a 2 byte hole after ->port and another 4 byte
+> hole after ->stats.outpkts.  You must have CAP_NET_ADMIN in your
+> namespace to hit this information leak.
 > 
-> Is it (still) possible to have a negative overhead?
-> 
-> http://www.linksysinfo.org/index.php?threads/speedmod-with-tc-atm-qos-patch-for-adsl.31541/
-> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-You can use 'tc-stab' for negative overhead.
+Acked-by: Julian Anastasov <ja@ssi.bg>
 
-http://stuff.onse.fi/man?program=tc-stab&section=8
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index df05c1c..e336535 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -2542,6 +2542,7 @@ __ip_vs_get_dest_entries(struct net *net, const struct ip_vs_get_dests *get,
+>  		struct ip_vs_dest *dest;
+>  		struct ip_vs_dest_entry entry;
+>  
+> +		memset(&entry, 0, sizeof(entry));
+>  		list_for_each_entry(dest, &svc->destinations, n_list) {
+>  			if (count >= get->num_dests)
+>  				break;
 
--Jussi
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
