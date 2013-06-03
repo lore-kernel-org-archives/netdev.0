@@ -1,34 +1,55 @@
-From: Yan Burman <yanb@mellanox.com>
-Subject: [PATCH net-next] net/ethtool: Fix comment regarding location of dev_ethtool() call
-Date: Mon,  3 Jun 2013 15:03:34 +0300
-Message-ID: <1370261014-16153-1-git-send-email-yanb@mellanox.com>
-Cc: Yan Burman <yanb@mellanox.com>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: pull-request: can 2013-06-03
+Date: Mon,  3 Jun 2013 14:15:30 +0200
+Message-ID: <1370261733-22935-1-git-send-email-mkl@pengutronix.de>
+Cc: linux-can@vger.kernel.org, davem@davemloft.net
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:44895 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752716Ab3FCMKd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 08:10:33 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Yan Burman <yanb@mellanox.com>
+Hello David,
+
+here are there fixes for the v3.10 release cycle:
+
+The first patch by Jonas Peterson and Olivier Sobrie fixes the reception of CAN
+frames on Kvaser's "USBcan Pro" and "USBcan R" type hardware.
+
+The last two patches by Olivier Sobrie (for esd_usb2) and me (for peak_usb)
+change the memory handling for the USB messages from stack to kmalloc(), as
+memory used for DMA should not be allocated on stack.
+
+regards,
+Marc
+
 ---
- net/core/ethtool.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/core/ethtool.c b/net/core/ethtool.c
-index 4e6f63a..cd23d31 100644
---- a/net/core/ethtool.c
-+++ b/net/core/ethtool.c
-@@ -1414,7 +1414,7 @@ static int ethtool_get_module_eeprom(struct net_device *dev,
- 				      modinfo.eeprom_len);
- }
- 
--/* The main entry point in this file.  Called from net/core/dev.c */
-+/* The main entry point in this file.  Called from net/core/dev_ioctl.c */
- 
- int dev_ethtool(struct net *net, struct ifreq *ifr)
- {
--- 
-1.7.10.1
+The following changes since commit 01cb71d2d47b78354358e4bb938bb06323e17498:
+
+  net_sched: restore "overhead xxx" handling (2013-06-02 22:22:35 -0700)
+
+are available in the git repository at:
+
+  git://gitorious.org/linux-can/linux-can.git fixes-for-3.10
+
+for you to fetch changes up to f14e22435a27ef183bbfa78f77ad86644c0b354c:
+
+  net: can: peak_usb: Do not do dma on the stack (2013-06-03 14:05:32 +0200)
+
+----------------------------------------------------------------
+Jonas Peterson (1):
+      net: can: kvaser_usb: fix reception on "USBcan Pro" and "USBcan R" type hardware.
+
+Marc Kleine-Budde (1):
+      net: can: peak_usb: Do not do dma on the stack
+
+Olivier Sobrie (1):
+      net: can: esd_usb2: Do not do dma on the stack
+
+ drivers/net/can/usb/esd_usb2.c              | 127 +++++++++++++++++-----------
+ drivers/net/can/usb/kvaser_usb.c            |  64 +++++++++-----
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.c |  61 ++++++++-----
+ drivers/net/can/usb/peak_usb/pcan_usb_pro.h |   1 +
+ 4 files changed, 160 insertions(+), 93 deletions(-)
+
+
