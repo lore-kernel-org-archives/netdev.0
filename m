@@ -1,113 +1,78 @@
-From: pablo@netfilter.org
-Subject: [PATCHv3 net-next] netlink: allow large data transfers from user-space
-Date: Mon,  3 Jun 2013 21:46:28 +0200
-Message-ID: <1370288788-30579-1-git-send-email-pablo@netfilter.org>
-Cc: kaber@trash.net, davem@davemloft.net, eric.dumazet@gmail.com
-To: netdev@vger.kernel.org
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [PATCH net-next v3 2/2] vxlan: allow specifying multiple default
+ destinations
+Date: Mon, 3 Jun 2013 22:47:31 +0300
+Message-ID: <20130603194731.GA7380@zed>
+References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
+ <1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
+ <20130530110948.GA10532@casper.infradead.org>
+ <CAF1J0HP+Wu9HjEELDaXM2BMREMuKByWr_zz=PwHeNUt=EVbdvw@mail.gmail.com>
+ <20130530113739.GB10532@casper.infradead.org>
+ <20130531091740.70b3e077@nehalam.linuxnetplumber.net>
+ <20130602102942.GA21706@zed>
+ <20130603085737.72b8406f@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	David Stevens <dlstevens@us.ibm.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:45110 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751903Ab3FCTqi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 15:46:38 -0400
+Received: from na3sys010aog101.obsmtp.com ([74.125.245.70]:35801 "HELO
+	na3sys010aog101.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751903Ab3FCTrj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 15:47:39 -0400
+Received: by mail-wg0-f52.google.com with SMTP id z11so3619504wgg.7
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 12:47:37 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130603085737.72b8406f@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
+(added David Stevens to CC)
 
-I can hit ENOBUFS in the sendmsg() path with a large batch that is
-composed of many netlink messages. Here that limit is 8 MBytes of
-skbuff data area as kmalloc does not manage to get more than that.
+On Mon, Jun 03, 2013 at 08:57:37AM -0700, Stephen Hemminger wrote:
+> On Sun, 2 Jun 2013 13:29:42 +0300
+> Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+> 
+> > On Fri, May 31, 2013 at 7:17 PM, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> > > Looking at this code in more detail, I see a slew of problems.
+> > >
+> > > First the list of destinations isn't really a list. The default one is still
+> > > embedded in the fdb entry. This means you can't change it safely.
+> > >
+> > > Also the notification via netlink only sends back a single destination
+> > > value.
+> > >
+> > > And the lack of locking on the open coded link list means it is not safe since
+> > > the forwarding table is used with RCU. In order to be safe, proper RCU
+> > > barriers would be needed or better yet convert to list_rcu..
+> > >
+> > > Overall, I feel guilty for not inspecting this more closely and am surprised
+> > > that others did not catch the lack of locking.
+> > 
+> > I've tried to convert remotes list to use hlist_rcu. The patch below implements the conversion, but it does not address the netlink notification issue.
+> 
+> 
+> Ok, let me have a go at this.
+> 1. Using list rather than hlist makes more sense for handling simple list
 
-While discussing atomic rule-set for nftables with Patrick McHardy,
-we decided to put all rule-set updates that need to be applied
-atomically in one single batch to simplify the existing approach.
-However, as explained above, the existing netlink code limits us
-to a maximum of ~20000 rules that fit in one single batch without
-hitting ENOBUFS. iptables does not have such limitation as it is
-using vmalloc.
+I can replace  hlist with list.
 
-This patch adds netlink_alloc_large_skb() which is only used in
-the netlink_sendmsg() path. It uses alloc_skb if the memory
-requested is <= one memory page, that should be the common case
-for most subsystems, else vmalloc for higher memory allocations.
-
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
-v1: initial version
-v2: use NLMSG_GOODSIZE instead PAGE_SIZE, suggested by Eric Dumazet
-v3: set skb->head as pointed by Eric Dumazet (requires patch net: fix sk_buff head without data area to be applied)
-
- net/netlink/af_netlink.c |   37 +++++++++++++++++++++++++++++++++++--
- 1 file changed, 35 insertions(+), 2 deletions(-)
-
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index d0b3dd6..68c1673 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -750,6 +750,10 @@ static void netlink_skb_destructor(struct sk_buff *skb)
- 		skb->head = NULL;
- 	}
- #endif
-+	if (is_vmalloc_addr(skb->head)) {
-+		vfree(skb->head);
-+		skb->head = NULL;
-+	}
- 	if (skb->sk != NULL)
- 		sock_rfree(skb);
- }
-@@ -1420,6 +1424,35 @@ struct sock *netlink_getsockbyfilp(struct file *filp)
- 	return sock;
- }
+> 2. The complexity is in how do do the netlink API.
  
-+static struct sk_buff *netlink_alloc_large_skb(unsigned int size)
-+{
-+	struct sk_buff *skb;
-+	void *data;
-+
-+	if (size <= NLMSG_GOODSIZE)
-+		return alloc_skb(size, GFP_KERNEL);
-+
-+	skb = alloc_skb_head(GFP_KERNEL);
-+	if (skb == NULL)
-+		return NULL;
-+
-+	data = vmalloc(size);
-+	if (data == NULL)
-+		goto err;
-+
-+	skb->head	= data;
-+	skb->data	= data;
-+	skb_reset_tail_pointer(skb);
-+	skb->end	= skb->tail + size;
-+	skb->len	= 0;
-+	skb->destructor = netlink_skb_destructor;
-+
-+	return skb;
-+err:
-+	kfree_skb(skb);
-+	return NULL;
-+}
-+
- /*
-  * Attach a skb to a netlink socket.
-  * The caller must hold a reference to the destination socket. On error, the
-@@ -1510,7 +1543,7 @@ static struct sk_buff *netlink_trim(struct sk_buff *skb, gfp_t allocation)
- 		return skb;
- 
- 	delta = skb->end - skb->tail;
--	if (delta * 2 < skb->truesize)
-+	if (is_vmalloc_addr(skb->head) || delta * 2 < skb->truesize)
- 		return skb;
- 
- 	if (skb_shared(skb)) {
-@@ -2096,7 +2129,7 @@ static int netlink_sendmsg(struct kiocb *kiocb, struct socket *sock,
- 	if (len > sk->sk_sndbuf - 32)
- 		goto out;
- 	err = -ENOBUFS;
--	skb = alloc_skb(len, GFP_KERNEL);
-+	skb = netlink_alloc_large_skb(len);
- 	if (skb == NULL)
- 		goto out;
- 
--- 
-1.7.10.4
+As far as I can tell, there are two places in the driver that should
+report multiple destinations via netlink. They are vxlan_fdb_dump and
+vxlan_fdb_restore. These methods can traverse the remote destinations
+list and send netlink notification for each list item. 
+
+> 3. If we can't work this out for 3.11, the multiple remotes may have to be reverted;
+>    I don't want the existing API to be exposed in a release
+> 
+
+I'd really like to help to sort this out ASAP, so that I could update and resend
+my patches that, by coinsidence, require list of remote destinations.
+I'm not the right person to redefine the fdb API, though.
+
+--
+Sincerely yours,
+Mike.
