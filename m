@@ -1,51 +1,34 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH] ipv6: assign rt6_info to inet6_ifaddr in init_loopback
-Date: Mon, 3 Jun 2013 16:16:21 +0800
-Message-ID: <1370247381-3091-1-git-send-email-gaofeng@cn.fujitsu.com>
-References: <201305290029.35303.a.miskiewicz@gmail.com>
-Cc: netdev@vger.kernel.org, jasowang@redhat.com,
-	kumaran.4353@gmail.com, Maruthi.Thotad@ap.sony.com,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: davem@davemloft.net, yoshfuji@linux-ipv6.org
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next 2/2] ping: use ipv6_iface_scope_id() to get
+ scope id
+Date: Mon, 03 Jun 2013 16:16:18 +0800
+Message-ID: <1370247378.32297.14.camel@cr0>
+References: <1370238959-32008-1-git-send-email-amwang@redhat.com>
+	 <1370238959-32008-2-git-send-email-amwang@redhat.com>
+	 <CAKD1Yr1gSjGq-G-G_YLgpUNTy5P8H-OD+rnqLCyW18mVB_bGDg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Lorenzo Colitti <lorenzo@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:2733 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1751312Ab3FCIOl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 04:14:41 -0400
-In-Reply-To: <201305290029.35303.a.miskiewicz@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:26529 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750999Ab3FCIQZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 04:16:25 -0400
+In-Reply-To: <CAKD1Yr1gSjGq-G-G_YLgpUNTy5P8H-OD+rnqLCyW18mVB_bGDg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
-"net IPv6 : Fix broken IPv6 routing table after loopback down-up"
-forgot to assign rt6_info to the inet6_ifaddr.
-When disable the net device, the rt6_info which allocated
-in init_loopback will not be destroied in __ipv6_ifa_notify.
+On Mon, 2013-06-03 at 16:59 +0900, Lorenzo Colitti wrote:
+> 
+> Good catch, thanks. While you're at it - if np->sndflow is false,
+> sin6_flowinfo is not being initialized either. Care to fix that too?
+> The other functions do this like this:
+> 
+> sin->sin6_flowinfo = 0;
+> if (np->sndflow)
+>         sin6->sin6_flowinfo = ip6_flowinfo(ip6);
 
-This will trigger the waring message below
-[23527.916091] unregister_netdevice: waiting for tap0 to become free. Usage count = 1
-
-Reported-by: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/ipv6/addrconf.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index d1b2d80..1bbf744 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2658,8 +2658,10 @@ static void init_loopback(struct net_device *dev)
- 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
- 
- 			/* Failure cases are ignored */
--			if (!IS_ERR(sp_rt))
-+			if (!IS_ERR(sp_rt)) {
-+				sp_ifa->rt = sp_rt;
- 				ip6_ins_rt(sp_rt);
-+			}
- 		}
- 		read_unlock_bh(&idev->lock);
- 	}
--- 
-1.8.1.4
+OK, I will add this piece and resend patch 2/2.
