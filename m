@@ -1,140 +1,266 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 1/3] net: can: kvaser_usb: fix reception on "USBcan Pro" and "USBcan R" type hardware.
-Date: Mon,  3 Jun 2013 14:15:31 +0200
-Message-ID: <1370261733-22935-2-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 2/3] net: can: esd_usb2: Do not do dma on the stack
+Date: Mon,  3 Jun 2013 14:15:32 +0200
+Message-ID: <1370261733-22935-3-git-send-email-mkl@pengutronix.de>
 References: <1370261733-22935-1-git-send-email-mkl@pengutronix.de>
 Cc: linux-can@vger.kernel.org, davem@davemloft.net,
-	Jonas Peterson <jonas.peterson@gmail.com>,
-	stable@vger.kernel.org, Olivier Sobrie <olivier@sobrie.be>,
+	Olivier Sobrie <olivier@sobrie.be>,
+	Matthias Fuchs <matthias.fuchs@esd.eu>,
 	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:36600 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752716Ab3FCMQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 08:16:21 -0400
+Return-path: <linux-can-owner@vger.kernel.org>
 In-Reply-To: <1370261733-22935-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jonas Peterson <jonas.peterson@gmail.com>
+From: Olivier Sobrie <olivier@sobrie.be>
 
-Unlike Kvaser Leaf light devices, some other Kvaser devices (like USBcan
-Pro, USBcan R) receive CAN messages in CMD_LOG_MESSAGE frames. This
-patch adds support for it.
+smatch reports the following warnings:
+drivers/net/can/usb/esd_usb2.c:640 esd_usb2_start() error: doing dma on the stack (&msg)
+drivers/net/can/usb/esd_usb2.c:846 esd_usb2_close() error: doing dma on the stack (&msg)
+drivers/net/can/usb/esd_usb2.c:855 esd_usb2_close() error: doing dma on the stack (&msg)
+drivers/net/can/usb/esd_usb2.c:923 esd_usb2_set_bittiming() error: doing dma on the stack (&msg)
+drivers/net/can/usb/esd_usb2.c:1047 esd_usb2_probe() error: doing dma on the stack (&msg)
+drivers/net/can/usb/esd_usb2.c:1053 esd_usb2_probe() error: doing dma on the stack (&msg)
 
-Cc: linux-stable <stable@vger.kernel.org> # >= v3.8
-Signed-off-by: Jonas Peterson <jonas.peterson@gmail.com>
+See "Documentation/DMA-API-HOWTO.txt" section "What memory is DMA'able?"
+
 Signed-off-by: Olivier Sobrie <olivier@sobrie.be>
+Cc: Matthias Fuchs <matthias.fuchs@esd.eu>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/kvaser_usb.c | 64 +++++++++++++++++++++++++++-------------
- 1 file changed, 43 insertions(+), 21 deletions(-)
+ drivers/net/can/usb/esd_usb2.c | 127 ++++++++++++++++++++++++-----------------
+ 1 file changed, 76 insertions(+), 51 deletions(-)
 
-diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 45cb9f3..3b95465 100644
---- a/drivers/net/can/usb/kvaser_usb.c
-+++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -136,6 +136,9 @@
- #define KVASER_CTRL_MODE_SELFRECEPTION	3
- #define KVASER_CTRL_MODE_OFF		4
+diff --git a/drivers/net/can/usb/esd_usb2.c b/drivers/net/can/usb/esd_usb2.c
+index 9b74d1e..6aa7b32 100644
+--- a/drivers/net/can/usb/esd_usb2.c
++++ b/drivers/net/can/usb/esd_usb2.c
+@@ -612,9 +612,15 @@ static int esd_usb2_start(struct esd_usb2_net_priv *priv)
+ {
+ 	struct esd_usb2 *dev = priv->usb2;
+ 	struct net_device *netdev = priv->netdev;
+-	struct esd_usb2_msg msg;
++	struct esd_usb2_msg *msg;
+ 	int err, i;
  
-+/* log message */
-+#define KVASER_EXTENDED_FRAME		BIT(31)
++	msg = kmalloc(sizeof(*msg), GFP_KERNEL);
++	if (!msg) {
++		err = -ENOMEM;
++		goto out;
++	}
 +
- struct kvaser_msg_simple {
- 	u8 tid;
- 	u8 channel;
-@@ -817,8 +820,13 @@ static void kvaser_usb_rx_can_msg(const struct kvaser_usb *dev,
- 	priv = dev->nets[channel];
- 	stats = &priv->netdev->stats;
+ 	/*
+ 	 * Enable all IDs
+ 	 * The IDADD message takes up to 64 32 bit bitmasks (2048 bits).
+@@ -628,33 +634,32 @@ static int esd_usb2_start(struct esd_usb2_net_priv *priv)
+ 	 * the number of the starting bitmask (0..64) to the filter.option
+ 	 * field followed by only some bitmasks.
+ 	 */
+-	msg.msg.hdr.cmd = CMD_IDADD;
+-	msg.msg.hdr.len = 2 + ESD_MAX_ID_SEGMENT;
+-	msg.msg.filter.net = priv->index;
+-	msg.msg.filter.option = ESD_ID_ENABLE; /* start with segment 0 */
++	msg->msg.hdr.cmd = CMD_IDADD;
++	msg->msg.hdr.len = 2 + ESD_MAX_ID_SEGMENT;
++	msg->msg.filter.net = priv->index;
++	msg->msg.filter.option = ESD_ID_ENABLE; /* start with segment 0 */
+ 	for (i = 0; i < ESD_MAX_ID_SEGMENT; i++)
+-		msg.msg.filter.mask[i] = cpu_to_le32(0xffffffff);
++		msg->msg.filter.mask[i] = cpu_to_le32(0xffffffff);
+ 	/* enable 29bit extended IDs */
+-	msg.msg.filter.mask[ESD_MAX_ID_SEGMENT] = cpu_to_le32(0x00000001);
++	msg->msg.filter.mask[ESD_MAX_ID_SEGMENT] = cpu_to_le32(0x00000001);
  
--	if (msg->u.rx_can.flag & (MSG_FLAG_ERROR_FRAME | MSG_FLAG_NERR |
--				  MSG_FLAG_OVERRUN)) {
-+	if ((msg->u.rx_can.flag & MSG_FLAG_ERROR_FRAME) &&
-+	    (msg->id == CMD_LOG_MESSAGE)) {
-+		kvaser_usb_rx_error(dev, msg);
-+		return;
-+	} else if (msg->u.rx_can.flag & (MSG_FLAG_ERROR_FRAME |
-+					 MSG_FLAG_NERR |
-+					 MSG_FLAG_OVERRUN)) {
- 		kvaser_usb_rx_can_err(priv, msg);
- 		return;
- 	} else if (msg->u.rx_can.flag & ~MSG_FLAG_REMOTE_FRAME) {
-@@ -834,22 +842,40 @@ static void kvaser_usb_rx_can_msg(const struct kvaser_usb *dev,
- 		return;
+-	err = esd_usb2_send_msg(dev, &msg);
++	err = esd_usb2_send_msg(dev, msg);
+ 	if (err)
+-		goto failed;
++		goto out;
+ 
+ 	err = esd_usb2_setup_rx_urbs(dev);
+ 	if (err)
+-		goto failed;
++		goto out;
+ 
+ 	priv->can.state = CAN_STATE_ERROR_ACTIVE;
+ 
+-	return 0;
+-
+-failed:
++out:
+ 	if (err == -ENODEV)
+ 		netif_device_detach(netdev);
++	if (err)
++		netdev_err(netdev, "couldn't start device: %d\n", err);
+ 
+-	netdev_err(netdev, "couldn't start device: %d\n", err);
+-
++	kfree(msg);
+ 	return err;
+ }
+ 
+@@ -833,26 +838,30 @@ nourbmem:
+ static int esd_usb2_close(struct net_device *netdev)
+ {
+ 	struct esd_usb2_net_priv *priv = netdev_priv(netdev);
+-	struct esd_usb2_msg msg;
++	struct esd_usb2_msg *msg;
+ 	int i;
+ 
++	msg = kmalloc(sizeof(*msg), GFP_KERNEL);
++	if (!msg)
++		return -ENOMEM;
++
+ 	/* Disable all IDs (see esd_usb2_start()) */
+-	msg.msg.hdr.cmd = CMD_IDADD;
+-	msg.msg.hdr.len = 2 + ESD_MAX_ID_SEGMENT;
+-	msg.msg.filter.net = priv->index;
+-	msg.msg.filter.option = ESD_ID_ENABLE; /* start with segment 0 */
++	msg->msg.hdr.cmd = CMD_IDADD;
++	msg->msg.hdr.len = 2 + ESD_MAX_ID_SEGMENT;
++	msg->msg.filter.net = priv->index;
++	msg->msg.filter.option = ESD_ID_ENABLE; /* start with segment 0 */
+ 	for (i = 0; i <= ESD_MAX_ID_SEGMENT; i++)
+-		msg.msg.filter.mask[i] = 0;
+-	if (esd_usb2_send_msg(priv->usb2, &msg) < 0)
++		msg->msg.filter.mask[i] = 0;
++	if (esd_usb2_send_msg(priv->usb2, msg) < 0)
+ 		netdev_err(netdev, "sending idadd message failed\n");
+ 
+ 	/* set CAN controller to reset mode */
+-	msg.msg.hdr.len = 2;
+-	msg.msg.hdr.cmd = CMD_SETBAUD;
+-	msg.msg.setbaud.net = priv->index;
+-	msg.msg.setbaud.rsvd = 0;
+-	msg.msg.setbaud.baud = cpu_to_le32(ESD_USB2_NO_BAUDRATE);
+-	if (esd_usb2_send_msg(priv->usb2, &msg) < 0)
++	msg->msg.hdr.len = 2;
++	msg->msg.hdr.cmd = CMD_SETBAUD;
++	msg->msg.setbaud.net = priv->index;
++	msg->msg.setbaud.rsvd = 0;
++	msg->msg.setbaud.baud = cpu_to_le32(ESD_USB2_NO_BAUDRATE);
++	if (esd_usb2_send_msg(priv->usb2, msg) < 0)
+ 		netdev_err(netdev, "sending setbaud message failed\n");
+ 
+ 	priv->can.state = CAN_STATE_STOPPED;
+@@ -861,6 +870,8 @@ static int esd_usb2_close(struct net_device *netdev)
+ 
+ 	close_candev(netdev);
+ 
++	kfree(msg);
++
+ 	return 0;
+ }
+ 
+@@ -886,7 +897,8 @@ static int esd_usb2_set_bittiming(struct net_device *netdev)
+ {
+ 	struct esd_usb2_net_priv *priv = netdev_priv(netdev);
+ 	struct can_bittiming *bt = &priv->can.bittiming;
+-	struct esd_usb2_msg msg;
++	struct esd_usb2_msg *msg;
++	int err;
+ 	u32 canbtr;
+ 	int sjw_shift;
+ 
+@@ -912,15 +924,22 @@ static int esd_usb2_set_bittiming(struct net_device *netdev)
+ 	if (priv->can.ctrlmode & CAN_CTRLMODE_3_SAMPLES)
+ 		canbtr |= ESD_USB2_3_SAMPLES;
+ 
+-	msg.msg.hdr.len = 2;
+-	msg.msg.hdr.cmd = CMD_SETBAUD;
+-	msg.msg.setbaud.net = priv->index;
+-	msg.msg.setbaud.rsvd = 0;
+-	msg.msg.setbaud.baud = cpu_to_le32(canbtr);
++	msg = kmalloc(sizeof(*msg), GFP_KERNEL);
++	if (!msg)
++		return -ENOMEM;
++
++	msg->msg.hdr.len = 2;
++	msg->msg.hdr.cmd = CMD_SETBAUD;
++	msg->msg.setbaud.net = priv->index;
++	msg->msg.setbaud.rsvd = 0;
++	msg->msg.setbaud.baud = cpu_to_le32(canbtr);
+ 
+ 	netdev_info(netdev, "setting BTR=%#x\n", canbtr);
+ 
+-	return esd_usb2_send_msg(priv->usb2, &msg);
++	err = esd_usb2_send_msg(priv->usb2, msg);
++
++	kfree(msg);
++	return err;
+ }
+ 
+ static int esd_usb2_get_berr_counter(const struct net_device *netdev,
+@@ -1022,7 +1041,7 @@ static int esd_usb2_probe(struct usb_interface *intf,
+ 			 const struct usb_device_id *id)
+ {
+ 	struct esd_usb2 *dev;
+-	struct esd_usb2_msg msg;
++	struct esd_usb2_msg *msg;
+ 	int i, err;
+ 
+ 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+@@ -1037,27 +1056,33 @@ static int esd_usb2_probe(struct usb_interface *intf,
+ 
+ 	usb_set_intfdata(intf, dev);
+ 
++	msg = kmalloc(sizeof(*msg), GFP_KERNEL);
++	if (!msg) {
++		err = -ENOMEM;
++		goto free_msg;
++	}
++
+ 	/* query number of CAN interfaces (nets) */
+-	msg.msg.hdr.cmd = CMD_VERSION;
+-	msg.msg.hdr.len = 2;
+-	msg.msg.version.rsvd = 0;
+-	msg.msg.version.flags = 0;
+-	msg.msg.version.drv_version = 0;
++	msg->msg.hdr.cmd = CMD_VERSION;
++	msg->msg.hdr.len = 2;
++	msg->msg.version.rsvd = 0;
++	msg->msg.version.flags = 0;
++	msg->msg.version.drv_version = 0;
+ 
+-	err = esd_usb2_send_msg(dev, &msg);
++	err = esd_usb2_send_msg(dev, msg);
+ 	if (err < 0) {
+ 		dev_err(&intf->dev, "sending version message failed\n");
+-		goto free_dev;
++		goto free_msg;
  	}
  
--	cf->can_id = ((msg->u.rx_can.msg[0] & 0x1f) << 6) |
--		     (msg->u.rx_can.msg[1] & 0x3f);
--	cf->can_dlc = get_can_dlc(msg->u.rx_can.msg[5]);
-+	if (msg->id == CMD_LOG_MESSAGE) {
-+		cf->can_id = le32_to_cpu(msg->u.log_message.id);
-+		if (cf->can_id & KVASER_EXTENDED_FRAME)
-+			cf->can_id &= CAN_EFF_MASK | CAN_EFF_FLAG;
-+		else
-+			cf->can_id &= CAN_SFF_MASK;
+-	err = esd_usb2_wait_msg(dev, &msg);
++	err = esd_usb2_wait_msg(dev, msg);
+ 	if (err < 0) {
+ 		dev_err(&intf->dev, "no version message answer\n");
+-		goto free_dev;
++		goto free_msg;
+ 	}
  
--	if (msg->id == CMD_RX_EXT_MESSAGE) {
--		cf->can_id <<= 18;
--		cf->can_id |= ((msg->u.rx_can.msg[2] & 0x0f) << 14) |
--			      ((msg->u.rx_can.msg[3] & 0xff) << 6) |
--			      (msg->u.rx_can.msg[4] & 0x3f);
--		cf->can_id |= CAN_EFF_FLAG;
--	}
-+		cf->can_dlc = get_can_dlc(msg->u.log_message.dlc);
+-	dev->net_count = (int)msg.msg.version_reply.nets;
+-	dev->version = le32_to_cpu(msg.msg.version_reply.version);
++	dev->net_count = (int)msg->msg.version_reply.nets;
++	dev->version = le32_to_cpu(msg->msg.version_reply.version);
  
--	if (msg->u.rx_can.flag & MSG_FLAG_REMOTE_FRAME)
--		cf->can_id |= CAN_RTR_FLAG;
--	else
--		memcpy(cf->data, &msg->u.rx_can.msg[6], cf->can_dlc);
-+		if (msg->u.log_message.flags & MSG_FLAG_REMOTE_FRAME)
-+			cf->can_id |= CAN_RTR_FLAG;
-+		else
-+			memcpy(cf->data, &msg->u.log_message.data,
-+			       cf->can_dlc);
-+	} else {
-+		cf->can_id = ((msg->u.rx_can.msg[0] & 0x1f) << 6) |
-+			     (msg->u.rx_can.msg[1] & 0x3f);
-+
-+		if (msg->id == CMD_RX_EXT_MESSAGE) {
-+			cf->can_id <<= 18;
-+			cf->can_id |= ((msg->u.rx_can.msg[2] & 0x0f) << 14) |
-+				      ((msg->u.rx_can.msg[3] & 0xff) << 6) |
-+				      (msg->u.rx_can.msg[4] & 0x3f);
-+			cf->can_id |= CAN_EFF_FLAG;
-+		}
-+
-+		cf->can_dlc = get_can_dlc(msg->u.rx_can.msg[5]);
-+
-+		if (msg->u.rx_can.flag & MSG_FLAG_REMOTE_FRAME)
-+			cf->can_id |= CAN_RTR_FLAG;
-+		else
-+			memcpy(cf->data, &msg->u.rx_can.msg[6],
-+			       cf->can_dlc);
-+	}
+ 	if (device_create_file(&intf->dev, &dev_attr_firmware))
+ 		dev_err(&intf->dev,
+@@ -1075,10 +1100,10 @@ static int esd_usb2_probe(struct usb_interface *intf,
+ 	for (i = 0; i < dev->net_count; i++)
+ 		esd_usb2_probe_one_net(intf, i);
  
- 	netif_rx(skb);
- 
-@@ -911,6 +937,7 @@ static void kvaser_usb_handle_message(const struct kvaser_usb *dev,
- 
- 	case CMD_RX_STD_MESSAGE:
- 	case CMD_RX_EXT_MESSAGE:
-+	case CMD_LOG_MESSAGE:
- 		kvaser_usb_rx_can_msg(dev, msg);
- 		break;
- 
-@@ -919,11 +946,6 @@ static void kvaser_usb_handle_message(const struct kvaser_usb *dev,
- 		kvaser_usb_rx_error(dev, msg);
- 		break;
- 
--	case CMD_LOG_MESSAGE:
--		if (msg->u.log_message.flags & MSG_FLAG_ERROR_FRAME)
--			kvaser_usb_rx_error(dev, msg);
--		break;
+-	return 0;
 -
- 	case CMD_TX_ACKNOWLEDGE:
- 		kvaser_usb_tx_acknowledge(dev, msg);
- 		break;
+-free_dev:
+-	kfree(dev);
++free_msg:
++	kfree(msg);
++	if (err)
++		kfree(dev);
+ done:
+ 	return err;
+ }
 -- 
 1.8.2.rc2
+
