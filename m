@@ -1,40 +1,35 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next]] icmp: fix icmp_unreach() comment.
-Date: Mon,  3 Jun 2013 13:23:25 +0300
-Message-ID: <1370255005-3047-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [Patch net-next 1/2] ping: some cleanup for net/ipv4/ping.c
+Date: Mon, 03 Jun 2013 00:24:04 -0700 (PDT)
+Message-ID: <20130603.002404.131723623530817410.davem@davemloft.net>
+References: <CAKD1Yr0zHsM85ZJLwCeE6NkEZnaMqs3ba1PyOa_M09UB6i99=g@mail.gmail.com>
+	<1370243586.32297.5.camel@cr0>
+	<CAKD1Yr2fn51+5JEUN2vg+NJ7yv_Fe-WqPhETFee5mv+_FJDaMA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: amwang@redhat.com, netdev@vger.kernel.org
+To: lorenzo@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:45374 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750999Ab3FCHXq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:23:46 -0400
-Received: by mail-ea0-f177.google.com with SMTP id j14so920906eak.22
-        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 00:23:44 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:38057 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750999Ab3FCHYF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:24:05 -0400
+In-Reply-To: <CAKD1Yr2fn51+5JEUN2vg+NJ7yv_Fe-WqPhETFee5mv+_FJDaMA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ICMP_PARAMETERPROB is handled by icmp_unreach(); This patch adds
-ICMP_PARAMETERPROB to the list of ICMP message types handled by icmp_unreach().
+From: Lorenzo Colitti <lorenzo@google.com>
+Date: Mon, 3 Jun 2013 16:17:25 +0900
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- net/ipv4/icmp.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> On Mon, Jun 3, 2013 at 4:13 PM, Cong Wang <amwang@redhat.com> wrote:
+>> Remember it is a cleanup, not a bug fix, right? :) I don't think there
+>> is any way to make this 10- line of code hard to read.
+> 
+> I suppose, if growing the function from 2 to 9 lines without changing
+> its behaviour can be called a "cleanup". :-)
 
-diff --git a/net/ipv4/icmp.c b/net/ipv4/icmp.c
-index 5d0d379..d0c6e70 100644
---- a/net/ipv4/icmp.c
-+++ b/net/ipv4/icmp.c
-@@ -658,7 +658,8 @@ static void icmp_socket_deliver(struct sk_buff *skb, u32 info)
- }
- 
- /*
-- *	Handle ICMP_DEST_UNREACH, ICMP_TIME_EXCEED, and ICMP_QUENCH.
-+ *	Handle ICMP_DEST_UNREACH, ICMP_TIME_EXCEED, ICMP_QUENCH, and
-+ *	ICMP_PARAMETERPROB.
-  */
- 
- static void icmp_unreach(struct sk_buff *skb)
--- 
-1.8.1.4
+I have to say this patch makes the code look worse, ifdefs are 99
+times out of 100 the wrong thing to do.
+
+Sorry I won't be applying these patches.
