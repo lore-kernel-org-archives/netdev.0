@@ -1,98 +1,31 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2013-06-03
-Date: Mon, 03 Jun 2013 14:30:26 +0200
-Message-ID: <51AC8C62.5010905@pengutronix.de>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v2] include/linux/skbuff.h: using '(u16) ~0U' instead of '~0U'
+Date: Mon, 3 Jun 2013 13:47:24 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7263@saturn3.aculab.com>
+References: <51A6EBC5.7040601@asianux.com> <CAHp75VfWvXkaoYQ_40idSsLYUA=YqaswnV2y-hODHjt7JMHQvQ@mail.gmail.com> <51AC60AA.8010107@asianux.com> <CAHp75Vc19Kii7_TF+9aF4ZeKAa4_92DCVL+u1duZDTu38o2qsw@mail.gmail.com> <51AC7546.4010002@asianux.com> <51AC7CD4.2060801@asianux.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7262@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2XKGBPAPUKTLUEDMXKDPL"
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Pravin Shelar" <pshelar@nicira.com>, <mgorman@suse.de>,
+	"David Miller" <davem@davemloft.net>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	<linux-kernel@vger.kernel.org>, "netdev" <netdev@vger.kernel.org>,
+	"Ben Hutchings" <bhutchings@solarflare.com>
+To: "David Laight" <David.Laight@ACULAB.COM>,
+	"Chen Gang" <gang.chen@asianux.com>,
+	"Andy Shevchenko" <andy.shevchenko@gmail.com>,
+	<edumazet@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-class: urn:content-classes:message
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7262@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2XKGBPAPUKTLUEDMXKDPL
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
-
-Hello David,
-
-this is a pull-request for net-next/master. It consists of two patches
-by Fabio Estevam, cleaning up the flexcan driver (remove default
-pinctrl and switch to SIMPLE_DEV_PM_OPS). A patch by me to simplify the
-Kconfig [1] handling for flexcan. And a patch by Jingoo Han that
-converts the can drivers to use platform_{get,set}_drvdata().
-
-[1] My patch touches arch/{arm,powerpc}, so I collected Acked-bys from
-Arnd Bergmann, Shawn Guo and Benjamin Herrenschmidt.
-
-regards,
-Marc
-
----
-The following changes since commit 5865fc1b6a99bc7dcf245770c2735577b8596b=
-6e:
-
-  tg3: remove redundant pm init code (2013-06-03 00:48:11 -0700)
-
-are available in the git repository at:
-
-  git://gitorious.org/linux-can/linux-can-next.git for-davem
-
-for you to fetch changes up to 00e4bbc8cd7efac66caa4ce6bcf5f02e944184f6:
-
-  net: can: use platform_{get,set}_drvdata() (2013-06-03 13:13:49 +0200)
-
-----------------------------------------------------------------
-Fabio Estevam (2):
-      can: flexcan: Let device core handle pinctrl
-      can: flexcan: Use SIMPLE_DEV_PM_OPS
-
-Jingoo Han (1):
-      net: can: use platform_{get,set}_drvdata()
-
-Marc Kleine-Budde (1):
-      can: flexcan: remove HAVE_CAN_FLEXCAN Kconfig symbol
-
- arch/arm/mach-imx/Kconfig                     |  4 ----
- arch/arm/mach-imx/devices/Kconfig             |  1 -
- arch/arm/mach-mxs/Kconfig                     |  1 -
- arch/powerpc/Kconfig                          |  1 -
- drivers/net/can/Kconfig                       |  5 +----
- drivers/net/can/bfin_can.c                    | 10 ++++------
- drivers/net/can/cc770/cc770_isa.c             |  5 ++---
- drivers/net/can/cc770/cc770_platform.c        |  4 ++--
- drivers/net/can/flexcan.c                     | 26 +++++++++------------=
------
- drivers/net/can/grcan.c                       |  5 ++---
- drivers/net/can/mscan/mpc5xxx_can.c           | 10 ++++------
- drivers/net/can/sja1000/sja1000_isa.c         |  5 ++---
- drivers/net/can/sja1000/sja1000_of_platform.c |  6 ++----
- drivers/net/can/sja1000/sja1000_platform.c    |  5 ++---
- 14 files changed, 30 insertions(+), 58 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
-------enig2XKGBPAPUKTLUEDMXKDPL
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlGsjGYACgkQjTAFq1RaXHNUuACfbwLvkXfIV1kdmijZBD3IrZFN
-fosAnAqwz8u1TlIw9kFy73k1s8x7FbvC
-=hWoc
------END PGP SIGNATURE-----
-
-------enig2XKGBPAPUKTLUEDMXKDPL--
+PiA+ICsjZGVmaW5lIFNLQl9IRUFERVJfVU5TRVRfMTYJKCh1bnNpZ25lZCBzaG9ydCkgfjBVKQ0K
+PiA+ICsNCj4gDQo+IFRoZSBfMTYgcGFydCBpc24ndCByZWFsbHkgY29ycmVjdCwgdGhlIHR5cGUg
+Y291bGQgYmUgY2hhbmdlZA0KPiBhbmQgdGhlbiBpdCB3b3VsZCBiZSB3cm9uZy4NCj4gDQo+IEkg
+dGhpbmsgSSBtaWdodCBoYXZlIHVzZWQgU0tCX0hFQURFUl9PRkZTRVQuDQoNCkkgbWVhbnQgU0tC
+X0hFQURFUl9VTlNFVF9PRkZTRVQgb3IgU0tCX0hFQURFUl9PRkZTRVRfVU5TRVQNCg0KPiBOcnli
+WMendl4p3rp7Lm4rel4pdypqZx7domovet6WMt6ZJinfoWF/HkdoD2o6K3Z32aUNCg0KSSd2ZSBO
+Rkkgd2hhdCBhZGRzIHRoaXMhDQoNCglEYXZpZA0KDQo=
