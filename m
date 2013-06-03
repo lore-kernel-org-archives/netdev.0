@@ -1,61 +1,75 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [net-next rfc V2 6/8] macvtap: allow TUNSETIFF to create multiqueue
- device
-Date: Mon, 03 Jun 2013 11:05:57 +0800
-Message-ID: <51AC0815.4030707@redhat.com>
-References: <1369994005-5943-1-git-send-email-jasowang@redhat.com> <1369994005-5943-7-git-send-email-jasowang@redhat.com> <51A8B829.7040708@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
+ macro
+Date: Sun, 02 Jun 2013 20:12:49 -0700
+Message-ID: <1370229169.24311.119.camel@edumazet-glaptop>
+References: <1369854387.5109.77.camel@edumazet-glaptop>
+	 <51A70CF4.1020807@yandex-team.ru>
+	 <1370215895.24311.93.camel@edumazet-glaptop>
+	 <20130602.195826.721294433730539253.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, mst@redhat.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Cc: klamm@yandex-team.ru, paulmck@linux.vnet.ibm.com,
+	brouer@redhat.com, dipankar@in.ibm.com, zhmurov@yandex-team.ru,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, David.Laight@ACULAB.COM
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22880 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750824Ab3FCDGX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 2 Jun 2013 23:06:23 -0400
-In-Reply-To: <51A8B829.7040708@cogentembedded.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:56171 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750768Ab3FCDMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 23:12:52 -0400
+In-Reply-To: <20130602.195826.721294433730539253.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 05/31/2013 10:48 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 31-05-2013 13:53, Jason Wang wrote:
->
->> Though the queue were in fact created by open(), we still need to add
->> this check
->> to be compatible with tuntap which can let mgmt software use a single
->> API to
->> manage queues. This patch only validates the device name and moves
->> the TUNSETIFF
->> to a helper.
->
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>   drivers/net/macvtap.c |   51
->> ++++++++++++++++++++++++++++++++++++++----------
->>   1 files changed, 40 insertions(+), 11 deletions(-)
->
->> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
->> index e76484c..eac49cb 100644
->> --- a/drivers/net/macvtap.c
->> +++ b/drivers/net/macvtap.c
->> @@ -870,6 +870,7 @@ out:
->>       return ret;
->>   }
->>
->> +
->
->    Seems like random whitespace change.
+On Sun, 2013-06-02 at 19:58 -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sun, 02 Jun 2013 16:31:35 -0700
+> 
+> > On Thu, 2013-05-30 at 12:25 +0400, Roman Gushchin wrote:
+> >> On 29.05.2013 23:06, Eric Dumazet wrote:
+> >> > On Wed, 2013-05-29 at 14:09 +0400, Roman Gushchin wrote:
+> >> >
+> >> > True, these lookup functions are usually structured the same around the
+> >> > hlist_nulls_for_each_entry_rcu() loop.
+> >> >
+> >> > A barrier() right before the loop seems to be a benefit, the size of
+> >> > assembly code is reduced by 48 bytes.
+> >> >
+> >> > And its one of the documented way to handle this kind of problems
+> >> > (Documentation/atomic_ops.txt line 114)
+> >> >
+> >> > I guess we should amend this documentation, eventually.
+> >> >
+> >> > Thanks, please add you "Signed-off-by" if you agree with the patch.
+> >> >
+> >> 
+> >> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+> >> 
+> >> Many thanks to you, Paul E. McKenney and David Laight for your
+> >> patches, help and participation in this discussion.
+> > 
+> > Thanks to you !
+> > 
+> > David, is there any problem with the patch ?
+> > 
+> > http://patchwork.ozlabs.org/patch/247360/ says "Not applicable", please
+> > tell me what is needed to get it merged.
+> 
+> It's not a networking patch, it's a patch for generic RCU upstream.
+> So it either goes through Paul McKenney, or directly via Linus on
+> linux-kernel.
 
-Will remove it thanks.
->
->>   static struct macvlan_dev *macvtap_get_vlan(struct macvtap_queue *q)
->>   {
->>       struct macvlan_dev *vlan;
-> [...]
->
-> WBR, Sergei
->
+Well, whole discussion went on linux kernel, and you were the original
+committer of this patch five years ago.
+
+http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=bbaffaca4810de1a25e32ecaf836eeaacc7a3d11
+
+So please Paul or David make sure the patch goes in.
+
+My only concern is that Paul seems quite busy these days.
+
+Thanks
