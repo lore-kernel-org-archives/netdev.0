@@ -1,98 +1,67 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
- macro
-Date: Sun, 2 Jun 2013 23:05:57 -0700
-Message-ID: <20130603060557.GD29614@linux.vnet.ibm.com>
-References: <1370229169.24311.119.camel@edumazet-glaptop>
- <20130602.202703.1059637861388689182.davem@davemloft.net>
- <20130603034254.GC29614@linux.vnet.ibm.com>
- <20130602.204915.334823676645400072.davem@davemloft.net>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [Patch net-next 1/2] ping: some cleanup for net/ipv4/ping.c
+Date: Mon, 3 Jun 2013 16:02:59 +0900
+Message-ID: <CAKD1Yr0zHsM85ZJLwCeE6NkEZnaMqs3ba1PyOa_M09UB6i99=g@mail.gmail.com>
+References: <1370238959-32008-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: eric.dumazet@gmail.com, klamm@yandex-team.ru, brouer@redhat.com,
-	dipankar@in.ibm.com, zhmurov@yandex-team.ru,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net, David.Laight@ACULAB.COM
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e32.co.us.ibm.com ([32.97.110.150]:48892 "EHLO
-	e32.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751209Ab3FCGGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 02:06:03 -0400
-Received: from /spool/local
-	by e32.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Mon, 3 Jun 2013 00:06:03 -0600
-Content-Disposition: inline
-In-Reply-To: <20130602.204915.334823676645400072.davem@davemloft.net>
+Received: from mail-qe0-f42.google.com ([209.85.128.42]:41324 "EHLO
+	mail-qe0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750764Ab3FCHDU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:03:20 -0400
+Received: by mail-qe0-f42.google.com with SMTP id s14so394803qeb.15
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 00:03:19 -0700 (PDT)
+In-Reply-To: <1370238959-32008-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 02, 2013 at 08:49:15PM -0700, David Miller wrote:
-> From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> Date: Sun, 2 Jun 2013 20:42:54 -0700
-> 
-> > On Sun, Jun 02, 2013 at 08:27:03PM -0700, David Miller wrote:
-> >> From: Eric Dumazet <eric.dumazet@gmail.com>
-> >> Date: Sun, 02 Jun 2013 20:12:49 -0700
-> >> 
-> >> > On Sun, 2013-06-02 at 19:58 -0700, David Miller wrote:
-> >> >> From: Eric Dumazet <eric.dumazet@gmail.com>
-> >> >> Date: Sun, 02 Jun 2013 16:31:35 -0700
-> >> >> 
-> >> >> > On Thu, 2013-05-30 at 12:25 +0400, Roman Gushchin wrote:
-> >> >> >> On 29.05.2013 23:06, Eric Dumazet wrote:
-> >> >> >> > On Wed, 2013-05-29 at 14:09 +0400, Roman Gushchin wrote:
-> >> >> >> >
-> >> >> >> > True, these lookup functions are usually structured the same around the
-> >> >> >> > hlist_nulls_for_each_entry_rcu() loop.
-> >> >> >> >
-> >> >> >> > A barrier() right before the loop seems to be a benefit, the size of
-> >> >> >> > assembly code is reduced by 48 bytes.
-> >> >> >> >
-> >> >> >> > And its one of the documented way to handle this kind of problems
-> >> >> >> > (Documentation/atomic_ops.txt line 114)
-> >> >> >> >
-> >> >> >> > I guess we should amend this documentation, eventually.
-> >> >> >> >
-> >> >> >> > Thanks, please add you "Signed-off-by" if you agree with the patch.
-> >> >> >> >
-> >> >> >> 
-> >> >> >> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
-> >> >> >> 
-> >> >> >> Many thanks to you, Paul E. McKenney and David Laight for your
-> >> >> >> patches, help and participation in this discussion.
-> >> >> > 
-> >> >> > Thanks to you !
-> >> >> > 
-> >> >> > David, is there any problem with the patch ?
-> >> >> > 
-> >> >> > http://patchwork.ozlabs.org/patch/247360/ says "Not applicable", please
-> >> >> > tell me what is needed to get it merged.
-> >> >> 
-> >> >> It's not a networking patch, it's a patch for generic RCU upstream.
-> >> >> So it either goes through Paul McKenney, or directly via Linus on
-> >> >> linux-kernel.
-> >> > 
-> >> > Well, whole discussion went on linux kernel, and you were the original
-> >> > committer of this patch five years ago.
-> >> > 
-> >> > http://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/?id=bbaffaca4810de1a25e32ecaf836eeaacc7a3d11
-> >> > 
-> >> > So please Paul or David make sure the patch goes in.
-> >> > 
-> >> > My only concern is that Paul seems quite busy these days.
-> >> 
-> >> Ok I can take it then, no problem.
-> > 
-> > Or if you would like to take it:
-> > 
-> > Acked-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> 
-> Let's end this deadlock by me taking it :-)
+On Mon, Jun 3, 2013 at 2:55 PM, Cong Wang <amwang@redhat.com> wrote:
+> -static inline int ping_supported(int family, int type, int code)
+> +static inline bool ping_supported(int family, int type, int code)
+>  {
+> -       return (family == AF_INET && type == ICMP_ECHO && code == 0) ||
+> -              (family == AF_INET6 && type == ICMPV6_ECHO_REQUEST && code == 0);
+> +       if (family == AF_INET) {
+> +               if (type == ICMP_ECHO && code == 0)
+> +                       return true;
+> +#if IS_ENABLED(CONFIG_IPV6)
+> +       } else if (family == AF_INET6) {
+> +               if (type == ICMPV6_ECHO_REQUEST && code == 0)
+> +                       return true;
+> +#endif
+> +       }
+> +       return false;
+>  }
 
-You got it!  ;-)
+I don't think it's necessary to #ifdef out code here. It's not needed
+to get the code to compile, because AF_INET6 and ICMPV6_ECHO_REQUEST
+are defined even if CONFIG_IPV6=n. It's also not necessary at runtime,
+because if we get here with family = AF_INET6 even though IPv6 is
+disabled, then then there's already a problem. Adding the ifdef also
+makes the function much hard to read.
 
-							Thanx, Paul
+>
+>  /*
+> @@ -472,11 +480,13 @@ void ping_err(struct sk_buff *skb, int offset, u32 info)
+>                 type = icmp_hdr(skb)->type;
+>                 code = icmp_hdr(skb)->code;
+>                 icmph = (struct icmphdr *)(skb->data + offset);
+> +#if IS_ENABLED(CONFIG_IPV6)
+>         } else if (skb->protocol == htons(ETH_P_IPV6)) {
+>                 family = AF_INET6;
+>                 type = icmp6_hdr(skb)->icmp6_type;
+>                 code = icmp6_hdr(skb)->icmp6_code;
+>                 icmph = (struct icmphdr *) (skb->data + offset);
+> +#endif
+>         } else {
+>                 BUG();
+>         }
+
+I think this is unnecessary too. ping_err is only called by icmp_err
+and by icmpv6_err, and if icmp_err is calling us on an IPv4 packet, or
+if icmpv6_err is calling us when IPv6 is unloaded, then there are
+bigger problems.
