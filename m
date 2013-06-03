@@ -1,76 +1,79 @@
-From: Emil Goode <emilgoode@gmail.com>
-Subject: [PATCH] net: ipv6: Fix incompatible pointer type warning
-Date: Mon,  3 Jun 2013 14:21:08 +0200
-Message-ID: <1370262068-16658-1-git-send-email-emilgoode@gmail.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH v8 net-next 2/7] net: add low latency
+	socket poll
+Date: Mon, 3 Jun 2013 15:22:29 +0300
+Message-ID: <51AC8A85.5020605@mellanox.com>
+References: <20130603080107.18273.34279.stgit@ladj378.jer.intel.com>
+	<20130603080128.18273.2408.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: lorenzo@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Emil Goode <emilgoode@gmail.com>
-To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, Don,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
+	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>,
+	David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130603080128.18273.2408.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-This fixes the sparse warning below about assignment from
-incompatible pointer type.
+On 03/06/2013 11:01, Eliezer Tamir wrote:
+> diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+> index 741db5fc..ae98c95 100644
+> --- a/net/core/sysctl_net_core.c
+> +++ b/net/core/sysctl_net_core.c
+> @@ -19,6 +19,7 @@
+>  #include <net/ip.h>
+>  #include <net/sock.h>
+>  #include <net/net_ratelimit.h>
+> +#include <net/ll_poll.h>
+>  
+>  static int one = 1;
+>  
+> @@ -284,6 +285,15 @@ static struct ctl_table net_core_table[] = {
+>  		.proc_handler	= flow_limit_table_len_sysctl
+>  	},
+>  #endif /* CONFIG_NET_FLOW_LIMIT */
+> +#ifdef CONFIG_NET_LL_RX_POLL
+> +	{
+> +		.procname	= "low_latency_poll",
+> +		.data		= &sysctl_net_ll_poll,
+> +		.maxlen		= sizeof(unsigned long),
+One more thing I just noticed: should be 'sizeof(int)'.
+Because proc_dointvec is expecting an int, sizeof(unsigned long) will
+produce an array of two ints.
 
-In the following commit the third argument in function ipv6_chk_addr
-was changed to const and struct nf_ipv6_ops was introduced with
-the third argument of .chk_addr beeing const.
 
-2a7851bffb008ff4882eee673da74718997b4265
-("netfilter: add nf_ipv6_ops hook to fix xt_addrtype with IPv6")
+> +		.mode		= 0644,
+> +		.proc_handler	= proc_dointvec
+> +	},
+> +#endif
+>  #endif /* CONFIG_NET */
+>  	{
+>  		.procname	= "netdev_budget",
 
-The below commit introduced the warning as the third argument of
-dummy_ipv6_chk_addr and .ipv6_chk_addr in struct pingv6_ops is
-missing a const.
 
-6d0bfe22611602f36617bc7aa2ffa1bbb2f54c67
-("net: ipv6: Add IPv6 support to the ping socket.")
-
-Sparse output:
-
-net/ipv6/ping.c: In function =E2=80=98pingv6_init=E2=80=99:
-net/ipv6/ping.c:87:27: warning:
-	assignment from incompatible pointer type [enabled by default]
-
-Signed-off-by: Emil Goode <emilgoode@gmail.com>
----
- include/net/ping.h |    2 +-
- net/ipv6/ping.c    |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/include/net/ping.h b/include/net/ping.h
-index 9242fa0..2db4860 100644
---- a/include/net/ping.h
-+++ b/include/net/ping.h
-@@ -38,7 +38,7 @@ struct pingv6_ops {
- 	void (*ipv6_icmp_error)(struct sock *sk, struct sk_buff *skb, int err=
-,
- 				__be16 port, u32 info, u8 *payload);
- 	int (*ipv6_chk_addr)(struct net *net, const struct in6_addr *addr,
--			     struct net_device *dev, int strict);
-+			     const struct net_device *dev, int strict);
- };
-=20
- struct ping_table {
-diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
-index a6462d6..c2e9669 100644
---- a/net/ipv6/ping.c
-+++ b/net/ipv6/ping.c
-@@ -73,7 +73,7 @@ int dummy_icmpv6_err_convert(u8 type, u8 code, int *e=
-rr)
- void dummy_ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int e=
-rr,
- 			    __be16 port, u32 info, u8 *payload) {}
- int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
--			struct net_device *dev, int strict)
-+			const struct net_device *dev, int strict)
- {
- 	return 0;
- }
---=20
-1.7.10.4
+------------------------------------------------------------------------------
+Get 100% visibility into Java/.NET code with AppDynamics Lite
+It's a free troubleshooting tool designed for production
+Get down to code-level detail for bottlenecks, with <2% overhead.
+Download for free and get started troubleshooting in minutes.
+http://p.sf.net/sfu/appdyn_d2d_ap2
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
