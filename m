@@ -1,37 +1,35 @@
-From: Baruch Siach <baruch@tkos.co.il>
-Subject: [PATCH] net: mark netdev_create_hash __net_init
-Date: Mon,  3 Jun 2013 09:43:55 +0300
-Message-ID: <7cbbda0ef5f9aef68eeb6553761e0b325102547f.1370241801.git.baruch@tkos.co.il>
-Cc: Baruch Siach <baruch@tkos.co.il>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 1/3] ipv4: properly refresh rtable entries on
+ pmtu/redirect events
+Date: Mon, 03 Jun 2013 00:09:57 -0700 (PDT)
+Message-ID: <20130603.000957.1597052548574442658.davem@davemloft.net>
+References: <20130527.233844.2081972819091665848.davem@davemloft.net>
+	<1369723593-5307-1-git-send-email-timo.teras@iki.fi>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com
+To: timo.teras@iki.fi
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tango.tkos.co.il ([62.219.50.35]:51045 "EHLO tango.tkos.co.il"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751110Ab3FCHDg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 03:03:36 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:37911 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750861Ab3FCHJ6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:09:58 -0400
+In-Reply-To: <1369723593-5307-1-git-send-email-timo.teras@iki.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-netdev_create_hash() is only called from netdev_init() which is marked
-__net_init.
+=46rom: Timo Ter=E4s <timo.teras@iki.fi>
+Date: Tue, 28 May 2013 09:46:31 +0300
 
-Signed-off-by: Baruch Siach <baruch@tkos.co.il>
----
- net/core/dev.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> This reverts commit 05ab86c5 (xfrm4: Invalidate all ipv4 routes on
+> IPsec pmtu events). Flushing all cached entries is not needed.
+>=20
+> Instead, invalidate only the related next hop dsts to recheck for
+> the added next hop exception where needed. This also fixes a subtle
+> race due to bumping generation id's before updating the pmtu.
+>=20
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Signed-off-by: Timo Ter=E4s <timo.teras@iki.fi>
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fc1e289..36dd48d 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -6014,7 +6014,7 @@ netdev_features_t netdev_increment_features(netdev_features_t all,
- }
- EXPORT_SYMBOL(netdev_increment_features);
- 
--static struct hlist_head *netdev_create_hash(void)
-+static struct hlist_head * __net_init netdev_create_hash(void)
- {
- 	int i;
- 	struct hlist_head *hash;
--- 
-1.7.10.4
+Applied.
