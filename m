@@ -1,48 +1,40 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v2] ping: always initialize ->sin6_scope_id and ->sin6_flowinfo
-Date: Mon,  3 Jun 2013 16:43:52 +0800
-Message-ID: <1370249032-14903-1-git-send-email-amwang@redhat.com>
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH] include/linux/skbuff.h: using '0xffff' instead of '~0U'
+Date: Mon, 03 Jun 2013 16:52:14 +0800
+Message-ID: <51AC593E.4070503@asianux.com>
+References: <51A6EBC5.7040601@asianux.com> <1369927806.2414.2.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: edumazet@google.com, Pravin Shelar <pshelar@nicira.com>,
+	mgorman@suse.de, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47269 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751100Ab3FCIoD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 04:44:03 -0400
+Received: from intranet.asianux.com ([58.214.24.6]:64492 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752884Ab3FCIxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 04:53:03 -0400
+In-Reply-To: <1369927806.2414.2.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+On 05/30/2013 11:30 PM, Ben Hutchings wrote:
+> On Thu, 2013-05-30 at 14:03 +0800, Chen Gang wrote:
+>> > Both 'transport_header' and 'mac_header' are u16, which are never equal
+>> > to '~0U'.
+>> > 
+>> > So need use '0xffff' instead of '~0U'.
+> ..and give this magic number a name?
 
-If we don't need scope id, we should initialize it to zero.
-Same for ->sin6_flowinfo.
+It sounds a good idea. I will check which name is suitable for it, then
+send patch v2, and please help to check it, too.
 
-Cc: Lorenzo Colitti <lorenzo@google.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- net/ipv4/ping.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 71f6ad0..0f419a2 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -892,12 +892,12 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		sin6->sin6_port = 0;
- 		sin6->sin6_addr = ip6->saddr;
- 
-+		sin6->sin6_flowinfo = 0;
- 		if (np->sndflow)
- 			sin6->sin6_flowinfo = ip6_flowinfo(ip6);
- 
--		if (__ipv6_addr_needs_scope_id(
--		    ipv6_addr_type(&sin6->sin6_addr)))
--			sin6->sin6_scope_id = IP6CB(skb)->iif;
-+		sin6->sin6_scope_id = ipv6_iface_scope_id(&sin6->sin6_addr,
-+							  IP6CB(skb)->iif);
- 
- 		if (inet6_sk(sk)->rxopt.all)
- 			pingv6_ops.ip6_datagram_recv_ctl(sk, msg, skb);
+Thanks.
+-- 
+Chen Gang
+
+Asianux Corporation
