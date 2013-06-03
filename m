@@ -1,47 +1,35 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next 2/2] ping: use ipv6_iface_scope_id() to get scope id
-Date: Mon,  3 Jun 2013 13:55:59 +0800
-Message-ID: <1370238959-32008-2-git-send-email-amwang@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [Patch net-next 1/2] ping: some cleanup for net/ipv4/ping.c
+Date: Sun, 02 Jun 2013 22:59:07 -0700
+Message-ID: <1370239147.2025.0.camel@joe-AO722>
 References: <1370238959-32008-1-git-send-email-amwang@redhat.com>
-Cc: Lorenzo Colitti <lorenzo@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Lorenzo Colitti <lorenzo@google.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:34631 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751069Ab3FCF4N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 01:56:13 -0400
+Received: from perches-mx.perches.com ([206.117.179.246]:38397 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751069Ab3FCF7V (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 01:59:21 -0400
 In-Reply-To: <1370238959-32008-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+On Mon, 2013-06-03 at 13:55 +0800, Cong Wang wrote:
+> From: Cong Wang <amwang@redhat.com>
+[]
+> 3. fix "%pI6c" format
+[]
+> diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
+[]
+> @@ -318,7 +318,7 @@ int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
+>  			return -EINVAL;
+>  
+>  		pr_debug("ping_check_bind_addr(sk=%p,addr=%pI6c,port=%d)\n",
+> -			 sk, addr->sin6_addr.s6_addr, ntohs(addr->sin6_port));
+> +			 sk, &addr->sin6_addr, ntohs(addr->sin6_port));
 
-If we don't need scope id, we should initialize it to zero.
-
-Cc: Lorenzo Colitti <lorenzo@google.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- net/ipv4/ping.c |    5 ++---
- 1 files changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-index 8c92781..b1993b3 100644
---- a/net/ipv4/ping.c
-+++ b/net/ipv4/ping.c
-@@ -905,9 +905,8 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 		if (np->sndflow)
- 			sin6->sin6_flowinfo = ip6_flowinfo(ip6);
- 
--		if (__ipv6_addr_needs_scope_id(
--		    ipv6_addr_type(&sin6->sin6_addr)))
--			sin6->sin6_scope_id = IP6CB(skb)->iif;
-+		sin6->sin6_scope_id = ipv6_iface_scope_id(&sin6->sin6_addr,
-+							  IP6CB(skb)->iif);
- 
- 		if (inet6_sk(sk)->rxopt.all)
- 			pingv6_ops.ip6_datagram_recv_ctl(sk, msg, skb);
--- 
-1.7.7.6
+why does this matter?
