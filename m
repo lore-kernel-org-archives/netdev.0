@@ -1,32 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ibm-ethernet: delete stale MCA and duplicate
- PSERIES dependency
-Date: Mon, 03 Jun 2013 00:24:56 -0700 (PDT)
-Message-ID: <20130603.002456.1252281827351088397.davem@davemloft.net>
-References: <1369836834-9941-1-git-send-email-paul.gortmaker@windriver.com>
+Subject: Re: [PATCH net-next]] icmp: fix icmp_unreach() comment.
+Date: Mon, 03 Jun 2013 00:27:38 -0700 (PDT)
+Message-ID: <20130603.002738.128113162144981709.davem@davemloft.net>
+References: <1370255005-3047-1-git-send-email-ramirose@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38063 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38084 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750925Ab3FCHY5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:24:57 -0400
-In-Reply-To: <1369836834-9941-1-git-send-email-paul.gortmaker@windriver.com>
+	with ESMTP id S1750861Ab3FCH1j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:27:39 -0400
+In-Reply-To: <1370255005-3047-1-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Wed, 29 May 2013 10:13:54 -0400
+From: Rami Rosen <ramirose@gmail.com>
+Date: Mon,  3 Jun 2013 13:23:25 +0300
 
-> MCA support has been removed but this dependency escaped removal.
-> Also, there is a duplicate PPC_PSERIES dependency that appeared
-> when the ethernet drivers were separated into vendor/model
-> specific directories, so we remove that here as well.
+> ICMP_PARAMETERPROB is handled by icmp_unreach(); This patch adds
+> ICMP_PARAMETERPROB to the list of ICMP message types handled by icmp_unreach().
 > 
-> Reported-by: Robert de Rooy <robert.de.rooy@gmail.com>
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Applied, thanks Paul.
+Good catch, applied, thanks Rami!
