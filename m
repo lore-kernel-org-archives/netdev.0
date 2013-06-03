@@ -1,60 +1,100 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [Patch net-next 2/2] ping: use ipv6_iface_scope_id() to get scope id
-Date: Mon, 3 Jun 2013 16:59:58 +0900
-Message-ID: <CAKD1Yr1gSjGq-G-G_YLgpUNTy5P8H-OD+rnqLCyW18mVB_bGDg@mail.gmail.com>
-References: <1370238959-32008-1-git-send-email-amwang@redhat.com> <1370238959-32008-2-git-send-email-amwang@redhat.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH v8 net-next 0/7] net: low latency Ethernet device polling
+Date: Mon, 03 Jun 2013 11:01:07 +0300
+Message-ID: <20130603080107.18273.34279.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f43.google.com ([209.85.128.43]:57342 "EHLO
-	mail-qe0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751167Ab3FCIAT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 04:00:19 -0400
-Received: by mail-qe0-f43.google.com with SMTP id k5so2168091qej.30
-        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 01:00:18 -0700 (PDT)
-In-Reply-To: <1370238959-32008-2-git-send-email-amwang@redhat.com>
+Received: from mga02.intel.com ([134.134.136.20]:10009 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751167Ab3FCIBN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 04:01:13 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 3, 2013 at 2:55 PM, Cong Wang <amwang@redhat.com> wrote:
-> From: Cong Wang <amwang@redhat.com>
->
-> If we don't need scope id, we should initialize it to zero.
->
-> Cc: Lorenzo Colitti <lorenzo@google.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
-> ---
->  net/ipv4/ping.c |    5 ++---
->  1 files changed, 2 insertions(+), 3 deletions(-)
->
-> diff --git a/net/ipv4/ping.c b/net/ipv4/ping.c
-> index 8c92781..b1993b3 100644
-> --- a/net/ipv4/ping.c
-> +++ b/net/ipv4/ping.c
-> @@ -905,9 +905,8 @@ int ping_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
->                 if (np->sndflow)
->                         sin6->sin6_flowinfo = ip6_flowinfo(ip6);
->
-> -               if (__ipv6_addr_needs_scope_id(
-> -                   ipv6_addr_type(&sin6->sin6_addr)))
-> -                       sin6->sin6_scope_id = IP6CB(skb)->iif;
-> +               sin6->sin6_scope_id = ipv6_iface_scope_id(&sin6->sin6_addr,
-> +                                                         IP6CB(skb)->iif);
->
->                 if (inet6_sk(sk)->rxopt.all)
->                         pingv6_ops.ip6_datagram_recv_ctl(sk, msg, skb);
-> --
-> 1.7.7.6
->
+David,
 
-Good catch, thanks. While you're at it - if np->sndflow is false,
-sin6_flowinfo is not being initialized either. Care to fix that too?
-The other functions do this like this:
+Here is v8 with yet more fixes.
 
-sin->sin6_flowinfo = 0;
-if (np->sndflow)
-        sin6->sin6_flowinfo = ip6_flowinfo(ip6);
+Please consider applying.
+
+Thanks to everyone for their input.
+
+-Eliezer
+
+change log:
+v8
+- split out udp and select/poll into seperate patches.
+  what used to be patch 2/5 is now three patches.
+- type corrections from Amir Vadai and Cong Wang:
+  one unsigned long that was left when chenging to cycles_t
+  int -> bool 
+- more detailed patch descriptions.
+
+v7
+- suggested by Ben Hutchings and Eric Dumazet:
+  type fixes, static for globals in net/core.c,
+  avoid napi_id collisions in napi_hash_add()
+
+v6
+- many small fixes suggested by Eric Dumazet:
+  data locality, typos, documentation
+  protect napi_hash insert/delete with a spinlock (napi_gen_id is no
+  longer atomic_t since it's only accessed with the spinlock held.)
+- added IPv6 TCP and UDP support (only minimally tested)
+
+v5
+- corrections suggested by Ben Hutchings:
+  fixed typos, moved the config option and sysctl value from IPv4 to net
+- moved sk_mark_ll() to the protocol handlers
+- removed global id mechanism, replaced with a hashed napi_id.
+  based on code sample from Eric Dumazet
+  Note that ixgbe_free_q_vector() already waits an rcu grace period
+  before freeing the q_vector, so nothing additional needs to be done
+  when adding a call to napi_hash_del().
+- simple poll/select support
+
+v4
+- removed separate config option for TCP as suggested Eric Dumazet.
+- added linux mib counter for packets received through the low latency path,
+  as suggested by Andi Kleen.
+- re-allow module unloading, remove module param, use a global generation id
+  instead to prevent the use of a stale napi pointer, as suggested
+  by Eric Dumazet
+- updated Documentation/networking/ip-sysctl.txt text
+
+v3
+- coding style changes suggested by Dave Miller
+
+v2
+- the sysctl knob is now in microseconds. The default value is now 0 (off).
+- for now the code depends at configure time on CONFIG_I86_TSC 
+- the napi reference in struct skb is now a union with the dma cookie
+  since the former is only used on RX and the latter on TX,
+  as suggested by Eric Dumazet.
+- we do a better job at honoring non-blocking operations.
+- removed busy-polling support for tcp_read_sock()
+- remove dynamic disabling of GRO
+- coding style fixes
+- disallow unloading the device module after the feature has been used
+
+Credit:
+Jesse Brandeburg, Arun Chekhov Ilango, Julie Cummings,
+Alexander Duyck, Eric Geisler, Jason Neighbors, Yadong Li,
+Mike Polehn, Anil Vasudevan, Don Wood
+Special thanks for finding bugs in earlier versions:
+Willem de Bruijn and Andi Kleen
