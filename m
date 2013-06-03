@@ -1,26 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tg3: remove redundant pm init code
-Date: Mon, 03 Jun 2013 00:49:16 -0700 (PDT)
-Message-ID: <20130603.004916.406462343477494169.davem@davemloft.net>
-References: <1370244981-11716-1-git-send-email-wangyijing@huawei.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	guohanjun@huawei.com, liuj97@gmail.com
-To: wangyijing@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1370244981-11716-1-git-send-email-wangyijing@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tom Parkin <tparkin@katalix.com>
+Subject: [PATCH] l2tp: avoid checksum offload for fragmented packets
+Date: Mon,  3 Jun 2013 08:49:21 +0100
+Message-ID: <1370245762-5126-1-git-send-email-tparkin@katalix.com>
+Cc: jchapman@katalix.com, Tom Parkin <tparkin@katalix.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from katalix.com ([82.103.140.233]:41174 "EHLO bert.katalix.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751100Ab3FCHta (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 03:49:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Mon, 3 Jun 2013 15:36:21 +0800
+UDP encapsulated L2TP data is currently subject to checksum errors if hardware
+checksum offload is used and the packet is fragmented through the L2TP tunnel.
 
-> Pci_enable_device() will set device pm state to D0, so
-> it's no need to do it again in tg3_init_one().
-> 
-> Acked-by: Michael Chan <mchan@broadcom.com>
-> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+This patch works around this issue by falling back to software checksumming if
+the packet will fragment.
 
-This looks better, applied, thanks.
+This patch is based on the previous RFC patch, with the following ammendments:
+
+	* Ben LaHaise's comments on header length calculation and IPv6
+	  checksumming have been integrated
+
+	* l2tp_xmit_ipv6_csum has been updated in a similar manner to the new
+	  l2tp_xmit_ipv4_csum
+
+Tom Parkin (1):
+  l2tp: avoid checksum offload for fragmented packets
+
+ net/l2tp/l2tp_core.c |   65 +++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 46 insertions(+), 19 deletions(-)
+
+-- 
+1.7.9.5
