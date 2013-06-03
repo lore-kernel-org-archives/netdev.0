@@ -1,22 +1,83 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: Inquiry About How to Make Reliable Wireless Injection Using MAC80211
-Date: Tue, 04 Jun 2013 00:17:52 +0200
-Message-ID: <51AD1610.8010200@redhat.com>
-References: <51ACF5CA.2060709@iol.unh.edu>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH nf-next] netfilter: xt_socket: add XT_SOCKET_NOWILDCARD flag
+Date: Mon, 03 Jun 2013 15:57:29 -0700
+Message-ID: <1370300249.24311.190.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Craig Chabot <cly34@iol.unh.edu>
-To: Jackson Corson <jcorson@iol.unh.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59324 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758944Ab3FCWR7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 18:17:59 -0400
-In-Reply-To: <51ACF5CA.2060709@iol.unh.edu>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Haven't heard about Lorcon2, but basically PF_PACKET can inject raw 802.11
-packets on monitor devices. E.g. I've seen some scripts generating trafgen
-configs to send out beacon frames advertising an arbitrary fake SSID.
+From: Eric Dumazet <edumazet@google.com>
+
+xt_socket module can be a nice replacement to conntrack module
+in some cases (SYN filtering for example)
+
+But it lacks the ability to match the 3rd packet of TCP
+handshake (ACK coming from the client).
+
+Add a XT_SOCKET_NOWILDCARD flag to disable the wildcard mechanism
+
+iptables -I INPUT -p tcp --syn -j SYN_CHAIN
+iptables -I INPUT -m socket -j ACCEPT
+
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+---
+ include/uapi/linux/netfilter/xt_socket.h |    1 +
+ net/netfilter/xt_socket.c                |   14 ++++++++++----
+ 2 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/include/uapi/linux/netfilter/xt_socket.h b/include/uapi/linux/netfilter/xt_socket.h
+index 26d7217..be1994fb 100644
+--- a/include/uapi/linux/netfilter/xt_socket.h
++++ b/include/uapi/linux/netfilter/xt_socket.h
+@@ -5,6 +5,7 @@
+ 
+ enum {
+ 	XT_SOCKET_TRANSPARENT = 1 << 0,
++	XT_SOCKET_NOWILDCARD = 1 << 1,
+ };
+ 
+ struct xt_socket_mtinfo1 {
+diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
+index 0270424..9843314 100644
+--- a/net/netfilter/xt_socket.c
++++ b/net/netfilter/xt_socket.c
+@@ -163,8 +163,11 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
+ 		bool wildcard;
+ 		bool transparent = true;
+ 
+-		/* Ignore sockets listening on INADDR_ANY */
+-		wildcard = (sk->sk_state != TCP_TIME_WAIT &&
++		/* Ignore sockets listening on INADDR_ANY,
++		 * unless XT_SOCKET_NOWILDCARD is set
++		 */
++		wildcard = (!(info->flags & XT_SOCKET_NOWILDCARD) &&
++			    sk->sk_state != TCP_TIME_WAIT &&
+ 			    inet_sk(sk)->inet_rcv_saddr == 0);
+ 
+ 		/* Ignore non-transparent sockets,
+@@ -302,8 +305,11 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
+ 		bool wildcard;
+ 		bool transparent = true;
+ 
+-		/* Ignore sockets listening on INADDR_ANY */
+-		wildcard = (sk->sk_state != TCP_TIME_WAIT &&
++		/* Ignore sockets listening on INADDR_ANY
++		 * unless XT_SOCKET_NOWILDCARD is set
++		 */
++		wildcard = (!(info->flags & XT_SOCKET_NOWILDCARD) &&
++			    sk->sk_state != TCP_TIME_WAIT &&
+ 			    ipv6_addr_any(&inet6_sk(sk)->rcv_saddr));
+ 
+ 		/* Ignore non-transparent sockets,
+
+
