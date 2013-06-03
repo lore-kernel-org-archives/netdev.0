@@ -1,62 +1,96 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2 net-next] netlink: allow large data transfers from
- user-space
-Date: Mon, 03 Jun 2013 11:00:37 -0700
-Message-ID: <1370282437.24311.175.camel@edumazet-glaptop>
-References: <1370277599-27072-1-git-send-email-pablo@netfilter.org>
-	 <1370279559.24311.160.camel@edumazet-glaptop>
-	 <20130603174138.GA28338@localhost>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [PATCH net-next] net/mlx4: use one page fragment per incoming
+ frame
+Date: Mon, 03 Jun 2013 11:05:41 -0700
+Message-ID: <51ACDAF5.2040008@hp.com>
+References: <1370282095.24311.171.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>, Amir Vadai <amirv@mellanox.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f173.google.com ([209.85.192.173]:56765 "EHLO
-	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753368Ab3FCSAi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 14:00:38 -0400
-Received: by mail-pd0-f173.google.com with SMTP id v10so1013599pde.32
-        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 11:00:38 -0700 (PDT)
-In-Reply-To: <20130603174138.GA28338@localhost>
+Received: from g5t0007.atlanta.hp.com ([15.192.0.44]:21434 "EHLO
+	g5t0007.atlanta.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758131Ab3FCSFn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 14:05:43 -0400
+In-Reply-To: <1370282095.24311.171.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-03 at 19:41 +0200, Pablo Neira Ayuso wrote:
-> Hi Eric!
-> 
-> On Mon, Jun 03, 2013 at 10:12:39AM -0700, Eric Dumazet wrote:
-> > On Mon, 2013-06-03 at 18:39 +0200, Pablo Neira Ayuso wrote:
-> > 
-> > > +	if (is_vmalloc_addr(skb->head)) {
-> > > +		vfree(skb->head);
-> > > +		skb->data = NULL;
-> > > +	}
-> > >  
-> > 
-> > You probably meant :
-> > 
-> > 	skb->head = NULL;
-> > 
-> > Now, cross our fingers we do not skb_orphan() these skb too early :)
-> 
-> skb_release_all checks for skb->data != NULL to release skb->head as
-> it would have been allocated via kmalloc. This didn't look very
-> intuitive to me when I hit a panic while testing my patch either.
+On 06/03/2013 10:54 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> mlx4 driver has a suboptimal memory allocation strategy for regular
+> MTU=1500 frames, as it uses two page fragments :
+>
+> One of 512 bytes and one of 1024 bytes.
+>
+> This makes GRO less effective, as each GSO packet contains 8 MSS instead
+> of 16 MSS.
+>
+> Performance of a single TCP flow gains 25 % increase with the following
+> patch.
+ >
+> Before patch :
+>
+> A:~# netperf -H 192.168.0.2 -Cc
+> MIGRATED TCP STREAM TEST ...
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+>
+>   87380  16384  16384    10.00      13798.47   3.06     4.20     0.436   0.598
+>
+> After patch :
+>
+> A:~# netperf -H 192.68.0.2 -Cc
+> MIGRATED TCP STREAM TEST ...
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+>
+>   87380  16384  16384    10.00      17273.80   3.44     4.19     0.391   0.477
 
-Oh well, this is probably an old typo because of skb_release_data() name
 
-So we indeed do :
+I take it this is a > 10 Gbit/s NIC?
 
-	if (likely(skb->data))
-		skb_release_data(skb);
+What if any is the downside to an incoming stream of small packets?
 
-But it really should be
+rick jones
 
-	if (likely(skb->head))
-		skb_release_head(skb);
-
-as skb->data is not pointing to the beginning of the area to be freed.
-
-BTW, __alloc_skb_head() inits skb->data to NULL, and leaves skb->head
-uninitialized. Thats is really not nice...
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Amir Vadai <amirv@mellanox.com>
+> ---
+>   drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    6 +++---
+>   1 file changed, 3 insertions(+), 3 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> index b1d7657..b1f51c1 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> @@ -98,11 +98,11 @@
+>   #define MLX4_EN_ALLOC_SIZE	PAGE_ALIGN(16384)
+>   #define MLX4_EN_ALLOC_ORDER	get_order(MLX4_EN_ALLOC_SIZE)
+>
+> -/* Receive fragment sizes; we use at most 4 fragments (for 9600 byte MTU
+> +/* Receive fragment sizes; we use at most 3 fragments (for 9600 byte MTU
+>    * and 4K allocations) */
+>   enum {
+> -	FRAG_SZ0 = 512 - NET_IP_ALIGN,
+> -	FRAG_SZ1 = 1024,
+> +	FRAG_SZ0 = 1536 - NET_IP_ALIGN,
+> +	FRAG_SZ1 = 4096,
+>   	FRAG_SZ2 = 4096,
+>   	FRAG_SZ3 = MLX4_EN_ALLOC_SIZE
+>   };
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
