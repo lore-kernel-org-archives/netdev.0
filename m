@@ -1,66 +1,74 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v2] include/linux/skbuff.h: using '(u16) ~0U' instead of '~0U'
-Date: Mon, 3 Jun 2013 14:34:42 +0300
-Message-ID: <CAHp75VdSFRO2T_2Z1cVw_2Frk5MNLUBKd+p8S1sw_MBM+pyu=g@mail.gmail.com>
-References: <51A6EBC5.7040601@asianux.com>
-	<CAHp75VfWvXkaoYQ_40idSsLYUA=YqaswnV2y-hODHjt7JMHQvQ@mail.gmail.com>
-	<51AC60AA.8010107@asianux.com>
-	<CAHp75Vc19Kii7_TF+9aF4ZeKAa4_92DCVL+u1duZDTu38o2qsw@mail.gmail.com>
-	<51AC7546.4010002@asianux.com>
-	<51AC7CD4.2060801@asianux.com>
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Subject: RE: [PATCH net] bnx2x: fix TCP offload for tunneling ipv4 over
+ ipv6
+Date: Mon, 3 Jun 2013 11:45:24 +0000
+Message-ID: <504C9EFCA2D0054393414C9CB605C37F20C96065@SJEXCHMB06.corp.ad.broadcom.com>
+References: <1370251721-24668-1-git-send-email-dmitry@broadcom.com>
+ <51AC7DB3.70908@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: edumazet@google.com, Pravin Shelar <pshelar@nicira.com>,
-	Mel Gorman <mgorman@suse.de>,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Chen Gang <gang.chen@asianux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51AC7CD4.2060801@asianux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Ariel Elior" <ariele@broadcom.com>,
+	"Eilon Greenstein" <eilong@broadcom.com>
+To: "Sergei Shtylyov" <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:4630 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752448Ab3FCLpd convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 07:45:33 -0400
+In-Reply-To: <51AC7DB3.70908@cogentembedded.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 3, 2013 at 2:24 PM, Chen Gang <gang.chen@asianux.com> wrote:
+> -----Original Message-----
+> From: Sergei Shtylyov [mailto:sergei.shtylyov@cogentembedded.com]
+> Sent: Monday, June 03, 2013 2:28 PM
+> To: Dmitry Kravkov
+> Cc: davem@davemloft.net; netdev@vger.kernel.org; Ariel Elior; Eilon Greenstein
+> Subject: Re: [PATCH net] bnx2x: fix TCP offload for tunneling ipv4 over ipv6
+> 
+> Hello.
+> 
+> On 03-06-2013 13:28, Dmitry Kravkov wrote:
+> 
+> > FW was initialized with data from wrong header, this caused TSO packets
+> > have wrong IP csum.
+> 
+> > Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> > Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> > Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> > ---
+> >   drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c | 13 ++++++-------
+> >   1 file changed, 6 insertions(+), 7 deletions(-)
+> 
+> > diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> > index c80f1d2..37c1495 100644
+> > --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> > +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+> > @@ -3198,11 +3198,11 @@ static u32 bnx2x_xmit_type(struct bnx2x *bp, struct sk_buff *skb)
+> >   		rc |= XMIT_CSUM_TCP;
+> >
+> >   	if (skb_is_gso_v6(skb)) {
+> > -		rc |= (XMIT_GSO_V6 | XMIT_CSUM_TCP | XMIT_CSUM_V6);
+> > +		rc |= (XMIT_GSO_V6 | XMIT_CSUM_TCP);
+> 
+>    Maybe it's time to drop the useless ()?
+> 
+> >   		if (rc & XMIT_CSUM_ENC)
+> >   			rc |= XMIT_GSO_ENC_V6;
+> >   	} else if (skb_is_gso(skb)) {
+> > -		rc |= (XMIT_GSO_V4 | XMIT_CSUM_V4 | XMIT_CSUM_TCP);
+> > +		rc |= (XMIT_GSO_V4 | XMIT_CSUM_TCP);
+> 
+>     Oh, here as well...
+> 
+> WBR, Sergei
 >
-> Both 'transport_header' and 'mac_header' are u16, which are never equal
-> to '~0U'.
->
-> So need use '(u16) ~0U' instead of '~0U'.
->
-> The related warning (with EXTRA_CFLAGS=-W ARCH=m68k for allmodconfig)
->   include/linux/skbuff.h:1587:2: warning: comparison is always true due to limited range of data type [-Wtype-limits]
->   ...
->
-> Use meaningful macro instead of hard code number, and better to
-> initialize 'skb->transport_header' in __alloc_skb_head(), too.
+Net tree is not proper place for pure beautification - this can be done in net-next after this functional change is merged there
 
-Looks okay. Couple of questions below.
 
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -40,6 +40,8 @@
->  #define CHECKSUM_COMPLETE 2
->  #define CHECKSUM_PARTIAL 3
->
-> +#define SKB_HEADER_UNSET_16    ((unsigned short) ~0U)
-
-Isn't better to use the same type as used in the structure description?
-
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -200,7 +200,8 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
->         atomic_set(&skb->users, 1);
->
->  #ifdef NET_SKBUFF_DATA_USES_OFFSET
-> -       skb->mac_header = (__u16) ~0U;
-> +       skb->mac_header = SKB_HEADER_UNSET_16;
-> +       skb->transport_header = SKB_HEADER_UNSET_16;
-
-Is it correct to assign transport_header here as well?
-
---
-With Best Regards,
-Andy Shevchenko
+ 
