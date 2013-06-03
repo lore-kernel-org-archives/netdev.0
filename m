@@ -1,163 +1,97 @@
-From: Rob Herring <robherring2@gmail.com>
-Subject: Re: panics in tcp_ack
-Date: Sun, 02 Jun 2013 21:23:12 -0500
-Message-ID: <51ABFE10.1030206@gmail.com>
-References: <51ABE067.2050507@gmail.com> <1370219787.24311.113.camel@edumazet-glaptop>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: updated: kvm networking todo wiki
+Date: Mon, 03 Jun 2013 10:02:43 +0930
+Message-ID: <871u8kuj84.fsf@rustcorp.com.au>
+References: <20130523085034.GA16142@redhat.com> <519F35B7.6010408@redhat.com>
+	<20130524113542.GA7046@redhat.com> <8738tctrox.fsf@codemonkey.ws>
+	<20130524140024.GA12024@redhat.com>
+	<87li6yodgq.fsf@rustcorp.com.au> <87k3miq6sw.fsf@codemonkey.ws>
+	<87r4gpkplc.fsf@rustcorp.com.au>
+	<CAJSP0QWY3z_oGaHNwR0=whYgnDCiGLBC+3Z5oM0x5nwN1RQVqg@mail.gmail.com>
+	<87k3mg60ww.fsf@codemonkey.ws> <20130530134449.GA31649@redhat.com>
+	<8761y034zg.fsf@codemonkey.ws>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f181.google.com ([209.85.216.181]:44599 "EHLO
-	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756538Ab3FCCaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 22:30:13 -0400
-Received: by mail-qc0-f181.google.com with SMTP id u11so1860423qcx.26
-        for <netdev@vger.kernel.org>; Sun, 02 Jun 2013 19:30:12 -0700 (PDT)
-In-Reply-To: <1370219787.24311.113.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm <kvm@vger.kernel.org>, qemu-devel <qemu-devel@nongnu.org>,
+	Linux Virtualization <virtualization@lists.linux-foundation.org>,
+	herbert@gondor.hengli.com.au, netdev@vger.kernel.org
+To: Anthony Liguori <anthony@codemonkey.ws>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <8761y034zg.fsf@codemonkey.ws>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 06/02/2013 07:36 PM, Eric Dumazet wrote:
-> On Sun, 2013-06-02 at 19:16 -0500, Rob Herring wrote:
->> Sorry, this time with proper line wrapping...
+Anthony Liguori <anthony@codemonkey.ws> writes:
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+>
+>> On Thu, May 30, 2013 at 08:40:47AM -0500, Anthony Liguori wrote:
+>>> Stefan Hajnoczi <stefanha@gmail.com> writes:
+>>> 
+>>> > On Thu, May 30, 2013 at 7:23 AM, Rusty Russell <rusty@rustcorp.com.au> wrote:
+>>> >> Anthony Liguori <anthony@codemonkey.ws> writes:
+>>> >>> Rusty Russell <rusty@rustcorp.com.au> writes:
+>>> >>>> On Fri, May 24, 2013 at 08:47:58AM -0500, Anthony Liguori wrote:
+>>> >>>>> FWIW, I think what's more interesting is using vhost-net as a networking
+>>> >>>>> backend with virtio-net in QEMU being what's guest facing.
+>>> >>>>>
+>>> >>>>> In theory, this gives you the best of both worlds: QEMU acts as a first
+>>> >>>>> line of defense against a malicious guest while still getting the
+>>> >>>>> performance advantages of vhost-net (zero-copy).
+>>> >>>>>
+>>> >>>> It would be an interesting idea if we didn't already have the vhost
+>>> >>>> model where we don't need the userspace bounce.
+>>> >>>
+>>> >>> The model is very interesting for QEMU because then we can use vhost as
+>>> >>> a backend for other types of network adapters (like vmxnet3 or even
+>>> >>> e1000).
+>>> >>>
+>>> >>> It also helps for things like fault tolerance where we need to be able
+>>> >>> to control packet flow within QEMU.
+>>> >>
+>>> >> (CC's reduced, context added, Dmitry Fleytman added for vmxnet3 thoughts).
+>>> >>
+>>> >> Then I'm really confused as to what this would look like.  A zero copy
+>>> >> sendmsg?  We should be able to implement that today.
+>>> >>
+>>> >> On the receive side, what can we do better than readv?  If we need to
+>>> >> return to userspace to tell the guest that we've got a new packet, we
+>>> >> don't win on latency.  We might reduce syscall overhead with a
+>>> >> multi-dimensional readv to read multiple packets at once?
+>>> >
+>>> > Sounds like recvmmsg(2).
+>>> 
+>>> Could we map this to mergable rx buffers though?
+>>> 
+>>> Regards,
+>>> 
+>>> Anthony Liguori
 >>
->> I'm debugging a kernel panic in the networking stack that happens with a
->> cluster (20-40 nodes) of Calxeda highbank (ARM Cortex A9) nodes and
->> typically only after 10-24 hours. The node are transferring files
->> between nodes over TCP with 20 clients and servers per node. The kernel
->> is based on ubuntu 3.5 kernel which is based on 3.5.7.11. So far testing
->> has shown that 3.8.11 based (ubuntu raring) kernel is fixed. Attempts to
->> bisect have not yielded results as it seems multiple problems mask the
->> issue. Perhaps there is some new feature which has indirectly fixed the
->> problem in 3.8.
->>
->> This commit appears to fix a similar panic and seems to reduce the
->> frequency after picking it up in the latest 3.5 stable:
->>
->> commit 16fad69cfe4adbbfa813de516757b87bcae36d93
->> Author: Eric Dumazet <edumazet@google.com>
->> Date:   Thu Mar 14 05:40:32 2013 +0000
->>
->>     tcp: fix skb_availroom()
->>         Chrome OS team reported a crash on a Pixel ChromeBook in TCP stack :
->>         https://code.google.com/p/chromium/issues/detail?id=182056
->>         commit a21d45726acac (tcp: avoid order-1 allocations on wifi and tx
->>     path) did a poor choice adding an 'avail_size' field to skb, while
->>     what we really needed was a 'reserved_tailroom' one.
->>         It would have avoided commit 22b4a4f22da (tcp: fix retransmit of
->>     partially acked frames) and this commit.
->>         Crash occurs because skb_split() is not aware of the 'avail_size'
->>     management (and should not be aware)
->>         Signed-off-by: Eric Dumazet <edumazet@google.com>
->>     Reported-by: Mukesh Agrawal <quiche@chromium.org>
->>     Signed-off-by: David S. Miller <davem@davemloft.net>
->>
->> I've searched thru 3.8 and 3.9 stable fixes looking for possibly
->> relevant commits and applied these commits not in 3.5 stable. However,
->> they have not helped:
->>
->> net: drop dst before queueing fragments
->> tcp: call tcp_replace_ts_recent() from tcp_ack()
->> tcp: Reallocate headroom if it would overflow csum_start
->> tcp: incoming connections might use wrong route under synflood
->>
-> 
-> try also :
-> 
-> commit 093162553c33e94 (tcp: force a dst refcount when prequeue packet)
-> commit 0d4f0608619de59 (tcp: dont handle MTU reduction on LISTEN socket)
+>> Yes because we don't have to complete buffers in order.
+>
+> What I meant though was for GRO, we don't know how large the received
+> packet is going to be.  Mergable rx buffers lets us allocate a pool of
+> data for all incoming packets instead of allocating max packet size *
+> max packets.
+>
+> recvmmsg expects an array of msghdrs and I presume each needs to be
+> given a fixed size.  So this seems incompatible with mergable rx
+> buffers.
 
-Will add and test.
+Good point.  You'd need to build 64k buffers to pass to recvmmsg, then
+reuse the parts it didn't touch on the next call.  This limits us to
+about a 16th of what we could do with an interface which understood
+buffer merging, but I don't know how much that would matter in
+practice.  We'd need some benchmarks....
 
-> commit 6731d2095bd4aef (tcp: fix for zero packets_in_flight was too
-> broad)
-> commit 2e5f421211ff76c (tcp: frto should not set snd_cwnd to 0)
-
-I have these 2.
-
-Meanwhile, here's another panic. This one is because struct tcphdr *th
-is NULL which means skb->head is NULL. The skb is not NULL.
-
-<4>[84967.163498] pc : [<c040798c>]    lr : [<c040eda8>]    psr: 600e0013
-<4>[84967.163498] sp : ed335cc8  ip : 00000001  fp : 00000400
-<4>[84967.174970] r10: ed346e34  r9 : 00000001  r8 : c06d71b8
-<4>[84967.180188] r7 : 00000000  r6 : 00000000  r5 : ecd85840  r4 : ecd85840
-<4>[84967.186709] r3 : 00000020  r2 : 0000003a  r1 : a4051080  r0 : ed346e00
-<4>[84967.193234] Flags: nZCv  IRQs on  FIQs on  Mode SVC_32  ISA ARM
-Segment user
-<4>[84967.200365] Control: 10c5387d  Table: 2d08804a  DAC: 00000015
-<0>[84967.206109] Process python (pid: 883, stack limit = 0xed3342f0)
-<0>[84967.212021] Stack: (0xed335cc8 to 0xed336000)
-<0>[84967.216373] 5cc0:                   000005a8 00000000 ed346e00
-c040ac08 c06a5a00 ecd85840
-<0>[84967.224549] 5ce0: ed346e00 ed346e00 00000000 c06d71b8 ed346e34
-c040eda8 ed346ea0 00000000
-<0>[84967.232720] 5d00: 00000000 00000000 e9805380 0000000a 0000001c
-ecd85840 00000000 ed346e00
-<0>[84967.240897] 5d20: 00000000 c03b1d78 e9805380 ed346e00 0000fe88
-3a61054b 00000400 00df2c34
-<0>[84967.249075] 5d40: 00000040 c03fd2b8 0000a400 edf8c840 ed335eb0
-ed335ed8 c23212f0 c23212e0
-<0>[84967.257249] 5d60: 00df2c34 c17720e0 0000000e 00000400 00000400
-000005a8 00000040 ed346ea0
-<0>[84967.265419] 5d80: 00000000 00000000 ed334000 00000001 00010e30
-00000630 00000000 00000000
-<0>[84967.273591] 5da0: 0000000e 0000fe88 00000000 c06d6040 c2aeb380
-ed346e00 ed335e30 eca26000
-<0>[84967.281763] 5dc0: ed335ed8 00000400 00df2834 00000000 00000003
-c041ea58 c795c2e8 ed4ecb50
-<0>[84967.289935] 5de0: 00000000 ed335df0 eca26000 c03aef74 51ab6eeb
-263fddc0 00000000 00000400
-<0>[84967.298105] 5e00: eca26000 00000000 00000000 ed335ed8 01d0d6eb
-c00cb4d8 00000056 00000000
-<0>[84967.306294] 5e20: 91827364 ed335e24 00001000 00000001 ed9b4050
-00000000 00000000 00000001
-<0>[84967.314472] 5e40: ffffffff 00000000 00000000 00000000 00000000
-00000000 ecc3de80 00000001
-<0>[84967.322642] 5e60: 00000000 00000000 00001000 00000000 ed335df0
-00000000 00001000 c0012f28
-<0>[84967.330812] 5e80: fee00100 0002c000 00000000 ed335f88 ed9b4000
-fffffdee ed334000 00000001
-<0>[84967.338983] 5ea0: b6ae35f8 c010aa38 0002c000 00000000 00000400
-eca26000 c06a4508 00000000
-<0>[84967.347152] 5ec0: 00000040 c03b07d4 fffffff7 00000000 00df2834
-00000400 00000000 00000000
-<0>[84967.355321] 5ee0: ed335ed0 00000001 00000000 00000000 00000040
-00000000 00000000 c0223254
-<0>[84967.363495] 5f00: 00001000 00000000 00001000 00000000 00000001
-ed9b4008 600e0013 ffffffff
-<0>[84967.371666] 5f20: c000dbc4 c06ff504 ffffffff 00000000 00014be7
-03614c11 ed335f90 00000000
-<0>[84967.379858] 5f40: 0000000a ed335f68 c000dd28 ed334000 00000000
-00000003 0000000a 0000000a
-<0>[84967.388032] 5f60: 00000000 0002c000 00014bf1 00002710 00000001
-271ae81b b6aecd90 00000000
-<0>[84967.396203] 5f80: 00d25050 00000121 c000dd28 ed334000 00000000
-c03b0828 00000000 00000000
-<0>[84967.404376] 5fa0: be8f2890 c000db60 b6aecd90 00000000 00000006
-00df2834 00000400 00000000
-<0>[84967.412547] 5fc0: b6aecd90 00000000 00d25050 00000121 00000400
-00df2834 b6ad4fd0 00000003
-<0>[84967.420719] 5fe0: 00000000 be8f289c 000a5505 b6f7398c 600e0010
-00000006 00000000 00000000
-<4>[84967.428912] [<c040798c>] (tcp_rcv_established+0x20/0x5e0) from
-[<c040eda8>] (tcp_v4_do_rcv+0xf0/0x2cc)
-<4>[84967.438252] [<c040eda8>] (tcp_v4_do_rcv+0xf0/0x2cc) from
-[<c03b1d78>] (release_sock+0x84/0xfc)
-<4>[84967.446900] [<c03b1d78>] (release_sock+0x84/0xfc) from
-[<c03fd2b8>] (tcp_sendmsg+0x378/0xcdc)
-<4>[84967.455439] [<c03fd2b8>] (tcp_sendmsg+0x378/0xcdc) from
-[<c041ea58>] (inet_sendmsg+0x80/0xb8)
-<4>[84967.463966] [<c041ea58>] (inet_sendmsg+0x80/0xb8) from
-[<c03aef74>] (sock_sendmsg+0xcc/0xec)
-<4>[84967.472404] [<c03aef74>] (sock_sendmsg+0xcc/0xec) from
-[<c03b07d4>] (sys_sendto+0xc0/0xfc)
-<4>[84967.480670] [<c03b07d4>] (sys_sendto+0xc0/0xfc) from [<c03b0828>]
-(sys_send+0x18/0x20)
-<4>[84967.488599] [<c03b0828>] (sys_send+0x18/0x20) from [<c000db60>]
-(ret_fast_syscall+0x0/0x30)
-
-
-Rob
+Cheers,
+Rusty.
