@@ -1,53 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: panics in tcp_ack
-Date: Sun, 02 Jun 2013 20:32:50 -0700
-Message-ID: <1370230370.24311.121.camel@edumazet-glaptop>
-References: <51ABE067.2050507@gmail.com>
-	  <1370219787.24311.113.camel@edumazet-glaptop> <51ABFE10.1030206@gmail.com>
-	 <1370228594.24311.114.camel@edumazet-glaptop> <51AC0B0C.7070306@gmail.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
+ macro
+Date: Sun, 2 Jun 2013 20:42:04 -0700
+Message-ID: <20130603034203.GB29614@linux.vnet.ibm.com>
+References: <1369854387.5109.77.camel@edumazet-glaptop>
+ <51A70CF4.1020807@yandex-team.ru>
+ <1370215895.24311.93.camel@edumazet-glaptop>
+ <20130602.195826.721294433730539253.davem@davemloft.net>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Rob Herring <robherring2@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: eric.dumazet@gmail.com, klamm@yandex-team.ru, brouer@redhat.com,
+	dipankar@in.ibm.com, zhmurov@yandex-team.ru,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, David.Laight@ACULAB.COM
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:33042 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824Ab3FCDcw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 23:32:52 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y11so5000099pdj.0
-        for <netdev@vger.kernel.org>; Sun, 02 Jun 2013 20:32:52 -0700 (PDT)
-In-Reply-To: <51AC0B0C.7070306@gmail.com>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:39217 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750844Ab3FCDmR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 23:42:17 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
+	Sun, 2 Jun 2013 21:42:16 -0600
+Content-Disposition: inline
+In-Reply-To: <20130602.195826.721294433730539253.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-06-02 at 22:18 -0500, Rob Herring wrote:
+On Sun, Jun 02, 2013 at 07:58:26PM -0700, David Miller wrote:
+> From: Eric Dumazet <eric.dumazet@gmail.com>
+> Date: Sun, 02 Jun 2013 16:31:35 -0700
+> 
+> > On Thu, 2013-05-30 at 12:25 +0400, Roman Gushchin wrote:
+> >> On 29.05.2013 23:06, Eric Dumazet wrote:
+> >> > On Wed, 2013-05-29 at 14:09 +0400, Roman Gushchin wrote:
+> >> >
+> >> > True, these lookup functions are usually structured the same around the
+> >> > hlist_nulls_for_each_entry_rcu() loop.
+> >> >
+> >> > A barrier() right before the loop seems to be a benefit, the size of
+> >> > assembly code is reduced by 48 bytes.
+> >> >
+> >> > And its one of the documented way to handle this kind of problems
+> >> > (Documentation/atomic_ops.txt line 114)
+> >> >
+> >> > I guess we should amend this documentation, eventually.
+> >> >
+> >> > Thanks, please add you "Signed-off-by" if you agree with the patch.
+> >> >
+> >> 
+> >> Signed-off-by: Roman Gushchin <klamm@yandex-team.ru>
+> >> 
+> >> Many thanks to you, Paul E. McKenney and David Laight for your
+> >> patches, help and participation in this discussion.
+> > 
+> > Thanks to you !
+> > 
+> > David, is there any problem with the patch ?
+> > 
+> > http://patchwork.ozlabs.org/patch/247360/ says "Not applicable", please
+> > tell me what is needed to get it merged.
+> 
+> It's not a networking patch, it's a patch for generic RCU upstream.
+> So it either goes through Paul McKenney, or directly via Linus on
+> linux-kernel.
 
-> Ah, missed that there are 2 versions of skb_transport_header. So on
-> 32-bit it is skb->transport_header.
-> 
-> Here's the ARM disassembly:
-> 
-> c040796c <tcp_rcv_established>:
-> c040796c:       e92d45f0        push    {r4, r5, r6, r7, r8, sl, lr}
-> c0407970:       e1a06002        mov     r6, r2
-> c0407974:       e5d023e4        ldrb    r2, [r0, #996]  ; 0x3e4
-> c0407978:       e1a05001        mov     r5, r1
-> c040797c:       e5901344        ldr     r1, [r0, #836]  ; 0x344
-> c0407980:       e24dd014        sub     sp, sp, #20
-> c0407984:       e7c0201f        bfc     r2, #0, #1
-> c0407988:       e5c023e4        strb    r2, [r0, #996]  ; 0x3e4
-> panic>c040798c:       e596200c        ldr     r2, [r6, #12]
-> 
-> r6 is NULL. r6 came from r2 which is the 3rd function argument.
-> 
-> The 3rd arg is tcp_hdr(skb) which is skb->transport_header.
-> 
-> Rob
+I would be happy to take it.
 
-Interesting. transport header should be set in IP stack before TCP.
-
-What is the driver delivering this packet ?
-
-Do you have commit fda55eca5a33f33ffcd4192c6b2d75179714a52c
-("net: introduce skb_transport_header_was_set()")
+							Thanx, Paul
