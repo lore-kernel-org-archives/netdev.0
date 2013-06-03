@@ -1,38 +1,43 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] ipvs: info leak in __ip_vs_get_dest_entries()
-Date: Mon, 3 Jun 2013 12:00:49 +0300
-Message-ID: <20130603090049.GA16171@debian>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH net-next v3] netfilter: Correct calculation using skb->tail
+ and skb-network_header
+Date: Mon, 03 Jun 2013 17:06:53 +0800
+Message-ID: <51AC5CAD.6040204@asianux.com>
+References: <1369967969-32375-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Simon Horman <horms@verge.net.au>, Julian Anastasov <ja@ssi.bg>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	kernel-janitors@vger.kernel.org
-To: Wensong Zhang <wensong@linux-vs.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <1369967969-32375-1-git-send-email-horms@verge.net.au>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The entry struct has a 2 byte hole after ->port and another 4 byte
-hole after ->stats.outpkts.  You must have CAP_NET_ADMIN in your
-namespace to hit this information leak.
+On 05/31/2013 10:39 AM, Simon Horman wrote:
+> This corrects an regression introduced by "net: Use 16bits for *_headers
+> fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
+> that case skb->tail will be a pointer whereas skb->network_header
+> will be an offset from head. This is corrected by using wrappers that
+> ensure that calculations are always made using pointers.
+> 
+> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
+> Reported-by: Chen Gang <gang.chen@asianux.com>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> --
+> v3
+> * Add net-next to subject prefix
+> 
+> v2
+> * Use skb_tail_pointer() to ensure the tail portion of the calculation is
+>   always a pointer - it is not if NET_SKBUFF_DATA_USES_OFFSET is not set.
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Thanks.
 
-diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-index df05c1c..e336535 100644
---- a/net/netfilter/ipvs/ip_vs_ctl.c
-+++ b/net/netfilter/ipvs/ip_vs_ctl.c
-@@ -2542,6 +2542,7 @@ __ip_vs_get_dest_entries(struct net *net, const struct ip_vs_get_dests *get,
- 		struct ip_vs_dest *dest;
- 		struct ip_vs_dest_entry entry;
- 
-+		memset(&entry, 0, sizeof(entry));
- 		list_for_each_entry(dest, &svc->destinations, n_list) {
- 			if (count >= get->num_dests)
- 				break;
+-- 
+Chen Gang
+
+Asianux Corporation
