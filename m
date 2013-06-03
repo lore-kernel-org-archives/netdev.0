@@ -1,96 +1,67 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 iproute2] get_rate: detect 32bit overflows
-Date: Mon, 3 Jun 2013 15:37:11 +0100
-Message-ID: <1370270231.1918.10.camel@bwh-desktop.uk.level5networks.com>
-References: <1370199083.24311.43.camel@edumazet-glaptop>
-	 <1370209008.24311.91.camel@edumazet-glaptop>
+From: Felipe Dias <felipediassss@gmail.com>
+Subject: Re: ETH_P_ALL and tcp ports
+Date: Mon, 3 Jun 2013 11:38:42 -0300
+Message-ID: <CAJX4=r1Wh-EEwNJVFBqgbdZ7phdr9OxiPc6nUmCxNJDae5ChFQ@mail.gmail.com>
+References: <CAJX4=r3JivtYLFG=Eh0qiTmyufCF414-h4siJCHoL3wAaRVLKg@mail.gmail.com>
+	<1370269822.1918.5.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:37775 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757501Ab3FCOhP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 10:37:15 -0400
-In-Reply-To: <1370209008.24311.91.camel@edumazet-glaptop>
+Received: from mail-ob0-f195.google.com ([209.85.214.195]:49384 "EHLO
+	mail-ob0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758072Ab3FCOim (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 10:38:42 -0400
+Received: by mail-ob0-f195.google.com with SMTP id eh20so2064011obb.6
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 07:38:42 -0700 (PDT)
+In-Reply-To: <1370269822.1918.5.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-06-02 at 14:36 -0700, Eric Dumazet wrote:
-> Current rate limit is 34.359.738.360 bit per second, and
-> unfortunately 40Gbps links are above it.
-> 
-> overflows in get_rate() are currently not detected, and some
-> users are confused. Let's detect this and complain.
-> 
-> Note that some qdisc are ready to get extended range, but this will
-> need additional attributes and new iproute2
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> v2: divide by 8 only at the right time
-> 
->  tc/tc_util.c |   13 +++++++++----
->  1 file changed, 9 insertions(+), 4 deletions(-)
-> 
-> diff --git a/tc/tc_util.c b/tc/tc_util.c
-> index 8e62a01..8ca9d4e 100644
-> --- a/tc/tc_util.c
-> +++ b/tc/tc_util.c
-> @@ -146,21 +146,26 @@ static const struct rate_suffix {
->  int get_rate(unsigned *rate, const char *str)
->  {
->  	char *p;
-> -	double bps = strtod(str, &p);
-> +	long long bps = strtoll(str, &p, 0);
->  	const struct rate_suffix *s;
->  
->  	if (p == str)
->  		return -1;
->  
->  	if (*p == '\0') {
-> -		*rate = bps / 8.;	/* assume bits/sec */
-> +common:
-> +		bps /= 8; /* -> bytes per second */
-> +		*rate = bps;
-> +		/* detect if an overflow happened */
-> +		if (*rate != bps)
-> +			return -1;
->  		return 0;
->  	}
->  
->  	for (s = suffixes; s->name; ++s) {
->  		if (strcasecmp(s->name, p) == 0) {
-> -			*rate = (bps * s->scale) / 8.;
-> -			return 0;
-> +			bps *= s->scale;
-> +			goto common;
->  		}
->  	}
+Thank you.
 
-This would be more understandable without a goto.  I think this ordering
-would work:
-
-	for (s = suffixes; ...) {
-		if (...) {
-			bps *= s->scale;
-			p += strlen(s->name);
-			break;
-		}
-	}
-
-	if (*p)
-		return -1; /* unrecognised suffix */
-
-	bps /= 8;
-	...
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+On Mon, Jun 3, 2013 at 11:30 AM, Ben Hutchings
+<bhutchings@solarflare.com> wrote:
+> On Sun, 2013-06-02 at 12:42 -0300, Felipe Dias wrote:
+>> Hi, someone might try to tell me what I'm doing wrong, please?
+>>
+>> I have a simple module and I registered one packet handler, in init function:
+>> ---
+>>      pseudo_proto.type = htons(ETH_P_ALL);
+>>      pseudo_proto.dev = NULL;
+>>      pseudo_proto.func = packet_handler;
+>>      dev_add_pack(&pseudo_proto);
+>> ---
+>>
+>> My packet_handler, is a simple function just to print in dmesg info
+>> about the packet, its check if protocol is TCP or UDP before.
+>>
+>> The problem is with TCP headers. I'm trying to get tcp ports with:
+>>
+>> ntohs(tcp_hdr(skb)->dest);
+>>
+>> But always come strange ports numbers.
+>>
+>> My question is: Are the TCP headers filled at this stage ?
+>> Or I have to register another packet_handler with dev_add_pack() after
+>> TCP code have done the heavy work?
+>
+> On the RX path, your packet handler is called before any network or
+> transport layer processing has been done.  You can only assume that the
+> network header pointer will be set.
+>
+> On the TX path, TCP packets generated by the TCP stack will have the
+> transport header set.  But TCP packets that have been forwarded or
+> generated by a raw socket won't.
+>
+> So in either case, you have to parse and validate the IP and TCP headers
+> yourself.
+>
+> Ben.
+>
+> --
+> Ben Hutchings, Staff Engineer, Solarflare
+> Not speaking for my employer; that's the marketing department's job.
+> They asked us to note that Solarflare product names are trademarked.
+>
