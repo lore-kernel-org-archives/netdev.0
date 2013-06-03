@@ -1,89 +1,49 @@
-From: Yijing Wang <wangyijing@huawei.com>
-Subject: [PATCH] tg3: remove redundant pm init code
-Date: Mon, 3 Jun 2013 15:36:21 +0800
-Message-ID: <1370244981-11716-1-git-send-email-wangyijing@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] igmp: remove useless (void) cast
+Date: Mon, 03 Jun 2013 00:38:46 -0700 (PDT)
+Message-ID: <20130603.003846.2026148588738043632.davem@davemloft.net>
+References: <20130531184438.21966f63@nehalam.linuxnetplumber.net>
+	<kobnip$gat$1@ger.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	Hanjun Guo <guohanjun@huawei.com>,
-	Jiang Liu <liuj97@gmail.com>,
-	Yijing Wang <wangyijing@huawei.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([119.145.14.64]:26891 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818Ab3FCHhF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:37:05 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:38126 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818Ab3FCHir (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:38:47 -0400
+In-Reply-To: <kobnip$gat$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pci_enable_device() will set device pm state to D0, so
-it's no need to do it again in tg3_init_one().
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Sat, 1 Jun 2013 02:51:05 +0000 (UTC)
 
-Acked-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Yijing Wang <wangyijing@huawei.com>
----
- drivers/net/ethernet/broadcom/tg3.c |   24 +++---------------------
- 1 files changed, 3 insertions(+), 21 deletions(-)
+> On Sat, 01 Jun 2013 at 01:44 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
+>> Back in the old Unix lint days, it was common to put (void) in front
+>> of functions when return value was being ignored. Now this is considered
+>> unnecessary, catch up with the fashion.
+>>
+> 
+> None of the callers of ip_mc_leave_src() checks its return value, so I
+> think we can just make it void.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 728d42a..ca5bc7e 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -17020,7 +17020,7 @@ static int tg3_init_one(struct pci_dev *pdev,
- {
- 	struct net_device *dev;
- 	struct tg3 *tp;
--	int i, err, pm_cap;
-+	int i, err;
- 	u32 sndmbx, rcvmbx, intmbx;
- 	char str[40];
- 	u64 dma_mask, persist_dma_mask;
-@@ -17042,25 +17042,10 @@ static int tg3_init_one(struct pci_dev *pdev,
- 
- 	pci_set_master(pdev);
- 
--	/* Find power-management capability. */
--	pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
--	if (pm_cap == 0) {
--		dev_err(&pdev->dev,
--			"Cannot find Power Management capability, aborting\n");
--		err = -EIO;
--		goto err_out_free_res;
--	}
--
--	err = pci_set_power_state(pdev, PCI_D0);
--	if (err) {
--		dev_err(&pdev->dev, "Transition to D0 failed, aborting\n");
--		goto err_out_free_res;
--	}
--
- 	dev = alloc_etherdev_mq(sizeof(*tp), TG3_IRQ_MAX_VECS);
- 	if (!dev) {
- 		err = -ENOMEM;
--		goto err_out_power_down;
-+		goto err_out_free_res;
- 	}
- 
- 	SET_NETDEV_DEV(dev, &pdev->dev);
-@@ -17068,7 +17053,7 @@ static int tg3_init_one(struct pci_dev *pdev,
- 	tp = netdev_priv(dev);
- 	tp->pdev = pdev;
- 	tp->dev = dev;
--	tp->pm_cap = pm_cap;
-+	tp->pm_cap = pdev->pm_cap;
- 	tp->rx_mode = TG3_DEF_RX_MODE;
- 	tp->tx_mode = TG3_DEF_TX_MODE;
- 	tp->irq_sync = 1;
-@@ -17406,9 +17391,6 @@ err_out_iounmap:
- err_out_free_dev:
- 	free_netdev(dev);
- 
--err_out_power_down:
--	pci_set_power_state(pdev, PCI_D3hot);
--
- err_out_free_res:
- 	pci_release_regions(pdev);
- 
--- 
-1.7.1
+So ip_mc_leave_src() calls ip_mc_del_src and all the call chains essentially
+ignore the one error case that ip_mc_del_src() has, namely "!in_dev".
+
+Most call chains validate that in_dev is not NULL before it ends up calling
+ip_mc_del_src().
+
+However, ip_mc_leave_group() is peculiar, it seems to expect that
+sometimes "in_dev" can be NULL, and still signals -ENODEV when this
+happens even though it still did all of the adjustments to the
+socket's multicast group blobs.
+
+Someone really needs to audit this code before we start just pretending
+the error returns do not matter.
+
+I'm not applying this patch for now, there are too many loose ends.
+
+Thanks.
