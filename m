@@ -1,205 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: panics in tcp_ack
-Date: Mon, 03 Jun 2013 06:25:31 -0700
-Message-ID: <1370265931.24311.138.camel@edumazet-glaptop>
-References: <51ABE067.2050507@gmail.com>
-	 <1370219787.24311.113.camel@edumazet-glaptop> <51ABFE10.1030206@gmail.com>
-	 <51AC9499.8070207@gmail.com>
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Subject: [PATCH -next] net: sun4i-emac: fix a typo in emac_probe()
+Date: Mon, 3 Jun 2013 21:36:52 +0800
+Message-ID: <CAPgLHd-fXnt9H_CxDD1Ww=C-6nn3COVkYirKY6ucOJVR2Pkwkw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Rob Herring <robherring2@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org
+To: grant.likely@linaro.org, rob.herring@calxeda.com,
+	maxime.ripard@free-electrons.com, davem@davemloft.net, sr@denx.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:41319 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757501Ab3FCNZe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 09:25:34 -0400
-Received: by mail-pa0-f42.google.com with SMTP id bj1so893273pad.15
-        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 06:25:33 -0700 (PDT)
-In-Reply-To: <51AC9499.8070207@gmail.com>
+Received: from mail-bk0-f49.google.com ([209.85.214.49]:55652 "EHLO
+	mail-bk0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757521Ab3FCNgy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 09:36:54 -0400
+Received: by mail-bk0-f49.google.com with SMTP id 6so1916596bkj.36
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 06:36:52 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-03 at 08:05 -0500, Rob Herring wrote:
-> On 06/02/2013 09:23 PM, Rob Herring wrote:
-> > On 06/02/2013 07:36 PM, Eric Dumazet wrote:
-> >> On Sun, 2013-06-02 at 19:16 -0500, Rob Herring wrote:
-> >>> Sorry, this time with proper line wrapping...
-> >>>
-> >>> I'm debugging a kernel panic in the networking stack that happens with a
-> >>> cluster (20-40 nodes) of Calxeda highbank (ARM Cortex A9) nodes and
-> >>> typically only after 10-24 hours. The node are transferring files
-> >>> between nodes over TCP with 20 clients and servers per node. The kernel
-> >>> is based on ubuntu 3.5 kernel which is based on 3.5.7.11. So far testing
-> >>> has shown that 3.8.11 based (ubuntu raring) kernel is fixed. Attempts to
-> >>> bisect have not yielded results as it seems multiple problems mask the
-> >>> issue. Perhaps there is some new feature which has indirectly fixed the
-> >>> problem in 3.8.
-> >>>
-> >>> This commit appears to fix a similar panic and seems to reduce the
-> >>> frequency after picking it up in the latest 3.5 stable:
-> >>>
-> >>> commit 16fad69cfe4adbbfa813de516757b87bcae36d93
-> >>> Author: Eric Dumazet <edumazet@google.com>
-> >>> Date:   Thu Mar 14 05:40:32 2013 +0000
-> >>>
-> >>>     tcp: fix skb_availroom()
-> >>>         Chrome OS team reported a crash on a Pixel ChromeBook in TCP stack :
-> >>>         https://code.google.com/p/chromium/issues/detail?id=182056
-> >>>         commit a21d45726acac (tcp: avoid order-1 allocations on wifi and tx
-> >>>     path) did a poor choice adding an 'avail_size' field to skb, while
-> >>>     what we really needed was a 'reserved_tailroom' one.
-> >>>         It would have avoided commit 22b4a4f22da (tcp: fix retransmit of
-> >>>     partially acked frames) and this commit.
-> >>>         Crash occurs because skb_split() is not aware of the 'avail_size'
-> >>>     management (and should not be aware)
-> >>>         Signed-off-by: Eric Dumazet <edumazet@google.com>
-> >>>     Reported-by: Mukesh Agrawal <quiche@chromium.org>
-> >>>     Signed-off-by: David S. Miller <davem@davemloft.net>
-> >>>
-> >>> I've searched thru 3.8 and 3.9 stable fixes looking for possibly
-> >>> relevant commits and applied these commits not in 3.5 stable. However,
-> >>> they have not helped:
-> >>>
-> >>> net: drop dst before queueing fragments
-> >>> tcp: call tcp_replace_ts_recent() from tcp_ack()
-> >>> tcp: Reallocate headroom if it would overflow csum_start
-> >>> tcp: incoming connections might use wrong route under synflood
-> >>>
-> >>
-> >> try also :
-> >>
-> >> commit 093162553c33e94 (tcp: force a dst refcount when prequeue packet)
-> >> commit 0d4f0608619de59 (tcp: dont handle MTU reduction on LISTEN socket)
-> > 
-> > Will add and test.
-> > 
-> >> commit 6731d2095bd4aef (tcp: fix for zero packets_in_flight was too
-> >> broad)
-> >> commit 2e5f421211ff76c (tcp: frto should not set snd_cwnd to 0)
-> > 
-> > I have these 2.
-> 
-> Ran overnight with the 2 additional patches. One panic after ~9 hours
-> running on 75 nodes.
-> 
-> <4>[30632.185861] [<c04070f4>] (tcp_ack+0x79c/0x1014) from [<c0407cb4>]
-> (tcp_rcv_established+0x348/0x5e0)
-> <4>[30632.194903] [<c0407cb4>] (tcp_rcv_established+0x348/0x5e0) from
-> [<c040eda8>] (tcp_v4_do_rcv+0xf0/0x2cc)
-> <4>[30632.204291] [<c040eda8>] (tcp_v4_do_rcv+0xf0/0x2cc) from
-> [<c04111cc>] (tcp_v4_rcv+0x834/0x918)
-> <4>[30632.212900] [<c04111cc>] (tcp_v4_rcv+0x834/0x918) from
-> [<c03ef81c>] (ip_local_deliver_finish+0xe8/0x33c)
-> <4>[30632.222376] [<c03ef81c>] (ip_local_deliver_finish+0xe8/0x33c) from
-> [<c03ef3b4>] (ip_rcv_finish+0x140/0x4c0)
-> <4>[30632.232115] [<c03ef3b4>] (ip_rcv_finish+0x140/0x4c0) from
-> [<c03bf944>] (__netif_receive_skb+0x5e0/0x690)
-> <4>[30632.241590] [<c03bf944>] (__netif_receive_skb+0x5e0/0x690) from
-> [<c03c06e8>] (netif_receive_skb+0x1c/0x90)
-> <4>[30632.251240] [<c03c06e8>] (netif_receive_skb+0x1c/0x90) from
-> [<c03c2fac>] (napi_skb_finish+0x54/0x78)
-> <4>[30632.260371] [<c03c2fac>] (napi_skb_finish+0x54/0x78) from
-> [<c03301e4>] (xgmac_poll+0x3ac/0x4ec)
-> <4>[30632.269066] [<c03301e4>] (xgmac_poll+0x3ac/0x4ec) from
-> [<c03c2758>] (net_rx_action+0x140/0x228)
-> <4>[30632.277761] [<c03c2758>] (net_rx_action+0x140/0x228) from
-> [<c002ac94>] (__do_softirq+0xb4/0x1cc)
-> <4>[30632.286541] [<c002ac94>] (__do_softirq+0xb4/0x1cc) from
-> [<c002b18c>] (irq_exit+0x80/0x88)
-> <4>[30632.294716] [<c002b18c>] (irq_exit+0x80/0x88) from [<c000ea7c>]
-> (handle_IRQ+0x50/0xb0)
-> <4>[30632.302629] [<c000ea7c>] (handle_IRQ+0x50/0xb0) from [<c00084d4>]
-> (gic_handle_irq+0x24/0x58)
-> <4>[30632.311062] [<c00084d4>] (gic_handle_irq+0x24/0x58) from
-> [<c049e100>] (__irq_svc+0x40/0x50)
-> <4>[30632.319402] Exception stack(0xeca4dc10 to 0xeca4dc58)
-> <4>[30632.324445] dc00:                                     c2f7a580
-> 02000020 02000000 00000000
-> <4>[30632.332615] dc20: c2f7a580 e9e4f33c e9e4f34c 00000000 ec185300
-> 00001000 00000000 00001000
-> <4>[30632.340783] dc40: 00000001 eca4dc58 c0136cbc c0136cd4 200f0013
-> ffffffff
-> <4>[30632.347398] [<c049e100>] (__irq_svc+0x40/0x50) from [<c0136cd4>]
-> (__set_page_dirty+0x80/0xc0)
-> <4>[30632.355919] [<c0136cd4>] (__set_page_dirty+0x80/0xc0) from
-> [<c01387ac>] (__block_commit_write+0xb4/0xe0)
-> <4>[30632.365394] [<c01387ac>] (__block_commit_write+0xb4/0xe0) from
-> [<c0138eb4>] (block_write_end+0x4c/0x84)
-> <4>[30632.374782] [<c0138eb4>] (block_write_end+0x4c/0x84) from
-> [<c0138f20>] (generic_write_end+0x34/0xb0)
-> <4>[30632.383911] [<c0138f20>] (generic_write_end+0x34/0xb0) from
-> [<c01a0b8c>] (ext4_da_write_end+0xa4/0x340)
-> <4>[30632.393303] [<c01a0b8c>] (ext4_da_write_end+0xa4/0x340) from
-> [<c00ca2bc>] (generic_file_buffered_write+0xe0/0x25
-> 8)
-> <4>[30632.403648] [<c00ca2bc>] (generic_file_buffered_write+0xe0/0x258)
-> from [<c00cb1d8>] (__generic_file_aio_write+0x
-> 274/0x4bc)
-> <4>[30632.414684] [<c00cb1d8>] (__generic_file_aio_write+0x274/0x4bc)
-> from [<c00cb47c>] (generic_file_aio_write+0x5c/0
-> xc8)
-> <4>[30632.425201] [<c00cb47c>] (generic_file_aio_write+0x5c/0xc8) from
-> [<c019810c>] (ext4_file_write+0xcc/0x2a0)
-> <4>[30632.434853] [<c019810c>] (ext4_file_write+0xcc/0x2a0) from
-> [<c010a950>] (do_sync_write+0xa8/0xe8)
-> <4>[30632.443722] [<c010a950>] (do_sync_write+0xa8/0xe8) from
-> [<c010b360>] (vfs_write+0x9c/0x170)
-> <4>[30632.452069] [<c010b360>] (vfs_write+0x9c/0x170) from [<c010b648>]
-> (sys_write+0x38/0x70)
-> <4>[30632.460068] [<c010b648>] (sys_write+0x38/0x70) from [<c000db60>]
-> (ret_fast_syscall+0x0/0x30)
-> 
-> The full stack looks like this:
-> 
-> include/linux/skbuff.h:__skb_unlink
-> include/net/tcp.h:tcp_unlink_write_queue
-> net/ipv4/tcp_input.c:tcp_clean_rtx_queue
-> net/ipv4/tcp_input.c:tcp_ack
-> 
-> This panic is in __skb_unlink with the skb prev ptr being NULL. Here's
-> the disassembly:
-> 
->                 if (!fully_acked)
-> c04070cc:       e3520000        cmp     r2, #0
-> c04070d0:       0afffecb        beq     c0406c04 <tcp_ack+0x2ac>
-> extern void        skb_unlink(struct sk_buff *skb, struct sk_buff_head
-> *list);
-> static inline void __skb_unlink(struct sk_buff *skb, struct sk_buff_head
-> *list)
-> {
->         struct sk_buff *next, *prev;
-> 
->         list->qlen--;
-> c04070d4:       e59430a8        ldr     r3, [r4, #168]  ; 0xa8
-> static inline void sk_wmem_free_skb(struct sock *sk, struct sk_buff *skb)
-> {
->         sock_set_flag(sk, SOCK_QUEUE_SHRUNK);
->         sk->sk_wmem_queued -= skb->truesize;
->         sk_mem_uncharge(sk, skb->truesize);
->         __kfree_skb(skb);
-> c04070d8:       e1a00005        mov     r0, r5
-> c04070dc:       e2433001        sub     r3, r3, #1
-> c04070e0:       e58430a8        str     r3, [r4, #168]  ; 0xa8
->         next       = skb->next;
->         prev       = skb->prev;
-> c04070e4:       e895000c        ldm     r5, {r2, r3}
->         skb->next  = skb->prev = NULL;
-> c04070e8:       e5859000        str     r9, [r5]
-> c04070ec:       e5859004        str     r9, [r5, #4]
->         next->prev = prev;
-> c04070f0:       e5823004        str     r3, [r2, #4]
->         prev->next = next;
-> c04070f4:       e5832000        str     r2, [r3]
-> 
-> Rob
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
+Just fixed a typo in emac_probe().
 
-This looks like random memory scribbling of NULL pointers to me.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/allwinner/sun4i-emac.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I have never seen such a pattern. (I admit I do not use ARM machines as
-much as you do :) )
-
-Your best bet would be to perform a (reverse) bisection if you know
-recent kernels are OK.
+diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+index b411344..26083cd 100644
+--- a/drivers/net/ethernet/allwinner/sun4i-emac.c
++++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+@@ -821,7 +821,7 @@ static int emac_probe(struct platform_device *pdev)
+ 	db->membase = of_iomap(np, 0);
+ 	if (!db->membase) {
+ 		dev_err(&pdev->dev, "failed to remap registers\n");
+-		return -ENOMEM;
++		ret = -ENOMEM;
+ 		goto out;
+ 	}
+ 
