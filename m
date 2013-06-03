@@ -1,113 +1,68 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH net] tg3: Add read dma workaround for 5720
-Date: Mon, 3 Jun 2013 12:19:34 -0700
-Message-ID: <1370287174-11308-1-git-send-email-nsujir@broadcom.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCHv2 net-next] netlink: allow large data transfers from
+ user-space
+Date: Mon, 3 Jun 2013 21:21:40 +0200
+Message-ID: <20130603192140.GA28973@localhost>
+References: <1370277599-27072-1-git-send-email-pablo@netfilter.org>
+ <1370279559.24311.160.camel@edumazet-glaptop>
+ <20130603174138.GA28338@localhost>
+ <1370282437.24311.175.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roland@purestorage.com,
-	"Nithin Nayak Sujir" <nsujir@broadcom.com>, stable@vger.kernel.org,
-	"Michael Chan" <mchan@broadcom.com>
-To: davem@davemloft.net
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:42862 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755626Ab3FCTVp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 15:21:45 -0400
+Content-Disposition: inline
+In-Reply-To: <1370282437.24311.175.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 091f0ea30074bc43f9250961b3247af713024bc6 "tg3: Add New 5719 Read
-DMA workaround" added a workaround for TX DMA stall on the 5719. This
-workaround needs to be applied to the 5720 as well.
+On Mon, Jun 03, 2013 at 11:00:37AM -0700, Eric Dumazet wrote:
+> On Mon, 2013-06-03 at 19:41 +0200, Pablo Neira Ayuso wrote:
+> > Hi Eric!
+> > 
+> > On Mon, Jun 03, 2013 at 10:12:39AM -0700, Eric Dumazet wrote:
+> > > On Mon, 2013-06-03 at 18:39 +0200, Pablo Neira Ayuso wrote:
+> > > 
+> > > > +	if (is_vmalloc_addr(skb->head)) {
+> > > > +		vfree(skb->head);
+> > > > +		skb->data = NULL;
+> > > > +	}
+> > > >  
+> > > 
+> > > You probably meant :
+> > > 
+> > > 	skb->head = NULL;
+> > > 
+> > > Now, cross our fingers we do not skb_orphan() these skb too early :)
+> > 
+> > skb_release_all checks for skb->data != NULL to release skb->head as
+> > it would have been allocated via kmalloc. This didn't look very
+> > intuitive to me when I hit a panic while testing my patch either.
+> 
+> Oh well, this is probably an old typo because of skb_release_data() name
+> 
+> So we indeed do :
+> 
+> 	if (likely(skb->data))
+> 		skb_release_data(skb);
+> 
+> But it really should be
+> 
+> 	if (likely(skb->head))
+> 		skb_release_head(skb);
+> 
+> as skb->data is not pointing to the beginning of the area to be freed.
 
-Cc: stable@vger.kernel.org
-Reported-by: Roland Dreier <roland@purestorage.com>
-Tested-by: Roland Dreier <roland@purestorage.com>
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-Signed-off-by: Michael Chan <mchan@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 21 +++++++++++++++------
- drivers/net/ethernet/broadcom/tg3.h |  5 +++--
- 2 files changed, 18 insertions(+), 8 deletions(-)
+Indeed, this change is recent, happened in 0ebd0ac.
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 1f2dd92..0f493c8 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -9468,6 +9468,14 @@ static void tg3_rss_write_indir_tbl(struct tg3 *tp)
- 	}
- }
- 
-+static inline u32 tg3_lso_rd_dma_workaround_bit(struct tg3 *tp)
-+{
-+	if (tg3_asic_rev(tp) == ASIC_REV_5719)
-+		return TG3_LSO_RD_DMA_TX_LENGTH_WA_5719;
-+	else
-+		return TG3_LSO_RD_DMA_TX_LENGTH_WA_5720;
-+}
-+
- /* tp->lock is held. */
- static int tg3_reset_hw(struct tg3 *tp, bool reset_phy)
- {
-@@ -10153,16 +10161,17 @@ static int tg3_reset_hw(struct tg3 *tp, bool reset_phy)
- 	tw32_f(RDMAC_MODE, rdmac_mode);
- 	udelay(40);
- 
--	if (tg3_asic_rev(tp) == ASIC_REV_5719) {
-+	if (tg3_asic_rev(tp) == ASIC_REV_5719 ||
-+	    tg3_asic_rev(tp) == ASIC_REV_5720) {
- 		for (i = 0; i < TG3_NUM_RDMA_CHANNELS; i++) {
- 			if (tr32(TG3_RDMA_LENGTH + (i << 2)) > TG3_MAX_MTU(tp))
- 				break;
- 		}
- 		if (i < TG3_NUM_RDMA_CHANNELS) {
- 			val = tr32(TG3_LSO_RD_DMA_CRPTEN_CTRL);
--			val |= TG3_LSO_RD_DMA_TX_LENGTH_WA;
-+			val |= tg3_lso_rd_dma_workaround_bit(tp);
- 			tw32(TG3_LSO_RD_DMA_CRPTEN_CTRL, val);
--			tg3_flag_set(tp, 5719_RDMA_BUG);
-+			tg3_flag_set(tp, 5719_5720_RDMA_BUG);
- 		}
- 	}
- 
-@@ -10526,15 +10535,15 @@ static void tg3_periodic_fetch_stats(struct tg3 *tp)
- 	TG3_STAT_ADD32(&sp->tx_ucast_packets, MAC_TX_STATS_UCAST);
- 	TG3_STAT_ADD32(&sp->tx_mcast_packets, MAC_TX_STATS_MCAST);
- 	TG3_STAT_ADD32(&sp->tx_bcast_packets, MAC_TX_STATS_BCAST);
--	if (unlikely(tg3_flag(tp, 5719_RDMA_BUG) &&
-+	if (unlikely(tg3_flag(tp, 5719_5720_RDMA_BUG) &&
- 		     (sp->tx_ucast_packets.low + sp->tx_mcast_packets.low +
- 		      sp->tx_bcast_packets.low) > TG3_NUM_RDMA_CHANNELS)) {
- 		u32 val;
- 
- 		val = tr32(TG3_LSO_RD_DMA_CRPTEN_CTRL);
--		val &= ~TG3_LSO_RD_DMA_TX_LENGTH_WA;
-+		val &= ~tg3_lso_rd_dma_workaround_bit(tp);
- 		tw32(TG3_LSO_RD_DMA_CRPTEN_CTRL, val);
--		tg3_flag_clear(tp, 5719_RDMA_BUG);
-+		tg3_flag_clear(tp, 5719_5720_RDMA_BUG);
- 	}
- 
- 	TG3_STAT_ADD32(&sp->rx_octets, MAC_RX_STATS_OCTETS);
-diff --git a/drivers/net/ethernet/broadcom/tg3.h b/drivers/net/ethernet/broadcom/tg3.h
-index 9b2d3ac..ff6e30e 100644
---- a/drivers/net/ethernet/broadcom/tg3.h
-+++ b/drivers/net/ethernet/broadcom/tg3.h
-@@ -1422,7 +1422,8 @@
- #define TG3_LSO_RD_DMA_CRPTEN_CTRL	0x00004910
- #define TG3_LSO_RD_DMA_CRPTEN_CTRL_BLEN_BD_4K	 0x00030000
- #define TG3_LSO_RD_DMA_CRPTEN_CTRL_BLEN_LSO_4K	 0x000c0000
--#define TG3_LSO_RD_DMA_TX_LENGTH_WA	 0x02000000
-+#define TG3_LSO_RD_DMA_TX_LENGTH_WA_5719	 0x02000000
-+#define TG3_LSO_RD_DMA_TX_LENGTH_WA_5720	 0x00200000
- /* 0x4914 --> 0x4be0 unused */
- 
- #define TG3_NUM_RDMA_CHANNELS		4
-@@ -3059,7 +3060,7 @@ enum TG3_FLAGS {
- 	TG3_FLAG_APE_HAS_NCSI,
- 	TG3_FLAG_TX_TSTAMP_EN,
- 	TG3_FLAG_4K_FIFO_LIMIT,
--	TG3_FLAG_5719_RDMA_BUG,
-+	TG3_FLAG_5719_5720_RDMA_BUG,
- 	TG3_FLAG_RESET_TASK_PENDING,
- 	TG3_FLAG_PTP_CAPABLE,
- 	TG3_FLAG_5705_PLUS,
--- 
-1.8.1.4
+> BTW, __alloc_skb_head() inits skb->data to NULL, and leaves skb->head
+> uninitialized. Thats is really not nice...
+
+Should be skb->head = NULL and leave skb->data unset.
+
+I'll send a patch to fix that.
