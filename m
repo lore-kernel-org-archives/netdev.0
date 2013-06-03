@@ -1,113 +1,113 @@
-From: Chen Gang <gang.chen@asianux.com>
-Subject: [PATCH v2] include/linux/skbuff.h: using '(u16) ~0U' instead of '~0U'
-Date: Mon, 03 Jun 2013 19:24:04 +0800
-Message-ID: <51AC7CD4.2060801@asianux.com>
-References: <51A6EBC5.7040601@asianux.com> <CAHp75VfWvXkaoYQ_40idSsLYUA=YqaswnV2y-hODHjt7JMHQvQ@mail.gmail.com> <51AC60AA.8010107@asianux.com> <CAHp75Vc19Kii7_TF+9aF4ZeKAa4_92DCVL+u1duZDTu38o2qsw@mail.gmail.com> <51AC7546.4010002@asianux.com>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH v8 net-next 0/7] net: low latency Ethernet device polling
+Date: Mon, 3 Jun 2013 14:23:44 +0300
+Message-ID: <51AC7CC0.6020205@mellanox.com>
+References: <20130603080107.18273.34279.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Pravin Shelar <pshelar@nicira.com>, mgorman@suse.de,
-	David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>, edumazet@google.com
+Cc: David Miller <davem@davemloft.net>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	<e1000-devel@lists.sourceforge.net>,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from intranet.asianux.com ([58.214.24.6]:20176 "EHLO
-	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753081Ab3FCLYy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 07:24:54 -0400
-In-Reply-To: <51AC7546.4010002@asianux.com>
+Received: from eu1sys200aog102.obsmtp.com ([207.126.144.113]:59245 "EHLO
+	eu1sys200aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755992Ab3FCL0x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 07:26:53 -0400
+In-Reply-To: <20130603080107.18273.34279.stgit@ladj378.jer.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Acked-By: Amir Vadai <amirv@mellanox.com>
 
-Both 'transport_header' and 'mac_header' are u16, which are never equal
-to '~0U'.
+Nice work Eliezer :)
 
-So need use '(u16) ~0U' instead of '~0U'.
-
-The related warning (with EXTRA_CFLAGS=-W ARCH=m68k for allmodconfig)
-  include/linux/skbuff.h:1587:2: warning: comparison is always true due to limited range of data type [-Wtype-limits]
-  ...
-
-Use meaningful macro instead of hard code number, and better to
-initialize 'skb->transport_header' in __alloc_skb_head(), too.
-
-
-Signed-off-by: Chen Gang <gang.chen@asianux.com>
----
- include/linux/skbuff.h |    6 ++++--
- net/core/skbuff.c      |   11 ++++++-----
- 2 files changed, 10 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index 5f93119..59493f8 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -40,6 +40,8 @@
- #define CHECKSUM_COMPLETE 2
- #define CHECKSUM_PARTIAL 3
- 
-+#define SKB_HEADER_UNSET_16	((unsigned short) ~0U)
-+
- #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
- 				 ~(SMP_CACHE_BYTES - 1))
- #define SKB_WITH_OVERHEAD(X)	\
-@@ -1593,7 +1595,7 @@ static inline void skb_set_inner_mac_header(struct sk_buff *skb,
- }
- static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
- {
--	return skb->transport_header != ~0U;
-+	return skb->transport_header != SKB_HEADER_UNSET_16;
- }
- 
- static inline unsigned char *skb_transport_header(const struct sk_buff *skb)
-@@ -1636,7 +1638,7 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
- 
- static inline int skb_mac_header_was_set(const struct sk_buff *skb)
- {
--	return skb->mac_header != ~0U;
-+	return skb->mac_header != SKB_HEADER_UNSET_16;
- }
- 
- static inline void skb_reset_mac_header(struct sk_buff *skb)
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f45de07..18c6974 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -200,7 +200,8 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
- 	atomic_set(&skb->users, 1);
- 
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
--	skb->mac_header = (__u16) ~0U;
-+	skb->mac_header = SKB_HEADER_UNSET_16;
-+	skb->transport_header = SKB_HEADER_UNSET_16;
- #endif
- out:
- 	return skb;
-@@ -276,8 +277,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
- 	skb_reset_tail_pointer(skb);
- 	skb->end = skb->tail + size;
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
--	skb->mac_header = (__u16) ~0U;
--	skb->transport_header = (__u16) ~0U;
-+	skb->mac_header = SKB_HEADER_UNSET_16;
-+	skb->transport_header = SKB_HEADER_UNSET_16;
- #endif
- 
- 	/* make sure we initialize shinfo sequentially */
-@@ -345,8 +346,8 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
- 	skb_reset_tail_pointer(skb);
- 	skb->end = skb->tail + size;
- #ifdef NET_SKBUFF_DATA_USES_OFFSET
--	skb->mac_header = (__u16) ~0U;
--	skb->transport_header = (__u16) ~0U;
-+	skb->mac_header = SKB_HEADER_UNSET_16;
-+	skb->transport_header = SKB_HEADER_UNSET_16;
- #endif
- 
- 	/* make sure we initialize shinfo sequentially */
--- 
-1.7.7.6
+On 03/06/2013 11:01, Eliezer Tamir wrote:
+> David,
+> 
+> Here is v8 with yet more fixes.
+> 
+> Please consider applying.
+> 
+> Thanks to everyone for their input.
+> 
+> -Eliezer
+> 
+> change log:
+> v8
+> - split out udp and select/poll into seperate patches.
+>   what used to be patch 2/5 is now three patches.
+> - type corrections from Amir Vadai and Cong Wang:
+>   one unsigned long that was left when chenging to cycles_t
+>   int -> bool 
+> - more detailed patch descriptions.
+> 
+> v7
+> - suggested by Ben Hutchings and Eric Dumazet:
+>   type fixes, static for globals in net/core.c,
+>   avoid napi_id collisions in napi_hash_add()
+> 
+> v6
+> - many small fixes suggested by Eric Dumazet:
+>   data locality, typos, documentation
+>   protect napi_hash insert/delete with a spinlock (napi_gen_id is no
+>   longer atomic_t since it's only accessed with the spinlock held.)
+> - added IPv6 TCP and UDP support (only minimally tested)
+> 
+> v5
+> - corrections suggested by Ben Hutchings:
+>   fixed typos, moved the config option and sysctl value from IPv4 to net
+> - moved sk_mark_ll() to the protocol handlers
+> - removed global id mechanism, replaced with a hashed napi_id.
+>   based on code sample from Eric Dumazet
+>   Note that ixgbe_free_q_vector() already waits an rcu grace period
+>   before freeing the q_vector, so nothing additional needs to be done
+>   when adding a call to napi_hash_del().
+> - simple poll/select support
+> 
+> v4
+> - removed separate config option for TCP as suggested Eric Dumazet.
+> - added linux mib counter for packets received through the low latency path,
+>   as suggested by Andi Kleen.
+> - re-allow module unloading, remove module param, use a global generation id
+>   instead to prevent the use of a stale napi pointer, as suggested
+>   by Eric Dumazet
+> - updated Documentation/networking/ip-sysctl.txt text
+> 
+> v3
+> - coding style changes suggested by Dave Miller
+> 
+> v2
+> - the sysctl knob is now in microseconds. The default value is now 0 (off).
+> - for now the code depends at configure time on CONFIG_I86_TSC 
+> - the napi reference in struct skb is now a union with the dma cookie
+>   since the former is only used on RX and the latter on TX,
+>   as suggested by Eric Dumazet.
+> - we do a better job at honoring non-blocking operations.
+> - removed busy-polling support for tcp_read_sock()
+> - remove dynamic disabling of GRO
+> - coding style fixes
+> - disallow unloading the device module after the feature has been used
+> 
+> Credit:
+> Jesse Brandeburg, Arun Chekhov Ilango, Julie Cummings,
+> Alexander Duyck, Eric Geisler, Jason Neighbors, Yadong Li,
+> Mike Polehn, Anil Vasudevan, Don Wood
+> Special thanks for finding bugs in earlier versions:
+> Willem de Bruijn and Andi Kleen
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
