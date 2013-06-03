@@ -1,35 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next 1/2] ping: some cleanup for net/ipv4/ping.c
-Date: Mon, 03 Jun 2013 00:24:04 -0700 (PDT)
-Message-ID: <20130603.002404.131723623530817410.davem@davemloft.net>
-References: <CAKD1Yr0zHsM85ZJLwCeE6NkEZnaMqs3ba1PyOa_M09UB6i99=g@mail.gmail.com>
-	<1370243586.32297.5.camel@cr0>
-	<CAKD1Yr2fn51+5JEUN2vg+NJ7yv_Fe-WqPhETFee5mv+_FJDaMA@mail.gmail.com>
+Subject: Re: [PATCH net-next] ibm-ethernet: delete stale MCA and duplicate
+ PSERIES dependency
+Date: Mon, 03 Jun 2013 00:24:56 -0700 (PDT)
+Message-ID: <20130603.002456.1252281827351088397.davem@davemloft.net>
+References: <1369836834-9941-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org
-To: lorenzo@google.com
+Cc: netdev@vger.kernel.org
+To: paul.gortmaker@windriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38057 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38063 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750999Ab3FCHYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:24:05 -0400
-In-Reply-To: <CAKD1Yr2fn51+5JEUN2vg+NJ7yv_Fe-WqPhETFee5mv+_FJDaMA@mail.gmail.com>
+	with ESMTP id S1750925Ab3FCHY5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 03:24:57 -0400
+In-Reply-To: <1369836834-9941-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Mon, 3 Jun 2013 16:17:25 +0900
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Wed, 29 May 2013 10:13:54 -0400
 
-> On Mon, Jun 3, 2013 at 4:13 PM, Cong Wang <amwang@redhat.com> wrote:
->> Remember it is a cleanup, not a bug fix, right? :) I don't think there
->> is any way to make this 10- line of code hard to read.
+> MCA support has been removed but this dependency escaped removal.
+> Also, there is a duplicate PPC_PSERIES dependency that appeared
+> when the ethernet drivers were separated into vendor/model
+> specific directories, so we remove that here as well.
 > 
-> I suppose, if growing the function from 2 to 9 lines without changing
-> its behaviour can be called a "cleanup". :-)
+> Reported-by: Robert de Rooy <robert.de.rooy@gmail.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 
-I have to say this patch makes the code look worse, ifdefs are 99
-times out of 100 the wrong thing to do.
-
-Sorry I won't be applying these patches.
+Applied, thanks Paul.
