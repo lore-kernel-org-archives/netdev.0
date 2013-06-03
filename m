@@ -1,64 +1,30 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH v2 iproute2] get_rate: detect 32bit overflows
-Date: Mon, 3 Jun 2013 17:31:49 +0100
-Message-ID: <1370277109.1918.21.camel@bwh-desktop.uk.level5networks.com>
-References: <1370199083.24311.43.camel@edumazet-glaptop>
-	 <1370209008.24311.91.camel@edumazet-glaptop>
-	 <1370270231.1918.10.camel@bwh-desktop.uk.level5networks.com>
-	 <1370272783.24311.148.camel@edumazet-glaptop>
-	 <1370273807.1918.20.camel@bwh-desktop.uk.level5networks.com>
-	 <1370274693.24311.154.camel@edumazet-glaptop>
+From: Roland Dreier <roland@kernel.org>
+Subject: Re: BQL-related tg3 transmit timeout on 5720 / Dell R720
+Date: Mon, 3 Jun 2013 09:40:01 -0700
+Message-ID: <CAG4TOxPkCR66MY1U5jA+QX72hrfYy21XPMOba6M=mz=g-eB6Ew@mail.gmail.com>
+References: <CAL1RGDW=SC3E9VvQXki0Gajj0xBqwHjBWM95k00J6zn1tF1mgg@mail.gmail.com>
+ <51A7638A.5030108@broadcom.com> <CAG4TOxPy1mkY68sO=SttS78evL1dkFZ4ZNUUOnKPmUjifq-92Q@mail.gmail.com>
+ <51A7F413.5070702@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Michael Chan <mchan@broadcom.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:37011 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759239Ab3FCQby (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 12:31:54 -0400
-In-Reply-To: <1370274693.24311.154.camel@edumazet-glaptop>
+Received: from mail-wi0-f171.google.com ([209.85.212.171]:39764 "EHLO
+	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752129Ab3FCQkW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 12:40:22 -0400
+Received: by mail-wi0-f171.google.com with SMTP id hq7so2893025wib.4
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 09:40:21 -0700 (PDT)
+In-Reply-To: <51A7F413.5070702@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-03 at 08:51 -0700, Eric Dumazet wrote:
-> On Mon, 2013-06-03 at 16:36 +0100, Ben Hutchings wrote:
-> 
-> > Oops, I read this as being strtol() currently, not strtod().  Currently
-> > '1.5gbit' will work, but this change will break that.  So I think you
-> > need to keep bps as a double.
-> 
-> Arg
-> 
-> > Then here I think the check should be *rate != floor(bps), i.e. accept
-> > rounding down of a non-integer number of bytes but any other change is
-> > assumed to be overflow.
-> 
-> Thanks Ben, here is v4 then ;)
-> 
-> [PATCH v4] get_rate: detect 32bit overflows
-> 
-> Current rate limit is 34.359.738.360 bit per second, and
-> unfortunately 40Gbps links are above it.
-> 
-> overflows in get_rate() are currently not detected, and some
-> users are confused. Let's detect this and complain.
-> 
-> Note that some qdisc are ready to get extended range, but this will
-> need additional attributes and new iproute2
-> 
-> With help from Ben Hutchings
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-[...]
+> Could you test the attached patch on top of net-next?
 
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+Yep, that works.
 
-Ben.
+Tested-by: Roland Dreier <roland@purestorage.com>
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Thanks!
