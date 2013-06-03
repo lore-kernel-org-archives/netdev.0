@@ -1,98 +1,96 @@
-From: "Jens Renner (EFE)" <renner@efe-gmbh.de>
-Subject: [PATCH v4] net: ethernet: xilinx_emaclite: set protocol selector
- bits when writing ANAR
-Date: Mon, 03 Jun 2013 16:32:52 +0200
-Message-ID: <51ACA914.10105@efe-gmbh.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH v2 iproute2] get_rate: detect 32bit overflows
+Date: Mon, 3 Jun 2013 15:37:11 +0100
+Message-ID: <1370270231.1918.10.camel@bwh-desktop.uk.level5networks.com>
+References: <1370199083.24311.43.camel@edumazet-glaptop>
+	 <1370209008.24311.91.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:50860 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755727Ab3FCOch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 10:32:37 -0400
+Received: from webmail.solarflare.com ([12.187.104.25]:37775 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757501Ab3FCOhP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 10:37:15 -0400
+In-Reply-To: <1370209008.24311.91.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch sets the protocol selector bits (4:0) of the PHY's MII_ADVERTISE
-register (ANAR) when writing ADVERTISE_ALL. The protocol selector bits are
-indicating IEEE 803.3u support and are fixed / read-only on some PHYs. Not
-setting them correctly on others (like TI DP83630) makes the PHY fall back
-to 10M HDX mode which should be avoided.
+On Sun, 2013-06-02 at 14:36 -0700, Eric Dumazet wrote:
+> Current rate limit is 34.359.738.360 bit per second, and
+> unfortunately 40Gbps links are above it.
+> 
+> overflows in get_rate() are currently not detected, and some
+> users are confused. Let's detect this and complain.
+> 
+> Note that some qdisc are ready to get extended range, but this will
+> need additional attributes and new iproute2
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+> v2: divide by 8 only at the right time
+> 
+>  tc/tc_util.c |   13 +++++++++----
+>  1 file changed, 9 insertions(+), 4 deletions(-)
+> 
+> diff --git a/tc/tc_util.c b/tc/tc_util.c
+> index 8e62a01..8ca9d4e 100644
+> --- a/tc/tc_util.c
+> +++ b/tc/tc_util.c
+> @@ -146,21 +146,26 @@ static const struct rate_suffix {
+>  int get_rate(unsigned *rate, const char *str)
+>  {
+>  	char *p;
+> -	double bps = strtod(str, &p);
+> +	long long bps = strtoll(str, &p, 0);
+>  	const struct rate_suffix *s;
+>  
+>  	if (p == str)
+>  		return -1;
+>  
+>  	if (*p == '\0') {
+> -		*rate = bps / 8.;	/* assume bits/sec */
+> +common:
+> +		bps /= 8; /* -> bytes per second */
+> +		*rate = bps;
+> +		/* detect if an overflow happened */
+> +		if (*rate != bps)
+> +			return -1;
+>  		return 0;
+>  	}
+>  
+>  	for (s = suffixes; s->name; ++s) {
+>  		if (strcasecmp(s->name, p) == 0) {
+> -			*rate = (bps * s->scale) / 8.;
+> -			return 0;
+> +			bps *= s->scale;
+> +			goto common;
+>  		}
+>  	}
 
-Tested for TI DP83630 PHY on Microblaze platform.
+This would be more understandable without a goto.  I think this ordering
+would work:
 
-Signed-off-by: Jens Renner <renner@efe-gmbh.de>
----
-Changes in v4:
-- fix SOB in comment
+	for (s = suffixes; ...) {
+		if (...) {
+			bps *= s->scale;
+			p += strlen(s->name);
+			break;
+		}
+	}
 
-Changes in v3:
-- fix whitespace problem
+	if (*p)
+		return -1; /* unrecognised suffix */
 
-Changes in v2:
-- set ADVERTISE_ALL and protocol selector ADVERTISE_CSMA while all other
-  bits will be cleared
-- adapted patch title & description (original title: "net: ethernet:
-  xilinx_emaclite: keep protocol selector bits by reading ANAR")
+	bps /= 8;
+	...
 
->>> David Laight <David.Laight@...LAB.COM> hat am 28. Mai 2013 um 18:22
->>> geschrieben:
-[...]
->>> Given the comment shouldn't this be removing some bits?
->>>
->>> It is a long time since I read the definitions of the ANAR (etc).
->>> But I remember it having at least 5 bits defined for 10M and 100M
->>> operation (including 100T4), so the reference to keeping bits (4:0)
->>> seems confusing.
->>>
->>>    David
->>>
->>
->> David, thanks for your feedback!
->> The bits I mentioned (the 5 least bits in ANAR) are the so-called protocol
->> selection bits (at least that's what they call it at Intel, TI, Marvell,
->> Maxim,
->> etc.). The only value that seems actually to be used is 1 (0b00001) which
->> means
->> 802.3 / fast ethernet capability (maybe 0 for slower devices?). 1 is the
->> default value for all the 10/100(/1000) PHYs I know of, in some PHYs it is
->> even
->> hardcoded (i.e. read-only). It must not be confused with ANAR bits 9:5 where
->> the actual speed and duplex mode can be selected.
->> ADVERTISE_ALL as defined in mii.h lacks this bit, in contrast to
->> ADVERTISE_FULL
->> where it is set through ADVERTISE_CSMA. Whether this is correct or not; at
->> least it makes some sense to me to read what's actually written in these
->> register bits and not to clear them. Otherwise some PHYs might fall back to
->> 10-half as seen for the TI DP83640 which has been used to test this patch.
->> I hope this explains the reason for this patch.
->
-[...]
-> However if you want to advertise 10M/100M HDX and FDX you need to unset
-> the other speed bits (100T4 was assigned a bit, and I'm sure there were
-> extra bits reserved for higher speeds - which also need clearing).
-> Given that the ANAR is defined by 803.x you shouldn't really have a problem!
-[...]
-You are right. The 1000BASE-T capability is advertised in another register and
-already gets cleared one code line before (see original list mail), while the
-100BASE-T4 bit now remains unchanged with my patch which is not intended.
+Ben.
 
- drivers/net/ethernet/xilinx/xilinx_emaclite.c   |    3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-index aa14d8a..db16a06 100644
---- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-+++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
-@@ -963,7 +963,8 @@ static int xemaclite_open(struct net_device *dev)
- 		phy_write(lp->phy_dev, MII_CTRL1000, 0);
- 
- 		/* Advertise only 10 and 100mbps full/half duplex speeds */
--		phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL);
-+		phy_write(lp->phy_dev, MII_ADVERTISE, ADVERTISE_ALL |
-+			  ADVERTISE_CSMA);
- 
- 		/* Restart auto negotiation */
- 		bmcr = phy_read(lp->phy_dev, MII_BMCR);
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
