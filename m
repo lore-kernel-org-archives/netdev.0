@@ -1,50 +1,57 @@
 From: Rob Herring <robherring2@gmail.com>
 Subject: panics in tcp_ack
-Date: Sun, 02 Jun 2013 19:13:16 -0500
-Message-ID: <51ABDF9C.8080009@gmail.com>
+Date: Sun, 02 Jun 2013 19:16:39 -0500
+Message-ID: <51ABE067.2050507@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f51.google.com ([209.85.128.51]:60967 "EHLO
-	mail-qe0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755301Ab3FCANS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 20:13:18 -0400
-Received: by mail-qe0-f51.google.com with SMTP id nd7so2021857qeb.10
-        for <netdev@vger.kernel.org>; Sun, 02 Jun 2013 17:13:17 -0700 (PDT)
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:44092 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753968Ab3FCAQl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 2 Jun 2013 20:16:41 -0400
+Received: by mail-qa0-f51.google.com with SMTP id i13so1504429qae.10
+        for <netdev@vger.kernel.org>; Sun, 02 Jun 2013 17:16:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I'm debugging a kernel panic in the networking stack that happens with a cluster (20-40 nodes) of Calxeda highbank (ARM Cortex A9) nodes and typically only after 10-24 hours. The node are transferring files between nodes over TCP with 20 clients and servers per node. The kernel is based on ubuntu 3.5 kernel which is based on 3.5.7.11. So far testing has shown that 3.8.11 based (ubuntu raring) kernel is fixed. Attempts to bisect have not yielded results as it seems multiple problems mask the issue. Perhaps there is some new feature which has indirectly fixed the problem in 3.8.
+Sorry, this time with proper line wrapping...
 
-This commit appears to fix a similar panic and seems to reduce the frequency after picking it up in the latest 3.5 stable:
+I'm debugging a kernel panic in the networking stack that happens with a
+cluster (20-40 nodes) of Calxeda highbank (ARM Cortex A9) nodes and
+typically only after 10-24 hours. The node are transferring files
+between nodes over TCP with 20 clients and servers per node. The kernel
+is based on ubuntu 3.5 kernel which is based on 3.5.7.11. So far testing
+has shown that 3.8.11 based (ubuntu raring) kernel is fixed. Attempts to
+bisect have not yielded results as it seems multiple problems mask the
+issue. Perhaps there is some new feature which has indirectly fixed the
+problem in 3.8.
+
+This commit appears to fix a similar panic and seems to reduce the
+frequency after picking it up in the latest 3.5 stable:
 
 commit 16fad69cfe4adbbfa813de516757b87bcae36d93
 Author: Eric Dumazet <edumazet@google.com>
 Date:   Thu Mar 14 05:40:32 2013 +0000
 
     tcp: fix skb_availroom()
-    
-    Chrome OS team reported a crash on a Pixel ChromeBook in TCP stack :
-    
-    https://code.google.com/p/chromium/issues/detail?id=182056
-    
-    commit a21d45726acac (tcp: avoid order-1 allocations on wifi and tx
+        Chrome OS team reported a crash on a Pixel ChromeBook in TCP stack :
+        https://code.google.com/p/chromium/issues/detail?id=182056
+        commit a21d45726acac (tcp: avoid order-1 allocations on wifi and tx
     path) did a poor choice adding an 'avail_size' field to skb, while
     what we really needed was a 'reserved_tailroom' one.
-    
-    It would have avoided commit 22b4a4f22da (tcp: fix retransmit of
+        It would have avoided commit 22b4a4f22da (tcp: fix retransmit of
     partially acked frames) and this commit.
-    
-    Crash occurs because skb_split() is not aware of the 'avail_size'
+        Crash occurs because skb_split() is not aware of the 'avail_size'
     management (and should not be aware)
-    
-    Signed-off-by: Eric Dumazet <edumazet@google.com>
+        Signed-off-by: Eric Dumazet <edumazet@google.com>
     Reported-by: Mukesh Agrawal <quiche@chromium.org>
     Signed-off-by: David S. Miller <davem@davemloft.net>
 
-I've searched thru 3.8 and 3.9 stable fixes looking for possibly relevant commits and applied these commits not in 3.5 stable. However, they have not helped:
+I've searched thru 3.8 and 3.9 stable fixes looking for possibly
+relevant commits and applied these commits not in 3.5 stable. However,
+they have not helped:
 
 net: drop dst before queueing fragments
 tcp: call tcp_replace_ts_recent() from tcp_ack()
@@ -52,35 +59,55 @@ tcp: Reallocate headroom if it would overflow csum_start
 tcp: incoming connections might use wrong route under synflood
 
 
-The exact panic varies some, but is typically in tcp_ack. I've gotten this one several times:
+The exact panic varies some, but is typically in tcp_ack. I've gotten
+this one several times:
 
-<4>[17360.343983] [<c0405e08>] (tcp_fastretrans_alert+0x134/0xbec) from [<c0406e98>] (tcp_ack+0x540/0x1014)
-<4>[17360.353216] [<c0406e98>] (tcp_ack+0x540/0x1014) from [<c0407cb4>] (tcp_rcv_established+0x348/0x5e0)
-<4>[17360.362276] [<c0407cb4>] (tcp_rcv_established+0x348/0x5e0) from [<c040eda8>] (tcp_v4_do_rcv+0xf0/0x2cc)
-<4>[17360.371679] [<c040eda8>] (tcp_v4_do_rcv+0xf0/0x2cc) from [<c04111ac>] (tcp_v4_rcv+0x814/0x8e8)
-<4>[17360.380307] [<c04111ac>] (tcp_v4_rcv+0x814/0x8e8) from [<c03ef81c>] (ip_local_deliver_finish+0xe8/0x33c)
-<4>[17360.389796] [<c03ef81c>] (ip_local_deliver_finish+0xe8/0x33c) from [<c03ef3b4>] (ip_rcv_finish+0x140/0x4c0)
-<4>[17360.399552] [<c03ef3b4>] (ip_rcv_finish+0x140/0x4c0) from [<c03bf944>] (__netif_receive_skb+0x5e0/0x690)
-<4>[17360.409045] [<c03bf944>] (__netif_receive_skb+0x5e0/0x690) from [<c03c06e8>] (netif_receive_skb+0x1c/0x90)
-<4>[17360.418708] [<c03c06e8>] (netif_receive_skb+0x1c/0x90) from [<c03c2fac>] (napi_skb_finish+0x54/0x78)
-<4>[17360.427855] [<c03c2fac>] (napi_skb_finish+0x54/0x78) from [<c03301e4>] (xgmac_poll+0x3ac/0x4ec)
-<4>[17360.436567] [<c03301e4>] (xgmac_poll+0x3ac/0x4ec) from [<c03c2758>] (net_rx_action+0x140/0x228)
-<4>[17360.445280] [<c03c2758>] (net_rx_action+0x140/0x228) from [<c002ac94>] (__do_softirq+0xb4/0x1cc)
-<4>[17360.454078] [<c002ac94>] (__do_softirq+0xb4/0x1cc) from [<c002b18c>] (irq_exit+0x80/0x88)
-<4>[17360.462269] [<c002b18c>] (irq_exit+0x80/0x88) from [<c000ea7c>] (handle_IRQ+0x50/0xb0)
-<4>[17360.470197] [<c000ea7c>] (handle_IRQ+0x50/0xb0) from [<c00084d4>] (gic_handle_irq+0x24/0x58)
-<4>[17360.478645] [<c00084d4>] (gic_handle_irq+0x24/0x58) from [<c049e1fc>] (__irq_usr+0x3c/0x60)
+<4>[17360.343983] [<c0405e08>] (tcp_fastretrans_alert+0x134/0xbec) from
+[<c0406e98>] (tcp_ack+0x540/0x1014)
+<4>[17360.353216] [<c0406e98>] (tcp_ack+0x540/0x1014) from [<c0407cb4>]
+(tcp_rcv_established+0x348/0x5e0)
+<4>[17360.362276] [<c0407cb4>] (tcp_rcv_established+0x348/0x5e0) from
+[<c040eda8>] (tcp_v4_do_rcv+0xf0/0x2cc)
+<4>[17360.371679] [<c040eda8>] (tcp_v4_do_rcv+0xf0/0x2cc) from
+[<c04111ac>] (tcp_v4_rcv+0x814/0x8e8)
+<4>[17360.380307] [<c04111ac>] (tcp_v4_rcv+0x814/0x8e8) from
+[<c03ef81c>] (ip_local_deliver_finish+0xe8/0x33c)
+<4>[17360.389796] [<c03ef81c>] (ip_local_deliver_finish+0xe8/0x33c) from
+[<c03ef3b4>] (ip_rcv_finish+0x140/0x4c0)
+<4>[17360.399552] [<c03ef3b4>] (ip_rcv_finish+0x140/0x4c0) from
+[<c03bf944>] (__netif_receive_skb+0x5e0/0x690)
+<4>[17360.409045] [<c03bf944>] (__netif_receive_skb+0x5e0/0x690) from
+[<c03c06e8>] (netif_receive_skb+0x1c/0x90)
+<4>[17360.418708] [<c03c06e8>] (netif_receive_skb+0x1c/0x90) from
+[<c03c2fac>] (napi_skb_finish+0x54/0x78)
+<4>[17360.427855] [<c03c2fac>] (napi_skb_finish+0x54/0x78) from
+[<c03301e4>] (xgmac_poll+0x3ac/0x4ec)
+<4>[17360.436567] [<c03301e4>] (xgmac_poll+0x3ac/0x4ec) from
+[<c03c2758>] (net_rx_action+0x140/0x228)
+<4>[17360.445280] [<c03c2758>] (net_rx_action+0x140/0x228) from
+[<c002ac94>] (__do_softirq+0xb4/0x1cc)
+<4>[17360.454078] [<c002ac94>] (__do_softirq+0xb4/0x1cc) from
+[<c002b18c>] (irq_exit+0x80/0x88)
+<4>[17360.462269] [<c002b18c>] (irq_exit+0x80/0x88) from [<c000ea7c>]
+(handle_IRQ+0x50/0xb0)
+<4>[17360.470197] [<c000ea7c>] (handle_IRQ+0x50/0xb0) from [<c00084d4>]
+(gic_handle_irq+0x24/0x58)
+<4>[17360.478645] [<c00084d4>] (gic_handle_irq+0x24/0x58) from
+[<c049e1fc>] (__irq_usr+0x3c/0x60)
 <4>[17360.486994] Exception stack(0xeda89fb0 to 0xeda89ff8)
-<4>[17360.492042] 9fa0:                                     b6e0c1cc 0000c004 00000000 0000001c
-<4>[17360.500217] 9fc0: 00000000 00000000 0000007c 0012d175 0012d174 ffffffff 0012d175 b692caf0
-<4>[17360.508393] 9fe0: 001a3340 bead3758 0007bfab 0007bfb0 800f0030 ffffffff
-<0>[17360.515011] Code: e595c2bc e1510000 e5960000 03a01000 (e5911038) 
+<4>[17360.492042] 9fa0:                                     b6e0c1cc
+0000c004 00000000 0000001c
+<4>[17360.500217] 9fc0: 00000000 00000000 0000007c 0012d175 0012d174
+ffffffff 0012d175 b692caf0
+<4>[17360.508393] 9fe0: 001a3340 bead3758 0007bfab 0007bfb0 800f0030
+ffffffff
+<0>[17360.515011] Code: e595c2bc e1510000 e5960000 03a01000 (e5911038)
 <4>[17360.521207] ---[ end trace 98dabb30d5917f53 ]---
 
-This appears to be a NULL returned from tcp_write_queue_head. I reconstructed the full stack which looks like this:
+This appears to be a NULL returned from tcp_write_queue_head. I
+reconstructed the full stack which looks like this:
 
-tcp_write_queue_head(sk) 
-tcp_skb_timedout
+tcp_write_queue_head(sk) tcp_skb_timedout
 tcp_head_timedout
 tcp_time_to_recover
 tcp_fastretrans_alert
@@ -90,9 +117,13 @@ Searching for similar panics I found this debug patch:
 
 http://www.spinics.net/lists/mm-commits/msg49089.html
 
-With the initial patch, I got continuous spewing of debug due to "fackets != tp->fackets_out", so I removed some of the checks and now just get these dumps. I'm not sure if there is anything relevant here and none of the warnings are triggered:
+With the initial patch, I got continuous spewing of debug due to
+"fackets != tp->fackets_out", so I removed some of the checks and now
+just get these dumps. I'm not sure if there is anything relevant here
+and none of the warnings are triggered:
 
-[12622.995006] P: 28 L: 7 vs 7 S: 5 vs 5 F: 12 vs 12 w: 1697479957-1697494437 (5)
+[12622.995006] P: 28 L: 7 vs 7 S: 5 vs 5 F: 12 vs 12 w:
+1697479957-1697494437 (5)
 [12623.002273] skb 0 def35f80
 [12623.004978] skb 1 def373c0
 [12623.007676] skb 2 def346c0
@@ -123,7 +154,8 @@ With the initial patch, I got continuous spewing of debug due to "fackets != tp-
 [12623.078910] TCP wq(h) ++++++++----++++++h+-++++++-<
 [12623.083792] l7 s5 f12 p28 seq: su1697479957 hs1697479957 sn1697494437
 
-[18018.368510] P: 24 L: 10 vs 10 S: 6 vs 6 F: 13 vs 13 w: 524404136-524415720 (7)
+[18018.368510] P: 24 L: 10 vs 10 S: 6 vs 6 F: 13 vs 13 w:
+524404136-524415720 (7)
 [18018.375788] skb 0 e9742f40
 [18018.378495] skb 1 e9741d40
 [18018.381194] skb 2 e0473a80
