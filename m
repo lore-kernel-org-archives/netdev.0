@@ -1,40 +1,58 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: RFC - VXLAN port range facility
-Date: Mon, 3 Jun 2013 09:21:31 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7261@saturn3.aculab.com>
-References: <OF673FF136.10B22631-ON85257B7B.00436301-85257B7B.0045AAB7@us.ibm.com><20130530094141.7c125947@nehalam.linuxnetplumber.net><OFD5BD589B.1842E46B-ON85257B7B.00610E03-85257B7B.0062F480@us.ibm.com><20130531091338.12fc7df5@nehalam.linuxnetplumber.net><OF19ABC0E6.77100D83-ON85257B7C.005AFB01-85257B7C.005E33DC@us.ibm.com><20130531102233.13e51cff@nehalam.linuxnetplumber.net><OF5DED87DF.8E295C17-ON85257B7C.0061E7B1-85257B7C.0064B099@us.ibm.com> <20130531184310.59c777fb@nehalam.linuxnetplumber.net>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH] net: tun: release the reference of tun device in tun_recvmsg
+Date: Mon, 03 Jun 2013 16:26:45 +0800
+Message-ID: <51AC5345.6020904@cn.fujitsu.com>
+References: <201304250822.38944.a.miskiewicz@gmail.com> <517A0A84.40102@cn.fujitsu.com> <517A0BE2.9080503@redhat.com> <201305290029.35303.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <netdev@vger.kernel.org>, <netdev-owner@vger.kernel.org>
-To: "Stephen Hemminger" <stephen@networkplumber.org>,
-	"David Stevens" <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	Balakumaran Kannan <kumaran.4353@gmail.com>,
+	Maruthi Thotad <Maruthi.Thotad@ap.sony.com>
+To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:56800 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1751100Ab3FCIWU convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 04:22:20 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 06134-03 for <netdev@vger.kernel.org>;
- Mon,  3 Jun 2013 09:22:17 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <20130531184310.59c777fb@nehalam.linuxnetplumber.net>
+Received: from cn.fujitsu.com ([222.73.24.84]:50911 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751100Ab3FCIZC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 04:25:02 -0400
+In-Reply-To: <201305290029.35303.a.miskiewicz@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> I am wondering if this is just a theoretical problem, or does it occur
-> in real life. My simple tests are not causing ICMP to be delivered to
-> UDP application (over the VXLAN) but it maybe because of the compare scoring
-> in ICMP, or because of use of multicast versus unicast destinations.
+On 05/29/2013 06:29 AM, Arkadiusz Miskiewicz wrote:
+> On Friday 26 of April 2013, Jason Wang wrote:
+>> On 04/26/2013 01:03 PM, Gao feng wrote:
+>>> On 04/25/2013 11:04 PM, Arkadiusz Miskiewicz wrote:
+>>>> On Thursday 25 of April 2013, Gao feng wrote:
+>>>>> We forget to release the reference of tun device in tun_recvmsg.
+>>>>> bug introduced in commit 54f968d6efdbf7dec36faa44fc11f01b0e4d1990
+>>>>> (tuntap: move socket to tun_file)
+>>>>
+>>>> Hm, still hitting the problem even with the patch - dmesg:
+>>> Ok, seams there are another problems we haven't discovered.
+>>> it's excellent if you can find out which commit introduces this
+>>> bug by git bisect.
+>>>
+>>> Thanks!
+>>
+>> Yes, bisect will be helpful. If you could not do it, please tell me the
+>> steps to reproduce the issue and the tree you used. I just test with
+>> net.git and net-next.git with a tap device created by tunctl, didn't
+>> meet the issue.
+> 
+> Took a while. Suspected patch is below. I'm running fresh linus git
+> (3.10.0-rc3-00046-g58f8bbd) with the patch reverted and couldn't
+> reproduce problem anymore after several tries (will do more testing
+> in meantime).
 
-Perhaps modify the routing of received ICMP error messages
-so that ones referring to the VXLAN destination port get
-routed to VXLAN rather than the socket bound to the source
-port (this could be made generic).
+Thanks for your helpful work :)
+I already send a patch to fix this problem.
 
-Some one seems to have invented a protocol that abuses the
-normal port number rules.
+> 
+> My tap0 has ipv6 addresses (with link scope only). openvpn 2.3.1.
 
-	David
+Indeed, not only tap/tun device, the other net devices can trigger
+this problem too.
+
+
+Thanks!
