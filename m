@@ -1,40 +1,49 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH] include/linux/skbuff.h: using '0xffff' instead of '~0U'
-Date: Mon, 3 Jun 2013 13:14:39 +0300
-Message-ID: <CAHp75Vc19Kii7_TF+9aF4ZeKAa4_92DCVL+u1duZDTu38o2qsw@mail.gmail.com>
-References: <51A6EBC5.7040601@asianux.com>
-	<CAHp75VfWvXkaoYQ_40idSsLYUA=YqaswnV2y-hODHjt7JMHQvQ@mail.gmail.com>
-	<51AC60AA.8010107@asianux.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: edumazet@google.com, Pravin Shelar <pshelar@nicira.com>,
-	mgorman@suse.de, David Miller <davem@davemloft.net>,
-	Andrew Morton <akpm@linux-foundation.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Chen Gang <gang.chen@asianux.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51AC60AA.8010107@asianux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Lucas Stach <l.stach@pengutronix.de>
+Subject: [PATCHv2 net-next] net: fec: add fallback to random MAC address
+Date: Mon,  3 Jun 2013 12:38:39 +0200
+Message-ID: <1370255919-12762-1-git-send-email-l.stach@pengutronix.de>
+Cc: davem@davemloft.net, Lucas Stach <l.stach@pengutronix.de>,
+	Pavel Machek <pavel@denx.de>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.pengutronix.de ([92.198.50.35]:48695 "EHLO
+	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753097Ab3FCKkl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 06:40:41 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 3, 2013 at 12:23 PM, Chen Gang <gang.chen@asianux.com> wrote:
-> On 06/01/2013 05:05 AM, Andy Shevchenko wrote:
+If no valid MAC address could be obtained from the hardware,
+fall back to a randomly generated one.
 
->> Why not "(u16)~0" ?
-> We'd better to give a meaningful name to it just like Ben said.
+Signed-off-by: Pavel Machek <pavel@denx.de>
+Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-Yeah, you could give a name, though I don't see this needs for
-constants like (u16)~0. It's a usual way to mark some values
-uninitialized.
-Just an example from kernel:
-
-        /* This is limited by 16 bit "slot" numbers,
-         * and by available on-disk context storage.
-         *
-         * Also (u16)~0 is special (denotes a "free" extent).
-
---
-With Best Regards,
-Andy Shevchenko
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 927f4c6..0063761 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -1039,6 +1039,18 @@ static void fec_get_mac(struct net_device *ndev)
+ 		iap = &tmpaddr[0];
+ 	}
+ 
++	/*
++	 * 5) random mac address
++	 */
++	if (!is_valid_ether_addr(iap)) {
++		/* Report it and use a random ethernet address instead */
++		netdev_err(ndev, "Invalid MAC address: %pM\n", iap);
++		eth_hw_addr_random(ndev);
++		netdev_info(ndev, "Using random MAC address: %pM\n",
++			    ndev->dev_addr);
++		return;
++	}
++
+ 	memcpy(ndev->dev_addr, iap, ETH_ALEN);
+ 
+ 	/* Adjust MAC if using macaddr */
+-- 
+1.8.2.rc2
