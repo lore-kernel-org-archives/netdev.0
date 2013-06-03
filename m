@@ -1,68 +1,69 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCHv2 net-next] netlink: allow large data transfers from
- user-space
-Date: Mon, 3 Jun 2013 21:21:40 +0200
-Message-ID: <20130603192140.GA28973@localhost>
-References: <1370277599-27072-1-git-send-email-pablo@netfilter.org>
- <1370279559.24311.160.camel@edumazet-glaptop>
- <20130603174138.GA28338@localhost>
- <1370282437.24311.175.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kaber@trash.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net: fix sk_buff head without data area
+Date: Mon,  3 Jun 2013 21:28:43 +0200
+Message-ID: <1370287723-30168-1-git-send-email-pablo@netfilter.org>
+Cc: eric.dumazet@gmail.com, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:42862 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:43478 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755626Ab3FCTVp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 15:21:45 -0400
-Content-Disposition: inline
-In-Reply-To: <1370282437.24311.175.camel@edumazet-glaptop>
+	id S1754816Ab3FCT3E (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 15:29:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 03, 2013 at 11:00:37AM -0700, Eric Dumazet wrote:
-> On Mon, 2013-06-03 at 19:41 +0200, Pablo Neira Ayuso wrote:
-> > Hi Eric!
-> > 
-> > On Mon, Jun 03, 2013 at 10:12:39AM -0700, Eric Dumazet wrote:
-> > > On Mon, 2013-06-03 at 18:39 +0200, Pablo Neira Ayuso wrote:
-> > > 
-> > > > +	if (is_vmalloc_addr(skb->head)) {
-> > > > +		vfree(skb->head);
-> > > > +		skb->data = NULL;
-> > > > +	}
-> > > >  
-> > > 
-> > > You probably meant :
-> > > 
-> > > 	skb->head = NULL;
-> > > 
-> > > Now, cross our fingers we do not skb_orphan() these skb too early :)
-> > 
-> > skb_release_all checks for skb->data != NULL to release skb->head as
-> > it would have been allocated via kmalloc. This didn't look very
-> > intuitive to me when I hit a panic while testing my patch either.
-> 
-> Oh well, this is probably an old typo because of skb_release_data() name
-> 
-> So we indeed do :
-> 
-> 	if (likely(skb->data))
-> 		skb_release_data(skb);
-> 
-> But it really should be
-> 
-> 	if (likely(skb->head))
-> 		skb_release_head(skb);
-> 
-> as skb->data is not pointing to the beginning of the area to be freed.
+Eric Dumazet spotted that we have to check skb->head instead
+of skb->data as skb->head points to the beginning of the
+data area of the skbuff. Similarly, we have to initialize the
+skb->head pointer, not skb->data in __alloc_skb_head.
 
-Indeed, this change is recent, happened in 0ebd0ac.
+After this fix, netlink crashes in the release path of the
+sk_buff, so let's fix that as well.
 
-> BTW, __alloc_skb_head() inits skb->data to NULL, and leaves skb->head
-> uninitialized. Thats is really not nice...
+This bug was introduced in (0ebd0ac net: add function to
+allocate sk_buff head without data area).
 
-Should be skb->head = NULL and leave skb->data unset.
+Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/core/skbuff.c        |    4 ++--
+ net/netlink/af_netlink.c |    2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-I'll send a patch to fix that.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index d629891..98ed66a 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -195,7 +195,7 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
+ 	 * the tail pointer in struct sk_buff!
+ 	 */
+ 	memset(skb, 0, offsetof(struct sk_buff, tail));
+-	skb->data = NULL;
++	skb->head = NULL;
+ 	skb->truesize = sizeof(struct sk_buff);
+ 	atomic_set(&skb->users, 1);
+ 
+@@ -611,7 +611,7 @@ static void skb_release_head_state(struct sk_buff *skb)
+ static void skb_release_all(struct sk_buff *skb)
+ {
+ 	skb_release_head_state(skb);
+-	if (likely(skb->data))
++	if (likely(skb->head))
+ 		skb_release_data(skb);
+ }
+ 
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 12ac6b4..d0b3dd6 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -747,7 +747,7 @@ static void netlink_skb_destructor(struct sk_buff *skb)
+ 		atomic_dec(&ring->pending);
+ 		sock_put(sk);
+ 
+-		skb->data = NULL;
++		skb->head = NULL;
+ 	}
+ #endif
+ 	if (skb->sk != NULL)
+-- 
+1.7.10.4
