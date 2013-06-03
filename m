@@ -1,42 +1,49 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net_sched: restore "overhead xxx" handling
-Date: Mon, 03 Jun 2013 07:08:03 -0700
-Message-ID: <1370268483.24311.145.camel@edumazet-glaptop>
-References: <1370217305.24311.104.camel@edumazet-glaptop>
-	 <20130603155621.0cb53b1b@redhat.com>
+From: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
+Subject: Adding ND to bonding?
+Date: Mon, 3 Jun 2013 16:13:17 +0200 (CEST)
+Message-ID: <30520718.20.1370268797936.JavaMail.root@zimbra>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>, Vimalkumar <j.vimal@gmail.com>,
-	Jiri Pirko <jpirko@redhat.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:36863 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753297Ab3FCOIG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 10:08:06 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y11so5763911pdj.28
-        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 07:08:04 -0700 (PDT)
-In-Reply-To: <20130603155621.0cb53b1b@redhat.com>
+Received: from zimbra.karlsbakk.net ([213.236.233.66]:60993 "EHLO
+	zimbra.karlsbakk.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755177Ab3FCOT1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 10:19:27 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by zimbra.karlsbakk.net (Postfix) with ESMTP id 15318F529F
+	for <netdev@vger.kernel.org>; Mon,  3 Jun 2013 16:13:23 +0200 (CEST)
+Received: from zimbra.karlsbakk.net ([127.0.0.1])
+	by localhost (zimbra.karlsbakk.net [127.0.0.1]) (amavisd-new, port 10024)
+	with ESMTP id MFLzjfiH8iFz for <netdev@vger.kernel.org>;
+	Mon,  3 Jun 2013 16:13:18 +0200 (CEST)
+Received: from zimbra.karlsbakk.net (zimbra.karlsbakk.net [213.236.233.66])
+	by zimbra.karlsbakk.net (Postfix) with ESMTP id C12FAF523E
+	for <netdev@vger.kernel.org>; Mon,  3 Jun 2013 16:13:18 +0200 (CEST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-03 at 15:56 +0200, Jesper Dangaard Brouer wrote:
+Hi all
 
-> Would it make sense to add the "overhead" in qdisc_pkt_len_init() or
-> qdisc_calculate_pkt_len(), thus updating qdisc_skb_cb(skb)->pkt_len
-> instead?  (And perhaps also address the per GSO issue).
+We're hoping one day we can move to an IPv6-only network (with some gat=
+ewaying to IPv4 land), and I wonder if it would be hard to add Neighbor=
+ Discovery Protocol to bonding as to allow for bonding on ipv6. I'm not=
+ much of a kernel coder, but for what I could see, it looks doable.
 
-qdisc_pkt_len_init() is generic (OK for all qdisc)
+Anyone here that has looked into this?
 
-Each HTB class can have its own computations : 
-One for the rate, one for the ceil.
-It has to be done in HTB.
+Vennlige hilsener / Best regards
 
-If only the overhead is needed, its kind of easy for GSO packets, as we
-already have gso_segs in hand.
-
-pktlen = qdisc_skb_cb(skb)->pkt_len + gso_segs * overhead;
-
-That will be a net-next patch, since it's not a regression.
+roy
+--
+Roy Sigurd Karlsbakk
+(+47) 98013356
+roy@karlsbakk.net
+http://blogg.karlsbakk.net/
+GPG Public key: http://karlsbakk.net/roysigurdkarlsbakk.pubkey.txt
+--
+I all pedagogikk er det essensielt at pensum presenteres intelligibelt.=
+ Det er et element=C3=A6rt imperativ for alle pedagoger =C3=A5 unng=C3=A5=
+ eksessiv anvendelse av idiomer med xenotyp etymologi. I de fleste tilf=
+eller eksisterer adekvate og relevante synonymer p=C3=A5 norsk.
