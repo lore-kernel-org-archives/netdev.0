@@ -1,94 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 iproute2] get_rate: detect 32bit overflows
-Date: Mon, 03 Jun 2013 08:51:33 -0700
-Message-ID: <1370274693.24311.154.camel@edumazet-glaptop>
-References: <1370199083.24311.43.camel@edumazet-glaptop>
-	 <1370209008.24311.91.camel@edumazet-glaptop>
-	 <1370270231.1918.10.camel@bwh-desktop.uk.level5networks.com>
-	 <1370272783.24311.148.camel@edumazet-glaptop>
-	 <1370273807.1918.20.camel@bwh-desktop.uk.level5networks.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH -next] net: sun4i-emac: fix a typo in emac_probe()
+Date: Mon, 03 Jun 2013 09:20:49 -0700
+Message-ID: <1370276449.2025.33.camel@joe-AO722>
+References: <CAPgLHd-fXnt9H_CxDD1Ww=C-6nn3COVkYirKY6ucOJVR2Pkwkw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: grant.likely@linaro.org, rob.herring@calxeda.com,
+	maxime.ripard@free-electrons.com, davem@davemloft.net, sr@denx.de,
+	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org
+To: Wei Yongjun <weiyj.lk@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f178.google.com ([209.85.160.178]:36790 "EHLO
-	mail-gh0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758778Ab3FCP6z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 11:58:55 -0400
-Received: by mail-gh0-f178.google.com with SMTP id g15so244244ghb.37
-        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 08:58:55 -0700 (PDT)
-In-Reply-To: <1370273807.1918.20.camel@bwh-desktop.uk.level5networks.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:38306 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1758614Ab3FCQUw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 3 Jun 2013 12:20:52 -0400
+In-Reply-To: <CAPgLHd-fXnt9H_CxDD1Ww=C-6nn3COVkYirKY6ucOJVR2Pkwkw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-03 at 16:36 +0100, Ben Hutchings wrote:
+On Mon, 2013-06-03 at 21:36 +0800, Wei Yongjun wrote:
+> Just fixed a typo in emac_probe().
 
-> Oops, I read this as being strtol() currently, not strtod().  Currently
-> '1.5gbit' will work, but this change will break that.  So I think you
-> need to keep bps as a double.
+also fixed a memory leak.
 
-Arg
+> diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+[]
+> @@ -821,7 +821,7 @@ static int emac_probe(struct platform_device *pdev)
+>  	db->membase = of_iomap(np, 0);
+>  	if (!db->membase) {
+>  		dev_err(&pdev->dev, "failed to remap registers\n");
+> -		return -ENOMEM;
+> +		ret = -ENOMEM;
+>  		goto out;
+>  	}
 
-> Then here I think the check should be *rate != floor(bps), i.e. accept
-> rounding down of a non-integer number of bytes but any other change is
-> assumed to be overflow.
+out:
+	dev_err(db->dev, "not found (%d).\n", ret);
 
-Thanks Ben, here is v4 then ;)
-
-[PATCH v4] get_rate: detect 32bit overflows
-
-Current rate limit is 34.359.738.360 bit per second, and
-unfortunately 40Gbps links are above it.
-
-overflows in get_rate() are currently not detected, and some
-users are confused. Let's detect this and complain.
-
-Note that some qdisc are ready to get extended range, but this will
-need additional attributes and new iproute2
-
-With help from Ben Hutchings
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- tc/tc_util.c |   20 ++++++++++++--------
- 1 file changed, 12 insertions(+), 8 deletions(-)
-
-diff --git a/tc/tc_util.c b/tc/tc_util.c
-index 8e62a01..8114c97 100644
---- a/tc/tc_util.c
-+++ b/tc/tc_util.c
-@@ -152,19 +152,23 @@ int get_rate(unsigned *rate, const char *str)
- 	if (p == str)
- 		return -1;
- 
--	if (*p == '\0') {
--		*rate = bps / 8.;	/* assume bits/sec */
--		return 0;
--	}
--
- 	for (s = suffixes; s->name; ++s) {
- 		if (strcasecmp(s->name, p) == 0) {
--			*rate = (bps * s->scale) / 8.;
--			return 0;
-+			bps *= s->scale;
-+			p += strlen(p);
-+			break;
- 		}
- 	}
- 
--	return -1;
-+	if (*p)
-+		return -1; /* unknown suffix */
-+
-+	bps /= 8; /* -> bytes per second */
-+	*rate = bps;
-+	/* detect if an overflow happened */
-+	if (*rate != floor(bps))
-+		return -1;
-+	return 0;
- }
- 
- void print_rate(char *buf, int len, __u32 rate)
+	free_netdev(ndev);
