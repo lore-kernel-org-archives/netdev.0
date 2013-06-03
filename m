@@ -1,42 +1,41 @@
 From: Chen Gang <gang.chen@asianux.com>
-Subject: Re: [PATCH net-next v3] netfilter: Correct calculation using skb->tail
- and skb-network_header
-Date: Mon, 03 Jun 2013 17:06:53 +0800
-Message-ID: <51AC5CAD.6040204@asianux.com>
-References: <1369967969-32375-1-git-send-email-horms@verge.net.au>
+Subject: Re: [PATCH] include/linux/skbuff.h: using '0xffff' instead of '~0U'
+Date: Mon, 03 Jun 2013 17:23:54 +0800
+Message-ID: <51AC60AA.8010107@asianux.com>
+References: <51A6EBC5.7040601@asianux.com> <CAHp75VfWvXkaoYQ_40idSsLYUA=YqaswnV2y-hODHjt7JMHQvQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1369967969-32375-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
+Cc: edumazet@google.com, Pravin Shelar <pshelar@nicira.com>,
+	mgorman@suse.de, David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Andy Shevchenko <andy.shevchenko@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAHp75VfWvXkaoYQ_40idSsLYUA=YqaswnV2y-hODHjt7JMHQvQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/31/2013 10:39 AM, Simon Horman wrote:
-> This corrects an regression introduced by "net: Use 16bits for *_headers
-> fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
-> that case skb->tail will be a pointer whereas skb->network_header
-> will be an offset from head. This is corrected by using wrappers that
-> ensure that calculations are always made using pointers.
+On 06/01/2013 05:05 AM, Andy Shevchenko wrote:
+> On Thu, May 30, 2013 at 9:03 AM, Chen Gang <gang.chen@asianux.com> wrote:
+>> >
+>> > Both 'transport_header' and 'mac_header' are u16, which are never equal
+>> > to '~0U'.
+>> >
+>> > So need use '0xffff' instead of '~0U'.
+> Why not "(u16)~0" ?
+> Or even better "!= USHORT_MAX"?
 > 
-> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> Reported-by: Chen Gang <gang.chen@asianux.com>
-> Signed-off-by: Simon Horman <horms@verge.net.au>
-> 
-> --
-> v3
-> * Add net-next to subject prefix
-> 
-> v2
-> * Use skb_tail_pointer() to ensure the tail portion of the calculation is
->   always a pointer - it is not if NET_SKBUFF_DATA_USES_OFFSET is not set.
+> Or mac_header + 1 == 0, though it less clear.
+
+It seems they are just the same as '0xffff' (are all 'magic' number).
+
+We'd better to give a meaningful name to it just like Ben said.
+
 
 Thanks.
-
 -- 
 Chen Gang
 
