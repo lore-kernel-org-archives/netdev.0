@@ -1,38 +1,45 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC] vxlan: convert remote list to list_rcu
-Date: Tue, 4 Jun 2013 09:00:31 -0700
-Message-ID: <20130604090031.1283b96f@nehalam.linuxnetplumber.net>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
-	<20130530110948.GA10532@casper.infradead.org>
-	<CAF1J0HP+Wu9HjEELDaXM2BMREMuKByWr_zz=PwHeNUt=EVbdvw@mail.gmail.com>
-	<20130530113739.GB10532@casper.infradead.org>
-	<20130531091740.70b3e077@nehalam.linuxnetplumber.net>
-	<20130602102942.GA21706@zed>
-	<20130603112616.3ad018e2@nehalam.linuxnetplumber.net>
-	<OFE7269995.C8314337-ON85257B7F.006B4FC1-85257B7F.006F87F8@us.ibm.com>
-	<CAF1J0HNDrqAfWSkdsF7UW=EqJ5yv8hN-uGZi+SRa1F2nYMZWxw@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv2 1/3] net: phy: prevent linking breakage
+Date: Tue, 04 Jun 2013 18:01:07 +0200
+Message-ID: <1394174.ONngHnHYKL@wuerfel>
+References: <1369741403-25315-2-git-send-email-alexandre.belloni@free-electrons.com> <6466898.RnYOe3jpGG@wuerfel> <CAGVrzcbRS3x5fgD1BfOk4-oTUsAY9FA2V621OvZLJQNZ01brCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
-To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Florian Fainelli <florian@openwrt.org>,
+	Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
+	kernel@pengutronix.de, shawn.guo@linaro.org,
+	David Miller <davem@davemloft.net>
+To: linux-arm-kernel@lists.infradead.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f50.google.com ([209.85.160.50]:57285 "EHLO
-	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752522Ab3FDQAf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 12:00:35 -0400
-Received: by mail-pb0-f50.google.com with SMTP id wy17so442085pbc.37
-        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 09:00:35 -0700 (PDT)
-In-Reply-To: <CAF1J0HNDrqAfWSkdsF7UW=EqJ5yv8hN-uGZi+SRa1F2nYMZWxw@mail.gmail.com>
+Received: from moutng.kundenserver.de ([212.227.17.9]:58943 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754456Ab3FDQBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 12:01:11 -0400
+In-Reply-To: <CAGVrzcbRS3x5fgD1BfOk4-oTUsAY9FA2V621OvZLJQNZ01brCg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I am still not 100% convinced of the use case of providing multiple destinations.
-It seems like either a solution for migrating guests, a way to do SPAN, or a weird
-form of multicast.
+On Tuesday 04 June 2013 16:36:50 Florian Fainelli wrote:
+> It seems to me that what David proposes is to have say an
+> arch/arm/mach-foo/phy-fixups.c file which is only enabled when
+> CONFIG_PHYLIB is set (obj-$(CONFIG_PHYLIB) += phy-fixup.o), such that
+> it does not need to have any conditionnals when calling
+> phy_register_fixup. This sounds a little unusual, but why not.
 
-Wouldn't it be better to use something like TC actions for these special cases and
-handle it at the IP layer rather than having to add so much complexity into the
-VXLAN driver itself.
+I don't think it would actually help us, because then we still need
+to declare a local function that gets called from the board init
+code. Instead of doing
+
+	if (IS_ENABLED(CONFIG_PHYLIB))
+		 phy_register_fixup_for_uid(phy_id, foo_phy_fixup);
+
+we would then do
+
+	if (IS_ENABLED(CONFIG_PHYLIB))
+		foo_phy_fixup_register();
+
+which is not much different at all.
+
+	Arnd
