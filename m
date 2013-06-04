@@ -1,58 +1,29 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iproute2: bridge: fix 'bridge link'
- setlink/getlink parsing
-Date: Mon, 3 Jun 2013 19:57:19 -0700
-Message-ID: <20130603195719.34d21480@nehalam.linuxnetplumber.net>
-References: <20130529162044.25906.79115.stgit@nitbit.x32>
+Subject: Re: [ PATCH iproute2] ss: replace bfp with bpf in usage().
+Date: Mon, 3 Jun 2013 19:57:38 -0700
+Message-ID: <20130603195738.45b8613e@nehalam.linuxnetplumber.net>
+References: <1369388560-6030-1-git-send-email-ramirose@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: vyasevic@redhat.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130529162044.25906.79115.stgit@nitbit.x32>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Rami Rosen <ramirose@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:58162 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756130Ab3FDC5l (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 22:57:41 -0400
+Received: by mail-pd0-f177.google.com with SMTP id u10so856540pdi.36
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 19:57:41 -0700 (PDT)
+In-Reply-To: <1369388560-6030-1-git-send-email-ramirose@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 29 May 2013 09:20:53 -0700
-John Fastabend <john.fastabend@gmail.com> wrote:
+On Fri, 24 May 2013 12:42:40 +0300
+Rami Rosen <ramirose@gmail.com> wrote:
 
-> Use IFLA_AF_SPEC nested attributes to lookup bridge mode and when
-> doing strcmp() check for equality.
+> This patch fixes usage() of misc/ss.c to use bpf instead of bfp.
 > 
-> These appear to be typos from the original commit,
-> 
-> commit 64108901b737b95247b53dec8c1b8217ca8505b7
-> Author: Vlad Yasevich <vyasevic@redhat.com>
-> Date:   Fri Mar 15 10:01:28 2013 -0700
-> 
->     bridge: Add support for setting bridge port attributes
-> 
-> Also set flags to BRIDGE_FLAGS_SELF instead of using OR operation.
-> This allows setting the bridge mode when not being used with a
-> master device.
-> 
-> To allow setting both master and self devices simultaneously we
-> will need to add a {self|master} field similar to fdb commands.
-> For now the command sets are mutually exclusive as noted in the
-> original commit.
-> 
-> With this patch 'bridge link set' works now,
-> 
-> # ./bridge/bridge link set dev veth1 cost 3
-> # ./bridge/bridge link show
-> 10: veth1 state UP : <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 master bridge0 state forwarding priority 3 cost 3
-> 
-> CC: Vlad Yasevich <vyasevic@redhat.com>
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Looks good, applied
+Applied
