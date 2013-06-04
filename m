@@ -1,78 +1,85 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [PATCH net-next] netpoll: fix position of network header
-Date: Tue,  4 Jun 2013 10:31:36 +0800
-Message-ID: <1370313096-4527-1-git-send-email-amwang@redhat.com>
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <dborkmann@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25284 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755301Ab3FDCcU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 3 Jun 2013 22:32:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the wireless-next tree with the
+ net-next tree
+Date: Tue, 4 Jun 2013 12:33:47 +1000
+Message-ID: <20130604123347.df8639ba69cb914069c80fd6@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__4_Jun_2013_12_33_47_+1000_rB8FBrbILt6R11I+"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Sujith Manoharan <c_manoha@qca.qualcomm.com>,
+	Jingoo Han <jg1.han@samsung.com>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Similar to the problem in pktgen, netpoll uses skb_tail_offset()
-too, as the code is copied from pktgen.
+--Signature=_Tue__4_Jun_2013_12_33_47_+1000_rB8FBrbILt6R11I+
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Also use return values of skb_put() directly, this will simiplify
-the code.
+Hi John,
 
-Reported-by: Thomas Graf <tgraf@suug.ch>
-Cc: Thomas Graf <tgraf@suug.ch>
-Cc: Daniel Borkmann <dborkmann@redhat.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+Today's linux-next merge of the wireless-next tree got a conflict in
+drivers/net/wireless/ath/ath9k/debug.c between commit 27d7f47756f4 ("net:
+wireless: replace strict_strtoul() with kstrtoul()") from the net-next
+tree and commit 6e4d291eec82 ("ath9k: Print ANI statistics in debugfs")
+from the wireless-next tree.
 
----
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 688517c..03c8ec3 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -676,8 +676,6 @@ static void netpoll_neigh_reply(struct sk_buff *skb, struct netpoll_info *npinfo
- 
- 		spin_lock_irqsave(&npinfo->rx_lock, flags);
- 		list_for_each_entry_safe(np, tmp, &npinfo->rx_np, rx) {
--			unsigned long tail_offset;
--
- 			if (!ipv6_addr_equal(daddr, &np->local_ip.in6))
- 				continue;
- 
-@@ -691,30 +689,20 @@ static void netpoll_neigh_reply(struct sk_buff *skb, struct netpoll_info *npinfo
- 			send_skb->dev = skb->dev;
- 
- 			skb_reset_network_header(send_skb);
--			skb_put(send_skb, sizeof(struct ipv6hdr));
--			hdr = ipv6_hdr(send_skb);
--
-+			hdr = (struct ipv6hdr *) skb_put(send_skb, sizeof(struct ipv6hdr));
- 			*(__be32*)hdr = htonl(0x60000000);
--
- 			hdr->payload_len = htons(size);
- 			hdr->nexthdr = IPPROTO_ICMPV6;
- 			hdr->hop_limit = 255;
- 			hdr->saddr = *saddr;
- 			hdr->daddr = *daddr;
- 
--			tail_offset = skb_tail_offset(skb);
--			if (tail_offset > 0xffff) {
--				kfree_skb(send_skb);
--				continue;
--			}
--			skb_set_network_header(send_skb, tail_offset);
--			skb_put(send_skb, size);
--
--			icmp6h = (struct icmp6hdr *)skb_transport_header(skb);
-+			icmp6h = (struct icmp6hdr *) skb_put(send_skb, sizeof(struct icmp6hdr));
- 			icmp6h->icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
- 			icmp6h->icmp6_router = 0;
- 			icmp6h->icmp6_solicited = 1;
--			target = (struct in6_addr *)(skb_transport_header(send_skb) + sizeof(struct icmp6hdr));
-+
-+			target = (struct in6_addr *) skb_put(send_skb, sizeof(struct in6_addr));
- 			*target = msg->target;
- 			icmp6h->icmp6_cksum = csum_ipv6_magic(saddr, daddr, size,
- 							      IPPROTO_ICMPV6,
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/wireless/ath/ath9k/debug.c
+index 51cc0fa,7852f6e..0000000
+--- a/drivers/net/wireless/ath/ath9k/debug.c
++++ b/drivers/net/wireless/ath/ath9k/debug.c
+@@@ -200,12 -244,15 +244,15 @@@ static ssize_t write_file_ani(struct fi
+  		return -EFAULT;
+ =20
+  	buf[len] =3D '\0';
+- 	if (kstrtoul(buf, 0, &disable_ani))
+ -	if (strict_strtoul(buf, 0, &ani))
+++	if (kstrtoul(buf, 0, &ani))
+  		return -EINVAL;
+ =20
+- 	common->disable_ani =3D !!disable_ani;
++ 	if (ani < 0 || ani > 1)
++ 		return -EINVAL;
++=20
++ 	common->disable_ani =3D !ani;
+ =20
+- 	if (disable_ani) {
++ 	if (common->disable_ani) {
+  		clear_bit(SC_OP_ANI_RUN, &sc->sc_flags);
+  		ath_stop_ani(sc);
+  	} else {
+
+--Signature=_Tue__4_Jun_2013_12_33_47_+1000_rB8FBrbILt6R11I+
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRrVIQAAoJEECxmPOUX5FEeigP/3In1LFW5LdD2NkUqZC3SfFR
++6jikG1NNh31wHO7oY5TMg72W8kCDG8xk76p9UcJjuLiML62rd873aFI1D4bdeo/
+H+qt49ncMruzWP406X1DMf5QBfhZTYTofppQN5HB+agM2mhCmMJOcmJRg1qau/Ch
+apBLapN7ATtKydRWeBokKf0j/EiF7awnoReYYgx8ha8DPDf6PV/GxVZSC2kY/mCe
+70nGtFje/S7TwG/qG+OrTQZzy0AofnNbK4Mz4BEAc3wqxsi/QwR3lwI2vHR2Pju9
+ZhdR9Fhh+7RYtb1ZOAcuyOac1CYFmxZBhNfn7CGRsKgbiLtzVg+TO+nQtgmzBu8Q
+gvAuFTM7VIlt1MEnmsYuIuJXTfqaJITJP4NWc6FcwizctCVNSick672eHOPnTEx2
+oOlEEj/SOy9U9oFfEG2K2d9TD5TGcSl4soMKOZr0fd5It60aMromodi3n1tR7dmD
+aFaLZlEf3/WHihImiBbbnRK7Ci147Byt0ObZN5K5pLfR8KEhQx8cLQ/MTJJCMZIt
++Y+mqHTD2+CPsYFS+/fLKXi3dvMGWug2snVk05cTauSgnWWNZCPIdxk/1KXgPzgV
+tQQZZY2jQVMaf7U0EuQbx6HqHoKhTwZOHs5JY1sZQH3JGiTqTbDcoqFHJkIO4WnK
+TX63/IE/XF3/6bqm9DY9
+=IhqN
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__4_Jun_2013_12_33_47_+1000_rB8FBrbILt6R11I+--
