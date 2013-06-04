@@ -1,198 +1,159 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: [PATCH] net: core: move mac_pton() to lib/net_utils.c
-Date: Tue,  4 Jun 2013 19:46:26 +0300
-Message-ID: <1370364386-5034-1-git-send-email-andy.shevchenko@gmail.com>
-Cc: Andy Shevchenko <andy.shevchenko@gmail.com>
-To: Arnd Bergmann <arnd@arndb.de>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] net_sched: htb: do not mix 1ns and 64ns time units
+Date: Tue, 04 Jun 2013 10:11:48 -0700
+Message-ID: <1370365908.24311.222.camel@edumazet-glaptop>
+References: <20130529151330.22c5c89e@redhat.com>
+	 <20130604141342.00c8eb9f@redhat.com>
+	 <1370359133.24311.208.camel@edumazet-glaptop>
+	 <1370361306.24311.214.camel@edumazet-glaptop>
+	 <1370361727.24311.215.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Jiri Benc <jbenc@redhat.com>, David Miller <davem@redhat.com>,
+	j.vimal@gmail.com, Michal Soltys <soltys@ziu.info>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
+	Jim Gettys <jg@freedesktop.org>,
+	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:35090 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757488Ab3FDRLv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 13:11:51 -0400
+Received: by mail-pd0-f178.google.com with SMTP id w16so532211pde.23
+        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 10:11:50 -0700 (PDT)
+In-Reply-To: <1370361727.24311.215.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since we have at least one user of this function outside of CONFIG_NET
-scope, we have to provide this function independently. The proposed
-solution is to move it under lib/net_utils.c with corresponding
-configuration variable and select wherever it is needed.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
-Reported-by: Arnd Bergmann <arnd@arndb.de>
+commit 56b765b79 ("htb: improved accuracy at high rates") added another
+regression for low rates, because it mixes 1ns and 64ns time units.
+
+So the maximum delay (mbuffer) was not 60 second, but 937 ms.
+
+Lets convert all time fields to 1ns as 64bit arches are becoming the
+norm.
+
+Reported-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- drivers/misc/Kconfig     |  1 +
- drivers/net/netconsole.c |  1 +
- include/linux/if_ether.h |  1 -
- include/linux/kernel.h   |  2 ++
- lib/Kconfig              |  3 +++
- lib/Makefile             |  2 ++
- lib/net_utils.c          | 26 ++++++++++++++++++++++++++
- net/Kconfig              |  1 +
- net/core/netpoll.c       |  1 +
- net/core/utils.c         | 22 ----------------------
- 10 files changed, 37 insertions(+), 23 deletions(-)
- create mode 100644 lib/net_utils.c
+ net/sched/sch_htb.c |   34 +++++++++++++++++-----------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
-diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
-index c002d86..80889d5 100644
---- a/drivers/misc/Kconfig
-+++ b/drivers/misc/Kconfig
-@@ -480,6 +480,7 @@ config BMP085_SPI
+diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
+index 79b1876..e58b738 100644
+--- a/net/sched/sch_htb.c
++++ b/net/sched/sch_htb.c
+@@ -109,7 +109,7 @@ struct htb_class {
+ 	} un;
+ 	struct rb_node node[TC_HTB_NUMPRIO];	/* node for self or feed tree */
+ 	struct rb_node pq_node;	/* node for event queue */
+-	psched_time_t pq_key;
++	s64	pq_key;
  
- config PCH_PHUB
- 	tristate "Intel EG20T PCH/LAPIS Semicon IOH(ML7213/ML7223/ML7831) PHUB"
-+	select GENERIC_NET_UTILS
- 	depends on PCI
- 	help
- 	  This driver is for PCH(Platform controller Hub) PHUB(Packet Hub) of
-diff --git a/drivers/net/netconsole.c b/drivers/net/netconsole.c
-index c96a7a7..2cf3ed8 100644
---- a/drivers/net/netconsole.c
-+++ b/drivers/net/netconsole.c
-@@ -40,6 +40,7 @@
- #include <linux/slab.h>
- #include <linux/console.h>
- #include <linux/moduleparam.h>
-+#include <linux/kernel.h>
- #include <linux/string.h>
- #include <linux/netpoll.h>
- #include <linux/inet.h>
-diff --git a/include/linux/if_ether.h b/include/linux/if_ether.h
-index 12b4d55..d556973 100644
---- a/include/linux/if_ether.h
-+++ b/include/linux/if_ether.h
-@@ -30,7 +30,6 @@ static inline struct ethhdr *eth_hdr(const struct sk_buff *skb)
+ 	int prio_activity;	/* for which prios are we active */
+ 	enum htb_cmode cmode;	/* current mode of the class */
+@@ -121,10 +121,10 @@ struct htb_class {
+ 	/* token bucket parameters */
+ 	struct psched_ratecfg rate;
+ 	struct psched_ratecfg ceil;
+-	s64 buffer, cbuffer;	/* token bucket depth/rate */
+-	psched_tdiff_t mbuffer;	/* max wait time */
+-	s64 tokens, ctokens;	/* current number of tokens */
+-	psched_time_t t_c;	/* checkpoint time */
++	s64	buffer, cbuffer;	/* token bucket depth/rate */
++	s64	mbuffer;		/* max wait time */
++	s64	tokens, ctokens;	/* current number of tokens */
++	s64	t_c;			/* checkpoint time */
+ };
  
- int eth_header_parse(const struct sk_buff *skb, unsigned char *haddr);
+ struct htb_sched {
+@@ -141,15 +141,15 @@ struct htb_sched {
+ 	struct rb_root wait_pq[TC_HTB_MAXDEPTH];
  
--int mac_pton(const char *s, u8 *mac);
- extern ssize_t sysfs_format_mac(char *buf, const unsigned char *addr, int len);
+ 	/* time of nearest event per level (row) */
+-	psched_time_t near_ev_cache[TC_HTB_MAXDEPTH];
++	s64	near_ev_cache[TC_HTB_MAXDEPTH];
  
- #endif	/* _LINUX_IF_ETHER_H */
-diff --git a/include/linux/kernel.h b/include/linux/kernel.h
-index bd95d1f..cf23b15 100644
---- a/include/linux/kernel.h
-+++ b/include/linux/kernel.h
-@@ -450,6 +450,8 @@ static inline char * __deprecated pack_hex_byte(char *buf, u8 byte)
- extern int hex_to_bin(char ch);
- extern int __must_check hex2bin(u8 *dst, const char *src, size_t count);
+ 	int defcls;		/* class where unclassified flows go to */
  
-+int mac_pton(const char *s, u8 *mac);
-+
- /*
-  * General tracing related utility functions - trace_printk(),
-  * tracing_on/tracing_off and tracing_start()/tracing_stop
-diff --git a/lib/Kconfig b/lib/Kconfig
-index c2ce4fd..1464562 100644
---- a/lib/Kconfig
-+++ b/lib/Kconfig
-@@ -22,6 +22,9 @@ config GENERIC_STRNCPY_FROM_USER
- config GENERIC_STRNLEN_USER
- 	bool
+ 	/* filters for qdisc itself */
+ 	struct tcf_proto *filter_list;
  
-+config GENERIC_NET_UTILS
-+	bool
-+
- config GENERIC_FIND_FIRST_BIT
- 	bool
+-	int rate2quantum;	/* quant = rate / rate2quantum */
+-	psched_time_t now;	/* cached dequeue time */
++	int	rate2quantum;	/* quant = rate / rate2quantum */
++	s64	now;	/* cached dequeue time */
+ 	struct qdisc_watchdog watchdog;
  
-diff --git a/lib/Makefile b/lib/Makefile
-index af911db..c676cf4 100644
---- a/lib/Makefile
-+++ b/lib/Makefile
-@@ -141,6 +141,8 @@ obj-$(CONFIG_DDR) += jedec_ddr_data.o
- obj-$(CONFIG_GENERIC_STRNCPY_FROM_USER) += strncpy_from_user.o
- obj-$(CONFIG_GENERIC_STRNLEN_USER) += strnlen_user.o
+ 	/* non shaped skbs; let them go directly thru */
+@@ -664,8 +664,8 @@ static void htb_charge_class(struct htb_sched *q, struct htb_class *cl,
+  * next pending event (0 for no event in pq, q->now for too many events).
+  * Note: Applied are events whose have cl->pq_key <= q->now.
+  */
+-static psched_time_t htb_do_events(struct htb_sched *q, int level,
+-				   unsigned long start)
++static s64 htb_do_events(struct htb_sched *q, int level,
++			 unsigned long start)
+ {
+ 	/* don't run for longer than 2 jiffies; 2 is used instead of
+ 	 * 1 to simplify things when jiffy is going to be incremented
+@@ -857,7 +857,7 @@ static struct sk_buff *htb_dequeue(struct Qdisc *sch)
+ 	struct sk_buff *skb;
+ 	struct htb_sched *q = qdisc_priv(sch);
+ 	int level;
+-	psched_time_t next_event;
++	s64 next_event;
+ 	unsigned long start_at;
  
-+obj-$(CONFIG_GENERIC_NET_UTILS) += net_utils.o
-+
- obj-$(CONFIG_STMP_DEVICE) += stmp_device.o
+ 	/* try to dequeue direct packets as high prio (!) to minimize cpu work */
+@@ -880,7 +880,7 @@ ok:
+ 	for (level = 0; level < TC_HTB_MAXDEPTH; level++) {
+ 		/* common case optimization - skip event handler quickly */
+ 		int m;
+-		psched_time_t event;
++		s64 event;
  
- libfdt_files = fdt.o fdt_ro.o fdt_wip.o fdt_rw.o fdt_sw.o fdt_strerror.o
-diff --git a/lib/net_utils.c b/lib/net_utils.c
-new file mode 100644
-index 0000000..2e3c52c
---- /dev/null
-+++ b/lib/net_utils.c
-@@ -0,0 +1,26 @@
-+#include <linux/string.h>
-+#include <linux/if_ether.h>
-+#include <linux/ctype.h>
-+#include <linux/kernel.h>
-+
-+int mac_pton(const char *s, u8 *mac)
-+{
-+	int i;
-+
-+	/* XX:XX:XX:XX:XX:XX */
-+	if (strlen(s) < 3 * ETH_ALEN - 1)
-+		return 0;
-+
-+	/* Don't dirty result unless string is valid MAC. */
-+	for (i = 0; i < ETH_ALEN; i++) {
-+		if (!isxdigit(s[i * 3]) || !isxdigit(s[i * 3 + 1]))
-+			return 0;
-+		if (i != ETH_ALEN - 1 && s[i * 3 + 2] != ':')
-+			return 0;
-+	}
-+	for (i = 0; i < ETH_ALEN; i++) {
-+		mac[i] = (hex_to_bin(s[i * 3]) << 4) | hex_to_bin(s[i * 3 + 1]);
-+	}
-+	return 1;
-+}
-+EXPORT_SYMBOL(mac_pton);
-diff --git a/net/Kconfig b/net/Kconfig
-index 523e43e..2273655 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -5,6 +5,7 @@
- menuconfig NET
- 	bool "Networking support"
- 	select NLATTR
-+	select GENERIC_NET_UTILS
- 	---help---
- 	  Unless you really know what you are doing, you should say Y here.
- 	  The reason is that some programs need kernel networking support even
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 688517c..b9bb88b 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -12,6 +12,7 @@
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+ 		if (q->now >= q->near_ev_cache[level]) {
+ 			event = htb_do_events(q, level, start_at);
+@@ -1117,8 +1117,8 @@ htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
  
- #include <linux/moduleparam.h>
-+#include <linux/kernel.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
- #include <linux/string.h>
-diff --git a/net/core/utils.c b/net/core/utils.c
-index 3c7f5b5..aa88e23 100644
---- a/net/core/utils.c
-+++ b/net/core/utils.c
-@@ -338,25 +338,3 @@ void inet_proto_csum_replace16(__sum16 *sum, struct sk_buff *skb,
- 				  csum_unfold(*sum)));
+ 	if (!cl->level && cl->un.leaf.q)
+ 		cl->qstats.qlen = cl->un.leaf.q->q.qlen;
+-	cl->xstats.tokens = cl->tokens;
+-	cl->xstats.ctokens = cl->ctokens;
++	cl->xstats.tokens = PSCHED_NS2TICKS(cl->tokens);
++	cl->xstats.ctokens = PSCHED_NS2TICKS(cl->ctokens);
+ 
+ 	if (gnet_stats_copy_basic(d, &cl->bstats) < 0 ||
+ 	    gnet_stats_copy_rate_est(d, NULL, &cl->rate_est) < 0 ||
+@@ -1200,7 +1200,7 @@ static void htb_parent_to_leaf(struct htb_sched *q, struct htb_class *cl,
+ 	parent->un.leaf.q = new_q ? new_q : &noop_qdisc;
+ 	parent->tokens = parent->buffer;
+ 	parent->ctokens = parent->cbuffer;
+-	parent->t_c = psched_get_time();
++	parent->t_c = ktime_to_ns(ktime_get());
+ 	parent->cmode = HTB_CAN_SEND;
  }
- EXPORT_SYMBOL(inet_proto_csum_replace16);
--
--int mac_pton(const char *s, u8 *mac)
--{
--	int i;
--
--	/* XX:XX:XX:XX:XX:XX */
--	if (strlen(s) < 3 * ETH_ALEN - 1)
--		return 0;
--
--	/* Don't dirty result unless string is valid MAC. */
--	for (i = 0; i < ETH_ALEN; i++) {
--		if (!isxdigit(s[i * 3]) || !isxdigit(s[i * 3 + 1]))
--			return 0;
--		if (i != ETH_ALEN - 1 && s[i * 3 + 2] != ':')
--			return 0;
--	}
--	for (i = 0; i < ETH_ALEN; i++) {
--		mac[i] = (hex_to_bin(s[i * 3]) << 4) | hex_to_bin(s[i * 3 + 1]);
--	}
--	return 1;
--}
--EXPORT_SYMBOL(mac_pton);
--- 
-1.8.3.101.g727a46b
+ 
+@@ -1417,8 +1417,8 @@ static int htb_change_class(struct Qdisc *sch, u32 classid,
+ 		/* set class to be in HTB_CAN_SEND state */
+ 		cl->tokens = PSCHED_TICKS2NS(hopt->buffer);
+ 		cl->ctokens = PSCHED_TICKS2NS(hopt->cbuffer);
+-		cl->mbuffer = 60 * PSCHED_TICKS_PER_SEC;	/* 1min */
+-		cl->t_c = psched_get_time();
++		cl->mbuffer = 60ULL * NSEC_PER_SEC;	/* 1min */
++		cl->t_c = ktime_to_ns(ktime_get());
+ 		cl->cmode = HTB_CAN_SEND;
+ 
+ 		/* attach to the hash list and parent's family */
