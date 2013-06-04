@@ -1,82 +1,51 @@
-From: Solomon Peachy <pizza@shaftnet.org>
-Subject: Re: [PATCH 4/4] cw1200: hwio: Remove an unnecessary goto
-Date: Tue, 4 Jun 2013 11:09:10 -0400
-Message-ID: <20130604150910.GA13278@shaftnet.org>
-References: <60123fd3175b7cceadf6c335b12e58b797e18f65.1370356776.git.joe@perches.com>
- <fd299c9ef87fe50c12af871d6bfcc92d7f6ef3dc.1370356776.git.joe@perches.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bad shaping at low rates, after commit 56b765b79 (htb: improved
+ accuracy at high rates)
+Date: Tue, 04 Jun 2013 08:18:53 -0700
+Message-ID: <1370359133.24311.208.camel@edumazet-glaptop>
+References: <20130529151330.22c5c89e@redhat.com>
+	 <20130604141342.00c8eb9f@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="gBBFr7Ir9EOA20Yy"
-Cc: linux-kernel@vger.kernel.org,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <fd299c9ef87fe50c12af871d6bfcc92d7f6ef3dc.1370356776.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Jiri Benc <jbenc@redhat.com>, David Miller <davem@redhat.com>,
+	j.vimal@gmail.com, Michal Soltys <soltys@ziu.info>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
+	Jim Gettys <jg@freedesktop.org>,
+	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f45.google.com ([209.85.160.45]:41503 "EHLO
+	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751802Ab3FDPS5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 11:18:57 -0400
+Received: by mail-pb0-f45.google.com with SMTP id mc8so392566pbc.4
+        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 08:18:56 -0700 (PDT)
+In-Reply-To: <20130604141342.00c8eb9f@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Tue, 2013-06-04 at 14:13 +0200, Jesper Dangaard Brouer wrote:
+> Hi again,
+> 
+> I found another regression by commit 56b765b79 (htb: improved accuracy
+> at high rates).
+> 
+> After the commit HTB does not honor network rate limiting below 500kbps.
+> 
+> I have found that the bandwidth problem is related to GSO being enabled
+> on the device.  To test the situation, I had to use a real NIC (as I
+> were not allowed to disable GSO on dev "lo", test below).
 
---gBBFr7Ir9EOA20Yy
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Well, do not forget lo mtu is 64K, so you'll also have to lower it for
+your tests.
 
-On Tue, Jun 04, 2013 at 07:44:50AM -0700, Joe Perches wrote:
-> goto after return is wrong.
->=20
-> The other code in this block needs to set an
-> error value then goto an error release block.
->=20
-> This one doesn't need to release anything and
-> was likely a copy/paste remainder.
->=20
-> Signed-off-by: Joe Perches <joe@perches.com>
-
-Acked-By: Solomon Peachy <pizza@shaftnet.org>
-
-> ---
->  drivers/net/wireless/cw1200/hwio.c | 1 -
->  1 file changed, 1 deletion(-)
->=20
-> diff --git a/drivers/net/wireless/cw1200/hwio.c b/drivers/net/wireless/cw=
-1200/hwio.c
-> index 142f45ef..dad3fb3 100644
-> --- a/drivers/net/wireless/cw1200/hwio.c
-> +++ b/drivers/net/wireless/cw1200/hwio.c
-> @@ -178,7 +178,6 @@ int cw1200_indirect_read(struct cw1200_common *priv, =
-u32 addr, void *buf,
->  	if ((buf_len / 2) >=3D 0x1000) {
->  		pr_err("Can't read more than 0xfff words.\n");
->  		return -EINVAL;
-> -		goto out;
->  	}
-> =20
->  	priv->hwbus_ops->lock(priv->hwbus_priv);
-> --=20
-> 1.8.1.2.459.gbcd45b4.dirty
->=20
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-wireless"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---=20
-Solomon Peachy        		       pizza at shaftnet dot org	=20
-Delray Beach, FL                          ^^ (email/xmpp) ^^
-Quidquid latine dictum sit, altum viditur.
-
---gBBFr7Ir9EOA20Yy
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iD8DBQFRrgMWPuLgii2759ARAlkLAKC9y/w/jHAkjnhViOUZS6AG6Kc89ACgvlIB
-tiLsCF7ClA23jyUZYw5ibjs=
-=Zt6e
------END PGP SIGNATURE-----
-
---gBBFr7Ir9EOA20Yy--
+I have a good idea of what's going on for htb at low rates, I am testing
+a fix, thanks for the report !
