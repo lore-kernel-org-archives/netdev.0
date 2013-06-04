@@ -1,71 +1,89 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCHv2 1/3] net: phy: prevent linking breakage
-Date: Tue, 04 Jun 2013 17:07:39 +0200
-Message-ID: <6466898.RnYOe3jpGG@wuerfel>
-References: <1369741403-25315-2-git-send-email-alexandre.belloni@free-electrons.com> <51A5BA86.3070609@free-electrons.com> <20130530.024201.1913984663902628192.davem@davemloft.net>
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [PATCH iproute2] htb: report overhead attribute
+Date: Tue, 4 Jun 2013 17:08:14 +0200
+Message-ID: <20130604170814.03ab019d@redhat.com>
+References: <20130529151330.22c5c89e@redhat.com>
+	<1370207755.24311.81.camel@edumazet-glaptop>
+	<1370208781.24311.89.camel@edumazet-glaptop>
+	<51ACB9FE.1020100@hp.com>
+	<1370274962.24311.156.camel@edumazet-glaptop>
+	<20130604131147.2d357322@redhat.com>
+	<1370354311.24311.205.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: alexandre.belloni@free-electrons.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux@arm.linux.org.uk, shawn.guo@linaro.org, kernel@pengutronix.de
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	"russell-tcatm@stuart.id.au" <russell-tcatm@stuart.id.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.126.171]:64029 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757467Ab3FDPH5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 11:07:57 -0400
-In-Reply-To: <20130530.024201.1913984663902628192.davem@davemloft.net>
+Received: from mx1.redhat.com ([209.132.183.28]:48797 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757467Ab3FDPIg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jun 2013 11:08:36 -0400
+In-Reply-To: <1370354311.24311.205.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday 30 May 2013 02:42:01 David Miller wrote:
-> From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-> > On 28/05/2013 22:09, David Miller wrote:
-> > But that is making it impossible to compile a kernel without any network
-> > stack for those platforms or we are going back to either enclosing the
-> > calls to phy_register_fixup{,_for_uid,_for_id} with #ifdef CONFIG_PHYLIB
-> > or if(IS_BUILTIN(CONFIG_PHYLIB)). And as you can see, it is quite error
-> > prone and is done only done for 2 platforms on a total of 6. I believe
-> > fixing that in phy.h is more foolproof.
+On Tue, 04 Jun 2013 06:58:31 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+
+> On Tue, 2013-06-04 at 13:11 +0200, Jesper Dangaard Brouer wrote:
+> > On Mon, 03 Jun 2013 08:56:02 -0700
+> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > 
+> > > On Mon, 2013-06-03 at 08:45 -0700, Rick Jones wrote:
+> > > 
+> > > > Is it (still) possible to have a negative overhead?
+> > > > 
+> > > > http://www.linksysinfo.org/index.php?threads/speedmod-with-tc-atm-qos-patch-for-adsl.31541/
+> > > 
+> > > overhead always has been unsigned in the kernel.
+> > > 
+> > > What you describe is a userland hack in tc command.
+> > > (or a bug)
+> > 
+> > Rick is referencing Russell Stuart's patches, where a negative
+> > overhead was possible.
+> >  http://ace-host.stuart.id.au/russell/files/tc/tc-atm/#history
+> > 
+> > But my patches got accepted into the kernel, where a negative
+> > overhead was not possible. In retrospect, we should have supported a
+> > negative overhead.
+> > 
+> > A negative overhead *is* a valid use-case, and we should work
+> > towards supporting this. E.g. by changing the recent added "u16
+> > overhead" in struct psched_ratecfg to be "s16" (ref [1]) ?
+(My statement should have been corrected to "s16"->"s32", never mind)
+
+> > 
+> > [1] commit 01cb71d2d47 (net_sched: restore "overhead xxx" handling)
+> >  https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=01cb71d2d47b78354358e4bb938bb06323e17498
+> > 
 > 
-> Or you properly segregate the networking bits of the platform code so
-> that it can be built only when the necessary networking portions are
-> enabled.
+> Again, you describe something that Vimal patch didn't broke, and
+> should be addressed on net-next.
+
+Yes, I know, I also said "work towards supporting this", meaning
+"net-next".
+
+
+> My concern was restoring the overhead attribute that Vimal broke, and
+> this one was unsigned 16bits.
 > 
-> Sometimes having dummy stubs makes sense, but not in this situation.
+> Allowing a negative offset is not free, it adds a conditional test,
+> because (len + overhead) could be negative.
 
-Currently most users of this function are doing something like
+Yes, I do realize that. But Vimal patch actually also broke the
+"mpu" (Minimum Packet Unit) feature.  And we could combine this, and
+get negative offset fix by a max(mpu,len), where mpu would be default
+init'ed. 
 
-static int foo_phy_fixup(struct phy_device *phydev)
-{
-	...
-}
-
-static int __init boo_board_init(void)
-{
-	 if (IS_BUILTIN(CONFIG_PHYLIB))
-		phy_register_fixup_for_uid(phy_id, foo_phy_fixup);
-}
-
-which is practically the same as having a dummy stub. It leads to
-the foo_phy_fixup() function always getting compiled and then discarded
-by gcc when CONFIG_PHYLIB is disabled.
-
-The method is currently broken when network drivers are enabled as
-modules, because we are missing the fixup then.
-
-I think we should use IS_ENABLED() here to force a build error
-in that case, and have something like
-
-config ARCH_FOO
-	bool "support for the foo platform"
-	select PHYLIB if NET
-
-in the platform Kconfig file, to ensure PHYLIB is always built-in.
-
-I still think the inline alternatives would be helpful, but using
-if (IS_ENABLED(CONFIG_PHYLIB)) in the platform code would also
-work.
-
-	Arnd
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
