@@ -1,59 +1,98 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH] net: emaclite: include linux/of_irq.h
-Date: Tue, 04 Jun 2013 10:21:01 +0200
-Message-ID: <51ADA36D.7070607@monstr.eu>
-References: <2244203.EL457oABTU@wuerfel>
-Reply-To: monstr@monstr.eu
+From: Amir Vadai <amirv@mellanox.com>
+Subject: Re: [PATCH net-next] net/mlx4: use one page fragment per incoming
+ frame
+Date: Tue, 4 Jun 2013 11:40:59 +0300
+Message-ID: <51ADA81B.1040305@mellanox.com>
+References: <1370282095.24311.171.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2GGOIMXJELOKLAAWSJRCO"
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>,
-	Michal Simek <michal.simek@xilinx.com>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2244203.EL457oABTU@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog103.obsmtp.com ([207.126.144.115]:37453 "EHLO
+	eu1sys200aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751241Ab3FDIlF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 04:41:05 -0400
+In-Reply-To: <1370282095.24311.171.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2GGOIMXJELOKLAAWSJRCO
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On 03/06/2013 20:54, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> mlx4 driver has a suboptimal memory allocation strategy for regular
+> MTU=1500 frames, as it uses two page fragments :
+> 
+> One of 512 bytes and one of 1024 bytes.
+> 
+> This makes GRO less effective, as each GSO packet contains 8 MSS instead
+> of 16 MSS.
+> 
+> Performance of a single TCP flow gains 25 % increase with the following
+> patch.
+> 
+> Before patch :
+> 
+> A:~# netperf -H 192.168.0.2 -Cc
+> MIGRATED TCP STREAM TEST ...
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+> 
+>  87380  16384  16384    10.00      13798.47   3.06     4.20     0.436   0.598  
+> 
+> After patch :
+> 
+> A:~# netperf -H 192.68.0.2 -Cc
+> MIGRATED TCP STREAM TEST ...
+> Recv   Send    Send                          Utilization       Service Demand
+> Socket Socket  Message  Elapsed              Send     Recv     Send    Recv
+> Size   Size    Size     Time     Throughput  local    remote   local   remote
+> bytes  bytes   bytes    secs.    10^6bits/s  % S      % S      us/KB   us/KB
+> 
+>  87380  16384  16384    10.00      17273.80   3.44     4.19     0.391   0.477  
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Amir Vadai <amirv@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h |    6 +++---
+>  1 file changed, 3 insertions(+), 3 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> index b1d7657..b1f51c1 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+> @@ -98,11 +98,11 @@
+>  #define MLX4_EN_ALLOC_SIZE	PAGE_ALIGN(16384)
+>  #define MLX4_EN_ALLOC_ORDER	get_order(MLX4_EN_ALLOC_SIZE)
+>  
+> -/* Receive fragment sizes; we use at most 4 fragments (for 9600 byte MTU
+> +/* Receive fragment sizes; we use at most 3 fragments (for 9600 byte MTU
+>   * and 4K allocations) */
+>  enum {
+> -	FRAG_SZ0 = 512 - NET_IP_ALIGN,
+> -	FRAG_SZ1 = 1024,
+> +	FRAG_SZ0 = 1536 - NET_IP_ALIGN,
+> +	FRAG_SZ1 = 4096,
+>  	FRAG_SZ2 = 4096,
+>  	FRAG_SZ3 = MLX4_EN_ALLOC_SIZE
+>  };
+> 
+> 
 
-On 06/03/2013 11:39 PM, Arnd Bergmann wrote:
-> The emaclite driver now calls of_irq_to_resource, which is
-> declared in linux/of_irq.h. Without this patch, I get a build
-> error on ARM.
+Acked-By: Amir Vadai <amirv@mellanox.com>
 
-What about to just change it to use platform_get_resource()?
-I will test it.
+We are currently working on a patch to change the skb allocation scheme
+for the RX side, because the current mlx4_en architecture is behaving
+very bad when IOMMU is enabled.
+After this change, the driver will use one fragment, among other
+improvements. The most important will be fragments recycling to save
+alloc/free and dma_map/unmap.
+
+But, I think it will be a good idea to apply your fix now in case there
+will be delays.
 
 Thanks,
-Michal
-
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
-
-
-
-------enig2GGOIMXJELOKLAAWSJRCO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlGto20ACgkQykllyylKDCEkiACfUHL50VF0a6Toi/EJ6lJcvrM9
-SHsAn3BQVe4amTEYMR0PYkYLVo2KBYwO
-=qimI
------END PGP SIGNATURE-----
-
-------enig2GGOIMXJELOKLAAWSJRCO--
+Amir
