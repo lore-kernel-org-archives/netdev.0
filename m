@@ -1,37 +1,36 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: emaclite: Use platform resource table
-Date: Tue, 4 Jun 2013 22:10:05 +0200
-Message-ID: <201306042210.05844.arnd@arndb.de>
-References: <6ece0a9ee777b987ca777a338cc146ed67897529.1370340196.git.michal.simek@xilinx.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless 2013-06-03
+Date: Tue, 04 Jun 2013 13:18:13 -0700 (PDT)
+Message-ID: <20130604.131813.134898245916084893.davem@davemloft.net>
+References: <20130603184817.GD2727@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
-	"David S. Miller" <davem@davemloft.net>,
-	Bill Pemberton <wfp5p@virginia.edu>,
-	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	netdev@vger.kernel.org
-To: Michal Simek <michal.simek@xilinx.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.10]:64045 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751037Ab3FDUKR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 16:10:17 -0400
-In-Reply-To: <6ece0a9ee777b987ca777a338cc146ed67897529.1370340196.git.michal.simek@xilinx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linville@tuxdriver.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130603184817.GD2727@tuxdriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday 04 June 2013, Michal Simek wrote:
->   Read data directly from platform recource table
-> and do not use of_irq_to_resource().
-> Also use devm_request_and_ioremap() for probe
-> functions simplification.
-> 
-> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
-> ---
-> Based on my discussion with Arnd
-> "[PATCH] net: emaclite: include linux/of_irq.h"
-> 
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 3 Jun 2013 14:48:17 -0400
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+> Please let me know if there are problems!
+
+Sorry, the broadcom brcmfmac changes need to go.
+
+Some of those commits are cleanups, and some of them have the worst
+commit log messages ever, the last one for example:
+
+0017-brcmsmac-fix-regression-observed-in-3.10-rc1.patch
+
+has no explanation whatsoever of what the actual problem or regression
+is, what aspect of the logic in that function is causing the problem,
+and no explanation why making this function always return 'false' is a
+reasonable fix.
+
+That entire series is of very low quality, and even if it was in good
+shape, at least half the changes are not appropriate at all this late
+in the -rc series.
