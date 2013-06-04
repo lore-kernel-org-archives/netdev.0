@@ -1,155 +1,86 @@
-From: Andreas Mohr <andi@lisas.de>
-Subject: [PATCH] usbnet: mcs7830: improve workaround against unreliable link
- status.
-Date: Tue, 4 Jun 2013 20:30:19 +0200
-Message-ID: <20130604183019.GB13186@rhlx01.hs-esslingen.de>
+From: Tommi Rantala <tt.rantala@gmail.com>
+Subject: vhost && kernel BUG at /build/linux/mm/slub.c:3352!
+Date: Tue, 4 Jun 2013 21:50:59 +0300
+Message-ID: <CA+ydwtrtpA3jXojG3tKt_-ueJOWDSOL1trM9h6F5qLvdoonUOw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	OndrejZary <linux@rainbow-software.org>,
-	Ming Lei <ming.lei@canonical.com>
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: trinity@vger.kernel.org, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>,
+	Dave Jones <davej@redhat.com>
+To: "Michael S. Tsirkin" <mst@redhat.com>, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hello,
 
->From d4bf85d0c6776bf4b15a0eea7772f9c55cef3daf Mon Sep 17 00:00:00 2001
-From: Andreas Mohr <andim2@users.sourceforge.net>
-Date: Sun, 2 Jun 2013 22:24:35 +0200
-Subject: [PATCH] usbnet: mcs7830: improve workaround against unreliable link
- status.
+Hit this right after killing trinity with Ctrl-C. Was fuzzing
+v3.10-rc4-0-gd683b96 in a qemu virtual machine as the root user.
 
-- to guard against spurious link loss, try to improve precision
-  by taking into account full-duplex / 100Mbps bits as well
-- add actual status enums rather than using open-coded ints
-- MCS7830 status data is word-sized, thus do access it that way
----
- drivers/net/usb/mcs7830.c |   74 +++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 72 insertions(+), 2 deletions(-)
+Tommi
 
-
-Realized that link state is unreliable indeed (sometimes causing
-some intermediate status changes even with that averaging happening),
-thus I was wondering how to improve it.
-First thing was to think of something which we might be doing wrong in general, but I couldn't come up with much.
-Thus I concentrated on the status bits that were incoming, where I realized
-that full-duplex / 100Mbps bits are a strong indication of an actual
-link. IOW, update code to consider link lost only if link loss bit is active
-and neither full-duplex nor 100Mbps is indicated.
-Of course a half-duplex 10Mbps connection (BNC hub?) will not be happy
-then. Sucks, but that's life.
-Anything else that someone might come up with on why status is that
-unreliable? Perhaps that's a common phenomenon with some PHY mechanisms?
-
-Tested on -rc4, checkpath.pl:d.
-
-Signed-off-by: Andreas Mohr <andim2@users.sourceforge.net>
-
-Thanks,
-
-Andreas Mohr
-
-
-diff --git a/drivers/net/usb/mcs7830.c b/drivers/net/usb/mcs7830.c
-index 03832d3..0c1543b 100644
---- a/drivers/net/usb/mcs7830.c
-+++ b/drivers/net/usb/mcs7830.c
-@@ -114,6 +114,43 @@ enum {
- 	/* [7:6] reserved */
- };
- 
-+/* Bits within one status word in status interrupt callback data */
-+enum {
-+	MCS7830_STATUS_ETHER_FRAME_OK			= 0x0001,
-+	MCS7830_STATUS_RETRIES_MORE_THAN_16		= 0x0002,
-+	MCS7830_STATUS_COLLISION_OCCURRED_AFTER_64BYTES	= 0x0004,
-+	MCS7830_STATUS_PACKET_ABORTED_EXCESS_DEFERRAL	= 0x0008,
-+	/* 9:4 reserved (all zeroes) */
-+	MCS7830_STATUS_FULL_DUPLEX_EN			= 0x0400,
-+	MCS7830_STATUS_SPEED_100MBPS			= 0x0800,
-+	MCS7830_STATUS_MIIM_INTERRUPT			= 0x1000,
-+	/* Link flag is UNRELIABLE, on both 7830 and 7832!
-+	 * While pulling the cable always seems to result in a clean 0x2000,
-+	 * sometimes in between (especially when transfers are interfering?)
-+	 * there's 0x2XXX values as well, but they always seem to be 0x2cXX
-+	 * (at least for full-duplex, 100Mbps operation).
-+	 * Thus the only more reliable way to tell apart actual link loss
-+	 * from pseudo loss is to query for "link loss" *and*
-+	 * "both full-duplex *and* 100Mbps *not set*". Which obviously means
-+	 * that a half-duplex, 10Mbps setup
-+	 * likely will never be able to indicate link reliably :(
-+	 * Plus, I'm wondering whether we (or the kernel?)
-+	 * are simply doing something wrong which causes the device to act up
-+	 * (e.g., intermingling frame transfers with status transfers
-+	 * in a sufficiently problematic way [inner-device race conditions?]).
-+	 * Also, averaging several status bools is not very useful since:
-+	 * - it directly depends on polling frequency
-+	 * - (and thus) that count may still not be enough --> mis-detection
-+	 * Perhaps on link loss it's somehow doable to subsequently do
-+	 * an actual PHY request (perhaps not in status callback?)
-+	 * which would hopefully reliably indicate status.
-+	 */
-+	MCS7830_STATUS_MIIM_LINK_DOWN__UNRELIABLE	= 0x2000,
-+	MCS7830_STATUS_TX_STATUS_VECTOR_BITS_VALID	= 0x4000,
-+	MCS7830_STATUS_SRAM_HAS_FRAMES_PENDING		= 0x8000
-+};
-+
-+
- struct mcs7830_data {
- 	u8 multi_filter[8];
- 	u8 config;
-@@ -559,14 +596,47 @@ static int mcs7830_rx_fixup(struct usbnet *dev, struct sk_buff *skb)
- 
- static void mcs7830_status(struct usbnet *dev, struct urb *urb)
- {
-+	/*
-+	 * TODO: since status polling is very painful (>> 100 wakeups / second),
-+	 * could add a module param
-+	 * disable_status_poll
-+	 * "Disable polling of status interrupt EP (avoid excessive wakeups)."
-+	 * where one would set the .status member to NULL
-+	 * (but that's currently not doable since the struct is const).
-+	 */
-+
- 	u8 *buf = urb->transfer_buffer;
--	bool link, link_changed;
-+	u16 *statuswords = (u16 *)buf;
-+	bool link_might_be_lost, link, link_changed;
- 	struct mcs7830_data *data = mcs7830_get_data(dev);
- 
- 	if (urb->actual_length < 16)
- 		return;
- 
--	link = !(buf[1] & 0x20);
-+	netdev_dbg(dev->net,
-+		"status %04x %04x %04x %04x %04x %04x %04x %04x\n",
-+		statuswords[0], statuswords[1], statuswords[2], statuswords[3],
-+		statuswords[4], statuswords[5], statuswords[6], statuswords[7]);
-+
-+	/* For a description of the link status nightmare handled here,
-+	 * see MCS7830_STATUS_MIIM_LINK_DOWN__UNRELIABLE bit.
-+	 */
-+	link = true; /* be optimistic :) */
-+	/* Side note: MCS7830_STATUS_MIIM_LINK_DOWN__UNRELIABLE is documented
-+	 * to be relevant for external-PHY configurations only.
-+	 * For now we'll just assume that most (all?) adapters
-+	 * do use an external PHY...
-+	 */
-+	link_might_be_lost =
-+	  (statuswords[0] & MCS7830_STATUS_MIIM_LINK_DOWN__UNRELIABLE) != 0;
-+	if (link_might_be_lost) {
-+		bool special_link_attrs_active =
-+		((statuswords[0] &
-+		 (MCS7830_STATUS_FULL_DUPLEX_EN|MCS7830_STATUS_SPEED_100MBPS))
-+			!= 0);
-+		if (!special_link_attrs_active)
-+			link = false;
-+	}
- 	link_changed = netif_carrier_ok(dev->net) != link;
- 	if (link_changed) {
- 		data->link_counter++;
--- 
-1.7.10.4
+[29175] Random reseed: 3970521611
+[29175] Random reseed: 202886419
+[29175] Random reseed: 2930978521
+[179904.099501] binder: 29175:2539 ioctl 4010630e fff returned -22
+[29175] Random reseed: 2776471322
+[29175] Random reseed: 3086119361
+child 2606 exiting
+[29175] Bailing main loop. Exit reason: ctrl-c
+[179906.393060] ------------[ cut here ]------------
+[179906.396341] kernel BUG at /build/linux/mm/slub.c:3352!
+[179906.399693] invalid opcode: 0000 [#1] SMP DEBUG_PAGEALLOC
+[179906.403272] CPU: 0 PID: 29175 Comm: trinity-main Not tainted 3.10.0-rc4 #1
+[179906.407692] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[179906.411475] task: ffff8800b69e47c0 ti: ffff880092f2e000 task.ti:
+ffff880092f2e000
+[179906.416305] RIP: 0010:[<ffffffff81225255>]  [<ffffffff81225255>]
+kfree+0x155/0x2c0
+[179906.421462] RSP: 0000:ffff880092f2fdb0  EFLAGS: 00010246
+[179906.424983] RAX: 0100000000000000 RBX: ffff88009e588000 RCX:
+0000000000000000
+[179906.429746] RDX: ffff8800b69e47c0 RSI: 00000000000a0004 RDI:
+ffff88009e588000
+[179906.434499] RBP: ffff880092f2fdd8 R08: 0000000000000001 R09:
+0000000000000000
+[179906.439226] R10: 0000000000000000 R11: 0000000000000001 R12:
+0000000000000000
+[179906.443835] R13: ffffea0002796200 R14: ffff8800b9a960f8 R15:
+ffff8800ba06f6a0
+[179906.448470] FS:  00007f04cd25c700(0000) GS:ffff8800bf600000(0000)
+knlGS:0000000000000000
+[179906.453857] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[179906.456956] CR2: 00007f98e29d8f50 CR3: 000000009294a000 CR4:
+00000000000006f0
+[179906.460558] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+0000000000000000
+[179906.464059] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
+0000000000000400
+[179906.467617] Stack:
+[179906.468704]  ffff88001a7c0000 0000000000000000 0000000000000000
+ffff8800b9a960f8
+[179906.472638]  ffff8800ba06f6a0 ffff880092f2fdf0 ffffffff81c1c6df
+ffff88001a7c0000
+[179906.476583]  ffff880092f2fe18 ffffffff81c1c771 ffff8800b69718c0
+0000000000000008
+[179906.480377] Call Trace:
+[179906.481636]  [<ffffffff81c1c6df>] vhost_net_vq_reset+0x7f/0xb0
+[179906.484611]  [<ffffffff81c1c771>] vhost_net_release+0x61/0xb0
+[179906.487481]  [<ffffffff8123237a>] __fput+0x12a/0x230
+[179906.489968]  [<ffffffff81232489>] ____fput+0x9/0x10
+[179906.492422]  [<ffffffff8113a79e>] task_work_run+0xae/0xf0
+[179906.495169]  [<ffffffff811172bc>] do_exit+0x44c/0xb40
+[179906.497789]  [<ffffffff822a24d8>] ? retint_swapgs+0x13/0x1b
+[179906.500652]  [<ffffffff81117a74>] do_group_exit+0x84/0xd0
+[179906.503348]  [<ffffffff81117ad2>] SyS_exit_group+0x12/0x20
+[179906.506146]  [<ffffffff822a2e29>] system_call_fastpath+0x16/0x1b
+[179906.509147] Code: 49 c1 ed 0c 49 c1 e5 06 49 01 c5 49 8b 45 00 f6
+c4 80 74 0a 4d 8b 6d 30 66 0f 1f 44 00 00 49 8b 45 00 a8 80 75 28 f6
+c4 c0 75 02 <0f> 0b 49 8b 45 00 31 f6 f6 c4 40 74 04 41 8b 75 68 4c 89
+ef e8
+[179906.522213] RIP  [<ffffffff81225255>] kfree+0x155/0x2c0
+[179906.524937]  RSP <ffff880092f2fdb0>
+[179906.575627] ---[ end trace 3d4ce10faaa29990 ]---
+[179906.577103] Fixing recursive fault but reboot is needed!
+[29174] Watchdog exiting
