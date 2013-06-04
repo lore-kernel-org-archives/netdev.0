@@ -1,48 +1,36 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [PATCH nf-next] netfilter: xt_socket: add XT_SOCKET_NOWILDCARD
- flag
-Date: Tue, 4 Jun 2013 11:10:14 +0200
-Message-ID: <20130604111014.73c718f7@redhat.com>
-References: <1370300249.24311.190.camel@edumazet-glaptop>
+From: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+Subject: Re: [RESEND][PATCH 3/7] net, ipw2x00: remove redundant D0 power state set
+Date: Tue, 4 Jun 2013 02:16:34 -0700
+Message-ID: <CA++WF2M0eW2ErthByhDjk1tEacgfo-Fw2pHP_UL4Be2fLDdmoQ@mail.gmail.com>
+References: <1370329674-8360-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org
+To: Yijing Wang <wangyijing@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56207 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750889Ab3FDJK2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jun 2013 05:10:28 -0400
-In-Reply-To: <1370300249.24311.190.camel@edumazet-glaptop>
+Received: from mail-vc0-f177.google.com ([209.85.220.177]:43981 "EHLO
+	mail-vc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751503Ab3FDJQf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 05:16:35 -0400
+In-Reply-To: <1370329674-8360-1-git-send-email-wangyijing@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 03 Jun 2013 15:57:29 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+Hi Yijing,
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> xt_socket module can be a nice replacement to conntrack module
-> in some cases (SYN filtering for example)
-> 
-> But it lacks the ability to match the 3rd packet of TCP
-> handshake (ACK coming from the client).
-> 
-> Add a XT_SOCKET_NOWILDCARD flag to disable the wildcard mechanism
+On 4 June 2013 00:07, Yijing Wang <wangyijing@huawei.com> wrote:
+> Pci_enable_device() will set device power state to D0,
+> so it's no need to do it again in ipw2100_pci_init_one().
+>
+> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+> Cc: "John W. Linville" <linville@tuxdriver.com>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-wireless@vger.kernel.org
 
-Sorry, but I'm not sure I understand your description.
+Looks fine, thanks.
 
-What is the effect of adding the XT_SOCKET_NOWILDCARD flag?
-It almost sound like it adds the ability to match the 3rd packet of TCP
-handshake (ACK coming from the client), is that the case?
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Stanislav.
