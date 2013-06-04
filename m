@@ -1,53 +1,143 @@
-From: Sachin Kamat <sachin.kamat@linaro.org>
-Subject: [PATCH 2/2] net: sun4i-emac: Staticize local symbols
-Date: Tue,  4 Jun 2013 16:01:20 +0530
-Message-ID: <1370341880-26501-2-git-send-email-sachin.kamat@linaro.org>
-References: <1370341880-26501-1-git-send-email-sachin.kamat@linaro.org>
-Cc: davem@davemloft.net, sachin.kamat@linaro.org,
-	Stefan Roese <sr@denx.de>,
-	Maxime Ripard <maxime.ripard@free-electrons.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: [PATCH net] ipv6: prevent fib6_run_gc() contention
+Date: Tue, 4 Jun 2013 13:08:59 +0200
+Message-ID: <20130604111040.CCC9162CB4@unicorn.suse.cz>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:41374 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317Ab3FDKpm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 06:45:42 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so57624pdj.0
-        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 03:45:42 -0700 (PDT)
-In-Reply-To: <1370341880-26501-1-git-send-email-sachin.kamat@linaro.org>
+Received: from cantor2.suse.de ([195.135.220.15]:54229 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752952Ab3FDLKp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jun 2013 07:10:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some symbols referenced only in this file are made static.
+On a high-traffic router with many processors and many IPv6 dst
+entries, soft lockup in fib6_run_gc() can occur when number of
+entries reaches gc_thresh.
 
-Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-Cc: Stefan Roese <sr@denx.de>
-Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
+This happens because fib6_run_gc() uses fib6_gc_lock to allow
+only one thread to run the garbage collector but ip6_dst_gc()
+doesn't update net->ipv6.ip6_rt_last_gc until fib6_run_gc()
+returns. On a system with many entries, this can take some time
+so that in the meantime, other threads pass the tests in
+ip6_dst_gc() (ip6_rt_last_gc is still not updated) and wait for
+the lock. They then have to run the garbage collector one after
+another which blocks them for quite long.
+
+Resolve this by replacing special value ~0UL of expire parameter
+to fib6_run_gc() by explicit "force" parameter to choose between
+spin_lock_bh() and spin_trylock_bh() and call fib6_run_gc() with
+force=false if gc_thresh is reached but not max_size.
+
+Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
 ---
- drivers/net/ethernet/allwinner/sun4i-emac.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ include/net/ip6_fib.h |  2 +-
+ net/ipv6/ip6_fib.c    | 19 ++++++++-----------
+ net/ipv6/ndisc.c      |  4 ++--
+ net/ipv6/route.c      |  4 ++--
+ 4 files changed, 13 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-index 0049853..7d6a5cd 100644
---- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-+++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-@@ -258,7 +258,7 @@ static const struct ethtool_ops emac_ethtool_ops = {
- 	.get_link	= ethtool_op_get_link,
- };
+diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
+index 2a601e7..48ec25a 100644
+--- a/include/net/ip6_fib.h
++++ b/include/net/ip6_fib.h
+@@ -300,7 +300,7 @@ extern void			inet6_rt_notify(int event, struct rt6_info *rt,
+ 						struct nl_info *info);
  
--unsigned int emac_setup(struct net_device *ndev)
-+static unsigned int emac_setup(struct net_device *ndev)
+ extern void			fib6_run_gc(unsigned long expires,
+-					    struct net *net);
++					    struct net *net, bool force);
+ 
+ extern void			fib6_gc_cleanup(void);
+ 
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 192dd1a..1dcd618 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -1625,19 +1625,16 @@ static int fib6_age(struct rt6_info *rt, void *arg)
+ 
+ static DEFINE_SPINLOCK(fib6_gc_lock);
+ 
+-void fib6_run_gc(unsigned long expires, struct net *net)
++void fib6_run_gc(unsigned long expires, struct net *net, bool force)
  {
- 	struct emac_board_info *db = netdev_priv(ndev);
- 	unsigned int reg_val;
-@@ -310,7 +310,7 @@ unsigned int emac_setup(struct net_device *ndev)
+-	if (expires != ~0UL) {
++	if (force)
+ 		spin_lock_bh(&fib6_gc_lock);
+-		gc_args.timeout = expires ? (int)expires :
+-			net->ipv6.sysctl.ip6_rt_gc_interval;
+-	} else {
+-		if (!spin_trylock_bh(&fib6_gc_lock)) {
+-			mod_timer(&net->ipv6.ip6_fib_timer, jiffies + HZ);
+-			return;
+-		}
+-		gc_args.timeout = net->ipv6.sysctl.ip6_rt_gc_interval;
++	else if (!spin_trylock_bh(&fib6_gc_lock)) {
++		mod_timer(&net->ipv6.ip6_fib_timer, jiffies + HZ);
++		return;
+ 	}
++	gc_args.timeout = expires ? (int)expires :
++			  net->ipv6.sysctl.ip6_rt_gc_interval;
+ 
+ 	gc_args.more = icmp6_dst_gc();
+ 
+@@ -1654,7 +1651,7 @@ void fib6_run_gc(unsigned long expires, struct net *net)
+ 
+ static void fib6_gc_timer_cb(unsigned long arg)
+ {
+-	fib6_run_gc(0, (struct net *)arg);
++	fib6_run_gc(0, (struct net *)arg, true);
+ }
+ 
+ static int __net_init fib6_net_init(struct net *net)
+diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+index 2712ab2..bf60c25 100644
+--- a/net/ipv6/ndisc.c
++++ b/net/ipv6/ndisc.c
+@@ -1575,7 +1575,7 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
+ 	switch (event) {
+ 	case NETDEV_CHANGEADDR:
+ 		neigh_changeaddr(&nd_tbl, dev);
+-		fib6_run_gc(~0UL, net);
++		fib6_run_gc(0, net, false);
+ 		idev = in6_dev_get(dev);
+ 		if (!idev)
+ 			break;
+@@ -1585,7 +1585,7 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
+ 		break;
+ 	case NETDEV_DOWN:
+ 		neigh_ifdown(&nd_tbl, dev);
+-		fib6_run_gc(~0UL, net);
++		fib6_run_gc(0, net, false);
+ 		break;
+ 	case NETDEV_NOTIFY_PEERS:
+ 		ndisc_send_unsol_na(dev);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index ad0aa6b..fdb5ccb 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1300,7 +1300,7 @@ static int ip6_dst_gc(struct dst_ops *ops)
+ 		goto out;
+ 
+ 	net->ipv6.ip6_rt_gc_expire++;
+-	fib6_run_gc(net->ipv6.ip6_rt_gc_expire, net);
++	fib6_run_gc(net->ipv6.ip6_rt_gc_expire, net, entries > rt_max_size);
+ 	net->ipv6.ip6_rt_last_gc = now;
+ 	entries = dst_entries_get_slow(ops);
+ 	if (entries < ops->gc_thresh)
+@@ -2801,7 +2801,7 @@ int ipv6_sysctl_rtcache_flush(ctl_table *ctl, int write,
+ 	net = (struct net *)ctl->extra1;
+ 	delay = net->ipv6.sysctl.flush_delay;
+ 	proc_dointvec(ctl, write, buffer, lenp, ppos);
+-	fib6_run_gc(delay <= 0 ? ~0UL : (unsigned long)delay, net);
++	fib6_run_gc(delay <= 0 ? 0 : (unsigned long)delay, net, delay > 0);
  	return 0;
  }
  
--unsigned int emac_powerup(struct net_device *ndev)
-+static unsigned int emac_powerup(struct net_device *ndev)
- {
- 	struct emac_board_info *db = netdev_priv(ndev);
- 	unsigned int reg_val;
 -- 
-1.7.9.5
+1.8.1.4
