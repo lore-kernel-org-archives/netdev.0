@@ -1,141 +1,71 @@
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Subject: [PATCH v2] net: mvneta: read MAC address from hardware when available
-Date: Tue,  4 Jun 2013 16:52:23 +0200
-Message-ID: <1370357543-23332-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Cc: netdev@vger.kernel.org, Jason Cooper <jason@lakedaemon.net>,
-	Gregory Clement <gregory.clement@free-electrons.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Ezequiel Garcia <ezequiel.garcia@free-electrons.com>,
-	Lior Amsalem <alior@marvell.com>,
-	linux-arm-kernel@lists.infradead.org,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Joe Perches <joe@perches.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCHv2 1/3] net: phy: prevent linking breakage
+Date: Tue, 04 Jun 2013 17:07:39 +0200
+Message-ID: <6466898.RnYOe3jpGG@wuerfel>
+References: <1369741403-25315-2-git-send-email-alexandre.belloni@free-electrons.com> <51A5BA86.3070609@free-electrons.com> <20130530.024201.1913984663902628192.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: alexandre.belloni@free-electrons.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux@arm.linux.org.uk, shawn.guo@linaro.org, kernel@pengutronix.de
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:58149 "EHLO
-	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754471Ab3FDOxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 10:53:04 -0400
+Received: from moutng.kundenserver.de ([212.227.126.171]:64029 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757467Ab3FDPH5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 11:07:57 -0400
+In-Reply-To: <20130530.024201.1913984663902628192.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch improves the logic used by the mvneta driver to find a MAC
-address for a particular interface. Until now, it was only looking at
-the Device Tree, and if no address was found, was falling back to
-generating a random MAC address.
+On Thursday 30 May 2013 02:42:01 David Miller wrote:
+> From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+> > On 28/05/2013 22:09, David Miller wrote:
+> > But that is making it impossible to compile a kernel without any network
+> > stack for those platforms or we are going back to either enclosing the
+> > calls to phy_register_fixup{,_for_uid,_for_id} with #ifdef CONFIG_PHYLIB
+> > or if(IS_BUILTIN(CONFIG_PHYLIB)). And as you can see, it is quite error
+> > prone and is done only done for 2 platforms on a total of 6. I believe
+> > fixing that in phy.h is more foolproof.
+> 
+> Or you properly segregate the networking bits of the platform code so
+> that it can be built only when the necessary networking portions are
+> enabled.
+> 
+> Sometimes having dummy stubs makes sense, but not in this situation.
 
-This patch adds the intermediate solution of reading the MAC address
-from the hardware registers, in case it has been set by the
-bootloader. So the order is now:
+Currently most users of this function are doing something like
 
- 1) MAC address from the Device Tree
- 2) MAC address from the hardware registers
- 3) Random MAC address
+static int foo_phy_fixup(struct phy_device *phydev)
+{
+	...
+}
 
-This requires moving the MAC address initialization a little bit later
-in the ->probe() code, because it now requires the hardware registers
-to be remapped.
+static int __init boo_board_init(void)
+{
+	 if (IS_BUILTIN(CONFIG_PHYLIB))
+		phy_register_fixup_for_uid(phy_id, foo_phy_fixup);
+}
 
-Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Cc: Joe Perches <joe@perches.com>
----
-v1 -> v2:
- * Added an empty line between the variable declaration and the first
-   statement in mvneta_get_mac_addr(), as suggested by Sergei
-   Shtylyov.
- * Added missing braces on arms of an if statement, when the if
-   statement as multiple lines in the else part, as suggested by
-   Sergei Shtylyov.
- * Improve the message that shows the MAC address to show from where
-   the MAC address was taken (from hardware, from DT, or
-   random). Suggested by Joe Perches.
+which is practically the same as having a dummy stub. It leads to
+the foo_phy_fixup() function always getting compiled and then discarded
+by gcc when CONFIG_PHYLIB is disabled.
 
- drivers/net/ethernet/marvell/mvneta.c | 44 ++++++++++++++++++++++++++++-------
- 1 file changed, 35 insertions(+), 9 deletions(-)
+The method is currently broken when network drivers are enabled as
+modules, because we are missing the fixup then.
 
-diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-index c966785..92818d1 100644
---- a/drivers/net/ethernet/marvell/mvneta.c
-+++ b/drivers/net/ethernet/marvell/mvneta.c
-@@ -2251,6 +2251,21 @@ static int mvneta_change_mtu(struct net_device *dev, int mtu)
- 	return 0;
- }
- 
-+/* Get mac address */
-+static void mvneta_get_mac_addr(struct mvneta_port *pp, unsigned char *addr)
-+{
-+	u32 mac_addr_l, mac_addr_h;
-+
-+	mac_addr_l = mvreg_read(pp, MVNETA_MAC_ADDR_LOW);
-+	mac_addr_h = mvreg_read(pp, MVNETA_MAC_ADDR_HIGH);
-+	addr[0] = (mac_addr_h >> 24) & 0xFF;
-+	addr[1] = (mac_addr_h >> 16) & 0xFF;
-+	addr[2] = (mac_addr_h >> 8) & 0xFF;
-+	addr[3] = mac_addr_h & 0xFF;
-+	addr[4] = (mac_addr_l >> 8) & 0xFF;
-+	addr[5] = mac_addr_l & 0xFF;
-+}
-+
- /* Handle setting mac address */
- static int mvneta_set_mac_addr(struct net_device *dev, void *addr)
- {
-@@ -2667,7 +2682,9 @@ static int mvneta_probe(struct platform_device *pdev)
- 	u32 phy_addr;
- 	struct mvneta_port *pp;
- 	struct net_device *dev;
--	const char *mac_addr;
-+	const char *dt_mac_addr;
-+	char hw_mac_addr[ETH_ALEN];
-+	const char *mac_from;
- 	int phy_mode;
- 	int err;
- 
-@@ -2703,13 +2720,6 @@ static int mvneta_probe(struct platform_device *pdev)
- 		goto err_free_irq;
- 	}
- 
--	mac_addr = of_get_mac_address(dn);
--
--	if (!mac_addr || !is_valid_ether_addr(mac_addr))
--		eth_hw_addr_random(dev);
--	else
--		memcpy(dev->dev_addr, mac_addr, ETH_ALEN);
--
- 	dev->tx_queue_len = MVNETA_MAX_TXD;
- 	dev->watchdog_timeo = 5 * HZ;
- 	dev->netdev_ops = &mvneta_netdev_ops;
-@@ -2740,6 +2750,21 @@ static int mvneta_probe(struct platform_device *pdev)
- 
- 	clk_prepare_enable(pp->clk);
- 
-+	dt_mac_addr = of_get_mac_address(dn);
-+	if (dt_mac_addr && is_valid_ether_addr(dt_mac_addr)) {
-+		mac_from = "device tree";
-+		memcpy(dev->dev_addr, dt_mac_addr, ETH_ALEN);
-+	} else {
-+		mvneta_get_mac_addr(pp, hw_mac_addr);
-+		if (is_valid_ether_addr(hw_mac_addr)) {
-+			mac_from = "hardware";
-+			memcpy(dev->dev_addr, hw_mac_addr, ETH_ALEN);
-+		} else {
-+			mac_from = "random";
-+			eth_hw_addr_random(dev);
-+		}
-+	}
-+
- 	pp->tx_done_timer.data = (unsigned long)dev;
- 
- 	pp->tx_ring_size = MVNETA_MAX_TXD;
-@@ -2772,7 +2797,8 @@ static int mvneta_probe(struct platform_device *pdev)
- 		goto err_deinit;
- 	}
- 
--	netdev_info(dev, "mac: %pM\n", dev->dev_addr);
-+	netdev_info(dev, "Using %s mac address %pM\n", mac_from,
-+		    dev->dev_addr);
- 
- 	platform_set_drvdata(pdev, pp->dev);
- 
--- 
-1.8.1.2
+I think we should use IS_ENABLED() here to force a build error
+in that case, and have something like
+
+config ARCH_FOO
+	bool "support for the foo platform"
+	select PHYLIB if NET
+
+in the platform Kconfig file, to ensure PHYLIB is always built-in.
+
+I still think the inline alternatives would be helpful, but using
+if (IS_ENABLED(CONFIG_PHYLIB)) in the platform code would also
+work.
+
+	Arnd
