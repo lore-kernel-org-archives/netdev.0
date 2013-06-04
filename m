@@ -1,63 +1,41 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [PATCH nf-next] netfilter: xt_socket: add XT_SOCKET_NOWILDCARD
- flag
-Date: Tue, 4 Jun 2013 16:30:53 +0200
-Message-ID: <20130604163053.08c0d80f@redhat.com>
-References: <1370300249.24311.190.camel@edumazet-glaptop>
-	<20130604111014.73c718f7@redhat.com>
-	<1370353617.24311.201.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Patrick McHardy <kaber@trash.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1370353617.24311.201.camel@edumazet-glaptop>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: Joe Perches <joe@perches.com>
+Subject: [PATCH 4/4] cw1200: hwio: Remove an unnecessary goto
+Date: Tue,  4 Jun 2013 07:44:50 -0700
+Message-ID: <fd299c9ef87fe50c12af871d6bfcc92d7f6ef3dc.1370356776.git.joe@perches.com>
+References: <60123fd3175b7cceadf6c335b12e58b797e18f65.1370356776.git.joe@perches.com>
+Cc: Solomon Peachy <pizza@shaftnet.org>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <60123fd3175b7cceadf6c335b12e58b797e18f65.1370356776.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 04 Jun 2013 06:46:57 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+goto after return is wrong.
 
-> On Tue, 2013-06-04 at 11:10 +0200, Jesper Dangaard Brouer wrote:
-> > On Mon, 03 Jun 2013 15:57:29 -0700
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > 
-> > > From: Eric Dumazet <edumazet@google.com>
-> > > 
-> > > xt_socket module can be a nice replacement to conntrack module
-> > > in some cases (SYN filtering for example)
-> > > 
-> > > But it lacks the ability to match the 3rd packet of TCP
-> > > handshake (ACK coming from the client).
-> > > 
-> > > Add a XT_SOCKET_NOWILDCARD flag to disable the wildcard mechanism
-> > 
-> > Sorry, but I'm not sure I understand your description.
-> > 
-> > What is the effect of adding the XT_SOCKET_NOWILDCARD flag?
-> > It almost sound like it adds the ability to match the 3rd packet of
-> > TCP handshake (ACK coming from the client), is that the case?
-> > 
-> 
-> Well, if the found socket happens to be a LISTEN socket, we ignore the
-> socket if it was bound to 0.0.0.0
-> 
-> Thats the wildcard thing in xt_socket. Not clear why its there, but
-> thing is : we apparently have to keep this behavior by default.
-> 
-> So yes, the ACK packet from the client is not matched by current
-> xt_socket.
-> 
-> After my patch, it is matched.
-> 
-> I CCed you because you mentioned using conntrack for SYN filtering :
-> xt_socket can be a way to do the same thing without the conntrack
-> overhead, for locally terminated traffic.
+The other code in this block needs to set an
+error value then goto an error release block.
 
-Thank you for Cc'ing me.  I didn't realize that the module could be
-used in this manor.  Much appreciated! :-)
+This one doesn't need to release anything and
+was likely a copy/paste remainder.
 
+Signed-off-by: Joe Perches <joe@perches.com>
+---
+ drivers/net/wireless/cw1200/hwio.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/wireless/cw1200/hwio.c b/drivers/net/wireless/cw1200/hwio.c
+index 142f45ef..dad3fb3 100644
+--- a/drivers/net/wireless/cw1200/hwio.c
++++ b/drivers/net/wireless/cw1200/hwio.c
+@@ -178,7 +178,6 @@ int cw1200_indirect_read(struct cw1200_common *priv, u32 addr, void *buf,
+ 	if ((buf_len / 2) >= 0x1000) {
+ 		pr_err("Can't read more than 0xfff words.\n");
+ 		return -EINVAL;
+-		goto out;
+ 	}
+ 
+ 	priv->hwbus_ops->lock(priv->hwbus_priv);
+-- 
+1.8.1.2.459.gbcd45b4.dirty
