@@ -1,52 +1,86 @@
-From: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
-Subject: Re: Adding ND to bonding?
-Date: Tue, 4 Jun 2013 11:33:56 +0200 (CEST)
-Message-ID: <11265301.16.1370338436286.JavaMail.root@zimbra>
-References: <10725.1370292786@death.nxdomain>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH] net: ipv6: Fix incompatible pointer type warning
+Date: Tue, 4 Jun 2013 18:34:42 +0900
+Message-ID: <CAKD1Yr06MX0KOsiYVLnum0HhGN-g826qsTwnD3svu2p5Cxum5g@mail.gmail.com>
+References: <1370262068-16658-1-git-send-email-emilgoode@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.karlsbakk.net ([213.236.233.66]:38278 "EHLO
-	zimbra.karlsbakk.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751182Ab3FDJeF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 05:34:05 -0400
-In-Reply-To: <10725.1370292786@death.nxdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+	kaber@trash.net, "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Emil Goode <emilgoode@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1370262068-16658-1-git-send-email-emilgoode@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> Roy Sigurd Karlsbakk <roy@karlsbakk.net> wrote:
-> [...]
-> >We're hoping one day we can move to an IPv6-only network (with some
-> >gatewaying to IPv4 land), and I wonder if it would be hard to add
-> >Neighbor Discovery Protocol to bonding as to allow for bonding on
-> >ipv6. I'm not much of a kernel coder, but for what I could see, it
-> >looks
-> >doable.
->=20
-> I haven't tested it lately, but I'm reasonably sure that ND runs
-> over bonding. Is there something specific you have in mind here?
+On Mon, Jun 3, 2013 at 9:21 PM, Emil Goode <emilgoode@gmail.com> wrote:
+> This fixes the sparse warning below about assignment from
+> incompatible pointer type.
+>
+> In the following commit the third argument in function ipv6_chk_addr
+> was changed to const and struct nf_ipv6_ops was introduced with
+> the third argument of .chk_addr beeing const.
+>
+> 2a7851bffb008ff4882eee673da74718997b4265
+> ("netfilter: add nf_ipv6_ops hook to fix xt_addrtype with IPv6")
+>
+> The below commit introduced the warning as the third argument of
+> dummy_ipv6_chk_addr and .ipv6_chk_addr in struct pingv6_ops is
+> missing a const.
+>
+> 6d0bfe22611602f36617bc7aa2ffa1bbb2f54c67
+> ("net: ipv6: Add IPv6 support to the ping socket.")
+>
+> Sparse output:
+>
+> net/ipv6/ping.c: In function =91pingv6_init=92:
+> net/ipv6/ping.c:87:27: warning:
+>         assignment from incompatible pointer type [enabled by default=
+]
+>
+> Signed-off-by: Emil Goode <emilgoode@gmail.com>
+> ---
+>  include/net/ping.h |    2 +-
+>  net/ipv6/ping.c    |    2 +-
+>  2 files changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/include/net/ping.h b/include/net/ping.h
+> index 9242fa0..2db4860 100644
+> --- a/include/net/ping.h
+> +++ b/include/net/ping.h
+> @@ -38,7 +38,7 @@ struct pingv6_ops {
+>         void (*ipv6_icmp_error)(struct sock *sk, struct sk_buff *skb,=
+ int err,
+>                                 __be16 port, u32 info, u8 *payload);
+>         int (*ipv6_chk_addr)(struct net *net, const struct in6_addr *=
+addr,
+> -                            struct net_device *dev, int strict);
+> +                            const struct net_device *dev, int strict=
+);
+>  };
+>
+>  struct ping_table {
+> diff --git a/net/ipv6/ping.c b/net/ipv6/ping.c
+> index a6462d6..c2e9669 100644
+> --- a/net/ipv6/ping.c
+> +++ b/net/ipv6/ping.c
+> @@ -73,7 +73,7 @@ int dummy_icmpv6_err_convert(u8 type, u8 code, int =
+*err)
+>  void dummy_ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int=
+ err,
+>                             __be16 port, u32 info, u8 *payload) {}
+>  int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr=
+,
+> -                       struct net_device *dev, int strict)
+> +                       const struct net_device *dev, int strict)
+>  {
+>         return 0;
+>  }
+> --
+> 1.7.10.4
+>
 
-Perhaps I was a bit unclear about this. What I mean, is that in the act=
-ive-backup mode, the method of finding whether or not a link is active,=
- is to send an ARP request to some machine, in my case, the gateway. Th=
-is won't work with an IPv6-only configuration, since there's no ARP the=
-re, only ND. For active-backup mode to work in IPv6, there needs to be =
-added an ND mode, replacing or supplementing ARP.
-
-Vennlige hilsener / Best regards
-
-roy
---
-Roy Sigurd Karlsbakk
-(+47) 98013356
-roy@karlsbakk.net
-http://blogg.karlsbakk.net/
-GPG Public key: http://karlsbakk.net/roysigurdkarlsbakk.pubkey.txt
---
-I all pedagogikk er det essensielt at pensum presenteres intelligibelt.=
- Det er et element=C3=A6rt imperativ for alle pedagoger =C3=A5 unng=C3=A5=
- eksessiv anvendelse av idiomer med xenotyp etymologi. I de fleste tilf=
-eller eksisterer adekvate og relevante synonymer p=C3=A5 norsk.
+Acked-by: Lorenzo Colitti <lorenzo@google.com>
