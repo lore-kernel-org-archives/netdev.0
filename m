@@ -1,50 +1,52 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [RFC] vxlan: convert remote list to list_rcu
-Date: Tue, 4 Jun 2013 12:18:08 +0300
-Message-ID: <CAF1J0HMD-N64Qb2v3oLF7ovsHqhbh0w730t3cWn4uD6wdcLY7Q@mail.gmail.com>
-References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
-	<20130530110948.GA10532@casper.infradead.org>
-	<CAF1J0HP+Wu9HjEELDaXM2BMREMuKByWr_zz=PwHeNUt=EVbdvw@mail.gmail.com>
-	<20130530113739.GB10532@casper.infradead.org>
-	<20130531091740.70b3e077@nehalam.linuxnetplumber.net>
-	<20130602102942.GA21706@zed>
-	<20130603112616.3ad018e2@nehalam.linuxnetplumber.net>
-	<OFE7269995.C8314337-ON85257B7F.006B4FC1-85257B7F.006F87F8@us.ibm.com>
-	<20130603134512.46ce434f@nehalam.linuxnetplumber.net>
-	<OFB0EFD290.FD0EF659-ON85257B7F.00733AF7-85257B7F.0077A32C@us.ibm.com>
+From: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
+Subject: Re: Adding ND to bonding?
+Date: Tue, 4 Jun 2013 11:33:56 +0200 (CEST)
+Message-ID: <11265301.16.1370338436286.JavaMail.root@zimbra>
+References: <10725.1370292786@death.nxdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	Thomas Graf <tgraf@suug.ch>
-To: David Stevens <dlstevens@us.ibm.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Jay Vosburgh <fubar@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog110.obsmtp.com ([74.125.245.88]:43403 "HELO
-	na3sys010aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752534Ab3FDJSJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 05:18:09 -0400
-Received: by mail-ob0-f172.google.com with SMTP id wo10so9050381obc.3
-        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 02:18:08 -0700 (PDT)
-In-Reply-To: <OFB0EFD290.FD0EF659-ON85257B7F.00733AF7-85257B7F.0077A32C@us.ibm.com>
+Received: from zimbra.karlsbakk.net ([213.236.233.66]:38278 "EHLO
+	zimbra.karlsbakk.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751182Ab3FDJeF convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 05:34:05 -0400
+In-Reply-To: <10725.1370292786@death.nxdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 4, 2013 at 12:46 AM, David Stevens <dlstevens@us.ibm.com> wrote:
+> Roy Sigurd Karlsbakk <roy@karlsbakk.net> wrote:
+> [...]
+> >We're hoping one day we can move to an IPv6-only network (with some
+> >gatewaying to IPv4 land), and I wonder if it would be hard to add
+> >Neighbor Discovery Protocol to bonding as to allow for bonding on
+> >ipv6. I'm not much of a kernel coder, but for what I could see, it
+> >looks
+> >doable.
+>=20
+> I haven't tested it lately, but I'm reasonably sure that ND runs
+> over bonding. Is there something specific you have in mind here?
 
-> But i don't think any of this fdb code relates to the default
-> destination directly, since the generic fdb code does not support
-> default, or any other aggregate matching. VXLAN can define the
-> netlink API for default destinations without affecting anything
-> else, because it is already a per-device feature.
->
->                                                         +-DLS
+Perhaps I was a bit unclear about this. What I mean, is that in the act=
+ive-backup mode, the method of finding whether or not a link is active,=
+ is to send an ARP request to some machine, in my case, the gateway. Th=
+is won't work with an IPv6-only configuration, since there's no ARP the=
+re, only ND. For active-backup mode to work in IPv6, there needs to be =
+added an ND mode, replacing or supplementing ARP.
 
-The only relation is the 'struct vxlan_rdst' which I intended to use
-for default destinations list. So, until there's a consensus about
-remote destinations list in fdb, I cannot continue to work on multiple
-default destinations.
+Vennlige hilsener / Best regards
 
+roy
 --
-Sincerely yours,
-Mike.
+Roy Sigurd Karlsbakk
+(+47) 98013356
+roy@karlsbakk.net
+http://blogg.karlsbakk.net/
+GPG Public key: http://karlsbakk.net/roysigurdkarlsbakk.pubkey.txt
+--
+I all pedagogikk er det essensielt at pensum presenteres intelligibelt.=
+ Det er et element=C3=A6rt imperativ for alle pedagoger =C3=A5 unng=C3=A5=
+ eksessiv anvendelse av idiomer med xenotyp etymologi. I de fleste tilf=
+eller eksisterer adekvate og relevante synonymer p=C3=A5 norsk.
