@@ -1,59 +1,59 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net-next] cxgb3: Correct comparisons and calculations using skb->tail and skb-transport_header
-Date: Tue,  4 Jun 2013 16:11:16 +0800
-Message-ID: <1370333476-17699-1-git-send-email-roy.qing.li@gmail.com>
-Cc: horms@verge.net.au
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:36742 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008Ab3FDILX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 04:11:23 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so811883pdj.0
-        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 01:11:22 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michal Simek <monstr@monstr.eu>
+Subject: Re: [PATCH] net: emaclite: include linux/of_irq.h
+Date: Tue, 04 Jun 2013 10:21:01 +0200
+Message-ID: <51ADA36D.7070607@monstr.eu>
+References: <2244203.EL457oABTU@wuerfel>
+Reply-To: monstr@monstr.eu
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2GGOIMXJELOKLAAWSJRCO"
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	David Miller <davem@davemloft.net>,
+	Michal Simek <michal.simek@xilinx.com>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <2244203.EL457oABTU@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com>
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2GGOIMXJELOKLAAWSJRCO
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-This corrects an regression introduced by "net: Use 16bits for *_headers
-fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
-that case skb->tail will be a pointer whereas skb->transport_header
-will be an offset from head. This is corrected by using wrappers that
-ensure that comparisons and calculations are always made using pointers.
+On 06/03/2013 11:39 PM, Arnd Bergmann wrote:
+> The emaclite driver now calls of_irq_to_resource, which is
+> declared in linux/of_irq.h. Without this patch, I get a build
+> error on ARM.
 
-Cc: Simon Horman <horms@verge.net.au>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- drivers/net/ethernet/chelsio/cxgb3/sge.c |    2 +-
- drivers/net/ethernet/chelsio/cxgb4/sge.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+What about to just change it to use platform_get_resource()?
+I will test it.
 
-diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-index 46d1efc..687ec4a 100644
---- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
-@@ -1583,7 +1583,7 @@ static void deferred_unmap_destructor(struct sk_buff *skb)
- 	dui = (struct deferred_unmap_info *)skb->head;
- 	p = dui->addr;
- 
--	if (skb->tail - skb->transport_header)
-+	if (skb_tail_pointer(skb) - skb_transport_header(skb))
- 		pci_unmap_single(dui->pdev, *p++, skb_tail_pointer(skb) -
- 				 skb_transport_header(skb), PCI_DMA_TODEVICE);
- 
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-index 2bfbb20..ac311f5 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
-+++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
-@@ -1294,7 +1294,7 @@ static inline unsigned int calc_tx_flits_ofld(const struct sk_buff *skb)
- 
- 	flits = skb_transport_offset(skb) / 8U;   /* headers */
- 	cnt = skb_shinfo(skb)->nr_frags;
--	if (skb->tail != skb->transport_header)
-+	if (skb_tail_pointer(skb) != skb_transport_header(skb))
- 		cnt++;
- 	return flits + sgl_len(cnt);
- }
--- 
-1.7.10.4
+Thanks,
+Michal
+
+--=20
+Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
+w: www.monstr.eu p: +42-0-721842854
+Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
+Maintainer of Linux kernel - Xilinx Zynq ARM architecture
+Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
+
+
+
+------enig2GGOIMXJELOKLAAWSJRCO
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlGto20ACgkQykllyylKDCEkiACfUHL50VF0a6Toi/EJ6lJcvrM9
+SHsAn3BQVe4amTEYMR0PYkYLVo2KBYwO
+=qimI
+-----END PGP SIGNATURE-----
+
+------enig2GGOIMXJELOKLAAWSJRCO--
