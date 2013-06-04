@@ -1,40 +1,53 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCHv2 1/3] net: phy: prevent linking breakage
-Date: Tue, 04 Jun 2013 19:17:59 +0200
-Message-ID: <10306449.AbS8Q0UukT@wuerfel>
-References: <1369741403-25315-2-git-send-email-alexandre.belloni@free-electrons.com> <1394174.ONngHnHYKL@wuerfel> <CAGVrzcZcVB5+NqLop+ALrX4Jx_SyNatczLt4oNzXr7bjgKMXhg@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] net: sh-eth: Add flag to determine the type of TSU
+ register
+Date: Tue, 04 Jun 2013 21:19:48 +0400
+Message-ID: <51AE21B4.4000907@cogentembedded.com>
+References: <1367903291-32323-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <51891350.9060700@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-arm-kernel@lists.infradead.org,
-	Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"alexandre.belloni" <alexandre.belloni@free-electrons.com>,
-	kernel <kernel@pengutronix.de>,
-	"shawn.guo" <shawn.guo@linaro.org>,
-	David Miller <davem@davemloft.net>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcZcVB5+NqLop+ALrX4Jx_SyNatczLt4oNzXr7bjgKMXhg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
+To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f176.google.com ([209.85.217.176]:63705 "EHLO
+	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750738Ab3FDRTs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 13:19:48 -0400
+Received: by mail-lb0-f176.google.com with SMTP id z5so935253lbh.7
+        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 10:19:46 -0700 (PDT)
+In-Reply-To: <51891350.9060700@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 04 June 2013 17:09:26 Florian Fainelli wrote:
-> You would just need to define a stub for your arch_foo_phy_fixup()
-> which has a different definition depending on whether CONFIG_PHYLIB is
-> defined or not.
+Hello.
 
-Yes, same thing. For a function that is called in only one place,
-I would always prefer if(IS_ENABLED()) over a stub though.
+On 05/07/2013 06:44 PM, I wrote:
 
-> This would be just one function, instead of the whole bunch of stubs
-> needed for phylib. Right now its probably 1 vs 3, so it does not make
-> that much of a difference but who knows, if we had more phylib stubs
-> and forget to update the stubs? (which tends to happen pretty often).
-> 
-> The size savings are exactly the same in both approaches anyway.
+>    You shouldn't have posted this patch (and the subsequent series) 
+> during the merge window, as David will probably tell you.
+>
+> On 07-05-2013 9:08, Nobuhiro Iwamatsu wrote:
+>
+>> Some sh-eth devices may have two ether devices inside.
+>
+>    You probably meant to say: "some SoCs may have two Ether devices 
+> inside".
+>
+>> And the function of TSU is accessed from each ether device.
+>> In this case, sh-eth need to remap address using devm_ioremap(),
+>> without using devm_ioremap_resource().
+>
+>    You could use devm_ioremap_resource() for the 1st Ether instance, 
+> and devm_ioremap() for the 2nd, couldn't you?
 
-So should we just stick to the current method then and use
-if (IS_ENABLED(CONFIG_NET)) for calling the function?
+     Wait, you can't have the same resource on both platform devices, 
+that's a resource conflict.
 
-	Arnd
+>
+>> tsu_shared_reg of sh_eth_cpu_data is used for this control.
+>
+>> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+>
+
+WBR, Sergei
