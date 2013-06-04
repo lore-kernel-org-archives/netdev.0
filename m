@@ -1,89 +1,82 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [PATCH iproute2] htb: report overhead attribute
-Date: Tue, 4 Jun 2013 17:08:14 +0200
-Message-ID: <20130604170814.03ab019d@redhat.com>
-References: <20130529151330.22c5c89e@redhat.com>
-	<1370207755.24311.81.camel@edumazet-glaptop>
-	<1370208781.24311.89.camel@edumazet-glaptop>
-	<51ACB9FE.1020100@hp.com>
-	<1370274962.24311.156.camel@edumazet-glaptop>
-	<20130604131147.2d357322@redhat.com>
-	<1370354311.24311.205.camel@edumazet-glaptop>
+From: Solomon Peachy <pizza@shaftnet.org>
+Subject: Re: [PATCH 4/4] cw1200: hwio: Remove an unnecessary goto
+Date: Tue, 4 Jun 2013 11:09:10 -0400
+Message-ID: <20130604150910.GA13278@shaftnet.org>
+References: <60123fd3175b7cceadf6c335b12e58b797e18f65.1370356776.git.joe@perches.com>
+ <fd299c9ef87fe50c12af871d6bfcc92d7f6ef3dc.1370356776.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	"russell-tcatm@stuart.id.au" <russell-tcatm@stuart.id.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48797 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757467Ab3FDPIg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jun 2013 11:08:36 -0400
-In-Reply-To: <1370354311.24311.205.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-On Tue, 04 Jun 2013 06:58:31 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-
-> On Tue, 2013-06-04 at 13:11 +0200, Jesper Dangaard Brouer wrote:
-> > On Mon, 03 Jun 2013 08:56:02 -0700
-> > Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> > 
-> > > On Mon, 2013-06-03 at 08:45 -0700, Rick Jones wrote:
-> > > 
-> > > > Is it (still) possible to have a negative overhead?
-> > > > 
-> > > > http://www.linksysinfo.org/index.php?threads/speedmod-with-tc-atm-qos-patch-for-adsl.31541/
-> > > 
-> > > overhead always has been unsigned in the kernel.
-> > > 
-> > > What you describe is a userland hack in tc command.
-> > > (or a bug)
-> > 
-> > Rick is referencing Russell Stuart's patches, where a negative
-> > overhead was possible.
-> >  http://ace-host.stuart.id.au/russell/files/tc/tc-atm/#history
-> > 
-> > But my patches got accepted into the kernel, where a negative
-> > overhead was not possible. In retrospect, we should have supported a
-> > negative overhead.
-> > 
-> > A negative overhead *is* a valid use-case, and we should work
-> > towards supporting this. E.g. by changing the recent added "u16
-> > overhead" in struct psched_ratecfg to be "s16" (ref [1]) ?
-(My statement should have been corrected to "s16"->"s32", never mind)
-
-> > 
-> > [1] commit 01cb71d2d47 (net_sched: restore "overhead xxx" handling)
-> >  https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=01cb71d2d47b78354358e4bb938bb06323e17498
-> > 
-> 
-> Again, you describe something that Vimal patch didn't broke, and
-> should be addressed on net-next.
-
-Yes, I know, I also said "work towards supporting this", meaning
-"net-next".
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="gBBFr7Ir9EOA20Yy"
+Cc: linux-kernel@vger.kernel.org,
+	"John W. Linville" <linville@tuxdriver.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <fd299c9ef87fe50c12af871d6bfcc92d7f6ef3dc.1370356776.git.joe@perches.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
-> My concern was restoring the overhead attribute that Vimal broke, and
-> this one was unsigned 16bits.
-> 
-> Allowing a negative offset is not free, it adds a conditional test,
-> because (len + overhead) could be negative.
+--gBBFr7Ir9EOA20Yy
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Yes, I do realize that. But Vimal patch actually also broke the
-"mpu" (Minimum Packet Unit) feature.  And we could combine this, and
-get negative offset fix by a max(mpu,len), where mpu would be default
-init'ed. 
+On Tue, Jun 04, 2013 at 07:44:50AM -0700, Joe Perches wrote:
+> goto after return is wrong.
+>=20
+> The other code in this block needs to set an
+> error value then goto an error release block.
+>=20
+> This one doesn't need to release anything and
+> was likely a copy/paste remainder.
+>=20
+> Signed-off-by: Joe Perches <joe@perches.com>
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Acked-By: Solomon Peachy <pizza@shaftnet.org>
+
+> ---
+>  drivers/net/wireless/cw1200/hwio.c | 1 -
+>  1 file changed, 1 deletion(-)
+>=20
+> diff --git a/drivers/net/wireless/cw1200/hwio.c b/drivers/net/wireless/cw=
+1200/hwio.c
+> index 142f45ef..dad3fb3 100644
+> --- a/drivers/net/wireless/cw1200/hwio.c
+> +++ b/drivers/net/wireless/cw1200/hwio.c
+> @@ -178,7 +178,6 @@ int cw1200_indirect_read(struct cw1200_common *priv, =
+u32 addr, void *buf,
+>  	if ((buf_len / 2) >=3D 0x1000) {
+>  		pr_err("Can't read more than 0xfff words.\n");
+>  		return -EINVAL;
+> -		goto out;
+>  	}
+> =20
+>  	priv->hwbus_ops->lock(priv->hwbus_priv);
+> --=20
+> 1.8.1.2.459.gbcd45b4.dirty
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-wireless"=
+ in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+--=20
+Solomon Peachy        		       pizza at shaftnet dot org	=20
+Delray Beach, FL                          ^^ (email/xmpp) ^^
+Quidquid latine dictum sit, altum viditur.
+
+--gBBFr7Ir9EOA20Yy
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iD8DBQFRrgMWPuLgii2759ARAlkLAKC9y/w/jHAkjnhViOUZS6AG6Kc89ACgvlIB
+tiLsCF7ClA23jyUZYw5ibjs=
+=Zt6e
+-----END PGP SIGNATURE-----
+
+--gBBFr7Ir9EOA20Yy--
