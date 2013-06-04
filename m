@@ -1,7 +1,7 @@
 From: Mike Rapoport <mike.rapoport@ravellosystems.com>
 Subject: Re: [RFC] vxlan: convert remote list to list_rcu
-Date: Tue, 4 Jun 2013 20:20:22 +0300
-Message-ID: <CAF1J0HPxqPinPnieVtw4oGJr9h9vdLg8EDYQmGicZKbrrJS1Qg@mail.gmail.com>
+Date: Tue, 4 Jun 2013 20:22:02 +0300
+Message-ID: <CAF1J0HOYRe-HiiEFFrB-Nk-V-UOfu25KVcyn02cA-t4S675-9Q@mail.gmail.com>
 References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
 	<1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
 	<20130530110948.GA10532@casper.infradead.org>
@@ -11,121 +11,61 @@ References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
 	<20130602102942.GA21706@zed>
 	<20130603112616.3ad018e2@nehalam.linuxnetplumber.net>
 	<OFE7269995.C8314337-ON85257B7F.006B4FC1-85257B7F.006F87F8@us.ibm.com>
-	<20130603134512.46ce434f@nehalam.linuxnetplumber.net>
-	<OFB0EFD290.FD0EF659-ON85257B7F.00733AF7-85257B7F.0077A32C@us.ibm.com>
-	<CAF1J0HMD-N64Qb2v3oLF7ovsHqhbh0w730t3cWn4uD6wdcLY7Q@mail.gmail.com>
-	<OFB0D808A5.49ED47B9-ON85257B80.004098A5-85257B80.004651FC@us.ibm.com>
+	<CAF1J0HNDrqAfWSkdsF7UW=EqJ5yv8hN-uGZi+SRa1F2nYMZWxw@mail.gmail.com>
+	<20130604090031.1283b96f@nehalam.linuxnetplumber.net>
+	<OFF0160A91.9C9E7EC3-ON85257B80.00594BB9-85257B80.005A8D71@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
 	Thomas Graf <tgraf@suug.ch>
 To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog113.obsmtp.com ([74.125.245.94]:58113 "HELO
-	na3sys010aog113.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751795Ab3FDRUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 13:20:23 -0400
-Received: by mail-oa0-f52.google.com with SMTP id o13so356424oag.25
-        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 10:20:22 -0700 (PDT)
-In-Reply-To: <OFB0D808A5.49ED47B9-ON85257B80.004098A5-85257B80.004651FC@us.ibm.com>
+Received: from na3sys010aog112.obsmtp.com ([74.125.245.92]:53472 "HELO
+	na3sys010aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752604Ab3FDRWE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 13:22:04 -0400
+Received: by mail-ob0-f182.google.com with SMTP id va7so873882obc.13
+        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 10:22:03 -0700 (PDT)
+In-Reply-To: <OFF0160A91.9C9E7EC3-ON85257B80.00594BB9-85257B80.005A8D71@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 04, 2013 at 08:48:06AM -0400, David Stevens wrote:
-> Mike Rapoport <mike.rapoport@ravellosystems.com> wrote on 06/04/2013
-> 05:18:08 AM:
+On Tue, Jun 04, 2013 at 12:29:05PM -0400, David Stevens wrote:
+> Stephen Hemminger <stephen@networkplumber.org> wrote on 06/04/2013
+> 12:00:31 PM:
 >
-> Actually, we could make it an fdb and also have "use" and "updated"
-> stats that way, and/or use the existing fdb code and add an entry
-> with MAC "00:00:00:00:00:00" [which is disallowed via the generic
-> fdb code, so can't be in the fdb table otherwise].
-
-If I've understood you right it would be something like this:
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 8111565..b7801e3 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -80,6 +80,8 @@ MODULE_PARM_DESC(log_ecn_error, "Log packets
-received with corrupted ECN");
-
- static unsigned int vxlan_net_id;
-
-+static u8 ALL_ZEROS_MAC[ETH_ALEN];
-+
- /* per UDP socket information */
- struct vxlan_sock {
-  struct hlist_node hlist;
-@@ -1025,13 +1027,10 @@ static netdev_tx_t vxlan_xmit_one(struct
-sk_buff *skb, struct net_device *dev,
-  vni = rdst->remote_vni;
-  dst = rdst->remote_ip;
-
-- if (!dst) {
-- if (did_rsc) {
-- /* short-circuited back to local bridge */
-- vxlan_encap_bypass(skb, vxlan, vxlan);
-- return NETDEV_TX_OK;
-- }
-- goto drop;
-+ if (did_rsc) {
-+ /* short-circuited back to local bridge */
-+ vxlan_encap_bypass(skb, vxlan, vxlan);
-+ return NETDEV_TX_OK;
-  }
-
-  if (!skb->encapsulation) {
-@@ -1174,14 +1173,19 @@ static netdev_tx_t vxlan_xmit(struct sk_buff
-*skb, struct net_device *dev)
-  }
-
-  if (f == NULL) {
-- rdst0 = &vxlan->default_dst;
-+ f = vxlan_find_mac(vxlan, ALL_ZEROS_MAC);
-+ if (f == NULL) {
-+ if ((vxlan->flags & VXLAN_F_L2MISS) &&
-+    !is_multicast_ether_addr(eth->h_dest))
-+ vxlan_fdb_miss(vxlan, eth->h_dest);
-+
-+ dev->stats.tx_dropped++;
-+                        dev_kfree_skb(skb);
-+                        return NETDEV_TX_OK;
-+ }
-+ }
-
-- if (rdst0->remote_ip == htonl(INADDR_ANY) &&
--    (vxlan->flags & VXLAN_F_L2MISS) &&
--    !is_multicast_ether_addr(eth->h_dest))
-- vxlan_fdb_miss(vxlan, eth->h_dest);
-- } else
-- rdst0 = &f->remote;
-+ rdst0 = &f->remote;
-
-  rc = NETDEV_TX_OK;
-
-@@ -1590,6 +1594,17 @@ static int vxlan_newlink(struct net *net,
-struct net_device *dev,
-  return -EEXIST;
-  }
-
-+ if (dst->remote_ip != htonl(INADDR_ANY)) {
-+ err = vxlan_fdb_create(vxlan, ALL_ZEROS_MAC, dst->remote_ip,
-+       NUD_REACHABLE,
-+       NLM_F_EXCL|NLM_F_CREATE,
-+       dst->remote_port,
-+       dst->remote_vni,
-+       0, NTF_SELF);
-+ if (err)
-+ return err;
-+ }
-+
-  vs = vxlan_find_port(net, vxlan->dst_port);
-  if (vs)
-  ++vs->refcnt;
-
+> > I am still not 100% convinced of the use case of providing multiple
+> > destinations.
+> > It seems like either a solution for migrating guests, a way to do
+> > SPAN, or a weird
+> > form of multicast.
 >
+> The use is, as you would say it, a weird form of multicast. It
+> is to allow forwarding MAC multicasts without relying on the
+> underlying network having multicast routers in the same domain.
 
---
-Sincerely yours,
-Mike.
+For instance, public clouds do not allow multicasts, and vxlan with
+multiple destinations would be a neat SDN solution there.
+
+> > Wouldn't it be better to use something like TC actions for these
+> > special cases and
+> > handle it at the IP layer rather than having to add so much
+> > complexity into the
+> > VXLAN driver itself.
+>
+> This isn't a "special case" for DOVE -- it is the mechanism
+> for doing MAC multicasts. I don't agree that the code is
+> complex -- it simply replaces what was a vxlan_rdst with a
+> list of vxlan_rdsts. And, no, I don't believe it can be
+> done with equivalent performance using external mechanisms.
+>
+> Didn't we have this discussion when the patch went in?
+>
+>                                                         +-DLS
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
