@@ -1,35 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/4] Mellanox driver fixes June 4th, 2013
-Date: Tue, 04 Jun 2013 12:58:46 -0700 (PDT)
-Message-ID: <20130604.125846.1042759714389642426.davem@davemloft.net>
-References: <1370358809-7484-1-git-send-email-ogerlitz@mellanox.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] net: emaclite: Use platform resource table
+Date: Tue, 4 Jun 2013 22:10:05 +0200
+Message-ID: <201306042210.05844.arnd@arndb.de>
+References: <6ece0a9ee777b987ca777a338cc146ed67897529.1370340196.git.michal.simek@xilinx.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: linux-kernel@vger.kernel.org, Michal Simek <monstr@monstr.eu>,
+	"David S. Miller" <davem@davemloft.net>,
+	Bill Pemberton <wfp5p@virginia.edu>,
+	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
+	netdev@vger.kernel.org
+To: Michal Simek <michal.simek@xilinx.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57996 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750954Ab3FDT6r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 15:58:47 -0400
-In-Reply-To: <1370358809-7484-1-git-send-email-ogerlitz@mellanox.com>
+Received: from moutng.kundenserver.de ([212.227.17.10]:64045 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751037Ab3FDUKR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 16:10:17 -0400
+In-Reply-To: <6ece0a9ee777b987ca777a338cc146ed67897529.1370340196.git.michal.simek@xilinx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Tue,  4 Jun 2013 18:13:25 +0300
+On Tuesday 04 June 2013, Michal Simek wrote:
+>   Read data directly from platform recource table
+> and do not use of_irq_to_resource().
+> Also use devm_request_and_ioremap() for probe
+> functions simplification.
+> 
+> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+> ---
+> Based on my discussion with Arnd
+> "[PATCH] net: emaclite: include linux/of_irq.h"
+> 
 
-> Hi Dave,
-> 
-> This short series has one bugfix to the adaptive moderation code
-> and three SRIOV fixes. 
-> 
-> The patch from Jack Morgenstein follows the suggestion made over this thread
-> https://patchwork.kernel.org/patch/2569591/ by Ben H. to simply return -EPROBE_DEFER 
-> when a VF relalizes they can't do their probe now. Other two patches from me treat
-> issues in the VF and PF driver relating to handling VF MAC addresses.
-> 
-> Series done against net tree, commit 01cb71d2d "net_sched: restore "overhead xxx" handling"
-
-Applied, thanks.
+Acked-by: Arnd Bergmann <arnd@arndb.de>
