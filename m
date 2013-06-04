@@ -1,50 +1,38 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH] tuntap: set SOCK_ZEROCOPY flag during open
-Date: Sun, 9 Jun 2013 10:18:32 +0300
-Message-ID: <20130609071817.GD13082@redhat.com>
-References: <1370672261-30076-1-git-send-email-jasowang@redhat.com>
+From: Lee@westlife.org.au, Leung@westlife.org.au (leengdfe@live.cn)
+Subject: Important Proposal!
+Date: Tue, 04 Jun 2013 08:59:15 +0200
+Message-ID: <20130604065902.684B16FD385F@mail.westlife.org.au>
+Reply-To: kamleung10@yahoo.com.hk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1370672261-30076-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from westli2.lnk.telstra.net ([110.142.4.222]:56310 "EHLO
+	mail.westlife.org.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1750799Ab3FIIuv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 04:50:51 -0400
+Received: from localhost (localhost.localdomain [127.0.0.1])
+	by mail.westlife.org.au (Postfix) with ESMTP id 45A8D29069CF
+	for <netdev@vger.kernel.org>; Sun,  9 Jun 2013 17:38:37 +1000 (EST)
+Received: from [10.0.1.6] (unknown [185.7.214.39])
+	by mail.westlife.org.au (Postfix) with ESMTPA id 684B16FD385F
+	for <netdev@vger.kernel.org>; Tue,  4 Jun 2013 16:59:02 +1000 (EST)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 08, 2013 at 02:17:41PM +0800, Jason Wang wrote:
-> Commit 54f968d6efdbf7dec36faa44fc11f01b0e4d1990
-> (tuntap: move socket to tun_file) forgets to set SOCK_ZEROCOPY flag, which will
-> prevent vhost_net from doing zercopy w/ tap. This patch fixes this by setting
-> it during file open.
-> 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+Good-Day ,
 
-I see, and this explains the perf regression we are seeing with 3.9.
+I am Lee Kam Leung, a senior Asset Manager and Actuary with C.T.B Corporation, in 
+Beijing, China. I am contacting you with regards to a discreet and somewhat sensitive 
+business asset available to my knowledge by virtue of my position. 
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+I will furnish you with further exclusive and of course, confidential details once I 
+receive your affirmatory response 
 
-and I think this should go into stable as well.
+Reply to this e-mail address : kamleung10@yahoo.com.hk
 
-> ---
->  drivers/net/tun.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index f042b03..d2ddd6d 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -2155,6 +2155,8 @@ static int tun_chr_open(struct inode *inode, struct file * file)
->  	set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
->  	INIT_LIST_HEAD(&tfile->next);
->  
-> +	sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
-> +
->  	return 0;
->  }
->  
-> -- 
-> 1.7.1
+Faithfully,
+Lee Kam Leung
+>From the Asset Management Department.
