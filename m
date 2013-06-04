@@ -1,143 +1,63 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net] ipv6: prevent fib6_run_gc() contention
-Date: Tue, 4 Jun 2013 13:08:59 +0200
-Message-ID: <20130604111040.CCC9162CB4@unicorn.suse.cz>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <jbrouer@redhat.com>
+Subject: Re: [PATCH iproute2] htb: report overhead attribute
+Date: Tue, 4 Jun 2013 13:11:47 +0200
+Message-ID: <20130604131147.2d357322@redhat.com>
+References: <20130529151330.22c5c89e@redhat.com>
+	<1370207755.24311.81.camel@edumazet-glaptop>
+	<1370208781.24311.89.camel@edumazet-glaptop>
+	<51ACB9FE.1020100@hp.com>
+	<1370274962.24311.156.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Rick Jones <rick.jones2@hp.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	"russell-tcatm@stuart.id.au" <russell-tcatm@stuart.id.au>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:54229 "EHLO mx2.suse.de"
+Received: from mx1.redhat.com ([209.132.183.28]:47209 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752952Ab3FDLKp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jun 2013 07:10:45 -0400
+	id S1753130Ab3FDLMN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jun 2013 07:12:13 -0400
+In-Reply-To: <1370274962.24311.156.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On a high-traffic router with many processors and many IPv6 dst
-entries, soft lockup in fib6_run_gc() can occur when number of
-entries reaches gc_thresh.
+On Mon, 03 Jun 2013 08:56:02 -0700
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
 
-This happens because fib6_run_gc() uses fib6_gc_lock to allow
-only one thread to run the garbage collector but ip6_dst_gc()
-doesn't update net->ipv6.ip6_rt_last_gc until fib6_run_gc()
-returns. On a system with many entries, this can take some time
-so that in the meantime, other threads pass the tests in
-ip6_dst_gc() (ip6_rt_last_gc is still not updated) and wait for
-the lock. They then have to run the garbage collector one after
-another which blocks them for quite long.
+> On Mon, 2013-06-03 at 08:45 -0700, Rick Jones wrote:
+> 
+> > Is it (still) possible to have a negative overhead?
+> > 
+> > http://www.linksysinfo.org/index.php?threads/speedmod-with-tc-atm-qos-patch-for-adsl.31541/
+> 
+> overhead always has been unsigned in the kernel.
+> 
+> What you describe is a userland hack in tc command.
+> (or a bug)
 
-Resolve this by replacing special value ~0UL of expire parameter
-to fib6_run_gc() by explicit "force" parameter to choose between
-spin_lock_bh() and spin_trylock_bh() and call fib6_run_gc() with
-force=false if gc_thresh is reached but not max_size.
+Rick is referencing Russell Stuart's patches, where a negative overhead
+was possible.
+ http://ace-host.stuart.id.au/russell/files/tc/tc-atm/#history
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- include/net/ip6_fib.h |  2 +-
- net/ipv6/ip6_fib.c    | 19 ++++++++-----------
- net/ipv6/ndisc.c      |  4 ++--
- net/ipv6/route.c      |  4 ++--
- 4 files changed, 13 insertions(+), 16 deletions(-)
+But my patches got accepted into the kernel, where a negative
+overhead was not possible. In retrospect, we should have supported a
+negative overhead.
 
-diff --git a/include/net/ip6_fib.h b/include/net/ip6_fib.h
-index 2a601e7..48ec25a 100644
---- a/include/net/ip6_fib.h
-+++ b/include/net/ip6_fib.h
-@@ -300,7 +300,7 @@ extern void			inet6_rt_notify(int event, struct rt6_info *rt,
- 						struct nl_info *info);
- 
- extern void			fib6_run_gc(unsigned long expires,
--					    struct net *net);
-+					    struct net *net, bool force);
- 
- extern void			fib6_gc_cleanup(void);
- 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 192dd1a..1dcd618 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -1625,19 +1625,16 @@ static int fib6_age(struct rt6_info *rt, void *arg)
- 
- static DEFINE_SPINLOCK(fib6_gc_lock);
- 
--void fib6_run_gc(unsigned long expires, struct net *net)
-+void fib6_run_gc(unsigned long expires, struct net *net, bool force)
- {
--	if (expires != ~0UL) {
-+	if (force)
- 		spin_lock_bh(&fib6_gc_lock);
--		gc_args.timeout = expires ? (int)expires :
--			net->ipv6.sysctl.ip6_rt_gc_interval;
--	} else {
--		if (!spin_trylock_bh(&fib6_gc_lock)) {
--			mod_timer(&net->ipv6.ip6_fib_timer, jiffies + HZ);
--			return;
--		}
--		gc_args.timeout = net->ipv6.sysctl.ip6_rt_gc_interval;
-+	else if (!spin_trylock_bh(&fib6_gc_lock)) {
-+		mod_timer(&net->ipv6.ip6_fib_timer, jiffies + HZ);
-+		return;
- 	}
-+	gc_args.timeout = expires ? (int)expires :
-+			  net->ipv6.sysctl.ip6_rt_gc_interval;
- 
- 	gc_args.more = icmp6_dst_gc();
- 
-@@ -1654,7 +1651,7 @@ void fib6_run_gc(unsigned long expires, struct net *net)
- 
- static void fib6_gc_timer_cb(unsigned long arg)
- {
--	fib6_run_gc(0, (struct net *)arg);
-+	fib6_run_gc(0, (struct net *)arg, true);
- }
- 
- static int __net_init fib6_net_init(struct net *net)
-diff --git a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
-index 2712ab2..bf60c25 100644
---- a/net/ipv6/ndisc.c
-+++ b/net/ipv6/ndisc.c
-@@ -1575,7 +1575,7 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
- 	switch (event) {
- 	case NETDEV_CHANGEADDR:
- 		neigh_changeaddr(&nd_tbl, dev);
--		fib6_run_gc(~0UL, net);
-+		fib6_run_gc(0, net, false);
- 		idev = in6_dev_get(dev);
- 		if (!idev)
- 			break;
-@@ -1585,7 +1585,7 @@ static int ndisc_netdev_event(struct notifier_block *this, unsigned long event,
- 		break;
- 	case NETDEV_DOWN:
- 		neigh_ifdown(&nd_tbl, dev);
--		fib6_run_gc(~0UL, net);
-+		fib6_run_gc(0, net, false);
- 		break;
- 	case NETDEV_NOTIFY_PEERS:
- 		ndisc_send_unsol_na(dev);
-diff --git a/net/ipv6/route.c b/net/ipv6/route.c
-index ad0aa6b..fdb5ccb 100644
---- a/net/ipv6/route.c
-+++ b/net/ipv6/route.c
-@@ -1300,7 +1300,7 @@ static int ip6_dst_gc(struct dst_ops *ops)
- 		goto out;
- 
- 	net->ipv6.ip6_rt_gc_expire++;
--	fib6_run_gc(net->ipv6.ip6_rt_gc_expire, net);
-+	fib6_run_gc(net->ipv6.ip6_rt_gc_expire, net, entries > rt_max_size);
- 	net->ipv6.ip6_rt_last_gc = now;
- 	entries = dst_entries_get_slow(ops);
- 	if (entries < ops->gc_thresh)
-@@ -2801,7 +2801,7 @@ int ipv6_sysctl_rtcache_flush(ctl_table *ctl, int write,
- 	net = (struct net *)ctl->extra1;
- 	delay = net->ipv6.sysctl.flush_delay;
- 	proc_dointvec(ctl, write, buffer, lenp, ppos);
--	fib6_run_gc(delay <= 0 ? ~0UL : (unsigned long)delay, net);
-+	fib6_run_gc(delay <= 0 ? 0 : (unsigned long)delay, net, delay > 0);
- 	return 0;
- }
- 
+A negative overhead *is* a valid use-case, and we should work towards
+supporting this. E.g. by changing the recent added "u16 overhead" in
+struct psched_ratecfg to be "s16" (ref [1]) ?
+
+
+[1] commit 01cb71d2d47 (net_sched: restore "overhead xxx" handling)
+ https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=01cb71d2d47b78354358e4bb938bb06323e17498
+
 -- 
-1.8.1.4
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Sr. Network Kernel Developer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
