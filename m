@@ -1,56 +1,38 @@
-From: Florian Fainelli <florian@openwrt.org>
-Subject: Re: [PATCHv2 1/3] net: phy: prevent linking breakage
-Date: Tue, 4 Jun 2013 17:09:26 +0100
-Message-ID: <CAGVrzcZcVB5+NqLop+ALrX4Jx_SyNatczLt4oNzXr7bjgKMXhg@mail.gmail.com>
-References: <1369741403-25315-2-git-send-email-alexandre.belloni@free-electrons.com>
- <6466898.RnYOe3jpGG@wuerfel> <CAGVrzcbRS3x5fgD1BfOk4-oTUsAY9FA2V621OvZLJQNZ01brCg@mail.gmail.com>
- <1394174.ONngHnHYKL@wuerfel>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] ip: set the close-on-exec flag for descriptors
+Date: Tue, 4 Jun 2013 09:11:50 -0700
+Message-ID: <20130604091150.48f3b1ca@nehalam.linuxnetplumber.net>
+References: <1370332874-584-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-arm-kernel@lists.infradead.org,
-	Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	"alexandre.belloni" <alexandre.belloni@free-electrons.com>,
-	kernel <kernel@pengutronix.de>,
-	"shawn.guo" <shawn.guo@linaro.org>,
-	David Miller <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394174.ONngHnHYKL@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andrey Vagin <avagin@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:43803 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755578Ab3FDQLz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 12:11:55 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fa11so417361pad.5
+        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 09:11:55 -0700 (PDT)
+In-Reply-To: <1370332874-584-1-git-send-email-avagin@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/6/4 Arnd Bergmann <arnd@arndb.de>:
-> On Tuesday 04 June 2013 16:36:50 Florian Fainelli wrote:
->> It seems to me that what David proposes is to have say an
->> arch/arm/mach-foo/phy-fixups.c file which is only enabled when
->> CONFIG_PHYLIB is set (obj-$(CONFIG_PHYLIB) += phy-fixup.o), such that
->> it does not need to have any conditionnals when calling
->> phy_register_fixup. This sounds a little unusual, but why not.
->
-> I don't think it would actually help us, because then we still need
-> to declare a local function that gets called from the board init
-> code. Instead of doing
->
->         if (IS_ENABLED(CONFIG_PHYLIB))
->                  phy_register_fixup_for_uid(phy_id, foo_phy_fixup);
->
-> we would then do
->
->         if (IS_ENABLED(CONFIG_PHYLIB))
->                 foo_phy_fixup_register();
->
-> which is not much different at all.
+On Tue,  4 Jun 2013 12:01:14 +0400
+Andrey Vagin <avagin@openvz.org> wrote:
 
-You would just need to define a stub for your arch_foo_phy_fixup()
-which has a different definition depending on whether CONFIG_PHYLIB is
-defined or not.
+> Otherwise a program executed by "ip netns exec" has two extra
+> descriptors.
+> 
+> $ ip netns exec test /bin/bash
+> $ lsof -p $$
+> ...
+> bash    817 root    0u   CHR  136,0       0t0          3 /dev/pts/0
+> bash    817 root    1u   CHR  136,0       0t0          3 /dev/pts/0
+> bash    817 root    2u   CHR  136,0       0t0          3 /dev/pts/0
+> bash    817 root    3u  sock    0,6       0t0      13386 protocol: NETLINK
+> bash    817 root    4r   REG    0,3         0 4026532155 net
+> bash    817 root  255u   CHR  136,0       0t0          3 /dev/pts/0
 
-This would be just one function, instead of the whole bunch of stubs
-needed for phylib. Right now its probably 1 vs 3, so it does not make
-that much of a difference but who knows, if we had more phylib stubs
-and forget to update the stubs? (which tends to happen pretty often).
-
-The size savings are exactly the same in both approaches anyway.
---
-Florian
+Applied
