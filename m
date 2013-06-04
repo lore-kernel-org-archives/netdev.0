@@ -1,63 +1,72 @@
-From: Jesper Dangaard Brouer <jbrouer@redhat.com>
-Subject: Re: [PATCH iproute2] htb: report overhead attribute
-Date: Tue, 4 Jun 2013 13:11:47 +0200
-Message-ID: <20130604131147.2d357322@redhat.com>
-References: <20130529151330.22c5c89e@redhat.com>
-	<1370207755.24311.81.camel@edumazet-glaptop>
-	<1370208781.24311.89.camel@edumazet-glaptop>
-	<51ACB9FE.1020100@hp.com>
-	<1370274962.24311.156.camel@edumazet-glaptop>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [RESEND PATCH net-next] xfrm: add LINUX_MIB_XFRMACQUIREERROR
+ statistic counter
+Date: Tue, 4 Jun 2013 13:29:07 +0200
+Message-ID: <20130604112907.GB3109@secunet.com>
+References: <1369014025-19564-1-git-send-email-fan.du@windriver.com>
+ <519A2F1A.3010703@cogentembedded.com>
+ <519ACC50.5030402@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hp.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev <netdev@vger.kernel.org>,
-	"russell-tcatm@stuart.id.au" <russell-tcatm@stuart.id.au>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	herbert@gondor.hengli.com.au, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Fan Du <fan.du@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47209 "EHLO mx1.redhat.com"
+Received: from a.mx.secunet.com ([195.81.216.161]:49485 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753130Ab3FDLMN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jun 2013 07:12:13 -0400
-In-Reply-To: <1370274962.24311.156.camel@edumazet-glaptop>
+	id S1753114Ab3FDL3N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jun 2013 07:29:13 -0400
+Content-Disposition: inline
+In-Reply-To: <519ACC50.5030402@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 03 Jun 2013 08:56:02 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On Tue, May 21, 2013 at 09:22:24AM +0800, Fan Du wrote:
+> Hi, Sergei
+>=20
+> On 2013=E5=B9=B405=E6=9C=8820=E6=97=A5 22:11, Sergei Shtylyov wrote:
+> >Hello.
+> >
+> >On 20-05-2013 5:40, Fan Du wrote:
+> >
+> >>When host ping its peer, ICMP echo request packet triggers IPsec
+> >>policy, then host negotiates SA secret with its peer. After IKE
+> >>installed SA for OUT direction, but before SA for IN direction
+> >>installed, host get ICMP echo reply from its peer. At the time
+> >>being, the SA state for IN direction could be XFRM_STATE_ACQ,
+> >>then the received packet will be dropped after adding
+> >>LINUX_MIB_XFRMINSTATEINVALID statistic.
+> >
+> >>Adding a LINUX_MIB_XFRMACQUIREERROR statistic counter for such
+> >>scenario when SA in larval state is much clearer for user than
+> >>LINUX_MIB_XFRMINSTATEINVALID which indicates the SA is totally
+> >>bad.
+> >
+> >>Signed-off-by: Fan Du <fan.du@windriver.com>
+> >>---
+> >>include/uapi/linux/snmp.h | 1 +
+> >>net/xfrm/xfrm_input.c | 5 +++++
+> >>net/xfrm/xfrm_proc.c | 1 +
+> >>3 files changed, 7 insertions(+), 0 deletions(-)
+> >
+> >>diff --git a/include/uapi/linux/snmp.h b/include/uapi/linux/snmp.h
+> >>index df2e8b4..3d072bf 100644
+> >>--- a/include/uapi/linux/snmp.h
+> >>+++ b/include/uapi/linux/snmp.h
+> >>@@ -287,6 +287,7 @@ enum
+> >>LINUX_MIB_XFRMOUTPOLERROR, /* XfrmOutPolError */
+> >>LINUX_MIB_XFRMFWDHDRERROR, /* XfrmFwdHdrError*/
+> >>LINUX_MIB_XFRMOUTSTATEINVALID, /* XfrmOutStateInvalid */
+> >>+ LINUX_MIB_XFRMACQUIREERROR, /* XfrmAcquireError*/
+> >
+> >Please indent the comment with tabs and align with the above ones.
+>=20
+> Thanks for the point, I will fix this in next round after reviewing f=
+rom Steffen and others.
+>=20
 
-> On Mon, 2013-06-03 at 08:45 -0700, Rick Jones wrote:
-> 
-> > Is it (still) possible to have a negative overhead?
-> > 
-> > http://www.linksysinfo.org/index.php?threads/speedmod-with-tc-atm-qos-patch-for-adsl.31541/
-> 
-> overhead always has been unsigned in the kernel.
-> 
-> What you describe is a userland hack in tc command.
-> (or a bug)
+The patch looks ok to me, please fix the indent and resend.
 
-Rick is referencing Russell Stuart's patches, where a negative overhead
-was possible.
- http://ace-host.stuart.id.au/russell/files/tc/tc-atm/#history
-
-But my patches got accepted into the kernel, where a negative
-overhead was not possible. In retrospect, we should have supported a
-negative overhead.
-
-A negative overhead *is* a valid use-case, and we should work towards
-supporting this. E.g. by changing the recent added "u16 overhead" in
-struct psched_ratecfg to be "s16" (ref [1]) ?
-
-
-[1] commit 01cb71d2d47 (net_sched: restore "overhead xxx" handling)
- https://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=01cb71d2d47b78354358e4bb938bb06323e17498
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Sr. Network Kernel Developer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Thanks!
