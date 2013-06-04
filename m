@@ -1,53 +1,67 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net 4/4] net/mlx4_core: Keep VF assigned MAC in the PF admin table
-Date: Tue,  4 Jun 2013 18:13:29 +0300
-Message-ID: <1370358809-7484-5-git-send-email-ogerlitz@mellanox.com>
-References: <1370358809-7484-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, amirv@mellanox.com,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:59265 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755786Ab3FDPTO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 4 Jun 2013 11:19:14 -0400
-In-Reply-To: <1370358809-7484-1-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <florian@openwrt.org>
+Subject: Re: [PATCHv2 1/3] net: phy: prevent linking breakage
+Date: Tue, 4 Jun 2013 16:36:50 +0100
+Message-ID: <CAGVrzcbRS3x5fgD1BfOk4-oTUsAY9FA2V621OvZLJQNZ01brCg@mail.gmail.com>
+References: <1369741403-25315-2-git-send-email-alexandre.belloni@free-electrons.com>
+ <51A5BA86.3070609@free-electrons.com> <20130530.024201.1913984663902628192.davem@davemloft.net>
+ <6466898.RnYOe3jpGG@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	alexandre.belloni@free-electrons.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	Russell King <linux@arm.linux.org.uk>, shawn.guo@linaro.org,
+	kernel@pengutronix.de
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6466898.RnYOe3jpGG@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-MAC addresses assigned by the PF to VFs were not kept in the PF driver
-admin table. As a result, displaying the VF MACs from the PF interface
-to user space showed zero address where in fact the VF got non-zero
-address from the PF, fix that.
+2013/6/4 Arnd Bergmann <arnd@arndb.de>:
+>> Or you properly segregate the networking bits of the platform code so
+>> that it can be built only when the necessary networking portions are
+>> enabled.
+>>
+>> Sometimes having dummy stubs makes sense, but not in this situation.
+>
+> Currently most users of this function are doing something like
+>
+> static int foo_phy_fixup(struct phy_device *phydev)
+> {
+>         ...
+> }
+>
+> static int __init boo_board_init(void)
+> {
+>          if (IS_BUILTIN(CONFIG_PHYLIB))
+>                 phy_register_fixup_for_uid(phy_id, foo_phy_fixup);
+> }
+>
+> which is practically the same as having a dummy stub. It leads to
+> the foo_phy_fixup() function always getting compiled and then discarded
+> by gcc when CONFIG_PHYLIB is disabled.
+>
+> The method is currently broken when network drivers are enabled as
+> modules, because we are missing the fixup then.
+>
+> I think we should use IS_ENABLED() here to force a build error
+> in that case, and have something like
+>
+> config ARCH_FOO
+>         bool "support for the foo platform"
+>         select PHYLIB if NET
+>
+> in the platform Kconfig file, to ensure PHYLIB is always built-in.
+>
+> I still think the inline alternatives would be helpful, but using
+> if (IS_ENABLED(CONFIG_PHYLIB)) in the platform code would also
+> work.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/fw.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 58a8e53..2c97901 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -840,12 +840,16 @@ int mlx4_QUERY_PORT_wrapper(struct mlx4_dev *dev, int slave,
- 			   MLX4_CMD_NATIVE);
- 
- 	if (!err && dev->caps.function != slave) {
--		/* set slave default_mac address */
--		MLX4_GET(def_mac, outbox->buf, QUERY_PORT_MAC_OFFSET);
--		def_mac += slave << 8;
- 		/* if config MAC in DB use it */
- 		if (priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac)
- 			def_mac = priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier].state.mac;
-+		else {
-+			/* set slave default_mac address */
-+			MLX4_GET(def_mac, outbox->buf, QUERY_PORT_MAC_OFFSET);
-+			def_mac += slave << 8;
-+			priv->mfunc.master.vf_admin[slave].vport[vhcr->in_modifier].mac = def_mac;
-+		}
-+
- 		MLX4_PUT(outbox->buf, def_mac, QUERY_PORT_MAC_OFFSET);
- 
- 		/* get port type - currently only eth is enabled */
--- 
-1.7.1
+It seems to me that what David proposes is to have say an
+arch/arm/mach-foo/phy-fixups.c file which is only enabled when
+CONFIG_PHYLIB is set (obj-$(CONFIG_PHYLIB) += phy-fixup.o), such that
+it does not need to have any conditionnals when calling
+phy_register_fixup. This sounds a little unusual, but why not.
+--
+Florian
