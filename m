@@ -1,47 +1,65 @@
 From: Florian Fainelli <florian@openwrt.org>
-Subject: [PATCH 0/3 net-next] bcm63xx_enet: add support for BCM63xx gigabit integrated switch
-Date: Tue,  4 Jun 2013 22:53:32 +0100
-Message-ID: <1370382815-17904-1-git-send-email-florian@openwrt.org>
+Subject: [PATCH 1/3 net-next] bcm63xx_enet: implement reset autoneg ethtool callback
+Date: Tue,  4 Jun 2013 22:53:33 +0100
+Message-ID: <1370382815-17904-2-git-send-email-florian@openwrt.org>
+References: <1370382815-17904-1-git-send-email-florian@openwrt.org>
 Cc: ralf@linux-mips.org, blogic@openwrt.org, linux-mips@linux-mips.org,
 	cernekee@gmail.com, mbizon@freebox.fr, jogo@openwrt.org,
-	netdev@vger.kernel.org, Florian Fainelli <florian@openwrt.org>
+	netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f182.google.com ([209.85.212.182]:34581 "EHLO
-	mail-wi0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750935Ab3FDVxm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 17:53:42 -0400
-Received: by mail-wi0-f182.google.com with SMTP id c10so678896wiw.15
-        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 14:53:41 -0700 (PDT)
+Received: from mail-we0-f179.google.com ([74.125.82.179]:46764 "EHLO
+	mail-we0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751678Ab3FDVxo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 17:53:44 -0400
+Received: by mail-we0-f179.google.com with SMTP id w59so710688wes.10
+        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 14:53:43 -0700 (PDT)
+In-Reply-To: <1370382815-17904-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David, Ralf,
+From: Maxime Bizon <mbizon@freebox.fr>
 
-This patchset contains changes to enable the BCM63xx gitabit integrated switch
-found on BCM6328, BCM6362 and BCM6368 SoCs. It contains changes both to
-arch/mips/bcm63xx and drivers/net/ethernet/bcm63xx_enet.c. The changes are
-pretty difficult to split so I would rather see these merged via the net-tree.
+Implement the rset_nway ethtool callback which uses libphy generic
+autonegotiation restart function.
 
-(this time with netdev CC'd)
+Signed-off-by: Maxime Bizon <mbizon@freebox.fr>
+---
+ drivers/net/ethernet/broadcom/bcm63xx_enet.c |   15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
 
-Thanks!
-
-Maxime Bizon (3):
-  bcm63xx_enet: implement reset autoneg ethtool callback
-  bcm63xx_enet: split DMA channel register accesses
-  bcm63xx_enet: add support for Broadcom BCM63xx integrated gigabit
-    switch
-
- arch/mips/bcm63xx/boards/board_bcm963xx.c          |    4 +
- arch/mips/bcm63xx/dev-enet.c                       |  118 +-
- arch/mips/include/asm/mach-bcm63xx/bcm63xx_cpu.h   |    4 +-
- .../include/asm/mach-bcm63xx/bcm63xx_dev_enet.h    |   28 +
- arch/mips/include/asm/mach-bcm63xx/bcm63xx_regs.h  |   63 ++
- .../mips/include/asm/mach-bcm63xx/board_bcm963xx.h |    2 +
- drivers/net/ethernet/broadcom/bcm63xx_enet.c       | 1135 ++++++++++++++++++--
- drivers/net/ethernet/broadcom/bcm63xx_enet.h       |   75 ++
- 8 files changed, 1331 insertions(+), 98 deletions(-)
-
+diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+index e46466c..bc1a994 100644
+--- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
++++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
+@@ -1328,6 +1328,20 @@ static void bcm_enet_get_ethtool_stats(struct net_device *netdev,
+ 	mutex_unlock(&priv->mib_update_lock);
+ }
+ 
++static int bcm_enet_nway_reset(struct net_device *dev)
++{
++	struct bcm_enet_priv *priv;
++
++	priv = netdev_priv(dev);
++	if (priv->has_phy) {
++		if (!priv->phydev)
++			return -ENODEV;
++		return genphy_restart_aneg(priv->phydev);
++	}
++
++	return -EOPNOTSUPP;
++}
++
+ static int bcm_enet_get_settings(struct net_device *dev,
+ 				 struct ethtool_cmd *cmd)
+ {
+@@ -1470,6 +1484,7 @@ static const struct ethtool_ops bcm_enet_ethtool_ops = {
+ 	.get_strings		= bcm_enet_get_strings,
+ 	.get_sset_count		= bcm_enet_get_sset_count,
+ 	.get_ethtool_stats      = bcm_enet_get_ethtool_stats,
++	.nway_reset		= bcm_enet_nway_reset,
+ 	.get_settings		= bcm_enet_get_settings,
+ 	.set_settings		= bcm_enet_set_settings,
+ 	.get_drvinfo		= bcm_enet_get_drvinfo,
 -- 
 1.7.10.4
