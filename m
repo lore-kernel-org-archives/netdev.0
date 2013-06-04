@@ -1,38 +1,17 @@
-From: Stefan Roese <sr@denx.de>
-Subject: Re: [PATCH] net: sun4i-emac: remove erroneous assignment
-Date: Tue, 04 Jun 2013 07:52:37 +0200
-Message-ID: <51AD80A5.20308@denx.de>
-References: <3298610.K0DeJZEM4E@wuerfel>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: test
+Date: Tue, 4 Jun 2013 14:04:11 +0800
+Message-ID: <51AD835B.8040600@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Maxime Ripard <maxime.ripard@free-electrons.com>,
-	Richard Genoud <richard.genoud@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3298610.K0DeJZEM4E@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: Netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:54741 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751359Ab3FDGF1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 02:05:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/03/2013 11:36 PM, Arnd Bergmann wrote:
-> The newly added sun4i-emac driver causes a build error when
-> CONFIG_NET_POLL_CONTROLLER is set, because it attempts to
-> assign a pointer to netdev->poll_controller, which has
-> been replaced with ops->ndo_poll_controller in 2.6.31!
-> 
-> The correct assignment is present as well, so we just need
-> to remove the wrong one.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Cc: Stefan Roese <sr@denx.de>
-> Cc: Maxime Ripard <maxime.ripard@free-electrons.com>
-> Cc: Richard Genoud <richard.genoud@gmail.com>
-
-Thanks for fixing this:
-
-Acked-by: Stefan Roese <sr@denx.de>
-
-Thanks,
-Stefan
+test
