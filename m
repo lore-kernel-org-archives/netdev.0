@@ -1,37 +1,61 @@
-From: Yijing Wang <wangyijing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [RESEND][PATCH 3/7] net, ipw2x00: remove redundant D0 power state set
-Date: Tue, 4 Jun 2013 15:07:54 +0800
-Message-ID: <1370329674-8360-1-git-send-email-wangyijing@huawei.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the final tree (net tree
+ related)
+Date: Tue, 4 Jun 2013 17:27:00 +1000
+Message-ID: <20130604172700.a98a93d8743f32153d0c93f2@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Yijing Wang <wangyijing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>,
-	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Tue__4_Jun_2013_17_27_00_+1000_cLGzmPIL_NgkMxNN"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Lorenzo Colitti <lorenzo@google.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Pci_enable_device() will set device power state to D0,
-so it's no need to do it again in ipw2100_pci_init_one().
+--Signature=_Tue__4_Jun_2013_17_27_00_+1000_cLGzmPIL_NgkMxNN
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Yijing Wang <wangyijing-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Cc: Stanislav Yakovlev <stas.yakovlev-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Cc: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
----
- drivers/net/wireless/ipw2x00/ipw2100.c |    2 --
- 1 files changed, 0 insertions(+), 2 deletions(-)
+Hi all,
 
-diff --git a/drivers/net/wireless/ipw2x00/ipw2100.c b/drivers/net/wireless/ipw2x00/ipw2100.c
-index 15920aa..f8ab193 100644
---- a/drivers/net/wireless/ipw2x00/ipw2100.c
-+++ b/drivers/net/wireless/ipw2x00/ipw2100.c
-@@ -6242,8 +6242,6 @@ static int ipw2100_pci_init_one(struct pci_dev *pci_dev,
- 	if ((val & 0x0000ff00) != 0)
- 		pci_write_config_dword(pci_dev, 0x40, val & 0xffff00ff);
- 
--	pci_set_power_state(pci_dev, PCI_D0);
+After merging the final tree, today's linux-next build (i386_defconfig,
+sparc64_defconfig) produced this warning:
+
+net/ipv6/ping.c: In function 'pingv6_init':
+net/ipv6/ping.c:87:27: warning: assignment from incompatible pointer type [=
+enabled by default]
+
+Probably caused by commit 2a7851bffb00 ("netfilter: add nf_ipv6_ops hook
+to fix xt_addrtype with IPv6") interacting with commit 6d0bfe226116
+("net: ipv6: Add IPv6 support to the ping socket") from the net-next tree.
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+--Signature=_Tue__4_Jun_2013_17_27_00_+1000_cLGzmPIL_NgkMxNN
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRrZbIAAoJEECxmPOUX5FE2fIP/2UXQqsck/r3Q46+AL+AXZ9N
+ABLCB7PLFEAtjYCZQq43YA4R0NBKXJe6ECNfN1mLETnvH9OBSdl7WeNKq1TRgQa6
+WiQFcgoJoLYdmrAuB6xy9iwnRSGupeyknRQo3q7S+FZ2NxjWkeulqlNU2Q/M0bIU
+w+c9ZQtItiIPpAYwNkEFGHG70ruqtL0mNYDWPlvmfhMIXwPbKWVRfIPJDmou93dq
+rWDBm0a9kLgF1U1TPALTUaZ8t6C3EMsNJ3/Mzz40NC4Hj0Lx4VKC9Mjeki00yZ3q
+mmjMGy188ONvPEyspHeXKjSwyLaJ6mzIhXWGLdLiJFdAeP/Fv+xNqk01uxC5Ik0n
+/kxm2nQtT7E6AinhcVUYSePrgecxYTzR5zY47Xe5ovaoISvLMCrRmGz1sLEQLfUD
++ymybwczP0xDfAD5NT51gjt4LJ21k9lF04PYCccBXNfS/iWHSiP5YbmAPwroRXsY
+eglpy10vMftQjScoQnvpMJmDeW5VwQFHZTpIfeWQiLvpPVRXidRPvQ7h0rPat1/Y
+a0tMVW92ErOIDr8Vn0DZ50fXX3htUMWppzN5S+EQqW3PsHULX6t9kirBiNyFLf0l
+isR6UKJuZgvUwRTm1jafuOQrAr9wv8KGI+TSFRJzijz59mk/JGdmZMwJGVQNOjz8
+GbvPZQMgmdoyNDIOLf53
+=PEn0
+-----END PGP SIGNATURE-----
+
+--Signature=_Tue__4_Jun_2013_17_27_00_+1000_cLGzmPIL_NgkMxNN--
