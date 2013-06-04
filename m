@@ -1,52 +1,37 @@
 From: Maxime Ripard <maxime.ripard@free-electrons.com>
-Subject: Re: [PATCH -next] net: sun4i-emac: fix a typo in emac_probe()
-Date: Tue, 4 Jun 2013 15:24:08 +0200
-Message-ID: <20130604132408.GD3283@lukather>
-References: <CAPgLHd-fXnt9H_CxDD1Ww=C-6nn3COVkYirKY6ucOJVR2Pkwkw@mail.gmail.com>
+Subject: Re: [PATCH] net: sun4i-emac: remove erroneous assignment
+Date: Tue, 4 Jun 2013 15:40:34 +0200
+Message-ID: <20130604134034.GE3283@lukather>
+References: <3298610.K0DeJZEM4E@wuerfel>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: grant.likely@linaro.org, rob.herring@calxeda.com,
-	davem@davemloft.net, sr@denx.de, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-To: Wei Yongjun <weiyj.lk@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Stefan Roese <sr@denx.de>,
+	Richard Genoud <richard.genoud@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.free-electrons.com ([94.23.35.102]:57591 "EHLO
+Received: from mail.free-electrons.com ([94.23.35.102]:57660 "EHLO
 	mail.free-electrons.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753978Ab3FDNYL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 09:24:11 -0400
+	with ESMTP id S1753337Ab3FDNkh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 09:40:37 -0400
 Content-Disposition: inline
-In-Reply-To: <CAPgLHd-fXnt9H_CxDD1Ww=C-6nn3COVkYirKY6ucOJVR2Pkwkw@mail.gmail.com>
+In-Reply-To: <3298610.K0DeJZEM4E@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi Arnd,
 
-On Mon, Jun 03, 2013 at 09:36:52PM +0800, Wei Yongjun wrote:
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Mon, Jun 03, 2013 at 11:36:50PM +0200, Arnd Bergmann wrote:
+> The newly added sun4i-emac driver causes a build error when
+> CONFIG_NET_POLL_CONTROLLER is set, because it attempts to
+> assign a pointer to netdev->poll_controller, which has
+> been replaced with ops->ndo_poll_controller in 2.6.31!
 > 
-> Just fixed a typo in emac_probe().
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> ---
->  drivers/net/ethernet/allwinner/sun4i-emac.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
-> index b411344..26083cd 100644
-> --- a/drivers/net/ethernet/allwinner/sun4i-emac.c
-> +++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
-> @@ -821,7 +821,7 @@ static int emac_probe(struct platform_device *pdev)
->  	db->membase = of_iomap(np, 0);
->  	if (!db->membase) {
->  		dev_err(&pdev->dev, "failed to remap registers\n");
-> -		return -ENOMEM;
-> +		ret = -ENOMEM;
->  		goto out;
->  	}
->  
-> 
+> The correct assignment is present as well, so we just need
+> to remove the wrong one.
 
-Ouch, nice catch.
-Thanks!
+Thanks for fixing this,
+Acked-by: Maxime Ripard <maxime.ripard@anandra.org>
 
-Acked-by: Maxime Ripard <maxime.ripard@free-electrons.com>
+Maxime
