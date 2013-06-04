@@ -1,66 +1,59 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] ip: set the close-on-exec flag for descriptors
-Date: Tue,  4 Jun 2013 12:01:14 +0400
-Message-ID: <1370332874-584-1-git-send-email-avagin@openvz.org>
-Cc: netdev@vger.kernel.org, Andrey Vagin <avagin@openvz.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: roy.qing.li@gmail.com
+Subject: [PATCH net-next] cxgb3: Correct comparisons and calculations using skb->tail and skb-transport_header
+Date: Tue,  4 Jun 2013 16:11:16 +0800
+Message-ID: <1370333476-17699-1-git-send-email-roy.qing.li@gmail.com>
+Cc: horms@verge.net.au
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:48560 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750977Ab3FDIBb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 04:01:31 -0400
-Received: by mail-lb0-f175.google.com with SMTP id v10so338125lbd.34
-        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 01:01:30 -0700 (PDT)
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:36742 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751008Ab3FDILX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 04:11:23 -0400
+Received: by mail-pd0-f169.google.com with SMTP id y10so811883pdj.0
+        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 01:11:22 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Otherwise a program executed by "ip netns exec" has two extra
-descriptors.
+From: Li RongQing <roy.qing.li@gmail.com>
 
-$ ip netns exec test /bin/bash
-$ lsof -p $$
-...
-bash    817 root    0u   CHR  136,0       0t0          3 /dev/pts/0
-bash    817 root    1u   CHR  136,0       0t0          3 /dev/pts/0
-bash    817 root    2u   CHR  136,0       0t0          3 /dev/pts/0
-bash    817 root    3u  sock    0,6       0t0      13386 protocol: NETLINK
-bash    817 root    4r   REG    0,3         0 4026532155 net
-bash    817 root  255u   CHR  136,0       0t0          3 /dev/pts/0
+This corrects an regression introduced by "net: Use 16bits for *_headers
+fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
+that case skb->tail will be a pointer whereas skb->transport_header
+will be an offset from head. This is corrected by using wrappers that
+ensure that comparisons and calculations are always made using pointers.
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Reported-by: Dilip Daya <dilip.daya@hp.com>
-Acked-by: Cyrill Gorcunov <gorcunov@openvz.org>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
+Cc: Simon Horman <horms@verge.net.au>
+Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 ---
- ip/ipnetns.c     | 2 +-
- lib/libnetlink.c | 2 +-
+ drivers/net/ethernet/chelsio/cxgb3/sge.c |    2 +-
+ drivers/net/ethernet/chelsio/cxgb4/sge.c |    2 +-
  2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index c9bc20a..fa2b681 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -150,7 +150,7 @@ static int netns_exec(int argc, char **argv)
- 	name = argv[0];
- 	cmd = argv[1];
- 	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
--	netns = open(net_path, O_RDONLY);
-+	netns = open(net_path, O_RDONLY | O_CLOEXEC);
- 	if (netns < 0) {
- 		fprintf(stderr, "Cannot open network namespace \"%s\": %s\n",
- 			name, strerror(errno));
-diff --git a/lib/libnetlink.c b/lib/libnetlink.c
-index b17e1aa..9e2a795 100644
---- a/lib/libnetlink.c
-+++ b/lib/libnetlink.c
-@@ -43,7 +43,7 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
+diff --git a/drivers/net/ethernet/chelsio/cxgb3/sge.c b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+index 46d1efc..687ec4a 100644
+--- a/drivers/net/ethernet/chelsio/cxgb3/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb3/sge.c
+@@ -1583,7 +1583,7 @@ static void deferred_unmap_destructor(struct sk_buff *skb)
+ 	dui = (struct deferred_unmap_info *)skb->head;
+ 	p = dui->addr;
  
- 	memset(rth, 0, sizeof(*rth));
+-	if (skb->tail - skb->transport_header)
++	if (skb_tail_pointer(skb) - skb_transport_header(skb))
+ 		pci_unmap_single(dui->pdev, *p++, skb_tail_pointer(skb) -
+ 				 skb_transport_header(skb), PCI_DMA_TODEVICE);
  
--	rth->fd = socket(AF_NETLINK, SOCK_RAW, protocol);
-+	rth->fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, protocol);
- 	if (rth->fd < 0) {
- 		perror("Cannot open netlink socket");
- 		return -1;
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/sge.c b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+index 2bfbb20..ac311f5 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/sge.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/sge.c
+@@ -1294,7 +1294,7 @@ static inline unsigned int calc_tx_flits_ofld(const struct sk_buff *skb)
+ 
+ 	flits = skb_transport_offset(skb) / 8U;   /* headers */
+ 	cnt = skb_shinfo(skb)->nr_frags;
+-	if (skb->tail != skb->transport_header)
++	if (skb_tail_pointer(skb) != skb_transport_header(skb))
+ 		cnt++;
+ 	return flits + sgl_len(cnt);
+ }
 -- 
-1.8.2
+1.7.10.4
