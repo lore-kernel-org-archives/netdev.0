@@ -1,84 +1,94 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [net-next PATCH 1/8] drivers: net: phy: at803x code cleanup on
- register and unregister driver
-Date: Tue, 4 Jun 2013 18:13:22 +0530
-Message-ID: <51ADE0EA.7060008@ti.com>
-References: <1370326212-17580-1-git-send-email-mugunthanvnm@ti.com> <1370326212-17580-2-git-send-email-mugunthanvnm@ti.com> <51ADD73E.40405@cogentembedded.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [RFC] vxlan: convert remote list to list_rcu
+Date: Tue, 4 Jun 2013 08:48:06 -0400
+Message-ID: <OFB0D808A5.49ED47B9-ON85257B80.004098A5-85257B80.004651FC@us.ibm.com>
+References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>	<1369821617-29098-3-git-send-email-mike.rapoport@ravellosystems.com>
+	<20130530110948.GA10532@casper.infradead.org>	<CAF1J0HP+Wu9HjEELDaXM2BMREMuKByWr_zz=PwHeNUt=EVbdvw@mail.gmail.com>
+	<20130530113739.GB10532@casper.infradead.org>	<20130531091740.70b3e077@nehalam.linuxnetplumber.net>
+	<20130602102942.GA21706@zed>	<20130603112616.3ad018e2@nehalam.linuxnetplumber.net>
+	<OFE7269995.C8314337-ON85257B7F.006B4FC1-85257B7F.006F87F8@us.ibm.com>	<20130603134512.46ce434f@nehalam.linuxnetplumber.net>
+	<OFB0EFD290.FD0EF659-ON85257B7F.00733AF7-85257B7F.0077A32C@us.ibm.com> <CAF1J0HMD-N64Qb2v3oLF7ovsHqhbh0w730t3cWn4uD6wdcLY7Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	<devicetree-discuss@lists.ozlabs.org>,
-	<linux-omap@vger.kernel.org>, <benoit.cousson@linaro.org>,
-	<paul@pwsan.com>, Matus Ujhelyi <ujhelyi.m@gmail.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
-In-Reply-To: <51ADD73E.40405@cogentembedded.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:38444 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752893Ab3FDMsO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jun 2013 08:48:14 -0400
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
+	Tue, 4 Jun 2013 08:48:13 -0400
+In-Reply-To: <CAF1J0HMD-N64Qb2v3oLF7ovsHqhbh0w730t3cWn4uD6wdcLY7Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/4/2013 5:32 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 04-06-2013 10:10, Mugunthan V N wrote:
->
->> Make use of phy_drivers_register/phy_drivers_unregister to 
->> register/unregister
->> multiple phy drivers in a single module.
->
->> Cc: Matus Ujhelyi <ujhelyi.m@gmail.com>
->> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
->> ---
->>   drivers/net/phy/at803x.c |   35 ++++++++++-------------------------
->>   1 file changed, 10 insertions(+), 25 deletions(-)
->
->> diff --git a/drivers/net/phy/at803x.c b/drivers/net/phy/at803x.c
->> index 45cbc10..a1063e1 100644
->> --- a/drivers/net/phy/at803x.c
->> +++ b/drivers/net/phy/at803x.c
->> @@ -108,8 +108,9 @@ static int at803x_config_init(struct phy_device 
->> *phydev)
->>       return 0;
->>   }
->>
->> -/* ATHEROS 8035 */
->> -static struct phy_driver at8035_driver = {
->> +static struct phy_driver at803x_driver[] = {
->> +{
->> +    /* ATHEROS 8035 */
->>       .phy_id        = 0x004dd072,
->>       .name        = "Atheros 8035 ethernet",
->>       .phy_id_mask    = 0xffffffef,
->
->     That's improper indentation. Needs to be shifted by one tab.
-This indentation is as per the coding style followed in all ethernet
-phy drivers. If this need so to be changed, it must be a separate patch
-for all the ethernet phy drivers.
->
->> @@ -136,32 +135,18 @@ static struct phy_driver at8030_driver = {
->>       .driver        = {
->>           .owner = THIS_MODULE,
->>       },
->> -};
->> +} };
->
->    Looks ugly...
-This is also the same as per the style followed in ethernet phy drivers
-Please refer the below grep output
+Mike Rapoport <mike.rapoport@ravellosystems.com> wrote on 06/04/2013 
+05:18:08 AM:
 
-$ grep -rnaI "} };" drivers/net/phy/*
-drivers/net/phy/at803x.c:201:} };
-drivers/net/phy/bcm63xx.c:101:} };
-drivers/net/phy/bcm87xx.c:217:} };
-drivers/net/phy/broadcom.c:829:} };
-drivers/net/phy/cicada.c:130:} };
-drivers/net/phy/davicom.c:183:} };
-drivers/net/phy/icplus.c:254:} };
-drivers/net/phy/lxt.c:313:} };
-drivers/net/phy/micrel.c:323:} };
-drivers/net/phy/smsc.c:242:} };
-drivers/net/phy/ste10Xp.c:113:} };
-drivers/net/phy/vitesse.c:192:} };
+> > But i don't think any of this fdb code relates to the default
+> > destination directly, since the generic fdb code does not support
+> > default, or any other aggregate matching. VXLAN can define the
+> > netlink API for default destinations without affecting anything
+> > else, because it is already a per-device feature.
+> >
+> >                                                         +-DLS
+> 
+> The only relation is the 'struct vxlan_rdst' which I intended to use
+> for default destinations list. So, until there's a consensus about
+> remote destinations list in fdb, I cannot continue to work on multiple
+> default destinations.
 
-Regards
-Mugunthan V N
+Yes, I agree with that.
+
+I'd expect we could just either add a lock for the default to do
+deletes, or overload vxlan_dev->hash_lock and acquire it for deletes
+of the default list. [overload probably simplest]
+
+Actually, we could make it an fdb and also have "use" and "updated"
+stats that way, and/or use the existing fdb code and add an entry
+with MAC "00:00:00:00:00:00" [which is disallowed via the generic
+fdb code, so can't be in the fdb table otherwise].
+
+So something like:
+        f = vxlan_find_mac(vxlan, mac);
+        did_rsc = false;
+
+        if (f && (f->flags & NTF_ROUTER ... {
+                ...
+        }
+
+        if (f == NULL) {
+                f = vxlan_find_mac(vxlan, ALL_ZEROS_MAC);
+                if (f == NULL) {
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+do these two lines instead of checking "default_dst" for INADDR_ANY
+
+                    if (vxlan->flags & VXLAN_F_L2MISS &&
+                        ..
+                                vxlan_fdb_miss(...);
+                        dev->stats.tx_dropped++;
+                        dev_kfree_skb(skb);
+                        return NETDEV_TX_OK;
+                }
+        }
+
+        rc = NETDEV_TX_OK;
+
+and the default will then use the same code as the fdb; can
+then remove the NULL dst check in vxlan_xmit_one(), and do
+fdb_adds/fdb_append/fdb_del with ALL_ZEROS_MAC as in the fdb,
+but get there with a device-specific netlink message. If there
+is no default, delete the all-zeros MAC fdb entry, like any
+other fdb entry.
+
+Or even extend the generic rtnetlink fdb code to not check
+for all-zeros and just treat the all-zeros mac, if there, as a
+default destination and use all the same code as fdb to
+manage the default.
+
+                                                +-DLS
