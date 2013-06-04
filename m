@@ -1,112 +1,66 @@
-From: Michal Simek <monstr@monstr.eu>
-Subject: Re: [PATCH] net/macb: fix ISR clear-on-write behavior only for some
- SoC
-Date: Tue, 04 Jun 2013 09:57:24 +0200
-Message-ID: <51AD9DE4.7070907@monstr.eu>
-References: <1368461105-23128-1-git-send-email-nicolas.ferre@atmel.com> <FE065E51-1EAA-47ED-8C7B-0F2E6418F349@jcrosoft.com> <51918C23.7040106@yahoo.es> <20130514055256.GD22508@game.jcrosoft.org> <51AD8611.8070102@monstr.eu> <20130604064940.GA5107@pengutronix.de> <51AD9C94.4080606@atmel.com>
-Reply-To: monstr@monstr.eu
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2EKHFDFQHOCEKUGKDCVSM"
-Cc: Steffen Trumtrar <s.trumtrar@pengutronix.de>,
-	Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>,
-	Hein Tibosch <hein_tibosch@yahoo.es>, netdev@vger.kernel.org,
-	michal.simek@xilinx.com, linux-kernel@vger.kernel.org,
-	Ludovic Desroches <ludovic.desroches@atmel.com>,
-	linux-arm-kernel@lists.infradead.org,
-	=?ISO-8859-1?Q?S=F6ren_Brinkmann?= <soren.brinkmann@xilinx.com>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51AD9C94.4080606@atmel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] ip: set the close-on-exec flag for descriptors
+Date: Tue,  4 Jun 2013 12:01:14 +0400
+Message-ID: <1370332874-584-1-git-send-email-avagin@openvz.org>
+Cc: netdev@vger.kernel.org, Andrey Vagin <avagin@openvz.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f175.google.com ([209.85.217.175]:48560 "EHLO
+	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750977Ab3FDIBb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 04:01:31 -0400
+Received: by mail-lb0-f175.google.com with SMTP id v10so338125lbd.34
+        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 01:01:30 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2EKHFDFQHOCEKUGKDCVSM
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Otherwise a program executed by "ip netns exec" has two extra
+descriptors.
 
-On 06/04/2013 09:51 AM, Nicolas Ferre wrote:
-> On 04/06/2013 08:49, Steffen Trumtrar :
->> On Tue, Jun 04, 2013 at 08:15:45AM +0200, Michal Simek wrote:
->>> On 05/14/2013 07:52 AM, Jean-Christophe PLAGNIOL-VILLARD wrote:
->>>> On 08:58 Tue 14 May     , Hein Tibosch wrote:
->>>>> On 5/14/2013 12:05 AM, Jean-Christophe PLAGNIOL-VILLARD wrote:
->>>>>> On May 14, 2013, at 12:05 AM, Nicolas Ferre <nicolas.ferre@atmel.c=
-om> wrote:
->>>>>>
->>>>>>> Commit 749a2b6 (net/macb: clear tx/rx completion flags in ISR)
->>>>>>> introduces clear-on-write on ISR register. This behavior is not a=
-lways
->>>>>>> implemented when using Cadence MACB/GEM and is breaking other pla=
-tforms.
->>>>>>> We are using a new Device Tree compatibility string and a capabil=
-ity
->>>>>>> property to actually activate this clear-on-write behavior on ISR=
-=2E
->>>>>>>
->>>>>>> Reported-by: Hein Tibosch <hein_tibosch@yahoo.es>
->>>>>>> Signed-off-by: Nicolas Ferre <nicolas.ferre@atmel.com>
->>>>>> can we detect it via the IP?
->>>>>
->>>>> This was my first proposal, have it based on the value of MACB's
->>>>> register 'MID' (offset 0x00fc, lower 16 bits).
->>>>> On avr32 it reads: 0x0000010D, on Zynq it reports 0x00000119
->>>>>
->>>>> So for the moment, CAPS_ISR_CLEAR_ON_WRITE could be set if the revi=
-sion
->>>>> equals to 0x00000119?
->>>> so no it will not work
->>>>
->>>> as the gem on sama5 is 00020119
->>>>
->>>> so version 0x119 too
->>>>
->>>> nico
->>>> Acked-by: Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
->>>
->>> Was this added to any queue or branch?
->>> I would like to enable macb for zynq and not sure if "cdns,zynq-7000-=
-gem"
->>> compatible string goes to mainline.
->>>
->>
->> Hi!
->>
->> This is already in next, but you can use the default compatible as the=
+$ ip netns exec test /bin/bash
+$ lsof -p $$
+...
+bash    817 root    0u   CHR  136,0       0t0          3 /dev/pts/0
+bash    817 root    1u   CHR  136,0       0t0          3 /dev/pts/0
+bash    817 root    2u   CHR  136,0       0t0          3 /dev/pts/0
+bash    817 root    3u  sock    0,6       0t0      13386 protocol: NETLINK
+bash    817 root    4r   REG    0,3         0 4026532155 net
+bash    817 root  255u   CHR  136,0       0t0          3 /dev/pts/0
 
->=20
-> Even more: already in Linus' tree!
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Reported-by: Dilip Daya <dilip.daya@hp.com>
+Acked-by: Cyrill Gorcunov <gorcunov@openvz.org>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+---
+ ip/ipnetns.c     | 2 +-
+ lib/libnetlink.c | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-Ah I see. v2 is in thunderbird in the same thread and I didn't check this=
-
-version for compatible string.
-
-Thanks,
-Michal
-
---=20
-Michal Simek, Ing. (M.Eng), OpenPGP -> KeyID: FE3D1F91
-w: www.monstr.eu p: +42-0-721842854
-Maintainer of Linux kernel - Microblaze cpu - http://www.monstr.eu/fdt/
-Maintainer of Linux kernel - Xilinx Zynq ARM architecture
-Microblaze U-BOOT custodian and responsible for u-boot arm zynq platform
-
-
-
-------enig2EKHFDFQHOCEKUGKDCVSM
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.10 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlGtneQACgkQykllyylKDCHQqwCghnvM2+i5sMOA13K9unWDOupu
-EFgAoJFhjkUJtxG9SG3BUplOs6aF6R3I
-=PVh7
------END PGP SIGNATURE-----
-
-------enig2EKHFDFQHOCEKUGKDCVSM--
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index c9bc20a..fa2b681 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -150,7 +150,7 @@ static int netns_exec(int argc, char **argv)
+ 	name = argv[0];
+ 	cmd = argv[1];
+ 	snprintf(net_path, sizeof(net_path), "%s/%s", NETNS_RUN_DIR, name);
+-	netns = open(net_path, O_RDONLY);
++	netns = open(net_path, O_RDONLY | O_CLOEXEC);
+ 	if (netns < 0) {
+ 		fprintf(stderr, "Cannot open network namespace \"%s\": %s\n",
+ 			name, strerror(errno));
+diff --git a/lib/libnetlink.c b/lib/libnetlink.c
+index b17e1aa..9e2a795 100644
+--- a/lib/libnetlink.c
++++ b/lib/libnetlink.c
+@@ -43,7 +43,7 @@ int rtnl_open_byproto(struct rtnl_handle *rth, unsigned subscriptions,
+ 
+ 	memset(rth, 0, sizeof(*rth));
+ 
+-	rth->fd = socket(AF_NETLINK, SOCK_RAW, protocol);
++	rth->fd = socket(AF_NETLINK, SOCK_RAW | SOCK_CLOEXEC, protocol);
+ 	if (rth->fd < 0) {
+ 		perror("Cannot open netlink socket");
+ 		return -1;
+-- 
+1.8.2
