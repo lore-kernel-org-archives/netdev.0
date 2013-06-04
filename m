@@ -1,24 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [BUG] acess_ok() missing from zerocopy_sg_from_iovec()
-Date: Mon, 03 Jun 2013 17:34:12 -0700
-Message-ID: <1370306052.24311.193.camel@edumazet-glaptop>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [patch] ipvs: info leak in __ip_vs_get_dest_entries()
+Date: Tue, 4 Jun 2013 10:03:27 +0900
+Message-ID: <20130604010327.GA23054@verge.net.au>
+References: <20130603090049.GA16171@debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f180.google.com ([209.85.192.180]:54355 "EHLO
-	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754821Ab3FDAeN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 20:34:13 -0400
-Received: by mail-pd0-f180.google.com with SMTP id 14so6347157pdc.25
-        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 17:34:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130603090049.GA16171@debian>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It looks like access_ok(VERIFY_READ, base, len) checks are missing in
-drivers/net/tun.c & drivers/net/macvtap.c before the
-get_user_pages_fast() calls.
+On Mon, Jun 03, 2013 at 12:00:49PM +0300, Dan Carpenter wrote:
+> The entry struct has a 2 byte hole after ->port and another 4 byte
+> hole after ->stats.outpkts.  You must have CAP_NET_ADMIN in your
+> namespace to hit this information leak.
 
-Or am I missing something ?
+Hi Dan,
+
+can I verify that it is actually possible to hit this and
+thus the patch is a -stable candidate?
+
+> 
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+> index df05c1c..e336535 100644
+> --- a/net/netfilter/ipvs/ip_vs_ctl.c
+> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
+> @@ -2542,6 +2542,7 @@ __ip_vs_get_dest_entries(struct net *net, const struct ip_vs_get_dests *get,
+>  		struct ip_vs_dest *dest;
+>  		struct ip_vs_dest_entry entry;
+>  
+> +		memset(&entry, 0, sizeof(entry));
+>  		list_for_each_entry(dest, &svc->destinations, n_list) {
+>  			if (count >= get->num_dests)
+>  				break;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
