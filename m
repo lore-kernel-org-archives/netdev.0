@@ -1,52 +1,64 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [patch] ipvs: info leak in __ip_vs_get_dest_entries()
-Date: Tue, 4 Jun 2013 10:03:27 +0900
-Message-ID: <20130604010327.GA23054@verge.net.au>
-References: <20130603090049.GA16171@debian>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [BUG] acess_ok() missing from zerocopy_sg_from_iovec()
+Date: Mon, 03 Jun 2013 18:06:09 -0700
+Message-ID: <1370307969.24311.196.camel@edumazet-glaptop>
+References: <1370306052.24311.193.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130603090049.GA16171@debian>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:33296 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758548Ab3FDBGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 3 Jun 2013 21:06:12 -0400
+Received: by mail-pa0-f46.google.com with SMTP id fa11so40904pad.5
+        for <netdev@vger.kernel.org>; Mon, 03 Jun 2013 18:06:11 -0700 (PDT)
+In-Reply-To: <1370306052.24311.193.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 03, 2013 at 12:00:49PM +0300, Dan Carpenter wrote:
-> The entry struct has a 2 byte hole after ->port and another 4 byte
-> hole after ->stats.outpkts.  You must have CAP_NET_ADMIN in your
-> namespace to hit this information leak.
-
-Hi Dan,
-
-can I verify that it is actually possible to hit this and
-thus the patch is a -stable candidate?
-
+On Mon, 2013-06-03 at 17:34 -0700, Eric Dumazet wrote:
+> It looks like access_ok(VERIFY_READ, base, len) checks are missing in
+> drivers/net/tun.c & drivers/net/macvtap.c before the
+> get_user_pages_fast() calls.
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Or am I missing something ?
 > 
-> diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
-> index df05c1c..e336535 100644
-> --- a/net/netfilter/ipvs/ip_vs_ctl.c
-> +++ b/net/netfilter/ipvs/ip_vs_ctl.c
-> @@ -2542,6 +2542,7 @@ __ip_vs_get_dest_entries(struct net *net, const struct ip_vs_get_dests *get,
->  		struct ip_vs_dest *dest;
->  		struct ip_vs_dest_entry entry;
->  
-> +		memset(&entry, 0, sizeof(entry));
->  		list_for_each_entry(dest, &svc->destinations, n_list) {
->  			if (count >= get->num_dests)
->  				break;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netfilter-devel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+
+Patch would be :
+
+[PATCH] tun/macvtap: use access_ok(VERIFY_READ)
+
+Zero copy is good if only we make all needed security checks.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 59e9605..d793b7d 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -522,6 +522,8 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+ 		if (i + size > MAX_SKB_FRAGS)
+ 			return -EMSGSIZE;
++		if (!access_ok(VERIFY_READ, base, len))
++			return -EFAULT;
+ 		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
+ 		if (num_pages != size) {
+ 			for (i = 0; i < num_pages; i++)
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 89776c5..7a7b3b1 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1008,6 +1008,8 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 		size = ((base & ~PAGE_MASK) + len + ~PAGE_MASK) >> PAGE_SHIFT;
+ 		if (i + size > MAX_SKB_FRAGS)
+ 			return -EMSGSIZE;
++		if (!access_ok(VERIFY_READ, base, len))
++			return -EFAULT;
+ 		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
+ 		if (num_pages != size) {
+ 			for (i = 0; i < num_pages; i++)
