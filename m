@@ -1,31 +1,38 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] net: core: move mac_pton() to lib/net_utils.c
-Date: Tue, 4 Jun 2013 19:36:20 +0200
-Message-ID: <201306041936.21055.arnd@arndb.de>
-References: <1370364386-5034-1-git-send-email-andy.shevchenko@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: IPsec maintenance for the next weeks
+Date: Tue, 04 Jun 2013 10:55:42 -0700 (PDT)
+Message-ID: <20130604.105542.1180301473789034526.davem@davemloft.net>
+References: <20130415073014.GI21448@secunet.com>
+	<20130415.133004.1376243735425296752.davem@davemloft.net>
+	<20130604093518.GA3109@secunet.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Greg Kroah-Hartman" <gregkh@linuxfoundation.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1370364386-5034-1-git-send-email-andy.shevchenko@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: herbert@gondor.apana.org.au, netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:57048 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750813Ab3FDRzp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 13:55:45 -0400
+In-Reply-To: <20130604093518.GA3109@secunet.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 04 June 2013, Andy Shevchenko wrote:
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Tue, 4 Jun 2013 11:35:18 +0200
+
+> On Mon, Apr 15, 2013 at 01:30:04PM -0400, David Miller wrote:
+>> From: Steffen Klassert <steffen.klassert@secunet.com>
+>> Date: Mon, 15 Apr 2013 09:30:15 +0200
+>> 
+>> > I will be off, probaply without email access for five weeks starting on friday.
+>> > Could you please take IPsec patches directly into net/net-next during that time?
+>> 
+>> Ok, will do.
 > 
-> Since we have at least one user of this function outside of CONFIG_NET
-> scope, we have to provide this function independently. The proposed
-> solution is to move it under lib/net_utils.c with corresponding
-> configuration variable and select wherever it is needed.
+> I'm back and I will continue to run the ipsec/ipsec-next trees now.
 > 
-> Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
-> Reported-by: Arnd Bergmann <arnd@arndb.de>
+> Thanks for your help and patience!
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
-
-Thanks for providing a fix so quickly!
+Welcome back :)
