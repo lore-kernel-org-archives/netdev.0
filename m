@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH 5/8] ARM: OMAP2+: omap2plus_defconfig: Enable Atheros support
-Date: Tue, 4 Jun 2013 11:40:08 +0530
-Message-ID: <1370326212-17580-6-git-send-email-mugunthanvnm@ti.com>
+Subject: [net-next PATCH 6/8] ARM: dts: AM33XX: Add CPSW phy_id device tree data to am335x-evmsk
+Date: Tue, 4 Jun 2013 11:40:09 +0530
+Message-ID: <1370326212-17580-7-git-send-email-mugunthanvnm@ti.com>
 References: <1370326212-17580-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,28 +9,38 @@ Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
 	<linux-omap@vger.kernel.org>, <benoit.cousson@linaro.org>,
 	<paul@pwsan.com>, Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bear.ext.ti.com ([192.94.94.41]:35197 "EHLO bear.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1759228Ab3FDGJx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 4 Jun 2013 02:09:53 -0400
 In-Reply-To: <1370326212-17580-1-git-send-email-mugunthanvnm@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Enable Atheros 803X phy driver support in defconfig which is present in
-AM335x EVM and EVM Starter Kit.
+Add phy_id device tree data to am335x-evmsk device to bring up CPSW
+ethernet present on am335x starter kit.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- arch/arm/configs/omap2plus_defconfig |    1 +
- 1 file changed, 1 insertion(+)
+ arch/arm/boot/dts/am335x-evmsk.dts |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/arch/arm/configs/omap2plus_defconfig b/arch/arm/configs/omap2plus_defconfig
-index 435d69b..aa21009 100644
---- a/arch/arm/configs/omap2plus_defconfig
-+++ b/arch/arm/configs/omap2plus_defconfig
-@@ -283,3 +283,4 @@ CONFIG_SOC_OMAP5=y
- CONFIG_TI_DAVINCI_MDIO=y
- CONFIG_TI_DAVINCI_CPDMA=y
- CONFIG_TI_CPSW=y
-+CONFIG_AT803X_PHY=y
+diff --git a/arch/arm/boot/dts/am335x-evmsk.dts b/arch/arm/boot/dts/am335x-evmsk.dts
+index f67c360..acbcac3 100644
+--- a/arch/arm/boot/dts/am335x-evmsk.dts
++++ b/arch/arm/boot/dts/am335x-evmsk.dts
+@@ -248,3 +248,11 @@
+ 		};
+ 	};
+ };
++
++&cpsw_emac0 {
++	phy_id = <&davinci_mdio>, <0>;
++};
++
++&cpsw_emac1 {
++	phy_id = <&davinci_mdio>, <1>;
++};
 -- 
 1.7.9.5
-
