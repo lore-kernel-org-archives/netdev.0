@@ -1,45 +1,51 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCHv2 1/3] net: phy: prevent linking breakage
-Date: Tue, 04 Jun 2013 18:01:07 +0200
-Message-ID: <1394174.ONngHnHYKL@wuerfel>
-References: <1369741403-25315-2-git-send-email-alexandre.belloni@free-electrons.com> <6466898.RnYOe3jpGG@wuerfel> <CAGVrzcbRS3x5fgD1BfOk4-oTUsAY9FA2V621OvZLJQNZ01brCg@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: Bad shaping at low rates, after commit 56b765b79 (htb: improved
+ accuracy at high rates)
+Date: Tue, 04 Jun 2013 09:02:07 -0700
+Message-ID: <1370361727.24311.215.camel@edumazet-glaptop>
+References: <20130529151330.22c5c89e@redhat.com>
+	 <20130604141342.00c8eb9f@redhat.com>
+	 <1370359133.24311.208.camel@edumazet-glaptop>
+	 <1370361306.24311.214.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Florian Fainelli <florian@openwrt.org>,
-	Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, alexandre.belloni@free-electrons.com,
-	kernel@pengutronix.de, shawn.guo@linaro.org,
-	David Miller <davem@davemloft.net>
-To: linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Jiri Benc <jbenc@redhat.com>, David Miller <davem@redhat.com>,
+	j.vimal@gmail.com, Michal Soltys <soltys@ziu.info>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
+	Jim Gettys <jg@freedesktop.org>,
+	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>
+To: Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from moutng.kundenserver.de ([212.227.17.9]:58943 "EHLO
-	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754456Ab3FDQBL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 12:01:11 -0400
-In-Reply-To: <CAGVrzcbRS3x5fgD1BfOk4-oTUsAY9FA2V621OvZLJQNZ01brCg@mail.gmail.com>
+Received: from mail-pb0-f43.google.com ([209.85.160.43]:34890 "EHLO
+	mail-pb0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755798Ab3FDQCK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 12:02:10 -0400
+Received: by mail-pb0-f43.google.com with SMTP id ma3so445731pbc.30
+        for <netdev@vger.kernel.org>; Tue, 04 Jun 2013 09:02:10 -0700 (PDT)
+In-Reply-To: <1370361306.24311.214.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 04 June 2013 16:36:50 Florian Fainelli wrote:
-> It seems to me that what David proposes is to have say an
-> arch/arm/mach-foo/phy-fixups.c file which is only enabled when
-> CONFIG_PHYLIB is set (obj-$(CONFIG_PHYLIB) += phy-fixup.o), such that
-> it does not need to have any conditionnals when calling
-> phy_register_fixup. This sounds a little unusual, but why not.
+On Tue, 2013-06-04 at 08:55 -0700, Eric Dumazet wrote:
+> On Tue, 2013-06-04 at 08:18 -0700, Eric Dumazet wrote:
+> 
+> > I have a good idea of what's going on for htb at low rates, I am testing
+> > a fix, thanks for the report !
+> > 
+> 
+> Yes, we need to convert whole thing to use ns units, instead
+> of a mix of 64ns and 1ns units.
+> 
+> Please test the following patch :
 
-I don't think it would actually help us, because then we still need
-to declare a local function that gets called from the board init
-code. Instead of doing
+Oh well, it works only on 64bit arches.
 
-	if (IS_ENABLED(CONFIG_PHYLIB))
-		 phy_register_fixup_for_uid(phy_id, foo_phy_fixup);
-
-we would then do
-
-	if (IS_ENABLED(CONFIG_PHYLIB))
-		foo_phy_fixup_register();
-
-which is not much different at all.
-
-	Arnd
+I'll send a more complete patch, but thats the idea
