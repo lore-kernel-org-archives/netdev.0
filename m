@@ -1,111 +1,116 @@
-From: Ming Lei <ming.lei@canonical.com>
-Subject: Re: [PATCH] usbnet: improve/fix status interrupt endpoint interval
-Date: Wed, 5 Jun 2013 09:22:25 +0800
-Message-ID: <CACVXFVOYMGjGLmyGy=pQwkcuFshLmdNcLZKfqUDazge45GMBPA@mail.gmail.com>
-References: <20130604182830.GA13186@rhlx01.hs-esslingen.de>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: [PATCH v3] include/linux/skbuff.h: using '(__u16) ~0U' instead of
+ '~0U'
+Date: Wed, 05 Jun 2013 08:54:22 +0800
+Message-ID: <51AE8C3E.8060605@asianux.com>
+References: <51A6EBC5.7040601@asianux.com> <CAHp75VfWvXkaoYQ_40idSsLYUA=YqaswnV2y-hODHjt7JMHQvQ@mail.gmail.com> <51AC60AA.8010107@asianux.com> <CAHp75Vc19Kii7_TF+9aF4ZeKAa4_92DCVL+u1duZDTu38o2qsw@mail.gmail.com> <51AC7546.4010002@asianux.com> <51AC7CD4.2060801@asianux.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7262@saturn3.aculab.com> <AE90C24D6B3A694183C094C60CF0A2F6026B7263@saturn3.aculab.com> <51AE89DE.60106@asianux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	OndrejZary <linux@rainbow-software.org>
-To: Andreas Mohr <andi@lisas.de>
+Content-Type: text/plain; charset=GB2312
+Content-Transfer-Encoding: 7bit
+Cc: Pravin Shelar <pshelar@nicira.com>, mgorman@suse.de,
+	David Miller <davem@davemloft.net>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: David Laight <David.Laight@ACULAB.COM>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	edumazet@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:50833 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751117Ab3FEBW3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 21:22:29 -0400
-In-Reply-To: <20130604182830.GA13186@rhlx01.hs-esslingen.de>
+Received: from intranet.asianux.com ([58.214.24.6]:28607 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905Ab3FECzN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 22:55:13 -0400
+In-Reply-To: <51AE89DE.60106@asianux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 5, 2013 at 2:28 AM, Andreas Mohr <andi@lisas.de> wrote:
->
-> From 307685fe8e6dfc8181e30167b9c31479332cb22f Mon Sep 17 00:00:00 2001
-> From: Andreas Mohr <andim2@users.sourceforge.net>
-> Date: Sun, 2 Jun 2013 20:37:05 +0200
-> Subject: [PATCH] usbnet: improve/fix status interrupt endpoint interval
->  tweaking.
->
-> - failed to take super-speed into account
-> - <= full-speed seems to have wrong value (specified as frames [ms],
->   thus 3 is not suitable to achieve 8ms)
 
-The above change is correct.
+Both 'transport_header' and 'mac_header' are __u16, which are
+never equal to '~0U'.
 
->   Value 8 now managed to reduce powertop wakeups from ~ 540 to ~ 155
+So need use '(__u16) ~0U' instead of '~0U'.
 
-It means that your device only returns current link status instead of link
-change. IMO, it isn't a good behaviour for the device.
+The related warning (with EXTRA_CFLAGS=-W ARCH=m68k for allmodconfig)
+  include/linux/skbuff.h:1587:2: warning: comparison is always true due to limited range of data type [-Wtype-limits]
+  ...
 
-In fact, you still can increase the period only for your device, for example,
-128ms/256ms/512ms should be accepted.
-
-> - add detailed docs and question marks about current practice
-
-But the doc need to be fixed.
-
-> ---
->  drivers/net/usb/usbnet.c |   17 ++++++++++++++++-
->  1 file changed, 16 insertions(+), 1 deletion(-)
->
->
-> Found this with MCS7830 on a full-speed USB 1.1 port (Inspiron 8000).
-> Good to have a rusty notebook with noisy PSU coils, else it would
-> have taken a lot longer to nail it ;)
-> Tested on -rc4, checkpath.pl:d.
->
-> Signed-off-by: Andreas Mohr <andim2@users.sourceforge.net>
->
->
-> diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-> index 06ee82f..b6e9569 100644
-> --- a/drivers/net/usb/usbnet.c
-> +++ b/drivers/net/usb/usbnet.c
-> @@ -231,8 +231,23 @@ static int init_status (struct usbnet *dev, struct usb_interface *intf)
->         maxp = usb_maxpacket (dev->udev, pipe, 0);
->
->         /* avoid 1 msec chatter:  min 8 msec poll rate */
-> +       /* High/SuperSpeed expresses intervals in microframes
-> +        * (in logarithmic encoding, PRIOR to encoding in URB)
-> +        * rather than frames.
-> +        * Thus, for >= HighSpeed: == X [microframes] * 125us [-> 8ms],
-> +        * <= FullSpeed: == X [ms] [-> 8ms].
-> +        * Finally, it's questionable whether we'll even get away unscathed
-> +        * with doing such rate tweaking at all:
-> +        * bInterval value is declared as being a hard demand by a device
-
-It isn't a hard demand, which only means the poll interval by which HC
-sends IN token to device.
-
-> +        * in order to guarantee having its I/O needs serviced properly...
-> +        * if we don't do this, then... [overruns], [fire], [apocalypse]?
-
-Not so serious, if one packet is ready, the late poll from HC may still
-get the packet since device can buffer the packet, but if it is too late,
-the successor packet might be missed by device.
-
-For usbnet, generally speaking, the interrupt pipe is for polling the
-link change, which is a very low frequency event, so you don't need to
-worry about missing events if the interval is increased.
-
-> +        * If this turns out to be problematic, such policy should be moved
-> +        * to individual drivers (indicate flag to [dis]allow rate tweaking
-> +        * as tolerated by specific devices).
-
-Yes, we can add quirk for such kind device by increasing polling
-interval.
-
-> +        */
->         period = max ((int) dev->status->desc.bInterval,
-> -               (dev->udev->speed == USB_SPEED_HIGH) ? 7 : 3);
-> +               ((dev->udev->speed == USB_SPEED_HIGH) ||
-> +                (dev->udev->speed == USB_SPEED_SUPER)) ? 7 : 8);
-
-For the above change, please feel free to add my ack:
-
-              Acked-by: Ming Lei <ming.lei@canonical.com>
+Use meaningful macro instead of hard code number, and better to
+initialize 'skb->transport_header' in __alloc_skb_head(), too.
 
 
-Thanks,
---
-Ming Lei
+
+Signed-off-by: Chen Gang <gang.chen@asianux.com>
+---
+ include/linux/skbuff.h |    6 ++++--
+ net/core/skbuff.c      |   11 ++++++-----
+ 2 files changed, 10 insertions(+), 7 deletions(-)
+
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 5f93119..3314911 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -40,6 +40,8 @@
+ #define CHECKSUM_COMPLETE 2
+ #define CHECKSUM_PARTIAL 3
+ 
++#define SKB_HEADER_OFFSET_UNSET	((__u16) ~0U)
++
+ #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
+ 				 ~(SMP_CACHE_BYTES - 1))
+ #define SKB_WITH_OVERHEAD(X)	\
+@@ -1593,7 +1595,7 @@ static inline void skb_set_inner_mac_header(struct sk_buff *skb,
+ }
+ static inline bool skb_transport_header_was_set(const struct sk_buff *skb)
+ {
+-	return skb->transport_header != ~0U;
++	return skb->transport_header != SKB_HEADER_OFFSET_UNSET;
+ }
+ 
+ static inline unsigned char *skb_transport_header(const struct sk_buff *skb)
+@@ -1636,7 +1638,7 @@ static inline unsigned char *skb_mac_header(const struct sk_buff *skb)
+ 
+ static inline int skb_mac_header_was_set(const struct sk_buff *skb)
+ {
+-	return skb->mac_header != ~0U;
++	return skb->mac_header != SKB_HEADER_OFFSET_UNSET;
+ }
+ 
+ static inline void skb_reset_mac_header(struct sk_buff *skb)
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f45de07..6808433 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -200,7 +200,8 @@ struct sk_buff *__alloc_skb_head(gfp_t gfp_mask, int node)
+ 	atomic_set(&skb->users, 1);
+ 
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	skb->mac_header = (__u16) ~0U;
++	skb->mac_header = SKB_HEADER_OFFSET_UNSET;
++	skb->transport_header = SKB_HEADER_OFFSET_UNSET;
+ #endif
+ out:
+ 	return skb;
+@@ -276,8 +277,8 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+ 	skb_reset_tail_pointer(skb);
+ 	skb->end = skb->tail + size;
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	skb->mac_header = (__u16) ~0U;
+-	skb->transport_header = (__u16) ~0U;
++	skb->mac_header = SKB_HEADER_OFFSET_UNSET;
++	skb->transport_header = SKB_HEADER_OFFSET_UNSET;
+ #endif
+ 
+ 	/* make sure we initialize shinfo sequentially */
+@@ -345,8 +346,8 @@ struct sk_buff *build_skb(void *data, unsigned int frag_size)
+ 	skb_reset_tail_pointer(skb);
+ 	skb->end = skb->tail + size;
+ #ifdef NET_SKBUFF_DATA_USES_OFFSET
+-	skb->mac_header = (__u16) ~0U;
+-	skb->transport_header = (__u16) ~0U;
++	skb->mac_header = SKB_HEADER_OFFSET_UNSET;
++	skb->transport_header = SKB_HEADER_OFFSET_UNSET;
+ #endif
+ 
+ 	/* make sure we initialize shinfo sequentially */
+-- 
+1.7.7.6
