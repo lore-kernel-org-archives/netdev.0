@@ -1,68 +1,216 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 06/12] sched: add cond_resched_rcu() helper
-Date: Wed,  5 Jun 2013 22:40:27 +0200
-Message-ID: <1370464832-4216-7-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 10/12] netfilter: Implement RFC 1123 for FTP conntrack
+Date: Wed,  5 Jun 2013 22:40:30 +0200
+Message-ID: <1370464832-4216-10-git-send-email-pablo@netfilter.org>
 References: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:57484 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932179Ab3FEUlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 16:41:03 -0400
 In-Reply-To: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
+From: Jeff Mahoney <jeffm@suse.com>
 
-This is intended for use in loops which read data protected by RCU and may
-have a large number of iterations.  Such an example is dumping the list of
-connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+ The FTP conntrack code currently only accepts the following format for
+ the 227 response for PASV:
+ 227 Entering Passive Mode (148,100,81,40,31,161).
 
-The benefits are for CONFIG_PREEMPT_RCU=y where we save CPU cycles
-by moving rcu_read_lock and rcu_read_unlock out of large loops
-but still allowing the current task to be preempted after every
-loop iteration for the CONFIG_PREEMPT_RCU=n case.
+ It doesn't accept the following format from an obscure server:
+ 227 Data transfer will passively listen to 67,218,99,134,50,144
 
-The call to cond_resched() is not needed when CONFIG_PREEMPT_RCU=y.
-Thanks to Paul E. McKenney for explaining this and for the
-final version that checks the context with CONFIG_DEBUG_ATOMIC_SLEEP=y
-for all possible configurations.
+ From RFC 1123:
+ The format of the 227 reply to a PASV command is not
+ well standardized.  In particular, an FTP client cannot
+ assume that the parentheses shown on page 40 of RFC-959
+ will be present (and in fact, Figure 3 on page 43 omits
+ them).  Therefore, a User-FTP program that interprets
+ the PASV reply must scan the reply for the first digit
+ of the host and port numbers.
 
-The function can be empty in the CONFIG_PREEMPT_RCU case,
-rcu_read_lock and rcu_read_unlock are not needed in this case
-because the task can be preempted on indication from scheduler.
-Thanks to Peter Zijlstra for catching this and for his help
-in trying a solution that changes __might_sleep.
+ This patch adds support for the RFC 1123 clarification by:
+ - Allowing a search filter to specify NUL as the terminator so that
+   try_number will return successfully if the array of numbers has been
+   filled when an unexpected character is encountered.
+ - Using space as the separator for the 227 reply and then scanning for
+   the first digit of the number sequence. The number sequence is parsed
+   out using the existing try_rfc959 but with a NUL terminator.
 
-Initial cond_resched_rcu_lock() function suggested by Eric Dumazet.
-
-Tested-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
-Acked-by: Peter Zijlstra <peterz@infradead.org>
+References: https://bugzilla.novell.com/show_bug.cgi?id=466279
+References: http://bugzilla.netfilter.org/show_bug.cgi?id=574
+Reported-by: Mark Post <mpost@novell.com>
+Signed-off-by: Jeff Mahoney <jeffm@suse.com>
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: Patrick McHardy <kaber@trash.net>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netfilter-devel@vger.kernel.org
+Cc: netfilter@vger.kernel.org
+Cc: coreteam@netfilter.org
+Cc: netdev@vger.kernel.org
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/linux/sched.h |    9 +++++++++
- 1 file changed, 9 insertions(+)
+ net/netfilter/nf_conntrack_ftp.c |   73 ++++++++++++++++++++++++++++----------
+ 1 file changed, 54 insertions(+), 19 deletions(-)
 
-diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 178a8d9..4ff8da1 100644
---- a/include/linux/sched.h
-+++ b/include/linux/sched.h
-@@ -2444,6 +2444,15 @@ extern int __cond_resched_softirq(void);
- 	__cond_resched_softirq();					\
- })
+diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
+index 6b21707..b8a0924 100644
+--- a/net/netfilter/nf_conntrack_ftp.c
++++ b/net/netfilter/nf_conntrack_ftp.c
+@@ -55,10 +55,14 @@ unsigned int (*nf_nat_ftp_hook)(struct sk_buff *skb,
+ 				struct nf_conntrack_expect *exp);
+ EXPORT_SYMBOL_GPL(nf_nat_ftp_hook);
  
-+static inline void cond_resched_rcu(void)
+-static int try_rfc959(const char *, size_t, struct nf_conntrack_man *, char);
+-static int try_eprt(const char *, size_t, struct nf_conntrack_man *, char);
++static int try_rfc959(const char *, size_t, struct nf_conntrack_man *,
++		      char, unsigned int *);
++static int try_rfc1123(const char *, size_t, struct nf_conntrack_man *,
++		       char, unsigned int *);
++static int try_eprt(const char *, size_t, struct nf_conntrack_man *,
++		    char, unsigned int *);
+ static int try_epsv_response(const char *, size_t, struct nf_conntrack_man *,
+-			     char);
++			     char, unsigned int *);
+ 
+ static struct ftp_search {
+ 	const char *pattern;
+@@ -66,7 +70,7 @@ static struct ftp_search {
+ 	char skip;
+ 	char term;
+ 	enum nf_ct_ftp_type ftptype;
+-	int (*getnum)(const char *, size_t, struct nf_conntrack_man *, char);
++	int (*getnum)(const char *, size_t, struct nf_conntrack_man *, char, unsigned int *);
+ } search[IP_CT_DIR_MAX][2] = {
+ 	[IP_CT_DIR_ORIGINAL] = {
+ 		{
+@@ -90,10 +94,8 @@ static struct ftp_search {
+ 		{
+ 			.pattern	= "227 ",
+ 			.plen		= sizeof("227 ") - 1,
+-			.skip		= '(',
+-			.term		= ')',
+ 			.ftptype	= NF_CT_FTP_PASV,
+-			.getnum		= try_rfc959,
++			.getnum		= try_rfc1123,
+ 		},
+ 		{
+ 			.pattern	= "229 ",
+@@ -132,8 +134,9 @@ static int try_number(const char *data, size_t dlen, u_int32_t array[],
+ 			i++;
+ 		else {
+ 			/* Unexpected character; true if it's the
+-			   terminator and we're finished. */
+-			if (*data == term && i == array_size - 1)
++			   terminator (or we don't care about one)
++			   and we're finished. */
++			if ((*data == term || !term) && i == array_size - 1)
+ 				return len;
+ 
+ 			pr_debug("Char %u (got %u nums) `%u' unexpected\n",
+@@ -148,7 +151,8 @@ static int try_number(const char *data, size_t dlen, u_int32_t array[],
+ 
+ /* Returns 0, or length of numbers: 192,168,1,1,5,6 */
+ static int try_rfc959(const char *data, size_t dlen,
+-		      struct nf_conntrack_man *cmd, char term)
++		      struct nf_conntrack_man *cmd, char term,
++		      unsigned int *offset)
+ {
+ 	int length;
+ 	u_int32_t array[6];
+@@ -163,6 +167,33 @@ static int try_rfc959(const char *data, size_t dlen,
+ 	return length;
+ }
+ 
++/*
++ * From RFC 1123:
++ * The format of the 227 reply to a PASV command is not
++ * well standardized.  In particular, an FTP client cannot
++ * assume that the parentheses shown on page 40 of RFC-959
++ * will be present (and in fact, Figure 3 on page 43 omits
++ * them).  Therefore, a User-FTP program that interprets
++ * the PASV reply must scan the reply for the first digit
++ * of the host and port numbers.
++ */
++static int try_rfc1123(const char *data, size_t dlen,
++		       struct nf_conntrack_man *cmd, char term,
++		       unsigned int *offset)
 +{
-+#if defined(CONFIG_DEBUG_ATOMIC_SLEEP) || !defined(CONFIG_PREEMPT_RCU)
-+	rcu_read_unlock();
-+	cond_resched();
-+	rcu_read_lock();
-+#endif
++	int i;
++	for (i = 0; i < dlen; i++)
++		if (isdigit(data[i]))
++			break;
++
++	if (i == dlen)
++		return 0;
++
++	*offset += i;
++
++	return try_rfc959(data + i, dlen - i, cmd, 0, offset);
 +}
 +
- /*
-  * Does a critical section need to be broken due to another
-  * task waiting?: (technically does not depend on CONFIG_PREEMPT,
+ /* Grab port: number up to delimiter */
+ static int get_port(const char *data, int start, size_t dlen, char delim,
+ 		    __be16 *port)
+@@ -191,7 +222,7 @@ static int get_port(const char *data, int start, size_t dlen, char delim,
+ 
+ /* Returns 0, or length of numbers: |1|132.235.1.2|6275| or |2|3ffe::1|6275| */
+ static int try_eprt(const char *data, size_t dlen, struct nf_conntrack_man *cmd,
+-		    char term)
++		    char term, unsigned int *offset)
+ {
+ 	char delim;
+ 	int length;
+@@ -239,7 +270,8 @@ static int try_eprt(const char *data, size_t dlen, struct nf_conntrack_man *cmd,
+ 
+ /* Returns 0, or length of numbers: |||6446| */
+ static int try_epsv_response(const char *data, size_t dlen,
+-			     struct nf_conntrack_man *cmd, char term)
++			     struct nf_conntrack_man *cmd, char term,
++			     unsigned int *offset)
+ {
+ 	char delim;
+ 
+@@ -261,9 +293,10 @@ static int find_pattern(const char *data, size_t dlen,
+ 			unsigned int *numlen,
+ 			struct nf_conntrack_man *cmd,
+ 			int (*getnum)(const char *, size_t,
+-				      struct nf_conntrack_man *, char))
++				      struct nf_conntrack_man *, char,
++				      unsigned int *))
+ {
+-	size_t i;
++	size_t i = plen;
+ 
+ 	pr_debug("find_pattern `%s': dlen = %Zu\n", pattern, dlen);
+ 	if (dlen == 0)
+@@ -293,16 +326,18 @@ static int find_pattern(const char *data, size_t dlen,
+ 	pr_debug("Pattern matches!\n");
+ 	/* Now we've found the constant string, try to skip
+ 	   to the 'skip' character */
+-	for (i = plen; data[i] != skip; i++)
+-		if (i == dlen - 1) return -1;
++	if (skip) {
++		for (i = plen; data[i] != skip; i++)
++			if (i == dlen - 1) return -1;
+ 
+-	/* Skip over the last character */
+-	i++;
++		/* Skip over the last character */
++		i++;
++	}
+ 
+ 	pr_debug("Skipped up to `%c'!\n", skip);
+ 
+ 	*numoff = i;
+-	*numlen = getnum(data + i, dlen - i, cmd, term);
++	*numlen = getnum(data + i, dlen - i, cmd, term, numoff);
+ 	if (!*numlen)
+ 		return -1;
+ 
 -- 
 1.7.10.4
-
