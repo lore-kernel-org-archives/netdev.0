@@ -1,37 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v2] ping: always initialize ->sin6_scope_id
- and ->sin6_flowinfo
-Date: Tue, 04 Jun 2013 16:59:09 -0700 (PDT)
-Message-ID: <20130604.165909.2293402783644406303.davem@davemloft.net>
-References: <1370249032-14903-1-git-send-email-amwang@redhat.com>
-	<CAKD1Yr1f=LtJGnzOEoy2Co2A_2LzqjSdU6dJZWCy3+WeXWJe3g@mail.gmail.com>
+Subject: Re: [PATCH net] bnx2x: fix TCP offload for tunneling ipv4 over ipv6
+Date: Tue, 04 Jun 2013 17:00:01 -0700 (PDT)
+Message-ID: <20130604.170001.870157551617757367.davem@davemloft.net>
+References: <1370251721-24668-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: amwang@redhat.com, netdev@vger.kernel.org
-To: lorenzo@google.com
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
+To: dmitry@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60387 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60394 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752066Ab3FDX7K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 19:59:10 -0400
-In-Reply-To: <CAKD1Yr1f=LtJGnzOEoy2Co2A_2LzqjSdU6dJZWCy3+WeXWJe3g@mail.gmail.com>
+	with ESMTP id S1750821Ab3FEAAC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 20:00:02 -0400
+In-Reply-To: <1370251721-24668-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lorenzo Colitti <lorenzo@google.com>
-Date: Mon, 3 Jun 2013 18:25:39 +0900
+From: "Dmitry Kravkov" <dmitry@broadcom.com>
+Date: Mon, 3 Jun 2013 12:28:41 +0300
 
-> On Mon, Jun 3, 2013 at 5:43 PM, Cong Wang <amwang@redhat.com> wrote:
->> From: Cong Wang <amwang@redhat.com>
->>
->> If we don't need scope id, we should initialize it to zero.
->> Same for ->sin6_flowinfo.
->>
->> Cc: Lorenzo Colitti <lorenzo@google.com>
->> Cc: David S. Miller <davem@davemloft.net>
->> Signed-off-by: Cong Wang <amwang@redhat.com>
- ...
-> Acked-by: Lorenzo Colitti <lorenzo@google.com>
+> FW was initialized with data from wrong header, this caused TSO packets
+> have wrong IP csum.
+> 
+> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
 Applied, thanks.
