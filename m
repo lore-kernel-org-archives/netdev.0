@@ -1,87 +1,62 @@
-From: Mark Brown <broonie-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [net-next PATCH v4 1/5] net: cpsw: enhance pinctrl support
-Date: Wed, 5 Jun 2013 20:23:45 +0100
-Message-ID: <20130605192345.GH31367@sirena.org.uk>
-References: <1370452099-24026-1-git-send-email-mugunthanvnm@ti.com>
- <1370452099-24026-2-git-send-email-mugunthanvnm@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net_sched: add 64bit rate estimators
+Date: Wed, 05 Jun 2013 12:37:37 -0700
+Message-ID: <1370461057.24311.296.camel@edumazet-glaptop>
+References: <1370408447.24311.241.camel@edumazet-glaptop>
+	 <1370458531.1918.3.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============5837998748277611889=="
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- Hebbar Gururaja <gururaja.hebbar-l0cyMroinI0@public.gmane.org>, benoit.cousson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
- linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1370452099-24026-2-git-send-email-mugunthanvnm-l0cyMroinI0@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
-
-
---===============5837998748277611889==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="kY7Q1I7FwGue0/xS"
-Content-Disposition: inline
-
-
---kY7Q1I7FwGue0/xS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Wed, Jun 05, 2013 at 10:38:15PM +0530, Mugunthan V N wrote:
-> From: Hebbar Gururaja <gururaja.hebbar-l0cyMroinI0@public.gmane.org>
->=20
-> Amend cpsw controller to optionally take a pin control handle and set
-> the state of the pins to:
->=20
-> - "default" on boot, resume
-> - "sleep" on suspend()
-
-Linus Walleij posted some patches which factor the state setting code
-out into generic functions earlier on today - it probably makes sense to
-pick those up rather than open coding
-
---kY7Q1I7FwGue0/xS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRr5A+AAoJELSic+t+oim9Tt4P/2kgMjKssw6c6sBUmpjPw9Ft
-dX0eBErXLq62o0+KLDsEF+2sRXB++lNC1BIMpFLh19ocKVIsG5EIR78nny7yvHEH
-y/agXhUN6js3YpKKmQ2AOTJEGLtrJ5PRnW1/q6NVFDwlaf1gNHOXQ3m3DTBwJE9z
-FjNeUm4PBBbT8DD80ks2y+IE4PMki3ubxPAPtMxlf+4DdmbsSziIKXXU1pyHkM6c
-14xw+Chv2dIikoHPx7JTE8tteL/YIFTAYQQo2n7URXe5CIBdTW5nHzjZ87nmBQZN
-uwe1GV7B+cMxt3wqfptoUAEkf0s8FEns1eKumcyCreXK4YtvpYSfwcHrM9HULQqf
-d7XzQ1V/cP/nXDgEbeymGe2QSCeaJTY7h+++qG+vLEptsg+a6wHVMpUVkeml7iQB
-Ijh3MsW0hYbY49xRRLdpWUx2zNJZEfbj5vxm0PGaR0UXLr3KLQOlnXH5DFn110uV
-SjQuRfz0QQcWBsLrL079DmR1ojA4YbNl7N4ZhlHIP7dMJj4l4Cw3xwQ//Ub+o3NA
-FptamzUPeTHVQxV8y418k0jT7gctMiaQyvhsuSog34aHuWZmyPqUOxjOp7Ib0OLV
-lbn6CTED394ui1J2b5q4rDLiSZY2Ypw5UbYdlMrGMpIHjOB4OuoeqdLAEbyZ316H
-hxATrzzdw7kNZJrYzugV
-=E6qz
------END PGP SIGNATURE-----
-
---kY7Q1I7FwGue0/xS--
-
---===============5837998748277611889==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f51.google.com ([209.85.219.51]:44408 "EHLO
+	mail-oa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755354Ab3FEThj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 15:37:39 -0400
+Received: by mail-oa0-f51.google.com with SMTP id f4so1485197oah.38
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 12:37:39 -0700 (PDT)
+In-Reply-To: <1370458531.1918.3.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-_______________________________________________
-devicetree-discuss mailing list
-devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-https://lists.ozlabs.org/listinfo/devicetree-discuss
+On Wed, 2013-06-05 at 19:55 +0100, Ben Hutchings wrote:
+> On Tue, 2013-06-04 at 22:00 -0700, Eric Dumazet wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> > 
+> > struct gnet_stats_rate_est contains u32 fields, so the byte per second
+> > field can wrap at 34360Mbit.
+> > 
+> > Add a new gnet_stats_rate_est64 structure to get 64bit bps field, and
+> > switch the kernel to use this structure natively.
+> [...] 
+> >  /**
+> > + * struct gnet_stats_rate_est64 - rate estimator
+> > + * @bps: current byte rate
+> > + * @pps: current packet rate
+> > + */
+> > +struct gnet_stats_rate_est64 {
+> > +	__u64	bps;
+> > +	__u32	pps;
+> > +} __attribute__ ((packed));
+> [...]
+> 
+> Using attribute packed (which should be written as __packed) forces the
+> alignment of each member and the structure as a whole to be 1.  For an
+> architecture where unaligned access is expensive, gcc will make all
+> reads and writes use byte operations.
+> 
+> I think you have to add a dummy __u32 member instead.
 
---===============5837998748277611889==--
+Its exported to userland so __packed is not available. Or has this been
+changed lately ?
+
+This structure is only used in very slow path, in the rate estimator
+thing, so the unaligned accesses are not a problem at all.
+
+I made this choice to not increase sizeof(struct Qdisc) and the
+alignments as well.
+
+If you think there is an issue with userland, we could use a
+gnet_stats_rate_est64_packed in kernel, and a gnet_stats_rate_est64 in
+userland.
