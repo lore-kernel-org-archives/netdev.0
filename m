@@ -1,93 +1,84 @@
-From: Tony Lindgren <tony@atomide.com>
-Subject: Re: [net-next PATCH v3 1/6] net: cpsw: enhance pinctrl support
-Date: Wed, 5 Jun 2013 08:49:22 -0700
-Message-ID: <20130605154921.GW3331@atomide.com>
-References: <1369592616-23972-1-git-send-email-mugunthanvnm@ti.com>
- <1369592616-23972-2-git-send-email-mugunthanvnm@ti.com>
- <20130527213600.GO13507@atomide.com>
- <51A4B995.9050203@ti.com>
- <51A708F7.8010804@ti.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PULL] vhost: cleanups and fixes
+Date: Wed, 5 Jun 2013 18:53:38 +0300
+Message-ID: <20130605155338.GA26561@redhat.com>
+References: <20130502105353.GA24655@redhat.com>
+ <1367520929.23900.114.camel@haakon3.risingtidesystems.com>
+ <20130502193309.GC16031@redhat.com>
+ <CA+55aFwwVMhmmJfWoepipWT+WQZHt4gRPKSucgBABe5Rq=kVkw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	Hebbar Gururaja <gururaja.hebbar@ti.com>,
-	benoit.cousson@linaro.org, linux-omap@vger.kernel.org,
-	davem@davemloft.net
-To: Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-omap-owner@vger.kernel.org>
+Cc: "Nicholas A. Bellinger" <nab@linux-iscsi.org>,
+	KVM list <kvm@vger.kernel.org>, virtualization@lists.osdl.org,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Asias He <asias@redhat.com>,
+	target-devel <target-devel@vger.kernel.org>
+To: Linus Torvalds <torvalds@linux-foundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <51A708F7.8010804@ti.com>
-Sender: linux-omap-owner@vger.kernel.org
+In-Reply-To: <CA+55aFwwVMhmmJfWoepipWT+WQZHt4gRPKSucgBABe5Rq=kVkw@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Mugunthan V N <mugunthanvnm@ti.com> [130530 01:14]:
-> On 5/28/2013 7:35 PM, Mugunthan V N wrote:
-> >On 5/28/2013 3:06 AM, Tony Lindgren wrote:
-> >>* Mugunthan V N <mugunthanvnm@ti.com> [130526 11:28]:
-> >>>From: Hebbar Gururaja <gururaja.hebbar@ti.com>
-> >>>
-> >>>Amend cpsw controller to optionally take a pin control handle and set
-> >>>the state of the pins to:
-> >>>
-> >>>- "default" on boot, resume
-> >>>- "sleep" on suspend()
-> >>>
-> >>>This should make it possible to optimize energy usage for the pins
-> >>>for the suspend/resume cycle.
-> >>>
-> >>>If any of the above pin states are missing in dt, a warning message
-> >>>about the missing state is displayed.
-> >>>If certain pin-states are not available, to remove this warning message
-> >>>pass respective state name with null phandler.
-> >>>
-> >>>Signed-off-by: Hebbar Gururaja <gururaja.hebbar@ti.com>
-> >>>Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
-> >>>---
-> >>>  drivers/net/ethernet/ti/cpsw.c |   48
-> >>>++++++++++++++++++++++++++++++++++++++++
-> >>>  1 file changed, 48 insertions(+)
-> >>>
-> >>>diff --git a/drivers/net/ethernet/ti/cpsw.c
-> >>>b/drivers/net/ethernet/ti/cpsw.c
-> >>>index 21a5b29..c9ed730 100644
-> >>>--- a/drivers/net/ethernet/ti/cpsw.c
-> >>>+++ b/drivers/net/ethernet/ti/cpsw.c
-> >>>@@ -35,6 +35,7 @@
-> >>>  #include <linux/if_vlan.h>
-> >>>    #include <linux/platform_data/cpsw.h>
-> >>>+#include <linux/pinctrl/consumer.h>
-> >>>    #include "cpsw_ale.h"
-> >>>  #include "cpts.h"
-> >>>@@ -351,6 +352,11 @@ struct cpsw_priv {
-> >>>      bool irq_enabled;
-> >>>      struct cpts *cpts;
-> >>>      u32 emac_port;
-> >>>+
-> >>>+    /* Two optional pin states - default & sleep */
-> >>>+    struct pinctrl        *pinctrl;
-> >>>+    struct pinctrl_state    *pins_def;
-> >>>+    struct pinctrl_state    *pins_sleep;
-> >>>  };
-> >>Which pins do you need to dynamically remux? If it's not all
-> >>the pins, you should have three sets: default, active and idle.
-> >>This way the static pins in the default group don't need to be
-> >>constantly toggled.
-> >>
-> >>Regards,
-> >>
-> >>Tony
-> >Tony
+On Thu, May 02, 2013 at 12:49:42PM -0700, Linus Torvalds wrote:
+> On Thu, May 2, 2013 at 12:33 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
 > >
-> >I am using this for all the pins, in probe all the cpsw pins will
-> >be configured
-> >and i have used the same in suspend/resume callback for power saving.
-> >
-> Tony
+> > I prefer not rebasing,
 > 
-> Do you have any comments on this, or is it ok with two pinctrl_state nodes?
+> Good.
+> 
+> >                   will play with git to see why
+> > does request-pull get me a wrong diffstat and how
+> > to trick it into doing the right thing.
+> > Maybe merging my branch into master will do this.
+> 
+> No, don't do an unnecessary merge just to get the diffstat right.
+> 
+> git pull-request ends up assuming that there are no back-merges, and
+> that you have a uniquely defined single shared merge base. That allows
+> pull-request to just generate the diff directly from that merge base,
+> without actually trying to do the merge itself (which may have
+> conflicts etc).
+> 
+> But because git pull-request doesn't actually *do* the merge, it means
+> that it will fail to give the correct diffstat if the tree is
+> complicated and has multiple merge bases, and it can't really figure
+> what the original shared state was before the development.
+> 
+> This is just one reason I do *not* want to see back-merges. They make
+> history harder to read not just for humans.
+> 
+> You can either ignore the problem (I'll see the real diffstat when I
+> actually do the merge), or you can do a test-merge yourself (that you
+> do *not* then push out in the development branch - keep it in a
+> temporary branch for your own edification or just delete it after
+> doing the merge, and don't do development on it!)
+> 
+> In this case, it's an indirect back-merge: you back-merged a commit
+> from the target tree that I have now merged, so it has become a
+> back-merge. I'm not sure why you did that - if you needed to start
+> from that state, it would actually have been better to just start at
+> that state instead of merging it.
 
-If you always need to remux all the pins, then yes that's fine with me.
+OK I'm in that situation again. I have some vhost-net patches that depend on
+changes in tip.
+But I also have a vhost-next branch with unrelated changes, that
+I started from -rc3.
 
-Regards,
+Previously I would just merge tip into vhost-next, then everyone's
+happy, but it will create an implicit back-merge again, won't it?
 
-Tony
+So what should I do?
+
+Sorry about being dense.
+
+> But whatever. You can get the
+> diffstat by using your merge as the base, so
+> 
+>     git diff -M --stat --summary bc7562355fda..
+> 
+> in your branch should get the right result without any merges etc..
+> But please do send me a proper pull request.
+> 
+>               Linus
