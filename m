@@ -1,32 +1,83 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 07/10] vxlan: port module param should be ushort
-Date: Wed, 05 Jun 2013 17:35:36 +0400
-Message-ID: <51AF3EA8.4070607@cogentembedded.com>
-References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org> <1370406254-6341-7-git-send-email-stephen@networkplumber.org>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v9 net-next 5/7] net: simple poll/select
+ low latency socket poll
+Date: Wed, 05 Jun 2013 16:41:48 +0300
+Message-ID: <51AF401C.2030506@linux.intel.com>
+References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
+	<20130605103452.11172.31453.stgit@ladj378.jer.intel.com>
+	<1370439054.24311.248.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f43.google.com ([209.85.215.43]:59545 "EHLO
-	mail-la0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752601Ab3FENfi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 09:35:38 -0400
-Received: by mail-la0-f43.google.com with SMTP id gw10so1426986lab.2
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 06:35:37 -0700 (PDT)
-In-Reply-To: <1370406254-6341-7-git-send-email-stephen@networkplumber.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1370439054.24311.248.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On 05/06/2013 16:30, Eric Dumazet wrote:
+> On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
+>> A very naive select/poll busy-poll support.
+>> Add busy-polling to sock_poll().
+>> When poll/select have nothing to report, call the low-level
+>> sock_poll() again until we are out of time or we find something.
+>> Right now we poll every socket once, this is suboptimal
+>> but improves latency when the number of sockets polled is not large.
+>>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Tested-by: Willem de Bruijn <willemb@google.com>
+>> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+>> ---
+>
+> I am a bit uneasy with this one, because an applicatio polling() on one
+> thousand file descriptors using select()/poll(), will call sk_poll_ll()
+> one thousand times.
 
-On 05-06-2013 8:24, Stephen Hemminger wrote:
+But we call sk_poll_ll() with nonblock set, so it will only test once
+for each socket and not loop.
 
-> UDP ports's are limited to 16 bits.
+I think this is not as bad as it sounds.
+We still honor the time limit on how long to poll.
 
-    s/ports's/ports/. Maybe a committer can fix.
+When we busy-wait on a single socket we call sk_poll_ll() repeatedly
+until we timeout or we have something to report.
 
-> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Here on the other hand, we sk_poll_ll() once for each file, so we loop 
+on the files. We moved the loop from inside sk_poll_ll to select/poll.
 
-WBR, Sergei
+I also plan on improving this this in the next stage.
+
+The plan is to give control on whether sk_poll_ll is called to
+select/poll/epoll, so the caller has even more control.
+
+-Eliezer
+
+
+
+------------------------------------------------------------------------------
+How ServiceNow helps IT people transform IT departments:
+1. A cloud service to automate IT design, transition and operations
+2. Dashboards that offer high-level views of enterprise services
+3. A single system of record for all IT processes
+http://p.sf.net/sfu/servicenow-d2d-j
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
