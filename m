@@ -1,63 +1,35 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v4 7/8] sh_eth: consolidate sh_eth_reset()
-Date: Thu, 06 Jun 2013 02:50:42 +0400
-Message-ID: <51AFC0C2.1050103@cogentembedded.com>
-References: <201306060106.51082.sergei.shtylyov@cogentembedded.com> <201306060119.30971.sergei.shtylyov@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net_sched: add 64bit rate estimators
+Date: Wed, 05 Jun 2013 16:07:16 -0700
+Message-ID: <1370473636.24311.306.camel@edumazet-glaptop>
+References: <1370408447.24311.241.camel@edumazet-glaptop>
+	 <1370458531.1918.3.camel@bwh-desktop.uk.level5networks.com>
+	 <1370461057.24311.296.camel@edumazet-glaptop>
+	 <1370462769.1918.7.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201306060119.30971.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35645 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757729Ab3FEXHS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 19:07:18 -0400
+Received: by mail-pa0-f47.google.com with SMTP id kl13so1303893pab.34
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 16:07:17 -0700 (PDT)
+In-Reply-To: <1370462769.1918.7.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Wed, 2013-06-05 at 21:06 +0100, Ben Hutchings wrote:
 
-On 06/06/2013 01:19 AM, Sergei Shtylyov wrote:
+> If you're sure this is the right trade-off then I accept that.  I
+> thought you were using packed to ensure the structure layout was
+> consistent between userland and kernel, and might not have realised the
+> unfortunate effect on alignment.
 
-> From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
->
-> This driver has sh_eth_reset() function for each SoC and this functio=
-n is almost
-> always the same, except for the several a bit different variations fo=
-r Gigabit
-> Ethernet.  Consolidate every variation into a single function -- whic=
-h allows
-> us to get rid of some more #ifdef'fery.
->
-> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-> [Sergei: moved the new sh_eth_reset() upper to decrease the patch  si=
-ze,  fixed
-> function call continuation lines' indentation, reworded the changelog=
-, reworded
-> the subject, changing the prefix.]
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
->
-> ---
-> Changes in version 4:
-> - moved the new sh_eth_reset() upper to desrease the patch size;
+I'll spin a v2 with clear distinction between kernel/user
 
-Oops, I forgot to test-compile this change:
-
-drivers/net/ethernet/renesas/sh_eth.c: In function =91sh_eth_reset=92:
-drivers/net/ethernet/renesas/sh_eth.c:745:2: error: implicit declaratio=
-n=20
-of function =91sh_eth_is_gether=92 [-Werror=3Dimplicit-function-declara=
-tion]
-drivers/net/ethernet/renesas/sh_eth.c: At top level:
-drivers/net/ethernet/renesas/sh_eth.c:857:12: error: static declaration=
-=20
-of =91sh_eth_is_gether=92 follows non-static declaration
-drivers/net/ethernet/renesas/sh_eth.c:745:6: note: previous implicit=20
-declaration of =91sh_eth_is_gether=92 was here
-cc1: some warnings being treated as errors
-make[1]: *** [drivers/net/ethernet/renesas/sh_eth.o] Error 1
-make: *** [drivers/net/ethernet/renesas/sh_eth.o] Error 2
-
-I guess I have to repost the whole series now? :-(
-
-WBR, Sergei
-
+And I will also dump the TCA_STATS_RATE_EST64 part only if needed (if
+the bps rate is above the 32bit limit)
