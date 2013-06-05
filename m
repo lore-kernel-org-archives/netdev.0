@@ -1,54 +1,64 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv4 net-next 0/2] Add two new flags to bridge.
-Date: Wed, 05 Jun 2013 18:14:11 +0400
-Message-ID: <51AF47B3.2070902@cogentembedded.com>
-References: <1370441281-11281-1-git-send-email-vyasevic@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v9 net-next 5/7] net: simple poll/select
+ low latency socket poll
+Date: Wed, 05 Jun 2013 07:17:29 -0700
+Message-ID: <1370441849.24311.256.camel@edumazet-glaptop>
+References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
+	<20130605103452.11172.31453.stgit@ladj378.jer.intel.com>
+	<1370439054.24311.248.camel@edumazet-glaptop>
+	<51AF401C.2030506@linux.intel.com>
+	<1370440607.24311.251.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	shemminger@vyatta.com
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:47384 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753237Ab3FEOOL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 10:14:11 -0400
-Received: by mail-lb0-f177.google.com with SMTP id 10so1508133lbf.22
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 07:14:09 -0700 (PDT)
-In-Reply-To: <1370441281-11281-1-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Willem de Bruijn <willemb@google.com>, Don,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1370440607.24311.251.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, 2013-06-05 at 06:56 -0700, Eric Dumazet wrote:
 
-On 05-06-2013 18:07, Vlad Yasevich wrote:
+> This looks quite easy, by adding in include/uapi/asm-generic/poll.h
+> 
+> #define POLL_LL 0x8000
+> 
+> And do the sk_poll_ll() call only if flag is set.
+> 
+> I do not think we have to support select(), as its legacy interface, and
+> people wanting ll should really use epoll() or poll().
 
-> The following series adds 2 new flags to bridge.  One flag allows
-> the user to control whether mac learning is performed on the interface
-> or not.  By default mac learning is on.
-> The other flag allows the user to control whether unicast traffic
-> is flooded (send without an fdb) to a given unicast port.  Default is
-> on.
+Alternatively, add a per socket flag to enable/disable ll
 
-> Changes since v4:
->   - Implemented Stephen's suggestions.
+This global enable assumes the application owns the host anyway.
 
-> Changes since v2:
->   - removed unused "unlock" tag.
 
-> Changes since v1:
->   - Integrated suggestion from MST to not impact RTM_NEWNEIGH and to
->     skip lookups when learning is disabled.
 
-> Vlad Yasevich (2):
->    bridge: Add flag to control mac learning.
->    bridge: Add a flag to control unicast packet flood.
 
-> Vlad Yasevich (2):
->    bridge: Add flag to control mac learning.
->    bridge: Add a flag to control unicast packet flood.
-
-     Hm, why your patches are listed twice?
-
-WBR, Sergei
+------------------------------------------------------------------------------
+How ServiceNow helps IT people transform IT departments:
+1. A cloud service to automate IT design, transition and operations
+2. Dashboards that offer high-level views of enterprise services
+3. A single system of record for all IT processes
+http://p.sf.net/sfu/servicenow-d2d-j
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
