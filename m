@@ -1,110 +1,43 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v8 net-next 6/7] ixgbe: add support for
-	ndo_ll_poll
-Date: Wed, 5 Jun 2013 08:50:42 +0000 (UTC)
-Message-ID: <komu51$jv$1@ger.gmane.org>
-References: <20130603080107.18273.34279.stgit@ladj378.jer.intel.com>
-	<20130603080209.18273.16368.stgit@ladj378.jer.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: e1000-devel@lists.sourceforge.net
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH] tuntap: fix a possible race between queue selection and changing queues
+Date: Wed,  5 Jun 2013 16:44:57 +0800
+Message-ID: <1370421897-30933-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 03 Jun 2013 at 08:02 GMT, Eliezer Tamir <eliezer.tamir@linux.intel.com> wrote:
-> +/* called from the device poll rutine to get ownership of a q_vector */
-> +static inline bool ixgbe_qv_lock_napi(struct ixgbe_q_vector *q_vector)
-> +{
-> +	int rc = true;
+Complier may generate codes that re-read the tun->numqueues during
+tun_select_queue(). This may be a race if vlan->numqueues were changed in the
+same time and can lead unexpected result (e.g. very huge value).
 
-        bool rc = true;
+We need prevent the compiler from generating such codes by adding an
+ACCESS_ONCE() to make sure tun->numqueues were only read once.
 
-> +	spin_lock(&q_vector->lock);
-> +	if (q_vector->state & IXGBE_QV_LOCKED) {
-> +		WARN_ON(q_vector->state & IXGBE_QV_STATE_NAPI);
-> +		q_vector->state |= IXGBE_QV_STATE_NAPI_YIELD;
-> +		rc = false;
-> +	} else
-> +		/* we don't care if someone yielded */
-> +		q_vector->state = IXGBE_QV_STATE_NAPI;
-> +	spin_unlock(&q_vector->lock);
-> +	return rc;
-> +}
-> +
-> +/* returns true is someone tried to get the qv while napi had it */
-> +static inline bool ixgbe_qv_unlock_napi(struct ixgbe_q_vector *q_vector)
-> +{
-> +	int rc = false;
+Bug were introduced by commit c8d68e6be1c3b242f1c598595830890b65cea64a
+(tuntap: multiqueue support).
 
-        bool rc = false;
+Reported-by: Michael S. Tsirkin <mst@redhat.com>
+Cc: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/tun.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-
-> +	spin_lock(&q_vector->lock);
-> +	WARN_ON(q_vector->state & (IXGBE_QV_STATE_POLL |
-> +			       IXGBE_QV_STATE_NAPI_YIELD));
-> +
-> +	if (q_vector->state & IXGBE_QV_STATE_POLL_YIELD)
-> +		rc = true;
-> +	q_vector->state = IXGBE_QV_STATE_IDLE;
-> +	spin_unlock(&q_vector->lock);
-> +	return rc;
-> +}
-> +
-> +/* called from ixgbe_low_latency_poll() */
-> +static inline bool ixgbe_qv_lock_poll(struct ixgbe_q_vector *q_vector)
-> +{
-> +	int rc = true;
-
-Ditto.
-
-> +	spin_lock_bh(&q_vector->lock);
-> +	if ((q_vector->state & IXGBE_QV_LOCKED)) {
-> +		q_vector->state |= IXGBE_QV_STATE_POLL_YIELD;
-> +		rc = false;
-> +	} else
-> +		/* preserve yield marks */
-> +		q_vector->state |= IXGBE_QV_STATE_POLL;
-> +	spin_unlock_bh(&q_vector->lock);
-> +	return rc;
-> +}
-> +
-> +/* returns true if someone tried to get the qv while it was locked */
-> +static inline bool ixgbe_qv_unlock_poll(struct ixgbe_q_vector *q_vector)
-> +{
-> +	int rc = false;
-
-Ditto.
-
-> +	spin_lock_bh(&q_vector->lock);
-> +	WARN_ON(q_vector->state & (IXGBE_QV_STATE_NAPI));
-> +
-> +	if (q_vector->state & IXGBE_QV_STATE_POLL_YIELD)
-> +		rc = true;
-> +	q_vector->state = IXGBE_QV_STATE_IDLE;
-> +	spin_unlock_bh(&q_vector->lock);
-> +	return rc;
-> +}
-> +
-
-
-------------------------------------------------------------------------------
-How ServiceNow helps IT people transform IT departments:
-1. A cloud service to automate IT design, transition and operations
-2. Dashboards that offer high-level views of enterprise services
-3. A single system of record for all IT processes
-http://p.sf.net/sfu/servicenow-d2d-j
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index f042b03..adfcde7 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -352,7 +352,7 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
+ 	u32 numqueues = 0;
+ 
+ 	rcu_read_lock();
+-	numqueues = tun->numqueues;
++	numqueues = ACCESS_ONCE(tun->numqueues);
+ 
+ 	txq = skb_get_rxhash(skb);
+ 	if (txq) {
+-- 
+1.7.1
