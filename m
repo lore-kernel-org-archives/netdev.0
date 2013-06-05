@@ -1,31 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v4 0/8] sh_eth: deal with #ifdef'fery
-Date: Thu, 6 Jun 2013 01:06:50 +0400
-Message-ID: <201306060106.51082.sergei.shtylyov@cogentembedded.com>
+From: Greg KH <greg@kroah.com>
+Subject: Re: xen-netback stable backports request (regression fixes)
+Date: Wed, 5 Jun 2013 14:08:07 -0700
+Message-ID: <20130605210807.GA15455@kroah.com>
+References: <1369734465.3469.52.camel@zakaz.uk.xensource.com>
+ <20130605045532.GA10475@kroah.com>
+ <1370422590.24512.135.camel@zakaz.uk.xensource.com>
+ <20130605202502.GD13713@kroah.com>
+ <1370465579.6652.14.camel@hastur.hellion.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	xen-devel <xen-devel@lists.xen.org>, netdev@vger.kernel.org,
+	Wei Liu <wei.liu2@citrix.com>
+To: Ian Campbell <ian.campbell@citrix.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1370465579.6652.14.camel@hastur.hellion.org.uk>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, Jun 05, 2013 at 09:52:59PM +0100, Ian Campbell wrote:
+> On Wed, 2013-06-05 at 13:25 -0700, Greg KH wrote: 
+> > > For the first we thought that allocating a variable size array on the
+> > > stack was bad practice which could lead to a stack overflow. The default
+> > > is safe but can be overridden by a module parameter.
+> > > 
+> > > The other renames the module parameter which we thought was useful for
+> > > consistency between newer kernels and the stable branches.
+> > 
+> > So you are doing a user/kernel api change in a stable branch?  Heck, you
+> > did it in 3.10?  Why?  What did you just break by doing that?  I can't
+> > do that to users of the stable kernels, sorry, and you shouldn't be
+> > doing that to users of the 3.10 kernel either.  You should rename this
+> > back so people's working systems don't break when they upgrade their
+> > kernel.
+> 
+> The module parameter was introduce after 3.9 and then renamed before
+> v3.10-rc1 happened, the original name was never part of an -rc let alone
+> an actual release.
 
-   This series deals mostly with excess #ifdef'fery in the 'sh_eth' driver.
-It doesn't yet get rid of all the #ifdef'fery but that's a matter of another
-patchset. The last patch (it was almost in the middle of the series before),
-contrarywise, adds one missing #ifdef...
+Ah, ok, my mistake then, I'll go apply this to keep things synced up.
 
-[1/8] sh_eth: remove #ifdef around EDSR and GECMR bit definitions
-[2/8] sh_eth: use EDSR_ENALL to set EDSR
-[3/8] sh_eth: remove duplicate sh_eth_set_duplex() definitions
-[4/8] sh_eth: remove SH_ETH_HAS_TSU
-[5/8] sh_eth: add IRQ flags to 'struct sh_eth_cpu_data'
-[6/8] sh_eth: remove #ifdef around sh_eth_select_mii()
-[7/8] sh_eth: consolidate sh_eth_reset()
-[8/8] sh_eth: enclose PM code into #ifdef CONFIG_PM
+sorry for the confusion, too many patches at once to handle in the
+short-term memory...
 
-WBR, Sergei
+greg k-h
