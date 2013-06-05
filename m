@@ -1,53 +1,93 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v9 net-next 5/7] net: simple poll/select low latency socket
- poll
-Date: Wed, 05 Jun 2013 18:47:14 +0300
-Message-ID: <51AF5D82.1090308@linux.intel.com>
-References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>   <20130605103452.11172.31453.stgit@ladj378.jer.intel.com>  <1370439054.24311.248.camel@edumazet-glaptop>  <51AF401C.2030506@linux.intel.com> <1370445606.24311.265.camel@edumazet-glaptop>
+From: Tony Lindgren <tony@atomide.com>
+Subject: Re: [net-next PATCH v3 1/6] net: cpsw: enhance pinctrl support
+Date: Wed, 5 Jun 2013 08:49:22 -0700
+Message-ID: <20130605154921.GW3331@atomide.com>
+References: <1369592616-23972-1-git-send-email-mugunthanvnm@ti.com>
+ <1369592616-23972-2-git-send-email-mugunthanvnm@ti.com>
+ <20130527213600.GO13507@atomide.com>
+ <51A4B995.9050203@ti.com>
+ <51A708F7.8010804@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1370445606.24311.265.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	Hebbar Gururaja <gururaja.hebbar@ti.com>,
+	benoit.cousson@linaro.org, linux-omap@vger.kernel.org,
+	davem@davemloft.net
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51A708F7.8010804@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/06/2013 18:20, Eric Dumazet wrote:
-> On Wed, 2013-06-05 at 16:41 +0300, Eliezer Tamir wrote:
->> On 05/06/2013 16:30, Eric Dumazet wrote:
->
->>> I am a bit uneasy with this one, because an applicatio polling() on one
->>> thousand file descriptors using select()/poll(), will call sk_poll_ll()
->>> one thousand times.
->>
->> But we call sk_poll_ll() with nonblock set, so it will only test once
->> for each socket and not loop.
->>
->> I think this is not as bad as it sounds.
->> We still honor the time limit on how long to poll.
->
-> We still call ndo_ll_poll() a thousand times, and probably do a
-> spinlock/unlock a thousand times in the driver.
->
-> I would definitely be convinced if you give us some performance numbers
-> of a poll() on a thousand tcp sockets for example.
+* Mugunthan V N <mugunthanvnm@ti.com> [130530 01:14]:
+> On 5/28/2013 7:35 PM, Mugunthan V N wrote:
+> >On 5/28/2013 3:06 AM, Tony Lindgren wrote:
+> >>* Mugunthan V N <mugunthanvnm@ti.com> [130526 11:28]:
+> >>>From: Hebbar Gururaja <gururaja.hebbar@ti.com>
+> >>>
+> >>>Amend cpsw controller to optionally take a pin control handle and set
+> >>>the state of the pins to:
+> >>>
+> >>>- "default" on boot, resume
+> >>>- "sleep" on suspend()
+> >>>
+> >>>This should make it possible to optimize energy usage for the pins
+> >>>for the suspend/resume cycle.
+> >>>
+> >>>If any of the above pin states are missing in dt, a warning message
+> >>>about the missing state is displayed.
+> >>>If certain pin-states are not available, to remove this warning message
+> >>>pass respective state name with null phandler.
+> >>>
+> >>>Signed-off-by: Hebbar Gururaja <gururaja.hebbar@ti.com>
+> >>>Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> >>>---
+> >>>  drivers/net/ethernet/ti/cpsw.c |   48
+> >>>++++++++++++++++++++++++++++++++++++++++
+> >>>  1 file changed, 48 insertions(+)
+> >>>
+> >>>diff --git a/drivers/net/ethernet/ti/cpsw.c
+> >>>b/drivers/net/ethernet/ti/cpsw.c
+> >>>index 21a5b29..c9ed730 100644
+> >>>--- a/drivers/net/ethernet/ti/cpsw.c
+> >>>+++ b/drivers/net/ethernet/ti/cpsw.c
+> >>>@@ -35,6 +35,7 @@
+> >>>  #include <linux/if_vlan.h>
+> >>>    #include <linux/platform_data/cpsw.h>
+> >>>+#include <linux/pinctrl/consumer.h>
+> >>>    #include "cpsw_ale.h"
+> >>>  #include "cpts.h"
+> >>>@@ -351,6 +352,11 @@ struct cpsw_priv {
+> >>>      bool irq_enabled;
+> >>>      struct cpts *cpts;
+> >>>      u32 emac_port;
+> >>>+
+> >>>+    /* Two optional pin states - default & sleep */
+> >>>+    struct pinctrl        *pinctrl;
+> >>>+    struct pinctrl_state    *pins_def;
+> >>>+    struct pinctrl_state    *pins_sleep;
+> >>>  };
+> >>Which pins do you need to dynamically remux? If it's not all
+> >>the pins, you should have three sets: default, active and idle.
+> >>This way the static pins in the default group don't need to be
+> >>constantly toggled.
+> >>
+> >>Regards,
+> >>
+> >>Tony
+> >Tony
+> >
+> >I am using this for all the pins, in probe all the cpsw pins will
+> >be configured
+> >and i have used the same in suspend/resume callback for power saving.
+> >
+> Tony
+> 
+> Do you have any comments on this, or is it ok with two pinctrl_state nodes?
 
-So with 1000 sockets this is defiantly not a win
-sockperf with 1000 udp sockets
+If you always need to remux all the pins, then yes that's fine with me.
 
-sysctl   50         0
-select 178.5 us / 130.0 us
-poll   188.6 us / 130.0 us
+Regards,
+
+Tony
