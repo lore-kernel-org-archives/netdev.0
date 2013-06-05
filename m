@@ -1,92 +1,25 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net-next PATCH v4 5/5] ARM: dts: AM33XX: Add pinmux configuration for CPSW to am335x EVM
-Date: Wed, 5 Jun 2013 22:38:19 +0530
-Message-ID: <1370452099-24026-6-git-send-email-mugunthanvnm@ti.com>
-References: <1370452099-24026-1-git-send-email-mugunthanvnm@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: pulling net tree into net-next
+Date: Wed, 05 Jun 2013 10:27:04 -0700
+Message-ID: <1370453224.24311.287.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <devicetree-discuss@lists.ozlabs.org>,
-	<linux-omap@vger.kernel.org>, <benoit.cousson@linaro.org>,
-	<paul@pwsan.com>, Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:55993 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756746Ab3FERHz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 13:07:55 -0400
-In-Reply-To: <1370452099-24026-1-git-send-email-mugunthanvnm@ti.com>
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:47652 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756511Ab3FER1H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 13:27:07 -0400
+Received: by mail-oa0-f41.google.com with SMTP id n9so1385282oag.0
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 10:27:06 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add pinmux configurations for RGMII based CPSW ethernet to am335x-evm.
-In this patch, only single named mode/state is added and these pins
-are configured during pinctrl driver initialization.
+Hi David
 
-Default mode is nothing but the values required for the module during
-active state. With this configurations module is functional as
-expected.
+I have some upcoming HTB patches for net-next, needing a sync, now Linus
+pulled your net tree.
 
-Todo:
-- if an idle state is available for pins, add support for it.
-
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- arch/arm/boot/dts/am335x-evm.dts |   36 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 36 insertions(+)
-
-diff --git a/arch/arm/boot/dts/am335x-evm.dts b/arch/arm/boot/dts/am335x-evm.dts
-index 814ee03..5db4b05 100644
---- a/arch/arm/boot/dts/am335x-evm.dts
-+++ b/arch/arm/boot/dts/am335x-evm.dts
-@@ -44,6 +44,32 @@
- 				0x154 0x27	/* spi0_d0.gpio0_3, INPUT | MODE7 */
- 			>;
- 		};
-+
-+		cpsw_default: cpsw_default {
-+			pinctrl-single,pins = <
-+				/* Slave 1 */
-+				0x114 0x2	/* mii1_txen.rgmii1_tctl, MODE2 | OUTPUT */
-+				0x118 0x22	/* mii1_rxdv.rgmii1_rctl, MODE2 | INPUT_PULLDOWN */
-+				0x11c 0x2	/* mii1_txd3.rgmii1_td3, MODE2 | OUTPUT */
-+				0x120 0x2	/* mii1_txd2.rgmii1_td2, MODE2 | OUTPUT */
-+				0x124 0x2	/* mii1_txd1.rgmii1_td1, MODE2 | OUTPUT */
-+				0x128 0x2	/* mii1_txd0.rgmii1_td0, MODE2 | OUTPUT */
-+				0x12c 0x2	/* mii1_txclk.rgmii1_tclk, MODE2 | OUTPUT */
-+				0x130 0x22	/* mii1_rxclk.rgmii1_rclk, MODE2 | INPUT_PULLDOWN */
-+				0x134 0x22	/* mii1_rxd3.rgmii1_rd3, MODE2 | INPUT_PULLDOWN */
-+				0x138 0x22	/* mii1_rxd2.rgmii1_rd2, MODE2 | INPUT_PULLDOWN */
-+				0x13c 0x22	/* mii1_rxd1.rgmii1_rd1, MODE2 | INPUT_PULLDOWN */
-+				0x140 0x22	/* mii1_rxd0.rgmii1_rd0, MODE2 | INPUT_PULLDOWN */
-+			>;
-+		};
-+
-+		davinci_mdio_default: davinci_mdio_default {
-+			pinctrl-single,pins = <
-+				/* MDIO */
-+				0x148 0x30	/* mdio_data.mdio_data, MODE0 | INPUT_PULLUP */
-+				0x14c 0x10	/* mdio_clk.mdio_clk, MODE0 | OUTPUT_PULLUP */
-+			>;
-+		};
- 	};
- 
- 	ocp {
-@@ -237,6 +263,16 @@
- 	};
- };
- 
-+&mac {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&cpsw_default>;
-+};
-+
-+&davinci_mdio {
-+	pinctrl-names = "default";
-+	pinctrl-0 = <&davinci_mdio_default>;
-+};
-+
- &cpsw_emac0 {
- 	phy_id = <&davinci_mdio>, <0>;
- 	phy-mode = "rgmii-txid";
--- 
-1.7.9.5
+Thanks !
