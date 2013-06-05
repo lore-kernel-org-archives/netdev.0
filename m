@@ -1,89 +1,133 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v9 net-next 2/7] net: add low latency
-	socket poll
-Date: Wed, 05 Jun 2013 08:59:26 -0700
-Message-ID: <1370447966.24311.284.camel@edumazet-glaptop>
-References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
-	<20130605103421.11172.82925.stgit@ladj378.jer.intel.com>
-	<1370445714.24311.268.camel@edumazet-glaptop>
-	<51AF59B0.6080101@linux.intel.com>
-	<1370446760.24311.275.camel@edumazet-glaptop>
-	<51AF5D5A.8030907@linux.intel.com>
+From: Andreas Mohr <andi@lisas.de>
+Subject: Re: [PATCH] usbnet: improve/fix status interrupt endpoint interval
+Date: Wed, 5 Jun 2013 18:34:26 +0200
+Message-ID: <20130605163426.GA18818@rhlx01.hs-esslingen.de>
+References: <20130604182830.GA13186@rhlx01.hs-esslingen.de>
+ <CACVXFVOYMGjGLmyGy=pQwkcuFshLmdNcLZKfqUDazge45GMBPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Don,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <51AF5D5A.8030907@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Andreas Mohr <andi@lisas.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	OndrejZary <linux@rainbow-software.org>
+To: Ming Lei <ming.lei@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CACVXFVOYMGjGLmyGy=pQwkcuFshLmdNcLZKfqUDazge45GMBPA@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-06-05 at 18:46 +0300, Eliezer Tamir wrote:
-> On 05/06/2013 18:39, Eric Dumazet wrote:
-> > On Wed, 2013-06-05 at 18:30 +0300, Eliezer Tamir wrote:
-> >> On 05/06/2013 18:21, Eric Dumazet wrote:
-> 
-> >>> It would also make sense to give end_time as a parameter, so that the
-> >>> polling() code could really give  a end_time for the whole duration of
-> >>> poll().
-> >>>
-> >>> (You then should test can_poll_ll(end_time) _before_ call to
-> >>> ndo_ll_poll())
-> >>
-> >> how would you handle a nonblocking operation in that case?
-> >> I guess if we have a socket option, then we don't need to handle none
-> >> blocking any diffrent, since the user specified exactly how much time to
-> >> waste polling. right?
+Hi,
+
+On Wed, Jun 05, 2013 at 09:22:25AM +0800, Ming Lei wrote:
+> On Wed, Jun 5, 2013 at 2:28 AM, Andreas Mohr <andi@lisas.de> wrote:
 > >
-> > If the thread already spent 50us in the poll() system call, it for sure
-> > should not call any ndo_ll_poll(). This makes no more sense at this
-> > point.
+> > From 307685fe8e6dfc8181e30167b9c31479332cb22f Mon Sep 17 00:00:00 2001
+> > From: Andreas Mohr <andim2@users.sourceforge.net>
+> > Date: Sun, 2 Jun 2013 20:37:05 +0200
+> > Subject: [PATCH] usbnet: improve/fix status interrupt endpoint interval
+> >  tweaking.
+> >
+> > - failed to take super-speed into account
+> > - <= full-speed seems to have wrong value (specified as frames [ms],
+> >   thus 3 is not suitable to achieve 8ms)
 > 
-> what about a non-blocking read from a socket?
-> Right now we assume this means poll only once since the application will 
-> repeat as needed.
+> The above change is correct.
 > 
-> maybe add a "once" parameter that will cause sk_poll_ll() to ignore end 
-> time and only try once?
+> >   Value 8 now managed to reduce powertop wakeups from ~ 540 to ~ 155
+> 
+> It means that your device only returns current link status instead of link
+> change. IMO, it isn't a good behaviour for the device.
 
-extern bool __sk_poll_ll(struct sock *sk, cycles_t end);
+I don't quite understand that.
+The way I see it is that there's the "20 times same value" averaging,
+and once that was successful, a link change gets communicated
+(usbnet_link_change()). Thus that merely results in a *delay*
+in signalling the link change...
 
-static inline bool sk_poll_ll(struct sock *sk, bool nonblock)
-{
-	return __sk_poll_ll(sk, nonblock, ll_end_time());
-}
+> In fact, you still can increase the period only for your device, for example,
+> 128ms/256ms/512ms should be accepted.
 
-In the poll() code, we should call ll_end_time() once, even if we poll
-1000 fds.
+Possibly.
+
+> > - add detailed docs and question marks about current practice
+> 
+> But the doc need to be fixed.
+
+Hmm.
+
+> >         /* avoid 1 msec chatter:  min 8 msec poll rate */
+> > +       /* High/SuperSpeed expresses intervals in microframes
+> > +        * (in logarithmic encoding, PRIOR to encoding in URB)
+> > +        * rather than frames.
+> > +        * Thus, for >= HighSpeed: == X [microframes] * 125us [-> 8ms],
+> > +        * <= FullSpeed: == X [ms] [-> 8ms].
+> > +        * Finally, it's questionable whether we'll even get away unscathed
+> > +        * with doing such rate tweaking at all:
+> > +        * bInterval value is declared as being a hard demand by a device
+> 
+> It isn't a hard demand, which only means the poll interval by which HC
+> sends IN token to device.
+
+I believe this number is meant to be a hard demand by the *device*,
+since a device is the authoritative party to know best about its
+own servicing requirements.
+Or, IOW, the thing that is a USB descriptor is to be seen as a *protocol*
+where a device signals its requirements (hopefully accurately, though!).
+And if it indicates a 1ms bInterval (which is "the requested maximum(!!)
+number of milliseconds between transaction attempts" [lvr usbfaq]),
+then one could argue that the servicing party (the kernel) damn well
+ought to follow through (unless it reliably knows that it can violate
+some parts of these demands without getting caught).
+
+> > +        * in order to guarantee having its I/O needs serviced properly...
+> > +        * if we don't do this, then... [overruns], [fire], [apocalypse]?
+> 
+> Not so serious, if one packet is ready, the late poll from HC may still
+> get the packet since device can buffer the packet, but if it is too late,
+> the successor packet might be missed by device.
+
+Is proper damage-less (overflows...) handling here a promise/guarantee
+that's made by the USB specs?
+Otherwise I wouldn't be so confident that a device is acting this way ;)
+
+> For usbnet, generally speaking, the interrupt pipe is for polling the
+> link change, which is a very low frequency event, so you don't need to
+> worry about missing events if the interval is increased.
+
+Yeah, but then those status bits also contain other error info for every packet
+processed, thus it's also very useful to achieve polling that's frequent
+enough to properly grab info for all transferred ether frames, rather
+than merely concentrating on link change info.
+
+> > +        * If this turns out to be problematic, such policy should be moved
+> > +        * to individual drivers (indicate flag to [dis]allow rate tweaking
+> > +        * as tolerated by specific devices).
+> 
+> Yes, we can add quirk for such kind device by increasing polling
+> interval.
+
+Sure, but that handling seems a bit static. An ideal service level would be
+getting notified of all link changes in a sufficiently slow way,
+*and* always catching status flags of *all* frames, too.
+
+> > +        */
+> >         period = max ((int) dev->status->desc.bInterval,
+> > -               (dev->udev->speed == USB_SPEED_HIGH) ? 7 : 3);
+> > +               ((dev->udev->speed == USB_SPEED_HIGH) ||
+> > +                (dev->udev->speed == USB_SPEED_SUPER)) ? 7 : 8);
+> 
+> For the above change, please feel free to add my ack:
+> 
+>               Acked-by: Ming Lei <ming.lei@canonical.com>
+
+Thanks!
 
 
+I'm still unsure how/whether to reword my documentation part, though.
+If you happen to have some ideas about some updates,
+that would be great.
 
+Thanks!
 
-
-------------------------------------------------------------------------------
-How ServiceNow helps IT people transform IT departments:
-1. A cloud service to automate IT design, transition and operations
-2. Dashboards that offer high-level views of enterprise services
-3. A single system of record for all IT processes
-http://p.sf.net/sfu/servicenow-d2d-j
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Andreas Mohr
