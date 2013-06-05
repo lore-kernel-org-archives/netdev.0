@@ -1,50 +1,52 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Performance regression from routing cache removal?
-Date: Wed, 05 Jun 2013 11:13:17 -0700
-Message-ID: <1370455997.24311.290.camel@edumazet-glaptop>
-References: <20130605175724.GA2576@sbohrermbp13-local.rgmadvisors.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] net_sched: add 64bit rate estimators
+Date: Wed, 5 Jun 2013 19:55:31 +0100
+Message-ID: <1370458531.1918.3.camel@bwh-desktop.uk.level5networks.com>
+References: <1370408447.24311.241.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f52.google.com ([209.85.160.52]:37489 "EHLO
-	mail-pb0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755904Ab3FESNT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 14:13:19 -0400
-Received: by mail-pb0-f52.google.com with SMTP id xa12so2128870pbc.25
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 11:13:18 -0700 (PDT)
-In-Reply-To: <20130605175724.GA2576@sbohrermbp13-local.rgmadvisors.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:27868 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756662Ab3FESzk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 14:55:40 -0400
+In-Reply-To: <1370408447.24311.241.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-05 at 12:57 -0500, Shawn Bohrer wrote:
-> I've got a performance regression that I've been trying to track down
-> for the last couple of days.  The last known good kernel was 3.4 and
-> now I'm testing 3.10 so there has been a lot of changes in between.
-> The workload I'm testing has a single machine receiving UDP multicast
-> packets across approximately 350 multicast groups.  We've got one
-> socket per multicast address receiving the data.  The traffic is small
-> packets and tends to be very bursty.  With the 3.10 kernel I'm seeing
-> occasional spikes in one-way latency that are in the 100-500
-> millisecond range, and regularly in the 10 millisecond range.  I've
-> started a git bisect which has narrowed me down to:
+On Tue, 2013-06-04 at 22:00 -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> bad f5b0a8743601a4477419171f5046bd07d1c080a0
-> good fa0afcd10951afad2022dda09777d2bf70cdab3d
+> struct gnet_stats_rate_est contains u32 fields, so the byte per second
+> field can wrap at 34360Mbit.
 > 
-> The remaining commits are all part of the routing cache removal so
-> I've stopped my bisection for now.  I can bisect further if anyone
-> thinks it will be valuable.
+> Add a new gnet_stats_rate_est64 structure to get 64bit bps field, and
+> switch the kernel to use this structure natively.
+[...] 
+>  /**
+> + * struct gnet_stats_rate_est64 - rate estimator
+> + * @bps: current byte rate
+> + * @pps: current packet rate
+> + */
+> +struct gnet_stats_rate_est64 {
+> +	__u64	bps;
+> +	__u32	pps;
+> +} __attribute__ ((packed));
+[...]
 
-> 
-> Digging through the git history the ip_check_mc_rcu appears to be the
-> result of the routing cache removal. 
+Using attribute packed (which should be written as __packed) forces the
+alignment of each member and the structure as a whole to be 1.  For an
+architecture where unaligned access is expensive, gcc will make all
+reads and writes use byte operations.
 
-Yes, ip_check_mc_rcu() does a linear scan of your ~350 groups :
+I think you have to add a dummy __u32 member instead.
 
-for_each_pmc_rcu(in_dev, im) {
-    if (im->multiaddr == mc_addr)
-          break;
-}
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
