@@ -1,103 +1,72 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net-next 03/10] vxlan: move IGMP join/leave to work queue
-Date: Wed, 5 Jun 2013 10:29:10 +0300
-Message-ID: <CAF1J0HODhf3Mtg-XupN8K3oXWYV4GKWptDOgWsvvkSX-embfbw@mail.gmail.com>
-References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
-	<1370406254-6341-3-git-send-email-stephen@networkplumber.org>
-	<kommuo$ma8$1@ger.gmane.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH] vhost_net: clear msg.control for non-zerocopy case during tx
+Date: Wed,  5 Jun 2013 15:40:46 +0800
+Message-ID: <1370418046-11851-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog102.obsmtp.com ([74.125.245.72]:60744 "HELO
-	na3sys010aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752220Ab3FEH3L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 03:29:11 -0400
-Received: by mail-ob0-f173.google.com with SMTP id wc20so2024622obb.18
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 00:29:10 -0700 (PDT)
-In-Reply-To: <kommuo$ma8$1@ger.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: mst@redhat.com, virtualization@lists.linux-foundation.org,
+	netdev@vger.kernel.org, kvm@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 5, 2013 at 9:47 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Wed, 05 Jun 2013 at 04:24 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
->> Do join/leave from work queue to avoid lock inversion problems
->> between normal socket and RTNL. The code comes out cleaner
->> as well.
->>
->> Uses Cong Wang's suggestion to turn refcnt into a real atomic
->> since now need to handle case where last use of socket is IGMP
->> worker.
->>
->> Also fixes race where vxlan_stop could be called after
->> device was deleted on module removal. The call to rtnl_link_unregister
->> would call dellink while vxlan device was still up. Reordering
->> the calls fixes it.
->>
->
-> After the first 3 patches applied, I got:
->
-> [   55.010954] general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC
-> [   55.013309] CPU: 1 PID: 163 Comm: kworker/1:2 Not tainted
-> 3.10.0-rc2+ #1150
-> [   55.013309] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-> [   55.013309] Workqueue: events vxlan_igmp_work
+When we decide not use zero-copy, msg.control should be set to NULL otherwise
+macvtap/tap may set zerocopy callbacks which may decrease the kref of ubufs
+wrongly.
 
-I think the problem happens because vxlan_dellink does
-unregister_netdevice_queue and then immediately calls
-vxlan_sock_release and thus vs_sock is released before igmp_work
-starts
+Bug were introduced by commit cedb9bdce099206290a2bdd02ce47a7b253b6a84
+(vhost-net: skip head management if no outstanding).
 
-> [   55.013309] task: ffff880070eac900 ti: ffff8800716d4000 task.ti:
-> ffff8800716d4000
-> [   55.013309] RIP: 0010:[<ffffffff815df704>]  [<ffffffff815df704>]
-> vxlan_sock_release+0x25/0x55
-> [   55.013309] RSP: 0018:ffff8800716d5cf8  EFLAGS: 00010246
-> [   55.013309] RAX: 0000000000000000 RBX: ffff88006fd7c000 RCX:
-> 0000000ccee84d06
-> [   55.013309] RDX: dead000000200200 RSI: ffff880070ead048 RDI:
-> ffff88006fd7c070
-> [   55.013309] RBP: ffff8800716d5d08 R08: 0000000000000000 R09:
-> ffff8800716d5c48
-> [   55.013309] R10: 000000000000b6c4 R11: 000000000000b163 R12:
-> ffff88006ebb7400
-> [   55.013309] R13: ffff88006fd7c000 R14: ffff8800723b4520 R15:
-> 0000000000000000
-> [   55.013309] FS:  0000000000000000(0000) GS:ffff88007f800000(0000)
-> knlGS:0000000000000000
-> [   55.013309] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> [   55.013309] CR2: 00007fa99dc0a000 CR3: 0000000070c17000 CR4:
-> 00000000000006e0
-> [   55.013309] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-> 0000000000000000
-> [   55.013309] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-> 0000000000000400
-> [   55.013309] Stack:
-> [   55.013309]  ffff880070eac900 ffff880070fc0b58 ffff8800716d5d48
-> ffffffff815e0a73
-> [   55.013309]  080808e0716d5d28 0000000f00000000 ffff8800714ef008
-> ffff880070fc0b58
-> [   55.013309]  ffff88007f9d6200 ffff88007f9d38c0 ffff8800716d5de8
-> ffffffff8106872f
-> [   55.013309] Call Trace:
-> [   55.013309]  [<ffffffff815e0a73>] vxlan_igmp_work+0xa8/0xcf
-> [   55.013309]  [<ffffffff8106872f>] process_one_work+0x240/0x408
-> [   55.013309]  [<ffffffff81068662>] ? process_one_work+0x173/0x408
-> [   55.013309]  [<ffffffff81068c82>] worker_thread+0x15d/0x1f1
-> [   55.013309]  [<ffffffff81068b25>] ? rescuer_thread+0x1ff/0x1ff
-> [   55.013309]  [<ffffffff81070c19>] kthread+0xb1/0xb9
-> [   55.013309]  [<ffffffff81070b68>] ? freezing+0x17/0x17
-> [   55.013309]  [<ffffffff81976bdc>] ret_from_fork+0x7c/0xb0
-> [   55.013309]  [<ffffffff81070b68>] ? freezing+0x17/0x17
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+This solves the following warnings:
 
+WARNING: at include/linux/kref.h:47 handle_tx+0x477/0x4b0 [vhost_net]()
+Modules linked in: vhost_net macvtap macvlan tun nfsd exportfs bridge stp llc openvswitch kvm_amd kvm bnx2 megaraid_sas [last unloaded: tun]
+CPU: 5 PID: 8670 Comm: vhost-8668 Not tainted 3.10.0-rc2+ #1566
+Hardware name: Dell Inc. PowerEdge R715/00XHKG, BIOS 1.5.2 04/19/2011
+ffffffffa0198323 ffff88007c9ebd08 ffffffff81796b73 ffff88007c9ebd48
+ffffffff8103d66b 000000007b773e20 ffff8800779f0000 ffff8800779f43f0
+ffff8800779f8418 000000000000015c 0000000000000062 ffff88007c9ebd58
+Call Trace:
+[<ffffffff81796b73>] dump_stack+0x19/0x1e
+[<ffffffff8103d66b>] warn_slowpath_common+0x6b/0xa0
+[<ffffffff8103d6b5>] warn_slowpath_null+0x15/0x20
+[<ffffffffa0197627>] handle_tx+0x477/0x4b0 [vhost_net]
+[<ffffffffa0197690>] handle_tx_kick+0x10/0x20 [vhost_net]
+[<ffffffffa019541e>] vhost_worker+0xfe/0x1a0 [vhost_net]
+[<ffffffffa0195320>] ? vhost_attach_cgroups_work+0x30/0x30 [vhost_net]
+[<ffffffffa0195320>] ? vhost_attach_cgroups_work+0x30/0x30 [vhost_net]
+[<ffffffff81061f46>] kthread+0xc6/0xd0
+[<ffffffff81061e80>] ? kthread_freezable_should_stop+0x70/0x70
+[<ffffffff817a1aec>] ret_from_fork+0x7c/0xb0
+[<ffffffff81061e80>] ? kthread_freezable_should_stop+0x70/0x70
 
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/vhost/net.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletions(-)
 
---
-Sincerely yours,
-Mike.
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 2b51e23..b07d96b 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -436,7 +436,8 @@ static void handle_tx(struct vhost_net *net)
+ 				kref_get(&ubufs->kref);
+ 			}
+ 			nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
+-		}
++		} else
++			msg.msg_control = NULL;
+ 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
+ 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
+ 		if (unlikely(err < 0)) {
+-- 
+1.7.1
