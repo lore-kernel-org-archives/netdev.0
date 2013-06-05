@@ -1,39 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mlx4: use __netdev_pick_tx instead of
- __skb_tx_hash in mlx4_en_select_queue
-Date: Tue, 04 Jun 2013 17:30:12 -0700 (PDT)
-Message-ID: <20130604.173012.779221049139005207.davem@davemloft.net>
-References: <1370282862-13302-1-git-send-email-govindarajulu90@gmail.com>
-	<51ADC6DE.7060004@mellanox.com>
+Subject: Re: [PATCH] net: sun4i-emac: remove erroneous assignment
+Date: Tue, 04 Jun 2013 17:34:22 -0700 (PDT)
+Message-ID: <20130604.173422.570856682520942101.davem@davemloft.net>
+References: <3298610.K0DeJZEM4E@wuerfel>
+	<20130604134034.GE3283@lukather>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: govindarajulu90@gmail.com, netdev@vger.kernel.org,
-	eric.dumazet@gmail.com
-To: amirv@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60658 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751520Ab3FEAaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 20:30:13 -0400
-In-Reply-To: <51ADC6DE.7060004@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: arnd@arndb.de, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sr@denx.de, richard.genoud@gmail.com
+To: maxime.ripard@free-electrons.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130604134034.GE3283@lukather>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Amir Vadai <amirv@mellanox.com>
-Date: Tue, 4 Jun 2013 13:52:14 +0300
+From: Maxime Ripard <maxime.ripard@free-electrons.com>
+Date: Tue, 4 Jun 2013 15:40:34 +0200
 
-> On 03/06/2013 21:07, govindarajulu.v wrote:
->> From: "govindarajulu.v" <govindarajulu90@gmail.com>
+> On Mon, Jun 03, 2013 at 11:36:50PM +0200, Arnd Bergmann wrote:
+>> The newly added sun4i-emac driver causes a build error when
+>> CONFIG_NET_POLL_CONTROLLER is set, because it attempts to
+>> assign a pointer to netdev->poll_controller, which has
+>> been replaced with ops->ndo_poll_controller in 2.6.31!
 >> 
->> mlx4_en_select_queue() uses __skb_tx_hash to select the transmit queue.
->> XPS settings are ignored by this. Instead, we can use __netdev_pick_tx
->> to select the transmit queue.
->> 
->> Compile test only.
->> 
->> Signed-off-by: govindarajulu.v <govindarajulu90@gmail.com>
- ...
-> Acked-By: Amir Vadai <amirv@mellanox.com>
+>> The correct assignment is present as well, so we just need
+>> to remove the wrong one.
+> 
+> Thanks for fixing this,
+> Acked-by: Maxime Ripard <maxime.ripard@anandra.org>
 
-Applied, thanks.
+Applied.
