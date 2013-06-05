@@ -1,216 +1,111 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 10/12] netfilter: Implement RFC 1123 for FTP conntrack
-Date: Wed,  5 Jun 2013 22:40:30 +0200
-Message-ID: <1370464832-4216-10-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 04/12] netfilter: don't panic on error while walking through the init path
+Date: Wed,  5 Jun 2013 22:40:25 +0200
+Message-ID: <1370464832-4216-5-git-send-email-pablo@netfilter.org>
 References: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57484 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:57451 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932179Ab3FEUlD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 16:41:03 -0400
+	id S932120Ab3FEUkw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 16:40:52 -0400
 In-Reply-To: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jeff Mahoney <jeffm@suse.com>
+Don't panic if we hit an error while adding the nf_log or pernet
+netfilter support, just bail out.
 
- The FTP conntrack code currently only accepts the following format for
- the 227 response for PASV:
- 227 Entering Passive Mode (148,100,81,40,31,161).
-
- It doesn't accept the following format from an obscure server:
- 227 Data transfer will passively listen to 67,218,99,134,50,144
-
- From RFC 1123:
- The format of the 227 reply to a PASV command is not
- well standardized.  In particular, an FTP client cannot
- assume that the parentheses shown on page 40 of RFC-959
- will be present (and in fact, Figure 3 on page 43 omits
- them).  Therefore, a User-FTP program that interprets
- the PASV reply must scan the reply for the first digit
- of the host and port numbers.
-
- This patch adds support for the RFC 1123 clarification by:
- - Allowing a search filter to specify NUL as the terminator so that
-   try_number will return successfully if the array of numbers has been
-   filled when an unexpected character is encountered.
- - Using space as the separator for the 227 reply and then scanning for
-   the first digit of the number sequence. The number sequence is parsed
-   out using the existing try_rfc959 but with a NUL terminator.
-
-References: https://bugzilla.novell.com/show_bug.cgi?id=466279
-References: http://bugzilla.netfilter.org/show_bug.cgi?id=574
-Reported-by: Mark Post <mpost@novell.com>
-Signed-off-by: Jeff Mahoney <jeffm@suse.com>
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netfilter-devel@vger.kernel.org
-Cc: netfilter@vger.kernel.org
-Cc: coreteam@netfilter.org
-Cc: netdev@vger.kernel.org
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Acked-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/netfilter/nf_conntrack_ftp.c |   73 ++++++++++++++++++++++++++++----------
- 1 file changed, 54 insertions(+), 19 deletions(-)
+ include/linux/netfilter.h |    2 +-
+ net/netfilter/core.c      |   21 +++++++++++++++------
+ net/netfilter/nf_log.c    |    5 +----
+ net/socket.c              |    4 +++-
+ 4 files changed, 20 insertions(+), 12 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_ftp.c b/net/netfilter/nf_conntrack_ftp.c
-index 6b21707..b8a0924 100644
---- a/net/netfilter/nf_conntrack_ftp.c
-+++ b/net/netfilter/nf_conntrack_ftp.c
-@@ -55,10 +55,14 @@ unsigned int (*nf_nat_ftp_hook)(struct sk_buff *skb,
- 				struct nf_conntrack_expect *exp);
- EXPORT_SYMBOL_GPL(nf_nat_ftp_hook);
- 
--static int try_rfc959(const char *, size_t, struct nf_conntrack_man *, char);
--static int try_eprt(const char *, size_t, struct nf_conntrack_man *, char);
-+static int try_rfc959(const char *, size_t, struct nf_conntrack_man *,
-+		      char, unsigned int *);
-+static int try_rfc1123(const char *, size_t, struct nf_conntrack_man *,
-+		       char, unsigned int *);
-+static int try_eprt(const char *, size_t, struct nf_conntrack_man *,
-+		    char, unsigned int *);
- static int try_epsv_response(const char *, size_t, struct nf_conntrack_man *,
--			     char);
-+			     char, unsigned int *);
- 
- static struct ftp_search {
- 	const char *pattern;
-@@ -66,7 +70,7 @@ static struct ftp_search {
- 	char skip;
- 	char term;
- 	enum nf_ct_ftp_type ftptype;
--	int (*getnum)(const char *, size_t, struct nf_conntrack_man *, char);
-+	int (*getnum)(const char *, size_t, struct nf_conntrack_man *, char, unsigned int *);
- } search[IP_CT_DIR_MAX][2] = {
- 	[IP_CT_DIR_ORIGINAL] = {
- 		{
-@@ -90,10 +94,8 @@ static struct ftp_search {
- 		{
- 			.pattern	= "227 ",
- 			.plen		= sizeof("227 ") - 1,
--			.skip		= '(',
--			.term		= ')',
- 			.ftptype	= NF_CT_FTP_PASV,
--			.getnum		= try_rfc959,
-+			.getnum		= try_rfc1123,
- 		},
- 		{
- 			.pattern	= "229 ",
-@@ -132,8 +134,9 @@ static int try_number(const char *data, size_t dlen, u_int32_t array[],
- 			i++;
- 		else {
- 			/* Unexpected character; true if it's the
--			   terminator and we're finished. */
--			if (*data == term && i == array_size - 1)
-+			   terminator (or we don't care about one)
-+			   and we're finished. */
-+			if ((*data == term || !term) && i == array_size - 1)
- 				return len;
- 
- 			pr_debug("Char %u (got %u nums) `%u' unexpected\n",
-@@ -148,7 +151,8 @@ static int try_number(const char *data, size_t dlen, u_int32_t array[],
- 
- /* Returns 0, or length of numbers: 192,168,1,1,5,6 */
- static int try_rfc959(const char *data, size_t dlen,
--		      struct nf_conntrack_man *cmd, char term)
-+		      struct nf_conntrack_man *cmd, char term,
-+		      unsigned int *offset)
- {
- 	int length;
- 	u_int32_t array[6];
-@@ -163,6 +167,33 @@ static int try_rfc959(const char *data, size_t dlen,
- 	return length;
+diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
+index 0060fde..de70f7b 100644
+--- a/include/linux/netfilter.h
++++ b/include/linux/netfilter.h
+@@ -35,7 +35,7 @@ static inline void nf_inet_addr_mask(const union nf_inet_addr *a1,
+ 	result->all[3] = a1->all[3] & mask->all[3];
  }
  
-+/*
-+ * From RFC 1123:
-+ * The format of the 227 reply to a PASV command is not
-+ * well standardized.  In particular, an FTP client cannot
-+ * assume that the parentheses shown on page 40 of RFC-959
-+ * will be present (and in fact, Figure 3 on page 43 omits
-+ * them).  Therefore, a User-FTP program that interprets
-+ * the PASV reply must scan the reply for the first digit
-+ * of the host and port numbers.
-+ */
-+static int try_rfc1123(const char *data, size_t dlen,
-+		       struct nf_conntrack_man *cmd, char term,
-+		       unsigned int *offset)
-+{
-+	int i;
-+	for (i = 0; i < dlen; i++)
-+		if (isdigit(data[i]))
-+			break;
-+
-+	if (i == dlen)
-+		return 0;
-+
-+	*offset += i;
-+
-+	return try_rfc959(data + i, dlen - i, cmd, 0, offset);
-+}
-+
- /* Grab port: number up to delimiter */
- static int get_port(const char *data, int start, size_t dlen, char delim,
- 		    __be16 *port)
-@@ -191,7 +222,7 @@ static int get_port(const char *data, int start, size_t dlen, char delim,
+-extern void netfilter_init(void);
++extern int netfilter_init(void);
  
- /* Returns 0, or length of numbers: |1|132.235.1.2|6275| or |2|3ffe::1|6275| */
- static int try_eprt(const char *data, size_t dlen, struct nf_conntrack_man *cmd,
--		    char term)
-+		    char term, unsigned int *offset)
+ /* Largest hook number + 1 */
+ #define NF_MAX_HOOKS 8
+diff --git a/net/netfilter/core.c b/net/netfilter/core.c
+index 07c865a..300539d 100644
+--- a/net/netfilter/core.c
++++ b/net/netfilter/core.c
+@@ -302,17 +302,26 @@ static struct pernet_operations netfilter_net_ops = {
+ 	.exit = netfilter_net_exit,
+ };
+ 
+-void __init netfilter_init(void)
++int __init netfilter_init(void)
  {
- 	char delim;
- 	int length;
-@@ -239,7 +270,8 @@ static int try_eprt(const char *data, size_t dlen, struct nf_conntrack_man *cmd,
+-	int i, h;
++	int i, h, ret;
++
+ 	for (i = 0; i < ARRAY_SIZE(nf_hooks); i++) {
+ 		for (h = 0; h < NF_MAX_HOOKS; h++)
+ 			INIT_LIST_HEAD(&nf_hooks[i][h]);
+ 	}
  
- /* Returns 0, or length of numbers: |||6446| */
- static int try_epsv_response(const char *data, size_t dlen,
--			     struct nf_conntrack_man *cmd, char term)
-+			     struct nf_conntrack_man *cmd, char term,
-+			     unsigned int *offset)
- {
- 	char delim;
+-	if (register_pernet_subsys(&netfilter_net_ops) < 0)
+-		panic("cannot create netfilter proc entry");
++	ret = register_pernet_subsys(&netfilter_net_ops);
++	if (ret < 0)
++		goto err;
++
++	ret = netfilter_log_init();
++	if (ret < 0)
++		goto err_pernet;
  
-@@ -261,9 +293,10 @@ static int find_pattern(const char *data, size_t dlen,
- 			unsigned int *numlen,
- 			struct nf_conntrack_man *cmd,
- 			int (*getnum)(const char *, size_t,
--				      struct nf_conntrack_man *, char))
-+				      struct nf_conntrack_man *, char,
-+				      unsigned int *))
- {
--	size_t i;
-+	size_t i = plen;
+-	if (netfilter_log_init() < 0)
+-		panic("cannot initialize nf_log");
++	return 0;
++err_pernet:
++	unregister_pernet_subsys(&netfilter_net_ops);
++err:
++	return ret;
+ }
+diff --git a/net/netfilter/nf_log.c b/net/netfilter/nf_log.c
+index 388656d..bd5474a 100644
+--- a/net/netfilter/nf_log.c
++++ b/net/netfilter/nf_log.c
+@@ -368,10 +368,7 @@ static int __net_init nf_log_net_init(struct net *net)
+ 	return 0;
  
- 	pr_debug("find_pattern `%s': dlen = %Zu\n", pattern, dlen);
- 	if (dlen == 0)
-@@ -293,16 +326,18 @@ static int find_pattern(const char *data, size_t dlen,
- 	pr_debug("Pattern matches!\n");
- 	/* Now we've found the constant string, try to skip
- 	   to the 'skip' character */
--	for (i = plen; data[i] != skip; i++)
--		if (i == dlen - 1) return -1;
-+	if (skip) {
-+		for (i = plen; data[i] != skip; i++)
-+			if (i == dlen - 1) return -1;
+ out_sysctl:
+-	/* For init_net: errors will trigger panic, don't unroll on error. */
+-	if (!net_eq(net, &init_net))
+-		remove_proc_entry("nf_log", net->nf.proc_netfilter);
+-
++	remove_proc_entry("nf_log", net->nf.proc_netfilter);
+ 	return ret;
+ }
  
--	/* Skip over the last character */
--	i++;
-+		/* Skip over the last character */
-+		i++;
-+	}
+diff --git a/net/socket.c b/net/socket.c
+index 6b94633..734194d 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -2612,7 +2612,9 @@ static int __init sock_init(void)
+ 	 */
  
- 	pr_debug("Skipped up to `%c'!\n", skip);
+ #ifdef CONFIG_NETFILTER
+-	netfilter_init();
++	err = netfilter_init();
++	if (err)
++		goto out;
+ #endif
  
- 	*numoff = i;
--	*numlen = getnum(data + i, dlen - i, cmd, term);
-+	*numlen = getnum(data + i, dlen - i, cmd, term, numoff);
- 	if (!*numlen)
- 		return -1;
- 
+ #ifdef CONFIG_NETWORK_PHY_TIMESTAMPING
 -- 
 1.7.10.4
