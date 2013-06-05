@@ -1,72 +1,59 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v9 net-next 2/7] net: add low latency
-	socket poll
-Date: Wed, 05 Jun 2013 08:39:20 -0700
-Message-ID: <1370446760.24311.275.camel@edumazet-glaptop>
-References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
-	<20130605103421.11172.82925.stgit@ladj378.jer.intel.com>
-	<1370445714.24311.268.camel@edumazet-glaptop>
-	<51AF59B0.6080101@linux.intel.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 03/10] vxlan: move IGMP join/leave to work
+ queue
+Date: Wed, 5 Jun 2013 08:41:16 -0700
+Message-ID: <20130605084116.4eb9dc94@nehalam.linuxnetplumber.net>
+References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
+	<1370406254-6341-3-git-send-email-stephen@networkplumber.org>
+	<kommuo$ma8$1@ger.gmane.org>
+	<CAF1J0HODhf3Mtg-XupN8K3oXWYV4GKWptDOgWsvvkSX-embfbw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Don,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <51AF59B0.6080101@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>, netdev@vger.kernel.org
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pb0-f50.google.com ([209.85.160.50]:34713 "EHLO
+	mail-pb0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755634Ab3FEPlV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 11:41:21 -0400
+Received: by mail-pb0-f50.google.com with SMTP id wy17so1970940pbc.37
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:41:20 -0700 (PDT)
+In-Reply-To: <CAF1J0HODhf3Mtg-XupN8K3oXWYV4GKWptDOgWsvvkSX-embfbw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-05 at 18:30 +0300, Eliezer Tamir wrote:
-> On 05/06/2013 18:21, Eric Dumazet wrote:
-> > On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
+On Wed, 5 Jun 2013 10:29:10 +0300
+Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+
+> On Wed, Jun 5, 2013 at 9:47 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> > On Wed, 05 Jun 2013 at 04:24 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> >> Do join/leave from work queue to avoid lock inversion problems
+> >> between normal socket and RTNL. The code comes out cleaner
+> >> as well.
+> >>
+> >> Uses Cong Wang's suggestion to turn refcnt into a real atomic
+> >> since now need to handle case where last use of socket is IGMP
+> >> worker.
+> >>
+> >> Also fixes race where vxlan_stop could be called after
+> >> device was deleted on module removal. The call to rtnl_link_unregister
+> >> would call dellink while vxlan device was still up. Reordering
+> >> the calls fixes it.
+> >>
 > >
+> > After the first 3 patches applied, I got:
 > >
-> > This is probably too big to be inlined, and nonblock should be a bool
+> > [   55.010954] general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC
+> > [   55.013309] CPU: 1 PID: 163 Comm: kworker/1:2 Not tainted
+> > 3.10.0-rc2+ #1150
+> > [   55.013309] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+> > [   55.013309] Workqueue: events vxlan_igmp_work
 > 
-> 
-> > It would also make sense to give end_time as a parameter, so that the
-> > polling() code could really give  a end_time for the whole duration of
-> > poll().
-> >
-> > (You then should test can_poll_ll(end_time) _before_ call to
-> > ndo_ll_poll())
-> 
-> how would you handle a nonblocking operation in that case?
-> I guess if we have a socket option, then we don't need to handle none 
-> blocking any diffrent, since the user specified exactly how much time to 
-> waste polling. right?
+> I think the problem happens because vxlan_dellink does
+> unregister_netdevice_queue and then immediately calls
+> vxlan_sock_release and thus vs_sock is released before igmp_work
+> starts
 
-If the thread already spent 50us in the poll() system call, it for sure
-should not call any ndo_ll_poll(). This makes no more sense at this
-point.
-
-
-
-
-------------------------------------------------------------------------------
-How ServiceNow helps IT people transform IT departments:
-1. A cloud service to automate IT design, transition and operations
-2. Dashboards that offer high-level views of enterprise services
-3. A single system of record for all IT processes
-http://p.sf.net/sfu/servicenow-d2d-j
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+This is handled because a refcount is acquired before the igmp_work
+is scheduled.
