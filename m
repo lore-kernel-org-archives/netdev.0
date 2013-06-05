@@ -1,182 +1,112 @@
 From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH 2/4] ss: create a function to print info about netlink sockets
-Date: Wed,  5 Jun 2013 12:41:59 +0400
-Message-ID: <1370421721-30814-3-git-send-email-avagin@openvz.org>
+Subject: [PATCH 1/4] ss: handle socket diag request in a separate function
+Date: Wed,  5 Jun 2013 12:41:58 +0400
+Message-ID: <1370421721-30814-2-git-send-email-avagin@openvz.org>
 References: <1370421721-30814-1-git-send-email-avagin@openvz.org>
 Cc: netdev@vger.kernel.org, Andrey Vagin <avagin@openvz.org>
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:24845 "EHLO relay.sw.ru"
+Received: from mailhub.sw.ru ([195.214.232.25]:4540 "EHLO relay.sw.ru"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753115Ab3FEIoX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1753437Ab3FEIoX (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 5 Jun 2013 04:44:23 -0400
 In-Reply-To: <1370421721-30814-1-git-send-email-avagin@openvz.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It will be reused for printing info about netlink sockets, when
-socket diag is used for retrieving information.
+It will be reused to show netlink sockets
 
 Cc: Stephen Hemminger <stephen@networkplumber.org>
 Signed-off-by: Andrey Vagin <avagin@openvz.org>
 ---
- misc/ss.c | 130 ++++++++++++++++++++++++++++++++++----------------------------
- 1 file changed, 72 insertions(+), 58 deletions(-)
+ misc/ss.c | 49 +++++++++++++++++++++++++++++--------------------
+ 1 file changed, 29 insertions(+), 20 deletions(-)
 
 diff --git a/misc/ss.c b/misc/ss.c
-index 2d6ddef..469ffd0 100644
+index 418dd6f..2d6ddef 100644
 --- a/misc/ss.c
 +++ b/misc/ss.c
-@@ -2672,6 +2672,73 @@ static int packet_show(struct filter *f)
+@@ -2226,31 +2226,17 @@ static int unix_show_sock(struct nlmsghdr *nlh, struct filter *f)
  	return 0;
  }
  
-+static void netlink_show_one(struct filter *f,
-+				int prot, int pid, unsigned groups,
-+				int rq, int wq,
-+				unsigned long long sk, unsigned long long cb)
+-static int unix_show_netlink(struct filter *f, FILE *dump_fp)
++static int handle_netlink_request(struct filter *f, FILE *dump_fp,
++				  struct nlmsghdr *req, size_t size,
++				  int (* show_one_sock)(struct nlmsghdr *nlh, struct filter *f))
+ {
+ 	int fd;
+-	struct {
+-		struct nlmsghdr nlh;
+-		struct unix_diag_req r;
+-	} req;
+ 	char	buf[8192];
+ 
+ 	if ((fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_INET_DIAG)) < 0)
+ 		return -1;
+ 
+-	memset(&req, 0, sizeof(req));
+-	req.nlh.nlmsg_len = sizeof(req);
+-	req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
+-	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
+-	req.nlh.nlmsg_seq = 123456;
+-
+-	req.r.sdiag_family = AF_UNIX;
+-	req.r.udiag_states = f->states;
+-	req.r.udiag_show = UDIAG_SHOW_NAME | UDIAG_SHOW_PEER | UDIAG_SHOW_RQLEN;
+-	if (show_mem)
+-		req.r.udiag_show |= UDIAG_SHOW_MEMINFO;
+-
+-	if (send(fd, &req, sizeof(req), 0) < 0) {
++	if (send(fd, req, size, 0) < 0) {
+ 		close(fd);
+ 		return -1;
+ 	}
+@@ -2295,13 +2281,13 @@ static int unix_show_netlink(struct filter *f, FILE *dump_fp)
+ 				} else {
+ 					errno = -err->error;
+ 					if (errno != ENOENT)
+-						fprintf(stderr, "UDIAG answers %d\n", errno);
++						fprintf(stderr, "DIAG answers %d\n", errno);
+ 				}
+ 				close(fd);
+ 				return -1;
+ 			}
+ 			if (!dump_fp) {
+-				err = unix_show_sock(h, f);
++				err = show_one_sock(h, f);
+ 				if (err < 0) {
+ 					close(fd);
+ 					return err;
+@@ -2323,6 +2309,29 @@ close_it:
+ 	return 0;
+ }
+ 
++static int unix_show_netlink(struct filter *f, FILE *dump_fp)
 +{
-+	if (f->f) {
-+		struct tcpstat tst;
-+		tst.local.family = AF_NETLINK;
-+		tst.remote.family = AF_NETLINK;
-+		tst.rport = -1;
-+		tst.lport = pid;
-+		tst.local.data[0] = prot;
-+		tst.remote.data[0] = 0;
-+		if (run_ssfilter(f->f, &tst) == 0)
-+			return;
-+	}
++	struct {
++		struct nlmsghdr nlh;
++		struct unix_diag_req r;
++	} req;
 +
-+	if (netid_width)
-+		printf("%-*s ", netid_width, "nl");
-+	if (state_width)
-+		printf("%-*s ", state_width, "UNCONN");
-+	printf("%-6d %-6d ", rq, wq);
-+	if (resolve_services && prot == 0)
-+		printf("%*s:", addr_width, "rtnl");
-+	else if (resolve_services && prot == 3)
-+		printf("%*s:", addr_width, "fw");
-+	else if (resolve_services && prot == 4)
-+		printf("%*s:", addr_width, "tcpdiag");
-+	else
-+		printf("%*d:", addr_width, prot);
-+	if (pid == -1) {
-+		printf("%-*s ", serv_width, "*");
-+	} else if (resolve_services) {
-+		int done = 0;
-+		if (!pid) {
-+			done = 1;
-+			printf("%-*s ", serv_width, "kernel");
-+		} else if (pid > 0) {
-+			char procname[64];
-+			FILE *fp;
-+			sprintf(procname, "%s/%d/stat",
-+				getenv("PROC_ROOT") ? : "/proc", pid);
-+			if ((fp = fopen(procname, "r")) != NULL) {
-+				if (fscanf(fp, "%*d (%[^)])", procname) == 1) {
-+					sprintf(procname+strlen(procname), "/%d", pid);
-+					printf("%-*s ", serv_width, procname);
-+					done = 1;
-+				}
-+				fclose(fp);
-+			}
-+		}
-+		if (!done)
-+			printf("%-*d ", serv_width, pid);
-+	} else {
-+		printf("%-*d ", serv_width, pid);
-+	}
-+	printf("%*s*%-*s",
-+	       addr_width, "", serv_width, "");
++	memset(&req, 0, sizeof(req));
++	req.nlh.nlmsg_len = sizeof(req);
++	req.nlh.nlmsg_type = SOCK_DIAG_BY_FAMILY;
++	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
++	req.nlh.nlmsg_seq = 123456;
 +
-+	if (show_details) {
-+		printf(" sk=%llx cb=%llx groups=0x%08x", sk, cb, groups);
-+	}
-+	printf("\n");
++	req.r.sdiag_family = AF_UNIX;
++	req.r.udiag_states = f->states;
++	req.r.udiag_show = UDIAG_SHOW_NAME | UDIAG_SHOW_PEER | UDIAG_SHOW_RQLEN;
++	if (show_mem)
++		req.r.udiag_show |= UDIAG_SHOW_MEMINFO;
 +
-+	return;
++	return handle_netlink_request(f, dump_fp, &req.nlh,
++					sizeof(req), unix_show_sock);
 +}
 +
- static int netlink_show(struct filter *f)
+ static int unix_show(struct filter *f)
  {
  	FILE *fp;
-@@ -2684,6 +2751,10 @@ static int netlink_show(struct filter *f)
- 	if (!(f->states & (1<<SS_CLOSE)))
- 		return 0;
- 
-+	if (!getenv("PROC_NET_NETLINK") && !getenv("PROC_ROOT") &&
-+		netlink_show_netlink(f, NULL) == 0)
-+		return 0;
-+
- 	if ((fp = net_netlink_open()) == NULL)
- 		return -1;
- 	fgets(buf, sizeof(buf)-1, fp);
-@@ -2693,64 +2764,7 @@ static int netlink_show(struct filter *f)
- 		       &sk,
- 		       &prot, &pid, &groups, &rq, &wq, &cb, &rc);
- 
--		if (f->f) {
--			struct tcpstat tst;
--			tst.local.family = AF_NETLINK;
--			tst.remote.family = AF_NETLINK;
--			tst.rport = -1;
--			tst.lport = pid;
--			tst.local.data[0] = prot;
--			tst.remote.data[0] = 0;
--			if (run_ssfilter(f->f, &tst) == 0)
--				continue;
--		}
--
--		if (netid_width)
--			printf("%-*s ", netid_width, "nl");
--		if (state_width)
--			printf("%-*s ", state_width, "UNCONN");
--		printf("%-6d %-6d ", rq, wq);
--		if (resolve_services && prot == 0)
--			printf("%*s:", addr_width, "rtnl");
--		else if (resolve_services && prot == 3)
--			printf("%*s:", addr_width, "fw");
--		else if (resolve_services && prot == 4)
--			printf("%*s:", addr_width, "tcpdiag");
--		else
--			printf("%*d:", addr_width, prot);
--		if (pid == -1) {
--			printf("%-*s ", serv_width, "*");
--		} else if (resolve_services) {
--			int done = 0;
--			if (!pid) {
--				done = 1;
--				printf("%-*s ", serv_width, "kernel");
--			} else if (pid > 0) {
--				char procname[64];
--				FILE *fp;
--				sprintf(procname, "%s/%d/stat",
--					getenv("PROC_ROOT") ? : "/proc", pid);
--				if ((fp = fopen(procname, "r")) != NULL) {
--					if (fscanf(fp, "%*d (%[^)])", procname) == 1) {
--						sprintf(procname+strlen(procname), "/%d", pid);
--						printf("%-*s ", serv_width, procname);
--						done = 1;
--					}
--					fclose(fp);
--				}
--			}
--			if (!done)
--				printf("%-*d ", serv_width, pid);
--		} else {
--			printf("%-*d ", serv_width, pid);
--		}
--		printf("%*s*%-*s",
--		       addr_width, "", serv_width, "");
--
--		if (show_details) {
--			printf(" sk=%llx cb=%llx groups=0x%08x", sk, cb, groups);
--		}
--		printf("\n");
-+		netlink_show_one(f, prot, pid, groups, rq, wq, sk, cb);
- 	}
- 
- 	return 0;
 -- 
 1.8.1.4
