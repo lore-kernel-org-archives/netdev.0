@@ -1,57 +1,54 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next rfc V3 2/9] macvtap: do not add self to waitqueue if
- doing a nonblock read
-Date: Wed, 5 Jun 2013 14:07:22 +0300
-Message-ID: <20130605110722.GK31830@redhat.com>
-References: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
- <1370414192-5830-3-git-send-email-jasowang@redhat.com>
+From: Chen Gang <gang.chen@asianux.com>
+Subject: Re: [PATCH v3] include/linux/skbuff.h: using '(__u16) ~0U' instead
+ of '~0U'
+Date: Wed, 05 Jun 2013 19:15:57 +0800
+Message-ID: <51AF1DED.6050305@asianux.com>
+References: <AE90C24D6B3A694183C094C60CF0A2F6026B7263@saturn3.aculab.com> <51AE89DE.60106@asianux.com> <51AE8C3E.8060605@asianux.com> <20130605.013601.2203042571724866964.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1370414192-5830-3-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: David.Laight@ACULAB.COM, andy.shevchenko@gmail.com,
+	edumazet@google.com, pshelar@nicira.com, mgorman@suse.de,
+	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, bhutchings@solarflare.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from intranet.asianux.com ([58.214.24.6]:48791 "EHLO
+	intranet.asianux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754465Ab3FELQw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 07:16:52 -0400
+In-Reply-To: <20130605.013601.2203042571724866964.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 05, 2013 at 02:36:25PM +0800, Jason Wang wrote:
-> There's no need to add self to waitqueue if doing a nonblock read. This could
-> help to avoid the spinlock contention.
+On 06/05/2013 04:36 PM, David Miller wrote:
+> From: Chen Gang <gang.chen@asianux.com>
+> Date: Wed, 05 Jun 2013 08:54:22 +0800
 > 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-> ---
->  drivers/net/macvtap.c |    7 +++++--
->  1 files changed, 5 insertions(+), 2 deletions(-)
+>> > 
+>> > Both 'transport_header' and 'mac_header' are __u16, which are
+>> > never equal to '~0U'.
+>> > 
+>> > So need use '(__u16) ~0U' instead of '~0U'.
+>> > 
+>> > The related warning (with EXTRA_CFLAGS=-W ARCH=m68k for allmodconfig)
+>> >   include/linux/skbuff.h:1587:2: warning: comparison is always true due to limited range of data type [-Wtype-limits]
+>> >   ...
+>> > 
+>> > Use meaningful macro instead of hard code number, and better to
+>> > initialize 'skb->transport_header' in __alloc_skb_head(), too.
+>> > 
+>> > 
+>> > 
+>> > Signed-off-by: Chen Gang <gang.chen@asianux.com>
+> Your patch doesn't apply to the tree because this has been fixed already
+> for several days by using "typeof(x) ~0U"
 > 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 5e485e3..8949631 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -845,7 +845,9 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q, struct kiocb *iocb,
->  	ssize_t ret = 0;
->  
->  	while (len) {
-> -		prepare_to_wait(sk_sleep(&q->sk), &wait, TASK_INTERRUPTIBLE);
-> +		if (!noblock)
-> +			prepare_to_wait(sk_sleep(&q->sk), &wait,
-> +					TASK_INTERRUPTIBLE);
->  
->  		/* Read frames from the queue */
->  		skb = skb_dequeue(&q->sk.sk_receive_queue);
-> @@ -867,7 +869,8 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q, struct kiocb *iocb,
->  		break;
->  	}
->  
-> -	finish_wait(sk_sleep(&q->sk), &wait);
-> +	if (!noblock)
-> +		finish_wait(sk_sleep(&q->sk), &wait);
->  	return ret;
->  }
->  
-> -- 
-> 1.7.1
+> 
+
+OK, thanks.
+
+-- 
+Chen Gang
+
+Asianux Corporation
