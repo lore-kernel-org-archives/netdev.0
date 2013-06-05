@@ -1,47 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] net: mvneta: read MAC address from hardware when
- available
-Date: Tue, 04 Jun 2013 17:24:17 -0700 (PDT)
-Message-ID: <20130604.172417.1543681648182420899.davem@davemloft.net>
-References: <1370357543-23332-1-git-send-email-thomas.petazzoni@free-electrons.com>
+Subject: Re: [PATCH net] tg3: Add read dma workaround for 5720
+Date: Tue, 04 Jun 2013 17:25:53 -0700 (PDT)
+Message-ID: <20130604.172553.291812130615333546.davem@davemloft.net>
+References: <1370287174-11308-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jason@lakedaemon.net,
-	gregory.clement@free-electrons.com, andrew@lunn.ch,
-	ezequiel.garcia@free-electrons.com, alior@marvell.com,
-	linux-arm-kernel@lists.infradead.org,
-	sergei.shtylyov@cogentembedded.com, joe@perches.com
-To: thomas.petazzoni@free-electrons.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60610 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751626Ab3FEAYU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 20:24:20 -0400
-In-Reply-To: <1370357543-23332-1-git-send-email-thomas.petazzoni@free-electrons.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, roland@purestorage.com,
+	stable@vger.kernel.org, mchan@broadcom.com
+To: nsujir@broadcom.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1370287174-11308-1-git-send-email-nsujir@broadcom.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-Date: Tue,  4 Jun 2013 16:52:23 +0200
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Date: Mon, 3 Jun 2013 12:19:34 -0700
 
-> This patch improves the logic used by the mvneta driver to find a MAC
-> address for a particular interface. Until now, it was only looking at
-> the Device Tree, and if no address was found, was falling back to
-> generating a random MAC address.
+> Commit 091f0ea30074bc43f9250961b3247af713024bc6 "tg3: Add New 5719 Read
+> DMA workaround" added a workaround for TX DMA stall on the 5719. This
+> workaround needs to be applied to the 5720 as well.
 > 
-> This patch adds the intermediate solution of reading the MAC address
-> from the hardware registers, in case it has been set by the
-> bootloader. So the order is now:
-> 
->  1) MAC address from the Device Tree
->  2) MAC address from the hardware registers
->  3) Random MAC address
-> 
-> This requires moving the MAC address initialization a little bit later
-> in the ->probe() code, because it now requires the hardware registers
-> to be remapped.
-> 
-> Signed-off-by: Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+> Cc: stable@vger.kernel.org
+> Reported-by: Roland Dreier <roland@purestorage.com>
+> Tested-by: Roland Dreier <roland@purestorage.com>
+> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Applied to net-next, thanks.
+Applied, thanks.
