@@ -1,52 +1,56 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v2] net: sh-eth: Add flag to determine the type of TSU
- register
-Date: Wed, 05 Jun 2013 18:21:11 +0400
-Message-ID: <51AF4957.4030208@cogentembedded.com>
-References: <1367903291-32323-1-git-send-email-nobuhiro.iwamatsu.yj@renesas.com> <51AD13AD.9090501@cogentembedded.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v9 net-next 5/7] net: simple poll/select low latency socket
+ poll
+Date: Wed, 05 Jun 2013 17:56:19 +0300
+Message-ID: <51AF5193.1060209@linux.intel.com>
+References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>  <20130605103452.11172.31453.stgit@ladj378.jer.intel.com>  <1370439054.24311.248.camel@edumazet-glaptop>  <51AF401C.2030506@linux.intel.com>  <1370440607.24311.251.camel@edumazet-glaptop> <1370441849.24311.256.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshihiro.shimoda.uh@renesas.com
-To: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f174.google.com ([209.85.217.174]:33906 "EHLO
-	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753060Ab3FEOVM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 10:21:12 -0400
-Received: by mail-lb0-f174.google.com with SMTP id u10so1958460lbi.19
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 07:21:10 -0700 (PDT)
-In-Reply-To: <51AD13AD.9090501@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1370441849.24311.256.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On 05/06/2013 17:17, Eric Dumazet wrote:
+> On Wed, 2013-06-05 at 06:56 -0700, Eric Dumazet wrote:
+>
+>> This looks quite easy, by adding in include/uapi/asm-generic/poll.h
+>>
+>> #define POLL_LL 0x8000
+>>
+>> And do the sk_poll_ll() call only if flag is set.
+>>
+>> I do not think we have to support select(), as its legacy interface, and
+>> people wanting ll should really use epoll() or poll().
+>
+> Alternatively, add a per socket flag to enable/disable ll
+>
+> This global enable assumes the application owns the host anyway.
+>
 
-On 04-06-2013 2:07, Sergei Shtylyov wrote:
+I plan on adding a socket option in the next stage.
+I'm also testing a patch much like you described with a poll flag.
+Select/poll set it to indicate that they want to busy poll.
+Sock_poll sets it to indicate that this socket can (at the moment)
+busy-poll.
 
->> Some sh-eth devices may have two ether devices inside.
->> And the function of TSU is accessed from each ether device.
->> In this case, sh-eth need to remap address using devm_ioremap(),
->> without using devm_ioremap_resource().
->> tsu_shared_reg of sh_eth_cpu_data is used for this control.
+If you think the way things are done right now is unacceptable,
+even as an experimental feature, I would much prefer to drop this patch
+and have the rest applied rather then bring in new code that is not 
+fully tested at this stage.
 
->> Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-> [...]
-
->> @@ -2750,7 +2754,12 @@ static int sh_eth_drv_probe(struct
->> platform_device *pdev)
->>               ret = -ENODEV;
->>               goto out_release;
->>           }
-
->      This patch is not good anymore since in the meanwhile the above
-> check got removed.
-> Iwamatsu-san, are you going to respin this patch and the next series of
-> 9 patches any time
-> soon. I need them to base my work on.
-
-    So, I have taken the following series in my own hands and will 
-repost it soon. Your authorship will be kept. And I've left this patch 
-for you to deal with since I'm not directly interested in it.
-
-WBR, Sergei
+-Eliezer
