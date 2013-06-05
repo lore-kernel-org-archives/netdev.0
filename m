@@ -1,84 +1,82 @@
-From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
-Subject: Re: [PATCH] net: tun: release the reference of tun device in tun_recvmsg
-Date: Wed, 5 Jun 2013 17:20:14 +0200
-Message-ID: <201306051720.15029.a.miskiewicz@gmail.com>
-References: <201304250822.38944.a.miskiewicz@gmail.com> <201305290029.35303.a.miskiewicz@gmail.com> <51AC5345.6020904@cn.fujitsu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v9 net-next 2/7] net: add low latency socket poll
+Date: Wed, 05 Jun 2013 08:21:54 -0700
+Message-ID: <1370445714.24311.268.camel@edumazet-glaptop>
+References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
+	 <20130605103421.11172.82925.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
-	Balakumaran Kannan <kumaran.4353@gmail.com>,
-	Maruthi Thotad <Maruthi.Thotad@ap.sony.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Gao feng <gaofeng@cn.fujitsu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f53.google.com ([209.85.214.53]:35065 "EHLO
-	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756210Ab3FEPUT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 11:20:19 -0400
-Received: by mail-bk0-f53.google.com with SMTP id e11so404678bkh.26
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:20:17 -0700 (PDT)
-In-Reply-To: <51AC5345.6020904@cn.fujitsu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130605103421.11172.82925.stgit@ladj378.jer.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Monday 03 of June 2013, Gao feng wrote:
-> On 05/29/2013 06:29 AM, Arkadiusz Miskiewicz wrote:
-> > On Friday 26 of April 2013, Jason Wang wrote:
-> >> On 04/26/2013 01:03 PM, Gao feng wrote:
-> >>> On 04/25/2013 11:04 PM, Arkadiusz Miskiewicz wrote:
-> >>>> On Thursday 25 of April 2013, Gao feng wrote:
-> >>>>> We forget to release the reference of tun device in tun_recvmsg=
-=2E
-> >>>>> bug introduced in commit 54f968d6efdbf7dec36faa44fc11f01b0e4d19=
-90
-> >>>>> (tuntap: move socket to tun_file)
-> >>>>=20
-> >>>> Hm, still hitting the problem even with the patch - dmesg:
-> >>> Ok, seams there are another problems we haven't discovered.
-> >>> it's excellent if you can find out which commit introduces this
-> >>> bug by git bisect.
-> >>>=20
-> >>> Thanks!
-> >>=20
-> >> Yes, bisect will be helpful. If you could not do it, please tell m=
-e the
-> >> steps to reproduce the issue and the tree you used. I just test wi=
-th
-> >> net.git and net-next.git with a tap device created by tunctl, didn=
-'t
-> >> meet the issue.
-> >=20
-> > Took a while. Suspected patch is below. I'm running fresh linus git
-> > (3.10.0-rc3-00046-g58f8bbd) with the patch reverted and couldn't
-> > reproduce problem anymore after several tries (will do more testing
-> > in meantime).
->=20
-> Thanks for your helpful work :)
-> I already send a patch to fix this problem.
+On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
 
-Please push it into stable kernel (3.9) queue, too. Works well here.
 
-commit 534c877928a16ae5f9776436a497109639bf67dc
-Author: Gao feng <gaofeng@cn.fujitsu.com>
-Date:   Sun Jun 2 22:16:21 2013 +0000
+This is probably too big to be inlined, and nonblock should be a bool
 
-    ipv6: assign rt6_info to inet6_ifaddr in init_loopback
-   =20
-    Commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
-    "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
-    forgot to assign rt6_info to the inet6_ifaddr.
-    When disable the net device, the rt6_info which allocated
-    in init_loopback will not be destroied in __ipv6_ifa_notify.
-   =20
-    This will trigger the waring message below
-    [23527.916091] unregister_netdevice: waiting for tap0 to become fre=
-e.=20
-Usage count =3D 1
-   =20
-    Reported-by: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
-    Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-    Signed-off-by: David S. Miller <davem@davemloft.net>
 
---=20
-Arkadiusz Mi=C5=9Bkiewicz, arekm / maven.pl
+It would also make sense to give end_time as a parameter, so that the
+polling() code could really give  a end_time for the whole duration of
+poll().
+
+(You then should test can_poll_ll(end_time) _before_ call to
+ndo_ll_poll())
+
+
+> +static inline bool sk_poll_ll(struct sock *sk, int nonblock)
+> +{
+> +	cycles_t end_time = ll_end_time();
+> +	const struct net_device_ops *ops;
+> +	struct napi_struct *napi;
+> +	int rc = false;
+> +
+> +	/*
+> +	 * rcu read lock for napi hash
+> +	 * bh so we don't race with net_rx_action
+> +	 */
+> +	rcu_read_lock_bh();
+> +
+> +	napi = napi_by_id(sk->sk_napi_id);
+> +	if (!napi)
+> +		goto out;
+> +
+> +	ops = napi->dev->netdev_ops;
+> +	if (!ops->ndo_ll_poll)
+> +		goto out;
+> +
+> +	do {
+> +
+> +		rc = ops->ndo_ll_poll(napi);
+> +
+> +		if (rc == LL_FLUSH_FAILED)
+> +			break; /* permanent failure */
+> +
+> +		if (rc > 0)
+> +			/* local bh are disabled so it is ok to use _BH */
+> +			NET_ADD_STATS_BH(sock_net(sk),
+> +					 LINUX_MIB_LOWLATENCYRXPACKETS, rc);
+> +
+> +	} while (skb_queue_empty(&sk->sk_receive_queue)
+> +			&& can_poll_ll(end_time) && !nonblock);
+> +
+> +	rc = !skb_queue_empty(&sk->sk_receive_queue);
+> +out:
+> +	rcu_read_unlock_bh();
+> +	return rc;
+> +}
