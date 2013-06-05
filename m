@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v4 4/8] sh_eth: remove SH_ETH_HAS_TSU
-Date: Thu, 6 Jun 2013 01:14:06 +0400
-Message-ID: <201306060114.06411.sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v4 5/8] sh_eth: add IRQ flags to 'struct sh_eth_cpu_data'
+Date: Thu, 6 Jun 2013 01:15:27 +0400
+Message-ID: <201306060115.27643.sergei.shtylyov@cogentembedded.com>
 References: <201306060106.51082.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
@@ -9,119 +9,91 @@ Content-Type: Text/Plain;
 Content-Transfer-Encoding: 7bit
 Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f175.google.com ([209.85.217.175]:39109 "EHLO
-	mail-lb0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932489Ab3FEVOE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 17:14:04 -0400
-Received: by mail-lb0-f175.google.com with SMTP id v10so2403365lbd.34
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 14:14:01 -0700 (PDT)
+Return-path: <linux-sh-owner@vger.kernel.org>
 In-Reply-To: <201306060106.51082.sergei.shtylyov@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
-Remove SH_ETH_HAS_TSU #define's and #ifdef's. Set three 'struct net_device_ops'
-methods that depend on the presence of TSU basing on the 'tsu' field of 'struct
-sh_eth_cpu_data'.
+The driver supports some SH and SH-Mobile SOCs. There are SOCs with two or more
+Ethernet devices, for these we need to pass IRQF_SHARED to request_irq().  Add
+the 'irq_flags' field to the 'struct sh_eth_cpu_data' instead of #ifdef'fery.
 
 Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-[Sergei: made two method assignments one-liners, added the changelog, reworded
-the subject, changing the prefix.]
+[Sergei: properly aligned request_irq() call continuation line, reworded the
+changelog, reworded the subject, changing the prefix.]
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
 Changes in version 4:
-- made two method assignments one-liners;
-- refreshed the patch;
-- added the changelog;
+- resolved reject;
+- properly aligned request_irq() call continuation line;
+- reworded the changelog;
 - reworded the subject, changing the prefix.
 
- drivers/net/ethernet/renesas/sh_eth.c |   20 ++++++++------------
- 1 file changed, 8 insertions(+), 12 deletions(-)
+Changes in version 3:
+- remove 'irq_flags' from 'struct sh_eth_private';
+- fix indentation.
+
+ drivers/net/ethernet/renesas/sh_eth.c |   13 +++++--------
+ drivers/net/ethernet/renesas/sh_eth.h |    1 +
+ 2 files changed, 6 insertions(+), 8 deletions(-)
 
 Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
 ===================================================================
 --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
 +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -431,7 +431,6 @@ static struct sh_eth_cpu_data sh_eth_my_
+@@ -462,6 +462,7 @@ static struct sh_eth_cpu_data sh_eth_my_
+ 			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
+ 	.tx_error_check	= EESR_TWB | EESR_TABT | EESR_TDE | EESR_TFE,
+ 
++	.irq_flags	= IRQF_SHARED,
+ 	.apr		= 1,
+ 	.mpr		= 1,
+ 	.tpauser	= 1,
+@@ -570,6 +571,7 @@ static struct sh_eth_cpu_data sh_eth_my_
+ 	.fdr_value	= 0x0000072f,
+ 	.rmcr_value	= 0x00000001,
+ 
++	.irq_flags	= IRQF_SHARED,
+ 	.apr		= 1,
+ 	.mpr		= 1,
+ 	.tpauser	= 1,
+@@ -650,6 +652,8 @@ static struct sh_eth_cpu_data sh_eth_my_
+ #if defined(CONFIG_CPU_SUBTYPE_SH7734)
+ 	.hw_crc     = 1,
+ 	.select_mii = 1,
++#else
++	.irq_flags	= IRQF_SHARED,
+ #endif
  };
- #elif defined(CONFIG_CPU_SUBTYPE_SH7757)
- #define SH_ETH_HAS_BOTH_MODULES	1
--#define SH_ETH_HAS_TSU	1
- static int sh_eth_check_reset(struct net_device *ndev);
  
- static void sh_eth_set_rate(struct net_device *ndev)
-@@ -592,7 +591,6 @@ static struct sh_eth_cpu_data *sh_eth_ge
- }
+@@ -1908,14 +1912,7 @@ static int sh_eth_open(struct net_device
+ 	pm_runtime_get_sync(&mdp->pdev->dev);
  
- #elif defined(CONFIG_CPU_SUBTYPE_SH7734) || defined(CONFIG_CPU_SUBTYPE_SH7763)
--#define SH_ETH_HAS_TSU	1
- static int sh_eth_check_reset(struct net_device *ndev);
- static void sh_eth_reset_hw_crc(struct net_device *ndev);
- 
-@@ -693,7 +691,6 @@ static void sh_eth_reset_hw_crc(struct n
- }
- 
- #elif defined(CONFIG_ARCH_R8A7740)
--#define SH_ETH_HAS_TSU	1
- static int sh_eth_check_reset(struct net_device *ndev);
- 
- static void sh_eth_chip_reset(struct net_device *ndev)
-@@ -791,7 +788,6 @@ static struct sh_eth_cpu_data sh_eth_my_
- };
- #elif defined(CONFIG_CPU_SUBTYPE_SH7710) || defined(CONFIG_CPU_SUBTYPE_SH7712)
- #define SH_ETH_RESET_DEFAULT	1
--#define SH_ETH_HAS_TSU	1
- static struct sh_eth_cpu_data sh_eth_my_cpu_data = {
- 	.eesipr_value	= DMAC_M_RFRMER | DMAC_M_ECI | 0x003fffff,
- 	.tsu		= 1,
-@@ -2105,7 +2101,6 @@ static int sh_eth_do_ioctl(struct net_de
- 	return phy_mii_ioctl(phydev, rq, cmd);
- }
- 
--#if defined(SH_ETH_HAS_TSU)
- /* For TSU_POSTn. Please refer to the manual about this (strange) bitfields */
- static void *sh_eth_tsu_get_post_reg_offset(struct sh_eth_private *mdp,
- 					    int entry)
-@@ -2448,7 +2443,6 @@ static int sh_eth_vlan_rx_kill_vid(struc
- 
- 	return 0;
- }
--#endif /* SH_ETH_HAS_TSU */
- 
- /* SuperH's TSU register init function */
- static void sh_eth_tsu_init(struct sh_eth_private *mdp)
-@@ -2587,16 +2581,11 @@ static const u16 *sh_eth_get_register_of
- 	return reg_offset;
- }
- 
--static const struct net_device_ops sh_eth_netdev_ops = {
-+static struct net_device_ops sh_eth_netdev_ops = {
- 	.ndo_open		= sh_eth_open,
- 	.ndo_stop		= sh_eth_close,
- 	.ndo_start_xmit		= sh_eth_start_xmit,
- 	.ndo_get_stats		= sh_eth_get_stats,
--#if defined(SH_ETH_HAS_TSU)
--	.ndo_set_rx_mode	= sh_eth_set_multicast_list,
--	.ndo_vlan_rx_add_vid	= sh_eth_vlan_rx_add_vid,
--	.ndo_vlan_rx_kill_vid	= sh_eth_vlan_rx_kill_vid,
+ 	ret = request_irq(ndev->irq, sh_eth_interrupt,
+-#if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
+-	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
+-	defined(CONFIG_CPU_SUBTYPE_SH7757)
+-				IRQF_SHARED,
+-#else
+-				0,
 -#endif
- 	.ndo_tx_timeout		= sh_eth_tx_timeout,
- 	.ndo_do_ioctl		= sh_eth_do_ioctl,
- 	.ndo_validate_addr	= eth_validate_addr,
-@@ -2677,6 +2666,13 @@ static int sh_eth_drv_probe(struct platf
- 	sh_eth_set_default_cpu_data(mdp->cd);
+-				ndev->name, ndev);
++			  mdp->cd->irq_flags, ndev->name, ndev);
+ 	if (ret) {
+ 		dev_err(&ndev->dev, "Can not assign IRQ number\n");
+ 		return ret;
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
++++ net-next/drivers/net/ethernet/renesas/sh_eth.h
+@@ -463,6 +463,7 @@ struct sh_eth_cpu_data {
+ 	unsigned long tx_error_check;
  
- 	/* set function */
-+	if (mdp->cd->tsu) {
-+		sh_eth_netdev_ops.ndo_set_rx_mode = sh_eth_set_multicast_list;
-+		sh_eth_netdev_ops.ndo_vlan_rx_add_vid = sh_eth_vlan_rx_add_vid;
-+		sh_eth_netdev_ops.ndo_vlan_rx_kill_vid =
-+			sh_eth_vlan_rx_kill_vid;
-+	}
-+
- 	ndev->netdev_ops = &sh_eth_netdev_ops;
- 	SET_ETHTOOL_OPS(ndev, &sh_eth_ethtool_ops);
- 	ndev->watchdog_timeo = TX_TIMEOUT;
+ 	/* hardware features */
++	unsigned long irq_flags;	/* IRQ configuration flags */
+ 	unsigned no_psr:1;		/* EtherC DO NOT have PSR */
+ 	unsigned apr:1;			/* EtherC have APR */
+ 	unsigned mpr:1;			/* EtherC have MPR */
