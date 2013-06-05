@@ -1,49 +1,48 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Subject: Re: [PATCH v9 net-next 2/7] net: add low latency socket poll
-Date: Wed, 05 Jun 2013 18:30:56 +0300
-Message-ID: <51AF59B0.6080101@linux.intel.com>
-References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>  <20130605103421.11172.82925.stgit@ladj378.jer.intel.com> <1370445714.24311.268.camel@edumazet-glaptop>
+Date: Wed, 05 Jun 2013 18:31:41 +0300
+Message-ID: <51AF59DD.2000901@linux.intel.com>
+References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com> <20130605103421.11172.82925.stgit@ladj378.jer.intel.com> <1370438602.24311.243.camel@edumazet-glaptop> <CA+FuTSevn9Tv41tcoWK7+w6ePEu3woy20GOrWY3rwOPZUhF6kQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
 	Eilon Greenstien <eilong@broadcom.com>,
 	Or Gerlitz <or.gerlitz@gmail.com>,
 	Amir Vadai <amirv@mellanox.com>,
 	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:50711 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756479Ab3FEPbI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 11:31:08 -0400
-In-Reply-To: <1370445714.24311.268.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: Willem de Bruijn <willemb@google.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CA+FuTSevn9Tv41tcoWK7+w6ePEu3woy20GOrWY3rwOPZUhF6kQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-On 05/06/2013 18:21, Eric Dumazet wrote:
-> On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
+On 05/06/2013 18:28, Willem de Bruijn wrote:
+> On Wed, Jun 5, 2013 at 9:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
+>>> Adds an ndo_ll_poll method and the code that supports it.
+>>> This method can be used by low latency applications to busy-poll
+>>> Ethernet device queues directly from the socket code.
+>>> sysctl_net_ll_poll controls how many microseconds to poll.
+>>> Default is zero (disabled).
+>>> Individual protocol support will be added by subsequent patches.
+>>>
+>>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>>> Tested-by: Willem de Bruijn <willemb@google.com>
+>>> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+>>> ---
+>>
+>> Are you sure this version was tested by Willem ?
 >
->
-> This is probably too big to be inlined, and nonblock should be a bool
+> I hadn't tested the latest revisions, indeed. Am testing this one right now.
 
-
-> It would also make sense to give end_time as a parameter, so that the
-> polling() code could really give  a end_time for the whole duration of
-> poll().
->
-> (You then should test can_poll_ll(end_time) _before_ call to
-> ndo_ll_poll())
-
-how would you handle a nonblocking operation in that case?
-I guess if we have a socket option, then we don't need to handle none 
-blocking any diffrent, since the user specified exactly how much time to 
-waste polling. right?
+Sorry, I missed that.
