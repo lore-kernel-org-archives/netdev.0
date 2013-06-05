@@ -1,10 +1,10 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v9 net-next 3/7] udp: add low latency
-	socket poll support
-Date: Wed, 05 Jun 2013 06:25:15 -0700
-Message-ID: <1370438715.24311.244.camel@edumazet-glaptop>
+Subject: Re: [PATCH v9 net-next 4/7] tcp: add low latency
+ socket poll support.
+Date: Wed, 05 Jun 2013 06:25:54 -0700
+Message-ID: <1370438754.24311.245.camel@edumazet-glaptop>
 References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
-	<20130605103431.11172.62957.stgit@ladj378.jer.intel.com>
+	<20130605103441.11172.83787.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -19,7 +19,7 @@ Cc: Willem de Bruijn <willemb@google.com>, Don,
 	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
 To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130605103431.11172.62957.stgit@ladj378.jer.intel.com>
+In-Reply-To: <20130605103441.11172.83787.stgit@ladj378.jer.intel.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -31,20 +31,17 @@ Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
 On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
-> Add upport for busy-polling on UDP sockets.
-> In __udp[46]_lib_rcv add a call to sk_mark_ll() to copy the napi_id
-> from the skb into the sk.
-> This is done at the earliest possible moment, right after we identify
-> which socket this skb is for.
-> In __skb_recv_datagram When there is no data and the user
-> tries to read we busy poll.
+> Adds low latency socket poll support for TCP.
+> In tcp_v[46]_rcv() add a call to sk_mark_ll() to copy the napi_id
+> from the skb to the sk.
+> In tcp_recvmsg(), when there is no data in the socket we busy-poll.
+> This is a good example of how to add busy-poll support to more protocols.
 > 
 > Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 > Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > Tested-by: Willem de Bruijn <willemb@google.com>
 > Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 > ---
-
 Acked-by: Eric Dumazet <edumazet@google.com>
 
 
