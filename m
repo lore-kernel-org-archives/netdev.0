@@ -1,48 +1,60 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v9 net-next 2/7] net: add low latency socket poll
-Date: Wed, 05 Jun 2013 18:31:41 +0300
-Message-ID: <51AF59DD.2000901@linux.intel.com>
-References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com> <20130605103421.11172.82925.stgit@ladj378.jer.intel.com> <1370438602.24311.243.camel@edumazet-glaptop> <CA+FuTSevn9Tv41tcoWK7+w6ePEu3woy20GOrWY3rwOPZUhF6kQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: tun: release the reference of tun device in
+ tun_recvmsg
+Date: Wed, 05 Jun 2013 08:36:46 -0700
+Message-ID: <1370446606.24311.273.camel@edumazet-glaptop>
+References: <201304250822.38944.a.miskiewicz@gmail.com>
+	 <201305290029.35303.a.miskiewicz@gmail.com>
+	 <51AC5345.6020904@cn.fujitsu.com>
+	 <201306051720.15029.a.miskiewicz@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Willem de Bruijn <willemb@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CA+FuTSevn9Tv41tcoWK7+w6ePEu3woy20GOrWY3rwOPZUhF6kQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Gao feng <gaofeng@cn.fujitsu.com>,
+	Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	Balakumaran Kannan <kumaran.4353@gmail.com>,
+	Maruthi Thotad <Maruthi.Thotad@ap.sony.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:47140 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753743Ab3FEPgx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 11:36:53 -0400
+Received: by mail-pa0-f44.google.com with SMTP id wp1so1076552pac.3
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:36:53 -0700 (PDT)
+In-Reply-To: <201306051720.15029.a.miskiewicz@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/06/2013 18:28, Willem de Bruijn wrote:
-> On Wed, Jun 5, 2013 at 9:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
->>> Adds an ndo_ll_poll method and the code that supports it.
->>> This method can be used by low latency applications to busy-poll
->>> Ethernet device queues directly from the socket code.
->>> sysctl_net_ll_poll controls how many microseconds to poll.
->>> Default is zero (disabled).
->>> Individual protocol support will be added by subsequent patches.
->>>
->>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->>> Tested-by: Willem de Bruijn <willemb@google.com>
->>> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
->>> ---
->>
->> Are you sure this version was tested by Willem ?
->
-> I hadn't tested the latest revisions, indeed. Am testing this one right now.
+On Wed, 2013-06-05 at 17:20 +0200, Arkadiusz Miskiewicz wrote:
+> O
+> Please push it into stable kernel (3.9) queue, too. Works well here.
+> 
 
-Sorry, I missed that.
+Its already in the queue :
+http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
+
+
+
+
+> commit 534c877928a16ae5f9776436a497109639bf67dc
+> Author: Gao feng <gaofeng@cn.fujitsu.com>
+> Date:   Sun Jun 2 22:16:21 2013 +0000
+> 
+>     ipv6: assign rt6_info to inet6_ifaddr in init_loopback
+>     
+>     Commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
+>     "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
+>     forgot to assign rt6_info to the inet6_ifaddr.
+>     When disable the net device, the rt6_info which allocated
+>     in init_loopback will not be destroied in __ipv6_ifa_notify.
+>     
+>     This will trigger the waring message below
+>     [23527.916091] unregister_netdevice: waiting for tap0 to become free. 
+> Usage count = 1
+>     
+>     Reported-by: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+>     Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+> 
