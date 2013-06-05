@@ -1,30 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2013-06-03
-Date: Tue, 04 Jun 2013 17:16:16 -0700 (PDT)
-Message-ID: <20130604.171616.705313489046333404.davem@davemloft.net>
-References: <51AC8C62.5010905@pengutronix.de>
+Subject: Re: [PATCH net] bnx2x: Fix bridged GSO for 57710/57711 chips
+Date: Tue, 04 Jun 2013 17:17:37 -0700 (PDT)
+Message-ID: <20130604.171737.311428267471179268.davem@davemloft.net>
+References: <1370264397-27324-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <51AC8C62.5010905@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
+To: yuvalmin@broadcom.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60546 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752342Ab3FEARi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 20:17:38 -0400
+In-Reply-To: <1370264397-27324-1-git-send-email-yuvalmin@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Mon, 03 Jun 2013 14:30:26 +0200
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Mon, 3 Jun 2013 15:59:57 +0300
 
-> this is a pull-request for net-next/master. It consists of two patches
-> by Fabio Estevam, cleaning up the flexcan driver (remove default
-> pinctrl and switch to SIMPLE_DEV_PM_OPS). A patch by me to simplify the
-> Kconfig [1] handling for flexcan. And a patch by Jingoo Han that
-> converts the can drivers to use platform_{get,set}_drvdata().
+> It was recently found out that GSO on 57710/57711 was broken, due to packets
+> being sent without a valid IP checksum. 
 > 
-> [1] My patch touches arch/{arm,powerpc}, so I collected Acked-bys from
-> Arnd Bergmann, Shawn Guo and Benjamin Herrenschmidt.
- ...
->   git://gitorious.org/linux-can/linux-can-next.git for-davem
+> Commit 057cf65 "bnx2x: Fix GSO for 57710/57711 chips" partially fixed this
+> issue, but failed to set the correct IP checksum when receiving GSO packets
+> via bridges, as such packets enter bnx2x_tx_split() and the FW flags needed
+> to calculate IP checksum were erroneously set in the incorrect
+> buffer descriptor.
+> 
+> This patch re-enables GSO in said scenario for 57710/57711 chips.
+> 
+> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
+> Signed-off-by: Ariel Elior <ariele@broadcom.com>
+> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 
-Pulled, thanks.
+Applied, thanks.
