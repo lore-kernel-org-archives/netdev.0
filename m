@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next rfc V3 1/9] macvtap: fix a possible race between queue selection and changing queues
-Date: Wed,  5 Jun 2013 14:36:24 +0800
-Message-ID: <1370414192-5830-2-git-send-email-jasowang@redhat.com>
+Subject: [net-next rfc V3 2/9] macvtap: do not add self to waitqueue if doing a nonblock read
+Date: Wed,  5 Jun 2013 14:36:25 +0800
+Message-ID: <1370414192-5830-3-git-send-email-jasowang@redhat.com>
 References: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
 Cc: sergei.shtylyov@cogentembedded.com,
 	Jason Wang <jasowang@redhat.com>
@@ -12,30 +12,38 @@ In-Reply-To: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Complier may generate codes that re-read the vlan->numvtaps during
-macvtap_get_queue(). This may lead a race if vlan->numvtaps were changed in the
-same time and which can lead unexpected result (e.g. very huge value).
-
-We need prevent the compiler from generating such codes by adding an
-ACCESS_ONCE() to make sure vlan->numvtaps were only read once.
+There's no need to add self to waitqueue if doing a nonblock read. This could
+help to avoid the spinlock contention.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- drivers/net/macvtap.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/macvtap.c |    7 +++++--
+ 1 files changed, 5 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 68efb91..5e485e3 100644
+index 5e485e3..8949631 100644
 --- a/drivers/net/macvtap.c
 +++ b/drivers/net/macvtap.c
-@@ -172,7 +172,7 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct macvtap_queue *tap = NULL;
--	int numvtaps = vlan->numvtaps;
-+	int numvtaps = ACCESS_ONCE(vlan->numvtaps);
- 	__u32 rxq;
+@@ -845,7 +845,9 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q, struct kiocb *iocb,
+ 	ssize_t ret = 0;
  
- 	if (!numvtaps)
+ 	while (len) {
+-		prepare_to_wait(sk_sleep(&q->sk), &wait, TASK_INTERRUPTIBLE);
++		if (!noblock)
++			prepare_to_wait(sk_sleep(&q->sk), &wait,
++					TASK_INTERRUPTIBLE);
+ 
+ 		/* Read frames from the queue */
+ 		skb = skb_dequeue(&q->sk.sk_receive_queue);
+@@ -867,7 +869,8 @@ static ssize_t macvtap_do_read(struct macvtap_queue *q, struct kiocb *iocb,
+ 		break;
+ 	}
+ 
+-	finish_wait(sk_sleep(&q->sk), &wait);
++	if (!noblock)
++		finish_wait(sk_sleep(&q->sk), &wait);
+ 	return ret;
+ }
+ 
 -- 
 1.7.1
