@@ -1,44 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: core: move mac_pton() to lib/net_utils.c
-Date: Wed, 05 Jun 2013 01:44:02 -0700 (PDT)
-Message-ID: <20130605.014402.1624717193379705510.davem@davemloft.net>
-References: <1370364386-5034-1-git-send-email-andy.shevchenko@gmail.com>
-	<20130604.174323.350497684225826523.davem@davemloft.net>
-	<34263486.86xmxk21Lq@wuerfel>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: andy.shevchenko@gmail.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <34263486.86xmxk21Lq@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH 3/4] ss: show destination address for netlink sockets
+Date: Wed,  5 Jun 2013 12:42:00 +0400
+Message-ID: <1370421721-30814-4-git-send-email-avagin@openvz.org>
+References: <1370421721-30814-1-git-send-email-avagin@openvz.org>
+Cc: netdev@vger.kernel.org, Andrey Vagin <avagin@openvz.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:26012 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753443Ab3FEIoX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 04:44:23 -0400
+In-Reply-To: <1370421721-30814-1-git-send-email-avagin@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Wed, 05 Jun 2013 10:41:45 +0200
+A netlink socket may be connected to a specific group.
 
-> On Tuesday 04 June 2013 17:43:23 David Miller wrote:
->> From: Andy Shevchenko <andy.shevchenko@gmail.com>
->> Date: Tue,  4 Jun 2013 19:46:26 +0300
->> 
->> > Since we have at least one user of this function outside of CONFIG_NET
->> > scope, we have to provide this function independently. The proposed
->> > solution is to move it under lib/net_utils.c with corresponding
->> > configuration variable and select wherever it is needed.
->> > 
->> > Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
->> > Reported-by: Arnd Bergmann <arnd@arndb.de>
->> 
->> I do not see a mac_pton() usage under drivers/misc in any of my trees,
->> so I really am not the person to apply this.
-> 
-> Greg merged the Andy's patch that added the usage in the char-misc tree,
-> which broke yesterday's linux-next for some 'randconfig' builds.
-> 
-> Can you provide an Ack for Greg to apply the patch to his tree?
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Andrey Vagin <avagin@openvz.org>
+---
+ misc/ss.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
 
-Sure:
-
-Acked-by: David S. Miller <davem@davemloft.net>
+diff --git a/misc/ss.c b/misc/ss.c
+index 469ffd0..c8534ff 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -2674,6 +2674,7 @@ static int packet_show(struct filter *f)
+ 
+ static void netlink_show_one(struct filter *f,
+ 				int prot, int pid, unsigned groups,
++				int state, int dst_pid, unsigned dst_group,
+ 				int rq, int wq,
+ 				unsigned long long sk, unsigned long long cb)
+ {
+@@ -2728,8 +2729,14 @@ static void netlink_show_one(struct filter *f,
+ 	} else {
+ 		printf("%-*d ", serv_width, pid);
+ 	}
+-	printf("%*s*%-*s",
+-	       addr_width, "", serv_width, "");
++
++	if (state == NETLINK_CONNECTED) {
++		printf("%*d:%-*d",
++		       addr_width, dst_group, serv_width, dst_pid);
++	} else {
++		printf("%*s*%-*s",
++		       addr_width, "", serv_width, "");
++	}
+ 
+ 	if (show_details) {
+ 		printf(" sk=%llx cb=%llx groups=0x%08x", sk, cb, groups);
+@@ -2764,7 +2771,7 @@ static int netlink_show(struct filter *f)
+ 		       &sk,
+ 		       &prot, &pid, &groups, &rq, &wq, &cb, &rc);
+ 
+-		netlink_show_one(f, prot, pid, groups, rq, wq, sk, cb);
++		netlink_show_one(f, prot, pid, groups, 0, 0, 0, rq, wq, sk, cb);
+ 	}
+ 
+ 	return 0;
+-- 
+1.8.1.4
