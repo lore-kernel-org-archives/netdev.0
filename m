@@ -1,52 +1,55 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Performance regression from routing cache removal?
-Date: Wed, 05 Jun 2013 13:52:15 -0700
-Message-ID: <1370465535.24311.304.camel@edumazet-glaptop>
-References: <20130605175724.GA2576@sbohrermbp13-local.rgmadvisors.com>
-	 <1370455997.24311.290.camel@edumazet-glaptop>
-	 <20130605203253.GB2576@sbohrermbp13-local.rgmadvisors.com>
+From: Ian Campbell <ian.campbell@citrix.com>
+Subject: Re: xen-netback stable backports request (regression fixes)
+Date: Wed, 5 Jun 2013 21:52:59 +0100
+Message-ID: <1370465579.6652.14.camel@hastur.hellion.org.uk>
+References: <1369734465.3469.52.camel@zakaz.uk.xensource.com>
+	 <20130605045532.GA10475@kroah.com>
+	 <1370422590.24512.135.camel@zakaz.uk.xensource.com>
+	 <20130605202502.GD13713@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:46214 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757317Ab3FEUwR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 16:52:17 -0400
-Received: by mail-pa0-f52.google.com with SMTP id bg2so1234260pad.25
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 13:52:16 -0700 (PDT)
-In-Reply-To: <20130605203253.GB2576@sbohrermbp13-local.rgmadvisors.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <stable@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	xen-devel <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130605202502.GD13713@kroah.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-06-05 at 15:32 -0500, Shawn Bohrer wrote:
-
-> Indeed it does.  So what are my options here?
+On Wed, 2013-06-05 at 13:25 -0700, Greg KH wrote: 
+> > For the first we thought that allocating a variable size array on the
+> > stack was bad practice which could lead to a stack overflow. The default
+> > is safe but can be overridden by a module parameter.
+> > 
+> > The other renames the module parameter which we thought was useful for
+> > consistency between newer kernels and the stable branches.
 > 
-> 1) Use fewer multicast addresses.  This may not be possible since in
-> some cases I don't control the incoming data/addresses.  I am running
-> a test sending the same data over ~280 vs 350 and naturally it does
-> appear to be better.
-> 
-> 2) Make that linear scan a hash lookup?  Are there any downsides or
-> reasons not to do this?
-> 
+> So you are doing a user/kernel api change in a stable branch?  Heck, you
+> did it in 3.10?  Why?  What did you just break by doing that?  I can't
+> do that to users of the stable kernels, sorry, and you shouldn't be
+> doing that to users of the 3.10 kernel either.  You should rename this
+> back so people's working systems don't break when they upgrade their
+> kernel.
 
-It can be easily done, with a threshold : 
+The module parameter was introduce after 3.9 and then renamed before
+v3.10-rc1 happened, the original name was never part of an -rc let alone
+an actual release.
 
-Above say 4 multicast addresses in the mc_list, allocate a hash table
-and populate it.
+I hadn't considered the consequences of the introduction and renaming
+getting backported to stable in separate stable releases, sorry.
 
-Nice thing is that this hash table could be dynamically reallocated,
-instead of being of fixed size, as we would keep the mc_list as well.
+I think in practise it is highly unlikely that anyone is using this
+option but equally I'd rather change the name before people do to start
+to use it.
 
-> 3) ?
+If this is a problem for stable perhaps a patch to make it accept either
+name would be useful? Seems to me like that is just deferring things a
+bit further though.
 
-One idea would be to extend IP early demux, currently handling only TCP
-sockets, to UDP sockets.
+> No worries, I've applied just the 9ecd1a75 patch.
 
-This would work if you have no more than one socket receiving traffic to
-a particular address:port, and this would avoid IP fib/dst stuff, as the
-socket would have a cache of the dst.
+Thanks,
+
+Ian.
