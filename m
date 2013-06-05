@@ -1,43 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] include/linux/skbuff.h: using '(__u16) ~0U' instead
- of '~0U'
-Date: Wed, 05 Jun 2013 01:36:01 -0700 (PDT)
-Message-ID: <20130605.013601.2203042571724866964.davem@davemloft.net>
-References: <AE90C24D6B3A694183C094C60CF0A2F6026B7263@saturn3.aculab.com>
-	<51AE89DE.60106@asianux.com>
-	<51AE8C3E.8060605@asianux.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] net: core: move mac_pton() to lib/net_utils.c
+Date: Wed, 05 Jun 2013 10:41:45 +0200
+Message-ID: <34263486.86xmxk21Lq@wuerfel>
+References: <1370364386-5034-1-git-send-email-andy.shevchenko@gmail.com> <20130604.174323.350497684225826523.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: David.Laight@ACULAB.COM, andy.shevchenko@gmail.com,
-	edumazet@google.com, pshelar@nicira.com, mgorman@suse.de,
-	akpm@linux-foundation.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, bhutchings@solarflare.com
-To: gang.chen@asianux.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: andy.shevchenko@gmail.com, gregkh@linuxfoundation.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51AE8C3E.8060605@asianux.com>
+In-Reply-To: <20130604.174323.350497684225826523.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chen Gang <gang.chen@asianux.com>
-Date: Wed, 05 Jun 2013 08:54:22 +0800
+On Tuesday 04 June 2013 17:43:23 David Miller wrote:
+> From: Andy Shevchenko <andy.shevchenko@gmail.com>
+> Date: Tue,  4 Jun 2013 19:46:26 +0300
+> 
+> > Since we have at least one user of this function outside of CONFIG_NET
+> > scope, we have to provide this function independently. The proposed
+> > solution is to move it under lib/net_utils.c with corresponding
+> > configuration variable and select wherever it is needed.
+> > 
+> > Signed-off-by: Andy Shevchenko <andy.shevchenko@gmail.com>
+> > Reported-by: Arnd Bergmann <arnd@arndb.de>
+> 
+> I do not see a mac_pton() usage under drivers/misc in any of my trees,
+> so I really am not the person to apply this.
 
-> 
-> Both 'transport_header' and 'mac_header' are __u16, which are
-> never equal to '~0U'.
-> 
-> So need use '(__u16) ~0U' instead of '~0U'.
-> 
-> The related warning (with EXTRA_CFLAGS=-W ARCH=m68k for allmodconfig)
->   include/linux/skbuff.h:1587:2: warning: comparison is always true due to limited range of data type [-Wtype-limits]
->   ...
-> 
-> Use meaningful macro instead of hard code number, and better to
-> initialize 'skb->transport_header' in __alloc_skb_head(), too.
-> 
-> 
-> 
-> Signed-off-by: Chen Gang <gang.chen@asianux.com>
+Greg merged the Andy's patch that added the usage in the char-misc tree,
+which broke yesterday's linux-next for some 'randconfig' builds.
 
-Your patch doesn't apply to the tree because this has been fixed already
-for several days by using "typeof(x) ~0U"
+Can you provide an Ack for Greg to apply the patch to his tree?
+
+	Arnd
