@@ -1,21 +1,50 @@
-From: info@uk.net
-Subject: **Short Note**
-Date: Thu, 06 Jun 2013 02:00:08 +0530
-Message-ID: <201306052021.r55HtiVq007350@lycasmtp.lycamobile.co.uk>
-Reply-To: claim.jonesgreene@hotmail.co.uk
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC PATCH net-next v2 2/3] sh_eth: add support RMIIMODE register
+Date: Thu, 06 Jun 2013 00:43:55 +0400
+Message-ID: <51AFA30B.4080809@cogentembedded.com>
+References: <1368499073-21975-1-git-send-email-horms+renesas@verge.net.au> <1368499073-21975-3-git-send-email-horms+renesas@verge.net.au> <519240C7.1060406@cogentembedded.com> <20130515005117.GC12246@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <info@uk.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:35289 "EHLO
-	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932090Ab3FEUnD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 16:43:03 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-sh@vger.kernel.org,
+	Magnus Damm <magnus.damm@gmail.com>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20130515005117.GC12246@verge.net.au>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Your Email-ID has been Granted =A31,000,000.00 Pounds in Uk National  L=
-ottery, To Receive, Send Your Name: Address: Telephone: Country to emai=
-l: claim.jonesgreene@hotmail.co.uk
+Hello.
+
+On 05/15/2013 04:51 AM, Simon Horman wrote:
+
+>>> This change is motivated by the lager board which uses the r8a7790 SoC,
+>>> an R-Car SoC. For this board setting the RMIIMODE register is necessary.
+>>> This patch assumes this is valid for all R-Car SoCs.
+>>     No, RMIIMODE register is not documented on R8A7778/9 SoCs and
+>> this location is described as reserved. How's it called in R8A7790
+>> manual, CXR15?
+> It appears to be undocumented in the R8A7790 I have.
+
+     Of the manuals I have now this register is only documented in R-Car 
+H2 user's manual 0.50,
+
+> Empirically it seems necessary for the lager/R8A7790.
+
+    The manual confirms that.
+
+> To be honest I am entirely unsure of its relevance to other SoCs.
+>
+> I wonder if a better approach would be to add a flag to platform
+> data rather than struct sh_eth_cpu_data. This would allow the register
+> to only be accessed on boards where it is known to be useful.
+
+    No, this doesn't depend on the board, judging on the H2 manual.
+You just must write it to 1 on R-Car H2 in order for Ether to operate.
+
+>
+>>> Signed-off-by: Simon Horman <horms+renesas@verge.net.au>
+>>
+WBR, Sergei
+
+
