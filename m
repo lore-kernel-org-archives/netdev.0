@@ -1,75 +1,116 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: Re: Performance regression from routing cache removal?
-Date: Wed, 5 Jun 2013 15:32:53 -0500
-Message-ID: <20130605203253.GB2576@sbohrermbp13-local.rgmadvisors.com>
-References: <20130605175724.GA2576@sbohrermbp13-local.rgmadvisors.com>
- <1370455997.24311.290.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 00/12] Netfilter/IPVS updates for net-next
+Date: Wed,  5 Jun 2013 22:40:21 +0200
+Message-ID: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:45441 "EHLO
-	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1757222Ab3FEUc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 16:32:58 -0400
-Received: by mail-ob0-f180.google.com with SMTP id eh20so3313807obb.25
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 13:32:57 -0700 (PDT)
-In-Reply-To: <1370455997.24311.290.camel@edumazet-glaptop>
-Content-Disposition: inline
+Received: from mail.us.es ([193.147.175.20]:57424 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757250Ab3FEUkr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 16:40:47 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 05, 2013 at 11:13:17AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-06-05 at 12:57 -0500, Shawn Bohrer wrote:
-> > I've got a performance regression that I've been trying to track down
-> > for the last couple of days.  The last known good kernel was 3.4 and
-> > now I'm testing 3.10 so there has been a lot of changes in between.
-> > The workload I'm testing has a single machine receiving UDP multicast
-> > packets across approximately 350 multicast groups.  We've got one
-> > socket per multicast address receiving the data.  The traffic is small
-> > packets and tends to be very bursty.  With the 3.10 kernel I'm seeing
-> > occasional spikes in one-way latency that are in the 100-500
-> > millisecond range, and regularly in the 10 millisecond range.  I've
-> > started a git bisect which has narrowed me down to:
-> > 
-> > bad f5b0a8743601a4477419171f5046bd07d1c080a0
-> > good fa0afcd10951afad2022dda09777d2bf70cdab3d
-> > 
-> > The remaining commits are all part of the routing cache removal so
-> > I've stopped my bisection for now.  I can bisect further if anyone
-> > thinks it will be valuable.
-> 
-> > 
-> > Digging through the git history the ip_check_mc_rcu appears to be the
-> > result of the routing cache removal. 
-> 
-> Yes, ip_check_mc_rcu() does a linear scan of your ~350 groups :
-> 
-> for_each_pmc_rcu(in_dev, im) {
->     if (im->multiaddr == mc_addr)
->           break;
-> }
+From: Pablo Neira Ayuso <pablo@soleta.eu>
 
-Indeed it does.  So what are my options here?
+Hi David,
 
-1) Use fewer multicast addresses.  This may not be possible since in
-some cases I don't control the incoming data/addresses.  I am running
-a test sending the same data over ~280 vs 350 and naturally it does
-appear to be better.
+The following patchset contains the first batch of
+Netfilter/IPVS updates for your net-next tree, they are:
 
-2) Make that linear scan a hash lookup?  Are there any downsides or
-reasons not to do this?
+* Three patches with improvements and code refactorization
+  for nfnetlink_queue, from Florian Westphal.
 
-3) ?
+* FTP helper now parses replies without brackets, as RFC1123
+  recommends, from Jeff Mahoney.
 
-Thanks,
-Shawn
+* Rise a warning to tell everyone about ULOG deprecation,
+  NFLOG has been already in the kernel tree for long time
+  and supersedes the old logging over netlink stub, from
+  myself.
 
--- 
+* Don't panic if we fail to load netfilter core framework,
+  just bail out instead, from myself.
 
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+* Add cond_resched_rcu, used by IPVS to allow rescheduling
+  while walking over big hashtables, from Simon Horman.
+
+* Change type of IPVS sysctl_sync_qlen_max sysctl to avoid
+  possible overflow, from Zhang Yanfei.
+
+* Use strlcpy instead of strncpy to skip zeroing of already
+  initialized area to write the extension names in ebtables,
+  from Chen Gang.
+
+* Use already existing per-cpu notrack object from xt_CT,
+  from Eric Dumazet.
+
+* Save explicit socket lookup in xt_socket now that we have
+  early demux, also from Eric Dumazet.
+
+You can pull these changes from:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+Thanks!
+
+----------------------------------------------------------------
+
+The following changes since commit 8892475386e819aa50856947948c546ccc964d96:
+
+  ipv6: use ipv6_addr_scope() helper (2013-05-23 01:17:47 -0700)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf-next.git master
+
+for you to fetch changes up to 7f87712c0152511a1842698ad8dca425fee2dc4f:
+
+  netfilter: nfnetlink_queue: only add CAP_LEN attr when needed (2013-06-05 12:40:54 +0200)
+
+----------------------------------------------------------------
+Chen Gang (1):
+      bridge: netfilter: using strlcpy() instead of strncpy()
+
+Eric Dumazet (2):
+      netfilter: xt_CT: optimize XT_CT_NOTRACK
+      netfilter: xt_socket: use IP early demux
+
+Florian Westphal (3):
+      netfilter: nfnetlink_queue: avoid peer_portid test
+      netfilter: nfnetlink_queue: cleanup copy_range usage
+      netfilter: nfnetlink_queue: only add CAP_LEN attr when needed
+
+Jeff Mahoney (1):
+      netfilter: Implement RFC 1123 for FTP conntrack
+
+Pablo Neira Ayuso (2):
+      netfilter: don't panic on error while walking through the init path
+      netfilter: {ipt,ebt}_ULOG: rise warning on deprecation
+
+Simon Horman (2):
+      sched: add cond_resched_rcu() helper
+      ipvs: use cond_resched_rcu() helper when walking connections
+
+Zhang Yanfei (1):
+      ipvs: change type of netns_ipvs->sysctl_sync_qlen_max
+
+ include/linux/netfilter.h            |    2 +-
+ include/linux/sched.h                |    9 +++++
+ include/net/ip_vs.h                  |    8 ++--
+ include/net/netns/x_tables.h         |    6 +++
+ net/bridge/netfilter/ebt_ulog.c      |    6 +++
+ net/bridge/netfilter/ebtables.c      |    6 +--
+ net/ipv4/netfilter/Kconfig           |    2 +-
+ net/ipv4/netfilter/ipt_ULOG.c        |    6 +++
+ net/netfilter/core.c                 |   21 +++++++---
+ net/netfilter/ipvs/ip_vs_conn.c      |   23 ++++-------
+ net/netfilter/ipvs/ip_vs_ctl.c       |    4 +-
+ net/netfilter/nf_conntrack_ftp.c     |   73 +++++++++++++++++++++++++---------
+ net/netfilter/nf_log.c               |    5 +--
+ net/netfilter/nfnetlink_queue_core.c |   29 +++++++-------
+ net/netfilter/xt_CT.c                |   10 +++--
+ net/netfilter/xt_socket.c            |   26 +++++++-----
+ net/socket.c                         |    4 +-
+ 17 files changed, 155 insertions(+), 85 deletions(-)
