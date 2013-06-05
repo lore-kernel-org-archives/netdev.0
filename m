@@ -1,82 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
+From: Willem de Bruijn <willemb@google.com>
 Subject: Re: [PATCH v9 net-next 2/7] net: add low latency socket poll
-Date: Wed, 05 Jun 2013 08:21:54 -0700
-Message-ID: <1370445714.24311.268.camel@edumazet-glaptop>
+Date: Wed, 5 Jun 2013 11:28:24 -0400
+Message-ID: <CA+FuTSevn9Tv41tcoWK7+w6ePEu3woy20GOrWY3rwOPZUhF6kQ@mail.gmail.com>
 References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
-	 <20130605103421.11172.82925.stgit@ladj378.jer.intel.com>
+ <20130605103421.11172.82925.stgit@ladj378.jer.intel.com> <1370438602.24311.243.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	David Miller <davem@davemloft.net>,
+	linux-kernel <linux-kernel@vger.kernel.org>,
 	netdev@vger.kernel.org,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
+	e1000-devel <e1000-devel@lists.sourceforge.net>,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
 	Eilon Greenstien <eilong@broadcom.com>,
 	Or Gerlitz <or.gerlitz@gmail.com>,
 	Amir Vadai <amirv@mellanox.com>,
 	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130605103421.11172.82925.stgit@ladj378.jer.intel.com>
+In-Reply-To: <1370438602.24311.243.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
+On Wed, Jun 5, 2013 at 9:23 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
+>> Adds an ndo_ll_poll method and the code that supports it.
+>> This method can be used by low latency applications to busy-poll
+>> Ethernet device queues directly from the socket code.
+>> sysctl_net_ll_poll controls how many microseconds to poll.
+>> Default is zero (disabled).
+>> Individual protocol support will be added by subsequent patches.
+>>
+>> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+>> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Tested-by: Willem de Bruijn <willemb@google.com>
+>> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+>> ---
+>
+> Are you sure this version was tested by Willem ?
 
+I hadn't tested the latest revisions, indeed. Am testing this one right now.
 
-This is probably too big to be inlined, and nonblock should be a bool
-
-
-It would also make sense to give end_time as a parameter, so that the
-polling() code could really give  a end_time for the whole duration of
-poll().
-
-(You then should test can_poll_ll(end_time) _before_ call to
-ndo_ll_poll())
-
-
-> +static inline bool sk_poll_ll(struct sock *sk, int nonblock)
-> +{
-> +	cycles_t end_time = ll_end_time();
-> +	const struct net_device_ops *ops;
-> +	struct napi_struct *napi;
-> +	int rc = false;
-> +
-> +	/*
-> +	 * rcu read lock for napi hash
-> +	 * bh so we don't race with net_rx_action
-> +	 */
-> +	rcu_read_lock_bh();
-> +
-> +	napi = napi_by_id(sk->sk_napi_id);
-> +	if (!napi)
-> +		goto out;
-> +
-> +	ops = napi->dev->netdev_ops;
-> +	if (!ops->ndo_ll_poll)
-> +		goto out;
-> +
-> +	do {
-> +
-> +		rc = ops->ndo_ll_poll(napi);
-> +
-> +		if (rc == LL_FLUSH_FAILED)
-> +			break; /* permanent failure */
-> +
-> +		if (rc > 0)
-> +			/* local bh are disabled so it is ok to use _BH */
-> +			NET_ADD_STATS_BH(sock_net(sk),
-> +					 LINUX_MIB_LOWLATENCYRXPACKETS, rc);
-> +
-> +	} while (skb_queue_empty(&sk->sk_receive_queue)
-> +			&& can_poll_ll(end_time) && !nonblock);
-> +
-> +	rc = !skb_queue_empty(&sk->sk_receive_queue);
-> +out:
-> +	rcu_read_unlock_bh();
-> +	return rc;
-> +}
+> Acked-by: Eric Dumazet <edumazet@google.com>
+>
+>
+>
