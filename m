@@ -1,16 +1,17 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH v9 net-next 5/7] net: simple poll/select
  low latency socket poll
-Date: Wed, 05 Jun 2013 06:56:47 -0700
-Message-ID: <1370440607.24311.251.camel@edumazet-glaptop>
+Date: Wed, 05 Jun 2013 07:00:08 -0700
+Message-ID: <1370440808.24311.254.camel@edumazet-glaptop>
 References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
 	<20130605103452.11172.31453.stgit@ladj378.jer.intel.com>
 	<1370439054.24311.248.camel@edumazet-glaptop>
-	<51AF401C.2030506@linux.intel.com>
+	<AE90C24D6B3A694183C094C60CF0A2F6026B7270@saturn3.aculab.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Cc: Willem de Bruijn <willemb@google.com>, Don,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
 	Or Gerlitz <or.gerlitz@gmail.com>,
 	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
 	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
@@ -19,9 +20,9 @@ Cc: Willem de Bruijn <willemb@google.com>, Don,
 	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
 	Ben Hutchings <bhutchings@solarflare.com>,
 	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <51AF401C.2030506@linux.intel.com>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7270@saturn3.aculab.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -32,51 +33,21 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-06-05 at 16:41 +0300, Eliezer Tamir wrote:
-> On 05/06/2013 16:30, Eric Dumazet wrote:
-> > On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
-> >> A very naive select/poll busy-poll support.
-> >> Add busy-polling to sock_poll().
-> >> When poll/select have nothing to report, call the low-level
-> >> sock_poll() again until we are out of time or we find something.
-> >> Right now we poll every socket once, this is suboptimal
-> >> but improves latency when the number of sockets polled is not large.
-> >>
-> >> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
-> >> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> >> Tested-by: Willem de Bruijn <willemb@google.com>
-> >> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> >> ---
-> >
+On Wed, 2013-06-05 at 14:49 +0100, David Laight wrote:
 > > I am a bit uneasy with this one, because an applicatio polling() on one
 > > thousand file descriptors using select()/poll(), will call sk_poll_ll()
 > > one thousand times.
 > 
-> But we call sk_poll_ll() with nonblock set, so it will only test once
-> for each socket and not loop.
+> Anything calling poll() on 1000 fds probably has performance
+> issues already! Which is why kevent schemes have been added.
 > 
-> I think this is not as bad as it sounds.
-> We still honor the time limit on how long to poll.
-> 
-> When we busy-wait on a single socket we call sk_poll_ll() repeatedly
-> until we timeout or we have something to report.
-> 
-> Here on the other hand, we sk_poll_ll() once for each file, so we loop 
-> on the files. We moved the loop from inside sk_poll_ll to select/poll.
-> 
-> I also plan on improving this this in the next stage.
-> 
-> The plan is to give control on whether sk_poll_ll is called to
-> select/poll/epoll, so the caller has even more control.
 
-This looks quite easy, by adding in include/uapi/asm-generic/poll.h
+You'll be surprised but many applications still use poll(),
+and not epoll() or whatever OS specific interface, because they
+are non portable or buggy. (I played with FreeBSD and kevent crashed
+easily at 64,000 fds, while the epoll() version reached 4,000,000 fds
+with no problems)
 
-#define POLL_LL 0x8000
-
-And do the sk_poll_ll() call only if flag is set.
-
-I do not think we have to support select(), as its legacy interface, and
-people wanting ll should really use epoll() or poll().
 
 
 
