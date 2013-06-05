@@ -1,93 +1,72 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 03/10] vxlan: move IGMP join/leave to work
- queue
-Date: Wed, 5 Jun 2013 08:42:03 -0700
-Message-ID: <20130605084203.77dad08a@nehalam.linuxnetplumber.net>
-References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
-	<1370406254-6341-3-git-send-email-stephen@networkplumber.org>
-	<kommuo$ma8$1@ger.gmane.org>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v9 net-next 2/7] net: add low latency
+	socket poll
+Date: Wed, 05 Jun 2013 18:46:34 +0300
+Message-ID: <51AF5D5A.8030907@linux.intel.com>
+References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
+	<20130605103421.11172.82925.stgit@ladj378.jer.intel.com>
+	<1370445714.24311.268.camel@edumazet-glaptop>
+	<51AF59B0.6080101@linux.intel.com>
+	<1370446760.24311.275.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:33400 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755836Ab3FEPmH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 11:42:07 -0400
-Received: by mail-pb0-f51.google.com with SMTP id um15so1948092pbc.24
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:42:07 -0700 (PDT)
-In-Reply-To: <kommuo$ma8$1@ger.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1370446760.24311.275.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Wed, 5 Jun 2013 06:47:52 +0000 (UTC)
-Cong Wang <xiyou.wangcong@gmail.com> wrote:
+On 05/06/2013 18:39, Eric Dumazet wrote:
+> On Wed, 2013-06-05 at 18:30 +0300, Eliezer Tamir wrote:
+>> On 05/06/2013 18:21, Eric Dumazet wrote:
 
-> On Wed, 05 Jun 2013 at 04:24 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
-> > Do join/leave from work queue to avoid lock inversion problems
-> > between normal socket and RTNL. The code comes out cleaner
-> > as well.
-> >
-> > Uses Cong Wang's suggestion to turn refcnt into a real atomic
-> > since now need to handle case where last use of socket is IGMP
-> > worker.
-> >
-> > Also fixes race where vxlan_stop could be called after
-> > device was deleted on module removal. The call to rtnl_link_unregister
-> > would call dellink while vxlan device was still up. Reordering
-> > the calls fixes it.
-> >
-> 
-> After the first 3 patches applied, I got:
-> 
-> [   55.010954] general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC
-> [   55.013309] CPU: 1 PID: 163 Comm: kworker/1:2 Not tainted
-> 3.10.0-rc2+ #1150
-> [   55.013309] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-> [   55.013309] Workqueue: events vxlan_igmp_work
-> [   55.013309] task: ffff880070eac900 ti: ffff8800716d4000 task.ti:
-> ffff8800716d4000
-> [   55.013309] RIP: 0010:[<ffffffff815df704>]  [<ffffffff815df704>]
-> vxlan_sock_release+0x25/0x55
-> [   55.013309] RSP: 0018:ffff8800716d5cf8  EFLAGS: 00010246
-> [   55.013309] RAX: 0000000000000000 RBX: ffff88006fd7c000 RCX:
-> 0000000ccee84d06
-> [   55.013309] RDX: dead000000200200 RSI: ffff880070ead048 RDI:
-> ffff88006fd7c070
-> [   55.013309] RBP: ffff8800716d5d08 R08: 0000000000000000 R09:
-> ffff8800716d5c48
-> [   55.013309] R10: 000000000000b6c4 R11: 000000000000b163 R12:
-> ffff88006ebb7400
-> [   55.013309] R13: ffff88006fd7c000 R14: ffff8800723b4520 R15:
-> 0000000000000000
-> [   55.013309] FS:  0000000000000000(0000) GS:ffff88007f800000(0000)
-> knlGS:0000000000000000
-> [   55.013309] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> [   55.013309] CR2: 00007fa99dc0a000 CR3: 0000000070c17000 CR4:
-> 00000000000006e0
-> [   55.013309] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-> 0000000000000000
-> [   55.013309] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-> 0000000000000400
-> [   55.013309] Stack:
-> [   55.013309]  ffff880070eac900 ffff880070fc0b58 ffff8800716d5d48
-> ffffffff815e0a73
-> [   55.013309]  080808e0716d5d28 0000000f00000000 ffff8800714ef008
-> ffff880070fc0b58
-> [   55.013309]  ffff88007f9d6200 ffff88007f9d38c0 ffff8800716d5de8
-> ffffffff8106872f
-> [   55.013309] Call Trace:
-> [   55.013309]  [<ffffffff815e0a73>] vxlan_igmp_work+0xa8/0xcf
-> [   55.013309]  [<ffffffff8106872f>] process_one_work+0x240/0x408
-> [   55.013309]  [<ffffffff81068662>] ? process_one_work+0x173/0x408
-> [   55.013309]  [<ffffffff81068c82>] worker_thread+0x15d/0x1f1
-> [   55.013309]  [<ffffffff81068b25>] ? rescuer_thread+0x1ff/0x1ff
-> [   55.013309]  [<ffffffff81070c19>] kthread+0xb1/0xb9
-> [   55.013309]  [<ffffffff81070b68>] ? freezing+0x17/0x17
-> [   55.013309]  [<ffffffff81976bdc>] ret_from_fork+0x7c/0xb0
-> [   55.013309]  [<ffffffff81070b68>] ? freezing+0x17/0x17
-> 
+>>> It would also make sense to give end_time as a parameter, so that the
+>>> polling() code could really give  a end_time for the whole duration of
+>>> poll().
+>>>
+>>> (You then should test can_poll_ll(end_time) _before_ call to
+>>> ndo_ll_poll())
+>>
+>> how would you handle a nonblocking operation in that case?
+>> I guess if we have a socket option, then we don't need to handle none
+>> blocking any diffrent, since the user specified exactly how much time to
+>> waste polling. right?
+>
+> If the thread already spent 50us in the poll() system call, it for sure
+> should not call any ndo_ll_poll(). This makes no more sense at this
+> point.
 
-What was the order of events (ie. what did you do to make it happen)?
+what about a non-blocking read from a socket?
+Right now we assume this means poll only once since the application will 
+repeat as needed.
+
+maybe add a "once" parameter that will cause sk_poll_ll() to ignore end 
+time and only try once?
+
+------------------------------------------------------------------------------
+How ServiceNow helps IT people transform IT departments:
+1. A cloud service to automate IT design, transition and operations
+2. Dashboards that offer high-level views of enterprise services
+3. A single system of record for all IT processes
+http://p.sf.net/sfu/servicenow-d2d-j
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
