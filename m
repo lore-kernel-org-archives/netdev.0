@@ -1,50 +1,56 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH net-next 02/10] vxlan: handle skb_clone failure
-Date: Wed, 5 Jun 2013 10:05:51 -0400
-Message-ID: <OF0B8CEFF8.C94A266F-ON85257B81.004D331F-85257B81.004D7015@us.ibm.com>
-References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org> <1370406254-6341-2-git-send-email-stephen@networkplumber.org> <komnlc$ma8$2@ger.gmane.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@vger.kernel.org, netdev-owner@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:51967 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754536Ab3FEOGQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 10:06:16 -0400
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Wed, 5 Jun 2013 08:06:14 -0600
-In-Reply-To: <komnlc$ma8$2@ger.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCHv4 net-next 0/2] Add two new flags to bridge.
+Date: Wed,  5 Jun 2013 10:07:59 -0400
+Message-ID: <1370441281-11281-1-git-send-email-vyasevic@redhat.com>
+Cc: Vlad Yasevich <vyasevic@redhat.com>, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org
+To: netdev@vger.kernel.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-netdev-owner@vger.kernel.org wrote on 06/05/2013 02:59:56 AM:
+The following series adds 2 new flags to bridge.  One flag allows
+the user to control whether mac learning is performed on the interface
+or not.  By default mac learning is on.
+The other flag allows the user to control whether unicast traffic
+is flooded (send without an fdb) to a given unicast port.  Default is
+on.
 
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> To: netdev@vger.kernel.org
-> Date: 06/05/2013 03:00 AM
-> Subject: Re: [PATCH net-next 02/10] vxlan: handle skb_clone failure
-> Sent by: netdev-owner@vger.kernel.org
-> 
-> On Wed, 05 Jun 2013 at 04:24 GMT, Stephen Hemminger 
-> <stephen@networkplumber.org> wrote:
-> >        skb1 = skb_clone(skb, GFP_ATOMIC);
-> > -      rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
-> > -      if (rc == NETDEV_TX_OK)
-> > -         rc = rc1;
-> > +      if (skb1) {
-> > +         rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
-> > +         if (rc == NETDEV_TX_OK)
-> > +            rc = rc1;
-> > +      }
-> 
-> If OOM, shouldn't we exit immediately instead of continue handle the
-> next one?
+Changes since v4:
+ - Implemented Stephen's suggestions.
 
-It could be a temporary condition; trying again doesn't really hurt,
-in case some do go through. So, I prefer this, but could live with
-bailing for all destinations, too.
+Changes since v2:
+ - removed unused "unlock" tag.
 
-                                                        +-DLS
+Changes since v1:
+ - Integrated suggestion from MST to not impact RTM_NEWNEIGH and to
+   skip lookups when learning is disabled.
+
+Vlad Yasevich (2):
+  bridge: Add flag to control mac learning.
+  bridge: Add a flag to control unicast packet flood.
+
+Vlad Yasevich (2):
+  bridge: Add flag to control mac learning.
+  bridge: Add a flag to control unicast packet flood.
+
+ include/uapi/linux/if_link.h |    2 ++
+ net/bridge/br_device.c       |    8 ++++----
+ net/bridge/br_forward.c      |   14 +++++++++-----
+ net/bridge/br_if.c           |    2 +-
+ net/bridge/br_input.c        |   15 ++++++++++-----
+ net/bridge/br_netlink.c      |   10 +++++++++-
+ net/bridge/br_private.h      |    7 +++++--
+ net/bridge/br_sysfs_if.c     |    4 ++++
+ 8 files changed, 44 insertions(+), 18 deletions(-)
+
+-- 
+1.7.7.6
