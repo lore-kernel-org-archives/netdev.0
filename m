@@ -1,43 +1,37 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH] usbnet: improve/fix status interrupt endpoint interval
-Date: Wed, 05 Jun 2013 08:06:05 +0200
-Message-ID: <7493213.1jnuhRJXML@linux-5eaq.site>
-References: <20130604182830.GA13186@rhlx01.hs-esslingen.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 01/10] vxlan: only migrate dynamic FDB entries
+Date: Wed, 5 Jun 2013 06:23:47 +0000 (UTC)
+Message-ID: <komlhj$aca$1@ger.gmane.org>
+References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	OndrejZary <linux@rainbow-software.org>,
-	Ming Lei <ming.lei@canonical.com>
-To: Andreas Mohr <andi@lisas.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130604182830.GA13186@rhlx01.hs-esslingen.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:43584 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751268Ab3FEGYM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 02:24:12 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Uk78l-0006zU-Iz
+	for netdev@vger.kernel.org; Wed, 05 Jun 2013 08:24:11 +0200
+Received: from 60.160.70.221 ([60.160.70.221])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:24:11 +0200
+Received: from xiyou.wangcong by 60.160.70.221 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:24:11 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday 04 June 2013 20:28:30 Andreas Mohr wrote:
-> 
-> From 307685fe8e6dfc8181e30167b9c31479332cb22f Mon Sep 17 00:00:00 2001
-> From: Andreas Mohr <andim2@users.sourceforge.net>
-> Date: Sun, 2 Jun 2013 20:37:05 +0200
-> Subject: [PATCH] usbnet: improve/fix status interrupt endpoint interval
->  tweaking.
-> 
-> - failed to take super-speed into account
-> - <= full-speed seems to have wrong value (specified as frames [ms],
->   thus 3 is not suitable to achieve 8ms)
->   Value 8 now managed to reduce powertop wakeups from ~ 540 to ~ 155
-> - add detailed docs and question marks about current practice
-> ---
->  drivers/net/usb/usbnet.c |   17 ++++++++++++++++-
->  1 file changed, 16 insertions(+), 1 deletion(-)
-> 
-> 
-> Found this with MCS7830 on a full-speed USB 1.1 port (Inspiron 8000).
-> Good to have a rusty notebook with noisy PSU coils, else it would
-> have taken a lot longer to nail it ;)
-> Tested on -rc4, checkpath.pl:d.
-> 
-> Signed-off-by: Andreas Mohr <andim2@users.sourceforge.net>
-Acked-by: Oliver Neukum <oliver@neukum.org>
+On Wed, 05 Jun 2013 at 04:24 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> Only migrate dynamic forwarding table entries, don't modify
+> static entries. If packet received from incorrect source IP address
+> assume it is an imposter and drop it.
+>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>
+
+Nitpick: return bool instead of int
