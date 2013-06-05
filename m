@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 05/12] netfilter: {ipt,ebt}_ULOG: rise warning on deprecation
-Date: Wed,  5 Jun 2013 22:40:26 +0200
-Message-ID: <1370464832-4216-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 06/12] sched: add cond_resched_rcu() helper
+Date: Wed,  5 Jun 2013 22:40:27 +0200
+Message-ID: <1370464832-4216-7-git-send-email-pablo@netfilter.org>
 References: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,81 +10,59 @@ In-Reply-To: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This target has been superseded by NFLOG. Spot a warning
-so we prepare removal in a couple of years.
+From: Simon Horman <horms@verge.net.au>
 
+This is intended for use in loops which read data protected by RCU and may
+have a large number of iterations.  Such an example is dumping the list of
+connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+
+The benefits are for CONFIG_PREEMPT_RCU=y where we save CPU cycles
+by moving rcu_read_lock and rcu_read_unlock out of large loops
+but still allowing the current task to be preempted after every
+loop iteration for the CONFIG_PREEMPT_RCU=n case.
+
+The call to cond_resched() is not needed when CONFIG_PREEMPT_RCU=y.
+Thanks to Paul E. McKenney for explaining this and for the
+final version that checks the context with CONFIG_DEBUG_ATOMIC_SLEEP=y
+for all possible configurations.
+
+The function can be empty in the CONFIG_PREEMPT_RCU case,
+rcu_read_lock and rcu_read_unlock are not needed in this case
+because the task can be preempted on indication from scheduler.
+Thanks to Peter Zijlstra for catching this and for his help
+in trying a solution that changes __might_sleep.
+
+Initial cond_resched_rcu_lock() function suggested by Eric Dumazet.
+
+Tested-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+Acked-by: Peter Zijlstra <peterz@infradead.org>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-Acked-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- include/net/netns/x_tables.h    |    6 ++++++
- net/bridge/netfilter/ebt_ulog.c |    6 ++++++
- net/ipv4/netfilter/Kconfig      |    2 +-
- net/ipv4/netfilter/ipt_ULOG.c   |    6 ++++++
- 4 files changed, 19 insertions(+), 1 deletion(-)
+ include/linux/sched.h |    9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/include/net/netns/x_tables.h b/include/net/netns/x_tables.h
-index c24060e..02fe40f 100644
---- a/include/net/netns/x_tables.h
-+++ b/include/net/netns/x_tables.h
-@@ -15,5 +15,11 @@ struct netns_xt {
- 	struct ebt_table *frame_filter;
- 	struct ebt_table *frame_nat;
- #endif
-+#if IS_ENABLED(CONFIG_IP_NF_TARGET_ULOG)
-+	bool ulog_warn_deprecated;
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 178a8d9..4ff8da1 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -2444,6 +2444,15 @@ extern int __cond_resched_softirq(void);
+ 	__cond_resched_softirq();					\
+ })
+ 
++static inline void cond_resched_rcu(void)
++{
++#if defined(CONFIG_DEBUG_ATOMIC_SLEEP) || !defined(CONFIG_PREEMPT_RCU)
++	rcu_read_unlock();
++	cond_resched();
++	rcu_read_lock();
 +#endif
-+#if IS_ENABLED(CONFIG_BRIDGE_EBT_ULOG)
-+	bool ebt_ulog_warn_deprecated;
-+#endif
- };
- #endif
-diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
-index fc1905c..2ec6c19 100644
---- a/net/bridge/netfilter/ebt_ulog.c
-+++ b/net/bridge/netfilter/ebt_ulog.c
-@@ -267,6 +267,12 @@ static int ebt_ulog_tg_check(const struct xt_tgchk_param *par)
- {
- 	struct ebt_ulog_info *uloginfo = par->targinfo;
- 
-+	if (!par->net->xt.ebt_ulog_warn_deprecated) {
-+		pr_info("ebt_ulog is deprecated and it will be removed soon, "
-+			"use ebt_nflog instead\n");
-+		par->net->xt.ebt_ulog_warn_deprecated = true;
-+	}
++}
 +
- 	if (uloginfo->nlgroup > 31)
- 		return -EINVAL;
- 
-diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
-index e7916c1..4e90280 100644
---- a/net/ipv4/netfilter/Kconfig
-+++ b/net/ipv4/netfilter/Kconfig
-@@ -111,7 +111,7 @@ config IP_NF_TARGET_REJECT
- 	  To compile it as a module, choose M here.  If unsure, say N.
- 
- config IP_NF_TARGET_ULOG
--	tristate "ULOG target support"
-+	tristate "ULOG target support (obsolete)"
- 	default m if NETFILTER_ADVANCED=n
- 	---help---
- 
-diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
-index f8a222cb..c1953d0 100644
---- a/net/ipv4/netfilter/ipt_ULOG.c
-+++ b/net/ipv4/netfilter/ipt_ULOG.c
-@@ -325,6 +325,12 @@ static int ulog_tg_check(const struct xt_tgchk_param *par)
- {
- 	const struct ipt_ulog_info *loginfo = par->targinfo;
- 
-+	if (!par->net->xt.ulog_warn_deprecated) {
-+		pr_info("ULOG is deprecated and it will be removed soon, "
-+			"use NFLOG instead\n");
-+		par->net->xt.ulog_warn_deprecated = true;
-+	}
-+
- 	if (loginfo->prefix[sizeof(loginfo->prefix) - 1] != '\0') {
- 		pr_debug("prefix not null-terminated\n");
- 		return -EINVAL;
+ /*
+  * Does a critical section need to be broken due to another
+  * task waiting?: (technically does not depend on CONFIG_PREEMPT,
 -- 
 1.7.10.4
 
