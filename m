@@ -1,113 +1,94 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 07/12] ipvs: use cond_resched_rcu() helper when walking connections
-Date: Wed,  5 Jun 2013 22:40:28 +0200
-Message-ID: <1370464832-4216-8-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 08/12] ipvs: change type of netns_ipvs->sysctl_sync_qlen_max
+Date: Wed,  5 Jun 2013 22:40:29 +0200
+Message-ID: <1370464832-4216-9-git-send-email-pablo@netfilter.org>
 References: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57469 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:57480 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932120Ab3FEUlA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 16:41:00 -0400
+	id S932182Ab3FEUlD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 16:41:03 -0400
 In-Reply-To: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
+From: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
 
-This avoids the situation where walking of a large number of connections
-may prevent scheduling for a long time while also avoiding excessive
-calls to rcu_read_unlock() and rcu_read_lock().
+This member of struct netns_ipvs is calculated from nr_free_buffer_pages
+so change its type to unsigned long in case of overflow.  Also, type of
+its related proc var sync_qlen_max and the return type of function
+sysctl_sync_qlen_max() should be changed to unsigned long, too.
 
-Note that in the case of !CONFIG_PREEMPT_RCU this will
-add a call to cond_resched().
+Besides, the type of ipvs_master_sync_state->sync_queue_len should be
+changed to unsigned long accordingly.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Zhang Yanfei <zhangyanfei@cn.fujitsu.com>
+Cc: Julian Anastasov <ja@ssi.bg>
+Cc: David Miller <davem@davemloft.net>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
 Signed-off-by: Simon Horman <horms@verge.net.au>
-Acked-by: Peter Zijlstra <peterz@infradead.org>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_conn.c |   23 ++++++++---------------
- 1 file changed, 8 insertions(+), 15 deletions(-)
+ include/net/ip_vs.h            |    8 ++++----
+ net/netfilter/ipvs/ip_vs_ctl.c |    4 ++--
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index a083bda..c8c52a9 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -975,8 +975,7 @@ static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
- 				return cp;
- 			}
- 		}
--		rcu_read_unlock();
--		rcu_read_lock();
-+		cond_resched_rcu();
- 	}
- 
- 	return NULL;
-@@ -1015,8 +1014,7 @@ static void *ip_vs_conn_seq_next(struct seq_file *seq, void *v, loff_t *pos)
- 			iter->l = &ip_vs_conn_tab[idx];
- 			return cp;
- 		}
--		rcu_read_unlock();
--		rcu_read_lock();
-+		cond_resched_rcu();
- 	}
- 	iter->l = NULL;
- 	return NULL;
-@@ -1206,17 +1204,13 @@ void ip_vs_random_dropentry(struct net *net)
- 	int idx;
- 	struct ip_vs_conn *cp, *cp_c;
- 
-+	rcu_read_lock();
- 	/*
- 	 * Randomly scan 1/32 of the whole table every second
- 	 */
- 	for (idx = 0; idx < (ip_vs_conn_tab_size>>5); idx++) {
- 		unsigned int hash = net_random() & ip_vs_conn_tab_mask;
- 
--		/*
--		 *  Lock is actually needed in this loop.
--		 */
--		rcu_read_lock();
--
- 		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[hash], c_list) {
- 			if (cp->flags & IP_VS_CONN_F_TEMPLATE)
- 				/* connection template */
-@@ -1252,8 +1246,9 @@ void ip_vs_random_dropentry(struct net *net)
- 				__ip_vs_conn_put(cp);
- 			}
- 		}
--		rcu_read_unlock();
-+		cond_resched_rcu();
- 	}
-+	rcu_read_unlock();
+diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
+index 4c062cc..4405886 100644
+--- a/include/net/ip_vs.h
++++ b/include/net/ip_vs.h
+@@ -905,7 +905,7 @@ struct ip_vs_app {
+ struct ipvs_master_sync_state {
+ 	struct list_head	sync_queue;
+ 	struct ip_vs_sync_buff	*sync_buff;
+-	int			sync_queue_len;
++	unsigned long		sync_queue_len;
+ 	unsigned int		sync_queue_delay;
+ 	struct task_struct	*master_thread;
+ 	struct delayed_work	master_wakeup_work;
+@@ -998,7 +998,7 @@ struct netns_ipvs {
+ 	int			sysctl_snat_reroute;
+ 	int			sysctl_sync_ver;
+ 	int			sysctl_sync_ports;
+-	int			sysctl_sync_qlen_max;
++	unsigned long		sysctl_sync_qlen_max;
+ 	int			sysctl_sync_sock_size;
+ 	int			sysctl_cache_bypass;
+ 	int			sysctl_expire_nodest_conn;
+@@ -1085,7 +1085,7 @@ static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
+ 	return ACCESS_ONCE(ipvs->sysctl_sync_ports);
  }
  
+-static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
++static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
+ {
+ 	return ipvs->sysctl_sync_qlen_max;
+ }
+@@ -1138,7 +1138,7 @@ static inline int sysctl_sync_ports(struct netns_ipvs *ipvs)
+ 	return 1;
+ }
  
-@@ -1267,11 +1262,8 @@ static void ip_vs_conn_flush(struct net *net)
- 	struct netns_ipvs *ipvs = net_ipvs(net);
- 
- flush_again:
-+	rcu_read_lock();
- 	for (idx = 0; idx < ip_vs_conn_tab_size; idx++) {
--		/*
--		 *  Lock is actually needed in this loop.
--		 */
--		rcu_read_lock();
- 
- 		hlist_for_each_entry_rcu(cp, &ip_vs_conn_tab[idx], c_list) {
- 			if (!ip_vs_conn_net_eq(cp, net))
-@@ -1286,8 +1278,9 @@ flush_again:
- 				__ip_vs_conn_put(cp);
- 			}
- 		}
--		rcu_read_unlock();
-+		cond_resched_rcu();
- 	}
-+	rcu_read_unlock();
- 
- 	/* the counter may be not NULL, because maybe some conn entries
- 	   are run by slow timer handler or unhashed but still referred */
+-static inline int sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
++static inline unsigned long sysctl_sync_qlen_max(struct netns_ipvs *ipvs)
+ {
+ 	return IPVS_SYNC_QLEN_MAX;
+ }
+diff --git a/net/netfilter/ipvs/ip_vs_ctl.c b/net/netfilter/ipvs/ip_vs_ctl.c
+index 5b142fb..7014649 100644
+--- a/net/netfilter/ipvs/ip_vs_ctl.c
++++ b/net/netfilter/ipvs/ip_vs_ctl.c
+@@ -1716,9 +1716,9 @@ static struct ctl_table vs_vars[] = {
+ 	},
+ 	{
+ 		.procname	= "sync_qlen_max",
+-		.maxlen		= sizeof(int),
++		.maxlen		= sizeof(unsigned long),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec,
++		.proc_handler	= proc_doulongvec_minmax,
+ 	},
+ 	{
+ 		.procname	= "sync_sock_size",
 -- 
 1.7.10.4
