@@ -1,8 +1,8 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v9 net-next 4/7] tcp: add low latency socket
-	poll support.
-Date: Wed, 05 Jun 2013 13:34:41 +0300
-Message-ID: <20130605103441.11172.83787.stgit@ladj378.jer.intel.com>
+Subject: [PATCH v9 net-next 5/7] net: simple poll/select low
+ latency socket poll
+Date: Wed, 05 Jun 2013 13:34:52 +0300
+Message-ID: <20130605103452.11172.31453.stgit@ladj378.jer.intel.com>
 References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,11 +28,12 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Adds low latency socket poll support for TCP.
-In tcp_v[46]_rcv() add a call to sk_mark_ll() to copy the napi_id
-from the skb to the sk.
-In tcp_recvmsg(), when there is no data in the socket we busy-poll.
-This is a good example of how to add busy-poll support to more protocols.
+A very naive select/poll busy-poll support.
+Add busy-polling to sock_poll().
+When poll/select have nothing to report, call the low-level
+sock_poll() again until we are out of time or we find something.
+Right now we poll every socket once, this is suboptimal
+but improves latency when the number of sockets polled is not large.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
@@ -40,74 +41,83 @@ Tested-by: Willem de Bruijn <willemb@google.com>
 Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 ---
 
- net/ipv4/tcp.c      |    5 +++++
- net/ipv4/tcp_ipv4.c |    2 ++
- net/ipv6/tcp_ipv6.c |    2 ++
- 3 files changed, 9 insertions(+), 0 deletions(-)
+ fs/select.c  |    7 +++++++
+ net/socket.c |   10 +++++++++-
+ 2 files changed, 16 insertions(+), 1 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index b5d4ad9..bf09f6b 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -279,6 +279,7 @@
- 
- #include <asm/uaccess.h>
- #include <asm/ioctls.h>
+diff --git a/fs/select.c b/fs/select.c
+index 8c1c96c..f116bf0 100644
+--- a/fs/select.c
++++ b/fs/select.c
+@@ -27,6 +27,7 @@
+ #include <linux/rcupdate.h>
+ #include <linux/hrtimer.h>
+ #include <linux/sched/rt.h>
 +#include <net/ll_poll.h>
  
- int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
+ #include <asm/uaccess.h>
  
-@@ -1553,6 +1554,10 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	struct sk_buff *skb;
- 	u32 urg_hole = 0;
+@@ -400,6 +401,7 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
+ 	poll_table *wait;
+ 	int retval, i, timed_out = 0;
+ 	unsigned long slack = 0;
++	cycles_t ll_time = ll_end_time();
  
-+	if (sk_valid_ll(sk) && skb_queue_empty(&sk->sk_receive_queue)
-+	    && (sk->sk_state == TCP_ESTABLISHED))
-+		sk_poll_ll(sk, nonblock);
+ 	rcu_read_lock();
+ 	retval = max_select_fd(n, fds);
+@@ -486,6 +488,8 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
+ 			break;
+ 		}
+ 
++		if (can_poll_ll(ll_time))
++			continue;
+ 		/*
+ 		 * If this is the first loop and we have a timeout
+ 		 * given, then we convert to ktime_t and set the to
+@@ -750,6 +754,7 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
+ 	ktime_t expire, *to = NULL;
+ 	int timed_out = 0, count = 0;
+ 	unsigned long slack = 0;
++	cycles_t ll_time = ll_end_time();
+ 
+ 	/* Optimise the no-wait case */
+ 	if (end_time && !end_time->tv_sec && !end_time->tv_nsec) {
+@@ -795,6 +800,8 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
+ 		if (count || timed_out)
+ 			break;
+ 
++		if (can_poll_ll(ll_time))
++			continue;
+ 		/*
+ 		 * If this is the first loop and we have a timeout
+ 		 * given, then we convert to ktime_t and set the to
+diff --git a/net/socket.c b/net/socket.c
+index 721f4e7..c34dad0 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -1148,13 +1148,21 @@ EXPORT_SYMBOL(sock_create_lite);
+ /* No kernel lock held - perfect */
+ static unsigned int sock_poll(struct file *file, poll_table *wait)
+ {
++	unsigned int poll_result;
+ 	struct socket *sock;
+ 
+ 	/*
+ 	 *      We can't return errors to poll, so it's either yes or no.
+ 	 */
+ 	sock = file->private_data;
+-	return sock->ops->poll(file, sock, wait);
 +
- 	lock_sock(sk);
++	poll_result = sock->ops->poll(file, sock, wait);
++
++	if (wait && !(poll_result & wait->_key) &&
++		sk_valid_ll(sock->sk) && sk_poll_ll(sock->sk, 1))
++			poll_result = sock->ops->poll(file, sock, NULL);
++
++	return poll_result;
+ }
  
- 	err = -ENOTCONN;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index d20ede0..35fd8bc 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -75,6 +75,7 @@
- #include <net/netdma.h>
- #include <net/secure_seq.h>
- #include <net/tcp_memcontrol.h>
-+#include <net/ll_poll.h>
- 
- #include <linux/inet.h>
- #include <linux/ipv6.h>
-@@ -2011,6 +2012,7 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
-+	sk_mark_ll(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 0a17ed9..5cffa5c 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -63,6 +63,7 @@
- #include <net/inet_common.h>
- #include <net/secure_seq.h>
- #include <net/tcp_memcontrol.h>
-+#include <net/ll_poll.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -1498,6 +1499,7 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
-+	sk_mark_ll(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
+ static int sock_mmap(struct file *file, struct vm_area_struct *vma)
 
 
 ------------------------------------------------------------------------------
