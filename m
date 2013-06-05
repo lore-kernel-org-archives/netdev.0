@@ -1,98 +1,75 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: xen-netback stable backports request (regression fixes)
-Date: Wed, 5 Jun 2013 13:25:02 -0700
-Message-ID: <20130605202502.GD13713@kroah.com>
-References: <1369734465.3469.52.camel@zakaz.uk.xensource.com>
- <20130605045532.GA10475@kroah.com>
- <1370422590.24512.135.camel@zakaz.uk.xensource.com>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: Re: Performance regression from routing cache removal?
+Date: Wed, 5 Jun 2013 15:32:53 -0500
+Message-ID: <20130605203253.GB2576@sbohrermbp13-local.rgmadvisors.com>
+References: <20130605175724.GA2576@sbohrermbp13-local.rgmadvisors.com>
+ <1370455997.24311.290.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stable@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	xen-devel <xen-devel@lists.xen.org>, netdev@vger.kernel.org,
-	Wei Liu <wei.liu2@citrix.com>
-To: Ian Campbell <Ian.Campbell@citrix.com>
-Return-path: <stable-owner@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog117.obsmtp.com ([74.125.149.242]:45441 "EHLO
+	na3sys009aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1757222Ab3FEUc6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 16:32:58 -0400
+Received: by mail-ob0-f180.google.com with SMTP id eh20so3313807obb.25
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 13:32:57 -0700 (PDT)
+In-Reply-To: <1370455997.24311.290.camel@edumazet-glaptop>
 Content-Disposition: inline
-In-Reply-To: <1370422590.24512.135.camel@zakaz.uk.xensource.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 05, 2013 at 09:56:30AM +0100, Ian Campbell wrote:
-> On Tue, 2013-06-04 at 21:55 -0700, Greg KH wrote:
-> > On Tue, May 28, 2013 at 10:47:45AM +0100, Ian Campbell wrote:
-> > > Hi Dave, stable folks,
-> > > 
-> > > The following set of patches fix a xen netback regression caused by the
-> > > fixes for CVE-2013-0216 / CVE-2013-0217 / XSA-39 (the original change
-> > > was several patches starting at 48856286b64e), we'd like to see them
-> > > backported to stable branches if possible. I think the fixups have now
-> > > been in Linus tree since around the start of May.
-> > > 
-> > > Wei and I are happy to help with backports if necessary. Some of the
-> > > patches are cleanups which make backports easier but if you would prefer
-> > > we could produce backports without them.
-> > > 
-> > > 27f85228 xen-netback: remove skb in xen_netbk_alloc_page
+On Wed, Jun 05, 2013 at 11:13:17AM -0700, Eric Dumazet wrote:
+> On Wed, 2013-06-05 at 12:57 -0500, Shawn Bohrer wrote:
+> > I've got a performance regression that I've been trying to track down
+> > for the last couple of days.  The last known good kernel was 3.4 and
+> > now I'm testing 3.10 so there has been a lot of changes in between.
+> > The workload I'm testing has a single machine receiving UDP multicast
+> > packets across approximately 350 multicast groups.  We've got one
+> > socket per multicast address receiving the data.  The traffic is small
+> > packets and tends to be very bursty.  With the 3.10 kernel I'm seeing
+> > occasional spikes in one-way latency that are in the 100-500
+> > millisecond range, and regularly in the 10 millisecond range.  I've
+> > started a git bisect which has narrowed me down to:
 > > 
-> > I've applied this one.
-> 
-> Thanks.
-> 
-> > > 2810e5b9 xen-netback: coalesce slots in TX path and fix regressions
+> > bad f5b0a8743601a4477419171f5046bd07d1c080a0
+> > good fa0afcd10951afad2022dda09777d2bf70cdab3d
 > > 
-> > This patch does not apply cleanly to 3.9-stable.  So I can't apply
-> > anything else.  Can you please provide backports?
+> > The remaining commits are all part of the routing cache removal so
+> > I've stopped my bisection for now.  I can bisect further if anyone
+> > thinks it will be valuable.
 > 
-> Wei, can you do this please?
-
-He did so, and I've now applied it.
-
-> > > 03393fd5 xen-netback: don't disconnect frontend when seeing oversize packet
-> > > ac69c26e xen-netback: remove redundent parameter in netbk_count_requests
-> > > 59ccb4eb xen-netback: avoid allocating variable size array on stack
-
-I've applied these three now.
-
-> > > 37641494 xen-netback: better names for thresholds
 > > 
-> > Why are these last two patches needed for a stable tree?
+> > Digging through the git history the ip_check_mc_rcu appears to be the
+> > result of the routing cache removal. 
 > 
-> For the first we thought that allocating a variable size array on the
-> stack was bad practice which could lead to a stack overflow. The default
-> is safe but can be overridden by a module parameter.
+> Yes, ip_check_mc_rcu() does a linear scan of your ~350 groups :
 > 
-> The other renames the module parameter which we thought was useful for
-> consistency between newer kernels and the stable branches.
+> for_each_pmc_rcu(in_dev, im) {
+>     if (im->multiaddr == mc_addr)
+>           break;
+> }
 
-So you are doing a user/kernel api change in a stable branch?  Heck, you
-did it in 3.10?  Why?  What did you just break by doing that?  I can't
-do that to users of the stable kernels, sorry, and you shouldn't be
-doing that to users of the 3.10 kernel either.  You should rename this
-back so people's working systems don't break when they upgrade their
-kernel.
+Indeed it does.  So what are my options here?
 
-> > > In addition there are some useful related (but not security relevant)
-> > > fixes to netfront:
-> > > 
-> > > e2d617c0 xen-netfront: remove unused variable `extra'
-> > > 7158ff6d xen-netfront: frags -> slots in xennet_get_responses
-> > > 697089dc xen-netfront: frags -> slots in log message
-> > > 9ecd1a75 xen-netfront: reduce gso_max_size to account for max TCP header
-> > 
-> > Why are they needed for stable releases?  What do they fix?
-> 
-> The last one prevents the network stack from handing us frames which we
-> cannot possibly fit into the Xen PV wire format and therefore would be
-> obliged to drop -- this was causing packet loss in real use.
-> 
-> I originally thought the other three we useful precursors which made the
-> backport of the last one easier, but looking at it again I don't think
-> this is actually the case -- there should only be a small amount of
-> trivial to resolve rejects due to the frags->slots renaming. Sorry for
-> getting this wrong. 
+1) Use fewer multicast addresses.  This may not be possible since in
+some cases I don't control the incoming data/addresses.  I am running
+a test sending the same data over ~280 vs 350 and naturally it does
+appear to be better.
 
-No worries, I've applied just the 9ecd1a75 patch.
+2) Make that linear scan a hash lookup?  Are there any downsides or
+reasons not to do this?
 
-thanks,
+3) ?
 
-greg k-h
+Thanks,
+Shawn
+
+-- 
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
