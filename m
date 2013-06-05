@@ -1,43 +1,80 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH] tuntap: fix a possible race between queue selection and changing queues
-Date: Wed,  5 Jun 2013 16:44:57 +0800
-Message-ID: <1370421897-30933-1-git-send-email-jasowang@redhat.com>
-Cc: Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Ian Campbell <Ian.Campbell@citrix.com>
+Subject: Re: xen-netback stable backports request (regression fixes)
+Date: Wed, 5 Jun 2013 09:56:30 +0100
+Message-ID: <1370422590.24512.135.camel@zakaz.uk.xensource.com>
+References: <1369734465.3469.52.camel@zakaz.uk.xensource.com>
+	 <20130605045532.GA10475@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <stable@vger.kernel.org>, "David S. Miller" <davem@davemloft.net>,
+	xen-devel <xen-devel@lists.xen.org>, <netdev@vger.kernel.org>,
+	Wei Liu <wei.liu2@citrix.com>
+To: Greg KH <greg@kroah.com>
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <20130605045532.GA10475@kroah.com>
+Sender: stable-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Complier may generate codes that re-read the tun->numqueues during
-tun_select_queue(). This may be a race if vlan->numqueues were changed in the
-same time and can lead unexpected result (e.g. very huge value).
+On Tue, 2013-06-04 at 21:55 -0700, Greg KH wrote:
+> On Tue, May 28, 2013 at 10:47:45AM +0100, Ian Campbell wrote:
+> > Hi Dave, stable folks,
+> > 
+> > The following set of patches fix a xen netback regression caused by the
+> > fixes for CVE-2013-0216 / CVE-2013-0217 / XSA-39 (the original change
+> > was several patches starting at 48856286b64e), we'd like to see them
+> > backported to stable branches if possible. I think the fixups have now
+> > been in Linus tree since around the start of May.
+> > 
+> > Wei and I are happy to help with backports if necessary. Some of the
+> > patches are cleanups which make backports easier but if you would prefer
+> > we could produce backports without them.
+> > 
+> > 27f85228 xen-netback: remove skb in xen_netbk_alloc_page
+> 
+> I've applied this one.
 
-We need prevent the compiler from generating such codes by adding an
-ACCESS_ONCE() to make sure tun->numqueues were only read once.
+Thanks.
 
-Bug were introduced by commit c8d68e6be1c3b242f1c598595830890b65cea64a
-(tuntap: multiqueue support).
+> > 2810e5b9 xen-netback: coalesce slots in TX path and fix regressions
+> 
+> This patch does not apply cleanly to 3.9-stable.  So I can't apply
+> anything else.  Can you please provide backports?
 
-Reported-by: Michael S. Tsirkin <mst@redhat.com>
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+Wei, can you do this please?
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index f042b03..adfcde7 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -352,7 +352,7 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
- 	u32 numqueues = 0;
- 
- 	rcu_read_lock();
--	numqueues = tun->numqueues;
-+	numqueues = ACCESS_ONCE(tun->numqueues);
- 
- 	txq = skb_get_rxhash(skb);
- 	if (txq) {
--- 
-1.7.1
+> > 03393fd5 xen-netback: don't disconnect frontend when seeing oversize packet
+> > ac69c26e xen-netback: remove redundent parameter in netbk_count_requests
+> > 59ccb4eb xen-netback: avoid allocating variable size array on stack
+> > 37641494 xen-netback: better names for thresholds
+> 
+> Why are these last two patches needed for a stable tree?
+
+For the first we thought that allocating a variable size array on the
+stack was bad practice which could lead to a stack overflow. The default
+is safe but can be overridden by a module parameter.
+
+The other renames the module parameter which we thought was useful for
+consistency between newer kernels and the stable branches.
+
+> > In addition there are some useful related (but not security relevant)
+> > fixes to netfront:
+> > 
+> > e2d617c0 xen-netfront: remove unused variable `extra'
+> > 7158ff6d xen-netfront: frags -> slots in xennet_get_responses
+> > 697089dc xen-netfront: frags -> slots in log message
+> > 9ecd1a75 xen-netfront: reduce gso_max_size to account for max TCP header
+> 
+> Why are they needed for stable releases?  What do they fix?
+
+The last one prevents the network stack from handing us frames which we
+cannot possibly fit into the Xen PV wire format and therefore would be
+obliged to drop -- this was causing packet loss in real use.
+
+I originally thought the other three we useful precursors which made the
+backport of the last one easier, but looking at it again I don't think
+this is actually the case -- there should only be a small amount of
+trivial to resolve rejects due to the frags->slots renaming. Sorry for
+getting this wrong. 
+
+Ian.
