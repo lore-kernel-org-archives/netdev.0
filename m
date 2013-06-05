@@ -1,56 +1,98 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] tuntap: fix a possible race between queue selection and
- changing queues
-Date: Wed, 5 Jun 2013 13:33:32 +0300
-Message-ID: <20130605103332.GD31830@redhat.com>
-References: <1370421897-30933-1-git-send-email-jasowang@redhat.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH v9 net-next 0/7] net: low latency Ethernet device polling
+Date: Wed, 05 Jun 2013 13:34:00 +0300
+Message-ID: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1370421897-30933-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 05, 2013 at 04:44:57PM +0800, Jason Wang wrote:
-> Complier may generate codes that re-read the tun->numqueues during
-> tun_select_queue(). This may be a race if vlan->numqueues were changed in the
-> same time and can lead unexpected result (e.g. very huge value).
-> 
-> We need prevent the compiler from generating such codes by adding an
-> ACCESS_ONCE() to make sure tun->numqueues were only read once.
-> 
-> Bug were introduced by commit c8d68e6be1c3b242f1c598595830890b65cea64a
-> (tuntap: multiqueue support).
-> 
-> Reported-by: Michael S. Tsirkin <mst@redhat.com>
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+And here is v9.
+Except for typo fixes in comments/description, only 2/7 and 5/7 were changed.
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
+Thanks to everyone for their input.
 
-This is a theoretical problem, right?
-So no need for stable.
+-Eliezer
 
-> ---
->  drivers/net/tun.c |    2 +-
->  1 files changed, 1 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index f042b03..adfcde7 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -352,7 +352,7 @@ static u16 tun_select_queue(struct net_device *dev, struct sk_buff *skb)
->  	u32 numqueues = 0;
->  
->  	rcu_read_lock();
-> -	numqueues = tun->numqueues;
-> +	numqueues = ACCESS_ONCE(tun->numqueues);
->  
->  	txq = skb_get_rxhash(skb);
->  	if (txq) {
-> -- 
-> 1.7.1
+Change log:
+v9
+- correct sysctl proc_handler, reported by Eric Dumazet and Amir Vadai.
+- more int -> bool changes, reported by Eric Dumazet.
+- better mask testing in sock_poll(), reported by Eric Dumazet.
+
+v8
+- split out udp and select/poll into separate patches.
+  what used to be patch 2/5 is now three patches.
+- type corrections from Amir Vadai and Cong Wang:
+  one unsigned long that was left when changing to cycles_t
+  int -> bool 
+- more detailed patch descriptions.
+
+v7
+- suggested by Ben Hutchings and Eric Dumazet:
+  type fixes, static for globals in net/core.c,
+  avoid napi_id collisions in napi_hash_add()
+
+v6
+- many small fixes suggested by Eric Dumazet:
+  data locality, typos, documentation
+  protect napi_hash insert/delete with a spinlock (napi_gen_id is no
+  longer atomic_t since it's only accessed with the spinlock held.)
+- added IPv6 TCP and UDP support (only minimally tested)
+
+v5
+- corrections suggested by Ben Hutchings:
+  fixed typos, moved the config option and sysctl value from IPv4 to net
+- moved sk_mark_ll() to the protocol handlers
+- removed global id mechanism, replaced with a hashed napi_id.
+  based on code sample from Eric Dumazet
+  Note that ixgbe_free_q_vector() already waits an rcu grace period
+  before freeing the q_vector, so nothing additional needs to be done
+  when adding a call to napi_hash_del().
+- simple poll/select support
+
+v4
+- removed separate config option for TCP as suggested Eric Dumazet.
+- added linux mib counter for packets received through the low latency path,
+  as suggested by Andi Kleen.
+- re-allow module unloading, remove module param, use a global generation id
+  instead to prevent the use of a stale napi pointer, as suggested
+  by Eric Dumazet
+- updated Documentation/networking/ip-sysctl.txt text
+
+v3
+- coding style changes suggested by Dave Miller
+
+v2
+- the sysctl knob is now in microseconds. The default value is now 0 (off).
+- for now the code depends at configure time on CONFIG_I86_TSC 
+- the napi reference in struct skb is now a union with the dma cookie
+  since the former is only used on RX and the latter on TX,
+  as suggested by Eric Dumazet.
+- we do a better job at honoring non-blocking operations.
+- removed busy-polling support for tcp_read_sock()
+- remove dynamic disabling of GRO
+- coding style fixes
+- disallow unloading the device module after the feature has been used
+
+Credit:
+Jesse Brandeburg, Arun Chekhov Ilango, Julie Cummings,
+Alexander Duyck, Eric Geisler, Jason Neighbors, Yadong Li,
+Mike Polehn, Anil Vasudevan, Don Wood
+Special thanks for finding bugs in earlier versions:
+Willem de Bruijn and Andi Kleen
