@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tg3: Add read dma workaround for 5720
-Date: Tue, 04 Jun 2013 17:25:53 -0700 (PDT)
-Message-ID: <20130604.172553.291812130615333546.davem@davemloft.net>
-References: <1370287174-11308-1-git-send-email-nsujir@broadcom.com>
+Subject: Re: [PATCH] net: fix sk_buff head without data area
+Date: Tue, 04 Jun 2013 17:27:45 -0700 (PDT)
+Message-ID: <20130604.172745.973899787878302690.davem@davemloft.net>
+References: <1370287723-30168-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roland@purestorage.com,
-	stable@vger.kernel.org, mchan@broadcom.com
-To: nsujir@broadcom.com
-Return-path: <stable-owner@vger.kernel.org>
-In-Reply-To: <1370287174-11308-1-git-send-email-nsujir@broadcom.com>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: pablo@netfilter.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:60640 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751520Ab3FEA1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 20:27:46 -0400
+In-Reply-To: <1370287723-30168-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Date: Mon, 3 Jun 2013 12:19:34 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon,  3 Jun 2013 21:28:43 +0200
 
-> Commit 091f0ea30074bc43f9250961b3247af713024bc6 "tg3: Add New 5719 Read
-> DMA workaround" added a workaround for TX DMA stall on the 5719. This
-> workaround needs to be applied to the 5720 as well.
+> Eric Dumazet spotted that we have to check skb->head instead
+> of skb->data as skb->head points to the beginning of the
+> data area of the skbuff. Similarly, we have to initialize the
+> skb->head pointer, not skb->data in __alloc_skb_head.
 > 
-> Cc: stable@vger.kernel.org
-> Reported-by: Roland Dreier <roland@purestorage.com>
-> Tested-by: Roland Dreier <roland@purestorage.com>
-> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
+> After this fix, netlink crashes in the release path of the
+> sk_buff, so let's fix that as well.
+> 
+> This bug was introduced in (0ebd0ac net: add function to
+> allocate sk_buff head without data area).
+> 
+> Reported-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-Applied, thanks.
+Applied and queued up for -stable, thanks.
