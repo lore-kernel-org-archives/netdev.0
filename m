@@ -1,70 +1,136 @@
-From: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Subject: Re: [PATCHv2 1/3] net: phy: prevent linking breakage
-Date: Wed, 05 Jun 2013 11:23:59 +0200
-Message-ID: <51AF03AF.3080106@free-electrons.com>
-References: <1369741403-25315-2-git-send-email-alexandre.belloni@free-electrons.com> <6466898.RnYOe3jpGG@wuerfel> <CAGVrzcbRS3x5fgD1BfOk4-oTUsAY9FA2V621OvZLJQNZ01brCg@mail.gmail.com> <1394174.ONngHnHYKL@wuerfel> <CAGVrzcZcVB5+NqLop+ALrX4Jx_SyNatczLt4oNzXr7bjgKMXhg@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org,
-	Russell King <linux@arm.linux.org.uk>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel <kernel@pengutronix.de>,
-	"shawn.guo" <shawn.guo@linaro.org>,
-	David Miller <davem@davemloft.net>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>
-To: Florian Fainelli <florian@openwrt.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAGVrzcZcVB5+NqLop+ALrX4Jx_SyNatczLt4oNzXr7bjgKMXhg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch net-next v2 1/3] igmp: fix return values of some functions
+Date: Wed,  5 Jun 2013 17:38:19 +0800
+Message-ID: <1370425101-31683-1-git-send-email-amwang@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:33240 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752250Ab3FEJik (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 05:38:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 04/06/2013 18:09, Florian Fainelli wrote:
-> 2013/6/4 Arnd Bergmann <arnd@arndb.de>:
->> On Tuesday 04 June 2013 16:36:50 Florian Fainelli wrote:
->>> It seems to me that what David proposes is to have say an
->>> arch/arm/mach-foo/phy-fixups.c file which is only enabled when
->>> CONFIG_PHYLIB is set (obj-$(CONFIG_PHYLIB) += phy-fixup.o), such that
->>> it does not need to have any conditionnals when calling
->>> phy_register_fixup. This sounds a little unusual, but why not.
->> I don't think it would actually help us, because then we still need
->> to declare a local function that gets called from the board init
->> code. Instead of doing
->>
->>         if (IS_ENABLED(CONFIG_PHYLIB))
->>                  phy_register_fixup_for_uid(phy_id, foo_phy_fixup);
->>
->> we would then do
->>
->>         if (IS_ENABLED(CONFIG_PHYLIB))
->>                 foo_phy_fixup_register();
->>
->> which is not much different at all.
-> You would just need to define a stub for your arch_foo_phy_fixup()
-> which has a different definition depending on whether CONFIG_PHYLIB is
-> defined or not.
->
-> This would be just one function, instead of the whole bunch of stubs
-> needed for phylib. Right now its probably 1 vs 3, so it does not make
-> that much of a difference but who knows, if we had more phylib stubs
-> and forget to update the stubs? (which tends to happen pretty often).
+From: Cong Wang <amwang@redhat.com>
 
-The fact is that for now it is called on 6 different platforms. Of those:
- - two (imx and mxs) are now doing it right *after* discovering the issue
- - two always selecting PHYLIB and can't be compiled without NET
- - two will break at compile time.
+There are some places casting the return value to void, actually
+they can respect the return value.
 
-I'm really concerned about getting more platforms getting it wrong. I
-think it boils down to who wants to take the maintenance burden. I would
-believe that doing it in phylib is more future proof. But I'm fine
-with whatever the consensus will be.
+ip_mc_leave_src() can become avoid, because even if it fails,
+the operations after it can still continue.
 
-However, it is becoming urgent for Atmel to get the fix in 3.10 so that
-they never get a kernel compilation that breaks.
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+---
+v2: fix the indention
 
-Regards,
+ net/ipv4/igmp.c |   30 +++++++++++++++---------------
+ 1 files changed, 15 insertions(+), 15 deletions(-)
 
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 450f625..bf185df 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1837,24 +1837,23 @@ done:
+ }
+ EXPORT_SYMBOL(ip_mc_join_group);
+ 
+-static int ip_mc_leave_src(struct sock *sk, struct ip_mc_socklist *iml,
+-			   struct in_device *in_dev)
++static void ip_mc_leave_src(struct sock *sk, struct ip_mc_socklist *iml,
++			    struct in_device *in_dev)
+ {
+ 	struct ip_sf_socklist *psf = rtnl_dereference(iml->sflist);
+-	int err;
+ 
+ 	if (psf == NULL) {
+ 		/* any-source empty exclude case */
+-		return ip_mc_del_src(in_dev, &iml->multi.imr_multiaddr.s_addr,
++		ip_mc_del_src(in_dev, &iml->multi.imr_multiaddr.s_addr,
+ 			iml->sfmode, 0, NULL, 0);
++		return;
+ 	}
+-	err = ip_mc_del_src(in_dev, &iml->multi.imr_multiaddr.s_addr,
++	ip_mc_del_src(in_dev, &iml->multi.imr_multiaddr.s_addr,
+ 			iml->sfmode, psf->sl_count, psf->sl_addr, 0);
+ 	RCU_INIT_POINTER(iml->sflist, NULL);
+ 	/* decrease mem now to avoid the memleak warning */
+ 	atomic_sub(IP_SFLSIZE(psf->sl_max), &sk->sk_omem_alloc);
+ 	kfree_rcu(psf, rcu);
+-	return err;
+ }
+ 
+ /*
+@@ -1887,7 +1886,7 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
+ 				iml->multi.imr_address.s_addr)
+ 			continue;
+ 
+-		(void) ip_mc_leave_src(sk, iml, in_dev);
++		ip_mc_leave_src(sk, iml, in_dev);
+ 
+ 		*imlp = iml->next_rcu;
+ 
+@@ -1899,6 +1898,7 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
+ 		kfree_rcu(iml, rcu);
+ 		return 0;
+ 	}
++
+ 	if (!in_dev)
+ 		ret = -ENODEV;
+ 	rtnl_unlock();
+@@ -2032,10 +2032,9 @@ int ip_mc_source(int add, int omode, struct sock *sk, struct
+ 		psl->sl_addr[j+1] = psl->sl_addr[j];
+ 	psl->sl_addr[i] = mreqs->imr_sourceaddr;
+ 	psl->sl_count++;
+-	err = 0;
+ 	/* update the interface list */
+-	ip_mc_add_src(in_dev, &mreqs->imr_multiaddr, omode, 1,
+-		&mreqs->imr_sourceaddr, 1);
++	err = ip_mc_add_src(in_dev, &mreqs->imr_multiaddr, omode, 1,
++			    &mreqs->imr_sourceaddr, 1);
+ done:
+ 	rtnl_unlock();
+ 	if (leavegroup)
+@@ -2106,22 +2105,23 @@ int ip_mc_msfilter(struct sock *sk, struct ip_msfilter *msf, int ifindex)
+ 		}
+ 	} else {
+ 		newpsl = NULL;
+-		(void) ip_mc_add_src(in_dev, &msf->imsf_multiaddr,
++		err = ip_mc_add_src(in_dev, &msf->imsf_multiaddr,
+ 				     msf->imsf_fmode, 0, NULL, 0);
++		if (err)
++			goto done;
+ 	}
+ 	psl = rtnl_dereference(pmc->sflist);
+ 	if (psl) {
+-		(void) ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
++		err = ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
+ 			psl->sl_count, psl->sl_addr, 0);
+ 		/* decrease mem now to avoid the memleak warning */
+ 		atomic_sub(IP_SFLSIZE(psl->sl_max), &sk->sk_omem_alloc);
+ 		kfree_rcu(psl, rcu);
+ 	} else
+-		(void) ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
++		err = ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
+ 			0, NULL, 0);
+ 	rcu_assign_pointer(pmc->sflist, newpsl);
+ 	pmc->sfmode = msf->imsf_fmode;
+-	err = 0;
+ done:
+ 	rtnl_unlock();
+ 	if (leavegroup)
+@@ -2307,7 +2307,7 @@ void ip_mc_drop_socket(struct sock *sk)
+ 
+ 		inet->mc_list = iml->next_rcu;
+ 		in_dev = inetdev_by_index(net, iml->multi.imr_ifindex);
+-		(void) ip_mc_leave_src(sk, iml, in_dev);
++		ip_mc_leave_src(sk, iml, in_dev);
+ 		if (in_dev != NULL)
+ 			ip_mc_dec_group(in_dev, iml->multi.imr_multiaddr.s_addr);
+ 		/* decrease mem now to avoid the memleak warning */
 -- 
-Alexandre Belloni, Free Electrons
-Embedded Linux, Kernel and Android engineering
-http://free-electrons.com
+1.7.7.6
