@@ -1,50 +1,72 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net] vxlan: fix crash on module removal
-Date: Wed, 5 Jun 2013 08:37:00 -0700
-Message-ID: <20130605083700.2a09e379@nehalam.linuxnetplumber.net>
-References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
-	<1370406254-6341-3-git-send-email-stephen@networkplumber.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v9 net-next 2/7] net: add low latency
+	socket poll
+Date: Wed, 05 Jun 2013 08:39:20 -0700
+Message-ID: <1370446760.24311.275.camel@edumazet-glaptop>
+References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
+	<20130605103421.11172.82925.stgit@ladj378.jer.intel.com>
+	<1370445714.24311.268.camel@edumazet-glaptop>
+	<51AF59B0.6080101@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f45.google.com ([209.85.160.45]:56982 "EHLO
-	mail-pb0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756053Ab3FEPhE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 11:37:04 -0400
-Received: by mail-pb0-f45.google.com with SMTP id mc8so1954950pbc.32
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:37:04 -0700 (PDT)
-In-Reply-To: <1370406254-6341-3-git-send-email-stephen@networkplumber.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Willem de Bruijn <willemb@google.com>, Don,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>,
+	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <51AF59B0.6080101@linux.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-If vxlan is removed with active vxlan's it would crash because
-rtnl_link_unregister (which calls vxlan_dellink), was invoked
-before unregister_pernet_device (which calls vxlan_stop).
+On Wed, 2013-06-05 at 18:30 +0300, Eliezer Tamir wrote:
+> On 05/06/2013 18:21, Eric Dumazet wrote:
+> > On Wed, 2013-06-05 at 13:34 +0300, Eliezer Tamir wrote:
+> >
+> >
+> > This is probably too big to be inlined, and nonblock should be a bool
+> 
+> 
+> > It would also make sense to give end_time as a parameter, so that the
+> > polling() code could really give  a end_time for the whole duration of
+> > poll().
+> >
+> > (You then should test can_poll_ll(end_time) _before_ call to
+> > ndo_ll_poll())
+> 
+> how would you handle a nonblocking operation in that case?
+> I guess if we have a socket option, then we don't need to handle none 
+> blocking any diffrent, since the user specified exactly how much time to 
+> waste polling. right?
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
----
-See "vxlan: move IGMP join/leave to work queue" for the net-next
-version of this
+If the thread already spent 50us in the poll() system call, it for sure
+should not call any ndo_ll_poll(). This makes no more sense at this
+point.
 
- drivers/net/vxlan.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 3b1d2ee..5cc3b48 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1677,8 +1677,8 @@ module_init(vxlan_init_module);
- 
- static void __exit vxlan_cleanup_module(void)
- {
--	rtnl_link_unregister(&vxlan_link_ops);
- 	unregister_pernet_device(&vxlan_net_ops);
-+	rtnl_link_unregister(&vxlan_link_ops);
- 	rcu_barrier();
- }
- module_exit(vxlan_cleanup_module);
--- 
-1.7.10.4
+
+
+------------------------------------------------------------------------------
+How ServiceNow helps IT people transform IT departments:
+1. A cloud service to automate IT design, transition and operations
+2. Dashboards that offer high-level views of enterprise services
+3. A single system of record for all IT processes
+http://p.sf.net/sfu/servicenow-d2d-j
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
