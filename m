@@ -1,80 +1,43 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH V2] vhost_net: clear msg.control for non-zerocopy case during
-	tx
-Date: Thu,  6 Jun 2013 11:24:02 +0800
-Message-ID: <1370489042-14318-1-git-send-email-jasowang@redhat.com>
+From: Deepak <deepakcse11@gmail.com>
+Subject: Re: GSO / TSO offload dependency
+Date: Wed, 5 Jun 2013 09:28:43 +0000 (UTC)
+Message-ID: <loom.20130605T112420-606@post.gmane.org>
+References: <de0a9dcb1002280900k728b241fyd72112defc0336ea@mail.gmail.com> <1267385446.2282.119.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:44557 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750698Ab3FFEFF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jun 2013 00:05:05 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UkRRe-0003Fs-AD
+	for netdev@vger.kernel.org; Thu, 06 Jun 2013 06:05:03 +0200
+Received: from 67-207-112-62.static.wiline.com ([67.207.112.62])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 06 Jun 2013 06:05:02 +0200
+Received: from deepakcse11 by 67-207-112-62.static.wiline.com with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Thu, 06 Jun 2013 06:05:02 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When we decide not use zero-copy, msg.control should be set to NULL otherwise
-macvtap/tap may set zerocopy callbacks which may decrease the kref of ubufs
-wrongly.
 
-Bug were introduced by commit cedb9bdce099206290a2bdd02ce47a7b253b6a84
-(vhost-net: skip head management if no outstanding).
+> > If hardware supports TSO, and  If TSO and GSO are both enabled, ...
+> > what will happen to segmentation assembly by means of GSO ...
+> > GSO will not do any segmentatoin assembly for TCP alone and will do
+> > for other protocols ??  bit confused here? Please clarify.
+> 
+> Your understanding is correct.
+> 
+> Ben.
+> 
 
-This solves the following warnings:
 
-WARNING: at include/linux/kref.h:47 handle_tx+0x477/0x4b0 [vhost_net]()
-Modules linked in: vhost_net macvtap macvlan tun nfsd exportfs bridge stp llc openvswitch kvm_amd kvm bnx2 megaraid_sas [last unloaded: tun]
-CPU: 5 PID: 8670 Comm: vhost-8668 Not tainted 3.10.0-rc2+ #1566
-Hardware name: Dell Inc. PowerEdge R715/00XHKG, BIOS 1.5.2 04/19/2011
-ffffffffa0198323 ffff88007c9ebd08 ffffffff81796b73 ffff88007c9ebd48
-ffffffff8103d66b 000000007b773e20 ffff8800779f0000 ffff8800779f43f0
-ffff8800779f8418 000000000000015c 0000000000000062 ffff88007c9ebd58
-Call Trace:
-[<ffffffff81796b73>] dump_stack+0x19/0x1e
-[<ffffffff8103d66b>] warn_slowpath_common+0x6b/0xa0
-[<ffffffff8103d6b5>] warn_slowpath_null+0x15/0x20
-[<ffffffffa0197627>] handle_tx+0x477/0x4b0 [vhost_net]
-[<ffffffffa0197690>] handle_tx_kick+0x10/0x20 [vhost_net]
-[<ffffffffa019541e>] vhost_worker+0xfe/0x1a0 [vhost_net]
-[<ffffffffa0195320>] ? vhost_attach_cgroups_work+0x30/0x30 [vhost_net]
-[<ffffffffa0195320>] ? vhost_attach_cgroups_work+0x30/0x30 [vhost_net]
-[<ffffffff81061f46>] kthread+0xc6/0xd0
-[<ffffffff81061e80>] ? kthread_freezable_should_stop+0x70/0x70
-[<ffffffff817a1aec>] ret_from_fork+0x7c/0xb0
-[<ffffffff81061e80>] ? kthread_freezable_should_stop+0x70/0x70
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
-The patch is needed for -stable.
-
-Changes from v1:
-- code style issue fix
----
- drivers/vhost/net.c |    2 ++
- 1 files changed, 2 insertions(+), 0 deletions(-)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 2b51e23..518622d 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -436,6 +436,8 @@ static void handle_tx(struct vhost_net *net)
- 				kref_get(&ubufs->kref);
- 			}
- 			nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
-+		} else {
-+			msg.msg_control = NULL;
- 		}
- 		/* TODO: Check specific error and bomb out unless ENOBUFS? */
- 		err = sock->ops->sendmsg(NULL, sock, &msg, len);
--- 
-1.7.1
+I havn't understood this one, In case of TCP Protocol (Hardware support TSO 
+and TSO & GSO are enabled), will it go through the GSO  segmentation assembly 
+code ??
