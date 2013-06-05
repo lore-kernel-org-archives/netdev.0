@@ -1,67 +1,78 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH] l2tp: avoid checksum offload for fragmented packets
-Date: Wed, 5 Jun 2013 13:57:57 +0100
-Message-ID: <1370437077.4021.15.camel@deadeye.wl.decadent.org.uk>
-References: <1370245762-5126-1-git-send-email-tparkin@katalix.com>
-	 <1370245762-5126-2-git-send-email-tparkin@katalix.com>
-	 <1370270652.1918.14.camel@bwh-desktop.uk.level5networks.com>
-	 <20130605094111.GB2522@raven>
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [PATCH iproute2] vxlan: allow specifying multiple default destinations
+Date: Wed, 5 Jun 2013 15:58:50 +0300
+Message-ID: <CAF1J0HO9USZXOj3nJnZ2Eup5Q4c2VhavgH0fmHFY1oUaWB+_UQ@mail.gmail.com>
+References: <1369821617-29098-1-git-send-email-mike.rapoport@ravellosystems.com>
+	<1369821617-29098-4-git-send-email-mike.rapoport@ravellosystems.com>
+	<ko4kcr$h8j$1@ger.gmane.org>
+	<CAF1J0HPDAkhAybQt-tOFLLTLzaXiWy_TSbFF2FT3PMaXbnxJuw@mail.gmail.com>
+	<20130529155625.2ee5f6bb@nehalam.linuxnetplumber.net>
+	<CAF1J0HNiBED=BLHqPPk8w2=DDvSWdZwMPvtag6rpPhxnboT4GA@mail.gmail.com>
+	<20130530114424.GC10532@casper.infradead.org>
+	<20130530124652.GA29547@zed.ravello.local>
+	<20130530155719.GD10532@casper.infradead.org>
+	<CAF1J0HP4Oi04PK-JFwy1h7_n=MxiA-c5DTjPSTHjwGrxs+jUZg@mail.gmail.com>
+	<20130604213055.7e1fc67c@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <jchapman@katalix.com>
-To: Tom Parkin <tparkin@katalix.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Thomas Graf <tgraf@suug.ch>, Cong Wang <xiyou.wangcong@gmail.com>,
+	netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:42914 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753034Ab3FEM6F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 08:58:05 -0400
-In-Reply-To: <20130605094111.GB2522@raven>
+Received: from na3sys010aog104.obsmtp.com ([74.125.245.76]:50165 "HELO
+	na3sys010aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1754926Ab3FEM6v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 08:58:51 -0400
+Received: by mail-ob0-f182.google.com with SMTP id va7so2523879obc.13
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 05:58:50 -0700 (PDT)
+In-Reply-To: <20130604213055.7e1fc67c@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-05 at 10:41 +0100, Tom Parkin wrote:
-> On Mon, Jun 03, 2013 at 03:44:12PM +0100, Ben Hutchings wrote:
-> > On Mon, 2013-06-03 at 08:49 +0100, Tom Parkin wrote:
-> > > Hardware offload for UDP datagram checksum calculation doesn't work with
-> > > fragmented IP packets -- the device will note the fragmentation and leave the
-> > > UDP checksum well alone.
-> > > 
-> > > As such, if we expect the L2TP packet to be fragmented by the IP layer we need
-> > > to perform the UDP checksum ourselves in software (ref: net/ipv4/udp.c).
-> > >
-> > > This change modifies the L2TP xmit path to fallback to software checksum
-> > > calculation if the L2TP packet + IP header exceeds the tunnel device MTU.
-> > [...]
-> > 
-> > Surely this should be done in the IP stack when fragmenting, not in any
-> > particular client?
-> > 
-> 
-> Hmm, that's a good question.
-> 
-> I'm not sure it makes sense to push this down into the IP layer, though.  Since 
-> it's the UDP checksum we're calculating, it seems reasonable to handle it at 
-> the UDP layer (which is where L2TP sits when using UDP encapsulation).
+On Wed, Jun 5, 2013 at 7:30 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Sun, 2 Jun 2013 10:09:23 +0300
+> Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+>
+>> On Thu, May 30, 2013 at 6:57 PM, Thomas Graf <tgraf@suug.ch> wrote:
+>> > On 05/30/13 at 03:46pm, Mike Rapoport wrote:
+>> >> I'm feeling Ok about "ip link set [..] dstadd/dstdel". What does bother
+>> >> me is that you can't have different parameters for "ip link add" and "ip
+>> >> link set" for vxlan (and other iplink) utility. So, one can use
+>> >> ip link add [..] dstdel
+>> >> which does not make sense...
+>> >
+>> > You can easily pass an additional argument into iplink_modify()
+>> > and exclude certain options in the "add" use case.
+>>
+>> I think there's no need to pass an additional argument to iplink_modify.
+>> The vxlan_parse_opts may check the flags in nlmsghdr to distinguish
+>> between the "add" and "set" cases.
+>> Than we'll have 'ip link add [..]' as it was and the 'ip link set
+>> [..]' will be used to manage default destinations.
+>>
+>> --
+>> Sincerely yours,
+>> Mike.
+>
+>
+> I think multiple destinations should be handled like multipath routes.
+> I.e you don't specify multiple destinations on the command line, you specify them
+> individually and can add/delete them
+>
+> If you delete the last destination then the forwarding entry should disappear.
+> The collapsing of multiple entries into one entry in table is an internal data structure
+> choice of vxlan and shouldn't be part of the netlink API requirement.
+>
+> The API to iproute2/netlink should look like routing (through bridge fdb command).
+> Feel free to reject this if since I don't actually use this stuff.
 
-TCP, UDP and similar checksums can be handled generically, e.g. if
-dev_hard_start_xmit() finds the device doesn't actually do checksum
-offload then it calls skb_checksum_help() to fill it in.  I was thinking
-that since the IP layer makes the decision to fragment then it should
-also be responsible for filling in the checksum before doing so.  Why
-should the transport layer protocol have to guess?
+Well, if we're to follow David Stevens suggestion to make default
+destination fdb entry with ALL_ZEROS_MAC (1), they surely can be
+managed using 'bridge fdb'.
 
-> If you're worried about reproducing similar code in both UDP and L2TP
-> I can see where you're coming from, but since UDP uses corking and
-> L2TP doesn't the data transmit path is quite dissimilar.  We could
-> probably do some work to share the code, but it doesn't seem worth it
-> for the amount of sharing we'd be able to achieve.
+(1) http://thread.gmane.org/gmane.linux.network/270969/focus=271791
 
-OK, so long as you've thought about the options.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+--
+Sincerely yours,
+Mike.
