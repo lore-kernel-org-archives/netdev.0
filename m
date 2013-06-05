@@ -1,76 +1,98 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] net_sched: add 64bit rate estimators
-Date: Wed, 5 Jun 2013 21:06:09 +0100
-Message-ID: <1370462769.1918.7.camel@bwh-desktop.uk.level5networks.com>
-References: <1370408447.24311.241.camel@edumazet-glaptop>
-	 <1370458531.1918.3.camel@bwh-desktop.uk.level5networks.com>
-	 <1370461057.24311.296.camel@edumazet-glaptop>
+From: Greg KH <greg@kroah.com>
+Subject: Re: xen-netback stable backports request (regression fixes)
+Date: Wed, 5 Jun 2013 13:25:02 -0700
+Message-ID: <20130605202502.GD13713@kroah.com>
+References: <1369734465.3469.52.camel@zakaz.uk.xensource.com>
+ <20130605045532.GA10475@kroah.com>
+ <1370422590.24512.135.camel@zakaz.uk.xensource.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29577 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757286Ab3FEUGN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 16:06:13 -0400
-In-Reply-To: <1370461057.24311.296.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: stable@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	xen-devel <xen-devel@lists.xen.org>, netdev@vger.kernel.org,
+	Wei Liu <wei.liu2@citrix.com>
+To: Ian Campbell <Ian.Campbell@citrix.com>
+Return-path: <stable-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1370422590.24512.135.camel@zakaz.uk.xensource.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-06-05 at 12:37 -0700, Eric Dumazet wrote:
-> On Wed, 2013-06-05 at 19:55 +0100, Ben Hutchings wrote:
-> > On Tue, 2013-06-04 at 22:00 -0700, Eric Dumazet wrote:
-> > > From: Eric Dumazet <edumazet@google.com>
+On Wed, Jun 05, 2013 at 09:56:30AM +0100, Ian Campbell wrote:
+> On Tue, 2013-06-04 at 21:55 -0700, Greg KH wrote:
+> > On Tue, May 28, 2013 at 10:47:45AM +0100, Ian Campbell wrote:
+> > > Hi Dave, stable folks,
 > > > 
-> > > struct gnet_stats_rate_est contains u32 fields, so the byte per second
-> > > field can wrap at 34360Mbit.
+> > > The following set of patches fix a xen netback regression caused by the
+> > > fixes for CVE-2013-0216 / CVE-2013-0217 / XSA-39 (the original change
+> > > was several patches starting at 48856286b64e), we'd like to see them
+> > > backported to stable branches if possible. I think the fixups have now
+> > > been in Linus tree since around the start of May.
 > > > 
-> > > Add a new gnet_stats_rate_est64 structure to get 64bit bps field, and
-> > > switch the kernel to use this structure natively.
-> > [...] 
-> > >  /**
-> > > + * struct gnet_stats_rate_est64 - rate estimator
-> > > + * @bps: current byte rate
-> > > + * @pps: current packet rate
-> > > + */
-> > > +struct gnet_stats_rate_est64 {
-> > > +	__u64	bps;
-> > > +	__u32	pps;
-> > > +} __attribute__ ((packed));
-> > [...]
+> > > Wei and I are happy to help with backports if necessary. Some of the
+> > > patches are cleanups which make backports easier but if you would prefer
+> > > we could produce backports without them.
+> > > 
+> > > 27f85228 xen-netback: remove skb in xen_netbk_alloc_page
 > > 
-> > Using attribute packed (which should be written as __packed) forces the
-> > alignment of each member and the structure as a whole to be 1.  For an
-> > architecture where unaligned access is expensive, gcc will make all
-> > reads and writes use byte operations.
+> > I've applied this one.
+> 
+> Thanks.
+> 
+> > > 2810e5b9 xen-netback: coalesce slots in TX path and fix regressions
 > > 
-> > I think you have to add a dummy __u32 member instead.
+> > This patch does not apply cleanly to 3.9-stable.  So I can't apply
+> > anything else.  Can you please provide backports?
 > 
-> Its exported to userland so __packed is not available. Or has this been
-> changed lately ?
+> Wei, can you do this please?
 
-Sorry, you're quite right.
+He did so, and I've now applied it.
 
-> This structure is only used in very slow path, in the rate estimator
-> thing, so the unaligned accesses are not a problem at all.
+> > > 03393fd5 xen-netback: don't disconnect frontend when seeing oversize packet
+> > > ac69c26e xen-netback: remove redundent parameter in netbk_count_requests
+> > > 59ccb4eb xen-netback: avoid allocating variable size array on stack
+
+I've applied these three now.
+
+> > > 37641494 xen-netback: better names for thresholds
+> > 
+> > Why are these last two patches needed for a stable tree?
 > 
-> I made this choice to not increase sizeof(struct Qdisc) and the
-> alignments as well.
+> For the first we thought that allocating a variable size array on the
+> stack was bad practice which could lead to a stack overflow. The default
+> is safe but can be overridden by a module parameter.
 > 
-> If you think there is an issue with userland, we could use a
-> gnet_stats_rate_est64_packed in kernel, and a gnet_stats_rate_est64 in
-> userland.
+> The other renames the module parameter which we thought was useful for
+> consistency between newer kernels and the stable branches.
 
-If you're sure this is the right trade-off then I accept that.  I
-thought you were using packed to ensure the structure layout was
-consistent between userland and kernel, and might not have realised the
-unfortunate effect on alignment.
+So you are doing a user/kernel api change in a stable branch?  Heck, you
+did it in 3.10?  Why?  What did you just break by doing that?  I can't
+do that to users of the stable kernels, sorry, and you shouldn't be
+doing that to users of the 3.10 kernel either.  You should rename this
+back so people's working systems don't break when they upgrade their
+kernel.
 
-Ben.
+> > > In addition there are some useful related (but not security relevant)
+> > > fixes to netfront:
+> > > 
+> > > e2d617c0 xen-netfront: remove unused variable `extra'
+> > > 7158ff6d xen-netfront: frags -> slots in xennet_get_responses
+> > > 697089dc xen-netfront: frags -> slots in log message
+> > > 9ecd1a75 xen-netfront: reduce gso_max_size to account for max TCP header
+> > 
+> > Why are they needed for stable releases?  What do they fix?
+> 
+> The last one prevents the network stack from handing us frames which we
+> cannot possibly fit into the Xen PV wire format and therefore would be
+> obliged to drop -- this was causing packet loss in real use.
+> 
+> I originally thought the other three we useful precursors which made the
+> backport of the last one easier, but looking at it again I don't think
+> this is actually the case -- there should only be a small amount of
+> trivial to resolve rejects due to the frags->slots renaming. Sorry for
+> getting this wrong. 
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+No worries, I've applied just the 9ecd1a75 patch.
+
+thanks,
+
+greg k-h
