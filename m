@@ -1,104 +1,90 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 02/12] netfilter: xt_socket: use IP early demux
-Date: Wed,  5 Jun 2013 22:40:23 +0200
-Message-ID: <1370464832-4216-3-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 05/12] netfilter: {ipt,ebt}_ULOG: rise warning on deprecation
+Date: Wed,  5 Jun 2013 22:40:26 +0200
+Message-ID: <1370464832-4216-6-git-send-email-pablo@netfilter.org>
 References: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:57438 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757250Ab3FEUku (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 16:40:50 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+This target has been superseded by NFLOG. Spot a warning
+so we prepare removal in a couple of years.
 
-With IP early demux added in linux-3.6, we perform TCP lookup in IP
-layer before iptables hooks.
-
-We can avoid doing a second lookup in xt_socket.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Acked-by: David S. Miller <davem@davemloft.net>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+Acked-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/netfilter/xt_socket.c |   26 ++++++++++++++++----------
- 1 file changed, 16 insertions(+), 10 deletions(-)
+ include/net/netns/x_tables.h    |    6 ++++++
+ net/bridge/netfilter/ebt_ulog.c |    6 ++++++
+ net/ipv4/netfilter/Kconfig      |    2 +-
+ net/ipv4/netfilter/ipt_ULOG.c   |    6 ++++++
+ 4 files changed, 19 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/xt_socket.c b/net/netfilter/xt_socket.c
-index 63b2bdb..0270424 100644
---- a/net/netfilter/xt_socket.c
-+++ b/net/netfilter/xt_socket.c
-@@ -107,7 +107,7 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- {
- 	const struct iphdr *iph = ip_hdr(skb);
- 	struct udphdr _hdr, *hp = NULL;
--	struct sock *sk;
-+	struct sock *sk = skb->sk;
- 	__be32 uninitialized_var(daddr), uninitialized_var(saddr);
- 	__be16 uninitialized_var(dport), uninitialized_var(sport);
- 	u8 uninitialized_var(protocol);
-@@ -155,9 +155,11 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 	}
+diff --git a/include/net/netns/x_tables.h b/include/net/netns/x_tables.h
+index c24060e..02fe40f 100644
+--- a/include/net/netns/x_tables.h
++++ b/include/net/netns/x_tables.h
+@@ -15,5 +15,11 @@ struct netns_xt {
+ 	struct ebt_table *frame_filter;
+ 	struct ebt_table *frame_nat;
  #endif
- 
--	sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), protocol,
--				   saddr, daddr, sport, dport, par->in, NFT_LOOKUP_ANY);
--	if (sk != NULL) {
-+	if (!sk)
-+		sk = nf_tproxy_get_sock_v4(dev_net(skb->dev), protocol,
-+					   saddr, daddr, sport, dport,
-+					   par->in, NFT_LOOKUP_ANY);
-+	if (sk) {
- 		bool wildcard;
- 		bool transparent = true;
- 
-@@ -173,7 +175,8 @@ socket_match(const struct sk_buff *skb, struct xt_action_param *par,
- 				       (sk->sk_state == TCP_TIME_WAIT &&
- 					inet_twsk(sk)->tw_transparent));
- 
--		xt_socket_put_sk(sk);
-+		if (sk != skb->sk)
-+			xt_socket_put_sk(sk);
- 
- 		if (wildcard || !transparent)
- 			sk = NULL;
-@@ -260,7 +263,7 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
++#if IS_ENABLED(CONFIG_IP_NF_TARGET_ULOG)
++	bool ulog_warn_deprecated;
++#endif
++#if IS_ENABLED(CONFIG_BRIDGE_EBT_ULOG)
++	bool ebt_ulog_warn_deprecated;
++#endif
+ };
+ #endif
+diff --git a/net/bridge/netfilter/ebt_ulog.c b/net/bridge/netfilter/ebt_ulog.c
+index fc1905c..2ec6c19 100644
+--- a/net/bridge/netfilter/ebt_ulog.c
++++ b/net/bridge/netfilter/ebt_ulog.c
+@@ -267,6 +267,12 @@ static int ebt_ulog_tg_check(const struct xt_tgchk_param *par)
  {
- 	struct ipv6hdr *iph = ipv6_hdr(skb);
- 	struct udphdr _hdr, *hp = NULL;
--	struct sock *sk;
-+	struct sock *sk = skb->sk;
- 	struct in6_addr *daddr = NULL, *saddr = NULL;
- 	__be16 uninitialized_var(dport), uninitialized_var(sport);
- 	int thoff = 0, uninitialized_var(tproto);
-@@ -291,9 +294,11 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
- 		return false;
- 	}
+ 	struct ebt_ulog_info *uloginfo = par->targinfo;
  
--	sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
--				   saddr, daddr, sport, dport, par->in, NFT_LOOKUP_ANY);
--	if (sk != NULL) {
-+	if (!sk)
-+		sk = nf_tproxy_get_sock_v6(dev_net(skb->dev), tproto,
-+					   saddr, daddr, sport, dport,
-+					   par->in, NFT_LOOKUP_ANY);
-+	if (sk) {
- 		bool wildcard;
- 		bool transparent = true;
++	if (!par->net->xt.ebt_ulog_warn_deprecated) {
++		pr_info("ebt_ulog is deprecated and it will be removed soon, "
++			"use ebt_nflog instead\n");
++		par->net->xt.ebt_ulog_warn_deprecated = true;
++	}
++
+ 	if (uloginfo->nlgroup > 31)
+ 		return -EINVAL;
  
-@@ -309,7 +314,8 @@ socket_mt6_v1(const struct sk_buff *skb, struct xt_action_param *par)
- 				       (sk->sk_state == TCP_TIME_WAIT &&
- 					inet_twsk(sk)->tw_transparent));
+diff --git a/net/ipv4/netfilter/Kconfig b/net/ipv4/netfilter/Kconfig
+index e7916c1..4e90280 100644
+--- a/net/ipv4/netfilter/Kconfig
++++ b/net/ipv4/netfilter/Kconfig
+@@ -111,7 +111,7 @@ config IP_NF_TARGET_REJECT
+ 	  To compile it as a module, choose M here.  If unsure, say N.
  
--		xt_socket_put_sk(sk);
-+		if (sk != skb->sk)
-+			xt_socket_put_sk(sk);
+ config IP_NF_TARGET_ULOG
+-	tristate "ULOG target support"
++	tristate "ULOG target support (obsolete)"
+ 	default m if NETFILTER_ADVANCED=n
+ 	---help---
  
- 		if (wildcard || !transparent)
- 			sk = NULL;
+diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
+index f8a222cb..c1953d0 100644
+--- a/net/ipv4/netfilter/ipt_ULOG.c
++++ b/net/ipv4/netfilter/ipt_ULOG.c
+@@ -325,6 +325,12 @@ static int ulog_tg_check(const struct xt_tgchk_param *par)
+ {
+ 	const struct ipt_ulog_info *loginfo = par->targinfo;
+ 
++	if (!par->net->xt.ulog_warn_deprecated) {
++		pr_info("ULOG is deprecated and it will be removed soon, "
++			"use NFLOG instead\n");
++		par->net->xt.ulog_warn_deprecated = true;
++	}
++
+ 	if (loginfo->prefix[sizeof(loginfo->prefix) - 1] != '\0') {
+ 		pr_debug("prefix not null-terminated\n");
+ 		return -EINVAL;
 -- 
 1.7.10.4
+
