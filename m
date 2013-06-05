@@ -1,272 +1,92 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next rfc V3 8/9] macvtap: add TUNSETQUEUE ioctl
-Date: Wed,  5 Jun 2013 14:36:31 +0800
-Message-ID: <1370414192-5830-9-git-send-email-jasowang@redhat.com>
-References: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
-Cc: sergei.shtylyov@cogentembedded.com,
-	Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 03/10] vxlan: move IGMP join/leave to work queue
+Date: Wed, 5 Jun 2013 06:47:52 +0000 (UTC)
+Message-ID: <kommuo$ma8$1@ger.gmane.org>
+References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
+ <1370406254-6341-3-git-send-email-stephen@networkplumber.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:53211 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752607Ab3FEGsM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 02:48:12 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Uk7Vw-0001dZ-8f
+	for netdev@vger.kernel.org; Wed, 05 Jun 2013 08:48:08 +0200
+Received: from 60.160.70.221 ([60.160.70.221])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:48:08 +0200
+Received: from xiyou.wangcong by 60.160.70.221 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:48:08 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch adds TUNSETQUEUE ioctl to let userspace can temporarily disable or
-enable a queue of macvtap. This is used to be compatible at API layer of tuntap
-to simplify the userspace to manage the queues. This is done through introducing
-a linked list to track all taps while using vlan->taps array to only track
-active taps.
+On Wed, 05 Jun 2013 at 04:24 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> Do join/leave from work queue to avoid lock inversion problems
+> between normal socket and RTNL. The code comes out cleaner
+> as well.
+>
+> Uses Cong Wang's suggestion to turn refcnt into a real atomic
+> since now need to handle case where last use of socket is IGMP
+> worker.
+>
+> Also fixes race where vxlan_stop could be called after
+> device was deleted on module removal. The call to rtnl_link_unregister
+> would call dellink while vxlan device was still up. Reordering
+> the calls fixes it.
+>
 
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/macvtap.c      |  133 +++++++++++++++++++++++++++++++++++++++-----
- include/linux/if_macvlan.h |    4 +
- 2 files changed, 122 insertions(+), 15 deletions(-)
+After the first 3 patches applied, I got:
 
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 14764cc..355e6ad 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -45,6 +45,8 @@ struct macvtap_queue {
- 	struct file *file;
- 	unsigned int flags;
- 	u16 queue_index;
-+	bool enabled;
-+	struct list_head next;
- };
- 
- static struct proto macvtap_proto = {
-@@ -85,14 +87,37 @@ static const struct proto_ops macvtap_socket_ops;
-  */
- static DEFINE_SPINLOCK(macvtap_lock);
- 
--static int macvtap_set_queue(struct net_device *dev, struct file *file,
-+static int macvtap_enable_queue(struct net_device *dev, struct file *file,
- 				struct macvtap_queue *q)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
-+	int err = -EINVAL;
-+
-+	spin_lock(&macvtap_lock);
-+
-+	if (q->enabled)
-+		goto out;
-+
-+	err = 0;
-+	rcu_assign_pointer(vlan->taps[vlan->numvtaps], q);
-+	q->queue_index = vlan->numvtaps;
-+	q->enabled = true;
-+
-+	vlan->numvtaps++;
-+	vlan->numdisabled--;
-+out:
-+	spin_unlock(&macvtap_lock);
-+	return err;
-+}
-+
-+static int macvtap_set_queue(struct net_device *dev, struct file *file,
-+			     struct macvtap_queue *q)
-+{
-+	struct macvlan_dev *vlan = netdev_priv(dev);
- 	int err = -EBUSY;
- 
- 	spin_lock(&macvtap_lock);
--	if (vlan->numvtaps == MAX_MACVTAP_QUEUES)
-+	if (vlan->numvtaps + vlan->numdisabled == MAX_MACVTAP_QUEUES)
- 		goto out;
- 
- 	err = 0;
-@@ -102,7 +127,9 @@ static int macvtap_set_queue(struct net_device *dev, struct file *file,
- 
- 	q->file = file;
- 	q->queue_index = vlan->numvtaps;
-+	q->enabled = true;
- 	file->private_data = q;
-+	list_add_tail(&q->next, &vlan->tap_link);
- 
- 	vlan->numvtaps++;
- 
-@@ -111,6 +138,38 @@ out:
- 	return err;
- }
- 
-+static int macvtap_disable_queue(struct macvtap_queue *q)
-+{
-+	struct macvlan_dev *vlan;
-+	struct macvtap_queue *nq;
-+	int err = 0;
-+
-+	spin_lock(&macvtap_lock);
-+	vlan = rcu_dereference_protected(q->vlan,
-+					 lockdep_is_held(&macvtap_lock));
-+
-+	if (!q->enabled) {
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
-+	if (vlan) {
-+		int index = q->queue_index;
-+		nq = rcu_dereference_protected(vlan->taps[vlan->numvtaps - 1],
-+					       lockdep_is_held(&macvtap_lock));
-+		nq->queue_index = index;
-+
-+		rcu_assign_pointer(vlan->taps[index], nq);
-+		RCU_INIT_POINTER(vlan->taps[vlan->numvtaps - 1], NULL);
-+		q->enabled = false;
-+
-+		vlan->numvtaps--;
-+		vlan->numdisabled++;
-+	}
-+out:
-+	spin_unlock(&macvtap_lock);
-+	return err;
-+}
- /*
-  * The file owning the queue got closed, give up both
-  * the reference that the files holds as well as the
-@@ -128,18 +187,24 @@ static void macvtap_put_queue(struct macvtap_queue *q)
- 	vlan = rcu_dereference_protected(q->vlan,
- 					 lockdep_is_held(&macvtap_lock));
- 	if (vlan) {
-+		int numvtaps = vlan->numvtaps;
- 		int index = q->queue_index;
--		BUG_ON(index >= vlan->numvtaps);
- 
--		nq = rcu_dereference_protected(vlan->taps[vlan->numvtaps - 1],
--					       lockdep_is_held(&macvtap_lock));
--		rcu_assign_pointer(vlan->taps[index], nq);
--		nq->queue_index = index;
-+		if (q->enabled) {
-+			BUG_ON(index >= vlan->numvtaps);
-+			nq = rcu_dereference_protected(vlan->taps[numvtaps - 1],
-+						lockdep_is_held(&macvtap_lock));
-+			rcu_assign_pointer(vlan->taps[index], nq);
-+			nq->queue_index = index;
-+
-+			RCU_INIT_POINTER(vlan->taps[numvtaps - 1], NULL);
-+			vlan->numvtaps--;
-+		} else
-+			vlan->numdisabled--;
- 
--		RCU_INIT_POINTER(vlan->taps[vlan->numvtaps - 1], NULL);
- 		RCU_INIT_POINTER(q->vlan, NULL);
- 		sock_put(&q->sk);
--		--vlan->numvtaps;
-+		list_del_init(&q->next);
- 	}
- 
- 	spin_unlock(&macvtap_lock);
-@@ -160,6 +225,10 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
- 	struct macvtap_queue *tap = NULL;
-+	/* numvtaps here is just a hint, even if the number of active taps were
-+	 * reduced in the same sime, since we are protected by rcu read lock,
-+	 * we're safe here.
-+	 */
- 	int numvtaps = ACCESS_ONCE(vlan->numvtaps);
- 	__u32 rxq;
- 
-@@ -196,20 +265,25 @@ out:
- static void macvtap_del_queues(struct net_device *dev)
- {
- 	struct macvlan_dev *vlan = netdev_priv(dev);
--	struct macvtap_queue *q, *qlist[MAX_MACVTAP_QUEUES];
-+	struct macvtap_queue *q, *tmp, *qlist[MAX_MACVTAP_QUEUES];
- 	int i, j = 0;
- 
- 	spin_lock(&macvtap_lock);
--	for (i = 0; i < vlan->numvtaps; i++) {
--		q = rcu_dereference_protected(vlan->taps[i],
--					      lockdep_is_held(&macvtap_lock));
--		BUG_ON(q == NULL);
-+	list_for_each_entry_safe(q, tmp, &vlan->tap_link, next) {
-+		list_del_init(&q->next);
- 		qlist[j++] = q;
--		RCU_INIT_POINTER(vlan->taps[i], NULL);
- 		RCU_INIT_POINTER(q->vlan, NULL);
-+		if (q->enabled)
-+			vlan->numvtaps--;
-+		else
-+			vlan->numdisabled--;
- 	}
-+	for (i = 0; i < vlan->numvtaps; i++)
-+		RCU_INIT_POINTER(vlan->taps[i], NULL);
-+	BUG_ON(vlan->numvtaps + vlan->numdisabled != 0);
- 	/* guarantee that any future macvtap_set_queue will fail */
- 	vlan->numvtaps = MAX_MACVTAP_QUEUES;
-+	vlan->numdisabled = 0;
- 	spin_unlock(&macvtap_lock);
- 
- 	synchronize_rcu();
-@@ -298,6 +372,9 @@ static int macvtap_newlink(struct net *src_net,
- 			   struct nlattr *tb[],
- 			   struct nlattr *data[])
- {
-+	struct macvlan_dev *vlan = netdev_priv(dev);
-+	INIT_LIST_HEAD(&vlan->tap_link);
-+
- 	/* Don't put anything that may fail after macvlan_common_newlink
- 	 * because we can't undo what it does.
- 	 */
-@@ -926,6 +1003,27 @@ static int macvtap_set_iff(struct file *file, struct ifreq __user *ifr_u)
- 	return 0;
- }
- 
-+static int macvtap_ioctl_set_queue(struct file *file, unsigned int flags)
-+{
-+	struct macvtap_queue *q = file->private_data;
-+	struct macvlan_dev *vlan;
-+	int ret = -EINVAL;
-+
-+	vlan = macvtap_get_vlan(q);
-+	if (!vlan)
-+		goto done;
-+
-+	if (flags & IFF_ATTACH_QUEUE)
-+		ret = macvtap_enable_queue(vlan->dev, file, q);
-+	else if (flags & IFF_DETACH_QUEUE)
-+		ret = macvtap_disable_queue(q);
-+
-+	macvtap_put_vlan(vlan);
-+
-+done:
-+	return ret;
-+}
-+
- /*
-  * provide compatibility with generic tun/tap interface
-  */
-@@ -958,6 +1056,11 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
- 		macvtap_put_vlan(vlan);
- 		return ret;
- 
-+	case TUNSETQUEUE:
-+		if (get_user(u, &ifr->ifr_flags))
-+			return -EFAULT;
-+		return macvtap_ioctl_set_queue(file, u);
-+
- 	case TUNGETFEATURES:
- 		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR, up))
- 			return -EFAULT;
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index 62d8bda..87b9091 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -69,8 +69,12 @@ struct macvlan_dev {
- 	u16			flags;
- 	int (*receive)(struct sk_buff *skb);
- 	int (*forward)(struct net_device *dev, struct sk_buff *skb);
-+	/* This array tracks active taps. */
- 	struct macvtap_queue	*taps[MAX_MACVTAP_QUEUES];
-+	/* This list tracks all taps (both enabled and disabled) */
-+	struct list_head	tap_link;
- 	int			numvtaps;
-+	int			numdisabled;
- 	int			minor;
- };
- 
--- 
-1.7.1
+[   55.010954] general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC
+[   55.013309] CPU: 1 PID: 163 Comm: kworker/1:2 Not tainted
+3.10.0-rc2+ #1150
+[   55.013309] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
+[   55.013309] Workqueue: events vxlan_igmp_work
+[   55.013309] task: ffff880070eac900 ti: ffff8800716d4000 task.ti:
+ffff8800716d4000
+[   55.013309] RIP: 0010:[<ffffffff815df704>]  [<ffffffff815df704>]
+vxlan_sock_release+0x25/0x55
+[   55.013309] RSP: 0018:ffff8800716d5cf8  EFLAGS: 00010246
+[   55.013309] RAX: 0000000000000000 RBX: ffff88006fd7c000 RCX:
+0000000ccee84d06
+[   55.013309] RDX: dead000000200200 RSI: ffff880070ead048 RDI:
+ffff88006fd7c070
+[   55.013309] RBP: ffff8800716d5d08 R08: 0000000000000000 R09:
+ffff8800716d5c48
+[   55.013309] R10: 000000000000b6c4 R11: 000000000000b163 R12:
+ffff88006ebb7400
+[   55.013309] R13: ffff88006fd7c000 R14: ffff8800723b4520 R15:
+0000000000000000
+[   55.013309] FS:  0000000000000000(0000) GS:ffff88007f800000(0000)
+knlGS:0000000000000000
+[   55.013309] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+[   55.013309] CR2: 00007fa99dc0a000 CR3: 0000000070c17000 CR4:
+00000000000006e0
+[   55.013309] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
+0000000000000000
+[   55.013309] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
+0000000000000400
+[   55.013309] Stack:
+[   55.013309]  ffff880070eac900 ffff880070fc0b58 ffff8800716d5d48
+ffffffff815e0a73
+[   55.013309]  080808e0716d5d28 0000000f00000000 ffff8800714ef008
+ffff880070fc0b58
+[   55.013309]  ffff88007f9d6200 ffff88007f9d38c0 ffff8800716d5de8
+ffffffff8106872f
+[   55.013309] Call Trace:
+[   55.013309]  [<ffffffff815e0a73>] vxlan_igmp_work+0xa8/0xcf
+[   55.013309]  [<ffffffff8106872f>] process_one_work+0x240/0x408
+[   55.013309]  [<ffffffff81068662>] ? process_one_work+0x173/0x408
+[   55.013309]  [<ffffffff81068c82>] worker_thread+0x15d/0x1f1
+[   55.013309]  [<ffffffff81068b25>] ? rescuer_thread+0x1ff/0x1ff
+[   55.013309]  [<ffffffff81070c19>] kthread+0xb1/0xb9
+[   55.013309]  [<ffffffff81070b68>] ? freezing+0x17/0x17
+[   55.013309]  [<ffffffff81976bdc>] ret_from_fork+0x7c/0xb0
+[   55.013309]  [<ffffffff81070b68>] ? freezing+0x17/0x17
