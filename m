@@ -1,92 +1,102 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 03/10] vxlan: move IGMP join/leave to work queue
-Date: Wed, 5 Jun 2013 06:47:52 +0000 (UTC)
-Message-ID: <kommuo$ma8$1@ger.gmane.org>
-References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
- <1370406254-6341-3-git-send-email-stephen@networkplumber.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:53211 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752607Ab3FEGsM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 02:48:12 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1Uk7Vw-0001dZ-8f
-	for netdev@vger.kernel.org; Wed, 05 Jun 2013 08:48:08 +0200
-Received: from 60.160.70.221 ([60.160.70.221])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:48:08 +0200
-Received: from xiyou.wangcong by 60.160.70.221 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:48:08 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [net-next rfc V3 7/9] macvtap: allow TUNSETIFF to create multiqueue device
+Date: Wed,  5 Jun 2013 14:36:30 +0800
+Message-ID: <1370414192-5830-8-git-send-email-jasowang@redhat.com>
+References: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
+Cc: sergei.shtylyov@cogentembedded.com,
+	Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 05 Jun 2013 at 04:24 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
-> Do join/leave from work queue to avoid lock inversion problems
-> between normal socket and RTNL. The code comes out cleaner
-> as well.
->
-> Uses Cong Wang's suggestion to turn refcnt into a real atomic
-> since now need to handle case where last use of socket is IGMP
-> worker.
->
-> Also fixes race where vxlan_stop could be called after
-> device was deleted on module removal. The call to rtnl_link_unregister
-> would call dellink while vxlan device was still up. Reordering
-> the calls fixes it.
->
+Though the queue were in fact created by open(), we still need to add this check
+to be compatible with tuntap which can let mgmt software use a single API to
+manage queues. This patch only validates the device name and moves the TUNSETIFF
+to a helper.
 
-After the first 3 patches applied, I got:
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/macvtap.c |   51 ++++++++++++++++++++++++++++++++++++++----------
+ 1 files changed, 40 insertions(+), 11 deletions(-)
 
-[   55.010954] general protection fault: 0000 [#1] SMP DEBUG_PAGEALLOC
-[   55.013309] CPU: 1 PID: 163 Comm: kworker/1:2 Not tainted
-3.10.0-rc2+ #1150
-[   55.013309] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-[   55.013309] Workqueue: events vxlan_igmp_work
-[   55.013309] task: ffff880070eac900 ti: ffff8800716d4000 task.ti:
-ffff8800716d4000
-[   55.013309] RIP: 0010:[<ffffffff815df704>]  [<ffffffff815df704>]
-vxlan_sock_release+0x25/0x55
-[   55.013309] RSP: 0018:ffff8800716d5cf8  EFLAGS: 00010246
-[   55.013309] RAX: 0000000000000000 RBX: ffff88006fd7c000 RCX:
-0000000ccee84d06
-[   55.013309] RDX: dead000000200200 RSI: ffff880070ead048 RDI:
-ffff88006fd7c070
-[   55.013309] RBP: ffff8800716d5d08 R08: 0000000000000000 R09:
-ffff8800716d5c48
-[   55.013309] R10: 000000000000b6c4 R11: 000000000000b163 R12:
-ffff88006ebb7400
-[   55.013309] R13: ffff88006fd7c000 R14: ffff8800723b4520 R15:
-0000000000000000
-[   55.013309] FS:  0000000000000000(0000) GS:ffff88007f800000(0000)
-knlGS:0000000000000000
-[   55.013309] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[   55.013309] CR2: 00007fa99dc0a000 CR3: 0000000070c17000 CR4:
-00000000000006e0
-[   55.013309] DR0: 0000000000000000 DR1: 0000000000000000 DR2:
-0000000000000000
-[   55.013309] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7:
-0000000000000400
-[   55.013309] Stack:
-[   55.013309]  ffff880070eac900 ffff880070fc0b58 ffff8800716d5d48
-ffffffff815e0a73
-[   55.013309]  080808e0716d5d28 0000000f00000000 ffff8800714ef008
-ffff880070fc0b58
-[   55.013309]  ffff88007f9d6200 ffff88007f9d38c0 ffff8800716d5de8
-ffffffff8106872f
-[   55.013309] Call Trace:
-[   55.013309]  [<ffffffff815e0a73>] vxlan_igmp_work+0xa8/0xcf
-[   55.013309]  [<ffffffff8106872f>] process_one_work+0x240/0x408
-[   55.013309]  [<ffffffff81068662>] ? process_one_work+0x173/0x408
-[   55.013309]  [<ffffffff81068c82>] worker_thread+0x15d/0x1f1
-[   55.013309]  [<ffffffff81068b25>] ? rescuer_thread+0x1ff/0x1ff
-[   55.013309]  [<ffffffff81070c19>] kthread+0xb1/0xb9
-[   55.013309]  [<ffffffff81070b68>] ? freezing+0x17/0x17
-[   55.013309]  [<ffffffff81976bdc>] ret_from_fork+0x7c/0xb0
-[   55.013309]  [<ffffffff81070b68>] ? freezing+0x17/0x17
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 5ccba99..14764cc 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -869,6 +869,7 @@ out:
+ 	return ret;
+ }
+ 
++
+ static struct macvlan_dev *macvtap_get_vlan(struct macvtap_queue *q)
+ {
+ 	struct macvlan_dev *vlan;
+@@ -887,6 +888,44 @@ static void macvtap_put_vlan(struct macvlan_dev *vlan)
+ 	dev_put(vlan->dev);
+ }
+ 
++static int macvtap_set_iff(struct file *file, struct ifreq __user *ifr_u)
++{
++	struct macvtap_queue *q = file->private_data;
++	struct net *net = current->nsproxy->net_ns;
++	struct inode *inode = file_inode(file);
++	struct net_device *dev, *dev2;
++	struct ifreq ifr;
++
++	if (copy_from_user(&ifr, ifr_u, sizeof(struct ifreq)))
++		return -EFAULT;
++
++	/* To keep the same behavior of tuntap, validate ifr_name */
++	if (ifr.ifr_flags & IFF_MULTI_QUEUE) {
++		dev = __dev_get_by_name(net, ifr.ifr_name);
++		if (!dev)
++			return -EINVAL;
++
++		dev2 = dev_get_by_macvtap_minor(iminor(inode));
++		if (!dev2)
++			return -EINVAL;
++
++		if (dev != dev2) {
++			dev_put(dev2);
++			return -EINVAL;
++		}
++
++		dev_put(dev2);
++	}
++
++	if ((ifr.ifr_flags & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
++	    (IFF_NO_PI | IFF_TAP))
++		return -EINVAL;
++	else
++		q->flags = ifr.ifr_flags;
++
++	return 0;
++}
++
+ /*
+  * provide compatibility with generic tun/tap interface
+  */
+@@ -905,17 +944,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 
+ 	switch (cmd) {
+ 	case TUNSETIFF:
+-		/* ignore the name, just look at flags */
+-		if (get_user(u, &ifr->ifr_flags))
+-			return -EFAULT;
+-
+-		ret = 0;
+-		if ((u & ~IFF_VNET_HDR) != (IFF_NO_PI | IFF_TAP))
+-			ret = -EINVAL;
+-		else
+-			q->flags = u;
+-
+-		return ret;
++		return macvtap_set_iff(file, ifr);
+ 
+ 	case TUNGETIFF:
+ 		vlan = macvtap_get_vlan(q);
+-- 
+1.7.1
