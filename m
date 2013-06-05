@@ -1,67 +1,84 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v9 net-next 5/7] net: simple poll/select
- low latency socket poll
-Date: Wed, 05 Jun 2013 08:20:06 -0700
-Message-ID: <1370445606.24311.265.camel@edumazet-glaptop>
-References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
-	<20130605103452.11172.31453.stgit@ladj378.jer.intel.com>
-	<1370439054.24311.248.camel@edumazet-glaptop>
-	<51AF401C.2030506@linux.intel.com>
+From: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+Subject: Re: [PATCH] net: tun: release the reference of tun device in tun_recvmsg
+Date: Wed, 5 Jun 2013 17:20:14 +0200
+Message-ID: <201306051720.15029.a.miskiewicz@gmail.com>
+References: <201304250822.38944.a.miskiewicz@gmail.com> <201305290029.35303.a.miskiewicz@gmail.com> <51AC5345.6020904@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Don,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <51AF401C.2030506@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Jason Wang <jasowang@redhat.com>, netdev@vger.kernel.org,
+	Balakumaran Kannan <kumaran.4353@gmail.com>,
+	Maruthi Thotad <Maruthi.Thotad@ap.sony.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Gao feng <gaofeng@cn.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f53.google.com ([209.85.214.53]:35065 "EHLO
+	mail-bk0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756210Ab3FEPUT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 11:20:19 -0400
+Received: by mail-bk0-f53.google.com with SMTP id e11so404678bkh.26
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:20:17 -0700 (PDT)
+In-Reply-To: <51AC5345.6020904@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-05 at 16:41 +0300, Eliezer Tamir wrote:
-> On 05/06/2013 16:30, Eric Dumazet wrote:
+On Monday 03 of June 2013, Gao feng wrote:
+> On 05/29/2013 06:29 AM, Arkadiusz Miskiewicz wrote:
+> > On Friday 26 of April 2013, Jason Wang wrote:
+> >> On 04/26/2013 01:03 PM, Gao feng wrote:
+> >>> On 04/25/2013 11:04 PM, Arkadiusz Miskiewicz wrote:
+> >>>> On Thursday 25 of April 2013, Gao feng wrote:
+> >>>>> We forget to release the reference of tun device in tun_recvmsg=
+=2E
+> >>>>> bug introduced in commit 54f968d6efdbf7dec36faa44fc11f01b0e4d19=
+90
+> >>>>> (tuntap: move socket to tun_file)
+> >>>>=20
+> >>>> Hm, still hitting the problem even with the patch - dmesg:
+> >>> Ok, seams there are another problems we haven't discovered.
+> >>> it's excellent if you can find out which commit introduces this
+> >>> bug by git bisect.
+> >>>=20
+> >>> Thanks!
+> >>=20
+> >> Yes, bisect will be helpful. If you could not do it, please tell m=
+e the
+> >> steps to reproduce the issue and the tree you used. I just test wi=
+th
+> >> net.git and net-next.git with a tap device created by tunctl, didn=
+'t
+> >> meet the issue.
+> >=20
+> > Took a while. Suspected patch is below. I'm running fresh linus git
+> > (3.10.0-rc3-00046-g58f8bbd) with the patch reverted and couldn't
+> > reproduce problem anymore after several tries (will do more testing
+> > in meantime).
+>=20
+> Thanks for your helpful work :)
+> I already send a patch to fix this problem.
 
-> > I am a bit uneasy with this one, because an applicatio polling() on one
-> > thousand file descriptors using select()/poll(), will call sk_poll_ll()
-> > one thousand times.
-> 
-> But we call sk_poll_ll() with nonblock set, so it will only test once
-> for each socket and not loop.
-> 
-> I think this is not as bad as it sounds.
-> We still honor the time limit on how long to poll.
+Please push it into stable kernel (3.9) queue, too. Works well here.
 
-We still call ndo_ll_poll() a thousand times, and probably do a
-spinlock/unlock a thousand times in the driver.
+commit 534c877928a16ae5f9776436a497109639bf67dc
+Author: Gao feng <gaofeng@cn.fujitsu.com>
+Date:   Sun Jun 2 22:16:21 2013 +0000
 
-I would definitely be convinced if you give us some performance numbers
-of a poll() on a thousand tcp sockets for example.
+    ipv6: assign rt6_info to inet6_ifaddr in init_loopback
+   =20
+    Commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
+    "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
+    forgot to assign rt6_info to the inet6_ifaddr.
+    When disable the net device, the rt6_info which allocated
+    in init_loopback will not be destroied in __ipv6_ifa_notify.
+   =20
+    This will trigger the waring message below
+    [23527.916091] unregister_netdevice: waiting for tap0 to become fre=
+e.=20
+Usage count =3D 1
+   =20
+    Reported-by: Arkadiusz Miskiewicz <a.miskiewicz@gmail.com>
+    Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
 
-See my following mail about sk_poll_ll()
-
-
-------------------------------------------------------------------------------
-How ServiceNow helps IT people transform IT departments:
-1. A cloud service to automate IT design, transition and operations
-2. Dashboards that offer high-level views of enterprise services
-3. A single system of record for all IT processes
-http://p.sf.net/sfu/servicenow-d2d-j
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+--=20
+Arkadiusz Mi=C5=9Bkiewicz, arekm / maven.pl
