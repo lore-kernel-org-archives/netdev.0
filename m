@@ -1,38 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: Fix bridged GSO for 57710/57711 chips
-Date: Tue, 04 Jun 2013 17:17:37 -0700 (PDT)
-Message-ID: <20130604.171737.311428267471179268.davem@davemloft.net>
-References: <1370264397-27324-1-git-send-email-yuvalmin@broadcom.com>
+Subject: Re: [PATCH] net: mv643xx_eth: add missing semicolon
+Date: Tue, 04 Jun 2013 17:19:12 -0700 (PDT)
+Message-ID: <20130604.171912.471267812978152333.davem@davemloft.net>
+References: <4063428.ukZe9BdPSb@wuerfel>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ariele@broadcom.com, eilong@broadcom.com
-To: yuvalmin@broadcom.com
+Cc: sebastian.hesselbarth@gmail.com, netdev@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60546 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60560 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752342Ab3FEARi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 20:17:38 -0400
-In-Reply-To: <1370264397-27324-1-git-send-email-yuvalmin@broadcom.com>
+	with ESMTP id S1752342Ab3FEATN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 20:19:13 -0400
+In-Reply-To: <4063428.ukZe9BdPSb@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Mon, 3 Jun 2013 15:59:57 +0300
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Mon, 03 Jun 2013 15:11:24 +0200
 
-> It was recently found out that GSO on 57710/57711 was broken, due to packets
-> being sent without a valid IP checksum. 
+> 76723bca28 "net: mv643xx_eth: add DT parsing support" added a
+> dummy mv643xx_eth_shared_of_probe() fallback function with a
+> typo.
 > 
-> Commit 057cf65 "bnx2x: Fix GSO for 57710/57711 chips" partially fixed this
-> issue, but failed to set the correct IP checksum when receiving GSO packets
-> via bridges, as such packets enter bnx2x_tx_split() and the FW flags needed
-> to calculate IP checksum were erroneously set in the incorrect
-> buffer descriptor.
+> This adds the missing semicolon so we can build without CONFIG_OF
+> again, and changes both dummy functions to the more conventional
+> "static inline" syntax, which can avoid potential problems with
+> the empty macro.
 > 
-> This patch re-enables GSO in said scenario for 57710/57711 chips.
-> 
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
 Applied, thanks.
