@@ -1,147 +1,84 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v2 2/3] ipv6,mcast: fix return values of some functions
-Date: Wed,  5 Jun 2013 17:38:20 +0800
-Message-ID: <1370425101-31683-2-git-send-email-amwang@redhat.com>
-References: <1370425101-31683-1-git-send-email-amwang@redhat.com>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Tom Parkin <tparkin@katalix.com>
+Subject: Re: [PATCH] l2tp: avoid checksum offload for fragmented packets
+Date: Wed, 5 Jun 2013 10:41:11 +0100
+Message-ID: <20130605094111.GB2522@raven>
+References: <1370245762-5126-1-git-send-email-tparkin@katalix.com>
+ <1370245762-5126-2-git-send-email-tparkin@katalix.com>
+ <1370270652.1918.14.camel@bwh-desktop.uk.level5networks.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="KFztAG8eRSV9hGtP"
+Cc: netdev@vger.kernel.org, jchapman@katalix.com
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4366 "EHLO mx1.redhat.com"
+Received: from katalix.com ([82.103.140.233]:41272 "EHLO bert.katalix.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752756Ab3FEJit (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 05:38:49 -0400
-In-Reply-To: <1370425101-31683-1-git-send-email-amwang@redhat.com>
+	id S1752387Ab3FEJlO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 05:41:14 -0400
+Content-Disposition: inline
+In-Reply-To: <1370270652.1918.14.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
 
-There are some places casting the return value to void, actually
-they can respect the return value.
+--KFztAG8eRSV9hGtP
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-ip6_mc_leave_src() can become avoid, because even if it fails,
-the operations after it can still continue.
+On Mon, Jun 03, 2013 at 03:44:12PM +0100, Ben Hutchings wrote:
+> On Mon, 2013-06-03 at 08:49 +0100, Tom Parkin wrote:
+> > Hardware offload for UDP datagram checksum calculation doesn't work with
+> > fragmented IP packets -- the device will note the fragmentation and lea=
+ve the
+> > UDP checksum well alone.
+> >=20
+> > As such, if we expect the L2TP packet to be fragmented by the IP layer =
+we need
+> > to perform the UDP checksum ourselves in software (ref: net/ipv4/udp.c).
+> >
+> > This change modifies the L2TP xmit path to fallback to software checksum
+> > calculation if the L2TP packet + IP header exceeds the tunnel device MT=
+U.
+> [...]
+>=20
+> Surely this should be done in the IP stack when fragmenting, not in any
+> particular client?
+>=20
 
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
----
- net/ipv6/mcast.c |   36 +++++++++++++++++-------------------
- 1 files changed, 17 insertions(+), 19 deletions(-)
+Hmm, that's a good question.
 
-diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
-index 72c8bfe..dd945a9 100644
---- a/net/ipv6/mcast.c
-+++ b/net/ipv6/mcast.c
-@@ -103,8 +103,8 @@ static int ip6_mc_del_src(struct inet6_dev *idev, const struct in6_addr *pmca,
- static int ip6_mc_add_src(struct inet6_dev *idev, const struct in6_addr *pmca,
- 			  int sfmode, int sfcount, const struct in6_addr *psfsrc,
- 			  int delta);
--static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
--			    struct inet6_dev *idev);
-+static void ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
-+			     struct inet6_dev *idev);
- 
- 
- #define IGMP6_UNSOLICITED_IVAL	(10*HZ)
-@@ -231,11 +231,11 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
- 			if (dev != NULL) {
- 				struct inet6_dev *idev = __in6_dev_get(dev);
- 
--				(void) ip6_mc_leave_src(sk, mc_lst, idev);
-+				ip6_mc_leave_src(sk, mc_lst, idev);
- 				if (idev)
- 					__ipv6_dev_mc_dec(idev, &mc_lst->addr);
- 			} else
--				(void) ip6_mc_leave_src(sk, mc_lst, NULL);
-+				ip6_mc_leave_src(sk, mc_lst, NULL);
- 			rcu_read_unlock();
- 			atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
- 			kfree_rcu(mc_lst, rcu);
-@@ -300,11 +300,11 @@ void ipv6_sock_mc_close(struct sock *sk)
- 		if (dev) {
- 			struct inet6_dev *idev = __in6_dev_get(dev);
- 
--			(void) ip6_mc_leave_src(sk, mc_lst, idev);
-+			ip6_mc_leave_src(sk, mc_lst, idev);
- 			if (idev)
- 				__ipv6_dev_mc_dec(idev, &mc_lst->addr);
- 		} else
--			(void) ip6_mc_leave_src(sk, mc_lst, NULL);
-+			ip6_mc_leave_src(sk, mc_lst, NULL);
- 		rcu_read_unlock();
- 
- 		atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
-@@ -434,9 +434,8 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
- 		psl->sl_addr[j+1] = psl->sl_addr[j];
- 	psl->sl_addr[i] = *source;
- 	psl->sl_count++;
--	err = 0;
- 	/* update the interface list */
--	ip6_mc_add_src(idev, group, omode, 1, source, 1);
-+	err = ip6_mc_add_src(idev, group, omode, 1, source, 1);
- done:
- 	if (pmclocked)
- 		write_unlock(&pmc->sflock);
-@@ -513,21 +512,22 @@ int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf)
- 		}
- 	} else {
- 		newpsl = NULL;
--		(void) ip6_mc_add_src(idev, group, gsf->gf_fmode, 0, NULL, 0);
-+		err = ip6_mc_add_src(idev, group, gsf->gf_fmode, 0, NULL, 0);
-+		if (err)
-+			goto done;
- 	}
- 
- 	write_lock(&pmc->sflock);
- 	psl = pmc->sflist;
- 	if (psl) {
--		(void) ip6_mc_del_src(idev, group, pmc->sfmode,
-+		err = ip6_mc_del_src(idev, group, pmc->sfmode,
- 			psl->sl_count, psl->sl_addr, 0);
- 		sock_kfree_s(sk, psl, IP6_SFLSIZE(psl->sl_max));
- 	} else
--		(void) ip6_mc_del_src(idev, group, pmc->sfmode, 0, NULL, 0);
-+		err = ip6_mc_del_src(idev, group, pmc->sfmode, 0, NULL, 0);
- 	pmc->sflist = newpsl;
- 	pmc->sfmode = gsf->gf_fmode;
- 	write_unlock(&pmc->sflock);
--	err = 0;
- done:
- 	read_unlock_bh(&idev->lock);
- 	rcu_read_unlock();
-@@ -2120,23 +2120,21 @@ static void igmp6_join_group(struct ifmcaddr6 *ma)
- 	spin_unlock_bh(&ma->mca_lock);
- }
- 
--static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
--			    struct inet6_dev *idev)
-+static void ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
-+			     struct inet6_dev *idev)
- {
--	int err;
--
- 	/* callers have the socket lock and a write lock on ipv6_sk_mc_lock,
- 	 * so no other readers or writers of iml or its sflist
- 	 */
- 	if (!iml->sflist) {
- 		/* any-source empty exclude case */
--		return ip6_mc_del_src(idev, &iml->addr, iml->sfmode, 0, NULL, 0);
-+		ip6_mc_del_src(idev, &iml->addr, iml->sfmode, 0, NULL, 0);
-+		return;
- 	}
--	err = ip6_mc_del_src(idev, &iml->addr, iml->sfmode,
-+	ip6_mc_del_src(idev, &iml->addr, iml->sfmode,
- 		iml->sflist->sl_count, iml->sflist->sl_addr, 0);
- 	sock_kfree_s(sk, iml->sflist, IP6_SFLSIZE(iml->sflist->sl_max));
- 	iml->sflist = NULL;
--	return err;
- }
- 
- static void igmp6_leave_group(struct ifmcaddr6 *ma)
--- 
-1.7.7.6
+I'm not sure it makes sense to push this down into the IP layer, though.  S=
+ince=20
+it's the UDP checksum we're calculating, it seems reasonable to handle it a=
+t=20
+the UDP layer (which is where L2TP sits when using UDP encapsulation).
+
+If you're worried about reproducing similar code in both UDP and L2TP
+I can see where you're coming from, but since UDP uses corking and
+L2TP doesn't the data transmit path is quite dissimilar.  We could
+probably do some work to share the code, but it doesn't seem worth it
+for the amount of sharing we'd be able to achieve.
+--=20
+Tom Parkin
+Katalix Systems Ltd
+http://www.katalix.com
+Catalysts for your Embedded Linux software development
+
+--KFztAG8eRSV9hGtP
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iQEcBAEBAgAGBQJRrwe3AAoJEJSMBmUKuovQBr0H/AmjAPg2dTSuWY6Qi9QtuSTz
+O2L3I7yPoF+ZHi1vgCtPiJ1TYaWF7b3bVFQT5akqvsHFVlmBdTkLvCIY1DgPCu3i
+OK21oweapG2ja52+itZbMRAevu/fEyZoaGXpfFtlW7JgN3Ofg4vNuM7ONpIulNQI
+ALegVUhFp4geZtq7GyDVEp/PYbtso5mrsNWg/VNMmKrPFq9Nk7PFzl4ZWL6QoIky
+Zp984dOtxGSBXDQFPaMf4KY5qdvrZNTnhOYZ3ZWHPbd0HDWcdPeTtE5QCRdQwpH4
+8yAm5ZduCLO81hawtWWvpQzRuzV8I7+kMmB+u71kwcwjoJIDyS95vsjv6TOKbNc=
+=wuvG
+-----END PGP SIGNATURE-----
+
+--KFztAG8eRSV9hGtP--
