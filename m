@@ -1,84 +1,47 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PULL] vhost: cleanups and fixes
-Date: Wed, 5 Jun 2013 18:53:38 +0300
-Message-ID: <20130605155338.GA26561@redhat.com>
-References: <20130502105353.GA24655@redhat.com>
- <1367520929.23900.114.camel@haakon3.risingtidesystems.com>
- <20130502193309.GC16031@redhat.com>
- <CA+55aFwwVMhmmJfWoepipWT+WQZHt4gRPKSucgBABe5Rq=kVkw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH 0/4] ss: Get netlink sockets info via sock-diag (v2)
+Date: Wed, 5 Jun 2013 08:56:26 -0700
+Message-ID: <20130605085626.5dd9191d@nehalam.linuxnetplumber.net>
+References: <1370421721-30814-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Nicholas A. Bellinger" <nab@linux-iscsi.org>,
-	KVM list <kvm@vger.kernel.org>, virtualization@lists.osdl.org,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Asias He <asias@redhat.com>,
-	target-devel <target-devel@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+55aFwwVMhmmJfWoepipWT+WQZHt4gRPKSucgBABe5Rq=kVkw@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Andrey Vagin <avagin@openvz.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:36227 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756666Ab3FEP4a (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 11:56:30 -0400
+Received: by mail-pd0-f175.google.com with SMTP id 4so2014157pdd.6
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 08:56:30 -0700 (PDT)
+In-Reply-To: <1370421721-30814-1-git-send-email-avagin@openvz.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 02, 2013 at 12:49:42PM -0700, Linus Torvalds wrote:
-> On Thu, May 2, 2013 at 12:33 PM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> >
-> > I prefer not rebasing,
-> 
-> Good.
-> 
-> >                   will play with git to see why
-> > does request-pull get me a wrong diffstat and how
-> > to trick it into doing the right thing.
-> > Maybe merging my branch into master will do this.
-> 
-> No, don't do an unnecessary merge just to get the diffstat right.
-> 
-> git pull-request ends up assuming that there are no back-merges, and
-> that you have a uniquely defined single shared merge base. That allows
-> pull-request to just generate the diff directly from that merge base,
-> without actually trying to do the merge itself (which may have
-> conflicts etc).
-> 
-> But because git pull-request doesn't actually *do* the merge, it means
-> that it will fail to give the correct diffstat if the tree is
-> complicated and has multiple merge bases, and it can't really figure
-> what the original shared state was before the development.
-> 
-> This is just one reason I do *not* want to see back-merges. They make
-> history harder to read not just for humans.
-> 
-> You can either ignore the problem (I'll see the real diffstat when I
-> actually do the merge), or you can do a test-merge yourself (that you
-> do *not* then push out in the development branch - keep it in a
-> temporary branch for your own edification or just delete it after
-> doing the merge, and don't do development on it!)
-> 
-> In this case, it's an indirect back-merge: you back-merged a commit
-> from the target tree that I have now merged, so it has become a
-> back-merge. I'm not sure why you did that - if you needed to start
-> from that state, it would actually have been better to just start at
-> that state instead of merging it.
+On Wed,  5 Jun 2013 12:41:57 +0400
+Andrey Vagin <avagin@openvz.org> wrote:
 
-OK I'm in that situation again. I have some vhost-net patches that depend on
-changes in tip.
-But I also have a vhost-next branch with unrelated changes, that
-I started from -rc3.
-
-Previously I would just merge tip into vhost-next, then everyone's
-happy, but it will create an implicit back-merge again, won't it?
-
-So what should I do?
-
-Sorry about being dense.
-
-> But whatever. You can get the
-> diffstat by using your merge as the base, so
+> On Thu, Mar 21, 2013 at 10:00:25AM -0700, Stephen Hemminger wrote:
+> > Since this depends on functionality not in the upstream kernel.
+> > Resubmit this during the 3.10 merge window. At the start of the merge
+> > window, headers are synchronized with the kernel headers.
 > 
->     git diff -M --stat --summary bc7562355fda..
+> Netlink socket diag is in the upstream kernel since 3.10-rc1.
 > 
-> in your branch should get the right result without any merges etc..
-> But please do send me a proper pull request.
+> v2: Update kernel headers
 > 
->               Linus
+> Andrey Vagin (4):
+>   ss: handle socket diag request in a separate function
+>   ss: create a function to print info about netlink sockets
+>   ss: show destination address for netlink sockets
+>   ss: Get netlink sockets info via sock-diag (v2)
+> 
+>  include/linux/netlink_diag.h |  52 ++++++++++
+>  misc/ss.c                    | 242 +++++++++++++++++++++++++++++--------------
+>  2 files changed, 216 insertions(+), 78 deletions(-)
+>  create mode 100644 include/linux/netlink_diag.h
+> 
+
+
+Applied
