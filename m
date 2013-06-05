@@ -1,39 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb3: Correct comparisons and calculations
- using skb->tail and skb-transport_header
-Date: Tue, 04 Jun 2013 17:38:37 -0700 (PDT)
-Message-ID: <20130604.173837.694607398273174665.davem@davemloft.net>
-References: <1370333476-17699-1-git-send-email-roy.qing.li@gmail.com>
-	<20130604132353.GF3068@verge.net.au>
+Subject: Re: [PATCH] net: emaclite: Use platform resource table
+Date: Tue, 04 Jun 2013 17:39:27 -0700 (PDT)
+Message-ID: <20130604.173927.1262961402705099933.davem@davemloft.net>
+References: <6ece0a9ee777b987ca777a338cc146ed67897529.1370340196.git.michal.simek@xilinx.com>
+	<201306042210.05844.arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: roy.qing.li@gmail.com, netdev@vger.kernel.org
-To: horms@verge.net.au
+Cc: michal.simek@xilinx.com, linux-kernel@vger.kernel.org,
+	monstr@monstr.eu, wfp5p@virginia.edu, gregkh@linuxfoundation.org,
+	netdev@vger.kernel.org
+To: arnd@arndb.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60719 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60731 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750941Ab3FEAii (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 20:38:38 -0400
-In-Reply-To: <20130604132353.GF3068@verge.net.au>
+	with ESMTP id S1750990Ab3FEAj2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 4 Jun 2013 20:39:28 -0400
+In-Reply-To: <201306042210.05844.arnd@arndb.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Simon Horman <horms@verge.net.au>
-Date: Tue, 4 Jun 2013 22:23:53 +0900
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Tue, 4 Jun 2013 22:10:05 +0200
 
-> On Tue, Jun 04, 2013 at 04:11:16PM +0800, roy.qing.li@gmail.com wrote:
->> From: Li RongQing <roy.qing.li@gmail.com>
+> On Tuesday 04 June 2013, Michal Simek wrote:
+>>   Read data directly from platform recource table
+>> and do not use of_irq_to_resource().
+>> Also use devm_request_and_ioremap() for probe
+>> functions simplification.
 >> 
->> This corrects an regression introduced by "net: Use 16bits for *_headers
->> fields of struct skbuff" when NET_SKBUFF_DATA_USES_OFFSET is not set. In
->> that case skb->tail will be a pointer whereas skb->transport_header
->> will be an offset from head. This is corrected by using wrappers that
->> ensure that comparisons and calculations are always made using pointers.
+>> Signed-off-by: Michal Simek <michal.simek@xilinx.com>
+>> ---
+>> Based on my discussion with Arnd
+>> "[PATCH] net: emaclite: include linux/of_irq.h"
 >> 
->> Cc: Simon Horman <horms@verge.net.au>
->> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 > 
-> Reviewed-by: Simon Horman <horms@verge.net.au>
+> Acked-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied.
+Applied to net-next, thanks.
