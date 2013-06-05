@@ -1,35 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next rfc V3 3/9] macvlan: switch to use IS_ENABLED()
-Date: Wed,  5 Jun 2013 14:36:26 +0800
-Message-ID: <1370414192-5830-4-git-send-email-jasowang@redhat.com>
-References: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
-Cc: sergei.shtylyov@cogentembedded.com,
-	Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 02/10] vxlan: handle skb_clone failure
+Date: Wed, 5 Jun 2013 06:59:56 +0000 (UTC)
+Message-ID: <komnlc$ma8$2@ger.gmane.org>
+References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
+ <1370406254-6341-2-git-send-email-stephen@networkplumber.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from plane.gmane.org ([80.91.229.3]:52310 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752388Ab3FEHAO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 03:00:14 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Uk7hc-0003XB-MI
+	for netdev@vger.kernel.org; Wed, 05 Jun 2013 09:00:12 +0200
+Received: from 60.160.70.221 ([60.160.70.221])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 09:00:12 +0200
+Received: from xiyou.wangcong by 60.160.70.221 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 09:00:12 +0200
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- include/linux/if_macvlan.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+On Wed, 05 Jun 2013 at 04:24 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
+>  		skb1 = skb_clone(skb, GFP_ATOMIC);
+> -		rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
+> -		if (rc == NETDEV_TX_OK)
+> -			rc = rc1;
+> +		if (skb1) {
+> +			rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
+> +			if (rc == NETDEV_TX_OK)
+> +				rc = rc1;
+> +		}
 
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index 84dde1d..e47ad46 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -8,7 +8,7 @@
- #include <net/netlink.h>
- #include <linux/u64_stats_sync.h>
- 
--#if defined(CONFIG_MACVTAP) || defined(CONFIG_MACVTAP_MODULE)
-+#if IS_ENABLED(CONFIG_MACVTAP)
- struct socket *macvtap_get_socket(struct file *);
- #else
- #include <linux/err.h>
--- 
-1.7.1
+If OOM, shouldn't we exit immediately instead of continue handle the
+next one?
