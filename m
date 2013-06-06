@@ -1,41 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 0/8] sh_eth: deal with #ifdef'fery
-Date: Thu, 06 Jun 2013 16:05:04 -0700 (PDT)
-Message-ID: <20130606.160504.85747659460186927.davem@davemloft.net>
-References: <201306062339.21353.sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 01/10] vxlan: only migrate dynamic FDB entries
+Date: Thu, 06 Jun 2013 16:16:25 -0700 (PDT)
+Message-ID: <20130606.161625.178586077908629047.davem@davemloft.net>
+References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201306062339.21353.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34253 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753416Ab3FFXQ0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jun 2013 19:16:26 -0400
+In-Reply-To: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Date: Thu, 6 Jun 2013 23:39:20 +0400
 
->    This series of 8 patches are against Dave's 'net-next.git' repository.
->    The series deals mostly with excess #ifdef'fery in the 'sh_eth' driver.
-> It doesn't yet get rid of all the #ifdef'fery but that's a matter of another
-> patchset. The last patch (it was almost in the middle of the series before),
-> contrariwise, adds one missing #ifdef...
-> 
-> [1/8] sh_eth: remove #ifdef around EDSR and GECMR bit definitions
-> [2/8] sh_eth: use EDSR_ENALL to set EDSR
-> [3/8] sh_eth: remove duplicate sh_eth_set_duplex() definitions
-> [4/8] sh_eth: remove SH_ETH_HAS_TSU
-> [5/8] sh_eth: add IRQ flags to 'struct sh_eth_cpu_data'
-> [6/8] sh_eth: remove #ifdef around sh_eth_select_mii()
-> [7/8] sh_eth: consolidate sh_eth_reset()
-> [8/8] sh_eth: enclose PM code into #ifdef CONFIG_PM
+Stephen please resolve Cong Wang's crashes and then take care of the "return
+bool" and typo nit picks while you're at it, and I'll apply this series it
+looks good otherwise.
 
-All applied, thanks.
-
-I think you should have two sets of const netdev_ops to cover the two
-cases, instead of writing to a non-const netdev_ops.  Could you send a
-follow-on patch which does that?
-
-Thanks.
+Thanks!
