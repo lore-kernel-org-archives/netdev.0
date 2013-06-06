@@ -1,16 +1,19 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v3 1/3] igmp: fix return value of some functions
-Date: Thu,  6 Jun 2013 10:20:09 +0800
-Message-ID: <1370485211-11498-1-git-send-email-amwang@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
+Subject: [Patch net-next v3 2/3] ipv6,mcast: fix return value of some functions
+Date: Thu,  6 Jun 2013 10:20:10 +0800
+Message-ID: <1370485211-11498-2-git-send-email-amwang@redhat.com>
+References: <1370485211-11498-1-git-send-email-amwang@redhat.com>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	"David S. Miller" <davem@davemloft.net>,
 	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:55029 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40977 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754062Ab3FFCU2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 22:20:28 -0400
+	id S1754944Ab3FFCU3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 22:20:29 -0400
+In-Reply-To: <1370485211-11498-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -22,115 +25,123 @@ they can respect the return value.
 ip_mc_leave_src() can become avoid, because even if it fails,
 the operations after it can still continue.
 
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: Stephen Hemminger <stephen@networkplumber.org>
 Cc: "David S. Miller" <davem@davemloft.net>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 ---
-v2: fix the indention
+ net/ipv6/mcast.c |   36 +++++++++++++++++-------------------
+ 1 files changed, 17 insertions(+), 19 deletions(-)
 
- net/ipv4/igmp.c |   30 +++++++++++++++---------------
- 1 files changed, 15 insertions(+), 15 deletions(-)
-
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 450f625..bf185df 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1837,24 +1837,23 @@ done:
- }
- EXPORT_SYMBOL(ip_mc_join_group);
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 72c8bfe..dd945a9 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -103,8 +103,8 @@ static int ip6_mc_del_src(struct inet6_dev *idev, const struct in6_addr *pmca,
+ static int ip6_mc_add_src(struct inet6_dev *idev, const struct in6_addr *pmca,
+ 			  int sfmode, int sfcount, const struct in6_addr *psfsrc,
+ 			  int delta);
+-static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+-			    struct inet6_dev *idev);
++static void ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
++			     struct inet6_dev *idev);
  
--static int ip_mc_leave_src(struct sock *sk, struct ip_mc_socklist *iml,
--			   struct in_device *in_dev)
-+static void ip_mc_leave_src(struct sock *sk, struct ip_mc_socklist *iml,
-+			    struct in_device *in_dev)
- {
- 	struct ip_sf_socklist *psf = rtnl_dereference(iml->sflist);
--	int err;
  
- 	if (psf == NULL) {
- 		/* any-source empty exclude case */
--		return ip_mc_del_src(in_dev, &iml->multi.imr_multiaddr.s_addr,
-+		ip_mc_del_src(in_dev, &iml->multi.imr_multiaddr.s_addr,
- 			iml->sfmode, 0, NULL, 0);
-+		return;
- 	}
--	err = ip_mc_del_src(in_dev, &iml->multi.imr_multiaddr.s_addr,
-+	ip_mc_del_src(in_dev, &iml->multi.imr_multiaddr.s_addr,
- 			iml->sfmode, psf->sl_count, psf->sl_addr, 0);
- 	RCU_INIT_POINTER(iml->sflist, NULL);
- 	/* decrease mem now to avoid the memleak warning */
- 	atomic_sub(IP_SFLSIZE(psf->sl_max), &sk->sk_omem_alloc);
- 	kfree_rcu(psf, rcu);
--	return err;
- }
+ #define IGMP6_UNSOLICITED_IVAL	(10*HZ)
+@@ -231,11 +231,11 @@ int ipv6_sock_mc_drop(struct sock *sk, int ifindex, const struct in6_addr *addr)
+ 			if (dev != NULL) {
+ 				struct inet6_dev *idev = __in6_dev_get(dev);
  
- /*
-@@ -1887,7 +1886,7 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
- 				iml->multi.imr_address.s_addr)
- 			continue;
+-				(void) ip6_mc_leave_src(sk, mc_lst, idev);
++				ip6_mc_leave_src(sk, mc_lst, idev);
+ 				if (idev)
+ 					__ipv6_dev_mc_dec(idev, &mc_lst->addr);
+ 			} else
+-				(void) ip6_mc_leave_src(sk, mc_lst, NULL);
++				ip6_mc_leave_src(sk, mc_lst, NULL);
+ 			rcu_read_unlock();
+ 			atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
+ 			kfree_rcu(mc_lst, rcu);
+@@ -300,11 +300,11 @@ void ipv6_sock_mc_close(struct sock *sk)
+ 		if (dev) {
+ 			struct inet6_dev *idev = __in6_dev_get(dev);
  
--		(void) ip_mc_leave_src(sk, iml, in_dev);
-+		ip_mc_leave_src(sk, iml, in_dev);
+-			(void) ip6_mc_leave_src(sk, mc_lst, idev);
++			ip6_mc_leave_src(sk, mc_lst, idev);
+ 			if (idev)
+ 				__ipv6_dev_mc_dec(idev, &mc_lst->addr);
+ 		} else
+-			(void) ip6_mc_leave_src(sk, mc_lst, NULL);
++			ip6_mc_leave_src(sk, mc_lst, NULL);
+ 		rcu_read_unlock();
  
- 		*imlp = iml->next_rcu;
- 
-@@ -1899,6 +1898,7 @@ int ip_mc_leave_group(struct sock *sk, struct ip_mreqn *imr)
- 		kfree_rcu(iml, rcu);
- 		return 0;
- 	}
-+
- 	if (!in_dev)
- 		ret = -ENODEV;
- 	rtnl_unlock();
-@@ -2032,10 +2032,9 @@ int ip_mc_source(int add, int omode, struct sock *sk, struct
+ 		atomic_sub(sizeof(*mc_lst), &sk->sk_omem_alloc);
+@@ -434,9 +434,8 @@ int ip6_mc_source(int add, int omode, struct sock *sk,
  		psl->sl_addr[j+1] = psl->sl_addr[j];
- 	psl->sl_addr[i] = mreqs->imr_sourceaddr;
+ 	psl->sl_addr[i] = *source;
  	psl->sl_count++;
 -	err = 0;
  	/* update the interface list */
--	ip_mc_add_src(in_dev, &mreqs->imr_multiaddr, omode, 1,
--		&mreqs->imr_sourceaddr, 1);
-+	err = ip_mc_add_src(in_dev, &mreqs->imr_multiaddr, omode, 1,
-+			    &mreqs->imr_sourceaddr, 1);
+-	ip6_mc_add_src(idev, group, omode, 1, source, 1);
++	err = ip6_mc_add_src(idev, group, omode, 1, source, 1);
  done:
- 	rtnl_unlock();
- 	if (leavegroup)
-@@ -2106,22 +2105,23 @@ int ip_mc_msfilter(struct sock *sk, struct ip_msfilter *msf, int ifindex)
+ 	if (pmclocked)
+ 		write_unlock(&pmc->sflock);
+@@ -513,21 +512,22 @@ int ip6_mc_msfilter(struct sock *sk, struct group_filter *gsf)
  		}
  	} else {
  		newpsl = NULL;
--		(void) ip_mc_add_src(in_dev, &msf->imsf_multiaddr,
-+		err = ip_mc_add_src(in_dev, &msf->imsf_multiaddr,
- 				     msf->imsf_fmode, 0, NULL, 0);
+-		(void) ip6_mc_add_src(idev, group, gsf->gf_fmode, 0, NULL, 0);
++		err = ip6_mc_add_src(idev, group, gsf->gf_fmode, 0, NULL, 0);
 +		if (err)
 +			goto done;
  	}
- 	psl = rtnl_dereference(pmc->sflist);
+ 
+ 	write_lock(&pmc->sflock);
+ 	psl = pmc->sflist;
  	if (psl) {
--		(void) ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
-+		err = ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
+-		(void) ip6_mc_del_src(idev, group, pmc->sfmode,
++		err = ip6_mc_del_src(idev, group, pmc->sfmode,
  			psl->sl_count, psl->sl_addr, 0);
- 		/* decrease mem now to avoid the memleak warning */
- 		atomic_sub(IP_SFLSIZE(psl->sl_max), &sk->sk_omem_alloc);
- 		kfree_rcu(psl, rcu);
+ 		sock_kfree_s(sk, psl, IP6_SFLSIZE(psl->sl_max));
  	} else
--		(void) ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
-+		err = ip_mc_del_src(in_dev, &msf->imsf_multiaddr, pmc->sfmode,
- 			0, NULL, 0);
- 	rcu_assign_pointer(pmc->sflist, newpsl);
- 	pmc->sfmode = msf->imsf_fmode;
+-		(void) ip6_mc_del_src(idev, group, pmc->sfmode, 0, NULL, 0);
++		err = ip6_mc_del_src(idev, group, pmc->sfmode, 0, NULL, 0);
+ 	pmc->sflist = newpsl;
+ 	pmc->sfmode = gsf->gf_fmode;
+ 	write_unlock(&pmc->sflock);
 -	err = 0;
  done:
- 	rtnl_unlock();
- 	if (leavegroup)
-@@ -2307,7 +2307,7 @@ void ip_mc_drop_socket(struct sock *sk)
+ 	read_unlock_bh(&idev->lock);
+ 	rcu_read_unlock();
+@@ -2120,23 +2120,21 @@ static void igmp6_join_group(struct ifmcaddr6 *ma)
+ 	spin_unlock_bh(&ma->mca_lock);
+ }
  
- 		inet->mc_list = iml->next_rcu;
- 		in_dev = inetdev_by_index(net, iml->multi.imr_ifindex);
--		(void) ip_mc_leave_src(sk, iml, in_dev);
-+		ip_mc_leave_src(sk, iml, in_dev);
- 		if (in_dev != NULL)
- 			ip_mc_dec_group(in_dev, iml->multi.imr_multiaddr.s_addr);
- 		/* decrease mem now to avoid the memleak warning */
+-static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+-			    struct inet6_dev *idev)
++static void ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
++			     struct inet6_dev *idev)
+ {
+-	int err;
+-
+ 	/* callers have the socket lock and a write lock on ipv6_sk_mc_lock,
+ 	 * so no other readers or writers of iml or its sflist
+ 	 */
+ 	if (!iml->sflist) {
+ 		/* any-source empty exclude case */
+-		return ip6_mc_del_src(idev, &iml->addr, iml->sfmode, 0, NULL, 0);
++		ip6_mc_del_src(idev, &iml->addr, iml->sfmode, 0, NULL, 0);
++		return;
+ 	}
+-	err = ip6_mc_del_src(idev, &iml->addr, iml->sfmode,
++	ip6_mc_del_src(idev, &iml->addr, iml->sfmode,
+ 		iml->sflist->sl_count, iml->sflist->sl_addr, 0);
+ 	sock_kfree_s(sk, iml->sflist, IP6_SFLSIZE(iml->sflist->sl_max));
+ 	iml->sflist = NULL;
+-	return err;
+ }
+ 
+ static void igmp6_leave_group(struct ifmcaddr6 *ma)
 -- 
 1.7.7.6
