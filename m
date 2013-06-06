@@ -1,72 +1,61 @@
-From: Weiping Pan <panweiping3@gmail.com>
-Subject: [PATCH net-next] net: pass correct parameter to skb_headers_offset_update()
-Date: Thu,  6 Jun 2013 21:27:21 +0800
-Message-ID: <fdf66733b5575423669ab215dbb7aea13fd82aeb.1370525076.git.panweiping3@gmail.com>
-Cc: horms@verge.net.au, Weiping Pan <panweiping3@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f178.google.com ([209.85.192.178]:52200 "EHLO
-	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751078Ab3FFN1j (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jun 2013 09:27:39 -0400
-Received: by mail-pd0-f178.google.com with SMTP id w16so3362443pde.37
-        for <netdev@vger.kernel.org>; Thu, 06 Jun 2013 06:27:38 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: Unbreak compat_sys_{send,recv}msg
+Date: Thu, 06 Jun 2013 06:45:37 -0700
+Message-ID: <1370526337.24311.335.camel@edumazet-glaptop>
+References: <20130606132926.f4161ddff87dc9a55e33a8ca@canb.auug.org.au>
+	 <e3bf421e44c6d27817c15a8683612a49e093b419.1370496702.git.luto@amacapital.net>
+	 <20130606.002625.223430401087826901.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: luto@amacapital.net, x86@kernel.org, torvalds@linux-foundation.org,
+	mikey@neuling.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	trinity@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <20130606.002625.223430401087826901.davem@davemloft.net>
+Sender: trinity-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since commit 1a37e412a022(net: Use 16bits for *_headers fields of struct
-skbuff), skb->*_header are relative to skb->head,
-so copy_skb_header() should not call skb_headers_offset_update() now,
-and we should pass correct parameter to skb_headers_offset_update() in
-pskb_expand_head() and skb_copy_expand().
+On Thu, 2013-06-06 at 00:26 -0700, David Miller wrote:
+> From: Andy Lutomirski <luto@amacapital.net>
+> Date: Wed,  5 Jun 2013 22:38:26 -0700
+> 
+> > I broke them in this commit:
+> > 
+> >     commit 1be374a0518a288147c6a7398792583200a67261
+> >     Author: Andy Lutomirski <luto@amacapital.net>
+> >     Date:   Wed May 22 14:07:44 2013 -0700
+> > 
+> >         net: Block MSG_CMSG_COMPAT in send(m)msg and recv(m)msg
+> > 
+> > This patch adds __sys_sendmsg and __sys_sendmsg as common helpers that accept
+> > MSG_CMSG_COMPAT and blocks MSG_CMSG_COMPAT at the syscall entrypoints.  It
+> > also reverts some unnecessary checks in sys_socketcall.
+> > 
+> > Apparently I was suffering from underscore blindness the first time around.
+> > 
+> > Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+> 
+> Eric, can you test this patch too?
 
-Signed-off-by: Weiping Pan <panweiping3@gmail.com>
----
- net/core/skbuff.c |   15 ++-------------
- 1 files changed, 2 insertions(+), 13 deletions(-)
+Yes, this fixes the problem as well on x86_64
 
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index 73f57a0..30a1b56 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -905,18 +905,8 @@ static void skb_headers_offset_update(struct sk_buff *skb, int off)
- 
- static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
- {
--#ifndef NET_SKBUFF_DATA_USES_OFFSET
--	/*
--	 *	Shift between the two data areas in bytes
--	 */
--	unsigned long offset = new->data - old->data;
--#endif
--
- 	__copy_skb_header(new, old);
- 
--#ifndef NET_SKBUFF_DATA_USES_OFFSET
--	skb_headers_offset_update(new, offset);
--#endif
- 	skb_shinfo(new)->gso_size = skb_shinfo(old)->gso_size;
- 	skb_shinfo(new)->gso_segs = skb_shinfo(old)->gso_segs;
- 	skb_shinfo(new)->gso_type = skb_shinfo(old)->gso_type;
-@@ -1108,7 +1098,7 @@ int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
- 	skb->end      = skb->head + size;
- #endif
- 	skb->tail	      += off;
--	skb_headers_offset_update(skb, off);
-+	skb_headers_offset_update(skb, nhead);
- 	/* Only adjust this if it actually is csum_start rather than csum */
- 	if (skb->ip_summed == CHECKSUM_PARTIAL)
- 		skb->csum_start += nhead;
-@@ -1203,9 +1193,8 @@ struct sk_buff *skb_copy_expand(const struct sk_buff *skb,
- 	off                  = newheadroom - oldheadroom;
- 	if (n->ip_summed == CHECKSUM_PARTIAL)
- 		n->csum_start += off;
--#ifdef NET_SKBUFF_DATA_USES_OFFSET
-+
- 	skb_headers_offset_update(n, off);
--#endif
- 
- 	return n;
- }
--- 
-1.7.4.4
+Tested-by: Eric Dumazet <edumazet@google.com>
+
+Thanks !
+
+PS: I had following fuzz while applying on Linus tree :
+
+patching file include/linux/socket.h
+Hunk #1 succeeded at 320 (offset -1 lines).
+patching file net/compat.c
+patching file net/socket.c
+Hunk #1 succeeded at 1956 (offset -22 lines).
+Hunk #2 succeeded at 2071 (offset -22 lines).
+Hunk #3 succeeded at 2125 (offset -22 lines).
+Hunk #4 succeeded at 2163 (offset -22 lines).
+Hunk #5 succeeded at 2255 (offset -22 lines).
+Hunk #6 succeeded at 2317 (offset -22 lines).
+Hunk #7 succeeded at 2515 (offset -20 lines).
