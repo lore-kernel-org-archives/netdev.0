@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH net 1/2] vhost: check owner before we overwrite ubuf_info
-Date: Thu, 6 Jun 2013 15:20:39 +0300
-Message-ID: <1370521145-9723-2-git-send-email-mst@redhat.com>
+Subject: [PATCH net 2/2] vhost: fix ubuf_info cleanup
+Date: Thu, 6 Jun 2013 15:20:46 +0300
+Message-ID: <1370521145-9723-3-git-send-email-mst@redhat.com>
 References: <1370521145-9723-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,67 +24,76 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-If device has an owner, we shouldn't touch ubuf_info
-since it might be in use.
+vhost_net_clear_ubuf_info didn't clear ubuf_info
+after kfree, this could trigger double free.
+Fix this and simplify this code to make it more robust: make sure
+ubuf info is always freed through vhost_net_clear_ubuf_info.
 
+Reported-by: Tommi Rantala <tt.rantala@gmail.com>
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- drivers/vhost/net.c   | 4 ++++
- drivers/vhost/vhost.c | 8 +++++++-
- drivers/vhost/vhost.h | 1 +
- 3 files changed, 12 insertions(+), 1 deletion(-)
+ drivers/vhost/net.c | 22 +++++++---------------
+ 1 file changed, 7 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 2b51e23..6b00f64 100644
+index 6b00f64..7fc47f7 100644
 --- a/drivers/vhost/net.c
 +++ b/drivers/vhost/net.c
-@@ -1053,6 +1053,10 @@ static long vhost_net_set_owner(struct vhost_net *n)
- 	int r;
+@@ -155,14 +155,11 @@ static void vhost_net_ubuf_put_and_wait(struct vhost_net_ubuf_ref *ubufs)
  
- 	mutex_lock(&n->dev.mutex);
-+	if (vhost_dev_has_owner(&n->dev)) {
-+		r = -EBUSY;
-+		goto out;
-+	}
- 	r = vhost_net_set_ubuf_info(n);
- 	if (r)
- 		goto out;
-diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-index beee7f5..60aa5ad 100644
---- a/drivers/vhost/vhost.c
-+++ b/drivers/vhost/vhost.c
-@@ -344,13 +344,19 @@ static int vhost_attach_cgroups(struct vhost_dev *dev)
+ static void vhost_net_clear_ubuf_info(struct vhost_net *n)
+ {
+-
+-	bool zcopy;
+ 	int i;
+ 
+-	for (i = 0; i < n->dev.nvqs; ++i) {
+-		zcopy = vhost_net_zcopy_mask & (0x1 << i);
+-		if (zcopy)
+-			kfree(n->vqs[i].ubuf_info);
++	for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
++		kfree(n->vqs[i].ubuf_info);
++		n->vqs[i].ubuf_info = NULL;
+ 	}
  }
  
- /* Caller should have device mutex */
-+bool vhost_dev_has_owner(struct vhost_dev *dev)
-+{
-+	return dev->mm;
-+}
-+
-+/* Caller should have device mutex */
- long vhost_dev_set_owner(struct vhost_dev *dev)
+@@ -171,7 +168,7 @@ int vhost_net_set_ubuf_info(struct vhost_net *n)
+ 	bool zcopy;
+ 	int i;
+ 
+-	for (i = 0; i < n->dev.nvqs; ++i) {
++	for (i = 0; i < VHOST_NET_VQ_MAX; ++i) {
+ 		zcopy = vhost_net_zcopy_mask & (0x1 << i);
+ 		if (!zcopy)
+ 			continue;
+@@ -183,12 +180,7 @@ int vhost_net_set_ubuf_info(struct vhost_net *n)
+ 	return 0;
+ 
+ err:
+-	while (i--) {
+-		zcopy = vhost_net_zcopy_mask & (0x1 << i);
+-		if (!zcopy)
+-			continue;
+-		kfree(n->vqs[i].ubuf_info);
+-	}
++	vhost_net_clear_ubuf_info(n);
+ 	return -ENOMEM;
+ }
+ 
+@@ -196,12 +188,12 @@ void vhost_net_vq_reset(struct vhost_net *n)
  {
- 	struct task_struct *worker;
- 	int err;
+ 	int i;
  
- 	/* Is there an owner already? */
--	if (dev->mm) {
-+	if (vhost_dev_has_owner(dev)) {
- 		err = -EBUSY;
- 		goto err_mm;
++	vhost_net_clear_ubuf_info(n);
++
+ 	for (i = 0; i < VHOST_NET_VQ_MAX; i++) {
+ 		n->vqs[i].done_idx = 0;
+ 		n->vqs[i].upend_idx = 0;
+ 		n->vqs[i].ubufs = NULL;
+-		kfree(n->vqs[i].ubuf_info);
+-		n->vqs[i].ubuf_info = NULL;
+ 		n->vqs[i].vhost_hlen = 0;
+ 		n->vqs[i].sock_hlen = 0;
  	}
-diff --git a/drivers/vhost/vhost.h b/drivers/vhost/vhost.h
-index a7ad635..64adcf9 100644
---- a/drivers/vhost/vhost.h
-+++ b/drivers/vhost/vhost.h
-@@ -133,6 +133,7 @@ struct vhost_dev {
- 
- long vhost_dev_init(struct vhost_dev *, struct vhost_virtqueue **vqs, int nvqs);
- long vhost_dev_set_owner(struct vhost_dev *dev);
-+bool vhost_dev_has_owner(struct vhost_dev *dev);
- long vhost_dev_check_owner(struct vhost_dev *);
- struct vhost_memory *vhost_dev_reset_owner_prepare(void);
- void vhost_dev_reset_owner(struct vhost_dev *, struct vhost_memory *);
 -- 
 MST
