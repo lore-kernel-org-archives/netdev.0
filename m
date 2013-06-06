@@ -1,51 +1,50 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 02/10] vxlan: handle skb_clone failure
-Date: Wed, 5 Jun 2013 18:31:18 -0700
-Message-ID: <20130605183118.0c1a738c@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net] vxlan: fix crash on module removal
+Date: Wed, 5 Jun 2013 18:32:47 -0700
+Message-ID: <20130605183247.28c41cc2@nehalam.linuxnetplumber.net>
 References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
-	<1370406254-6341-2-git-send-email-stephen@networkplumber.org>
-	<komnlc$ma8$2@ger.gmane.org>
-	<OF0B8CEFF8.C94A266F-ON85257B81.004D331F-85257B81.004D7015@us.ibm.com>
-	<CAM_iQpX-RY585=DszU7dURFSFKNhcyDcVLVqDrTxtLep1o_8vw@mail.gmail.com>
+	<1370406254-6341-3-git-send-email-stephen@networkplumber.org>
+	<20130605083700.2a09e379@nehalam.linuxnetplumber.net>
+	<koonje$ssv$1@ger.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	netdev-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org
 To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:48569 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755950Ab3FFBbW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 21:31:22 -0400
-Received: by mail-pd0-f176.google.com with SMTP id r11so2608989pdi.21
-        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 18:31:22 -0700 (PDT)
-In-Reply-To: <CAM_iQpX-RY585=DszU7dURFSFKNhcyDcVLVqDrTxtLep1o_8vw@mail.gmail.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:34224 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755990Ab3FFBcv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 21:32:51 -0400
+Received: by mail-pd0-f172.google.com with SMTP id t10so2632811pdi.31
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 18:32:51 -0700 (PDT)
+In-Reply-To: <koonje$ssv$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 6 Jun 2013 08:47:49 +0800
+On Thu, 6 Jun 2013 01:11:11 +0000 (UTC)
 Cong Wang <xiyou.wangcong@gmail.com> wrote:
 
-> On Wed, Jun 5, 2013 at 10:05 PM, David Stevens <dlstevens@us.ibm.com> wrote:
-> > netdev-owner@vger.kernel.org wrote on 06/05/2013 02:59:56 AM:
-> >
-> >> From: Cong Wang <xiyou.wangcong@gmail.com>
-> >> If OOM, shouldn't we exit immediately instead of continue handle the
-> >> next one?
-> >
-> > It could be a temporary condition; trying again doesn't really hurt,
-> > in case some do go through. So, I prefer this, but could live with
-> > bailing for all destinations, too.
+> On Wed, 05 Jun 2013 at 15:37 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> > If vxlan is removed with active vxlan's it would crash because
+> > rtnl_link_unregister (which calls vxlan_dellink), was invoked
+> > before unregister_pernet_device (which calls vxlan_stop).
 > >
 > 
-> The problem we don't know if it is temporary or not, unless mm provides
-> EAGAIN?
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Two points:
+> 
+> 1. There are still many others drivers calling them in such order...
+> 2. The removal should be in a reverse order of creation, at least in
+> theory.
+> 
+> I mean this *might* indicate something wrong.
 
-There is no EAGAIN in the network transmit path, it is not called from
-user context.
+1. Other drivers either don't have the dependency or are broken.
+   It makes no sense to stop a device that is deleted.
+
+2. The normal creation order is
+   vxlan_setup
+   vxlan_newlink
+   vxlan_open
+
+     
