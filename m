@@ -1,56 +1,32 @@
-From: info@uk.net
-Subject: Confirmed Reciept.....Certified Winner.....
-Date: Fri, 07 Jun 2013 00:52:29 +0530
-Message-ID: <201306061913.r56IvEtv006869__44951.8244866796$1370547007$gmane$org@lycasmtp.lycamobile.co.uk>
-Reply-To: claim.jonesgreene@hotmail.co.uk
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v5 0/8] sh_eth: deal with #ifdef'fery
+Date: Thu, 6 Jun 2013 23:39:20 +0400
+Message-ID: <201306062339.21353.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <info@uk.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:33457 "EHLO
-	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752721Ab3FFT3n convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jun 2013 15:29:43 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Uk National Lottery
-Ref: L/200-26937
-Batch: 2007MJL-01
+Hello.
 
+   This series of 8 patches are against Dave's 'net-next.git' repository.
+   The series deals mostly with excess #ifdef'fery in the 'sh_eth' driver.
+It doesn't yet get rid of all the #ifdef'fery but that's a matter of another
+patchset. The last patch (it was almost in the middle of the series before),
+contrariwise, adds one missing #ifdef...
 
-                     FINAL NOTIFICATION
-We are pleased to inform you today 6th  June, 2013 of the result=20
-of the winners of the  UK NATIONAL LOTTERY ONLINE PROMO PROGRAMME, held=
-=20
-on the 30th of May, 2013.
+[1/8] sh_eth: remove #ifdef around EDSR and GECMR bit definitions
+[2/8] sh_eth: use EDSR_ENALL to set EDSR
+[3/8] sh_eth: remove duplicate sh_eth_set_duplex() definitions
+[4/8] sh_eth: remove SH_ETH_HAS_TSU
+[5/8] sh_eth: add IRQ flags to 'struct sh_eth_cpu_data'
+[6/8] sh_eth: remove #ifdef around sh_eth_select_mii()
+[7/8] sh_eth: consolidate sh_eth_reset()
+[8/8] sh_eth: enclose PM code into #ifdef CONFIG_PM
 
-You have therefore been approved for a lump sum pay out of =A31,000 000=
-=20
-(One Million Pounds Sterling) in cash credited to file XYL/26510460037/=
-06.To file for your claim,=20
-please contact our claims agent;
-
-Agents Name: Dr.Jones Greene
-Emai: claim.jonesgreene@hotmail.co.uk
-
-
-Provide him with the information below:
-
-1.Full Name:
-2.Full Address:
-3.Marital Status:
-4.Occupation:
-5.Age:
-6.Sex:
-7.Nationality:
-8.Country Of Residence:
-9.Telephone Number:
-
-Congratulations once more from all members and staff of this program.
-
-Sincerely,=20
-Dr.Jones Greene
-UK NATIONAL LOTTERY
+WBR, Sergei
