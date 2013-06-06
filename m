@@ -1,41 +1,36 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v2 3/3] igmp: convert RTNL lock to a spinlock
-Date: Thu, 06 Jun 2013 08:36:03 +0800
-Message-ID: <1370478963.31875.2.camel@cr0>
-References: <1370425101-31683-1-git-send-email-amwang@redhat.com>
-	 <1370425101-31683-3-git-send-email-amwang@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 02/10] vxlan: handle skb_clone failure
+Date: Thu, 6 Jun 2013 08:47:49 +0800
+Message-ID: <CAM_iQpX-RY585=DszU7dURFSFKNhcyDcVLVqDrTxtLep1o_8vw@mail.gmail.com>
+References: <1370406254-6341-1-git-send-email-stephen@networkplumber.org>
+	<1370406254-6341-2-git-send-email-stephen@networkplumber.org>
+	<komnlc$ma8$2@ger.gmane.org>
+	<OF0B8CEFF8.C94A266F-ON85257B81.004D331F-85257B81.004D7015@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	netdev-owner@vger.kernel.org
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53593 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754106Ab3FFAgM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 20:36:12 -0400
-In-Reply-To: <1370425101-31683-3-git-send-email-amwang@redhat.com>
+Received: from mail-oa0-f50.google.com ([209.85.219.50]:43223 "EHLO
+	mail-oa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755295Ab3FFArw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 20:47:52 -0400
+In-Reply-To: <OF0B8CEFF8.C94A266F-ON85257B81.004D331F-85257B81.004D7015@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-05 at 17:38 +0800, Cong Wang wrote:
-> -       while ((i = rtnl_dereference(in_dev->mc_list)) != NULL) {
-> -               in_dev->mc_list = i->next_rcu;
-> +       spin_lock(&ipv4_sk_mc_lock);
-> +       while ((i = rcu_dereference_protected(in_dev->mc_list,
-> +                       lockdep_is_held(&ipv4_sk_mc_lock))) != NULL) {
-> +               rcu_assign_pointer(in_dev->mc_list, i->next_rcu);
->                 in_dev->mc_count--;
->  
->                 /* We've dropped the groups in ip_mc_down already */
->                 ip_mc_clear_src(i);
->                 ip_ma_put(i);
->         }
-> +       spin_unlock(&ipv4_sk_mc_lock);
-> +       synchronize_rcu(); 
+On Wed, Jun 5, 2013 at 10:05 PM, David Stevens <dlstevens@us.ibm.com> wrote:
+> netdev-owner@vger.kernel.org wrote on 06/05/2013 02:59:56 AM:
+>
+>> From: Cong Wang <xiyou.wangcong@gmail.com>
+>> If OOM, shouldn't we exit immediately instead of continue handle the
+>> next one?
+>
+> It could be a temporary condition; trying again doesn't really hurt,
+> in case some do go through. So, I prefer this, but could live with
+> bailing for all destinations, too.
+>
 
-Hmm, it seems this kind synchronize_rcu() is not needed, since we don't
-free anything here, not very sure if it is okay that readers still have
-the old value of ->mc_list... I think probably yes.
+The problem we don't know if it is temporary or not, unless mm provides
+EAGAIN?
