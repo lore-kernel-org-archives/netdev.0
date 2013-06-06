@@ -1,61 +1,100 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net: Unbreak compat_sys_{send,recv}msg
-Date: Thu, 06 Jun 2013 06:45:37 -0700
-Message-ID: <1370526337.24311.335.camel@edumazet-glaptop>
-References: <20130606132926.f4161ddff87dc9a55e33a8ca@canb.auug.org.au>
-	 <e3bf421e44c6d27817c15a8683612a49e093b419.1370496702.git.luto@amacapital.net>
-	 <20130606.002625.223430401087826901.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: luto@amacapital.net, x86@kernel.org, torvalds@linux-foundation.org,
-	mikey@neuling.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
-	trinity@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <trinity-owner@vger.kernel.org>
-In-Reply-To: <20130606.002625.223430401087826901.davem@davemloft.net>
-Sender: trinity-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net v2] net: sctp: fix NULL pointer dereference in socket destruction
+Date: Thu,  6 Jun 2013 15:53:47 +0200
+Message-ID: <1370526827-23882-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:15035 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753114Ab3FFNxt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jun 2013 09:53:49 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-06 at 00:26 -0700, David Miller wrote:
-> From: Andy Lutomirski <luto@amacapital.net>
-> Date: Wed,  5 Jun 2013 22:38:26 -0700
-> 
-> > I broke them in this commit:
-> > 
-> >     commit 1be374a0518a288147c6a7398792583200a67261
-> >     Author: Andy Lutomirski <luto@amacapital.net>
-> >     Date:   Wed May 22 14:07:44 2013 -0700
-> > 
-> >         net: Block MSG_CMSG_COMPAT in send(m)msg and recv(m)msg
-> > 
-> > This patch adds __sys_sendmsg and __sys_sendmsg as common helpers that accept
-> > MSG_CMSG_COMPAT and blocks MSG_CMSG_COMPAT at the syscall entrypoints.  It
-> > also reverts some unnecessary checks in sys_socketcall.
-> > 
-> > Apparently I was suffering from underscore blindness the first time around.
-> > 
-> > Signed-off-by: Andy Lutomirski <luto@amacapital.net>
-> 
-> Eric, can you test this patch too?
+While stress testing sctp sockets, I hit the following panic:
 
-Yes, this fixes the problem as well on x86_64
+BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
+IP: [<ffffffffa0490c4e>] sctp_endpoint_free+0xe/0x40 [sctp]
+PGD 7cead067 PUD 7ce76067 PMD 0
+Oops: 0000 [#1] SMP
+Modules linked in: sctp(F) libcrc32c(F) [...]
+CPU: 7 PID: 2950 Comm: acc Tainted: GF            3.10.0-rc2+ #1
+Hardware name: Dell Inc. PowerEdge T410/0H19HD, BIOS 1.6.3 02/01/2011
+task: ffff88007ce0e0c0 ti: ffff88007b568000 task.ti: ffff88007b568000
+RIP: 0010:[<ffffffffa0490c4e>]  [<ffffffffa0490c4e>] sctp_endpoint_free+0xe/0x40 [sctp]
+RSP: 0018:ffff88007b569e08  EFLAGS: 00010292
+RAX: 0000000000000000 RBX: ffff88007db78a00 RCX: dead000000200200
+RDX: ffffffffa049fdb0 RSI: ffff8800379baf38 RDI: 0000000000000000
+RBP: ffff88007b569e18 R08: ffff88007c230da0 R09: 0000000000000001
+R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
+R13: ffff880077990d00 R14: 0000000000000084 R15: ffff88007db78a00
+FS:  00007fc18ab61700(0000) GS:ffff88007fc60000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 0000000000000020 CR3: 000000007cf9d000 CR4: 00000000000007e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Stack:
+ ffff88007b569e38 ffff88007db78a00 ffff88007b569e38 ffffffffa049fded
+ ffffffff81abf0c0 ffff88007db78a00 ffff88007b569e58 ffffffff8145b60e
+ 0000000000000000 0000000000000000 ffff88007b569eb8 ffffffff814df36e
+Call Trace:
+ [<ffffffffa049fded>] sctp_destroy_sock+0x3d/0x80 [sctp]
+ [<ffffffff8145b60e>] sk_common_release+0x1e/0xf0
+ [<ffffffff814df36e>] inet_create+0x2ae/0x350
+ [<ffffffff81455a6f>] __sock_create+0x11f/0x240
+ [<ffffffff81455bf0>] sock_create+0x30/0x40
+ [<ffffffff8145696c>] SyS_socket+0x4c/0xc0
+ [<ffffffff815403be>] ? do_page_fault+0xe/0x10
+ [<ffffffff8153cb32>] ? page_fault+0x22/0x30
+ [<ffffffff81544e02>] system_call_fastpath+0x16/0x1b
+Code: 0c c9 c3 66 2e 0f 1f 84 00 00 00 00 00 e8 fb fe ff ff c9 c3 66 0f
+      1f 84 00 00 00 00 00 55 48 89 e5 53 48 83 ec 08 66 66 66 66 90 <48>
+      8b 47 20 48 89 fb c6 47 1c 01 c6 40 12 07 e8 9e 68 01 00 48
+RIP  [<ffffffffa0490c4e>] sctp_endpoint_free+0xe/0x40 [sctp]
+ RSP <ffff88007b569e08>
+CR2: 0000000000000020
+---[ end trace e0d71ec1108c1dd9 ]---
 
-Tested-by: Eric Dumazet <edumazet@google.com>
+I did not hit this with the lksctp-tools functional tests, but with a
+small, multi-threaded test program, that heavily allocates, binds,
+listens and waits in accept on sctp sockets, and then randomly kills
+some of them (no need for an actual client in this case to hit this).
+Then, again, allocating, binding, etc, and then killing child processes.
 
-Thanks !
+This panic then only occurs when ``echo 1 > /proc/sys/net/sctp/auth_enable''
+is set. The cause for that is actually very simple: in sctp_endpoint_init()
+we enter the path of sctp_auth_init_hmacs(). There, we try to allocate
+our crypto transforms through crypto_alloc_hash(). In our scenario,
+it then can happen that crypto_alloc_hash() fails with -EINTR from
+crypto_larval_wait(), thus we bail out and release the socket via
+sk_common_release(), sctp_destroy_sock() and hit the NULL pointer
+dereference as soon as we try to access members in the endpoint during
+sctp_endpoint_free(), since endpoint at that time is still NULL. Now,
+if we have that case, we do not need to do any cleanup work and just
+leave the destruction handler.
 
-PS: I had following fuzz while applying on Linus tree :
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/socket.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-patching file include/linux/socket.h
-Hunk #1 succeeded at 320 (offset -1 lines).
-patching file net/compat.c
-patching file net/socket.c
-Hunk #1 succeeded at 1956 (offset -22 lines).
-Hunk #2 succeeded at 2071 (offset -22 lines).
-Hunk #3 succeeded at 2125 (offset -22 lines).
-Hunk #4 succeeded at 2163 (offset -22 lines).
-Hunk #5 succeeded at 2255 (offset -22 lines).
-Hunk #6 succeeded at 2317 (offset -22 lines).
-Hunk #7 succeeded at 2515 (offset -20 lines).
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index f631c5f..3df7327 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4003,6 +4003,12 @@ SCTP_STATIC void sctp_destroy_sock(struct sock *sk)
+ 
+ 	/* Release our hold on the endpoint. */
+ 	sp = sctp_sk(sk);
++	/* This could happen during socket init, thus we bail out
++	 * early, since the rest of the below is not setup either.
++	 */
++	if (sp->ep == NULL)
++		return;
++
+ 	if (sp->do_auto_asconf) {
+ 		sp->do_auto_asconf = 0;
+ 		list_del(&sp->auto_asconf_list);
+-- 
+1.7.11.7
