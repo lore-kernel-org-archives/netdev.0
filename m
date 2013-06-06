@@ -1,48 +1,45 @@
-From: Timo Teras <timo.teras@iki.fi>
-Subject: Re: PANIC at net/xfrm/xfrm_output.c:125 (3.9.4)
-Date: Thu, 6 Jun 2013 11:38:40 +0300
-Message-ID: <20130606113840.511a72c3@vostro>
-References: <51AFB204.8070009@bootc.net>
-	<20130606010416.GF26681@mail.gmail.com>
-	<51AFE4C2.1000604@windriver.com>
-	<51B03EAC.6080508@bootc.net>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH net-next] net_sched: add 64bit rate estimators
+Date: Thu, 6 Jun 2013 09:39:59 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7272@saturn3.aculab.com>
+References: <1370408447.24311.241.camel@edumazet-glaptop> <1370458531.1918.3.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Fan Du <fan.du@windriver.com>, Jean Sacren <sakiwit@gmail.com>,
-	steffen.klassert@secunet.com, herbert@gondor.hengli.com.au,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Chris Boot <bootc@bootc.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51B03EAC.6080508@bootc.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "David Miller" <davem@davemloft.net>,
+	"netdev" <netdev@vger.kernel.org>
+To: "Ben Hutchings" <bhutchings@solarflare.com>,
+	"Eric Dumazet" <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:46942 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1754911Ab3FFIrw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jun 2013 04:47:52 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 24827-06 for <netdev@vger.kernel.org>;
+ Thu,  6 Jun 2013 09:47:50 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <1370458531.1918.3.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 06 Jun 2013 08:47:56 +0100
-Chris Boot <bootc@bootc.net> wrote:
-
-> On 06/06/13 02:24, Fan Du wrote:
-> > Hello Chris/Jean
-> > 
-> > This issue might have already been fixed by this:
-> > https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/net/xfrm/xfrm_output.c?id=497574c72c9922cf20c12aed15313c389f722fa0
-> > 
-> > 
-> > Hope it helps.
-> 
-> Hi Fan, Jean,
-> 
-> Thanks, that looks like it's the patch for exactly my problem.
-> Unfortunately I can't test it until next week now. :-/
-> 
-> Timo/Dave: are there any plans to push this into 3.10-rc and/or
-> stable? I seem to be able to hit the issue pretty reliably.
-
-It is already present in 3.10-rc3 [1], and Dave has it queued for
-3.9-stable [2].
-
-- Timo
-
-[1] http://lwn.net/Articles/551922/
-[2] http://patchwork.ozlabs.org/patch/245594/
+PiA+IHN0cnVjdCBnbmV0X3N0YXRzX3JhdGVfZXN0IGNvbnRhaW5zIHUzMiBmaWVsZHMsIHNvIHRo
+ZSBieXRlIHBlciBzZWNvbmQNCj4gPiBmaWVsZCBjYW4gd3JhcCBhdCAzNDM2ME1iaXQuDQo+ID4N
+Cj4gPiBBZGQgYSBuZXcgZ25ldF9zdGF0c19yYXRlX2VzdDY0IHN0cnVjdHVyZSB0byBnZXQgNjRi
+aXQgYnBzIGZpZWxkLCBhbmQNCj4gPiBzd2l0Y2ggdGhlIGtlcm5lbCB0byB1c2UgdGhpcyBzdHJ1
+Y3R1cmUgbmF0aXZlbHkuDQo+IFsuLi5dDQo+ID4gIC8qKg0KPiA+ICsgKiBzdHJ1Y3QgZ25ldF9z
+dGF0c19yYXRlX2VzdDY0IC0gcmF0ZSBlc3RpbWF0b3INCj4gPiArICogQGJwczogY3VycmVudCBi
+eXRlIHJhdGUNCj4gPiArICogQHBwczogY3VycmVudCBwYWNrZXQgcmF0ZQ0KPiA+ICsgKi8NCj4g
+PiArc3RydWN0IGduZXRfc3RhdHNfcmF0ZV9lc3Q2NCB7DQo+ID4gKwlfX3U2NAlicHM7DQo+ID4g
+KwlfX3UzMglwcHM7DQo+ID4gK30gX19hdHRyaWJ1dGVfXyAoKHBhY2tlZCkpOw0KPiBbLi4uXQ0K
+PiANCj4gVXNpbmcgYXR0cmlidXRlIHBhY2tlZCAod2hpY2ggc2hvdWxkIGJlIHdyaXR0ZW4gYXMg
+X19wYWNrZWQpIGZvcmNlcyB0aGUNCj4gYWxpZ25tZW50IG9mIGVhY2ggbWVtYmVyIGFuZCB0aGUg
+c3RydWN0dXJlIGFzIGEgd2hvbGUgdG8gYmUgMS4gIEZvciBhbg0KPiBhcmNoaXRlY3R1cmUgd2hl
+cmUgdW5hbGlnbmVkIGFjY2VzcyBpcyBleHBlbnNpdmUsIGdjYyB3aWxsIG1ha2UgYWxsDQo+IHJl
+YWRzIGFuZCB3cml0ZXMgdXNlIGJ5dGUgb3BlcmF0aW9ucy4NCj4gDQo+IEkgdGhpbmsgeW91IGhh
+dmUgdG8gYWRkIGEgZHVtbXkgX191MzIgbWVtYmVyIGluc3RlYWQuDQoNCk9yIG1hcmsgdGhlIF9f
+dTY0IHdpdGggKElJUkMpIF9fYXR0cmlidXRlX18oKGFsaWduZWQsNCkpDQpzbyB0aGF0IGdjYyB3
+aWxsIGdlbmVyYXRlIHR3byAzMmJpdCBhY2Nlc3NlcyByYXRoZXIgdGhhbg0KdGhlIGVpZ2h0IGJ5
+dGUgYWNjZXNzZXMgaXMgdGhlIHN0cnVjdHVyZSBpcyBwYWNrZWQuDQoNCglEYXZpZA0KDQo=
