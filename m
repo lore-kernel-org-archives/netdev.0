@@ -1,7 +1,7 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [PATCH 1/2] drivers: net: cpsw: use pinctrl PM helpers
-Date: Thu, 6 Jun 2013 23:45:14 +0530
-Message-ID: <1370542515-22009-2-git-send-email-mugunthanvnm@ti.com>
+Subject: [PATCH 2/2] drivers: net: davinci_mdio: use pinctrl PM helpers
+Date: Thu, 6 Jun 2013 23:45:15 +0530
+Message-ID: <1370542515-22009-3-git-send-email-mugunthanvnm@ti.com>
 References: <1370542515-22009-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -19,52 +19,51 @@ the driver to "default" and "sleep" states.
 
 Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c |   11 +++++++++++
- 1 file changed, 11 insertions(+)
+ drivers/net/ethernet/ti/davinci_mdio.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index a45f64e..5143552 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -35,6 +35,7 @@
- #include <linux/if_vlan.h>
- 
- #include <linux/platform_data/cpsw.h>
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 12aec17..5e361f4 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -38,6 +38,7 @@
+ #include <linux/davinci_emac.h>
+ #include <linux/of.h>
+ #include <linux/of_device.h>
 +#include <linux/pinctrl/consumer.h>
  
- #include "cpsw_ale.h"
- #include "cpts.h"
-@@ -1691,6 +1692,9 @@ static int cpsw_probe(struct platform_device *pdev)
- 	 */
- 	pm_runtime_enable(&pdev->dev);
+ /*
+  * This timeout definition is a worst-case ultra defensive measure against
+@@ -347,6 +348,9 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	data->bus->parent	= dev;
+ 	data->bus->priv		= data;
  
 +	/* Select default pin state */
 +	pinctrl_pm_select_default_state(&pdev->dev);
 +
- 	if (cpsw_probe_dt(&priv->data, pdev)) {
- 		pr_err("cpsw: platform data missing\n");
- 		ret = -ENODEV;
-@@ -1979,6 +1983,9 @@ static int cpsw_suspend(struct device *dev)
- 		cpsw_ndo_stop(ndev);
- 	pm_runtime_put_sync(&pdev->dev);
+ 	pm_runtime_enable(&pdev->dev);
+ 	pm_runtime_get_sync(&pdev->dev);
+ 	data->clk = clk_get(&pdev->dev, "fck");
+@@ -454,6 +458,9 @@ static int davinci_mdio_suspend(struct device *dev)
+ 	data->suspended = true;
+ 	spin_unlock(&data->lock);
  
 +	/* Select sleep pin state */
-+	pinctrl_pm_select_sleep_state(&pdev->dev);
++	pinctrl_pm_select_sleep_state(dev);
 +
  	return 0;
  }
  
-@@ -1988,6 +1995,10 @@ static int cpsw_resume(struct device *dev)
- 	struct net_device	*ndev = platform_get_drvdata(pdev);
+@@ -462,6 +469,9 @@ static int davinci_mdio_resume(struct device *dev)
+ 	struct davinci_mdio_data *data = dev_get_drvdata(dev);
+ 	u32 ctrl;
  
- 	pm_runtime_get_sync(&pdev->dev);
-+
 +	/* Select default pin state */
-+	pinctrl_pm_select_default_state(&pdev->dev);
++	pinctrl_pm_select_default_state(dev);
 +
- 	if (netif_running(ndev))
- 		cpsw_ndo_open(ndev);
- 	return 0;
+ 	spin_lock(&data->lock);
+ 	pm_runtime_get_sync(data->dev);
+ 
 -- 
 1.7.9.5
 
