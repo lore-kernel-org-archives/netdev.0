@@ -1,50 +1,95 @@
-From: Magnus Damm <magnus.damm@gmail.com>
-Subject: Re: [PATCH v4 0/8] sh_eth: deal with #ifdef'fery
-Date: Thu, 6 Jun 2013 12:25:06 +0900
-Message-ID: <CANqRtoTM7KUn6Cm9hhQpyVT3qsAFANuD+CufarETSNZwqc5_Sw@mail.gmail.com>
-References: <201306060106.51082.sergei.shtylyov@cogentembedded.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH] vhost_net: clear msg.control for non-zerocopy case during
+	tx
+Date: Thu, 06 Jun 2013 11:27:12 +0800
+Message-ID: <51B00190.2050307@redhat.com>
+References: <1370418046-11851-1-git-send-email-jasowang@redhat.com>
+	<51AF40CB.5030101@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	SH-Linux <linux-sh@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
 To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201306060106.51082.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <51AF40CB.5030101@cogentembedded.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
-
-On Thu, Jun 6, 2013 at 6:06 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
+On 06/05/2013 09:44 PM, Sergei Shtylyov wrote:
 > Hello.
 >
->    This series deals mostly with excess #ifdef'fery in the 'sh_eth' driver.
-> It doesn't yet get rid of all the #ifdef'fery but that's a matter of another
-> patchset. The last patch (it was almost in the middle of the series before),
-> contrarywise, adds one missing #ifdef...
+> On 05-06-2013 11:40, Jason Wang wrote:
 >
-> [1/8] sh_eth: remove #ifdef around EDSR and GECMR bit definitions
-> [2/8] sh_eth: use EDSR_ENALL to set EDSR
-> [3/8] sh_eth: remove duplicate sh_eth_set_duplex() definitions
-> [4/8] sh_eth: remove SH_ETH_HAS_TSU
-> [5/8] sh_eth: add IRQ flags to 'struct sh_eth_cpu_data'
-> [6/8] sh_eth: remove #ifdef around sh_eth_select_mii()
-> [7/8] sh_eth: consolidate sh_eth_reset()
-> [8/8] sh_eth: enclose PM code into #ifdef CONFIG_PM
+>> When we decide not use zero-copy, msg.control should be set to NULL
+>> otherwise
+>> macvtap/tap may set zerocopy callbacks which may decrease the kref of
+>> ubufs
+>> wrongly.
+>
+>> Bug were introduced by commit cedb9bdce099206290a2bdd02ce47a7b253b6a84
+>> (vhost-net: skip head management if no outstanding).
+>
+>> This solves the following warnings:
+>
+>> WARNING: at include/linux/kref.h:47 handle_tx+0x477/0x4b0 [vhost_net]()
+>> Modules linked in: vhost_net macvtap macvlan tun nfsd exportfs bridge
+>> stp llc openvswitch kvm_amd kvm bnx2 megaraid_sas [last unloaded: tun]
+>> CPU: 5 PID: 8670 Comm: vhost-8668 Not tainted 3.10.0-rc2+ #1566
+>> Hardware name: Dell Inc. PowerEdge R715/00XHKG, BIOS 1.5.2 04/19/2011
+>> ffffffffa0198323 ffff88007c9ebd08 ffffffff81796b73 ffff88007c9ebd48
+>> ffffffff8103d66b 000000007b773e20 ffff8800779f0000 ffff8800779f43f0
+>> ffff8800779f8418 000000000000015c 0000000000000062 ffff88007c9ebd58
+>> Call Trace:
+>> [<ffffffff81796b73>] dump_stack+0x19/0x1e
+>> [<ffffffff8103d66b>] warn_slowpath_common+0x6b/0xa0
+>> [<ffffffff8103d6b5>] warn_slowpath_null+0x15/0x20
+>> [<ffffffffa0197627>] handle_tx+0x477/0x4b0 [vhost_net]
+>> [<ffffffffa0197690>] handle_tx_kick+0x10/0x20 [vhost_net]
+>> [<ffffffffa019541e>] vhost_worker+0xfe/0x1a0 [vhost_net]
+>> [<ffffffffa0195320>] ? vhost_attach_cgroups_work+0x30/0x30 [vhost_net]
+>> [<ffffffffa0195320>] ? vhost_attach_cgroups_work+0x30/0x30 [vhost_net]
+>> [<ffffffff81061f46>] kthread+0xc6/0xd0
+>> [<ffffffff81061e80>] ? kthread_freezable_should_stop+0x70/0x70
+>> [<ffffffff817a1aec>] ret_from_fork+0x7c/0xb0
+>> [<ffffffff81061e80>] ? kthread_freezable_should_stop+0x70/0x70
+>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>   drivers/vhost/net.c |    3 ++-
+>>   1 files changed, 2 insertions(+), 1 deletions(-)
+>
+>> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+>> index 2b51e23..b07d96b 100644
+>> --- a/drivers/vhost/net.c
+>> +++ b/drivers/vhost/net.c
+>> @@ -436,7 +436,8 @@ static void handle_tx(struct vhost_net *net)
+>>                   kref_get(&ubufs->kref);
+>>               }
+>>               nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
+>> -        }
+>> +        } else
+>
+>    You have to use {} on the *else* branch if you have it of the *if*
+> branch (and vice versa), according to Documentation/CodingStyle.
 
-Thanks for your work on this. I'm looking forward to a sh-eth driver
-without #ifdef hell.
+checkpatch.pl didn't complain this, will send v2.
 
-It may be just me misunderstanding, but the other day I noticed that
-external PHY handling seems broken in the sh-eth driver. I tried to
-enable a micron PHY driver but could not make the pieces fit together.
-I also wanted to use an external IRQ for the PHY link notification,
-but since I couldn't even get the micron PHY driver going in polling
-mode I decided to give up. Do you know the status of external PHY
-support in the sh-eth driver?
-
-Cheers,
-
-/ magnus
+Thanks
+>
+>> +            msg.msg_control = NULL;
+>
+> WBR, Sergei
+>
+> -- 
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
