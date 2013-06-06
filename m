@@ -1,51 +1,50 @@
-From: Tommi Rantala <tt.rantala@gmail.com>
-Subject: Re: [PATCH net 0/2] vhost fixes for 3.10
-Date: Thu, 6 Jun 2013 21:50:40 +0300
-Message-ID: <CA+ydwto07+r2KxGAE=fnBUjs1_hz9CFFJwQrpE0TmAnCu0f8FA@mail.gmail.com>
-References: <1370521145-9723-1-git-send-email-mst@redhat.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH] net: Unbreak compat_sys_{send,recv}msg
+Date: Thu, 06 Jun 2013 11:53:52 -0700 (PDT)
+Message-ID: <20130606.115352.641926194470746732.davem@redhat.com>
+References: <e3bf421e44c6d27817c15a8683612a49e093b419.1370496702.git.luto@amacapital.net>
+	<20130606.002625.223430401087826901.davem@davemloft.net>
+	<1370526337.24311.335.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1370521145-9723-1-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: luto@amacapital.net, x86@kernel.org, torvalds@linux-foundation.org,
+	mikey@neuling.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxppc-dev@ozlabs.org,
+	trinity@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1370526337.24311.335.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-2013/6/6 Michael S. Tsirkin <mst@redhat.com>:
-> Two patches fixing the fallout from the vhost cleanup in 3.10.
-> Thanks to Tommi Rantala who reported the issue.
->
-> Tommi, could you please confirm this fixes the crashes for you?
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 Jun 2013 06:45:37 -0700
 
-Confirmed! With the two patches applied, I can no longer reproduce the
-crash with trinity.
+> On Thu, 2013-06-06 at 00:26 -0700, David Miller wrote:
+>> From: Andy Lutomirski <luto@amacapital.net>
+>> Date: Wed,  5 Jun 2013 22:38:26 -0700
+>> 
+>> > I broke them in this commit:
+>> > 
+>> >     commit 1be374a0518a288147c6a7398792583200a67261
+>> >     Author: Andy Lutomirski <luto@amacapital.net>
+>> >     Date:   Wed May 22 14:07:44 2013 -0700
+>> > 
+>> >         net: Block MSG_CMSG_COMPAT in send(m)msg and recv(m)msg
+>> > 
+>> > This patch adds __sys_sendmsg and __sys_sendmsg as common helpers that accept
+>> > MSG_CMSG_COMPAT and blocks MSG_CMSG_COMPAT at the syscall entrypoints.  It
+>> > also reverts some unnecessary checks in sys_socketcall.
+>> > 
+>> > Apparently I was suffering from underscore blindness the first time around.
+>> > 
+>> > Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+>> 
+>> Eric, can you test this patch too?
+> 
+> Yes, this fixes the problem as well on x86_64
+> 
+> Tested-by: Eric Dumazet <edumazet@google.com>
 
-Thanks!
-
-Tommi
-
-> Michael S. Tsirkin (2):
->   vhost: check owner before we overwrite ubuf_info
->   vhost: fix ubuf_info cleanup
->
->  drivers/vhost/net.c   | 26 +++++++++++---------------
->  drivers/vhost/vhost.c |  8 +++++++-
->  drivers/vhost/vhost.h |  1 +
->  3 files changed, 19 insertions(+), 16 deletions(-)
->
-> --
-> MST
->
+Applied, thanks.
