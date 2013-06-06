@@ -1,181 +1,80 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH] virtio-net: put virtio net header inline with data
-Date: Thu, 6 Jun 2013 12:55:09 +0300
-Message-ID: <20130606095456.GA7865@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: qemu-devel@nongnu.org
-To: Rusty Russell <rusty@rustcorp.com.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>, Cong Wang <amwang@redhat.com>,
-	Amos Kong <akong@redhat.com>, Dave Jones <davej@redhat.com>,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+From: Jason Wang <jasowang@redhat.com>
+Subject: [net-next PATCH 0/8] Multiqueue API for macvtap
+Date: Thu,  6 Jun 2013 17:54:32 +0800
+Message-ID: <1370512480-14272-1-git-send-email-jasowang@redhat.com>
+Cc: sergei.shtylyov@cogentembedded.com,
+	Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, mst@redhat.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-For small packets we can simplify xmit processing by linearizing buffers
-with the header: most packets seem to have enough head room we can use
-for this purpose.
+Hi all:
 
-Since some older hypervisors (e.g. qemu before version 1.5)
-required that header is the first s/g element,
-we need a feature bit for this.
+This series implements a fully tuntap compatiable API which could be used
+by userspace to manage multiple macvtap queues. The main parts is to add
+TUNSETQUEUE ioctl support for macvtap.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
----
+Patch 1 - 5 was some tuntap compatibility and misc cleanups.
+Patch 6 removes the linear search in macvtap by reshuffling the macvtaps array
+each time a queue is removed.
+Patch 7 implement TUNSETQUEUE ioctl by introducing a list to track all queues
+while use the array to just track all enabled queues.
+Patch 8 reports IFF_MULTI_QUEUE to userspace to notify the userspace that the
+multiqueue API is completed.
 
-This is a repost of my old patch, rebased to latest kernel.
+Flow caches implememtation were missed in this version, since I am doing
+rework on the tuntap flow caches. Have some some stress test with both netperf
+and pktgen.
 
-Before:
-Thu Jun  6 05:24:59 EDT 2013
-TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-11.0.0.4 (11.0.0.4) port 0 AF_INET : demo
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate         
-bytes  Bytes  bytes    bytes   secs.    per sec   
+Please review, thanks.
 
-16384  87380  1        1       10.00    12931.13   
+Changes from RFC V3:
+- drop the TUNSETIFF checks
+- disable taps first during macvtap_put_queue() to simplify codes
+- typo fixes and better comments from Michael on numvtaps in macvtap_get_queue()
+- BUG_ON() and unnecessary checks of numdisabled in macvtap_del_queues()
+- drop numdisabled and introduce numqueues to track the number of queues
+- better style in macvtap_ioctl_set_queue()
+- rename tap_link to queue_list
+- blank line fixes again :(
 
+Changes from RFC V2:
+- Don't place disabled taps in the array and use a linked like to track all taps
+- Remove unnecessary best-effort barriers
+- Add ACCESS_ONCE() for vlan->numvtaps to prevent compiler generate unexpected
+codes
+- Add a comment to explain that numvtaps is just a hint in macvtap_get_queue()
+- blank line fixes
 
-After:
-TCP REQUEST/RESPONSE TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to
-11.0.0.4 (11.0.0.4) port 0 AF_INET : demo
-Local /Remote
-Socket Size   Request  Resp.   Elapsed  Trans.
-Send   Recv   Size     Size    Time     Rate         
-bytes  Bytes  bytes    bytes   secs.    per sec   
+Changes from RFC V1:
+- Drop the patch of "return -EBADFD when TUNGETIFF fails" to preserve backward
+compatibility
+- Add a small patch of optimizing macvtap_do_read() (see patch 1/8)
+- Use different functions to do tap enabling and creating
+- Use different functions to do tap disabling and closing
+- Remove the emtpy line in patch 6/8
+- Add a line in patch 3/8
+- Add a comment to explain the checking when doing TUNSETIFF with
+IFF_MULTI_QUEUE
+- Add comments to explian the second swapping when moving taps between disabled
+areas and enabled areas.
+- Fix the commit log of patch 7/8 ( v1 says the linked list were used which is
+wrong )
+- Other minor bug fixes
 
-16384  87380  1        1       10.00    14151.12
+Jason Wang (8):
+  macvtap: fix a possible race between queue selection and changing
+    queues
+  macvtap: do not add self to waitqueue if doing a nonblock read
+  macvlan: switch to use IS_ENABLED()
+  macvtap: introduce macvtap_get_vlan()
+  macvlan: change the max number of queues to 16
+  macvtap: eliminate linear search
+  macvtap: add TUNSETQUEUE ioctl
+  macvtap: enable multiqueue flag
 
-
- drivers/net/virtio_net.c        | 42 +++++++++++++++++++++++++++++++++--------
- include/uapi/linux/virtio_net.h |  6 +++++-
- 2 files changed, 39 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index c9e0038..d35a097 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -106,6 +106,9 @@ struct virtnet_info {
- 	/* Has control virtqueue */
- 	bool has_cvq;
- 
-+	/* Host can handle any s/g split between our header and packet data */
-+	bool any_header_sg;
-+
- 	/* enable config space updates */
- 	bool config_enable;
- 
-@@ -668,12 +671,28 @@ static void free_old_xmit_skbs(struct send_queue *sq)
- 
- static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- {
--	struct skb_vnet_hdr *hdr = skb_vnet_hdr(skb);
-+	struct skb_vnet_hdr *hdr;
- 	const unsigned char *dest = ((struct ethhdr *)skb->data)->h_dest;
- 	struct virtnet_info *vi = sq->vq->vdev->priv;
- 	unsigned num_sg;
-+	unsigned hdr_len;
-+	bool can_push;
- 
- 	pr_debug("%s: xmit %p %pM\n", vi->dev->name, skb, dest);
-+	if (vi->mergeable_rx_bufs)
-+		hdr_len = sizeof hdr->mhdr;
-+	else
-+		hdr_len = sizeof hdr->hdr;
-+
-+	can_push = vi->any_header_sg &&
-+		!((unsigned long)skb->data & (__alignof__(*hdr) - 1)) &&
-+		!skb_header_cloned(skb) && skb_headroom(skb) >= hdr_len;
-+	/* Even if we can, don't push here yet as this would skew
-+	 * csum_start offset below. */
-+	if (can_push)
-+		hdr = (struct skb_vnet_hdr *)(skb->data - hdr_len);
-+	else
-+		hdr = skb_vnet_hdr(skb);
- 
- 	if (skb->ip_summed == CHECKSUM_PARTIAL) {
- 		hdr->hdr.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
-@@ -702,15 +721,18 @@ static int xmit_skb(struct send_queue *sq, struct sk_buff *skb)
- 		hdr->hdr.gso_size = hdr->hdr.hdr_len = 0;
- 	}
- 
--	hdr->mhdr.num_buffers = 0;
--
--	/* Encode metadata header at front. */
- 	if (vi->mergeable_rx_bufs)
--		sg_set_buf(sq->sg, &hdr->mhdr, sizeof hdr->mhdr);
--	else
--		sg_set_buf(sq->sg, &hdr->hdr, sizeof hdr->hdr);
-+		hdr->mhdr.num_buffers = 0;
- 
--	num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
-+	if (can_push) {
-+		__skb_push(skb, hdr_len);
-+		num_sg = skb_to_sgvec(skb, sq->sg, 0, skb->len);
-+		/* Pull header back to avoid skew in tx bytes calculations. */
-+		__skb_pull(skb, hdr_len);
-+	} else {
-+		sg_set_buf(sq->sg, hdr, hdr_len);
-+		num_sg = skb_to_sgvec(skb, sq->sg + 1, 0, skb->len) + 1;
-+	}
- 	return virtqueue_add_outbuf(sq->vq, sq->sg, num_sg, skb, GFP_ATOMIC);
- }
- 
-@@ -1554,6 +1576,9 @@ static int virtnet_probe(struct virtio_device *vdev)
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_MRG_RXBUF))
- 		vi->mergeable_rx_bufs = true;
- 
-+	if (virtio_has_feature(vdev, VIRTIO_NET_F_ANY_HEADER_SG))
-+		vi->any_header_sg = true;
-+
- 	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
- 		vi->has_cvq = true;
- 
-@@ -1729,6 +1754,7 @@ static unsigned int features[] = {
- 	VIRTIO_NET_F_CTRL_RX, VIRTIO_NET_F_CTRL_VLAN,
- 	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
- 	VIRTIO_NET_F_CTRL_MAC_ADDR,
-+	VIRTIO_NET_F_ANY_HEADER_SG,
- };
- 
- static struct virtio_driver virtio_net_driver = {
-diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-index c520203..9c98b7d 100644
---- a/include/uapi/linux/virtio_net.h
-+++ b/include/uapi/linux/virtio_net.h
-@@ -55,6 +55,8 @@
- 					 * Steering */
- #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
- 
-+#define VIRTIO_NET_F_ANY_HEADER_SG 25	/* Host can handle any header s/g */
-+
- #define VIRTIO_NET_S_LINK_UP	1	/* Link is up */
- #define VIRTIO_NET_S_ANNOUNCE	2	/* Announcement is needed */
- 
-@@ -70,7 +72,9 @@ struct virtio_net_config {
- 	__u16 max_virtqueue_pairs;
- } __attribute__((packed));
- 
--/* This is the first element of the scatter-gather list.  If you don't
-+/* This header comes first in the scatter-gather list.
-+ * If VIRTIO_NET_F_ANY_HEADER_SG is not negotiated, it must
-+ * be the first element of the scatter-gather list.  If you don't
-  * specify GSO or CSUM features, you can simply ignore the header. */
- struct virtio_net_hdr {
- #define VIRTIO_NET_HDR_F_NEEDS_CSUM	1	// Use csum_start, csum_offset
--- 
-MST
+ drivers/net/macvtap.c      |  206 +++++++++++++++++++++++++++++++-------------
+ include/linux/if_macvlan.h |    8 ++-
+ 2 files changed, 152 insertions(+), 62 deletions(-)
