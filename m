@@ -1,17 +1,17 @@
 From: Fan Du <fan.du@windriver.com>
-Subject: [PATCHv2 net-next] xfrm: add LINUX_MIB_XFRMACQUIREERROR statistic counter
-Date: Thu, 6 Jun 2013 09:41:10 +0800
-Message-ID: <1370482870-29394-1-git-send-email-fan.du@windriver.com>
+Subject: [PATCHv3 net-next] xfrm: add LINUX_MIB_XFRMACQUIREERROR statistic counter
+Date: Thu, 6 Jun 2013 10:15:54 +0800
+Message-ID: <1370484954-30023-1-git-send-email-fan.du@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <herbert@gondor.hengli.com.au>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>
 To: <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:35560 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:36269 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755760Ab3FFBkm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 21:40:42 -0400
+	with ESMTP id S1753059Ab3FFCP0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 22:15:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -30,6 +30,7 @@ bad.
 
 Signed-off-by: Fan Du <fan.du@windriver.com>
 v2: fix indent issue reported by Sergei Shtylyov
+v3: v2 is crapped by adding one more TAB... sorry
 
 ---
  include/uapi/linux/snmp.h |    1 +
@@ -45,7 +46,7 @@ index df2e8b4..3d072bf 100644
  	LINUX_MIB_XFRMOUTPOLERROR,		/* XfrmOutPolError */
  	LINUX_MIB_XFRMFWDHDRERROR,		/* XfrmFwdHdrError*/
  	LINUX_MIB_XFRMOUTSTATEINVALID,		/* XfrmOutStateInvalid */
-+	LINUX_MIB_XFRMACQUIREERROR,			/* XfrmAcquireError */
++	LINUX_MIB_XFRMACQUIREERROR,		/* XfrmAcquireError */
  	__LINUX_MIB_XFRMMAX
  };
  
