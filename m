@@ -1,95 +1,77 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH] vhost_net: clear msg.control for non-zerocopy case during
-	tx
-Date: Thu, 06 Jun 2013 11:27:12 +0800
-Message-ID: <51B00190.2050307@redhat.com>
-References: <1370418046-11851-1-git-send-email-jasowang@redhat.com>
-	<51AF40CB.5030101@cogentembedded.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: Re: [PATCH 5/5] net: Block MSG_CMSG_COMPAT in send(m)msg and
+ recv(m)msg
+Date: Thu, 6 Jun 2013 13:29:26 +1000
+Message-ID: <20130606132926.f4161ddff87dc9a55e33a8ca@canb.auug.org.au>
+References: <cover.1369177867.git.luto@amacapital.net>
+	<aa015609319786835bcab445d507faa75c11f111.1369177867.git.luto@amacapital.net>
+	<CAEjGV6xcF776C6N6VxeMY0Vyk+X51oNixdbN42-xkWjQOaMEQA@mail.gmail.com>
+	<20130606130105.6e51066f@kryten>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <51AF40CB.5030101@cogentembedded.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Thu__6_Jun_2013_13_29_26_+1000_E=/fZZs.iIOzRqj+"
+Cc: Michael Neuling <mikey@neuling.org>, netdev@vger.kernel.org,
+	x86@kernel.org, linux-kernel@vger.kernel.org,
+	Andy Lutomirski <luto@amacapital.net>,
+	Linux PPC dev <linuxppc-dev@ozlabs.org>,
+	trinity@vger.kernel.org, torvalds@linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>
+To: Anton Blanchard <anton@samba.org>
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <20130606130105.6e51066f@kryten>
+Sender: trinity-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/05/2013 09:44 PM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 05-06-2013 11:40, Jason Wang wrote:
->
->> When we decide not use zero-copy, msg.control should be set to NULL
->> otherwise
->> macvtap/tap may set zerocopy callbacks which may decrease the kref of
->> ubufs
->> wrongly.
->
->> Bug were introduced by commit cedb9bdce099206290a2bdd02ce47a7b253b6a84
->> (vhost-net: skip head management if no outstanding).
->
->> This solves the following warnings:
->
->> WARNING: at include/linux/kref.h:47 handle_tx+0x477/0x4b0 [vhost_net]()
->> Modules linked in: vhost_net macvtap macvlan tun nfsd exportfs bridge
->> stp llc openvswitch kvm_amd kvm bnx2 megaraid_sas [last unloaded: tun]
->> CPU: 5 PID: 8670 Comm: vhost-8668 Not tainted 3.10.0-rc2+ #1566
->> Hardware name: Dell Inc. PowerEdge R715/00XHKG, BIOS 1.5.2 04/19/2011
->> ffffffffa0198323 ffff88007c9ebd08 ffffffff81796b73 ffff88007c9ebd48
->> ffffffff8103d66b 000000007b773e20 ffff8800779f0000 ffff8800779f43f0
->> ffff8800779f8418 000000000000015c 0000000000000062 ffff88007c9ebd58
->> Call Trace:
->> [<ffffffff81796b73>] dump_stack+0x19/0x1e
->> [<ffffffff8103d66b>] warn_slowpath_common+0x6b/0xa0
->> [<ffffffff8103d6b5>] warn_slowpath_null+0x15/0x20
->> [<ffffffffa0197627>] handle_tx+0x477/0x4b0 [vhost_net]
->> [<ffffffffa0197690>] handle_tx_kick+0x10/0x20 [vhost_net]
->> [<ffffffffa019541e>] vhost_worker+0xfe/0x1a0 [vhost_net]
->> [<ffffffffa0195320>] ? vhost_attach_cgroups_work+0x30/0x30 [vhost_net]
->> [<ffffffffa0195320>] ? vhost_attach_cgroups_work+0x30/0x30 [vhost_net]
->> [<ffffffff81061f46>] kthread+0xc6/0xd0
->> [<ffffffff81061e80>] ? kthread_freezable_should_stop+0x70/0x70
->> [<ffffffff817a1aec>] ret_from_fork+0x7c/0xb0
->> [<ffffffff81061e80>] ? kthread_freezable_should_stop+0x70/0x70
->
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
->> ---
->>   drivers/vhost/net.c |    3 ++-
->>   1 files changed, 2 insertions(+), 1 deletions(-)
->
->> diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
->> index 2b51e23..b07d96b 100644
->> --- a/drivers/vhost/net.c
->> +++ b/drivers/vhost/net.c
->> @@ -436,7 +436,8 @@ static void handle_tx(struct vhost_net *net)
->>                   kref_get(&ubufs->kref);
->>               }
->>               nvq->upend_idx = (nvq->upend_idx + 1) % UIO_MAXIOV;
->> -        }
->> +        } else
->
->    You have to use {} on the *else* branch if you have it of the *if*
-> branch (and vice versa), according to Documentation/CodingStyle.
+--Signature=_Thu__6_Jun_2013_13_29_26_+1000_E=/fZZs.iIOzRqj+
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-checkpatch.pl didn't complain this, will send v2.
+Hi Anton,
 
-Thanks
+On Thu, 6 Jun 2013 13:01:05 +1000 Anton Blanchard <anton@samba.org> wrote:
 >
->> +            msg.msg_control = NULL;
->
-> WBR, Sergei
->
-> -- 
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > This is causing a regression on 64bit powerpc with 32bit usermode.
+> > When I hit userspace, udev is broken and I suspect all networking is
+> > broken as well.
+> >=20
+> > Can we please revert 1be374a0518a288147c6a7398792583200a67261
+> > upstream?
+> >=20
+> > Found via bisect.
+>=20
+> Doesn't this patch break compat_sys_sendmsg and compat_sys_recvmsg?
+> We'd need to move the guts of sys_* into compat_sys_* to fix it.
+
+What you really need is a set of common functions that the sys_ and
+compat_sys_ functions can call - with the sys_ funtions forbidding
+MSG_CMSG_COMPAT and the compat_sys_ functions setting it.
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+http://www.canb.auug.org.au/~sfr/
+
+--Signature=_Thu__6_Jun_2013_13_29_26_+1000_E=/fZZs.iIOzRqj+
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRsAIbAAoJEECxmPOUX5FEulUP/1n2sOt9T9cvEKjKvQvIUOaA
+flR2ZHEs+cLCuyYMxV2XHHYewc/3S7Fzfhl0ZncsiNrodGi21miZq/MEjHg6OoRX
+7/FSD1eFNoZ1YyNq6MtJ0lMGurIWML38bdjtxPZ3Z7f/eBffWk3YKKOC3GBRFKis
+ZdhBe89SqAqPSJsQEOAzBhuTmKGeQ44cxtIcxjIQiZeY/Wm0B3cV1Phvm3Zg4Zcb
+hoBDBbuQtV4QFymSH/r/HxusDknnf1Xoo4Rzdt3oEkgNCrI1cjc+NsXRXRJsHgkp
+kPnMC7bEpdFFvPTdr5dE779nTNQCJLX0YU4GWCRYsxdv/avUCAyaCG8/szKpxipi
+gnojDDyAdvVBoo0eqYNxLAoWk7TB+30eIljMwR8H2AEB6CME+t57M1BgfzwPFTQh
+YcRTXL/5Aj7mSETVuYyxcBOattf4Ct4kgVfZ2WAfUaBEDs6VYdJGUNgeKh9NzjBk
++vitBg2l2hay8qIz1NpPivFclNhETBWxrMsJCXkpXDnAZu8f4LeDF8D6isB/qi48
+/WuBeDFvhBRtsZCr9LsLAOqWVBorirHOAdzUfATTpcECItsZFXBgcjLZL4Llyunt
+j9h/21GStCn+L1Pw5OxwCnl0Rj0PtBJBWOSFe+B90rTogwQnRddSoNmb+2cEpbTl
+8bn27c4NVilsk8z0vFsr
+=4vMC
+-----END PGP SIGNATURE-----
+
+--Signature=_Thu__6_Jun_2013_13_29_26_+1000_E=/fZZs.iIOzRqj+--
