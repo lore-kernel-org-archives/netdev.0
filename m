@@ -1,29 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pulling net tree into net-next
-Date: Wed, 05 Jun 2013 16:15:11 -0700 (PDT)
-Message-ID: <20130605.161511.2267769342649279605.davem@davemloft.net>
-References: <1370453224.24311.287.camel@edumazet-glaptop>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v2 3/3] igmp: convert RTNL lock to a spinlock
+Date: Thu, 06 Jun 2013 08:36:03 +0800
+Message-ID: <1370478963.31875.2.camel@cr0>
+References: <1370425101-31683-1-git-send-email-amwang@redhat.com>
+	 <1370425101-31683-3-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47299 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757250Ab3FEXPM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 19:15:12 -0400
-In-Reply-To: <1370453224.24311.287.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:53593 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754106Ab3FFAgM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 5 Jun 2013 20:36:12 -0400
+In-Reply-To: <1370425101-31683-3-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 05 Jun 2013 10:27:04 -0700
+On Wed, 2013-06-05 at 17:38 +0800, Cong Wang wrote:
+> -       while ((i = rtnl_dereference(in_dev->mc_list)) != NULL) {
+> -               in_dev->mc_list = i->next_rcu;
+> +       spin_lock(&ipv4_sk_mc_lock);
+> +       while ((i = rcu_dereference_protected(in_dev->mc_list,
+> +                       lockdep_is_held(&ipv4_sk_mc_lock))) != NULL) {
+> +               rcu_assign_pointer(in_dev->mc_list, i->next_rcu);
+>                 in_dev->mc_count--;
+>  
+>                 /* We've dropped the groups in ip_mc_down already */
+>                 ip_mc_clear_src(i);
+>                 ip_ma_put(i);
+>         }
+> +       spin_unlock(&ipv4_sk_mc_lock);
+> +       synchronize_rcu(); 
 
-> I have some upcoming HTB patches for net-next, needing a sync, now Linus
-> pulled your net tree.
-
-Working on it now, I need to handle some details in the merge commit so
-give me some time.
-
-Thanks!
+Hmm, it seems this kind synchronize_rcu() is not needed, since we don't
+free anything here, not very sure if it is okay that readers still have
+the old value of ->mc_list... I think probably yes.
