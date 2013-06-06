@@ -1,41 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Thu, 06 Jun 2013 12:16:35 -0700 (PDT)
-Message-ID: <20130606.121635.836050550847993594.davem@davemloft.net>
+From: info@uk.net
+Subject: Confirmed Reciept.....Certified Winner.....
+Date: Fri, 07 Jun 2013 00:52:29 +0530
+Message-ID: <201306061913.r56IvEtv006869__44951.8244866796$1370547007$gmane$org@lycasmtp.lycamobile.co.uk>
+Reply-To: claim.jonesgreene@hotmail.co.uk
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <info@uk.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:33457 "EHLO
+	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752721Ab3FFT3n convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jun 2013 15:29:43 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+Uk National Lottery
+Ref: L/200-26937
+Batch: 2007MJL-01
 
 
-This is a quick one commit pull request to cure the
-regression introduced by the MSG_CMSG_COMPAT change.
+                     FINAL NOTIFICATION
+We are pleased to inform you today 6th  June, 2013 of the result=20
+of the winners of the  UK NATIONAL LOTTERY ONLINE PROMO PROGRAMME, held=
+=20
+on the 30th of May, 2013.
 
-Please pull, thanks a lot!
+You have therefore been approved for a lump sum pay out of =A31,000 000=
+=20
+(One Million Pounds Sterling) in cash credited to file XYL/26510460037/=
+06.To file for your claim,=20
+please contact our claims agent;
 
-The following changes since commit 4d3797d7e1861ac1af150a6189315786c5e1c820:
-
-  Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net (2013-06-05 19:19:04 +0900)
-
-are available in the git repository at:
+Agents Name: Dr.Jones Greene
+Emai: claim.jonesgreene@hotmail.co.uk
 
 
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git master
+Provide him with the information below:
 
-for you to fetch changes up to a7526eb5d06b0084ef12d7b168d008fcf516caab:
+1.Full Name:
+2.Full Address:
+3.Marital Status:
+4.Occupation:
+5.Age:
+6.Sex:
+7.Nationality:
+8.Country Of Residence:
+9.Telephone Number:
 
-  net: Unbreak compat_sys_{send,recv}msg (2013-06-06 11:52:14 -0700)
+Congratulations once more from all members and staff of this program.
 
-----------------------------------------------------------------
-Andy Lutomirski (1):
-      net: Unbreak compat_sys_{send,recv}msg
-
- include/linux/socket.h |  3 +++
- net/compat.c           | 13 +++++++++++--
- net/socket.c           | 72 +++++++++++++++++++++++++++++++++---------------------------------------
- 3 files changed, 47 insertions(+), 41 deletions(-)
+Sincerely,=20
+Dr.Jones Greene
+UK NATIONAL LOTTERY
