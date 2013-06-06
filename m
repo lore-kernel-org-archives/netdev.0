@@ -1,150 +1,109 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next rfc V3 7/9] macvtap: allow TUNSETIFF to create
- multiqueue device
-Date: Thu, 6 Jun 2013 09:59:05 +0300
-Message-ID: <20130606065905.GA5170@redhat.com>
-References: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
- <1370414192-5830-8-git-send-email-jasowang@redhat.com>
- <20130605104306.GG31830@redhat.com>
- <51AFFE59.2010808@redhat.com>
+From: Florian Vaussard <florian.vaussard@epfl.ch>
+Subject: Re: [net-next PATCH v4 3/5] ARM: dts: AM33XX: Add pinmux configuration
+ for CPSW to beaglebone
+Date: Thu, 06 Jun 2013 09:06:21 +0200
+Message-ID: <51B034ED.7040603@epfl.ch>
+References: <1370452099-24026-1-git-send-email-mugunthanvnm@ti.com> <1370452099-24026-4-git-send-email-mugunthanvnm@ti.com>
+Reply-To: florian.vaussard@epfl.ch
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51AFFE59.2010808@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	devicetree-discuss@lists.ozlabs.org, linux-omap@vger.kernel.org,
+	benoit.cousson@linaro.org, paul@pwsan.com
+To: Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <1370452099-24026-4-git-send-email-mugunthanvnm@ti.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 06, 2013 at 11:13:29AM +0800, Jason Wang wrote:
-> On 06/05/2013 06:43 PM, Michael S. Tsirkin wrote:
-> > On Wed, Jun 05, 2013 at 02:36:30PM +0800, Jason Wang wrote:
-> >> Though the queue were in fact created by open(), we still need to add this check
-> >> to be compatible with tuntap which can let mgmt software use a single API to
-> >> manage queues. This patch only validates the device name and moves the TUNSETIFF
-> >> to a helper.
-> >>
-> >> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > The patch is OK, the description is confusing.
-> > What you mean is simply:
-> >
-> > 	Allow IFF_MULTI_QUEUE in TUNSETIFF for macvtap, to match
-> > 	tun behaviour.
-> >
-> > And if you put it like this, I would say make this
-> > the last patch in the series, so userspace
-> > can use IFF_MULTI_QUEUE to detect new versus old
-> > behaviour.
-> 
-> Make sense, thanks.
-> >
-> >> ---
-> >>  drivers/net/macvtap.c |   51 ++++++++++++++++++++++++++++++++++++++----------
-> >>  1 files changed, 40 insertions(+), 11 deletions(-)
-> >>
-> >> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> >> index 5ccba99..14764cc 100644
-> >> --- a/drivers/net/macvtap.c
-> >> +++ b/drivers/net/macvtap.c
-> >> @@ -869,6 +869,7 @@ out:
-> >>  	return ret;
-> >>  }
-> >>  
-> >> +
-> >>  static struct macvlan_dev *macvtap_get_vlan(struct macvtap_queue *q)
-> >>  {
-> >>  	struct macvlan_dev *vlan;
-> > Please don't.
-> 
-> Ok.
-> >
-> >> @@ -887,6 +888,44 @@ static void macvtap_put_vlan(struct macvlan_dev *vlan)
-> >>  	dev_put(vlan->dev);
-> >>  }
-> >>  
-> >> +static int macvtap_set_iff(struct file *file, struct ifreq __user *ifr_u)
-> >> +{
-> >> +	struct macvtap_queue *q = file->private_data;
-> >> +	struct net *net = current->nsproxy->net_ns;
-> >> +	struct inode *inode = file_inode(file);
-> >> +	struct net_device *dev, *dev2;
-> >> +	struct ifreq ifr;
-> >> +
-> >> +	if (copy_from_user(&ifr, ifr_u, sizeof(struct ifreq)))
-> >> +		return -EFAULT;
-> >> +
-> >> +	/* To keep the same behavior of tuntap, validate ifr_name */
-> > So I'm not sure - why is it important to validate ifr_name here?
-> > We ignore the name for all other flags - why is IFF_MULTI_QUEUE
-> > special?
-> 
-> It raises another question, why not validate ifname like tuntap? We
-> should warn userspace about their error, otherwise they may create
-> queues on the wrong device. In fact I want validate for both, but keep
-> the behaviour w/o IFF_MULTI_QUEUE for backward compatibility.
+Hello,
 
-Basically macvtap ignores ifr_name because it doesn't need it.
-Making it ignore it without IFF_MULTI_QUEUE but
-not with IFF_MULTI_QUEUE seems ugly.
+On 06/05/2013 07:08 PM, Mugunthan V N wrote:
+> Add pinmux configurations for MII based CPSW ethernet to am335x-bone.
+> In this patch, only single named mode/state is added and these pins
+> are configured during pinctrl driver initialization.
+>
+> Default mode is nothing but the values required for the module during
+> active state. With this configurations module is functional as
+> expected.
+>
+> Todo:
+> - if an idle state is available for pins, add support for it.
+>
+> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> ---
+>   arch/arm/boot/dts/am335x-bone.dts |   38 +++++++++++++++++++++++++++++++++++++
+>   1 file changed, 38 insertions(+)
+>
+> diff --git a/arch/arm/boot/dts/am335x-bone.dts b/arch/arm/boot/dts/am335x-bone.dts
+> index 4b5a8e0..008a13b 100644
+> --- a/arch/arm/boot/dts/am335x-bone.dts
+> +++ b/arch/arm/boot/dts/am335x-bone.dts
+> @@ -36,6 +36,33 @@
+>   				0x60 0x17	/* gpmc_a8.gpio1_24, OUTPUT_PULLUP | MODE7 */
+>   			>;
+>   		};
+> +
+> +		cpsw_default: cpsw_default {
+> +			pinctrl-single,pins = <
+> +				/* Slave 1 */
+> +				0x110 0x20	/* mii1_rxerr.mii1_rxerr, MODE0 | INPUT */
 
-Do you think we'll need ifr_name at some point?
-Why not validate then, when we actually do?
+Here I guess that the comment should be INPUT_PULLDOWN, instead of INPUT.
 
+> +				0x114 0x0	/* mii1_txen.mii1_txen, MODE0 | OUTPUT */
 
-> >
-> >> +	if (ifr.ifr_flags & IFF_MULTI_QUEUE) {
-> >> +		dev = __dev_get_by_name(net, ifr.ifr_name);
-> >> +		if (!dev)
-> >> +			return -EINVAL;
-> >> +
-> >> +		dev2 = dev_get_by_macvtap_minor(iminor(inode));
-> >> +		if (!dev2)
-> >> +			return -EINVAL;
-> >> +
-> >> +		if (dev != dev2) {
-> >> +			dev_put(dev2);
-> >> +			return -EINVAL;
-> >> +		}
-> >> +
-> >> +		dev_put(dev2);
-> >> +	}
-> >> +
-> >> +	if ((ifr.ifr_flags & ~(IFF_VNET_HDR | IFF_MULTI_QUEUE)) !=
-> >> +	    (IFF_NO_PI | IFF_TAP))
-> >> +		return -EINVAL;
-> >> +	else
-> >> +		q->flags = ifr.ifr_flags;
-> >> +
-> >> +	return 0;
-> >> +}
-> >> +
-> >>  /*
-> >>   * provide compatibility with generic tun/tap interface
-> >>   */
-> >> @@ -905,17 +944,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
-> >>  
-> >>  	switch (cmd) {
-> >>  	case TUNSETIFF:
-> >> -		/* ignore the name, just look at flags */
-> > This is actually a useful comment that you've removed.
-> 
-> Will get it back.
-> >
-> >> -		if (get_user(u, &ifr->ifr_flags))
-> >> -			return -EFAULT;
-> >> -
-> >> -		ret = 0;
-> >> -		if ((u & ~IFF_VNET_HDR) != (IFF_NO_PI | IFF_TAP))
-> >> -			ret = -EINVAL;
-> >> -		else
-> >> -			q->flags = u;
-> >> -
-> >> -		return ret;
-> >> +		return macvtap_set_iff(file, ifr);
-> >>  
-> >>  	case TUNGETIFF:
-> >>  		vlan = macvtap_get_vlan(q);
-> >> -- 
-> >> 1.7.1
+As bit PULLUDENABLE is 0, the pulldown is enabled according to the TRM, 
+right?
+Is this a desirable behaviour, as it will consume power when outputting 
+a high level?
+And consequently, the comment should probably be OUTPUT_PULLDOWN, no?
+
+> +				0x118 0x20	/* mii1_rxdv.mii1_rxdv, MODE0 | INPUT_PULLDOWN */
+> +				0x11c 0x0	/* mii1_txd3.mii1_txd3, MODE0 | OUTPUT */
+> +				0x120 0x0	/* mii1_txd2.mii1_txd2, MODE0 | OUTPUT */
+> +				0x124 0x0	/* mii1_txd1.mii1_txd1, MODE0 | OUTPUT */
+> +				0x128 0x0	/* mii1_txd0.mii1_txd0, MODE0 | OUTPUT */
+
+Same questions here.
+
+> +				0x12c 0x20	/* mii1_txclk.mii1_txclk, MODE0 | INPUT_PULLDOWN */
+> +				0x130 0x20	/* mii1_rxclk.mii1_rxclk, MODE0 | INPUT_PULLDOWN */
+> +				0x134 0x20	/* mii1_rxd3.mii1_rxd3, MODE0 | INPUT_PULLDOWN */
+> +				0x138 0x20	/* mii1_rxd2.mii1_rxd2, MODE0 | INPUT_PULLDOWN */
+> +				0x13c 0x20	/* mii1_rxd1.mii1_rxd1, MODE0 | INPUT_PULLDOWN */
+> +				0x140 0x20	/* mii1_rxd0.mii1_rxd0, MODE0 | INPUT_PULLDOWN */
+> +			>;
+> +		};
+> +
+> +		davinci_mdio_default: davinci_mdio_default {
+> +			pinctrl-single,pins = <
+> +				/* MDIO */
+> +				0x148 0x30	/* mdio_data.mdio_data, MODE0 | INPUT_PULLUP */
+> +				0x14c 0x10	/* mdio_clk.mdio_clk, MODE0 | OUTPUT_PULLUP */
+> +			>;
+> +		};
+>   	};
+>
+>   	ocp {
+> @@ -138,3 +165,14 @@
+>   	phy_id = <&davinci_mdio>, <1>;
+>   	phy-mode = "mii";
+>   };
+> +
+> +&mac {
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&cpsw_default>;
+> +
+> +};
+> +
+> +&davinci_mdio {
+> +	pinctrl-names = "default";
+> +	pinctrl-0 = <&davinci_mdio_default>;
+> +};
+>
+
+Regards,
+
+Florian
