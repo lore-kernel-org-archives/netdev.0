@@ -1,7 +1,7 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v5 5/8] sh_eth: add IRQ flags to 'struct sh_eth_cpu_data'
-Date: Thu, 6 Jun 2013 23:49:30 +0400
-Message-ID: <201306062349.31261.sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v5 6/8] sh_eth: remove #ifdef around sh_eth_select_mii()
+Date: Thu, 6 Jun 2013 23:50:30 +0400
+Message-ID: <201306062350.31232.sergei.shtylyov@cogentembedded.com>
 References: <201306062339.21353.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
@@ -16,84 +16,46 @@ List-Id: netdev.vger.kernel.org
 
 From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
 
-The driver supports some SH and SH-Mobile SOCs. There are SOCs with two or more
-Ethernet devices, for these we need to pass IRQF_SHARED to request_irq().  Add
-the 'irq_flags' field to the 'struct sh_eth_cpu_data' instead of #ifdef'fery.
+We can simply remove #ifdef'fery around sh_eth_select_mii(). We have to annotate
+it with '__maybe_unused' then.
 
 Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-[Sergei: properly aligned request_irq() call continuation line, reworded the
-changelog, reworded the subject, changing the prefix.]
+[Sergei: added the changelog, reworded the subject, changing the prefix.]
 Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
 Changes in version 4:
-- resolved reject;
-- properly aligned request_irq() call continuation line;
-- reworded the changelog;
+- refreshed the patch;
+- added the changelog;
 - reworded the subject, changing the prefix.
 
 Changes in version 3:
-- remove 'irq_flags' from 'struct sh_eth_private';
-- fix indentation.
+- annotated sh_eth_select_mii() with '__maybe_unused'.
 
- drivers/net/ethernet/renesas/sh_eth.c |   13 +++++--------
- drivers/net/ethernet/renesas/sh_eth.h |    1 +
- 2 files changed, 6 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/renesas/sh_eth.c |    6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
 
 Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
 ===================================================================
 --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
 +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -462,6 +462,7 @@ static struct sh_eth_cpu_data sh_eth_my_
- 			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
- 	.tx_error_check	= EESR_TWB | EESR_TABT | EESR_TDE | EESR_TFE,
- 
-+	.irq_flags	= IRQF_SHARED,
- 	.apr		= 1,
- 	.mpr		= 1,
- 	.tpauser	= 1,
-@@ -570,6 +571,7 @@ static struct sh_eth_cpu_data sh_eth_my_
- 	.fdr_value	= 0x0000072f,
- 	.rmcr_value	= 0x00000001,
- 
-+	.irq_flags	= IRQF_SHARED,
- 	.apr		= 1,
- 	.mpr		= 1,
- 	.tpauser	= 1,
-@@ -650,6 +652,8 @@ static struct sh_eth_cpu_data sh_eth_my_
- #if defined(CONFIG_CPU_SUBTYPE_SH7734)
- 	.hw_crc     = 1,
- 	.select_mii = 1,
-+#else
-+	.irq_flags	= IRQF_SHARED,
- #endif
+@@ -313,10 +313,7 @@ static const u16 sh_eth_offset_fast_sh3_
+ 	[TSU_ADRL31]	= 0x01fc,
  };
  
-@@ -1908,14 +1912,7 @@ static int sh_eth_open(struct net_device
- 	pm_runtime_get_sync(&mdp->pdev->dev);
+-#if defined(CONFIG_CPU_SUBTYPE_SH7734) || \
+-	defined(CONFIG_CPU_SUBTYPE_SH7763) || \
+-	defined(CONFIG_ARCH_R8A7740)
+-static void sh_eth_select_mii(struct net_device *ndev)
++static void __maybe_unused sh_eth_select_mii(struct net_device *ndev)
+ {
+ 	u32 value = 0x0;
+ 	struct sh_eth_private *mdp = netdev_priv(ndev);
+@@ -339,7 +336,6 @@ static void sh_eth_select_mii(struct net
  
- 	ret = request_irq(ndev->irq, sh_eth_interrupt,
--#if defined(CONFIG_CPU_SUBTYPE_SH7763) || \
--	defined(CONFIG_CPU_SUBTYPE_SH7764) || \
--	defined(CONFIG_CPU_SUBTYPE_SH7757)
--				IRQF_SHARED,
--#else
--				0,
+ 	sh_eth_write(ndev, value, RMII_MII);
+ }
 -#endif
--				ndev->name, ndev);
-+			  mdp->cd->irq_flags, ndev->name, ndev);
- 	if (ret) {
- 		dev_err(&ndev->dev, "Can not assign IRQ number\n");
- 		return ret;
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.h
-@@ -463,6 +463,7 @@ struct sh_eth_cpu_data {
- 	unsigned long tx_error_check;
  
- 	/* hardware features */
-+	unsigned long irq_flags;	/* IRQ configuration flags */
- 	unsigned no_psr:1;		/* EtherC DO NOT have PSR */
- 	unsigned apr:1;			/* EtherC have APR */
- 	unsigned mpr:1;			/* EtherC have MPR */
+ static void __maybe_unused sh_eth_set_duplex(struct net_device *ndev)
+ {
