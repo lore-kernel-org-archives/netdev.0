@@ -1,33 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pulling net tree into net-next
-Date: Wed, 05 Jun 2013 21:52:41 -0700 (PDT)
-Message-ID: <20130605.215241.1813530414570624969.davem@davemloft.net>
-References: <1370453224.24311.287.camel@edumazet-glaptop>
-	<20130605.161511.2267769342649279605.davem@davemloft.net>
+Subject: Re: [PATCH 5/5] net: Block MSG_CMSG_COMPAT in send(m)msg and
+ recv(m)msg
+Date: Wed, 05 Jun 2013 22:00:05 -0700 (PDT)
+Message-ID: <20130605.220005.1262211330700518675.davem@davemloft.net>
+References: <aa015609319786835bcab445d507faa75c11f111.1369177867.git.luto@amacapital.net>
+	<CAEjGV6xcF776C6N6VxeMY0Vyk+X51oNixdbN42-xkWjQOaMEQA@mail.gmail.com>
+	<1370493325.24311.332.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: mikey@neuling.org, luto@amacapital.net,
+	linux-kernel@vger.kernel.org, x86@kernel.org,
+	trinity@vger.kernel.org, netdev@vger.kernel.org, anton@samba.org,
+	benh@kernel.crashing.org, linuxppc-dev@ozlabs.org,
+	torvalds@linux-foundation.org
 To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49974 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751916Ab3FFEwp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jun 2013 00:52:45 -0400
-In-Reply-To: <20130605.161511.2267769342649279605.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <trinity-owner@vger.kernel.org>
+In-Reply-To: <1370493325.24311.332.camel@edumazet-glaptop>
+Sender: trinity-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Miller <davem@davemloft.net>
-Date: Wed, 05 Jun 2013 16:15:11 -0700 (PDT)
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 05 Jun 2013 21:35:25 -0700
 
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Wed, 05 Jun 2013 10:27:04 -0700
+> On Thu, 2013-06-06 at 12:56 +1000, Michael Neuling wrote:
+>> On Thu, May 23, 2013 at 7:07 AM, Andy Lutomirski <luto@amacapital.net> wrote:
+>> > MSG_CMSG_COMPAT is (AFAIK) not intended to be part of the API --
+>> > it's a hack that steals a bit to indicate to other networking code
+>> > that a compat entry was used.  So don't allow it from a non-compat
+>> > syscall.
+>> 
+>> Dave & Linus
+>> 
+>> This is causing a regression on 64bit powerpc with 32bit usermode.
+>> When I hit userspace, udev is broken and I suspect all networking is
+>> broken as well.
+>> 
+>> Can we please revert 1be374a0518a288147c6a7398792583200a67261 upstream?
+>> 
 > 
->> I have some upcoming HTB patches for net-next, needing a sync, now Linus
->> pulled your net tree.
-> 
-> Working on it now, I need to handle some details in the merge commit so
-> give me some time.
+> It seems to also break x86_64, if using 32bit usermode.
 
-This is now done.
+Sorry, I only merged this because Ingo Molnar and others kept beating
+me over the head about merging this fix.
+
+Linus please revert, and I will not bow to such pressure in the future,
+I should know better.
