@@ -1,343 +1,300 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next rfc V3 8/9] macvtap: add TUNSETQUEUE ioctl
-Date: Thu, 6 Jun 2013 10:23:37 +0300
-Message-ID: <20130606072337.GC5170@redhat.com>
-References: <1370414192-5830-1-git-send-email-jasowang@redhat.com>
- <1370414192-5830-9-git-send-email-jasowang@redhat.com>
- <20130605105928.GH31830@redhat.com>
- <51AFFF23.20608@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Unbreak compat_sys_{send,recv}msg
+Date: Thu, 06 Jun 2013 00:26:25 -0700 (PDT)
+Message-ID: <20130606.002625.223430401087826901.davem@davemloft.net>
+References: <20130606132926.f4161ddff87dc9a55e33a8ca@canb.auug.org.au>
+	<e3bf421e44c6d27817c15a8683612a49e093b419.1370496702.git.luto@amacapital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: x86@kernel.org, torvalds@linux-foundation.org, mikey@neuling.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linuxppc-dev@ozlabs.org, trinity@vger.kernel.org,
+	eric.dumazet@gmail.com
+To: luto@amacapital.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51AFFF23.20608@redhat.com>
+In-Reply-To: <e3bf421e44c6d27817c15a8683612a49e093b419.1370496702.git.luto@amacapital.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 06, 2013 at 11:16:51AM +0800, Jason Wang wrote:
-> On 06/05/2013 06:59 PM, Michael S. Tsirkin wrote:
-> > On Wed, Jun 05, 2013 at 02:36:31PM +0800, Jason Wang wrote:
-> >> This patch adds TUNSETQUEUE ioctl to let userspace can temporarily disable or
-> >> enable a queue of macvtap. This is used to be compatible at API layer of tuntap
-> >> to simplify the userspace to manage the queues. This is done through introducing
-> >> a linked list to track all taps while using vlan->taps array to only track
-> >> active taps.
-> >>
-> >> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> >> ---
-> >>  drivers/net/macvtap.c      |  133 +++++++++++++++++++++++++++++++++++++++-----
-> >>  include/linux/if_macvlan.h |    4 +
-> >>  2 files changed, 122 insertions(+), 15 deletions(-)
-> >>
-> >> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> >> index 14764cc..355e6ad 100644
-> >> --- a/drivers/net/macvtap.c
-> >> +++ b/drivers/net/macvtap.c
-> >> @@ -45,6 +45,8 @@ struct macvtap_queue {
-> >>  	struct file *file;
-> >>  	unsigned int flags;
-> >>  	u16 queue_index;
-> >> +	bool enabled;
-> >> +	struct list_head next;
-> >>  };
-> >>  
-> >>  static struct proto macvtap_proto = {
-> >> @@ -85,14 +87,37 @@ static const struct proto_ops macvtap_socket_ops;
-> >>   */
-> >>  static DEFINE_SPINLOCK(macvtap_lock);
-> >>  
-> >> -static int macvtap_set_queue(struct net_device *dev, struct file *file,
-> >> +static int macvtap_enable_queue(struct net_device *dev, struct file *file,
-> >>  				struct macvtap_queue *q)
-> >>  {
-> >>  	struct macvlan_dev *vlan = netdev_priv(dev);
-> >> +	int err = -EINVAL;
-> >> +
-> >> +	spin_lock(&macvtap_lock);
-> >> +
-> >> +	if (q->enabled)
-> >> +		goto out;
-> >> +
-> >> +	err = 0;
-> >> +	rcu_assign_pointer(vlan->taps[vlan->numvtaps], q);
-> >> +	q->queue_index = vlan->numvtaps;
-> >> +	q->enabled = true;
-> >> +
-> >> +	vlan->numvtaps++;
-> >> +	vlan->numdisabled--;
-> >> +out:
-> >> +	spin_unlock(&macvtap_lock);
-> >> +	return err;
-> >> +}
-> >> +
-> >> +static int macvtap_set_queue(struct net_device *dev, struct file *file,
-> >> +			     struct macvtap_queue *q)
-> >> +{
-> >> +	struct macvlan_dev *vlan = netdev_priv(dev);
-> >>  	int err = -EBUSY;
-> >>  
-> >>  	spin_lock(&macvtap_lock);
-> >> -	if (vlan->numvtaps == MAX_MACVTAP_QUEUES)
-> >> +	if (vlan->numvtaps + vlan->numdisabled == MAX_MACVTAP_QUEUES)
-> >>  		goto out;
-> >>  
-> >>  	err = 0;
-> >> @@ -102,7 +127,9 @@ static int macvtap_set_queue(struct net_device *dev, struct file *file,
-> >>  
-> >>  	q->file = file;
-> >>  	q->queue_index = vlan->numvtaps;
-> >> +	q->enabled = true;
-> >>  	file->private_data = q;
-> >> +	list_add_tail(&q->next, &vlan->tap_link);
-> >>  
-> >>  	vlan->numvtaps++;
-> >>  
-> >> @@ -111,6 +138,38 @@ out:
-> >>  	return err;
-> >>  }
-> >>  
-> >> +static int macvtap_disable_queue(struct macvtap_queue *q)
-> >> +{
-> >> +	struct macvlan_dev *vlan;
-> >> +	struct macvtap_queue *nq;
-> >> +	int err = 0;
-> >> +
-> >> +	spin_lock(&macvtap_lock);
-> >> +	vlan = rcu_dereference_protected(q->vlan,
-> >> +					 lockdep_is_held(&macvtap_lock));
-> >> +
-> >> +	if (!q->enabled) {
-> >> +		err = -EINVAL;
-> >> +		goto out;
-> >> +	}
-> >> +
-> >> +	if (vlan) {
-> >> +		int index = q->queue_index;
-> >> +		nq = rcu_dereference_protected(vlan->taps[vlan->numvtaps - 1],
-> >> +					       lockdep_is_held(&macvtap_lock));
-> >> +		nq->queue_index = index;
-> >> +
-> >> +		rcu_assign_pointer(vlan->taps[index], nq);
-> >> +		RCU_INIT_POINTER(vlan->taps[vlan->numvtaps - 1], NULL);
-> >> +		q->enabled = false;
-> >> +
-> >> +		vlan->numvtaps--;
-> >> +		vlan->numdisabled++;
-> >> +	}
-> >> +out:
-> >> +	spin_unlock(&macvtap_lock);
-> >> +	return err;
-> >> +}
-> >>  /*
-> >>   * The file owning the queue got closed, give up both
-> >>   * the reference that the files holds as well as the
-> >> @@ -128,18 +187,24 @@ static void macvtap_put_queue(struct macvtap_queue *q)
-> >>  	vlan = rcu_dereference_protected(q->vlan,
-> >>  					 lockdep_is_held(&macvtap_lock));
-> >>  	if (vlan) {
-> >> +		int numvtaps = vlan->numvtaps;
-> >>  		int index = q->queue_index;
-> >> -		BUG_ON(index >= vlan->numvtaps);
-> >>  
-> >> -		nq = rcu_dereference_protected(vlan->taps[vlan->numvtaps - 1],
-> >> -					       lockdep_is_held(&macvtap_lock));
-> >> -		rcu_assign_pointer(vlan->taps[index], nq);
-> >> -		nq->queue_index = index;
-> >> +		if (q->enabled) {
-> >> +			BUG_ON(index >= vlan->numvtaps);
-> >> +			nq = rcu_dereference_protected(vlan->taps[numvtaps - 1],
-> >> +						lockdep_is_held(&macvtap_lock));
-> >> +			rcu_assign_pointer(vlan->taps[index], nq);
-> > Do we really need these tricks?
-> > Can't we call macvtap_disable_queue and then only handle disable queues
-> > here?
-> 
-> We could, will do it.
-> >
-> >> +			nq->queue_index = index;
-> >> +
-> >> +			RCU_INIT_POINTER(vlan->taps[numvtaps - 1], NULL);
-> >> +			vlan->numvtaps--;
-> >> +		} else
-> >> +			vlan->numdisabled--;
-> >>  
-> >> -		RCU_INIT_POINTER(vlan->taps[vlan->numvtaps - 1], NULL);
-> >>  		RCU_INIT_POINTER(q->vlan, NULL);
-> >>  		sock_put(&q->sk);
-> >> -		--vlan->numvtaps;
-> >> +		list_del_init(&q->next);
-> >>  	}
-> >>  
-> >>  	spin_unlock(&macvtap_lock);
-> >> @@ -160,6 +225,10 @@ static struct macvtap_queue *macvtap_get_queue(struct net_device *dev,
-> >>  {
-> >>  	struct macvlan_dev *vlan = netdev_priv(dev);
-> >>  	struct macvtap_queue *tap = NULL;
-> >> +	/* numvtaps here is just a hint, even if the number of active taps were
-> >> +	 * reduced in the same sime,
-> > typo
-> 
-> Will correct it.
-> >
-> >> since we are protected by rcu read lock,
-> >> +	 * we're safe here.
-> > I don't really understand what is this comment trying to say.
-> > What is protected? What is safe? safe time as what?
-> 
-> Will make it clear as:
-> 
-> "numvtaps is just a hint, even if the number of active taps were reduced
-> in the same tap, since the tap pointers were protected by rcu read lock,
-> they are safe even if some of them were being removed"
+From: Andy Lutomirski <luto@amacapital.net>
+Date: Wed,  5 Jun 2013 22:38:26 -0700
 
-
-I think I see.  I think what you really meant is two things:
-- near macvtap_forward:
- /* called under rcu read lock */
-- and here: 
-/*
- * Access to taps array is protected by rcu, but access to numvtaps
- * isn't. Below we use it to lookup a queue, but treat it as a hint
- * and validate that the result isn't NULL - in case we are
- * racing against queue removal.
- */
-
-
-
-
-
-
-
-> >> +	 */
-> >>  	int numvtaps = ACCESS_ONCE(vlan->numvtaps);
-> >>  	__u32 rxq;
-> >>  
-> >> @@ -196,20 +265,25 @@ out:
-> >>  static void macvtap_del_queues(struct net_device *dev)
-> >>  {
-> >>  	struct macvlan_dev *vlan = netdev_priv(dev);
-> >> -	struct macvtap_queue *q, *qlist[MAX_MACVTAP_QUEUES];
-> >> +	struct macvtap_queue *q, *tmp, *qlist[MAX_MACVTAP_QUEUES];
-> >>  	int i, j = 0;
-> >>  
-> >>  	spin_lock(&macvtap_lock);
-> >> -	for (i = 0; i < vlan->numvtaps; i++) {
-> >> -		q = rcu_dereference_protected(vlan->taps[i],
-> >> -					      lockdep_is_held(&macvtap_lock));
-> >> -		BUG_ON(q == NULL);
-> >> +	list_for_each_entry_safe(q, tmp, &vlan->tap_link, next) {
-> >> +		list_del_init(&q->next);
-> >>  		qlist[j++] = q;
-> >> -		RCU_INIT_POINTER(vlan->taps[i], NULL);
-> >>  		RCU_INIT_POINTER(q->vlan, NULL);
-> >> +		if (q->enabled)
-> >> +			vlan->numvtaps--;
-> >> +		else
-> >> +			vlan->numdisabled--;
-> >>  	}
-> >> +	for (i = 0; i < vlan->numvtaps; i++)
-> >> +		RCU_INIT_POINTER(vlan->taps[i], NULL);
-> >> +	BUG_ON(vlan->numvtaps + vlan->numdisabled != 0);
-> > Better two BUG_ON checks - they are both 0 right?
-> > And no need for != 0.
+> I broke them in this commit:
 > 
-> Sure.
-> >
-> >>  	/* guarantee that any future macvtap_set_queue will fail */
-> >>  	vlan->numvtaps = MAX_MACVTAP_QUEUES;
-> >> +	vlan->numdisabled = 0;
-> > What's this doing? We know it's 0 ...
+>     commit 1be374a0518a288147c6a7398792583200a67261
+>     Author: Andy Lutomirski <luto@amacapital.net>
+>     Date:   Wed May 22 14:07:44 2013 -0700
 > 
-> Yes, will remove it.
-> >>  	spin_unlock(&macvtap_lock);
-> >>  
-> >>  	synchronize_rcu();
-> >> @@ -298,6 +372,9 @@ static int macvtap_newlink(struct net *src_net,
-> >>  			   struct nlattr *tb[],
-> >>  			   struct nlattr *data[])
-> >>  {
-> >> +	struct macvlan_dev *vlan = netdev_priv(dev);
-> >> +	INIT_LIST_HEAD(&vlan->tap_link);
-> >> +
-> >>  	/* Don't put anything that may fail after macvlan_common_newlink
-> >>  	 * because we can't undo what it does.
-> >>  	 */
-> >> @@ -926,6 +1003,27 @@ static int macvtap_set_iff(struct file *file, struct ifreq __user *ifr_u)
-> >>  	return 0;
-> >>  }
-> >>  
-> >> +static int macvtap_ioctl_set_queue(struct file *file, unsigned int flags)
-> >> +{
-> >> +	struct macvtap_queue *q = file->private_data;
-> >> +	struct macvlan_dev *vlan;
-> >> +	int ret = -EINVAL;
-> >> +
-> >> +	vlan = macvtap_get_vlan(q);
-> >> +	if (!vlan)
-> >> +		goto done;
-> > Can be just return -EINVAL, and you won't need to initialize
-> > above.
+>         net: Block MSG_CMSG_COMPAT in send(m)msg and recv(m)msg
 > 
-> Ok.
-> >
-> >> +
-> >> +	if (flags & IFF_ATTACH_QUEUE)
-> >> +		ret = macvtap_enable_queue(vlan->dev, file, q);
-> >> +	else if (flags & IFF_DETACH_QUEUE)
-> >> +		ret = macvtap_disable_queue(q);
-> >> +
-> >> +	macvtap_put_vlan(vlan);
-> >> +
-> >> +done:
-> >> +	return ret;
-> >> +}
-> >> +
-> >>  /*
-> >>   * provide compatibility with generic tun/tap interface
-> >>   */
-> >> @@ -958,6 +1056,11 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
-> >>  		macvtap_put_vlan(vlan);
-> >>  		return ret;
-> >>  
-> >> +	case TUNSETQUEUE:
-> >> +		if (get_user(u, &ifr->ifr_flags))
-> >> +			return -EFAULT;
-> >> +		return macvtap_ioctl_set_queue(file, u);
-> >> +
-> >>  	case TUNGETFEATURES:
-> >>  		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR, up))
-> >>  			return -EFAULT;
-> >> diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-> >> index 62d8bda..87b9091 100644
-> >> --- a/include/linux/if_macvlan.h
-> >> +++ b/include/linux/if_macvlan.h
-> >> @@ -69,8 +69,12 @@ struct macvlan_dev {
-> >>  	u16			flags;
-> >>  	int (*receive)(struct sk_buff *skb);
-> >>  	int (*forward)(struct net_device *dev, struct sk_buff *skb);
-> >> +	/* This array tracks active taps. */
-> >>  	struct macvtap_queue	*taps[MAX_MACVTAP_QUEUES];
-> >> +	/* This list tracks all taps (both enabled and disabled) */
-> >> +	struct list_head	tap_link;
-> > Bad name, e.g. queue_list would be better.
+> This patch adds __sys_sendmsg and __sys_sendmsg as common helpers that accept
+> MSG_CMSG_COMPAT and blocks MSG_CMSG_COMPAT at the syscall entrypoints.  It
+> also reverts some unnecessary checks in sys_socketcall.
 > 
-> Ok.
-> >>  	int			numvtaps;
-> >> +	int			numdisabled;
-> > So numvtaps is number of entries in the taps array.
-> > But to get items on list, you must add numdisabled and
-> > numvtaps, that's confusing.
-> > Instead of numdisabled, let's add a counter for
-> > number of entries in the tap_link list.
-> >
-> > How about numqueues?
+> Apparently I was suffering from underscore blindness the first time around.
 > 
-> This sounds better.
-> >>  	int			minor;
-> >>  };
-> >>  
-> >> -- 
-> >> 1.7.1
+> Signed-off-by: Andy Lutomirski <luto@amacapital.net>
+
+Eric, can you test this patch too?
+
+Thanks.
+
+> ---
+> 
+> I've tested this a little, but I'm not sure I have a great test case.
+> 
+> If the decision is that it's better to leave this for the 3.11, I can send
+> a squashed version.  Note that the oops that this fixes is only an oops if
+> the other patches in the original series are applied.
+> 
+> (FWIW, I wasn't sure how to submit this stuff in the first place.  I submitted
+> some kernel hardening patches for the x86 tree that converted an access_ok
+> oddity in the net code into an actual oops.  In a bit of looking, I couldn't
+> find any failure mode other than a -EFAULT return without the other patches
+> applied.  This was clear in the patch series description but not in the
+> change log message for the net part.)
+> 
+>  include/linux/socket.h |  3 +++
+>  net/compat.c           | 13 +++++++--
+>  net/socket.c           | 72 +++++++++++++++++++++++---------------------------
+>  3 files changed, 47 insertions(+), 41 deletions(-)
+> 
+> diff --git a/include/linux/socket.h b/include/linux/socket.h
+> index 2b9f74b..e897bdc 100644
+> --- a/include/linux/socket.h
+> +++ b/include/linux/socket.h
+> @@ -321,6 +321,9 @@ extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
+>  
+>  struct timespec;
+>  
+> +/* The __sys_...msg variants allow MSG_CMSG_COMPAT */
+> +extern long __sys_recvmsg(int fd, struct msghdr __user *msg, unsigned flags);
+> +extern long __sys_sendmsg(int fd, struct msghdr __user *msg, unsigned flags);
+>  extern int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+>  			  unsigned int flags, struct timespec *timeout);
+>  extern int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg,
+> diff --git a/net/compat.c b/net/compat.c
+> index 79ae884..f0a1ba6 100644
+> --- a/net/compat.c
+> +++ b/net/compat.c
+> @@ -734,19 +734,25 @@ static unsigned char nas[21] = {
+>  
+>  asmlinkage long compat_sys_sendmsg(int fd, struct compat_msghdr __user *msg, unsigned int flags)
+>  {
+> -	return sys_sendmsg(fd, (struct msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+> +	if (flags & MSG_CMSG_COMPAT)
+> +		return -EINVAL;
+> +	return __sys_sendmsg(fd, (struct msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+>  }
+>  
+>  asmlinkage long compat_sys_sendmmsg(int fd, struct compat_mmsghdr __user *mmsg,
+>  				    unsigned int vlen, unsigned int flags)
+>  {
+> +	if (flags & MSG_CMSG_COMPAT)
+> +		return -EINVAL;
+>  	return __sys_sendmmsg(fd, (struct mmsghdr __user *)mmsg, vlen,
+>  			      flags | MSG_CMSG_COMPAT);
+>  }
+>  
+>  asmlinkage long compat_sys_recvmsg(int fd, struct compat_msghdr __user *msg, unsigned int flags)
+>  {
+> -	return sys_recvmsg(fd, (struct msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+> +	if (flags & MSG_CMSG_COMPAT)
+> +		return -EINVAL;
+> +	return __sys_recvmsg(fd, (struct msghdr __user *)msg, flags | MSG_CMSG_COMPAT);
+>  }
+>  
+>  asmlinkage long compat_sys_recv(int fd, void __user *buf, size_t len, unsigned int flags)
+> @@ -768,6 +774,9 @@ asmlinkage long compat_sys_recvmmsg(int fd, struct compat_mmsghdr __user *mmsg,
+>  	int datagrams;
+>  	struct timespec ktspec;
+>  
+> +	if (flags & MSG_CMSG_COMPAT)
+> +		return -EINVAL;
+> +
+>  	if (COMPAT_USE_64BIT_TIME)
+>  		return __sys_recvmmsg(fd, (struct mmsghdr __user *)mmsg, vlen,
+>  				      flags | MSG_CMSG_COMPAT,
+> diff --git a/net/socket.c b/net/socket.c
+> index 0e16888..e216502 100644
+> --- a/net/socket.c
+> +++ b/net/socket.c
+> @@ -1978,7 +1978,7 @@ struct used_address {
+>  	unsigned int name_len;
+>  };
+>  
+> -static int __sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
+> +static int ___sys_sendmsg(struct socket *sock, struct msghdr __user *msg,
+>  			 struct msghdr *msg_sys, unsigned int flags,
+>  			 struct used_address *used_address)
+>  {
+> @@ -2093,26 +2093,30 @@ out:
+>   *	BSD sendmsg interface
+>   */
+>  
+> -SYSCALL_DEFINE3(sendmsg, int, fd, struct msghdr __user *, msg, unsigned int, flags)
+> +long __sys_sendmsg(int fd, struct msghdr __user *msg, unsigned flags)
+>  {
+>  	int fput_needed, err;
+>  	struct msghdr msg_sys;
+>  	struct socket *sock;
+>  
+> -	if (flags & MSG_CMSG_COMPAT)
+> -		return -EINVAL;
+> -
+>  	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+>  	if (!sock)
+>  		goto out;
+>  
+> -	err = __sys_sendmsg(sock, msg, &msg_sys, flags, NULL);
+> +	err = ___sys_sendmsg(sock, msg, &msg_sys, flags, NULL);
+>  
+>  	fput_light(sock->file, fput_needed);
+>  out:
+>  	return err;
+>  }
+>  
+> +SYSCALL_DEFINE3(sendmsg, int, fd, struct msghdr __user *, msg, unsigned int, flags)
+> +{
+> +	if (flags & MSG_CMSG_COMPAT)
+> +		return -EINVAL;
+> +	return __sys_sendmsg(fd, msg, flags);
+> +}
+> +
+>  /*
+>   *	Linux sendmmsg interface
+>   */
+> @@ -2143,15 +2147,16 @@ int __sys_sendmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+>  
+>  	while (datagrams < vlen) {
+>  		if (MSG_CMSG_COMPAT & flags) {
+> -			err = __sys_sendmsg(sock, (struct msghdr __user *)compat_entry,
+> -					    &msg_sys, flags, &used_address);
+> +			err = ___sys_sendmsg(sock, (struct msghdr __user *)compat_entry,
+> +					     &msg_sys, flags, &used_address);
+>  			if (err < 0)
+>  				break;
+>  			err = __put_user(err, &compat_entry->msg_len);
+>  			++compat_entry;
+>  		} else {
+> -			err = __sys_sendmsg(sock, (struct msghdr __user *)entry,
+> -					    &msg_sys, flags, &used_address);
+> +			err = ___sys_sendmsg(sock,
+> +					     (struct msghdr __user *)entry,
+> +					     &msg_sys, flags, &used_address);
+>  			if (err < 0)
+>  				break;
+>  			err = put_user(err, &entry->msg_len);
+> @@ -2180,7 +2185,7 @@ SYSCALL_DEFINE4(sendmmsg, int, fd, struct mmsghdr __user *, mmsg,
+>  	return __sys_sendmmsg(fd, mmsg, vlen, flags);
+>  }
+>  
+> -static int __sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
+> +static int ___sys_recvmsg(struct socket *sock, struct msghdr __user *msg,
+>  			 struct msghdr *msg_sys, unsigned int flags, int nosec)
+>  {
+>  	struct compat_msghdr __user *msg_compat =
+> @@ -2272,27 +2277,31 @@ out:
+>   *	BSD recvmsg interface
+>   */
+>  
+> -SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr __user *, msg,
+> -		unsigned int, flags)
+> +long __sys_recvmsg(int fd, struct msghdr __user *msg, unsigned flags)
+>  {
+>  	int fput_needed, err;
+>  	struct msghdr msg_sys;
+>  	struct socket *sock;
+>  
+> -	if (flags & MSG_CMSG_COMPAT)
+> -		return -EINVAL;
+> -
+>  	sock = sockfd_lookup_light(fd, &err, &fput_needed);
+>  	if (!sock)
+>  		goto out;
+>  
+> -	err = __sys_recvmsg(sock, msg, &msg_sys, flags, 0);
+> +	err = ___sys_recvmsg(sock, msg, &msg_sys, flags, 0);
+>  
+>  	fput_light(sock->file, fput_needed);
+>  out:
+>  	return err;
+>  }
+>  
+> +SYSCALL_DEFINE3(recvmsg, int, fd, struct msghdr __user *, msg,
+> +		unsigned int, flags)
+> +{
+> +	if (flags & MSG_CMSG_COMPAT)
+> +		return -EINVAL;
+> +	return __sys_recvmsg(fd, msg, flags);
+> +}
+> +
+>  /*
+>   *     Linux recvmmsg interface
+>   */
+> @@ -2330,17 +2339,18 @@ int __sys_recvmmsg(int fd, struct mmsghdr __user *mmsg, unsigned int vlen,
+>  		 * No need to ask LSM for more than the first datagram.
+>  		 */
+>  		if (MSG_CMSG_COMPAT & flags) {
+> -			err = __sys_recvmsg(sock, (struct msghdr __user *)compat_entry,
+> -					    &msg_sys, flags & ~MSG_WAITFORONE,
+> -					    datagrams);
+> +			err = ___sys_recvmsg(sock, (struct msghdr __user *)compat_entry,
+> +					     &msg_sys, flags & ~MSG_WAITFORONE,
+> +					     datagrams);
+>  			if (err < 0)
+>  				break;
+>  			err = __put_user(err, &compat_entry->msg_len);
+>  			++compat_entry;
+>  		} else {
+> -			err = __sys_recvmsg(sock, (struct msghdr __user *)entry,
+> -					    &msg_sys, flags & ~MSG_WAITFORONE,
+> -					    datagrams);
+> +			err = ___sys_recvmsg(sock,
+> +					     (struct msghdr __user *)entry,
+> +					     &msg_sys, flags & ~MSG_WAITFORONE,
+> +					     datagrams);
+>  			if (err < 0)
+>  				break;
+>  			err = put_user(err, &entry->msg_len);
+> @@ -2525,31 +2535,15 @@ SYSCALL_DEFINE2(socketcall, int, call, unsigned long __user *, args)
+>  				   (int __user *)a[4]);
+>  		break;
+>  	case SYS_SENDMSG:
+> -		if (a[2] & MSG_CMSG_COMPAT) {
+> -			err = -EINVAL;
+> -			break;
+> -		}
+>  		err = sys_sendmsg(a0, (struct msghdr __user *)a1, a[2]);
+>  		break;
+>  	case SYS_SENDMMSG:
+> -		if (a[3] & MSG_CMSG_COMPAT) {
+> -			err = -EINVAL;
+> -			break;
+> -		}
+>  		err = sys_sendmmsg(a0, (struct mmsghdr __user *)a1, a[2], a[3]);
+>  		break;
+>  	case SYS_RECVMSG:
+> -		if (a[2] & MSG_CMSG_COMPAT) {
+> -			err = -EINVAL;
+> -			break;
+> -		}
+>  		err = sys_recvmsg(a0, (struct msghdr __user *)a1, a[2]);
+>  		break;
+>  	case SYS_RECVMMSG:
+> -		if (a[3] & MSG_CMSG_COMPAT) {
+> -			err = -EINVAL;
+> -			break;
+> -		}
+>  		err = sys_recvmmsg(a0, (struct mmsghdr __user *)a1, a[2], a[3],
+>  				   (struct timespec __user *)a[4]);
+>  		break;
+> -- 
+> 1.8.1.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe trinity" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
