@@ -1,61 +1,49 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH v5 6/8] sh_eth: remove #ifdef around sh_eth_select_mii()
-Date: Thu, 6 Jun 2013 23:50:30 +0400
-Message-ID: <201306062350.31232.sergei.shtylyov@cogentembedded.com>
-References: <201306062339.21353.sergei.shtylyov@cogentembedded.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: mmotm 2013-06-05-17-24 uploaded (ptp_pch)
+Date: Thu, 6 Jun 2013 20:51:18 +0100
+Message-ID: <1370548278.4757.2.camel@bwh-desktop.uk.level5networks.com>
+References: <20130606002636.6746F5A41AE@corp2gmr1-2.hot.corp.google.com>
+	 <51B011F0.6050805@infradead.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201306062339.21353.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: <akpm@linux-foundation.org>, <linux-kernel@vger.kernel.org>,
+	<linux-next@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Randy Dunlap <rdunlap@infradead.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <51B011F0.6050805@infradead.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
+On Wed, 2013-06-05 at 21:37 -0700, Randy Dunlap wrote:
+> On 06/05/13 17:26, akpm@linux-foundation.org wrote:
+> > The mm-of-the-moment snapshot 2013-06-05-17-24 has been uploaded to
+> > 
+> >    http://www.ozlabs.org/~akpm/mmotm/
+> > 
+> > mmotm-readme.txt says
+> > 
+> > README for mm-of-the-moment:
+> > 
+> > http://www.ozlabs.org/~akpm/mmotm/
+> > 
+> 
+> on i386:  when CONFIG_PCI is not enabled:
+> 
+> drivers/ptp/ptp_pch.c:710:1: warning: data definition has no type or storage class [enabled by default]
+> drivers/ptp/ptp_pch.c:710:1: warning: type defaults to 'int' in declaration of 'module_pci_driver' [-Wimplicit-int]
+> drivers/ptp/ptp_pch.c:710:1: warning: parameter names (without types) in function declaration [enabled by default]
+> drivers/ptp/ptp_pch.c:701:26: warning: 'pch_driver' defined but not used [-Wunused-variable]
 
-We can simply remove #ifdef'fery around sh_eth_select_mii(). We have to annotate
-it with '__maybe_unused' then.
+Right, it should depend on CONFIG_PCI.  Previously reported in
+<http://thread.gmane.org/gmane.linux.network/270531> but there was then
+some confusion about whether it was s390 breakage (which it isn't).
 
-Signed-off-by: Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>
-[Sergei: added the changelog, reworded the subject, changing the prefix.]
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Ben.
 
----
-Changes in version 4:
-- refreshed the patch;
-- added the changelog;
-- reworded the subject, changing the prefix.
-
-Changes in version 3:
-- annotated sh_eth_select_mii() with '__maybe_unused'.
-
- drivers/net/ethernet/renesas/sh_eth.c |    6 +-----
- 1 file changed, 1 insertion(+), 5 deletions(-)
-
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -313,10 +313,7 @@ static const u16 sh_eth_offset_fast_sh3_
- 	[TSU_ADRL31]	= 0x01fc,
- };
- 
--#if defined(CONFIG_CPU_SUBTYPE_SH7734) || \
--	defined(CONFIG_CPU_SUBTYPE_SH7763) || \
--	defined(CONFIG_ARCH_R8A7740)
--static void sh_eth_select_mii(struct net_device *ndev)
-+static void __maybe_unused sh_eth_select_mii(struct net_device *ndev)
- {
- 	u32 value = 0x0;
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -339,7 +336,6 @@ static void sh_eth_select_mii(struct net
- 
- 	sh_eth_write(ndev, value, RMII_MII);
- }
--#endif
- 
- static void __maybe_unused sh_eth_set_duplex(struct net_device *ndev)
- {
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
