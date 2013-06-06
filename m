@@ -1,58 +1,81 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [PATCH] usbnet: improve/fix status interrupt endpoint interval
-Date: Thu, 06 Jun 2013 10:07:53 +0200
-Message-ID: <1596215.OGj7DxpsL0@linux-5eaq.site>
-References: <20130604182830.GA13186@rhlx01.hs-esslingen.de> <CACVXFVOYMGjGLmyGy=pQwkcuFshLmdNcLZKfqUDazge45GMBPA@mail.gmail.com> <20130605163426.GA18818@rhlx01.hs-esslingen.de>
+From: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Subject: Re: [net-next PATCH v4 3/5] ARM: dts: AM33XX: Add pinmux configuration
+ for CPSW to beaglebone
+Date: Thu, 6 Jun 2013 13:51:46 +0530
+Message-ID: <51B0469A.4080501@ti.com>
+References: <1370452099-24026-1-git-send-email-mugunthanvnm@ti.com>
+ <1370452099-24026-4-git-send-email-mugunthanvnm@ti.com>
+ <51B034ED.7040603@epfl.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Ming Lei <ming.lei@canonical.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	OndrejZary <linux@rainbow-software.org>
-To: Andreas Mohr <andi@lisas.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130605163426.GA18818@rhlx01.hs-esslingen.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
+ benoit.cousson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: <florian.vaussard-p8DiymsW2f8@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <51B034ED.7040603-p8DiymsW2f8@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 05 June 2013 18:34:26 Andreas Mohr wrote:
-> Hi,
-> 
-> On Wed, Jun 05, 2013 at 09:22:25AM +0800, Ming Lei wrote:
-> > On Wed, Jun 5, 2013 at 2:28 AM, Andreas Mohr <andi@lisas.de> wrote:
+On 6/6/2013 12:36 PM, Florian Vaussard wrote:
+> Hello,
+>
+> On 06/05/2013 07:08 PM, Mugunthan V N wrote:
+>> Add pinmux configurations for MII based CPSW ethernet to am335x-bone.
+>> In this patch, only single named mode/state is added and these pins
+>> are configured during pinctrl driver initialization.
+>>
+>> Default mode is nothing but the values required for the module during
+>> active state. With this configurations module is functional as
+>> expected.
+>>
+>> Todo:
+>> - if an idle state is available for pins, add support for it.
+>>
+>> Signed-off-by: Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+>> ---
+>>   arch/arm/boot/dts/am335x-bone.dts |   38 
+>> +++++++++++++++++++++++++++++++++++++
+>>   1 file changed, 38 insertions(+)
+>>
+>> diff --git a/arch/arm/boot/dts/am335x-bone.dts 
+>> b/arch/arm/boot/dts/am335x-bone.dts
+>> index 4b5a8e0..008a13b 100644
+>> --- a/arch/arm/boot/dts/am335x-bone.dts
+>> +++ b/arch/arm/boot/dts/am335x-bone.dts
+>> @@ -36,6 +36,33 @@
+>>                   0x60 0x17    /* gpmc_a8.gpio1_24, OUTPUT_PULLUP | 
+>> MODE7 */
+>>               >;
+>>           };
+>> +
+>> +        cpsw_default: cpsw_default {
+>> +            pinctrl-single,pins = <
+>> +                /* Slave 1 */
+>> +                0x110 0x20    /* mii1_rxerr.mii1_rxerr, MODE0 | 
+>> INPUT */
+>
+> Here I guess that the comment should be INPUT_PULLDOWN, instead of INPUT.
+Good catch, I will modify this and submit next version today.
+>
+>> +                0x114 0x0    /* mii1_txen.mii1_txen, MODE0 | OUTPUT */
+>
+> As bit PULLUDENABLE is 0, the pulldown is enabled according to the 
+> TRM, right?
+> Is this a desirable behaviour, as it will consume power when 
+> outputting a high level?
+This is the desirable behavior.
+> And consequently, the comment should probably be OUTPUT_PULLDOWN, no?
+Will update this in next version of patch series.
 
-> > >   Value 8 now managed to reduce powertop wakeups from ~ 540 to ~ 155
-> > 
-> > It means that your device only returns current link status instead of link
-> > change. IMO, it isn't a good behaviour for the device.
-> 
-> I don't quite understand that.
-> The way I see it is that there's the "20 times same value" averaging,
-> and once that was successful, a link change gets communicated
-> (usbnet_link_change()). Thus that merely results in a *delay*
-> in signalling the link change...
-
-The device should not deliver data unless the connection state has
-changed. Unless your connection is incredibly flaky, your device also
-delivers data on other occasions.
-If no data is delivered, no interrupt will be raised. The original intent
-of the code was to save bandwidth on the bus, not interrupt mitigation.
-
-Yet, you tested it and it helps, so it is a good idea.
-
-> I believe this number is meant to be a hard demand by the *device*,
-> since a device is the authoritative party to know best about its
-> own servicing requirements.
-> Or, IOW, the thing that is a USB descriptor is to be seen as a *protocol*
-> where a device signals its requirements (hopefully accurately, though!).
-> And if it indicates a 1ms bInterval (which is "the requested maximum(!!)
-> number of milliseconds between transaction attempts" [lvr usbfaq]),
-> then one could argue that the servicing party (the kernel) damn well
-> ought to follow through (unless it reliably knows that it can violate
-> some parts of these demands without getting caught).
-
-Yes, we hope to catch bogus values, but we need to be conservative.
-
-	Regards
-		Oliver
+Regards
+Mugunthan V N
