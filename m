@@ -1,45 +1,72 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] net_sched: add 64bit rate estimators
-Date: Thu, 6 Jun 2013 09:39:59 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7272@saturn3.aculab.com>
-References: <1370408447.24311.241.camel@edumazet-glaptop> <1370458531.1918.3.camel@bwh-desktop.uk.level5networks.com>
+From: Mark Brown <broonie@kernel.org>
+Subject: Re: [net-next PATCH v4 1/5] net: cpsw: enhance pinctrl support
+Date: Thu, 6 Jun 2013 09:50:49 +0100
+Message-ID: <20130606085049.GL31367@sirena.org.uk>
+References: <1370452099-24026-1-git-send-email-mugunthanvnm@ti.com>
+ <1370452099-24026-2-git-send-email-mugunthanvnm@ti.com>
+ <20130605192345.GH31367@sirena.org.uk>
+ <51B0254B.4090304@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David Miller" <davem@davemloft.net>,
-	"netdev" <netdev@vger.kernel.org>
-To: "Ben Hutchings" <bhutchings@solarflare.com>,
-	"Eric Dumazet" <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="SAsyYo4aAOH7Cuht"
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	devicetree-discuss@lists.ozlabs.org, linux-omap@vger.kernel.org,
+	benoit.cousson@linaro.org, paul@pwsan.com,
+	Hebbar Gururaja <gururaja.hebbar@ti.com>
+To: Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:46942 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754911Ab3FFIrw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 6 Jun 2013 04:47:52 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 24827-06 for <netdev@vger.kernel.org>;
- Thu,  6 Jun 2013 09:47:50 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <1370458531.1918.3.camel@bwh-desktop.uk.level5networks.com>
+Received: from cassiel.sirena.org.uk ([80.68.93.111]:37077 "EHLO
+	cassiel.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752986Ab3FFIu4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jun 2013 04:50:56 -0400
+Content-Disposition: inline
+In-Reply-To: <51B0254B.4090304@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+IHN0cnVjdCBnbmV0X3N0YXRzX3JhdGVfZXN0IGNvbnRhaW5zIHUzMiBmaWVsZHMsIHNvIHRo
-ZSBieXRlIHBlciBzZWNvbmQNCj4gPiBmaWVsZCBjYW4gd3JhcCBhdCAzNDM2ME1iaXQuDQo+ID4N
-Cj4gPiBBZGQgYSBuZXcgZ25ldF9zdGF0c19yYXRlX2VzdDY0IHN0cnVjdHVyZSB0byBnZXQgNjRi
-aXQgYnBzIGZpZWxkLCBhbmQNCj4gPiBzd2l0Y2ggdGhlIGtlcm5lbCB0byB1c2UgdGhpcyBzdHJ1
-Y3R1cmUgbmF0aXZlbHkuDQo+IFsuLi5dDQo+ID4gIC8qKg0KPiA+ICsgKiBzdHJ1Y3QgZ25ldF9z
-dGF0c19yYXRlX2VzdDY0IC0gcmF0ZSBlc3RpbWF0b3INCj4gPiArICogQGJwczogY3VycmVudCBi
-eXRlIHJhdGUNCj4gPiArICogQHBwczogY3VycmVudCBwYWNrZXQgcmF0ZQ0KPiA+ICsgKi8NCj4g
-PiArc3RydWN0IGduZXRfc3RhdHNfcmF0ZV9lc3Q2NCB7DQo+ID4gKwlfX3U2NAlicHM7DQo+ID4g
-KwlfX3UzMglwcHM7DQo+ID4gK30gX19hdHRyaWJ1dGVfXyAoKHBhY2tlZCkpOw0KPiBbLi4uXQ0K
-PiANCj4gVXNpbmcgYXR0cmlidXRlIHBhY2tlZCAod2hpY2ggc2hvdWxkIGJlIHdyaXR0ZW4gYXMg
-X19wYWNrZWQpIGZvcmNlcyB0aGUNCj4gYWxpZ25tZW50IG9mIGVhY2ggbWVtYmVyIGFuZCB0aGUg
-c3RydWN0dXJlIGFzIGEgd2hvbGUgdG8gYmUgMS4gIEZvciBhbg0KPiBhcmNoaXRlY3R1cmUgd2hl
-cmUgdW5hbGlnbmVkIGFjY2VzcyBpcyBleHBlbnNpdmUsIGdjYyB3aWxsIG1ha2UgYWxsDQo+IHJl
-YWRzIGFuZCB3cml0ZXMgdXNlIGJ5dGUgb3BlcmF0aW9ucy4NCj4gDQo+IEkgdGhpbmsgeW91IGhh
-dmUgdG8gYWRkIGEgZHVtbXkgX191MzIgbWVtYmVyIGluc3RlYWQuDQoNCk9yIG1hcmsgdGhlIF9f
-dTY0IHdpdGggKElJUkMpIF9fYXR0cmlidXRlX18oKGFsaWduZWQsNCkpDQpzbyB0aGF0IGdjYyB3
-aWxsIGdlbmVyYXRlIHR3byAzMmJpdCBhY2Nlc3NlcyByYXRoZXIgdGhhbg0KdGhlIGVpZ2h0IGJ5
-dGUgYWNjZXNzZXMgaXMgdGhlIHN0cnVjdHVyZSBpcyBwYWNrZWQuDQoNCglEYXZpZA0KDQo=
+
+--SAsyYo4aAOH7Cuht
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Thu, Jun 06, 2013 at 11:29:39AM +0530, Mugunthan V N wrote:
+> On 6/6/2013 12:53 AM, Mark Brown wrote:
+
+> >Linus Walleij posted some patches which factor the state setting code
+> >out into generic functions earlier on today - it probably makes sense to
+> >pick those up rather than open coding
+
+> But this can go in as Linus Walleij's patch is not accepted yet.
+> Once that is
+> accepted and present in net git repo I will submit a separate patch to use
+> those APIs from pin ctrl core.
+
+Linus' change has pretty much gone in already but in any case what would
+be sensible here would be to write this in turns of Linus' changes and
+then send the patch to him to add to his series so it can go in via the
+same route.  One of the major reasons for the patch was that lots of
+people were querying the amount of noise caused by this sort of change.
+
+--SAsyYo4aAOH7Cuht
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRsE1mAAoJELSic+t+oim9z4AP/i+QCxt9Ek78M2R9ja3KZLh3
+mGk/tEu2xDZXX/UryLrThjZgqfXbna1EUiFJeq0egujTVAWLUybO/ve0vLdudpby
+tsIGtI5yUNh23ew1Eqj3zMuvGeWKDjCyhxGYg8tldd9WHFa6yJuJxYQ93l4q3sCw
+f6ykchFhtHnkYbOsK8XAwkUd/EdqWJbtyTaPKIzr4OBj5EGLjnM395fhpo2jJu+V
+rTZvVWiBNwYVfh2U3Tk1vyJlC50DwKoTCXvb2nO+KaW5FSUois0BpchQgYtsMvGq
+hiaP78ZESmwy7uSyDvV3xTMS9QdJ4ouLqr2Pqt18qj6LZbAitu6XF8Kt3NWs8L/0
++dIboAKPM80RrKIOoQyOmFfoG0HKd1iHCLoZbCAt7c9togyYnESgAq3Ccsg3+3ru
+rl5B3QROlveklDIL04HC+B2jeR8qNyHzpekwYI+PTybY4v9ghFDiyryL+fpw/ccE
+k86TBh9l1etHIza4SfW4G21B1Yt7lvIDtK+EYfFHwJNGKNCltQZOy/5JxFHHT2DE
+/73vy+LZuc2knowq5mePG4qv89D4VDraWlgdLdMKsPHTsq1Uu/v1CIpo5oz6TxiD
+Fbb0BjzRdn2Rwkic5Uqz8x1lyeLMdwPlAbwpP3U8YyI9a9D+y8H77URpUocK2Hu9
++ntkhXTtY58btWOxjcbX
+=NVRU
+-----END PGP SIGNATURE-----
+
+--SAsyYo4aAOH7Cuht--
