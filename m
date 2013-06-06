@@ -1,53 +1,41 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net] ipv6,mcast: always hold idev->lock before mca_lock
-Date: Thu, 06 Jun 2013 10:35:01 +0800
-Message-ID: <1370486101.31875.10.camel@cr0>
-References: <1367998914-26423-1-git-send-email-amwang@redhat.com>
-	 <20130511.161158.1119064774406426541.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [Patch net-next v3 3/3] igmp: convert RTNL lock to a spinlock
+Date: Wed, 05 Jun 2013 19:40:00 -0700
+Message-ID: <1370486400.24311.316.camel@edumazet-glaptop>
+References: <1370485211-11498-1-git-send-email-amwang@redhat.com>
+	 <1370485211-11498-3-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dingtianhong@huawei.com,
-	yoshfuji@linux-ipv6.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:22794 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754385Ab3FFCfO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 5 Jun 2013 22:35:14 -0400
-In-Reply-To: <20130511.161158.1119064774406426541.davem@davemloft.net>
+Received: from mail-pd0-f180.google.com ([209.85.192.180]:61717 "EHLO
+	mail-pd0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756879Ab3FFCkD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 5 Jun 2013 22:40:03 -0400
+Received: by mail-pd0-f180.google.com with SMTP id 10so2675102pdi.25
+        for <netdev@vger.kernel.org>; Wed, 05 Jun 2013 19:40:02 -0700 (PDT)
+In-Reply-To: <1370485211-11498-3-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-05-11 at 16:11 -0700, David Miller wrote:
+On Thu, 2013-06-06 at 10:20 +0800, Cong Wang wrote:
 > From: Cong Wang <amwang@redhat.com>
-> Date: Wed,  8 May 2013 15:41:54 +0800
 > 
-> > @@ -1369,7 +1370,7 @@ static struct sk_buff *mld_newpack(struct net_device *dev, int size)
-> >  
-> >  	skb_reserve(skb, hlen);
-> >  
-> > -	if (ipv6_get_lladdr(dev, &addr_buf, IFA_F_TENTATIVE)) {
-> > +	if (__ipv6_get_lladdr(idev, &addr_buf, IFA_F_TENTATIVE)) {
-> >  		/* <draft-ietf-magma-mld-source-05.txt>:
-> >  		 * use unspecified address as the source address
-> >  		 * when a valid link-local address is not available.
+> It is not necessary to hold RTNL lock to protect mc_list,
+> at least IPv6 mcast is using a local spinlock, IPv4 can do
+> this too. This patch converts RTNL lock+RCU to spinlock+RCU.
 > 
-> You aren't necessarily going to be holding idev->lock, therefore you can't
-> just do a lockless traversal of idev->addr_list here.
-> 
-> Yes, you can elide the rcu_read_lock() because you have a known reference
-> to 'idev' in these paths, but you can't get rid of the address list locking
-> altogether.
 
-(Apologize for the delay...)
+Why are you doing this ? 
 
-The upper callers of mld_newpack() already take
-read_lock_bh(&idev->lock): 
+Really, holding a spinlock in this code instead of a mutex brings all
+kind of problems.
 
+For example, you have to use GFP_ATOMIC allocations instead of
+GFP_KERNEL
 
-mld_newpack() ...-> add_grec() -|-> mld_send_cr()     LOCKED
-                                |-> mld_send_report() LOCKED
-
-
-therefore it is safe to travel idev->addr_list locklessly here.
+Not counting the race/bug you added in ip_mc_join_group()
