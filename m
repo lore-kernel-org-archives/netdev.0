@@ -1,254 +1,334 @@
-From: Chris Boot <bootc@bootc.net>
-Subject: Re: PANIC at net/xfrm/xfrm_output.c:125 (3.9.4)
-Date: Thu, 06 Jun 2013 08:47:56 +0100
-Message-ID: <51B03EAC.6080508@bootc.net>
-References: <51AFB204.8070009@bootc.net> <20130606010416.GF26681@mail.gmail.com> <51AFE4C2.1000604@windriver.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jean Sacren <sakiwit@gmail.com>, steffen.klassert@secunet.com,
-	herbert@gondor.hengli.com.au, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	=?UTF-8?B?VGltbyBU?= =?UTF-8?B?ZXLDpHM=?= <timo.teras@iki.fi>
-To: Fan Du <fan.du@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51AFE4C2.1000604@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH 3/4] cxgb4: Add CLIP support to store compressed IPv6 address
+Date: Thu,  6 Jun 2013 13:23:20 +0530
+Message-ID: <1370505201-29961-4-git-send-email-vipul@chelsio.com>
+References: <1370505201-29961-1-git-send-email-vipul@chelsio.com>
+Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1370505201-29961-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 06/06/13 02:24, Fan Du wrote:
-> Hello Chris/Jean
->=20
-> This issue might have already been fixed by this:
-> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commi=
-t/net/xfrm/xfrm_output.c?id=3D497574c72c9922cf20c12aed15313c389f722fa0
->=20
->=20
-> Hope it helps.
+The Compressed LIP region is used to hold a limited number of Local IPv6
+addresses. This region is primarily used to reduce the TCAM space consumed for
+an IPv6 offloaded connection. A 128-bit LIP will be reduced to 13-bit and stored
+in the TCAM if there is a match between the IPv6 tuple's LIP and the one stored
+in the CLIP region.
 
-Hi Fan, Jean,
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+---
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 206 ++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  23 +++
+ 2 files changed, 229 insertions(+)
 
-Thanks, that looks like it's the patch for exactly my problem.
-Unfortunately I can't test it until next week now. :-/
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+index d1d6ff7..4ae287c 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
+@@ -60,6 +60,7 @@
+ #include <linux/workqueue.h>
+ #include <net/neighbour.h>
+ #include <net/netevent.h>
++#include <net/addrconf.h>
+ #include <asm/uaccess.h>
+ 
+ #include "cxgb4.h"
+@@ -68,6 +69,11 @@
+ #include "t4fw_api.h"
+ #include "l2t.h"
+ 
++#include <../drivers/net/bonding/bonding.h>
++
++#ifdef DRV_VERSION
++#undef DRV_VERSION
++#endif
+ #define DRV_VERSION "2.0.0-ko"
+ #define DRV_DESC "Chelsio T4/T5 Network Driver"
+ 
+@@ -3227,6 +3233,38 @@ static int tid_init(struct tid_info *t)
+ 	return 0;
+ }
+ 
++static int cxgb4_clip_get(const struct net_device *dev,
++			  const struct in6_addr *lip)
++{
++	struct adapter *adap;
++	struct fw_clip_cmd c;
++
++	adap = netdev2adap(dev);
++	memset(&c, 0, sizeof(c));
++	c.op_to_write = htonl(FW_CMD_OP(FW_CLIP_CMD) |
++			FW_CMD_REQUEST | FW_CMD_WRITE);
++	c.alloc_to_len16 = htonl(F_FW_CLIP_CMD_ALLOC | FW_LEN16(c));
++	*(__be64 *)&c.ip_hi = *(__be64 *)(lip->s6_addr);
++	*(__be64 *)&c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
++	return t4_wr_mbox_meat(adap, adap->mbox, &c, sizeof(c), &c, false);
++}
++
++static int cxgb4_clip_release(const struct net_device *dev,
++			      const struct in6_addr *lip)
++{
++	struct adapter *adap;
++	struct fw_clip_cmd c;
++
++	adap = netdev2adap(dev);
++	memset(&c, 0, sizeof(c));
++	c.op_to_write = htonl(FW_CMD_OP(FW_CLIP_CMD) |
++			FW_CMD_REQUEST | FW_CMD_READ);
++	c.alloc_to_len16 = htonl(F_FW_CLIP_CMD_FREE | FW_LEN16(c));
++	*(__be64 *)&c.ip_hi = *(__be64 *)(lip->s6_addr);
++	*(__be64 *)&c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
++	return t4_wr_mbox_meat(adap, adap->mbox, &c, sizeof(c), &c, false);
++}
++
+ /**
+  *	cxgb4_create_server - create an IP server
+  *	@dev: the device
+@@ -3878,6 +3916,169 @@ int cxgb4_unregister_uld(enum cxgb4_uld type)
+ }
+ EXPORT_SYMBOL(cxgb4_unregister_uld);
+ 
++/* Check if netdev on which event is occured belongs to us or not. Return
++ * suceess (1) if it belongs otherwise failure (0).
++ */
++static int cxgb4_netdev(struct net_device *netdev)
++{
++	struct adapter *adap;
++	int i;
++
++	mutex_lock(&uld_mutex);
++	list_for_each_entry(adap, &adapter_list, list_node)
++		for (i = 0; i < MAX_NPORTS; i++)
++			if (adap->port[i] == netdev) {
++				mutex_unlock(&uld_mutex);
++				return 1;
++			}
++	mutex_unlock(&uld_mutex);
++	return 0;
++}
++
++static int clip_add(struct net_device *event_dev, struct inet6_ifaddr *ifa,
++		    unsigned long event)
++{
++	int ret = NOTIFY_DONE;
++
++	rcu_read_lock();
++	if (cxgb4_netdev(event_dev)) {
++		switch (event) {
++		case NETDEV_UP:
++			ret = cxgb4_clip_get(event_dev,
++				(const struct in6_addr *)ifa->addr.s6_addr);
++			if (ret < 0) {
++				rcu_read_unlock();
++				return ret;
++			}
++			ret = NOTIFY_OK;
++			break;
++		case NETDEV_DOWN:
++			cxgb4_clip_release(event_dev,
++				(const struct in6_addr *)ifa->addr.s6_addr);
++			ret = NOTIFY_OK;
++			break;
++		default:
++			break;
++		}
++	}
++	rcu_read_unlock();
++	return ret;
++}
++
++static int cxgb4_inet6addr_handler(struct notifier_block *this,
++		unsigned long event, void *data)
++{
++	struct inet6_ifaddr *ifa = data;
++	struct net_device *event_dev;
++	int ret = NOTIFY_DONE;
++	int cnt;
++	struct bonding *bond = netdev_priv(ifa->idev->dev);
++	struct slave *slave;
++	struct pci_dev *first_pdev = NULL;
++
++	if (ifa->idev->dev->priv_flags & IFF_802_1Q_VLAN) {
++		event_dev = vlan_dev_real_dev(ifa->idev->dev);
++		ret = clip_add(event_dev, ifa, event);
++	} else if (ifa->idev->dev->flags & IFF_MASTER) {
++		/* It is possible that two different adapters are bonded in one
++		 * bond. We need to find such different adapters and add clip
++		 * in all of them only once.
++		 */
++		read_lock(&bond->lock);
++		bond_for_each_slave(bond, slave, cnt) {
++			if (!first_pdev) {
++				ret = clip_add(slave->dev, ifa, event);
++				/* If clip_add is success then only initialize
++				 * first_pdev since it means it is our device
++				 */
++				if (ret == NOTIFY_OK)
++					first_pdev = to_pci_dev(
++							slave->dev->dev.parent);
++			} else if (first_pdev !=
++				   to_pci_dev(slave->dev->dev.parent))
++					ret = clip_add(slave->dev, ifa, event);
++		}
++		read_unlock(&bond->lock);
++	} else
++		ret = clip_add(ifa->idev->dev, ifa, event);
++
++	return ret;
++}
++
++static struct notifier_block cxgb4_inet6addr_notifier = {
++	.notifier_call = cxgb4_inet6addr_handler
++};
++
++/* Retrieves IPv6 addresses from a root device (bond, vlan) associated with
++ * a physical device.
++ * The physical device reference is needed to send the actul CLIP command.
++ */
++static int update_dev_clip(struct net_device *root_dev, struct net_device *dev)
++{
++	struct inet6_dev *idev = NULL;
++	struct inet6_ifaddr *ifa;
++	int ret = 0;
++
++	idev = __in6_dev_get(root_dev);
++	if (!idev)
++		return ret;
++
++	read_lock_bh(&idev->lock);
++	list_for_each_entry(ifa, &idev->addr_list, if_list) {
++		ret = cxgb4_clip_get(dev,
++				(const struct in6_addr *)ifa->addr.s6_addr);
++		if (ret < 0)
++			break;
++	}
++	read_unlock_bh(&idev->lock);
++
++	return ret;
++}
++
++static int update_root_dev_clip(struct net_device *dev)
++{
++	struct net_device *root_dev = NULL;
++	int i, ret = 0;
++
++	/* First populate the real net device's IPv6 addresses */
++	ret = update_dev_clip(dev, dev);
++	if (ret)
++		return ret;
++
++	/* Parse all bond and vlan devices layered on top of the physical dev */
++	for (i = 0; i < VLAN_N_VID; i++) {
++		root_dev = __vlan_find_dev_deep(dev, htons(ETH_P_8021Q), i);
++		if (!root_dev)
++			continue;
++
++		ret = update_dev_clip(root_dev, dev);
++		if (ret)
++			break;
++	}
++	return ret;
++}
++
++static void update_clip(const struct adapter *adap)
++{
++	int i;
++	struct net_device *dev;
++	int ret;
++
++	rcu_read_lock();
++
++	for (i = 0; i < MAX_NPORTS; i++) {
++		dev = adap->port[i];
++		ret = 0;
++
++		if (dev)
++			ret = update_root_dev_clip(dev);
++
++		if (ret < 0)
++			break;
++	}
++	rcu_read_unlock();
++}
++
+ /**
+  *	cxgb_up - enable the adapter
+  *	@adap: adapter being enabled
+@@ -3923,6 +4124,7 @@ static int cxgb_up(struct adapter *adap)
+ 	t4_intr_enable(adap);
+ 	adap->flags |= FULL_INIT_DONE;
+ 	notify_ulds(adap, CXGB4_STATE_UP);
++	update_clip(adap);
+  out:
+ 	return err;
+  irq_err:
+@@ -5939,11 +6141,15 @@ static int __init cxgb4_init_module(void)
+ 	ret = pci_register_driver(&cxgb4_driver);
+ 	if (ret < 0)
+ 		debugfs_remove(cxgb4_debugfs_root);
++
++	register_inet6addr_notifier(&cxgb4_inet6addr_notifier);
++
+ 	return ret;
+ }
+ 
+ static void __exit cxgb4_cleanup_module(void)
+ {
++	unregister_inet6addr_notifier(&cxgb4_inet6addr_notifier);
+ 	pci_unregister_driver(&cxgb4_driver);
+ 	debugfs_remove(cxgb4_debugfs_root);  /* NULL ok */
+ 	flush_workqueue(workq);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index d1c755f..6f77ac4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -616,6 +616,7 @@ enum fw_cmd_opcodes {
+ 	FW_RSS_IND_TBL_CMD             = 0x20,
+ 	FW_RSS_GLB_CONFIG_CMD          = 0x22,
+ 	FW_RSS_VI_CONFIG_CMD           = 0x23,
++	FW_CLIP_CMD                    = 0x28,
+ 	FW_LASTC2E_CMD                 = 0x40,
+ 	FW_ERROR_CMD                   = 0x80,
+ 	FW_DEBUG_CMD                   = 0x81,
+@@ -2062,6 +2063,28 @@ struct fw_rss_vi_config_cmd {
+ 	} u;
+ };
+ 
++struct fw_clip_cmd {
++	__be32 op_to_write;
++	__be32 alloc_to_len16;
++	__be64 ip_hi;
++	__be64 ip_lo;
++	__be32 r4[2];
++};
++
++#define S_FW_CLIP_CMD_ALLOC     31
++#define M_FW_CLIP_CMD_ALLOC     0x1
++#define V_FW_CLIP_CMD_ALLOC(x)  ((x) << S_FW_CLIP_CMD_ALLOC)
++#define G_FW_CLIP_CMD_ALLOC(x)  \
++	(((x) >> S_FW_CLIP_CMD_ALLOC) & M_FW_CLIP_CMD_ALLOC)
++#define F_FW_CLIP_CMD_ALLOC     V_FW_CLIP_CMD_ALLOC(1U)
++
++#define S_FW_CLIP_CMD_FREE      30
++#define M_FW_CLIP_CMD_FREE      0x1
++#define V_FW_CLIP_CMD_FREE(x)   ((x) << S_FW_CLIP_CMD_FREE)
++#define G_FW_CLIP_CMD_FREE(x)   \
++	(((x) >> S_FW_CLIP_CMD_FREE) & M_FW_CLIP_CMD_FREE)
++#define F_FW_CLIP_CMD_FREE      V_FW_CLIP_CMD_FREE(1U)
++
+ enum fw_error_type {
+ 	FW_ERROR_TYPE_EXCEPTION		= 0x0,
+ 	FW_ERROR_TYPE_HWMODULE		= 0x1,
+-- 
+1.8.0
 
-Timo/Dave: are there any plans to push this into 3.10-rc and/or stable?
-I seem to be able to hit the issue pretty reliably.
-
-Thanks,
-Chris
-> On 2013=E5=B9=B406=E6=9C=8806=E6=97=A5 09:04, Jean Sacren wrote:
->> From: Chris Boot<bootc@bootc.net>
->> Date: Wed, 05 Jun 2013 22:47:48 +0100
->>>
->>> Hi folks,
->>>
->>> I have a re-purposed Watchguard Firebox running Debian GNU/Linux wi=
-th a
->>> self-built vanilla 3.9.4 kernel. I have an IPsec tunnel up to a rem=
-ote
->>> router through which I was passing a fair bit of traffic when I hit=
- the
->>> following panic:
->>>
->>> [486832.949560] BUG: unable to handle kernel NULL pointer dereferen=
-ce at
->>> 00000010
->>> [486832.953431] IP: [<c12a4dd0>] xfrm_output_resume+0x61/0x29f
->>> [486832.953431] *pde =3D 00000000
->>> [486832.953431] Oops: 0000 [#1]
->>> [486832.953431] Modules linked in: xt_realm xt_nat authenc esp4
->>> xfrm4_mode_tunnel tun ip6table_nat nf_nat_ipv6 sch_fq_codel xt_stat=
-istic
->>> xt_CT xt_LOG xt_connlimit xt_recent xt_time xt_TCPMSS xt_sctp
->>> ip6t_REJECT pppoe deflate zlib_deflate pppox ctr twofish_generic
->>> twofish_i586 twofish_common camellia_generic serpent_sse2_i586 xts
->>> serpent_generic lrw gf128mul glue_helper ablk_helper cryptd
->>> blowfish_generic blowfish_common cast5_generic cast_common des_gene=
-ric
->>> cbc xcbc rmd160 sha512_generic sha256_generic sha1_generic hmac
->>> crypto_null af_key xfrm_algo xt_comment xt_addrtype xt_policy
->>> ip_set_hash_ip ipt_ULOG ipt_REJECT ipt_MASQUERADE ipt_ECN ipt_CLUST=
-ERIP
->>> ipt_ah act_police cls_basic cls_flow cls_fw cls_u32 sch_tbf sch_pri=
-o
->>> sch_htb sch_hfsc sch_ingress sch_sfq xt_set ip_set nf_nat_tftp
->>> nf_nat_snmp_basic nf_conntrack_snmp nf_nat_sip nf_nat_pptp
->>> nf_nat_proto_gre nf_nat_irc nf_nat_h323 nf_nat_ftp nf_nat_amanda ts=
-_kmp
->>> nf_conntrack_amanda nf_conntrack_sane nf_conntrack_tftp nf_conntrac=
-k_sip
->>> nf_conntrack_proto_udplite nf_conntrack_proto_sctp nf_conntrack_ppt=
-p
->>> nf_conntrack_proto_gre nf_conntrack_netlink nf_conntrack_netbios_ns
->>> nf_conntrack_broadcast nf_conntrack_irc nf_conntrack_h323
->>> nf_conntrack_ftp xt_TPROXY nf_tproxy_core xt_tcpmss xt_pkttype
->>> xt_physdev xt_owner xt_NFQUEUE xt_NFLOG nfnetlink_log xt_multiport
->>> xt_mark xt_mac xt_limit xt_length xt_iprange xt_helper xt_hashlimit
->>> xt_DSCP xt_dscp xt_dccp xt_connmark xt_CLASSIFY xt_AUDIT xt_state
->>> nfnetlink bridge 8021q garp stp mrp llc ppp_generic slhc
->>> nf_conntrack_ipv6 nf_defrag_ipv6 ip6table_mangle ip6table_raw
->>> ip6table_filter ip6_tables xt_tcpudp xt_conntrack iptable_mangle
->>> iptable_nat nf_conntrack_ipv4 nf_defrag_ipv4 nf_nat_ipv4 nf_nat
->>> nf_conntrack iptable_raw iptable_filter ip_tables x_tables w83627hf
->>> hwmon_vid loop iTCO_wdt iTCO_vendor_support evdev snd_pcm snd_page_=
-alloc
->>> snd_timer snd soundcore acpi_cpufreq mperf processor pcspkr serio_r=
-aw
->>> drm_kms_helper lpc_ich i2c_i801 of_i2c drm rng_core thermal_sys
->>> i2c_algo_bit ehci_pci i2c_core ext4 crc16 jbd2 mbcache dm_mod sg sd=
-_mod
->>> crc_t10dif ata_generic ata_piix uhci_hcd ehci_hcd libata microcode
->>> scsi_mod skge sky2 usbcore usb_common
->>> [486832.953431] Pid: 0, comm: swapper Not tainted 3.9.4-1-bootc #1
->>> [486832.953431] EIP: 0060:[<c12a4dd0>] EFLAGS: 00210246 CPU: 0
->>> [486832.953431] EIP is at xfrm_output_resume+0x61/0x29f
->>> [486832.953431] EAX: 00000000 EBX: f3fbc100 ECX: f77f1288 EDX: f613=
-0200
->>> [486832.953431] ESI: 00000016 EDI: 00000000 EBP: f70b3c00 ESP: c140=
-7c44
->>> [486832.953431]  DS: 007b ES: 007b FS: 0000 GS: 00e0 SS: 0068
->>> [486832.953431] CR0: 8005003b CR2: 00000010 CR3: 37247000 CR4: 0000=
-07d0
->>> [486832.953431] DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 0000=
-0000
->>> [486832.953431] DR6: ffff0ff0 DR7: 00000400
->>> [486832.953431] Process swapper (pid: 0, ti=3Dc1406000 task=3Dc1413=
-490
->>> task.ti=3Dc1406000)
->>> [486832.953431] Stack:
->>> [486832.953431]  c129d44f 80000000 00000002 c1457254 f3fbc100 c129d=
-44f
->>> 00000000 00000008
->>> [486832.953431]  c129d49e 00000000 f4524000 c129d44f 80000000 00000=
-000
->>> f3fbc100 c1268b49
->>> [486832.953431]  f3fbc100 f127604e c12678c3 00000000 f7123000 c1267=
-685
->>> c1457f8c c1456b80
->>> [486832.953431] Call Trace:
->>> [486832.953431]  [<c129d44f>] ? xfrm4_extract_output+0x94/0x94
->>> [486832.953431]  [<c129d44f>] ? xfrm4_extract_output+0x94/0x94
->>> [486832.953431]  [<c129d49e>] ? xfrm4_output+0x2c/0x6a
->>> [486832.953431]  [<c129d44f>] ? xfrm4_extract_output+0x94/0x94
->>> [486832.953431]  [<c1268b49>] ? ip_forward_finish+0x59/0x5c
->>> [486832.953431]  [<c12678c3>] ? ip_rcv_finish+0x23e/0x274
->>> [486832.953431]  [<c1267685>] ? pskb_may_pull+0x2d/0x2d
->>> [486832.953431]  [<c1246890>] ? __netif_receive_skb_core+0x39d/0x40=
-6
->>> [486832.953431]  [<f849557f>] ? br_handle_frame_finish+0x22c/0x264
->>> [bridge]
->>> [486832.953431]  [<c1246a16>] ? process_backlog+0xd0/0xd0
->>> [486832.953431]  [<f8495353>] ? br_handle_local_finish+0x4d/0x4d
->>> [bridge]
->>> [486832.953431]  [<f8499310>] ? NF_HOOK_THRESH+0x1d/0x4c [bridge]
->>> [486832.953431]  [<f8495353>] ? br_handle_local_finish+0x4d/0x4d
->>> [bridge]
->>> [486832.953431]  [<f849983e>] ? br_nf_pre_routing_finish+0x1c8/0x1d=
-2
->>> [bridge]
->>> [486832.953431]  [<f8495353>] ? br_handle_local_finish+0x4d/0x4d
->>> [bridge]
->>> [486832.953431]  [<c12635d1>] ? nf_hook_slow+0x52/0xed
->>> [486832.953431]  [<f8499676>] ? nf_bridge_alloc.isra.18+0x32/0x32
->>> [bridge]
->>> [486832.953431]  [<f8499676>] ? nf_bridge_alloc.isra.18+0x32/0x32
->>> [bridge]
->>> [486832.953431]  [<f8499310>] ? NF_HOOK_THRESH+0x1d/0x4c [bridge]
->>> [486832.953431]  [<f8499676>] ? nf_bridge_alloc.isra.18+0x32/0x32
->>> [bridge]
->>> [486832.953431]  [<f849a1c0>] ? br_nf_pre_routing+0x32c/0x33f [brid=
-ge]
->>> [486832.953431]  [<f8499676>] ? nf_bridge_alloc.isra.18+0x32/0x32
->>> [bridge]
->>> [486832.953431]  [<c1263552>] ? nf_iterate+0x3c/0x69
->>> [486832.953431]  [<f8495353>] ? br_handle_local_finish+0x4d/0x4d
->>> [bridge]
->>> [486832.953431]  [<c12635d1>] ? nf_hook_slow+0x52/0xed
->>> [486832.953431]  [<f8495353>] ? br_handle_local_finish+0x4d/0x4d
->>> [bridge]
->>> [486832.953431]  [<f84952fa>] ? nf_hook_thresh.constprop.10+0x36/0x=
-42
->>> [bridge]
->>> [486832.953431]  [<f8495353>] ? br_handle_local_finish+0x4d/0x4d
->>> [bridge]
->>> [486832.953431]  [<f8495746>] ? br_handle_frame+0x18f/0x1b5 [bridge=
-]
->>> [486832.953431]  [<f8495353>] ? br_handle_local_finish+0x4d/0x4d
->>> [bridge]
->>> [486832.953431]  [<f84955b7>] ? br_handle_frame_finish+0x264/0x264
->>> [bridge]
->>> [486832.953431]  [<c12467a8>] ? __netif_receive_skb_core+0x2b5/0x40=
-6
->>> [486832.953431]  [<c1051a58>] ? __getnstimeofday+0x17/0x52
->>> [486832.953431]  [<c1051a00>] ? get_monotonic_boottime+0x73/0x92
->>> [486832.953431]  [<c124704f>] ? napi_gro_receive+0x2e/0x69
->>> [486832.953431]  [<c10053d8>] ?
->>> __stop_machine.isra.0.constprop.1+0x27/0x27
->>> [486832.953431]  [<f80792d7>] ? sky2_poll+0x6d8/0x8f3 [sky2]
->>> [486832.953431]  [<c1006058>] ? native_sched_clock+0x40/0x98
->>> [486832.953431]  [<c1006058>] ? native_sched_clock+0x40/0x98
->>> [486832.953431]  [<c1005962>] ? paravirt_sched_clock+0x8/0xb
->>> [486832.953431]  [<c1006058>] ? native_sched_clock+0x40/0x98
->>> [486832.953431]  [<c1246bbf>] ? net_rx_action+0x6e/0x180
->>> [486832.953431]  [<c1005962>] ? paravirt_sched_clock+0x8/0xb
->>> [486832.953431]  [<c102ca5a>] ? __do_softirq+0xa5/0x19e
->>> [486832.953431]  [<c102cbfa>] ? irq_exit+0x36/0x69
->>> [486832.953431]  [<c100326b>] ? do_IRQ+0x6e/0x81
->>> [486832.953431]  [<c12e4cf3>] ? common_interrupt+0x33/0x38
->>> [486832.953431]  [<c101df1b>] ? native_safe_halt+0x2/0x3
->>> [486832.953431]  [<c1006b2f>] ? default_idle+0x23/0x3e
->>> [486832.953431]  [<c10070cd>] ? cpu_idle+0x75/0x8f
->>> [486832.953431]  [<c145996b>] ? start_kernel+0x34e/0x353
->>> [486832.953431]  [<c1459465>] ? repair_env_string+0x4d/0x4d
->>> [486832.953431] Code: f9 ff 8b 43 74 c7 43 70 00 00 00 00 85 c0 74 =
-0e ff
->>> 08 0f 94 c2 84 d2 74 05 e8 c7 6b e1 ff 8b 43 48 c7 43 74 00 00 00 0=
-0 83
->>> e0 fe<8b>  50 10 89 d8 ff 52 34 83 f8 01 89 c7 0f 85 21 02 00 00 8b=
- 53
->>> [486832.953431] EIP: [<c12a4dd0>] xfrm_output_resume+0x61/0x29f SS:=
-ESP
->>> 0068:c1407c44
->>> [486832.953431] CR2: 0000000000000010
->>> [486833.573872] ---[ end trace ed321ebdc197b3d7 ]---
->>> [486833.578576] Kernel panic - not syncing: Fatal exception in inte=
-rrupt
->>> [486833.582572] Rebooting in 60 seconds..
->>>
->>> (gdb) list *xfrm_output_resume+0x61
->>> 0xc12a4dd0 is in xfrm_output_resume (net/xfrm/xfrm_output.c:125).
->>> 120     int xfrm_output_resume(struct sk_buff *skb, int err)
->>> 121     {
->>> 122             while (likely((err =3D xfrm_output_one(skb, err)) =3D=
-=3D 0)) {
->>> 123                     nf_reset(skb);
->>> 124
->>> 125                     err =3D skb_dst(skb)->ops->local_out(skb);
->>> 126                     if (unlikely(err !=3D 1))
->>> 127                             goto out;
->>> 128
->>> 129                     if (!skb_dst(skb)->xfrm)
->>
->> Try this:
->>
->> diff --git a/net/xfrm/xfrm_output.c b/net/xfrm/xfrm_output.c
->> index bcfda89..0cf003d 100644
->> --- a/net/xfrm/xfrm_output.c
->> +++ b/net/xfrm/xfrm_output.c
->> @@ -64,6 +64,7 @@ static int xfrm_output_one(struct sk_buff *skb, in=
-t
->> err)
->>
->>           if (unlikely(x->km.state !=3D XFRM_STATE_VALID)) {
->>               XFRM_INC_STATS(net, LINUX_MIB_XFRMOUTSTATEINVALID);
->> +            err =3D -EINVAL;
->>               goto error;
->>           }
->>
->>
->=20
-
-
---=20
-Chris Boot
-bootc@bootc.net
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
