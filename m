@@ -1,115 +1,124 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net v2] net: sctp: fix NULL pointer dereference in socket
- destruction
-Date: Thu, 6 Jun 2013 10:22:23 -0400
-Message-ID: <20130606142223.GA26373@hmsreliant.think-freely.org>
-References: <1370526827-23882-1-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: RFC: Proposed fix for tc linklayer calc broken after commit
+ 56b765b79 (htb: improved accuracy at high rates)
+Date: Thu, 06 Jun 2013 07:28:06 -0700
+Message-ID: <1370528885.24311.346.camel@edumazet-glaptop>
+References: <20130529151330.22c5c89e@redhat.com>
+	 <20130606155504.0eb6570a@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	David Miller <davem@redhat.com>, j.vimal@gmail.com,
+	Michal Soltys <soltys@ziu.info>,
+	Mike Frysinger <vapier@gentoo.org>,
+	Jussi Kivilinna <jussi.kivilinna@mbnet.fi>,
+	Patrick McHardy <kaber@trash.net>,
+	Jiri Pirko <jpirko@redhat.com>,
+	Toke =?ISO-8859-1?Q?H=F8iland-J=F8rgensen?= <toke@toke.dk>,
+	Dave Taht <dave.taht@gmail.com>, netdev@vger.kernel.org,
+	bloat@lists.bufferbloat.net, Dan Siemon <dan@coverfire.com>,
+	Jim Gettys <jg@freedesktop.org>,
+	Steven Barth <cyrus@openwrt.org>, Felix Fietkau <nbd@nbd.name>,
+	Jiri Benc <jbenc@redhat.com>
+To: Jesper Dangaard Brouer <jbrouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:46597 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751120Ab3FFOWk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jun 2013 10:22:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1370526827-23882-1-git-send-email-dborkman@redhat.com>
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:39113 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751200Ab3FFO2I (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jun 2013 10:28:08 -0400
+Received: by mail-pa0-f43.google.com with SMTP id hz11so942531pad.30
+        for <netdev@vger.kernel.org>; Thu, 06 Jun 2013 07:28:08 -0700 (PDT)
+In-Reply-To: <20130606155504.0eb6570a@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 06, 2013 at 03:53:47PM +0200, Daniel Borkmann wrote:
-> While stress testing sctp sockets, I hit the following panic:
+On Thu, 2013-06-06 at 15:55 +0200, Jesper Dangaard Brouer wrote:
+> Requesting comments.
 > 
-> BUG: unable to handle kernel NULL pointer dereference at 0000000000000020
-> IP: [<ffffffffa0490c4e>] sctp_endpoint_free+0xe/0x40 [sctp]
-> PGD 7cead067 PUD 7ce76067 PMD 0
-> Oops: 0000 [#1] SMP
-> Modules linked in: sctp(F) libcrc32c(F) [...]
-> CPU: 7 PID: 2950 Comm: acc Tainted: GF            3.10.0-rc2+ #1
-> Hardware name: Dell Inc. PowerEdge T410/0H19HD, BIOS 1.6.3 02/01/2011
-> task: ffff88007ce0e0c0 ti: ffff88007b568000 task.ti: ffff88007b568000
-> RIP: 0010:[<ffffffffa0490c4e>]  [<ffffffffa0490c4e>] sctp_endpoint_free+0xe/0x40 [sctp]
-> RSP: 0018:ffff88007b569e08  EFLAGS: 00010292
-> RAX: 0000000000000000 RBX: ffff88007db78a00 RCX: dead000000200200
-> RDX: ffffffffa049fdb0 RSI: ffff8800379baf38 RDI: 0000000000000000
-> RBP: ffff88007b569e18 R08: ffff88007c230da0 R09: 0000000000000001
-> R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000000
-> R13: ffff880077990d00 R14: 0000000000000084 R15: ffff88007db78a00
-> FS:  00007fc18ab61700(0000) GS:ffff88007fc60000(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 0000000000000020 CR3: 000000007cf9d000 CR4: 00000000000007e0
-> DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-> DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-> Stack:
->  ffff88007b569e38 ffff88007db78a00 ffff88007b569e38 ffffffffa049fded
->  ffffffff81abf0c0 ffff88007db78a00 ffff88007b569e58 ffffffff8145b60e
->  0000000000000000 0000000000000000 ffff88007b569eb8 ffffffff814df36e
-> Call Trace:
->  [<ffffffffa049fded>] sctp_destroy_sock+0x3d/0x80 [sctp]
->  [<ffffffff8145b60e>] sk_common_release+0x1e/0xf0
->  [<ffffffff814df36e>] inet_create+0x2ae/0x350
->  [<ffffffff81455a6f>] __sock_create+0x11f/0x240
->  [<ffffffff81455bf0>] sock_create+0x30/0x40
->  [<ffffffff8145696c>] SyS_socket+0x4c/0xc0
->  [<ffffffff815403be>] ? do_page_fault+0xe/0x10
->  [<ffffffff8153cb32>] ? page_fault+0x22/0x30
->  [<ffffffff81544e02>] system_call_fastpath+0x16/0x1b
-> Code: 0c c9 c3 66 2e 0f 1f 84 00 00 00 00 00 e8 fb fe ff ff c9 c3 66 0f
->       1f 84 00 00 00 00 00 55 48 89 e5 53 48 83 ec 08 66 66 66 66 90 <48>
->       8b 47 20 48 89 fb c6 47 1c 01 c6 40 12 07 e8 9e 68 01 00 48
-> RIP  [<ffffffffa0490c4e>] sctp_endpoint_free+0xe/0x40 [sctp]
->  RSP <ffff88007b569e08>
-> CR2: 0000000000000020
-> ---[ end trace e0d71ec1108c1dd9 ]---
+> So, bacically commit 56b765b79 (htb: improved accuracy at high rates),
+> broke the "linklayer atm" handling.  As it didn't update the iproute tc util.
 > 
-> I did not hit this with the lksctp-tools functional tests, but with a
-> small, multi-threaded test program, that heavily allocates, binds,
-> listens and waits in accept on sctp sockets, and then randomly kills
-> some of them (no need for an actual client in this case to hit this).
-> Then, again, allocating, binding, etc, and then killing child processes.
+> Treating this as a regression fix, this is the smallest and least
+> intrusive solution I could come up with.
 > 
-> This panic then only occurs when ``echo 1 > /proc/sys/net/sctp/auth_enable''
-> is set. The cause for that is actually very simple: in sctp_endpoint_init()
-> we enter the path of sctp_auth_init_hmacs(). There, we try to allocate
-> our crypto transforms through crypto_alloc_hash(). In our scenario,
-> it then can happen that crypto_alloc_hash() fails with -EINTR from
-> crypto_larval_wait(), thus we bail out and release the socket via
-> sk_common_release(), sctp_destroy_sock() and hit the NULL pointer
-> dereference as soon as we try to access members in the endpoint during
-> sctp_endpoint_free(), since endpoint at that time is still NULL. Now,
-> if we have that case, we do not need to do any cleanup work and just
-> leave the destruction handler.
+> I'm basically restoring the "linklayer atm" handling, by using the
+> __reserved field in struct tc_ratespec, to convey the chosen
+> linklayer option.
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> 
+> KERNEL patch:
+> =============
+> 
+> [PATCH RFC] net_sched: restore "linklayer atm" handling
+> 
+> From: Jesper Dangaard Brouer <brouer@redhat.com>
+> 
+> commit 56b765b79 ("htb: improved accuracy at high rates")
+> broke the "linklayer atm" handling.
+> 
+>  tc class add ... htb rate X ceil Y linklayer atm
+> 
+> This patch restores the "linklayer atm" handling, by using the
+> __reserved field in struct tc_ratespec, to convey the choosen
+> linklayer option.
+> 
+> This requires a corrosponding iproute2 tc fix, that updates this
+> field.  Older tc binaries can be detected by the kernel, as the
+> field would be zero.
+> 
+> Request-For-Comments-by: Jesper Dangaard Brouer <brouer@redhat.com>
 > ---
->  net/sctp/socket.c | 6 ++++++
->  1 file changed, 6 insertions(+)
 > 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index f631c5f..3df7327 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4003,6 +4003,12 @@ SCTP_STATIC void sctp_destroy_sock(struct sock *sk)
+>  include/net/sch_generic.h      |    8 +++++++-
+>  include/uapi/linux/pkt_sched.h |   11 ++++++++++-
+>  net/sched/sch_generic.c        |    4 ++++
+>  3 files changed, 21 insertions(+), 2 deletions(-)
+> 
+> 
+> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+> index e7f4e21..c9916b1 100644
+> --- a/include/net/sch_generic.h
+> +++ b/include/net/sch_generic.h
+> @@ -682,13 +682,18 @@ struct psched_ratecfg {
+>  	u64	rate_bps;
+>  	u32	mult;
+>  	u16	overhead;
+> +	u8	linklayer;
+>  	u8	shift;
+>  };
 >  
->  	/* Release our hold on the endpoint. */
->  	sp = sctp_sk(sk);
-> +	/* This could happen during socket init, thus we bail out
-> +	 * early, since the rest of the below is not setup either.
-> +	 */
-> +	if (sp->ep == NULL)
-> +		return;
+>  static inline u64 psched_l2t_ns(const struct psched_ratecfg *r,
+>  				unsigned int len)
+>  {
+> -	return ((u64)(len + r->overhead) * r->mult) >> r->shift;
+> +	u64 pkt_len = len + r->overhead;
 > +
->  	if (sp->do_auto_asconf) {
->  		sp->do_auto_asconf = 0;
->  		list_del(&sp->auto_asconf_list);
-> -- 
-> 1.7.11.7
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> +	if (r->linklayer == TC_LINKLAYER_ATM)
+> +		pkt_len = DIV_ROUND_UP(pkt_len,48)*53;
+
+Is this working on 32bit kernel ?
+
+> +	return (pkt_len * r->mult) >> r->shift;
+>  }
+
+I have no idea why you include so many people on your mails.
+
+This looks like ATM link have real rate of 48/53 of the rate.
+
+
+Since we have to distribute a new tc version, why not doing
+
+"tc ... rate rate X ceil Y linklayer atm"
+
+->
+
+"tc ... rate  X*48/53 Y*48/53"
+
+It avoids hard coded values in the kernel.
+
+Or make it use STAB if people really want to count bits/cells instead of
+bytes.
+
+Lets try to keep this overhead out of the fast path.
