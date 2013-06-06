@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [net-next PATCH 5/8] macvlan: change the max number of queues to 16
-Date: Thu,  6 Jun 2013 17:54:37 +0800
-Message-ID: <1370512480-14272-6-git-send-email-jasowang@redhat.com>
+Subject: [net-next PATCH 8/8] macvtap: enable multiqueue flag
+Date: Thu,  6 Jun 2013 17:54:40 +0800
+Message-ID: <1370512480-14272-9-git-send-email-jasowang@redhat.com>
 References: <1370512480-14272-1-git-send-email-jasowang@redhat.com>
 Cc: sergei.shtylyov@cogentembedded.com,
 	Jason Wang <jasowang@redhat.com>
@@ -12,25 +12,37 @@ In-Reply-To: <1370512480-14272-1-git-send-email-jasowang@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Macvtap should be at least compatible with tap, so change the max number to 16.
+To notify the userspace about our capability of multiqueue.
 
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/if_macvlan.h |    2 +-
- 1 files changed, 1 insertions(+), 1 deletions(-)
+ drivers/net/macvtap.c |    7 ++-----
+ 1 files changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-index e47ad46..62d8bda 100644
---- a/include/linux/if_macvlan.h
-+++ b/include/linux/if_macvlan.h
-@@ -50,7 +50,7 @@ struct macvlan_pcpu_stats {
-  * Maximum times a macvtap device can be opened. This can be used to
-  * configure the number of receive queue, e.g. for multiqueue virtio.
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index d2d1d55..992151c 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -31,10 +31,6 @@
+  * macvtap_proto is used to allocate queues through the sock allocation
+  * mechanism.
+  *
+- * TODO: multiqueue support is currently not implemented, even though
+- * macvtap is basically prepared for that. We will need to add this
+- * here as well as in virtio-net and qemu to get line rate on 10gbit
+- * adapters from a guest.
   */
--#define MAX_MACVTAP_QUEUES	(NR_CPUS < 16 ? NR_CPUS : 16)
-+#define MAX_MACVTAP_QUEUES	16
+ struct macvtap_queue {
+ 	struct sock sk;
+@@ -1027,7 +1023,8 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+ 		return macvtap_ioctl_set_queue(file, u);
  
- #define MACVLAN_MC_FILTER_BITS	8
- #define MACVLAN_MC_FILTER_SZ	(1 << MACVLAN_MC_FILTER_BITS)
+ 	case TUNGETFEATURES:
+-		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR, up))
++		if (put_user(IFF_TAP | IFF_NO_PI | IFF_VNET_HDR |
++			     IFF_MULTI_QUEUE, up))
+ 			return -EFAULT;
+ 		return 0;
+ 
 -- 
 1.7.1
