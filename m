@@ -1,57 +1,91 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
-Date: Fri, 07 Jun 2013 11:42:43 +0930
-Message-ID: <87hahar7ms.fsf@rustcorp.com.au>
-References: <20130606095456.GA7865@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] xen-netfront: use skb_partial_csum_set() to
+ simplify the codes
+Date: Fri, 07 Jun 2013 11:05:29 +0800
+Message-ID: <51B14DF9.2060400@redhat.com>
+References: <1370500519-2244-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: qemu-devel@nongnu.org
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jason Wang <jasowang@redhat.com>, Cong Wang <amwang@redhat.com>,
-	Amos Kong <akong@redhat.com>, Dave Jones <davej@redhat.com>,
-	virtualization@lists.linux-foundation.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130606095456.GA7865@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38100 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751264Ab3FGDFz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jun 2013 23:05:55 -0400
+In-Reply-To: <1370500519-2244-1-git-send-email-roy.qing.li@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> For small packets we can simplify xmit processing by linearizing buffers
-> with the header: most packets seem to have enough head room we can use
-> for this purpose.
+On 06/06/2013 02:35 PM, roy.qing.li@gmail.com wrote:
+> From: Li RongQing <roy.qing.li@gmail.com>
 >
-> Since some older hypervisors (e.g. qemu before version 1.5)
-> required that header is the first s/g element,
-> we need a feature bit for this.
+> use skb_partial_csum_set() to simplify the codes
+>
+> Cc: Jason Wang <jasowang@redhat.com>
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
+> ---
+>  drivers/net/xen-netfront.c |   20 ++++++++------------
+>  1 file changed, 8 insertions(+), 12 deletions(-)
+>
+> diff --git a/drivers/net/xen-netfront.c b/drivers/net/xen-netfront.c
+> index 62238a0..76a2236 100644
+> --- a/drivers/net/xen-netfront.c
+> +++ b/drivers/net/xen-netfront.c
+> @@ -858,7 +858,6 @@ static RING_IDX xennet_fill_frags(struct netfront_info *np,
+>  static int checksum_setup(struct net_device *dev, struct sk_buff *skb)
+>  {
+>  	struct iphdr *iph;
+> -	unsigned char *th;
+>  	int err = -EPROTO;
+>  	int recalculate_partial_csum = 0;
+>  
+> @@ -883,27 +882,27 @@ static int checksum_setup(struct net_device *dev, struct sk_buff *skb)
+>  		goto out;
+>  
+>  	iph = (void *)skb->data;
+> -	th = skb->data + 4 * iph->ihl;
+> -	if (th >= skb_tail_pointer(skb))
+> -		goto out;
+>  
+> -	skb->csum_start = th - skb->head;
+>  	switch (iph->protocol) {
+>  	case IPPROTO_TCP:
+> -		skb->csum_offset = offsetof(struct tcphdr, check);
+> +		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
+> +					  offsetof(struct tcphdr, check)))
+> +			goto out;
+>  
+>  		if (recalculate_partial_csum) {
+> -			struct tcphdr *tcph = (struct tcphdr *)th;
+> +			struct tcphdr *tcph = tcp_hdr(skb);
+>  			tcph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+>  							 skb->len - iph->ihl*4,
+>  							 IPPROTO_TCP, 0);
+>  		}
+>  		break;
+>  	case IPPROTO_UDP:
+> -		skb->csum_offset = offsetof(struct udphdr, check);
+> +		if (!skb_partial_csum_set(skb, 4 * iph->ihl,
+> +					  offsetof(struct udphdr, check)))
+> +			goto out;
+>  
+>  		if (recalculate_partial_csum) {
+> -			struct udphdr *udph = (struct udphdr *)th;
+> +			struct udphdr *udph = udp_hdr(skb);
+>  			udph->check = ~csum_tcpudp_magic(iph->saddr, iph->daddr,
+>  							 skb->len - iph->ihl*4,
+>  							 IPPROTO_UDP, 0);
+> @@ -917,9 +916,6 @@ static int checksum_setup(struct net_device *dev, struct sk_buff *skb)
+>  		goto out;
+>  	}
+>  
+> -	if ((th + skb->csum_offset + 2) > skb_tail_pointer(skb))
+> -		goto out;
+> -
+>  	err = 0;
+>  
+>  out:
 
-OK, we know this is horrible.  But I will sleep better knowing that we
-this feature need never make it into a final 1.0 spec, since it can be
-assumed at that point...
-
->  	pr_debug("%s: xmit %p %pM\n", vi->dev->name, skb, dest);
-> +	if (vi->mergeable_rx_bufs)
-> +		hdr_len = sizeof hdr->mhdr;
-> +	else
-> +		hdr_len = sizeof hdr->hdr;
-> +
-> +	can_push = vi->any_header_sg &&
-> +		!((unsigned long)skb->data & (__alignof__(*hdr) - 1)) &&
-> +		!skb_header_cloned(skb) && skb_headroom(skb) >= hdr_len;
-
-Idle thought: how often does this fail?  Would it suck if we copied
-headers which didn't let us prepend data?  Or could we bump
-dev->hard_header_len appropriately?
-
-Thanks,
-Rusty.
+Acked-by: Jason Wang <jasowang@redhat.com>
