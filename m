@@ -1,57 +1,45 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] ethernet/arc/arc_emac - Add new driver
-Date: Fri, 07 Jun 2013 14:48:16 +0200
-Message-ID: <6204768.NxiQ5EdAsp@wuerfel>
-References: <1370348510-23754-1-git-send-email-abrodkin@synopsys.com> <2468036.im0srnzmHT@wuerfel> <4881796E12491D4BB15146FE0209CE643F5C8E99@DE02WEMBXB.internal.synopsys.com>
+From: Kevin Wilson <wkevils@gmail.com>
+Subject: ping_group_range documentation patch (question)
+Date: Fri, 7 Jun 2013 15:56:13 +0300
+Message-ID: <CAGXs5wUg-WjRM2Ky2wckQdv0M7mm51KNXSFZvWUf03Jr0Q-ueQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4881796E12491D4BB15146FE0209CE643F5C8E99@DE02WEMBXB.internal.synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: amwang@redhat.com, lorenzo@google.com
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f47.google.com ([209.85.219.47]:54381 "EHLO
+	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753372Ab3FGM4P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 08:56:15 -0400
+Received: by mail-oa0-f47.google.com with SMTP id m1so1205353oag.20
+        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 05:56:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 07 June 2013 12:37:24 Alexey Brodkin wrote:
-> On 06/07/2013 04:13 PM, Arnd Bergmann wrote:
-> >>> I wonder if it would be better to name the directory "synopsys" or
-> >>> "designware" rather than "arc" now. Is there a chance that the same
-> >>> controller is used on non-arc CPUs?
-> >>
-> >> The thing is - "arc_emac" is a custom ARC's (that was implemented before
-> >> acquisition of ARC by Synopsys) IP (it's not an IC - just a part of CPU)
-> >> Ethernet controller that only exists in some legacy FPGA boards we
-> >> (ex-ARC and our customers) still use a lot in development process.
-> >>
-> >> Synopsys itself doesn't actively sell this device so there's no point in
-> >> putting ARC EMAC into Synopsys folder.
-> >>
-> >> And indeed we don't expect this device to be used with non-ARC CPU's.
-> 
-> I'm wondering if my clarification above makes sense and I may leave this 
-> driver in "ethernet/arc" or you still prefer it to be under 
-> "ethernet/synopsys"?
+Hello,
+There was this patch which was sent in the past (4.11.13)
+and was not integrated:
+http://www.linuxhorizon.com/9-linux/9871b9d326872317.htm
 
-Yes, I think if we don't expect any future Synopsys/Designware branded
-devices to use this, using ethernet/arc is fine.
+Now, there is no entry about /proc/sys/net/ipv4/ping_group_range in
+the Documentation/networking/ip-sysctl.txt file.
 
-The main reason to still use a different name is so we will be able
-to group it with other drivers for designware ethernet controllers.
+When I try
+echo 1000 1000 > /proc/sys/net/ipv4/ping_group_range
+It does not say an error,
+and then su to a user with uid and gid of 1000,
+I can ping successfully using ICMP socket.
 
-The only one I'm currently aware of is drivers/net/ethernet/stmicro/stmmac/.
-If we wanted to ahve a designware directory, we should probably move that
-as well.
+Now, when I try, according to "set enable it for the world" as mentioned
+in that documentation patch, and run:
+echo 0  4294967295 >   /proc/sys/net/ipv4/ping_group_range
+I get
+-bash: echo: write error: Invalid argument
 
-I'll leave it up to you (or Dave, if he has a strong opinion).
 
-	Arnd
+Any ideas  what should I do in order  to enable ICMP sockets "for all the world"
+so any use can use them ? and shouldn't this be documented in
+Documentation/networking/ip-sysctl.tx?
+
+regards,
+Kevin
