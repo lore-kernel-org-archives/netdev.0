@@ -1,52 +1,43 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: Scaling problem with a lot of AF_PACKET sockets on different interfaces
-Date: Fri, 7 Jun 2013 14:30:52 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B727B@saturn3.aculab.com>
-References: <51B1CA50.30702@telenet.dn.ua> <1370608871.5854.64.camel@marge.simpson.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: NULL pointer dereference when loading the gre module
+ (3.10.0-rc4)
+Date: Fri, 07 Jun 2013 06:40:41 -0700
+Message-ID: <1370612441.24311.411.camel@edumazet-glaptop>
+References: <20130606221656.GA11475@uio.no>
+	 <20130607030648.GA28618@home.goodmis.org> <20130607085421.GF15083@uio.no>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <linux-kernel@vger.kernel.org>, "netdev" <netdev@vger.kernel.org>
-To: "Mike Galbraith" <bitbucket@online.de>,
-	"Vitaly V. Bursov" <vitalyb@telenet.dn.ua>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Steven Rostedt <rostedt@goodmis.org>, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, netdev@vger.kernel.org,
+	Rusty Russell <rusty@rustcorp.com.au>,
+	Pravin B Shelar <pshelar@nicira.com>
+To: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1370608871.5854.64.camel@marge.simpson.net>
+In-Reply-To: <20130607085421.GF15083@uio.no>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PiA+IEkgaGF2ZSBhIExpbnV4IHJvdXRlciB3aXRoIGEgbG90IG9mIGludGVyZmFjZXMgKGh1bmRy
-ZWRzIG9yDQo+ID4gdGhvdXNhbmRzIG9mIFZMQU5zKSBhbmQgYW4gYXBwbGljYXRpb24gdGhhdCBj
-cmVhdGVzIEFGX1BBQ0tFVA0KPiA+IHNvY2tldCBwZXIgaW50ZXJmYWNlIGFuZCBiaW5kKClzIHNv
-Y2tldHMgdG8gaW50ZXJmYWNlcy4NCi4uLg0KPiA+IEkgbm90aWNlZCB0aGF0IGJveCBoYXMgc3Ry
-YW5nZSBwZXJmb3JtYW5jZSBwcm9ibGVtcyB3aXRoDQo+ID4gbW9zdCBvZiB0aGUgQ1BVIHRpbWUg
-c3BlbnQgaW4gX19uZXRpZl9yZWNlaXZlX3NrYjoNCj4gPiAgIDg2LjE1JSAgW2tdIF9fbmV0aWZf
-cmVjZWl2ZV9za2INCj4gPiAgICAxLjQxJSAgW2tdIF9yYXdfc3Bpbl9sb2NrDQo+ID4gICAgMS4w
-OSUgIFtrXSBmaWJfdGFibGVfbG9va3VwDQo+ID4gICAgMC45OSUgIFtrXSBsb2NhbF9iaF9lbmFi
-bGVfaXANCi4uLg0KPiA+IFRoaXMgY29ycmVzcG9uZHMgdG86DQo+ID4NCj4gPiBuZXQvY29yZS9k
-ZXYuYzoNCj4gPiAgICAgICAgICB0eXBlID0gc2tiLT5wcm90b2NvbDsNCj4gPiAgICAgICAgICBs
-aXN0X2Zvcl9lYWNoX2VudHJ5X3JjdShwdHlwZSwNCj4gPiAgICAgICAgICAgICAgICAgICAgICAg
-ICAgJnB0eXBlX2Jhc2VbbnRvaHModHlwZSkgJiBQVFlQRV9IQVNIX01BU0tdLCBsaXN0KSB7DQo+
-ID4gICAgICAgICAgICAgICAgICBpZiAocHR5cGUtPnR5cGUgPT0gdHlwZSAmJg0KPiA+ICAgICAg
-ICAgICAgICAgICAgICAgIChwdHlwZS0+ZGV2ID09IG51bGxfb3JfZGV2IHx8IHB0eXBlLT5kZXYg
-PT0gc2tiLT5kZXYgfHwNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgcHR5cGUtPmRldiA9PSBv
-cmlnX2RldikpIHsNCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgaWYgKHB0X3ByZXYpDQo+
-ID4gICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgcmV0ID0gZGVsaXZlcl9za2Ioc2ti
-LCBwdF9wcmV2LCBvcmlnX2Rldik7DQo+ID4gICAgICAgICAgICAgICAgICAgICAgICAgIHB0X3By
-ZXYgPSBwdHlwZTsNCj4gPiAgICAgICAgICAgICAgICAgIH0NCj4gPiAgICAgICAgICB9DQo+ID4N
-Cj4gPiBXaGljaCB3b3JrcyBwZXJmZWN0bHkgT0sgdW50aWwgdGhlcmUgYXJlIGEgbG90IG9mIEFG
-X1BBQ0tFVCBzb2NrZXRzLCBzaW5jZQ0KPiA+IHRoZSBzb2NrZXQgYWRkcyBhIHByb3RvY29sIHRv
-IHB0eXBlIGxpc3Q6DQoNClByZXN1bWFibHkgdGhlICdldGhlcnR5cGUnIGlzIHRoZSBzYW1lIGZv
-ciBhbGwgdGhlIHNvY2tldHM/DQooQW5kIHByb2JhYmx5IHRoZSAnJiBQVFlQRV9IQVNIX01BU0gn
-IGRvZXNuJ3Qgc2VwYXJhdGUgaXQgZnJvbSAwODAwDQpvciAwODA2IChJSVJDIElQIGFuZCBJQ01Q
-KSkNCg0KSG93IG9mdGVuIGlzIHRoYXQgZGVsaXZlcl9za2IoKSBpbnNpZGUgdGhlIGxvb3AgY2Fs
-bGVkPw0KSWYgdGhlIGNvZGUgY291bGQgYmUgYXJyYW5nZWQgc28gdGhhdCB0aGUgc2NhbiBsb29w
-IGRpZG4ndCBjb250YWluDQphIGZ1bmN0aW9uIGNhbGwgdGhlbiB0aGUgbG9vcCBjb2RlIHdvdWxk
-IGJlIGEgbG90IGZhc3RlciBzaW5jZQ0KdGhlIGNvbXBpbGVyIGNhbiBjYWNoZSB2YWx1ZXMgaW4g
-cmVnaXN0ZXJzLg0KV2hpbGUgdGhhdCB3b3VrZCBzcGVlZCB0aGUgY29kZSB1cCBzb21ld2hhdCwg
-dGhlcmUgd291bGQgc3RpbGwgYmUgYQ0Kc2lnbmlmaWNhbnQgY29zdCB0byBpdGVyYXRlIDEwMDAr
-IHRpbWVzLg0KDQpMb29rcyBsaWtlIHRoZSBwdHlwZV9iYXNlW10gc2hvdWxkIGJlIHBlciAnZGV2
-Jz8NCk9yIGp1c3QgcHV0IGVudHJpZXMgd2hlcmUgcHR5cGUtPmRldiAhPSBudWxsX29yX2RldiBv
-biBhIHBlci1pbnRlcmZhY2UNCmxpc3QgYW5kIGRvIHR3byBzZWFyY2hlcz8NCg0KCURhdmlkDQoN
-Cg==
+On Fri, 2013-06-07 at 10:54 +0200, Steinar H. Gunderson wrote:
+> On Thu, Jun 06, 2013 at 11:06:48PM -0400, Steven Rostedt wrote:
+> > Note the faulting address is 0xffffffffa0e52001, which is around the
+> > above address, be interesting to know what was at that location.
+> 
+> Doh, I looked at the wrong place in kallsyms:
+> 
+> ffffffffa0e52000 u ip_tunnel_init_net   [ip_gre]
+> ffffffffa0e55000 t gre_err      [gre]
+> ffffffffa0e5503d t gre_gso_send_check   [gre]
+> ffffffffa0e55053 t gre_rcv      [gre]
+> 
+> So it's really ip_tunnel_init_net+1.
+> 
+> /* Steinar */
+
+" u " for ip_tunnel_init_net ?
+
+Looks like someone forgot taking refcounts on a module ...
+
+CC Pravin B Shelar, as this probably comes from commit
+c54419321455631079c7d6e60bc732dd0c5914c5
+("GRE: Refactor GRE tunneling code.")
