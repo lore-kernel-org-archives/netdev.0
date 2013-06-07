@@ -1,54 +1,53 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 3/3] net: sctp: minor: remove variable in sctp_init_sock
-Date: Fri,  7 Jun 2013 10:35:06 +0200
-Message-ID: <1370594106-25745-4-git-send-email-dborkman@redhat.com>
-References: <1370594106-25745-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51619 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753033Ab3FGIfQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jun 2013 04:35:16 -0400
-In-Reply-To: <1370594106-25745-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH 0/2 v4] net/macb: RX path enhancement
+Date: Fri, 7 Jun 2013 10:36:36 +0200
+Message-ID: <51B19B94.6060301@atmel.com>
+References: <cover.1370418770.git.nicolas.ferre@atmel.com> <20130606.162358.506642916485125446.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
+	<linux-kernel@vger.kernel.org>, <plagnioj@jcrosoft.com>,
+	<hein_tibosch@yahoo.es>, <s.trumtrar@pengutronix.de>,
+	<michal.simek@xilinx.com>, <monstr@monstr.eu>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130606.162358.506642916485125446.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-It's only used at this one time, so we could remove it as well.
-This is valid and also makes it more explicit/obvious that in case
-of error the sp->ep is NULL here, i.e. for the sctp_destroy_sock()
-check.
+On 07/06/2013 01:23, David Miller :
+> From: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Date: Wed, 5 Jun 2013 09:57:10 +0200
+>
+>> Here is the patch series for modifying the RX path in macb driver.
+>> This change applies on GEM variant of the Cadence IP and introduces
+>> function pointers to match the path to the proper adapter. The move
+>> to RX buffers adapted to MTU and that can be DMAed directly in SKB
+>> is done in two steps but can be merged in a single patch.
+>>
+>> v4: - rebased on top of net-next
+>>      - removed the last patch of the series which needs rework
+>>
+>> v3: - rebased on top of net-next (containing recently added
+>>        net/macb: fix ISR clear-on-write behavior only for some SoC)
+>>      - added the ___cacheline_aligned_in_smp qualifier to napi field
+>>        following Ben Hutchings' advice
+>>
+>> v2: - gave up the idea of using non-coherent memory for
+>>        rx buffers
+>>      - addition of the struct macb layout optimization
+>
+> Applied to net-next but I had to fix the printf format strings
+> used in macb_init_rx_buffer_size().
+>
+> netdev->mtu is "unsigned int" so "%u"
+> bp->rx_buffer_size is "size_t" so "%Zu"
+>
+> otherwise we get build warnings.
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/sctp/socket.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+Thanks David.
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 3267534..e71d399 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -3862,7 +3862,6 @@ out:
- SCTP_STATIC int sctp_init_sock(struct sock *sk)
- {
- 	struct net *net = sock_net(sk);
--	struct sctp_endpoint *ep;
- 	struct sctp_sock *sp;
- 
- 	SCTP_DEBUG_PRINTK("sctp_init_sock(sk: %p)\n", sk);
-@@ -3971,11 +3970,10 @@ SCTP_STATIC int sctp_init_sock(struct sock *sk)
- 	 * change the data structure relationships, this may still
- 	 * be useful for storing pre-connect address information.
- 	 */
--	ep = sctp_endpoint_new(sk, GFP_KERNEL);
--	if (!ep)
-+	sp->ep = sctp_endpoint_new(sk, GFP_KERNEL);
-+	if (!sp->ep)
- 		return -ENOMEM;
- 
--	sp->ep = ep;
- 	sp->hmac = NULL;
- 
- 	SCTP_DBG_OBJCNT_INC(sock);
+Best regards,
 -- 
-1.7.11.7
+Nicolas Ferre
