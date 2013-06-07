@@ -1,7 +1,8 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH 0/9] sh_eth: make driver build on any platform
-Date: Sat, 8 Jun 2013 03:51:38 +0400
-Message-ID: <201306080351.39018.sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 1/9] sh_eth: create initial ID table
+Date: Sat, 8 Jun 2013 03:54:02 +0400
+Message-ID: <201306080354.03424.sergei.shtylyov@cogentembedded.com>
+References: <201306080351.39018.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain;
   charset="iso-8859-1"
@@ -9,25 +10,58 @@ Content-Transfer-Encoding: 7bit
 Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <201306080351.39018.sergei.shtylyov@cogentembedded.com>
 Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello.
+We are trying to get away from the current driver's scheme of identifying a SoC
+based on #ifdef's and the platform device ID table matching seems to be a good
+replacement -- we can use the 'driver_data' field of 'struct platform_device_id'
+as a pointer to a 'struct sh_eth_cpu_data'. Start by creating the initial table
+with driver's name as the only entry without the driver data. Check  the driver
+data in the probe() method and if it's not NULL override 'mdp->cd' from it.
 
-   This series of 9 patches are against Dave's 'net-next.git' repository.
-   The series deals with the #ifdef'fery around SoC support code/data in the
-'sh_eth' driver. It doesn't yet get rid of all the #ifdef's: 3 are left, 1 of
-them still hinders ARM multiplatform build -- I'll try to deal with it next
-week.
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
-[1/9] sh_eth: create initial ID table
-[2/9] sh_eth: get SH771x support out of #ifdef
-[3/9] sh_eth: get SH7619 support out of #ifdef
-[4/9] sh_eth: get R8A7740 support out of #ifdef
-[5/9] sh_eth: get SH77{34|63} support out of #ifdef
-[6/9] sh_eth: get SH7757 support out of #ifdef
-[7/9] sh_eth: get SH7724 support out of #ifdef
-[8/9] sh_eth: get R8A777x support out of #ifdef
-[9/9] sh_eth: remove dependencies from Kconfig
+---
+ drivers/net/ethernet/renesas/sh_eth.c |   10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-WBR, Sergei
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -2519,6 +2519,7 @@ static int sh_eth_drv_probe(struct platf
+ 	struct net_device *ndev = NULL;
+ 	struct sh_eth_private *mdp = NULL;
+ 	struct sh_eth_plat_data *pd = pdev->dev.platform_data;
++	const struct platform_device_id *id = platform_get_device_id(pdev);
+ 
+ 	/* get base addr */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+@@ -2582,6 +2583,8 @@ static int sh_eth_drv_probe(struct platf
+ #else
+ 	mdp->cd = &sh_eth_my_cpu_data;
+ #endif
++	if (id->driver_data)
++		mdp->cd = (struct sh_eth_cpu_data *)id->driver_data;
+ 	sh_eth_set_default_cpu_data(mdp->cd);
+ 
+ 	/* set function */
+@@ -2696,9 +2699,16 @@ static const struct dev_pm_ops sh_eth_de
+ #define SH_ETH_PM_OPS NULL
+ #endif
+ 
++static struct platform_device_id sh_eth_id_table[] = {
++	{ CARDNAME },
++	{ }
++};
++MODULE_DEVICE_TABLE(platform, sh_eth_id_table);
++
+ static struct platform_driver sh_eth_driver = {
+ 	.probe = sh_eth_drv_probe,
+ 	.remove = sh_eth_drv_remove,
++	.id_table = sh_eth_id_table,
+ 	.driver = {
+ 		   .name = CARDNAME,
+ 		   .pm = SH_ETH_PM_OPS,
