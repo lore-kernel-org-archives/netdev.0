@@ -1,33 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH iproute2] htb: report overhead attribute
-Date: Fri, 07 Jun 2013 09:00:11 -0700
-Message-ID: <1370620811.24311.434.camel@edumazet-glaptop>
-References: <20130529151330.22c5c89e@redhat.com>
-	 <1370207755.24311.81.camel@edumazet-glaptop>
-	 <1370208781.24311.89.camel@edumazet-glaptop>
-	 <20130607085611.5582dec1@nehalam.linuxnetplumber.net>
+From: info@uk.net
+Subject: Confirmed Reciept.....
+Date: Fri, 07 Jun 2013 21:28:45 +0530
+Message-ID: <201306071550.r578GT6Y019245@lycasmtp.lycamobile.co.uk>
+Reply-To: claim.jonesgreene@hotmail.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	netdev <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Recipients <info@uk.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f182.google.com ([209.85.214.182]:64888 "EHLO
-	mail-ob0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753453Ab3FGQAO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 12:00:14 -0400
-Received: by mail-ob0-f182.google.com with SMTP id va7so6737108obc.27
-        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 09:00:13 -0700 (PDT)
-In-Reply-To: <20130607085611.5582dec1@nehalam.linuxnetplumber.net>
+Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:45577 "EHLO
+	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755294Ab3FGQJl convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 12:09:41 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-06-07 at 08:56 -0700, Stephen Hemminger wrote:
+Uk National Lottery
+Ref: L/200-26937
+Batch: 2007MJL-01
 
-> Applied.
-> And after that fixed indentation of q_htb.c
 
-Yes, I saw the indentation was strange indeed ;)
+                     FINAL NOTIFICATION
+We are pleased to inform you today 6th  June, 2013 of the result=20
+of the winners of the  UK NATIONAL LOTTERY ONLINE PROMO PROGRAMME, held=
+=20
+on the 30th of May, 2013.
 
-Thanks
+You have therefore been approved for a lump sum pay out of =A31,000 000=
+=20
+(One Million Pounds Sterling) in cash credited to file XYL/26510460037/=
+06.To file for your claim,=20
+please contact our claims agent;
+
+Agents Name: Dr.Jones Greene
+Emai: claim.jonesgreene@hotmail.co.uk
+
+
+Provide him with the information below:
+
+1.Full Name:
+2.Full Address:
+3.Marital Status:
+4.Occupation:
+5.Age:
+6.Sex:
+7.Nationality:
+8.Country Of Residence:
+9.Telephone Number:
+
+Congratulations once more from all members and staff of this program.
+
+Sincerely,=20
+Dr.Jones Greene
+UK NATIONAL LOTTERY
