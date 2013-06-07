@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] fec: Only pass pdev in fec_ptp_init()
-Date: Fri, 07 Jun 2013 14:41:33 -0700 (PDT)
-Message-ID: <20130607.144133.52809964951362586.davem@davemloft.net>
-References: <1370638080-19891-1-git-send-email-festevam@gmail.com>
+Subject: Re: [PATCH v9 net-next 0/7] net: low latency Ethernet device
+ polling
+Date: Fri, 07 Jun 2013 14:48:05 -0700 (PDT)
+Message-ID: <20130607.144805.1227746282017227022.davem@davemloft.net>
+References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Frank.Li@freescale.com, netdev@vger.kernel.org,
-	fabio.estevam@freescale.com
-To: festevam@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48646 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753181Ab3FGVle (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 17:41:34 -0400
-In-Reply-To: <1370638080-19891-1-git-send-email-festevam@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
+	e1000-devel@lists.sourceforge.net, willemb@google.com,
+	erdnetdev@gmail.com, bhutchings@solarflare.com,
+	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
+	or.gerlitz@gmail.com, amirv@mellanox.com, eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Fabio Estevam <festevam@gmail.com>
-Date: Fri,  7 Jun 2013 17:48:00 -0300
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Wed, 05 Jun 2013 13:34:00 +0300
 
-> From: Fabio Estevam <fabio.estevam@freescale.com>
+> And here is v9.
+> Except for typo fixes in comments/description, only 2/7 and 5/7 were changed.
 > 
-> Passing pdev in fec_ptp_init() is enough, since we can get ndev locally.
-> 
-> Signed-off-by: Fabio Estevam <fabio.estevam@freescale.com>
+> Thanks to everyone for their input.
 
-Applied.
+Since there is some discussion about the way the poll() bits work,
+might I suggest you make a v10 without the poll stuff, which I will
+apply to net-next, and then you can build the poll stuff on top of
+that?
+
+Thanks!
