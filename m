@@ -1,90 +1,94 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] ethernet/arc/arc_emac - Add new driver
-Date: Fri, 07 Jun 2013 14:13:14 +0200
-Message-ID: <2468036.im0srnzmHT@wuerfel>
-References: <1370348510-23754-1-git-send-email-abrodkin@synopsys.com> <1505761.5DsauZd6eq@wuerfel> <4881796E12491D4BB15146FE0209CE643F5C77EC@DE02WEMBXB.internal.synopsys.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH net-next 2/2] openvswitch: Use zerocopy if applicable
+ when performing the upcall
+Date: Fri, 7 Jun 2013 13:21:39 +0100
+Message-ID: <20130607122139.GA21856@casper.infradead.org>
+References: <cover.1369406826.git.tgraf@suug.ch>
+ <064a09fffe48540b66a3ee503860ed9e8a1eb5f1.1369406826.git.tgraf@suug.ch>
+ <CAEP_g=87CuiS92YtCZ1V1ME05qq0jGWD9p1WgKZ2jaaG1AWS7w@mail.gmail.com>
+ <1369421900.3301.431.camel@edumazet-glaptop>
+ <CAEP_g=898=iOWV15Y_bcjvS9sGSfDQSP1zQLNkffoXB5imdU7g@mail.gmail.com>
+ <1369432621.3301.445.camel@edumazet-glaptop>
+ <CAEP_g=9Yqcf6_cpPYNAbiQUGjQa46PEz6gQdKAopiNNUDRhGYA@mail.gmail.com>
+ <20130525070222.GB30252@casper.infradead.org>
+ <1369492772.3301.468.camel@edumazet-glaptop>
+ <CAEP_g=944Wq982rDSC0hrqUBu8Sf6MCtQN0NhgyU5FDr9UB3ww@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <4881796E12491D4BB15146FE0209CE643F5C77EC@DE02WEMBXB.internal.synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Jesse Gross <jesse@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from casper.infradead.org ([85.118.1.10]:32890 "EHLO
+	casper.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752118Ab3FGMVl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 08:21:41 -0400
+Content-Disposition: inline
+In-Reply-To: <CAEP_g=944Wq982rDSC0hrqUBu8Sf6MCtQN0NhgyU5FDr9UB3ww@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 07 June 2013 10:42:28 Alexey Brodkin wrote:
-> On 06/07/2013 12:47 PM, Arnd Bergmann wrote:
-
-> > I wonder if it would be better to name the directory "synopsys" or
-> > "designware" rather than "arc" now. Is there a chance that the same
-> > controller is used on non-arc CPUs?
+On 05/27/13 at 10:28am, Jesse Gross wrote:
+> On Saturday, May 25, 2013, Eric Dumazet wrote:
 > 
-> The thing is - "arc_emac" is a custom ARC's (that was implemented before 
-> acquisition of ARC by Synopsys) IP (it's not an IC - just a part of CPU) 
-> Ethernet controller that only exists in some legacy FPGA boards we 
-> (ex-ARC and our customers) still use a lot in development process.
-> 
-> Synopsys itself doesn't actively sell this device so there's no point in 
-> putting ARC EMAC into Synopsys folder.
-> 
-> And indeed we don't expect this device to be used with non-ARC CPU's.
-> 
-> I didn't add dependency on ARC in Kconfig just because I wanted to leave 
-> an ability to build this driver on x86 machine. I thought this is 
-> important requirement - allow anybody to at least build this driver to 
-> make sure it builds and doesn't cause tons of warnings to appear.
-> 
-> If it's totally fine to add dependency on ARC - then it would be even 
-> easier for me - refer to the next block of comments.
-
-No, I think making it generally available for all architectures is better.
-
-> >> +static int arc_emac_probe(struct platform_device *pdev)
-> >> +{
-> >> +	struct net_device *net_dev;
-> >> +	struct arc_emac_priv *priv;
-> >> +	int err;
-> >> +	unsigned int clock_frequency;
-> >> +	unsigned int id;
-> >> +	struct resource res_regs;
-> >> +#ifdef CONFIG_OF_IRQ
-> >> +	struct resource res_irq;
-> >> +#endif
-> >> +	const char *mac_addr = NULL;
+> > On Sat, 2013-05-25 at 08:02 +0100, Thomas Graf wrote:
 > >
-> > Please remove the #ifdef here. The driver does not work without this
-> > anyway, so better make it 'depend on OF_IRQ' in Kconfig.
+> > > I ran TCP_CRR to verify the SYN/ACK use case and I did not
+> > > observe a difference. If you have any specific test in mind
+> > > I will be glad to run that before posting the 2nd revision.
+> >
+> > I guess you should test with rx checksum disabled as well, Jesse seemed
+> > to be concerned about that.
 > 
-> As stated above I wanted to make it possible to compile on x86.
-> And for this I needed to:
-> 1. Add explicit mentions of "linux/platform_device.h" because with 
-> existence of OF "linux/of_platform.h" has "linux/platform_device.h" 
-> included internally.
-> 2. Enclose "of_irq_to_resource" and "of_get_mac_address" in ifdefs 
-> because neither of them has a stub for non-OF situation.
+> 
+>  I was actually thinking about the transmit side - rx checksum verification
+> doesn't matter much here since the result will get thrown away. However, if
+> the packet is CHECKSUM_PARTIAL then the checksum will have to get filled in
+> first and that's the code path that is a little different now.
 
-But you can enable CONFIG_OF on x86. An allmodconfig build should
-still enable this driver. The #ifdefs are generally considered ugly,
-and there is no point adding them when the driver clearly wouldn't
-work on any architecture without them even if that hardware was
-available.
+Do we actually need to complete the checksum before doing the
+upcall and if so, why? Couldn't the slow path do that if needed?
+The only reason I can think of where it would matter is if a
+controller injects the packet into another network stack such
+as RouteFlow.
 
-> So if I may depend on ARC then I'm sure OF is selected and no need to worry.
-> Otherwise do I need to add stubs for "of_irq_to_resource" and 
-> "of_get_mac_address" somewhere in "of/of_xxx.h"?
+On the receive side, hitting an ovs bridge connected to two
+interface with ~18G of randomized flows:
 
-We are currently discussing those changes to the header files elsewhere.
-I think with a dependency on CONFIG_OF_IRQ and other symbols you need,
-you get the best compromise of the various requirements.
+3.10.0-rc2+:
++   9.44%   ksoftirqd/0  [k] csum_partial_copy_generic
++   3.54%  ovs-vswitchd  [k] copy_user_enhanced_fast_string
++   3.08%       swapper  [k] intel_idle
++   2.47%   ksoftirqd/0  [k] memset
++   2.21%   ksoftirqd/0  [k] memcpy
++   1.64%   ksoftirqd/0  [k] __nla_reserve
++   1.26%  ovs-vswitchd  [k] netlink_recvmsg
++   1.07%   ksoftirqd/0  [k] __netif_receive_skb_core
++   1.02%   ksoftirqd/0  [k] __pskb_pull_tail
++   0.98%       swapper  [k] csum_partial_copy_generic
++   0.95%  ovs-vswitchd  [k] _raw_spin_lock
++   0.94%  ovs-vswitchd  [k] _raw_spin_lock_irqsave
++   0.83%  ovs-vswitchd  [k] memcpy
++   0.80%   ksoftirqd/0  [k] __alloc_skb
++   0.78%   ksoftirqd/0  [k] skb_copy_bits
++   0.71%       swapper  [k] menu_select
++   0.71%   ksoftirqd/2  [k] csum_partial_copy_generic                              
 
-	Arnd
+3.10.0-rc2+ + zerocopy
++   4.84%    ovs-vswitchd  [k] copy_user_enhanced_fast_string
++   4.74%         swapper  [k] intel_idle
++   3.14%         swapper  [k] memset
++   3.04%         swapper  [k] memcpy
++   2.10%         swapper  [k] __nla_reserve
++   1.44%         swapper  [k] skb_copy_bits
++   1.40%         swapper  [k] __netif_receive_skb_core
++   1.34%         swapper  [k] __pskb_pull_tail
++   1.23%    ovs-vswitchd  [k] _raw_spin_lock
++   1.16%    ovs-vswitchd  [k] fib_table_lookup
++   1.16%         swapper  [k] irq_entries_start
++   1.09%    ovs-vswitchd  [k] memcpy
++   1.05%         swapper  [k] __alloc_skb
++   1.03%         swapper  [k] lapic_next_deadline
++   1.02%         swapper  [k] build_skb
++   0.99%         swapper  [k] skb_zerocopy                  
