@@ -1,38 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net 6/6] bonding: disallow change of MAC if
- fail_over_mac enabled
-Date: Fri, 07 Jun 2013 15:06:28 -0700 (PDT)
-Message-ID: <20130607.150628.1095723147945965442.davem@davemloft.net>
-References: <1370037451-29466-1-git-send-email-fubar@us.ibm.com>
-	<1370037451-29466-7-git-send-email-fubar@us.ibm.com>
+Subject: Re: [RFC] ipv6: allow rejecting with "source address failed policy"
+Date: Fri, 07 Jun 2013 15:27:30 -0700 (PDT)
+Message-ID: <20130607.152730.1116898639369296832.davem@davemloft.net>
+References: <1370270708-24398-1-git-send-email-jogo@openwrt.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fubar@us.ibm.com
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: jogo@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49079 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:49292 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756072Ab3FGWG3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 18:06:29 -0400
-In-Reply-To: <1370037451-29466-7-git-send-email-fubar@us.ibm.com>
+	with ESMTP id S1753181Ab3FGW1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 18:27:31 -0400
+In-Reply-To: <1370270708-24398-1-git-send-email-jogo@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jay Vosburgh <fubar@us.ibm.com>
-Date: Fri, 31 May 2013 14:57:31 -0700
+From: Jonas Gorski <jogo@openwrt.org>
+Date: Mon,  3 Jun 2013 16:45:08 +0200
 
-> 	Currently, if fail_over_mac is set to active, then attempts to
-> change the MAC of the bond itself silently fail.  However, if fail_over_mac
-> is set to follow, changes are permitted.
+> RFC6204 L-14 requires rejecting traffic from invalid addresses with
+> ICMPv6 Destination Unreachable, Code 5 (Source address failed ingress/
+> egress policy) on the LAN side, so add an appropriate rule for that.
 > 
-> 	Permitting the bond's MAC to change with fail_over_mac=follow
-> will disrupt the follow functionality, which normally controls the
-> assignment of MAC address to the bond and its slaves, and can cause
-> multiple ports to be assigned the same MAC address. which will interfere
-> with the functioning of the device (where the device here is a
-> virtualization-aware card for s390, qeth).
-> 
-> Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+> Signed-off-by: Jonas Gorski <jogo@openwrt.org>
 
-Applied to net-next.
+I don't see the point of this, there is no difference from the
+existing PROHIBIT other than the error code.  Everything that needs to
+be expressed can be done using PROHIBIT.
