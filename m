@@ -1,62 +1,46 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH] ethernet/arc/arc_emac - Add new driver
-Date: Thu, 06 Jun 2013 16:35:06 -0700 (PDT)
-Message-ID: <20130606.163506.962150797885004652.davem@davemloft.net>
-References: <1370348510-23754-1-git-send-email-abrodkin@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: sjhill-8NJIiSa5LzA@public.gmane.org, devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Vineet.Gupta1-HKixBCOQz3hWk0Htik3J/w@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org,
- paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org, grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org,
- Mischa.Jonker-HKixBCOQz3hWk0Htik3J/w@public.gmane.org
-To: Alexey.Brodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org
-Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-In-Reply-To: <1370348510-23754-1-git-send-email-abrodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
-List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
- <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
-Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Sender: "devicetree-discuss"
- <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: minor: tcp: use tcp_skb_mss helper in tcp_tso_segment
+Date: Fri,  7 Jun 2013 02:07:23 +0200
+Message-ID: <1370563643-19556-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:19103 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752175Ab3FGAH1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jun 2013 20:07:27 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Alexey Brodkin <Alexey.Brodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
-Date: Tue, 4 Jun 2013 16:21:50 +0400
+We have the minimal inline helper tcp_skb_mss to access
+skb_shinfo(skb)->gso_size, so also use it here to get mss.
 
-> +{
-> +	struct arc_emac_priv *priv = netdev_priv(net_dev);
-> +	struct phy_device *phydev = priv->phy_dev;
-> +	u32 reg;
-> +
-> +	int status_change = 0;
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/ipv4/tcp.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Do not add empty lines amongst the top-level variable declarations
-of a function.  Fix this in the entire driver, as needed.
-
-> +			netdev_warn(net_dev,
-> +				"Speed (%d) is not 10/100?\n", phydev->speed);
-
-Functions calls on multiple lines must have the arguments
-aligned properly on the second and subsequent lines, this
-means:
-
-		function(arg1, arg2,
-			 arg3, arg4);
-
-You must use the appropriate number of TAB and space characters
-to achieve this proper column alignment, rather than only using
-TAB characters as you have done here.
-
-Audit and fix this in your entire driver.
-
-> +static int arc_emac_get_settings(struct net_device *net_dev,
-> +		struct ethtool_cmd *cmd)
-
-The argument indention rules above apply to function definitions
-as well.
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index b5d4ad9..6a1cf95 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -2905,7 +2905,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb,
+ 	oldlen = (u16)~skb->len;
+ 	__skb_pull(skb, thlen);
+ 
+-	mss = skb_shinfo(skb)->gso_size;
++	mss = tcp_skb_mss(skb);
+ 	if (unlikely(skb->len <= mss))
+ 		goto out;
+ 
+@@ -3071,7 +3071,7 @@ found:
+ 		flush |= *(u32 *)((u8 *)th + i) ^
+ 			 *(u32 *)((u8 *)th2 + i);
+ 
+-	mss = skb_shinfo(p)->gso_size;
++	mss = tcp_skb_mss(p);
+ 
+ 	flush |= (len - 1) >= mss;
+ 	flush |= (ntohl(th2->seq) + skb_gro_len(p)) ^ ntohl(th->seq);
+-- 
+1.7.11.7
