@@ -1,41 +1,65 @@
-From: Qinchuanyu <qinchuanyu@huawei.com>
-Subject: [PATCH] vhost: wake up worker outside spin_lock
-Date: Fri, 7 Jun 2013 10:59:29 +0000
-Message-ID: <5872DA217C2FF7488B20897D84F904E733915759@nkgeml511-mbx.china.huawei.com>
+From: Matthias Schiffer <mschiffer@universe-factory.net>
+Subject: Re: [PATCH net/3.9] ipv6: ndisc: fix ndisc_send_redirect writing
+ to the wrong skb
+Date: Fri, 07 Jun 2013 13:00:52 +0200
+Message-ID: <51B1BD64.8090300@universe-factory.net>
+References: <51A66CF3.7010202@universe-factory.net> <5578958b49fff222740711e091c2325100f5a440.1369963643.git.mschiffer@universe-factory.net> <CAM_iQpWNAnRTgzjPTPxLU-eqz1nWqD=zyjTgwZaaxbwcpf4KMw@mail.gmail.com> <20130531.014244.1871655049070137342.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: " (kvm@vger.kernel.org)" <kvm@vger.kernel.org>,
-	" (netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
-	Heguansen <heguansen@huawei.com>
-To: "mst@redhat.com" <mst@redhat.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Language: zh-CN
-Sender: kvm-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2MFPEVCVABNCPCGVIDOJI"
+Cc: xiyou.wangcong@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130531.014244.1871655049070137342.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-dGhlIHdha2VfdXBfcHJvY2VzcyBmdW5jIGlzIGluY2x1ZGVkIGJ5IHNwaW5fbG9jay91bmxvY2sg
-aW4gdmhvc3Rfd29ya19xdWV1ZSwNCmJ1dCBpdCBjb3VsZCBiZSBkb25lIG91dHNpZGUgdGhlIHNw
-aW5fbG9jay4gDQpJIGhhdmUgdGVzdCBpdCB3aXRoIGtlcm5lbCAzLjAuMjcgYW5kIGd1ZXN0IHN1
-c2UxMS1zcDIgdXNpbmcgaXBlcmYsIHRoZSBudW0gYXMgYmVsb3cuDQogICAgICAgICAgICAgICAg
-IG9yaWduYWwgICAgICAgICAgICAgICAgICAgbW9kaWZpZWQNCnRocmVhZF9udW0gIHRwKEdicHMp
-ICAgdmhvc3QoJSkgIHwgIHRwKEdicHMpICAgICB2aG9zdCglKQ0KMSAgICAgICAgICAgOS41OSAg
-ICAgICAgIDI4LjgyICAgfCAgICAgIDkuNTkgICAgICAgIDI3LjQ5DQo4ICAgICAgICAgICAgOS42
-MSAgICAgICAgMzIuOTIgICB8ICAgICAgOS42MiAgICAgICAgMjYuNzcNCjY0ICAgICAgICAgICAg
-OS41OCAgICAgICAgNDYuNDggIHwgICAgIDkuNTUgICAgICAgIDM4Ljk5DQoyNTYgICAgICAgICAg
-ICA5LjYgICAgICAgIDYzLjcgICB8ICAgICAgOS42ICAgICAgICAgNTIuNTkNCg0KU2lnbmVkLW9m
-Zi1ieTogQ2h1YW55dSBRaW4gPHFpbmNodWFueXVAaHVhd2VpLmNvbT4NCi0tLQ0KIGRyaXZlcnMv
-dmhvc3Qvdmhvc3QuYyB8ICAgIDUgKysrLS0NCiAxIGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9u
-cygrKSwgMiBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvdmhvc3Qvdmhvc3Qu
-YyBiL2RyaXZlcnMvdmhvc3Qvdmhvc3QuYyBpbmRleCA5NGRiZDI1Li44YmVlMTA5IDEwMDY0NA0K
-LS0tIGEvZHJpdmVycy92aG9zdC92aG9zdC5jDQorKysgYi9kcml2ZXJzL3Zob3N0L3Zob3N0LmMN
-CkBAIC0xNDYsOSArMTQ2LDEwIEBAIHN0YXRpYyBpbmxpbmUgdm9pZCB2aG9zdF93b3JrX3F1ZXVl
-KHN0cnVjdCB2aG9zdF9kZXYgKmRldiwNCiAJaWYgKGxpc3RfZW1wdHkoJndvcmstPm5vZGUpKSB7
-DQogCQlsaXN0X2FkZF90YWlsKCZ3b3JrLT5ub2RlLCAmZGV2LT53b3JrX2xpc3QpOw0KIAkJd29y
-ay0+cXVldWVfc2VxKys7DQorCQlzcGluX3VubG9ja19pcnFyZXN0b3JlKCZkZXYtPndvcmtfbG9j
-aywgZmxhZ3MpOw0KIAkJd2FrZV91cF9wcm9jZXNzKGRldi0+d29ya2VyKTsNCi0JfQ0KLQlzcGlu
-X3VubG9ja19pcnFyZXN0b3JlKCZkZXYtPndvcmtfbG9jaywgZmxhZ3MpOw0KKwl9IGVsc2UNCisJ
-CXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmRldi0+d29ya19sb2NrLCBmbGFncyk7DQogfQ0KIA0K
-IHZvaWQgdmhvc3RfcG9sbF9xdWV1ZShzdHJ1Y3Qgdmhvc3RfcG9sbCAqcG9sbCkNCi0tDQoxLjcu
-My4xLm1zeXNnaXQuMA0K
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2MFPEVCVABNCPCGVIDOJI
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+On 05/31/2013 10:42 AM, David Miller wrote:
+> From: Cong Wang <xiyou.wangcong@gmail.com>
+> Date: Fri, 31 May 2013 11:23:11 +0800
+>=20
+>> On Fri, May 31, 2013 at 9:27 AM, Matthias Schiffer
+>> <mschiffer@universe-factory.net> wrote:
+>>> Since some refactoring in 5f5a011, ndisc_send_redirect called
+>>> ndisc_fill_redirect_hdr_option on the wrong skb, leading to data corr=
+uption or
+>>> in the worst case a panic when the skb_put failed.
+>>>
+>>> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+>>
+>>
+>> Good catch!
+>>
+>> Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
+>=20
+> I've queued this up for -stable.
+>=20
+
+I saw that this was marked as 'not applicable' in the patchwork - it
+should still be applied to the net tree though. I hope my patch tag
+'net/3.9' didn't cause any confusion, I meant net *and* 3.9.
+
+
+------enig2MFPEVCVABNCPCGVIDOJI
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iEYEARECAAYFAlGxvWQACgkQq3qIxbiQM9jQDQCeOhCY5fZEloQgamjoNpkEh2L5
+tdkAn1Wk+/FLQBrDZ4wrVzPnieLb/LZ8
+=Eii2
+-----END PGP SIGNATURE-----
+
+------enig2MFPEVCVABNCPCGVIDOJI--
