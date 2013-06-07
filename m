@@ -1,65 +1,71 @@
-From: Matthias Schiffer <mschiffer@universe-factory.net>
-Subject: Re: [PATCH net/3.9] ipv6: ndisc: fix ndisc_send_redirect writing
- to the wrong skb
-Date: Fri, 07 Jun 2013 13:00:52 +0200
-Message-ID: <51B1BD64.8090300@universe-factory.net>
-References: <51A66CF3.7010202@universe-factory.net> <5578958b49fff222740711e091c2325100f5a440.1369963643.git.mschiffer@universe-factory.net> <CAM_iQpWNAnRTgzjPTPxLU-eqz1nWqD=zyjTgwZaaxbwcpf4KMw@mail.gmail.com> <20130531.014244.1871655049070137342.davem@davemloft.net>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 2/3] net: sctp: sctp_association_init: hold refs
+ in reverse order
+Date: Fri, 7 Jun 2013 07:00:54 -0400
+Message-ID: <20130607110054.GB3249@hmsreliant.think-freely.org>
+References: <1370594106-25745-1-git-send-email-dborkman@redhat.com>
+ <1370594106-25745-3-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2MFPEVCVABNCPCGVIDOJI"
-Cc: xiyou.wangcong@gmail.com, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130531.014244.1871655049070137342.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59891 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755636Ab3FGLBI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 07:01:08 -0400
+Content-Disposition: inline
+In-Reply-To: <1370594106-25745-3-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2MFPEVCVABNCPCGVIDOJI
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+On Fri, Jun 07, 2013 at 10:35:05AM +0200, Daniel Borkmann wrote:
+> In case we need to bail out for whatever reason during assoc
+> init, we call sctp_endpoint_put() and then sock_put(), however,
+> we've hold both refs in reverse order, so first sctp_endpoint_hold()
+> and then sock_hold(). Reverse this, so that we have sock_hold()
+> with sctp_endpoint_hold() first and then in error case
+> sctp_endpoint_put() and then sock_put(). Actually shouldn't
+> matter much since we just increase an atomic, but that way, it's
+> more clean.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  net/sctp/associola.c | 5 ++---
+>  1 file changed, 2 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
+> index 91cfd8f..04795fb 100644
+> --- a/net/sctp/associola.c
+> +++ b/net/sctp/associola.c
+> @@ -86,11 +86,10 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+>  
+>  	/* Discarding const is appropriate here.  */
+>  	asoc->ep = (struct sctp_endpoint *)ep;
+> -	sctp_endpoint_hold(asoc->ep);
+> -
+> -	/* Hold the sock.  */
+>  	asoc->base.sk = (struct sock *)sk;
+> +
+>  	sock_hold(asoc->base.sk);
+> +	sctp_endpoint_hold(asoc->ep);
+>  
+>  	/* Initialize the common base substructure.  */
+>  	asoc->base.type = SCTP_EP_TYPE_ASSOCIATION;
 
-On 05/31/2013 10:42 AM, David Miller wrote:
-> From: Cong Wang <xiyou.wangcong@gmail.com>
-> Date: Fri, 31 May 2013 11:23:11 +0800
->=20
->> On Fri, May 31, 2013 at 9:27 AM, Matthias Schiffer
->> <mschiffer@universe-factory.net> wrote:
->>> Since some refactoring in 5f5a011, ndisc_send_redirect called
->>> ndisc_fill_redirect_hdr_option on the wrong skb, leading to data corr=
-uption or
->>> in the worst case a panic when the skb_put failed.
->>>
->>> Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
->>
->>
->> Good catch!
->>
->> Reviewed-by: Cong Wang <xiyou.wangcong@gmail.com>
->=20
-> I've queued this up for -stable.
->=20
+This looks good, but you may want to instead reverse the order in which we do
+the puts at fail_init, as other call sites that hold both endpoint socket do so
+in endpoint, sock order, and it would probably be nice to be consistent in that
+order.
 
-I saw that this was marked as 'not applicable' in the patchwork - it
-should still be applied to the net tree though. I hope my patch tag
-'net/3.9' didn't cause any confusion, I meant net *and* 3.9.
+Neil
 
-
-------enig2MFPEVCVABNCPCGVIDOJI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlGxvWQACgkQq3qIxbiQM9jQDQCeOhCY5fZEloQgamjoNpkEh2L5
-tdkAn1Wk+/FLQBrDZ4wrVzPnieLb/LZ8
-=Eii2
------END PGP SIGNATURE-----
-
-------enig2MFPEVCVABNCPCGVIDOJI--
+> -- 
+> 1.7.11.7
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
