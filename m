@@ -1,86 +1,203 @@
-From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
-Subject: Re: NULL pointer dereference when loading the gre module (3.10.0-rc4)
-Date: Fri, 7 Jun 2013 17:46:35 +0200
-Message-ID: <20130607154634.GA7529@uio.no>
-References: <20130606221656.GA11475@uio.no>
- <20130607030648.GA28618@home.goodmis.org>
- <20130607085421.GF15083@uio.no>
- <1370612441.24311.411.camel@edumazet-glaptop>
- <1370618100.9844.73.camel@gandalf.local.home>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] igmp: hash a hash table to speedup
+ ip_check_mc_rcu()
+Date: Fri, 07 Jun 2013 08:48:57 -0700
+Message-ID: <1370620137.24311.433.camel@edumazet-glaptop>
+References: <20130605175724.GA2576@sbohrermbp13-local.rgmadvisors.com>
+	 <1370455997.24311.290.camel@edumazet-glaptop>
+	 <20130605203253.GB2576@sbohrermbp13-local.rgmadvisors.com>
+	 <1370465535.24311.304.camel@edumazet-glaptop>
+	 <1370565301.24311.396.camel@edumazet-glaptop>
+	 <20130607144833.GB2995@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1370618100.9844.73.camel@gandalf.local.home>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:46670 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753958Ab3FGPtA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 11:49:00 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bi5so2663130pad.4
+        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 08:49:00 -0700 (PDT)
+In-Reply-To: <20130607144833.GB2995@sbohrermbp13-local.rgmadvisors.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 07, 2013 at 11:15:00AM -0400, Steven Rostedt wrote:
-> net: Remove __net_init/exit from exported functions
-> 
-> If CONFIG_NET_NS is not set then __net_init is the same as __init and
-> __net_exit is the same as __exit. These functions will be removed from
-> memory after the module loads or is removed. Functions that are exported
-> for use by other functions should never be labeled for removal.
+From: Eric Dumazet <edumazet@google.com>
 
-That didn't help much, I'm afraid:
+After IP route cache removal, multicast applications using
+a lot of multicast addresses hit a O(N) behavior in ip_check_mc_rcu()
 
-[   18.005451] BUG: unable to handle kernel NULL pointer dereference at 0000000000000003
-[   18.013853] IP: [<ffffffffa0e76002>] 0xffffffffa0e76001
-[   18.019380] PGD 0 
-[   18.021695] Oops: 0000 [#1] SMP 
-[   18.025285] Modules linked in: ip_gre(+) gre ip_tunnel psmouse ide_generic ide_gd_mod ide_cd_mod cdrom acpi_cpufreq mperf coretemp kvm_intel kvm iTCO_wdt iTCO_vendor_support lpc_ich microcode mfd_core i2c_i801 pcspkr i2c_core ehci_pci evbug evdev ext4 crc16 jbd2 mbcache dm_mod raid456 async_raid6_recov async_memcpy async_pq async_xor async_tx xor raid6_pq raid1 md_mod sg sd_mod usbhid ide_pci_generic ide_core crc32c_intel e1000e ata_piix ptp pps_core uhci_hcd ehci_hcd mpt2sas raid_class unix
-[   18.073543] CPU: 0 PID: 3263 Comm: modprobe Not tainted 3.10.0-rc4 #2
-[   18.080237] Hardware name: Supermicro X8DTL/X8DTL, BIOS 2.1a       12/30/2011
-[   18.087634] task: ffff88061ecfad60 ti: ffff8806212f0000 task.ti: ffff8806212f0000
-[   18.095571] RIP: 0010:[<ffffffffa0e76002>]  [<ffffffffa0e76002>] 0xffffffffa0e76001
-[   18.103745] RSP: 0018:ffff8806212f1ca8  EFLAGS: 00010246
-[   18.109301] RAX: ffffffffa0e81000 RBX: ffff880623ebe280 RCX: 0000000000000000
-[   18.116682] RDX: ffffffffa0e7ea40 RSI: 0000000000000003 RDI: ffffffffa0e81018
-[   18.124063] RBP: ffff8806212f1ca8 R08: 0000000000000cf8 R09: ffffffff812bae96
-[   18.131441] R10: ffffea0018852c00 R11: 0000000000000000 R12: ffff880621678290
-[   18.138829] R13: ffffffffa0e7e9c0 R14: ffff8806212f1ef8 R15: 0000000000000002
-[   18.146210] FS:  00007f2e37fd1700(0000) GS:ffff880627200000(0000) knlGS:0000000000000000
-[   18.154747] CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-[   18.160742] CR2: 0000000000000003 CR3: 0000000622a5e000 CR4: 00000000000007f0
-[   18.168131] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-[   18.175510] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-[   18.182890] Stack:
-[   18.185143]  ffff8806212f1cf8 ffffffff812baf26 2222222222222222 2222222222222222
-[   18.193235]  2222222222222222 ffffffffa0e7e9c0 0000000000000000 0000000000000000
-[   18.201313]  ffff8806212f1ef8 ffffffffa0e7eb60 ffff8806212f1d28 ffffffff812bafb6
-[   18.209389] Call Trace:
-[   18.212084]  [<ffffffff812baf26>] ops_init.constprop.7+0xc6/0xf5
-[   18.218339]  [<ffffffff812bafb6>] register_pernet_operations.isra.4+0x61/0x91
-[   18.225720]  [<ffffffff8138486f>] ? mutex_lock+0xf/0x20
-[   18.231189]  [<ffffffff812bb006>] register_pernet_device+0x20/0x51
-[   18.237621]  [<ffffffffa0e81034>] ? ipgre_tap_init_net+0x1a/0x1a [ip_gre]
-[   18.244661]  [<ffffffffa0e81055>] ipgre_init+0x21/0xc9 [ip_gre]
-[   18.250831]  [<ffffffffa0e81034>] ? ipgre_tap_init_net+0x1a/0x1a [ip_gre]
-[   18.257866]  [<ffffffff81000263>] do_one_initcall+0x7b/0x10c
-[   18.263780]  [<ffffffff8107e5db>] load_module+0x1b1f/0x1e19
-[   18.269594]  [<ffffffff8107a4f8>] ? sys_getegid16+0x44/0x44
-[   18.275416]  [<ffffffff81386cf2>] ? page_fault+0x22/0x30
-[   18.280972]  [<ffffffff8107e969>] SyS_init_module+0x94/0xa1
-[   18.286795]  [<ffffffff8138cf12>] system_call_fastpath+0x16/0x1b
-[   18.293051] Code: <6e> 65 77 6c 69 6e 6b 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
-[   18.302807] RIP  [<ffffffffa0e76002>] 0xffffffffa0e76001
-[   18.308429]  RSP <ffff8806212f1ca8>
-[   18.312163] CR2: 0000000000000003
-[   18.316021] ---[ end trace 839c6b43b00f02f5 ]---
+Add a per in_device hash table to get faster lookup.
 
-and still:
+This hash table is created only if the number of items in mc_list is
+above 4.
 
-Ffffffffa0e76000 u ip_tunnel_init_net   [ip_gre]
+Reported-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+Shawn, this is a different version from the v0.
+so please test it and add your "Tested-by: " if OK, thanks.
 
-I've checked that ip_tunnel.ko and ip_gre.ko was indeed rebuilt (new timestamps),
-and that my patching (I had to resolve manually due to fuzz) really removed __net_init.
+ include/linux/igmp.h       |    1 
+ include/linux/inetdevice.h |    5 ++
+ net/ipv4/devinet.c         |    1 
+ net/ipv4/igmp.c            |   73 +++++++++++++++++++++++++++++++++--
+ 4 files changed, 77 insertions(+), 3 deletions(-)
 
-/* Steinar */
--- 
-Homepage: http://www.sesse.net/
+diff --git a/include/linux/igmp.h b/include/linux/igmp.h
+index 7f2bf15..e3362b5 100644
+--- a/include/linux/igmp.h
++++ b/include/linux/igmp.h
+@@ -84,6 +84,7 @@ struct ip_mc_list {
+ 		struct ip_mc_list *next;
+ 		struct ip_mc_list __rcu *next_rcu;
+ 	};
++	struct ip_mc_list __rcu *next_hash;
+ 	struct timer_list	timer;
+ 	int			users;
+ 	atomic_t		refcnt;
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index ea1e3b8..b99cd23 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -50,12 +50,17 @@ struct ipv4_devconf {
+ 	DECLARE_BITMAP(state, IPV4_DEVCONF_MAX);
+ };
+ 
++#define MC_HASH_SZ_LOG 9
++
+ struct in_device {
+ 	struct net_device	*dev;
+ 	atomic_t		refcnt;
+ 	int			dead;
+ 	struct in_ifaddr	*ifa_list;	/* IP ifaddr chain		*/
++
+ 	struct ip_mc_list __rcu	*mc_list;	/* IP multicast filter chain    */
++	struct ip_mc_list __rcu	* __rcu *mc_hash;
++
+ 	int			mc_count;	/* Number of installed mcasts	*/
+ 	spinlock_t		mc_tomb_lock;
+ 	struct ip_mc_list	*mc_tomb;
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index b047e2d..3469506 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -215,6 +215,7 @@ void in_dev_finish_destroy(struct in_device *idev)
+ 
+ 	WARN_ON(idev->ifa_list);
+ 	WARN_ON(idev->mc_list);
++	kfree(rcu_dereference_protected(idev->mc_hash, 1));
+ #ifdef NET_REFCNT_DEBUG
+ 	pr_debug("%s: %p=%s\n", __func__, idev, dev ? dev->name : "NIL");
+ #endif
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index 450f625..f72011d 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1217,6 +1217,57 @@ static void igmp_group_added(struct ip_mc_list *im)
+  *	Multicast list managers
+  */
+ 
++static u32 ip_mc_hash(const struct ip_mc_list *im)
++{
++	return hash_32((u32)im->multiaddr, MC_HASH_SZ_LOG);
++}
++
++static void ip_mc_hash_add(struct in_device *in_dev,
++			   struct ip_mc_list *im)
++{
++	struct ip_mc_list __rcu **mc_hash;
++	u32 hash;
++
++	mc_hash = rtnl_dereference(in_dev->mc_hash);
++	if (mc_hash) {
++		hash = ip_mc_hash(im);
++		im->next_hash = rtnl_dereference(mc_hash[hash]);
++		rcu_assign_pointer(mc_hash[hash], im);
++		return;
++	}
++
++	/* do not use a hash table for small number of items */
++	if (in_dev->mc_count < 4)
++		return;
++
++	mc_hash = kzalloc(sizeof(struct ip_mc_list *) << MC_HASH_SZ_LOG,
++			  GFP_KERNEL);
++	if (!mc_hash)
++		return;
++
++	for_each_pmc_rtnl(in_dev, im) {
++		hash = ip_mc_hash(im);
++		im->next_hash = rtnl_dereference(mc_hash[hash]);
++		RCU_INIT_POINTER(mc_hash[hash], im);
++	}
++
++	rcu_assign_pointer(in_dev->mc_hash, mc_hash);
++}
++
++static void ip_mc_hash_remove(struct in_device *in_dev,
++			      struct ip_mc_list *im)
++{
++	struct ip_mc_list __rcu **mc_hash = rtnl_dereference(in_dev->mc_hash);
++	struct ip_mc_list *aux;
++
++	if (!mc_hash)
++		return;
++	mc_hash += ip_mc_hash(im);
++	while ((aux = rtnl_dereference(*mc_hash)) != im)
++		mc_hash = &aux->next_hash;
++	*mc_hash = im->next_hash;
++}
++
+ 
+ /*
+  *	A socket has joined a multicast group on device dev.
+@@ -1258,6 +1309,8 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
+ 	in_dev->mc_count++;
+ 	rcu_assign_pointer(in_dev->mc_list, im);
+ 
++	ip_mc_hash_add(in_dev, im);
++
+ #ifdef CONFIG_IP_MULTICAST
+ 	igmpv3_del_delrec(in_dev, im->multiaddr);
+ #endif
+@@ -1314,6 +1367,7 @@ void ip_mc_dec_group(struct in_device *in_dev, __be32 addr)
+ 	     ip = &i->next_rcu) {
+ 		if (i->multiaddr == addr) {
+ 			if (--i->users == 0) {
++				ip_mc_hash_remove(in_dev, i);
+ 				*ip = i->next_rcu;
+ 				in_dev->mc_count--;
+ 				igmp_group_dropped(i);
+@@ -2321,12 +2375,25 @@ void ip_mc_drop_socket(struct sock *sk)
+ int ip_check_mc_rcu(struct in_device *in_dev, __be32 mc_addr, __be32 src_addr, u16 proto)
+ {
+ 	struct ip_mc_list *im;
++	struct ip_mc_list __rcu **mc_hash;
+ 	struct ip_sf_list *psf;
+ 	int rv = 0;
+ 
+-	for_each_pmc_rcu(in_dev, im) {
+-		if (im->multiaddr == mc_addr)
+-			break;
++	mc_hash = rcu_dereference(in_dev->mc_hash);
++	if (mc_hash) {
++		u32 hash = hash_32((u32)mc_addr, MC_HASH_SZ_LOG);
++
++		for (im = rcu_dereference(mc_hash[hash]);
++		     im != NULL;
++		     im = rcu_dereference(im->next_hash)) {
++			if (im->multiaddr == mc_addr)
++				break;
++		}
++	} else {
++		for_each_pmc_rcu(in_dev, im) {
++			if (im->multiaddr == mc_addr)
++				break;
++		}
+ 	}
+ 	if (im && proto == IPPROTO_IGMP) {
+ 		rv = 1;
