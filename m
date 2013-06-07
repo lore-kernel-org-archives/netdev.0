@@ -1,83 +1,48 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [xfrm?] BUG: unable to handle kernel NULL pointer dereference at
- 00000004
-Date: Fri, 7 Jun 2013 15:32:15 +0800
-Message-ID: <20130607073215.GA13065@localhost>
-References: <20130606125549.GA17577@localhost>
- <20130607070243.GD3109@secunet.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v4 1/5] net: cpsw: enhance pinctrl support
+Date: Fri, 07 Jun 2013 00:42:34 -0700 (PDT)
+Message-ID: <20130607.004234.2007576325541054686.davem@davemloft.net>
+References: <51B0254B.4090304@ti.com>
+	<20130606085049.GL31367@sirena.org.uk>
+	<CACRpkdYxsXZBo1p6EefbE7n6XxYZCGokz-yCq03TTbGavaKEvg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Fan Du <fan.du@windriver.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130607070243.GD3109@secunet.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: broonie@kernel.org, mugunthanvnm@ti.com, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, gururaja.hebbar@ti.com,
+	benoit.cousson@linaro.org, linux-omap@vger.kernel.org
+To: linus.walleij@linaro.org
+Return-path: <linux-omap-owner@vger.kernel.org>
+In-Reply-To: <CACRpkdYxsXZBo1p6EefbE7n6XxYZCGokz-yCq03TTbGavaKEvg@mail.gmail.com>
+Sender: linux-omap-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 07, 2013 at 09:02:43AM +0200, Steffen Klassert wrote:
-> On Thu, Jun 06, 2013 at 08:55:49PM +0800, Fengguang Wu wrote:
-> > Greetings,
-> > 
-> > I got the below dmesg and the first bad commit is
-> > 
-> > commit 4c4d41f200db375b2d2cc6d0a1de0606c8266398
-> > Author: Fan Du <fan.du@windriver.com>
-> > Date:   Thu Jun 6 10:15:54 2013 +0800
-> > 
-> >     xfrm: add LINUX_MIB_XFRMACQUIREERROR statistic counter
-> >     
-> >     When host ping its peer, ICMP echo request packet triggers IPsec
-> >     policy, then host negotiates SA secret with its peer. After IKE
-> >     installed SA for OUT direction, but before SA for IN direction
-> >     installed, host get ICMP echo reply from its peer. At the time
-> >     being, the SA state for IN direction could be XFRM_STATE_ACQ,
-> >     then the received packet will be dropped after adding
-> >     LINUX_MIB_XFRMINSTATEINVALID statistic.
-> >     
-> >     Adding a LINUX_MIB_XFRMACQUIREERROR statistic counter for such
-> >     scenario when SA in larval state is much clearer for user than
-> >     LINUX_MIB_XFRMINSTATEINVALID which indicates the SA is totally
-> >     bad.
-> >     
-> >     Signed-off-by: Fan Du <fan.du@windriver.com>
-> >     Signed-off-by: Steffen Klassert <steffen.klassert@secunet.com>
-> > 
-> > 
-> > [  157.721828] no cont in shutdown!
-> > [  158.779481] floppy0: FDC access conflict!
-> > [  159.555337] BUG: unable to handle kernel NULL pointer dereference at 00000004
-> > [  160.102544] IP: [<c1609ed5>] reset_interrupt+0x85/0x90
-> > [  160.102544] *pde = 00000000 
-> > [  160.102544] Oops: 0000 [#1] PREEMPT SMP 
-> > [  160.102544] CPU: 1 PID: 89 Comm: kworker/u4:1 Not tainted 3.10.0-rc2-00597-g4c4d41f #3
-> > [  160.102544] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-> > [  160.102544] Workqueue: floppy reset_interrupt
-> > [  160.102544] task: c5a5ad00 ti: c5b5c000 task.ti: c5b5c000
-> > [  160.102544] EIP: 0060:[<c1609ed5>] EFLAGS: 00010246 CPU: 1
-> > [  160.102544] EIP is at reset_interrupt+0x85/0x90
-> > [  160.102544] EAX: 00000000 EBX: cbd56600 ECX: c5a5ad00 EDX: 000003f4
-> > [  160.102544] ESI: c1ed0e40 EDI: c5a23200 EBP: c5b5debc ESP: c5b5deac
-> > [  160.102544]  DS: 007b ES: 007b FS: 00d8 GS: 00e0 SS: 0068
-> > [  160.102544] CR0: 8005003b CR2: 00000004 CR3: 02037000 CR4: 00000690
-> > [  160.102544] DR0: 00000000 DR1: 00000000 DR2: 00000000 DR3: 00000000
-> > [  160.102544] DR6: ffff0ff0 DR7: 00000400
-> > [  160.102544] Stack:
-> > [  178.765341] pcd0: Autoprobe failed
-> > [  178.765373] pcd: No CD-ROM drive found
-> > 
-> > Bisect log shows that
-> > - reverting the commit fixes the problem
-> > - linux-next is also impacted
+From: Linus Walleij <linus.walleij@linaro.org>
+Date: Fri, 7 Jun 2013 09:31:58 +0200
+
+> On Thu, Jun 6, 2013 at 10:50 AM, Mark Brown <broonie@kernel.org> wrote:
+>> On Thu, Jun 06, 2013 at 11:29:39AM +0530, Mugunthan V N wrote:
+>>> On 6/6/2013 12:53 AM, Mark Brown wrote:
+>>
+>>> >Linus Walleij posted some patches which factor the state setting code
+>>> >out into generic functions earlier on today - it probably makes sense to
+>>> >pick those up rather than open coding
+>>
+>>> But this can go in as Linus Walleij's patch is not accepted yet.
+>>> Once that is
+>>> accepted and present in net git repo I will submit a separate patch to use
+>>> those APIs from pin ctrl core.
+>>
+>> Linus' change has pretty much gone in already but in any case what would
+>> be sensible here would be to write this in turns of Linus' changes and
+>> then send the patch to him to add to his series so it can go in via the
+>> same route.  One of the major reasons for the patch was that lots of
+>> people were querying the amount of noise caused by this sort of change.
 > 
-> Strange, your config has neither XFRM nor INET enabled. So the code in
-> question should not be compiled into your kernel. Also your backtraces
-> don't show any networking related functions.
+> I agree. We should be able to settle on the new core API quite soon,
+> then I can carry the patch to this driver if you obtain David's ACK.
 
-That's interesting... I'll redo the bisect..
+If you want to merge the direct networking parts of this series into
+another tree, I'm fine with that:
 
-> Fan, can you look into this please?
-
-Thanks,
-Fengguang
+Acked-by: David S. Miller <davem@davemloft.net>
