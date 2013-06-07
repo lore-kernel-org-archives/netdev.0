@@ -1,95 +1,41 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 1/3] net: sctp: let sctp_destroy_sock destroy
- related members
-Date: Fri, 7 Jun 2013 06:54:19 -0400
-Message-ID: <20130607105419.GA3249@hmsreliant.think-freely.org>
-References: <1370594106-25745-1-git-send-email-dborkman@redhat.com>
- <1370594106-25745-2-git-send-email-dborkman@redhat.com>
+From: Qinchuanyu <qinchuanyu@huawei.com>
+Subject: [PATCH] vhost: wake up worker outside spin_lock
+Date: Fri, 7 Jun 2013 10:59:29 +0000
+Message-ID: <5872DA217C2FF7488B20897D84F904E733915759@nkgeml511-mbx.china.huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59797 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752047Ab3FGKy1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 06:54:27 -0400
-Content-Disposition: inline
-In-Reply-To: <1370594106-25745-2-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: " (kvm@vger.kernel.org)" <kvm@vger.kernel.org>,
+	" (netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
+	Heguansen <heguansen@huawei.com>
+To: "mst@redhat.com" <mst@redhat.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Language: zh-CN
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 07, 2013 at 10:35:04AM +0200, Daniel Borkmann wrote:
-> Release socket related data during sctp_destroy_sock() after we
-> called sctp_endpoint_free(), but still before we leave the socket
-> destruction callback. The socket's hmac and bind_hash are only
-> used in socket.c and actually not in endpointola.c, so also let
-> it collect the garbage there, no need to go this detour via
-> endpoints.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  net/sctp/endpointola.c | 7 -------
->  net/sctp/socket.c      | 9 +++++++++
->  2 files changed, 9 insertions(+), 7 deletions(-)
-> 
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index 5fbd7bc..ecfba70 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -248,9 +248,6 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->  {
->  	SCTP_ASSERT(ep->base.dead, "Endpoint is not dead", return);
->  
-> -	/* Free up the HMAC transform. */
-> -	crypto_free_hash(sctp_sk(ep->base.sk)->hmac);
-> -
->  	/* Free the digest buffer */
->  	kfree(ep->digest);
->  
-> @@ -270,10 +267,6 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->  
->  	memset(ep->secret_key, 0, sizeof(ep->secret_key));
->  
-> -	/* Remove and free the port */
-> -	if (sctp_sk(ep->base.sk)->bind_hash)
-> -		sctp_put_port(ep->base.sk);
-> -
->  	/* Give up our hold on the sock. */
->  	if (ep->base.sk)
->  		sock_put(ep->base.sk);
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index f631c5f..3267534 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4007,7 +4007,16 @@ SCTP_STATIC void sctp_destroy_sock(struct sock *sk)
->  		sp->do_auto_asconf = 0;
->  		list_del(&sp->auto_asconf_list);
->  	}
-> +
->  	sctp_endpoint_free(sp->ep);
-> +
-> +	/* Free up the HMAC transform. */
-> +	crypto_free_hash(sp->hmac);
-> +
-> +	/* Remove and free the port */
-> +	if (sp->bind_hash)
-> +		sctp_put_port(sk);
-> +
->  	local_bh_disable();
->  	percpu_counter_dec(&sctp_sockets_allocated);
->  	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
-> -- 
-
-I'm not sure this is safe.  Comment in sk_common_release indicates that the
-network can still find the socket in the receive path.  What if we receive a
-cookie chunk while the socket is being torn down?  We would wind up using the
-hmac to unpack it potentially after you just freed it.  I think you need to wait
-until you drop the last reference to the endpoint, not whenever you destroy the
-local socket.  Note that sctp_endpoint_free doesn't actually free anything, it
-just removes it from the hash list so it can't be found again, and drops a
-refcount.  If a parallel recieve op has already found it, hmac may still be
-used.
-
-Neil
+dGhlIHdha2VfdXBfcHJvY2VzcyBmdW5jIGlzIGluY2x1ZGVkIGJ5IHNwaW5fbG9jay91bmxvY2sg
+aW4gdmhvc3Rfd29ya19xdWV1ZSwNCmJ1dCBpdCBjb3VsZCBiZSBkb25lIG91dHNpZGUgdGhlIHNw
+aW5fbG9jay4gDQpJIGhhdmUgdGVzdCBpdCB3aXRoIGtlcm5lbCAzLjAuMjcgYW5kIGd1ZXN0IHN1
+c2UxMS1zcDIgdXNpbmcgaXBlcmYsIHRoZSBudW0gYXMgYmVsb3cuDQogICAgICAgICAgICAgICAg
+IG9yaWduYWwgICAgICAgICAgICAgICAgICAgbW9kaWZpZWQNCnRocmVhZF9udW0gIHRwKEdicHMp
+ICAgdmhvc3QoJSkgIHwgIHRwKEdicHMpICAgICB2aG9zdCglKQ0KMSAgICAgICAgICAgOS41OSAg
+ICAgICAgIDI4LjgyICAgfCAgICAgIDkuNTkgICAgICAgIDI3LjQ5DQo4ICAgICAgICAgICAgOS42
+MSAgICAgICAgMzIuOTIgICB8ICAgICAgOS42MiAgICAgICAgMjYuNzcNCjY0ICAgICAgICAgICAg
+OS41OCAgICAgICAgNDYuNDggIHwgICAgIDkuNTUgICAgICAgIDM4Ljk5DQoyNTYgICAgICAgICAg
+ICA5LjYgICAgICAgIDYzLjcgICB8ICAgICAgOS42ICAgICAgICAgNTIuNTkNCg0KU2lnbmVkLW9m
+Zi1ieTogQ2h1YW55dSBRaW4gPHFpbmNodWFueXVAaHVhd2VpLmNvbT4NCi0tLQ0KIGRyaXZlcnMv
+dmhvc3Qvdmhvc3QuYyB8ICAgIDUgKysrLS0NCiAxIGZpbGVzIGNoYW5nZWQsIDMgaW5zZXJ0aW9u
+cygrKSwgMiBkZWxldGlvbnMoLSkNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvdmhvc3Qvdmhvc3Qu
+YyBiL2RyaXZlcnMvdmhvc3Qvdmhvc3QuYyBpbmRleCA5NGRiZDI1Li44YmVlMTA5IDEwMDY0NA0K
+LS0tIGEvZHJpdmVycy92aG9zdC92aG9zdC5jDQorKysgYi9kcml2ZXJzL3Zob3N0L3Zob3N0LmMN
+CkBAIC0xNDYsOSArMTQ2LDEwIEBAIHN0YXRpYyBpbmxpbmUgdm9pZCB2aG9zdF93b3JrX3F1ZXVl
+KHN0cnVjdCB2aG9zdF9kZXYgKmRldiwNCiAJaWYgKGxpc3RfZW1wdHkoJndvcmstPm5vZGUpKSB7
+DQogCQlsaXN0X2FkZF90YWlsKCZ3b3JrLT5ub2RlLCAmZGV2LT53b3JrX2xpc3QpOw0KIAkJd29y
+ay0+cXVldWVfc2VxKys7DQorCQlzcGluX3VubG9ja19pcnFyZXN0b3JlKCZkZXYtPndvcmtfbG9j
+aywgZmxhZ3MpOw0KIAkJd2FrZV91cF9wcm9jZXNzKGRldi0+d29ya2VyKTsNCi0JfQ0KLQlzcGlu
+X3VubG9ja19pcnFyZXN0b3JlKCZkZXYtPndvcmtfbG9jaywgZmxhZ3MpOw0KKwl9IGVsc2UNCisJ
+CXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmRldi0+d29ya19sb2NrLCBmbGFncyk7DQogfQ0KIA0K
+IHZvaWQgdmhvc3RfcG9sbF9xdWV1ZShzdHJ1Y3Qgdmhvc3RfcG9sbCAqcG9sbCkNCi0tDQoxLjcu
+My4xLm1zeXNnaXQuMA0K
