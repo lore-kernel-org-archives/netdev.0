@@ -1,69 +1,55 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 3/3] net: sctp: minor: remove variable in
- sctp_init_sock
-Date: Fri, 7 Jun 2013 07:04:24 -0400
-Message-ID: <20130607110424.GC3249@hmsreliant.think-freely.org>
-References: <1370594106-25745-1-git-send-email-dborkman@redhat.com>
- <1370594106-25745-4-git-send-email-dborkman@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next 1/3] net: sctp: let sctp_destroy_sock destroy
+ related members
+Date: Fri, 07 Jun 2013 13:36:04 +0200
+Message-ID: <51B1C5A4.7080906@redhat.com>
+References: <1370594106-25745-1-git-send-email-dborkman@redhat.com> <1370594106-25745-2-git-send-email-dborkman@redhat.com> <20130607105419.GA3249@hmsreliant.think-freely.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59957 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755486Ab3FGLEe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 07:04:34 -0400
-Content-Disposition: inline
-In-Reply-To: <1370594106-25745-4-git-send-email-dborkman@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43057 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751004Ab3FGLgO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jun 2013 07:36:14 -0400
+In-Reply-To: <20130607105419.GA3249@hmsreliant.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 07, 2013 at 10:35:06AM +0200, Daniel Borkmann wrote:
-> It's only used at this one time, so we could remove it as well.
-> This is valid and also makes it more explicit/obvious that in case
-> of error the sp->ep is NULL here, i.e. for the sctp_destroy_sock()
-> check.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On 06/07/2013 12:54 PM, Neil Horman wrote:
+> I'm not sure this is safe.  Comment in sk_common_release indicates that the
+> network can still find the socket in the receive path.  What if we receive a
+> cookie chunk while the socket is being torn down?  We would wind up using the
+> hmac to unpack it potentially after you just freed it.  I think you need to wait
+> until you drop the last reference to the endpoint, not whenever you destroy the
+> local socket.  Note that sctp_endpoint_free doesn't actually free anything, it
+> just removes it from the hash list so it can't be found again, and drops a
+> refcount.  If a parallel recieve op has already found it, hmac may still be
+> used.
 
-> ---
->  net/sctp/socket.c | 6 ++----
->  1 file changed, 2 insertions(+), 4 deletions(-)
-> 
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 3267534..e71d399 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -3862,7 +3862,6 @@ out:
->  SCTP_STATIC int sctp_init_sock(struct sock *sk)
->  {
->  	struct net *net = sock_net(sk);
-> -	struct sctp_endpoint *ep;
->  	struct sctp_sock *sp;
->  
->  	SCTP_DEBUG_PRINTK("sctp_init_sock(sk: %p)\n", sk);
-> @@ -3971,11 +3970,10 @@ SCTP_STATIC int sctp_init_sock(struct sock *sk)
->  	 * change the data structure relationships, this may still
->  	 * be useful for storing pre-connect address information.
->  	 */
-> -	ep = sctp_endpoint_new(sk, GFP_KERNEL);
-> -	if (!ep)
-> +	sp->ep = sctp_endpoint_new(sk, GFP_KERNEL);
-> +	if (!sp->ep)
->  		return -ENOMEM;
->  
-> -	sp->ep = ep;
->  	sp->hmac = NULL;
->  
->  	SCTP_DBG_OBJCNT_INC(sock);
-> -- 
-> 1.7.11.7
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Agreed, you're right, thanks for pointing this out Neil! Is it *always* guaranteed
+that at the time the endpoint is destroyed in a deferred way (e.g. exactly in such
+a scenario you describe), the socket structure is still alive and not yet freed?
+Either the ep->base.sk test in sctp_endpoint_destroy() would then be unnecessary
+or, if necessary, we should move crypto_free_hash() and sctp_put_port() within this
+body since they deref. socket members (but then that memory would be leaked in case
+ep->base.sk is NULL). Probably, it might be best to add sth like this to explicitly
+decouple it from the endpoint, which is then called when all refs are released from
+the socket; then we could call this from __sk_free() via sk->sk_destruct():
+
+static void sctp_sock_destruct(struct sock *sk)
+{
+	struct sctp_sock *sp = sctp_sk(sk);
+
+	inet_sock_destruct(sk);
+
+	/* Free up the HMAC transform. */
+	crypto_free_hash(sp->hmac);
+
+	/* Remove and free the port */
+	if (sp->bind_hash)
+		sctp_put_port(sk);
+}
