@@ -1,38 +1,35 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: tcp: move GRO/GSO functions to
- tcp_offload
-Date: Fri, 07 Jun 2013 08:39:11 -0700
-Message-ID: <1370619551.24311.426.camel@edumazet-glaptop>
-References: <1370617906-4849-1-git-send-email-dborkman@redhat.com>
-	 <1370617906-4849-2-git-send-email-dborkman@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH v2] ethernet/arc/arc_emac - Add new driver
+Date: Fri, 7 Jun 2013 17:39:43 +0200
+Message-ID: <201306071739.44177.arnd@arndb.de>
+References: <1370617656-18349-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f51.google.com ([209.85.160.51]:45644 "EHLO
-	mail-pb0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754584Ab3FGPjN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 11:39:13 -0400
-Received: by mail-pb0-f51.google.com with SMTP id um15so4793027pbc.24
-        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 08:39:13 -0700 (PDT)
-In-Reply-To: <1370617906-4849-2-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Mischa Jonker <Mischa.Jonker@synopsys.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1370617656-18349-1-git-send-email-abrodkin@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-06-07 at 17:11 +0200, Daniel Borkmann wrote:
-> Would be good to make things explicit and move those functions to
-> a new file called tcp_offload.c, thus make this similar to tcpv6_offload.c.
-> While moving all related functions into tcp_offload.c, we can also
-> make some of them static, since they are only used there. Also, add
-> an explicit registration function.
+On Friday 07 June 2013, Alexey Brodkin wrote:
+> Driver for non-standard on-chip ethernet device ARC EMAC 10/100,
+> instantiated in some legacy ARC (Synopsys) FPGA Boards such as
+> ARCAngel4/ML50x.
 > 
-> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  I'll also follow-up with a udp_offload.c very soon after we agreed on this one.
+> This is based off of current Linus tree, build tested for x86.
+> 
+> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+> Reviewed-by: Vineet Gupta <vgupta@synopsys.com>
+> Reviewed-by: Mischa Jonker <mjonker@synopsys.com>
+> 
 
-LGTM, thanks !
-
-Acked-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Arnd Bergmann <arnd@arndb.de>
