@@ -1,134 +1,143 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH 2/2] bonding: fix igmp_retrans type and two related races
-Date: Fri, 07 Jun 2013 11:37:30 +0200
-Message-ID: <51B1A9DA.9020600@redhat.com>
-References: <1370519702-18581-1-git-send-email-nikolay@redhat.com> <1370519702-18581-3-git-send-email-nikolay@redhat.com> <4475.1370566850@death.nxdomain>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: Re: [PATCH] ethernet/arc/arc_emac - Add new driver
+Date: Fri, 7 Jun 2013 10:42:28 +0000
+Message-ID: <4881796E12491D4BB15146FE0209CE643F5C77EC@DE02WEMBXB.internal.synopsys.com>
+References: <1370348510-23754-1-git-send-email-abrodkin@synopsys.com>
+ <1505761.5DsauZd6eq@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net
-To: Jay Vosburgh <fubar@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47136 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751694Ab3FGJho (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jun 2013 05:37:44 -0400
-In-Reply-To: <4475.1370566850@death.nxdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	"Mischa Jonker" <Mischa.Jonker@synopsys.com>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/06/13 03:00, Jay Vosburgh wrote:
-> nikolay@redhat.com wrote:
-> 
->> From: Nikolay Aleksandrov <nikolay@redhat.com>
->>
->> First the type of igmp_retrans (which is the actual counter of
->> igmp_resend parameter) is changed to u8 to be able to store values up
->> to 255 (as per documentation). There are two races that were hidden
->> there and which are easy to trigger after the previous fix, the first is
->> between bond_resend_igmp_join_requests and bond_change_active_slave
->> where igmp_retrans is set and can be altered by the periodic. The second
->> race condition is between multiple running instances of the periodic
->> (upon execution it can be scheduled again for immediate execution which
->> can cause the counter to go < 0 which in the unsigned case leads to
->> unnecessary igmp retransmissions).
->> Since in bond_change_active_slave bond->lock is held for reading and
->> curr_slave_lock for writing, we use curr_slave_lock for mutual
->> exclusion. We can't drop them as there're cases where RTNL is not held
->> when bond_change_active_slave is called. RCU is unlocked in
->> bond_resend_igmp_join_requests before getting curr_slave_lock since we
->> don't need it there and it's pointless to delay.
-> 
-> 	My first thought is that it would be much simpler to change the
-> limit in the documentation and code from 255 to 127 and be done with it.
-> I'm skeptical that anybody uses values for igmp_retrans even as high as
-> 10, much less 100 (which would take 20 seconds to complete at 5 per
-> second).
-> 
-> 	That said, this is technically correct, although I have one
-> question, below.
-> 
-Yes, I was thinking the same thing at first and even discussed it with
-Andy. Although the race between bond_resend_igmp_join_requests and
-bond_change_active_slave will still be valid.
+On 06/07/2013 12:47 PM, Arnd Bergmann wrote:
+> On Tuesday 04 June 2013 16:21:50 Alexey Brodkin wrote:
+>
+>>   drivers/net/ethernet/Kconfig             |    1 +
+>>   drivers/net/ethernet/Makefile            |    1 +
+>>   drivers/net/ethernet/arc/Kconfig         |   29 +
+>>   drivers/net/ethernet/arc/Makefile        |    6 +
+>>   drivers/net/ethernet/arc/arc_emac_main.c |  905 ++++++++++++++++++++++++++++++
+>>   drivers/net/ethernet/arc/arc_emac_main.h |   82 +++
+>>   drivers/net/ethernet/arc/arc_emac_mdio.c |  181 ++++++
+>>   drivers/net/ethernet/arc/arc_emac_mdio.h |   22 +
+>>   drivers/net/ethernet/arc/arc_emac_regs.h |   73 +++
+>
+> I wonder if it would be better to name the directory "synopsys" or
+> "designware" rather than "arc" now. Is there a chance that the same
+> controller is used on non-arc CPUs?
 
->> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->> ---
->> drivers/net/bonding/bond_main.c | 15 +++++++++++----
->> drivers/net/bonding/bonding.h   |  2 +-
->> 2 files changed, 12 insertions(+), 5 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 473633a..02d9ae7 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -764,8 +764,8 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
->> 	struct net_device *bond_dev, *vlan_dev, *upper_dev;
->> 	struct vlan_entry *vlan;
->>
->> -	rcu_read_lock();
->> 	read_lock(&bond->lock);
->> +	rcu_read_lock();
->>
->> 	bond_dev = bond->dev;
->>
->> @@ -787,12 +787,19 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
->> 		if (vlan_dev)
->> 			__bond_resend_igmp_join_requests(vlan_dev);
->> 	}
->> +	rcu_read_unlock();
->>
->> -	if (--bond->igmp_retrans > 0)
->> +	/* We use curr_slave_lock to protect against concurrent access to
->> +	 * igmp_retrans from multiple running instances of this function and
->> +	 * bond_change_active_slave
->> +	 */
->> +	write_lock_bh(&bond->curr_slave_lock);
->> +	if (bond->igmp_retrans > 1) {
->> +		bond->igmp_retrans--;
->> 		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
-> 
-> 	Why split out the -- from the comparison?
-> 
-> 	-J
-This one was very tricky, because we can have more than 2 instances
-running concurrently and if we unconditionally decrement the value it
-can still drop < 0. Example with 3 instances running and igmp_retrans ==
-1 (with check bond->igmp_retrans-- > 1):
-f1 passes, doesn't re-schedule, but decrements - igmp_retrans = 0
-f2 then passes, doesn't re-schedule, but decrements - igmp_retrans = 255
-f3 does the unnecessary retransmissions.
+The thing is - "arc_emac" is a custom ARC's (that was implemented before 
+acquisition of ARC by Synopsys) IP (it's not an IC - just a part of CPU) 
+Ethernet controller that only exists in some legacy FPGA boards we 
+(ex-ARC and our customers) still use a lot in development process.
 
-I also have an interesting solution with cmpxchg without curr_slave_lock
-but this is more straightforward and since this is not a fast path I
-think it's preferrable.
+Synopsys itself doesn't actively sell this device so there's no point in 
+putting ARC EMAC into Synopsys folder.
 
-Nik
->> -
+And indeed we don't expect this device to be used with non-ARC CPU's.
+
+I didn't add dependency on ARC in Kconfig just because I wanted to leave 
+an ability to build this driver on x86 machine. I thought this is 
+important requirement - allow anybody to at least build this driver to 
+make sure it builds and doesn't cause tons of warnings to appear.
+
+If it's totally fine to add dependency on ARC - then it would be even 
+easier for me - refer to the next block of comments.
+
+>> +static int arc_emac_probe(struct platform_device *pdev)
+>> +{
+>> +	struct net_device *net_dev;
+>> +	struct arc_emac_priv *priv;
+>> +	int err;
+>> +	unsigned int clock_frequency;
+>> +	unsigned int id;
+>> +	struct resource res_regs;
+>> +#ifdef CONFIG_OF_IRQ
+>> +	struct resource res_irq;
+>> +#endif
+>> +	const char *mac_addr = NULL;
+>
+> Please remove the #ifdef here. The driver does not work without this
+> anyway, so better make it 'depend on OF_IRQ' in Kconfig.
+
+As stated above I wanted to make it possible to compile on x86.
+And for this I needed to:
+1. Add explicit mentions of "linux/platform_device.h" because with 
+existence of OF "linux/of_platform.h" has "linux/platform_device.h" 
+included internally.
+2. Enclose "of_irq_to_resource" and "of_get_mac_address" in ifdefs 
+because neither of them has a stub for non-OF situation.
+
+So if I may depend on ARC then I'm sure OF is selected and no need to worry.
+Otherwise do I need to add stubs for "of_irq_to_resource" and 
+"of_get_mac_address" somewhere in "of/of_xxx.h"?
+
+>
+>> +	/* Get phy from device tree */
+>> +	priv->phy_node = of_parse_phandle(pdev->dev.of_node, "phy", 0);
+>> +	if (!priv->phy_node) {
+>> +		dev_err(&pdev->dev,
+>> +			"failed to retrieve phy description from device tree\n");
+>> +		err = -ENODEV;
+>> +		goto out;
 >> +	}
->> +	write_unlock_bh(&bond->curr_slave_lock);
->> 	read_unlock(&bond->lock);
->> -	rcu_read_unlock();
->> }
->>
->> static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
->> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->> index 2baec24..f989e15 100644
->> --- a/drivers/net/bonding/bonding.h
->> +++ b/drivers/net/bonding/bonding.h
->> @@ -225,7 +225,7 @@ struct bonding {
->> 	rwlock_t curr_slave_lock;
->> 	u8	 send_peer_notif;
->> 	s8	 setup_by_slave;
->> -	s8       igmp_retrans;
->> +	u8       igmp_retrans;
->> #ifdef CONFIG_PROC_FS
->> 	struct   proc_dir_entry *proc_entry;
->> 	char     proc_file_name[IFNAMSIZ];
->> -- 
->> 1.8.1.4
->>
-> 
-> ---
-> 	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-> 
+>
+> You should add a binding document in Documentation/devicetree/bindings that
+> describes what properties are required.
+
+Will do.
+
+>
+>> +	/* Get EMAC registers base address from device tree */
+>> +	err = of_address_to_resource(pdev->dev.of_node, 0, &res_regs);
+>> +	if (err) {
+>> +		dev_err(&pdev->dev,
+>> +			"failed to retrieve base register from device tree\n");
+>> +		err = -ENODEV;
+>> +		goto out;
+>> +	}
+>> +
+>> +	if (!devm_request_mem_region(&pdev->dev, res_regs.start,
+>> +			resource_size(&res_regs), pdev->name)) {
+>> +		dev_err(&pdev->dev,
+>> +			"failed to request memory region for base registers\n");
+>> +		err = -ENXIO;
+>> +		goto out;
+>> +	}
+>> +
+>> +	priv->reg_base_addr = (void *) devm_ioremap_nocache(&pdev->dev,
+>> +			res_regs.start, resource_size(&res_regs));
+>> +	if (!priv->reg_base_addr) {
+>> +		dev_err(&pdev->dev, "failed to ioremap MAC registers\n");
+>> +		err = -ENXIO;
+>> +		goto out;
+>> +	}
+>
+> This block can be simplified to a single devm_ioremap_resource() now.
+
+Thanks for pointing-out. Definitely will make code even simpler.
+
+>
+> The cast to 'void *' is wrong: please make sure that you always use '__iomem'
+> pointers for MMIO mappings. You can use 'sparse' with 'make C=1' to check this
+> at build time.
+
+Makes sense.
+
+Regards,
+Alexey
