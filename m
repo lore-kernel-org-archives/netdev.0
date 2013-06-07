@@ -1,54 +1,55 @@
 From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: Re: [PATCH net-next] igmp: hash a hash table to speedup
- ip_check_mc_rcu()
-Date: Fri, 7 Jun 2013 12:33:19 -0500
-Message-ID: <20130607173319.GC2995@sbohrermbp13-local.rgmadvisors.com>
-References: <20130605175724.GA2576@sbohrermbp13-local.rgmadvisors.com>
- <1370455997.24311.290.camel@edumazet-glaptop>
- <20130605203253.GB2576@sbohrermbp13-local.rgmadvisors.com>
- <1370465535.24311.304.camel@edumazet-glaptop>
- <1370565301.24311.396.camel@edumazet-glaptop>
- <20130607144833.GB2995@sbohrermbp13-local.rgmadvisors.com>
- <1370620137.24311.433.camel@edumazet-glaptop>
+Subject: [PATCH net-next] igmp: remove unnecessary in_device member zeroing
+Date: Fri,  7 Jun 2013 12:34:43 -0500
+Message-ID: <1370626483-23776-1-git-send-email-sbohrer@rgmadvisors.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: davem@davemloft.net, Shawn Bohrer <sbohrer@rgmadvisors.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:40619 "EHLO
-	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754981Ab3FGRdX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 13:33:23 -0400
-Received: by mail-ob0-f180.google.com with SMTP id eh20so7061916obb.11
-        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 10:33:22 -0700 (PDT)
-In-Reply-To: <1370620137.24311.433.camel@edumazet-glaptop>
-Content-Disposition: inline
+Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:44253 "EHLO
+	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755868Ab3FGRfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 13:35:25 -0400
+Received: by mail-ob0-f172.google.com with SMTP id wo10so6998593obc.17
+        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 10:35:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 07, 2013 at 08:48:57AM -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> After IP route cache removal, multicast applications using
-> a lot of multicast addresses hit a O(N) behavior in ip_check_mc_rcu()
-> 
-> Add a per in_device hash table to get faster lookup.
-> 
-> This hash table is created only if the number of items in mc_list is
-> above 4.
-> 
-> Reported-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
-> Shawn, this is a different version from the v0.
-> so please test it and add your "Tested-by: " if OK, thanks.
+ip_mc_init_dev() is passed a freshly kzalloc'd in_device so it is
+unnecessary to explicitly zero out the members.
 
-Patch works great thanks!
+Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+---
+P.S. If explicitly zeroing these members is desired there is still a bug
+initializing in_dev->mc_count inside of the #ifdef CONFIG_IP_MULTICAST.
+In practice it never matters because as I pointed out mc_count is
+already initialized to zero.
 
-Tested-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+ net/ipv4/igmp.c |    4 ----
+ 1 files changed, 0 insertions(+), 4 deletions(-)
 
---
-Shawn
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index d8c2327..a883151 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1381,13 +1381,9 @@ void ip_mc_init_dev(struct in_device *in_dev)
+ {
+ 	ASSERT_RTNL();
+ 
+-	in_dev->mc_tomb = NULL;
+ #ifdef CONFIG_IP_MULTICAST
+-	in_dev->mr_gq_running = 0;
+ 	setup_timer(&in_dev->mr_gq_timer, igmp_gq_timer_expire,
+ 			(unsigned long)in_dev);
+-	in_dev->mr_ifc_count = 0;
+-	in_dev->mc_count     = 0;
+ 	setup_timer(&in_dev->mr_ifc_timer, igmp_ifc_timer_expire,
+ 			(unsigned long)in_dev);
+ 	in_dev->mr_qrv = IGMP_Unsolicited_Report_Count;
+-- 
+1.7.7.6
+
 
 -- 
 
