@@ -1,143 +1,95 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: [PATCH] ethernet/arc/arc_emac - Add new driver
-Date: Fri, 7 Jun 2013 10:42:28 +0000
-Message-ID: <4881796E12491D4BB15146FE0209CE643F5C77EC@DE02WEMBXB.internal.synopsys.com>
-References: <1370348510-23754-1-git-send-email-abrodkin@synopsys.com>
- <1505761.5DsauZd6eq@wuerfel>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 1/3] net: sctp: let sctp_destroy_sock destroy
+ related members
+Date: Fri, 7 Jun 2013 06:54:19 -0400
+Message-ID: <20130607105419.GA3249@hmsreliant.think-freely.org>
+References: <1370594106-25745-1-git-send-email-dborkman@redhat.com>
+ <1370594106-25745-2-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	"Mischa Jonker" <Mischa.Jonker@synopsys.com>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59797 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752047Ab3FGKy1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 06:54:27 -0400
+Content-Disposition: inline
+In-Reply-To: <1370594106-25745-2-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/07/2013 12:47 PM, Arnd Bergmann wrote:
-> On Tuesday 04 June 2013 16:21:50 Alexey Brodkin wrote:
->
->>   drivers/net/ethernet/Kconfig             |    1 +
->>   drivers/net/ethernet/Makefile            |    1 +
->>   drivers/net/ethernet/arc/Kconfig         |   29 +
->>   drivers/net/ethernet/arc/Makefile        |    6 +
->>   drivers/net/ethernet/arc/arc_emac_main.c |  905 ++++++++++++++++++++++++++++++
->>   drivers/net/ethernet/arc/arc_emac_main.h |   82 +++
->>   drivers/net/ethernet/arc/arc_emac_mdio.c |  181 ++++++
->>   drivers/net/ethernet/arc/arc_emac_mdio.h |   22 +
->>   drivers/net/ethernet/arc/arc_emac_regs.h |   73 +++
->
-> I wonder if it would be better to name the directory "synopsys" or
-> "designware" rather than "arc" now. Is there a chance that the same
-> controller is used on non-arc CPUs?
+On Fri, Jun 07, 2013 at 10:35:04AM +0200, Daniel Borkmann wrote:
+> Release socket related data during sctp_destroy_sock() after we
+> called sctp_endpoint_free(), but still before we leave the socket
+> destruction callback. The socket's hmac and bind_hash are only
+> used in socket.c and actually not in endpointola.c, so also let
+> it collect the garbage there, no need to go this detour via
+> endpoints.
+> 
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  net/sctp/endpointola.c | 7 -------
+>  net/sctp/socket.c      | 9 +++++++++
+>  2 files changed, 9 insertions(+), 7 deletions(-)
+> 
+> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
+> index 5fbd7bc..ecfba70 100644
+> --- a/net/sctp/endpointola.c
+> +++ b/net/sctp/endpointola.c
+> @@ -248,9 +248,6 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
+>  {
+>  	SCTP_ASSERT(ep->base.dead, "Endpoint is not dead", return);
+>  
+> -	/* Free up the HMAC transform. */
+> -	crypto_free_hash(sctp_sk(ep->base.sk)->hmac);
+> -
+>  	/* Free the digest buffer */
+>  	kfree(ep->digest);
+>  
+> @@ -270,10 +267,6 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
+>  
+>  	memset(ep->secret_key, 0, sizeof(ep->secret_key));
+>  
+> -	/* Remove and free the port */
+> -	if (sctp_sk(ep->base.sk)->bind_hash)
+> -		sctp_put_port(ep->base.sk);
+> -
+>  	/* Give up our hold on the sock. */
+>  	if (ep->base.sk)
+>  		sock_put(ep->base.sk);
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index f631c5f..3267534 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4007,7 +4007,16 @@ SCTP_STATIC void sctp_destroy_sock(struct sock *sk)
+>  		sp->do_auto_asconf = 0;
+>  		list_del(&sp->auto_asconf_list);
+>  	}
+> +
+>  	sctp_endpoint_free(sp->ep);
+> +
+> +	/* Free up the HMAC transform. */
+> +	crypto_free_hash(sp->hmac);
+> +
+> +	/* Remove and free the port */
+> +	if (sp->bind_hash)
+> +		sctp_put_port(sk);
+> +
+>  	local_bh_disable();
+>  	percpu_counter_dec(&sctp_sockets_allocated);
+>  	sock_prot_inuse_add(sock_net(sk), sk->sk_prot, -1);
+> -- 
 
-The thing is - "arc_emac" is a custom ARC's (that was implemented before 
-acquisition of ARC by Synopsys) IP (it's not an IC - just a part of CPU) 
-Ethernet controller that only exists in some legacy FPGA boards we 
-(ex-ARC and our customers) still use a lot in development process.
+I'm not sure this is safe.  Comment in sk_common_release indicates that the
+network can still find the socket in the receive path.  What if we receive a
+cookie chunk while the socket is being torn down?  We would wind up using the
+hmac to unpack it potentially after you just freed it.  I think you need to wait
+until you drop the last reference to the endpoint, not whenever you destroy the
+local socket.  Note that sctp_endpoint_free doesn't actually free anything, it
+just removes it from the hash list so it can't be found again, and drops a
+refcount.  If a parallel recieve op has already found it, hmac may still be
+used.
 
-Synopsys itself doesn't actively sell this device so there's no point in 
-putting ARC EMAC into Synopsys folder.
-
-And indeed we don't expect this device to be used with non-ARC CPU's.
-
-I didn't add dependency on ARC in Kconfig just because I wanted to leave 
-an ability to build this driver on x86 machine. I thought this is 
-important requirement - allow anybody to at least build this driver to 
-make sure it builds and doesn't cause tons of warnings to appear.
-
-If it's totally fine to add dependency on ARC - then it would be even 
-easier for me - refer to the next block of comments.
-
->> +static int arc_emac_probe(struct platform_device *pdev)
->> +{
->> +	struct net_device *net_dev;
->> +	struct arc_emac_priv *priv;
->> +	int err;
->> +	unsigned int clock_frequency;
->> +	unsigned int id;
->> +	struct resource res_regs;
->> +#ifdef CONFIG_OF_IRQ
->> +	struct resource res_irq;
->> +#endif
->> +	const char *mac_addr = NULL;
->
-> Please remove the #ifdef here. The driver does not work without this
-> anyway, so better make it 'depend on OF_IRQ' in Kconfig.
-
-As stated above I wanted to make it possible to compile on x86.
-And for this I needed to:
-1. Add explicit mentions of "linux/platform_device.h" because with 
-existence of OF "linux/of_platform.h" has "linux/platform_device.h" 
-included internally.
-2. Enclose "of_irq_to_resource" and "of_get_mac_address" in ifdefs 
-because neither of them has a stub for non-OF situation.
-
-So if I may depend on ARC then I'm sure OF is selected and no need to worry.
-Otherwise do I need to add stubs for "of_irq_to_resource" and 
-"of_get_mac_address" somewhere in "of/of_xxx.h"?
-
->
->> +	/* Get phy from device tree */
->> +	priv->phy_node = of_parse_phandle(pdev->dev.of_node, "phy", 0);
->> +	if (!priv->phy_node) {
->> +		dev_err(&pdev->dev,
->> +			"failed to retrieve phy description from device tree\n");
->> +		err = -ENODEV;
->> +		goto out;
->> +	}
->
-> You should add a binding document in Documentation/devicetree/bindings that
-> describes what properties are required.
-
-Will do.
-
->
->> +	/* Get EMAC registers base address from device tree */
->> +	err = of_address_to_resource(pdev->dev.of_node, 0, &res_regs);
->> +	if (err) {
->> +		dev_err(&pdev->dev,
->> +			"failed to retrieve base register from device tree\n");
->> +		err = -ENODEV;
->> +		goto out;
->> +	}
->> +
->> +	if (!devm_request_mem_region(&pdev->dev, res_regs.start,
->> +			resource_size(&res_regs), pdev->name)) {
->> +		dev_err(&pdev->dev,
->> +			"failed to request memory region for base registers\n");
->> +		err = -ENXIO;
->> +		goto out;
->> +	}
->> +
->> +	priv->reg_base_addr = (void *) devm_ioremap_nocache(&pdev->dev,
->> +			res_regs.start, resource_size(&res_regs));
->> +	if (!priv->reg_base_addr) {
->> +		dev_err(&pdev->dev, "failed to ioremap MAC registers\n");
->> +		err = -ENXIO;
->> +		goto out;
->> +	}
->
-> This block can be simplified to a single devm_ioremap_resource() now.
-
-Thanks for pointing-out. Definitely will make code even simpler.
-
->
-> The cast to 'void *' is wrong: please make sure that you always use '__iomem'
-> pointers for MMIO mappings. You can use 'sparse' with 'make C=1' to check this
-> at build time.
-
-Makes sense.
-
-Regards,
-Alexey
+Neil
