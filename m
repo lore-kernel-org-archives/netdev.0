@@ -1,44 +1,26 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: Re: [patch] ipvs: info leak in __ip_vs_get_dest_entries()
-Date: Fri, 7 Jun 2013 11:33:14 +0300
-Message-ID: <20130607083314.GQ23987@mwanda>
-References: <20130603090049.GA16171@debian>
- <20130604010327.GA23054@verge.net.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Wensong Zhang <wensong@linux-vs.org>, Julian Anastasov <ja@ssi.bg>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	netfilter@vger.kernel.org, coreteam@netfilter.org,
-	kernel-janitors@vger.kernel.org
-To: Simon Horman <horms@verge.net.au>
-Return-path: <netfilter-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130604010327.GA23054@verge.net.au>
-Sender: netfilter-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 0/3] Minor sctp cleanups
+Date: Fri,  7 Jun 2013 10:35:03 +0200
+Message-ID: <1370594106-25745-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41902 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751391Ab3FGIfJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jun 2013 04:35:09 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 03, 2013 at 06:03:27PM -0700, Simon Horman wrote:
-> On Mon, Jun 03, 2013 at 12:00:49PM +0300, Dan Carpenter wrote:
-> > The entry struct has a 2 byte hole after ->port and another 4 byte
-> > hole after ->stats.outpkts.  You must have CAP_NET_ADMIN in your
-> > namespace to hit this information leak.
-> 
-> Hi Dan,
-> 
-> can I verify that it is actually possible to hit this and
-> thus the patch is a -stable candidate?
+Daniel Borkmann (3):
+  net: sctp: let sctp_destroy_sock destroy related members
+  net: sctp: sctp_association_init: hold refs in reverse order
+  net: sctp: minor: remove variable in sctp_init_sock
 
-This is a static checker fix.  To me it seems like it's obviously a
-real info leak.
+ net/sctp/associola.c   |  5 ++---
+ net/sctp/endpointola.c |  7 -------
+ net/sctp/socket.c      | 15 +++++++++++----
+ 3 files changed, 13 insertions(+), 14 deletions(-)
 
-I'm not certain of the impact though.  CLONE_NEWNET requires
-CAP_SYS_ADMIN but on the other hand people are making virtualization
-products where they give everyone their own namespace with admin
-privileges.
-
-regards,
-dan carpenter
+-- 
+1.7.11.7
