@@ -1,48 +1,42 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH net] taging: csr: fix the skb mac header reset
-Date: Fri,  7 Jun 2013 15:19:27 +0800
-Message-ID: <1370589567-24043-1-git-send-email-roy.qing.li@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f171.google.com ([209.85.192.171]:63053 "EHLO
-	mail-pd0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750838Ab3FGHTh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 03:19:37 -0400
-Received: by mail-pd0-f171.google.com with SMTP id y14so1552852pdi.30
-        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 00:19:37 -0700 (PDT)
-Received: from localhost ([1.202.252.122])
-        by mx.google.com with ESMTPSA id vz8sm1813516pac.20.2013.06.07.00.19.33
-        for <netdev@vger.kernel.org>
-        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
-        Fri, 07 Jun 2013 00:19:36 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Qinchuanyu <qinchuanyu@huawei.com>
+Subject: [PATCH] get 2% or more performance improved by reducing spin_lock
+ race
+Date: Fri, 7 Jun 2013 07:31:06 +0000
+Message-ID: <5872DA217C2FF7488B20897D84F904E7339109CE@nkgeml511-mbx.china.huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "rusty@rustcorp.com.au" <rusty@rustcorp.com.au>,
+	" (kvm@vger.kernel.org)" <kvm@vger.kernel.org>,
+	" (netdev@vger.kernel.org)" <netdev@vger.kernel.org>,
+	Heguansen <heguansen@huawei.com>
+To: "mst@redhat.com" <mst@redhat.com>, Jason Wang <jasowang@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Language: zh-CN
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Li RongQing <roy.qing.li@gmail.com> 
-
-mac_header can be offset if NET_SKBUFF_DATA_USES_OFFSET is set, so
-we should call skb_reset_mac_header to reset mac_header.
-
-Or it will not work on net-next since "net: Use 16bits for *_headers
-fields of struct skbuff" commit is introduced.
-
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- drivers/staging/csr/monitor.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/staging/csr/monitor.c b/drivers/staging/csr/monitor.c
-index c8e20e4..e11f6cb 100644
---- a/drivers/staging/csr/monitor.c
-+++ b/drivers/staging/csr/monitor.c
-@@ -188,7 +188,7 @@ netrx_radiotap(unifi_priv_t *priv,
- 
- 
-     skb->dev = dev;
--    skb->mac_header = skb->data;
-+    skb_reset_mac_header(skb);
-     skb->pkt_type = PACKET_OTHERHOST;
-     skb->protocol = __constant_htons(ETH_P_80211_RAW);
-     memset(skb->cb, 0, sizeof(skb->cb));
--- 
-1.7.10.4
+dGhlIHdha2VfdXBfcHJvY2VzcyBmdW5jIGlzIGluY2x1ZGVkIGJ5IHNwaW5fbG9jay91bmxvY2sg
+aW4gdmhvc3Rfd29ya19xdWV1ZSwNCiBidXQgaXQgY291bGQgYmUgZG9uZSBvdXRzaWRlIHRoZSBz
+cGluX2xvY2suIA0KSSBoYXZlIHRlc3QgaXQgd2l0aCBrZXJuZWwgMy4wLjI3IGFuZCBndWVzdCBz
+dXNlMTEtc3AyIHVzaW5nIGlwZXJmLCB0aGUgbnVtIGFzIGJlbG93Lg0KICAgICAgICAgICAgICAg
+ICBvcmlnbmFsICAgICAgICAgICAgICAgICAgIG1vZGlmaWVkDQp0aHJlYWRfbnVtICB0cChHYnBz
+KSAgIHZob3N0KCUpICB8ICB0cChHYnBzKSAgICAgdmhvc3QoJSkNCjEgICAgICAgICAgIDkuNTkg
+ICAgICAgICAyOC44MiAgIHwgICAgICA5LjU5ICAgICAgICAyNy40OQ0KOCAgICAgICAgICAgIDku
+NjEgICAgICAgIDMyLjkyICAgfCAgICAgIDkuNjIgICAgICAgIDI2Ljc3DQo2NCAgICAgICAgICAg
+IDkuNTggICAgICAgIDQ2LjQ4ICB8ICAgICA5LjU1ICAgICAgICAzOC45OQ0KMjU2ICAgICAgICAg
+ICAgOS42ICAgICAgICA2My43ICAgfCAgICAgIDkuNiAgICAgICAgIDUyLjU5DQoNClNpZ25lZC1v
+ZmYtYnk6IENodWFueXUgUWluIDxxaW5jaHVhbnl1QGh1YXdlaS5jb20+DQotLS0NCiBkcml2ZXJz
+L3Zob3N0L3Zob3N0LmMgfCAgICA1ICsrKy0tDQogMSBmaWxlcyBjaGFuZ2VkLCAzIGluc2VydGlv
+bnMoKyksIDIgZGVsZXRpb25zKC0pDQoNCmRpZmYgLS1naXQgYS9kcml2ZXJzL3Zob3N0L3Zob3N0
+LmMgYi9kcml2ZXJzL3Zob3N0L3Zob3N0LmMNCmluZGV4IDk0ZGJkMjUuLjhiZWUxMDkgMTAwNjQ0
+DQotLS0gYS9kcml2ZXJzL3Zob3N0L3Zob3N0LmMNCisrKyBiL2RyaXZlcnMvdmhvc3Qvdmhvc3Qu
+Yw0KQEAgLTE0Niw5ICsxNDYsMTAgQEAgc3RhdGljIGlubGluZSB2b2lkIHZob3N0X3dvcmtfcXVl
+dWUoc3RydWN0IHZob3N0X2RldiAqZGV2LA0KIAlpZiAobGlzdF9lbXB0eSgmd29yay0+bm9kZSkp
+IHsNCiAJCWxpc3RfYWRkX3RhaWwoJndvcmstPm5vZGUsICZkZXYtPndvcmtfbGlzdCk7DQogCQl3
+b3JrLT5xdWV1ZV9zZXErKzsNCisJCXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmRldi0+d29ya19s
+b2NrLCBmbGFncyk7DQogCQl3YWtlX3VwX3Byb2Nlc3MoZGV2LT53b3JrZXIpOw0KLQl9DQotCXNw
+aW5fdW5sb2NrX2lycXJlc3RvcmUoJmRldi0+d29ya19sb2NrLCBmbGFncyk7DQorCX0gZWxzZQ0K
+KwkJc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSgmZGV2LT53b3JrX2xvY2ssIGZsYWdzKTsNCiB9DQog
+DQogdm9pZCB2aG9zdF9wb2xsX3F1ZXVlKHN0cnVjdCB2aG9zdF9wb2xsICpwb2xsKQ0KLS0gDQox
+LjcuMy4xLm1zeXNnaXQuMA0K
