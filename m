@@ -1,60 +1,62 @@
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Subject: [PATCH net-next] igmp: remove unnecessary in_device member zeroing
-Date: Fri,  7 Jun 2013 12:34:43 -0500
-Message-ID: <1370626483-23776-1-git-send-email-sbohrer@rgmadvisors.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: Generic interface to make physical port number used by a netdevice
+ available to user space
+Date: Fri, 07 Jun 2013 10:35:21 -0700
+Message-ID: <51B219D9.2010900@gmail.com>
+References: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>  <20130523093421.3b20a0bd@nehalam.linuxnetplumber.net>  <E31FB011129F30488D5861F383904915210B96144A@BLRX7MCDC201.AMER.DELL.COM>  <20130531121201.GA1311@fedora-17-guest.blr.amer.dell.com>  <51B1F56D.5000007@intel.com> <1370625678.1903.26.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: davem@davemloft.net, Shawn Bohrer <sbohrer@rgmadvisors.com>
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Fastabend <john.r.fastabend@intel.com>,
+	Narendra K <narendra_k@dell.com>, stephen@networkplumber.org,
+	netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:44253 "EHLO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755868Ab3FGRfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 13:35:25 -0400
-Received: by mail-ob0-f172.google.com with SMTP id wo10so6998593obc.17
-        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 10:35:19 -0700 (PDT)
+Received: from mail-ob0-f171.google.com ([209.85.214.171]:51082 "EHLO
+	mail-ob0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755868Ab3FGRfe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 13:35:34 -0400
+Received: by mail-ob0-f171.google.com with SMTP id dn14so6983670obc.30
+        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 10:35:34 -0700 (PDT)
+In-Reply-To: <1370625678.1903.26.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ip_mc_init_dev() is passed a freshly kzalloc'd in_device so it is
-unnecessary to explicitly zero out the members.
+[...]
 
-Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
----
-P.S. If explicitly zeroing these members is desired there is still a bug
-initializing in_dev->mc_count inside of the #ifdef CONFIG_IP_MULTICAST.
-In practice it never matters because as I pointed out mc_count is
-already initialized to zero.
+> Having looked at the qeth driver now, I think the comment in netdevice.h
+> should be changed to state that this is for distinguishing devices that
+> share a link-layer address, and the drivers using it for other purposes
+> should stop doing so (if that doesn't break userland).
+>
 
- net/ipv4/igmp.c |    4 ----
- 1 files changed, 0 insertions(+), 4 deletions(-)
+Agreed, the qeth driver eluded me, its not in ./drivers/net as you
+noted in the other thread.
 
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index d8c2327..a883151 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1381,13 +1381,9 @@ void ip_mc_init_dev(struct in_device *in_dev)
- {
- 	ASSERT_RTNL();
- 
--	in_dev->mc_tomb = NULL;
- #ifdef CONFIG_IP_MULTICAST
--	in_dev->mr_gq_running = 0;
- 	setup_timer(&in_dev->mr_gq_timer, igmp_gq_timer_expire,
- 			(unsigned long)in_dev);
--	in_dev->mr_ifc_count = 0;
--	in_dev->mc_count     = 0;
- 	setup_timer(&in_dev->mr_ifc_timer, igmp_ifc_timer_expire,
- 			(unsigned long)in_dev);
- 	in_dev->mr_qrv = IGMP_Unsolicited_Report_Count;
+> [...]
+>>> 3. Add a new field 'physport' to 'struct net_device' and export it to sysfs.
+>>
+>> Probably not we already have two fields that seem ill-defined no reason
+>> to add another to the confusion. If you absolutely can't make dev_id or
+>> if_port coherent then maybe but I really think one of the above two will
+>> work.
+>
+> I think we should tighten up documentation and implementation of the
+> existing fields, but there is still a need for this new one.
+>
+> One thing that needs to be clearly specified is the scope of the
+> physport identifier - the controller, board, physical machine, ... or
+> universe.  In a VM, controller and board scope are pretty useless as it
+> typically can't tell which devices belong to the same controller or
+> board anyway.  A universally unique identifier is probably not too hard
+> to implement as there is likely to be at least one MAC address
+> permanently assigned to each physical port.
+>
+> Ben.
+>
+
+OK, sounds reasonable to me a new field should work.
+
+
 -- 
-1.7.7.6
-
-
--- 
-
----------------------------------------------------------------
-This email, along with any attachments, is confidential. If you 
-believe you received this message in error, please contact the 
-sender immediately and delete all copies of the message.  
-Thank you.
+John Fastabend         Intel Corporation
