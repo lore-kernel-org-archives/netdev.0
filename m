@@ -1,187 +1,125 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: Performance regression from routing cache removal?
-Date: Thu, 06 Jun 2013 17:35:01 -0700
-Message-ID: <1370565301.24311.396.camel@edumazet-glaptop>
-References: <20130605175724.GA2576@sbohrermbp13-local.rgmadvisors.com>
-	 <1370455997.24311.290.camel@edumazet-glaptop>
-	 <20130605203253.GB2576@sbohrermbp13-local.rgmadvisors.com>
-	 <1370465535.24311.304.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Shawn Bohrer <sbohrer@rgmadvisors.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH 2/2] bonding: fix igmp_retrans type and two related races
+Date: Thu, 06 Jun 2013 18:00:50 -0700
+Message-ID: <4475.1370566850@death.nxdomain>
+References: <1370519702-18581-1-git-send-email-nikolay@redhat.com> <1370519702-18581-3-git-send-email-nikolay@redhat.com>
+Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net
+To: nikolay@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f44.google.com ([209.85.219.44]:56288 "EHLO
-	mail-oa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752521Ab3FGAfH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 6 Jun 2013 20:35:07 -0400
-Received: by mail-oa0-f44.google.com with SMTP id n12so2819215oag.3
-        for <netdev@vger.kernel.org>; Thu, 06 Jun 2013 17:35:06 -0700 (PDT)
-In-Reply-To: <1370465535.24311.304.camel@edumazet-glaptop>
+Received: from e7.ny.us.ibm.com ([32.97.182.137]:40417 "EHLO e7.ny.us.ibm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754365Ab3FGBA4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 6 Jun 2013 21:00:56 -0400
+Received: from /spool/local
+	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
+	Thu, 6 Jun 2013 21:00:55 -0400
+Received: from d01relay04.pok.ibm.com (d01relay04.pok.ibm.com [9.56.227.236])
+	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 4C95EC90042
+	for <netdev@vger.kernel.org>; Thu,  6 Jun 2013 21:00:52 -0400 (EDT)
+Received: from d03av03.boulder.ibm.com (d03av03.boulder.ibm.com [9.17.195.169])
+	by d01relay04.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r5710qRN355632
+	for <netdev@vger.kernel.org>; Thu, 6 Jun 2013 21:00:52 -0400
+Received: from d03av03.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av03.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r5710pYk006020
+	for <netdev@vger.kernel.org>; Thu, 6 Jun 2013 19:00:52 -0600
+In-reply-to: <1370519702-18581-3-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-05 at 13:52 -0700, Eric Dumazet wrote:
+nikolay@redhat.com wrote:
 
-> It can be easily done, with a threshold : 
-> 
-> Above say 4 multicast addresses in the mc_list, allocate a hash table
-> and populate it.
+>From: Nikolay Aleksandrov <nikolay@redhat.com>
+>
+>First the type of igmp_retrans (which is the actual counter of
+>igmp_resend parameter) is changed to u8 to be able to store values up
+>to 255 (as per documentation). There are two races that were hidden
+>there and which are easy to trigger after the previous fix, the first is
+>between bond_resend_igmp_join_requests and bond_change_active_slave
+>where igmp_retrans is set and can be altered by the periodic. The second
+>race condition is between multiple running instances of the periodic
+>(upon execution it can be scheduled again for immediate execution which
+>can cause the counter to go < 0 which in the unsigned case leads to
+>unnecessary igmp retransmissions).
+>Since in bond_change_active_slave bond->lock is held for reading and
+>curr_slave_lock for writing, we use curr_slave_lock for mutual
+>exclusion. We can't drop them as there're cases where RTNL is not held
+>when bond_change_active_slave is called. RCU is unlocked in
+>bond_resend_igmp_join_requests before getting curr_slave_lock since we
+>don't need it there and it's pointless to delay.
 
-Please try the following (untested) patch :
+	My first thought is that it would be much simpler to change the
+limit in the documentation and code from 255 to 127 and be done with it.
+I'm skeptical that anybody uses values for igmp_retrans even as high as
+10, much less 100 (which would take 20 seconds to complete at 5 per
+second).
 
- include/linux/igmp.h       |    1 
- include/linux/inetdevice.h |    5 ++
- net/ipv4/igmp.c            |   73 +++++++++++++++++++++++++++++++++--
- 3 files changed, 76 insertions(+), 3 deletions(-)
+	That said, this is technically correct, although I have one
+question, below.
 
-diff --git a/include/linux/igmp.h b/include/linux/igmp.h
-index 7f2bf15..e3362b5 100644
---- a/include/linux/igmp.h
-+++ b/include/linux/igmp.h
-@@ -84,6 +84,7 @@ struct ip_mc_list {
- 		struct ip_mc_list *next;
- 		struct ip_mc_list __rcu *next_rcu;
- 	};
-+	struct ip_mc_list __rcu *next_hash;
- 	struct timer_list	timer;
- 	int			users;
- 	atomic_t		refcnt;
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index ea1e3b8..b99cd23 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -50,12 +50,17 @@ struct ipv4_devconf {
- 	DECLARE_BITMAP(state, IPV4_DEVCONF_MAX);
- };
- 
-+#define MC_HASH_SZ_LOG 9
-+
- struct in_device {
- 	struct net_device	*dev;
- 	atomic_t		refcnt;
- 	int			dead;
- 	struct in_ifaddr	*ifa_list;	/* IP ifaddr chain		*/
-+
- 	struct ip_mc_list __rcu	*mc_list;	/* IP multicast filter chain    */
-+	struct ip_mc_list __rcu	* __rcu *mc_hash;
-+
- 	int			mc_count;	/* Number of installed mcasts	*/
- 	spinlock_t		mc_tomb_lock;
- 	struct ip_mc_list	*mc_tomb;
-diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
-index 450f625..9c60482 100644
---- a/net/ipv4/igmp.c
-+++ b/net/ipv4/igmp.c
-@@ -1217,6 +1217,56 @@ static void igmp_group_added(struct ip_mc_list *im)
-  *	Multicast list managers
-  */
- 
-+static u32 ip_mc_hash(const struct ip_mc_list *im)
-+{
-+	return hash_32((u32)im->multiaddr, MC_HASH_SZ_LOG);
-+}
-+
-+static void ip_mc_hash_add(struct in_device *in_dev,
-+			   struct ip_mc_list *im)
-+{
-+	struct ip_mc_list __rcu **mc_hash;
-+	u32 hash;
-+
-+	mc_hash = rtnl_dereference(in_dev->mc_hash);
-+	if (mc_hash) {
-+		hash = ip_mc_hash(im);
-+		im->next_hash = rtnl_dereference(mc_hash[hash]);
-+		rcu_assign_pointer(mc_hash[hash], im);
-+	} else if (in_dev->mc_count >= 4) {
-+		mc_hash = kzalloc(sizeof(struct ip_mc_list *) << MC_HASH_SZ_LOG,
-+				  GFP_KERNEL);
-+		if (mc_hash) {
-+			struct ip_mc_list *aux = rtnl_dereference(in_dev->mc_list);
-+
-+			while (aux) {
-+				hash = ip_mc_hash(aux);
-+
-+				aux->next_hash = rcu_dereference_protected(mc_hash[hash], 1);
-+				RCU_INIT_POINTER(mc_hash[hash], aux);
-+				aux = rtnl_dereference(aux->next_rcu);
-+			}
-+			rcu_assign_pointer(in_dev->mc_hash, mc_hash);
-+		}
-+	}
-+}
-+
-+static void ip_mc_hash_remove(struct in_device *in_dev,
-+			      struct ip_mc_list *im)
-+{
-+	struct ip_mc_list __rcu **mc_hash = rtnl_dereference(in_dev->mc_hash);
-+	struct ip_mc_list *aux;
-+	unsigned int hash;
-+
-+	if (!mc_hash)
-+		return;
-+	hash = ip_mc_hash(im);
-+	mc_hash += hash;
-+	while ((aux = rtnl_dereference(*mc_hash)) != im)
-+		mc_hash = &aux->next_hash;
-+	*mc_hash = im->next_hash;
-+}
-+
- 
- /*
-  *	A socket has joined a multicast group on device dev.
-@@ -1258,6 +1308,8 @@ void ip_mc_inc_group(struct in_device *in_dev, __be32 addr)
- 	in_dev->mc_count++;
- 	rcu_assign_pointer(in_dev->mc_list, im);
- 
-+	ip_mc_hash_add(in_dev, im);
-+
- #ifdef CONFIG_IP_MULTICAST
- 	igmpv3_del_delrec(in_dev, im->multiaddr);
- #endif
-@@ -1314,6 +1366,7 @@ void ip_mc_dec_group(struct in_device *in_dev, __be32 addr)
- 	     ip = &i->next_rcu) {
- 		if (i->multiaddr == addr) {
- 			if (--i->users == 0) {
-+				ip_mc_hash_remove(in_dev, i);
- 				*ip = i->next_rcu;
- 				in_dev->mc_count--;
- 				igmp_group_dropped(i);
-@@ -1431,6 +1484,7 @@ void ip_mc_destroy_dev(struct in_device *in_dev)
- 		ip_mc_clear_src(i);
- 		ip_ma_put(i);
- 	}
-+	kfree(in_dev->mc_hash);
- }
- 
- /* RTNL is locked */
-@@ -2321,12 +2375,25 @@ void ip_mc_drop_socket(struct sock *sk)
- int ip_check_mc_rcu(struct in_device *in_dev, __be32 mc_addr, __be32 src_addr, u16 proto)
- {
- 	struct ip_mc_list *im;
-+	struct ip_mc_list __rcu **mc_hash;
- 	struct ip_sf_list *psf;
- 	int rv = 0;
- 
--	for_each_pmc_rcu(in_dev, im) {
--		if (im->multiaddr == mc_addr)
--			break;
-+	mc_hash = rcu_dereference(in_dev->mc_hash);
-+	if (mc_hash) {
-+		u32 hash = hash_32((u32)mc_addr, MC_HASH_SZ_LOG);
-+
-+		for (im = rcu_dereference(mc_hash[hash]);
-+		     im != NULL;
-+		     im = rcu_dereference(im->next_hash)) {
-+			if (im->multiaddr == mc_addr)
-+				break;
-+		}
-+	} else {
-+		for_each_pmc_rcu(in_dev, im) {
-+			if (im->multiaddr == mc_addr)
-+				break;
-+		}
- 	}
- 	if (im && proto == IPPROTO_IGMP) {
- 		rv = 1;
+>Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+>---
+> drivers/net/bonding/bond_main.c | 15 +++++++++++----
+> drivers/net/bonding/bonding.h   |  2 +-
+> 2 files changed, 12 insertions(+), 5 deletions(-)
+>
+>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>index 473633a..02d9ae7 100644
+>--- a/drivers/net/bonding/bond_main.c
+>+++ b/drivers/net/bonding/bond_main.c
+>@@ -764,8 +764,8 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
+> 	struct net_device *bond_dev, *vlan_dev, *upper_dev;
+> 	struct vlan_entry *vlan;
+>
+>-	rcu_read_lock();
+> 	read_lock(&bond->lock);
+>+	rcu_read_lock();
+>
+> 	bond_dev = bond->dev;
+>
+>@@ -787,12 +787,19 @@ static void bond_resend_igmp_join_requests(struct bonding *bond)
+> 		if (vlan_dev)
+> 			__bond_resend_igmp_join_requests(vlan_dev);
+> 	}
+>+	rcu_read_unlock();
+>
+>-	if (--bond->igmp_retrans > 0)
+>+	/* We use curr_slave_lock to protect against concurrent access to
+>+	 * igmp_retrans from multiple running instances of this function and
+>+	 * bond_change_active_slave
+>+	 */
+>+	write_lock_bh(&bond->curr_slave_lock);
+>+	if (bond->igmp_retrans > 1) {
+>+		bond->igmp_retrans--;
+> 		queue_delayed_work(bond->wq, &bond->mcast_work, HZ/5);
+
+	Why split out the -- from the comparison?
+
+	-J
+>-
+>+	}
+>+	write_unlock_bh(&bond->curr_slave_lock);
+> 	read_unlock(&bond->lock);
+>-	rcu_read_unlock();
+> }
+>
+> static void bond_resend_igmp_join_requests_delayed(struct work_struct *work)
+>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+>index 2baec24..f989e15 100644
+>--- a/drivers/net/bonding/bonding.h
+>+++ b/drivers/net/bonding/bonding.h
+>@@ -225,7 +225,7 @@ struct bonding {
+> 	rwlock_t curr_slave_lock;
+> 	u8	 send_peer_notif;
+> 	s8	 setup_by_slave;
+>-	s8       igmp_retrans;
+>+	u8       igmp_retrans;
+> #ifdef CONFIG_PROC_FS
+> 	struct   proc_dir_entry *proc_entry;
+> 	char     proc_file_name[IFNAMSIZ];
+>-- 
+>1.8.1.4
+>
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
