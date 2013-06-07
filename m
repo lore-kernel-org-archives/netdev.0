@@ -1,37 +1,46 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: NULL pointer dereference when loading the gre module
- (3.10.0-rc4)
-Date: Thu, 06 Jun 2013 20:59:48 -0700
-Message-ID: <1370577588.24311.407.camel@edumazet-glaptop>
-References: <20130606221656.GA11475@uio.no>
-	 <20130607030648.GA28618@home.goodmis.org>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: minor: tcp: use tcp_skb_mss helper in tcp_tso_segment
+Date: Fri, 07 Jun 2013 07:43:18 +0200
+Message-ID: <51B172F6.7050807@redhat.com>
+References: <1370563643-19556-1-git-send-email-dborkman@redhat.com> <1370568043.24311.406.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Steinar H. Gunderson" <sgunderson@bigfoot.com>,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130607030648.GA28618@home.goodmis.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:29562 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750812Ab3FGFnZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 7 Jun 2013 01:43:25 -0400
+In-Reply-To: <1370568043.24311.406.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-06 at 23:06 -0400, Steven Rostedt wrote:
-> On Fri, Jun 07, 2013 at 12:16:56AM +0200, Steinar H. Gunderson wrote:
-> > Hi,
-> > 
-> > In 3.10.0-rc4, I get this on boot:
-> > 
-> > [   16.871043] BUG: unable to handle kernel NULL pointer dereference at 0000000000000003
-> > [   16.879453] IP: [<ffffffffa0e52002>] 0xffffffffa0e52001
-> 
-> Strange, kallsyms should have registered the address already, even if it
-> crashed on early module load. Not sure why it's not reporting it. Well,
-> it seems to have reported some of the symbols of ip_gre below. Maybe
-> this pointer is just totally screwed up.
+On 06/07/2013 03:20 AM, Eric Dumazet wrote:
+> On Fri, 2013-06-07 at 02:07 +0200, Daniel Borkmann wrote:
+>> We have the minimal inline helper tcp_skb_mss to access
+>> skb_shinfo(skb)->gso_size, so also use it here to get mss.
+>>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> ---
+>>   net/ipv4/tcp.c | 4 ++--
+>>   1 file changed, 2 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+>> index b5d4ad9..6a1cf95 100644
+>> --- a/net/ipv4/tcp.c
+>> +++ b/net/ipv4/tcp.c
+>> @@ -2905,7 +2905,7 @@ struct sk_buff *tcp_tso_segment(struct sk_buff *skb,
+>>   	oldlen = (u16)~skb->len;
+>>   	__skb_pull(skb, thlen);
+>>
+>> -	mss = skb_shinfo(skb)->gso_size;
+>> +	mss = tcp_skb_mss(skb);
+>
+> Conceptually, this is part of the GRO/GSO layer.
+>
+> It would be nice to move this stuff in net/ipv4/tcp_offload.c
+> to makes things explicit.
 
-I could not reproduce this here.
-
-Steinar, please make sure you recompiled your modules, because this
-looks like you loaded old modules.
+Agreed, will do.
