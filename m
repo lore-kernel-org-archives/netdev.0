@@ -1,41 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: Scaling problem with a lot of AF_PACKET sockets on different
- interfaces
-Date: Fri, 07 Jun 2013 06:54:49 -0700
-Message-ID: <1370613289.24311.419.camel@edumazet-glaptop>
-References: <51B1CA50.30702@telenet.dn.ua>
-	 <1370608871.5854.64.camel@marge.simpson.net>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B727B@saturn3.aculab.com>
+From: Asias He <asias.hejun@gmail.com>
+Subject: Re: [PATCH] vhost: wake up worker outside spin_lock
+Date: Fri, 7 Jun 2013 22:05:37 +0800
+Message-ID: <CAFO3S41ATqXBpFNz-sBqKtjMuf6P5=LT96w+maBa_Sm3v2EkHg@mail.gmail.com>
+References: <51B1E518.1070003@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mike Galbraith <bitbucket@online.de>,
-	"Vitaly V. Bursov" <vitalyb@telenet.dn.ua>,
-	linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B727B@saturn3.aculab.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>, KVM <kvm@vger.kernel.org>,
+	netdev@vger.kernel.org
+To: Qin Chuanyu <qinchuanyu@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qc0-f175.google.com ([209.85.216.175]:35395 "EHLO
+	mail-qc0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752382Ab3FGOGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 10:06:18 -0400
+In-Reply-To: <51B1E518.1070003@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-06-07 at 14:30 +0100, David Laight wrote:
+On Fri, Jun 7, 2013 at 9:50 PM, Qin Chuanyu <qinchuanyu@huawei.com> wrote:
+> the wake_up_process func is included by spin_lock/unlock in
+> vhost_work_queue,
+> but it could be done outside the spin_lock.
+> I have test it with kernel 3.0.27 and guest suse11-sp2 using iperf,
+> the num as below.
+>                  original                 modified
+>
+> thread_num  tp(Gbps)   vhost(%)  |  tp(Gbps)     vhost(%)
+> 1           9.59        28.82    |   9.59        27.49
+> 8           9.61        32.92    |   9.62        26.77
+> 64          9.58        46.48    |   9.55        38.99
+> 256         9.6         63.7     |   9.6         52.59
+>
+> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+> ---
+>  drivers/vhost/vhost.c |    4 +++-
+>
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+>
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 94dbd25..dcc7a17 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -146,9 +146,11 @@ static inline void vhost_work_queue(struct vhost_dev
+> *dev,
+>
+>         if (list_empty(&work->node)) {
+>                 list_add_tail(&work->node, &dev->work_list);
+>                 work->queue_seq++;
+> +               spin_unlock_irqrestore(&dev->work_lock, flags);
+>                 wake_up_process(dev->worker);
+> +       } else {
+> +               spin_unlock_irqrestore(&dev->work_lock, flags);
+>         }
+> -       spin_unlock_irqrestore(&dev->work_lock, flags);
+>
+>  }
 
-> Looks like the ptype_base[] should be per 'dev'?
-> Or just put entries where ptype->dev != null_or_dev on a per-interface
-> list and do two searches?
+Hmm,  this looks more clearer to me.
 
-Yes, but then we would have two searches instead of one in fast path.
+--- a/drivers/vhost/vhost.c
++++ b/drivers/vhost/vhost.c
+@@ -156,14 +156,17 @@ EXPORT_SYMBOL_GPL(vhost_poll_flush);
+ void vhost_work_queue(struct vhost_dev *dev, struct vhost_work *work)
+ {
+        unsigned long flags;
++       bool wakeup = false;
 
-ptype_base[] is currently 16 slots, 256 bytes on x86_64.
-Presumably the per device list could be a single list, instead of a hash
-table, but still...
+        spin_lock_irqsave(&dev->work_lock, flags);
+        if (list_empty(&work->node)) {
+                list_add_tail(&work->node, &dev->work_list);
+                work->queue_seq++;
+-               wake_up_process(dev->worker);
++               wakeup = true;
+        }
+        spin_unlock_irqrestore(&dev->work_lock, flags);
++       if (wakeup)
++               wake_up_process(dev->worker);
+ }
 
-If the application creating hundred or thousand of AF_PACKET sockets is
-a single process, I really question why using a single AF_PACKET was not
-chosen.
 
-We now have a FANOUT capability on AF_PACKET, so that its scalable to
-million of packets per second.
+>
+>  void vhost_poll_queue(struct vhost_poll *poll)
+> --
+> 1.7.3.1.msysgit.0
+>
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe kvm" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-I would rather try this way before adding yet another section in
-__netif_receive_skb()
+
+
+--
+Asias
