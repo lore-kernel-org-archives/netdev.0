@@ -1,53 +1,40 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH 0/2 v4] net/macb: RX path enhancement
-Date: Fri, 7 Jun 2013 10:36:36 +0200
-Message-ID: <51B19B94.6060301@atmel.com>
-References: <cover.1370418770.git.nicolas.ferre@atmel.com> <20130606.162358.506642916485125446.davem@davemloft.net>
+From: "Steinar H. Gunderson" <sgunderson@bigfoot.com>
+Subject: Re: NULL pointer dereference when loading the gre module (3.10.0-rc4)
+Date: Fri, 7 Jun 2013 10:43:03 +0200
+Message-ID: <20130607084303.GE15083@uio.no>
+References: <20130606221656.GA11475@uio.no>
+ <20130607030648.GA28618@home.goodmis.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>, <plagnioj@jcrosoft.com>,
-	<hein_tibosch@yahoo.es>, <s.trumtrar@pengutronix.de>,
-	<michal.simek@xilinx.com>, <monstr@monstr.eu>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=utf-8
+Cc: linux-kernel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org, Rusty Russell <rusty@rustcorp.com.au>
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130606.162358.506642916485125446.davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20130607030648.GA28618@home.goodmis.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 07/06/2013 01:23, David Miller :
-> From: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Date: Wed, 5 Jun 2013 09:57:10 +0200
->
->> Here is the patch series for modifying the RX path in macb driver.
->> This change applies on GEM variant of the Cadence IP and introduces
->> function pointers to match the path to the proper adapter. The move
->> to RX buffers adapted to MTU and that can be DMAed directly in SKB
->> is done in two steps but can be merged in a single patch.
->>
->> v4: - rebased on top of net-next
->>      - removed the last patch of the series which needs rework
->>
->> v3: - rebased on top of net-next (containing recently added
->>        net/macb: fix ISR clear-on-write behavior only for some SoC)
->>      - added the ___cacheline_aligned_in_smp qualifier to napi field
->>        following Ben Hutchings' advice
->>
->> v2: - gave up the idea of using non-coherent memory for
->>        rx buffers
->>      - addition of the struct macb layout optimization
->
-> Applied to net-next but I had to fix the printf format strings
-> used in macb_init_rx_buffer_size().
->
-> netdev->mtu is "unsigned int" so "%u"
-> bp->rx_buffer_size is "size_t" so "%Zu"
->
-> otherwise we get build warnings.
+On Thu, Jun 06, 2013 at 11:06:48PM -0400, Steven Rostedt wrote:
+> Note the faulting address is 0xffffffffa0e52001, which is around the
+> above address, be interesting to know what was at that location.
 
-Thanks David.
+Aha, the plot thickens:
 
-Best regards,
+root      6095  0.0  0.0   6632   596 ?        D    Jun06   0:00 /sbin/modprobe -q -- net-pf-17
+
+pannekake:/usr/src/linux-3.10-rc4> sudo cat /proc/6095/stack
+[<ffffffff812bb04f>] register_pernet_subsys+0x18/0x39
+[<ffffffffa0ffd089>] packet_init+0x32/0x44 [af_packet]
+[<ffffffff81000263>] do_one_initcall+0x7b/0x10c
+[<ffffffff8107e5db>] load_module+0x1b1f/0x1e19
+[<ffffffff8107e969>] SyS_init_module+0x94/0xa1
+[<ffffffff8138cf12>] system_call_fastpath+0x16/0x1b
+[<ffffffffffffffff>] 0xffffffffffffffff
+
+I have a tcpdump running almost all the time (from boot), for a variety of
+reasons. And I think I have the BPF JIT on; possibly related.
+
+/* Steinar */
 -- 
-Nicolas Ferre
+Homepage: http://www.sesse.net/
