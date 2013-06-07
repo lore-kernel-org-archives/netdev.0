@@ -1,58 +1,45 @@
-From: Jonas Gorski <jogo@openwrt.org>
-Subject: Re: [RFC] ipv6: allow rejecting with "source address failed policy"
-Date: Sat, 8 Jun 2013 00:40:00 +0200
-Message-ID: <20130608004000.00007ce8@unknown>
-References: <1370270708-24398-1-git-send-email-jogo@openwrt.org>
-	<20130607.152730.1116898639369296832.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv3 net-next] netlink: allow large data transfers from
+ user-space
+Date: Fri, 07 Jun 2013 16:26:56 -0700 (PDT)
+Message-ID: <20130607.162656.1478762217066934846.davem@davemloft.net>
+References: <1370288788-30579-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, kaber@trash.net, eric.dumazet@gmail.com
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.nanl.de ([217.115.11.12]:40619 "EHLO mail.nanl.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756018Ab3FGWkH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 7 Jun 2013 18:40:07 -0400
-In-Reply-To: <20130607.152730.1116898639369296832.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50225 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756580Ab3FGX07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 19:26:59 -0400
+In-Reply-To: <1370288788-30579-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 07 Jun 2013 15:27:30 -0700 (PDT)
-David Miller <davem@davemloft.net> wrote:
+From: pablo@netfilter.org
+Date: Mon,  3 Jun 2013 21:46:28 +0200
 
-> From: Jonas Gorski <jogo@openwrt.org>
-> Date: Mon,  3 Jun 2013 16:45:08 +0200
+> From: Pablo Neira Ayuso <pablo@netfilter.org>
 > 
-> > RFC6204 L-14 requires rejecting traffic from invalid addresses with
-> > ICMPv6 Destination Unreachable, Code 5 (Source address failed
-> > ingress/ egress policy) on the LAN side, so add an appropriate rule
-> > for that.
-> > 
-> > Signed-off-by: Jonas Gorski <jogo@openwrt.org>
+> I can hit ENOBUFS in the sendmsg() path with a large batch that is
+> composed of many netlink messages. Here that limit is 8 MBytes of
+> skbuff data area as kmalloc does not manage to get more than that.
 > 
-> I don't see the point of this, there is no difference from the
-> existing PROHIBIT other than the error code.  Everything that needs to
-> be expressed can be done using PROHIBIT.
+> While discussing atomic rule-set for nftables with Patrick McHardy,
+> we decided to put all rule-set updates that need to be applied
+> atomically in one single batch to simplify the existing approach.
+> However, as explained above, the existing netlink code limits us
+> to a maximum of ~20000 rules that fit in one single batch without
+> hitting ENOBUFS. iptables does not have such limitation as it is
+> using vmalloc.
 > 
+> This patch adds netlink_alloc_large_skb() which is only used in
+> the netlink_sendmsg() path. It uses alloc_skb if the memory
+> requested is <= one memory page, that should be the common case
+> for most subsystems, else vmalloc for higher memory allocations.
+> 
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-There is a semantic difference. PROHIBIT says the *destination*
-address is not allowed, so trying again is pointless.
-
-This one says the while the destination is allowed, the *source*
-address is not allowed, and a different source address should be used.
-So probably -EAGAIN would be the right error code in that case.
-"POLICY_FAILED" is maybe a wrong abbreviation, but the full name is
-quite long (I'm open for suggestions).
-
-Of course maybe handling of this kind of message should be added, too;
-which should trigger the source address selection to chose a different
-one.
-
-Unless you say I can change the ICMPv6 Destination Unreached Code used
-through appropriate rules, then this might be redundant.
-
-
-Regards
-Jonas
+Ok since this is confined to netlink let's give this a shot.
