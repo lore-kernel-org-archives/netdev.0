@@ -1,66 +1,64 @@
 From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 2/3] net: sctp: sctp_association_init: hold refs
- in reverse order
-Date: Fri, 7 Jun 2013 07:00:54 -0400
-Message-ID: <20130607110054.GB3249@hmsreliant.think-freely.org>
+Subject: Re: [PATCH net-next 3/3] net: sctp: minor: remove variable in
+ sctp_init_sock
+Date: Fri, 7 Jun 2013 07:04:24 -0400
+Message-ID: <20130607110424.GC3249@hmsreliant.think-freely.org>
 References: <1370594106-25745-1-git-send-email-dborkman@redhat.com>
- <1370594106-25745-3-git-send-email-dborkman@redhat.com>
+ <1370594106-25745-4-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: davem@davemloft.net, netdev@vger.kernel.org,
 	linux-sctp@vger.kernel.org
 To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59891 "EHLO
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59957 "EHLO
 	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755636Ab3FGLBI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 07:01:08 -0400
+	with ESMTP id S1755486Ab3FGLEe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 07:04:34 -0400
 Content-Disposition: inline
-In-Reply-To: <1370594106-25745-3-git-send-email-dborkman@redhat.com>
+In-Reply-To: <1370594106-25745-4-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 07, 2013 at 10:35:05AM +0200, Daniel Borkmann wrote:
-> In case we need to bail out for whatever reason during assoc
-> init, we call sctp_endpoint_put() and then sock_put(), however,
-> we've hold both refs in reverse order, so first sctp_endpoint_hold()
-> and then sock_hold(). Reverse this, so that we have sock_hold()
-> with sctp_endpoint_hold() first and then in error case
-> sctp_endpoint_put() and then sock_put(). Actually shouldn't
-> matter much since we just increase an atomic, but that way, it's
-> more clean.
+On Fri, Jun 07, 2013 at 10:35:06AM +0200, Daniel Borkmann wrote:
+> It's only used at this one time, so we could remove it as well.
+> This is valid and also makes it more explicit/obvious that in case
+> of error the sp->ep is NULL here, i.e. for the sctp_destroy_sock()
+> check.
 > 
 > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+
 > ---
->  net/sctp/associola.c | 5 ++---
->  1 file changed, 2 insertions(+), 3 deletions(-)
+>  net/sctp/socket.c | 6 ++----
+>  1 file changed, 2 insertions(+), 4 deletions(-)
 > 
-> diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-> index 91cfd8f..04795fb 100644
-> --- a/net/sctp/associola.c
-> +++ b/net/sctp/associola.c
-> @@ -86,11 +86,10 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 3267534..e71d399 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -3862,7 +3862,6 @@ out:
+>  SCTP_STATIC int sctp_init_sock(struct sock *sk)
+>  {
+>  	struct net *net = sock_net(sk);
+> -	struct sctp_endpoint *ep;
+>  	struct sctp_sock *sp;
 >  
->  	/* Discarding const is appropriate here.  */
->  	asoc->ep = (struct sctp_endpoint *)ep;
-> -	sctp_endpoint_hold(asoc->ep);
-> -
-> -	/* Hold the sock.  */
->  	asoc->base.sk = (struct sock *)sk;
-> +
->  	sock_hold(asoc->base.sk);
-> +	sctp_endpoint_hold(asoc->ep);
+>  	SCTP_DEBUG_PRINTK("sctp_init_sock(sk: %p)\n", sk);
+> @@ -3971,11 +3970,10 @@ SCTP_STATIC int sctp_init_sock(struct sock *sk)
+>  	 * change the data structure relationships, this may still
+>  	 * be useful for storing pre-connect address information.
+>  	 */
+> -	ep = sctp_endpoint_new(sk, GFP_KERNEL);
+> -	if (!ep)
+> +	sp->ep = sctp_endpoint_new(sk, GFP_KERNEL);
+> +	if (!sp->ep)
+>  		return -ENOMEM;
 >  
->  	/* Initialize the common base substructure.  */
->  	asoc->base.type = SCTP_EP_TYPE_ASSOCIATION;
-
-This looks good, but you may want to instead reverse the order in which we do
-the puts at fail_init, as other call sites that hold both endpoint socket do so
-in endpoint, sock order, and it would probably be nice to be consistent in that
-order.
-
-Neil
-
+> -	sp->ep = ep;
+>  	sp->hmac = NULL;
+>  
+>  	SCTP_DBG_OBJCNT_INC(sock);
 > -- 
 > 1.7.11.7
 > 
