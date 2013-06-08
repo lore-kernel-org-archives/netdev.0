@@ -1,39 +1,89 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next] doc:networking: Fix default value (icmp_ignore_bogus_error_responses).
-Date: Sat,  8 Jun 2013 09:16:19 +0300
-Message-ID: <1370672179-2664-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] igmp: hash a hash table to speedup
+ ip_check_mc_rcu()
+Date: Sat, 8 Jun 2013 04:39:29 +0000 (UTC)
+Message-ID: <kouci0$2eu$1@ger.gmane.org>
+References: <20130605175724.GA2576@sbohrermbp13-local.rgmadvisors.com>
+ <1370455997.24311.290.camel@edumazet-glaptop>
+ <20130605203253.GB2576@sbohrermbp13-local.rgmadvisors.com>
+ <1370465535.24311.304.camel@edumazet-glaptop>
+ <1370565301.24311.396.camel@edumazet-glaptop>
+ <20130607144833.GB2995@sbohrermbp13-local.rgmadvisors.com>
+ <1370620137.24311.433.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f177.google.com ([209.85.215.177]:35680 "EHLO
-	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041Ab3FHDQn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 23:16:43 -0400
-Received: by mail-ea0-f177.google.com with SMTP id j14so4001465eak.36
-        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 20:16:42 -0700 (PDT)
+Received: from plane.gmane.org ([80.91.229.3]:44120 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750732Ab3FHEjp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 8 Jun 2013 00:39:45 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UlAwK-0004Xi-Lr
+	for netdev@vger.kernel.org; Sat, 08 Jun 2013 06:39:44 +0200
+Received: from 112.116.154.121 ([112.116.154.121])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 08 Jun 2013 06:39:44 +0200
+Received: from xiyou.wangcong by 112.116.154.121 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Sat, 08 Jun 2013 06:39:44 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes icmp_ignore_bogus_error_responses default value to be 1 instead 
-of FALSE. It is initialized to 1 in icmp_sk_init().
+On Fri, 07 Jun 2013 at 15:48 GMT, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> diff --git a/include/linux/igmp.h b/include/linux/igmp.h
+> index 7f2bf15..e3362b5 100644
+> --- a/include/linux/igmp.h
+> +++ b/include/linux/igmp.h
+> @@ -84,6 +84,7 @@ struct ip_mc_list {
+>  		struct ip_mc_list *next;
+>  		struct ip_mc_list __rcu *next_rcu;
+>  	};
+> +	struct ip_mc_list __rcu *next_hash;
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- Documentation/networking/ip-sysctl.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 398d0fb..9cea5d3 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -729,7 +729,7 @@ icmp_ignore_bogus_error_responses - BOOLEAN
- 	frames.  Such violations are normally logged via a kernel warning.
- 	If this is set to TRUE, the kernel will not give such warnings, which
- 	will avoid log file clutter.
--	Default: FALSE
-+	Default: 1
- 
- icmp_errors_use_inbound_ifaddr - BOOLEAN
- 
--- 
-1.8.1.4
+Why not put this into the above union?
+
+
+> +static void ip_mc_hash_add(struct in_device *in_dev,
+> +			   struct ip_mc_list *im)
+> +{
+> +	struct ip_mc_list __rcu **mc_hash;
+> +	u32 hash;
+> +
+> +	mc_hash = rtnl_dereference(in_dev->mc_hash);
+> +	if (mc_hash) {
+> +		hash = ip_mc_hash(im);
+> +		im->next_hash = rtnl_dereference(mc_hash[hash]);
+> +		rcu_assign_pointer(mc_hash[hash], im);
+> +		return;
+> +	}
+> +
+> +	/* do not use a hash table for small number of items */
+> +	if (in_dev->mc_count < 4)
+> +		return;
+
+
+Can this check be moved to the beginning of this function?
+
+
+> +
+> +	mc_hash = kzalloc(sizeof(struct ip_mc_list *) << MC_HASH_SZ_LOG,
+> +			  GFP_KERNEL);
+> +	if (!mc_hash)
+> +		return;
+> +
+> +	for_each_pmc_rtnl(in_dev, im) {
+> +		hash = ip_mc_hash(im);
+> +		im->next_hash = rtnl_dereference(mc_hash[hash]);
+> +		RCU_INIT_POINTER(mc_hash[hash], im);
+> +	}
+> +
+> +	rcu_assign_pointer(in_dev->mc_hash, mc_hash);
+> +}
+> +
+
+Thanks!
