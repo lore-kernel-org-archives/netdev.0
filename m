@@ -1,38 +1,30 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v9 net-next 0/7] net: low latency Ethernet device polling
-Date: Sat, 08 Jun 2013 21:06:38 +0300
-Message-ID: <51B372AE.2080705@linux.intel.com>
-References: <20130605103400.11172.49099.stgit@ladj378.jer.intel.com> <20130607.144805.1227746282017227022.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 0/9] sh_eth: make driver build on any platform
+Date: Sat, 08 Jun 2013 11:18:53 -0700 (PDT)
+Message-ID: <20130608.111853.1706293535392213403.davem@davemloft.net>
+References: <51B277A7.4010709@cogentembedded.com>
+	<20130607.233915.1771016084489204040.davem@davemloft.net>
+	<51B32D76.1030507@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
-	e1000-devel@lists.sourceforge.net, willemb@google.com,
-	erdnetdev@gmail.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
-	or.gerlitz@gmail.com, amirv@mellanox.com, eliezer@tamir.org.il
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130607.144805.1227746282017227022.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, lethal@linux-sh.org, horms@verge.net.au,
+	nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org,
+	magnus.damm@gmail.com, linux@arm.linux.org.uk,
+	linux-arm-kernel@lists.infradead.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <51B32D76.1030507@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 08/06/2013 00:48, David Miller wrote:
-> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> Date: Wed, 05 Jun 2013 13:34:00 +0300
->
->> And here is v9.
->> Except for typo fixes in comments/description, only 2/7 and 5/7 were changed.
->>
->> Thanks to everyone for their input.
->
-> Since there is some discussion about the way the poll() bits work,
-> might I suggest you make a v10 without the poll stuff, which I will
-> apply to net-next, and then you can build the poll stuff on top of
-> that?
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Sat, 08 Jun 2013 17:11:18 +0400
 
-I will do that.
+>    Hold on please. It just occured to me that the series won't be
+>    bisectable on anything but R-Car CPUs (I checked it only on R8A7779)
+>    since I forgot that 'sh_eth_my_cpu_data' variable should be always
+>    available in any configuuration until the last patch (so the patch #1
+>    is somewhat incomplete). I'll respin the series today and resend.
 
-Thanks,
-Eliezer
+Too late, it's already pushed to my tree and at that point it's permanent.
