@@ -1,43 +1,24 @@
 From: David Miller <davem@davemloft.net>
-Subject: [PATCH] sh_eth: Fix warnings on 64-bit.
-Date: Fri, 07 Jun 2013 23:41:16 -0700 (PDT)
-Message-ID: <20130607.234116.2160936577356433396.davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/8] Multiqueue API for macvtap
+Date: Fri, 07 Jun 2013 23:49:50 -0700 (PDT)
+Message-ID: <20130607.234950.32504786500736858.davem@davemloft.net>
+References: <1370512480-14272-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org
-To: sergei.shtylyov@cogentembedded.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53522 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751163Ab3FHGlR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jun 2013 02:41:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, sergei.shtylyov@cogentembedded.com
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1370512480-14272-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCkRvbid0IGNhc3QgYSBwbGFpbiBpbnRlZ2VyIHRvIGEgcG9pbnRlci4NCg0KZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvcmVuZXNhcy9zaF9ldGguYzogSW4gZnVuY3Rpb24goXNoX2V0aF9jaGlwX3Jl
-c2V0X2dpZ2GiOg0KZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVuZXNhcy9zaF9ldGguYzo0ODI6MjI6
-IHdhcm5pbmc6IGNhc3QgdG8gcG9pbnRlciBmcm9tIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUg
-Wy1XaW50LXRvLXBvaW50ZXItY2FzdF0NCmRyaXZlcnMvbmV0L2V0aGVybmV0L3JlbmVzYXMvc2hf
-ZXRoLmM6NDgzOjIyOiB3YXJuaW5nOiBjYXN0IHRvIHBvaW50ZXIgZnJvbSBpbnRlZ2VyIG9mIGRp
-ZmZlcmVudCBzaXplIFstV2ludC10by1wb2ludGVyLWNhc3RdDQpkcml2ZXJzL25ldC9ldGhlcm5l
-dC9yZW5lc2FzL3NoX2V0aC5jOjQ5MjoyMjogd2FybmluZzogY2FzdCB0byBwb2ludGVyIGZyb20g
-aW50ZWdlciBvZiBkaWZmZXJlbnQgc2l6ZSBbLVdpbnQtdG8tcG9pbnRlci1jYXN0XQ0KZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvcmVuZXNhcy9zaF9ldGguYzo0OTM6MjI6IHdhcm5pbmc6IGNhc3QgdG8g
-cG9pbnRlciBmcm9tIGludGVnZXIgb2YgZGlmZmVyZW50IHNpemUgWy1XaW50LXRvLXBvaW50ZXIt
-Y2FzdF0NCg0KU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBkYXZlbWxvZnQu
-bmV0Pg0KLS0tDQoNCkFwcGxpZWQgdG8gbmV0LW5leHQuDQoNCiBkcml2ZXJzL25ldC9ldGhlcm5l
-dC9yZW5lc2FzL3NoX2V0aC5jIHwgMiArLQ0KIDEgZmlsZSBjaGFuZ2VkLCAxIGluc2VydGlvbigr
-KSwgMSBkZWxldGlvbigtKQ0KDQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvcmVu
-ZXNhcy9zaF9ldGguYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3JlbmVzYXMvc2hfZXRoLmMNCmlu
-ZGV4IGNmZjY5NzEuLjQzZDg0OTAgMTAwNjQ0DQotLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9y
-ZW5lc2FzL3NoX2V0aC5jDQorKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9yZW5lc2FzL3NoX2V0
-aC5jDQpAQCAtNDY5LDcgKzQ2OSw3IEBAIHN0YXRpYyBzdHJ1Y3Qgc2hfZXRoX2NwdV9kYXRhIHNo
-Nzc1N19kYXRhID0gew0KIAkucnBhZGlyX3ZhbHVlICAgPSAyIDw8IDE2LA0KIH07DQogDQotI2Rl
-ZmluZSBTSF9HSUdBX0VUSF9CQVNFCTB4ZmVlMDAwMDANCisjZGVmaW5lIFNIX0dJR0FfRVRIX0JB
-U0UJMHhmZWUwMDAwMFVMDQogI2RlZmluZSBHSUdBX01BTFIocG9ydCkJCShTSF9HSUdBX0VUSF9C
-QVNFICsgMHg4MDAgKiAocG9ydCkgKyAweDA1YzgpDQogI2RlZmluZSBHSUdBX01BSFIocG9ydCkJ
-CShTSF9HSUdBX0VUSF9CQVNFICsgMHg4MDAgKiAocG9ydCkgKyAweDA1YzApDQogc3RhdGljIHZv
-aWQgc2hfZXRoX2NoaXBfcmVzZXRfZ2lnYShzdHJ1Y3QgbmV0X2RldmljZSAqbmRldikNCi0tIA0K
-MS43LjExLjcNCg0K
+From: Jason Wang <jasowang@redhat.com>
+Date: Thu,  6 Jun 2013 17:54:32 +0800
+
+> This series implements a fully tuntap compatiable API which could be used
+> by userspace to manage multiple macvtap queues. The main parts is to add
+> TUNSETQUEUE ioctl support for macvtap.
+
+Series applied, thanks everyone.
