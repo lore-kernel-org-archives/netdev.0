@@ -1,114 +1,29 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next] pktgen: ipv6: numa: consolidate skb allocation to pktgen_alloc_skb
-Date: Sat,  8 Jun 2013 14:18:16 +0200
-Message-ID: <1370693896-9294-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 0/3] team: couple of fixes
+Date: Sat,  8 Jun 2013 15:00:52 +0200
+Message-ID: <1370696455-12221-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, eric.dumazet@gmail.com, fbl@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:30133 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752371Ab3FHMSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 8 Jun 2013 08:18:20 -0400
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:44654 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751107Ab3FHNA7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jun 2013 09:00:59 -0400
+Received: by mail-ee0-f47.google.com with SMTP id e49so2092516eek.6
+        for <netdev@vger.kernel.org>; Sat, 08 Jun 2013 06:00:58 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We currently allow for numa-node aware skb allocation only within the
-fill_packet_ipv4() path, but not in fill_packet_ipv6(). Consolidate that
-code to a common allocation helper to enable numa-node aware skb
-allocation for ipv6, and use it in both paths. This also makes both
-functions a bit more readable.
+Jiri Pirko (3):
+  team: check return value of team_get_port_by_index_rcu() for NULL
+  team: move add to port list before port enablement
+  team: fix checks in team_get_first_port_txable_rcu()
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/core/pktgen.c | 52 +++++++++++++++++++++++++++-------------------------
- 1 file changed, 27 insertions(+), 25 deletions(-)
+ drivers/net/team/team.c                 | 2 +-
+ drivers/net/team/team_mode_random.c     | 2 ++
+ drivers/net/team/team_mode_roundrobin.c | 2 ++
+ include/linux/if_team.h                 | 4 ++--
+ 4 files changed, 7 insertions(+), 3 deletions(-)
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 888ef11..31c631e 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -2627,6 +2627,29 @@ static void pktgen_finalize_skb(struct pktgen_dev *pkt_dev, struct sk_buff *skb,
- 	pgh->tv_usec = htonl(timestamp.tv_usec);
- }
- 
-+static struct sk_buff *pktgen_alloc_skb(struct net_device *dev,
-+					struct pktgen_dev *pkt_dev,
-+					unsigned int extralen)
-+{
-+	struct sk_buff *skb = NULL;
-+	unsigned int size = pkt_dev->cur_pkt_size + 64 + extralen +
-+			    pkt_dev->pkt_overhead;
-+
-+	if (pkt_dev->flags & F_NODE) {
-+		int node = pkt_dev->node >= 0 ? pkt_dev->node : numa_node_id();
-+
-+		skb = __alloc_skb(NET_SKB_PAD + size, GFP_NOWAIT, 0, node);
-+		if (likely(skb)) {
-+			skb_reserve(skb, NET_SKB_PAD);
-+			skb->dev = dev;
-+		}
-+	} else {
-+		 skb = __netdev_alloc_skb(dev, size, GFP_NOWAIT);
-+	}
-+
-+	return skb;
-+}
-+
- static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
- 					struct pktgen_dev *pkt_dev)
- {
-@@ -2657,32 +2680,13 @@ static struct sk_buff *fill_packet_ipv4(struct net_device *odev,
- 
- 	datalen = (odev->hard_header_len + 16) & ~0xf;
- 
--	if (pkt_dev->flags & F_NODE) {
--		int node;
--
--		if (pkt_dev->node >= 0)
--			node = pkt_dev->node;
--		else
--			node =  numa_node_id();
--
--		skb = __alloc_skb(NET_SKB_PAD + pkt_dev->cur_pkt_size + 64
--				  + datalen + pkt_dev->pkt_overhead, GFP_NOWAIT, 0, node);
--		if (likely(skb)) {
--			skb_reserve(skb, NET_SKB_PAD);
--			skb->dev = odev;
--		}
--	}
--	else
--	  skb = __netdev_alloc_skb(odev,
--				   pkt_dev->cur_pkt_size + 64
--				   + datalen + pkt_dev->pkt_overhead, GFP_NOWAIT);
--
-+	skb = pktgen_alloc_skb(odev, pkt_dev, datalen);
- 	if (!skb) {
- 		sprintf(pkt_dev->result, "No memory");
- 		return NULL;
- 	}
--	prefetchw(skb->data);
- 
-+	prefetchw(skb->data);
- 	skb_reserve(skb, datalen);
- 
- 	/*  Reserve for ethernet and IP header  */
-@@ -2786,15 +2790,13 @@ static struct sk_buff *fill_packet_ipv6(struct net_device *odev,
- 	mod_cur_headers(pkt_dev);
- 	queue_map = pkt_dev->cur_queue_map;
- 
--	skb = __netdev_alloc_skb(odev,
--				 pkt_dev->cur_pkt_size + 64
--				 + 16 + pkt_dev->pkt_overhead, GFP_NOWAIT);
-+	skb = pktgen_alloc_skb(odev, pkt_dev, 16);
- 	if (!skb) {
- 		sprintf(pkt_dev->result, "No memory");
- 		return NULL;
- 	}
--	prefetchw(skb->data);
- 
-+	prefetchw(skb->data);
- 	skb_reserve(skb, 16);
- 
- 	/*  Reserve for ethernet and IP header  */
 -- 
 1.7.11.7
