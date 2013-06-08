@@ -1,62 +1,39 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 0/9] sh_eth: make driver build on any platform
-Date: Sat, 08 Jun 2013 04:15:35 +0400
-Message-ID: <51B277A7.4010709@cogentembedded.com>
-References: <201306080351.39018.sergei.shtylyov@cogentembedded.com> <51B2765D.7030604@cogentembedded.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org,
-	Magnus Damm <magnus.damm@gmail.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	linux-arm-kernel@lists.infradead.org
-To: netdev@vger.kernel.org, Paul Mundt <lethal@linux-sh.org>,
-	Simon Horman <horms@verge.net.au>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <51B2765D.7030604@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next] doc:networking: Fix default value (icmp_ignore_bogus_error_responses).
+Date: Sat,  8 Jun 2013 09:16:19 +0300
+Message-ID: <1370672179-2664-1-git-send-email-ramirose@gmail.com>
+Cc: netdev@vger.kernel.org, Rami Rosen <ramirose@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f177.google.com ([209.85.215.177]:35680 "EHLO
+	mail-ea0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041Ab3FHDQn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 7 Jun 2013 23:16:43 -0400
+Received: by mail-ea0-f177.google.com with SMTP id j14so4001465eak.36
+        for <netdev@vger.kernel.org>; Fri, 07 Jun 2013 20:16:42 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/08/2013 04:10 AM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 06/08/2013 03:51 AM, Sergei Shtylyov wrote:
->
->>     This series of 9 patches are against Dave's 'net-next.git' 
->> repository.
->>     The series deals with the #ifdef'fery around SoC support 
->> code/data in the
->> 'sh_eth' driver. It doesn't yet get rid of all the #ifdef's: 3 are 
->> left, 1 of
->> them still hinders ARM multiplatform build -- I'll try to deal with 
->> it next
->> week.
->>
->> [1/9] sh_eth: create initial ID table
->> [2/9] sh_eth: get SH771x support out of #ifdef
->> [3/9] sh_eth: get SH7619 support out of #ifdef
->> [4/9] sh_eth: get R8A7740 support out of #ifdef
->> [5/9] sh_eth: get SH77{34|63} support out of #ifdef
->> [6/9] sh_eth: get SH7757 support out of #ifdef
->> [7/9] sh_eth: get SH7724 support out of #ifdef
->> [8/9] sh_eth: get R8A777x support out of #ifdef
->> [9/9] sh_eth: remove dependencies from Kconfig
->>
->
->    Sorry, Paul, forgot to include you into the CC list on most of the 
-> patches
-> and the cover letter. Please look for the patches on linux-sh and ACK 
-> them
-> if you deem necessary.
+This patch fixes icmp_ignore_bogus_error_responses default value to be 1 instead 
+of FALSE. It is initialized to 1 in icmp_sk_init().
 
-    Also, forgot to CC Simon, Magnus, Russell and LAKML on some patches.
-Too much haste, forgot to run scripts/get_maintainer.pl before sending 
-out patches...
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
+---
+ Documentation/networking/ip-sysctl.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-WBR, Sergei
-
-
->
-> WBR, Serge
->
-
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 398d0fb..9cea5d3 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -729,7 +729,7 @@ icmp_ignore_bogus_error_responses - BOOLEAN
+ 	frames.  Such violations are normally logged via a kernel warning.
+ 	If this is set to TRUE, the kernel will not give such warnings, which
+ 	will avoid log file clutter.
+-	Default: FALSE
++	Default: 1
+ 
+ icmp_errors_use_inbound_ifaddr - BOOLEAN
+ 
+-- 
+1.8.1.4
