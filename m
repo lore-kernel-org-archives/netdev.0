@@ -1,54 +1,45 @@
-From: Michael Guntsche <michael.guntsche@it-loops.com>
-Subject: Fwd: [BUG] Bisected Gianfar not receiving any traffic
-Date: Sun, 9 Jun 2013 22:28:51 +0200
-Message-ID: <CALG0vJuENcAnrpP1Bbe2-KhV8=oazLn7pMnvC6XTNCYnAMvOhw@mail.gmail.com>
-References: <CALG0vJsttWB4=fDU5yiRdf0rKgp09pY1y1jq5Ug_ra-7M7KQBQ@mail.gmail.com>
+From: kernel-dev@ballcam.com
+Subject: [BOUNTY] Need a Working Driver Brought Up From 2.6.29 to 2.6.34.
+ Will Pay.
+Date: Sun, 09 Jun 2013 15:41:21 -0500
+Message-ID: <20130609204121.28418.qmail@ballcam.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f173.google.com ([209.85.128.173]:33159 "EHLO
-	mail-ve0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750991Ab3FIU2w (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 16:28:52 -0400
-Received: by mail-ve0-f173.google.com with SMTP id jw11so4276241veb.18
-        for <netdev@vger.kernel.org>; Sun, 09 Jun 2013 13:28:52 -0700 (PDT)
-In-Reply-To: <CALG0vJsttWB4=fDU5yiRdf0rKgp09pY1y1jq5Ug_ra-7M7KQBQ@mail.gmail.com>
+Received: from ballcam.com ([184.173.145.60]:50840 "HELO ballcam.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750727Ab3FIUsE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jun 2013 16:48:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Forwarded to the correct mailing list address.
+I have an OEM Driver that works Excellent under 2.6.29.
 
+I need it working in 2.6.34
 
----------- Forwarded message ----------
-From: Michael Guntsche <michael.guntsche@it-loops.com>
-Date: Sun, Jun 9, 2013 at 10:26 PM
-Subject: [BUG] Bisected Gianfar not receiving any traffic
-To: linux-netdev@vger.kernel.org
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+The Target Platform is ARM / Gumstix Overo. -- Wi2Wi / Marvell W2CBW003
 
+The stack trace from when the module hangs on load 
+gives switch_to() as the last function call when addr2line
+is used to check the address against the kernel file.
 
-Good evening,
+Also, the driver does not curently use the net_driver_ops
+API.
 
-While testing one of my powerpc based embedded ports I noticed that
-with any 3.10-rc kernel ethernet traffic was dead on my two gianfar
-NICs. The strange thing was that apparetnly outbound broadcasts seemed
-to work since avahi correctly registered the name of the board. I
-bisected it to the following commit.
+I have signed the NDA with the OEM, and I think the SRC 
+is OK for GPL.
 
-6be5ed3fef568 gianfar: Poll only active Rx queues
+After this issue is solved the project will go on IndieGoGo,
+and I will take it to the next level. For now I can pay,
+but I am not a MegaCorp.   
 
-Reverting this commit on 3.10-rc4 made both gianfar devices work
-again. This is a rather old board so it could be that the register
-that's used here is just plain wrong in my case. A few years ago I had
-a similar issue where the implementation on the board here apparently
-did not work correctly.
+I can certainly work with anyone offline, but please
+respond here if appropriate. 
 
-http://marc.info/?l=linux-netdev&m=131297524825104&w=2
+I do believe the end product can, and probably should
+be included in the 2.6.34 mainline release.
 
-In that case a flag was bogus as well.
-If you need more information or want me to test a patch please add me
-as CC since I am not subscribed to the list.
-
-Kind regards,
-Michael Guntsche
+Thanks,
+BallCam.
