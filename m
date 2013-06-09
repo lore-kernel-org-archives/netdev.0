@@ -1,55 +1,56 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [Patch net-next v3 1/3] igmp: fix return value of some functions
-Date: Sat, 8 Jun 2013 20:12:41 -0600
-Message-ID: <OF76532841.5DDD0996-ON87257B85.000C25DF-87257B85.000C25E6@us.ibm.com>
-References: <1370689003.868.3.camel@cr0>,
-	<1370485211-11498-1-git-send-email-amwang@redhat.com>	 <OFF0DFA533.AF670FB8-ON85257B82.006E0B5C-85257B82.006F58EF@us.ibm.com>
+From: info@uk.net
+Subject: Confirmed Reciept.....
+Date: Sun, 09 Jun 2013 07:43:21 +0530
+Message-ID: <201306090204.r58J91Nn011415__32124.9176668518$1370744939$gmane$org@lycasmtp.lycamobile.co.uk>
+Reply-To: claim.jonesgreene@hotmail.co.uk
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev-owner@vger.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <amwang@redhat.com>
+To: Recipients <info@uk.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e9.ny.us.ibm.com ([32.97.182.139]:33343 "EHLO e9.ny.us.ibm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751281Ab3FICMv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jun 2013 22:12:51 -0400
-Received: from /spool/local
-	by e9.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Sat, 8 Jun 2013 22:12:48 -0400
-In-Reply-To: <1370689003.868.3.camel@cr0>
+Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:48528 "EHLO
+	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751281Ab3FIC2d convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 8 Jun 2013 22:28:33 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Uk National Lottery
+Ref: L/200-26937
+Batch: 2007MJL-01
 
->From: Cong Wang <amwang@redhat.com>
 
->   Good point! I will convert the such return value to
->documented ones, for example, EINVAL.  Thanks!
+                     FINAL NOTIFICATION
+We are pleased to inform you today 6th  June, 2013 of the result=20
+of the winners of the  UK NATIONAL LOTTERY ONLINE PROMO PROGRAMME, held=
+=20
+on the 30th of May, 2013.
 
-You're also taking things that were not treated as errors
-before, and now returning an error. For example, removing
-a source not in the list.
+You have therefore been approved for a lump sum pay out of =A31,000 000=
+=20
+(One Million Pounds Sterling) in cash credited to file XYL/26510460037/=
+06.To file for your claim,=20
+please contact our claims agent;
 
-Unless POSIX requires these to be treated as errors, and
-that should be quoted, I think the 8 or 9 years of returning
-"0" for these cases means we must continue to. Existing
-programs that have always done this with a zero return
-will start getting errors where they didn't before.
+Agents Name: Dr.Jones Greene
+Emai: claim.jonesgreene@hotmail.co.uk
 
-Also, though it's been a long time, I believe the original code
-did return errors in those cases (which is why the code is there)
-and was changed to return 0, presumably for POSIX compliance.
 
-What I'm really saying is: before you change user-visible
-API, you should make the case that it is incorrect
-according to the standard it follows. It isn't clear to me
-that the original code is incorrect to treat those as
-not error cases.
+Provide him with the information below:
 
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 +-DL=
-S
+1.Full Name:
+2.Full Address:
+3.Marital Status:
+4.Occupation:
+5.Age:
+6.Sex:
+7.Nationality:
+8.Country Of Residence:
+9.Telephone Number:
+
+Congratulations once more from all members and staff of this program.
+
+Sincerely,=20
+Dr.Jones Greene
+UK NATIONAL LOTTERY
