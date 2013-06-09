@@ -1,81 +1,50 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] virtio-net: put virtio net header inline with data
-Date: Sun, 9 Jun 2013 10:11:27 +0300
-Message-ID: <20130609071127.GC13082@redhat.com>
-References: <20130606095456.GA7865@redhat.com> <87hahar7ms.fsf@rustcorp.com.au>
+Subject: Re: [net PATCH] tuntap: set SOCK_ZEROCOPY flag during open
+Date: Sun, 9 Jun 2013 10:18:32 +0300
+Message-ID: <20130609071817.GD13082@redhat.com>
+References: <1370672261-30076-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <amwang@redhat.com>, qemu-devel@nongnu.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, Dave Jones <davej@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <87hahar7ms.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+In-Reply-To: <1370672261-30076-1-git-send-email-jasowang@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 07, 2013 at 11:42:43AM +0930, Rusty Russell wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> > For small packets we can simplify xmit processing by linearizing buffers
-> > with the header: most packets seem to have enough head room we can use
-> > for this purpose.
-> >
-> > Since some older hypervisors (e.g. qemu before version 1.5)
-> > required that header is the first s/g element,
-> > we need a feature bit for this.
+On Sat, Jun 08, 2013 at 02:17:41PM +0800, Jason Wang wrote:
+> Commit 54f968d6efdbf7dec36faa44fc11f01b0e4d1990
+> (tuntap: move socket to tun_file) forgets to set SOCK_ZEROCOPY flag, which will
+> prevent vhost_net from doing zercopy w/ tap. This patch fixes this by setting
+> it during file open.
 > 
-> OK, we know this is horrible.  But I will sleep better knowing that we
-> this feature need never make it into a final 1.0 spec, since it can be
-> assumed at that point...
+> Cc: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Nod. Though if we want to require this for all devices,
-virtio-blk scsi command passthrough will need to change -
-I sent a spec patch a while ago
-	virtio-spec: add field for scsi command size
-any comments on it?
+I see, and this explains the perf regression we are seeing with 3.9.
 
-> >  	pr_debug("%s: xmit %p %pM\n", vi->dev->name, skb, dest);
-> > +	if (vi->mergeable_rx_bufs)
-> > +		hdr_len = sizeof hdr->mhdr;
-> > +	else
-> > +		hdr_len = sizeof hdr->hdr;
-> > +
-> > +	can_push = vi->any_header_sg &&
-> > +		!((unsigned long)skb->data & (__alignof__(*hdr) - 1)) &&
-> > +		!skb_header_cloned(skb) && skb_headroom(skb) >= hdr_len;
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+and I think this should go into stable as well.
+
+> ---
+>  drivers/net/tun.c |    2 ++
+>  1 files changed, 2 insertions(+), 0 deletions(-)
 > 
-> Idle thought: how often does this fail?
-
-I think it's mostly doesn't fail in my testing.
-
-It's probably a good idea to add a counter here, then
-if it starts triggering we can optimize.
-
-I think things like skb_header_cloned depend on guest config
-really, e.g. tcpdump running on the interface in guest can cause this.
-
->  Would it suck if we copied
-> headers which didn't let us prepend data?
-
-I think it will - copies are generally best avoided,
-and header is easily 1K of data.
-
->  Or could we bump
-> dev->hard_header_len appropriately?
-
-Needs some thought, though from experience it's a pain.
-
-
-> Thanks,
-> Rusty.
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index f042b03..d2ddd6d 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -2155,6 +2155,8 @@ static int tun_chr_open(struct inode *inode, struct file * file)
+>  	set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
+>  	INIT_LIST_HEAD(&tfile->next);
+>  
+> +	sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
+> +
+>  	return 0;
+>  }
+>  
+> -- 
+> 1.7.1
