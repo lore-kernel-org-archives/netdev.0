@@ -1,85 +1,54 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] 3c59x: consolidate error cleanup in vortex_init_one()
-Date: Mon, 10 Jun 2013 00:16:52 +0400
-Message-ID: <201306100016.52820.sergei.shtylyov@cogentembedded.com>
+From: Michael Guntsche <michael.guntsche@it-loops.com>
+Subject: Fwd: [BUG] Bisected Gianfar not receiving any traffic
+Date: Sun, 9 Jun 2013 22:28:51 +0200
+Message-ID: <CALG0vJuENcAnrpP1Bbe2-KhV8=oazLn7pMnvC6XTNCYnAMvOhw@mail.gmail.com>
+References: <CALG0vJsttWB4=fDU5yiRdf0rKgp09pY1y1jq5Ug_ra-7M7KQBQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: klassert@mathematik.tu-chemnitz.de
+Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f170.google.com ([209.85.217.170]:43492 "EHLO
-	mail-lb0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750919Ab3FIUQ4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 16:16:56 -0400
-Received: by mail-lb0-f170.google.com with SMTP id t13so738985lbd.1
-        for <netdev@vger.kernel.org>; Sun, 09 Jun 2013 13:16:55 -0700 (PDT)
+Received: from mail-ve0-f173.google.com ([209.85.128.173]:33159 "EHLO
+	mail-ve0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750991Ab3FIU2w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 16:28:52 -0400
+Received: by mail-ve0-f173.google.com with SMTP id jw11so4276241veb.18
+        for <netdev@vger.kernel.org>; Sun, 09 Jun 2013 13:28:52 -0700 (PDT)
+In-Reply-To: <CALG0vJsttWB4=fDU5yiRdf0rKgp09pY1y1jq5Ug_ra-7M7KQBQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The PCI driver's probe() method  duplicates the error cleanup code each time it
-has to do error exit. Consolidate the error cleanup code  in  one place and use
-*goto* to jump to the right places.
+Forwarded to the correct mailing list address.
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
----
-The patch is against Dave Miller's 'net-next.git' repo. 
-Andrew Morton asked me to do this years ago.  It's high time to finally do this.
-Too bad it doesn't save much...
+---------- Forwarded message ----------
+From: Michael Guntsche <michael.guntsche@it-loops.com>
+Date: Sun, Jun 9, 2013 at 10:26 PM
+Subject: [BUG] Bisected Gianfar not receiving any traffic
+To: linux-netdev@vger.kernel.org
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
 
- drivers/net/ethernet/3com/3c59x.c |   25 ++++++++++++-------------
- 1 file changed, 12 insertions(+), 13 deletions(-)
 
-Index: net-next/drivers/net/ethernet/3com/3c59x.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/3com/3c59x.c
-+++ net-next/drivers/net/ethernet/3com/3c59x.c
-@@ -1012,10 +1012,8 @@ static int vortex_init_one(struct pci_de
- 		goto out;
- 
- 	rc = pci_request_regions(pdev, DRV_NAME);
--	if (rc < 0) {
--		pci_disable_device(pdev);
--		goto out;
--	}
-+	if (rc < 0)
-+		goto out_disable;
- 
- 	unit = vortex_cards_found;
- 
-@@ -1032,23 +1030,24 @@ static int vortex_init_one(struct pci_de
- 	if (!ioaddr) /* If mapping fails, fall-back to BAR 0... */
- 		ioaddr = pci_iomap(pdev, 0, 0);
- 	if (!ioaddr) {
--		pci_release_regions(pdev);
--		pci_disable_device(pdev);
- 		rc = -ENOMEM;
--		goto out;
-+		goto out_release;
- 	}
- 
- 	rc = vortex_probe1(&pdev->dev, ioaddr, pdev->irq,
- 			   ent->driver_data, unit);
--	if (rc < 0) {
--		pci_iounmap(pdev, ioaddr);
--		pci_release_regions(pdev);
--		pci_disable_device(pdev);
--		goto out;
--	}
-+	if (rc < 0)
-+		goto out_iounmap;
- 
- 	vortex_cards_found++;
-+	goto out;
- 
-+out_iounmap:
-+	pci_iounmap(pdev, ioaddr);
-+out_release:
-+	pci_release_regions(pdev);
-+out_disable:
-+	pci_disable_device(pdev);
- out:
- 	return rc;
- }
+Good evening,
+
+While testing one of my powerpc based embedded ports I noticed that
+with any 3.10-rc kernel ethernet traffic was dead on my two gianfar
+NICs. The strange thing was that apparetnly outbound broadcasts seemed
+to work since avahi correctly registered the name of the board. I
+bisected it to the following commit.
+
+6be5ed3fef568 gianfar: Poll only active Rx queues
+
+Reverting this commit on 3.10-rc4 made both gianfar devices work
+again. This is a rather old board so it could be that the register
+that's used here is just plain wrong in my case. A few years ago I had
+a similar issue where the implementation on the board here apparently
+did not work correctly.
+
+http://marc.info/?l=linux-netdev&m=131297524825104&w=2
+
+In that case a flag was bogus as well.
+If you need more information or want me to test a patch please add me
+as CC since I am not subscribed to the list.
+
+Kind regards,
+Michael Guntsche
