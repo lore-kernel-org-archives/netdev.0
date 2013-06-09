@@ -1,63 +1,40 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] vhost: wake up worker outside spin_lock
-Date: Sun, 9 Jun 2013 12:47:01 +0300
-Message-ID: <20130609094701.GA14832@redhat.com>
-References: <51B1E518.1070003@huawei.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH RFC 1/2] net/core: Add netlink directives to control VF
+ link state
+Date: Sun, 9 Jun 2013 12:51:15 +0300
+Message-ID: <51B45013.5000708@mellanox.com>
+References: <1368020717-22194-1-git-send-email-ogerlitz@mellanox.com> <1368020717-22194-2-git-send-email-ogerlitz@mellanox.com> <518A76FB.5030704@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, kvm@vger.kernel.org, netdev@vger.kernel.org
-To: Qin Chuanyu <qinchuanyu@huawei.com>
-Return-path: <kvm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51B1E518.1070003@huawei.com>
-Sender: kvm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <amirv@mellanox.com>,
+	<ronye@mellanox.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog111.obsmtp.com ([207.126.144.131]:39258 "EHLO
+	eu1sys200aog111.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753359Ab3FIJvT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 05:51:19 -0400
+In-Reply-To: <518A76FB.5030704@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 07, 2013 at 09:50:16PM +0800, Qin Chuanyu wrote:
-> the wake_up_process func is included by spin_lock/unlock in
-> vhost_work_queue,
-> but it could be done outside the spin_lock.
-> I have test it with kernel 3.0.27 and guest suse11-sp2 using iperf,
-> the num as below.
->                  original                 modified
-> thread_num  tp(Gbps)   vhost(%)  |  tp(Gbps)     vhost(%)
-> 1           9.59        28.82    |   9.59        27.49
-> 8           9.61        32.92    |   9.62        26.77
-> 64          9.58        46.48    |   9.55        38.99
-> 256         9.6         63.7     |   9.6         52.59
-> 
-> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
-> ---
->  drivers/vhost/vhost.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
-> index 94dbd25..dcc7a17 100644
-> --- a/drivers/vhost/vhost.c
-> +++ b/drivers/vhost/vhost.c
-> @@ -146,9 +146,11 @@ static inline void vhost_work_queue(struct
-> vhost_dev *dev,
+On 08/05/2013 19:02, Sergei Shtylyov wrote:
+>> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+>> index a08bd2b..bec44a3 100644
+>> --- a/net/core/rtnetlink.c
+>> +++ b/net/core/rtnetlink.c
+>> @@ -1238,6 +1238,15 @@ static int do_setvfinfo(struct net_device 
+>> *dev, struct nlattr *attr)
+>>                                      ivs->setting);
+>>               break;
+>>           }
+>> +        case IFLA_VF_LINK_STATE: {
+>> +            struct ifla_vf_link_state *ivl;
+>> +            ivl = nla_data(vf);
+>
+>     Why not make it initializer? And empty line is needed between the 
+> declaration and other code. 
 
-Applied and queued for 3.11, thanks.
-
-This patch is malformed because of the wrapped line above.
-I've applied this by hand, so just FYI, please see
-Documentation/email-clients.txt
-for some hints on configuring mail properly.
-
-
->  	if (list_empty(&work->node)) {
->  		list_add_tail(&work->node, &dev->work_list);
->  		work->queue_seq++;
-> +		spin_unlock_irqrestore(&dev->work_lock, flags);
->  		wake_up_process(dev->worker);
-> +	} else {
-> +		spin_unlock_irqrestore(&dev->work_lock, flags);
->  	}
-> -	spin_unlock_irqrestore(&dev->work_lock, flags);
->  }
-> 
->  void vhost_poll_queue(struct vhost_poll *poll)
-> -- 
-> 1.7.3.1.msysgit.0
-> 
+b/c we followed the conventions introduced in the preceding cases of 
+do_setvfinfo which we found to be OK
