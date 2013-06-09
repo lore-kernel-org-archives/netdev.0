@@ -1,67 +1,53 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH] iptuntap: allow creation of multi-queue tun/tap device
-Date: Sun, 9 Jun 2013 14:11:23 +0300
-Message-ID: <20130609111123.GA16406@redhat.com>
-References: <1369348589-38730-1-git-send-email-sriram.narasimhan@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: Sriram Narasimhan <sriram.narasimhan@hp.com>
+From: Hong Zhiguo <honkiko@gmail.com>
+Subject: [PATCH net-next] veth: remove redundant call of dev_alloc_name
+Date: Sun,  9 Jun 2013 20:15:20 +0800
+Message-ID: <1370780120-8495-1-git-send-email-honkiko@gmail.com>
+Cc: davem@davemloft.net, stephen@networkplumber.org, xemul@openvz.org,
+	ebiederm@xmission.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20100 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753231Ab3FILK4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jun 2013 07:10:56 -0400
-Content-Disposition: inline
-In-Reply-To: <1369348589-38730-1-git-send-email-sriram.narasimhan@hp.com>
+Received: from mail-pd0-f170.google.com ([209.85.192.170]:42136 "EHLO
+	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753553Ab3FIMPd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 08:15:33 -0400
+Received: by mail-pd0-f170.google.com with SMTP id x11so711627pdj.15
+        for <netdev@vger.kernel.org>; Sun, 09 Jun 2013 05:15:33 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 23, 2013 at 03:36:29PM -0700, Sriram Narasimhan wrote:
-> This patch adds multi_queue option to ip tuntap.
-> This allows IFF_MULTI_QUEUE flag to be specified during
-> tun/tap device creation enabling multi-queue support in tun/tap
-> device.
-> 
-> Example: ip tuntap add dev tap0 mode tap multi_queue
-> 
-> Signed-off-by: Sriram Narasimhan <sriram.narasimhan@hp.com>
+it's called in the following register_netdevice. No need to call it
+here.
+Tested with "ip link add type veth" and "ip link add xxx%d type veth".
 
-Looks useful.
+Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+---
+ drivers/net/veth.c |    7 -------
+ 1 file changed, 7 deletions(-)
 
-Stephen, what do you think?
-Could you pick this up please?
-
-> ---
->  ip/iptuntap.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
-> 
-> diff --git a/ip/iptuntap.c b/ip/iptuntap.c
-> index 3d9ad7d..2391af2 100644
-> --- a/ip/iptuntap.c
-> +++ b/ip/iptuntap.c
-> @@ -38,7 +38,7 @@ static void usage(void)
->  {
->  	fprintf(stderr, "Usage: ip tuntap { add | del } [ dev PHYS_DEV ] \n");
->  	fprintf(stderr, "          [ mode { tun | tap } ] [ user USER ] [ group GROUP ]\n");
-> -	fprintf(stderr, "          [ one_queue ] [ pi ] [ vnet_hdr ]\n");
-> +	fprintf(stderr, "          [ one_queue ] [ pi ] [ vnet_hdr ] [ multi_queue ]\n");
->  	fprintf(stderr, "\n");
->  	fprintf(stderr, "Where: USER  := { STRING | NUMBER }\n");
->  	fprintf(stderr, "       GROUP := { STRING | NUMBER }\n");
-> @@ -168,6 +168,8 @@ static int parse_args(int argc, char **argv, struct ifreq *ifr, uid_t *uid, gid_
->  			ifr->ifr_flags |= IFF_ONE_QUEUE;
->  		} else if (matches(*argv, "vnet_hdr") == 0) {
->  			ifr->ifr_flags |= IFF_VNET_HDR;
-> +		} else if (matches(*argv, "multi_queue") == 0) {
-> +			ifr->ifr_flags |= IFF_MULTI_QUEUE;
->  		} else if (matches(*argv, "dev") == 0) {
->  			NEXT_ARG();
->  			strncpy(ifr->ifr_name, *argv, IFNAMSIZ-1);
-> -- 
-> 1.7.1
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/drivers/net/veth.c b/drivers/net/veth.c
+index 177f911..da86652 100644
+--- a/drivers/net/veth.c
++++ b/drivers/net/veth.c
+@@ -379,12 +379,6 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 	else
+ 		snprintf(dev->name, IFNAMSIZ, DRV_NAME "%%d");
+ 
+-	if (strchr(dev->name, '%')) {
+-		err = dev_alloc_name(dev, dev->name);
+-		if (err < 0)
+-			goto err_alloc_name;
+-	}
+-
+ 	err = register_netdevice(dev);
+ 	if (err < 0)
+ 		goto err_register_dev;
+@@ -404,7 +398,6 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
+ 
+ err_register_dev:
+ 	/* nothing to do */
+-err_alloc_name:
+ err_configure_peer:
+ 	unregister_netdevice(peer);
+ 	return err;
+-- 
+1.7.10.4
