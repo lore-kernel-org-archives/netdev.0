@@ -1,61 +1,46 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 1/3] net: sctp: let sctp_destroy_sock destroy
- related members
-Date: Sun, 09 Jun 2013 11:14:09 +0200
-Message-ID: <51B44761.3050902@redhat.com>
-References: <1370594106-25745-1-git-send-email-dborkman@redhat.com> <1370594106-25745-2-git-send-email-dborkman@redhat.com> <20130607105419.GA3249@hmsreliant.think-freely.org> <51B1C5A4.7080906@redhat.com> <20130609002054.GA5386@neilslaptop.think-freely.org>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [Patch net-next] ipv6: add missing /proc/sys/net/ipv6/ping_group_range
+Date: Sun, 9 Jun 2013 18:42:20 +0900
+Message-ID: <CAKD1Yr1JcL22bSGyvNQrUj4iPNxH3NS+re7jXeBEuvCTJf-Hjw@mail.gmail.com>
+References: <1370685275-22059-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38442 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750799Ab3FIJOT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jun 2013 05:14:19 -0400
-In-Reply-To: <20130609002054.GA5386@neilslaptop.think-freely.org>
+Received: from mail-qa0-f42.google.com ([209.85.216.42]:34709 "EHLO
+	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753680Ab3FIJml (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 05:42:41 -0400
+Received: by mail-qa0-f42.google.com with SMTP id hu16so1807016qab.15
+        for <netdev@vger.kernel.org>; Sun, 09 Jun 2013 02:42:40 -0700 (PDT)
+In-Reply-To: <1370685275-22059-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/09/2013 02:20 AM, Neil Horman wrote:
-> On Fri, Jun 07, 2013 at 01:36:04PM +0200, Daniel Borkmann wrote:
->> On 06/07/2013 12:54 PM, Neil Horman wrote:
->>> I'm not sure this is safe.  Comment in sk_common_release indicates that the
->>> network can still find the socket in the receive path.  What if we receive a
->>> cookie chunk while the socket is being torn down?  We would wind up using the
->>> hmac to unpack it potentially after you just freed it.  I think you need to wait
->>> until you drop the last reference to the endpoint, not whenever you destroy the
->>> local socket.  Note that sctp_endpoint_free doesn't actually free anything, it
->>> just removes it from the hash list so it can't be found again, and drops a
->>> refcount.  If a parallel recieve op has already found it, hmac may still be
->>> used.
->>
->> Agreed, you're right, thanks for pointing this out Neil! Is it *always* guaranteed
->> that at the time the endpoint is destroyed in a deferred way (e.g. exactly in such
->> a scenario you describe), the socket structure is still alive and not yet freed?
->> Either the ep->base.sk test in sctp_endpoint_destroy() would then be unnecessary
->> or, if necessary, we should move crypto_free_hash() and sctp_put_port() within this
->> body since they deref. socket members (but then that memory would be leaked in case
->> ep->base.sk is NULL). Probably, it might be best to add sth like this to explicitly
->> decouple it from the endpoint, which is then called when all refs are released from
->> the socket; then we could call this from __sk_free() via sk->sk_destruct():
->>
-> Thats a good question, I'm on vacation right now, so I'm not looking to closely
-> at much (I've spent all day in a pool).  I think what you're proposing below
-> probably makes sense.  Since the hmac crypo instance is allocated when the
+On Sat, Jun 8, 2013 at 6:54 PM, Cong Wang <amwang@redhat.com> wrote:
+> commit 6d0bfe22611602f366 (net: ipv6: Add IPv6 support to the ping socket.)
+> adds IPv6 ping socket support, but forgot to create
+> /proc/sys/net/ipv6/ping_group_range, therefore it wrongly shares
+> /proc/sys/net/ipv4/ping_group_range with IPv4.
 
-Cool, sounds relaxing. :-) Have nice holidays then!
+As you said, I'm not sure that sharing the sysctl file with IPv4 is a
+problem. Is it useful to support different permissions for IPv4 ping
+versus IPv6 ping? I would imagine that if an admin wants certain
+groups to be able to run ping, those groups would be the same for IPv4
+ping and IPv6 ping. But I'm not the authority here. Maybe David has an
+opinion?
 
-> socket transitions to the listening state in sctp_listen, it makes sense to
-> destroy it in sctp_sock_destroy.  If we need to we can protect it as an rcu
-> variable to protect it against parallel reads from cookie processing.  If it
-> fails in that case, its irrelevant, as the local socket is shutting down anyway.
+That said - if we do want to do this, I think you should find a way to
+do it with less code duplication. For example, your newly-added
+ping_v6_init_sock is almost line-for-line identical with the current
+ping_init_sock. This adds maintenance burden, because any future fix
+needs to modify both functions, and creates the opportunity for the
+two functions to diverge in the future, leading to different behaviour
+and/or bugs in the future. It should be trivial to refactor the common
+code out into one function that is called by both the IPv4 and the
+IPv6 init functions.
 
-I'll evaluate this further and then send a v2 of the set, but I think it makes
-sense this way.
-
-Thanks,
-
-Daniel
+There is similar code duplication in your new get_ping_group range and
+in other places as well.
