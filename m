@@ -1,46 +1,63 @@
-From: Lorenzo Colitti <lorenzo@google.com>
-Subject: Re: [Patch net-next] ipv6: add missing /proc/sys/net/ipv6/ping_group_range
-Date: Sun, 9 Jun 2013 18:42:20 +0900
-Message-ID: <CAKD1Yr1JcL22bSGyvNQrUj4iPNxH3NS+re7jXeBEuvCTJf-Hjw@mail.gmail.com>
-References: <1370685275-22059-1-git-send-email-amwang@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH] vhost: wake up worker outside spin_lock
+Date: Sun, 9 Jun 2013 12:47:01 +0300
+Message-ID: <20130609094701.GA14832@redhat.com>
+References: <51B1E518.1070003@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f42.google.com ([209.85.216.42]:34709 "EHLO
-	mail-qa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753680Ab3FIJml (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 05:42:41 -0400
-Received: by mail-qa0-f42.google.com with SMTP id hu16so1807016qab.15
-        for <netdev@vger.kernel.org>; Sun, 09 Jun 2013 02:42:40 -0700 (PDT)
-In-Reply-To: <1370685275-22059-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: jasowang@redhat.com, kvm@vger.kernel.org, netdev@vger.kernel.org
+To: Qin Chuanyu <qinchuanyu@huawei.com>
+Return-path: <kvm-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51B1E518.1070003@huawei.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 8, 2013 at 6:54 PM, Cong Wang <amwang@redhat.com> wrote:
-> commit 6d0bfe22611602f366 (net: ipv6: Add IPv6 support to the ping socket.)
-> adds IPv6 ping socket support, but forgot to create
-> /proc/sys/net/ipv6/ping_group_range, therefore it wrongly shares
-> /proc/sys/net/ipv4/ping_group_range with IPv4.
+On Fri, Jun 07, 2013 at 09:50:16PM +0800, Qin Chuanyu wrote:
+> the wake_up_process func is included by spin_lock/unlock in
+> vhost_work_queue,
+> but it could be done outside the spin_lock.
+> I have test it with kernel 3.0.27 and guest suse11-sp2 using iperf,
+> the num as below.
+>                  original                 modified
+> thread_num  tp(Gbps)   vhost(%)  |  tp(Gbps)     vhost(%)
+> 1           9.59        28.82    |   9.59        27.49
+> 8           9.61        32.92    |   9.62        26.77
+> 64          9.58        46.48    |   9.55        38.99
+> 256         9.6         63.7     |   9.6         52.59
+> 
+> Signed-off-by: Chuanyu Qin <qinchuanyu@huawei.com>
+> ---
+>  drivers/vhost/vhost.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/vhost/vhost.c b/drivers/vhost/vhost.c
+> index 94dbd25..dcc7a17 100644
+> --- a/drivers/vhost/vhost.c
+> +++ b/drivers/vhost/vhost.c
+> @@ -146,9 +146,11 @@ static inline void vhost_work_queue(struct
+> vhost_dev *dev,
 
-As you said, I'm not sure that sharing the sysctl file with IPv4 is a
-problem. Is it useful to support different permissions for IPv4 ping
-versus IPv6 ping? I would imagine that if an admin wants certain
-groups to be able to run ping, those groups would be the same for IPv4
-ping and IPv6 ping. But I'm not the authority here. Maybe David has an
-opinion?
+Applied and queued for 3.11, thanks.
 
-That said - if we do want to do this, I think you should find a way to
-do it with less code duplication. For example, your newly-added
-ping_v6_init_sock is almost line-for-line identical with the current
-ping_init_sock. This adds maintenance burden, because any future fix
-needs to modify both functions, and creates the opportunity for the
-two functions to diverge in the future, leading to different behaviour
-and/or bugs in the future. It should be trivial to refactor the common
-code out into one function that is called by both the IPv4 and the
-IPv6 init functions.
+This patch is malformed because of the wrapped line above.
+I've applied this by hand, so just FYI, please see
+Documentation/email-clients.txt
+for some hints on configuring mail properly.
 
-There is similar code duplication in your new get_ping_group range and
-in other places as well.
+
+>  	if (list_empty(&work->node)) {
+>  		list_add_tail(&work->node, &dev->work_list);
+>  		work->queue_seq++;
+> +		spin_unlock_irqrestore(&dev->work_lock, flags);
+>  		wake_up_process(dev->worker);
+> +	} else {
+> +		spin_unlock_irqrestore(&dev->work_lock, flags);
+>  	}
+> -	spin_unlock_irqrestore(&dev->work_lock, flags);
+>  }
+> 
+>  void vhost_poll_queue(struct vhost_poll *poll)
+> -- 
+> 1.7.3.1.msysgit.0
+> 
