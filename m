@@ -1,68 +1,42 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] sh_eth: Fix warnings on 64-bit.
-Date: Mon, 10 Jun 2013 02:36:07 +0400
-Message-ID: <51B50357.1090500@cogentembedded.com>
-References: <20130607.234116.2160936577356433396.davem@davemloft.net>
+From: Quentin RAMEAU <quentin.rameau@gmail.com>
+Subject: [iputils][ping] ip address resolution bug
+Date: Mon, 10 Jun 2013 00:52:45 +0200
+Message-ID: <CAKO=Kk5SA=KbWnnfzuzLY5pW9UX16zPuV_+Sv1P7LE7nezQzEg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-7;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: multipart/mixed; boundary=20cf307ca0022d18bf04dec08823
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f176.google.com ([209.85.217.176]:50620 "EHLO
-	mail-lb0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910Ab3FIWgK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 18:36:10 -0400
-Received: by mail-lb0-f176.google.com with SMTP id z5so5649529lbh.21
-        for <netdev@vger.kernel.org>; Sun, 09 Jun 2013 15:36:08 -0700 (PDT)
-In-Reply-To: <20130607.234116.2160936577356433396.davem@davemloft.net>
+Received: from mail-vc0-f173.google.com ([209.85.220.173]:56319 "EHLO
+	mail-vc0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751311Ab3FIWx1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 18:53:27 -0400
+Received: by mail-vc0-f173.google.com with SMTP id ht10so496665vcb.18
+        for <netdev@vger.kernel.org>; Sun, 09 Jun 2013 15:53:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+--20cf307ca0022d18bf04dec08823
+Content-Type: text/plain; charset=UTF-8
 
-On 06/08/2013 10:41 AM, David Miller wrote:
+Ping does not ensure it is resolving a hostname to an IPv4 address.
+i.e. when setting 'options inet6' in resolv.conf, gethostbyname(3)
+returns an IPv6 address, but ping handles it as in IPv4 address.
+I attached a simple patch which replaces gethostbyname() with
+gethostbyname2(), I'm not sure that is the best way to do it, feel
+free to comment.
 
-> Don't cast a plain integer to a pointer.
+Quentin Rameau
 
-> drivers/net/ethernet/renesas/sh_eth.c: In function =A1sh_eth_chip_res=
-et_giga=A2:
-> drivers/net/ethernet/renesas/sh_eth.c:482:22: warning: cast to pointe=
-r from integer of different size [-Wint-to-pointer-cast]
-> drivers/net/ethernet/renesas/sh_eth.c:483:22: warning: cast to pointe=
-r from integer of different size [-Wint-to-pointer-cast]
-> drivers/net/ethernet/renesas/sh_eth.c:492:22: warning: cast to pointe=
-r from integer of different size [-Wint-to-pointer-cast]
-> drivers/net/ethernet/renesas/sh_eth.c:493:22: warning: cast to pointe=
-r from integer of different size [-Wint-to-pointer-cast]
+--20cf307ca0022d18bf04dec08823
+Content-Type: application/octet-stream; name="ping-address-resolution.diff"
+Content-Disposition: attachment; filename="ping-address-resolution.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_hhqttfo40
 
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
-
-> Applied to net-next.
-
->   drivers/net/ethernet/renesas/sh_eth.c | 2 +-
->   1 file changed, 1 insertion(+), 1 deletion(-)
-
-> diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethe=
-rnet/renesas/sh_eth.c
-> index cff6971..43d8490 100644
-> --- a/drivers/net/ethernet/renesas/sh_eth.c
-> +++ b/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -469,7 +469,7 @@ static struct sh_eth_cpu_data sh7757_data =3D {
->   	.rpadir_value   =3D 2 << 16,
->   };
->
-> -#define SH_GIGA_ETH_BASE	0xfee00000
-> +#define SH_GIGA_ETH_BASE	0xfee00000UL
->   #define GIGA_MALR(port)		(SH_GIGA_ETH_BASE + 0x800 * (port) + 0x05c=
-8)
->   #define GIGA_MAHR(port)		(SH_GIGA_ETH_BASE + 0x800 * (port) + 0x05c=
-0)
->   static void sh_eth_chip_reset_giga(struct net_device *ndev)
-
-    Fixing up another dirty hack? This driver is just an abomination...=
- :-)
-
-WBR, Sergei
+ZGlmZiAtLWdpdCBhL3BpbmcuYyBiL3BpbmcuYwppbmRleCBjMDM2NmNkLi40OTg5NzYwIDEwMDY0
+NAotLS0gYS9waW5nLmMKKysrIGIvcGluZy5jCkBAIC0yNzksNyArMjc5LDcgQEAgbWFpbihpbnQg
+YXJnYywgY2hhciAqKmFyZ3YpCiAjZWxzZQogCQkJaWRuID0gdGFyZ2V0OwogI2VuZGlmCi0JCQlo
+cCA9IGdldGhvc3RieW5hbWUoaWRuKTsKKwkJCWhwID0gZ2V0aG9zdGJ5bmFtZTIoaWRuLCBBRl9J
+TkVUKTsKIAkJCWlmICghaHApIHsKIAkJCQlmcHJpbnRmKHN0ZGVyciwgInBpbmc6IHVua25vd24g
+aG9zdCAlc1xuIiwgdGFyZ2V0KTsKIAkJCQlleGl0KDIpOwo=
+--20cf307ca0022d18bf04dec08823--
