@@ -1,92 +1,59 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: [PATCH net-next] net: ping_check_bind_addr() etc. can be static
-Date: Sun, 9 Jun 2013 20:24:26 +0800
-Message-ID: <20130609122426.GA2715@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Lorenzo Colitti <lorenzo@google.com>
-To: netdev@vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net-next 0/3] Control VF link state
+Date: Sun,  9 Jun 2013 16:14:24 +0300
+Message-ID: <1370783667-19457-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, ronye@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:3333 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751906Ab3FINFV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jun 2013 09:05:21 -0400
-Content-Disposition: inline
+Received: from mailp.voltaire.com ([193.47.165.129]:54484 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752932Ab3FINNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jun 2013 09:13:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-net/ipv4/ping.c:286:5: sparse: symbol 'ping_check_bind_addr' was not declared. Should it be static?
-net/ipv4/ping.c:355:6: sparse: symbol 'ping_set_saddr' was not declared. Should it be static?
-net/ipv4/ping.c:370:6: sparse: symbol 'ping_clear_saddr' was not declared. Should it be static?
+Following the RFC sent couple of weeks ago, sending the patches which add API and 
+implementation that lets the admin to configure the link state of the VF / SRIOV 
+eSwitch vPORT. Basically, it has three states
 
-net/ipv6/ping.c:60:5: sparse: symbol 'dummy_ipv6_recv_error' was not declared. Should it be static?
-net/ipv6/ping.c:64:5: sparse: symbol 'dummy_ip6_datagram_recv_ctl' was not declared. Should it be static?
-net/ipv6/ping.c:69:5: sparse: symbol 'dummy_icmpv6_err_convert' was not declared. Should it be static?
-net/ipv6/ping.c:73:6: sparse: symbol 'dummy_ipv6_icmp_error' was not declared. Should it be static?
-net/ipv6/ping.c:75:5: sparse: symbol 'dummy_ipv6_chk_addr' was not declared. Should it be static?
+Auto - VF link state reflects the PF link state (default)
 
-Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
----
- net/ipv4/ping.c |    6 +++---
- net/ipv6/ping.c |   10 +++++-----
- 2 files changed, 8 insertions(+), 8 deletions(-)
+Up - VF link state is up, traffic from VF to VF works even if
+the actual PF link is down
 
---- linux-next.orig/net/ipv4/ping.c	2013-06-09 20:19:41.000000000 +0800
-+++ linux-next/net/ipv4/ping.c	2013-06-09 20:20:08.105728488 +0800
-@@ -283,7 +283,7 @@ void ping_close(struct sock *sk, long ti
- EXPORT_SYMBOL_GPL(ping_close);
- 
- /* Checks the bind address and possibly modifies sk->sk_bound_dev_if. */
--int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
-+static int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
- 			 struct sockaddr *uaddr, int addr_len) {
- 	struct net *net = sock_net(sk);
- 	if (sk->sk_family == AF_INET) {
-@@ -352,7 +352,7 @@ int ping_check_bind_addr(struct sock *sk
- 	return 0;
- }
- 
--void ping_set_saddr(struct sock *sk, struct sockaddr *saddr)
-+static void ping_set_saddr(struct sock *sk, struct sockaddr *saddr)
- {
- 	if (saddr->sa_family == AF_INET) {
- 		struct inet_sock *isk = inet_sk(sk);
-@@ -367,7 +367,7 @@ void ping_set_saddr(struct sock *sk, str
- 	}
- }
- 
--void ping_clear_saddr(struct sock *sk, int dif)
-+static void ping_clear_saddr(struct sock *sk, int dif)
- {
- 	sk->sk_bound_dev_if = dif;
- 	if (sk->sk_family == AF_INET) {
---- linux-next.orig/net/ipv6/ping.c	2013-06-09 20:19:41.000000000 +0800
-+++ linux-next/net/ipv6/ping.c	2013-06-09 20:20:11.085728559 +0800
-@@ -57,22 +57,22 @@ static struct inet_protosw pingv6_protos
- 
- 
- /* Compatibility glue so we can support IPv6 when it's compiled as a module */
--int dummy_ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
-+static int dummy_ipv6_recv_error(struct sock *sk, struct msghdr *msg, int len)
- {
- 	return -EAFNOSUPPORT;
- }
--int dummy_ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
-+static int dummy_ip6_datagram_recv_ctl(struct sock *sk, struct msghdr *msg,
- 				 struct sk_buff *skb)
- {
- 	return -EAFNOSUPPORT;
- }
--int dummy_icmpv6_err_convert(u8 type, u8 code, int *err)
-+static int dummy_icmpv6_err_convert(u8 type, u8 code, int *err)
- {
- 	return -EAFNOSUPPORT;
- }
--void dummy_ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err,
-+static void dummy_ipv6_icmp_error(struct sock *sk, struct sk_buff *skb, int err,
- 			    __be16 port, u32 info, u8 *payload) {}
--int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
-+static int dummy_ipv6_chk_addr(struct net *net, const struct in6_addr *addr,
- 			const struct net_device *dev, int strict)
- {
- 	return 0;
+Down - VF link state is down, no traffic from/to this VF, can be of
+use while configuring the VF
+
+Rony and Or.
+
+changes from the RFC:
+ - enhanced the get_vf_config ndo and linklink related code to 
+   retrieve the VF link info too
+ - same for iproute2
+
+
+Rony Efraim (2):
+  net/core: Add VF link state control
+  net/mlx4: Add VF link state support
+
+ drivers/net/ethernet/mellanox/mlx4/cmd.c       |   48 ++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    8 ++++
+ drivers/net/ethernet/mellanox/mlx4/eq.c        |    9 +++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c        |    8 ++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h      |    1 +
+ include/linux/if_link.h                        |    1 +
+ include/linux/mlx4/cmd.h                       |    2 +-
+ include/linux/netdevice.h                      |    3 +
+ include/uapi/linux/if_link.h                   |   13 ++++++
+ net/core/rtnetlink.c                           |   18 ++++++++-
+ 10 files changed, 106 insertions(+), 5 deletions(-)
+
+iproute2 part:
+
+Rony Efraim (1):
+  Add VF link state control
+
+ include/linux/if_link.h |   13 +++++++++++++
+ ip/iplink.c             |   14 ++++++++++++++
+ 2 files changed, 27 insertions(+), 0 deletions(-)
