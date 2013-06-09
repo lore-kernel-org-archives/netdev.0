@@ -1,53 +1,42 @@
-From: Hong Zhiguo <honkiko@gmail.com>
-Subject: [PATCH net-next] veth: remove redundant call of dev_alloc_name
-Date: Sun,  9 Jun 2013 20:15:20 +0800
-Message-ID: <1370780120-8495-1-git-send-email-honkiko@gmail.com>
-Cc: davem@davemloft.net, stephen@networkplumber.org, xemul@openvz.org,
-	ebiederm@xmission.com
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: [PATCH net-next] net: ipv6: ping_v6_seq_show() can be static
+Date: Sun, 9 Jun 2013 20:28:56 +0800
+Message-ID: <20130609122856.GA3166@localhost>
+References: <20130609122426.GA2715@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Lorenzo Colitti <lorenzo@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:42136 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753553Ab3FIMPd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 9 Jun 2013 08:15:33 -0400
-Received: by mail-pd0-f170.google.com with SMTP id x11so711627pdj.15
-        for <netdev@vger.kernel.org>; Sun, 09 Jun 2013 05:15:33 -0700 (PDT)
+Received: from mga02.intel.com ([134.134.136.20]:3333 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753844Ab3FINFY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jun 2013 09:05:24 -0400
+Content-Disposition: inline
+In-Reply-To: <20130609122426.GA2715@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-it's called in the following register_netdevice. No need to call it
-here.
-Tested with "ip link add type veth" and "ip link add xxx%d type veth".
+TO: Lorenzo Colitti <lorenzo@google.com>
+CC: netdev@vger.kernel.org 
+CC: linux-kernel@vger.kernel.org 
 
-Signed-off-by: Hong Zhiguo <honkiko@gmail.com>
+Signed-off-by: Fengguang Wu <fengguang.wu@intel.com>
 ---
- drivers/net/veth.c |    7 -------
- 1 file changed, 7 deletions(-)
+ net/ipv6/ping.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index 177f911..da86652 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -379,12 +379,6 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 	else
- 		snprintf(dev->name, IFNAMSIZ, DRV_NAME "%%d");
+Sorry I just realized this patch could be folded into the previous
+one.. It was two patches because the problems are found in two times.
+
+--- linux-next.orig/net/ipv6/ping.c	2013-06-09 20:20:11.085728559 +0800
++++ linux-next/net/ipv6/ping.c	2013-06-09 20:25:25.913736041 +0800
+@@ -198,7 +198,7 @@ static void *ping_v6_seq_start(struct se
+ 	return ping_seq_start(seq, pos, AF_INET6);
+ }
  
--	if (strchr(dev->name, '%')) {
--		err = dev_alloc_name(dev, dev->name);
--		if (err < 0)
--			goto err_alloc_name;
--	}
--
- 	err = register_netdevice(dev);
- 	if (err < 0)
- 		goto err_register_dev;
-@@ -404,7 +398,6 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 
- err_register_dev:
- 	/* nothing to do */
--err_alloc_name:
- err_configure_peer:
- 	unregister_netdevice(peer);
- 	return err;
--- 
-1.7.10.4
+-int ping_v6_seq_show(struct seq_file *seq, void *v)
++static int ping_v6_seq_show(struct seq_file *seq, void *v)
+ {
+ 	if (v == SEQ_START_TOKEN) {
+ 		seq_puts(seq, IPV6_SEQ_DGRAM_HEADER);
