@@ -1,80 +1,55 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: Generic interface to make physical port number used by a
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: Generic interface to make physical port number used by a
  netdevice available to user space
-Date: Mon, 10 Jun 2013 10:54:39 -0700
-Message-ID: <E31FB011129F30488D5861F383904915210BA89DEC@BLRX7MCDC201.AMER.DELL.COM>
+Date: Mon, 10 Jun 2013 19:10:41 +0100
+Message-ID: <1370887841.1933.20.camel@bwh-desktop.uk.level5networks.com>
 References: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>
-  <20130523093421.3b20a0bd@nehalam.linuxnetplumber.net>
-  <E31FB011129F30488D5861F383904915210B96144A@BLRX7MCDC201.AMER.DELL.COM>
-  <20130531121201.GA1311@fedora-17-guest.blr.amer.dell.com>
-  <51B1F56D.5000007@intel.com>
- <1370625678.1903.26.camel@bwh-desktop.uk.level5networks.com>
- <51B219D9.2010900@gmail.com>
+	 <20130523093421.3b20a0bd@nehalam.linuxnetplumber.net>
+	 <E31FB011129F30488D5861F383904915210B96144A@BLRX7MCDC201.AMER.DELL.COM>
+	 <20130531121201.GA1311@fedora-17-guest.blr.amer.dell.com>
+	 <51B1F56D.5000007@intel.com>
+	 <1370625678.1903.26.camel@bwh-desktop.uk.level5networks.com>
+	 <51B219D9.2010900@gmail.com>
+	 <E31FB011129F30488D5861F383904915210BA89DEC@BLRX7MCDC201.AMER.DELL.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <john.r.fastabend@intel.com>, <stephen@networkplumber.org>,
-	<netdev@vger.kernel.org>
-To: <john.fastabend@gmail.com>, <bhutchings@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <john.fastabend@gmail.com>, <john.r.fastabend@intel.com>,
+	<stephen@networkplumber.org>, <netdev@vger.kernel.org>
+To: <Narendra_K@Dell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxippc101.us.dell.com ([143.166.85.207]:56643 "EHLO
-	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754371Ab3FJR4d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 13:56:33 -0400
-In-Reply-To: <51B219D9.2010900@gmail.com>
-Content-Language: en-US
+Received: from webmail.solarflare.com ([12.187.104.25]:63517 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753032Ab3FJSKq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 14:10:46 -0400
+In-Reply-To: <E31FB011129F30488D5861F383904915210BA89DEC@BLRX7MCDC201.AMER.DELL.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2huIEZhc3RhYmVuZCBbbWFp
-bHRvOmpvaG4uZmFzdGFiZW5kQGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBKdW5lIDA3LCAy
-MDEzIDExOjA1IFBNDQo+IFRvOiBCZW4gSHV0Y2hpbmdzDQo+IENjOiBKb2huIEZhc3RhYmVuZDsg
-SywgTmFyZW5kcmE7IHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnOw0KPiBuZXRkZXZAdmdlci5r
-ZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBHZW5lcmljIGludGVyZmFjZSB0byBtYWtlIHBoeXNp
-Y2FsIHBvcnQgbnVtYmVyIHVzZWQgYnkgYQ0KPiBuZXRkZXZpY2UgYXZhaWxhYmxlIHRvIHVzZXIg
-c3BhY2UNCj4gDQo+IFsuLi5dDQo+IA0KPiA+IEhhdmluZyBsb29rZWQgYXQgdGhlIHFldGggZHJp
-dmVyIG5vdywgSSB0aGluayB0aGUgY29tbWVudCBpbg0KPiA+IG5ldGRldmljZS5oIHNob3VsZCBi
-ZSBjaGFuZ2VkIHRvIHN0YXRlIHRoYXQgdGhpcyBpcyBmb3IgZGlzdGluZ3Vpc2hpbmcNCj4gPiBk
-ZXZpY2VzIHRoYXQgc2hhcmUgYSBsaW5rLWxheWVyIGFkZHJlc3MsIGFuZCB0aGUgZHJpdmVycyB1
-c2luZyBpdCBmb3INCj4gPiBvdGhlciBwdXJwb3NlcyBzaG91bGQgc3RvcCBkb2luZyBzbyAoaWYg
-dGhhdCBkb2Vzbid0IGJyZWFrIHVzZXJsYW5kKS4NCj4gPg0KPiANCj4gQWdyZWVkLCB0aGUgcWV0
-aCBkcml2ZXIgZWx1ZGVkIG1lLCBpdHMgbm90IGluIC4vZHJpdmVycy9uZXQgYXMgeW91IG5vdGVk
-IGluDQo+IHRoZSBvdGhlciB0aHJlYWQuDQo+IA0KPiA+IFsuLi5dDQo+ID4+PiAzLiBBZGQgYSBu
-ZXcgZmllbGQgJ3BoeXNwb3J0JyB0byAnc3RydWN0IG5ldF9kZXZpY2UnIGFuZCBleHBvcnQgaXQg
-dG8gc3lzZnMuDQo+ID4+DQo+ID4+IFByb2JhYmx5IG5vdCB3ZSBhbHJlYWR5IGhhdmUgdHdvIGZp
-ZWxkcyB0aGF0IHNlZW0gaWxsLWRlZmluZWQgbm8NCj4gPj4gcmVhc29uIHRvIGFkZCBhbm90aGVy
-IHRvIHRoZSBjb25mdXNpb24uIElmIHlvdSBhYnNvbHV0ZWx5IGNhbid0IG1ha2UNCj4gPj4gZGV2
-X2lkIG9yIGlmX3BvcnQgY29oZXJlbnQgdGhlbiBtYXliZSBidXQgSSByZWFsbHkgdGhpbmsgb25l
-IG9mIHRoZQ0KPiA+PiBhYm92ZSB0d28gd2lsbCB3b3JrLg0KPiA+DQo+ID4gSSB0aGluayB3ZSBz
-aG91bGQgdGlnaHRlbiB1cCBkb2N1bWVudGF0aW9uIGFuZCBpbXBsZW1lbnRhdGlvbiBvZiB0aGUN
-Cj4gPiBleGlzdGluZyBmaWVsZHMsIGJ1dCB0aGVyZSBpcyBzdGlsbCBhIG5lZWQgZm9yIHRoaXMg
-bmV3IG9uZS4NCj4gPg0KPiA+IE9uZSB0aGluZyB0aGF0IG5lZWRzIHRvIGJlIGNsZWFybHkgc3Bl
-Y2lmaWVkIGlzIHRoZSBzY29wZSBvZiB0aGUNCj4gPiBwaHlzcG9ydCBpZGVudGlmaWVyIC0gdGhl
-IGNvbnRyb2xsZXIsIGJvYXJkLCBwaHlzaWNhbCBtYWNoaW5lLCAuLi4gb3INCj4gPiB1bml2ZXJz
-ZS4gIEluIGEgVk0sIGNvbnRyb2xsZXIgYW5kIGJvYXJkIHNjb3BlIGFyZSBwcmV0dHkgdXNlbGVz
-cyBhcw0KPiA+IGl0IHR5cGljYWxseSBjYW4ndCB0ZWxsIHdoaWNoIGRldmljZXMgYmVsb25nIHRv
-IHRoZSBzYW1lIGNvbnRyb2xsZXIgb3INCj4gPiBib2FyZCBhbnl3YXkuICBBIHVuaXZlcnNhbGx5
-IHVuaXF1ZSBpZGVudGlmaWVyIGlzIHByb2JhYmx5IG5vdCB0b28NCj4gPiBoYXJkIHRvIGltcGxl
-bWVudCBhcyB0aGVyZSBpcyBsaWtlbHkgdG8gYmUgYXQgbGVhc3Qgb25lIE1BQyBhZGRyZXNzDQo+
-ID4gcGVybWFuZW50bHkgYXNzaWduZWQgdG8gZWFjaCBwaHlzaWNhbCBwb3J0Lg0KPiA+DQo+ID4g
-QmVuLg0KPiA+DQo+IA0KPiBPSywgc291bmRzIHJlYXNvbmFibGUgdG8gbWUgYSBuZXcgZmllbGQg
-c2hvdWxkIHdvcmsuDQoNCjEuICBJIHRoaW5rIGEgdW5pdmVyc2FsbHkgdW5pcXVlIHBoeXNwb3J0
-IGlkZW50aWZpZXIgd2lsbCBiZSB2ZXJ5IHVzZWZ1bC4gIElmICdwaHlzcG9ydCcgaXMgdW5pcXVl
-IHBlciBOSUMgKHNheSAwLCAxLCAyLCAzKSAsIHRoZW4gd2Ugd291bGQgbmVlZCBQQ0kgYi9kL2Yg
-dG8gZGlmZmVyZW50aWF0ZSBiZXR3ZWVuIHR3byBOSUNzLiAgQnV0IGEgdW5pdmVyc2FsbHkgdW5p
-cXVlIGlkZW50aWZpZXIgd291bGQgbm90IG5lZWQgYW55IGFkZGl0aW9uYWwgaW5mb3JtYXRpb24u
-IEFsc28sICBpdCBzZWVtcyBsaWtlICB0aGUgVk0gc2NlbmFyaW8gIHdpbGwgbm90IG5lZWQgYW55
-IGFkZGl0aW9uYWwgaW5mb3JtYXRpb24gaWYgdGhlIFZGIChuZXRkZXYpIGFzc2lnbmVkIHRvIHRo
-ZSBndWVzdCBleHBvc2VzIHRoZSB1bmlxdWUgaWRlbnRpZmllci4NCg0KSW4gdGhlIHNjZW5hcmlv
-IG9mIE5JQyBwYXJ0aXRpb25zLCB1bml2ZXJzYWxseSB1bmlxdWUgaWRlbnRpZmllciBnZW5lcmF0
-aW9uIG1heSBoYXZlIHRvIGNvbnNpZGVyIHRoYXQsIGVhY2ggTklDIHBhcnRpdGlvbiB3aGljaCBt
-YXBzIHRvIGEgZ2l2ZW4gcGh5c2ljYWwgcG9ydCB3aWxsIGhhdmUgaXRzIG93biBNQUMgYWRkcmVz
-cy4gKFRoZSBTUklPViBWRiBuZXR3b3JrIGludGVyZmFjZXMgY291bGQgcHJvYmFibHkgdXNlIFBG
-J3MgTUFDIGFkZHJlc3MpLiAgQnV0ICBnZW5lcmF0aW9uIG9mIGEgdW5pdmVyc2FsbHkgdW5pcXVl
-IHBoeXNwb3J0IGlkZW50aWZpZXIgd291bGQgcHJvYmFibHkgYmUgZHJpdmVyIHNwZWNpZmljLg0K
-DQoyLiAgQWxzbywgdGhpbmtpbmcgYWJvdXQgdGhlIGRlZmF1bHQgdmFsdWUgZm9yICdwaHlzcG9y
-dCcgLCBjb3VsZCBpdCBiZSBzZXQgdG8gemVybyBieSBkZWZhdWx0ICA/IEEgcG9zc2libGUgIGlu
-dGVyZmFjZSBjb3VsZCBiZQ0KDQowICAgPT0+ICAgZHJpdmVyIGRpZCBub3QgdG8gc2V0IHRoZSBp
-ZGVudGlmaWVyDQo+IDAgPT0+IGRyaXZlciBzdWNjZXNzZnVsbHkgc2V0IHRoZSBpZGVudGlmaWVy
-DQoNCldpdGggcmVnYXJkcywNCk5hcmVuZHJhIEsNCkxpbnV4IEVuZ2luZWVyaW5nDQpEZWxsIElu
-Yy4NCiANCg0K
+On Mon, 2013-06-10 at 10:54 -0700, Narendra_K@Dell.com wrote:
+[...]
+> In the scenario of NIC partitions, universally unique identifier
+> generation may have to consider that, each NIC partition which maps to
+> a given physical port will have its own MAC address. (The SRIOV VF
+> network interfaces could probably use PF's MAC address).  But
+> generation of a universally unique physport identifier would probably
+> be driver specific.
+
+Right, I agree this has to be driver-specific.
+
+> 2.  Also, thinking about the default value for 'physport' , could it
+> be set to zero by default  ? A possible  interface could be
+> 
+> 0   ==>   driver did not to set the identifier
+> > 0 ==> driver successfully set the identifier
+
+I think a universally unique identifier would have to be a multibyte
+value like a MAC-48, EUI-64 or 128-bit UUID - not a simple number, and
+not a fixed length.  The unset value would then have a *length* of zero.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
