@@ -1,77 +1,39 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH V1 net-next 1/3] net/core: Add VF link state control
-Date: Mon, 10 Jun 2013 15:39:36 +0100
-Message-ID: <1370875176.1933.2.camel@bwh-desktop.uk.level5networks.com>
-References: <1370784435-26055-1-git-send-email-ogerlitz@mellanox.com>
-	 <1370784435-26055-2-git-send-email-ogerlitz@mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v10 net-next 5/6] ixgbe: add support for ndo_ll_poll
+Date: Mon, 10 Jun 2013 07:59:26 -0700
+Message-ID: <1370876366.3252.6.camel@edumazet-glaptop>
+References: <20130610083929.6955.87206.stgit@ladj378.jer.intel.com>
+	 <20130610084020.6955.48255.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<amirv@mellanox.com>, <ronye@mellanox.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:29972 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751231Ab3FJOjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 10:39:44 -0400
-In-Reply-To: <1370784435-26055-2-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130610084020.6955.48255.stgit@ladj378.jer.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-06-09 at 16:27 +0300, Or Gerlitz wrote:
-> From: Rony Efraim <ronye@mellanox.com>
+On Mon, 2013-06-10 at 11:40 +0300, Eliezer Tamir wrote:
+> Add the ixgbe driver code implementing ndo_ll_poll.
+> Adds ndo_ll_poll method and locking between it and the napi poll.
+> When receiving a packet we use skb_mark_ll to record the napi it came from.
+> Add each napi to the napi_hash right after netif_napi_add().
 > 
-> Add netlink directives and ndo entry to allow for controling
-> VF link, which can be in one of three states:
-> 
-> Auto - VF link state reflects the PF link state (default)
-> 
-> Up - VF link state is up, traffic from VF to VF works even if
-> the actual PF link is down
-> 
-> Down - VF link state is down, no traffic from/to this VF, can be of
-> use while configuring the VF
-> 
-> Signed-off-by: Rony Efraim <ronye@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-[...]
-> --- a/net/core/rtnetlink.c
-> +++ b/net/core/rtnetlink.c
-> @@ -947,6 +947,7 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  			struct ifla_vf_vlan vf_vlan;
->  			struct ifla_vf_tx_rate vf_tx_rate;
->  			struct ifla_vf_spoofchk vf_spoofchk;
-> +			struct ifla_vf_link_state vf_linkstate;
->  
->  			/*
->  			 * Not all SR-IOV capable drivers support the
+> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
+> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+> ---
 
-There's a bit missing here: you need to initialise ivi.linkstate to a
-default value.  I'm not sure whether that should be
-FLA_VF_LINK_STATE_AUTO (i.e. assume that's the default for all drivers/
-hardware) or whether there should be an explicit 'unknown' value.
-
-> @@ -961,13 +962,15 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
->  			vf_mac.vf =
->  				vf_vlan.vf =
->  				vf_tx_rate.vf =
-> -				vf_spoofchk.vf = ivi.vf;
-> +				vf_spoofchk.vf =
-> +				vf_linkstate.vf = ivi.vf;
->  
->  			memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
->  			vf_vlan.vlan = ivi.vlan;
->  			vf_vlan.qos = ivi.qos;
->  			vf_tx_rate.rate = ivi.tx_rate;
->  			vf_spoofchk.setting = ivi.spoofchk;
-> +			vf_linkstate.link_state = ivi.linkstate;
->  			vf = nla_nest_start(skb, IFLA_VF_INFO);
->  			if (!vf) {
->  				nla_nest_cancel(skb, vfinfo);
-[...]
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Reviewed-by: Eric Dumazet <edumazet@google.com>
