@@ -1,55 +1,55 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 09/15] net: can: Convert to use devm_ioremap_resource
-Date: Mon, 10 Jun 2013 15:09:27 +0200
-Message-ID: <51B5D007.8050005@pengutronix.de>
-References: <1370864113-17895-1-git-send-email-tushar.behera@linaro.org> <1370864113-17895-10-git-send-email-tushar.behera@linaro.org>
+From: <Narendra_K@Dell.com>
+Subject: [PATCH net-next] doc:networking: Update comment for dev_id field in
+ netdevice.h
+Date: Mon, 10 Jun 2013 19:34:03 +0530
+Message-ID: <20130610140325.GA1383@fedora-17-guest.blr.amer.dell.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2HOPDDRMHMUDPMUODDQBC"
-Cc: linux-kernel@vger.kernel.org, thierry.reding@gmail.com,
-	patches@linaro.org, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>
-To: Tushar Behera <tushar.behera@linaro.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1370864113-17895-10-git-send-email-tushar.behera@linaro.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <bhutchings@solarflare.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausxippc101.us.dell.com ([143.166.85.207]:59210 "EHLO
+	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753193Ab3FJOEg convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 10:04:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2HOPDDRMHMUDPMUODDQBC
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+This patch updates the comment for 'dev_id' field in
+'include/linux/netdevice.h' to reflect the intended
+usage of 'dev_id'.
 
-On 06/10/2013 01:35 PM, Tushar Behera wrote:
-> Commit 75096579c3ac ("lib: devres: Introduce devm_ioremap_resource()")
-> introduced devm_ioremap_resource() and deprecated the use of
-> devm_request_and_ioremap().
+References: http://marc.info/?l=linux-netdev&m=136992115300526&w=2
+References: http://marc.info/?l=linux-netdev&m=137062569014612&w=2
 
-Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+Signed-off-by: Narendra K <narendra_k@dell.com>
+---
+ include/linux/netdevice.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-Are the patches going over the individual subsystem maintainers?
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 8f967e3..a43712e 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1142,8 +1142,10 @@ struct net_device {
+ 	unsigned char		addr_assign_type; /* hw address assignment type */
+ 	unsigned char		addr_len;	/* hardware address length	*/
+ 	unsigned char		neigh_priv_len;
+-	unsigned short          dev_id;		/* for shared network cards */
+-
++	unsigned short          dev_id;		/* Used to differentiate devices
++						 * that share the same link
++						 * layer address
++						 */
+ 	spinlock_t		addr_list_lock;
+ 	struct netdev_hw_addr_list	uc;	/* Unicast mac addresses */
+ 	struct netdev_hw_addr_list	mc;	/* Multicast mac addresses */
+-- 
+1.8.0.1
 
-Marc
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
-------enig2HOPDDRMHMUDPMUODDQBC
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
-
-iEYEARECAAYFAlG10A0ACgkQjTAFq1RaXHOgrgCfc5EAxsxXoVlmBUx8FsblfoWg
-oYQAn3dbgReZJpqQR7ynY5UYUwNzoot5
-=z0Sn
------END PGP SIGNATURE-----
-
-------enig2HOPDDRMHMUDPMUODDQBC--
+-- 
+With regards,
+Narendra K
+Linux Engineering
+Dell Inc.
