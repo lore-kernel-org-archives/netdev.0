@@ -1,39 +1,47 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next] ipv6: add missing
- /proc/sys/net/ipv6/ping_group_range
-Date: Mon, 10 Jun 2013 11:02:02 +0800
-Message-ID: <1370833322.11543.1.camel@cr0>
-References: <1370685275-22059-1-git-send-email-amwang@redhat.com>
-	 <CAKD1Yr1JcL22bSGyvNQrUj4iPNxH3NS+re7jXeBEuvCTJf-Hjw@mail.gmail.com>
+Subject: Re: [Patch net-next v3 1/3] igmp: fix return value of some functions
+Date: Mon, 10 Jun 2013 11:07:33 +0800
+Message-ID: <1370833653.11543.3.camel@cr0>
+References: <1370689003.868.3.camel@cr0>
+	, <1370485211-11498-1-git-send-email-amwang@redhat.com>
+		 <OFF0DFA533.AF670FB8-ON85257B82.006E0B5C-85257B82.006F58EF@us.ibm.com>
+	 <OF76532841.5DDD0996-ON87257B85.000C25DF-87257B85.000C25E6@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Lorenzo Colitti <lorenzo@google.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev-owner@vger.kernel.org, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: David Stevens <dlstevens@us.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:35786 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:27369 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751068Ab3FJDCL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jun 2013 23:02:11 -0400
-In-Reply-To: <CAKD1Yr1JcL22bSGyvNQrUj4iPNxH3NS+re7jXeBEuvCTJf-Hjw@mail.gmail.com>
+	id S1751026Ab3FJDHo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 9 Jun 2013 23:07:44 -0400
+In-Reply-To: <OF76532841.5DDD0996-ON87257B85.000C25DF-87257B85.000C25E6@us.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-06-09 at 18:42 +0900, Lorenzo Colitti wrote:
-> On Sat, Jun 8, 2013 at 6:54 PM, Cong Wang <amwang@redhat.com> wrote:
-> > commit 6d0bfe22611602f366 (net: ipv6: Add IPv6 support to the ping socket.)
-> > adds IPv6 ping socket support, but forgot to create
-> > /proc/sys/net/ipv6/ping_group_range, therefore it wrongly shares
-> > /proc/sys/net/ipv4/ping_group_range with IPv4.
+On Sat, 2013-06-08 at 20:12 -0600, David Stevens wrote:
+> >From: Cong Wang <amwang@redhat.com>
 > 
-> As you said, I'm not sure that sharing the sysctl file with IPv4 is a
-> problem. Is it useful to support different permissions for IPv4 ping
-> versus IPv6 ping? I would imagine that if an admin wants certain
-> groups to be able to run ping, those groups would be the same for IPv4
-> ping and IPv6 ping. But I'm not the authority here. Maybe David has an
-> opinion?
+> >   Good point! I will convert the such return value to
+> >documented ones, for example, EINVAL.  Thanks!
 > 
+> You're also taking things that were not treated as errors
+> before, and now returning an error. For example, removing
+> a source not in the list.
+> 
+> Unless POSIX requires these to be treated as errors, and
+> that should be quoted, I think the 8 or 9 years of returning
+> "0" for these cases means we must continue to. Existing
+> programs that have always done this with a zero return
+> will start getting errors where they didn't before.
+> 
+> Also, though it's been a long time, I believe the original code
+> did return errors in those cases (which is why the code is there)
+> and was changed to return 0, presumably for POSIX compliance.
 
-I think we can just ignore the patch for now, we can add it if someone
-requests for it in future.
+Are you suggesting to just make ip_mc_leave_src() void?
+
+Thanks.
