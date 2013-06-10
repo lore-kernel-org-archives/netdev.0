@@ -1,50 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] ipv6: prevent fib6_run_gc() contention
-Date: Mon, 10 Jun 2013 14:26:42 -0700 (PDT)
-Message-ID: <20130610.142642.161876882927700341.davem@davemloft.net>
-References: <20130604111040.CCC9162CB4@unicorn.suse.cz>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: mkubecek@suse.cz
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: [PATCH 0/1] alx driver
+Date: Mon, 10 Jun 2013 23:26:48 +0200
+Message-ID: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+Cc: mcgrof@do-not-panic.com, kvalo@adurom.com, adrian.chadd@gmail.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59990 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753702Ab3FJV0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 17:26:44 -0400
-In-Reply-To: <20130604111040.CCC9162CB4@unicorn.suse.cz>
+Received: from s3.sipsolutions.net ([144.76.43.152]:34892 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753816Ab3FJV07 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 17:26:59 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Kubecek <mkubecek@suse.cz>
-Date: Tue, 4 Jun 2013 13:08:59 +0200
+So ... I was stupid enough to not research drivers for this device
+before buying a board that included one, I figured in 2013 it wasn't
+really possible for such a simple gigabit ethernet device to not
+have a driver in Linux.
 
-> On a high-traffic router with many processors and many IPv6 dst
-> entries, soft lockup in fib6_run_gc() can occur when number of
-> entries reaches gc_thresh.
-> 
-> This happens because fib6_run_gc() uses fib6_gc_lock to allow
-> only one thread to run the garbage collector but ip6_dst_gc()
-> doesn't update net->ipv6.ip6_rt_last_gc until fib6_run_gc()
-> returns. On a system with many entries, this can take some time
-> so that in the meantime, other threads pass the tests in
-> ip6_dst_gc() (ip6_rt_last_gc is still not updated) and wait for
-> the lock. They then have to run the garbage collector one after
-> another which blocks them for quite long.
-> 
-> Resolve this by replacing special value ~0UL of expire parameter
-> to fib6_run_gc() by explicit "force" parameter to choose between
-> spin_lock_bh() and spin_trylock_bh() and call fib6_run_gc() with
-> force=false if gc_thresh is reached but not max_size.
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+Boy was I wrong.
 
-It seems to me that it would be much simpler to simply update
-ip6_rt_last_gc first, that way the other threads would elide the GC
-call.
+The vendor driver was previously posted on netdev, and subsequently
+somewhat cleaned up, but ... it still had useless hand-rolled locks
+(with test_and_set_bit/msleep!), horrible macros, and was generally
+quite a mess.
 
-Can you see if simply doing that fixes the problem too?
+I do have to admit that I'm not very familiar with all the netdev
+APIs, since wireless devices are so slow that NAPI etc. hardly
+matters. In a way, this is also me learning about it since we'll be
+betting faster wireless too :-)
 
-Thanks.
+I hope I did an OK job at cleaning it up/rewriting it, but while I
+thought about the locking for a while, or rather the lack thereof,
+I'm not entirely sure that it's completely safe. It seemed to me
+that since we have TX/RX all done from NAPI it won't actually have
+to be reentrant/locked.
+
+Also, I kept the FIELD macros, which seemed wrong at first but the
+code didn't get nicer w/o them. I did fix them for endianness and
+converted some to inlines; I don't get why they actually had endian
+annotations and even turned on the sparse checks by default only to
+then ignore all the errors it was giving. I'll happily kill these
+if anyone thinks that would be better.
+
+Anyway, as I said, I'm not very good at ethernet drivers, so let me
+know what I need to fix.
+
+Maybe the responsible QCA folks can actually add back the features
+that I liberally pruned from the driver.
+
+johannes
