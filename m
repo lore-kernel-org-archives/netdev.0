@@ -1,33 +1,35 @@
-From: John Fastabend <john.r.fastabend@intel.com>
-Subject: Re: [RFC PATCH] Initialize dev_id sysfs attribute to -1 by default
-Date: Mon, 10 Jun 2013 11:43:04 -0700
-Message-ID: <51B61E38.6000908@intel.com>
-References: <20130530132419.GA1368@fedora-17-guest.blr.amer.dell.com>  <87fvx4mvtl.fsf@nemi.mork.no>  <20130531121737.GB1311@fedora-17-guest.blr.amer.dell.com>  <51B1F1FF.5010004@intel.com> <1370618634.1903.3.camel@bwh-desktop.uk.level5networks.com> <51B2152E.5010105@gmail.com> <E31FB011129F30488D5861F383904915210BA89DFD@BLRX7MCDC201.AMER.DELL.COM>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2] rcu: fix a race in hlist_nulls_for_each_entry_rcu
+ macro
+Date: Mon, 10 Jun 2013 11:51:57 -0700
+Message-ID: <1370890317.3252.10.camel@edumazet-glaptop>
+References: <1370229169.24311.119.camel@edumazet-glaptop>
+	 <20130602.202703.1059637861388689182.davem@davemloft.net>
+	 <20130603034254.GC29614@linux.vnet.ibm.com>
+	 <20130602.204915.334823676645400072.davem@davemloft.net>
+	 <51B61B22.2010604@yandex-team.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: john.fastabend@gmail.com, bhutchings@solarflare.com, bjorn@mork.no,
-	netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: Narendra_K@Dell.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:32434 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752297Ab3FJSnF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jun 2013 14:43:05 -0400
-In-Reply-To: <E31FB011129F30488D5861F383904915210BA89DFD@BLRX7MCDC201.AMER.DELL.COM>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, paulmck@linux.vnet.ibm.com,
+	klamm@yandex-team.ru, brouer@redhat.com, dipankar@in.ibm.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, David.Laight@ACULAB.COM, stable@vger.kernel.org,
+	gregkh@linuxfoundation.org
+To: zhmurov@yandex-team.ru
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <51B61B22.2010604@yandex-team.ru>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-[...]
+On Mon, 2013-06-10 at 22:29 +0400, Boris B. Zhmurov wrote:
 
-> Hi John, thank you for the inputs.  It was set to  -1 to differentiate between driver setting it to zero and the default value zero.
->
+> Hello David,
+> 
+> Do you think, this patch is "stable material" and should be included in
+> 3.0-stable and 3.4-stable trees? Thanks.
 
-The point I was trying to make here is setting it to a single
-digit 0, 1, or -1 doesn't really help in a virtualized environment
-where you may not have access to the PCI topology, serial #s, etc.
-You need a system-wide unique id.
+Yes, its in the stable queue :
 
-Anyways looks like your on the right track.
-
-.John
+http://patchwork.ozlabs.org/bundle/davem/stable/?state=*
