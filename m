@@ -1,43 +1,56 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: net: fec: Enable imx6 enet checksum acceleration
-Date: Mon, 10 Jun 2013 11:14:42 +0100
-Message-ID: <51B5A712.5020502@mentor.com>
-References: <CAFXsbZoz1wDS3LyZ+twLVnm-0=LDBmyhVB42=gNO+XurTk8pQA@mail.gmail.com>
+From: =?ISO-8859-1?Q?Holger_Hoffst=E4tte?=
+	<holger.hoffstaette@googlemail.com>
+Subject: Re: [PATCH v2 net 1/1] r8169: fix offloaded tx checksum for small
+ packets.
+Date: Mon, 10 Jun 2013 13:12:10 +0200
+Message-ID: <51B5B48A.5040807@googlemail.com>
+References: <20130518112446.GA21268@electric-eye.fr.zoreil.com> <5197936C.6090607@googlemail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Chris Healy <cphealy@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hayes Wang <hayeswang@realtek.com>,
+	Stefan Bader <stefan.bader@canonical.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Ben Hutchings <ben@decadent.org.uk>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:49031 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751752Ab3FJKOp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 06:14:45 -0400
-In-Reply-To: <CAFXsbZoz1wDS3LyZ+twLVnm-0=LDBmyhVB42=gNO+XurTk8pQA@mail.gmail.com>
+Received: from mho-02-ewr.mailhop.org ([204.13.248.72]:19402 "EHLO
+	mho-02-ewr.mailhop.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753262Ab3FJLMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 07:12:16 -0400
+In-Reply-To: <5197936C.6090607@googlemail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Chris,
+On 18.05.2013 16:42, Holger Hoffst=E4tte wrote:
+> On 18.05.2013 13:24, Francois Romieu wrote:
+>> 8168evl offloaded checksums are wrong since commit
+>> e5195c1f31f399289347e043d6abf3ffa80f0005 ("r8169: fix 8168evl frame =
+padding.")
+>> pads small packets to 60 bytes (without ethernet checksum). Typical =
+symptoms
+>> appear as UDP checksums which are wrong by the count of added bytes.
+>>
+>> It isn't worth compensating. Let the driver checksum.
+>>
+>> Due to the skb length changes, TSO code is moved before the Tx descr=
+iptor gets
+>> written.
+>>
+>> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+>=20
+> Tested again, still working for me.
+>=20
+> Tested-by: Holger Hoffst=E4tte <holger.hoffstaette@googlemail.com>
 
-It is now only enabled for i.MX6q; Shawn Guo fixed it with the commit:
-4849625569874d474ce351efd84b1f487ba08c94 net: fec: enable hardware
-checksum only on imx6q-fec
+ping:
 
+As far as I can tell this patch is still not in -stable 3.9.5 or queued
+up for the next iteration.
 
-Thank you,
-Jim
+Commit in Linus' tree is b423e9ae49d78ea3f53b131c8d5a6087aed16fd6
 
-On 09/06/13 03:30, Chris Healy wrote:
-> Jim,
-> 
-> Can you tell me if the change you made to enable checksum acceleration
-> works for other i.MX platforms?
-> 
-> I don't see anything in the code that differentiates between the various
-> i.MX platforms with the Freescale FEC.
-> 
-> It seems to me that the i.MX28 and i.MX51 would also support this.
-> 
-> Was this patch tested with the other i.MX platforms that use this driver?
-> 
-> Chris
+thanks :)
+
+-h
