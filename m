@@ -1,28 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 01/03] vxlan: only migrate dynamic FDB entries
-Date: Mon, 10 Jun 2013 13:42:55 -0700 (PDT)
-Message-ID: <20130610.134255.1579352475562624067.davem@davemloft.net>
-References: <20130610131317.0c17ed0d@nehalam.linuxnetplumber.net>
-	<51B63696.7020000@cogentembedded.com>
-	<20130610133201.30f20a69@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net-next 2/2] openvswitch: Use zerocopy if applicable
+ when performing the upcall
+Date: Mon, 10 Jun 2013 13:43:31 -0700 (PDT)
+Message-ID: <20130610.134331.1301662479712409021.davem@davemloft.net>
+References: <CAEP_g=944Wq982rDSC0hrqUBu8Sf6MCtQN0NhgyU5FDr9UB3ww@mail.gmail.com>
+	<20130607122139.GA21856@casper.infradead.org>
+	<CAEP_g=87=0bAP_QQVVXRXzqMA-9Xj5dXvsjpfe4MQ_k2x5n9cA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: tgraf@suug.ch, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	dev@openvswitch.org
+To: jesse@nicira.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59547 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59555 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751826Ab3FJUm4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 16:42:56 -0400
-In-Reply-To: <20130610133201.30f20a69@nehalam.linuxnetplumber.net>
+	with ESMTP id S1752657Ab3FJUnc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 16:43:32 -0400
+In-Reply-To: <CAEP_g=87=0bAP_QQVVXRXzqMA-9Xj5dXvsjpfe4MQ_k2x5n9cA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 10 Jun 2013 13:32:01 -0700
+From: Jesse Gross <jesse@nicira.com>
+Date: Mon, 10 Jun 2013 13:34:23 -0700
 
-> Now dave will make resend the whole series...
+> Well, this is the slow path. I don't want to force userspace to deal
+> with this because it's an internal kernel optimization that is
+> platform-specific and requires carrying additional metadata around.
 
-Attention to detail generally tends to show how much the submitter
-cares about the quality of their work :-)
+I think the grounds for this rejection is over the top and
+unreasonable.
