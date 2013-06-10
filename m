@@ -1,7 +1,7 @@
 From: Giancarlo Asnaghi <giancarlo.asnaghi@st.com>
-Subject: [PATCH 1/3] net: add support for MOST protocol
-Date: Mon, 10 Jun 2013 14:52:25 +0200
-Message-ID: <7d70dd76e3e756ca98414247213b7e8fad7034c9.1370856733.git.asnaghi@st.com>
+Subject: [PATCH 2/3] drivers/net/most: add MediaLB driver for sta2x11
+Date: Mon, 10 Jun 2013 14:52:36 +0200
+Message-ID: <f532cd60414d5b53d7d7766696f3aae81c33c66f.1370856733.git.asnaghi@st.com>
 References: <cover.1370856733.git.asnaghi@st.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -15,392 +15,70 @@ In-Reply-To: <cover.1370856733.git.asnaghi@st.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds core support for the MOST protocol. More information
-about the protocol can be found at: http://www.mostcooperation.com/
-
 See the lkml message "[PATCH 0/3] MOST network protocol" sent on Jun
 10th 2013 about this code and the missing "Signed-off" lines.
----
- include/linux/socket.h  |    4 +-
- include/net/most/most.h |  238 ++++++++++++
- net/Kconfig             |    1 +
- net/Makefile            |    1 +
- net/core/sock.c         |    9 +-
- net/most/Kconfig        |   15 +
- net/most/Makefile       |    6 +
- net/most/af_most.c      |  967 +++++++++++++++++++++++++++++++++++++++++++++++
- 8 files changed, 1237 insertions(+), 4 deletions(-)
- create mode 100644 include/net/most/most.h
- create mode 100644 net/most/Kconfig
- create mode 100644 net/most/Makefile
- create mode 100644 net/most/af_most.c
 
-diff --git a/include/linux/socket.h b/include/linux/socket.h
-index b10ce4b..b1e6669 100644
---- a/include/linux/socket.h
-+++ b/include/linux/socket.h
-@@ -179,7 +179,8 @@ struct ucred {
- #define AF_ALG		38	/* Algorithm sockets		*/
- #define AF_NFC		39	/* NFC sockets			*/
- #define AF_VSOCK	40	/* vSockets			*/
--#define AF_MAX		41	/* For now.. */
-+#define AF_MOST		41	/* MOST sockets			*/
-+#define AF_MAX		42	/* For now.. */
- 
- /* Protocol families, same as address families. */
- #define PF_UNSPEC	AF_UNSPEC
-@@ -223,6 +224,7 @@ struct ucred {
- #define PF_ALG		AF_ALG
- #define PF_NFC		AF_NFC
- #define PF_VSOCK	AF_VSOCK
-+#define PF_MOST		AF_MOST
- #define PF_MAX		AF_MAX
- 
- /* Maximum queue length specifiable by listen.  */
-diff --git a/include/net/most/most.h b/include/net/most/most.h
+---
+ drivers/net/Makefile          |    1 +
+ drivers/net/most/Kconfig      |   10 +
+ drivers/net/most/Makefile     |    6 +
+ drivers/net/most/sta2x11mlb.c | 1181 +++++++++++++++++++++++++++++++++++++++++
+ drivers/net/most/sta2x11mlb.h |  275 ++++++++++
+ 5 files changed, 1473 insertions(+), 0 deletions(-)
+ create mode 100644 drivers/net/most/Kconfig
+ create mode 100644 drivers/net/most/Makefile
+ create mode 100644 drivers/net/most/sta2x11mlb.c
+ create mode 100644 drivers/net/most/sta2x11mlb.h
+
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index ef3d090..0604d16 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -37,6 +37,7 @@ obj-$(CONFIG_FDDI) += fddi/
+ obj-$(CONFIG_HIPPI) += hippi/
+ obj-$(CONFIG_HAMRADIO) += hamradio/
+ obj-$(CONFIG_IRDA) += irda/
++obj-$(CONFIG_MOST) += most/
+ obj-$(CONFIG_PLIP) += plip/
+ obj-$(CONFIG_PPP) += ppp/
+ obj-$(CONFIG_PPP_ASYNC) += ppp/
+diff --git a/drivers/net/most/Kconfig b/drivers/net/most/Kconfig
 new file mode 100644
-index 0000000..f266fc7
+index 0000000..cc64e4e
 --- /dev/null
-+++ b/include/net/most/most.h
-@@ -0,0 +1,238 @@
-+#ifndef __MOST_H
-+#define __MOST_H
++++ b/drivers/net/most/Kconfig
+@@ -0,0 +1,10 @@
++menu "MOST Device Drivers"
++	depends on MOST
 +
-+#include <linux/interrupt.h>
-+#include <net/sock.h>
-+
-+/* Reserve for core and drivers use */
-+#define MOST_SKB_RESERVE	8
-+
-+#define CTL_FRAME_SIZE 32
-+
-+#define MOSTPROTO_DEV	0
-+#define MOSTPROTO_CTL	1
-+#define MOSTPROTO_SYNC	2
-+#define MOSTPROTO_ASYNC	3
-+
-+#define MOST_NO_CHANNEL 0xFE
-+
-+#define MOST_CONF_FLAG_UP   0x01
-+#define MOST_CONF_FLAG_TX   0x02
-+
-+enum most_dev_state {
-+	MOST_DEV_DOWN = 0,
-+	MOST_DEV_UP
-+};
-+
-+enum most_chan_type {
-+	CHAN_DEV = 0,
-+	CHAN_CTL,
-+	CHAN_SYNC,
-+	CHAN_ASYNC,
-+};
-+
-+enum {
-+	MOST_CONNECTED = 1, /* Equal to TCP_ESTABLISHED makes net code happy */
-+	MOST_OPEN,
-+	MOST_BOUND,
-+};
-+
-+struct sockaddr_most {
-+	sa_family_t    most_family;
-+	unsigned short most_dev;
-+	unsigned char  rx_channel;
-+	unsigned char  tx_channel;
-+};
-+
-+struct sockaddr_mostdev {
-+	sa_family_t    most_family;
-+	unsigned short most_dev;
-+};
-+
-+/* MOST Dev ioctl defines */
-+#define MOSTDEVUP	_IOW('M', 201, int)
-+#define MOSTDEVDOWN	_IOW('M', 202, int)
-+
-+#define MOSTGETDEVLIST	_IOR('M', 210, int)
-+
-+struct most_dev_req {
-+	uint16_t dev_id;
-+};
-+
-+struct most_dev_list_req {
-+	uint16_t dev_num;
-+	struct most_dev_req dev_req[0];
-+};
-+
-+struct most_skb_cb {
-+	__u8 channel_type;
-+	__u8 channel;
-+};
-+#define most_cb(skb) ((struct most_skb_cb *)(skb->cb))
-+
-+struct most_sock {
-+	struct sock sk;
-+	u8 channel_type;
-+	u8 rx_channel;
-+	u8 tx_channel;
-+	int dev_id;
-+	struct most_dev *mdev;
-+};
-+#define most_sk(sk) ((struct most_sock *)sk)
-+
-+static inline struct sock *most_sk_alloc(struct net *net,
-+	struct proto *pops, u8 channel_type)
-+{
-+	struct sock *sk = sk_alloc(net, PF_MOST, GFP_ATOMIC, pops);
-+	if (sk) {
-+		most_sk(sk)->channel_type = channel_type;
-+		most_sk(sk)->dev_id = -1;
-+	}
-+
-+	return sk;
-+}
-+static inline struct sk_buff *most_skb_alloc(unsigned int len, gfp_t how)
-+{
-+	struct sk_buff *skb = alloc_skb(len + MOST_SKB_RESERVE, how);
-+
-+	if (skb)
-+		skb_reserve(skb, MOST_SKB_RESERVE);
-+
-+	return skb;
-+}
-+
-+static inline struct sk_buff *most_skb_send_alloc(struct sock *sk,
-+	unsigned long len, int nb, int *err)
-+{
-+	struct sk_buff *skb =
-+		sock_alloc_send_skb(sk, len + MOST_SKB_RESERVE, nb, err);
-+
-+	if (skb)
-+		skb_reserve(skb, MOST_SKB_RESERVE);
-+
-+	return skb;
-+}
-+
-+struct most_sock_list {
-+	struct hlist_head head;
-+	rwlock_t          lock;
-+};
-+
-+
-+struct most_dev {
-+
-+	struct list_head list;
-+	atomic_t refcnt;
-+
-+	char name[8];
-+
-+	__u16 id;
-+	enum most_dev_state state;
-+
-+	struct module *owner;
-+
-+	struct tasklet_struct rx_task;
-+	struct tasklet_struct tx_task;
-+
-+	struct sk_buff_head rx_q;
-+	struct sk_buff_head ctl_q;
-+	struct sk_buff_head async_q;
-+	struct sk_buff_head sync_q;
-+
-+	/* set by the driver */
-+
-+	void *driver_data;
-+	struct device	*parent;
-+
-+	int (*open)(struct most_dev *mdev);
-+	int (*close)(struct most_dev *mdev);
-+	int (*conf_channel)(struct most_dev *mdev, enum most_chan_type type,
-+		u8 channel, u8 flags);
-+	int (*send)(struct sk_buff *skb);
-+	int (*can_send)(struct sk_buff *skb);
-+};
-+
-+static inline struct most_dev *most_dev_hold(struct most_dev *d)
-+{
-+	if (try_module_get(d->owner))
-+		return d;
-+	return NULL;
-+}
-+
-+static inline void most_dev_put(struct most_dev *d)
-+{
-+	module_put(d->owner);
-+}
-+
-+static inline void most_sched_tx(struct most_dev *mdev)
-+{
-+	tasklet_schedule(&mdev->tx_task);
-+}
-+
-+static inline void most_sched_rx(struct most_dev *mdev)
-+{
-+	tasklet_schedule(&mdev->rx_task);
-+}
-+
-+static inline int most_recv_frame(struct sk_buff *skb)
-+{
-+	struct most_dev *mdev = (struct most_dev *) skb->dev;
-+
-+	/* Time stamp */
-+	__net_timestamp(skb);
-+
-+	/* Queue frame for rx task */
-+	skb_queue_tail(&mdev->rx_q, skb);
-+	most_sched_rx(mdev);
-+	return 0;
-+}
-+
-+static inline int __most_configure_channel(struct most_dev *mdev,
-+	u8 channel_type, u8 channel, u8 up)
-+{
-+	if (mdev->state != MOST_DEV_UP)
-+		return -ENETDOWN;
-+
-+	if (mdev->conf_channel)
-+		if (channel != MOST_NO_CHANNEL)
-+			return mdev->conf_channel(mdev, channel_type, channel,
-+				up);
-+	return 0;
-+}
-+
-+static inline int most_configure_channels(struct most_dev *mdev,
-+	struct most_sock *sk, u8 up)
-+{
-+	int err;
-+	u8 flags = (up) ? MOST_CONF_FLAG_UP : 0;
-+
-+	err = __most_configure_channel(mdev, sk->channel_type, sk->rx_channel,
-+		flags);
-+	if (err)
-+		return err;
-+
-+	err = __most_configure_channel(mdev, sk->channel_type, sk->tx_channel,
-+		flags | MOST_CONF_FLAG_TX);
-+	if (err)
-+		__most_configure_channel(mdev, sk->channel_type, sk->rx_channel,
-+		(up) ? 0 : MOST_CONF_FLAG_UP);
-+	return err;
-+}
-+
-+struct most_dev *most_alloc_dev(void);
-+void most_free_dev(struct most_dev *mdev);
-+int most_register_dev(struct most_dev *mdev);
-+int most_unregister_dev(struct most_dev *mdev);
-+
-+int most_get_dev_list(void __user *arg);
-+int most_open_dev(u16 dev_id);
-+int most_close_dev(u16 dev_id);
-+
-+struct most_dev *most_dev_get(int index);
-+
-+void most_sock_link(struct sock *s);
-+void most_sock_unlink(struct sock *sk);
-+
-+int most_send_to_sock(int dev_id, struct sk_buff *skb);
-+
-+#endif /* __MOST_H */
-diff --git a/net/Kconfig b/net/Kconfig
-index 2273655..8bfc9a2 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -327,6 +327,7 @@ source "net/can/Kconfig"
- source "net/irda/Kconfig"
- source "net/bluetooth/Kconfig"
- source "net/rxrpc/Kconfig"
-+source "net/most/Kconfig"
- 
- config FIB_RULES
- 	bool
-diff --git a/net/Makefile b/net/Makefile
-index 9492e8c..ee1a125 100644
---- a/net/Makefile
-+++ b/net/Makefile
-@@ -40,6 +40,7 @@ obj-$(CONFIG_ATM)		+= atm/
- obj-$(CONFIG_L2TP)		+= l2tp/
- obj-$(CONFIG_DECNET)		+= decnet/
- obj-$(CONFIG_PHONET)		+= phonet/
-+obj-$(CONFIG_MOST)		+= most/
- ifneq ($(CONFIG_VLAN_8021Q),)
- obj-y				+= 8021q/
- endif
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 88868a9..920b68f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -210,7 +210,8 @@ static const char *const af_family_key_strings[AF_MAX+1] = {
-   "sk_lock-AF_TIPC"  , "sk_lock-AF_BLUETOOTH", "sk_lock-IUCV"        ,
-   "sk_lock-AF_RXRPC" , "sk_lock-AF_ISDN"     , "sk_lock-AF_PHONET"   ,
-   "sk_lock-AF_IEEE802154", "sk_lock-AF_CAIF" , "sk_lock-AF_ALG"      ,
--  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_MAX"
-+  "sk_lock-AF_NFC"   , "sk_lock-AF_VSOCK"    , "sk_lock-AF_MOST"     ,
-+  "sk_lock-AF_MAX"
- };
- static const char *const af_family_slock_key_strings[AF_MAX+1] = {
-   "slock-AF_UNSPEC", "slock-AF_UNIX"     , "slock-AF_INET"     ,
-@@ -226,7 +227,8 @@ static const char *const af_family_slock_key_strings[AF_MAX+1] = {
-   "slock-AF_TIPC"  , "slock-AF_BLUETOOTH", "slock-AF_IUCV"     ,
-   "slock-AF_RXRPC" , "slock-AF_ISDN"     , "slock-AF_PHONET"   ,
-   "slock-AF_IEEE802154", "slock-AF_CAIF" , "slock-AF_ALG"      ,
--  "slock-AF_NFC"   , "slock-AF_VSOCK"    ,"slock-AF_MAX"
-+  "slock-AF_NFC"   , "slock-AF_VSOCK"    , "slock-AF_MOST"     ,
-+  "slock-AF_MAX"
- };
- static const char *const af_family_clock_key_strings[AF_MAX+1] = {
-   "clock-AF_UNSPEC", "clock-AF_UNIX"     , "clock-AF_INET"     ,
-@@ -242,7 +244,8 @@ static const char *const af_family_clock_key_strings[AF_MAX+1] = {
-   "clock-AF_TIPC"  , "clock-AF_BLUETOOTH", "clock-AF_IUCV"     ,
-   "clock-AF_RXRPC" , "clock-AF_ISDN"     , "clock-AF_PHONET"   ,
-   "clock-AF_IEEE802154", "clock-AF_CAIF" , "clock-AF_ALG"      ,
--  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_MAX"
-+  "clock-AF_NFC"   , "clock-AF_VSOCK"    , "clock-AF_MOST"     ,
-+  "clock-AF_MAX"
- };
- 
- /*
-diff --git a/net/most/Kconfig b/net/most/Kconfig
-new file mode 100644
-index 0000000..6158836
---- /dev/null
-+++ b/net/most/Kconfig
-@@ -0,0 +1,15 @@
-+#
-+# Media Oriented Systems Transport (MOST) network layer core configuration
-+#
-+
-+menuconfig MOST
-+	depends on NET
-+	tristate "MOST bus subsystem support"
++config MOST_STA2X11_MLB
++	tristate "The STA2X11 MOST block"
++	depends on MOST && STA2X11
 +	---help---
-+	  Media Oriented Systems Transport (MOST) is a multimedia
-+	  communications protocol in the automotive industry.
-+	  You also need a low level for the hardware.
-+	  Isochronous channels are currently not supported.
-+	  If you want MOST support you should say Y here.
++	  Adds support for MLB on the sta2x11
 +
-+source "drivers/net/most/Kconfig"
-diff --git a/net/most/Makefile b/net/most/Makefile
++endmenu
+diff --git a/drivers/net/most/Makefile b/drivers/net/most/Makefile
 new file mode 100644
-index 0000000..eadb570
+index 0000000..8729533
 --- /dev/null
-+++ b/net/most/Makefile
++++ b/drivers/net/most/Makefile
 @@ -0,0 +1,6 @@
 +#
-+#  Makefile for the Linux Media Oriented Systems Transport core.
++#  Makefile for the Linux Media Oriented Systems Transport drivers.
 +#
 +
-+obj-$(CONFIG_MOST)	+= most.o
-+most-objs		:= af_most.o
-diff --git a/net/most/af_most.c b/net/most/af_most.c
++obj-$(CONFIG_MOST_TIMB_MLB)	+= timbmlb.o
++obj-$(CONFIG_MOST_STA2X11_MLB)	+= sta2x11mlb.o
+diff --git a/drivers/net/most/sta2x11mlb.c b/drivers/net/most/sta2x11mlb.c
 new file mode 100644
-index 0000000..d51ab1d
+index 0000000..2e4b6b2
 --- /dev/null
-+++ b/net/most/af_most.c
-@@ -0,0 +1,967 @@
++++ b/drivers/net/most/sta2x11mlb.c
+@@ -0,0 +1,1181 @@
 +/*
-+ * af_most.c Support for the MOST address family
-+ * Copyright (c) 2009 Intel Corporation
++ * sta2x11mlb.c Driver for the sta2x11 MLB block
++ * Copyright (c) 2010-2011 Wind River
 + *
 + * This program is free software; you can redistribute it and/or modify
 + * it under the terms of the GNU General Public License version 2 as
@@ -416,954 +94,1449 @@ index 0000000..d51ab1d
 + * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 + */
 +
-+#include <linux/kernel.h>
-+#include <linux/slab.h>
 +#include <linux/module.h>
-+#include <net/sock.h>
++#include <linux/pci.h>
++#include <linux/interrupt.h>
++#include <linux/debugfs.h>
++#include <linux/platform_device.h>
++#include <linux/mfd/sta2x11-mfd.h>
 +#include <net/most/most.h>
 +
-+#define MOST_MAX_PROTO	4
-+static struct net_proto_family most_net_proto_family_ops[];
-+static struct proto most_proto[];
++#include "sta2x11mlb.h"
 +
-+/* MOST device list */
-+LIST_HEAD(most_dev_list);
-+DEFINE_RWLOCK(most_dev_list_lock);
 +
-+/* * * * * * * * * * * * * * PROTO OPS * * * * * * * * * * * * */
++static int ehcid;
++module_param(ehcid, int, S_IRUGO);
 +
-+static struct most_sock_list most_sk_list = {
-+	.lock = __RW_LOCK_UNLOCKED(ctl_sk_list.lock)
++static int speed = DCCR_MCS_512FS;
++module_param(speed, int, S_IRUGO);
++
++static int syncc = 8;
++module_param(syncc, int, S_IRUGO);
++
++static int syncb = 64;
++module_param(syncb, int, S_IRUGO);
++
++#define debug_reg(_reg)			\
++{					\
++	.name	= __stringify(_reg),	\
++	.offset	= _reg,			\
++}
++
++static const struct debugfs_reg32 sta2x11_mlb_regs[] = {
++		debug_reg(MLB_DCCR),
++		debug_reg(MLB_SSCR),
++		debug_reg(MLB_SMCR),
++		debug_reg(MLB_VCCR),
++		debug_reg(MLB_SBCR),
++		debug_reg(MLB_ABCR),
++		debug_reg(MLB_CBCR),
++		debug_reg(MLB_IBCR),
++		debug_reg(MLB_CICR),
++
++		debug_reg(MLB_CECR(0)),
++		debug_reg(MLB_CSCR(0)),
++		debug_reg(MLB_CNBCR(0)),
++		debug_reg(MLB_LCBCR(0)),
++
++		debug_reg(MLB_CECR(1)),
++		debug_reg(MLB_CSCR(1)),
++		debug_reg(MLB_CNBCR(1)),
++		debug_reg(MLB_LCBCR(1)),
++
++		debug_reg(MLB_CECR(2)),
++		debug_reg(MLB_CSCR(2)),
++		debug_reg(MLB_CNBCR(2)),
++		debug_reg(MLB_LCBCR(2)),
++
++		debug_reg(MLB_CECR(3)),
++		debug_reg(MLB_CSCR(3)),
++		debug_reg(MLB_CNBCR(3)),
++		debug_reg(MLB_LCBCR(3)),
 +};
 +
-+void most_sock_link(struct sock *sk)
++/**
++ * sta2x11_mlb_write - write directly to hardware register
++ * @dev: structure containing hardware address
++ * @reg: register offset
++ * @val: value to be written
++ *
++ * write a 32 bit value into a register
++ */
++static void sta2x11_mlb_write(struct sta2x11_mlb *dev, u32 reg, u32 val)
 +{
-+	write_lock_bh(&most_sk_list.lock);
-+	sk_add_node(sk, &most_sk_list.head);
-+	write_unlock_bh(&most_sk_list.lock);
-+}
-+EXPORT_SYMBOL(most_sock_link);
-+
-+void most_sock_unlink(struct sock *sk)
-+{
-+	write_lock_bh(&most_sk_list.lock);
-+	sk_del_node_init(sk);
-+	write_unlock_bh(&most_sk_list.lock);
-+}
-+EXPORT_SYMBOL(most_sock_unlink);
-+
-+static int channel_in_use(int dev_id, u8 channel)
-+{
-+	struct sock *sk;
-+
-+	read_lock_bh(&most_sk_list.lock);
-+
-+	sk_for_each(sk, &most_sk_list.head)
-+		if (most_sk(sk)->dev_id == dev_id &&
-+			sk->sk_state == MOST_BOUND &&
-+			(most_sk(sk)->rx_channel == channel ||
-+			 most_sk(sk)->tx_channel == channel))
-+			goto found;
-+
-+	sk = NULL;
-+found:
-+	read_unlock_bh(&most_sk_list.lock);
-+
-+	return sk != NULL;
++	writel(val, dev->base + reg);
 +}
 +
-+int most_send_to_sock(int dev_id, struct sk_buff *skb)
++/**
++ * sta2x11_mlb_read - read directly from hardware register
++ * @dev: structure containing hardware address
++ * @reg: register offset
++ *
++ * read a 32 bit value into from register
++ * return value: register contents
++ */
++static u32 sta2x11_mlb_read(struct sta2x11_mlb *dev, u32 reg)
 +{
-+	struct sock *sk;
++	return readl(dev->base + reg);
++}
 +
-+	read_lock(&most_sk_list.lock);
-+	sk_for_each(sk, &most_sk_list.head) {
-+		if (most_sk(sk)->dev_id == dev_id &&
-+			most_sk(sk)->channel_type == most_cb(skb)->channel_type
-+			&& most_sk(sk)->rx_channel == most_cb(skb)->channel &&
-+			sk->sk_state == MOST_BOUND) {
++/**
++ * sta2x11_mlb_reset - reset MLB interface
++ * @dev: structure containing hardware address
++ *
++ * The device is reset and a busy wait is done until it is ready. If the
++ * reset takes more than 1000 cycle, probably there is an the hardware failure
++ */
++static void sta2x11_mlb_reset(struct sta2x11_mlb *dev)
++{
++	int i = 1000;
 +
-+			struct sk_buff *nskb = skb_clone(skb, GFP_ATOMIC);
-+			if (nskb)
-+				if (sock_queue_rcv_skb(sk, nskb))
-+					kfree_skb(nskb);
++	sta2x11_mlb_write(dev, MLB_DCCR, DCCR_MRS_BIT);
++	while ((sta2x11_mlb_read(dev, MLB_DCCR) & DCCR_MRS_BIT) && i > 0)
++		i--;
++	if (!i)
++		dev_err(dev->mdev->parent, "failed to reset MLB\n");
++}
++
++/**
++ * skip_next - read and discard data
++ * @dev: structure containing hardware address
++ * @ch: number of channel
++ * @status: contains updated channel status
++ *
++ * read until buffer is empty or the beginning of a new packet.
++ *
++ * return value: first word of new packet, undefined if no new packet.
++ */
++static int sta2x11_mlb_skip_next(struct sta2x11_mlb *dev, u8 ch, int *status)
++{
++	int word = 0;
++
++	while(1) {
++		*status = sta2x11_mlb_read(dev, MLB_CSCR(ch));
++		if (*status & (CSCR_BM_BIT |CSCR_MRPS_BIT))
++			return word;
++		sta2x11_mlb_write(dev, MLB_CSCR(ch), *status & 0xffff);
++		word = sta2x11_mlb_read(dev, MLB_CCBCR(ch));
++	}
++}
++
++/**
++ * sta2x11_mlb_rx_sync - receive from one channel of type CHAN_SYNC
++ *
++ * @dev: sta2x11_mlb instance to use
++ * @skb: buffer where store data
++ * @skb_size: number of bytes to read
++ * @ch: channel number
++ */
++static void sta2x11_mlb_rx_sync(struct sta2x11_mlb *dev, struct sk_buff *skb, int skb_size, u8 ch)
++{
++	u32 status;
++	u32 *data;
++
++	status = sta2x11_mlb_read(dev, MLB_CSCR(ch));
++	while ((skb->len < skb_size) && !(status & CSCR_BM_BIT)) {
++		data = (u32 *)skb_put(skb, sizeof(*data));
++		*data = sta2x11_mlb_read(dev, MLB_CCBCR(ch));
++		status = sta2x11_mlb_read(dev, MLB_CSCR(ch));
++	}
++}
++
++/**
++ * sta2x11_mlb_rx_ctl_async - receive from one channel of type ASYNC or CTL
++ *
++ * @dev: sta2x11_mlb instance to use
++ * @skb: buffer where store data
++ * @skb_size: number of bytes to read
++ * @ch: channel number
++ *
++ * return value: 0 if no error occurs, -EBUSY if buffer is empty
++ */
++static int sta2x11_mlb_rx_ctl_async(struct sta2x11_mlb *dev,
++				     struct sk_buff *skb, int skb_size, u8 ch)
++{
++	struct sta2x11_mlb_chan *chn = &dev->channels[ch];
++	u32 status;
++	u32 *data;
++	int word;
++	int len;
++
++	while (1) {
++		status = sta2x11_mlb_read(dev, MLB_CSCR(ch));
++		sta2x11_mlb_write(dev, MLB_CSCR(ch), status & 0xffff);
++		if (status & CSCR_REC_ERR) {
++			pr_info("MLB: rec. error %x\n", status);
++			chn->len = 0;
++			word = sta2x11_mlb_skip_next(dev, ch, &status);
++			if (status & CSCR_MRPS_BIT)
++				goto newword;
 +		}
-+
++		if (status & CSCR_BM_BIT) {
++			/* The buffer is empty, nothing to do */
++			return -EBUSY; /* FIXME better error code */
++		}
++		word = sta2x11_mlb_read(dev, MLB_CCBCR(ch));
++newword:
++		if (!chn->len)
++			chn->len = ntohs(word) + 2;
++		if (chn->len > skb_size) {
++			pr_info("MLB: len. error %d\n", chn->len);
++			chn->len = 0;
++			word = sta2x11_mlb_skip_next(dev, ch, &status);
++			if (status & CSCR_MRPS_BIT)
++				goto newword;
++			continue;
++		}
++		len = chn->len - skb->len;
++		if (len > sizeof(word))
++			len = sizeof(word);
++		data = (u32 *) skb_put(skb, len);
++		*data = word;
++		if (skb->len >= chn->len)
++			break;
 +	}
-+	read_unlock(&most_sk_list.lock);
 +
 +	return 0;
 +}
-+EXPORT_SYMBOL(most_send_to_sock);
 +
-+static int most_sock_release(struct socket *sock)
++/**
++ * __sta2x11_mlb_rx - receive from one channel
++ * @dev: structure containing all information
++ * @ch: channel number
++ *
++ * read data from one channel and deliver to MOST layer if complete
++ * get new buffer from MOST layer if there is none in use.
++ * in case of an error discard data, no message to MOST layer.
++ */
++static void sta2x11_mlb_rx(struct sta2x11_mlb *dev, u8 ch)
 +{
-+	struct sock *sk = sock->sk;
-+	struct most_dev *mdev;
-+
-+	pr_debug("%s: sock %p sk %p\n", __func__, sock, sk);
-+
-+	if (!sk)
-+		return 0;
-+
-+	mdev = most_sk(sk)->mdev;
-+
-+	most_sock_unlink(sk);
-+
-+	if (mdev) {
-+		if (sk->sk_state == MOST_BOUND)
-+			most_configure_channels(mdev, most_sk(sk), 0);
-+
-+		most_dev_put(mdev);
-+	}
-+
-+	sock_orphan(sk);
-+	sock_put(sk);
-+	return 0;
-+}
-+
-+static int most_sock_bind(struct socket *sock, struct sockaddr *addr,
-+			  int addr_len)
-+{
-+	struct sockaddr_most *maddr = (struct sockaddr_most *)addr;
-+	struct sock *sk = sock->sk;
-+	struct most_dev *mdev = NULL;
-+	int err = 0;
-+
-+	if (!maddr || maddr->most_family != AF_MOST)
-+		return -EINVAL;
-+
-+	pr_debug("%s: sock %p sk %p, rx: %d, tx: %d\n",
-+		__func__, sock, sk, maddr->rx_channel, maddr->tx_channel);
-+
-+	lock_sock(sk);
-+
-+	if (sk->sk_state != MOST_OPEN) {
-+		err = -EBADFD;
-+		goto done;
-+	}
-+
-+	if (most_sk(sk)->mdev) {
-+		err = -EALREADY;
-+		goto done;
-+	}
-+
-+	if (channel_in_use(maddr->most_dev, maddr->rx_channel) ||
-+		channel_in_use(maddr->most_dev, maddr->tx_channel)) {
-+		err = -EADDRINUSE;
-+		goto done;
-+	} else {
-+		most_sk(sk)->rx_channel = maddr->rx_channel;
-+		most_sk(sk)->tx_channel = maddr->tx_channel;
-+	}
-+
-+	mdev = most_dev_get(maddr->most_dev);
-+	if (!mdev) {
-+		err = -ENODEV;
-+		goto done;
-+	}
-+
-+	err = most_configure_channels(mdev, most_sk(sk), 1);
-+	if (err) {
-+		most_dev_put(mdev);
-+		goto done;
-+	}
-+
-+	most_sk(sk)->mdev = mdev;
-+	most_sk(sk)->dev_id = mdev->id;
-+
-+	sk->sk_state = MOST_BOUND;
-+
-+done:
-+	release_sock(sk);
-+	return err;
-+}
-+
-+
-+static int most_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
-+{
-+	pr_debug("%s\n", __func__);
-+	return -EINVAL;
-+}
-+
-+static int most_sock_recvmsg(struct kiocb *iocb, struct socket *sock,
-+				struct msghdr *msg, size_t len, int flags)
-+{
-+	int noblock = flags & MSG_DONTWAIT;
-+	struct sock *sk = sock->sk;
++	unsigned long flags;
++	int skb_size, ret;
++	struct sta2x11_mlb_chan *chn;
 +	struct sk_buff *skb;
-+	int copied, err;
 +
-+	pr_debug("%s\n", __func__);
-+
-+	if (most_sk(sk)->rx_channel == MOST_NO_CHANNEL)
-+		return -EOPNOTSUPP;
-+
-+	if (flags & (MSG_OOB))
-+		return -EOPNOTSUPP;
-+
-+	if (sk->sk_state != MOST_BOUND)
-+		return 0;
-+
-+	skb = skb_recv_datagram(sk, flags, noblock, &err);
-+	if (!skb)
-+		return err;
-+
-+	msg->msg_namelen = 0;
-+
-+	copied = skb->len;
-+	if (len < copied) {
-+		msg->msg_flags |= MSG_TRUNC;
-+		copied = len;
-+	}
-+
-+	skb_reset_transport_header(skb);
-+	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, copied);
-+
-+	skb_free_datagram(sk, skb);
-+
-+	return err ? : copied;
-+}
-+
-+static int most_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
-+			     struct msghdr *msg, size_t len)
-+{
-+	struct sock *sk = sock->sk;
-+	struct most_dev *mdev;
-+	struct sk_buff *skb;
-+	int err;
-+
-+	pr_debug("%s: sock %p sk %p, channeltype: %d\n",
-+		__func__, sock, sk, most_sk(sk)->channel_type);
-+
-+	if (most_sk(sk)->tx_channel == MOST_NO_CHANNEL)
-+		return -EOPNOTSUPP;
-+
-+	if (msg->msg_flags & MSG_OOB)
-+		return -EOPNOTSUPP;
-+
-+	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_NOSIGNAL|MSG_ERRQUEUE))
-+		return -EINVAL;
-+
-+	lock_sock(sk);
-+
-+	mdev = most_sk(sk)->mdev;
-+	if (!mdev) {
-+		err = -EBADFD;
-+		goto done;
-+	}
-+
-+	skb = sock_alloc_send_skb(sk, len, msg->msg_flags & MSG_DONTWAIT, &err);
-+	if (!skb)
-+		goto done;
-+
-+	most_cb(skb)->channel = most_sk(sk)->tx_channel;
-+	most_cb(skb)->channel_type = most_sk(sk)->channel_type;
-+
-+	if (memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len)) {
-+		err = -EFAULT;
-+		goto drop;
-+	}
-+
-+	skb->dev = (void *) mdev;
-+
-+	skb_queue_tail(&mdev->ctl_q, skb);
-+	most_sched_tx(mdev);
-+
-+	err = len;
-+
-+done:
-+	release_sock(sk);
-+	return err;
-+
-+drop:
-+	kfree_skb(skb);
-+	goto done;
-+}
-+
-+static int most_sock_setsockopt(struct socket *sock, int level, int optname,
-+				char __user *optval, unsigned int optlen)
-+{
-+	struct sock *sk = sock->sk;
-+	int err = 0;
-+
-+	pr_debug("%s: sk %p", __func__, sk);
-+
-+	lock_sock(sk);
-+
-+	switch (optname) {
-+	default:
-+		err = -ENOPROTOOPT;
++	chn = &dev->channels[ch];
++	switch (chn->type) {
++	case CHAN_CTL:
++		skb_size = CTRL_FRAME_SIZE;
 +		break;
-+	}
-+
-+	release_sock(sk);
-+	return err;
-+}
-+
-+static int most_sock_getsockopt(struct socket *sock, int level, int optname,
-+				char __user *optval, int __user *optlen)
-+{
-+	struct sock *sk = sock->sk;
-+	int err = 0;
-+
-+	pr_debug("%s: sk %p", __func__, sk);
-+
-+	lock_sock(sk);
-+
-+	switch (optname) {
-+	default:
-+		err = -ENOPROTOOPT;
++	case CHAN_ASYNC:
++		skb_size = MLB_MAX_BUF;
 +		break;
-+	}
-+
-+	release_sock(sk);
-+	return err;
-+}
-+
-+static int most_sock_getname(struct socket *sock, struct sockaddr *addr,
-+	int *addr_len, int peer)
-+{
-+	struct sockaddr_most *maddr = (struct sockaddr_most *)addr;
-+	struct sock *sk = sock->sk;
-+	struct most_dev *mdev = most_sk(sk)->mdev;
-+
-+	if (!mdev)
-+		return -EBADFD;
-+
-+	lock_sock(sk);
-+
-+	*addr_len = sizeof(struct sockaddr_most);
-+	maddr->most_family	= AF_MOST;
-+	maddr->most_dev		= mdev->id;
-+	/* FIXME dev_sock did not use rx and tx */
-+	maddr->rx_channel	= most_sk(sk)->rx_channel;
-+	maddr->tx_channel	= most_sk(sk)->tx_channel;
-+
-+	release_sock(sk);
-+	return 0;
-+}
-+
-+static const struct proto_ops most_sock_ops = {
-+	.family		= PF_MOST,
-+	.owner		= THIS_MODULE,
-+	.release	= most_sock_release,
-+	.bind		= most_sock_bind,
-+	.getname	= most_sock_getname,
-+	.sendmsg	= most_sock_sendmsg,
-+	.recvmsg	= most_sock_recvmsg,
-+	.ioctl		= most_sock_ioctl,
-+	.poll		= datagram_poll,
-+	.listen		= sock_no_listen,
-+	.shutdown	= sock_no_shutdown,
-+	.setsockopt	= most_sock_setsockopt,
-+	.getsockopt	= most_sock_getsockopt,
-+	.connect	= sock_no_connect,
-+	.socketpair	= sock_no_socketpair,
-+	.accept		= sock_no_accept,
-+	.mmap		= sock_no_mmap
-+};
-+
-+
-+static int dev_sock_ioctl(struct socket *sock, unsigned int cmd,
-+	unsigned long arg)
-+{
-+	void __user *argp = (void __user *) arg;
-+
-+	switch (cmd) {
-+	case MOSTDEVUP:
-+		return most_open_dev(arg & 0xffff);
-+	case MOSTDEVDOWN:
-+		return most_close_dev(arg & 0xffff);
-+	case MOSTGETDEVLIST:
-+		return most_get_dev_list(argp);
++	case CHAN_SYNC:
++		skb_size = SYNC_FRAME_SIZE;
++		break;
 +	default:
-+		return -EINVAL;
-+	}
-+}
-+
-+static int dev_sock_bind(struct socket *sock, struct sockaddr *addr,
-+	int addr_len)
-+{
-+	return -ENOSYS;
-+}
-+
-+static int dev_sock_setsockopt(struct socket *sock, int level, int optname,
-+	char __user *optval, unsigned int optlen)
-+{
-+	return -ENOSYS;
-+}
-+
-+static int dev_sock_getsockopt(struct socket *sock, int level, int optname,
-+	char __user *optval, int __user *optlen)
-+{
-+	return -ENOSYS;
-+}
-+
-+static const struct proto_ops dev_sock_ops = {
-+	.family		= PF_MOST,
-+	.owner		= THIS_MODULE,
-+	.release	= most_sock_release,
-+	.bind		= dev_sock_bind,
-+	.getname	= most_sock_getname,
-+	.sendmsg	= sock_no_sendmsg,
-+	.recvmsg	= sock_no_recvmsg,
-+	.ioctl		= dev_sock_ioctl,
-+	.poll		= sock_no_poll,
-+	.listen		= sock_no_listen,
-+	.shutdown	= sock_no_shutdown,
-+	.setsockopt	= dev_sock_setsockopt,
-+	.getsockopt	= dev_sock_getsockopt,
-+	.connect	= sock_no_connect,
-+	.socketpair	= sock_no_socketpair,
-+	.accept		= sock_no_accept,
-+	.mmap		= sock_no_mmap
-+};
-+
-+int ctl_sock_sendmsg(struct kiocb *iocb, struct socket *sock,
-+			    struct msghdr *msg, size_t len)
-+{
-+	if (len != CTL_FRAME_SIZE)
-+		return -EINVAL;
-+
-+	return most_sock_sendmsg(iocb, sock, msg, len);
-+}
-+
-+static const struct proto_ops ctl_sock_ops = {
-+	.family		= PF_MOST,
-+	.owner		= THIS_MODULE,
-+	.release	= most_sock_release,
-+	.bind		= most_sock_bind,
-+	.getname	= most_sock_getname,
-+	.sendmsg	= most_sock_sendmsg,
-+	.recvmsg	= most_sock_recvmsg,
-+	.ioctl		= most_sock_ioctl,
-+	.poll		= datagram_poll,
-+	.listen		= sock_no_listen,
-+	.shutdown	= sock_no_shutdown,
-+	.setsockopt	= most_sock_setsockopt,
-+	.getsockopt	= most_sock_getsockopt,
-+	.connect	= sock_no_connect,
-+	.socketpair	= sock_no_socketpair,
-+	.accept		= sock_no_accept,
-+	.mmap		= sock_no_mmap
-+};
-+
-+
-+/* * * * * * * * * * * * * * SOCKET CREATION * * * * * * * * * * * * */
-+
-+#ifdef CONFIG_DEBUG_LOCK_ALLOC
-+static struct lock_class_key most_lock_key[MOST_MAX_PROTO];
-+static const char *most_key_strings[MOST_MAX_PROTO] = {
-+	"sk_lock-AF_MOST-MOSTPROTO_DEV",
-+	"sk_lock-AF_MOST-MOSTPROTO_CTL",
-+	"sk_lock-AF_MOST-MOSTPROTO_SYNC",
-+	"sk_lock-AF_MOST-MOSTPROTO_ASYNC",
-+};
-+
-+static struct lock_class_key most_slock_key[MOST_MAX_PROTO];
-+static const char *most_slock_key_strings[MOST_MAX_PROTO] = {
-+	"slock-AF_MOST-MOSTPROTO_DEV",
-+	"slock-AF_MOST-MOSTPROTO_CTL",
-+	"slock-AF_MOST-MOSTPROTO_SYNC",
-+	"slock-AF_MOST-MOSTPROTO_ASYNC",
-+};
-+
-+static inline void most_sock_reclassify_lock(struct socket *sock, int proto)
-+{
-+	struct sock *sk = sock->sk;
-+
-+	if (!sk)
 +		return;
-+
-+	BUG_ON(sock_owned_by_user(sk));
-+
-+	sock_lock_init_class_and_name(sk,
-+			most_slock_key_strings[proto], &most_slock_key[proto],
-+				most_key_strings[proto], &most_lock_key[proto]);
-+}
-+#else
-+static inline void most_sock_reclassify_lock(struct socket *sock, int proto)
-+{
-+}
-+#endif
-+
-+
-+static int most_sock_create(struct net *net, struct socket *sock, int proto,
-+	int kern)
-+{
-+	if (net != &init_net)
-+		return -EAFNOSUPPORT;
-+
-+	if (proto < 0 || proto >= MOST_MAX_PROTO)
-+		return -EINVAL;
-+
-+	most_net_proto_family_ops[proto].create(net, sock, proto, kern);
-+	most_sock_reclassify_lock(sock, proto);
-+
-+	return 0;
-+}
-+
-+static struct net_proto_family most_sock_family_ops = {
-+	.owner	= THIS_MODULE,
-+	.family	= PF_MOST,
-+	.create	= most_sock_create,
-+};
-+
-+static int dev_sock_create(struct net *net, struct socket *sock, int protocol,
-+	int kern)
-+{
-+	struct sock *sk;
-+
-+	if (sock->type != SOCK_RAW)
-+		return -ESOCKTNOSUPPORT;
-+
-+	sock->ops = &dev_sock_ops;
-+
-+	sk = most_sk_alloc(net, &most_proto[CHAN_DEV], CHAN_DEV);
-+	if (!sk)
-+		return -ENOMEM;
-+
-+	sock_init_data(sock, sk);
-+
-+	sock_reset_flag(sk, SOCK_ZAPPED);
-+
-+	sk->sk_protocol = protocol;
-+
-+	sock->state = SS_UNCONNECTED;
-+	sk->sk_state = MOST_OPEN;
-+
-+	most_sock_link(sk);
-+	return 0;
-+}
-+
-+static int ctl_sock_create(struct net *net, struct socket *sock, int protocol,
-+	int kern)
-+{
-+	struct sock *sk;
-+
-+	if (sock->type != SOCK_RAW)
-+		return -ESOCKTNOSUPPORT;
-+
-+	sock->ops = &ctl_sock_ops;
-+
-+	sk = most_sk_alloc(net, &most_proto[CHAN_CTL], CHAN_CTL);
-+	if (!sk)
-+		return -ENOMEM;
-+
-+	sock_init_data(sock, sk);
-+
-+	sock_reset_flag(sk, SOCK_ZAPPED);
-+
-+	sk->sk_protocol = protocol;
-+
-+	sock->state = SS_UNCONNECTED;
-+	sk->sk_state = MOST_OPEN;
-+
-+	most_sock_link(sk);
-+	return 0;
-+}
-+
-+static int sync_sock_create(struct net *net, struct socket *sock, int protocol,
-+	int kern)
-+{
-+	struct sock *sk;
-+
-+	if (sock->type != SOCK_STREAM)
-+		return -ESOCKTNOSUPPORT;
-+
-+	sock->ops = &most_sock_ops;
-+
-+	sk = most_sk_alloc(net, &most_proto[CHAN_SYNC], CHAN_SYNC);
-+	if (!sk)
-+		return -ENOMEM;
-+
-+	sock_init_data(sock, sk);
-+
-+	sock_reset_flag(sk, SOCK_ZAPPED);
-+
-+	sk->sk_protocol = protocol;
-+
-+	sock->state = SS_UNCONNECTED;
-+	sk->sk_state = MOST_OPEN;
-+
-+	most_sock_link(sk);
-+	return 0;
-+}
-+
-+static int async_sock_create(struct net *net, struct socket *sock, int protocol,
-+	int kern)
-+{
-+	struct sock *sk;
-+
-+	if (sock->type != SOCK_DGRAM)
-+		return -ESOCKTNOSUPPORT;
-+
-+	sock->ops = &most_sock_ops;
-+
-+	sk = most_sk_alloc(net, &most_proto[CHAN_ASYNC], CHAN_ASYNC);
-+	if (!sk)
-+		return -ENOMEM;
-+
-+	sock_init_data(sock, sk);
-+
-+	sock_reset_flag(sk, SOCK_ZAPPED);
-+
-+	sk->sk_protocol = protocol;
-+
-+	sock->state = SS_UNCONNECTED;
-+	sk->sk_state = MOST_OPEN;
-+
-+	most_sock_link(sk);
-+	return 0;
-+}
-+
-+
-+/* * * * * * * * * * * * * * DEVICE REGISTRATION * * * * * * * * * * * * */
-+
-+int most_open_dev(u16 dev_id)
-+{
-+	struct most_dev *mdev = most_dev_get(dev_id);
-+	int err = 0;
-+
-+	if (!mdev)
-+		return -ENODEV;
-+
-+	pr_debug("%s: %s, state: %d\n", __func__, mdev->name, mdev->state);
-+
-+	if (mdev->state == MOST_DEV_UP)
-+		err = -EALREADY;
-+
-+	if (!err)
-+		err = mdev->open(mdev);
-+	if (!err)
-+		mdev->state = MOST_DEV_UP;
-+
-+	most_dev_put(mdev);
-+	pr_debug("%s: %s, state: %d, err: %d\n", __func__,
-+		mdev->name, mdev->state, err);
-+	return err;
-+}
-+
-+static int __most_close_dev(struct most_dev *mdev)
-+{
-+	int err = 0;
-+
-+	pr_debug("%s: %s, state: %d\n", __func__, mdev ? mdev->name : "nil",
-+		mdev ? mdev->state : -1);
-+
-+	if (!mdev)
-+		return -ENODEV;
-+
-+	if (mdev->state == MOST_DEV_DOWN)
-+		err = -EALREADY;
-+
-+	if (!err)
-+		err = mdev->close(mdev);
-+	if (!err)
-+		mdev->state = MOST_DEV_DOWN;
-+
-+	most_dev_put(mdev);
-+	pr_debug("%s: %s, state: %d, err: %d\n", __func__,
-+		mdev->name, mdev->state, err);
-+	return err;
-+}
-+
-+int most_close_dev(u16 dev_id)
-+{
-+	return __most_close_dev(most_dev_get(dev_id));
-+}
-+
-+int most_get_dev_list(void __user *arg)
-+{
-+	struct most_dev_list_req *dl;
-+	struct most_dev_req *dr;
-+	struct list_head *p;
-+	int n = 0, size, err;
-+	u16 dev_num;
-+
-+	if (get_user(dev_num, (u16 __user *) arg))
-+		return -EFAULT;
-+
-+	if (!dev_num || dev_num > (PAGE_SIZE * 2) / sizeof(*dr))
-+		return -EINVAL;
-+
-+	size = sizeof(*dl) + dev_num * sizeof(*dr);
-+
-+	dl = kzalloc(size, GFP_KERNEL);
-+	if (!dl)
-+		return -ENOMEM;
-+
-+	dr = dl->dev_req;
-+
-+	read_lock_bh(&most_dev_list_lock);
-+	list_for_each(p, &most_dev_list) {
-+		struct most_dev *mdev;
-+		mdev = list_entry(p, struct most_dev, list);
-+		(dr + n)->dev_id  = mdev->id;
-+		if (++n >= dev_num)
-+			break;
++		break;
 +	}
-+	read_unlock_bh(&most_dev_list_lock);
-+
-+	dl->dev_num = n;
-+	size = sizeof(*dl) + n * sizeof(*dr);
-+
-+	err = copy_to_user(arg, dl, size);
-+	kfree(dl);
-+
-+	return err ? -EFAULT : 0;
-+}
-+
-+static int most_send_frame(struct sk_buff *skb)
-+{
-+	struct most_dev *mdev = (struct most_dev *) skb->dev;
-+
-+	if (!mdev) {
-+		kfree_skb(skb);
-+		return -ENODEV;
-+	}
-+
-+	pr_debug("%s: %s type %d len %d\n", __func__, mdev->name,
-+		most_cb(skb)->channel_type, skb->len);
-+
-+	/* Get rid of skb owner, prior to sending to the driver. */
-+	skb_orphan(skb);
-+
-+	return mdev->send(skb);
-+}
-+
-+static void most_send_queue(struct sk_buff_head *q)
-+{
-+	struct sk_buff *skb;
-+
-+	while ((skb = skb_dequeue(q))) {
-+		struct most_dev *mdev = (struct most_dev *)skb->dev;
-+
-+		pr_debug("%s: skb %p len %d\n", __func__, skb, skb->len);
-+
-+		if (!mdev->can_send || mdev->can_send(skb))
-+			most_send_frame(skb);
-+		else {
-+			pr_debug("%s, could not send frame, requeueing\n",
-+				__func__);
-+			skb_queue_tail(q, skb);
-+			break;
-+		}
-+	}
-+}
-+
-+static void most_tx_task(unsigned long arg)
-+{
-+	struct most_dev *mdev = (struct most_dev *) arg;
-+
-+	pr_debug("%s: %s\n", __func__, mdev->name);
-+
-+	most_send_queue(&mdev->ctl_q);
-+	most_send_queue(&mdev->sync_q);
-+	most_send_queue(&mdev->async_q);
-+}
-+
-+static void most_rx_task(unsigned long arg)
-+{
-+	struct most_dev *mdev = (struct most_dev *) arg;
-+	struct sk_buff *skb = skb_dequeue(&mdev->rx_q);
-+
-+	pr_debug("%s: %s\n", __func__, mdev->name);
-+
-+	while (skb) {
-+		/* Send to the sockets */
-+		most_send_to_sock(mdev->id, skb);
-+		kfree_skb(skb);
-+		skb = skb_dequeue(&mdev->rx_q);
-+	}
-+}
-+
-+
-+/* Get MOST device by index.
-+ * Device is held on return. */
-+struct most_dev *most_dev_get(int index)
-+{
-+	struct most_dev *mdev = NULL;
-+	struct list_head *p;
-+
-+	if (index < 0)
-+		return NULL;
-+
-+	read_lock(&most_dev_list_lock);
-+	list_for_each(p, &most_dev_list) {
-+		struct most_dev *d = list_entry(p, struct most_dev, list);
-+		if (d->id == index) {
-+			mdev = most_dev_hold(d);
-+			break;
-+		}
-+	}
-+	read_unlock(&most_dev_list_lock);
-+	return mdev;
-+}
-+EXPORT_SYMBOL(most_dev_get);
-+
-+
-+/* Alloc MOST device */
-+struct most_dev *most_alloc_dev(void)
-+{
-+	struct most_dev *mdev;
-+
-+	mdev = kzalloc(sizeof(struct most_dev), GFP_KERNEL);
-+	if (!mdev)
-+		return NULL;
-+
-+	mdev->state = MOST_DEV_DOWN;
-+
-+	return mdev;
-+}
-+EXPORT_SYMBOL(most_alloc_dev);
-+
-+
-+void most_free_dev(struct most_dev *mdev)
-+{
-+	kfree(mdev);
-+}
-+EXPORT_SYMBOL(most_free_dev);
-+
-+
-+/* Register MOST device */
-+int most_register_dev(struct most_dev *mdev)
-+{
-+	struct list_head *head = &most_dev_list, *p;
-+	int id = 0;
-+
-+	if (!mdev->open || !mdev->close || !mdev->send)
-+		return -EINVAL;
-+
-+	write_lock_bh(&most_dev_list_lock);
-+
-+	/* Find first available device id */
-+	list_for_each(p, &most_dev_list) {
-+		if (list_entry(p, struct most_dev, list)->id != id)
-+			break;
-+		head = p; id++;
-+	}
-+
-+	sprintf(mdev->name, "most%d", id);
-+	mdev->id = id;
-+	list_add(&mdev->list, head);
-+
-+	tasklet_init(&mdev->rx_task, most_rx_task, (unsigned long) mdev);
-+	tasklet_init(&mdev->tx_task, most_tx_task, (unsigned long) mdev);
-+
-+	skb_queue_head_init(&mdev->rx_q);
-+	skb_queue_head_init(&mdev->ctl_q);
-+	skb_queue_head_init(&mdev->sync_q);
-+	skb_queue_head_init(&mdev->async_q);
-+
-+	write_unlock_bh(&most_dev_list_lock);
-+	return 0;
-+}
-+EXPORT_SYMBOL(most_register_dev);
-+
-+int most_unregister_dev(struct most_dev *mdev)
-+{
-+	int ret = 0;
-+	pr_debug("%s: %s: state: %d\n", __func__, mdev->name, mdev->state);
-+
-+	if (mdev->state != MOST_DEV_DOWN)
-+		ret = __most_close_dev(mdev);
-+
-+	write_lock_bh(&most_dev_list_lock);
-+	list_del(&mdev->list);
-+	write_unlock_bh(&most_dev_list_lock);
-+
-+	return ret;
-+}
-+EXPORT_SYMBOL(most_unregister_dev);
-+
-+
-+static struct net_proto_family most_net_proto_family_ops[] = {
-+	{
-+		.family	= PF_MOST,
-+		.owner	= THIS_MODULE,
-+		.create	= dev_sock_create,
-+	},
-+	{
-+		.family	= PF_MOST,
-+		.owner	= THIS_MODULE,
-+		.create	= ctl_sock_create,
-+	},
-+	{
-+		.family	= PF_MOST,
-+		.owner	= THIS_MODULE,
-+		.create	= sync_sock_create,
-+	},
-+	{
-+		.family	= PF_MOST,
-+		.owner	= THIS_MODULE,
-+		.create	= async_sock_create,
-+	}
-+};
-+
-+static struct proto most_proto[] = {
-+	{
-+		.name		= "DEV",
-+		.owner		= THIS_MODULE,
-+		.obj_size	= sizeof(struct most_sock)
-+	},
-+	{
-+		.name		= "CTL",
-+		.owner		= THIS_MODULE,
-+		.obj_size	= sizeof(struct most_sock)
-+	},
-+	{
-+		.name		= "SYNC",
-+		.owner		= THIS_MODULE,
-+		.obj_size	= sizeof(struct most_sock)
-+	},
-+	{
-+		.name		= "ASYNC",
-+		.owner		= THIS_MODULE,
-+		.obj_size	= sizeof(struct most_sock)
-+	}
-+};
-+
-+static int __init most_init(void)
-+{
-+	int i, err;
-+
-+	err = sock_register(&most_sock_family_ops);
-+	if (err < 0)
-+		return err;
-+
-+	for (i = 0; i < ARRAY_SIZE(most_proto); ++i) {
-+		err = proto_register(&most_proto[i], 0);
-+		if (err)
++	if (!spin_trylock_irqsave(&dev->lock, flags))
++		return;
++	skb = chn->skb;
++	if (!skb) {
++		chn->len = 0;
++		skb = most_skb_alloc(skb_size, GFP_ATOMIC);
++		chn->skb = skb;
++		if (!skb)
 +			goto out;
 +	}
 +
-+	pr_info(KERN_INFO "MOST is initialized\n");
++	if (chn->type == CHAN_SYNC) {
++		sta2x11_mlb_rx_sync(dev, skb, skb_size, ch);
++	} else {
++		ret = sta2x11_mlb_rx_ctl_async(dev, skb, skb_size, ch);
++		if (ret)
++			goto out;
++	}
 +
-+	return 0;
++	chn->skb = NULL;
++	chn->len = 0;
++	spin_unlock_irqrestore(&dev->lock, flags);
++	/* deliver SKB upstreams */
++	skb->dev = (void *)dev->mdev;
++	most_cb(skb)->channel_type = chn->type;
++	most_cb(skb)->channel = chn->chan;
++
++	most_recv_frame(skb);
++
 +out:
-+	while (--i >= 0)
-+		proto_unregister(&most_proto[i]);
++	spin_unlock_irqrestore(&dev->lock, flags);
++}
 +
++/**
++ * __sta2x11_mlb_tx - transmit one buffer
++ * @dev: structure containing all information
++ * @ch: channel number
++ *
++ * get one buffer from MOST layer and transmit it.
++ * release buffer if transmission is complete.
++ *
++ * return value: 0, transmission was attempted
++ *
++ * 1, no buffer is to be transmitted
++ */
++static int sta2x11_mlb_tx(struct sta2x11_mlb *dev, u8 ch)
++{
++	unsigned long flags;
++	struct sk_buff *skb;
++	struct sta2x11_mlb_chan *chn;
++	int status;
++	int len;
++	u32 word;
++	int i;
++
++	/* check if we have sync */
++	if (dev->mlb_lock == MLB_UNLOCKED)
++		return 0;
++
++	if (!spin_trylock_irqsave(&dev->lock, flags))
++		return 0;
++	chn = &dev->channels[ch];
++	skb = chn->skb;
++	if (!skb) {
++		skb = skb_dequeue(&chn->data_q);
++		if (!skb) {
++			spin_unlock_irqrestore(&dev->lock, flags);
++			return 1;
++		}
++		chn->skb = skb;
++		chn->pos = 0;
++	}
++	status = 0;
++	status = sta2x11_mlb_read(dev, MLB_CSCR(ch));
++	for (i = chn->pos; i < skb->len; i += 4) {
++
++		status = sta2x11_mlb_read(dev, MLB_CSCR(ch));
++		if (status & CSCR_REC_ERR) {
++			sta2x11_mlb_write(dev, MLB_CSCR(ch), status & 0xffff);
++			dev_err(&dev->pdev->dev, "MLB: tx state, pos: %x, %d\n",
++				status, i);
++			status = sta2x11_mlb_read(dev, MLB_CSCR(ch));
++			if (status & CSCR_REC_ERR) {
++				dev_err(&dev->pdev->dev,
++					"MLB: tx2state, pos: %x, %d\n",
++					status, i);
++				kfree_skb(skb);
++				chn->skb = NULL;
++				spin_unlock_irqrestore(&dev->lock, flags);
++				return 0;
++			}
++		}
++		if (status & CSCR_BF_BIT) {
++			chn->pos = i;
++			break;
++		}
++		len = skb->len - i;
++		if (len < sizeof(u32)) {
++			word = 0;
++			memcpy(&word, skb->data + i, len);
++			sta2x11_mlb_write(dev, MLB_CNBCR(ch), word);
++		} else
++			sta2x11_mlb_write(dev, MLB_CNBCR(ch),
++				  *(u32 *) (skb->data + i));
++	}
++
++	sta2x11_mlb_write(dev, MLB_CSCR(ch), status & 0xffff);
++	if (i >= skb->len) {
++		kfree_skb(skb);
++		chn->skb = NULL;
++		spin_unlock_irqrestore(&dev->lock, flags);
++		return 0;
++	}
++	spin_unlock_irqrestore(&dev->lock, flags);
++	return 0;
++}
++
++/**
++ * __config_channel - set hardware depending on information from higher layer
++ * @dev: structure containing all information
++ * @ch: channel number
++ *
++ * The parameters for one channel are set.
++ * return value: 0, no error
++ *
++ * -EINVAL, some parameter error, check kernel log.
++ */
++static int sta2x11_mlb_config_channel(struct sta2x11_mlb *dev, u8 ch)
++{
++	u32 val;
++	u32 mode;
++	int sta2x11_mlb_type;
++	struct sta2x11_mlb_chan *chn;
++
++	chn = &dev->channels[ch];
++	chn->pos = 0;
++	chn->len = 0;
++	chn->skb = NULL;
++	mode = MLB_IO;
++	chn->mode = mode;
++
++	val = 0;
++	val |= CECR_CE_BIT;
++	switch (chn->dir) {
++	case MLB_READ:
++		break;
++	case MLB_WRITE:
++		val |= CECR_TR_BIT;
++		break;
++	default:
++		dev_err(dev->mdev->parent, "unknown direction %d\n", chn->dir);
++		return -EINVAL;
++		break;
++	}
++
++	/* channel type (synchronous, isochronous, asyn, control) */
++	switch (chn->type) {
++	case CHAN_CTL:
++		sta2x11_mlb_type = CECR_CT_CTRL;
++		break;
++	case CHAN_SYNC:
++		sta2x11_mlb_type = CECR_CT_SYNC;
++		break;
++	case CHAN_ASYNC:
++		sta2x11_mlb_type = CECR_CT_ASYN;
++		break;
++	default:
++		dev_err(dev->mdev->parent, "unknown type %d\n", chn->type);
++		return -EINVAL;
++		break;
++	}
++	val |= sta2x11_mlb_type << CECR_CT_SHIFT;
++
++	/* setup mode */
++	switch (mode) {
++	case MLB_DMA:
++		val |= (CECR_MDS_DMAPP << CECR_MDS_SHIFT);
++		break;
++	case MLB_IO:
++		val |= (CECR_MDS_IO << CECR_MDS_SHIFT);
++		val |= CECR_MTSR_BIT;
++		break;
++	default:
++		dev_err(dev->mdev->parent, "unknown mode %d\n", mode);
++		return -EINVAL;
++		break;
++	}
++
++	/* channel address  */
++	val |= (chn->chan >> 1) << CECR_CA_SHIFT;
++	chn->initialized = 1;
++	sta2x11_mlb_write(dev, MLB_CECR(ch), val);
++	return 0;
++}
++
++/**
++ * sta2x11_mlb_serve_interrupt - handles channel interrupt
++ * @dev: the device instance
++ * @ch: channel number that raise an interrupt
++ */
++static void sta2x11_mlb_serve_interrupt(struct sta2x11_mlb *dev, u8 ch) {
++	struct sta2x11_mlb_chan *chn;
++	int ret, status;
++	u32 val;
++
++	chn = &dev->channels[ch];
++	if (unlikely(!chn->initialized)) {
++		dev_info(&dev->pdev->dev,
++			 "non-initialized channel %d\n", ch);
++		return;
++	}
++	switch (chn->dir) {
++	case MLB_READ:
++		sta2x11_mlb_rx(dev, ch);
++		break;
++	case MLB_WRITE:
++		status = sta2x11_mlb_read(dev, MLB_CSCR(ch));
++		if (status & CSCR_REC_ERR) {
++			val = status & 0xffff;
++			sta2x11_mlb_write(dev, MLB_CSCR(ch), val);
++			dev_err(&dev->pdev->dev,
++				"MLB: tx ir state %x\n",
++				status);
++		}
++
++		ret = sta2x11_mlb_tx(dev, ch);
++		if (ret) {
++			val = sta2x11_mlb_read(dev, MLB_CECR(ch));
++			val |= CECR_MTSR_BIT;
++			sta2x11_mlb_write(dev, MLB_CECR(ch), val);
++		}
++		break;
++	}
++
++}
++
++/**
++ * sta2x11_mlb_interrupt - Handles mlb interrupts
++ * @irq: unused, only one interrupt numer used
++ * @_dev: pointer to dev structure
++ *
++ * all channels are checked, if possible data transfer is done.
++ * MLB and MOSt status is updated.
++ * return value: IRQ_NONE, nothing done, interrupte was not for us
++ *
++ * IRQ_HANDLED, otherwise
++ */
++static irqreturn_t sta2x11_mlb_interrupt(int irq, void *_dev)
++{
++	int i;
++	int irq_redo_cnt = 0;
++	struct sta2x11_mlb *dev = _dev;
++	u32 pending;
++	int handled = 0;
++	int sscr;
++
++	sscr = sta2x11_mlb_read(dev, MLB_SSCR);
++	sscr &= SSCR_SDMU_BIT | SSCR_SDML_BIT | SSCR_SDSC_BIT |
++	    SSCR_SDCS_BIT | SSCR_SDNU_BIT | SSCR_SDNL_BIT | SSCR_SDR_BIT;
++	if (sscr != 0) {
++		if (sscr & SSCR_SDNU_BIT)
++			dev->net_lock = MLB_UNLOCKED;
++		if (sscr & SSCR_SDNL_BIT)
++			dev->net_lock = MLB_LOCKED;
++		if (sscr & SSCR_SDMU_BIT)
++			dev->mlb_lock = MLB_UNLOCKED;
++		if (sscr & SSCR_SDML_BIT)
++			dev->mlb_lock = MLB_LOCKED;
++		sta2x11_mlb_write(dev, MLB_SSCR, sscr);
++		handled = 1;
++	}
++
++	while ((pending = sta2x11_mlb_read(dev, MLB_CICR))) {
++		for (i = 0; i < MAX_CHANNELS; i++) {
++			if (!(pending & (1 << i)))
++				continue; /* nothing to do */
++			sta2x11_mlb_serve_interrupt(dev, i);
++			handled = 1;
++		}
++
++		if (irq_redo_cnt++ > 5)
++			dev_warn(&dev->pdev->dev, "Possible interrupt loop");
++	}
++
++	return IRQ_RETVAL(handled);
++}
++
++/**
++ * reset_all_chans - turn off all channels
++ * @dev: structure containing hardware address
++ *
++ * all channels are turned off.
++ */
++static void sta2x11_mlb_reset_all_chans(struct sta2x11_mlb *dev)
++{
++	u8 ch;
++	for (ch = 0; ch < MAX_CHANNELS; ch++)
++		sta2x11_mlb_write(dev, MLB_CECR(ch), 0);
++}
++
++/**
++ * config_mlb - set parameter common to all channels
++ * @dev: structure containing hardware address
++ *
++ * set speed, host id  and endianness
++ *
++ * return value : 0, always successful.
++ */
++static int sta2x11_mlb_config_mlb(struct sta2x11_mlb *dev)
++{
++	u32 dccr = 0;
++
++	sta2x11_mlb_reset(dev);
++	sta2x11_mlb_reset_all_chans(dev);
++
++	/* allow all system interrupts */
++	sta2x11_mlb_write(dev, MLB_SMCR, 0);
++	dccr = (MLB_DEV_ADDRESS(ehcid) >> 1) << DCCR_MDA_SHIFT;
++	dccr |= (speed << DCCR_MCS_SHIFT) | MLB_LE_ENABLE | DCCR_MDE_BIT;
++	sta2x11_mlb_write(dev, MLB_DCCR, dccr);
++	return 0;
++}
++
++/**
++ * poll_func - check if channels are ready
++ * @data: point to dev
++ *
++ * check all active channel if data can be transferred.
++ * restart timer.
++ */
++static void sta2x11_mlb_poll_func(unsigned long data)
++{
++	struct sta2x11_mlb *dev;
++	u32 val;
++	int i;
++
++	dev = (struct sta2x11_mlb *)data;
++	for (i = 0; i < MAX_CHANNELS; i++) {
++		if (!(dev->active_channels & (1 << i)))
++			continue; /* Skip un-active */
++
++		switch (dev->channels[i].dir) {
++		case MLB_READ:
++			val = sta2x11_mlb_read(dev, MLB_CSCR(i));
++			if (!(val & CSCR_BM_BIT))
++				sta2x11_mlb_rx(dev, i);
++			break;
++		case MLB_WRITE:
++			sta2x11_mlb_tx(dev, i);
++			break;
++		}
++	}
++	mod_timer(&dev->poll_timer, jiffies + 1);
++}
++
++/**
++ * get_chan - get next free channel number depending on type
++ * @dev: structure containing all information
++ * @type: type of channel SYNC or not SYNC.
++ *
++ *
++ * SYNC channels have a reserved number range, in order to use the
++ * larger buffers.
++ *
++ * return value: channel number, if a channel is free
++ *
++ * -ENODEV, else
++ */
++static int sta2x11_mlb_get_chan(struct sta2x11_mlb *dev, enum most_chan_type type)
++{
++	int i;
++	int start_chan;
++	int end_chan;
++
++	if (type == CHAN_SYNC) {
++		start_chan = MAX_CHANNELS - syncc;
++		end_chan = MAX_CHANNELS;
++	} else {
++		start_chan = 0;
++		end_chan = MAX_CHANNELS - syncc;
++	}
++	for (i = start_chan; i < end_chan; i++) {
++		if (!(dev->active_channels & (1 << i))) {
++			dev->active_channels |= 1 << i;
++			return i;
++		}
++	}
++	return -ENODEV;
++}
++
++/**
++ * free_chan - free channel in list
++ * @dev: structure containing all information
++ * @channel: channel to be freed
++ *
++ * Channel is marked as free. No checks are done.
++ */
++static void sta2x11_mlb_free_chan(struct sta2x11_mlb *dev, int channel)
++{
++	dev->active_channels &= ~(1 << channel);
++}
++
++/**
++ * sta2x11_mlb_conf_channel - setup a single channel
++ * @mdev: struct from socket layer
++ * @type: type of channel
++ * @channel: number of channel
++ * @flags: up or down
++ *
++ * in case of shutdown read all pending data.
++ */
++static int sta2x11_mlb_conf_channel(struct most_dev *mdev,
++				    enum most_chan_type type,
++				    u8 channel, u8 flags)
++{
++	struct sta2x11_mlb *dev = (struct sta2x11_mlb *)mdev->driver_data;
++	unsigned long irq_flags;
++	struct sta2x11_mlb_chan *chn;
++	int err = -EINVAL;
++	int ch;
++	u32 val;
++
++	dev_dbg(mdev->parent, "%s: channel: %d, flags: %x\n",
++		__func__, channel, flags);
++
++	if (!channel || (channel & 0x1) || (channel > MAX_LCHAN))
++		return -EINVAL;
++
++	spin_lock_irqsave(&dev->lock, irq_flags);
++	if (flags & MOST_CONF_FLAG_UP) {
++
++
++		ch = sta2x11_mlb_get_chan(dev, type);
++		if (ch < 0)
++			goto out;
++		dev->chantab[channel >> 1] = ch;
++		chn = &dev->channels[ch];
++		chn->chan = channel;
++		chn->type = type;
++		chn->dir = (flags & MOST_CONF_FLAG_TX) ? MLB_WRITE : MLB_READ;
++		err = sta2x11_mlb_config_channel(dev, ch);
++
++	} else {
++		ch = dev->chantab[channel >> 1];
++		if (ch < 0 || ch > MAX_CHANNELS)
++			goto out;
++
++		chn = &dev->channels[ch];
++
++		if (chn->dir == MLB_READ) {
++			/* disable interrupts and channel */
++			val = CECR_MLFS_BIT | CECR_MBER_BIT | CECR_MTSR_BIT;
++			val |= CECR_MRSR_BIT | CECR_MDBR_BIT | CECR_MPRO_BIT;
++			sta2x11_mlb_write(dev, MLB_CECR(ch), val);
++
++			while (!(sta2x11_mlb_read(dev, MLB_CSCR(ch)) & CSCR_BM_BIT))
++				sta2x11_mlb_read(dev, MLB_CCBCR(ch));
++		} else {
++			/* only disable interrupts */
++			val = sta2x11_mlb_read(dev, MLB_CECR(ch));
++			val |= CECR_MLFS_BIT | CECR_MBER_BIT | CECR_MTSR_BIT;
++			val |= CECR_MRSR_BIT | CECR_MDBR_BIT | CECR_MPRO_BIT;
++			sta2x11_mlb_write(dev, MLB_CECR(ch), val);
++		}
++		sta2x11_mlb_free_chan(dev, ch);
++		dev->chantab[channel >> 1] = -1;
++		chn->chan = 0;
++		chn->initialized = 0;
++		err = 0;
++	}
++out:
++	spin_unlock_irqrestore(&dev->lock, irq_flags);
 +	return err;
 +}
 +
-+static void __exit most_exit(void)
++static void sta2x11_mlb_set_lcbcr(struct sta2x11_mlb *dev,
++				  u8 ch, int pos, int size)
 +{
++	u32 val;
++
++	val = ((10 / 2) << LCBCR_TH_SHIFT);
++	val |= ((size / 4 - 1) << LCBCR_BD_SHIFT);
++	val |= (pos / 4 << LCBCR_SA_SHIFT);
++	sta2x11_mlb_write(dev, MLB_LCBCR(ch), val);
++}
++/**
++ * sta2x11_mlb_open - open device
++ * @mdev: MOST layer data containg pointer to dev
++ *
++ * open the device. This is done once for all channels.
++ * setup internal buffers.
++ * Wait for device to become ready.
++ * Initialize timer.
++ * return value: 0, no error.
++ *
++ * -EINVAL, device is not ready
++ *
++ *  else, configuration error
++ */
++static int sta2x11_mlb_open(struct most_dev *mdev)
++{
++	struct sta2x11_mlb *dev = (struct sta2x11_mlb *)mdev->driver_data;
 +	int i;
++	int rc;
++	u8 ch;
++	int async_size;
++	int buf_pos;
++	u32 val;
 +
-+	for (i = 0; i < ARRAY_SIZE(most_proto); ++i)
-+		proto_unregister(&most_proto[i]);
++	rc = sta2x11_mlb_config_mlb(dev);
++	if (rc < 0)
++		return rc;
 +
-+	sock_unregister(PF_MOST);
++	syncb &= ~3;
++	async_size = (INTRAM - (syncc * syncb)) / (MAX_CHANNELS - syncc);
++	async_size &= ~3;
++	buf_pos = 0;
++	for (ch = 0; ch < MAX_CHANNELS - syncc; ch++) {
++		int size = ((ch < MAX_CHANNELS - syncc) ? async_size : syncb);
++		sta2x11_mlb_set_lcbcr(dev, ch, buf_pos, size);
++		buf_pos += size;
++	}
++
++	dev->active_channels = 0;
++	i = 50;
++	while ((dev->mlb_lock == MLB_UNLOCKED) && (i-- > 0))
++		msleep_interruptible(1);
++	if (i <= 0)
++		return -EINVAL;
++	for (i = 0; i < (MAX_LCHAN >> 1); i++)
++		dev->chantab[i] = -1;
++	for (i = 0; i < MAX_CHANNELS; i++) {
++		val = sta2x11_mlb_read(dev, MLB_CSCR(i)) & 0xffff;
++		sta2x11_mlb_write(dev, MLB_CSCR(i), val);
++		skb_queue_head_init(&dev->channels[i].data_q);
++	}
++
++	setup_timer(&dev->poll_timer,
++		    sta2x11_mlb_poll_func, (unsigned long)dev);
++	dev->poll_timer.expires = jiffies + 1;
++	add_timer(&dev->poll_timer);
++	dev->opened = 1;
++	return rc;
 +}
 +
-+subsys_initcall(most_init);
-+module_exit(most_exit);
++/**
++ * sta2x11_mlb_close - close all channels
++ * @mdev: device information from socket layer
++ *
++ * remove all pending buffers.
++ * remove timer.
++ *
++ * return value: 0, always successful
++ */
++static int sta2x11_mlb_close(struct most_dev *mdev)
++{
++	struct sta2x11_mlb *dev = (struct sta2x11_mlb *)mdev->driver_data;
++	int i;
 +
-+MODULE_DESCRIPTION("MOST Core");
++	dev->active_channels = 0;
++
++	if (!dev->opened)
++		return 0;
++
++	dev->opened = 0;
++	del_timer_sync(&dev->poll_timer);
++	for (i = 0; i < MAX_CHANNELS; i++)
++		skb_queue_purge(&dev->channels[i].data_q);
++
++	return 0;
++}
++
++/**
++ * sta2x11_mlb_send - send one buffer
++ * @skb: buffer from MOST layer
++ *
++ * send one buffer, data is queued.
++ *
++ * return value: 0, no error
++ *
++ * -EINVAL, device not opened, illegal channel type  or wrong channel number
++ */
++static int sta2x11_mlb_send(struct sk_buff *skb)
++{
++	struct most_dev *mdev = (struct most_dev *)skb->dev;
++	struct sta2x11_mlb *dev = (struct sta2x11_mlb *)mdev->driver_data;
++	u32 val;
++	u8 channel;
++	u8 ch;
++
++	if (!dev->opened)
++		return -EINVAL;
++	channel = most_cb(skb)->channel;
++	if (!channel || (channel & 0x1) || (channel > MAX_LCHAN)) {
++		dev_warn(&dev->pdev->dev,"%s: Got illegal channel: %d\n",
++		       __func__, most_cb(skb)->channel);
++		return -EINVAL;
++	}
++	ch = dev->chantab[channel >> 1];
++	if (ch >= MAX_CHANNELS)
++		return -EINVAL;
++	switch (most_cb(skb)->channel_type) {
++	case CHAN_SYNC:
++		skb_queue_tail(&dev->channels[ch].data_q, skb);
++		sta2x11_mlb_tx(dev, ch);
++		val = sta2x11_mlb_read(dev, MLB_CECR(ch)) & ~CECR_MTSR_BIT;
++		sta2x11_mlb_write(dev, MLB_CECR(ch), val);
++		break;
++	case CHAN_CTL:
++	case CHAN_ASYNC:
++		skb_queue_tail(&dev->channels[ch].data_q, skb);
++		sta2x11_mlb_tx(dev, ch);
++		break;
++	default:
++		dev_warn(&dev->pdev->dev,
++			"%s: Got unsupported channel type: %d\n",
++			__func__, most_cb(skb)->channel_type);
++		kfree_skb(skb);
++		return -EINVAL;
++		break;
++	}
++	return 0;
++}
++
++/**
++ * configure - configure the PCI device
++ * @pdev: PCI device
++ *
++ * enable and configure device.
++ * return value: 0, no error
++ *
++ * -1, region could not be mapped or interrupt not available
++ */
++static int sta2x11_mlb_configure(struct pci_dev *pdev)
++{
++	struct sta2x11_mlb *dev;
++	int ret;
++	void __iomem * const *piot;
++
++	dev = (struct sta2x11_mlb *)pci_get_drvdata(pdev);
++
++	ret = pci_enable_device(pdev);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to enable device\n");
++		goto no_enable;
++	}
++
++	/* request all memory regions associated with this device */
++
++	ret = pcim_iomap_regions(pdev, BAR_MASK, KBUILD_MODNAME);
++	if (ret)
++		goto no_ioremap;
++	piot = pcim_iomap_table(pdev);
++	if (piot)
++		dev->base = piot[BAR];
++
++	pci_set_master(pdev);
++	pci_enable_msi(pdev);
++
++	dev_dbg(&pdev->dev, "requesting irq %d\n", pdev->irq);
++	ret = request_irq(pdev->irq, sta2x11_mlb_interrupt, IRQF_SHARED,
++			KBUILD_MODNAME, dev);
++	if (ret) {
++		dev_err(&pdev->dev, "failed to allocate IRQ %d\n", pdev->irq);
++		goto no_irq;
++	}
++	dev_dbg(&pdev->dev, "configured ok\n");
++
++	return 0;
++
++no_irq:
++	dev_dbg(&pdev->dev, "unmapping io\n");
++	pcim_iounmap_regions(pdev, BAR_MASK);
++no_ioremap:
++	pci_disable_device(pdev);
++no_enable:
++	return ret;
++}
++
++/**
++ * unconfigure - release PCI device
++ * @pdev: PCI device
++ *
++ * release device at PCI level and free local data.
++ * free interrupt.
++ * unmap regions.
++ * unregister at MOST socker layer
++ */
++static void sta2x11_mlb_unconfigure(struct pci_dev *pdev)
++{
++	struct sta2x11_mlb *dev;
++
++	dev = pci_get_drvdata(pdev);
++
++	if (dev->base) {
++		sta2x11_mlb_reset_all_chans(dev);
++		sta2x11_mlb_write(dev, MLB_DCCR, 0);
++		dev_dbg(&pdev->dev, "unmap io @%p\n", dev->base);
++	}
++
++
++	free_irq(pdev->irq, dev);
++
++	pcim_iounmap_regions(pdev, BAR_MASK);
++	pci_disable_msi(pdev);
++	pci_disable_device(pdev);
++	kfree(dev);
++}
++
++/**
++ * probe - check if device is present and allocate data structures
++ * @pcidev: PCI device
++ * @id: not used
++ *
++ * initialize local data.
++ * check module parameters here.
++ * register at MOST socket layer.
++ *
++ * return value: 0, no error
++ *
++ * -ENOMEM, no memory for internal structures.
++ *
++ *  other, errno defining cause
++ */
++static int sta2x11_mlb_probe(struct pci_dev *pdev,
++			     const struct pci_device_id *id)
++{
++	struct sta2x11_mlb *dev;
++	int err = 0;
++
++	if (ehcid < 0 || ehcid > 3) {
++		dev_err(&pdev->dev, "invalid ehcid value %d\n", ehcid);
++		return -EINVAL;
++	}
++	if (speed < DCCR_MCS_256FS || speed > DCCR_MCS_1024FS) {
++		dev_err(&pdev->dev, "invalid speed grade %d\n", speed);
++		return -EINVAL;
++	}
++	if (syncc < 0 || syncc > MAX_CHANNELS - 2) {
++		dev_err(&pdev->dev, "invalid syncc value %d\n", syncc);
++		return -EINVAL;
++	}
++	if (syncb < 32 || syncb > 256) {
++		dev_err(&pdev->dev, "invalid syncb size %d\n", syncb);
++		return -EINVAL;
++	}
++
++	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
++	if (!dev)
++		return -ENOMEM;
++
++	dev->mdev = most_alloc_dev();
++	if (!dev->mdev) {
++		err = -ENOMEM;
++		goto err_alloc_dev;
++	}
++
++	dev->pdev = pdev;
++	dev->mdev->owner = THIS_MODULE;
++	dev->mdev->driver_data = dev;
++	dev->mdev->parent = &pdev->dev;
++	dev->mdev->open = sta2x11_mlb_open;
++	dev->mdev->close = sta2x11_mlb_close;
++	dev->mdev->send = sta2x11_mlb_send;
++	dev->mdev->conf_channel = sta2x11_mlb_conf_channel;
++
++	dev->mlb_lock = MLB_UNLOCKED;
++	dev->net_lock = MLB_UNLOCKED;
++	dev->active_channels = 0;
++	dev->opened = 0;
++	dev->disabled = 0;
++
++	spin_lock_init(&dev->lock);
++
++	pci_set_drvdata(pdev, dev);
++
++	err = sta2x11_mlb_configure(pdev);
++	if (err)
++		goto err_configure;
++
++	/* register to the MOST layer */
++	err = most_register_dev(dev->mdev);
++	if (err)
++		goto err_register;
++
++	dev_dbg(&pdev->dev, "most devname <%s>\n", dev->mdev->name);
++
++	dev->regset = kmalloc(sizeof(struct debugfs_regset32), GFP_KERNEL);
++	if (dev->regset) {
++		dev->regset->regs = sta2x11_mlb_regs;
++		dev->regset->nregs = ARRAY_SIZE(sta2x11_mlb_regs);
++		dev->regset->base = dev->base;
++		dev->dentry = debugfs_create_regset32("registers", S_IRUGO,
++						      NULL, dev->regset);
++		if (IS_ERR(dev->dentry)) {
++			dev_dbg(&dev->pdev->dev, "failed to register debugfs\n");
++		}
++	}
++	return 0;
++
++err_register:
++	sta2x11_mlb_unconfigure(pdev);
++err_configure:
++	most_free_dev(dev->mdev);
++err_alloc_dev:
++	kfree(dev);
++	return err;
++}
++
++/**
++ * remove - unconfigure device
++ * @pcidev: PCI device
++ *
++ * The device is set to a state before initialization.
++ * All resources are freed.
++ */
++static void sta2x11_mlb_remove(struct pci_dev *pdev)
++{
++	struct sta2x11_mlb *dev = pci_get_drvdata(pdev);
++
++	if (dev->regset) {
++		if (!IS_ERR_OR_NULL(dev->dentry)) {
++			debugfs_remove(dev->dentry);
++		}
++		kfree(dev->regset);
++	}
++
++	most_unregister_dev(dev->mdev);
++	sta2x11_mlb_unconfigure(pdev);
++	most_free_dev(dev->mdev);
++	kfree(dev);
++}
++
++#ifdef CONFIG_PM
++/**
++ * suspend - suspend device
++ * @pdev: PCI device
++ * @state: new power state
++ *
++ * attempts to set device to a new power state.
++ * all data are discarded, everything has to be set up again after power up.
++ *
++ * return value: 0, always successful, even if hardware does not support
++ * power management
++ */
++static int sta2x11_mlb_suspend(struct pci_dev *pdev, pm_message_t state)
++{
++	struct sta2x11_mlb *dev = pci_get_drvdata(pdev);
++	int i;
++
++	if (dev->opened) {
++		del_timer(&dev->poll_timer);
++		for (i = 0; i < MAX_CHANNELS; i++)
++			skb_queue_purge(&dev->channels[i].data_q);
++		dev->opened = 0;
++	}
++	/* save pci state */
++	pci_save_state(pdev);
++	if (pci_set_power_state(pdev, pci_choose_state(pdev, state))) {
++		pci_disable_device(pdev);
++		dev->disabled = 1;
++	}
++	dev_dbg(&pdev->dev,"MLB: suspend\n");
++	return 0;
++}
++
++/**
++ * resume - set device to power on state.
++ * @pdev: PCI device
++ *
++ * set device to power on state.
++ * return value: 0, no error
++ *
++ * other, errno of error.
++ */
++static int sta2x11_mlb_resume(struct pci_dev *pdev)
++{
++	struct sta2x11_mlb *dev = pci_get_drvdata(pdev);
++	int err;
++
++	dev_dbg(&pdev->dev, "MLB: resume\n");
++	/* restore pci state */
++	if (dev->disabled) {
++		err = pci_enable_device(pdev);
++		if (err) {
++			dev_warn(&pdev->dev, "MLB: Can't enable device.\n");
++			return err;
++		}
++		dev->disabled = 0;
++	}
++	err = pci_set_power_state(pdev, PCI_D0);
++	if (err) {
++		pci_disable_device(pdev);
++		dev_warn(&pdev->dev, "MLB: Can't enable device.\n");
++		return err;
++	}
++
++	pci_restore_state(pdev);
++
++	return 0;
++}
++#endif
++
++static DEFINE_PCI_DEVICE_TABLE(ids) = {
++	{PCI_DEVICE(PCI_VENDOR_ID_STMICRO, 0xcc12)},
++	{0,}
++};
++
++static struct pci_driver sta2x11_sta2x11_mlb_driver = {
++	.name = KBUILD_MODNAME,
++	.id_table = ids,
++	.probe = sta2x11_mlb_probe,
++	.remove = sta2x11_mlb_remove,
++#ifdef CONFIG_PM
++	.suspend = sta2x11_mlb_suspend,
++	.resume = sta2x11_mlb_resume,
++#endif
++};
++
++module_pci_driver(sta2x11_sta2x11_mlb_driver);
++
++MODULE_AUTHOR("Wind River");
++MODULE_DESCRIPTION("ConneXt MediaLB Driver");
 +MODULE_LICENSE("GPL v2");
-+MODULE_ALIAS_NETPROTO(PF_MOST);
++MODULE_VERSION("0.3");
++MODULE_DEVICE_TABLE(pci, ids);
+diff --git a/drivers/net/most/sta2x11mlb.h b/drivers/net/most/sta2x11mlb.h
+new file mode 100644
+index 0000000..2458ba8
+--- /dev/null
++++ b/drivers/net/most/sta2x11mlb.h
+@@ -0,0 +1,275 @@
++
++#ifndef STA2X11MLB_H_
++#define STA2X11MLB_H_
++
++#define BAR      0
++#define BAR_MASK 1
++
++/* size of internal RAM in "quadlets" */
++#define INTRAM 1024
++#define MAX_CHANNELS 30
++#define MAX_LCHAN 126
++
++#define MLB_DCCR 0x00
++#define MLB_SSCR 0x04
++#define MLB_SDCR 0x08
++#define MLB_SMCR 0x0c
++#define MLB_VCCR 0x1c
++#define MLB_SBCR 0x20
++#define MLB_ABCR 0x24
++#define MLB_CBCR 0x28
++#define MLB_IBCR 0x2c
++#define MLB_CICR 0x30
++
++#define MLB_CECR(n)   (0x10*(n)+0x40)
++#define MLB_CSCR(n)   (0x10*(n)+0x44)
++#define MLB_CCBCR(n)  (0x10*(n)+0x48)
++#define MLB_CNBCR(n)  (0x10*(n)+0x4c)
++#define MLB_LCBCR(n)  (0x04*(n)+0x280)
++
++/* Device Control Configuration Register bit definitions
++ */
++#define DCCR_MDE_BIT         (1<<31)
++#define DCCR_LBM_BIT         (1<<30)
++#define DCCR_MCS_MASK            0x3
++#define DCCR_MCS_SHIFT            28
++/*bit 27 reserved */
++#define DCCR_MLK_BIT         (1<<26)
++#define DCCR_MLE_BIT         (1<<25)
++#define DCCR_MHRE_BIT        (1<<24)
++#define DCCR_MRS_BIT         (1<<23)
++/*bits 22-8 reserved */
++#define DCCR_MDA_MASK           0xff
++#define DCCR_MDA_SHIFT             0
++
++#define DCCR_MCS_256FS            0
++#define DCCR_MCS_512FS            1
++#define DCCR_MCS_1024FS           2
++
++/* System Status Configuration Register bit definitions
++ */
++#define SSCR_SSRE_BIT         (1<<7)
++#define SSCR_SDMU_BIT         (1<<6)
++#define SSCR_SDML_BIT         (1<<5)
++#define SSCR_SDSC_BIT         (1<<4)
++#define SSCR_SDCS_BIT         (1<<3)
++#define SSCR_SDNU_BIT         (1<<2)
++#define SSCR_SDNL_BIT         (1<<1)
++#define SSCR_SDR_BIT          (1<<0)
++
++/* System Mask Configuration Register bit definitions
++ */
++#define SMCR_SMMU_BIT         (1<<6)
++#define SMCR_SMML_BIT         (1<<5)
++#define SMCR_SMSC_BIT         (1<<4)
++#define SMCR_SMCS_BIT         (1<<3)
++#define SMCR_SMNU_BIT         (1<<2)
++#define SMCR_SMNL_BIT         (1<<1)
++#define SMCR_SMR_BIT          (1<<0)
++
++/* Version Control Configuration Register (VCCR) bit definitions
++ */
++#define VCCR_UMA_MASK           0xff
++#define VCCR_UMA_SHIFT            24
++#define VCCR_UMI_MASK           0xff
++#define VCCR_UMI_SHIFT            16
++#define VCCR_MMA_MASK           0xff
++#define VCCR_MMA_SHIFT             8
++#define VCCR_MMI_MASK           0xff
++#define VCCR_MMI_SHIFT             0
++
++/* Channel n Entry Configuration Register  bit definitions
++ */
++#define CECR_CE_BIT (1<<31)
++#define CECR_TR_BIT (1<<30)
++#define CECR_CT_MASK 0x3
++#define CECR_CT_SHIFT 28
++#define CECR_PCE_BIT (1<<27)
++#define CECR_FSE_BIT (1<<27)
++#define CECR_FCE_BIT (1<<27)
++#define CECR_MDS_MASK 0x3
++#define CECR_MDS_SHIFT 25
++/* bit 24 reserved */
++#define CECR_MASK_MASK 0xff	/* I've already decided on the naming convention
++				 * when I found this bit-field :-)
++				 */
++#define CECR_MASK_SHIFT 16
++
++/* bit 23 reserved */
++#define CECR_MLFS_BIT (1<<22)
++/* bit 21 reserved */
++#define CECR_MBER_BIT (1<<20)
++#define CECR_MBST_BIT (1<<19)
++#define CECR_MTSR_BIT (1<<19)
++#define CECR_MBDO_BIT (1<<18)
++#define CECR_MRSR_BIT (1<<18)
++#define CECR_MDBR_BIT (1<<17)
++#define CECR_MPRO_BIT (1<<16)
++
++#define CECR_FSCD_BIT (1<<15)
++#define CECR_IPL_MASK  0xff
++#define CECR_IPL_SHIFT  8
++#define CECR_PCTH_MASK  0xf
++#define CECR_PCTH_SHIFT   8
++#define CECR_FSPC_MASK  0xf
++#define CECR_FSPC_SHIFT   8
++#define CECR_CA_MASK    0xff
++#define CECR_CA_SHIFT     0
++
++#define CECR_MDS_DMAPP 0
++#define CECR_MDS_DMACR 1
++#define CECR_MDS_IO    2
++
++#define CECR_CT_SYNC      0
++#define CECR_CT_ISOC      1
++#define CECR_CT_ASYN      2
++#define CECR_CT_CTRL      3
++
++/* Channel n Status Configuration Register (CSCR) bit definitions
++ */
++#define CSCR_BM_BIT   (1<<31)
++#define CSCR_BF_BIT   (1<<30)
++#define CSCR_IVB_MASK     0x3
++#define CSCR_IVB_SHIFT     18
++#define CSCR_GIRB_BIT (1<<17)
++#define CSCR_GB_BIT   (1<<17)
++#define CSCR_RDY_BIT  (1<<16)
++#define CSCR_STS_MASK  0xffff
++#define CSCR_STS_SHIFT      0
++
++#define CSCR_MRPS_BIT (1<<9)
++#define CSCR_MRPA_BIT (1<<8)
++/* bit 7 reserved */
++#define CSCR_MLFS_BIT (1<<6)
++#define CSCR_MHBE_BIT (1<<5)
++#define CSCR_MBER_BIT (1<<4)
++#define CSCR_MBST_BIT (1<<3)
++#define CSCR_MTSR_BIT (1<<3)
++#define CSCR_MBDO_BIT (1<<2)
++#define CSCR_MRSR_BIT (1<<2)
++#define CSCR_MDBR_BIT (1<<1)
++#define CSCR_MPRO_BIT (1<<0)
++
++#define CSCR_REC_ERR (CSCR_MPRO_BIT|CSCR_MDBR_BIT|CSCR_MRPA_BIT)
++/* Channel n Current Buffer Configuration Register (CCBCR) bit definitions
++ * Channel n Next Buffer Configuration Register (CNBCR) bit definitions
++ *
++ * Will be filled in later when we support DMA. in IO mode they are
++ * plain 32bit register for receive/transmit data buffer
++ */
++
++/* Local Channel n Buffer Configuration Register (LCBCR) bit definitions
++ */
++#define LCBCR_TH_MASK   0xff
++#define LCBCR_TH_SHIFT    22
++#define LCBCR_BD_MASK   0x7f
++#define LCBCR_BD_SHIFT    13
++#define LCBCR_SA_MASK   0xff
++#define LCBCR_SA_SHIFT     0
++
++/* enable little endian mode if required */
++#if defined(__LITTLE_ENDIAN)
++#define MLB_LE_ENABLE DCCR_MLE_BIT
++#else
++#if defined(__BIG_ENDIAN)
++#define MLB_LE_ENABLE 0
++#else
++#error endianness unknown
++#endif
++#endif
++
++/* 0x180 : first external host controller */
++#define MLB_DEV_ADDRESS(i) (0x180+2*(i))
++
++/* default values for INIC */
++#define FROM_INIC 2
++#define TO_INIC 4
++
++#define RXC 0
++#define TXC 1
++
++/* Direction of channel */
++enum direction {
++	MLB_READ,
++	MLB_WRITE
++};
++
++enum mode {
++	MLB_DMA,
++	MLB_IO
++};
++
++enum lock {
++	MLB_UNLOCKED,
++	MLB_LOCKED
++};
++
++#define MLB_MAX_BUF (1024*sizeof(u32))
++#define MLB_DMA_SIZE (MLB_MAX_BUF*MAX_CHANNELS)
++
++/* setting to higher value is not useful: we are transferring in real time */
++#define SYNC_FRAME_SIZE (32*sizeof(u32))
++#define CTRL_FRAME_SIZE 64
++#define ASYNC_FRAME_SIZE MLB_MAX_BUF
++
++/**
++ * struct channel - Information for one channel
++ * @initialized: tells if channel is initialized.
++ * @chan: logical channel number used on MOST layer
++ * @type: type, async, syn or control
++ * @dir: direction, read or write
++ * @mode: mode, DMA or IO
++ * @len: size of buffer
++ * @pos: current position in buffer
++ * @skb: socket buffer from MOST layer
++ * @data_q: queue for buffer handling
++ * @data: buffer, testing only
++ */
++struct sta2x11_mlb_chan {
++	int initialized;
++	u8 chan;
++	u8 type;
++	enum direction dir;
++	enum mode mode;
++	int len;
++	int pos;
++	struct sk_buff *skb;
++	struct sk_buff_head data_q;
++	u32 *data;
++};
++
++/**
++ * struct private - all data for one instance of MLB
++ * @base: hardware base address
++ * @pdev: PCI device
++ * @mdev: most device
++ * @lock: spinlock for hardware access
++ * @disabled: hardware is shutdown, or being shut down
++ * @opened: device is opened
++ * @poll_timer: timer for MLB device in case of lost interrupt or buffer not
++ *	emptied
++ * @active_channels: bitmap of active channels
++ * @mlb_lock: indicates MLB locked
++ * @net_lock: indicates MOST locked
++ * @chantab: converts internal channel number to MOST channel number.
++ * @channels: data for individual channel
++ * @dentry: debug fs dentry instance
++ */
++struct sta2x11_mlb {
++	void *base;
++	struct pci_dev *pdev;
++	struct most_dev *mdev;
++	spinlock_t lock;	/* mutual exclusion */
++	int disabled;
++	int opened;
++	struct timer_list poll_timer;
++	u32 active_channels;
++	enum lock mlb_lock;
++	enum lock net_lock;
++	u8 chantab[(MAX_LCHAN >> 1) + 1];
++	struct sta2x11_mlb_chan channels[MAX_CHANNELS];
++	struct dentry *dentry;
++	struct debugfs_regset32 *regset;
++};
++
++#endif /* STA2X11MLB_H_ */
 -- 
 1.7.7.2
