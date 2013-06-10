@@ -1,66 +1,73 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH v10 net-next 4/6] tcp: add low latency
-	socket poll support.
-Date: Mon, 10 Jun 2013 12:38:35 -0400
-Message-ID: <CA+FuTScdGoeocndgGM9=rE+1BAa3urxHWXSpimJ7o7726NhF9g@mail.gmail.com>
-References: <20130610083929.6955.87206.stgit@ladj378.jer.intel.com>
-	<20130610084010.6955.14413.stgit@ladj378.jer.intel.com>
-	<1370874744.3252.5.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net-next] sfc: Store port number in private data, not
+ net_device::dev_id
+Date: Mon, 10 Jun 2013 18:03:17 +0100
+Message-ID: <1370883797.1933.14.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Eliezer Tamir <eliezer.tamir@linux.intel.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel <e1000-devel@lists.sourceforge.net>,
-	netdev@vger.kernel.org, HPA <hpa@zytor.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1370874744.3252.5.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>,
+	Narendra K <narendra_k@dell.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:25943 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752095Ab3FJRDW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 13:03:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 10, 2013 at 10:32 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Mon, 2013-06-10 at 11:40 +0300, Eliezer Tamir wrote:
->> Adds low latency socket poll support for TCP.
->> In tcp_v[46]_rcv() add a call to sk_mark_ll() to copy the napi_id
->> from the skb to the sk.
->> In tcp_recvmsg(), when there is no data in the socket we busy-poll.
->> This is a good example of how to add busy-poll support to more protocols.
->>
->> Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
->> Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
->> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
->> ---
->
-> Acked-by: Eric Dumazet <edumazet@google.com>
->
+We should not use net_device::dev_id to indicate the port number, as
+this affects the way the local part of IPv6 addresses is normally
+generated.
 
-Tested-by: Willem de Bruijn <willemb@google.com>
+This field was intended for use where multiple devices may share a
+single assigned MAC address and need to have different IPv6 addresses.
+Siena's two ports each have their own MAC addresses.
 
-(per Eliezer's request)
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/net_driver.h | 3 ++-
+ drivers/net/ethernet/sfc/siena.c      | 2 +-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
 
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 39d6bd77..9a2914c 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -784,6 +784,7 @@ struct efx_nic {
+ 
+ 	char name[IFNAMSIZ];
+ 	struct pci_dev *pci_dev;
++	unsigned int port_num;
+ 	const struct efx_nic_type *type;
+ 	int legacy_irq;
+ 	bool legacy_irq_enabled;
+@@ -916,7 +917,7 @@ static inline int efx_dev_registered(struct efx_nic *efx)
+ 
+ static inline unsigned int efx_port_num(struct efx_nic *efx)
+ {
+-	return efx->net_dev->dev_id;
++	return efx->port_num;
+ }
+ 
+ /**
+diff --git a/drivers/net/ethernet/sfc/siena.c b/drivers/net/ethernet/sfc/siena.c
+index 5166924..8c91775 100644
+--- a/drivers/net/ethernet/sfc/siena.c
++++ b/drivers/net/ethernet/sfc/siena.c
+@@ -304,7 +304,7 @@ static int siena_probe_nic(struct efx_nic *efx)
+ 	}
+ 
+ 	efx_reado(efx, &reg, FR_AZ_CS_DEBUG);
+-	efx->net_dev->dev_id = EFX_OWORD_FIELD(reg, FRF_CZ_CS_PORT_NUM) - 1;
++	efx->port_num = EFX_OWORD_FIELD(reg, FRF_CZ_CS_PORT_NUM) - 1;
+ 
+ 	efx_mcdi_init(efx);
+ 
 
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
