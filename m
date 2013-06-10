@@ -1,59 +1,46 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next 2/2] openvswitch: Use zerocopy if applicable when
- performing the upcall
-Date: Mon, 10 Jun 2013 13:34:23 -0700
-Message-ID: <CAEP_g=87=0bAP_QQVVXRXzqMA-9Xj5dXvsjpfe4MQ_k2x5n9cA@mail.gmail.com>
-References: <cover.1369406826.git.tgraf@suug.ch> <064a09fffe48540b66a3ee503860ed9e8a1eb5f1.1369406826.git.tgraf@suug.ch>
- <CAEP_g=87CuiS92YtCZ1V1ME05qq0jGWD9p1WgKZ2jaaG1AWS7w@mail.gmail.com>
- <1369421900.3301.431.camel@edumazet-glaptop> <CAEP_g=898=iOWV15Y_bcjvS9sGSfDQSP1zQLNkffoXB5imdU7g@mail.gmail.com>
- <1369432621.3301.445.camel@edumazet-glaptop> <CAEP_g=9Yqcf6_cpPYNAbiQUGjQa46PEz6gQdKAopiNNUDRhGYA@mail.gmail.com>
- <20130525070222.GB30252@casper.infradead.org> <1369492772.3301.468.camel@edumazet-glaptop>
- <CAEP_g=944Wq982rDSC0hrqUBu8Sf6MCtQN0NhgyU5FDr9UB3ww@mail.gmail.com> <20130607122139.GA21856@casper.infradead.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v10 net-next 0/6] net: low latency Ethernet device
+ polling
+Date: Mon, 10 Jun 2013 13:41:16 -0700 (PDT)
+Message-ID: <20130610.134116.1913599114372510768.davem@davemloft.net>
+References: <20130610083929.6955.87206.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:35566 "HELO
-	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752090Ab3FJUeo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 16:34:44 -0400
-Received: by mail-ie0-f169.google.com with SMTP id 10so4014864ied.28
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 13:34:43 -0700 (PDT)
-In-Reply-To: <20130607122139.GA21856@casper.infradead.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
+	e1000-devel@lists.sourceforge.net, willemb@google.com,
+	erdnetdev@gmail.com, bhutchings@solarflare.com,
+	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
+	or.gerlitz@gmail.com, amirv@mellanox.com, eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130610083929.6955.87206.stgit@ladj378.jer.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 7, 2013 at 5:21 AM, Thomas Graf <tgraf@suug.ch> wrote:
-> On 05/27/13 at 10:28am, Jesse Gross wrote:
->> On Saturday, May 25, 2013, Eric Dumazet wrote:
->>
->> > On Sat, 2013-05-25 at 08:02 +0100, Thomas Graf wrote:
->> >
->> > > I ran TCP_CRR to verify the SYN/ACK use case and I did not
->> > > observe a difference. If you have any specific test in mind
->> > > I will be glad to run that before posting the 2nd revision.
->> >
->> > I guess you should test with rx checksum disabled as well, Jesse seemed
->> > to be concerned about that.
->>
->>
->>  I was actually thinking about the transmit side - rx checksum verification
->> doesn't matter much here since the result will get thrown away. However, if
->> the packet is CHECKSUM_PARTIAL then the checksum will have to get filled in
->> first and that's the code path that is a little different now.
->
-> Do we actually need to complete the checksum before doing the
-> upcall and if so, why? Couldn't the slow path do that if needed?
-> The only reason I can think of where it would matter is if a
-> controller injects the packet into another network stack such
-> as RouteFlow.
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Mon, 10 Jun 2013 11:39:30 +0300
 
-Well, this is the slow path. I don't want to force userspace to deal
-with this because it's an internal kernel optimization that is
-platform-specific and requires carrying additional metadata around.
+> I removed the select/poll patch (was 5/7 in v9) from the set.
+> The rest are the same patches that were in v9.
+> 
+> Please consider applying.
+> 
+> Thanks to everyone for their input.
 
-It's also very common for a packet to traverse another network stack -
-it's typically a VM's.
+There used to be a really nice, detailed and verbose, description of
+the goals and general idea of these changes, along with a lot of
+benchmark data.
+
+Now I don't see it, either here in this posting, or in any of the
+patch commit messages.
+
+Don't get rid of stuff like that, for a set of changes of this
+magnitude you can basically consider such details descriptions
+and information mandatory.
+
+Reply to this email with some text to put in the merge commit,
+including basic benchmark results, so that I can apply this series.
+
+Thanks.
