@@ -1,43 +1,59 @@
-From: Michael Guntsche <michael.guntsche@it-loops.com>
-Subject: Re: [PATCH][net-next] gianfar: Add backwards compatible Single Queue
- mode polling
-Date: Mon, 10 Jun 2013 19:35:38 +0200
-Message-ID: <CALG0vJtQkM65kr2-u5G578uzAFeCk5=bkKNU5BaBheXTHmc7+g@mail.gmail.com>
-References: <CALG0vJtYfhJOMMU1rgDV8TYgkm3MJh2iibqmAJsj3nxbegBWEQ@mail.gmail.com>
-	<1370884788-4862-1-git-send-email-claudiu.manoil@freescale.com>
+From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: RE: [PATCH v5 01/28] rdma/cm: define native IB address
+Date: Mon, 10 Jun 2013 17:49:02 +0000
+Message-ID: <1828884A29C6694DAF28B7E6B8A823736FD2E0F8@ORSMSX109.amr.corp.intel.com>
+References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
+ <1369847374-12176-2-git-send-email-sean.hefty@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Claudiu Manoil <claudiu.manoil@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f179.google.com ([209.85.220.179]:59545 "EHLO
-	mail-vc0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751484Ab3FJRfk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 13:35:40 -0400
-Received: by mail-vc0-f179.google.com with SMTP id hz11so951671vcb.24
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 10:35:39 -0700 (PDT)
-In-Reply-To: <1370884788-4862-1-git-send-email-claudiu.manoil@freescale.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+To: "roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org" <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"David Miller (davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org)" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1369847374-12176-2-git-send-email-sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Content-Language: en-US
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello Claudiu,
-
-On Mon, Jun 10, 2013 at 7:19 PM, Claudiu Manoil
-<claudiu.manoil@freescale.com> wrote:
-> Older Single Queue (SQ_SG_MODE) devices like TSEC (i.e. mpc83xx)
-> don't feature the frame receive indication bits (RXF) in RSTAT.
-> For these and for the rest of the SQ_SG_MODE devices, provide the
-> appropiate polling routine that handles a single pair of Rx/Tx
-> BD rings, removing the overhead incurred by the multiple queues/
-> multiple interrupt group devices (veTSEC/ eTSEC2.0 devices).
-> So this is primarily a fix for the TSEC devices.
->
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> Define AF_IB and sockaddr_ib to allow the rdma_cm to use native IB
+> addressing.
+> 
+> Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 > ---
->  drivers/net/ethernet/freescale/gianfar.c | 51 ++++++++++++++++++++++++++++++--
->  1 file changed, 49 insertions(+), 2 deletions(-)
->
-<snip>
-I can confirm that this fixes the problem for my TSEC based board.
+>  include/linux/socket.h |    2 +
+>  include/rdma/ib.h      |   89 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  2 files changed, 91 insertions(+), 0 deletions(-)
+>  create mode 100644 include/rdma/ib.h
+> 
+> diff --git a/include/linux/socket.h b/include/linux/socket.h
+> index 2b9f74b..68f7120 100644
+> --- a/include/linux/socket.h
+> +++ b/include/linux/socket.h
+> @@ -167,6 +167,7 @@ struct ucred {
+>  #define AF_PPPOX	24	/* PPPoX sockets		*/
+>  #define AF_WANPIPE	25	/* Wanpipe API Sockets */
+>  #define AF_LLC		26	/* Linux LLC			*/
+> +#define AF_IB		27	/* Native InfiniBand address	*/
+>  #define AF_CAN		29	/* Controller Area Network      */
+>  #define AF_TIPC		30	/* TIPC sockets			*/
+>  #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
+> @@ -211,6 +212,7 @@ struct ucred {
+>  #define PF_PPPOX	AF_PPPOX
+>  #define PF_WANPIPE	AF_WANPIPE
+>  #define PF_LLC		AF_LLC
+> +#define PF_IB		AF_IB
+>  #define PF_CAN		AF_CAN
+>  #define PF_TIPC		AF_TIPC
+>  #define PF_BLUETOOTH	AF_BLUETOOTH
 
-/Mike
+Are there any objections from the network maintainers to adding these definitions?
+
+The rest of the changes from this series are restricted to the RDMA subsystem.  Currently, the RDMA stack connects using IP addresses, which must be mapped to IB addresses.  This change allows the RDMA stack to establish connections using native IB addresses.
+
+- Sean 
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
