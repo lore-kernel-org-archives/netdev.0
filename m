@@ -1,59 +1,52 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] doc:networking: Update comment for dev_id
- field in netdevice.h
-Date: Mon, 10 Jun 2013 17:11:10 +0100
-Message-ID: <1370880670.1933.9.camel@bwh-desktop.uk.level5networks.com>
-References: <20130610140325.GA1383@fedora-17-guest.blr.amer.dell.com>
+Subject: [RFC][PATCH net-next] cxgb4: Do not set net_device::dev_id to VI
+ index
+Date: Mon, 10 Jun 2013 17:34:13 +0100
+Message-ID: <1370882053.1933.13.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: <Narendra_K@Dell.com>
+Cc: netdev <netdev@vger.kernel.org>, <Narendra_K@Dell.com>
+To: Dimitris Michailidis <dm@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:11228 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:24671 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753900Ab3FJQLP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 12:11:15 -0400
-In-Reply-To: <20130610140325.GA1383@fedora-17-guest.blr.amer.dell.com>
+	with ESMTP id S1751132Ab3FJQeS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 12:34:18 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-10 at 19:34 +0530, Narendra_K@Dell.com wrote:
-> This patch updates the comment for 'dev_id' field in
-> 'include/linux/netdevice.h' to reflect the intended
-> usage of 'dev_id'.
-> 
-> References: http://marc.info/?l=linux-netdev&m=136992115300526&w=2
-> References: http://marc.info/?l=linux-netdev&m=137062569014612&w=2
-> 
-> Signed-off-by: Narendra K <narendra_k@dell.com>
+net_device::dev_id should not be used merely to indicate a VI index,
+as it affects the way the local part of IPv6 addresses is normally
+generated.
 
-Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+This field was intended for use where multiple devices may share a
+single assigned MAC address and need to have different IPv6 addresses.
+T4 VIs each have their own MAC address.
 
-> ---
->  include/linux/netdevice.h | 6 ++++--
->  1 file changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index 8f967e3..a43712e 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -1142,8 +1142,10 @@ struct net_device {
->  	unsigned char		addr_assign_type; /* hw address assignment type */
->  	unsigned char		addr_len;	/* hardware address length	*/
->  	unsigned char		neigh_priv_len;
-> -	unsigned short          dev_id;		/* for shared network cards */
-> -
-> +	unsigned short          dev_id;		/* Used to differentiate devices
-> +						 * that share the same link
-> +						 * layer address
-> +						 */
->  	spinlock_t		addr_list_lock;
->  	struct netdev_hw_addr_list	uc;	/* Unicast mac addresses */
->  	struct netdev_hw_addr_list	mc;	/* Multicast mac addresses */
-> -- 
-> 1.8.0.1
-> 
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+Dimitris, I don't know whether my last statement ('VIs each have their
+own MAC address') is actually correct.  If not then the driver is quite
+right to set dev_id.
+
+Ben.
+
+ drivers/net/ethernet/chelsio/cxgb4/t4_hw.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+index bff89a4..4cbb2f9 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4_hw.c
+@@ -3782,7 +3782,6 @@ int t4_port_init(struct adapter *adap, int mbox, int pf, int vf)
+ 		p->lport = j;
+ 		p->rss_size = rss_size;
+ 		memcpy(adap->port[i]->dev_addr, addr, ETH_ALEN);
+-		adap->port[i]->dev_id = j;
+ 
+ 		ret = ntohl(c.u.info.lstatus_to_modtype);
+ 		p->mdio_addr = (ret & FW_PORT_CMD_MDIOCAP) ?
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
