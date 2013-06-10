@@ -1,8 +1,8 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v10 net-next 4/6] tcp: add low latency socket
-	poll support.
-Date: Mon, 10 Jun 2013 11:40:10 +0300
-Message-ID: <20130610084010.6955.14413.stgit@ladj378.jer.intel.com>
+Subject: [PATCH v10 net-next 3/6] udp: add low latency socket
+	poll support
+Date: Mon, 10 Jun 2013 11:40:00 +0300
+Message-ID: <20130610084000.6955.20487.stgit@ladj378.jer.intel.com>
 References: <20130610083929.6955.87206.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -28,85 +28,94 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Adds low latency socket poll support for TCP.
-In tcp_v[46]_rcv() add a call to sk_mark_ll() to copy the napi_id
-from the skb to the sk.
-In tcp_recvmsg(), when there is no data in the socket we busy-poll.
-This is a good example of how to add busy-poll support to more protocols.
+Add upport for busy-polling on UDP sockets.
+In __udp[46]_lib_rcv add a call to sk_mark_ll() to copy the napi_id
+from the skb into the sk.
+This is done at the earliest possible moment, right after we identify
+which socket this skb is for.
+In __skb_recv_datagram When there is no data and the user
+tries to read we busy poll.
 
 Signed-off-by: Alexander Duyck <alexander.h.duyck@intel.com>
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 ---
 
- net/ipv4/tcp.c      |    5 +++++
- net/ipv4/tcp_ipv4.c |    2 ++
- net/ipv6/tcp_ipv6.c |    2 ++
- 3 files changed, 9 insertions(+), 0 deletions(-)
+ net/core/datagram.c |    4 ++++
+ net/ipv4/udp.c      |    6 +++++-
+ net/ipv6/udp.c      |    6 +++++-
+ 3 files changed, 14 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index bc42469..46ed9af 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -279,6 +279,7 @@
- 
- #include <asm/uaccess.h>
- #include <asm/ioctls.h>
+diff --git a/net/core/datagram.c b/net/core/datagram.c
+index b71423d..9cbaba9 100644
+--- a/net/core/datagram.c
++++ b/net/core/datagram.c
+@@ -56,6 +56,7 @@
+ #include <net/sock.h>
+ #include <net/tcp_states.h>
+ #include <trace/events/skb.h>
 +#include <net/ll_poll.h>
  
- int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
+ /*
+  *	Is a socket 'connection oriented' ?
+@@ -207,6 +208,9 @@ struct sk_buff *__skb_recv_datagram(struct sock *sk, unsigned int flags,
+ 		}
+ 		spin_unlock_irqrestore(&queue->lock, cpu_flags);
  
-@@ -1553,6 +1554,10 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
- 	struct sk_buff *skb;
- 	u32 urg_hole = 0;
- 
-+	if (sk_valid_ll(sk) && skb_queue_empty(&sk->sk_receive_queue)
-+	    && (sk->sk_state == TCP_ESTABLISHED))
-+		sk_poll_ll(sk, nonblock);
++		if (sk_valid_ll(sk) && sk_poll_ll(sk, flags & MSG_DONTWAIT))
++			continue;
 +
- 	lock_sock(sk);
+ 		/* User doesn't want to wait */
+ 		error = -EAGAIN;
+ 		if (!timeo)
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index c7338ec..2955b25 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -109,6 +109,7 @@
+ #include <trace/events/udp.h>
+ #include <linux/static_key.h>
+ #include <trace/events/skb.h>
++#include <net/ll_poll.h>
+ #include "udp_impl.h"
  
- 	err = -ENOTCONN;
-diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-index 289039b4..1063bb8 100644
---- a/net/ipv4/tcp_ipv4.c
-+++ b/net/ipv4/tcp_ipv4.c
-@@ -75,6 +75,7 @@
- #include <net/netdma.h>
- #include <net/secure_seq.h>
- #include <net/tcp_memcontrol.h>
+ struct udp_table udp_table __read_mostly;
+@@ -1709,7 +1710,10 @@ int __udp4_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	sk = __udp4_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 
+ 	if (sk != NULL) {
+-		int ret = udp_queue_rcv_skb(sk, skb);
++		int ret;
++
++		sk_mark_ll(sk, skb);
++		ret = udp_queue_rcv_skb(sk, skb);
+ 		sock_put(sk);
+ 
+ 		/* a return value > 0 means to resubmit the input, but
+diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+index b580853..f77e34c 100644
+--- a/net/ipv6/udp.c
++++ b/net/ipv6/udp.c
+@@ -46,6 +46,7 @@
+ #include <net/ip6_checksum.h>
+ #include <net/xfrm.h>
+ #include <net/inet6_hashtables.h>
 +#include <net/ll_poll.h>
  
- #include <linux/inet.h>
- #include <linux/ipv6.h>
-@@ -1993,6 +1994,7 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+@@ -841,7 +842,10 @@ int __udp6_lib_rcv(struct sk_buff *skb, struct udp_table *udptable,
+ 	 */
+ 	sk = __udp6_lib_lookup_skb(skb, uh->source, uh->dest, udptable);
+ 	if (sk != NULL) {
+-		int ret = udpv6_queue_rcv_skb(sk, skb);
++		int ret;
++
++		sk_mark_ll(sk, skb);
++		ret = udpv6_queue_rcv_skb(sk, skb);
+ 		sock_put(sk);
  
-+	sk_mark_ll(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 0a17ed9..5cffa5c 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -63,6 +63,7 @@
- #include <net/inet_common.h>
- #include <net/secure_seq.h>
- #include <net/tcp_memcontrol.h>
-+#include <net/ll_poll.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -1498,6 +1499,7 @@ process:
- 	if (sk_filter(sk, skb))
- 		goto discard_and_relse;
- 
-+	sk_mark_ll(sk, skb);
- 	skb->dev = NULL;
- 
- 	bh_lock_sock_nested(sk);
+ 		/* a return value > 0 means to resubmit the input, but
 
 
 ------------------------------------------------------------------------------
