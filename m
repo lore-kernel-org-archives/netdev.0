@@ -1,76 +1,111 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH] iptuntap: allow creation of multi-queue tun/tap device
-Date: Mon, 10 Jun 2013 10:16:17 -0700
-Message-ID: <20130610101617.6859448e@nehalam.linuxnetplumber.net>
-References: <1369348589-38730-1-git-send-email-sriram.narasimhan@hp.com>
-	<20130609111123.GA16406@redhat.com>
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Subject: [PATCH][net-next] gianfar: Add backwards compatible Single Queue mode polling
+Date: Mon, 10 Jun 2013 20:19:48 +0300
+Message-ID: <1370884788-4862-1-git-send-email-claudiu.manoil@freescale.com>
+References: <CALG0vJtYfhJOMMU1rgDV8TYgkm3MJh2iibqmAJsj3nxbegBWEQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Sriram Narasimhan <sriram.narasimhan@hp.com>,
-	netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain
+Cc: <michael.guntsche@it-loops.com>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f175.google.com ([209.85.192.175]:56298 "EHLO
-	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752573Ab3FJRQV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 13:16:21 -0400
-Received: by mail-pd0-f175.google.com with SMTP id 4so7623872pdd.34
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 10:16:21 -0700 (PDT)
-In-Reply-To: <20130609111123.GA16406@redhat.com>
+Received: from co9ehsobe001.messaging.microsoft.com ([207.46.163.24]:32619
+	"EHLO co9outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751751Ab3FJRUa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 13:20:30 -0400
+In-Reply-To: <CALG0vJtYfhJOMMU1rgDV8TYgkm3MJh2iibqmAJsj3nxbegBWEQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 9 Jun 2013 14:11:23 +0300
-"Michael S. Tsirkin" <mst@redhat.com> wrote:
+Older Single Queue (SQ_SG_MODE) devices like TSEC (i.e. mpc83xx)
+don't feature the frame receive indication bits (RXF) in RSTAT.
+For these and for the rest of the SQ_SG_MODE devices, provide the
+appropiate polling routine that handles a single pair of Rx/Tx
+BD rings, removing the overhead incurred by the multiple queues/
+multiple interrupt group devices (veTSEC/ eTSEC2.0 devices).
+So this is primarily a fix for the TSEC devices.
 
-> On Thu, May 23, 2013 at 03:36:29PM -0700, Sriram Narasimhan wrote:
-> > This patch adds multi_queue option to ip tuntap.
-> > This allows IFF_MULTI_QUEUE flag to be specified during
-> > tun/tap device creation enabling multi-queue support in tun/tap
-> > device.
-> > 
-> > Example: ip tuntap add dev tap0 mode tap multi_queue
-> > 
-> > Signed-off-by: Sriram Narasimhan <sriram.narasimhan@hp.com>
-> 
-> Looks useful.
-> 
-> Stephen, what do you think?
-> Could you pick this up please?
-> 
-> > ---
-> >  ip/iptuntap.c |    4 +++-
-> >  1 files changed, 3 insertions(+), 1 deletions(-)
-> > 
-> > diff --git a/ip/iptuntap.c b/ip/iptuntap.c
-> > index 3d9ad7d..2391af2 100644
-> > --- a/ip/iptuntap.c
-> > +++ b/ip/iptuntap.c
-> > @@ -38,7 +38,7 @@ static void usage(void)
-> >  {
-> >  	fprintf(stderr, "Usage: ip tuntap { add | del } [ dev PHYS_DEV ] \n");
-> >  	fprintf(stderr, "          [ mode { tun | tap } ] [ user USER ] [ group GROUP ]\n");
-> > -	fprintf(stderr, "          [ one_queue ] [ pi ] [ vnet_hdr ]\n");
-> > +	fprintf(stderr, "          [ one_queue ] [ pi ] [ vnet_hdr ] [ multi_queue ]\n");
-> >  	fprintf(stderr, "\n");
-> >  	fprintf(stderr, "Where: USER  := { STRING | NUMBER }\n");
-> >  	fprintf(stderr, "       GROUP := { STRING | NUMBER }\n");
-> > @@ -168,6 +168,8 @@ static int parse_args(int argc, char **argv, struct ifreq *ifr, uid_t *uid, gid_
-> >  			ifr->ifr_flags |= IFF_ONE_QUEUE;
-> >  		} else if (matches(*argv, "vnet_hdr") == 0) {
-> >  			ifr->ifr_flags |= IFF_VNET_HDR;
-> > +		} else if (matches(*argv, "multi_queue") == 0) {
-> > +			ifr->ifr_flags |= IFF_MULTI_QUEUE;
-> >  		} else if (matches(*argv, "dev") == 0) {
-> >  			NEXT_ARG();
-> >  			strncpy(ifr->ifr_name, *argv, IFNAMSIZ-1);
-> > -- 
-> > 1.7.1
-> > 
-> > --
-> > To unsubscribe from this list: send the line "unsubscribe netdev" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+---
+ drivers/net/ethernet/freescale/gianfar.c | 51 ++++++++++++++++++++++++++++++--
+ 1 file changed, 49 insertions(+), 2 deletions(-)
 
-Already applied to iproute2 for 3.10
+diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net/ethernet/freescale/gianfar.c
+index 96fbe35..ac9bb63 100644
+--- a/drivers/net/ethernet/freescale/gianfar.c
++++ b/drivers/net/ethernet/freescale/gianfar.c
+@@ -128,6 +128,7 @@ static void gfar_set_multi(struct net_device *dev);
+ static void gfar_set_hash_for_addr(struct net_device *dev, u8 *addr);
+ static void gfar_configure_serdes(struct net_device *dev);
+ static int gfar_poll(struct napi_struct *napi, int budget);
++static int gfar_poll_sq(struct napi_struct *napi, int budget);
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+ static void gfar_netpoll(struct net_device *dev);
+ #endif
+@@ -1038,9 +1039,13 @@ static int gfar_probe(struct platform_device *ofdev)
+ 	dev->ethtool_ops = &gfar_ethtool_ops;
+ 
+ 	/* Register for napi ...We are registering NAPI for each grp */
+-	for (i = 0; i < priv->num_grps; i++)
+-		netif_napi_add(dev, &priv->gfargrp[i].napi, gfar_poll,
++	if (priv->mode == SQ_SG_MODE)
++		netif_napi_add(dev, &priv->gfargrp[0].napi, gfar_poll_sq,
+ 			       GFAR_DEV_WEIGHT);
++	else
++		for (i = 0; i < priv->num_grps; i++)
++			netif_napi_add(dev, &priv->gfargrp[i].napi, gfar_poll,
++				       GFAR_DEV_WEIGHT);
+ 
+ 	if (priv->device_flags & FSL_GIANFAR_DEV_HAS_CSUM) {
+ 		dev->hw_features = NETIF_F_IP_CSUM | NETIF_F_SG |
+@@ -2824,6 +2829,48 @@ int gfar_clean_rx_ring(struct gfar_priv_rx_q *rx_queue, int rx_work_limit)
+ 	return howmany;
+ }
+ 
++static int gfar_poll_sq(struct napi_struct *napi, int budget)
++{
++	struct gfar_priv_grp *gfargrp =
++		container_of(napi, struct gfar_priv_grp, napi);
++	struct gfar __iomem *regs = gfargrp->regs;
++	struct gfar_priv_tx_q *tx_queue = gfargrp->priv->tx_queue[0];
++	struct gfar_priv_rx_q *rx_queue = gfargrp->priv->rx_queue[0];
++	int work_done = 0;
++
++	/* Clear IEVENT, so interrupts aren't called again
++	 * because of the packets that have already arrived
++	 */
++	gfar_write(&regs->ievent, IEVENT_RTX_MASK);
++
++	/* run Tx cleanup to completion */
++	if (tx_queue->tx_skbuff[tx_queue->skb_dirtytx])
++		gfar_clean_tx_ring(tx_queue);
++
++	work_done = gfar_clean_rx_ring(rx_queue, budget);
++
++	if (work_done < budget) {
++		napi_complete(napi);
++		/* Clear the halt bit in RSTAT */
++		gfar_write(&regs->rstat, gfargrp->rstat);
++
++		gfar_write(&regs->imask, IMASK_DEFAULT);
++
++		/* If we are coalescing interrupts, update the timer
++		 * Otherwise, clear it
++		 */
++		gfar_write(&regs->txic, 0);
++		if (likely(tx_queue->txcoalescing))
++			gfar_write(&regs->txic, tx_queue->txic);
++
++		gfar_write(&regs->rxic, 0);
++		if (unlikely(rx_queue->rxcoalescing))
++			gfar_write(&regs->rxic, rx_queue->rxic);
++	}
++
++	return work_done;
++}
++
+ static int gfar_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct gfar_priv_grp *gfargrp =
+-- 
+1.7.11.3
