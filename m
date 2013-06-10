@@ -1,70 +1,21 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: get R8A7740 Rx descriptor word 0 shift out of #ifdef
-Date: Tue, 11 Jun 2013 00:22:50 +0400
-Message-ID: <201306110022.51293.sergei.shtylyov@cogentembedded.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net-next 00/12] vxlan: improvements for net-next
+Date: Mon, 10 Jun 2013 13:24:27 -0700
+Message-ID: <20130610132427.3140dc19@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org,
-	yoshihiro.shimoda.uh@renesas.com
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f169.google.com ([209.85.192.169]:40826 "EHLO
+	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929Ab3FJUZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 16:25:41 -0400
+Received: by mail-pd0-f169.google.com with SMTP id y10so7860301pdj.28
+        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 13:25:40 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The only R8A7740 specific #ifdef hindering ARM multiplatform  build is left  in
-sh_eth_rx(): it covers a very strange code shifting Rx buffer descriptor word 0
-by 16 (which should cause Rx length error to be logged on every buffer  several
-lines later). Get rid of the #ifdef by adding 'shift_rd0' field to the  'struct
-sh_eth_cpu_data', making the shift dependent on it, and setting it to 1 for the
-R8A7740 case...
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
----
-The patch is against Dave Miller's 'net-next.git' repo.
-I have no R8A7740 manual,  so have to trust that the code is correct.  It would
-be good to get some comments from the author of the original commit  that added
-R8A7740 support, so CCing him... 
-
- drivers/net/ethernet/renesas/sh_eth.c |    6 +++---
- drivers/net/ethernet/renesas/sh_eth.h |    1 +
- 2 files changed, 4 insertions(+), 3 deletions(-)
-
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -667,6 +667,7 @@ static struct sh_eth_cpu_data r8a7740_da
- 	.no_ade		= 1,
- 	.tsu		= 1,
- 	.select_mii	= 1,
-+	.shift_rd0	= 1,
- };
- 
- static struct sh_eth_cpu_data sh7619_data = {
-@@ -1260,9 +1261,8 @@ static int sh_eth_rx(struct net_device *
- 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
- 		pkt_len = rxdesc->frame_length;
- 
--#if defined(CONFIG_ARCH_R8A7740)
--		desc_status >>= 16;
--#endif
-+		if (mdp->cd->shift_rd0)
-+			desc_status >>= 16;
- 
- 		if (--boguscnt < 0)
- 			break;
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.h
-@@ -476,6 +476,7 @@ struct sh_eth_cpu_data {
- 	unsigned no_ade:1;	/* E-DMAC DO NOT have ADE bit in EESR */
- 	unsigned hw_crc:1;	/* E-DMAC have CSMR */
- 	unsigned select_mii:1;	/* EtherC have RMII_MII (MII select register) */
-+	unsigned shift_rd0:1;	/* shift Rx buffer descriptor word 0 by 16 */
- };
- 
- struct sh_eth_private {
+These apply after the three patches for -net.
