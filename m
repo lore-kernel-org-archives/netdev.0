@@ -1,46 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v10 net-next 0/6] net: low latency Ethernet device
- polling
-Date: Mon, 10 Jun 2013 13:41:16 -0700 (PDT)
-Message-ID: <20130610.134116.1913599114372510768.davem@davemloft.net>
-References: <20130610083929.6955.87206.stgit@ladj378.jer.intel.com>
+Subject: Re: [PATCH net v2 01/03] vxlan: only migrate dynamic FDB entries
+Date: Mon, 10 Jun 2013 13:42:55 -0700 (PDT)
+Message-ID: <20130610.134255.1579352475562624067.davem@davemloft.net>
+References: <20130610131317.0c17ed0d@nehalam.linuxnetplumber.net>
+	<51B63696.7020000@cogentembedded.com>
+	<20130610133201.30f20a69@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
-	e1000-devel@lists.sourceforge.net, willemb@google.com,
-	erdnetdev@gmail.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
-	or.gerlitz@gmail.com, amirv@mellanox.com, eliezer@tamir.org.il
-To: eliezer.tamir@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130610083929.6955.87206.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59547 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751826Ab3FJUm4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 16:42:56 -0400
+In-Reply-To: <20130610133201.30f20a69@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Date: Mon, 10 Jun 2013 11:39:30 +0300
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 10 Jun 2013 13:32:01 -0700
 
-> I removed the select/poll patch (was 5/7 in v9) from the set.
-> The rest are the same patches that were in v9.
-> 
-> Please consider applying.
-> 
-> Thanks to everyone for their input.
+> Now dave will make resend the whole series...
 
-There used to be a really nice, detailed and verbose, description of
-the goals and general idea of these changes, along with a lot of
-benchmark data.
-
-Now I don't see it, either here in this posting, or in any of the
-patch commit messages.
-
-Don't get rid of stuff like that, for a set of changes of this
-magnitude you can basically consider such details descriptions
-and information mandatory.
-
-Reply to this email with some text to put in the merge commit,
-including basic benchmark results, so that I can apply this series.
-
-Thanks.
+Attention to detail generally tends to show how much the submitter
+cares about the quality of their work :-)
