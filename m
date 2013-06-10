@@ -1,59 +1,80 @@
-From: "Hefty, Sean" <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Subject: RE: [PATCH v5 01/28] rdma/cm: define native IB address
-Date: Mon, 10 Jun 2013 17:49:02 +0000
-Message-ID: <1828884A29C6694DAF28B7E6B8A823736FD2E0F8@ORSMSX109.amr.corp.intel.com>
-References: <1369847374-12176-1-git-send-email-sean.hefty@intel.com>
- <1369847374-12176-2-git-send-email-sean.hefty@intel.com>
+From: <Narendra_K@Dell.com>
+Subject: RE: Generic interface to make physical port number used by a
+ netdevice available to user space
+Date: Mon, 10 Jun 2013 10:54:39 -0700
+Message-ID: <E31FB011129F30488D5861F383904915210BA89DEC@BLRX7MCDC201.AMER.DELL.COM>
+References: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>
+  <20130523093421.3b20a0bd@nehalam.linuxnetplumber.net>
+  <E31FB011129F30488D5861F383904915210B96144A@BLRX7MCDC201.AMER.DELL.COM>
+  <20130531121201.GA1311@fedora-17-guest.blr.amer.dell.com>
+  <51B1F56D.5000007@intel.com>
+ <1370625678.1903.26.camel@bwh-desktop.uk.level5networks.com>
+ <51B219D9.2010900@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: "roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org" <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"David Miller (davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org)" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1369847374-12176-2-git-send-email-sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <john.r.fastabend@intel.com>, <stephen@networkplumber.org>,
+	<netdev@vger.kernel.org>
+To: <john.fastabend@gmail.com>, <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausxippc101.us.dell.com ([143.166.85.207]:56643 "EHLO
+	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754371Ab3FJR4d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 13:56:33 -0400
+In-Reply-To: <51B219D9.2010900@gmail.com>
 Content-Language: en-US
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> Define AF_IB and sockaddr_ib to allow the rdma_cm to use native IB
-> addressing.
-> 
-> Signed-off-by: Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> ---
->  include/linux/socket.h |    2 +
->  include/rdma/ib.h      |   89 ++++++++++++++++++++++++++++++++++++++++++++++++
->  2 files changed, 91 insertions(+), 0 deletions(-)
->  create mode 100644 include/rdma/ib.h
-> 
-> diff --git a/include/linux/socket.h b/include/linux/socket.h
-> index 2b9f74b..68f7120 100644
-> --- a/include/linux/socket.h
-> +++ b/include/linux/socket.h
-> @@ -167,6 +167,7 @@ struct ucred {
->  #define AF_PPPOX	24	/* PPPoX sockets		*/
->  #define AF_WANPIPE	25	/* Wanpipe API Sockets */
->  #define AF_LLC		26	/* Linux LLC			*/
-> +#define AF_IB		27	/* Native InfiniBand address	*/
->  #define AF_CAN		29	/* Controller Area Network      */
->  #define AF_TIPC		30	/* TIPC sockets			*/
->  #define AF_BLUETOOTH	31	/* Bluetooth sockets 		*/
-> @@ -211,6 +212,7 @@ struct ucred {
->  #define PF_PPPOX	AF_PPPOX
->  #define PF_WANPIPE	AF_WANPIPE
->  #define PF_LLC		AF_LLC
-> +#define PF_IB		AF_IB
->  #define PF_CAN		AF_CAN
->  #define PF_TIPC		AF_TIPC
->  #define PF_BLUETOOTH	AF_BLUETOOTH
-
-Are there any objections from the network maintainers to adding these definitions?
-
-The rest of the changes from this series are restricted to the RDMA subsystem.  Currently, the RDMA stack connects using IP addresses, which must be mapped to IB addresses.  This change allows the RDMA stack to establish connections using native IB addresses.
-
-- Sean 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2huIEZhc3RhYmVuZCBbbWFp
+bHRvOmpvaG4uZmFzdGFiZW5kQGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBKdW5lIDA3LCAy
+MDEzIDExOjA1IFBNDQo+IFRvOiBCZW4gSHV0Y2hpbmdzDQo+IENjOiBKb2huIEZhc3RhYmVuZDsg
+SywgTmFyZW5kcmE7IHN0ZXBoZW5AbmV0d29ya3BsdW1iZXIub3JnOw0KPiBuZXRkZXZAdmdlci5r
+ZXJuZWwub3JnDQo+IFN1YmplY3Q6IFJlOiBHZW5lcmljIGludGVyZmFjZSB0byBtYWtlIHBoeXNp
+Y2FsIHBvcnQgbnVtYmVyIHVzZWQgYnkgYQ0KPiBuZXRkZXZpY2UgYXZhaWxhYmxlIHRvIHVzZXIg
+c3BhY2UNCj4gDQo+IFsuLi5dDQo+IA0KPiA+IEhhdmluZyBsb29rZWQgYXQgdGhlIHFldGggZHJp
+dmVyIG5vdywgSSB0aGluayB0aGUgY29tbWVudCBpbg0KPiA+IG5ldGRldmljZS5oIHNob3VsZCBi
+ZSBjaGFuZ2VkIHRvIHN0YXRlIHRoYXQgdGhpcyBpcyBmb3IgZGlzdGluZ3Vpc2hpbmcNCj4gPiBk
+ZXZpY2VzIHRoYXQgc2hhcmUgYSBsaW5rLWxheWVyIGFkZHJlc3MsIGFuZCB0aGUgZHJpdmVycyB1
+c2luZyBpdCBmb3INCj4gPiBvdGhlciBwdXJwb3NlcyBzaG91bGQgc3RvcCBkb2luZyBzbyAoaWYg
+dGhhdCBkb2Vzbid0IGJyZWFrIHVzZXJsYW5kKS4NCj4gPg0KPiANCj4gQWdyZWVkLCB0aGUgcWV0
+aCBkcml2ZXIgZWx1ZGVkIG1lLCBpdHMgbm90IGluIC4vZHJpdmVycy9uZXQgYXMgeW91IG5vdGVk
+IGluDQo+IHRoZSBvdGhlciB0aHJlYWQuDQo+IA0KPiA+IFsuLi5dDQo+ID4+PiAzLiBBZGQgYSBu
+ZXcgZmllbGQgJ3BoeXNwb3J0JyB0byAnc3RydWN0IG5ldF9kZXZpY2UnIGFuZCBleHBvcnQgaXQg
+dG8gc3lzZnMuDQo+ID4+DQo+ID4+IFByb2JhYmx5IG5vdCB3ZSBhbHJlYWR5IGhhdmUgdHdvIGZp
+ZWxkcyB0aGF0IHNlZW0gaWxsLWRlZmluZWQgbm8NCj4gPj4gcmVhc29uIHRvIGFkZCBhbm90aGVy
+IHRvIHRoZSBjb25mdXNpb24uIElmIHlvdSBhYnNvbHV0ZWx5IGNhbid0IG1ha2UNCj4gPj4gZGV2
+X2lkIG9yIGlmX3BvcnQgY29oZXJlbnQgdGhlbiBtYXliZSBidXQgSSByZWFsbHkgdGhpbmsgb25l
+IG9mIHRoZQ0KPiA+PiBhYm92ZSB0d28gd2lsbCB3b3JrLg0KPiA+DQo+ID4gSSB0aGluayB3ZSBz
+aG91bGQgdGlnaHRlbiB1cCBkb2N1bWVudGF0aW9uIGFuZCBpbXBsZW1lbnRhdGlvbiBvZiB0aGUN
+Cj4gPiBleGlzdGluZyBmaWVsZHMsIGJ1dCB0aGVyZSBpcyBzdGlsbCBhIG5lZWQgZm9yIHRoaXMg
+bmV3IG9uZS4NCj4gPg0KPiA+IE9uZSB0aGluZyB0aGF0IG5lZWRzIHRvIGJlIGNsZWFybHkgc3Bl
+Y2lmaWVkIGlzIHRoZSBzY29wZSBvZiB0aGUNCj4gPiBwaHlzcG9ydCBpZGVudGlmaWVyIC0gdGhl
+IGNvbnRyb2xsZXIsIGJvYXJkLCBwaHlzaWNhbCBtYWNoaW5lLCAuLi4gb3INCj4gPiB1bml2ZXJz
+ZS4gIEluIGEgVk0sIGNvbnRyb2xsZXIgYW5kIGJvYXJkIHNjb3BlIGFyZSBwcmV0dHkgdXNlbGVz
+cyBhcw0KPiA+IGl0IHR5cGljYWxseSBjYW4ndCB0ZWxsIHdoaWNoIGRldmljZXMgYmVsb25nIHRv
+IHRoZSBzYW1lIGNvbnRyb2xsZXIgb3INCj4gPiBib2FyZCBhbnl3YXkuICBBIHVuaXZlcnNhbGx5
+IHVuaXF1ZSBpZGVudGlmaWVyIGlzIHByb2JhYmx5IG5vdCB0b28NCj4gPiBoYXJkIHRvIGltcGxl
+bWVudCBhcyB0aGVyZSBpcyBsaWtlbHkgdG8gYmUgYXQgbGVhc3Qgb25lIE1BQyBhZGRyZXNzDQo+
+ID4gcGVybWFuZW50bHkgYXNzaWduZWQgdG8gZWFjaCBwaHlzaWNhbCBwb3J0Lg0KPiA+DQo+ID4g
+QmVuLg0KPiA+DQo+IA0KPiBPSywgc291bmRzIHJlYXNvbmFibGUgdG8gbWUgYSBuZXcgZmllbGQg
+c2hvdWxkIHdvcmsuDQoNCjEuICBJIHRoaW5rIGEgdW5pdmVyc2FsbHkgdW5pcXVlIHBoeXNwb3J0
+IGlkZW50aWZpZXIgd2lsbCBiZSB2ZXJ5IHVzZWZ1bC4gIElmICdwaHlzcG9ydCcgaXMgdW5pcXVl
+IHBlciBOSUMgKHNheSAwLCAxLCAyLCAzKSAsIHRoZW4gd2Ugd291bGQgbmVlZCBQQ0kgYi9kL2Yg
+dG8gZGlmZmVyZW50aWF0ZSBiZXR3ZWVuIHR3byBOSUNzLiAgQnV0IGEgdW5pdmVyc2FsbHkgdW5p
+cXVlIGlkZW50aWZpZXIgd291bGQgbm90IG5lZWQgYW55IGFkZGl0aW9uYWwgaW5mb3JtYXRpb24u
+IEFsc28sICBpdCBzZWVtcyBsaWtlICB0aGUgVk0gc2NlbmFyaW8gIHdpbGwgbm90IG5lZWQgYW55
+IGFkZGl0aW9uYWwgaW5mb3JtYXRpb24gaWYgdGhlIFZGIChuZXRkZXYpIGFzc2lnbmVkIHRvIHRo
+ZSBndWVzdCBleHBvc2VzIHRoZSB1bmlxdWUgaWRlbnRpZmllci4NCg0KSW4gdGhlIHNjZW5hcmlv
+IG9mIE5JQyBwYXJ0aXRpb25zLCB1bml2ZXJzYWxseSB1bmlxdWUgaWRlbnRpZmllciBnZW5lcmF0
+aW9uIG1heSBoYXZlIHRvIGNvbnNpZGVyIHRoYXQsIGVhY2ggTklDIHBhcnRpdGlvbiB3aGljaCBt
+YXBzIHRvIGEgZ2l2ZW4gcGh5c2ljYWwgcG9ydCB3aWxsIGhhdmUgaXRzIG93biBNQUMgYWRkcmVz
+cy4gKFRoZSBTUklPViBWRiBuZXR3b3JrIGludGVyZmFjZXMgY291bGQgcHJvYmFibHkgdXNlIFBG
+J3MgTUFDIGFkZHJlc3MpLiAgQnV0ICBnZW5lcmF0aW9uIG9mIGEgdW5pdmVyc2FsbHkgdW5pcXVl
+IHBoeXNwb3J0IGlkZW50aWZpZXIgd291bGQgcHJvYmFibHkgYmUgZHJpdmVyIHNwZWNpZmljLg0K
+DQoyLiAgQWxzbywgdGhpbmtpbmcgYWJvdXQgdGhlIGRlZmF1bHQgdmFsdWUgZm9yICdwaHlzcG9y
+dCcgLCBjb3VsZCBpdCBiZSBzZXQgdG8gemVybyBieSBkZWZhdWx0ICA/IEEgcG9zc2libGUgIGlu
+dGVyZmFjZSBjb3VsZCBiZQ0KDQowICAgPT0+ICAgZHJpdmVyIGRpZCBub3QgdG8gc2V0IHRoZSBp
+ZGVudGlmaWVyDQo+IDAgPT0+IGRyaXZlciBzdWNjZXNzZnVsbHkgc2V0IHRoZSBpZGVudGlmaWVy
+DQoNCldpdGggcmVnYXJkcywNCk5hcmVuZHJhIEsNCkxpbnV4IEVuZ2luZWVyaW5nDQpEZWxsIElu
+Yy4NCiANCg0K
