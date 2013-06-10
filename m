@@ -1,59 +1,63 @@
-From: Catalin Marinas <catalin.marinas@arm.com>
-Subject: Re: kmemleak reports in kernel 3.9.5+
-Date: Mon, 10 Jun 2013 23:32:12 +0100
-Message-ID: <CAHkRjk5SDCbqr0Br24YQuHr=j7DmnpYk9CShrz1qiuYff7+qAw@mail.gmail.com>
-References: <51B61982.2050903@candelatech.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: [RFC 0/7] Fixing dma mask setting in various network
+	drivers
+Date: Tue, 11 Jun 2013 00:08:49 +0100
+Message-ID: <20130610230849.GF18614@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Ben Greear <greearb@candelatech.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f49.google.com ([209.85.160.49]:45421 "EHLO
-	mail-pb0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751124Ab3FJWcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 18:32:32 -0400
-In-Reply-To: <51B61982.2050903@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Alex Duyck <alexander.h.duyck@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net, Greg Rose <gregory.v.rose@intel.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org,
+	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
+	Rasesh Mody <rmody@brocade.com>, Tushar Dave <tushar.n.dave@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On 10 June 2013 19:22, Ben Greear <greearb@candelatech.com> wrote:
-> We had a system go OOM while doing lots of wireless
-> stations.  (System had 8GB of RAM, so I suspect a leak).
->
-> I enabled kmemleak in a 3.9.5 (plus some local patches) and
-> I see the entries below.  Any idea if these are real or not?
->
-> unreferenced object 0xffff880212281c80 (size 128):
->   comm "systemd", pid 1, jiffies 4294682684 (age 1159.517s)
->   hex dump (first 32 bytes):
->     60 39 27 12 02 88 ff ff 00 02 20 00 00 00 ad de  `9'....... .....
->     10 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
->   backtrace:
->     [<ffffffff815de7bf>] kmemleak_alloc+0x73/0x98
->     [<ffffffff8118b4d4>] slab_post_alloc_hook+0x28/0x2a
->     [<ffffffff8118d605>] __kmalloc+0xf9/0x122
->     [<ffffffff8154946d>] kzalloc.clone.0+0xe/0x10
->     [<ffffffff81549494>] fib_default_rule_add+0x25/0x7a
->     [<ffffffffa014f5a9>] ip6mr_net_init+0x7e/0x118 [ipv6]
->     [<ffffffff8152c992>] ops_init+0xd6/0xf7
->     [<ffffffff8152cb51>] register_pernet_operations+0xc2/0x16b
->     [<ffffffff8152cc87>] register_pernet_subsys+0x2e/0x47
->     [<ffffffffa016db69>] 0xffffffffa016db69
->     [<ffffffffa016d109>] 0xffffffffa016d109
->     [<ffffffff8100207f>] do_one_initcall+0x7f/0x13e
->     [<ffffffff810f3985>] do_init_module+0x44/0x18f
->     [<ffffffff810f5da7>] load_module+0x14d1/0x168e
->     [<ffffffff810f6114>] sys_init_module+0xfd/0x101
->     [<ffffffff815f6599>] system_call_fastpath+0x16/0x1b
+While looking at the way coherent DMA masks are handled (and the
+fact many drivers write directly to the mask) I stumbled across
+this set of oddities in various network drivers, which looks like
+it's been cut'n'pasted.
 
-No idea yet. You can try:
+I haven't yet tested these patches in any way, which is one reason
+I'm sending them out as an RFC.  The other reason is to find out
+if other people agree that these are indeed fixes.
 
-echo clear > /sys/kernel/debug/kmemleak
+ drivers/net/ethernet/brocade/bna/bnad.c           |    7 +++----
+ drivers/net/ethernet/intel/e1000e/netdev.c        |   11 +++++------
+ drivers/net/ethernet/intel/igb/igb_main.c         |   11 +++++------
+ drivers/net/ethernet/intel/igbvf/netdev.c         |   11 +++++------
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c       |    9 ++++-----
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   11 +++++------
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |   11 +++++------
+ 7 files changed, 32 insertions(+), 39 deletions(-)
 
-and see if there are more appearing after. All seem to have a common
-allocation path via debug_object_activate -> ... ->
-rcuhead_fixup_activate -> ... -> __debug_object_init.
+The full patchset will be sent to netdev only, the remainder will
+be Cc'd depending on the individual driver being modified.  Each
+patch is independent of each other.
 
---
-Catalin
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
+
+Build for Windows Store.
+
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
