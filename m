@@ -1,40 +1,55 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [Patch net-next v3 1/3] igmp: fix return value of some functions
-Date: Mon, 10 Jun 2013 07:00:49 -0600
-Message-ID: <OF7613FEAD.8B74A56A-ON87257B86.00477CA0-87257B86.00477CA3@us.ibm.com>
-References: <1370833744.11543.4.camel@cr0>,
-	<1370689003.868.3.camel@cr0>	 , <1370485211-11498-1-git-send-email-amwang@redhat.com>
-	 <OFF0DFA533.AF670FB8-ON85257B82.006E0B5C-85257B82.006F58EF@us.ibm.com>	 <OF76532841.5DDD0996-ON87257B85.000C25DF-87257B85.000C25E6@us.ibm.com>
-	 <1370833653.11543.3.camel@cr0>
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH 09/15] net: can: Convert to use devm_ioremap_resource
+Date: Mon, 10 Jun 2013 15:09:27 +0200
+Message-ID: <51B5D007.8050005@pengutronix.de>
+References: <1370864113-17895-1-git-send-email-tushar.behera@linaro.org> <1370864113-17895-10-git-send-email-tushar.behera@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev-owner@vger.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: Cong Wang <amwang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e31.co.us.ibm.com ([32.97.110.149]:52701 "EHLO
-	e31.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812Ab3FJNCz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 09:02:55 -0400
-Received: from /spool/local
-	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <dlstevens@us.ibm.com>;
-	Mon, 10 Jun 2013 07:02:54 -0600
-In-Reply-To: <1370833744.11543.4.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="----enig2HOPDDRMHMUDPMUODDQBC"
+Cc: linux-kernel@vger.kernel.org, thierry.reding@gmail.com,
+	patches@linaro.org, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>
+To: Tushar Behera <tushar.behera@linaro.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1370864113-17895-10-git-send-email-tushar.behera@linaro.org>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+------enig2HOPDDRMHMUDPMUODDQBC
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: quoted-printable
+
+On 06/10/2013 01:35 PM, Tushar Behera wrote:
+> Commit 75096579c3ac ("lib: devres: Introduce devm_ioremap_resource()")
+> introduced devm_ioremap_resource() and deprecated the use of
+> devm_request_and_ioremap().
+
+Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+
+Are the patches going over the individual subsystem maintainers?
+
+Marc
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
 
 
+------enig2HOPDDRMHMUDPMUODDQBC
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
 
->On Mon, 2013-06-10 at 11:07 +0800, Cong Wang wrote: >  > Are you
->suggesting to just make ip_mc_leave_src() void?  I meant
->ip_mc_del_src() of course...
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
 
-Yes. At least, unless you find text in the API standard that says
-this case should return an error.
+iEYEARECAAYFAlG10A0ACgkQjTAFq1RaXHOgrgCfc5EAxsxXoVlmBUx8FsblfoWg
+oYQAn3dbgReZJpqQR7ynY5UYUwNzoot5
+=z0Sn
+-----END PGP SIGNATURE-----
 
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0 +-DLS
+------enig2HOPDDRMHMUDPMUODDQBC--
