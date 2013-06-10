@@ -1,80 +1,70 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net v2 01/03] vxlan: only migrate dynamic FDB entries
-Date: Mon, 10 Jun 2013 13:13:17 -0700
-Message-ID: <20130610131317.0c17ed0d@nehalam.linuxnetplumber.net>
-References: <20130610195822.888424947@vyatta.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH] sh_eth: get R8A7740 Rx descriptor word 0 shift out of #ifdef
+Date: Tue, 11 Jun 2013 00:22:50 +0400
+Message-ID: <201306110022.51293.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:42686 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751997Ab3FJUN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 16:13:26 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kl14so1462863pab.34
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 13:13:26 -0700 (PDT)
-In-Reply-To: <20130610195822.888424947@vyatta.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org,
+	yoshihiro.shimoda.uh@renesas.com
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Only migrate dynamic forwarding table entries, don't modify
-static entries. If packet received from incorrect source IP address
-assume it is an imposter and drop it.
+The only R8A7740 specific #ifdef hindering ARM multiplatform  build is left  in
+sh_eth_rx(): it covers a very strange code shifting Rx buffer descriptor word 0
+by 16 (which should cause Rx length error to be logged on every buffer  several
+lines later). Get rid of the #ifdef by adding 'shift_rd0' field to the  'struct
+sh_eth_cpu_data', making the shift dependent on it, and setting it to 1 for the
+R8A7740 case...
 
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 
 ---
-Should go to -stable as well.
+The patch is against Dave Miller's 'net-next.git' repo.
+I have no R8A7740 manual,  so have to trust that the code is correct.  It would
+be good to get some comments from the author of the original commit  that added
+R8A7740 support, so CCing him... 
 
---- a/drivers/net/vxlan.c	2013-06-06 08:27:07.499595174 -0700
-+++ b/drivers/net/vxlan.c	2013-06-06 09:38:54.291654035 -0700
-@@ -603,9 +603,10 @@ skip:
+ drivers/net/ethernet/renesas/sh_eth.c |    6 +++---
+ drivers/net/ethernet/renesas/sh_eth.h |    1 +
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -667,6 +667,7 @@ static struct sh_eth_cpu_data r8a7740_da
+ 	.no_ade		= 1,
+ 	.tsu		= 1,
+ 	.select_mii	= 1,
++	.shift_rd0	= 1,
+ };
  
- /* Watch incoming packets to learn mapping between Ethernet address
-  * and Tunnel endpoint.
-+ * Return true if packet is bogus and should be droppped.
-  */
--static void vxlan_snoop(struct net_device *dev,
--			__be32 src_ip, const u8 *src_mac)
-+static bool vxlan_snoop(struct net_device *dev,
-+		       __be32 src_ip, const u8 *src_mac)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct vxlan_fdb *f;
-@@ -614,7 +615,11 @@ static void vxlan_snoop(struct net_devic
- 	f = vxlan_find_mac(vxlan, src_mac);
- 	if (likely(f)) {
- 		if (likely(f->remote.remote_ip == src_ip))
--			return;
-+			return false;
-+
-+		/* Don't migrate static entries, drop packets */
-+		if (!(f->flags & NTF_SELF))
-+			return true;
+ static struct sh_eth_cpu_data sh7619_data = {
+@@ -1260,9 +1261,8 @@ static int sh_eth_rx(struct net_device *
+ 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
+ 		pkt_len = rxdesc->frame_length;
  
- 		if (net_ratelimit())
- 			netdev_info(dev,
-@@ -634,6 +639,8 @@ static void vxlan_snoop(struct net_devic
- 				       0, NTF_SELF);
- 		spin_unlock(&vxlan->hash_lock);
- 	}
-+
-+	return false;
- }
+-#if defined(CONFIG_ARCH_R8A7740)
+-		desc_status >>= 16;
+-#endif
++		if (mdp->cd->shift_rd0)
++			desc_status >>= 16;
  
+ 		if (--boguscnt < 0)
+ 			break;
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
++++ net-next/drivers/net/ethernet/renesas/sh_eth.h
+@@ -476,6 +476,7 @@ struct sh_eth_cpu_data {
+ 	unsigned no_ade:1;	/* E-DMAC DO NOT have ADE bit in EESR */
+ 	unsigned hw_crc:1;	/* E-DMAC have CSMR */
+ 	unsigned select_mii:1;	/* EtherC have RMII_MII (MII select register) */
++	unsigned shift_rd0:1;	/* shift Rx buffer descriptor word 0 by 16 */
+ };
  
-@@ -766,8 +773,9 @@ static int vxlan_udp_encap_recv(struct s
- 			       vxlan->dev->dev_addr) == 0)
- 		goto drop;
- 
--	if (vxlan->flags & VXLAN_F_LEARN)
--		vxlan_snoop(skb->dev, oip->saddr, eth_hdr(skb)->h_source);
-+	if ((vxlan->flags & VXLAN_F_LEARN) &&
-+	    vxlan_snoop(skb->dev, oip->saddr, eth_hdr(skb)->h_source))
-+		goto drop;
- 
- 	__skb_tunnel_rx(skb, vxlan->dev);
- 	skb_reset_network_header(skb);
+ struct sh_eth_private {
