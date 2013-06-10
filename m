@@ -1,42 +1,26 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tuntap: fix a possible race between queue selection
- and changing queues
-Date: Mon, 10 Jun 2013 14:33:14 -0700 (PDT)
-Message-ID: <20130610.143314.1237579707705274760.davem@davemloft.net>
-References: <1370421897-30933-1-git-send-email-jasowang@redhat.com>
-	<20130605103332.GD31830@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net v2 03/03] [PATCH] vxlan: fix crash on module removal
+Date: Mon, 10 Jun 2013 14:48:14 -0700
+Message-ID: <20130610144814.44aca116@nehalam.linuxnetplumber.net>
+References: <20130610131315.384c5b61@nehalam.linuxnetplumber.net>
+	<20130610.140114.1116004856133608655.davem@redhat.com>
+	<20130610.141421.1570141372448161465.davem@davemloft.net>
+	<20130610.141816.1546753299816672552.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130605103332.GD31830@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:56988 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753285Ab3FJVsT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 17:48:19 -0400
+Received: by mail-pa0-f48.google.com with SMTP id kp12so3177635pab.21
+        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 14:48:18 -0700 (PDT)
+In-Reply-To: <20130610.141816.1546753299816672552.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Wed, 5 Jun 2013 13:33:32 +0300
-
-> On Wed, Jun 05, 2013 at 04:44:57PM +0800, Jason Wang wrote:
->> Complier may generate codes that re-read the tun->numqueues during
->> tun_select_queue(). This may be a race if vlan->numqueues were changed in the
->> same time and can lead unexpected result (e.g. very huge value).
->> 
->> We need prevent the compiler from generating such codes by adding an
->> ACCESS_ONCE() to make sure tun->numqueues were only read once.
->> 
->> Bug were introduced by commit c8d68e6be1c3b242f1c598595830890b65cea64a
->> (tuntap: multiqueue support).
->> 
->> Reported-by: Michael S. Tsirkin <mst@redhat.com>
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
-> 
-> This is a theoretical problem, right?
-> So no need for stable.
-
-Applied, thanks.
+The issue was trying to split them into net and net-next series.
+If I sent one series, would you be able to handle that?
