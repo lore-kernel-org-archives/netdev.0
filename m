@@ -1,65 +1,42 @@
-From: Giancarlo Asnaghi <giancarlo.asnaghi@st.com>
-Subject: [PATCH 3/3] arch/x86/pci/sta2x11-fixup.c: reset and enable STA2X11
- MediaLB clock
-Date: Mon, 10 Jun 2013 14:52:46 +0200
-Message-ID: <0c15eefb893b10a37290e9e832bfd07cb94341b3.1370856733.git.asnaghi@st.com>
-References: <cover.1370856733.git.asnaghi@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	Alessandro Rubini <rubini@gnudd.com>,
-	Federico Vaga <federico.vaga@gmail.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1370856733.git.asnaghi@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Rami Rosen <ramirose@gmail.com>
+Subject: [PATCH net-next] [v2] ipv4: remove is_data also from ip_options documentation.
+Date: Mon, 10 Jun 2013 18:58:16 +0300
+Message-ID: <1370879896-5846-1-git-send-email-ramirose@gmail.com>
+Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	Rami Rosen <ramirose@gmail.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:51457 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751008Ab3FJM60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 08:58:26 -0400
+Received: by mail-ee0-f50.google.com with SMTP id d49so2955811eek.37
+        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 05:58:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The MediaLB peripheral, devoted to the MOST protocol, must be reset
-using chipset registers, so this code is not part of the MLB PCI
-driver.
+commit ef722495c8867aacc1db0675a6737e5cf1e72e07
+( [IPV4]: Remove unused ip_options->is_data) removed the unused is_data
+member from ip_options struct.
 
-Signed-off-by: Giancarlo Asnaghi <giancarlo.asnaghi@st.com>
-Signed-off-by: Federico Vaga <federico.vaga@gmail.com>
+This patch removes is_data also from the documentation of the ip_options struct.
+
+Signed-off-by: Rami Rosen <ramirose@gmail.com>
 ---
- arch/x86/pci/sta2x11-fixup.c |   17 +++++++++++++++++
- 1 files changed, 17 insertions(+), 0 deletions(-)
+ include/net/inet_sock.h | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/arch/x86/pci/sta2x11-fixup.c b/arch/x86/pci/sta2x11-fixup.c
-index 9d8a509..3eae9ab 100644
---- a/arch/x86/pci/sta2x11-fixup.c
-+++ b/arch/x86/pci/sta2x11-fixup.c
-@@ -26,6 +26,9 @@
- #include <linux/pci_ids.h>
- #include <linux/export.h>
- #include <linux/list.h>
-+#include <linux/delay.h>
-+#include <linux/mfd/sta2x11-mfd.h>
-+#include <asm/sta2x11.h>
- 
- #define STA2X11_SWIOTLB_SIZE (4*1024*1024)
- extern int swiotlb_late_init_with_default_size(size_t default_size);
-@@ -212,6 +215,20 @@ static void sta2x11_setup_pdev(struct pci_dev *pdev)
- }
- DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_STMICRO, PCI_ANY_ID, sta2x11_setup_pdev);
- 
-+static void sta2x11_most_enable(struct pci_dev *pdev)
-+{
-+	/* trying to reset the MLB */
-+	sta2x11_apbreg_mask(pdev, APBREG_PCG, APBREG_MLB, 0);
-+	sta2x11_apbreg_mask(pdev, APBREG_PUR, APBREG_MLB, 0);
-+	msleep_interruptible(100);
-+
-+	/* Config clock and release device from reset */
-+	sta2x11_apbreg_mask(pdev, APBREG_PCG, APBREG_MLB, APBREG_MLB);
-+	sta2x11_apbreg_mask(pdev, APBREG_PUR, APBREG_MLB, APBREG_MLB);
-+	msleep_interruptible(100);
-+}
-+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_STMICRO, 0xcc12, sta2x11_most_enable);
-+
- /*
-  * The following three functions are exported (used in swiotlb: FIXME)
-  */
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 7235ae7..b21a7f0 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -32,7 +32,6 @@
+  *
+  * @faddr - Saved first hop address
+  * @nexthop - Saved nexthop address in LSRR and SSRR
+- * @is_data - Options in __data, rather than skb
+  * @is_strictroute - Strict source route
+  * @srr_is_hit - Packet destination addr was our one
+  * @is_changed - IP checksum more not valid
 -- 
-1.7.7.2
+1.8.1.4
