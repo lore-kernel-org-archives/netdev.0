@@ -1,69 +1,44 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next 2/2] net:add socket option for
-	low latency polling
-Date: Tue, 11 Jun 2013 18:37:29 +0300
-Message-ID: <51B74439.3030203@linux.intel.com>
-References: <20130611142415.17879.75569.stgit@ladj378.jer.intel.com>
-	<20130611142438.17879.6389.stgit@ladj378.jer.intel.com>
-	<1370961930.3252.32.camel@edumazet-glaptop>
+From: Phil Oester <kernel@linuxace.com>
+Subject: Re: [PATCH 3/5] netfilter: xt_TCPMSS: Fix violation of RFC879 in
+ absence of MSS option
+Date: Mon, 10 Jun 2013 04:27:39 -0400
+Message-ID: <20130610082739.GA14277@gmail.com>
+References: <1370880461-4265-1-git-send-email-pablo@netfilter.org>
+ <1370880461-4265-4-git-send-email-pablo@netfilter.org>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7282@saturn3.aculab.com>
+ <20130610071954.GA13500@gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7285@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1370961930.3252.32.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7285@saturn3.aculab.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11/06/2013 17:45, Eric Dumazet wrote:
-> On Tue, 2013-06-11 at 17:24 +0300, Eliezer Tamir wrote:
->> adds a socket option for low latency polling.
->> This allows overriding the global sysctl value with a per-socket one.
->>
->> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
->> ---
->>
->>
->> -static inline cycles_t ll_end_time(void)
->> +static inline cycles_t ll_end_time(struct sock *sk)
->>   {
->> -	return TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll) + get_cycles();
->> +	return TSC_MHZ * ACCESS_ONCE(sk->sk_ll_usec) + get_cycles();
->>   }
->
-> Hmm, sk_ll_usec is an unsigned int.
+On Tue, Jun 11, 2013 at 04:00:06PM +0100, David Laight wrote:
+> To quote that bug:
+> 
+> I stumbled upon this problem in debian bug #541658[1] ("[iceweasel] cannot open 
+> research.microsoft.com" - only worth reading for entertainment purposes) and,
+> after that bug was closed, analysed it in my blog[2] until a friend of mine
+> found out why the page loads when clamping mss to pmtu is disabled or
+> restricted to a range (like with "iptables -A FORWARD -p tcp --tcp-flags
+> SYN,RST SYN -m tcpmss --mss 1400:1536 -j TCPMSS --clamp-mss-to-pmtu") but
+> doesn't load with "simple" clamping. His really great and detailed analysation
+> of the problem may be seen at [3].
+> 
+> If I read/understand that correctly, clamping to 1400 worked - there was
+> no need to clamp all the way down to 536.
 
-We changed it to an unsigned long in v7, I guess that was gratuitous.
-Re-reading your comments on v6 2/5 I realize a cast would have sufficed.
-Should I send a patch to revert it to an unsigned int?
+You are not understanding the issue correctly.  The reason the command worked with
+"-m tcpmss --mss 1400:1536" is because that implies an MSS option was provided.
+The issue occurs only when NO MSS option is sent.  In these cases, we cannot
+ASSUME that it is ok to use some arbitrarily high value (1400 as you propose).
+The RFC is clear on this point.
 
-Thanks,
-Eliezer
-
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Phil
