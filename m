@@ -1,12 +1,11 @@
 From: Tushar Behera <tushar.behera@linaro.org>
-Subject: [PATCH 09/15] net: can: Convert to use devm_ioremap_resource
-Date: Mon, 10 Jun 2013 17:05:07 +0530
-Message-ID: <1370864113-17895-10-git-send-email-tushar.behera@linaro.org>
+Subject: [PATCH 08/15] net: emaclite: Convert to use devm_ioremap_resource
+Date: Mon, 10 Jun 2013 17:05:06 +0530
+Message-ID: <1370864113-17895-9-git-send-email-tushar.behera@linaro.org>
 References: <1370864113-17895-1-git-send-email-tushar.behera@linaro.org>
 Cc: thierry.reding@gmail.com, patches@linaro.org,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>
+	netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Michal Simek <michal.simek@xilinx.com>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1370864113-17895-1-git-send-email-tushar.behera@linaro.org>
@@ -19,27 +18,29 @@ devm_request_and_ioremap().
 
 Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
 CC: netdev@vger.kernel.org
-CC: linux-can@vger.kernel.org
-CC: Marc Kleine-Budde <mkl@pengutronix.de>
-CC: Wolfgang Grandegger <wg@grandegger.com>
+CC: "David S. Miller" <davem@davemloft.net>
+CC: Michal Simek <michal.simek@xilinx.com>
 ---
- drivers/net/can/c_can/c_can_platform.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/xilinx/xilinx_emaclite.c |    6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-index 6b6130b..b918c73 100644
---- a/drivers/net/can/c_can/c_can_platform.c
-+++ b/drivers/net/can/c_can/c_can_platform.c
-@@ -201,8 +201,8 @@ static int c_can_plat_probe(struct platform_device *pdev)
- 			priv->instance = pdev->id;
+diff --git a/drivers/net/ethernet/xilinx/xilinx_emaclite.c b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+index 1cd131b..fd4dbda 100644
+--- a/drivers/net/ethernet/xilinx/xilinx_emaclite.c
++++ b/drivers/net/ethernet/xilinx/xilinx_emaclite.c
+@@ -1159,9 +1159,11 @@ static int xemaclite_of_probe(struct platform_device *ofdev)
+ 	ndev->irq = res->start;
  
- 		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
--		priv->raminit_ctrlreg =	devm_request_and_ioremap(&pdev->dev, res);
--		if (!priv->raminit_ctrlreg || priv->instance < 0)
-+		priv->raminit_ctrlreg = devm_ioremap_resource(&pdev->dev, res);
-+		if (IS_ERR(priv->raminit_ctrlreg) || priv->instance < 0)
- 			dev_info(&pdev->dev, "control memory is not used for raminit\n");
- 		else
- 			priv->raminit = c_can_hw_raminit;
+ 	res = platform_get_resource(ofdev, IORESOURCE_MEM, 0);
+-	lp->base_addr = devm_request_and_ioremap(&ofdev->dev, res);
+-	if (!lp->base_addr)
++	lp->base_addr = devm_ioremap_resource(&ofdev->dev, res);
++	if (IS_ERR(lp->base_addr)) {
++		rc = PTR_ERR(lp->base_addr);
+ 		goto error;
++	}
+ 
+ 	ndev->mem_start = res->start;
+ 	ndev->mem_end = res->end;
 -- 
 1.7.9.5
