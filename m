@@ -1,59 +1,59 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net v2 01/03] vxlan: only migrate dynamic FDB entries
-Date: Mon, 10 Jun 2013 13:32:01 -0700
-Message-ID: <20130610133201.30f20a69@nehalam.linuxnetplumber.net>
-References: <20130610195822.888424947@vyatta.com>
-	<20130610131317.0c17ed0d@nehalam.linuxnetplumber.net>
-	<51B63696.7020000@cogentembedded.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 2/2] openvswitch: Use zerocopy if applicable when
+ performing the upcall
+Date: Mon, 10 Jun 2013 13:34:23 -0700
+Message-ID: <CAEP_g=87=0bAP_QQVVXRXzqMA-9Xj5dXvsjpfe4MQ_k2x5n9cA@mail.gmail.com>
+References: <cover.1369406826.git.tgraf@suug.ch> <064a09fffe48540b66a3ee503860ed9e8a1eb5f1.1369406826.git.tgraf@suug.ch>
+ <CAEP_g=87CuiS92YtCZ1V1ME05qq0jGWD9p1WgKZ2jaaG1AWS7w@mail.gmail.com>
+ <1369421900.3301.431.camel@edumazet-glaptop> <CAEP_g=898=iOWV15Y_bcjvS9sGSfDQSP1zQLNkffoXB5imdU7g@mail.gmail.com>
+ <1369432621.3301.445.camel@edumazet-glaptop> <CAEP_g=9Yqcf6_cpPYNAbiQUGjQa46PEz6gQdKAopiNNUDRhGYA@mail.gmail.com>
+ <20130525070222.GB30252@casper.infradead.org> <1369492772.3301.468.camel@edumazet-glaptop>
+ <CAEP_g=944Wq982rDSC0hrqUBu8Sf6MCtQN0NhgyU5FDr9UB3ww@mail.gmail.com> <20130607122139.GA21856@casper.infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Thomas Graf <tgraf@suug.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:51793 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750812Ab3FJUcF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 16:32:05 -0400
-Received: by mail-pd0-f182.google.com with SMTP id r10so1695863pdi.27
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 13:32:05 -0700 (PDT)
-In-Reply-To: <51B63696.7020000@cogentembedded.com>
+Received: from na3sys009aog112.obsmtp.com ([74.125.149.207]:35566 "HELO
+	na3sys009aog112.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752090Ab3FJUeo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 16:34:44 -0400
+Received: by mail-ie0-f169.google.com with SMTP id 10so4014864ied.28
+        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 13:34:43 -0700 (PDT)
+In-Reply-To: <20130607122139.GA21856@casper.infradead.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Jun 2013 00:27:02 +0400
-Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> wrote:
+On Fri, Jun 7, 2013 at 5:21 AM, Thomas Graf <tgraf@suug.ch> wrote:
+> On 05/27/13 at 10:28am, Jesse Gross wrote:
+>> On Saturday, May 25, 2013, Eric Dumazet wrote:
+>>
+>> > On Sat, 2013-05-25 at 08:02 +0100, Thomas Graf wrote:
+>> >
+>> > > I ran TCP_CRR to verify the SYN/ACK use case and I did not
+>> > > observe a difference. If you have any specific test in mind
+>> > > I will be glad to run that before posting the 2nd revision.
+>> >
+>> > I guess you should test with rx checksum disabled as well, Jesse seemed
+>> > to be concerned about that.
+>>
+>>
+>>  I was actually thinking about the transmit side - rx checksum verification
+>> doesn't matter much here since the result will get thrown away. However, if
+>> the packet is CHECKSUM_PARTIAL then the checksum will have to get filled in
+>> first and that's the code path that is a little different now.
+>
+> Do we actually need to complete the checksum before doing the
+> upcall and if so, why? Couldn't the slow path do that if needed?
+> The only reason I can think of where it would matter is if a
+> controller injects the packet into another network stack such
+> as RouteFlow.
 
-> Hello.
-> 
-> On 06/11/2013 12:13 AM, Stephen Hemminger wrote:
-> 
-> > Only migrate dynamic forwarding table entries, don't modify
-> > static entries. If packet received from incorrect source IP address
-> > assume it is an imposter and drop it.
-> 
-> > Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
-> 
-> > ---
-> > Should go to -stable as well.
-> 
-> > --- a/drivers/net/vxlan.c	2013-06-06 08:27:07.499595174 -0700
-> > +++ b/drivers/net/vxlan.c	2013-06-06 09:38:54.291654035 -0700
-> > @@ -603,9 +603,10 @@ skip:
-> >
-> >   /* Watch incoming packets to learn mapping between Ethernet address
-> >    * and Tunnel endpoint.
-> > + * Return true if packet is bogus and should be droppped.
-> >    */
-> > -static void vxlan_snoop(struct net_device *dev,
-> > -			__be32 src_ip, const u8 *src_mac)
-> > +static bool vxlan_snoop(struct net_device *dev,
-> > +		       __be32 src_ip, const u8 *src_mac)
-> 
->     Not clear why you changed the indentation of the second line...
-> 
-> WBR, Sergei
-> 
+Well, this is the slow path. I don't want to force userspace to deal
+with this because it's an internal kernel optimization that is
+platform-specific and requires carrying additional metadata around.
 
-It was int, now bool, and second line didn't get reindented.
-Now dave will make resend the whole series...
+It's also very common for a packet to traverse another network stack -
+it's typically a VM's.
