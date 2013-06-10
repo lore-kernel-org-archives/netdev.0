@@ -1,56 +1,51 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/5] netfilter: nfnetlink_queue: fix missing HW protocol
-Date: Mon, 10 Jun 2013 18:07:40 +0200
-Message-ID: <1370880461-4265-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/5] netfilter: xt_TCPMSS: Fix violation of RFC879 in absence of MSS option
+Date: Mon, 10 Jun 2013 18:07:39 +0200
+Message-ID: <1370880461-4265-4-git-send-email-pablo@netfilter.org>
 References: <1370880461-4265-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59101 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:59099 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754021Ab3FJQHx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1754019Ab3FJQHx (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 10 Jun 2013 12:07:53 -0400
 In-Reply-To: <1370880461-4265-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Locally generated IPv4 and IPv6 traffic gets skb->protocol unset,
-thus passing zero.
+From: Phil Oester <kernel@linuxace.com>
 
-ip6tables -I OUTPUT -j NFQUEUE
-libmnl/examples/netfilter# ./nf-queue 0 &
-ping6 ::1
-packet received (id=1 hw=0x0000 hook=3)
-                         ^^^^^^
+The clamp-mss-to-pmtu option of the xt_TCPMSS target can cause issues
+connecting to websites if there was no MSS option present in the
+original SYN packet from the client. In these cases, it may add a
+MSS higher than the default specified in RFC879. Fix this by never
+setting a value > 536 if no MSS option was specified by the client.
 
+This closes netfilter's bugzilla #662.
+
+Signed-off-by: Phil Oester <kernel@linuxace.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/nfnetlink_queue_core.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ net/netfilter/xt_TCPMSS.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/net/netfilter/nfnetlink_queue_core.c b/net/netfilter/nfnetlink_queue_core.c
-index 4e27fa0..5352b2d 100644
---- a/net/netfilter/nfnetlink_queue_core.c
-+++ b/net/netfilter/nfnetlink_queue_core.c
-@@ -637,9 +637,6 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
- 	if (queue->copy_mode == NFQNL_COPY_NONE)
- 		return -EINVAL;
+diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+index a75240f..afaebc7 100644
+--- a/net/netfilter/xt_TCPMSS.c
++++ b/net/netfilter/xt_TCPMSS.c
+@@ -125,6 +125,12 @@ tcpmss_mangle_packet(struct sk_buff *skb,
  
--	if ((queue->flags & NFQA_CFG_F_GSO) || !skb_is_gso(entry->skb))
--		return __nfqnl_enqueue_packet(net, queue, entry);
--
- 	skb = entry->skb;
+ 	skb_put(skb, TCPOLEN_MSS);
  
- 	switch (entry->pf) {
-@@ -651,6 +648,9 @@ nfqnl_enqueue_packet(struct nf_queue_entry *entry, unsigned int queuenum)
- 		break;
- 	}
- 
-+	if ((queue->flags & NFQA_CFG_F_GSO) || !skb_is_gso(skb))
-+		return __nfqnl_enqueue_packet(net, queue, entry);
++	/* RFC 879 states that the default MSS is 536 without specific
++	 * knowledge that the destination host is prepared to accept larger.
++	 * Since no MSS was provided, we MUST NOT set a value > 536.
++	 */
++	newmss = min(newmss, (u16)536);
 +
- 	nf_bridge_adjust_skb_data(skb);
- 	segs = skb_gso_segment(skb, 0);
- 	/* Does not use PTR_ERR to limit the number of error codes that can be
+ 	opt = (u_int8_t *)tcph + sizeof(struct tcphdr);
+ 	memmove(opt + TCPOLEN_MSS, opt, tcplen - sizeof(struct tcphdr));
+ 
 -- 
 1.7.10.4
