@@ -1,30 +1,70 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v3 1/3] igmp: fix return value of some functions
-Date: Mon, 10 Jun 2013 11:09:04 +0800
-Message-ID: <1370833744.11543.4.camel@cr0>
-References: <1370689003.868.3.camel@cr0>
-	 , <1370485211-11498-1-git-send-email-amwang@redhat.com>
-	 <OFF0DFA533.AF670FB8-ON85257B82.006E0B5C-85257B82.006F58EF@us.ibm.com>
-	 <OF76532841.5DDD0996-ON87257B85.000C25DF-87257B85.000C25E6@us.ibm.com>
-	 <1370833653.11543.3.camel@cr0>
+From: "Vitaly V. Bursov" <vitalyb@telenet.dn.ua>
+Subject: Re: Scaling problem with a lot of AF_PACKET sockets on different
+ interfaces
+Date: Mon, 10 Jun 2013 09:34:12 +0300
+Message-ID: <51B57364.4090601@telenet.dn.ua>
+References: <51B1CA50.30702@telenet.dn.ua> <1370608871.5854.64.camel@marge.simpson.net> <51B1DA96.1080303@redhat.com> <51B1EB7D.7060801@telenet.dn.ua> <51B1EF27.9030300@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev-owner@vger.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: David Stevens <dlstevens@us.ibm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2404 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751026Ab3FJDJS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 9 Jun 2013 23:09:18 -0400
-In-Reply-To: <1370833653.11543.3.camel@cr0>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Mike Galbraith <bitbucket@online.de>, linux-kernel@vger.kernel.org,
+	netdev <netdev@vger.kernel.org>
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51B1EF27.9030300@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-06-10 at 11:07 +0800, Cong Wang wrote:
-> 
-> Are you suggesting to just make ip_mc_leave_src() void?
+07.06.2013 17:33, Daniel Borkmann =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> On 06/07/2013 04:17 PM, Vitaly V. Bursov wrote:
+>> 07.06.2013 16:05, Daniel Borkmann =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> [...]
+>>>>> Ideas are welcome :)
+>>>
+>>> Probably, that depends on _your scenario_ and/or BPF filter, but wo=
+uld it be
+>>> an alternative if you have only a few packet sockets (maybe one pin=
+ned to each
+>>> cpu) and cluster/load-balance them together via packet fanout? (Whe=
+re you
+>>> bind the socket to ifindex 0, so that you get traffic from all devs=
+=2E..) That
+>>> would at least avoid that "hot spot", and you could post-process th=
+e interface
+>>> via sockaddr_ll. But I'd agree that this will not solve the actual =
+problem you've
+>>> observed. ;-)
+>>
+>> I was't aware of the ifindex 0 thing, it can help, thanks! Of course=
+, if it'll
+>> work for me (applications is a custom DHCP server) it'll surely
+>> increase the overhead of BPF (I don't need to tap the traffic from a=
+ll
+>> interfaces), there are vlans, bridges and bonds - likely the server =
+will receive
+>> same packets multiple times and replies must be sent too...
+>> but it still should be faster.
+>
+> Well, as already said, if you use a fanout socket group, then you won=
+'t receive the
+> _exact_ same packet twice. Rather, packets are balanced by different =
+policies among
+> your packet sockets in that group. What you could do is to have a (e.=
+g.) single BPF
+> filter (jitted) for all those sockets that'll let needed packets pass=
+ and you can then
+> access the interface they came from via sockaddr_ll, which then is fu=
+rther processed
+> in your fast path (or dropped depending on the iface). There's also a=
+ BPF extension
+> (BPF_S_ANC_IFINDEX) that lets you load the ifindex of the skb into th=
+e BPF accumulator,
+> so you could also filter early from there for a range of ifindexes (i=
+n combination to
+> bind the sockets to index 0). Probably that could work.
 
-I meant ip_mc_del_src() of course...
+Thanks everybody, this should help a lot.
+
+--=20
+Vitaly
