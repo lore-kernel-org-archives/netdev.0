@@ -1,21 +1,18 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 1/1] alx: add a simple AR816x/AR817x device driver
-Date: Mon, 10 Jun 2013 23:26:49 +0200
-Message-ID: <1370899609-13954-2-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH v2 1/1] alx: add a simple AR816x/AR817x device driver
+Date: Mon, 10 Jun 2013 23:29:06 +0200
+Message-ID: <1370899746-14219-1-git-send-email-johannes@sipsolutions.net>
 References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
-Cc: mcgrof@do-not-panic.com, kvalo@adurom.com, adrian.chadd@gmail.com,
-	Johannes Berg <johannes.berg@intel.com>
+Cc: mcgrof@do-not-panic.com, kvalo@adurom.com, adrian.chadd@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:34896 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:34905 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753862Ab3FJV1D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 17:27:03 -0400
+	with ESMTP id S1751997Ab3FJV3S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 17:29:18 -0400
 In-Reply-To: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-From: Johannes Berg <johannes.berg@intel.com>
 
 This is a very simple driver, based on the original vendor
 driver that Qualcomm/Atheros published/submitted previously.
@@ -28,6 +25,8 @@ Right now it only supports a single TX and RX queue and no
 special features other than checksum offload.
 
 Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+---
+v2: ick, obviously this has nothing to do with Intel whatsoever.
 ---
  drivers/net/ethernet/atheros/Kconfig       |   18 +
  drivers/net/ethernet/atheros/Makefile      |    1 +
