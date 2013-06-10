@@ -1,46 +1,61 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/5] netfilter: nfnetlink_acct: fix incomplete dumping of objects
-Date: Mon, 10 Jun 2013 18:07:37 +0200
-Message-ID: <1370880461-4265-2-git-send-email-pablo@netfilter.org>
-References: <1370880461-4265-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] doc:networking: Update comment for dev_id
+ field in netdevice.h
+Date: Mon, 10 Jun 2013 17:11:10 +0100
+Message-ID: <1370880670.1933.9.camel@bwh-desktop.uk.level5networks.com>
+References: <20130610140325.GA1383@fedora-17-guest.blr.amer.dell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>
+To: <Narendra_K@Dell.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59092 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754014Ab3FJQHx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 10 Jun 2013 12:07:53 -0400
-In-Reply-To: <1370880461-4265-1-git-send-email-pablo@netfilter.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:11228 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753900Ab3FJQLP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 12:11:15 -0400
+In-Reply-To: <20130610140325.GA1383@fedora-17-guest.blr.amer.dell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fix broken incomplete object dumping if the list of objects does not
-fit into one single netlink message.
+On Mon, 2013-06-10 at 19:34 +0530, Narendra_K@Dell.com wrote:
+> This patch updates the comment for 'dev_id' field in
+> 'include/linux/netdevice.h' to reflect the intended
+> usage of 'dev_id'.
+> 
+> References: http://marc.info/?l=linux-netdev&m=136992115300526&w=2
+> References: http://marc.info/?l=linux-netdev&m=137062569014612&w=2
+> 
+> Signed-off-by: Narendra K <narendra_k@dell.com>
 
-Reported-by: Gabriel Lazar <Gabriel.Lazar@com.utcluj.ro>
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nfnetlink_acct.c |    7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
 
-diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
-index dc3fd5d..c7b6d46 100644
---- a/net/netfilter/nfnetlink_acct.c
-+++ b/net/netfilter/nfnetlink_acct.c
-@@ -149,9 +149,12 @@ nfnl_acct_dump(struct sk_buff *skb, struct netlink_callback *cb)
- 
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(cur, &nfnl_acct_list, head) {
--		if (last && cur != last)
--			continue;
-+		if (last) {
-+			if (cur != last)
-+				continue;
- 
-+			last = NULL;
-+		}
- 		if (nfnl_acct_fill_info(skb, NETLINK_CB(cb->skb).portid,
- 				       cb->nlh->nlmsg_seq,
- 				       NFNL_MSG_TYPE(cb->nlh->nlmsg_type),
+> ---
+>  include/linux/netdevice.h | 6 ++++--
+>  1 file changed, 4 insertions(+), 2 deletions(-)
+> 
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index 8f967e3..a43712e 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -1142,8 +1142,10 @@ struct net_device {
+>  	unsigned char		addr_assign_type; /* hw address assignment type */
+>  	unsigned char		addr_len;	/* hardware address length	*/
+>  	unsigned char		neigh_priv_len;
+> -	unsigned short          dev_id;		/* for shared network cards */
+> -
+> +	unsigned short          dev_id;		/* Used to differentiate devices
+> +						 * that share the same link
+> +						 * layer address
+> +						 */
+>  	spinlock_t		addr_list_lock;
+>  	struct netdev_hw_addr_list	uc;	/* Unicast mac addresses */
+>  	struct netdev_hw_addr_list	mc;	/* Multicast mac addresses */
+> -- 
+> 1.8.0.1
+> 
+
 -- 
-1.7.10.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
