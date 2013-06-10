@@ -1,35 +1,29 @@
-From: Daniel Baluta <daniel.baluta@gmail.com>
-Subject: NVGRE for Linux
-Date: Mon, 10 Jun 2013 18:21:46 +0300
-Message-ID: <CAEnQRZBFHd4_cF2VMtd=QAheXbrz7qof0qC-3DjUSZ-04bR+Vw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: shemminger@vyatta.com
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 0/3] team: remove sychronize_rcu() calls
+Date: Mon, 10 Jun 2013 17:42:22 +0200
+Message-ID: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com, fbl@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f178.google.com ([209.85.212.178]:60033 "EHLO
-	mail-wi0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752867Ab3FJPVr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 11:21:47 -0400
-Received: by mail-wi0-f178.google.com with SMTP id k10so3239791wiv.5
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 08:21:46 -0700 (PDT)
+Received: from mail-ea0-f182.google.com ([209.85.215.182]:61319 "EHLO
+	mail-ea0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751132Ab3FJPmt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 11:42:49 -0400
+Received: by mail-ea0-f182.google.com with SMTP id d10so1670676eaj.13
+        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 08:42:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Jiri Pirko (3):
+  team: remove synchronize_rcu() called during queue override change
+  team: use kfree_rcu instead of synchronize_rcu in team_port_dev
+  team: remove synchronize_rcu() called during port disable
 
-Is there anyone working on implementing NVGRE [1] in Linux kernel?
+ drivers/net/team/team.c                  | 84 ++++++++++++++++++++------------
+ drivers/net/team/team_mode_loadbalance.c |  3 +-
+ drivers/net/team/team_mode_roundrobin.c  |  3 +-
+ include/linux/if_team.h                  | 11 +++++
+ 4 files changed, 66 insertions(+), 35 deletions(-)
 
-A significant part of the code can be borrowed from VXLAN [2] (netlink
-ops, fdb ops),
-while another important part (packet reception/transmission) is based
-on GRE tunneling code [3].
-
-Is this approach correct? Any suggestions are welcomed.
-
-thanks,
-Daniel.
-
-[1] http://datatracker.ietf.org/doc/draft-sridharan-virtualization-nvgre/
-[2] drivers/net/vxlan.c
-[3] net/ipv4/ip_gre.c
+-- 
+1.8.1.4
