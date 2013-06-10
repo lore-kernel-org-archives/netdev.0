@@ -1,42 +1,45 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next] [v2] ipv4: remove is_data also from ip_options documentation.
-Date: Mon, 10 Jun 2013 18:58:16 +0300
-Message-ID: <1370879896-5846-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
-	Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [patch] ipvs: info leak in __ip_vs_get_dest_entries()
+Date: Mon, 10 Jun 2013 14:58:22 +0200
+Message-ID: <20130610125822.GA4968@localhost>
+References: <20130603090049.GA16171@debian>
+ <20130610083849.GD1563@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Carpenter <dan.carpenter@oracle.com>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	netfilter@vger.kernel.org, coreteam@netfilter.org,
+	kernel-janitors@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:51457 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751008Ab3FJM60 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 08:58:26 -0400
-Received: by mail-ee0-f50.google.com with SMTP id d49so2955811eek.37
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 05:58:25 -0700 (PDT)
+Received: from mail.us.es ([193.147.175.20]:52728 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751034Ab3FJM62 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jun 2013 08:58:28 -0400
+Content-Disposition: inline
+In-Reply-To: <20130610083849.GD1563@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-commit ef722495c8867aacc1db0675a6737e5cf1e72e07
-( [IPV4]: Remove unused ip_options->is_data) removed the unused is_data
-member from ip_options struct.
+On Mon, Jun 10, 2013 at 05:38:50PM +0900, Simon Horman wrote:
+> On Mon, Jun 03, 2013 at 12:00:49PM +0300, Dan Carpenter wrote:
+> > The entry struct has a 2 byte hole after ->port and another 4 byte
+> > hole after ->stats.outpkts.  You must have CAP_NET_ADMIN in your
+> > namespace to hit this information leak.
+> > 
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> 
+> Pablo, could you take this directly into your tree.
 
-This patch removes is_data also from the documentation of the ip_options struct.
+Applied, thanks Simon.
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- include/net/inet_sock.h | 1 -
- 1 file changed, 1 deletion(-)
+> If possible for v3.10. It also appears to be relevant for stable.
 
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 7235ae7..b21a7f0 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -32,7 +32,6 @@
-  *
-  * @faddr - Saved first hop address
-  * @nexthop - Saved nexthop address in LSRR and SSRR
-- * @is_data - Options in __data, rather than skb
-  * @is_strictroute - Strict source route
-  * @srr_is_hit - Packet destination addr was our one
-  * @is_changed - IP checksum more not valid
--- 
-1.8.1.4
+Sure, will do.
