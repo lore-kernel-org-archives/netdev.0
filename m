@@ -1,55 +1,58 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: Generic interface to make physical port number used by a
- netdevice available to user space
-Date: Mon, 10 Jun 2013 19:10:41 +0100
-Message-ID: <1370887841.1933.20.camel@bwh-desktop.uk.level5networks.com>
-References: <20130522075331.GA1363@fedora-17-guest.blr.amer.dell.com>
-	 <20130523093421.3b20a0bd@nehalam.linuxnetplumber.net>
-	 <E31FB011129F30488D5861F383904915210B96144A@BLRX7MCDC201.AMER.DELL.COM>
-	 <20130531121201.GA1311@fedora-17-guest.blr.amer.dell.com>
-	 <51B1F56D.5000007@intel.com>
-	 <1370625678.1903.26.camel@bwh-desktop.uk.level5networks.com>
-	 <51B219D9.2010900@gmail.com>
-	 <E31FB011129F30488D5861F383904915210BA89DEC@BLRX7MCDC201.AMER.DELL.COM>
+From: <Narendra_K@Dell.com>
+Subject: RE: [RFC PATCH] Initialize dev_id sysfs attribute to -1 by default
+Date: Mon, 10 Jun 2013 11:11:45 -0700
+Message-ID: <E31FB011129F30488D5861F383904915210BA89DFD@BLRX7MCDC201.AMER.DELL.COM>
+References: <20130530132419.GA1368@fedora-17-guest.blr.amer.dell.com>
+  <87fvx4mvtl.fsf@nemi.mork.no>
+  <20130531121737.GB1311@fedora-17-guest.blr.amer.dell.com>
+  <51B1F1FF.5010004@intel.com>
+ <1370618634.1903.3.camel@bwh-desktop.uk.level5networks.com>
+ <51B2152E.5010105@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <john.fastabend@gmail.com>, <john.r.fastabend@intel.com>,
-	<stephen@networkplumber.org>, <netdev@vger.kernel.org>
-To: <Narendra_K@Dell.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <john.r.fastabend@intel.com>, <bjorn@mork.no>,
+	<netdev@vger.kernel.org>, <yoshfuji@linux-ipv6.org>
+To: <john.fastabend@gmail.com>, <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:63517 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753032Ab3FJSKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 14:10:46 -0400
-In-Reply-To: <E31FB011129F30488D5861F383904915210BA89DEC@BLRX7MCDC201.AMER.DELL.COM>
+Received: from ausxipps301.us.dell.com ([143.166.148.223]:24604 "EHLO
+	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754027Ab3FJSMd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 14:12:33 -0400
+In-Reply-To: <51B2152E.5010105@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-10 at 10:54 -0700, Narendra_K@Dell.com wrote:
-[...]
-> In the scenario of NIC partitions, universally unique identifier
-> generation may have to consider that, each NIC partition which maps to
-> a given physical port will have its own MAC address. (The SRIOV VF
-> network interfaces could probably use PF's MAC address).  But
-> generation of a universally unique physport identifier would probably
-> be driver specific.
-
-Right, I agree this has to be driver-specific.
-
-> 2.  Also, thinking about the default value for 'physport' , could it
-> be set to zero by default  ? A possible  interface could be
-> 
-> 0   ==>   driver did not to set the identifier
-> > 0 ==> driver successfully set the identifier
-
-I think a universally unique identifier would have to be a multibyte
-value like a MAC-48, EUI-64 or 128-bit UUID - not a simple number, and
-not a fixed length.  The unset value would then have a *length* of zero.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2huIEZhc3RhYmVuZCBbbWFp
+bHRvOmpvaG4uZmFzdGFiZW5kQGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBKdW5lIDA3LCAy
+MDEzIDEwOjQ1IFBNDQo+IFRvOiBCZW4gSHV0Y2hpbmdzDQo+IENjOiBKb2huIEZhc3RhYmVuZDsg
+SywgTmFyZW5kcmE7IGJqb3JuQG1vcmsubm87IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IHlv
+c2hmdWppQGxpbnV4LWlwdjYub3JnDQo+IFN1YmplY3Q6IFJlOiBbUkZDIFBBVENIXSBJbml0aWFs
+aXplIGRldl9pZCBzeXNmcyBhdHRyaWJ1dGUgdG8gLTEgYnkgZGVmYXVsdA0KPiANCg0KWy4uLl0N
+Cj4gPj4NCj4gPj4gQWx0aG91Z2ggSSdtIG5vdCBzdXJlIGhvdyB0aGF0IGNoZWNrIHdvcmtzIHdp
+dGggZGV2aWNlcyB0aGF0IGFyZQ0KPiA+PiBzZXR0aW5nIGRldl9pZCBhbmQgYWxzbyBwcm92aWRl
+IHRoZWlyIG93biBtYWMgYWRkcmVzc2VzLiBGcm9tDQo+ID4+IGluc3BlY3Rpb24gaXQgbG9va3Mg
+bGlrZSB0aGVzZSBkZXZpY2VzIGVuZCB1cCB3aXRoIGEgbG9jYWwgaW50ZXJmYWNlDQo+ID4+IGlk
+ZW50aWZpZXIgdW5uZWNlc3NhcmlseS4NCj4gPj4NCj4gPj4gTWF5YmUgQmVuIGtub3dzIG9uZSBv
+ZiB0aGUgZHJpdmVycyBpcyB0aGUgc2llbmEgc29sb3JmbGFyZSBjb250cm9sbGVyDQo+ID4+IGFw
+cGFyZW50bHkgZm9yIHRoZSBTRkM5MDAwIGZhbWlseT8gVGhlIG90aGVyIHR3byAnZ3JlcCcgZmlu
+ZHMgYXJlIGFuDQo+ID4+IG1seCBhbmQgY2hlbHNpbyBkZXZpY2UuDQo+ID4+DQo+ID4+IEludGVy
+ZXN0aW5nbHkgSSBkaWRuJ3QgZmluZCBhbnkgZGV2aWNlcyBzZXR0aW5nIGRldl9pZCB0aGF0IGFs
+c28NCj4gPj4gZGlkbid0IHByb2dyYW0gdW5pcXVlIG1hYyBhZGRyZXNzZXMuIFBlcmhhcHMgSSdt
+IG1pc3Npbmcgc29tZXRoaW5nPw0KPiA+DQo+ID4gSSBzZXQgdGhpcyBmb3IgU2llbmEgc28gdGhh
+dCB1c2VybGFuZCBjYW4gdGVsbCB3aGljaCBQRiBhbmQgcG9ydCBpcw0KPiA+IHdoaWNoIGV2ZW4g
+aWYgdGhlIFBDSWUgdG9wb2xvZ3kgaXMgaGlkZGVuIGJ5IHZpcnR1YWxpc2F0aW9uLiAgSW4NCj4g
+PiBwcmFjdGljZSB3ZSBoYXZlbid0IG1hZGUgdXNlIG9mIHRoYXQgKGFuZCBzaW5jZSB2aXJ0dWFs
+aXNhdGlvbiBtYXkNCj4gPiBhbHNvIGhpZGUgdGhlIFZQRCBhbmQgc2VyaWFsIG51bWJlciBjYXBh
+YmlsaXRpZXMsIGl0IHByb2JhYmx5IGRvZXNuJ3QNCj4gPiBoZWxwIG11Y2gpLg0KPiA+DQo+ID4g
+QmVuLg0KPiA+DQo+IA0KPiBJIGd1ZXNzIHRoZW4gdG8gbWFrZSBkZXZfaWQgd29yayBsaWtlIE5h
+cmVuZHJhIHdhbnRzIHlvdSB3b3VsZCBuZWVkDQo+IHNvbWV0aGluZyBpbiB0aGUgbWFuYWdlbWVu
+dCBzdGFjayB0byBjb21lIHRocm91Z2ggYW5kIGFzc2lnbiB1bmlxdWUNCj4gZGV2X2lkIHZhbHVl
+cyB0byBmdW5jdGlvbnMgKG5ldF9kZXZpY2VzKSB0aGF0IHNoYXJlIGEgTUFDLiBPciBoYXZlIHNv
+bWUNCj4gdW5pcXVlICd1bnNpZ25lZCBzaG9ydCcgdmFsdWUgaW4gdGhlIGRyaXZlciB0aGF0IGl0
+IGNvdWxkIGJlIHNldCB0by4NCj4gSSBndWVzcyBJIG1pc3Mgd2h5IGluaXRpYWxpemluZyBpdCB0
+byAtMSBoZWxwcy4NCj4gDQoNCkhpIEpvaG4sIHRoYW5rIHlvdSBmb3IgdGhlIGlucHV0cy4gIEl0
+IHdhcyBzZXQgdG8gIC0xIHRvIGRpZmZlcmVudGlhdGUgYmV0d2VlbiBkcml2ZXIgc2V0dGluZyBp
+dCB0byB6ZXJvIGFuZCB0aGUgZGVmYXVsdCB2YWx1ZSB6ZXJvLg0KDQpXaXRoIHJlZ2FyZHMsDQpO
+YXJlbmRyYSBLDQpMaW51eCBFbmdpbmVlcmluZw0KRGVsbCBJbmMuDQoNCg0K
