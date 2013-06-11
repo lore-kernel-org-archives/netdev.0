@@ -1,70 +1,40 @@
-From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: Re: [RFC 0/7] Fixing dma mask setting in various
-	network drivers
-Date: Tue, 11 Jun 2013 16:50:44 -0700
-Message-ID: <20130611165044.00000d3a@unknown>
-References: <20130610230849.GF18614@n2100.arm.linux.org.uk>
-	<20130611111230.000062d2@unknown>
-	<20130611203505.GO18614@n2100.arm.linux.org.uk>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH net-next] tcp: properly send new data in fast recovery in
+ first RTT
+Date: Tue, 11 Jun 2013 19:56:28 -0400
+Message-ID: <CADVnQymM_fasoZ6s=Si=gccQ=wvmdt+0jryWovTxLeZw8e95WA@mail.gmail.com>
+References: <1370990132-27652-1-git-send-email-ycheng@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Rasesh Mody <rmody@brocade.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>,
-	jesse.brandeburg@intel.com, "Ronciak, John" <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130611203505.GO18614@n2100.arm.linux.org.uk>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f170.google.com ([209.85.214.170]:64054 "EHLO
+	mail-ob0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752686Ab3FKX43 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 19:56:29 -0400
+Received: by mail-ob0-f170.google.com with SMTP id ef5so12717815obb.29
+        for <netdev@vger.kernel.org>; Tue, 11 Jun 2013 16:56:28 -0700 (PDT)
+In-Reply-To: <1370990132-27652-1-git-send-email-ycheng@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 11 Jun 2013 13:35:05 -0700
-Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
-> As part of my review of all this stuff, I'm wondering whether a helper
-> to set both masks makes sense.  Something like:
-> 
-> static inline int dma_set_masks(struct device *dev, u64 mask)
+On Tue, Jun 11, 2013 at 6:35 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> Linux sends new unset data during disorder and recovery state if all
+> (suspected) lost packets have been retransmitted ( RFC5681, section
+> 3.2 step 1 & 2, RFC3517 section 4, NexSeg() Rule 2).  One requirement
+> is to keep the receive window about twice the estimated sender's
+> congestion window (tcp_rcv_space_adjust()), assuming the fast
+> retransmits repair the losses in the next round trip.
+>
+> But currently it's not the case on the first round trip in either
+> normal or Fast Open connection, beucase the initial receive window
+> is identical to (expected) sender's initial congestion window. The
+> fix is to double it.
+>
+> Signed-off-by: Yuchung Cheng <ycheng@google.com>
 
-it doesn't need to be inline, it is never called in hotpath.
-
-> {
-> 	int ret = dma_set_mask(dev, mask);
-> 	if (ret == 0)
-> 		dma_set_coherent_mask(dev, mask);
-> 	return ret;
-> }
-> 
-> "dma_set_masks()" is a little too close to dma_set_mask() though; and
-
-how about dma_set_mask_and_coherent(...)
-
-> such a function looks like it would be usable for 20 odd drivers
-> currently.  The plus point is that it may help to prevent this kind
-> of issue in the future...
-> 
-> Thoughts?
-
-I really like the idea of consolidating this in the kernel with a
-global helper.
-
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Acked-by: Neal Cardwell <ncardwell@google.com>
