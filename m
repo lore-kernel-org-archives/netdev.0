@@ -1,69 +1,53 @@
-From: Flavio Leitner <fbl@redhat.com>
-Subject: Re: [patch net-next 1/3] team: remove synchronize_rcu() called
- during queue override change
-Date: Tue, 11 Jun 2013 10:18:56 -0300
-Message-ID: <20130611131856.GA11888@obelix.rh>
-References: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
- <1370878945-9718-2-git-send-email-jiri@resnulli.us>
- <20130611004845.GF11894@obelix.rh>
- <20130611054046.GA1533@minipsycho.orion>
- <20130611080107.GA1916@minipsycho.brq.redhat.com>
+From: Daniel Baluta <daniel.baluta@gmail.com>
+Subject: Re: NVGRE for Linux
+Date: Tue, 11 Jun 2013 16:23:25 +0300
+Message-ID: <CAEnQRZDvqkSgvS5Ur9L-Q17kNDAVuNn3JsWm5u_raThBD5xubQ@mail.gmail.com>
+References: <1902752B0C92F943AB7EA9EE13E2DEEC126A7CC8B8@HQ1-EXCH02.corp.brocade.com>
+	<20130610094640.4d3fa0a2@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25438 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755193Ab3FKNTC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jun 2013 09:19:02 -0400
-Content-Disposition: inline
-In-Reply-To: <20130611080107.GA1916@minipsycho.brq.redhat.com>
+Received: from mail-wi0-f177.google.com ([209.85.212.177]:57343 "EHLO
+	mail-wi0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752170Ab3FKNX0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 09:23:26 -0400
+Received: by mail-wi0-f177.google.com with SMTP id ey16so4123071wid.16
+        for <netdev@vger.kernel.org>; Tue, 11 Jun 2013 06:23:25 -0700 (PDT)
+In-Reply-To: <20130610094640.4d3fa0a2@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 11, 2013 at 10:01:07AM +0200, Jiri Pirko wrote:
-> Tue, Jun 11, 2013 at 07:40:46AM CEST, jiri@resnulli.us wrote:
-> >Tue, Jun 11, 2013 at 02:48:45AM CEST, fbl@redhat.com wrote:
-> >>On Mon, Jun 10, 2013 at 05:42:23PM +0200, Jiri Pirko wrote:
-> >>> This patch removes synchronize_rcu() from function
-> >>> __team_queue_override_port_del(). That can be done because it is ok to
-> >>> do list_del_rcu() and list_add_tail_rcu() on the same list_head member
-> >>> without calling synchronize_rcu() in between. A bit of refactoring
-> >>> needed to be done because INIT_LIST_HEAD needed to be removed (to not
-> >>> kill the forward pointer) as well.
-> >>> 
-> >>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
-> >>> ---
-> >>>  drivers/net/team/team.c | 63 ++++++++++++++++++++++++++++++++++++-------------
-> >>>  1 file changed, 47 insertions(+), 16 deletions(-)
-> >>> 
-> >>[...]
-> >>
-> >>> @@ -1278,17 +1310,16 @@ static int team_queue_id_option_set(struct team *team,
-> >>>  				    struct team_gsetter_ctx *ctx)
-> >>>  {
-> >>>  	struct team_port *port = ctx->info->port;
-> >>> +	u16 new_queue_id = ctx->data.u32_val;
-> >>>  
-> >>> -	if (port->queue_id == ctx->data.u32_val)
-> >>> +	if (port->queue_id == new_queue_id)
-> >>
-> >>Since you're passing new_queue_id to port->queue_id and
-> >>in the other parts you test against !port->queue_id to see
-> >>if it's enable or not, that means queue 0 can't be used.
-> >>
-> >>Maybe I am missing something, but wouldn't be better to
-> >>initialize with -1 and allow 0 to be used as well?
-> >
-> >0 means default queue. It's done the same was as in bonding code.
-> 
-> + this patch does not change original behaviour...
+On Mon, Jun 10, 2013 at 7:46 PM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Mon, 10 Jun 2013 08:21:49 -0700
+> Daniel Baluta <daniel.baluta@gmail.com> wrote:
+>
+>> Hi,
+>>
+>> Is there anyone working on implementing NVGRE [1] in Linux kernel?
+>>
+>> A significant part of the code can be borrowed from VXLAN [2] (netlink
+>> ops, fdb ops),
+>> while another important part (packet reception/transmission) is based
+>> on GRE tunneling code [3].
+>>
+>> Is this approach correct? Any suggestions are welcomed.
+>>
+>> thanks,
+>> Daniel.
+>>
+>> [1] http://datatracker.ietf.org/doc/draft-sridharan-virtualization-nvgre/
+>> [2] drivers/net/vxlan.c
+>> [3] net/ipv4/ip_gre.c
+>
+> Packet transmission is not a problem the existing GRE provides more the necessary decode/encode.
+> The problem problem is that you would need a management entity. Most of the interesting bits
+> for connecting with real world clouds like Azure remain unspecified in RFC.
 
-Jiri explained this bits off list to me, so
+That's right. The RFC defers a lot of important details for the next
+version (e.g 4.4 Address/Policy Management ).
+For the moment, I will try to experiment with statically defined fdbs.
 
-Acked-by: Flavio Leitner <fbl@redhat.com>
-
-Thanks,
--- 
-fbl
+Thanks!
