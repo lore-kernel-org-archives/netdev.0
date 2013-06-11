@@ -1,41 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 03/03] [PATCH] vxlan: fix crash on module removal
-Date: Mon, 10 Jun 2013 21:10:42 -0700 (PDT)
-Message-ID: <20130610.211042.487361296749139130.davem@davemloft.net>
-References: <20130610.141421.1570141372448161465.davem@davemloft.net>
-	<20130610.141816.1546753299816672552.davem@davemloft.net>
-	<20130610144814.44aca116@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH v10 net-next 0/6] net: low latency
+ Ethernet device polling
+Date: Mon, 10 Jun 2013 21:24:43 -0700 (PDT)
+Message-ID: <20130610.212443.1096102996038709384.davem@davemloft.net>
+References: <20130610083929.6955.87206.stgit@ladj378.jer.intel.com>
+	<20130610.134116.1913599114372510768.davem@davemloft.net>
+	<51B68AA6.1050105@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34654 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750757Ab3FKEKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 00:10:45 -0400
-In-Reply-To: <20130610144814.44aca116@nehalam.linuxnetplumber.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: willemb@google.com, or.gerlitz@gmail.com, e1000-devel@lists.sourceforge.net,
+	netdev@vger.kernel.org, hpa@zytor.com, amirv@mellanox.com,
+	linux-kernel@vger.kernel.org, eliezer@tamir.org.il,
+	jesse.brandeburg@intel.com, andi@firstfloor.org,
+	bhutchings@solarflare.com, erdnetdev@gmail.com, eilong@broadcom.com
+To: eliezer.tamir@linux.intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <51B68AA6.1050105@linux.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 10 Jun 2013 14:48:14 -0700
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Tue, 11 Jun 2013 05:25:42 +0300
 
-> The issue was trying to split them into net and net-next series.
-> If I sent one series, would you be able to handle that?
+> Here is the text from the RFC and v2 cover letters, updated and
+> merged.  If this is too long, please tell me what you think should
+> be removed.
 
-Everyone who wants to do this, does it like this:
+It's perfect, and since this went through so many iterations I
+included the changelog too.
 
-1) You give me the "net" series with the bug fixes.
+Thanks!
 
-2) You give me the "net-next" series, and you tell me "this series
-   depends upon the bug fixes going into 'net' from series X, please
-   merge that into 'net-next' before applying this series.
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
 
-And if you're really testing this stuff at all, that's how you're
-developing and testing it too.  You put together the net patch set,
-you _build_ it and you _test_ it.  Then you make a branch on
-net-next, pull your 'net' stuff into it, and the build your 'net-next'
-series on that branch.  Then you _build_ it and you _test_ it before
-even thinking about posting it here.
+Build for Windows Store.
+
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
