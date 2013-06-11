@@ -1,30 +1,55 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH] mac80211: ath9k: Use RCU protection calling
- ieee80211_get_tx_rates
-Date: Tue, 11 Jun 2013 21:55:23 +0200
-Message-ID: <1370980523.8356.70.camel@jlt4.sipsolutions.net>
-References: <20130609225120.GA2789@gmail.com>
-	 <20130610042959.GA1902@gmail.com>
-	 <1370950926.8356.14.camel@jlt4.sipsolutions.net>
-	 <20130611171304.GA2189@gmail.com> (sfid-20130611_191323_492868_156158C4)
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xen-netback: don't de-reference vif pointer after
+ having called xenvif_put()
+Date: Tue, 11 Jun 2013 13:00:31 -0700 (PDT)
+Message-ID: <20130611.130031.1750535297426864390.davem@davemloft.net>
+References: <51AF613F02000078000DB84E@nat28.tlf.novell.com>
+	<20130611.020136.1037505762134627955.davem@davemloft.net>
+	<51B7112B02000078000DD066@nat28.tlf.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org
-To: Calvin Owens <jcalvinowens@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130611171304.GA2189@gmail.com> (sfid-20130611_191323_492868_156158C4)
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: ian.campbell@citrix.com, xen-devel@lists.xen.org,
+	netdev@vger.kernel.org
+To: JBeulich@suse.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44847 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752574Ab3FKUAf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 16:00:35 -0400
+In-Reply-To: <51B7112B02000078000DD066@nat28.tlf.novell.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Now the subject should no longer say "mac80211:" :)
+From: "Jan Beulich" <JBeulich@suse.com>
+Date: Tue, 11 Jun 2013 10:59:39 +0100
 
-However... given that ieee80211_get_tx_rates() actually *copies* the
-rates into the parameter, I guess it should do the rcu_read_lock()
-internally. I guess I wasn't paying attention previously. Felix?
+>>>> On 11.06.13 at 11:01, David Miller <davem@davemloft.net> wrote:
+>> From: "Jan Beulich" <JBeulich@suse.com>
+>> Date: Wed, 05 Jun 2013 15:03:11 +0100
+>> 
+>>> When putting vif-s on the rx notify list, calling xenvif_put() must be
+>>> deferred until after the removal from the list and the issuing of the
+>>> notification, as both operations dereference the pointer.
+>>> 
+>>> Changing this got me to notice that the "irq" variable was effectively
+>>> unused (and was of too narrow type anyway).
+>>> 
+>>> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+>> 
+>> You've included the commit message, and the patch, twice.  Once inline
+>> and once as an attachment, do not do this.  It makes the patch impossible
+>> to apply when I fetch it out of patchwork.
+>> 
+>> Please submit it properly.
+> 
+> Sending to multiple lists makes it impossible to match everyone's
+> preferences/requirements. xen-devel generally wants patches
+> inline and attached (for the case where the inline variant gets
+> mangled by mail programs).
 
-johannes
+That's rediculous.  Fix your mail client setup, and send it inline
+only.
+
+Otherwise people can't reply and comment inline to the content of
+your patch properly.
