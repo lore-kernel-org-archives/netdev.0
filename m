@@ -1,47 +1,60 @@
-From: Markos Chandras <markos.chandras@imgtec.com>
-Subject: [PATCH] drivers/net/ethernet/3com: Drop EISA dependency from VORTEX
-Date: Tue, 11 Jun 2013 15:57:22 +0100
-Message-ID: <1370962642-12097-1-git-send-email-markos.chandras@imgtec.com>
+From: "David Laight" <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH 3/5] netfilter: xt_TCPMSS: Fix violation of RFC879 in absence of MSS option
+Date: Tue, 11 Jun 2013 16:00:06 +0100
+Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7285@saturn3.aculab.com>
+References: <1370880461-4265-1-git-send-email-pablo@netfilter.org> <1370880461-4265-4-git-send-email-pablo@netfilter.org> <AE90C24D6B3A694183C094C60CF0A2F6026B7282@saturn3.aculab.com> <20130610071954.GA13500@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Markos Chandras <markos.chandras@imgtec.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "Pablo Neira Ayuso" <pablo@netfilter.org>,
+	<netfilter-devel@vger.kernel.org>, <davem@davemloft.net>,
 	<netdev@vger.kernel.org>
-To: <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: "Phil Oester" <kernel@linuxace.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0.aculab.com ([213.249.233.131]:51810 "HELO mx0.aculab.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1753803Ab3FKPAU convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 11:00:20 -0400
+Received: from mx0.aculab.com ([127.0.0.1])
+ by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
+ id 21231-04 for <netdev@vger.kernel.org>;
+ Tue, 11 Jun 2013 16:00:16 +0100 (BST)
+Content-class: urn:content-classes:message
+In-Reply-To: <20130610071954.GA13500@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Vortex driver depends on PCI with optional support for EISA.
+> On Tue, Jun 11, 2013 at 09:43:07AM +0100, David Laight wrote:
+> > Is setting the mss to 536 actually ever sensible?
+> > RFC 879 might say that it is the default (and the minimum
+> > that must be supported), but in practise the actual mss
+> > is very likely to be only slightly shorter than the standard
+> > ethernet mss.
+> > Although strict conformance with RFC 879 might require the mss
+> > be clamped to 536, pragmatically a value much nearer 1400 would
+> > make sense - systems with very low mtu/mss are probably likely
+> > to advertise it.
+> 
+> Read the associated bugzilla - there was at least one real world
+> example where setting a higher MSS was causing breakage.
+> 
+> Phil
+> 
+> https://bugzilla.netfilter.org/show_bug.cgi?id=662
 
-This fixes build problems when EISA is selected but not PCI.
+To quote that bug:
 
-drivers/net/ethernet/3com/3c59x.c:1031:2: error: implicit declaration of
-function 'pci_iomap' [-Werror=implicit-function-declaration]
-drivers/net/ethernet/3com/3c59x.c:1044:3: error: implicit declaration of
-function 'pci_iounmap' [-Werror=implicit-function-declaration]
+I stumbled upon this problem in debian bug #541658[1] ("[iceweasel] cannot open 
+research.microsoft.com" - only worth reading for entertainment purposes) and,
+after that bug was closed, analysed it in my blog[2] until a friend of mine
+found out why the page loads when clamping mss to pmtu is disabled or
+restricted to a range (like with "iptables -A FORWARD -p tcp --tcp-flags
+SYN,RST SYN -m tcpmss --mss 1400:1536 -j TCPMSS --clamp-mss-to-pmtu") but
+doesn't load with "simple" clamping. His really great and detailed analysation
+of the problem may be seen at [3].
 
-Cc: David S. Miller <davem@davemloft.net>
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
----
- drivers/net/ethernet/3com/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+If I read/understand that correctly, clamping to 1400 worked - there was
+no need to clamp all the way down to 536.
 
-diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
-index 1c71c76..5c67f44 100644
---- a/drivers/net/ethernet/3com/Kconfig
-+++ b/drivers/net/ethernet/3com/Kconfig
-@@ -66,7 +66,7 @@ config PCMCIA_3C589
- 
- config VORTEX
- 	tristate "3c590/3c900 series (592/595/597) \"Vortex/Boomerang\" support"
--	depends on (PCI || EISA) && HAS_IOPORT
-+	depends on PCI && HAS_IOPORT
- 	select NET_CORE
- 	select MII
- 	---help---
--- 
-1.8.2.1
+	David
