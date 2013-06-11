@@ -1,71 +1,57 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/3] team: remove synchronize_rcu() called
- during queue override change
-Date: Tue, 11 Jun 2013 07:40:46 +0200
-Message-ID: <20130611054046.GA1533@minipsycho.orion>
-References: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
- <1370878945-9718-2-git-send-email-jiri@resnulli.us>
- <20130611004845.GF11894@obelix.rh>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
+From: Antonio Quartulli <ordex@autistici.org>
+Subject: [PATCH 1/3] batman-adv: wait for rtnl in batadv_store_mesh_iface instead of failing if it is taken
+Date: Tue, 11 Jun 2013 08:34:59 +0200
+Message-ID: <1370932501-3937-2-git-send-email-ordex@autistici.org>
+References: <1370932501-3937-1-git-send-email-ordex@autistici.org>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Matthias Schiffer <mschiffer@universe-factory.net>,
+	Marek Lindner <lindner_marek@yahoo.de>,
+	Antonio Quartulli <ordex@autistici.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f176.google.com ([209.85.215.176]:37589 "EHLO
-	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751724Ab3FKFku (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 01:40:50 -0400
-Received: by mail-ea0-f176.google.com with SMTP id z15so2986220ead.7
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 22:40:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130611004845.GF11894@obelix.rh>
+Received: from diserzione.investici.org ([82.221.99.153]:58910 "EHLO
+	diserzione.investici.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751968Ab3FKGhI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 02:37:08 -0400
+In-Reply-To: <1370932501-3937-1-git-send-email-ordex@autistici.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jun 11, 2013 at 02:48:45AM CEST, fbl@redhat.com wrote:
->On Mon, Jun 10, 2013 at 05:42:23PM +0200, Jiri Pirko wrote:
->> This patch removes synchronize_rcu() from function
->> __team_queue_override_port_del(). That can be done because it is ok to
->> do list_del_rcu() and list_add_tail_rcu() on the same list_head member
->> without calling synchronize_rcu() in between. A bit of refactoring
->> needed to be done because INIT_LIST_HEAD needed to be removed (to not
->> kill the forward pointer) as well.
->> 
->> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
->> ---
->>  drivers/net/team/team.c | 63 ++++++++++++++++++++++++++++++++++++-------------
->>  1 file changed, 47 insertions(+), 16 deletions(-)
->> 
->[...]
->
->> @@ -1278,17 +1310,16 @@ static int team_queue_id_option_set(struct team *team,
->>  				    struct team_gsetter_ctx *ctx)
->>  {
->>  	struct team_port *port = ctx->info->port;
->> +	u16 new_queue_id = ctx->data.u32_val;
->>  
->> -	if (port->queue_id == ctx->data.u32_val)
->> +	if (port->queue_id == new_queue_id)
->
->Since you're passing new_queue_id to port->queue_id and
->in the other parts you test against !port->queue_id to see
->if it's enable or not, that means queue 0 can't be used.
->
->Maybe I am missing something, but wouldn't be better to
->initialize with -1 and allow 0 to be used as well?
+From: Matthias Schiffer <mschiffer@universe-factory.net>
 
-0 means default queue. It's done the same was as in bonding code.
+The rtnl_lock in batadv_store_mesh_iface has been converted to a rtnl_trylock
+some time ago to avoid a possible deadlock between rtnl and s_active on removal
+of the sysfs nodes.
 
->
->fbl
->
->>  		return 0;
->> -	if (ctx->data.u32_val >= team->dev->real_num_tx_queues)
->> +	if (new_queue_id >= team->dev->real_num_tx_queues)
->>  		return -EINVAL;
->> -	port->queue_id = ctx->data.u32_val;
->> -	team_queue_override_port_refresh(team, port);
->> +	team_queue_override_port_change_queue_id(team, port, new_queue_id);
->>  	return 0;
->>  }
->>  
->
+The behaviour introduced by that was quite confusing as it could lead to the
+sysfs store to fail, making batman-adv setup scripts unreliable. As recently the
+sysfs removal was postponed to a worker not running with the rtnl taken, the
+deadlock can't occur any more and it is safe to change the trylock back to a
+lock to make the sysfs store reliable again.
+
+Signed-off-by: Matthias Schiffer <mschiffer@universe-factory.net>
+Reviewed-by: Simon Wunderlich <siwu@hrz.tu-chemnitz.de>
+Signed-off-by: Marek Lindner <lindner_marek@yahoo.de>
+Signed-off-by: Antonio Quartulli <ordex@autistici.org>
+---
+ net/batman-adv/sysfs.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/net/batman-adv/sysfs.c b/net/batman-adv/sysfs.c
+index 15a22ef..929e304 100644
+--- a/net/batman-adv/sysfs.c
++++ b/net/batman-adv/sysfs.c
+@@ -582,10 +582,7 @@ static ssize_t batadv_store_mesh_iface(struct kobject *kobj,
+ 	    (strncmp(hard_iface->soft_iface->name, buff, IFNAMSIZ) == 0))
+ 		goto out;
+ 
+-	if (!rtnl_trylock()) {
+-		ret = -ERESTARTSYS;
+-		goto out;
+-	}
++	rtnl_lock();
+ 
+ 	if (status_tmp == BATADV_IF_NOT_IN_USE) {
+ 		batadv_hardif_disable_interface(hard_iface,
+-- 
+1.8.1.5
