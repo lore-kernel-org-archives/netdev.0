@@ -1,73 +1,40 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next 2/2] net:add socket option for
- low latency polling
-Date: Tue, 11 Jun 2013 21:24:32 +0100
-Message-ID: <1370982272.1954.8.camel@bwh-desktop.uk.level5networks.com>
-References: <20130611142415.17879.75569.stgit@ladj378.jer.intel.com>
-	<20130611142438.17879.6389.stgit@ladj378.jer.intel.com>
+From: Markos Chandras <markos.chandras@gmail.com>
+Subject: Re: [PATCH] drivers/net/ethernet/3com: Drop EISA dependency from VORTEX
+Date: Tue, 11 Jun 2013 21:29:03 +0100
+Message-ID: <CAG2jQ8jcZGW=9Tsb9c+YVEa0dPtgABJpYxWghdWp0-GGHYoQ2Q@mail.gmail.com>
+References: <1370962642-12097-1-git-send-email-markos.chandras@imgtec.com>
+ <51B75088.8050800@windriver.com> <CAG2jQ8hACp_iGEXR7rXKR3sydK4O=y0paeh1FFgH2UisxWVxVA@mail.gmail.com>
+ <51B78594.5050903@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Don,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	linux-kernel@vger.kernel.org, Andi Kleen <andi@firstfloor.org>,
-	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>,
-	David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130611142438.17879.6389.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Markos Chandras <markos.chandras@imgtec.com>,
+	linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51B78594.5050903@windriver.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-06-11 at 17:24 +0300, Eliezer Tamir wrote:
-> adds a socket option for low latency polling.
-> This allows overriding the global sysctl value with a per-socket one.
-[...]
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -913,6 +913,23 @@ set_rcvbuf:
->  		sock_valbool_flag(sk, SOCK_SELECT_ERR_QUEUE, valbool);
->  		break;
->  
-> +#ifdef CONFIG_NET_LL_RX_POLL
-> +	case SO_LL:
-> +		if (!capable(CAP_NET_ADMIN))
-> +			ret = -EACCES;
-[...]
+On 11 June 2013 21:16, Paul Gortmaker <paul.gortmaker@windriver.com> wrote:
+>>
+>> Hi Paul,
+>>
+>> The driver does not seem to build if you only have EISA=y and PCI=n.
+>> Does this driver really support EISA only
+>
+> Yes.  Not that anyone really probably cares anymore.  EISA is dead.
+>
+>> configurations? Reading the code it seems to me that the PCI support
+>> is mandatory for the driver to build and work.
+>
+> Oh really?  Having PCI disabled seems fine on today's net-next tree
+> from what I see below:
 
-Failed capability checks normally result in EPERM whereas EACCES usually
-results from a file permission/ACL/label check.
+Hi Paul,
 
-Perhaps unprivileged users should be allowed to set a value as long as
-it's less than or equal to the global value?
+Ok I guess I was wrong then.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
-
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+--
+Regards,
+Markos Chandras
