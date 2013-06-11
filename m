@@ -1,8 +1,9 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH net-next 0/2] net: low latency sockets follow
-	ups
-Date: Tue, 11 Jun 2013 17:24:15 +0300
-Message-ID: <20130611142415.17879.75569.stgit@ladj378.jer.intel.com>
+Subject: [PATCH net-next 1/2] net: remove NET_LL_RX_POLL
+	config menue
+Date: Tue, 11 Jun 2013 17:24:28 +0300
+Message-ID: <20130611142428.17879.33582.stgit@ladj378.jer.intel.com>
+References: <20130611142415.17879.75569.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -16,6 +17,7 @@ Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
 	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130611142415.17879.75569.stgit@ladj378.jer.intel.com>
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
@@ -26,21 +28,39 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-David,
+Remove NET_LL_RX_POLL from the config menu.
+Change default to y.
+Busy polling still needs to be enabled at runtime via sysctl.
 
-Here are two more patches.
+Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+---
 
-Patch 1 removes the config menu for NET_LL_RX_POLL and defaults to y.
-Patch 2 adds an SO_LL socket option to allow per-socket control of busy polling.
+ net/Kconfig |   11 ++---------
+ 1 files changed, 2 insertions(+), 9 deletions(-)
 
-The patches do not depend on each other.
-If one of them needs more work, please consider applying the other.
-
-I will reply to this thread with a patch to sockperf that enables using
-the socket option.
-
-Thanks,
-Eliezer
+diff --git a/net/Kconfig b/net/Kconfig
+index d6a9ce6..8fe8845 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -244,16 +244,9 @@ config NETPRIO_CGROUP
+ 	  a per-interface basis
+ 
+ config NET_LL_RX_POLL
+-	bool "Low Latency Receive Poll"
++	boolean
+ 	depends on X86_TSC
+-	default n
+-	---help---
+-	  Support Low Latency Receive Queue Poll.
+-	  (For network card drivers which support this option.)
+-	  When waiting for data in read or poll call directly into the the device driver
+-	  to flush packets which may be pending on the device queues into the stack.
+-
+-	  If unsure, say N.
++	default y
+ 
+ config BQL
+ 	boolean
 
 
 ------------------------------------------------------------------------------
