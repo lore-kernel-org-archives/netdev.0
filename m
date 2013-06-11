@@ -1,40 +1,56 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] ipv6: prevent fib6_run_gc() contention
-Date: Tue, 11 Jun 2013 03:40:06 -0700
-Message-ID: <1370947206.3252.27.camel@edumazet-glaptop>
-References: <20130604111040.CCC9162CB4@unicorn.suse.cz>
-	 <20130610.142642.161876882927700341.davem@davemloft.net>
-	 <20130611100718.GA7581@unicorn.suse.cz>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH net-next] tun: Report "persist" flag to userspace
+Date: Tue, 11 Jun 2013 14:41:24 +0400
+Message-ID: <51B6FED4.6090703@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
-	kaber@trash.net
-To: Michal Kubecek <mkubecek@suse.cz>
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:49544 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754551Ab3FKKkL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 06:40:11 -0400
-Received: by mail-ea0-f172.google.com with SMTP id q10so4745483eaj.3
-        for <netdev@vger.kernel.org>; Tue, 11 Jun 2013 03:40:10 -0700 (PDT)
-In-Reply-To: <20130611100718.GA7581@unicorn.suse.cz>
+Received: from mailhub.sw.ru ([195.214.232.25]:8356 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752042Ab3FKKle (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jun 2013 06:41:34 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-06-11 at 12:07 +0200, Michal Kubecek wrote:
+The TUN_PERSIST flag is not reported at all -- both TUNGETIFF, and sysfs
+"flags" attribute skip one. Knowing whether a device is persistent or not
+is critical for checkpoint-restore, thus I propose to add the read-only
+IFF_PERSIST one for this.
 
-> That was my original idea but I was afraid that while the remaining
-> window in ip6_dst_gc() would be very short and probably safe, we could
-> still run into problem if fib6_gc_lock was locked by some other caller
-> of fib6_run_gc() which doesn't update net->ipv6.ip6_rt_last_gc,
-> especially via a timer.
+Setting this new IFF_PERSIST is hardly possible, as TUNSETIFF doesn't check
+for unknown flags being zero and thus there can be trash.
 
-This looks a bug (but not a big one) to me : 
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-We should update ip6_rt_last_gc if we did a gc,
-not only from ip6_dst_gc()
+---
 
-So, I would move the "net->ipv6.ip6_rt_last_gc = now;" from ip6_dst_gc()
-to fib6_run_gc(), right after the spin_lock_bh() ?
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 89776c5..b90a731 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1530,6 +1530,9 @@ static int tun_flags(struct tun_struct *tun)
+ 	if (tun->flags & TUN_TAP_MQ)
+ 		flags |= IFF_MULTI_QUEUE;
+ 
++	if (tun->flags & TUN_PERSIST)
++		flags |= IFF_PERSIST;
++
+ 	return flags;
+ }
+ 
+diff --git a/include/uapi/linux/if_tun.h b/include/uapi/linux/if_tun.h
+index 2835b85..82334f8 100644
+--- a/include/uapi/linux/if_tun.h
++++ b/include/uapi/linux/if_tun.h
+@@ -68,6 +68,8 @@
+ #define IFF_MULTI_QUEUE 0x0100
+ #define IFF_ATTACH_QUEUE 0x0200
+ #define IFF_DETACH_QUEUE 0x0400
++/* read-only flag */
++#define IFF_PERSIST	0x0800
+ 
+ /* Features for GSO (TUNSETOFFLOAD). */
+ #define TUN_F_CSUM	0x01	/* You can hand me unchecksummed packets. */
