@@ -1,37 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 2/2] vhost: fix ubuf_info cleanup
-Date: Tue, 11 Jun 2013 02:46:58 -0700 (PDT)
-Message-ID: <20130611.024658.1499256804576895449.davem@davemloft.net>
-References: <1370521145-9723-1-git-send-email-mst@redhat.com>
-	<1370521145-9723-3-git-send-email-mst@redhat.com>
+Subject: Re: [PATCH net-next] net: pass correct parameter to
+ skb_headers_offset_update()
+Date: Tue, 11 Jun 2013 02:48:29 -0700 (PDT)
+Message-ID: <20130611.024829.407999241720876122.davem@davemloft.net>
+References: <fdf66733b5575423669ab215dbb7aea13fd82aeb.1370525076.git.panweiping3@gmail.com>
+	<20130607064722.GF14972@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tt.rantala@gmail.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: mst@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1370521145-9723-3-git-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: panweiping3@gmail.com, netdev@vger.kernel.org
+To: horms@verge.net.au
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37771 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752504Ab3FKJsa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 05:48:30 -0400
+In-Reply-To: <20130607064722.GF14972@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Thu, 6 Jun 2013 15:20:46 +0300
+From: Simon Horman <horms@verge.net.au>
+Date: Fri, 7 Jun 2013 15:47:22 +0900
 
-> vhost_net_clear_ubuf_info didn't clear ubuf_info
-> after kfree, this could trigger double free.
-> Fix this and simplify this code to make it more robust: make sure
-> ubuf info is always freed through vhost_net_clear_ubuf_info.
+> On Thu, Jun 06, 2013 at 09:27:21PM +0800, Weiping Pan wrote:
+>> Since commit 1a37e412a022(net: Use 16bits for *_headers fields of struct
+>> skbuff), skb->*_header are relative to skb->head,
+>> so copy_skb_header() should not call skb_headers_offset_update() now,
+>> and we should pass correct parameter to skb_headers_offset_update() in
+>> pskb_expand_head() and skb_copy_expand().
+>> 
+>> Signed-off-by: Weiping Pan <panweiping3@gmail.com>
 > 
-> Reported-by: Tommi Rantala <tt.rantala@gmail.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> Reviewed-by: Simon Horman <horms@verge.net.au>
 
-Applied.
+Applied, thanks.
