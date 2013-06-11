@@ -1,45 +1,56 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH 1/2] drivers: net: davinci_mdio: moving mdio resume earlier than cpsw ethernet driver
-Date: Tue, 11 Jun 2013 15:32:04 +0530
-Message-ID: <1370944925-11374-2-git-send-email-mugunthanvnm@ti.com>
-References: <1370944925-11374-1-git-send-email-mugunthanvnm@ti.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net] ipv6: prevent fib6_run_gc() contention
+Date: Tue, 11 Jun 2013 12:07:18 +0200
+Message-ID: <20130611100718.GA7581@unicorn.suse.cz>
+References: <20130604111040.CCC9162CB4@unicorn.suse.cz>
+ <20130610.142642.161876882927700341.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([192.94.94.41]:54501 "EHLO bear.ext.ti.com"
+Received: from cantor2.suse.de ([195.135.220.15]:39817 "EHLO mx2.suse.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753741Ab3FKKAx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jun 2013 06:00:53 -0400
-In-Reply-To: <1370944925-11374-1-git-send-email-mugunthanvnm@ti.com>
+	id S1754526Ab3FKKHW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jun 2013 06:07:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20130610.142642.161876882927700341.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-MDIO driver should resume before CPSW ethernet driver so that CPSW connect
-to the phy and start tx/rx ethernet packets, changing the suspend/resume
-apis with suspend_late/resume_early.
+On Mon, Jun 10, 2013 at 02:26:42PM -0700, David Miller wrote:
+> From: Michal Kubecek <mkubecek@suse.cz>
+> Date: Tue, 4 Jun 2013 13:08:59 +0200
+> 
+> > On a high-traffic router with many processors and many IPv6 dst
+> > entries, soft lockup in fib6_run_gc() can occur when number of
+> > entries reaches gc_thresh.
+> > 
+> > This happens because fib6_run_gc() uses fib6_gc_lock to allow
+> > only one thread to run the garbage collector but ip6_dst_gc()
+> > doesn't update net->ipv6.ip6_rt_last_gc until fib6_run_gc()
+> > returns. On a system with many entries, this can take some time
+> > so that in the meantime, other threads pass the tests in
+> > ip6_dst_gc() (ip6_rt_last_gc is still not updated) and wait for
+> > the lock. They then have to run the garbage collector one after
+> > another which blocks them for quite long.
+> > 
+> > Resolve this by replacing special value ~0UL of expire parameter
+> > to fib6_run_gc() by explicit "force" parameter to choose between
+> > spin_lock_bh() and spin_trylock_bh() and call fib6_run_gc() with
+> > force=false if gc_thresh is reached but not max_size.
+> > 
+> > Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> 
+> It seems to me that it would be much simpler to simply update
+> ip6_rt_last_gc first, that way the other threads would elide the GC
+> call.
 
-Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
----
- drivers/net/ethernet/ti/davinci_mdio.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+That was my original idea but I was afraid that while the remaining
+window in ip6_dst_gc() would be very short and probably safe, we could
+still run into problem if fib6_gc_lock was locked by some other caller
+of fib6_run_gc() which doesn't update net->ipv6.ip6_rt_last_gc,
+especially via a timer.
 
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index b2275d1..74e56b3 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -476,8 +476,8 @@ static int davinci_mdio_resume(struct device *dev)
- }
- 
- static const struct dev_pm_ops davinci_mdio_pm_ops = {
--	.suspend	= davinci_mdio_suspend,
--	.resume		= davinci_mdio_resume,
-+	.suspend_late	= davinci_mdio_suspend,
-+	.resume_early	= davinci_mdio_resume,
- };
- 
- static const struct of_device_id davinci_mdio_of_mtable[] = {
--- 
-1.7.9.5
+                                                        Michal Kubecek
