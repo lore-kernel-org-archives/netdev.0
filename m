@@ -1,43 +1,62 @@
-From: Saurabh Mohan <saumoh@gmail.com>
-Subject: [PATCH net 1/1] net/ipv4: ip_vti clear skb cb before tunneling.
-Date: Mon, 10 Jun 2013 17:45:10 -0700
-Message-ID: <1370911510-20012-1-git-send-email-saurabh.mohan@vyatta.com>
-Cc: Saurabh Mohan <saurabh@vyatta.com>
-To: netdev <netdev@vger.kernel.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next 02/12] vxlan: fix race between flush and
+ incoming learning
+Date: Tue, 11 Jun 2013 00:46:17 +0000 (UTC)
+Message-ID: <kp5s0p$jv2$1@ger.gmane.org>
+References: <20130610200524.721617349@vyatta.com>
+ <20130610132456.2333c18b@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:57721 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754258Ab3FKApJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 20:45:09 -0400
-Received: by mail-pa0-f50.google.com with SMTP id fb1so4947240pad.37
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 17:45:08 -0700 (PDT)
+Received: from plane.gmane.org ([80.91.229.3]:57974 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753996Ab3FKAqh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 10 Jun 2013 20:46:37 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UmCjM-0008Pm-Fu
+	for netdev@vger.kernel.org; Tue, 11 Jun 2013 02:46:36 +0200
+Received: from 112.116.154.100 ([112.116.154.100])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 11 Jun 2013 02:46:36 +0200
+Received: from xiyou.wangcong by 112.116.154.100 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 11 Jun 2013 02:46:36 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Saurabh Mohan <saurabh@vyatta.com>
+On Mon, 10 Jun 2013 at 20:24 GMT, Stephen Hemminger <stephen@networkplumber.org> wrote:
+> It is possible for a packet to arrive during vxlan_stop(), and
+> have a dynamic entry created. Close this by checking if device
+> is up.
+>
+>  CPU1                             CPU2   
+> vxlan_stop
+>   vxlan_flush
+>      hash_lock acquired
+>                                   vxlan_encap_recv
+>                                      vxlan_snoop
+>                                         waiting for hash_lock
+>      hash_lock relased
+>   vxlan_flush done
+>                                         hash_lock acquired
+>                                         vxlan_fdb_create
+>
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+>
 
-If users apply shaper to vti tunnel then it will cause a kernel crash. The
-problem seems to be due to the vti_tunnel_xmit function not clearing
-skb->opt field before passing the packet to xfrm tunneling code.
+This doesn't apply with git am.
 
-Signed-off-by: Saurabh Mohan <saurabh@vyatta.com>
----
- net/ipv4/ip_vti.c |    3 +--
- 1 files changed, 1 insertions(+), 2 deletions(-)
+% git am /tmp/vxlan-fix-02.diff
+Applying: vxlan: fix race between flush and incoming learning
+error: patch failed: drivers/net/vxlan.c:632
+error: drivers/net/vxlan.c: patch does not apply
+Patch failed at 0001 vxlan: fix race between flush and incoming learning
+When you have resolved this problem run "git am --resolved".
+If you would prefer to skip this patch, instead run "git am --skip".
+To restore the original branch and stop patching run "git am --abort".
 
-diff --git a/net/ipv4/ip_vti.c b/net/ipv4/ip_vti.c
-index 9d2bdb2..c118f6b 100644
---- a/net/ipv4/ip_vti.c
-+++ b/net/ipv4/ip_vti.c
-@@ -361,8 +361,7 @@ static netdev_tx_t vti_tunnel_xmit(struct sk_buff *skb, struct net_device *dev)
- 			tunnel->err_count = 0;
- 	}
- 
--	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
--			      IPSKB_REROUTED);
-+	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 	skb_dst_drop(skb);
- 	skb_dst_set(skb, &rt->dst);
- 	nf_reset(skb);
--- 
-1.7.2.5
+But can be applied manually... just fyi.
