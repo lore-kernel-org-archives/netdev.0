@@ -1,37 +1,41 @@
-From: Tushar Behera <tushar.behera@linaro.org>
-Subject: Re: [PATCH 09/15] net: can: Convert to use devm_ioremap_resource
-Date: Tue, 11 Jun 2013 08:45:47 +0530
-Message-ID: <51B69663.5080304@linaro.org>
-References: <1370864113-17895-1-git-send-email-tushar.behera@linaro.org> <1370864113-17895-10-git-send-email-tushar.behera@linaro.org> <51B5D007.8050005@pengutronix.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 03/03] [PATCH] vxlan: fix crash on module removal
+Date: Mon, 10 Jun 2013 21:10:42 -0700 (PDT)
+Message-ID: <20130610.211042.487361296749139130.davem@davemloft.net>
+References: <20130610.141421.1570141372448161465.davem@davemloft.net>
+	<20130610.141816.1546753299816672552.davem@davemloft.net>
+	<20130610144814.44aca116@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, thierry.reding@gmail.com,
-	patches@linaro.org, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>,
-	'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <51B5D007.8050005@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34654 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750757Ab3FKEKp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 00:10:45 -0400
+In-Reply-To: <20130610144814.44aca116@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-+CC: 'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 10 Jun 2013 14:48:14 -0700
 
-On 06/10/2013 06:39 PM, Marc Kleine-Budde wrote:
-> On 06/10/2013 01:35 PM, Tushar Behera wrote:
->> Commit 75096579c3ac ("lib: devres: Introduce devm_ioremap_resource()")
->> introduced devm_ioremap_resource() and deprecated the use of
->> devm_request_and_ioremap().
-> 
-> Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> 
-> Are the patches going over the individual subsystem maintainers?
-> 
-> Marc
-> 
+> The issue was trying to split them into net and net-next series.
+> If I sent one series, would you be able to handle that?
 
-I am not sure. Looping in Greg for clarity.
+Everyone who wants to do this, does it like this:
 
--- 
-Tushar Behera
+1) You give me the "net" series with the bug fixes.
+
+2) You give me the "net-next" series, and you tell me "this series
+   depends upon the bug fixes going into 'net' from series X, please
+   merge that into 'net-next' before applying this series.
+
+And if you're really testing this stuff at all, that's how you're
+developing and testing it too.  You put together the net patch set,
+you _build_ it and you _test_ it.  Then you make a branch on
+net-next, pull your 'net' stuff into it, and the build your 'net-next'
+series on that branch.  Then you _build_ it and you _test_ it before
+even thinking about posting it here.
