@@ -1,58 +1,48 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: [PATCH net-next] tun: Turn tun_flow_init() into void fn
-Date: Tue, 11 Jun 2013 17:01:08 +0400
-Message-ID: <51B71F94.6020507@parallels.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] sh_eth: get R8A7740 Rx descriptor word 0 shift out of
+ #ifdef
+Date: Tue, 11 Jun 2013 17:01:34 +0400
+Message-ID: <51B71FAE.6050005@cogentembedded.com>
+References: <201306110022.51293.sergei.shtylyov@cogentembedded.com> <51B6B702.6070005@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-To: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
+	linux-sh@vger.kernel.org
+To: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:7758 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751226Ab3FKNBR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jun 2013 09:01:17 -0400
+Received: from mail-lb0-f177.google.com ([209.85.217.177]:38470 "EHLO
+	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752994Ab3FKNBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 09:01:38 -0400
+Received: by mail-lb0-f177.google.com with SMTP id 10so6890445lbf.22
+        for <netdev@vger.kernel.org>; Tue, 11 Jun 2013 06:01:36 -0700 (PDT)
+In-Reply-To: <51B6B702.6070005@renesas.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This routine doesn't fail since 9fdc6bef (tuntap: dont use a private kmem_cache)
-so it makes sense to compact the code a little bit.
+Hello.
 
-Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+On 11-06-2013 9:34, Shimoda, Yoshihiro wrote:
 
----
+>> The only R8A7740 specific #ifdef hindering ARM multiplatform  build is left  in
+>> sh_eth_rx(): it covers a very strange code shifting Rx buffer descriptor word 0
+>> by 16 (which should cause Rx length error to be logged on every buffer  several
+>> lines later). Get rid of the #ifdef by adding 'shift_rd0' field to the  'struct
+>> sh_eth_cpu_data', making the shift dependent on it, and setting it to 1 for the
+>> R8A7740 case...
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 89776c5..544021e 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -841,7 +841,7 @@ static const struct net_device_ops tap_netdev_ops = {
- #endif
- };
- 
--static int tun_flow_init(struct tun_struct *tun)
-+static void tun_flow_init(struct tun_struct *tun)
- {
- 	int i;
- 
-@@ -852,8 +852,6 @@ static int tun_flow_init(struct tun_struct *tun)
- 	setup_timer(&tun->flow_gc_timer, tun_flow_cleanup, (unsigned long)tun);
- 	mod_timer(&tun->flow_gc_timer,
- 		  round_jiffies_up(jiffies + tun->ageing_time));
--
--	return 0;
- }
- 
- static void tun_flow_uninit(struct tun_struct *tun)
-@@ -1659,10 +1657,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
- 			goto err_free_dev;
- 
- 		tun_net_init(dev);
--
--		err = tun_flow_init(tun);
--		if (err < 0)
--			goto err_free_dev;
-+		tun_flow_init(tun);
- 
- 		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
- 			TUN_USER_FEATURES;
+> This very strange code was from the first R8A7740 supporting patch I sent.
+> I should have shifted the RD_RFS values (from RD_RFS1 to RD_RFS10) if R8A7740.
+> In other words, since the desc_status also has RDFEND, I should have not shifted
+> the desc_status before the driver checked the RDFEND.
+
+> So, I think we have to modify this "desc_status >>= 16" timing.
+> Should I submit such a patch first?
+
+    Yes, that would be preferable. Just give it a good description.
+
+> Best regards,
+> Yoshihiro Shimoda
+
+WBR, Sergei
