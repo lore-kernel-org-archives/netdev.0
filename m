@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH v3 net 2/5] vxlan: handle skb_clone failure
-Date: Mon, 10 Jun 2013 17:37:24 -0700
-Message-ID: <20130610173724.46437629@nehalam.linuxnetplumber.net>
+Subject: [PATCH v3 net 1/5] vxlan: only migrate dynamic FDB entries
+Date: Mon, 10 Jun 2013 17:37:26 -0700
+Message-ID: <20130610173726.13718071@nehalam.linuxnetplumber.net>
 References: <20130611002547.346603375@vyatta.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -10,39 +10,71 @@ Cc: netdev@vger.kernel.org,
 	Stephen Hemminger <stephen@networkplumber.org>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:34221 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754380Ab3FKAhs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 20:37:48 -0400
-Received: by mail-pd0-f181.google.com with SMTP id 14so5307495pdj.26
-        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 17:37:48 -0700 (PDT)
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:50179 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754415Ab3FKAhv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 10 Jun 2013 20:37:51 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so2386611pbc.35
+        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 17:37:50 -0700 (PDT)
 In-Reply-To: <20130611002547.346603375@vyatta.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-skb_clone can fail if out of memory. Just skip the fanout.
+Only migrate dynamic forwarding table entries, don't modify
+static entries. If packet received from incorrect source IP address
+assume it is an imposter and drop it.
 
 Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
 ---
-v3 - no change
+v3 - fix indentation
 
-Needs be in -net. Not needed for stable.
+Should go to -stable as well.
 
---- a/drivers/net/vxlan.c	2013-06-10 15:04:59.239993130 -0700
-+++ b/drivers/net/vxlan.c	2013-06-10 15:06:15.186973784 -0700
-@@ -1198,9 +1198,11 @@ static netdev_tx_t vxlan_xmit(struct sk_
- 		struct sk_buff *skb1;
+--- a/drivers/net/vxlan.c	2013-06-10 15:04:56.392031305 -0700
++++ b/drivers/net/vxlan.c	2013-06-10 15:04:59.239993130 -0700
+@@ -603,8 +603,9 @@ skip:
  
- 		skb1 = skb_clone(skb, GFP_ATOMIC);
--		rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
--		if (rc == NETDEV_TX_OK)
--			rc = rc1;
-+		if (skb1) {
-+			rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
-+			if (rc == NETDEV_TX_OK)
-+				rc = rc1;
-+		}
+ /* Watch incoming packets to learn mapping between Ethernet address
+  * and Tunnel endpoint.
++ * Return true if packet is bogus and should be droppped.
+  */
+-static void vxlan_snoop(struct net_device *dev,
++static bool vxlan_snoop(struct net_device *dev,
+ 			__be32 src_ip, const u8 *src_mac)
+ {
+ 	struct vxlan_dev *vxlan = netdev_priv(dev);
+@@ -614,7 +615,11 @@ static void vxlan_snoop(struct net_devic
+ 	f = vxlan_find_mac(vxlan, src_mac);
+ 	if (likely(f)) {
+ 		if (likely(f->remote.remote_ip == src_ip))
+-			return;
++			return false;
++
++		/* Don't migrate static entries, drop packets */
++		if (!(f->flags & NTF_SELF))
++			return true;
+ 
+ 		if (net_ratelimit())
+ 			netdev_info(dev,
+@@ -634,6 +639,8 @@ static void vxlan_snoop(struct net_devic
+ 				       0, NTF_SELF);
+ 		spin_unlock(&vxlan->hash_lock);
  	}
++
++	return false;
+ }
  
- 	rc1 = vxlan_xmit_one(skb, dev, rdst0, did_rsc);
+ 
+@@ -766,8 +773,9 @@ static int vxlan_udp_encap_recv(struct s
+ 			       vxlan->dev->dev_addr) == 0)
+ 		goto drop;
+ 
+-	if (vxlan->flags & VXLAN_F_LEARN)
+-		vxlan_snoop(skb->dev, oip->saddr, eth_hdr(skb)->h_source);
++	if ((vxlan->flags & VXLAN_F_LEARN) &&
++	    vxlan_snoop(skb->dev, oip->saddr, eth_hdr(skb)->h_source))
++		goto drop;
+ 
+ 	__skb_tunnel_rx(skb, vxlan->dev);
+ 	skb_reset_network_header(skb);
