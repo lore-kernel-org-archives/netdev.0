@@ -1,46 +1,45 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH net] ipv6: prevent fib6_run_gc() contention
-Date: Tue, 11 Jun 2013 22:49:12 +0200
-Message-ID: <20130611204912.GA1255@lion.mk-sys.cz>
-References: <20130604111040.CCC9162CB4@unicorn.suse.cz>
- <20130610.142642.161876882927700341.davem@davemloft.net>
- <20130611100718.GA7581@unicorn.suse.cz>
- <20130611.130114.764345999553478927.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
-	yoshfuji@linux-ipv6.org, kaber@trash.net
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] net: make all team port device link events urgent
+Date: Tue, 11 Jun 2013 23:09:29 +0200
+Message-ID: <1370984969-15797-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, edumazet@google.com, fbl@redhat.com,
+	bhutchings@solarflare.com, tj@kernel.org
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from lion.mk-sys.cz ([213.168.178.121]:38588 "EHLO lion.mk-sys.cz"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755141Ab3FKU73 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jun 2013 16:59:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20130611.130114.764345999553478927.davem@davemloft.net>
+Received: from mail-ea0-f169.google.com ([209.85.215.169]:42085 "EHLO
+	mail-ea0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755938Ab3FKVJj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 17:09:39 -0400
+Received: by mail-ea0-f169.google.com with SMTP id h15so6628487eak.0
+        for <netdev@vger.kernel.org>; Tue, 11 Jun 2013 14:09:38 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 11, 2013 at 01:01:14PM -0700, David Miller wrote:
-> From: Michal Kubecek <mkubecek@suse.cz>
-> Date: Tue, 11 Jun 2013 12:07:18 +0200
-> 
-> > On Mon, Jun 10, 2013 at 02:26:42PM -0700, David Miller wrote:
-> >> 
-> >> It seems to me that it would be much simpler to simply update
-> >> ip6_rt_last_gc first, that way the other threads would elide the GC
-> >> call.
-> > 
-> > That was my original idea but I was afraid that while the remaining
-> > window in ip6_dst_gc() would be very short and probably safe, we could
-> > still run into problem if fib6_gc_lock was locked by some other caller
-> > of fib6_run_gc() which doesn't update net->ipv6.ip6_rt_last_gc,
-> > especially via a timer.
-> 
-> Why don't you simply try it and find out?
+From: Flavio Leitner <fbl@redhat.com>
 
-I don't have the system where the issue was observed at hand. I'll have
-to ask the customer who reported it to run the test so that it may take
-some time.
+Since team functionality relies heavily on userspace daemon, we need to
+deliver event to userspace via Netlink as quick as possible. So make all
+team port device link events urgent.
 
-                                                         Michal Kubecek
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
+Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+---
+ net/core/link_watch.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/net/core/link_watch.c b/net/core/link_watch.c
+index 8f82a5c..9c3a839 100644
+--- a/net/core/link_watch.c
++++ b/net/core/link_watch.c
+@@ -92,6 +92,9 @@ static bool linkwatch_urgent_event(struct net_device *dev)
+ 	if (dev->ifindex != dev->iflink)
+ 		return true;
+ 
++	if (dev->priv_flags & IFF_TEAM_PORT)
++		return true;
++
+ 	return netif_carrier_ok(dev) &&	qdisc_tx_changing(dev);
+ }
+ 
+-- 
+1.8.1.4
