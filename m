@@ -1,56 +1,35 @@
-From: info@uk.net
-Subject: Confirmed Reciept.....Certified Winner.....
-Date: Fri, 07 Jun 2013 00:56:40 +0530
-Message-ID: <201306061918.r56IvEfq006867@lycasmtp.lycamobile.co.uk>
-Reply-To: claim.jonesgreene@hotmail.co.uk
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v10 net-next 0/6] net: low latency Ethernet device polling
+Date: Tue, 11 Jun 2013 15:49:32 +0300
+Message-ID: <51B71CDC.1040004@linux.intel.com>
+References: <51B68AA6.1050105@linux.intel.com> <20130610.212443.1096102996038709384.davem@davemloft.net> <51B6C87B.70101@linux.intel.com> <20130611.011427.2250431661196003301.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Recipients <info@uk.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lycasmtp.lycamobile.co.uk ([217.118.119.180]:36423 "EHLO
-	lycasmtp.lycamobile.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752686Ab3FKM2k convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 08:28:40 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
+	e1000-devel@lists.sourceforge.net, willemb@google.com,
+	erdnetdev@gmail.com, bhutchings@solarflare.com,
+	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
+	or.gerlitz@gmail.com, amirv@mellanox.com, eliezer@tamir.org.il
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130611.011427.2250431661196003301.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Uk National Lottery
-Ref: L/200-26937
-Batch: 2007MJL-01
+On 11/06/2013 11:14, David Miller wrote:
+> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+> Date: Tue, 11 Jun 2013 09:49:31 +0300
+>
+>> I would like to hear opinions on what needs to be added to make this
+>> feature complete.
+>
+> I actually would like to see the Kconfig option go away, that's
+> my only request.
 
+OK,
 
-                     FINAL NOTIFICATION
-We are pleased to inform you today 6th  June, 2013 of the result=20
-of the winners of the  UK NATIONAL LOTTERY ONLINE PROMO PROGRAMME, held=
-=20
-on the 30th of May, 2013.
+I will send a patch for this when I submit the socket option patch.
 
-You have therefore been approved for a lump sum pay out of =A31,000 000=
-=20
-(One Million Pounds Sterling) in cash credited to file XYL/26510460037/=
-06.To file for your claim,=20
-please contact our claims agent;
-
-Agents Name: Dr.Jones Greene
-Emai: claim.jonesgreene@hotmail.co.uk
-
-
-Provide him with the information below:
-
-1.Full Name:
-2.Full Address:
-3.Marital Status:
-4.Occupation:
-5.Age:
-6.Sex:
-7.Nationality:
-8.Country Of Residence:
-9.Telephone Number:
-
-Congratulations once more from all members and staff of this program.
-
-Sincerely,=20
-Dr.Jones Greene
-UK NATIONAL LOTTERY
+-Eliezer
