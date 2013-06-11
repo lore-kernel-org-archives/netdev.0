@@ -1,59 +1,69 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net PATCH] tuntap: set SOCK_ZEROCOPY flag during open
-Date: Tue, 11 Jun 2013 16:17:50 +0300
-Message-ID: <20130611131750.GD9279@redhat.com>
-References: <1370672261-30076-1-git-send-email-jasowang@redhat.com>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [patch net-next 1/3] team: remove synchronize_rcu() called
+ during queue override change
+Date: Tue, 11 Jun 2013 10:18:56 -0300
+Message-ID: <20130611131856.GA11888@obelix.rh>
+References: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
+ <1370878945-9718-2-git-send-email-jiri@resnulli.us>
+ <20130611004845.GF11894@obelix.rh>
+ <20130611054046.GA1533@minipsycho.orion>
+ <20130611080107.GA1916@minipsycho.brq.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:25438 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755193Ab3FKNTC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jun 2013 09:19:02 -0400
 Content-Disposition: inline
-In-Reply-To: <1370672261-30076-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130611080107.GA1916@minipsycho.brq.redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 08, 2013 at 02:17:41PM +0800, Jason Wang wrote:
->Cc: smtp.corp.redhat.com@redhat.com, davem@davemloft.net,
->	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
->
-> Commit 54f968d6efdbf7dec36faa44fc11f01b0e4d1990
-> (tuntap: move socket to tun_file) forgets to set SOCK_ZEROCOPY flag, which will
-> prevent vhost_net from doing zercopy w/ tap. This patch fixes this by setting
-> it during file open.
+On Tue, Jun 11, 2013 at 10:01:07AM +0200, Jiri Pirko wrote:
+> Tue, Jun 11, 2013 at 07:40:46AM CEST, jiri@resnulli.us wrote:
+> >Tue, Jun 11, 2013 at 02:48:45AM CEST, fbl@redhat.com wrote:
+> >>On Mon, Jun 10, 2013 at 05:42:23PM +0200, Jiri Pirko wrote:
+> >>> This patch removes synchronize_rcu() from function
+> >>> __team_queue_override_port_del(). That can be done because it is ok to
+> >>> do list_del_rcu() and list_add_tail_rcu() on the same list_head member
+> >>> without calling synchronize_rcu() in between. A bit of refactoring
+> >>> needed to be done because INIT_LIST_HEAD needed to be removed (to not
+> >>> kill the forward pointer) as well.
+> >>> 
+> >>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+> >>> ---
+> >>>  drivers/net/team/team.c | 63 ++++++++++++++++++++++++++++++++++++-------------
+> >>>  1 file changed, 47 insertions(+), 16 deletions(-)
+> >>> 
+> >>[...]
+> >>
+> >>> @@ -1278,17 +1310,16 @@ static int team_queue_id_option_set(struct team *team,
+> >>>  				    struct team_gsetter_ctx *ctx)
+> >>>  {
+> >>>  	struct team_port *port = ctx->info->port;
+> >>> +	u16 new_queue_id = ctx->data.u32_val;
+> >>>  
+> >>> -	if (port->queue_id == ctx->data.u32_val)
+> >>> +	if (port->queue_id == new_queue_id)
+> >>
+> >>Since you're passing new_queue_id to port->queue_id and
+> >>in the other parts you test against !port->queue_id to see
+> >>if it's enable or not, that means queue 0 can't be used.
+> >>
+> >>Maybe I am missing something, but wouldn't be better to
+> >>initialize with -1 and allow 0 to be used as well?
+> >
+> >0 means default queue. It's done the same was as in bonding code.
 > 
-> Cc: Michael S. Tsirkin <mst@redhat.com>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> + this patch does not change original behaviour...
 
-One of the addresses in the Cc list (smtp.corp.redhat.com@redhat.com)
-is clearly a mistake, which probably explains why it didn't
-get into patchwork.
+Jiri explained this bits off list to me, so
 
-I have bounced it to correct addresses, hope this
-helps instead of making even more of a mess of it.
+Acked-by: Flavio Leitner <fbl@redhat.com>
 
-For 3.10 and -stable:
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-
-> ---
->  drivers/net/tun.c |    2 ++
->  1 files changed, 2 insertions(+), 0 deletions(-)
-> 
-> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-> index f042b03..d2ddd6d 100644
-> --- a/drivers/net/tun.c
-> +++ b/drivers/net/tun.c
-> @@ -2155,6 +2155,8 @@ static int tun_chr_open(struct inode *inode, struct file * file)
->  	set_bit(SOCK_EXTERNALLY_ALLOCATED, &tfile->socket.flags);
->  	INIT_LIST_HEAD(&tfile->next);
->  
-> +	sock_set_flag(&tfile->sk, SOCK_ZEROCOPY);
-> +
->  	return 0;
->  }
->  
-> -- 
-> 1.7.1
+Thanks,
+-- 
+fbl
