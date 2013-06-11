@@ -1,66 +1,72 @@
-From: Markos Chandras <markos.chandras@gmail.com>
-Subject: Re: [PATCH] drivers/net/ethernet/3com: Drop EISA dependency from VORTEX
-Date: Tue, 11 Jun 2013 19:28:34 +0100
-Message-ID: <CAG2jQ8iic-u-kKpGp+OrcrHB2eDdpNsENw25BWxZiD6oDA1dNA@mail.gmail.com>
-References: <1370962642-12097-1-git-send-email-markos.chandras@imgtec.com> <51B767F0.6020304@cogentembedded.com>
+From: Jeff Haran <Jeff.Haran@citrix.com>
+Subject: RE: [PATCH 3/5] netfilter: xt_TCPMSS: Fix violation of RFC879 in
+ absence of MSS option
+Date: Tue, 11 Jun 2013 18:31:54 +0000
+Message-ID: <4E5779AD88B2F040B8A7E83ECF544D1A01622C@SJCPEX01CL02.citrite.net>
+References: <1370880461-4265-1-git-send-email-pablo@netfilter.org>
+ <1370880461-4265-4-git-send-email-pablo@netfilter.org>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7282@saturn3.aculab.com>
+ <20130610071954.GA13500@gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7285@saturn3.aculab.com>
+ <20130610082739.GA14277@gmail.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B7286@saturn3.aculab.com>
+ <20130611162525.GA11547@localhost>
+ <4E5779AD88B2F040B8A7E83ECF544D1A016005@SJCPEX01CL02.citrite.net>
+ <51B768EC.4090504@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Markos Chandras <markos.chandras@imgtec.com>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51B767F0.6020304@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Phil Oester <kernel@linuxace.com>,
+	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Rick Jones' <rick.jones2@hp.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <51B768EC.4090504@hp.com>
+Content-Language: en-US
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 11 June 2013 19:09, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> Hello.
->
->
-> On 11-06-2013 18:57, Markos Chandras wrote:
->
->> The Vortex driver depends on PCI with optional support for EISA.
->
->
->> This fixes build problems when EISA is selected but not PCI.
->
->
->> drivers/net/ethernet/3com/3c59x.c:1031:2: error: implicit declaration of
->> function 'pci_iomap' [-Werror=implicit-function-declaration]
->> drivers/net/ethernet/3com/3c59x.c:1044:3: error: implicit declaration of
->> function 'pci_iounmap' [-Werror=implicit-function-declaration]
->
->
->> Cc: David S. Miller <davem@davemloft.net>
->> Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
->> Cc: netdev@vger.kernel.org
->> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
->
->
->    The proper way to address this is probably add empty *static inline*
-> function implementations for CONFIG_PCI=n case to the header file, same as
-> was done with pci_{request|release}_regions() for this same file several
-> years ago...
->
-> WBR, Sergei
->
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> -----Original Message-----
+> From: netfilter-devel-owner@vger.kernel.org [mailto:netfilter-devel-owner@vger.kernel.org] On Behalf Of Rick Jones
+> Sent: Tuesday, June 11, 2013 11:14 AM
+> To: Jeff Haran
+> Cc: Pablo Neira Ayuso; David Laight; Phil Oester; netfilter-devel@vger.kernel.org; davem@davemloft.net; netdev@vger.kernel.org
+> Subject: Re: [PATCH 3/5] netfilter: xt_TCPMSS: Fix violation of RFC879 in absence of MSS option
+> 
+> > There is likely no "right" answer for this issue, but for what it's
+> > worth I can report a somewhat related experience I had a few years
+> > ago when updating my PC at home with a new Suse distro. The machine
+> > had been running previous versions of Suse with my Comcast cable
+> > internet service just fine for several years. I downloaded the ISO
+> > from opensuse, burned the DVD, did the install but when it came back
+> > up again the internet service was quite unreliable. It would work for
+> > a few minutes, but then no packets would flow. I happened to run
+> > ifconfig eth0 and it showed an MTU of 576. It seems the version of
+> > the DHCP client that came with the new distro honored the DHCP MTU
+> > option, but Comcast was advertising DHCP offers with an MTU of 576.
+> 
+> Presumably then, your system rejected any incoming packet which was
+> larger than the 576 byte MTU it got from the Comcast DHCP server..
+> 
+> I can think of two reasons for larger packets to be arriving at your
+> system then:
+> 
+> 1) UDP
+> 
+> 2) Broken TCPs ass-u-me-ing a TCP MSS larger than 536 bytes when there
+> wasn't an MSS option in the SYN(s).
+> 
+> Did your SuSE system send actual TCP MSS options based on the 576 byte MTU?
+> 
+> 
+> rick jones
 
-Hi Sergei,
+I didn't debug it further so I can't answer that question. But the problem was clearly in the cable modem. Power cycling the modem brought back connectivity, for a little while. I was able to muddle through this since I work with this stuff for a living, but if I had been an IP-unsavvy Joe Sixpack who was trying out a Linux live CD on his home PC as an alternative to Windows, I suspect I would have given up in disgust.
 
-Sounds reasonable to me but I am not that familiar with this part of
-the kernel so I can't comment on whether this is the best solution or
-not.
+Something to think about for those of us who would like to see wider adoption of Linux on the PC desktop.
 
---
-Regards,
-Markos Chandras
+Jeff Haran
+
