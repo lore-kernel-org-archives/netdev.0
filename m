@@ -1,69 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] drivers/net/ethernet/3com: Drop EISA dependency from
- VORTEX
-Date: Wed, 12 Jun 2013 00:45:54 +0400
-Message-ID: <51B78C82.7020709@cogentembedded.com>
-References: <1370962642-12097-1-git-send-email-markos.chandras@imgtec.com> <51B75088.8050800@windriver.com> <CAG2jQ8hACp_iGEXR7rXKR3sydK4O=y0paeh1FFgH2UisxWVxVA@mail.gmail.com> <51B78594.5050903@windriver.com>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH net] ipv6: prevent fib6_run_gc() contention
+Date: Tue, 11 Jun 2013 22:49:12 +0200
+Message-ID: <20130611204912.GA1255@lion.mk-sys.cz>
+References: <20130604111040.CCC9162CB4@unicorn.suse.cz>
+ <20130610.142642.161876882927700341.davem@davemloft.net>
+ <20130611100718.GA7581@unicorn.suse.cz>
+ <20130611.130114.764345999553478927.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Markos Chandras <markos.chandras@gmail.com>,
-	Markos Chandras <markos.chandras@imgtec.com>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Paul Gortmaker <paul.gortmaker@windriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51B78594.5050903@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from lion.mk-sys.cz ([213.168.178.121]:38588 "EHLO lion.mk-sys.cz"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755141Ab3FKU73 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jun 2013 16:59:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20130611.130114.764345999553478927.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Tue, Jun 11, 2013 at 01:01:14PM -0700, David Miller wrote:
+> From: Michal Kubecek <mkubecek@suse.cz>
+> Date: Tue, 11 Jun 2013 12:07:18 +0200
+> 
+> > On Mon, Jun 10, 2013 at 02:26:42PM -0700, David Miller wrote:
+> >> 
+> >> It seems to me that it would be much simpler to simply update
+> >> ip6_rt_last_gc first, that way the other threads would elide the GC
+> >> call.
+> > 
+> > That was my original idea but I was afraid that while the remaining
+> > window in ip6_dst_gc() would be very short and probably safe, we could
+> > still run into problem if fib6_gc_lock was locked by some other caller
+> > of fib6_run_gc() which doesn't update net->ipv6.ip6_rt_last_gc,
+> > especially via a timer.
+> 
+> Why don't you simply try it and find out?
 
-On 06/12/2013 12:16 AM, Paul Gortmaker wrote:
+I don't have the system where the issue was observed at hand. I'll have
+to ask the customer who reported it to run the test so that it may take
+some time.
 
->>>> The Vortex driver depends on PCI with optional support for EISA.
-
->>>> This fixes build problems when EISA is selected but not PCI.
-
->>>> drivers/net/ethernet/3com/3c59x.c:1031:2: error: implicit declaration of
->>>> function 'pci_iomap' [-Werror=implicit-function-declaration]
->>>> drivers/net/ethernet/3com/3c59x.c:1044:3: error: implicit declaration of
->>>> function 'pci_iounmap' [-Werror=implicit-function-declaration]
-
->>>> Cc: David S. Miller <davem@davemloft.net>
->>>> Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
->>>> Cc: netdev@vger.kernel.org
->>>> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
->>>> ---
->>>>   drivers/net/ethernet/3com/Kconfig | 2 +-
->>>>   1 file changed, 1 insertion(+), 1 deletion(-)
-
->>>> diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
->>>> index 1c71c76..5c67f44 100644
->>>> --- a/drivers/net/ethernet/3com/Kconfig
->>>> +++ b/drivers/net/ethernet/3com/Kconfig
->>>> @@ -66,7 +66,7 @@ config PCMCIA_3C589
->>>>
->>>>   config VORTEX
->>>>        tristate "3c590/3c900 series (592/595/597) \"Vortex/Boomerang\" support"
->>>> -     depends on (PCI || EISA) && HAS_IOPORT
->>>> +     depends on PCI && HAS_IOPORT
-
->>> How can this fix it?  The way I read your change is that you
->>> have now made it impossible to select for EISA=y and PCI=n,
->>> thus breaking EISA only configurations who would find their
->>> driver support gone when they run "make oldconfig".
-
-[...]
-
->> Hi Paul,
-
->> The driver does not seem to build if you only have EISA=y and PCI=n.
->> Does this driver really support EISA only
-
-> Yes.  Not that anyone really probably cares anymore.  EISA is dead.
-
-    We have the user of 3Com EISA cards on this list and I've fixed EISA
-specific bug in this driver not long ago.
-
-WBR, Sergei
+                                                         Michal Kubecek
