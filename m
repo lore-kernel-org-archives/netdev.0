@@ -1,47 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net 0/5] vxlan stability patches
-Date: Tue, 11 Jun 2013 01:52:12 -0700 (PDT)
-Message-ID: <20130611.015212.65163212261749972.davem@davemloft.net>
-References: <20130610173709.0356a2d2@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH] xen-netback: don't de-reference vif pointer after
+ having called xenvif_put()
+Date: Tue, 11 Jun 2013 02:01:36 -0700 (PDT)
+Message-ID: <20130611.020136.1037505762134627955.davem@davemloft.net>
+References: <51AF613F02000078000DB84E@nat28.tlf.novell.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: ian.campbell@citrix.com, xen-devel@lists.xen.org,
+	netdev@vger.kernel.org
+To: JBeulich@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37186 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37271 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753761Ab3FKIwP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 04:52:15 -0400
-In-Reply-To: <20130610173709.0356a2d2@nehalam.linuxnetplumber.net>
+	with ESMTP id S1752168Ab3FKJBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 05:01:37 -0400
+In-Reply-To: <51AF613F02000078000DB84E@nat28.tlf.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 10 Jun 2013 17:37:09 -0700
+From: "Jan Beulich" <JBeulich@suse.com>
+Date: Wed, 05 Jun 2013 15:03:11 +0100
 
-> Test (non-stress) has been run on each patch.
+> When putting vif-s on the rx notify list, calling xenvif_put() must be
+> deferred until after the removal from the list and the issuing of the
+> notification, as both operations dereference the pointer.
+> 
+> Changing this got me to notice that the "irq" variable was effectively
+> unused (and was of too narrow type anyway).
+> 
+> Signed-off-by: Jan Beulich <jbeulich@suse.com>
 
-These patches still do not apply to 'net':
+You've included the commit message, and the patch, twice.  Once inline
+and once as an attachment, do not do this.  It makes the patch impossible
+to apply when I fetch it out of patchwork.
 
-[davem@dokdo net]$ git am --signoff bundle-4421-vxlan-net.mbox 
-Applying: vxlan: only migrate dynamic FDB entries
-Applying: vxlan: handle skb_clone failure
-Applying: vxlan: fix crash on module removal
-Applying: vxlan: fix crash from work pending on module removal
-error: patch failed: drivers/net/vxlan.c:148
-error: drivers/net/vxlan.c: patch does not apply
-Patch failed at 0004 vxlan: fix crash from work pending on module removal
-The copy of the patch that failed is found in:
-   /home/davem/src/GIT/net/.git/rebase-apply/patch
-When you have resolved this problem run "git am --resolved".
-If you would prefer to skip this patch, instead run "git am --skip".
-To restore the original branch and stop patching run "git am --abort".
-
-Please submit these changes properly, and it should be very clear
-to you that I am losing my patience.
-
-Linus at this point wants only the most important fixes, and we've
-gone through two iterations of these changes, each of which either
-don't compile, or aren't grouped properly and therefore don't even
-apply cleanly to my tree.
+Please submit it properly.
