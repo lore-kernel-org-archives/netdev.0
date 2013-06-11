@@ -1,90 +1,71 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: Re: [PATCH] sh_eth: get R8A7740 Rx descriptor word 0 shift out of
- #ifdef
-Date: Tue, 11 Jun 2013 14:34:58 +0900
-Message-ID: <51B6B702.6070005@renesas.com>
-References: <201306110022.51293.sergei.shtylyov@cogentembedded.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/3] team: remove synchronize_rcu() called
+ during queue override change
+Date: Tue, 11 Jun 2013 07:40:46 +0200
+Message-ID: <20130611054046.GA1533@minipsycho.orion>
+References: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
+ <1370878945-9718-2-git-send-email-jiri@resnulli.us>
+ <20130611004845.GF11894@obelix.rh>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-reply-to: <201306110022.51293.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, davem@davemloft.net, edumazet@google.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f176.google.com ([209.85.215.176]:37589 "EHLO
+	mail-ea0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751724Ab3FKFku (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 01:40:50 -0400
+Received: by mail-ea0-f176.google.com with SMTP id z15so2986220ead.7
+        for <netdev@vger.kernel.org>; Mon, 10 Jun 2013 22:40:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130611004845.GF11894@obelix.rh>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Tue, Jun 11, 2013 at 02:48:45AM CEST, fbl@redhat.com wrote:
+>On Mon, Jun 10, 2013 at 05:42:23PM +0200, Jiri Pirko wrote:
+>> This patch removes synchronize_rcu() from function
+>> __team_queue_override_port_del(). That can be done because it is ok to
+>> do list_del_rcu() and list_add_tail_rcu() on the same list_head member
+>> without calling synchronize_rcu() in between. A bit of refactoring
+>> needed to be done because INIT_LIST_HEAD needed to be removed (to not
+>> kill the forward pointer) as well.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@resnulli.us>
+>> ---
+>>  drivers/net/team/team.c | 63 ++++++++++++++++++++++++++++++++++++-------------
+>>  1 file changed, 47 insertions(+), 16 deletions(-)
+>> 
+>[...]
+>
+>> @@ -1278,17 +1310,16 @@ static int team_queue_id_option_set(struct team *team,
+>>  				    struct team_gsetter_ctx *ctx)
+>>  {
+>>  	struct team_port *port = ctx->info->port;
+>> +	u16 new_queue_id = ctx->data.u32_val;
+>>  
+>> -	if (port->queue_id == ctx->data.u32_val)
+>> +	if (port->queue_id == new_queue_id)
+>
+>Since you're passing new_queue_id to port->queue_id and
+>in the other parts you test against !port->queue_id to see
+>if it's enable or not, that means queue 0 can't be used.
+>
+>Maybe I am missing something, but wouldn't be better to
+>initialize with -1 and allow 0 to be used as well?
 
-Thank you for the patch.
+0 means default queue. It's done the same was as in bonding code.
 
-(2013/06/11 5:22), Sergei Shtylyov wrote:
-> The only R8A7740 specific #ifdef hindering ARM multiplatform  build is left  in
-> sh_eth_rx(): it covers a very strange code shifting Rx buffer descriptor word 0
-> by 16 (which should cause Rx length error to be logged on every buffer  several
-> lines later). Get rid of the #ifdef by adding 'shift_rd0' field to the  'struct
-> sh_eth_cpu_data', making the shift dependent on it, and setting it to 1 for the
-> R8A7740 case...
-
-This very strange code was from the first R8A7740 supporting patch I sent.
-I should have shifted the RD_RFS values (from RD_RFS1 to RD_RFS10) if R8A7740.
-In other words, since the desc_status also has RDFEND, I should have not shifted
-the desc_status before the driver checked the RDFEND.
-
-So, I think we have to modify this "desc_status >>= 16" timing.
-Should I submit such a patch first?
-
-Best regards,
-Yoshihiro Shimoda
-
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-> 
-> ---
-> The patch is against Dave Miller's 'net-next.git' repo.
-> I have no R8A7740 manual,  so have to trust that the code is correct.  It would
-> be good to get some comments from the author of the original commit  that added
-> R8A7740 support, so CCing him... 
-> 
->  drivers/net/ethernet/renesas/sh_eth.c |    6 +++---
->  drivers/net/ethernet/renesas/sh_eth.h |    1 +
->  2 files changed, 4 insertions(+), 3 deletions(-)
-> 
-> Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-> +++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-> @@ -667,6 +667,7 @@ static struct sh_eth_cpu_data r8a7740_da
->  	.no_ade		= 1,
->  	.tsu		= 1,
->  	.select_mii	= 1,
-> +	.shift_rd0	= 1,
->  };
->  
->  static struct sh_eth_cpu_data sh7619_data = {
-> @@ -1260,9 +1261,8 @@ static int sh_eth_rx(struct net_device *
->  		desc_status = edmac_to_cpu(mdp, rxdesc->status);
->  		pkt_len = rxdesc->frame_length;
->  
-> -#if defined(CONFIG_ARCH_R8A7740)
-> -		desc_status >>= 16;
-> -#endif
-> +		if (mdp->cd->shift_rd0)
-> +			desc_status >>= 16;
->  
->  		if (--boguscnt < 0)
->  			break;
-> Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
-> ===================================================================
-> --- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
-> +++ net-next/drivers/net/ethernet/renesas/sh_eth.h
-> @@ -476,6 +476,7 @@ struct sh_eth_cpu_data {
->  	unsigned no_ade:1;	/* E-DMAC DO NOT have ADE bit in EESR */
->  	unsigned hw_crc:1;	/* E-DMAC have CSMR */
->  	unsigned select_mii:1;	/* EtherC have RMII_MII (MII select register) */
-> +	unsigned shift_rd0:1;	/* shift Rx buffer descriptor word 0 by 16 */
->  };
->  
->  struct sh_eth_private {
-> 
-
+>
+>fbl
+>
+>>  		return 0;
+>> -	if (ctx->data.u32_val >= team->dev->real_num_tx_queues)
+>> +	if (new_queue_id >= team->dev->real_num_tx_queues)
+>>  		return -EINVAL;
+>> -	port->queue_id = ctx->data.u32_val;
+>> -	team_queue_override_port_refresh(team, port);
+>> +	team_queue_override_port_change_queue_id(team, port, new_queue_id);
+>>  	return 0;
+>>  }
+>>  
+>
