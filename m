@@ -1,54 +1,40 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next v2] net: add doc for ip_early_demux sysctl
-Date: Tue, 11 Jun 2013 18:54:39 +0800
-Message-ID: <1370948079-26598-1-git-send-email-amwang@redhat.com>
-Cc: Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Subject: [PATCH net] be2net: Fix 32-bit DMA Mask handling
+Date: Tue, 11 Jun 2013 17:18:22 +0530
+Message-ID: <e97260be-0d58-4285-a8e5-c9b030d60132@CMEXHTCAS2.ad.emulex.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Somnath Kotur <somnath.kotur@emulex.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9485 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752530Ab3FKKzI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jun 2013 06:55:08 -0400
+Received: from cmexedge2.ext.emulex.com ([138.239.224.100]:48338 "EHLO
+	CMEXEDGE2.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753900Ab3FKLtM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 07:49:12 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <amwang@redhat.com>
+Fix to set the coherent DMA mask only if dma_set_mask() succeeded, and to
+error out if either fails.
 
-commit 6648bd7e0e62c0c8c03b (ipv4: Add sysctl knob to control
-early socket demux) introduced such sysctl, but forgot to add
-doc into Documentation/networking/ip-sysctl.txt. This patch adds it.
-
-Basically I grab the doc from the description of commit 41063e9dd11956f2d285
-(ipv4: Early TCP socket demux.) and the above commit.
-
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
-
+Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 ---
-v2: change based on David's comments
+ drivers/net/ethernet/emulex/benet/be_main.c |    3 +++
+ 1 files changed, 3 insertions(+), 0 deletions(-)
 
-diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
-index 9cea5d3..36e5a40 100644
---- a/Documentation/networking/ip-sysctl.txt
-+++ b/Documentation/networking/ip-sysctl.txt
-@@ -685,6 +685,15 @@ ip_dynaddr - BOOLEAN
- 	occurs.
- 	Default: 0
- 
-+ip_early_demux - BOOLEAN
-+	Optimize input packet processing down to one demux for
-+	certain kinds of local sockets.  Currently we only do this
-+	for established TCP sockets.
-+
-+	It may add an additional cost for pure routing workloads that
-+	reduces overall throughput, in such case you should disable it.
-+	Default: 1
-+
- icmp_echo_ignore_all - BOOLEAN
- 	If set non-zero, then the kernel will ignore all ICMP ECHO
- 	requests sent to it.
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 8bc1b21..a0b4be5 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -4262,6 +4262,9 @@ static int be_probe(struct pci_dev *pdev, const struct pci_device_id *pdev_id)
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 	} else {
+ 		status = dma_set_mask(&pdev->dev, DMA_BIT_MASK(32));
++		if (!status)
++			status = dma_set_coherent_mask(&pdev->dev,
++						       DMA_BIT_MASK(32));
+ 		if (status) {
+ 			dev_err(&pdev->dev, "Could not set PCI DMA Mask\n");
+ 			goto free_netdev;
+-- 
+1.6.0.2
