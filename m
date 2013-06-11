@@ -1,53 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] net_sched: add 64bit rate estimators
-Date: Tue, 11 Jun 2013 02:51:32 -0700 (PDT)
-Message-ID: <20130611.025132.157790026336411319.davem@davemloft.net>
-References: <1370408447.24311.241.camel@edumazet-glaptop>
-	<1370533402.24311.353.camel@edumazet-glaptop>
+From: "Jan Beulich" <JBeulich@suse.com>
+Subject: Re: [PATCH] xen-netback: don't de-reference vif pointer after
+ having called xenvif_put()
+Date: Tue, 11 Jun 2013 10:59:39 +0100
+Message-ID: <51B7112B02000078000DD066@nat28.tlf.novell.com>
+References: <51AF613F02000078000DB84E@nat28.tlf.novell.com>
+ <20130611.020136.1037505762134627955.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com
-To: eric.dumazet@gmail.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: <ian.campbell@citrix.com>, <xen-devel@lists.xen.org>,
+	<netdev@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37817 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042Ab3FKJvd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 05:51:33 -0400
-In-Reply-To: <1370533402.24311.353.camel@edumazet-glaptop>
+Received: from nat28.tlf.novell.com ([130.57.49.28]:43515 "EHLO
+	nat28.tlf.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753646Ab3FKJ7l convert rfc822-to-8bit (ORCPT
+	<rfc822;groupwise-netdev@vger.kernel.org:4:1>);
+	Tue, 11 Jun 2013 05:59:41 -0400
+In-Reply-To: <20130611.020136.1037505762134627955.davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 06 Jun 2013 08:43:22 -0700
+>>> On 11.06.13 at 11:01, David Miller <davem@davemloft.net> wrote:
+> From: "Jan Beulich" <JBeulich@suse.com>
+> Date: Wed, 05 Jun 2013 15:03:11 +0100
+> 
+>> When putting vif-s on the rx notify list, calling xenvif_put() must be
+>> deferred until after the removal from the list and the issuing of the
+>> notification, as both operations dereference the pointer.
+>> 
+>> Changing this got me to notice that the "irq" variable was effectively
+>> unused (and was of too narrow type anyway).
+>> 
+>> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+> 
+> You've included the commit message, and the patch, twice.  Once inline
+> and once as an attachment, do not do this.  It makes the patch impossible
+> to apply when I fetch it out of patchwork.
+> 
+> Please submit it properly.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> struct gnet_stats_rate_est contains u32 fields, so the bytes per second
-> field can wrap at 34360Mbit.
-> 
-> Add a new gnet_stats_rate_est64 structure to get 64bit bps/pps fields,
-> and switch the kernel to use this structure natively.
-> 
-> This structure is dumped to user space as a new attribute :
-> 
-> TCA_STATS_RATE_EST64
-> 
-> Old tc command will now display the capped bps (to 34360Mbit), instead
-> of wrapped values, and updated tc command will display correct
-> information.
-> 
-> Old tc command output, after patch :
-> 
-> eric:~# tc -s -d qd sh dev lo
-> qdisc pfifo 8001: root refcnt 2 limit 1000p
->  Sent 80868245400 bytes 1978837 pkt (dropped 0, overlimits 0 requeues 0) 
->  rate 34360Mbit 189696pps backlog 0b 0p requeues 0 
-> 
-> This patch carefully reorganizes "struct Qdisc" layout to get optimal
-> performance on SMP.
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Ben Hutchings <bhutchings@solarflare.com>
+Sending to multiple lists makes it impossible to match everyone's
+preferences/requirements. xen-devel generally wants patches
+inline and attached (for the case where the inline variant gets
+mangled by mail programs).
 
-Applied, thanks Eric.
+I'll resend inline only, in the hope that it'll reach your inbox intact.
+
+Jan
