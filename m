@@ -1,48 +1,70 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: remove '__maybe_unused' annotations
-Date: Wed, 12 Jun 2013 03:07:29 +0400
-Message-ID: <201306120307.29615.sergei.shtylyov@cogentembedded.com>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: Re: [RFC 0/7] Fixing dma mask setting in various
+	network drivers
+Date: Tue, 11 Jun 2013 16:50:44 -0700
+Message-ID: <20130611165044.00000d3a@unknown>
+References: <20130610230849.GF18614@n2100.arm.linux.org.uk>
+	<20130611111230.000062d2@unknown>
+	<20130611203505.GO18614@n2100.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+Cc: Rasesh Mody <rmody@brocade.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	"Allan, Bruce W" <bruce.w.allan@intel.com>,
+	jesse.brandeburg@intel.com, "Ronciak, John" <john.ronciak@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130611203505.GO18614@n2100.arm.linux.org.uk>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Now that  the SoC specific support is no longer done with help of #ifdef'fery,
-we  no longer need '__maybe_unused' annotations to sh_eth_select_mii() and
-sh_eth_set_duplex()...
+On Tue, 11 Jun 2013 13:35:05 -0700
+Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
+> As part of my review of all this stuff, I'm wondering whether a helper
+> to set both masks makes sense.  Something like:
+> 
+> static inline int dma_set_masks(struct device *dev, u64 mask)
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+it doesn't need to be inline, it is never called in hotpath.
 
----
-The patch is against Dave Miller's 'net-next.git' repo.
+> {
+> 	int ret = dma_set_mask(dev, mask);
+> 	if (ret == 0)
+> 		dma_set_coherent_mask(dev, mask);
+> 	return ret;
+> }
+> 
+> "dma_set_masks()" is a little too close to dma_set_mask() though; and
 
- drivers/net/ethernet/renesas/sh_eth.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+how about dma_set_mask_and_coherent(...)
 
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -321,7 +321,7 @@ static int sh_eth_is_gether(struct sh_et
- 		return 0;
- }
- 
--static void __maybe_unused sh_eth_select_mii(struct net_device *ndev)
-+static void sh_eth_select_mii(struct net_device *ndev)
- {
- 	u32 value = 0x0;
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
-@@ -345,7 +345,7 @@ static void __maybe_unused sh_eth_select
- 	sh_eth_write(ndev, value, RMII_MII);
- }
- 
--static void __maybe_unused sh_eth_set_duplex(struct net_device *ndev)
-+static void sh_eth_set_duplex(struct net_device *ndev)
- {
- 	struct sh_eth_private *mdp = netdev_priv(ndev);
- 
+> such a function looks like it would be usable for 20 odd drivers
+> currently.  The plus point is that it may help to prevent this kind
+> of issue in the future...
+> 
+> Thoughts?
+
+I really like the idea of consolidating this in the kernel with a
+global helper.
+
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
+
+Build for Windows Store.
+
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
