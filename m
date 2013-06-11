@@ -1,35 +1,58 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v10 net-next 0/6] net: low latency Ethernet device polling
-Date: Tue, 11 Jun 2013 15:49:32 +0300
-Message-ID: <51B71CDC.1040004@linux.intel.com>
-References: <51B68AA6.1050105@linux.intel.com> <20130610.212443.1096102996038709384.davem@davemloft.net> <51B6C87B.70101@linux.intel.com> <20130611.011427.2250431661196003301.davem@davemloft.net>
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: [PATCH net-next] tun: Turn tun_flow_init() into void fn
+Date: Tue, 11 Jun 2013 17:01:08 +0400
+Message-ID: <51B71F94.6020507@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
-	e1000-devel@lists.sourceforge.net, willemb@google.com,
-	erdnetdev@gmail.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
-	or.gerlitz@gmail.com, amirv@mellanox.com, eliezer@tamir.org.il
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130611.011427.2250431661196003301.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+To: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailhub.sw.ru ([195.214.232.25]:7758 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751226Ab3FKNBR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jun 2013 09:01:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 11/06/2013 11:14, David Miller wrote:
-> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> Date: Tue, 11 Jun 2013 09:49:31 +0300
->
->> I would like to hear opinions on what needs to be added to make this
->> feature complete.
->
-> I actually would like to see the Kconfig option go away, that's
-> my only request.
+This routine doesn't fail since 9fdc6bef (tuntap: dont use a private kmem_cache)
+so it makes sense to compact the code a little bit.
 
-OK,
+Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-I will send a patch for this when I submit the socket option patch.
+---
 
--Eliezer
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 89776c5..544021e 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -841,7 +841,7 @@ static const struct net_device_ops tap_netdev_ops = {
+ #endif
+ };
+ 
+-static int tun_flow_init(struct tun_struct *tun)
++static void tun_flow_init(struct tun_struct *tun)
+ {
+ 	int i;
+ 
+@@ -852,8 +852,6 @@ static int tun_flow_init(struct tun_struct *tun)
+ 	setup_timer(&tun->flow_gc_timer, tun_flow_cleanup, (unsigned long)tun);
+ 	mod_timer(&tun->flow_gc_timer,
+ 		  round_jiffies_up(jiffies + tun->ageing_time));
+-
+-	return 0;
+ }
+ 
+ static void tun_flow_uninit(struct tun_struct *tun)
+@@ -1659,10 +1657,7 @@ static int tun_set_iff(struct net *net, struct file *file, struct ifreq *ifr)
+ 			goto err_free_dev;
+ 
+ 		tun_net_init(dev);
+-
+-		err = tun_flow_init(tun);
+-		if (err < 0)
+-			goto err_free_dev;
++		tun_flow_init(tun);
+ 
+ 		dev->hw_features = NETIF_F_SG | NETIF_F_FRAGLIST |
+ 			TUN_USER_FEATURES;
