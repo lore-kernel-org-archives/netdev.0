@@ -1,38 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] xen-netback: don't de-reference vif pointer after
- having called xenvif_put()
-Date: Tue, 11 Jun 2013 02:01:36 -0700 (PDT)
-Message-ID: <20130611.020136.1037505762134627955.davem@davemloft.net>
-References: <51AF613F02000078000DB84E@nat28.tlf.novell.com>
+Subject: Re: [PATCHv4 net-next 0/2] Add two new flags to bridge.
+Date: Tue, 11 Jun 2013 02:05:04 -0700 (PDT)
+Message-ID: <20130611.020504.1812928863778377675.davem@davemloft.net>
+References: <1370441281-11281-1-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ian.campbell@citrix.com, xen-devel@lists.xen.org,
-	netdev@vger.kernel.org
-To: JBeulich@suse.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37271 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752168Ab3FKJBh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 05:01:37 -0400
-In-Reply-To: <51AF613F02000078000DB84E@nat28.tlf.novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, shemminger@vyatta.com,
+	bridge@lists.linux-foundation.org
+To: vyasevic@redhat.com
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <1370441281-11281-1-git-send-email-vyasevic@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: "Jan Beulich" <JBeulich@suse.com>
-Date: Wed, 05 Jun 2013 15:03:11 +0100
+From: Vlad Yasevich <vyasevic@redhat.com>
+Date: Wed,  5 Jun 2013 10:07:59 -0400
 
-> When putting vif-s on the rx notify list, calling xenvif_put() must be
-> deferred until after the removal from the list and the issuing of the
-> notification, as both operations dereference the pointer.
-> 
-> Changing this got me to notice that the "irq" variable was effectively
-> unused (and was of too narrow type anyway).
-> 
-> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+> The following series adds 2 new flags to bridge.  One flag allows
+> the user to control whether mac learning is performed on the interface
+> or not.  By default mac learning is on.
+> The other flag allows the user to control whether unicast traffic
+> is flooded (send without an fdb) to a given unicast port.  Default is
+> on.
 
-You've included the commit message, and the patch, twice.  Once inline
-and once as an attachment, do not do this.  It makes the patch impossible
-to apply when I fetch it out of patchwork.
-
-Please submit it properly.
+Series applied, thanks.
