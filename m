@@ -1,36 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] bonding: couple of bug fixes
-Date: Tue, 11 Jun 2013 02:45:30 -0700 (PDT)
-Message-ID: <20130611.024530.1458814488844049119.davem@davemloft.net>
-References: <1370519702-18581-1-git-send-email-nikolay@redhat.com>
+Subject: Re: [PATCH net 1/2] vhost: check owner before we overwrite ubuf_info
+Date: Tue, 11 Jun 2013 02:46:52 -0700 (PDT)
+Message-ID: <20130611.024652.352722242220532694.davem@davemloft.net>
+References: <1370521145-9723-1-git-send-email-mst@redhat.com>
+	<1370521145-9723-2-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
-To: nikolay@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37716 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753341Ab3FKJpb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 05:45:31 -0400
-In-Reply-To: <1370519702-18581-1-git-send-email-nikolay@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: tt.rantala@gmail.com, kvm@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1370521145-9723-2-git-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: nikolay@redhat.com
-Date: Thu,  6 Jun 2013 13:55:00 +0200
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 6 Jun 2013 15:20:39 +0300
 
-> From: Nikolay Aleksandrov <nikolay@redhat.com>
+> If device has an owner, we shouldn't touch ubuf_info
+> since it might be in use.
 > 
-> Hello,
-> Patch 01 resets the master's mac if the first enslave fails and the slave's
-> mac was set to the master's prior.
-> Patch 02 fixes a type bug of igmp_retrans (which is the counter of igmp_resend
-> param and was silently not working if the value was >127) so it can go up to 255
-> (as per documentation). It also fixes two tricky race conditions which were
-> hidden because of the previous bug.
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 
-There was some minor back and forth between Jay and Nikolay on this set,
-but I'd like to see some ACKs before applying this stuff.
-
-Thanks.
+Applied.
