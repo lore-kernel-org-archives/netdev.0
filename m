@@ -1,47 +1,47 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH 3/5] netfilter: xt_TCPMSS: Fix violation of RFC879 in absence of MSS option
-Date: Tue, 11 Jun 2013 09:43:07 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7282@saturn3.aculab.com>
-References: <1370880461-4265-1-git-send-email-pablo@netfilter.org> <1370880461-4265-4-git-send-email-pablo@netfilter.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3 net 0/5] vxlan stability patches
+Date: Tue, 11 Jun 2013 01:52:12 -0700 (PDT)
+Message-ID: <20130611.015212.65163212261749972.davem@davemloft.net>
+References: <20130610173709.0356a2d2@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "Pablo Neira Ayuso" <pablo@netfilter.org>,
-	<netfilter-devel@vger.kernel.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1370880461-4265-4-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37186 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753761Ab3FKIwP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 04:52:15 -0400
+In-Reply-To: <20130610173709.0356a2d2@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> The clamp-mss-to-pmtu option of the xt_TCPMSS target can cause issues
-> connecting to websites if there was no MSS option present in the
-> original SYN packet from the client. In these cases, it may add a
-> MSS higher than the default specified in RFC879. Fix this by never
-> setting a value > 536 if no MSS option was specified by the client.
-> 
-> This closes netfilter's bugzilla #662.
-...
-> +	/* RFC 879 states that the default MSS is 536 without specific
-> +	 * knowledge that the destination host is prepared to accept larger.
-> +	 * Since no MSS was provided, we MUST NOT set a value > 536.
-> +	 */
-> +	newmss = min(newmss, (u16)536);
-> +
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Mon, 10 Jun 2013 17:37:09 -0700
 
-Is setting the mss to 536 actually ever sensible?
-RFC 879 might say that it is the default (and the minimum
-that must be supported), but in practise the actual mss
-is very likely to be only slightly shorter than the standard
-ethernet mss.
-Although strict conformance with RFC 879 might require the mss
-be clamped to 536, pragmatically a value much nearer 1400 would
-make sense - systems with very low mtu/mss are probably likely
-to advertise it.
+> Test (non-stress) has been run on each patch.
 
-	David
+These patches still do not apply to 'net':
 
+[davem@dokdo net]$ git am --signoff bundle-4421-vxlan-net.mbox 
+Applying: vxlan: only migrate dynamic FDB entries
+Applying: vxlan: handle skb_clone failure
+Applying: vxlan: fix crash on module removal
+Applying: vxlan: fix crash from work pending on module removal
+error: patch failed: drivers/net/vxlan.c:148
+error: drivers/net/vxlan.c: patch does not apply
+Patch failed at 0004 vxlan: fix crash from work pending on module removal
+The copy of the patch that failed is found in:
+   /home/davem/src/GIT/net/.git/rebase-apply/patch
+When you have resolved this problem run "git am --resolved".
+If you would prefer to skip this patch, instead run "git am --skip".
+To restore the original branch and stop patching run "git am --abort".
 
+Please submit these changes properly, and it should be very clear
+to you that I am losing my patience.
 
+Linus at this point wants only the most important fixes, and we've
+gone through two iterations of these changes, each of which either
+don't compile, or aren't grouped properly and therefore don't even
+apply cleanly to my tree.
