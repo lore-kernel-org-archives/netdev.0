@@ -1,33 +1,51 @@
 From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: [net PATCH 0/2] Fixes for davinci MDIO on suspend/resume
-Date: Tue, 11 Jun 2013 15:32:03 +0530
-Message-ID: <1370944925-11374-1-git-send-email-mugunthanvnm@ti.com>
+Subject: [net PATCH 2/2] drivers: net: davinci_mdio: restore mdio clk divider in mdio resume
+Date: Tue, 11 Jun 2013 15:32:05 +0530
+Message-ID: <1370944925-11374-3-git-send-email-mugunthanvnm@ti.com>
+References: <1370944925-11374-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <davem@davemloft.net>, <linux-omap@vger.kernel.org>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:56426 "EHLO comal.ext.ti.com"
+Received: from arroyo.ext.ti.com ([192.94.94.40]:43207 "EHLO arroyo.ext.ti.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753741Ab3FKKAv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jun 2013 06:00:51 -0400
+	id S1753741Ab3FKKAz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 11 Jun 2013 06:00:55 -0400
+In-Reply-To: <1370944925-11374-1-git-send-email-mugunthanvnm@ti.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch series fixes the following issues with Davinci MDIO
-* Bring up MDIO driver earlier than Ethernet driver so that ethernet driver
-  can communicate with the phy as soon as it is resumed.
-* On suspend/resume cycle the MDIO divider will be set to reset value so
-  this has to be programmed after resume.
+During suspend resume cycle all the register data is lost, so MDIO
+clock divier value gets reset. This patch restores the clock divider
+value.
 
-Mugunthan V N (2):
-  drivers: net: davinci_mdio: moving mdio resume earlier than cpsw
-    ethernet driver
-  drivers: net: davinci_mdio: restore mdio clk divider in mdio resume
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/davinci_mdio.c |    5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
- drivers/net/ethernet/ti/davinci_mdio.c |    9 +++------
- 1 file changed, 3 insertions(+), 6 deletions(-)
-
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 74e56b3..c47f0db 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -459,15 +459,12 @@ static int davinci_mdio_suspend(struct device *dev)
+ static int davinci_mdio_resume(struct device *dev)
+ {
+ 	struct davinci_mdio_data *data = dev_get_drvdata(dev);
+-	u32 ctrl;
+ 
+ 	pm_runtime_get_sync(data->dev);
+ 
+ 	spin_lock(&data->lock);
+ 	/* restart the scan state machine */
+-	ctrl = __raw_readl(&data->regs->control);
+-	ctrl |= CONTROL_ENABLE;
+-	__raw_writel(ctrl, &data->regs->control);
++	__davinci_mdio_reset(data);
+ 
+ 	data->suspended = false;
+ 	spin_unlock(&data->lock);
 -- 
 1.7.9.5
