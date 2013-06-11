@@ -1,58 +1,58 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 3/5] netfilter: xt_TCPMSS: Fix violation of RFC879 in
- absence of MSS option
-Date: Tue, 11 Jun 2013 18:25:25 +0200
-Message-ID: <20130611162525.GA11547@localhost>
-References: <1370880461-4265-1-git-send-email-pablo@netfilter.org>
- <1370880461-4265-4-git-send-email-pablo@netfilter.org>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7282@saturn3.aculab.com>
- <20130610071954.GA13500@gmail.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7285@saturn3.aculab.com>
- <20130610082739.GA14277@gmail.com>
- <AE90C24D6B3A694183C094C60CF0A2F6026B7286@saturn3.aculab.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: Re: [PATCH] drivers/net/ethernet/3com: Drop EISA dependency from
+ VORTEX
+Date: Tue, 11 Jun 2013 12:30:00 -0400
+Message-ID: <51B75088.8050800@windriver.com>
+References: <1370962642-12097-1-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Phil Oester <kernel@linuxace.com>, netfilter-devel@vger.kernel.org,
-	davem@davemloft.net, netdev@vger.kernel.org
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:40733 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754199Ab3FKQZc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 11 Jun 2013 12:25:32 -0400
-Content-Disposition: inline
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B7286@saturn3.aculab.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
+To: Markos Chandras <markos.chandras@imgtec.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1370962642-12097-1-git-send-email-markos.chandras@imgtec.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 11, 2013 at 05:09:11PM +0100, David Laight wrote:
-> > On Tue, Jun 11, 2013 at 04:00:06PM +0100, David Laight wrote:
-> > > To quote that bug:
-> > >
-> > > I stumbled upon this problem in debian bug #541658[1] ("[iceweasel] cannot open
-> > > research.microsoft.com" - only worth reading for entertainment purposes) and,
-> > > after that bug was closed, analysed it in my blog[2] until a friend of mine
-> > > found out why the page loads when clamping mss to pmtu is disabled or
-> > > restricted to a range (like with "iptables -A FORWARD -p tcp --tcp-flags
-> > > SYN,RST SYN -m tcpmss --mss 1400:1536 -j TCPMSS --clamp-mss-to-pmtu") but
-> > > doesn't load with "simple" clamping. His really great and detailed analysation
-> > > of the problem may be seen at [3].
-> > >
-> > > If I read/understand that correctly, clamping to 1400 worked - there was
-> > > no need to clamp all the way down to 536.
-> > 
-> > You are not understanding the issue correctly.  The reason the command worked with
-> > "-m tcpmss --mss 1400:1536" is because that implies an MSS option was provided.
-> > The issue occurs only when NO MSS option is sent.  In these cases, we cannot
-> > ASSUME that it is ok to use some arbitrarily high value (1400 as you propose).
-> > The RFC is clear on this point.
+On 13-06-11 10:57 AM, Markos Chandras wrote:
+> The Vortex driver depends on PCI with optional support for EISA.
 > 
-> My problem is that I don't want TCP connections to drop the mss to
-> 536 when talking to minimal/old implementations that don't add any
-> options to SYN packets.
+> This fixes build problems when EISA is selected but not PCI.
+> 
+> drivers/net/ethernet/3com/3c59x.c:1031:2: error: implicit declaration of
+> function 'pci_iomap' [-Werror=implicit-function-declaration]
+> drivers/net/ethernet/3com/3c59x.c:1044:3: error: implicit declaration of
+> function 'pci_iounmap' [-Werror=implicit-function-declaration]
+> 
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Paul Gortmaker <paul.gortmaker@windriver.com>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+> ---
+>  drivers/net/ethernet/3com/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ethernet/3com/Kconfig b/drivers/net/ethernet/3com/Kconfig
+> index 1c71c76..5c67f44 100644
+> --- a/drivers/net/ethernet/3com/Kconfig
+> +++ b/drivers/net/ethernet/3com/Kconfig
+> @@ -66,7 +66,7 @@ config PCMCIA_3C589
+>  
+>  config VORTEX
+>  	tristate "3c590/3c900 series (592/595/597) \"Vortex/Boomerang\" support"
+> -	depends on (PCI || EISA) && HAS_IOPORT
+> +	depends on PCI && HAS_IOPORT
 
-That will not happen if you use:
+How can this fix it?  The way I read your change is that you
+have now made it impossible to select for EISA=y and PCI=n,
+thus breaking EISA only configurations who would find their
+driver support gone when they run "make oldconfig".
 
-... -m tcpmss --mss 1400:1536 ...
+P.
+--
 
-as in your example above.
+>  	select NET_CORE
+>  	select MII
+>  	---help---
+> 
