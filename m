@@ -1,38 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next v2] net: add doc for ip_early_demux sysctl
-Date: Wed, 12 Jun 2013 15:10:27 -0700 (PDT)
-Message-ID: <20130612.151027.1400914250472097012.davem@davemloft.net>
-References: <1370948079-26598-1-git-send-email-amwang@redhat.com>
+Subject: Re: [PATCH net-next 1/2] net: remove NET_LL_RX_POLL config menue
+Date: Wed, 12 Jun 2013 15:12:05 -0700 (PDT)
+Message-ID: <20130612.151205.1822920389019274346.davem@davemloft.net>
+References: <20130611142415.17879.75569.stgit@ladj378.jer.intel.com>
+	<20130611142428.17879.33582.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com,
-	alexander.h.duyck@intel.com
-To: amwang@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60904 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755220Ab3FLWK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 18:10:27 -0400
-In-Reply-To: <1370948079-26598-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
+	e1000-devel@lists.sourceforge.net, willemb@google.com,
+	erdnetdev@gmail.com, bhutchings@solarflare.com,
+	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
+	or.gerlitz@gmail.com, amirv@mellanox.com, eliezer@tamir.org.il
+To: eliezer.tamir@linux.intel.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130611142428.17879.33582.stgit@ladj378.jer.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
-Date: Tue, 11 Jun 2013 18:54:39 +0800
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Tue, 11 Jun 2013 17:24:28 +0300
 
-> From: Cong Wang <amwang@redhat.com>
-> 
-> commit 6648bd7e0e62c0c8c03b (ipv4: Add sysctl knob to control
-> early socket demux) introduced such sysctl, but forgot to add
-> doc into Documentation/networking/ip-sysctl.txt. This patch adds it.
-> 
-> Basically I grab the doc from the description of commit 41063e9dd11956f2d285
-> (ipv4: Early TCP socket demux.) and the above commit.
-> 
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-> Cc: David S. Miller <davem@davemloft.net>
-> Signed-off-by: Cong Wang <amwang@redhat.com>
+>  	depends on X86_TSC
 
-Applied, thank you.
+Wait a second, I didn't notice this before.  There needs to be a better
+way to test for the accuracy you need, or if the issue is lack of a proper
+API for cycle counter reading, fix that rather than add ugly arch
+specific dependencies to generic networking code.
