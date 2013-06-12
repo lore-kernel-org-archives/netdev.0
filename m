@@ -1,59 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net,stable 1/2] l2tp: Fix PPP header erasure and memory
- leak
-Date: Wed, 12 Jun 2013 07:41:20 -0700
-Message-ID: <1371048080.3252.61.camel@edumazet-glaptop>
-References: <cover.1371044671.git.g.nault@alphalink.fr>
-	 <20130612140723.GB3500@alphalink.fr>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: pull request: wireless 2013-06-06
+Date: Wed, 12 Jun 2013 10:30:57 -0400
+Message-ID: <20130612143057.GA11589@tuxdriver.com>
+References: <20130606190929.GB18827@tuxdriver.com>
+ <20130611.222706.1492583255605214982.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>,
-	David Miller <davem@davemloft.net>
-To: Guillaume Nault <g.nault@alphalink.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f170.google.com ([209.85.215.170]:32882 "EHLO
-	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751454Ab3FLOlY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 10:41:24 -0400
-Received: by mail-ea0-f170.google.com with SMTP id h10so6972603eaj.15
-        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 07:41:23 -0700 (PDT)
-In-Reply-To: <20130612140723.GB3500@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	Gustavo Padovan <gustavo.padovan-ZGY8ohtN/8pPYcu2f3hruQ@public.gmane.org>,
+	Luciano Coelho <coelho-l0cyMroinI0@public.gmane.org>,
+	Kalle Valo <kvalo-A+ZNKFmMK5xy9aJCnZT0Uw@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20130611.222706.1492583255605214982.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-06-12 at 16:07 +0200, Guillaume Nault wrote:
-> Copy user data after PPP framing header. This prevents erasure of the
-> added PPP header and avoids leaking two bytes of uninitialised memory
-> at the end of skb's data buffer.
+On Tue, Jun 11, 2013 at 10:27:06PM -0700, David Miller wrote:
+> From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+> Date: Thu, 6 Jun 2013 15:09:30 -0400
 > 
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
-> ---
->  net/l2tp/l2tp_ppp.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+> > Johannes Berg (2):
+> >       mac80211: constify ieee802_11_parse_elems() argument
 > 
-> diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-> index 637a341..681c626 100644
-> --- a/net/l2tp/l2tp_ppp.c
-> +++ b/net/l2tp/l2tp_ppp.c
-> @@ -346,12 +346,12 @@ static int pppol2tp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msgh
->  	skb_put(skb, 2);
->  
->  	/* Copy user data into skb */
-> -	error = memcpy_fromiovec(skb->data, m->msg_iov, total_len);
-> +	error = memcpy_fromiovec(skb_put(skb, total_len), m->msg_iov,
-> +				 total_len);
->  	if (error < 0) {
->  		kfree_skb(skb);
->  		goto error_put_sess_tun;
->  	}
-> -	skb_put(skb, total_len);
->  
->  	l2tp_xmit_skb(session, skb, session->hdr_len);
->  
+> Such cleanups are absolutely, positively, not appropriate at this
+> time.
+> 
+> Sorry.
+> 
+> I still can't pull this.
 
-I see no real change in your patch.
+OK, a respin is coming.
 
-skb_put(skb, X) returns skb->data before the put operation.
+Note to my feeder trees, another rebase is coming...
 
-Could you elaborate ?
+John
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
