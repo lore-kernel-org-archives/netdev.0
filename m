@@ -1,57 +1,67 @@
-From: Calvin Owens <jcalvinowens@gmail.com>
-Subject: [PATCH] mac80211: Use RCU protection in ieee80211_get_tx_rates()
-Date: Wed, 12 Jun 2013 03:00:42 -0500
-Message-ID: <20130612080042.GA1695@gmail.com>
-References: <20130609225120.GA2789@gmail.com>
- <20130610042959.GA1902@gmail.com>
- <1370950926.8356.14.camel@jlt4.sipsolutions.net>
- <20130611171304.GA2189@gmail.com>
- <1370980523.8356.70.camel@jlt4.sipsolutions.net>
- <20130612075634.GA1649@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	Felix Fietkau <nbd@openwrt.org>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org,
-	jcalvinowens@gmail.com
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130612075634.GA1649@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH V2 net-next 0/3] Control VF link state
+Date: Wed, 12 Jun 2013 11:12:05 +0300
+Message-ID: <1371024728-31790-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, ronye@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:40556 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1753824Ab3FLIKz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 04:10:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Copying the rate table should be done in an RCU read-side critical
-section.
+These patches add API and implementation that lets the admin to configure the link 
+state of the VF / SRIOV  eSwitch vPORT. Basically, it has three states
 
-Signed-off-by: Calvin Owens <jcalvinowens@gmail.com>
----
- net/mac80211/rate.c | 4 ++++
- 1 file changed, 4 insertions(+)
+Auto - VF link state reflects the PF link state (default)
 
-diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
-index d3f414f..090d9b0 100644
---- a/net/mac80211/rate.c
-+++ b/net/mac80211/rate.c
-@@ -538,6 +538,8 @@ static void rate_control_fill_sta_table(struct ieee80211_sta *sta,
- 	struct ieee80211_sta_rates *ratetbl = NULL;
- 	int i;
- 
-+	rcu_read_lock();
-+
- 	if (sta && !info->control.skip_table)
- 		ratetbl = rcu_dereference(sta->rates);
- 
-@@ -566,6 +568,8 @@ static void rate_control_fill_sta_table(struct ieee80211_sta *sta,
- 		if (rates[i].idx < 0 || !rates[i].count)
- 			break;
- 	}
-+
-+	rcu_read_unlock();
- }
- 
- static void rate_control_apply_mask(struct ieee80211_sub_if_data *sdata,
--- 
-1.8.2.1
+Up - VF link state is up, traffic from VF to VF works even if
+the actual PF link is down
+
+Down - VF link state is down, no traffic from/to this VF, can be of
+use while configuring the VF
+
+Rony and Or.
+
+changes from V1:
+ - added missing initialization in rtnl_fill_ifinfo for the linkstate field,
+   pointed out by Ben Hutchings
+
+changes from V0:
+ - added missing part to the iproute2 patch which has the modification
+   to the link show which display the VF link info (sorry for the spam).
+
+changes from the RFC:
+ - enhanced the get_vf_config ndo and linklink related code to 
+   retrieve the VF link info too
+ - same for iproute2
+
+
+Rony Efraim (2):
+  net/core: Add VF link state control
+  net/mlx4: Add VF link state support
+
+ drivers/net/ethernet/mellanox/mlx4/cmd.c       |   48 ++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    8 ++++
+ drivers/net/ethernet/mellanox/mlx4/eq.c        |    9 +++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c        |    8 ++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h      |    1 +
+ include/linux/if_link.h                        |    1 +
+ include/linux/mlx4/cmd.h                       |    2 +-
+ include/linux/netdevice.h                      |    3 +
+ include/uapi/linux/if_link.h                   |   13 ++++++
+ net/core/rtnetlink.c                           |   22 ++++++++++-
+ 10 files changed, 110 insertions(+), 5 deletions(-)
+
+iproute2 part:
+
+Rony Efraim (1):
+  Add VF link state control
+
+ include/linux/if_link.h |   13 +++++++++++++
+ ip/ipaddress.c          |   23 +++++++++++++++++++++++
+ ip/iplink.c             |   14 ++++++++++++++
+ 3 files changed, 50 insertions(+), 0 deletions(-)
