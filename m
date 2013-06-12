@@ -1,39 +1,33 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] igmp: hash a hash table to speedup
- ip_check_mc_rcu()
-Date: Wed, 12 Jun 2013 00:26:00 -0700 (PDT)
-Message-ID: <20130612.002600.1208990113757072007.davem@davemloft.net>
-References: <1370565301.24311.396.camel@edumazet-glaptop>
-	<20130607144833.GB2995@sbohrermbp13-local.rgmadvisors.com>
-	<1370620137.24311.433.camel@edumazet-glaptop>
+From: Sujith Manoharan <sujith@msujith.org>
+Subject: Re: pull request: wireless 2013-06-06
+Date: Wed, 12 Jun 2013 12:54:32 +0530
+Message-ID: <20920.8752.339655.254147@gargle.gargle.HOWL>
+References: <20130606190929.GB18827@tuxdriver.com>
+	<20130611.222706.1492583255605214982.davem@davemloft.net>
+	<20130612.002103.916991474696226731.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sbohrer@rgmadvisors.com, netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50996 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752280Ab3FLH0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:26:01 -0400
-In-Reply-To: <1370620137.24311.433.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130612.002103.916991474696226731.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Fri, 07 Jun 2013 08:48:57 -0700
+David Miller wrote:
+> John, I also don't like the ATK9K Kconfig option name change added in
+> this pull request, this is exactly the kind of thing that drives
+> Linus insane.
+> 
+> Change the default, fine, but changing the name is unnecssary churn
+> and adds a new config prompt that people are going to respond to
+> incorrectly when they type "make oldconfig"
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> After IP route cache removal, multicast applications using
-> a lot of multicast addresses hit a O(N) behavior in ip_check_mc_rcu()
-> 
-> Add a per in_device hash table to get faster lookup.
-> 
-> This hash table is created only if the number of items in mc_list is
-> above 4.
-> 
-> Reported-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+This was Linus' suggestion: https://patchwork.kernel.org/patch/2676971/
 
-Applied, thanks Eric.
+The RH bugzilla appears to be down at the moment, but more background
+for the bug is here: https://bugzilla.redhat.com/show_bug.cgi?id=927191
+
+Sujith
