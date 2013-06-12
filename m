@@ -1,68 +1,85 @@
-From: Dean Nelson <dnelson@redhat.com>
-Subject: Re: [PATCH net-next] e1000e: restore call to pci_clear_master()
-Date: Wed, 12 Jun 2013 14:45:56 -0500
-Message-ID: <51B8CFF4.80709@redhat.com>
-References: <20130612174747.7449.40767.email-sent-by-dnelson@teal>  <51B8C035.9010105@cogentembedded.com> <51B8C393.3090100@redhat.com> <1371066071.2133.40.camel@jtkirshe-mobl>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next v2] e1000e: restore call to pci_clear_master()
+Date: Wed, 12 Jun 2013 12:48:53 -0700
+Message-ID: <1371066533.2133.41.camel@jtkirshe-mobl>
+References: <20130612194408.8680.66934.email-sent-by-dnelson@teal>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	David Miller <davem@davemloft.net>,
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-uzQjBMcuYvi7meHHOlz/"
+Cc: David Miller <davem@davemloft.net>,
 	Konstantin Khlebnikov <khlebnikov@openvz.org>,
-	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>
-To: jeffrey.t.kirsher@intel.com
+	netdev@vger.kernel.org, Bruce Allan <bruce.w.allan@intel.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Dean Nelson <dnelson@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54344 "EHLO mx1.redhat.com"
+Received: from mga02.intel.com ([134.134.136.20]:14441 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754947Ab3FLTqA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jun 2013 15:46:00 -0400
-In-Reply-To: <1371066071.2133.40.camel@jtkirshe-mobl>
+	id S1755290Ab3FLTtI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 15:49:08 -0400
+In-Reply-To: <20130612194408.8680.66934.email-sent-by-dnelson@teal>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/12/2013 02:41 PM, Jeff Kirsher wrote:
-> On Wed, 2013-06-12 at 13:53 -0500, Dean Nelson wrote:
->> On 06/12/2013 01:38 PM, Sergei Shtylyov wrote:
->>> Hello.
->>>
->>> On 06/12/2013 09:47 PM, Dean Nelson wrote:
->>>
->>>> In attempting to resolve a minor merge conflict, commit
->>>> e5f2ef7ab4690d2e8faa
->>>> accidently dropped a call to pci_clear_master() that was intended to
->>>> remain
->>>> in place.
->>>
->>>> Commit 4e0855dff094b0d56d6b replaced a call to pci_disable_device() by
->>>> one to
->>>
->>>      Please specify the summary line in parens for both commmits you're
->>> mentioning.
->>
->> Sorry, I'm not understanding fully. Are you asking me to repost the
->> patch with the changelog modified, such that each of the commits
->> mentioned has their summary statement following, enclosed in parens?
->>
->>
->>>> pci_clear_master(). And then commit 66148babe728f3e00e13 deleted a
->>>> number of
->>>> lines starting two lines following that call.
->>>
->>>> This patch restores the call to pci_clear_master() in __e1000_shutdown().
->>>
->>>> Signed-off-by: Dean Nelson <dnelson@redhat.com>
->>>
->>> WBR, Sergei
->>>
->>>
->>
->> Also, I mistyped Jeff Kirsher's email address. It's corrected above.
->> (Sorry, Jeff.)
->
-> No problem, will you be sending a v2 based on Sergei's feedback?  Just
-> need to know if I add this patch to my queue or wait for v2.
 
-Yes, I just sent it.
+--=-uzQjBMcuYvi7meHHOlz/
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
+On Wed, 2013-06-12 at 15:44 -0400, Dean Nelson wrote:
+> In attempting to resolve a minor merge conflict, commit
+> e5f2ef7ab4690d2e8faa
+> (Merge git://git.kernel.org/pub/scm/linux/kernel/git/davem/net)
+> accidently
+> dropped a call to pci_clear_master() that was intended to remain in
+> place.
+>=20
+> Commit 4e0855dff094b0d56d6b (e1000e: fix pci-device enable-counter
+> balance)
+> replaced a call to pci_disable_device() by one to pci_clear_master().
+> And then
+> commit 66148babe728f3e00e13 (e1000e: fix runtime power management
+> transitions)
+> deleted a number of lines starting two lines following that call.
+>=20
+> This patch restores the call to pci_clear_master() in
+> __e1000_shutdown().
+>=20
+> v2: added summary lines (enclosed in parens) following commit IDs
+>=20
+> Signed-off-by: Dean Nelson <dnelson@redhat.com>
+> ---
+> Both stable 3.8.y and 3.9.y appear to have the call to
+> pci_clear_master() in
+> __e1000_shutdown() as desired.  I'm not sure how they avoided the
+> conflict.
+>=20
+>  drivers/net/ethernet/intel/e1000e/netdev.c | 2 ++
+>  1 file changed, 2 insertions(+)=20
 
->
+Thanks Dean, I will add this to my e1000e queue.
+
+--=-uzQjBMcuYvi7meHHOlz/
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iQIcBAABCgAGBQJRuNClAAoJEOVv75VaS+3OGA0P/04Kj2IkwllEum8s9MOmtPnz
+rMi4tg44+PalgG3sfyuqgZZOPe9Pdjjiefj1H/M/cSCJSBN5VyfFecSyzHs9d53D
+n0JXHxy11voH3gJIjDdH0zS/SJdq38ne61uCem/Su4BQIjmUk2OeJj0XtQPvssnT
+lfoTxAnOx6nJ0CwwyQrCwIOTaEDbKhUSIIyxXO2H3oDsFXTn1gH/6f638FPvxE2J
+PDTjVseQ5r3+2No2grbf35pVfSY2ONFYWgxn7PiGoMWK5Xf7Q3sAWev5o/6Z4uOG
+rMy9b1OphsKHJgyQqoWS4y0ND6HeKifJudZ7P3naqTkRGWa3MHoixzuUiVnoRDun
+orswdFbEZ0gznhaITSJOnHEdYJku5cNQKMyepCTt/Cqg/WJTvCGjHN/wYXXgxEiD
+6fHkSvUXDeEtIrkAKwNx1IEaWNI4x4v0nkJipzirn9QwqGpP5DTVQRWwTL2fpFnL
+64h7FuFyVmKhvXpD1KaUgjGWWYGO+xYhkaF1lzj8Qe7h6Z3/2CL2NcLzqPR3S7q6
+BPwO8R8tMFbUYzYOk4E9Nbw3PU4Z4xiSBQRR+JTNCiY2V3ALotdcH0qJpECC1ja5
+U8Eqa8ukiHY2YR+4Zd1hq9AsqeRMnfGNz1dyNwWJl2r7JAmp8xjaN813rJ9YoV7O
+aTTPZNFyICdePribTo6X
+=MqVJ
+-----END PGP SIGNATURE-----
+
+--=-uzQjBMcuYvi7meHHOlz/--
