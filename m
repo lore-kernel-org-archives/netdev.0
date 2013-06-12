@@ -1,70 +1,47 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top of LRO
-Date: Wed, 12 Jun 2013 15:56:36 +0100
-Message-ID: <1371048996.1894.15.camel@bwh-desktop.uk.level5networks.com>
-References: <1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
-	<1360207111.28557.47.camel@edumazet-glaptop>
-	<1360254046.3605.8.camel@bwh-desktop.uk.solarflarecom.com>
-	<20130207.131420.1211188723341167971.davem@davemloft.net>
-	<20130610070710.GA673@redhat.com>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH] MDIO: FSL_PQ_MDIO: Fix bug on incorrect offset of tbipa
+ register
+Date: Wed, 12 Jun 2013 17:08:29 +0200
+Message-ID: <51B88EED.6090709@linutronix.de>
+References: <1371041258-15298-1-git-send-email-ogabbay@advaoptical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130610070710.GA673@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Cc: benh@kernel.crashing.org, paulus@samba.org, leoli@freescale.com,
+	galak@kernel.crashing.org, B38951@freescale.com,
+	Dongsheng.Wang@freescale.com, stef.van.os@prodrive.nl,
+	timur@tabi.org, davem@davemloft.net, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Oded Gabbay <ogabbay@advaoptical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371041258-15298-1-git-send-email-ogabbay@advaoptical.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-06-10 at 10:07 +0300, Michael S. Tsirkin wrote:
-> On Thu, Feb 07, 2013 at 01:14:20PM -0500, David Miller wrote:
-> > From: Ben Hutchings <bhutchings@solarflare.com>
-> > Date: Thu, 7 Feb 2013 16:20:46 +0000
-> > 
-> > > If the consensus is still that we must preserve packets exactly (aside
-> > > from the usual modifications by IP routers) then LRO should be disabled
-> > > on all devices for which forwarding is enabled.
-> > 
-> > I believe this is still undoubtedly the consensus.
+On 06/12/2013 02:47 PM, Oded Gabbay wrote:
+> This patch fixes a bug in the fsl_pq_mdio.c module and in relevant device-tree
+> files regarding the correct offset of the tbipa register in the eTSEC
+> controller in some of Freescale's PQ3 and QorIQ SoC.
+> The bug happens when the mdio in the device tree is configured to be compatible
+> to "fsl,gianfar-tbi". Because the mdio device in the device tree points to
+> addresses 25520, 26520 or 27520 (depends on the controller ID), the variable
+> priv->map at function fsl_pq_mdio_probe, points to that address. However,
+> later in the function there is a write to register tbipa that is actually
+> located at 25030, 26030 or 27030. Because the correct address is not io mapped,
+> the contents are written to a different register in the controller.
+> The fix sets the address of the mdio device to start at 25000, 26000 or 27000
+> and changes the mii_offset field to 0x520 in the relevant entry
+> (fsl,gianfar-tbi) of the fsl_pq_mdio_match array.
 > 
-> With virtio we are getting packets from a linux host,
-> so we could thinkably preserve packets exactly
-> even with LRO. I am guessing other hardware could be
-> doing this as well.
-> 
-> I am not sure what information would need to be preserved -
-> could someone help clarify please?
+> Note: This patch may break MDIO functionallity of some old Freescale's SoC
+> until Freescale will fix their device tree files. Basically, every device tree
+> which contains an mdio device that is compatible to "fsl,gianfar-tbi" should be
+> examined.
 
-Some LRO implementations may not preserve:
+Not as is.
+Please add a check for the original address. If it has 0x520 at the end
+print a warning and fix it up. Please add to the patch description
+which register is modified instead if this patch is not applied.
+Depending on how critical this it might has to go stable.
 
-- Packet boundaries
-  - TSO/GSO produces packets all the same size, except possibly for the
-    last one.  GRO therefore flushes a flow after merging a packet with
-    a different segment size.
-- IPv4 TTL, IPv6 hop-limit, TCP timestamp
-  - TSO/GSO will put the same values in all packets.  GRO flushes a flow
-    if they change.
-- IPv4 fragment ID
-  - TSO/GSO produces consecutive fragment IDs.  GRO flushes a flow
-    if it sees a non-consecutive fragment ID.
-- MAC header, IPv4 TOS, IPv6 traffic class
-  - Should be the same for all packets in a flow.  GRO actually checks
-    and flushes a flow if they change.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Sebastian
