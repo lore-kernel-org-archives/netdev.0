@@ -1,48 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] gro: remove a sparse error
-Date: Wed, 12 Jun 2013 14:23:15 -0700
-Message-ID: <1371072195.3252.70.camel@edumazet-glaptop>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Davicom DM9000A regression
+Date: Wed, 12 Jun 2013 23:23:06 +0200
+Message-ID: <20130612212306.GA21234@electric-eye.fr.zoreil.com>
+References: <51B87A19.4030708@compulab.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, josright123@gmail.com
+To: Nikita Kiryanov <nikita@compulab.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:65335 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755695Ab3FLVXT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 17:23:19 -0400
-Received: by mail-ee0-f50.google.com with SMTP id d49so4609293eek.23
-        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 14:23:18 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:46446 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755908Ab3FLVXO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 17:23:14 -0400
+Content-Disposition: inline
+In-Reply-To: <51B87A19.4030708@compulab.co.il>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Nikita Kiryanov <nikita@compulab.co.il> :
+[...]
+> A bit of digging revealed the cause as this patch:
+> "DM9000B: driver initialization upgrade"
 
-Fix following sparse error :
+(aka 6741f40d198c6a5feb23653a1efd4ca47f93d83d)
 
-net/ipv4/af_inet.c:1410:59: warning: restricted __be16 degrades to
-integer
+> and specifically, the following line that was added by it:
+> dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET); /* PHY RESET */
+> (uncommenting this line solves the problem).
+> Adding a delay after the phy reset did not help.
 
-added in commit db8caf3dbc77599
-("gro: should aggregate frames without DF")
+(I have no idea why Davicom enforced a dsp phy register write everywhere
+instead of using db->type to identify the specific chipset revision that
+requires it)
 
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
-From: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/af_inet.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The last version of the patch changed - not much - without notice and
+it did not contain the "tested on DM9000{A, B, E}, x86, arm" part.
 
-diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
-index 5598b06..b4d0be2 100644
---- a/net/ipv4/af_inet.c
-+++ b/net/ipv4/af_inet.c
-@@ -1407,7 +1407,7 @@ static struct sk_buff **inet_gro_receive(struct sk_buff **head,
- 		NAPI_GRO_CB(p)->flush |=
- 			(iph->ttl ^ iph2->ttl) |
- 			(iph->tos ^ iph2->tos) |
--			((iph->frag_off ^ iph2->frag_off) & htons(IP_DF)) |
-+			(__force int)((iph->frag_off ^ iph2->frag_off) & htons(IP_DF)) |
- 			((u16)(ntohs(iph2->id) + NAPI_GRO_CB(p)->count) ^ id);
- 
- 		NAPI_GRO_CB(p)->flush |= flush;
+You may try http://marc.info/?l=linux-netdev&m=136443908225335 to
+see if it behaves the same.
+
+-- 
+Ueimor
