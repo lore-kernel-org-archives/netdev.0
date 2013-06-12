@@ -1,33 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 0/3] team: remove sychronize_rcu() calls
-Date: Wed, 12 Jun 2013 03:10:22 -0700 (PDT)
-Message-ID: <20130612.031022.382642269781263103.davem@davemloft.net>
-References: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
+Subject: Re: [PATCH net-next] ipv4: remove is_data also from ip_options
+ documentation.
+Date: Wed, 12 Jun 2013 03:14:09 -0700 (PDT)
+Message-ID: <20130612.031409.235157227621887141.davem@davemloft.net>
+References: <1370874429-4458-1-git-send-email-ramirose@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, edumazet@google.com, fbl@redhat.com
-To: jiri@resnulli.us
+Cc: netdev@vger.kernel.org
+To: ramirose@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52461 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52513 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752103Ab3FLKKX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 06:10:23 -0400
-In-Reply-To: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1756408Ab3FLKOK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 06:14:10 -0400
+In-Reply-To: <1370874429-4458-1-git-send-email-ramirose@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 10 Jun 2013 17:42:22 +0200
+From: Rami Rosen <ramirose@gmail.com>
+Date: Mon, 10 Jun 2013 17:27:09 +0300
 
-> Jiri Pirko (3):
->   team: remove synchronize_rcu() called during queue override change
->   team: use kfree_rcu instead of synchronize_rcu in team_port_dev
->   team: remove synchronize_rcu() called during port disable
+> commit ef722495c8867aacc1db0675a6737e5cf1e72e07 removed the unused is_data
+> member from ip_options struct.
+> 
+> This patch removes is_data also from the documentation of the ip_options struct.
+> 
+> Signed-off-by: Rami Rosen <ramirose@gmail.com>
 
-Applied, but I suspect this patch series was generated against the
-patch set you submitted for "net" because I had to hand apply patch
-#3 with some fuzz as git would not apply it directly.
-
-Please don't do that, submit your patches in the future against what
-is actually in net-next.
+Applied, thanks Rami.
