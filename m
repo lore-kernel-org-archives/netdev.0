@@ -1,38 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net 0/3] team: couple of fixes
-Date: Wed, 12 Jun 2013 02:14:54 -0700 (PDT)
-Message-ID: <20130612.021454.835293828711213561.davem@davemloft.net>
-References: <1370696455-12221-1-git-send-email-jiri@resnulli.us>
-	<20130612.005724.1355461391911598238.davem@davemloft.net>
-	<20130612085840.GA1852@minipsycho.brq.redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/3] skbuff: Update truesize in pskb_expand_head
+Date: Wed, 12 Jun 2013 02:16:58 -0700
+Message-ID: <1371028618.3252.57.camel@edumazet-glaptop>
+References: <1371027934-1955-1-git-send-email-david.wiltshire@gmx.com>
+	 <1371027934-1955-2-git-send-email-david.wiltshire@gmx.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, fbl@redhat.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52067 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754274Ab3FLJOz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 05:14:55 -0400
-In-Reply-To: <20130612085840.GA1852@minipsycho.brq.redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, nsujir@broadcom.com,
+	mchan@broadcom.com, rmody@brocade.com, jcliburn@gmail.com,
+	chris.snook@gmail.com, jeffrey.t.kirsher@intel.com,
+	bruce.w.allan@intel.com, alexander.h.duyck@intel.com,
+	cooldavid@cooldavid.org, linux-driver@qlogic.com,
+	linux-wimax@intel.com, wimax@linuxwimax.org,
+	linux-wireless@vger.kernel.org, viro@zeniv.linux.org.uk,
+	eparis@redhat.com, edumazet@google.com, dev@openvswitch.org,
+	jhs@mojatatu.com
+To: Dave Wiltshire <david.wiltshire@gmx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371027934-1955-2-git-send-email-david.wiltshire@gmx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Wed, 12 Jun 2013 10:58:40 +0200
-
-> Wed, Jun 12, 2013 at 09:57:24AM CEST, davem@davemloft.net wrote:
->>From: Jiri Pirko <jiri@resnulli.us>
->>Date: Sat,  8 Jun 2013 15:00:52 +0200
->>
->>> Jiri Pirko (3):
->>>   team: check return value of team_get_port_by_index_rcu() for NULL
->>>   team: move add to port list before port enablement
->>>   team: fix checks in team_get_first_port_txable_rcu()
->>
->>Series applied, thanks Jiri.
+On Wed, 2013-06-12 at 19:05 +1000, Dave Wiltshire wrote:
+> Some call sites to pskb_expand_head subsequently update the skb truesize
+> and others don't (even with non-zero arguments). This is likely a memory
+> audit leak. Fixed this up by moving the memory accounting to the
+> skbuff.c file and removing it from the calling sites.
 > 
-> Thanks Dave. Please note that this is suitable for stable trees as well.
+> Signed-off-by: Dave Wiltshire <david.wiltshire@gmx.com>
+> ---
+>  drivers/net/wireless/mwl8k.c |    1 -
+>  kernel/audit.c               |    2 --
+>  net/core/skbuff.c            |    1 +
+>  net/netlink/af_netlink.c     |    3 +--
+>  net/wireless/util.c          |    2 --
+>  5 files changed, 2 insertions(+), 7 deletions(-)
 
-Queued up, thanks for letting me know.
+Ouch.
+
+Sorry, you cannot do that.
+
+skb->truesize is really complex, because there is a strong relation
+between skb->truesize and memory accounting on sockets.
+
+So pskb_expand_head() should not touch skb->truesize.
+
+Only callers can do that when needed, and if possible.
+
+An example of very careful truesize manipulation can be found in
+tcp_tso_segment()
