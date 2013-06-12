@@ -1,41 +1,65 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 0/3] team: remove sychronize_rcu() calls
-Date: Wed, 12 Jun 2013 13:01:08 +0200
-Message-ID: <20130612110108.GB1852@minipsycho.brq.redhat.com>
-References: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
- <20130612.031022.382642269781263103.davem@davemloft.net>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH v2 net-next 0/3] net: low latency sockets
+	follow ups
+Date: Wed, 12 Jun 2013 14:19:42 +0300
+Message-ID: <20130612111942.19288.12131.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, edumazet@google.com, fbl@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, Or Kehati <ork@mellanox.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
+	linux-kernel@vger.kernel.org, Alex Rosenbaum <alexr@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>,
+	Avner Ben Hanoch <avnerb@mellanox.com>, Andi Kleen <andi@firstfloor.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f179.google.com ([209.85.215.179]:51526 "EHLO
-	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150Ab3FLLBO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 07:01:14 -0400
-Received: by mail-ea0-f179.google.com with SMTP id b15so5640424eae.38
-        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 04:01:13 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130612.031022.382642269781263103.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Wed, Jun 12, 2013 at 12:10:22PM CEST, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Mon, 10 Jun 2013 17:42:22 +0200
->
->> Jiri Pirko (3):
->>   team: remove synchronize_rcu() called during queue override change
->>   team: use kfree_rcu instead of synchronize_rcu in team_port_dev
->>   team: remove synchronize_rcu() called during port disable
->
->Applied, but I suspect this patch series was generated against the
->patch set you submitted for "net" because I had to hand apply patch
->#3 with some fuzz as git would not apply it directly.
->
->Please don't do that, submit your patches in the future against what
->is actually in net-next.
+David,
 
-Sorry. I will be more careful next time.
+Here are two clean up patches, plus one that adds a socket option for LLS.
 
-Jiri
+Patch 1 removes the config menu for NET_LL_RX_POLL and defaults to y.
+Patch 2 converts sysctl_net_ll_poll into an unsigned int
+Patch 3 adds an SO_LL socket option to allow per-socket control of busy polling.
+
+I will reply to this thread with a patch to sockperf that enables
+the socket option.
+
+Thanks,
+Eliezer
+
+
+Change log:
+
+v2
+- added a patch to convert sysctl_net_ll_poll into an unsigned int.
+- suggested by Eric Dimazet: treat sk_ll_usec as a u_int rather than a u_long.
+- suggested by Ben Huchings: allow unprivileged user to decrease SO_LL value,
+  correct return value when operation is not allowed.
+
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
+
+Build for Windows Store.
+
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
