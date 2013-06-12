@@ -1,185 +1,336 @@
-From: Vipul Pandya <vipul@chelsio.com>
-Subject: [PATCH V2 2/4] cxgb4: Add routines to create and remove listening IPv6 servers
-Date: Wed, 12 Jun 2013 17:11:40 +0530
-Message-ID: <1371037302-3586-3-git-send-email-vipul@chelsio.com>
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Subject: [PATCH V2 3/4] cxgb4: Add CLIP support to store compressed IPv6 address
+Date: Wed, 12 Jun 2013 17:11:41 +0530
+Message-ID: <1371037302-3586-4-git-send-email-vipul@chelsio.com>
 References: <1371037302-3586-1-git-send-email-vipul@chelsio.com>
-Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
-	dm@chelsio.com, swise@opengridcomputing.com, roland@kernel.org,
-	sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	tom@opengridcomputing.com, faisal.latif@intel.com,
-	akpm@linux-foundation.org, sasha.levin@oracle.com,
-	nirranjan@chelsio.com, vipul@chelsio.com
-To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from stargate.chelsio.com ([67.207.112.58]:25284 "EHLO
-	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753803Ab3FLLsV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 07:48:21 -0400
-In-Reply-To: <1371037302-3586-1-git-send-email-vipul@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1371037302-3586-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add cxgb4_create_server6 and cxgb4_remove_server routines to create and remove
-listening IPv6 servers.
+The Compressed LIP region is used to hold a limited number of Local IPv6
+addresses. This region is primarily used to reduce the TCAM space consumed for
+an IPv6 offloaded connection. A 128-bit LIP will be reduced to 13-bit and stored
+in the TCAM if there is a match between the IPv6 tuple's LIP and the one stored
+in the CLIP region.
 
-Return success (0) from cxgb4_create_server in case of ctrl queue congestion
-since in case of congestion, passive open request gets queued and gets
-processed later. If non zero value is returned it can be treated as an error
-and ULD can free STID which can result into an error in passive open reply.
-
-Add cpl structure for active open request with IPv6 address for T5.
-
-Signed-off-by: Vipul Pandya <vipul@chelsio.com>
+Signed-off-by: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
 ---
 V2: Used local variables instead of typecasting in patch 1/4.
 
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 71 ++++++++++++++++++++++++-
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |  5 ++
- drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     | 17 +++++-
- 3 files changed, 91 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 206 ++++++++++++++++++++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  23 +++
+ 2 files changed, 229 insertions(+)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 5a3256b..d1d6ff7 100644
+index d1d6ff7..4ae287c 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -3246,6 +3246,7 @@ int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
- 	struct sk_buff *skb;
- 	struct adapter *adap;
- 	struct cpl_pass_open_req *req;
-+	int ret;
+@@ -60,6 +60,7 @@
+ #include <linux/workqueue.h>
+ #include <net/neighbour.h>
+ #include <net/netevent.h>
++#include <net/addrconf.h>
+ #include <asm/uaccess.h>
  
- 	skb = alloc_skb(sizeof(*req), GFP_KERNEL);
- 	if (!skb)
-@@ -3263,10 +3264,78 @@ int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
- 	req->opt0 = cpu_to_be64(TX_CHAN(chan));
- 	req->opt1 = cpu_to_be64(CONN_POLICY_ASK |
- 				SYN_RSS_ENABLE | SYN_RSS_QUEUE(queue));
--	return t4_mgmt_tx(adap, skb);
-+	ret = t4_mgmt_tx(adap, skb);
-+	return net_xmit_eval(ret);
+ #include "cxgb4.h"
+@@ -68,6 +69,11 @@
+ #include "t4fw_api.h"
+ #include "l2t.h"
+ 
++#include <../drivers/net/bonding/bonding.h>
++
++#ifdef DRV_VERSION
++#undef DRV_VERSION
++#endif
+ #define DRV_VERSION "2.0.0-ko"
+ #define DRV_DESC "Chelsio T4/T5 Network Driver"
+ 
+@@ -3227,6 +3233,38 @@ static int tid_init(struct tid_info *t)
+ 	return 0;
  }
- EXPORT_SYMBOL(cxgb4_create_server);
  
-+/*	cxgb4_create_server6 - create an IPv6 server
-+ *	@dev: the device
-+ *	@stid: the server TID
-+ *	@sip: local IPv6 address to bind server to
-+ *	@sport: the server's TCP port
-+ *	@queue: queue to direct messages from this server to
-+ *
-+ *	Create an IPv6 server for the given port and address.
-+ *	Returns <0 on error and one of the %NET_XMIT_* values on success.
-+ */
-+int cxgb4_create_server6(const struct net_device *dev, unsigned int stid,
-+			 const struct in6_addr *sip, __be16 sport,
-+			 unsigned int queue)
++static int cxgb4_clip_get(const struct net_device *dev,
++			  const struct in6_addr *lip)
 +{
-+	unsigned int chan;
-+	struct sk_buff *skb;
 +	struct adapter *adap;
-+	struct cpl_pass_open_req6 *req;
-+	int ret;
-+
-+	skb = alloc_skb(sizeof(*req), GFP_KERNEL);
-+	if (!skb)
-+		return -ENOMEM;
++	struct fw_clip_cmd c;
 +
 +	adap = netdev2adap(dev);
-+	req = (struct cpl_pass_open_req6 *)__skb_put(skb, sizeof(*req));
-+	INIT_TP_WR(req, 0);
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_PASS_OPEN_REQ6, stid));
-+	req->local_port = sport;
-+	req->peer_port = htons(0);
-+	req->local_ip_hi = *(__be64 *)(sip->s6_addr);
-+	req->local_ip_lo = *(__be64 *)(sip->s6_addr + 8);
-+	req->peer_ip_hi = cpu_to_be64(0);
-+	req->peer_ip_lo = cpu_to_be64(0);
-+	chan = rxq_to_chan(&adap->sge, queue);
-+	req->opt0 = cpu_to_be64(TX_CHAN(chan));
-+	req->opt1 = cpu_to_be64(CONN_POLICY_ASK |
-+				SYN_RSS_ENABLE | SYN_RSS_QUEUE(queue));
-+	ret = t4_mgmt_tx(adap, skb);
-+	return net_xmit_eval(ret);
++	memset(&c, 0, sizeof(c));
++	c.op_to_write = htonl(FW_CMD_OP(FW_CLIP_CMD) |
++			FW_CMD_REQUEST | FW_CMD_WRITE);
++	c.alloc_to_len16 = htonl(F_FW_CLIP_CMD_ALLOC | FW_LEN16(c));
++	*(__be64 *)&c.ip_hi = *(__be64 *)(lip->s6_addr);
++	*(__be64 *)&c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
++	return t4_wr_mbox_meat(adap, adap->mbox, &c, sizeof(c), &c, false);
 +}
-+EXPORT_SYMBOL(cxgb4_create_server6);
 +
-+int cxgb4_remove_server(const struct net_device *dev, unsigned int stid,
-+			unsigned int queue, bool ipv6)
++static int cxgb4_clip_release(const struct net_device *dev,
++			      const struct in6_addr *lip)
 +{
-+	struct sk_buff *skb;
 +	struct adapter *adap;
-+	struct cpl_close_listsvr_req *req;
-+	int ret;
++	struct fw_clip_cmd c;
 +
 +	adap = netdev2adap(dev);
-+
-+	skb = alloc_skb(sizeof(*req), GFP_KERNEL);
-+	if (!skb)
-+		return -ENOMEM;
-+
-+	req = (struct cpl_close_listsvr_req *)__skb_put(skb, sizeof(*req));
-+	INIT_TP_WR(req, 0);
-+	OPCODE_TID(req) = htonl(MK_OPCODE_TID(CPL_CLOSE_LISTSRV_REQ, stid));
-+	req->reply_ctrl = htons(NO_REPLY(0) | (ipv6 ? LISTSVR_IPV6(1) :
-+				LISTSVR_IPV6(0)) | QUEUENO(queue));
-+	ret = t4_mgmt_tx(adap, skb);
-+	return net_xmit_eval(ret);
++	memset(&c, 0, sizeof(c));
++	c.op_to_write = htonl(FW_CMD_OP(FW_CLIP_CMD) |
++			FW_CMD_REQUEST | FW_CMD_READ);
++	c.alloc_to_len16 = htonl(F_FW_CLIP_CMD_FREE | FW_LEN16(c));
++	*(__be64 *)&c.ip_hi = *(__be64 *)(lip->s6_addr);
++	*(__be64 *)&c.ip_lo = *(__be64 *)(lip->s6_addr + 8);
++	return t4_wr_mbox_meat(adap, adap->mbox, &c, sizeof(c), &c, false);
 +}
-+EXPORT_SYMBOL(cxgb4_remove_server);
 +
  /**
-  *	cxgb4_best_mtu - find the entry in the MTU table closest to an MTU
-  *	@mtus: the HW MTU table
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-index 4faf4d0..6f21f24 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h
-@@ -154,6 +154,11 @@ struct in6_addr;
- int cxgb4_create_server(const struct net_device *dev, unsigned int stid,
- 			__be32 sip, __be16 sport, __be16 vlan,
- 			unsigned int queue);
-+int cxgb4_create_server6(const struct net_device *dev, unsigned int stid,
-+			 const struct in6_addr *sip, __be16 sport,
-+			 unsigned int queue);
-+int cxgb4_remove_server(const struct net_device *dev, unsigned int stid,
-+			unsigned int queue, bool ipv6);
- int cxgb4_create_server_filter(const struct net_device *dev, unsigned int stid,
- 			       __be32 sip, __be16 sport, __be16 vlan,
- 			       unsigned int queue,
-diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-index 01d4844..cd6874b 100644
---- a/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-+++ b/drivers/net/ethernet/chelsio/cxgb4/t4_msg.h
-@@ -320,6 +320,21 @@ struct cpl_act_open_req6 {
- 	__be32 opt2;
- };
+  *	cxgb4_create_server - create an IP server
+  *	@dev: the device
+@@ -3878,6 +3916,169 @@ int cxgb4_unregister_uld(enum cxgb4_uld type)
+ }
+ EXPORT_SYMBOL(cxgb4_unregister_uld);
  
-+struct cpl_t5_act_open_req6 {
-+	WR_HDR;
-+	union opcode_tid ot;
-+	__be16 local_port;
-+	__be16 peer_port;
-+	__be64 local_ip_hi;
-+	__be64 local_ip_lo;
-+	__be64 peer_ip_hi;
-+	__be64 peer_ip_lo;
-+	__be64 opt0;
-+	__be32 rsvd;
-+	__be32 opt2;
-+	__be64 params;
++/* Check if netdev on which event is occured belongs to us or not. Return
++ * suceess (1) if it belongs otherwise failure (0).
++ */
++static int cxgb4_netdev(struct net_device *netdev)
++{
++	struct adapter *adap;
++	int i;
++
++	mutex_lock(&uld_mutex);
++	list_for_each_entry(adap, &adapter_list, list_node)
++		for (i = 0; i < MAX_NPORTS; i++)
++			if (adap->port[i] == netdev) {
++				mutex_unlock(&uld_mutex);
++				return 1;
++			}
++	mutex_unlock(&uld_mutex);
++	return 0;
++}
++
++static int clip_add(struct net_device *event_dev, struct inet6_ifaddr *ifa,
++		    unsigned long event)
++{
++	int ret = NOTIFY_DONE;
++
++	rcu_read_lock();
++	if (cxgb4_netdev(event_dev)) {
++		switch (event) {
++		case NETDEV_UP:
++			ret = cxgb4_clip_get(event_dev,
++				(const struct in6_addr *)ifa->addr.s6_addr);
++			if (ret < 0) {
++				rcu_read_unlock();
++				return ret;
++			}
++			ret = NOTIFY_OK;
++			break;
++		case NETDEV_DOWN:
++			cxgb4_clip_release(event_dev,
++				(const struct in6_addr *)ifa->addr.s6_addr);
++			ret = NOTIFY_OK;
++			break;
++		default:
++			break;
++		}
++	}
++	rcu_read_unlock();
++	return ret;
++}
++
++static int cxgb4_inet6addr_handler(struct notifier_block *this,
++		unsigned long event, void *data)
++{
++	struct inet6_ifaddr *ifa = data;
++	struct net_device *event_dev;
++	int ret = NOTIFY_DONE;
++	int cnt;
++	struct bonding *bond = netdev_priv(ifa->idev->dev);
++	struct slave *slave;
++	struct pci_dev *first_pdev = NULL;
++
++	if (ifa->idev->dev->priv_flags & IFF_802_1Q_VLAN) {
++		event_dev = vlan_dev_real_dev(ifa->idev->dev);
++		ret = clip_add(event_dev, ifa, event);
++	} else if (ifa->idev->dev->flags & IFF_MASTER) {
++		/* It is possible that two different adapters are bonded in one
++		 * bond. We need to find such different adapters and add clip
++		 * in all of them only once.
++		 */
++		read_lock(&bond->lock);
++		bond_for_each_slave(bond, slave, cnt) {
++			if (!first_pdev) {
++				ret = clip_add(slave->dev, ifa, event);
++				/* If clip_add is success then only initialize
++				 * first_pdev since it means it is our device
++				 */
++				if (ret == NOTIFY_OK)
++					first_pdev = to_pci_dev(
++							slave->dev->dev.parent);
++			} else if (first_pdev !=
++				   to_pci_dev(slave->dev->dev.parent))
++					ret = clip_add(slave->dev, ifa, event);
++		}
++		read_unlock(&bond->lock);
++	} else
++		ret = clip_add(ifa->idev->dev, ifa, event);
++
++	return ret;
++}
++
++static struct notifier_block cxgb4_inet6addr_notifier = {
++	.notifier_call = cxgb4_inet6addr_handler
 +};
 +
- struct cpl_act_open_rpl {
- 	union opcode_tid ot;
- 	__be32 atid_status;
-@@ -405,7 +420,7 @@ struct cpl_close_listsvr_req {
- 	WR_HDR;
- 	union opcode_tid ot;
- 	__be16 reply_ctrl;
--#define LISTSVR_IPV6 (1 << 14)
-+#define LISTSVR_IPV6(x) ((x) << 14)
- 	__be16 rsvd;
++/* Retrieves IPv6 addresses from a root device (bond, vlan) associated with
++ * a physical device.
++ * The physical device reference is needed to send the actul CLIP command.
++ */
++static int update_dev_clip(struct net_device *root_dev, struct net_device *dev)
++{
++	struct inet6_dev *idev = NULL;
++	struct inet6_ifaddr *ifa;
++	int ret = 0;
++
++	idev = __in6_dev_get(root_dev);
++	if (!idev)
++		return ret;
++
++	read_lock_bh(&idev->lock);
++	list_for_each_entry(ifa, &idev->addr_list, if_list) {
++		ret = cxgb4_clip_get(dev,
++				(const struct in6_addr *)ifa->addr.s6_addr);
++		if (ret < 0)
++			break;
++	}
++	read_unlock_bh(&idev->lock);
++
++	return ret;
++}
++
++static int update_root_dev_clip(struct net_device *dev)
++{
++	struct net_device *root_dev = NULL;
++	int i, ret = 0;
++
++	/* First populate the real net device's IPv6 addresses */
++	ret = update_dev_clip(dev, dev);
++	if (ret)
++		return ret;
++
++	/* Parse all bond and vlan devices layered on top of the physical dev */
++	for (i = 0; i < VLAN_N_VID; i++) {
++		root_dev = __vlan_find_dev_deep(dev, htons(ETH_P_8021Q), i);
++		if (!root_dev)
++			continue;
++
++		ret = update_dev_clip(root_dev, dev);
++		if (ret)
++			break;
++	}
++	return ret;
++}
++
++static void update_clip(const struct adapter *adap)
++{
++	int i;
++	struct net_device *dev;
++	int ret;
++
++	rcu_read_lock();
++
++	for (i = 0; i < MAX_NPORTS; i++) {
++		dev = adap->port[i];
++		ret = 0;
++
++		if (dev)
++			ret = update_root_dev_clip(dev);
++
++		if (ret < 0)
++			break;
++	}
++	rcu_read_unlock();
++}
++
+ /**
+  *	cxgb_up - enable the adapter
+  *	@adap: adapter being enabled
+@@ -3923,6 +4124,7 @@ static int cxgb_up(struct adapter *adap)
+ 	t4_intr_enable(adap);
+ 	adap->flags |= FULL_INIT_DONE;
+ 	notify_ulds(adap, CXGB4_STATE_UP);
++	update_clip(adap);
+  out:
+ 	return err;
+  irq_err:
+@@ -5939,11 +6141,15 @@ static int __init cxgb4_init_module(void)
+ 	ret = pci_register_driver(&cxgb4_driver);
+ 	if (ret < 0)
+ 		debugfs_remove(cxgb4_debugfs_root);
++
++	register_inet6addr_notifier(&cxgb4_inet6addr_notifier);
++
+ 	return ret;
+ }
+ 
+ static void __exit cxgb4_cleanup_module(void)
+ {
++	unregister_inet6addr_notifier(&cxgb4_inet6addr_notifier);
+ 	pci_unregister_driver(&cxgb4_driver);
+ 	debugfs_remove(cxgb4_debugfs_root);  /* NULL ok */
+ 	flush_workqueue(workq);
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+index d1c755f..6f77ac4 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h
+@@ -616,6 +616,7 @@ enum fw_cmd_opcodes {
+ 	FW_RSS_IND_TBL_CMD             = 0x20,
+ 	FW_RSS_GLB_CONFIG_CMD          = 0x22,
+ 	FW_RSS_VI_CONFIG_CMD           = 0x23,
++	FW_CLIP_CMD                    = 0x28,
+ 	FW_LASTC2E_CMD                 = 0x40,
+ 	FW_ERROR_CMD                   = 0x80,
+ 	FW_DEBUG_CMD                   = 0x81,
+@@ -2062,6 +2063,28 @@ struct fw_rss_vi_config_cmd {
+ 	} u;
  };
  
++struct fw_clip_cmd {
++	__be32 op_to_write;
++	__be32 alloc_to_len16;
++	__be64 ip_hi;
++	__be64 ip_lo;
++	__be32 r4[2];
++};
++
++#define S_FW_CLIP_CMD_ALLOC     31
++#define M_FW_CLIP_CMD_ALLOC     0x1
++#define V_FW_CLIP_CMD_ALLOC(x)  ((x) << S_FW_CLIP_CMD_ALLOC)
++#define G_FW_CLIP_CMD_ALLOC(x)  \
++	(((x) >> S_FW_CLIP_CMD_ALLOC) & M_FW_CLIP_CMD_ALLOC)
++#define F_FW_CLIP_CMD_ALLOC     V_FW_CLIP_CMD_ALLOC(1U)
++
++#define S_FW_CLIP_CMD_FREE      30
++#define M_FW_CLIP_CMD_FREE      0x1
++#define V_FW_CLIP_CMD_FREE(x)   ((x) << S_FW_CLIP_CMD_FREE)
++#define G_FW_CLIP_CMD_FREE(x)   \
++	(((x) >> S_FW_CLIP_CMD_FREE) & M_FW_CLIP_CMD_FREE)
++#define F_FW_CLIP_CMD_FREE      V_FW_CLIP_CMD_FREE(1U)
++
+ enum fw_error_type {
+ 	FW_ERROR_TYPE_EXCEPTION		= 0x0,
+ 	FW_ERROR_TYPE_HWMODULE		= 0x1,
 -- 
 1.8.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
