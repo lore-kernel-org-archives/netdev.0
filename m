@@ -1,125 +1,211 @@
-From: Avner Ben Hanoch <avnerb@mellanox.com>
-Subject: Re: [PATCH v2 net-next 2/3] net: change
- sysctl_net_ll_poll into an unsigned int
-Date: Wed, 12 Jun 2013 12:04:11 +0000
-Message-ID: <1A1A58E4DB34914CB8A94FD5DAE569ED7367A8BF@MTLDAG01.mtl.com>
-References: <20130612111942.19288.12131.stgit@ladj378.jer.intel.com>
-	<20130612112005.19288.81197.stgit@ladj378.jer.intel.com>
+From: casey@uoregon.edu
+Subject: Read the attached From Tjoa Thain
+Date: Wed, 12 Jun 2013 13:24:20 +0100
+Message-ID: <201306121226.r5CCB5si008968__41638.240151997$1371040153$gmane$org@smtp.uoregon.edu>
+Reply-To: ttjoa@hotmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Kehati <ork@mellanox.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Andi Kleen <andi@firstfloor.org>, Alex Rosenbaum <Alexr@mellanox.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>, David Miller
-	<davem@davemloft.net>, "sockperf-dev@googlegroups.com"
-	<sockperf-dev@googlegroups.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130612112005.19288.81197.stgit@ladj378.jer.intel.com>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============0421735902=="
+To: Recipients <casey@uoregon.edu>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from oh-mserv2.uoregon.edu ([128.223.142.145]:37689 "EHLO
+	smtp.uoregon.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S1753067Ab3FLM2k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 08:28:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+You will not see this in a MIME-aware mail reader.
+--===============0421735902==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Description: Mail message body
 
-Please make sure to include sockperf-dev@googlegroups.com among the recipients of this thread (I just added).
-Maybe better, I suggest opening an issue in sockperf issue system - https://code.google.com/p/sockperf/issues/list .  Then anyone can add notes or read/receive them.
 
-You can see an example for similar issue (patch for supporting IP_TOS) here: https://code.google.com/p/sockperf/issues/detail?id=44
-Cheers,
-  Avner
+--===============0421735902==
+Content-Type: application/octet-stream
+MIME-Version: 1.0
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="interesting business proposal.docx"
 
------Original Message-----
-From: Eliezer Tamir [mailto:eliezer.tamir@linux.intel.com] 
-Sent: Wednesday, June 12, 2013 14:20
-To: David Miller
-Cc: linux-kernel@vger.kernel.org; netdev@vger.kernel.org; Jesse Brandeburg; Don Skidmore; e1000-devel@lists.sourceforge.net; Willem de Bruijn; Eric Dumazet; Ben Hutchings; Andi Kleen; HPA; Eilon Greenstien; Or Gerlitz; Amir Vadai; Alex Rosenbaum; Avner Ben Hanoch; Or Kehati; Eliezer Tamir
-Subject: [PATCH v2 net-next 2/3] net: change sysctl_net_ll_poll into an unsigned int
-
-There is no reason for sysctl_net_ll_poll to be an unsigned long.
-Change it into an unsigned int.
-Fix the proc handler.
-Add a cast in ll_end_time()
-
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
-
- include/net/ll_poll.h      |    5 +++--
- net/core/sysctl_net_core.c |    4 ++--
- net/socket.c               |    2 +-
- 3 files changed, 6 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h index bc262f8..d20508d 100644
---- a/include/net/ll_poll.h
-+++ b/include/net/ll_poll.h
-@@ -34,7 +34,7 @@
- #ifdef CONFIG_NET_LL_RX_POLL
- 
- struct napi_struct;
--extern unsigned long sysctl_net_ll_poll __read_mostly;
-+extern unsigned int sysctl_net_ll_poll __read_mostly;
- 
- /* return values from ndo_ll_poll */
- #define LL_FLUSH_FAILED		-1
-@@ -45,7 +45,8 @@ extern unsigned long sysctl_net_ll_poll __read_mostly;
- 
- static inline cycles_t ll_end_time(void)  {
--	return TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll) + get_cycles();
-+	return (cycles_t)TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll)
-+		 + get_cycles();
- }
- 
- static inline bool sk_valid_ll(struct sock *sk) diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c index 4b48f39..3c78b75 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -289,9 +289,9 @@ static struct ctl_table net_core_table[] = {
- 	{
- 		.procname	= "low_latency_poll",
- 		.data		= &sysctl_net_ll_poll,
--		.maxlen		= sizeof(unsigned long),
-+		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_doulongvec_minmax
-+		.proc_handler	= proc_dointvec
- 	},
- #endif
- #endif /* CONFIG_NET */
-diff --git a/net/socket.c b/net/socket.c index 21fd29f..caaffa1 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -107,7 +107,7 @@
- #include <net/ll_poll.h>
- 
- #ifdef CONFIG_NET_LL_RX_POLL
--unsigned long sysctl_net_ll_poll __read_mostly;
-+unsigned int sysctl_net_ll_poll __read_mostly;
- EXPORT_SYMBOL_GPL(sysctl_net_ll_poll);
- #endif
- 
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+UEsDBBQABgAIAAAAIQDd/JU3ZgEAACAFAAATAAgCW0NvbnRlbnRfVHlwZXNdLnhtbCCiBAIooAAC
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0
+VMtuwjAQvFfqP0S+Vomhh6qqCBz6OLZIpR9g7A1Y9Uv28vr7bgJEVQtBKuUSKVnvzOzsxIPR2pps
+CTFp70rWL3osAye90m5Wso/JS37PsoTCKWG8g5JtILHR8PpqMNkESBl1u1SyOWJ44DzJOViRCh/A
+UaXy0Qqk1zjjQchPMQN+2+vdcekdgsMcaww2HDxBJRYGs+c1fd4qiWASyx63B2uukokQjJYCSSlf
+OvWDJd8xFNTZnElzHdINyWD8IENdOU6w63sja6JWkI1FxFdhSQZf+ai48nJhaYaiG+aATl9VWkLb
+X6OF6CWkRJ5bU7QVK7Tb6z+qI+HGQPp/FVvcLnrSOY4+JE57OZsf6s0rUDlZESCihnZ1x0cHRLLs
+EsPvkLvGb1KAlHfgzbN/tgcNzEnKin6JiZgaOJvvV/Ja6JMiVjB9v5j738C7hLT5kz7+wYz9dVF3
+H0gdb+634RcAAAD//wMAUEsDBBQABgAIAAAAIQAekRq38wAAAE4CAAALAAgCX3JlbHMvLnJlbHMg
+ogQCKKAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAjJLbSgNBDIbvBd9hyH032woi0tneSKF3IusDhJnsAXcOzKTavr2jILpQ217m9OfLT9ab
+g5vUO6c8Bq9hWdWg2JtgR99reG23iwdQWchbmoJnDUfOsGlub9YvPJGUoTyMMaui4rOGQSQ+ImYz
+sKNchci+VLqQHEkJU4+RzBv1jKu6vsf0VwOamabaWQ1pZ+9AtcdYNl/WDl03Gn4KZu/Yy4kVyAdh
+b9kuYipsScZyjWop9SwabDDPJZ2RYqwKNuBpotX1RP9fi46FLAmhCYnP83x1nANaXg902aJ5x687
+HyFZLBZ9e/tDg7MvaD4BAAD//wMAUEsDBBQABgAIAAAAIQDWZLNR+gAAADEDAAAcAAgBd29yZC9f
+cmVscy9kb2N1bWVudC54bWwucmVscyCiBAEooAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+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
+AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACcUk1P4zAQva+0/yHKvXXaFbBCU6NV0YoDLJUa
+4DxyJomFY1u2+ei/3zGhIYgbOc28mTy/92y4eB1M8Uwhamc35WpZlQVZ5Rptu015V/9d/C6LmNA2
+aJylTXmgWF7Inz9gF5ynkDTFgils3JR9Sv5ciKh6GjAueWx50rowYOI2dMK1rVZ06dTTQDaJdVWd
+CnpNZBtqFn4iLEfG8+f0XdLGqawv3tcHz4Il1DR4g4nkvyzHgJgAqF1CU+uBZMXw1MAOO4pyBWIs
+4MGFJspfvDRWsO0xoEqcnVydnYKY9fDHe6MVJk5V3mgVXHRtKm7f/Bf5fxDzFeBM9qSegk6HLGPe
+wrW2o5CxYGEBu4C+f1c3dbBXaGjLxmWLJhKIDwC2bvBoD/KKXgyltNihesSs4zjI5zzGO1+7yxzU
+O8NncOb5Qad+71GxtHV1Mnc/m8CeM6KG7Rz5PgC44rsJJh/KydmOmuPO10HO8358pHK1Xlb8vQV4
+xPiSptcj/wMAAP//AwBQSwMEFAAGAAgAAAAhAFs/7xhLAQAAfQIAABEACAFkb2NQcm9wcy9jb3Jl
+LnhtbCCiBAEooAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+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
+--===============0421735902==--
