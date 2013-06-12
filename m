@@ -1,63 +1,91 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 3/3] net: add socket option
- for low latency polling
-Date: Wed, 12 Jun 2013 06:55:19 -0700
-Message-ID: <1371045319.3252.60.camel@edumazet-glaptop>
-References: <20130612111942.19288.12131.stgit@ladj378.jer.intel.com>
-	<20130612112016.19288.86849.stgit@ladj378.jer.intel.com>
-	<1371041065.3252.59.camel@edumazet-glaptop>
-	<51B86FA3.1030306@linux.intel.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] macvlan: don't touch promisc without passthrough
+Date: Wed, 12 Jun 2013 17:56:29 +0400
+Message-ID: <51B87E0D.8040009@cogentembedded.com>
+References: <1371035949-29471-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Don, Or Kehati <ork@mellanox.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	Avner Ben Hanoch <avnerb@mellanox.com>, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <51B86FA3.1030306@linux.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Cc: linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Roopa Prabhu <roprabhu@cisco.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371035949-29471-1-git-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-06-12 at 15:54 +0300, Eliezer Tamir wrote:
-> On 12/06/2013 15:44, Eric Dumazet wrote:
-> > On Wed, 2013-06-12 at 14:20 +0300, Eliezer Tamir wrote:
-> >> adds a socket option for low latency polling.
-> >> This allows overriding the global sysctl value with a per-socket one.
-> >>
-> >> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> >> ---
-> >
-> > It seems EXPORT_SYMBOL_GPL(sysctl_net_ll_poll) can now be removed ?
-> 
-> I think we would need it for poll.
+Hello.
 
-Hmm, poll is part of the kernel, not in a module, but lets see.
+On 12-06-2013 15:34, Michael S. Tsirkin wrote:
 
+> commit df8ef8f3aaa6692970a436204c4429210addb23a in linux 3.5 added a way
 
+    Please also specify that commit's summary line in parens.
 
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
+> to control NOPROMISC macvlan flag through netlink.
 
-Build for Windows Store.
+> However, with a non passthrough device we don't set promisc on open or
+> clear it on stop, even if NOPROMISC is off.  As a result:
 
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+> If userspace clears NOPROMISC on open, then does not clear it on a
+> netlink command, promisc counter is not decremented on stop and there
+> will be no way to clear it once macvlan is detached.
+
+> If userspace does not clear NOPROMISC on open, then sets NOPROMISC on a
+> netlink command, promisc counter will be decremented from 0 and overflow
+> to fffffffff with no way to clear promisc afterwards.
+
+> To fix, simply ignore NOPROMISC flag in a netlink command for
+> non-passthrough devices, same as we do at open/stop.
+
+> While at it - since we touch this code anyway - check
+> dev_set_promiscuity return code and pass it to users (though an error
+> here is unlikely).
+
+> Cc: "David S. Miller" <davem@davemloft.net>
+> CC: Roopa Prabhu <roprabhu@cisco.com>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+> ---
+
+> Please review, and consider for 3.10 and -stable.
+
+>   drivers/net/macvlan.c | 19 ++++++++++++-------
+>   1 file changed, 12 insertions(+), 7 deletions(-)
+
+> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> index 1c502bb..8812402 100644
+> --- a/drivers/net/macvlan.c
+> +++ b/drivers/net/macvlan.c
+> @@ -853,18 +853,23 @@ static int macvlan_changelink(struct net_device *dev,
+>   		struct nlattr *tb[], struct nlattr *data[])
+>   {
+>   	struct macvlan_dev *vlan = netdev_priv(dev);
+> -	if (data && data[IFLA_MACVLAN_MODE])
+> -		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
+> +
+>   	if (data && data[IFLA_MACVLAN_FLAGS]) {
+>   		__u16 flags = nla_get_u16(data[IFLA_MACVLAN_FLAGS]);
+>   		bool promisc = (flags ^ vlan->flags) & MACVLAN_FLAG_NOPROMISC;
+> -
+> -		if (promisc && (flags & MACVLAN_FLAG_NOPROMISC))
+> -			dev_set_promiscuity(vlan->lowerdev, -1);
+> -		else if (promisc && !(flags & MACVLAN_FLAG_NOPROMISC))
+> -			dev_set_promiscuity(vlan->lowerdev, 1);
+> +		if (vlan->port->passthru && promisc) {
+> +			int err;
+
+    Emoty line, like you did abobe, wouldn't hurt here, after declaration.
+
+> +			if (flags & MACVLAN_FLAG_NOPROMISC)
+> +				err = dev_set_promiscuity(vlan->lowerdev, -1);
+> +			else
+> +				err = dev_set_promiscuity(vlan->lowerdev, 1);
+> +			if (err < 0)
+> +				return err;
+> +		}
+
+WBR, Sergei
