@@ -1,29 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-06-12
-Date: Wed, 12 Jun 2013 13:36:03 -0700 (PDT)
-Message-ID: <20130612.133603.339419203281101086.davem@davemloft.net>
-References: <20130606190929.GB18827@tuxdriver.com>
-	<20130612150926.GC11589@tuxdriver.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
+Date: Wed, 12 Jun 2013 13:48:12 -0700
+Message-ID: <20130612134812.2ff03429@samsung-9>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+	<1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130612150926.GC11589@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mcgrof@do-not-panic.com, kvalo@adurom.com,
+	adrian.chadd@gmail.com, romieu@fr.zoreil.com
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f176.google.com ([209.85.214.176]:58920 "EHLO
+	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756585Ab3FLUsZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 16:48:25 -0400
+Received: by mail-ob0-f176.google.com with SMTP id v19so13854170obq.21
+        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 13:48:24 -0700 (PDT)
+In-Reply-To: <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Wed, 12 Jun 2013 11:09:26 -0400
-
-> For now I have dropped the mac80211 tree from this request.
-> We are developing a little backlog of fixes and I would like to
-> avoid introducing any more uncertainty to this pull request for the
-> 3.10 stream.  All the other bits are the same as what was in the
-> 2013-06-06 request, including the ath9k fixes intended to address
-> the problems observed by Linus w/ his Pixel, and a CVE fix for a
-> potential security issue in the b43 driver.
-
-Pulled, thanks John.
+pci_error_handlers should be const.
