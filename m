@@ -1,91 +1,48 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net] macvlan: don't touch promisc without passthrough
-Date: Wed, 12 Jun 2013 17:56:29 +0400
-Message-ID: <51B87E0D.8040009@cogentembedded.com>
-References: <1371035949-29471-1-git-send-email-mst@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Roopa Prabhu <roprabhu@cisco.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371035949-29471-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net] packet: packet_getname_spkt: make sure string is always 0-terminated
+Date: Wed, 12 Jun 2013 16:02:27 +0200
+Message-ID: <1371045747-15203-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46720 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753181Ab3FLOC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 10:02:29 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+uaddr->sa_data is exactly of size 14, which is hard-coded here and
+passed as a size argument to strncpy(). A device name can be of size
+IFNAMSIZ (== 16), meaning we might leave the destination string
+unterminated. Thus, use strlcpy() and also sizeof() while we're
+at it. We need to memset the data area beforehand, since strlcpy
+does not padd the remaining buffer with zeroes for user space, so
+that we do not possibly leak anything.
 
-On 12-06-2013 15:34, Michael S. Tsirkin wrote:
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/packet/af_packet.c | 5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-> commit df8ef8f3aaa6692970a436204c4429210addb23a in linux 3.5 added a way
-
-    Please also specify that commit's summary line in parens.
-
-> to control NOPROMISC macvlan flag through netlink.
-
-> However, with a non passthrough device we don't set promisc on open or
-> clear it on stop, even if NOPROMISC is off.  As a result:
-
-> If userspace clears NOPROMISC on open, then does not clear it on a
-> netlink command, promisc counter is not decremented on stop and there
-> will be no way to clear it once macvlan is detached.
-
-> If userspace does not clear NOPROMISC on open, then sets NOPROMISC on a
-> netlink command, promisc counter will be decremented from 0 and overflow
-> to fffffffff with no way to clear promisc afterwards.
-
-> To fix, simply ignore NOPROMISC flag in a netlink command for
-> non-passthrough devices, same as we do at open/stop.
-
-> While at it - since we touch this code anyway - check
-> dev_set_promiscuity return code and pass it to users (though an error
-> here is unlikely).
-
-> Cc: "David S. Miller" <davem@davemloft.net>
-> CC: Roopa Prabhu <roprabhu@cisco.com>
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-> ---
-
-> Please review, and consider for 3.10 and -stable.
-
->   drivers/net/macvlan.c | 19 ++++++++++++-------
->   1 file changed, 12 insertions(+), 7 deletions(-)
-
-> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> index 1c502bb..8812402 100644
-> --- a/drivers/net/macvlan.c
-> +++ b/drivers/net/macvlan.c
-> @@ -853,18 +853,23 @@ static int macvlan_changelink(struct net_device *dev,
->   		struct nlattr *tb[], struct nlattr *data[])
->   {
->   	struct macvlan_dev *vlan = netdev_priv(dev);
-> -	if (data && data[IFLA_MACVLAN_MODE])
-> -		vlan->mode = nla_get_u32(data[IFLA_MACVLAN_MODE]);
-> +
->   	if (data && data[IFLA_MACVLAN_FLAGS]) {
->   		__u16 flags = nla_get_u16(data[IFLA_MACVLAN_FLAGS]);
->   		bool promisc = (flags ^ vlan->flags) & MACVLAN_FLAG_NOPROMISC;
-> -
-> -		if (promisc && (flags & MACVLAN_FLAG_NOPROMISC))
-> -			dev_set_promiscuity(vlan->lowerdev, -1);
-> -		else if (promisc && !(flags & MACVLAN_FLAG_NOPROMISC))
-> -			dev_set_promiscuity(vlan->lowerdev, 1);
-> +		if (vlan->port->passthru && promisc) {
-> +			int err;
-
-    Emoty line, like you did abobe, wouldn't hurt here, after declaration.
-
-> +			if (flags & MACVLAN_FLAG_NOPROMISC)
-> +				err = dev_set_promiscuity(vlan->lowerdev, -1);
-> +			else
-> +				err = dev_set_promiscuity(vlan->lowerdev, 1);
-> +			if (err < 0)
-> +				return err;
-> +		}
-
-WBR, Sergei
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 8ec1bca..20a1bd0 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -2851,12 +2851,11 @@ static int packet_getname_spkt(struct socket *sock, struct sockaddr *uaddr,
+ 		return -EOPNOTSUPP;
+ 
+ 	uaddr->sa_family = AF_PACKET;
++	memset(uaddr->sa_data, 0, sizeof(uaddr->sa_data));
+ 	rcu_read_lock();
+ 	dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
+ 	if (dev)
+-		strncpy(uaddr->sa_data, dev->name, 14);
+-	else
+-		memset(uaddr->sa_data, 0, 14);
++		strlcpy(uaddr->sa_data, dev->name, sizeof(uaddr->sa_data));
+ 	rcu_read_unlock();
+ 	*uaddr_len = sizeof(*uaddr);
+ 
+-- 
+1.7.11.7
