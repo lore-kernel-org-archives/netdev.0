@@ -1,48 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: properly send new data in fast recovery
- in first RTT
-Date: Tue, 11 Jun 2013 20:57:55 -0700
-Message-ID: <1371009475.3252.53.camel@edumazet-glaptop>
-References: <1370990132-27652-1-git-send-email-ycheng@google.com>
-	 <CADVnQymM_fasoZ6s=Si=gccQ=wvmdt+0jryWovTxLeZw8e95WA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Nandita Dukkipati <nanditad@google.com>,
-	Netdev <netdev@vger.kernel.org>
-To: Neal Cardwell <ncardwell@google.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH 1/2] neigh: only allow init_net to change the default neigh_parms
+Date: Wed, 12 Jun 2013 12:34:10 +0800
+Message-ID: <1371011651-30894-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
+	Gao feng <gaofeng@Donkey.lan>,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f178.google.com ([209.85.215.178]:62219 "EHLO
-	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751252Ab3FLD6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 23:58:00 -0400
-Received: by mail-ea0-f178.google.com with SMTP id l15so4497967eak.37
-        for <netdev@vger.kernel.org>; Tue, 11 Jun 2013 20:57:59 -0700 (PDT)
-In-Reply-To: <CADVnQymM_fasoZ6s=Si=gccQ=wvmdt+0jryWovTxLeZw8e95WA@mail.gmail.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:9781 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1750968Ab3FLEd5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 00:33:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-06-11 at 19:56 -0400, Neal Cardwell wrote:
-> On Tue, Jun 11, 2013 at 6:35 PM, Yuchung Cheng <ycheng@google.com> wrote:
-> > Linux sends new unset data during disorder and recovery state if all
-> > (suspected) lost packets have been retransmitted ( RFC5681, section
-> > 3.2 step 1 & 2, RFC3517 section 4, NexSeg() Rule 2).  One requirement
-> > is to keep the receive window about twice the estimated sender's
-> > congestion window (tcp_rcv_space_adjust()), assuming the fast
-> > retransmits repair the losses in the next round trip.
-> >
-> > But currently it's not the case on the first round trip in either
-> > normal or Fast Open connection, beucase the initial receive window
-> > is identical to (expected) sender's initial congestion window. The
-> > fix is to double it.
-> >
-> > Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> 
-> Acked-by: Neal Cardwell <ncardwell@google.com>
+From: Gao feng <gaofeng@Donkey.lan>
 
-Yes, this is indeed a very nice catch, thanks Yuchung !
+Though we don't export the /proc/sys/net/ipv[4,6]/neigh/default/
+directory to the un-init_net, but we can still use cmd such as
+"ip ntable change name arp_cache locktime 129" to change the locktime
+of default neigh_parms.
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+This patch disallows the un-init_net to find out the neigh_table.parms.
+So the un-init_net will failed to influence the init_net.
+
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/core/neighbour.c | 25 ++++++++++++++-----------
+ 1 file changed, 14 insertions(+), 11 deletions(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 5c56b21..e4027ff 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1418,26 +1418,29 @@ static inline struct neigh_parms *lookup_neigh_parms(struct neigh_table *tbl,
+ 	struct neigh_parms *p;
+ 
+ 	for (p = &tbl->parms; p; p = p->next) {
+-		if ((p->dev && p->dev->ifindex == ifindex && net_eq(neigh_parms_net(p), net)) ||
+-		    (!p->dev && !ifindex))
++		if (p->dev && p->dev->ifindex == ifindex &&
++		    net_eq(neigh_parms_net(p), net))
+ 			return p;
++
++		if (!p->dev && !ifindex) {
++			if (net_eq(net, &init_net))
++				return p;
++			else
++				return ERR_PTR(-EPERM);
++		}
+ 	}
+ 
+-	return NULL;
++	return ERR_PTR(-ENOENT);
+ }
+ 
+ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
+ 				      struct neigh_table *tbl)
+ {
+-	struct neigh_parms *p, *ref;
++	struct neigh_parms *p;
+ 	struct net *net = dev_net(dev);
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 
+-	ref = lookup_neigh_parms(tbl, net, 0);
+-	if (!ref)
+-		return NULL;
+-
+-	p = kmemdup(ref, sizeof(*p), GFP_KERNEL);
++	p = kmemdup(&tbl->parms, sizeof(*p), GFP_KERNEL);
+ 	if (p) {
+ 		p->tbl		  = tbl;
+ 		atomic_set(&p->refcnt, 1);
+@@ -1999,8 +2002,8 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 			ifindex = nla_get_u32(tbp[NDTPA_IFINDEX]);
+ 
+ 		p = lookup_neigh_parms(tbl, net, ifindex);
+-		if (p == NULL) {
+-			err = -ENOENT;
++		if (IS_ERR(p)) {
++			err = PTR_ERR(p);
+ 			goto errout_tbl_lock;
+ 		}
+ 
+-- 
+1.8.1.4
