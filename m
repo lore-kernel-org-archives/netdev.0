@@ -1,35 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] sfc: Store port number in private data, not
- net_device::dev_id
-Date: Wed, 12 Jun 2013 03:15:16 -0700 (PDT)
-Message-ID: <20130612.031516.153223282530581370.davem@davemloft.net>
-References: <1370883797.1933.14.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [PATCH][net-next] gianfar: Add backwards compatible Single
+ Queue mode polling
+Date: Wed, 12 Jun 2013 03:16:39 -0700 (PDT)
+Message-ID: <20130612.031639.1111694751709981287.davem@davemloft.net>
+References: <CALG0vJtYfhJOMMU1rgDV8TYgkm3MJh2iibqmAJsj3nxbegBWEQ@mail.gmail.com>
+	<1370884788-4862-1-git-send-email-claudiu.manoil@freescale.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com,
-	narendra_k@dell.com
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, michael.guntsche@it-loops.com
+To: claudiu.manoil@freescale.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52522 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52532 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753316Ab3FLKPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 06:15:17 -0400
-In-Reply-To: <1370883797.1933.14.camel@bwh-desktop.uk.level5networks.com>
+	with ESMTP id S1751588Ab3FLKQk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 06:16:40 -0400
+In-Reply-To: <1370884788-4862-1-git-send-email-claudiu.manoil@freescale.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 10 Jun 2013 18:03:17 +0100
+From: Claudiu Manoil <claudiu.manoil@freescale.com>
+Date: Mon, 10 Jun 2013 20:19:48 +0300
 
-> We should not use net_device::dev_id to indicate the port number, as
-> this affects the way the local part of IPv6 addresses is normally
-> generated.
+> Older Single Queue (SQ_SG_MODE) devices like TSEC (i.e. mpc83xx)
+> don't feature the frame receive indication bits (RXF) in RSTAT.
+> For these and for the rest of the SQ_SG_MODE devices, provide the
+> appropiate polling routine that handles a single pair of Rx/Tx
+> BD rings, removing the overhead incurred by the multiple queues/
+> multiple interrupt group devices (veTSEC/ eTSEC2.0 devices).
+> So this is primarily a fix for the TSEC devices.
 > 
-> This field was intended for use where multiple devices may share a
-> single assigned MAC address and need to have different IPv6 addresses.
-> Siena's two ports each have their own MAC addresses.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
 
-Applied, thanks Ben.
+Applied, thanks.
