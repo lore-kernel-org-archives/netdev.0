@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] pktgen: ipv6: numa: consolidate skb
- allocation to pktgen_alloc_skb
-Date: Wed, 12 Jun 2013 00:48:53 -0700 (PDT)
-Message-ID: <20130612.004853.513619603946162801.davem@davemloft.net>
-References: <1370693896-9294-1-git-send-email-dborkman@redhat.com>
+From: Calvin Owens <jcalvinowens@gmail.com>
+Subject: Re: [PATCH] mac80211: ath9k: Use RCU protection calling
+ ieee80211_get_tx_rates
+Date: Wed, 12 Jun 2013 02:56:34 -0500
+Message-ID: <20130612075634.GA1649@gmail.com>
+References: <20130609225120.GA2789@gmail.com>
+ <20130610042959.GA1902@gmail.com>
+ <1370950926.8356.14.camel@jlt4.sipsolutions.net>
+ <20130611171304.GA2189@gmail.com>
+ <1370980523.8356.70.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51281 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755547Ab3FLHsy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:48:54 -0400
-In-Reply-To: <1370693896-9294-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Felix Fietkau <nbd@openwrt.org>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1370980523.8356.70.camel@jlt4.sipsolutions.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Sat,  8 Jun 2013 14:18:16 +0200
-
-> We currently allow for numa-node aware skb allocation only within the
-> fill_packet_ipv4() path, but not in fill_packet_ipv6(). Consolidate that
-> code to a common allocation helper to enable numa-node aware skb
-> allocation for ipv6, and use it in both paths. This also makes both
-> functions a bit more readable.
+On Tuesday 06/11 at 21:55 +0200, Johannes Berg wrote:
+> Now the subject should no longer say "mac80211:" :)
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> However... given that ieee80211_get_tx_rates() actually *copies* the
+> rates into the parameter, I guess it should do the rcu_read_lock()
+> internally. I guess I wasn't paying attention previously. Felix?
 
-Applied.
+I thought about that, but it seemed too simple, so I assumed I was
+missing something. ;)
+
+I'll send a patch per above. That makes the header file update
+unnecessary too.
+
+> johannes
