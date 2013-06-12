@@ -1,53 +1,107 @@
-From: Felix Fietkau <nbd@openwrt.org>
-Subject: Re: [PATCH] mac80211: Use RCU protection in ieee80211_get_tx_rates()
-Date: Wed, 12 Jun 2013 11:47:53 +0200
-Message-ID: <51B843C9.9090500@openwrt.org>
-References: <20130609225120.GA2789@gmail.com> <20130610042959.GA1902@gmail.com> <1370950926.8356.14.camel@jlt4.sipsolutions.net> <20130611171304.GA2189@gmail.com> <1370980523.8356.70.camel@jlt4.sipsolutions.net> <20130612075634.GA1649@gmail.com> <20130612080042.GA1695@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
-	"John W. Linville" <linville@tuxdriver.com>,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org
-To: Calvin Owens <jcalvinowens@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130612080042.GA1695@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch iproute2] add quickack option to ip route
+Date: Wed, 12 Jun 2013 17:55:55 +0800
+Message-ID: <1371030955-6740-2-git-send-email-amwang@redhat.com>
+References: <1371030955-6740-1-git-send-email-amwang@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:47411 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751617Ab3FLJ4e (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 05:56:34 -0400
+In-Reply-To: <1371030955-6740-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2013-06-12 10:00 AM, Calvin Owens wrote:
-> Copying the rate table should be done in an RCU read-side critical
-> section.
-I think this approach is wrong. The sta entry is also under RCU
-protection (no locking for read access in that part of the code.
-In a normal driver tx path, no extra rcu_read_lock/rcu_read_unlock is
-needed. Only if the driver does some scheduling outside of the tx
-function (which ath9k does), this RCU warning appears.
+From: Cong Wang <amwang@redhat.com>
 
-How about this change instead:
+
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
 ---
---- a/drivers/net/wireless/ath/ath9k/xmit.c
-+++ b/drivers/net/wireless/ath/ath9k/xmit.c
-@@ -1570,6 +1570,8 @@ void ath_txq_schedule(struct ath_softc *
- 	    txq->axq_ampdu_depth >= ATH_AGGR_MIN_QDEPTH)
- 		return;
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 93370bd..248fdd3 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -386,6 +386,8 @@ enum {
+ #define RTAX_RTO_MIN RTAX_RTO_MIN
+ 	RTAX_INITRWND,
+ #define RTAX_INITRWND RTAX_INITRWND
++	RTAX_QUICKACK,
++#define RTAX_QUICKACK RTAX_QUICKACK
+ 	__RTAX_MAX
+ };
  
-+	rcu_read_lock();
-+
- 	ac = list_first_entry(&txq->axq_acq, struct ath_atx_ac, list);
- 	last_ac = list_entry(txq->axq_acq.prev, struct ath_atx_ac, list);
+diff --git a/ip/iproute.c b/ip/iproute.c
+index adef774..46710b2 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -52,6 +52,7 @@ static const char *mx_names[RTAX_MAX+1] = {
+ 	[RTAX_FEATURES] = "features",
+ 	[RTAX_RTO_MIN]	= "rto_min",
+ 	[RTAX_INITRWND]	= "initrwnd",
++	[RTAX_QUICKACK]	= "quickack",
+ };
+ static void usage(void) __attribute__((noreturn));
  
-@@ -1608,8 +1610,10 @@ void ath_txq_schedule(struct ath_softc *
- 
- 		if (ac == last_ac ||
- 		    txq->axq_ampdu_depth >= ATH_AGGR_MIN_QDEPTH)
--			return;
-+			break;
- 	}
-+
-+	rcu_read_unlock();
+@@ -79,6 +80,7 @@ static void usage(void)
+ 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
+ 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
+ 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
++	fprintf(stderr, "           [ quickack BOOL ]\n");
+ 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
+ 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
+@@ -86,6 +88,7 @@ static void usage(void)
+ 	fprintf(stderr, "NHFLAGS := [ onlink | pervasive ]\n");
+ 	fprintf(stderr, "RTPROTO := [ kernel | boot | static | NUMBER ]\n");
+ 	fprintf(stderr, "TIME := NUMBER[s|ms]\n");
++	fprintf(stderr, "BOOL := [1|0]\n");
+ 	exit(-1);
  }
  
- /***********/
+@@ -885,6 +888,14 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			if (get_unsigned(&win, *argv, 0))
+ 				invarg("\"initrwnd\" value is invalid\n", *argv);
+ 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_INITRWND, win);
++		} else if (matches(*argv, "quickack") == 0) {
++			unsigned quickack;
++			NEXT_ARG();
++			if (get_unsigned(&quickack, *argv, 0))
++				invarg("\"quickack\" value is invalid\n", *argv);
++			if (quickack != 1 && quickack != 0)
++				invarg("\"quickack\" value should be 0 or 1\n", *argv);
++			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_QUICKACK, quickack);
+ 		} else if (matches(*argv, "rttvar") == 0) {
+ 			unsigned win;
+ 			NEXT_ARG();
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 2c35a97..01997fa 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -111,6 +111,8 @@ replace " } "
+ .IR NUMBER " ] [ "
+ .B  initrwnd
+ .IR NUMBER " ]"
++.B  quickack
++.IR BOOL " ]"
+ 
+ .ti -8
+ .IR TYPE " := [ "
+@@ -401,6 +403,10 @@ Actual window size is this value multiplied by the MSS of the connection.
+ The default value is zero, meaning to use Slow Start value.
+ 
+ .TP
++.BI quickack " BOOL " "(3.11+ only)"
++Enable or disable quick ack for connections to this destination.
++
++.TP
+ .BI advmss " NUMBER " "(2.3.15+ only)"
+ the MSS ('Maximal Segment Size') to advertise to these
+ destinations when establishing TCP connections.  If it is not given,
