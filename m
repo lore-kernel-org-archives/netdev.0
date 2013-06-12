@@ -1,28 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net 0/3] team: couple of fixes
-Date: Wed, 12 Jun 2013 00:57:24 -0700 (PDT)
-Message-ID: <20130612.005724.1355461391911598238.davem@davemloft.net>
-References: <1370696455-12221-1-git-send-email-jiri@resnulli.us>
+From: Calvin Owens <jcalvinowens@gmail.com>
+Subject: [PATCH] mac80211: Use RCU protection in ieee80211_get_tx_rates()
+Date: Wed, 12 Jun 2013 03:00:42 -0500
+Message-ID: <20130612080042.GA1695@gmail.com>
+References: <20130609225120.GA2789@gmail.com>
+ <20130610042959.GA1902@gmail.com>
+ <1370950926.8356.14.camel@jlt4.sipsolutions.net>
+ <20130611171304.GA2189@gmail.com>
+ <1370980523.8356.70.camel@jlt4.sipsolutions.net>
+ <20130612075634.GA1649@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, fbl@redhat.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51340 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751121Ab3FLH5Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:57:25 -0400
-In-Reply-To: <1370696455-12221-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: "Luis R. Rodriguez" <mcgrof@qca.qualcomm.com>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	Felix Fietkau <nbd@openwrt.org>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ath9k-devel@lists.ath9k.org, netdev@vger.kernel.org,
+	jcalvinowens@gmail.com
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130612075634.GA1649@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Sat,  8 Jun 2013 15:00:52 +0200
+Copying the rate table should be done in an RCU read-side critical
+section.
 
-> Jiri Pirko (3):
->   team: check return value of team_get_port_by_index_rcu() for NULL
->   team: move add to port list before port enablement
->   team: fix checks in team_get_first_port_txable_rcu()
+Signed-off-by: Calvin Owens <jcalvinowens@gmail.com>
+---
+ net/mac80211/rate.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-Series applied, thanks Jiri.
+diff --git a/net/mac80211/rate.c b/net/mac80211/rate.c
+index d3f414f..090d9b0 100644
+--- a/net/mac80211/rate.c
++++ b/net/mac80211/rate.c
+@@ -538,6 +538,8 @@ static void rate_control_fill_sta_table(struct ieee80211_sta *sta,
+ 	struct ieee80211_sta_rates *ratetbl = NULL;
+ 	int i;
+ 
++	rcu_read_lock();
++
+ 	if (sta && !info->control.skip_table)
+ 		ratetbl = rcu_dereference(sta->rates);
+ 
+@@ -566,6 +568,8 @@ static void rate_control_fill_sta_table(struct ieee80211_sta *sta,
+ 		if (rates[i].idx < 0 || !rates[i].count)
+ 			break;
+ 	}
++
++	rcu_read_unlock();
+ }
+ 
+ static void rate_control_apply_mask(struct ieee80211_sub_if_data *sdata,
+-- 
+1.8.2.1
