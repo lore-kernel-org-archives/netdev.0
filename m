@@ -1,29 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] igmp: remove unnecessary in_device member
- zeroing
-Date: Wed, 12 Jun 2013 00:42:01 -0700 (PDT)
-Message-ID: <20130612.004201.848052130607117743.davem@davemloft.net>
-References: <1370626483-23776-1-git-send-email-sbohrer@rgmadvisors.com>
+Subject: Re: pull request: wireless 2013-06-06
+Date: Wed, 12 Jun 2013 00:42:41 -0700 (PDT)
+Message-ID: <20130612.004241.761719664465563112.davem@davemloft.net>
+References: <20130611.222706.1492583255605214982.davem@davemloft.net>
+	<20130612.002103.916991474696226731.davem@davemloft.net>
+	<20920.8752.339655.254147@gargle.gargle.HOWL>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sbohrer@rgmadvisors.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51181 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753824Ab3FLHmC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:42:02 -0400
-In-Reply-To: <1370626483-23776-1-git-send-email-sbohrer@rgmadvisors.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: sujith@msujith.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20920.8752.339655.254147@gargle.gargle.HOWL>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Shawn Bohrer <sbohrer@rgmadvisors.com>
-Date: Fri,  7 Jun 2013 12:34:43 -0500
+From: Sujith Manoharan <sujith@msujith.org>
+Date: Wed, 12 Jun 2013 12:54:32 +0530
 
-> ip_mc_init_dev() is passed a freshly kzalloc'd in_device so it is
-> unnecessary to explicitly zero out the members.
+> David Miller wrote:
+>> John, I also don't like the ATK9K Kconfig option name change added in
+>> this pull request, this is exactly the kind of thing that drives
+>> Linus insane.
+>> 
+>> Change the default, fine, but changing the name is unnecssary churn
+>> and adds a new config prompt that people are going to respond to
+>> incorrectly when they type "make oldconfig"
 > 
-> Signed-off-by: Shawn Bohrer <sbohrer@rgmadvisors.com>
+> This was Linus' suggestion: https://patchwork.kernel.org/patch/2676971/
+> 
+> The RH bugzilla appears to be down at the moment, but more background
+> for the bug is here: https://bugzilla.redhat.com/show_bug.cgi?id=927191
 
-Applied, thanks.
+Fair enough, I rescind my objection.
