@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH][net-next] gianfar: Add backwards compatible Single
- Queue mode polling
-Date: Wed, 12 Jun 2013 03:16:39 -0700 (PDT)
-Message-ID: <20130612.031639.1111694751709981287.davem@davemloft.net>
-References: <CALG0vJtYfhJOMMU1rgDV8TYgkm3MJh2iibqmAJsj3nxbegBWEQ@mail.gmail.com>
-	<1370884788-4862-1-git-send-email-claudiu.manoil@freescale.com>
+From: Fengguang Wu <fengguang.wu@intel.com>
+Subject: Re: [PATCH net-next] net: ping_check_bind_addr() etc. can be static
+Date: Wed, 12 Jun 2013 18:26:15 +0800
+Message-ID: <20130612102615.GB13837@localhost>
+References: <20130609122426.GA2715@localhost>
+ <20130612.011752.655896553563933294.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, michael.guntsche@it-loops.com
-To: claudiu.manoil@freescale.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, lorenzo@google.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52532 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588Ab3FLKQk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 06:16:40 -0400
-In-Reply-To: <1370884788-4862-1-git-send-email-claudiu.manoil@freescale.com>
+Received: from mga01.intel.com ([192.55.52.88]:6638 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754301Ab3FLK0l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 06:26:41 -0400
+Content-Disposition: inline
+In-Reply-To: <20130612.011752.655896553563933294.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Claudiu Manoil <claudiu.manoil@freescale.com>
-Date: Mon, 10 Jun 2013 20:19:48 +0300
-
-> Older Single Queue (SQ_SG_MODE) devices like TSEC (i.e. mpc83xx)
-> don't feature the frame receive indication bits (RXF) in RSTAT.
-> For these and for the rest of the SQ_SG_MODE devices, provide the
-> appropiate polling routine that handles a single pair of Rx/Tx
-> BD rings, removing the overhead incurred by the multiple queues/
-> multiple interrupt group devices (veTSEC/ eTSEC2.0 devices).
-> So this is primarily a fix for the TSEC devices.
+On Wed, Jun 12, 2013 at 01:17:52AM -0700, David Miller wrote:
+> From: Fengguang Wu <fengguang.wu@intel.com>
+> Date: Sun, 9 Jun 2013 20:24:26 +0800
 > 
-> Signed-off-by: Claudiu Manoil <claudiu.manoil@freescale.com>
+> >  /* Checks the bind address and possibly modifies sk->sk_bound_dev_if. */
+> > -int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
+> > +static int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
+> >  			 struct sockaddr *uaddr, int addr_len) {
+> 
+> In all of these cases, you have to fix the indentation of all of the
+> argument lines when the change the location of the openning
+> parenthesis of the first line of the function definition.
+> 
+> That's because in the networking we indent function declarations
+> in the following way:
+> 
+> int foo(int arg1, int arg2, int arg3,
+> 	int arg4, int arg5)
+> 
+> Specifically, the arguments that are declared on the second and
+> subsequent lines must start at the first column after the openning
+> parenthesis.  This must be done using the appropriate number of
+> TAB and space characters necessary to achieve that exact column.
+> 
+> Please fix this up and combine your two patches into one.
 
-Applied, thanks.
+OK I'll rework the patch, thank you for the kind tips!
+
+Thanks,
+Fengguang
