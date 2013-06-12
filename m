@@ -1,55 +1,71 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: Re: [PATCH 1/1] net: can: at91_can: Use of_match_ptr()
-Date: Wed, 12 Jun 2013 13:47:05 +0200
-Message-ID: <51B85FB9.8050907@pengutronix.de>
-References: <1371036639-16798-1-git-send-email-sachin.kamat@linaro.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="----enig2FPWDICGBFVVBMURFXSSR"
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	davem@davemloft.net, wg@grandegger.com
-To: Sachin Kamat <sachin.kamat@linaro.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1371036639-16798-1-git-send-email-sachin.kamat@linaro.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Vipul Pandya <vipul@chelsio.com>
+Subject: [PATCH V2 0/4] Add IPv6 support for iWARP
+Date: Wed, 12 Jun 2013 17:11:38 +0530
+Message-ID: <1371037302-3586-1-git-send-email-vipul@chelsio.com>
+Cc: roland@purestorage.com, davem@davemloft.net, divy@chelsio.com,
+	dm@chelsio.com, swise@opengridcomputing.com, roland@kernel.org,
+	sean.hefty@intel.com, hal.rosenstock@gmail.com,
+	tom@opengridcomputing.com, faisal.latif@intel.com,
+	akpm@linux-foundation.org, sasha.levin@oracle.com,
+	nirranjan@chelsio.com, vipul@chelsio.com
+To: linux-rdma@vger.kernel.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:12975 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753022Ab3FLLsN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 07:48:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
-------enig2FPWDICGBFVVBMURFXSSR
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: quoted-printable
+Hi All,
 
-On 06/12/2013 01:30 PM, Sachin Kamat wrote:
-> of_match_ptr() eliminates having an #ifdef returning NULL for the case
-> when OF is disabled.
->=20
-> Signed-off-by: Sachin Kamat <sachin.kamat@linaro.org>
-> Cc: Marc Kleine-Budde <mkl@pengutronix.de>
+This patch series adds IPv6 support for iWARP. It enables Chelsio's T4 and T5
+adapters to transmitt RDMA traffic over IPv6 address. It adds new apis and cpl
+messages in cxgb4 to support IPv6 operations and uses them in RDMA/cxgb4.
 
-Tnx, applied to linux-can-next/master.
+The patch series  modifies the type of local_addr and remote_addr fields in
+struct iw_cm_id from struct sockaddr_in to struct sockaddr_storage to hold IPv6
+and IPv4 addresses uniformly. It changes the references of local_addr and
+remote_addr in RDMA/cxgb4, RDMA/cxgb3, RDMA/nes and amso drivers such that build
+failure is avoided.
 
-Marc
+We would like to submit this patch series via Roland's infiniband tree for-next
+branch. However the series requires the latest changes pushed in cxgb4 driver in
+David Miller's net-next tree. We request Roland to merge cxgb4 and RDMA/cxgb4
+drivers from net-next tree before applying this series on for-next branch. We
+have created this patch series on top of net-next tree.
 
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+We have included all the maintainers of respective drivers. Kindly review the
+change and let us know in case of any review comments.
 
+Thanks,
+Vipul Pandya
 
-------enig2FPWDICGBFVVBMURFXSSR
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+V2: Used local variables instead of typecasting in patch 1/4.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+Steve Wise (1):
+  RDMA/cma: Add IPv6 support for iWARP.
 
-iEYEARECAAYFAlG4X7wACgkQjTAFq1RaXHMJMgCfXQZv6H8eo7ktMnTa9M1OMgK8
-TxMAnRXPEF8BjDgi1MeTyS/22cday2m5
-=tlV5
------END PGP SIGNATURE-----
+Vipul Pandya (3):
+  cxgb4: Add routines to create and remove listening IPv6 servers
+  cxgb4: Add CLIP support to store compressed IPv6 address
+  RDMA/cxgb4: Add support for active and passive open connection with
+    IPv6 address
 
-------enig2FPWDICGBFVVBMURFXSSR--
+ drivers/infiniband/core/cma.c                   |  69 +-
+ drivers/infiniband/hw/amso1100/c2_ae.c          |  18 +-
+ drivers/infiniband/hw/amso1100/c2_cm.c          |  16 +-
+ drivers/infiniband/hw/cxgb3/iwch_cm.c           |  46 +-
+ drivers/infiniband/hw/cxgb4/cm.c                | 842 ++++++++++++++++--------
+ drivers/infiniband/hw/cxgb4/device.c            | 116 +++-
+ drivers/infiniband/hw/cxgb4/iw_cxgb4.h          |   4 +-
+ drivers/infiniband/hw/nes/nes_cm.c              | 148 +++--
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 277 +++++++-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   5 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |  17 +-
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  23 +
+ include/rdma/iw_cm.h                            |   8 +-
+ 13 files changed, 1142 insertions(+), 447 deletions(-)
+
+-- 
+1.8.0
