@@ -1,29 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-06-06
-Date: Wed, 12 Jun 2013 00:21:03 -0700 (PDT)
-Message-ID: <20130612.002103.916991474696226731.davem@davemloft.net>
-References: <20130606190929.GB18827@tuxdriver.com>
-	<20130611.222706.1492583255605214982.davem@davemloft.net>
+Subject: Re: [PATCH net] taging: csr: fix the skb mac header reset
+Date: Wed, 12 Jun 2013 00:22:47 -0700 (PDT)
+Message-ID: <20130612.002247.1868683620537585681.davem@davemloft.net>
+References: <1370589567-24043-1-git-send-email-roy.qing.li@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
+Cc: netdev@vger.kernel.org
+To: roy.qing.li@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50970 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50983 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755157Ab3FLHVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:21:04 -0400
-In-Reply-To: <20130611.222706.1492583255605214982.davem@davemloft.net>
+	with ESMTP id S1754179Ab3FLHWs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:22:48 -0400
+In-Reply-To: <1370589567-24043-1-git-send-email-roy.qing.li@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: roy.qing.li@gmail.com
+Date: Fri,  7 Jun 2013 15:19:27 +0800
 
-John, I also don't like the ATK9K Kconfig option name change added in
-this pull request, this is exactly the kind of thing that drives
-Linus insane.
+> From: Li RongQing <roy.qing.li@gmail.com> 
+> 
+> mac_header can be offset if NET_SKBUFF_DATA_USES_OFFSET is set, so
+> we should call skb_reset_mac_header to reset mac_header.
+> 
+> Or it will not work on net-next since "net: Use 16bits for *_headers
+> fields of struct skbuff" commit is introduced.
+> 
+> Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
 
-Change the default, fine, but changing the name is unnecssary churn
-and adds a new config prompt that people are going to respond to
-incorrectly when they type "make oldconfig"
+Staging driver changes need to go through Greg KH.
+
+Thanks.
