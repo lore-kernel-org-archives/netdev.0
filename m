@@ -1,28 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tun: Turn tun_flow_init() into void fn
-Date: Wed, 12 Jun 2013 15:09:17 -0700 (PDT)
-Message-ID: <20130612.150917.750186314300995907.davem@davemloft.net>
-References: <51B71F94.6020507@parallels.com>
+Subject: Re: [Patch net-next v2] net: add doc for ip_early_demux sysctl
+Date: Wed, 12 Jun 2013 15:10:27 -0700 (PDT)
+Message-ID: <20130612.151027.1400914250472097012.davem@davemloft.net>
+References: <1370948079-26598-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: xemul@parallels.com
+Cc: netdev@vger.kernel.org, edumazet@google.com,
+	alexander.h.duyck@intel.com
+To: amwang@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60895 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60904 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756858Ab3FLWJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 18:09:18 -0400
-In-Reply-To: <51B71F94.6020507@parallels.com>
+	with ESMTP id S1755220Ab3FLWK1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 18:10:27 -0400
+In-Reply-To: <1370948079-26598-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pavel Emelyanov <xemul@parallels.com>
-Date: Tue, 11 Jun 2013 17:01:08 +0400
+From: Cong Wang <amwang@redhat.com>
+Date: Tue, 11 Jun 2013 18:54:39 +0800
 
-> This routine doesn't fail since 9fdc6bef (tuntap: dont use a private kmem_cache)
-> so it makes sense to compact the code a little bit.
+> From: Cong Wang <amwang@redhat.com>
 > 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> commit 6648bd7e0e62c0c8c03b (ipv4: Add sysctl knob to control
+> early socket demux) introduced such sysctl, but forgot to add
+> doc into Documentation/networking/ip-sysctl.txt. This patch adds it.
+> 
+> Basically I grab the doc from the description of commit 41063e9dd11956f2d285
+> (ipv4: Early TCP socket demux.) and the above commit.
+> 
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Alexander Duyck <alexander.h.duyck@intel.com>
+> Cc: David S. Miller <davem@davemloft.net>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Applied.
+Applied, thank you.
