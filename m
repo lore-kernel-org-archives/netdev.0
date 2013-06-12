@@ -1,44 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH] tuntap: set SOCK_ZEROCOPY flag during open
-Date: Wed, 12 Jun 2013 00:45:33 -0700 (PDT)
-Message-ID: <20130612.004533.1565702065831087835.davem@davemloft.net>
-References: <1370672261-30076-1-git-send-email-jasowang@redhat.com>
-	<20130611131750.GD9279@redhat.com>
+Subject: Re: [PATCH net-next] net: udp4: move GSO functions to udp_offload
+Date: Wed, 12 Jun 2013 00:48:47 -0700 (PDT)
+Message-ID: <20130612.004847.18596600568882783.davem@davemloft.net>
+References: <1370688963-32635-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jasowang@redhat.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: mst@redhat.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130611131750.GD9279@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: dborkman@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51279 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753424Ab3FLHss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:48:48 -0400
+In-Reply-To: <1370688963-32635-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Date: Tue, 11 Jun 2013 16:17:50 +0300
+From: Daniel Borkmann <dborkman@redhat.com>
+Date: Sat,  8 Jun 2013 12:56:03 +0200
 
-> On Sat, Jun 08, 2013 at 02:17:41PM +0800, Jason Wang wrote:
->>Cc: smtp.corp.redhat.com@redhat.com, davem@davemloft.net,
->>	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
->>
->> Commit 54f968d6efdbf7dec36faa44fc11f01b0e4d1990
->> (tuntap: move socket to tun_file) forgets to set SOCK_ZEROCOPY flag, which will
->> prevent vhost_net from doing zercopy w/ tap. This patch fixes this by setting
->> it during file open.
->> 
->> Cc: Michael S. Tsirkin <mst@redhat.com>
->> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Similarly to TCP offloading and UDPv6 offloading, move all related
+> UDPv4 functions to udp_offload.c to make things more explicit. Also,
+> by this, we can make those functions static.
 > 
-> One of the addresses in the Cc list (smtp.corp.redhat.com@redhat.com)
-> is clearly a mistake, which probably explains why it didn't
-> get into patchwork.
-> 
-> I have bounced it to correct addresses, hope this
-> helps instead of making even more of a mess of it.
-> 
-> For 3.10 and -stable:
-> 
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 
-Applied and queued up for -stable, thanks.
+Applied.
