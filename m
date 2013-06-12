@@ -1,50 +1,41 @@
-From: Fengguang Wu <fengguang.wu@intel.com>
-Subject: Re: [PATCH net-next] net: ping_check_bind_addr() etc. can be static
-Date: Wed, 12 Jun 2013 18:26:15 +0800
-Message-ID: <20130612102615.GB13837@localhost>
-References: <20130609122426.GA2715@localhost>
- <20130612.011752.655896553563933294.davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 0/3] team: remove sychronize_rcu() calls
+Date: Wed, 12 Jun 2013 13:01:08 +0200
+Message-ID: <20130612110108.GB1852@minipsycho.brq.redhat.com>
+References: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
+ <20130612.031022.382642269781263103.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, lorenzo@google.com
+Cc: netdev@vger.kernel.org, edumazet@google.com, fbl@redhat.com
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:6638 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754301Ab3FLK0l (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jun 2013 06:26:41 -0400
+Received: from mail-ea0-f179.google.com ([209.85.215.179]:51526 "EHLO
+	mail-ea0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752150Ab3FLLBO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 07:01:14 -0400
+Received: by mail-ea0-f179.google.com with SMTP id b15so5640424eae.38
+        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 04:01:13 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20130612.011752.655896553563933294.davem@davemloft.net>
+In-Reply-To: <20130612.031022.382642269781263103.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 12, 2013 at 01:17:52AM -0700, David Miller wrote:
-> From: Fengguang Wu <fengguang.wu@intel.com>
-> Date: Sun, 9 Jun 2013 20:24:26 +0800
-> 
-> >  /* Checks the bind address and possibly modifies sk->sk_bound_dev_if. */
-> > -int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
-> > +static int ping_check_bind_addr(struct sock *sk, struct inet_sock *isk,
-> >  			 struct sockaddr *uaddr, int addr_len) {
-> 
-> In all of these cases, you have to fix the indentation of all of the
-> argument lines when the change the location of the openning
-> parenthesis of the first line of the function definition.
-> 
-> That's because in the networking we indent function declarations
-> in the following way:
-> 
-> int foo(int arg1, int arg2, int arg3,
-> 	int arg4, int arg5)
-> 
-> Specifically, the arguments that are declared on the second and
-> subsequent lines must start at the first column after the openning
-> parenthesis.  This must be done using the appropriate number of
-> TAB and space characters necessary to achieve that exact column.
-> 
-> Please fix this up and combine your two patches into one.
+Wed, Jun 12, 2013 at 12:10:22PM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Mon, 10 Jun 2013 17:42:22 +0200
+>
+>> Jiri Pirko (3):
+>>   team: remove synchronize_rcu() called during queue override change
+>>   team: use kfree_rcu instead of synchronize_rcu in team_port_dev
+>>   team: remove synchronize_rcu() called during port disable
+>
+>Applied, but I suspect this patch series was generated against the
+>patch set you submitted for "net" because I had to hand apply patch
+>#3 with some fuzz as git would not apply it directly.
+>
+>Please don't do that, submit your patches in the future against what
+>is actually in net-next.
 
-OK I'll rework the patch, thank you for the kind tips!
+Sorry. I will be more careful next time.
 
-Thanks,
-Fengguang
+Jiri
