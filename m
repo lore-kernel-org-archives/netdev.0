@@ -1,211 +1,351 @@
-From: casey@uoregon.edu
-Subject: Read the attached From Tjoa Thain
-Date: Wed, 12 Jun 2013 13:29:37 +0100
-Message-ID: <201306121231.r5CCFmBq016358@smtp.uoregon.edu>
-Reply-To: ttjoa@hotmail.com
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1939717560=="
-To: Recipients <casey@uoregon.edu>
+From: Dave Wiltshire <david.wiltshire@gmx.com>
+Subject: [PATCH 2/3] skbuff: skb_cow_head not used in some drivers.
+Date: Wed, 12 Jun 2013 22:40:10 +1000
+Message-ID: <1371040811-8319-1-git-send-email-david.wiltshire@gmx.com>
+References: <1371030906-2396-1-git-send-email-david.wiltshire@gmx.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nsujir@broadcom.com, mchan@broadcom.com, rmody@brocade.com,
+	jcliburn@gmail.com, chris.snook@gmail.com,
+	jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
+	alexander.h.duyck@intel.com, cooldavid@cooldavid.org,
+	linux-driver@qlogic.com, linux-wimax@intel.com,
+	wimax@linuxwimax.org, linux-wireless@vger.kernel.org,
+	viro@zeniv.linux.org.uk, eparis@redhat.com, edumazet@google.com,
+	dev@openvswitch.org, jhs@mojatatu.com,
+	Dave Wiltshire <david.wiltshire@gmx.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oh-mserv1.uoregon.edu ([128.223.142.144]:59685 "EHLO
-	smtp.uoregon.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1756732Ab3FLMe4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 08:34:56 -0400
+Received: from mout.gmx.net ([212.227.17.20]:62726 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751402Ab3FLMjR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 08:39:17 -0400
+In-Reply-To: <1371030906-2396-1-git-send-email-david.wiltshire@gmx.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-You will not see this in a MIME-aware mail reader.
---===============1939717560==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Description: Mail message body
+There is a helper function skb_cow_head which checks if a skb needs to
+be expanded. This was unused in some drivers. Fixing that leads to
+cleaner code in the drivers.
 
+Signed-off-by: Dave Wiltshire <david.wiltshire@gmx.com>
+---
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c   |    8 ++------
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c   |    8 ++------
+ drivers/net/ethernet/atheros/atlx/atl1.c          |    8 ++------
+ drivers/net/ethernet/broadcom/tg3.c               |    3 +--
+ drivers/net/ethernet/brocade/bna/bnad.c           |   11 +++--------
+ drivers/net/ethernet/intel/e1000/e1000_main.c     |    8 ++------
+ drivers/net/ethernet/intel/e1000e/netdev.c        |    8 ++------
+ drivers/net/ethernet/intel/igb/igb_main.c         |    7 ++-----
+ drivers/net/ethernet/intel/igbvf/netdev.c         |   11 +++--------
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c       |    8 ++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   10 +++-------
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    7 ++-----
+ drivers/net/ethernet/jme.c                        |    3 +--
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c      |    8 ++------
+ drivers/net/wimax/i2400m/netdev.c                 |    3 +--
+ 15 files changed, 30 insertions(+), 81 deletions(-)
 
---===============1939717560==
-Content-Type: application/octet-stream
-MIME-Version: 1.0
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="interesting business proposal.docx"
-
-UEsDBBQABgAIAAAAIQDd/JU3ZgEAACAFAAATAAgCW0NvbnRlbnRfVHlwZXNdLnhtbCCiBAIooAAC
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAC0
-VMtuwjAQvFfqP0S+Vomhh6qqCBz6OLZIpR9g7A1Y9Uv28vr7bgJEVQtBKuUSKVnvzOzsxIPR2pps
-CTFp70rWL3osAye90m5Wso/JS37PsoTCKWG8g5JtILHR8PpqMNkESBl1u1SyOWJ44DzJOViRCh/A
-UaXy0Qqk1zjjQchPMQN+2+vdcekdgsMcaww2HDxBJRYGs+c1fd4qiWASyx63B2uukokQjJYCSSlf
-OvWDJd8xFNTZnElzHdINyWD8IENdOU6w63sja6JWkI1FxFdhSQZf+ai48nJhaYaiG+aATl9VWkLb
-X6OF6CWkRJ5bU7QVK7Tb6z+qI+HGQPp/FVvcLnrSOY4+JE57OZsf6s0rUDlZESCihnZ1x0cHRLLs
-EsPvkLvGb1KAlHfgzbN/tgcNzEnKin6JiZgaOJvvV/Ja6JMiVjB9v5j738C7hLT5kz7+wYz9dVF3
-H0gdb+634RcAAAD//wMAUEsDBBQABgAIAAAAIQAekRq38wAAAE4CAAALAAgCX3JlbHMvLnJlbHMg
-ogQCKKAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAjJLbSgNBDIbvBd9hyH032woi0tneSKF3IusDhJnsAXcOzKTavr2jILpQ217m9OfLT9ab
-g5vUO6c8Bq9hWdWg2JtgR99reG23iwdQWchbmoJnDUfOsGlub9YvPJGUoTyMMaui4rOGQSQ+ImYz
-sKNchci+VLqQHEkJU4+RzBv1jKu6vsf0VwOamabaWQ1pZ+9AtcdYNl/WDl03Gn4KZu/Yy4kVyAdh
-b9kuYipsScZyjWop9SwabDDPJZ2RYqwKNuBpotX1RP9fi46FLAmhCYnP83x1nANaXg902aJ5x687
-HyFZLBZ9e/tDg7MvaD4BAAD//wMAUEsDBBQABgAIAAAAIQDWZLNR+gAAADEDAAAcAAgBd29yZC9f
-cmVscy9kb2N1bWVudC54bWwucmVscyCiBAEooAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-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
-AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACcUk1P4zAQva+0/yHKvXXaFbBCU6NV0YoDLJUa
-4DxyJomFY1u2+ei/3zGhIYgbOc28mTy/92y4eB1M8Uwhamc35WpZlQVZ5Rptu015V/9d/C6LmNA2
-aJylTXmgWF7Inz9gF5ynkDTFgils3JR9Sv5ciKh6GjAueWx50rowYOI2dMK1rVZ06dTTQDaJdVWd
-CnpNZBtqFn4iLEfG8+f0XdLGqawv3tcHz4Il1DR4g4nkvyzHgJgAqF1CU+uBZMXw1MAOO4pyBWIs
-4MGFJspfvDRWsO0xoEqcnVydnYKY9fDHe6MVJk5V3mgVXHRtKm7f/Bf5fxDzFeBM9qSegk6HLGPe
-wrW2o5CxYGEBu4C+f1c3dbBXaGjLxmWLJhKIDwC2bvBoD/KKXgyltNihesSs4zjI5zzGO1+7yxzU
-O8NncOb5Qad+71GxtHV1Mnc/m8CeM6KG7Rz5PgC44rsJJh/KydmOmuPO10HO8358pHK1Xlb8vQV4
-xPiSptcj/wMAAP//AwBQSwMEFAAGAAgAAAAhAFs/7xhLAQAAfQIAABEACAFkb2NQcm9wcy9jb3Jl
-LnhtbCCiBAEooAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-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
---===============1939717560==--
+diff --git a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+index 786a874..8c69cda 100644
+--- a/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
++++ b/drivers/net/ethernet/atheros/atl1c/atl1c_main.c
+@@ -1931,14 +1931,10 @@ static int atl1c_tso_csum(struct atl1c_adapter *adapter,
+ 	u8 hdr_len;
+ 	u32 real_len;
+ 	unsigned short offload_type;
+-	int err;
+ 
+ 	if (skb_is_gso(skb)) {
+-		if (skb_header_cloned(skb)) {
+-			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-			if (unlikely(err))
+-				return -1;
+-		}
++		if (unlikely(skb_cow_head(skb, 0)))
++			return -1;
+ 		offload_type = skb_shinfo(skb)->gso_type;
+ 
+ 		if (offload_type & SKB_GSO_TCPV4) {
+diff --git a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+index 895f537..ff10d03 100644
+--- a/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
++++ b/drivers/net/ethernet/atheros/atl1e/atl1e_main.c
+@@ -1599,14 +1599,10 @@ static int atl1e_tso_csum(struct atl1e_adapter *adapter,
+ 	u8 hdr_len;
+ 	u32 real_len;
+ 	unsigned short offload_type;
+-	int err;
+ 
+ 	if (skb_is_gso(skb)) {
+-		if (skb_header_cloned(skb)) {
+-			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-			if (unlikely(err))
+-				return -1;
+-		}
++		if (unlikely(skb_cow_head(skb, 0)))
++			return -1;
+ 		offload_type = skb_shinfo(skb)->gso_type;
+ 
+ 		if (offload_type & SKB_GSO_TCPV4) {
+diff --git a/drivers/net/ethernet/atheros/atlx/atl1.c b/drivers/net/ethernet/atheros/atlx/atl1.c
+index 538211d..da7169c 100644
+--- a/drivers/net/ethernet/atheros/atlx/atl1.c
++++ b/drivers/net/ethernet/atheros/atlx/atl1.c
+@@ -2115,14 +2115,10 @@ static int atl1_tso(struct atl1_adapter *adapter, struct sk_buff *skb,
+ {
+ 	u8 hdr_len, ip_off;
+ 	u32 real_len;
+-	int err;
+ 
+ 	if (skb_shinfo(skb)->gso_size) {
+-		if (skb_header_cloned(skb)) {
+-			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-			if (unlikely(err))
+-				return -1;
+-		}
++		if (unlikely(skb_cow_head(skb, 0)))
++			return -1;
+ 
+ 		if (skb->protocol == htons(ETH_P_IP)) {
+ 			struct iphdr *iph = ip_hdr(skb);
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index 28a645f..6daf8f9 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -7803,8 +7803,7 @@ static netdev_tx_t tg3_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		struct iphdr *iph;
+ 		u32 tcp_opt_len, hdr_len;
+ 
+-		if (skb_header_cloned(skb) &&
+-		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
++		if (skb_cow_head(skb, 0))
+ 			goto drop;
+ 
+ 		iph = ip_hdr(skb);
+diff --git a/drivers/net/ethernet/brocade/bna/bnad.c b/drivers/net/ethernet/brocade/bna/bnad.c
+index b78e69e..ba5325a 100644
+--- a/drivers/net/ethernet/brocade/bna/bnad.c
++++ b/drivers/net/ethernet/brocade/bna/bnad.c
+@@ -2303,14 +2303,9 @@ bnad_mbox_irq_sync(struct bnad *bnad)
+ static int
+ bnad_tso_prepare(struct bnad *bnad, struct sk_buff *skb)
+ {
+-	int err;
+-
+-	if (skb_header_cloned(skb)) {
+-		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-		if (err) {
+-			BNAD_UPDATE_CTR(bnad, tso_err);
+-			return err;
+-		}
++	if (skb_cow_head(skb, 0)) {
++		BNAD_UPDATE_CTR(bnad, tso_err);
++		return -ENOMEM;
+ 	}
+ 
+ 	/*
+diff --git a/drivers/net/ethernet/intel/e1000/e1000_main.c b/drivers/net/ethernet/intel/e1000/e1000_main.c
+index 59ad007..828d850 100644
+--- a/drivers/net/ethernet/intel/e1000/e1000_main.c
++++ b/drivers/net/ethernet/intel/e1000/e1000_main.c
+@@ -2704,14 +2704,10 @@ static int e1000_tso(struct e1000_adapter *adapter,
+ 	u32 cmd_length = 0;
+ 	u16 ipcse = 0, tucse, mss;
+ 	u8 ipcss, ipcso, tucss, tucso, hdr_len;
+-	int err;
+ 
+ 	if (skb_is_gso(skb)) {
+-		if (skb_header_cloned(skb)) {
+-			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-			if (err)
+-				return err;
+-		}
++		if (skb_cow_head(skb, 0))
++			return -ENOMEM;
+ 
+ 		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 		mss = skb_shinfo(skb)->gso_size;
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 77f81cb..da3de16 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -5070,12 +5070,8 @@ static int e1000_tso(struct e1000_ring *tx_ring, struct sk_buff *skb)
+ 	if (!skb_is_gso(skb))
+ 		return 0;
+ 
+-	if (skb_header_cloned(skb)) {
+-		int err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-
+-		if (err)
+-			return err;
+-	}
++	if (skb_cow_head(skb, 0))
++		return -ENOMEM;
+ 
+ 	hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 	mss = skb_shinfo(skb)->gso_size;
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 6a0c1b6..917cacb 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -4292,11 +4292,8 @@ static int igb_tso(struct igb_ring *tx_ring,
+ 	if (!skb_is_gso(skb))
+ 		return 0;
+ 
+-	if (skb_header_cloned(skb)) {
+-		int err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-		if (err)
+-			return err;
+-	}
++	if (skb_cow_head(skb, 0))
++		return -ENOMEM;
+ 
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = E1000_ADVTXD_TUCMD_L4T_TCP;
+diff --git a/drivers/net/ethernet/intel/igbvf/netdev.c b/drivers/net/ethernet/intel/igbvf/netdev.c
+index 93eb7ee..5be1dc2 100644
+--- a/drivers/net/ethernet/intel/igbvf/netdev.c
++++ b/drivers/net/ethernet/intel/igbvf/netdev.c
+@@ -1911,19 +1911,14 @@ static int igbvf_tso(struct igbvf_adapter *adapter,
+ {
+ 	struct e1000_adv_tx_context_desc *context_desc;
+ 	unsigned int i;
+-	int err;
+ 	struct igbvf_buffer *buffer_info;
+ 	u32 info = 0, tu_cmd = 0;
+ 	u32 mss_l4len_idx, l4len;
+ 	*hdr_len = 0;
+ 
+-	if (skb_header_cloned(skb)) {
+-		err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-		if (err) {
+-			dev_err(&adapter->pdev->dev,
+-			        "igbvf_tso returning an error\n");
+-			return err;
+-		}
++	if (skb_cow_head(skb, 0)) {
++		dev_err(&adapter->pdev->dev, "igbvf_tso returning an error\n");
++		return -ENOMEM;
+ 	}
+ 
+ 	l4len = tcp_hdrlen(skb);
+diff --git a/drivers/net/ethernet/intel/ixgb/ixgb_main.c b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+index fce3e92..59e768e 100644
+--- a/drivers/net/ethernet/intel/ixgb/ixgb_main.c
++++ b/drivers/net/ethernet/intel/ixgb/ixgb_main.c
+@@ -1226,17 +1226,13 @@ ixgb_tso(struct ixgb_adapter *adapter, struct sk_buff *skb)
+ 	unsigned int i;
+ 	u8 ipcss, ipcso, tucss, tucso, hdr_len;
+ 	u16 ipcse, tucse, mss;
+-	int err;
+ 
+ 	if (likely(skb_is_gso(skb))) {
+ 		struct ixgb_buffer *buffer_info;
+ 		struct iphdr *iph;
+ 
+-		if (skb_header_cloned(skb)) {
+-			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-			if (err)
+-				return err;
+-		}
++		if (skb_cow_head(skb, 0))
++			return -ENOMEM;
+ 
+ 		hdr_len = skb_transport_offset(skb) + tcp_hdrlen(skb);
+ 		mss = skb_shinfo(skb)->gso_size;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 047ebaa..57a0c00 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -6060,11 +6060,8 @@ static int ixgbe_tso(struct ixgbe_ring *tx_ring,
+ 	if (!skb_is_gso(skb))
+ 		return 0;
+ 
+-	if (skb_header_cloned(skb)) {
+-		int err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-		if (err)
+-			return err;
+-	}
++	if (skb_cow_head(skb, 0))
++		return -ENOMEM;
+ 
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
+@@ -6609,8 +6606,7 @@ netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
+ 					IXGBE_TX_FLAGS_VLAN_PRIO_SHIFT;
+ 		if (tx_flags & IXGBE_TX_FLAGS_SW_VLAN) {
+ 			struct vlan_ethhdr *vhdr;
+-			if (skb_header_cloned(skb) &&
+-			    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
++			if (skb_cow_head(skb, 0))
+ 				goto out_drop;
+ 			vhdr = (struct vlan_ethhdr *)skb->data;
+ 			vhdr->h_vlan_TCI = htons(tx_flags >>
+diff --git a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+index 1f5166a..088402e 100644
+--- a/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
++++ b/drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c
+@@ -2726,11 +2726,8 @@ static int ixgbevf_tso(struct ixgbevf_ring *tx_ring,
+ 	if (!skb_is_gso(skb))
+ 		return 0;
+ 
+-	if (skb_header_cloned(skb)) {
+-		int err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-		if (err)
+-			return err;
+-	}
++	if (skb_cow_head(skb, 0))
++		return -ENOMEM;
+ 
+ 	/* ADV DTYP TUCMD MKRLOC/ISCSIHEDLEN */
+ 	type_tucmd = IXGBE_ADVTXD_TUCMD_L4T_TCP;
+diff --git a/drivers/net/ethernet/jme.c b/drivers/net/ethernet/jme.c
+index 7fbe6ab..7493db2 100644
+--- a/drivers/net/ethernet/jme.c
++++ b/drivers/net/ethernet/jme.c
+@@ -2057,8 +2057,7 @@ static int
+ jme_expand_header(struct jme_adapter *jme, struct sk_buff *skb)
+ {
+ 	if (unlikely(skb_shinfo(skb)->gso_size &&
+-			skb_header_cloned(skb) &&
+-			pskb_expand_head(skb, 0, 0, GFP_ATOMIC))) {
++		     skb_cow_head(skb, 0))) {
+ 		dev_kfree_skb(skb);
+ 		return -1;
+ 	}
+diff --git a/drivers/net/ethernet/qlogic/qlge/qlge_main.c b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+index 2553cf4..ab7e177 100644
+--- a/drivers/net/ethernet/qlogic/qlge/qlge_main.c
++++ b/drivers/net/ethernet/qlogic/qlge/qlge_main.c
+@@ -2496,12 +2496,8 @@ static int ql_tso(struct sk_buff *skb, struct ob_mac_tso_iocb_req *mac_iocb_ptr)
+ {
+ 
+ 	if (skb_is_gso(skb)) {
+-		int err;
+-		if (skb_header_cloned(skb)) {
+-			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
+-			if (err)
+-				return err;
+-		}
++		if (skb_cow_head(skb, 0))
++			return -ENOMEM;
+ 
+ 		mac_iocb_ptr->opcode = OPCODE_OB_MAC_TSO_IOCB;
+ 		mac_iocb_ptr->flags3 |= OB_MAC_TSO_IOCB_IC;
+diff --git a/drivers/net/wimax/i2400m/netdev.c b/drivers/net/wimax/i2400m/netdev.c
+index 4889613..a9970f1 100644
+--- a/drivers/net/wimax/i2400m/netdev.c
++++ b/drivers/net/wimax/i2400m/netdev.c
+@@ -374,8 +374,7 @@ netdev_tx_t i2400m_hard_start_xmit(struct sk_buff *skb,
+ 
+ 	d_fnstart(3, dev, "(skb %p net_dev %p)\n", skb, net_dev);
+ 
+-	if (skb_header_cloned(skb) && 
+-	    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
++	if (skb_cow_head(skb, 0))
+ 		goto drop;
+ 
+ 	if (i2400m->state == I2400M_SS_IDLE)
+-- 
+1.7.10.4
