@@ -1,51 +1,64 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v2 net-next 3/3] net: add socket option for low latency
- polling
-Date: Wed, 12 Jun 2013 15:58:57 +0300
-Message-ID: <51B87091.4050205@linux.intel.com>
-References: <20130612111942.19288.12131.stgit@ladj378.jer.intel.com>  <20130612112016.19288.86849.stgit@ladj378.jer.intel.com> <1371041065.3252.59.camel@edumazet-glaptop> <51B86FA3.1030306@linux.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Avner Ben Hanoch <avnerb@mellanox.com>,
-	Or Kehati <ork@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51B86FA3.1030306@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: [PATCH net-next stable] sctp: fully initialize sctp_outq in sctp_outq_init
+Date: Wed, 12 Jun 2013 08:59:19 -0400
+Message-ID: <1371041959-17697-1-git-send-email-nhorman@tuxdriver.com>
+Cc: Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:42603 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754001Ab3FLM7h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 08:59:37 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 12/06/2013 15:54, Eliezer Tamir wrote:
-> On 12/06/2013 15:44, Eric Dumazet wrote:
->> On Wed, 2013-06-12 at 14:20 +0300, Eliezer Tamir wrote:
->>> adds a socket option for low latency polling.
->>> This allows overriding the global sysctl value with a per-socket one.
->>>
->>> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
->>> ---
->>
->> It seems EXPORT_SYMBOL_GPL(sysctl_net_ll_poll) can now be removed ?
->
-> I think we would need it for poll.
->
-> Poll needs a way that is not dependent on any individual socket to know
-> how long to busy-wait, since we have to know it before we poll any
-> individual socket.
+In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86, we modified
+sctp_outq_teardown to use sctp_outq_init to fully re-initalize the outq
+structure.  Steve West recently asked me why I removed the q->error = 0
+initalization from sctp_outq_teardown.  I did so because I was operating under
+the impression that sctp_outq_init would properly initalize that value for us,
+but it doesn't.  sctp_outq_init operates under the assumption that the outq
+struct is all 0's (as it is when called from sctp_association_init), but using
+it in __sctp_outq_teardown violates that assumption. We should do a memset in
+sctp_outq_init to ensure that the entire structure is in a known state there
+instead.
 
-Or maybe, since the time constants seem to be different, we should have
-two separate sysctl values, one for read and another for poll?
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: netdev@vger.kernel.org
+CC: davem@davemloft.net
+---
+ net/sctp/outqueue.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
 
-(and then the one for read does not need to be exported to modules.)
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 32a4625..d8b6958 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -206,6 +206,9 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
+  */
+ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ {
++
++	memset(q, 0, sizeof(struct sctp_outq));
++
+ 	q->asoc = asoc;
+ 	INIT_LIST_HEAD(&q->out_chunk_list);
+ 	INIT_LIST_HEAD(&q->control_chunk_list);
+@@ -213,11 +216,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ 	INIT_LIST_HEAD(&q->sacked);
+ 	INIT_LIST_HEAD(&q->abandoned);
+ 
+-	q->fast_rtx = 0;
+-	q->outstanding_bytes = 0;
+ 	q->empty = 1;
+-	q->cork  = 0;
+-	q->out_qlen = 0;
+ }
+ 
+ /* Free the outqueue structure and any related pending chunks.
+-- 
+1.8.1.4
