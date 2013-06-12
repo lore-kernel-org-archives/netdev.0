@@ -1,34 +1,69 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net 0/3] team: couple of fixes
-Date: Wed, 12 Jun 2013 10:58:40 +0200
-Message-ID: <20130612085840.GA1852@minipsycho.brq.redhat.com>
-References: <1370696455-12221-1-git-send-email-jiri@resnulli.us>
- <20130612.005724.1355461391911598238.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, fbl@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f42.google.com ([74.125.83.42]:46646 "EHLO
-	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755558Ab3FLI6q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 04:58:46 -0400
-Received: by mail-ee0-f42.google.com with SMTP id c4so4192784eek.15
-        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 01:58:45 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20130612.005724.1355461391911598238.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Dave Wiltshire <david.wiltshire@gmx.com>
+Subject: [PATCH 0/3] skbuff: pskb_expand_head changes
+Date: Wed, 12 Jun 2013 19:05:31 +1000
+Message-ID: <1371027934-1955-1-git-send-email-david.wiltshire@gmx.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	nsujir@broadcom.com, mchan@broadcom.com, rmody@brocade.com,
+	jcliburn@gmail.com, chris.snook@gmail.com,
+	jeffrey.t.kirsher@intel.com, bruce.w.allan@intel.com,
+	alexander.h.duyck@intel.com, cooldavid@cooldavid.org,
+	linux-driver@qlogic.com, linux-wimax@intel.com,
+	wimax@linuxwimax.org, linux-wireless@vger.kernel.org,
+	viro@zeniv.linux.org.uk, eparis@redhat.com, edumazet@google.com,
+	dev@openvswitch.org, jhs@mojatatu.com,
+	Dave Wiltshire <david.wiltshire@gmx.com>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Wed, Jun 12, 2013 at 09:57:24AM CEST, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Sat,  8 Jun 2013 15:00:52 +0200
->
->> Jiri Pirko (3):
->>   team: check return value of team_get_port_by_index_rcu() for NULL
->>   team: move add to port list before port enablement
->>   team: fix checks in team_get_first_port_txable_rcu()
->
->Series applied, thanks Jiri.
+This patchset applies against David Miller's net-next tree.
 
-Thanks Dave. Please note that this is suitable for stable trees as well.
+This is my first patch, so please let me know if I've done something
+wrong or could do something better (e.g. splitting the patch in a
+different way).
+
+I think there is a problem with memory accounting in pskb_expand_head.
+Some call sites update truesize while others don't. This means that the
+skbuff can change in size without truesize being updated. This seems
+incorrect to me. So I changed it. Perhaps I don't understand something,
+but I thought it best to generate the change and then ask. So is this
+correct?
+
+The other patches are from looking at all the call sites to
+pskb_expand_head and since I was doing that I cleaned some of them up.
+
+Dave Wiltshire (3):
+  skbuff: Update truesize in pskb_expand_head
+  skbuff: skb_cow_head not used in some drivers.
+  skbuff: Added new helper function skb_cow_clone_head.
+
+ drivers/net/ethernet/atheros/atl1c/atl1c_main.c   |    8 ++------
+ drivers/net/ethernet/atheros/atl1e/atl1e_main.c   |    8 ++------
+ drivers/net/ethernet/atheros/atlx/atl1.c          |    8 ++------
+ drivers/net/ethernet/broadcom/tg3.c               |    3 +--
+ drivers/net/ethernet/brocade/bna/bnad.c           |   11 +++--------
+ drivers/net/ethernet/intel/e1000/e1000_main.c     |    8 ++------
+ drivers/net/ethernet/intel/e1000e/netdev.c        |    8 ++------
+ drivers/net/ethernet/intel/igb/igb_main.c         |    7 ++-----
+ drivers/net/ethernet/intel/igbvf/netdev.c         |   11 +++--------
+ drivers/net/ethernet/intel/ixgb/ixgb_main.c       |    8 ++------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c     |   10 +++-------
+ drivers/net/ethernet/intel/ixgbevf/ixgbevf_main.c |    7 ++-----
+ drivers/net/ethernet/jme.c                        |    3 +--
+ drivers/net/ethernet/qlogic/qlge/qlge_main.c      |    8 ++------
+ drivers/net/wimax/i2400m/netdev.c                 |    3 +--
+ drivers/net/wireless/mwl8k.c                      |    1 -
+ include/linux/skbuff.h                            |   14 +++++++++++++
+ kernel/audit.c                                    |    2 --
+ net/core/dev.c                                    |    8 ++------
+ net/core/skbuff.c                                 |    1 +
+ net/netlink/af_netlink.c                          |    3 +--
+ net/openvswitch/actions.c                         |   22 +++++++--------------
+ net/sched/act_csum.c                              |    8 ++------
+ net/sched/act_nat.c                               |   18 +++++------------
+ net/wireless/util.c                               |    2 --
+ 25 files changed, 62 insertions(+), 128 deletions(-)
+
+-- 
+1.7.10.4
