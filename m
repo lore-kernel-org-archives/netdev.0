@@ -1,46 +1,84 @@
-From: <dinguyen@altera.com>
-Subject: [PATCH] net: ethernet: stmicro: stmmac: Fix compile error when STMMAC_XMIT_DEBUG used
-Date: Wed, 12 Jun 2013 11:05:03 -0500
-Message-ID: <1371053103-13536-1-git-send-email-dinguyen@altera.com>
+From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
+Subject: Re: [PATCH 06/12] sched: add cond_resched_rcu() helper
+Date: Wed, 12 Jun 2013 08:50:08 -0700
+Message-ID: <20130612155008.GY5146@linux.vnet.ibm.com>
+References: <1370464832-4216-1-git-send-email-pablo@netfilter.org>
+ <1370464832-4216-7-git-send-email-pablo@netfilter.org>
+Reply-To: paulmck@linux.vnet.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <dinh.linux@gmail.com>, Dinh Nguyen <dinguyen@altera.com>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db8lp0185.outbound.messaging.microsoft.com ([213.199.154.185]:33323
-	"EHLO db8outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751464Ab3FLQFJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 12:05:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1370464832-4216-7-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dinh Nguyen <dinguyen@altera.com>
+On Wed, Jun 05, 2013 at 10:40:27PM +0200, Pablo Neira Ayuso wrote:
+> From: Simon Horman <horms@verge.net.au>
+> 
+> This is intended for use in loops which read data protected by RCU and may
+> have a large number of iterations.  Such an example is dumping the list of
+> connections known to IPVS: ip_vs_conn_array() and ip_vs_conn_seq_next().
+> 
+> The benefits are for CONFIG_PREEMPT_RCU=y where we save CPU cycles
+> by moving rcu_read_lock and rcu_read_unlock out of large loops
+> but still allowing the current task to be preempted after every
+> loop iteration for the CONFIG_PREEMPT_RCU=n case.
+> 
+> The call to cond_resched() is not needed when CONFIG_PREEMPT_RCU=y.
+> Thanks to Paul E. McKenney for explaining this and for the
+> final version that checks the context with CONFIG_DEBUG_ATOMIC_SLEEP=y
+> for all possible configurations.
+> 
+> The function can be empty in the CONFIG_PREEMPT_RCU case,
+> rcu_read_lock and rcu_read_unlock are not needed in this case
+> because the task can be preempted on indication from scheduler.
+> Thanks to Peter Zijlstra for catching this and for his help
+> in trying a solution that changes __might_sleep.
+> 
+> Initial cond_resched_rcu_lock() function suggested by Eric Dumazet.
+> 
+> Tested-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Signed-off-by: Simon Horman <horms@verge.net.au>
+> Acked-by: Peter Zijlstra <peterz@infradead.org>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 
-drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function:
-stmmac_xmit drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1902:74:
-error: expected ) before __func__
+Reviewed-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
 
-Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-CC: David S. Miller <davem@davemloft.net>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> ---
+>  include/linux/sched.h |    9 +++++++++
+>  1 file changed, 9 insertions(+)
+> 
+> diff --git a/include/linux/sched.h b/include/linux/sched.h
+> index 178a8d9..4ff8da1 100644
+> --- a/include/linux/sched.h
+> +++ b/include/linux/sched.h
+> @@ -2444,6 +2444,15 @@ extern int __cond_resched_softirq(void);
+>  	__cond_resched_softirq();					\
+>  })
+> 
+> +static inline void cond_resched_rcu(void)
+> +{
+> +#if defined(CONFIG_DEBUG_ATOMIC_SLEEP) || !defined(CONFIG_PREEMPT_RCU)
+> +	rcu_read_unlock();
+> +	cond_resched();
+> +	rcu_read_lock();
+> +#endif
+> +}
+> +
+>  /*
+>   * Does a critical section need to be broken due to another
+>   * task waiting?: (technically does not depend on CONFIG_PREEMPT,
+> -- 
+> 1.7.10.4
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index 618446a..ee919ca 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -1899,7 +1899,7 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- #ifdef STMMAC_XMIT_DEBUG
- 	if (netif_msg_pktdata(priv)) {
--		pr_info("%s: curr %d dirty=%d entry=%d, first=%p, nfrags=%d"
-+		pr_info("%s: curr %d dirty=%d entry=%d, first=%p, nfrags=%d",
- 			__func__, (priv->cur_tx % txsize),
- 			(priv->dirty_tx % txsize), entry, first, nfrags);
- 		if (priv->extend_desc)
--- 
-1.7.9.5
