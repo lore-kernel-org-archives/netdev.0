@@ -1,28 +1,28 @@
 From: casey@uoregon.edu
 Subject: Read the attached From Tjoa Thain
-Date: Wed, 12 Jun 2013 13:24:20 +0100
-Message-ID: <201306121226.r5CCB5si008968__41638.240151997$1371040153$gmane$org@smtp.uoregon.edu>
+Date: Wed, 12 Jun 2013 13:29:37 +0100
+Message-ID: <201306121231.r5CCFmBq016358@smtp.uoregon.edu>
 Reply-To: ttjoa@hotmail.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0421735902=="
+Content-Type: multipart/mixed; boundary="===============1939717560=="
 To: Recipients <casey@uoregon.edu>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from oh-mserv2.uoregon.edu ([128.223.142.145]:37689 "EHLO
+Received: from oh-mserv1.uoregon.edu ([128.223.142.144]:59685 "EHLO
 	smtp.uoregon.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1753067Ab3FLM2k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 08:28:40 -0400
+	with ESMTP id S1756732Ab3FLMe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 08:34:56 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 You will not see this in a MIME-aware mail reader.
---===============0421735902==
+--===============1939717560==
 Content-Type: text/plain; charset="iso-8859-1"
 MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
 Content-Description: Mail message body
 
 
---===============0421735902==
+--===============1939717560==
 Content-Type: application/octet-stream
 MIME-Version: 1.0
 Content-Transfer-Encoding: base64
@@ -208,4 +208,4 @@ d2ViU2V0dGluZ3MueG1sUEsBAi0AFAAGAAgAAAAhADycZLSAAQAA1AIAABAAAAAAAAAAAAAAAAAA
 uxgAAGRvY1Byb3BzL2FwcC54bWxQSwECLQAUAAYACAAAACEAWz/vGEsBAAB9AgAAEQAAAAAAAAAA
 AAAAAABxGwAAZG9jUHJvcHMvY29yZS54bWxQSwECLQAUAAYACAAAACEArGNoxBgHAAD4OQAADwAA
 AAAAAAAAAAAAAADzHQAAd29yZC9zdHlsZXMueG1sUEsFBgAAAAALAAsAwQIAADglAAAAAA==
---===============0421735902==--
+--===============1939717560==--
