@@ -1,64 +1,32 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH net-next stable] sctp: fully initialize sctp_outq in sctp_outq_init
-Date: Wed, 12 Jun 2013 08:59:19 -0400
-Message-ID: <1371041959-17697-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:42603 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754001Ab3FLM7h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 08:59:37 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Timur Tabi <timur@tabi.org>
+Subject: Re: [PATCH] MDIO: FSL_PQ_MDIO: Fix bug on incorrect offset of tbipa
+ register
+Date: Wed, 12 Jun 2013 08:04:11 -0500
+Message-ID: <51B871CB.1090808@tabi.org>
+References: <1371041258-15298-1-git-send-email-ogabbay@advaoptical.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Oded Gabbay <ogabbay@advaoptical.com>, benh@kernel.crashing.org,
+	paulus@samba.org, leoli@freescale.com, galak@kernel.crashing.org,
+	B38951@freescale.com, Dongsheng.Wang@freescale.com,
+	bigeasy@linutronix.de, stef.van.os@prodrive.nl, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371041258-15298-1-git-send-email-ogabbay@advaoptical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86, we modified
-sctp_outq_teardown to use sctp_outq_init to fully re-initalize the outq
-structure.  Steve West recently asked me why I removed the q->error = 0
-initalization from sctp_outq_teardown.  I did so because I was operating under
-the impression that sctp_outq_init would properly initalize that value for us,
-but it doesn't.  sctp_outq_init operates under the assumption that the outq
-struct is all 0's (as it is when called from sctp_association_init), but using
-it in __sctp_outq_teardown violates that assumption. We should do a memset in
-sctp_outq_init to ensure that the entire structure is in a known state there
-instead.
+Oded Gabbay wrote:
+> Note: This patch may break MDIO functionallity of some old Freescale's SoC
+> until Freescale will fix their device tree files. Basically, every device tree
+> which contains an mdio device that is compatible to "fsl,gianfar-tbi" should be
+> examined.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: netdev@vger.kernel.org
-CC: davem@davemloft.net
----
- net/sctp/outqueue.c | 7 +++----
- 1 file changed, 3 insertions(+), 4 deletions(-)
+I haven't had a chance to review the patch in detail, but I can tell you 
+that breaking compatibility with older device trees is unacceptable.  You 
+need to add some code, even if it's an ugly hack, to support those trees.
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 32a4625..d8b6958 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -206,6 +206,9 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
-  */
- void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
- {
-+
-+	memset(q, 0, sizeof(struct sctp_outq));
-+
- 	q->asoc = asoc;
- 	INIT_LIST_HEAD(&q->out_chunk_list);
- 	INIT_LIST_HEAD(&q->control_chunk_list);
-@@ -213,11 +216,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
- 	INIT_LIST_HEAD(&q->sacked);
- 	INIT_LIST_HEAD(&q->abandoned);
- 
--	q->fast_rtx = 0;
--	q->outstanding_bytes = 0;
- 	q->empty = 1;
--	q->cork  = 0;
--	q->out_qlen = 0;
- }
- 
- /* Free the outqueue structure and any related pending chunks.
 -- 
-1.8.1.4
+Timur Tabi
