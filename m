@@ -1,36 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-06-06
-Date: Wed, 12 Jun 2013 00:42:41 -0700 (PDT)
-Message-ID: <20130612.004241.761719664465563112.davem@davemloft.net>
-References: <20130611.222706.1492583255605214982.davem@davemloft.net>
-	<20130612.002103.916991474696226731.davem@davemloft.net>
-	<20920.8752.339655.254147@gargle.gargle.HOWL>
+Subject: Re: [net PATCH] tuntap: set SOCK_ZEROCOPY flag during open
+Date: Wed, 12 Jun 2013 00:45:33 -0700 (PDT)
+Message-ID: <20130612.004533.1565702065831087835.davem@davemloft.net>
+References: <1370672261-30076-1-git-send-email-jasowang@redhat.com>
+	<20130611131750.GD9279@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: sujith@msujith.org
+Cc: jasowang@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: mst@redhat.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20920.8752.339655.254147@gargle.gargle.HOWL>
+In-Reply-To: <20130611131750.GD9279@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Sujith Manoharan <sujith@msujith.org>
-Date: Wed, 12 Jun 2013 12:54:32 +0530
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Tue, 11 Jun 2013 16:17:50 +0300
 
-> David Miller wrote:
->> John, I also don't like the ATK9K Kconfig option name change added in
->> this pull request, this is exactly the kind of thing that drives
->> Linus insane.
+> On Sat, Jun 08, 2013 at 02:17:41PM +0800, Jason Wang wrote:
+>>Cc: smtp.corp.redhat.com@redhat.com, davem@davemloft.net,
+>>	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+>>
+>> Commit 54f968d6efdbf7dec36faa44fc11f01b0e4d1990
+>> (tuntap: move socket to tun_file) forgets to set SOCK_ZEROCOPY flag, which will
+>> prevent vhost_net from doing zercopy w/ tap. This patch fixes this by setting
+>> it during file open.
 >> 
->> Change the default, fine, but changing the name is unnecssary churn
->> and adds a new config prompt that people are going to respond to
->> incorrectly when they type "make oldconfig"
+>> Cc: Michael S. Tsirkin <mst@redhat.com>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
 > 
-> This was Linus' suggestion: https://patchwork.kernel.org/patch/2676971/
+> One of the addresses in the Cc list (smtp.corp.redhat.com@redhat.com)
+> is clearly a mistake, which probably explains why it didn't
+> get into patchwork.
 > 
-> The RH bugzilla appears to be down at the moment, but more background
-> for the bug is here: https://bugzilla.redhat.com/show_bug.cgi?id=927191
+> I have bounced it to correct addresses, hope this
+> helps instead of making even more of a mess of it.
+> 
+> For 3.10 and -stable:
+> 
+> Acked-by: Michael S. Tsirkin <mst@redhat.com>
 
-Fair enough, I rescind my objection.
+Applied and queued up for -stable, thanks.
