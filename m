@@ -1,115 +1,162 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 4/4] openvswitch: make skb->csum consistent with rest of networking stack.
-Date: Wed, 12 Jun 2013 15:57:16 -0700
-Message-ID: <1371077836-19796-1-git-send-email-pshelar@nicira.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org, dev@openvswitch.org
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
+Date: Thu, 13 Jun 2013 01:02:57 +0200
+Message-ID: <20130612230257.GB21234@electric-eye.fr.zoreil.com>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+ <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mcgrof@do-not-panic.com, kvalo@adurom.com,
+	adrian.chadd@gmail.com
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:44498 "HELO
-	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S932112Ab3FLW5U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 18:57:20 -0400
-Received: by mail-pd0-f182.google.com with SMTP id r10so4482694pdi.41
-        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 15:57:19 -0700 (PDT)
+Received: from violet.fr.zoreil.com ([92.243.8.30]:46602 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756837Ab3FLXDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 19:03:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patch keeps skb->csum correct across ovs.
+Johannes Berg <johannes@sipsolutions.net> :
+[...]
+> diff --git a/drivers/net/ethernet/atheros/alx/ethtool.c b/drivers/net/ethernet/atheros/alx/ethtool.c
+> new file mode 100644
+> index 0000000..65e7274
+> --- /dev/null
+> +++ b/drivers/net/ethernet/atheros/alx/ethtool.c
+[...]
+> +static void alx_get_drvinfo(struct net_device *netdev,
+> +			    struct ethtool_drvinfo *drvinfo)
+> +{
+> +	struct alx_priv *alx = netdev_priv(netdev);
+> +
+> +	strlcpy(drvinfo->driver, alx_drv_name, sizeof(drvinfo->driver));
+> +	strlcpy(drvinfo->fw_version, "N/A", sizeof(drvinfo->fw_version));
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- net/openvswitch/actions.c            |    4 ++++
- net/openvswitch/datapath.c           |    1 +
- net/openvswitch/flow.c               |    3 +++
- net/openvswitch/vport-internal_dev.c |    1 +
- net/openvswitch/vport-netdev.c       |    2 ++
- net/openvswitch/vport.h              |    7 +++++++
- 6 files changed, 18 insertions(+), 0 deletions(-)
+See 84b405011166e663fe9ef56c29b1d76f59b35568.
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 894b6cb..596d637 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -130,9 +130,13 @@ static int set_eth_addr(struct sk_buff *skb,
- 	if (unlikely(err))
- 		return err;
- 
-+	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
-+
- 	memcpy(eth_hdr(skb)->h_source, eth_key->eth_src, ETH_ALEN);
- 	memcpy(eth_hdr(skb)->h_dest, eth_key->eth_dst, ETH_ALEN);
- 
-+	ovs_skb_postpush_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
-+
- 	return 0;
- }
- 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 39cd821..e6ffb82 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -406,6 +406,7 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
- 		nskb = __vlan_put_tag(nskb, nskb->vlan_proto, vlan_tx_tag_get(nskb));
- 		if (!nskb)
- 			return -ENOMEM;
-+		ovs_skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
- 
- 		nskb->vlan_tci = 0;
- 		skb = nskb;
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 150f181..cc39085 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -618,6 +618,9 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
- 	memcpy(key->eth.dst, eth->h_dest, ETH_ALEN);
- 
- 	__skb_pull(skb, 2 * ETH_ALEN);
-+	/* We are going to push all headers that we pull, so no need to
-+	 * update skb->csum here.
-+	 */
- 
- 	if (vlan_tx_tag_present(skb))
- 		key->eth.tci = htons(skb->vlan_tci);
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 84e0a03..e284c7e 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -221,6 +221,7 @@ static int internal_dev_recv(struct vport *vport, struct sk_buff *skb)
- 	skb->dev = netdev;
- 	skb->pkt_type = PACKET_HOST;
- 	skb->protocol = eth_type_trans(skb, netdev);
-+	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
- 
- 	netif_rx(skb);
- 
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index c3ee7de..018aadf 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -49,6 +49,8 @@ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
- 		return;
- 
- 	skb_push(skb, ETH_HLEN);
-+	ovs_skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
-+
- 	ovs_vport_receive(vport, skb);
- 	return;
- 
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 75d3ccb..98f3341 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -195,4 +195,11 @@ void ovs_vport_record_error(struct vport *, enum vport_err_type err_type);
- extern const struct vport_ops ovs_netdev_vport_ops;
- extern const struct vport_ops ovs_internal_vport_ops;
- 
-+static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
-+				      const void *start, unsigned int len)
-+{
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
-+}
-+
- #endif /* vport.h */
+> +	strlcpy(drvinfo->bus_info, pci_name(alx->hw.pdev),
+> +		sizeof(drvinfo->bus_info));
+> +}
+> +
+> +const struct ethtool_ops alx_ethtool_ops = {
+> +	.get_settings = alx_get_settings,
+> +	.set_settings = alx_set_settings,
+> +	.get_pauseparam = alx_get_pauseparam,
+> +	.set_pauseparam = alx_set_pauseparam,
+> +	.get_drvinfo = alx_get_drvinfo,
+> +	.get_msglevel = alx_get_msglevel,
+> +	.set_msglevel = alx_set_msglevel,
+> +	.get_wol = alx_get_wol,
+> +	.set_wol = alx_set_wol,
+> +	.get_link = ethtool_op_get_link,
+
+Please use tabs before =
+
+> diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
+> new file mode 100644
+> index 0000000..a4c37df
+> --- /dev/null
+> +++ b/drivers/net/ethernet/atheros/alx/hw.c
+[...]
+> +static int __alx_read_phy_dbg(struct alx_hw *hw, u16 reg, u16 *pdata)
+> +{
+> +	int err;
+> +
+> +	err = __alx_write_phy_reg(hw, ALX_MII_DBG_ADDR, reg);
+> +	if (err)
+> +		return err;
+> +
+> +	return __alx_read_phy_reg(hw, ALX_MII_DBG_DATA, pdata);
+
+	return err ? err : __alx_read_phy_reg(hw, ALX_MII_DBG_DATA, pdata);
+
+[...]
+> +int alx_read_phy_reg(struct alx_hw *hw, u16 reg, u16 *phy_data)
+> +{
+> +	int err;
+> +
+> +	spin_lock(&hw->mdio_lock);
+> +	err = __alx_read_phy_reg(hw, reg, phy_data);
+> +	spin_unlock(&hw->mdio_lock);
+
+Isn't it possible to remove the phy ops from any irq / napi / tasklet
+context ?
+
+If you only need it in user / workqueue context you'll be able to trade
+the spinlock for a mutex (and push it in the common core methods ?).
+
+[...]
+> +read_mcadr:
+> +	/* try to get it from register first */
+> +	mac0 = alx_read_mem32(hw, ALX_STAD0);
+> +	mac1 = alx_read_mem32(hw, ALX_STAD1);
+> +
+> +	/* addr should be big-endian */
+> +	*(__be32 *)(addr + 2) = cpu_to_be32(mac0);
+> +	*(__be16 *)addr = cpu_to_be16(mac1);
+> +
+> +	if (is_valid_ether_addr(addr))
+> +		return 0;
+> +
+> +	if (!loaded_intn) {
+> +		/* try to load from efuse */
+> +		for (i = 0; i < ALX_SLD_MAX_TO; i++) {
+> +			val = alx_read_mem32(hw, ALX_SLD);
+> +			if ((val & (ALX_SLD_STAT | ALX_SLD_START)) == 0)
+> +				break;
+> +			mdelay(1);
+> +		}
+> +		if (i == ALX_SLD_MAX_TO)
+> +			return -EIO;
+> +		alx_write_mem32(hw, ALX_SLD, val | ALX_SLD_START);
+> +		for (i = 0; i < ALX_SLD_MAX_TO; i++) {
+> +			mdelay(1);
+> +			val = alx_read_mem32(hw, ALX_SLD);
+> +			if ((val & ALX_SLD_START) == 0)
+> +				break;
+> +		}
+
+You may add an helper for the loops above.
+
+> +		if (i == ALX_SLD_MAX_TO)
+> +			return -EIO;
+> +		loaded_intn = true;
+> +		goto read_mcadr;
+
+(I don't dislike it but it verges on goto fetishismi :o) )
+
+[...]
+> diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+> new file mode 100644
+> index 0000000..434d3c0
+> --- /dev/null
+> +++ b/drivers/net/ethernet/atheros/alx/main.c
+[...]
+> +static irqreturn_t alx_intr_handle(struct alx_priv *alx, u32 intr)
+> +{
+> +	struct alx_hw *hw = &alx->hw;
+> +	bool write_int_mask = false;
+> +
+> +	spin_lock(&alx->irq_lock);
+
+Do yourself a favor: avoid any work in the irq handler.
+
+Forget the lock. Mask irqs, insert mmiowb and memory barrier, then
+schedule napi if there is any event.
+
+In the napi handler, enable napi polling then irq.
+
+[...]
+> +static DEFINE_PCI_DEVICE_TABLE(alx_pci_tbl) = {
+> +	{ PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, ALX_DEV_ID_AR8161) },
+> +	{ PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, ALX_DEV_ID_AR8162) },
+> +	{ PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, ALX_DEV_ID_AR8171) },
+> +	{ PCI_DEVICE(PCI_VENDOR_ID_ATTANSIC, ALX_DEV_ID_AR8172) },
+
+	{ PCI_VDEVICE(ATTANSIC, ALX_DEV_ID_...
+
 -- 
-1.7.1
+Ueimor
