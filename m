@@ -1,64 +1,42 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] udp: fix two sparse errors
-Date: Wed, 12 Jun 2013 14:31:39 -0700
-Message-ID: <1371072699.3252.73.camel@edumazet-glaptop>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull request: wireless-next 2013-06-11
+Date: Wed, 12 Jun 2013 15:01:59 -0700 (PDT)
+Message-ID: <20130612.150159.936180836505278347.davem@davemloft.net>
+References: <20130611190546.GE3196@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=euc-kr
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f176.google.com ([209.85.212.176]:58588 "EHLO
-	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751890Ab3FLVbn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 17:31:43 -0400
-Received: by mail-wi0-f176.google.com with SMTP id ey16so927057wid.9
-        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 14:31:42 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:60785 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756816Ab3FLWCD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 18:02:03 -0400
+In-Reply-To: <20130611190546.GE3196@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+=46rom: "John W. Linville" <linville@tuxdriver.com>
+Date: Tue, 11 Jun 2013 15:05:48 -0400
 
-commit ba418fa357a7b3c ("soreuseport: UDP/IPv4 implementation")
-added following sparse errors :
+> This pull request is intended for the 3.11 stream...
+>=20
+> One big highlight is the cw1200 driver the ST-E CW1100 & CW1200
+> WLAN chipsets.  This one has been lingering for a while, lacking
+> some review comments.  Once started getting pulled into linux-next,
+> it got a bit more attention and a number of improvements were made
+> over the initial cut.  No doubt there will be more changes ahead,
+> but I think it is looking alright at this point.
+>=20
+> Along with that, there is the usual flurry of updates to the mac80211
+> core and the iwlwifi, mwifiex, ath9k, rt2x00, wil6210, and other
+> drivers.  A few of the highlights are some rt2x00 refactoring/cleanup
+> by Gabor Juhos, some rt2800 hardware support enhancements by Stanisla=
+w
+> Gruszka, some iwlwifi power management updates from Alexander Bondar,
+> some enhanced bcma SPROM support from Rafa=A9=A9 Mi=A9=A9ecki, and a =
+variety
+> of other things here and there.
 
-net/ipv4/udp.c:433:60: warning: cast from restricted __be16
-net/ipv4/udp.c:433:60: warning: incorrect type in argument 1 (different base types)
-net/ipv4/udp.c:433:60:    expected unsigned short [unsigned] [usertype] val
-net/ipv4/udp.c:433:60:    got restricted __be16 [usertype] sport
-net/ipv4/udp.c:433:60: warning: cast from restricted __be16
-net/ipv4/udp.c:433:60: warning: cast from restricted __be16
-net/ipv4/udp.c:514:60: warning: cast from restricted __be16
-net/ipv4/udp.c:514:60: warning: incorrect type in argument 1 (different base types)
-net/ipv4/udp.c:514:60:    expected unsigned short [unsigned] [usertype] val
-net/ipv4/udp.c:514:60:    got restricted __be16 [usertype] sport
-net/ipv4/udp.c:514:60: warning: cast from restricted __be16
-net/ipv4/udp.c:514:60: warning: cast from restricted __be16
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/ipv4/udp.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index f65bc32..959502a 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -430,7 +430,7 @@ begin:
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
- 				hash = inet_ehashfn(net, daddr, hnum,
--						    saddr, htons(sport));
-+						    saddr, sport);
- 				matches = 1;
- 			}
- 		} else if (score == badness && reuseport) {
-@@ -511,7 +511,7 @@ begin:
- 			reuseport = sk->sk_reuseport;
- 			if (reuseport) {
- 				hash = inet_ehashfn(net, daddr, hnum,
--						    saddr, htons(sport));
-+						    saddr, sport);
- 				matches = 1;
- 			}
- 		} else if (score == badness && reuseport) {
+Pulled, thanks John.
