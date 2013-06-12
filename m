@@ -1,89 +1,81 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: [PATCH] sh_eth: split 'sh_eth_netdev_ops'
-Date: Thu, 13 Jun 2013 00:55:34 +0400
-Message-ID: <201306130055.34780.sergei.shtylyov@cogentembedded.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] igmp: fix new sparse errors
+Date: Wed, 12 Jun 2013 14:11:16 -0700
+Message-ID: <1371071476.3252.66.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f50.google.com ([209.85.215.50]:58235 "EHLO
-	mail-la0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932086Ab3FLUzm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 16:55:42 -0400
-Received: by mail-la0-f50.google.com with SMTP id dy20so6098414lab.37
-        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 13:55:40 -0700 (PDT)
+Received: from mail-ee0-f47.google.com ([74.125.83.47]:44661 "EHLO
+	mail-ee0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756198Ab3FLVLV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 17:11:21 -0400
+Received: by mail-ee0-f47.google.com with SMTP id e49so4613503eek.6
+        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 14:11:19 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit 9f86134155047720a3685cda21467f68695152d2 (sh_eth: remove SH_ETH_HAS_TSU)
-removes 'const' from 'sh_eth_netdev_ops'  and modifies it in case TSU registers
-are present. I've originally suggested to Iwamatsu-san to split  this structure
-in two instead and afterwards Dave M. suggested doing the same.
-Split 'sh_eth_netdev_ops_tsu' from 'sh_eth_netdev_ops', making both 'const', and
-assigning 'ndev->detdev_ops'  depending on the presence of TSU registers.
+From: Eric Dumazet <edumazet@google.com>
 
-Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Fix following sparse errors :
 
+net/ipv4/igmp.c:1222:25: warning: cast from restricted __be32
+net/ipv4/igmp.c:1234:31: warning: incorrect type in assignment (different address spaces)
+net/ipv4/igmp.c:1234:31:    expected struct ip_mc_list [noderef] <asn:4>*next_hash
+net/ipv4/igmp.c:1234:31:    got struct ip_mc_list *<noident>
+net/ipv4/igmp.c:1250:31: warning: incorrect type in assignment (different address spaces)
+net/ipv4/igmp.c:1250:31:    expected struct ip_mc_list [noderef] <asn:4>*next_hash
+net/ipv4/igmp.c:1250:31:    got struct ip_mc_list *<noident>
+net/ipv4/igmp.c:2380:37: warning: cast from restricted __be32
+
+These were added by commit e9897071350bd9
+("igmp: hash a hash table to speedup ip_check_mc_rcu()")
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
-The patch is against Dave Miller's 'net-next.git' repo.
+ net/ipv4/igmp.c |    8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
- drivers/net/ethernet/renesas/sh_eth.c |   29 ++++++++++++++++++++---------
- 1 file changed, 20 insertions(+), 9 deletions(-)
-
-Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
-===================================================================
---- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
-+++ net-next/drivers/net/ethernet/renesas/sh_eth.c
-@@ -2486,7 +2486,7 @@ static const u16 *sh_eth_get_register_of
- 	return reg_offset;
+diff --git a/net/ipv4/igmp.c b/net/ipv4/igmp.c
+index a09190d..cd71190 100644
+--- a/net/ipv4/igmp.c
++++ b/net/ipv4/igmp.c
+@@ -1219,7 +1219,7 @@ static void igmp_group_added(struct ip_mc_list *im)
+ 
+ static u32 ip_mc_hash(const struct ip_mc_list *im)
+ {
+-	return hash_32((u32)im->multiaddr, MC_HASH_SZ_LOG);
++	return hash_32((__force u32)im->multiaddr, MC_HASH_SZ_LOG);
  }
  
--static struct net_device_ops sh_eth_netdev_ops = {
-+static const struct net_device_ops sh_eth_netdev_ops = {
- 	.ndo_open		= sh_eth_open,
- 	.ndo_stop		= sh_eth_close,
- 	.ndo_start_xmit		= sh_eth_start_xmit,
-@@ -2498,6 +2498,21 @@ static struct net_device_ops sh_eth_netd
- 	.ndo_change_mtu		= eth_change_mtu,
- };
+ static void ip_mc_hash_add(struct in_device *in_dev,
+@@ -1231,7 +1231,7 @@ static void ip_mc_hash_add(struct in_device *in_dev,
+ 	mc_hash = rtnl_dereference(in_dev->mc_hash);
+ 	if (mc_hash) {
+ 		hash = ip_mc_hash(im);
+-		im->next_hash = rtnl_dereference(mc_hash[hash]);
++		im->next_hash = mc_hash[hash];
+ 		rcu_assign_pointer(mc_hash[hash], im);
+ 		return;
+ 	}
+@@ -1247,7 +1247,7 @@ static void ip_mc_hash_add(struct in_device *in_dev,
  
-+static const struct net_device_ops sh_eth_netdev_ops_tsu = {
-+	.ndo_open		= sh_eth_open,
-+	.ndo_stop		= sh_eth_close,
-+	.ndo_start_xmit		= sh_eth_start_xmit,
-+	.ndo_get_stats		= sh_eth_get_stats,
-+	.ndo_set_rx_mode	= sh_eth_set_multicast_list,
-+	.ndo_vlan_rx_add_vid	= sh_eth_vlan_rx_add_vid,
-+	.ndo_vlan_rx_kill_vid	= sh_eth_vlan_rx_kill_vid,
-+	.ndo_tx_timeout		= sh_eth_tx_timeout,
-+	.ndo_do_ioctl		= sh_eth_do_ioctl,
-+	.ndo_validate_addr	= eth_validate_addr,
-+	.ndo_set_mac_address	= eth_mac_addr,
-+	.ndo_change_mtu		= eth_change_mtu,
-+};
-+
- static int sh_eth_drv_probe(struct platform_device *pdev)
- {
- 	int ret, devno = 0;
-@@ -2568,14 +2583,10 @@ static int sh_eth_drv_probe(struct platf
- 	sh_eth_set_default_cpu_data(mdp->cd);
+ 	for_each_pmc_rtnl(in_dev, im) {
+ 		hash = ip_mc_hash(im);
+-		im->next_hash = rtnl_dereference(mc_hash[hash]);
++		im->next_hash = mc_hash[hash];
+ 		RCU_INIT_POINTER(mc_hash[hash], im);
+ 	}
  
- 	/* set function */
--	if (mdp->cd->tsu) {
--		sh_eth_netdev_ops.ndo_set_rx_mode = sh_eth_set_multicast_list;
--		sh_eth_netdev_ops.ndo_vlan_rx_add_vid = sh_eth_vlan_rx_add_vid;
--		sh_eth_netdev_ops.ndo_vlan_rx_kill_vid =
--			sh_eth_vlan_rx_kill_vid;
--	}
--
--	ndev->netdev_ops = &sh_eth_netdev_ops;
-+	if (mdp->cd->tsu)
-+		ndev->netdev_ops = &sh_eth_netdev_ops_tsu;
-+	else
-+		ndev->netdev_ops = &sh_eth_netdev_ops;
- 	SET_ETHTOOL_OPS(ndev, &sh_eth_ethtool_ops);
- 	ndev->watchdog_timeo = TX_TIMEOUT;
+@@ -2377,7 +2377,7 @@ int ip_check_mc_rcu(struct in_device *in_dev, __be32 mc_addr, __be32 src_addr, u
  
+ 	mc_hash = rcu_dereference(in_dev->mc_hash);
+ 	if (mc_hash) {
+-		u32 hash = hash_32((u32)mc_addr, MC_HASH_SZ_LOG);
++		u32 hash = hash_32((__force u32)mc_addr, MC_HASH_SZ_LOG);
+ 
+ 		for (im = rcu_dereference(mc_hash[hash]);
+ 		     im != NULL;
