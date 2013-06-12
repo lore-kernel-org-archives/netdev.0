@@ -1,46 +1,48 @@
-From: 'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 09/15] net: can: Convert to use devm_ioremap_resource
-Date: Tue, 11 Jun 2013 20:09:41 -0700
-Message-ID: <20130612030941.GA10250@kroah.com>
-References: <1370864113-17895-1-git-send-email-tushar.behera@linaro.org>
- <1370864113-17895-10-git-send-email-tushar.behera@linaro.org>
- <51B5D007.8050005@pengutronix.de>
- <51B69663.5080304@linaro.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: properly send new data in fast recovery
+ in first RTT
+Date: Tue, 11 Jun 2013 20:57:55 -0700
+Message-ID: <1371009475.3252.53.camel@edumazet-glaptop>
+References: <1370990132-27652-1-git-send-email-ycheng@google.com>
+	 <CADVnQymM_fasoZ6s=Si=gccQ=wvmdt+0jryWovTxLeZw8e95WA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
-	linux-kernel@vger.kernel.org, thierry.reding@gmail.com,
-	patches@linaro.org, netdev@vger.kernel.org,
-	linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>
-To: Tushar Behera <tushar.behera@linaro.org>
-Return-path: <linux-can-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <51B69663.5080304@linaro.org>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Yuchung Cheng <ycheng@google.com>,
+	David Miller <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Nandita Dukkipati <nanditad@google.com>,
+	Netdev <netdev@vger.kernel.org>
+To: Neal Cardwell <ncardwell@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f178.google.com ([209.85.215.178]:62219 "EHLO
+	mail-ea0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751252Ab3FLD6A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 23:58:00 -0400
+Received: by mail-ea0-f178.google.com with SMTP id l15so4497967eak.37
+        for <netdev@vger.kernel.org>; Tue, 11 Jun 2013 20:57:59 -0700 (PDT)
+In-Reply-To: <CADVnQymM_fasoZ6s=Si=gccQ=wvmdt+0jryWovTxLeZw8e95WA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 11, 2013 at 08:45:47AM +0530, Tushar Behera wrote:
-> +CC: 'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>
+On Tue, 2013-06-11 at 19:56 -0400, Neal Cardwell wrote:
+> On Tue, Jun 11, 2013 at 6:35 PM, Yuchung Cheng <ycheng@google.com> wrote:
+> > Linux sends new unset data during disorder and recovery state if all
+> > (suspected) lost packets have been retransmitted ( RFC5681, section
+> > 3.2 step 1 & 2, RFC3517 section 4, NexSeg() Rule 2).  One requirement
+> > is to keep the receive window about twice the estimated sender's
+> > congestion window (tcp_rcv_space_adjust()), assuming the fast
+> > retransmits repair the losses in the next round trip.
+> >
+> > But currently it's not the case on the first round trip in either
+> > normal or Fast Open connection, beucase the initial receive window
+> > is identical to (expected) sender's initial congestion window. The
+> > fix is to double it.
+> >
+> > Signed-off-by: Yuchung Cheng <ycheng@google.com>
 > 
-> On 06/10/2013 06:39 PM, Marc Kleine-Budde wrote:
-> > On 06/10/2013 01:35 PM, Tushar Behera wrote:
-> >> Commit 75096579c3ac ("lib: devres: Introduce devm_ioremap_resource()")
-> >> introduced devm_ioremap_resource() and deprecated the use of
-> >> devm_request_and_ioremap().
-> > 
-> > Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> > 
-> > Are the patches going over the individual subsystem maintainers?
-> > 
-> > Marc
-> > 
-> 
-> I am not sure. Looping in Greg for clarity.
+> Acked-by: Neal Cardwell <ncardwell@google.com>
 
-I'm taking the ones for my subsystem(s), the last one should probably go
-in after 3.11-rc1 is released, in order to ensure no remaining in-tree
-users of the function are still around.
+Yes, this is indeed a very nice catch, thanks Yuchung !
 
-thanks,
-
-greg k-h
+Acked-by: Eric Dumazet <edumazet@google.com>
