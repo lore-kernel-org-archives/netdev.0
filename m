@@ -1,59 +1,46 @@
-From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
-Subject: [PATCH net-next] net: sh_eth: fix incorrect RX length error if R8A7740
-Date: Wed, 12 Jun 2013 10:33:47 +0900
-Message-ID: <51B7CFFB.7090801@renesas.com>
+From: 'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 09/15] net: can: Convert to use devm_ioremap_resource
+Date: Tue, 11 Jun 2013 20:09:41 -0700
+Message-ID: <20130612030941.GA10250@kroah.com>
+References: <1370864113-17895-1-git-send-email-tushar.behera@linaro.org>
+ <1370864113-17895-10-git-send-email-tushar.behera@linaro.org>
+ <51B5D007.8050005@pengutronix.de>
+ <51B69663.5080304@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: SH-Linux <linux-sh@vger.kernel.org>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-sh-owner@vger.kernel.org>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Marc Kleine-Budde <mkl@pengutronix.de>,
+	linux-kernel@vger.kernel.org, thierry.reding@gmail.com,
+	patches@linaro.org, netdev@vger.kernel.org,
+	linux-can@vger.kernel.org, Wolfgang Grandegger <wg@grandegger.com>
+To: Tushar Behera <tushar.behera@linaro.org>
+Return-path: <linux-can-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51B69663.5080304@linaro.org>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch fixes an issue that the driver increments the "RX length error"
-on every buffer in sh_eth_rx() if the R8A7740.
-This patch also adds a description about the Receive Frame Status bits.
+On Tue, Jun 11, 2013 at 08:45:47AM +0530, Tushar Behera wrote:
+> +CC: 'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>
+> 
+> On 06/10/2013 06:39 PM, Marc Kleine-Budde wrote:
+> > On 06/10/2013 01:35 PM, Tushar Behera wrote:
+> >> Commit 75096579c3ac ("lib: devres: Introduce devm_ioremap_resource()")
+> >> introduced devm_ioremap_resource() and deprecated the use of
+> >> devm_request_and_ioremap().
+> > 
+> > Acked-by: Marc Kleine-Budde <mkl@pengutronix.de>
+> > 
+> > Are the patches going over the individual subsystem maintainers?
+> > 
+> > Marc
+> > 
+> 
+> I am not sure. Looping in Greg for clarity.
 
-Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
----
- This patch is based on the latest net-next.git.
+I'm taking the ones for my subsystem(s), the last one should probably go
+in after 3.11-rc1 is released, in order to ensure no remaining in-tree
+users of the function are still around.
 
- drivers/net/ethernet/renesas/sh_eth.c |   15 +++++++++++----
- 1 files changed, 11 insertions(+), 4 deletions(-)
+thanks,
 
-diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
-index 43d8490..ab2f9c2 100644
---- a/drivers/net/ethernet/renesas/sh_eth.c
-+++ b/drivers/net/ethernet/renesas/sh_eth.c
-@@ -1260,16 +1260,23 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status)
- 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
- 		pkt_len = rxdesc->frame_length;
-
--#if defined(CONFIG_ARCH_R8A7740)
--		desc_status >>= 16;
--#endif
--
- 		if (--boguscnt < 0)
- 			break;
-
- 		if (!(desc_status & RDFEND))
- 			ndev->stats.rx_length_errors++;
-
-+#if defined(CONFIG_ARCH_R8A7740)
-+		/*
-+		 * In case of almost GETHER/ETHERs, the Receive Frame State
-+		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
-+		 * bit 0. However, in case of the R8A7740's GETHER, the RFS
-+		 * bits are from bit 25 to bit 16. So, the driver needs right
-+		 * shifting by 16.
-+		 */
-+		desc_status >>= 16;
-+#endif
-+
- 		if (desc_status & (RD_RFS1 | RD_RFS2 | RD_RFS3 | RD_RFS4 |
- 				   RD_RFS5 | RD_RFS6 | RD_RFS10)) {
- 			ndev->stats.rx_errors++;
--- 
-1.7.1
+greg k-h
