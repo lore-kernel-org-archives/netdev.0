@@ -1,109 +1,43 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH RESEND 1/2] neigh: only allow init_net to change the default neigh_parms
-Date: Wed, 12 Jun 2013 00:33:54 -0700
-Message-ID: <87ehc7rdel.fsf@xmission.com>
-References: <1371012275-31735-1-git-send-email-gaofeng@cn.fujitsu.com>
+From: Johannes Stezenbach <js@sig21.net>
+Subject: Re: [PATCH 0/1] alx driver
+Date: Wed, 12 Jun 2013 09:11:07 +0200
+Message-ID: <20130612071107.GA7765@sig21.net>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Gao feng <gaofeng@cn.fujitsu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, mcgrof@do-not-panic.com, kvalo@adurom.com,
+	adrian.chadd@gmail.com
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out02.mta.xmission.com ([166.70.13.232]:39885 "EHLO
-	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752567Ab3FLHeY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:34:24 -0400
-In-Reply-To: <1371012275-31735-1-git-send-email-gaofeng@cn.fujitsu.com> (Gao
-	feng's message of "Wed, 12 Jun 2013 12:44:34 +0800")
+Received: from bar.sig21.net ([80.81.252.164]:39153 "EHLO bar.sig21.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752567Ab3FLHjo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 03:39:44 -0400
+Content-Disposition: inline
+In-Reply-To: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Gao feng <gaofeng@cn.fujitsu.com> writes:
+On Mon, Jun 10, 2013 at 11:26:48PM +0200, Johannes Berg wrote:
+> So ... I was stupid enough to not research drivers for this device
+> before buying a board that included one, I figured in 2013 it wasn't
+> really possible for such a simple gigabit ethernet device to not
+> have a driver in Linux.
+> 
+> Boy was I wrong.
+> 
+> The vendor driver was previously posted on netdev, and subsequently
+> somewhat cleaned up, but ... it still had useless hand-rolled locks
+> (with test_and_set_bit/msleep!), horrible macros, and was generally
+> quite a mess.
 
-> Though we don't export the /proc/sys/net/ipv[4,6]/neigh/default/
-> directory to the un-init_net, but we can still use cmd such as
-> "ip ntable change name arp_cache locktime 129" to change the locktime
-> of default neigh_parms.
->
-> This patch disallows the un-init_net to find out the neigh_table.parms.
-> So the un-init_net will failed to influence the init_net.
+I had the same unpleasant experience about missing alx driver
+for my Asus P8H77-V board.  I found this:
+http://www.linuxfoundation.org/collaborate/workgroups/networking/alx
+https://github.com/qca/alx
 
-Interesting...  
+And this mail talks about upstreaming:
+http://lists.infradead.org/pipermail/unified-drivers/2013-April/000064.html
 
-The problem these two patches seek to address seems legit.
 
-However I disagree with the way you are handling this.
-
-Outside of the initial network namespace we should return -ENOENT
-instead of -EPERM.  Which would match how we handle sysctls, and I think
-missing neigh table values.  Just not making these global values visible
-seems wise.
-
-The alternative is to use the proper permission test which is
-capable(CAP_SYS_ADMIN) (instead of testing network namespaces) and
-return -EPERM if that fails.  Which would allow processes in other
-network namespaces to change the value if they could otherwise change
-the value.
-
-Namespaces are about visibility and there is no need to make an
-exception here.
-
-Eric
-
-> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
-> ---
->  net/core/neighbour.c | 25 ++++++++++++++-----------
->  1 file changed, 14 insertions(+), 11 deletions(-)
->
-> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-> index 5c56b21..e4027ff 100644
-> --- a/net/core/neighbour.c
-> +++ b/net/core/neighbour.c
-> @@ -1418,26 +1418,29 @@ static inline struct neigh_parms *lookup_neigh_parms(struct neigh_table *tbl,
->  	struct neigh_parms *p;
->  
->  	for (p = &tbl->parms; p; p = p->next) {
-> -		if ((p->dev && p->dev->ifindex == ifindex && net_eq(neigh_parms_net(p), net)) ||
-> -		    (!p->dev && !ifindex))
-> +		if (p->dev && p->dev->ifindex == ifindex &&
-> +		    net_eq(neigh_parms_net(p), net))
->  			return p;
-> +
-> +		if (!p->dev && !ifindex) {
-> +			if (net_eq(net, &init_net))
-> +				return p;
-> +			else
-> +				return ERR_PTR(-EPERM);
-> +		}
->  	}
->  
-> -	return NULL;
-> +	return ERR_PTR(-ENOENT);
->  }
->  
->  struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
->  				      struct neigh_table *tbl)
->  {
-> -	struct neigh_parms *p, *ref;
-> +	struct neigh_parms *p;
->  	struct net *net = dev_net(dev);
->  	const struct net_device_ops *ops = dev->netdev_ops;
->  
-> -	ref = lookup_neigh_parms(tbl, net, 0);
-> -	if (!ref)
-> -		return NULL;
-> -
-> -	p = kmemdup(ref, sizeof(*p), GFP_KERNEL);
-> +	p = kmemdup(&tbl->parms, sizeof(*p), GFP_KERNEL);
->  	if (p) {
->  		p->tbl		  = tbl;
->  		atomic_set(&p->refcnt, 1);
-> @@ -1999,8 +2002,8 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
->  			ifindex = nla_get_u32(tbp[NDTPA_IFINDEX]);
->  
->  		p = lookup_neigh_parms(tbl, net, ifindex);
-> -		if (p == NULL) {
-> -			err = -ENOENT;
-> +		if (IS_ERR(p)) {
-> +			err = PTR_ERR(p);
->  			goto errout_tbl_lock;
->  		}
+Johannes
