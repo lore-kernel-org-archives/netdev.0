@@ -1,68 +1,44 @@
-From: Russell King - ARM Linux <linux@arm.linux.org.uk>
-Subject: Re: [RFC 0/7] Fixing dma mask setting in various
-	network drivers
-Date: Wed, 12 Jun 2013 01:01:23 +0100
-Message-ID: <20130612000123.GP18614@n2100.arm.linux.org.uk>
-References: <20130610230849.GF18614@n2100.arm.linux.org.uk>
-	<20130611111230.000062d2@unknown>
-	<20130611203505.GO18614@n2100.arm.linux.org.uk>
-	<20130611165044.00000d3a@unknown>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: kmemleak reports in kernel 3.9.5+
+Date: Tue, 11 Jun 2013 17:28:13 -0700
+Message-ID: <51B7C09D.9020402@candelatech.com>
+References: <51B61982.2050903@candelatech.com> <CAHkRjk5SDCbqr0Br24YQuHr=j7DmnpYk9CShrz1qiuYff7+qAw@mail.gmail.com> <51B78009.2060808@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rasesh Mody <rmody@brocade.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"Allan, Bruce W" <bruce.w.allan@intel.com>, "Ronciak,
-	John" <john.ronciak@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-Content-Disposition: inline
-In-Reply-To: <20130611165044.00000d3a@unknown>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Catalin Marinas <catalin.marinas@arm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.candelatech.com ([208.74.158.172]:50189 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755316Ab3FLA2U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 20:28:20 -0400
+In-Reply-To: <51B78009.2060808@candelatech.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 11, 2013 at 04:50:44PM -0700, Jesse Brandeburg wrote:
-> On Tue, 11 Jun 2013 13:35:05 -0700
-> Russell King - ARM Linux <linux@arm.linux.org.uk> wrote:
-> > As part of my review of all this stuff, I'm wondering whether a helper
-> > to set both masks makes sense.  Something like:
-> > 
-> > static inline int dma_set_masks(struct device *dev, u64 mask)
-> 
-> it doesn't need to be inline, it is never called in hotpath.
+On 06/11/2013 12:52 PM, Ben Greear wrote:
+> On 06/10/2013 03:32 PM, Catalin Marinas wrote:
+>> On 10 June 2013 19:22, Ben Greear <greearb@candelatech.com> wrote:
+>>> We had a system go OOM while doing lots of wireless
+>>> stations.  (System had 8GB of RAM, so I suspect a leak).
+>>>
+>>> I enabled kmemleak in a 3.9.5 (plus some local patches) and
+>>> I see the entries below.  Any idea if these are real or not?
 
-If it goes into linux/dma-mapping.h as a simple helper it does, otherwise
-you'll get "declared but not used" warnings.
+Most of this went away when I disabled SLUB debugging and other
+kernel hacking options.  The wifi cfg80211_inform_bss_frame
+remains, however.  I'll go dig some more on that tomorrow...didn't
+see anything obvious at first glance.
 
-> > {
-> > 	int ret = dma_set_mask(dev, mask);
-> > 	if (ret == 0)
-> > 		dma_set_coherent_mask(dev, mask);
-> > 	return ret;
-> > }
-> > 
-> > "dma_set_masks()" is a little too close to dma_set_mask() though; and
-> 
-> how about dma_set_mask_and_coherent(...)
+But, perhaps there could be some improvements to
+kmemleak to make it deal better with the various kernel
+debugging features?
 
-Yea, I'm happy with that.
+Thanks,
+Ben
 
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
