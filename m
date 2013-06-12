@@ -1,75 +1,58 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next stable v2] sctp: fully initialize sctp_outq in
- sctp_outq_init
-Date: Wed, 12 Jun 2013 14:40:16 -0400
-Message-ID: <51B8C090.8050502@gmail.com>
-References: <1371061604-27312-1-git-send-email-nhorman@tuxdriver.com>
+From: Dean Nelson <dnelson@redhat.com>
+Subject: Re: [PATCH net-next] e1000e: restore call to pci_clear_master()
+Date: Wed, 12 Jun 2013 13:53:07 -0500
+Message-ID: <51B8C393.3090100@redhat.com>
+References: <20130612174747.7449.40767.email-sent-by-dnelson@teal> <51B8C035.9010105@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-sctp@vger.kernel.org,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org, davem@davemloft.net
-To: Neil Horman <nhorman@tuxdriver.com>
+Cc: David Miller <davem@davemloft.net>,
+	Konstantin Khlebnikov <khlebnikov@openvz.org>,
+	netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f176.google.com ([209.85.220.176]:55165 "EHLO
-	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755612Ab3FLSkU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 14:40:20 -0400
-In-Reply-To: <1371061604-27312-1-git-send-email-nhorman@tuxdriver.com>
+Received: from mx1.redhat.com ([209.132.183.28]:39582 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755993Ab3FLSxP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 14:53:15 -0400
+In-Reply-To: <51B8C035.9010105@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/12/2013 02:26 PM, Neil Horman wrote:
-> In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86
-> (refactor sctp_outq_teardown to insure proper re-initalization)
-> we modified sctp_outq_teardown to use sctp_outq_init to fully re-initalize the
-> outq structure.  Steve West recently asked me why I removed the q->error = 0
-> initalization from sctp_outq_teardown.  I did so because I was operating under
-> the impression that sctp_outq_init would properly initalize that value for us,
-> but it doesn't.  sctp_outq_init operates under the assumption that the outq
-> struct is all 0's (as it is when called from sctp_association_init), but using
-> it in __sctp_outq_teardown violates that assumption. We should do a memset in
-> sctp_outq_init to ensure that the entire structure is in a known state there
-> instead.
+On 06/12/2013 01:38 PM, Sergei Shtylyov wrote:
+> Hello.
 >
-> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-> Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
-> CC: Vlad Yasevich <vyasevich@gmail.com>
+> On 06/12/2013 09:47 PM, Dean Nelson wrote:
+>
+>> In attempting to resolve a minor merge conflict, commit
+>> e5f2ef7ab4690d2e8faa
+>> accidently dropped a call to pci_clear_master() that was intended to
+>> remain
+>> in place.
+>
+>> Commit 4e0855dff094b0d56d6b replaced a call to pci_disable_device() by
+>> one to
+>
+>     Please specify the summary line in parens for both commmits you're
+> mentioning.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Sorry, I'm not understanding fully. Are you asking me to repost the
+patch with the changelog modified, such that each of the commits
+mentioned has their summary statement following, enclosed in parens?
 
--vlad
 
-> CC: netdev@vger.kernel.org
-> CC: davem@davemloft.net
-> ---
->   net/sctp/outqueue.c | 6 ++----
->   1 file changed, 2 insertions(+), 4 deletions(-)
+>> pci_clear_master(). And then commit 66148babe728f3e00e13 deleted a
+>> number of
+>> lines starting two lines following that call.
 >
-> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-> index 32a4625..be35e2d 100644
-> --- a/net/sctp/outqueue.c
-> +++ b/net/sctp/outqueue.c
-> @@ -206,6 +206,8 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
->    */
->   void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
->   {
-> +	memset(q, 0, sizeof(struct sctp_outq));
-> +
->   	q->asoc = asoc;
->   	INIT_LIST_HEAD(&q->out_chunk_list);
->   	INIT_LIST_HEAD(&q->control_chunk_list);
-> @@ -213,11 +215,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
->   	INIT_LIST_HEAD(&q->sacked);
->   	INIT_LIST_HEAD(&q->abandoned);
+>> This patch restores the call to pci_clear_master() in __e1000_shutdown().
 >
-> -	q->fast_rtx = 0;
-> -	q->outstanding_bytes = 0;
->   	q->empty = 1;
-> -	q->cork  = 0;
-> -	q->out_qlen = 0;
->   }
+>> Signed-off-by: Dean Nelson <dnelson@redhat.com>
 >
->   /* Free the outqueue structure and any related pending chunks.
+> WBR, Sergei
 >
+>
+
+Also, I mistyped Jeff Kirsher's email address. It's corrected above. 
+(Sorry, Jeff.)
