@@ -1,44 +1,59 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: kmemleak reports in kernel 3.9.5+
-Date: Tue, 11 Jun 2013 17:28:13 -0700
-Message-ID: <51B7C09D.9020402@candelatech.com>
-References: <51B61982.2050903@candelatech.com> <CAHkRjk5SDCbqr0Br24YQuHr=j7DmnpYk9CShrz1qiuYff7+qAw@mail.gmail.com> <51B78009.2060808@candelatech.com>
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Subject: [PATCH net-next] net: sh_eth: fix incorrect RX length error if R8A7740
+Date: Wed, 12 Jun 2013 10:33:47 +0900
+Message-ID: <51B7CFFB.7090801@renesas.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Catalin Marinas <catalin.marinas@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:50189 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755316Ab3FLA2U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 11 Jun 2013 20:28:20 -0400
-In-Reply-To: <51B78009.2060808@candelatech.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: SH-Linux <linux-sh@vger.kernel.org>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/11/2013 12:52 PM, Ben Greear wrote:
-> On 06/10/2013 03:32 PM, Catalin Marinas wrote:
->> On 10 June 2013 19:22, Ben Greear <greearb@candelatech.com> wrote:
->>> We had a system go OOM while doing lots of wireless
->>> stations.  (System had 8GB of RAM, so I suspect a leak).
->>>
->>> I enabled kmemleak in a 3.9.5 (plus some local patches) and
->>> I see the entries below.  Any idea if these are real or not?
+This patch fixes an issue that the driver increments the "RX length error"
+on every buffer in sh_eth_rx() if the R8A7740.
+This patch also adds a description about the Receive Frame Status bits.
 
-Most of this went away when I disabled SLUB debugging and other
-kernel hacking options.  The wifi cfg80211_inform_bss_frame
-remains, however.  I'll go dig some more on that tomorrow...didn't
-see anything obvious at first glance.
+Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
+---
+ This patch is based on the latest net-next.git.
 
-But, perhaps there could be some improvements to
-kmemleak to make it deal better with the various kernel
-debugging features?
+ drivers/net/ethernet/renesas/sh_eth.c |   15 +++++++++++----
+ 1 files changed, 11 insertions(+), 4 deletions(-)
 
-Thanks,
-Ben
+diff --git a/drivers/net/ethernet/renesas/sh_eth.c b/drivers/net/ethernet/renesas/sh_eth.c
+index 43d8490..ab2f9c2 100644
+--- a/drivers/net/ethernet/renesas/sh_eth.c
++++ b/drivers/net/ethernet/renesas/sh_eth.c
+@@ -1260,16 +1260,23 @@ static int sh_eth_rx(struct net_device *ndev, u32 intr_status)
+ 		desc_status = edmac_to_cpu(mdp, rxdesc->status);
+ 		pkt_len = rxdesc->frame_length;
 
+-#if defined(CONFIG_ARCH_R8A7740)
+-		desc_status >>= 16;
+-#endif
+-
+ 		if (--boguscnt < 0)
+ 			break;
+
+ 		if (!(desc_status & RDFEND))
+ 			ndev->stats.rx_length_errors++;
+
++#if defined(CONFIG_ARCH_R8A7740)
++		/*
++		 * In case of almost GETHER/ETHERs, the Receive Frame State
++		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
++		 * bit 0. However, in case of the R8A7740's GETHER, the RFS
++		 * bits are from bit 25 to bit 16. So, the driver needs right
++		 * shifting by 16.
++		 */
++		desc_status >>= 16;
++#endif
++
+ 		if (desc_status & (RD_RFS1 | RD_RFS2 | RD_RFS3 | RD_RFS4 |
+ 				   RD_RFS5 | RD_RFS6 | RD_RFS10)) {
+ 			ndev->stats.rx_errors++;
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+1.7.1
