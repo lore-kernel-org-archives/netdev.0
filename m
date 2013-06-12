@@ -1,65 +1,71 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: [PATCH net-next stable v2] sctp: fully initialize sctp_outq in sctp_outq_init
-Date: Wed, 12 Jun 2013 14:26:44 -0400
-Message-ID: <1371061604-27312-1-git-send-email-nhorman@tuxdriver.com>
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Neil Horman <nhorman@tuxdriver.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net
-To: linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47161 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755957Ab3FLS1C (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 14:27:02 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Scott Wood <scottwood@freescale.com>
+Subject: Re: [PATCH] MDIO: FSL_PQ_MDIO: Fix bug on incorrect offset of tbipa
+ register
+Date: Wed, 12 Jun 2013 13:31:11 -0500
+Message-ID: <1371061871.18413.44@snotra>
+References: <1371041258-15298-1-git-send-email-ogabbay@advaoptical.com>
+	<51B88EED.6090709@linutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; delsp=Yes; format=Flowed
+Content-Transfer-Encoding: 8BIT
+Cc: Oded Gabbay <ogabbay@advaoptical.com>, <stef.van.os@prodrive.nl>,
+	<timur@tabi.org>, <Dongsheng.Wang@freescale.com>,
+	<paulus@samba.org>, <netdev@vger.kernel.org>,
+	<linuxppc-dev@lists.ozlabs.org>, <davem@davemloft.net>,
+	<linux-kernel@vger.kernel.org>, <B38951@freescale.com>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51B88EED.6090709@linutronix.de> (from bigeasy@linutronix.de on
+	Wed Jun 12 10:08:29 2013)
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86
-(refactor sctp_outq_teardown to insure proper re-initalization)
-we modified sctp_outq_teardown to use sctp_outq_init to fully re-initalize the
-outq structure.  Steve West recently asked me why I removed the q->error = 0
-initalization from sctp_outq_teardown.  I did so because I was operating under
-the impression that sctp_outq_init would properly initalize that value for us,
-but it doesn't.  sctp_outq_init operates under the assumption that the outq
-struct is all 0's (as it is when called from sctp_association_init), but using
-it in __sctp_outq_teardown violates that assumption. We should do a memset in
-sctp_outq_init to ensure that the entire structure is in a known state there
-instead.
+On 06/12/2013 10:08:29 AM, Sebastian Andrzej Siewior wrote:
+> On 06/12/2013 02:47 PM, Oded Gabbay wrote:
+> > This patch fixes a bug in the fsl_pq_mdio.c module and in relevant  
+> device-tree
+> > files regarding the correct offset of the tbipa register in the  
+> eTSEC
+> > controller in some of Freescale's PQ3 and QorIQ SoC.
+> > The bug happens when the mdio in the device tree is configured to  
+> be compatible
+> > to "fsl,gianfar-tbi". Because the mdio device in the device tree  
+> points to
+> > addresses 25520, 26520 or 27520 (depends on the controller ID), the  
+> variable
+> > priv->map at function fsl_pq_mdio_probe, points to that address.  
+> However,
+> > later in the function there is a write to register tbipa that is  
+> actually
+> > located at 25030, 26030 or 27030. Because the correct address is  
+> not io mapped,
+> > the contents are written to a different register in the controller.
+> > The fix sets the address of the mdio device to start at 25000,  
+> 26000 or 27000
+> > and changes the mii_offset field to 0x520 in the relevant entry
+> > (fsl,gianfar-tbi) of the fsl_pq_mdio_match array.
+> >
+> > Note: This patch may break MDIO functionallity of some old  
+> Freescale's SoC
+> > until Freescale will fix their device tree files. Basically, every  
+> device tree
+> > which contains an mdio device that is compatible to  
+> "fsl,gianfar-tbi" should be
+> > examined.
+> 
+> Not as is.
+> Please add a check for the original address. If it has 0x520 at the  
+> end
+> print a warning and fix it up. Please add to the patch description
+> which register is modified instead if this patch is not applied.
+> Depending on how critical this it might has to go stable.
 
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: netdev@vger.kernel.org
-CC: davem@davemloft.net
----
- net/sctp/outqueue.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+I'm not sure it's stable material if this is something that has never  
+worked...
 
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 32a4625..be35e2d 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -206,6 +206,8 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
-  */
- void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
- {
-+	memset(q, 0, sizeof(struct sctp_outq));
-+
- 	q->asoc = asoc;
- 	INIT_LIST_HEAD(&q->out_chunk_list);
- 	INIT_LIST_HEAD(&q->control_chunk_list);
-@@ -213,11 +215,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
- 	INIT_LIST_HEAD(&q->sacked);
- 	INIT_LIST_HEAD(&q->abandoned);
- 
--	q->fast_rtx = 0;
--	q->outstanding_bytes = 0;
- 	q->empty = 1;
--	q->cork  = 0;
--	q->out_qlen = 0;
- }
- 
- /* Free the outqueue structure and any related pending chunks.
--- 
-1.8.1.4
+The device tree binding will also need to be fixed to note the  
+difference in "reg" between "fsl,gianfar-mdio" and "fsl-gianfar-tbi" --  
+and should give an example of the latter.
+
+-Scott
