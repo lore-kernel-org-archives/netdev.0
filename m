@@ -1,44 +1,40 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: pull request: wireless 2013-06-06
-Date: Wed, 12 Jun 2013 09:09:56 +0200
-Message-ID: <1371020996.8601.7.camel@jlt4.sipsolutions.net>
-References: <20130606190929.GB18827@tuxdriver.com>
-	 <20130611.222706.1492583255605214982.davem@davemloft.net>
-	 <1371018409.8601.2.camel@jlt4.sipsolutions.net>
-	 <20130612.000711.759531077550828193.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net_sched: htb: do not setup default rate
+ estimators
+Date: Wed, 12 Jun 2013 00:14:41 -0700 (PDT)
+Message-ID: <20130612.001441.1628304783101981390.davem@davemloft.net>
+References: <1370555596.24311.390.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130612.000711.759531077550828193.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50931 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755600Ab3FLHOn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:14:43 -0400
+In-Reply-To: <1370555596.24311.390.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-12 at 00:07 -0700, David Miller wrote:
-> From: Johannes Berg <johannes@sipsolutions.net>
-> Date: Wed, 12 Jun 2013 08:26:49 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 Jun 2013 14:53:16 -0700
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> > On Tue, 2013-06-11 at 22:27 -0700, David Miller wrote:
-> >> From: "John W. Linville" <linville@tuxdriver.com>
-> >> Date: Thu, 6 Jun 2013 15:09:30 -0400
-> >> 
-> >> > Johannes Berg (2):
-> >> >       mac80211: constify ieee802_11_parse_elems() argument
-> >> 
-> >> Such cleanups are absolutely, positively, not appropriate at this
-> >> time.
-> > 
-> > My other fix depends on this to not have a const warning. I can add a
-> > cast to pretend the input isn't const at this point, but that seemed
-> > like a bad idea as well.
+> With a thousand htb classes, est_timer() spends ~5 million cpu cycles
+> and throws out cpu cache, because each htb class has a default
+> rate estimator (est 4sec 16sec).
 > 
-> I would combine the two changes into one commit, because then this
-> necessity is clear and you can even explain this in the commit message
-> so that there is no argument about the justification.
+> Most users do not use default rate estimators, so switch htb
+> to not setup ones.
+> 
+> Add a module parameter (htb_rate_est) so that users relying
+> on this default rate estimator can revert the behavior.
+> 
+> echo 1 >/sys/module/sch_htb/parameters/htb_rate_est
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Sure, I can do that too.
-
-johannes
+Fair enough, applied, let's see if anyone complains.
