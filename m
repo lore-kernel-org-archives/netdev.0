@@ -1,53 +1,38 @@
-From: Benjamin Herrenschmidt <benh-XVmvHMARGAS8U2dJNN8I7kB+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH 1/5] ibmebus: convert of_platform_driver to
- platform_driver
-Date: Wed, 12 Jun 2013 15:29:38 +1000
-Message-ID: <1371014978.8250.175.camel@pasglop>
-References: <1366596798-9457-1-git-send-email-robherring2@gmail.com>
-	 <1366596798-9457-2-git-send-email-robherring2@gmail.com>
-	 <CAL_JsqKDF=hPEM0Jz-zZSXBCXBZ=gBjLWL6QDvq+nFWkqY3DMw@mail.gmail.com>
-	 <1366911329.2869.31.camel@pasglop> <517980B0.3000401@gmail.com>
-	 <1366920741.2869.32.camel@pasglop> <517995D0.8020307@gmail.com>
-	 <CAL_JsqKXt-gFL4y_k-_dFktpk1JD_S2G+hUsoOavw8QugFMOKA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next] net_sched: psched_ratecfg_precompute()
+ improvements
+Date: Tue, 11 Jun 2013 22:40:22 -0700 (PDT)
+Message-ID: <20130611.224022.805517640452355493.davem@davemloft.net>
+References: <1370550451.24311.371.camel@edumazet-glaptop>
+	<51B0F323.5010003@candelatech.com>
+	<1370552179.24311.375.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
-	<devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
-	Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Paul Mackerras <paulus-eUNUBHrolfbYtjvyW6yDsg@public.gmane.org>,
-	Hoang-Nam Nguyen <hnguyen-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Christoph Raisch <raisch-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	Roland Dreier <roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Thadeu Lima de Souza Cascardo <cascardo-23VcF4HTsmIX0ybBhKVfKdBPR1lH4CV8@public.gmane.org>,
-	linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Rob Herring <robherring2-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAL_JsqKXt-gFL4y_k-_dFktpk1JD_S2G+hUsoOavw8QugFMOKA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: greearb@candelatech.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50138 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752978Ab3FLFkY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 01:40:24 -0400
+In-Reply-To: <1370552179.24311.375.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-05-22 at 07:26 -0500, Rob Herring wrote:
-> > git://sources.calxeda.com/kernel/linux.git of-platform-removal
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 Jun 2013 13:56:19 -0700
+
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Ben,
+> Before allowing 64bits bytes rates, refactor
+> psched_ratecfg_precompute() to get better comments
+> and increased accuracy.
 > 
-> Did you have a chance to test this? I want to get this into -next.
+> rate_bps field is renamed to rate_bytes_ps, as we only
+> have to worry about bytes per second.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Ben Greear <greearb@candelatech.com>
 
-I tested the one in for-next (sorry for the high latency). Works fine.
-
-Ack.
-
-Cheers,
-Ben.
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied, thanks Eric.
