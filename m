@@ -1,43 +1,64 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Davicom DM9000A regression
-Date: Wed, 12 Jun 2013 23:23:06 +0200
-Message-ID: <20130612212306.GA21234@electric-eye.fr.zoreil.com>
-References: <51B87A19.4030708@compulab.co.il>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] udp: fix two sparse errors
+Date: Wed, 12 Jun 2013 14:31:39 -0700
+Message-ID: <1371072699.3252.73.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, josright123@gmail.com
-To: Nikita Kiryanov <nikita@compulab.co.il>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:46446 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755908Ab3FLVXO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 17:23:14 -0400
-Content-Disposition: inline
-In-Reply-To: <51B87A19.4030708@compulab.co.il>
+Received: from mail-wi0-f176.google.com ([209.85.212.176]:58588 "EHLO
+	mail-wi0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751890Ab3FLVbn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 17:31:43 -0400
+Received: by mail-wi0-f176.google.com with SMTP id ey16so927057wid.9
+        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 14:31:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Nikita Kiryanov <nikita@compulab.co.il> :
-[...]
-> A bit of digging revealed the cause as this patch:
-> "DM9000B: driver initialization upgrade"
+From: Eric Dumazet <edumazet@google.com>
 
-(aka 6741f40d198c6a5feb23653a1efd4ca47f93d83d)
+commit ba418fa357a7b3c ("soreuseport: UDP/IPv4 implementation")
+added following sparse errors :
 
-> and specifically, the following line that was added by it:
-> dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET); /* PHY RESET */
-> (uncommenting this line solves the problem).
-> Adding a delay after the phy reset did not help.
+net/ipv4/udp.c:433:60: warning: cast from restricted __be16
+net/ipv4/udp.c:433:60: warning: incorrect type in argument 1 (different base types)
+net/ipv4/udp.c:433:60:    expected unsigned short [unsigned] [usertype] val
+net/ipv4/udp.c:433:60:    got restricted __be16 [usertype] sport
+net/ipv4/udp.c:433:60: warning: cast from restricted __be16
+net/ipv4/udp.c:433:60: warning: cast from restricted __be16
+net/ipv4/udp.c:514:60: warning: cast from restricted __be16
+net/ipv4/udp.c:514:60: warning: incorrect type in argument 1 (different base types)
+net/ipv4/udp.c:514:60:    expected unsigned short [unsigned] [usertype] val
+net/ipv4/udp.c:514:60:    got restricted __be16 [usertype] sport
+net/ipv4/udp.c:514:60: warning: cast from restricted __be16
+net/ipv4/udp.c:514:60: warning: cast from restricted __be16
 
-(I have no idea why Davicom enforced a dsp phy register write everywhere
-instead of using db->type to identify the specific chipset revision that
-requires it)
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/ipv4/udp.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-The last version of the patch changed - not much - without notice and
-it did not contain the "tested on DM9000{A, B, E}, x86, arm" part.
-
-You may try http://marc.info/?l=linux-netdev&m=136443908225335 to
-see if it behaves the same.
-
--- 
-Ueimor
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index f65bc32..959502a 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -430,7 +430,7 @@ begin:
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+ 				hash = inet_ehashfn(net, daddr, hnum,
+-						    saddr, htons(sport));
++						    saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
+@@ -511,7 +511,7 @@ begin:
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+ 				hash = inet_ehashfn(net, daddr, hnum,
+-						    saddr, htons(sport));
++						    saddr, sport);
+ 				matches = 1;
+ 			}
+ 		} else if (score == badness && reuseport) {
