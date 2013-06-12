@@ -1,48 +1,40 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net] packet: packet_getname_spkt: make sure string is always 0-terminated
-Date: Wed, 12 Jun 2013 16:02:27 +0200
-Message-ID: <1371045747-15203-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH net,stable 0/2] Fixes for PPPoL2TP sockets
+Date: Wed, 12 Jun 2013 16:07:10 +0200
+Message-ID: <20130612140710.GA3500@alphalink.fr>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: James Chapman <jchapman@katalix.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46720 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753181Ab3FLOC3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jun 2013 10:02:29 -0400
+Received: from zimbra.alphalink.fr ([217.15.80.77]:34848 "EHLO
+	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753181Ab3FLONP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 10:13:15 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-uaddr->sa_data is exactly of size 14, which is hard-coded here and
-passed as a size argument to strncpy(). A device name can be of size
-IFNAMSIZ (== 16), meaning we might leave the destination string
-unterminated. Thus, use strlcpy() and also sizeof() while we're
-at it. We need to memset the data area beforehand, since strlcpy
-does not padd the remaining buffer with zeroes for user space, so
-that we do not possibly leak anything.
+Hi,
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- net/packet/af_packet.c | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
+Here are two fixes for the PPPoL2TP sendmsg() call:
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 8ec1bca..20a1bd0 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -2851,12 +2851,11 @@ static int packet_getname_spkt(struct socket *sock, struct sockaddr *uaddr,
- 		return -EOPNOTSUPP;
- 
- 	uaddr->sa_family = AF_PACKET;
-+	memset(uaddr->sa_data, 0, sizeof(uaddr->sa_data));
- 	rcu_read_lock();
- 	dev = dev_get_by_index_rcu(sock_net(sk), pkt_sk(sk)->ifindex);
- 	if (dev)
--		strncpy(uaddr->sa_data, dev->name, 14);
--	else
--		memset(uaddr->sa_data, 0, 14);
-+		strlcpy(uaddr->sa_data, dev->name, sizeof(uaddr->sa_data));
- 	rcu_read_unlock();
- 	*uaddr_len = sizeof(*uaddr);
- 
+  -Patch 1 fixes an skbuff management issue.
+  -Patch 2 updates the value returned to userspace on success.
+   Though it's a userspace visible change, I submit it because
+   (1) it fixes a compliance issue with a standardised interface,
+   (2) sendmsg() wasn't functional anyway before applying patch 1,
+       so fixing its return value shouldn't hurt any existing program.
+
+Regards,
+
+Guillaume Nault (2):
+  l2tp: Fix PPP header erasure and memory leak
+  l2tp: Fix sendmsg() return value
+
+ net/l2tp/l2tp_ppp.c |    6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
 -- 
-1.7.11.7
+1.7.10.4
