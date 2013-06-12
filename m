@@ -1,37 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] doc:networking: Update comment for dev_id
- field in netdevice.h
-Date: Wed, 12 Jun 2013 03:04:14 -0700 (PDT)
-Message-ID: <20130612.030414.1553331670311215150.davem@davemloft.net>
-References: <20130610140325.GA1383@fedora-17-guest.blr.amer.dell.com>
-	<1370880670.1933.9.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [patch net-next 0/3] team: remove sychronize_rcu() calls
+Date: Wed, 12 Jun 2013 03:10:22 -0700 (PDT)
+Message-ID: <20130612.031022.382642269781263103.davem@davemloft.net>
+References: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Narendra_K@Dell.com, netdev@vger.kernel.org
-To: bhutchings@solarflare.com
+Cc: netdev@vger.kernel.org, edumazet@google.com, fbl@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:52406 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:52461 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751382Ab3FLKEP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 06:04:15 -0400
-In-Reply-To: <1370880670.1933.9.camel@bwh-desktop.uk.level5networks.com>
+	with ESMTP id S1752103Ab3FLKKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 06:10:23 -0400
+In-Reply-To: <1370878945-9718-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Mon, 10 Jun 2013 17:11:10 +0100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 10 Jun 2013 17:42:22 +0200
 
-> On Mon, 2013-06-10 at 19:34 +0530, Narendra_K@Dell.com wrote:
->> This patch updates the comment for 'dev_id' field in
->> 'include/linux/netdevice.h' to reflect the intended
->> usage of 'dev_id'.
->> 
->> References: http://marc.info/?l=linux-netdev&m=136992115300526&w=2
->> References: http://marc.info/?l=linux-netdev&m=137062569014612&w=2
->> 
->> Signed-off-by: Narendra K <narendra_k@dell.com>
-> 
-> Reviewed-by: Ben Hutchings <bhutchings@solarflare.com>
+> Jiri Pirko (3):
+>   team: remove synchronize_rcu() called during queue override change
+>   team: use kfree_rcu instead of synchronize_rcu in team_port_dev
+>   team: remove synchronize_rcu() called during port disable
 
-Applied, thanks.
+Applied, but I suspect this patch series was generated against the
+patch set you submitted for "net" because I had to hand apply patch
+#3 with some fuzz as git would not apply it directly.
+
+Please don't do that, submit your patches in the future against what
+is actually in net-next.
