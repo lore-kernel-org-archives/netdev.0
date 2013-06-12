@@ -1,40 +1,35 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH net,stable 0/2] Fixes for PPPoL2TP sockets
-Date: Wed, 12 Jun 2013 16:07:10 +0200
-Message-ID: <20130612140710.GA3500@alphalink.fr>
+From: Nikita Kiryanov <nikita@compulab.co.il>
+Subject: Davicom DM9000A regression
+Date: Wed, 12 Jun 2013 16:39:37 +0300
+Message-ID: <51B87A19.4030708@compulab.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: James Chapman <jchapman@katalix.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: josright123@gmail.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:34848 "EHLO
-	mail-2-cbv2.admin.alphalink.fr" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753181Ab3FLONP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 10:13:15 -0400
-Content-Disposition: inline
+Received: from softlayer.compulab.co.il ([50.23.254.55]:35960 "EHLO
+	compulab.co.il" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751483Ab3FLONh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 10:13:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hi all.
 
-Here are two fixes for the PPPoL2TP sendmsg() call:
+I've encountered a connectivity problem with Davicom DM9000A chip.
+The symptoms are the following message when booting via NFS:
+dm9000 dm9000.0: eth0: link up, 100Mbps, full-duplex, lpa 0xCDE1
 
-  -Patch 1 fixes an skbuff management issue.
-  -Patch 2 updates the value returned to userspace on success.
-   Though it's a userspace visible change, I submit it because
-   (1) it fixes a compliance issue with a standardised interface,
-   (2) sendmsg() wasn't functional anyway before applying patch 1,
-       so fixing its return value shouldn't hurt any existing program.
+A bit of digging revealed the cause as this patch:
+"DM9000B: driver initialization upgrade"
+and specifically, the following line that was added by it:
+dm9000_phy_write(dev, 0, MII_BMCR, BMCR_RESET); /* PHY RESET */
+(uncommenting this line solves the problem).
+Adding a delay after the phy reset did not help.
 
-Regards,
-
-Guillaume Nault (2):
-  l2tp: Fix PPP header erasure and memory leak
-  l2tp: Fix sendmsg() return value
-
- net/l2tp/l2tp_ppp.c |    6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+I'll appreciate any insight someone might have on this issue.
 
 -- 
-1.7.10.4
+Regards,
+Nikita.
