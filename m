@@ -1,33 +1,22 @@
-From: Sujith Manoharan <sujith@msujith.org>
-Subject: Re: pull request: wireless 2013-06-06
-Date: Wed, 12 Jun 2013 12:54:32 +0530
-Message-ID: <20920.8752.339655.254147@gargle.gargle.HOWL>
-References: <20130606190929.GB18827@tuxdriver.com>
-	<20130611.222706.1492583255605214982.davem@davemloft.net>
-	<20130612.002103.916991474696226731.davem@davemloft.net>
+From: "Sec Capital Loan" <info@secloans.com>
+Subject: Quick Loans(Apply Today)
+Date: Wed, 12 Jun 2013 09:34:50 +0530
+Message-ID: <20130612040507.F09F944DC53__19190.1386519477$1371022439$gmane$org@zimbra.apolar.imb.br>
+Reply-To: seccapitalloans@bklynmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130612.002103.916991474696226731.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <info@secloans.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from zimbra.apolar.com.br ([50.19.247.164]:36667 "EHLO
+	zimbra.apolar.imb.br" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752567Ab3FLHdi convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 03:33:38 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> John, I also don't like the ATK9K Kconfig option name change added in
-> this pull request, this is exactly the kind of thing that drives
-> Linus insane.
-> 
-> Change the default, fine, but changing the name is unnecssary churn
-> and adds a new config prompt that people are going to respond to
-> incorrectly when they type "make oldconfig"
+Do you need a personal or business loan without stress and quick approval? If yes, contact us today as we are currently offering loans at superb interest rate. Our loan is secured and safe,For more information and Application, Please reply to this Email.
 
-This was Linus' suggestion: https://patchwork.kernel.org/patch/2676971/
-
-The RH bugzilla appears to be down at the moment, but more background
-for the bug is here: https://bugzilla.redhat.com/show_bug.cgi?id=927191
-
-Sujith
+Sincerely,
+Vijay Nath
