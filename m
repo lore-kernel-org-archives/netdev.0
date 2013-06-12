@@ -1,63 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net,stable 1/2] l2tp: Fix PPP header erasure and memory
- leak
-Date: Wed, 12 Jun 2013 07:50:48 -0700
-Message-ID: <1371048648.3252.62.camel@edumazet-glaptop>
-References: <cover.1371044671.git.g.nault@alphalink.fr>
-	 <20130612140723.GB3500@alphalink.fr>
-	 <1371048080.3252.61.camel@edumazet-glaptop>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top of LRO
+Date: Wed, 12 Jun 2013 15:56:36 +0100
+Message-ID: <1371048996.1894.15.camel@bwh-desktop.uk.level5networks.com>
+References: <1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
+	<1360207111.28557.47.camel@edumazet-glaptop>
+	<1360254046.3605.8.camel@bwh-desktop.uk.solarflarecom.com>
+	<20130207.131420.1211188723341167971.davem@davemloft.net>
+	<20130610070710.GA673@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, James Chapman <jchapman@katalix.com>,
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org,
 	David Miller <davem@davemloft.net>
-To: Guillaume Nault <g.nault@alphalink.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f173.google.com ([209.85.215.173]:48291 "EHLO
-	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753746Ab3FLOuw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 10:50:52 -0400
-Received: by mail-ea0-f173.google.com with SMTP id g15so6905700eak.18
-        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 07:50:51 -0700 (PDT)
-In-Reply-To: <1371048080.3252.61.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130610070710.GA673@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-06-12 at 07:41 -0700, Eric Dumazet wrote:
-> On Wed, 2013-06-12 at 16:07 +0200, Guillaume Nault wrote:
-> > Copy user data after PPP framing header. This prevents erasure of the
-> > added PPP header and avoids leaking two bytes of uninitialised memory
-> > at the end of skb's data buffer.
+On Mon, 2013-06-10 at 10:07 +0300, Michael S. Tsirkin wrote:
+> On Thu, Feb 07, 2013 at 01:14:20PM -0500, David Miller wrote:
+> > From: Ben Hutchings <bhutchings@solarflare.com>
+> > Date: Thu, 7 Feb 2013 16:20:46 +0000
 > > 
-> > Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
-> > ---
-> >  net/l2tp/l2tp_ppp.c |    4 ++--
-> >  1 file changed, 2 insertions(+), 2 deletions(-)
+> > > If the consensus is still that we must preserve packets exactly (aside
+> > > from the usual modifications by IP routers) then LRO should be disabled
+> > > on all devices for which forwarding is enabled.
 > > 
-> > diff --git a/net/l2tp/l2tp_ppp.c b/net/l2tp/l2tp_ppp.c
-> > index 637a341..681c626 100644
-> > --- a/net/l2tp/l2tp_ppp.c
-> > +++ b/net/l2tp/l2tp_ppp.c
-> > @@ -346,12 +346,12 @@ static int pppol2tp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msgh
-> >  	skb_put(skb, 2);
-> >  
-> >  	/* Copy user data into skb */
-> > -	error = memcpy_fromiovec(skb->data, m->msg_iov, total_len);
-> > +	error = memcpy_fromiovec(skb_put(skb, total_len), m->msg_iov,
-> > +				 total_len);
-> >  	if (error < 0) {
-> >  		kfree_skb(skb);
-> >  		goto error_put_sess_tun;
-> >  	}
-> > -	skb_put(skb, total_len);
-> >  
-> >  	l2tp_xmit_skb(session, skb, session->hdr_len);
-> >  
+> > I believe this is still undoubtedly the consensus.
 > 
-> I see no real change in your patch.
+> With virtio we are getting packets from a linux host,
+> so we could thinkably preserve packets exactly
+> even with LRO. I am guessing other hardware could be
+> doing this as well.
 > 
-> skb_put(skb, X) returns skb->data before the put operation.
-> 
-> Could you elaborate ?
+> I am not sure what information would need to be preserved -
+> could someone help clarify please?
 
-Oh well, I missed the prior skb_put(skb, 2), nevermind
+Some LRO implementations may not preserve:
+
+- Packet boundaries
+  - TSO/GSO produces packets all the same size, except possibly for the
+    last one.  GRO therefore flushes a flow after merging a packet with
+    a different segment size.
+- IPv4 TTL, IPv6 hop-limit, TCP timestamp
+  - TSO/GSO will put the same values in all packets.  GRO flushes a flow
+    if they change.
+- IPv4 fragment ID
+  - TSO/GSO produces consecutive fragment IDs.  GRO flushes a flow
+    if it sees a non-consecutive fragment ID.
+- MAC header, IPv4 TOS, IPv6 traffic class
+  - Should be the same for all packets in a flow.  GRO actually checks
+    and flushes a flow if they change.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
