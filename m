@@ -1,42 +1,67 @@
-From: Andy Johnson <johnsonzjo@gmail.com>
-Subject: skb_is_gso() in ip_forward.c
-Date: Wed, 12 Jun 2013 16:48:03 +0300
-Message-ID: <CAF0Lin26AEdtz+Ui=LQ-T285OpbgfnsN3ofdmvbwavM9eQjBCw@mail.gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next stable] sctp: fully initialize sctp_outq in sctp_outq_init
+Date: Wed, 12 Jun 2013 17:51:08 +0400
+Message-ID: <51B87CCC.4030200@cogentembedded.com>
+References: <1371041959-17697-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-sctp@vger.kernel.org, Vlad Yasevich <vyasevich@gmail.com>,
+	netdev@vger.kernel.org, davem@davemloft.net
+To: Neil Horman <nhorman@tuxdriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f51.google.com ([74.125.82.51]:43095 "EHLO
-	mail-wg0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754461Ab3FLNsE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 09:48:04 -0400
-Received: by mail-wg0-f51.google.com with SMTP id e11so2764073wgh.6
-        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 06:48:03 -0700 (PDT)
+Received: from mail-la0-f42.google.com ([209.85.215.42]:57448 "EHLO
+	mail-la0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754268Ab3FLNvR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 09:51:17 -0400
+Received: by mail-la0-f42.google.com with SMTP id eb20so7894651lab.29
+        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 06:51:16 -0700 (PDT)
+In-Reply-To: <1371041959-17697-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Hello.
 
-I would appreciate if someone can explain the following :
+On 12-06-2013 16:59, Neil Horman wrote:
 
-We have this in net/ipv4/ip_forward():
-...
- if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
-  ...
-  icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
-                            htonl(dst_mtu(&rt->dst)));
-                  goto drop;
-          }
-...
+> In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86, we modified
 
-As I understand, it the traffic is GSO and the length of the skb is
-larger than the MTU, we don't send destination unreachable ICMP and
-we continue with forwarding the packet. My qustion is: why is it so ?
-is it because when working with GSO the size of skb->len is not the
-size of the packet which is sent on the wire ? The what does it
-represent when the traffic is GSO ?
-I would appreaicate if someone can elaborate on this.
+     Please also specify that commit's summary line in parens.
 
+> sctp_outq_teardown to use sctp_outq_init to fully re-initalize the outq
+> structure.  Steve West recently asked me why I removed the q->error = 0
+> initalization from sctp_outq_teardown.  I did so because I was operating under
+> the impression that sctp_outq_init would properly initalize that value for us,
+> but it doesn't.  sctp_outq_init operates under the assumption that the outq
+> struct is all 0's (as it is when called from sctp_association_init), but using
+> it in __sctp_outq_teardown violates that assumption. We should do a memset in
+> sctp_outq_init to ensure that the entire structure is in a known state there
+> instead.
 
-Best
-Andy
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+> Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
+> CC: Vlad Yasevich <vyasevich@gmail.com>
+> CC: netdev@vger.kernel.org
+> CC: davem@davemloft.net
+> ---
+>   net/sctp/outqueue.c | 7 +++----
+>   1 file changed, 3 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+> index 32a4625..d8b6958 100644
+> --- a/net/sctp/outqueue.c
+> +++ b/net/sctp/outqueue.c
+> @@ -206,6 +206,9 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
+>    */
+>   void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+>   {
+> +
+
+    Why empty line here?
+
+> +	memset(q, 0, sizeof(struct sctp_outq));
+> +
+
+    sizeof(*q) would have been shorter...
+
+WBR, Sergei
