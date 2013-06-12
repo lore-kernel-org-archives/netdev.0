@@ -1,30 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] udp: fix two sparse errors
-Date: Wed, 12 Jun 2013 15:03:58 -0700 (PDT)
-Message-ID: <20130612.150358.356411495562102033.davem@davemloft.net>
-References: <1371072699.3252.73.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] tun: Report "persist" flag to userspace
+Date: Wed, 12 Jun 2013 15:07:44 -0700 (PDT)
+Message-ID: <20130612.150744.527671463418307561.davem@davemloft.net>
+References: <51B6FED4.6090703@parallels.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+To: xemul@parallels.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:60838 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:60856 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758106Ab3FLWEA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 18:04:00 -0400
-In-Reply-To: <1371072699.3252.73.camel@edumazet-glaptop>
+	with ESMTP id S1756858Ab3FLWHp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 18:07:45 -0400
+In-Reply-To: <51B6FED4.6090703@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 12 Jun 2013 14:31:39 -0700
+From: Pavel Emelyanov <xemul@parallels.com>
+Date: Tue, 11 Jun 2013 14:41:24 +0400
 
-> From: Eric Dumazet <edumazet@google.com>
+> The TUN_PERSIST flag is not reported at all -- both TUNGETIFF, and sysfs
+> "flags" attribute skip one. Knowing whether a device is persistent or not
+> is critical for checkpoint-restore, thus I propose to add the read-only
+> IFF_PERSIST one for this.
 > 
-> commit ba418fa357a7b3c ("soreuseport: UDP/IPv4 implementation")
-> added following sparse errors :
- ...
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Setting this new IFF_PERSIST is hardly possible, as TUNSETIFF doesn't check
+> for unknown flags being zero and thus there can be trash.
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
 
-Applied.
+Applied, thanks.
