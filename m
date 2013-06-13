@@ -1,105 +1,78 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 4/4] openvswitch: make skb->csum consistent with rest of networking stack.
-Date: Thu, 13 Jun 2013 11:11:44 -0700
-Message-ID: <1371147104-29295-1-git-send-email-pshelar@nicira.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org, dev@openvswitch.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:59161 "HELO
-	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758576Ab3FMSLr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 14:11:47 -0400
-Received: by mail-pb0-f46.google.com with SMTP id rq2so5620547pbb.19
-        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 11:11:46 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH v2] sh_eth: get R8A7740 Rx descriptor word 0 shift out of #ifdef
+Date: Thu, 13 Jun 2013 22:12:45 +0400
+Message-ID: <201306132212.46361.sergei.shtylyov@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Following patch keeps skb->csum correct across ovs.
+The only R8A7740 specific #ifdef hindering  ARM multiplatform build is  left in
+sh_eth_rx(): it covers the code shifting Rx buffer descriptor word 0 by 16. Get
+rid of the #ifdef by adding 'shift_rd0' field to the  'struct sh_eth_cpu_data',
+making the shift dependent on it, and setting it to 1 for the R8A7740 case...
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
 ---
-v2:
-skip csum of packets going to userspace.
----
- net/openvswitch/actions.c            |    4 ++++
- net/openvswitch/flow.c               |    3 +++
- net/openvswitch/vport-internal_dev.c |    1 +
- net/openvswitch/vport-netdev.c       |    2 ++
- net/openvswitch/vport.h              |    7 +++++++
- 5 files changed, 17 insertions(+), 0 deletions(-)
+The patch is against Dave Miller's 'net-next.git' repository plus commit
+dd019897358b815f7828dab90b51d51df4d3658d (net: sh_eth: fix incorrect RX length
+error if R8A7740) from the 'net.git' reposirory, so please merge it into
+'net-next.git' before applying this patch.
 
-diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-index 894b6cb..596d637 100644
---- a/net/openvswitch/actions.c
-+++ b/net/openvswitch/actions.c
-@@ -130,9 +130,13 @@ static int set_eth_addr(struct sk_buff *skb,
- 	if (unlikely(err))
- 		return err;
+Changes in version 2:
+- made a patch apply atop of Yoshihiro Shimoda's commit, updated the changelog;
+- clarified the comment to the 'shift_rd0' field of 'struct sh_eth_cpu_data'.
+
+ drivers/net/ethernet/renesas/sh_eth.c |    6 +++---
+ drivers/net/ethernet/renesas/sh_eth.h |    1 +
+ 2 files changed, 4 insertions(+), 3 deletions(-)
+
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -667,6 +667,7 @@ static struct sh_eth_cpu_data r8a7740_da
+ 	.no_ade		= 1,
+ 	.tsu		= 1,
+ 	.select_mii	= 1,
++	.shift_rd0	= 1,
+ };
  
-+	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
-+
- 	memcpy(eth_hdr(skb)->h_source, eth_key->eth_src, ETH_ALEN);
- 	memcpy(eth_hdr(skb)->h_dest, eth_key->eth_dst, ETH_ALEN);
+ static struct sh_eth_cpu_data sh7619_data = {
+@@ -1266,7 +1267,6 @@ static int sh_eth_rx(struct net_device *
+ 		if (!(desc_status & RDFEND))
+ 			ndev->stats.rx_length_errors++;
  
-+	ovs_skb_postpush_rcsum(skb, eth_hdr(skb), ETH_ALEN * 2);
-+
- 	return 0;
- }
+-#if defined(CONFIG_ARCH_R8A7740)
+ 		/*
+ 		 * In case of almost all GETHER/ETHERs, the Receive Frame State
+ 		 * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
+@@ -1274,8 +1274,8 @@ static int sh_eth_rx(struct net_device *
+ 		 * bits are from bit 25 to bit 16. So, the driver needs right
+ 		 * shifting by 16.
+ 		 */
+-		desc_status >>= 16;
+-#endif
++		if (mdp->cd->shift_rd0)
++			desc_status >>= 16;
  
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index efa53e3..fab4ba6 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -618,6 +618,9 @@ int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
- 	memcpy(key->eth.dst, eth->h_dest, ETH_ALEN);
+ 		if (desc_status & (RD_RFS1 | RD_RFS2 | RD_RFS3 | RD_RFS4 |
+ 				   RD_RFS5 | RD_RFS6 | RD_RFS10)) {
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
++++ net-next/drivers/net/ethernet/renesas/sh_eth.h
+@@ -476,6 +476,7 @@ struct sh_eth_cpu_data {
+ 	unsigned no_ade:1;	/* E-DMAC DO NOT have ADE bit in EESR */
+ 	unsigned hw_crc:1;	/* E-DMAC have CSMR */
+ 	unsigned select_mii:1;	/* EtherC have RMII_MII (MII select register) */
++	unsigned shift_rd0:1;	/* shift Rx descriptor word 0 right by 16 */
+ };
  
- 	__skb_pull(skb, 2 * ETH_ALEN);
-+	/* We are going to push all headers that we pull, so no need to
-+	 * update skb->csum here.
-+	 */
- 
- 	if (vlan_tx_tag_present(skb))
- 		key->eth.tci = htons(skb->vlan_tci);
-diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-index 84e0a03..e284c7e 100644
---- a/net/openvswitch/vport-internal_dev.c
-+++ b/net/openvswitch/vport-internal_dev.c
-@@ -221,6 +221,7 @@ static int internal_dev_recv(struct vport *vport, struct sk_buff *skb)
- 	skb->dev = netdev;
- 	skb->pkt_type = PACKET_HOST;
- 	skb->protocol = eth_type_trans(skb, netdev);
-+	skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
- 
- 	netif_rx(skb);
- 
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index c3ee7de..018aadf 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -49,6 +49,8 @@ static void netdev_port_receive(struct vport *vport, struct sk_buff *skb)
- 		return;
- 
- 	skb_push(skb, ETH_HLEN);
-+	ovs_skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
-+
- 	ovs_vport_receive(vport, skb);
- 	return;
- 
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 75d3ccb..98f3341 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -195,4 +195,11 @@ void ovs_vport_record_error(struct vport *, enum vport_err_type err_type);
- extern const struct vport_ops ovs_netdev_vport_ops;
- extern const struct vport_ops ovs_internal_vport_ops;
- 
-+static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
-+				      const void *start, unsigned int len)
-+{
-+	if (skb->ip_summed == CHECKSUM_COMPLETE)
-+		skb->csum = csum_add(skb->csum, csum_partial(start, len, 0));
-+}
-+
- #endif /* vport.h */
--- 
-1.7.1
+ struct sh_eth_private {
