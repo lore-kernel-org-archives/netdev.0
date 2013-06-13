@@ -1,64 +1,59 @@
-From: Tushar Behera <tushar.behera@linaro.org>
-Subject: Re: [PATCH 09/15] net: can: Convert to use devm_ioremap_resource
-Date: Thu, 13 Jun 2013 11:00:00 +0530
-Message-ID: <51B958D8.2070804@linaro.org>
-References: <1370864113-17895-1-git-send-email-tushar.behera@linaro.org> <1370864113-17895-10-git-send-email-tushar.behera@linaro.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/3] skbuff: Update truesize in pskb_expand_head
+Date: Wed, 12 Jun 2013 22:38:56 -0700
+Message-ID: <1371101936.3252.92.camel@edumazet-glaptop>
+References: <1371027934-1955-1-git-send-email-david.wiltshire@gmx.com>
+	 <1371027934-1955-2-git-send-email-david.wiltshire@gmx.com>
+	 <1371028618.3252.57.camel@edumazet-glaptop>
+	 <20130612233503.GB10989@linux-rbgc.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: thierry.reding@gmail.com, patches@linaro.org,
-	netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	Marc Kleine-Budde <mkl@pengutronix.de>,
-	Wolfgang Grandegger <wg@grandegger.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	'Greg Kroah-Hartman' <gregkh@linuxfoundation.org>
-To: linux-kernel@vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk,
+	eparis@redhat.com, edumazet@google.com
+To: Dave Wiltshire <david.wiltshire@gmx.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1370864113-17895-10-git-send-email-tushar.behera@linaro.org>
+In-Reply-To: <20130612233503.GB10989@linux-rbgc.site>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/10/2013 05:05 PM, Tushar Behera wrote:
-> Commit 75096579c3ac ("lib: devres: Introduce devm_ioremap_resource()")
-> introduced devm_ioremap_resource() and deprecated the use of
-> devm_request_and_ioremap().
-> 
-> Signed-off-by: Tushar Behera <tushar.behera@linaro.org>
-> CC: netdev@vger.kernel.org
-> CC: linux-can@vger.kernel.org
-> CC: Marc Kleine-Budde <mkl@pengutronix.de>
-> CC: Wolfgang Grandegger <wg@grandegger.com>
-> ---
->  drivers/net/can/c_can/c_can_platform.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/can/c_can/c_can_platform.c b/drivers/net/can/c_can/c_can_platform.c
-> index 6b6130b..b918c73 100644
-> --- a/drivers/net/can/c_can/c_can_platform.c
-> +++ b/drivers/net/can/c_can/c_can_platform.c
-> @@ -201,8 +201,8 @@ static int c_can_plat_probe(struct platform_device *pdev)
->  			priv->instance = pdev->id;
->  
->  		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
-> -		priv->raminit_ctrlreg =	devm_request_and_ioremap(&pdev->dev, res);
-> -		if (!priv->raminit_ctrlreg || priv->instance < 0)
-> +		priv->raminit_ctrlreg = devm_ioremap_resource(&pdev->dev, res);
-> +		if (IS_ERR(priv->raminit_ctrlreg) || priv->instance < 0)
->  			dev_info(&pdev->dev, "control memory is not used for raminit\n");
->  		else
->  			priv->raminit = c_can_hw_raminit;
-> 
+On Thu, 2013-06-13 at 09:35 +1000, Dave Wiltshire wrote:
 
-IS_ERR() check on the return value of devm_ioremap_resource produces
-following sparse warning. This is because of the __iomem address space
-attribute. How should we fix this?
+> Firstly, from my cover letter: "Perhaps I don't understand something,
+> but I thought it best to generate the change and then ask. So is this
+> correct?".
 
-drivers/net/can/c_can/c_can_platform.c:205:32: warning: incorrect type
-in argument 1 (different address spaces)
-drivers/net/can/c_can/c_can_platform.c:205:32:    expected void const *ptr
-drivers/net/can/c_can/c_can_platform.c:205:32:    got unsigned int
-[noderef] [usertype] <asn:2>*raminit_ctrlreg
+Sure I have no problems with that.
 
+>  But secondly, I understand that the only reason for truesize
+> is for memory accounting on sockets. Indeed that's why I thought this
+> was incorrect. Something being complex is not a good reason not to do
+> it.
 
--- 
-Tushar Behera
+OK but right now your patch adds many regressions, that will take weeks
+for other dev to discover, understand and fix.
+
+If you change skb->truesize not properly while skb is owned by a socket,
+we can hold references forever and prevent sockets from being
+dismantled/freed, or worse we'll free sockets while they are still in
+use and panic the machine.
+
+Some callers of pskb_expand_head() do not want skb->truesize to be
+modified, because skb might be orphaned or not.
+
+There are hundred of call sites.
+
+Really, your patch is way too risky and will consume too much time for
+very little gain. We cannot change conventions without a full audit.
+
+There are some cases where truesize can not be exactly tracked.
+For example, when we pull all data from a frag into skb->head, and the
+frag can be release (put_page() on it), we do not know its original size
+and can not reduce skb->truesize by this amount.
+Thats fine, most of the time, because we pull network headers and they
+are limited in size.
+
+Your changelog used : "This is likely a memory audit leak", which is
+weak considering the amount of time needed for us to validate such a big
+change.
