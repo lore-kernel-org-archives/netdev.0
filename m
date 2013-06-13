@@ -1,326 +1,160 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH v3] ethernet/arc/arc_emac - Add new driver
-Date: Fri, 14 Jun 2013 00:19:46 +0200
-Message-ID: <20130613221946.GA16632@electric-eye.fr.zoreil.com>
-References: <1371134239-4531-1-git-send-email-abrodkin@synopsys.com>
+From: Johannes Stezenbach <js@sig21.net>
+Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
+Date: Fri, 14 Jun 2013 00:24:11 +0200
+Message-ID: <20130613222411.GA5396@sig21.net>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+ <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	Joe Perches <joe@perches.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: netdev@vger.kernel.org, mcgrof@do-not-panic.com, kvalo@adurom.com,
+	adrian.chadd@gmail.com, romieu@fr.zoreil.com
+To: Johannes Berg <johannes@sipsolutions.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bar.sig21.net ([80.81.252.164]:56800 "EHLO bar.sig21.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757878Ab3FMWYT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jun 2013 18:24:19 -0400
 Content-Disposition: inline
-In-Reply-To: <1371134239-4531-1-git-send-email-abrodkin@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Alexey Brodkin <Alexey.Brodkin@synopsys.com> :
-[...]
-> diff --git a/drivers/net/ethernet/arc/arc_emac.h b/drivers/net/ethernet/arc/arc_emac.h
-> new file mode 100644
-> index 0000000..6691db2
-> --- /dev/null
-> +++ b/drivers/net/ethernet/arc/arc_emac.h
-[...]
-> +struct arc_emac_priv {
-> +	struct net_device_stats stats;
-> +	unsigned int clock_frequency;
-> +	unsigned int max_speed;
-> +
-> +	/* Pointers to BD rings - CPU side */
-> +	struct arc_emac_bd_t *rxbd;
+On Wed, Jun 12, 2013 at 10:33:22PM +0200, Johannes Berg wrote:
+> This is a very simple driver, based on the original vendor
+> driver that Qualcomm/Atheros published/submitted previously.
+> I have heavily reworked the driver to be a bit saner, and
+> in the process removed a number of features: TSO/GSO, VLAN
+> acceleration and multiqueue. I've also ruthlessly stripped
+> things not useful to me, e.g. register access support.
+> 
+> Right now it only supports a single TX and RX queue and no
+> special features other than checksum offload.
+> 
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-There does not seem to be much need for rxbd->data.
+I tried your driver with v3.9.6 and got this on boot:
 
-> +	struct arc_emac_bd_t *txbd;
+[    0.939189] INFO: trying to register non-static key.
+[    0.939787] the code is fine but needs lockdep annotation.
+[    0.940387] turning off the locking correctness validator.
+[    0.940992] Pid: 1, comm: swapper/0 Not tainted 3.9.6 #2
+[    0.941589] Call Trace:
+[    0.942179]  [<ffffffff8108cead>] __lock_acquire.isra.24+0x710/0xa47
+[    0.942781]  [<ffffffff8108d87f>] lock_acquire+0xc0/0x142
+[    0.943379]  [<ffffffff814414b1>] ? alx_write_phy_dbg+0x25/0x69
+[    0.943980]  [<ffffffff8108b624>] ? lock_release_holdtime.part.18+0x93/0x98
+[    0.944587]  [<ffffffff816620ae>] _raw_spin_lock+0x3e/0x70
+[    0.945193]  [<ffffffff814414b1>] ? alx_write_phy_dbg+0x25/0x69
+[    0.945798]  [<ffffffff814414b1>] alx_write_phy_dbg+0x25/0x69
+[    0.946399]  [<ffffffff81441bcc>] alx_reset_phy+0x78/0x223
+[    0.946991]  [<ffffffff814424b5>] ? alx_phy_configured+0x1a/0x7f
+[    0.947577]  [<ffffffff8144000b>] alx_probe+0x30f/0x635
+[    0.948162]  [<ffffffff812d54a8>] pci_device_probe+0x6e/0xb2
+[    0.948757]  [<ffffffff813efab0>] driver_probe_device+0x11a/0x2ef
+[    0.949350]  [<ffffffff813efd23>] __driver_attach+0x61/0x83
+[    0.949936]  [<ffffffff813efcc2>] ? __device_attach+0x3d/0x3d
+[    0.950513]  [<ffffffff813ede40>] bus_for_each_dev+0x7d/0x87
+[    0.951089]  [<ffffffff813ef4e8>] driver_attach+0x1e/0x20
+[    0.951661]  [<ffffffff813ef0b6>] bus_add_driver+0x136/0x23e
+[    0.952228]  [<ffffffff81f0cf63>] ? atl1e_init_module+0x1b/0x1b
+[    0.952782]  [<ffffffff813f0268>] driver_register+0x8c/0xfd
+[    0.953321]  [<ffffffff81f0cf63>] ? atl1e_init_module+0x1b/0x1b
+[    0.953855]  [<ffffffff812d5319>] __pci_register_driver+0x5d/0x60
+[    0.954387]  [<ffffffff81f0cf7c>] alx_driver_init+0x19/0x1b
+[    0.954906]  [<ffffffff8100026c>] do_one_initcall+0x7f/0x13e
+[    0.955420]  [<ffffffff81ee0e96>] kernel_init_freeable+0x115/0x196
+[    0.955922]  [<ffffffff81ee0738>] ? do_early_param+0x88/0x88
+[    0.956436]  [<ffffffff81648389>] ? rest_init+0xbd/0xbd
+[    0.956955]  [<ffffffff81648397>] kernel_init+0xe/0xd6
+[    0.957472]  [<ffffffff8166962c>] ret_from_fork+0x7c/0xb0
+[    0.958000]  [<ffffffff81648389>] ? rest_init+0xbd/0xbd
 
-[...]
-> +static int arc_emac_get_settings(struct net_device *ndev,
-> +				 struct ethtool_cmd *cmd)
-> +{
-> +	struct arc_emac_priv *priv = netdev_priv(ndev);
-> +
-> +	if (priv->phy_dev)
-> +		return phy_ethtool_gset(priv->phy_dev, cmd);
+and after "ifconfig eth0 up":
 
-arc_emac_probe() succeeded : priv->phy_dev can't be NULL.
+[  539.482153] alx 0000:03:00.0: irq 45 for MSI/MSI-X
+[  539.482249] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
+[  539.483169] alx 0000:03:00.0 eth0: NIC Up: 1 Gbps Full
+[  539.483354] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
+[  544.801438] ------------[ cut here ]------------
+[  544.801458] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x19b/0x201()
+[  544.801462] Hardware name: System Product Name
+[  544.801464] NETDEV WATCHDOG: eth0 (alx): transmit queue 0 timed out
+[  544.801466] Modules linked in: ath9k_htc ath9k_common ath9k_hw kvm_intel ath mac80211 kvm cfg80211 ehci_pci ehci_hcd xhci_hcd
+[  544.801483] Pid: 0, comm: swapper/2 Not tainted 3.9.6 #2
+[  544.801486] Call Trace:
+[  544.801488]  <IRQ>  [<ffffffff8155e600>] ? dev_watchdog+0x118/0x201
+[  544.801499]  [<ffffffff8103f68c>] warn_slowpath_common+0x81/0x9b
+[  544.801513]  [<ffffffff8103f6f2>] warn_slowpath_fmt+0x4c/0x4e
+[  544.801525]  [<ffffffff8155e683>] dev_watchdog+0x19b/0x201
+[  544.801530]  [<ffffffff8155e4e8>] ? dev_graft_qdisc+0x6b/0x6b
+[  544.801536]  [<ffffffff8104cbb1>] call_timer_fn+0xa1/0x1b7
+[  544.801540]  [<ffffffff8104cb15>] ? call_timer_fn+0x5/0x1b7
+[  544.801545]  [<ffffffff8104d4eb>] run_timer_softirq+0x1f2/0x253
+[  544.801550]  [<ffffffff8155e4e8>] ? dev_graft_qdisc+0x6b/0x6b
+[  544.801555]  [<ffffffff81046902>] __do_softirq+0x106/0x28e
+[  544.801560]  [<ffffffff81046bb4>] irq_exit+0x66/0xaa
+[  544.801572]  [<ffffffff8166b0ad>] smp_apic_timer_interrupt+0x8a/0x98
+[  544.801585]  [<ffffffff8166a2f2>] apic_timer_interrupt+0x72/0x80
+[  544.801587]  <EOI>  [<ffffffff814cdc09>] ? cpuidle_wrap_enter+0x4f/0x87
+[  544.801602]  [<ffffffff814cd3f5>] cpuidle_enter_tk+0x10/0x12
+[  544.801618]  [<ffffffff814cd7d1>] cpuidle_enter_state+0x13/0x39
+[  544.801626]  [<ffffffff814cd8f6>] cpuidle_idle_call+0xff/0x1f5
+[  544.801634]  [<ffffffff8100920c>] cpu_idle+0xb5/0xf3
+[  544.801643]  [<ffffffff816519cc>] start_secondary+0x266/0x26a
+[  544.801650] ---[ end trace bf3b629fdf5b91ce ]---
+[  544.803253] alx 0000:03:00.0 eth0: NIC Up: 1 Gbps Full
 
-[...]
-> +static int arc_emac_set_settings(struct net_device *ndev,
-> +				 struct ethtool_cmd *cmd)
-> +{
-> +	struct arc_emac_priv *priv = netdev_priv(ndev);
-> +
-> +	if (!capable(CAP_NET_ADMIN))
-> +		return -EPERM;
-> +
-> +	if (priv->phy_dev)
-> +		return phy_ethtool_sset(priv->phy_dev, cmd);
 
-priv->phy_dev can't be NULL either.
+lspci -vvvn:
 
-[...]
-> +static int arc_emac_poll(struct napi_struct *napi, int budget)
-> +{
-> +	struct net_device *ndev = napi->dev;
-> +	struct arc_emac_priv *priv = netdev_priv(ndev);
-> +	unsigned int i, loop, work_done = 0;
-> +	struct sk_buff *skb;
-> +
-> +	/* Loop thru the BD chain, but not always from 0.
-> +	 * Start from right after where we last saw a packet.
-> +	 */
-> +	i = priv->last_rx_bd;
-> +
-> +	for (loop = 0; loop < RX_BD_NUM; loop++) {
-> +		struct net_device_stats *stats = &priv->stats;
-> +		struct buffer_state *rx_buff;
-> +		struct arc_emac_bd_t *rxbd;
-> +		dma_addr_t addr;
-> +		unsigned int info, pktlen;
-> +		unsigned int buflen = ndev->mtu + EMAC_BUFFER_PAD;
-> +
-> +		i = (i + 1) % RX_BD_NUM;
-> +		rx_buff = &priv->rx_buff[i];
-> +		rxbd = &priv->rxbd[i];
-> +		info = rxbd->info;
+03:00.0 Ethernet controller: Qualcomm Atheros AR8161 Gigabit Ethernet (rev 08)
 
-You may / should update 'i' so that you can:
+03:00.0 0200: 1969:1091 (rev 08)
+	Subsystem: 1043:8507
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B- DisINTx+
+	Status: Cap+ 66MHz- UDF- FastB2B- ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR- INTx+
+	Latency: 0, Cache Line Size: 64 bytes
+	Interrupt: pin A routed to IRQ 45
+	Region 0: Memory at f7c00000 (64-bit, non-prefetchable) [size=256K]
+	Region 2: I/O ports at e000 [size=128]
+	Capabilities: [40] Power Management version 3
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=375mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 NoSoftRst+ PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [58] Express (v1) Endpoint, MSI 00
+		DevCap:	MaxPayload 4096 bytes, PhantFunc 0, Latency L0s unlimited, L1 unlimited
+			ExtTag- AttnBtn+ AttnInd+ PwrInd+ RBE+ FLReset-
+		DevCtl:	Report errors: Correctable+ Non-Fatal+ Fatal+ Unsupported+
+			RlxdOrd- ExtTag- PhantFunc- AuxPwr- NoSnoop-
+			MaxPayload 128 bytes, MaxReadReq 512 bytes
+		DevSta:	CorrErr- UncorrErr- FatalErr- UnsuppReq- AuxPwr+ TransPend-
+		LnkCap:	Port #0, Speed 2.5GT/s, Width x1, ASPM L0s L1, Latency L0 unlimited, L1 unlimited
+			ClockPM+ Surprise- LLActRep- BwNot-
+		LnkCtl:	ASPM Disabled; RCB 64 bytes Disabled- Retrain- CommClk+
+			ExtSynch- ClockPM- AutWidDis- BWInt- AutBWInt-
+		LnkSta:	Speed 2.5GT/s, Width x1, TrErr- Train- SlotClk+ DLActive- BWMgmt- ABWMgmt-
+	Capabilities: [c0] MSI: Enable+ Count=1/16 Maskable+ 64bit+
+		Address: 00000000fee0f00c  Data: 41e1
+		Masking: 0000fffe  Pending: 00000000
+	Capabilities: [d8] MSI-X: Enable- Count=16 Masked-
+		Vector table: BAR=0 offset=00002000
+		PBA: BAR=0 offset=00003000
+	Capabilities: [100 v1] Advanced Error Reporting
+		UESta:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+		UEMsk:	DLP- SDES- TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF- MalfTLP- ECRC- UnsupReq- ACSViol-
+		UESvrt:	DLP- SDES+ TLP- FCP- CmpltTO- CmpltAbrt- UnxCmplt- RxOF+ MalfTLP+ ECRC- UnsupReq- ACSViol-
+		CESta:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr-
+		CEMsk:	RxErr- BadTLP- BadDLLP- Rollover- Timeout- NonFatalErr+
+		AERCap:	First Error Pointer: 00, GenCap+ CGenEn- ChkCap+ ChkEn-
+	Capabilities: [180 v1] Device Serial Number ff-*
+	Kernel driver in use: alx
 
-		struct buffer_state *rx_buff = priv->rx_buff + i;
-		struct arc_emac_bd_t *rxbd = priv->rxbd + i;
-		unsigned int pktlen, info = rxbd->info;
 
-> +
-> +		/* Process current BD */
-> +
-> +		if (unlikely((info & OWN_MASK) == FOR_EMAC)) {
-> +			/* BD is still owned by EMAC */
-> +			continue;
-> +		}
+grep eth0 /proc/interrupts
+ 45:          0          0          0          0   PCI-MSI-edge      eth0
 
-Processing starts at priv->last_rx_bd. Could it not be a 'break' ?
 
-[...]
-> +		pktlen = info & LEN_MASK;
-> +		stats->rx_packets++;
-> +		stats->rx_bytes += pktlen;
-> +		skb = rx_buff->skb;
-> +		skb_put(skb, pktlen);
-> +		skb->dev = ndev;
-> +		skb->protocol = eth_type_trans(skb, ndev);
-> +		netif_receive_skb(skb);
-> +
-> +		dma_unmap_single(&ndev->dev,
-> +				 dma_unmap_addr(&rx_buff, addr),
-> +				 dma_unmap_len(&rx_buff, len),
-> +				 DMA_FROM_DEVICE);
+Any idea what to try?
 
-		dma_unmap_single(&ndev->dev, dma_unmap_addr(&rx_buff, addr),
-				 dma_unmap_len(&rx_buff, len), DMA_FROM_DEVICE);
 
-Please unmap before netif_receive_skb.
-
-> +
-> +		/* Prepare the BD for next cycle */
-> +		rx_buff->skb = netdev_alloc_skb_ip_align(ndev, buflen);
-> +		if (unlikely(!rx_buff->skb)) {
-> +			if (net_ratelimit())
-> +				netdev_err(ndev, "cannot allocate skb\n");
-> +			stats->rx_errors++;
-> +			continue;
-> +		}
-
-The descriptor entry is left unchanged. Afaiu the driver will move to the
-next descriptor and crash on dereferencing NULL (rx_buff->)skb next time
-it wraps.
-
-I suggest avoiding holes: don't netif_receive_skb if you can't alloc a new
-skb.
-
-[...]
-> +static irqreturn_t arc_emac_intr(int irq, void *dev_instance)
-> +{
-> +	struct net_device *ndev = dev_instance;
-> +	struct arc_emac_priv *priv = netdev_priv(ndev);
-> +	struct net_device_stats *stats = &priv->stats;
-> +	unsigned int status;
-> +
-> +	status = arc_reg_get(priv, R_STATUS);
-> +	status &= ~MDIO_MASK;
-> +
-> +	/* Reset all flags except "MDIO complete"*/
-> +	arc_reg_set(priv, R_STATUS, status);
-> +
-> +	if (status & RXINT_MASK) {
-> +		if (likely(napi_schedule_prep(&priv->napi))) {
-> +			arc_reg_clr(priv, R_ENABLE, RXINT_MASK);
-> +			__napi_schedule(&priv->napi);
-> +		}
-> +	}
-> +
-> +	if (status & TXINT_MASK) {
-
-You may consider moving everything into the napi poll handler.
-
-[...]
-> +static int arc_emac_open(struct net_device *ndev)
-> +{
-> +	struct arc_emac_priv *priv = netdev_priv(ndev);
-> +	struct phy_device *phy_dev = priv->phy_dev;
-> +	struct arc_emac_bd_t *bd;
-> +	struct sk_buff *skb;
-> +	int i;
-> +
-> +	phy_dev->autoneg = AUTONEG_ENABLE;
-> +	phy_dev->speed = 0;
-> +	phy_dev->duplex = 0;
-> +	phy_dev->advertising = phy_dev->supported;
-> +
-> +	if (priv->max_speed > 100) {
-> +		phy_dev->advertising &= PHY_GBIT_FEATURES;
-> +	} else if (priv->max_speed <= 100) {
-> +		phy_dev->advertising &= PHY_BASIC_FEATURES;
-> +		if (priv->max_speed <= 10) {
-> +			phy_dev->advertising &= ~SUPPORTED_100baseT_Half;
-> +			phy_dev->advertising &= ~SUPPORTED_100baseT_Full;
-> +		}
-> +	}
-> +
-> +	/* Allocate and set buffers for Rx BD's */
-> +	bd = priv->rxbd;
-> +	for (i = 0; i < RX_BD_NUM; i++) {
-> +		skb = netdev_alloc_skb_ip_align(ndev, ndev->mtu +
-> +						EMAC_BUFFER_PAD);
-> +
-
-Missing NULL check.
-
-[...]
-> +	/* Set BD ring pointers for device side */
-> +	arc_reg_set(priv, R_RX_RING,
-> +		     (unsigned int)priv->rxbd_dma_hdl);
-
-	arc_reg_set(priv, R_RX_RING, (unsigned int)priv->rxbd_dma_hdl);
-
-> +
-> +	arc_reg_set(priv, R_TX_RING,
-> +		     (unsigned int)priv->rxbd_dma_hdl + RX_RING_SZ);
-
-Forgot priv->txbd_dma_hdl ?
-
-> +
-> +	/* Set Poll rate so that it polls every 1 ms */
-> +	arc_reg_set(priv, R_POLLRATE,
-> +		     priv->clock_frequency / 1000000);
-
-	arc_reg_set(priv, R_POLLRATE, priv->clock_frequency / 1000000);
-
-> +
-> +	/* Enable interrupts */
-> +	arc_reg_set(priv, R_ENABLE,
-> +		     TXINT_MASK | RXINT_MASK | ERR_MASK);
-
-	arc_reg_set(priv, R_ENABLE, TXINT_MASK | RXINT_MASK | ERR_MASK);
-
-> +
-> +	/* Set CONTROL */
-> +	arc_reg_set(priv, R_CTRL,
-> +		     (RX_BD_NUM << 24) |	/* RX BD table length */
-> +		     (TX_BD_NUM << 16) |	/* TX BD table length */
-> +		     TXRN_MASK | RXRN_MASK);
-> +
-> +	/* Enable EMAC */
-> +	arc_reg_or(priv, R_CTRL, EN_MASK);
-> +
-> +	phy_start_aneg(priv->phy_dev);
-> +
-> +	netif_start_queue(ndev);
-> +	napi_enable(&priv->napi);
-
-napi must be enabled before the first rx packet / irq kicks in.
-
-[...]
-> +static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
-> +{
-> +	struct arc_emac_priv *priv = netdev_priv(ndev);
-> +	unsigned int info, len, *txbd_curr = &priv->txbd_curr;
-> +	dma_addr_t addr;
-> +	char *pkt = skb->data;
-> +
-> +	len = max_t(unsigned int, ETH_ZLEN, skb->len);
-
-The device automatically pads, right ?
-
-> +	info = priv->txbd[*txbd_curr].info;
-> +
-> +	/* EMAC still holds this buffer in its possession.
-> +	 * CPU must not modify this buffer descriptor
-> +	 */
-> +	if (unlikely((info & OWN_MASK) == FOR_EMAC)) {
-> +		netif_stop_queue(ndev);
-> +		return NETDEV_TX_BUSY;
-
-It is more than unlikely: you may check for it as a bug but you should
-stop_queue when the tx ring is full (before returning below).
-
-> +	}
-> +
-> +	addr = dma_map_single(&ndev->dev, (void *)pkt, len, DMA_TO_DEVICE);
-> +	if (unlikely(dma_mapping_error(&ndev->dev, addr))) {
-> +		dev_kfree_skb(skb);
-> +		return NETDEV_TX_OK;
-
-Please update tx_dropped stats.
-
-> +	}
-> +	dma_unmap_addr_set(&priv->tx_buff[*txbd_curr], mapping, addr);
-> +	dma_unmap_len_set(&priv->tx_buff[*txbd_curr], len, len);
-> +
-> +	priv->tx_buff[*txbd_curr].skb = skb;
-> +	priv->txbd[*txbd_curr].data = pkt;
-
-Insert memory barrier.
-
-> +	priv->txbd[*txbd_curr].info = FOR_EMAC | FRST_MASK | LAST_MASK | len;
-> +
-> +	*txbd_curr = (*txbd_curr + 1) % TX_BD_NUM;
-> +
-> +	arc_reg_set(priv, R_STATUS, TXPL_MASK);
-> +
-> +	skb_tx_timestamp(skb);
-> +
-> +	return NETDEV_TX_OK;
-> +}
-
-[...]
-> +static int arc_emac_probe(struct platform_device *pdev)
-> +{
-[...]
-> +	err = arc_mdio_probe(pdev->dev.of_node, priv);
-> +	if (err) {
-> +		dev_err(&pdev->dev, "failed to probe MII bus\n");
-> +		goto out;
-> +	}
-> +
-> +
-> +	priv->phy_dev = of_phy_connect(ndev, priv->phy_node,
-> +				       arc_emac_adjust_link, 0,
-> +				       PHY_INTERFACE_MODE_MII);
-> +	if (!priv->phy_dev) {
-> +		netdev_err(ndev, "of_phy_connect() failed\n");
-> +		return -ENODEV;
-
-arc_mdio_remove leak.
-
--- 
-Ueimor
+Thanks,
+Johannes
