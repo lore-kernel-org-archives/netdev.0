@@ -1,36 +1,49 @@
-From: Tommi Rantala <tt.rantala@gmail.com>
-Subject: =?windows-1252?Q?Re=3A_include=2Fnet=2Fipv6=2Eh=3A408=3A38=3A_warning=3A_=91=2A=28=28void_=2A?=
-	=?windows-1252?Q?=29=26addr=2B8=29=92_may_be_used_uninitialized_in_this_function?=
-Date: Thu, 13 Jun 2013 20:20:28 +0300
-Message-ID: <CA+ydwtoF7SEf20h+qXxFi4hAH4J0Z+6O_Zx5XSQ4xthn7daJpw@mail.gmail.com>
-References: <CA+ydwtrVHDE65dVTBijGguZDK0+=+tzi+nn1UywRqfn9Rx4ZuA@mail.gmail.com>
-	<1371137986.3252.112.camel@edumazet-glaptop>
+From: =?ISO-8859-1?Q?Philipp_Sch=F6nberger?=
+	<ph.schoenberger@googlemail.com>
+Subject: [iproute2 PATCH] tc: handle is not used without containing ':'
+Date: Thu, 13 Jun 2013 19:20:52 +0200
+Message-ID: <CAABrY5pGnVQPctPUSJAiM0tp3o2OTxjG5y8yt3bY59r=x2Gksg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	LKML <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371137986.3252.112.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qe0-f50.google.com ([209.85.128.50]:60627 "EHLO
+	mail-qe0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756333Ab3FMRUx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 13:20:53 -0400
+Received: by mail-qe0-f50.google.com with SMTP id f6so6728482qej.9
+        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 10:20:52 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-2013/6/13 Eric Dumazet <eric.dumazet@gmail.com>:
-> On Thu, 2013-06-13 at 18:16 +0300, Tommi Rantala wrote:
->> Hello, I'm seeing the following compiler warnings. Do these make any
->> sense? I'm doing a x86-64 build.
->
->> $ gcc --version
->> gcc (Ubuntu/Linaro 4.7.3-1ubuntu1) 4.7.3
->> Copyright (C) 2012 Free Software Foundation, Inc.
->> This is free software; see the source for copying conditions.  There is NO
->> warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
->>
->> config:
->> http://fpaste.org/18443/13711363/
->
-> Well, what tree are you using ?
+Handle is not used if it is not containing a ':' . This is
+reproducible with these commands.
 
-mainline, the warnings are from v3.10-rc5-0-g317ddd2.
+/sbin/tc qdisc add dev lo parent 0xffffffff handle 0x10000 pfifo limit =
+10
 
-They are not new, also visible e.g. in v3.9-0-gc1be5a5.
+/sbin/tc qdisc show dev lo
+qdisc pfifo 8001: root refcnt 2 limit 10p
+
+Signed-off-by: Philipp Sch=F6nberger <ph.schoenberger@googlemail.com>
+--- iproute2-2.6.33/tc/tc_util.c    2010-02-25 04:56:50.000000000 +0100
++++ /home/pschoen/tc_util.c    2013-06-13 18:31:00.347135625 +0200
+@@ -50,9 +50,14 @@
+     maj =3D strtoul(str, &p, 16);
+     if (p =3D=3D str)
+         return -1;
+-    maj <<=3D 16;
+-    if (*p !=3D ':' && *p!=3D0)
+-        return -1;
++    if (*p !=3D ':')
++    {
++        if(*p!=3D0)
++            return -1;
++        else if (TC_H_MIN(maj) !=3D 0)
++            return -1;
++    }else
++        maj <<=3D 16;
+ ok:
+     *h =3D maj;
+     return 0;
