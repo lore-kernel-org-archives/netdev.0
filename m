@@ -1,39 +1,69 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
-Date: Wed, 12 Jun 2013 20:46:02 -0700
-Message-ID: <1371095162.31941.1.camel@joe-AO722>
-References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
-	 <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
-	 <20130612230257.GB21234@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
-	mcgrof@do-not-panic.com, kvalo@adurom.com, adrian.chadd@gmail.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:50862 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932508Ab3FMDqE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jun 2013 23:46:04 -0400
-In-Reply-To: <20130612230257.GB21234@electric-eye.fr.zoreil.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [net-next PATCH 1/2] macvtap: slient sparse warnings
+Date: Thu, 13 Jun 2013 12:21:33 +0800
+Message-ID: <1371097294-5626-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-06-13 at 01:02 +0200, Francois Romieu wrote:
-> Johannes Berg <johannes@sipsolutions.net> :
-> > diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
-[]
-> > +static int __alx_read_phy_dbg(struct alx_hw *hw, u16 reg, u16 *pdata)
-> > +{
-> > +	int err;
-> > +
-> > +	err = __alx_write_phy_reg(hw, ALX_MII_DBG_ADDR, reg);
-> > +	if (err)
-> > +		return err;
-> > +
-> > +	return __alx_read_phy_reg(hw, ALX_MII_DBG_DATA, pdata);
-> 
-> 	return err ? err : __alx_read_phy_reg(hw, ALX_MII_DBG_DATA, pdata);
+This patch silents the following sparse warnings:
 
-I think that's far poorer style.
+drivers/net/macvtap.c:98:9: warning: incorrect type in assignment (different
+address spaces)
+drivers/net/macvtap.c:98:9:    expected struct macvtap_queue *<noident>
+drivers/net/macvtap.c:98:9:    got struct macvtap_queue [noderef]
+<asn:4>*<noident>
+drivers/net/macvtap.c:120:9: warning: incorrect type in assignment (different
+address spaces)
+drivers/net/macvtap.c:120:9:    expected struct macvtap_queue *<noident>
+drivers/net/macvtap.c:120:9:    got struct macvtap_queue [noderef]
+<asn:4>*<noident>
+drivers/net/macvtap.c:151:22: error: incompatible types in comparison expression
+(different address spaces)
+drivers/net/macvtap.c:233:23: error: incompatible types in comparison expression
+(different address spaces)
+drivers/net/macvtap.c:243:23: error: incompatible types in comparison expression
+(different address spaces)
+drivers/net/macvtap.c:247:15: error: incompatible types in comparison expression
+(different address spaces)
+  CC [M]  drivers/net/macvtap.o
+drivers/net/macvlan.c:232:24: error: incompatible types in comparison expression
+(different address spaces)
+
+Signed-off-by: Jason Wang <jasowang@redhat.com>
+---
+ drivers/net/macvtap.c      |    2 +-
+ include/linux/if_macvlan.h |    2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+index 992151c..acf55ba 100644
+--- a/drivers/net/macvtap.c
++++ b/drivers/net/macvtap.c
+@@ -429,7 +429,7 @@ static int macvtap_open(struct inode *inode, struct file *file)
+ 	if (!q)
+ 		goto out;
+ 
+-	q->sock.wq = &q->wq;
++	rcu_assign_pointer(q->sock.wq, &q->wq);
+ 	init_waitqueue_head(&q->wq.wait);
+ 	q->sock.type = SOCK_RAW;
+ 	q->sock.state = SS_CONNECTED;
+diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+index 1912133..f49a9f6 100644
+--- a/include/linux/if_macvlan.h
++++ b/include/linux/if_macvlan.h
+@@ -70,7 +70,7 @@ struct macvlan_dev {
+ 	int (*receive)(struct sk_buff *skb);
+ 	int (*forward)(struct net_device *dev, struct sk_buff *skb);
+ 	/* This array tracks active taps. */
+-	struct macvtap_queue	*taps[MAX_MACVTAP_QUEUES];
++	struct macvtap_queue	__rcu *taps[MAX_MACVTAP_QUEUES];
+ 	/* This list tracks all taps (both enabled and disabled) */
+ 	struct list_head	queue_list;
+ 	int			numvtaps;
+-- 
+1.7.1
