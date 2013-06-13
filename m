@@ -1,55 +1,43 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Subject: Re: [PATCH] net: ethernet: stmicro: stmmac: Fix compile error when
- STMMAC_XMIT_DEBUG used
-Date: Thu, 13 Jun 2013 11:56:33 +0200
-Message-ID: <51B99751.6050006@st.com>
-References: <1371053103-13536-1-git-send-email-dinguyen@altera.com> <20130613.013152.180392586047160961.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: NULL pointer dereference when loading the gre module
+ (3.10.0-rc4)
+Date: Thu, 13 Jun 2013 03:01:29 -0700 (PDT)
+Message-ID: <20130613.030129.858604303672324590.davem@davemloft.net>
+References: <20130606221656.GA11475@uio.no>
+	<20130607030648.GA28618@home.goodmis.org>
+	<1370577588.24311.407.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dinguyen@altera.com, netdev@vger.kernel.org, dinh.linux@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog117.obsmtp.com ([207.126.144.143]:33913 "EHLO
-	eu1sys200aog117.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1758601Ab3FMJ6L (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 05:58:11 -0400
-In-Reply-To: <20130613.013152.180392586047160961.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rostedt@goodmis.org, sgunderson@bigfoot.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	rusty@rustcorp.com.au
+To: eric.dumazet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1370577588.24311.407.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello David
-On 6/13/2013 10:31 AM, David Miller wrote:
-> From: <dinguyen@altera.com>
-> Date: Wed, 12 Jun 2013 11:05:03 -0500
->
->> From: Dinh Nguyen <dinguyen@altera.com>
->>
->> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function:
->> stmmac_xmit drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1902:74:
->> error: expected ) before __func__
->>
->> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
->> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
->> CC: David S. Miller <davem@davemloft.net>
->
-> Applied, but this debugging mechanism is completely unacceptable.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 06 Jun 2013 20:59:48 -0700
 
-I agree with you, I do not like it too
+> On Thu, 2013-06-06 at 23:06 -0400, Steven Rostedt wrote:
+>> On Fri, Jun 07, 2013 at 12:16:56AM +0200, Steinar H. Gunderson wrote:
+>> > Hi,
+>> > 
+>> > In 3.10.0-rc4, I get this on boot:
+>> > 
+>> > [   16.871043] BUG: unable to handle kernel NULL pointer dereference at 0000000000000003
+>> > [   16.879453] IP: [<ffffffffa0e52002>] 0xffffffffa0e52001
+>> 
+>> Strange, kallsyms should have registered the address already, even if it
+>> crashed on early module load. Not sure why it's not reporting it. Well,
+>> it seems to have reported some of the symbols of ip_gre below. Maybe
+>> this pointer is just totally screwed up.
+> 
+> I could not reproduce this here.
+> 
+> Steinar, please make sure you recompiled your modules, because this
+> looks like you loaded old modules.
 
-this debug code is quite old and fixed to the initial driver version.
-I had used it to the initial debug so I must rework it (also because
-debug has to be guarantee w/o errors and w/o ifdef proliferation)
-
-I'll prepare a patch asap.
-
-Peppe
-
->
-> We have a dynamic, run time, way to do stuff like this without
-> peppering up a driver with gross ifdefs.
->
-> This driver must be converted over to use "netif_msg_*()" et al.
-> to guard message logging of different types of events.
->
->
+I applied Eric's fixed version of the patch, thanks.
