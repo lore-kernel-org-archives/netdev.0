@@ -1,71 +1,54 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 3/3] skbuff: Added new helper function
- skb_cow_clone_head.
-Date: Thu, 13 Jun 2013 17:53:11 +0100
-Message-ID: <1371142391.2246.4.camel@bwh-desktop.uk.level5networks.com>
-References: <1371030906-2396-1-git-send-email-david.wiltshire@gmx.com>
-	 <1371040811-8319-1-git-send-email-david.wiltshire@gmx.com>
-	 <1371040811-8319-2-git-send-email-david.wiltshire@gmx.com>
+Subject: Re: skb_is_gso() in ip_forward.c
+Date: Thu, 13 Jun 2013 17:57:25 +0100
+Message-ID: <1371142645.2246.6.camel@bwh-desktop.uk.level5networks.com>
+References: <CAF0Lin26AEdtz+Ui=LQ-T285OpbgfnsN3ofdmvbwavM9eQjBCw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <nsujir@broadcom.com>,
-	<mchan@broadcom.com>, <rmody@brocade.com>, <jcliburn@gmail.com>,
-	<chris.snook@gmail.com>, <jeffrey.t.kirsher@intel.com>,
-	<bruce.w.allan@intel.com>, <alexander.h.duyck@intel.com>,
-	<cooldavid@cooldavid.org>, <linux-driver@qlogic.com>,
-	<linux-wimax@intel.com>, <wimax@linuxwimax.org>,
-	<linux-wireless@vger.kernel.org>, <viro@zeniv.linux.org.uk>,
-	<eparis@redhat.com>, <edumazet@google.com>, <dev@openvswitch.org>,
-	<jhs@mojatatu.com>
-To: Dave Wiltshire <david.wiltshire@gmx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371040811-8319-2-git-send-email-david.wiltshire@gmx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Andy Johnson <johnsonzjo@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:8598 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751603Ab3FMQ52 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 12:57:28 -0400
+In-Reply-To: <CAF0Lin26AEdtz+Ui=LQ-T285OpbgfnsN3ofdmvbwavM9eQjBCw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-12 at 22:40 +1000, Dave Wiltshire wrote:
-> In a few different drivers there is a check of (skb_cloned &&
-> !skb_clone_writable) before then using pskb_expand_head to copy the skb
-> if that is required. There are already some skb_cow_* functions for
-> other conditions, so added this one and changed the call sites.
+On Wed, 2013-06-12 at 16:48 +0300, Andy Johnson wrote:
+> Hi,
 > 
-> Signed-off-by: Dave Wiltshire <david.wiltshire@gmx.com>
-> ---
->  include/linux/skbuff.h    |   14 ++++++++++++++
->  net/core/dev.c            |    8 ++------
->  net/openvswitch/actions.c |   22 +++++++---------------
->  net/sched/act_csum.c      |    8 ++------
->  net/sched/act_nat.c       |   18 +++++-------------
->  5 files changed, 30 insertions(+), 40 deletions(-)
+> I would appreciate if someone can explain the following :
 > 
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index a7393ad..7d18541 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -2154,6 +2154,20 @@ static inline int skb_cow_head(struct sk_buff *skb, unsigned int headroom)
->  }
->  
->  /**
-> + * skb_cow_clone_head
+> We have this in net/ipv4/ip_forward():
+> ...
+>  if (unlikely(skb->len > dst_mtu(&rt->dst) && !skb_is_gso(skb) &&
+>   ...
+>   icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
+>                             htonl(dst_mtu(&rt->dst)));
+>                   goto drop;
+>           }
+> ...
+> 
+> As I understand, it the traffic is GSO and the length of the skb is
+> larger than the MTU, we don't send destination unreachable ICMP and
+> we continue with forwarding the packet. My qustion is: why is it so ?
+> is it because when working with GSO the size of skb->len is not the
+> size of the packet which is sent on the wire ?
 
-This is a missing a short description after the name.
+Right.
+
+> The what does it represent when the traffic is GSO ?
+
+Length of all data in the skb, which is the length of the headers for a
+single packet plus the total length of the payload.
 
 Ben.
 
-> + * @skb: buffer to cow
-> + * @len: length up to which to write
-> + *
-> + * This function is identical to skb_cow and sb_cow_head except that we
-> + * replace the skb_cloned check by skb_cloned && !skb_clone_writable.
-> + *
-> + */
-> +static inline int skb_cow_clone_head(struct sk_buff *skb, unsigned int len)
-> +{
-> +	return __skb_cow(skb, 0, skb_cloned(skb) && !skb_clone_writable(skb, len));
-> +}
-[...]
+> I would appreaicate if someone can elaborate on this.
+
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
