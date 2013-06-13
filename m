@@ -1,35 +1,38 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: David Miller <davem@davemloft.net>
 Subject: Re: [PATCH v3] ethernet/arc/arc_emac - Add new driver
-Date: Thu, 13 Jun 2013 21:42:31 +0200
-Message-ID: <20130613194231.GA11949@electric-eye.fr.zoreil.com>
+Date: Thu, 13 Jun 2013 12:54:21 -0700 (PDT)
+Message-ID: <20130613.125421.1518137499194108848.davem@davemloft.net>
 References: <1371134239-4531-1-git-send-email-abrodkin@synopsys.com>
- <CAHp75Vf4zjtebbaQMp4L0EmUPDVyrNPfvLODo7gHBuBEsWmZeA@mail.gmail.com>
+	<CAHp75Vf4zjtebbaQMp4L0EmUPDVyrNPfvLODo7gHBuBEsWmZeA@mail.gmail.com>
+	<1371148401.31941.20.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	netdev <netdev@vger.kernel.org>, Joe Perches <joe@perches.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Devicetree Discuss <devicetree-discuss@lists.ozlabs.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andy.shevchenko@gmail.com, Alexey.Brodkin@synopsys.com,
+	netdev@vger.kernel.org, romieu@fr.zoreil.com,
+	Vineet.Gupta1@synopsys.com, Mischa.Jonker@synopsys.com,
+	arnd@arndb.de, grant.likely@linaro.org, rob.herring@calxeda.com,
+	paul.gortmaker@windriver.com, linux-kernel@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org
+To: joe@perches.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAHp75Vf4zjtebbaQMp4L0EmUPDVyrNPfvLODo7gHBuBEsWmZeA@mail.gmail.com>
+In-Reply-To: <1371148401.31941.20.camel@joe-AO722>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Andy Shevchenko <andy.shevchenko@gmail.com> :
-[...]
-> I just realize you are using circular buffer here. What about to use
-> them with linux' native framework? Documentation/circular-buffers.txt
+From: Joe Perches <joe@perches.com>
+Date: Thu, 13 Jun 2013 11:33:21 -0700
 
-It's almost unused in drivers/net. I won't mind if it stays this way.
+> On Thu, 2013-06-13 at 21:25 +0300, Andy Shevchenko wrote:
+>> On Thu, Jun 13, 2013 at 5:37 PM, Alexey Brodkin
+>> > +               if (unlikely((info & OWN_MASK) == FOR_EMAC)) {
+>> > +                       /* BD is still owned by EMAC */
+>> > +                       continue;
+>> > +               }
+>> 
+>> Redundant braces.
+> 
+> Maybe not.  Braces can be a visual aid when there is
+> a comment in the test.
 
--- 
-Ueimor
+Agreed.
