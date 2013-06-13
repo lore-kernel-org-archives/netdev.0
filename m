@@ -1,49 +1,73 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next] tun: Add ability to create tun device with
- given index
-Date: Thu, 13 Jun 2013 09:52:48 -0700
-Message-ID: <20130613095248.68c52109@nehalam.linuxnetplumber.net>
-References: <51B99946.3000703@parallels.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 3/3] skbuff: Added new helper function
+ skb_cow_clone_head.
+Date: Thu, 13 Jun 2013 17:53:11 +0100
+Message-ID: <1371142391.2246.4.camel@bwh-desktop.uk.level5networks.com>
+References: <1371030906-2396-1-git-send-email-david.wiltshire@gmx.com>
+	 <1371040811-8319-1-git-send-email-david.wiltshire@gmx.com>
+	 <1371040811-8319-2-git-send-email-david.wiltshire@gmx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Pavel Emelyanov <xemul@parallels.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f176.google.com ([209.85.192.176]:44763 "EHLO
-	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755675Ab3FMQwx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 12:52:53 -0400
-Received: by mail-pd0-f176.google.com with SMTP id t12so6703860pdi.21
-        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 09:52:53 -0700 (PDT)
-In-Reply-To: <51B99946.3000703@parallels.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>, <nsujir@broadcom.com>,
+	<mchan@broadcom.com>, <rmody@brocade.com>, <jcliburn@gmail.com>,
+	<chris.snook@gmail.com>, <jeffrey.t.kirsher@intel.com>,
+	<bruce.w.allan@intel.com>, <alexander.h.duyck@intel.com>,
+	<cooldavid@cooldavid.org>, <linux-driver@qlogic.com>,
+	<linux-wimax@intel.com>, <wimax@linuxwimax.org>,
+	<linux-wireless@vger.kernel.org>, <viro@zeniv.linux.org.uk>,
+	<eparis@redhat.com>, <edumazet@google.com>, <dev@openvswitch.org>,
+	<jhs@mojatatu.com>
+To: Dave Wiltshire <david.wiltshire@gmx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371040811-8319-2-git-send-email-david.wiltshire@gmx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Jun 2013 14:04:54 +0400
-Pavel Emelyanov <xemul@parallels.com> wrote:
+On Wed, 2013-06-12 at 22:40 +1000, Dave Wiltshire wrote:
+> In a few different drivers there is a check of (skb_cloned &&
+> !skb_clone_writable) before then using pskb_expand_head to copy the skb
+> if that is required. There are already some skb_cow_* functions for
+> other conditions, so added this one and changed the call sites.
+> 
+> Signed-off-by: Dave Wiltshire <david.wiltshire@gmx.com>
+> ---
+>  include/linux/skbuff.h    |   14 ++++++++++++++
+>  net/core/dev.c            |    8 ++------
+>  net/openvswitch/actions.c |   22 +++++++---------------
+>  net/sched/act_csum.c      |    8 ++------
+>  net/sched/act_nat.c       |   18 +++++-------------
+>  5 files changed, 30 insertions(+), 40 deletions(-)
+> 
+> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+> index a7393ad..7d18541 100644
+> --- a/include/linux/skbuff.h
+> +++ b/include/linux/skbuff.h
+> @@ -2154,6 +2154,20 @@ static inline int skb_cow_head(struct sk_buff *skb, unsigned int headroom)
+>  }
+>  
+>  /**
+> + * skb_cow_clone_head
 
-> Tun devices cannot be created with ifidex user wants, but it's
-> required by checkpoint-restore project.
-> 
-> Long time ago such ability was implemented for rtnl_ops-based
-> interface for creating links (9c7dafbf net: Allow to create links
-> with given ifindex), but the only API for creating and managing 
-> tuntap devices is ioctl-based and is evolving with adding new ones
-> (cde8b15f tuntap: add ioctl to attach or detach a file form tuntap
-> device).
-> 
-> Following that trend, here's how a new ioctl that sets the ifindex
-> for device, that _will_ be created by TUNSETIFF ioctl looks like.
-> So those who want a tuntap device with the ifindex I, should open
-> the tun device, call ioctl(fd, TUNSETIFINDEX, I), then call TUNSETIFF.
-> If setifindex is not called, then it will be generated as before.
-> 
-> Is it OK to extend ioctls with this, or should we rather switch the
-> whole tuntap driver on full-featured rtln-ops?
-> 
-> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
-> 
+This is a missing a short description after the name.
 
-I see no check for the most fundamental thing, the ifindex must be unique!
+Ben.
+
+> + * @skb: buffer to cow
+> + * @len: length up to which to write
+> + *
+> + * This function is identical to skb_cow and sb_cow_head except that we
+> + * replace the skb_cloned check by skb_cloned && !skb_clone_writable.
+> + *
+> + */
+> +static inline int skb_cow_clone_head(struct sk_buff *skb, unsigned int len)
+> +{
+> +	return __skb_cow(skb, 0, skb_cloned(skb) && !skb_clone_writable(skb, len));
+> +}
+[...]
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
