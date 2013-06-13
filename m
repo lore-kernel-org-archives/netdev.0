@@ -1,39 +1,84 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 0/4] openvswitch tunneling preparation
-Date: Thu, 13 Jun 2013 11:11:19 -0700
-Message-ID: <1371147079-29139-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next v2 1/4] openvswitch: Unify vport error stats handling.
+Date: Thu, 13 Jun 2013 11:11:26 -0700
+Message-ID: <1371147086-29178-1-git-send-email-pshelar@nicira.com>
 Cc: Pravin B Shelar <pshelar@nicira.com>
 To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog130.obsmtp.com ([74.125.149.143]:40953 "HELO
-	na3sys009aog130.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751603Ab3FMSLY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 14:11:24 -0400
-Received: by mail-pb0-f43.google.com with SMTP id md12so9633388pbc.16
-        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 11:11:24 -0700 (PDT)
+Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:60423 "HELO
+	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1756346Ab3FMSL3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 14:11:29 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so8004434pdj.17
+        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 11:11:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Following patches are required but not directly related to ovs tunneling.
-So I am sending them as separate series. These cleanups are already
-there in out of tree ovs module.
+Following patch changes vport->send return type so that vport
+layer can do error accounting.
 
-Since ovs tunneling series depends on this, I am sending all patches
-again.
+Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+---
+v2:
+no change.
+---
+ net/openvswitch/vport-netdev.c |    1 -
+ net/openvswitch/vport.c        |    9 +++++++--
+ net/openvswitch/vport.h        |    3 ++-
+ 3 files changed, 9 insertions(+), 4 deletions(-)
 
-Pravin B Shelar (4):
-  openvswitch: Unify vport error stats handling.
-  openvswitch: Simplify interface ovs_flow_metadata_from_nlattrs()
-  openvswitch: Fix struct comment.
-  openvswitch: make skb->csum consistent with rest of networking stack.
-
- include/uapi/linux/openvswitch.h     |    1 -
- net/openvswitch/actions.c            |    4 ++++
- net/openvswitch/datapath.c           |    5 +----
- net/openvswitch/flow.c               |   25 +++++++++++++------------
- net/openvswitch/flow.h               |    4 ++--
- net/openvswitch/vport-internal_dev.c |    1 +
- net/openvswitch/vport-netdev.c       |    3 ++-
- net/openvswitch/vport.c              |    9 +++++++--
- net/openvswitch/vport.h              |   10 +++++++++-
- 9 files changed, 39 insertions(+), 23 deletions(-)
+diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
+index 4f01c6d..c3ee7de 100644
+--- a/net/openvswitch/vport-netdev.c
++++ b/net/openvswitch/vport-netdev.c
+@@ -181,7 +181,6 @@ static int netdev_send(struct vport *vport, struct sk_buff *skb)
+ 
+ error:
+ 	kfree_skb(skb);
+-	ovs_vport_record_error(vport, VPORT_E_TX_DROPPED);
+ 	return 0;
+ }
+ 
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 7206231..7f20f6d 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -351,7 +351,7 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
+ {
+ 	int sent = vport->ops->send(vport, skb);
+ 
+-	if (likely(sent)) {
++	if (likely(sent > 0)) {
+ 		struct pcpu_tstats *stats;
+ 
+ 		stats = this_cpu_ptr(vport->percpu_stats);
+@@ -360,7 +360,12 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
+ 		stats->tx_packets++;
+ 		stats->tx_bytes += sent;
+ 		u64_stats_update_end(&stats->syncp);
+-	}
++	} else if (sent < 0) {
++		ovs_vport_record_error(vport, VPORT_E_TX_ERROR);
++		kfree_skb(skb);
++	} else
++		ovs_vport_record_error(vport, VPORT_E_TX_DROPPED);
++
+ 	return sent;
+ }
+ 
+diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
+index 68a377b..75d3ccb 100644
+--- a/net/openvswitch/vport.h
++++ b/net/openvswitch/vport.h
+@@ -125,7 +125,8 @@ struct vport_parms {
+  * @get_name: Get the device's name.
+  * @get_config: Get the device's configuration.
+  * May be null if the device does not have an ifindex.
+- * @send: Send a packet on the device.  Returns the length of the packet sent.
++ * @send: Send a packet on the device.  Returns the length of the packet sent,
++ * zero for dropped packets or negative for error.
+  */
+ struct vport_ops {
+ 	enum ovs_vport_type type;
+-- 
+1.7.1
