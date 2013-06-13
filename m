@@ -1,54 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next PATCH 1/2] macvtap: slient sparse warnings
-Date: Wed, 12 Jun 2013 22:48:27 -0700
-Message-ID: <1371102507.3252.96.camel@edumazet-glaptop>
-References: <1371097294-5626-1-git-send-email-jasowang@redhat.com>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH] datapath: Add basic MPLS support to kernel
+Date: Wed, 12 Jun 2013 23:00:56 -0700
+Message-ID: <CALnjE+rerp_+Ri107rZXFiJJ2DXs0skZHN=1K15oBJvqh5THrA@mail.gmail.com>
+References: <1370851669-32400-1-git-send-email-horms@verge.net.au>
+	<CAEP_g=_rC9unxv13xvEL3fpC4i2p9rcSWMo4NOeHFWHsp36QRw@mail.gmail.com>
+	<CALnjE+pRpC9J91cjgeOxzp_xZ+_eB+UbtEyea13BjJ47K9Utrg@mail.gmail.com>
+	<20130613011921.GA32025@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371097294-5626-1-git-send-email-jasowang@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jesse Gross <jesse@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Ben Pfaff <blp@nicira.com>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:33817 "HELO
+	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932343Ab3FMGA6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 02:00:58 -0400
+Received: by mail-qe0-f51.google.com with SMTP id a11so4226878qen.38
+        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 23:00:56 -0700 (PDT)
+In-Reply-To: <20130613011921.GA32025@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-13 at 12:21 +0800, Jason Wang wrote:
-> This patch silents the following sparse warnings:
-> 
-> dr
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
-> ---
->  drivers/net/macvtap.c      |    2 +-
->  include/linux/if_macvlan.h |    2 +-
->  2 files changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> index 992151c..acf55ba 100644
-> --- a/drivers/net/macvtap.c
-> +++ b/drivers/net/macvtap.c
-> @@ -429,7 +429,7 @@ static int macvtap_open(struct inode *inode, struct file *file)
->  	if (!q)
->  		goto out;
->  
-> -	q->sock.wq = &q->wq;
-> +	rcu_assign_pointer(q->sock.wq, &q->wq);
+On Wed, Jun 12, 2013 at 6:19 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Wed, Jun 12, 2013 at 06:14:07PM -0700, Pravin Shelar wrote:
+>> On Tue, Jun 11, 2013 at 2:26 PM, Jesse Gross <jesse@nicira.com> wrote:
+>> > On Mon, Jun 10, 2013 at 1:07 AM, Simon Horman <horms@verge.net.au> wrote:
 
-Since nobody but you [1] can access this object at that time, you could
-rather use
-	RCU_INIT_POINTER(q->sock.wq, &q->wq);
+>> >> @@ -341,10 +376,14 @@ static int netdev_send(struct vport *vport, struct sk_buff *skb)
+>> >>                                 nskb = skb->next;
+>> >>                                 skb->next = NULL;
+>> >>
+>> >> -                               skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
+>> >> +                               if (vlan)
+>> >> +                                       skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
+>> >>                                 if (likely(skb)) {
+>> >>                                         len += skb->len;
+>> >> -                                       vlan_set_tci(skb, 0);
+>> >> +                                       if (mpls)
+>> >> +                                               skb->protocol = mpls_protocol;
+>> >> +                                       if (vlan)
+>> >> +                                               vlan_set_tci(skb, 0);
+>> >>                                         dev_queue_xmit(skb);
+>> >>                                 }
+>> >
+>> > The order of setting the protocol field is different from the one
+>> > below and I think this one isn't right because it means that the MPLS
+>> > protocol can override the vlan.
+>> >
+>> > Pravin, can you take a look at this as well since you are working in
+>> > the same area?
+>>
+>> I think this compatibility code can be moved to new compat code posted
+>> on gre-restructuring code few changes.
+>
+> Sure that sounds reasonable but I am unsure of the status of those changes
+> and I would rather not rely on something that isn't ready to merge yet.
 
-rcu_assign_pointer() is also a documentation point (memory barrier)
-
-By using RCU_INIT_POINTER() you clearly show that you know you need no
-memory barrier.
-
->  	init_waitqueue_head(&q->wq.wait);
-
-[1] :
-or else, this init_waitqueue_head() should be done _before_ the
-rcu_asign_pointer()
-
->  	q->sock.type = SOCK_RAW;
->  	q->sock.state = SS_CONNECTED;
+Right. sorry abt delay.
+But I think it is much closer now and it would be alot easy to handle
+compatibility, so it is worth waiting for.
