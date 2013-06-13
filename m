@@ -1,40 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [RFC][PATCH net-next] cxgb4: Do not set net_device::dev_id to
- VI index
-Date: Thu, 13 Jun 2013 01:24:36 -0700 (PDT)
-Message-ID: <20130613.012436.175444386183812706.davem@davemloft.net>
-References: <1370882053.1933.13.camel@bwh-desktop.uk.level5networks.com>
-	<CBA48B605613B640864883107238931C054E67@nice.asicdesigners.com>
+Subject: Re: [PATCH, resend] xen-netback: don't de-reference vif pointer
+ after having called xenvif_put()
+Date: Thu, 13 Jun 2013 01:25:44 -0700 (PDT)
+Message-ID: <20130613.012544.109038934924591549.davem@davemloft.net>
+References: <51AF613F02000078000DB84E@nat28.tlf.novell.com>
+	<20130611.020136.1037505762134627955.davem@davemloft.net>
+	<51B7116202000078000DD069@nat28.tlf.novell.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bhutchings@solarflare.com, netdev@vger.kernel.org,
-	Narendra_K@Dell.com
-To: dm@chelsio.com
+Cc: ian.campbell@citrix.com, xen-devel@lists.xen.org,
+	netdev@vger.kernel.org
+To: JBeulich@suse.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37584 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37597 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758338Ab3FMIYh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 04:24:37 -0400
-In-Reply-To: <CBA48B605613B640864883107238931C054E67@nice.asicdesigners.com>
+	with ESMTP id S1755611Ab3FMIZv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 04:25:51 -0400
+In-Reply-To: <51B7116202000078000DD069@nat28.tlf.novell.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dimitrios Michailidis <dm@chelsio.com>
-Date: Thu, 13 Jun 2013 06:15:43 +0000
+From: "Jan Beulich" <JBeulich@suse.com>
+Date: Tue, 11 Jun 2013 11:00:34 +0100
 
-> Ben Hutchings wrote:
->> 
->> net_device::dev_id should not be used merely to indicate a VI index,
->> as it affects the way the local part of IPv6 addresses is normally
->> generated.
->> 
->> This field was intended for use where multiple devices may share a
->> single assigned MAC address and need to have different IPv6 addresses.
->> T4 VIs each have their own MAC address.
->> 
->> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> When putting vif-s on the rx notify list, calling xenvif_put() must be
+> deferred until after the removal from the list and the issuing of the
+> notification, as both operations dereference the pointer.
 > 
-> Acked-by: Dimitris Michailidis <dm@chelsio.com>
+> Changing this got me to notice that the "irq" variable was effectively
+> unused (and was of too narrow type anyway).
+> 
+> Signed-off-by: Jan Beulich <jbeulich@suse.com>
+> Acked-by: Ian Campbell <ian.campbell@citrix.com>
 
-Applied, thanks.
+Applied.
