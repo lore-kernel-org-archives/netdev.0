@@ -1,38 +1,49 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [ovs-dev] [PATCH net-next 4/4] openvswitch: make skb->csum
- consistent with rest of networking stack.
-Date: Thu, 13 Jun 2013 09:14:25 -0700
-Message-ID: <CALnjE+q9vqPFqWz_S52ngA=H9EBJEj7xTPcA=efc3MdroJDTeQ@mail.gmail.com>
-References: <1371077836-19796-1-git-send-email-pshelar@nicira.com>
-	<CAEP_g=_jp71ijx2=eacPWFhASE2JN++g75V=Y9TYGY40NjLiJQ@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next] tun: Add ability to create tun device with
+ given index
+Date: Thu, 13 Jun 2013 09:52:48 -0700
+Message-ID: <20130613095248.68c52109@nehalam.linuxnetplumber.net>
+References: <51B99946.3000703@parallels.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Pavel Emelyanov <xemul@parallels.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog102.obsmtp.com ([74.125.149.69]:48508 "HELO
-	na3sys009aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1754770Ab3FMQO0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 12:14:26 -0400
-Received: by mail-qc0-f179.google.com with SMTP id e11so1733114qcx.10
-        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 09:14:25 -0700 (PDT)
-In-Reply-To: <CAEP_g=_jp71ijx2=eacPWFhASE2JN++g75V=Y9TYGY40NjLiJQ@mail.gmail.com>
+Received: from mail-pd0-f176.google.com ([209.85.192.176]:44763 "EHLO
+	mail-pd0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755675Ab3FMQwx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 12:52:53 -0400
+Received: by mail-pd0-f176.google.com with SMTP id t12so6703860pdi.21
+        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 09:52:53 -0700 (PDT)
+In-Reply-To: <51B99946.3000703@parallels.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 12, 2013 at 7:52 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Wed, Jun 12, 2013 at 3:57 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
->> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
->> index 39cd821..e6ffb82 100644
->> --- a/net/openvswitch/datapath.c
->> +++ b/net/openvswitch/datapath.c
->> @@ -406,6 +406,7 @@ static int queue_userspace_packet(struct net *net, int dp_ifindex,
->>                 nskb = __vlan_put_tag(nskb, nskb->vlan_proto, vlan_tx_tag_get(nskb));
->>                 if (!nskb)
->>                         return -ENOMEM;
->> +               ovs_skb_postpush_rcsum(skb, skb->data + (2 * ETH_ALEN), VLAN_HLEN);
->
-> This shouldn't be necessary since the packet is going to userspace,
-> which won't use the skb->csum value.
-ok, I will update patch.
+On Thu, 13 Jun 2013 14:04:54 +0400
+Pavel Emelyanov <xemul@parallels.com> wrote:
+
+> Tun devices cannot be created with ifidex user wants, but it's
+> required by checkpoint-restore project.
+> 
+> Long time ago such ability was implemented for rtnl_ops-based
+> interface for creating links (9c7dafbf net: Allow to create links
+> with given ifindex), but the only API for creating and managing 
+> tuntap devices is ioctl-based and is evolving with adding new ones
+> (cde8b15f tuntap: add ioctl to attach or detach a file form tuntap
+> device).
+> 
+> Following that trend, here's how a new ioctl that sets the ifindex
+> for device, that _will_ be created by TUNSETIFF ioctl looks like.
+> So those who want a tuntap device with the ifindex I, should open
+> the tun device, call ioctl(fd, TUNSETIFINDEX, I), then call TUNSETIFF.
+> If setifindex is not called, then it will be generated as before.
+> 
+> Is it OK to extend ioctls with this, or should we rather switch the
+> whole tuntap driver on full-featured rtln-ops?
+> 
+> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+> 
+
+I see no check for the most fundamental thing, the ifindex must be unique!
