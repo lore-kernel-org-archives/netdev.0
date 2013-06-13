@@ -1,38 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] ethernet/arc/arc_emac - Add new driver
-Date: Thu, 13 Jun 2013 12:54:21 -0700 (PDT)
-Message-ID: <20130613.125421.1518137499194108848.davem@davemloft.net>
-References: <1371134239-4531-1-git-send-email-abrodkin@synopsys.com>
-	<CAHp75Vf4zjtebbaQMp4L0EmUPDVyrNPfvLODo7gHBuBEsWmZeA@mail.gmail.com>
-	<1371148401.31941.20.camel@joe-AO722>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net] packet: packet_getname_spkt: make sure string is
+ always 0-terminated
+Date: Thu, 13 Jun 2013 22:02:03 +0200
+Message-ID: <51BA253B.4010701@redhat.com>
+References: <1371045747-15203-1-git-send-email-dborkman@redhat.com>  <20130613.013859.1357765580190105873.davem@davemloft.net> <1371143153.2246.10.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: andy.shevchenko@gmail.com, Alexey.Brodkin@synopsys.com,
-	netdev@vger.kernel.org, romieu@fr.zoreil.com,
-	Vineet.Gupta1@synopsys.com, Mischa.Jonker@synopsys.com,
-	arnd@arndb.de, grant.likely@linaro.org, rob.herring@calxeda.com,
-	paul.gortmaker@windriver.com, linux-kernel@vger.kernel.org,
-	devicetree-discuss@lists.ozlabs.org
-To: joe@perches.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371148401.31941.20.camel@joe-AO722>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:23489 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756060Ab3FMUCL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jun 2013 16:02:11 -0400
+In-Reply-To: <1371143153.2246.10.camel@bwh-desktop.uk.level5networks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Thu, 13 Jun 2013 11:33:21 -0700
+On 06/13/2013 07:05 PM, Ben Hutchings wrote:
+> On Thu, 2013-06-13 at 01:38 -0700, David Miller wrote:
+>> From: Daniel Borkmann <dborkman@redhat.com>
+>> Date: Wed, 12 Jun 2013 16:02:27 +0200
+>>
+>>> uaddr->sa_data is exactly of size 14, which is hard-coded here and
+>>> passed as a size argument to strncpy(). A device name can be of size
+>>> IFNAMSIZ (== 16), meaning we might leave the destination string
+>>> unterminated. Thus, use strlcpy() and also sizeof() while we're
+>>> at it. We need to memset the data area beforehand, since strlcpy
+>>> does not padd the remaining buffer with zeroes for user space, so
+>>> that we do not possibly leak anything.
+>>>
+>>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>>
+>> Applied, and queued up for -stable, thanks.
+>
+> I don't think this should be applied anywhere.  Dropping support for
+> 14-character device names is a regression.
 
-> On Thu, 2013-06-13 at 21:25 +0300, Andy Shevchenko wrote:
->> On Thu, Jun 13, 2013 at 5:37 PM, Alexey Brodkin
->> > +               if (unlikely((info & OWN_MASK) == FOR_EMAC)) {
->> > +                       /* BD is still owned by EMAC */
->> > +                       continue;
->> > +               }
->> 
->> Redundant braces.
-> 
-> Maybe not.  Braces can be a visual aid when there is
-> a comment in the test.
+I don't think this would be reasonable, because it can pose a security
+risk for user space. In all other cases, we null-terminate the string, so
+people might trust what they get from the kernel and expect this to happen
+except in this particular border case.
 
-Agreed.
+I agree that this is pretty broken, but I would say it's a bug in the kernel
+that can potentially cause user space to crash (or worse) that is making use
+of this. There also seems to be no man page documentation about it, only that
+spkt is heavily deprecated from what I read, and shouldn't be used nowadays.
