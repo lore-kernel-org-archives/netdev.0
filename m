@@ -1,64 +1,36 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net] macvlan: don't touch promisc without passthrough
-Date: Wed, 12 Jun 2013 23:02:01 -0700
-Message-ID: <51B96059.4070104@gmail.com>
-References: <1371035949-29471-1-git-send-email-mst@redhat.com> <51B87E0D.8040009@cogentembedded.com>
+From: Dimitrios Michailidis <dm@chelsio.com>
+Subject: RE: [RFC][PATCH net-next] cxgb4: Do not set net_device::dev_id to
+ VI index
+Date: Thu, 13 Jun 2013 06:15:43 +0000
+Message-ID: <CBA48B605613B640864883107238931C054E67@nice.asicdesigners.com>
+References: <1370882053.1933.13.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Roopa Prabhu <roprabhu@cisco.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51B87E0D.8040009@cogentembedded.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	"Narendra_K@Dell.com" <Narendra_K@Dell.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from stargate.chelsio.com ([67.207.112.58]:6383 "EHLO
+	stargate.chelsio.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752381Ab3FMGPv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 02:15:51 -0400
+In-Reply-To: <1370882053.1933.13.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/12/2013 06:56 AM, Sergei Shtylyov wrote:
-> Hello.
->
-> On 12-06-2013 15:34, Michael S. Tsirkin wrote:
->
->> commit df8ef8f3aaa6692970a436204c4429210addb23a in linux 3.5 added a way
->
->     Please also specify that commit's summary line in parens.
->
->> to control NOPROMISC macvlan flag through netlink.
->
->> However, with a non passthrough device we don't set promisc on open or
->> clear it on stop, even if NOPROMISC is off.  As a result:
->
->> If userspace clears NOPROMISC on open, then does not clear it on a
->> netlink command, promisc counter is not decremented on stop and there
->> will be no way to clear it once macvlan is detached.
->
->> If userspace does not clear NOPROMISC on open, then sets NOPROMISC on a
->> netlink command, promisc counter will be decremented from 0 and overflow
->> to fffffffff with no way to clear promisc afterwards.
->
->> To fix, simply ignore NOPROMISC flag in a netlink command for
->> non-passthrough devices, same as we do at open/stop.
->
->> While at it - since we touch this code anyway - check
->> dev_set_promiscuity return code and pass it to users (though an error
->> here is unlikely).
->
->> Cc: "David S. Miller" <davem@davemloft.net>
->> CC: Roopa Prabhu <roprabhu@cisco.com>
->> Cc: John Fastabend <john.r.fastabend@intel.com>
->> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
->> ---
->
->> Please review, and consider for 3.10 and -stable.
->
-
-Other than those few nits looks good to me thanks!
-
-Reviewed-by: John Fastabend <john.r.fastabend@intel.com>
-
--- 
-John Fastabend         Intel Corporation
+QmVuIEh1dGNoaW5ncyB3cm90ZToNCj4gDQo+IG5ldF9kZXZpY2U6OmRldl9pZCBzaG91bGQgbm90
+IGJlIHVzZWQgbWVyZWx5IHRvIGluZGljYXRlIGEgVkkgaW5kZXgsDQo+IGFzIGl0IGFmZmVjdHMg
+dGhlIHdheSB0aGUgbG9jYWwgcGFydCBvZiBJUHY2IGFkZHJlc3NlcyBpcyBub3JtYWxseQ0KPiBn
+ZW5lcmF0ZWQuDQo+IA0KPiBUaGlzIGZpZWxkIHdhcyBpbnRlbmRlZCBmb3IgdXNlIHdoZXJlIG11
+bHRpcGxlIGRldmljZXMgbWF5IHNoYXJlIGENCj4gc2luZ2xlIGFzc2lnbmVkIE1BQyBhZGRyZXNz
+IGFuZCBuZWVkIHRvIGhhdmUgZGlmZmVyZW50IElQdjYgYWRkcmVzc2VzLg0KPiBUNCBWSXMgZWFj
+aCBoYXZlIHRoZWlyIG93biBNQUMgYWRkcmVzcy4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEJlbiBI
+dXRjaGluZ3MgPGJodXRjaGluZ3NAc29sYXJmbGFyZS5jb20+DQoNCkFja2VkLWJ5OiBEaW1pdHJp
+cyBNaWNoYWlsaWRpcyA8ZG1AY2hlbHNpby5jb20+DQoNCj4gLS0tDQo+IERpbWl0cmlzLCBJIGRv
+bid0IGtub3cgd2hldGhlciBteSBsYXN0IHN0YXRlbWVudCAoJ1ZJcyBlYWNoIGhhdmUgdGhlaXIN
+Cj4gb3duIE1BQyBhZGRyZXNzJykgaXMgYWN0dWFsbHkgY29ycmVjdC4gIElmIG5vdCB0aGVuIHRo
+ZSBkcml2ZXIgaXMgcXVpdGUNCj4gcmlnaHQgdG8gc2V0IGRldl9pZC4NCg0KQmVuLCB5ZXMsIFZJ
+cyBoYXZlIGluZGl2aWR1YWwgTUFDIGFkZHJlc3Nlcy4gIFRoYW5rcyBmb3IgZG9pbmcgdGhlIHBh
+dGNoLg0KDQo=
