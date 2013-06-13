@@ -1,37 +1,43 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v3 1/3] igmp: fix return value of some functions
-Date: Thu, 13 Jun 2013 16:44:15 +0800
-Message-ID: <1371113055.10194.13.camel@cr0>
-References: <1370833744.11543.4.camel@cr0>, <1370689003.868.3.camel@cr0>
-		 , <1370485211-11498-1-git-send-email-amwang@redhat.com>
-	 <OFF0DFA533.AF670FB8-ON85257B82.006E0B5C-85257B82.006F58EF@us.ibm.com>
-		 <OF76532841.5DDD0996-ON87257B85.000C25DF-87257B85.000C25E6@us.ibm.com>
-	 <1370833653.11543.3.camel@cr0>
-	 <OF7613FEAD.8B74A56A-ON87257B86.00477CA0-87257B86.00477CA3@us.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] bcm63xx_enet: add support Broadcom BCM6345
+ Ethernet
+Date: Thu, 13 Jun 2013 01:44:50 -0700 (PDT)
+Message-ID: <20130613.014450.1434692343011842828.davem@davemloft.net>
+References: <1371066785-17168-1-git-send-email-florian@openwrt.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev-owner@vger.kernel.org, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: David Stevens <dlstevens@us.ibm.com>
+Cc: netdev@vger.kernel.org, ralf@linux-mips.org, blogic@openwrt.org,
+	linux-mips@linux-mips.org, mbizon@freebox.fr, jogo@openwrt.org,
+	cernekee@gmail.com
+To: florian@openwrt.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:47750 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756572Ab3FMIoj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jun 2013 04:44:39 -0400
-In-Reply-To: <OF7613FEAD.8B74A56A-ON87257B86.00477CA0-87257B86.00477CA3@us.ibm.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37840 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757368Ab3FMIov (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 04:44:51 -0400
+In-Reply-To: <1371066785-17168-1-git-send-email-florian@openwrt.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-10 at 07:00 -0600, David Stevens wrote:
-> 
-> >On Mon, 2013-06-10 at 11:07 +0800, Cong Wang wrote: >  > Are you
-> >suggesting to just make ip_mc_leave_src() void?  I meant
-> >ip_mc_del_src() of course...
-> 
-> Yes. At least, unless you find text in the API standard that says
-> this case should return an error.
-> 
+From: Florian Fainelli <florian@openwrt.org>
+Date: Wed, 12 Jun 2013 20:53:05 +0100
 
-Right, I should keep the return value as it is.
+> +#ifdef BCMCPU_RUNTIME_DETECT
+
+I want the MIPS folks to fix this brain damange.
+
+This runtime detect thing is just a big mess in a header file
+using hundreds of lines of CPP stuff to express what is fundamentally
+a simple (albeit sizable) Kconfig dependency.
+
+And this ifdef virus spreads from that header file now into this
+driver.
+
+How can it possibly make sense to have this "maybe it's static at
+build time, maybe it's dynamic" coded into every single piece of code
+for platform drivers or any other thing related to this set of MIPSs
+cpus?
+
+It's rediculous, and I refuse to add code to my tree which continues
+this trend, sorry.
