@@ -1,27 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V2 1/3] net/core: Add VF link state control
-Date: Thu, 13 Jun 2013 02:41:10 -0700 (PDT)
-Message-ID: <20130613.024110.843518428947760865.davem@davemloft.net>
-References: <1371024728-31790-1-git-send-email-ogerlitz@mellanox.com>
-	<1371024728-31790-2-git-send-email-ogerlitz@mellanox.com>
+Subject: Re: [PATCH net] tg3: Wait for boot code to finish after power on
+Date: Thu, 13 Jun 2013 02:42:35 -0700 (PDT)
+Message-ID: <20130613.024235.1657219452701408875.davem@davemloft.net>
+References: <1371060539-27837-1-git-send-email-nsujir@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, ronye@mellanox.com
-To: ogerlitz@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38500 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758474Ab3FMJlL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 05:41:11 -0400
-In-Reply-To: <1371024728-31790-2-git-send-email-ogerlitz@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, stable@vger.kernel.org, mchan@broadcom.com
+To: nsujir@broadcom.com
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1371060539-27837-1-git-send-email-nsujir@broadcom.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Wed, 12 Jun 2013 11:12:06 +0300
+From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
+Date: Wed, 12 Jun 2013 11:08:59 -0700
 
-> + * 			 * IFLA_VF_LINK_STATE_AUTO which equals zero 
-> + * 			 */
+> Some systems that don't need wake-on-lan may choose to power down the
+> chip on system standby. Upon resume, the power on causes the boot code
+> to startup and initialize the hardware. On one new platform, this is
+> causing the device to go into a bad state due to a race between the
+> driver and boot code, once every several hundred resumes. The same race
+> exists on open since we come up from a power on.
+> 
+> This patch adds a wait for boot code signature at the beginning of
+> tg3_init_hw() which is common to both cases. If there has not been a
+> power-off or the boot code has already completed, the signature will be
+> present and poll_fw() returns immediately. Also return immediately if
+> the device does not have firmware.
+> 
+> Cc: stable@vger.kernel.org
+> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> Signed-off-by: Michael Chan <mchan@broadcom.com>
 
-Please get rid of those leading "*" characters.
+Applied.
