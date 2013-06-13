@@ -1,155 +1,89 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: [PATCH v3] ethernet/arc/arc_emac - Add new driver
-Date: Thu, 13 Jun 2013 21:48:49 +0000
-Message-ID: <4881796E12491D4BB15146FE0209CE643F5DFFBB@DE02WEMBXB.internal.synopsys.com>
-References: <1371134239-4531-1-git-send-email-abrodkin@synopsys.com>
-	<CAHp75Vf4zjtebbaQMp4L0EmUPDVyrNPfvLODo7gHBuBEsWmZeA@mail.gmail.com>
-	<4881796E12491D4BB15146FE0209CE643F5DFB22@DE02WEMBXB.internal.synopsys.com>
- <CAHp75VcChT7=DpUYUBw3ZNXXBNCL4kj6HB6nCFL=ytUYaXUXZg@mail.gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
+Date: Thu, 13 Jun 2013 23:52:22 +0200
+Message-ID: <1371160342.8335.22.camel@jlt4.sipsolutions.net>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+	 <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
+	 <20130612230257.GB21234@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Joe Perches <joe@perches.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Devicetree Discuss <devicetree-discuss@lists.ozlabs.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mcgrof@do-not-panic.com, kvalo@adurom.com,
+	adrian.chadd@gmail.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:47968 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755565Ab3FMVwe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 17:52:34 -0400
+In-Reply-To: <20130612230257.GB21234@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/14/2013 12:50 AM, Andy Shevchenko wrote:
-> On Thu, Jun 13, 2013 at 11:25 PM, Alexey Brodkin
-> <Alexey.Brodkin@synopsys.com> wrote:
->> On 06/13/2013 10:25 PM, Andy Shevchenko wrote:
->>> On Thu, Jun 13, 2013 at 5:37 PM, Alexey Brodkin
->>> <Alexey.Brodkin@synopsys.com> wrote:
->>>> Driver for non-standard on-chip ethernet device ARC EMAC 10/100,
->>>> instantiated in some legacy ARC (Synopsys) FPGA Boards such as
->>>> ARCAngel4/ML50x.
->
->>>> +++ b/drivers/net/ethernet/arc/arc_emac.h
->
->> And what about function names? Do you think it worth to shorten them too
->> since most of them aren't visible outside (static).
->
-> It's better to keep them in their namespace. So, leave them as is.
+Thanks again :-)
 
-Ok, makes sense.
+> > +int alx_read_phy_reg(struct alx_hw *hw, u16 reg, u16 *phy_data)
+> > +{
+> > +	int err;
+> > +
+> > +	spin_lock(&hw->mdio_lock);
+> > +	err = __alx_read_phy_reg(hw, reg, phy_data);
+> > +	spin_unlock(&hw->mdio_lock);
+> 
+> Isn't it possible to remove the phy ops from any irq / napi / tasklet
+> context ?
 
->>>> +struct arc_emac_priv {
->
->>>> +};
->
->>> It seems you missed my comments against the names of the members. Can
->>> you address them or comment why not?
->>
->> You mean to add description in kerneldoc format for all the fields in
->> structures?
->
-> Not only that one. About member names as well.
+I don't think they're actually called there.
 
-Ok, I'll re-visit member names as advised.
+> If you only need it in user / workqueue context you'll be able to trade
+> the spinlock for a mutex (and push it in the common core methods ?).
 
->> Well while in general it could be "a proper way" of documenting sources
->> I found it not that convenient especially in case of really long structures.
->
->> In my case "arc_emac_priv" structure has 21 members, so right before
->> structure itself there will be another at least 21 line of comments.
->
-> Not an argument, you understand.
->
->> Moreover: "The kernel-doc function comments describe each parameter to
->> the function, in order, with the @name lines."
->
->> While I don't think that each and every member needs description.
->
-> Describe them in couple of words.
->
->> At
->> least some pairs like Tx/Rx I believe may share the only comment saying
->> "Pointers to BD rings - CPU side".
->
-> What BD means? May be it worth to describe as well?
->
->> Also I barely can find an example of strict usage of kernel-doc format
->> for data structures in drivers nearby.
->>
->> For example take a look at STMMAC - drivers/net/ethernet/stmicro/stmmac/
->> Lots of structures defined, non with kernel-doc description.
->
-> Again, not an excuse :-)
+Yes, I suppose I could, but is it worth it? It's held only for a very
+short amount of time to get the indirect register access correct. I
+don't really see any reason to prefer a mutex here?
 
-Ok, will add description)
+Not sure what you mean by "push it in the common core methods"? I
+actually suspect that this lock can't ever be contended because the
+callers hold the RTNL anyway, but I don't really want to rely on just
+that.
 
->> Still you think the only way to go is to add kernel-doc description then
->> I'll add it ASAP, might be it will be a good example for other developers.
->
-> Right.
->
->>>> +++ b/drivers/net/ethernet/arc/arc_emac_main.c
->>>
->
->>>> +static int arc_emac_poll(struct napi_struct *napi, int budget)
->>>> +{
->
->>>> +       unsigned int i, loop, work_done = 0;
->
->>>> +       for (loop = 0; loop < RX_BD_NUM; loop++) {
->
->>>> +               work_done++;
->>>> +               if (work_done >= budget)
->>>> +                       break;
->>>
->>> Those three could easily go to the for () on the top of this function.
->>
->> Correct. It should be like this on top of the "arc_emac_poll":
->> ====
->>                  if (work_done >= budget)
->>                          break;
->>                  work_done++;
->> ====
->
-> I meant something like
-> for (loop = 0; loop < RX_BD_NUM && work_done < budget; loop++, work_done++)
 
-Well, it turned out that counter increment was put in the end of the 
-loop on purpose.
+> > +		for (i = 0; i < ALX_SLD_MAX_TO; i++) {
+> > +			mdelay(1);
+> > +			val = alx_read_mem32(hw, ALX_SLD);
+> > +			if ((val & ALX_SLD_START) == 0)
+> > +				break;
+> > +		}
+> 
+> You may add an helper for the loops above.
+> 
+> > +		if (i == ALX_SLD_MAX_TO)
+> > +			return -EIO;
+> > +		loaded_intn = true;
+> > +		goto read_mcadr;
+> 
+> (I don't dislike it but it verges on goto fetishismi :o) )
 
-But with help of this hint I understood that "arc_emac_poll" was 
-implemented a bit incorrectly. Now I added an exit from the loop on the 
-first BD owned by EMAC. This is possible because we know that buffers 
-are processed in order.
+It is pretty ugly ... I've now rewritten it using two helper functions.
 
->>>> +static int arc_emac_open(struct net_device *ndev)
->>>> +{
->>>
->>>> +       /* Set Poll rate so that it polls every 1 ms */
->>>> +       arc_reg_set(priv, R_POLLRATE,
->>>> +                    priv->clock_frequency / 1000000);
->>>
->>> I don't understand how you end up with 1ms here. 1000000 is just a
->>> magic number, clock_frequency generally is an arbitrary value.
->
-> I meant how do you guarantee this is 1ms? What if clock_frequency is not 100MHz?
+> > +static irqreturn_t alx_intr_handle(struct alx_priv *alx, u32 intr)
+> > +{
+> > +	struct alx_hw *hw = &alx->hw;
+> > +	bool write_int_mask = false;
+> > +
+> > +	spin_lock(&alx->irq_lock);
+> 
+> Do yourself a favor: avoid any work in the irq handler.
+> 
+> Forget the lock. Mask irqs, insert mmiowb and memory barrier, then
+> schedule napi if there is any event.
+> 
+> In the napi handler, enable napi polling then irq.
 
-That's why I needed to pass CPU frequency to "arc_emac_probe" via DT.
-As we see from description in HW documentation poll period measured in 
-CPU cycles = "1024 cycles *  R_POLLRATE", or "1024 * 
-priv->clock_frequency / 1000000", or "priv->clock_frequency / 1000".
-Now since length of 1 cycle is "1 / priv->clock_frequency" we may 
-calculate poll period measured in seconds. It will be 
-"priv->clock_frequency / 1000 * (1 / priv->clock_frequency)" which is 
-1/1000 of second i.e. 1 millisecond. Makes sense?
+Hmm, yeah, I'll have to think about that. I don't really care about the
+performance all that much ... just want the device to work :-)
 
-Regards,
-Alexey
+Would I really want to rely on NAPI for error interrupts and the like
+though? I thought NAPI could potentially be deferred due to budget etc.
+
+johannes
