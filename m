@@ -1,33 +1,39 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next] tcp: introduce a per-route knob for quick ack
-Date: Thu, 13 Jun 2013 09:56:55 +0800
-Message-ID: <1371088615.10194.0.camel@cr0>
-References: <1371030955-6740-1-git-send-email-amwang@redhat.com>
-	 <20130612.030224.1420421159493116339.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 1/2] net: remove NET_LL_RX_POLL config menue
+Date: Wed, 12 Jun 2013 19:01:03 -0700
+Message-ID: <20130612190103.1545e310@nehalam.linuxnetplumber.net>
+References: <20130611142415.17879.75569.stgit@ladj378.jer.intel.com>
+	<20130611142428.17879.33582.stgit@ladj378.jer.intel.com>
+	<20130612.151205.1822920389019274346.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, rick.jones2@hp.com,
-	stephen@networkplumber.org, tgraf@suug.ch, David.Laight@ACULAB.COM
+Cc: eliezer.tamir@linux.intel.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, jesse.brandeburg@intel.com,
+	donald.c.skidmore@intel.com, e1000-devel@lists.sourceforge.net,
+	willemb@google.com, erdnetdev@gmail.com, bhutchings@solarflare.com,
+	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
+	or.gerlitz@gmail.com, amirv@mellanox.com, eliezer@tamir.org.il
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:29315 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757019Ab3FMB56 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jun 2013 21:57:58 -0400
-In-Reply-To: <20130612.030224.1420421159493116339.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130612.151205.1822920389019274346.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2013-06-12 at 03:02 -0700, David Miller wrote:
-> It is required that you explain, in full detail, and covering
-> all of the perspectives, the whole issue of ACK behavior in
-> the commit message.
+On Wed, 12 Jun 2013 15:12:05 -0700 (PDT)
+David Miller <davem@davemloft.net> wrote:
+
+> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+> Date: Tue, 11 Jun 2013 17:24:28 +0300
 > 
-> Otherwise you're making things more difficult for the person who has
-> to look at this commit in the future. 
+> >  	depends on X86_TSC
+> 
+> Wait a second, I didn't notice this before.  There needs to be a better
+> way to test for the accuracy you need, or if the issue is lack of a proper
+> API for cycle counter reading, fix that rather than add ugly arch
+> specific dependencies to generic networking code.
 
-Makes sense! I will give a summary of this in the changelog and resend
-it.
-
-Thanks.
+This should be sched_clock(), rather than direct TSC access.
+Also any code using TSC or sched_clock has to be carefully audited to deal with
+clocks running at different rates on different CPU's. Basically value is only
+meaning full on same CPU.
