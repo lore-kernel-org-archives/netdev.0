@@ -1,31 +1,28 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: pull request for net: batman-adv 2013-06-11
-Date: Thu, 13 Jun 2013 01:27:45 -0700 (PDT)
-Message-ID: <20130613.012745.275777609215183999.davem@davemloft.net>
-References: <1370932501-3937-1-git-send-email-ordex@autistici.org>
-Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
- <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] be2net: Fix 32-bit DMA Mask handling
+Date: Thu, 13 Jun 2013 01:28:55 -0700 (PDT)
+Message-ID: <20130613.012855.1387013202076891229.davem@davemloft.net>
+References: <e97260be-0d58-4285-a8e5-c9b030d60132@CMEXHTCAS2.ad.emulex.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-To: ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org
-Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1370932501-3937-1-git-send-email-ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
-List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
- <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
-Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: somnath.kotur@emulex.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37638 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932663Ab3FMI24 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 04:28:56 -0400
+In-Reply-To: <e97260be-0d58-4285-a8e5-c9b030d60132@CMEXHTCAS2.ad.emulex.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Antonio Quartulli <ordex-GaUfNO9RBHfsrOwW+9ziJQ@public.gmane.org>
-Date: Tue, 11 Jun 2013 08:34:58 +0200
+From: Somnath Kotur <somnath.kotur@emulex.com>
+Date: Tue, 11 Jun 2013 17:18:22 +0530
 
-> here you have three patches intended for net/linux-3.10.
+> Fix to set the coherent DMA mask only if dma_set_mask() succeeded, and to
+> error out if either fails.
+> 
+> Signed-off-by: Somnath Kotur <somnath.kotur@emulex.com>
 
-Pulled, thanks Antonio.
+Applied.
