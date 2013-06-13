@@ -1,57 +1,58 @@
-From: Johannes Berg <johannes@sipsolutions.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
-Date: Fri, 14 Jun 2013 00:29:13 +0200
-Message-ID: <1371162553.8335.28.camel@jlt4.sipsolutions.net>
+Date: Fri, 14 Jun 2013 01:03:41 +0200
+Message-ID: <20130613230341.GB16632@electric-eye.fr.zoreil.com>
 References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
-	 <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
-	 <20130613222411.GA5396@sig21.net>
+ <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
+ <20130612230257.GB21234@electric-eye.fr.zoreil.com>
+ <1371160342.8335.22.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, mcgrof@do-not-panic.com, kvalo@adurom.com,
-	adrian.chadd@gmail.com, romieu@fr.zoreil.com
-To: Johannes Stezenbach <js@sig21.net>
+	adrian.chadd@gmail.com
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:48072 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757878Ab3FMW3W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 18:29:22 -0400
-In-Reply-To: <20130613222411.GA5396@sig21.net>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:49388 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754451Ab3FMXDs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 19:03:48 -0400
+Content-Disposition: inline
+In-Reply-To: <1371160342.8335.22.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-06-14 at 00:24 +0200, Johannes Stezenbach wrote:
+Johannes Berg <johannes@sipsolutions.net> :
+[...]
+> Yes, I suppose I could, but is it worth it? It's held only for a very
+> short amount of time to get the indirect register access correct. I
+> don't really see any reason to prefer a mutex here?
 
-> [    0.939189] INFO: trying to register non-static key.
-> [    0.939787] the code is fine but needs lockdep annotation.
-> [    0.940387] turning off the locking correctness validator.
-> [    0.940992] Pid: 1, comm: swapper/0 Not tainted 3.9.6 #2
-> [    0.941589] Call Trace:
-> [    0.942179]  [<ffffffff8108cead>] __lock_acquire.isra.24+0x710/0xa47
-> [    0.942781]  [<ffffffff8108d87f>] lock_acquire+0xc0/0x142
+Neither a spinlock nor a mutex should be needed but I have to sleep
+before figuring it.
 
-I *think* this is probably the missing spin_lock_init I had forgotten.
+> Not sure what you mean by "push it in the common core methods"? I
+> actually suspect that this lock can't ever be contended because the
+> callers hold the RTNL anyway, but I don't really want to rely on just
+> that.
 
-> and after "ifconfig eth0 up":
-> 
-> [  539.482153] alx 0000:03:00.0: irq 45 for MSI/MSI-X
-> [  539.482249] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-> [  539.483169] alx 0000:03:00.0 eth0: NIC Up: 1 Gbps Full
-> [  539.483354] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-> [  544.801438] ------------[ cut here ]------------
-> [  544.801458] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x19b/0x201()
-> [  544.801462] Hardware name: System Product Name
-> [  544.801464] NETDEV WATCHDOG: eth0 (alx): transmit queue 0 timed out
+Don't be shy :o)
 
-Hmm, this is odd. I might just be forgetting to set something.
+[...]
+> Hmm, yeah, I'll have to think about that. I don't really care about the
+> performance all that much ... just want the device to work :-)
 
-> 03:00.0 Ethernet controller: Qualcomm Atheros AR8161 Gigabit Ethernet (rev 08)
+Ok. It's fine.
 
-OTOH, I have a 8171, so maybe I messed up with my simplifications or it
-simply doesn't work.
+> Would I really want to rely on NAPI for error interrupts and the like
+> though? I thought NAPI could potentially be deferred due to budget etc.
 
-> Any idea what to try?
+It will have to wait for ksoftirqd once its budget is exhausted.
 
-Does it still pass traffic after that? Or is it actually dead?
+If the irq and napi handlers don't share a lock, either they are racing
+or the napi handler will be kicked on irq return.
 
-johannes
+I'll admit a bias towards some extra latency if it can buy user context
+comfort.
+
+-- 
+Ueimor
