@@ -1,122 +1,359 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH RESEND 1/2] neigh: only allow init_net to change the default
- neigh_parms
-Date: Thu, 13 Jun 2013 09:17:52 +0800
-Message-ID: <51B91DC0.4010707@cn.fujitsu.com>
-References: <1371012275-31735-1-git-send-email-gaofeng@cn.fujitsu.com> <87ehc7rdel.fsf@xmission.com>
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH] datapath: Add basic MPLS support to kernel
+Date: Thu, 13 Jun 2013 10:19:21 +0900
+Message-ID: <20130613011921.GA32025@verge.net.au>
+References: <1370851669-32400-1-git-send-email-horms@verge.net.au>
+ <CAEP_g=_rC9unxv13xvEL3fpC4i2p9rcSWMo4NOeHFWHsp36QRw@mail.gmail.com>
+ <CALnjE+pRpC9J91cjgeOxzp_xZ+_eB+UbtEyea13BjJ47K9Utrg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jesse Gross <jesse@nicira.com>,
+	"dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Ben Pfaff <blp@nicira.com>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Pravin Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:23203 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756998Ab3FMBQU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jun 2013 21:16:20 -0400
-In-Reply-To: <87ehc7rdel.fsf@xmission.com>
+Received: from kirsty.vergenet.net ([202.4.237.240]:45942 "EHLO
+	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756874Ab3FMBTY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 21:19:24 -0400
+Content-Disposition: inline
+In-Reply-To: <CALnjE+pRpC9J91cjgeOxzp_xZ+_eB+UbtEyea13BjJ47K9Utrg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/12/2013 03:33 PM, Eric W. Biederman wrote:
-> Gao feng <gaofeng@cn.fujitsu.com> writes:
+On Wed, Jun 12, 2013 at 06:14:07PM -0700, Pravin Shelar wrote:
+> On Tue, Jun 11, 2013 at 2:26 PM, Jesse Gross <jesse@nicira.com> wrote:
+> > On Mon, Jun 10, 2013 at 1:07 AM, Simon Horman <horms@verge.net.au> wrote:
+> >> diff --git a/datapath/actions.c b/datapath/actions.c
+> >> index 0dac658..197811a 100644
+> >> --- a/datapath/actions.c
+> >> +++ b/datapath/actions.c
+> >> +static int push_mpls(struct sk_buff *skb,
+> >> +                    const struct ovs_action_push_mpls *mpls)
+> >> +{
+> >> +       __be32 *new_mpls_lse;
+> >> +       int err;
+> >> +
+> >> +       if (skb_cow_head(skb, MPLS_HLEN) < 0)
+> >> +               return -ENOMEM;
+> >> +
+> >> +       err = make_writable(skb, skb->mac_len);
+> >> +       if (unlikely(err))
+> >> +               return err;
+> >> +
+> >> +       skb_push(skb, MPLS_HLEN);
+> >> +       memmove(skb_mac_header(skb) - MPLS_HLEN, skb_mac_header(skb),
+> >> +               skb->mac_len);
+> >> +       skb_reset_mac_header(skb);
+> >> +
+> >> +       new_mpls_lse = (__be32 *)mac_header_end(skb);
+> >> +       *new_mpls_lse = mpls->mpls_lse;
+> >> +
+> >> +       if (get_ip_summed(skb) == OVS_CSUM_COMPLETE)
+> >> +               skb->csum = csum_add(skb->csum, csum_partial(new_mpls_lse,
+> >> +                                                            MPLS_HLEN, 0));
+> >> +
+> >> +       /* If the skb was non-MPLS then record the original protocol
+> >> +        * in skb->inner_protocol. This is to allow GSO to perform
+> >> +        * segmentation of the inner-packet.
+> >> +        */
+> >> +       if (!eth_p_mpls(skb->protocol))
+> >> +               skb_set_inner_protocol(skb, skb->protocol);
+> >> +
+> >> +       set_ethertype(skb, mpls->mpls_ethertype);
+> >> +       if (!vlan_tx_tag_present(skb) && skb->protocol != htons(ETH_P_8021Q)) {
+> >> +               skb->protocol = mpls->mpls_ethertype;
+> >> +       }
+> >
+> > I don't think you need to check for vlan_tx_tag_present here - when
+> > doing vlan offloading, skb->protocol reflects the packet as if there
+> > was no vlan tag there at all. Also, you shouldn't need the braces
+> > there.
+> >
+> > When looking at this, I had an additional thought: different versions
+> > of OpenFlow define the tag order differently and there is some limited
+> > flexibility in how they get applied. Obviously, we're assuming that
+> > vlans are applied before MPLS here. However, I'm not sure that is
+> > actually required and may even simplify things (for example, your MPLS
+> > GSO code doesn't do anything special with vlans and it should continue
+> > to just work either way). I'm hesitant to suggest changes at this
+> > point but it might actually make things cleaner and work with the
+> > general model that we already have.
+> >
+> >> diff --git a/datapath/datapath.c b/datapath/datapath.c
+> >> index 42af315..7e0e7a1 100644
+> >> --- a/datapath/datapath.c
+> >> +++ b/datapath/datapath.c
+> >> @@ -551,18 +551,132 @@ static inline void add_nested_action_end(struct sw_flow_actions *sfa, int st_off
+> >>         a->nla_len = sfa->actions_len - st_offset;
+> >>  }
+> >>
+> >> -static int validate_and_copy_actions(const struct nlattr *attr,
+> >> +#define MAX_ETH_TYPES 16 /* Arbitrary Limit */
+> >> +
+> >> +/* struct eth_types - possible eth types
+> >> + * @types: provides storage for the possible eth types.
+> >> + * @start: is the index of the first entry of types which is possible.
+> >> + * @end: is the index of the last entry of types which is possible.
+> >> + * @cursor: is the index of the entry which should be updated if an action
+> >> + * changes the eth type.
+> >> + *
+> >> + * Due to the sample action there may be multiple possible eth types.
+> >> + * In order to correctly validate actions all possible types are tracked
+> >> + * and verified. This is done using struct eth_types.
+> >> + *
+> >> + * Initially start, end and cursor should be 0, and the first element of
+> >> + * types should be set to the eth type of the flow.
+> >> + *
+> >> + * When an action changes the eth type then the values of start and end are
+> >> + * updated to the value of cursor. The new type is stored at types[cursor].
+> >> + *
+> >> + * When entering a sample action the start and cursor values are saved. The
+> >> + * value of cursor is set to the value of end plus one.
+> >> + *
+> >> + * When leaving a sample action the start and cursor values are restored to
+> >> + * their saved values.
+> >> + *
+> >> + * An example follows.
+> >> + *
+> >> + * actions: pop_mpls(A),sample(pop_mpls(B)),sample(pop_mpls(C)),pop_mpls(D)
+> >> + *
+> >> + * 0. Initial state:
+> >> + *     types = { original_eth_type }
+> >> + *     start = end = cursor = 0;
+> >> + *
+> >> + * 1. pop_mpls(A)
+> >> + *    a. Check types from start (0) to end (0) inclusive
+> >> + *       i.e. Check against original_eth_type
+> >> + *    b. Set start = end = cursor
+> >> + *    c. Set types[cursor] = A
+> >> + *    New state:
+> >> + *     types = { A }
+> >> + *     start = end = cursor = 0;
+> >> + *
+> >> + * 2. Enter first sample()
+> >> + *    a. Save start and cursor
+> >> + *    b. Set cursor = end + 1
+> >> + *    New state:
+> >> + *     types = { A }
+> >> + *     start = end = 0;
+> >> + *     cursor = 1;
+> >> + *
+> >> + * 3. pop_mpls(B)
+> >> + *    a. Check types from start (0) to end (0)
+> >> + *       i.e: Check against A
+> >> + *    b. Set start = end = cursor
+> >> + *    c. Set types[cursor] = B
+> >> + *    New state:
+> >> + *     types = { A, B }
+> >> + *     start = end = cursor = 1;
+> >> + *
+> >> + * 4. Leave first sample()
+> >> + *    a. Restore start and cursor to the values when entering 2.
+> >> + *    New state:
+> >> + *     types = { A, B }
+> >> + *     start = cursor = 0;
+> >> + *     end = 1;
+> >> + *
+> >> + * 5. Enter second sample()
+> >> + *    a. Save start and cursor
+> >> + *    b. Set cursor = end + 1
+> >> + *    New state:
+> >> + *     types = { A, B }
+> >> + *     start = 0;
+> >> + *     end = 1;
+> >> + *     cursor = 2;
+> >> + *
+> >> + * 6. pop_mpls(C)
+> >> + *    a. Check types from start (0) to end (1) inclusive
+> >> + *       i.e: Check against A and B
+> >> + *    b. Set start = end = cursor
+> >> + *    c. Set types[cursor] = C
+> >> + *    New state:
+> >> + *     types = { A, B, C }
+> >> + *     start = end = cursor = 2;
+> >> + *
+> >> + * 7. Leave second sample()
+> >> + *    a. Restore start and cursor to the values when entering 5.
+> >> + *    New state:
+> >> + *     types = { A, B, C }
+> >> + *     start = cursor = 0;
+> >> + *     end = 2;
+> >> + *
+> >> + * 8. pop_mpls(D)
+> >> + *    a. Check types from start (0) to end (2) inclusive
+> >> + *       i.e: Check against A, B and C
+> >> + *    b. Set start = end = cursor
+> >> + *    c. Set types[cursor] = D
+> >> + *    New state:
+> >> + *     types = { D } // Trailing entries of type are no longer used end = 0
+> >> + *     start = end = cursor = 0;
+> >> + */
+> >
+> > The algorithm looks good to me now, thanks for working through it and
+> > for documenting it.
+> >
+> >> +static int validate_and_copy_actions__(const struct nlattr *attr,
+> >> +                               const struct sw_flow_key *key, int depth,
+> >> +                               struct sw_flow_actions **sfa,
+> >> +                               struct eth_types *eth_types)
+> > [...]
+> >> +               case OVS_ACTION_ATTR_POP_MPLS: {
+> >> +                       size_t i;
+> >
+> > size_t seems a little bit odd to me here, maybe just use an int?
+> >
+> >> +                       for (i = eth_types->start; i <= eth_types->end; i++)
+> >> +                               if (!eth_p_mpls(eth_types->types[i]))
+> >> +                                       return -EINVAL;
+> >> +
+> >> +                       /* Disallow subsequent L2.5+ set and mpls_pop actions
+> >> +                        * as there is no check here to ensure that the new
+> >> +                        * eth_type is valid and thus set actions could
+> >> +                        * write off the end of the packet or otherwise
+> >> +                        * corrupt it.
+> >> +                        *
+> >> +                        * Support for these actions that after mpls_pop
+> >> +                        * using packet recirculation is planned.
+> >> +                        * are planned to be supported using using packet
+> >> +                        * recirculation.
+> >
+> > I think there is an editing error in the above comment.
+> >
+> >> diff --git a/datapath/datapath.h b/datapath/datapath.h
+> >> index ad59a3a..e47493a 100644
+> >> --- a/datapath/datapath.h
+> >> +++ b/datapath/datapath.h
+> >> +#ifdef HAVE_INNER_PROTOCOL
+> >> +static inline void skb_set_inner_protocol(struct sk_buff *skb, __be16 ethertype)
+> >> +{
+> >> +       skb->inner_protocol = ethertype;
+> >> +}
+> >> +
+> >> +static inline __be16 skb_get_inner_protocol(struct sk_buff *skb)
+> >> +{
+> >> +       return skb->inner_protocol;
+> >> +}
+> >> +
+> >> +static inline bool kernel_supports_mpls_gso(void)
+> >> +{
+> >> +       return true;
+> >> +}
+> >> +#else
+> >> +static inline void skb_set_inner_protocol(struct sk_buff *skb, __be16 ethertype) {
+> >> +       OVS_CB(skb)->inner_protocol = ethertype;
+> >> +}
+> >> +
+> >> +static inline __be16 skb_get_inner_protocol(struct sk_buff *skb)
+> >> +{
+> >> +       return OVS_CB(skb)->inner_protocol;
+> >> +}
+> >> +
+> >> +static inline bool kernel_supports_mpls_gso(void)
+> >> +{
+> >> +       return false;
+> >> +}
+> >> +#endif
+> >
+> > Can we move these functions compat.h, prefix them with ovs_, and make
+> > it clear that they are part of OVS and not skbuff.h?
+> >
+> >> diff --git a/datapath/tunnel.c b/datapath/tunnel.c
+> >> index 8c93e18..2d870aa 100644
+> >> --- a/datapath/tunnel.c
+> >> +++ b/datapath/tunnel.c
+> >> @@ -150,6 +150,16 @@ static struct sk_buff *handle_offloads(struct sk_buff *skb)
+> >>
+> >>         if (skb_is_gso(skb)) {
+> >>                 struct sk_buff *nskb;
+> >> +               __be16 mpls_protocol = htons(0);
+> >> +
+> >> +               /* Swap the protocol so we can reuse the existing
+> >> +                * skb_gso_segment() function to handle L3 GSO. We will
+> >> +                * restore this later. */
+> >> +               if (!kernel_supports_mpls_gso() && eth_p_mpls(skb->protocol) &&
+> >> +                   !eth_p_mpls(skb_get_inner_protocol(skb))) {
+> >> +                       mpls_protocol = skb->protocol;
+> >> +                       skb->protocol = skb_get_inner_protocol(skb);
+> >> +               }
+> >>
+> >>                 nskb = __skb_gso_segment(skb, 0, false);
+> >>                 if (IS_ERR(nskb)) {
+> >> @@ -159,6 +169,13 @@ static struct sk_buff *handle_offloads(struct sk_buff *skb)
+> >>
+> >>                 consume_skb(skb);
+> >>                 skb = nskb;
+> >> +
+> >> +               if (mpls_protocol != htons(0)) {
+> >> +                       do {
+> >> +                               nskb->protocol = mpls_protocol;
+> >> +                               nskb = nskb->next;
+> >> +                       } while (nskb);
+> >> +               }
+> >>         } else if (get_ip_summed(skb) == OVS_CSUM_PARTIAL) {
+> >>                 /* Pages aren't locked and could change at any time.
+> >>                  * If this happens after we compute the checksum, the
+> >
+> > Can we push this completely into the skb_gso_segment() compatibility
+> > code? It's both nicer and may make the interactions with the vlan code
+> > less confusing.
+> >
+> >> diff --git a/datapath/vport-netdev.c b/datapath/vport-netdev.c
+> >> index 4e7342c..db3284f 100644
+> >> --- a/datapath/vport-netdev.c
+> >> +++ b/datapath/vport-netdev.c
+> >> @@ -309,8 +310,31 @@ static int netdev_send(struct vport *vport, struct sk_buff *skb)
+> >>         skb->dev = netdev_vport->dev;
+> >>         forward_ip_summed(skb, true);
+> >>
+> >> +       vlan = mpls = false;
+> >> +
+> >> +       if (!kernel_supports_mpls_gso() && eth_p_mpls(skb->protocol) &&
+> >> +           !eth_p_mpls(skb_get_inner_protocol(skb)))
+> >> +               mpls = true;
+> >> +
+> >> +       /* If we are segmenting a VLAN packet, then we don't need to handle
+> >> +        * MPLS segmentation, because MPLS is part of the extended L2 header
+> >> +        * and the kernel already knows how to handle this. */
+> >>         if (vlan_tx_tag_present(skb) && !dev_supports_vlan_tx(skb->dev)) {
+> >> -               int features;
+> >> +               mpls = false;
+> >> +               vlan = true;
+> >> +       }
+> >
+> > Don't we still need to save and restore the MPLS skb->protocol field
+> > even if we are also processing vlans?
+> >
+> >> @@ -341,10 +376,14 @@ static int netdev_send(struct vport *vport, struct sk_buff *skb)
+> >>                                 nskb = skb->next;
+> >>                                 skb->next = NULL;
+> >>
+> >> -                               skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
+> >> +                               if (vlan)
+> >> +                                       skb = __vlan_put_tag(skb, vlan_tx_tag_get(skb));
+> >>                                 if (likely(skb)) {
+> >>                                         len += skb->len;
+> >> -                                       vlan_set_tci(skb, 0);
+> >> +                                       if (mpls)
+> >> +                                               skb->protocol = mpls_protocol;
+> >> +                                       if (vlan)
+> >> +                                               vlan_set_tci(skb, 0);
+> >>                                         dev_queue_xmit(skb);
+> >>                                 }
+> >
+> > The order of setting the protocol field is different from the one
+> > below and I think this one isn't right because it means that the MPLS
+> > protocol can override the vlan.
+> >
+> > Pravin, can you take a look at this as well since you are working in
+> > the same area?
 > 
->> Though we don't export the /proc/sys/net/ipv[4,6]/neigh/default/
->> directory to the un-init_net, but we can still use cmd such as
->> "ip ntable change name arp_cache locktime 129" to change the locktime
->> of default neigh_parms.
->>
->> This patch disallows the un-init_net to find out the neigh_table.parms.
->> So the un-init_net will failed to influence the init_net.
-> 
-> Interesting...  
-> 
-> The problem these two patches seek to address seems legit.
-> 
-> However I disagree with the way you are handling this.
-> 
-> Outside of the initial network namespace we should return -ENOENT
-> instead of -EPERM.  Which would match how we handle sysctls, and I think
-> missing neigh table values.  Just not making these global values visible
-> seems wise.
-> 
+> I think this compatibility code can be moved to new compat code posted
+> on gre-restructuring code few changes.
 
-Ok, it seems more reasonable.
-
-> The alternative is to use the proper permission test which is
-> capable(CAP_SYS_ADMIN) (instead of testing network namespaces) and
-> return -EPERM if that fails.  Which would allow processes in other
-> network namespaces to change the value if they could otherwise change
-> the value.
-> 
-
-So you mean the uninitial net namespace can't see these values but it
-can change them? it's too strange.
-And the thresh/interval are both under default/ too, if we return -ENOENT
-for other items, we should also return -ENOENT for them instead of the -EPERM.
-
-
-> Namespaces are about visibility and there is no need to make an
-> exception here.
-> 
-> Eric
-> 
->> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
->> ---
->>  net/core/neighbour.c | 25 ++++++++++++++-----------
->>  1 file changed, 14 insertions(+), 11 deletions(-)
->>
->> diff --git a/net/core/neighbour.c b/net/core/neighbour.c
->> index 5c56b21..e4027ff 100644
->> --- a/net/core/neighbour.c
->> +++ b/net/core/neighbour.c
->> @@ -1418,26 +1418,29 @@ static inline struct neigh_parms *lookup_neigh_parms(struct neigh_table *tbl,
->>  	struct neigh_parms *p;
->>  
->>  	for (p = &tbl->parms; p; p = p->next) {
->> -		if ((p->dev && p->dev->ifindex == ifindex && net_eq(neigh_parms_net(p), net)) ||
->> -		    (!p->dev && !ifindex))
->> +		if (p->dev && p->dev->ifindex == ifindex &&
->> +		    net_eq(neigh_parms_net(p), net))
->>  			return p;
->> +
->> +		if (!p->dev && !ifindex) {
->> +			if (net_eq(net, &init_net))
->> +				return p;
->> +			else
->> +				return ERR_PTR(-EPERM);
->> +		}
->>  	}
->>  
->> -	return NULL;
->> +	return ERR_PTR(-ENOENT);
->>  }
->>  
->>  struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
->>  				      struct neigh_table *tbl)
->>  {
->> -	struct neigh_parms *p, *ref;
->> +	struct neigh_parms *p;
->>  	struct net *net = dev_net(dev);
->>  	const struct net_device_ops *ops = dev->netdev_ops;
->>  
->> -	ref = lookup_neigh_parms(tbl, net, 0);
->> -	if (!ref)
->> -		return NULL;
->> -
->> -	p = kmemdup(ref, sizeof(*p), GFP_KERNEL);
->> +	p = kmemdup(&tbl->parms, sizeof(*p), GFP_KERNEL);
->>  	if (p) {
->>  		p->tbl		  = tbl;
->>  		atomic_set(&p->refcnt, 1);
->> @@ -1999,8 +2002,8 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
->>  			ifindex = nla_get_u32(tbp[NDTPA_IFINDEX]);
->>  
->>  		p = lookup_neigh_parms(tbl, net, ifindex);
->> -		if (p == NULL) {
->> -			err = -ENOENT;
->> +		if (IS_ERR(p)) {
->> +			err = PTR_ERR(p);
->>  			goto errout_tbl_lock;
->>  		}
-> 
+Sure that sounds reasonable but I am unsure of the status of those changes
+and I would rather not rely on something that isn't ready to merge yet.
