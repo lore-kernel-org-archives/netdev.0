@@ -1,66 +1,32 @@
 From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [iproute2 PATCH] tc: handle is not used without containing ':'
-Date: Thu, 13 Jun 2013 21:39:21 +0400
-Message-ID: <51BA03C9.80505@cogentembedded.com>
-References: <CAABrY5pGnVQPctPUSJAiM0tp3o2OTxjG5y8yt3bY59r=x2Gksg@mail.gmail.com>
+Subject: Re: [PATCH v2] net: sh_eth: fix incorrect RX length error if R8A7740
+Date: Thu, 13 Jun 2013 21:45:16 +0400
+Message-ID: <51BA052C.8000907@cogentembedded.com>
+References: <51B91D41.1000908@renesas.com> <20130613.030259.1909989123383615468.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: =?ISO-8859-1?Q?Philipp_Sch=F6nberger?=
-	<ph.schoenberger@googlemail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f54.google.com ([209.85.215.54]:38724 "EHLO
-	mail-la0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757396Ab3FMRja (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 13:39:30 -0400
-Received: by mail-la0-f54.google.com with SMTP id ec20so9067788lab.41
-        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 10:39:29 -0700 (PDT)
-In-Reply-To: <CAABrY5pGnVQPctPUSJAiM0tp3o2OTxjG5y8yt3bY59r=x2Gksg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yoshihiro.shimoda.uh@renesas.com, netdev@vger.kernel.org,
+	linux-sh@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <20130613.030259.1909989123383615468.davem@davemloft.net>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 06/13/2013 09:20 PM, Philipp Sch=F6nberger wrote:
+On 06/13/2013 02:02 PM, David Miller wrote:
 
-> Handle is not used if it is not containing a ':' . This is
-> reproducible with these commands.
+>> This patch fixes an issue that the driver increments the "RX length error"
+>> on every buffer in sh_eth_rx() if the R8A7740.
+>> This patch also adds a description about the Receive Frame Status bits.
 
-> /sbin/tc qdisc add dev lo parent 0xffffffff handle 0x10000 pfifo limi=
-t 10
+>> Signed-off-by: Yoshihiro Shimoda <yoshihiro.shimoda.uh@renesas.com>
 
-> /sbin/tc qdisc show dev lo
-> qdisc pfifo 8001: root refcnt 2 limit 10p
+> Applied, thanks.
 
-> Signed-off-by: Philipp Sch=F6nberger <ph.schoenberger@googlemail.com>
-> --- iproute2-2.6.33/tc/tc_util.c    2010-02-25 04:56:50.000000000 +01=
-00
-> +++ /home/pschoen/tc_util.c    2013-06-13 18:31:00.347135625 +0200
-> @@ -50,9 +50,14 @@
->       maj =3D strtoul(str, &p, 16);
->       if (p =3D=3D str)
->           return -1;
-> -    maj <<=3D 16;
-> -    if (*p !=3D ':' && *p!=3D0)
-> -        return -1;
-> +    if (*p !=3D ':')
-> +    {
-> +        if(*p!=3D0)
-
-    Maybe you should be more consistent in using space after *if*? :-)
-
-> +            return -1;
-> +        else if (TC_H_MIN(maj) !=3D 0)
-> +            return -1;
-> +    }else
-
-    Space after } seems a good idea too...
-
-> +        maj <<=3D 16;
->   ok:
->       *h =3D maj;
->       return 0;
+    I've already asked to do this but will you queue this for stable now?
 
 WBR, Sergei
+
