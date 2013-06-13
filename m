@@ -1,52 +1,52 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/3] net: add support for MOST protocol
-Date: Thu, 13 Jun 2013 02:53:32 -0700 (PDT)
-Message-ID: <20130613.025332.2181739661784418723.davem@davemloft.net>
-References: <cover.1370856733.git.asnaghi@st.com>
-	<7d70dd76e3e756ca98414247213b7e8fad7034c9.1370856733.git.asnaghi@st.com>
+Subject: Re: [net-next PATCH v4 1/5] net: cpsw: enhance pinctrl support
+Date: Thu, 13 Jun 2013 02:54:44 -0700 (PDT)
+Message-ID: <20130613.025444.626549509946164895.davem@davemloft.net>
+References: <20130607.004234.2007576325541054686.davem@davemloft.net>
+	<51B1F2EB.80109@ti.com>
+	<CACRpkdbKWRyBxUF1w82C8WUAvXM5hsUc6N-C+CcwXr8eCyviWQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	rubini@gnudd.com, federico.vaga@gmail.com
-To: giancarlo.asnaghi@st.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <7d70dd76e3e756ca98414247213b7e8fad7034c9.1370856733.git.asnaghi@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: mugunthanvnm@ti.com, broonie@kernel.org, netdev@vger.kernel.org,
+	devicetree-discuss@lists.ozlabs.org, gururaja.hebbar@ti.com,
+	benoit.cousson@linaro.org, linux-omap@vger.kernel.org
+To: linus.walleij@linaro.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38667 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758548Ab3FMJyp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 05:54:45 -0400
+In-Reply-To: <CACRpkdbKWRyBxUF1w82C8WUAvXM5hsUc6N-C+CcwXr8eCyviWQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Giancarlo Asnaghi <giancarlo.asnaghi@st.com>
-Date: Mon, 10 Jun 2013 14:52:25 +0200
+From: Linus Walleij <linus.walleij@linaro.org>
+Date: Mon, 10 Jun 2013 17:48:16 +0200
 
-> This patch adds core support for the MOST protocol. More information
-> about the protocol can be found at: http://www.mostcooperation.com/
+> On Fri, Jun 7, 2013 at 4:49 PM, Mugunthan V N <mugunthanvnm@ti.com> wrote:
 > 
-> See the lkml message "[PATCH 0/3] MOST network protocol" sent on Jun
-> 10th 2013 about this code and the missing "Signed-off" lines.
+>>> If you want to merge the direct networking parts of this series into
+>>> another tree, I'm fine with that:
+>>>
+>>> Acked-by: David S. Miller <davem@davemloft.net>
+>>
+>> David
+>>
+>> Can you the below patch series as i have adopted pinctrl PM api in another
+>> series,
+>> this patch has direct usage of pinctrl_select_state apis
+>> http://marc.info/?l=linux-netdev&m=137054250018667&w=2
+>>
+>> Linus Walleij
+>>
+>> Please drop this patch series and take my other [atch set mentioned above
+>> with David's Ack.
+> 
+> Sure I didn't see David ACK the new versions explicitly but
+> since they're even less intrusive I'll apply them assuming
+> his ACK on these versions too...
 
-There are a lot of coding style issues in these patches, I'm only going
-to point out one:
+Just in case it isn't clear:
 
-> +		if (most_sk(sk)->dev_id == dev_id &&
-> +			most_sk(sk)->channel_type == most_cb(skb)->channel_type
-> +			&& most_sk(sk)->rx_channel == most_cb(skb)->channel &&
-> +			sk->sk_state == MOST_BOUND) {
-
-Frankly, this is very ugly, even ignoring the standard coding style rules.
-
-First of all, never put the operators at the beginning of the line.
-This code not only does that, but it mixes style every other line,
-that's terrible.
-
-Secondly, each line of the conditional after the first must line up
-at the first column after the openning parenthesis of the if() statement
-(or any inner parenthetical grouping the expression is a part of).
-
-You achieve such alignment using the appropriate number of TAB and
-space characters necessary to do so, for example:
-
-	if (x &&
-	    y &&
-	    z) {
-		...
-	}
+Acked-by: David S. Miller <davem@davemloft.net>
