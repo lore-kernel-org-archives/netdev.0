@@ -1,36 +1,89 @@
 From: Cong Wang <amwang@redhat.com>
-Subject: [Patch iproute2] add quickack option to ip route
-Date: Thu, 13 Jun 2013 14:24:03 +0800
-Message-ID: <1371104643-24076-2-git-send-email-amwang@redhat.com>
-References: <1371104643-24076-1-git-send-email-amwang@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
+Subject: [Patch net-next v2] tcp: introduce a per-route knob for quick ack
+Date: Thu, 13 Jun 2013 14:24:02 +0800
+Message-ID: <1371104643-24076-1-git-send-email-amwang@redhat.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hp.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>
+	Thomas Graf <tgraf@suug.ch>,
+	David Laight <David.Laight@ACULAB.COM>,
+	Cong Wang <amwang@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48327 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:20797 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752381Ab3FMGYt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jun 2013 02:24:49 -0400
-In-Reply-To: <1371104643-24076-1-git-send-email-amwang@redhat.com>
+	id S1752476Ab3FMGYu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jun 2013 02:24:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Cong Wang <amwang@redhat.com>
 
-This patch adds quickack option to enable/disable TCP quick ack
-mode for per-route.
+In previous discussions, I tried to find some reasonable heuristics
+for delayed ACK, however this seems not possible, according to Eric:
 
+	"ACKS might also be delayed because of bidirectional
+	traffic, and is more controlled by the application
+	response time. TCP stack can not easily estimate it."
+
+	"ACK can be incredibly useful to recover from losses in
+	a short time.
+
+	The vast majority of TCP sessions are small lived, and we
+	send one ACK per received segment anyway at beginning or
+	retransmits to let the sender smoothly increase its cwnd,
+	so an auto-tuning facility wont help them that much."
+
+and according to David:
+
+	"ACKs are the only information we have to detect loss.
+
+	And, for the same reasons that TCP VEGAS is fundamentally
+	broken, we cannot measure the pipe or some other
+	receiver-side-visible piece of information to determine
+	when it's "safe" to stretch ACK.
+
+	And even if it's "safe", we should not do it so that losses are
+	accurately detected and we don't spuriously retransmit.
+
+	The only way to know when the bandwidth increases is to
+	"test" it, by sending more and more packets until drops happen.
+	That's why all successful congestion control algorithms must
+	operate on explicited tested pieces of information.
+
+	Similarly, it's not really possible to universally know if
+	it's safe to stretch ACK or not."
+
+It still makes sense to enable or disable quick ack mode like
+what TCP_QUICK_ACK does.
+
+Similar to TCP_QUICK_ACK option, but for people who can't
+modify the source code and still wants to control
+TCP delayed ACK behavior. As David suggested, this should belong
+to per-path scope, since different pathes may want different
+behaviors.
+
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Rick Jones <rick.jones2@hp.com>
 Cc: Stephen Hemminger <stephen@networkplumber.org>
 Cc: "David S. Miller" <davem@davemloft.net>
 Cc: Thomas Graf <tgraf@suug.ch>
+CC: David Laight <David.Laight@ACULAB.COM>
 Signed-off-by: Cong Wang <amwang@redhat.com>
 
 ---
-diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
-index 93370bd..248fdd3 100644
---- a/include/linux/rtnetlink.h
-+++ b/include/linux/rtnetlink.h
+v2: improve changelog
+
+ include/uapi/linux/rtnetlink.h |    2 ++
+ net/ipv4/tcp_input.c           |    5 ++++-
+ net/ipv4/tcp_output.c          |    6 ++++--
+ 3 files changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
+index 7a2144e..eb0f1a5 100644
+--- a/include/uapi/linux/rtnetlink.h
++++ b/include/uapi/linux/rtnetlink.h
 @@ -386,6 +386,8 @@ enum {
  #define RTAX_RTO_MIN RTAX_RTO_MIN
  	RTAX_INITRWND,
@@ -40,70 +93,50 @@ index 93370bd..248fdd3 100644
  	__RTAX_MAX
  };
  
-diff --git a/ip/iproute.c b/ip/iproute.c
-index adef774..46710b2 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -52,6 +52,7 @@ static const char *mx_names[RTAX_MAX+1] = {
- 	[RTAX_FEATURES] = "features",
- 	[RTAX_RTO_MIN]	= "rto_min",
- 	[RTAX_INITRWND]	= "initrwnd",
-+	[RTAX_QUICKACK]	= "quickack",
- };
- static void usage(void) __attribute__((noreturn));
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index 907311c..51ed9b7 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3726,6 +3726,7 @@ void tcp_reset(struct sock *sk)
+ static void tcp_fin(struct sock *sk)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
++	const struct dst_entry *dst;
  
-@@ -79,6 +80,7 @@ static void usage(void)
- 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
- 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
- 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
-+	fprintf(stderr, "           [ quickack BOOL ]\n");
- 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
- 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
- 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
-@@ -86,6 +88,7 @@ static void usage(void)
- 	fprintf(stderr, "NHFLAGS := [ onlink | pervasive ]\n");
- 	fprintf(stderr, "RTPROTO := [ kernel | boot | static | NUMBER ]\n");
- 	fprintf(stderr, "TIME := NUMBER[s|ms]\n");
-+	fprintf(stderr, "BOOL := [1|0]\n");
- 	exit(-1);
+ 	inet_csk_schedule_ack(sk);
+ 
+@@ -3737,7 +3738,9 @@ static void tcp_fin(struct sock *sk)
+ 	case TCP_ESTABLISHED:
+ 		/* Move to CLOSE_WAIT */
+ 		tcp_set_state(sk, TCP_CLOSE_WAIT);
+-		inet_csk(sk)->icsk_ack.pingpong = 1;
++		dst = __sk_dst_get(sk);
++		if (!dst_metric(dst, RTAX_QUICKACK))
++			inet_csk(sk)->icsk_ack.pingpong = 1;
+ 		break;
+ 
+ 	case TCP_CLOSE_WAIT:
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index ec335fa..f840b92 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -160,6 +160,7 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
+ {
+ 	struct inet_connection_sock *icsk = inet_csk(sk);
+ 	const u32 now = tcp_time_stamp;
++	const struct dst_entry *dst = __sk_dst_get(sk);
+ 
+ 	if (sysctl_tcp_slow_start_after_idle &&
+ 	    (!tp->packets_out && (s32)(now - tp->lsndtime) > icsk->icsk_rto))
+@@ -170,8 +171,9 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
+ 	/* If it is a reply for ato after last received
+ 	 * packet, enter pingpong mode.
+ 	 */
+-	if ((u32)(now - icsk->icsk_ack.lrcvtime) < icsk->icsk_ack.ato)
+-		icsk->icsk_ack.pingpong = 1;
++	if ((u32)(now - icsk->icsk_ack.lrcvtime) < icsk->icsk_ack.ato &&
++	    !dst_metric(dst, RTAX_QUICKACK))
++			icsk->icsk_ack.pingpong = 1;
  }
  
-@@ -885,6 +888,14 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
- 			if (get_unsigned(&win, *argv, 0))
- 				invarg("\"initrwnd\" value is invalid\n", *argv);
- 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_INITRWND, win);
-+		} else if (matches(*argv, "quickack") == 0) {
-+			unsigned quickack;
-+			NEXT_ARG();
-+			if (get_unsigned(&quickack, *argv, 0))
-+				invarg("\"quickack\" value is invalid\n", *argv);
-+			if (quickack != 1 && quickack != 0)
-+				invarg("\"quickack\" value should be 0 or 1\n", *argv);
-+			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_QUICKACK, quickack);
- 		} else if (matches(*argv, "rttvar") == 0) {
- 			unsigned win;
- 			NEXT_ARG();
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index 2c35a97..01997fa 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -111,6 +111,8 @@ replace " } "
- .IR NUMBER " ] [ "
- .B  initrwnd
- .IR NUMBER " ]"
-+.B  quickack
-+.IR BOOL " ]"
- 
- .ti -8
- .IR TYPE " := [ "
-@@ -401,6 +403,10 @@ Actual window size is this value multiplied by the MSS of the connection.
- The default value is zero, meaning to use Slow Start value.
- 
- .TP
-+.BI quickack " BOOL " "(3.11+ only)"
-+Enable or disable quick ack for connections to this destination.
-+
-+.TP
- .BI advmss " NUMBER " "(2.3.15+ only)"
- the MSS ('Maximal Segment Size') to advertise to these
- destinations when establishing TCP connections.  If it is not given,
+ /* Account for an ACK we sent. */
