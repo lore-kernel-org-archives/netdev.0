@@ -1,43 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bcm63xx_enet: add support Broadcom BCM6345
- Ethernet
-Date: Thu, 13 Jun 2013 01:44:50 -0700 (PDT)
-Message-ID: <20130613.014450.1434692343011842828.davem@davemloft.net>
-References: <1371066785-17168-1-git-send-email-florian@openwrt.org>
+From: Cong Wang <amwang@redhat.com>
+Subject: Re: [Patch net-next v2] tcp: introduce a per-route knob for quick
+ ack
+Date: Thu, 13 Jun 2013 16:45:57 +0800
+Message-ID: <1371113157.10194.14.camel@cr0>
+References: <1371104643-24076-1-git-send-email-amwang@redhat.com>
+	 <1371105776.3252.98.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ralf@linux-mips.org, blogic@openwrt.org,
-	linux-mips@linux-mips.org, mbizon@freebox.fr, jogo@openwrt.org,
-	cernekee@gmail.com
-To: florian@openwrt.org
+Cc: netdev@vger.kernel.org, Rick Jones <rick.jones2@hp.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>,
+	David Laight <David.Laight@ACULAB.COM>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37840 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757368Ab3FMIov (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 04:44:51 -0400
-In-Reply-To: <1371066785-17168-1-git-send-email-florian@openwrt.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38332 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1758474Ab3FMIq5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jun 2013 04:46:57 -0400
+In-Reply-To: <1371105776.3252.98.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <florian@openwrt.org>
-Date: Wed, 12 Jun 2013 20:53:05 +0100
+On Wed, 2013-06-12 at 23:42 -0700, Eric Dumazet wrote:
+> On Thu, 2013-06-13 at 14:24 +0800, Cong Wang wrote:
+> > diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+> > index ec335fa..f840b92 100644
+> > --- a/net/ipv4/tcp_output.c
+> > +++ b/net/ipv4/tcp_output.c
+> > @@ -160,6 +160,7 @@ static void tcp_event_data_sent(struct tcp_sock *tp,
+> >  {
+> >  	struct inet_connection_sock *icsk = inet_csk(sk);
+> >  	const u32 now = tcp_time_stamp;
+> > +	const struct dst_entry *dst = __sk_dst_get(sk);
+> >  
+> 
+> 
+> Same here : Are you sure dst cannot be NULL ?
+> 
 
-> +#ifdef BCMCPU_RUNTIME_DETECT
+No, I missed the check for some reason... Will fix it.
 
-I want the MIPS folks to fix this brain damange.
-
-This runtime detect thing is just a big mess in a header file
-using hundreds of lines of CPP stuff to express what is fundamentally
-a simple (albeit sizable) Kconfig dependency.
-
-And this ifdef virus spreads from that header file now into this
-driver.
-
-How can it possibly make sense to have this "maybe it's static at
-build time, maybe it's dynamic" coded into every single piece of code
-for platform drivers or any other thing related to this set of MIPSs
-cpus?
-
-It's rediculous, and I refuse to add code to my tree which continues
-this trend, sorry.
+Thanks.
