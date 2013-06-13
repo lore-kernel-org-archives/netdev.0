@@ -1,406 +1,141 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 05/12] ip_tunnels: extend iptunnel_xmit()
-Date: Thu, 13 Jun 2013 11:24:38 -0700
-Message-ID: <1371147878-9284-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next 03/12] gre: export gre_build_header() function.
+Date: Thu, 13 Jun 2013 11:24:23 -0700
+Message-ID: <1371147863-9205-1-git-send-email-pshelar@nicira.com>
 Cc: Pravin B Shelar <pshelar@nicira.com>
 To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:37049 "HELO
-	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1758954Ab3FMSYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 14:24:43 -0400
-Received: by mail-pb0-f43.google.com with SMTP id md12so9585113pbc.2
-        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 11:24:41 -0700 (PDT)
+Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:60622 "HELO
+	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1758962Ab3FMSYt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 14:24:49 -0400
+Received: by mail-pb0-f54.google.com with SMTP id ro2so10652830pbb.13
+        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 11:24:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Refactor various ip tunnels xmit functions and extend iptunnel_xmit()
-so that there is more code sharing.
+This is required for ovs gre module.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- drivers/net/vxlan.c       |   32 ++++------------
- include/net/ip_tunnels.h  |   26 ++++++++------
- net/ipv4/Makefile         |    2 +-
- net/ipv4/ip_tunnel.c      |   38 +++++---------------
- net/ipv4/ip_tunnel_core.c |   88 +++++++++++++++++++++++++++++++++++++++++++++
- net/ipv6/sit.c            |   37 +++++--------------
- 6 files changed, 130 insertions(+), 93 deletions(-)
- create mode 100644 net/ipv4/ip_tunnel_core.c
+ include/net/gre.h |    2 ++
+ net/ipv4/gre.c    |   32 ++++++++++++++++++++++++++++++++
+ net/ipv4/ip_gre.c |   40 +---------------------------------------
+ 3 files changed, 35 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 8111565..d6cbf09 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1011,7 +1011,6 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct rtable *rt;
- 	const struct iphdr *old_iph;
--	struct iphdr *iph;
- 	struct vxlanhdr *vxh;
- 	struct udphdr *uh;
- 	struct flowi4 fl4;
-@@ -1020,6 +1019,7 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
-         u32 vni;
- 	__be16 df = 0;
- 	__u8 tos, ttl;
-+	int err;
+diff --git a/include/net/gre.h b/include/net/gre.h
+index c6ea0c7..cbb9d51 100644
+--- a/include/net/gre.h
++++ b/include/net/gre.h
+@@ -32,6 +32,8 @@ struct gre_cisco_protocol {
  
- 	dst_port = rdst->remote_port ? rdst->remote_port : vxlan->dst_port;
- 	vni = rdst->remote_vni;
-@@ -1087,13 +1087,6 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 		vxlan_encap_bypass(skb, vxlan, dst_vxlan);
- 		return NETDEV_TX_OK;
- 	}
--
--	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
--	IPCB(skb)->flags &= ~(IPSKB_XFRM_TUNNEL_SIZE | IPSKB_XFRM_TRANSFORMED |
--			      IPSKB_REROUTED);
--	skb_dst_drop(skb);
--	skb_dst_set(skb, &rt->dst);
--
- 	vxh = (struct vxlanhdr *) __skb_push(skb, sizeof(*vxh));
- 	vxh->vx_flags = htonl(VXLAN_FLAGS);
- 	vxh->vx_vni = htonl(vni << 8);
-@@ -1108,27 +1101,18 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
- 	uh->len = htons(skb->len);
- 	uh->check = 0;
+ int gre_cisco_register(struct gre_cisco_protocol *proto);
+ int gre_cisco_unregister(struct gre_cisco_protocol *proto);
++void gre_build_header(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
++		      int hdr_len);
  
--	__skb_push(skb, sizeof(*iph));
--	skb_reset_network_header(skb);
--	iph		= ip_hdr(skb);
--	iph->version	= 4;
--	iph->ihl	= sizeof(struct iphdr) >> 2;
--	iph->frag_off	= df;
--	iph->protocol	= IPPROTO_UDP;
--	iph->tos	= ip_tunnel_ecn_encap(tos, old_iph, skb);
--	iph->daddr	= dst;
--	iph->saddr	= fl4.saddr;
--	iph->ttl	= ttl ? : ip4_dst_hoplimit(&rt->dst);
--	tunnel_ip_select_ident(skb, old_iph, &rt->dst);
--
--	nf_reset(skb);
--
- 	vxlan_set_owner(dev, skb);
- 
- 	if (handle_offloads(skb))
- 		goto drop;
- 
--	iptunnel_xmit(skb, dev);
-+	tos = ip_tunnel_ecn_encap(tos, old_iph, skb);
-+	ttl = ttl ? : ip4_dst_hoplimit(&rt->dst);
-+
-+	err = iptunnel_xmit(dev_net(dev), rt, skb, fl4.saddr, dst,
-+			    IPPROTO_UDP, tos, ttl, df);
-+	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
-+
- 	return NETDEV_TX_OK;
- 
- drop:
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 40b4dfc..788fa5d 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -155,23 +155,27 @@ static inline void tunnel_ip_select_ident(struct sk_buff *skb,
- 				  (skb_shinfo(skb)->gso_segs ?: 1) - 1);
- }
- 
--static inline void iptunnel_xmit(struct sk_buff *skb, struct net_device *dev)
-+int iptunnel_xmit(struct net *net, struct rtable *rt,
-+		  struct sk_buff *skb,
-+		  __be32 src, __be32 dst, __u8 proto,
-+		  __u8 tos, __u8 ttl, __be16 df);
-+
-+static inline void iptunnel_xmit_stats(int err,
-+				       struct net_device_stats *err_stats,
-+				       struct pcpu_tstats __percpu *stats)
+ static inline int ip_gre_calc_hlen(__be16 o_flags)
  {
--	int err;
--	int pkt_len = skb->len - skb_transport_offset(skb);
--	struct pcpu_tstats *tstats = this_cpu_ptr(dev->tstats);
-+	if (err > 0) {
-+		struct pcpu_tstats *tstats = this_cpu_ptr(stats);
- 
--	nf_reset(skb);
--
--	err = ip_local_out(skb);
--	if (likely(net_xmit_eval(err) == 0)) {
- 		u64_stats_update_begin(&tstats->syncp);
--		tstats->tx_bytes += pkt_len;
-+		tstats->tx_bytes += err;
- 		tstats->tx_packets++;
- 		u64_stats_update_end(&tstats->syncp);
-+	} else if (err < 0) {
-+		err_stats->tx_errors++;
-+		err_stats->tx_aborted_errors++;
- 	} else {
--		dev->stats.tx_errors++;
--		dev->stats.tx_aborted_errors++;
-+		err_stats->tx_dropped++;
- 	}
+diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+index 8b9a373..1cbc465 100644
+--- a/net/ipv4/gre.c
++++ b/net/ipv4/gre.c
+@@ -61,6 +61,38 @@ int gre_del_protocol(const struct gre_protocol *proto, u8 version)
  }
- #endif /* __NET_IP_TUNNELS_H */
-diff --git a/net/ipv4/Makefile b/net/ipv4/Makefile
-index 7fcf810..86ded0b 100644
---- a/net/ipv4/Makefile
-+++ b/net/ipv4/Makefile
-@@ -11,7 +11,7 @@ obj-y     := route.o inetpeer.o protocol.o \
- 	     tcp_offload.o datagram.o raw.o udp.o udplite.o \
- 	     udp_offload.o arp.o icmp.o devinet.o af_inet.o igmp.o \
- 	     fib_frontend.o fib_semantics.o fib_trie.o \
--	     inet_fragment.o ping.o
-+	     inet_fragment.o ping.o ip_tunnel_core.o
+ EXPORT_SYMBOL_GPL(gre_del_protocol);
  
- obj-$(CONFIG_NET_IP_TUNNEL) += ip_tunnel.o
- obj-$(CONFIG_SYSCTL) += sysctl_net_ipv4.o
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index 7c79cf8..b7b8d15 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -491,19 +491,17 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- {
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 	const struct iphdr *inner_iph;
--	struct iphdr *iph;
- 	struct flowi4 fl4;
- 	u8     tos, ttl;
- 	__be16 df;
- 	struct rtable *rt;		/* Route to the other host */
--	struct net_device *tdev;	/* Device to other host */
- 	unsigned int max_headroom;	/* The extra header space needed */
- 	__be32 dst;
- 	int mtu;
-+	int err;
- 
- 	inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
- 
--	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 	dst = tnl_params->daddr;
- 	if (dst == 0) {
- 		/* NBMA tunnel */
-@@ -571,14 +569,11 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 		dev->stats.tx_carrier_errors++;
- 		goto tx_error;
- 	}
--	tdev = rt->dst.dev;
--
--	if (tdev == dev) {
-+	if (rt->dst.dev == dev) {
- 		ip_rt_put(rt);
- 		dev->stats.collisions++;
- 		goto tx_error;
- 	}
--
- 	df = tnl_params->frag_off;
- 
- 	if (df)
-@@ -596,6 +591,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 		if (!skb_is_gso(skb) &&
- 		    (inner_iph->frag_off&htons(IP_DF)) &&
- 		     mtu < ntohs(inner_iph->tot_len)) {
-+			memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
- 			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
- 			ip_rt_put(rt);
- 			goto tx_error;
-@@ -646,8 +642,8 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 			ttl = ip4_dst_hoplimit(&rt->dst);
- 	}
- 
--	max_headroom = LL_RESERVED_SPACE(tdev) + sizeof(struct iphdr)
--					       + rt->dst.header_len;
-+	max_headroom = LL_RESERVED_SPACE(rt->dst.dev) + sizeof(struct iphdr)
-+			+ rt->dst.header_len;
- 	if (max_headroom > dev->needed_headroom) {
- 		dev->needed_headroom = max_headroom;
- 		if (skb_cow_head(skb, dev->needed_headroom)) {
-@@ -657,27 +653,11 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 		}
- 	}
- 
--	skb_dst_drop(skb);
--	skb_dst_set(skb, &rt->dst);
--
--	/* Push down and install the IP header. */
--	skb_push(skb, sizeof(struct iphdr));
--	skb_reset_network_header(skb);
--
--	iph = ip_hdr(skb);
--	inner_iph = (const struct iphdr *)skb_inner_network_header(skb);
-+	err = iptunnel_xmit(dev_net(dev), rt, skb,
-+			    fl4.saddr, fl4.daddr, protocol,
-+			    ip_tunnel_ecn_encap(tos, inner_iph, skb), ttl, df);
-+	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 
--	iph->version	=	4;
--	iph->ihl	=	sizeof(struct iphdr) >> 2;
--	iph->frag_off	=	df;
--	iph->protocol	=	protocol;
--	iph->tos	=	ip_tunnel_ecn_encap(tos, inner_iph, skb);
--	iph->daddr	=	fl4.daddr;
--	iph->saddr	=	fl4.saddr;
--	iph->ttl	=	ttl;
--	tunnel_ip_select_ident(skb, inner_iph, &rt->dst);
--
--	iptunnel_xmit(skb, dev);
- 	return;
- 
- #if IS_ENABLED(CONFIG_IPV6)
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-new file mode 100644
-index 0000000..927687e
---- /dev/null
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -0,0 +1,88 @@
-+/*
-+ * Copyright (c) 2013 Nicira, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/skbuff.h>
-+#include <linux/netdevice.h>
-+#include <linux/in.h>
-+#include <linux/if_arp.h>
-+#include <linux/mroute.h>
-+#include <linux/init.h>
-+#include <linux/in6.h>
-+#include <linux/inetdevice.h>
-+#include <linux/netfilter_ipv4.h>
-+#include <linux/etherdevice.h>
-+#include <linux/if_ether.h>
-+#include <linux/if_vlan.h>
-+
-+#include <net/ip.h>
-+#include <net/icmp.h>
-+#include <net/protocol.h>
-+#include <net/ip_tunnels.h>
-+#include <net/arp.h>
-+#include <net/checksum.h>
-+#include <net/dsfield.h>
-+#include <net/inet_ecn.h>
-+#include <net/xfrm.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+#include <net/rtnetlink.h>
-+
-+int iptunnel_xmit(struct net *net, struct rtable *rt,
-+		  struct sk_buff *skb,
-+		  __be32 src, __be32 dst, __u8 proto,
-+		  __u8 tos, __u8 ttl, __be16 df)
++void gre_build_header(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
++		      int hdr_len)
 +{
-+	int pkt_len = skb->len;
-+	struct iphdr *iph;
-+	int err;
++	struct gre_base_hdr *greh;
 +
-+	nf_reset(skb);
-+	secpath_reset(skb);
-+	skb->rxhash = 0;
-+	skb_dst_drop(skb);
-+	skb_dst_set(skb, &rt->dst);
-+	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
++	skb_push(skb, hdr_len);
 +
-+	/* Push down and install the IP header. */
-+	__skb_push(skb, sizeof(struct iphdr));
-+	skb_reset_network_header(skb);
++	greh = (struct gre_base_hdr *)skb->data;
++	greh->flags = tnl_flags_to_gre_flags(tpi->flags);
++	greh->protocol = tpi->proto;
 +
-+	iph = ip_hdr(skb);
++	if (tpi->flags&(TUNNEL_KEY|TUNNEL_CSUM|TUNNEL_SEQ)) {
++		__be32 *ptr = (__be32 *)(((u8 *)greh) + hdr_len - 4);
 +
-+	iph->version	=	4;
-+	iph->ihl	=	sizeof(struct iphdr) >> 2;
-+	iph->frag_off	=	df;
-+	iph->protocol	=	proto;
-+	iph->tos	=	tos;
-+	iph->daddr	=	dst;
-+	iph->saddr	=	src;
-+	iph->ttl	=	ttl;
-+	tunnel_ip_select_ident(skb,
-+			       (const struct iphdr *)skb_inner_network_header(skb),
-+			       &rt->dst);
-+
-+	err = ip_local_out(skb);
-+	if (unlikely(net_xmit_eval(err)))
-+		pkt_len = 0;
-+	return pkt_len;
++		if (tpi->flags&TUNNEL_SEQ) {
++			*ptr = tpi->seq;
++			ptr--;
++		}
++		if (tpi->flags&TUNNEL_KEY) {
++			*ptr = tpi->key;
++			ptr--;
++		}
++		if (tpi->flags&TUNNEL_CSUM &&
++		    !(skb_shinfo(skb)->gso_type & SKB_GSO_GRE)) {
++			*ptr = 0;
++			*(__sum16 *)ptr = csum_fold(skb_checksum(skb, 0,
++								 skb->len, 0));
++		}
++	}
 +}
-+EXPORT_SYMBOL_GPL(iptunnel_xmit);
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 6b9c1f1..76bb8de 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -723,13 +723,14 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 	__be16 df = tiph->frag_off;
- 	struct rtable *rt;     			/* Route to the other host */
- 	struct net_device *tdev;		/* Device to other host */
--	struct iphdr  *iph;			/* Our new IP header */
- 	unsigned int max_headroom;		/* The extra header space needed */
- 	__be32 dst = tiph->daddr;
- 	struct flowi4 fl4;
- 	int    mtu;
- 	const struct in6_addr *addr6;
- 	int addr_type;
-+	u8 ttl;
-+	int err;
- 
- 	if (skb->protocol != htons(ETH_P_IPV6))
- 		goto tx_error;
-@@ -872,34 +873,14 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 		skb = new_skb;
- 		iph6 = ipv6_hdr(skb);
- 	}
--
--	skb->transport_header = skb->network_header;
--	skb_push(skb, sizeof(struct iphdr));
--	skb_reset_network_header(skb);
--	memset(&(IPCB(skb)->opt), 0, sizeof(IPCB(skb)->opt));
--	IPCB(skb)->flags = 0;
--	skb_dst_drop(skb);
--	skb_dst_set(skb, &rt->dst);
--
--	/*
--	 *	Push down and install the IPIP header.
--	 */
--
--	iph 			=	ip_hdr(skb);
--	iph->version		=	4;
--	iph->ihl		=	sizeof(struct iphdr)>>2;
--	iph->frag_off		=	df;
--	iph->protocol		=	IPPROTO_IPV6;
--	iph->tos		=	INET_ECN_encapsulate(tos, ipv6_get_dsfield(iph6));
--	iph->daddr		=	fl4.daddr;
--	iph->saddr		=	fl4.saddr;
--
--	if ((iph->ttl = tiph->ttl) == 0)
--		iph->ttl	=	iph6->hop_limit;
--
--	skb->ip_summed = CHECKSUM_NONE;
--	ip_select_ident(iph, skb_dst(skb), NULL);
--	iptunnel_xmit(skb, dev);
-+	ttl = tiph->ttl;
-+	if (ttl == 0)
-+		ttl = iph6->hop_limit;
-+	tos = INET_ECN_encapsulate(tos, ipv6_get_dsfield(iph6));
++EXPORT_SYMBOL_GPL(gre_build_header);
 +
-+	err = iptunnel_xmit(dev_net(dev), rt, skb, fl4.saddr, fl4.daddr,
-+			    IPPROTO_IPV6, tos, ttl, df);
-+	iptunnel_xmit_stats(err, &dev->stats, dev->tstats);
- 	return NETDEV_TX_OK;
+ static __sum16 check_checksum(struct sk_buff *skb)
+ {
+ 	__sum16 csum = 0;
+diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+index 19863a8..362c7c4 100644
+--- a/net/ipv4/ip_gre.c
++++ b/net/ipv4/ip_gre.c
+@@ -248,40 +248,6 @@ error:
+ 	return ERR_PTR(err);
+ }
  
- tx_error_icmp:
+-static struct sk_buff *gre_build_header(struct sk_buff *skb,
+-					const struct tnl_ptk_info *tpi,
+-					int hdr_len)
+-{
+-	struct gre_base_hdr *greh;
+-
+-	skb_push(skb, hdr_len);
+-
+-	greh = (struct gre_base_hdr *)skb->data;
+-	greh->flags = tnl_flags_to_gre_flags(tpi->flags);
+-	greh->protocol = tpi->proto;
+-
+-	if (tpi->flags&(TUNNEL_KEY|TUNNEL_CSUM|TUNNEL_SEQ)) {
+-		__be32 *ptr = (__be32 *)(((u8 *)greh) + hdr_len - 4);
+-
+-		if (tpi->flags&TUNNEL_SEQ) {
+-			*ptr = tpi->seq;
+-			ptr--;
+-		}
+-		if (tpi->flags&TUNNEL_KEY) {
+-			*ptr = tpi->key;
+-			ptr--;
+-		}
+-		if (tpi->flags&TUNNEL_CSUM &&
+-		    !(skb_shinfo(skb)->gso_type & SKB_GSO_GRE)) {
+-			*(__sum16 *)ptr = 0;
+-			*(__sum16 *)ptr = csum_fold(skb_checksum(skb, 0,
+-								 skb->len, 0));
+-		}
+-	}
+-
+-	return skb;
+-}
+-
+ static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
+ 		       const struct iphdr *tnl_params,
+ 		       __be16 proto)
+@@ -302,11 +268,7 @@ static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	tpi.seq = htonl(tunnel->o_seqno);
+ 
+ 	/* Push GRE header. */
+-	skb = gre_build_header(skb, &tpi, tunnel->hlen);
+-	if (unlikely(!skb)) {
+-		dev->stats.tx_dropped++;
+-		return;
+-	}
++	gre_build_header(skb, &tpi, tunnel->hlen);
+ 
+ 	ip_tunnel_xmit(skb, dev, tnl_params, tnl_params->protocol);
+ }
 -- 
 1.7.1
