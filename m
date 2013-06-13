@@ -1,8 +1,8 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v3 net-next 1/4] net: convert low latency
- sockets to sched_clock()
-Date: Thu, 13 Jun 2013 17:46:23 +0300
-Message-ID: <20130613144623.4875.2539.stgit@ladj378.jer.intel.com>
+Subject: [PATCH v3 net-next 2/4] net: remove NET_LL_RX_POLL
+	config menue
+Date: Thu, 13 Jun 2013 17:46:34 +0300
+Message-ID: <20130613144634.4875.82200.stgit@ladj378.jer.intel.com>
 References: <20130613144613.4875.46858.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,100 +30,38 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Use sched_clock() instead of get_cycles().
-We can use sched_clock() because we don't care much about accuracy.
-Remove the dependency on X86_TSC
+Remove NET_LL_RX_POLL from the config menu.
+Change default to y.
+Busy polling still needs to be enabled at run time.
 
 Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 ---
 
- include/net/ll_poll.h |   23 +++++++++++------------
- net/Kconfig           |    1 -
- 2 files changed, 11 insertions(+), 13 deletions(-)
+ net/Kconfig |   11 ++---------
+ 1 files changed, 2 insertions(+), 9 deletions(-)
 
-diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
-index bc262f8..c75a611 100644
---- a/include/net/ll_poll.h
-+++ b/include/net/ll_poll.h
-@@ -21,10 +21,6 @@
-  * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
-  */
- 
--/*
-- * For now this depends on CONFIG_X86_TSC
-- */
--
- #ifndef _LINUX_NET_LL_POLL_H
- #define _LINUX_NET_LL_POLL_H
- 
-@@ -41,11 +37,14 @@ extern unsigned long sysctl_net_ll_poll __read_mostly;
- #define LL_FLUSH_BUSY		-2
- 
- /* we don't mind a ~2.5% imprecision */
--#define TSC_MHZ (tsc_khz >> 10)
-+#define USECS_TO_NS(us) (us << 10)
- 
--static inline cycles_t ll_end_time(void)
-+/* we can use sched_clock() because we don't care much about precision
-+ * we only care that the average is bounded
-+ */
-+static inline u64 ll_end_time(void)
- {
--	return TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll) + get_cycles();
-+	return sched_clock() + USECS_TO_NS(ACCESS_ONCE(sysctl_net_ll_poll));
- }
- 
- static inline bool sk_valid_ll(struct sock *sk)
-@@ -54,16 +53,16 @@ static inline bool sk_valid_ll(struct sock *sk)
- 	       !need_resched() && !signal_pending(current);
- }
- 
--static inline bool can_poll_ll(cycles_t end_time)
-+static inline bool can_poll_ll(u64 end_time)
- {
--	return !time_after((unsigned long)get_cycles(),
-+	return !time_after((unsigned long)sched_clock(),
- 			    (unsigned long)end_time);
- }
- 
- static inline bool sk_poll_ll(struct sock *sk, int nonblock)
- {
--	cycles_t end_time = ll_end_time();
- 	const struct net_device_ops *ops;
-+	u64 end_time = ll_end_time();
- 	struct napi_struct *napi;
- 	int rc = false;
- 
-@@ -116,7 +115,7 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
- 
- #else /* CONFIG_NET_LL_RX_POLL */
- 
--static inline cycles_t ll_end_time(void)
-+static inline u64 ll_end_time(void)
- {
- 	return 0;
- }
-@@ -139,7 +138,7 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
- {
- }
- 
--static inline bool can_poll_ll(cycles_t end_time)
-+static inline bool can_poll_ll(u64 end_time)
- {
- 	return false;
- }
 diff --git a/net/Kconfig b/net/Kconfig
-index d6a9ce6..e591668 100644
+index e591668..51da839 100644
 --- a/net/Kconfig
 +++ b/net/Kconfig
-@@ -245,7 +245,6 @@ config NETPRIO_CGROUP
+@@ -244,15 +244,8 @@ config NETPRIO_CGROUP
+ 	  a per-interface basis
  
  config NET_LL_RX_POLL
- 	bool "Low Latency Receive Poll"
--	depends on X86_TSC
- 	default n
- 	---help---
- 	  Support Low Latency Receive Queue Poll.
+-	bool "Low Latency Receive Poll"
+-	default n
+-	---help---
+-	  Support Low Latency Receive Queue Poll.
+-	  (For network card drivers which support this option.)
+-	  When waiting for data in read or poll call directly into the the device driver
+-	  to flush packets which may be pending on the device queues into the stack.
+-
+-	  If unsure, say N.
++	boolean
++	default y
+ 
+ config BQL
+ 	boolean
 
 
 ------------------------------------------------------------------------------
