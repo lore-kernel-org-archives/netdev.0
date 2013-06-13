@@ -1,42 +1,32 @@
-From: roy.qing.li@gmail.com
-Subject: [PATCH RESEND] staging: csr: fix the reset of skb mac header
-Date: Thu, 13 Jun 2013 20:12:14 +0800
-Message-ID: <1371125534-17360-1-git-send-email-roy.qing.li@gmail.com>
-Cc: gregkh@linuxfoundation.org
-To: netdev@vger.kernel.org
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next stable v2] sctp: fully initialize sctp_outq in
+ sctp_outq_init
+Date: Thu, 13 Jun 2013 09:08:49 -0400
+Message-ID: <20130613130849.GA4058@neilslaptop.think-freely.org>
+References: <1371061604-27312-1-git-send-email-nhorman@tuxdriver.com>
+ <20130613.024453.1256276769178191648.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-sctp@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	vyasevich@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f182.google.com ([209.85.192.182]:36213 "EHLO
-	mail-pd0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750938Ab3FMMM1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 08:12:27 -0400
-Received: by mail-pd0-f182.google.com with SMTP id r10so5117859pdi.13
-        for <netdev@vger.kernel.org>; Thu, 13 Jun 2013 05:12:25 -0700 (PDT)
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:57514 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756480Ab3FMNI6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 09:08:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20130613.024453.1256276769178191648.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Li RongQing <roy.qing.li@gmail.com>
-
-mac_header can be offset if NET_SKBUFF_DATA_USES_OFFSET is set, so
-we should call skb_reset_mac_header to reset mac_header.
-
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Signed-off-by: Li RongQing <roy.qing.li@gmail.com>
----
- drivers/staging/csr/monitor.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/staging/csr/monitor.c b/drivers/staging/csr/monitor.c
-index c8e20e4..e11f6cb 100644
---- a/drivers/staging/csr/monitor.c
-+++ b/drivers/staging/csr/monitor.c
-@@ -188,7 +188,7 @@ netrx_radiotap(unifi_priv_t *priv,
- 
- 
-     skb->dev = dev;
--    skb->mac_header = skb->data;
-+    skb_reset_mac_header(skb);
-     skb->pkt_type = PACKET_OTHERHOST;
-     skb->protocol = __constant_htons(ETH_P_80211_RAW);
-     memset(skb->cb, 0, sizeof(skb->cb));
--- 
-1.7.10.4
+On Thu, Jun 13, 2013 at 02:44:53AM -0700, David Miller wrote:
+> 
+> 'net-next' + 'stable' is an invalid set of targets for a patch.
+> 
+> If the patch is appropriate for 'stable', then it had better be
+> appropriate for plain 'net' as well.
+> 
+Sorry, I just meant to indicate that I had initially applied it to net-next.  I
+had meant to add net in there as well, where it also applies cleanly
+Neil
