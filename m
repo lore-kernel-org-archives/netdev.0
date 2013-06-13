@@ -1,41 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: stmicro: stmmac: Fix compile error when
- STMMAC_XMIT_DEBUG used
-Date: Thu, 13 Jun 2013 01:31:52 -0700 (PDT)
-Message-ID: <20130613.013152.180392586047160961.davem@davemloft.net>
-References: <1371053103-13536-1-git-send-email-dinguyen@altera.com>
+Subject: Re: [PATCH] drivers/net/ethernet/3com: Drop EISA dependency from
+ VORTEX
+Date: Thu, 13 Jun 2013 01:34:17 -0700 (PDT)
+Message-ID: <20130613.013417.1870836967244200694.davem@davemloft.net>
+References: <CAG2jQ8hACp_iGEXR7rXKR3sydK4O=y0paeh1FFgH2UisxWVxVA@mail.gmail.com>
+	<51B78594.5050903@windriver.com>
+	<51B78C82.7020709@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dinh.linux@gmail.com,
-	peppe.cavallaro@st.com
-To: dinguyen@altera.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37669 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932659Ab3FMIbx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 04:31:53 -0400
-In-Reply-To: <1371053103-13536-1-git-send-email-dinguyen@altera.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: paul.gortmaker@windriver.com, markos.chandras@gmail.com,
+	markos.chandras@imgtec.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: sergei.shtylyov@cogentembedded.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51B78C82.7020709@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: <dinguyen@altera.com>
-Date: Wed, 12 Jun 2013 11:05:03 -0500
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Date: Wed, 12 Jun 2013 00:45:54 +0400
 
-> From: Dinh Nguyen <dinguyen@altera.com>
-> 
-> drivers/net/ethernet/stmicro/stmmac/stmmac_main.c: In function:
-> stmmac_xmit drivers/net/ethernet/stmicro/stmmac/stmmac_main.c:1902:74:
-> error: expected ) before __func__
-> 
-> Signed-off-by: Dinh Nguyen <dinguyen@altera.com>
-> Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> CC: David S. Miller <davem@davemloft.net>
+>    We have the user of 3Com EISA cards on this list and I've fixed EISA
+> specific bug in this driver not long ago.
 
-Applied, but this debugging mechanism is completely unacceptable.
-
-We have a dynamic, run time, way to do stuff like this without
-peppering up a driver with gross ifdefs.
-
-This driver must be converted over to use "netif_msg_*()" et al.
-to guard message logging of different types of events.
+Then I obviously must reject this patch.
