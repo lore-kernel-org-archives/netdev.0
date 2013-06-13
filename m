@@ -1,57 +1,54 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 2/4] net: sctp: sctp_sf_do_prm_asoc: do SCTP_CMD_INIT_CHOOSE_TRANSPORT first
-Date: Thu, 13 Jun 2013 18:04:21 +0200
-Message-ID: <1371139463-12512-3-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 3/4] net: sctp: minor: remove variable in sctp_init_sock
+Date: Thu, 13 Jun 2013 18:04:22 +0200
+Message-ID: <1371139463-12512-4-git-send-email-dborkman@redhat.com>
 References: <1371139463-12512-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56169 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:29534 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752081Ab3FMQE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jun 2013 12:04:29 -0400
+	id S1755049Ab3FMQEb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jun 2013 12:04:31 -0400
 In-Reply-To: <1371139463-12512-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-While this currently cannot trigger any NULL pointer dereference in
-sctp_seq_dump_local_addrs(), better change the order of commands to
-prevent a future bug to happen. Although we first add SCTP_CMD_NEW_ASOC
-and then set the SCTP_CMD_INIT_CHOOSE_TRANSPORT, it is okay for now,
-since this primitive is only called by sctp_connect() or sctp_sendmsg()
-with sctp_assoc_add_peer() set first. However, lets do this precaution
-and first set the transport and then add it to the association hashlist
-to prevent in future something to possibly triggering this.
+It's only used at this one time, so we could remove it as well.
+This is valid and also makes it more explicit/obvious that in case
+of error the sp->ep is NULL here, i.e. for the sctp_destroy_sock()
+check that was recently added.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- net/sctp/sm_statefuns.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ net/sctp/socket.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
-index de1a013..b3d1868 100644
---- a/net/sctp/sm_statefuns.c
-+++ b/net/sctp/sm_statefuns.c
-@@ -4632,16 +4632,16 @@ sctp_disposition_t sctp_sf_do_prm_asoc(struct net *net,
- 	if (!repl)
- 		goto nomem;
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index f631c5f..510dc79 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -3862,7 +3862,6 @@ out:
+ SCTP_STATIC int sctp_init_sock(struct sock *sk)
+ {
+ 	struct net *net = sock_net(sk);
+-	struct sctp_endpoint *ep;
+ 	struct sctp_sock *sp;
  
-+	/* Choose transport for INIT. */
-+	sctp_add_cmd_sf(commands, SCTP_CMD_INIT_CHOOSE_TRANSPORT,
-+			SCTP_CHUNK(repl));
-+
- 	/* Cast away the const modifier, as we want to just
- 	 * rerun it through as a sideffect.
+ 	SCTP_DEBUG_PRINTK("sctp_init_sock(sk: %p)\n", sk);
+@@ -3971,11 +3970,10 @@ SCTP_STATIC int sctp_init_sock(struct sock *sk)
+ 	 * change the data structure relationships, this may still
+ 	 * be useful for storing pre-connect address information.
  	 */
- 	my_asoc = (struct sctp_association *)asoc;
- 	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_ASOC, SCTP_ASOC(my_asoc));
+-	ep = sctp_endpoint_new(sk, GFP_KERNEL);
+-	if (!ep)
++	sp->ep = sctp_endpoint_new(sk, GFP_KERNEL);
++	if (!sp->ep)
+ 		return -ENOMEM;
  
--	/* Choose transport for INIT. */
--	sctp_add_cmd_sf(commands, SCTP_CMD_INIT_CHOOSE_TRANSPORT,
--			SCTP_CHUNK(repl));
--
- 	/* After sending the INIT, "A" starts the T1-init timer and
- 	 * enters the COOKIE-WAIT state.
- 	 */
+-	sp->ep = ep;
+ 	sp->hmac = NULL;
+ 
+ 	SCTP_DBG_OBJCNT_INC(sock);
 -- 
 1.7.11.7
