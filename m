@@ -1,77 +1,39 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH RESEND 1/2] neigh: only allow init_net to change the default
- neigh_parms
-Date: Thu, 13 Jun 2013 11:44:28 +0800
-Message-ID: <51B9401C.1030403@cn.fujitsu.com>
-References: <1371012275-31735-1-git-send-email-gaofeng@cn.fujitsu.com> <87ehc7rdel.fsf@xmission.com> <51B91DC0.4010707@cn.fujitsu.com> <87k3lypzpk.fsf@xmission.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
+Date: Wed, 12 Jun 2013 20:46:02 -0700
+Message-ID: <1371095162.31941.1.camel@joe-AO722>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+	 <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
+	 <20130612230257.GB21234@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: Johannes Berg <johannes@sipsolutions.net>, netdev@vger.kernel.org,
+	mcgrof@do-not-panic.com, kvalo@adurom.com, adrian.chadd@gmail.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:50281 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S932378Ab3FMDmt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jun 2013 23:42:49 -0400
-In-Reply-To: <87k3lypzpk.fsf@xmission.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:50862 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932508Ab3FMDqE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 12 Jun 2013 23:46:04 -0400
+In-Reply-To: <20130612230257.GB21234@electric-eye.fr.zoreil.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/13/2013 09:27 AM, Eric W. Biederman wrote:
-> Gao feng <gaofeng@cn.fujitsu.com> writes:
+On Thu, 2013-06-13 at 01:02 +0200, Francois Romieu wrote:
+> Johannes Berg <johannes@sipsolutions.net> :
+> > diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
+[]
+> > +static int __alx_read_phy_dbg(struct alx_hw *hw, u16 reg, u16 *pdata)
+> > +{
+> > +	int err;
+> > +
+> > +	err = __alx_write_phy_reg(hw, ALX_MII_DBG_ADDR, reg);
+> > +	if (err)
+> > +		return err;
+> > +
+> > +	return __alx_read_phy_reg(hw, ALX_MII_DBG_DATA, pdata);
 > 
->> On 06/12/2013 03:33 PM, Eric W. Biederman wrote:
->>> Gao feng <gaofeng@cn.fujitsu.com> writes:
->>>
->>>> Though we don't export the /proc/sys/net/ipv[4,6]/neigh/default/
->>>> directory to the un-init_net, but we can still use cmd such as
->>>> "ip ntable change name arp_cache locktime 129" to change the locktime
->>>> of default neigh_parms.
->>>>
->>>> This patch disallows the un-init_net to find out the neigh_table.parms.
->>>> So the un-init_net will failed to influence the init_net.
->>>
->>> Interesting...  
->>>
->>> The problem these two patches seek to address seems legit.
->>>
->>> However I disagree with the way you are handling this.
->>>
->>> Outside of the initial network namespace we should return -ENOENT
->>> instead of -EPERM.  Which would match how we handle sysctls, and I think
->>> missing neigh table values.  Just not making these global values visible
->>> seems wise.
->>>
->>
->> Ok, it seems more reasonable.
->>
->>> The alternative is to use the proper permission test which is
->>> capable(CAP_SYS_ADMIN) (instead of testing network namespaces) and
->>> return -EPERM if that fails.  Which would allow processes in other
->>> network namespaces to change the value if they could otherwise change
->>> the value.
->>>
->>
->> So you mean the uninitial net namespace can't see these values but it
->> can change them? it's too strange.
-> 
-> Sorry I was saying that if you don't want to hide the values the
-> permissions and (-EPERM) should track the user namespace not the network
-> namespace.
-> 
->> And the thresh/interval are both under default/ too, if we return -ENOENT
->> for other items, we should also return -ENOENT for them instead of the
->> -EPERM.
-> 
-> Yes.  Let's return hide the global values and just return -ENOENT for
-> everything.  That seems simplest.
-> 
+> 	return err ? err : __alx_read_phy_reg(hw, ALX_MII_DBG_DATA, pdata);
 
-Get it, thanks.
-
-BTW, do you think we need to prevent the default parms being leaked to container?
-we can use cmd "ip ntable show name arp_cache" get the thresh and so on in container
-now.
-
-Thanks!
+I think that's far poorer style.
