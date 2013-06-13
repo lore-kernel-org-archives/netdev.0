@@ -1,67 +1,69 @@
-From: Byungho An <bh74.an@samsung.com>
-Subject: [PATCH net-next] stmmac: added device tree support for fixed_phy and
- phy_addr
-Date: Thu, 13 Jun 2013 10:25:44 +0900
-Message-ID: <019301ce67d4$ed1e32b0$c75a9810$%an@samsung.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH RESEND 1/2] neigh: only allow init_net to change the default neigh_parms
+Date: Wed, 12 Jun 2013 18:27:19 -0700
+Message-ID: <87k3lypzpk.fsf@xmission.com>
+References: <1371012275-31735-1-git-send-email-gaofeng@cn.fujitsu.com>
+	<87ehc7rdel.fsf@xmission.com> <51B91DC0.4010707@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ks_c_5601-1987
-Content-Transfer-Encoding: 7bit
-Cc: 'Giuseppe CAVALLARO' <peppe.cavallaro@st.com>,
-	=?ks_c_5601-1987?B?J7HosbnB+Cc=?= <kgene.kim@samsung.com>,
-	davem@davemloft.net, cpgs@samsung.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Gao feng <gaofeng@cn.fujitsu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout4.samsung.com ([203.254.224.34]:36090 "EHLO
-	mailout4.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756681Ab3FMBZs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 21:25:48 -0400
-Received: from epcpsbgr4.samsung.com
- (u144.gpu120.samsung.co.kr [203.254.230.144])
- by mailout4.samsung.com (Oracle Communications Messaging Server 7u4-24.01
- (7.0.4.24.0) 64bit (built Nov 17 2011))
- with ESMTP id <0MOB000UP5AS72F0@mailout4.samsung.com> for
- netdev@vger.kernel.org; Thu, 13 Jun 2013 10:25:46 +0900 (KST)
-Content-language: ko
+Received: from out02.mta.xmission.com ([166.70.13.232]:56714 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756681Ab3FMB1q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 21:27:46 -0400
+In-Reply-To: <51B91DC0.4010707@cn.fujitsu.com> (Gao feng's message of "Thu, 13
+	Jun 2013 09:17:52 +0800")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Gao feng <gaofeng@cn.fujitsu.com> writes:
 
-This patch adds device tree support for fixed_phy and phy_addr it means
-fixed_phy and phy_addr can be set in device tree file. "fixed_phy" and
-"phy_addr" can be added in the device tree blob. 
+> On 06/12/2013 03:33 PM, Eric W. Biederman wrote:
+>> Gao feng <gaofeng@cn.fujitsu.com> writes:
+>> 
+>>> Though we don't export the /proc/sys/net/ipv[4,6]/neigh/default/
+>>> directory to the un-init_net, but we can still use cmd such as
+>>> "ip ntable change name arp_cache locktime 129" to change the locktime
+>>> of default neigh_parms.
+>>>
+>>> This patch disallows the un-init_net to find out the neigh_table.parms.
+>>> So the un-init_net will failed to influence the init_net.
+>> 
+>> Interesting...  
+>> 
+>> The problem these two patches seek to address seems legit.
+>> 
+>> However I disagree with the way you are handling this.
+>> 
+>> Outside of the initial network namespace we should return -ENOENT
+>> instead of -EPERM.  Which would match how we handle sysctls, and I think
+>> missing neigh table values.  Just not making these global values visible
+>> seems wise.
+>> 
+>
+> Ok, it seems more reasonable.
+>
+>> The alternative is to use the proper permission test which is
+>> capable(CAP_SYS_ADMIN) (instead of testing network namespaces) and
+>> return -EPERM if that fails.  Which would allow processes in other
+>> network namespaces to change the value if they could otherwise change
+>> the value.
+>> 
+>
+> So you mean the uninitial net namespace can't see these values but it
+> can change them? it's too strange.
 
-Signed-off-by: Byungho An <bh74.an@samsung.com>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+Sorry I was saying that if you don't want to hide the values the
+permissions and (-EPERM) should track the user namespace not the network
+namespace.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 1d3780f..33ba995 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -34,6 +34,7 @@ static int stmmac_probe_config_dt(struct platform_device
-*pdev,
- 				  const char **mac)
- {
- 	struct device_node *np = pdev->dev.of_node;
-+	u32 phy_addr;
- 
- 	if (!np)
- 		return -ENODEV;
-@@ -56,6 +57,12 @@ static int stmmac_probe_config_dt(struct platform_device
-*pdev,
- 		plat->pmt = 1;
- 	}
- 
-+	if (of_find_property(np, "fixed_phy", NULL)) {
-+		plat->phy_bus_name = "fixed";
-+		of_property_read_u32(np, "phy_addr", &phy_addr);
-+		plat->phy_addr = phy_addr;
-+	}
-+
- 	return 0;
- }
- #else
--- 
-1.7.10.4
+> And the thresh/interval are both under default/ too, if we return -ENOENT
+> for other items, we should also return -ENOENT for them instead of the
+> -EPERM.
+
+Yes.  Let's return hide the global values and just return -ENOENT for
+everything.  That seems simplest.
+
+Eric
