@@ -1,79 +1,49 @@
-From: Benjamin Poirier <bpoirier@suse.de>
-Subject: [PATCH] netiucv: Hold rtnl between name allocation and device registration.
-Date: Thu, 13 Jun 2013 09:09:47 -0400
-Message-ID: <1371128987-3723-1-git-send-email-bpoirier@suse.de>
-Cc: netdev@vger.kernel.org, Ursula Braun <ursula.braun@de.ibm.com>,
-	linux390@de.ibm.com, Frank Blaschka <blaschka@linux.vnet.ibm.com>,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Cornelia Huck <cornelia.huck@de.ibm.com>,
-	linux-kernel@vger.kernel.org
-To: linux-s390@vger.kernel.org
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: Re: [PATCH net-next] bcm63xx_enet: add support Broadcom BCM6345
+ Ethernet
+Date: Thu, 13 Jun 2013 15:59:21 +0200
+Message-ID: <20130613135921.GA22906@linux-mips.org>
+References: <CAGVrzcYE4VDWtL_Uj1DrkZ6GqX6ghqPAXPpyLptc6PGwReixSQ@mail.gmail.com>
+ <20130613.022524.568792627006552244.davem@davemloft.net>
+ <CAGVrzcaqbdLPcuL0m56aBLuG9ruaQ1p4JfTWZV9DJ4zSrNcXtg@mail.gmail.com>
+ <20130613.025619.2170890039313059326.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: florian@openwrt.org, netdev@vger.kernel.org, blogic@openwrt.org,
+	linux-mips@linux-mips.org, mbizon@freebox.fr, jogo@openwrt.org,
+	cernekee@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qe0-f43.google.com ([209.85.128.43]:34075 "EHLO
-	mail-qe0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756720Ab3FMNKE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 09:10:04 -0400
+Received: from eddie.linux-mips.org ([78.24.191.182]:33719 "EHLO
+	cvs.linux-mips.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754858Ab3FMN7d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 09:59:33 -0400
+Received: from localhost.localdomain ([127.0.0.1]:56900 "EHLO linux-mips.org"
+        rhost-flags-OK-OK-OK-FAIL) by eddie.linux-mips.org with ESMTP
+        id S6835138Ab3FMN7b7ILsu (ORCPT <rfc822;netdev@vger.kernel.org>);
+        Thu, 13 Jun 2013 15:59:31 +0200
+Content-Disposition: inline
+In-Reply-To: <20130613.025619.2170890039313059326.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-fixes a race condition between concurrent initializations of netiucv devices
-that try to use the same name.
+On Thu, Jun 13, 2013 at 02:56:19AM -0700, David Miller wrote:
 
-sysfs: cannot create duplicate filename '/devices/iucv/netiucv2'
-[...]
-Call Trace:
-([<00000000002edea4>] sysfs_add_one+0xb0/0xdc)
- [<00000000002eecd4>] create_dir+0x80/0xfc
- [<00000000002eee38>] sysfs_create_dir+0xe8/0x118
- [<00000000003835a8>] kobject_add_internal+0x120/0x2d0
- [<00000000003839d6>] kobject_add+0x62/0x9c
- [<00000000003d9564>] device_add+0xcc/0x510
- [<000003e00212c7b4>] netiucv_register_device+0xc0/0x1ec [netiucv]
+> From: Florian Fainelli <florian@openwrt.org>
+> Date: Thu, 13 Jun 2013 10:49:18 +0100
+> 
+> > We are in the slow process to switch to Device Tree to precisely
+> > eliminate all of this (although not everyone agrees yet on the
+> > details). Hopefully you should not see such things in the future.
+> 
+> Fair enough, I'll put this patch back into my TODO queue.
 
-Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
-Tested-by: Ursula Braun <braunu@de.ibm.com>
----
- drivers/s390/net/netiucv.c |    6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+David is right, one pair of welding goggles isn't enough to cope with the
+uglyness of this but as a temporary thing I can live with it, so
 
-diff --git a/drivers/s390/net/netiucv.c b/drivers/s390/net/netiucv.c
-index 4ffa66c..9ca3996 100644
---- a/drivers/s390/net/netiucv.c
-+++ b/drivers/s390/net/netiucv.c
-@@ -2040,6 +2040,7 @@ static struct net_device *netiucv_init_netdevice(char *username, char *userdata)
- 			   netiucv_setup_netdevice);
- 	if (!dev)
- 		return NULL;
-+	rtnl_lock();
- 	if (dev_alloc_name(dev, dev->name) < 0)
- 		goto out_netdev;
- 
-@@ -2061,6 +2062,7 @@ static struct net_device *netiucv_init_netdevice(char *username, char *userdata)
- out_fsm:
- 	kfree_fsm(privptr->fsm);
- out_netdev:
-+	rtnl_unlock();
- 	free_netdev(dev);
- 	return NULL;
- }
-@@ -2100,6 +2102,7 @@ static ssize_t conn_write(struct device_driver *drv,
- 
- 	rc = netiucv_register_device(dev);
- 	if (rc) {
-+		rtnl_unlock();
- 		IUCV_DBF_TEXT_(setup, 2,
- 			"ret %d from netiucv_register_device\n", rc);
- 		goto out_free_ndev;
-@@ -2109,7 +2112,8 @@ static ssize_t conn_write(struct device_driver *drv,
- 	priv = netdev_priv(dev);
- 	SET_NETDEV_DEV(dev, priv->dev);
- 
--	rc = register_netdev(dev);
-+	rc = register_netdevice(dev);
-+	rtnl_unlock();
- 	if (rc)
- 		goto out_unreg;
- 
--- 
-1.7.10.4
+Acked-by: Ralf Baechle <ralf@linux-mips.org>
+
+Dave, feel free to merge this through next-next.  I'm going to drop
+this patch from the MIPS patchwork then.
+
+  Ralf
