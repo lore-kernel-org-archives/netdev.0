@@ -1,71 +1,28 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next 1/2] net: remove NET_LL_RX_POLL
-	config menue
-Date: Thu, 13 Jun 2013 05:13:34 +0300
-Message-ID: <51B92ACE.7000307@linux.intel.com>
-References: <20130611142415.17879.75569.stgit@ladj378.jer.intel.com>
-	<20130611142428.17879.33582.stgit@ladj378.jer.intel.com>
-	<20130612.151205.1822920389019274346.davem@davemloft.net>
-	<20130612190103.1545e310@nehalam.linuxnetplumber.net>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next 1/4] openvswitch: Unify vport error stats handling.
+Date: Wed, 12 Jun 2013 19:28:34 -0700
+Message-ID: <CAEP_g=_vVbsYVR_7H5g1_mpecY58=-mO46ksEkmWR-f39kVTGg@mail.gmail.com>
+References: <1371077819-19679-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, or.gerlitz@gmail.com, e1000-devel@lists.sourceforge.net,
-	netdev@vger.kernel.org, hpa@zytor.com, amirv@mellanox.com,
-	jesse.brandeburg@intel.com, eliezer@tamir.org.il,
-	linux-kernel@vger.kernel.org, andi@firstfloor.org,
-	bhutchings@solarflare.com, erdnetdev@gmail.com,
-	eilong@broadcom.com, David Miller <davem@davemloft.net>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130612190103.1545e310@nehalam.linuxnetplumber.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Pravin B Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog131.obsmtp.com ([74.125.149.247]:54457 "HELO
+	na3sys009aog131.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932071Ab3FMC2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 12 Jun 2013 22:28:54 -0400
+Received: by mail-ie0-f169.google.com with SMTP id 10so11682245ied.0
+        for <netdev@vger.kernel.org>; Wed, 12 Jun 2013 19:28:54 -0700 (PDT)
+In-Reply-To: <1371077819-19679-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/06/2013 05:01, Stephen Hemminger wrote:
-> On Wed, 12 Jun 2013 15:12:05 -0700 (PDT)
-> David Miller <davem@davemloft.net> wrote:
+On Wed, Jun 12, 2013 at 3:56 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> Following patch changes vport->send return type so that vport
+> layer can do error accounting.
 >
->> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
->> Date: Tue, 11 Jun 2013 17:24:28 +0300
->>
->>>   	depends on X86_TSC
->>
->> Wait a second, I didn't notice this before.  There needs to be a better
->> way to test for the accuracy you need, or if the issue is lack of a proper
->> API for cycle counter reading, fix that rather than add ugly arch
->> specific dependencies to generic networking code.
->
-> This should be sched_clock(), rather than direct TSC access.
-> Also any code using TSC or sched_clock has to be carefully audited to deal with
-> clocks running at different rates on different CPU's. Basically value is only
-> meaning full on same CPU.
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 
-OK,
-
-If we covert to sched_clock(), would adding a define such as 
-HAVE_HIGH_PRECISION_CLOCK to architectures that have both a high 
-precision clock and a 64 bit cycles_t be a good solution?
-
-(if not any other suggestion?)
-
-
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+There's already a version of this patch in my tree on kernel.org.
