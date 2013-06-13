@@ -1,79 +1,65 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH net-next 1/2] net: remove NET_LL_RX_POLL config menue
-Date: Thu, 13 Jun 2013 13:09:36 +0300
-Message-ID: <51B99A60.6010605@linux.intel.com>
-References: <20130611142415.17879.75569.stgit@ladj378.jer.intel.com> <20130611142428.17879.33582.stgit@ladj378.jer.intel.com> <20130612.151205.1822920389019274346.davem@davemloft.net> <20130612190103.1545e310@nehalam.linuxnetplumber.net> <51B92ACE.7000307@linux.intel.com> <51B97C1A.8000302@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	David Miller <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
-	e1000-devel@lists.sourceforge.net, willemb@google.com,
-	erdnetdev@gmail.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
-	or.gerlitz@gmail.com, amirv@mellanox.com, eliezer@tamir.org.il
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51B97C1A.8000302@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH V3 net-next 0/3] Control VF link state
+Date: Thu, 13 Jun 2013 13:19:09 +0300
+Message-ID: <1371118752-2314-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, amirv@mellanox.com, ronye@mellanox.com,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:60389 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1756119Ab3FMKRx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jun 2013 06:17:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/06/2013 11:00, Daniel Borkmann wrote:
-> On 06/13/2013 04:13 AM, Eliezer Tamir wrote:
->> On 13/06/2013 05:01, Stephen Hemminger wrote:
->>> On Wed, 12 Jun 2013 15:12:05 -0700 (PDT)
->>> David Miller <davem@davemloft.net> wrote:
->>>
->>>> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
->>>> Date: Tue, 11 Jun 2013 17:24:28 +0300
->>>>
->>>>>       depends on X86_TSC
->>>>
->>>> Wait a second, I didn't notice this before.  There needs to be a better
->>>> way to test for the accuracy you need, or if the issue is lack of a
->>>> proper
->>>> API for cycle counter reading, fix that rather than add ugly arch
->>>> specific dependencies to generic networking code.
->>>
->>> This should be sched_clock(), rather than direct TSC access.
->>> Also any code using TSC or sched_clock has to be carefully audited to
->>> deal with
->>> clocks running at different rates on different CPU's. Basically value
->>> is only
->>> meaning full on same CPU.
->>
->> OK,
->>
->> If we covert to sched_clock(), would adding a define such as
->> HAVE_HIGH_PRECISION_CLOCK to architectures that have both a high
->> precision clock and a 64 bit cycles_t be a good solution?
->>
->> (if not any other suggestion?)
->
-> Hm, probably cpu_clock() and similar might be better, since they use
-> sched_clock() in the background when !CONFIG_HAVE_UNSTABLE_SCHED_CLOCK
-> (meaning when sched_clock() provides synchronized highres time source from
-> the architecture), and, quoting ....
+These patches add API and implementation that lets the admin to configure the link 
+state of the VF / SRIOV  eSwitch vPORT. Basically, it has three states
 
-I don't think we want the overhead of disabling IRQs
-that cpu_clock() adds.
+Auto - VF link state reflects the PF link state (default)
 
-We don't really care about precise measurement.
-All we need is a sane cut-off for busy polling.
-It's no big deal if on a rare occasion we poll less,
-or even poll twice the time.
-As long as it's rare it should not matter.
+Up - VF link state is up, traffic from VF to VF works even if
+the actual PF link is down
 
-Maybe the answer is not to use cycle counting at all?
-Maybe just wait the full sk_rcvtimo?
-(resched() when proper, bail out if signal pending, etc.)
+Down - VF link state is down, no traffic from/to this VF, can be of
+use while configuring the VF
 
-This could only be a safe/sane thing to do after we add
-a socket option, because this can't be a global setting.
+Rony and Or.
 
-This would of course turn the option into a flag.
-If it's set (and !nonblock), busy wait up to sk_recvtimo.
+changes from V2:
+ - removed extra asterisks from comments in rtnetlink.c 
+ - fixed two mis-alignments done by patch 1/3 in netdevice.h and rtnetlink.c
 
-Opinions?
+changes from V1:
+ - added missing initialization in rtnl_fill_ifinfo for the linkstate field,
+   pointed out by Ben Hutchings
+
+changes from V0:
+ - added missing part to the iproute2 patch which has the modification
+   to the link show which display the VF link info (sorry for the spam).
+
+Rony Efraim (2):
+  net/core: Add VF link state control
+  net/mlx4: Add VF link state support
+
+ drivers/net/ethernet/mellanox/mlx4/cmd.c       |   48 ++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    8 ++++
+ drivers/net/ethernet/mellanox/mlx4/eq.c        |    9 +++-
+ drivers/net/ethernet/mellanox/mlx4/fw.c        |    8 ++++
+ drivers/net/ethernet/mellanox/mlx4/mlx4.h      |    1 +
+ include/linux/if_link.h                        |    1 +
+ include/linux/mlx4/cmd.h                       |    2 +-
+ include/linux/netdevice.h                      |    3 +
+ include/uapi/linux/if_link.h                   |   13 ++++++
+ net/core/rtnetlink.c                           |   22 ++++++++++-
+ 10 files changed, 110 insertions(+), 5 deletions(-)
+
+iproute2 part:
+
+Rony Efraim (1):
+  Add VF link state control
+
+ include/linux/if_link.h |   13 +++++++++++++
+ ip/ipaddress.c          |   23 +++++++++++++++++++++++
+ ip/iplink.c             |   14 ++++++++++++++
+ 3 files changed, 50 insertions(+), 0 deletions(-)
