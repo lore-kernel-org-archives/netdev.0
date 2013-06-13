@@ -1,69 +1,130 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net] packet: packet_getname_spkt: make sure string is
- always 0-terminated
-Date: Thu, 13 Jun 2013 21:47:48 +0100
-Message-ID: <1371156468.2246.72.camel@bwh-desktop.uk.level5networks.com>
-References: <1371045747-15203-1-git-send-email-dborkman@redhat.com>
-	  <20130613.013859.1357765580190105873.davem@davemloft.net>
-	 <1371143153.2246.10.camel@bwh-desktop.uk.level5networks.com>
-	 <51BA253B.4010701@redhat.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH v3] ethernet/arc/arc_emac - Add new driver
+Date: Thu, 13 Jun 2013 23:50:41 +0300
+Message-ID: <CAHp75VcChT7=DpUYUBw3ZNXXBNCL4kj6HB6nCFL=ytUYaXUXZg@mail.gmail.com>
+References: <1371134239-4531-1-git-send-email-abrodkin@synopsys.com>
+	<CAHp75Vf4zjtebbaQMp4L0EmUPDVyrNPfvLODo7gHBuBEsWmZeA@mail.gmail.com>
+	<4881796E12491D4BB15146FE0209CE643F5DFB22@DE02WEMBXB.internal.synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:19082 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757738Ab3FMUrw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 16:47:52 -0400
-In-Reply-To: <51BA253B.4010701@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Joe Perches <joe@perches.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Mischa Jonker <Mischa.Jonker@synopsys.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Devicetree Discuss <devicetree-discuss@lists.ozlabs.org>
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4881796E12491D4BB15146FE0209CE643F5DFB22@DE02WEMBXB.internal.synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-06-13 at 22:02 +0200, Daniel Borkmann wrote:
-> On 06/13/2013 07:05 PM, Ben Hutchings wrote:
-> > On Thu, 2013-06-13 at 01:38 -0700, David Miller wrote:
-> >> From: Daniel Borkmann <dborkman@redhat.com>
-> >> Date: Wed, 12 Jun 2013 16:02:27 +0200
-> >>
-> >>> uaddr->sa_data is exactly of size 14, which is hard-coded here and
-> >>> passed as a size argument to strncpy(). A device name can be of size
-> >>> IFNAMSIZ (== 16), meaning we might leave the destination string
-> >>> unterminated. Thus, use strlcpy() and also sizeof() while we're
-> >>> at it. We need to memset the data area beforehand, since strlcpy
-> >>> does not padd the remaining buffer with zeroes for user space, so
-> >>> that we do not possibly leak anything.
-> >>>
-> >>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> >>
-> >> Applied, and queued up for -stable, thanks.
-> >
-> > I don't think this should be applied anywhere.  Dropping support for
-> > 14-character device names is a regression.
-> 
-> I don't think this would be reasonable, because it can pose a security
-> risk for user space. In all other cases, we null-terminate the string, so
-> people might trust what they get from the kernel and expect this to happen
-> except in this particular border case.
+On Thu, Jun 13, 2013 at 11:25 PM, Alexey Brodkin
+<Alexey.Brodkin@synopsys.com> wrote:
+> On 06/13/2013 10:25 PM, Andy Shevchenko wrote:
+>> On Thu, Jun 13, 2013 at 5:37 PM, Alexey Brodkin
+>> <Alexey.Brodkin@synopsys.com> wrote:
+>>> Driver for non-standard on-chip ethernet device ARC EMAC 10/100,
+>>> instantiated in some legacy ARC (Synopsys) FPGA Boards such as
+>>> ARCAngel4/ML50x.
 
-It seems to have been this way forever, so any userland programs already
-using the API should be aware of this oddity.
+>>> +++ b/drivers/net/ethernet/arc/arc_emac.h
 
-> I agree that this is pretty broken, but I would say it's a bug in the kernel
-> that can potentially cause user space to crash (or worse) that is making use
-> of this.
+> And what about function names? Do you think it worth to shorten them too
+> since most of them aren't visible outside (static).
 
-It's a bug in the API but you're about 15 years too late to fix that.
+It's better to keep them in their namespace. So, leave them as is.
 
-> There also seems to be no man page documentation about it, only that
-> spkt is heavily deprecated from what I read, and shouldn't be used nowadays.
+>>> +struct arc_emac_priv {
 
-So leave well alone!
+>>> +};
 
-Ben.
+>> It seems you missed my comments against the names of the members. Can
+>> you address them or comment why not?
+>
+> You mean to add description in kerneldoc format for all the fields in
+> structures?
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Not only that one. About member names as well.
+
+> Well while in general it could be "a proper way" of documenting sources
+> I found it not that convenient especially in case of really long structures.
+
+> In my case "arc_emac_priv" structure has 21 members, so right before
+> structure itself there will be another at least 21 line of comments.
+
+Not an argument, you understand.
+
+> Moreover: "The kernel-doc function comments describe each parameter to
+> the function, in order, with the @name lines."
+
+> While I don't think that each and every member needs description.
+
+Describe them in couple of words.
+
+> At
+> least some pairs like Tx/Rx I believe may share the only comment saying
+> "Pointers to BD rings - CPU side".
+
+What BD means? May be it worth to describe as well?
+
+> Also I barely can find an example of strict usage of kernel-doc format
+> for data structures in drivers nearby.
+>
+> For example take a look at STMMAC - drivers/net/ethernet/stmicro/stmmac/
+> Lots of structures defined, non with kernel-doc description.
+
+Again, not an excuse :-)
+
+> Still you think the only way to go is to add kernel-doc description then
+> I'll add it ASAP, might be it will be a good example for other developers.
+
+Right.
+
+>>> +++ b/drivers/net/ethernet/arc/arc_emac_main.c
+>>
+
+>>> +static int arc_emac_poll(struct napi_struct *napi, int budget)
+>>> +{
+
+>>> +       unsigned int i, loop, work_done = 0;
+
+>>> +       for (loop = 0; loop < RX_BD_NUM; loop++) {
+
+>>> +               work_done++;
+>>> +               if (work_done >= budget)
+>>> +                       break;
+>>
+>> Those three could easily go to the for () on the top of this function.
+>
+> Correct. It should be like this on top of the "arc_emac_poll":
+> ====
+>                 if (work_done >= budget)
+>                         break;
+>                 work_done++;
+> ====
+
+I meant something like
+for (loop = 0; loop < RX_BD_NUM && work_done < budget; loop++, work_done++)
+
+>>> +static int arc_emac_open(struct net_device *ndev)
+>>> +{
+>>
+>>> +       /* Set Poll rate so that it polls every 1 ms */
+>>> +       arc_reg_set(priv, R_POLLRATE,
+>>> +                    priv->clock_frequency / 1000000);
+>>
+>> I don't understand how you end up with 1ms here. 1000000 is just a
+>> magic number, clock_frequency generally is an arbitrary value.
+
+I meant how do you guarantee this is 1ms? What if clock_frequency is not 100MHz?
+
+--
+With Best Regards,
+Andy Shevchenko
