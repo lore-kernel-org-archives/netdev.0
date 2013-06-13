@@ -1,53 +1,36 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net] packet: packet_getname_spkt: make sure string is
- always 0-terminated
-Date: Thu, 13 Jun 2013 18:09:47 +0100
-Message-ID: <1371143387.2246.13.camel@bwh-desktop.uk.level5networks.com>
-References: <1371045747-15203-1-git-send-email-dborkman@redhat.com>
-	 <20130613.013859.1357765580190105873.davem@davemloft.net>
-	 <1371143153.2246.10.camel@bwh-desktop.uk.level5networks.com>
+From: Tommi Rantala <tt.rantala@gmail.com>
+Subject: =?windows-1252?Q?Re=3A_include=2Fnet=2Fipv6=2Eh=3A408=3A38=3A_warning=3A_=91=2A=28=28void_=2A?=
+	=?windows-1252?Q?=29=26addr=2B8=29=92_may_be_used_uninitialized_in_this_function?=
+Date: Thu, 13 Jun 2013 20:20:28 +0300
+Message-ID: <CA+ydwtoF7SEf20h+qXxFi4hAH4J0Z+6O_Zx5XSQ4xthn7daJpw@mail.gmail.com>
+References: <CA+ydwtrVHDE65dVTBijGguZDK0+=+tzi+nn1UywRqfn9Rx4ZuA@mail.gmail.com>
+	<1371137986.3252.112.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <dborkman@redhat.com>, <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:32550 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755774Ab3FMRJu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 13:09:50 -0400
-In-Reply-To: <1371143153.2246.10.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371137986.3252.112.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2013-06-13 at 18:05 +0100, Ben Hutchings wrote:
-> On Thu, 2013-06-13 at 01:38 -0700, David Miller wrote:
-> > From: Daniel Borkmann <dborkman@redhat.com>
-> > Date: Wed, 12 Jun 2013 16:02:27 +0200
-> > 
-> > > uaddr->sa_data is exactly of size 14, which is hard-coded here and
-> > > passed as a size argument to strncpy(). A device name can be of size
-> > > IFNAMSIZ (== 16), meaning we might leave the destination string
-> > > unterminated. Thus, use strlcpy() and also sizeof() while we're
-> > > at it. We need to memset the data area beforehand, since strlcpy
-> > > does not padd the remaining buffer with zeroes for user space, so
-> > > that we do not possibly leak anything.
-> > > 
-> > > Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> > 
-> > Applied, and queued up for -stable, thanks.
-> 
-> I don't think this should be applied anywhere.  Dropping support for
-> 14-character device names is a regression.
+2013/6/13 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Thu, 2013-06-13 at 18:16 +0300, Tommi Rantala wrote:
+>> Hello, I'm seeing the following compiler warnings. Do these make any
+>> sense? I'm doing a x86-64 build.
+>
+>> $ gcc --version
+>> gcc (Ubuntu/Linaro 4.7.3-1ubuntu1) 4.7.3
+>> Copyright (C) 2012 Free Software Foundation, Inc.
+>> This is free software; see the source for copying conditions.  There is NO
+>> warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+>>
+>> config:
+>> http://fpaste.org/18443/13711363/
+>
+> Well, what tree are you using ?
 
-...not that this actually prevents binding to 14-character device names;
-it just means the name is then not reported back correctly.  Whatever,
-it is a regression.  The fact that a 14-character name is not null-
-terminated should be documented instead (I'm not sure where).
+mainline, the warnings are from v3.10-rc5-0-g317ddd2.
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+They are not new, also visible e.g. in v3.9-0-gc1be5a5.
