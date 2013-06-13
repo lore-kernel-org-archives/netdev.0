@@ -1,67 +1,45 @@
-From: Dave Wiltshire <david.wiltshire@gmx.com>
-Subject: Re: [PATCH 1/3] skbuff: Update truesize in pskb_expand_head
-Date: Thu, 13 Jun 2013 09:35:03 +1000
-Message-ID: <20130612233503.GB10989@linux-rbgc.site>
-References: <1371027934-1955-1-git-send-email-david.wiltshire@gmx.com>
- <1371027934-1955-2-git-send-email-david.wiltshire@gmx.com>
- <1371028618.3252.57.camel@edumazet-glaptop>
+From: "Shimoda, Yoshihiro" <yoshihiro.shimoda.uh@renesas.com>
+Subject: Re: [PATCH net-next] net: sh_eth: fix incorrect RX length error if
+ R8A7740
+Date: Thu, 13 Jun 2013 09:57:40 +0900
+Message-ID: <51B91904.8070001@renesas.com>
+References: <51B7CFFB.7090801@renesas.com> <51B8CB1B.9020304@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, viro@zeniv.linux.org.uk,
-	eparis@redhat.com, edumazet@google.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.22]:60954 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756961Ab3FLXdw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 12 Jun 2013 19:33:52 -0400
-Content-Disposition: inline
-In-Reply-To: <1371028618.3252.57.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, SH-Linux <linux-sh@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-reply-to: <51B8CB1B.9020304@cogentembedded.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 12, 2013 at 02:16:58AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-06-12 at 19:05 +1000, Dave Wiltshire wrote:
-> > Some call sites to pskb_expand_head subsequently update the skb truesize
-> > and others don't (even with non-zero arguments). This is likely a memory
-> > audit leak. Fixed this up by moving the memory accounting to the
-> > skbuff.c file and removing it from the calling sites.
+Hi,
+
+(2013/06/13 4:25), Sergei Shtylyov wrote:
+> On 06/12/2013 05:33 AM, Shimoda, Yoshihiro wrote:
+< snip >
+>> +#if defined(CONFIG_ARCH_R8A7740)
+>> +        /*
+>> +         * In case of almost GETHER/ETHERs, the Receive Frame State
 > 
-> Ouch.
-> 
-> Sorry, you cannot do that.
-> 
-> skb->truesize is really complex, because there is a strong relation
-> between skb->truesize and memory accounting on sockets.
+>    Erm, minor nit: it seems you forgot "all" after "almost". Hence it's probably worth resubmitting...
 > 
 
-Firstly, from my cover letter: "Perhaps I don't understand something,
-but I thought it best to generate the change and then ask. So is this
-correct?". But secondly, I understand that the only reason for truesize
-is for memory accounting on sockets. Indeed that's why I thought this
-was incorrect. Something being complex is not a good reason not to do
-it.
+Thank you for the point. I will fix it and resubmit a patch for "net.git".
 
-> So pskb_expand_head() should not touch skb->truesize.
+Best regards,
+Yoshihiro Shimoda
+
+>> +         * (RFS) bits in the Receive Descriptor 0 are from bit 9 to
+>> +         * bit 0. However, in case of the R8A7740's GETHER, the RFS
+>> +         * bits are from bit 25 to bit 16. So, the driver needs right
+>> +         * shifting by 16.
+>> +         */
+>> +        desc_status >>= 16;
+>> +#endif
+>> +
 > 
-> Only callers can do that when needed, and if possible.
+> WBR, Sergei
 > 
-> An example of very careful truesize manipulation can be found in
-> tcp_tso_segment()
 > 
-
-Perhaps I'm still missing something but I don't think tcp_tso_segment is
-a very good example of truesize in skbuffs. That function is reassigning
-already allocated memory between different skbuffs, and also it doesn't
-touch pskb_expand_head. I don't see how that is similar to calling
-pskb_expand_head with non-zero parameters (thus increasing the size of a
-skbuff) and _not_ updating truesize as occurs, for instance, in
-drivers/atm/solos-pci.c in the function psend.
-
-Now this is a little used driver so perhaps it doesn't matter. But I'm
-not sure if this is happening in other places thus meaning that memory
-accounting on sockets isn't being performed correctly. Which is the
-reason I suggested this as a fix.
-
-Dave W
