@@ -1,83 +1,65 @@
-From: "Tantilov, Emil S" <emil.s.tantilov@intel.com>
-Subject: RE: Problems with ixgbe driver
-Date: Fri, 14 Jun 2013 16:08:04 +0000
-Message-ID: <87618083B2453E4A8714035B62D679924FDC4748@FMSMSX105.amr.corp.intel.com>
-References: <alpine.LRH.2.02.1306141031490.22892@praktifix.dwd.de>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: Re: mlx4_core 0000:05:00.0: event 19 arrived
+Date: Fri, 14 Jun 2013 11:10:03 -0500
+Message-ID: <20130614161003.GB7310@sbohrermbp13-local.rgmadvisors.com>
+References: <20130614155342.GA7310@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Holger Kiehl <Holger.Kiehl@dwd.de>,
-	"e1000-devel@lists.sf.net" <e1000-devel@lists.sf.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <alpine.LRH.2.02.1306141031490.22892@praktifix.dwd.de>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Cc: ogerlitz@mellanox.com, amirv@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:44644 "EHLO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752502Ab3FNQSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 12:18:01 -0400
+Received: by mail-oa0-f47.google.com with SMTP id m1so911074oag.6
+        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 09:18:00 -0700 (PDT)
+In-Reply-To: <20130614155342.GA7310@sbohrermbp13-local.rgmadvisors.com>
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->-----Original Message-----
->From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org] On
->Behalf Of Holger Kiehl
->Sent: Friday, June 14, 2013 4:50 AM
->To: e1000-devel@lists.sf.net
->Cc: linux-kernel; netdev@vger.kernel.org
->Subject: Problems with ixgbe driver
->
->Hello,
->
->I have dual port 10Gb Intel network card on a 2 socket (Xeon X5690) with
->a total of 12 cores. Hyperthreading is enabled so there are 24 cores.
->The problem I have is that when other systems send large amount of data
->the network with the intel ixgbe driver gets very slow. Ping times go up
->from 0.2ms to appr. 60ms. Some FTP connections stall for more then 2
->minutes. What is strange is that heatbeat is configured on the system
->with a serial connection to another node and kernel always reports
+On Fri, Jun 14, 2013 at 10:53:42AM -0500, Shawn Bohrer wrote:
+> I've been testing 3.10-rc5, and while I'm not sure what exactly I was
+> running at the time or if there were any negative effects, but I just
+> noticed my dmesg buffer is completely full of the following messages:
+> 
+> ...
+> [137475.687703] mlx4_core 0000:05:00.0: event 19 arrived
+> [137475.688944] mlx4_core 0000:05:00.0: event 19 arrived
+> [137475.689673] mlx4_core 0000:05:00.0: event 19 arrived
+> [137475.697600] mlx4_core 0000:05:00.0: event 19 arrived
+> [137475.699125] mlx4_core 0000:05:00.0: event 19 arrived
+> ...
+> 
+> This appears to come from drivers/net/ethernet/mellanox/mlx4/eq.c:473
+> 
+> $ ethtool -i eth4
+> driver: mlx4_en
+> version: 2.0 (Dec 2011)
+> firmware-version: 2.11.500
+> bus-info: 0000:05:00.0
+> supports-statistics: yes
+> supports-test: yes
+> supports-eeprom-access: no
+> supports-register-dump: no
+> 
+> I'll see if I can figure out a workload that reproduced the message
+> later today, but perhaps the message is enough to get some ideas from
+> the Mellanox folks.
 
-If the network slows down so much there should be some indication in dmesg. Like Tx hangs perhaps.
-Can you provide the output of dmesg and ethtool -S from the offending interface after the issue occurs?
+I also just remembered that I had set debug_level=1 on mlx4_core and
+that is likely why I am now seeing these messages.  If these messages
+are expected and harmless then I'll simply turn off the debug
+messages.
 
->
->     ttyS0: 4 input overrun(s)
->
->when lot of data is send and the ping time goes up.
->
->On the network there are three vlan's configured. The network is bonded
->(active-backup) together with another HP NC523SFP 10Gb 2-port Server
->Adapter. When I switch the network to this card the problem goes away.
->Also the ttyS0 input overruns disappear. Note also both network cards
->are connected to the same switch.
->
->The system uses Scientific Linux 6.4 with kernel.org kernel. I noticed
->this behavior with kernel 3.9.5 and 3.9.6-rc1. Before I did not notice
->it because traffic always went over the HP NC523SFP qlcnic card.
->
->In search for a solution to the problem I found a newer ixgbe driver
->3.15.1 (3.9.6-rc1. has 3.11.33-k) and tried that. But it has the same
->problem. However when I load the module as follows:
->
->     modprobe ixgbe RSS=8,8
->
->the problem goes away. The kernel.org ixgbe driver does not offer this
->option. Why? It seems that both drivers have problems on systems with
+--
+Shawn
 
-If you are using newer kernel and ethtool version you can use `ethtool -L ethX combined Y` to control the number of queues per interface.
+-- 
 
->24 cpu's. But I cannot believe that I am the only one who noticed this,
->since ixgbe is widely used.
-
-We run traffic with multiple queues all the time and I don't think what you are reporting is a generic issue. Most likely it's something related to your setup/system.
-
->
->It would really be nice if one could set the RSS=8,8 option for kernel.org
->ixgbe driver too. Or if someone could tell me where I can force the driver
->to Receive Side Scaling to 8 even if it means editing the source code.
->
->Below I have added some additional information. Please CC me since I
->am not subscribed to any of these lists. And please do not hesitate
->to ask if more information is needed.
-
-I would suggest that you open up a bug at e1000.sf.net - describe your configuration and attach the relevant info (dmesg, ethtool -S, lspci etc). This would make it easier for us to follow.
-
-Thanks,
-Emil
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
