@@ -1,8 +1,8 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v4 net-next 3/4] net: remove NET_LL_RX_POLL
-	config menue
-Date: Fri, 14 Jun 2013 04:57:11 +0300
-Message-ID: <20130614015711.3500.65439.stgit@ladj378.jer.intel.com>
+Subject: [PATCH v4 net-next 1/4] net: change
+ sysctl_net_ll_poll into an unsigned int
+Date: Fri, 14 Jun 2013 04:56:49 +0300
+Message-ID: <20130614015648.3500.85865.stgit@ladj378.jer.intel.com>
 References: <20130614015638.3500.61523.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,38 +30,70 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-Remove NET_LL_RX_POLL from the config menu.
-Change default to y.
-Busy polling still needs to be enabled at run time.
+There is no reason for sysctl_net_ll_poll to be an unsigned long.
+Change it into an unsigned int.
+Fix the proc handler.
 
 Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 ---
 
- net/Kconfig |   11 ++---------
- 1 files changed, 2 insertions(+), 9 deletions(-)
+ include/net/ll_poll.h      |    5 +++--
+ net/core/sysctl_net_core.c |    4 ++--
+ net/socket.c               |    2 +-
+ 3 files changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/net/Kconfig b/net/Kconfig
-index e591668..51da839 100644
---- a/net/Kconfig
-+++ b/net/Kconfig
-@@ -244,15 +244,8 @@ config NETPRIO_CGROUP
- 	  a per-interface basis
+diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
+index bc262f8..44e2f70 100644
+--- a/include/net/ll_poll.h
++++ b/include/net/ll_poll.h
+@@ -34,7 +34,7 @@
+ #ifdef CONFIG_NET_LL_RX_POLL
  
- config NET_LL_RX_POLL
--	bool "Low Latency Receive Poll"
--	default n
--	---help---
--	  Support Low Latency Receive Queue Poll.
--	  (For network card drivers which support this option.)
--	  When waiting for data in read or poll call directly into the the device driver
--	  to flush packets which may be pending on the device queues into the stack.
--
--	  If unsure, say N.
-+	boolean
-+	default y
+ struct napi_struct;
+-extern unsigned long sysctl_net_ll_poll __read_mostly;
++extern unsigned int sysctl_net_ll_poll __read_mostly;
  
- config BQL
- 	boolean
+ /* return values from ndo_ll_poll */
+ #define LL_FLUSH_FAILED		-1
+@@ -45,7 +45,8 @@ extern unsigned long sysctl_net_ll_poll __read_mostly;
+ 
+ static inline cycles_t ll_end_time(void)
+ {
+-	return TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll) + get_cycles();
++	return (cycles_t)TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll)
++			+ get_cycles();
+ }
+ 
+ static inline bool sk_valid_ll(struct sock *sk)
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 637a42e..ce9acc2 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -289,9 +289,9 @@ static struct ctl_table net_core_table[] = {
+ 	{
+ 		.procname	= "low_latency_poll",
+ 		.data		= &sysctl_net_ll_poll,
+-		.maxlen		= sizeof(unsigned long),
++		.maxlen		= sizeof(unsigned int),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_doulongvec_minmax
++		.proc_handler	= proc_dointvec
+ 	},
+ #endif
+ #endif /* CONFIG_NET */
+diff --git a/net/socket.c b/net/socket.c
+index 21fd29f..caaffa1 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -107,7 +107,7 @@
+ #include <net/ll_poll.h>
+ 
+ #ifdef CONFIG_NET_LL_RX_POLL
+-unsigned long sysctl_net_ll_poll __read_mostly;
++unsigned int sysctl_net_ll_poll __read_mostly;
+ EXPORT_SYMBOL_GPL(sysctl_net_ll_poll);
+ #endif
+ 
 
 
 ------------------------------------------------------------------------------
