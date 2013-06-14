@@ -1,90 +1,55 @@
-From: Sathya Perla <sathya.perla@emulex.com>
-Subject: [PATCH net-next] be2net: use pci_vfs_assigned()/pci_num_vf() instead of be_find_vfs()
-Date: Fri, 14 Jun 2013 15:54:51 +0530
-Message-ID: <1371205491-11768-1-git-send-email-sathya.perla@emulex.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:54612 "EHLO
-	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751702Ab3FNKVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 06:21:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Aydin Arik <aydin.arik@alliedtelesis.co.nz>
+Subject: [PATCH 1/1] [PATCH v2] tcp: Fixed MD5 key lookups when adding/removing MD5.
+Date: Fri, 14 Jun 2013 23:30:03 +1200
+Message-ID: <1371209403-28275-1-git-send-email-aydin.arik@alliedtelesis.co.nz>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Aydin Arik <aydin.arik@alliedtelesis.co.nz>
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-be_find_vfs() is no longer needed as the common PCI calls provide the same
-functionality.
+MD5 key lookups on a given TCP socket were being performed
+incorrectly. This fix alters parameter inputs to the MD5
+lookup function tcp_md5_do_lookup, which is called by functions
+tcp_md5_do_add and tcp_md5_do_del. Specifically, the change now
+inputs the correct address and address family required to make
+a proper lookup.
 
-Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+Commit a915da9b69273815527ccb3789421cb7027b545b ("tcp: md5: rcu conversion")
+is the source of the regression.
+
+Signed-off-by: Aydin Arik <aydin.arik@alliedtelesis.co.nz>
 ---
- drivers/net/ethernet/emulex/benet/be_main.c |   31 +++-----------------------
- 1 files changed, 4 insertions(+), 27 deletions(-)
+ net/ipv4/tcp_ipv4.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 9aef457..c20a201 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -1262,30 +1262,6 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
- 	return status;
- }
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index d09203c..da84cdb 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -1005,7 +1005,7 @@ int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	struct tcp_md5sig_info *md5sig;
  
--static int be_find_vfs(struct be_adapter *adapter, int vf_state)
--{
--	struct pci_dev *dev, *pdev = adapter->pdev;
--	int vfs = 0, assigned_vfs = 0, pos;
--	u16 offset, stride;
--
--	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
--	if (!pos)
--		return 0;
--	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_OFFSET, &offset);
--	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_STRIDE, &stride);
--
--	dev = pci_get_device(pdev->vendor, PCI_ANY_ID, NULL);
--	while (dev) {
--		if (dev->is_virtfn && pci_physfn(dev) == pdev) {
--			vfs++;
--			if (dev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
--				assigned_vfs++;
--		}
--		dev = pci_get_device(pdev->vendor, PCI_ANY_ID, dev);
--	}
--	return (vf_state == ASSIGNED) ? assigned_vfs : vfs;
--}
--
- static void be_eqd_update(struct be_adapter *adapter, struct be_eq_obj *eqo)
- {
- 	struct be_rx_stats *stats = rx_stats(&adapter->rx_obj[eqo->idx]);
-@@ -2797,7 +2773,7 @@ static void be_vf_clear(struct be_adapter *adapter)
- 	struct be_vf_cfg *vf_cfg;
- 	u32 vf;
+-	key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)&addr, AF_INET);
++	key = tcp_md5_do_lookup(sk, addr, family);
+ 	if (key) {
+ 		/* Pre-existing entry - just update that one. */
+ 		memcpy(key->key, newkey, newkeylen);
+@@ -1050,7 +1050,7 @@ int tcp_md5_do_del(struct sock *sk, const union tcp_md5_addr *addr, int family)
+ 	struct tcp_md5sig_key *key;
+ 	struct tcp_md5sig_info *md5sig;
  
--	if (be_find_vfs(adapter, ASSIGNED)) {
-+	if (pci_vfs_assigned(adapter->pdev)) {
- 		dev_warn(&adapter->pdev->dev,
- 			 "VFs are assigned to VMs: not disabling VFs\n");
- 		goto done;
-@@ -2899,7 +2875,7 @@ static int be_vf_setup(struct be_adapter *adapter)
- 	int status, old_vfs, vf;
- 	struct device *dev = &adapter->pdev->dev;
- 
--	old_vfs = be_find_vfs(adapter, ENABLED);
-+	old_vfs = pci_num_vf(adapter->pdev);
- 	if (old_vfs) {
- 		dev_info(dev, "%d VFs are already enabled\n", old_vfs);
- 		if (old_vfs != num_vfs)
-@@ -4200,9 +4176,10 @@ reschedule:
- 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
- }
- 
-+/* If any VFs are already enabled don't FLR the PF */
- static bool be_reset_required(struct be_adapter *adapter)
- {
--	return be_find_vfs(adapter, ENABLED) > 0 ? false : true;
-+	return pci_num_vf(adapter->pdev) ? false : true;
- }
- 
- static char *mc_name(struct be_adapter *adapter)
+-	key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)&addr, AF_INET);
++	key = tcp_md5_do_lookup(sk, addr, family);
+ 	if (!key)
+ 		return -ENOENT;
+ 	hlist_del_rcu(&key->node);
 -- 
-1.7.1
+1.7.9.5
