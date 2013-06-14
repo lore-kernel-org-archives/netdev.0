@@ -1,38 +1,57 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [PATCH net-next v2 0/4] openvswitch tunneling preparation
-Date: Fri, 14 Jun 2013 08:28:41 -0700
-Message-ID: <CAEP_g=9fV07wM-LVyfyMy9mjKe+y3pkGz8WvbZAPtM096m7ftw@mail.gmail.com>
-References: <1371147079-29139-1-git-send-email-pshelar@nicira.com> <20130613.170527.243134340140974936.davem@davemloft.net>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: mlx4_core 0000:05:00.0: event 19 arrived
+Date: Fri, 14 Jun 2013 10:53:42 -0500
+Message-ID: <20130614155342.GA7310@sbohrermbp13-local.rgmadvisors.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pravin Shelar <pshelar@nicira.com>,
-	netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Cc: ogerlitz@mellanox.com, amirv@mellanox.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:47735 "HELO
-	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752021Ab3FNP3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 11:29:03 -0400
-Received: by mail-lb0-f180.google.com with SMTP id o10so719890lbi.39
-        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 08:29:02 -0700 (PDT)
-In-Reply-To: <20130613.170527.243134340140974936.davem@davemloft.net>
+Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:34372 "EHLO
+	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752125Ab3FNPxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 11:53:49 -0400
+Received: by mail-oa0-f45.google.com with SMTP id j1so872486oag.4
+        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 08:53:48 -0700 (PDT)
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 13, 2013 at 5:05 PM, David Miller <davem@davemloft.net> wrote:
-> From: Pravin B Shelar <pshelar@nicira.com>
-> Date: Thu, 13 Jun 2013 11:11:19 -0700
->
->> Following patches are required but not directly related to ovs tunneling.
->> So I am sending them as separate series. These cleanups are already
->> there in out of tree ovs module.
->>
->> Since ovs tunneling series depends on this, I am sending all patches
->> again.
->
-> Openvswitch folks please send me a pull request.
+I've been testing 3.10-rc5, and while I'm not sure what exactly I was
+running at the time or if there were any negative effects, but I just
+noticed my dmesg buffer is completely full of the following messages:
 
-For the non-OVS portions of the tunneling series (not this one, which
-I already applied, but the next) do you want to take them directly or
-should I just throw them all into my tree?
+...
+[137475.687703] mlx4_core 0000:05:00.0: event 19 arrived
+[137475.688944] mlx4_core 0000:05:00.0: event 19 arrived
+[137475.689673] mlx4_core 0000:05:00.0: event 19 arrived
+[137475.697600] mlx4_core 0000:05:00.0: event 19 arrived
+[137475.699125] mlx4_core 0000:05:00.0: event 19 arrived
+...
+
+This appears to come from drivers/net/ethernet/mellanox/mlx4/eq.c:473
+
+$ ethtool -i eth4
+driver: mlx4_en
+version: 2.0 (Dec 2011)
+firmware-version: 2.11.500
+bus-info: 0000:05:00.0
+supports-statistics: yes
+supports-test: yes
+supports-eeprom-access: no
+supports-register-dump: no
+
+I'll see if I can figure out a workload that reproduced the message
+later today, but perhaps the message is enough to get some ideas from
+the Mellanox folks.
+
+--
+Shawn
+
+-- 
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
