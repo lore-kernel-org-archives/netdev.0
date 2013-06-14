@@ -1,43 +1,44 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: fix ecmp lookup on forwarding path
-Date: Thu, 13 Jun 2013 17:38:29 -0700 (PDT)
-Message-ID: <20130613.173829.683328203745717078.davem@davemloft.net>
-References: <1371132295-5620-1-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH] netiucv: Hold rtnl between name allocation and device
+ registration.
+Date: Thu, 13 Jun 2013 17:41:54 -0700 (PDT)
+Message-ID: <20130613.174154.4560842535243312.davem@davemloft.net>
+References: <1371128987-3723-1-git-send-email-bpoirier@suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, zhi.ding@6wind.com
-To: nicolas.dichtel@6wind.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48208 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753156Ab3FNAia (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 20:38:30 -0400
-In-Reply-To: <1371132295-5620-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-s390@vger.kernel.org, netdev@vger.kernel.org,
+	ursula.braun@de.ibm.com, linux390@de.ibm.com,
+	blaschka@linux.vnet.ibm.com, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, cornelia.huck@de.ibm.com,
+	linux-kernel@vger.kernel.org
+To: bpoirier@suse.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371128987-3723-1-git-send-email-bpoirier@suse.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Thu, 13 Jun 2013 16:04:55 +0200
+From: Benjamin Poirier <bpoirier@suse.de>
+Date: Thu, 13 Jun 2013 09:09:47 -0400
 
-> From: dingzhi <zhi.ding@6wind.com>
+> fixes a race condition between concurrent initializations of netiucv devices
+> that try to use the same name.
 > 
-> There is no reason to skip ECMP lookup when oif is specified. For example, when
-> a packet is forwarded, the input interface is specified.
+> sysfs: cannot create duplicate filename '/devices/iucv/netiucv2'
+> [...]
+> Call Trace:
+> ([<00000000002edea4>] sysfs_add_one+0xb0/0xdc)
+>  [<00000000002eecd4>] create_dir+0x80/0xfc
+>  [<00000000002eee38>] sysfs_create_dir+0xe8/0x118
+>  [<00000000003835a8>] kobject_add_internal+0x120/0x2d0
+>  [<00000000003839d6>] kobject_add+0x62/0x9c
+>  [<00000000003d9564>] device_add+0xcc/0x510
+>  [<000003e00212c7b4>] netiucv_register_device+0xc0/0x1ec [netiucv]
 > 
-> Signed-off-by: dingzhi <zhi.ding@6wind.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Signed-off-by: Benjamin Poirier <bpoirier@suse.de>
+> Tested-by: Ursula Braun <braunu@de.ibm.com>
 
-There is no way this is valid.
+Yes as dev_alloc_name() must be invoked under RTNL or dev_base_lock, this
+fix is correct.
 
-The multipath code makes no attempt to choose a route that goes via
-the interface that matches the one the user asked for in the flow key.
-
-We must absolutely respect the OIF in the flow key during the route
-lookup, this means no multipath until that code is changed to strictly
-respect the OIF in the lookup key.
-
-Otherwise what's the point of the OIF if you're going to pick a route
-that doesn't match it?
-
-I'm not apply this patch, sorry.
+Applied, thanks.
