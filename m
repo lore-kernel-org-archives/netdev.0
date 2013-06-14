@@ -1,36 +1,47 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] htb: reorder struct htb_class fields for
- performance
-Date: Thu, 13 Jun 2013 17:17:25 -0700 (PDT)
-Message-ID: <20130613.171725.167784637364785392.davem@davemloft.net>
-References: <1371135510.3252.109.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next] bcm63xx_enet: add support Broadcom BCM6345
+ Ethernet
+Date: Thu, 13 Jun 2013 17:22:37 -0700 (PDT)
+Message-ID: <20130613.172237.1405190894345298627.davem@davemloft.net>
+References: <CAGVrzcaqbdLPcuL0m56aBLuG9ruaQ1p4JfTWZV9DJ4zSrNcXtg@mail.gmail.com>
+	<20130613.025619.2170890039313059326.davem@davemloft.net>
+	<20130613135921.GA22906@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com
-To: eric.dumazet@gmail.com
+Cc: florian@openwrt.org, netdev@vger.kernel.org, blogic@openwrt.org,
+	linux-mips@linux-mips.org, mbizon@freebox.fr, jogo@openwrt.org,
+	cernekee@gmail.com
+To: ralf@linux-mips.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47997 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:48043 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754609Ab3FNARZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 20:17:25 -0400
-In-Reply-To: <1371135510.3252.109.camel@edumazet-glaptop>
+	with ESMTP id S1759232Ab3FNAWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 20:22:39 -0400
+In-Reply-To: <20130613135921.GA22906@linux-mips.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Thu, 13 Jun 2013 07:58:30 -0700
+From: Ralf Baechle <ralf@linux-mips.org>
+Date: Thu, 13 Jun 2013 15:59:21 +0200
 
-> From: Eric Dumazet <edumazet@google.com>
+> On Thu, Jun 13, 2013 at 02:56:19AM -0700, David Miller wrote:
 > 
-> htb_class structures are big, and source of false sharing on SMP.
+>> From: Florian Fainelli <florian@openwrt.org>
+>> Date: Thu, 13 Jun 2013 10:49:18 +0100
+>> 
+>> > We are in the slow process to switch to Device Tree to precisely
+>> > eliminate all of this (although not everyone agrees yet on the
+>> > details). Hopefully you should not see such things in the future.
+>> 
+>> Fair enough, I'll put this patch back into my TODO queue.
 > 
-> By carefully splitting them in two parts, we can improve performance.
+> David is right, one pair of welding goggles isn't enough to cope with the
+> uglyness of this but as a temporary thing I can live with it, so
 > 
-> I got 9 % performance increase on a 24 threads machine, with 200
-> concurrent netperf in TCP_RR mode, using a HTB hierarchy of 4 classes.
+> Acked-by: Ralf Baechle <ralf@linux-mips.org>
 > 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Tom Herbert <therbert@google.com> 
+> Dave, feel free to merge this through next-next.  I'm going to drop
+> this patch from the MIPS patchwork then.
 
-Applied, thanks Eric.
+Applied to net-next, thanks everyone.
