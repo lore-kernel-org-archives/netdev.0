@@ -1,52 +1,55 @@
-From: Isaku Yamahata <yamahata@valinux.co.jp>
-Subject: [PATCH net-next 5/5] staging/rtl8192u: convert skb->tail into skb_tail_pointer(skb)
-Date: Fri, 14 Jun 2013 17:58:35 +0900
-Message-ID: <4e2318187b15be4d81c3b03cd0337506c7008bb8.1371200138.git.yamahata@valinux.co.jp>
-References: <bb5cc0b762102c6a6a56bbd2067c7e539abfb2a6.1371200138.git.yamahata@valinux.co.jp>
-Cc: yamahata@valinux.co.jp, Simon Horman <horms@verge.net.au>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	devel@driverdev.osuosl.org
-To: netdev@vger.kernel.org
+From: Pavel Emelyanov <xemul@parallels.com>
+Subject: Re: [PATCH net-next] tun: Add ability to create tun device with given
+ index
+Date: Fri, 14 Jun 2013 13:34:28 +0400
+Message-ID: <51BAE3A4.2030609@parallels.com>
+References: <51B99946.3000703@parallels.com> <20130613095248.68c52109@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.valinux.co.jp ([210.128.90.3]:39015 "EHLO
-	mail.valinux.co.jp" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751512Ab3FNI6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 04:58:37 -0400
-In-Reply-To: <bb5cc0b762102c6a6a56bbd2067c7e539abfb2a6.1371200138.git.yamahata@valinux.co.jp>
-In-Reply-To: <bb5cc0b762102c6a6a56bbd2067c7e539abfb2a6.1371200138.git.yamahata@valinux.co.jp>
-References: <bb5cc0b762102c6a6a56bbd2067c7e539abfb2a6.1371200138.git.yamahata@valinux.co.jp>
+Received: from mailhub.sw.ru ([195.214.232.25]:13887 "EHLO relay.sw.ru"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751120Ab3FNJek (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jun 2013 05:34:40 -0400
+In-Reply-To: <20130613095248.68c52109@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The change set of 7a884dc "[SK_BUFF]: Convert skb->tail to sk_buff_data_t"
-converted skb->tail from pointer into sk_buff_data_t.
-Thus skb->tail is not always pointer, the area pointed by skb->tail
-should be accessed via skb_tail_pointer().
+On 06/13/2013 08:52 PM, Stephen Hemminger wrote:
+> On Thu, 13 Jun 2013 14:04:54 +0400
+> Pavel Emelyanov <xemul@parallels.com> wrote:
+> 
+>> Tun devices cannot be created with ifidex user wants, but it's
+>> required by checkpoint-restore project.
+>>
+>> Long time ago such ability was implemented for rtnl_ops-based
+>> interface for creating links (9c7dafbf net: Allow to create links
+>> with given ifindex), but the only API for creating and managing 
+>> tuntap devices is ioctl-based and is evolving with adding new ones
+>> (cde8b15f tuntap: add ioctl to attach or detach a file form tuntap
+>> device).
+>>
+>> Following that trend, here's how a new ioctl that sets the ifindex
+>> for device, that _will_ be created by TUNSETIFF ioctl looks like.
+>> So those who want a tuntap device with the ifindex I, should open
+>> the tun device, call ioctl(fd, TUNSETIFINDEX, I), then call TUNSETIFF.
+>> If setifindex is not called, then it will be generated as before.
+>>
+>> Is it OK to extend ioctls with this, or should we rather switch the
+>> whole tuntap driver on full-featured rtln-ops?
+>>
+>> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
+>>
+> 
+> I see no check for the most fundamental thing, the ifindex must be unique!
+> 
 
-Found by inspection. Compile tested only.
+The register_netdev() will check for this and report -EBUSY if it is (and
+add device to list if not, all atomically).
 
-Cc: Simon Horman <horms@verge.net.au>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: devel@driverdev.osuosl.org
-Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
----
- drivers/staging/rtl8192u/r8192U_core.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/staging/rtl8192u/r8192U_core.c b/drivers/staging/rtl8192u/r8192U_core.c
-index 71f5cde..a18430e 100644
---- a/drivers/staging/rtl8192u/r8192U_core.c
-+++ b/drivers/staging/rtl8192u/r8192U_core.c
-@@ -1271,8 +1271,8 @@ struct sk_buff *DrvAggr_Aggregation(struct net_device *dev, struct ieee80211_drv
- 		/* Subframe drv Tx descriptor and firmware info setting */
- 		skb = pSendList->tx_agg_frames[i];
- 		tcb_desc = (cb_desc *)(skb->cb + MAX_DEV_ADDR_SIZE);
--		tx_agg_desc = (tx_desc_819x_usb_aggr_subframe *)agg_skb->tail;
--		tx_fwinfo = (tx_fwinfo_819x_usb *)(agg_skb->tail + sizeof(tx_desc_819x_usb_aggr_subframe));
-+		tx_agg_desc = (tx_desc_819x_usb_aggr_subframe *)skb_tail_pointer(agg_skb);
-+		tx_fwinfo = (tx_fwinfo_819x_usb *)(skb_tail_pointer(agg_skb) + sizeof(tx_desc_819x_usb_aggr_subframe));
- 
- 		memset(tx_fwinfo,0,sizeof(tx_fwinfo_819x_usb));
- 		/* DWORD 0 */
--- 
-1.7.10.4
+Thanks,
+Pavel
