@@ -1,42 +1,64 @@
-From: =?UTF-8?Q?Br=C3=A1ulio_Bhavamitra?= <braulio@eita.org.br>
-Subject: atl1c hangs still on 3.9.0
-Date: Fri, 14 Jun 2013 10:20:44 -0300
-Message-ID: <CAJri6_uvJ--yGezQGTENzrd8VR1KOfMUj6tSDN70MJoGcXAQng@mail.gmail.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH v5 net-next 0/4] net: low latency sockets follow ups
+Date: Fri, 14 Jun 2013 16:33:14 +0300
+Message-ID: <20130614133314.6126.77315.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:40310 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752854Ab3FNNV0 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 09:21:26 -0400
-Received: by mail-la0-f52.google.com with SMTP id fo12so515544lab.25
-        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 06:21:24 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Avner Ben Hanoch <avnerb@mellanox.com>,
+	Or Kehati <ork@mellanox.com>, sockperf-dev@googlegroups.com,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-hello,
+David,
 
-I saw http://www.spinics.net/lists/netdev/msg228914.html and the
-problem persists on 3.9.0, ubuntu 13.04
+Here are three clean up patches, plus one that adds a socket option for LLS.
 
-[  283.723684] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Down
-[  285.210649] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Up<100 Mbps
-=46ull Duplex>
-[  498.097358] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Down
-[  499.610475] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Up<100 Mbps
-=46ull Duplex>
-[  583.993662] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Down
-[  585.501609] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Up<100 Mbps
-=46ull Duplex>
+Patch 1 converts sysctl_net_ll_poll into an unsigned int
+Patch 2 converts low latency sockets to sched_clock.
+Patch 3 removes the config menu for NET_LL_RX_POLL and defaults to y.
+Patch 4 adds an SO_LL socket option to allow per-socket control of busy polling.
 
-=E2=9E=9C  ~  uname -a
-Linux bhavamitra-1215N 3.9.0-030900-generic #201304291257 SMP Mon Apr
-29 17:06:25 UTC 2013 i686 i686 i686 GNU/Linux
-=E2=9E=9C  ~
+I will reply to this thread with a patch to sockperf that enables
+the socket option. (unchanged from v2)
 
-Is there a more recent fix??
+Again, thanks to everyone for their comments.
 
-regards,
-br=C3=A1ulio
+-Eliezer
+
+
+Change log:
+v5 
+- use time_after64() instead of time_after, suggested by Eric Dumazet.
+
+v4
+- Fixed possible overflow, pointed out by Eric Dumazet.
+  (reordered the patches)
+
+v3
+- Suggested by David Miller and Stephen Hemminger:
+  added a patch to covert from get_cycles() to sched_clock(),
+  remove dependency on X86_TSC.
+- Suggested by Eric Dumazet:
+  un-exported sysctl_net_ll_poll since for now it's not needed in modules.
+
+v2
+- added a patch to convert sysctl_net_ll_poll into an unsigned int.
+- suggested by Eric Dimazet: treat sk_ll_usec as a u_int rather than a u_long.
+- suggested by Ben Huchings: allow unprivileged user to decrease SO_LL value,
+  correct return value when operation is not allowed.
