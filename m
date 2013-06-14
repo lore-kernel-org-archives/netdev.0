@@ -1,44 +1,41 @@
 From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH v2 3/4] neigh: disallow un-init_net to change thresh of neigh
-Date: Fri, 14 Jun 2013 10:06:46 +0800
-Message-ID: <1371175607-1405-3-git-send-email-gaofeng@cn.fujitsu.com>
+Subject: [PATCH v2 4/4] neigh: don't leak default parms to uninitial netns
+Date: Fri, 14 Jun 2013 10:06:47 +0800
+Message-ID: <1371175607-1405-4-git-send-email-gaofeng@cn.fujitsu.com>
 References: <1371175607-1405-1-git-send-email-gaofeng@cn.fujitsu.com>
 Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
 	Gao feng <gaofeng@cn.fujitsu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:52328 "EHLO song.cn.fujitsu.com"
+Received: from cn.fujitsu.com ([222.73.24.84]:55822 "EHLO song.cn.fujitsu.com"
 	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1759124Ab3FNCFN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 13 Jun 2013 22:05:13 -0400
+	id S1750970Ab3FNCFO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jun 2013 22:05:14 -0400
 In-Reply-To: <1371175607-1405-1-git-send-email-gaofeng@cn.fujitsu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-thresh and interval are global resources,
-only init net can change them.
+Only allow initial net namespace to get default parms
+through netlink.
 
 Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 ---
- net/core/neighbour.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ net/core/neighbour.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 2ec1faf..5e0fe89 100644
+index 5e0fe89..3bb6115 100644
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
-@@ -2049,6 +2049,12 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
- 		}
- 	}
+@@ -2094,7 +2094,8 @@ static int neightbl_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
+ 		if (tidx < tbl_skip || (family && tbl->family != family))
+ 			continue;
  
-+	err = -ENOENT;
-+	if ((tb[NDTA_THRESH1] || tb[NDTA_THRESH2] ||
-+	     tb[NDTA_THRESH3] || tb[NDTA_GC_INTERVAL]) &&
-+	    !net_eq(net, &init_net))
-+		goto errout_tbl_lock;
-+
- 	if (tb[NDTA_THRESH1])
- 		tbl->gc_thresh1 = nla_get_u32(tb[NDTA_THRESH1]);
- 
+-		if (neightbl_fill_info(skb, tbl, NETLINK_CB(cb->skb).portid,
++		if (net_eq(net, &init_net) &&
++		    neightbl_fill_info(skb, tbl, NETLINK_CB(cb->skb).portid,
+ 				       cb->nlh->nlmsg_seq, RTM_NEWNEIGHTBL,
+ 				       NLM_F_MULTI) <= 0)
+ 			break;
 -- 
 1.8.1.4
