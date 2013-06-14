@@ -1,30 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/4] openvswitch tunneling preparation
-Date: Thu, 13 Jun 2013 17:05:27 -0700 (PDT)
-Message-ID: <20130613.170527.243134340140974936.davem@davemloft.net>
-References: <1371147079-29139-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH net] tulip: Properly check dma mapping result
+Date: Thu, 13 Jun 2013 17:10:06 -0700 (PDT)
+Message-ID: <20130613.171006.2068402793472112550.davem@davemloft.net>
+References: <1371151888-12138-1-git-send-email-nhorman@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: pshelar@nicira.com
+Cc: netdev@vger.kernel.org, grundler@parisc-linux.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47869 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47918 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1759227Ab3FNAFa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 20:05:30 -0400
-In-Reply-To: <1371147079-29139-1-git-send-email-pshelar@nicira.com>
+	with ESMTP id S1754716Ab3FNAKH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 20:10:07 -0400
+In-Reply-To: <1371151888-12138-1-git-send-email-nhorman@tuxdriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Thu, 13 Jun 2013 11:11:19 -0700
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Thu, 13 Jun 2013 15:31:28 -0400
 
-> Following patches are required but not directly related to ovs tunneling.
-> So I am sending them as separate series. These cleanups are already
-> there in out of tree ovs module.
+> Tulip throws an error when dma debugging is enabled, as it doesn't properly
+> check dma mapping results with dma_mapping_error() durring tx ring refills.
 > 
-> Since ovs tunneling series depends on this, I am sending all patches
-> again.
+> Easy fix, just add it in, and drop the frame if the mapping is bad
+> 
+> Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
 
-Openvswitch folks please send me a pull request.
+Applied, thanks.
