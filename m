@@ -1,8 +1,8 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v5 net-next 1/4] net: change
- sysctl_net_ll_poll into an unsigned int
-Date: Fri, 14 Jun 2013 16:33:25 +0300
-Message-ID: <20130614133325.6126.40714.stgit@ladj378.jer.intel.com>
+Subject: [PATCH v5 net-next 2/4] net: convert low latency
+ sockets to sched_clock()
+Date: Fri, 14 Jun 2013 16:33:35 +0300
+Message-ID: <20130614133335.6126.8092.stgit@ladj378.jer.intel.com>
 References: <20130614133314.6126.77315.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -30,70 +30,108 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
 Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-There is no reason for sysctl_net_ll_poll to be an unsigned long.
-Change it into an unsigned int.
-Fix the proc handler.
+Use sched_clock() instead of get_cycles().
+We can use sched_clock() because we don't care much about accuracy.
+Remove the dependency on X86_TSC
 
 Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 ---
 
- include/net/ll_poll.h      |    5 +++--
- net/core/sysctl_net_core.c |    4 ++--
- net/socket.c               |    2 +-
- 3 files changed, 6 insertions(+), 5 deletions(-)
+ include/net/ll_poll.h |   33 +++++++++++++++++----------------
+ net/Kconfig           |    1 -
+ 2 files changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
-index bc262f8..44e2f70 100644
+index 44e2f70..6930cbd 100644
 --- a/include/net/ll_poll.h
 +++ b/include/net/ll_poll.h
-@@ -34,7 +34,7 @@
- #ifdef CONFIG_NET_LL_RX_POLL
+@@ -21,10 +21,6 @@
+  * e1000-devel Mailing List <e1000-devel@lists.sourceforge.net>
+  */
  
- struct napi_struct;
--extern unsigned long sysctl_net_ll_poll __read_mostly;
-+extern unsigned int sysctl_net_ll_poll __read_mostly;
+-/*
+- * For now this depends on CONFIG_X86_TSC
+- */
+-
+ #ifndef _LINUX_NET_LL_POLL_H
+ #define _LINUX_NET_LL_POLL_H
  
- /* return values from ndo_ll_poll */
+@@ -40,13 +36,19 @@ extern unsigned int sysctl_net_ll_poll __read_mostly;
  #define LL_FLUSH_FAILED		-1
-@@ -45,7 +45,8 @@ extern unsigned long sysctl_net_ll_poll __read_mostly;
+ #define LL_FLUSH_BUSY		-2
  
- static inline cycles_t ll_end_time(void)
+-/* we don't mind a ~2.5% imprecision */
+-#define TSC_MHZ (tsc_khz >> 10)
+-
+-static inline cycles_t ll_end_time(void)
++/* we can use sched_clock() because we don't care much about precision
++ * we only care that the average is bounded
++ */
++static inline u64 ll_end_time(void)
  {
--	return TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll) + get_cycles();
-+	return (cycles_t)TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll)
-+			+ get_cycles();
+-	return (cycles_t)TSC_MHZ * ACCESS_ONCE(sysctl_net_ll_poll)
+-			+ get_cycles();
++	u64 end_time = ACCESS_ONCE(sysctl_net_ll_poll);
++
++	/* we don't mind a ~2.5% imprecision
++	 * sysctl_net_ll_poll is a u_int so this can't overflow
++	 */
++	end_time = (end_time << 10) + sched_clock();
++
++	return end_time;
  }
  
  static inline bool sk_valid_ll(struct sock *sk)
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index 637a42e..ce9acc2 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -289,9 +289,9 @@ static struct ctl_table net_core_table[] = {
- 	{
- 		.procname	= "low_latency_poll",
- 		.data		= &sysctl_net_ll_poll,
--		.maxlen		= sizeof(unsigned long),
-+		.maxlen		= sizeof(unsigned int),
- 		.mode		= 0644,
--		.proc_handler	= proc_doulongvec_minmax
-+		.proc_handler	= proc_dointvec
- 	},
- #endif
- #endif /* CONFIG_NET */
-diff --git a/net/socket.c b/net/socket.c
-index 21fd29f..caaffa1 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -107,7 +107,7 @@
- #include <net/ll_poll.h>
+@@ -55,16 +57,15 @@ static inline bool sk_valid_ll(struct sock *sk)
+ 	       !need_resched() && !signal_pending(current);
+ }
  
- #ifdef CONFIG_NET_LL_RX_POLL
--unsigned long sysctl_net_ll_poll __read_mostly;
-+unsigned int sysctl_net_ll_poll __read_mostly;
- EXPORT_SYMBOL_GPL(sysctl_net_ll_poll);
- #endif
+-static inline bool can_poll_ll(cycles_t end_time)
++static inline bool can_poll_ll(u64 end_time)
+ {
+-	return !time_after((unsigned long)get_cycles(),
+-			    (unsigned long)end_time);
++	return !time_after64(sched_clock(), end_time);
+ }
  
+ static inline bool sk_poll_ll(struct sock *sk, int nonblock)
+ {
+-	cycles_t end_time = ll_end_time();
+ 	const struct net_device_ops *ops;
++	u64 end_time = ll_end_time();
+ 	struct napi_struct *napi;
+ 	int rc = false;
+ 
+@@ -117,7 +118,7 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+ 
+ #else /* CONFIG_NET_LL_RX_POLL */
+ 
+-static inline cycles_t ll_end_time(void)
++static inline u64 ll_end_time(void)
+ {
+ 	return 0;
+ }
+@@ -140,7 +141,7 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
+ {
+ }
+ 
+-static inline bool can_poll_ll(cycles_t end_time)
++static inline bool can_poll_ll(u64 end_time)
+ {
+ 	return false;
+ }
+diff --git a/net/Kconfig b/net/Kconfig
+index d6a9ce6..e591668 100644
+--- a/net/Kconfig
++++ b/net/Kconfig
+@@ -245,7 +245,6 @@ config NETPRIO_CGROUP
+ 
+ config NET_LL_RX_POLL
+ 	bool "Low Latency Receive Poll"
+-	depends on X86_TSC
+ 	default n
+ 	---help---
+ 	  Support Low Latency Receive Queue Poll.
 
 
 ------------------------------------------------------------------------------
