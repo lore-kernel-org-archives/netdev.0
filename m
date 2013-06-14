@@ -1,40 +1,73 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v4 net-next 1/4] net: change sysctl_net_ll_poll into an
- unsigned int
-Date: Thu, 13 Jun 2013 20:03:19 -0700
-Message-ID: <1371178999.3252.113.camel@edumazet-glaptop>
+Subject: Re: [PATCH v4 net-next 2/4] net: convert low latency
+ sockets to sched_clock()
+Date: Thu, 13 Jun 2013 20:12:49 -0700
+Message-ID: <1371179569.3252.120.camel@edumazet-glaptop>
 References: <20130614015638.3500.61523.stgit@ladj378.jer.intel.com>
-	 <20130614015648.3500.85865.stgit@ladj378.jer.intel.com>
+	<20130614015659.3500.48625.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
+Cc: Willem de Bruijn <willemb@google.com>, Don, Or Kehati <ork@mellanox.com>,
 	Or Gerlitz <or.gerlitz@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	Alex Rosenbaum <alexr@mellanox.com>,
-	Avner Ben Hanoch <avnerb@mellanox.com>,
-	Or Kehati <ork@mellanox.com>, sockperf-dev@googlegroups.com,
-	Eliezer Tamir <eliezer@tamir.org.il>
+	linux-kernel@vger.kernel.org, sockperf-dev@googlegroups.com,
+	Avner Ben Hanoch <avnerb@mellanox.com>, Andi Kleen <andi@firstfloor.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
 To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130614015648.3500.85865.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130614015659.3500.48625.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-06-14 at 04:56 +0300, Eliezer Tamir wrote:
-> There is no reason for sysctl_net_ll_poll to be an unsigned long.
-> Change it into an unsigned int.
-> Fix the proc handler.
+On Fri, 2013-06-14 at 04:57 +0300, Eliezer Tamir wrote:
+> Use sched_clock() instead of get_cycles().
+> We can use sched_clock() because we don't care much about accuracy.
+> Remove the dependency on X86_TSC
 > 
 > Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
 > ---
 
-Acked-by: Eric Dumazet <edumazet@google.com>
+>  
+> -static inline bool can_poll_ll(cycles_t end_time)
+> +static inline bool can_poll_ll(u64 end_time)
+>  {
+> -	return !time_after((unsigned long)get_cycles(),
+> +	return !time_after((unsigned long)sched_clock(),
+>  			    (unsigned long)end_time);
+>  }
+
+I do not really understand why you bother to have 64bit wide values,
+and then use these "unsigned long" casts here.
+
+On 32bit arches, this will really limit to 2^31 ns range.
+
+You should instead either :
+- use time_after_64() or 
+- explicitly limit sysctl_net_ll_poll range
+
+
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
+
+Build for Windows Store.
+
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
