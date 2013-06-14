@@ -1,47 +1,50 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net-next 4/8] openvswitch: fix variable names in comment
-Date: Fri, 14 Jun 2013 15:28:53 -0700
-Message-ID: <1371248937-35614-5-git-send-email-jesse@nicira.com>
+From: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next 5/8] openvswitch: Fix misspellings in
+	comments and docs.
+Date: Fri, 14 Jun 2013 15:28:54 -0700
+Message-ID: <1371248937-35614-6-git-send-email-jesse@nicira.com>
 References: <1371248937-35614-1-git-send-email-jesse@nicira.com>
-Cc: netdev <netdev@vger.kernel.org>, dev@openvswitch.org,
-	Lorand Jakab <lojakab@cisco.com>,
-	Jesse Gross <jesse@nicira.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog138.obsmtp.com ([74.125.149.19]:40455 "HELO
-	na3sys009aog138.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753547Ab3FNW3I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 18:29:08 -0400
-Received: by mail-pa0-f44.google.com with SMTP id lj1so1059865pab.31
-        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 15:29:08 -0700 (PDT)
-In-Reply-To: <1371248937-35614-1-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1371248937-35614-1-git-send-email-jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Lorand Jakab <lojakab@cisco.com>
+From: Andy Hill <hillad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
-Signed-off-by: Lorand Jakab <lojakab@cisco.com>
-Signed-off-by: Jesse Gross <jesse@nicira.com>
+Flagged with: https://github.com/lyda/misspell-check
+Run with: git ls-files | misspellings -f -
+
+Signed-off-by: Andy Hill <hillad-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Jesse Gross <jesse-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
 ---
- net/openvswitch/flow.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/openvswitch/vport.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index b15321a..33df091 100644
---- a/net/openvswitch/flow.c
-+++ b/net/openvswitch/flow.c
-@@ -590,10 +590,10 @@ out:
-  *    - skb->network_header: just past the Ethernet header, or just past the
-  *      VLAN header, to the first byte of the Ethernet payload.
+diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
+index 7f20f6d..176d449 100644
+--- a/net/openvswitch/vport.c
++++ b/net/openvswitch/vport.c
+@@ -376,7 +376,7 @@ int ovs_vport_send(struct vport *vport, struct sk_buff *skb)
+  * @err_type: one of enum vport_err_type types to indicate the error type
   *
-- *    - skb->transport_header: If key->dl_type is ETH_P_IP or ETH_P_IPV6
-+ *    - skb->transport_header: If key->eth.type is ETH_P_IP or ETH_P_IPV6
-  *      on output, then just past the IP header, if one is present and
-  *      of a correct length, otherwise the same as skb->network_header.
-- *      For other key->dl_type values it is left untouched.
-+ *      For other key->eth.type values it is left untouched.
+  * If using the vport generic stats layer indicate that an error of the given
+- * type has occured.
++ * type has occurred.
   */
- int ovs_flow_extract(struct sk_buff *skb, u16 in_port, struct sw_flow_key *key,
- 		 int *key_lenp)
+ void ovs_vport_record_error(struct vport *vport, enum vport_err_type err_type)
+ {
 -- 
 1.8.1.2
