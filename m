@@ -1,52 +1,75 @@
-From: Johannes Stezenbach <js@sig21.net>
-Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
-Date: Fri, 14 Jun 2013 07:53:46 +0200
-Message-ID: <20130614055346.GB6547@sig21.net>
-References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
- <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
- <20130613222411.GA5396@sig21.net>
- <1371162553.8335.28.camel@jlt4.sipsolutions.net>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v4 net-next 2/4] net: convert low latency
+	sockets to sched_clock()
+Date: Fri, 14 Jun 2013 09:14:49 +0300
+Message-ID: <51BAB4D9.2020803@linux.intel.com>
+References: <20130614015638.3500.61523.stgit@ladj378.jer.intel.com>
+	<20130614015659.3500.48625.stgit@ladj378.jer.intel.com>
+	<1371179569.3252.120.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, mcgrof@do-not-panic.com, kvalo@adurom.com,
-	adrian.chadd@gmail.com, romieu@fr.zoreil.com
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bar.sig21.net ([80.81.252.164]:59004 "EHLO bar.sig21.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751320Ab3FNFxx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jun 2013 01:53:53 -0400
-Content-Disposition: inline
-In-Reply-To: <1371162553.8335.28.camel@jlt4.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, Or Kehati <ork@mellanox.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	linux-kernel@vger.kernel.org, sockperf-dev@googlegroups.com,
+	Avner Ben Hanoch <avnerb@mellanox.com>, Andi Kleen <andi@firstfloor.org>,
+	Eliezer Tamir <eliezer@tamir.org.il>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1371179569.3252.120.camel@edumazet-glaptop>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 14, 2013 at 12:29:13AM +0200, Johannes Berg wrote:
-> On Fri, 2013-06-14 at 00:24 +0200, Johannes Stezenbach wrote:
-> 
-> > and after "ifconfig eth0 up":
-> > 
-> > [  539.482153] alx 0000:03:00.0: irq 45 for MSI/MSI-X
-> > [  539.482249] IPv6: ADDRCONF(NETDEV_UP): eth0: link is not ready
-> > [  539.483169] alx 0000:03:00.0 eth0: NIC Up: 1 Gbps Full
-> > [  539.483354] IPv6: ADDRCONF(NETDEV_CHANGE): eth0: link becomes ready
-> > [  544.801438] ------------[ cut here ]------------
-> > [  544.801458] WARNING: at net/sched/sch_generic.c:255 dev_watchdog+0x19b/0x201()
-> > [  544.801462] Hardware name: System Product Name
-> > [  544.801464] NETDEV WATCHDOG: eth0 (alx): transmit queue 0 timed out
-> 
-> Hmm, this is odd. I might just be forgetting to set something.
-> 
-> > 03:00.0 Ethernet controller: Qualcomm Atheros AR8161 Gigabit Ethernet (rev 08)
-> 
-> OTOH, I have a 8171, so maybe I messed up with my simplifications or it
-> simply doesn't work.
-> 
-> > Any idea what to try?
-> 
-> Does it still pass traffic after that? Or is it actually dead?
+On 14/06/2013 06:12, Eric Dumazet wrote:
+> On Fri, 2013-06-14 at 04:57 +0300, Eliezer Tamir wrote:
+>> Use sched_clock() instead of get_cycles().
+>> We can use sched_clock() because we don't care much about accuracy.
+>> Remove the dependency on X86_TSC
+>>
+>> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+>> ---
+>
+>>
+>> -static inline bool can_poll_ll(cycles_t end_time)
+>> +static inline bool can_poll_ll(u64 end_time)
+>>   {
+>> -	return !time_after((unsigned long)get_cycles(),
+>> +	return !time_after((unsigned long)sched_clock(),
+>>   			    (unsigned long)end_time);
+>>   }
+>
+> I do not really understand why you bother to have 64bit wide values,
+> and then use these "unsigned long" casts here.
+>
+> On 32bit arches, this will really limit to 2^31 ns range.
+>
+> You should instead either :
+> - use time_after_64() or
+> - explicitly limit sysctl_net_ll_poll range
 
-It is dead.  Not interrupts, I tried ping from both ends
-of the link (link LED flashes on RX).
+OK
 
-Johannes
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
+
+Build for Windows Store.
+
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
