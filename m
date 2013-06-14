@@ -1,75 +1,70 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v4 net-next 2/4] net: convert low latency
-	sockets to sched_clock()
-Date: Fri, 14 Jun 2013 09:14:49 +0300
-Message-ID: <51BAB4D9.2020803@linux.intel.com>
-References: <20130614015638.3500.61523.stgit@ladj378.jer.intel.com>
-	<20130614015659.3500.48625.stgit@ladj378.jer.intel.com>
-	<1371179569.3252.120.camel@edumazet-glaptop>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH net-next] stmmac: added device tree support for fixed_phy
+ and phy_addr
+Date: Fri, 14 Jun 2013 08:29:24 +0200
+Message-ID: <51BAB844.4020102@st.com>
+References: <019301ce67d4$ed1e32b0$c75a9810$%an@samsung.com> <51B9989F.5020603@st.com> <01b201ce6820$640897d0$2c19c770$%an@samsung.com> <150a01ce682e$a9e95ab0$fdbc1010$@org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Kehati <ork@mellanox.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	linux-kernel@vger.kernel.org, sockperf-dev@googlegroups.com,
-	Avner Ben Hanoch <avnerb@mellanox.com>, Andi Kleen <andi@firstfloor.org>,
-	Eliezer Tamir <eliezer@tamir.org.il>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <1371179569.3252.120.camel@edumazet-glaptop>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: "'Byungho An'" <bh74.an@samsung.com>, netdev@vger.kernel.org,
+	davem@davemloft.net
+To: "'Kukjin Kim'" <kgene@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eu1sys200aog116.obsmtp.com ([207.126.144.141]:57720 "EHLO
+	eu1sys200aog116.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751320Ab3FNG3u (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 02:29:50 -0400
+In-Reply-To: <150a01ce682e$a9e95ab0$fdbc1010$@org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 14/06/2013 06:12, Eric Dumazet wrote:
-> On Fri, 2013-06-14 at 04:57 +0300, Eliezer Tamir wrote:
->> Use sched_clock() instead of get_cycles().
->> We can use sched_clock() because we don't care much about accuracy.
->> Remove the dependency on X86_TSC
+On 6/13/2013 2:08 PM, 'Kukjin Kim' wrote:
+> Byungho An wrote:
 >>
->> Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
->> ---
+>>
+>> On 6/13/2013 7:04 PM, Giuseppe CAVALLARO wrote:
+>>> On 6/13/2013 3:25 AM, Byungho An wrote:
+>>>>
+>>>> This patch adds device tree support for fixed_phy and phy_addr it
+>> means
+>>>> fixed_phy and phy_addr can be set in device tree file. "fixed_phy" and
+>>>> "phy_addr" can be added in the device tree blob.
+>>>
+>>> concerning this, we had added some work to pass from the platform
+>>> the fixed bus name.
+>>>
+>>> http://git.stlinux.com/?p=stm/linux-
+>>>
+>> stm.git;a=blob;f=drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c;h=2
+>> d540e1d2151e4412a5af5356d24d
+>>> 5c6b66cf72e;hb=HEAD
+>>>
+> Looks good.
+>
+>>> I wanted to also do a clean-up and update the DT support because
+>>> the binding documentation remains obsolete etc.
+>>>
+> Yeah, I see...
 >
 >>
->> -static inline bool can_poll_ll(cycles_t end_time)
->> +static inline bool can_poll_ll(u64 end_time)
->>   {
->> -	return !time_after((unsigned long)get_cycles(),
->> +	return !time_after((unsigned long)sched_clock(),
->>   			    (unsigned long)end_time);
->>   }
+>> I think your previous work for DT support can cover my patch.
+>> Do you have a plan to update and clean-up for DT support?
+>>
+> Same here, would be nice if the patch could be seen in upcoming kernel.
+
+for sure, I'll plan to send this work asasp
+
 >
-> I do not really understand why you bother to have 64bit wide values,
-> and then use these "unsigned long" casts here.
+> If any help is required, let us know. Byungho will help you.
+
+ok, thx
+
+peppe
+
 >
-> On 32bit arches, this will really limit to 2^31 ns range.
+> Thanks,
+> - Kukjin
 >
-> You should instead either :
-> - use time_after_64() or
-> - explicitly limit sysctl_net_ll_poll range
-
-OK
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+>
+>
