@@ -1,55 +1,90 @@
-From: Pavel Emelyanov <xemul@parallels.com>
-Subject: Re: [PATCH net-next] tun: Add ability to create tun device with given
- index
-Date: Fri, 14 Jun 2013 13:34:28 +0400
-Message-ID: <51BAE3A4.2030609@parallels.com>
-References: <51B99946.3000703@parallels.com> <20130613095248.68c52109@nehalam.linuxnetplumber.net>
+From: Sathya Perla <sathya.perla@emulex.com>
+Subject: [PATCH net-next] be2net: use pci_vfs_assigned()/pci_num_vf() instead of be_find_vfs()
+Date: Fri, 14 Jun 2013 15:54:51 +0530
+Message-ID: <1371205491-11768-1-git-send-email-sathya.perla@emulex.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailhub.sw.ru ([195.214.232.25]:13887 "EHLO relay.sw.ru"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751120Ab3FNJek (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jun 2013 05:34:40 -0400
-In-Reply-To: <20130613095248.68c52109@nehalam.linuxnetplumber.net>
+Received: from cmexedge1.ext.emulex.com ([138.239.224.99]:54612 "EHLO
+	CMEXEDGE1.ext.emulex.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751702Ab3FNKVX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 06:21:23 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/13/2013 08:52 PM, Stephen Hemminger wrote:
-> On Thu, 13 Jun 2013 14:04:54 +0400
-> Pavel Emelyanov <xemul@parallels.com> wrote:
-> 
->> Tun devices cannot be created with ifidex user wants, but it's
->> required by checkpoint-restore project.
->>
->> Long time ago such ability was implemented for rtnl_ops-based
->> interface for creating links (9c7dafbf net: Allow to create links
->> with given ifindex), but the only API for creating and managing 
->> tuntap devices is ioctl-based and is evolving with adding new ones
->> (cde8b15f tuntap: add ioctl to attach or detach a file form tuntap
->> device).
->>
->> Following that trend, here's how a new ioctl that sets the ifindex
->> for device, that _will_ be created by TUNSETIFF ioctl looks like.
->> So those who want a tuntap device with the ifindex I, should open
->> the tun device, call ioctl(fd, TUNSETIFINDEX, I), then call TUNSETIFF.
->> If setifindex is not called, then it will be generated as before.
->>
->> Is it OK to extend ioctls with this, or should we rather switch the
->> whole tuntap driver on full-featured rtln-ops?
->>
->> Signed-off-by: Pavel Emelyanov <xemul@parallels.com>
->>
-> 
-> I see no check for the most fundamental thing, the ifindex must be unique!
-> 
+be_find_vfs() is no longer needed as the common PCI calls provide the same
+functionality.
 
-The register_netdev() will check for this and report -EBUSY if it is (and
-add device to list if not, all atomically).
+Signed-off-by: Sathya Perla <sathya.perla@emulex.com>
+---
+ drivers/net/ethernet/emulex/benet/be_main.c |   31 +++-----------------------
+ 1 files changed, 4 insertions(+), 27 deletions(-)
 
-Thanks,
-Pavel
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 9aef457..c20a201 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1262,30 +1262,6 @@ static int be_set_vf_tx_rate(struct net_device *netdev,
+ 	return status;
+ }
+ 
+-static int be_find_vfs(struct be_adapter *adapter, int vf_state)
+-{
+-	struct pci_dev *dev, *pdev = adapter->pdev;
+-	int vfs = 0, assigned_vfs = 0, pos;
+-	u16 offset, stride;
+-
+-	pos = pci_find_ext_capability(pdev, PCI_EXT_CAP_ID_SRIOV);
+-	if (!pos)
+-		return 0;
+-	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_OFFSET, &offset);
+-	pci_read_config_word(pdev, pos + PCI_SRIOV_VF_STRIDE, &stride);
+-
+-	dev = pci_get_device(pdev->vendor, PCI_ANY_ID, NULL);
+-	while (dev) {
+-		if (dev->is_virtfn && pci_physfn(dev) == pdev) {
+-			vfs++;
+-			if (dev->dev_flags & PCI_DEV_FLAGS_ASSIGNED)
+-				assigned_vfs++;
+-		}
+-		dev = pci_get_device(pdev->vendor, PCI_ANY_ID, dev);
+-	}
+-	return (vf_state == ASSIGNED) ? assigned_vfs : vfs;
+-}
+-
+ static void be_eqd_update(struct be_adapter *adapter, struct be_eq_obj *eqo)
+ {
+ 	struct be_rx_stats *stats = rx_stats(&adapter->rx_obj[eqo->idx]);
+@@ -2797,7 +2773,7 @@ static void be_vf_clear(struct be_adapter *adapter)
+ 	struct be_vf_cfg *vf_cfg;
+ 	u32 vf;
+ 
+-	if (be_find_vfs(adapter, ASSIGNED)) {
++	if (pci_vfs_assigned(adapter->pdev)) {
+ 		dev_warn(&adapter->pdev->dev,
+ 			 "VFs are assigned to VMs: not disabling VFs\n");
+ 		goto done;
+@@ -2899,7 +2875,7 @@ static int be_vf_setup(struct be_adapter *adapter)
+ 	int status, old_vfs, vf;
+ 	struct device *dev = &adapter->pdev->dev;
+ 
+-	old_vfs = be_find_vfs(adapter, ENABLED);
++	old_vfs = pci_num_vf(adapter->pdev);
+ 	if (old_vfs) {
+ 		dev_info(dev, "%d VFs are already enabled\n", old_vfs);
+ 		if (old_vfs != num_vfs)
+@@ -4200,9 +4176,10 @@ reschedule:
+ 	schedule_delayed_work(&adapter->work, msecs_to_jiffies(1000));
+ }
+ 
++/* If any VFs are already enabled don't FLR the PF */
+ static bool be_reset_required(struct be_adapter *adapter)
+ {
+-	return be_find_vfs(adapter, ENABLED) > 0 ? false : true;
++	return pci_num_vf(adapter->pdev) ? false : true;
+ }
+ 
+ static char *mc_name(struct be_adapter *adapter)
+-- 
+1.7.1
