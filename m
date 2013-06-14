@@ -1,58 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net-rps: fixes for rps flow limit
-Date: Thu, 13 Jun 2013 17:13:39 -0700 (PDT)
-Message-ID: <20130613.171339.2275946127393500284.davem@davemloft.net>
-References: <1371151778-14697-1-git-send-email-willemb@google.com>
+Subject: Re: [PATCH net-next] htb: reorder struct htb_class fields for
+ performance
+Date: Thu, 13 Jun 2013 17:17:25 -0700 (PDT)
+Message-ID: <20130613.171725.167784637364785392.davem@davemloft.net>
+References: <1371135510.3252.109.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: willemb@google.com
+Cc: netdev@vger.kernel.org, therbert@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47948 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47997 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754818Ab3FNANk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 20:13:40 -0400
-In-Reply-To: <1371151778-14697-1-git-send-email-willemb@google.com>
+	with ESMTP id S1754609Ab3FNARZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 20:17:25 -0400
+In-Reply-To: <1371135510.3252.109.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
-Date: Thu, 13 Jun 2013 15:29:38 -0400
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Thu, 13 Jun 2013 07:58:30 -0700
 
-> Caught by sparse:
-> - __rcu: missing annotation to sd->flow_limit
-> - __user: direct access in cpumask_scnprintf
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Also
-> - add endline character when printing bitmap if room in buffer
-> - avoid bucket overflow by reducing FLOW_LIMIT_HISTORY
+> htb_class structures are big, and source of false sharing on SMP.
 > 
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com>
-> (first item)
+> By carefully splitting them in two parts, we can improve performance.
 > 
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
+> I got 9 % performance increase on a 24 threads machine, with 200
+> concurrent netperf in TCP_RR mode, using a HTB hierarchy of 4 classes.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: Tom Herbert <therbert@google.com> 
 
-Applied, and:
-
-> The last item warrants some explanation. The hashtable buckets are
-> subject to overflow if FLOW_LIMIT_HISTORY is larger than or equal
-> to bucket size, since all packets may end up in a single bucket. The
-> current (rather arbitrary) history value of 256 happens to match the
-> buffer size (u8).
-> 
-> As a result, with a single flow, the first 128 packets are accepted
-> (correct), the second 128 packets dropped (correct) and then the
-> history[] array has filled, so that each subsequent new packet
-> causes an increment in the bucket for new_flow plus a decrement
-> for old_flow: a steady state.
-> 
-> This is fine if packets are dropped, as the steady state goes away
-> as soon as a mix of traffic reappears. But, because the 256th packet
-> overflowed the bucket to 0: no packets are dropped.
-> 
-> Instead of explicitly adding an overflow check, this patch changes
-> FLOW_LIMIT_HISTORY to never be able to overflow a single bucket.
-
-I put this text into the commit message, the more information in the
-commit log the better.
+Applied, thanks Eric.
