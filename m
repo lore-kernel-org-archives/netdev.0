@@ -1,36 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 net-next 0/3] Control VF link state
-Date: Thu, 13 Jun 2013 17:51:28 -0700 (PDT)
-Message-ID: <20130613.175128.633380066489526678.davem@davemloft.net>
-References: <1371118752-2314-1-git-send-email-ogerlitz@mellanox.com>
+From: David Miller <davem@redhat.com>
+Subject: Re: [PATCH net-next stable v2] sctp: fully initialize sctp_outq in
+ sctp_outq_init
+Date: Thu, 13 Jun 2013 18:06:18 -0700 (PDT)
+Message-ID: <20130613.180618.994297187695379192.davem@redhat.com>
+References: <1371061604-27312-1-git-send-email-nhorman@tuxdriver.com>
+	<20130613.024453.1256276769178191648.davem@davemloft.net>
+	<20130613130849.GA4058@neilslaptop.think-freely.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, amirv@mellanox.com, ronye@mellanox.com
-To: ogerlitz@mellanox.com
+Cc: linux-sctp@vger.kernel.org, sergei.shtylyov@cogentembedded.com,
+	vyasevich@gmail.com, netdev@vger.kernel.org
+To: nhorman@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48352 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753835Ab3FNAv3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 13 Jun 2013 20:51:29 -0400
-In-Reply-To: <1371118752-2314-1-git-send-email-ogerlitz@mellanox.com>
+Received: from mx1.redhat.com ([209.132.183.28]:29745 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753412Ab3FNBG3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 13 Jun 2013 21:06:29 -0400
+In-Reply-To: <20130613130849.GA4058@neilslaptop.think-freely.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Date: Thu, 13 Jun 2013 13:19:09 +0300
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Thu, 13 Jun 2013 09:08:49 -0400
 
-> These patches add API and implementation that lets the admin to configure the link 
-> state of the VF / SRIOV  eSwitch vPORT. Basically, it has three states
-> 
-> Auto - VF link state reflects the PF link state (default)
-> 
-> Up - VF link state is up, traffic from VF to VF works even if
-> the actual PF link is down
-> 
-> Down - VF link state is down, no traffic from/to this VF, can be of
-> use while configuring the VF
+> On Thu, Jun 13, 2013 at 02:44:53AM -0700, David Miller wrote:
+>> 
+>> 'net-next' + 'stable' is an invalid set of targets for a patch.
+>> 
+>> If the patch is appropriate for 'stable', then it had better be
+>> appropriate for plain 'net' as well.
+>> 
+> Sorry, I just meant to indicate that I had initially applied it to net-next.  I
+> had meant to add net in there as well, where it also applies cleanly
 
-Applied with trailing whitespace errors fixed in patch #1.
-
-Thanks.
+Applied to 'net' and queued up for -stable, thanks!
