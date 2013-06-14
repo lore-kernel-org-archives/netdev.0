@@ -1,353 +1,198 @@
 From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v5 net-next 4/4] net: add socket option for low latency polling
-Date: Fri, 14 Jun 2013 16:33:57 +0300
-Message-ID: <20130614133357.6126.15138.stgit@ladj378.jer.intel.com>
+Subject: [PATCH v2 sockperf] sockperf: add SO_LL socketop
+	support
+Date: Fri, 14 Jun 2013 16:36:46 +0300
+Message-ID: <51BB1C6E.8040402@linux.intel.com>
 References: <20130614133314.6126.77315.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
+Cc: Willem de Bruijn <willemb@google.com>, Or Kehati <ork@mellanox.com>,
 	Or Gerlitz <or.gerlitz@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Avner Ben Hanoch <avnerb@mellanox.com>,
-	Or Kehati <ork@mellanox.com>, sockperf-dev@googlegroups.com,
-	Eliezer Tamir <eliezer@tamir.org.il>
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
+	linux-kernel@vger.kernel.org, Alex Rosenbaum <alexr@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	sockperf-dev@googlegroups.com, Avner Ben Hanoch <avnerb@mellanox.com>,
+	Andi Kleen <andi@firstfloor.org>, Eliezer Tamir <eliezer@tamir.org.il>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
 In-Reply-To: <20130614133314.6126.77315.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-adds a socket option for low latency polling.
-This allows overriding the global sysctl value with a per-socket one.
-Unexport sysctl_net_ll_poll since for now it's not needed in modules.
-
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Add lls socket option support.
+use --lls (value in usecs) to override global setting.
+Right now we always get and print the value of the option before we set,
+to show that the option works properly.
+This should be removed in an official release.
 ---
 
- arch/alpha/include/uapi/asm/socket.h   |    2 ++
- arch/avr32/include/uapi/asm/socket.h   |    2 ++
- arch/cris/include/uapi/asm/socket.h    |    2 ++
- arch/frv/include/uapi/asm/socket.h     |    2 ++
- arch/h8300/include/uapi/asm/socket.h   |    2 ++
- arch/ia64/include/uapi/asm/socket.h    |    2 ++
- arch/m32r/include/uapi/asm/socket.h    |    2 ++
- arch/mips/include/uapi/asm/socket.h    |    2 ++
- arch/mn10300/include/uapi/asm/socket.h |    2 ++
- arch/parisc/include/uapi/asm/socket.h  |    2 ++
- arch/powerpc/include/uapi/asm/socket.h |    2 ++
- arch/s390/include/uapi/asm/socket.h    |    2 ++
- arch/sparc/include/uapi/asm/socket.h   |    2 ++
- arch/xtensa/include/uapi/asm/socket.h  |    2 ++
- include/net/ll_poll.h                  |   12 ++++++------
- include/net/sock.h                     |    2 ++
- include/uapi/asm-generic/socket.h      |    2 ++
- net/core/sock.c                        |   20 ++++++++++++++++++++
- net/socket.c                           |    1 -
- 19 files changed, 58 insertions(+), 7 deletions(-)
+  src/Defs.h       |    3 +++
+  src/SockPerf.cpp |   58 
++++++++++++++++++++++++++++++++++++++++++++++++++++---
+  2 files changed, 58 insertions(+), 3 deletions(-)
 
-diff --git a/arch/alpha/include/uapi/asm/socket.h b/arch/alpha/include/uapi/asm/socket.h
-index eee6ea7..4885825 100644
---- a/arch/alpha/include/uapi/asm/socket.h
-+++ b/arch/alpha/include/uapi/asm/socket.h
-@@ -81,4 +81,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
+diff --git a/src/Defs.h b/src/Defs.h
+index e38e3a4..041fa0d 100644
+--- a/src/Defs.h
++++ b/src/Defs.h
+@@ -161,6 +161,7 @@ enum {
+      OPT_OUTPUT_PRECISION,           //35
+      OPT_CLIENTPORT,                 //36
+      OPT_CLIENTIP,                   //37
++    OPT_LLS,            //38
+  };
+
+  #define MODULE_NAME            "sockperf"
+@@ -527,6 +528,8 @@ struct user_params_t {
+  //    bool stream_mode; - use b_stream instead
+      int mthread_server;
+      struct timeval* select_timeout;
++    unsigned int lls_usecs;
++    bool lls_is_set;
+      int sock_buff_size;
+      int threads_num;
+      char threads_affinity[MAX_ARGV_SIZE];
+diff --git a/src/SockPerf.cpp b/src/SockPerf.cpp
+index 41daf95..28569c9 100644
+--- a/src/SockPerf.cpp
++++ b/src/SockPerf.cpp
+@@ -207,6 +207,10 @@ static const AOPT_DESC  common_opt_desc[] =
+          "Limit the lifetime of the message (default 2)."
+      },
+      {
++        OPT_LLS, AOPT_ARG, aopt_set_literal( 0 ), aopt_set_string( "lls" ),
++        "Turn on LLS via socket option (value = us to poll)."
++    },
++    {
+          OPT_BUFFER_SIZE, AOPT_ARG, aopt_set_literal( 0 ), 
+aopt_set_string( "buffer-size" ),
+          "Set total socket receive/send buffer <size> in bytes (system 
+defined by default)."
+      },
+@@ -292,7 +296,7 @@ static int proc_mode_help( int id, int argc, const 
+char **argv )
+      int   i = 0;
+
+      printf(MODULE_NAME " is a tool for testing network latency and 
+throughput.\n");
+-    printf("version %s\n", STR(VERSION));
++    printf("version %s-lls\n", STR(VERSION));
+      printf("\n");
+      printf("Usage: " MODULE_NAME " <subcommand> [options] [args]\n");
+      printf("Type: \'" MODULE_NAME " <subcommand> --help\' for help on 
+a specific subcommand.\n");
+@@ -1382,8 +1386,8 @@ static int proc_mode_server( int id, int argc, 
+const char **argv )
+          {
+              'B', AOPT_NOARG,    aopt_set_literal( 'B' ), 
+aopt_set_string( "Bridge" ),
+              "Run in Bridge mode."
+-        },
+-*/
++        },
++*/
+          {
+               OPT_THREADS_NUM, AOPT_ARG, aopt_set_literal( 0 ), 
+aopt_set_string( "threads-num" ),
+               "Run <N> threads on server side (requires '-f' option)."
+@@ -1789,6 +1793,26 @@ static int parse_common_opt( const AOPT_OBJECT 
+*common_obj )
+              s_user_params.is_nonblocked_send = true;
+          }
+
++        if ( !rc && aopt_check(common_obj, OPT_LLS) ) {
++            const char* optarg = aopt_value(common_obj, OPT_LLS);
++            if (optarg) {
++                errno = 0;
++                int value = strtoul(optarg, NULL, 0);
++                if (errno != 0 || value < 0) {
++                    log_msg("'-%d' Invalid LLS value: %s", OPT_LLS, 
+optarg);
++                    rc = SOCKPERF_ERR_BAD_ARGUMENT;
++                }
++                else {
++                    s_user_params.lls_usecs = value;
++                    s_user_params.lls_is_set = true;
++                }
++            }
++            else {
++                log_msg("'-%d' Invalid value", OPT_LLS);
++                rc = SOCKPERF_ERR_BAD_ARGUMENT;
++            }
++        }
 +
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/avr32/include/uapi/asm/socket.h b/arch/avr32/include/uapi/asm/socket.h
-index 37401f5..79b6179 100644
---- a/arch/avr32/include/uapi/asm/socket.h
-+++ b/arch/avr32/include/uapi/asm/socket.h
-@@ -74,4 +74,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* __ASM_AVR32_SOCKET_H */
-diff --git a/arch/cris/include/uapi/asm/socket.h b/arch/cris/include/uapi/asm/socket.h
-index ba409c9..47b1ec5 100644
---- a/arch/cris/include/uapi/asm/socket.h
-+++ b/arch/cris/include/uapi/asm/socket.h
-@@ -76,6 +76,8 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* _ASM_SOCKET_H */
- 
- 
-diff --git a/arch/frv/include/uapi/asm/socket.h b/arch/frv/include/uapi/asm/socket.h
-index 31dbb5d..dbc0852 100644
---- a/arch/frv/include/uapi/asm/socket.h
-+++ b/arch/frv/include/uapi/asm/socket.h
-@@ -74,5 +74,7 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* _ASM_SOCKET_H */
- 
-diff --git a/arch/h8300/include/uapi/asm/socket.h b/arch/h8300/include/uapi/asm/socket.h
-index 5d1c6d0..a38d38a 100644
---- a/arch/h8300/include/uapi/asm/socket.h
-+++ b/arch/h8300/include/uapi/asm/socket.h
-@@ -74,4 +74,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/ia64/include/uapi/asm/socket.h b/arch/ia64/include/uapi/asm/socket.h
-index 6b4329f..d3358b7 100644
---- a/arch/ia64/include/uapi/asm/socket.h
-+++ b/arch/ia64/include/uapi/asm/socket.h
-@@ -83,4 +83,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* _ASM_IA64_SOCKET_H */
-diff --git a/arch/m32r/include/uapi/asm/socket.h b/arch/m32r/include/uapi/asm/socket.h
-index 2a3b59e..44aaf46 100644
---- a/arch/m32r/include/uapi/asm/socket.h
-+++ b/arch/m32r/include/uapi/asm/socket.h
-@@ -74,4 +74,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* _ASM_M32R_SOCKET_H */
-diff --git a/arch/mips/include/uapi/asm/socket.h b/arch/mips/include/uapi/asm/socket.h
-index 3b21150..6a07992 100644
---- a/arch/mips/include/uapi/asm/socket.h
-+++ b/arch/mips/include/uapi/asm/socket.h
-@@ -92,4 +92,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* _UAPI_ASM_SOCKET_H */
-diff --git a/arch/mn10300/include/uapi/asm/socket.h b/arch/mn10300/include/uapi/asm/socket.h
-index b4ce844..db80fd3 100644
---- a/arch/mn10300/include/uapi/asm/socket.h
-+++ b/arch/mn10300/include/uapi/asm/socket.h
-@@ -74,4 +74,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/parisc/include/uapi/asm/socket.h b/arch/parisc/include/uapi/asm/socket.h
-index 70c512a..f866fff 100644
---- a/arch/parisc/include/uapi/asm/socket.h
-+++ b/arch/parisc/include/uapi/asm/socket.h
-@@ -73,6 +73,8 @@
- 
- #define SO_SELECT_ERR_QUEUE	0x4026
- 
-+#define SO_LL			0x4027
-+
- /* O_NONBLOCK clashes with the bits used for socket types.  Therefore we
-  * have to define SOCK_NONBLOCK to a different value here.
-  */
-diff --git a/arch/powerpc/include/uapi/asm/socket.h b/arch/powerpc/include/uapi/asm/socket.h
-index a36daf3..405fb09 100644
---- a/arch/powerpc/include/uapi/asm/socket.h
-+++ b/arch/powerpc/include/uapi/asm/socket.h
-@@ -81,4 +81,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif	/* _ASM_POWERPC_SOCKET_H */
-diff --git a/arch/s390/include/uapi/asm/socket.h b/arch/s390/include/uapi/asm/socket.h
-index 2dacb306..0c5105fb 100644
---- a/arch/s390/include/uapi/asm/socket.h
-+++ b/arch/s390/include/uapi/asm/socket.h
-@@ -80,4 +80,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* _ASM_SOCKET_H */
-diff --git a/arch/sparc/include/uapi/asm/socket.h b/arch/sparc/include/uapi/asm/socket.h
-index 89f49b6..b46c3fa 100644
---- a/arch/sparc/include/uapi/asm/socket.h
-+++ b/arch/sparc/include/uapi/asm/socket.h
-@@ -70,6 +70,8 @@
- 
- #define SO_SELECT_ERR_QUEUE	0x0029
- 
-+#define SO_LL			0x0030
-+
- /* Security levels - as per NRL IPv6 - don't actually do anything */
- #define SO_SECURITY_AUTHENTICATION		0x5001
- #define SO_SECURITY_ENCRYPTION_TRANSPORT	0x5002
-diff --git a/arch/xtensa/include/uapi/asm/socket.h b/arch/xtensa/include/uapi/asm/socket.h
-index a8f44f5..b21ace4 100644
---- a/arch/xtensa/include/uapi/asm/socket.h
-+++ b/arch/xtensa/include/uapi/asm/socket.h
-@@ -85,4 +85,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif	/* _XTENSA_SOCKET_H */
-diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
-index 6930cbd..fcc7c36 100644
---- a/include/net/ll_poll.h
-+++ b/include/net/ll_poll.h
-@@ -39,12 +39,12 @@ extern unsigned int sysctl_net_ll_poll __read_mostly;
- /* we can use sched_clock() because we don't care much about precision
-  * we only care that the average is bounded
-  */
--static inline u64 ll_end_time(void)
-+static inline u64 ll_end_time(struct sock *sk)
- {
--	u64 end_time = ACCESS_ONCE(sysctl_net_ll_poll);
-+	u64 end_time = ACCESS_ONCE(sk->sk_ll_usec);
- 
- 	/* we don't mind a ~2.5% imprecision
--	 * sysctl_net_ll_poll is a u_int so this can't overflow
-+	 * sk->sk_ll_usec is a u_int so this can't overflow
- 	 */
- 	end_time = (end_time << 10) + sched_clock();
- 
-@@ -53,7 +53,7 @@ static inline u64 ll_end_time(void)
- 
- static inline bool sk_valid_ll(struct sock *sk)
- {
--	return sysctl_net_ll_poll && sk->sk_napi_id &&
-+	return sk->sk_ll_usec && sk->sk_napi_id &&
- 	       !need_resched() && !signal_pending(current);
- }
- 
-@@ -65,7 +65,7 @@ static inline bool can_poll_ll(u64 end_time)
- static inline bool sk_poll_ll(struct sock *sk, int nonblock)
- {
- 	const struct net_device_ops *ops;
--	u64 end_time = ll_end_time();
-+	u64 end_time = ll_end_time(sk);
- 	struct napi_struct *napi;
- 	int rc = false;
- 
-@@ -118,7 +118,7 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
- 
- #else /* CONFIG_NET_LL_RX_POLL */
- 
--static inline u64 ll_end_time(void)
-+static inline u64 ll_end_time(struct sock *sk)
- {
- 	return 0;
- }
-diff --git a/include/net/sock.h b/include/net/sock.h
-index ac8e181..21db792 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -230,6 +230,7 @@ struct cg_proto;
-   *	@sk_wmem_queued: persistent queue size
-   *	@sk_forward_alloc: space allocated forward
-   *	@sk_napi_id: id of the last napi context to receive data for sk
-+  *	@sk_ll_usec: usecs to busypoll when there is no data
-   *	@sk_allocation: allocation mode
-   *	@sk_sndbuf: size of send buffer in bytes
-   *	@sk_flags: %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE,
-@@ -328,6 +329,7 @@ struct sock {
- #endif
- #ifdef CONFIG_NET_LL_RX_POLL
- 	unsigned int		sk_napi_id;
-+	unsigned int		sk_ll_usec;
- #endif
- 	atomic_t		sk_drops;
- 	int			sk_rcvbuf;
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index c5d2e3a..ca3a20d 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -76,4 +76,6 @@
- 
- #define SO_SELECT_ERR_QUEUE	45
- 
-+#define SO_LL			46
-+
- #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 788c0da..1e744b1 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -913,6 +913,19 @@ set_rcvbuf:
- 		sock_valbool_flag(sk, SOCK_SELECT_ERR_QUEUE, valbool);
- 		break;
- 
-+#ifdef CONFIG_NET_LL_RX_POLL
-+	case SO_LL:
-+		/* allow unprivileged users to decrease the value */
-+		if ((val > sk->sk_ll_usec) && !capable(CAP_NET_ADMIN))
-+			ret = -EPERM;
-+		else {
-+			if (val < 0)
-+				ret = -EINVAL;
-+			else
-+				sk->sk_ll_usec = val;
-+		}
-+		break;
+          if ( !rc && aopt_check(common_obj, OPT_RECV_LOOPING) ) {
+
+              const char* optarg = aopt_value(common_obj, OPT_RECV_LOOPING);
+@@ -2296,6 +2320,29 @@ int sock_set_reuseaddr(int fd)
+      return rc;
+  }
+
++#ifndef SO_LL
++#define SO_LL 46
 +#endif
- 	default:
- 		ret = -ENOPROTOOPT;
- 		break;
-@@ -1170,6 +1183,12 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
- 		v.val = sock_flag(sk, SOCK_SELECT_ERR_QUEUE);
- 		break;
- 
-+#ifdef CONFIG_NET_LL_RX_POLL
-+	case SO_LL:
-+		v.val = sk->sk_ll_usec;
-+		break;
-+#endif
++int sock_set_lls(int fd)
++{
++    int rc = SOCKPERF_ERR_NONE;
++    unsigned int lls;
++    int size = sizeof(lls);
 +
- 	default:
- 		return -ENOPROTOOPT;
- 	}
-@@ -2288,6 +2307,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 
- #ifdef CONFIG_NET_LL_RX_POLL
- 	sk->sk_napi_id		=	0;
-+	sk->sk_ll_usec		=	sysctl_net_ll_poll;
- #endif
- 
- 	/*
-diff --git a/net/socket.c b/net/socket.c
-index caaffa1..3eec3f7 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -108,7 +108,6 @@
- 
- #ifdef CONFIG_NET_LL_RX_POLL
- unsigned int sysctl_net_ll_poll __read_mostly;
--EXPORT_SYMBOL_GPL(sysctl_net_ll_poll);
- #endif
- 
- static int sock_no_open(struct inode *irrelevant, struct file *dontcare);
++    if(getsockopt(fd, SOL_SOCKET, SO_LL, &lls, (socklen_t *)&size) < 0){
++        log_err("getsockopt(SO_LL) failed");
++        return SOCKPERF_ERR_SOCKET;
++    } else
++        log_msg("socket option SO_LL default was %u, changing to %u", 
+lls, s_user_params.lls_usecs);
++
++    if (setsockopt(fd, SOL_SOCKET, SO_LL, &(s_user_params.lls_usecs), 
+sizeof(s_user_params.lls_usecs)) < 0) {
++        log_err("setsockopt(SO_LL) failed");
++        rc = SOCKPERF_ERR_SOCKET;
++    }
++    return rc;
++}
++
++
+  int sock_set_snd_rcv_bufs(int fd)
+  {
+      /*
+@@ -2460,6 +2507,11 @@ int prepare_socket(int fd, struct fds_data *p_data)
+      }
+
+      if (!rc &&
++            (s_user_params.lls_is_set == true))
++    {
++        rc = sock_set_lls(fd);
++    }
++    if (!rc &&
+              (s_user_params.sock_buff_size > 0))
+      {
+          rc = sock_set_snd_rcv_bufs(fd);
+
+
+
+
+
+
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
+
+Build for Windows Store.
+
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
