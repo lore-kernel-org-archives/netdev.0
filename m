@@ -1,45 +1,38 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: [PATCH net] hyperv: Fix vlan_proto setting in
- netvsc_recv_callback()
-Date: Fri, 14 Jun 2013 17:28:43 +0200
-Message-ID: <20130614152843.GA11368@aepfle.de>
-References: <1369757756-24572-1-git-send-email-haiyangz@microsoft.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH net-next v2 0/4] openvswitch tunneling preparation
+Date: Fri, 14 Jun 2013 08:28:41 -0700
+Message-ID: <CAEP_g=9fV07wM-LVyfyMy9mjKe+y3pkGz8WvbZAPtM096m7ftw@mail.gmail.com>
+References: <1371147079-29139-1-git-send-email-pshelar@nicira.com> <20130613.170527.243134340140974936.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kys@microsoft.com,
-	jasowang@redhat.com, linux-kernel@vger.kernel.org,
-	devel@linuxdriverproject.org
-To: Haiyang Zhang <haiyangz@microsoft.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pravin Shelar <pshelar@nicira.com>,
+	netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mo-p04-ob.rzone.de ([81.169.146.178]:18424 "EHLO
-	mo-p04-ob.rzone.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752021Ab3FNP2u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 11:28:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1369757756-24572-1-git-send-email-haiyangz@microsoft.com>
+Received: from na3sys009aog125.obsmtp.com ([74.125.149.153]:47735 "HELO
+	na3sys009aog125.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752021Ab3FNP3D (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 11:29:03 -0400
+Received: by mail-lb0-f180.google.com with SMTP id o10so719890lbi.39
+        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 08:29:02 -0700 (PDT)
+In-Reply-To: <20130613.170527.243134340140974936.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 28, Haiyang Zhang wrote:
+On Thu, Jun 13, 2013 at 5:05 PM, David Miller <davem@davemloft.net> wrote:
+> From: Pravin B Shelar <pshelar@nicira.com>
+> Date: Thu, 13 Jun 2013 11:11:19 -0700
+>
+>> Following patches are required but not directly related to ovs tunneling.
+>> So I am sending them as separate series. These cleanups are already
+>> there in out of tree ovs module.
+>>
+>> Since ovs tunneling series depends on this, I am sending all patches
+>> again.
+>
+> Openvswitch folks please send me a pull request.
 
-> Since the recent addition of 8021AD, we need to set the new field vlan_proto in
-> sk_buff. Otherwise, it will trigger BUG() call in vlan_proto_idx().
-
-> @@ -284,7 +285,7 @@ int netvsc_recv_callback(struct hv_device *device_obj,
->  
->  	skb->protocol = eth_type_trans(skb, net);
->  	skb->ip_summed = CHECKSUM_NONE;
-> -	skb->vlan_tci = packet->vlan_tci;
-> +	__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), packet->vlan_tci);
-
-
-Just curious:
-
-Doesnt that change behaviour in the sense that __vlan_hwaccel_put_tag()
-now always adds VLAN_TAG_PRESENT to skb->vlan_tci, while before that
-change packet->vlan_tci may or may not had this flag?
-
-In other words, should a variant of this patch be backported if it was a
-bug not not use __vlan_hwaccel_put_tag right from the start?
-
-Olaf
+For the non-OVS portions of the tunneling series (not this one, which
+I already applied, but the next) do you want to take them directly or
+should I just throw them all into my tree?
