@@ -1,41 +1,58 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v3 0/4] Some SCTP cleanups/improvements
-Date: Fri, 14 Jun 2013 18:24:03 +0200
-Message-ID: <1371227047-16852-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54108 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753023Ab3FNQYK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 14 Jun 2013 12:24:10 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net] hyperv: Fix vlan_proto setting in
+ netvsc_recv_callback()
+Date: Fri, 14 Jun 2013 16:24:16 +0000
+Message-ID: <807a9b192c2d4ce1b0c6d037968ddf4c@DFM-DB3MBX15-06.exchange.corp.microsoft.com>
+References: <1369757756-24572-1-git-send-email-haiyangz@microsoft.com>
+ <20130614152843.GA11368@aepfle.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	KY Srinivasan <kys@microsoft.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>
+To: Olaf Hering <olaf@aepfle.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130614152843.GA11368@aepfle.de>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-v2 -> v3:
-  - Applied feedback from Vlad in first patch, rest is unchanged
-
-v1 -> v2:
-  - Applied Neil's feedback, I'll send out the first patch at a later
-    point in time though, have not included it in this set
-  - Add two other patches that appear to be useful from the last
-    couple of days debugging SCTP code
-
-Let it run through lksctp-tools and also my recent stress test tool,
-all looks good.
-
-Daniel Borkmann (4):
-  net: sctp: sideeffect: throw BUG if primary_path is NULL
-  net: sctp: sctp_sf_do_prm_asoc: do SCTP_CMD_INIT_CHOOSE_TRANSPORT first
-  net: sctp: minor: remove variable in sctp_init_sock
-  net: sctp: sctp_association_init: put refs in reverse order
-
- net/sctp/associola.c     |  7 +++----
- net/sctp/proc.c          | 19 ++++++++++++++++---
- net/sctp/sm_sideeffect.c |  5 ++++-
- net/sctp/sm_statefuns.c  |  8 ++++----
- net/sctp/socket.c        |  6 ++----
- 5 files changed, 29 insertions(+), 16 deletions(-)
-
--- 
-1.7.11.7
+DQoNCj4gLS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0tLS0NCj4gRnJvbTogT2xhZiBIZXJpbmcgW21h
+aWx0bzpvbGFmQGFlcGZsZS5kZV0NCj4gU2VudDogRnJpZGF5LCBKdW5lIDE0LCAyMDEzIDExOjI5
+IEFNDQo+IFRvOiBIYWl5YW5nIFpoYW5nDQo+IENjOiBkYXZlbUBkYXZlbWxvZnQubmV0OyBuZXRk
+ZXZAdmdlci5rZXJuZWwub3JnOyBLWSBTcmluaXZhc2FuOw0KPiBqYXNvd2FuZ0ByZWRoYXQuY29t
+OyBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOw0KPiBkZXZlbEBsaW51eGRyaXZlcnByb2pl
+Y3Qub3JnDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0XSBoeXBlcnY6IEZpeCB2bGFuX3Byb3Rv
+IHNldHRpbmcgaW4NCj4gbmV0dnNjX3JlY3ZfY2FsbGJhY2soKQ0KPiANCj4gT24gVHVlLCBNYXkg
+MjgsIEhhaXlhbmcgWmhhbmcgd3JvdGU6DQo+IA0KPiA+IFNpbmNlIHRoZSByZWNlbnQgYWRkaXRp
+b24gb2YgODAyMUFELCB3ZSBuZWVkIHRvIHNldCB0aGUgbmV3IGZpZWxkDQo+ID4gdmxhbl9wcm90
+byBpbiBza19idWZmLiBPdGhlcndpc2UsIGl0IHdpbGwgdHJpZ2dlciBCVUcoKSBjYWxsIGluDQo+
+IHZsYW5fcHJvdG9faWR4KCkuDQo+IA0KPiA+IEBAIC0yODQsNyArMjg1LDcgQEAgaW50IG5ldHZz
+Y19yZWN2X2NhbGxiYWNrKHN0cnVjdCBodl9kZXZpY2UNCj4gPiAqZGV2aWNlX29iaiwNCj4gPg0K
+PiA+ICAJc2tiLT5wcm90b2NvbCA9IGV0aF90eXBlX3RyYW5zKHNrYiwgbmV0KTsNCj4gPiAgCXNr
+Yi0+aXBfc3VtbWVkID0gQ0hFQ0tTVU1fTk9ORTsNCj4gPiAtCXNrYi0+dmxhbl90Y2kgPSBwYWNr
+ZXQtPnZsYW5fdGNpOw0KPiA+ICsJX192bGFuX2h3YWNjZWxfcHV0X3RhZyhza2IsIGh0b25zKEVU
+SF9QXzgwMjFRKSwgcGFja2V0LQ0KPiA+dmxhbl90Y2kpOw0KPiANCj4gDQo+IEp1c3QgY3VyaW91
+czoNCj4gDQo+IERvZXNudCB0aGF0IGNoYW5nZSBiZWhhdmlvdXIgaW4gdGhlIHNlbnNlIHRoYXQg
+X192bGFuX2h3YWNjZWxfcHV0X3RhZygpDQo+IG5vdyBhbHdheXMgYWRkcyBWTEFOX1RBR19QUkVT
+RU5UIHRvIHNrYi0+dmxhbl90Y2ksIHdoaWxlIGJlZm9yZSB0aGF0DQo+IGNoYW5nZSBwYWNrZXQt
+PnZsYW5fdGNpIG1heSBvciBtYXkgbm90IGhhZCB0aGlzIGZsYWc/DQo+IA0KPiBJbiBvdGhlciB3
+b3Jkcywgc2hvdWxkIGEgdmFyaWFudCBvZiB0aGlzIHBhdGNoIGJlIGJhY2twb3J0ZWQgaWYgaXQg
+d2FzIGEgYnVnDQo+IG5vdCBub3QgdXNlIF9fdmxhbl9od2FjY2VsX3B1dF90YWcgcmlnaHQgZnJv
+bSB0aGUgc3RhcnQ/DQo+IA0KDQpUaGFua3MgZm9yIGxvb2tpbmcgYXQgdGhpcy4gQWN0dWFsbHks
+IHRoZSBwcmV2aW91cyBjb2RlIHdhcyBjb3JyZWN0LCBiZWNhdXNlIEkgDQphZGQgdGhlIFZMQU5f
+VEFHX1BSRVNFTlQgaWYgdGhlIHBhY2tldCBjb21lcyBmcm9tIHZsYW4gaW4gZnVuY3Rpb24NCnJu
+ZGlzX2ZpbHRlcl9yZWNlaXZlX2RhdGEoKToNCiAgICAgICAgaWYgKHZsYW4pIHsNCiAgICAgICAg
+ICAgICAgICBwa3QtPnZsYW5fdGNpID0gVkxBTl9UQUdfUFJFU0VOVCB8IHZsYW4tPnZsYW5pZCB8
+DQogICAgICAgICAgICAgICAgICAgICAgICAodmxhbi0+cHJpIDw8IFZMQU5fUFJJT19TSElGVCk7
+DQogICAgICAgIH0gZWxzZSB7DQogICAgICAgICAgICAgICAgcGt0LT52bGFuX3RjaSA9IDA7DQog
+ICAgICAgIH0NCg0KQnV0LCB0aGUgbmV3IGNvZGUgc2hvdWxkIGJlIHVwZGF0ZWQgYmVsb3csIHNv
+IHRoZSBWTEFOX1RBR19QUkVTRU5UIHdvbid0IGJlIHNldA0Kd2hlbiBpdCdzIG5vdCBmcm9tIGEg
+dmxhbjoNCklmIChWTEFOX1RBR19QUkVTRU5UICYgcGFja2V0LT52bGFuX3RjaSkNCglfX3ZsYW5f
+aHdhY2NlbF9wdXRfdGFnKHNrYiwgaHRvbnMoRVRIX1BfODAyMVEpLCBwYWNrZXQtIHZsYW5fdGNp
+KTsNCg0KSSB3aWxsIHN1Ym1pdCBhIHBhdGNoIHNvb24uDQoNClRoYW5rcywNCi0gSGFpeWFuZw0K
+DQo=
