@@ -1,33 +1,50 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [RFC PATCH net-next] mlx4_en: Do not set dev_id to port number
-Date: Fri, 14 Jun 2013 23:18:27 +0300
-Message-ID: <CAJZOPZK2XZSU7GB6TBV83FXHvTX26kAB+D6yPH+54YZPp_Te_g@mail.gmail.com>
-References: <20130614150624.GA1316@fedora-17-guest.blr.amer.dell.com>
-	<CAJZOPZLv9aidr7fV_2ntqy1DeZZGd9yUHZT1Dqbk=w-bssw69Q@mail.gmail.com>
-	<1371240882.1940.18.camel@bwh-desktop.uk.level5networks.com>
+From: Shawn Bohrer <sbohrer@rgmadvisors.com>
+Subject: Re: mlx4_core 0000:05:00.0: event 19 arrived
+Date: Fri, 14 Jun 2013 15:47:09 -0500
+Message-ID: <20130614204709.GC7310@sbohrermbp13-local.rgmadvisors.com>
+References: <20130614155342.GA7310@sbohrermbp13-local.rgmadvisors.com>
+ <20130614161003.GB7310@sbohrermbp13-local.rgmadvisors.com>
+ <CAJZOPZKAJMV6qY43zONh_82GcgW2NOrABHEqVzv4vp77Dy7xSQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: Narendra_K@dell.com, netdev@vger.kernel.org, ogerlitz@mellanox.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, amirv@mellanox.com
+To: Or Gerlitz <or.gerlitz@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f178.google.com ([209.85.216.178]:34748 "EHLO
-	mail-qc0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753802Ab3FNUS2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 16:18:28 -0400
-Received: by mail-qc0-f178.google.com with SMTP id c11so546920qcv.37
-        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 13:18:27 -0700 (PDT)
-In-Reply-To: <1371240882.1940.18.camel@bwh-desktop.uk.level5networks.com>
+Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:33283 "EHLO
+	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751126Ab3FNUrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 16:47:12 -0400
+Received: by mail-ob0-f180.google.com with SMTP id eh20so1102534obb.39
+        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 13:47:12 -0700 (PDT)
+In-Reply-To: <CAJZOPZKAJMV6qY43zONh_82GcgW2NOrABHEqVzv4vp77Dy7xSQ@mail.gmail.com>
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 14, 2013 at 11:14 PM, Ben Hutchings
-<bhutchings@solarflare.com> wrote:
+On Fri, Jun 14, 2013 at 10:58:48PM +0300, Or Gerlitz wrote:
+> On Fri, Jun 14, 2013 at 7:10 PM, Shawn Bohrer <sbohrer@rgmadvisors.com> wrote:
+> > I also just remembered that I had set debug_level=1 on mlx4_core and
+> > that is likely why I am now seeing these messages.  If these messages
+> > are expected and harmless then I'll simply turn off the debug messages.
+> 
+> probably harmless, but let me check after the weekend and get back to
+> you. So you are using only mlx4_en, correct? no IPoIB nor user space
+> of your own that deal with QPs, SRQs (Shared Receive Queues) or alike
 
-> If you have userland tools relying on this then I agree it should be
-> left alone, but maybe add a comment explaining why the field is used in
-> an unusual way.
+Actually, I'm receiving UDP multicast using standard sockets, and
+occasionally sending multicast UD RoCE.  So in this case we are
+managing some of our own QPs and SRQs.  I just reproduced this and see
+these messages when I stop my app(s).  My guess is that they come from
+the RoCE side of things since I was running a purely UDP workload
+earlier and stopping/starting and never saw any of these.
 
-we were not aware that it used in unsual way, just used that b/c were told
-too, not sure what to put in the comment. As for userland tools, I know
-about internal regression tools and some clould related scripts that use
-that.
+--
+Shawn
+
+-- 
+
+---------------------------------------------------------------
+This email, along with any attachments, is confidential. If you 
+believe you received this message in error, please contact the 
+sender immediately and delete all copies of the message.  
+Thank you.
