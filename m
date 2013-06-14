@@ -1,69 +1,44 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] ipv4: Fixed MD5 key lookups when adding/ removing
- MD5 to/ from TCP sockets.
-Date: Fri, 14 Jun 2013 00:21:31 -0700
-Message-ID: <1371194491.3252.125.camel@edumazet-glaptop>
-References: <n>
-	 <1371192991-6937-1-git-send-email-aydin.arik@alliedtelesis.co.nz>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Aydin Arik <aydin.arik@alliedtelesis.co.nz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371192991-6937-1-git-send-email-aydin.arik@alliedtelesis.co.nz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: junwei.zhang@6wind.com
+Subject: [PATCH 1/2] kernel: remove unnecessary head file
+Date: Fri, 14 Jun 2013 15:29:53 +0800
+Message-ID: <1371194994-6130-1-git-send-email-junwei.zhang@6wind.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	akpm@linux-foundation.org, JunweiZhang <junwei.zhang@6wind.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pd0-f173.google.com ([209.85.192.173]:64136 "EHLO
+	mail-pd0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751944Ab3FNH1z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 03:27:55 -0400
+Received: by mail-pd0-f173.google.com with SMTP id v14so304198pde.32
+        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 00:27:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-06-14 at 18:56 +1200, Aydin Arik wrote:
-> MD5 key lookups on a given TCP socket were being performed
-> incorrectly. This fix alters parameter inputs to the MD5
-> lookup function tcp_md5_do_lookup, which is called by functions
-> tcp_md5_do_add and tcp_md5_do_del. Specifically, the change now
-> inputs the correct address and address family required to make
-> a proper lookup.
-> 
-> Signed-off-by: Aydin Arik <aydin.arik@alliedtelesis.co.nz>
-> ---
->  net/ipv4/tcp_ipv4.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
-> index d09203c..04dfdc9 100644
-> --- a/net/ipv4/tcp_ipv4.c
-> +++ b/net/ipv4/tcp_ipv4.c
-> @@ -1005,7 +1005,7 @@ int tcp_md5_do_add(struct sock *sk, const union tcp_md5_addr *addr,
->  	struct tcp_sock *tp = tcp_sk(sk);
->  	struct tcp_md5sig_info *md5sig;
->  
-> -	key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)&addr, AF_INET);
-> +	key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)addr, family);
->  	if (key) {
->  		/* Pre-existing entry - just update that one. */
->  		memcpy(key->key, newkey, newkeylen);
-> @@ -1050,7 +1050,7 @@ int tcp_md5_do_del(struct sock *sk, const union tcp_md5_addr *addr, int family)
->  	struct tcp_md5sig_key *key;
->  	struct tcp_md5sig_info *md5sig;
->  
-> -	key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)&addr, AF_INET);
-> +	key = tcp_md5_do_lookup(sk, (union tcp_md5_addr *)addr, family);
->  	if (!key)
->  		return -ENOENT;
->  	hlist_del_rcu(&key->node);
+From: JunweiZhang <junwei.zhang@6wind.com>
 
-Good catch !
+ip_vs.h is not necessary for sysctl_binary.c.
 
-Could you remove the casts "(union tcp_md5_addr *)" as well ?
+prepare for the next patch to avoid compile issue.
 
-And please add in the changelog the bug origin to ease stable
-submissions :
+Signed-off-by: JunweiZhang <junwei.zhang@6wind.com>
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ kernel/sysctl_binary.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-commit a915da9b69273815527ccb3789421cb7027b545b
-("tcp: md5: rcu conversion")
-
-Thanks !
+diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
+index aea4a9e..b609213 100644
+--- a/kernel/sysctl_binary.c
++++ b/kernel/sysctl_binary.c
+@@ -3,7 +3,6 @@
+ #include "../fs/xfs/xfs_sysctl.h"
+ #include <linux/sunrpc/debug.h>
+ #include <linux/string.h>
+-#include <net/ip_vs.h>
+ #include <linux/syscalls.h>
+ #include <linux/namei.h>
+ #include <linux/mount.h>
+-- 
+1.8.1.2
