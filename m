@@ -1,51 +1,51 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next v3 0/4] Some SCTP cleanups/improvements
-Date: Fri, 14 Jun 2013 13:00:54 -0400
-Message-ID: <51BB4C46.2080506@gmail.com>
-References: <1371227047-16852-1-git-send-email-dborkman@redhat.com>
+From: =?UTF-8?Q?Br=C3=A1ulio_Bhavamitra?= <braulio@eita.org.br>
+Subject: Re: atl1c hangs still on 3.9.0
+Date: Fri, 14 Jun 2013 14:06:04 -0300
+Message-ID: <CAJri6_vhZG+MD-8TVA6+LL=zx6sbFTx_8mt3sCuVeXd_pvwCeQ@mail.gmail.com>
+References: <CAJri6_uvJ--yGezQGTENzrd8VR1KOfMUj6tSDN70MJoGcXAQng@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vc0-f176.google.com ([209.85.220.176]:39289 "EHLO
-	mail-vc0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752035Ab3FNRA6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 13:00:58 -0400
-In-Reply-To: <1371227047-16852-1-git-send-email-dborkman@redhat.com>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:42008 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753550Ab3FNRGq convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 13:06:46 -0400
+Received: by mail-lb0-f182.google.com with SMTP id r11so793599lbv.41
+        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 10:06:44 -0700 (PDT)
+In-Reply-To: <CAJri6_uvJ--yGezQGTENzrd8VR1KOfMUj6tSDN70MJoGcXAQng@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/14/2013 12:24 PM, Daniel Borkmann wrote:
-> v2 -> v3:
->    - Applied feedback from Vlad in first patch, rest is unchanged
->
-> v1 -> v2:
->    - Applied Neil's feedback, I'll send out the first patch at a later
->      point in time though, have not included it in this set
->    - Add two other patches that appear to be useful from the last
->      couple of days debugging SCTP code
->
-> Let it run through lksctp-tools and also my recent stress test tool,
-> all looks good.
+it works pretty well with 3.6.9, the throughput is mucher high also.
 
-Looks good.
-
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-
+On Fri, Jun 14, 2013 at 10:20 AM, Br=C3=A1ulio Bhavamitra
+<braulio@eita.org.br> wrote:
+> hello,
 >
-> Daniel Borkmann (4):
->    net: sctp: sideeffect: throw BUG if primary_path is NULL
->    net: sctp: sctp_sf_do_prm_asoc: do SCTP_CMD_INIT_CHOOSE_TRANSPORT first
->    net: sctp: minor: remove variable in sctp_init_sock
->    net: sctp: sctp_association_init: put refs in reverse order
+> I saw http://www.spinics.net/lists/netdev/msg228914.html and the
+> problem persists on 3.9.0, ubuntu 13.04
 >
->   net/sctp/associola.c     |  7 +++----
->   net/sctp/proc.c          | 19 ++++++++++++++++---
->   net/sctp/sm_sideeffect.c |  5 ++++-
->   net/sctp/sm_statefuns.c  |  8 ++++----
->   net/sctp/socket.c        |  6 ++----
->   5 files changed, 29 insertions(+), 16 deletions(-)
+> [  283.723684] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Down
+> [  285.210649] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Up<100 Mbp=
+s
+> Full Duplex>
+> [  498.097358] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Down
+> [  499.610475] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Up<100 Mbp=
+s
+> Full Duplex>
+> [  583.993662] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Down
+> [  585.501609] atl1c 0000:01:00.0: atl1c: eth0 NIC Link is Up<100 Mbp=
+s
+> Full Duplex>
 >
+> =E2=9E=9C  ~  uname -a
+> Linux bhavamitra-1215N 3.9.0-030900-generic #201304291257 SMP Mon Apr
+> 29 17:06:25 UTC 2013 i686 i686 i686 GNU/Linux
+> =E2=9E=9C  ~
+>
+> Is there a more recent fix??
+>
+> regards,
+> br=C3=A1ulio
