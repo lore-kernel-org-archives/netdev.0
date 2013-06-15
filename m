@@ -1,65 +1,46 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: [PATCH v4] ethernet/arc/arc_emac - Add new driver
-Date: Sat, 15 Jun 2013 20:47:25 +0000
-Message-ID: <4881796E12491D4BB15146FE0209CE643F5E7779@DE02WEMBXB.internal.synopsys.com>
-References: <1371327652-9368-1-git-send-email-abrodkin@synopsys.com>
- <1371328671.2117.6.camel@joe-AO722>
+From: Timur Tabi <timur@tabi.org>
+Subject: Re: [PATCH] MDIO: FSL_PQ_MDIO: Fix bug on incorrect offset of tbipa
+ register
+Date: Sat, 15 Jun 2013 17:57:18 -0500
+Message-ID: <CAOZdJXVjdkMF5rpTVd9tnwCRDqXWtJTUAbywcuzoVehRrgPPsg@mail.gmail.com>
+References: <1371041258-15298-1-git-send-email-ogabbay@advaoptical.com>
+ <51B88EED.6090709@linutronix.de> <1371061871.18413.44@snotra>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Alexey Brodkin <Alexey.Brodkin@synopsys.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Andy Shevchenko <andy.shevchenko@gmail.com>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Likely <grant.likely@linaro.org>,
-	"Rob Herring" <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree-discuss@lists.ozlabs.org"
-	<devicetree-discuss@lists.ozlabs.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Stef van Os <stef.van.os@prodrive.nl>,
+ Oded Gabbay <ogabbay@advaoptical.com>, netdev@vger.kernel.org,
+ Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
+ Dongsheng.Wang@freescale.com, Timur Tabi <timur@tabi.org>,
+ Paul Mackerras <paulus@samba.org>,
+ "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
+ David Miller <davem@davemloft.net>, lkml <linux-kernel@vger.kernel.org>,
+ B38951@freescale.com
+To: Scott Wood <scottwood@freescale.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1371061871.18413.44@snotra>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-On 06/16/2013 12:37 AM, Joe Perches wrote:
-> On Sun, 2013-06-16 at 00:20 +0400, Alexey Brodkin wrote:
->> Driver for non-standard on-chip ethernet device ARC EMAC 10/100,
->> instantiated in some legacy ARC (Synopsys) FPGA Boards such as
->> ARCAngel4/ML50x.
+On Wed, Jun 12, 2013 at 1:31 PM, Scott Wood <scottwood@freescale.com> wrote:
 >
->> diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
-> []
->> +		if (DUPLEX_FULL == phy_dev->duplex)
+> I'm not sure it's stable material if this is something that has never
+> worked...
 >
-> Most all kernel code uses "if (var == constant)"
-> as that's how most people think.
+> The device tree binding will also need to be fixed to note the difference in
+> "reg" between "fsl,gianfar-mdio" and "fsl-gianfar-tbi" -- and should give an
+> example of the latter.
 
-Makes sense.
-
-> []
->
->> +static int arc_emac_rx(struct net_device *ndev, int budget)
-> []
->> +		/* Prepare the BD for next cycle */
->> +		rx_buff->skb = netdev_alloc_skb_ip_align(ndev, buflen);
->> +		if (unlikely(!rx_buff->skb)) {
->> +			if (net_ratelimit())
->> +				netdev_err(ndev, "cannot allocate skb\n");
->
-> Unnecessary OOM message, might as well remove it.
-> rx_dropped gives the same info.
-
-With all those error messages I wanted to make life easier (especially 
-for me) if errors appear. User will immediately know where problem 
-happened. Indeed "rx_dropped" (when it is used only once in driver) may 
-show where issue happened, but if later at some point "rx_dropped" will 
-be incremented in other locations then user won't understand immediately 
-where error happened.
-
--Alexey
+I don't remember how much I tested it, but I'm pretty sure that at
+some of the suspect devices did work for me.  My goal was to maintain
+compatibility with existing device trees, and just refactor the code
+so that it's easier to read.
