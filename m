@@ -1,59 +1,66 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH v4 0/8] sh_eth: deal with #ifdef'fery
-Date: Sat, 15 Jun 2013 04:02:48 +0400
-Message-ID: <51BBAF28.4040603@cogentembedded.com>
-References: <201306060106.51082.sergei.shtylyov@cogentembedded.com> <CANqRtoTM7KUn6Cm9hhQpyVT3qsAFANuD+CufarETSNZwqc5_Sw@mail.gmail.com> <51BBAE97.30009@cogentembedded.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [ovs-dev] [PATCH net-next 06/12] ip_tunnel: push generic protocol
+ handling to ip_tunnel module.
+Date: Fri, 14 Jun 2013 17:20:53 -0700
+Message-ID: <CAEP_g=_yK4omX-VBd+q9fRai+az0Bzgi8uh7rPmAnzJ1pzsxuw@mail.gmail.com>
+References: <1371147884-9323-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
 Cc: netdev <netdev@vger.kernel.org>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	SH-Linux <linux-sh@vger.kernel.org>
-To: Magnus Damm <magnus.damm@gmail.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <51BBAE97.30009@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Pravin B Shelar <pshelar@nicira.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog104.obsmtp.com ([74.125.149.73]:41095 "HELO
+	na3sys009aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752857Ab3FOAVO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 20:21:14 -0400
+Received: by mail-ie0-f174.google.com with SMTP id 9so2742616iec.19
+        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 17:21:14 -0700 (PDT)
+In-Reply-To: <1371147884-9323-1-git-send-email-pshelar@nicira.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/15/2013 04:00 AM, Sergei Shtylyov wrote:
+On Thu, Jun 13, 2013 at 11:24 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
+>  static int gre_cisco_rcv(struct sk_buff *skb)
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index b7b8d15..c41faf8 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -442,23 +435,6 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+>                 tunnel->i_seqno = ntohl(tpi->seq) + 1;
+>         }
+>
+> -       /* Warning: All skb pointers will be invalidated! */
+> -       if (tunnel->dev->type == ARPHRD_ETHER) {
+> -               if (!pskb_may_pull(skb, ETH_HLEN)) {
+> -                       tunnel->dev->stats.rx_length_errors++;
+> -                       tunnel->dev->stats.rx_errors++;
+> -                       goto drop;
+> -               }
+> -
+> -               iph = ip_hdr(skb);
+> -               skb->protocol = eth_type_trans(skb, tunnel->dev);
+> -               skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+> -       }
+> -
+> -       skb->pkt_type = PACKET_HOST;
+> -       __skb_tunnel_rx(skb, tunnel->dev);
+> -
+> -       skb_reset_network_header(skb);
+>         err = IP_ECN_decapsulate(iph, skb);
+>         if (unlikely(err)) {
+>                 if (log_ecn_error)
+> @@ -477,6 +453,12 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+>         tstats->rx_bytes += skb->len;
+>         u64_stats_update_end(&tstats->syncp);
+>
+> +       if (tunnel->dev->type == ARPHRD_ETHER) {
+> +               skb->protocol = eth_type_trans(skb, tunnel->dev);
+> +               skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+> +       } else {
+> +               skb->dev = tunnel->dev;
+> +       }
 
->>>     This series deals mostly with excess #ifdef'fery in the 'sh_eth'
->>> driver.
->>> It doesn't yet get rid of all the #ifdef'fery but that's a matter of
->>> another
->>> patchset. The last patch (it was almost in the middle of the series
->>> before),
->>> contrarywise, adds one missing #ifdef...
-
->>> [1/8] sh_eth: remove #ifdef around EDSR and GECMR bit definitions
->>> [2/8] sh_eth: use EDSR_ENALL to set EDSR
->>> [3/8] sh_eth: remove duplicate sh_eth_set_duplex() definitions
->>> [4/8] sh_eth: remove SH_ETH_HAS_TSU
->>> [5/8] sh_eth: add IRQ flags to 'struct sh_eth_cpu_data'
->>> [6/8] sh_eth: remove #ifdef around sh_eth_select_mii()
->>> [7/8] sh_eth: consolidate sh_eth_reset()
->>> [8/8] sh_eth: enclose PM code into #ifdef CONFIG_PM
-
->> Thanks for your work on this. I'm looking forward to a sh-eth driver
->> without #ifdef hell.
-
->> It may be just me misunderstanding, but the other day I noticed that
->> external PHY handling seems broken in the sh-eth driver. I tried to
->> enable a micron PHY driver but could not make the pieces fit together.
-
->     What kernel you were using, net-next? It seems that the PHY support
-> is indeed broken after this series.
-
-    Oh, I mixed it up. It's broken by the next series, which moved most 
-of the SoC specific code out of #ifdef's.
-
-> The phylib simply reports that it didn't find a PHY at the specified address. :-/
->     I'll continue to investigate this on the weekend...
-
->> Cheers,
-
->> / magnus
-
-WBR, Sergei
-
-
+Why don't we set the tunnel device in the case of an L2 packet? This
+appears related to the removal of __skb_tunnel_rx() but it seems there
+is now less consistency between L2 and L3 tunnels.
