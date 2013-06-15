@@ -1,50 +1,109 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v5 3/3] igmp: convert RTNL lock to a spinlock
-Date: Sat, 15 Jun 2013 16:44:37 +0800
-Message-ID: <1371285877.23997.14.camel@cr0>
-References: <1371282069-26893-1-git-send-email-amwang@redhat.com>
-	 <1371282069-26893-3-git-send-email-amwang@redhat.com>
-	 <1371282946.3252.148.camel@edumazet-glaptop> <1371283942.23997.8.camel@cr0>
-	 <1371284768.3252.151.camel@edumazet-glaptop>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: Re: [PATCH v3] ethernet/arc/arc_emac - Add new driver
+Date: Sat, 15 Jun 2013 08:51:39 +0000
+Message-ID: <4881796E12491D4BB15146FE0209CE643F5E5730@DE02WEMBXB.internal.synopsys.com>
+References: <1371134239-4531-1-git-send-email-abrodkin@synopsys.com>
+ <20130613221946.GA16632@electric-eye.fr.zoreil.com>
+ <4881796E12491D4BB15146FE0209CE643F5E3A07@DE02WEMBXB.internal.synopsys.com>
+ <20130614192704.GA4857@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Joe Perches <joe@perches.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Mischa Jonker <Mischa.Jonker@synopsys.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Grant Likely <grant.likely@linaro.org>,
+	"Rob Herring" <rob.herring@calxeda.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48262 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752315Ab3FOIos (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Jun 2013 04:44:48 -0400
-In-Reply-To: <1371284768.3252.151.camel@edumazet-glaptop>
+Received: from us02smtp1.synopsys.com ([198.182.60.75]:62408 "EHLO
+	vaxjo.synopsys.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752920Ab3FOIvs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jun 2013 04:51:48 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-06-15 at 01:26 -0700, Eric Dumazet wrote:
-> On Sat, 2013-06-15 at 16:12 +0800, Cong Wang wrote:
-> 
-> > I _did_ try to replace spinlock with mutex, but apparently mutex_lock()
-> > can't be called with rcu_read_lock() held, which is the case in
-> > ip_mc_drop_socket().
-> > 
-> 
-> If you hold a mutex, there is no need for rcu_read_lock() at all.
-> 
-> Nobody can change the lists while you are the owner.
-> 
-> We already have nice helpers, lockdep enabled.
-> 
-> check rtnl_dereference() uses
-> 
-> 
+On 06/14/2013 11:27 PM, Francois Romieu wrote:
+> Alexey Brodkin <Alexey.Brodkin@synopsys.com> :
+>> On 06/14/2013 02:20 AM, Francois Romieu wrote:
+> [...]
+>>>> +struct arc_emac_priv {
+>>>> +	struct net_device_stats stats;
+>>>> +	unsigned int clock_frequency;
+>>>> +	unsigned int max_speed;
+>>>> +
+>>>> +	/* Pointers to BD rings - CPU side */
+>>>> +	struct arc_emac_bd_t *rxbd;
+>>>
+>>> There does not seem to be much need for rxbd->data.
+>>
+>> Could you please clarify this comment? Not clear what do you mean.
+>
+> Rx and Tx use the same struct but they don't work the same.
+> They could/should use differents struct.
 
-Oops, I should mean to say ip_mc_leave_group(), not
-ip_mc_drop_socket()...
+Structure "arc_emac_bd" represents a buffer descriptor that is used for 
+intercommunication between EMAC and CPU for both Tx and Rx.
 
-The reason why it holds RCU is to get in_dev and still uses it after
-spinlock is held, but I think we can fix ip_mc_find_dev() so that we can
-call it without holding RCU outside, by taking a ref to in_dev?
+"info" field contains a number of flags (who's an owner of this BD now, 
+if this buffer contains beginning and/or end of received packets, 
+received packet length etc.) Those flags are used for both Tx and Rx.
+At least some of them like "owner" and "length". In case of Tx "length" 
+indicates size of memory buffer available for receiving next packet.
 
-Thanks!
+"data" field is a 32-bit pointer to memory buffer.
+In case of Tx buffer contains data to send, in case of Rx buffer is used 
+for receiving data from network.
+
+If my comment doesn't make sense to you or I misunderstood your message 
+could you please add more clarifications for your idea?
+
+> [...]
+>>> The descriptor entry is left unchanged. Afaiu the driver will move to the
+>>> next descriptor and crash on dereferencing NULL (rx_buff->)skb next time
+>>> it wraps.
+>>>
+>>> I suggest avoiding holes: don't netif_receive_skb if you can't alloc a new
+>>> skb.
+>>
+>> Frankly I cannot understand how "don't netif_receive_skb" for one of the
+>> received packets helps to prevent crash on the next iteration?
+>> And I don't see a way to return any error state from NAPI poll handler.
+>> Could you please clarify your idea?
+>
+> The driver assigns the otherwise-netif_received skb to the current rx
+> descriptor as if it was a newly allocated one. The driver increases
+> stats.rx_dropped. The rx descriptor ring doesn't ever exhibit a hole.
+
+Makes sense, thanks!
+
+> [...]
+>>>> +static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+>>>> +{
+>>>> +	struct arc_emac_priv *priv = netdev_priv(ndev);
+>>>> +	unsigned int info, len, *txbd_curr = &priv->txbd_curr;
+>>>> +	dma_addr_t addr;
+>>>> +	char *pkt = skb->data;
+>>>> +
+>>>> +	len = max_t(unsigned int, ETH_ZLEN, skb->len);
+>>>
+>>> The device automatically pads, right ?
+>>
+>> What do you mean here?
+>
+> Does the device fill a smaller than 64 bytes packet with zeroes or may
+> the driver leak information ? The driver should use skb_pad if the
+> latter applies.
+
+Done, thanks.
+
+-Alexey
