@@ -1,80 +1,48 @@
-From: Pravin Shelar <pshelar@nicira.com>
-Subject: Re: [ovs-dev] [PATCH net-next 12/12] openvswitch: Add gre tunnel support.
-Date: Fri, 14 Jun 2013 19:18:37 -0700
-Message-ID: <CALnjE+rwhcrcCKMXxa+e-kLrXr=9yvYoRU7LTPmWGHxfoJ_Z8g@mail.gmail.com>
-References: <1371147917-9559-1-git-send-email-pshelar@nicira.com>
-	<CAEP_g=8cDsUptKbLX_2qmgLWhmXSyzL5+uaipGWWfh0jj3VfsQ@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [netlink] WARNING: at mm/vmalloc.c:1487 __vunmap()
+Date: Sat, 15 Jun 2013 13:57:02 +0800
+Message-ID: <CAM_iQpWu2U5UmHhvmnqNenbWyz7vng8W+b0AssE31FSgSd9DLg@mail.gmail.com>
+References: <20130614220119.GA12954@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Jesse Gross <jesse@nicira.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Fengguang Wu <fengguang.wu@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:39365 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752170Ab3FOCSh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 22:18:37 -0400
-Received: by mail-qa0-f43.google.com with SMTP id d13so537787qak.9
-        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 19:18:37 -0700 (PDT)
-In-Reply-To: <CAEP_g=8cDsUptKbLX_2qmgLWhmXSyzL5+uaipGWWfh0jj3VfsQ@mail.gmail.com>
+Received: from mail-vb0-f44.google.com ([209.85.212.44]:60231 "EHLO
+	mail-vb0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753172Ab3FOF5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jun 2013 01:57:04 -0400
+In-Reply-To: <20130614220119.GA12954@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 14, 2013 at 5:31 PM, Jesse Gross <jesse@nicira.com> wrote:
-> On Thu, Jun 13, 2013 at 11:25 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
->> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
->> new file mode 100644
->> index 0000000..0420237
->> --- /dev/null
->> +++ b/net/openvswitch/vport-gre.c
->> +/* Called with rcu_read_lock and BH disabled. */
->> +static int gre_rcv(struct sk_buff *skb,
->> +                  const struct tnl_ptk_info *tpi)
->> +{
->> +       struct ovs_key_ipv4_tunnel tun_key;
->> +       struct ovs_net *ovs_net;
->> +       struct vport *vport;
->> +       __be64 key;
->> +
->> +       ovs_net = net_generic(dev_net(skb->dev), ovs_net_id);
->> +       vport = rcu_dereference(ovs_net->vport_net.gre_vport);
->> +       if (unlikely(!vport))
->> +               return PACKET_REJECT;
->> +
->> +       key = key_to_tunnel_id(tpi->key, tpi->seq);
->> +       ovs_flow_tun_key_init(&tun_key, ip_hdr(skb), key, tpi->flags);
+On Sat, Jun 15, 2013 at 6:01 AM, Fengguang Wu <fengguang.wu@intel.com> wrote:
+> Greetings,
 >
-> I would probably filter the flags coming in, just in case another
-> module adds a new flag that we're not expecting.
+> I got the below dmesg and the first bad commit is
 >
-ok.
+> commit c05cdb1b864f548c0c3d8ae3b51264e6739a69b1
+> Author: Pablo Neira Ayuso <pablo@netfilter.org>
+> Date:   Mon Jun 3 09:46:28 2013 +0000
+>
+>     netlink: allow large data transfers from user-space
 
->> +static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
->> +{
-> [...]
->> +       /* Allow our local IP stack to fragment the outer packet even
->> +        * if the DF bit is set as a last resort.  We also need to
->> +        * force selection of an IP ID here because Linux will
->> +        * otherwise leave it at 0 if the packet originally had DF set.
->> +        */
->> +
->> +       skb->local_df = 1;
->
-> Are we actually doing the IP ID selection here that the comment is referring to?
->
-right. I need to move this comment to ip-tunnel code.
+Hi, Fengguang,
 
->> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
->> index ef0bb5f..286c12a 100644
->> --- a/net/openvswitch/vport.c
->> +++ b/net/openvswitch/vport.c
->> @@ -38,6 +38,7 @@
->>  static const struct vport_ops *vport_ops_list[] = {
->>         &ovs_netdev_vport_ops,
->>         &ovs_internal_vport_ops,
->> +       &ovs_gre_vport_ops,
->>  };
->
-> I think we need some config guards to check that the GRE and IP tunnel
-> modules are available in the current kernel.
-ok.
+Could you try the following quick fix?
+
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 8978755..d8c6c03 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -750,7 +750,7 @@ static void netlink_skb_destructor(struct sk_buff *skb)
+                skb->head = NULL;
+        }
+ #endif
+-       if (is_vmalloc_addr(skb->head)) {
++       else if (is_vmalloc_addr(skb->head)) {
+                vfree(skb->head);
+                skb->head = NULL;
+        }
