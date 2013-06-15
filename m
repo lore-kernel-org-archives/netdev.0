@@ -1,33 +1,57 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: Re: [Patch net-next v4 1/3] igmp: make some functions void
-Date: Sat, 15 Jun 2013 15:36:59 +0800
-Message-ID: <1371281819.23997.0.camel@cr0>
-References: <1371281684-26587-1-git-send-email-amwang@redhat.com>
+From: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC PATCH] usb: hcd: warn about URB buffers that are not DMA
+ aligned and are about to be DMA mapped
+Date: Sat, 15 Jun 2013 15:41:04 +0800
+Message-ID: <CACVXFVM4TsS-_qK_w01oajV1XcA_+OF8xdTX2xjjxOTFNAo6Sw@mail.gmail.com>
+References: <20130614133803.25747.98705.stgit@localhost6.localdomain6>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Stevens <dlstevens@us.ibm.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:63023 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751476Ab3FOHhI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 15 Jun 2013 03:37:08 -0400
-In-Reply-To: <1371281684-26587-1-git-send-email-amwang@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130614133803.25747.98705.stgit-bi+AKbBUZKagILUCTcTcHdKyNwTtLsGr@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2013-06-15 at 15:34 +0800, Cong Wang wrote:
-> From: Cong Wang <amwang@redhat.com>
-> 
-> ip_mc_leave_src() can become avoid, because even if it fails,
-> the operations after it can still continue.
-> 
-> ip_mc_del_src() can become avoid, because no one cares and
-> some errors are ignored on purpose.
-> 
+Cc: netdev
 
-Oops, s/avoid/void/...
-I will send v5, sorry for the typo.
+On Fri, Jun 14, 2013 at 9:38 PM, Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org> wrote:
+> Appearently some out-of-tree USB host drivers do not handle DMA alignment for
+
+Looks these host drivers have to face the fact that the transfer buffer is often
+DMA non-aligned from network device drivers(in fact, the buffer is from
+network protocol stack), if you run usbnet, then you will get the added warning
+immediately.
+
+> URB buffers and let core/hcd.c to do the mapping on architectures that have
+> minimum DMA alignment requirements. This leads to random memory corruptions
+> and crashes when using USB device drivers that use unaligned URB buffers.
+
+Maybe you should check the dma mapping/unmapping implementation of
+the arch, non-aligned buffer should have be covered by the API easily.
+
+Also USB Host controller should have supported non-aligned DMA buffer.
+
+>
+> Instead of fixing host drivers, users end up posting bug reports against
+> those USB device drivers that use unaligned buffers for URB; such as with
+> rtl8192cu (http://thread.gmane.org/gmane.linux.kernel.wireless.general/105631).
+
+Not only rtl8192cu driver, all USB network device drivers have the problem.
+
+>
+> Patch makes this issue more visible at core level, and hopefully gives hint
+> for future hcd driver implementors about this problem.
+
+So please find the root cause first, and don't add the noise now.
+
+
+Thanks,
+-- 
+Ming Lei
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
