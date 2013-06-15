@@ -1,73 +1,51 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [ovs-dev] [PATCH net-next 12/12] openvswitch: Add gre tunnel support.
-Date: Fri, 14 Jun 2013 17:31:23 -0700
-Message-ID: <CAEP_g=8cDsUptKbLX_2qmgLWhmXSyzL5+uaipGWWfh0jj3VfsQ@mail.gmail.com>
-References: <1371147917-9559-1-git-send-email-pshelar@nicira.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	"dev@openvswitch.org" <dev@openvswitch.org>
-To: Pravin B Shelar <pshelar@nicira.com>
+From: Wedson Almeida Filho <wedsonaf@gmail.com>
+Subject: [PATCH] [NET]: Unmap fragment page once iterator is done
+Date: Fri, 14 Jun 2013 17:54:29 -0700
+Message-ID: <1371257669-21115-1-git-send-email-wedsonaf@gmail.com>
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Wedson Almeida Filho <wedsonaf@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog108.obsmtp.com ([74.125.149.199]:53224 "HELO
-	na3sys009aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752497Ab3FOAbo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 20:31:44 -0400
-Received: by mail-ie0-f175.google.com with SMTP id a13so2805881iee.34
-        for <netdev@vger.kernel.org>; Fri, 14 Jun 2013 17:31:44 -0700 (PDT)
-In-Reply-To: <1371147917-9559-1-git-send-email-pshelar@nicira.com>
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:62400 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752808Ab3FOAzC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 20:55:02 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 13, 2013 at 11:25 AM, Pravin B Shelar <pshelar@nicira.com> wrote:
-> diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-> new file mode 100644
-> index 0000000..0420237
-> --- /dev/null
-> +++ b/net/openvswitch/vport-gre.c
-> +/* Called with rcu_read_lock and BH disabled. */
-> +static int gre_rcv(struct sk_buff *skb,
-> +                  const struct tnl_ptk_info *tpi)
-> +{
-> +       struct ovs_key_ipv4_tunnel tun_key;
-> +       struct ovs_net *ovs_net;
-> +       struct vport *vport;
-> +       __be64 key;
-> +
-> +       ovs_net = net_generic(dev_net(skb->dev), ovs_net_id);
-> +       vport = rcu_dereference(ovs_net->vport_net.gre_vport);
-> +       if (unlikely(!vport))
-> +               return PACKET_REJECT;
-> +
-> +       key = key_to_tunnel_id(tpi->key, tpi->seq);
-> +       ovs_flow_tun_key_init(&tun_key, ip_hdr(skb), key, tpi->flags);
+Callers of skb_seq_read() are currently forced to call skb_abort_seq_read()
+even when consuming all the data because the last call to skb_seq_read (the
+one that returns 0 to indicate the end) fails to unmap the last fragment page.
 
-I would probably filter the flags coming in, just in case another
-module adds a new flag that we're not expecting.
+With this patch callers will be allowed to traverse the SKB data by calling
+skb_prepare_seq_read() once and repeatedly calling skb_seq_read() as originally
+intended (and documented in the original commit 677e90eda), that is, only call
+skb_abort_seq_read() if the sequential read is actually aborted.
 
-> +static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
-> +{
-[...]
-> +       /* Allow our local IP stack to fragment the outer packet even
-> +        * if the DF bit is set as a last resort.  We also need to
-> +        * force selection of an IP ID here because Linux will
-> +        * otherwise leave it at 0 if the packet originally had DF set.
-> +        */
-> +
-> +       skb->local_df = 1;
+Signed-off-by: Wedson Almeida Filho <wedsonaf@gmail.com>
+---
+ net/core/skbuff.c |    7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-Are we actually doing the IP ID selection here that the comment is referring to?
-
-> diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-> index ef0bb5f..286c12a 100644
-> --- a/net/openvswitch/vport.c
-> +++ b/net/openvswitch/vport.c
-> @@ -38,6 +38,7 @@
->  static const struct vport_ops *vport_ops_list[] = {
->         &ovs_netdev_vport_ops,
->         &ovs_internal_vport_ops,
-> +       &ovs_gre_vport_ops,
->  };
-
-I think we need some config guards to check that the GRE and IP tunnel
-modules are available in the current kernel.
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index cfd777b..26ea1cf 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2554,8 +2554,13 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
+ 	unsigned int block_limit, abs_offset = consumed + st->lower_offset;
+ 	skb_frag_t *frag;
+ 
+-	if (unlikely(abs_offset >= st->upper_offset))
++	if (unlikely(abs_offset >= st->upper_offset)) {
++		if (st->frag_data) {
++			kunmap_atomic(st->frag_data);
++			st->frag_data = NULL;
++		}
+ 		return 0;
++	}
+ 
+ next_skb:
+ 	block_limit = skb_headlen(st->cur_skb) + st->stepped_offset;
+-- 
+1.7.9.5
