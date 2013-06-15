@@ -1,51 +1,109 @@
-From: Wedson Almeida Filho <wedsonaf@gmail.com>
-Subject: [PATCH] [NET]: Unmap fragment page once iterator is done
-Date: Fri, 14 Jun 2013 17:54:29 -0700
-Message-ID: <1371257669-21115-1-git-send-email-wedsonaf@gmail.com>
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Wedson Almeida Filho <wedsonaf@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Cong Wang <amwang@redhat.com>
+Subject: [Patch iproute2] add quickack option to ip route
+Date: Sat, 15 Jun 2013 09:39:19 +0800
+Message-ID: <1371260359-5875-2-git-send-email-amwang@redhat.com>
+References: <1371260359-5875-1-git-send-email-amwang@redhat.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, Cong Wang <amwang@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:62400 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752808Ab3FOAzC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 14 Jun 2013 20:55:02 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:33023 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753285Ab3FOBkB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 14 Jun 2013 21:40:01 -0400
+In-Reply-To: <1371260359-5875-1-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Callers of skb_seq_read() are currently forced to call skb_abort_seq_read()
-even when consuming all the data because the last call to skb_seq_read (the
-one that returns 0 to indicate the end) fails to unmap the last fragment page.
+From: Cong Wang <amwang@redhat.com>
 
-With this patch callers will be allowed to traverse the SKB data by calling
-skb_prepare_seq_read() once and repeatedly calling skb_seq_read() as originally
-intended (and documented in the original commit 677e90eda), that is, only call
-skb_abort_seq_read() if the sequential read is actually aborted.
+This patch adds quickack option to enable/disable TCP quick ack
+mode for per-route.
 
-Signed-off-by: Wedson Almeida Filho <wedsonaf@gmail.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Cong Wang <amwang@redhat.com>
+
 ---
- net/core/skbuff.c |    7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
-
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index cfd777b..26ea1cf 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2554,8 +2554,13 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
- 	unsigned int block_limit, abs_offset = consumed + st->lower_offset;
- 	skb_frag_t *frag;
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 93370bd..248fdd3 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -386,6 +386,8 @@ enum {
+ #define RTAX_RTO_MIN RTAX_RTO_MIN
+ 	RTAX_INITRWND,
+ #define RTAX_INITRWND RTAX_INITRWND
++	RTAX_QUICKACK,
++#define RTAX_QUICKACK RTAX_QUICKACK
+ 	__RTAX_MAX
+ };
  
--	if (unlikely(abs_offset >= st->upper_offset))
-+	if (unlikely(abs_offset >= st->upper_offset)) {
-+		if (st->frag_data) {
-+			kunmap_atomic(st->frag_data);
-+			st->frag_data = NULL;
-+		}
- 		return 0;
-+	}
+diff --git a/ip/iproute.c b/ip/iproute.c
+index adef774..46710b2 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -52,6 +52,7 @@ static const char *mx_names[RTAX_MAX+1] = {
+ 	[RTAX_FEATURES] = "features",
+ 	[RTAX_RTO_MIN]	= "rto_min",
+ 	[RTAX_INITRWND]	= "initrwnd",
++	[RTAX_QUICKACK]	= "quickack",
+ };
+ static void usage(void) __attribute__((noreturn));
  
- next_skb:
- 	block_limit = skb_headlen(st->cur_skb) + st->stepped_offset;
--- 
-1.7.9.5
+@@ -79,6 +80,7 @@ static void usage(void)
+ 	fprintf(stderr, "           [ window NUMBER] [ cwnd NUMBER ] [ initcwnd NUMBER ]\n");
+ 	fprintf(stderr, "           [ ssthresh NUMBER ] [ realms REALM ] [ src ADDRESS ]\n");
+ 	fprintf(stderr, "           [ rto_min TIME ] [ hoplimit NUMBER ] [ initrwnd NUMBER ]\n");
++	fprintf(stderr, "           [ quickack BOOL ]\n");
+ 	fprintf(stderr, "TYPE := [ unicast | local | broadcast | multicast | throw |\n");
+ 	fprintf(stderr, "          unreachable | prohibit | blackhole | nat ]\n");
+ 	fprintf(stderr, "TABLE_ID := [ local | main | default | all | NUMBER ]\n");
+@@ -86,6 +88,7 @@ static void usage(void)
+ 	fprintf(stderr, "NHFLAGS := [ onlink | pervasive ]\n");
+ 	fprintf(stderr, "RTPROTO := [ kernel | boot | static | NUMBER ]\n");
+ 	fprintf(stderr, "TIME := NUMBER[s|ms]\n");
++	fprintf(stderr, "BOOL := [1|0]\n");
+ 	exit(-1);
+ }
+ 
+@@ -885,6 +888,14 @@ static int iproute_modify(int cmd, unsigned flags, int argc, char **argv)
+ 			if (get_unsigned(&win, *argv, 0))
+ 				invarg("\"initrwnd\" value is invalid\n", *argv);
+ 			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_INITRWND, win);
++		} else if (matches(*argv, "quickack") == 0) {
++			unsigned quickack;
++			NEXT_ARG();
++			if (get_unsigned(&quickack, *argv, 0))
++				invarg("\"quickack\" value is invalid\n", *argv);
++			if (quickack != 1 && quickack != 0)
++				invarg("\"quickack\" value should be 0 or 1\n", *argv);
++			rta_addattr32(mxrta, sizeof(mxbuf), RTAX_QUICKACK, quickack);
+ 		} else if (matches(*argv, "rttvar") == 0) {
+ 			unsigned win;
+ 			NEXT_ARG();
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 2c35a97..01997fa 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -111,6 +111,8 @@ replace " } "
+ .IR NUMBER " ] [ "
+ .B  initrwnd
+ .IR NUMBER " ]"
++.B  quickack
++.IR BOOL " ]"
+ 
+ .ti -8
+ .IR TYPE " := [ "
+@@ -401,6 +403,10 @@ Actual window size is this value multiplied by the MSS of the connection.
+ The default value is zero, meaning to use Slow Start value.
+ 
+ .TP
++.BI quickack " BOOL " "(3.11+ only)"
++Enable or disable quick ack for connections to this destination.
++
++.TP
+ .BI advmss " NUMBER " "(2.3.15+ only)"
+ the MSS ('Maximal Segment Size') to advertise to these
+ destinations when establishing TCP connections.  If it is not given,
