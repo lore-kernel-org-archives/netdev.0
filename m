@@ -1,44 +1,47 @@
-From: Rami Rosen <ramirose@gmail.com>
-Subject: [PATCH net-next] inet: frag , remove an empty ifdef.
-Date: Sat, 15 Jun 2013 23:04:56 +0300
-Message-ID: <1371326696-32561-1-git-send-email-ramirose@gmail.com>
-Cc: netdev@vger.kernel.org, Rami Rosen <ramirose@gmail.com>
-To: davem@davemloft.net
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
+Date: Sat, 15 Jun 2013 22:15:19 +0200
+Message-ID: <1371327319.14174.1.camel@jlt4.sipsolutions.net>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+	 <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
+	 <20130613222411.GA5396@sig21.net>
+	 <1371162553.8335.28.camel@jlt4.sipsolutions.net>
+	 <20130614055346.GB6547@sig21.net>
+	 <1371320772.8319.2.camel@jlt4.sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Johannes Stezenbach <js@sig21.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f41.google.com ([74.125.83.41]:52297 "EHLO
-	mail-ee0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754414Ab3FOUFX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jun 2013 16:05:23 -0400
-Received: by mail-ee0-f41.google.com with SMTP id d17so991493eek.0
-        for <netdev@vger.kernel.org>; Sat, 15 Jun 2013 13:05:21 -0700 (PDT)
+Received: from s3.sipsolutions.net ([144.76.43.152]:55946 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754226Ab3FOUPX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jun 2013 16:15:23 -0400
+In-Reply-To: <1371320772.8319.2.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch removes an empty ifdef from inet_frag_intern()
-in net/ipv4/inet_fragment.c.
+On Sat, 2013-06-15 at 20:26 +0200, Johannes Berg wrote:
+> On Fri, 2013-06-14 at 07:53 +0200, Johannes Stezenbach wrote:
+> 
+> > > Does it still pass traffic after that? Or is it actually dead?
+> > 
+> > It is dead.  Not interrupts, I tried ping from both ends
+> > of the link (link LED flashes on RX).
+> 
+> Can you check if one of RX actually works? It seems TX doesn't, at least
+> given the message, but it'd be good to know if RX actually worked? Just
+> trying ping obviously wouldn't determine that, maybe try tcpdump?
+> 
+> I don't see any difference between 8171 and 8161 in the TX code
+> though ...
 
-commit b67bfe0d42cac56c512dd5da4b1b347a23f4b70a
-(hlist: drop the node parameter from iterators) removed hlist from
-net/ipv4/inet_fragment.c, but did not remove the enclosing ifdef command,
-which is now empty.
+FWIW I tried again on my device against 3.9.6, and it works fine :-/
 
-Signed-off-by: Rami Rosen <ramirose@gmail.com>
----
- net/ipv4/inet_fragment.c | 2 --
- 1 file changed, 2 deletions(-)
+Latest code is here: http://p.sipsolutions.net/c2e7235ba77373f0.txt in
+case you want to retry that.
 
-diff --git a/net/ipv4/inet_fragment.c b/net/ipv4/inet_fragment.c
-index 7e06641..4b86443 100644
---- a/net/ipv4/inet_fragment.c
-+++ b/net/ipv4/inet_fragment.c
-@@ -247,8 +247,6 @@ static struct inet_frag_queue *inet_frag_intern(struct netns_frags *nf,
- {
- 	struct inet_frag_bucket *hb;
- 	struct inet_frag_queue *qp;
--#ifdef CONFIG_SMP
--#endif
- 	unsigned int hash;
- 
- 	read_lock(&f->lock); /* Protects against hash rebuild */
--- 
-1.8.1.4
+I'm assuming you did try the QCA driver and it works?
+
+johannes
