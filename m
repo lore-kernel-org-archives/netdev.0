@@ -1,30 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [r8169 3.10rc5] NETDEV WATCHDOG: eth1 (r8169): transmit queue 0
- timed out
-Date: Sun, 16 Jun 2013 10:15:33 +0200
-Message-ID: <20130616081533.GA24737@electric-eye.fr.zoreil.com>
-References: <20130615184646.GA19439@redhat.com>
+From: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>
+Subject: Re: [RFC PATCH] usb: hcd: warn about URB buffers that are not DMA aligned and are about to be DMA mapped
+Date: Sun, 16 Jun 2013 10:21:29 +0200
+Message-ID: <6777683.xBFsv58ruI@linux-5eaq.site>
+References: <20130614133803.25747.98705.stgit@localhost6.localdomain6> <51BC67D7.90006@iki.fi> <51BC6A96.7030707@iki.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Dave Jones <davej@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:53398 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754998Ab3FPIPu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jun 2013 04:15:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20130615184646.GA19439@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Ming Lei <tom.leiming-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>,
+	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jussi Kivilinna <jussi.kivilinna-X3B1VOXEql0@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <51BC6A96.7030707-X3B1VOXEql0@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Dave Jones <davej@redhat.com> :
-> I see this from time to time, but this is the first time in a few months since
-> I last saw it..
+On Saturday 15 June 2013 16:22:30 Jussi Kivilinna wrote:
 
-I guess the driver did not recover, right ?
+> Hm.. rethink this a bit.
+> 
+> Transfer buffer might be dma aligned but shorter than cacheline and end of cacheline
+> used as something else. Manual alignment by host driver does not catch that
+> or fix that.
+> So, yes.. dma mapping should work with unaligned buffers, but maybe the actual
+> problem is multiple buffers from same cacheline.
 
-Which chipset ('dmesg | grep XID') is it ?
+The buffers kmalloc() returns are OK in that regard. A driver that uses
+a buffer for anything but buffering is buggy.
 
--- 
-Ueimor
+	Regards
+		Oliver
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
