@@ -1,46 +1,39 @@
-From: Timur Tabi <timur@tabi.org>
-Subject: Re: [PATCH] MDIO: FSL_PQ_MDIO: Fix bug on incorrect offset of tbipa
- register
-Date: Sat, 15 Jun 2013 17:57:18 -0500
-Message-ID: <CAOZdJXVjdkMF5rpTVd9tnwCRDqXWtJTUAbywcuzoVehRrgPPsg@mail.gmail.com>
-References: <1371041258-15298-1-git-send-email-ogabbay@advaoptical.com>
- <51B88EED.6090709@linutronix.de> <1371061871.18413.44@snotra>
+From: Zhe Wen <zhewen08@gmail.com>
+Subject: Lose AP-STA connection on changing channel width
+Date: Sat, 15 Jun 2013 19:01:54 -0700
+Message-ID: <CAG=xfvNyr26mBsGxjaVYU9VmSY+CqCE0vK0FW8Q4HAq_eUD6ag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Stef van Os <stef.van.os@prodrive.nl>,
- Oded Gabbay <ogabbay@advaoptical.com>, netdev@vger.kernel.org,
- Sebastian Andrzej Siewior <bigeasy@linutronix.de>,
- Dongsheng.Wang@freescale.com, Timur Tabi <timur@tabi.org>,
- Paul Mackerras <paulus@samba.org>,
- "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
- David Miller <davem@davemloft.net>, lkml <linux-kernel@vger.kernel.org>,
- B38951@freescale.com
-To: Scott Wood <scottwood@freescale.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1371061871.18413.44@snotra>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ie0-f169.google.com ([209.85.223.169]:64447 "EHLO
+	mail-ie0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754849Ab3FPCBz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 15 Jun 2013 22:01:55 -0400
+Received: by mail-ie0-f169.google.com with SMTP id 10so4318769ied.14
+        for <netdev@vger.kernel.org>; Sat, 15 Jun 2013 19:01:54 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 12, 2013 at 1:31 PM, Scott Wood <scottwood@freescale.com> wrote:
->
-> I'm not sure it's stable material if this is something that has never
-> worked...
->
-> The device tree binding will also need to be fixed to note the difference in
-> "reg" between "fsl,gianfar-mdio" and "fsl-gianfar-tbi" -- and should give an
-> example of the latter.
+Hello Developers!
 
-I don't remember how much I tested it, but I'm pretty sure that at
-some of the suspect devices did work for me.  My goal was to maintain
-compatibility with existing device trees, and just refactor the code
-so that it's easier to read.
+I am trying to change channel type/width (HT20/HT40+) on the both STA
+and AP side in a simple system consists of only 1 STA and the AP.
+
+AP is started using hostapd under HT20 and STA thereafter connects to
+it using also HT20. But when AP changes its channel type to HT40+
+using ieee80211_set_channel_type() and ath9k_hw_set_channel_regs(), it
+will lose connection to STA. The way I do channel type change
+coordination is: STA sends an action frame to AP, AP sends back ACK
+frame and changes its channel type; STA changes its channel type on
+receiving the ACK.
+
+I read about this solution
+(http://eznemegy.blog.hu/2008/12/14/using_rt2x00_wireless_driver_with_hostapd/fullcommentlist/1)
+of hacking into hostapd, which didn't work...
+
+It would be great if you more experienced would love to help me with
+this problem!
+
+Thanks in advance!!
+Zhe
