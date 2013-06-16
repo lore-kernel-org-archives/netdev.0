@@ -1,47 +1,58 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable lo
-Date: Sun, 16 Jun 2013 11:14:30 +0800
-Message-ID: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com>
-Cc: kumaran.4353@gmail.com, netdev@vger.kernel.org,
-	Gao feng <gaofeng@cn.fujitsu.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:34808 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1754991Ab3FPHAR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jun 2013 03:00:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Subject: Re: [PATCH v4] ethernet/arc/arc_emac - Add new driver
+Date: Sun, 16 Jun 2013 00:41:31 -0700
+Message-ID: <1371368491.2116.0.camel@joe-AO722>
+References: <1371327652-9368-1-git-send-email-abrodkin@synopsys.com>
+ <1371328671.2117.6.camel@joe-AO722>
+ <4881796E12491D4BB15146FE0209CE643F5E7779@DE02WEMBXB.internal.synopsys.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org"
+ <devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>,
+ "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Vineet Gupta <Vineet.Gupta1-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>,
+ "linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Rob Herring <rob.herring-bsGFqQB8/DxBDgjK7y7TUQ@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+ Paul Gortmaker <paul.gortmaker-CWA4WttNNZF54TAoqtyWWQ@public.gmane.org>,
+ Andy Shevchenko <andy.shevchenko-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+ Francois Romieu <romieu-W8zweXLXuWQS+FvcfC7Uqw@public.gmane.org>, Grant Likely <grant.likely-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+ Mischa Jonker <Mischa.Jonker-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+To: Alexey Brodkin <Alexey.Brodkin-HKixBCOQz3hWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+In-Reply-To: <4881796E12491D4BB15146FE0209CE643F5E7779-okAzG6w2b9vBRDCkatnZjvufCSb+aD3WLzEdoUbNIic@public.gmane.org>
+List-Unsubscribe: <https://lists.ozlabs.org/options/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/devicetree-discuss/>
+List-Post: <mailto:devicetree-discuss-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Help: <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/devicetree-discuss>,
+ <mailto:devicetree-discuss-request-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org?subject=subscribe>
+Errors-To: devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+Sender: "devicetree-discuss"
+ <devicetree-discuss-bounces+gldd-devicetree-discuss=m.gmane.org-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-If we disable all of the net interfaces, and enable
-un-lo interface before lo interface, we already allocated
-the addrconf dst in ipv6_add_addr. So we shouldn't allocate
-it again when we enable lo interface.
+On Sat, 2013-06-15 at 20:47 +0000, Alexey Brodkin wrote:
+> On 06/16/2013 12:37 AM, Joe Perches wrote:
+> > On Sun, 2013-06-16 at 00:20 +0400, Alexey Brodkin wrote:
+[]
+> >> +static int arc_emac_rx(struct net_device *ndev, int budget)
+> > []
+> >> +		/* Prepare the BD for next cycle */
+> >> +		rx_buff->skb = netdev_alloc_skb_ip_align(ndev, buflen);
+> >> +		if (unlikely(!rx_buff->skb)) {
+> >> +			if (net_ratelimit())
+> >> +				netdev_err(ndev, "cannot allocate skb\n");
+> >
+> > Unnecessary OOM message, might as well remove it.
+> > rx_dropped gives the same info.
+> 
+> With all those error messages I wanted to make life easier (especially 
+> for me) if errors appear. User will immediately know where problem 
+> happened. Indeed "rx_dropped" (when it is used only once in driver) may 
+> show where issue happened, but if later at some point "rx_dropped" will 
+> be incremented in other locations then user won't understand immediately 
+> where error happened.
 
-Otherwise the message below will be triggered.
-unregister_netdevice: waiting for sit1 to become free. Usage count = 1
-
-This problem is introduced by commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
-"net IPv6 : Fix broken IPv6 routing table after loopback down-up"
-
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
----
- net/ipv6/addrconf.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 1bbf744..77b6261 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2655,6 +2655,9 @@ static void init_loopback(struct net_device *dev)
- 			if (sp_ifa->flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))
- 				continue;
- 
-+			if (sp_ifa->rt)
-+				continue;
-+
- 			sp_rt = addrconf_dst_alloc(idev, &sp_ifa->addr, 0);
- 
- 			/* Failure cases are ignored */
--- 
-1.8.1.4
+Alloc errors emit a dump_stack() already so this is redundant.
