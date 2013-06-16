@@ -1,104 +1,76 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC/BUG] ipv6: bug in "ipv6: Copy cork options in
- ip6_append_data"
-Date: Sun, 16 Jun 2013 02:12:33 -0700
-Message-ID: <1371373953.3252.162.camel@edumazet-glaptop>
-References: <1368742990.3301.67.camel@edumazet-glaptop>
-	 <20130615185131.GA2148@breakpoint.cc>
+From: Johannes Stezenbach <js@sig21.net>
+Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
+Date: Sun, 16 Jun 2013 11:49:30 +0200
+Message-ID: <20130616094930.GA5899@sig21.net>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+ <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
+ <20130613222411.GA5396@sig21.net>
+ <1371162553.8335.28.camel@jlt4.sipsolutions.net>
+ <20130614055346.GB6547@sig21.net>
+ <1371320772.8319.2.camel@jlt4.sipsolutions.net>
+ <1371327319.14174.1.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	netdev <netdev@vger.kernel.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Neal Cardwell <ncardwell@google.com>
-To: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wg0-f42.google.com ([74.125.82.42]:36509 "EHLO
-	mail-wg0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754923Ab3FPJMi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jun 2013 05:12:38 -0400
-Received: by mail-wg0-f42.google.com with SMTP id z11so2742811wgg.1
-        for <netdev@vger.kernel.org>; Sun, 16 Jun 2013 02:12:36 -0700 (PDT)
-In-Reply-To: <20130615185131.GA2148@breakpoint.cc>
+Received: from bar.sig21.net ([80.81.252.164]:42413 "EHLO bar.sig21.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754923Ab3FPJtg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Jun 2013 05:49:36 -0400
+Content-Disposition: inline
+In-Reply-To: <1371327319.14174.1.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-06-15 at 20:51 +0200, Sebastian Andrzej Siewior wrote:
-> On Thu, May 16, 2013 at 03:23:10PM -0700, Eric Dumazet wrote:
-> > Hi Herbert
-> Hi Eric,
-> 
-> > Looking at the code added in commit 0178b695fd6b40a62a215cb
-> > ("ipv6: Copy cork options in ip6_append_data") it looks like we can have
-> > either a memleak or corruption (later in ip6_cork_release()) in case one
-> > of the sub-allocation (ip6_opt_dup()/ip6_rthdr_dup()) fails.
-> 
-> Would this explain the following on 3.9.5?
+On Sat, Jun 15, 2013 at 10:15:19PM +0200, Johannes Berg wrote:
+> On Sat, 2013-06-15 at 20:26 +0200, Johannes Berg wrote:
+> > On Fri, 2013-06-14 at 07:53 +0200, Johannes Stezenbach wrote:
+> > 
+> > > > Does it still pass traffic after that? Or is it actually dead?
+> > > 
+> > > It is dead.  Not interrupts, I tried ping from both ends
+> > > of the link (link LED flashes on RX).
+> > 
+> > Can you check if one of RX actually works? It seems TX doesn't, at least
+> > given the message, but it'd be good to know if RX actually worked? Just
+> > trying ping obviously wouldn't determine that, maybe try tcpdump?
 
-No, thats a different issue.
+I tried it but no packets are received, and no irqs generated.
 
+> > I don't see any difference between 8171 and 8161 in the TX code
+> > though ...
 > 
-> | BUG: unable to handle kernel paging request at 00000000ffffc52c
-> | IP: [<ffffffff81342d2b>] ip6_append_data+0xb93/0xbea
-> | RIP: 0010:[<ffffffff81342d2b>]  [<ffffffff81342d2b>] ip6_append_data+0xb93/0xbea
-> | RSP: 0018:ffff880072cf7a28  EFLAGS: 00010202
-> | RAX: 00000000ffffc334 RBX: ffff88007c14cd80 RCX: 0000000000000008
-> | RDX: 00000000ffffffe0 RSI: 0000000000000048 RDI: ffff88007c14cd80
-> | RBP: 0000000000000000 R08: ffff880072cf7a98 R09: 0000000000000040
-> | R10: 0000000000000000 R11: ffff88007c14cd80 R12: ffff88007c6208c0
-> | R13: 0000000000000008 R14: 0000000000000000 R15: 000000000000fff0
-> | FS:  00007f2342014700(0000) GS:ffff88007fc00000(0000) knlGS:0000000000000000
-> | CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> | CR2: 00000000ffffc52c CR3: 0000000020799000 CR4: 00000000000006f0
-> | DR0: 00000000327ff15b DR1: 0000000000000000 DR2: 0000000000000000
-> | DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000600
-> | Process trinity-child0 (pid: 31667, threadinfo ffff880072cf6000, task ffff880037509830)
-> | Stack:
-> |  0000000000000001 0000000000000400 0000000800000028 0000ffe800000000
-> |  0000000000000000 0000000000000008 0000000000000008 ffff88007c14ce90
-> |  ffffffff812f9545 ffff880072cf7db8 0000000000000000 0000002000000010
-> | Call Trace:
-> |  [<ffffffff812f9545>] ? ip_skb_dst_mtu+0x32/0x32
-> |  [<ffffffff81390462>] ? _raw_spin_lock_bh+0xe/0x1c
-> |  [<ffffffff8106161c>] ? should_resched+0x5/0x23
-> |  [<ffffffff81356606>] ? udpv6_sendmsg+0x668/0x84d
-> |  [<ffffffff812be1ef>] ? sock_sendmsg+0x4f/0x6c
-> |  [<ffffffff812be3fe>] ? __sys_sendmsg+0x1f2/0x284
-> |  [<ffffffff813904bb>] ? _raw_spin_lock_irqsave+0x14/0x35
-> |  [<ffffffff81058710>] ? remove_wait_queue+0xe/0x48
-> |  [<ffffffff8139047c>] ? _raw_spin_unlock_irqrestore+0xc/0xd
-> |  [<ffffffff81257004>] ? n_tty_write+0x309/0x348
-> |  [<ffffffff8102f296>] ? kvm_clock_read+0x1c/0x1e
-> |  [<ffffffff811cf695>] ? timerqueue_add+0x79/0x98
-> |  [<ffffffff8105a352>] ? enqueue_hrtimer+0x36/0x6d
-> |  [<ffffffff8139047c>] ? _raw_spin_unlock_irqrestore+0xc/0xd
-> |  [<ffffffff811219bc>] ? fget_light+0x2e/0x7c
-> |  [<ffffffff812bf425>] ? sys_sendmsg+0x39/0x57
-> |  [<ffffffff81395869>] ? system_call_fastpath+0x16/0x1b
-> | Code: 00 0f 8f 12 fa ff ff e9 d9 f4 ff ff c7 44 24 70 f2 ff ff ff 8b 4c 24 14 29 8b e4 02 00 00 49 8b 84 24 48 01 00 00 48 85 c0 74 0c <48>  8b 80 f8 01 00 00 65 48 ff 40 70 48 8b 43 30 48 8b 80 70 01 
-> | RIP  [<ffffffff81342d2b>] ip6_append_data+0xb93/0xbea
+> FWIW I tried again on my device against 3.9.6, and it works fine :-/
 > 
-> unfortunately I have no idea how this happend. trinity was running a while and
-> I managed not to get any logs due to a pebkac. The RIP is at
+> Latest code is here: http://p.sipsolutions.net/c2e7235ba77373f0.txt in
+> case you want to retry that.
 > 
-> |IP6_INC_STATS(sock_net(sk), rt->rt6i_idev, IPSTATS_MIB_OUTDISCARDS);
-> 
-> |81342d1e:       49 8b 84 24 48 01 00    mov    0x148(%r12),%rax
-> |81342d25:       00 
-> |81342d26:       48 85 c0                test   %rax,%rax
-> |81342d29:       74 0c                   je     ffffffff81342d37 <ip6_append_data+0xb9f>
-> |81342d2b:       48 8b 80 f8 01 00 00    mov    0x1f8(%rax),%rax
-> ^^^
-> |81342d32:       65 48 ff 40 70          incq   %gs:0x70(%rax)
-> 
-> This looks like rt6i_idev is not NULL but it is also not a valid pointer since the
-> upper 32bit are NULL.
+> I'm assuming you did try the QCA driver and it works?
 
-Yep, this was discussed 2 months ago. Initial report from Dave Jones
+It worked at some time in the past, but I just tried again
+and now it doesn't work, it spits a large register dump
+periodically and then does task:alx_reinit.  I'll try
+to backtrack to find the working version, but give me
+some time.
 
-http://comments.gmane.org/gmane.linux.network/264030
+(Usually I don't use eth on this maching except for doing
+bulk data copies to my laptop, which happens very rarely.
+For the most time I'm using ath9k_htc WLAN USB dongle.)
 
-So far, I am not sure we solved the problem.
-Could you try latest net-next tree ?
+Another thing: suspend to disk fails (also happened with QCA driver):
+
+Jun 16 00:54:32 abc kernel: [93820.564582] Suspending console(s) (use no_console_suspend to debug)
+Jun 16 00:54:32 abc kernel: [93820.568633] serial 00:0a: disabled
+Jun 16 00:54:32 abc kernel: [93820.568644] serial 00:0a: System wakeup disabled by ACPI
+Jun 16 00:54:32 abc kernel: [93820.569407] alx 0000:03:00.0: PHY SPD/DPLX unresolved: 0xffff
+Jun 16 00:54:32 abc kernel: [93820.569410] alx 0000:03:00.0: shutdown fail in suspend -22
+Jun 16 00:54:32 abc kernel: [93820.569417] pci_pm_freeze(): alx_suspend+0x0/0x75 returns -22
+Jun 16 00:54:32 abc kernel: [93820.569421] dpm_run_callback(): pci_pm_freeze+0x0/0x8f returns -22
+Jun 16 00:54:32 abc kernel: [93820.569427] PM: Device 0000:03:00.0 failed to freeze async: error -22
+
+(I think it worked the first time but failed on second suspend)
+
+
+Thanks,
+Johannes
