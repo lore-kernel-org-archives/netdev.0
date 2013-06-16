@@ -1,37 +1,54 @@
-From: Johannes Stezenbach <js@sig21.net>
-Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
-Date: Sun, 16 Jun 2013 22:37:54 +0200
-Message-ID: <20130616203754.GA9722@sig21.net>
-References: <20130613222411.GA5396@sig21.net>
- <1371162553.8335.28.camel@jlt4.sipsolutions.net>
- <20130614055346.GB6547@sig21.net>
- <1371320772.8319.2.camel@jlt4.sipsolutions.net>
- <1371327319.14174.1.camel@jlt4.sipsolutions.net>
- <20130616094930.GA5899@sig21.net>
- <1371381472.8546.1.camel@jlt4.sipsolutions.net>
- <20130616174834.GA5236@sig21.net>
- <20130616184220.GA5469@sig21.net>
- <1371411712.8365.2.camel@jlt4.sipsolutions.net>
+From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
+Subject: [PATCH] bridge: fix switched interval for MLD Query types
+Date: Sun, 16 Jun 2013 23:20:34 +0200
+Message-ID: <1371417634-29803-1-git-send-email-linus.luessing@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bar.sig21.net ([80.81.252.164]:43999 "EHLO bar.sig21.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751015Ab3FPUh7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jun 2013 16:37:59 -0400
-Content-Disposition: inline
-In-Reply-To: <1371411712.8365.2.camel@jlt4.sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
+	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
+	"David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
+To: bridge@lists.linux-foundation.org
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 16, 2013 at 09:41:52PM +0200, Johannes Berg wrote:
-> 
-> Can you try that? Full driver patch here:
-> http://p.sipsolutions.net/f8e6f95ff0894d89.txt
+General Queries (the one with the Multicast Address field
+set to zero / '::') are supposed to have a Maximum Response Delay
+of [Query Response Interval], while for Multicast-Address-Specific
+Queries it is [Last Listener Query Interval] - not the other way
+round. (see RFC2710, section 7.3+7.8)
 
-It works.
+Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
+---
+ net/bridge/br_multicast.c |    5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Thanks
-Johannes
+diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
+index 81f2389..d6448e3 100644
+--- a/net/bridge/br_multicast.c
++++ b/net/bridge/br_multicast.c
+@@ -465,8 +465,9 @@ static struct sk_buff *br_ip6_multicast_alloc_query(s=
+truct net_bridge *br,
+ 	skb_set_transport_header(skb, skb->len);
+ 	mldq =3D (struct mld_msg *) icmp6_hdr(skb);
+=20
+-	interval =3D ipv6_addr_any(group) ? br->multicast_last_member_interval =
+:
+-					  br->multicast_query_response_interval;
++	interval =3D ipv6_addr_any(group) ?
++			br->multicast_query_response_interval :
++			br->multicast_last_member_interval;
+=20
+ 	mldq->mld_type =3D ICMPV6_MGM_QUERY;
+ 	mldq->mld_code =3D 0;
+--=20
+1.7.10.4
