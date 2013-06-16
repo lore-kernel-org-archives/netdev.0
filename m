@@ -1,97 +1,52 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next] bonding: don't call alb_set_slave_mac_addr() while atomic
-Date: Sun, 16 Jun 2013 19:20:44 +0200
-Message-ID: <1371403244-2891-1-git-send-email-vfalico@redhat.com>
-Cc: fubar@us.ibm.com, andy@greyhouse.net, vfalico@redhat.com
-To: netdev@vger.kernel.org
+From: Johannes Stezenbach <js@sig21.net>
+Subject: Re: [PATCH] alx: add a simple AR816x/AR817x device driver
+Date: Sun, 16 Jun 2013 19:48:34 +0200
+Message-ID: <20130616174834.GA5236@sig21.net>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+ <1371069202-21576-1-git-send-email-johannes@sipsolutions.net>
+ <20130613222411.GA5396@sig21.net>
+ <1371162553.8335.28.camel@jlt4.sipsolutions.net>
+ <20130614055346.GB6547@sig21.net>
+ <1371320772.8319.2.camel@jlt4.sipsolutions.net>
+ <1371327319.14174.1.camel@jlt4.sipsolutions.net>
+ <20130616094930.GA5899@sig21.net>
+ <1371381472.8546.1.camel@jlt4.sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27950 "EHLO mx1.redhat.com"
+Received: from bar.sig21.net ([80.81.252.164]:43580 "EHLO bar.sig21.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755369Ab3FPRUP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 16 Jun 2013 13:20:15 -0400
+	id S1755371Ab3FPRsk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 16 Jun 2013 13:48:40 -0400
+Content-Disposition: inline
+In-Reply-To: <1371381472.8546.1.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-alb_set_slave_mac_addr() sets the mac address in alb mode via
-dev_set_mac_address(), which might sleep. It's called from
-alb_handle_addr_collision_on_attach() in atomic context (under
-read_lock(bond->lock)), thus triggering a bug.
+On Sun, Jun 16, 2013 at 01:17:52PM +0200, Johannes Berg wrote:
+> On Sun, 2013-06-16 at 11:49 +0200, Johannes Stezenbach wrote:
+> 
+> > > I'm assuming you did try the QCA driver and it works?
+> > 
+> > It worked at some time in the past, but I just tried again
+> > and now it doesn't work, it spits a large register dump
+> > periodically and then does task:alx_reinit.  I'll try
+> > to backtrack to find the working version, but give me
+> > some time.
+> 
+> Ouch. Which tree are you testing there, btw? I found a handful of trees
+> on github.
 
-Fix this by moving the lock inside alb_handle_addr_collision_on_attach().
+I was using https://github.com/qca/alx.git but after testing
+my previous 3.8.13 kernel it seems it doesn't work.  Maybe I
+compiled it but never got around to really test it...
 
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_alb.c |   21 ++++++++++-----------
- 1 files changed, 10 insertions(+), 11 deletions(-)
+The last version which worked was in compat-wireless-3.6.8-1-snpc.tar.bz2
+from http://wireless.kernel.org/en/users/Download/stable#compat-wireless_3.6_stable_releases
+which I had compiled for linux-3.7.6.
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index a236234..3f14f99 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1175,10 +1175,7 @@ static void alb_change_hw_addr_on_detach(struct bonding *bond, struct slave *sla
-  * @slave.
-  *
-  * assumption: this function is called before @slave is attached to the
-- * 	       bond slave list.
-- *
-- * caller must hold the bond lock for write since the mac addresses are compared
-- * and may be swapped.
-+ *	       bond slave list.
-  */
- static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slave *slave)
- {
-@@ -1196,6 +1193,9 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
- 	 * slaves in the bond.
- 	 */
- 	if (!ether_addr_equal_64bits(slave->perm_hwaddr, bond->dev->dev_addr)) {
-+
-+		read_lock(&bond->lock);
-+
- 		bond_for_each_slave(bond, tmp_slave1, i) {
- 			if (ether_addr_equal_64bits(tmp_slave1->dev->dev_addr,
- 						    slave->dev->dev_addr)) {
-@@ -1204,6 +1204,8 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
- 			}
- 		}
- 
-+		read_unlock(&bond->lock);
-+
- 		if (!found)
- 			return 0;
- 
-@@ -1217,6 +1219,8 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
- 	 */
- 	free_mac_slave = NULL;
- 
-+	read_lock(&bond->lock);
-+
- 	bond_for_each_slave(bond, tmp_slave1, i) {
- 		found = 0;
- 		bond_for_each_slave(bond, tmp_slave2, j) {
-@@ -1244,6 +1248,8 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
- 		}
- 	}
- 
-+	read_unlock(&bond->lock);
-+
- 	if (free_mac_slave) {
- 		alb_set_slave_mac_addr(slave, free_mac_slave->perm_hwaddr);
- 
-@@ -1607,15 +1613,8 @@ int bond_alb_init_slave(struct bonding *bond, struct slave *slave)
- 		return res;
- 	}
- 
--	/* caller must hold the bond lock for write since the mac addresses
--	 * are compared and may be swapped.
--	 */
--	read_lock(&bond->lock);
--
- 	res = alb_handle_addr_collision_on_attach(bond, slave);
- 
--	read_unlock(&bond->lock);
--
- 	if (res) {
- 		return res;
- 	}
--- 
-1.7.1
+
+Thanks,
+Johannes
