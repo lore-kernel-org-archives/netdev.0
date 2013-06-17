@@ -1,27 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull request: wireless 2013-06-17
-Date: Mon, 17 Jun 2013 16:19:01 -0700 (PDT)
-Message-ID: <20130617.161901.1229542193546651097.davem@davemloft.net>
-References: <20130617182719.GC2104@tuxdriver.com>
+Subject: Re: [PATCH] net: cpsw: check for cpts pointer after its allocation
+Date: Mon, 17 Jun 2013 16:26:25 -0700 (PDT)
+Message-ID: <20130617.162625.965940742231450907.davem@davemloft.net>
+References: <1371490312-27905-1-git-send-email-bigeasy@linutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: linville@tuxdriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130617182719.GC2104@tuxdriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com
+To: bigeasy@linutronix.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40358 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753142Ab3FQX00 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 19:26:26 -0400
+In-Reply-To: <1371490312-27905-1-git-send-email-bigeasy@linutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 17 Jun 2013 14:27:20 -0400
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Date: Mon, 17 Jun 2013 19:31:52 +0200
 
-> This will probably be the last batch of wireless fixes intended
-> for 3.10.  Many of these are one- or two-liners, and a couple of
-> others are mostly relocating existing code to avoid races or to
-> limit the code to effecting specific hardware, etc.
+> after priv->cpts got allocated then this pointer should check to determine
+> if the allocation succeeded or not.
+> 
+> Cc: Mugunthan V N <mugunthanvnm@ti.com>
+> Signed-off-by: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 
-This looks fine even though the HT info fix is a bit sizable.
-
-Pulled, thanks a lot.
+Applied, thanks.
