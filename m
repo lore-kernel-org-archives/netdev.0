@@ -1,58 +1,52 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: kmemleak reports in kernel 3.9.5+
-Date: Mon, 17 Jun 2013 15:45:38 -0700
-Message-ID: <51BF9192.2050702@candelatech.com>
-References: <51B61982.2050903@candelatech.com> <CAHkRjk5SDCbqr0Br24YQuHr=j7DmnpYk9CShrz1qiuYff7+qAw@mail.gmail.com> <51B78009.2060808@candelatech.com> <51B7C09D.9020402@candelatech.com> <20130613155040.GE6530@darko.cambridge.arm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v5 net-next 0/4] net: low latency sockets
+	follow ups
+Date: Mon, 17 Jun 2013 15:48:29 -0700 (PDT)
+Message-ID: <20130617.154829.1257549505509165519.davem@davemloft.net>
+References: <20130614133314.6126.77315.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Catalin Marinas <catalin.marinas@arm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130613155040.GE6530@darko.cambridge.arm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: willemb@google.com, ork@mellanox.com, or.gerlitz@gmail.com,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	hpa@zytor.com, amirv@mellanox.com, linux-kernel@vger.kernel.org,
+	alexr@mellanox.com, jesse.brandeburg@intel.com,
+	sockperf-dev@googlegroups.com, avnerb@mellanox.com,
+	andi@firstfloor.org, eliezer@tamir.org.il,
+	bhutchings@solarflare.com, erdnetdev@gmail.com, eilong@broadcom.com
+To: eliezer.tamir@linux.intel.com
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130614133314.6126.77315.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On 06/13/2013 08:50 AM, Catalin Marinas wrote:
-> On Wed, Jun 12, 2013 at 01:28:13AM +0100, Ben Greear wrote:
->> On 06/11/2013 12:52 PM, Ben Greear wrote:
->>> On 06/10/2013 03:32 PM, Catalin Marinas wrote:
->>>> On 10 June 2013 19:22, Ben Greear <greearb@candelatech.com> wrote:
->>>>> We had a system go OOM while doing lots of wireless
->>>>> stations.  (System had 8GB of RAM, so I suspect a leak).
->>>>>
->>>>> I enabled kmemleak in a 3.9.5 (plus some local patches) and
->>>>> I see the entries below.  Any idea if these are real or not?
->>
->> Most of this went away when I disabled SLUB debugging and other
->> kernel hacking options.  The wifi cfg80211_inform_bss_frame
->> remains, however.  I'll go dig some more on that tomorrow...didn't
->> see anything obvious at first glance.
->>
->> But, perhaps there could be some improvements to
->> kmemleak to make it deal better with the various kernel
->> debugging features?
->
-> That's unrelated to the debugging features. Kmemleak cannot find
-> pointers to the allocated objects. They could be real leaks or it simply
-> doesn't scan the right memory where such pointers are stored. The debug
-> objects are stored in a list with the head as static memory, so it
-> should be scanned.
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Date: Fri, 14 Jun 2013 16:33:14 +0300
 
-I re-ran a similar test just now, but I had added an explicit reference
-for each of the items that I know this test causes to leak (I add them
-to a global list.)
+> Here are three clean up patches, plus one that adds a socket option for LLS.
+> 
+> Patch 1 converts sysctl_net_ll_poll into an unsigned int
+> Patch 2 converts low latency sockets to sched_clock.
+> Patch 3 removes the config menu for NET_LL_RX_POLL and defaults to y.
+> Patch 4 adds an SO_LL socket option to allow per-socket control of busy polling.
 
-This means that memleak would no longer show them as leaked, and that
-also cleaned up all of the strange leaks reported before.
+Series applied, thanks.
 
-So, I think kmemleak is at least mostly working properly, even with lots
-of debugging options.
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
 
-Thanks,
-Ben
+Build for Windows Store.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
