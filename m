@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 03/16] tipc: allow implicit connect for stream sockets
-Date: Mon, 17 Jun 2013 10:54:38 -0400
-Message-ID: <1371480891-5264-4-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 01/16] tipc: update code comments to reflect new uapi header path
+Date: Mon, 17 Jun 2013 10:54:36 -0400
+Message-ID: <1371480891-5264-2-git-send-email-paul.gortmaker@windriver.com>
 References: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,59 +11,47 @@ Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:42748 "EHLO
+Received: from mail1.windriver.com ([147.11.146.13]:42743 "EHLO
 	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751847Ab3FQOzM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 10:55:12 -0400
+	with ESMTP id S1751576Ab3FQOzK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 10:55:10 -0400
 In-Reply-To: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Erik Hugne <erik.hugne@ericsson.com>
+From: Ying Xue <ying.xue@windriver.com>
 
-TIPC's implied connect feature, aka piggyback connect, allows
-applications to save one syscall and all SYN/SYN-ACK signalling
-overhead when setting up a connection.  Until now, this has only
-been supported for SEQPACKET sockets.  Here, we make it possible
-to use this feature even with stream sockets.
+Files tipc.h and tipc_config.h were moved to uapi directory, but
+the corresponding comments were not updated at the same time.
 
-At the connecting side, the connection is completed when the
-first data message arrives from the accepting peer.  This means
-that we must allow the connecting user to call blocking recv()
-before the socket has reached state SS_CONNECTED.  So we must must
-relax the state machine check at recv_stream(), and allow the
-recv() call even if socket is in state SS_CONNECTING.
-
-Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/socket.c | 6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
+ include/uapi/linux/tipc.h        | 2 +-
+ include/uapi/linux/tipc_config.h | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index aba4255..d5fa708f 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -518,8 +518,7 @@ static int send_msg(struct kiocb *iocb, struct socket *sock,
- 			res = -EISCONN;
- 			goto exit;
- 		}
--		if ((tport->published) ||
--		    ((sock->type == SOCK_STREAM) && (total_len != 0))) {
-+		if (tport->published) {
- 			res = -EOPNOTSUPP;
- 			goto exit;
- 		}
-@@ -1010,8 +1009,7 @@ static int recv_stream(struct kiocb *iocb, struct socket *sock,
- 
- 	lock_sock(sk);
- 
--	if (unlikely((sock->state == SS_UNCONNECTED) ||
--		     (sock->state == SS_CONNECTING))) {
-+	if (unlikely((sock->state == SS_UNCONNECTED))) {
- 		res = -ENOTCONN;
- 		goto exit;
- 	}
+diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
+index f2d9009..852373d 100644
+--- a/include/uapi/linux/tipc.h
++++ b/include/uapi/linux/tipc.h
+@@ -1,5 +1,5 @@
+ /*
+- * include/linux/tipc.h: Include file for TIPC socket interface
++ * include/uapi/linux/tipc.h: Header for TIPC socket interface
+  *
+  * Copyright (c) 2003-2006, Ericsson AB
+  * Copyright (c) 2005, 2010-2011, Wind River Systems
+diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
+index 0b1e3f2..6b0bff0 100644
+--- a/include/uapi/linux/tipc_config.h
++++ b/include/uapi/linux/tipc_config.h
+@@ -1,5 +1,5 @@
+ /*
+- * include/linux/tipc_config.h: Include file for TIPC configuration interface
++ * include/uapi/linux/tipc_config.h: Header for TIPC configuration interface
+  *
+  * Copyright (c) 2003-2006, Ericsson AB
+  * Copyright (c) 2005-2007, 2010-2011, Wind River Systems
 -- 
 1.8.1.2
