@@ -1,82 +1,40 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: [PATCH net 2/3] vxlan: only migrate dynamic FDB entries
-Date: Mon, 17 Jun 2013 12:09:58 -0700
-Message-ID: <1371496199-5424-3-git-send-email-stephen@networkplumber.org>
-References: <1371496199-5424-1-git-send-email-stephen@networkplumber.org>
-Cc: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
-To: davem@davemloft.net
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: Re: [PATCH net-next] tg3: Prevent system hang during repeated
+ EEH errors.
+Date: Mon, 17 Jun 2013 12:11:06 -0700
+Message-ID: <1371496266.5012.14.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
+References: <1371244506-18969-1-git-send-email-nsujir@broadcom.com>
+ <20130617182811.GA12442@d2.synalogic.ca>
+ <20130617185647.GB12442@d2.synalogic.ca>
+Mime-Version: 1.0
+Content-Type: text/plain;
+ charset=cp1252
+Content-Transfer-Encoding: 7bit
+Cc: "Nithin Nayak Sujir" <nsujir@broadcom.com>, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: "Benjamin Poirier" <benjamin.poirier@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f181.google.com ([209.85.192.181]:63021 "EHLO
-	mail-pd0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752687Ab3FQTKH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 15:10:07 -0400
-Received: by mail-pd0-f181.google.com with SMTP id 14so3058881pdj.40
-        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 12:10:07 -0700 (PDT)
-In-Reply-To: <1371496199-5424-1-git-send-email-stephen@networkplumber.org>
+Received: from mms1.broadcom.com ([216.31.210.17]:1362 "EHLO mms1.broadcom.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752042Ab3FQTLW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jun 2013 15:11:22 -0400
+In-Reply-To: <20130617185647.GB12442@d2.synalogic.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Only migrate dynamic forwarding table entries, don't modify
-static entries. If packet received from incorrect source IP address
-assume it is an imposter and drop it.
+On Mon, 2013-06-17 at 14:56 -0400, Benjamin Poirier wrote:
+> Nevertheless, this hunk
+> 
+> > > @@ -17826,6 +17833,8 @@ static void tg3_io_resume(struct pci_dev *pdev)
+> > >     if (err) {
+> > >             tg3_full_unlock(tp);
+> > >             netdev_err(netdev, "Cannot restart hardware after reset.\n");
+> > > +           tg3_napi_enable(tp);
+> > > +           dev_close(netdev);
+> > >             goto done;
+> > >     }
+> 
+> duplicates the error handling code already in tg3_restart_hw(). 
 
-This patch applies only to -net, a different patch would be needed for earlier
-kernels since the NTF_SELF flag was introduced with 3.10.
-
-Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
----
- drivers/net/vxlan.c |   16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 577a069..15a73ec 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -565,8 +565,9 @@ skip:
- 
- /* Watch incoming packets to learn mapping between Ethernet address
-  * and Tunnel endpoint.
-+ * Return true if packet is bogus and should be droppped.
-  */
--static void vxlan_snoop(struct net_device *dev,
-+static bool vxlan_snoop(struct net_device *dev,
- 			__be32 src_ip, const u8 *src_mac)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
-@@ -575,7 +576,11 @@ static void vxlan_snoop(struct net_device *dev,
- 	f = vxlan_find_mac(vxlan, src_mac);
- 	if (likely(f)) {
- 		if (likely(f->remote.remote_ip == src_ip))
--			return;
-+			return false;
-+
-+		/* Don't migrate static entries, drop packets */
-+		if (!(f->flags & NTF_SELF))
-+			return true;
- 
- 		if (net_ratelimit())
- 			netdev_info(dev,
-@@ -598,6 +603,8 @@ static void vxlan_snoop(struct net_device *dev,
- 					 0, NTF_SELF);
- 		spin_unlock(&vxlan->hash_lock);
- 	}
-+
-+	return false;
- }
- 
- 
-@@ -729,8 +736,9 @@ static int vxlan_udp_encap_recv(struct sock *sk, struct sk_buff *skb)
- 			       vxlan->dev->dev_addr) == 0)
- 		goto drop;
- 
--	if (vxlan->flags & VXLAN_F_LEARN)
--		vxlan_snoop(skb->dev, oip->saddr, eth_hdr(skb)->h_source);
-+	if ((vxlan->flags & VXLAN_F_LEARN) &&
-+	    vxlan_snoop(skb->dev, oip->saddr, eth_hdr(skb)->h_source))
-+		goto drop;
- 
- 	__skb_tunnel_rx(skb, vxlan->dev);
- 	skb_reset_network_header(skb);
--- 
-1.7.10.4
+Very good point.  We'll modify the patch and re-send.  Thanks a lot
+Benjamin.
