@@ -1,63 +1,54 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: Re: [PATCH net-next] tg3: Prevent system hang during repeated
- EEH errors.
-Date: Mon, 17 Jun 2013 11:59:12 -0700
-Message-ID: <1371495552.5012.9.camel@LTIRV-MCHAN1.corp.ad.broadcom.com>
-References: <1371244506-18969-1-git-send-email-nsujir@broadcom.com>
- <20130617182811.GA12442@d2.synalogic.ca>
-Mime-Version: 1.0
-Content-Type: text/plain;
- charset=cp1252
-Content-Transfer-Encoding: 7bit
-Cc: "Nithin Nayak Sujir" <nsujir@broadcom.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-To: "Benjamin Poirier" <benjamin.poirier@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH net 3/3] vxlan: handle skb_clone failure
+Date: Mon, 17 Jun 2013 12:09:59 -0700
+Message-ID: <1371496199-5424-4-git-send-email-stephen@networkplumber.org>
+References: <1371496199-5424-1-git-send-email-stephen@networkplumber.org>
+Cc: netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:1800 "EHLO mms2.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752039Ab3FQS7V (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Jun 2013 14:59:21 -0400
-In-Reply-To: <20130617182811.GA12442@d2.synalogic.ca>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:59459 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752309Ab3FQTKJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 15:10:09 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bi5so3163071pad.18
+        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 12:10:08 -0700 (PDT)
+In-Reply-To: <1371496199-5424-1-git-send-email-stephen@networkplumber.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-17 at 14:28 -0400, Benjamin Poirier wrote: 
-> On 2013/06/14 14:15, Nithin Nayak Sujir wrote:
-> [...]
-> > @@ -17796,6 +17799,10 @@ static pci_ers_result_t tg3_io_slot_reset(struct pci_dev *pdev)
-> >  	rc = PCI_ERS_RESULT_RECOVERED;
-> >  
-> >  done:
-> > +	if (rc != PCI_ERS_RESULT_RECOVERED && netif_running(netdev)) {
-> > +		tg3_napi_enable(tp);
-> > +		dev_close(netdev);
-> > +	}
-> >  	rtnl_unlock();
-> >  
-> >  	return rc;
-> > @@ -17826,6 +17833,8 @@ static void tg3_io_resume(struct pci_dev *pdev)
-> >  	if (err) {
-> >  		tg3_full_unlock(tp);
-> >  		netdev_err(netdev, "Cannot restart hardware after reset.\n");
-> > +		tg3_napi_enable(tp);
-> > +		dev_close(netdev);
-> >  		goto done;
-> >  	}
-> 
-> Are these two hunks needed?
-> 1) These functions do not call tg3_netif_stop() or tg3_napi_disable()
-> 2) an error in tg3_io_resume() does not trigger device removal in
-> handle_eeh_events(). In fact the ->resume callback has no return value.
-> 
+If skb_clone fails if out of memory then just skip the fanout.
 
-The normal sequence is:
+Problem was introduced in 3.10 with:
+  commit 6681712d67eef14c4ce793561c3231659153a320
+  Author: David Stevens <dlstevens@us.ibm.com>
+  Date:   Fri Mar 15 04:35:51 2013 +0000
 
-error_detected(), slot_reset(), resume()
+    vxlan: generalize forwarding tables
 
-In error_detected(), chip will be shutdown and NAPI will be disabled if
-netif_running state is true.  When everything works correctly, the chip
-will be re-enabled in resume() and NAPI re-enabled.  If we run into any
-error in this sequence, the sequence will not complete normally.  In
-this case, if netif_running state is true, we know that the NAPI state
-has been disabled earlier in error_detected(), and we need to properly
-close the device.
+Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
+---
+ drivers/net/vxlan.c |    8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+index 15a73ec..dda997a 100644
+--- a/drivers/net/vxlan.c
++++ b/drivers/net/vxlan.c
+@@ -1161,9 +1161,11 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		struct sk_buff *skb1;
+ 
+ 		skb1 = skb_clone(skb, GFP_ATOMIC);
+-		rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
+-		if (rc == NETDEV_TX_OK)
+-			rc = rc1;
++		if (skb1) {
++			rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
++			if (rc == NETDEV_TX_OK)
++				rc = rc1;
++		}
+ 	}
+ 
+ 	rc1 = vxlan_xmit_one(skb, dev, rdst0, did_rsc);
+-- 
+1.7.10.4
