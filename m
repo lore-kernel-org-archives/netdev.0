@@ -1,40 +1,65 @@
-From: Dave Jones <davej@redhat.com>
-Subject: Re: [r8169 3.10rc5] NETDEV WATCHDOG: eth1 (r8169): transmit queue 0
- timed out
-Date: Mon, 17 Jun 2013 09:42:02 -0400
-Message-ID: <20130617134202.GA15861@redhat.com>
-References: <20130615184646.GA19439@redhat.com>
- <20130616081533.GA24737@electric-eye.fr.zoreil.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 01/16] tipc: update code comments to reflect
+ new uapi header path
+Date: Mon, 17 Jun 2013 21:33:25 +0400
+Message-ID: <51BF4865.2000005@cogentembedded.com>
+References: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com> <1371480891-5264-2-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Erik Hugne <erik.hugne@ericsson.com>
+To: Paul Gortmaker <paul.gortmaker@windriver.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:6060 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754001Ab3FQReX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Jun 2013 13:34:23 -0400
-Content-Disposition: inline
-In-Reply-To: <20130616081533.GA24737@electric-eye.fr.zoreil.com>
+Received: from mail-lb0-f173.google.com ([209.85.217.173]:63738 "EHLO
+	mail-lb0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753895Ab3FQRd3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 13:33:29 -0400
+Received: by mail-lb0-f173.google.com with SMTP id v1so2786605lbd.32
+        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 10:33:27 -0700 (PDT)
+In-Reply-To: <1371480891-5264-2-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 16, 2013 at 10:15:33AM +0200, Francois Romieu wrote:
- > Dave Jones <davej@redhat.com> :
- > > I see this from time to time, but this is the first time in a few months since
- > > I last saw it..
- > 
- > I guess the driver did not recover, right ?
+Hello.
 
-actually, it's still up even now.
+On 06/17/2013 06:54 PM, Paul Gortmaker wrote:
 
- > Which chipset ('dmesg | grep XID') is it ?
+> From: Ying Xue <ying.xue@windriver.com>
 
-There's two of them in that box..
+> Files tipc.h and tipc_config.h were moved to uapi directory, but
+> the corresponding comments were not updated at the same time.
 
-[   53.061780] r8169 0000:01:00.0 eth0: RTL8168d/8111d at 0xffffc90000006000, 70:71:bc:63:19:05, XID 081000c0 IRQ 46
-[   53.176606] r8169 0000:05:00.0 eth1: RTL8110s at 0xffffc9000003a000, 00:0f:b5:fb:c3:a6, XID 04000000 IRQ 21
+> Signed-off-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+> ---
+>   include/uapi/linux/tipc.h        | 2 +-
+>   include/uapi/linux/tipc_config.h | 2 +-
+>   2 files changed, 2 insertions(+), 2 deletions(-)
 
-but it looks to me like the trace was from eth1
+> diff --git a/include/uapi/linux/tipc.h b/include/uapi/linux/tipc.h
+> index f2d9009..852373d 100644
+> --- a/include/uapi/linux/tipc.h
+> +++ b/include/uapi/linux/tipc.h
+> @@ -1,5 +1,5 @@
+>   /*
+> - * include/linux/tipc.h: Include file for TIPC socket interface
+> + * include/uapi/linux/tipc.h: Header for TIPC socket interface
+>    *
+>    * Copyright (c) 2003-2006, Ericsson AB
+>    * Copyright (c) 2005, 2010-2011, Wind River Systems
+> diff --git a/include/uapi/linux/tipc_config.h b/include/uapi/linux/tipc_config.h
+> index 0b1e3f2..6b0bff0 100644
+> --- a/include/uapi/linux/tipc_config.h
+> +++ b/include/uapi/linux/tipc_config.h
+> @@ -1,5 +1,5 @@
+>   /*
+> - * include/linux/tipc_config.h: Include file for TIPC configuration interface
+> + * include/uapi/linux/tipc_config.h: Header for TIPC configuration interface
 
-	Dave
+    File names in the heading comments are generally frowned upon. Maybe 
+it's worth just removing them?
+
+WBR, Sergei
