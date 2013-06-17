@@ -1,59 +1,58 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: Modify the condition for the first skb to collapse
-Date: Mon, 17 Jun 2013 01:15:35 -0700
-Message-ID: <1371456935.3252.177.camel@edumazet-glaptop>
-References: <1371478739.10495.5.camel@chenjun-workstation>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: Re: [PATCH v4] ethernet/arc/arc_emac - Add new driver
+Date: Mon, 17 Jun 2013 09:03:50 +0000
+Message-ID: <4881796E12491D4BB15146FE0209CE643F5EC000@DE02WEMBXB.internal.synopsys.com>
+References: <1371327652-9368-1-git-send-email-abrodkin@synopsys.com>
+	 <1371328671.2117.6.camel@joe-AO722>
+	 <4881796E12491D4BB15146FE0209CE643F5E7779@DE02WEMBXB.internal.synopsys.com>
+ <1371368491.2116.0.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ycheng@google.com, ncardwell@google.com, edumazet@google.com,
-	netdev@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
-To: Jun Chen <jun.d.chen@intel.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	"Vineet Gupta" <Vineet.Gupta1@synopsys.com>,
+	Mischa Jonker <Mischa.Jonker@synopsys.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	"Paul Gortmaker" <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>
+To: Joe Perches <joe@perches.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371478739.10495.5.camel@chenjun-workstation>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-06-17 at 10:18 -0400, Jun Chen wrote:
-> When search the first skb to collapse,the condition of overlap to the next one have been
-> reached,but the start is less than TCP_SKB_CB(skb)->seq at this time, then followed process
-> will trigger the BUG_ON of the offset(start - TCP_SKB_CB(skb)->seq).
-> So this patch add one check (! before(start,TCP_SKB_CB(skb)->seq)) to avoid this ipanic.
-> 
-> Signed-off-by: Chen Jun <jun.d.chen@intel.com>
-> ---
->  net/ipv4/tcp_input.c |    3 ++-
->  1 files changed, 2 insertions(+), 1 deletions(-)
-> 
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 9c62257..4c745c5 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -4465,7 +4465,8 @@ restart:
->  		 *   overlaps to the next one.
->  		 */
->  		if (!tcp_hdr(skb)->syn && !tcp_hdr(skb)->fin &&
-> -		    (tcp_win_from_space(skb->truesize) > skb->len ||
-> +			((tcp_win_from_space(skb->truesize) > skb->len &&
-> +			!before(start, TCP_SKB_CB(skb)->seq)) ||
->  		     before(TCP_SKB_CB(skb)->seq, start))) {
->  			end_of_skbs = false;
->  			break;
+On 06/16/2013 11:41 AM, Joe Perches wrote:
+> On Sat, 2013-06-15 at 20:47 +0000, Alexey Brodkin wrote:
+>> On 06/16/2013 12:37 AM, Joe Perches wrote:
+>>> On Sun, 2013-06-16 at 00:20 +0400, Alexey Brodkin wrote:
+> []
+>>>> +static int arc_emac_rx(struct net_device *ndev, int budget)
+>>> []
+>>>> +		/* Prepare the BD for next cycle */
+>>>> +		rx_buff->skb = netdev_alloc_skb_ip_align(ndev, buflen);
+>>>> +		if (unlikely(!rx_buff->skb)) {
+>>>> +			if (net_ratelimit())
+>>>> +				netdev_err(ndev, "cannot allocate skb\n");
+>>>
+>>> Unnecessary OOM message, might as well remove it.
+>>> rx_dropped gives the same info.
+>>
+>> With all those error messages I wanted to make life easier (especially
+>> for me) if errors appear. User will immediately know where problem
+>> happened. Indeed "rx_dropped" (when it is used only once in driver) may
+>> show where issue happened, but if later at some point "rx_dropped" will
+>> be incremented in other locations then user won't understand immediately
+>> where error happened.
+>
+> Alloc errors emit a dump_stack() already so this is redundant.
 
-Hmm... I must say I do not understand this patch.
+Makes sense. Will remove this comment.
 
-If we find a skb with before(TCP_SKB_CB(skb)->seq, start), then the
-final condition will be true.
-
-Let's rewrite your code to equivalent one :
-
- if (!tcp_hdr(skb)->syn && !tcp_hdr(skb)->fin &&
-     (before(TCP_SKB_CB(skb)->seq, start) ||
-      tcp_win_from_space(skb->truesize) > skb->len)) {
-
-So it seems your patch would not solve the problem for all
-possible skbs (aka not bloated) ?
-
-Please tell us how you trigger this bug, and send the stack trace.
-
-Thanks
+-Alexey
