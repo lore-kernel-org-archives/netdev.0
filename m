@@ -1,52 +1,61 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v5 net-next 0/4] net: low latency sockets
-	follow ups
-Date: Mon, 17 Jun 2013 15:48:29 -0700 (PDT)
-Message-ID: <20130617.154829.1257549505509165519.davem@davemloft.net>
-References: <20130614133314.6126.77315.stgit@ladj378.jer.intel.com>
+Subject: Re: [PATCH v2 net-next 00/16] tipc: make use of kernel threads to
+ simplify things
+Date: Mon, 17 Jun 2013 15:53:51 -0700 (PDT)
+Message-ID: <20130617.155351.912153627551806035.davem@davemloft.net>
+References: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: willemb@google.com, ork@mellanox.com, or.gerlitz@gmail.com,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	hpa@zytor.com, amirv@mellanox.com, linux-kernel@vger.kernel.org,
-	alexr@mellanox.com, jesse.brandeburg@intel.com,
-	sockperf-dev@googlegroups.com, avnerb@mellanox.com,
-	andi@firstfloor.org, eliezer@tamir.org.il,
-	bhutchings@solarflare.com, erdnetdev@gmail.com, eilong@broadcom.com
-To: eliezer.tamir@linux.intel.com
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130614133314.6126.77315.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jon.maloy@ericsson.com,
+	ying.xue@windriver.com, erik.hugne@ericsson.com,
+	nhorman@tuxdriver.com
+To: paul.gortmaker@windriver.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39984 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751361Ab3FQWxw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 18:53:52 -0400
+In-Reply-To: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Date: Fri, 14 Jun 2013 16:33:14 +0300
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Date: Mon, 17 Jun 2013 10:54:35 -0400
 
-> Here are three clean up patches, plus one that adds a socket option for LLS.
+> This is a rework of the content sent earlier[1], with the following changes:
 > 
-> Patch 1 converts sysctl_net_ll_poll into an unsigned int
-> Patch 2 converts low latency sockets to sched_clock.
-> Patch 3 removes the config menu for NET_LL_RX_POLL and defaults to y.
-> Patch 4 adds an SO_LL socket option to allow per-socket control of busy polling.
+> 	-drop the Kconfig --> modparam conversion patch; this was
+> 	 requested to be replaced[2] with a dynamic port quantity resizing.
+> 	 Ying and Erik were discussing how best to achieve this, and then
+> 	 vacation schedules got in the way, so implementing that will
+> 	 come (hopefully) in the next round.
+> 
+> 	-rework the sk_rcvbuf patch to allow memory resizing via sysctl
+> 	 as per what Ying and Neil discussed[3]
+> 
+> 	-add 4 more seemingly straigtforward and relatively small changes
+> 	 from Ying (the last 4 in the series).
+> 
+> 	-add cosmetic UAPI comment update patch from Ying.
+> 
+> That said, the largest change is still the one where we make use of
+> the fact that linux supports kernel threads and do the server like
+> operations within kernel threads.  As Jon says:  
+> 
+>    We remove the last remnants of the TIPC native API, to make it
+>    possible to simplify locking policy and solve a problem with lost
+>    topology events.
+>  
+>    First, we introduce a socket-based alternative to the native API.
+> 
+>    Second, we convert the two remaining users of the native API, the 
+>    TIPC internal topology server and the configuarion server, to use the
+>    new API. 
+> 
+>    Third, we remove the remaining code pertaining to the native API.
+> 
+> I have re-tested this collection of commits between 32 and 64 bit x86
+> machines using the standard tipc test suite, and build tested for ppc.
 
-Series applied, thanks.
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Series applied, thanks Paul.
