@@ -1,42 +1,47 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: linux-next: manual merge of the arm-soc tree with the net-next
- tree
-Date: Mon, 17 Jun 2013 17:51:29 +0400
-Message-ID: <51BF1461.8060401@cogentembedded.com>
-References: <20130617163920.04523ba6de50bcc81563f33e@canb.auug.org.au>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next 0/2] Two SCTP cleanup patches
+Date: Mon, 17 Jun 2013 09:56:06 -0400
+Message-ID: <51BF1576.4080203@gmail.com>
+References: <1371462005-19310-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	linux-arm-kernel@lists.infradead.org, linux-next@vger.kernel.org,
-	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>,
-	netdev@vger.kernel.org, Bastian Hecht <hechtb@gmail.com>,
-	Simon Horman <horms+renesas@verge.net.au>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20130617163920.04523ba6de50bcc81563f33e@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ye0-f170.google.com ([209.85.213.170]:55328 "EHLO
+	mail-ye0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750986Ab3FQN4K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 09:56:10 -0400
+In-Reply-To: <1371462005-19310-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 06/17/2013 05:40 AM, Daniel Borkmann wrote:
+> Two cleanup-only patches to make the code more readable and consistent
+> with the rest of the kernel code.
+>
+> Daniel Borkmann (2):
+>    net: sctp: get rid of t_new macro for kzalloc
+>    net: sctp: remove SCTP_STATIC macro
+>
 
-On 17-06-2013 10:39, Stephen Rothwell wrote:
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
 
-> Today's linux-next merge of the arm-soc tree got a conflict in
-> arch/arm/mach-shmobile/clock-r8a7740.c between commit e5c9b4cd6651
-> ("sh_eth: get R8A7740 support out of #ifdef") from the net-next tree and
-> commit 9e0b428f079d ("ARM: shmobile: r8a7740: Add interim sh-eth device
-> name to clocks list") from the arm-soc tree.
-
-    To me that latter commit looked utterly pointless, as there's no 
-device tree support for the 'sh-eth' driver yet (and at this stage it 
-isn't even going to happen due to procedural platform data). I'm instead 
-going to use OF_DEV_AUXDATA() in the platform code which again would 
-render that commit pointless.
-
-> I fixed it up (see below) and can carry the fix as necessary (no action
-> is required).
-
-    Thanks.
-
-WBR, Sergei
+-vlad
+>   include/net/sctp/sctp.h  | 11 -------
+>   net/sctp/associola.c     |  2 +-
+>   net/sctp/bind_addr.c     |  2 +-
+>   net/sctp/chunk.c         |  2 +-
+>   net/sctp/endpointola.c   |  3 +-
+>   net/sctp/input.c         |  4 +--
+>   net/sctp/ipv6.c          |  6 ++--
+>   net/sctp/protocol.c      |  6 ++--
+>   net/sctp/sm_make_chunk.c | 10 +++----
+>   net/sctp/socket.c        | 78 ++++++++++++++++++++++--------------------------
+>   net/sctp/transport.c     |  2 +-
+>   net/sctp/tsnmap.c        | 10 +++----
+>   net/sctp/ulpevent.c      | 10 +++----
+>   13 files changed, 64 insertions(+), 82 deletions(-)
+>
