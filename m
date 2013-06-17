@@ -1,31 +1,58 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH net-next 5/5] staging/rtl8192u: convert skb->tail into
- skb_tail_pointer(skb)
-Date: Mon, 17 Jun 2013 15:45:29 -0700
-Message-ID: <20130617224529.GA28118@kroah.com>
-References: <bb5cc0b762102c6a6a56bbd2067c7e539abfb2a6.1371200138.git.yamahata@valinux.co.jp>
- <4e2318187b15be4d81c3b03cd0337506c7008bb8.1371200138.git.yamahata@valinux.co.jp>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: kmemleak reports in kernel 3.9.5+
+Date: Mon, 17 Jun 2013 15:45:38 -0700
+Message-ID: <51BF9192.2050702@candelatech.com>
+References: <51B61982.2050903@candelatech.com> <CAHkRjk5SDCbqr0Br24YQuHr=j7DmnpYk9CShrz1qiuYff7+qAw@mail.gmail.com> <51B78009.2060808@candelatech.com> <51B7C09D.9020402@candelatech.com> <20130613155040.GE6530@darko.cambridge.arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Simon Horman <horms@verge.net.au>,
-	devel@driverdev.osuosl.org
-To: Isaku Yamahata <yamahata@valinux.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:41928 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751518Ab3FQWpa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 18:45:30 -0400
-Content-Disposition: inline
-In-Reply-To: <4e2318187b15be4d81c3b03cd0337506c7008bb8.1371200138.git.yamahata@valinux.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>
+To: Catalin Marinas <catalin.marinas@arm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130613155040.GE6530@darko.cambridge.arm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 14, 2013 at 05:58:35PM +0900, Isaku Yamahata wrote:
-> The change set of 7a884dc "[SK_BUFF]: Convert skb->tail to sk_buff_data_t"
-> converted skb->tail from pointer into sk_buff_data_t.
-> Thus skb->tail is not always pointer, the area pointed by skb->tail
-> should be accessed via skb_tail_pointer().
-> 
-> Found by inspection. Compile tested only.
+On 06/13/2013 08:50 AM, Catalin Marinas wrote:
+> On Wed, Jun 12, 2013 at 01:28:13AM +0100, Ben Greear wrote:
+>> On 06/11/2013 12:52 PM, Ben Greear wrote:
+>>> On 06/10/2013 03:32 PM, Catalin Marinas wrote:
+>>>> On 10 June 2013 19:22, Ben Greear <greearb@candelatech.com> wrote:
+>>>>> We had a system go OOM while doing lots of wireless
+>>>>> stations.  (System had 8GB of RAM, so I suspect a leak).
+>>>>>
+>>>>> I enabled kmemleak in a 3.9.5 (plus some local patches) and
+>>>>> I see the entries below.  Any idea if these are real or not?
+>>
+>> Most of this went away when I disabled SLUB debugging and other
+>> kernel hacking options.  The wifi cfg80211_inform_bss_frame
+>> remains, however.  I'll go dig some more on that tomorrow...didn't
+>> see anything obvious at first glance.
+>>
+>> But, perhaps there could be some improvements to
+>> kmemleak to make it deal better with the various kernel
+>> debugging features?
+>
+> That's unrelated to the debugging features. Kmemleak cannot find
+> pointers to the allocated objects. They could be real leaks or it simply
+> doesn't scan the right memory where such pointers are stored. The debug
+> objects are stored in a list with the head as static memory, so it
+> should be scanned.
 
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+I re-ran a similar test just now, but I had added an explicit reference
+for each of the items that I know this test causes to leak (I add them
+to a global list.)
+
+This means that memleak would no longer show them as leaked, and that
+also cleaned up all of the strange leaks reported before.
+
+So, I think kmemleak is at least mostly working properly, even with lots
+of debugging options.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
