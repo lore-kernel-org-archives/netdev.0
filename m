@@ -1,37 +1,59 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] rtlwifi: rtl8192cu: Add new USB ID for TP-Link TL-WN8200ND
-Date: Mon, 17 Jun 2013 13:25:49 -0500
-Message-ID: <1371493549-6613-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, Tobias Kluge <zielscheibe@gmail.com>,
-	Stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: [PATCH net-next] tg3: Prevent system hang during repeated EEH
+ errors.
+Date: Mon, 17 Jun 2013 14:28:11 -0400
+Message-ID: <20130617182811.GA12442@d2.synalogic.ca>
+References: <1371244506-18969-1-git-send-email-nsujir@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Michael Chan <mchan@broadcom.com>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qe0-f42.google.com ([209.85.128.42]:45173 "EHLO
+	mail-qe0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754771Ab3FQS2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 14:28:15 -0400
+Received: by mail-qe0-f42.google.com with SMTP id s14so1921723qeb.29
+        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 11:28:14 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1371244506-18969-1-git-send-email-nsujir@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a new device for this driver.
+On 2013/06/14 14:15, Nithin Nayak Sujir wrote:
+[...]
+> @@ -17796,6 +17799,10 @@ static pci_ers_result_t tg3_io_slot_reset(struct pci_dev *pdev)
+>  	rc = PCI_ERS_RESULT_RECOVERED;
+>  
+>  done:
+> +	if (rc != PCI_ERS_RESULT_RECOVERED && netif_running(netdev)) {
+> +		tg3_napi_enable(tp);
+> +		dev_close(netdev);
+> +	}
+>  	rtnl_unlock();
+>  
+>  	return rc;
+> @@ -17826,6 +17833,8 @@ static void tg3_io_resume(struct pci_dev *pdev)
+>  	if (err) {
+>  		tg3_full_unlock(tp);
+>  		netdev_err(netdev, "Cannot restart hardware after reset.\n");
+> +		tg3_napi_enable(tp);
+> +		dev_close(netdev);
+>  		goto done;
+>  	}
 
-Reported-by: Tobias Kluge <zielscheibe@gmail.com>
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Tobias Kluge <zielscheibe@gmail.com>
-Cc: Stable <stable@vger.kernel.org>
----
- drivers/net/wireless/rtlwifi/rtl8192cu/sw.c | 1 +
- 1 file changed, 1 insertion(+)
+Are these two hunks needed?
+1) These functions do not call tg3_netif_stop() or tg3_napi_disable()
+2) an error in tg3_io_resume() does not trigger device removal in
+handle_eeh_events(). In fact the ->resume callback has no return value.
 
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-index 826f085..2bd5985 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/sw.c
-@@ -359,6 +359,7 @@ static struct usb_device_id rtl8192c_usb_ids[] = {
- 	{RTL_USB_DEVICE(0x2001, 0x330a, rtl92cu_hal_cfg)}, /*D-Link-Alpha*/
- 	{RTL_USB_DEVICE(0x2019, 0xab2b, rtl92cu_hal_cfg)}, /*Planex -Abocom*/
- 	{RTL_USB_DEVICE(0x20f4, 0x624d, rtl92cu_hal_cfg)}, /*TRENDNet*/
-+	{RTL_USB_DEVICE(0x2357, 0x0100, rtl92cu_hal_cfg)}, /*TP-Link WN8200ND*/
- 	{RTL_USB_DEVICE(0x7392, 0x7822, rtl92cu_hal_cfg)}, /*Edimax -Edimax*/
- 	{}
- };
--- 
-1.8.1.4
+>  
+> -- 
+> 1.8.1.4
+> 
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
