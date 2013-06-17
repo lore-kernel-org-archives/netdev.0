@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: fec: Fix build for MCF5272
-Date: Mon, 17 Jun 2013 16:11:51 -0700 (PDT)
-Message-ID: <20130617.161151.1327615665309510068.davem@davemloft.net>
-References: <1371500179-4733-1-git-send-email-linux@roeck-us.net>
+Subject: Re: [PATCH 0/3] netfilter fixes for net
+Date: Mon, 17 Jun 2013 16:14:27 -0700 (PDT)
+Message-ID: <20130617.161427.1465546621381589932.davem@davemloft.net>
+References: <1371497679-14314-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Frank.Li@freescale.com, jim_baxter@mentor.com
-To: linux@roeck-us.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371500179-4733-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1371497679-14314-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Guenter Roeck <linux@roeck-us.net>
-Date: Mon, 17 Jun 2013 13:16:19 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Mon, 17 Jun 2013 21:34:36 +0200
 
-> Commits 4c09eed9 (net: fec: Enable imx6 enet checksum acceleration) and
-> baa70a5c (net: fec: enable pause frame to improve rx prefomance for 1G
-> network) introduced functionality into the FEC driver which is not
-> supported on MCF5272. As result, building images for MCF5272 fails,
-> complaining about several undefined symbols.
+> The following patchset contains Netfilter fixes. They are targeted to the
+> TCP option targets, that have receive some scrinity in the last week. The
+> changes are:
 > 
-> Disabled the added functionality for MCF5272 builds.
+> * Fix TCPOPTSTRIP, it stopped working in the forward chain as tcp_hdr
+>   uses skb->transport_header, and we cannot use that in the forwarding
+>   case, from myself.
 > 
-> Cc: Frank Li <Frank.Li@freescale.com>
-> Cc: Jim Baxter <jim_baxter@mentor.com>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
-> Sorry for the added ifdefs. If anyone has a better idea on how to fix
-> the problems, let me know.
+> * Fix default IPv6 MSS in TCPMSS in case of absence of TCP MSS options,
+>   from Phil Oester.
 > 
-> This problem exists in 3.9 as well.
+> * Fix missing fragmentation handling again in TCPMSS, from Phil Oester.
+> 
+> You can pull these changes from:
+> 
+> git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
 
-Does the M5272 not have these registers, or have you simply not added
-defines for where there offsets are in that silicon instance?
-
-I'd much rather you add the register offset defines than pepper the
-entire driver with ifdefs.
+Pulled, thanks Pablo.
