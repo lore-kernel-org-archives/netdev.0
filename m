@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 10/16] tipc: convert config_lock from spinlock to mutex
-Date: Mon, 17 Jun 2013 10:54:45 -0400
-Message-ID: <1371480891-5264-11-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 06/16] tipc: convert configuration server to use new server facility
+Date: Mon, 17 Jun 2013 10:54:41 -0400
+Message-ID: <1371480891-5264-7-git-send-email-paul.gortmaker@windriver.com>
 References: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,78 +11,230 @@ Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.windriver.com ([147.11.146.13]:42760 "EHLO
-	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751874Ab3FQOzT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 10:55:19 -0400
+Received: from mail.windriver.com ([147.11.1.11]:63165 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751870Ab3FQOzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 10:55:15 -0400
 In-Reply-To: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ying Xue <ying.xue@windriver.com>
 
-As the configuration server is now running under process context,
-it's unnecessary for us to have a spinlock serializing the TIPC
-configuration process. Instead, we replace it with a mutex lock,
-which gives us more freedom. For instance, we can now call
-pre-emptable functions within the protected area.
+As the new socket-based TIPC server infrastructure has been
+introduced, we can now convert the configuration server to use
+it.  Then we can take future steps to simplify the configuration
+server locking policy.
+
+Some minor reordering of initialization is done, due to the
+dependency on having tipc_socket_init completed.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/config.c | 17 +++--------------
- 1 file changed, 3 insertions(+), 14 deletions(-)
+ net/tipc/config.c | 102 ++++++++++++++++++++++++------------------------------
+ net/tipc/core.c   |   4 +--
+ net/tipc/socket.c |   3 +-
+ 3 files changed, 49 insertions(+), 60 deletions(-)
 
 diff --git a/net/tipc/config.c b/net/tipc/config.c
-index 4887ae0..c301a9a 100644
+index f67866c..4887ae0 100644
 --- a/net/tipc/config.c
 +++ b/net/tipc/config.c
-@@ -42,7 +42,7 @@
+@@ -2,7 +2,7 @@
+  * net/tipc/config.c: TIPC configuration management code
+  *
+  * Copyright (c) 2002-2006, Ericsson AB
+- * Copyright (c) 2004-2007, 2010-2012, Wind River Systems
++ * Copyright (c) 2004-2007, 2010-2013, Wind River Systems
+  * All rights reserved.
+  *
+  * Redistribution and use in source and binary forms, with or without
+@@ -38,12 +38,12 @@
+ #include "port.h"
+ #include "name_table.h"
+ #include "config.h"
++#include "server.h"
  
  #define REPLY_TRUNCATED "<truncated>\n"
  
--static DEFINE_SPINLOCK(config_lock);
-+static DEFINE_MUTEX(config_mutex);
- static struct tipc_server cfgsrv;
+-static u32 config_port_ref;
+-
+ static DEFINE_SPINLOCK(config_lock);
++static struct tipc_server cfgsrv;
  
  static const void *req_tlv_area;	/* request message TLV area */
-@@ -181,18 +181,7 @@ static struct sk_buff *cfg_set_own_addr(void)
- 	if (tipc_own_addr)
- 		return tipc_cfg_reply_error_string(TIPC_CFG_NOT_SUPPORTED
- 						   " (cannot change node address once assigned)");
--
--	/*
--	 * Must temporarily release configuration spinlock while switching into
--	 * networking mode as it calls tipc_eth_media_start(), which may sleep.
--	 * Releasing the lock is harmless as other locally-issued configuration
--	 * commands won't occur until this one completes, and remotely-issued
--	 * configuration commands can't be received until a local configuration
--	 * command to enable the first bearer is received and processed.
--	 */
--	spin_unlock_bh(&config_lock);
- 	tipc_core_start_net(addr);
--	spin_lock_bh(&config_lock);
- 	return tipc_cfg_reply_none();
- }
- 
-@@ -248,7 +237,7 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- {
- 	struct sk_buff *rep_tlv_buf;
- 
--	spin_lock_bh(&config_lock);
-+	mutex_lock(&config_mutex);
- 
- 	/* Save request and reply details in a well-known location */
- 	req_tlv_area = request_area;
-@@ -377,7 +366,7 @@ struct sk_buff *tipc_cfg_do_cmd(u32 orig_node, u16 cmd, const void *request_area
- 
- 	/* Return reply buffer */
- exit:
--	spin_unlock_bh(&config_lock);
-+	mutex_unlock(&config_mutex);
+ static int req_tlv_space;		/* request message TLV area size */
+@@ -381,33 +381,27 @@ exit:
  	return rep_tlv_buf;
  }
  
+-static void cfg_named_msg_event(void *userdata,
+-				u32 port_ref,
+-				struct sk_buff **buf,
+-				const unchar *msg,
+-				u32 size,
+-				u32 importance,
+-				struct tipc_portid const *orig,
+-				struct tipc_name_seq const *dest)
++static void cfg_conn_msg_event(int conid, struct sockaddr_tipc *addr,
++			       void *usr_data, void *buf, size_t len)
+ {
+ 	struct tipc_cfg_msg_hdr *req_hdr;
+ 	struct tipc_cfg_msg_hdr *rep_hdr;
+ 	struct sk_buff *rep_buf;
++	int ret;
+ 
+ 	/* Validate configuration message header (ignore invalid message) */
+-	req_hdr = (struct tipc_cfg_msg_hdr *)msg;
+-	if ((size < sizeof(*req_hdr)) ||
+-	    (size != TCM_ALIGN(ntohl(req_hdr->tcm_len))) ||
++	req_hdr = (struct tipc_cfg_msg_hdr *)buf;
++	if ((len < sizeof(*req_hdr)) ||
++	    (len != TCM_ALIGN(ntohl(req_hdr->tcm_len))) ||
+ 	    (ntohs(req_hdr->tcm_flags) != TCM_F_REQUEST)) {
+ 		pr_warn("Invalid configuration message discarded\n");
+ 		return;
+ 	}
+ 
+ 	/* Generate reply for request (if can't, return request) */
+-	rep_buf = tipc_cfg_do_cmd(orig->node,
+-				  ntohs(req_hdr->tcm_type),
+-				  msg + sizeof(*req_hdr),
+-				  size - sizeof(*req_hdr),
++	rep_buf = tipc_cfg_do_cmd(addr->addr.id.node, ntohs(req_hdr->tcm_type),
++				  buf + sizeof(*req_hdr),
++				  len - sizeof(*req_hdr),
+ 				  BUF_HEADROOM + MAX_H_SIZE + sizeof(*rep_hdr));
+ 	if (rep_buf) {
+ 		skb_push(rep_buf, sizeof(*rep_hdr));
+@@ -415,57 +409,51 @@ static void cfg_named_msg_event(void *userdata,
+ 		memcpy(rep_hdr, req_hdr, sizeof(*rep_hdr));
+ 		rep_hdr->tcm_len = htonl(rep_buf->len);
+ 		rep_hdr->tcm_flags &= htons(~TCM_F_REQUEST);
+-	} else {
+-		rep_buf = *buf;
+-		*buf = NULL;
+-	}
+ 
+-	/* NEED TO ADD CODE TO HANDLE FAILED SEND (SUCH AS CONGESTION) */
+-	tipc_send_buf2port(port_ref, orig, rep_buf, rep_buf->len);
++		ret = tipc_conn_sendmsg(&cfgsrv, conid, addr, rep_buf->data,
++					rep_buf->len);
++		if (ret < 0)
++			pr_err("Sending cfg reply message failed, no memory\n");
++
++		kfree_skb(rep_buf);
++	}
+ }
+ 
++static struct sockaddr_tipc cfgsrv_addr __read_mostly = {
++	.family			= AF_TIPC,
++	.addrtype		= TIPC_ADDR_NAMESEQ,
++	.addr.nameseq.type	= TIPC_CFG_SRV,
++	.addr.nameseq.lower	= 0,
++	.addr.nameseq.upper	= 0,
++	.scope			= TIPC_ZONE_SCOPE
++};
++
++static struct tipc_server cfgsrv __read_mostly = {
++	.saddr			= &cfgsrv_addr,
++	.imp			= TIPC_CRITICAL_IMPORTANCE,
++	.type			= SOCK_RDM,
++	.max_rcvbuf_size	= 64 * 1024,
++	.name			= "cfg_server",
++	.tipc_conn_recvmsg	= cfg_conn_msg_event,
++	.tipc_conn_new		= NULL,
++	.tipc_conn_shutdown	= NULL
++};
++
+ int tipc_cfg_init(void)
+ {
+-	struct tipc_name_seq seq;
+-	int res;
+-
+-	res = tipc_createport(NULL, TIPC_CRITICAL_IMPORTANCE,
+-			      NULL, NULL, NULL,
+-			      NULL, cfg_named_msg_event, NULL,
+-			      NULL, &config_port_ref);
+-	if (res)
+-		goto failed;
+-
+-	seq.type = TIPC_CFG_SRV;
+-	seq.lower = seq.upper = tipc_own_addr;
+-	res = tipc_publish(config_port_ref, TIPC_ZONE_SCOPE, &seq);
+-	if (res)
+-		goto failed;
+-
+-	return 0;
+-
+-failed:
+-	pr_err("Unable to create configuration service\n");
+-	return res;
++	return tipc_server_start(&cfgsrv);
+ }
+ 
+ void tipc_cfg_reinit(void)
+ {
+-	struct tipc_name_seq seq;
+-	int res;
+-
+-	seq.type = TIPC_CFG_SRV;
+-	seq.lower = seq.upper = 0;
+-	tipc_withdraw(config_port_ref, TIPC_ZONE_SCOPE, &seq);
++	tipc_server_stop(&cfgsrv);
+ 
+-	seq.lower = seq.upper = tipc_own_addr;
+-	res = tipc_publish(config_port_ref, TIPC_ZONE_SCOPE, &seq);
+-	if (res)
+-		pr_err("Unable to reinitialize configuration service\n");
++	cfgsrv_addr.addr.nameseq.lower = tipc_own_addr;
++	cfgsrv_addr.addr.nameseq.upper = tipc_own_addr;
++	tipc_server_start(&cfgsrv);
+ }
+ 
+ void tipc_cfg_stop(void)
+ {
+-	tipc_deleteport(config_port_ref);
+-	config_port_ref = 0;
++	tipc_server_stop(&cfgsrv);
+ }
+diff --git a/net/tipc/core.c b/net/tipc/core.c
+index 15bbe99..fd4eeea 100644
+--- a/net/tipc/core.c
++++ b/net/tipc/core.c
+@@ -137,8 +137,6 @@ static int tipc_core_start(void)
+ 	if (!res)
+ 		res = tipc_nametbl_init();
+ 	if (!res)
+-		res = tipc_cfg_init();
+-	if (!res)
+ 		res = tipc_netlink_start();
+ 	if (!res)
+ 		res = tipc_socket_init();
+@@ -146,6 +144,8 @@ static int tipc_core_start(void)
+ 		res = tipc_register_sysctl();
+ 	if (!res)
+ 		res = tipc_subscr_start();
++	if (!res)
++		res = tipc_cfg_init();
+ 	if (res)
+ 		tipc_core_stop();
+ 
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index d025415..9510fe8 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -403,7 +403,8 @@ static int bind(struct socket *sock, struct sockaddr *uaddr, int uaddr_len)
+ 		return -EAFNOSUPPORT;
+ 
+ 	if ((addr->addr.nameseq.type < TIPC_RESERVED_TYPES) &&
+-	    (addr->addr.nameseq.type != TIPC_TOP_SRV))
++	    (addr->addr.nameseq.type != TIPC_TOP_SRV) &&
++	    (addr->addr.nameseq.type != TIPC_CFG_SRV))
+ 		return -EACCES;
+ 
+ 	return (addr->scope > 0) ?
 -- 
 1.8.1.2
