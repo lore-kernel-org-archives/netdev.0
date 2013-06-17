@@ -1,65 +1,121 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [netlink] WARNING: at mm/vmalloc.c:1487 __vunmap()
-Date: Mon, 17 Jun 2013 22:09:38 +0200
-Message-ID: <20130617200938.GA14567@localhost>
-References: <20130614220119.GA12954@localhost>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Miller <davem@davemloft.net>
-To: Fengguang Wu <fengguang.wu@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130614220119.GA12954@localhost>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: [PATCH] net: fec: Fix build for MCF5272
+Date: Mon, 17 Jun 2013 13:16:19 -0700
+Message-ID: <1371500179-4733-1-git-send-email-linux@roeck-us.net>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Jim Baxter <jim_baxter@mentor.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nm7.access.bullet.mail.mud.yahoo.com ([66.94.237.208]:27162
+	"EHLO nm7.access.bullet.mail.mud.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752587Ab3FQUQg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 16:16:36 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 15, 2013 at 06:01:19AM +0800, Fengguang Wu wrote:
->     netlink: allow large data transfers from user-space
-[...]
-> [   65.085802] init: plymouth-upstart-bridge main process (345) terminated with status 1
-> [   65.138243] ------------[ cut here ]------------
-> [   65.140281] WARNING: at /c/kernel-tests/src/tip/mm/vmalloc.c:1487 __vunmap+0x10b/0x110()
-> [   65.143247] Trying to vfree() nonexistent vm area (ffffc90000810000)
-> [   65.145697] CPU: 0 PID: 145 Comm: trinity Not tainted 3.10.0-rc5-00652-ge8a36a6 #9
-> [   65.148822] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-> [   65.151073]  0000000000000009 ffff88000f3b7bc8 ffffffff81d3e5b3 ffff88000f3b7c08
-> [   65.154718]  ffffffff810cf7a6 ffff88000f3b7c28 ffffc90000810000 0000000000000000
-> [   65.158343]  0000000000000001 ffff88000dc36620 ffff8800091c87b0 ffff88000f3b7c68
-> [   65.161574] Call Trace:
-> [   65.162609]  [<ffffffff81d3e5b3>] dump_stack+0x19/0x1b
-> [   65.164349]  [<ffffffff810cf7a6>] warn_slowpath_common+0x66/0x90
-> [   65.166294]  [<ffffffff810cf841>] warn_slowpath_fmt+0x41/0x50
-> [   65.168286]  [<ffffffff81166f7b>] __vunmap+0x10b/0x110
-> [   65.170351]  [<ffffffff81166e2f>] vfree+0x2f/0x70
-> [   65.172272]  [<ffffffff81afd478>] netlink_skb_destructor+0xb8/0x100
-> [   65.174645]  [<ffffffff81aac8a1>] skb_release_head_state+0x51/0xb0
-> [   65.177009]  [<ffffffff81aadb61>] skb_release_all+0x11/0x30
-> [   65.179175]  [<ffffffff81aadb91>] __kfree_skb+0x11/0x90
-> [   65.181293]  [<ffffffff81aad9d9>] kfree_skb+0x19/0x40
-> [   65.183308]  [<ffffffff81ab00a8>] skb_queue_purge+0x18/0x30
-> [   65.185482]  [<ffffffff81afd858>] netlink_sock_destruct+0x38/0x110
-> [   65.187873]  [<ffffffff81aa8c3a>] __sk_free+0x1a/0x120
-> [   65.189911]  [<ffffffff81aa9989>] sk_free+0x19/0x20
-> [   65.191875]  [<ffffffff81afec77>] netlink_release+0x177/0x2d0
-> [   65.194086]  [<ffffffff81aa6208>] sock_release+0x18/0x70
-> [   65.196172]  [<ffffffff81aa645d>] sock_close+0xd/0x20
-> [   65.198190]  [<ffffffff8118ae55>] __fput+0xf5/0x240
-> [   65.200189]  [<ffffffff8118b069>] ____fput+0x9/0x10
-> [   65.202139]  [<ffffffff810eb955>] task_work_run+0x85/0xc0
-> [   65.204257]  [<ffffffff810d4942>] do_exit+0x232/0x920
-> [   65.206262]  [<ffffffff810d50ab>] do_group_exit+0x3b/0x90
-> [   65.208353]  [<ffffffff810d5112>] SyS_exit_group+0x12/0x20
-> [   65.210517]  [<ffffffff81d46827>] system_call_fastpath+0x16/0x1b
-> [   65.212811] ---[ end trace 9a70fd0f1776886b ]---
+Commits 4c09eed9 (net: fec: Enable imx6 enet checksum acceleration) and
+baa70a5c (net: fec: enable pause frame to improve rx prefomance for 1G
+network) introduced functionality into the FEC driver which is not
+supported on MCF5272. As result, building images for MCF5272 fails,
+complaining about several undefined symbols.
 
-I've been trying to trigger this bug here with no success using
-different communication configurations (userspace <-> userspace,
-userspace <-> kernelspace).
+Disabled the added functionality for MCF5272 builds.
 
-The address that vfree shows seems good to me and we always set
-skb->head to NULL after releasing the network buffer.
+Cc: Frank Li <Frank.Li@freescale.com>
+Cc: Jim Baxter <jim_baxter@mentor.com>
+Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+---
+Sorry for the added ifdefs. If anyone has a better idea on how to fix
+the problems, let me know.
 
-This patch also exposes the vmalloc infrastructure to user-space,
-which is something that didn't happen so far. Not sure if Trinity is
-uncovering a bug there.
+This problem exists in 3.9 as well.
+
+ drivers/net/ethernet/freescale/fec_main.c |   14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index a667015..d48099f 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -516,6 +516,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	/* Set MII speed */
+ 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
+ 
++#if !defined(CONFIG_M5272)
+ 	/* set RX checksum */
+ 	val = readl(fep->hwp + FEC_RACC);
+ 	if (fep->csum_flags & FLAG_RX_CSUM_ENABLED)
+@@ -523,6 +524,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	else
+ 		val &= ~FEC_RACC_OPTIONS;
+ 	writel(val, fep->hwp + FEC_RACC);
++#endif
+ 
+ 	/*
+ 	 * The phy interface and speed need to get configured
+@@ -575,6 +577,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ #endif
+ 	}
+ 
++#if !defined(CONFIG_M5272)
+ 	/* enable pause frame*/
+ 	if ((fep->pause_flag & FEC_PAUSE_FLAG_ENABLE) ||
+ 	    ((fep->pause_flag & FEC_PAUSE_FLAG_AUTONEG) &&
+@@ -592,6 +595,7 @@ fec_restart(struct net_device *ndev, int duplex)
+ 	} else {
+ 		rcntl &= ~FEC_ENET_FCE;
+ 	}
++#endif /* !defined(CONFIG_M5272) */
+ 
+ 	writel(rcntl, fep->hwp + FEC_R_CNTRL);
+ 
+@@ -1205,7 +1209,9 @@ static int fec_enet_mii_probe(struct net_device *ndev)
+ 	/* mask with MAC supported features */
+ 	if (id_entry->driver_data & FEC_QUIRK_HAS_GBIT) {
+ 		phy_dev->supported &= PHY_GBIT_FEATURES;
++#if !defined(CONFIG_M5272)
+ 		phy_dev->supported |= SUPPORTED_Pause;
++#endif
+ 	}
+ 	else
+ 		phy_dev->supported &= PHY_BASIC_FEATURES;
+@@ -1390,6 +1396,8 @@ static int fec_enet_get_ts_info(struct net_device *ndev,
+ 	}
+ }
+ 
++#if !defined(CONFIG_M5272)
++
+ static void fec_enet_get_pauseparam(struct net_device *ndev,
+ 				    struct ethtool_pauseparam *pause)
+ {
+@@ -1436,9 +1444,13 @@ static int fec_enet_set_pauseparam(struct net_device *ndev,
+ 	return 0;
+ }
+ 
++#endif /* !defined(CONFIG_M5272) */
++
+ static const struct ethtool_ops fec_enet_ethtool_ops = {
++#if !defined(CONFIG_M5272)
+ 	.get_pauseparam		= fec_enet_get_pauseparam,
+ 	.set_pauseparam		= fec_enet_set_pauseparam,
++#endif
+ 	.get_settings		= fec_enet_get_settings,
+ 	.set_settings		= fec_enet_set_settings,
+ 	.get_drvinfo		= fec_enet_get_drvinfo,
+@@ -1874,10 +1886,12 @@ fec_probe(struct platform_device *pdev)
+ 	/* setup board info structure */
+ 	fep = netdev_priv(ndev);
+ 
++#if !defined(CONFIG_M5272)
+ 	/* default enable pause frame auto negotiation */
+ 	if (pdev->id_entry &&
+ 	    (pdev->id_entry->driver_data & FEC_QUIRK_HAS_GBIT))
+ 		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
++#endif
+ 
+ 	fep->hwp = devm_request_and_ioremap(&pdev->dev, r);
+ 	fep->pdev = pdev;
+-- 
+1.7.9.7
