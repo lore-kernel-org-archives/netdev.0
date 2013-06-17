@@ -1,45 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] alx: add a simple AR816x/AR817x device driver
-Date: Mon, 17 Jun 2013 16:05:24 -0700 (PDT)
-Message-ID: <20130617.160524.299285792506397317.davem@davemloft.net>
-References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
-	<1371501842-24452-1-git-send-email-johannes@sipsolutions.net>
+Subject: Re: [PATCH] net: fec: Fix build for MCF5272
+Date: Mon, 17 Jun 2013 16:11:51 -0700 (PDT)
+Message-ID: <20130617.161151.1327615665309510068.davem@davemloft.net>
+References: <1371500179-4733-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, js@sig21.net, romieu@fr.zoreil.com
-To: johannes@sipsolutions.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40156 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751000Ab3FQXFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 19:05:25 -0400
-In-Reply-To: <1371501842-24452-1-git-send-email-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Frank.Li@freescale.com, jim_baxter@mentor.com
+To: linux@roeck-us.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371500179-4733-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Mon, 17 Jun 2013 22:44:02 +0200
+From: Guenter Roeck <linux@roeck-us.net>
+Date: Mon, 17 Jun 2013 13:16:19 -0700
 
-> This is a very simple driver, based on the original vendor
-> driver that Qualcomm/Atheros published/submitted previously,
-> but reworked to make the code saner. However, it also lost
-> a number of features (TSO/GSO, VLAN acceleration and multi-
-> queue support) in the process, as well as debugging support
-> features I didn't have any use for. The only thing I left
-> is checksum offload.
+> Commits 4c09eed9 (net: fec: Enable imx6 enet checksum acceleration) and
+> baa70a5c (net: fec: enable pause frame to improve rx prefomance for 1G
+> network) introduced functionality into the FEC driver which is not
+> supported on MCF5272. As result, building images for MCF5272 fails,
+> complaining about several undefined symbols.
 > 
-> More features can obviously be added, but this seemed like
-> a good start for having a driver in mainline at all.
+> Disabled the added functionality for MCF5272 builds.
 > 
-> Johannes Stezenbach has verified that the driver works on
-> AR8161, I have a AR8171 myself. The E2200 device ID I found
-> on github in somebody's repository.
+> Cc: Frank Li <Frank.Li@freescale.com>
+> Cc: Jim Baxter <jim_baxter@mentor.com>
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> ---
+> Sorry for the added ifdefs. If anyone has a better idea on how to fix
+> the problems, let me know.
 > 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+> This problem exists in 3.9 as well.
 
-I've applied this to 'net', thanks Johannes.  There might be some
-fixups still needed, but for people who have these devices this
-is a huge improvement for them.
+Does the M5272 not have these registers, or have you simply not added
+defines for where there offsets are in that silicon instance?
 
-Thanks!
+I'd much rather you add the register offset defines than pepper the
+entire driver with ifdefs.
