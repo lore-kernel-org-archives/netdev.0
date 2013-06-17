@@ -1,111 +1,111 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top of LRO
-Date: Mon, 17 Jun 2013 17:20:20 +0100
-Message-ID: <1371486020.2086.27.camel@bwh-desktop.uk.level5networks.com>
-References: <1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
-	<1360207111.28557.47.camel@edumazet-glaptop>
-	<1360254046.3605.8.camel@bwh-desktop.uk.solarflarecom.com>
-	<20130207.131420.1211188723341167971.davem@davemloft.net>
-	<20130610070710.GA673@redhat.com>
-	<1371048996.1894.15.camel@bwh-desktop.uk.level5networks.com>
-	<20130612190033.GB3462@redhat.com> <87wqptplhw.fsf@rustcorp.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, "Michael S. Tsirkin" <mst@redhat.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <87wqptplhw.fsf@rustcorp.com.au>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH] bonding: don't call alb_set_slave_mac_addr() while atomic
+Date: Mon, 17 Jun 2013 19:26:22 +0200
+Message-ID: <1371489982-4381-1-git-send-email-vfalico@redhat.com>
+Cc: fubar@us.ibm.com, andy@greyhouse.net, vfalico@redhat.com,
+	nikolay@redhat.com--subject-prefix=PATCH.v2.net-next
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:10463 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751222Ab3FQR0x (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jun 2013 13:26:53 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-17 at 11:05 +0930, Rusty Russell wrote:
-> "Michael S. Tsirkin" <mst@redhat.com> writes:
-> > On Wed, Jun 12, 2013 at 03:56:36PM +0100, Ben Hutchings wrote:
-> >> On Mon, 2013-06-10 at 10:07 +0300, Michael S. Tsirkin wrote:
-> >> > On Thu, Feb 07, 2013 at 01:14:20PM -0500, David Miller wrote:
-> >> > > From: Ben Hutchings <bhutchings@solarflare.com>
-> >> > > Date: Thu, 7 Feb 2013 16:20:46 +0000
-> >> > > 
-> >> > > > If the consensus is still that we must preserve packets exactly (aside
-> >> > > > from the usual modifications by IP routers) then LRO should be disabled
-> >> > > > on all devices for which forwarding is enabled.
-> >> > > 
-> >> > > I believe this is still undoubtedly the consensus.
-> >> > 
-> >> > With virtio we are getting packets from a linux host,
-> >> > so we could thinkably preserve packets exactly
-> >> > even with LRO. I am guessing other hardware could be
-> >> > doing this as well.
-> >> > 
-> >> > I am not sure what information would need to be preserved -
-> >> > could someone help clarify please?
-> >> 
-> >> Some LRO implementations may not preserve:
-> >> 
-> >> - Packet boundaries
-> >>   - TSO/GSO produces packets all the same size, except possibly for the
-> >>     last one.  GRO therefore flushes a flow after merging a packet with
-> >>     a different segment size.
-> >> - IPv4 TTL, IPv6 hop-limit, TCP timestamp
-> >>   - TSO/GSO will put the same values in all packets.  GRO flushes a flow
-> >>     if they change.
-> >> - IPv4 fragment ID
-> >>   - TSO/GSO produces consecutive fragment IDs.  GRO flushes a flow
-> >>     if it sees a non-consecutive fragment ID.
-> >> - MAC header, IPv4 TOS, IPv6 traffic class
-> >>   - Should be the same for all packets in a flow.  GRO actually checks
-> >>     and flushes a flow if they change.
-> >> 
-> >> Ben.
-> >
-> > Thanks!
-> >
-> > Okay so since LRO in virtio is actually running on top
-> > of GRO/TSO in linux, looks like the only things worth preserving
-> > that we don't preserve at the moment are the packet
-> > boundaries, for which it's enough to report
-> > the first segment size to guest - we have the total length,
-> > from that we can calculate the last segment size.
-> 
-> Isn't this reflected in virtio_net_hdr->gso_size?
-> 
-> But the bigger point here is that we shouldn't be feeding guests LRO
-> packets which don't meet the stricter GRO requirements, as we don't know
-> what the guest is doing with them.  It might be forwarding them itself.
-> 
-> I thought LRO was deprecated and GRO was the new hotness, but I haven't
-> been following.  Do we still care about LRO?
+alb_set_slave_mac_addr() sets the mac address in alb mode via
+dev_set_mac_address(), which might sleep. It's called from
+alb_handle_addr_collision_on_attach() in atomic context (under
+read_lock(bond->lock)), thus triggering a bug.
 
-The old software LRO implementation, inet_lro, is deprecated in favour
-of GRO and is now only used by one or two drivers.  Hardware/firmware
-implementations of LRO are still in use and not deprecated, but we try
-to disable them on devices for which forwarding is enabled because of
-this information loss.
+Fix this by moving the lock inside alb_handle_addr_collision_on_attach().
 
-The problem I was talking about is this: you can put macvlan on top of a
-device that has LRO enabled, and then if the macvtap/macvlan device is
-used for forwarding the output packets might not look the same as those
-originally received.  So LRO should be disabled on the underlying device
-whenever forwarding is enabled on the macvtap/macvlan device; however we
-can't necessarily tell when that happens as the forwarding might be done
-inside a VM.  Maybe this is just too obscure a use case to worry much
-about getting it right automatically.
+v1->v2:
+As Nikolay Aleksandrov noticed, we can drop the bond->lock completely.
+Also, use bond_slave_has_mac(), when possible.
 
-Ben.
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_alb.c | 40 +++++-----------------------------------
+ 1 file changed, 5 insertions(+), 35 deletions(-)
 
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index a236234..27fe329 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1175,16 +1175,13 @@ static void alb_change_hw_addr_on_detach(struct bonding *bond, struct slave *sla
+  * @slave.
+  *
+  * assumption: this function is called before @slave is attached to the
+- * 	       bond slave list.
+- *
+- * caller must hold the bond lock for write since the mac addresses are compared
+- * and may be swapped.
++ *	       bond slave list.
+  */
+ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slave *slave)
+ {
+-	struct slave *tmp_slave1, *tmp_slave2, *free_mac_slave;
++	struct slave *tmp_slave1, *free_mac_slave = NULL;
+ 	struct slave *has_bond_addr = bond->curr_active_slave;
+-	int i, j, found = 0;
++	int i;
+ 
+ 	if (bond->slave_cnt == 0) {
+ 		/* this is the first slave */
+@@ -1196,15 +1193,7 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
+ 	 * slaves in the bond.
+ 	 */
+ 	if (!ether_addr_equal_64bits(slave->perm_hwaddr, bond->dev->dev_addr)) {
+-		bond_for_each_slave(bond, tmp_slave1, i) {
+-			if (ether_addr_equal_64bits(tmp_slave1->dev->dev_addr,
+-						    slave->dev->dev_addr)) {
+-				found = 1;
+-				break;
+-			}
+-		}
+-
+-		if (!found)
++		if (!bond_slave_has_mac(bond, slave->dev->dev_addr))
+ 			return 0;
+ 
+ 		/* Try setting slave mac to bond address and fall-through
+@@ -1215,19 +1204,8 @@ static int alb_handle_addr_collision_on_attach(struct bonding *bond, struct slav
+ 	/* The slave's address is equal to the address of the bond.
+ 	 * Search for a spare address in the bond for this slave.
+ 	 */
+-	free_mac_slave = NULL;
+-
+ 	bond_for_each_slave(bond, tmp_slave1, i) {
+-		found = 0;
+-		bond_for_each_slave(bond, tmp_slave2, j) {
+-			if (ether_addr_equal_64bits(tmp_slave1->perm_hwaddr,
+-						    tmp_slave2->dev->dev_addr)) {
+-				found = 1;
+-				break;
+-			}
+-		}
+-
+-		if (!found) {
++		if (!bond_slave_has_mac(bond, tmp_slave1->perm_hwaddr)) {
+ 			/* no slave has tmp_slave1's perm addr
+ 			 * as its curr addr
+ 			 */
+@@ -1607,15 +1585,7 @@ int bond_alb_init_slave(struct bonding *bond, struct slave *slave)
+ 		return res;
+ 	}
+ 
+-	/* caller must hold the bond lock for write since the mac addresses
+-	 * are compared and may be swapped.
+-	 */
+-	read_lock(&bond->lock);
+-
+ 	res = alb_handle_addr_collision_on_attach(bond, slave);
+-
+-	read_unlock(&bond->lock);
+-
+ 	if (res) {
+ 		return res;
+ 	}
 -- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+1.8.1.4
