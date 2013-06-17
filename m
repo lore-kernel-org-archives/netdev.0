@@ -1,53 +1,55 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: VLAN driver question
-Date: Mon, 17 Jun 2013 20:12:01 +0100
-Message-ID: <51BF5F81.2040207@mentor.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:59784 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752042Ab3FQTMF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 15:12:05 -0400
-Received: from svr-orw-exc-10.mgc.mentorg.com ([147.34.98.58])
-	by relay1.mentorg.com with esmtp
-	id 1UoeqR-0005Ls-V7 from Jim_Baxter@mentor.com
-	for netdev@vger.kernel.org; Mon, 17 Jun 2013 12:12:03 -0700
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 0/3] netfilter fixes for net
+Date: Mon, 17 Jun 2013 21:34:36 +0200
+Message-ID: <1371497679-14314-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-I have a network card that has a single flag to indicate if a received
-packet contains a vlan packet.
+Hi David,
 
-Can I use this to accelerate the kernels handling of the packet with
-something like the following?
+The following patchset contains Netfilter fixes. They are targeted to the
+TCP option targets, that have receive some scrinity in the last week. The
+changes are:
 
-/* Handle received VLAN packets */
-if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) && ebdp &&
-					(ebdp->cbd_esc &
-					BD_ENET_RX_VLAN)) {
-	/* Push and remove the vlan tag */
-	struct vlan_hdr *vlan_header;
-	u16 vlan_tag;
-	vlan_header = (struct vlan_hdr *) skb->data;
-	vlan_tag = ntohs(vlan_header->h_vlan_TCI);
-	__vlan_hwaccel_put_tag(skb, vlan_tag);
-	skb->len -= VLAN_HLEN;
-	skb->data += VLAN_HLEN;
-	vlan_set_encap_proto(skb, vlan_header);
-}
+* Fix TCPOPTSTRIP, it stopped working in the forward chain as tcp_hdr
+  uses skb->transport_header, and we cannot use that in the forwarding
+  case, from myself.
 
-napi_gro_receive(&fep->napi, skb);
+* Fix default IPv6 MSS in TCPMSS in case of absence of TCP MSS options,
+  from Phil Oester.
 
+* Fix missing fragmentation handling again in TCPMSS, from Phil Oester.
 
+You can pull these changes from:
 
-Also I cannot find any documentation stating what the difference is
-between NETIF_F_HW_VLAN_CTAG_RX and NETIF_F_HW_VLAN_CTAG_FILTER, can
-anyone define it?
-The FILTER word on NETIF_F_HW_VLAN_CTAG_FILTER suggests it may be
-applicable to received packets.
+git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
 
-Thank you for your help and comments.
-Jim Baxter
+Thanks!
+
+----------------------------------------------------------------
+The following changes since commit a8241c63517ec0b900695daa9003cddc41c536a1:
+
+  ipvs: info leak in __ip_vs_get_dest_entries() (2013-06-10 14:53:00 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
+
+for you to fetch changes up to b396966c4688522863572927cb30aa874b3ec504:
+
+  netfilter: xt_TCPMSS: Fix missing fragmentation handling (2013-06-12 11:06:19 +0200)
+
+----------------------------------------------------------------
+Pablo Neira Ayuso (1):
+      netfilter: xt_TCPOPTSTRIP: don't use tcp_hdr()
+
+Phil Oester (2):
+      netfilter: xt_TCPMSS: Fix IPv6 default MSS too
+      netfilter: xt_TCPMSS: Fix missing fragmentation handling
+
+ net/netfilter/xt_TCPMSS.c      |   25 ++++++++++++++++++-------
+ net/netfilter/xt_TCPOPTSTRIP.c |    6 ++++--
+ 2 files changed, 22 insertions(+), 9 deletions(-)
