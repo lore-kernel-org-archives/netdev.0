@@ -1,60 +1,52 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 5/5] staging/rtl8192u: convert skb->tail into
- skb_tail_pointer(skb)
-Date: Mon, 17 Jun 2013 11:03:05 +0900
-Message-ID: <20130617020305.GE15043@verge.net.au>
+Subject: Re: [PATCH net-next 2/5] net, scsi/csgb4i: convert
+ skb->transport_header into skb_transport_header(skb)
+Date: Mon, 17 Jun 2013 11:04:11 +0900
+Message-ID: <20130617020411.GF15043@verge.net.au>
 References: <bb5cc0b762102c6a6a56bbd2067c7e539abfb2a6.1371200138.git.yamahata@valinux.co.jp>
- <4e2318187b15be4d81c3b03cd0337506c7008bb8.1371200138.git.yamahata@valinux.co.jp>
+ <7ae8c4225b5d19a2ad7d621bc7e08a74b1b4583e.1371200138.git.yamahata@valinux.co.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	devel@driverdev.osuosl.org
+Cc: netdev@vger.kernel.org, Li RongQing <roy.qing.li@gmail.com>,
+	linux-scsi@vger.kernel.org
 To: Isaku Yamahata <yamahata@valinux.co.jp>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:42468 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754412Ab3FQCCD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 16 Jun 2013 22:02:03 -0400
+Return-path: <linux-scsi-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <4e2318187b15be4d81c3b03cd0337506c7008bb8.1371200138.git.yamahata@valinux.co.jp>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <7ae8c4225b5d19a2ad7d621bc7e08a74b1b4583e.1371200138.git.yamahata@valinux.co.jp>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 14, 2013 at 05:58:35PM +0900, Isaku Yamahata wrote:
-> The change set of 7a884dc "[SK_BUFF]: Convert skb->tail to sk_buff_data_t"
-> converted skb->tail from pointer into sk_buff_data_t.
-> Thus skb->tail is not always pointer, the area pointed by skb->tail
-> should be accessed via skb_tail_pointer().
+On Fri, Jun 14, 2013 at 05:58:32PM +0900, Isaku Yamahata wrote:
+> The change set of 1a37e412, "net: Use 16bits for *_headers fields
+> of struct skbuff" converted from sk_buff_data_t into 16bit integer.
+> So skb->tail needs to be converted to skb_tail_pointer(skb).
 > 
 > Found by inspection. Compile tested only.
 > 
 > Cc: Simon Horman <horms@verge.net.au>
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: devel@driverdev.osuosl.org
+> Cc: Li RongQing <roy.qing.li@gmail.com>
+> Cc: linux-scsi@vger.kernel.org
 > Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
 
-Reviewed-by: Simon Horman <horms@verge.net.au>
+Acked-by: Simon Horman <horms@verge.net.au>
 
 > ---
->  drivers/staging/rtl8192u/r8192U_core.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
+>  drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
-> diff --git a/drivers/staging/rtl8192u/r8192U_core.c b/drivers/staging/rtl8192u/r8192U_core.c
-> index 71f5cde..a18430e 100644
-> --- a/drivers/staging/rtl8192u/r8192U_core.c
-> +++ b/drivers/staging/rtl8192u/r8192U_core.c
-> @@ -1271,8 +1271,8 @@ struct sk_buff *DrvAggr_Aggregation(struct net_device *dev, struct ieee80211_drv
->  		/* Subframe drv Tx descriptor and firmware info setting */
->  		skb = pSendList->tx_agg_frames[i];
->  		tcb_desc = (cb_desc *)(skb->cb + MAX_DEV_ADDR_SIZE);
-> -		tx_agg_desc = (tx_desc_819x_usb_aggr_subframe *)agg_skb->tail;
-> -		tx_fwinfo = (tx_fwinfo_819x_usb *)(agg_skb->tail + sizeof(tx_desc_819x_usb_aggr_subframe));
-> +		tx_agg_desc = (tx_desc_819x_usb_aggr_subframe *)skb_tail_pointer(agg_skb);
-> +		tx_fwinfo = (tx_fwinfo_819x_usb *)(skb_tail_pointer(agg_skb) + sizeof(tx_desc_819x_usb_aggr_subframe));
->  
->  		memset(tx_fwinfo,0,sizeof(tx_fwinfo_819x_usb));
->  		/* DWORD 0 */
+> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> index 3fecf35..9138d4e 100644
+> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
+> @@ -358,7 +358,7 @@ static inline unsigned int calc_tx_flits_ofld(const struct sk_buff *skb)
+>  		return DIV_ROUND_UP(skb->len, 8);
+>  	flits = skb_transport_offset(skb) / 8;
+>  	cnt = skb_shinfo(skb)->nr_frags;
+> -	if (skb->tail != skb->transport_header)
+> +	if (skb_tail_pointer(skb) != skb_transport_header(skb))
+>  		cnt++;
+>  	return flits + sgl_len(cnt);
+>  }
 > -- 
 > 1.7.10.4
 > 
