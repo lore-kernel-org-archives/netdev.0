@@ -1,47 +1,111 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: Patches required for 3.9 stable
-Date: Mon, 17 Jun 2013 08:29:09 -0700
-Message-ID: <20130617152909.GA20663@kroah.com>
-References: <51BEC1C3.40109@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top of LRO
+Date: Mon, 17 Jun 2013 17:20:20 +0100
+Message-ID: <1371486020.2086.27.camel@bwh-desktop.uk.level5networks.com>
+References: <1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
+	<1360207111.28557.47.camel@edumazet-glaptop>
+	<1360254046.3605.8.camel@bwh-desktop.uk.solarflarecom.com>
+	<20130207.131420.1211188723341167971.davem@davemloft.net>
+	<20130610070710.GA673@redhat.com>
+	<1371048996.1894.15.camel@bwh-desktop.uk.level5networks.com>
+	<20130612190033.GB3462@redhat.com> <87wqptplhw.fsf@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>, jwboyer@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:38349 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750903Ab3FQP2c (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 11:28:32 -0400
-Content-Disposition: inline
-In-Reply-To: <51BEC1C3.40109@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: eric.dumazet@gmail.com, "Michael S. Tsirkin" <mst@redhat.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <87wqptplhw.fsf@rustcorp.com.au>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 17, 2013 at 03:58:59PM +0800, Jason Wang wrote:
-> Hi Greg:
+On Mon, 2013-06-17 at 11:05 +0930, Rusty Russell wrote:
+> "Michael S. Tsirkin" <mst@redhat.com> writes:
+> > On Wed, Jun 12, 2013 at 03:56:36PM +0100, Ben Hutchings wrote:
+> >> On Mon, 2013-06-10 at 10:07 +0300, Michael S. Tsirkin wrote:
+> >> > On Thu, Feb 07, 2013 at 01:14:20PM -0500, David Miller wrote:
+> >> > > From: Ben Hutchings <bhutchings@solarflare.com>
+> >> > > Date: Thu, 7 Feb 2013 16:20:46 +0000
+> >> > > 
+> >> > > > If the consensus is still that we must preserve packets exactly (aside
+> >> > > > from the usual modifications by IP routers) then LRO should be disabled
+> >> > > > on all devices for which forwarding is enabled.
+> >> > > 
+> >> > > I believe this is still undoubtedly the consensus.
+> >> > 
+> >> > With virtio we are getting packets from a linux host,
+> >> > so we could thinkably preserve packets exactly
+> >> > even with LRO. I am guessing other hardware could be
+> >> > doing this as well.
+> >> > 
+> >> > I am not sure what information would need to be preserved -
+> >> > could someone help clarify please?
+> >> 
+> >> Some LRO implementations may not preserve:
+> >> 
+> >> - Packet boundaries
+> >>   - TSO/GSO produces packets all the same size, except possibly for the
+> >>     last one.  GRO therefore flushes a flow after merging a packet with
+> >>     a different segment size.
+> >> - IPv4 TTL, IPv6 hop-limit, TCP timestamp
+> >>   - TSO/GSO will put the same values in all packets.  GRO flushes a flow
+> >>     if they change.
+> >> - IPv4 fragment ID
+> >>   - TSO/GSO produces consecutive fragment IDs.  GRO flushes a flow
+> >>     if it sees a non-consecutive fragment ID.
+> >> - MAC header, IPv4 TOS, IPv6 traffic class
+> >>   - Should be the same for all packets in a flow.  GRO actually checks
+> >>     and flushes a flow if they change.
+> >> 
+> >> Ben.
+> >
+> > Thanks!
+> >
+> > Okay so since LRO in virtio is actually running on top
+> > of GRO/TSO in linux, looks like the only things worth preserving
+> > that we don't preserve at the moment are the packet
+> > boundaries, for which it's enough to report
+> > the first segment size to guest - we have the total length,
+> > from that we can calculate the last segment size.
 > 
-> Please include the following commits into 3.9.y. Which fixes:
+> Isn't this reflected in virtio_net_hdr->gso_size?
 > 
-> 1) Crash when sending GSO packets from untrusted sources
-> 9b4d669bc06c215d64f56f1eb0d4eb96e14d689d
-> 38502af77e07b5d6650b9ff99a0b482d86366592
-> c1aad275b0293d2b1905ec95a945422262470684
-> f9ca8f74399f9195fd8e01f67a8424a8d33efa55
-> 15e5a030716468dce4032fa0f398d840fa2756f6
+> But the bigger point here is that we shouldn't be feeding guests LRO
+> packets which don't meet the stricter GRO requirements, as we don't know
+> what the guest is doing with them.  It might be forwarding them itself.
 > 
-> 2) Can't create a multiqueue tap
-> e8dbad66ef56074eadb41ed5998acd2320447018
-> 
-> All can be cheery-picked and I have tested them.
+> I thought LRO was deprecated and GRO was the new hotness, but I haven't
+> been following.  Do we still care about LRO?
 
-Then please work with the network maintainer, as he has a separate
-stable queue that he tests and then sends to me, I do not apply stable
-patches directly for the network subsystem.
+The old software LRO implementation, inet_lro, is deprecated in favour
+of GRO and is now only used by one or two drivers.  Hardware/firmware
+implementations of LRO are still in use and not deprecated, but we try
+to disable them on devices for which forwarding is enabled because of
+this information loss.
 
-Have you looked at the stable patchwork queue to verify that these are
-not in there already?
+The problem I was talking about is this: you can put macvlan on top of a
+device that has LRO enabled, and then if the macvtap/macvlan device is
+used for forwarding the output packets might not look the same as those
+originally received.  So LRO should be disabled on the underlying device
+whenever forwarding is enabled on the macvtap/macvlan device; however we
+can't necessarily tell when that happens as the forwarding might be done
+inside a VM.  Maybe this is just too obscure a use case to worry much
+about getting it right automatically.
 
-thanks,
+Ben.
 
-greg k-h
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
