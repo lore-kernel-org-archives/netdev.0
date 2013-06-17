@@ -1,77 +1,71 @@
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Subject: [PATCH v2 net-next] tg3: Prevent system hang during repeated
- EEH errors.
-Date: Mon, 17 Jun 2013 13:47:25 -0700
-Message-ID: <1371502045-8044-1-git-send-email-nsujir@broadcom.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 3/3] netfilter: xt_TCPMSS: Fix missing fragmentation
+ handling
+Date: Tue, 18 Jun 2013 00:03:00 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1306172349470.1564@ja.ssi.bg>
+References: <1371497679-14314-1-git-send-email-pablo@netfilter.org> <1371497679-14314-4-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "Michael Chan" <mchan@broadcom.com>,
-	"Nithin Nayak Sujir" <nsujir@broadcom.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms1.broadcom.com ([216.31.210.17]:3661 "EHLO mms1.broadcom.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753244Ab3FQUri (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Jun 2013 16:47:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1371497679-14314-4-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Michael Chan <mchan@broadcom.com>
 
-The current tg3 code assumes the pci_error_handlers to be always called
-in sequence.  In particular, during ->error_detected(), NAPI is disabled
-and the device is shutdown.  The device is later reset and NAPI
-re-enabled in ->slot_reset() and ->resume().
+	Hello,
 
-In EEH, if more than 6 errors are detected in a hour, only
-->error_detected() will be called.  This will leave the driver in an
-inconsistent state as NAPI is disabled but netif_running state is still
-true.  When the device is later closed, we'll try to disable NAPI again
-and it will loop forever.
+On Mon, 17 Jun 2013, Pablo Neira Ayuso wrote:
 
-We fix this by closing the device if we encounter any error conditions
-during the normal sequence of the pci_error_handlers.
+> From: Phil Oester <kernel@linuxace.com>
+> 
+> Similar to commit bc6bcb59 ("netfilter: xt_TCPOPTSTRIP: fix
+> possible mangling beyond packet boundary"), add safe fragment
+> handling to xt_TCPMSS.
+> 
+> Signed-off-by: Phil Oester <kernel@linuxace.com>
+> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+> ---
+>  net/netfilter/xt_TCPMSS.c |    4 ++++
+>  1 file changed, 4 insertions(+)
+> 
+> diff --git a/net/netfilter/xt_TCPMSS.c b/net/netfilter/xt_TCPMSS.c
+> index 6640a22..7011c71 100644
+> --- a/net/netfilter/xt_TCPMSS.c
+> +++ b/net/netfilter/xt_TCPMSS.c
+> @@ -57,6 +57,10 @@ tcpmss_mangle_packet(struct sk_buff *skb,
+>  	u16 newmss;
+>  	u8 *opt;
+>  
+> +	/* This is a fragment, no TCP header is available */
+> +	if (par->fragoff != 0)
+> +		return XT_CONTINUE;
+> +
+>  	if (!skb_make_writable(skb, skb->len))
+>  		return -1;
 
-v2: Remove the changes in tg3_io_resume() based on Benjamin Poirier's
-    feedback.
+	This function needs the same check:
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
-Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
----
- drivers/net/ethernet/broadcom/tg3.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+	...
 
-diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
-index 28a645f..297fc13 100644
---- a/drivers/net/ethernet/broadcom/tg3.c
-+++ b/drivers/net/ethernet/broadcom/tg3.c
-@@ -17747,10 +17747,13 @@ static pci_ers_result_t tg3_io_error_detected(struct pci_dev *pdev,
- 	tg3_full_unlock(tp);
- 
- done:
--	if (state == pci_channel_io_perm_failure)
-+	if (state == pci_channel_io_perm_failure) {
-+		tg3_napi_enable(tp);
-+		dev_close(netdev);
- 		err = PCI_ERS_RESULT_DISCONNECT;
--	else
-+	} else {
- 		pci_disable_device(pdev);
-+	}
- 
- 	rtnl_unlock();
- 
-@@ -17796,6 +17799,10 @@ static pci_ers_result_t tg3_io_slot_reset(struct pci_dev *pdev)
- 	rc = PCI_ERS_RESULT_RECOVERED;
- 
- done:
-+	if (rc != PCI_ERS_RESULT_RECOVERED && netif_running(netdev)) {
-+		tg3_napi_enable(tp);
-+		dev_close(netdev);
-+	}
- 	rtnl_unlock();
- 
- 	return rc;
--- 
-1.8.1.4
++	if (tcplen < (int)sizeof(struct tcphdr))
++		return -1;
++
+	/* Header cannot be larger than the packet */
+	if (tcplen < tcph->doff*4)
+		return -1;
+
+	but 'tcplen' should be changed to 'int' for
+this to work.
+
+	Here we have the same optlen() problem but
+I guess in both patches we always have something allocated
+after the last byte in header (struct skb_shared_inf),
+so crash is not possible.
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
