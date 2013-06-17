@@ -1,47 +1,56 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 0/2] Two SCTP cleanup patches
-Date: Mon, 17 Jun 2013 09:56:06 -0400
-Message-ID: <51BF1576.4080203@gmail.com>
-References: <1371462005-19310-1-git-send-email-dborkman@redhat.com>
+From: Markos Chandras <markos.chandras@imgtec.com>
+Subject: [PATCH 6/7] drivers: ssb: Kconfig: Amend SSB_EMBEDDED dependencies
+Date: Mon, 17 Jun 2013 15:00:40 +0100
+Message-ID: <1371477641-7989-7-git-send-email-markos.chandras@imgtec.com>
+References: <1371477641-7989-1-git-send-email-markos.chandras@imgtec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Content-Type: text/plain
+Cc: Markos Chandras <markos.chandras@imgtec.com>,
+	<sibyte-users@bitmover.com>, <netdev@vger.kernel.org>,
+	Michael Buesch <m@bues.ch>
+To: <linux-mips@linux-mips.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f170.google.com ([209.85.213.170]:55328 "EHLO
-	mail-ye0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986Ab3FQN4K (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 09:56:10 -0400
-In-Reply-To: <1371462005-19310-1-git-send-email-dborkman@redhat.com>
+Received: from multi.imgtec.com ([194.200.65.239]:32321 "EHLO multi.imgtec.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756316Ab3FQOBa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jun 2013 10:01:30 -0400
+In-Reply-To: <1371477641-7989-1-git-send-email-markos.chandras@imgtec.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/17/2013 05:40 AM, Daniel Borkmann wrote:
-> Two cleanup-only patches to make the code more readable and consistent
-> with the rest of the kernel code.
->
-> Daniel Borkmann (2):
->    net: sctp: get rid of t_new macro for kzalloc
->    net: sctp: remove SCTP_STATIC macro
->
+SSB_EMBEDDED needs functions from driver_pcicore which are only
+available if SSD_DRIVER_HOSTMODE is selected so make it
+depend on that symbol.
 
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Fixes the following linking problem:
 
--vlad
->   include/net/sctp/sctp.h  | 11 -------
->   net/sctp/associola.c     |  2 +-
->   net/sctp/bind_addr.c     |  2 +-
->   net/sctp/chunk.c         |  2 +-
->   net/sctp/endpointola.c   |  3 +-
->   net/sctp/input.c         |  4 +--
->   net/sctp/ipv6.c          |  6 ++--
->   net/sctp/protocol.c      |  6 ++--
->   net/sctp/sm_make_chunk.c | 10 +++----
->   net/sctp/socket.c        | 78 ++++++++++++++++++++++--------------------------
->   net/sctp/transport.c     |  2 +-
->   net/sctp/tsnmap.c        | 10 +++----
->   net/sctp/ulpevent.c      | 10 +++----
->   13 files changed, 64 insertions(+), 82 deletions(-)
->
+drivers/ssb/embedded.c:202:
+undefined reference to `ssb_pcicore_plat_dev_init'
+drivers/built-in.o: In function `ssb_pcibios_map_irq':
+drivers/ssb/embedded.c:247:
+undefined reference to `ssb_pcicore_pcibios_map_irq'
+
+Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
+Acked-by: Steven J. Hill <Steven.Hill@imgtec.com>
+Cc: sibyte-users@bitmover.com
+Cc: netdev@vger.kernel.org
+Cc: Michael Buesch <m@bues.ch>
+---
+ drivers/ssb/Kconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/ssb/Kconfig b/drivers/ssb/Kconfig
+index 5ff3a4f..36171fd 100644
+--- a/drivers/ssb/Kconfig
++++ b/drivers/ssb/Kconfig
+@@ -144,7 +144,7 @@ config SSB_SFLASH
+ # Assumption: We are on embedded, if we compile the MIPS core.
+ config SSB_EMBEDDED
+ 	bool
+-	depends on SSB_DRIVER_MIPS
++	depends on SSB_DRIVER_MIPS && SSB_PCICORE_HOSTMODE
+ 	default y
+ 
+ config SSB_DRIVER_EXTIF
+-- 
+1.8.2.1
