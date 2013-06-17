@@ -1,63 +1,69 @@
-From: cphealy@gmail.com
-Subject: [PATCH 1/1] fec: Add support to restart autonegotiate
-Date: Mon, 17 Jun 2013 07:25:06 -0700
-Message-ID: <1371479106-2897-1-git-send-email-cphealy@gmail.com>
-Cc: Chris Healy <cphealy@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Frank Li <Frank.Li@freescale.com>,
-	Shawn Guo <shawn.guo@linaro.org>,
-	Jim Baxter <jim_baxter@mentor.com>, netdev@vger.kernel.org
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 03/16] tipc: allow implicit connect for stream sockets
+Date: Mon, 17 Jun 2013 10:54:38 -0400
+Message-ID: <1371480891-5264-4-git-send-email-paul.gortmaker@windriver.com>
+References: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
+	Ying Xue <ying.xue@windriver.com>,
+	Erik Hugne <erik.hugne@ericsson.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:43543 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601Ab3FQOZM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 10:25:12 -0400
-Received: by mail-ob0-f178.google.com with SMTP id fb19so3241233obc.9
-        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 07:25:11 -0700 (PDT)
+Received: from mail1.windriver.com ([147.11.146.13]:42748 "EHLO
+	mail1.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751847Ab3FQOzM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 10:55:12 -0400
+In-Reply-To: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Chris Healy <cphealy@gmail.com>
+From: Erik Hugne <erik.hugne@ericsson.com>
 
-Add ethtool operation to restart autonegotiation via the PHY.
+TIPC's implied connect feature, aka piggyback connect, allows
+applications to save one syscall and all SYN/SYN-ACK signalling
+overhead when setting up a connection.  Until now, this has only
+been supported for SEQPACKET sockets.  Here, we make it possible
+to use this feature even with stream sockets.
 
-Tested on i.MX28EVK.
+At the connecting side, the connection is completed when the
+first data message arrives from the accepting peer.  This means
+that we must allow the connecting user to call blocking recv()
+before the socket has reached state SS_CONNECTED.  So we must must
+relax the state machine check at recv_stream(), and allow the
+recv() call even if socket is in state SS_CONNECTING.
 
-Signed-off-by: Chris Healy <cphealy@gmail.com>
+Signed-off-by: Erik Hugne <erik.hugne@ericsson.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+ net/tipc/socket.c | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index a667015..a327492 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -1436,6 +1436,17 @@ static int fec_enet_set_pauseparam(struct net_device *ndev,
- 	return 0;
- }
+diff --git a/net/tipc/socket.c b/net/tipc/socket.c
+index aba4255..d5fa708f 100644
+--- a/net/tipc/socket.c
++++ b/net/tipc/socket.c
+@@ -518,8 +518,7 @@ static int send_msg(struct kiocb *iocb, struct socket *sock,
+ 			res = -EISCONN;
+ 			goto exit;
+ 		}
+-		if ((tport->published) ||
+-		    ((sock->type == SOCK_STREAM) && (total_len != 0))) {
++		if (tport->published) {
+ 			res = -EOPNOTSUPP;
+ 			goto exit;
+ 		}
+@@ -1010,8 +1009,7 @@ static int recv_stream(struct kiocb *iocb, struct socket *sock,
  
-+static int fec_enet_nway_reset(struct net_device *dev)
-+{
-+	struct fec_enet_private *fep = netdev_priv(dev);
-+	struct phy_device *phydev = fep->phy_dev;
-+
-+	if (!phydev)
-+		return -ENODEV;
-+
-+	return genphy_restart_aneg(phydev);
-+}
-+
- static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.get_pauseparam		= fec_enet_get_pauseparam,
- 	.set_pauseparam		= fec_enet_set_pauseparam,
-@@ -1444,6 +1455,7 @@ static const struct ethtool_ops fec_enet_ethtool_ops = {
- 	.get_drvinfo		= fec_enet_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
- 	.get_ts_info		= fec_enet_get_ts_info,
-+	.nway_reset		= fec_enet_nway_reset,
- };
+ 	lock_sock(sk);
  
- static int fec_enet_ioctl(struct net_device *ndev, struct ifreq *rq, int cmd)
+-	if (unlikely((sock->state == SS_UNCONNECTED) ||
+-		     (sock->state == SS_CONNECTING))) {
++	if (unlikely((sock->state == SS_UNCONNECTED))) {
+ 		res = -ENOTCONN;
+ 		goto exit;
+ 	}
 -- 
 1.8.1.2
