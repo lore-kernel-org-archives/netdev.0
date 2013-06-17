@@ -1,35 +1,59 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Patches required for 3.9 stable
-Date: Mon, 17 Jun 2013 15:58:59 +0800
-Message-ID: <51BEC1C3.40109@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] tcp: Modify the condition for the first skb to collapse
+Date: Mon, 17 Jun 2013 01:15:35 -0700
+Message-ID: <1371456935.3252.177.camel@edumazet-glaptop>
+References: <1371478739.10495.5.camel@chenjun-workstation>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, jwboyer@redhat.com
-To: gregkh@linuxfoundation.org,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38179 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755089Ab3FQH7N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Jun 2013 03:59:13 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: ycheng@google.com, ncardwell@google.com, edumazet@google.com,
+	netdev@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
+To: Jun Chen <jun.d.chen@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371478739.10495.5.camel@chenjun-workstation>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Greg:
+On Mon, 2013-06-17 at 10:18 -0400, Jun Chen wrote:
+> When search the first skb to collapse,the condition of overlap to the next one have been
+> reached,but the start is less than TCP_SKB_CB(skb)->seq at this time, then followed process
+> will trigger the BUG_ON of the offset(start - TCP_SKB_CB(skb)->seq).
+> So this patch add one check (! before(start,TCP_SKB_CB(skb)->seq)) to avoid this ipanic.
+> 
+> Signed-off-by: Chen Jun <jun.d.chen@intel.com>
+> ---
+>  net/ipv4/tcp_input.c |    3 ++-
+>  1 files changed, 2 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index 9c62257..4c745c5 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -4465,7 +4465,8 @@ restart:
+>  		 *   overlaps to the next one.
+>  		 */
+>  		if (!tcp_hdr(skb)->syn && !tcp_hdr(skb)->fin &&
+> -		    (tcp_win_from_space(skb->truesize) > skb->len ||
+> +			((tcp_win_from_space(skb->truesize) > skb->len &&
+> +			!before(start, TCP_SKB_CB(skb)->seq)) ||
+>  		     before(TCP_SKB_CB(skb)->seq, start))) {
+>  			end_of_skbs = false;
+>  			break;
 
-Please include the following commits into 3.9.y. Which fixes:
+Hmm... I must say I do not understand this patch.
 
-1) Crash when sending GSO packets from untrusted sources
-9b4d669bc06c215d64f56f1eb0d4eb96e14d689d
-38502af77e07b5d6650b9ff99a0b482d86366592
-c1aad275b0293d2b1905ec95a945422262470684
-f9ca8f74399f9195fd8e01f67a8424a8d33efa55
-15e5a030716468dce4032fa0f398d840fa2756f6
+If we find a skb with before(TCP_SKB_CB(skb)->seq, start), then the
+final condition will be true.
 
-2) Can't create a multiqueue tap
-e8dbad66ef56074eadb41ed5998acd2320447018
+Let's rewrite your code to equivalent one :
 
-All can be cheery-picked and I have tested them.
+ if (!tcp_hdr(skb)->syn && !tcp_hdr(skb)->fin &&
+     (before(TCP_SKB_CB(skb)->seq, start) ||
+      tcp_win_from_space(skb->truesize) > skb->len)) {
+
+So it seems your patch would not solve the problem for all
+possible skbs (aka not bloated) ?
+
+Please tell us how you trigger this bug, and send the stack trace.
 
 Thanks
