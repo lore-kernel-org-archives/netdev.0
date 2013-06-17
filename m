@@ -1,7 +1,7 @@
 From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH net-next 11/16] tipc: save sock structure pointer instead of void pointer to tipc_port
-Date: Mon, 17 Jun 2013 10:54:46 -0400
-Message-ID: <1371480891-5264-12-git-send-email-paul.gortmaker@windriver.com>
+Subject: [PATCH net-next 15/16] tipc: fix wrong return value for link_send_sections_long routine
+Date: Mon, 17 Jun 2013 10:54:50 -0400
+Message-ID: <1371480891-5264-16-git-send-email-paul.gortmaker@windriver.com>
 References: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -11,102 +11,64 @@ Cc: <netdev@vger.kernel.org>, Jon Maloy <jon.maloy@ericsson.com>,
 	Paul Gortmaker <paul.gortmaker@windriver.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.windriver.com ([147.11.1.11]:63246 "EHLO
+Received: from mail.windriver.com ([147.11.1.11]:63284 "EHLO
 	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751934Ab3FQOzV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 10:55:21 -0400
+	with ESMTP id S1751518Ab3FQOzY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 10:55:24 -0400
 In-Reply-To: <1371480891-5264-1-git-send-email-paul.gortmaker@windriver.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ying Xue <ying.xue@windriver.com>
 
-Directly save sock structure pointer instead of void pointer to avoid
-unnecessary cast conversions.
+When skb buffer cannot be allocated in link_send_sections_long(),
+-ENOMEM error code instead of -EFAULT should be returned to its
+caller.
 
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
 ---
- net/tipc/port.c   | 4 ++--
- net/tipc/port.h   | 6 +++---
- net/tipc/socket.c | 4 ++--
- 3 files changed, 7 insertions(+), 7 deletions(-)
+ net/tipc/link.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
 
-diff --git a/net/tipc/port.c b/net/tipc/port.c
-index 84b2a57..0bb185a 100644
---- a/net/tipc/port.c
-+++ b/net/tipc/port.c
-@@ -206,7 +206,7 @@ exit:
-  *
-  * Returns pointer to (locked) TIPC port, or NULL if unable to create it
-  */
--struct tipc_port *tipc_createport(void *usr_handle,
-+struct tipc_port *tipc_createport(struct sock *sk,
- 			u32 (*dispatcher)(struct tipc_port *, struct sk_buff *),
- 			void (*wakeup)(struct tipc_port *),
- 			const u32 importance)
-@@ -227,7 +227,7 @@ struct tipc_port *tipc_createport(void *usr_handle,
- 		return NULL;
- 	}
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index b6ffa9f..0cc3d90 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -1168,6 +1168,7 @@ static int link_send_sections_long(struct tipc_port *sender,
+ 	const unchar *sect_crs;
+ 	int curr_sect;
+ 	u32 fragm_no;
++	int res = 0;
  
--	p_ptr->usr_handle = usr_handle;
-+	p_ptr->sk = sk;
- 	p_ptr->max_pkt = MAX_PKT_DEFAULT;
- 	p_ptr->ref = ref;
- 	INIT_LIST_HEAD(&p_ptr->wait_list);
-diff --git a/net/tipc/port.h b/net/tipc/port.h
-index 4583882..241f529 100644
---- a/net/tipc/port.h
-+++ b/net/tipc/port.h
-@@ -48,7 +48,7 @@
+ again:
+ 	fragm_no = 1;
+@@ -1215,12 +1216,13 @@ again:
+ 			sz = fragm_rest;
  
- /**
-  * struct tipc_port - TIPC port structure
-- * @usr_handle: pointer to additional user-defined information about port
-+ * @sk: pointer to socket handle
-  * @lock: pointer to spinlock for controlling access to port
-  * @connected: non-zero if port is currently connected to a peer port
-  * @conn_type: TIPC type used when connection was established
-@@ -74,7 +74,7 @@
-  * @subscription: "node down" subscription used to terminate failed connections
-  */
- struct tipc_port {
--	void *usr_handle;
-+	struct sock *sk;
- 	spinlock_t *lock;
- 	int connected;
- 	u32 conn_type;
-@@ -106,7 +106,7 @@ struct tipc_port_list;
- /*
-  * TIPC port manipulation routines
-  */
--struct tipc_port *tipc_createport(void *usr_handle,
-+struct tipc_port *tipc_createport(struct sock *sk,
- 		u32 (*dispatcher)(struct tipc_port *, struct sk_buff *),
- 		void (*wakeup)(struct tipc_port *), const u32 importance);
+ 		if (copy_from_user(buf->data + fragm_crs, sect_crs, sz)) {
++			res = -EFAULT;
+ error:
+ 			for (; buf_chain; buf_chain = buf) {
+ 				buf = buf_chain->next;
+ 				kfree_skb(buf_chain);
+ 			}
+-			return -EFAULT;
++			return res;
+ 		}
+ 		sect_crs += sz;
+ 		sect_rest -= sz;
+@@ -1241,8 +1243,10 @@ error:
+ 			msg_set_fragm_no(&fragm_hdr, ++fragm_no);
+ 			prev = buf;
+ 			buf = tipc_buf_acquire(fragm_sz + INT_H_SIZE);
+-			if (!buf)
++			if (!buf) {
++				res = -ENOMEM;
+ 				goto error;
++			}
  
-diff --git a/net/tipc/socket.c b/net/tipc/socket.c
-index 67f4e1f..14ed54e 100644
---- a/net/tipc/socket.c
-+++ b/net/tipc/socket.c
-@@ -1406,7 +1406,7 @@ static int backlog_rcv(struct sock *sk, struct sk_buff *buf)
-  */
- static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf)
- {
--	struct sock *sk = (struct sock *)tport->usr_handle;
-+	struct sock *sk = tport->sk;
- 	u32 res;
- 
- 	/*
-@@ -1437,7 +1437,7 @@ static u32 dispatch(struct tipc_port *tport, struct sk_buff *buf)
-  */
- static void wakeupdispatch(struct tipc_port *tport)
- {
--	struct sock *sk = (struct sock *)tport->usr_handle;
-+	struct sock *sk = tport->sk;
- 
- 	sk->sk_write_space(sk);
- }
+ 			buf->next = NULL;
+ 			prev->next = buf;
 -- 
 1.8.1.2
