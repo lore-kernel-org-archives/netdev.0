@@ -1,55 +1,49 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/3] netfilter fixes for net
-Date: Mon, 17 Jun 2013 21:34:36 +0200
-Message-ID: <1371497679-14314-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 1/3] netfilter: xt_TCPOPTSTRIP: don't use tcp_hdr()
+Date: Mon, 17 Jun 2013 21:34:37 +0200
+Message-ID: <1371497679-14314-2-git-send-email-pablo@netfilter.org>
+References: <1371497679-14314-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:51618 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752801Ab3FQTeu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 17 Jun 2013 15:34:50 -0400
+In-Reply-To: <1371497679-14314-1-git-send-email-pablo@netfilter.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi David,
+In (bc6bcb5 netfilter: xt_TCPOPTSTRIP: fix possible mangling beyond
+packet boundary), the use of tcp_hdr was introduced. However, we
+cannot assume that skb->transport_header is set for non-local packets.
 
-The following patchset contains Netfilter fixes. They are targeted to the
-TCP option targets, that have receive some scrinity in the last week. The
-changes are:
-
-* Fix TCPOPTSTRIP, it stopped working in the forward chain as tcp_hdr
-  uses skb->transport_header, and we cannot use that in the forwarding
-  case, from myself.
-
-* Fix default IPv6 MSS in TCPMSS in case of absence of TCP MSS options,
-  from Phil Oester.
-
-* Fix missing fragmentation handling again in TCPMSS, from Phil Oester.
-
-You can pull these changes from:
-
-git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-Thanks!
-
-----------------------------------------------------------------
-The following changes since commit a8241c63517ec0b900695daa9003cddc41c536a1:
-
-  ipvs: info leak in __ip_vs_get_dest_entries() (2013-06-10 14:53:00 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/pablo/nf.git master
-
-for you to fetch changes up to b396966c4688522863572927cb30aa874b3ec504:
-
-  netfilter: xt_TCPMSS: Fix missing fragmentation handling (2013-06-12 11:06:19 +0200)
-
-----------------------------------------------------------------
-Pablo Neira Ayuso (1):
-      netfilter: xt_TCPOPTSTRIP: don't use tcp_hdr()
-
-Phil Oester (2):
-      netfilter: xt_TCPMSS: Fix IPv6 default MSS too
-      netfilter: xt_TCPMSS: Fix missing fragmentation handling
-
- net/netfilter/xt_TCPMSS.c      |   25 ++++++++++++++++++-------
+Cc: Florian Westphal <fw@strlen.de>
+Reported-by: Phil Oester <kernel@linuxace.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  net/netfilter/xt_TCPOPTSTRIP.c |    6 ++++--
- 2 files changed, 22 insertions(+), 9 deletions(-)
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/xt_TCPOPTSTRIP.c b/net/netfilter/xt_TCPOPTSTRIP.c
+index 1eb1a44..b68fa19 100644
+--- a/net/netfilter/xt_TCPOPTSTRIP.c
++++ b/net/netfilter/xt_TCPOPTSTRIP.c
+@@ -48,11 +48,13 @@ tcpoptstrip_mangle_packet(struct sk_buff *skb,
+ 		return NF_DROP;
+ 
+ 	len = skb->len - tcphoff;
+-	if (len < (int)sizeof(struct tcphdr) ||
+-	    tcp_hdr(skb)->doff * 4 > len)
++	if (len < (int)sizeof(struct tcphdr))
+ 		return NF_DROP;
+ 
+ 	tcph = (struct tcphdr *)(skb_network_header(skb) + tcphoff);
++	if (tcph->doff * 4 > len)
++		return NF_DROP;
++
+ 	opt  = (u_int8_t *)tcph;
+ 
+ 	/*
+-- 
+1.7.10.4
