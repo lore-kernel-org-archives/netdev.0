@@ -1,46 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] tg3: Prevent system hang during repeated
- EEH errors.
-Date: Mon, 17 Jun 2013 16:02:43 -0700 (PDT)
-Message-ID: <20130617.160243.161622110613940981.davem@davemloft.net>
-References: <1371502045-8044-1-git-send-email-nsujir@broadcom.com>
+Subject: Re: [PATCH v4] alx: add a simple AR816x/AR817x device driver
+Date: Mon, 17 Jun 2013 16:05:24 -0700 (PDT)
+Message-ID: <20130617.160524.299285792506397317.davem@davemloft.net>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+	<1371501842-24452-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mchan@broadcom.com
-To: nsujir@broadcom.com
+Cc: netdev@vger.kernel.org, js@sig21.net, romieu@fr.zoreil.com
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40125 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40156 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751305Ab3FQXCo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 19:02:44 -0400
-In-Reply-To: <1371502045-8044-1-git-send-email-nsujir@broadcom.com>
+	with ESMTP id S1751000Ab3FQXFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 19:05:25 -0400
+In-Reply-To: <1371501842-24452-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Nithin Nayak Sujir" <nsujir@broadcom.com>
-Date: Mon, 17 Jun 2013 13:47:25 -0700
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Mon, 17 Jun 2013 22:44:02 +0200
 
-> From: Michael Chan <mchan@broadcom.com>
+> This is a very simple driver, based on the original vendor
+> driver that Qualcomm/Atheros published/submitted previously,
+> but reworked to make the code saner. However, it also lost
+> a number of features (TSO/GSO, VLAN acceleration and multi-
+> queue support) in the process, as well as debugging support
+> features I didn't have any use for. The only thing I left
+> is checksum offload.
 > 
-> The current tg3 code assumes the pci_error_handlers to be always called
-> in sequence.  In particular, during ->error_detected(), NAPI is disabled
-> and the device is shutdown.  The device is later reset and NAPI
-> re-enabled in ->slot_reset() and ->resume().
+> More features can obviously be added, but this seemed like
+> a good start for having a driver in mainline at all.
 > 
-> In EEH, if more than 6 errors are detected in a hour, only
-> ->error_detected() will be called.  This will leave the driver in an
-> inconsistent state as NAPI is disabled but netif_running state is still
-> true.  When the device is later closed, we'll try to disable NAPI again
-> and it will loop forever.
+> Johannes Stezenbach has verified that the driver works on
+> AR8161, I have a AR8171 myself. The E2200 device ID I found
+> on github in somebody's repository.
 > 
-> We fix this by closing the device if we encounter any error conditions
-> during the normal sequence of the pci_error_handlers.
-> 
-> v2: Remove the changes in tg3_io_resume() based on Benjamin Poirier's
->     feedback.
-> 
-> Signed-off-by: Michael Chan <mchan@broadcom.com>
-> Signed-off-by: Nithin Nayak Sujir <nsujir@broadcom.com>
+> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
 
-Applied, thanks.
+I've applied this to 'net', thanks Johannes.  There might be some
+fixups still needed, but for people who have these devices this
+is a huge improvement for them.
+
+Thanks!
