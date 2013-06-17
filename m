@@ -1,56 +1,65 @@
-From: Markos Chandras <markos.chandras@imgtec.com>
-Subject: [PATCH 6/7] drivers: ssb: Kconfig: Amend SSB_EMBEDDED dependencies
-Date: Mon, 17 Jun 2013 15:00:40 +0100
-Message-ID: <1371477641-7989-7-git-send-email-markos.chandras@imgtec.com>
-References: <1371477641-7989-1-git-send-email-markos.chandras@imgtec.com>
+From: Russell King - ARM Linux <linux@arm.linux.org.uk>
+Subject: Re: [RFC 0/7] Fixing dma mask setting in various
+	network drivers
+Date: Mon, 17 Jun 2013 15:01:45 +0100
+Message-ID: <20130617140145.GH2718@n2100.arm.linux.org.uk>
+References: <20130610230849.GF18614@n2100.arm.linux.org.uk>
+	<20130611111230.000062d2@unknown>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Markos Chandras <markos.chandras@imgtec.com>,
-	<sibyte-users@bitmover.com>, <netdev@vger.kernel.org>,
-	Michael Buesch <m@bues.ch>
-To: <linux-mips@linux-mips.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from multi.imgtec.com ([194.200.65.239]:32321 "EHLO multi.imgtec.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756316Ab3FQOBa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 17 Jun 2013 10:01:30 -0400
-In-Reply-To: <1371477641-7989-1-git-send-email-markos.chandras@imgtec.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Rasesh Mody <rmody@brocade.com>, e1000-devel@lists.sourceforge.net,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>, netdev@vger.kernel.org
+To: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+Content-Disposition: inline
+In-Reply-To: <20130611111230.000062d2@unknown>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-SSB_EMBEDDED needs functions from driver_pcicore which are only
-available if SSD_DRIVER_HOSTMODE is selected so make it
-depend on that symbol.
+On Tue, Jun 11, 2013 at 11:12:30AM -0700, Jesse Brandeburg wrote:
+> This is my proposed change to the intel drivers.  Comments?
+> 
+> +	if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(64))) {
+> +		pci_using_dac = true;
+> +		/* coherent mask for the same size will always succeed if
+> +		 * dma_set_mask does
+> +		 */
+> +		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(64));
+> +	} else if (!dma_set_mask(&pdev->dev, DMA_BIT_MASK(32))) {
+> +		pci_using_dac = false;
+> +		dma_set_coherent_mask(&pdev->dev, DMA_BIT_MASK(32));
+> +	} else {
+> +		dev_err(&pdev->dev, "%s: DMA configuration failed: %d\n",
+> +			 __func__, err);
+> +		err = -EIO;
+> +		goto err_dma;
+>  	}
+> 
 
-Fixes the following linking problem:
+So, will you be going with this change rather than mine, which apparantly
+Jeff queued?  Please let me know what you decide so I can keep my private
+git tree in sync with what you've decided to avoid conflicting with
+further dma-mask changes which I'm working on.
 
-drivers/ssb/embedded.c:202:
-undefined reference to `ssb_pcicore_plat_dev_init'
-drivers/built-in.o: In function `ssb_pcibios_map_irq':
-drivers/ssb/embedded.c:247:
-undefined reference to `ssb_pcicore_pcibios_map_irq'
+Thanks.
 
-Signed-off-by: Markos Chandras <markos.chandras@imgtec.com>
-Acked-by: Steven J. Hill <Steven.Hill@imgtec.com>
-Cc: sibyte-users@bitmover.com
-Cc: netdev@vger.kernel.org
-Cc: Michael Buesch <m@bues.ch>
----
- drivers/ssb/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
 
-diff --git a/drivers/ssb/Kconfig b/drivers/ssb/Kconfig
-index 5ff3a4f..36171fd 100644
---- a/drivers/ssb/Kconfig
-+++ b/drivers/ssb/Kconfig
-@@ -144,7 +144,7 @@ config SSB_SFLASH
- # Assumption: We are on embedded, if we compile the MIPS core.
- config SSB_EMBEDDED
- 	bool
--	depends on SSB_DRIVER_MIPS
-+	depends on SSB_DRIVER_MIPS && SSB_PCICORE_HOSTMODE
- 	default y
- 
- config SSB_DRIVER_EXTIF
--- 
-1.8.2.1
+Build for Windows Store.
+
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
