@@ -1,57 +1,91 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH net-next 2/5] net, scsi/csgb4i: convert
- skb->transport_header into skb_transport_header(skb)
-Date: Mon, 17 Jun 2013 11:04:11 +0900
-Message-ID: <20130617020411.GF15043@verge.net.au>
-References: <bb5cc0b762102c6a6a56bbd2067c7e539abfb2a6.1371200138.git.yamahata@valinux.co.jp>
- <7ae8c4225b5d19a2ad7d621bc7e08a74b1b4583e.1371200138.git.yamahata@valinux.co.jp>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top of LRO
+Date: Mon, 17 Jun 2013 11:05:39 +0930
+Message-ID: <87wqptplhw.fsf@rustcorp.com.au>
+References: <1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
+	<1360207111.28557.47.camel@edumazet-glaptop>
+	<1360254046.3605.8.camel@bwh-desktop.uk.solarflarecom.com>
+	<20130207.131420.1211188723341167971.davem@davemloft.net>
+	<20130610070710.GA673@redhat.com>
+	<1371048996.1894.15.camel@bwh-desktop.uk.level5networks.com>
+	<20130612190033.GB3462@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Li RongQing <roy.qing.li@gmail.com>,
-	linux-scsi@vger.kernel.org
-To: Isaku Yamahata <yamahata@valinux.co.jp>
-Return-path: <linux-scsi-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <7ae8c4225b5d19a2ad7d621bc7e08a74b1b4583e.1371200138.git.yamahata@valinux.co.jp>
-Sender: linux-scsi-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>,
+	Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130612190033.GB3462@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 14, 2013 at 05:58:32PM +0900, Isaku Yamahata wrote:
-> The change set of 1a37e412, "net: Use 16bits for *_headers fields
-> of struct skbuff" converted from sk_buff_data_t into 16bit integer.
-> So skb->tail needs to be converted to skb_tail_pointer(skb).
-> 
-> Found by inspection. Compile tested only.
-> 
-> Cc: Simon Horman <horms@verge.net.au>
-> Cc: Li RongQing <roy.qing.li@gmail.com>
-> Cc: linux-scsi@vger.kernel.org
-> Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
+"Michael S. Tsirkin" <mst@redhat.com> writes:
+> On Wed, Jun 12, 2013 at 03:56:36PM +0100, Ben Hutchings wrote:
+>> On Mon, 2013-06-10 at 10:07 +0300, Michael S. Tsirkin wrote:
+>> > On Thu, Feb 07, 2013 at 01:14:20PM -0500, David Miller wrote:
+>> > > From: Ben Hutchings <bhutchings@solarflare.com>
+>> > > Date: Thu, 7 Feb 2013 16:20:46 +0000
+>> > > 
+>> > > > If the consensus is still that we must preserve packets exactly (aside
+>> > > > from the usual modifications by IP routers) then LRO should be disabled
+>> > > > on all devices for which forwarding is enabled.
+>> > > 
+>> > > I believe this is still undoubtedly the consensus.
+>> > 
+>> > With virtio we are getting packets from a linux host,
+>> > so we could thinkably preserve packets exactly
+>> > even with LRO. I am guessing other hardware could be
+>> > doing this as well.
+>> > 
+>> > I am not sure what information would need to be preserved -
+>> > could someone help clarify please?
+>> 
+>> Some LRO implementations may not preserve:
+>> 
+>> - Packet boundaries
+>>   - TSO/GSO produces packets all the same size, except possibly for the
+>>     last one.  GRO therefore flushes a flow after merging a packet with
+>>     a different segment size.
+>> - IPv4 TTL, IPv6 hop-limit, TCP timestamp
+>>   - TSO/GSO will put the same values in all packets.  GRO flushes a flow
+>>     if they change.
+>> - IPv4 fragment ID
+>>   - TSO/GSO produces consecutive fragment IDs.  GRO flushes a flow
+>>     if it sees a non-consecutive fragment ID.
+>> - MAC header, IPv4 TOS, IPv6 traffic class
+>>   - Should be the same for all packets in a flow.  GRO actually checks
+>>     and flushes a flow if they change.
+>> 
+>> Ben.
+>
+> Thanks!
+>
+> Okay so since LRO in virtio is actually running on top
+> of GRO/TSO in linux, looks like the only things worth preserving
+> that we don't preserve at the moment are the packet
+> boundaries, for which it's enough to report
+> the first segment size to guest - we have the total length,
+> from that we can calculate the last segment size.
 
-Acked-by: Simon Horman <horms@verge.net.au>
+Isn't this reflected in virtio_net_hdr->gso_size?
 
-> ---
->  drivers/scsi/cxgbi/cxgb4i/cxgb4i.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> index 3fecf35..9138d4e 100644
-> --- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> +++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-> @@ -358,7 +358,7 @@ static inline unsigned int calc_tx_flits_ofld(const struct sk_buff *skb)
->  		return DIV_ROUND_UP(skb->len, 8);
->  	flits = skb_transport_offset(skb) / 8;
->  	cnt = skb_shinfo(skb)->nr_frags;
-> -	if (skb->tail != skb->transport_header)
-> +	if (skb_tail_pointer(skb) != skb_transport_header(skb))
->  		cnt++;
->  	return flits + sgl_len(cnt);
->  }
-> -- 
-> 1.7.10.4
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+But the bigger point here is that we shouldn't be feeding guests LRO
+packets which don't meet the stricter GRO requirements, as we don't know
+what the guest is doing with them.  It might be forwarding them itself.
+
+I thought LRO was deprecated and GRO was the new hotness, but I haven't
+been following.  Do we still care about LRO?
+
+Cheers,
+Rusty.
