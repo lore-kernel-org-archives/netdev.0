@@ -1,136 +1,79 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net-next] net: Add phys_port identifier to struct net_device
- and export it to sysfs
-Date: Mon, 17 Jun 2013 11:47:52 -0700
-Message-ID: <51BF59D8.10806@gmail.com>
-References: <20130617181004.GA1364@fedora-17-guest.dell.com>
+From: Benjamin Poirier <benjamin.poirier@gmail.com>
+Subject: Re: [PATCH net-next] tg3: Prevent system hang during repeated EEH
+ errors.
+Date: Mon, 17 Jun 2013 14:56:47 -0400
+Message-ID: <20130617185647.GB12442@d2.synalogic.ca>
+References: <1371244506-18969-1-git-send-email-nsujir@broadcom.com>
+ <20130617182811.GA12442@d2.synalogic.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bhutchings@solarflare.com,
-	john.r.fastabend@intel.com
-To: Narendra_K@Dell.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Michael Chan <mchan@broadcom.com>
+To: Nithin Nayak Sujir <nsujir@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f42.google.com ([209.85.219.42]:39642 "EHLO
-	mail-oa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751090Ab3FQSsM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 14:48:12 -0400
-Received: by mail-oa0-f42.google.com with SMTP id n12so3897902oag.1
-        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 11:48:11 -0700 (PDT)
-In-Reply-To: <20130617181004.GA1364@fedora-17-guest.dell.com>
+Received: from mail-qc0-f181.google.com ([209.85.216.181]:36125 "EHLO
+	mail-qc0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751936Ab3FQS4v (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 14:56:51 -0400
+Received: by mail-qc0-f181.google.com with SMTP id u12so1811053qcx.12
+        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 11:56:50 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20130617182811.GA12442@d2.synalogic.ca>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/17/2013 11:10 AM, Narendra_K@Dell.com wrote:
-> It is useful to know if network interfaces from NIC partitions
-> 'map to/use the' same physical port. For example,  when creating
-> bonding in fault tolerance mode, if  two network interfaces map to/use
-> the same physical port, it might not have the desired result. This
-> information is not available today in a standard format or it is not
-> present.  If this information can be made available in a generic  way
-> to user space, tools such as NetworkManager or Libteam or Wicked can
-> make smarter bonding decisions (such as warn users when setting up
-> configurations which will not have desired effect).
->
-> The requirement is to have a generic interface using which
-> kernel/drivers can provide information/hints to user space about the
-> physical port number used by a network interface.
->
-> The following options were explored -
->
-> 1. 'dev_id' sysfs attribute:
->
-> In addition to being used to differentiate between devices that share
-> the same link layer address, it is being used to indicate the physical
-> port number used by a network interface.
->
-> As dev_id exists to differentiate between devices sharing the same
-> link layer address, dev_id option is not selected.
->
-> 2. Re-using 'if_port' field in 'struct net_device':
->
-> if_port field exists to indicate the media type(please refer to
-> netdevice.h). It seemed like it was also used to indicate the physical
-> port number.
->
-> As re-using 'if_port' might possibly break user space, this option is
-> not selected.
->
-> 3. Add a new field 'phys_port' to 'struct net_device' and export it
-> to sysfs:
->
-> The 'phys_port' will be a universally unique identifier, which
-> would be a MAC-48 or EUI-64 or a 128 bit UUID value, but not
-> restricted to these spaces. It will uniquely identify the physical
-> port used by a network interface. The 'length' of the identifier will
-> be zero if the field is not set for a network interface.
->
-> This patch implements option 3. It creates a new sysfs attribute
-> 'phys_port' -
->
-> /sys/class/net/<interface name>/phys_port
->
-> References: http://marc.info/?l=linux-netdev&m=136920998009209&w=2
-> References: http://marc.info/?l=linux-netdev&m=136992041432498&w=2
->
-> Signed-off-by: Narendra K <narendra_k@dell.com>
-> ---
-> Changes from RFC version:
->
-> Suggestions from Ben Hutchings -
-> 1. 'struct port_identifier' is changed to be generic instead of
-> restricting it to MAC-48 or EUI-64 or 128 bit UUID.
-> 2. Commit message updated to indicate point 1.
-> 3. 'show_phys_port' function modified to handle zero length
-> instead of returning -EINVAL
-> 4. 'show_phys_port' function made generic to handle all
-> lengths instead 6, 8 or 16 bytes.
->
-> Hi Ben, I have retained the commit message to indicate that 'dev_id'
-> is being used to indicate the physical port number also.
->
-> Thank you.
->
->   include/linux/netdevice.h | 13 +++++++++++++
->   net/core/net-sysfs.c      | 17 +++++++++++++++++
->   2 files changed, 30 insertions(+)
+On 2013/06/17 14:28, Benjamin Poirier wrote:
+> On 2013/06/14 14:15, Nithin Nayak Sujir wrote:
+> [...]
+> > @@ -17796,6 +17799,10 @@ static pci_ers_result_t tg3_io_slot_reset(struct pci_dev *pdev)
+> >  	rc = PCI_ERS_RESULT_RECOVERED;
+> >  
+> >  done:
+> > +	if (rc != PCI_ERS_RESULT_RECOVERED && netif_running(netdev)) {
+> > +		tg3_napi_enable(tp);
+> > +		dev_close(netdev);
+> > +	}
+> >  	rtnl_unlock();
+> >  
+> >  	return rc;
+> > @@ -17826,6 +17833,8 @@ static void tg3_io_resume(struct pci_dev *pdev)
+> >  	if (err) {
+> >  		tg3_full_unlock(tp);
+> >  		netdev_err(netdev, "Cannot restart hardware after reset.\n");
+> > +		tg3_napi_enable(tp);
+> > +		dev_close(netdev);
+> >  		goto done;
+> >  	}
+> 
+> Are these two hunks needed?
+> 1) These functions do not call tg3_netif_stop() or tg3_napi_disable()
 
-[...]
+Ok, I see why this is relevant, since the slot_reset and resume
+callbacks are always called after the error_detected callback.
 
-> --- a/net/core/net-sysfs.c
-> +++ b/net/core/net-sysfs.c
-> @@ -334,6 +334,22 @@ static ssize_t store_group(struct device *dev, struct device_attribute *attr,
->   	return netdev_store(dev, attr, buf, len, change_group);
->   }
->
+> 2) an error in tg3_io_resume() does not trigger device removal in
+> handle_eeh_events(). In fact the ->resume callback has no return value.
 
-Is there some missing locking here?
+Nevertheless, this hunk
 
-> +static ssize_t show_phys_port(struct device *dev,
-> +			      struct device_attribute *attr, char *buf)
-> +{
-> +	struct net_device *net = to_net_dev(dev);
-> +	unsigned char len;
-> +
+> > @@ -17826,6 +17833,8 @@ static void tg3_io_resume(struct pci_dev *pdev)
+> >  	if (err) {
+> >  		tg3_full_unlock(tp);
+> >  		netdev_err(netdev, "Cannot restart hardware after reset.\n");
+> > +		tg3_napi_enable(tp);
+> > +		dev_close(netdev);
+> >  		goto done;
+> >  	}
 
-         read_lock(&dev_base_lock);
-> +	if (!dev_isalive(net))
-> +		return -EINVAL;
-> +
-> +	len = net->phys_port.port_id_len;
-> +	if (!len)
-> +		return 0;
+duplicates the error handling code already in tg3_restart_hw().
 
-	ret = sysfs_format_mac(buf, net->phys_port.port_id, len);
-	read_unlock(&dev_base_lock);
-
-	return ret;
-}
-
-Please take a look maybe I missed something.
-
-Thanks,
-John
-
--- 
-John Fastabend         Intel Corporation
+> 
+> >  
+> > -- 
+> > 1.8.1.4
+> > 
+> > 
+> > --
+> > To unsubscribe from this list: send the line "unsubscribe netdev" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
