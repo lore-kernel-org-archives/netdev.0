@@ -1,91 +1,74 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 0/2] fix kernel crash with macvtap on top of LRO
-Date: Mon, 17 Jun 2013 11:05:39 +0930
-Message-ID: <87wqptplhw.fsf@rustcorp.com.au>
-References: <1360193660.32217.39.camel@deadeye.wl.decadent.org.uk>
-	<1360207111.28557.47.camel@edumazet-glaptop>
-	<1360254046.3605.8.camel@bwh-desktop.uk.solarflarecom.com>
-	<20130207.131420.1211188723341167971.davem@davemloft.net>
-	<20130610070710.GA673@redhat.com>
-	<1371048996.1894.15.camel@bwh-desktop.uk.level5networks.com>
-	<20130612190033.GB3462@redhat.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Mon, 17 Jun 2013 12:38:58 +1000
+Message-ID: <20130617123858.863db3849d3db0adb1a79d77@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	David Miller <davem@davemloft.net>, eric.dumazet@gmail.com,
-	linux-kernel@vger.kernel.org
-To: "Michael S. Tsirkin" <mst@redhat.com>,
-	Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20130612190033.GB3462@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Mon__17_Jun_2013_12_38_58_+1000_tPAJ8whWeIG65RcK"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Jan Beulich <JBeulich@suse.com>, Wei Liu <wei.liu2@citrix.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-"Michael S. Tsirkin" <mst@redhat.com> writes:
-> On Wed, Jun 12, 2013 at 03:56:36PM +0100, Ben Hutchings wrote:
->> On Mon, 2013-06-10 at 10:07 +0300, Michael S. Tsirkin wrote:
->> > On Thu, Feb 07, 2013 at 01:14:20PM -0500, David Miller wrote:
->> > > From: Ben Hutchings <bhutchings@solarflare.com>
->> > > Date: Thu, 7 Feb 2013 16:20:46 +0000
->> > > 
->> > > > If the consensus is still that we must preserve packets exactly (aside
->> > > > from the usual modifications by IP routers) then LRO should be disabled
->> > > > on all devices for which forwarding is enabled.
->> > > 
->> > > I believe this is still undoubtedly the consensus.
->> > 
->> > With virtio we are getting packets from a linux host,
->> > so we could thinkably preserve packets exactly
->> > even with LRO. I am guessing other hardware could be
->> > doing this as well.
->> > 
->> > I am not sure what information would need to be preserved -
->> > could someone help clarify please?
->> 
->> Some LRO implementations may not preserve:
->> 
->> - Packet boundaries
->>   - TSO/GSO produces packets all the same size, except possibly for the
->>     last one.  GRO therefore flushes a flow after merging a packet with
->>     a different segment size.
->> - IPv4 TTL, IPv6 hop-limit, TCP timestamp
->>   - TSO/GSO will put the same values in all packets.  GRO flushes a flow
->>     if they change.
->> - IPv4 fragment ID
->>   - TSO/GSO produces consecutive fragment IDs.  GRO flushes a flow
->>     if it sees a non-consecutive fragment ID.
->> - MAC header, IPv4 TOS, IPv6 traffic class
->>   - Should be the same for all packets in a flow.  GRO actually checks
->>     and flushes a flow if they change.
->> 
->> Ben.
->
-> Thanks!
->
-> Okay so since LRO in virtio is actually running on top
-> of GRO/TSO in linux, looks like the only things worth preserving
-> that we don't preserve at the moment are the packet
-> boundaries, for which it's enough to report
-> the first segment size to guest - we have the total length,
-> from that we can calculate the last segment size.
+--Signature=_Mon__17_Jun_2013_12_38_58_+1000_tPAJ8whWeIG65RcK
+Content-Type: text/plain; charset=US-ASCII
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Isn't this reflected in virtio_net_hdr->gso_size?
+Hi all,
 
-But the bigger point here is that we shouldn't be feeding guests LRO
-packets which don't meet the stricter GRO requirements, as we don't know
-what the guest is doing with them.  It might be forwarding them itself.
+Today's linux-next merge of the net-next tree got a conflict in
+drivers/net/xen-netback/netback.c between commit 94f950c4060c
+("xen-netback: don't de-reference vif pointer after having called
+xenvif_put()") from Linus' tree and commit e1f00a69ec26 ("xen-netback:
+split event channels support for Xen backend driver") from the net-next
+tree.
 
-I thought LRO was deprecated and GRO was the new hotness, but I haven't
-been following.  Do we still care about LRO?
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
 
+--=20
 Cheers,
-Rusty.
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc drivers/net/xen-netback/netback.c
+index 8c20935,82576ff..0000000
+--- a/drivers/net/xen-netback/netback.c
++++ b/drivers/net/xen-netback/netback.c
+@@@ -783,9 -789,8 +790,9 @@@ static void xen_netbk_rx_action(struct=20
+  	}
+ =20
+  	list_for_each_entry_safe(vif, tmp, &notify, notify_list) {
+- 		notify_remote_via_irq(vif->irq);
++ 		notify_remote_via_irq(vif->rx_irq);
+  		list_del_init(&vif->notify_list);
+ +		xenvif_put(vif);
+  	}
+ =20
+  	/* More work to do? */
+
+--Signature=_Mon__17_Jun_2013_12_38_58_+1000_tPAJ8whWeIG65RcK
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRvnbHAAoJEECxmPOUX5FEqAIP/1EYub4i9bj2npHaNMz1PTzY
+hiDAA+i0i9+zaKRwwpE6dDYY6eFHjWU9Ck3Sz/xgie7sGOBeWvBRzizOPt12Kno0
+Uwy7fD/o0u4QTDrjKbDAE6BlcRzc9Vx08j+/QayprNm6cHupQc9PzuNLv1IoOgH0
+9Buy4vlFM/WFyNPgDbwiVA25Ls5IrREDeF/rXY+YrCmnB/kY+q5a5NP3aCJXIu2x
+3iU4Vop7qDl+UZVjPq5IemmIux7IjKvNeuAWRNaeunFljvR3BPthIeZKPVK9aQhM
+9SZica0zVp0oqCrpTz62U9alpFJ7KRTsHZ5QuG96+UApALi63DYfhxmdUc0GhhGJ
+FKm6Mq0hgkDB/JacZnDY0kiv4E368kUdKADYtrZ05iJ6GBlyDUKFsZdLiI0nLD+2
+G+eIjTQmT4XhE31d2/CISeDVfI9RJqeDOjt9DTbxn352AYgT2ednymqjNJTsKk5r
+BeL29nnsuj6yFAiblqCvhKRF7UwAwtrchH2QabaMovgFXTYGLJrry/0l4GgyZ7JZ
+kS0RpTu0N70M/7MIjRdvMZGO7t7sCJljdHCEOKq8G6SJMAd1IcXVKxqmQ42UZi9d
+jqlToHHPfAexHO0nbGZFg1Gk0DICig5WPx6sSojEqiBP+z75OC4a9atO097xd2fV
+mvWn7wwTeJXyXRmKaenA
+=u2Am
+-----END PGP SIGNATURE-----
+
+--Signature=_Mon__17_Jun_2013_12_38_58_+1000_tPAJ8whWeIG65RcK--
