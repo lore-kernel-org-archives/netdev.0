@@ -1,467 +1,435 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 12/12] openvswitch: Add gre tunnel support.
-Date: Mon, 17 Jun 2013 17:50:33 -0700
-Message-ID: <1371516633-18090-1-git-send-email-pshelar@nicira.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org, dev@openvswitch.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH v2 1/1] alx: add a simple AR816x/AR817x device driver
+Date: Tue, 18 Jun 2013 02:18:06 +0100
+Message-ID: <1371518286.3495.60.camel@deadeye.wl.decadent.org.uk>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+	 <1370899746-14219-1-git-send-email-johannes@sipsolutions.net>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-VuAr50JaUHMZJ1/BsKrs"
+Cc: netdev@vger.kernel.org, mcgrof@do-not-panic.com, kvalo@adurom.com,
+	adrian.chadd@gmail.com
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog132.obsmtp.com ([74.125.149.250]:41790 "HELO
-	na3sys009aog132.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753294Ab3FRAuh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 20:50:37 -0400
-Received: by mail-pd0-f179.google.com with SMTP id q10so3298704pdj.24
-        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 17:50:36 -0700 (PDT)
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51295 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751763Ab3FRBSQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 21:18:16 -0400
+In-Reply-To: <1370899746-14219-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add gre vport implementation.  Most of gre protocol processing
-is pushed to gre module. It make use of gre demultiplexer
-therefore it can co-exist with linux device based gre tunnels.
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
-v2:
-- filter ip-tunnel flags.
-- Add CONFIG_NET_IPGRE_DEMUX guard for ovs-gre.
----
- include/uapi/linux/openvswitch.h |    1 +
- net/openvswitch/Kconfig          |    2 +
- net/openvswitch/Makefile         |    3 +-
- net/openvswitch/datapath.h       |    1 +
- net/openvswitch/flow.h           |   18 +++-
- net/openvswitch/vport-gre.c      |  274 ++++++++++++++++++++++++++++++++++++++
- net/openvswitch/vport.c          |   19 +++
- net/openvswitch/vport.h          |    7 +
- 8 files changed, 323 insertions(+), 2 deletions(-)
- create mode 100644 net/openvswitch/vport-gre.c
+--=-VuAr50JaUHMZJ1/BsKrs
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index b15a445..c55efaa 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -164,6 +164,7 @@ enum ovs_vport_type {
- 	OVS_VPORT_TYPE_UNSPEC,
- 	OVS_VPORT_TYPE_NETDEV,   /* network device */
- 	OVS_VPORT_TYPE_INTERNAL, /* network device implemented by datapath */
-+	OVS_VPORT_TYPE_GRE,      /* GRE tunnel. */
- 	__OVS_VPORT_TYPE_MAX
- };
- 
-diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
-index d9ea33c..9fbc04a 100644
---- a/net/openvswitch/Kconfig
-+++ b/net/openvswitch/Kconfig
-@@ -19,6 +19,8 @@ config OPENVSWITCH
- 	  which is able to accept configuration from a variety of sources and
- 	  translate it into packet processing rules.
- 
-+	  Open vSwitch GRE support depends on CONFIG_NET_IPGRE_DEMUX.
-+
- 	  See http://openvswitch.org for more information and userspace
- 	  utilities.
- 
-diff --git a/net/openvswitch/Makefile b/net/openvswitch/Makefile
-index 15e7384..01bddb2 100644
---- a/net/openvswitch/Makefile
-+++ b/net/openvswitch/Makefile
-@@ -10,5 +10,6 @@ openvswitch-y := \
- 	dp_notify.o \
- 	flow.o \
- 	vport.o \
-+	vport-gre.o \
- 	vport-internal_dev.o \
--	vport-netdev.o \
-+	vport-netdev.o
-diff --git a/net/openvswitch/datapath.h b/net/openvswitch/datapath.h
-index e88ebc2..a914864 100644
---- a/net/openvswitch/datapath.h
-+++ b/net/openvswitch/datapath.h
-@@ -122,6 +122,7 @@ struct dp_upcall_info {
- struct ovs_net {
- 	struct list_head dps;
- 	struct work_struct dp_notify_work;
-+	struct vport_net vport_net;
- };
- 
- extern int ovs_net_id;
-diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 999842f..66ef722 100644
---- a/net/openvswitch/flow.h
-+++ b/net/openvswitch/flow.h
-@@ -49,11 +49,27 @@ struct ovs_key_ipv4_tunnel {
- 	__be64 tun_id;
- 	__be32 ipv4_src;
- 	__be32 ipv4_dst;
--	u16  tun_flags;
-+	__be16 tun_flags;
- 	u8   ipv4_tos;
- 	u8   ipv4_ttl;
- };
- 
-+static inline void ovs_flow_tun_key_init(struct ovs_key_ipv4_tunnel *tun_key,
-+					 const struct iphdr *iph, __be64 tun_id,
-+					 __be16 tun_flags)
-+{
-+	tun_key->tun_id = tun_id;
-+	tun_key->ipv4_src = iph->saddr;
-+	tun_key->ipv4_dst = iph->daddr;
-+	tun_key->ipv4_tos = iph->tos;
-+	tun_key->ipv4_ttl = iph->ttl;
-+	tun_key->tun_flags = tun_flags;
-+
-+	/* clear struct padding. */
-+	memset((unsigned char *) tun_key + OVS_TUNNEL_KEY_SIZE, 0,
-+	       sizeof(*tun_key) - OVS_TUNNEL_KEY_SIZE);
-+}
-+
- struct sw_flow_key {
- 	struct ovs_key_ipv4_tunnel tun_key;  /* Encapsulating tunnel key. */
- 	struct {
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-new file mode 100644
-index 0000000..3a8d190
---- /dev/null
-+++ b/net/openvswitch/vport-gre.c
-@@ -0,0 +1,274 @@
-+/*
-+ * Copyright (c) 2007-2013 Nicira, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA
-+ */
-+
-+#ifdef CONFIG_NET_IPGRE_DEMUX
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/if.h>
-+#include <linux/skbuff.h>
-+#include <linux/ip.h>
-+#include <linux/if_tunnel.h>
-+#include <linux/if_vlan.h>
-+#include <linux/in.h>
-+#include <linux/if_vlan.h>
-+#include <linux/in.h>
-+#include <linux/in_route.h>
-+#include <linux/inetdevice.h>
-+#include <linux/jhash.h>
-+#include <linux/list.h>
-+#include <linux/kernel.h>
-+#include <linux/workqueue.h>
-+#include <linux/rculist.h>
-+#include <net/route.h>
-+#include <net/xfrm.h>
-+
-+#include <net/icmp.h>
-+#include <net/ip.h>
-+#include <net/ip_tunnels.h>
-+#include <net/gre.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+#include <net/protocol.h>
-+
-+#include "datapath.h"
-+#include "vport.h"
-+
-+/* Returns the least-significant 32 bits of a __be64. */
-+static __be32 be64_get_low32(__be64 x)
-+{
-+#ifdef __BIG_ENDIAN
-+	return (__force __be32)x;
-+#else
-+	return (__force __be32)((__force u64)x >> 32);
-+#endif
-+}
-+
-+static __be16 filter_tnl_flags(__be16 flags)
-+{
-+	return flags & (TUNNEL_CSUM | TUNNEL_KEY);
-+}
-+
-+static struct sk_buff *__build_header(struct sk_buff *skb,
-+				      int tunnel_hlen)
-+{
-+	const struct ovs_key_ipv4_tunnel *tun_key = OVS_CB(skb)->tun_key;
-+	struct tnl_ptk_info tpi;
-+
-+	skb = gre_handle_offloads(skb, !!(tun_key->tun_flags & TUNNEL_CSUM));
-+	if (IS_ERR(skb))
-+		return NULL;
-+
-+	tpi.flags = filter_tnl_flags(tun_key->tun_flags);
-+	tpi.proto = htons(ETH_P_TEB);
-+	tpi.key = be64_get_low32(tun_key->tun_id);
-+	tpi.seq = 0;
-+	gre_build_header(skb, &tpi, tunnel_hlen);
-+
-+	return skb;
-+}
-+
-+static __be64 key_to_tunnel_id(__be32 key, __be32 seq)
-+{
-+#ifdef __BIG_ENDIAN
-+	return (__force __be64)((__force u64)seq << 32 | (__force u32)key);
-+#else
-+	return (__force __be64)((__force u64)key << 32 | (__force u32)seq);
-+#endif
-+}
-+
-+/* Called with rcu_read_lock and BH disabled. */
-+static int gre_rcv(struct sk_buff *skb,
-+		   const struct tnl_ptk_info *tpi)
-+{
-+	struct ovs_key_ipv4_tunnel tun_key;
-+	struct ovs_net *ovs_net;
-+	struct vport *vport;
-+	__be64 key;
-+
-+	ovs_net = net_generic(dev_net(skb->dev), ovs_net_id);
-+	vport = rcu_dereference(ovs_net->vport_net.gre_vport);
-+	if (unlikely(!vport))
-+		return PACKET_REJECT;
-+
-+	key = key_to_tunnel_id(tpi->key, tpi->seq);
-+	ovs_flow_tun_key_init(&tun_key, ip_hdr(skb), key,
-+			      filter_tnl_flags(tpi->flags));
-+
-+	ovs_vport_receive(vport, skb, &tun_key);
-+	return PACKET_RCVD;
-+}
-+
-+static int gre_tnl_send(struct vport *vport, struct sk_buff *skb)
-+{
-+	struct net *net = ovs_dp_get_net(vport->dp);
-+	struct flowi4 fl;
-+	struct rtable *rt;
-+	int min_headroom;
-+	int tunnel_hlen;
-+	__be16 df;
-+	int err;
-+
-+	if (unlikely(!OVS_CB(skb)->tun_key)) {
-+		err = -EINVAL;
-+		goto error;
-+	}
-+
-+	/* Route lookup */
-+	memset(&fl, 0, sizeof(fl));
-+	fl.daddr = OVS_CB(skb)->tun_key->ipv4_dst;
-+	fl.saddr = OVS_CB(skb)->tun_key->ipv4_src;
-+	fl.flowi4_tos = RT_TOS(OVS_CB(skb)->tun_key->ipv4_tos);
-+	fl.flowi4_mark = skb->mark;
-+	fl.flowi4_proto = IPPROTO_GRE;
-+
-+	rt = ip_route_output_key(net, &fl);
-+	if (IS_ERR(rt))
-+		return PTR_ERR(rt);
-+
-+	tunnel_hlen = ip_gre_calc_hlen(OVS_CB(skb)->tun_key->tun_flags);
-+
-+	min_headroom = LL_RESERVED_SPACE(rt->dst.dev) + rt->dst.header_len
-+			+ tunnel_hlen + sizeof(struct iphdr)
-+			+ (vlan_tx_tag_present(skb) ? VLAN_HLEN : 0);
-+	if (skb_headroom(skb) < min_headroom || skb_header_cloned(skb)) {
-+		int head_delta = SKB_DATA_ALIGN(min_headroom -
-+						skb_headroom(skb) +
-+						16);
-+		err = pskb_expand_head(skb, max_t(int, head_delta, 0),
-+					0, GFP_ATOMIC);
-+		if (unlikely(err))
-+			goto err_free_rt;
-+	}
-+
-+	if (vlan_tx_tag_present(skb)) {
-+		if (unlikely(!__vlan_put_tag(skb,
-+					     skb->vlan_proto,
-+					     vlan_tx_tag_get(skb)))) {
-+			err = -ENOMEM;
-+			goto err_free_rt;
-+		}
-+		skb->vlan_tci = 0;
-+	}
-+
-+	/* Push Tunnel header. */
-+	skb = __build_header(skb, tunnel_hlen);
-+	if (unlikely(!skb)) {
-+		err = 0;
-+		goto err_free_rt;
-+	}
-+
-+	df = OVS_CB(skb)->tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
-+		htons(IP_DF) : 0;
-+
-+	skb->local_df = 1;
-+
-+	return iptunnel_xmit(net, rt, skb, fl.saddr,
-+			     OVS_CB(skb)->tun_key->ipv4_dst, IPPROTO_GRE,
-+			     OVS_CB(skb)->tun_key->ipv4_tos,
-+			     OVS_CB(skb)->tun_key->ipv4_ttl, df);
-+err_free_rt:
-+	ip_rt_put(rt);
-+error:
-+	return err;
-+}
-+
-+static struct gre_cisco_protocol gre_protocol = {
-+	.handler        = gre_rcv,
-+	.priority       = 1,
-+};
-+
-+static int gre_ports;
-+static int gre_init(void)
-+{
-+	int err;
-+
-+	gre_ports++;
-+	if (gre_ports > 1)
-+		return 0;
-+
-+	err = gre_cisco_register(&gre_protocol);
-+	if (err)
-+		pr_warn("cannot register gre protocol handler\n");
-+
-+	return err;
-+}
-+
-+static void gre_exit(void)
-+{
-+	gre_ports--;
-+	if (gre_ports > 0)
-+		return;
-+
-+	gre_cisco_unregister(&gre_protocol);
-+}
-+
-+static const char *gre_get_name(const struct vport *vport)
-+{
-+	return vport_priv(vport);
-+}
-+
-+static struct vport *gre_create(const struct vport_parms *parms)
-+{
-+	struct net *net = ovs_dp_get_net(parms->dp);
-+	struct ovs_net *ovs_net;
-+	struct vport *vport;
-+	int err;
-+
-+	err = gre_init();
-+	if (err)
-+		return ERR_PTR(err);
-+
-+	ovs_net = net_generic(net, ovs_net_id);
-+	if (ovsl_dereference(ovs_net->vport_net.gre_vport)) {
-+		vport = ERR_PTR(-EEXIST);
-+		goto error;
-+	}
-+
-+	vport = ovs_vport_alloc(IFNAMSIZ, &ovs_gre_vport_ops, parms);
-+	if (IS_ERR(vport))
-+		goto error;
-+
-+	strncpy(vport_priv(vport), parms->name, IFNAMSIZ);
-+	rcu_assign_pointer(ovs_net->vport_net.gre_vport, vport);
-+	return vport;
-+
-+error:
-+	gre_exit();
-+	return vport;
-+}
-+
-+static void gre_tnl_destroy(struct vport *vport)
-+{
-+	struct net *net = ovs_dp_get_net(vport->dp);
-+	struct ovs_net *ovs_net;
-+
-+	ovs_net = net_generic(net, ovs_net_id);
-+
-+	rcu_assign_pointer(ovs_net->vport_net.gre_vport, NULL);
-+	ovs_vport_deferred_free(vport);
-+	gre_exit();
-+}
-+
-+const struct vport_ops ovs_gre_vport_ops = {
-+	.type		= OVS_VPORT_TYPE_GRE,
-+	.create		= gre_create,
-+	.destroy	= gre_tnl_destroy,
-+	.get_name	= gre_get_name,
-+	.send		= gre_tnl_send,
-+};
-+#endif
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index 413287a..f52dfb9 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -38,6 +38,10 @@
- static const struct vport_ops *vport_ops_list[] = {
- 	&ovs_netdev_vport_ops,
- 	&ovs_internal_vport_ops,
-+
-+#ifdef CONFIG_NET_IPGRE_DEMUX
-+	&ovs_gre_vport_ops,
-+#endif
- };
- 
- /* Protected by RCU read lock for reading, ovs_mutex for writing. */
-@@ -404,3 +408,18 @@ void ovs_vport_record_error(struct vport *vport, enum vport_err_type err_type)
- 
- 	spin_unlock(&vport->stats_lock);
- }
-+
-+static void free_vport_rcu(struct rcu_head *rcu)
-+{
-+	struct vport *vport = container_of(rcu, struct vport, rcu);
-+
-+	ovs_vport_free(vport);
-+}
-+
-+void ovs_vport_deferred_free(struct vport *vport)
-+{
-+	if (!vport)
-+		return;
-+
-+	call_rcu(&vport->rcu, free_vport_rcu);
-+}
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 2d961ae..376045c 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -34,6 +34,11 @@ struct vport_parms;
- 
- /* The following definitions are for users of the vport subsytem: */
- 
-+/* The following definitions are for users of the vport subsytem: */
-+struct vport_net {
-+	struct vport __rcu *gre_vport;
-+};
-+
- int ovs_vport_init(void);
- void ovs_vport_exit(void);
- 
-@@ -152,6 +157,7 @@ enum vport_err_type {
- struct vport *ovs_vport_alloc(int priv_size, const struct vport_ops *,
- 			      const struct vport_parms *);
- void ovs_vport_free(struct vport *);
-+void ovs_vport_deferred_free(struct vport *vport);
- 
- #define VPORT_ALIGN 8
- 
-@@ -192,6 +198,7 @@ void ovs_vport_record_error(struct vport *, enum vport_err_type err_type);
-  * add yours to the list at the top of vport.c. */
- extern const struct vport_ops ovs_netdev_vport_ops;
- extern const struct vport_ops ovs_internal_vport_ops;
-+extern const struct vport_ops ovs_gre_vport_ops;
- 
- static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
- 				      const void *start, unsigned int len)
--- 
-1.7.1
+On Mon, 2013-06-10 at 23:29 +0200, Johannes Berg wrote:
+> This is a very simple driver, based on the original vendor
+> driver that Qualcomm/Atheros published/submitted previously.
+> I have heavily reworked the driver to be a bit saner, and
+> in the process removed a number of features: TSO/GSO, VLAN
+> acceleration and multiqueue. I've also ruthlessly stripped
+> things not useful to me, e.g. register access support.
+>=20
+> Right now it only supports a single TX and RX queue and no
+> special features other than checksum offload.
+[...]
+> --- a/drivers/net/ethernet/atheros/Kconfig
+> +++ b/drivers/net/ethernet/atheros/Kconfig
+> @@ -67,4 +67,22 @@ config ATL1C
+>  	  To compile this driver as a module, choose M here.  The module
+>  	  will be called atl1c.
+> =20
+> +config ALX
+> +	tristate "Qualcomm Atheros AR816x/AR817x support"
+> +	depends on PCI
+> +	select CRC32
+> +	select NET_CORE
+
+Why NET_CORE?  It looks like a lot of drivers are selecting it because
+MII depends on it, but this doesn't select MII.  (Actually, it's
+ridiculous that MII depends on NET_CORE.  I'll see what I can do about
+that.)
+
+[...]
+> --- /dev/null
+> +++ b/drivers/net/ethernet/atheros/alx/alx.h
+[...]
+> +struct alx_priv {
+> +	struct net_device *dev;
+> +
+> +	struct alx_hw hw;
+> +
+> +	/* all descriptor memory */
+> +	struct {
+> +		dma_addr_t dma;
+> +		void *virt;
+> +		int size;
+> +	} descmem;
+> +
+> +	u32 int_mask;
+> +
+> +	int tx_ringsz;
+> +	int rx_ringsz;
+> +	int rxbuf_size;
+
+Sizes could all be unsigned?
+
+[...]
+> --- /dev/null
+> +++ b/drivers/net/ethernet/atheros/alx/ethtool.c
+[...]
+> +static int alx_get_settings(struct net_device *netdev, struct ethtool_cm=
+d *ecmd)
+> +{
+> +	struct alx_priv *alx =3D netdev_priv(netdev);
+> +	struct alx_hw *hw =3D &alx->hw;
+> +
+> +	ecmd->supported =3D SUPPORTED_10baseT_Half |
+> +			  SUPPORTED_10baseT_Full |
+> +			  SUPPORTED_100baseT_Half |
+> +			  SUPPORTED_100baseT_Full |
+> +			  SUPPORTED_Autoneg |
+> +			  SUPPORTED_TP |
+> +			  SUPPORTED_Pause;
+> +	if (alx_hw_giga(hw))
+> +		ecmd->supported |=3D SUPPORTED_1000baseT_Full;
+> +
+> +	ecmd->advertising =3D ADVERTISED_TP;
+> +	if (hw->adv_cfg & ADVERTISED_Autoneg)
+> +		ecmd->advertising |=3D hw->adv_cfg;
+> +
+> +	ecmd->port =3D PORT_TP;
+> +	ecmd->phy_address =3D 0;
+> +	if (hw->adv_cfg & ADVERTISED_Autoneg)
+> +		ecmd->autoneg =3D AUTONEG_ENABLE;
+> +	else
+> +		ecmd->autoneg =3D AUTONEG_DISABLE;
+> +	ecmd->transceiver =3D XCVR_INTERNAL;
+> +
+> +	if (hw->flowctrl & ALX_FC_ANEG && hw->adv_cfg & ADVERTISED_Autoneg) {
+> +		if (hw->flowctrl & ALX_FC_RX) {
+> +			ecmd->advertising |=3D ADVERTISED_Pause;
+> +
+> +			if (!(hw->flowctrl & ALX_FC_TX))
+> +				ecmd->advertising |=3D ADVERTISED_Asym_Pause;
+> +		} else if (hw->flowctrl & ALX_FC_TX) {
+> +			ecmd->advertising |=3D ADVERTISED_Asym_Pause;
+> +		}
+
+If Asym_Pause can be advertised then it should be in the supported mask
+too...
+
+> +	}
+> +
+> +	if (hw->link_speed !=3D SPEED_UNKNOWN) {
+> +		ethtool_cmd_speed_set(ecmd,
+> +				      hw->link_speed - hw->link_speed % 10);
+> +		ecmd->duplex =3D hw->link_speed % 10;
+
+Please use separate fields for speed and duplex.
+
+> +	} else {
+> +		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
+> +		ecmd->duplex =3D DUPLEX_UNKNOWN;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+> +static int alx_set_settings(struct net_device *netdev, struct ethtool_cm=
+d *ecmd)
+> +{
+> +	struct alx_priv *alx =3D netdev_priv(netdev);
+> +	struct alx_hw *hw =3D &alx->hw;
+> +	u32 adv_cfg;
+> +
+> +	ASSERT_RTNL();
+> +
+> +	if (ecmd->autoneg =3D=3D AUTONEG_ENABLE) {
+> +		if (ecmd->advertising & ADVERTISED_1000baseT_Half)
+> +			return -EINVAL;
+
+Now what about 10000, 40000, etc...  You should break out the code that
+sets ecmd->supported from alx_get_settings() and then do something like:
+
+	if (ecmd->advertising & ~alx_get_supported_mask())
+		return -EINVAL;
+
+here.
+
+> +		adv_cfg =3D ecmd->advertising | ADVERTISED_Autoneg;
+> +	} else {
+> +		int speed =3D ethtool_cmd_speed(ecmd);
+> +
+> +		switch (speed + ecmd->duplex) {
+> +		case SPEED_10 + DUPLEX_HALF:
+> +			adv_cfg =3D ADVERTISED_10baseT_Half;
+> +			break;
+> +		case SPEED_10 + DUPLEX_FULL:
+> +			adv_cfg =3D ADVERTISED_10baseT_Full;
+> +			break;
+> +		case SPEED_100 + DUPLEX_HALF:
+> +			adv_cfg =3D ADVERTISED_100baseT_Half;
+> +			break;
+> +		case SPEED_100 + DUPLEX_FULL:
+> +			adv_cfg =3D ADVERTISED_100baseT_Full;
+> +			break;
+> +		default:
+> +			return -EINVAL;
+> +		}
+> +	}
+> +
+> +	hw->adv_cfg =3D adv_cfg;
+> +	return alx_setup_speed_duplex(hw, adv_cfg, hw->flowctrl);
+> +}
+> +
+> +static void alx_get_pauseparam(struct net_device *netdev,
+> +			       struct ethtool_pauseparam *pause)
+> +{
+> +	struct alx_priv *alx =3D netdev_priv(netdev);
+> +	struct alx_hw *hw =3D &alx->hw;
+> +
+> +	if (hw->flowctrl & ALX_FC_ANEG &&
+> +	    hw->adv_cfg & ADVERTISED_Autoneg)
+> +		pause->autoneg =3D AUTONEG_ENABLE;
+> +	else
+> +		pause->autoneg =3D AUTONEG_DISABLE;
+
+Those macros are meant for ethtool_cmd::autoneg, not
+ethtool_pauseparam::autoneg.  (Not that it makes the slightest
+difference in practice.)
+
+> +	if (hw->flowctrl & ALX_FC_TX)
+> +		pause->tx_pause =3D 1;
+> +	else
+> +		pause->tx_pause =3D 0;
+> +
+> +	if (hw->flowctrl & ALX_FC_RX)
+> +		pause->rx_pause =3D 1;
+> +	else
+> +		pause->rx_pause =3D 0;
+
+Could be written more concisely as pause->tx_pause =3D !!(hw_flowtrl &
+ALX_FC_TX) etc.
+
+> +}
+> +
+> +
+> +static int alx_set_pauseparam(struct net_device *netdev,
+> +			      struct ethtool_pauseparam *pause)
+> +{
+> +	struct alx_priv *alx =3D netdev_priv(netdev);
+> +	struct alx_hw *hw =3D &alx->hw;
+> +	int err =3D 0;
+> +	bool reconfig_phy =3D false;
+> +	u8 fc =3D 0;
+> +
+> +	if (pause->tx_pause)
+> +		fc |=3D ALX_FC_TX;
+> +	if (pause->rx_pause)
+> +		fc |=3D ALX_FC_RX;
+> +	if (pause->autoneg)
+> +		fc |=3D ALX_FC_ANEG;
+> +
+> +	ASSERT_RTNL();
+> +
+> +	/* restart auto-neg for auto-mode */
+> +	if (hw->adv_cfg & ADVERTISED_Autoneg) {
+> +		if (!((fc ^ hw->flowctrl) & ALX_FC_ANEG))
+> +			reconfig_phy =3D true;
+> +		if (fc & hw->flowctrl & ALX_FC_ANEG &&
+> +		    (fc ^ hw->flowctrl) & (ALX_FC_RX | ALX_FC_TX))
+> +			reconfig_phy =3D true;
+> +	}
+> +
+> +	if (reconfig_phy) {
+> +		err =3D alx_setup_speed_duplex(hw, hw->adv_cfg, fc);
+> +		return err;
+> +	}
+> +
+> +	/* flow control on mac */
+> +	if ((fc ^ hw->flowctrl) & (ALX_FC_RX | ALX_FC_TX))
+> +		alx_cfg_mac_flowcontrol(hw, fc);
+> +
+> +	hw->flowctrl =3D fc;
+
+This assignment is needed in the autoneg case too.
+
+> +	return 0;
+> +}
+[...]
+> +static void alx_get_wol(struct net_device *netdev, struct ethtool_wolinf=
+o *wol)
+> +{
+> +	struct alx_priv *alx =3D netdev_priv(netdev);
+> +	struct alx_hw *hw =3D &alx->hw;
+> +
+> +	wol->supported =3D WAKE_MAGIC | WAKE_PHY;
+> +	wol->wolopts =3D 0;
+> +
+> +	if (hw->sleep_ctrl & ALX_SLEEP_WOL_MAGIC)
+> +		wol->wolopts |=3D WAKE_MAGIC;
+> +	if (hw->sleep_ctrl & ALX_SLEEP_WOL_PHY)
+> +		wol->wolopts |=3D WAKE_PHY;
+> +}
+> +
+> +static int alx_set_wol(struct net_device *netdev, struct ethtool_wolinfo=
+ *wol)
+> +{
+> +	struct alx_priv *alx =3D netdev_priv(netdev);
+> +	struct alx_hw *hw =3D &alx->hw;
+> +
+> +	if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE |
+> +			    WAKE_UCAST | WAKE_BCAST | WAKE_MCAST))
+> +		return -EOPNOTSUPP;
+
+What if we define a new WOL mode?  And the operation is supported, just
+not with the given mode.  So:
+
+	if (wol->wolopts & ~(WAKE_MAGIC | WAKE_PHY))
+		return -EINVAL;
+
+> +	hw->sleep_ctrl =3D 0;
+> +
+> +	if (wol->wolopts & WAKE_MAGIC)
+> +		hw->sleep_ctrl |=3D ALX_SLEEP_WOL_MAGIC;
+> +	if (wol->wolopts & WAKE_PHY)
+> +		hw->sleep_ctrl |=3D ALX_SLEEP_WOL_PHY;
+> +
+> +	device_set_wakeup_enable(&alx->hw.pdev->dev, hw->sleep_ctrl);
+> +
+> +	return 0;
+> +}
+> +
+> +static void alx_get_drvinfo(struct net_device *netdev,
+> +			    struct ethtool_drvinfo *drvinfo)
+> +{
+> +	struct alx_priv *alx =3D netdev_priv(netdev);
+> +
+> +	strlcpy(drvinfo->driver, alx_drv_name, sizeof(drvinfo->driver));
+> +	strlcpy(drvinfo->fw_version, "N/A", sizeof(drvinfo->fw_version));
+> +	strlcpy(drvinfo->bus_info, pci_name(alx->hw.pdev),
+> +		sizeof(drvinfo->bus_info));
+> +}
+
+There is no need to implement get_drvinfo, as the ethtool core provides
+this information by default.
+
+[...]
+> --- /dev/null
+> +++ b/drivers/net/ethernet/atheros/alx/hw.c
+[...]
+> +int alx_get_perm_macaddr(struct alx_hw *hw, u8 *addr)
+> +{
+> +	u32 val, mac0, mac1;
+> +	u16 i;
+> +	bool loaded_intn =3D false, loaded_extn =3D false;
+> +
+> +read_mcadr:
+> +	/* try to get it from register first */
+> +	mac0 =3D alx_read_mem32(hw, ALX_STAD0);
+> +	mac1 =3D alx_read_mem32(hw, ALX_STAD1);
+> +
+> +	/* addr should be big-endian */
+> +	*(__be32 *)(addr + 2) =3D cpu_to_be32(mac0);
+
+This is a potential alignment error.  Better to break out the bytes one
+by one, I think.
+
+> +	*(__be16 *)addr =3D cpu_to_be16(mac1);
+> +
+> +	if (is_valid_ether_addr(addr))
+> +		return 0;
+[...]
+> +void alx_set_macaddr(struct alx_hw *hw, const u8 *addr)
+> +{
+> +	u32 val;
+> +
+> +	/* for example: 00-0B-6A-F6-00-DC * STAD0=3D6AF600DC, STAD1=3D000B */
+> +	val =3D be32_to_cpu(*(__be32 *)(addr + 2));
+
+Again here.
+
+> +	alx_write_mem32(hw, ALX_STAD0, val);
+> +	val =3D be16_to_cpu(*(__be16 *)addr);
+> +	alx_write_mem32(hw, ALX_STAD1, val);
+> +}
+[...]
+> +void alx_add_mc_addr(struct alx_hw *hw, const u8 *addr)
+> +{
+> +	u32 crc32, bit, reg;
+> +
+> +	crc32 =3D ether_crc(ETH_ALEN, addr);
+> +
+> +	/* The HASH Table  is a register array of 2 32-bit registers.
+> +	 * It is treated like an array of 64 bits.  We want to set
+> +	 * bit BitArray[hash_value]. So we figure out what register
+> +	 * the bit is in, read it, OR in the new bit, then write
+> +	 * back the new value.  The register is determined by the
+> +	 * upper 7 bits of the hash value and the bit within that
+
+Just bit 5, not the upper 7 bits!
+
+> +	 * register are determined by the lower 5 bits of the value.
+> +	 */
+> +	reg =3D (crc32 >> 31) & 0x1;
+> +	bit =3D (crc32 >> 26) & 0x1F;
+> +
+> +	hw->mc_hash[reg] |=3D BIT(bit);
+> +}
+[...]
+> +void alx_reset_pcie(struct alx_hw *hw)
+> +{
+> +	u8 rev =3D alx_hw_revision(hw);
+> +	u32 val;
+> +	u16 val16;
+> +
+> +	/* Workaround for PCI problem when BIOS sets MMRBC incorrectly. */
+> +	pci_read_config_word(hw->pdev, PCI_COMMAND, &val16);
+> +	if (!(val16 & ALX_PCI_CMD) || (val16 & PCI_COMMAND_INTX_DISABLE)) {
+> +		val16 =3D (val16 | ALX_PCI_CMD) & ~PCI_COMMAND_INTX_DISABLE;
+> +		pci_write_config_word(hw->pdev, PCI_COMMAND, val16);
+> +	}
+[...]
+
+I don't understand what this is trying to work around but it looks
+extremely dodgy.  The driver already appears to be doing
+pci_{save,restore}_state() in suspend/resume which is the right thing to
+do.
+
+I haven't looked at main.c but might spend some time on that later.
+
+I couldn't find where auto-negotiated flow control is programmed after
+the link comes up.  Maybe it isn't?
+
+Ben.
+
+--=20
+Ben Hutchings
+Humans are not rational beings; they are rationalising beings.
+
+--=-VuAr50JaUHMZJ1/BsKrs
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+
+iQIVAwUAUb+1Tue/yOyVhhEJAQrzKxAAnPK8dBZ+NLRRkZynOGRNwktrzkGpYZlN
+a8ByMfcYmIJBovU7pXvjI5dgvxzkEiTOWIAsMqjI7rYkvqk79a2LAlziJFOEMuUb
+Fi7HuD/5E8OBfgFnUR2wAvsASJuehjKOIG5xjtTvVcCn3FOgeM+YmBFkGsrsN3Uo
+gncB1nYi0hig8uGWxfe+wFUp4cEhuRVoYkM0Ns4tyUTkT9/6glvE5Sc0HJ75LwB6
+BOZNh1vUvq+gsPUG9I8WyyWbgNsRDapJTVk/FPVnmb1y9myRCdXtkm1fCpBR1Amo
+pRjm+Xe7HMv4PdHDf1hPZNkXL3xwcNTyxaXv/98sQZmj0U91HV9dB//vKLjxwfrE
+WTuLQfOOKC/0vCwe0wC2uF+w3nYldqQ0bVD4zxTACG00z6+WX6mvvVdWfqeF/cuf
+1lZ3UhBCi6vuwRfF0SkOFXsTYRKSpTKT0Ar5IcdWiwjA/mBWK+7u1AO5ns/fWQLM
+pEwRG6p+NR/LdNQsxqhXzMJq/MUb6FcVmltJ5MVbGYijuqqZ41iRvd3uQ7QpdLwB
+H6F6PV8s7/EYlc+M6P91qtWoUVGqHjmQ7j08/zlYhx3x0hIIfdDEIx5hEq47G2UM
+stVLq6HurgydYQDtk0g+NBt3qgWF/jzEZvzRr44TpEtqSyW89OsRpV4XdDl81vXB
+/KjMompWo/g=
+=aYfQ
+-----END PGP SIGNATURE-----
+
+--=-VuAr50JaUHMZJ1/BsKrs--
