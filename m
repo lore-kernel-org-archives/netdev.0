@@ -1,135 +1,44 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH net-next] bonding: trivial: make alb use bond_slave_has_mac()
-Date: Tue, 18 Jun 2013 13:44:52 +0200
-Message-ID: <1371555892-1934-1-git-send-email-vfalico@redhat.com>
-Cc: vfalico@redhat.com
-To: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@web.de>
+Subject: Re: [net-next,v5,2/3] bridge: only expire the mdb entry when query
+ is received
+Date: Tue, 18 Jun 2013 14:03:38 +0200
+Message-ID: <20130618120338.GA9063@Linus-Debian>
+References: <1369209176-6841-2-git-send-email-amwang@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.hengli.com.au>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>,
+	Cong Wang <amwang@redhat.com>
+To: Amerigo Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:27790 "EHLO mx1.redhat.com"
+Received: from mout.web.de ([212.227.17.11]:64617 "EHLO mout.web.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932491Ab3FRLpD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jun 2013 07:45:03 -0400
+	id S1751389Ab3FRMED (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jun 2013 08:04:03 -0400
+Content-Disposition: inline
+In-Reply-To: <1369209176-6841-2-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Also, cleanup bond_alb_handle_active_change() from 2 identical ifs.
+Hi Amerigo,
 
-Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
----
- drivers/net/bonding/bond_alb.c | 53 +++++++++---------------------------------
- 1 file changed, 11 insertions(+), 42 deletions(-)
+I just tested these three patches on top of 3.10-rc6 (thanks for
+looking into these issues so far!) but unfortunately I'm still
+having problems if there is no querier on the link:
 
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index 27fe329..4ea8ed1 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -1129,6 +1129,7 @@ static void alb_change_hw_addr_on_detach(struct bonding *bond, struct slave *sla
- {
- 	int perm_curr_diff;
- 	int perm_bond_diff;
-+	struct slave *found_slave;
- 
- 	perm_curr_diff = !ether_addr_equal_64bits(slave->perm_hwaddr,
- 						  slave->dev->dev_addr);
-@@ -1136,21 +1137,12 @@ static void alb_change_hw_addr_on_detach(struct bonding *bond, struct slave *sla
- 						  bond->dev->dev_addr);
- 
- 	if (perm_curr_diff && perm_bond_diff) {
--		struct slave *tmp_slave;
--		int i, found = 0;
--
--		bond_for_each_slave(bond, tmp_slave, i) {
--			if (ether_addr_equal_64bits(slave->perm_hwaddr,
--						    tmp_slave->dev->dev_addr)) {
--				found = 1;
--				break;
--			}
--		}
-+		found_slave = bond_slave_has_mac(bond, slave->perm_hwaddr);
- 
--		if (found) {
-+		if (found_slave) {
- 			/* locking: needs RTNL and nothing else */
--			alb_swap_mac_addr(slave, tmp_slave);
--			alb_fasten_mac_swap(bond, slave, tmp_slave);
-+			alb_swap_mac_addr(slave, found_slave);
-+			alb_fasten_mac_swap(bond, slave, found_slave);
- 		}
- 	}
- }
-@@ -1668,7 +1660,6 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 	__acquires(&bond->curr_slave_lock)
- {
- 	struct slave *swap_slave;
--	int i;
- 
- 	if (bond->curr_active_slave == new_slave) {
- 		return;
-@@ -1690,17 +1681,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 	/* set the new curr_active_slave to the bonds mac address
- 	 * i.e. swap mac addresses of old curr_active_slave and new curr_active_slave
- 	 */
--	if (!swap_slave) {
--		struct slave *tmp_slave;
--		/* find slave that is holding the bond's mac address */
--		bond_for_each_slave(bond, tmp_slave, i) {
--			if (ether_addr_equal_64bits(tmp_slave->dev->dev_addr,
--						    bond->dev->dev_addr)) {
--				swap_slave = tmp_slave;
--				break;
--			}
--		}
--	}
-+	if (!swap_slave)
-+		swap_slave = bond_slave_has_mac(bond, bond->dev->dev_addr);
- 
- 	/*
- 	 * Arrange for swap_slave and new_slave to temporarily be
-@@ -1721,15 +1703,11 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
- 	if (swap_slave) {
- 		/* swap mac address */
- 		alb_swap_mac_addr(swap_slave, new_slave);
--	} else {
--		/* set the new_slave to the bond mac address */
--		alb_set_slave_mac_addr(new_slave, bond->dev->dev_addr);
--	}
--
--	if (swap_slave) {
- 		alb_fasten_mac_swap(bond, swap_slave, new_slave);
- 		read_lock(&bond->lock);
- 	} else {
-+		/* set the new_slave to the bond mac address */
-+		alb_set_slave_mac_addr(new_slave, bond->dev->dev_addr);
- 		read_lock(&bond->lock);
- 		alb_send_learning_packets(new_slave, bond->dev->dev_addr);
- 	}
-@@ -1746,9 +1724,8 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- {
- 	struct bonding *bond = netdev_priv(bond_dev);
- 	struct sockaddr *sa = addr;
--	struct slave *slave, *swap_slave;
-+	struct slave *swap_slave;
- 	int res;
--	int i;
- 
- 	if (!is_valid_ether_addr(sa->sa_data)) {
- 		return -EADDRNOTAVAIL;
-@@ -1769,15 +1746,7 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
- 		return 0;
- 	}
- 
--	swap_slave = NULL;
--
--	bond_for_each_slave(bond, slave, i) {
--		if (ether_addr_equal_64bits(slave->dev->dev_addr,
--					    bond_dev->dev_addr)) {
--			swap_slave = slave;
--			break;
--		}
--	}
-+	swap_slave = bond_slave_has_mac(bond, bond_dev->dev_addr);
- 
- 	if (swap_slave) {
- 		alb_swap_mac_addr(swap_slave, bond->curr_active_slave);
--- 
-1.8.1.4
+We will never discover a multicast listener which sends its
+startup MLD reports before being attached to the bridge port.
+
+I had reported that issue two months ago to Herbert's patch which
+changed the querier default [1].
+
+I guess in such a scenario where neither our querier is activated
+nor could we detect any querier, then the only safe thing we can
+do is to disable the bridge multicast snooping, isn't it?
+
+Cheers, Linus
+
+
+[1]: http://permalink.gmane.org/gmane.linux.network/264442
