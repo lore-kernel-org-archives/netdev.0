@@ -1,73 +1,50 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [PATCH net-next 3/3] net: Add missing dependencies on NETDEVICES
-Date: Tue, 18 Jun 2013 04:37:17 +0100
-Message-ID: <1371526637.3495.116.camel@deadeye.wl.decadent.org.uk>
-References: <1371522107.3495.61.camel@deadeye.wl.decadent.org.uk>
-	 <1371523025.3495.68.camel@deadeye.wl.decadent.org.uk>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH] net: fec: Fix build for MCF5272
+Date: Mon, 17 Jun 2013 21:03:12 -0700
+Message-ID: <20130618040312.GA12181@roeck-us.net>
+References: <1371500179-4733-1-git-send-email-linux@roeck-us.net>
+ <20130617.161151.1327615665309510068.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-SWvib9UcF4fJVgY5hr1c"
-Cc: netdev <netdev@vger.kernel.org>, linux-cris-kernel@axis.com,
-	Chad Williamson <chad@dahc.us>,
-	Daniel Cotey <puff65537@bansheeslibrary.com>,
-	devel@driverdev.osuosl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Frank.Li@freescale.com, jim_baxter@mentor.com
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51666 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753952Ab3FRDh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 23:37:27 -0400
-In-Reply-To: <1371523025.3495.68.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130617.161151.1327615665309510068.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Mon, Jun 17, 2013 at 04:11:51PM -0700, David Miller wrote:
+> From: Guenter Roeck <linux@roeck-us.net>
+> Date: Mon, 17 Jun 2013 13:16:19 -0700
+> 
+> > Commits 4c09eed9 (net: fec: Enable imx6 enet checksum acceleration) and
+> > baa70a5c (net: fec: enable pause frame to improve rx prefomance for 1G
+> > network) introduced functionality into the FEC driver which is not
+> > supported on MCF5272. As result, building images for MCF5272 fails,
+> > complaining about several undefined symbols.
+> > 
+> > Disabled the added functionality for MCF5272 builds.
+> > 
+> > Cc: Frank Li <Frank.Li@freescale.com>
+> > Cc: Jim Baxter <jim_baxter@mentor.com>
+> > Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> > ---
+> > Sorry for the added ifdefs. If anyone has a better idea on how to fix
+> > the problems, let me know.
+> > 
+> > This problem exists in 3.9 as well.
+> 
+> Does the M5272 not have these registers, or have you simply not added
+> defines for where there offsets are in that silicon instance?
+> 
+> I'd much rather you add the register offset defines than pepper the
+> entire driver with ifdefs.
+> 
+I agree, and that would have been my preferred solution as well.
+Unfortunately, according to the user manual (MCF5272 ColdFire
+Integrated Microprocessor User's Manual), the registers do not exist
+on this chip.
 
---=-SWvib9UcF4fJVgY5hr1c
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, 2013-06-18 at 03:37 +0100, Ben Hutchings wrote:
-> ETRAX_ETHERNET selects ETHERNET and MII, which depend on NETDEVICES.
-> I don't think anything should select NETDEVICES, so make it a
-> dependency.  It also doesn't need to select or depend on ETHERNET,
-> which has nothing to do with the Ethernet library functions.
->=20
-> BPCTL selects MII, which depends on NETDEVICES.  But everything in the
-> drivers/staging/silicom directory is related to net devices, so make
-> NET_VENDOR_SILICOM depend on NETDEVICES and remove the now-redundant
-> dependencies on NET.
->=20
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
-> ---
-> There are still a few staging dr
-...ivers that are for net devices, yet don't depend on NETDEVICES.
-
-Ben.
-
---=20
-Ben Hutchings
-Humans are not rational beings; they are rationalising beings.
-
---=-SWvib9UcF4fJVgY5hr1c
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.12 (GNU/Linux)
-
-iQIVAwUAUb/V7ee/yOyVhhEJAQrW/g//SPWpUyS5mR1NEXmL2KWbK8NQJK9VrrN4
-sFKKEgFBj07NMsAYcq7/lJqDEgIGYAxC9duqSjUPNbxPehL4OCJYeF/Db70k11Rr
-g63HYAxqOv+YSrzuamJ581Rfx21rJlfc0qpeRdEy8JiWyPGtknMJZPFMId/Krq0E
-SQGuAxQsppa7Ot2u1GSXukWDZX+2567SkVgm0rnrdJhB9t0rf3fhXAOFadvAjqCR
-8hWNBxOV0iCgM5/3E7lc1E98IKf3jDBu5QGr31oZ0ScQTUdf++L5ZTWxUYfbSAue
-iaMiLBuLF6SxuxFwtZaIZU3cAXYQFyZmsfmmt9gorQjWBmf7yZWeRITaKtDIBiY4
-BQ2o46CsUovXMgkWFTt8c/GvcWTXf2EaHxWKCgYNx4lxeK3+I1PwGd29nXggcGRo
-m5OzLGTbsrhtn/AUNHSqac204xqE50InFoqYht6nV8foRoGSFtHG3F6ft2gwqNqf
-uLOTy6EwqMOT9dLWGiNf+1nGQBJTQUHmWCDBa+BknJ4rjBdPfHbqroNjaE382va6
-CIz2uvGtXb3MH30FEmTmy1FLG83nD9OQqz86YgWl6ygtaLk9ghKl7YeOFrYl4a1l
-iczfC9bT5QMHs2m2PGgmVgKFxUyW4evJvqlbTJByz0U13k+meJFLjc9wxMr9JjKD
-SkEsOq1gdaA=
-=I3t4
------END PGP SIGNATURE-----
-
---=-SWvib9UcF4fJVgY5hr1c--
+Guenter
