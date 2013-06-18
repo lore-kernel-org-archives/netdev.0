@@ -1,68 +1,98 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: UDP "accept" proposed
-Date: Tue, 18 Jun 2013 10:54:41 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B7297@saturn3.aculab.com>
-References: <51C01EDA.30705@openvpn.net>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: Re: [PATCH net-next 1/3] net: Move MII out from under NET_CORE and
+ hide it
+Date: Tue, 18 Jun 2013 03:02:02 -0700
+Message-ID: <1371549722.2133.145.camel@jtkirshe-mobl>
+References: <1371522107.3495.61.camel@deadeye.wl.decadent.org.uk>
+	 <1371522291.3495.63.camel@deadeye.wl.decadent.org.uk>
+Reply-To: jeffrey.t.kirsher@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: "James Yonan" <james@openvpn.net>, <netdev@vger.kernel.org>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-c/Las1cZelioSGkO1vyN"
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0.aculab.com ([213.249.233.131]:39371 "HELO mx0.aculab.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1754406Ab3FRJ4d convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 05:56:33 -0400
-Received: from mx0.aculab.com ([127.0.0.1])
- by localhost (mx0.aculab.com [127.0.0.1]) (amavisd-new, port 10024) with SMTP
- id 16895-03 for <netdev@vger.kernel.org>;
- Tue, 18 Jun 2013 10:56:32 +0100 (BST)
-Content-class: urn:content-classes:message
-In-Reply-To: <51C01EDA.30705@openvpn.net>
+Received: from mga14.intel.com ([143.182.124.37]:29053 "EHLO mga14.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932072Ab3FRKCY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jun 2013 06:02:24 -0400
+In-Reply-To: <1371522291.3495.63.camel@deadeye.wl.decadent.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> One of the frustrations of creating UDP servers using BSD sockets is
-> that there isn't an easy way for a server to pass off a socket for a
-> particular client instance to a handler thread or process.
-> 
-> By contrast, with TCP you can "accept" an incoming connection, and pass
-> the socket representing that connection off to any arbitrary handler.
-> 
-> But UDP servers that want to play well with stateful firewalls and NAT
-> are forced to aggregate their entire connection pool onto a single
-> socket, since BSD sockets don't have the equivalent of an "accept"
-> mechanism to provide a connection-specific socket.
 
-You should be able to create another UDP socket and use connect().
+--=-c/Las1cZelioSGkO1vyN
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-> This is a disaster from a performance perspective because you can't take
-> a UDP server that binds to a single port and efficiently scale it up
-> across multiple threads or processors because you must operate off a
-> single socket.
+On Tue, 2013-06-18 at 03:24 +0100, Ben Hutchings wrote:
+> All drivers that select MII also need to select NET_CORE because MII
+> depends on it.  This is a bit ridiculous because NET_CORE is just a
+> menu option that doesn't enable any code by itself.
+>=20
+> There is also no need for it to be a visible option, since its users
+> all select it.
+>=20
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+> ---
+>  arch/cris/arch-v10/drivers/Kconfig             |    1 -
+>  arch/cris/arch-v32/drivers/Kconfig             |    1 -
+>  drivers/net/Kconfig                            |   10 +++-------
+>  drivers/net/ethernet/3com/Kconfig              |    1 -
+>  drivers/net/ethernet/Kconfig                   |    4 ----
+>  drivers/net/ethernet/adaptec/Kconfig           |    1 -
+>  drivers/net/ethernet/adi/Kconfig               |    1 -
+>  drivers/net/ethernet/allwinner/Kconfig         |    1 -
+>  drivers/net/ethernet/amd/Kconfig               |    2 --
+>  drivers/net/ethernet/atheros/Kconfig           |    4 ----
+>  drivers/net/ethernet/broadcom/Kconfig          |    2 --
+>  drivers/net/ethernet/cirrus/Kconfig            |    1 -
+>  drivers/net/ethernet/davicom/Kconfig           |    1 -
+>  drivers/net/ethernet/dec/tulip/Kconfig         |    1 -
+>  drivers/net/ethernet/dlink/Kconfig             |    1 -
+>  drivers/net/ethernet/faraday/Kconfig           |    1 -
+>  drivers/net/ethernet/freescale/fs_enet/Kconfig |    1 -
+>  drivers/net/ethernet/icplus/Kconfig            |    1 -
+>  drivers/net/ethernet/intel/Kconfig             |    1 -
+>  drivers/net/ethernet/micrel/Kconfig            |    4 ----
+>  drivers/net/ethernet/nuvoton/Kconfig           |    1 -
+>  drivers/net/ethernet/oki-semi/pch_gbe/Kconfig  |    1 -
+>  drivers/net/ethernet/packetengines/Kconfig     |    1 -
+>  drivers/net/ethernet/rdc/Kconfig               |    1 -
+>  drivers/net/ethernet/realtek/Kconfig           |    3 ---
+>  drivers/net/ethernet/renesas/Kconfig           |    1 -
+>  drivers/net/ethernet/sgi/Kconfig               |    1 -
+>  drivers/net/ethernet/sis/Kconfig               |    2 --
+>  drivers/net/ethernet/smsc/Kconfig              |    5 -----
+>  drivers/net/ethernet/stmicro/stmmac/Kconfig    |    1 -
+>  drivers/net/ethernet/via/Kconfig               |    2 --
+>  drivers/net/usb/Kconfig                        |    4 ----
+>  drivers/staging/silicom/Kconfig                |    1 -
+>  33 files changed, 3 insertions(+), 61 deletions(-)=20
 
-Actually, for really large workloads having large number of sockets
-generates its own problems.
+Acked-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 
-...
-> This would require the UDP implementation in the kernel to understand
-> how to dispatch incoming UDP datagrams to sockets based on the tuple of
-> (source addr, local addr) rather than just local addr as is currently
-> the case.
+--=-c/Las1cZelioSGkO1vyN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+Content-Transfer-Encoding: 7bit
 
-I believe it already does that if you've called connect().
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
 
-> But this would be a huge performance win for UDP servers (I'm thinking
-> about OpenVPN in particular) because making the kernel smarter about
-> dispatching UDP datagrams would make it much easier to develop scalable
-> UDP servers on Linux.
+iQIcBAABCgAGBQJRwDAaAAoJEOVv75VaS+3OvecQAJrZGXwU/vZQJDjzUDbWxtOU
+20zc5SG2yiuaEtHgsRrJAwZq1Dm23PnhbL1LjRQXqfAbbkhXn90jO3aF0fOUIW5Z
+IQ6LhYXOuzo+bxr41GWy48doxBPZNh/kROxS/N8ZNI6pd7CRpLlFu+ojhVGRBEBh
+58UEnmxIkuUOTQTvyK+uBLF3VJ73FvJIbrsa8xV7l9dYdOwBNGsGkTLcjkioYGYM
+kq6h5IrhG0FFbOSZUnresR2aJEWW4fNj/MRTrvC6Twh8mzfmSPnWycmX9bG/GF1v
+dEHSKRrnJopZ9SSROxwU9xsP6jzQYDbgjMAVCllj29+jap6jMPfBQZRnCa6z4IK9
+SwUMOOZpRfhFFbmrEMxAvlZLeUqUYpyesva0kt5w/JeTOclEfe8y6jcNPLA6d7pU
+sOjxw5L1Oia+Z6UpiXkyVolTOcLqD7MJwu+jOlxtVt5t7a2p7ufv//C/ikEwBD+3
+KhSlSj952PmY2bVfXtEhjd73YqwH5876x9s++qGj9JmcOYf5JM7hbJpzDdh3v9Ih
+QeUoj6BC1RztsYQD16gGAQMzEN/8s87EB51wtflxgCpBTJ4BCop2L5wOwW8f0uM/
+TWMEFBuD1q1IExhWKHccNo/IbPbvJY4VP2AJ0xLVIBFF4aeUXeDCfK2O1S3Bemkl
+4fa9lTQya4+3TkSOVcUJ
+=YaIK
+-----END PGP SIGNATURE-----
 
-By the sound of it what you really want is a small number of sockets
-all bound to the same UDP port, and for the kernel to spread the
-received traffic between the sockets in a manner that tends to keep
-traffic from a specific remote host assigned to the same socket.
-
-Then you can have a multi-threaded daemon that will tend to keep
-the data in the correct cpu cache.
-
-	David
+--=-c/Las1cZelioSGkO1vyN--
