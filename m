@@ -1,42 +1,60 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] rtlwifi: rtl8192cu: Fix duplicate if test
-Date: Tue, 18 Jun 2013 22:24:27 +0400
-Message-ID: <51C0A5DB.1040509@cogentembedded.com>
-References: <1371579497-5575-1-git-send-email-Larry.Finger@lwfinger.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linville@tuxdriver.com, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, stable <stable@kernel.org>
-To: Larry Finger <Larry.Finger@lwfinger.net>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH V2] rtlwifi: rtl8192cu: Fix duplicate if test
+Date: Tue, 18 Jun 2013 13:25:05 -0500
+Message-ID: <1371579905-15613-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, stable <stable@vger.kernel.org>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f53.google.com ([209.85.215.53]:53388 "EHLO
-	mail-la0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933595Ab3FRSY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 14:24:29 -0400
-Received: by mail-la0-f53.google.com with SMTP id fs12so3786696lab.26
-        for <netdev@vger.kernel.org>; Tue, 18 Jun 2013 11:24:27 -0700 (PDT)
-In-Reply-To: <1371579497-5575-1-git-send-email-Larry.Finger@lwfinger.net>
+Received: from mail-ob0-f178.google.com ([209.85.214.178]:41684 "EHLO
+	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933041Ab3FRSZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 14:25:19 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+A typo causes routine rtl92cu_phy_rf6052_set_cck_txpower() to test the
+same condition twice. The problem was found using cppcheck-1.49, and the
+proper fix was verified against the pre-mac80211 version of the code.
 
-On 06/18/2013 10:18 PM, Larry Finger wrote:
+This patch was originally included as commit 1288aa4, but was accidentally
+reverted in a later patch.
 
-> A typo causes routine rtl92cu_phy_rf6052_set_cck_txpower() to test the
-> same condition twice. The problem was found using cppcheck-1.49, and the
-> proper fix was verified against the pre-mac80211 version of the code.
+Reported-by: David Binderman <dcb314@hotmail.com> [original report]
+Reported-by: Andrea Morello <andrea.merello@gmail.com> [report of accidental reversion]
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: stable <stable@vger.kernel.org>  [back to 2.6.39]
+---
 
-> This patch was originally included as commit 1288aa4, but was accidentally
+John,
 
-    You probably forgot to specify the summary line of that commit.
+Although this patch is trivial and could be included in the 3.10 stream,
+I think we should not burden DaveM nor Linus with it this late in the 3.10
+cycle. Please push it into the 3.11 stream.
 
-> reverted in a later patch.
+Thanks,
 
-> Reported-by: David Binderman <dcb314@hotmail.com> [original report]
-> Reported-by: Andrea Morello <andrea.merello@gmail.com> [report of accidental reversion]
-> Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-> Cc: stable <stable@kernel.org>  [back to 2.6.39]
+Larry
+---
 
-WBR, Sergei
+V2 - Fix error in stable mailing address
+---
+ drivers/net/wireless/rtlwifi/rtl8192cu/rf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c b/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c
+index 953f1a0..2119313 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c
+@@ -104,7 +104,7 @@ void rtl92cu_phy_rf6052_set_cck_txpower(struct ieee80211_hw *hw,
+ 			tx_agc[RF90_PATH_A] = 0x10101010;
+ 			tx_agc[RF90_PATH_B] = 0x10101010;
+ 		} else if (rtlpriv->dm.dynamic_txhighpower_lvl ==
+-			   TXHIGHPWRLEVEL_LEVEL1) {
++			   TXHIGHPWRLEVEL_LEVEL2) {
+ 			tx_agc[RF90_PATH_A] = 0x00000000;
+ 			tx_agc[RF90_PATH_B] = 0x00000000;
+ 		} else{
+-- 
+1.8.1.4
