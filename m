@@ -1,8 +1,7 @@
 From: "Dmitry Kravkov" <dmitry@broadcom.com>
-Subject: [PATCH v2 net-next 2/2] bnx2x: replace mechanism to check for
- next available packet
-Date: Wed, 19 Jun 2013 01:36:05 +0300
-Message-ID: <1371594965-12546-3-git-send-email-dmitry@broadcom.com>
+Subject: [PATCH v2 net-next 1/2] bnx2x: add support for ndo_ll_poll
+Date: Wed, 19 Jun 2013 01:36:04 +0300
+Message-ID: <1371594965-12546-2-git-send-email-dmitry@broadcom.com>
 References: <1371594965-12546-1-git-send-email-dmitry@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,218 +9,391 @@ Content-Transfer-Encoding: 7bit
 Cc: "Dmitry Kravkov" <dmitry@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms2.broadcom.com ([216.31.210.18]:4733 "EHLO mms2.broadcom.com"
+Received: from mms3.broadcom.com ([216.31.210.19]:2054 "EHLO mms3.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932706Ab3FRWgX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jun 2013 18:36:23 -0400
+	id S932479Ab3FRWgV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jun 2013 18:36:21 -0400
 In-Reply-To: <1371594965-12546-1-git-send-email-dmitry@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Check next packet availability by validating that HW has finished CQE
-placement. This saves latency of another dma transaction performed to update
-SB indexes.
+Adds ndo_ll_poll method and locking for FPs between LL and the napi.
+
+When receiving a packet we use skb_mark_ll to record the napi it came from.
+Add each napi to the napi_hash right after netif_napi_add().
 
 Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  | 49 ++++++++++--------------
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  | 26 +++++++++----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h  |  3 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |  1 -
- 4 files changed, 42 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h      | 125 +++++++++++++++++++++++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c  |  67 ++++++++++--
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h  |  23 ++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |   4 +
+ 4 files changed, 208 insertions(+), 11 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index f76597e..edda716 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -485,6 +485,21 @@ struct bnx2x_fastpath {
+ 	struct bnx2x		*bp; /* parent */
+ 
+ 	struct napi_struct	napi;
++
++#ifdef CONFIG_NET_LL_RX_POLL
++	unsigned int state;
++#define BNX2X_FP_STATE_IDLE		      0
++#define BNX2X_FP_STATE_NAPI		(1 << 0)    /* NAPI owns this FP */
++#define BNX2X_FP_STATE_POLL		(1 << 1)    /* poll owns this FP */
++#define BNX2X_FP_STATE_NAPI_YIELD	(1 << 2)    /* NAPI yielded this FP */
++#define BNX2X_FP_STATE_POLL_YIELD	(1 << 3)    /* poll yielded this FP */
++#define BNX2X_FP_YIELD	(BNX2X_FP_STATE_NAPI_YIELD | BNX2X_FP_STATE_POLL_YIELD)
++#define BNX2X_FP_LOCKED	(BNX2X_FP_STATE_NAPI | BNX2X_FP_STATE_POLL)
++#define BNX2X_FP_USER_PEND (BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_POLL_YIELD)
++	/* protect state */
++	spinlock_t lock;
++#endif /* CONFIG_NET_LL_RX_POLL */
++
+ 	union host_hc_status_block	status_blk;
+ 	/* chip independent shortcuts into sb structure */
+ 	__le16			*sb_index_values;
+@@ -557,6 +572,116 @@ struct bnx2x_fastpath {
+ #define bnx2x_fp_stats(bp, fp)	(&((bp)->fp_stats[(fp)->index]))
+ #define bnx2x_fp_qstats(bp, fp)	(&((bp)->fp_stats[(fp)->index].eth_q_stats))
+ 
++#ifdef CONFIG_NET_LL_RX_POLL
++static inline void bnx2x_fp_init_lock(struct bnx2x_fastpath *fp)
++{
++	spin_lock_init(&fp->lock);
++	fp->state = BNX2X_FP_STATE_IDLE;
++}
++
++/* called from the device poll routine to get ownership of a FP */
++static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
++{
++	bool rc = true;
++
++	spin_lock(&fp->lock);
++	if (fp->state & BNX2X_FP_LOCKED) {
++		WARN_ON(fp->state & BNX2X_FP_STATE_NAPI);
++		fp->state |= BNX2X_FP_STATE_NAPI_YIELD;
++		rc = false;
++	} else {
++		/* we don't care if someone yielded */
++		fp->state = BNX2X_FP_STATE_NAPI;
++	}
++	spin_unlock(&fp->lock);
++	return rc;
++}
++
++/* returns true is someone tried to get the FP while napi had it */
++static inline bool bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
++{
++	bool rc = false;
++
++	spin_lock(&fp->lock);
++	WARN_ON(fp->state &
++		(BNX2X_FP_STATE_POLL | BNX2X_FP_STATE_NAPI_YIELD));
++
++	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
++		rc = true;
++	fp->state = BNX2X_FP_STATE_IDLE;
++	spin_unlock(&fp->lock);
++	return rc;
++}
++
++/* called from bnx2x_low_latency_poll() */
++static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
++{
++	bool rc = true;
++
++	spin_lock_bh(&fp->lock);
++	if ((fp->state & BNX2X_FP_LOCKED)) {
++		fp->state |= BNX2X_FP_STATE_POLL_YIELD;
++		rc = false;
++	} else {
++		/* preserve yield marks */
++		fp->state |= BNX2X_FP_STATE_POLL;
++	}
++	spin_unlock_bh(&fp->lock);
++	return rc;
++}
++
++/* returns true if someone tried to get the FP while it was locked */
++static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
++{
++	bool rc = false;
++
++	spin_lock_bh(&fp->lock);
++	WARN_ON(fp->state & BNX2X_FP_STATE_NAPI);
++
++	if (fp->state & BNX2X_FP_STATE_POLL_YIELD)
++		rc = true;
++	fp->state = BNX2X_FP_STATE_IDLE;
++	spin_unlock_bh(&fp->lock);
++	return rc;
++}
++
++/* true if a socket is polling, even if it did not get the lock */
++static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
++{
++	WARN_ON(!(fp->state & BNX2X_FP_LOCKED));
++	return fp->state & BNX2X_FP_USER_PEND;
++}
++#else
++static inline void bnx2x_fp_init_lock(struct bnx2x_fastpath *fp)
++{
++}
++
++static inline bool bnx2x_fp_lock_napi(struct bnx2x_fastpath *fp)
++{
++	return true;
++}
++
++static inline bool bnx2x_fp_unlock_napi(struct bnx2x_fastpath *fp)
++{
++	return false;
++}
++
++static inline bool bnx2x_fp_lock_poll(struct bnx2x_fastpath *fp)
++{
++	return false;
++}
++
++static inline bool bnx2x_fp_unlock_poll(struct bnx2x_fastpath *fp)
++{
++	return false;
++}
++
++static inline bool bnx2x_fp_ll_polling(struct bnx2x_fastpath *fp)
++{
++	return false;
++}
++#endif /* CONFIG_NET_LL_RX_POLL */
++
+ /* Use 2500 as a mini-jumbo MTU for FCoE */
+ #define BNX2X_FCOE_MINI_JUMBO_MTU	2500
+ 
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-index 20eefa6..ca7f2bb 100644
+index 4e42bdd..20eefa6 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
-@@ -804,40 +804,32 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+@@ -24,6 +24,7 @@
+ #include <net/tcp.h>
+ #include <net/ipv6.h>
+ #include <net/ip6_checksum.h>
++#include <net/ll_poll.h>
+ #include <linux/prefetch.h>
+ #include "bnx2x_cmn.h"
+ #include "bnx2x_init.h"
+@@ -999,8 +1000,13 @@ reuse_rx:
+ 		    PARSING_FLAGS_VLAN)
+ 			__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q),
+ 					       le16_to_cpu(cqe_fp->vlan_tag));
+-		napi_gro_receive(&fp->napi, skb);
+ 
++		skb_mark_ll(skb, &fp->napi);
++
++		if (bnx2x_fp_ll_polling(fp))
++			netif_receive_skb(skb);
++		else
++			napi_gro_receive(&fp->napi, skb);
+ next_rx:
+ 		rx_buf->data = NULL;
+ 
+@@ -1755,32 +1761,46 @@ static void bnx2x_napi_enable_cnic(struct bnx2x *bp)
  {
- 	struct bnx2x *bp = fp->bp;
- 	u16 bd_cons, bd_prod, bd_prod_fw, comp_ring_cons;
--	u16 hw_comp_cons, sw_comp_cons, sw_comp_prod;
-+	u16 sw_comp_cons, sw_comp_prod;
- 	int rx_pkt = 0;
-+	union eth_rx_cqe *cqe;
-+	struct eth_fast_path_rx_cqe *cqe_fp;
+ 	int i;
  
- #ifdef BNX2X_STOP_ON_ERROR
- 	if (unlikely(bp->panic))
- 		return 0;
- #endif
+-	for_each_rx_queue_cnic(bp, i)
++	for_each_rx_queue_cnic(bp, i) {
++		bnx2x_fp_init_lock(&bp->fp[i]);
+ 		napi_enable(&bnx2x_fp(bp, i, napi));
++	}
+ }
  
--	/* CQ "next element" is of the size of the regular element,
--	   that's why it's ok here */
--	hw_comp_cons = le16_to_cpu(*fp->rx_cons_sb);
--	if ((hw_comp_cons & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
--		hw_comp_cons++;
--
- 	bd_cons = fp->rx_bd_cons;
- 	bd_prod = fp->rx_bd_prod;
- 	bd_prod_fw = bd_prod;
- 	sw_comp_cons = fp->rx_comp_cons;
- 	sw_comp_prod = fp->rx_comp_prod;
+ static void bnx2x_napi_enable(struct bnx2x *bp)
+ {
+ 	int i;
  
--	/* Memory barrier necessary as speculative reads of the rx
--	 * buffer can be ahead of the index in the status block
--	 */
--	rmb();
-+	comp_ring_cons = RCQ_BD(sw_comp_cons);
-+	cqe = &fp->rx_comp_ring[comp_ring_cons];
-+	cqe_fp = &cqe->fast_path_cqe;
+-	for_each_eth_queue(bp, i)
++	for_each_eth_queue(bp, i) {
++		bnx2x_fp_init_lock(&bp->fp[i]);
+ 		napi_enable(&bnx2x_fp(bp, i, napi));
++	}
+ }
  
- 	DP(NETIF_MSG_RX_STATUS,
--	   "queue[%d]:  hw_comp_cons %u  sw_comp_cons %u\n",
--	   fp->index, hw_comp_cons, sw_comp_cons);
-+	   "queue[%d]: sw_comp_cons %u\n", fp->index, sw_comp_cons);
+ static void bnx2x_napi_disable_cnic(struct bnx2x *bp)
+ {
+ 	int i;
  
--	while (sw_comp_cons != hw_comp_cons) {
-+	while (BNX2X_IS_CQE_COMPLETED(cqe_fp)) {
- 		struct sw_rx_bd *rx_buf = NULL;
- 		struct sk_buff *skb;
--		union eth_rx_cqe *cqe;
--		struct eth_fast_path_rx_cqe *cqe_fp;
- 		u8 cqe_fp_flags;
- 		enum eth_rx_cqe_type cqe_fp_type;
- 		u16 len, pad, queue;
-@@ -849,12 +841,9 @@ int bnx2x_rx_int(struct bnx2x_fastpath *fp, int budget)
+-	for_each_rx_queue_cnic(bp, i)
++	local_bh_disable();
++	for_each_rx_queue_cnic(bp, i) {
+ 		napi_disable(&bnx2x_fp(bp, i, napi));
++		while (!bnx2x_fp_lock_napi(&bp->fp[i]))
++			mdelay(1);
++	}
++	local_bh_enable();
+ }
+ 
+ static void bnx2x_napi_disable(struct bnx2x *bp)
+ {
+ 	int i;
+ 
+-	for_each_eth_queue(bp, i)
++	local_bh_disable();
++	for_each_eth_queue(bp, i) {
+ 		napi_disable(&bnx2x_fp(bp, i, napi));
++		while (!bnx2x_fp_lock_napi(&bp->fp[i]))
++			mdelay(1);
++	}
++	local_bh_enable();
+ }
+ 
+ void bnx2x_netif_start(struct bnx2x *bp)
+@@ -3039,6 +3059,8 @@ int bnx2x_poll(struct napi_struct *napi, int budget)
  			return 0;
+ 		}
  #endif
++		if (!bnx2x_fp_lock_napi(fp))
++			return work_done;
  
--		comp_ring_cons = RCQ_BD(sw_comp_cons);
- 		bd_prod = RX_BD(bd_prod);
- 		bd_cons = RX_BD(bd_cons);
+ 		for_each_cos_in_tx_queue(fp, cos)
+ 			if (bnx2x_tx_queue_has_work(fp->txdata_ptr[cos]))
+@@ -3048,12 +3070,15 @@ int bnx2x_poll(struct napi_struct *napi, int budget)
+ 			work_done += bnx2x_rx_int(fp, budget - work_done);
  
--		cqe = &fp->rx_comp_ring[comp_ring_cons];
--		cqe_fp = &cqe->fast_path_cqe;
- 		cqe_fp_flags = cqe_fp->type_error_flags;
- 		cqe_fp_type = cqe_fp_flags & ETH_FAST_PATH_RX_CQE_TYPE;
+ 			/* must not complete if we consumed full budget */
+-			if (work_done >= budget)
++			if (work_done >= budget) {
++				bnx2x_fp_unlock_napi(fp);
+ 				break;
++			}
+ 		}
  
-@@ -1018,8 +1007,15 @@ next_cqe:
- 		sw_comp_prod = NEXT_RCQ_IDX(sw_comp_prod);
- 		sw_comp_cons = NEXT_RCQ_IDX(sw_comp_cons);
+ 		/* Fall out from the NAPI loop if needed */
+-		if (!(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
++		if (!bnx2x_fp_unlock_napi(fp) &&
++		    !(bnx2x_has_rx_work(fp) || bnx2x_has_tx_work(fp))) {
  
-+		/* mark CQE as free */
-+		BNX2X_SEED_CQE(cqe_fp);
+ 			/* No need to update SB for FCoE L2 ring as long as
+ 			 * it's connected to the default SB and the SB
+@@ -3095,6 +3120,34 @@ int bnx2x_poll(struct napi_struct *napi, int budget)
+ 	return work_done;
+ }
+ 
++#ifdef CONFIG_NET_LL_RX_POLL
++/* must be called with local_bh_disable()d */
++int bnx2x_low_latency_recv(struct napi_struct *napi)
++{
++	struct bnx2x_fastpath *fp = container_of(napi, struct bnx2x_fastpath,
++						 napi);
++	struct bnx2x *bp = fp->bp;
++	int found = 0;
 +
- 		if (rx_pkt == budget)
- 			break;
++	if ((bp->state == BNX2X_STATE_CLOSED) ||
++	    (bp->state == BNX2X_STATE_ERROR) ||
++	    (bp->flags & (TPA_ENABLE_FLAG | GRO_ENABLE_FLAG)))
++		return LL_FLUSH_FAILED;
 +
-+		comp_ring_cons = RCQ_BD(sw_comp_cons);
-+		cqe = &fp->rx_comp_ring[comp_ring_cons];
-+		cqe_fp = &cqe->fast_path_cqe;
- 	} /* while */
- 
- 	fp->rx_bd_cons = bd_cons;
-@@ -1055,8 +1051,6 @@ static irqreturn_t bnx2x_msix_fp_int(int irq, void *fp_cookie)
- #endif
- 
- 	/* Handle Rx and Tx according to MSI-X vector */
--	prefetch(fp->rx_cons_sb);
--
- 	for_each_cos_in_tx_queue(fp, cos)
- 		prefetch(fp->txdata_ptr[cos]->tx_cons_sb);
- 
-@@ -3137,10 +3131,8 @@ int bnx2x_low_latency_recv(struct napi_struct *napi)
- 	if (!bnx2x_fp_lock_poll(fp))
- 		return LL_FLUSH_BUSY;
- 
--	if (bnx2x_has_rx_work(fp)) {
--		bnx2x_update_fpsb_idx(fp);
-+	if (bnx2x_has_rx_work(fp))
- 		found = bnx2x_rx_int(fp, 4);
--	}
- 
- 	bnx2x_fp_unlock_poll(fp);
- 
-@@ -4339,10 +4331,11 @@ static int bnx2x_alloc_fp_mem_at(struct bnx2x *bp, int index)
- 				&bnx2x_fp(bp, index, rx_desc_mapping),
- 				sizeof(struct eth_rx_bd) * NUM_RX_BD);
- 
--		BNX2X_PCI_ALLOC(bnx2x_fp(bp, index, rx_comp_ring),
--				&bnx2x_fp(bp, index, rx_comp_mapping),
--				sizeof(struct eth_fast_path_rx_cqe) *
--				NUM_RCQ_BD);
-+		/* Seed all CQEs by 1s */
-+		BNX2X_PCI_FALLOC(bnx2x_fp(bp, index, rx_comp_ring),
-+				 &bnx2x_fp(bp, index, rx_comp_mapping),
-+				 sizeof(struct eth_fast_path_rx_cqe) *
-+				 NUM_RCQ_BD);
- 
- 		/* SGE ring */
- 		BNX2X_ALLOC(bnx2x_fp(bp, index, rx_page_ring),
++	if (!bnx2x_fp_lock_poll(fp))
++		return LL_FLUSH_BUSY;
++
++	if (bnx2x_has_rx_work(fp)) {
++		bnx2x_update_fpsb_idx(fp);
++		found = bnx2x_rx_int(fp, 4);
++	}
++
++	bnx2x_fp_unlock_poll(fp);
++
++	return found;
++}
++#endif
++
+ /* we split the first BD into headers and data BDs
+  * to ease the pain of our fellow microcode engineers
+  * we use one mapping for both BDs
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-index a1a5cdc..c07a6d0 100644
+index 650bb52..a1a5cdc 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
-@@ -59,6 +59,16 @@ extern int int_mode;
- 		   (unsigned long long)(*y), x); \
- 	} while (0)
- 
-+#define BNX2X_PCI_FALLOC(x, y, size) \
-+	do { \
-+		x = dma_alloc_coherent(&bp->pdev->dev, size, y, GFP_KERNEL); \
-+		if (x == NULL) \
-+			goto alloc_mem_err; \
-+		memset((void *)x, 0xFFFFFFFF, size); \
-+		DP(NETIF_MSG_HW, "BNX2X_PCI_FALLOC: Physical %Lx Virtual %p\n",\
-+		   (unsigned long long)(*y), x); \
-+	} while (0)
-+
- #define BNX2X_ALLOC(x, size) \
- 	do { \
- 		x = kzalloc(size, GFP_KERNEL); \
-@@ -805,16 +815,18 @@ static inline bool bnx2x_has_tx_work(struct bnx2x_fastpath *fp)
- 	return false;
- }
- 
-+#define BNX2X_IS_CQE_COMPLETED(cqe_fp) (cqe_fp->marker == 0x0)
-+#define BNX2X_SEED_CQE(cqe_fp) (cqe_fp->marker = 0xFFFFFFFF)
- static inline int bnx2x_has_rx_work(struct bnx2x_fastpath *fp)
- {
--	u16 rx_cons_sb;
-+	u16 cons;
-+	union eth_rx_cqe *cqe;
-+	struct eth_fast_path_rx_cqe *cqe_fp;
- 
--	/* Tell compiler that status block fields can change */
--	barrier();
--	rx_cons_sb = le16_to_cpu(*fp->rx_cons_sb);
--	if ((rx_cons_sb & MAX_RCQ_DESC_CNT) == MAX_RCQ_DESC_CNT)
--		rx_cons_sb++;
--	return (fp->rx_comp_cons != rx_cons_sb);
-+	cons = RCQ_BD(fp->rx_comp_cons);
-+	cqe = &fp->rx_comp_ring[cons];
-+	cqe_fp = &cqe->fast_path_cqe;
-+	return BNX2X_IS_CQE_COMPLETED(cqe_fp);
- }
+@@ -605,6 +605,13 @@ int bnx2x_enable_msi(struct bnx2x *bp);
+ int bnx2x_poll(struct napi_struct *napi, int budget);
  
  /**
-diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-index 5ef3f96..5018e52 100644
---- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-+++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_hsi.h
-@@ -3818,7 +3818,8 @@ struct eth_fast_path_rx_cqe {
- 	__le16 len_on_bd;
- 	struct parsing_flags pars_flags;
- 	union eth_sgl_or_raw_data sgl_or_raw_data;
--	__le32 reserved1[8];
-+	__le32 reserved1[7];
-+	u32 marker;
- };
++ * bnx2x_low_latency_recv - LL callback
++ *
++ * @napi:	napi structure
++ */
++int bnx2x_low_latency_recv(struct napi_struct *napi);
++
++/**
+  * bnx2x_alloc_mem_bp - allocate memories outsize main driver structure
+  *
+  * @bp:		driver handle
+@@ -846,9 +853,11 @@ static inline void bnx2x_add_all_napi_cnic(struct bnx2x *bp)
+ 	int i;
  
+ 	/* Add NAPI objects */
+-	for_each_rx_queue_cnic(bp, i)
++	for_each_rx_queue_cnic(bp, i) {
+ 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
+ 			       bnx2x_poll, NAPI_POLL_WEIGHT);
++		napi_hash_add(&bnx2x_fp(bp, i, napi));
++	}
+ }
  
+ static inline void bnx2x_add_all_napi(struct bnx2x *bp)
+@@ -856,25 +865,31 @@ static inline void bnx2x_add_all_napi(struct bnx2x *bp)
+ 	int i;
+ 
+ 	/* Add NAPI objects */
+-	for_each_eth_queue(bp, i)
++	for_each_eth_queue(bp, i) {
+ 		netif_napi_add(bp->dev, &bnx2x_fp(bp, i, napi),
+ 			       bnx2x_poll, NAPI_POLL_WEIGHT);
++		napi_hash_add(&bnx2x_fp(bp, i, napi));
++	}
+ }
+ 
+ static inline void bnx2x_del_all_napi_cnic(struct bnx2x *bp)
+ {
+ 	int i;
+ 
+-	for_each_rx_queue_cnic(bp, i)
++	for_each_rx_queue_cnic(bp, i) {
++		napi_hash_del(&bnx2x_fp(bp, i, napi));
+ 		netif_napi_del(&bnx2x_fp(bp, i, napi));
++	}
+ }
+ 
+ static inline void bnx2x_del_all_napi(struct bnx2x *bp)
+ {
+ 	int i;
+ 
+-	for_each_eth_queue(bp, i)
++	for_each_eth_queue(bp, i) {
++		napi_hash_del(&bnx2x_fp(bp, i, napi));
+ 		netif_napi_del(&bnx2x_fp(bp, i, napi));
++	}
+ }
+ 
+ int bnx2x_set_int_mode(struct bnx2x *bp);
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-index e2e8705..f0d21fa 100644
+index 658b9fd..e2e8705 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
-@@ -1866,7 +1866,6 @@ irqreturn_t bnx2x_interrupt(int irq, void *dev_instance)
- 		mask = 0x2 << (fp->index + CNIC_SUPPORT(bp));
- 		if (status & mask) {
- 			/* Handle Rx or Tx according to SB id */
--			prefetch(fp->rx_cons_sb);
- 			for_each_cos_in_tx_queue(fp, cos)
- 				prefetch(fp->txdata_ptr[cos]->tx_cons_sb);
- 			prefetch(&fp->sb_running_index[SM_RX_ID]);
+@@ -12013,6 +12013,10 @@ static const struct net_device_ops bnx2x_netdev_ops = {
+ #ifdef NETDEV_FCOE_WWNN
+ 	.ndo_fcoe_get_wwn	= bnx2x_fcoe_get_wwn,
+ #endif
++
++#ifdef CONFIG_NET_LL_RX_POLL
++	.ndo_ll_poll		= bnx2x_low_latency_recv,
++#endif
+ };
+ 
+ static int bnx2x_set_coherency_mask(struct bnx2x *bp)
 -- 
 1.8.1.4
