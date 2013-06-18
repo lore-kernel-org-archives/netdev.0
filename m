@@ -1,47 +1,52 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] netfilter: prevent harmless integer overflow
-Date: Tue, 18 Jun 2013 10:46:03 +0300
-Message-ID: <20130618074603.GF12329@elgon.mountain>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [PATCH net-next 2/3] at91_ether: Do not select NET_CORE
+Date: Tue, 18 Jun 2013 09:55:40 +0200
+Message-ID: <51C0127C.2070508@atmel.com>
+References: <1371522107.3495.61.camel@deadeye.wl.decadent.org.uk> <1371522449.3495.65.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, kernel-janitors@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netfilter@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Patrick McHardy <kaber@trash.net>, Pablo Neira Ayuso <pablo@netfilter.org>
-To: Bart De Schuymer <bart.de.schuymer@pandora.be>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Joachim Eastwood <manabian@gmail.com>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from eusmtp01.atmel.com ([212.144.249.243]:4332 "EHLO
+	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752309Ab3FRHzl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 03:55:41 -0400
+In-Reply-To: <1371522449.3495.65.camel@deadeye.wl.decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This overflow is harmless because a few lines later we check:
+On 18/06/2013 04:27, Ben Hutchings :
+> This has no dependency on any of the drivers under NET_CORE.
+>
+> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
-	if (num_counters != t->private->nentries) {
+Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
 
-But it still upsets the static checkers.
+Thanks, bye,
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> ---
+>   drivers/net/ethernet/cadence/Kconfig |    1 -
+>   1 file changed, 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
+> index 768285e..8030cc0 100644
+> --- a/drivers/net/ethernet/cadence/Kconfig
+> +++ b/drivers/net/ethernet/cadence/Kconfig
+> @@ -23,7 +23,6 @@ if NET_CADENCE
+>   config ARM_AT91_ETHER
+>   	tristate "AT91RM9200 Ethernet support"
+>   	depends on GENERIC_HARDIRQS && HAS_DMA
+> -	select NET_CORE
+>   	select MACB
+>   	---help---
+>   	  If you wish to compile a kernel for the AT91RM9200 and enable
+>
+>
 
-diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
-index 3d110c4..141350e 100644
---- a/net/bridge/netfilter/ebtables.c
-+++ b/net/bridge/netfilter/ebtables.c
-@@ -1278,6 +1278,8 @@ static int do_update_counters(struct net *net, const char *name,
- 
- 	if (num_counters == 0)
- 		return -EINVAL;
-+	if (num_counters > INT_MAX / sizeof(*tmp))
-+		return -ENOMEM;
- 
- 	tmp = vmalloc(num_counters * sizeof(*tmp));
- 	if (!tmp)
+
+-- 
+Nicolas Ferre
