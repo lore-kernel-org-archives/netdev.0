@@ -1,192 +1,37 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 06/12] ip_tunnel: push generic protocol handling to ip_tunnel module.
-Date: Mon, 17 Jun 2013 17:50:02 -0700
-Message-ID: <1371516602-17856-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next v2 07/12] ip_tunnel: Add dont fragment flag.
+Date: Mon, 17 Jun 2013 17:50:07 -0700
+Message-ID: <1371516607-17895-1-git-send-email-pshelar@nicira.com>
 Cc: Pravin B Shelar <pshelar@nicira.com>
 To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog133.obsmtp.com ([74.125.149.82]:35445 "HELO
-	na3sys009aog133.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752034Ab3FRAuF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 20:50:05 -0400
-Received: by mail-pb0-f52.google.com with SMTP id xa12so3300163pbc.25
-        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 17:50:04 -0700 (PDT)
+Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:36478 "HELO
+	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752877Ab3FRAuM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 20:50:12 -0400
+Received: by mail-pd0-f182.google.com with SMTP id r10so3329375pdi.13
+        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 17:50:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Process skb tunnel header before sending packet to protocol handler.
-this allows code sharing between gre and ovs gre modules.
+This flag will be used by ovs tunneling.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- include/net/ip_tunnels.h  |    1 +
- net/ipv4/gre.c            |    3 ++-
- net/ipv4/ip_tunnel.c      |   30 ++++++------------------------
- net/ipv4/ip_tunnel_core.c |   34 ++++++++++++++++++++++++++++++++++
- net/ipv4/ipip.c           |    6 +++++-
- net/ipv6/sit.c            |    7 ++++++-
- 6 files changed, 54 insertions(+), 27 deletions(-)
+ include/net/ip_tunnels.h |    1 +
+ 1 files changed, 1 insertions(+), 0 deletions(-)
 
 diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 788fa5d..048a97f 100644
+index 048a97f..791a5b0 100644
 --- a/include/net/ip_tunnels.h
 +++ b/include/net/ip_tunnels.h
-@@ -155,6 +155,7 @@ static inline void tunnel_ip_select_ident(struct sk_buff *skb,
- 				  (skb_shinfo(skb)->gso_segs ?: 1) - 1);
- }
+@@ -73,6 +73,7 @@ struct ip_tunnel {
+ #define TUNNEL_REC	__cpu_to_be16(0x20)
+ #define TUNNEL_VERSION	__cpu_to_be16(0x40)
+ #define TUNNEL_NO_KEY	__cpu_to_be16(0x80)
++#define TUNNEL_DONT_FRAGMENT    __cpu_to_be16(0x0100)
  
-+int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto);
- int iptunnel_xmit(struct net *net, struct rtable *rt,
- 		  struct sk_buff *skb,
- 		  __be32 src, __be32 dst, __u8 proto,
-diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
-index 5ecc9c4..ba4803e 100644
---- a/net/ipv4/gre.c
-+++ b/net/ipv4/gre.c
-@@ -201,7 +201,8 @@ static int parse_gre_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 				return -EINVAL;
- 		}
- 	}
--	return 0;
-+
-+	return iptunnel_pull_header(skb, hdr_len, tpi->proto);
- }
- 
- static int gre_cisco_rcv(struct sk_buff *skb)
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index b7b8d15..c41faf8 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -408,13 +408,6 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
- 	const struct iphdr *iph = ip_hdr(skb);
- 	int err;
- 
--	secpath_reset(skb);
--
--	skb->protocol = tpi->proto;
--
--	skb->mac_header = skb->network_header;
--	__pskb_pull(skb, tunnel->hlen);
--	skb_postpull_rcsum(skb, skb_transport_header(skb), tunnel->hlen);
- #ifdef CONFIG_NET_IPGRE_BROADCAST
- 	if (ipv4_is_multicast(iph->daddr)) {
- 		/* Looped back packet, drop it! */
-@@ -442,23 +435,6 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
- 		tunnel->i_seqno = ntohl(tpi->seq) + 1;
- 	}
- 
--	/* Warning: All skb pointers will be invalidated! */
--	if (tunnel->dev->type == ARPHRD_ETHER) {
--		if (!pskb_may_pull(skb, ETH_HLEN)) {
--			tunnel->dev->stats.rx_length_errors++;
--			tunnel->dev->stats.rx_errors++;
--			goto drop;
--		}
--
--		iph = ip_hdr(skb);
--		skb->protocol = eth_type_trans(skb, tunnel->dev);
--		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
--	}
--
--	skb->pkt_type = PACKET_HOST;
--	__skb_tunnel_rx(skb, tunnel->dev);
--
--	skb_reset_network_header(skb);
- 	err = IP_ECN_decapsulate(iph, skb);
- 	if (unlikely(err)) {
- 		if (log_ecn_error)
-@@ -477,6 +453,12 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
- 	tstats->rx_bytes += skb->len;
- 	u64_stats_update_end(&tstats->syncp);
- 
-+	if (tunnel->dev->type == ARPHRD_ETHER) {
-+		skb->protocol = eth_type_trans(skb, tunnel->dev);
-+		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
-+	} else {
-+		skb->dev = tunnel->dev;
-+	}
- 	gro_cells_receive(&tunnel->gro_cells, skb);
- 	return 0;
- 
-diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
-index 927687e..7167b08 100644
---- a/net/ipv4/ip_tunnel_core.c
-+++ b/net/ipv4/ip_tunnel_core.c
-@@ -86,3 +86,37 @@ int iptunnel_xmit(struct net *net, struct rtable *rt,
- 	return pkt_len;
- }
- EXPORT_SYMBOL_GPL(iptunnel_xmit);
-+
-+int iptunnel_pull_header(struct sk_buff *skb, int hdr_len, __be16 inner_proto)
-+{
-+	if (unlikely(!pskb_may_pull(skb, hdr_len)))
-+		return -ENOMEM;
-+
-+	skb_pull_rcsum(skb, hdr_len);
-+
-+	if (inner_proto == htons(ETH_P_TEB)) {
-+		struct ethhdr *eh = (struct ethhdr *)skb->data;
-+
-+		if (unlikely(!pskb_may_pull(skb, ETH_HLEN)))
-+			return -ENOMEM;
-+
-+		if (likely(ntohs(eh->h_proto) >= ETH_P_802_3_MIN))
-+			skb->protocol = eh->h_proto;
-+		else
-+			skb->protocol = htons(ETH_P_802_2);
-+
-+	} else {
-+		skb->protocol = inner_proto;
-+	}
-+
-+	nf_reset(skb);
-+	secpath_reset(skb);
-+	if (!skb->l4_rxhash)
-+		skb->rxhash = 0;
-+	skb_dst_drop(skb);
-+	skb->vlan_tci = 0;
-+	skb_set_queue_mapping(skb, 0);
-+	skb->pkt_type = PACKET_HOST;
-+	return 0;
-+}
-+EXPORT_SYMBOL_GPL(iptunnel_pull_header);
-diff --git a/net/ipv4/ipip.c b/net/ipv4/ipip.c
-index 9df7ecd..e6905fb 100644
---- a/net/ipv4/ipip.c
-+++ b/net/ipv4/ipip.c
-@@ -188,8 +188,12 @@ static int ipip_rcv(struct sk_buff *skb)
- 	struct net *net = dev_net(skb->dev);
- 	struct ip_tunnel_net *itn = net_generic(net, ipip_net_id);
- 	struct ip_tunnel *tunnel;
--	const struct iphdr *iph = ip_hdr(skb);
-+	const struct iphdr *iph;
- 
-+	if (iptunnel_pull_header(skb, 0, tpi.proto))
-+		goto drop;
-+
-+	iph = ip_hdr(skb);
- 	tunnel = ip_tunnel_lookup(itn, skb->dev->ifindex, TUNNEL_NO_KEY,
- 			iph->saddr, iph->daddr, 0);
- 	if (tunnel) {
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index 76bb8de..6cee844 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -640,9 +640,14 @@ static const struct tnl_ptk_info tpi = {
- 
- static int ipip_rcv(struct sk_buff *skb)
- {
--	const struct iphdr *iph = ip_hdr(skb);
-+	const struct iphdr *iph;
- 	struct ip_tunnel *tunnel;
- 
-+	if (iptunnel_pull_header(skb, 0, tpi.proto))
-+		goto drop;
-+
-+	iph = ip_hdr(skb);
-+
- 	tunnel = ipip6_tunnel_lookup(dev_net(skb->dev), skb->dev,
- 				     iph->saddr, iph->daddr);
- 	if (tunnel != NULL) {
+ struct tnl_ptk_info {
+ 	__be16 flags;
 -- 
 1.7.1
