@@ -1,47 +1,65 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 0/5] Further SCTP changes
-Date: Tue, 18 Jun 2013 10:55:15 +0200
-Message-ID: <1371545720-22950-1-git-send-email-dborkman@redhat.com>
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43438 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754897Ab3FRIzX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jun 2013 04:55:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: [PATCH v2 net-next 0/1] net: lls select poll support
+Date: Tue, 18 Jun 2013 11:57:59 +0300
+Message-ID: <20130618085759.10941.15811.stgit@ladj378.jer.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Avner Ben Hanoch <avnerb@mellanox.com>,
+	Or Kehati <ork@mellanox.com>, sockperf-dev@googlegroups.com,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mostly it's all about getting rid of unnecessary code, and/or making
-it more clean and readable.
+David,
 
-Code has been tested with lksctp-tools functional test suite and
-also my small sctp stress test helper that was used to discover
-the recent null-ptr derefs. This test was also sucessfully run against
-auth_enabled=0 and auth_enabled=1, where I also previously applied
-the following two patches:
+Here is a rework of the select/poll patch.
+(I called this a v2 but we are continuing where we left off in v9
+of the original series.)
 
-  - http://marc.info/?l=linux-crypto-vger&m=137121898331017&w=2
-    -> not yet applied, still pending review for crypto tree
-  - 1abd165 (net: sctp: fix NULL pointer dereference in socket destruction)
-    -> cherry picked from net tree
+One question: do we need in sock_poll() to test that sock->sk is not null?
+(Thanks to Willem de Bruijn for pointing this out.) 
 
-Daniel Borkmann (5):
-  net: sctp: remove TEST_FRAME ifdef
-  ktime: add ms_to_ktime() and ktime_add_ms() helpers
-  net: sctp: migrate cookie life from timeval to ktime
-  net: sctp: decouple cleaning socket data from endpoint
-  net: sctp: minor: sctp_seq_dump_local_addrs add missing newline
+When select or poll are used on a lot of sockets the sysctl value
+needs to be set higher than 50. For 300 sockets a setting of 100 works
+for me. For 1000 sockets a setting of 200 works well but the gain is
+very small, probably not worth it.
 
- include/linux/ktime.h      | 13 +++++++++++++
- include/net/sctp/sctp.h    | 25 -------------------------
- include/net/sctp/structs.h |  6 +++---
- net/sctp/associola.c       |  8 +-------
- net/sctp/endpointola.c     |  7 -------
- net/sctp/proc.c            |  2 +-
- net/sctp/sm_make_chunk.c   | 19 ++++++++-----------
- net/sctp/socket.c          | 34 ++++++++++++++++++++++------------
- 8 files changed, 48 insertions(+), 66 deletions(-)
+I should mention that unlike the version we had in v9, with this version
+of the patch, LLS always performs better than no LLS. 
 
--- 
-1.7.11.7
+-Eliezer
+
+Change log:
+v2
+- added POLL_LL flag, used to signal between the syscalls and sock_poll().
+- add a separate ll_end_time() function to be used from poll.
+- slight reorder of sk_poll_ll so the timing primitives are not used
+  when called from sock_poll().
+- select/poll stop busy polling as soon as there is something to return
+  to the user.
+
+Change log from the original LLS patch series:
+v9
+- better mask testing in sock_poll(), reported by Eric Dumazet.
+
+v8
+- split out udp and select/poll into separate patches.
+  what used to be patch 2/5 is now three patches.
+
+v5
+- added simple poll/select support
