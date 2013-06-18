@@ -1,111 +1,67 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 4/5] net: sctp: decouple cleaning socket data
- from endpoint
-Date: Tue, 18 Jun 2013 13:45:03 -0400
-Message-ID: <20130618174503.GB27099@hmsreliant.think-freely.org>
-References: <1371545720-22950-1-git-send-email-dborkman@redhat.com>
- <1371545720-22950-5-git-send-email-dborkman@redhat.com>
- <20130618142240.GA27099@hmsreliant.think-freely.org>
- <51C08492.7040602@redhat.com>
- <51C089BF.2040603@gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute2 PATCH] tc: handle is not used without containing ':'
+Date: Tue, 18 Jun 2013 10:48:05 -0700
+Message-ID: <20130618104805.112f186e@nehalam.linuxnetplumber.net>
+References: <CAABrY5pGnVQPctPUSJAiM0tp3o2OTxjG5y8yt3bY59r=x2Gksg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Philipp =?ISO-8859-1?B?U2No9m5iZXJnZXI=?=
+	<ph.schoenberger@googlemail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:47580 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933252Ab3FRRpO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 13:45:14 -0400
-Content-Disposition: inline
-In-Reply-To: <51C089BF.2040603@gmail.com>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:38070 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932458Ab3FRRvM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 13:51:12 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fb1so4237004pad.9
+        for <netdev@vger.kernel.org>; Tue, 18 Jun 2013 10:51:11 -0700 (PDT)
+In-Reply-To: <CAABrY5pGnVQPctPUSJAiM0tp3o2OTxjG5y8yt3bY59r=x2Gksg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 18, 2013 at 12:24:31PM -0400, Vlad Yasevich wrote:
-> On 06/18/2013 12:02 PM, Daniel Borkmann wrote:
-> >On 06/18/2013 04:22 PM, Neil Horman wrote:
-> >>I like this idea, but I think I'm maybe missing something from it - we
-> >>reference
-> >>the socket in both the receive and send paths (sctp_unpack_cookie, is
-> >>specifically called from the rx path, which makes use of sp->hmac).  a
-> >>socket
-> >>destructor can be called from __sk_free when sk_wmem_alloc reaches
-> >>zero, but we
-> >>use sk_refcnt in the rx path to prevent premature socket cleanup.  If
-> >>we drain
-> >>our send queeue while wer'e still processing rx messages, what
-> >>prevents us from
-> >>freeing the socket in the tx path, via sk_free while we're still using
-> >>the
-> >>socket in the rx path.  Note I don't think this patch is wrong per-se,
-> >>but it
-> >>seems to me there is more work to do to properly interlock the use of
-> >>sk_refcnt
-> >>and sk_wmem_alloc here (unless I'm just missing something obvious,
-> >>which is
-> >>entirely possible, I've been in the sun alot lately :) ).
-> >
-> >Hm, __sk_free() calls sk_prot_free() which frees our socket structure
-> >and in
-> >sctp_wfree() we do a sctp_association_put(asoc) after sock_wfree(skb).
-> >
-> >So no matter if having this patch or not, couldn't this use-after-free like
-> >scenario already happen with the current code?
-> >
-> >F.e. through a given call graph like that:
-> >
-> >sctp_wfree(skb):
-> >  1) sock_wfree(skb)
-> >     -> __sk_free()
-> 
-> I don't think this can happen.  sk_wmem_alloc is set to 1 in sk_alloc()
-> and that acts as a guard to make sure that sk_free() has been called
-> before we try to free things up.  So, in this partcular case, for
-> __sk_free() to be called, sk_free() had to be called meaning the
-> last ref on the socket was released.  However, that's not possible since
-> we are still holding the association and thus holding the socket
-> associated with it.
-> 
-I see what your saying, and I agree, with that bias added in sk_alloc, it looks
-like we won't ever call __sk_free until sk_wmem_alloc is 1 _and_ sk_refcnt is 0.
-It still seems messy and confusing though.  It would make more sense to me to
-increment the refcount an additional time when the socket is initalized, and
-then decrement it again when the socket is closed and sk_wmem_alloc reaches
-zero.  That would isolate the refcounting to a single variable.
-Neil
+On Thu, 13 Jun 2013 19:20:52 +0200
+Philipp Sch=F6nberger  <ph.schoenberger@googlemail.com> wrote:
 
-> -vlad
-> 
-> >      -> sk_prot_free(.., sk)
-> >       -> kmem_cache_free(.., sk) or kfree(sk)
-> >  2) __sctp_write_space(asoc)
-> >  3) sctp_association_put(asoc)
-> >     -> sctp_association_destroy(asoc)
-> >      -> sctp_endpoint_put(asoc->ep)
-> >       -> sctp_endpoint_destroy(ep)
-> >        -> crypto_free_hash(sctp_sk(ep->base.sk)->hmac)
-> >           (etc, all unconditionally accessed while sk is
-> >            already dead/freed)
-> >
-> >Then, this might need a fix in general. :-)
-> >
-> >Assuming you would reduce the buffer space via setsockopt(.., SO_SNDBUF,
-> >..),
-> >you might end up with a minimum buffer space of SOCK_MIN_SNDBUF [*] and
-> >a call to
-> >sk->sk_write_space(sk), which is sctp_write_space() and calls
-> >__sctp_write_space()
-> >on all asocs belonging to the socket, but it seems not to alter the current
-> >sk->sk_wmem_alloc I think, but rather sk->sk_sndbuf.
-> >
-> >[*] Btw, shouldn't this rather be (2048 + sizeof(struct sk_buff)) or
-> >     SKB_TRUESIZE(2048), at least like in SOCK_MIN_RCVBUF since we operate
-> >     on skb->truesize as well?
-> >--
-> >To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+> Handle is not used if it is not containing a ':' . This is
+> reproducible with these commands.
+>=20
+> /sbin/tc qdisc add dev lo parent 0xffffffff handle 0x10000 pfifo limi=
+t 10
+>=20
+> /sbin/tc qdisc show dev lo
+> qdisc pfifo 8001: root refcnt 2 limit 10p
+>=20
+> Signed-off-by: Philipp Sch=F6nberger <ph.schoenberger@googlemail.com>
+> --- iproute2-2.6.33/tc/tc_util.c    2010-02-25 04:56:50.000000000 +01=
+00
+> +++ /home/pschoen/tc_util.c    2013-06-13 18:31:00.347135625 +0200
+> @@ -50,9 +50,14 @@
+>      maj =3D strtoul(str, &p, 16);
+>      if (p =3D=3D str)
+>          return -1;
+> -    maj <<=3D 16;
+> -    if (*p !=3D ':' && *p!=3D0)
+> -        return -1;
+> +    if (*p !=3D ':')
+> +    {
+> +        if(*p!=3D0)
+> +            return -1;
+> +        else if (TC_H_MIN(maj) !=3D 0)
+> +            return -1;
+> +    }else
+> +        maj <<=3D 16;
+>  ok:
+>      *h =3D maj;
+>      return 0;
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+The syntax for tc has always reqired : after the handle.
+ http://www.lartc.org/howto/lartc.qdisc.classful.html
+
+One could argue the error checking could be better, but not worth chang=
+ing
+the syntax now.
