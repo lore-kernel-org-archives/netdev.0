@@ -1,501 +1,202 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 08/12] openvswitch: Copy individual actions.
-Date: Mon, 17 Jun 2013 17:50:12 -0700
-Message-ID: <1371516612-17934-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next v2 11/12] openvswitch: Optimize flow key match for non tunnel flows.
+Date: Mon, 17 Jun 2013 17:50:28 -0700
+Message-ID: <1371516628-18051-1-git-send-email-pshelar@nicira.com>
 Cc: Pravin B Shelar <pshelar@nicira.com>
 To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog120.obsmtp.com ([74.125.149.140]:42605 "HELO
-	na3sys009aog120.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753294Ab3FRAu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 20:50:29 -0400
-Received: by mail-pa0-f44.google.com with SMTP id lj1so3410723pab.17
-        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 17:50:15 -0700 (PDT)
+Received: from na3sys009aog134.obsmtp.com ([74.125.149.83]:33929 "HELO
+	na3sys009aog134.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1753087Ab3FRAuc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 20:50:32 -0400
+Received: by mail-pb0-f47.google.com with SMTP id rr13so3325223pbb.20
+        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 17:50:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Rather than validating actions and then copying all actiaons
-in one block, following patch does same operation in single pass.
-This validate and copy action one by one. This is required for
-ovs tunneling patch.
-
-This patch does not change any functionality.
+Following patch adds start offset for sw_flow-key, so that we can
+skip tunneling information in key for non-tunnel flows.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- net/openvswitch/datapath.c |  271 +++++++++++++++++++++++++++++++++++--------
- net/openvswitch/flow.c     |   10 +-
- net/openvswitch/flow.h     |    2 +-
- 3 files changed, 225 insertions(+), 58 deletions(-)
+ net/openvswitch/datapath.c |    7 +----
+ net/openvswitch/flow.c     |   49 +++++++++++++++++++++++++++++++++----------
+ net/openvswitch/flow.h     |    6 ++--
+ 3 files changed, 42 insertions(+), 20 deletions(-)
 
 diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 0f783d9..f14816b 100644
+index bbd3106..f7e3a0d 100644
 --- a/net/openvswitch/datapath.c
 +++ b/net/openvswitch/datapath.c
-@@ -464,16 +464,89 @@ static int flush_flows(struct datapath *dp)
- 	return 0;
- }
- 
--static int validate_actions(const struct nlattr *attr,
--				const struct sw_flow_key *key, int depth);
-+static struct nlattr *reserve_sfa_size(struct sw_flow_actions **sfa, int attr_len)
-+{
-+
-+	struct sw_flow_actions *acts;
-+	int new_acts_size;
-+	int req_size = NLA_ALIGN(attr_len);
-+	int next_offset = offsetof(struct sw_flow_actions, actions) +
-+					(*sfa)->actions_len;
-+
-+	if (req_size <= (ksize(*sfa) - next_offset))
-+		goto out;
-+
-+	new_acts_size = ksize(*sfa) * 2;
-+
-+	if (new_acts_size > MAX_ACTIONS_BUFSIZE) {
-+		if ((MAX_ACTIONS_BUFSIZE - next_offset) < req_size)
-+			return ERR_PTR(-EMSGSIZE);
-+		new_acts_size = MAX_ACTIONS_BUFSIZE;
-+	}
-+
-+	acts = ovs_flow_actions_alloc(new_acts_size);
-+	if (IS_ERR(acts))
-+		return (void *)acts;
-+
-+	memcpy(acts->actions, (*sfa)->actions, (*sfa)->actions_len);
-+	acts->actions_len = (*sfa)->actions_len;
-+	kfree(*sfa);
-+	*sfa = acts;
-+
-+out:
-+	(*sfa)->actions_len += req_size;
-+	return  (struct nlattr *) ((unsigned char *)(*sfa) + next_offset);
-+}
-+
-+static int add_action(struct sw_flow_actions **sfa, int attrtype, void *data, int len)
-+{
-+	struct nlattr *a;
-+
-+	a = reserve_sfa_size(sfa, nla_attr_size(len));
-+	if (IS_ERR(a))
-+		return PTR_ERR(a);
-+
-+	a->nla_type = attrtype;
-+	a->nla_len = nla_attr_size(len);
-+
-+	if (data)
-+		memcpy(nla_data(a), data, len);
-+	memset((unsigned char *) a + a->nla_len, 0, nla_padlen(len));
-+
-+	return 0;
-+}
-+
-+static inline int add_nested_action_start(struct sw_flow_actions **sfa, int attrtype)
-+{
-+	int used = (*sfa)->actions_len;
-+	int err;
-+
-+	err = add_action(sfa, attrtype, NULL, 0);
-+	if (err)
-+		return err;
-+
-+	return used;
-+}
- 
--static int validate_sample(const struct nlattr *attr,
--				const struct sw_flow_key *key, int depth)
-+static inline void add_nested_action_end(struct sw_flow_actions *sfa, int st_offset)
-+{
-+	struct nlattr *a = (struct nlattr *) ((unsigned char *)sfa->actions + st_offset);
-+
-+	a->nla_len = sfa->actions_len - st_offset;
-+}
-+
-+static int validate_and_copy_actions(const struct nlattr *attr,
-+				     const struct sw_flow_key *key, int depth,
-+				     struct sw_flow_actions **sfa);
-+
-+static int validate_and_copy_sample(const struct nlattr *attr,
-+				    const struct sw_flow_key *key, int depth,
-+				    struct sw_flow_actions **sfa)
- {
- 	const struct nlattr *attrs[OVS_SAMPLE_ATTR_MAX + 1];
- 	const struct nlattr *probability, *actions;
- 	const struct nlattr *a;
--	int rem;
-+	int rem, start, err, st_acts;
- 
- 	memset(attrs, 0, sizeof(attrs));
- 	nla_for_each_nested(a, attr, rem) {
-@@ -492,7 +565,26 @@ static int validate_sample(const struct nlattr *attr,
- 	actions = attrs[OVS_SAMPLE_ATTR_ACTIONS];
- 	if (!actions || (nla_len(actions) && nla_len(actions) < NLA_HDRLEN))
- 		return -EINVAL;
--	return validate_actions(actions, key, depth + 1);
-+
-+	/* validation done, copy sample action. */
-+	start = add_nested_action_start(sfa, OVS_ACTION_ATTR_SAMPLE);
-+	if (start < 0)
-+		return start;
-+	err = add_action(sfa, OVS_SAMPLE_ATTR_PROBABILITY, nla_data(probability), sizeof(u32));
-+	if (err)
-+		return err;
-+	st_acts = add_nested_action_start(sfa, OVS_SAMPLE_ATTR_ACTIONS);
-+	if (st_acts < 0)
-+		return st_acts;
-+
-+	err = validate_and_copy_actions(actions, key, depth + 1, sfa);
-+	if (err)
-+		return err;
-+
-+	add_nested_action_end(*sfa, st_acts);
-+	add_nested_action_end(*sfa, start);
-+
-+	return 0;
- }
- 
- static int validate_tp_port(const struct sw_flow_key *flow_key)
-@@ -606,8 +698,24 @@ static int validate_userspace(const struct nlattr *attr)
- 	return 0;
- }
- 
--static int validate_actions(const struct nlattr *attr,
--				const struct sw_flow_key *key,  int depth)
-+static int copy_action(const struct nlattr *from,
-+		       struct sw_flow_actions **sfa)
-+{
-+	int totlen = NLA_ALIGN(from->nla_len);
-+	struct nlattr *to;
-+
-+	to = reserve_sfa_size(sfa, from->nla_len);
-+	if (IS_ERR(to))
-+		return PTR_ERR(to);
-+
-+	memcpy(to, from, totlen);
-+	return 0;
-+}
-+
-+static int validate_and_copy_actions(const struct nlattr *attr,
-+				     const struct sw_flow_key *key,
-+				     int depth,
-+				     struct sw_flow_actions **sfa)
- {
- 	const struct nlattr *a;
- 	int rem, err;
-@@ -627,12 +735,14 @@ static int validate_actions(const struct nlattr *attr,
- 		};
- 		const struct ovs_action_push_vlan *vlan;
- 		int type = nla_type(a);
-+		bool skip_copy;
- 
- 		if (type > OVS_ACTION_ATTR_MAX ||
- 		    (action_lens[type] != nla_len(a) &&
- 		     action_lens[type] != (u32)-1))
- 			return -EINVAL;
- 
-+		skip_copy = false;
- 		switch (type) {
- 		case OVS_ACTION_ATTR_UNSPEC:
- 			return -EINVAL;
-@@ -667,14 +777,20 @@ static int validate_actions(const struct nlattr *attr,
- 			break;
- 
- 		case OVS_ACTION_ATTR_SAMPLE:
--			err = validate_sample(a, key, depth);
-+			err = validate_and_copy_sample(a, key, depth, sfa);
- 			if (err)
- 				return err;
-+			skip_copy = true;
- 			break;
- 
- 		default:
- 			return -EINVAL;
- 		}
-+		if (!skip_copy) {
-+			err = copy_action(a, sfa);
-+			if (err)
-+				return err;
-+		}
- 	}
- 
- 	if (rem > 0)
-@@ -742,18 +858,16 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
- 	err = ovs_flow_metadata_from_nlattrs(flow, a[OVS_PACKET_ATTR_KEY]);
+@@ -894,10 +894,9 @@ static int ovs_packet_cmd_execute(struct sk_buff *skb, struct genl_info *info)
  	if (err)
  		goto err_flow_free;
--
--	err = validate_actions(a[OVS_PACKET_ATTR_ACTIONS], &flow->key, 0);
--	if (err)
--		goto err_flow_free;
--
- 	flow->hash = ovs_flow_hash(&flow->key, key_len);
--
--	acts = ovs_flow_actions_alloc(a[OVS_PACKET_ATTR_ACTIONS]);
-+	acts = ovs_flow_actions_alloc(nla_len(a[OVS_PACKET_ATTR_ACTIONS]));
+ 
+-	err = ovs_flow_metadata_from_nlattrs(flow, a[OVS_PACKET_ATTR_KEY]);
++	err = ovs_flow_metadata_from_nlattrs(flow, key_len, a[OVS_PACKET_ATTR_KEY]);
+ 	if (err)
+ 		goto err_flow_free;
+-	flow->hash = ovs_flow_hash(&flow->key, key_len);
+ 	acts = ovs_flow_actions_alloc(nla_len(a[OVS_PACKET_ATTR_ACTIONS]));
  	err = PTR_ERR(acts);
  	if (IS_ERR(acts))
- 		goto err_flow_free;
-+
-+	err = validate_and_copy_actions(a[OVS_PACKET_ATTR_ACTIONS], &flow->key, 0, &acts);
- 	rcu_assign_pointer(flow->sf_acts, acts);
-+	if (err)
-+		goto err_flow_free;
- 
- 	OVS_CB(packet)->flow = flow;
- 	packet->priority = flow->key.phy.priority;
-@@ -843,6 +957,66 @@ static struct genl_multicast_group ovs_dp_flow_multicast_group = {
- 	.name = OVS_FLOW_MCGROUP
- };
- 
-+static int actions_to_attr(const struct nlattr *attr, int len, struct sk_buff *skb);
-+static int sample_action_to_attr(const struct nlattr *attr, struct sk_buff *skb)
-+{
-+	const struct nlattr *a;
-+	struct nlattr *start;
-+	int err = 0, rem;
-+
-+	start = nla_nest_start(skb, OVS_ACTION_ATTR_SAMPLE);
-+	if (!start)
-+		return -EMSGSIZE;
-+
-+	nla_for_each_nested(a, attr, rem) {
-+		int type = nla_type(a);
-+		struct nlattr *st_sample;
-+
-+		switch (type) {
-+		case OVS_SAMPLE_ATTR_PROBABILITY:
-+			if (nla_put(skb, OVS_SAMPLE_ATTR_PROBABILITY, sizeof(u32), nla_data(a)))
-+				return -EMSGSIZE;
-+			break;
-+		case OVS_SAMPLE_ATTR_ACTIONS:
-+			st_sample = nla_nest_start(skb, OVS_SAMPLE_ATTR_ACTIONS);
-+			if (!st_sample)
-+				return -EMSGSIZE;
-+			err = actions_to_attr(nla_data(a), nla_len(a), skb);
-+			if (err)
-+				return err;
-+			nla_nest_end(skb, st_sample);
-+			break;
-+		}
-+	}
-+
-+	nla_nest_end(skb, start);
-+	return err;
-+}
-+
-+static int actions_to_attr(const struct nlattr *attr, int len, struct sk_buff *skb)
-+{
-+	const struct nlattr *a;
-+	int rem, err;
-+
-+	nla_for_each_attr(a, attr, len, rem) {
-+		int type = nla_type(a);
-+
-+		switch (type) {
-+		case OVS_ACTION_ATTR_SAMPLE:
-+			err = sample_action_to_attr(a, skb);
-+			if (err)
-+				return err;
-+			break;
-+		default:
-+			if (nla_put(skb, type, nla_len(a), nla_data(a)))
-+				return -EMSGSIZE;
-+			break;
-+		}
-+	}
-+
-+	return 0;
-+}
-+
- static size_t ovs_flow_cmd_msg_size(const struct sw_flow_actions *acts)
- {
- 	return NLMSG_ALIGN(sizeof(struct ovs_header))
-@@ -860,6 +1034,7 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
- {
- 	const int skb_orig_len = skb->len;
- 	const struct sw_flow_actions *sf_acts;
-+	struct nlattr *start;
- 	struct ovs_flow_stats stats;
- 	struct ovs_header *ovs_header;
- 	struct nlattr *nla;
-@@ -913,10 +1088,19 @@ static int ovs_flow_cmd_fill_info(struct sw_flow *flow, struct datapath *dp,
- 	 * This can only fail for dump operations because the skb is always
- 	 * properly sized for single flows.
- 	 */
--	err = nla_put(skb, OVS_FLOW_ATTR_ACTIONS, sf_acts->actions_len,
--		      sf_acts->actions);
--	if (err < 0 && skb_orig_len)
--		goto error;
-+	start = nla_nest_start(skb, OVS_FLOW_ATTR_ACTIONS);
-+	if (start) {
-+		err = actions_to_attr(sf_acts->actions, sf_acts->actions_len, skb);
-+		if (!err)
-+			nla_nest_end(skb, start);
-+		else {
-+			if (skb_orig_len)
-+				goto error;
-+
-+			nla_nest_cancel(skb, start);
-+		}
-+	} else if (skb_orig_len)
-+		goto nla_put_failure;
- 
- 	return genlmsg_end(skb, ovs_header);
- 
-@@ -961,6 +1145,7 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 	struct sk_buff *reply;
- 	struct datapath *dp;
- 	struct flow_table *table;
-+	struct sw_flow_actions *acts = NULL;
- 	int error;
- 	int key_len;
- 
-@@ -974,9 +1159,14 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 
- 	/* Validate actions. */
- 	if (a[OVS_FLOW_ATTR_ACTIONS]) {
--		error = validate_actions(a[OVS_FLOW_ATTR_ACTIONS], &key,  0);
--		if (error)
-+		acts = ovs_flow_actions_alloc(nla_len(a[OVS_FLOW_ATTR_ACTIONS]));
-+		error = PTR_ERR(acts);
-+		if (IS_ERR(acts))
- 			goto error;
-+
-+		error = validate_and_copy_actions(a[OVS_FLOW_ATTR_ACTIONS], &key,  0, &acts);
-+		if (error)
-+			goto err_kfree;
- 	} else if (info->genlhdr->cmd == OVS_FLOW_CMD_NEW) {
- 		error = -EINVAL;
- 		goto error;
-@@ -991,8 +1181,6 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 	table = ovsl_dereference(dp->table);
- 	flow = ovs_flow_tbl_lookup(table, &key, key_len);
- 	if (!flow) {
--		struct sw_flow_actions *acts;
--
- 		/* Bail out if we're not allowed to create a new flow. */
- 		error = -ENOENT;
- 		if (info->genlhdr->cmd == OVS_FLOW_CMD_SET)
-@@ -1019,11 +1207,6 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 		flow->key = key;
+@@ -1276,14 +1275,12 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
+ 			error = PTR_ERR(flow);
+ 			goto err_unlock_ovs;
+ 		}
+-		flow->key = key;
  		clear_stats(flow);
  
--		/* Obtain actions. */
--		acts = ovs_flow_actions_alloc(a[OVS_FLOW_ATTR_ACTIONS]);
--		error = PTR_ERR(acts);
--		if (IS_ERR(acts))
--			goto error_free_flow;
  		rcu_assign_pointer(flow->sf_acts, acts);
  
  		/* Put flow in bucket. */
-@@ -1036,7 +1219,6 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 	} else {
- 		/* We found a matching flow. */
- 		struct sw_flow_actions *old_acts;
--		struct nlattr *acts_attrs;
- 
- 		/* Bail out if we're not allowed to modify an existing flow.
- 		 * We accept NLM_F_CREATE in place of the intended NLM_F_EXCL
-@@ -1051,21 +1233,8 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 
- 		/* Update actions. */
- 		old_acts = ovsl_dereference(flow->sf_acts);
--		acts_attrs = a[OVS_FLOW_ATTR_ACTIONS];
--		if (acts_attrs &&
--		   (old_acts->actions_len != nla_len(acts_attrs) ||
--		   memcmp(old_acts->actions, nla_data(acts_attrs),
--			  old_acts->actions_len))) {
--			struct sw_flow_actions *new_acts;
--
--			new_acts = ovs_flow_actions_alloc(acts_attrs);
--			error = PTR_ERR(new_acts);
--			if (IS_ERR(new_acts))
--				goto err_unlock_ovs;
--
--			rcu_assign_pointer(flow->sf_acts, new_acts);
--			ovs_flow_deferred_free_acts(old_acts);
--		}
-+		rcu_assign_pointer(flow->sf_acts, acts);
-+		ovs_flow_deferred_free_acts(old_acts);
+-		flow->hash = ovs_flow_hash(&key, key_len);
+-		ovs_flow_tbl_insert(table, flow);
++		ovs_flow_tbl_insert(table, flow, &key, key_len);
  
  		reply = ovs_flow_cmd_build_info(flow, dp, info->snd_portid,
- 					       info->snd_seq, OVS_FLOW_CMD_NEW);
-@@ -1086,10 +1255,10 @@ static int ovs_flow_cmd_new_or_set(struct sk_buff *skb, struct genl_info *info)
- 				ovs_dp_flow_multicast_group.id, PTR_ERR(reply));
- 	return 0;
- 
--error_free_flow:
--	ovs_flow_free(flow);
- err_unlock_ovs:
- 	ovs_unlock();
-+err_kfree:
-+	kfree(acts);
- error:
- 	return error;
- }
-@@ -1866,8 +2035,8 @@ static int ovs_vport_cmd_del(struct sk_buff *skb, struct genl_info *info)
- 		goto exit_unlock;
- 	}
- 
--	reply = ovs_vport_cmd_build_info(vport, info->snd_portid, info->snd_seq,
--					 OVS_VPORT_CMD_DEL);
-+	reply = ovs_vport_cmd_build_info(vport, info->snd_portid,
-+					 info->snd_seq, OVS_VPORT_CMD_DEL);
- 	err = PTR_ERR(reply);
- 	if (IS_ERR(reply))
- 		goto exit_unlock;
-@@ -1896,8 +2065,8 @@ static int ovs_vport_cmd_get(struct sk_buff *skb, struct genl_info *info)
- 	if (IS_ERR(vport))
- 		goto exit_unlock;
- 
--	reply = ovs_vport_cmd_build_info(vport, info->snd_portid, info->snd_seq,
--					 OVS_VPORT_CMD_NEW);
-+	reply = ovs_vport_cmd_build_info(vport, info->snd_portid,
-+					 info->snd_seq, OVS_VPORT_CMD_NEW);
- 	err = PTR_ERR(reply);
- 	if (IS_ERR(reply))
- 		goto exit_unlock;
+ 						info->snd_seq,
 diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-index 093c191..940d4b8 100644
+index 976a8b7..5c519b1 100644
 --- a/net/openvswitch/flow.c
 +++ b/net/openvswitch/flow.c
-@@ -198,20 +198,18 @@ void ovs_flow_used(struct sw_flow *flow, struct sk_buff *skb)
- 	spin_unlock(&flow->lock);
+@@ -353,6 +353,14 @@ struct sw_flow *ovs_flow_tbl_next(struct flow_table *table, u32 *bucket, u32 *la
+ 	return NULL;
  }
  
--struct sw_flow_actions *ovs_flow_actions_alloc(const struct nlattr *actions)
-+struct sw_flow_actions *ovs_flow_actions_alloc(int size)
++static void __flow_tbl_insert(struct flow_table *table, struct sw_flow *flow)
++{
++	struct hlist_head *head;
++	head = find_bucket(table, flow->hash);
++	hlist_add_head_rcu(&flow->hash_node[table->node_ver], head);
++	table->count++;
++}
++
+ static void flow_table_copy_flows(struct flow_table *old, struct flow_table *new)
  {
--	int actions_len = nla_len(actions);
- 	struct sw_flow_actions *sfa;
+ 	int old_ver;
+@@ -369,7 +377,7 @@ static void flow_table_copy_flows(struct flow_table *old, struct flow_table *new
+ 		head = flex_array_get(old->buckets, i);
  
--	if (actions_len > MAX_ACTIONS_BUFSIZE)
-+	if (size > MAX_ACTIONS_BUFSIZE)
- 		return ERR_PTR(-EINVAL);
+ 		hlist_for_each_entry(flow, head, hash_node[old_ver])
+-			ovs_flow_tbl_insert(new, flow);
++			__flow_tbl_insert(new, flow);
+ 	}
+ 	old->keep_flows = true;
+ }
+@@ -763,9 +771,18 @@ out:
+ 	return error;
+ }
  
--	sfa = kmalloc(sizeof(*sfa) + actions_len, GFP_KERNEL);
-+	sfa = kmalloc(sizeof(*sfa) + size, GFP_KERNEL);
- 	if (!sfa)
- 		return ERR_PTR(-ENOMEM);
+-u32 ovs_flow_hash(const struct sw_flow_key *key, int key_len)
++static u32 ovs_flow_hash(const struct sw_flow_key *key, int key_start, int key_len)
++{
++	return jhash2((u32 *)((u8 *)key + key_start),
++		      DIV_ROUND_UP(key_len - key_start, sizeof(u32)), 0);
++}
++
++static int flow_key_start(struct sw_flow_key *key)
+ {
+-	return jhash2((u32 *)key, DIV_ROUND_UP(key_len, sizeof(u32)), 0);
++	if (key->tun_key.ipv4_dst)
++		return 0;
++	else
++		return offsetof(struct sw_flow_key, phy);
+ }
  
--	sfa->actions_len = actions_len;
--	nla_memcpy(sfa->actions, actions, actions_len);
-+	sfa->actions_len = 0;
- 	return sfa;
+ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
+@@ -773,28 +790,31 @@ struct sw_flow *ovs_flow_tbl_lookup(struct flow_table *table,
+ {
+ 	struct sw_flow *flow;
+ 	struct hlist_head *head;
++	u8 *_key;
++	int key_start;
+ 	u32 hash;
+ 
+-	hash = ovs_flow_hash(key, key_len);
++	key_start = flow_key_start(key);
++	hash = ovs_flow_hash(key, key_start, key_len);
+ 
++	_key = (u8 *) key + key_start;
+ 	head = find_bucket(table, hash);
+ 	hlist_for_each_entry_rcu(flow, head, hash_node[table->node_ver]) {
+ 
+ 		if (flow->hash == hash &&
+-		    !memcmp(&flow->key, key, key_len)) {
++		    !memcmp((u8 *)&flow->key + key_start, _key, key_len - key_start)) {
+ 			return flow;
+ 		}
+ 	}
+ 	return NULL;
+ }
+ 
+-void ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow)
++void ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow,
++			 struct sw_flow_key *key, int key_len)
+ {
+-	struct hlist_head *head;
+-
+-	head = find_bucket(table, flow->hash);
+-	hlist_add_head_rcu(&flow->hash_node[table->node_ver], head);
+-	table->count++;
++	flow->hash = ovs_flow_hash(key, flow_key_start(key), key_len);
++	memcpy(&flow->key, key, sizeof(flow->key));
++	__flow_tbl_insert(table, flow);
+ }
+ 
+ void ovs_flow_tbl_remove(struct flow_table *table, struct sw_flow *flow)
+@@ -1235,6 +1255,7 @@ int ovs_flow_from_nlattrs(struct sw_flow_key *swkey, int *key_lenp,
+ /**
+  * ovs_flow_metadata_from_nlattrs - parses Netlink attributes into a flow key.
+  * @flow: Receives extracted in_port, priority, tun_key and skb_mark.
++ * @key_len: Length of key in @flow.  Used for calculating flow hash.
+  * @attr: Netlink attribute holding nested %OVS_KEY_ATTR_* Netlink attribute
+  * sequence.
+  *
+@@ -1243,7 +1264,7 @@ int ovs_flow_from_nlattrs(struct sw_flow_key *swkey, int *key_lenp,
+  * get the metadata, that is, the parts of the flow key that cannot be
+  * extracted from the packet itself.
+  */
+-int ovs_flow_metadata_from_nlattrs(struct sw_flow *flow,
++int ovs_flow_metadata_from_nlattrs(struct sw_flow *flow, int key_len,
+ 				   const struct nlattr *attr)
+ {
+ 	struct ovs_key_ipv4_tunnel *tun_key = &flow->key.tun_key;
+@@ -1289,6 +1310,10 @@ int ovs_flow_metadata_from_nlattrs(struct sw_flow *flow,
+ 	}
+ 	if (rem)
+ 		return -EINVAL;
++
++	flow->hash = ovs_flow_hash(&flow->key,
++				   flow_key_start(&flow->key), key_len);
++
+ 	return 0;
  }
  
 diff --git a/net/openvswitch/flow.h b/net/openvswitch/flow.h
-index 2a83e21..e370f62 100644
+index bfe80b9..999842f 100644
 --- a/net/openvswitch/flow.h
 +++ b/net/openvswitch/flow.h
-@@ -130,7 +130,7 @@ struct sw_flow *ovs_flow_alloc(void);
- void ovs_flow_deferred_free(struct sw_flow *);
- void ovs_flow_free(struct sw_flow *flow);
+@@ -156,7 +156,7 @@ u64 ovs_flow_used_time(unsigned long flow_jiffies);
+ int ovs_flow_to_nlattrs(const struct sw_flow_key *, struct sk_buff *);
+ int ovs_flow_from_nlattrs(struct sw_flow_key *swkey, int *key_lenp,
+ 		      const struct nlattr *);
+-int ovs_flow_metadata_from_nlattrs(struct sw_flow *flow,
++int ovs_flow_metadata_from_nlattrs(struct sw_flow *flow, int key_len,
+ 				  const struct nlattr *attr);
  
--struct sw_flow_actions *ovs_flow_actions_alloc(const struct nlattr *);
-+struct sw_flow_actions *ovs_flow_actions_alloc(int actions_len);
- void ovs_flow_deferred_free_acts(struct sw_flow_actions *);
+ #define MAX_ACTIONS_BUFSIZE    (32 * 1024)
+@@ -188,9 +188,9 @@ void ovs_flow_tbl_deferred_destroy(struct flow_table *table);
+ struct flow_table *ovs_flow_tbl_alloc(int new_size);
+ struct flow_table *ovs_flow_tbl_expand(struct flow_table *table);
+ struct flow_table *ovs_flow_tbl_rehash(struct flow_table *table);
+-void ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow);
++void ovs_flow_tbl_insert(struct flow_table *table, struct sw_flow *flow,
++			 struct sw_flow_key *key, int key_len);
+ void ovs_flow_tbl_remove(struct flow_table *table, struct sw_flow *flow);
+-u32 ovs_flow_hash(const struct sw_flow_key *key, int key_len);
  
- int ovs_flow_extract(struct sk_buff *, u16 in_port, struct sw_flow_key *,
+ struct sw_flow *ovs_flow_tbl_next(struct flow_table *table, u32 *bucket, u32 *idx);
+ extern const int ovs_key_lens[OVS_KEY_ATTR_MAX + 1];
 -- 
 1.7.1
