@@ -1,118 +1,57 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 4/5] net: sctp: decouple cleaning socket data
- from endpoint
-Date: Tue, 18 Jun 2013 14:15:21 -0400
-Message-ID: <51C0A3B9.80905@gmail.com>
-References: <1371545720-22950-1-git-send-email-dborkman@redhat.com> <1371545720-22950-5-git-send-email-dborkman@redhat.com> <20130618142240.GA27099@hmsreliant.think-freely.org> <51C08492.7040602@redhat.com> <51C089BF.2040603@gmail.com> <20130618174503.GB27099@hmsreliant.think-freely.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] rtlwifi: rtl8192cu: Fix duplicate if test
+Date: Tue, 18 Jun 2013 13:18:17 -0500
+Message-ID: <1371579497-5575-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: linux-wireless@vger.kernel.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	netdev@vger.kernel.org, stable <stable@kernel.org>
+To: linville@tuxdriver.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f171.google.com ([209.85.128.171]:47271 "EHLO
-	mail-ve0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933130Ab3FRSPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 14:15:25 -0400
-In-Reply-To: <20130618174503.GB27099@hmsreliant.think-freely.org>
+Received: from mail-oa0-f46.google.com ([209.85.219.46]:49043 "EHLO
+	mail-oa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933144Ab3FRSSl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 14:18:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/18/2013 01:45 PM, Neil Horman wrote:
-> On Tue, Jun 18, 2013 at 12:24:31PM -0400, Vlad Yasevich wrote:
->> On 06/18/2013 12:02 PM, Daniel Borkmann wrote:
->>> On 06/18/2013 04:22 PM, Neil Horman wrote:
->>>> I like this idea, but I think I'm maybe missing something from it - we
->>>> reference
->>>> the socket in both the receive and send paths (sctp_unpack_cookie, is
->>>> specifically called from the rx path, which makes use of sp->hmac).  a
->>>> socket
->>>> destructor can be called from __sk_free when sk_wmem_alloc reaches
->>>> zero, but we
->>>> use sk_refcnt in the rx path to prevent premature socket cleanup.  If
->>>> we drain
->>>> our send queeue while wer'e still processing rx messages, what
->>>> prevents us from
->>>> freeing the socket in the tx path, via sk_free while we're still using
->>>> the
->>>> socket in the rx path.  Note I don't think this patch is wrong per-se,
->>>> but it
->>>> seems to me there is more work to do to properly interlock the use of
->>>> sk_refcnt
->>>> and sk_wmem_alloc here (unless I'm just missing something obvious,
->>>> which is
->>>> entirely possible, I've been in the sun alot lately :) ).
->>>
->>> Hm, __sk_free() calls sk_prot_free() which frees our socket structure
->>> and in
->>> sctp_wfree() we do a sctp_association_put(asoc) after sock_wfree(skb).
->>>
->>> So no matter if having this patch or not, couldn't this use-after-free like
->>> scenario already happen with the current code?
->>>
->>> F.e. through a given call graph like that:
->>>
->>> sctp_wfree(skb):
->>>   1) sock_wfree(skb)
->>>      -> __sk_free()
->>
->> I don't think this can happen.  sk_wmem_alloc is set to 1 in sk_alloc()
->> and that acts as a guard to make sure that sk_free() has been called
->> before we try to free things up.  So, in this partcular case, for
->> __sk_free() to be called, sk_free() had to be called meaning the
->> last ref on the socket was released.  However, that's not possible since
->> we are still holding the association and thus holding the socket
->> associated with it.
->>
-> I see what your saying, and I agree, with that bias added in sk_alloc, it looks
-> like we won't ever call __sk_free until sk_wmem_alloc is 1 _and_ sk_refcnt is 0.
-> It still seems messy and confusing though.  It would make more sense to me to
-> increment the refcount an additional time when the socket is initalized, and
-> then decrement it again when the socket is closed and sk_wmem_alloc reaches
-> zero.  That would isolate the refcounting to a single variable.
+A typo causes routine rtl92cu_phy_rf6052_set_cck_txpower() to test the
+same condition twice. The problem was found using cppcheck-1.49, and the
+proper fix was verified against the pre-mac80211 version of the code.
 
-See commit 2b85a34e911bf483c27cfdd124aeb1605145dc80.  The whole 
-sk_wmem_alloc tric was done so that we dont have to do 
-sock_hold/sock_put on transmits.
+This patch was originally included as commit 1288aa4, but was accidentally
+reverted in a later patch.
 
-It might be good to see if we can do that in sctp as well.
+Reported-by: David Binderman <dcb314@hotmail.com> [original report]
+Reported-by: Andrea Morello <andrea.merello@gmail.com> [report of accidental reversion]
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: stable <stable@kernel.org>  [back to 2.6.39]
+---
 
--vlad
+John,
 
+Although this patch is trivial and could be included in the 3.10 stream,
+I think we should not burden DaveM nor Linus with it this late in the 3.10
+cycle. Please push it into the 3.11 stream.
 
-> Neil
->
->> -vlad
->>
->>>       -> sk_prot_free(.., sk)
->>>        -> kmem_cache_free(.., sk) or kfree(sk)
->>>   2) __sctp_write_space(asoc)
->>>   3) sctp_association_put(asoc)
->>>      -> sctp_association_destroy(asoc)
->>>       -> sctp_endpoint_put(asoc->ep)
->>>        -> sctp_endpoint_destroy(ep)
->>>         -> crypto_free_hash(sctp_sk(ep->base.sk)->hmac)
->>>            (etc, all unconditionally accessed while sk is
->>>             already dead/freed)
->>>
->>> Then, this might need a fix in general. :-)
->>>
->>> Assuming you would reduce the buffer space via setsockopt(.., SO_SNDBUF,
->>> ..),
->>> you might end up with a minimum buffer space of SOCK_MIN_SNDBUF [*] and
->>> a call to
->>> sk->sk_write_space(sk), which is sctp_write_space() and calls
->>> __sctp_write_space()
->>> on all asocs belonging to the socket, but it seems not to alter the current
->>> sk->sk_wmem_alloc I think, but rather sk->sk_sndbuf.
->>>
->>> [*] Btw, shouldn't this rather be (2048 + sizeof(struct sk_buff)) or
->>>      SKB_TRUESIZE(2048), at least like in SOCK_MIN_RCVBUF since we operate
->>>      on skb->truesize as well?
->>> --
->>> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
->>> the body of a message to majordomo@vger.kernel.org
->>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->>
+Thanks,
+
+Larry
+---
+ drivers/net/wireless/rtlwifi/rtl8192cu/rf.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c b/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c
+index 953f1a0..2119313 100644
+--- a/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c
++++ b/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c
+@@ -104,7 +104,7 @@ void rtl92cu_phy_rf6052_set_cck_txpower(struct ieee80211_hw *hw,
+ 			tx_agc[RF90_PATH_A] = 0x10101010;
+ 			tx_agc[RF90_PATH_B] = 0x10101010;
+ 		} else if (rtlpriv->dm.dynamic_txhighpower_lvl ==
+-			   TXHIGHPWRLEVEL_LEVEL1) {
++			   TXHIGHPWRLEVEL_LEVEL2) {
+ 			tx_agc[RF90_PATH_A] = 0x00000000;
+ 			tx_agc[RF90_PATH_B] = 0x00000000;
+ 		} else{
+-- 
+1.8.1.4
