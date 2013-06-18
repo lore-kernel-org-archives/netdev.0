@@ -1,151 +1,92 @@
-From: Jun Chen <jun.d.chen@intel.com>
-Subject: Re: [PATCH] tcp: Modify the condition for the first skb to collapse
-Date: Tue, 18 Jun 2013 05:52:59 -0400
-Message-ID: <1371549179.28418.28.camel@chenjun-workstation>
-References: <1371478739.10495.5.camel@chenjun-workstation>
-	 <1371456935.3252.177.camel@edumazet-glaptop>
-	 <1371490190.28418.6.camel@chenjun-workstation>
-	 <1371464962.3252.181.camel@edumazet-glaptop>
-	 <1371495133.28418.19.camel@chenjun-workstation>
-	 <1371475281.3252.198.camel@edumazet-glaptop>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: [PATCH net-next 0/3] net driver dependency cleanup
+Date: Tue, 18 Jun 2013 03:21:47 +0100
+Message-ID: <1371522107.3495.61.camel@deadeye.wl.decadent.org.uk>
 Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-FJcAIbH3OItXSbGCeN96"
+Cc: netdev <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51457 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752595Ab3FRCV4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 22:21:56 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
+
+
+--=-FJcAIbH3OItXSbGCeN96
 Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ycheng@google.com, ncardwell@google.com, edumazet@google.com,
-	netdev@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371475281.3252.198.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2013-06-17 at 06:21 -0700, Eric Dumazet wrote:
-> On Mon, 2013-06-17 at 14:52 -0400, Jun Chen wrote:
-> > On Mon, 2013-06-17 at 03:29 -0700, Eric Dumazet wrote:
-> > > On Mon, 2013-06-17 at 13:29 -0400, Jun Chen wrote:
-> > > > > 
-> > > > hi,
-> > > > When the condition of tcp_win_from_space(skb->truesize) > skb->len is
-> > > > true but the before(start, TCP_SKB_CB(skb)->seq) is also true, the final
-> > > > condition will be true. The follow line:
-> > > > int offset = start - TCP_SKB_CB(skb)->seq;
-> > > > BUG_ON(offset < 0);
-> > > > this BUG_ON will be triggered.
-> > > > 
-> > > 
-> > > Really this should never happen, we must track what's happening here.
-> > It's very very rare, but the logic of codes have such a little hole.
-> > > 
-> > > Are you using a pristine kernel, without any patches ?
-> > The based kernel version is 3.4.  
-> > > 
-> > > Are you able to reproduce this bug in a short amount of time ?
-> > I can't reproduce it in short time, this log had just been found once
-> > for long long time tests on many devices . 
-> > > 
-> > > What kind of driver is in use ? (your stack trace was truncated)
-> > 
-> > I attach the whole stack traces for you.
-> > 
+Some Kconfig cleanup triggered by review of alx.
 
-> Any other suspect messages before this, a memory allocation error for
-> example ?
-> 
-> I believe we have a bug in tcp_collapse() if one alloc_skb() returns
-> NULL while we were in the middle of collapsing a big GRO packet.
-> 
-> gro_skb needed 3 skb to be rebuilt, and only two skbs could be allocated
-> 
-> skb1: seq=X  end_seq=X+4000
-> skb2: seq=X+4000 end_seq=X+8000
-> <missing>
-> grp_skb: seq=X end_seq=X+16000
-> 
-> Next time we call tcp_collapse(), we might split again the GRO packet
-> and get following incorrect queue :
-> 
-> skb1: seq=X  end_seq=X+4000
-> skb2: seq=X+4000 end_seq=X+8000
-> skb3: seq=X  end_seq=X+4000
-> skb4: seq=X+4000 end_seq=X+8000
-> skb5: seq=X+8000 end_seq=X+12000
-> skb6: seq=X+12000 end_seq=X+16000
-> 
-> 
-> I would use the following patch instead, to narrow the problem
-> 
-> If we really find in the ofo queue a skb with a lower seq than the
-> previous one, we should complain instead of lowering @start, since
-> this is going to crash later.
-> 
-> receive_queue / ofo_queue should contain monotonically increasing
-> skb->seq.
-> 
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index 46271cdc..5507a09 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -4513,8 +4513,10 @@ static void tcp_collapse_ofo_queue(struct sock *sk)
->  			start = TCP_SKB_CB(skb)->seq;
->  			end = TCP_SKB_CB(skb)->end_seq;
->  		} else {
-> -			if (before(TCP_SKB_CB(skb)->seq, start))
-> -				start = TCP_SKB_CB(skb)->seq;
-> +			if (before(TCP_SKB_CB(skb)->seq, start)) {
-> +				pr_err_once("tcp_collapse_ofo_queue() : seq %08x before start %08X\n",
-> +					    TCP_SKB_CB(skb)->seq, start);
-> +			}
->  			if (after(TCP_SKB_CB(skb)->end_seq, end))
->  				end = TCP_SKB_CB(skb)->end_seq;
->  		}
-> 
-> 
-There are many warning for tcp_recvmsg before this crash. I can't find
-other memory warning in the logs, but I'm not sure whether there are
-memory issues because of the length limitation of saved logs. I think
-this logs will give you more information.
+Ben.
 
-<4>[ 7736.343742] ------------[ cut here ]------------
+Ben Hutchings (3):
+  net: Move MII out from under NET_CORE and hide it
+  at91_ether: Do not select NET_CORE
+  net: Add missing dependencies on NETDEVICES
 
-<4>[ 7736.343759] WARNING:
-at /data/buildbot/workdir/jb/kernel/net/ipv4/tcp.c:1496 tcp_recvmsg
-+0x3bf/0x910()
+ arch/cris/arch-v10/drivers/Kconfig             |    4 +---
+ arch/cris/arch-v32/drivers/Kconfig             |    4 +---
+ drivers/net/Kconfig                            |   10 +++-------
+ drivers/net/ethernet/3com/Kconfig              |    1 -
+ drivers/net/ethernet/Kconfig                   |    4 ----
+ drivers/net/ethernet/adaptec/Kconfig           |    1 -
+ drivers/net/ethernet/adi/Kconfig               |    1 -
+ drivers/net/ethernet/allwinner/Kconfig         |    1 -
+ drivers/net/ethernet/amd/Kconfig               |    2 --
+ drivers/net/ethernet/atheros/Kconfig           |    4 ----
+ drivers/net/ethernet/broadcom/Kconfig          |    2 --
+ drivers/net/ethernet/cadence/Kconfig           |    1 -
+ drivers/net/ethernet/cirrus/Kconfig            |    1 -
+ drivers/net/ethernet/davicom/Kconfig           |    1 -
+ drivers/net/ethernet/dec/tulip/Kconfig         |    1 -
+ drivers/net/ethernet/dlink/Kconfig             |    1 -
+ drivers/net/ethernet/faraday/Kconfig           |    1 -
+ drivers/net/ethernet/freescale/fs_enet/Kconfig |    1 -
+ drivers/net/ethernet/icplus/Kconfig            |    1 -
+ drivers/net/ethernet/intel/Kconfig             |    1 -
+ drivers/net/ethernet/micrel/Kconfig            |    4 ----
+ drivers/net/ethernet/nuvoton/Kconfig           |    1 -
+ drivers/net/ethernet/oki-semi/pch_gbe/Kconfig  |    1 -
+ drivers/net/ethernet/packetengines/Kconfig     |    1 -
+ drivers/net/ethernet/rdc/Kconfig               |    1 -
+ drivers/net/ethernet/realtek/Kconfig           |    3 ---
+ drivers/net/ethernet/renesas/Kconfig           |    1 -
+ drivers/net/ethernet/sgi/Kconfig               |    1 -
+ drivers/net/ethernet/sis/Kconfig               |    2 --
+ drivers/net/ethernet/smsc/Kconfig              |    5 -----
+ drivers/net/ethernet/stmicro/stmmac/Kconfig    |    1 -
+ drivers/net/ethernet/via/Kconfig               |    2 --
+ drivers/net/usb/Kconfig                        |    4 ----
+ drivers/staging/silicom/Kconfig                |    7 +++----
+ 34 files changed, 8 insertions(+), 69 deletions(-)
 
-<4>[ 7736.343775] recvmsg bug: copied AB57C870 seq AB57CD95 rcvnxt
-AB57F19F fl 0
 
-<4>[ 7736.343845] Call Trace:
 
-<4>[ 7736.343865]  [<c1237032>] warn_slowpath_common+0x72/0xa0
+--=-FJcAIbH3OItXSbGCeN96
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-<4>[ 7736.343888]  [<c18a955f>] ? tcp_recvmsg+0x3bf/0x910
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
 
-<4>[ 7736.343902]  [<c18a955f>] ? tcp_recvmsg+0x3bf/0x910
+iQIVAwUAUb/EO+e/yOyVhhEJAQqNLQ//YQYGvJACJssO61ZAE+NYspqMYphY3Ztn
+OGb9eGX+vPPsL4Ok4KFZxfOvFTBArIcdVgJSb+HAgqp8oFNmD+PFOufj9ZaMvaxG
+sW5dpMmSHvA15VLDbGRYuMd0JZrC7Ug3BbUmSys+7cmb70uXTMCEdFKa0+YOsS52
+gm/QmDXeiiUIXsIPhX5cUHEGXBrFcoj/7v0BwbKvqxrAYiRdbPRwjR3PnDekROOq
+6NeC1incY/WhifjdWGKFh14yHuUDfUwgk0OgELvLL8iTajla38C77Gtt/A/VdizY
+LTbktUCb4SvUIsPwscPEWaaZ7QefowVa44qAFOi5A/koPO6dxaoODFoPsM2Gl4Ob
+KarMPbUTAX/cTZcM9OpW4YpdSmFmvz/hGm7kY/LEP+zuyWLTfB5Aqe+kQr7Y+1YH
+zqreg1ZTko2XLpRAx9c/Tg+hVeP6/aPSPmZQrtVPJ2D2c+6pYz63+OhX8z7KB/e9
+MBmA5TGB91wKWpgz4Mz7sh6refXUsnG0HU67mBibYefBVoWfPFqalbW/uoNGMz1P
++7jJXE1IGZ+/kdJOoiV2UoUUj0D+dbqfpTj6DqExz1/x6c35hfIdtCiHve9IAaKb
+ipdFEBQkpUH7WpKNmumBzPA8TZTbZ77CYN7RZ96THnnA4+oVVt26DuKXcf2M26VJ
+JdY4lS2nK2A=
+=j+15
+-----END PGP SIGNATURE-----
 
-<4>[ 7736.343922]  [<c1237103>] warn_slowpath_fmt+0x33/0x40
-
-<4>[ 7736.343944]  [<c18a955f>] tcp_recvmsg+0x3bf/0x910
-
-<4>[ 7736.343968]  [<c18c9bb5>] inet_recvmsg+0x85/0xa0
-
-<4>[ 7736.343992]  [<c1852030>] sock_aio_read+0x140/0x160
-
-<4>[ 7736.344016]  [<c126b221>] ? set_next_entity+0xc1/0xf0
-
-<4>[ 7736.344039]  [<c130d627>] do_sync_read+0xb7/0xf0
-
-<4>[ 7736.344064]  [<c130dc6c>] ? rw_verify_area+0x6c/0x120
-
-<4>[ 7736.344077]  [<c1349aa8>] ? sys_epoll_wait+0x68/0x360
-
-<4>[ 7736.344098]  [<c130e1e9>] vfs_read+0x149/0x160
-
-<4>[ 7736.344120]  [<c130f518>] ? fget_light+0x58/0xd0
-
-<4>[ 7736.344142]  [<c130e23d>] sys_read+0x3d/0x70
-
-<4>[ 7736.344164]  [<c198c361>] syscall_call+0x7/0xb
-
-<4>[ 7736.344187]  [<c1980000>] ? perf_cpu_notify+0x45/0x89
-
-<4>[ 7736.344205] ---[ end trace b3c5b245ce7ff5b5 ]---
+--=-FJcAIbH3OItXSbGCeN96--
