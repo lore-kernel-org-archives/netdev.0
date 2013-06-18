@@ -1,133 +1,46 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: [PATCH v3] net: fec: Fix build for MCF5272
-Date: Tue, 18 Jun 2013 10:04:59 -0700
-Message-ID: <1371575099-2962-1-git-send-email-linux@roeck-us.net>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <festevam@gmail.com>,
-	linux-kernel@vger.kernel.org, Guenter Roeck <linux@roeck-us.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Jim Baxter <jim_baxter@mentor.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
+ copies out
+Date: Tue, 18 Jun 2013 19:04:47 +0200
+Message-ID: <1371575087.22256.2.camel@jlt4.sipsolutions.net>
+References: <20120715215935.GF24420@merlins.org>
+	 <1342419529.3265.12217.camel@edumazet-glaptop>
+	 <20120716151826.GA10586@merlins.org>
+	 <1342455717.2830.14.camel@edumazet-glaptop>
+	 <20130219040557.GB4778@merlins.org>
+	 <1361251033.19353.120.camel@edumazet-glaptop>
+	 <1361268221.8553.1.camel@jlt4.sipsolutions.net>
+	 <1361290909.19353.140.camel@edumazet-glaptop>
+	 <1361351538.8629.3.camel@jlt4.sipsolutions.net>
+	 <1361351703.8629.5.camel@jlt4.sipsolutions.net>
+	 <20130223061414.GA16883@merlins.org>
+	 <1361912099.8440.21.camel@jlt4.sipsolutions.net>
+	 <1371574361.3252.259.camel@edumazet-glaptop>
+	 (sfid-20130618_185301_249353_52D357F3)
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Marc MERLIN <marc@merlins.org>, David Miller <davem@davemloft.net>,
+	Larry.Finger@lwfinger.net, bhutchings@solarflare.com,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	sgruszka@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:39703 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932860Ab3FRRFb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 13:05:31 -0400
+In-Reply-To: <1371574361.3252.259.camel@edumazet-glaptop> (sfid-20130618_185301_249353_52D357F3)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commits 4c09eed9 (net: fec: Enable imx6 enet checksum acceleration) and
-baa70a5c (net: fec: enable pause frame to improve rx prefomance for 1G
-network) introduced functionality into the FEC driver which is not
-supported on MCF5272. The registers used to implement this functionality
-do not exist on MCF5272. Since register defines for MCF5272 are separate
-from register defines for other chips, building images for MCF5272 fails
-as follows.
+On Tue, 2013-06-18 at 09:52 -0700, Eric Dumazet wrote:
 
-fec_main.c: In function 'fec_restart':
-fec_main.c:520:8: error: 'FEC_RACC' undeclared (first use in this function)
-fec_main.c:585:3: error: 'FEC_R_FIFO_RSEM' undeclared (first use in this function)
-fec_main.c:586:3: error: 'FEC_R_FIFO_RSFL' undeclared (first use in this function)
-fec_main.c:587:3: error: 'FEC_R_FIFO_RAEM' undeclared (first use in this function)
-fec_main.c:588:3: error: 'FEC_R_FIFO_RAFL' undeclared (first use in this function)
-fec_main.c:591:3: error: 'FEC_OPD' undeclared (first use in this function)
+> > We'll be submitting a patch to make single pages default.
+> 
+> Do you think the same change would be possible for
+> drivers/net/wireless/iwlegacy/4965-mac.c ?
 
-Adding the missing register defines is not an option, since the registers
-do not exist on MCF5272. Disable the added functionality for MCF5272 builds.
+Yes, Stanislaw?
 
-Cc: Frank Li <Frank.Li@freescale.com>
-Cc: Jim Baxter <jim_baxter@mentor.com>
-Signed-off-by: Guenter Roeck <linux@roeck-us.net>
----
-v3: Add build error to commit log
-v2: Improved explanation to clarify that the build fails due to missing register
-    defines which can not be added since the registers don't exist on MCF5272. 
-
-This problem exists in 3.9 as well, though only due to commit baa70a5c. The
-patch does therefore not cleanly apply to 3.9. Options I can see are to ignore
-the build error in 3.9, to back-port the patch manually, or to split it into
-two separate patches. David, let me know which approach you prefer. 
-
- drivers/net/ethernet/freescale/fec_main.c |   14 ++++++++++++++
- 1 file changed, 14 insertions(+)
-
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index a667015..d48099f 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -516,6 +516,7 @@ fec_restart(struct net_device *ndev, int duplex)
- 	/* Set MII speed */
- 	writel(fep->phy_speed, fep->hwp + FEC_MII_SPEED);
- 
-+#if !defined(CONFIG_M5272)
- 	/* set RX checksum */
- 	val = readl(fep->hwp + FEC_RACC);
- 	if (fep->csum_flags & FLAG_RX_CSUM_ENABLED)
-@@ -523,6 +524,7 @@ fec_restart(struct net_device *ndev, int duplex)
- 	else
- 		val &= ~FEC_RACC_OPTIONS;
- 	writel(val, fep->hwp + FEC_RACC);
-+#endif
- 
- 	/*
- 	 * The phy interface and speed need to get configured
-@@ -575,6 +577,7 @@ fec_restart(struct net_device *ndev, int duplex)
- #endif
- 	}
- 
-+#if !defined(CONFIG_M5272)
- 	/* enable pause frame*/
- 	if ((fep->pause_flag & FEC_PAUSE_FLAG_ENABLE) ||
- 	    ((fep->pause_flag & FEC_PAUSE_FLAG_AUTONEG) &&
-@@ -592,6 +595,7 @@ fec_restart(struct net_device *ndev, int duplex)
- 	} else {
- 		rcntl &= ~FEC_ENET_FCE;
- 	}
-+#endif /* !defined(CONFIG_M5272) */
- 
- 	writel(rcntl, fep->hwp + FEC_R_CNTRL);
- 
-@@ -1205,7 +1209,9 @@ static int fec_enet_mii_probe(struct net_device *ndev)
- 	/* mask with MAC supported features */
- 	if (id_entry->driver_data & FEC_QUIRK_HAS_GBIT) {
- 		phy_dev->supported &= PHY_GBIT_FEATURES;
-+#if !defined(CONFIG_M5272)
- 		phy_dev->supported |= SUPPORTED_Pause;
-+#endif
- 	}
- 	else
- 		phy_dev->supported &= PHY_BASIC_FEATURES;
-@@ -1390,6 +1396,8 @@ static int fec_enet_get_ts_info(struct net_device *ndev,
- 	}
- }
- 
-+#if !defined(CONFIG_M5272)
-+
- static void fec_enet_get_pauseparam(struct net_device *ndev,
- 				    struct ethtool_pauseparam *pause)
- {
-@@ -1436,9 +1444,13 @@ static int fec_enet_set_pauseparam(struct net_device *ndev,
- 	return 0;
- }
- 
-+#endif /* !defined(CONFIG_M5272) */
-+
- static const struct ethtool_ops fec_enet_ethtool_ops = {
-+#if !defined(CONFIG_M5272)
- 	.get_pauseparam		= fec_enet_get_pauseparam,
- 	.set_pauseparam		= fec_enet_set_pauseparam,
-+#endif
- 	.get_settings		= fec_enet_get_settings,
- 	.set_settings		= fec_enet_set_settings,
- 	.get_drvinfo		= fec_enet_get_drvinfo,
-@@ -1874,10 +1886,12 @@ fec_probe(struct platform_device *pdev)
- 	/* setup board info structure */
- 	fep = netdev_priv(ndev);
- 
-+#if !defined(CONFIG_M5272)
- 	/* default enable pause frame auto negotiation */
- 	if (pdev->id_entry &&
- 	    (pdev->id_entry->driver_data & FEC_QUIRK_HAS_GBIT))
- 		fep->pause_flag |= FEC_PAUSE_FLAG_AUTONEG;
-+#endif
- 
- 	fep->hwp = devm_request_and_ioremap(&pdev->dev, r);
- 	fep->pdev = pdev;
--- 
-1.7.9.7
+johannes
