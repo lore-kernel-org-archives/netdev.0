@@ -1,54 +1,42 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH] build some drivers only when compile-testing
-Date: Tue, 18 Jun 2013 11:21:23 +0200
-Message-ID: <51C02693.9040304@suse.cz>
-References: <1369214326-6558-1-git-send-email-jslaby@suse.cz> <20130523022327.GB6159@kroah.com> <519D8876.9050405@suse.com> <51BF6BFF.7050705@suse.cz> <51BFE754.5080301@suse.cz> <20130618081858.GD5461@arwen.pp.htv.fi> <51C01948.9060708@suse.cz> <20130618083425.GI5461@arwen.pp.htv.fi> <51C01E04.2050908@suse.cz> <20130618085154.GN5461@arwen.pp.htv.fi>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: [net PATCH 1/1] drivers: net: cpsw: fix cpsw clock gating issue across suspend/resume
+Date: Tue, 18 Jun 2013 15:04:35 +0530
+Message-ID: <1371548076-22035-1-git-send-email-mugunthanvnm@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Mahoney <jeffm@suse.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	jirislaby@gmail.com, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-	linux-usb@vger.kernel.org,
-	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
-	linux-geode@lists.infradead.org, linux-fbdev@vger.kernel.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>, tomi.valkeinen@ti.com
-To: balbi@ti.com, Michal Marek <mmarek@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130618085154.GN5461@arwen.pp.htv.fi>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, Mugunthan V N <mugunthanvnm@ti.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:53523 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755480Ab3FRJdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 05:33:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/18/2013 10:51 AM, Felipe Balbi wrote:
-> right, but my argument is that I rather not have either. Depend on
-> PCI if you us PCI, depend on EXTCON if you use extcon, but no
-> driver should have an ARCH dependency. Specially since it lets
-> people include mach/* and asm/* headers because "it doesn't break
-> compilation for anyone".
+Due to some hardware integration issue, CPSW sliver modules requires a
+reset across suspend/resume cycle for a successful clock gating to
+CPGMAC (CPSW and Davinci MDIO) in AM335x PG1.0.
+This issue is fixed in PG2.x, though to support suspend/resume on PG1.0
+this reset is required.
 
-The argument is elsewhere. If I understand correctly, Kconfig is for
-users, not to be hi-jacked by kernel developers. And users should not
-really care about our development processes, cross compilations or
-whatever bells and whistles we use. They just don't want to see
-drivers which they have no way to *use*, they indeed don't care
-whether some more compile at all. We do not want every kernel packager
-for every distro out in the wild, to go through all the help texts, to
-see whether they should compile and package a driver or not. It's a
-tedious work and this option would save time to the packagers.
+Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-Try to package and maintain a kernel for a distribution, you will find
-out what a cool and surprising work that is...
-
-In the best case I would vote for hard dependencies as cross-compilers
-are easy to obtain and set up nowadays. But well, we still want to
-("cross") compile drivers, so let's add COMPILE_TEST and use that to
-save time to automatic builds.
-
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index 2fd69db..e66a202 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1976,6 +1976,8 @@ static int cpsw_suspend(struct device *dev)
+ 
+ 	if (netif_running(ndev))
+ 		cpsw_ndo_stop(ndev);
++	soft_reset("sliver 0", &priv->slaves[0].sliver->soft_reset);
++	soft_reset("sliver 1", &priv->slaves[1].sliver->soft_reset);
+ 	pm_runtime_put_sync(&pdev->dev);
+ 
+ 	return 0;
 -- 
-js
-suse labs
+1.7.9.5
