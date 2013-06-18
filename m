@@ -1,127 +1,47 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 4/5] net: sctp: decouple cleaning socket data
- from endpoint
-Date: Tue, 18 Jun 2013 10:22:40 -0400
-Message-ID: <20130618142240.GA27099@hmsreliant.think-freely.org>
-References: <1371545720-22950-1-git-send-email-dborkman@redhat.com>
- <1371545720-22950-5-git-send-email-dborkman@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] net: poll/select low latency socket support
+Date: Tue, 18 Jun 2013 07:35:48 -0700
+Message-ID: <1371566148.3252.255.camel@edumazet-glaptop>
+References: <20130618085759.10941.15811.stgit@ladj378.jer.intel.com>
+	  <20130618085810.10941.55039.stgit@ladj378.jer.intel.com>
+	 <1371551139.3252.249.camel@edumazet-glaptop>
+	 <51C05FC1.4000201@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:43382 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932868Ab3FROWs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 10:22:48 -0400
-Content-Disposition: inline
-In-Reply-To: <1371545720-22950-5-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Avner Ben Hanoch <avnerb@mellanox.com>,
+	Or Kehati <ork@mellanox.com>, sockperf-dev@googlegroups.com,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51C05FC1.4000201@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 18, 2013 at 10:55:19AM +0200, Daniel Borkmann wrote:
-> Rather instead of having the endpoint clean the garbage for the
-> socket, use a sk_destruct handler sctp_destruct_sock(), that does
-> the job for that when there are no more references on the socket.
-> 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  net/sctp/endpointola.c |  7 -------
->  net/sctp/socket.c      | 20 +++++++++++++++++++-
->  2 files changed, 19 insertions(+), 8 deletions(-)
-> 
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index a8b2674..9a9ebd2 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -249,9 +249,6 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->  {
->  	SCTP_ASSERT(ep->base.dead, "Endpoint is not dead", return);
->  
-> -	/* Free up the HMAC transform. */
-> -	crypto_free_hash(sctp_sk(ep->base.sk)->hmac);
-> -
->  	/* Free the digest buffer */
->  	kfree(ep->digest);
->  
-> @@ -271,10 +268,6 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->  
->  	memset(ep->secret_key, 0, sizeof(ep->secret_key));
->  
-> -	/* Remove and free the port */
-> -	if (sctp_sk(ep->base.sk)->bind_hash)
-> -		sctp_put_port(ep->base.sk);
-> -
->  	/* Give up our hold on the sock. */
->  	if (ep->base.sk)
->  		sock_put(ep->base.sk);
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 68a6b70..67f721e 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -93,6 +93,7 @@ static int sctp_wait_for_packet(struct sock * sk, int *err, long *timeo_p);
->  static int sctp_wait_for_connect(struct sctp_association *, long *timeo_p);
->  static int sctp_wait_for_accept(struct sock *sk, long timeo);
->  static void sctp_wait_for_close(struct sock *sk, long timeo);
-> +static void sctp_destruct_sock(struct sock *sk);
->  static struct sctp_af *sctp_sockaddr_af(struct sctp_sock *opt,
->  					union sctp_addr *addr, int len);
->  static int sctp_bindx_add(struct sock *, struct sockaddr *, int);
-> @@ -3966,6 +3967,8 @@ static int sctp_init_sock(struct sock *sk)
->  
->  	sp->hmac = NULL;
->  
-> +	sk->sk_destruct = sctp_destruct_sock;
-> +
->  	SCTP_DBG_OBJCNT_INC(sock);
->  
->  	local_bh_disable();
-> @@ -4002,6 +4005,21 @@ static void sctp_destroy_sock(struct sock *sk)
->  	local_bh_enable();
->  }
->  
-> +/* Triggered when there are no references on the socket anymore */
-> +static void sctp_destruct_sock(struct sock *sk)
-> +{
-> +	struct sctp_sock *sp = sctp_sk(sk);
-> +
-> +	/* Free up the HMAC transform. */
-> +	crypto_free_hash(sp->hmac);
-> +
-> +	/* Remove and free the port */
-> +	if (sp->bind_hash)
-> +		sctp_put_port(sk);
-> +
-> +	inet_sock_destruct(sk);
-> +}
-> +
->  /* API 4.1.7 shutdown() - TCP Style Syntax
->   *     int shutdown(int socket, int how);
->   *
-> @@ -6842,7 +6860,7 @@ void sctp_copy_sock(struct sock *newsk, struct sock *sk,
->  	newsk->sk_reuse = sk->sk_reuse;
->  
->  	newsk->sk_shutdown = sk->sk_shutdown;
-> -	newsk->sk_destruct = inet_sock_destruct;
-> +	newsk->sk_destruct = sctp_destruct_sock;
->  	newsk->sk_family = sk->sk_family;
->  	newsk->sk_protocol = IPPROTO_SCTP;
->  	newsk->sk_backlog_rcv = sk->sk_prot->backlog_rcv;
-> -- 
-> 1.7.11.7
-> 
+On Tue, 2013-06-18 at 16:25 +0300, Eliezer Tamir wrote:
 
-I like this idea, but I think I'm maybe missing something from it - we reference
-the socket in both the receive and send paths (sctp_unpack_cookie, is
-specifically called from the rx path, which makes use of sp->hmac).  a socket
-destructor can be called from __sk_free when sk_wmem_alloc reaches zero, but we
-use sk_refcnt in the rx path to prevent premature socket cleanup.  If we drain
-our send queeue while wer'e still processing rx messages, what prevents us from
-freeing the socket in the tx path, via sk_free while we're still using the
-socket in the rx path.  Note I don't think this patch is wrong per-se, but it
-seems to me there is more work to do to properly interlock the use of sk_refcnt
-and sk_wmem_alloc here (unless I'm just missing something obvious, which is
-entirely possible, I've been in the sun alot lately :) ).
+> One other thing,
+> sock_poll() will only ll_poll if the flag was set _and_ the socket has a
+> none-zero value in sk->sk_ll_usec so you still only poll on sockets
+> that were enabled for LLS, not on every socket.
 
-Neil
+But sockets are default enabled for LLS.
+
+sock_init_data()
+{
+	...
+	sk->sk_ll_usec      =   sysctl_net_ll_poll; 
+	...
+}
