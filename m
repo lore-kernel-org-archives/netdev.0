@@ -1,54 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: linux-next: manual merge of the arm-soc tree with the net-next
- tree
-Date: Tue, 18 Jun 2013 18:36:39 +0400
-Message-ID: <51C07077.3040600@cogentembedded.com>
-References: <20130617163920.04523ba6de50bcc81563f33e@canb.auug.org.au> <51BF1461.8060401@cogentembedded.com> <CABYn4sx3PYBVMyio8uo-KhwprQnCmt_5k2EMaa9_EW2ud2q2nQ@mail.gmail.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: VLAN driver question
+Date: Tue, 18 Jun 2013 15:41:24 +0100
+Message-ID: <1371566484.1956.16.camel@bwh-desktop.uk.level5networks.com>
+References: <51BF5F81.2040207@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>, linux-next@vger.kernel.org,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Simon Horman <horms+renesas@verge.net.au>
-To: Bastian Hecht <hechtb@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABYn4sx3PYBVMyio8uo-KhwprQnCmt_5k2EMaa9_EW2ud2q2nQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Jim Baxter <jim_baxter@mentor.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:49180 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754648Ab3FROl2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 10:41:28 -0400
+In-Reply-To: <51BF5F81.2040207@mentor.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Mon, 2013-06-17 at 20:12 +0100, Jim Baxter wrote:
+> I have a network card that has a single flag to indicate if a received
+> packet contains a vlan packet.
+> 
+> Can I use this to accelerate the kernels handling of the packet with
+> something like the following?
+>
+> /* Handle received VLAN packets */
+> if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) && ebdp &&
+> 					(ebdp->cbd_esc &
+> 					BD_ENET_RX_VLAN)) {
+> 	/* Push and remove the vlan tag */
+> 	struct vlan_hdr *vlan_header;
+> 	u16 vlan_tag;
+> 	vlan_header = (struct vlan_hdr *) skb->data;
+> 	vlan_tag = ntohs(vlan_header->h_vlan_TCI);
+> 	__vlan_hwaccel_put_tag(skb, vlan_tag);
+> 	skb->len -= VLAN_HLEN;
+> 	skb->data += VLAN_HLEN;
+> 	vlan_set_encap_proto(skb, vlan_header);
 
-On 18-06-2013 12:33, Bastian Hecht wrote:
+You have to move the Ethernet addresses forward as well.  Imagine this
+device is being bridged - the Ethernet header won't be regenerated, so
+it has to be immediately before the network header.
 
-> Sergei is completely right I think. He was sceptic about the commit in
-> a mail some days ago already. Unfortunately I recently haven't had
-> access to my development environment to check what's up with this
-> patch. I'm sorry that it ended up to you both to deal with it. I have
-> written some simple bindings for the sh-eth and wanted to use it for
-> our DT reference version for the Armadillo board but discarded it as I
-> saw Nobuhiro Iwamatsu, the author of the sh-eth driver, cooked up some
-> more mature version. I don't see them in the next branch of Simon, so
-> until they appear there we can delete commit 9e0b428f079d ("ARM:
+> }
+> 
+> napi_gro_receive(&fep->napi, skb);
 
-    It won't appear there. I'll just NAK it, I think I've alredy told 
-Iwamatsu-san that the full blown device tree binding for this driver is 
-no-go. The best we can do is use OF_DEV_AUXDATA() to rename the DT 
-sourced platform device to a traditional one and assign to it the 
-platform data.
+I've been meaning to add a core function to do
+pull-out-VLAN-tag-and-GRO, although I'm more interested in
+napi_gro_frags().  Perhaps you could add the generic wrapper for
+napi_gro_receive()?
 
-> shmobile: r8a7740: Add interim sh-eth device name to clocks list")
+> Also I cannot find any documentation stating what the difference is
+> between NETIF_F_HW_VLAN_CTAG_RX and NETIF_F_HW_VLAN_CTAG_FILTER, can
+> anyone define it?
+> The FILTER word on NETIF_F_HW_VLAN_CTAG_FILTER suggests it may be
+> applicable to received packets.
 
-    Unfortunately, it's now too late to just delete it at this point. I 
-missed the patch unfortunately when it was just submitted.
+NETIF_F_HW_VLAN_CTAG_RX means the device will extract VLAN tags so they
+aren't received inline.
 
-> that is only needed for sh-eth DT usage.
+NETIF_F_HW_VLAN_CTAG_FILTER means the device can filter by VID.  The
+driver's ndo_vlan_rx_{add,kill}_vid operations will be called to update
+the filter.
 
-> Thanks,
+Ben.
 
->   Bastian
-
-WBR, Sergei
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
