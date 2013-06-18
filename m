@@ -1,55 +1,54 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v2 net-next] net: poll/select low latency socket support
-Date: Tue, 18 Jun 2013 12:12:24 +0300
-Message-ID: <51C02478.7020708@linux.intel.com>
-References: <20130618085759.10941.15811.stgit@ladj378.jer.intel.com>  <20130618085810.10941.55039.stgit@ladj378.jer.intel.com> <1371546510.3252.224.camel@edumazet-glaptop>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [PATCH] build some drivers only when compile-testing
+Date: Tue, 18 Jun 2013 11:21:23 +0200
+Message-ID: <51C02693.9040304@suse.cz>
+References: <1369214326-6558-1-git-send-email-jslaby@suse.cz> <20130523022327.GB6159@kroah.com> <519D8876.9050405@suse.com> <51BF6BFF.7050705@suse.cz> <51BFE754.5080301@suse.cz> <20130618081858.GD5461@arwen.pp.htv.fi> <51C01948.9060708@suse.cz> <20130618083425.GI5461@arwen.pp.htv.fi> <51C01E04.2050908@suse.cz> <20130618085154.GN5461@arwen.pp.htv.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Avner Ben Hanoch <avnerb@mellanox.com>,
-	Or Kehati <ork@mellanox.com>, sockperf-dev@googlegroups.com,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: Jeff Mahoney <jeffm@suse.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	jirislaby@gmail.com, linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+	linux-usb@vger.kernel.org,
+	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
+	linux-geode@lists.infradead.org, linux-fbdev@vger.kernel.org,
+	Richard Cochran <richardcochran@gmail.com>,
+	netdev@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>, tomi.valkeinen@ti.com
+To: balbi@ti.com, Michal Marek <mmarek@suse.cz>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371546510.3252.224.camel@edumazet-glaptop>
+In-Reply-To: <20130618085154.GN5461@arwen.pp.htv.fi>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 18/06/2013 12:08, Eric Dumazet wrote:
-> On Tue, 2013-06-18 at 11:58 +0300, Eliezer Tamir wrote:
->> select/poll busy-poll support.
->>
->
->
->>    */
->> -static inline u64 ll_end_time(struct sock *sk)
->> +static inline u64 ll_sk_end_time(struct sock *sk)
->>   {
->> -	u64 end_time = ACCESS_ONCE(sk->sk_ll_usec);
->> -
->> -	/* we don't mind a ~2.5% imprecision
->> -	 * sk->sk_ll_usec is a u_int so this can't overflow
->> -	 */
->> -	end_time = (end_time << 10) + sched_clock();
->> +	return (ACCESS_ONCE(sk->sk_ll_usec) << 10) + sched_clock();
->> +}
->>
->
-> This is the fourth time you try to introduce an overflow in this code.
->
-> (same for ll_end_time())
+On 06/18/2013 10:51 AM, Felipe Balbi wrote:
+> right, but my argument is that I rather not have either. Depend on
+> PCI if you us PCI, depend on EXTCON if you use extcon, but no
+> driver should have an ARCH dependency. Specially since it lets
+> people include mach/* and asm/* headers because "it doesn't break
+> compilation for anyone".
 
-sorry,
-Please review the rest of the patch to see if you have any other comments.
+The argument is elsewhere. If I understand correctly, Kconfig is for
+users, not to be hi-jacked by kernel developers. And users should not
+really care about our development processes, cross compilations or
+whatever bells and whistles we use. They just don't want to see
+drivers which they have no way to *use*, they indeed don't care
+whether some more compile at all. We do not want every kernel packager
+for every distro out in the wild, to go through all the help texts, to
+see whether they should compile and package a driver or not. It's a
+tedious work and this option would save time to the packagers.
+
+Try to package and maintain a kernel for a distribution, you will find
+out what a cool and surprising work that is...
+
+In the best case I would vote for hard dependencies as cross-compilers
+are easy to obtain and set up nowadays. But well, we still want to
+("cross") compile drivers, so let's add COMPILE_TEST and use that to
+save time to automatic builds.
+
+-- 
+js
+suse labs
