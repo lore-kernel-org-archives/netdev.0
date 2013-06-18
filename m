@@ -1,52 +1,52 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [PATCH net-next 2/3] at91_ether: Do not select NET_CORE
-Date: Tue, 18 Jun 2013 09:55:40 +0200
-Message-ID: <51C0127C.2070508@atmel.com>
-References: <1371522107.3495.61.camel@deadeye.wl.decadent.org.uk> <1371522449.3495.65.camel@deadeye.wl.decadent.org.uk>
+From: Yijing Wang <wangyijing@huawei.com>
+Subject: [PATCH 1/9] Bnx2x: remove redundant D0 power state set
+Date: Tue, 18 Jun 2013 16:05:39 +0800
+Message-ID: <1371542739-13552-1-git-send-email-wangyijing@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Joachim Eastwood <manabian@gmail.com>
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from eusmtp01.atmel.com ([212.144.249.243]:4332 "EHLO
-	eusmtp01.atmel.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752309Ab3FRHzl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 03:55:41 -0400
-In-Reply-To: <1371522449.3495.65.camel@deadeye.wl.decadent.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-kernel@vger.kernel.org>, Hanjun Guo <guohanjun@huawei.com>,
+	<jiang.liu@huawei.com>, Yijing Wang <wangyijing@huawei.com>,
+	Eilon Greenstein <eilong@broadcom.com>,
+	<netdev@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 18/06/2013 04:27, Ben Hutchings :
-> This has no dependency on any of the drivers under NET_CORE.
->
-> Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+Pci_enable_device() will set device power state to D0,
+so it's no need to do it again in bnx2x_init_dev().
+Also remove redundant PM Cap find code, because pci core
+has been saved the pci device pm cap value.
 
-Acked-by: Nicolas Ferre <nicolas.ferre@atmel.com>
+Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+Cc: Eilon Greenstein <eilong@broadcom.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c |    4 +---
+ 1 files changed, 1 insertions(+), 3 deletions(-)
 
-Thanks, bye,
-
-> ---
->   drivers/net/ethernet/cadence/Kconfig |    1 -
->   1 file changed, 1 deletion(-)
->
-> diff --git a/drivers/net/ethernet/cadence/Kconfig b/drivers/net/ethernet/cadence/Kconfig
-> index 768285e..8030cc0 100644
-> --- a/drivers/net/ethernet/cadence/Kconfig
-> +++ b/drivers/net/ethernet/cadence/Kconfig
-> @@ -23,7 +23,6 @@ if NET_CADENCE
->   config ARM_AT91_ETHER
->   	tristate "AT91RM9200 Ethernet support"
->   	depends on GENERIC_HARDIRQS && HAS_DMA
-> -	select NET_CORE
->   	select MACB
->   	---help---
->   	  If you wish to compile a kernel for the AT91RM9200 and enable
->
->
-
-
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index b4c9dea..6ecd497 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -11959,7 +11959,7 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+ 	}
+ 
+ 	if (IS_PF(bp)) {
+-		bp->pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
++		bp->pm_cap = pdev->pm_cap;
+ 		if (bp->pm_cap == 0) {
+ 			dev_err(&bp->pdev->dev,
+ 				"Cannot find power management capability, aborting\n");
+@@ -12008,8 +12008,6 @@ static int bnx2x_init_dev(struct bnx2x *bp, struct pci_dev *pdev,
+ 	}
+ 	BNX2X_DEV_INFO("me reg PF num: %d\n", bp->pf_num);
+ 
+-	bnx2x_set_power_state(bp, PCI_D0);
+-
+ 	/* clean indirect addresses */
+ 	pci_write_config_dword(bp->pdev, PCICFG_GRC_ADDRESS,
+ 			       PCICFG_VENDOR_ID_OFFSET);
 -- 
-Nicolas Ferre
+1.7.1
