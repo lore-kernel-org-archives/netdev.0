@@ -1,72 +1,51 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: VLAN driver question
-Date: Tue, 18 Jun 2013 15:41:24 +0100
-Message-ID: <1371566484.1956.16.camel@bwh-desktop.uk.level5networks.com>
-References: <51BF5F81.2040207@mentor.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH v2 net-next] net: poll/select low latency socket support
+Date: Tue, 18 Jun 2013 17:45:34 +0300
+Message-ID: <51C0728E.6060900@linux.intel.com>
+References: <20130618085759.10941.15811.stgit@ladj378.jer.intel.com>   <20130618085810.10941.55039.stgit@ladj378.jer.intel.com>  <1371551139.3252.249.camel@edumazet-glaptop>  <51C05FC1.4000201@linux.intel.com> <1371566148.3252.255.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Jim Baxter <jim_baxter@mentor.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:49180 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754648Ab3FROl2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 10:41:28 -0400
-In-Reply-To: <51BF5F81.2040207@mentor.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Avner Ben Hanoch <avnerb@mellanox.com>,
+	Or Kehati <ork@mellanox.com>, sockperf-dev@googlegroups.com,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371566148.3252.255.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-06-17 at 20:12 +0100, Jim Baxter wrote:
-> I have a network card that has a single flag to indicate if a received
-> packet contains a vlan packet.
-> 
-> Can I use this to accelerate the kernels handling of the packet with
-> something like the following?
+On 18/06/2013 17:35, Eric Dumazet wrote:
+> On Tue, 2013-06-18 at 16:25 +0300, Eliezer Tamir wrote:
 >
-> /* Handle received VLAN packets */
-> if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) && ebdp &&
-> 					(ebdp->cbd_esc &
-> 					BD_ENET_RX_VLAN)) {
-> 	/* Push and remove the vlan tag */
-> 	struct vlan_hdr *vlan_header;
-> 	u16 vlan_tag;
-> 	vlan_header = (struct vlan_hdr *) skb->data;
-> 	vlan_tag = ntohs(vlan_header->h_vlan_TCI);
-> 	__vlan_hwaccel_put_tag(skb, vlan_tag);
-> 	skb->len -= VLAN_HLEN;
-> 	skb->data += VLAN_HLEN;
-> 	vlan_set_encap_proto(skb, vlan_header);
-
-You have to move the Ethernet addresses forward as well.  Imagine this
-device is being bridged - the Ethernet header won't be regenerated, so
-it has to be immediately before the network header.
-
+>> One other thing,
+>> sock_poll() will only ll_poll if the flag was set _and_ the socket has a
+>> none-zero value in sk->sk_ll_usec so you still only poll on sockets
+>> that were enabled for LLS, not on every socket.
+>
+> But sockets are default enabled for LLS.
+>
+> sock_init_data()
+> {
+> 	...
+> 	sk->sk_ll_usec      =   sysctl_net_ll_poll;
+> 	...
 > }
-> 
-> napi_gro_receive(&fep->napi, skb);
 
-I've been meaning to add a core function to do
-pull-out-VLAN-tag-and-GRO, although I'm more interested in
-napi_gro_frags().  Perhaps you could add the generic wrapper for
-napi_gro_receive()?
+Yes, if you want to globally enable.
 
-> Also I cannot find any documentation stating what the difference is
-> between NETIF_F_HW_VLAN_CTAG_RX and NETIF_F_HW_VLAN_CTAG_FILTER, can
-> anyone define it?
-> The FILTER word on NETIF_F_HW_VLAN_CTAG_FILTER suggests it may be
-> applicable to received packets.
-
-NETIF_F_HW_VLAN_CTAG_RX means the device will extract VLAN tags so they
-aren't received inline.
-
-NETIF_F_HW_VLAN_CTAG_FILTER means the device can filter by VID.  The
-driver's ndo_vlan_rx_{add,kill}_vid operations will be called to update
-the filter.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+But now that we have the socket option, you can leave the global
+setting at 0 and only enable specific sockets via the socket option.
+(I have tested this with a modified sockperf and it works.)
