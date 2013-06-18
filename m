@@ -1,87 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] tcp: Modify the condition for the first skb to collapse
-Date: Mon, 17 Jun 2013 22:53:52 -0700
-Message-ID: <1371534832.3252.206.camel@edumazet-glaptop>
-References: <1371478739.10495.5.camel@chenjun-workstation>
-	 <1371456935.3252.177.camel@edumazet-glaptop>
-	 <1371490190.28418.6.camel@chenjun-workstation>
-	 <1371464962.3252.181.camel@edumazet-glaptop>
-	 <1371495133.28418.19.camel@chenjun-workstation>
-	 <1371475281.3252.198.camel@edumazet-glaptop>
-	 <1371549179.28418.28.camel@chenjun-workstation>
+From: sivareddy kallam <k.sivareddy@gmail.com>
+Subject: [stmmac] On mtu change, Not able to ping Host
+Date: Tue, 18 Jun 2013 11:27:33 +0530
+Message-ID: <CAH5_UQm4SKkJ6QX2bRzG=wEneFG6Tdzx53ATF43g8sxQWjd+ag@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: ycheng@google.com, ncardwell@google.com, edumazet@google.com,
-	netdev@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>
-To: Jun Chen <jun.d.chen@intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371549179.28418.28.camel@chenjun-workstation>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve0-f169.google.com ([209.85.128.169]:42542 "EHLO
+	mail-ve0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751544Ab3FRF5z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 01:57:55 -0400
+Received: by mail-ve0-f169.google.com with SMTP id m1so2830843ves.28
+        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 22:57:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-06-18 at 05:52 -0400, Jun Chen wrote:
-> > 
-> There are many warning for tcp_recvmsg before this crash. I can't find
-> other memory warning in the logs, but I'm not sure whether there are
-> memory issues because of the length limitation of saved logs. I think
-> this logs will give you more information.
-> 
-> <4>[ 7736.343742] ------------[ cut here ]------------
-> 
-> <4>[ 7736.343759] WARNING:
-> at /data/buildbot/workdir/jb/kernel/net/ipv4/tcp.c:1496 tcp_recvmsg
-> +0x3bf/0x910()
-> 
-> <4>[ 7736.343775] recvmsg bug: copied AB57C870 seq AB57CD95 rcvnxt
-> AB57F19F fl 0
-> 
-> <4>[ 7736.343845] Call Trace:
-> 
-> <4>[ 7736.343865]  [<c1237032>] warn_slowpath_common+0x72/0xa0
-> 
-> <4>[ 7736.343888]  [<c18a955f>] ? tcp_recvmsg+0x3bf/0x910
-> 
-> <4>[ 7736.343902]  [<c18a955f>] ? tcp_recvmsg+0x3bf/0x910
-> 
-> <4>[ 7736.343922]  [<c1237103>] warn_slowpath_fmt+0x33/0x40
-> 
-> <4>[ 7736.343944]  [<c18a955f>] tcp_recvmsg+0x3bf/0x910
-> 
-> <4>[ 7736.343968]  [<c18c9bb5>] inet_recvmsg+0x85/0xa0
-> 
-> <4>[ 7736.343992]  [<c1852030>] sock_aio_read+0x140/0x160
-> 
-> <4>[ 7736.344016]  [<c126b221>] ? set_next_entity+0xc1/0xf0
-> 
-> <4>[ 7736.344039]  [<c130d627>] do_sync_read+0xb7/0xf0
-> 
-> <4>[ 7736.344064]  [<c130dc6c>] ? rw_verify_area+0x6c/0x120
-> 
-> <4>[ 7736.344077]  [<c1349aa8>] ? sys_epoll_wait+0x68/0x360
-> 
-> <4>[ 7736.344098]  [<c130e1e9>] vfs_read+0x149/0x160
-> 
-> <4>[ 7736.344120]  [<c130f518>] ? fget_light+0x58/0xd0
-> 
-> <4>[ 7736.344142]  [<c130e23d>] sys_read+0x3d/0x70
-> 
-> <4>[ 7736.344164]  [<c198c361>] syscall_call+0x7/0xb
-> 
-> <4>[ 7736.344187]  [<c1980000>] ? perf_cpu_notify+0x45/0x89
-> 
-> <4>[ 7736.344205] ---[ end trace b3c5b245ce7ff5b5 ]---
-> 
+Hi All,
+We are working on ARM based SoC and using STMMAC Ethernet driver.
+In our scenario, we are setting MTU size as more than Ethernet frame size.
 
-Thats exactly the interesting stuff ;)
+Scenario:
+1) Setting MTU for Host side, Target side(ARM based SoC) as 5000 bytes.
+2) pinging host with packet size 3000, it is fail to ping host.
+3) ping host with packet size less than 1586, it is able to ping host
 
-This was fixed, or should be fixed if still happening on more recent
-kernels.
+Can you please guide me on this issue?
 
-Basically, once we are in this state, there is nothing we can do to
-prevent a crash.
-
-Please try to reproduce the issue using 3.9 or David trees (net-next or
-net )
-
-Thanks
+Thank you.
+Siva
