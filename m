@@ -1,141 +1,145 @@
 From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next v2 03/12] gre: export gre_build_header() function.
-Date: Mon, 17 Jun 2013 17:49:45 -0700
-Message-ID: <1371516585-17739-1-git-send-email-pshelar@nicira.com>
+Subject: [PATCH net-next v2 04/12] gre: export gre_handle_offloads() function.
+Date: Mon, 17 Jun 2013 17:49:51 -0700
+Message-ID: <1371516591-17778-1-git-send-email-pshelar@nicira.com>
 Cc: Pravin B Shelar <pshelar@nicira.com>
 To: netdev@vger.kernel.org, dev@openvswitch.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:55383 "HELO
-	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751982Ab3FRAtt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 20:49:49 -0400
-Received: by mail-pa0-f41.google.com with SMTP id bj3so3430501pad.28
-        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 17:49:48 -0700 (PDT)
+Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:54165 "HELO
+	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1752687Ab3FRAty (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 20:49:54 -0400
+Received: by mail-pb0-f50.google.com with SMTP id wz7so3339461pbc.37
+        for <netdev@vger.kernel.org>; Mon, 17 Jun 2013 17:49:53 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is required for ovs gre module.
+This is required for OVS GRE offloading.
 
 Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
 ---
- include/net/gre.h |    2 ++
- net/ipv4/gre.c    |   32 ++++++++++++++++++++++++++++++++
- net/ipv4/ip_gre.c |   40 +---------------------------------------
- 3 files changed, 35 insertions(+), 39 deletions(-)
+ include/net/gre.h |    1 +
+ net/ipv4/gre.c    |   29 +++++++++++++++++++++++++++++
+ net/ipv4/ip_gre.c |   34 ++--------------------------------
+ 3 files changed, 32 insertions(+), 32 deletions(-)
 
 diff --git a/include/net/gre.h b/include/net/gre.h
-index c6ea0c7..cbb9d51 100644
+index cbb9d51..a5a4ddf 100644
 --- a/include/net/gre.h
 +++ b/include/net/gre.h
-@@ -32,6 +32,8 @@ struct gre_cisco_protocol {
- 
- int gre_cisco_register(struct gre_cisco_protocol *proto);
+@@ -34,6 +34,7 @@ int gre_cisco_register(struct gre_cisco_protocol *proto);
  int gre_cisco_unregister(struct gre_cisco_protocol *proto);
-+void gre_build_header(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
-+		      int hdr_len);
+ void gre_build_header(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
+ 		      int hdr_len);
++struct sk_buff *gre_handle_offloads(struct sk_buff *skb, bool gre_csum);
  
  static inline int ip_gre_calc_hlen(__be16 o_flags)
  {
 diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
-index 8b9a373..1cbc465 100644
+index 1cbc465..5ecc9c4 100644
 --- a/net/ipv4/gre.c
 +++ b/net/ipv4/gre.c
-@@ -61,6 +61,38 @@ int gre_del_protocol(const struct gre_protocol *proto, u8 version)
+@@ -93,6 +93,35 @@ void gre_build_header(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
  }
- EXPORT_SYMBOL_GPL(gre_del_protocol);
+ EXPORT_SYMBOL_GPL(gre_build_header);
  
-+void gre_build_header(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
-+		      int hdr_len)
++struct sk_buff *gre_handle_offloads(struct sk_buff *skb, bool gre_csum)
 +{
-+	struct gre_base_hdr *greh;
++	int err;
 +
-+	skb_push(skb, hdr_len);
-+
-+	greh = (struct gre_base_hdr *)skb->data;
-+	greh->flags = tnl_flags_to_gre_flags(tpi->flags);
-+	greh->protocol = tpi->proto;
-+
-+	if (tpi->flags&(TUNNEL_KEY|TUNNEL_CSUM|TUNNEL_SEQ)) {
-+		__be32 *ptr = (__be32 *)(((u8 *)greh) + hdr_len - 4);
-+
-+		if (tpi->flags&TUNNEL_SEQ) {
-+			*ptr = tpi->seq;
-+			ptr--;
-+		}
-+		if (tpi->flags&TUNNEL_KEY) {
-+			*ptr = tpi->key;
-+			ptr--;
-+		}
-+		if (tpi->flags&TUNNEL_CSUM &&
-+		    !(skb_shinfo(skb)->gso_type & SKB_GSO_GRE)) {
-+			*ptr = 0;
-+			*(__sum16 *)ptr = csum_fold(skb_checksum(skb, 0,
-+								 skb->len, 0));
-+		}
++	if (likely(!skb->encapsulation)) {
++		skb_reset_inner_headers(skb);
++		skb->encapsulation = 1;
 +	}
++
++	if (skb_is_gso(skb)) {
++		err = skb_unclone(skb, GFP_ATOMIC);
++		if (unlikely(err))
++			goto error;
++		skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
++		return skb;
++	} else if (skb->ip_summed == CHECKSUM_PARTIAL && gre_csum) {
++		err = skb_checksum_help(skb);
++		if (unlikely(err))
++			goto error;
++	} else if (skb->ip_summed != CHECKSUM_PARTIAL)
++		skb->ip_summed = CHECKSUM_NONE;
++
++	return skb;
++error:
++	kfree_skb(skb);
++	return ERR_PTR(err);
 +}
-+EXPORT_SYMBOL_GPL(gre_build_header);
++EXPORT_SYMBOL_GPL(gre_handle_offloads);
 +
  static __sum16 check_checksum(struct sk_buff *skb)
  {
  	__sum16 csum = 0;
 diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 19863a8..362c7c4 100644
+index 362c7c4..c326e86 100644
 --- a/net/ipv4/ip_gre.c
 +++ b/net/ipv4/ip_gre.c
-@@ -248,40 +248,6 @@ error:
- 	return ERR_PTR(err);
+@@ -223,31 +223,6 @@ static int ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi)
+ 	return PACKET_REJECT;
  }
  
--static struct sk_buff *gre_build_header(struct sk_buff *skb,
--					const struct tnl_ptk_info *tpi,
--					int hdr_len)
+-static struct sk_buff *handle_offloads(struct ip_tunnel *tunnel, struct sk_buff *skb)
 -{
--	struct gre_base_hdr *greh;
+-	int err;
 -
--	skb_push(skb, hdr_len);
--
--	greh = (struct gre_base_hdr *)skb->data;
--	greh->flags = tnl_flags_to_gre_flags(tpi->flags);
--	greh->protocol = tpi->proto;
--
--	if (tpi->flags&(TUNNEL_KEY|TUNNEL_CSUM|TUNNEL_SEQ)) {
--		__be32 *ptr = (__be32 *)(((u8 *)greh) + hdr_len - 4);
--
--		if (tpi->flags&TUNNEL_SEQ) {
--			*ptr = tpi->seq;
--			ptr--;
--		}
--		if (tpi->flags&TUNNEL_KEY) {
--			*ptr = tpi->key;
--			ptr--;
--		}
--		if (tpi->flags&TUNNEL_CSUM &&
--		    !(skb_shinfo(skb)->gso_type & SKB_GSO_GRE)) {
--			*(__sum16 *)ptr = 0;
--			*(__sum16 *)ptr = csum_fold(skb_checksum(skb, 0,
--								 skb->len, 0));
--		}
--	}
+-	if (skb_is_gso(skb)) {
+-		err = skb_unclone(skb, GFP_ATOMIC);
+-		if (unlikely(err))
+-			goto error;
+-		skb_shinfo(skb)->gso_type |= SKB_GSO_GRE;
+-		return skb;
+-	} else if (skb->ip_summed == CHECKSUM_PARTIAL &&
+-		   tunnel->parms.o_flags&TUNNEL_CSUM) {
+-		err = skb_checksum_help(skb);
+-		if (unlikely(err))
+-			goto error;
+-	} else if (skb->ip_summed != CHECKSUM_PARTIAL)
+-		skb->ip_summed = CHECKSUM_NONE;
 -
 -	return skb;
+-
+-error:
+-	kfree_skb(skb);
+-	return ERR_PTR(err);
 -}
 -
  static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
  		       const struct iphdr *tnl_params,
  		       __be16 proto)
-@@ -302,11 +268,7 @@ static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
- 	tpi.seq = htonl(tunnel->o_seqno);
+@@ -255,11 +230,6 @@ static void __gre_xmit(struct sk_buff *skb, struct net_device *dev,
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	struct tnl_ptk_info tpi;
  
- 	/* Push GRE header. */
--	skb = gre_build_header(skb, &tpi, tunnel->hlen);
--	if (unlikely(!skb)) {
--		dev->stats.tx_dropped++;
--		return;
+-	if (likely(!skb->encapsulation)) {
+-		skb_reset_inner_headers(skb);
+-		skb->encapsulation = 1;
 -	}
-+	gre_build_header(skb, &tpi, tunnel->hlen);
+-
+ 	tpi.flags = tunnel->parms.o_flags;
+ 	tpi.proto = proto;
+ 	tpi.key = tunnel->parms.o_key;
+@@ -279,7 +249,7 @@ static netdev_tx_t ipgre_xmit(struct sk_buff *skb,
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 	const struct iphdr *tnl_params;
  
- 	ip_tunnel_xmit(skb, dev, tnl_params, tnl_params->protocol);
- }
+-	skb = handle_offloads(tunnel, skb);
++	skb = gre_handle_offloads(skb, !!(tunnel->parms.o_flags&TUNNEL_CSUM));
+ 	if (IS_ERR(skb))
+ 		goto out;
+ 
+@@ -318,7 +288,7 @@ static netdev_tx_t gre_tap_xmit(struct sk_buff *skb,
+ {
+ 	struct ip_tunnel *tunnel = netdev_priv(dev);
+ 
+-	skb = handle_offloads(tunnel, skb);
++	skb = gre_handle_offloads(skb, !!(tunnel->parms.o_flags&TUNNEL_CSUM));
+ 	if (IS_ERR(skb))
+ 		goto out;
+ 
 -- 
 1.7.1
