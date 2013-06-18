@@ -1,67 +1,32 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [iproute2 PATCH] tc: handle is not used without containing ':'
-Date: Tue, 18 Jun 2013 10:48:05 -0700
-Message-ID: <20130618104805.112f186e@nehalam.linuxnetplumber.net>
-References: <CAABrY5pGnVQPctPUSJAiM0tp3o2OTxjG5y8yt3bY59r=x2Gksg@mail.gmail.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [ovs-dev] [PATCH net-next v2 00/12] openvswitch: gre tunneling support.
+Date: Tue, 18 Jun 2013 11:05:56 -0700
+Message-ID: <CAEP_g=-PiA7gCqFmNsjT9jvhkQgHbjUBBxcWLwqKwJXUC8T0bQ@mail.gmail.com>
+References: <1371516561-17622-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org
-To: Philipp =?ISO-8859-1?B?U2No9m5iZXJnZXI=?=
-	<ph.schoenberger@googlemail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	"dev@openvswitch.org" <dev@openvswitch.org>
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:38070 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932458Ab3FRRvM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 13:51:12 -0400
-Received: by mail-pa0-f50.google.com with SMTP id fb1so4237004pad.9
-        for <netdev@vger.kernel.org>; Tue, 18 Jun 2013 10:51:11 -0700 (PDT)
-In-Reply-To: <CAABrY5pGnVQPctPUSJAiM0tp3o2OTxjG5y8yt3bY59r=x2Gksg@mail.gmail.com>
+Received: from na3sys009aog124.obsmtp.com ([74.125.149.151]:47561 "HELO
+	na3sys009aog124.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S932872Ab3FRSGS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 14:06:18 -0400
+Received: by mail-ie0-f170.google.com with SMTP id e11so10979314iej.1
+        for <netdev@vger.kernel.org>; Tue, 18 Jun 2013 11:06:16 -0700 (PDT)
+In-Reply-To: <1371516561-17622-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 13 Jun 2013 19:20:52 +0200
-Philipp Sch=F6nberger  <ph.schoenberger@googlemail.com> wrote:
+On Mon, Jun 17, 2013 at 5:49 PM, Pravin B Shelar <pshelar@nicira.com> wrote:
+> Following patch series adds support for gre tunneling.
+> First six patches extend kernel gre and ip_tunnel modules
+> api so that there is more code sharing between gre modules
+> and ovs. Rest of patches adds ovs tunneling infrastructre
+> and gre protocol vport.
 
-> Handle is not used if it is not containing a ':' . This is
-> reproducible with these commands.
->=20
-> /sbin/tc qdisc add dev lo parent 0xffffffff handle 0x10000 pfifo limi=
-t 10
->=20
-> /sbin/tc qdisc show dev lo
-> qdisc pfifo 8001: root refcnt 2 limit 10p
->=20
-> Signed-off-by: Philipp Sch=F6nberger <ph.schoenberger@googlemail.com>
-> --- iproute2-2.6.33/tc/tc_util.c    2010-02-25 04:56:50.000000000 +01=
-00
-> +++ /home/pschoen/tc_util.c    2013-06-13 18:31:00.347135625 +0200
-> @@ -50,9 +50,14 @@
->      maj =3D strtoul(str, &p, 16);
->      if (p =3D=3D str)
->          return -1;
-> -    maj <<=3D 16;
-> -    if (*p !=3D ':' && *p!=3D0)
-> -        return -1;
-> +    if (*p !=3D ':')
-> +    {
-> +        if(*p!=3D0)
-> +            return -1;
-> +        else if (TC_H_MIN(maj) !=3D 0)
-> +            return -1;
-> +    }else
-> +        maj <<=3D 16;
->  ok:
->      *h =3D maj;
->      return 0;
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+For the OVS portions:
+Acked-by: Jesse Gross <jesse@nicira.com>
 
-The syntax for tc has always reqired : after the handle.
- http://www.lartc.org/howto/lartc.qdisc.classful.html
-
-One could argue the error checking could be better, but not worth chang=
-ing
-the syntax now.
+Thanks Pravin!
