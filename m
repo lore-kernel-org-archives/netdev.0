@@ -1,138 +1,68 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH] build some drivers only when compile-testing
-Date: Tue, 18 Jun 2013 10:24:40 +0200
-Message-ID: <51C01948.9060708@suse.cz>
-References: <1369214326-6558-1-git-send-email-jslaby@suse.cz> <20130523022327.GB6159@kroah.com> <519D8876.9050405@suse.com> <51BF6BFF.7050705@suse.cz> <51BFE754.5080301@suse.cz> <20130618081858.GD5461@arwen.pp.htv.fi>
+From: Bastian Hecht <hechtb@gmail.com>
+Subject: Re: linux-next: manual merge of the arm-soc tree with the net-next tree
+Date: Tue, 18 Jun 2013 10:33:27 +0200
+Message-ID: <CABYn4sx3PYBVMyio8uo-KhwprQnCmt_5k2EMaa9_EW2ud2q2nQ@mail.gmail.com>
+References: <20130617163920.04523ba6de50bcc81563f33e@canb.auug.org.au>
+	<51BF1461.8060401@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Mahoney <jeffm@suse.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	jirislaby@gmail.com, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-	linux-usb@vger.kernel.org,
-	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
-	linux-geode@lists.infradead.org, linux-fbdev@vger.kernel.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>, tomi.valkeinen@ti.com
-To: balbi@ti.com, Michal Marek <mmarek@suse.cz>
+Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
+	Olof Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, linux-next@vger.kernel.org,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Simon Horman <horms+renesas@verge.net.au>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130618081858.GD5461@arwen.pp.htv.fi>
+In-Reply-To: <51BF1461.8060401@cogentembedded.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/18/2013 10:18 AM, Felipe Balbi wrote:
-> Hi,
-> 
-> On Tue, Jun 18, 2013 at 06:51:32AM +0200, Michal Marek wrote:
->> Dne 17.6.2013 22:05, Jiri Slaby napsal(a):
->>> On 05/23/2013 05:09 AM, Jeff Mahoney wrote:
->>>> On 5/22/13 10:23 PM, Greg Kroah-Hartman wrote:
->>>>> On Wed, May 22, 2013 at 11:18:46AM +0200, Jiri Slaby
->>>>> wrote:
->>>>>> Some drivers can be built on more platforms than they run
->>>>>> on. This causes users and distributors packaging burden
->>>>>> when they have to manually deselect some drivers from
->>>>>> their allmodconfigs. Or sometimes it is even impossible
->>>>>> to disable the drivers without patching the kernel.
->>>>>> 
->>>>>> Introduce a new config option COMPILE_TEST and make all
->>>>>> those drivers to depend on the platform they run on, or
->>>>>> on the COMPILE_TEST option. Now, when users/distributors
->>>>>> choose COMPILE_TEST=n they will not have the drivers in
->>>>>> their allmodconfig setups, but developers still can 
->>>>>> compile-test them with COMPILE_TEST=y.
->>>>> 
->>>>> I understand the urge, and it's getting hard for distros to
->>>>> handle these drivers that just don't work on other
->>>>> architectures, but it's really valuable to ensure that they
->>>>> build properly, for those of us that don't have many/any
->>>>> cross compilers set up.
->>> 
->>> But this is exactly what COMPILE_TEST will give us when set to
->>> "y", or am I missing something?
->>> 
->>>>>> Now the drivers where we use this new option: *
->>>>>> PTP_1588_CLOCK_PCH: The PCH EG20T is only compatible with
->>>>>> Intel Atom processors so it should depend on x86. *
->>>>>> FB_GEODE: Geode is 32-bit only so only enable it for
->>>>>> X86_32. * USB_CHIPIDEA_IMX: The OF_DEVICE dependency will
->>>>>> be met on powerpc systems -- which do not actually
->>>>>> support the hardware via that method.
->>>>> 
->>>>> This seems ripe to start to get really messy, really
->>>>> quickly.  Shouldn't "default configs" handle if this
->>>>> "should" be enabled for a platform or not, and let the rest
->>>>> of us just build them with no problems?
->>>> 
->>>> If every time a new Kconfig option is added, corresponding
->>>> default config updates come with it, sure. I just don't see
->>>> that happening, especially when it can be done much more
->>>> clearly in the Kconfig while the developer is writing the
->>>> driver.
->>>> 
->>>>> What problems is this causing you?  Are you running out of
->>>>> space in kernel packages with drivers that will never be
->>>>> actually used?
->>>> 
->>>> Wasted build resources. Wasted disk space on /every/ system
->>>> the kernel package is installed on. We're all trying to pare
->>>> down the kernel packages to eliminate wasted space and doing
->>>> it manually means a bunch of research, sometimes with
->>>> incorrect assumptions about the results, needs to be done by
->>>> someone not usually associated with that code. That research
->>>> gets repeated by people maintaining kernel packages for
->>>> pretty much every distro.
->>> 
->>> I second all the above.
->>> 
->>>>>> +config COMPILE_TEST +	bool "Compile also drivers which
->>>>>> will not load" if EXPERT
->>>>> 
->>>>> EXPERT is getting to be the "let's hide it here" option,
->>>>> isn't it...
->>>>> 
->>>>> I don't know, if no one else strongly objects, I can be
->>>>> convinced that this is needed, but so far, I don't see why
->>>>> it really is, or what this is going to help with.
->>>> 
->>>> I'm not convinced adding a || COMPILE_TEST option to every
->>>> driver that may be arch specific is the best way to go
->>>> either. Perhaps adding a new Kconfig verb called "archdepends
->>>> on" or something that will evaluate as true if COMPILE_TEST
->>>> is enabled but will evaluate the conditional if not. *waves
->>>> hands*
->>> 
->>> Sam Ravnborg (the kconfig ex-maintainer) once wrote that he
->>> doesn't want to extend the kconfig language for this purpose
->>> (which I support). That a config option is fine and sufficient
->>> in this case [1]. Except he called the config option
->>> "SHOW_ALL_DRIVERS". Adding the current maintainer to CCs ;).
->> 
->> I agree with Sam. 'depends on XY || COMPILE_TEST' is quite 
->> self-explanatory. And even if it's not, you can look up the help
->> text for COMPILE_TEST. With "archdepends on" or "available on",
->> you need to know what to look for to override the dependency.
-> 
-> you will still end up with:
-> 
-> depends on (ARCH_OMAP || ARCH_EXYNOS || ARCH_DAVINCI || ARCH_PPC ||
-> ...)
-> 
-> And every now and again that particular line will be updated to
-> add another arch dependency.
+Hello Sergei, hello Stephen,
 
-But that is perfectly fine *when* the driver is supported on those
-archs only.
+Sergei is completely right I think. He was sceptic about the commit in
+a mail some days ago already. Unfortunately I recently haven't had
+access to my development environment to check what's up with this
+patch. I'm sorry that it ended up to you both to deal with it. I have
+written some simple bindings for the sh-eth and wanted to use it for
+our DT reference version for the Armadillo board but discarded it as I
+saw Nobuhiro Iwamatsu, the author of the sh-eth driver, cooked up some
+more mature version. I don't see them in the next branch of Simon, so
+until they appear there we can delete commit 9e0b428f079d ("ARM:
+shmobile: r8a7740: Add interim sh-eth device name to clocks list")
+that is only needed for sh-eth DT usage.
 
-And come on, how much often will this "every now and again" happen? We
-don't have that much cases where a driver is augmented to work on
-another arch or platform. It either works on all of them => doesn't
-need COMPILE_TEST, or work on one or two arches at most.
+Thanks,
 
--- 
-js
-suse labs
+ Bastian
+
+
+2013/6/17 Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>:
+> Hello.
+>
+>
+> On 17-06-2013 10:39, Stephen Rothwell wrote:
+>
+>> Today's linux-next merge of the arm-soc tree got a conflict in
+>> arch/arm/mach-shmobile/clock-r8a7740.c between commit e5c9b4cd6651
+>> ("sh_eth: get R8A7740 support out of #ifdef") from the net-next tree and
+>> commit 9e0b428f079d ("ARM: shmobile: r8a7740: Add interim sh-eth device
+>> name to clocks list") from the arm-soc tree.
+>
+>
+>    To me that latter commit looked utterly pointless, as there's no device
+> tree support for the 'sh-eth' driver yet (and at this stage it isn't even
+> going to happen due to procedural platform data). I'm instead going to use
+> OF_DEV_AUXDATA() in the platform code which again would render that commit
+> pointless.
+>
+>
+>> I fixed it up (see below) and can carry the fix as necessary (no action
+>> is required).
+>
+>
+>    Thanks.
+>
+> WBR, Sergei
+>
