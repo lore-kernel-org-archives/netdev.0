@@ -1,23 +1,44 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH v2] net: fec: Fix build for MCF5272
-Date: Tue, 18 Jun 2013 13:38:06 -0300
-Message-ID: <CAOMZO5BXG6ZieW4gTwWsAcm9zb+aPCUKuLEzq_AKX8tcRNQF-Q@mail.gmail.com>
-References: <1371569885-9054-1-git-send-email-linux@roeck-us.net>
-	<CAOMZO5DW_e33MbfJhNG0ouf5g5o04AF7UchD3xwJV30GLovoNg@mail.gmail.com>
-	<20130618163232.GA10097@roeck-us.net>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: [PATCH net] sfc: Remove write permission from phy_type attribute
+Date: Tue, 18 Jun 2013 17:45:40 +0100
+Message-ID: <1371573940.1956.19.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	linux-kernel@vger.kernel.org, Frank Li <Frank.Li@freescale.com>,
-	Jim Baxter <jim_baxter@mentor.com>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130618163232.GA10097@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:37026 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932168Ab3FRQpo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 12:45:44 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 18, 2013 at 1:32 PM, Guenter Roeck <linux@roeck-us.net> wrote:
+Driver probe currently results in:
 
-> Want me to add it to the commit log ?
+WARNING: at drivers/base/core.c:576 device_create_file+0x57/0x7e()
+Attribute phy_type: write permission without 'store'
 
-That would be nice, thanks.
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 39e4cb3..4a14a94 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -2139,7 +2139,7 @@ show_phy_type(struct device *dev, struct device_attribute *attr, char *buf)
+ 	struct efx_nic *efx = pci_get_drvdata(to_pci_dev(dev));
+ 	return sprintf(buf, "%d\n", efx->phy_type);
+ }
+-static DEVICE_ATTR(phy_type, 0644, show_phy_type, NULL);
++static DEVICE_ATTR(phy_type, 0444, show_phy_type, NULL);
+ 
+ static int efx_register_netdev(struct efx_nic *efx)
+ {
+-- 
+Ben Hutchings, Senior Software Engineer, Solarflare Communications
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
