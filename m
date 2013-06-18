@@ -1,40 +1,135 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: RE: [PATCH net-next 1/2] bnx2x: add support for ndo_ll_poll
-Date: Tue, 18 Jun 2013 04:15:43 -0700
-Message-ID: <1371554143.3252.253.camel@edumazet-glaptop>
-References: <1371541333-19225-1-git-send-email-dmitry@broadcom.com>
-	 <1371541333-19225-2-git-send-email-dmitry@broadcom.com>
-	 <1371543058.3252.214.camel@edumazet-glaptop>
-	 <504C9EFCA2D0054393414C9CB605C37F20CBC237@SJEXCHMB06.corp.ad.broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Eilon Greenstein <eilong@broadcom.com>
-To: Dmitry Kravkov <dmitry@broadcom.com>
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH net-next] bonding: trivial: make alb use bond_slave_has_mac()
+Date: Tue, 18 Jun 2013 13:44:52 +0200
+Message-ID: <1371555892-1934-1-git-send-email-vfalico@redhat.com>
+Cc: vfalico@redhat.com
+To: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:43925 "EHLO
-	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754001Ab3FRLPs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 07:15:48 -0400
-Received: by mail-ea0-f175.google.com with SMTP id z7so2414678eaf.6
-        for <netdev@vger.kernel.org>; Tue, 18 Jun 2013 04:15:47 -0700 (PDT)
-In-Reply-To: <504C9EFCA2D0054393414C9CB605C37F20CBC237@SJEXCHMB06.corp.ad.broadcom.com>
+Received: from mx1.redhat.com ([209.132.183.28]:27790 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932491Ab3FRLpD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jun 2013 07:45:03 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-06-18 at 10:45 +0000, Dmitry Kravkov wrote:
+Also, cleanup bond_alb_handle_active_change() from 2 identical ifs.
 
-> > Ideally, we could keep a counter of enabled LLS sockets, to
-> > automatically switch off/on GRO, but in net/core, not in every driver.
-> 
-> Since we have GRO in FW it will be hard to disable/enable it on the fly, probably better  to return LL_FLUSH_FAILED when GRO is enabled?
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_alb.c | 53 +++++++++---------------------------------
+ 1 file changed, 11 insertions(+), 42 deletions(-)
 
-Yes, assuming GRO in FW means latencies ?
-
-(If we receive a frame, FW has to wait a bit for the following frames to
-eventually aggregate them)
-
-I thought FW did LRO part on bnx2x, and GRO was the software thing (in
-networking core, not in the bnx2x drivre)
+diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+index 27fe329..4ea8ed1 100644
+--- a/drivers/net/bonding/bond_alb.c
++++ b/drivers/net/bonding/bond_alb.c
+@@ -1129,6 +1129,7 @@ static void alb_change_hw_addr_on_detach(struct bonding *bond, struct slave *sla
+ {
+ 	int perm_curr_diff;
+ 	int perm_bond_diff;
++	struct slave *found_slave;
+ 
+ 	perm_curr_diff = !ether_addr_equal_64bits(slave->perm_hwaddr,
+ 						  slave->dev->dev_addr);
+@@ -1136,21 +1137,12 @@ static void alb_change_hw_addr_on_detach(struct bonding *bond, struct slave *sla
+ 						  bond->dev->dev_addr);
+ 
+ 	if (perm_curr_diff && perm_bond_diff) {
+-		struct slave *tmp_slave;
+-		int i, found = 0;
+-
+-		bond_for_each_slave(bond, tmp_slave, i) {
+-			if (ether_addr_equal_64bits(slave->perm_hwaddr,
+-						    tmp_slave->dev->dev_addr)) {
+-				found = 1;
+-				break;
+-			}
+-		}
++		found_slave = bond_slave_has_mac(bond, slave->perm_hwaddr);
+ 
+-		if (found) {
++		if (found_slave) {
+ 			/* locking: needs RTNL and nothing else */
+-			alb_swap_mac_addr(slave, tmp_slave);
+-			alb_fasten_mac_swap(bond, slave, tmp_slave);
++			alb_swap_mac_addr(slave, found_slave);
++			alb_fasten_mac_swap(bond, slave, found_slave);
+ 		}
+ 	}
+ }
+@@ -1668,7 +1660,6 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 	__acquires(&bond->curr_slave_lock)
+ {
+ 	struct slave *swap_slave;
+-	int i;
+ 
+ 	if (bond->curr_active_slave == new_slave) {
+ 		return;
+@@ -1690,17 +1681,8 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 	/* set the new curr_active_slave to the bonds mac address
+ 	 * i.e. swap mac addresses of old curr_active_slave and new curr_active_slave
+ 	 */
+-	if (!swap_slave) {
+-		struct slave *tmp_slave;
+-		/* find slave that is holding the bond's mac address */
+-		bond_for_each_slave(bond, tmp_slave, i) {
+-			if (ether_addr_equal_64bits(tmp_slave->dev->dev_addr,
+-						    bond->dev->dev_addr)) {
+-				swap_slave = tmp_slave;
+-				break;
+-			}
+-		}
+-	}
++	if (!swap_slave)
++		swap_slave = bond_slave_has_mac(bond, bond->dev->dev_addr);
+ 
+ 	/*
+ 	 * Arrange for swap_slave and new_slave to temporarily be
+@@ -1721,15 +1703,11 @@ void bond_alb_handle_active_change(struct bonding *bond, struct slave *new_slave
+ 	if (swap_slave) {
+ 		/* swap mac address */
+ 		alb_swap_mac_addr(swap_slave, new_slave);
+-	} else {
+-		/* set the new_slave to the bond mac address */
+-		alb_set_slave_mac_addr(new_slave, bond->dev->dev_addr);
+-	}
+-
+-	if (swap_slave) {
+ 		alb_fasten_mac_swap(bond, swap_slave, new_slave);
+ 		read_lock(&bond->lock);
+ 	} else {
++		/* set the new_slave to the bond mac address */
++		alb_set_slave_mac_addr(new_slave, bond->dev->dev_addr);
+ 		read_lock(&bond->lock);
+ 		alb_send_learning_packets(new_slave, bond->dev->dev_addr);
+ 	}
+@@ -1746,9 +1724,8 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+ {
+ 	struct bonding *bond = netdev_priv(bond_dev);
+ 	struct sockaddr *sa = addr;
+-	struct slave *slave, *swap_slave;
++	struct slave *swap_slave;
+ 	int res;
+-	int i;
+ 
+ 	if (!is_valid_ether_addr(sa->sa_data)) {
+ 		return -EADDRNOTAVAIL;
+@@ -1769,15 +1746,7 @@ int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr)
+ 		return 0;
+ 	}
+ 
+-	swap_slave = NULL;
+-
+-	bond_for_each_slave(bond, slave, i) {
+-		if (ether_addr_equal_64bits(slave->dev->dev_addr,
+-					    bond_dev->dev_addr)) {
+-			swap_slave = slave;
+-			break;
+-		}
+-	}
++	swap_slave = bond_slave_has_mac(bond, bond_dev->dev_addr);
+ 
+ 	if (swap_slave) {
+ 		alb_swap_mac_addr(swap_slave, bond->curr_active_slave);
+-- 
+1.8.1.4
