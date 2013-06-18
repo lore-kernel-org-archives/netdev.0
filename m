@@ -1,60 +1,88 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH V2] rtlwifi: rtl8192cu: Fix duplicate if test
-Date: Tue, 18 Jun 2013 13:25:05 -0500
-Message-ID: <1371579905-15613-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org, stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
+From: =?ISO-8859-1?Q?Philipp_Sch=F6nberger?=
+	<ph.schoenberger@googlemail.com>
+Subject: Re: [iproute2 PATCH] tc: handle is not used without containing ':'
+Date: Tue, 18 Jun 2013 20:27:41 +0200
+Message-ID: <CAABrY5o5hJRYGqeXSKo0v5zbzGC3AkMyW88bJGmwcn0UgQxZ1Q@mail.gmail.com>
+References: <CAABrY5pGnVQPctPUSJAiM0tp3o2OTxjG5y8yt3bY59r=x2Gksg@mail.gmail.com>
+	<20130618104805.112f186e@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: netdev@vger.kernel.org, stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f178.google.com ([209.85.214.178]:41684 "EHLO
-	mail-ob0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933041Ab3FRSZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 14:25:19 -0400
+Received: from mail-qa0-f54.google.com ([209.85.216.54]:48871 "EHLO
+	mail-qa0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932861Ab3FRS1n convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 14:27:43 -0400
+Received: by mail-qa0-f54.google.com with SMTP id n20so2303933qaj.6
+        for <netdev@vger.kernel.org>; Tue, 18 Jun 2013 11:27:42 -0700 (PDT)
+In-Reply-To: <20130618104805.112f186e@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-A typo causes routine rtl92cu_phy_rf6052_set_cck_txpower() to test the
-same condition twice. The problem was found using cppcheck-1.49, and the
-proper fix was verified against the pre-mac80211 version of the code.
+Then the interface of class and handle is not equal.
+You take a look at the classid which is also represented in an '__u32'
+with major and minor part  with 16 bit for each.
+The following class Ids are pointing to the same class and working
+correctly with the tc command
 
-This patch was originally included as commit 1288aa4, but was accidentally
-reverted in a later patch.
+10:0010
+1:10
+1:0010
+0x00100010
 
-Reported-by: David Binderman <dcb314@hotmail.com> [original report]
-Reported-by: Andrea Morello <andrea.merello@gmail.com> [report of accidental reversion]
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: stable <stable@vger.kernel.org>  [back to 2.6.39]
----
+So correct me if i'm wrong but this should the same case for the
+handle, only that the minor part has to be zero.
+The code does not restrict to not have a ':' in the handle it only add
+the possibility to also enter it without ':' like the classid and
+check if the minor part is zero.
 
-John,
+WBR, Philipp
 
-Although this patch is trivial and could be included in the 3.10 stream,
-I think we should not burden DaveM nor Linus with it this late in the 3.10
-cycle. Please push it into the 3.11 stream.
-
-Thanks,
-
-Larry
----
-
-V2 - Fix error in stable mailing address
----
- drivers/net/wireless/rtlwifi/rtl8192cu/rf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c b/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c
-index 953f1a0..2119313 100644
---- a/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8192cu/rf.c
-@@ -104,7 +104,7 @@ void rtl92cu_phy_rf6052_set_cck_txpower(struct ieee80211_hw *hw,
- 			tx_agc[RF90_PATH_A] = 0x10101010;
- 			tx_agc[RF90_PATH_B] = 0x10101010;
- 		} else if (rtlpriv->dm.dynamic_txhighpower_lvl ==
--			   TXHIGHPWRLEVEL_LEVEL1) {
-+			   TXHIGHPWRLEVEL_LEVEL2) {
- 			tx_agc[RF90_PATH_A] = 0x00000000;
- 			tx_agc[RF90_PATH_B] = 0x00000000;
- 		} else{
--- 
-1.8.1.4
+2013/6/18 Stephen Hemminger <stephen@networkplumber.org>:
+> On Thu, 13 Jun 2013 19:20:52 +0200
+> Philipp Sch=F6nberger  <ph.schoenberger@googlemail.com> wrote:
+>
+>> Handle is not used if it is not containing a ':' . This is
+>> reproducible with these commands.
+>>
+>> /sbin/tc qdisc add dev lo parent 0xffffffff handle 0x10000 pfifo lim=
+it 10
+>>
+>> /sbin/tc qdisc show dev lo
+>> qdisc pfifo 8001: root refcnt 2 limit 10p
+>>
+>> Signed-off-by: Philipp Sch=F6nberger <ph.schoenberger@googlemail.com=
+>
+>> --- iproute2-2.6.33/tc/tc_util.c    2010-02-25 04:56:50.000000000 +0=
+100
+>> +++ /home/pschoen/tc_util.c    2013-06-13 18:31:00.347135625 +0200
+>> @@ -50,9 +50,14 @@
+>>      maj =3D strtoul(str, &p, 16);
+>>      if (p =3D=3D str)
+>>          return -1;
+>> -    maj <<=3D 16;
+>> -    if (*p !=3D ':' && *p!=3D0)
+>> -        return -1;
+>> +    if (*p !=3D ':')
+>> +    {
+>> +        if(*p!=3D0)
+>> +            return -1;
+>> +        else if (TC_H_MIN(maj) !=3D 0)
+>> +            return -1;
+>> +    }else
+>> +        maj <<=3D 16;
+>>  ok:
+>>      *h =3D maj;
+>>      return 0;
+>> --
+>> To unsubscribe from this list: send the line "unsubscribe netdev" in
+>> the body of a message to majordomo@vger.kernel.org
+>> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+> The syntax for tc has always reqired : after the handle.
+>  http://www.lartc.org/howto/lartc.qdisc.classful.html
+>
+> One could argue the error checking could be better, but not worth cha=
+nging
+> the syntax now.
