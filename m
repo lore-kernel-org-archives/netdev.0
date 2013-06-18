@@ -1,42 +1,69 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/5] staging/rtl8192u: convert skb->tail into
- skb_tail_pointer(skb)
-Date: Mon, 17 Jun 2013 17:13:33 -0700 (PDT)
-Message-ID: <20130617.171333.1206092427807227985.davem@davemloft.net>
-References: <bb5cc0b762102c6a6a56bbd2067c7e539abfb2a6.1371200138.git.yamahata@valinux.co.jp>
-	<4e2318187b15be4d81c3b03cd0337506c7008bb8.1371200138.git.yamahata@valinux.co.jp>
-	<20130617020305.GE15043@verge.net.au>
+From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH net-next v2 00/12] openvswitch: gre tunneling
+	support.
+Date: Mon, 17 Jun 2013 17:49:21 -0700
+Message-ID: <1371516561-17622-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: yamahata@valinux.co.jp, netdev@vger.kernel.org,
-	gregkh@linuxfoundation.org, devel@driverdev.osuosl.org
-To: horms@verge.net.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40877 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751856Ab3FRANk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 17 Jun 2013 20:13:40 -0400
-In-Reply-To: <20130617020305.GE15043@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <horms@verge.net.au>
-Date: Mon, 17 Jun 2013 11:03:05 +0900
+Following patch series adds support for gre tunneling.
+First six patches extend kernel gre and ip_tunnel modules
+api so that there is more code sharing between gre modules
+and ovs. Rest of patches adds ovs tunneling infrastructre
+and gre protocol vport.
 
-> On Fri, Jun 14, 2013 at 05:58:35PM +0900, Isaku Yamahata wrote:
->> The change set of 7a884dc "[SK_BUFF]: Convert skb->tail to sk_buff_data_t"
->> converted skb->tail from pointer into sk_buff_data_t.
->> Thus skb->tail is not always pointer, the area pointed by skb->tail
->> should be accessed via skb_tail_pointer().
->> 
->> Found by inspection. Compile tested only.
->> 
->> Cc: Simon Horman <horms@verge.net.au>
->> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
->> Cc: devel@driverdev.osuosl.org
->> Signed-off-by: Isaku Yamahata <yamahata@valinux.co.jp>
-> 
-> Reviewed-by: Simon Horman <horms@verge.net.au>
+V2 fixes two patches according to comments from Jesse.
 
-Applied.
+Pravin B Shelar (12):
+  gre: Simplify gre protocol registration locking.
+  gre: Allow multiple protocol listener for gre protocol.
+  gre: export gre_build_header() function.
+  gre: export gre_handle_offloads() function.
+  ip_tunnels: extend iptunnel_xmit()
+  ip_tunnel: push generic protocol handling to ip_tunnel module.
+  ip_tunnel: Add dont fragment flag.
+  openvswitch: Copy individual actions.
+  openvswitch: Add tunneling interface.
+  openvswitch: Expand action buffer size.
+  openvswitch: Optimize flow key match for non tunnel flows.
+  openvswitch: Add gre tunnel support.
+
+ drivers/net/vxlan.c                  |   32 +---
+ include/net/gre.h                    |   27 +++
+ include/net/ip_tunnels.h             |   28 ++-
+ include/uapi/linux/openvswitch.h     |   19 ++
+ net/ipv4/Makefile                    |    2 +-
+ net/ipv4/gre.c                       |  323 ++++++++++++++++++++++++++++---
+ net/ipv4/ip_gre.c                    |  247 +++---------------------
+ net/ipv4/ip_tunnel.c                 |   68 ++-----
+ net/ipv4/ip_tunnel_core.c            |  121 ++++++++++++
+ net/ipv4/ipip.c                      |    6 +-
+ net/ipv6/sit.c                       |   44 ++---
+ net/openvswitch/Makefile             |    3 +-
+ net/openvswitch/actions.c            |    4 +
+ net/openvswitch/datapath.c           |  356 ++++++++++++++++++++++++++++------
+ net/openvswitch/datapath.h           |    4 +
+ net/openvswitch/flow.c               |  186 ++++++++++++++++--
+ net/openvswitch/flow.h               |   45 ++++-
+ net/openvswitch/vport-gre.c          |  274 ++++++++++++++++++++++++++
+ net/openvswitch/vport-internal_dev.c |    2 +-
+ net/openvswitch/vport-netdev.c       |    2 +-
+ net/openvswitch/vport.c              |   23 ++-
+ net/openvswitch/vport.h              |   10 +-
+ 22 files changed, 1370 insertions(+), 456 deletions(-)
+ create mode 100644 net/ipv4/ip_tunnel_core.c
+ create mode 100644 net/openvswitch/vport-gre.c
