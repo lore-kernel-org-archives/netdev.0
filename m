@@ -1,95 +1,38 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: VLAN driver question
-Date: Wed, 19 Jun 2013 17:33:55 +0100
-Message-ID: <1371659635.1956.45.camel@bwh-desktop.uk.level5networks.com>
-References: <51BF5F81.2040207@mentor.com>
-	 <1371566484.1956.16.camel@bwh-desktop.uk.level5networks.com>
-	 <51C1D4D7.1000904@mentor.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] macvtap: Let TUNSETOFFLOAD actually
+ controll offload features.
+Date: Wed, 19 Jun 2013 09:34:50 -0700
+Message-ID: <1371659690.3252.335.camel@edumazet-glaptop>
+References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>
+	   <1371653272-11703-2-git-send-email-vyasevic@redhat.com>
+	  <1371655038.3252.312.camel@edumazet-glaptop> <51C1CDBC.4040003@redhat.com>
+	 <1371656769.3252.320.camel@edumazet-glaptop> <51C1DA58.4010204@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Jim Baxter <jim_baxter@mentor.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
+	jasowang@redhat.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:18970 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757027Ab3FSQd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 12:33:59 -0400
-In-Reply-To: <51C1D4D7.1000904@mentor.com>
+Received: from mail-ea0-f171.google.com ([209.85.215.171]:42616 "EHLO
+	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757027Ab3FSQe4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 12:34:56 -0400
+Received: by mail-ea0-f171.google.com with SMTP id m14so3380207eaj.2
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 09:34:55 -0700 (PDT)
+In-Reply-To: <51C1DA58.4010204@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-19 at 16:57 +0100, Jim Baxter wrote:
-> Thank you Ben, that is very helpful.
-> 
-> On 18/06/13 15:41, Ben Hutchings wrote:
-> > On Mon, 2013-06-17 at 20:12 +0100, Jim Baxter wrote:
-> >> I have a network card that has a single flag to indicate if a received
-> >> packet contains a vlan packet.
-> >>
-> >> Can I use this to accelerate the kernels handling of the packet with
-> >> something like the following?
-> >>
-> >> /* Handle received VLAN packets */
-> >> if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) && ebdp &&
-> >> 					(ebdp->cbd_esc &
-> >> 					BD_ENET_RX_VLAN)) {
-> >> 	/* Push and remove the vlan tag */
-> >> 	struct vlan_hdr *vlan_header;
-> >> 	u16 vlan_tag;
-> >> 	vlan_header = (struct vlan_hdr *) skb->data;
-> >> 	vlan_tag = ntohs(vlan_header->h_vlan_TCI);
-> >> 	__vlan_hwaccel_put_tag(skb, vlan_tag);
-> >> 	skb->len -= VLAN_HLEN;
-> >> 	skb->data += VLAN_HLEN;
-> >> 	vlan_set_encap_proto(skb, vlan_header);
-> > 
-> > You have to move the Ethernet addresses forward as well.  Imagine this
-> > device is being bridged - the Ethernet header won't be regenerated, so
-> > it has to be immediately before the network header.
-> > 
-> Unless I have misunderstood, the Ethernet header is already copied
-> across to the skb by the Driver I am editing with the lines:
-> 	skb_reserve(skb, NET_IP_ALIGN);
-> 	skb_put(skb, pkt_len - 4);	/* Make room */
-> 	skb_copy_to_linear_data(skb, data, pkt_len - 4);
-> 	skb->protocol = eth_type_trans(skb, ndev);
+On Wed, 2013-06-19 at 12:20 -0400, Vlad Yasevich wrote:
 
-Right, but the copy and ether_type_trans() result in an skb like this:
+> That's the issue.  RTNL is not owned in the ioctl case.
 
--14 -8  -2   0   2    4
-|dst|src|8100|vid|type|payload...|
-             ^
+So it was clearly wrong. The fix was simply to get RTNL in ioctl.
 
-After extracting the VLAN tag the skb looks like:
+Unfortunately this was not spotted earlier, this is not a reason to add
+more kludge.
 
--18 -12 -6   -4  -2   0
-|dst|src|8100|vid|type|payload...|
-                      ^
+RTNL is the only mutex needed for the write path.
 
-If this packet is bridged, the 14 bytes before skb->data will be treated
-as the Ethernet header:
-
-0 2   8    10  12   14
-|x|src|8100|vid|type|payload...|
-^
-
-Then with the VLAN tag inserted;
-
-0 2   8    10  12   14  16   18
-|x|src|8100|vid|8100|vid|type|payload...|
-
-> Thinking about it though I should actually use the flag from the driver
-> to create an skb of the size (pkt_len - 4 - VLAN_HLEN) and extract the
-> vlan header from data so it is not copied to the skb, does this sound
-> sensible?
-[...]
-
-That would also work.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+A management path using RCU_BH and RTNL and a spinlock is wrong.
