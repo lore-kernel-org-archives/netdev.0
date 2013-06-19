@@ -1,52 +1,50 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: qlen check in tun.c
-Date: Wed, 19 Jun 2013 11:29:22 +0800
-Message-ID: <51C12592.6050503@redhat.com>
-References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [net-next,v5,2/3] bridge: only expire the mdb entry when query
+ is received
+Date: Wed, 19 Jun 2013 12:44:38 +0800
+Message-ID: <20130619044438.GA8174@gondor.apana.org.au>
+References: <1369209176-6841-2-git-send-email-amwang@redhat.com>
+ <20130618120338.GA9063@Linus-Debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-To: Jerry Chu <hkchu@google.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Amerigo Wang <amwang@redhat.com>, netdev@vger.kernel.org,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Adam Baker <linux@baker-net.org.uk>
+To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@web.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:15181 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933941Ab3FSD3h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 18 Jun 2013 23:29:37 -0400
-In-Reply-To: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com>
+Received: from ringil.hengli.com.au ([178.18.16.133]:38924 "EHLO
+	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
+	with ESMTP id S932873Ab3FSEot (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 00:44:49 -0400
+Content-Disposition: inline
+In-Reply-To: <20130618120338.GA9063@Linus-Debian>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/19/2013 10:31 AM, Jerry Chu wrote:
-> In tun_net_xmit() the max qlen is computed as
-> dev->tx_queue_len / tun->numqueues. For multi-queue configuration the
-> latter may be way too small, forcing one to adjust txqueuelen based
-> on number of queues created. (Well the default txqueuelen of
-> 500/TUN_READQ_SIZE already seems too small even for single queue.)
+On Tue, Jun 18, 2013 at 02:03:38PM +0200, Linus L=FCssing wrote:
+> Hi Amerigo,
+>=20
+> I just tested these three patches on top of 3.10-rc6 (thanks for
+> looking into these issues so far!) but unfortunately I'm still
+> having problems if there is no querier on the link:
+>=20
+> We will never discover a multicast listener which sends its
+> startup MLD reports before being attached to the bridge port.
+>=20
+> I had reported that issue two months ago to Herbert's patch which
+> changed the querier default [1].
+>=20
+> I guess in such a scenario where neither our querier is activated
+> nor could we detect any querier, then the only safe thing we can
+> do is to disable the bridge multicast snooping, isn't it?
 
-Hi Jerry:
+If we have seen no queries then we should simply flood.  The fact
+that we don't currently is a bug.
 
-Do you have some test result of this? Anyway, tun allows userspace to
-adjust this value based on its requirement.
->
-> Wouldn't it be better to simply use dev->tx_queue_len to cap the qlen of
-> each queue? This also seems to be more consistent with h/w multi-queues.
-
-Make sense. Michael, any ideas on this?
->
-> Also is there any objection to increase MAX_TAP_QUEUES from 8 to 16?
-> Yes it will take up more space in struct tun_struct. But we are
-> hitting the perf limit of 8 queues.
-
-Not only the tun_struct, another issue of this is sizeof(netdev_queue)
-which is 320 currently, if we use 16, it may be greater than 4096 which
-lead high order page allocation. Need a solution such as flex array or
-array of pointers.
-
-Btw, I have draft patch on both, will post as rfc.
-
-Thanks
-> Thanks,
->
-> Jerry
+Cheers,
+--=20
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
