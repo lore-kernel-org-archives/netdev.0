@@ -1,46 +1,41 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf] ipvs: SCTP ports should be writable in ICMP packets
-Date: Wed, 19 Jun 2013 10:56:02 +0900
-Message-ID: <1371606963-30548-2-git-send-email-horms@verge.net.au>
-References: <1371606963-30548-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>, Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:44217 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934121Ab3FSB4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 21:56:13 -0400
-In-Reply-To: <1371606963-30548-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: nl80211 NULL pointer dereference
+Date: Tue, 18 Jun 2013 19:06:32 -0700 (PDT)
+Message-ID: <20130618.190632.33329016434510583.davem@davemloft.net>
+References: <CA+55aFxOde8n0M2=77-TQ2Ea9iz8s-e8zGFwjj6RVyMFXBgxEA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <CA+55aFxOde8n0M2=77-TQ2Ea9iz8s-e8zGFwjj6RVyMFXBgxEA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+Date: Tue, 18 Jun 2013 15:46:13 -1000
 
-Make sure that SCTP ports are writable when embedded in ICMP
-from client, so that ip_vs_nat_icmp can translate them safely.
+> Hmm. Maybe this is old, but I don't think I've seen it before (who
+> knows, maybe it has killed the machine before, I had a hard hang the
+> other day).
+> 
+> It's a NULL pointer dereference in nl80211_set_reg() on my Pixel. The
+> machine kind of stayed up afterwards, although with no working
+> wireless, and it would not shut down cleanly presumably due to locks
+> held etc.
+> 
+> Any ideas? I'm including the few wireless-related messages that
+> happened justr before the oops. Being a pixel, this is with the ath9k
+> driver.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_core.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+nl80211_set_reg() is really careful about validating which netlink
+attributes the user has specified, and either not dereferencing or
+signalling an error when NULL is seen.
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 05565d2..23b8eb5 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1442,7 +1442,8 @@ ignore_ipip:
- 
- 	/* do the statistics and put it back */
- 	ip_vs_in_stats(cp, skb);
--	if (IPPROTO_TCP == cih->protocol || IPPROTO_UDP == cih->protocol)
-+	if (IPPROTO_TCP == cih->protocol || IPPROTO_UDP == cih->protocol ||
-+	    IPPROTO_SCTP == cih->protocol)
- 		offset += 2 * sizeof(__u16);
- 	verdict = ip_vs_icmp_xmit(skb, cp, pp, offset, hooknum, &ciph);
- 
--- 
-1.8.2.1
+Hmmm...
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
