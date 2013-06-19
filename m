@@ -1,211 +1,59 @@
-From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 2/6] bonding: add helper function bond_get_targets_ip(targets,
- ip)
-Date: Wed, 19 Jun 2013 23:32:57 +0200
-Message-ID: <51C22389.7030803@redhat.com>
-References: <1371663286-12518-3-git-send-email-vfalico@redhat.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: qlen check in tun.c
+Date: Wed, 19 Jun 2013 14:37:11 -0700
+Message-ID: <51C22487.4080505@hp.com>
+References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com> <51C12592.6050503@redhat.com> <CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com> <51C20B3E.1050708@hp.com> <CAPshTCg=v0Sy-bDg=RrGT=JGKVLTgCj3rZwKG_EK9p5C2sJOmA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
-	rick.jones2@hp.com
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Jerry Chu <hkchu@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32727 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934858Ab3FSVdk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 17:33:40 -0400
-In-Reply-To: <1371663286-12518-3-git-send-email-vfalico@redhat.com>
+Received: from g1t0026.austin.hp.com ([15.216.28.33]:37272 "EHLO
+	g1t0026.austin.hp.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934929Ab3FSVhM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 17:37:12 -0400
+In-Reply-To: <CAPshTCg=v0Sy-bDg=RrGT=JGKVLTgCj3rZwKG_EK9p5C2sJOmA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/06/13 19:34, Veaceslav Falico wrote:
-> Add function bond_get_targets_ip(targets, ip) which searches through
-> targets array of ips (arp_targets) and returns the position of first
-> match. If ip == 0, returns the first free slot. On failure to find the
-> ip or free slot, return -1.
-> 
-> Use it to verify if the arp we've received is valid and in sysfs.
-> 
-> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
-> ---
->  drivers/net/bonding/bond_main.c  |   17 ++++-------
->  drivers/net/bonding/bond_sysfs.c |   56 +++++++++++++++----------------------
->  drivers/net/bonding/bonding.h    |   16 +++++++++++
->  3 files changed, 45 insertions(+), 44 deletions(-)
-> 
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 3d8b5ba..09a79eb 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -2599,22 +2599,17 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
->  
->  static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32 sip, __be32 tip)
->  {
-> -	int i;
-> -	__be32 *targets = bond->params.arp_targets;
-> -
->  	if (!bond_has_this_ip(bond, tip)) {
->  		pr_debug("bva: tip %pI4 not found\n", &tip);
->  		return;
->  	}
->  
-> -	for (i = 0; (i < BOND_MAX_ARP_TARGETS) && targets[i]; i++) {
-> -		pr_debug("bva: sip %pI4 tip %pI4 t[%d] %pI4 bhti(tip)\n",
-> -			 &sip, &tip, i, &targets[i]);
-> -		if (sip == targets[i]) {
-> -			slave->last_arp_rx = jiffies;
-> -			return;
-> -		}
-> +	if (bond_get_targets_ip(bond->params.arp_targets, sip) == -1) {
-> +		pr_debug("bva: sip %pI4 not found in targets\n", &sip);
-> +		return;
->  	}
-Here you should probably check if sip != 0 (0.0.0.0) because ARP probes
-with such src address are common to check if there's an address conflict
-for example.
-> +
-small nitpick: I don't think this newline is really necessary.
-> +	slave->last_arp_rx = jiffies;
->  }
->  
->  static int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
-> @@ -4831,7 +4826,7 @@ static int __net_init bond_net_init(struct net *net)
->  
->  	bond_create_proc_dir(bn);
->  	bond_create_sysfs(bn);
-> -	
-> +
->  	return 0;
->  }
->  
-> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
-> index f8bee4c..e680151 100644
-> --- a/drivers/net/bonding/bond_sysfs.c
-> +++ b/drivers/net/bonding/bond_sysfs.c
-> @@ -591,7 +591,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->  					 const char *buf, size_t count)
->  {
->  	__be32 newtarget;
-> -	int i = 0, done = 0, ret = count;
-> +	int i = 0, ret = -EINVAL;
->  	struct bonding *bond = to_bond(d);
->  	__be32 *targets;
->  
-> @@ -602,57 +602,46 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->  		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
->  			pr_err("%s: invalid ARP target %pI4 specified for addition\n",
->  			       bond->dev->name, &newtarget);
-> -			ret = -EINVAL;
->  			goto out;
->  		}
-> -		/* look for an empty slot to put the target in, and check for dupes */
-> -		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
-> -			if (targets[i] == newtarget) { /* duplicate */
-> -				pr_err("%s: ARP target %pI4 is already present\n",
-> -				       bond->dev->name, &newtarget);
-> -				ret = -EINVAL;
-> -				goto out;
-> -			}
-> -			if (targets[i] == 0) {
-> -				pr_info("%s: adding ARP target %pI4.\n",
-> -					bond->dev->name, &newtarget);
-> -				done = 1;
-> -				targets[i] = newtarget;
-> -			}
-> +
-> +		if (bond_get_targets_ip(targets, newtarget) != -1) { /* dup */
-> +			pr_err("%s: ARP target %pI4 is already present\n",
-> +			       bond->dev->name, &newtarget);
-> +			goto out;
->  		}
-> -		if (!done) {
-> +
-> +		i = bond_get_targets_ip(targets, 0); /* first free slot */
-> +		if (i == -1) {
->  			pr_err("%s: ARP target table is full!\n",
->  			       bond->dev->name);
-> -			ret = -EINVAL;
->  			goto out;
->  		}
->  
-> +		pr_info("%s: adding ARP target %pI4.\n", bond->dev->name,
-> +			 &newtarget);
-> +		targets[i] = newtarget;
-> +
-Extra new line here.
->  	} else if (buf[0] == '-')	{
->  		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
->  			pr_err("%s: invalid ARP target %pI4 specified for removal\n",
->  			       bond->dev->name, &newtarget);
-> -			ret = -EINVAL;
->  			goto out;
->  		}
->  
-> -		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
-> -			if (targets[i] == newtarget) {
-> -				int j;
-> -				pr_info("%s: removing ARP target %pI4.\n",
-> -					bond->dev->name, &newtarget);
-> -				for (j = i; (j < (BOND_MAX_ARP_TARGETS-1)) && targets[j+1]; j++)
-> -					targets[j] = targets[j+1];
-> -
-> -				targets[j] = 0;
-> -				done = 1;
-> -			}
-> -		}
-> -		if (!done) {
-> +		i = bond_get_targets_ip(targets, newtarget);
-> +		if (i == -1) {
->  			pr_info("%s: unable to remove nonexistent ARP target %pI4.\n",
->  				bond->dev->name, &newtarget);
-> -			ret = -EINVAL;
->  			goto out;
->  		}
-> +
-> +		pr_info("%s: removing ARP target %pI4.\n", bond->dev->name,
-> +			&newtarget);
-> +		for (; (i < BOND_MAX_ARP_TARGETS-1) && targets[i+1]; i++)
-> +			targets[i] = targets[i+1];
-> +		targets[i] = 0;
-> +
-Another extra new line.
->  	} else {
->  		pr_err("no command found in arp_ip_targets file for bond %s. Use +<addr> or -<addr>.\n",
->  		       bond->dev->name);
-> @@ -660,6 +649,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->  		goto out;
->  	}
->  
-> +	ret = count;
->  out:
->  	return ret;
->  }
-> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-> index b38609b..7feab6c 100644
-> --- a/drivers/net/bonding/bonding.h
-> +++ b/drivers/net/bonding/bonding.h
-> @@ -464,6 +464,22 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
->  	return NULL;
->  }
->  
-> +/* Check if the ip is present in arp ip list, or first free slot if ip == 0
-> + * Returns -1 if not found, index if found
-> + */
-> +static inline int bond_get_targets_ip(__be32 *targets, __be32 ip)
-> +{
-> +	int i;
-> +
-> +	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
-> +		if (targets[i] == ip)
-> +			return i;
-> +		else if (targets[i] == 0)
-> +			break;
-> +
-> +	return -1;
-> +}
-> +
->  /* exported from bond_main.c */
->  extern int bond_net_id;
->  extern const struct bond_parm_tbl bond_lacp_tbl[];
+On 06/19/2013 01:42 PM, Jerry Chu wrote:
+> On Wed, Jun 19, 2013 at 12:49 PM, Rick Jones <rick.jones2@hp.com> wrote:
+>> Assuming this single-stream is a netperf test, what happens when you cap the
+>> socket buffers to 724000 bytes?  Put another way, is this simply a situation
+>> where the autotuning of the socket buffers/window is taking a connection
+>> somewhere it shouldn't go?
+>
+> You have a good point - for single netperf streaming the TCP window seems to
+> grow much larger than necessary. Manually capping socket buffer seems to make
+> the problem go away without hurting throughput - but only to some extent.
+> Unfortunately manual setting is undesirable, and the autotuning code
+> is difficult to "tune".
+>
+
+...
+
+>> Just what is the bandwidthXdelay product through the openvswitch?
+>
+> Unlike the traditional NIC, for tuntap it'd be CPU b/w times scheduling delay.
+> Both can have a large variance. I haven't figured out how to right size the
+> qlen in this scenario.
+
+In perhaps overly broad, handwaving terms, doesn't wireless have a 
+similar problem with highly variable latency/delay?
+
+In theory, if your max scheduling delay is 10 milliseconds, your still 
+not large enough 8192 entry queue should still get you 1 GB/s assuming 
+that it is >> 1 GB/s between scheduling delays.   Is there really an 
+expectation/requirement to get better than that or have even larger 
+scheduling delays?  The existence of 40 and 100 GbE (even bonded 10GbE) 
+notwithstanding, once one is talking about 1 GB/s one is looking more at 
+SR-IOV I would think, not going through an Openvswitch.
+
+Do you actually still see single-stream drops at 8192?  That should be 
+something like 11 MB of queuing - I don't think I've seen tcp_[wr]mem go 
+above 6 MB thusfar...
+
+rick
