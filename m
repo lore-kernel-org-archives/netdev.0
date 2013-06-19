@@ -1,63 +1,65 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next rfc 1/3] net: avoid high order memory allocation for
- queues by using flex array
-Date: Wed, 19 Jun 2013 18:40:59 +0300
-Message-ID: <20130619154059.GA13735@redhat.com>
-References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
- <1371620452-49349-2-git-send-email-jasowang@redhat.com>
- <1371623518.3252.267.camel@edumazet-glaptop>
- <20130619091132.GA2816@redhat.com>
- <1371635763.3252.289.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	edumazet@google.com, hkchu@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Dean Jenkins <Dean_Jenkins@mentor.com>
+Subject: [PATCH 1/5] Bluetooth: Add RFCOMM TTY write return error codes
+Date: Wed, 19 Jun 2013 16:34:27 +0100
+Message-ID: <1371656071-27754-2-git-send-email-Dean_Jenkins@mentor.com>
+References: <1371656071-27754-1-git-send-email-Dean_Jenkins@mentor.com>
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56214 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756936Ab3FSPkT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 11:40:19 -0400
-Content-Disposition: inline
-In-Reply-To: <1371635763.3252.289.camel@edumazet-glaptop>
+Received: from cpc6-farn7-2-0-cust119.6-2.cable.virginmedia.com ([81.110.26.120]:37730
+	"EHLO localhost.localdomain" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1756745Ab3FSPl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:41:29 -0400
+In-Reply-To: <1371656071-27754-1-git-send-email-Dean_Jenkins@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 19, 2013 at 02:56:03AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-06-19 at 12:11 +0300, Michael S. Tsirkin wrote:
-> 
-> > Well KVM supports up to 160 VCPUs on x86.
-> > 
-> > Creating a queue per CPU is very reasonable, and
-> > assuming cache line size of 64 bytes, netdev_queue seems to be 320
-> > bytes, that's 320*160 = 51200. So 12.5 pages, order-4 allocation.
-> > I agree most people don't have such systems yet, but
-> > they do exist.
-> 
-> Even so, it will just work, like a fork() is likely to work, even if a
-> process needs order-1 allocation for kernel stack.
-> 
-> Some drivers still use order-10 allocations with kmalloc(), and nobody
-> complained yet.
-> 
-> We had complains with mlx4 driver lately only bcause kmalloc() now gives
-> a warning if allocations above MAX_ORDER are attempted.
-> 
-> Having a single pointer means that we can :
-> 
-> - Attempts a regular kmalloc() call, it will work most of the time.
-> - fallback to vmalloc() _if_ kmalloc() failed.
+It appears that rfcomm_tty_write() does not check that the
+passed in TTY device_data is not NULL and also does not check
+that the RFCOMM DLC serial data link pointer is not NULL.
 
-That's a good trick too - vmalloc memory is a bit slower
-on x86 since it's not using a huge page, but that's only
-when we have lots of CPUs/queues...
+A kernel crash was observed whilst SLIP was bound to /dev/rfcomm0
+but the /dev/rfcomm0 had subsequently disconnected. Unfortunately,
+SLIP attempted to write to the now non-existant RFCOMM TTY device
+which caused a NULL pointer dereference because the device_data
+no longer existed.
 
-Short term - how about switching to vmalloc if > 32 queues?
+Therefore, add NULL pointer checks for the dev and dlc pointers
+and output kernel error debug to show that NULL had been detected.
 
-> Frankly, if you want one tx queue per cpu, I would rather use
-> NETIF_F_LLTX, like some other virtual devices.
-> 
-> This way, you can have real per cpu memory, with proper NUMA affinity.
-> 
-> 
+Signed-off-by: Dean Jenkins <Dean_Jenkins@mentor.com>
+---
+ net/bluetooth/rfcomm/tty.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/net/bluetooth/rfcomm/tty.c b/net/bluetooth/rfcomm/tty.c
+index b6e44ad..56d28d1 100644
+--- a/net/bluetooth/rfcomm/tty.c
++++ b/net/bluetooth/rfcomm/tty.c
+@@ -761,12 +761,24 @@ static void rfcomm_tty_close(struct tty_struct *tty, struct file *filp)
+ static int rfcomm_tty_write(struct tty_struct *tty, const unsigned char *buf, int count)
+ {
+ 	struct rfcomm_dev *dev = (struct rfcomm_dev *) tty->driver_data;
+-	struct rfcomm_dlc *dlc = dev->dlc;
++	struct rfcomm_dlc *dlc;
+ 	struct sk_buff *skb;
+ 	int err = 0, sent = 0, size;
+ 
+ 	BT_DBG("tty %p count %d", tty, count);
+ 
++	if (!dev) {
++		BT_ERR("RFCOMM TTY device data structure does not exist");
++		return -ENODEV;
++	}
++
++	dlc = dev->dlc;
++
++	if (!dlc) {
++		BT_ERR("RFCOMM serial data link does not exist");
++		return -ENOLINK;
++	}
++
+ 	while (count) {
+ 		size = min_t(uint, count, dlc->mtu);
+ 
+-- 
+1.8.1.5
