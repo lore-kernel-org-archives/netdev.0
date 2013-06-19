@@ -1,101 +1,79 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next rfc 1/3] net: avoid high order memory allocation for
- queues by using flex array
-Date: Wed, 19 Jun 2013 21:07:09 +0300
-Message-ID: <20130619180709.GA15017@redhat.com>
-References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
- <1371620452-49349-2-git-send-email-jasowang@redhat.com>
- <1371623518.3252.267.camel@edumazet-glaptop>
- <20130619091132.GA2816@redhat.com>
- <1371635763.3252.289.camel@edumazet-glaptop>
- <20130619154059.GA13735@redhat.com>
- <1371657511.3252.324.camel@edumazet-glaptop>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 2/2] macvtap: Perform GSO on forwarding path.
+Date: Wed, 19 Jun 2013 22:09:07 +0400
+Message-ID: <51C1F3C3.4060900@cogentembedded.com>
+References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com> <1371653272-11703-3-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	edumazet@google.com, hkchu@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1371657511.3252.324.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
+	jasowang@redhat.com
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:43469 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933869Ab3FSSJI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 14:09:08 -0400
+Received: by mail-lb0-f178.google.com with SMTP id y6so4966843lbh.37
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 11:09:05 -0700 (PDT)
+In-Reply-To: <1371653272-11703-3-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 19, 2013 at 08:58:31AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-06-19 at 18:40 +0300, Michael S. Tsirkin wrote:
-> 
-> > That's a good trick too - vmalloc memory is a bit slower
-> > on x86 since it's not using a huge page, but that's only
-> > when we have lots of CPUs/queues...
-> > 
-> > Short term - how about switching to vmalloc if > 32 queues?
-> 
-> You do not have to switch "if > 32 queues"
-> 
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index fa007db..473cc9e 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -130,6 +130,7 @@
->  #include <linux/cpu_rmap.h>
->  #include <linux/static_key.h>
->  #include <linux/hashtable.h>
-> +#include <linux/vmalloc.h>
->  
->  #include "net-sysfs.h"
->  
-> @@ -5253,6 +5254,14 @@ static void netdev_init_one_queue(struct net_device *dev,
->  #endif
->  }
->  
-> +static void netif_free_tx_queues(struct net_device *dev)
-> +{
-> +	if (is_vmalloc_addr(dev->_tx))
-> +		vfree(dev->_tx);
-> +	else
-> +		kfree(dev->_tx);
-> +}
+Hello.
+
+On 06/19/2013 06:47 PM, Vlad Yasevich wrote:
+
+> When macvtap forwards skb to its tap, it needs to check
+> if GSO needs to be performed.  This is necessary
+> when the HW device performed GRO, but the guest reading
+> from the tap does not support it (ex: Windows 7).
+
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>   drivers/net/macvtap.c | 26 +++++++++++++++++++++++++-
+>   1 file changed, 25 insertions(+), 1 deletion(-)
+
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 09f0b1f..698f613 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -291,13 +291,37 @@ static void macvtap_del_queues(struct net_device *dev)
+>   static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
+>   {
+>   	struct macvtap_queue *q = macvtap_get_queue(dev, skb);
+> +	netdev_features_t features;
+>   	if (!q)
+>   		goto drop;
+>
+>   	if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
+>   		goto drop;
+>
+> -	skb_queue_tail(&q->sk.sk_receive_queue, skb);
+> +	features = netif_skb_features(skb);
+> +	if (netif_needs_gso(skb, features)) {
+> +		struct sk_buff *segs = skb_gso_segment(skb, features);
 > +
->  static int netif_alloc_netdev_queues(struct net_device *dev)
->  {
->  	unsigned int count = dev->num_tx_queues;
-> @@ -5261,9 +5270,11 @@ static int netif_alloc_netdev_queues(struct net_device *dev)
->  	BUG_ON(count < 1);
->  
->  	tx = kcalloc(count, sizeof(struct netdev_queue), GFP_KERNEL);
+> +		if (IS_ERR(segs))
+> +			goto drop;
+> +
+> +		if (!segs) {
+> +			skb_queue_tail(&q->sk.sk_receive_queue, skb);
+> +			goto wake_up;
+> +		}
+> +
+> +		kfree_skb(skb);
+> +		while (segs) {
+> +			struct sk_buff *nskb = segs->next;
+> +
+> +			segs->next = NULL;
+> +			skb_queue_tail(&q->sk.sk_receive_queue, segs);
+> +			segs = nskb;
+> +		}
+> +	} else
+> +		skb_queue_tail(&q->sk.sk_receive_queue, skb);
 
-As we have explicit code to recover, maybe set __GFP_NOWARN?
-If we are out of memory, vzalloc will warn too, we don't
-need two warnings.
+    According to Documentation/CodingStyle, *else* branch should have {} 
+if the other branch has it (and vice versa).
 
-> -	if (!tx)
-> -		return -ENOMEM;
-> -
-> +	if (!tx) {
-> +		tx = vzalloc(count * sizeof(struct netdev_queue));
-> +		if (!tx)
-> +			return -ENOMEM;
-> +	}
->  	dev->_tx = tx;
->  
->  	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
-> @@ -5811,7 +5822,7 @@ free_all:
->  
->  free_pcpu:
->  	free_percpu(dev->pcpu_refcnt);
-> -	kfree(dev->_tx);
-> +	netif_free_tx_queues(dev);
->  #ifdef CONFIG_RPS
->  	kfree(dev->_rx);
->  #endif
-> @@ -5836,7 +5847,7 @@ void free_netdev(struct net_device *dev)
->  
->  	release_net(dev_net(dev));
->  
-> -	kfree(dev->_tx);
-> +	netif_free_tx_queues(dev);
->  #ifdef CONFIG_RPS
->  	kfree(dev->_rx);
->  #endif
-> 
+WBR, Sergei
