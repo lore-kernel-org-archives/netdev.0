@@ -1,48 +1,122 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 11/11] sfc: Improve test for IOMMU in use
-Date: Wed, 19 Jun 2013 23:21:42 +0100
-Message-ID: <1371680502.1956.118.camel@bwh-desktop.uk.level5networks.com>
-References: <1371680169.1956.107.camel@bwh-desktop.uk.level5networks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: [PATCH 1/3] sh_eth: remove 'tx_error_check' field of 'struct sh_eth_cpu_data'
+Date: Thu, 20 Jun 2013 02:22:56 +0400
+Message-ID: <201306200222.56406.sergei.shtylyov@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	"Alex Williamson" <alex.williamson@redhat.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:10521 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934961Ab3FSWVp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 18:21:45 -0400
-In-Reply-To: <1371680169.1956.107.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-sh-owner@vger.kernel.org>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The device::iommu_group field may be set even if no IOMMU is in use.
-iommu_present() is still a better indicator, although it doesn't tell
-us whether *our* device is affected.
+The 'tx_error_check' field of 'struct sh_eth_cpu_data' is write-only, so remove
+it along with the DEFAULT_TX_ERROR_CHECK macro.
 
-Reported-by: Alex Williamson <alex.williamson@redhat.com>
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
 ---
- drivers/net/ethernet/sfc/rx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+The patch is against the Dave Miller's 'net-next.git' repo plus the NAPI patches
+that I've reposted yesterday.
 
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 0dc4a80..c053cf5 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -719,7 +719,7 @@ static void efx_init_rx_recycle_ring(struct efx_nic *efx,
- #ifdef CONFIG_PPC64
- 	bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_IOMMU;
- #else
--	if (efx->pci_dev->dev.iommu_group)
-+	if (iommu_present(&pci_bus_type))
- 		bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_IOMMU;
- 	else
- 		bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_NOIOMMU;
+ drivers/net/ethernet/renesas/sh_eth.c |   14 --------------
+ drivers/net/ethernet/renesas/sh_eth.h |    3 ---
+ 2 files changed, 17 deletions(-)
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.c
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.c
++++ net-next/drivers/net/ethernet/renesas/sh_eth.c
+@@ -384,7 +384,6 @@ static struct sh_eth_cpu_data r8a777x_da
+ 	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
+ 	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RDE |
+ 			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
+-	.tx_error_check	= EESR_TWB | EESR_TABT | EESR_TDE | EESR_TFE,
+ 
+ 	.apr		= 1,
+ 	.mpr		= 1,
+@@ -420,7 +419,6 @@ static struct sh_eth_cpu_data sh7724_dat
+ 	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
+ 	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RDE |
+ 			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
+-	.tx_error_check	= EESR_TWB | EESR_TABT | EESR_TDE | EESR_TFE,
+ 
+ 	.apr		= 1,
+ 	.mpr		= 1,
+@@ -457,7 +455,6 @@ static struct sh_eth_cpu_data sh7757_dat
+ 	.tx_check	= EESR_FTC | EESR_CND | EESR_DLC | EESR_CD | EESR_RTO,
+ 	.eesr_err_check	= EESR_TWB | EESR_TABT | EESR_RABT | EESR_RDE |
+ 			  EESR_RFRMER | EESR_TFE | EESR_TDE | EESR_ECI,
+-	.tx_error_check	= EESR_TWB | EESR_TABT | EESR_TDE | EESR_TFE,
+ 
+ 	.irq_flags	= IRQF_SHARED,
+ 	.apr		= 1,
+@@ -527,8 +524,6 @@ static struct sh_eth_cpu_data sh7757_dat
+ 	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT | \
+ 			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE | \
+ 			  EESR_ECI,
+-	.tx_error_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_TDE | \
+-			  EESR_TFE,
+ 	.fdr_value	= 0x0000072f,
+ 	.rmcr_value	= 0x00000001,
+ 
+@@ -587,8 +582,6 @@ static struct sh_eth_cpu_data sh7734_dat
+ 	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT | \
+ 			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE | \
+ 			  EESR_ECI,
+-	.tx_error_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_TDE | \
+-			  EESR_TFE,
+ 
+ 	.apr		= 1,
+ 	.mpr		= 1,
+@@ -616,8 +609,6 @@ static struct sh_eth_cpu_data sh7763_dat
+ 	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT | \
+ 			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE | \
+ 			  EESR_ECI,
+-	.tx_error_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_TDE | \
+-			  EESR_TFE,
+ 
+ 	.apr		= 1,
+ 	.mpr		= 1,
+@@ -655,8 +646,6 @@ static struct sh_eth_cpu_data r8a7740_da
+ 	.eesr_err_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_RABT | \
+ 			  EESR_RDE | EESR_RFRMER | EESR_TFE | EESR_TDE | \
+ 			  EESR_ECI,
+-	.tx_error_check	= EESR_TWB1 | EESR_TWB | EESR_TABT | EESR_TDE | \
+-			  EESR_TFE,
+ 
+ 	.apr		= 1,
+ 	.mpr		= 1,
+@@ -706,9 +695,6 @@ static void sh_eth_set_default_cpu_data(
+ 
+ 	if (!cd->eesr_err_check)
+ 		cd->eesr_err_check = DEFAULT_EESR_ERR_CHECK;
+-
+-	if (!cd->tx_error_check)
+-		cd->tx_error_check = DEFAULT_TX_ERROR_CHECK;
+ }
+ 
+ static int sh_eth_check_reset(struct net_device *ndev)
+Index: net-next/drivers/net/ethernet/renesas/sh_eth.h
+===================================================================
+--- net-next.orig/drivers/net/ethernet/renesas/sh_eth.h
++++ net-next/drivers/net/ethernet/renesas/sh_eth.h
+@@ -261,8 +261,6 @@ enum EESR_BIT {
+ #define DEFAULT_EESR_ERR_CHECK	(EESR_TWB | EESR_TABT | EESR_RABT | \
+ 				 EESR_RDE | EESR_RFRMER | EESR_ADE | \
+ 				 EESR_TFE | EESR_TDE | EESR_ECI)
+-#define DEFAULT_TX_ERROR_CHECK	(EESR_TWB | EESR_TABT | EESR_ADE | EESR_TDE | \
+-				 EESR_TFE)
+ 
+ /* EESIPR */
+ enum DMAC_IM_BIT {
+@@ -468,7 +466,6 @@ struct sh_eth_cpu_data {
+ 	/* interrupt checking mask */
+ 	unsigned long tx_check;
+ 	unsigned long eesr_err_check;
+-	unsigned long tx_error_check;
+ 
+ 	/* hardware features */
+ 	unsigned long irq_flags;	/* IRQ configuration flags */
