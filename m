@@ -1,37 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] bcm63xx_enet: fix return value check in
- bcm_enet_shared_probe()
-Date: Wed, 19 Jun 2013 00:49:19 -0700 (PDT)
-Message-ID: <20130619.004919.1567267368837634118.davem@davemloft.net>
-References: <CAPgLHd_=CCFcpkJP_717-hLREO+DBhYKNVpupmJik0oRnLGA3w@mail.gmail.com>
+Subject: Re: [PATCH 1/2] sh_eth: define/use EESR_RX_CHECK macro
+Date: Wed, 19 Jun 2013 00:50:05 -0700 (PDT)
+Message-ID: <20130619.005005.2262835197239818334.davem@davemloft.net>
+References: <201306190207.46832.sergei.shtylyov@cogentembedded.com>
+	<CANqRtoRNnNuG_r+MW3Yb79jVK_iKm1bRTSvMhw1j4qsWZtphpw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jogo@openwrt.org, mbizon@freebox.fr, joe@perches.com,
-	cernekee@gmail.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: weiyj.lk@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59744 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756336Ab3FSHtU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 03:49:20 -0400
-In-Reply-To: <CAPgLHd_=CCFcpkJP_717-hLREO+DBhYKNVpupmJik0oRnLGA3w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
+	nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
+To: magnus.damm@gmail.com
+Return-path: <linux-sh-owner@vger.kernel.org>
+In-Reply-To: <CANqRtoRNnNuG_r+MW3Yb79jVK_iKm1bRTSvMhw1j4qsWZtphpw@mail.gmail.com>
+Sender: linux-sh-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Date: Wed, 19 Jun 2013 10:32:32 +0800
+From: Magnus Damm <magnus.damm@gmail.com>
+Date: Wed, 19 Jun 2013 15:47:47 +0900
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Hi Sergei,
 > 
-> In case of error, the function devm_ioremap_resource() returns ERR_PTR()
-> and never returns NULL. The NULL test in the return value check should
-> be replaced with IS_ERR().
+> On Wed, Jun 19, 2013 at 7:07 AM, Sergei Shtylyov
+> <sergei.shtylyov@cogentembedded.com> wrote:
+>> sh_eth_interrupt() uses the same Rx interrupt mask twice to check the interrupt
+>> status register -- #define EESR_RX_CHECK  and use it instead.
+>>
+>> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 > 
-> Introduce by commit 0ae99b5fede6f3a8d252d50bb4aba29544295219
-> (bcm63xx_enet: split DMA channel register accesses)
+> Thanks for the patch, nice to see that this driver is moving forward.
 > 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Can you please include information about which SoC / board this code
+> has been tested on? As you know, the actual hardware that this driver
+> is operating on is not very well documented, so at least having
+> information about the SoC together with the commit message or patch
+> may help in the future.
 
-Applied, thank you.
+Sergei, please make this suggested change and resubmit this series, thank you.
