@@ -1,55 +1,65 @@
-From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
-Subject: Re: [PATCH] nl80211: fix attrbuf access race by allocating a
- separate one
-Date: Wed, 19 Jun 2013 09:51:35 -0400
-Message-ID: <20130619135134.GA12079@tuxdriver.com>
-References: <CA+55aFz=eG5-zh1toHxrx=4Qm4DvwyiBCU3u-6tc0-utfZ6xiA@mail.gmail.com>
- <1371628488.8349.3.camel@jlt4.sipsolutions.net>
- <1371630238.8349.6.camel@jlt4.sipsolutions.net>
- <20130619.013900.786603036908799505.davem@davemloft.net>
+From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Subject: Re: [PATCH] build some drivers only when compile-testing
+Date: Wed, 19 Jun 2013 07:27:31 -0700
+Message-ID: <20130619142731.GA7979@kroah.com>
+References: <1369214326-6558-1-git-send-email-jslaby@suse.cz>
+ <20130523022327.GB6159@kroah.com>
+ <519D8876.9050405@suse.com>
+ <51BF6BFF.7050705@suse.cz>
+ <51C1595D.60706@ti.com>
+ <51C159F8.8090604@suse.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Cc: Tomi Valkeinen <tomi.valkeinen-l0cyMroinI0@public.gmane.org>,
+	Jeff Mahoney <jeffm-IBi9RG/b67k@public.gmane.org>, jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Alexander Shishkin <alexander.shishkin-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Florian Tobias Schandinat <FlorianSchandinat-Mmb7MZpHnFY@public.gmane.org>,
+	linux-geode-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	"Keller, Jacob E" <jacob.e.keller-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>
+To: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <20130619.013900.786603036908799505.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+In-Reply-To: <51C159F8.8090604-AlSwsSmVLrQ@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 19, 2013 at 01:39:00AM -0700, David Miller wrote:
-> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-> Date: Wed, 19 Jun 2013 10:23:58 +0200
+On Wed, Jun 19, 2013 at 09:12:56AM +0200, Jiri Slaby wrote:
+> On 06/19/2013 09:10 AM, Tomi Valkeinen wrote:
+> > On 17/06/13 23:05, Jiri Slaby wrote:
+> > 
+> >> The last point I inclined to the Greg's argument to remove the
+> >> EXPERT dependency.
+> >> 
+> >> So currently I have what is attached... Comments?
+> > 
+> > The patch looks a bit odd with the USB_CHIPIDEA_IMX parts. You're
+> > not adding COMPILE_TEST there, but you're adding a totally new
+> > config option, and also changing the Makefile.
 > 
-> > From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> > 
-> > Since my commit 3713b4e364, nl80211_dump_wiphy() uses the global
-> > nl80211_fam.attrbuf for parsing the incoming data. This wouldn't
-> > be a problem if it only did so on the first dump iteration which
-> > is locked against other commands in generic netlink, but due to
-> > space constraints in cb->args (the needed state doesn't fit) I
-> > decided to always parse the original message. That's racy though
-> > since nl80211_fam.attrbuf could be used by some other parsing in
-> > generic netlink concurrently.
-> > 
-> > For now, fix this by allocating a separate parse buffer (it's a
-> > bit too big for the stack, currently 1448 bytes on 64-bit). For
-> > -next, I'll change the code to parse into the global buffer in
-> > the first round only and then allocate a smaller buffer to keep
-> > the state in cb->args.
-> > 
-> > Reported-by: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-> > Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> Look:
 > 
-> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> +config USB_CHIPIDEA_IMX
+> +       bool "ChipIdea IMX support"
+> +       depends on OF_DEVICE && (ARM || COMPILE_TEST)
 
-Acked-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Ah, what about all of the chipidea chips on x86 boxes (yes, they are
+rare, but they are present, so you can't just turn them off for that
+whole platform here.
 
--- 
-John W. Linville		Someday the world will need a hero, and you
-linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+I'd leave chipidea alone, it's getting more prelevant, not on a desktop
+or server, but in SoC systems, which is x86 for a lot of devices.
+
+thanks,
+
+greg k-h
 --
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
