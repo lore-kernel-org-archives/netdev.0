@@ -1,45 +1,43 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Adding support for ARINC429 into the Linux kernel
-Date: Wed, 19 Jun 2013 13:29:55 -0700
-Message-ID: <20130619202954.GA5594@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Arnd Bergmann <arnd@arndb.de>
-To: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+From: Stephen Moorby <steve.moorby@ntlworld.com>
+Subject: [PATCH 1/1] net/x25: fix address parsing bug in x25_parse_address_block.
+Date: Wed, 19 Jun 2013 21:32:36 +0100
+Message-ID: <1371673956-471-1-git-send-email-steve.moorby@ntlworld.com>
+Cc: Stephen Moorby <steve.moorby@ntlworld.com>
+To: davem@davemloft.net, sasha.levin@oracle.com,
+	akpm@linux-foundation.org, paulmck@linux.vnet.ibm.com,
+	jiri@resnulli.us, linux-x25@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+This problem was discovered when a linux box was incorrectly rejecting
+calls from some X.25 equipment.  The problem was diagnosed to an incorrect
+address length calculation in 'x25_parse_address_block', the calculation
+did not account for the address digits being BCD encoded.  The correct
+calculation is already performed on line 155.
 
-I have been asked to explore options for adding ARINC 429 support [1]
-into the Linux kernel, primarily to support devices from Holt Integrated
-Circuits [2] (the request is unrelated to the chip manufacturer).
+Patched on linux-next 18-Jun-2013
+Tested on 2.6.32-45-generic
 
-ARINC429 is a protocol which is widely used in commercial airplanes. 
+Signed-off-by: Stephen Moorby <steve.moorby@ntlworld.com>
+---
+ net/x25/af_x25.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-There are various chips supporting this protocol available, as well as
-out-of-tree Linux support. The drivers I have looked at implement it
-either as character device or misc device and typically pass raw receive
-data to userspace.
-
-I can see a number of options for going forward:
-1) Implement as character device (or possibly misc device) and pass
-   raw data to/from user space
-   1a) Just implement a driver for the specific chips
-   2b) Implement some kind of generic infrastructure
-2) Implement as network driver with a new address family, similar to,
-   say, AF_CAN.
-
-Any thoughts / suggestions which approach would be better and, most of all,
-which approach might have a better chance of being accepted upstream ?
-
-Thanks,
-Guenter
-
---
-[1] http://en.wikipedia.org/wiki/ARINC_429
-[2] http://www.holtic.com/category/352-arinc-429.aspx
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 1d964e2..eb6c1f9 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -98,7 +98,8 @@ int x25_parse_address_block(struct sk_buff *skb,
+ 	}
+ 
+ 	len = *skb->data;
+-	needed = 1 + (len >> 4) + (len & 0x0f);
++	/* need 1 for address length + bytes for BCD encoding of 2 addresses */
++	needed = 1 + (((len >> 4) + (len & 0x0f) + 1) >> 1);
+ 
+ 	if (!pskb_may_pull(skb, needed)) {
+ 		/* packet is too short to hold the addresses it claims
+-- 
+1.8.1.2
