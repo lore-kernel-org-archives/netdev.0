@@ -1,55 +1,40 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [RFC PATCH net-next 0/3] Virtual netlink device for packet sockets
-Date: Wed, 19 Jun 2013 20:04:43 +0200
-Message-ID: <1371665086-19677-1-git-send-email-dborkman@redhat.com>
+Subject: [RFC PATCH net-next 1/3] net: if_arp: add ARPHRD_NETLINK type
+Date: Wed, 19 Jun 2013 20:04:44 +0200
+Message-ID: <1371665086-19677-2-git-send-email-dborkman@redhat.com>
+References: <1371665086-19677-1-git-send-email-dborkman@redhat.com>
 Cc: tgraf@suug.ch, netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31967 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:12915 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934984Ab3FSSFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S934980Ab3FSSFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 19 Jun 2013 14:05:16 -0400
+In-Reply-To: <1371665086-19677-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This set allows for a virtual netlink device that can be easily used
-without modification by tools like tcpdump, Wireshark et al. to debug
-and troubleshoot netlink traffic that is exchanged between user and
-kernel space. We could even record pcap files for a later analysis.
-No code change would be needed on the side of such analyzers, except
-adding a simple protocol dissector, for example.
+This small patch adds the definition of ARPHRD_NETLINK which can for
+example be used by netlink monitoring devices as device type. So that
+sockaddr_ll can pick it up and based on that choose the correct packet
+dissector.
 
-Please have a look at the main description in patch 3. Patch 1 and 2
-are just prerequisits for the actual 3rd patch. In the cover letter I
-just want to bring up one design item we could discuss, if needed.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/uapi/linux/if_arp.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-The current design is pluggable, which means we have a simple module
-that can be used when we want to debug netlink issues and that can be
-unloaded when done. By that, we can place the driver under drivers/net/
-just like many others (lo, veth, ..., usbmon, etc.) and leave the core
-mostly untouched, besides patch 2. If we do not want to allow for
-pluggable modules, we would need to migrate this code into net/netlink/
-and directly integrate it with af_netlink. That's another option. Then,
-we can only compile it as built-in, or not.
-
-This is posted as an RFC, so if you have any feedback, I'm happy to
-apply it to the set before posting it as a non-RFC.
-
-Thanks !
-
-Daniel Borkmann (3):
-  net: if_arp: add ARPHRD_NETLINK type
-  net: netlink: add registration/unregistration of virtual tap devices
-  packet: nlmon: virtual netlink monitoring device for packet sockets
-
- drivers/net/Kconfig         |  11 +++
- drivers/net/Makefile        |   1 +
- drivers/net/nlmon.c         | 169 ++++++++++++++++++++++++++++++++++++++++++++
- include/linux/netlink.h     |  11 +++
- include/uapi/linux/if_arp.h |   1 +
- net/netlink/af_netlink.c    |  72 +++++++++++++++++++
- 6 files changed, 265 insertions(+)
- create mode 100644 drivers/net/nlmon.c
-
+diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
+index 82c7d1b..d7fea34 100644
+--- a/include/uapi/linux/if_arp.h
++++ b/include/uapi/linux/if_arp.h
+@@ -93,6 +93,7 @@
+ #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
+ #define ARPHRD_CAIF	822		/* CAIF media type		*/
+ #define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
++#define ARPHRD_NETLINK	824		/* Netlink header		*/
+ 
+ #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
+ #define ARPHRD_NONE	  0xFFFE	/* zero header length */
 -- 
 1.7.11.7
