@@ -1,36 +1,101 @@
-From: "David Laight" <David.Laight@ACULAB.COM>
-Subject: RE: [net-next rfc 1/3] net: avoid high order memory allocation for queues by using flex array
-Date: Wed, 19 Jun 2013 17:06:21 +0100
-Message-ID: <AE90C24D6B3A694183C094C60CF0A2F6026B729A@saturn3.aculab.com>
-References: <1371620452-49349-1-git-send-email-jasowang@redhat.com> <1371620452-49349-2-git-send-email-jasowang@redhat.com> <1371623518.3252.267.camel@edumazet-glaptop> <20130619091132.GA2816@redhat.com> <1371635763.3252.289.camel@edumazet-glaptop> <20130619154059.GA13735@redhat.com> <1371657511.3252.324.camel@edumazet-glaptop>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next 1/2] macvtap: Let TUNSETOFFLOAD actually controll
+ offload features.
+Date: Wed, 19 Jun 2013 12:20:40 -0400
+Message-ID: <51C1DA58.4010204@redhat.com>
+References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>   <1371653272-11703-2-git-send-email-vyasevic@redhat.com>  <1371655038.3252.312.camel@edumazet-glaptop> <51C1CDBC.4040003@redhat.com> <1371656769.3252.320.camel@edumazet-glaptop>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Jason Wang" <jasowang@redhat.com>, <davem@davemloft.net>,
-	<edumazet@google.com>, <hkchu@google.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: "Eric Dumazet" <eric.dumazet@gmail.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-class: urn:content-classes:message
-In-Reply-To: <1371657511.3252.324.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
+	jasowang@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4845 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1757176Ab3FSQUn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 12:20:43 -0400
+In-Reply-To: <1371656769.3252.320.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-PiArc3RhdGljIHZvaWQgbmV0aWZfZnJlZV90eF9xdWV1ZXMoc3RydWN0IG5ldF9kZXZpY2UgKmRl
-dikNCj4gK3sNCj4gKwlpZiAoaXNfdm1hbGxvY19hZGRyKGRldi0+X3R4KSkNCj4gKwkJdmZyZWUo
-ZGV2LT5fdHgpOw0KPiArCWVsc2UNCj4gKwkJa2ZyZWUoZGV2LT5fdHgpOw0KPiArfQ0KPiArDQo+
-ICBzdGF0aWMgaW50IG5ldGlmX2FsbG9jX25ldGRldl9xdWV1ZXMoc3RydWN0IG5ldF9kZXZpY2Ug
-KmRldikNCj4gIHsNCj4gIAl1bnNpZ25lZCBpbnQgY291bnQgPSBkZXYtPm51bV90eF9xdWV1ZXM7
-DQo+IEBAIC01MjYxLDkgKzUyNzAsMTEgQEAgc3RhdGljIGludCBuZXRpZl9hbGxvY19uZXRkZXZf
-cXVldWVzKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpDQo+ICAJQlVHX09OKGNvdW50IDwgMSk7DQo+
-IA0KPiAgCXR4ID0ga2NhbGxvYyhjb3VudCwgc2l6ZW9mKHN0cnVjdCBuZXRkZXZfcXVldWUpLCBH
-RlBfS0VSTkVMKTsNCj4gLQlpZiAoIXR4KQ0KPiAtCQlyZXR1cm4gLUVOT01FTTsNCj4gLQ0KPiAr
-CWlmICghdHgpIHsNCj4gKwkJdHggPSB2emFsbG9jKGNvdW50ICogc2l6ZW9mKHN0cnVjdCBuZXRk
-ZXZfcXVldWUpKTsNCj4gKwkJaWYgKCF0eCkNCj4gKwkJCXJldHVybiAtRU5PTUVNOw0KPiArCX0N
-Cj4gIAlkZXYtPl90eCA9IHR4Ow0KDQpHaXZlbiB0aGUgbnVtYmVyIG9mIHBsYWNlcyBJJ3ZlIHNl
-ZW4gdGhpcyBjb2RlIGFkZGVkLCB3aHkNCm5vdCBwdXQgaXQgaW4gYSBnZW5lcmFsIGhlbHBlcj8N
-Cg0KSSBhbHNvIHRob3VnaHQgdGhhdCBtYWxsb2MoKSB3aXRoIEdGUF9LRVJORUwgd291bGQgc2xl
-ZXAuDQpVbmRlciB3aGF0IGNvbmRpdGlvbnMgZG9lcyBpdCBmYWlsIGluc3RlYWQ/DQoNCglEYXZp
-ZA0KDQo=
+On 06/19/2013 11:46 AM, Eric Dumazet wrote:
+> On Wed, 2013-06-19 at 11:26 -0400, Vlad Yasevich wrote:
+>
+>> I think I do since vlan pointer may change even when I am holding
+>> rtnl.  rtnl is needed to change features.  rcu is needed to get
+>> the vlan pointer.
+>>
+>>> (A BH handler will not change q->vlan )
+>>
+>> No, but the _bh rcu calls seem to be used when dereferencing q->vlan.
+>> I am not sure the reason for that...
+>
+> You mix the reader/fast path, properly using RCU,
+> and the writer path, using macvtap_lock ( a spinlock ).
+>
+> That's clear sign you missed something.
+>
+
+I don't think I need macvtap_lock as I am not modifying the relationship
+between q and vlan.  I am attempting to modify the macvlan device 
+features.  So macvtap_lock does not apply, and _rcu is used.
+
+Looking at the entire macvtap driver, only the _bh variants of rcu
+are used throughout the driver,  including in the ioctl() function.  I
+am not sure why the driver requires BH to be disabled, but that
+seems to be the case.
+
+>>
+>>>
+>>> BTW, it looks like ->vlan is protected by macvtap_lock
+>>
+>> Right.  This is why I use rcu to get vlan.  rtnl is needed to avoid
+>> asserts in the feature change code.
+>
+> The management should be allowed to sleep, and rcu_read_lock_bh()
+> disallows that.
+>
+> Maybe some driver callback will really sleep and crash after your patch.
+>
+> vi +69 drivers/net/macvtap.c
+>
+> /*
+>   * RCU usage:
+>   * The macvtap_queue and the macvlan_dev are loosely coupled, the
+>   * pointers from one to the other can only be read while rcu_read_lock
+>   * or macvtap_lock is held.
+>
+> Your patch does not respect the rules of this driver.
+
+Why not?  It uses rcu to acquire the pointer thus following the rules. 
+The use of  the pointer is within the critical section so we are
+guaranteed to have a valid pointer.
+
+>
+> macvtap_lock is always acquired from process context, without any need
+> for _bh variant.
+>
+
+No, the lock is acquired only when modifying the relationship between 
+the macvtap_queue and macvtap_dev.
+
+
+> Quite frankly, I would switch this driver to use a mutex for
+> macvtap_lock.
+>
+> And simply remove it, as RTNL is most probably already owned.
+>
+
+That's the issue.  RTNL is not owned in the ioctl case.  In fact
+rtnl_lock was added to the patch because RTNL asserts were triggered
+when changing device features.
+
+-vlad
+
+
+>
+>
+>
+>
