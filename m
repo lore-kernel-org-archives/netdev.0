@@ -1,50 +1,71 @@
-From: Jiri Slaby <jslaby@suse.cz>
-Subject: Re: [PATCH] build some drivers only when compile-testing
-Date: Wed, 19 Jun 2013 09:12:56 +0200
-Message-ID: <51C159F8.8090604@suse.cz>
-References: <1369214326-6558-1-git-send-email-jslaby@suse.cz> <20130523022327.GB6159@kroah.com> <519D8876.9050405@suse.com> <51BF6BFF.7050705@suse.cz> <51C1595D.60706@ti.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [net-next rfc 1/3] net: avoid high order memory allocation for
+ queues by using flex array
+Date: Wed, 19 Jun 2013 15:14:52 +0800
+Message-ID: <51C15A6C.1090702@redhat.com>
+References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>  <1371620452-49349-2-git-send-email-jasowang@redhat.com> <1371623518.3252.267.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Mahoney <jeffm@suse.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	jirislaby@gmail.com, linux-kernel@vger.kernel.org,
-	Andrew Morton <akpm@linux-foundation.org>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
-	linux-usb@vger.kernel.org,
-	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
-	linux-geode@lists.infradead.org, linux-fbdev@vger.kernel.org,
-	Richard Cochran <richardcochran@gmail.com>,
-	netdev@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
-	"Keller, Jacob E" <jacob.e.keller@intel.com>,
-	Michal Marek <mmarek@suse.cz>
-To: Tomi Valkeinen <tomi.valkeinen@ti.com>
+Cc: davem@davemloft.net, edumazet@google.com, hkchu@google.com,
+	mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51C1595D.60706@ti.com>
+In-Reply-To: <1371623518.3252.267.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/19/2013 09:10 AM, Tomi Valkeinen wrote:
-> On 17/06/13 23:05, Jiri Slaby wrote:
-> 
->> The last point I inclined to the Greg's argument to remove the
->> EXPERT dependency.
->> 
->> So currently I have what is attached... Comments?
-> 
-> The patch looks a bit odd with the USB_CHIPIDEA_IMX parts. You're
-> not adding COMPILE_TEST there, but you're adding a totally new
-> config option, and also changing the Makefile.
+On 06/19/2013 02:31 PM, Eric Dumazet wrote:
+> On Wed, 2013-06-19 at 13:40 +0800, Jason Wang wrote:
+>> Currently, we use kcalloc to allocate rx/tx queues for a net device which could
+>> be easily lead to a high order memory allocation request when initializing a
+>> multiqueue net device. We can simply avoid this by switching to use flex array
+>> which always allocate at order zero.
+>>
+>> Signed-off-by: Jason Wang <jasowang@redhat.com>
+>> ---
+>>  include/linux/netdevice.h |   13 ++++++----
+>>  net/core/dev.c            |   57 ++++++++++++++++++++++++++++++++------------
+>>  net/core/net-sysfs.c      |   15 +++++++----
+>>  3 files changed, 58 insertions(+), 27 deletions(-)
+>>
+>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>> index 09b4188..c0b5d04 100644
+>> --- a/include/linux/netdevice.h
+>> +++ b/include/linux/netdevice.h
+>> @@ -32,6 +32,7 @@
+>>  #include <linux/atomic.h>
+>>  #include <asm/cache.h>
+>>  #include <asm/byteorder.h>
+>> +#include <linux/flex_array.h>
+>>  
+>>  #include <linux/percpu.h>
+>>  #include <linux/rculist.h>
+>> @@ -1230,7 +1231,7 @@ struct net_device {
+>>  
+>>
+>>  #ifdef CONFIG_RPS
+>> -	struct netdev_rx_queue	*_rx;
+>> +	struct flex_array	*_rx;
+>>  
+>>  	/* Number of RX queues allocated at register_netdev() time */
+>>  	unsigned int		num_rx_queues;
+>> @@ -1250,7 +1251,7 @@ struct net_device {
+>>  /*
+>>   * Cache lines mostly used on transmit path
+>>   */
+>> -	struct netdev_queue	*_tx ____cacheline_aligned_in_smp;
+>> +	struct flex_array	*_tx ____cacheline_aligned_in_smp;
+>>  
+> Using flex_array and adding overhead in this super critical part of
+> network stack, only to avoid order-1 allocations done in GFP_KERNEL
+> context is simply insane.
 
-Look:
+Yes, and I also miss the fact of GFP_KERNEL allocation.
+> We can revisit this in 2050 if we ever need order-4 allocations or so,
+> and still use 4K pages.
+>
+>
 
-+config USB_CHIPIDEA_IMX
-+       bool "ChipIdea IMX support"
-+       depends on OF_DEVICE && (ARM || COMPILE_TEST)
-
-COMPILE_TEST added here ----------------^^^^^^^^^^^^
-
--- 
-js
-suse labs
+Will drop this patch, thanks.
