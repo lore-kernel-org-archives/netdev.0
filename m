@@ -1,60 +1,74 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH] can: usb_8dev: unregister netdev before free()ing
-Date: Wed, 19 Jun 2013 09:02:49 +0200
-Message-ID: <1371625369-26368-2-git-send-email-mkl@pengutronix.de>
-References: <1371625369-26368-1-git-send-email-mkl@pengutronix.de>
-Cc: linux-can@vger.kernel.org, davem@davemloft.net,
-	Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.pengutronix.de ([92.198.50.35]:43518 "EHLO
-	metis.ext.pengutronix.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751792Ab3FSHCz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 03:02:55 -0400
-In-Reply-To: <1371625369-26368-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Tomi Valkeinen <tomi.valkeinen@ti.com>
+Subject: Re: [PATCH] build some drivers only when compile-testing
+Date: Wed, 19 Jun 2013 10:10:21 +0300
+Message-ID: <51C1595D.60706@ti.com>
+References: <1369214326-6558-1-git-send-email-jslaby@suse.cz> <20130523022327.GB6159@kroah.com> <519D8876.9050405@suse.com> <51BF6BFF.7050705@suse.cz>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature";
+	boundary="----enig2HOUBHJGSQADMUMIBTWTR"
+Cc: Jeff Mahoney <jeffm@suse.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	<jirislaby@gmail.com>, <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+	<linux-usb@vger.kernel.org>,
+	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
+	<linux-geode@lists.infradead.org>, <linux-fbdev@vger.kernel.org>,
+	Richard Cochran <richardcochran@gmail.com>,
+	<netdev@vger.kernel.org>, Ben Hutchings <ben@decadent.org.uk>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	Michal Marek <mmarek@suse.cz>
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51BF6BFF.7050705@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The usb_8dev hardware has problems on some xhci USB hosts. The driver fails to
-read the firmware revision in the probe function. This leads to the following
-Oops:
+------enig2HOUBHJGSQADMUMIBTWTR
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
 
-    [ 3356.635912] kernel BUG at net/core/dev.c:5701!
+On 17/06/13 23:05, Jiri Slaby wrote:
 
-The driver tries to free the netdev, which has already been registered, without
-unregistering it.
+> The last point I inclined to the Greg's argument to remove the EXPERT
+> dependency.
+>=20
+> So currently I have what is attached... Comments?
 
-This patch fixes the problem by unregistering the netdev in the error path.
+The patch looks a bit odd with the USB_CHIPIDEA_IMX parts. You're not
+adding COMPILE_TEST there, but you're adding a totally new config
+option, and also changing the Makefile.
 
-Reported-by: Michael Olbrich <m.olbrich@pengutronix.de>
-Reviewed-by: Bernd Krumboeck <krumboeck@universalnet.at>
-Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
----
- drivers/net/can/usb/usb_8dev.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+Maybe that's ok, but there's no mention about this in the desc.
 
-diff --git a/drivers/net/can/usb/usb_8dev.c b/drivers/net/can/usb/usb_8dev.c
-index 6e15ef0..cbd388e 100644
---- a/drivers/net/can/usb/usb_8dev.c
-+++ b/drivers/net/can/usb/usb_8dev.c
-@@ -977,7 +977,7 @@ static int usb_8dev_probe(struct usb_interface *intf,
- 	err = usb_8dev_cmd_version(priv, &version);
- 	if (err) {
- 		netdev_err(netdev, "can't get firmware version\n");
--		goto cleanup_cmd_msg_buffer;
-+		goto cleanup_unregister_candev;
- 	} else {
- 		netdev_info(netdev,
- 			 "firmware: %d.%d, hardware: %d.%d\n",
-@@ -989,6 +989,9 @@ static int usb_8dev_probe(struct usb_interface *intf,
- 
- 	return 0;
- 
-+cleanup_unregister_candev:
-+	unregister_netdev(priv->netdev);
-+
- cleanup_cmd_msg_buffer:
- 	kfree(priv->cmd_msg_buffer);
- 
--- 
-1.8.3.1
+ Tomi
+
+
+
+------enig2HOUBHJGSQADMUMIBTWTR
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.12 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBAgAGBQJRwVldAAoJEPo9qoy8lh71n1EP/A1yWcfkOmSPUdZ4XbOT46TD
+1cXo1qMm4BpLedIaLKdzr8A7YP+1baCqTTq68Ec+9n49irAPXwCCMCw2szxAsPNb
+ABE7meU/AO5aB5knIzu80u6oUb+NSDamLFsgGKP+on2b9WQp72rq3/1eqELH3yay
+Xp3l3T/IDsP1o7Sdtylwr/2oNAdYj1SaC6kH3Wo++NG3oD53kdg8KY5iLN1ul0wn
+DpzpP6T/1PWmPVgqAuAy1s+6l6Bk937ZiqD1KBZtR348ZfDOAxIVfZfUuAXnZoYB
+oktewrAA9CNkGLZWr/CPBDrnNQIqsLYb0wS9KkQC3UzisOhBEtWQZSVQRj4WpkmO
+trKkgXtbmqIBLMaF3tkx4ifjTTAevxcGALUoWQpG7zIeUhSmwNoKyeXxIrqFQvw8
+4oVVQZ9ehl02kMkpoiHjosVzNGTBoLgmScB3ORtJs3qlMan9Ew6/tL2rq5IgiwzD
+UacoUfC/oHc2EkvjBVHpfNaWvlxU4X6mGPCRjE8YRIybiCdiFouVP9D6Jc8YnluI
+fXyvqGb4riJGDYZXVArQWvldIw7iBRjVo0wx3xnTJGMDCxQR7zSfHDgJnD2r1B4x
+1TphGGR11T9il341zo6/11V0SHtGUDL8ECeFDB8xUWWM4W0+bmp1dpSSg+6JWpOv
+cyfUAABA3eWk0j6B4+vB
+=R8ux
+-----END PGP SIGNATURE-----
+
+------enig2HOUBHJGSQADMUMIBTWTR--
