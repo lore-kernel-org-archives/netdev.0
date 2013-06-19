@@ -1,42 +1,47 @@
-From: Barclayshome finance <aayo@lasercontact.fr>
-Subject: =?utf-8?Q?l=C3=A5netilbud?=
-Date: Wed, 19 Jun 2013 14:46:05 +0200 (CEST)
-Message-ID: <2021238796.381721.1371645965615.JavaMail.root@rama.intra.lasercontact.fr>
-Reply-To: Barclayshome finance <barclayshomefinance@manager.in.th>
+From: Stanislaw Gruszka <sgruszka@redhat.com>
+Subject: Re: 3.7.8/amd64 full interrupt hangs due to iwlwifi under big nfs
+ copies out
+Date: Wed, 19 Jun 2013 15:09:35 +0200
+Message-ID: <20130619130935.GA2580@redhat.com>
+References: <20130219040557.GB4778@merlins.org>
+ <1361251033.19353.120.camel@edumazet-glaptop>
+ <1361268221.8553.1.camel@jlt4.sipsolutions.net>
+ <1361290909.19353.140.camel@edumazet-glaptop>
+ <1361351538.8629.3.camel@jlt4.sipsolutions.net>
+ <1361351703.8629.5.camel@jlt4.sipsolutions.net>
+ <20130223061414.GA16883@merlins.org>
+ <1361912099.8440.21.camel@jlt4.sipsolutions.net>
+ <1371574361.3252.259.camel@edumazet-glaptop>
+ <1371575087.22256.2.camel@jlt4.sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Marc MERLIN <marc@merlins.org>,
+	David Miller <davem@davemloft.net>, Larry.Finger@lwfinger.net,
+	bhutchings@solarflare.com, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from proxy1.lasercontact.fr ([94.125.168.227]:60767 "HELO
-	proxy1.lasercontact.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with SMTP id S1756427Ab3FSMxp convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 08:53:45 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:3422 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756468Ab3FSNIJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 09:08:09 -0400
+Content-Disposition: inline
+In-Reply-To: <1371575087.22256.2.camel@jlt4.sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hei,
+On Tue, Jun 18, 2013 at 07:04:47PM +0200, Johannes Berg wrote:
+> On Tue, 2013-06-18 at 09:52 -0700, Eric Dumazet wrote:
+> 
+> > > We'll be submitting a patch to make single pages default.
+> > 
+> > Do you think the same change would be possible for
+> > drivers/net/wireless/iwlegacy/4965-mac.c ?
+> 
+> Yes, Stanislaw?
 
-Mitt navn er Taylor Andersson, en anerkjent og lovlig akkreditert money=
-lender og agent av Barclays Hjem Finance basert i Storbritannia. Vi l=C3=
-=A5ner ut penger til enkeltpersoner og bedrifter som trenger =C3=B8kono=
-misk bistand. Har du en d=C3=A5rlig kreditt eller er du i behov av peng=
-er til =C3=A5 betale dine regninger? Vi vil bruke dette mediet til =C3=A5=
- informere deg om at vi kan hjelpe deg med noen form for l=C3=A5n du tr=
-enger. Vi vil gjerne tilby deg et l=C3=A5n s=C3=A5 lav som 3% rente.
-  =20
-Vennligst fyll ut skjemaet nedenfor og returnere s=C3=A5 snart som muli=
-g.
+Yes, I'll post 4965 patch.
 
-=46ullt navn: ...............
-Land: ............
-kj=C3=B8nn:
-Tel: .......
-L=C3=A5nebel=C3=B8p: ........
-L=C3=A5net varighet: .......
-L=C3=A5n form=C3=A5l: .........
-
-Kontakt oss s=C3=A5 snart som mulig hvis du er interessert.
-
-vennlig hilsen
-Taylor Andersson
+Thanks
+Stanislaw
