@@ -1,95 +1,78 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH] nl80211: fix attrbuf access race by allocating a separate
- one
-Date: Wed, 19 Jun 2013 10:23:58 +0200
-Message-ID: <1371630238.8349.6.camel@jlt4.sipsolutions.net>
-References: <CA+55aFxOde8n0M2=77-TQ2Ea9iz8s-e8zGFwjj6RVyMFXBgxEA@mail.gmail.com>
-	 <20130618.190632.33329016434510583.davem@davemloft.net>
-	 <CA+55aFz=eG5-zh1toHxrx=4Qm4DvwyiBCU3u-6tc0-utfZ6xiA@mail.gmail.com>
-	 (sfid-20130619_042459_700600_08CD35A3) <1371628488.8349.3.camel@jlt4.sipsolutions.net>
-	 (sfid-20130619_095509_334897_6BA231FA)
+From: Stephen Moorby <steve.moorby@ntlworld.com>
+Subject: [PATCH 1/1] drivers/net: param for lapbether for specific ethernet
+ device
+Date: Wed, 19 Jun 2013 09:21:27 +0100
+Message-ID: <51C16A07.3070903@ntlworld.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	John Linville <linville@tuxdriver.com>,
-	Linux Wireless List <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:42325 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756684Ab3FSIYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 04:24:05 -0400
-In-Reply-To: <1371628488.8349.3.camel@jlt4.sipsolutions.net> (sfid-20130619_095509_334897_6BA231FA)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+To: davem@davemloft.net, jiri@resnulli.us, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Johannes Berg <johannes.berg@intel.com>
+ From 35607dd0607bca5322860703143c31cb04377764 Mon Sep 17 00:00:00 2001
+From: Stephen Moorby <steve.moorby@ntlworld.com>
+Date: Wed, 19 Jun 2013 08:22:51 +0100
+Subject: [PATCH 1/1] drivers/net: param for lapbether for specific ethernet
+  device
 
-Since my commit 3713b4e364, nl80211_dump_wiphy() uses the global
-nl80211_fam.attrbuf for parsing the incoming data. This wouldn't
-be a problem if it only did so on the first dump iteration which
-is locked against other commands in generic netlink, but due to
-space constraints in cb->args (the needed state doesn't fit) I
-decided to always parse the original message. That's racy though
-since nl80211_fam.attrbuf could be used by some other parsing in
-generic netlink concurrently.
+The lapbether driver binds to the first ethernet device that comes up.
+This causes problems in hardware with multiple ethernet interfaces,
+potentially resulting in the LAPB traffic on the wrong interface.
+Have added a module parameter 'eth_dev' to specify the ethernet
+interface over which lapbether should operate.  The module behaves
+as before if no device is specified.
 
-For now, fix this by allocating a separate parse buffer (it's a
-bit too big for the stack, currently 1448 bytes on 64-bit). For
--next, I'll change the code to parse into the global buffer in
-the first round only and then allocate a smaller buffer to keep
-the state in cb->args.
+Patch created on linux-next 18-Jun-2013.
+Tested on 2.6.32-45-generic.
 
-Reported-by: Linus Torvalds <torvalds@linux-foundation.org>
-Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+Signed-off-by: Stephen Moorby <steve.moorby@ntlworld.com>
 ---
-Let me know if you want to apply this directly, otherwise I'll send it
-on its way to John.
+  drivers/net/wan/lapbether.c | 15 +++++++++++++--
+  1 file changed, 13 insertions(+), 2 deletions(-)
 
- net/wireless/nl80211.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
+diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
+index a33a46f..510fc4a 100644
+--- a/drivers/net/wan/lapbether.c
++++ b/drivers/net/wan/lapbether.c
+@@ -47,6 +47,7 @@
 
-diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
-index d5aed3b..b14b7e3 100644
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@ -1564,12 +1564,17 @@ static int nl80211_dump_wiphy(struct sk_buff *skb, struct netlink_callback *cb)
- 	struct cfg80211_registered_device *dev;
- 	s64 filter_wiphy = -1;
- 	bool split = false;
--	struct nlattr **tb = nl80211_fam.attrbuf;
-+	struct nlattr **tb;
- 	int res;
- 
-+	/* will be zeroed in nlmsg_parse() */
-+	tb = kmalloc(sizeof(*tb) * (NL80211_ATTR_MAX + 1), GFP_KERNEL);
-+	if (!tb)
-+		return -ENOMEM;
+  #include <net/x25device.h>
+
++static char *eth_dev;
+  static const u8 bcast_addr[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+
+  /* If this number is made larger, check that the temporary string buffer
+@@ -381,8 +382,14 @@ static int lapbeth_device_event(struct 
+notifier_block *this,
+      switch (event) {
+      case NETDEV_UP:
+          /* New ethernet device -> new LAPB interface     */
+-        if (lapbeth_get_x25_dev(dev) == NULL)
+-            lapbeth_new_device(dev);
++        if (lapbeth_get_x25_dev(dev) == NULL) {
++            if (NULL != eth_dev) {
++                if (0 == strcmp(dev->name, eth_dev))
++                    lapbeth_new_device(dev);
++            } else {
++                lapbeth_new_device(dev);
++            }
++        }
+          break;
+      case NETDEV_DOWN:
+          /* ethernet device closed -> close LAPB interface */
+@@ -446,6 +453,10 @@ static void __exit lapbeth_cleanup_driver(void)
+  }
+  module_exit(lapbeth_cleanup_driver);
+
++module_param(eth_dev, charp, S_IRUGO);
++MODULE_PARM_DESC(eth_dev, "Ethernet device to use");
 +
- 	mutex_lock(&cfg80211_mutex);
- 	res = nlmsg_parse(cb->nlh, GENL_HDRLEN + nl80211_fam.hdrsize,
--			  tb, nl80211_fam.maxattr, nl80211_policy);
-+			  tb, NL80211_ATTR_MAX, nl80211_policy);
- 	if (res == 0) {
- 		split = tb[NL80211_ATTR_SPLIT_WIPHY_DUMP];
- 		if (tb[NL80211_ATTR_WIPHY])
-@@ -1583,6 +1588,7 @@ static int nl80211_dump_wiphy(struct sk_buff *skb, struct netlink_callback *cb)
- 			netdev = dev_get_by_index(sock_net(skb->sk), ifidx);
- 			if (!netdev) {
- 				mutex_unlock(&cfg80211_mutex);
-+				kfree(tb);
- 				return -ENODEV;
- 			}
- 			if (netdev->ieee80211_ptr) {
-@@ -1593,6 +1599,7 @@ static int nl80211_dump_wiphy(struct sk_buff *skb, struct netlink_callback *cb)
- 			dev_put(netdev);
- 		}
- 	}
-+	kfree(tb);
- 
- 	list_for_each_entry(dev, &cfg80211_rdev_list, list) {
- 		if (!net_eq(wiphy_net(&dev->wiphy), sock_net(skb->sk)))
++
+  MODULE_AUTHOR("Jonathan Naylor <g4klx@g4klx.demon.co.uk>");
+  MODULE_DESCRIPTION("The unofficial LAPB over Ethernet driver");
+  MODULE_LICENSE("GPL");
 -- 
-1.8.0
+1.8.1.2
