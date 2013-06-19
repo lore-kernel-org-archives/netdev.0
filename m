@@ -1,194 +1,256 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next 5/6] bonding: don't swap arp's ips on validation for backup slave
-Date: Wed, 19 Jun 2013 11:01:26 -0700
-Message-ID: <27953.1371664886@death.nxdomain>
-References: <1371663286-12518-6-git-send-email-vfalico@redhat.com>
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net,
-	linux@8192.net, nicolas.2p.debian@free.fr, rick.jones2@hp.com
-To: Veaceslav Falico <vfalico@redhat.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [RFC PATCH net-next 3/3] packet: nlmon: virtual netlink monitoring device for packet sockets
+Date: Wed, 19 Jun 2013 20:04:46 +0200
+Message-ID: <1371665086-19677-4-git-send-email-dborkman@redhat.com>
+References: <1371665086-19677-1-git-send-email-dborkman@redhat.com>
+Cc: tgraf@suug.ch, netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e7.ny.us.ibm.com ([32.97.182.137]:52489 "EHLO e7.ny.us.ibm.com"
+Received: from mx1.redhat.com ([209.132.183.28]:6415 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933869Ab3FSSDk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 14:03:40 -0400
-Received: from /spool/local
-	by e7.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Wed, 19 Jun 2013 14:03:39 -0400
-Received: from d01relay02.pok.ibm.com (d01relay02.pok.ibm.com [9.56.227.234])
-	by d01dlp03.pok.ibm.com (Postfix) with ESMTP id 1BA7BC90043
-	for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 14:03:36 -0400 (EDT)
-Received: from d01av01.pok.ibm.com (d01av01.pok.ibm.com [9.56.224.215])
-	by d01relay02.pok.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r5JI3a1w306158
-	for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 14:03:36 -0400
-Received: from d01av01.pok.ibm.com (loopback [127.0.0.1])
-	by d01av01.pok.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r5JI3ZWw031469
-	for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 14:03:36 -0400
-In-reply-to: <1371663286-12518-6-git-send-email-vfalico@redhat.com>
+	id S934993Ab3FSSFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 14:05:16 -0400
+In-Reply-To: <1371665086-19677-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Veaceslav Falico <vfalico@redhat.com> wrote:
+Currently, there is no good possibility to debug netlink traffic that
+is being exchanged between kernel and user space. Therefore, this patch
+implements a netlink virtual device, so that netlink messages will be
+made visible to PF_PACKET sockets. Once there was an approach with a
+similar idea [1], but it got forgotten somehow.
 
->Currently, if we catch an arp on a backup slave, we swap the ips before
->checking it. It's done so because backup slaves usually don't receive arp
->replies and only receive arp requests from the active slave to
->arp_ip_targets, thus it's needed to swap the ips in order for the
->validation to succeed.
->
->This breaks the scenario when the backup slave actually receives arp
->replies from the target.
+I think it makes most sense to accept the "overhead" of an extra netlink
+net device over implementing the same functionality from PF_PACKET
+sockets once again into netlink sockets. We have BPF filters that can
+already be easily applied which even have netlink extensions, we have
+RX_RING zero-copy between kernel- and user space that can be reused,
+and much more features. So instead of re-implementing all of this, we
+simply pass the skb to a given PF_PACKET socket for further analysis.
 
-	Under what circumstances does this (backup slave receiving the
-unicast ARP reply) happen?
+Another nice benefit that comes from that is that no code needs to be
+changed in user space packet analyzers (maybe adding a dissector, but
+not more), thus out of the box, we can already capture pcap files of
+netlink traffic to debug/troubleshoot netlink problems.
 
-	The whole reason the arp validate swaps the IPs is that the
-backup slaves generally don't receive the unicast ARP reply, because the
-switch does not deliver it to them.  The backup slaves only receive the
-broadcast ARP request, hence the swapping, and the limitations on the
-topology.
+ [1] http://marc.info/?l=linux-netdev&m=113813401516110
 
->It's useless when the active and the backup slaves are not in the same arp
->broadcast domain (i.e. when it doesn't receive those requests originating
->from the active slave).
-
-	Agreed, but the common case is that the active and backup slaves
-are in the same broadcast domain.  What topology are you considering
-here in which they are not?
-
->And it actually breaks the whole logic of arp_validate - it marks the
->backup slave UP even if it can't access the arp_ip_target and is in the
->same arp broadcast domain. This means that we can see an endless up/down
->loop if the arp_ip_target becomes inaccessible:
->
->2 slaves, 1 bond:
->1) active slave is up, backup slave is up because it receives arp requests
->   from the active slave.
->2) after delay, arp_ip_target check fails on active slave.
->3) failover to the backup slave occurs (which is up), active swaps with
->   backup
->4) goto 1
->
->So, don't swap the sip/tip for backup slaves, and verify them as an active
->slave. Also, update the documentation to reflect the changes (and remove
->some random spaces there).
-
-	How does this not break the case when the backup slave only
-receives the broadcast ARP request, and does not receive the ARP reply?
-
-	-J
-
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->---
-> Documentation/networking/bonding.txt |   24 +++++++++---------------
-> drivers/net/bonding/bond_main.c      |   13 +------------
-> 2 files changed, 10 insertions(+), 27 deletions(-)
->
->diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
->index e7454fc..84f16c8 100644
->--- a/Documentation/networking/bonding.txt
->+++ b/Documentation/networking/bonding.txt
->@@ -23,7 +23,7 @@ multiple network interfaces into a single logical "bonded" interface.
-> The behavior of the bonded interfaces depends upon the mode; generally
-> speaking, modes provide either hot standby or load balancing services.
-> Additionally, link integrity monitoring may be performed.
->-	
->+
-> 	The bonding driver originally came from Donald Becker's
-> beowulf patches for kernel 2.0. It has changed quite a bit since, and
-> the original tools from extreme-linux and beowulf sites will not work
->@@ -293,15 +293,9 @@ arp_validate
->
-> 		Validation is performed for all slaves.
->
->-	For the active slave, the validation checks ARP replies to
->-	confirm that they were generated by an arp_ip_target.  Since
->-	backup slaves do not typically receive these replies, the
->-	validation performed for backup slaves is on the ARP request
->-	sent out via the active slave.  It is possible that some
->-	switch or network configurations may result in situations
->-	wherein the backup slaves do not receive the ARP requests; in
->-	such a situation, validation of backup slaves must be
->-	disabled.
->+	For any eligible slave (active, backup or both) the validation
->+	checks ARP replies to confirm that they were generated by an
->+	arp_ip_target.
->
-> 	This option is useful in network configurations in which
-> 	multiple bonding hosts are concurrently issuing ARPs to one or
->@@ -2238,7 +2232,7 @@ when they are configured in parallel as part of an isolated network
-> between two or more systems, for example:
->
->                        +-----------+
->-                       |  Host A   | 
->+                       |  Host A   |
->                        +-+---+---+-+
->                          |   |   |
->                 +--------+   |   +---------+
->@@ -2250,7 +2244,7 @@ between two or more systems, for example:
->                 +--------+   |   +---------+
->                          |   |   |
->                        +-+---+---+-+
->-                       |  Host B   | 
->+                       |  Host B   |
->                        +-----------+
->
-> 	In this configuration, the switches are isolated from one
->@@ -2478,7 +2472,7 @@ bonding driver.
-> (either the internal Ethernet Switch Module, or an external switch) to
-> avoid fail-over delay issues when using bonding.
->
->-	
->+
-> 15. Frequently Asked Questions
-> ==============================
->
->@@ -2515,7 +2509,7 @@ monitored, and should it recover, it will rejoin the bond (in whatever
-> manner is appropriate for the mode). See the sections on High
-> Availability and the documentation for each mode for additional
-> information.
->-	
->+
-> 	Link monitoring can be enabled via either the miimon or
-> arp_interval parameters (described in the module parameters section,
-> above).  In general, miimon monitors the carrier state as sensed by
->@@ -2618,7 +2612,7 @@ be found at:
-> http://vger.kernel.org/vger-lists.html#netdev
->
-> Donald Becker's Ethernet Drivers and diag programs may be found at :
->- - http://web.archive.org/web/*/http://www.scyld.com/network/ 
->+ - http://web.archive.org/web/*/http://www.scyld.com/network/
->
-> You will also find a lot of information regarding Ethernet, NWay, MII,
-> etc. at www.scyld.com.
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index 2cfbb2e..3f64607 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2660,18 +2660,7 @@ static int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
-> 		 bond->params.arp_validate, slave_do_arp_validate(bond, slave),
-> 		 &sip, &tip);
->
->-	/*
->-	 * Backup slaves won't see the ARP reply, but do come through
->-	 * here for each ARP probe (so we swap the sip/tip to validate
->-	 * the probe).  In a "redundant switch, common router" type of
->-	 * configuration, the ARP probe will (hopefully) travel from
->-	 * the active, through one switch, the router, then the other
->-	 * switch before reaching the backup.
->-	 */
->-	if (bond_is_active_slave(slave))
->-		bond_validate_arp(bond, slave, sip, tip);
->-	else
->-		bond_validate_arp(bond, slave, tip, sip);
->+	bond_validate_arp(bond, slave, sip, tip);
->
-> out_unlock:
-> 	read_unlock(&bond->lock);
->-- 
->1.7.1
->
->--
-
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+ drivers/net/Kconfig  |  11 ++++
+ drivers/net/Makefile |   1 +
+ drivers/net/nlmon.c  | 169 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 181 insertions(+)
+ create mode 100644 drivers/net/nlmon.c
+
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 3835321..a698732 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -244,6 +244,17 @@ config VIRTIO_NET
+ 	  This is the virtual network driver for virtio.  It can be used with
+ 	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
+ 
++config NLMON
++	tristate "Virtual netlink monitoring device"
++	default n
++	---help---
++	  This option enables a monitoring net device for netlink skbs. The
++	  purpose of this is to analyze netlink messages with packet sockets.
++	  Thus applications like tcpdump will be able to see local netlink
++	  messages if they tap into the netlink device, record pcaps for further
++	  diagnostics, etc. This is mostly intended for developers or support
++	  to debug netlink issues. If unsure, say N.
++
+ endif # NET_CORE
+ 
+ config SUNGEM_PHY
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index ef3d090..3fef8a8 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -22,6 +22,7 @@ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_VXLAN) += vxlan.o
++obj-$(CONFIG_NLMON) += nlmon.o
+ 
+ #
+ # Networking Drivers
+diff --git a/drivers/net/nlmon.c b/drivers/net/nlmon.c
+new file mode 100644
+index 0000000..082553a
+--- /dev/null
++++ b/drivers/net/nlmon.c
+@@ -0,0 +1,169 @@
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/netlink.h>
++#include <net/net_namespace.h>
++#include <linux/if_arp.h>
++
++struct pcpu_lstats {
++	u64 packets;
++	u64 bytes;
++	struct u64_stats_sync syncp;
++};
++
++static struct netlink_tap nlmon_tap;
++
++static netdev_tx_t nlmon_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	int len = skb->len;
++	struct pcpu_lstats *stats = this_cpu_ptr(dev->lstats);
++
++	u64_stats_update_begin(&stats->syncp);
++	stats->bytes += len;
++	stats->packets++;
++	u64_stats_update_end(&stats->syncp);
++
++	dev_kfree_skb(skb);
++
++	return NETDEV_TX_OK;
++}
++
++static int nlmon_dev_init(struct net_device *dev)
++{
++	dev->lstats = alloc_percpu(struct pcpu_lstats);
++	if (dev->lstats == NULL)
++		return -ENOMEM;
++
++	netlink_add_tap(&nlmon_tap);
++	return 0;
++}
++
++static void nlmon_dev_uninit(struct net_device *dev)
++{
++	netlink_remove_tap(&nlmon_tap);
++	free_percpu(dev->lstats);
++}
++
++static struct rtnl_link_stats64 *
++nlmon_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
++{
++	int i;
++	u64 bytes = 0, packets = 0;
++
++	for_each_possible_cpu(i) {
++		const struct pcpu_lstats *nl_stats;
++		u64 tbytes, tpackets;
++		unsigned int start;
++
++		nl_stats = per_cpu_ptr(dev->lstats, i);
++
++		do {
++			start = u64_stats_fetch_begin_bh(&nl_stats->syncp);
++			tbytes = nl_stats->bytes;
++			tpackets = nl_stats->packets;
++		} while (u64_stats_fetch_retry_bh(&nl_stats->syncp, start));
++
++		packets += tpackets;
++		bytes += tbytes;
++	}
++
++	stats->rx_packets = packets;
++	stats->tx_packets = 0;
++
++	stats->rx_bytes = bytes;
++	stats->tx_bytes = 0;
++
++	return stats;
++}
++
++static u32 always_on(struct net_device *dev)
++{
++	return 1;
++}
++
++static int nlmon_receive_skb(struct sk_buff *skb, struct net_device *dev)
++{
++	struct sk_buff *nskb;
++	int err = -ENOMEM;
++
++	dev_hold(dev);
++
++	if ((dev->flags & IFF_UP) != IFF_UP) {
++		err = -ENETDOWN;
++		goto out;
++	}
++
++	nskb = skb_clone(skb, GFP_ATOMIC);
++	if (nskb) {
++		nskb->dev = dev;
++		err = dev_queue_xmit(nskb);
++		if (unlikely(err > 0))
++			err = net_xmit_errno(err);
++	}
++out:
++	dev_put(dev);
++	return err;
++}
++
++static const struct ethtool_ops nlmon_ethtool_ops = {
++	.get_link = always_on,
++};
++
++static const struct net_device_ops nlmon_ops = {
++	.ndo_init = nlmon_dev_init,
++	.ndo_uninit = nlmon_dev_uninit,
++	.ndo_start_xmit = nlmon_xmit,
++	.ndo_get_stats64 = nlmon_get_stats64,
++};
++
++static struct netlink_tap nlmon_tap __read_mostly = {
++	.func = nlmon_receive_skb,
++	.module = THIS_MODULE,
++};
++
++static void nlmon_setup(struct net_device *dev)
++{
++	dev->type = ARPHRD_NETLINK;
++	dev->tx_queue_len = 0;
++
++	dev->netdev_ops	= &nlmon_ops;
++	dev->ethtool_ops = &nlmon_ethtool_ops;
++	dev->destructor	= free_netdev;
++
++	dev->features = NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
++	dev->flags = IFF_NOARP;
++
++	/* That's rather a softlimit here, which, of course,
++	 * can be altered. Not a real MTU, but what is to be
++	 * expected in most cases.
++	 */
++	dev->mtu = NLMSG_GOODSIZE;
++}
++
++static __init int nlmon_register(void)
++{
++	int err;
++	struct net_device *nldev;
++
++	nldev = nlmon_tap.dev = alloc_netdev(0, "netlink", nlmon_setup);
++	if (unlikely(nldev == NULL))
++		return -ENOMEM;
++
++	err = register_netdev(nldev);
++	if (unlikely(err))
++		free_netdev(nldev);
++
++	return err;
++}
++
++static __exit void nlmon_unregister(void)
++{
++}
++
++module_init(nlmon_register);
++module_exit(nlmon_unregister);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Daniel Borkmann <dborkman@redhat.com>");
++MODULE_AUTHOR("Mathieu Geli <geli@enseirb.fr>");
++MODULE_DESCRIPTION("Netlink monitoring device");
+-- 
+1.7.11.7
