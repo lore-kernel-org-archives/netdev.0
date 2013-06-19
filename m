@@ -1,231 +1,240 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next 1/2] macvtap: Let TUNSETOFFLOAD actually
- controll offload features.
-Date: Wed, 19 Jun 2013 21:17:39 +0300
-Message-ID: <20130619181739.GB15017@redhat.com>
-References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>
- <1371653272-11703-2-git-send-email-vyasevic@redhat.com>
- <20130619151634.GA12619@redhat.com>
- <51C1D29E.9020204@redhat.com>
- <20130619155549.GA13846@redhat.com>
- <51C1E4D0.80309@redhat.com>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [net-next 3/8] i40e: driver ethtool core
+Date: Wed, 19 Jun 2013 19:27:10 +0100
+Message-ID: <1371666430.1956.102.camel@bwh-desktop.uk.level5networks.com>
+References: <1371182122-26629-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1371182122-26629-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com
-To: Vlad Yasevich <vyasevic@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	<netdev@vger.kernel.org>, <gospo@redhat.com>,
+	<sassmann@redhat.com>, "Shannon Nelson" <shannon.nelson@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	<e1000-devel@lists.sourceforge.net>
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:3953 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756805Ab3FSSQy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 14:16:54 -0400
-Content-Disposition: inline
-In-Reply-To: <51C1E4D0.80309@redhat.com>
+Received: from webmail.solarflare.com ([12.187.104.25]:34128 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935086Ab3FSS1P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 14:27:15 -0400
+In-Reply-To: <1371182122-26629-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 19, 2013 at 01:05:20PM -0400, Vlad Yasevich wrote:
-> On 06/19/2013 11:55 AM, Michael S. Tsirkin wrote:
-> >On Wed, Jun 19, 2013 at 11:47:42AM -0400, Vlad Yasevich wrote:
-> >>On 06/19/2013 11:16 AM, Michael S. Tsirkin wrote:
-> >>>On Wed, Jun 19, 2013 at 10:47:51AM -0400, Vlad Yasevich wrote:
-> >>>>When the user issues TUNSETOFFLOAD ioctl, macvtap does not do
-> >>>>anything other then to verify arguments.  This patch adds
-> >>>>functionality to allow users to actually control offload features.
-> >>>>NETIF_F_GSO and NETIF_F_GRO are always on, but the rest of the
-> >>>>features can be controlled.
-> >>>>
-> >>>>Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> >>>>---
-> >>>>  drivers/net/macvlan.c      |  9 +++++++++
-> >>>>  drivers/net/macvtap.c      | 41 ++++++++++++++++++++++++++++++++++++++++-
-> >>>>  include/linux/if_macvlan.h |  1 +
-> >>>>  3 files changed, 50 insertions(+), 1 deletion(-)
-> >>>>
-> >>>>diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
-> >>>>index edfddc5..fa47415 100644
-> >>>>--- a/drivers/net/macvlan.c
-> >>>>+++ b/drivers/net/macvlan.c
-> >>>>@@ -638,6 +638,14 @@ static int macvlan_ethtool_get_settings(struct net_device *dev,
-> >>>>  	return __ethtool_get_settings(vlan->lowerdev, cmd);
-> >>>>  }
-> >>>>
-> >>>>+static netdev_features_t macvlan_fix_features(struct net_device *dev,
-> >>>>+					      netdev_features_t features)
-> >>>>+{
-> >>>>+	struct macvlan_dev *vlan = netdev_priv(dev);
-> >>>>+
-> >>>>+	return (features & vlan->set_features) | (features & ~MACVLAN_FEATURES);
-> >>>
-> >>>A bit clearer as
-> >>>
-> >>>>+	return features & (vlan->set_features | ~MACVLAN_FEATURES);
-> >>
-> >>OK
-> >>
-> >>>
-> >>>>+}
-> >>>>+
-> >>>>  static const struct ethtool_ops macvlan_ethtool_ops = {
-> >>>>  	.get_link		= ethtool_op_get_link,
-> >>>>  	.get_settings		= macvlan_ethtool_get_settings,
-> >>>>@@ -651,6 +659,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
-> >>>>  	.ndo_stop		= macvlan_stop,
-> >>>>  	.ndo_start_xmit		= macvlan_start_xmit,
-> >>>>  	.ndo_change_mtu		= macvlan_change_mtu,
-> >>>>+	.ndo_fix_features	= macvlan_fix_features,
-> >>>>  	.ndo_change_rx_flags	= macvlan_change_rx_flags,
-> >>>>  	.ndo_set_mac_address	= macvlan_set_mac_address,
-> >>>>  	.ndo_set_rx_mode	= macvlan_set_mac_lists,
-> >>>>diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-> >>>>index 5a76f20..09f0b1f 100644
-> >>>>--- a/drivers/net/macvtap.c
-> >>>>+++ b/drivers/net/macvtap.c
-> >>>>@@ -976,6 +976,45 @@ static int macvtap_ioctl_set_queue(struct file *file, unsigned int flags)
-> >>>>  	return ret;
-> >>>>  }
-> >>>>
-> >>>>+static int set_offload(struct macvtap_queue *q, unsigned long arg)
-> >>>>+{
-> >>>>+	struct macvlan_dev *vlan;
-> >>>>+	netdev_features_t features = NETIF_F_GSO|NETIF_F_GRO;
-> >>>>+	int err = 0;
-> >>>>+
-> >>>>+	if (arg & TUN_F_CSUM) {
-> >>>>+		features = NETIF_F_HW_CSUM;
-> >>>>+
-> >>>>+		if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
-> >>>>+			if (arg & TUN_F_TSO_ECN)
-> >>>>+				features |= NETIF_F_TSO_ECN;
-> >>>>+			if (arg & TUN_F_TSO4)
-> >>>>+				features |= NETIF_F_TSO;
-> >>>>+			if (arg & TUN_F_TSO6)
-> >>>>+				features |= NETIF_F_TSO6;
-> >>>>+		}
-> >>>>+
-> >>>>+		if (arg & TUN_F_UFO)
-> >>>>+			features |= NETIF_F_UFO;
-> >>>
-> >>>Hmm this looks strange. The meaning of offloads
-> >>>with tun is exactly the reverse from vlan/macvtap.
-> >>>
-> >>>For example, assume that you disable TSO.
-> >>>For tun this means: "don't send TSO packets to userspace".
-> >>>What this patch makes it mean for macvtap is
-> >>>"don't send TSO packets from userspace on the network".
-> >>>
-> >>
-> >>Isn't a user space write to TUN exactly the same as
-> >>a user space write to macvtap?  It looks to me like the
-> >>are and so features for them would work the same way.
-> >>
-> >>macvlan and macvtap would be different, but I think that's
-> >>to be expected.
-> >
-> >They aren't the same.
-> >
-> >Userspace write on tun causes a packet to be *received* from tun.
-> >Userspace write on macvtap causes a packet to be *transmitted*
-> >on macvlan.
-> >
-> >
-> >
-> >
-> >>>So, userspace using this ioctl
-> >>>to control tun would get a surprising result.
-> >>
-> >>By surprising do you mean that if user space writes
-> >>a TSO packet to a macvtap where TSO is disabled, the TSO
-> >>packet is still sent to the network?
-> >
-> >No.
-> >tun offloads only control packets send to userspace.
-> >When I disable TSO on tun this means
-> >don't send *me* TSO packets. Instead, you try to
-> >mess with packets *received* from me and being
-> >sent outside.
+On Thu, 2013-06-13 at 20:55 -0700, Jeff Kirsher wrote:
+> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
 > 
-> Ok, I see how that might be the perception, but that
-> is not what is actually happening.
+> This patch contains the ethtool interface and implementation.
 > 
-> In actuality, transmitted packets are not messed with
-> because
-> macvtap does not perform any offload checks on _transmit_.
-> It passed the user specified packet to lower level device
-> to deal with is that sees fit.
+> The goal in this patch series is minimal functionality while not
+> including much in the way of "set support."
+[...]
+> --- /dev/null
+> +++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+[...]
+> +static const struct i40e_stats i40e_gstrings_net_stats[] = {
+> +	I40E_NETDEV_STAT(rx_packets),
+> +	I40E_NETDEV_STAT(tx_packets),
+> +	I40E_NETDEV_STAT(rx_bytes),
+> +	I40E_NETDEV_STAT(tx_bytes),
+> +	I40E_NETDEV_STAT(rx_errors),
+> +	I40E_NETDEV_STAT(tx_errors),
+> +	I40E_NETDEV_STAT(rx_dropped),
+> +	I40E_NETDEV_STAT(tx_dropped),
+> +	I40E_NETDEV_STAT(multicast),
+> +	I40E_NETDEV_STAT(collisions),
+> +	I40E_NETDEV_STAT(rx_length_errors),
+> +	I40E_NETDEV_STAT(rx_over_errors),
+> +	I40E_NETDEV_STAT(rx_crc_errors),
+> +	I40E_NETDEV_STAT(rx_frame_errors),
+> +	I40E_NETDEV_STAT(rx_fifo_errors),
+> +	I40E_NETDEV_STAT(tx_aborted_errors),
+> +	I40E_NETDEV_STAT(tx_carrier_errors),
+> +	I40E_NETDEV_STAT(tx_fifo_errors),
+> +	I40E_NETDEV_STAT(tx_heartbeat_errors),
+> +	I40E_NETDEV_STAT(tx_window_errors),
+> +	I40E_NETDEV_STAT(rx_compressed),
+> +	I40E_NETDEV_STAT(tx_compressed),
+> +};
 
-For example, if there's no checksum, and TX checksum offload
-is off, won't that calculate the checksum?
-That's messing with packets.
+So you're doing VJ header compression over Ethernet now?  At least drop
+the irrelevant counters.
 
->  As a result any user specified
-> offloads are kept and it is possible to set a TSO packet on
-> a TSO-disabled macvtap just like it is possible to do so on tun.
+> +static struct i40e_stats i40e_gstrings_stats[] = {
+> +	I40E_PF_STAT("rx_bytes", stats.eth.rx_bytes),
+> +	I40E_PF_STAT("tx_bytes", stats.eth.tx_bytes),
+> +	I40E_PF_STAT("rx_errors", stats.eth.rx_errors),
+> +	I40E_PF_STAT("tx_errors", stats.eth.tx_errors),
 
-If you disable TSO in tun, userspace won't
-get any TSO packets. It's broken in macvtap and your patch
-does not fix it.
+Duplicates.
 
-> 
-> If you really don't like me mucking around with device features
-> then how about the following:
->  1) macvlan_dev gets a new tap feature set.
->  2) TUNSETOFFLOAD adjusts the above feature set.
->  3) The feature set is retrievable with a new ioclt TUNGETOFFLOAD
->  4) These tap features are consulted in macvtap_forward.
-> 
-> This does not invert the notion of device features for macvtap, but
-> it does make it harder to see which features the user of macvtap has
-> disabled.
-> 
-> -vlad
+[...]
+> +#define I40E_QUEUE_STATS_LEN \
+> +  ((((struct i40e_netdev_priv *)netdev_priv(netdev))->vsi->num_queue_pairs + \
+> +    ((struct i40e_netdev_priv *)netdev_priv(netdev))->vsi->num_queue_pairs) * 2)
 
-The issue I mentioned is that you got the direction wrong.
+netdev should be a macro parameter.  Actually this could just as well be
+a function.
 
-> >
-> >>
-> >>>
-> >>>>+	}
-> >>>>+
-> >>>>+	rtnl_lock();
-> >>>>+	rcu_read_lock_bh();
-> >>>>+	vlan = rcu_dereference_bh(q->vlan);
-> >>>>+	if (!vlan) {
-> >>>>+		err = -ENOLINK;
-> >>>>+		goto unlock;
-> >>>>+	}
-> >>>>+
-> >>>>+	vlan->set_features = features;
-> >>>>+	netdev_update_features(vlan->dev);
-> >>>>+
-> >>>>+unlock:
-> >>>>+	rcu_read_unlock_bh();
-> >>>>+	rtnl_unlock();
-> >>>>+	return err;
-> >>>>+}
-> >>>>+
-> >>>>  /*
-> >>>>   * provide compatibility with generic tun/tap interface
-> >>>>   */
-> >>>>@@ -1062,7 +1101,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
-> >>>>  			 got enabled for forwarded frames */
-> >>>>  		if (!(q->flags & IFF_VNET_HDR))
-> >>>>  			return  -EINVAL;
-> >>>>-		return 0;
-> >>>>+		return set_offload(q, arg);
-> >>>>
-> >>>>  	default:
-> >>>>  		return -EINVAL;
-> >>>>diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-> >>>>index f49a9f6..e446e82 100644
-> >>>>--- a/include/linux/if_macvlan.h
-> >>>>+++ b/include/linux/if_macvlan.h
-> >>>>@@ -65,6 +65,7 @@ struct macvlan_dev {
-> >>>>
-> >>>>  	DECLARE_BITMAP(mc_filter, MACVLAN_MC_FILTER_SZ);
-> >>>>
-> >>>>+	netdev_features_t	set_features;
-> >>>>  	enum macvlan_mode	mode;
-> >>>>  	u16			flags;
-> >>>>  	int (*receive)(struct sk_buff *skb);
-> >>>>--
-> >>>>1.8.1.4
+[...]
+> +/**
+> + * i40e_get_settings - Get Link Speed and Duplex settings
+> + * @netdev: network interface device structure
+> + * @ecmd: ethtool command
+> + *
+> + * Reports speed/duplex settings based on media_type
+> + **/
+> +static int i40e_get_settings(struct net_device *netdev,
+> +			     struct ethtool_cmd *ecmd)
+> +{
+> +	struct i40e_netdev_priv *np = netdev_priv(netdev);
+> +	struct i40e_pf *pf = np->vsi->back;
+> +	struct i40e_hw *hw = &pf->hw;
+> +	struct i40e_link_status *hw_link_info = &hw->phy.link_info;
+> +	u32 link_speed = hw_link_info->link_speed;
+> +	bool link_up = false;
+> +
+> +	ecmd->supported = SUPPORTED_10000baseT_Full |
+> +			  SUPPORTED_1000baseT_Full  |
+> +			  SUPPORTED_Autoneg;
+> +
+> +	ecmd->advertising  = ADVERTISED_10000baseT_Full |
+> +			     ADVERTISED_1000baseT_Full;
+> +
+> +	if (hw->phy.media_type == I40E_MEDIA_TYPE_BACKPLANE) {
+> +		ecmd->supported |= (SUPPORTED_100baseT_Full |
+> +				    SUPPORTED_Autoneg);
+> +		ecmd->advertising |= ADVERTISED_100baseT_Full;
+
+All the link modes are wrong for backplane.
+
+> +	} else if (hw->phy.media_type == I40E_MEDIA_TYPE_BASET) {
+> +		ecmd->supported |= SUPPORTED_TP;
+> +		ecmd->advertising |= ADVERTISED_TP;
+> +		ecmd->port = PORT_TP;
+> +	} else {
+> +		ecmd->supported |= SUPPORTED_FIBRE;
+> +		ecmd->advertising |= ADVERTISED_FIBRE;
+> +		ecmd->port = PORT_FIBRE;
+
+And for fibre, though this is bodged in most drivers.  But for backplane
+modes we do have ethtool link mode flags defined so there's no excuse.
+
+> +	}
+> +
+> +	if (hw->phy.get_link_info == true)
+> +		link_up = hw_link_info->link_info & I40E_AQ_LINK_UP;
+> +
+> +	ecmd->advertising = ADVERTISED_Autoneg;
+
+So autoneg is always used, even over fibre?
+
+> +	if (hw->phy.autoneg_advertised) {
+> +		if (hw->phy.autoneg_advertised & I40E_LINK_SPEED_100MB)
+> +			ecmd->advertising |= ADVERTISED_100baseT_Full;
+> +		if (hw->phy.autoneg_advertised & I40E_LINK_SPEED_1GB)
+> +			ecmd->advertising |= ADVERTISED_1000baseT_Full;
+> +		if (hw->phy.autoneg_advertised & I40E_LINK_SPEED_10GB)
+> +			ecmd->advertising |= ADVERTISED_10000baseT_Full;
+> +	} else {
+> +		ecmd->advertising |= (ADVERTISED_10000baseT_Full |
+> +				      ADVERTISED_1000baseT_Full);
+> +	}
+> +
+> +	ecmd->transceiver = XCVR_EXTERNAL;
+
+Really?
+
+> +	if (!in_interrupt()) {
+> +		i40e_aq_get_link_info(&pf->hw, true, NULL, NULL);
+> +	} else {
+> +		/* Reinitialize link variables, a special workaround for RHEL5
+> +		 * bonding that calls this routine from interrupt context
+> +		 */
+> +		link_speed = hw_link_info->link_speed;
+> +		link_up = hw_link_info->link_info & I40E_AQ_LINK_UP;
+> +	}
+
+I know that bug.  In fact, it only got completely fixed in 3.9 (and some
+stable branches).  But you can't put this workaround in-tree.
+
+[...]
+> +static void i40e_get_drvinfo(struct net_device *netdev,
+> +			     struct ethtool_drvinfo *drvinfo)
+> +{
+> +	struct i40e_netdev_priv *np = netdev_priv(netdev);
+> +	struct i40e_vsi *vsi = np->vsi;
+> +	struct i40e_pf *pf = vsi->back;
+> +	char firmware_version[32];
+> +
+> +	strncpy(drvinfo->driver, i40e_driver_name, sizeof(drvinfo->driver));
+> +	strncpy(drvinfo->version, i40e_driver_version_str,
+> +		sizeof(drvinfo->version));
+
+Replace strncpy() with strlcpy() throughout this function.
+
+> +	snprintf(firmware_version, sizeof(firmware_version),
+> +		 "FW %d.%d API %d.%d NVM %02d.%02d.%02d",
+> +		 pf->hw.aq.fw_maj_ver, pf->hw.aq.fw_min_ver,
+> +		 pf->hw.aq.api_maj_ver, pf->hw.aq.api_min_ver,
+> +		 ((pf->hw.nvm.version >> 12) & 0xf),
+> +		 ((pf->hw.nvm.version >> 4) & 0xff),
+> +		 (pf->hw.nvm.version & 0xf));
+> +
+> +	strncpy(drvinfo->fw_version, firmware_version,
+> +		sizeof(drvinfo->fw_version));
+
+What was the point of the intermediate buffer?
+
+> +	strncpy(drvinfo->bus_info, pci_name(pf->pdev),
+> +		sizeof(drvinfo->bus_info));
+> +	if (vsi == pf->vsi[pf->lan_vsi])
+> +		drvinfo->n_stats = I40E_PF_STATS_LEN;
+> +	else
+> +		drvinfo->n_stats = I40E_VSI_STATS_LEN;
+> +	drvinfo->testinfo_len = I40E_TEST_LEN;
+> +	drvinfo->regdump_len = i40e_get_regs_len(netdev);
+
+Do not set n_stats or *_len; the ethtool core does that for you.
+
+> +}
+[...]
+> +static int i40e_set_phys_id(struct net_device *netdev,
+> +			    enum ethtool_phys_id_state state)
+> +{
+> +	struct i40e_netdev_priv *np = netdev_priv(netdev);
+> +	struct i40e_pf *pf = np->vsi->back;
+> +	struct i40e_hw *hw = &pf->hw;
+> +	int blink_freq = 2;
+> +	static u32 led_status;
+
+Ugh, no.
+
+Since ETHTOOL_PHYSID drops the RTNL between calls to set_phys_id, it's
+possible to invoke it on multiple devices at the same time...
+
+> +	switch (state) {
+> +	case ETHTOOL_ID_ACTIVE:
+> +		led_status = i40e_led_get(hw);
+> +		return blink_freq;
+> +	case ETHTOOL_ID_ON:
+> +		i40e_led_set(hw, 0xF);
+> +		break;
+> +	case ETHTOOL_ID_OFF:
+> +		i40e_led_set(hw, 0x0);
+> +		break;
+> +	case ETHTOOL_ID_INACTIVE:
+> +		i40e_led_set(hw, led_status);
+> +		break;
+> +	}
+> +
+> +	return 0;
+> +}
+[...]
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
