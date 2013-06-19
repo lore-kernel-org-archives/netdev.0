@@ -1,249 +1,231 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 1/8] i40e: main driver core
-Date: Wed, 19 Jun 2013 19:12:42 +0100
-Message-ID: <1371665562.1956.89.camel@bwh-desktop.uk.level5networks.com>
-References: <1371182122-26629-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1371182122-26629-2-git-send-email-jeffrey.t.kirsher@intel.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next 1/2] macvtap: Let TUNSETOFFLOAD actually
+ controll offload features.
+Date: Wed, 19 Jun 2013 21:17:39 +0300
+Message-ID: <20130619181739.GB15017@redhat.com>
+References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>
+ <1371653272-11703-2-git-send-email-vyasevic@redhat.com>
+ <20130619151634.GA12619@redhat.com>
+ <51C1D29E.9020204@redhat.com>
+ <20130619155549.GA13846@redhat.com>
+ <51C1E4D0.80309@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	<netdev@vger.kernel.org>, <gospo@redhat.com>,
-	<sassmann@redhat.com>, "Shannon Nelson" <shannon.nelson@intel.com>,
-	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
-	<e1000-devel@lists.sourceforge.net>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:58255 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934659Ab3FSSMr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 14:12:47 -0400
-In-Reply-To: <1371182122-26629-2-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mx1.redhat.com ([209.132.183.28]:3953 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756805Ab3FSSQy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 14:16:54 -0400
+Content-Disposition: inline
+In-Reply-To: <51C1E4D0.80309@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-13 at 20:55 -0700, Jeff Kirsher wrote:
-> From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+On Wed, Jun 19, 2013 at 01:05:20PM -0400, Vlad Yasevich wrote:
+> On 06/19/2013 11:55 AM, Michael S. Tsirkin wrote:
+> >On Wed, Jun 19, 2013 at 11:47:42AM -0400, Vlad Yasevich wrote:
+> >>On 06/19/2013 11:16 AM, Michael S. Tsirkin wrote:
+> >>>On Wed, Jun 19, 2013 at 10:47:51AM -0400, Vlad Yasevich wrote:
+> >>>>When the user issues TUNSETOFFLOAD ioctl, macvtap does not do
+> >>>>anything other then to verify arguments.  This patch adds
+> >>>>functionality to allow users to actually control offload features.
+> >>>>NETIF_F_GSO and NETIF_F_GRO are always on, but the rest of the
+> >>>>features can be controlled.
+> >>>>
+> >>>>Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> >>>>---
+> >>>>  drivers/net/macvlan.c      |  9 +++++++++
+> >>>>  drivers/net/macvtap.c      | 41 ++++++++++++++++++++++++++++++++++++++++-
+> >>>>  include/linux/if_macvlan.h |  1 +
+> >>>>  3 files changed, 50 insertions(+), 1 deletion(-)
+> >>>>
+> >>>>diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+> >>>>index edfddc5..fa47415 100644
+> >>>>--- a/drivers/net/macvlan.c
+> >>>>+++ b/drivers/net/macvlan.c
+> >>>>@@ -638,6 +638,14 @@ static int macvlan_ethtool_get_settings(struct net_device *dev,
+> >>>>  	return __ethtool_get_settings(vlan->lowerdev, cmd);
+> >>>>  }
+> >>>>
+> >>>>+static netdev_features_t macvlan_fix_features(struct net_device *dev,
+> >>>>+					      netdev_features_t features)
+> >>>>+{
+> >>>>+	struct macvlan_dev *vlan = netdev_priv(dev);
+> >>>>+
+> >>>>+	return (features & vlan->set_features) | (features & ~MACVLAN_FEATURES);
+> >>>
+> >>>A bit clearer as
+> >>>
+> >>>>+	return features & (vlan->set_features | ~MACVLAN_FEATURES);
+> >>
+> >>OK
+> >>
+> >>>
+> >>>>+}
+> >>>>+
+> >>>>  static const struct ethtool_ops macvlan_ethtool_ops = {
+> >>>>  	.get_link		= ethtool_op_get_link,
+> >>>>  	.get_settings		= macvlan_ethtool_get_settings,
+> >>>>@@ -651,6 +659,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
+> >>>>  	.ndo_stop		= macvlan_stop,
+> >>>>  	.ndo_start_xmit		= macvlan_start_xmit,
+> >>>>  	.ndo_change_mtu		= macvlan_change_mtu,
+> >>>>+	.ndo_fix_features	= macvlan_fix_features,
+> >>>>  	.ndo_change_rx_flags	= macvlan_change_rx_flags,
+> >>>>  	.ndo_set_mac_address	= macvlan_set_mac_address,
+> >>>>  	.ndo_set_rx_mode	= macvlan_set_mac_lists,
+> >>>>diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> >>>>index 5a76f20..09f0b1f 100644
+> >>>>--- a/drivers/net/macvtap.c
+> >>>>+++ b/drivers/net/macvtap.c
+> >>>>@@ -976,6 +976,45 @@ static int macvtap_ioctl_set_queue(struct file *file, unsigned int flags)
+> >>>>  	return ret;
+> >>>>  }
+> >>>>
+> >>>>+static int set_offload(struct macvtap_queue *q, unsigned long arg)
+> >>>>+{
+> >>>>+	struct macvlan_dev *vlan;
+> >>>>+	netdev_features_t features = NETIF_F_GSO|NETIF_F_GRO;
+> >>>>+	int err = 0;
+> >>>>+
+> >>>>+	if (arg & TUN_F_CSUM) {
+> >>>>+		features = NETIF_F_HW_CSUM;
+> >>>>+
+> >>>>+		if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
+> >>>>+			if (arg & TUN_F_TSO_ECN)
+> >>>>+				features |= NETIF_F_TSO_ECN;
+> >>>>+			if (arg & TUN_F_TSO4)
+> >>>>+				features |= NETIF_F_TSO;
+> >>>>+			if (arg & TUN_F_TSO6)
+> >>>>+				features |= NETIF_F_TSO6;
+> >>>>+		}
+> >>>>+
+> >>>>+		if (arg & TUN_F_UFO)
+> >>>>+			features |= NETIF_F_UFO;
+> >>>
+> >>>Hmm this looks strange. The meaning of offloads
+> >>>with tun is exactly the reverse from vlan/macvtap.
+> >>>
+> >>>For example, assume that you disable TSO.
+> >>>For tun this means: "don't send TSO packets to userspace".
+> >>>What this patch makes it mean for macvtap is
+> >>>"don't send TSO packets from userspace on the network".
+> >>>
+> >>
+> >>Isn't a user space write to TUN exactly the same as
+> >>a user space write to macvtap?  It looks to me like the
+> >>are and so features for them would work the same way.
+> >>
+> >>macvlan and macvtap would be different, but I think that's
+> >>to be expected.
+> >
+> >They aren't the same.
+> >
+> >Userspace write on tun causes a packet to be *received* from tun.
+> >Userspace write on macvtap causes a packet to be *transmitted*
+> >on macvlan.
+> >
+> >
+> >
+> >
+> >>>So, userspace using this ioctl
+> >>>to control tun would get a surprising result.
+> >>
+> >>By surprising do you mean that if user space writes
+> >>a TSO packet to a macvtap where TSO is disabled, the TSO
+> >>packet is still sent to the network?
+> >
+> >No.
+> >tun offloads only control packets send to userspace.
+> >When I disable TSO on tun this means
+> >don't send *me* TSO packets. Instead, you try to
+> >mess with packets *received* from me and being
+> >sent outside.
 > 
-> This is the driver for the Intel(R) Ethernet Controller XL710 Family.
+> Ok, I see how that might be the perception, but that
+> is not what is actually happening.
 > 
-> This driver is targeted at basic ethernet functionality only, and will be
-> improved upon further as time goes on.
+> In actuality, transmitted packets are not messed with
+> because
+> macvtap does not perform any offload checks on _transmit_.
+> It passed the user specified packet to lower level device
+> to deal with is that sees fit.
+
+For example, if there's no checksum, and TX checksum offload
+is off, won't that calculate the checksum?
+That's messing with packets.
+
+>  As a result any user specified
+> offloads are kept and it is possible to set a TSO packet on
+> a TSO-disabled macvtap just like it is possible to do so on tun.
+
+If you disable TSO in tun, userspace won't
+get any TSO packets. It's broken in macvtap and your patch
+does not fix it.
+
 > 
-> This patch mail contains the driver entry points but does not include transmit
-> and receive (see next patch) routines.
+> If you really don't like me mucking around with device features
+> then how about the following:
+>  1) macvlan_dev gets a new tap feature set.
+>  2) TUNSETOFFLOAD adjusts the above feature set.
+>  3) The feature set is retrievable with a new ioclt TUNGETOFFLOAD
+>  4) These tap features are consulted in macvtap_forward.
+> 
+> This does not invert the notion of device features for macvtap, but
+> it does make it harder to see which features the user of macvtap has
+> disabled.
+> 
+> -vlad
 
-Aside from the poor style of using your own private error names *even in
-netdev operations*, you're also not using consistent types for them
-(int, s32 or u32?).
+The issue I mentioned is that you got the direction wrong.
 
-[...]
-> --- /dev/null
-> +++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-[...]
-> +#define I40E_MAX_NIC 32
-
-This doesn't appear to be used (thankfully).
-
-[...]
-> +void i40e_tx_timeout(struct net_device *netdev)
-> +{
-> +	struct i40e_netdev_priv *np = netdev_priv(netdev);
-> +	struct i40e_vsi *vsi = np->vsi;
-> +	struct i40e_pf *pf = vsi->back;
-> +
-> +	pf->tx_timeout_count++;
-> +#ifdef CONFIG_DEBUG_FS
-> +	if (vsi->block_tx_timeout) {
-> +		netdev_info(netdev, "%s: recovery disabled\n", __func__);
-> +		return;
-> +	}
-> +#endif
-
-Looks like a development hack.
-
-> +	if (time_after(jiffies, (pf->tx_timeout_last_recovery + HZ*20)))
-> +		pf->tx_timeout_recovery_level = 0;
-> +	pf->tx_timeout_last_recovery = jiffies;
-> +	vsi->netdev->trans_start = jiffies;
-
-Direct assignment of net_device::trans_start is deprecated, and
-definitely wrong for a multiqueue driver.
-
-[...]
-> +/**
-> + * i40e_get_vsi_stats_struct - Get System Network Statistics
-> + * @vsi: the VSI we care about
-> + *
-> + * Returns the address of the device statistics structure.
-> + * The statistics are actually updated from the service task.
-> + **/
-> +struct net_device_stats *i40e_get_vsi_stats_struct(struct i40e_vsi *vsi)
-> +{
-> +	/* only return the current stats */
-> +	/* It is possible for a VSIs to not have a netdev */
-> +	if (vsi->netdev)
-> +		return &vsi->netdev->stats;
-> +	else
-> +		return &vsi->net_stats;
-> +}
-
-You should be using rtnl_device_stats64; at 40G a 32-bit counter is
-ridiculous (using this in a 32-bit machine is a bit ridiculous too,
-though...)
-
-[...]
-> +/**
-> + * i40e_vlan_rx_register - Setup or shutdown vlan offload
-> + * @netdev: network interface to be adjusted
-> + * @features: netdev features to test if VLAN offload is enabled or not
-> + **/
-> +static void i40e_vlan_rx_register(struct net_device *netdev, u32 features)
-> +{
-> +	struct i40e_netdev_priv *np = netdev_priv(netdev);
-> +	struct i40e_vsi *vsi = np->vsi;
-> +	bool enable;
-> +	enable = !!(features & NETIF_F_HW_VLAN_CTAG_RX);
-> +
-> +	if (enable)
-
-It's a simple expression; why bother with a variable for it?
-
-> +		i40e_vlan_stripping_enable(vsi);
-> +	else
-> +		i40e_vlan_stripping_disable(vsi);
-> +}
-[...]
-> +/**
-> + * i40e_napi_disable_all - Disable NAPI for all q_vectors in the VSI
-> + * @vsi: the VSI being configured
-> + **/
-> +static void i40e_napi_disable_all(struct i40e_vsi *vsi)
-> +{
-> +	int q_idx;
-> +
-> +	if (!vsi->netdev)
-> +		return;
-> +
-> +	for (q_idx = 0; q_idx < vsi->num_q_vectors; q_idx++) {
-> +		napi_synchronize(&vsi->q_vectors[q_idx].napi);
-
-This will wait indefinitely if there is enough traffic to keep NAPI
-scheduled.  (Arguably this is a bug in napi_synchronize() and it should
-actually use some sort of generation count.)  It's completely pointless
-when you're about to call:
-
-> +		napi_disable(&vsi->q_vectors[q_idx].napi);
-
-which will actually tell the NAPI soft IRQ to stop.
-
-> +	}
-> +}
-[...]
-> +/**
-> + * i40e_vsi_reinit_locked - Reset the VSI
-> + * @vsi: the VSI being configured
-> + *
-> + * Rebuild the ring structs after some configuration
-> + * has changed, e.g. MTU size.
-> + **/
-> +static void i40e_vsi_reinit_locked(struct i40e_vsi *vsi)
-> +{
-> +	struct i40e_pf *pf = vsi->back;
-> +
-> +	WARN_ON(in_interrupt());
-> +	/* put off any impending NetWatchDogTimeout */
-> +	if (vsi->netdev)
-> +		vsi->netdev->trans_start = jiffies;
-
-Leave trans_start alone.
-
-[...]
-> +/**
-> + * i40e_down - Shutdown the connection processing
-> + * @vsi: the VSI being stopped
-> + **/
-> +void i40e_down(struct i40e_vsi *vsi)
-> +{
-> +	int i;
-> +
-> +	/* It is assumed that the caller of this function
-> +	 * sets the vsi->state __I40E_DOWN bit.
-> +	 */
-> +	if (vsi->netdev) {
-> +		netif_tx_stop_all_queues(vsi->netdev);
-> +		netif_carrier_off(vsi->netdev);
-> +		netif_tx_disable(vsi->netdev);
-
-This seems very confused.  Do you want to stop TX synchronously or
-asynchronously?
-
-[...]
-> +/**
-> + * i40e_check_hang_subtask - Check for hung queues and dropped interrupts
-> + * @pf: board private structure
-> + *
-> + * Set the per-queue flags to request a check for stuck queues in the irq
-> + * clean functions, then force interrupts to be sure the irq clean is called.
-> + **/
-> +static void i40e_check_hang_subtask(struct i40e_pf *pf)
-> +{
-[...]
-
-We already have a TX watchdog.
-
-[...]
-> +/**
-> + * i40e_config_rss - Prepare for RSS if used
-> + * @pf: board private structure
-> + **/
-> +static s32 i40e_config_rss(struct i40e_pf *pf)
-> +{
-> +	struct i40e_hw *hw = &pf->hw;
-> +	u32 lut = 0;
-> +	int i, j;
-> +	u64 hena;
-> +	/* Set of random keys generated using kernel random number generator */
-> +	static const u32 seed[I40E_PFQF_HKEY_MAX_INDEX + 1] = {0x41b01687,
-> +				0x183cfd8c, 0xce880440, 0x580cbc3c, 0x35897377,
-> +				0x328b25e1, 0x4fa98922, 0xb7d90c14, 0xd5bad70d,
-> +				0xcd15a2c1, 0xe8580225, 0x4a1e9d11, 0xfe5731be};
-
-Chosen by a fair dice roll?
-
-[...]
-> +/**
-> + * i40e_assign_netdev_ops - Initialize netdev operations function pointers
-> + * @dev: ptr to the netdev struct
-> + **/
-> +static void i40e_assign_netdev_ops(struct net_device *dev)
-> +{
-> +	dev->netdev_ops = &i40e_netdev_ops;
-> +	dev->watchdog_timeo = 5 * HZ;
-> +}
-
-Sure you need a function for that?
-
-[...]
-> +static s32 i40e_config_netdev(struct i40e_vsi *vsi)
-> +{
-[...]
-> +	if (pf->pci_using_dac)
-> +		netdev->features |= NETIF_F_HIGHDMA;
-[...]
-
-HIGHDMA just means you don't assume TX page fragments are in lowmem.  It
-actually has nothing to do with DMA capabilities, which are checked
-separately.  Besides which DAC isn't exactly relevant to PCI Express
-devices... so this looks like cargo-culting from e1000 from the days
-before e1000e was split off.
-
-I didn't read any further yet.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+> >
+> >>
+> >>>
+> >>>>+	}
+> >>>>+
+> >>>>+	rtnl_lock();
+> >>>>+	rcu_read_lock_bh();
+> >>>>+	vlan = rcu_dereference_bh(q->vlan);
+> >>>>+	if (!vlan) {
+> >>>>+		err = -ENOLINK;
+> >>>>+		goto unlock;
+> >>>>+	}
+> >>>>+
+> >>>>+	vlan->set_features = features;
+> >>>>+	netdev_update_features(vlan->dev);
+> >>>>+
+> >>>>+unlock:
+> >>>>+	rcu_read_unlock_bh();
+> >>>>+	rtnl_unlock();
+> >>>>+	return err;
+> >>>>+}
+> >>>>+
+> >>>>  /*
+> >>>>   * provide compatibility with generic tun/tap interface
+> >>>>   */
+> >>>>@@ -1062,7 +1101,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
+> >>>>  			 got enabled for forwarded frames */
+> >>>>  		if (!(q->flags & IFF_VNET_HDR))
+> >>>>  			return  -EINVAL;
+> >>>>-		return 0;
+> >>>>+		return set_offload(q, arg);
+> >>>>
+> >>>>  	default:
+> >>>>  		return -EINVAL;
+> >>>>diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
+> >>>>index f49a9f6..e446e82 100644
+> >>>>--- a/include/linux/if_macvlan.h
+> >>>>+++ b/include/linux/if_macvlan.h
+> >>>>@@ -65,6 +65,7 @@ struct macvlan_dev {
+> >>>>
+> >>>>  	DECLARE_BITMAP(mc_filter, MACVLAN_MC_FILTER_SZ);
+> >>>>
+> >>>>+	netdev_features_t	set_features;
+> >>>>  	enum macvlan_mode	mode;
+> >>>>  	u16			flags;
+> >>>>  	int (*receive)(struct sk_buff *skb);
+> >>>>--
+> >>>>1.8.1.4
