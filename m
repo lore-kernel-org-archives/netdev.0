@@ -1,90 +1,116 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Pull request: sfc-next 2013-06-19
-Date: Wed, 19 Jun 2013 23:16:09 +0100
-Message-ID: <1371680169.1956.107.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 01/11] sfc: Fix EEH with legacy interrupts.
+Date: Wed, 19 Jun 2013 23:17:58 +0100
+Message-ID: <1371680278.1956.108.camel@bwh-desktop.uk.level5networks.com>
+References: <1371680169.1956.107.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="=-USpHgO6rj8bsKZIgeP0E"
-Cc: netdev <netdev@vger.kernel.org>,
-	linux-net-drivers <linux-net-drivers@solarflare.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:23191 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:10379 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935070Ab3FSWQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 18:16:19 -0400
+	with ESMTP id S935231Ab3FSWSB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 18:18:01 -0400
+In-Reply-To: <1371680169.1956.107.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---=-USpHgO6rj8bsKZIgeP0E
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+From: Alexandre Rames <arames@solarflare.com>
 
-The following changes since commit df09b36f2225b84571b3d5eda2e2683412320713=
-:
+PCI legacy interrupts are level-triggered, and we cannot mask them up
+on an isolated device.  Instead, disable the IRQ at the controller
+until we have recovered.
 
-  macvtap: enable multiqueue flag (2013-06-07 23:49:09 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git master
-
-for you to fetch changes up to 7585a2d50af2450f9acecb90a0c289d46310317a:
-
-  sfc: Improve test for IOMMU in use (2013-06-19 21:44:19 +0100)
-
-----------------------------------------------------------------
-Alexandre Rames (1):
-      sfc: Fix EEH with legacy interrupts.
-
-Andy Lutomirski (1):
-      sfc: Enable accelerated RFS on vlans
-
-Ben Hutchings (6):
-      sfc: Report software timestamping capabilities
-      sfc: Define and set RX buffer flag for packets parsed as TCP
-      sfc: Do not pass non-TCP packets into GRO code
-      sfc: Prefetch RX skb header area
-      sfc: Fix IRQ cleanup in case of a probe failure
-      sfc: Improve test for IOMMU in use
-
-Jon Cooper (3):
-      sfc: Enable RX checksum offload for packets not handled by GRO
-      sfc: Increase size of RX SKB header area
-      sfc: Implement RX SKB cache to improve latency
-
- drivers/net/ethernet/sfc/efx.c        | 40 +++----------------
+Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+---
+ drivers/net/ethernet/sfc/efx.c        |  7 ++++++-
  drivers/net/ethernet/sfc/efx.h        |  1 +
- drivers/net/ethernet/sfc/ethtool.c    | 16 +++++++-
- drivers/net/ethernet/sfc/filter.c     | 15 ++++++-
- drivers/net/ethernet/sfc/net_driver.h |  6 +++
- drivers/net/ethernet/sfc/nic.c        | 74 ++++++++++++++++++++++++++++++-=
-----
- drivers/net/ethernet/sfc/nic.h        |  4 +-
- drivers/net/ethernet/sfc/ptp.c        | 13 +++---
- drivers/net/ethernet/sfc/rx.c         | 63 +++++++++++++++++++++++++----
- 9 files changed, 169 insertions(+), 63 deletions(-)
+ drivers/net/ethernet/sfc/net_driver.h |  1 +
+ drivers/net/ethernet/sfc/nic.c        | 10 ++++++++++
+ 4 files changed, 18 insertions(+), 1 deletion(-)
 
---=20
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 46cc11d..787c9eb 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -23,6 +23,7 @@
+ #include <linux/gfp.h>
+ #include <linux/cpu_rmap.h>
+ #include <linux/aer.h>
++#include <linux/interrupt.h>
+ #include "net_driver.h"
+ #include "efx.h"
+ #include "nic.h"
+@@ -1427,6 +1428,10 @@ static void efx_start_interrupts(struct efx_nic *efx, bool may_keep_eventq)
+ 
+ 	BUG_ON(efx->state == STATE_DISABLED);
+ 
++	if (efx->eeh_disabled_legacy_irq) {
++		enable_irq(efx->legacy_irq);
++		efx->eeh_disabled_legacy_irq = false;
++	}
+ 	if (efx->legacy_irq)
+ 		efx->legacy_irq_enabled = true;
+ 	efx_nic_enable_interrupts(efx);
+@@ -2365,7 +2370,7 @@ out:
+  * Returns 0 if the recovery mechanisms are unsuccessful.
+  * Returns a non-zero value otherwise.
+  */
+-static int efx_try_recovery(struct efx_nic *efx)
++int efx_try_recovery(struct efx_nic *efx)
+ {
+ #ifdef CONFIG_EEH
+ 	/* A PCI error can occur and not be seen by EEH because nothing
+diff --git a/drivers/net/ethernet/sfc/efx.h b/drivers/net/ethernet/sfc/efx.h
+index 8372da2..bdb30bb 100644
+--- a/drivers/net/ethernet/sfc/efx.h
++++ b/drivers/net/ethernet/sfc/efx.h
+@@ -124,6 +124,7 @@ extern const struct ethtool_ops efx_ethtool_ops;
+ extern int efx_reset(struct efx_nic *efx, enum reset_type method);
+ extern void efx_reset_down(struct efx_nic *efx, enum reset_type method);
+ extern int efx_reset_up(struct efx_nic *efx, enum reset_type method, bool ok);
++extern int efx_try_recovery(struct efx_nic *efx);
+ 
+ /* Global */
+ extern void efx_schedule_reset(struct efx_nic *efx, enum reset_type type);
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 39d6bd77..942b6e6 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -787,6 +787,7 @@ struct efx_nic {
+ 	const struct efx_nic_type *type;
+ 	int legacy_irq;
+ 	bool legacy_irq_enabled;
++	bool eeh_disabled_legacy_irq;
+ 	struct workqueue_struct *workqueue;
+ 	char workqueue_name[16];
+ 	struct work_struct reset_work;
+diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
+index b0503cd..39432d3 100644
+--- a/drivers/net/ethernet/sfc/nic.c
++++ b/drivers/net/ethernet/sfc/nic.c
+@@ -1579,6 +1579,16 @@ static irqreturn_t efx_legacy_interrupt(int irq, void *dev_id)
+ 	efx_readd(efx, &reg, FR_BZ_INT_ISR0);
+ 	queues = EFX_EXTRACT_DWORD(reg, 0, 31);
+ 
++	/* Legacy interrupts are disabled too late by the EEH kernel
++	 * code. Disable them earlier.
++	 * If an EEH error occurred, the read will have returned all ones.
++	 */
++	if (EFX_DWORD_IS_ALL_ONES(reg) && efx_try_recovery(efx) &&
++	    !efx->eeh_disabled_legacy_irq) {
++		disable_irq_nosync(efx->legacy_irq);
++		efx->eeh_disabled_legacy_irq = true;
++	}
++
+ 	/* Handle non-event-queue sources */
+ 	if (queues & (1U << efx->irq_level)) {
+ 		syserr = EFX_OWORD_FIELD(*int_ker, FSF_AZ_NET_IVEC_FATAL_INT);
+
+
+-- 
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
-
---=-USpHgO6rj8bsKZIgeP0E
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQEcBAABCAAGBQJRwi2pAAoJEGkILBsOca60JO0IAJFxKAoJPI/B6N/WdPWSUMlz
-B1vk6H5V4xdkYbyQRPj4pHwxwTK7v/h2+xr2X3hSS7nBLultYExVAoSEeN59buAG
-7yAttzdE1PO+B5I5KwFd5sIKZL6epoTnT2l1yiCShq0V49J6N7iOgILbVVjm3p8q
-JvJCddNC+wn1N1PGP030h+uCC00aTaLx32/BmnfPA4epfPUK9HXfBwRaQwRKF0M6
-P4oIjF7LNSKCtiql2aANeB89zrSL3Bm6rR6GDKIKYcQQ52gKd3+uPlYWC/7ALCVU
-44Zn4VeNvKUnWtjpJU8+/TqOPwhubCVcKCT1iE7AuZQp2zXjCFGWJ7e+HI1CT/k=
-=Ok//
------END PGP SIGNATURE-----
-
---=-USpHgO6rj8bsKZIgeP0E--
