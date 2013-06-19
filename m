@@ -1,42 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: nl80211 NULL pointer dereference
-Date: Wed, 19 Jun 2013 00:47:11 -0700 (PDT)
-Message-ID: <20130619.004711.1012726896714145860.davem@davemloft.net>
-References: <CA+55aFxOde8n0M2=77-TQ2Ea9iz8s-e8zGFwjj6RVyMFXBgxEA@mail.gmail.com>
-	<20130618.190632.33329016434510583.davem@davemloft.net>
-	<CA+55aFz=eG5-zh1toHxrx=4Qm4DvwyiBCU3u-6tc0-utfZ6xiA@mail.gmail.com>
+Subject: Re: pull-request: can 2013-06-19
+Date: Wed, 19 Jun 2013 00:48:13 -0700 (PDT)
+Message-ID: <20130619.004813.1446078085522365696.davem@davemloft.net>
+References: <1371625369-26368-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: johannes@sipsolutions.net, linville@tuxdriver.com,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
-To: torvalds@linux-foundation.org
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
+To: mkl@pengutronix.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59706 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59731 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933328Ab3FSHrO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 03:47:14 -0400
-In-Reply-To: <CA+55aFz=eG5-zh1toHxrx=4Qm4DvwyiBCU3u-6tc0-utfZ6xiA@mail.gmail.com>
+	with ESMTP id S933328Ab3FSHsO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 03:48:14 -0400
+In-Reply-To: <1371625369-26368-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Linus Torvalds <torvalds@linux-foundation.org>
-Date: Tue, 18 Jun 2013 16:24:57 -1000
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Wed, 19 Jun 2013 09:02:48 +0200
 
-> And yes, the code checks that for being non-NULL in at the top of the
-> function, but maybe there is a race with something else setting it to
-> NULL? There is a kzalloc(GFP_KERNEL) in between, so it doesn't even
-> have to be a very small race...
+> here are there fixes for the v3.10 release cycle:
+> 
+> Michael Olbrich reported an Oops (free_netdev() on registered netdev) with the
+> 8devices USB CAN converter on xhci USB host controllers. I've created a patch
+> to fix the error path of the driver.
 
-The nl80211 code uses a flag for each netlink command to determine
-whether the RTNL mutex should be held across the operation.
-
-This is handled in the pre_doit and post_doit methods implemented
-in nl80211.c.
-
-And this operation, in fact, just so happens to be one that doesn't
-have the "take the RTNL mutex" flag set.
-
-But for internal consistency of the netlink message itself, the RTNL
-mutex should not matter.  It's in a private SKB buffer which is in use
-only by the ->doit() method.
+Pulled, thanks Marc.
