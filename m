@@ -1,73 +1,144 @@
-From: Frank Steve <rimifrank@yahoo.com>
-Subject: PacketFence: Interfaces & Networks Configuration Disappear on Restart
-Date: Wed, 19 Jun 2013 15:16:49 +0000 (UTC)
-Message-ID: <loom.20130619T170901-353@post.gmane.org>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: Re: [PATCH net-next 1/2] macvtap: Let TUNSETOFFLOAD actually controll
+ offload features.
+Date: Wed, 19 Jun 2013 11:26:52 -0400
+Message-ID: <51C1CDBC.4040003@redhat.com>
+References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>  <1371653272-11703-2-git-send-email-vyasevic@redhat.com> <1371655038.3252.312.camel@edumazet-glaptop>
+Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
+	jasowang@redhat.com
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:41836 "EHLO plane.gmane.org"
+Received: from mx1.redhat.com ([209.132.183.28]:17633 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756640Ab3FSPUF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 11:20:05 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UpKB1-0006c2-Dm
-	for netdev@vger.kernel.org; Wed, 19 Jun 2013 17:20:03 +0200
-Received: from 41.215.128.215 ([41.215.128.215])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 17:20:03 +0200
-Received: from rimifrank by 41.215.128.215 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 17:20:03 +0200
+	id S934836Ab3FSP04 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 11:26:56 -0400
+In-Reply-To: <1371655038.3252.312.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On 06/19/2013 11:17 AM, Eric Dumazet wrote:
+> On Wed, 2013-06-19 at 10:47 -0400, Vlad Yasevich wrote:
+>> When the user issues TUNSETOFFLOAD ioctl, macvtap does not do
+>> anything other then to verify arguments.  This patch adds
+>> functionality to allow users to actually control offload features.
+>> NETIF_F_GSO and NETIF_F_GRO are always on, but the rest of the
+>> features can be controlled.
+>>
+>> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+>> ---
+>>   drivers/net/macvlan.c      |  9 +++++++++
+>>   drivers/net/macvtap.c      | 41 ++++++++++++++++++++++++++++++++++++++++-
+>>   include/linux/if_macvlan.h |  1 +
+>>   3 files changed, 50 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/drivers/net/macvlan.c b/drivers/net/macvlan.c
+>> index edfddc5..fa47415 100644
+>> --- a/drivers/net/macvlan.c
+>> +++ b/drivers/net/macvlan.c
+>> @@ -638,6 +638,14 @@ static int macvlan_ethtool_get_settings(struct net_device *dev,
+>>   	return __ethtool_get_settings(vlan->lowerdev, cmd);
+>>   }
+>>
+>> +static netdev_features_t macvlan_fix_features(struct net_device *dev,
+>> +					      netdev_features_t features)
+>> +{
+>> +	struct macvlan_dev *vlan = netdev_priv(dev);
+>> +
+>> +	return (features & vlan->set_features) | (features & ~MACVLAN_FEATURES);
+>> +}
+>> +
+>>   static const struct ethtool_ops macvlan_ethtool_ops = {
+>>   	.get_link		= ethtool_op_get_link,
+>>   	.get_settings		= macvlan_ethtool_get_settings,
+>> @@ -651,6 +659,7 @@ static const struct net_device_ops macvlan_netdev_ops = {
+>>   	.ndo_stop		= macvlan_stop,
+>>   	.ndo_start_xmit		= macvlan_start_xmit,
+>>   	.ndo_change_mtu		= macvlan_change_mtu,
+>> +	.ndo_fix_features	= macvlan_fix_features,
+>>   	.ndo_change_rx_flags	= macvlan_change_rx_flags,
+>>   	.ndo_set_mac_address	= macvlan_set_mac_address,
+>>   	.ndo_set_rx_mode	= macvlan_set_mac_lists,
+>> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+>> index 5a76f20..09f0b1f 100644
+>> --- a/drivers/net/macvtap.c
+>> +++ b/drivers/net/macvtap.c
+>> @@ -976,6 +976,45 @@ static int macvtap_ioctl_set_queue(struct file *file, unsigned int flags)
+>>   	return ret;
+>>   }
+>>
+>> +static int set_offload(struct macvtap_queue *q, unsigned long arg)
+>> +{
+>> +	struct macvlan_dev *vlan;
+>> +	netdev_features_t features = NETIF_F_GSO|NETIF_F_GRO;
+>> +	int err = 0;
+>> +
+>> +	if (arg & TUN_F_CSUM) {
+>> +		features = NETIF_F_HW_CSUM;
+>> +
+>> +		if (arg & (TUN_F_TSO4 | TUN_F_TSO6)) {
+>> +			if (arg & TUN_F_TSO_ECN)
+>> +				features |= NETIF_F_TSO_ECN;
+>> +			if (arg & TUN_F_TSO4)
+>> +				features |= NETIF_F_TSO;
+>> +			if (arg & TUN_F_TSO6)
+>> +				features |= NETIF_F_TSO6;
+>> +		}
+>> +
+>> +		if (arg & TUN_F_UFO)
+>> +			features |= NETIF_F_UFO;
+>> +	}
+>> +
+>> +	rtnl_lock();
+>> +	rcu_read_lock_bh();
+>
+> This looks wrong/suspect to me.
+>
+> Once RTNL is owned, you should not need rcu_read_lock_bh()
+>
 
-I am experiencing some strange behavior in PacketFence configuration.
+I think I do since vlan pointer may change even when I am holding
+rtnl.  rtnl is needed to change features.  rcu is needed to get
+the vlan pointer.
 
-I have installed packetfence in Ubuntu 12.10. Everytime i restart the Ubuntu
-server the settings/configuration i had made under interfaces & networks
-disappear. On the linux box it shows no ip defined on the sub-interfaces; i
-have to keep on re-configuring. Anyone with idea on how to resolve this?
+> (A BH handler will not change q->vlan )
 
-root@ecsnacsvr:~# ifconfig
-eth0      Link encap:Ethernet  HWaddr e8:39:35:39:c1:eb
-          inet addr:10.10.0.10  Bcast:10.10.0.15  Mask:255.255.255.240
-          inet6 addr: fe80::ea39:35ff:fe39:c1eb/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:11961 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:294 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:1191641 (1.1 MB)  TX bytes:45370 (45.3 KB)
+No, but the _bh rcu calls seem to be used when dereferencing q->vlan.
+I am not sure the reason for that...
 
-eth0.10   Link encap:Ethernet  HWaddr e8:39:35:39:c1:eb
-          inet6 addr: fe80::ea39:35ff:fe39:c1eb/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:4176 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:16 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:196380 (196.3 KB)  TX bytes:3810 (3.8 KB)
+>
+> BTW, it looks like ->vlan is protected by macvtap_lock
 
-eth0.20   Link encap:Ethernet  HWaddr e8:39:35:39:c1:eb
-          inet6 addr: fe80::ea39:35ff:fe39:c1eb/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:1021 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:16 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:54723 (54.7 KB)  TX bytes:3810 (3.8 KB)
+Right.  This is why I use rcu to get vlan.  rtnl is needed to avoid
+asserts in the feature change code.
 
-lo        Link encap:Local Loopback
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          inet6 addr: ::1/128 Scope:Host
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:405 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:405 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:1017697 (1.0 MB)  TX bytes:1017697 (1.0 MB)
+-vlad
 
-Regards,
-Frank
+>
+>> +	vlan = rcu_dereference_bh(q->vlan);
+>
+> vlan = rtnl_dereference(q->vlan);
+>
+>> +	if (!vlan) {
+>> +		err = -ENOLINK;
+>> +		goto unlock;
+>> +	}
+>> +
+>> +	vlan->set_features = features;
+>> +	netdev_update_features(vlan->dev);
+>
+> Can this really be called with BH disabled ?
+>
+>> +
+>> +unlock:
+>> +	rcu_read_unlock_bh();
+>> +	rtnl_unlock();
+>> +	return err;
+>> +}
+>> +
+>
+>
+>
