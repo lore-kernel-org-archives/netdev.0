@@ -1,124 +1,72 @@
 From: Dean Jenkins <Dean_Jenkins@mentor.com>
-Subject: [PATCH 5/5] SLIP: Fix transmission segmentation mechanism
-Date: Wed, 19 Jun 2013 16:34:31 +0100
-Message-ID: <1371656071-27754-6-git-send-email-Dean_Jenkins@mentor.com>
-References: <1371656071-27754-1-git-send-email-Dean_Jenkins@mentor.com>
+Subject: [PATCH 0/5] SLIP SLIP-Improve robustness to crashing
+Date: Wed, 19 Jun 2013 16:34:26 +0100
+Message-ID: <1371656071-27754-1-git-send-email-Dean_Jenkins@mentor.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpc6-farn7-2-0-cust119.6-2.cable.virginmedia.com ([81.110.26.120]:37736
+Received: from cpc6-farn7-2-0-cust119.6-2.cable.virginmedia.com ([81.110.26.120]:37729
 	"EHLO localhost.localdomain" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756952Ab3FSPlc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:41:32 -0400
-In-Reply-To: <1371656071-27754-1-git-send-email-Dean_Jenkins@mentor.com>
+	by vger.kernel.org with ESMTP id S1756860Ab3FSPl3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:41:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Binding SLIP with a PTY/TTY can cause truncated SLIP frames to be
-transmitted when the first write to the TTY fails to consume all
-the characters of the SLIP frame.
+Using SLIP bound to RFCOMM or PTY/TTY has identified some weaknesses to crashing
+under abnormal conditions.
 
-Asynchronous to the write function is a wakeup event from the TTY
-that indicates the TTY can accept more data. The wakeup event
-calls tty_wakeup() which calls slip_write_wakeup() when
-TTY_DO_WRITE_WAKEUP is set.
+Here is a proposed patchset baselined and built on Linux 3.9.
 
-To complete the transmission of a SLIP frame to the TTY,
-slip_write_wakeup() must run at least once. Unfortunately, pty_write()
-also calls tty_wakeup() and when TTY_DO_WRITE_WAKEUP is set,
-slip_write_wakeup() is called. xleft is always zero and
-causes slip_write_wakeup() to complete the transmission and
-clears the TTY_DO_WRITE_WAKEUP flag. This can cause a truncated
-SLIP frame because any remaining characters will not get sent.
+Note the patches have not been tested on x86 Linux 3.9. However similar patches
+have been used on ARM Linux 2.6.34 to avoid kernel crashes in a commercial
+project. I believe the same weaknesses still exist in Linux 3.9.
 
-The wakeup event is unable to process the remaining characters
-because the TTY_DO_WRITE_WAKEUP flag has been cleared.
+If some or all of the patches look to be useful to the community then I may
+attempt to test on x86 but this is not straight forward for me.
 
-The code modification fixes the transmission segmentation
-mechanism by preventing pty_write() from calling
-slip_write_wakeup() by clearing TTY_DO_WRITE_WAKEUP before calling
-pty_write(). After pty_write() returns, TTY_DO_WRITE_WAKEUP is set
-to allow the TTY wakeup event to call slip_write_wakeup() to
-attempt to complete the transmission of the SLIP frame.
+I welcome any feedback and whether the fixes are a suitable solution.
 
-This may not be foolproof because a timeout is needed to
-break out of the cycle of transmission attempts. Note error
-codes from the TTY layer will break out of the cycle of
-transmission attempts.
+Who is the maintainer of SLIP in the kernel ?
 
-Signed-off-by: Dean Jenkins <Dean_Jenkins@mentor.com>
----
- drivers/net/slip/slip.c | 29 ++++++++++++++++++++---------
- 1 file changed, 20 insertions(+), 9 deletions(-)
+The patchset consists of:
 
-diff --git a/drivers/net/slip/slip.c b/drivers/net/slip/slip.c
-index e2eff84..0ded23d 100644
---- a/drivers/net/slip/slip.c
-+++ b/drivers/net/slip/slip.c
-@@ -404,15 +404,13 @@ static void sl_encaps(struct slip *sl, unsigned char *icp, int len)
- 	 */
- 	sl->xleft = 0;
- 
--	/* Order of next two lines is *very* important.
--	 * When we are sending a little amount of data,
--	 * the transfer may be completed inside the ops->write()
--	 * routine, because it's running with interrupts enabled.
--	 * In this case we *never* got WRITE_WAKEUP event,
--	 * if we did not request it before write operation.
--	 *       14 Oct 1994  Dmitry Gorodchanin.
-+	/* ensure slip_write_wakeup() does not run due to write()
-+	 * or write_wakeup event and this prevents slip_write_wakeup()
-+	 * responding to an out of date xleft value.
- 	 */
--	set_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
-+	clear_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
-+
-+	/* attempt to write the SLIP frame to the TTY buffer */
- 	err = sl->tty->ops->write(sl->tty, sl->xbuff, count);
- 
- 	if (err < 0) {
-@@ -432,6 +430,11 @@ static void sl_encaps(struct slip *sl, unsigned char *icp, int len)
- 	/* VSV */
- 	clear_bit(SLF_OUTWAIT, &sl->flags);	/* reset outfill flag */
- #endif
-+	/* xleft will be zero when all characters have been written.
-+	 * if xleft is positive then additional writes are needed.
-+	 * write_wakeup event is needed to complete the transmission.
-+	 */
-+	set_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
- }
- 
- /*
-@@ -447,15 +450,18 @@ static void slip_write_wakeup(struct tty_struct *tty)
- 	if (!sl || sl->magic != SLIP_MAGIC || !netif_running(sl->dev))
- 		return;
- 
-+	clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
-+
- 	if (sl->xleft <= 0)  {
-+		/* Whole SLIP frame has been written. */
- 		/* Now serial buffer is almost free & we can start
- 		 * transmission of another packet */
- 		sl->dev->stats.tx_packets++;
--		clear_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
- 		sl_unlock(sl);
- 		return;
- 	}
- 
-+	/* attempt to write the remaining SLIP frame characters */
- 	err = tty->ops->write(tty, sl->xhead, sl->xleft);
- 
- 	if (err < 0) {
-@@ -468,6 +474,11 @@ static void slip_write_wakeup(struct tty_struct *tty)
- 
- 	sl->xleft -= actual;
- 	sl->xhead += actual;
-+
-+	/* allow the next tty wakeup event to attempt to complete
-+	 * the transmission
-+	 */
-+	set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
- }
- 
- static void sl_tx_timeout(struct net_device *dev)
+0001-Bluetooth-Add-RFCOMM-TTY-write-return-error-codes.patch
+0002-SLIP-Handle-error-codes-from-the-TTY-layer.patch
+0003-SLIP-Prevent-recursion-stack-overflow-and-scheduler-.patch
+0004-SLIP-Add-error-message-for-xleft-non-zero.patch
+0005-SLIP-Fix-transmission-segmentation-mechanism.patches
+
+Some background:
+
+0001-Bluetooth-Add-RFCOMM-TTY-write-return-error-codes.patch
+This patch is a Bluetooth change to add some error return codes to RFCOMM to
+avoid NULL pointer dereference crashes. Note RFCOMM can already generate an
+error code that will cause SLIP to malfunction.
+
+0002-SLIP-Handle-error-codes-from-the-TTY-layer.patches
+This patch allows SLIP to handle error codes from RFCOMM or other bound TTY layers.
+
+0003-SLIP-Prevent-recursion-stack-overflow-and-scheduler-.patches
+This patch prevents SLIP from causing a recursive loop that overflows the stack
+and catastrophically crashes the kernel. The scenario is SLIP bound to PTY/TTY.
+The underlying trigger is a probably a failure to allocate a TTY buffer in
+tty_buffer_alloc() but this is unproven. The crash is sporadic in an ARM
+embedded environment where resources are limited.
+
+0004-SLIP-Add-error-message-for-xleft-non-zero.patch
+This is an error message patch to identify when a SLIP frame has not been fully
+transmitted meaning the frame was truncated.
+
+0005-SLIP-Fix-transmission-segmentation-mechanism.patches
+This patch allows multiple attempts to transmit segments of the SLIP frame.
+Currently only 1 attempt at writing the whole SLIP frame to PTY/TTY occurs.
+This could truncate transmitted SLIP frames. In addition the modification
+relies on the TTY write wake-up event to complete the transmission of the
+SLIP frame rather than the sl_encaps() call to pty_write(). Probably,
+pty_write() should not call tty_wakeup() but safer to modify SLIP rather
+than the PTY/TTY layer.
+
+Thanks,
+Dean Jenkins
+Mentor Graphics
 -- 
 1.8.1.5
