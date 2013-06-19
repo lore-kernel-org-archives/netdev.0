@@ -1,78 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/1] drivers/net: param for lapbether for specific ethernet
- device
-Date: Wed, 19 Jun 2013 17:47:48 +0400
-Message-ID: <51C1B684.6010700@cogentembedded.com>
-References: <51C16A07.3070903@ntlworld.com>
+From: "John W. Linville" <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
+Subject: Re: [PATCH] nl80211: fix attrbuf access race by allocating a
+ separate one
+Date: Wed, 19 Jun 2013 09:51:35 -0400
+Message-ID: <20130619135134.GA12079@tuxdriver.com>
+References: <CA+55aFz=eG5-zh1toHxrx=4Qm4DvwyiBCU3u-6tc0-utfZ6xiA@mail.gmail.com>
+ <1371628488.8349.3.camel@jlt4.sipsolutions.net>
+ <1371630238.8349.6.camel@jlt4.sipsolutions.net>
+ <20130619.013900.786603036908799505.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jiri@resnulli.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Stephen Moorby <steve.moorby@ntlworld.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f52.google.com ([209.85.215.52]:35290 "EHLO
-	mail-la0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756667Ab3FSNrq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 09:47:46 -0400
-Received: by mail-la0-f52.google.com with SMTP id fo12so4647593lab.39
-        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 06:47:44 -0700 (PDT)
-In-Reply-To: <51C16A07.3070903@ntlworld.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20130619.013900.786603036908799505.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+On Wed, Jun 19, 2013 at 01:39:00AM -0700, David Miller wrote:
+> From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+> Date: Wed, 19 Jun 2013 10:23:58 +0200
+> 
+> > From: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> > 
+> > Since my commit 3713b4e364, nl80211_dump_wiphy() uses the global
+> > nl80211_fam.attrbuf for parsing the incoming data. This wouldn't
+> > be a problem if it only did so on the first dump iteration which
+> > is locked against other commands in generic netlink, but due to
+> > space constraints in cb->args (the needed state doesn't fit) I
+> > decided to always parse the original message. That's racy though
+> > since nl80211_fam.attrbuf could be used by some other parsing in
+> > generic netlink concurrently.
+> > 
+> > For now, fix this by allocating a separate parse buffer (it's a
+> > bit too big for the stack, currently 1448 bytes on 64-bit). For
+> > -next, I'll change the code to parse into the global buffer in
+> > the first round only and then allocate a smaller buffer to keep
+> > the state in cb->args.
+> > 
+> > Reported-by: Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
+> > Signed-off-by: Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+> 
+> Acked-by: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 
-On 19-06-2013 12:21, Stephen Moorby wrote:
+Acked-by: John W. Linville <linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org>
 
->  From 35607dd0607bca5322860703143c31cb04377764 Mon Sep 17 00:00:00 2001
-> From: Stephen Moorby <steve.moorby@ntlworld.com>
-> Date: Wed, 19 Jun 2013 08:22:51 +0100
-> Subject: [PATCH 1/1] drivers/net: param for lapbether for specific ethernet
->   device
-
-    No need for this header.
-
-> The lapbether driver binds to the first ethernet device that comes up.
-> This causes problems in hardware with multiple ethernet interfaces,
-> potentially resulting in the LAPB traffic on the wrong interface.
-> Have added a module parameter 'eth_dev' to specify the ethernet
-> interface over which lapbether should operate.  The module behaves
-> as before if no device is specified.
->
-> Patch created on linux-next 18-Jun-2013.
-> Tested on 2.6.32-45-generic.
->
-> Signed-off-by: Stephen Moorby <steve.moorby@ntlworld.com>
-> ---
->   drivers/net/wan/lapbether.c | 15 +++++++++++++--
->   1 file changed, 13 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
-> index a33a46f..510fc4a 100644
-> --- a/drivers/net/wan/lapbether.c
-> +++ b/drivers/net/wan/lapbether.c
-[...]
-> @@ -381,8 +382,14 @@ static int lapbeth_device_event(struct
-> notifier_block *this,
-
-    Your patch is line-wrapped.
-
->       switch (event) {
->       case NETDEV_UP:
->           /* New ethernet device -> new LAPB interface     */
-> -        if (lapbeth_get_x25_dev(dev) == NULL)
-> -            lapbeth_new_device(dev);
-> +        if (lapbeth_get_x25_dev(dev) == NULL) {
-> +            if (NULL != eth_dev) {
-> +                if (0 == strcmp(dev->name, eth_dev))
-> +                    lapbeth_new_device(dev);
-> +            } else {
-> +                lapbeth_new_device(dev);
-> +            }
-> +        }
-
-    It seems the patch is also white space damaged, i.e. tabs converted 
-to spaces.
-
-WBR, Sergei
+-- 
+John W. Linville		Someday the world will need a hero, and you
+linville-2XuSBdqkA4R54TAoqtyWWQ@public.gmane.org			might be all we have.  Be ready.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
