@@ -1,88 +1,55 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v3 net-next 0/1] net: lls select poll
-	support
-Date: Wed, 19 Jun 2013 05:13:36 -0700
-Message-ID: <1371644016.3252.302.camel@edumazet-glaptop>
-References: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
+Subject: Re: [PATCH net,v2] net: sock: adapt SOCK_MIN_RCVBUF and
+ SOCK_MIN_SNDBUF
+Date: Wed, 19 Jun 2013 05:19:15 -0700
+Message-ID: <1371644355.3252.307.camel@edumazet-glaptop>
+References: <1371639080-10699-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Don,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
-To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f42.google.com ([74.125.83.42]:34675 "EHLO
+	mail-ee0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934108Ab3FSMTU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 08:19:20 -0400
+Received: by mail-ee0-f42.google.com with SMTP id c4so3177110eek.29
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 05:19:18 -0700 (PDT)
+In-Reply-To: <1371639080-10699-1-git-send-email-dborkman@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-19 at 13:04 +0300, Eliezer Tamir wrote:
+On Wed, 2013-06-19 at 12:51 +0200, Daniel Borkmann wrote:
+> The current situation is that SOCK_MIN_RCVBUF is 2048 + sizeof(struct sk_buff))
+> while SOCK_MIN_SNDBUF is 2048. Since in both cases, skb->truesize is used for
+> sk_{r,w}mem_alloc accounting, we should have both sizes adjusted via defining a
+> TCP_SKB_MIN_TRUESIZE.
+> 
+> Further, as Eric Dumazet points out, the minimal skb truesize in transmit path is
+> SKB_TRUESIZE(2048) after commit f07d960df33c5 ("tcp: avoid frag allocation for
+> small frames"), and tcp_sendmsg() tries to limit skb size to half the congestion
+> window, meaning we try to build two skbs at minimum. Thus, having SOCK_MIN_SNDBUF
+> as 2048 can hit a small regression for some applications setting to low
+> SO_SNDBUF / SO_RCVBUF. Note that we define a TCP_SKB_MIN_TRUESIZE, because
+> SKB_TRUESIZE(2048) adds SKB_DATA_ALIGN(sizeof(struct skb_shared_info)), but in
+> case of TCP skbs, the skb_shared_info is part of the 2048 bytes allocation for
+> skb->head.
+> 
+> The minor adaption in sk_stream_moderate_sndbuf() is to silence a warning by
+> using a typed max macro, as similarly done in SOCK_MIN_RCVBUF occurences, that
+> would appear otherwise.
+> 
+> Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+> ---
+>  v1 -> v2:
+>   - Applied Eric's feedback, fixed up commit message
+>   - Set subject to 'net' instead of 'net-next' due to the reported regression
 
-> One question: do we need in sock_poll() to test that sock->sk is not null?
-> (Thanks to Willem de Bruijn for pointing this out.) 
+I am fine with this patch (I already run it as a matter of fact), but
+I think its net-next material :
+Regression is not new, and concerns very pathological cases, where
+applications relied on some non documented behavior of network stack.
 
-Why sock->sk could be NULL in sock_poll() ?
-
-This is the thing I am not sure [1]
-
-Normally, sock_poll() should be called only if the current thread owns a
-reference on the file. And we should not dismantle sock->sk while a
-reference is owned.
-
-Apparently, epoll() might break this assumption, but I was unable to
-track it yet. epoll() doesn't hold file refcount, because it relies on
-eventpoll_release_file() being called from __fput()
-
-
-[1] We do have some crashes occurrences here on some Google machines
-(Google-Bug-id: 8940884) , because tcp_poll() hits a NULL sock->sk
-
-<4>[206994.855824] RIP: 0010:[<ffffffff8026e2e8>]  [<ffffffff8026e2e8>] tcp_poll+0x18/0x1b0
-<4>[206994.863652] RSP: 0018:ffff8806c7921e48  EFLAGS: 00010246
-<4>[206994.869038] RAX: 0000000000000000 RBX: 0000000000000000 RCX: ffff8806c7921f10
-<4>[206994.876241] RDX: 0000000000000000 RSI: ffff880292d52300 RDI: ffff88034a8837c0
-<4>[206994.883443] RBP: ffff8806c7921e58 R08: 00007f7cadc3c000 R09: ffff88034a8837c0
-<4>[206994.890648] R10: 00000000fffffff2 R11: ffffffff8088ffc0 R12: ffff880699960d98
-<4>[206994.897850] R13: 0000000000000000 R14: ffff8804924dab58 R15: 0000000000002000
-<4>[206994.905055] FS:  00007f7c98726700(0000) GS:ffff88027fc80000(0000) knlGS:00000000f4cf8b40
-<4>[206994.913210] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-<4>[206994.919028] CR2: 00000000000000c0 CR3: 0000000494ab2000 CR4: 00000000000006e0
-<4>[206994.926233] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-<4>[206994.933437] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-<4>[206994.940640] Process java (pid: 8736, threadinfo ffff8806c7920000, task ffff8806990d0400)
-<4>[206994.948795] Stack:
-<4>[206994.950890]  0000000000000000 ffff880699960d40 ffff8806c7921e68 ffffffff802604da
-<4>[206994.958422]  ffff8806c7921f78 ffffffff8024f528 ffff88069b6e4a80 00007f7cadc3c000
-<4>[206994.965956]  ffff8806fffffff2 ffff8806c7921f10 ffffffff80aaa6f0 ffffffff80aaa6f0
-<4>[206994.973488] Call Trace:
-<4>[206994.976023]  [<ffffffff802604da>] sock_poll+0x1a/0x20
-<4>[206994.981148]  [<ffffffff8024f528>] sys_epoll_wait+0x788/0x940
-<4>[206994.986881]  [<ffffffff802d81b0>] ? ep_send_events_proc+0x120/0x120
-<4>[206994.993226]  [<ffffffff8072e032>] system_call_fastpath+0x16/0x1b
-
-
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+Signed-off-by: Eric Dumazet <edumazet@google.com>
