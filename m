@@ -1,61 +1,37 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: Adding support for ARINC429 into the Linux kernel
-Date: Wed, 19 Jun 2013 23:45:30 +0200
-Message-ID: <201306192345.31106.arnd@arndb.de>
-References: <20130619202954.GA5594@roeck-us.net>
+From: <Praveen_Paladugu@Dell.com>
+Subject: RE: [PATCH net-next] net: Add phys_port identifier to struct
+ net_device and export it to sysfs
+Date: Wed, 19 Jun 2013 16:37:56 -0500
+Message-ID: <ABF506AF5815F54BB6579628C0CD9F99561C10D8CC@AUSX7MCPS310.AMER.DELL.COM>
+References: <20130617181004.GA1364@fedora-17-guest.dell.com>
+	 <51BF59D8.10806@gmail.com>
+	 <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
+	 <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
+	 <E31FB011129F30488D5861F383904915210BB9042A@BLRX7MCDC201.AMER.DELL.COM>
+ <1371670481.1956.105.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130619202954.GA5594@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <john.fastabend@gmail.com>, <netdev@vger.kernel.org>,
+	<john.r.fastabend@intel.com>
+To: <bhutchings@solarflare.com>, <Narendra_K@Dell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausxipps301.us.dell.com ([143.166.148.223]:36136 "EHLO
+	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934566Ab3FSVr3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 17:47:29 -0400
+In-Reply-To: <1371670481.1956.105.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday 19 June 2013, Guenter Roeck wrote:
-> I have been asked to explore options for adding ARINC 429 support [1]
-> into the Linux kernel, primarily to support devices from Holt Integrated
-> Circuits [2] (the request is unrelated to the chip manufacturer).
-> 
-> ARINC429 is a protocol which is widely used in commercial airplanes. 
-> 
-> There are various chips supporting this protocol available, as well as
-> out-of-tree Linux support. The drivers I have looked at implement it
-> either as character device or misc device and typically pass raw receive
-> data to userspace.
-> 
-> I can see a number of options for going forward:
-> 1) Implement as character device (or possibly misc device) and pass
->    raw data to/from user space
->    1a) Just implement a driver for the specific chips
->    2b) Implement some kind of generic infrastructure
-> 2) Implement as network driver with a new address family, similar to,
->    say, AF_CAN.
-> 
-> Any thoughts / suggestions which approach would be better and, most of all,
-> which approach might have a better chance of being accepted upstream ?
-
-Since this is a standard protocol, a driver that just supports a specific
-chip (1a) would be the worst option IMHO.
-
-A character device and a network protocol both sound reasonable, but
-it really depends on the use cases:
-
-* Does Linux act both as the sender and receiver, or do you want to
-  support just one of the cases (which?)?
-
-* Would you expect to always just transfer a single 32-bit word, or
-  are there larger chunks of logically contigous data? What are typical
-  and maximum sizes for those?
-
-* Would you expect the kernel to filter for specific data on the
-  receiver side?
-
-* Would a user space receiver want to always see all data from one
-  sender, or only the latest word?
-
-	Arnd
+DQpIYXZpbmcgYW4gdW5pcXVlIGlkZW50aWZpZXIgcGVyIHBvcnQsIHRoZSB1c2Vyc3BhY2UgdG9v
+bHMgbWlnaHQgYmUgYWJsZSB0byBjaGVjayBpZiB0aGUgVkZzL3BhcnRpdGlvbnMgYXJlIG9mIHRo
+ZSBzYW1lIHBoeXNpY2FsIHBvcnQuIEp1c3QgYmVpbmcgcGFyYW5vaWQsIHdvdWxkbid0IGl0IGJl
+IGJldHRlciB0byBib25kIFZGcy9QYXJ0aXRpb25zIGFjcm9zcyBOSUNzIGluc3RlYWQgb2YgYWNy
+b3NzIHBvcnRzIG9mIHRoZSBzYW1lIE5JQz8NCg0KDQpUbyBiZSBhYmxlIHRvIGNoZWNrIGlmIHRo
+ZSBWRnMvcGFydGl0aW9ucyBhcmUgb2YgdGhlIHNhbWUgcG9ydCAmIE5JQywgdGhlIHVuaXF1ZSBp
+ZGVudGlmaWVyIHNob3VsZCBwcm9iYWJseSBoYXZlIHR3byBpZGVudGlmaWVycyAgaW4gaXQgbGlr
+ZSBBQkNfWFlaLiBUaGUgQUJDIHVuaXF1ZWx5IGlkZW50aWZ5aW5nIHRoZSBOSUMgYW5kIFhZWiB1
+bmlxdWVseSBpZGVudGlmeWluZyB0aGUgcG9ydC4gICANCg0KQW55IHRob3VnaHRzPw0KDQoNClRo
+YW5rIHlvdSANClByYXZlZW4gSyBQYWxhZHVndQ0KDQoNCg0KDQo=
