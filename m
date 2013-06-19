@@ -1,77 +1,61 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 06/11] sfc: Define and set RX buffer flag for
- packets parsed as TCP
-Date: Wed, 19 Jun 2013 23:19:39 +0100
-Message-ID: <1371680379.1956.113.camel@bwh-desktop.uk.level5networks.com>
-References: <1371680169.1956.107.camel@bwh-desktop.uk.level5networks.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next 4/6] bonding: don't validate arp if we don't
+ have to
+Date: Thu, 20 Jun 2013 00:19:04 +0200
+Message-ID: <51C22E58.5080209@redhat.com>
+References: <1371663286-12518-5-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
+	rick.jones2@hp.com
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:10437 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964822Ab3FSWTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 18:19:43 -0400
-In-Reply-To: <1371680169.1956.107.camel@bwh-desktop.uk.level5networks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:53489 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964822Ab3FSWTs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 18:19:48 -0400
+In-Reply-To: <1371663286-12518-5-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This will be useful for shortcutting some software packet parsing.
+On 19/06/13 19:34, Veaceslav Falico wrote:
+> Currently, we validate all the incoming arps if arp_validate not 0.
+> However, we don't have to validate backup slaves if arp_validate == active
+> and vice versa, so return early in bond_arp_rcv() in these cases.
+> 
+> It works correctly now because we verify arp_validate in slave_last_rx(),
+> however we're just doing useless work in bond_arp_rcv().
+> 
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>  drivers/net/bonding/bond_main.c |    4 ++++
+>  1 files changed, 4 insertions(+), 0 deletions(-)
+> 
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index b69c7f0..2cfbb2e 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -2624,6 +2624,10 @@ static int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+>  		return RX_HANDLER_ANOTHER;
+>  
+>  	read_lock(&bond->lock);
+> +
+> +	if (!slave_do_arp_validate(bond, slave))
+> +		goto out_unlock;
+> +
+>  	alen = arp_hdr_len(bond->dev);
+>  
+>  	pr_debug("bond_arp_rcv: bond %s skb->dev %s\n",
+Hm, I think this issue runs deeper because recv_probe can be wrong and
+also if arp_validate is enabled while the bond is running then
+recv_probe is not set (or unset for that matter if disabled). I have a
+patch which needs little more work for some time now in my queue that
+fixes this, but if you'd like to fix it I'd suggest addressing that
+issue (recv_probe), because then you can just drop these checks and
+improve performance when disabled (after it's been enabled).
+This got a bit confusing when I read it :-)
 
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/net_driver.h |  1 +
- drivers/net/ethernet/sfc/nic.c        | 19 ++++++++++++++-----
- 2 files changed, 15 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 942b6e6..60da43e 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -243,6 +243,7 @@ struct efx_rx_buffer {
- #define EFX_RX_BUF_LAST_IN_PAGE	0x0001
- #define EFX_RX_PKT_CSUMMED	0x0002
- #define EFX_RX_PKT_DISCARD	0x0004
-+#define EFX_RX_PKT_TCP		0x0040
- 
- /**
-  * struct efx_rx_page_state - Page-based rx buffer state
-diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index 39432d3..f2b864c 100644
---- a/drivers/net/ethernet/sfc/nic.c
-+++ b/drivers/net/ethernet/sfc/nic.c
-@@ -1080,12 +1080,21 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
- 	rx_ev_hdr_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_HDR_TYPE);
- 
- 	if (likely(rx_ev_pkt_ok)) {
--		/* If packet is marked as OK and packet type is TCP/IP or
--		 * UDP/IP, then we can rely on the hardware checksum.
-+		/* If packet is marked as OK then we can rely on the
-+		 * hardware checksum and classification.
- 		 */
--		flags = (rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP ||
--			 rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP) ?
--			EFX_RX_PKT_CSUMMED : 0;
-+		flags = 0;
-+		switch (rx_ev_hdr_type) {
-+		case FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP:
-+			flags |= EFX_RX_PKT_TCP;
-+			/* fall through */
-+		case FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP:
-+			flags |= EFX_RX_PKT_CSUMMED;
-+			/* fall through */
-+		case FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_OTHER:
-+		case FSE_AZ_RX_EV_HDR_TYPE_OTHER:
-+			break;
-+		}
- 	} else {
- 		flags = efx_handle_rx_not_ok(rx_queue, event);
- 	}
-
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Cheers,
+ Nik
