@@ -1,65 +1,123 @@
-From: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCH] build some drivers only when compile-testing
-Date: Wed, 19 Jun 2013 07:27:31 -0700
-Message-ID: <20130619142731.GA7979@kroah.com>
-References: <1369214326-6558-1-git-send-email-jslaby@suse.cz>
- <20130523022327.GB6159@kroah.com>
- <519D8876.9050405@suse.com>
- <51BF6BFF.7050705@suse.cz>
- <51C1595D.60706@ti.com>
- <51C159F8.8090604@suse.cz>
+From: <Narendra_K@Dell.com>
+Subject: RE: [PATCH net-next] net: Add phys_port identifier to struct
+ net_device and export it to sysfs
+Date: Wed, 19 Jun 2013 07:29:49 -0700
+Message-ID: <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
+References: <20130617181004.GA1364@fedora-17-guest.dell.com>
+ <51BF59D8.10806@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tomi Valkeinen <tomi.valkeinen-l0cyMroinI0@public.gmane.org>,
-	Jeff Mahoney <jeffm-IBi9RG/b67k@public.gmane.org>, jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Alexander Shishkin <alexander.shishkin-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
-	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Tobias Schandinat <FlorianSchandinat-Mmb7MZpHnFY@public.gmane.org>,
-	linux-geode-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
-	"Keller, Jacob E" <jacob.e.keller-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>
-To: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <51C159F8.8090604-AlSwsSmVLrQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <netdev@vger.kernel.org>, <bhutchings@solarflare.com>,
+	<john.r.fastabend@intel.com>
+To: <john.fastabend@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausxippc101.us.dell.com ([143.166.85.207]:17249 "EHLO
+	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934417Ab3FSOak convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 10:30:40 -0400
+In-Reply-To: <51BF59D8.10806@gmail.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 19, 2013 at 09:12:56AM +0200, Jiri Slaby wrote:
-> On 06/19/2013 09:10 AM, Tomi Valkeinen wrote:
-> > On 17/06/13 23:05, Jiri Slaby wrote:
-> > 
-> >> The last point I inclined to the Greg's argument to remove the
-> >> EXPERT dependency.
-> >> 
-> >> So currently I have what is attached... Comments?
-> > 
-> > The patch looks a bit odd with the USB_CHIPIDEA_IMX parts. You're
-> > not adding COMPILE_TEST there, but you're adding a totally new
-> > config option, and also changing the Makefile.
+> -----Original Message-----
+> From: John Fastabend [mailto:john.fastabend@gmail.com]
+> Sent: Tuesday, June 18, 2013 12:18 AM
+> To: K, Narendra
+> Cc: netdev@vger.kernel.org; bhutchings@solarflare.com;
+> john.r.fastabend@intel.com
+> Subject: Re: [PATCH net-next] net: Add phys_port identifier to struct
+> net_device and export it to sysfs
 > 
-> Look:
+> On 06/17/2013 11:10 AM, Narendra_K@Dell.com wrote:
+[...] 
+
+> > 3. Add a new field 'phys_port' to 'struct net_device' and export it to
+> > sysfs:
+> >
+> > The 'phys_port' will be a universally unique identifier, which would
+> > be a MAC-48 or EUI-64 or a 128 bit UUID value, but not restricted to
+> > these spaces. It will uniquely identify the physical port used by a
+> > network interface. The 'length' of the identifier will be zero if the
+> > field is not set for a network interface.
+> >
+> > This patch implements option 3. It creates a new sysfs attribute
+> > 'phys_port' -
+> >
+> > /sys/class/net/<interface name>/phys_port
+> >
+> > References: http://marc.info/?l=linux-netdev&m=136920998009209&w=2
+> > References: http://marc.info/?l=linux-netdev&m=136992041432498&w=2
+> >
+> > Signed-off-by: Narendra K <narendra_k@dell.com>
+> > ---
+> > Changes from RFC version:
+> >
+> > Suggestions from Ben Hutchings -
+> > 1. 'struct port_identifier' is changed to be generic instead of
+> > restricting it to MAC-48 or EUI-64 or 128 bit UUID.
+> > 2. Commit message updated to indicate point 1.
+> > 3. 'show_phys_port' function modified to handle zero length instead of
+> > returning -EINVAL 4. 'show_phys_port' function made generic to handle
+> > all lengths instead 6, 8 or 16 bytes.
+> >
+> > Hi Ben, I have retained the commit message to indicate that 'dev_id'
+> > is being used to indicate the physical port number also.
+> >
+> > Thank you.
+> >
+> >   include/linux/netdevice.h | 13 +++++++++++++
+> >   net/core/net-sysfs.c      | 17 +++++++++++++++++
+> >   2 files changed, 30 insertions(+)
 > 
-> +config USB_CHIPIDEA_IMX
-> +       bool "ChipIdea IMX support"
-> +       depends on OF_DEVICE && (ARM || COMPILE_TEST)
+> [...]
+> 
+> > --- a/net/core/net-sysfs.c
+> > +++ b/net/core/net-sysfs.c
+> > @@ -334,6 +334,22 @@ static ssize_t store_group(struct device *dev,
+> struct device_attribute *attr,
+> >   	return netdev_store(dev, attr, buf, len, change_group);
+> >   }
+> >
+> 
+> Is there some missing locking here?
+> 
+> > +static ssize_t show_phys_port(struct device *dev,
+> > +			      struct device_attribute *attr, char *buf) {
+> > +	struct net_device *net = to_net_dev(dev);
+> > +	unsigned char len;
+> > +
+> 
+>          read_lock(&dev_base_lock);
+> > +	if (!dev_isalive(net))
+> > +		return -EINVAL;
+> > +
+> > +	len = net->phys_port.port_id_len;
+> > +	if (!len)
+> > +		return 0;
+> 
+> 	ret = sysfs_format_mac(buf, net->phys_port.port_id, len);
+> 	read_unlock(&dev_base_lock);
+> 
+> 	return ret;
+> }
+> 
+> Please take a look maybe I missed something.
+> 
 
-Ah, what about all of the chipidea chips on x86 boxes (yes, they are
-rare, but they are present, so you can't just turn them off for that
-whole platform here.
+Hi John, thanks for the pointer. It seems like we need  to hold the ' dev_base_lock' here.  I missed this initially as I was looking at ' show_broadcast' function . But looks like the 'show_broadcast' function is also missing the lock.  Attributes such as 'dev_id' are read with read_lock(&dev_base_lock) generically in netdev_show function. 
 
-I'd leave chipidea alone, it's getting more prelevant, not on a desktop
-or server, but in SoC systems, which is x86 for a lot of devices.
+While looking at the use of ' dev_base_lock',  the 'write_lock' is being held when the 'netdev' is being added to and removed from 'dev_base_head'.  It is also being held when the 'dev->operstate'  and 'dev->link_mode' are being changed. 
 
-thanks,
+The 'read_lock(&dev_base_lock)' needs to be held  before the 'dev_isalive(net) ' call because
 
-greg k-h
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+1. netdev is not removed from 'dev_base_head' when 'show_phys_port'   accesses 'netdev->phys_port.port_id' (and port_id_len)
+2. show_phys_port  function sees a consistent value of  'netdev->phys_port.port_id and netdev->phys_port.port_id_len '  if another execution path changes the value of 'netdev->phys_port.port_id and netdev->phys_port.port_id_len '  with write_lock(&dev_base_lock) held (similar to how dev->operstate is being changed).
+
+Is the above understanding correct ? Sorry, if I missed some detail here. 
+
+With regards,
+Narendra K
+Linux Engineering
+Dell Inc.
