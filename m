@@ -1,68 +1,43 @@
-From: Stephen Moorby <steve.moorby@ntlworld.com>
-Subject: [PATCH 1/1] drivers/net: param for lapbether for specific ethernet device
-Date: Wed, 19 Jun 2013 16:26:53 +0100
-Message-ID: <1371655613-31969-1-git-send-email-steve.moorby@ntlworld.com>
-Cc: Stephen Moorby <steve.moorby@ntlworld.com>
-To: davem@davemloft.net, jiri@resnulli.us, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: [PATCH net-next] net: Add phys_port identifier to struct
+ net_device and export it to sysfs
+Date: Wed, 19 Jun 2013 16:36:34 +0100
+Message-ID: <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
+References: <20130617181004.GA1364@fedora-17-guest.dell.com>
+	 <51BF59D8.10806@gmail.com>
+	 <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: <john.fastabend@gmail.com>, <netdev@vger.kernel.org>,
+	<john.r.fastabend@intel.com>
+To: <Narendra_K@Dell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:38615 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756641Ab3FSPgj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:36:39 -0400
+In-Reply-To: <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The lapbether driver binds to the first ethernet device that comes up.
-This causes problems in hardware with multiple ethernet interfaces,
-potentially resulting in the LAPB traffic on the wrong interface.
-Have added a module parameter 'eth_dev' to specify the ethernet
-interface over which lapbether should operate.  The module behaves
-as before if no device is specified.
+On Wed, 2013-06-19 at 07:29 -0700, Narendra_K@Dell.com wrote:
+[...]
+> 2. show_phys_port  function sees a consistent value of
+> 'netdev->phys_port.port_id and netdev->phys_port.port_id_len '  if
+> another execution path changes the value of 'netdev->phys_port.port_id
+> and netdev->phys_port.port_id_len '  with write_lock(&dev_base_lock)
+> held (similar to how dev->operstate is being changed).
+[...]
 
-Patch created on linux-next 18-Jun-2013.
-Tested on 2.6.32-45-generic.
+If the physical port ID can change dynamically (I hadn't thought of
+that, but an embedded switch could support such reconfiguration) then
+any such change also needs to be announced through rtnetlink.  Actually,
+I think the value needs to be included in rtnetlink information anyway.
 
-Signed-off-by: Stephen Moorby <steve.moorby@ntlworld.com>
----
- drivers/net/wan/lapbether.c | 15 +++++++++++++--
- 1 file changed, 13 insertions(+), 2 deletions(-)
+Ben.
 
-diff --git a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
-index a33a46f..510fc4a 100644
---- a/drivers/net/wan/lapbether.c
-+++ b/drivers/net/wan/lapbether.c
-@@ -47,6 +47,7 @@
- 
- #include <net/x25device.h>
- 
-+static char *eth_dev;
- static const u8 bcast_addr[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
- 
- /* If this number is made larger, check that the temporary string buffer
-@@ -381,8 +382,14 @@ static int lapbeth_device_event(struct notifier_block *this,
- 	switch (event) {
- 	case NETDEV_UP:
- 		/* New ethernet device -> new LAPB interface	 */
--		if (lapbeth_get_x25_dev(dev) == NULL)
--			lapbeth_new_device(dev);
-+		if (lapbeth_get_x25_dev(dev) == NULL) {
-+			if (NULL != eth_dev) {
-+				if (0 == strcmp(dev->name, eth_dev))
-+					lapbeth_new_device(dev);
-+			} else {
-+				lapbeth_new_device(dev);
-+			}
-+		}
- 		break;
- 	case NETDEV_DOWN:	
- 		/* ethernet device closed -> close LAPB interface */
-@@ -446,6 +453,10 @@ static void __exit lapbeth_cleanup_driver(void)
- }
- module_exit(lapbeth_cleanup_driver);
- 
-+module_param(eth_dev, charp, S_IRUGO);
-+MODULE_PARM_DESC(eth_dev, "Ethernet device to use");
-+
-+
- MODULE_AUTHOR("Jonathan Naylor <g4klx@g4klx.demon.co.uk>");
- MODULE_DESCRIPTION("The unofficial LAPB over Ethernet driver");
- MODULE_LICENSE("GPL");
 -- 
-1.8.1.2
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
