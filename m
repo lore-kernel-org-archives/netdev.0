@@ -1,40 +1,101 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [RFC PATCH net-next 1/3] net: if_arp: add ARPHRD_NETLINK type
-Date: Wed, 19 Jun 2013 20:04:44 +0200
-Message-ID: <1371665086-19677-2-git-send-email-dborkman@redhat.com>
-References: <1371665086-19677-1-git-send-email-dborkman@redhat.com>
-Cc: tgraf@suug.ch, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:12915 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S934980Ab3FSSFQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 14:05:16 -0400
-In-Reply-To: <1371665086-19677-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [net-next rfc 1/3] net: avoid high order memory allocation for
+ queues by using flex array
+Date: Wed, 19 Jun 2013 21:07:09 +0300
+Message-ID: <20130619180709.GA15017@redhat.com>
+References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
+ <1371620452-49349-2-git-send-email-jasowang@redhat.com>
+ <1371623518.3252.267.camel@edumazet-glaptop>
+ <20130619091132.GA2816@redhat.com>
+ <1371635763.3252.289.camel@edumazet-glaptop>
+ <20130619154059.GA13735@redhat.com>
+ <1371657511.3252.324.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	edumazet@google.com, hkchu@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1371657511.3252.324.camel@edumazet-glaptop>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This small patch adds the definition of ARPHRD_NETLINK which can for
-example be used by netlink monitoring devices as device type. So that
-sockaddr_ll can pick it up and based on that choose the correct packet
-dissector.
+On Wed, Jun 19, 2013 at 08:58:31AM -0700, Eric Dumazet wrote:
+> On Wed, 2013-06-19 at 18:40 +0300, Michael S. Tsirkin wrote:
+> 
+> > That's a good trick too - vmalloc memory is a bit slower
+> > on x86 since it's not using a huge page, but that's only
+> > when we have lots of CPUs/queues...
+> > 
+> > Short term - how about switching to vmalloc if > 32 queues?
+> 
+> You do not have to switch "if > 32 queues"
+> 
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index fa007db..473cc9e 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -130,6 +130,7 @@
+>  #include <linux/cpu_rmap.h>
+>  #include <linux/static_key.h>
+>  #include <linux/hashtable.h>
+> +#include <linux/vmalloc.h>
+>  
+>  #include "net-sysfs.h"
+>  
+> @@ -5253,6 +5254,14 @@ static void netdev_init_one_queue(struct net_device *dev,
+>  #endif
+>  }
+>  
+> +static void netif_free_tx_queues(struct net_device *dev)
+> +{
+> +	if (is_vmalloc_addr(dev->_tx))
+> +		vfree(dev->_tx);
+> +	else
+> +		kfree(dev->_tx);
+> +}
+> +
+>  static int netif_alloc_netdev_queues(struct net_device *dev)
+>  {
+>  	unsigned int count = dev->num_tx_queues;
+> @@ -5261,9 +5270,11 @@ static int netif_alloc_netdev_queues(struct net_device *dev)
+>  	BUG_ON(count < 1);
+>  
+>  	tx = kcalloc(count, sizeof(struct netdev_queue), GFP_KERNEL);
 
-Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
----
- include/uapi/linux/if_arp.h | 1 +
- 1 file changed, 1 insertion(+)
+As we have explicit code to recover, maybe set __GFP_NOWARN?
+If we are out of memory, vzalloc will warn too, we don't
+need two warnings.
 
-diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
-index 82c7d1b..d7fea34 100644
---- a/include/uapi/linux/if_arp.h
-+++ b/include/uapi/linux/if_arp.h
-@@ -93,6 +93,7 @@
- #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
- #define ARPHRD_CAIF	822		/* CAIF media type		*/
- #define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
-+#define ARPHRD_NETLINK	824		/* Netlink header		*/
- 
- #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
- #define ARPHRD_NONE	  0xFFFE	/* zero header length */
--- 
-1.7.11.7
+> -	if (!tx)
+> -		return -ENOMEM;
+> -
+> +	if (!tx) {
+> +		tx = vzalloc(count * sizeof(struct netdev_queue));
+> +		if (!tx)
+> +			return -ENOMEM;
+> +	}
+>  	dev->_tx = tx;
+>  
+>  	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
+> @@ -5811,7 +5822,7 @@ free_all:
+>  
+>  free_pcpu:
+>  	free_percpu(dev->pcpu_refcnt);
+> -	kfree(dev->_tx);
+> +	netif_free_tx_queues(dev);
+>  #ifdef CONFIG_RPS
+>  	kfree(dev->_rx);
+>  #endif
+> @@ -5836,7 +5847,7 @@ void free_netdev(struct net_device *dev)
+>  
+>  	release_net(dev_net(dev));
+>  
+> -	kfree(dev->_tx);
+> +	netif_free_tx_queues(dev);
+>  #ifdef CONFIG_RPS
+>  	kfree(dev->_rx);
+>  #endif
+> 
