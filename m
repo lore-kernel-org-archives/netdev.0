@@ -1,234 +1,129 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH] ipvs: SH fallback and L4 hashing
-Date: Wed, 19 Jun 2013 22:45:43 +0300 (EEST)
-Message-ID: <alpine.LFD.2.00.1306192239510.1823@ja.ssi.bg>
-References: <20130619095425.GA20145@eldamar.org.uk>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: pull request: wireless 2013-06-19
+Date: Wed, 19 Jun 2013 15:41:41 -0400
+Message-ID: <20130619194141.GH12079@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="MGYHOYXEY6WxJCY8"
+Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Alexander Frolkin <avf@eldamar.org.uk>
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <20130619095425.GA20145@eldamar.org.uk>
-Sender: lvs-devel-owner@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
+--MGYHOYXEY6WxJCY8
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, 19 Jun 2013, Alexander Frolkin wrote:
+Dave,
 
-> By default the SH scheduler rejects connections that are hashed onto a
-> realserver of weight 0.  This patch adds a flag to make SH choose a
-> different realserver in this case, instead of rejecting the connection.
-> 
-> The patch also adds a flag to make SH include the source port (TCP, UDP,
-> SCTP) in the hash as well as the source address.  This basically allows
-> for deterministic round-robin load balancing (i.e., where any director
-> in a cluster of directors with identical config will send the same
-> packet the same way).
-> 
-> The flags are service flags (IP_VS_SVC_F_SCHED*) so that these options
-> can be set per service.  They are set using a new option to ipvsadm.
-> 
-> Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
+One more late-breaking fix in the nl80211 code, the fix for the
+nl80211_fam.attrbuf race Linus ran into and analysed.  Hopefully it
+looks familiar... :-)
 
-	Thanks! Looks good to me.
+Let me know if there are problems!
 
-Acked-by: Julian Anastasov <ja@ssi.bg>
+John
 
-> ---
-> The patch is against the ipvs-next tree.
+---
 
-	Still, I see one warning:
+The following changes since commit eb064c3b49931dc73bba59887019c7f5cb97d322:
 
-patching file include/uapi/linux/ip_vs.h
-patching file net/netfilter/ipvs/ip_vs_sh.c
-Hunk #2 succeeded at 75 with fuzz 1.
+  vxlan: fix check for migration of static entry (2013-06-19 00:50:58 -0700)
 
-	May be because you are missing the
-"ipvs: ip_vs_sh: fix build" change, not sure where is
-the fault, may be the change is not in ipvs-next,
-Simon can tell how to proceed with applying this patch.
+are available in the git repository at:
 
-> diff --git a/include/uapi/linux/ip_vs.h b/include/uapi/linux/ip_vs.h
-> index a245377..2945822 100644
-> --- a/include/uapi/linux/ip_vs.h
-> +++ b/include/uapi/linux/ip_vs.h
-> @@ -20,6 +20,12 @@
->  #define IP_VS_SVC_F_PERSISTENT	0x0001		/* persistent port */
->  #define IP_VS_SVC_F_HASHED	0x0002		/* hashed entry */
->  #define IP_VS_SVC_F_ONEPACKET	0x0004		/* one-packet scheduling */
-> +#define IP_VS_SVC_F_SCHED1	0x0008		/* scheduler flag 1 */
-> +#define IP_VS_SVC_F_SCHED2	0x0010		/* scheduler flag 2 */
-> +#define IP_VS_SVC_F_SCHED3	0x0020		/* scheduler flag 3 */
-> +
-> +#define IP_VS_SVC_F_SCHED_SH_FALLBACK	IP_VS_SVC_F_SCHED1 /* SH fallback */
-> +#define IP_VS_SVC_F_SCHED_SH_PORT	IP_VS_SVC_F_SCHED2 /* SH use port */
->  
->  /*
->   *      Destination Server Flags
-> diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
-> index e0130f8..b7e2c5a 100644
-> --- a/net/netfilter/ipvs/ip_vs_sh.c
-> +++ b/net/netfilter/ipvs/ip_vs_sh.c
-> @@ -48,6 +48,10 @@
->  
->  #include <net/ip_vs.h>
->  
-> +#include <net/tcp.h>
-> +#include <linux/udp.h>
-> +#include <linux/sctp.h>
-> +
->  
->  /*
->   *      IPVS SH bucket
-> @@ -71,10 +75,19 @@ struct ip_vs_sh_state {
->  	struct rcu_head			rcu_head;
->  };
->  
-> +/* Helper function to determine if server is unavailable */
-> +static inline bool is_unavailable(struct ip_vs_dest *dest)
-> +{
-> +	return atomic_read(&dest->weight) <= 0 ||
-> +	       dest->flags & IP_VS_DEST_F_OVERLOAD;
-> +}
-> +
->  /*
->   *	Returns hash value for IPVS SH entry
->   */
-> -static inline unsigned int ip_vs_sh_hashkey(int af, const union nf_inet_addr *addr)
-> +static inline unsigned int
-> +ip_vs_sh_hashkey(int af, const union nf_inet_addr *addr,
-> +		 __be16 port, unsigned int offset)
->  {
->  	__be32 addr_fold = addr->ip;
->  
-> @@ -83,7 +96,8 @@ static inline unsigned int ip_vs_sh_hashkey(int af, const union nf_inet_addr *ad
->  		addr_fold = addr->ip6[0]^addr->ip6[1]^
->  			    addr->ip6[2]^addr->ip6[3];
->  #endif
-> -	return (ntohl(addr_fold)*2654435761UL) & IP_VS_SH_TAB_MASK;
-> +	return (offset + (ntohs(port) + ntohl(addr_fold))*2654435761UL) &
-> +		IP_VS_SH_TAB_MASK;
->  }
->  
->  
-> @@ -91,12 +105,42 @@ static inline unsigned int ip_vs_sh_hashkey(int af, const union nf_inet_addr *ad
->   *      Get ip_vs_dest associated with supplied parameters.
->   */
->  static inline struct ip_vs_dest *
-> -ip_vs_sh_get(int af, struct ip_vs_sh_state *s, const union nf_inet_addr *addr)
-> +ip_vs_sh_get(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
-> +	     const union nf_inet_addr *addr, __be16 port)
->  {
-> -	return rcu_dereference(s->buckets[ip_vs_sh_hashkey(af, addr)].dest);
-> +	unsigned int hash = ip_vs_sh_hashkey(svc->af, addr, port, 0);
-> +	struct ip_vs_dest *dest = rcu_dereference(s->buckets[hash].dest);
-> +
-> +	return (!dest || is_unavailable(dest)) ? NULL : dest;
->  }
->  
->  
-> +/* As ip_vs_sh_get, but with fallback if selected server is unavailable */
-> +static inline struct ip_vs_dest *
-> +ip_vs_sh_get_fallback(struct ip_vs_service *svc, struct ip_vs_sh_state *s,
-> +		      const union nf_inet_addr *addr, __be16 port)
-> +{
-> +	unsigned int offset;
-> +	unsigned int hash;
-> +	struct ip_vs_dest *dest;
-> +
-> +	for (offset = 0; offset < IP_VS_SH_TAB_SIZE; offset++) {
-> +		hash = ip_vs_sh_hashkey(svc->af, addr, port, offset);
-> +		dest = rcu_dereference(s->buckets[hash].dest);
-> +		if (!dest)
-> +			break;
-> +		if (is_unavailable(dest))
-> +			IP_VS_DBG_BUF(6, "SH: selected unavailable server "
-> +				      "%s:%d (offset %d)",
-> +				      IP_VS_DBG_ADDR(svc->af, &dest->addr),
-> +				      ntohs(dest->port), offset);
-> +		else
-> +			return dest;
-> +	}
-> +
-> +	return NULL;
-> +}
-> +
->  /*
->   *      Assign all the hash buckets of the specified table with the service.
->   */
-> @@ -213,13 +257,33 @@ static int ip_vs_sh_dest_changed(struct ip_vs_service *svc,
->  }
->  
->  
-> -/*
-> - *      If the dest flags is set with IP_VS_DEST_F_OVERLOAD,
-> - *      consider that the server is overloaded here.
-> - */
-> -static inline int is_overloaded(struct ip_vs_dest *dest)
-> +/* Helper function to get port number */
-> +static inline __be16
-> +ip_vs_sh_get_port(const struct sk_buff *skb, struct ip_vs_iphdr *iph)
->  {
-> -	return dest->flags & IP_VS_DEST_F_OVERLOAD;
-> +	__be16 port;
-> +	struct tcphdr _tcph, *th;
-> +	struct udphdr _udph, *uh;
-> +	sctp_sctphdr_t _sctph, *sh;
-> +
-> +	switch (iph->protocol) {
-> +	case IPPROTO_TCP:
-> +		th = skb_header_pointer(skb, iph->len, sizeof(_tcph), &_tcph);
-> +		port = th->source;
-> +		break;
-> +	case IPPROTO_UDP:
-> +		uh = skb_header_pointer(skb, iph->len, sizeof(_udph), &_udph);
-> +		port = uh->source;
-> +		break;
-> +	case IPPROTO_SCTP:
-> +		sh = skb_header_pointer(skb, iph->len, sizeof(_sctph), &_sctph);
-> +		port = sh->source;
-> +		break;
-> +	default:
-> +		port = 0;
-> +	}
-> +
-> +	return port;
->  }
->  
->  
-> @@ -232,15 +296,21 @@ ip_vs_sh_schedule(struct ip_vs_service *svc, const struct sk_buff *skb,
->  {
->  	struct ip_vs_dest *dest;
->  	struct ip_vs_sh_state *s;
-> +	__be16 port = 0;
->  
->  	IP_VS_DBG(6, "ip_vs_sh_schedule(): Scheduling...\n");
->  
-> +	if (svc->flags & IP_VS_SVC_F_SCHED_SH_PORT)
-> +		port = ip_vs_sh_get_port(skb, iph);
-> +
->  	s = (struct ip_vs_sh_state *) svc->sched_data;
-> -	dest = ip_vs_sh_get(svc->af, s, &iph->saddr);
-> -	if (!dest
-> -	    || !(dest->flags & IP_VS_DEST_F_AVAILABLE)
-> -	    || atomic_read(&dest->weight) <= 0
-> -	    || is_overloaded(dest)) {
-> +
-> +	if (svc->flags & IP_VS_SVC_F_SCHED_SH_FALLBACK)
-> +		dest = ip_vs_sh_get_fallback(svc, s, &iph->saddr, port);
-> +	else
-> +		dest = ip_vs_sh_get(svc, s, &iph->saddr, port);
-> +
-> +	if (!dest) {
->  		ip_vs_scheduler_err(svc, "no destination available");
->  		return NULL;
->  	}
+  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
+avem
 
-Regards
+for you to fetch changes up to 4067c666f2dccf56f5db5c182713e68c40d46013:
 
---
-Julian Anastasov <ja@ssi.bg>
+  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/li=
+nville/wireless into for-davem (2013-06-19 15:24:36 -0400)
+
+----------------------------------------------------------------
+
+Johannes Berg (1):
+      nl80211: fix attrbuf access race by allocating a separate one
+
+John W. Linville (2):
+      Merge branch 'for-john' of git://git.kernel.org/.../jberg/mac80211
+      Merge branch 'master' of git://git.kernel.org/.../linville/wireless i=
+nto for-davem
+
+ net/wireless/nl80211.c | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/net/wireless/nl80211.c b/net/wireless/nl80211.c
+index d5aed3b..b14b7e3 100644
+--- a/net/wireless/nl80211.c
++++ b/net/wireless/nl80211.c
+@@ -1564,12 +1564,17 @@ static int nl80211_dump_wiphy(struct sk_buff *skb, =
+struct netlink_callback *cb)
+ 	struct cfg80211_registered_device *dev;
+ 	s64 filter_wiphy =3D -1;
+ 	bool split =3D false;
+-	struct nlattr **tb =3D nl80211_fam.attrbuf;
++	struct nlattr **tb;
+ 	int res;
+=20
++	/* will be zeroed in nlmsg_parse() */
++	tb =3D kmalloc(sizeof(*tb) * (NL80211_ATTR_MAX + 1), GFP_KERNEL);
++	if (!tb)
++		return -ENOMEM;
++
+ 	mutex_lock(&cfg80211_mutex);
+ 	res =3D nlmsg_parse(cb->nlh, GENL_HDRLEN + nl80211_fam.hdrsize,
+-			  tb, nl80211_fam.maxattr, nl80211_policy);
++			  tb, NL80211_ATTR_MAX, nl80211_policy);
+ 	if (res =3D=3D 0) {
+ 		split =3D tb[NL80211_ATTR_SPLIT_WIPHY_DUMP];
+ 		if (tb[NL80211_ATTR_WIPHY])
+@@ -1583,6 +1588,7 @@ static int nl80211_dump_wiphy(struct sk_buff *skb, st=
+ruct netlink_callback *cb)
+ 			netdev =3D dev_get_by_index(sock_net(skb->sk), ifidx);
+ 			if (!netdev) {
+ 				mutex_unlock(&cfg80211_mutex);
++				kfree(tb);
+ 				return -ENODEV;
+ 			}
+ 			if (netdev->ieee80211_ptr) {
+@@ -1593,6 +1599,7 @@ static int nl80211_dump_wiphy(struct sk_buff *skb, st=
+ruct netlink_callback *cb)
+ 			dev_put(netdev);
+ 		}
+ 	}
++	kfree(tb);
+=20
+ 	list_for_each_entry(dev, &cfg80211_rdev_list, list) {
+ 		if (!net_eq(wiphy_net(&dev->wiphy), sock_net(skb->sk)))
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
+
+--MGYHOYXEY6WxJCY8
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.13 (GNU/Linux)
+
+iQIcBAEBAgAGBQJRwgl1AAoJEJctW/TcYTgGg8gP/AxX2R/LwGHAWcqKzBuKXvlk
+Eir0rGZWXt+Pnv72wLmmx0CsLNBDZ+uAttkooWPcdFnk8a7MENqJY2Jsj+GFlVZ9
+Ug/3FkRiQz6dr7X2IRi8PKbl4+SR8NyG53Yvp1JPmKnonpq5ibHeZn3WbxBgBWbj
+4aBQ/hXYjri5tyayCx4F/Y8BOzUQFJM+jx13xaUwaROL4uNgufUwvV256SJQNTet
+yA+mPA5QJZE95QO4vt0Z42dg66H602sd6rR/S4evFBhfisRTRT35VL2v99vRK1zE
+H4SnfGnW/KKXYNRML2qaBTMIuhsCaNNg57PUPoKdSiUEEIgHawqUjcx2ULFab4+7
+YCYypLTQ2+HlQHgegYParZfD/Kn8SNOBcxabgeGhbw2uzAfhYoP1V8XNQTy0yZYC
+VayzWPJSiF+QD179fIngfrIpjTWiSKZakOJOpul0LqlNz35RqhEpZCjJtE71TdME
+UmXSklFBfnj/qSP2L1ejRV++8PB4IZ30npD+XUHfV0kKs4kvbl0P0Ss5ZlHWfAhN
+vyP/A+JkiA1JEo4/Pe7u4ndmR4VfrfBM2/OcISVPq1YTzespySJlMo3KRbhp/PZO
+g0hBkuUTh/DaIhXP4poOfxCJA1l9CG23PODONNAdON815KZRfRfn8XCkHN0LTeF5
+lWgG7j1dS+To9x/u4K7H
+=39VE
+-----END PGP SIGNATURE-----
+
+--MGYHOYXEY6WxJCY8--
