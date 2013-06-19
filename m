@@ -1,400 +1,315 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH v3 net-next] net: poll/select low latency
-	socket support
-Date: Wed, 19 Jun 2013 13:04:31 +0300
-Message-ID: <20130619100431.22132.93754.stgit@ladj378.jer.intel.com>
-References: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
+From: Alexander Frolkin <avf@eldamar.org.uk>
+Subject: [PATCH] ipvsadm: support for scheduler flags
+Date: Wed, 19 Jun 2013 11:07:02 +0100
+Message-ID: <20130619100701.GA20258@eldamar.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Willem de Bruijn <willemb@google.com>, Or Gerlitz <or.gerlitz@gmail.com>,
-	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
-	linux-kernel@vger.kernel.org, Alex Rosenbaum <alexr@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Eric Dumazet <erdnetdev@gmail.com>, Eilon Greenstien <eilong@broadcom.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>, netdev@vger.kernel.org,
+	lvs-users@linuxvirtualserver.org
+To: Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-select/poll busy-poll support.
+This patch adds support for scheduler flags, necessary to make use of
+the "SH fallback and L4 hashing" kernel patch.
 
-Split sysctl value into two separate ones, one for read and one for poll.
-updated Documentation/sysctl/net.txt
+The flags are set per service (so using -A or -E) using -b <flags> or
+--sched-flags <flags>.  <flags> is a comma-separated list of scheduler
+flags.  The currently supported flags are sh-port, sh-fallback, and
+generic flag-1, flag-2, flag-3 for future-proofing.
 
-Add a new poll flag POLL_LL. When this flag is set, sock poll will call
-sk_poll_ll() if possible. sock_poll sets this flag in its return value
-to indicate to select/poll when a socket that can busy poll is found.
+This patch will work with older versions of IPVS, although setting the
+flags will have no effect.
 
-When poll/select have nothing to report, call the low-level
-sock_poll() again until we are out of time or we find something.
-
-Once the system call finds something, it stops setting POLL_LL, so it can
-return the result to the user ASAP.
-
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
 ---
-
- Documentation/sysctl/net.txt    |   18 ++++++++++++++++--
- fs/select.c                     |   34 +++++++++++++++++++++++++++++-----
- include/net/ll_poll.h           |   34 ++++++++++++++++++++++------------
- include/uapi/asm-generic/poll.h |    2 ++
- net/core/sock.c                 |    2 +-
- net/core/sysctl_net_core.c      |    8 ++++++++
- net/socket.c                    |   15 ++++++++++++++-
- 7 files changed, 92 insertions(+), 21 deletions(-)
-
-diff --git a/Documentation/sysctl/net.txt b/Documentation/sysctl/net.txt
-index 5369879..e658bbf 100644
---- a/Documentation/sysctl/net.txt
-+++ b/Documentation/sysctl/net.txt
-@@ -50,13 +50,27 @@ The maximum number of packets that kernel can handle on a NAPI interrupt,
- it's a Per-CPU variable.
- Default: 64
+diff --git a/ipvsadm.8 b/ipvsadm.8
+index 001ae74..9a9e9b3 100644
+--- a/ipvsadm.8
++++ b/ipvsadm.8
+@@ -37,7 +37,7 @@ ipvsadm \- Linux Virtual Server administration
+ .SH SYNOPSIS
+ .B ipvsadm -A|E -t|u|f \fIservice-address\fP [-s \fIscheduler\fP]
+ .ti 15
+-.B [-p [\fItimeout\fP]] [-M \fInetmask\fP]
++.B [-p [\fItimeout\fP]] [-M \fInetmask\fP] [-b \fIsched-flags\fP]
+ .br
+ .B ipvsadm -D -t|u|f \fIservice-address\fP
+ .br
+@@ -248,6 +248,9 @@ addresses.
+ .sp
+ \fBsh\fR - Source Hashing: assigns jobs to servers through looking up
+ a statically assigned hash table by their source IP addresses.
++This scheduler has two flags: sh-fallback, which enables fallback to a
++different server if the selected server was unavailable, and sh-port,
++which adds the source port number to the hash computation.
+ .sp
+ \fBsed\fR - Shortest Expected Delay: assigns an incoming job to the
+ server with the shortest expected delay. The expected delay that the
+@@ -286,6 +289,11 @@ resolve problems with non-persistent cache clusters on the client side.
+ IPv6 netmasks should be specified as a prefix length between 1 and 128.
+ The default prefix length is 128.
+ .TP
++.B -b, --sched-flags \fIsched-flags\fP
++Set scheduler flags for this virtual server.  \fIsched-flags\fP is a
++comma-separated list of flags.  See the scheduler descriptions for
++valid scheduler flags.
++.TP
+ .B -r, --real-server \fIserver-address\fP
+ Real server that an associated request for service may be assigned to.
+ The \fIserver-address\fP is the \fIhost\fP address of a real server,
+diff --git a/ipvsadm.c b/ipvsadm.c
+index 0197515..5b8c036 100644
+--- a/ipvsadm.c
++++ b/ipvsadm.c
+@@ -182,7 +182,8 @@ static const char* cmdnames[] = {
+ #define OPT_EXACT		0x100000
+ #define OPT_ONEPACKET		0x200000
+ #define OPT_PERSISTENCE_ENGINE  0x400000
+-#define NUMBER_OF_OPT		23
++#define OPT_SCHED_FLAGS		0x800000
++#define NUMBER_OF_OPT		24
  
--low_latency_poll
-+low_latency_read
- ----------------
--Low latency busy poll timeout. (needs CONFIG_NET_LL_RX_POLL)
-+Low latency busy poll timeout for socket reads. (needs CONFIG_NET_LL_RX_POLL)
- Approximate time in us to spin waiting for packets on the device queue.
-+This sets the default value of the SO_LL socket option.
-+Can be set or overridden per socket by setting socket option SO_LL.
- Recommended value is 50. May increase power usage.
- Default: 0 (off)
+ static const char* optnames[] = {
+ 	"numeric",
+@@ -208,6 +209,7 @@ static const char* optnames[] = {
+ 	"exact",
+ 	"ops",
+ 	"pe",
++	"sched-flags",
+ };
  
-+low_latency_poll
-+----------------
-+Low latency busy poll timeout for poll and select. (needs CONFIG_NET_LL_RX_POLL)
-+Approximate time in us to spin waiting for packets on the device queue.
-+Recommended value depends on the number of sockets you poll on.
-+For several sockets 50, for several hundreds 100.
-+For more than that you probably want to use epoll.
-+Note that only sockets with SO_LL set will be busy polled, so you want to either
-+selectively set SO_LL on those sockets or set sysctl.net.low_latency_read globally.
-+May increase power usage.
-+Default: 0 (off)
-+
- rmem_default
- ------------
- 
-diff --git a/fs/select.c b/fs/select.c
-index 8c1c96c..4698b0a 100644
---- a/fs/select.c
-+++ b/fs/select.c
-@@ -27,6 +27,7 @@
- #include <linux/rcupdate.h>
- #include <linux/hrtimer.h>
- #include <linux/sched/rt.h>
-+#include <net/ll_poll.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -384,9 +385,10 @@ get_max:
- #define POLLEX_SET (POLLPRI)
- 
- static inline void wait_key_set(poll_table *wait, unsigned long in,
--				unsigned long out, unsigned long bit)
-+				unsigned long out, unsigned long bit,
-+				unsigned int ll_flag)
- {
--	wait->_key = POLLEX_SET;
-+	wait->_key = POLLEX_SET | ll_flag;
- 	if (in & bit)
- 		wait->_key |= POLLIN_SET;
- 	if (out & bit)
-@@ -400,6 +402,8 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- 	poll_table *wait;
- 	int retval, i, timed_out = 0;
- 	unsigned long slack = 0;
-+	unsigned int ll_flag = POLL_LL;
-+	u64 ll_time = ll_end_time();
- 
- 	rcu_read_lock();
- 	retval = max_select_fd(n, fds);
-@@ -422,6 +426,7 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- 	retval = 0;
- 	for (;;) {
- 		unsigned long *rinp, *routp, *rexp, *inp, *outp, *exp;
-+		bool can_ll = false;
- 
- 		inp = fds->in; outp = fds->out; exp = fds->ex;
- 		rinp = fds->res_in; routp = fds->res_out; rexp = fds->res_ex;
-@@ -449,7 +454,8 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- 					f_op = f.file->f_op;
- 					mask = DEFAULT_POLLMASK;
- 					if (f_op && f_op->poll) {
--						wait_key_set(wait, in, out, bit);
-+						wait_key_set(wait, in, out,
-+							     bit, ll_flag);
- 						mask = (*f_op->poll)(f.file, wait);
- 					}
- 					fdput(f);
-@@ -468,6 +474,11 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- 						retval++;
- 						wait->_qproc = NULL;
- 					}
-+					if (mask & POLL_LL)
-+						can_ll = true;
-+					/* got something, stop busy polling */
-+					if (retval)
-+						ll_flag = 0;
- 				}
- 			}
- 			if (res_in)
-@@ -486,6 +497,9 @@ int do_select(int n, fd_set_bits *fds, struct timespec *end_time)
- 			break;
- 		}
- 
-+		if (can_ll && can_poll_ll(ll_time))
-+			continue;
-+
- 		/*
- 		 * If this is the first loop and we have a timeout
- 		 * given, then we convert to ktime_t and set the to
-@@ -717,7 +731,8 @@ struct poll_list {
-  * pwait poll_table will be used by the fd-provided poll handler for waiting,
-  * if pwait->_qproc is non-NULL.
+ /*
+@@ -220,21 +222,21 @@ static const char* optnames[] = {
   */
--static inline unsigned int do_pollfd(struct pollfd *pollfd, poll_table *pwait)
-+static inline unsigned int do_pollfd(struct pollfd *pollfd, poll_table *pwait,
-+					bool *can_ll, unsigned int ll_flag)
+ static const char commands_v_options[NUMBER_OF_CMD][NUMBER_OF_OPT] =
  {
- 	unsigned int mask;
- 	int fd;
-@@ -731,7 +746,10 @@ static inline unsigned int do_pollfd(struct pollfd *pollfd, poll_table *pwait)
- 			mask = DEFAULT_POLLMASK;
- 			if (f.file->f_op && f.file->f_op->poll) {
- 				pwait->_key = pollfd->events|POLLERR|POLLHUP;
-+				pwait->_key |= ll_flag;
- 				mask = f.file->f_op->poll(f.file, pwait);
-+				if (mask & POLL_LL)
-+					*can_ll = true;
- 			}
- 			/* Mask out unneeded events. */
- 			mask &= pollfd->events | POLLERR | POLLHUP;
-@@ -750,6 +768,8 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
- 	ktime_t expire, *to = NULL;
- 	int timed_out = 0, count = 0;
- 	unsigned long slack = 0;
-+	unsigned int ll_flag = POLL_LL;
-+	u64 ll_time = ll_end_time();
+-	/*   -n   -c   svc  -s   -p   -M   -r   fwd  -w   -x   -y   -mc  tot  dmn  -st  -rt  thr  -pc  srt  sid  -ex  ops  -pe */
+-/*ADD*/     {'x', 'x', '+', ' ', ' ', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', ' '},
+-/*EDIT*/    {'x', 'x', '+', ' ', ' ', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', ' '},
+-/*DEL*/     {'x', 'x', '+', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
+-/*FLUSH*/   {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
+-/*LIST*/    {' ', '1', '1', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', '1', '1', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'x', 'x'},
+-/*ADDSRV*/  {'x', 'x', '+', 'x', 'x', 'x', '+', ' ', ' ', ' ', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
+-/*DELSRV*/  {'x', 'x', '+', 'x', 'x', 'x', '+', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
+-/*EDITSRV*/ {'x', 'x', '+', 'x', 'x', 'x', '+', ' ', ' ', ' ', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
+-/*TIMEOUT*/ {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
+-/*STARTD*/  {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', 'x', 'x', 'x'},
+-/*STOPD*/   {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', 'x', 'x', 'x'},
+-/*RESTORE*/ {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
+-/*SAVE*/    {' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
+-/*ZERO*/    {'x', 'x', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
++	/*   -n   -c   svc  -s   -p   -M   -r   fwd  -w   -x   -y   -mc  tot  dmn  -st  -rt  thr  -pc  srt  sid  -ex  ops  -pe  -b */
++/*ADD*/     {'x', 'x', '+', ' ', ' ', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', ' ', ' '},
++/*EDIT*/    {'x', 'x', '+', ' ', ' ', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', ' ', ' '},
++/*DEL*/     {'x', 'x', '+', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
++/*FLUSH*/   {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
++/*LIST*/    {' ', '1', '1', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', '1', '1', ' ', ' ', ' ', ' ', ' ', ' ', ' ', 'x', 'x', 'x'},
++/*ADDSRV*/  {'x', 'x', '+', 'x', 'x', 'x', '+', ' ', ' ', ' ', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
++/*DELSRV*/  {'x', 'x', '+', 'x', 'x', 'x', '+', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
++/*EDITSRV*/ {'x', 'x', '+', 'x', 'x', 'x', '+', ' ', ' ', ' ', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
++/*TIMEOUT*/ {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
++/*STARTD*/  {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', 'x', 'x', 'x', 'x'},
++/*STOPD*/   {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', ' ', 'x', 'x', 'x', 'x'},
++/*RESTORE*/ {'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
++/*SAVE*/    {' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
++/*ZERO*/    {'x', 'x', ' ', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x'},
+ };
  
- 	/* Optimise the no-wait case */
- 	if (end_time && !end_time->tv_sec && !end_time->tv_nsec) {
-@@ -762,6 +782,7 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
+ /* printing format flags */
+@@ -302,6 +304,7 @@ static int parse_service(char *buf, ipvs_service_t *svc);
+ static int parse_netmask(char *buf, u_int32_t *addr);
+ static int parse_timeout(char *buf, int min, int max);
+ static unsigned int parse_fwmark(char *buf);
++static unsigned int parse_sched_flags(const char *sched, char *optarg);
  
- 	for (;;) {
- 		struct poll_list *walk;
-+		bool can_ll = false;
+ /* check the options based on the commands_v_options table */
+ static void generic_opt_check(int command, int options);
+@@ -363,7 +366,7 @@ parse_options(int argc, char **argv, struct ipvs_command_entry *ce,
+ {
+ 	int c, parse;
+ 	poptContext context;
+-	char *optarg=NULL;
++	char *optarg=NULL, sched_flags_arg[128];
+ 	struct poptOption options_table[] = {
+ 		{ "add-service", 'A', POPT_ARG_NONE, NULL, 'A', NULL, NULL },
+ 		{ "edit-service", 'E', POPT_ARG_NONE, NULL, 'E', NULL, NULL },
+@@ -426,9 +429,12 @@ parse_options(int argc, char **argv, struct ipvs_command_entry *ce,
+ 		{ "ops", 'o', POPT_ARG_NONE, NULL, 'o', NULL, NULL },
+ 		{ "pe", '\0', POPT_ARG_STRING, &optarg, TAG_PERSISTENCE_ENGINE,
+ 		  NULL, NULL },
++		{ "sched-flags", 'b', POPT_ARG_STRING, &optarg, 'b', NULL, NULL },
+ 		{ NULL, 0, 0, NULL, 0, NULL, NULL }
+ 	};
  
- 		for (walk = list; walk != NULL; walk = walk->next) {
- 			struct pollfd * pfd, * pfd_end;
-@@ -776,9 +797,10 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
- 				 * this. They'll get immediately deregistered
- 				 * when we break out and return.
- 				 */
--				if (do_pollfd(pfd, pt)) {
-+				if (do_pollfd(pfd, pt, &can_ll, ll_flag)) {
- 					count++;
- 					pt->_qproc = NULL;
-+					ll_flag = 0;
- 				}
- 			}
- 		}
-@@ -795,6 +817,8 @@ static int do_poll(unsigned int nfds,  struct poll_list *list,
- 		if (count || timed_out)
++	sched_flags_arg[0] = '\0';
++
+ 	context = poptGetContext("ipvsadm", argc, (const char **)argv,
+ 				 options_table, 0);
+ 
+@@ -656,6 +662,10 @@ parse_options(int argc, char **argv, struct ipvs_command_entry *ce,
+ 			set_option(options, OPT_PERSISTENCE_ENGINE);
+ 			strncpy(ce->svc.pe_name, optarg, IP_VS_PENAME_MAXLEN);
  			break;
++		case 'b':
++			set_option(options, OPT_SCHED_FLAGS);
++			snprintf(sched_flags_arg, sizeof(sched_flags_arg), "%s", optarg);
++			break;
+ 		default:
+ 			fail(2, "invalid option `%s'",
+ 			     poptBadOption(context, POPT_BADOPTION_NOALIAS));
+@@ -690,6 +700,14 @@ parse_options(int argc, char **argv, struct ipvs_command_entry *ce,
+ 	if ((optarg=(char *)poptGetArg(context)))
+ 		fail(2, "unexpected argument %s", optarg);
  
-+		if (can_ll && can_poll_ll(ll_time))
-+			continue;
- 		/*
- 		 * If this is the first loop and we have a timeout
- 		 * given, then we convert to ktime_t and set the to
-diff --git a/include/net/ll_poll.h b/include/net/ll_poll.h
-index fcc7c36..c4f96bf 100644
---- a/include/net/ll_poll.h
-+++ b/include/net/ll_poll.h
-@@ -30,6 +30,7 @@
- #ifdef CONFIG_NET_LL_RX_POLL
- 
- struct napi_struct;
-+extern unsigned int sysctl_net_ll_read __read_mostly;
- extern unsigned int sysctl_net_ll_poll __read_mostly;
- 
- /* return values from ndo_ll_poll */
-@@ -38,17 +39,18 @@ extern unsigned int sysctl_net_ll_poll __read_mostly;
- 
- /* we can use sched_clock() because we don't care much about precision
-  * we only care that the average is bounded
-+ * we don't mind a ~2.5% imprecision so <<10 instead of *1000
-+ * sk->sk_ll_usec is a u_int so this can't overflow
-  */
--static inline u64 ll_end_time(struct sock *sk)
-+static inline u64 ll_sk_end_time(struct sock *sk)
- {
--	u64 end_time = ACCESS_ONCE(sk->sk_ll_usec);
--
--	/* we don't mind a ~2.5% imprecision
--	 * sk->sk_ll_usec is a u_int so this can't overflow
--	 */
--	end_time = (end_time << 10) + sched_clock();
-+	return ((u64)ACCESS_ONCE(sk->sk_ll_usec) << 10) + sched_clock();
-+}
- 
--	return end_time;
-+/* in poll/select we use the global sysctl_net_ll_poll value */
-+static inline u64 ll_end_time(void)
-+{
-+	return ((u64)ACCESS_ONCE(sysctl_net_ll_poll) << 10) + sched_clock();
- }
- 
- static inline bool sk_valid_ll(struct sock *sk)
-@@ -62,10 +64,13 @@ static inline bool can_poll_ll(u64 end_time)
- 	return !time_after64(sched_clock(), end_time);
- }
- 
-+/* when used in sock_poll() nonblock is known at compile time to be true
-+ * so the loop and end_time will be optimized out
-+ */
- static inline bool sk_poll_ll(struct sock *sk, int nonblock)
- {
-+	u64 end_time = nonblock ? 0 : ll_sk_end_time(sk);
- 	const struct net_device_ops *ops;
--	u64 end_time = ll_end_time(sk);
- 	struct napi_struct *napi;
- 	int rc = false;
- 
-@@ -95,8 +100,8 @@ static inline bool sk_poll_ll(struct sock *sk, int nonblock)
- 			NET_ADD_STATS_BH(sock_net(sk),
- 					 LINUX_MIB_LOWLATENCYRXPACKETS, rc);
- 
--	} while (skb_queue_empty(&sk->sk_receive_queue)
--			&& can_poll_ll(end_time) && !nonblock);
-+	} while (!nonblock && skb_queue_empty(&sk->sk_receive_queue)
-+			&& can_poll_ll(end_time));
- 
- 	rc = !skb_queue_empty(&sk->sk_receive_queue);
- out:
-@@ -118,7 +123,12 @@ static inline void sk_mark_ll(struct sock *sk, struct sk_buff *skb)
- 
- #else /* CONFIG_NET_LL_RX_POLL */
- 
--static inline u64 ll_end_time(struct sock *sk)
-+static inline u64 sk_ll_end_time(struct sock *sk)
-+{
-+	return 0;
-+}
-+
-+static inline u64 ll_end_time(void)
- {
- 	return 0;
- }
-diff --git a/include/uapi/asm-generic/poll.h b/include/uapi/asm-generic/poll.h
-index 9ce7f44..4aee586 100644
---- a/include/uapi/asm-generic/poll.h
-+++ b/include/uapi/asm-generic/poll.h
-@@ -30,6 +30,8 @@
- 
- #define POLLFREE	0x4000	/* currently only for epoll */
- 
-+#define POLL_LL		0x8000
-+
- struct pollfd {
- 	int fd;
- 	short events;
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 1e744b1..b6c619f 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -2307,7 +2307,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
- 
- #ifdef CONFIG_NET_LL_RX_POLL
- 	sk->sk_napi_id		=	0;
--	sk->sk_ll_usec		=	sysctl_net_ll_poll;
-+	sk->sk_ll_usec		=	sysctl_net_ll_read;
- #endif
- 
- 	/*
-diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
-index 62702c2..afc677e 100644
---- a/net/core/sysctl_net_core.c
-+++ b/net/core/sysctl_net_core.c
-@@ -306,6 +306,14 @@ static struct ctl_table net_core_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= proc_dointvec
- 	},
-+	{
-+		.procname	= "low_latency_read",
-+		.data		= &sysctl_net_ll_read,
-+		.maxlen		= sizeof(unsigned int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec
-+	},
-+#
- #endif
- #endif /* CONFIG_NET */
- 	{
-diff --git a/net/socket.c b/net/socket.c
-index 3eec3f7..1eed3c0 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -107,6 +107,7 @@
- #include <net/ll_poll.h>
- 
- #ifdef CONFIG_NET_LL_RX_POLL
-+unsigned int sysctl_net_ll_read __read_mostly;
- unsigned int sysctl_net_ll_poll __read_mostly;
- #endif
- 
-@@ -1147,13 +1148,25 @@ EXPORT_SYMBOL(sock_create_lite);
- /* No kernel lock held - perfect */
- static unsigned int sock_poll(struct file *file, poll_table *wait)
- {
-+	unsigned int ll_flag = 0;
- 	struct socket *sock;
- 
- 	/*
- 	 *      We can't return errors to poll, so it's either yes or no.
- 	 */
- 	sock = file->private_data;
--	return sock->ops->poll(file, sock, wait);
-+
-+	if (sk_valid_ll(sock->sk)) {
-+
-+		/* this socket can poll_ll so tell the system call */
-+		ll_flag = POLL_LL;
-+
-+		/* only if requested by syscall */
-+		if (wait && (wait->_key & POLL_LL))
-+			sk_poll_ll(sock->sk, 1);
++	if (sched_flags_arg[0]) {
++		ce->svc.flags &= ~(IP_VS_SVC_F_SCHED1 |
++				   IP_VS_SVC_F_SCHED2 |
++				   IP_VS_SVC_F_SCHED3);
++		ce->svc.flags |= parse_sched_flags(ce->svc.sched_name,
++						   sched_flags_arg);
 +	}
 +
-+	return ll_flag | sock->ops->poll(file, sock, wait);
+ 	poptFreeContext(context);
+ 
+ 	return 0;
+@@ -989,6 +1007,38 @@ parse_service(char *buf, ipvs_service_t *svc)
+ 	return result;
  }
  
- static int sock_mmap(struct file *file, struct vm_area_struct *vma)
++static unsigned int parse_sched_flags(const char *sched, char *optarg)
++{
++	unsigned int flags = 0;
++	char *flag;
++
++	sched = (sched && *sched) ? sched : DEF_SCHED;
++
++	flag = strtok(optarg, ",");
++	do {
++		if (!strcmp(flag, "flag-1")) {
++			flags |= IP_VS_SVC_F_SCHED1;
++		} else if (!strcmp(flag, "flag-2")) {
++			flags |= IP_VS_SVC_F_SCHED2;
++		} else if (!strcmp(flag, "flag-3")) {
++			flags |= IP_VS_SVC_F_SCHED3;
++		} else if (!strcmp(flag, "sh-fallback")) {
++			flags |= IP_VS_SVC_F_SCHED_SH_FALLBACK;
++			if (strcmp(sched, "sh"))
++				fail(2, "incompatible scheduler flag `%s'",
++				     flag);
++		} else if (!strcmp(flag, "sh-port")) {
++			flags |= IP_VS_SVC_F_SCHED_SH_PORT;
++			if (strcmp(sched, "sh"))
++				fail(2, "incompatible scheduler flag `%s'",
++				     flag);
++		} else {
++			fail(2, "invalid scheduler flag `%s'", flag);
++		}
++	} while ((flag = strtok(NULL, ",")) != NULL);
++
++	return flags;
++}
+ 
+ static void
+ generic_opt_check(int command, int options)
+@@ -1070,7 +1120,7 @@ static void usage_exit(const char *program, const int exit_status)
+ 	version(stream);
+ 	fprintf(stream,
+ 		"Usage:\n"
+-		"  %s -A|E -t|u|f service-address [-s scheduler] [-p [timeout]] [-M netmask] [--pe persistence_engine]\n"
++		"  %s -A|E -t|u|f service-address [-s scheduler] [-p [timeout]] [-M netmask] [--pe persistence_engine] [-b sched-flags]\n"
+ 		"  %s -D -t|u|f service-address\n"
+ 		"  %s -C\n"
+ 		"  %s -R\n"
+@@ -1139,7 +1189,8 @@ static void usage_exit(const char *program, const int exit_status)
+ 		"  --nosort                            disable sorting output of service/server entries\n"
+ 		"  --sort                              does nothing, for backwards compatibility\n"
+ 		"  --ops          -o                   one-packet scheduling\n"
+-		"  --numeric      -n                   numeric output of addresses and ports\n",
++		"  --numeric      -n                   numeric output of addresses and ports\n"
++		"  --sched-flags  -b flags             scheduler flags (comma-separated)\n",
+ 		DEF_SCHED);
+ 
+ 	exit(exit_status);
+@@ -1396,6 +1447,32 @@ static void print_largenum(unsigned long long i, unsigned int format)
+ 		printf("%8lluT", i / 1000000000000ULL);
+ }
+ 
++static void print_sched_flags(ipvs_service_entry_t *se) {
++	char flags[64];
++
++	flags[0] = '\0';
++
++	if (!strcmp(se->sched_name, "sh")) {
++		if (se->flags & IP_VS_SVC_F_SCHED_SH_FALLBACK)
++			strcat(flags, "sh-fallback,");
++		if (se->flags & IP_VS_SVC_F_SCHED_SH_PORT)
++			strcat(flags, "sh-port,");
++		if (se->flags & IP_VS_SVC_F_SCHED3)
++			strcat(flags, "flag-3,");
++	} else {
++		if (se->flags & IP_VS_SVC_F_SCHED1)
++			strcat(flags, "flag-1,");
++		if (se->flags & IP_VS_SVC_F_SCHED2)
++			strcat(flags, "flag-2,");
++		if (se->flags & IP_VS_SVC_F_SCHED3)
++			strcat(flags, "flag-3,");
++	}
++
++	if (flags[0]) {
++		flags[strlen(flags)-1] = '\0';
++		printf("%s", flags);
++	}
++}
+ 
+ static void print_title(unsigned int format)
+ {
+@@ -1488,6 +1565,12 @@ print_service_entry(ipvs_service_entry_t *se, unsigned int format)
+ 			printf(" pe %s", se->pe_name);
+ 		if (se->flags & IP_VS_SVC_F_ONEPACKET)
+ 			printf(" -o");
++		if (se->flags & (IP_VS_SVC_F_SCHED1 |
++				 IP_VS_SVC_F_SCHED2 |
++				 IP_VS_SVC_F_SCHED3)) {
++			printf(" -b ");
++			print_sched_flags(se);
++		}
+ 	} else if (format & FMT_STATS) {
+ 		printf("%-33s", svc_name);
+ 		print_largenum(se->stats.conns, format);
+@@ -1504,6 +1587,13 @@ print_service_entry(ipvs_service_entry_t *se, unsigned int format)
+ 		print_largenum(se->stats.outbps, format);
+ 	} else {
+ 		printf("%s %s", svc_name, se->sched_name);
++		if (se->flags & (IP_VS_SVC_F_SCHED1 |
++				 IP_VS_SVC_F_SCHED2 |
++				 IP_VS_SVC_F_SCHED3)) {
++			printf(" (");
++			print_sched_flags(se);
++			printf(")");
++		}
+ 		if (se->flags & IP_VS_SVC_F_PERSISTENT) {
+ 			printf(" persistent %u", se->timeout);
+ 			if (se->af == AF_INET)
+diff --git a/libipvs/ip_vs.h b/libipvs/ip_vs.h
+index 5e1d544..4db14ff 100644
+--- a/libipvs/ip_vs.h
++++ b/libipvs/ip_vs.h
+@@ -29,6 +29,13 @@
+ #define IP_VS_SVC_F_PERSISTENT	0x0001		/* persistent port */
+ #define IP_VS_SVC_F_HASHED	0x0002		/* hashed entry */
+ #define IP_VS_SVC_F_ONEPACKET	0x0004		/* one-packet scheduling */
++#define IP_VS_SVC_F_SCHED1	0x0008		/* scheduler flag 1 */
++#define IP_VS_SVC_F_SCHED2	0x0010		/* scheduler flag 2 */
++#define IP_VS_SVC_F_SCHED3	0x0020		/* scheduler flag 3 */
++
++#define IP_VS_SVC_F_SCHED_SH_FALLBACK	IP_VS_SVC_F_SCHED1 /* SH fallback */
++#define IP_VS_SVC_F_SCHED_SH_PORT	IP_VS_SVC_F_SCHED2 /* SH use port */
++
+ 
+ /*
+  *      IPVS sync daemon states
 
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
