@@ -1,221 +1,61 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 2/6] bonding: add helper function
- bond_get_targets_ip(targets, ip)
-Date: Wed, 19 Jun 2013 23:41:51 +0200
-Message-ID: <20130619214151.GA10910@redhat.com>
-References: <1371663286-12518-3-git-send-email-vfalico@redhat.com>
- <51C22389.7030803@redhat.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: Adding support for ARINC429 into the Linux kernel
+Date: Wed, 19 Jun 2013 23:45:30 +0200
+Message-ID: <201306192345.31106.arnd@arndb.de>
+References: <20130619202954.GA5594@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
-	rick.jones2@hp.com
-To: Nikolay Aleksandrov <nikolay@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48396 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S935117Ab3FSVmP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 17:42:15 -0400
-Content-Disposition: inline
-In-Reply-To: <51C22389.7030803@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130619202954.GA5594@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 19, 2013 at 11:32:57PM +0200, Nikolay Aleksandrov wrote:
->On 19/06/13 19:34, Veaceslav Falico wrote:
->> Add function bond_get_targets_ip(targets, ip) which searches through
->> targets array of ips (arp_targets) and returns the position of first
->> match. If ip == 0, returns the first free slot. On failure to find the
->> ip or free slot, return -1.
->>
->> Use it to verify if the arp we've received is valid and in sysfs.
->>
->> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->> ---
->>  drivers/net/bonding/bond_main.c  |   17 ++++-------
->>  drivers/net/bonding/bond_sysfs.c |   56 +++++++++++++++----------------------
->>  drivers/net/bonding/bonding.h    |   16 +++++++++++
->>  3 files changed, 45 insertions(+), 44 deletions(-)
->>
->> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->> index 3d8b5ba..09a79eb 100644
->> --- a/drivers/net/bonding/bond_main.c
->> +++ b/drivers/net/bonding/bond_main.c
->> @@ -2599,22 +2599,17 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
->>
->>  static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32 sip, __be32 tip)
->>  {
->> -	int i;
->> -	__be32 *targets = bond->params.arp_targets;
->> -
->>  	if (!bond_has_this_ip(bond, tip)) {
->>  		pr_debug("bva: tip %pI4 not found\n", &tip);
->>  		return;
->>  	}
->>
->> -	for (i = 0; (i < BOND_MAX_ARP_TARGETS) && targets[i]; i++) {
->> -		pr_debug("bva: sip %pI4 tip %pI4 t[%d] %pI4 bhti(tip)\n",
->> -			 &sip, &tip, i, &targets[i]);
->> -		if (sip == targets[i]) {
->> -			slave->last_arp_rx = jiffies;
->> -			return;
->> -		}
->> +	if (bond_get_targets_ip(bond->params.arp_targets, sip) == -1) {
->> +		pr_debug("bva: sip %pI4 not found in targets\n", &sip);
->> +		return;
->>  	}
->Here you should probably check if sip != 0 (0.0.0.0) because ARP probes
->with such src address are common to check if there's an address conflict
->for example.
+On Wednesday 19 June 2013, Guenter Roeck wrote:
+> I have been asked to explore options for adding ARINC 429 support [1]
+> into the Linux kernel, primarily to support devices from Holt Integrated
+> Circuits [2] (the request is unrelated to the chip manufacturer).
+> 
+> ARINC429 is a protocol which is widely used in commercial airplanes. 
+> 
+> There are various chips supporting this protocol available, as well as
+> out-of-tree Linux support. The drivers I have looked at implement it
+> either as character device or misc device and typically pass raw receive
+> data to userspace.
+> 
+> I can see a number of options for going forward:
+> 1) Implement as character device (or possibly misc device) and pass
+>    raw data to/from user space
+>    1a) Just implement a driver for the specific chips
+>    2b) Implement some kind of generic infrastructure
+> 2) Implement as network driver with a new address family, similar to,
+>    say, AF_CAN.
+> 
+> Any thoughts / suggestions which approach would be better and, most of all,
+> which approach might have a better chance of being accepted upstream ?
 
-Agree, thank you!
+Since this is a standard protocol, a driver that just supports a specific
+chip (1a) would be the worst option IMHO.
 
-Will add this and remove extra lines in v2.
+A character device and a network protocol both sound reasonable, but
+it really depends on the use cases:
 
-Thanks for the review!
+* Does Linux act both as the sender and receiver, or do you want to
+  support just one of the cases (which?)?
 
->> +
->small nitpick: I don't think this newline is really necessary.
->> +	slave->last_arp_rx = jiffies;
->>  }
->>
->>  static int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
->> @@ -4831,7 +4826,7 @@ static int __net_init bond_net_init(struct net *net)
->>
->>  	bond_create_proc_dir(bn);
->>  	bond_create_sysfs(bn);
->> -	
->> +
->>  	return 0;
->>  }
->>
->> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
->> index f8bee4c..e680151 100644
->> --- a/drivers/net/bonding/bond_sysfs.c
->> +++ b/drivers/net/bonding/bond_sysfs.c
->> @@ -591,7 +591,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->>  					 const char *buf, size_t count)
->>  {
->>  	__be32 newtarget;
->> -	int i = 0, done = 0, ret = count;
->> +	int i = 0, ret = -EINVAL;
->>  	struct bonding *bond = to_bond(d);
->>  	__be32 *targets;
->>
->> @@ -602,57 +602,46 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->>  		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
->>  			pr_err("%s: invalid ARP target %pI4 specified for addition\n",
->>  			       bond->dev->name, &newtarget);
->> -			ret = -EINVAL;
->>  			goto out;
->>  		}
->> -		/* look for an empty slot to put the target in, and check for dupes */
->> -		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
->> -			if (targets[i] == newtarget) { /* duplicate */
->> -				pr_err("%s: ARP target %pI4 is already present\n",
->> -				       bond->dev->name, &newtarget);
->> -				ret = -EINVAL;
->> -				goto out;
->> -			}
->> -			if (targets[i] == 0) {
->> -				pr_info("%s: adding ARP target %pI4.\n",
->> -					bond->dev->name, &newtarget);
->> -				done = 1;
->> -				targets[i] = newtarget;
->> -			}
->> +
->> +		if (bond_get_targets_ip(targets, newtarget) != -1) { /* dup */
->> +			pr_err("%s: ARP target %pI4 is already present\n",
->> +			       bond->dev->name, &newtarget);
->> +			goto out;
->>  		}
->> -		if (!done) {
->> +
->> +		i = bond_get_targets_ip(targets, 0); /* first free slot */
->> +		if (i == -1) {
->>  			pr_err("%s: ARP target table is full!\n",
->>  			       bond->dev->name);
->> -			ret = -EINVAL;
->>  			goto out;
->>  		}
->>
->> +		pr_info("%s: adding ARP target %pI4.\n", bond->dev->name,
->> +			 &newtarget);
->> +		targets[i] = newtarget;
->> +
->Extra new line here.
->>  	} else if (buf[0] == '-')	{
->>  		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
->>  			pr_err("%s: invalid ARP target %pI4 specified for removal\n",
->>  			       bond->dev->name, &newtarget);
->> -			ret = -EINVAL;
->>  			goto out;
->>  		}
->>
->> -		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
->> -			if (targets[i] == newtarget) {
->> -				int j;
->> -				pr_info("%s: removing ARP target %pI4.\n",
->> -					bond->dev->name, &newtarget);
->> -				for (j = i; (j < (BOND_MAX_ARP_TARGETS-1)) && targets[j+1]; j++)
->> -					targets[j] = targets[j+1];
->> -
->> -				targets[j] = 0;
->> -				done = 1;
->> -			}
->> -		}
->> -		if (!done) {
->> +		i = bond_get_targets_ip(targets, newtarget);
->> +		if (i == -1) {
->>  			pr_info("%s: unable to remove nonexistent ARP target %pI4.\n",
->>  				bond->dev->name, &newtarget);
->> -			ret = -EINVAL;
->>  			goto out;
->>  		}
->> +
->> +		pr_info("%s: removing ARP target %pI4.\n", bond->dev->name,
->> +			&newtarget);
->> +		for (; (i < BOND_MAX_ARP_TARGETS-1) && targets[i+1]; i++)
->> +			targets[i] = targets[i+1];
->> +		targets[i] = 0;
->> +
->Another extra new line.
->>  	} else {
->>  		pr_err("no command found in arp_ip_targets file for bond %s. Use +<addr> or -<addr>.\n",
->>  		       bond->dev->name);
->> @@ -660,6 +649,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->>  		goto out;
->>  	}
->>
->> +	ret = count;
->>  out:
->>  	return ret;
->>  }
->> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->> index b38609b..7feab6c 100644
->> --- a/drivers/net/bonding/bonding.h
->> +++ b/drivers/net/bonding/bonding.h
->> @@ -464,6 +464,22 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
->>  	return NULL;
->>  }
->>
->> +/* Check if the ip is present in arp ip list, or first free slot if ip == 0
->> + * Returns -1 if not found, index if found
->> + */
->> +static inline int bond_get_targets_ip(__be32 *targets, __be32 ip)
->> +{
->> +	int i;
->> +
->> +	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
->> +		if (targets[i] == ip)
->> +			return i;
->> +		else if (targets[i] == 0)
->> +			break;
->> +
->> +	return -1;
->> +}
->> +
->>  /* exported from bond_main.c */
->>  extern int bond_net_id;
->>  extern const struct bond_parm_tbl bond_lacp_tbl[];
->
+* Would you expect to always just transfer a single 32-bit word, or
+  are there larger chunks of logically contigous data? What are typical
+  and maximum sizes for those?
+
+* Would you expect the kernel to filter for specific data on the
+  receiver side?
+
+* Would a user space receiver want to always see all data from one
+  sender, or only the latest word?
+
+	Arnd
