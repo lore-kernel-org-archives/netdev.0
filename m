@@ -1,7 +1,7 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
 Subject: Re: [net-next 3/8] i40e: driver ethtool core
-Date: Wed, 19 Jun 2013 11:40:09 -0700
-Message-ID: <20130619114009.1d4ece23@samsung-9>
+Date: Wed, 19 Jun 2013 11:41:12 -0700
+Message-ID: <20130619114112.3cda715e@samsung-9>
 References: <1371182122-26629-1-git-send-email-jeffrey.t.kirsher@intel.com>
 	<1371182122-26629-4-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
@@ -27,22 +27,25 @@ On Thu, 13 Jun 2013 20:55:17 -0700
 Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
 
 > +
-> +/**
-> + * i40e_set_settings - Set Speed and Duplex
-> + * @netdev: network interface device structure
-> + * @ecmd: ethtool command
-> + *
-> + * Set speed/duplex per media_types advertised/forced
-> + **/
-> +static int i40e_set_settings(struct net_device *netdev,
-> +			     struct ethtool_cmd *ecmd)
+> +static int i40e_get_eeprom_len(struct net_device *netdev)
+> +{
+> +	return 0;
+> +}
+> +
+> +static int i40e_get_eeprom(struct net_device *netdev,
+> +			   struct ethtool_eeprom *eeprom, u8 *bytes)
+> +{
+> +	return 0;
+> +}
+> +
+> +static int i40e_set_eeprom(struct net_device *netdev,
+> +			   struct ethtool_eeprom *eeprom, u8 *bytes)
 > +{
 > +	return -EOPNOTSUPP;
 > +}
-> +
 
-Stub not needed, if ethtool_ops.set_settings is NULL, then ethtool_set_settings
-will do this for you.
+No EEPROM, then just leave out the handlers.
+No need for stubs here.
 
 ------------------------------------------------------------------------------
 This SF.net email is sponsored by Windows:
