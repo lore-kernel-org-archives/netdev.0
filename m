@@ -1,69 +1,70 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [PATCH net-next] net: Add phys_port identifier to struct
- net_device and export it to sysfs
-Date: Wed, 19 Jun 2013 20:34:41 +0100
-Message-ID: <1371670481.1956.105.camel@bwh-desktop.uk.level5networks.com>
-References: <20130617181004.GA1364@fedora-17-guest.dell.com>
-	 <51BF59D8.10806@gmail.com>
-	 <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
-	 <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
-	 <E31FB011129F30488D5861F383904915210BB9042A@BLRX7MCDC201.AMER.DELL.COM>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: qlen check in tun.c
+Date: Wed, 19 Jun 2013 12:39:34 -0700
+Message-ID: <CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com>
+References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com>
+	<51C12592.6050503@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <john.fastabend@gmail.com>, <netdev@vger.kernel.org>,
-	<john.r.fastabend@intel.com>
-To: <Narendra_K@Dell.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:31429 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934566Ab3FSTeq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 15:34:46 -0400
-In-Reply-To: <E31FB011129F30488D5861F383904915210BB9042A@BLRX7MCDC201.AMER.DELL.COM>
+Received: from mail-lb0-f178.google.com ([209.85.217.178]:55173 "EHLO
+	mail-lb0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964798Ab3FSTjg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 15:39:36 -0400
+Received: by mail-lb0-f178.google.com with SMTP id y6so4978226lbh.23
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 12:39:35 -0700 (PDT)
+In-Reply-To: <51C12592.6050503@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-20 at 00:23 +0530, Narendra_K@Dell.com wrote:
-> > -----Original Message-----
-> > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> > Sent: Wednesday, June 19, 2013 9:07 PM
-> > To: K, Narendra
-> > Cc: john.fastabend@gmail.com; netdev@vger.kernel.org;
-> > john.r.fastabend@intel.com
-> > Subject: Re: [PATCH net-next] net: Add phys_port identifier to struct
-> > net_device and export it to sysfs
-> > 
-> > On Wed, 2013-06-19 at 07:29 -0700, Narendra_K@Dell.com wrote:
-> > [...]
-> > > 2. show_phys_port  function sees a consistent value of
-> > > 'netdev->phys_port.port_id and netdev->phys_port.port_id_len '  if
-> > > another execution path changes the value of 'netdev->phys_port.port_id
-> > > and netdev->phys_port.port_id_len '  with write_lock(&dev_base_lock)
-> > > held (similar to how dev->operstate is being changed).
-> > [...]
-> > 
-> > If the physical port ID can change dynamically (I hadn't thought of that, but an
-> > embedded switch could support such reconfiguration) then any such change
-> > also needs to be announced through rtnetlink.  Actually, I think the value
-> > needs to be included in rtnetlink information anyway.
-> > 
-> 
-> Ok. Thank you Ben. I had not thought about this scenario.  I was
-> thinking about the reason to hold the dev_base_lock.  Do you think
-> points 1 and 2 are correct reason to hold the dev_base_lock ?
+Hi Jason,
 
-I think so.
+On Tue, Jun 18, 2013 at 8:29 PM, Jason Wang <jasowang@redhat.com> wrote:
+> On 06/19/2013 10:31 AM, Jerry Chu wrote:
+>> In tun_net_xmit() the max qlen is computed as
+>> dev->tx_queue_len / tun->numqueues. For multi-queue configuration the
+>> latter may be way too small, forcing one to adjust txqueuelen based
+>> on number of queues created. (Well the default txqueuelen of
+>> 500/TUN_READQ_SIZE already seems too small even for single queue.)
+>
+> Hi Jerry:
+>
+> Do you have some test result of this? Anyway, tun allows userspace to
+> adjust this value based on its requirement.
 
-> If correct,  I think the 'show_broadcast' function also needs to be
-> fixed as it is not holding the lock.
+Sure, but the default size of 500 is just way too small. queue overflows even
+with a simple single-stream throughput test through Openvswitch due to CPU
+scheduler anomaly. On our loaded multi-stream test even 8192 can't prevent
+queue overflow. But then with 8192 we'll be deep into the "buffer
+bloat" territory.
+We haven't figured out an optimal strategy for thruput vs latency, but
+suffice to
+say 500 is too small.
 
-I think the broadcast address should never change during the lifetime of
-a device, so it doesn't need the lock.  That might not be true for all
-layer 2 protocols though.
+Jerry
 
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+>>
+>> Wouldn't it be better to simply use dev->tx_queue_len to cap the qlen of
+>> each queue? This also seems to be more consistent with h/w multi-queues.
+>
+> Make sense. Michael, any ideas on this?
+>>
+>> Also is there any objection to increase MAX_TAP_QUEUES from 8 to 16?
+>> Yes it will take up more space in struct tun_struct. But we are
+>> hitting the perf limit of 8 queues.
+>
+> Not only the tun_struct, another issue of this is sizeof(netdev_queue)
+> which is 320 currently, if we use 16, it may be greater than 4096 which
+> lead high order page allocation. Need a solution such as flex array or
+> array of pointers.
+>
+> Btw, I have draft patch on both, will post as rfc.
+>
+> Thanks
+>> Thanks,
+>>
+>> Jerry
+>
