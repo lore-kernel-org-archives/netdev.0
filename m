@@ -1,48 +1,52 @@
-From: Wei Yongjun <weiyj.lk@gmail.com>
-Subject: [PATCH -next] bcm63xx_enet: fix return value check in bcm_enet_shared_probe()
-Date: Wed, 19 Jun 2013 10:32:32 +0800
-Message-ID: <CAPgLHd_=CCFcpkJP_717-hLREO+DBhYKNVpupmJik0oRnLGA3w@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: qlen check in tun.c
+Date: Wed, 19 Jun 2013 11:29:22 +0800
+Message-ID: <51C12592.6050503@redhat.com>
+References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: davem@davemloft.net, jogo@openwrt.org, mbizon@freebox.fr,
-	joe@perches.com, cernekee@gmail.com
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Jerry Chu <hkchu@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f41.google.com ([209.85.214.41]:54065 "EHLO
-	mail-bk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933941Ab3FSCcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 22:32:33 -0400
-Received: by mail-bk0-f41.google.com with SMTP id jc3so2107434bkc.14
-        for <netdev@vger.kernel.org>; Tue, 18 Jun 2013 19:32:32 -0700 (PDT)
+Received: from mx1.redhat.com ([209.132.183.28]:15181 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933941Ab3FSD3h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 18 Jun 2013 23:29:37 -0400
+In-Reply-To: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On 06/19/2013 10:31 AM, Jerry Chu wrote:
+> In tun_net_xmit() the max qlen is computed as
+> dev->tx_queue_len / tun->numqueues. For multi-queue configuration the
+> latter may be way too small, forcing one to adjust txqueuelen based
+> on number of queues created. (Well the default txqueuelen of
+> 500/TUN_READQ_SIZE already seems too small even for single queue.)
 
-In case of error, the function devm_ioremap_resource() returns ERR_PTR()
-and never returns NULL. The NULL test in the return value check should
-be replaced with IS_ERR().
+Hi Jerry:
 
-Introduce by commit 0ae99b5fede6f3a8d252d50bb4aba29544295219
-(bcm63xx_enet: split DMA channel register accesses)
+Do you have some test result of this? Anyway, tun allows userspace to
+adjust this value based on its requirement.
+>
+> Wouldn't it be better to simply use dev->tx_queue_len to cap the qlen of
+> each queue? This also seems to be more consistent with h/w multi-queues.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/broadcom/bcm63xx_enet.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Make sense. Michael, any ideas on this?
+>
+> Also is there any objection to increase MAX_TAP_QUEUES from 8 to 16?
+> Yes it will take up more space in struct tun_struct. But we are
+> hitting the perf limit of 8 queues.
 
-diff --git a/drivers/net/ethernet/broadcom/bcm63xx_enet.c b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-index 8f1ac02..b1bcd4b 100644
---- a/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-+++ b/drivers/net/ethernet/broadcom/bcm63xx_enet.c
-@@ -2862,8 +2862,8 @@ static int bcm_enet_shared_probe(struct platform_device *pdev)
- 	for (i = 0; i < 3; i++) {
- 		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
- 		p[i] = devm_ioremap_resource(&pdev->dev, res);
--		if (!p[i])
--			return -ENOMEM;
-+		if (IS_ERR(p[i]))
-+			return PTR_ERR(p[i]);
- 	}
- 
- 	memcpy(bcm_enet_shared_base, p, sizeof(bcm_enet_shared_base));
+Not only the tun_struct, another issue of this is sizeof(netdev_queue)
+which is 320 currently, if we use 16, it may be greater than 4096 which
+lead high order page allocation. Need a solution such as flex array or
+array of pointers.
+
+Btw, I have draft patch on both, will post as rfc.
+
+Thanks
+> Thanks,
+>
+> Jerry
