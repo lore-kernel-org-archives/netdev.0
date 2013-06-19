@@ -1,85 +1,93 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: VLAN driver question
-Date: Wed, 19 Jun 2013 16:57:11 +0100
-Message-ID: <51C1D4D7.1000904@mentor.com>
-References: <51BF5F81.2040207@mentor.com> <1371566484.1956.16.camel@bwh-desktop.uk.level5networks.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [net-next rfc 1/3] net: avoid high order memory allocation for
+ queues by using flex array
+Date: Wed, 19 Jun 2013 08:58:31 -0700
+Message-ID: <1371657511.3252.324.camel@edumazet-glaptop>
+References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
+	 <1371620452-49349-2-git-send-email-jasowang@redhat.com>
+	 <1371623518.3252.267.camel@edumazet-glaptop>
+	 <20130619091132.GA2816@redhat.com>
+	 <1371635763.3252.289.camel@edumazet-glaptop>
+	 <20130619154059.GA13735@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:53938 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756651Ab3FSP5Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:57:16 -0400
-In-Reply-To: <1371566484.1956.16.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	edumazet@google.com, hkchu@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130619154059.GA13735@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thank you Ben, that is very helpful.
+On Wed, 2013-06-19 at 18:40 +0300, Michael S. Tsirkin wrote:
 
-On 18/06/13 15:41, Ben Hutchings wrote:
-> On Mon, 2013-06-17 at 20:12 +0100, Jim Baxter wrote:
->> I have a network card that has a single flag to indicate if a received
->> packet contains a vlan packet.
->>
->> Can I use this to accelerate the kernels handling of the packet with
->> something like the following?
->>
->> /* Handle received VLAN packets */
->> if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) && ebdp &&
->> 					(ebdp->cbd_esc &
->> 					BD_ENET_RX_VLAN)) {
->> 	/* Push and remove the vlan tag */
->> 	struct vlan_hdr *vlan_header;
->> 	u16 vlan_tag;
->> 	vlan_header = (struct vlan_hdr *) skb->data;
->> 	vlan_tag = ntohs(vlan_header->h_vlan_TCI);
->> 	__vlan_hwaccel_put_tag(skb, vlan_tag);
->> 	skb->len -= VLAN_HLEN;
->> 	skb->data += VLAN_HLEN;
->> 	vlan_set_encap_proto(skb, vlan_header);
+> That's a good trick too - vmalloc memory is a bit slower
+> on x86 since it's not using a huge page, but that's only
+> when we have lots of CPUs/queues...
 > 
-> You have to move the Ethernet addresses forward as well.  Imagine this
-> device is being bridged - the Ethernet header won't be regenerated, so
-> it has to be immediately before the network header.
-> 
-Unless I have misunderstood, the Ethernet header is already copied
-across to the skb by the Driver I am editing with the lines:
-	skb_reserve(skb, NET_IP_ALIGN);
-	skb_put(skb, pkt_len - 4);	/* Make room */
-	skb_copy_to_linear_data(skb, data, pkt_len - 4);
-	skb->protocol = eth_type_trans(skb, ndev);
+> Short term - how about switching to vmalloc if > 32 queues?
 
+You do not have to switch "if > 32 queues"
 
-Thinking about it though I should actually use the flag from the driver
-to create an skb of the size (pkt_len - 4 - VLAN_HLEN) and extract the
-vlan header from data so it is not copied to the skb, does this sound
-sensible?
-
->> }
->>
->> napi_gro_receive(&fep->napi, skb);
-> 
-> I've been meaning to add a core function to do
-> pull-out-VLAN-tag-and-GRO, although I'm more interested in
-> napi_gro_frags().  Perhaps you could add the generic wrapper for
-> napi_gro_receive()?
->
->> Also I cannot find any documentation stating what the difference is
->> between NETIF_F_HW_VLAN_CTAG_RX and NETIF_F_HW_VLAN_CTAG_FILTER, can
->> anyone define it?
->> The FILTER word on NETIF_F_HW_VLAN_CTAG_FILTER suggests it may be
->> applicable to received packets.
-> 
-> NETIF_F_HW_VLAN_CTAG_RX means the device will extract VLAN tags so they
-> aren't received inline.
-> 
-> NETIF_F_HW_VLAN_CTAG_FILTER means the device can filter by VID.  The
-> driver's ndo_vlan_rx_{add,kill}_vid operations will be called to update
-> the filter.
-> 
-> Ben.
-> 
-Jim
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fa007db..473cc9e 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -130,6 +130,7 @@
+ #include <linux/cpu_rmap.h>
+ #include <linux/static_key.h>
+ #include <linux/hashtable.h>
++#include <linux/vmalloc.h>
+ 
+ #include "net-sysfs.h"
+ 
+@@ -5253,6 +5254,14 @@ static void netdev_init_one_queue(struct net_device *dev,
+ #endif
+ }
+ 
++static void netif_free_tx_queues(struct net_device *dev)
++{
++	if (is_vmalloc_addr(dev->_tx))
++		vfree(dev->_tx);
++	else
++		kfree(dev->_tx);
++}
++
+ static int netif_alloc_netdev_queues(struct net_device *dev)
+ {
+ 	unsigned int count = dev->num_tx_queues;
+@@ -5261,9 +5270,11 @@ static int netif_alloc_netdev_queues(struct net_device *dev)
+ 	BUG_ON(count < 1);
+ 
+ 	tx = kcalloc(count, sizeof(struct netdev_queue), GFP_KERNEL);
+-	if (!tx)
+-		return -ENOMEM;
+-
++	if (!tx) {
++		tx = vzalloc(count * sizeof(struct netdev_queue));
++		if (!tx)
++			return -ENOMEM;
++	}
+ 	dev->_tx = tx;
+ 
+ 	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
+@@ -5811,7 +5822,7 @@ free_all:
+ 
+ free_pcpu:
+ 	free_percpu(dev->pcpu_refcnt);
+-	kfree(dev->_tx);
++	netif_free_tx_queues(dev);
+ #ifdef CONFIG_RPS
+ 	kfree(dev->_rx);
+ #endif
+@@ -5836,7 +5847,7 @@ void free_netdev(struct net_device *dev)
+ 
+ 	release_net(dev_net(dev));
+ 
+-	kfree(dev->_tx);
++	netif_free_tx_queues(dev);
+ #ifdef CONFIG_RPS
+ 	kfree(dev->_rx);
+ #endif
