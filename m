@@ -1,36 +1,41 @@
-From: Magnus Damm <magnus.damm@gmail.com>
-Subject: Re: [PATCH 1/2] sh_eth: define/use EESR_RX_CHECK macro
-Date: Wed, 19 Jun 2013 15:47:47 +0900
-Message-ID: <CANqRtoRNnNuG_r+MW3Yb79jVK_iKm1bRTSvMhw1j4qsWZtphpw@mail.gmail.com>
-References: <201306190207.46832.sergei.shtylyov@cogentembedded.com>
+From: Jiri Slaby <jslaby-AlSwsSmVLrQ@public.gmane.org>
+Subject: Re: [PATCH] build some drivers only when compile-testing
+Date: Wed, 19 Jun 2013 08:50:08 +0200
+Message-ID: <51C154A0.6080104@suse.cz>
+References: <1369214326-6558-1-git-send-email-jslaby@suse.cz> <20130523022327.GB6159@kroah.com> <519D8876.9050405@suse.com> <51BF6BFF.7050705@suse.cz> <20130618160427.GE28961@kroah.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev <netdev@vger.kernel.org>,
-	Nobuhiro Iwamatsu <nobuhiro.iwamatsu.yj@renesas.com>,
-	SH-Linux <linux-sh@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <201306190207.46832.sergei.shtylyov@cogentembedded.com>
-Sender: linux-sh-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Mahoney <jeffm-IBi9RG/b67k@public.gmane.org>, jirislaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	Alexander Shishkin <alexander.shishkin-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Florian Tobias Schandinat <FlorianSchandinat-Mmb7MZpHnFY@public.gmane.org>,
+	linux-geode-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-fbdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Richard Cochran <richardcochran-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ben Hutchings <ben-/+tVBieCtBitmTQ+vhA3Yw@public.gmane.org>,
+	"Keller, Jacob E" <jacob.e.keller-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Michal Marek <mmarek-AlSwsSmVLrQ@public.gmane.org>, tomi.valkeinen-l0cyMroinI0@public.gmane.org
+To: Greg Kroah-Hartman <gregkh-hQyY1W1yCW8ekmWlsbkhG0B+6BGkLq7r@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130618160427.GE28961-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Sergei,
+On 06/18/2013 06:04 PM, Greg Kroah-Hartman wrote:
+>> So currently I have what is attached... Comments?
+> 
+> Looks good to me, want me to queue it up through my char/misc driver
+> tree for 3.11?
 
-On Wed, Jun 19, 2013 at 7:07 AM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
-> sh_eth_interrupt() uses the same Rx interrupt mask twice to check the interrupt
-> status register -- #define EESR_RX_CHECK  and use it instead.
->
-> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+If there are no objections... Whoever picks that up, I would be happy 8-).
 
-Thanks for the patch, nice to see that this driver is moving forward.
-
-Can you please include information about which SoC / board this code
-has been tested on? As you know, the actual hardware that this driver
-is operating on is not very well documented, so at least having
-information about the SoC together with the commit message or patch
-may help in the future.
-
-Cheers,
-
-/ magnus
+-- 
+js
+suse labs
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
