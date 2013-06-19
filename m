@@ -1,37 +1,374 @@
-From: <Praveen_Paladugu@Dell.com>
-Subject: RE: [PATCH net-next] net: Add phys_port identifier to struct
- net_device and export it to sysfs
-Date: Wed, 19 Jun 2013 16:37:56 -0500
-Message-ID: <ABF506AF5815F54BB6579628C0CD9F99561C10D8CC@AUSX7MCPS310.AMER.DELL.COM>
-References: <20130617181004.GA1364@fedora-17-guest.dell.com>
-	 <51BF59D8.10806@gmail.com>
-	 <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
-	 <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
-	 <E31FB011129F30488D5861F383904915210BB9042A@BLRX7MCDC201.AMER.DELL.COM>
- <1371670481.1956.105.camel@bwh-desktop.uk.level5networks.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next 6/6] bonding: add an option to fail when any
+ of arp_ip_target is inaccessible
+Date: Wed, 19 Jun 2013 23:58:52 +0200
+Message-ID: <51C2299C.2040403@redhat.com>
+References: <1371663286-12518-7-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <john.fastabend@gmail.com>, <netdev@vger.kernel.org>,
-	<john.r.fastabend@intel.com>
-To: <bhutchings@solarflare.com>, <Narendra_K@Dell.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
+	rick.jones2@hp.com
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:36136 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934566Ab3FSVr3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 17:47:29 -0400
-In-Reply-To: <1371670481.1956.105.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
+Received: from mx1.redhat.com ([209.132.183.28]:20004 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S934979Ab3FSV7h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 17:59:37 -0400
+In-Reply-To: <1371663286-12518-7-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-DQpIYXZpbmcgYW4gdW5pcXVlIGlkZW50aWZpZXIgcGVyIHBvcnQsIHRoZSB1c2Vyc3BhY2UgdG9v
-bHMgbWlnaHQgYmUgYWJsZSB0byBjaGVjayBpZiB0aGUgVkZzL3BhcnRpdGlvbnMgYXJlIG9mIHRo
-ZSBzYW1lIHBoeXNpY2FsIHBvcnQuIEp1c3QgYmVpbmcgcGFyYW5vaWQsIHdvdWxkbid0IGl0IGJl
-IGJldHRlciB0byBib25kIFZGcy9QYXJ0aXRpb25zIGFjcm9zcyBOSUNzIGluc3RlYWQgb2YgYWNy
-b3NzIHBvcnRzIG9mIHRoZSBzYW1lIE5JQz8NCg0KDQpUbyBiZSBhYmxlIHRvIGNoZWNrIGlmIHRo
-ZSBWRnMvcGFydGl0aW9ucyBhcmUgb2YgdGhlIHNhbWUgcG9ydCAmIE5JQywgdGhlIHVuaXF1ZSBp
-ZGVudGlmaWVyIHNob3VsZCBwcm9iYWJseSBoYXZlIHR3byBpZGVudGlmaWVycyAgaW4gaXQgbGlr
-ZSBBQkNfWFlaLiBUaGUgQUJDIHVuaXF1ZWx5IGlkZW50aWZ5aW5nIHRoZSBOSUMgYW5kIFhZWiB1
-bmlxdWVseSBpZGVudGlmeWluZyB0aGUgcG9ydC4gICANCg0KQW55IHRob3VnaHRzPw0KDQoNClRo
-YW5rIHlvdSANClByYXZlZW4gSyBQYWxhZHVndQ0KDQoNCg0KDQo=
+On 19/06/13 19:34, Veaceslav Falico wrote:
+> Currently, we fail only when all of the ips in arp_ip_target are gone.
+> However, in some situations we might need to fail if even one host from
+> arp_ip_target becomes unavailable.
+> 
+> All situations, obviously, rely on the idea that we need *completely*
+> functional network, with all interfaces/addresses working correctly.
+> 
+> One real world example might be:
+> vlans on top on bond (hybrid port). If bond and vlans have ips assigned
+> and we have their peers monitored via arp_ip_target - in case of switch
+> misconfiguration (trunk/access port), slave driver malfunction or
+> tagged/untagged traffic dropped on the way - we will be able to switch
+> to another slave.
+> 
+> Though any other configuration needs that if we need to have access to all
+> arp_ip_targets.
+> 
+> This patch adds this possibility by adding a new parameter -
+> arp_all_targets (both as a module parameter and as a sysfs knob). It can be
+> set to:
+> 
+> 	0 or any (the default) - which works exactly as it's working now -
+> 	the slave is up if any of the arp_ip_targets are up.
+> 
+> 	1 or all - the slave is up if all of the arp_ip_targets are up.
+> 
+> This parameter can be changed on the fly (via sysfs), and requires the mode
+> to be active-backup and arp_validate to be enabled (it obeys the
+> arp_validate config on which slaves to validate).
+> 
+> Internally it's done through:
+> 
+> 1) Add target_last_arp_rx[BOND_MAX_ARP_TARGETS] array to slave struct. It's
+>    an array of jiffies, meaning that slave->target_last_arp_rx[i] is the
+>    last time we've received arp from bond->params.arp_targets[i] on this
+>    slave.
+> 
+> 2) If we successfully validate an arp from bond->params.arp_targets[i] in
+>    bond_validate_arp() - update the slave->target_last_arp_rx[i] with the
+>    current jiffies value.
+> 
+> 3) When getting slave's last_rx via slave_last_rx(), we return the oldest
+>    time when we've received an arp from any address in
+>    bond->params.arp_targets[].
+> 
+> If the value of arp_all_targets == 0 - we still work the same way as
+> before.
+> 
+> Also, update the documentation to reflect the new parameter.
+> 
+> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+> ---
+>  Documentation/networking/bonding.txt |   17 +++++++++++++
+>  drivers/net/bonding/bond_main.c      |   38 +++++++++++++++++++++++++++-
+>  drivers/net/bonding/bond_sysfs.c     |   44 ++++++++++++++++++++++++++++++++++
+>  drivers/net/bonding/bonding.h        |   30 +++++++++++++++++++++-
+>  4 files changed, 125 insertions(+), 4 deletions(-)
+> 
+> diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
+> index 84f16c8..284b4ab 100644
+> --- a/Documentation/networking/bonding.txt
+> +++ b/Documentation/networking/bonding.txt
+> @@ -309,6 +309,23 @@ arp_validate
+>  
+>  	This option was added in bonding version 3.1.0.
+>  
+> +arp_all_targets
+> +
+> +	Specifies whether, in active-backup mode with arp validation,
+> +	any of the arp_ip_targets should be up to keep the slave up
+> +	(default) or it should go down if at least one of
+> +	arp_ip_targets doesn't reply to arp requests.
+> +
+> +	Possible values are:
+> +
+> +	any or 0
+> +
+> +		consider the slave up if any of the arp_ip_targets is up
+> +
+> +	all or 1
+> +
+> +		consider the slave up if all of the arp_ip_targets are up
+> +
+>  downdelay
+>  
+>  	Specifies the time, in milliseconds, to wait before disabling
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 3f64607..6136e5e 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -104,6 +104,7 @@ static char *xmit_hash_policy;
+>  static int arp_interval = BOND_LINK_ARP_INTERV;
+>  static char *arp_ip_target[BOND_MAX_ARP_TARGETS];
+>  static char *arp_validate;
+> +static char *arp_all_targets;
+>  static char *fail_over_mac;
+>  static int all_slaves_active = 0;
+>  static struct bond_params bonding_defaults;
+> @@ -166,6 +167,8 @@ module_param(arp_validate, charp, 0);
+>  MODULE_PARM_DESC(arp_validate, "validate src/dst of ARP probes; "
+>  			       "0 for none (default), 1 for active, "
+>  			       "2 for backup, 3 for all");
+> +module_param(arp_all_targets, charp, 0);
+> +MODULE_PARM_DESC(arp_all_targets, "fail on any/all arp targets timeout; 0 for any (default), 1 for all");
+>  module_param(fail_over_mac, charp, 0);
+>  MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set all slaves to "
+>  				"the same MAC; 0 for none (default), "
+> @@ -216,6 +219,12 @@ const struct bond_parm_tbl xmit_hashtype_tbl[] = {
+>  {	NULL,			-1},
+>  };
+>  
+> +const struct bond_parm_tbl arp_all_targets_tbl[] = {
+> +{	"any",			BOND_ARP_TARGETS_ANY},
+> +{	"all",			BOND_ARP_TARGETS_ALL},
+> +{	NULL,			-1},
+> +};
+> +
+>  const struct bond_parm_tbl arp_validate_tbl[] = {
+>  {	"none",			BOND_ARP_VALIDATE_NONE},
+>  {	"active",		BOND_ARP_VALIDATE_ACTIVE},
+> @@ -1476,7 +1485,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  	struct slave *new_slave = NULL;
+>  	struct sockaddr addr;
+>  	int link_reporting;
+> -	int res = 0;
+> +	int res = 0, i;
+>  
+>  	if (!bond->params.use_carrier &&
+>  	    slave_dev->ethtool_ops->get_link == NULL &&
+> @@ -1705,6 +1714,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+>  
+>  	new_slave->last_arp_rx = jiffies -
+>  		(msecs_to_jiffies(bond->params.arp_interval) + 1);
+> +	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
+> +		new_slave->target_last_arp_rx[i] = jiffies;
+>  
+>  	if (bond->params.miimon && !bond->params.use_carrier) {
+>  		link_reporting = bond_check_dev_link(bond, slave_dev, 1);
+> @@ -2599,17 +2610,21 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
+>  
+>  static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32 sip, __be32 tip)
+>  {
+> +	int i;
+> +
+>  	if (!bond_has_this_ip(bond, tip)) {
+>  		pr_debug("bva: tip %pI4 not found\n", &tip);
+>  		return;
+>  	}
+>  
+> -	if (bond_get_targets_ip(bond->params.arp_targets, sip) == -1) {
+> +	i = bond_get_targets_ip(bond->params.arp_targets, sip);
+> +	if (i == -1) {
+>  		pr_debug("bva: sip %pI4 not found in targets\n", &sip);
+>  		return;
+>  	}
+>  
+>  	slave->last_arp_rx = jiffies;
+> +	slave->target_last_arp_rx[i] = jiffies;
+>  }
+Here again it's probably good to check if sip != 0 (0.0.0.0) because you
+can alter the jiffies of the first free slot otherwise.
+>  
+>  static int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+> @@ -4381,6 +4396,7 @@ int bond_parse_parm(const char *buf, const struct bond_parm_tbl *tbl)
+>  static int bond_check_params(struct bond_params *params)
+>  {
+>  	int arp_validate_value, fail_over_mac_value, primary_reselect_value, i;
+> +	int arp_all_targets_value;
+>  
+>  	/*
+>  	 * Convert string parameters.
+> @@ -4606,6 +4622,23 @@ static int bond_check_params(struct bond_params *params)
+>  	} else
+>  		arp_validate_value = 0;
+>  
+> +	if (arp_all_targets) {
+> +		if (!arp_validate_value) {
+> +			pr_err("arp_all_targets requires arp_validate\n");
+> +			return -EINVAL;
+> +		}
+I don't think it's necessary to prevent module from loading. You can
+just revert to default value with an error message IMO.
+> +
+> +		arp_all_targets_value = bond_parse_parm(arp_all_targets,
+> +							arp_all_targets_tbl);
+> +
+> +		if (arp_all_targets_value == -1) {
+> +			pr_err("Error: invalid arp_all_targets_value \"%s\"\n",
+> +			       arp_all_targets);
+> +			return -EINVAL;
+> +		}
+Again I think you can just default here, no need to prevent module from
+loading, an error message would be enough IMO.
+> +	} else
+> +		arp_all_targets_value = 0;
+> +
+"else" statement should be in { } since the "if" before is (CodingStyle).
+>  	if (miimon) {
+>  		pr_info("MII link monitoring set to %d ms\n", miimon);
+>  	} else if (arp_interval) {
+> @@ -4670,6 +4703,7 @@ static int bond_check_params(struct bond_params *params)
+>  	params->num_peer_notif = num_peer_notif;
+>  	params->arp_interval = arp_interval;
+>  	params->arp_validate = arp_validate_value;
+> +	params->arp_all_targets = arp_all_targets_value;
+>  	params->updelay = updelay;
+>  	params->downdelay = downdelay;
+>  	params->use_carrier = use_carrier;
+> diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+> index e680151..09fb9f7 100644
+> --- a/drivers/net/bonding/bond_sysfs.c
+> +++ b/drivers/net/bonding/bond_sysfs.c
+> @@ -443,6 +443,49 @@ static ssize_t bonding_store_arp_validate(struct device *d,
+>  
+>  static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate,
+>  		   bonding_store_arp_validate);
+> +/*
+> + * Show and set arp_all_targets.
+> + */
+> +static ssize_t bonding_show_arp_all_targets(struct device *d,
+> +					 struct device_attribute *attr,
+> +					 char *buf)
+> +{
+> +	struct bonding *bond = to_bond(d);
+> +	int value = bond->params.arp_all_targets;
+> +
+> +	return sprintf(buf, "%s %d\n", arp_all_targets_tbl[value].modename,
+> +		       value);
+> +}
+> +
+> +static ssize_t bonding_store_arp_all_targets(struct device *d,
+> +					  struct device_attribute *attr,
+> +					  const char *buf, size_t count)
+> +{
+> +	int new_value;
+> +	struct bonding *bond = to_bond(d);
+I'd say struct first, int second, but that's just a minor nitpick/opinion.
+> +
+> +	new_value = bond_parse_parm(buf, arp_all_targets_tbl);
+> +	if (new_value < 0) {
+> +		pr_err("%s: Ignoring invalid arp_all_targets value %s\n",
+> +		       bond->dev->name, buf);
+> +		return -EINVAL;
+> +	}
+> +	if (new_value && !bond->params.arp_validate) {
+> +		pr_err("%s: arp_all_targets requires arp_validate.\n",
+> +		       bond->dev->name);
+> +		return -EINVAL;
+> +	}
+> +	pr_info("%s: setting arp_all_targets to %s (%d).\n",
+> +		bond->dev->name, arp_all_targets_tbl[new_value].modename,
+> +		new_value);
+> +
+> +	bond->params.arp_all_targets = new_value;
+> +
+> +	return count;
+> +}
+> +
+> +static DEVICE_ATTR(arp_all_targets, S_IRUGO | S_IWUSR,
+> +		   bonding_show_arp_all_targets, bonding_store_arp_all_targets);
+>  
+>  /*
+>   * Show and store fail_over_mac.  User only allowed to change the
+> @@ -1625,6 +1668,7 @@ static struct attribute *per_bond_attrs[] = {
+>  	&dev_attr_mode.attr,
+>  	&dev_attr_fail_over_mac.attr,
+>  	&dev_attr_arp_validate.attr,
+> +	&dev_attr_arp_all_targets.attr,
+>  	&dev_attr_arp_interval.attr,
+>  	&dev_attr_arp_ip_target.attr,
+>  	&dev_attr_downdelay.attr,
+> diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+> index 7feab6c..29fc8d6 100644
+> --- a/drivers/net/bonding/bonding.h
+> +++ b/drivers/net/bonding/bonding.h
+> @@ -144,6 +144,7 @@ struct bond_params {
+>  	u8 num_peer_notif;
+>  	int arp_interval;
+>  	int arp_validate;
+> +	int arp_all_targets;
+>  	int use_carrier;
+>  	int fail_over_mac;
+>  	int updelay;
+> @@ -179,6 +180,7 @@ struct slave {
+>  	int    delay;
+>  	unsigned long jiffies;
+>  	unsigned long last_arp_rx;
+> +	unsigned long target_last_arp_rx[BOND_MAX_ARP_TARGETS];
+This is the part I resist since struct slave is huge as it is, and this
+is just making it bigger. I know it's necessary and all, just saying :-)
+>  	s8     link;    /* one of BOND_LINK_XXXX */
+>  	s8     new_link;
+>  	u8     backup:1,   /* indicates backup slave. Value corresponds with
+> @@ -322,6 +324,9 @@ static inline bool bond_is_active_slave(struct slave *slave)
+>  #define BOND_FOM_ACTIVE			1
+>  #define BOND_FOM_FOLLOW			2
+>  
+> +#define BOND_ARP_TARGETS_ANY		0
+> +#define BOND_ARP_TARGETS_ALL		1
+> +
+>  #define BOND_ARP_VALIDATE_NONE		0
+>  #define BOND_ARP_VALIDATE_ACTIVE	(1 << BOND_STATE_ACTIVE)
+>  #define BOND_ARP_VALIDATE_BACKUP	(1 << BOND_STATE_BACKUP)
+> @@ -334,11 +339,31 @@ static inline int slave_do_arp_validate(struct bonding *bond,
+>  	return bond->params.arp_validate & (1 << bond_slave_state(slave));
+>  }
+>  
+> +/* Get the oldest arp which we've received on this slave for bond's
+> + * arp_targets.
+> + */
+> +static inline unsigned long slave_oldest_target_arp_rx(struct bonding *bond,
+> +						       struct slave *slave)
+> +{
+> +	int i = 1;
+> +	unsigned long ret = slave->target_last_arp_rx[0];
+> +
+> +	for (; (i < BOND_MAX_ARP_TARGETS) && bond->params.arp_targets[i]; i++)
+> +		if (time_before(slave->target_last_arp_rx[i], ret))
+> +			ret = slave->target_last_arp_rx[i];
+> +
+> +	return ret;
+> +}
+> +
+>  static inline unsigned long slave_last_rx(struct bonding *bond,
+>  					struct slave *slave)
+>  {
+> -	if (slave_do_arp_validate(bond, slave))
+> -		return slave->last_arp_rx;
+> +	if (slave_do_arp_validate(bond, slave)) {
+> +		if (bond->params.arp_all_targets == BOND_ARP_TARGETS_ALL)
+> +			return slave_oldest_target_arp_rx(bond, slave);
+> +		else
+> +			return slave->last_arp_rx;
+I wonder if there's a chance to return 0 from slave_oldest_target_arp_rx
+here in the case of no arp IP targets or even in the case of adding an
+IP target after the enslaving and prior to receiving an ARP from it,
+since there're places where some values can be decremented from that and
+we'll end up with 0 - something.
+Because in the old case last_arp_rx was set while enslaving.
+> +	}
+>  
+>  	return slave->dev->last_rx;
+>  }
+> @@ -486,6 +511,7 @@ extern const struct bond_parm_tbl bond_lacp_tbl[];
+>  extern const struct bond_parm_tbl bond_mode_tbl[];
+>  extern const struct bond_parm_tbl xmit_hashtype_tbl[];
+>  extern const struct bond_parm_tbl arp_validate_tbl[];
+> +extern const struct bond_parm_tbl arp_all_targets_tbl[];
+>  extern const struct bond_parm_tbl fail_over_mac_tbl[];
+>  extern const struct bond_parm_tbl pri_reselect_tbl[];
+>  extern struct bond_parm_tbl ad_select_tbl[];
