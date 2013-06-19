@@ -1,102 +1,58 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next rfc 1/3] net: avoid high order memory allocation for
- queues by using flex array
-Date: Wed, 19 Jun 2013 12:11:32 +0300
-Message-ID: <20130619091132.GA2816@redhat.com>
-References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
- <1371620452-49349-2-git-send-email-jasowang@redhat.com>
- <1371623518.3252.267.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	edumazet@google.com, hkchu@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1371623518.3252.267.camel@edumazet-glaptop>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next] net: sock: adapt SOCK_MIN_RCVBUF and SOCK_MIN_SNDBUF
+Date: Wed, 19 Jun 2013 11:18:38 +0200
+Message-ID: <1371633518-32656-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:26342 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S933820Ab3FSJSk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 05:18:40 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 18, 2013 at 11:31:58PM -0700, Eric Dumazet wrote:
-> On Wed, 2013-06-19 at 13:40 +0800, Jason Wang wrote:
-> > Currently, we use kcalloc to allocate rx/tx queues for a net device which could
-> > be easily lead to a high order memory allocation request when initializing a
-> > multiqueue net device. We can simply avoid this by switching to use flex array
-> > which always allocate at order zero.
-> > 
-> > Signed-off-by: Jason Wang <jasowang@redhat.com>
-> > ---
-> >  include/linux/netdevice.h |   13 ++++++----
-> >  net/core/dev.c            |   57 ++++++++++++++++++++++++++++++++------------
-> >  net/core/net-sysfs.c      |   15 +++++++----
-> >  3 files changed, 58 insertions(+), 27 deletions(-)
-> > 
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index 09b4188..c0b5d04 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -32,6 +32,7 @@
-> >  #include <linux/atomic.h>
-> >  #include <asm/cache.h>
-> >  #include <asm/byteorder.h>
-> > +#include <linux/flex_array.h>
-> >  
-> >  #include <linux/percpu.h>
-> >  #include <linux/rculist.h>
-> > @@ -1230,7 +1231,7 @@ struct net_device {
-> >  
-> > 
-> >  #ifdef CONFIG_RPS
-> > -	struct netdev_rx_queue	*_rx;
-> > +	struct flex_array	*_rx;
-> >  
-> >  	/* Number of RX queues allocated at register_netdev() time */
-> >  	unsigned int		num_rx_queues;
-> > @@ -1250,7 +1251,7 @@ struct net_device {
-> >  /*
-> >   * Cache lines mostly used on transmit path
-> >   */
-> > -	struct netdev_queue	*_tx ____cacheline_aligned_in_smp;
-> > +	struct flex_array	*_tx ____cacheline_aligned_in_smp;
-> >  
-> 
-> Using flex_array and adding overhead in this super critical part of
-> network stack, only to avoid order-1 allocations done in GFP_KERNEL
-> context is simply insane.
-> 
-> We can revisit this in 2050 if we ever need order-4 allocations or so,
-> and still use 4K pages.
-> 
-> 
+The current situation is that SOCK_MIN_RCVBUF is 2048 + sizeof(struct sk_buff))
+while SOCK_MIN_SNDBUF is 2048. Since in both cases, skb->truesize is used for
+sk_{r,w}mem_alloc accounting, we should have both sizes equal and adjusted
+through the macro SKB_TRUESIZE(), which is also used elsewhere to adjust sk
+buffer sizes. The minor adaption in sk_stream_moderate_sndbuf() is to silence
+a warning by using a typed max macro, as similarly done in SOCK_MIN_RCVBUF
+occurences, that would appear otherwise.
 
-Well KVM supports up to 160 VCPUs on x86.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/net/sock.h | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-Creating a queue per CPU is very reasonable, and
-assuming cache line size of 64 bytes, netdev_queue seems to be 320
-bytes, that's 320*160 = 51200. So 12.5 pages, order-4 allocation.
-I agree most people don't have such systems yet, but
-they do exist.
-
-We can cut the size of netdev_queue, moving out kobj - which
-does not seem to be used on data path to a separate structure.
-It's 64 byte in size so exactly 256 bytes.
-That will get us an order-3 allocation, and there's
-some padding there so we won't immediately increase it
-the moment we add some fields.
-
-Comments on this idea?
-
-Instead of always using a flex array, we could have
-+	struct netdev_queue     *_tx; /* Used with small # of queues */
-+#ifdef CONFIG_NETDEV_HUGE_NUMBER_OR_QUEUES
-+	struct flex_array     *_tx_large; /* Used with large # of queues */
-+#endif
-
-And fix wrappers to use _tx if not NULL, otherwise _tx_large.
-
-If configured in, it's an extra branch on data path but probably less
-costly than the extra indirection.
-
+diff --git a/include/net/sock.h b/include/net/sock.h
+index ac8e181..189ef98 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -2045,18 +2045,19 @@ static inline void sk_wake_async(struct sock *sk, int how, int band)
+ 		sock_wake_async(sk->sk_socket, how, band);
+ }
+ 
+-#define SOCK_MIN_SNDBUF 2048
+ /*
+- * Since sk_rmem_alloc sums skb->truesize, even a small frame might need
+- * sizeof(sk_buff) + MTU + padding, unless net driver perform copybreak
++ * Since sk_{r,w}mem_alloc sums skb->truesize, even a small frame might
++ * need sizeof(sk_buff) + sizeof(skb_shared_info) + MTU + padding, unless
++ * net driver perform copybreak.
+  */
+-#define SOCK_MIN_RCVBUF (2048 + sizeof(struct sk_buff))
++#define SOCK_MIN_RCVBUF		SKB_TRUESIZE(2048)
++#define SOCK_MIN_SNDBUF		SKB_TRUESIZE(2048)
+ 
+ static inline void sk_stream_moderate_sndbuf(struct sock *sk)
+ {
+ 	if (!(sk->sk_userlocks & SOCK_SNDBUF_LOCK)) {
+ 		sk->sk_sndbuf = min(sk->sk_sndbuf, sk->sk_wmem_queued >> 1);
+-		sk->sk_sndbuf = max(sk->sk_sndbuf, SOCK_MIN_SNDBUF);
++		sk->sk_sndbuf = max_t(u32, sk->sk_sndbuf, SOCK_MIN_SNDBUF);
+ 	}
+ }
+ 
 -- 
-MST
+1.7.11.7
