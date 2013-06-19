@@ -1,101 +1,80 @@
 From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next 1/2] macvtap: Let TUNSETOFFLOAD actually controll
- offload features.
-Date: Wed, 19 Jun 2013 12:20:40 -0400
-Message-ID: <51C1DA58.4010204@redhat.com>
-References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>   <1371653272-11703-2-git-send-email-vyasevic@redhat.com>  <1371655038.3252.312.camel@edumazet-glaptop> <51C1CDBC.4040003@redhat.com> <1371656769.3252.320.camel@edumazet-glaptop>
+Subject: Re: [PATCH net-next 2/2] macvtap: Perform GSO on forwarding path.
+Date: Wed, 19 Jun 2013 12:22:24 -0400
+Message-ID: <51C1DAC0.4010000@redhat.com>
+References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com> <1371653272-11703-3-git-send-email-vyasevic@redhat.com>
 Reply-To: vyasevic@redhat.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
 	jasowang@redhat.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4845 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50255 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757176Ab3FSQUn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 12:20:43 -0400
-In-Reply-To: <1371656769.3252.320.camel@edumazet-glaptop>
+	id S1757027Ab3FSQW1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 12:22:27 -0400
+In-Reply-To: <1371653272-11703-3-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/19/2013 11:46 AM, Eric Dumazet wrote:
-> On Wed, 2013-06-19 at 11:26 -0400, Vlad Yasevich wrote:
+On 06/19/2013 10:47 AM, Vlad Yasevich wrote:
+> When macvtap forwards skb to its tap, it needs to check
+> if GSO needs to be performed.  This is necessary
+> when the HW device performed GRO, but the guest reading
+> from the tap does not support it (ex: Windows 7).
 >
->> I think I do since vlan pointer may change even when I am holding
->> rtnl.  rtnl is needed to change features.  rcu is needed to get
->> the vlan pointer.
->>
->>> (A BH handler will not change q->vlan )
->>
->> No, but the _bh rcu calls seem to be used when dereferencing q->vlan.
->> I am not sure the reason for that...
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>   drivers/net/macvtap.c | 26 +++++++++++++++++++++++++-
+>   1 file changed, 25 insertions(+), 1 deletion(-)
 >
-> You mix the reader/fast path, properly using RCU,
-> and the writer path, using macvtap_lock ( a spinlock ).
+> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
+> index 09f0b1f..698f613 100644
+> --- a/drivers/net/macvtap.c
+> +++ b/drivers/net/macvtap.c
+> @@ -291,13 +291,37 @@ static void macvtap_del_queues(struct net_device *dev)
+>   static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
+>   {
+>   	struct macvtap_queue *q = macvtap_get_queue(dev, skb);
+> +	netdev_features_t features;
+>   	if (!q)
+>   		goto drop;
 >
-> That's clear sign you missed something.
+>   	if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
+>   		goto drop;
 >
+> -	skb_queue_tail(&q->sk.sk_receive_queue, skb);
+> +	features = netif_skb_features(skb);
 
-I don't think I need macvtap_lock as I am not modifying the relationship
-between q and vlan.  I am attempting to modify the macvlan device 
-features.  So macvtap_lock does not apply, and _rcu is used.
-
-Looking at the entire macvtap driver, only the _bh variants of rcu
-are used throughout the driver,  including in the ioctl() function.  I
-am not sure why the driver requires BH to be disabled, but that
-seems to be the case.
-
->>
->>>
->>> BTW, it looks like ->vlan is protected by macvtap_lock
->>
->> Right.  This is why I use rcu to get vlan.  rtnl is needed to avoid
->> asserts in the feature change code.
->
-> The management should be allowed to sleep, and rcu_read_lock_bh()
-> disallows that.
->
-> Maybe some driver callback will really sleep and crash after your patch.
->
-> vi +69 drivers/net/macvtap.c
->
-> /*
->   * RCU usage:
->   * The macvtap_queue and the macvlan_dev are loosely coupled, the
->   * pointers from one to the other can only be read while rcu_read_lock
->   * or macvtap_lock is held.
->
-> Your patch does not respect the rules of this driver.
-
-Why not?  It uses rcu to acquire the pointer thus following the rules. 
-The use of  the pointer is within the critical section so we are
-guaranteed to have a valid pointer.
-
->
-> macvtap_lock is always acquired from process context, without any need
-> for _bh variant.
->
-
-No, the lock is acquired only when modifying the relationship between 
-the macvtap_queue and macvtap_dev.
-
-
-> Quite frankly, I would switch this driver to use a mutex for
-> macvtap_lock.
->
-> And simply remove it, as RTNL is most probably already owned.
->
-
-That's the issue.  RTNL is not owned in the ioctl case.  In fact
-rtnl_lock was added to the patch because RTNL asserts were triggered
-when changing device features.
+Ooops..  This is the wrong patch...
 
 -vlad
-
-
->
->
+> +	if (netif_needs_gso(skb, features)) {
+> +		struct sk_buff *segs = skb_gso_segment(skb, features);
+> +
+> +		if (IS_ERR(segs))
+> +			goto drop;
+> +
+> +		if (!segs) {
+> +			skb_queue_tail(&q->sk.sk_receive_queue, skb);
+> +			goto wake_up;
+> +		}
+> +
+> +		kfree_skb(skb);
+> +		while (segs) {
+> +			struct sk_buff *nskb = segs->next;
+> +
+> +			segs->next = NULL;
+> +			skb_queue_tail(&q->sk.sk_receive_queue, segs);
+> +			segs = nskb;
+> +		}
+> +	} else
+> +		skb_queue_tail(&q->sk.sk_receive_queue, skb);
+> +
+> +wake_up:
+>   	wake_up_interruptible_poll(sk_sleep(&q->sk), POLLIN | POLLRDNORM | POLLRDBAND);
+>   	return NET_RX_SUCCESS;
 >
 >
