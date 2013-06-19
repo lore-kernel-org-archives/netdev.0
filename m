@@ -1,47 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 03/11] sfc: Increase size of RX SKB header area
-Date: Wed, 19 Jun 2013 15:38:20 -0700
-Message-ID: <1371681500.3252.341.camel@edumazet-glaptop>
-References: <1371680169.1956.107.camel@bwh-desktop.uk.level5networks.com>
-	 <1371680317.1956.110.camel@bwh-desktop.uk.level5networks.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH net-next 1/2] macvtap: Let TUNSETOFFLOAD actually controll offload features.
+Date: Thu, 20 Jun 2013 00:38:47 +0200
+Message-ID: <201306200038.47859.arnd@arndb.de>
+References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com> <51C1DA58.4010204@redhat.com> <51C1FF7B.9050502@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain;
+  charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-net-drivers@solarflare.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: Eric Dumazet <eric.dumazet@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, mst@redhat.com, jasowang@redhat.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f50.google.com ([74.125.83.50]:34651 "EHLO
-	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935291Ab3FSWi0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 18:38:26 -0400
-Received: by mail-ee0-f50.google.com with SMTP id d49so3452733eek.37
-        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 15:38:24 -0700 (PDT)
-In-Reply-To: <1371680317.1956.110.camel@bwh-desktop.uk.level5networks.com>
+Received: from moutng.kundenserver.de ([212.227.126.186]:61415 "EHLO
+	moutng.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935300Ab3FSWi5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 18:38:57 -0400
+In-Reply-To: <51C1FF7B.9050502@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-19 at 23:18 +0100, Ben Hutchings wrote:
-> From: Jon Cooper <jcooper@solarflare.com>
+On Wednesday 19 June 2013, Vlad Yasevich wrote:
+> Arnd
 > 
-> This allows the SKB to hold the headers without reallocation more often.
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
-> ---
->  drivers/net/ethernet/sfc/rx.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-> index b915e09..6efff3d 100644
-> --- a/drivers/net/ethernet/sfc/rx.c
-> +++ b/drivers/net/ethernet/sfc/rx.c
-> @@ -36,7 +36,7 @@
->  #define EFX_RECYCLE_RING_SIZE_NOIOMMU (2 * EFX_RX_PREFERRED_BATCH)
->  
->  /* Size of buffer allocated for skb header area. */
-> -#define EFX_SKB_HEADERS  64u
-> +#define EFX_SKB_HEADERS  128u
->  
+> MST suggested I add you.  Do you remember the reason
+> why macvtap uses rcu_read_lock_bh() instead of plain
+> rcu_read_lock()?  Additionally it seems to use
+> synchronize_rcu(), not the _bh() version.
 
-Yes, TCP with timestamps needs 66 bytes of headers on IPv4, and more on
-IPv6...
+I don't actually remember, but looking back at the git history, it
+seemst to come from one of the earliest versions of the code, and
+the locking was changed soon after that. Originally I needed
+rcu_read_lock for any function called from the network stack,
+which is equivalent to rcu_read_lock_bh as it is run from the
+network softirq. Using rcu_read_lock_bh for functions called from
+the chardev file operations might not be necessary but was
+consistent at the time.
+
+Looking at the state now, I think calling synchronize_rcu()
+instead of synchronize_rcu_bh() is not a bug but implies
+a longer grace period than necessary (I'm not sure about that)
+and extra overhead from disabling softirqs in rcu_read_lock.
+It's probably a good idea to revisit this and do it right.
+
+	Arnd
