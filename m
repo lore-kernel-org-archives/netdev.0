@@ -1,50 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [net-next,v5,2/3] bridge: only expire the mdb entry when query
- is received
-Date: Wed, 19 Jun 2013 12:44:38 +0800
-Message-ID: <20130619044438.GA8174@gondor.apana.org.au>
-References: <1369209176-6841-2-git-send-email-amwang@redhat.com>
- <20130618120338.GA9063@Linus-Debian>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Amerigo Wang <amwang@redhat.com>, netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Adam Baker <linux@baker-net.org.uk>
-To: Linus =?iso-8859-1?Q?L=FCssing?= <linus.luessing@web.de>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [net-next rfc 0/3] increase the limit of tuntap queues
+Date: Wed, 19 Jun 2013 13:40:49 +0800
+Message-ID: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
+Cc: Jason Wang <jasowang@redhat.com>
+To: davem@davemloft.net, edumazet@google.com, hkchu@google.com,
+	mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ringil.hengli.com.au ([178.18.16.133]:38924 "EHLO
-	fornost.hengli.com.au" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932873Ab3FSEot (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 00:44:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20130618120338.GA9063@Linus-Debian>
+Received: from mx1.redhat.com ([209.132.183.28]:10621 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1756404Ab3FSFva (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 01:51:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 18, 2013 at 02:03:38PM +0200, Linus L=FCssing wrote:
-> Hi Amerigo,
->=20
-> I just tested these three patches on top of 3.10-rc6 (thanks for
-> looking into these issues so far!) but unfortunately I'm still
-> having problems if there is no querier on the link:
->=20
-> We will never discover a multicast listener which sends its
-> startup MLD reports before being attached to the bridge port.
->=20
-> I had reported that issue two months ago to Herbert's patch which
-> changed the querier default [1].
->=20
-> I guess in such a scenario where neither our querier is activated
-> nor could we detect any querier, then the only safe thing we can
-> do is to disable the bridge multicast snooping, isn't it?
+Hi all:
 
-If we have seen no queries then we should simply flood.  The fact
-that we don't currently is a bug.
+This series tries to increase the limit of tuntap queues. Histrocially there're
+two reasons which prevent us from doing this:
 
-Cheers,
---=20
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+- We store the hash buckets in tun_struct which results a very large size of
+  tun_struct, this high order memory allocation fail easily when the memory were
+  fragmented.
+- The netdev_queue and netdev_rx_queue array in netdevice were allocated through
+  kmalloc, which may cause a high order memory allocation too when we have
+  several queues. E.g. sizeof(netdev_queue) is 320, which means a high order
+  allocation will happens when the device has more than 12 queues.
+
+So this series tries to address those issues by switching to use flex array. All
+entries were preallocated, and since flex array always do a order-0 allocation,
+we can safely increase the limit after.
+
+Only compile test, comments or review are more than welcomed.
+
+Jason Wang (3):
+  net: avoid high order memory allocation for queues by using flex
+    array
+  tuntap: reduce the size of tun_struct by using flex array
+  tuntap: increase the max queues to 16
+
+ drivers/net/tun.c         |   59 ++++++++++++++++++++++++++++++++------------
+ include/linux/netdevice.h |   13 ++++++----
+ net/core/dev.c            |   57 +++++++++++++++++++++++++++++++------------
+ net/core/net-sysfs.c      |   15 +++++++----
+ net/openvswitch/flow.c    |    2 +-
+ 5 files changed, 102 insertions(+), 44 deletions(-)
