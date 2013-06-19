@@ -1,85 +1,89 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [PATCH net-next 1/6] bonding: verify if bond has ip only once on arp validate
-Date: Wed, 19 Jun 2013 10:50:24 -0700
-Message-ID: <27844.1371664224@death.nxdomain>
-References: <1371663286-12518-2-git-send-email-vfalico@redhat.com>
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net,
-	linux@8192.net, nicolas.2p.debian@free.fr, rick.jones2@hp.com
-To: Veaceslav Falico <vfalico@redhat.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 2/5] SLIP: Handle error codes from the TTY layer
+Date: Wed, 19 Jun 2013 22:00:37 +0400
+Message-ID: <51C1F1C5.6080901@cogentembedded.com>
+References: <1371656071-27754-1-git-send-email-Dean_Jenkins@mentor.com> <1371656071-27754-3-git-send-email-Dean_Jenkins@mentor.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: Dean Jenkins <Dean_Jenkins@mentor.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from e39.co.us.ibm.com ([32.97.110.160]:51684 "EHLO
-	e39.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757212Ab3FSRuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 13:50:40 -0400
-Received: from /spool/local
-	by e39.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <fubar@us.ibm.com>;
-	Wed, 19 Jun 2013 11:50:40 -0600
-Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 8E86F3E40044
-	for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 11:50:18 -0600 (MDT)
-Received: from d03av04.boulder.ibm.com (d03av04.boulder.ibm.com [9.17.195.170])
-	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r5JHoVsF072296
-	for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 11:50:33 -0600
-Received: from d03av04.boulder.ibm.com (loopback [127.0.0.1])
-	by d03av04.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r5JHoRAH022186
-	for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 11:50:29 -0600
-In-reply-to: <1371663286-12518-2-git-send-email-vfalico@redhat.com>
+Received: from mail-lb0-f171.google.com ([209.85.217.171]:63088 "EHLO
+	mail-lb0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933869Ab3FSSAf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 14:00:35 -0400
+Received: by mail-lb0-f171.google.com with SMTP id 13so5070957lba.30
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 11:00:34 -0700 (PDT)
+In-Reply-To: <1371656071-27754-3-git-send-email-Dean_Jenkins@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Veaceslav Falico <vfalico@redhat.com> wrote:
+Hello Dean.
 
->It's extra work to verify bond's ip presence for every slave, so take it
->out of the loop.
+On 06/19/2013 07:34 PM, Dean Jenkins wrote:
 
-	The current code doesn't verify for every slave (target address,
-actually).  The call to bond_has_this_ip() happens at most once, if the
-sip (source IP) matches the arp_ip_target being inspected, after which
-the function returns.
+> It appears that SLIP does not handle error codes from the TTY layer.
+> This will result in a malfunction because the remaining length of
+> data will be corrupted by the negative error code values from the TTY
+> layer.
 
-	I can see that the patch will bypass the loop entirely if the
-bond lacks the IP, but I'm not sure that's a meaningful improvement,
-since it changes from calling bond_has_this_ip 0 or 1 times to always 1
-time.
+> Therefore, add error code checks in sl_encaps() and sl_encaps_wakeup()
+> to prevent the corruption of the sent data length.
 
-	-J
+> Note that SLIP is connectionless so on TTY error indicate that all data
+> was sent. It seems SLIP does not return error codes to the network
+> layer.
 
+> Signed-off-by: Dean Jenkins <Dean_Jenkins@mentor.com>
+> ---
+>   drivers/net/slip/slip.c | 26 ++++++++++++++++++++++----
+>   1 file changed, 22 insertions(+), 4 deletions(-)
 
->Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->---
-> drivers/net/bonding/bond_main.c |   13 ++++++++-----
-> 1 files changed, 8 insertions(+), 5 deletions(-)
+> diff --git a/drivers/net/slip/slip.c b/drivers/net/slip/slip.c
+> index a34d6bf..bed819f 100644
+> --- a/drivers/net/slip/slip.c
+> +++ b/drivers/net/slip/slip.c
+[...]
+> @@ -404,7 +404,16 @@ static void sl_encaps(struct slip *sl, unsigned char *icp, int len)
+>   	 *       14 Oct 1994  Dmitry Gorodchanin.
+>   	 */
+>   	set_bit(TTY_DO_WRITE_WAKEUP, &sl->tty->flags);
+> -	actual = sl->tty->ops->write(sl->tty, sl->xbuff, count);
+> +	err = sl->tty->ops->write(sl->tty, sl->xbuff, count);
+> +
+
+    I don't think empty line is needed here.
+
+> +	if (err < 0) {
+> +		/* error case, say all was sent as connectionless */
+> +		actual = count;
+> +	} else {
+> +		/* good case, err contains the number sent */
+> +		actual = err;
+> +	}
+> +
+>   #ifdef SL_CHECK_TRANSMIT
+>   	sl->dev->trans_start = jiffies;
+>   #endif
+[...]
+> @@ -438,7 +447,16 @@ static void slip_write_wakeup(struct tty_struct *tty)
+>   		return;
+>   	}
 >
->diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->index bc1246f..3d8b5ba 100644
->--- a/drivers/net/bonding/bond_main.c
->+++ b/drivers/net/bonding/bond_main.c
->@@ -2602,13 +2602,16 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
-> 	int i;
-> 	__be32 *targets = bond->params.arp_targets;
->
->+	if (!bond_has_this_ip(bond, tip)) {
->+		pr_debug("bva: tip %pI4 not found\n", &tip);
->+		return;
->+	}
->+
-> 	for (i = 0; (i < BOND_MAX_ARP_TARGETS) && targets[i]; i++) {
->-		pr_debug("bva: sip %pI4 tip %pI4 t[%d] %pI4 bhti(tip) %d\n",
->-			 &sip, &tip, i, &targets[i],
->-			 bond_has_this_ip(bond, tip));
->+		pr_debug("bva: sip %pI4 tip %pI4 t[%d] %pI4 bhti(tip)\n",
->+			 &sip, &tip, i, &targets[i]);
-> 		if (sip == targets[i]) {
->-			if (bond_has_this_ip(bond, tip))
->-				slave->last_arp_rx = jiffies;
->+			slave->last_arp_rx = jiffies;
-> 			return;
-> 		}
-> 	}
->-- 
->1.7.1
->
+> -	actual = tty->ops->write(tty, sl->xhead, sl->xleft);
+> +	err = tty->ops->write(tty, sl->xhead, sl->xleft);
+> +
 
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+    Neither here.
+
+> +	if (err < 0) {
+> +		/* error case, say all was sent as connectionless */
+> +		actual = sl->xleft;
+> +	} else {
+> +		/* good case, err contains the number sent */
+> +		actual = err;
+> +	}
+> +
+
+WBR, Sergei
