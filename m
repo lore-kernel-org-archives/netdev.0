@@ -1,72 +1,22 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: [PATCH net-next 2/2] macvtap: Perform GSO on forwarding path.
-Date: Wed, 19 Jun 2013 10:47:52 -0400
-Message-ID: <1371653272-11703-3-git-send-email-vyasevic@redhat.com>
-References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>
-Cc: davem@davemloft.net, mst@redhat.com, jasowang@redhat.com,
-	Vlad Yasevich <vyasevic@redhat.com>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: More vxlan patches
+Date: Wed, 19 Jun 2013 08:00:43 -0700
+Message-ID: <20130619080043.630a5276@nehalam.linuxnetplumber.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25972 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756740Ab3FSOsO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 10:48:14 -0400
-In-Reply-To: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>
+Received: from mail-pd0-f177.google.com ([209.85.192.177]:50637 "EHLO
+	mail-pd0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756767Ab3FSPAr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:00:47 -0400
+Received: by mail-pd0-f177.google.com with SMTP id p10so5093410pdj.8
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 08:00:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When macvtap forwards skb to its tap, it needs to check
-if GSO needs to be performed.  This is necessary
-when the HW device performed GRO, but the guest reading
-from the tap does not support it (ex: Windows 7).
-
-Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
----
- drivers/net/macvtap.c | 26 +++++++++++++++++++++++++-
- 1 file changed, 25 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
-index 09f0b1f..698f613 100644
---- a/drivers/net/macvtap.c
-+++ b/drivers/net/macvtap.c
-@@ -291,13 +291,37 @@ static void macvtap_del_queues(struct net_device *dev)
- static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
- {
- 	struct macvtap_queue *q = macvtap_get_queue(dev, skb);
-+	netdev_features_t features;
- 	if (!q)
- 		goto drop;
- 
- 	if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
- 		goto drop;
- 
--	skb_queue_tail(&q->sk.sk_receive_queue, skb);
-+	features = netif_skb_features(skb);
-+	if (netif_needs_gso(skb, features)) {
-+		struct sk_buff *segs = skb_gso_segment(skb, features);
-+
-+		if (IS_ERR(segs))
-+			goto drop;
-+
-+		if (!segs) {
-+			skb_queue_tail(&q->sk.sk_receive_queue, skb);
-+			goto wake_up;
-+		}
-+
-+		kfree_skb(skb);
-+		while (segs) {
-+			struct sk_buff *nskb = segs->next;
-+
-+			segs->next = NULL;
-+			skb_queue_tail(&q->sk.sk_receive_queue, segs);
-+			segs = nskb;
-+		}
-+	} else
-+		skb_queue_tail(&q->sk.sk_receive_queue, skb);
-+
-+wake_up:
- 	wake_up_interruptible_poll(sk_sleep(&q->sk), POLLIN | POLLRDNORM | POLLRDBAND);
- 	return NET_RX_SUCCESS;
- 
--- 
-1.8.1.4
+Dave,
+I have 12 more VXLAN patches pending, should I send first 4 again or do
+you want to merge net to net-next first?
