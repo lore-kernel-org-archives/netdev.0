@@ -1,163 +1,174 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: [PATCH RFC] net: lls epoll support
-Date: Wed, 19 Jun 2013 14:42:52 +0300
-Message-ID: <51C1993C.9030204@linux.intel.com>
-References: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 4/5] net: sctp: decouple cleaning socket data
+ from endpoint
+Date: Wed, 19 Jun 2013 07:55:19 -0400
+Message-ID: <20130619115519.GA15229@hmsreliant.think-freely.org>
+References: <1371545720-22950-1-git-send-email-dborkman@redhat.com>
+ <1371545720-22950-5-git-send-email-dborkman@redhat.com>
+ <20130618142240.GA27099@hmsreliant.think-freely.org>
+ <51C08492.7040602@redhat.com>
+ <51C089BF.2040603@gmail.com>
+ <20130618174503.GB27099@hmsreliant.think-freely.org>
+ <51C0A3B9.80905@gmail.com>
+ <20130618191234.GD27099@hmsreliant.think-freely.org>
+ <51C0E55F.1010409@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	e1000-devel@lists.sourceforge.net,
-	Willem de Bruijn <willemb@google.com>,
-	Eric Dumazet <erdnetdev@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
-	Eilon Greenstien <eilong@broadcom.com>,
-	Or Gerlitz <or.gerlitz@gmail.com>,
-	Amir Vadai <amirv@mellanox.com>,
-	Alex Rosenbaum <alexr@mellanox.com>,
-	Eliezer Tamir <eliezer@tamir.org.il>
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
+To: Vlad Yasevich <vyasevich@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59122 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933666Ab3FSLz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 07:55:27 -0400
+Content-Disposition: inline
+In-Reply-To: <51C0E55F.1010409@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a wild hack, just as a POC to show the power or LLS with epoll.
+On Tue, Jun 18, 2013 at 06:55:27PM -0400, Vlad Yasevich wrote:
+> On 06/18/2013 03:12 PM, Neil Horman wrote:
+> >On Tue, Jun 18, 2013 at 02:15:21PM -0400, Vlad Yasevich wrote:
+> >>On 06/18/2013 01:45 PM, Neil Horman wrote:
+> >>>On Tue, Jun 18, 2013 at 12:24:31PM -0400, Vlad Yasevich wrote:
+> >>>>On 06/18/2013 12:02 PM, Daniel Borkmann wrote:
+> >>>>>On 06/18/2013 04:22 PM, Neil Horman wrote:
+> >>>>>>I like this idea, but I think I'm maybe missing something from it - we
+> >>>>>>reference
+> >>>>>>the socket in both the receive and send paths (sctp_unpack_cookie, is
+> >>>>>>specifically called from the rx path, which makes use of sp->hmac).  a
+> >>>>>>socket
+> >>>>>>destructor can be called from __sk_free when sk_wmem_alloc reaches
+> >>>>>>zero, but we
+> >>>>>>use sk_refcnt in the rx path to prevent premature socket cleanup.  If
+> >>>>>>we drain
+> >>>>>>our send queeue while wer'e still processing rx messages, what
+> >>>>>>prevents us from
+> >>>>>>freeing the socket in the tx path, via sk_free while we're still using
+> >>>>>>the
+> >>>>>>socket in the rx path.  Note I don't think this patch is wrong per-se,
+> >>>>>>but it
+> >>>>>>seems to me there is more work to do to properly interlock the use of
+> >>>>>>sk_refcnt
+> >>>>>>and sk_wmem_alloc here (unless I'm just missing something obvious,
+> >>>>>>which is
+> >>>>>>entirely possible, I've been in the sun alot lately :) ).
+> >>>>>
+> >>>>>Hm, __sk_free() calls sk_prot_free() which frees our socket structure
+> >>>>>and in
+> >>>>>sctp_wfree() we do a sctp_association_put(asoc) after sock_wfree(skb).
+> >>>>>
+> >>>>>So no matter if having this patch or not, couldn't this use-after-free like
+> >>>>>scenario already happen with the current code?
+> >>>>>
+> >>>>>F.e. through a given call graph like that:
+> >>>>>
+> >>>>>sctp_wfree(skb):
+> >>>>>  1) sock_wfree(skb)
+> >>>>>     -> __sk_free()
+> >>>>
+> >>>>I don't think this can happen.  sk_wmem_alloc is set to 1 in sk_alloc()
+> >>>>and that acts as a guard to make sure that sk_free() has been called
+> >>>>before we try to free things up.  So, in this partcular case, for
+> >>>>__sk_free() to be called, sk_free() had to be called meaning the
+> >>>>last ref on the socket was released.  However, that's not possible since
+> >>>>we are still holding the association and thus holding the socket
+> >>>>associated with it.
+> >>>>
+> >>>I see what your saying, and I agree, with that bias added in sk_alloc, it looks
+> >>>like we won't ever call __sk_free until sk_wmem_alloc is 1 _and_ sk_refcnt is 0.
+> >>>It still seems messy and confusing though.  It would make more sense to me to
+> >>>increment the refcount an additional time when the socket is initalized, and
+> >>>then decrement it again when the socket is closed and sk_wmem_alloc reaches
+> >>>zero.  That would isolate the refcounting to a single variable.
+> >>
+> >>See commit 2b85a34e911bf483c27cfdd124aeb1605145dc80.  The whole
+> >>sk_wmem_alloc tric was done so that we dont have to do
+> >>sock_hold/sock_put on transmits.
+> >>
+> >I know about why it was done, I'm just proposing that we don't have to do it
+> >that way to get the speedup it gives us, and make the code a bit more clear at
+> >the same time.  If we set the refcnt to 2 at init time, we can decrement that
+> >added initial bias when the sk is marked as SOCK_DEAD and the sk_wmem_queued
+> >reaches 0.  We still don't have to do a sock_hold/put on every tx, and we keep
+> >all the reference counting in one location.
+> 
+> sorry, not following..  regardless, this seems to have gotten a bit
+SOCK_DEAD set in sk->flags IIRC should indicate that the socket has been
+orphaned from any user space file descriptors (i.e. the same meaning that the
+initial bias to sk_wmem_alloc is telling us).  I'm just saying we can use that
+to replace the sk_wmem_alloc == 0 test.
 
-We assume that we only ever need to poll on one device queue,
-so the first FD that reports POLL_LL gets saved aside so we can poll on.
+> off topic.  I am going to take a deeper look at Daniel's to make
+> sure it doesn't introduce any races.
+Yes, this is off topic, I was really just complaining that the current scheme
+makes it harder to evaluate patches like this.
 
-While this assumption is wrong in so many ways, it's very easy to 
-satisfy with a micro-benchmark.
+Neil
 
-[this patch needs the poll patch to be applied first]
-with sockperf doing epoll on 1000 sockets I see an avg latency of 6us
-
-Signed-off-by: Eliezer Tamir <eliezer.tamir@linux.intel.com>
----
-
-  fs/eventpoll.c |   39 +++++++++++++++++++++++++++++++++------
-  1 files changed, 33 insertions(+), 6 deletions(-)
-
-diff --git a/fs/eventpoll.c b/fs/eventpoll.c
-index deecc72..3c7562b 100644
---- a/fs/eventpoll.c
-+++ b/fs/eventpoll.c
-@@ -41,6 +41,7 @@
-  #include <linux/proc_fs.h>
-  #include <linux/seq_file.h>
-  #include <linux/compat.h>
-+#include <net/ll_poll.h>
-
-  /*
-   * LOCKING:
-@@ -214,6 +215,7 @@ struct eventpoll {
-  	/* used to optimize loop detection check */
-  	int visited;
-  	struct list_head visited_list_link;
-+	struct epitem *ll_epi;
-  };
-
-  /* Wait structure used by the poll hooks */
-@@ -773,13 +775,30 @@ static int ep_eventpoll_release(struct inode 
-*inode, struct file *file)
-  	return 0;
-  }
-
--static inline unsigned int ep_item_poll(struct epitem *epi, poll_table *pt)
-+static inline unsigned int ep_item_poll(struct epitem *epi, poll_table 
-*pt, struct eventpoll *ep)
-  {
-+	unsigned int events = epi->ffd.file->f_op->poll(epi->ffd.file, pt);
-  	pt->_key = epi->event.events;
-
--	return epi->ffd.file->f_op->poll(epi->ffd.file, pt) & epi->event.events;
-+	if (events & POLLLLS) {
-+		events &= ~POLLLLS;
-+		ep->ll_epi = epi;
-+	}
-+
-+	return events & epi->event.events;
-+}
-+
-+static inline bool ep_item_poll_ll(struct epitem *epi)
-+{
-+	poll_table wait;
-+
-+	wait._key = POLLLLS;
-+	wait._qproc = NULL;
-+
-+	return epi->ffd.file->f_op->poll(epi->ffd.file, &wait);
-  }
-
-+
-  static int ep_read_events_proc(struct eventpoll *ep, struct list_head 
-*head,
-  			       void *priv)
-  {
-@@ -789,7 +808,7 @@ static int ep_read_events_proc(struct eventpoll *ep, 
-struct list_head *head,
-  	init_poll_funcptr(&pt, NULL);
-
-  	list_for_each_entry_safe(epi, tmp, head, rdllink) {
--		if (ep_item_poll(epi, &pt))
-+		if (ep_item_poll(epi, &pt, ep))
-  			return POLLIN | POLLRDNORM;
-  		else {
-  			/*
-@@ -1271,7 +1290,7 @@ static int ep_insert(struct eventpoll *ep, struct 
-epoll_event *event,
-  	 * this operation completes, the poll callback can start hitting
-  	 * the new item.
-  	 */
--	revents = ep_item_poll(epi, &epq.pt);
-+	revents = ep_item_poll(epi, &epq.pt, ep);
-
-  	/*
-  	 * We have to check if something went wrong during the poll wait queue
-@@ -1403,7 +1422,7 @@ static int ep_modify(struct eventpoll *ep, struct 
-epitem *epi, struct epoll_even
-  	 * Get current event bits. We can safely use the file* here because
-  	 * its usage count has been increased by the caller of this function.
-  	 */
--	revents = ep_item_poll(epi, &pt);
-+	revents = ep_item_poll(epi, &pt, ep);
-
-  	/*
-  	 * If the item is "hot" and it is not registered inside the ready
-@@ -1471,7 +1490,7 @@ static int ep_send_events_proc(struct eventpoll 
-*ep, struct list_head *head,
-
-  		list_del_init(&epi->rdllink);
-
--		revents = ep_item_poll(epi, &pt);
-+		revents = ep_item_poll(epi, &pt, ep);
-
-  		/*
-  		 * If the event mask intersect the caller-requested one,
-@@ -1558,6 +1577,10 @@ static int ep_poll(struct eventpoll *ep, struct 
-epoll_event __user *events,
-  	long slack = 0;
-  	wait_queue_t wait;
-  	ktime_t expires, *to = NULL;
-+	cycles_t ll_time = ll_end_time();
-+	//bool try_ll = true;
-+	bool can_ll = !!ep->ll_epi;
-+
-
-  	if (timeout > 0) {
-  		struct timespec end_time = ep_set_mstimeout(timeout);
-@@ -1601,6 +1624,10 @@ fetch_events:
-  				break;
-  			}
-
-+			while (can_ll && can_poll_ll(ll_time)
-+					&& !ep_events_available(ep))
-+				ep_item_poll_ll(ep->ll_epi);
-+
-  			spin_unlock_irqrestore(&ep->lock, flags);
-  			if (!schedule_hrtimeout_range(to, slack, HRTIMER_MODE_ABS))
-  				timed_out = 1;
+> 
+> -vlad
+> 
+> >
+> >Alternatively we can move all the reference counting to sk_wmem_alloc, and have
+> >sock_hold/put increment that field by one instead of sk_refcnt, meaning we could
+> >remove that field
+> >
+> >We don't really have to do any of this, of course, but not having looked at it
+> >in some time, it seems confusing to me to have have a single additional ref
+> >count tracked in sk_wmem_alloc.
+> >
+> >>It might be good to see if we can do that in sctp as well.
+> >Not sure what you mean by "that" here.  You mean remove the additional uses of
+> >sctp_hold/put?
+> >
+> >Neil
+> >
+> >>
+> >>-vlad
+> >>
+> >>
+> >>>Neil
+> >>>
+> >>>>-vlad
+> >>>>
+> >>>>>      -> sk_prot_free(.., sk)
+> >>>>>       -> kmem_cache_free(.., sk) or kfree(sk)
+> >>>>>  2) __sctp_write_space(asoc)
+> >>>>>  3) sctp_association_put(asoc)
+> >>>>>     -> sctp_association_destroy(asoc)
+> >>>>>      -> sctp_endpoint_put(asoc->ep)
+> >>>>>       -> sctp_endpoint_destroy(ep)
+> >>>>>        -> crypto_free_hash(sctp_sk(ep->base.sk)->hmac)
+> >>>>>           (etc, all unconditionally accessed while sk is
+> >>>>>            already dead/freed)
+> >>>>>
+> >>>>>Then, this might need a fix in general. :-)
+> >>>>>
+> >>>>>Assuming you would reduce the buffer space via setsockopt(.., SO_SNDBUF,
+> >>>>>..),
+> >>>>>you might end up with a minimum buffer space of SOCK_MIN_SNDBUF [*] and
+> >>>>>a call to
+> >>>>>sk->sk_write_space(sk), which is sctp_write_space() and calls
+> >>>>>__sctp_write_space()
+> >>>>>on all asocs belonging to the socket, but it seems not to alter the current
+> >>>>>sk->sk_wmem_alloc I think, but rather sk->sk_sndbuf.
+> >>>>>
+> >>>>>[*] Btw, shouldn't this rather be (2048 + sizeof(struct sk_buff)) or
+> >>>>>     SKB_TRUESIZE(2048), at least like in SOCK_MIN_RCVBUF since we operate
+> >>>>>     on skb->truesize as well?
+> >>>>>--
+> >>>>>To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> >>>>>the body of a message to majordomo@vger.kernel.org
+> >>>>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> >>>>
+> >>>>
+> >>
+> >>
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
