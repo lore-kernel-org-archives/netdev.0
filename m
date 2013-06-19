@@ -1,33 +1,38 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 1/2] bnx2x: add support for ndo_ll_poll
-Date: Wed, 19 Jun 2013 01:18:33 -0700
-Message-ID: <1371629913.3252.269.camel@edumazet-glaptop>
-References: <1371594965-12546-1-git-send-email-dmitry@broadcom.com>
-	 <1371594965-12546-2-git-send-email-dmitry@broadcom.com>
+Subject: Re: [PATCH net-next V1 1/2] net/mlx4_en: Add Low Latency Socket
+ (LLS) support
+Date: Wed, 19 Jun 2013 01:21:50 -0700
+Message-ID: <1371630110.3252.270.camel@edumazet-glaptop>
+References: <1371561508-11960-1-git-send-email-amirv@mellanox.com>
+	 <1371561508-11960-2-git-send-email-amirv@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, eilong@broadcom.com
-To: Dmitry Kravkov <dmitry@broadcom.com>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Amir Vadai <amirv@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f45.google.com ([74.125.83.45]:57178 "EHLO
-	mail-ee0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756629Ab3FSISj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 04:18:39 -0400
-Received: by mail-ee0-f45.google.com with SMTP id c1so3031595eek.32
-        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 01:18:38 -0700 (PDT)
-In-Reply-To: <1371594965-12546-2-git-send-email-dmitry@broadcom.com>
+Received: from mail-ea0-f173.google.com ([209.85.215.173]:50996 "EHLO
+	mail-ea0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756551Ab3FSIVz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 04:21:55 -0400
+Received: by mail-ea0-f173.google.com with SMTP id g15so3082745eak.18
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 01:21:54 -0700 (PDT)
+In-Reply-To: <1371561508-11960-2-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2013-06-19 at 01:36 +0300, Dmitry Kravkov wrote:
-> Adds ndo_ll_poll method and locking for FPs between LL and the napi.
+On Tue, 2013-06-18 at 16:18 +0300, Amir Vadai wrote:
+> Add basic support for LLS.
 > 
-> When receiving a packet we use skb_mark_ll to record the napi it came from.
-> Add each napi to the napi_hash right after netif_napi_add().
-> 
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+> Signed-off-by: Amir Vadai <amirv@mellanox.com>
 > ---
+>  drivers/net/ethernet/mellanox/mlx4/en_cq.c     |   3 +
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c |  43 ++++++++-
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c     |  15 ++-
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   | 121 +++++++++++++++++++++++++
+>  4 files changed, 178 insertions(+), 4 deletions(-)
 
 Reviewed-by: Eric Dumazet <edumazet@google.com>
