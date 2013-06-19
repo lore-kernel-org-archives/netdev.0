@@ -1,104 +1,40 @@
-From: Vlad Yasevich <vyasevic@redhat.com>
-Subject: Re: [PATCH net-next 2/2] macvtap: Perform GSO on forwarding path.
-Date: Wed, 19 Jun 2013 12:27:47 -0400
-Message-ID: <51C1DC03.10704@redhat.com>
-References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com> <1371653272-11703-3-git-send-email-vyasevic@redhat.com> <20130619153047.GB12619@redhat.com>
-Reply-To: vyasevic@redhat.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: RE: [net-next rfc 1/3] net: avoid high order memory allocation for
+ queues by using flex array
+Date: Wed, 19 Jun 2013 09:28:53 -0700
+Message-ID: <1371659333.3252.329.camel@edumazet-glaptop>
+References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
+	 <1371620452-49349-2-git-send-email-jasowang@redhat.com>
+	 <1371623518.3252.267.camel@edumazet-glaptop>
+	 <20130619091132.GA2816@redhat.com>
+	 <1371635763.3252.289.camel@edumazet-glaptop>
+	 <20130619154059.GA13735@redhat.com>
+	 <1371657511.3252.324.camel@edumazet-glaptop>
+	 <AE90C24D6B3A694183C094C60CF0A2F6026B729A@saturn3.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14607 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756860Ab3FSQ1t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 12:27:49 -0400
-In-Reply-To: <20130619153047.GB12619@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "Michael S. Tsirkin" <mst@redhat.com>,
+	Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	edumazet@google.com, hkchu@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Laight <David.Laight@ACULAB.COM>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B729A@saturn3.aculab.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/19/2013 11:30 AM, Michael S. Tsirkin wrote:
-> On Wed, Jun 19, 2013 at 10:47:52AM -0400, Vlad Yasevich wrote:
->> When macvtap forwards skb to its tap, it needs to check
->> if GSO needs to be performed.  This is necessary
->> when the HW device performed GRO, but the guest reading
->> from the tap does not support it (ex: Windows 7).
->>
->> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
->> ---
->>   drivers/net/macvtap.c | 26 +++++++++++++++++++++++++-
->>   1 file changed, 25 insertions(+), 1 deletion(-)
->>
->> diff --git a/drivers/net/macvtap.c b/drivers/net/macvtap.c
->> index 09f0b1f..698f613 100644
->> --- a/drivers/net/macvtap.c
->> +++ b/drivers/net/macvtap.c
->> @@ -291,13 +291,37 @@ static void macvtap_del_queues(struct net_device *dev)
->>   static int macvtap_forward(struct net_device *dev, struct sk_buff *skb)
->>   {
->>   	struct macvtap_queue *q = macvtap_get_queue(dev, skb);
->> +	netdev_features_t features;
->>   	if (!q)
->>   		goto drop;
->>
->>   	if (skb_queue_len(&q->sk.sk_receive_queue) >= dev->tx_queue_len)
->>   		goto drop;
->>
->> -	skb_queue_tail(&q->sk.sk_receive_queue, skb);
->> +	features = netif_skb_features(skb);
->
-> Confused. skb->dev here points to the source macvlan
-> so features are wrong - we need destination features, no?
+On Wed, 2013-06-19 at 17:06 +0100, David Laight wrote:
 
-yes and no....  Thanks for pointing this out as this is actually the 
-wrong patch.
+> Given the number of places I've seen this code added, why
+> not put it in a general helper?
 
-So, to answer your question, in the case of receive, the device is 
-already the destination device.
-In the case of broadcast forward, the skb->dev is actually null and the
-'correct' patch does:
+Good luck with that. We had many attempts in the past.
 
-	skb->dev = dev;
+> I also thought that malloc() with GFP_KERNEL would sleep.
+> Under what conditions does it fail instead?
 
+For example on 32 bit kernel, LOW memory exhaustion/fragmentation.
 
->
->> +	if (netif_needs_gso(skb, features)) {
->> +		struct sk_buff *segs = skb_gso_segment(skb, features);
->
-> I'd prefer a different name for this variable.
-> skb_seg?
->
-
-OK.
-
--vlad
-
->> +
->> +		if (IS_ERR(segs))
->> +			goto drop;
->> +
->> +		if (!segs) {
->> +			skb_queue_tail(&q->sk.sk_receive_queue, skb);
->> +			goto wake_up;
->> +		}
->> +
->> +		kfree_skb(skb);
->> +		while (segs) {
->> +			struct sk_buff *nskb = segs->next;
->> +
->> +			segs->next = NULL;
->> +			skb_queue_tail(&q->sk.sk_receive_queue, segs);
->> +			segs = nskb;
->> +		}
->
->
->> +	} else
->> +		skb_queue_tail(&q->sk.sk_receive_queue, skb);
->> +
->> +wake_up:
->>   	wake_up_interruptible_poll(sk_sleep(&q->sk), POLLIN | POLLRDNORM | POLLRDBAND);
->>   	return NET_RX_SUCCESS;
->>
->> --
->> 1.8.1.4
+vmalloc() has an extra 128MB virtual space (on i386 at least with
+standard 3G/1G split)
