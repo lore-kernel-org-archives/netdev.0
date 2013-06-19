@@ -1,161 +1,88 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v5] ethernet/arc/arc_emac - Add new driver
-Date: Wed, 19 Jun 2013 15:05:54 +0300
-Message-ID: <CAHp75Vc-Aza03ZLJj3CkLP2YhvdRi94bfutxKbV34hTc1_6k4g@mail.gmail.com>
-References: <1371629537-8076-1-git-send-email-abrodkin@synopsys.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v3 net-next 0/1] net: lls select poll
+	support
+Date: Wed, 19 Jun 2013 05:13:36 -0700
+Message-ID: <1371644016.3252.302.camel@edumazet-glaptop>
+References: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Joe Perches <joe@perches.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Devicetree Discuss <devicetree-discuss@lists.ozlabs.org>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371629537-8076-1-git-send-email-abrodkin@synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Willem de Bruijn <willemb@google.com>, Don,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	HPA <hpa@zytor.com>, Amir Vadai <amirv@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Alex Rosenbaum <alexr@mellanox.com>, linux-kernel@vger.kernel.org,
+	Eliezer Tamir <eliezer@tamir.org.il>, Andi Kleen <andi@firstfloor.org>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Eilon Greenstien <eilong@broadcom.com>, David Miller <davem@davemloft.net>
+To: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 19, 2013 at 11:12 AM, Alexey Brodkin
-<Alexey.Brodkin@synopsys.com> wrote:
-> Driver for non-standard on-chip ethernet device ARC EMAC 10/100,
-> instantiated in some legacy ARC (Synopsys) FPGA Boards such as
-> ARCAngel4/ML50x.
->
-> This is based off of current Linus tree.
+On Wed, 2013-06-19 at 13:04 +0300, Eliezer Tamir wrote:
 
-This line should go away from commit message.
+> One question: do we need in sock_poll() to test that sock->sk is not null?
+> (Thanks to Willem de Bruijn for pointing this out.) 
 
-> please take a look at 5th re-spin of the patch.
+Why sock->sk could be NULL in sock_poll() ?
 
-Few small things I commented below.
+This is the thing I am not sure [1]
 
-> +++ b/drivers/net/ethernet/arc/emac_main.c
-> @@ -0,0 +1,828 @@
+Normally, sock_poll() should be called only if the current thread owns a
+reference on the file. And we should not dismantle sock->sk while a
+reference is owned.
 
-> +static int arc_emac_rx(struct net_device *ndev, int budget)
-> +{
-> +       struct arc_emac_priv *priv = netdev_priv(ndev);
-> +       unsigned int work_done;
-> +
-> +       for (work_done = 0; work_done <= budget;) {
-> +               unsigned int *last_rx_bd = &priv->last_rx_bd;
-> +               struct net_device_stats *stats = &priv->stats;
-> +               struct buffer_state *rx_buff = &priv->rx_buff[*last_rx_bd];
-> +               struct arc_emac_bd *rxbd = &priv->rxbd[*last_rx_bd];
-> +               unsigned int buflen = EMAC_BUFFER_SIZE;
-> +               unsigned int pktlen, info = __le32_to_cpu(rxbd->info);
-> +               struct sk_buff *skb;
-> +               dma_addr_t addr;
-> +
-> +               if (unlikely((info & OWN_MASK) == FOR_EMAC))
-> +                       break;
+Apparently, epoll() might break this assumption, but I was unable to
+track it yet. epoll() doesn't hold file refcount, because it relies on
+eventpoll_release_file() being called from __fput()
 
-> +               work_done++;
 
-Why it can't be inside for()?
+[1] We do have some crashes occurrences here on some Google machines
+(Google-Bug-id: 8940884) , because tcp_poll() hits a NULL sock->sk
 
-> +               if (unlikely((info & FRST_OR_LAST_MASK) != FRST_OR_LAST_MASK)) {
-> +                       /* Buffer chaining results in a significant
-> +                        * amount of additional bus overhead and thus
-> +                        * a higher CLK frequency or larger FIFOs are required.
-> +                        * Because of that fact we don't support
-> +                        * chaining of receive packets. We pre-allocate
-> +                        * buffers of MTU size so incoming packets
-> +                        * won't be chained.
-> +                        */
+<4>[206994.855824] RIP: 0010:[<ffffffff8026e2e8>]  [<ffffffff8026e2e8>] tcp_poll+0x18/0x1b0
+<4>[206994.863652] RSP: 0018:ffff8806c7921e48  EFLAGS: 00010246
+<4>[206994.869038] RAX: 0000000000000000 RBX: 0000000000000000 RCX: ffff8806c7921f10
+<4>[206994.876241] RDX: 0000000000000000 RSI: ffff880292d52300 RDI: ffff88034a8837c0
+<4>[206994.883443] RBP: ffff8806c7921e58 R08: 00007f7cadc3c000 R09: ffff88034a8837c0
+<4>[206994.890648] R10: 00000000fffffff2 R11: ffffffff8088ffc0 R12: ffff880699960d98
+<4>[206994.897850] R13: 0000000000000000 R14: ffff8804924dab58 R15: 0000000000002000
+<4>[206994.905055] FS:  00007f7c98726700(0000) GS:ffff88027fc80000(0000) knlGS:00000000f4cf8b40
+<4>[206994.913210] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+<4>[206994.919028] CR2: 00000000000000c0 CR3: 0000000494ab2000 CR4: 00000000000006e0
+<4>[206994.926233] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+<4>[206994.933437] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+<4>[206994.940640] Process java (pid: 8736, threadinfo ffff8806c7920000, task ffff8806990d0400)
+<4>[206994.948795] Stack:
+<4>[206994.950890]  0000000000000000 ffff880699960d40 ffff8806c7921e68 ffffffff802604da
+<4>[206994.958422]  ffff8806c7921f78 ffffffff8024f528 ffff88069b6e4a80 00007f7cadc3c000
+<4>[206994.965956]  ffff8806fffffff2 ffff8806c7921f10 ffffffff80aaa6f0 ffffffff80aaa6f0
+<4>[206994.973488] Call Trace:
+<4>[206994.976023]  [<ffffffff802604da>] sock_poll+0x1a/0x20
+<4>[206994.981148]  [<ffffffff8024f528>] sys_epoll_wait+0x788/0x940
+<4>[206994.986881]  [<ffffffff802d81b0>] ? ep_send_events_proc+0x120/0x120
+<4>[206994.993226]  [<ffffffff8072e032>] system_call_fastpath+0x16/0x1b
 
-Could that comment take less LOC?
 
-> +                       /* Return ownership to EMAC */
-> +                       rxbd->info = __cpu_to_le32(FOR_EMAC | buflen);
 
-Here and in the whole file. Parhaps cpu_to_le32()?
+------------------------------------------------------------------------------
+This SF.net email is sponsored by Windows:
 
-> +               /* Once EMAC sees he is an owner of this BD, EMAC will start to
-> +                * use it for receiving or transmitting packets,
-> +                * depending on BD: Tx or Rx.
-> +                * That's why we need to make sure "data" has proper address
-> +                * before writing "info" word with owner flag.
-> +                */
+Build for Windows Store.
 
-Less LOC?
-
-> +       if (status & ERR_MASK) {
-> +               /* MSER/RXCR/RXFR/RXFL interrupt fires on corresponding
-> +                * 8-bit error counter overrun.
-> +                * Because of this fact we add 256 (0x100) items each time
-> +                * overrun interrupt happens.
-> +                */
-
-Ditto.
-
-> +static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
-> +{
-
-> +       len = max_t(unsigned int, ETH_ZLEN, skb->len);
-> +
-> +       /* EMAC still holds this buffer in its possession.
-> +        * CPU must not modify this buffer descriptor
-> +        */
-> +       if (unlikely((__le32_to_cpu(*info) & OWN_MASK) == FOR_EMAC)) {
-
-Perhaps le32_to_cpu() here and in whole file?
-
-> +static int arc_emac_probe(struct platform_device *pdev)
-> +{
-
-> +       err = of_address_to_resource(pdev->dev.of_node, 0, &res_regs);
-
-> +       if (of_property_read_u32(pdev->dev.of_node, "clock-frequency",
-> +                                &clock_frequency)) {
-
-> +       err = of_irq_to_resource(pdev->dev.of_node, 0, &res_irq);
-
-You may save few lines if you move those checks before allocation of the netdev.
-
-> +       err = arc_mdio_probe(pdev->dev.of_node, priv);
-> +       if (err) {
-> +               dev_err(&pdev->dev, "failed to probe MII bus\n");
-> +               goto out;
-> +       }
-> +
-> +       priv->phy_dev = of_phy_connect(ndev, phy_node, arc_emac_adjust_link, 0,
-> +                                      PHY_INTERFACE_MODE_MII);
-> +       if (!priv->phy_dev) {
-> +               netdev_err(ndev, "of_phy_connect() failed\n");
-
-Can we be consistent and use here dev_err()?
-
-> +++ b/drivers/net/ethernet/arc/emac_mdio.c
-> @@ -0,0 +1,151 @@
-
-> +static int arc_mdio_complete_wait(struct arc_emac_priv *priv)
-> +{
-> +       unsigned int i;
-> +
-> +       for (i = 0; i < ARC_MDIO_COMPLETE_POLL_COUNT * 40; i++) {
-
-> +               msleep(25);
-
-So, in the worst case it takes ARC_MDIO_COMPLETE_POLL_COUNT seconds to
-wait. Quite a long time.
-Does user expect such a delay?
-
-> +int arc_mdio_probe(struct device_node *dev_node, struct arc_emac_priv *priv)
-> +{
-
-> +       snprintf(bus->id, MII_BUS_ID_SIZE, "%.8x", (unsigned int)priv->regs);
-
-Is bus->id exposed to user-space somehow?
-
---
-With Best Regards,
-Andy Shevchenko
+http://p.sf.net/sfu/windows-dev2dev
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
