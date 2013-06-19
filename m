@@ -1,38 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] sh_eth: define/use EESR_RX_CHECK macro
-Date: Wed, 19 Jun 2013 00:50:05 -0700 (PDT)
-Message-ID: <20130619.005005.2262835197239818334.davem@davemloft.net>
-References: <201306190207.46832.sergei.shtylyov@cogentembedded.com>
-	<CANqRtoRNnNuG_r+MW3Yb79jVK_iKm1bRTSvMhw1j4qsWZtphpw@mail.gmail.com>
+Subject: Re: [PATCH net] vxlan: fix check for migration of static entry
+Date: Wed, 19 Jun 2013 00:51:30 -0700 (PDT)
+Message-ID: <20130619.005130.948705713060576100.davem@davemloft.net>
+References: <1371590821-1125-1-git-send-email-stephen@networkplumber.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, netdev@vger.kernel.org,
-	nobuhiro.iwamatsu.yj@renesas.com, linux-sh@vger.kernel.org
-To: magnus.damm@gmail.com
-Return-path: <linux-sh-owner@vger.kernel.org>
-In-Reply-To: <CANqRtoRNnNuG_r+MW3Yb79jVK_iKm1bRTSvMhw1j4qsWZtphpw@mail.gmail.com>
-Sender: linux-sh-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59776 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756422Ab3FSHvb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 03:51:31 -0400
+In-Reply-To: <1371590821-1125-1-git-send-email-stephen@networkplumber.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Magnus Damm <magnus.damm@gmail.com>
-Date: Wed, 19 Jun 2013 15:47:47 +0900
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Tue, 18 Jun 2013 14:27:01 -0700
 
-> Hi Sergei,
+> The check introduced by:
+> 	commit 26a41ae604381c5cc0caf1c3261ca6b298b5fe69
+> 	Author: stephen hemminger <stephen@networkplumber.org>
+> 	Date:   Mon Jun 17 12:09:58 2013 -0700
 > 
-> On Wed, Jun 19, 2013 at 7:07 AM, Sergei Shtylyov
-> <sergei.shtylyov@cogentembedded.com> wrote:
->> sh_eth_interrupt() uses the same Rx interrupt mask twice to check the interrupt
->> status register -- #define EESR_RX_CHECK  and use it instead.
->>
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> 	    vxlan: only migrate dynamic FDB entries
 > 
-> Thanks for the patch, nice to see that this driver is moving forward.
+> was not correct because it is checking flag about type of FDB
+> entry, rather than the state (dynamic versus static). The confusion
+> arises because vxlan is reusing values from bridge, and bridge is
+> reusing values from neighbour table, and easy to get lost in translation.
 > 
-> Can you please include information about which SoC / board this code
-> has been tested on? As you know, the actual hardware that this driver
-> is operating on is not very well documented, so at least having
-> information about the SoC together with the commit message or patch
-> may help in the future.
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-Sergei, please make this suggested change and resubmit this series, thank you.
+Applied, thanks Stephen.
