@@ -1,174 +1,161 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH net-next 4/5] net: sctp: decouple cleaning socket data
- from endpoint
-Date: Wed, 19 Jun 2013 07:55:19 -0400
-Message-ID: <20130619115519.GA15229@hmsreliant.think-freely.org>
-References: <1371545720-22950-1-git-send-email-dborkman@redhat.com>
- <1371545720-22950-5-git-send-email-dborkman@redhat.com>
- <20130618142240.GA27099@hmsreliant.think-freely.org>
- <51C08492.7040602@redhat.com>
- <51C089BF.2040603@gmail.com>
- <20130618174503.GB27099@hmsreliant.think-freely.org>
- <51C0A3B9.80905@gmail.com>
- <20130618191234.GD27099@hmsreliant.think-freely.org>
- <51C0E55F.1010409@gmail.com>
+From: Andy Shevchenko <andy.shevchenko@gmail.com>
+Subject: Re: [PATCH v5] ethernet/arc/arc_emac - Add new driver
+Date: Wed, 19 Jun 2013 15:05:54 +0300
+Message-ID: <CAHp75Vc-Aza03ZLJj3CkLP2YhvdRi94bfutxKbV34hTc1_6k4g@mail.gmail.com>
+References: <1371629537-8076-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <dborkman@redhat.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, linux-sctp@vger.kernel.org
-To: Vlad Yasevich <vyasevich@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:59122 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933666Ab3FSLz1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 07:55:27 -0400
-Content-Disposition: inline
-In-Reply-To: <51C0E55F.1010409@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Joe Perches <joe@perches.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Mischa Jonker <Mischa.Jonker@synopsys.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Devicetree Discuss <devicetree-discuss@lists.ozlabs.org>
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371629537-8076-1-git-send-email-abrodkin@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 18, 2013 at 06:55:27PM -0400, Vlad Yasevich wrote:
-> On 06/18/2013 03:12 PM, Neil Horman wrote:
-> >On Tue, Jun 18, 2013 at 02:15:21PM -0400, Vlad Yasevich wrote:
-> >>On 06/18/2013 01:45 PM, Neil Horman wrote:
-> >>>On Tue, Jun 18, 2013 at 12:24:31PM -0400, Vlad Yasevich wrote:
-> >>>>On 06/18/2013 12:02 PM, Daniel Borkmann wrote:
-> >>>>>On 06/18/2013 04:22 PM, Neil Horman wrote:
-> >>>>>>I like this idea, but I think I'm maybe missing something from it - we
-> >>>>>>reference
-> >>>>>>the socket in both the receive and send paths (sctp_unpack_cookie, is
-> >>>>>>specifically called from the rx path, which makes use of sp->hmac).  a
-> >>>>>>socket
-> >>>>>>destructor can be called from __sk_free when sk_wmem_alloc reaches
-> >>>>>>zero, but we
-> >>>>>>use sk_refcnt in the rx path to prevent premature socket cleanup.  If
-> >>>>>>we drain
-> >>>>>>our send queeue while wer'e still processing rx messages, what
-> >>>>>>prevents us from
-> >>>>>>freeing the socket in the tx path, via sk_free while we're still using
-> >>>>>>the
-> >>>>>>socket in the rx path.  Note I don't think this patch is wrong per-se,
-> >>>>>>but it
-> >>>>>>seems to me there is more work to do to properly interlock the use of
-> >>>>>>sk_refcnt
-> >>>>>>and sk_wmem_alloc here (unless I'm just missing something obvious,
-> >>>>>>which is
-> >>>>>>entirely possible, I've been in the sun alot lately :) ).
-> >>>>>
-> >>>>>Hm, __sk_free() calls sk_prot_free() which frees our socket structure
-> >>>>>and in
-> >>>>>sctp_wfree() we do a sctp_association_put(asoc) after sock_wfree(skb).
-> >>>>>
-> >>>>>So no matter if having this patch or not, couldn't this use-after-free like
-> >>>>>scenario already happen with the current code?
-> >>>>>
-> >>>>>F.e. through a given call graph like that:
-> >>>>>
-> >>>>>sctp_wfree(skb):
-> >>>>>  1) sock_wfree(skb)
-> >>>>>     -> __sk_free()
-> >>>>
-> >>>>I don't think this can happen.  sk_wmem_alloc is set to 1 in sk_alloc()
-> >>>>and that acts as a guard to make sure that sk_free() has been called
-> >>>>before we try to free things up.  So, in this partcular case, for
-> >>>>__sk_free() to be called, sk_free() had to be called meaning the
-> >>>>last ref on the socket was released.  However, that's not possible since
-> >>>>we are still holding the association and thus holding the socket
-> >>>>associated with it.
-> >>>>
-> >>>I see what your saying, and I agree, with that bias added in sk_alloc, it looks
-> >>>like we won't ever call __sk_free until sk_wmem_alloc is 1 _and_ sk_refcnt is 0.
-> >>>It still seems messy and confusing though.  It would make more sense to me to
-> >>>increment the refcount an additional time when the socket is initalized, and
-> >>>then decrement it again when the socket is closed and sk_wmem_alloc reaches
-> >>>zero.  That would isolate the refcounting to a single variable.
-> >>
-> >>See commit 2b85a34e911bf483c27cfdd124aeb1605145dc80.  The whole
-> >>sk_wmem_alloc tric was done so that we dont have to do
-> >>sock_hold/sock_put on transmits.
-> >>
-> >I know about why it was done, I'm just proposing that we don't have to do it
-> >that way to get the speedup it gives us, and make the code a bit more clear at
-> >the same time.  If we set the refcnt to 2 at init time, we can decrement that
-> >added initial bias when the sk is marked as SOCK_DEAD and the sk_wmem_queued
-> >reaches 0.  We still don't have to do a sock_hold/put on every tx, and we keep
-> >all the reference counting in one location.
-> 
-> sorry, not following..  regardless, this seems to have gotten a bit
-SOCK_DEAD set in sk->flags IIRC should indicate that the socket has been
-orphaned from any user space file descriptors (i.e. the same meaning that the
-initial bias to sk_wmem_alloc is telling us).  I'm just saying we can use that
-to replace the sk_wmem_alloc == 0 test.
+On Wed, Jun 19, 2013 at 11:12 AM, Alexey Brodkin
+<Alexey.Brodkin@synopsys.com> wrote:
+> Driver for non-standard on-chip ethernet device ARC EMAC 10/100,
+> instantiated in some legacy ARC (Synopsys) FPGA Boards such as
+> ARCAngel4/ML50x.
+>
+> This is based off of current Linus tree.
 
-> off topic.  I am going to take a deeper look at Daniel's to make
-> sure it doesn't introduce any races.
-Yes, this is off topic, I was really just complaining that the current scheme
-makes it harder to evaluate patches like this.
+This line should go away from commit message.
 
-Neil
+> please take a look at 5th re-spin of the patch.
 
-> 
-> -vlad
-> 
-> >
-> >Alternatively we can move all the reference counting to sk_wmem_alloc, and have
-> >sock_hold/put increment that field by one instead of sk_refcnt, meaning we could
-> >remove that field
-> >
-> >We don't really have to do any of this, of course, but not having looked at it
-> >in some time, it seems confusing to me to have have a single additional ref
-> >count tracked in sk_wmem_alloc.
-> >
-> >>It might be good to see if we can do that in sctp as well.
-> >Not sure what you mean by "that" here.  You mean remove the additional uses of
-> >sctp_hold/put?
-> >
-> >Neil
-> >
-> >>
-> >>-vlad
-> >>
-> >>
-> >>>Neil
-> >>>
-> >>>>-vlad
-> >>>>
-> >>>>>      -> sk_prot_free(.., sk)
-> >>>>>       -> kmem_cache_free(.., sk) or kfree(sk)
-> >>>>>  2) __sctp_write_space(asoc)
-> >>>>>  3) sctp_association_put(asoc)
-> >>>>>     -> sctp_association_destroy(asoc)
-> >>>>>      -> sctp_endpoint_put(asoc->ep)
-> >>>>>       -> sctp_endpoint_destroy(ep)
-> >>>>>        -> crypto_free_hash(sctp_sk(ep->base.sk)->hmac)
-> >>>>>           (etc, all unconditionally accessed while sk is
-> >>>>>            already dead/freed)
-> >>>>>
-> >>>>>Then, this might need a fix in general. :-)
-> >>>>>
-> >>>>>Assuming you would reduce the buffer space via setsockopt(.., SO_SNDBUF,
-> >>>>>..),
-> >>>>>you might end up with a minimum buffer space of SOCK_MIN_SNDBUF [*] and
-> >>>>>a call to
-> >>>>>sk->sk_write_space(sk), which is sctp_write_space() and calls
-> >>>>>__sctp_write_space()
-> >>>>>on all asocs belonging to the socket, but it seems not to alter the current
-> >>>>>sk->sk_wmem_alloc I think, but rather sk->sk_sndbuf.
-> >>>>>
-> >>>>>[*] Btw, shouldn't this rather be (2048 + sizeof(struct sk_buff)) or
-> >>>>>     SKB_TRUESIZE(2048), at least like in SOCK_MIN_RCVBUF since we operate
-> >>>>>     on skb->truesize as well?
-> >>>>>--
-> >>>>>To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> >>>>>the body of a message to majordomo@vger.kernel.org
-> >>>>>More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >>>>
-> >>>>
-> >>
-> >>
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Few small things I commented below.
+
+> +++ b/drivers/net/ethernet/arc/emac_main.c
+> @@ -0,0 +1,828 @@
+
+> +static int arc_emac_rx(struct net_device *ndev, int budget)
+> +{
+> +       struct arc_emac_priv *priv = netdev_priv(ndev);
+> +       unsigned int work_done;
+> +
+> +       for (work_done = 0; work_done <= budget;) {
+> +               unsigned int *last_rx_bd = &priv->last_rx_bd;
+> +               struct net_device_stats *stats = &priv->stats;
+> +               struct buffer_state *rx_buff = &priv->rx_buff[*last_rx_bd];
+> +               struct arc_emac_bd *rxbd = &priv->rxbd[*last_rx_bd];
+> +               unsigned int buflen = EMAC_BUFFER_SIZE;
+> +               unsigned int pktlen, info = __le32_to_cpu(rxbd->info);
+> +               struct sk_buff *skb;
+> +               dma_addr_t addr;
+> +
+> +               if (unlikely((info & OWN_MASK) == FOR_EMAC))
+> +                       break;
+
+> +               work_done++;
+
+Why it can't be inside for()?
+
+> +               if (unlikely((info & FRST_OR_LAST_MASK) != FRST_OR_LAST_MASK)) {
+> +                       /* Buffer chaining results in a significant
+> +                        * amount of additional bus overhead and thus
+> +                        * a higher CLK frequency or larger FIFOs are required.
+> +                        * Because of that fact we don't support
+> +                        * chaining of receive packets. We pre-allocate
+> +                        * buffers of MTU size so incoming packets
+> +                        * won't be chained.
+> +                        */
+
+Could that comment take less LOC?
+
+> +                       /* Return ownership to EMAC */
+> +                       rxbd->info = __cpu_to_le32(FOR_EMAC | buflen);
+
+Here and in the whole file. Parhaps cpu_to_le32()?
+
+> +               /* Once EMAC sees he is an owner of this BD, EMAC will start to
+> +                * use it for receiving or transmitting packets,
+> +                * depending on BD: Tx or Rx.
+> +                * That's why we need to make sure "data" has proper address
+> +                * before writing "info" word with owner flag.
+> +                */
+
+Less LOC?
+
+> +       if (status & ERR_MASK) {
+> +               /* MSER/RXCR/RXFR/RXFL interrupt fires on corresponding
+> +                * 8-bit error counter overrun.
+> +                * Because of this fact we add 256 (0x100) items each time
+> +                * overrun interrupt happens.
+> +                */
+
+Ditto.
+
+> +static int arc_emac_tx(struct sk_buff *skb, struct net_device *ndev)
+> +{
+
+> +       len = max_t(unsigned int, ETH_ZLEN, skb->len);
+> +
+> +       /* EMAC still holds this buffer in its possession.
+> +        * CPU must not modify this buffer descriptor
+> +        */
+> +       if (unlikely((__le32_to_cpu(*info) & OWN_MASK) == FOR_EMAC)) {
+
+Perhaps le32_to_cpu() here and in whole file?
+
+> +static int arc_emac_probe(struct platform_device *pdev)
+> +{
+
+> +       err = of_address_to_resource(pdev->dev.of_node, 0, &res_regs);
+
+> +       if (of_property_read_u32(pdev->dev.of_node, "clock-frequency",
+> +                                &clock_frequency)) {
+
+> +       err = of_irq_to_resource(pdev->dev.of_node, 0, &res_irq);
+
+You may save few lines if you move those checks before allocation of the netdev.
+
+> +       err = arc_mdio_probe(pdev->dev.of_node, priv);
+> +       if (err) {
+> +               dev_err(&pdev->dev, "failed to probe MII bus\n");
+> +               goto out;
+> +       }
+> +
+> +       priv->phy_dev = of_phy_connect(ndev, phy_node, arc_emac_adjust_link, 0,
+> +                                      PHY_INTERFACE_MODE_MII);
+> +       if (!priv->phy_dev) {
+> +               netdev_err(ndev, "of_phy_connect() failed\n");
+
+Can we be consistent and use here dev_err()?
+
+> +++ b/drivers/net/ethernet/arc/emac_mdio.c
+> @@ -0,0 +1,151 @@
+
+> +static int arc_mdio_complete_wait(struct arc_emac_priv *priv)
+> +{
+> +       unsigned int i;
+> +
+> +       for (i = 0; i < ARC_MDIO_COMPLETE_POLL_COUNT * 40; i++) {
+
+> +               msleep(25);
+
+So, in the worst case it takes ARC_MDIO_COMPLETE_POLL_COUNT seconds to
+wait. Quite a long time.
+Does user expect such a delay?
+
+> +int arc_mdio_probe(struct device_node *dev_node, struct arc_emac_priv *priv)
+> +{
+
+> +       snprintf(bus->id, MII_BUS_ID_SIZE, "%.8x", (unsigned int)priv->regs);
+
+Is bus->id exposed to user-space somehow?
+
+--
+With Best Regards,
+Andy Shevchenko
