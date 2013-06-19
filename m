@@ -1,65 +1,42 @@
 From: Dean Jenkins <Dean_Jenkins@mentor.com>
-Subject: [PATCH 1/5] Bluetooth: Add RFCOMM TTY write return error codes
-Date: Wed, 19 Jun 2013 16:34:27 +0100
-Message-ID: <1371656071-27754-2-git-send-email-Dean_Jenkins@mentor.com>
+Subject: [PATCH 4/5] SLIP: Add error message for xleft non-zero
+Date: Wed, 19 Jun 2013 16:34:30 +0100
+Message-ID: <1371656071-27754-5-git-send-email-Dean_Jenkins@mentor.com>
 References: <1371656071-27754-1-git-send-email-Dean_Jenkins@mentor.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpc6-farn7-2-0-cust119.6-2.cable.virginmedia.com ([81.110.26.120]:37730
+Received: from cpc6-farn7-2-0-cust119.6-2.cable.virginmedia.com ([81.110.26.120]:37739
 	"EHLO localhost.localdomain" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756745Ab3FSPl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:41:29 -0400
+	by vger.kernel.org with ESMTP id S1756954Ab3FSPlb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:41:31 -0400
 In-Reply-To: <1371656071-27754-1-git-send-email-Dean_Jenkins@mentor.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It appears that rfcomm_tty_write() does not check that the
-passed in TTY device_data is not NULL and also does not check
-that the RFCOMM DLC serial data link pointer is not NULL.
+Add a printk to show when xleft is non-zero in sl_encaps.
 
-A kernel crash was observed whilst SLIP was bound to /dev/rfcomm0
-but the /dev/rfcomm0 had subsequently disconnected. Unfortunately,
-SLIP attempted to write to the now non-existant RFCOMM TTY device
-which caused a NULL pointer dereference because the device_data
-no longer existed.
-
-Therefore, add NULL pointer checks for the dev and dlc pointers
-and output kernel error debug to show that NULL had been detected.
+The idea is to see whether a previous SLIP frame failed to be
+fully transmitted.
 
 Signed-off-by: Dean Jenkins <Dean_Jenkins@mentor.com>
 ---
- net/bluetooth/rfcomm/tty.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+ drivers/net/slip/slip.c | 4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/net/bluetooth/rfcomm/tty.c b/net/bluetooth/rfcomm/tty.c
-index b6e44ad..56d28d1 100644
---- a/net/bluetooth/rfcomm/tty.c
-+++ b/net/bluetooth/rfcomm/tty.c
-@@ -761,12 +761,24 @@ static void rfcomm_tty_close(struct tty_struct *tty, struct file *filp)
- static int rfcomm_tty_write(struct tty_struct *tty, const unsigned char *buf, int count)
- {
- 	struct rfcomm_dev *dev = (struct rfcomm_dev *) tty->driver_data;
--	struct rfcomm_dlc *dlc = dev->dlc;
-+	struct rfcomm_dlc *dlc;
- 	struct sk_buff *skb;
- 	int err = 0, sent = 0, size;
+diff --git a/drivers/net/slip/slip.c b/drivers/net/slip/slip.c
+index f7303e0..e2eff84 100644
+--- a/drivers/net/slip/slip.c
++++ b/drivers/net/slip/slip.c
+@@ -395,6 +395,10 @@ static void sl_encaps(struct slip *sl, unsigned char *icp, int len)
+ #endif
+ 		count = slip_esc(p, sl->xbuff, len);
  
- 	BT_DBG("tty %p count %d", tty, count);
- 
-+	if (!dev) {
-+		BT_ERR("RFCOMM TTY device data structure does not exist");
-+		return -ENODEV;
-+	}
++	if (sl->xleft)
++		printk(KERN_ERR "%s: ERROR: xleft is non-zero %d\n",
++		       __func__, sl->xleft);
 +
-+	dlc = dev->dlc;
-+
-+	if (!dlc) {
-+		BT_ERR("RFCOMM serial data link does not exist");
-+		return -ENOLINK;
-+	}
-+
- 	while (count) {
- 		size = min_t(uint, count, dlc->mtu);
- 
+ 	/* ensure xleft set by the previous SLIP frame is zero for this frame
+ 	 * otherwise slip_write_wakeup() can cause a recursive loop.
+ 	 */
 -- 
 1.8.1.5
