@@ -1,72 +1,70 @@
-From: Dean Jenkins <Dean_Jenkins@mentor.com>
-Subject: [PATCH 0/5] SLIP SLIP-Improve robustness to crashing
-Date: Wed, 19 Jun 2013 16:34:26 +0100
-Message-ID: <1371656071-27754-1-git-send-email-Dean_Jenkins@mentor.com>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 1/2] macvtap: Let TUNSETOFFLOAD actually
+ controll offload features.
+Date: Wed, 19 Jun 2013 08:46:09 -0700
+Message-ID: <1371656769.3252.320.camel@edumazet-glaptop>
+References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>
+	  <1371653272-11703-2-git-send-email-vyasevic@redhat.com>
+	 <1371655038.3252.312.camel@edumazet-glaptop> <51C1CDBC.4040003@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
+	jasowang@redhat.com
+To: vyasevic@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cpc6-farn7-2-0-cust119.6-2.cable.virginmedia.com ([81.110.26.120]:37729
-	"EHLO localhost.localdomain" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1756860Ab3FSPl3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:41:29 -0400
+Received: from mail-ee0-f50.google.com ([74.125.83.50]:39315 "EHLO
+	mail-ee0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756632Ab3FSPqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:46:15 -0400
+Received: by mail-ee0-f50.google.com with SMTP id d49so3341316eek.9
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 08:46:14 -0700 (PDT)
+In-Reply-To: <51C1CDBC.4040003@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Using SLIP bound to RFCOMM or PTY/TTY has identified some weaknesses to crashing
-under abnormal conditions.
+On Wed, 2013-06-19 at 11:26 -0400, Vlad Yasevich wrote:
 
-Here is a proposed patchset baselined and built on Linux 3.9.
+> I think I do since vlan pointer may change even when I am holding
+> rtnl.  rtnl is needed to change features.  rcu is needed to get
+> the vlan pointer.
+> 
+> > (A BH handler will not change q->vlan )
+> 
+> No, but the _bh rcu calls seem to be used when dereferencing q->vlan.
+> I am not sure the reason for that...
 
-Note the patches have not been tested on x86 Linux 3.9. However similar patches
-have been used on ARM Linux 2.6.34 to avoid kernel crashes in a commercial
-project. I believe the same weaknesses still exist in Linux 3.9.
+You mix the reader/fast path, properly using RCU,
+and the writer path, using macvtap_lock ( a spinlock ).
 
-If some or all of the patches look to be useful to the community then I may
-attempt to test on x86 but this is not straight forward for me.
+That's clear sign you missed something.
 
-I welcome any feedback and whether the fixes are a suitable solution.
+> 
+> >
+> > BTW, it looks like ->vlan is protected by macvtap_lock
+> 
+> Right.  This is why I use rcu to get vlan.  rtnl is needed to avoid
+> asserts in the feature change code.
 
-Who is the maintainer of SLIP in the kernel ?
+The management should be allowed to sleep, and rcu_read_lock_bh()
+disallows that.
 
-The patchset consists of:
+Maybe some driver callback will really sleep and crash after your patch.
 
-0001-Bluetooth-Add-RFCOMM-TTY-write-return-error-codes.patch
-0002-SLIP-Handle-error-codes-from-the-TTY-layer.patch
-0003-SLIP-Prevent-recursion-stack-overflow-and-scheduler-.patch
-0004-SLIP-Add-error-message-for-xleft-non-zero.patch
-0005-SLIP-Fix-transmission-segmentation-mechanism.patches
+vi +69 drivers/net/macvtap.c
 
-Some background:
+/*
+ * RCU usage:
+ * The macvtap_queue and the macvlan_dev are loosely coupled, the
+ * pointers from one to the other can only be read while rcu_read_lock
+ * or macvtap_lock is held.
 
-0001-Bluetooth-Add-RFCOMM-TTY-write-return-error-codes.patch
-This patch is a Bluetooth change to add some error return codes to RFCOMM to
-avoid NULL pointer dereference crashes. Note RFCOMM can already generate an
-error code that will cause SLIP to malfunction.
+Your patch does not respect the rules of this driver.
 
-0002-SLIP-Handle-error-codes-from-the-TTY-layer.patches
-This patch allows SLIP to handle error codes from RFCOMM or other bound TTY layers.
+macvtap_lock is always acquired from process context, without any need
+for _bh variant.
 
-0003-SLIP-Prevent-recursion-stack-overflow-and-scheduler-.patches
-This patch prevents SLIP from causing a recursive loop that overflows the stack
-and catastrophically crashes the kernel. The scenario is SLIP bound to PTY/TTY.
-The underlying trigger is a probably a failure to allocate a TTY buffer in
-tty_buffer_alloc() but this is unproven. The crash is sporadic in an ARM
-embedded environment where resources are limited.
+Quite frankly, I would switch this driver to use a mutex for
+macvtap_lock. 
 
-0004-SLIP-Add-error-message-for-xleft-non-zero.patch
-This is an error message patch to identify when a SLIP frame has not been fully
-transmitted meaning the frame was truncated.
-
-0005-SLIP-Fix-transmission-segmentation-mechanism.patches
-This patch allows multiple attempts to transmit segments of the SLIP frame.
-Currently only 1 attempt at writing the whole SLIP frame to PTY/TTY occurs.
-This could truncate transmitted SLIP frames. In addition the modification
-relies on the TTY write wake-up event to complete the transmission of the
-SLIP frame rather than the sl_encaps() call to pty_write(). Probably,
-pty_write() should not call tty_wakeup() but safer to modify SLIP rather
-than the PTY/TTY layer.
-
-Thanks,
-Dean Jenkins
-Mentor Graphics
--- 
-1.8.1.5
+And simply remove it, as RTNL is most probably already owned.
