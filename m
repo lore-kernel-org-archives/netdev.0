@@ -1,63 +1,52 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [net-next rfc 1/3] net: avoid high order memory allocation for
- queues by using flex array
-Date: Wed, 19 Jun 2013 15:22:18 +0300
-Message-ID: <20130619122218.GA4990@redhat.com>
-References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
- <1371620452-49349-2-git-send-email-jasowang@redhat.com>
- <1371623518.3252.267.camel@edumazet-glaptop>
- <20130619091132.GA2816@redhat.com>
- <1371635763.3252.289.camel@edumazet-glaptop>
+From: Stephen Moorby <steve@keyparts.co.uk>
+Subject: [PATCH 1/1] net/x25: fix address parsing bug in x25_parse_address_block.
+Date: Wed, 19 Jun 2013 12:13:28 +0100
+Message-ID: <51C19258.9070504@keyparts.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	edumazet@google.com, hkchu@google.com, netdev@vger.kernel.org,
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+To: andrew.hendry@gmail.com, davem@davemloft.net,
+	sasha.levin@oracle.com, akpm@linux-foundation.org,
+	paulmck@linux.vnet.ibm.com, jiri@resnulli.us,
+	linux-x25@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1371635763.3252.289.camel@edumazet-glaptop>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 19, 2013 at 02:56:03AM -0700, Eric Dumazet wrote:
-> On Wed, 2013-06-19 at 12:11 +0300, Michael S. Tsirkin wrote:
-> 
-> > Well KVM supports up to 160 VCPUs on x86.
-> > 
-> > Creating a queue per CPU is very reasonable, and
-> > assuming cache line size of 64 bytes, netdev_queue seems to be 320
-> > bytes, that's 320*160 = 51200. So 12.5 pages, order-4 allocation.
-> > I agree most people don't have such systems yet, but
-> > they do exist.
-> 
-> Even so, it will just work, like a fork() is likely to work, even if a
-> process needs order-1 allocation for kernel stack.
-> Some drivers still use order-10 allocations with kmalloc(), and nobody
-> complained yet.
-> 
-> We had complains with mlx4 driver lately only bcause kmalloc() now gives
-> a warning if allocations above MAX_ORDER are attempted.
-> 
-> Having a single pointer means that we can :
-> 
-> - Attempts a regular kmalloc() call, it will work most of the time.
-> - fallback to vmalloc() _if_ kmalloc() failed.
+ From 01ba835311f6d2e2bbffc74703d704dc07803b53 Mon Sep 17 00:00:00 2001
+From: Stephen Moorby <steve.moorby@ntlworld.com>
+Date: Wed, 19 Jun 2013 11:48:53 +0100
+Subject: [PATCH 1/1] net/x25: fix address parsing bug in
+  x25_parse_address_block.
 
-Most drivers create devices at boot time, when this is more likely to work.
-What makes tun (and macvlan) a bit special is that the device is created
-from userspace.  Virt setups create/destroy them all the
-time.
+This problem was discovered when a linux box was incorrectly rejecting
+calls from some X.25 equipment.  The problem was diagnosed to an incorrect
+address length calculation in 'x25_parse_address_block', the calculation
+did not account for the address digits being BCD encoded.  The correct
+calculation is already performed on line 155.
 
-> 
-> Frankly, if you want one tx queue per cpu, I would rather use
-> NETIF_F_LLTX, like some other virtual devices.
-> 
-> This way, you can have real per cpu memory, with proper NUMA affinity.
-> 
+Patched on linux-next 18-Jun-2013
+Tested on 2.6.32-45-generic
 
-Hmm good point, worth looking at.
+Signed-off-by: Stephen Moorby <steve.moorby@ntlworld.com>
+---
+  net/x25/af_x25.c | 3 ++-
+  1 file changed, 2 insertions(+), 1 deletion(-)
 
-Thanks,
+diff --git a/net/x25/af_x25.c b/net/x25/af_x25.c
+index 1d964e2..eb6c1f9 100644
+--- a/net/x25/af_x25.c
++++ b/net/x25/af_x25.c
+@@ -98,7 +98,8 @@ int x25_parse_address_block(struct sk_buff *skb,
+      }
+
+      len = *skb->data;
+-    needed = 1 + (len >> 4) + (len & 0x0f);
++    /* need 1 for address length + bytes for BCD encoding of 2 addresses */
++    needed = 1 + (((len >> 4) + (len & 0x0f) + 1) >> 1);
+
+      if (!pskb_may_pull(skb, needed)) {
+          /* packet is too short to hold the addresses it claims
 -- 
-MST
+1.8.1.2
