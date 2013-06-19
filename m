@@ -1,71 +1,95 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH] can: usb_8dev: unregister netdev before free()ing
-Date: Wed, 19 Jun 2013 18:29:12 +0200
-Message-ID: <51C1DC58.2040705@hartkopp.net>
-References: <1371625369-26368-1-git-send-email-mkl@pengutronix.de> <1371625369-26368-2-git-send-email-mkl@pengutronix.de>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Re: VLAN driver question
+Date: Wed, 19 Jun 2013 17:33:55 +0100
+Message-ID: <1371659635.1956.45.camel@bwh-desktop.uk.level5networks.com>
+References: <51BF5F81.2040207@mentor.com>
+	 <1371566484.1956.16.camel@bwh-desktop.uk.level5networks.com>
+	 <51C1D4D7.1000904@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	davem@davemloft.net, stable@kernel.org,
-	=?ISO-8859-1?Q?Bernd_Krumb=F6c?= =?ISO-8859-1?Q?k?=
-	<krumboeck@universalnet.at>
-To: Marc Kleine-Budde <mkl@pengutronix.de>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1371625369-26368-2-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Jim Baxter <jim_baxter@mentor.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:18970 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757027Ab3FSQd7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 12:33:59 -0400
+In-Reply-To: <51C1D4D7.1000904@mentor.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello Marc,
+On Wed, 2013-06-19 at 16:57 +0100, Jim Baxter wrote:
+> Thank you Ben, that is very helpful.
+> 
+> On 18/06/13 15:41, Ben Hutchings wrote:
+> > On Mon, 2013-06-17 at 20:12 +0100, Jim Baxter wrote:
+> >> I have a network card that has a single flag to indicate if a received
+> >> packet contains a vlan packet.
+> >>
+> >> Can I use this to accelerate the kernels handling of the packet with
+> >> something like the following?
+> >>
+> >> /* Handle received VLAN packets */
+> >> if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) && ebdp &&
+> >> 					(ebdp->cbd_esc &
+> >> 					BD_ENET_RX_VLAN)) {
+> >> 	/* Push and remove the vlan tag */
+> >> 	struct vlan_hdr *vlan_header;
+> >> 	u16 vlan_tag;
+> >> 	vlan_header = (struct vlan_hdr *) skb->data;
+> >> 	vlan_tag = ntohs(vlan_header->h_vlan_TCI);
+> >> 	__vlan_hwaccel_put_tag(skb, vlan_tag);
+> >> 	skb->len -= VLAN_HLEN;
+> >> 	skb->data += VLAN_HLEN;
+> >> 	vlan_set_encap_proto(skb, vlan_header);
+> > 
+> > You have to move the Ethernet addresses forward as well.  Imagine this
+> > device is being bridged - the Ethernet header won't be regenerated, so
+> > it has to be immediately before the network header.
+> > 
+> Unless I have misunderstood, the Ethernet header is already copied
+> across to the skb by the Driver I am editing with the lines:
+> 	skb_reserve(skb, NET_IP_ALIGN);
+> 	skb_put(skb, pkt_len - 4);	/* Make room */
+> 	skb_copy_to_linear_data(skb, data, pkt_len - 4);
+> 	skb->protocol = eth_type_trans(skb, ndev);
 
-the usb_8dev driver was introduced in Linux 3.9 and therefore this reasonable
-patch should be queued up for linux-3.9.y stable too.
+Right, but the copy and ether_type_trans() result in an skb like this:
 
-Regards,
-Oliver
+-14 -8  -2   0   2    4
+|dst|src|8100|vid|type|payload...|
+             ^
 
+After extracting the VLAN tag the skb looks like:
 
-On 19.06.2013 09:02, Marc Kleine-Budde wrote:
-> The usb_8dev hardware has problems on some xhci USB hosts. The driver fails to
-> read the firmware revision in the probe function. This leads to the following
-> Oops:
-> 
->     [ 3356.635912] kernel BUG at net/core/dev.c:5701!
-> 
-> The driver tries to free the netdev, which has already been registered, without
-> unregistering it.
-> 
-> This patch fixes the problem by unregistering the netdev in the error path.
-> 
-> Reported-by: Michael Olbrich <m.olbrich@pengutronix.de>
-> Reviewed-by: Bernd Krumboeck <krumboeck@universalnet.at>
-> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
-> ---
->  drivers/net/can/usb/usb_8dev.c | 5 ++++-
->  1 file changed, 4 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/can/usb/usb_8dev.c b/drivers/net/can/usb/usb_8dev.c
-> index 6e15ef0..cbd388e 100644
-> --- a/drivers/net/can/usb/usb_8dev.c
-> +++ b/drivers/net/can/usb/usb_8dev.c
-> @@ -977,7 +977,7 @@ static int usb_8dev_probe(struct usb_interface *intf,
->  	err = usb_8dev_cmd_version(priv, &version);
->  	if (err) {
->  		netdev_err(netdev, "can't get firmware version\n");
-> -		goto cleanup_cmd_msg_buffer;
-> +		goto cleanup_unregister_candev;
->  	} else {
->  		netdev_info(netdev,
->  			 "firmware: %d.%d, hardware: %d.%d\n",
-> @@ -989,6 +989,9 @@ static int usb_8dev_probe(struct usb_interface *intf,
->  
->  	return 0;
->  
-> +cleanup_unregister_candev:
-> +	unregister_netdev(priv->netdev);
-> +
->  cleanup_cmd_msg_buffer:
->  	kfree(priv->cmd_msg_buffer);
->  
-> 
+-18 -12 -6   -4  -2   0
+|dst|src|8100|vid|type|payload...|
+                      ^
 
+If this packet is bridged, the 14 bytes before skb->data will be treated
+as the Ethernet header:
+
+0 2   8    10  12   14
+|x|src|8100|vid|type|payload...|
+^
+
+Then with the VLAN tag inserted;
+
+0 2   8    10  12   14  16   18
+|x|src|8100|vid|8100|vid|type|payload...|
+
+> Thinking about it though I should actually use the flag from the driver
+> to create an skb of the size (pkt_len - 4 - VLAN_HLEN) and extract the
+> vlan header from data so it is not copied to the skb, does this sound
+> sensible?
+[...]
+
+That would also work.
+
+Ben.
+
+-- 
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
