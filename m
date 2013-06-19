@@ -1,84 +1,51 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH net-next 1/6] bonding: verify if bond has ip only once on
- arp validate
-Date: Wed, 19 Jun 2013 20:48:38 +0200
-Message-ID: <20130619184838.GA22345@redhat.com>
-References: <1371663286-12518-2-git-send-email-vfalico@redhat.com>
- <27844.1371664224@death.nxdomain>
+From: <Narendra_K@Dell.com>
+Subject: RE: [PATCH net-next] net: Add phys_port identifier to struct
+ net_device and export it to sysfs
+Date: Thu, 20 Jun 2013 00:23:47 +0530
+Message-ID: <E31FB011129F30488D5861F383904915210BB9042A@BLRX7MCDC201.AMER.DELL.COM>
+References: <20130617181004.GA1364@fedora-17-guest.dell.com>
+	 <51BF59D8.10806@gmail.com>
+	 <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
+ <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net,
-	linux@8192.net, nicolas.2p.debian@free.fr, rick.jones2@hp.com
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <john.fastabend@gmail.com>, <netdev@vger.kernel.org>,
+	<john.r.fastabend@intel.com>
+To: <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:2636 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S964953Ab3FSStT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 14:49:19 -0400
-Content-Disposition: inline
-In-Reply-To: <27844.1371664224@death.nxdomain>
+Received: from ausxipps301.us.dell.com ([143.166.148.223]:46816 "EHLO
+	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934694Ab3FSSzQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 14:55:16 -0400
+In-Reply-To: <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 19, 2013 at 10:50:24AM -0700, Jay Vosburgh wrote:
->Veaceslav Falico <vfalico@redhat.com> wrote:
->
->>It's extra work to verify bond's ip presence for every slave, so take it
->>out of the loop.
->
->	The current code doesn't verify for every slave (target address,
->actually).  The call to bond_has_this_ip() happens at most once, if the
->sip (source IP) matches the arp_ip_target being inspected, after which
->the function returns.
->
->	I can see that the patch will bypass the loop entirely if the
->bond lacks the IP, but I'm not sure that's a meaningful improvement,
->since it changes from calling bond_has_this_ip 0 or 1 times to always 1
->time.
-
-Yep, you're right, I've misread the code.
-
-It's just not worth it, will drop this patch in v2.
-
->
->	-J
->
->
->>Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->>---
->> drivers/net/bonding/bond_main.c |   13 ++++++++-----
->> 1 files changed, 8 insertions(+), 5 deletions(-)
->>
->>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>index bc1246f..3d8b5ba 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -2602,13 +2602,16 @@ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32
->> 	int i;
->> 	__be32 *targets = bond->params.arp_targets;
->>
->>+	if (!bond_has_this_ip(bond, tip)) {
->>+		pr_debug("bva: tip %pI4 not found\n", &tip);
->>+		return;
->>+	}
->>+
->> 	for (i = 0; (i < BOND_MAX_ARP_TARGETS) && targets[i]; i++) {
->>-		pr_debug("bva: sip %pI4 tip %pI4 t[%d] %pI4 bhti(tip) %d\n",
->>-			 &sip, &tip, i, &targets[i],
->>-			 bond_has_this_ip(bond, tip));
->>+		pr_debug("bva: sip %pI4 tip %pI4 t[%d] %pI4 bhti(tip)\n",
->>+			 &sip, &tip, i, &targets[i]);
->> 		if (sip == targets[i]) {
->>-			if (bond_has_this_ip(bond, tip))
->>-				slave->last_arp_rx = jiffies;
->>+			slave->last_arp_rx = jiffies;
->> 			return;
->> 		}
->> 	}
->>--
->>1.7.1
->>
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDE5
+LCAyMDEzIDk6MDcgUE0NCj4gVG86IEssIE5hcmVuZHJhDQo+IENjOiBqb2huLmZhc3RhYmVuZEBn
+bWFpbC5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGpvaG4uci5mYXN0YWJlbmRAaW50
+ZWwuY29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHRdIG5ldDogQWRkIHBoeXNfcG9y
+dCBpZGVudGlmaWVyIHRvIHN0cnVjdA0KPiBuZXRfZGV2aWNlIGFuZCBleHBvcnQgaXQgdG8gc3lz
+ZnMNCj4gDQo+IE9uIFdlZCwgMjAxMy0wNi0xOSBhdCAwNzoyOSAtMDcwMCwgTmFyZW5kcmFfS0BE
+ZWxsLmNvbSB3cm90ZToNCj4gWy4uLl0NCj4gPiAyLiBzaG93X3BoeXNfcG9ydCAgZnVuY3Rpb24g
+c2VlcyBhIGNvbnNpc3RlbnQgdmFsdWUgb2YNCj4gPiAnbmV0ZGV2LT5waHlzX3BvcnQucG9ydF9p
+ZCBhbmQgbmV0ZGV2LT5waHlzX3BvcnQucG9ydF9pZF9sZW4gJyAgaWYNCj4gPiBhbm90aGVyIGV4
+ZWN1dGlvbiBwYXRoIGNoYW5nZXMgdGhlIHZhbHVlIG9mICduZXRkZXYtPnBoeXNfcG9ydC5wb3J0
+X2lkDQo+ID4gYW5kIG5ldGRldi0+cGh5c19wb3J0LnBvcnRfaWRfbGVuICcgIHdpdGggd3JpdGVf
+bG9jaygmZGV2X2Jhc2VfbG9jaykNCj4gPiBoZWxkIChzaW1pbGFyIHRvIGhvdyBkZXYtPm9wZXJz
+dGF0ZSBpcyBiZWluZyBjaGFuZ2VkKS4NCj4gWy4uLl0NCj4gDQo+IElmIHRoZSBwaHlzaWNhbCBw
+b3J0IElEIGNhbiBjaGFuZ2UgZHluYW1pY2FsbHkgKEkgaGFkbid0IHRob3VnaHQgb2YgdGhhdCwg
+YnV0IGFuDQo+IGVtYmVkZGVkIHN3aXRjaCBjb3VsZCBzdXBwb3J0IHN1Y2ggcmVjb25maWd1cmF0
+aW9uKSB0aGVuIGFueSBzdWNoIGNoYW5nZQ0KPiBhbHNvIG5lZWRzIHRvIGJlIGFubm91bmNlZCB0
+aHJvdWdoIHJ0bmV0bGluay4gIEFjdHVhbGx5LCBJIHRoaW5rIHRoZSB2YWx1ZQ0KPiBuZWVkcyB0
+byBiZSBpbmNsdWRlZCBpbiBydG5ldGxpbmsgaW5mb3JtYXRpb24gYW55d2F5Lg0KPiANCg0KT2su
+IFRoYW5rIHlvdSBCZW4uIEkgaGFkIG5vdCB0aG91Z2h0IGFib3V0IHRoaXMgc2NlbmFyaW8uICBJ
+IHdhcyB0aGlua2luZyBhYm91dCB0aGUgcmVhc29uIHRvIGhvbGQgdGhlIGRldl9iYXNlX2xvY2su
+ICBEbyB5b3UgdGhpbmsgcG9pbnRzIDEgYW5kIDIgYXJlIGNvcnJlY3QgcmVhc29uIHRvIGhvbGQg
+dGhlIGRldl9iYXNlX2xvY2sgPyBJZiBjb3JyZWN0LCAgSSB0aGluayB0aGUgJ3Nob3dfYnJvYWRj
+YXN0JyBmdW5jdGlvbiBhbHNvIG5lZWRzIHRvIGJlIGZpeGVkIGFzIGl0IGlzIG5vdCBob2xkaW5n
+IHRoZSBsb2NrLg0KDQpXaXRoIHJlZ2FyZHMsDQpOYXJlbmRyYSBLDQpMaW51eCBFbmdpbmVlcmlu
+Zw0KRGVsbCBJbmMuDQoNCg0K
