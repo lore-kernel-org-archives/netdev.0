@@ -1,29 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2013-06-19
-Date: Wed, 19 Jun 2013 00:48:13 -0700 (PDT)
-Message-ID: <20130619.004813.1446078085522365696.davem@davemloft.net>
-References: <1371625369-26368-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH -next] bcm63xx_enet: fix return value check in
+ bcm_enet_shared_probe()
+Date: Wed, 19 Jun 2013 00:49:19 -0700 (PDT)
+Message-ID: <20130619.004919.1567267368837634118.davem@davemloft.net>
+References: <CAPgLHd_=CCFcpkJP_717-hLREO+DBhYKNVpupmJik0oRnLGA3w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org
-To: mkl@pengutronix.de
+Cc: jogo@openwrt.org, mbizon@freebox.fr, joe@perches.com,
+	cernekee@gmail.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: weiyj.lk@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59731 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59744 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933328Ab3FSHsO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 03:48:14 -0400
-In-Reply-To: <1371625369-26368-1-git-send-email-mkl@pengutronix.de>
+	with ESMTP id S1756336Ab3FSHtU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 03:49:20 -0400
+In-Reply-To: <CAPgLHd_=CCFcpkJP_717-hLREO+DBhYKNVpupmJik0oRnLGA3w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Wed, 19 Jun 2013 09:02:48 +0200
+From: Wei Yongjun <weiyj.lk@gmail.com>
+Date: Wed, 19 Jun 2013 10:32:32 +0800
 
-> here are there fixes for the v3.10 release cycle:
+> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 > 
-> Michael Olbrich reported an Oops (free_netdev() on registered netdev) with the
-> 8devices USB CAN converter on xhci USB host controllers. I've created a patch
-> to fix the error path of the driver.
+> In case of error, the function devm_ioremap_resource() returns ERR_PTR()
+> and never returns NULL. The NULL test in the return value check should
+> be replaced with IS_ERR().
+> 
+> Introduce by commit 0ae99b5fede6f3a8d252d50bb4aba29544295219
+> (bcm63xx_enet: split DMA channel register accesses)
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Pulled, thanks Marc.
+Applied, thank you.
