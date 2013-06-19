@@ -1,51 +1,56 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH net-next] net: Add phys_port identifier to struct
- net_device and export it to sysfs
-Date: Thu, 20 Jun 2013 00:23:47 +0530
-Message-ID: <E31FB011129F30488D5861F383904915210BB9042A@BLRX7MCDC201.AMER.DELL.COM>
-References: <20130617181004.GA1364@fedora-17-guest.dell.com>
-	 <51BF59D8.10806@gmail.com>
-	 <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
- <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [net-next 1/8] i40e: main driver core
+Date: Wed, 19 Jun 2013 11:55:42 -0700
+Message-ID: <20130619115542.767eaee4@samsung-9>
+References: <1371182122-26629-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	<1371182122-26629-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <john.fastabend@gmail.com>, <netdev@vger.kernel.org>,
-	<john.r.fastabend@intel.com>
-To: <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	netdev@vger.kernel.org, gospo@redhat.com, sassmann@redhat.com,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	PJ Waskiewicz <peter.p.waskiewicz.jr@intel.com>,
+	e1000-devel@lists.sourceforge.net
+To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxipps301.us.dell.com ([143.166.148.223]:46816 "EHLO
-	ausxipps301.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934694Ab3FSSzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 14:55:16 -0400
-In-Reply-To: <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:53250 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934694Ab3FSSzr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 14:55:47 -0400
+Received: by mail-pa0-f42.google.com with SMTP id rl6so5456843pac.29
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 11:55:46 -0700 (PDT)
+In-Reply-To: <1371182122-26629-2-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogV2VkbmVzZGF5LCBKdW5lIDE5
-LCAyMDEzIDk6MDcgUE0NCj4gVG86IEssIE5hcmVuZHJhDQo+IENjOiBqb2huLmZhc3RhYmVuZEBn
-bWFpbC5jb207IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmc7DQo+IGpvaG4uci5mYXN0YWJlbmRAaW50
-ZWwuY29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggbmV0LW5leHRdIG5ldDogQWRkIHBoeXNfcG9y
-dCBpZGVudGlmaWVyIHRvIHN0cnVjdA0KPiBuZXRfZGV2aWNlIGFuZCBleHBvcnQgaXQgdG8gc3lz
-ZnMNCj4gDQo+IE9uIFdlZCwgMjAxMy0wNi0xOSBhdCAwNzoyOSAtMDcwMCwgTmFyZW5kcmFfS0BE
-ZWxsLmNvbSB3cm90ZToNCj4gWy4uLl0NCj4gPiAyLiBzaG93X3BoeXNfcG9ydCAgZnVuY3Rpb24g
-c2VlcyBhIGNvbnNpc3RlbnQgdmFsdWUgb2YNCj4gPiAnbmV0ZGV2LT5waHlzX3BvcnQucG9ydF9p
-ZCBhbmQgbmV0ZGV2LT5waHlzX3BvcnQucG9ydF9pZF9sZW4gJyAgaWYNCj4gPiBhbm90aGVyIGV4
-ZWN1dGlvbiBwYXRoIGNoYW5nZXMgdGhlIHZhbHVlIG9mICduZXRkZXYtPnBoeXNfcG9ydC5wb3J0
-X2lkDQo+ID4gYW5kIG5ldGRldi0+cGh5c19wb3J0LnBvcnRfaWRfbGVuICcgIHdpdGggd3JpdGVf
-bG9jaygmZGV2X2Jhc2VfbG9jaykNCj4gPiBoZWxkIChzaW1pbGFyIHRvIGhvdyBkZXYtPm9wZXJz
-dGF0ZSBpcyBiZWluZyBjaGFuZ2VkKS4NCj4gWy4uLl0NCj4gDQo+IElmIHRoZSBwaHlzaWNhbCBw
-b3J0IElEIGNhbiBjaGFuZ2UgZHluYW1pY2FsbHkgKEkgaGFkbid0IHRob3VnaHQgb2YgdGhhdCwg
-YnV0IGFuDQo+IGVtYmVkZGVkIHN3aXRjaCBjb3VsZCBzdXBwb3J0IHN1Y2ggcmVjb25maWd1cmF0
-aW9uKSB0aGVuIGFueSBzdWNoIGNoYW5nZQ0KPiBhbHNvIG5lZWRzIHRvIGJlIGFubm91bmNlZCB0
-aHJvdWdoIHJ0bmV0bGluay4gIEFjdHVhbGx5LCBJIHRoaW5rIHRoZSB2YWx1ZQ0KPiBuZWVkcyB0
-byBiZSBpbmNsdWRlZCBpbiBydG5ldGxpbmsgaW5mb3JtYXRpb24gYW55d2F5Lg0KPiANCg0KT2su
-IFRoYW5rIHlvdSBCZW4uIEkgaGFkIG5vdCB0aG91Z2h0IGFib3V0IHRoaXMgc2NlbmFyaW8uICBJ
-IHdhcyB0aGlua2luZyBhYm91dCB0aGUgcmVhc29uIHRvIGhvbGQgdGhlIGRldl9iYXNlX2xvY2su
-ICBEbyB5b3UgdGhpbmsgcG9pbnRzIDEgYW5kIDIgYXJlIGNvcnJlY3QgcmVhc29uIHRvIGhvbGQg
-dGhlIGRldl9iYXNlX2xvY2sgPyBJZiBjb3JyZWN0LCAgSSB0aGluayB0aGUgJ3Nob3dfYnJvYWRj
-YXN0JyBmdW5jdGlvbiBhbHNvIG5lZWRzIHRvIGJlIGZpeGVkIGFzIGl0IGlzIG5vdCBob2xkaW5n
-IHRoZSBsb2NrLg0KDQpXaXRoIHJlZ2FyZHMsDQpOYXJlbmRyYSBLDQpMaW51eCBFbmdpbmVlcmlu
-Zw0KRGVsbCBJbmMuDQoNCg0K
+On Thu, 13 Jun 2013 20:55:15 -0700
+Jeff Kirsher <jeffrey.t.kirsher@intel.com> wrote:
+
+> +
+> +char i40e_driver_name[] = "i40e";
+
+Obviously const
+
++/* Helper macros for reading the stats registers
++ *
++ * Since the device stats are not reset at PFReset, they likely will not
++ * be zeroed when the driver starts.  We'll save the first values read
++ * and use them as offsets to be subtracted from the raw values in order
++ * to report stats that count from zero.
++ */
++#define I40E_STAT_UPDATE48(hireg, loreg, offset_loaded, offset, stat)     \
++do {                                                                      \
++	u64 new_data;                                                     \
++	new_data = rd64(hw, (loreg));                                     \
++	if (!(offset_loaded))                                             \
++		(offset) = new_data;                                      \
++	if (likely(new_data >= (offset)))                                 \
++		(stat) = new_data - (offset);                             \
++	else                                                              \
++		(stat) = (new_data + ((u64)1 << 48)) - (offset);          \
++	(stat) &= 0xFFFFFFFFFFFFULL;                                      \
++} while (0)
+
+Macro's suck, this could just as well be a function
+or maybe a macro that calls function (and go ahead and do string manipulation)
