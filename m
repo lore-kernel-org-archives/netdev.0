@@ -1,156 +1,90 @@
-From: esr@thyrsus.com
-Subject: Problems in tc-ematch.8
-Date: Tue, 18 Jun 2013 21:02:57 -0400 (EDT)
-Message-ID: <20130619010257.75ABE4143C@snark.thyrsus.com>
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: nl80211 NULL pointer dereference
+Date: Tue, 18 Jun 2013 15:46:13 -1000
+Message-ID: <CA+55aFxOde8n0M2=77-TQ2Ea9iz8s-e8zGFwjj6RVyMFXBgxEA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============8239181010952604908=="
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Wireless List <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"John W. Linville" <linville@tuxdriver.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-71-162-243-5.phlapa.fios.verizon.net ([71.162.243.5]:54426
-	"EHLO snark.thyrsus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933965Ab3FSBC7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 21:02:59 -0400
-Received: from [127.0.1.1] (localhost [127.0.0.1])
-	by snark.thyrsus.com (Postfix) with ESMTP id 75ABE4143C
-	for <netdev@vger.kernel.org>; Tue, 18 Jun 2013 21:02:57 -0400 (EDT)
+Received: from mail-vc0-f180.google.com ([209.85.220.180]:56753 "EHLO
+	mail-vc0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932860Ab3FSBqP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 18 Jun 2013 21:46:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---===============8239181010952604908==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
+Hmm. Maybe this is old, but I don't think I've seen it before (who
+knows, maybe it has killed the machine before, I had a hard hang the
+other day).
 
-This is automatically generated email about markup problems in a man
-page for which you appear to be responsible.  If you are not the right
-person or list, please tell me so I can correct my database.
+It's a NULL pointer dereference in nl80211_set_reg() on my Pixel. The
+machine kind of stayed up afterwards, although with no working
+wireless, and it would not shut down cleanly presumably due to locks
+held etc.
 
-See http://catb.org/~esr/doclifter/bugs.html for details on how and
-why these patches were generated.  Feel free to email me with any
-questions.  Note: These patches do not change the modification date of
-any manual page.  You may wish to do that by hand.
+Any ideas? I'm including the few wireless-related messages that
+happened justr before the oops. Being a pixel, this is with the ath9k
+driver.
 
-I apologize if this message seems spammy or impersonal. The volume of
-markup bugs I am tracking is over five hundred - there is no real
-alternative to generating bugmail from a database and template.
+                     Linus
 
---
-                             Eric S. Raymond
+---
+  wlp1s0: authenticate with 00:c0:23:ba:27:40
+  wlp1s0: send auth to 00:c0:23:ba:27:40 (try 1/3)
+  wlp1s0: authenticated
+  ath9k 0000:01:00.0 wlp1s0: disabling HT as WMM/QoS is not supported by the AP
+  ath9k 0000:01:00.0 wlp1s0: disabling VHT as WMM/QoS is not supported by the AP
+  wlp1s0: associate with 00:c0:23:ba:27:40 (try 1/3)
+  wlp1s0: RX AssocResp from 00:c0:23:ba:27:40 (capab=0x501 status=0 aid=4)
+  wlp1s0: associated
+  cfg80211: Calling CRDA for country: US
 
---===============8239181010952604908==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-
-Problems with tc-ematch.8:
-
-Use of low-level troff hackery to set special indents or breaks can't
-be translated. The page will have rendering faults in HTML, and
-probably also under third-party man page browsers such as Xman,
-Rosetta, and the KDE help browser.  This patch eliminates .br, .ta, .ti,
-.ce, .in, and \h in favor of requests like .RS/.RE that have
-structural translations.
-
-.ti operations are actually no-ops.  Removing them leaves the
-page rendering unchanged and simplifies parsing.
-
---- tc-ematch.8-unpatched	2013-06-14 04:26:20.987408436 -0400
-+++ tc-ematch.8	2013-06-14 04:26:37.079408135 -0400
-@@ -6,54 +6,43 @@
- .SH SYNOPSIS
- .sp
- .ad l
--.in +8
--.ti -8
- .B "tc filter add .. basic match"
- .RI EXPR
- .B .. flowid ..
- .sp
- 
--.ti -8
- .IR EXPR " := " TERM " [ { "
- .B and | or
- }
- .IR EXPR
- ]
- 
--.ti -8
- .IR TERM " := [ " \fBnot " ] { " MATCH " | '(' " EXPR " ')' } "
- 
--.ti -8
- .IR MATCH " := " module " '(' " ARGS " ')' "
- 
--.ti -8
- .IR ARGS " := " ARG1 " " ARG2 " ..
- 
- .SH MATCHES
- 
- .SS cmp
- Simple comparison ematch: arithmetic compare of packet data to a given value.
--.ti
-+
- .IR cmp "( " ALIGN " at " OFFSET " [ " ATTRS " ] { " eq " | " lt " | " gt " } " VALUE " )
- 
--.ti
- .IR ALIGN " := { " u8 " | " u16 " | " u32 " } "
- 
--.ti
- .IR ATTRS " := [ layer " LAYER " ] [ mask " MASK " ] [ trans ]
- 
--.ti
- .IR LAYER " := { " link " | " network " | " transport " | " 0..2 " }
- 
- .SS meta
- Metadata ematch
--.ti
-+
- .IR meta "( " OBJECT " { " eq " | " lt " |" gt " } " OBJECT " )
- 
--.ti
- .IR OBJECT " := { " META_ID " |  " VALUE " }
- 
--.ti
- .IR META_ID " := " id " [ shift " SHIFT " ] [ mask " MASK " ]
- 
- .TP
-@@ -78,35 +67,29 @@
- 
- .SS nbyte
- match packet data byte sequence
--.ti
-+
- .IR nbyte "( " NEEDLE  " at " OFFSET " [ layer " LAYER " ] )
- 
--.ti
- .IR NEEDLE  " := { " string " | " c-escape-sequence "  } "
- 
--.ti
- .IR OFFSET  " := " int
- 
--.ti
- .IR LAYER " := { " link " | " network " | " transport " | " 0..2 " }
- 
- .SS u32
- u32 ematch
--.ti
-+
- .IR u32 "( " ALIGN " " VALUE " " MASK " at [ nexthdr+ ] " OFFSET " )
- 
--.ti
- .IR ALIGN " := { " u8 " | " u16 " | " u32 " }
- 
- .SS ipset
- test packet agains ipset membership
--.ti
-+
- .IR ipset "( " SETNAME " " FLAGS " )
- 
--.ti
- .IR SETNAME " := " string
- 
--.ti
- .IR FLAGS " := { " FLAG " [, " FLAGS "] }
- 
- The flag options are the same as those used by the iptables "set" match.
-
---===============8239181010952604908==--
+  BUG: unable to handle kernel NULL pointer dereference at           (null)
+  IP: [<ffffffffa02a77d3>] nl80211_set_reg+0x113/0x2c0 [cfg80211]
+  PGD 1459c3067 PUD 10f6fa067 PMD 0
+  Oops: 0000 [#1] SMP
+  Modules linked in: ftdi_sio tpm_tis tpm tpm_bios usb_storage fuse
+ebtable_nat nf_conntrack_netbios_ns nf_conntrack_broadcast
+ipt_MASQUERADE ip6table_nat nf_nat_ipv6 ip6table_mangle ip6t_REJECT
+nf_conntra
+   media chromeos_laptop snd_timer snd microcode lpc_ich rfkill
+soundcore mfd_core i2c_i801 uinput binfmt_misc dm_crypt i915
+i2c_algo_bit drm_kms_helper drm crc32_pclmul crc32c_intel
+ghash_clmulni_intel i2
+  CPU: 1 PID: 4859 Comm: crda Not tainted 3.10.0-rc6 #2
+  Hardware name: GOOGLE Link, BIOS          12/10/2012
+  RIP: 0010:[<ffffffffa02a77d3>]  [<ffffffffa02a77d3>]
+nl80211_set_reg+0x113/0x2c0 [cfg80211]
+  RSP: 0018:ffff8801277779f0  EFLAGS: 00010202
+  RAX: ffff8801456b0000 RBX: 0000000000000000 RCX: 0000000000000000
+  RDX: 00000000000000c0 RSI: 0000000000000000 RDI: 0000000000000000
+  RBP: ffff880127777a58 R08: 0000000000015d40 R09: ffff880141c8ecc0
+  R10: ffffffffa02a779a R11: 0000000000000004 R12: 0000000000000000
+  R13: ffff880141c8ecc0 R14: ffff88013af8d414 R15: ffff880127777a80
+  FS:  00007f2c82fb5740(0000) GS:ffff88014f280000(0000) knlGS:0000000000000000
+  CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+  CR2: 0000000000000000 CR3: 00000001459b2000 CR4: 00000000001407e0
+  DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+  DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+  Call Trace:
+   [<ffffffff81531b44>] genl_family_rcv_msg+0x1f4/0x2e0
+   [<ffffffff81531cc1>] genl_rcv_msg+0x91/0xd0
+   [<ffffffff81531339>] netlink_rcv_skb+0xa9/0xc0
+   [<ffffffff81531758>] genl_rcv+0x28/0x40
+   [<ffffffff81530d62>] netlink_unicast+0x142/0x1f0
+   [<ffffffff815310ad>] netlink_sendmsg+0x29d/0x370
+   [<ffffffff814f22e9>] sock_sendmsg+0x99/0xd0
+   [<ffffffff814f270e>] ___sys_sendmsg+0x39e/0x3b0
+   [<ffffffff814f34f2>] __sys_sendmsg+0x42/0x80
+   [<ffffffff814f3542>] SyS_sendmsg+0x12/0x20
+   [<ffffffff81615e42>] system_call_fastpath+0x16/0x1b
+  Code: 60 10 41 0f b6 46 04 0f b6 fb 41 88 45 14 41 0f b6 46 05 41 88
+45 15 e8 8c c5 fe ff 84 c0 75 68 49 8b 47 20 4c 8b a0 10 01 00 00 <45>
+0f b7 34 24 41 83 ee 04 41 83 fe 03 7e 0e 41 0f b7 44 24 04
+  RIP  [<ffffffffa02a77d3>] nl80211_set_reg+0x113/0x2c0 [cfg80211]
+   RSP <ffff8801277779f0>
+  CR2: 0000000000000000
