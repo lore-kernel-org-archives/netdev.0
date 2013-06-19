@@ -1,25 +1,28 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next 1/2] macvtap: Let TUNSETOFFLOAD actually
  controll offload features.
-Date: Wed, 19 Jun 2013 18:16:34 +0300
-Message-ID: <20130619151634.GA12619@redhat.com>
+Date: Wed, 19 Jun 2013 08:17:18 -0700
+Message-ID: <1371655038.3252.312.camel@edumazet-glaptop>
 References: <1371653272-11703-1-git-send-email-vyasevic@redhat.com>
- <1371653272-11703-2-git-send-email-vyasevic@redhat.com>
+	 <1371653272-11703-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, jasowang@redhat.com
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, mst@redhat.com,
+	jasowang@redhat.com
 To: Vlad Yasevich <vyasevic@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40570 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756858Ab3FSPPt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 11:15:49 -0400
-Content-Disposition: inline
+Received: from mail-ea0-f171.google.com ([209.85.215.171]:52048 "EHLO
+	mail-ea0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934022Ab3FSPRY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 11:17:24 -0400
+Received: by mail-ea0-f171.google.com with SMTP id m14so3324816eaj.30
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 08:17:22 -0700 (PDT)
 In-Reply-To: <1371653272-11703-2-git-send-email-vyasevic@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 19, 2013 at 10:47:51AM -0400, Vlad Yasevich wrote:
+On Wed, 2013-06-19 at 10:47 -0400, Vlad Yasevich wrote:
 > When the user issues TUNSETOFFLOAD ioctl, macvtap does not do
 > anything other then to verify arguments.  This patch adds
 > functionality to allow users to actually control offload features.
@@ -47,11 +50,6 @@ On Wed, Jun 19, 2013 at 10:47:51AM -0400, Vlad Yasevich wrote:
 > +	struct macvlan_dev *vlan = netdev_priv(dev);
 > +
 > +	return (features & vlan->set_features) | (features & ~MACVLAN_FEATURES);
-
-A bit clearer as
-
-> +	return features & (vlan->set_features | ~MACVLAN_FEATURES);
-
 > +}
 > +
 >  static const struct ethtool_ops macvlan_ethtool_ops = {
@@ -93,23 +91,23 @@ A bit clearer as
 > +
 > +		if (arg & TUN_F_UFO)
 > +			features |= NETIF_F_UFO;
-
-Hmm this looks strange. The meaning of offloads
-with tun is exactly the reverse from vlan/macvtap.
-
-For example, assume that you disable TSO.
-For tun this means: "don't send TSO packets to userspace".
-What this patch makes it mean for macvtap is
-"don't send TSO packets from userspace on the network".
-
-So, userspace using this ioctl
-to control tun would get a surprising result.
-
 > +	}
 > +
 > +	rtnl_lock();
 > +	rcu_read_lock_bh();
+
+This looks wrong/suspect to me.
+
+Once RTNL is owned, you should not need rcu_read_lock_bh()
+
+(A BH handler will not change q->vlan )
+
+BTW, it looks like ->vlan is protected by macvtap_lock
+
 > +	vlan = rcu_dereference_bh(q->vlan);
+
+vlan = rtnl_dereference(q->vlan);
+
 > +	if (!vlan) {
 > +		err = -ENOLINK;
 > +		goto unlock;
@@ -117,6 +115,9 @@ to control tun would get a surprising result.
 > +
 > +	vlan->set_features = features;
 > +	netdev_update_features(vlan->dev);
+
+Can this really be called with BH disabled ?
+
 > +
 > +unlock:
 > +	rcu_read_unlock_bh();
@@ -124,29 +125,3 @@ to control tun would get a surprising result.
 > +	return err;
 > +}
 > +
->  /*
->   * provide compatibility with generic tun/tap interface
->   */
-> @@ -1062,7 +1101,7 @@ static long macvtap_ioctl(struct file *file, unsigned int cmd,
->  			 got enabled for forwarded frames */
->  		if (!(q->flags & IFF_VNET_HDR))
->  			return  -EINVAL;
-> -		return 0;
-> +		return set_offload(q, arg);
->  
->  	default:
->  		return -EINVAL;
-> diff --git a/include/linux/if_macvlan.h b/include/linux/if_macvlan.h
-> index f49a9f6..e446e82 100644
-> --- a/include/linux/if_macvlan.h
-> +++ b/include/linux/if_macvlan.h
-> @@ -65,6 +65,7 @@ struct macvlan_dev {
->  
->  	DECLARE_BITMAP(mc_filter, MACVLAN_MC_FILTER_SZ);
->  
-> +	netdev_features_t	set_features;
->  	enum macvlan_mode	mode;
->  	u16			flags;
->  	int (*receive)(struct sk_buff *skb);
-> -- 
-> 1.8.1.4
