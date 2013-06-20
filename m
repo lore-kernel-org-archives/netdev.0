@@ -1,51 +1,53 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next 1/8] vxlan: Fix error handling while creating
- device.
-Date: Thu, 20 Jun 2013 08:47:48 -0700
-Message-ID: <20130620084748.2c79809f@nehalam.linuxnetplumber.net>
-References: <1371713185-8076-1-git-send-email-pshelar@nicira.com>
+Subject: Re: [PATCH net-next 0/8] openvswitch: Add vxlan tunneling support.
+Date: Thu, 20 Jun 2013 08:58:42 -0700
+Message-ID: <20130620085842.27a588d2@nehalam.linuxnetplumber.net>
+References: <1371713175-8037-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, dev@openvswitch.org
 To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:54596 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1758090Ab3FTPrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 11:47:51 -0400
-Received: by mail-pa0-f53.google.com with SMTP id tj12so6451247pac.12
-        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 08:47:51 -0700 (PDT)
-In-Reply-To: <1371713185-8076-1-git-send-email-pshelar@nicira.com>
+Received: from mail-pd0-f175.google.com ([209.85.192.175]:32777 "EHLO
+	mail-pd0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757896Ab3FTP6q (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 11:58:46 -0400
+Received: by mail-pd0-f175.google.com with SMTP id 4so6392852pdd.20
+        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 08:58:45 -0700 (PDT)
+In-Reply-To: <1371713175-8037-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Jun 2013 00:26:25 -0700
+On Thu, 20 Jun 2013 00:26:15 -0700
 Pravin B Shelar <pshelar@nicira.com> wrote:
 
-> Delete vxlan-sock list entry from list before freeing the memory.
+> First two patches fixes vxlan issues.  Next two patches
+> extends vxlan so that openvswitch can share vxlan udp port
+> with vxlan module. Rest of patches refactors vxlan data
+> plane so that ovs can share that code with vxlan module.
+> Last patch adds vxlan-vport to openvswitch.
 > 
-> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
-> ---
->  drivers/net/vxlan.c |    4 +++-
->  1 files changed, 3 insertions(+), 1 deletions(-)
+> Pravin B Shelar (8):
+>   vxlan: Fix error handling while creating device.
+>   vxlan: Fix sparse wornings.
+>   vxlan: Allow multiple recieve handlers.
+>   vxlan: Extend vxlan handlers for openvswitch.
+>   vxlan: Factor out vxlan send api.
+>   vxlan: Improve vxlan headroom calculation.
+>   vxlan: Add tx-vlan offload support.
+>   openvswitch: Add vxlan tunneling support.
 > 
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 284c6c0..173705f 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -1606,9 +1606,11 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
->  	err = register_netdevice(dev);
->  	if (err) {
->  		if (--vs->refcnt == 0) {
-> +			hlist_del_rcu(&vs->hlist);
->  			rtnl_unlock();
-> +
->  			sk_release_kernel(vs->sock->sk);
-> -			kfree(vs);
-> +			kfree_rcu(vs, rcu);
->  			rtnl_lock();
->  		}
->  		return err;
+>  drivers/net/vxlan.c              |  337 +++++++++++++++++++++++++-------------
+>  include/net/vxlan.h              |   33 ++++
+>  include/uapi/linux/openvswitch.h |   11 ++
+>  net/openvswitch/Kconfig          |    1 +
+>  net/openvswitch/Makefile         |    3 +-
+>  net/openvswitch/vport-vxlan.c    |  220 +++++++++++++++++++++++++
+>  net/openvswitch/vport.c          |    3 +
+>  net/openvswitch/vport.h          |    1 +
+>  8 files changed, 490 insertions(+), 119 deletions(-)
+>  create mode 100644 include/net/vxlan.h
+>  create mode 100644 net/openvswitch/vport-vxlan.c
 
-This will not be necessary with my next patch set, that code all changes.
+I will merge the first 7 into my vxlan repository and send a pull request.
