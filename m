@@ -1,36 +1,40 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [RFC PATCH net-next 3/3] packet: nlmon: virtual netlink monitoring
- device for packet sockets
-Date: Thu, 20 Jun 2013 10:07:10 +0200
-Message-ID: <51C2B82E.9060401@redhat.com>
-References: <1371665086-19677-1-git-send-email-dborkman@redhat.com> <1371665086-19677-4-git-send-email-dborkman@redhat.com> <20130619115941.34fc425e@samsung-9>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net bridge: add null pointer check, fix panic
+Date: Thu, 20 Jun 2013 01:14:00 -0700
+Message-ID: <1371716040.3252.389.camel@edumazet-glaptop>
+References: <51C2710D.2060405@gmail.com> <51C2721B.9050603@gmail.com>
+	<1371704129.3252.356.camel@edumazet-glaptop>
+	<51C2A8AA.5010902@gmail.com>
+	<1371713342.3252.371.camel@edumazet-glaptop>
+	<51C2B3A9.5070904@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, tgraf@suug.ch, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:50055 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755401Ab3FTIHh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 04:07:37 -0400
-In-Reply-To: <20130619115941.34fc425e@samsung-9>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: xiaoming gao <gxm.linux.kernel@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <51C2B3A9.5070904@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 06/19/2013 08:59 PM, Stephen Hemminger wrote:
-> On Wed, 19 Jun 2013 20:04:46 +0200
-> Daniel Borkmann <dborkman@redhat.com> wrote:
->
->> Currently, there is no good possibility to debug netlink traffic that
->> is being exchanged between kernel and user space. Therefore, this patch
->> implements a netlink virtual device, so that netlink messages will be
->> made visible to PF_PACKET sockets. Once there was an approach with a
->> similar idea [1], but it got forgotten somehow.
->
-> ip monitor all
+On Thu, 2013-06-20 at 15:47 +0800, xiaoming gao wrote:
 
-Well, but this is only restricted to debugging rtnl and there are many other
-subsystems using netlink. Also, it's not about low-level debugging netlink
-in general from what I see from the code. So it's not really the same resp.
-comparable to each other.
+> 
+> if you remove the test on FF_BRIDGE_PORT, and br_port_get_rcu never returns NULL, the problem is fixed.
+> but the codes in mainline is still bugged, am i right??
+> by the way, kernel-stable 3.0 and 3.4 tree also have this bug, and is very easily to reproduce.
+
+Commit 00cfec37484761a4 has to be backported anyway, if not already
+backported.
+
+I would rather fix things properly, instead of adding defensive code.
