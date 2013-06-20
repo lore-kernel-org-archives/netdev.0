@@ -1,29 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 4/4] neigh: don't leak default parms to uninitial
- netns
-Date: Wed, 19 Jun 2013 18:29:02 -0700 (PDT)
-Message-ID: <20130619.182902.1672558923658431218.davem@davemloft.net>
-References: <1371175607-1405-4-git-send-email-gaofeng@cn.fujitsu.com>
-	<20130619.180505.1958820391321832484.davem@davemloft.net>
-	<51C25878.2070302@cn.fujitsu.com>
+Subject: Re: [PATCH net] netlink: export netlink_diag.h header
+Date: Wed, 19 Jun 2013 18:30:42 -0700 (PDT)
+Message-ID: <20130619.183042.1516025180452122503.davem@davemloft.net>
+References: <20130619180654.09e6a3e1@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org
-To: gaofeng@cn.fujitsu.com
+Cc: avagin@openvz.org, netdev@vger.kernel.org, kaber@trash.net
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47092 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:47105 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935191Ab3FTB3D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 21:29:03 -0400
-In-Reply-To: <51C25878.2070302@cn.fujitsu.com>
+	with ESMTP id S935297Ab3FTBan (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 21:30:43 -0400
+In-Reply-To: <20130619180654.09e6a3e1@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Date: Thu, 20 Jun 2013 09:18:48 +0800
+From: Stephen Hemminger <stephen@networkplumber.org>
+Date: Wed, 19 Jun 2013 18:06:54 -0700
 
-> You can just drop this one, are there some problems with the other 3
-> patches?
+> The netlink_diag.h is in include/uapi/linux but not in the Kbuild necessary
+> to cause it to be exported by make headers_install.
+> 
+> Signed-off-by: Stephen Hemminger <stephen@networkplumber.org>
 
-No, please resubmit them.
+Applied and queued up for -stable, thanks.
