@@ -1,55 +1,67 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [RFC PATCH net-next 3/3] packet: nlmon: virtual netlink monitoring
- device for packet sockets
-Date: Thu, 20 Jun 2013 19:09:54 +0200
-Message-ID: <51C33762.3000404@redhat.com>
-References: <1371665086-19677-1-git-send-email-dborkman@redhat.com> <1371665086-19677-4-git-send-email-dborkman@redhat.com> <20130619115941.34fc425e@samsung-9> <51C2B82E.9060401@redhat.com> <20130620084653.4d11dd3e@nehalam.linuxnetplumber.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next 0/8] openvswitch: Add vxlan tunneling support.
+Date: Thu, 20 Jun 2013 10:13:14 -0700
+Message-ID: <20130620101314.03d8dc91@nehalam.linuxnetplumber.net>
+References: <1371713175-8037-1-git-send-email-pshelar@nicira.com>
+	<20130620085842.27a588d2@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, tgraf@suug.ch, netdev@vger.kernel.org
+Cc: Pravin B Shelar <pshelar@nicira.com>, netdev@vger.kernel.org,
+	dev@openvswitch.org
 To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31023 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965397Ab3FTRKX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 13:10:23 -0400
-In-Reply-To: <20130620084653.4d11dd3e@nehalam.linuxnetplumber.net>
+Received: from mail-pb0-f41.google.com ([209.85.160.41]:35044 "EHLO
+	mail-pb0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965198Ab3FTRNS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 13:13:18 -0400
+Received: by mail-pb0-f41.google.com with SMTP id rp16so6462329pbb.14
+        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 10:13:18 -0700 (PDT)
+In-Reply-To: <20130620085842.27a588d2@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2013 05:46 PM, Stephen Hemminger wrote:
-> On Thu, 20 Jun 2013 10:07:10 +0200
-> Daniel Borkmann <dborkman@redhat.com> wrote:
->
->> On 06/19/2013 08:59 PM, Stephen Hemminger wrote:
->>> On Wed, 19 Jun 2013 20:04:46 +0200
->>> Daniel Borkmann <dborkman@redhat.com> wrote:
->>>
->>>> Currently, there is no good possibility to debug netlink traffic that
->>>> is being exchanged between kernel and user space. Therefore, this patch
->>>> implements a netlink virtual device, so that netlink messages will be
->>>> made visible to PF_PACKET sockets. Once there was an approach with a
->>>> similar idea [1], but it got forgotten somehow.
->>>
->>> ip monitor all
->>
->> Well, but this is only restricted to debugging rtnl and there are many other
->> subsystems using netlink. Also, it's not about low-level debugging netlink
->> in general from what I see from the code. So it's not really the same resp.
->> comparable to each other.
->
-> I was thinking that having a more general monitor is great, and maybe you
-> could reuse the similar concepts that already exist. I like the device idea
-> or maybe teaching libpcap how to handle another input source like Patrick's
-> mmap netlink would be better.
+On Thu, 20 Jun 2013 08:58:42 -0700
+Stephen Hemminger <stephen@networkplumber.org> wrote:
 
-Ahh, okay, understood.
+> On Thu, 20 Jun 2013 00:26:15 -0700
+> Pravin B Shelar <pshelar@nicira.com> wrote:
+> 
+> > First two patches fixes vxlan issues.  Next two patches
+> > extends vxlan so that openvswitch can share vxlan udp port
+> > with vxlan module. Rest of patches refactors vxlan data
+> > plane so that ovs can share that code with vxlan module.
+> > Last patch adds vxlan-vport to openvswitch.
+> > 
+> > Pravin B Shelar (8):
+> >   vxlan: Fix error handling while creating device.
+> >   vxlan: Fix sparse wornings.
+> >   vxlan: Allow multiple recieve handlers.
+> >   vxlan: Extend vxlan handlers for openvswitch.
+> >   vxlan: Factor out vxlan send api.
+> >   vxlan: Improve vxlan headroom calculation.
+> >   vxlan: Add tx-vlan offload support.
+> >   openvswitch: Add vxlan tunneling support.
+> > 
+> >  drivers/net/vxlan.c              |  337 +++++++++++++++++++++++++-------------
+> >  include/net/vxlan.h              |   33 ++++
+> >  include/uapi/linux/openvswitch.h |   11 ++
+> >  net/openvswitch/Kconfig          |    1 +
+> >  net/openvswitch/Makefile         |    3 +-
+> >  net/openvswitch/vport-vxlan.c    |  220 +++++++++++++++++++++++++
+> >  net/openvswitch/vport.c          |    3 +
+> >  net/openvswitch/vport.h          |    1 +
+> >  8 files changed, 490 insertions(+), 119 deletions(-)
+> >  create mode 100644 include/net/vxlan.h
+> >  create mode 100644 net/openvswitch/vport-vxlan.c
+> 
+> I will merge the first 7 into my vxlan repository and send a pull request.
 
-I think the device idea might be the cleanest solution. We have packet sockets
-and they do exactly what we want and expect from them, they have all the features etc,
-and user space would not even need to implement code. Thus adding more and more
-functionality into af_netlink would be a bigger surgery and further bloat it up
-with duplicate code, imho. By taking the approach with what I've proposed, we
-have a clean segregation of functionality (as: packet sockets vs. netlink sockets),
-thus keeping it simple and stupid, and not too complex.
+The patch "vxlan: Allow multiple recieve handlers." and beyond conflict
+with the changes to manage socket in work queue.
+
+Could you rebase them against
+  git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/vxlan-next.git
+
+The repo may not be available right now because kernel.org hasn't mirrored
+it out yet.
