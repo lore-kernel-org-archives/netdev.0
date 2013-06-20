@@ -1,123 +1,74 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: allow large number of tx queues
-Date: Thu, 20 Jun 2013 01:15:51 -0700
-Message-ID: <1371716151.3252.390.camel@edumazet-glaptop>
-References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
-	 <1371620452-49349-2-git-send-email-jasowang@redhat.com>
-	 <1371623518.3252.267.camel@edumazet-glaptop>
-	 <20130619091132.GA2816@redhat.com>
-	 <1371635763.3252.289.camel@edumazet-glaptop>
-	 <20130619154059.GA13735@redhat.com>
-	 <1371657511.3252.324.camel@edumazet-glaptop>
-	 <20130619180709.GA15017@redhat.com>
+From: Yuval Shaia <yuval.shaia@oracle.com>
+Subject: Add support for netconsole driver used on bridge device with VIF
+ attached
+Date: Thu, 20 Jun 2013 11:25:51 +0300
+Message-ID: <20130620082550.GA19444@yuval-pc.uk.oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
-	hkchu@google.com, netdev <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: yuval.shaia@oracle.com
+To: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	ian.campbell@citrix.com, bridge@lists.linux-foundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f52.google.com ([209.85.214.52]:57284 "EHLO
-	mail-bk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754498Ab3FTIP4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 04:15:56 -0400
-Received: by mail-bk0-f52.google.com with SMTP id d7so2692795bkh.39
-        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 01:15:55 -0700 (PDT)
-In-Reply-To: <20130619180709.GA15017@redhat.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:37801 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754811Ab3FTI0G (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 04:26:06 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+When starting a VM which has virtual interface attached to the same
+bridge which is used for netconsole the system freeze for 60 then the
+following message pops out to system console:
+"Error: Device 0 (vif) could not be connected. Hotplug scripts not
+working."
 
-On Wed, 2013-06-19 at 21:07 +0300, Michael S. Tsirkin wrote:
+When trying to do the opposite, i.e. first create VM and then run
+netconsole i got the following error:
+"#524 - vif2.0 doesn't support polling, aborting."
 
-> As we have explicit code to recover, maybe set __GFP_NOWARN?
-> If we are out of memory, vzalloc will warn too, we don't
-> need two warnings.
+Following is my setup:
 
-Yes, that's absolutely the right thing to do.
+----------                              ----------
+| VM A1  |------vif1.0----->|           | Host B |
+|--------|                  |--xenbr0   |        |
+| Host A |--bond0 (eth0)--->|           |        |
+----------          |                   ----------
+                    |                        |
+                    V                        V
+--------------------------------------------------
+|                      LAN                       |
+--------------------------------------------------
 
-Its yet not clear this patch is really needed, but here it is.
+I'm using netconsole to capture logs from Host-A and send them to
+Host-B. Host-A and Host-B are separate hosts (running XEN) which are
+connected to the same LAN.
+netconsole parameters:
+netconsole=1111@hostA-ip/xenbr0,2002@hostB-ip/hostB-mac
 
-Thanks
+As i see it, netconsole driver requires ndo_poll_controller from the
+device's controlling driver (function __netpoll_setup in
+net/core/netpoll.c), a thing that is not supported currently in
+xen_netback driver which is the driver that runs on dom0 and serve VM's
+virtual interface.
+call flow: init_netconsole() in netconsole.c -> alloc_param_target() ->
+netpoll_setup() in netpoll.c -> __netpoll_setup() which check if
+ndo_poll_controller().
 
-[PATCH net-next] net: allow large number of tx queues
+Looks like the underlying issue is that br_netpoll_setup() requires that
+all members of the bridge support netpoll before allowing netpoll to be
+enabled on the bridge itself.
 
-netif_alloc_netdev_queues() uses kcalloc() to allocate memory
-for the "struct netdev_queue *_tx" array.
+This seems like an odd restriction in the bridge driver since in
+principal only the port over which the netpoll traffic will be going
+will need netpoll, but perhaps the bridge can't tell which port that is
+or is going to be.
+It is obvious why the bridge device might need an ndo_poll_controller
+hook but it is unclear why the netback device would need one.
 
-For large number of tx queues, kcalloc() might fail, so this
-patch does a fallback to vzalloc().
+Hopefully the bridge isn't flooding/broadcasting netpoll to all ports,
+at least in the case where DST IP and MAC have been specified. That
+would be rather inefficient, especially when most ports go to virtual
+machines.
 
-As vmalloc() adds overhead on a critical network path, add __GFP_REPEAT
-to kzalloc() flags to do this fallback only when really needed.
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
----
- net/core/dev.c |   26 +++++++++++++++++++-------
- 1 file changed, 19 insertions(+), 7 deletions(-)
-
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fa007db..722f633 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -130,6 +130,7 @@
- #include <linux/cpu_rmap.h>
- #include <linux/static_key.h>
- #include <linux/hashtable.h>
-+#include <linux/vmalloc.h>
- 
- #include "net-sysfs.h"
- 
-@@ -5253,17 +5254,28 @@ static void netdev_init_one_queue(struct net_device *dev,
- #endif
- }
- 
-+static void netif_free_tx_queues(struct net_device *dev)
-+{
-+	if (is_vmalloc_addr(dev->_tx))
-+		vfree(dev->_tx);
-+	else
-+		kfree(dev->_tx);
-+}
-+
- static int netif_alloc_netdev_queues(struct net_device *dev)
- {
- 	unsigned int count = dev->num_tx_queues;
- 	struct netdev_queue *tx;
-+	size_t sz = count * sizeof(*tx);
- 
--	BUG_ON(count < 1);
--
--	tx = kcalloc(count, sizeof(struct netdev_queue), GFP_KERNEL);
--	if (!tx)
--		return -ENOMEM;
-+	BUG_ON(count < 1 || count > 0xffff);
- 
-+	tx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
-+	if (!tx) {
-+		tx = vzalloc(sz);
-+		if (!tx)
-+			return -ENOMEM;
-+	}
- 	dev->_tx = tx;
- 
- 	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
-@@ -5811,7 +5823,7 @@ free_all:
- 
- free_pcpu:
- 	free_percpu(dev->pcpu_refcnt);
--	kfree(dev->_tx);
-+	netif_free_tx_queues(dev);
- #ifdef CONFIG_RPS
- 	kfree(dev->_rx);
- #endif
-@@ -5836,7 +5848,7 @@ void free_netdev(struct net_device *dev)
- 
- 	release_net(dev_net(dev));
- 
--	kfree(dev->_tx);
-+	netif_free_tx_queues(dev);
- #ifdef CONFIG_RPS
- 	kfree(dev->_rx);
- #endif
+Yuval
