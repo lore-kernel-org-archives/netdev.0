@@ -1,32 +1,82 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: bonding: fix slave speed reporting in bond_miimon_commit
-Date: Thu, 20 Jun 2013 15:42:48 +0200
-Message-ID: <20130620134247.GA1157@redhat.com>
-References: <1371731653-13568-1-git-send-email-nikolay@redhat.com>
+From: Nikolay Aleksandrov <nikolay@redhat.com>
+Subject: Re: [PATCH net-next 4/6] bonding: don't validate arp if we don't
+ have to
+Date: Thu, 20 Jun 2013 15:43:51 +0200
+Message-ID: <51C30717.5080303@redhat.com>
+References: <1371663286-12518-5-git-send-email-vfalico@redhat.com> <51C22E58.5080209@redhat.com> <20130620084322.GJ26116@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, fubar@us.ibm.com,
-	davem@davemloft.net
-To: nikolay@redhat.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
+	rick.jones2@hp.com
+To: Veaceslav Falico <vfalico@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9021 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38622 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756845Ab3FTNnu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 09:43:50 -0400
-Content-Disposition: inline
-In-Reply-To: <1371731653-13568-1-git-send-email-nikolay@redhat.com>
+	id S965461Ab3FTNrS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 09:47:18 -0400
+In-Reply-To: <20130620084322.GJ26116@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 20, 2013 at 02:34:13PM +0200, nikolay@redhat.com wrote:
->From: Nikolay Aleksandrov <nikolay@redhat.com>
->
->When we have BOND_LINK_UP the speed is reported unconditionally with %u
->format although it can be SPEED_UNKNOWN (-1). After this patch it returns
->0 in that case in an attempt to keep the existing scripts happy.
->One line is intenionally left 81 chars because it gets ugly if broken.
->
->Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
->
+On 06/20/2013 10:43 AM, Veaceslav Falico wrote:
+> On Thu, Jun 20, 2013 at 12:19:04AM +0200, Nikolay Aleksandrov wrote:
+>> On 19/06/13 19:34, Veaceslav Falico wrote:
+>>> Currently, we validate all the incoming arps if arp_validate not 0.
+>>> However, we don't have to validate backup slaves if arp_validate == active
+>>> and vice versa, so return early in bond_arp_rcv() in these cases.
+>>>
+>>> It works correctly now because we verify arp_validate in slave_last_rx(),
+>>> however we're just doing useless work in bond_arp_rcv().
+>>>
+>>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+>>> ---
+>>>  drivers/net/bonding/bond_main.c |    4 ++++
+>>>  1 files changed, 4 insertions(+), 0 deletions(-)
+>>>
+>>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+>>> index b69c7f0..2cfbb2e 100644
+>>> --- a/drivers/net/bonding/bond_main.c
+>>> +++ b/drivers/net/bonding/bond_main.c
+>>> @@ -2624,6 +2624,10 @@ static int bond_arp_rcv(const struct sk_buff *skb,
+>>> struct bonding *bond,
+>>>          return RX_HANDLER_ANOTHER;
+>>>
+>>>      read_lock(&bond->lock);
+>>> +
+>>> +    if (!slave_do_arp_validate(bond, slave))
+>>> +        goto out_unlock;
+>>> +
+>>>      alen = arp_hdr_len(bond->dev);
+>>>
+>>>      pr_debug("bond_arp_rcv: bond %s skb->dev %s\n",
+>> Hm, I think this issue runs deeper because recv_probe can be wrong and
+>> also if arp_validate is enabled while the bond is running then
+>> recv_probe is not set (or unset for that matter if disabled). I have a
+>> patch which needs little more work for some time now in my queue that
+>> fixes this, but if you'd like to fix it I'd suggest addressing that
+>> issue (recv_probe), because then you can just drop these checks and
+>> improve performance when disabled (after it's been enabled).
+> 
+> Yup, recv_probe value is really poorly synced with the arp_validate, I'll
+> try to take a look at it when I have time and in case you won't fix it by
+> that time :).
+> 
+> However, I don't think we should drop this check even in this case. This
+> check just verifies if we should validate this exact slave - being it
+> active or backup, and considering the value of arp_validate (which can be
+> active/backup/both).
+> 
+> Maybe I've understood you wrong, though :).
+> 
+>> This got a bit confusing when I read it :-)
+>>
+>> Cheers,
+>> Nik
+I agree with this patch, I didn't mean to drop it :-) My intention was more to
+augment it to include the fix for recv_probe as well. But that is not critical
+so it can be done at a later time.
 
-Acked-by: Veaceslav Falico <vfalico@redhat.com>
+Cheers,
+ Nik
