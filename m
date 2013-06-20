@@ -1,59 +1,70 @@
-From: Chris Boot <bootc@bootc.net>
-Subject: Re: PANIC at net/xfrm/xfrm_output.c:125 (3.9.4)
-Date: Thu, 20 Jun 2013 21:36:44 +0100
-Message-ID: <51C367DC.8050808@bootc.net>
-References: <51AFB204.8070009@bootc.net> <20130606010416.GF26681@mail.gmail.com> <51AFE4C2.1000604@windriver.com> <51B03EAC.6080508@bootc.net> <20130606113840.511a72c3@vostro>
+From: Pravin Shelar <pshelar@nicira.com>
+Subject: Re: [PATCH net-next 0/8] openvswitch: Add vxlan tunneling support.
+Date: Thu, 20 Jun 2013 13:47:11 -0700
+Message-ID: <CALnjE+ptdQu8JsOdX=AA2h5rJH2HRey2yeKAaQ9T-Gn=yYX9dQ@mail.gmail.com>
+References: <1371713175-8037-1-git-send-email-pshelar@nicira.com>
+	<20130620085842.27a588d2@nehalam.linuxnetplumber.net>
+	<20130620101314.03d8dc91@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Fan Du <fan.du@windriver.com>, Jean Sacren <sakiwit@gmail.com>,
-	steffen.klassert@secunet.com, herbert@gondor.hengli.com.au,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Timo Teras <timo.teras@iki.fi>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130606113840.511a72c3@vostro>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: Stephen Hemminger <stephen@networkplumber.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from na3sys009aog103.obsmtp.com ([74.125.149.71]:37101 "HELO
+	na3sys009aog103.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965660Ab3FTUrM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 16:47:12 -0400
+Received: by mail-qc0-f181.google.com with SMTP id u12so4053505qcx.12
+        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 13:47:11 -0700 (PDT)
+In-Reply-To: <20130620101314.03d8dc91@nehalam.linuxnetplumber.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/06/2013 09:38, Timo Teras wrote:
-> On Thu, 06 Jun 2013 08:47:56 +0100
-> Chris Boot <bootc@bootc.net> wrote:
-> 
->> On 06/06/13 02:24, Fan Du wrote:
->>> Hello Chris/Jean
->>>
->>> This issue might have already been fixed by this:
->>> https://git.kernel.org/cgit/linux/kernel/git/davem/net-next.git/commit/net/xfrm/xfrm_output.c?id=497574c72c9922cf20c12aed15313c389f722fa0
->>>
->>>
->>> Hope it helps.
+On Thu, Jun 20, 2013 at 10:13 AM, Stephen Hemminger
+<stephen@networkplumber.org> wrote:
+> On Thu, 20 Jun 2013 08:58:42 -0700
+> Stephen Hemminger <stephen@networkplumber.org> wrote:
+>
+>> On Thu, 20 Jun 2013 00:26:15 -0700
+>> Pravin B Shelar <pshelar@nicira.com> wrote:
 >>
->> Hi Fan, Jean,
+>> > First two patches fixes vxlan issues.  Next two patches
+>> > extends vxlan so that openvswitch can share vxlan udp port
+>> > with vxlan module. Rest of patches refactors vxlan data
+>> > plane so that ovs can share that code with vxlan module.
+>> > Last patch adds vxlan-vport to openvswitch.
+>> >
+>> > Pravin B Shelar (8):
+>> >   vxlan: Fix error handling while creating device.
+>> >   vxlan: Fix sparse wornings.
+>> >   vxlan: Allow multiple recieve handlers.
+>> >   vxlan: Extend vxlan handlers for openvswitch.
+>> >   vxlan: Factor out vxlan send api.
+>> >   vxlan: Improve vxlan headroom calculation.
+>> >   vxlan: Add tx-vlan offload support.
+>> >   openvswitch: Add vxlan tunneling support.
+>> >
+>> >  drivers/net/vxlan.c              |  337 +++++++++++++++++++++++++-------------
+>> >  include/net/vxlan.h              |   33 ++++
+>> >  include/uapi/linux/openvswitch.h |   11 ++
+>> >  net/openvswitch/Kconfig          |    1 +
+>> >  net/openvswitch/Makefile         |    3 +-
+>> >  net/openvswitch/vport-vxlan.c    |  220 +++++++++++++++++++++++++
+>> >  net/openvswitch/vport.c          |    3 +
+>> >  net/openvswitch/vport.h          |    1 +
+>> >  8 files changed, 490 insertions(+), 119 deletions(-)
+>> >  create mode 100644 include/net/vxlan.h
+>> >  create mode 100644 net/openvswitch/vport-vxlan.c
 >>
->> Thanks, that looks like it's the patch for exactly my problem.
->> Unfortunately I can't test it until next week now. :-/
->>
->> Timo/Dave: are there any plans to push this into 3.10-rc and/or
->> stable? I seem to be able to hit the issue pretty reliably.
-> 
-> It is already present in 3.10-rc3 [1], and Dave has it queued for
-> 3.9-stable [2].
-> 
-> - Timo
-> 
-> [1] http://lwn.net/Articles/551922/
-> [2] http://patchwork.ozlabs.org/patch/245594/
-
-Hi folks,
-
-I'm just wondering if this patch has got lost in the cracks; I reported
-the issue in 3.9.4 and 3.9.7 is just out without any sign of it. Have I
-missed something?
-
-Thanks,
-Chris
-
--- 
-Chris Boot
-bootc@bootc.net
+>> I will merge the first 7 into my vxlan repository and send a pull request.
+>
+> The patch "vxlan: Allow multiple recieve handlers." and beyond conflict
+> with the changes to manage socket in work queue.
+>
+> Could you rebase them against
+>   git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/vxlan-next.git
+>
+> The repo may not be available right now because kernel.org hasn't mirrored
+> it out yet.
+Can you sync your tree with net-next, it has ovs changes that are
+required for ovs-vxlan changes.
