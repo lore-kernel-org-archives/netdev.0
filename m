@@ -1,74 +1,61 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvsadm: support for scheduler flags
-Date: Thu, 20 Jun 2013 22:20:28 +0900
-Message-ID: <20130620132028.GE24993@verge.net.au>
-References: <20130619100701.GA20258@eldamar.org.uk>
- <alpine.LFD.2.00.1306192254500.1823@ja.ssi.bg>
+From: Neil Horman <nhorman@tuxdriver.com>
+Subject: Re: [PATCH net-next 0/5] Further SCTP changes
+Date: Thu, 20 Jun 2013 09:24:30 -0400
+Message-ID: <20130620132430.GA17872@neilslaptop.think-freely.org>
+References: <1371545720-22950-1-git-send-email-dborkman@redhat.com>
+ <20130619.183903.2165829460238667637.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexander Frolkin <avf@eldamar.org.uk>, lvs-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-	lvs-users@linuxvirtualserver.org
-To: Julian Anastasov <ja@ssi.bg>
-Return-path: <lvs-devel-owner@vger.kernel.org>
+Cc: dborkman@redhat.com, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:51176 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965328Ab3FTNYo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 09:24:44 -0400
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1306192254500.1823@ja.ssi.bg>
-Sender: lvs-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20130619.183903.2165829460238667637.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 19, 2013 at 11:05:00PM +0300, Julian Anastasov wrote:
+On Wed, Jun 19, 2013 at 06:39:03PM -0700, David Miller wrote:
+> From: Daniel Borkmann <dborkman@redhat.com>
+> Date: Tue, 18 Jun 2013 10:55:15 +0200
 > 
-> 	Hello,
-> 
-> On Wed, 19 Jun 2013, Alexander Frolkin wrote:
-> 
-> > This patch adds support for scheduler flags, necessary to make use of
-> > the "SH fallback and L4 hashing" kernel patch.
+> > Mostly it's all about getting rid of unnecessary code, and/or making
+> > it more clean and readable.
 > > 
-> > The flags are set per service (so using -A or -E) using -b <flags> or
-> > --sched-flags <flags>.  <flags> is a comma-separated list of scheduler
-> > flags.  The currently supported flags are sh-port, sh-fallback, and
-> > generic flag-1, flag-2, flag-3 for future-proofing.
+> > Code has been tested with lksctp-tools functional test suite and
+> > also my small sctp stress test helper that was used to discover
+> > the recent null-ptr derefs. This test was also sucessfully run against
+> > auth_enabled=0 and auth_enabled=1, where I also previously applied
+> > the following two patches:
 > > 
-> > This patch will work with older versions of IPVS, although setting the
-> > flags will have no effect.
+> >   - http://marc.info/?l=linux-crypto-vger&m=137121898331017&w=2
+> >     -> not yet applied, still pending review for crypto tree
+> >   - 1abd165 (net: sctp: fix NULL pointer dereference in socket destruction)
+> >     -> cherry picked from net tree
 > > 
-> > Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
+> > Daniel Borkmann (5):
+> >   net: sctp: remove TEST_FRAME ifdef
+> >   ktime: add ms_to_ktime() and ktime_add_ms() helpers
+> >   net: sctp: migrate cookie life from timeval to ktime
+> >   net: sctp: decouple cleaning socket data from endpoint
+> >   net: sctp: minor: sctp_seq_dump_local_addrs add missing newline
 > 
-> 	Change looks correct:
+> The discussion of this patch series has taken a tangent towards a
+> talk about how to do TX based socket accounting differently.
 > 
-> Acked-by: Julian Anastasov <ja@ssi.bg>
-> 
-> 	but we forgot some minor issues, see below...
-> 
-> > @@ -426,9 +429,12 @@ parse_options(int argc, char **argv, struct ipvs_command_entry *ce,
-> >  		{ "ops", 'o', POPT_ARG_NONE, NULL, 'o', NULL, NULL },
-> >  		{ "pe", '\0', POPT_ARG_STRING, &optarg, TAG_PERSISTENCE_ENGINE,
-> >  		  NULL, NULL },
-> > +		{ "sched-flags", 'b', POPT_ARG_STRING, &optarg, 'b', NULL, NULL },
-> 
-> 	You have to split this long line
-> 
-> > @@ -656,6 +662,10 @@ parse_options(int argc, char **argv, struct ipvs_command_entry *ce,
-> >  			set_option(options, OPT_PERSISTENCE_ENGINE);
-> >  			strncpy(ce->svc.pe_name, optarg, IP_VS_PENAME_MAXLEN);
-> >  			break;
-> > +		case 'b':
-> > +			set_option(options, OPT_SCHED_FLAGS);
-> > +			snprintf(sched_flags_arg, sizeof(sched_flags_arg), "%s", optarg);
-> 
-> 	This too
-> 
-> > +static void print_sched_flags(ipvs_service_entry_t *se) {
-> 
-> {	<<< start func on new line
-> 
-> 	checkpatch.pl shows also this one:
-> 
-> ERROR: spaces required around that '=' (ctx:VxV)
-> #121: FILE: ipvsadm.c:369:
-> +       char *optarg=NULL, sched_flags_arg[128];
->                     ^
-> 	May be you can send a fixed version to Simon.
+> While that's interesting, it'd be good to get ACKs for Daniel's
+> patches meanwhile, I think they are fine personally.
+Yeah, given that the sk_wmem_alloc thing has been clarified for me, it looks ok
+to me
 
-Yes, please do.
+For the series
+Acked-by: Neil Horman <nhorman@tuxdriver.com>
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
