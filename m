@@ -1,51 +1,69 @@
-From: Zhao Hongjiang <zhaohongjiang@huawei.com>
-Subject: [PATCH 5/5] net: bluetooth: using strlcpy instead of strncpy
-Date: Thu, 20 Jun 2013 18:49:45 +0800
-Message-ID: <1371725385-11540-5-git-send-email-zhaohongjiang@huawei.com>
-References: <1371725385-11540-1-git-send-email-zhaohongjiang@huawei.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: Re: [patch] netfilter: prevent harmless integer overflow
+Date: Thu, 20 Jun 2013 14:09:44 +0300
+Message-ID: <20130620110944.GS5008@mwanda>
+References: <20130618074603.GF12329@elgon.mountain>
+	<20130620102352.GA19813@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<netdev@vger.kernel.org>, Zhao Hongjiang <zhaohongjiang@huawei.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:45787 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754919Ab3FTKwr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 06:52:47 -0400
-In-Reply-To: <1371725385-11540-1-git-send-email-zhaohongjiang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: coreteam@netfilter.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, kernel-janitors@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Stephen Hemminger <stephen@networkplumber.org>, netfilter@vger.kernel.org,
+	Bart De Schuymer <bart.de.schuymer@pandora.be>,
+	netfilter-devel@vger.kernel.org, Patrick McHardy <kaber@trash.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20130620102352.GA19813@localhost>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-for NUL terminated string, need alway set '\0' in the end.
+On Thu, Jun 20, 2013 at 12:23:52PM +0200, Pablo Neira Ayuso wrote:
+> On Tue, Jun 18, 2013 at 10:46:03AM +0300, Dan Carpenter wrote:
+> > This overflow is harmless because a few lines later we check:
+> > 
+> > 	if (num_counters != t->private->nentries) {
+> > 
+> > But it still upsets the static checkers.
+> > 
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> > 
+> > diff --git a/net/bridge/netfilter/ebtables.c b/net/bridge/netfilter/ebtables.c
+> > index 3d110c4..141350e 100644
+> > --- a/net/bridge/netfilter/ebtables.c
+> > +++ b/net/bridge/netfilter/ebtables.c
+> > @@ -1278,6 +1278,8 @@ static int do_update_counters(struct net *net, const char *name,
+> >  
+> >  	if (num_counters == 0)
+> >  		return -EINVAL;
+> > +	if (num_counters > INT_MAX / sizeof(*tmp))
+> > +		return -ENOMEM;
+> 
+> This is artificially limiting to INT_MAX / sizeof(struct counters).
+> Before this patch, the limit is UINT_MAX / sizeof(struct counters). I
+> think it's very unlikely to hit such a limit though, but as you
+> mentioned we cover the overflow already.  Adding it to calm down a
+> static checker sound a bit too much for me.
 
-Signed-off-by: Zhao Hongjiang <zhaohongjiang@huawei.com>
----
- net/bluetooth/hidp/core.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+I think we may be talking about different things?
 
-diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
-index 940f5ac..828be45 100644
---- a/net/bluetooth/hidp/core.c
-+++ b/net/bluetooth/hidp/core.c
-@@ -85,7 +85,7 @@ static void hidp_copy_session(struct hidp_session *session, struct hidp_conninfo
- 		ci->product = session->input->id.product;
- 		ci->version = session->input->id.version;
- 		if (session->input->name)
--			strncpy(ci->name, session->input->name, 128);
-+			strlcpy(ci->name, session->input->name, sizeof(ci->name));
- 		else
- 			strncpy(ci->name, "HID Boot Device", 128);
- 	}
-@@ -94,7 +94,7 @@ static void hidp_copy_session(struct hidp_session *session, struct hidp_conninfo
- 		ci->vendor  = session->hid->vendor;
- 		ci->product = session->hid->product;
- 		ci->version = session->hid->version;
--		strncpy(ci->name, session->hid->name, 128);
-+		strlcpy(ci->name, session->hid->name, sizeof(ci->name));
- 	}
- }
- 
--- 
-1.7.1
+"num_counters" comes from the user in update_counters() and we can
+definitely overflow.  I just copied the checks from do_replace() so
+that's why it uses INT_MAX instead of UINT_MAX.
+
+Like I said, the overflow is not harmful because later in the
+function we check "(num_counters != t->private->nentries)" and
+return an error before using "tmp".  So I don't feel strongly about
+this patch either way.
+
+regards,
+dan carpenter
