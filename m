@@ -1,40 +1,63 @@
-From: Andy King <acking@vmware.com>
-Subject: Re: [PATCH 4/4] VSOCK: Fix VSOCK_HASH and VSOCK_CONN_HASH
-Date: Thu, 20 Jun 2013 08:12:13 -0700 (PDT)
-Message-ID: <783609149.3265072.1371741133384.JavaMail.root@vmware.com>
-References: <1371720033-19714-1-git-send-email-asias@redhat.com> <1371720033-19714-5-git-send-email-asias@redhat.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Fw: [Bug 59971] New: tcp_info::tcpi_last_ack_recv = 0xFFFFFFF6
+Date: Thu, 20 Jun 2013 08:24:25 -0700
+Message-ID: <20130620082425.3bb6266a@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	Reilly Grant <grantr@vmware.com>
-To: Asias He <asias@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:46576 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965231Ab3FTPUT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 11:20:19 -0400
-In-Reply-To: <1371720033-19714-5-git-send-email-asias@redhat.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:43021 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757957Ab3FTPY3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 11:24:29 -0400
+Received: by mail-pa0-f45.google.com with SMTP id bi5so6428753pad.32
+        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 08:24:29 -0700 (PDT)
+Received: from nehalam.linuxnetplumber.net (static-50-53-71-109.bvtn.or.frontiernet.net. [50.53.71.109])
+        by mx.google.com with ESMTPSA id re16sm1206377pac.16.2013.06.20.08.24.27
+        for <netdev@vger.kernel.org>
+        (version=TLSv1.2 cipher=RC4-SHA bits=128/128);
+        Thu, 20 Jun 2013 08:24:28 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> If we mod with VSOCK_HASH_SIZE -1, we get 0, 1, .... 249.  Actually, we
-> have vsock_bind_table[0 ... 250] and vsock_connected_table[0 .. 250].
-> In this case the last entry will never be used.
 
-If I remember correctly, we did this on purpose.  There's actually a
-comment about it:
 
->   * VSOCK_HASH_SIZE + 1 so that vsock_bind_table[0] through
->   * vsock_bind_table[VSOCK_HASH_SIZE - 1] are for bound sockets and
->   * vsock_bind_table[VSOCK_HASH_SIZE] is for unbound sockets.  The hash
+Begin forwarded message:
 
-[250] is for unbound sockets.  If you hash on that, you'll mistakenly
-get an unbound socket when looking for a bound one.
+Date: Thu, 20 Jun 2013 04:20:40 -0700
+From: "bugzilla-daemon@bugzilla.kernel.org" <bugzilla-daemon@bugzilla.kernel.org>
+To: "stephen@networkplumber.org" <stephen@networkplumber.org>
+Subject: [Bug 59971] New: tcp_info::tcpi_last_ack_recv = 0xFFFFFFF6
 
-It is confusing, so perhaps a better way is just to move unbound into
-its own table.
 
-Thanks!
-- Andy
+https://bugzilla.kernel.org/show_bug.cgi?id=59971
+
+           Summary: tcp_info::tcpi_last_ack_recv = 0xFFFFFFF6
+           Product: Networking
+           Version: 2.5
+    Kernel Version: 2.6.37
+          Platform: All
+        OS/Version: Linux
+              Tree: Mainline
+            Status: NEW
+          Severity: high
+          Priority: P1
+         Component: Other
+        AssignedTo: shemminger@linux-foundation.org
+        ReportedBy: _kobold@ukr.net
+        Regression: No
+
+
+tcp_info::tcpi_last_ack_recv becomes "negative" sometimes. -10 msec or 1 jiffy
+in my case. Probably due to lack of synchronization in the kernel.
+
+struct tcp_info tinfo = {0};
+socklen_t len = sizeof(tinfo);
+if (getsockopt(thesocket, SOL_TCP, TCP_INFO, (void*)&tinfo, &len) == 0)
+    printf("%u\n", tinfo.tcpi_last_ack_recv);
+
+-- 
+Configure bugmail: https://bugzilla.kernel.org/userprefs.cgi?tab=email
+------- You are receiving this mail because: -------
+You are the assignee for the bug.
