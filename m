@@ -1,27 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 4/9] bnx2: use pdev->pm_cap instead of
- pci_find_capability(..,PCI_CAP_ID_PM)
-Date: Wed, 19 Jun 2013 22:24:22 -0700 (PDT)
-Message-ID: <20130619.222422.1490912163789374913.davem@davemloft.net>
-References: <1371543157-14968-1-git-send-email-wangyijing@huawei.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [GIT] net merged into net-next
+Date: Thu, 20 Jun 2013 07:37:49 +0200
+Message-ID: <1371706669.8224.2.camel@jlt4.sipsolutions.net>
+References: <20130619.165713.2010181145193961339.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, guohanjun@huawei.com,
-	jiang.liu@huawei.com, mchan@broadcom.com, netdev@vger.kernel.org
-To: wangyijing@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371543157-14968-1-git-send-email-wangyijing@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	stephen-OTpzqLSitTUnbdJkjeBofR2eb7JE58TQ@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20130619.165713.2010181145193961339.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Yijing Wang <wangyijing@huawei.com>
-Date: Tue, 18 Jun 2013 16:12:37 +0800
-
-> Pci core has been saved pm cap register offset by pdev->pm_cap in pci_pm_init()
-> in init path. So we can use pdev->pm_cap instead of using
-> pci_find_capability(pdev, PCI_CAP_ID_PM) for better performance and simplified code.
+On Wed, 2013-06-19 at 16:57 -0700, David Miller wrote:
 > 
-> Signed-off-by: Yijing Wang <wangyijing@huawei.com>
+> 'net' has been merged into 'net-next', the only non-trivial merge
+> conflict was in wireless.
+> 
+> It has to do with the bug fix that went recently into 'net' to fix the
+> race that Linus discovered, which overlaps with the 'net-next' locking
+> changes to nl80211.
+> 
+> I am pretty sure I fixed a bug in those locking changes in my merge
+> commit, in that the RTNL mutex was not released in all return paths of
+> nl80211_dump_wiphy().
 
-Applied.
+Yes.
+
+> Please double-check my work.
+
+Looks good, thanks.
+
+We had a fix for the RTNL mutex bug on its way to you (currently in
+wireless-next), but this way is good too :-)
+
+johannes
+
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
