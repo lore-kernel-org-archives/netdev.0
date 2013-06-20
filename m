@@ -1,116 +1,100 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: Adding support for ARINC429 into the Linux kernel
-Date: Thu, 20 Jun 2013 10:52:53 +0200
-Message-ID: <201306201052.53898.arnd@arndb.de>
-References: <20130619202954.GA5594@roeck-us.net> <201306192345.31106.arnd@arndb.de> <20130620041001.GA1099@roeck-us.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	"Greg Kroah-Hartman" <gregkh@linuxfoundation.org>
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130620041001.GA1099@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH crypto] crypto: algboss: fix NULL pointer dereference in cryptomgr_probe
+Date: Thu, 20 Jun 2013 10:00:21 +0200
+Message-ID: <1371715221-27192-1-git-send-email-dborkman@redhat.com>
+Cc: linux-crypto@vger.kernel.org, linux-sctp@vger.kernel.org,
+	netdev@vger.kernel.org
+To: herbert@gondor.hengli.com.au
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday 20 June 2013, Guenter Roeck wrote:
-> On Wed, Jun 19, 2013 at 11:45:30PM +0200, Arnd Bergmann wrote:
-> > On Wednesday 19 June 2013, Guenter Roeck wrote:
-> > 
-> > Since this is a standard protocol, a driver that just supports a specific
-> > chip (1a) would be the worst option IMHO.
-> > 
-> It would not be optimal, but straightforward and easy to implement.
+After having fixed a NULL pointer dereference in SCTP 1abd165e ("net:
+sctp: fix NULL pointer dereference in socket destruction"), I ran into
+the following NULL pointer dereference in the crypto subsystem with
+the same reproducer, easily hit each time:
 
-The most important aspect would be the user interface: We should not
-merge a driver that implements a character device (or something else)
-in a way that would not be compatible with a general subsystem. I think
-designing a generic interface is the hard part here, much more so than
-implementing an abstraction layer.
+BUG: unable to handle kernel NULL pointer dereference at (null)
+IP: [<ffffffff81070321>] __wake_up_common+0x31/0x90
+PGD 0
+Oops: 0000 [#1] SMP
+Modules linked in: padlock_sha(F-) sha256_generic(F) sctp(F) libcrc32c(F) [..]
+CPU: 6 PID: 3326 Comm: cryptomgr_probe Tainted: GF            3.10.0-rc5+ #1
+Hardware name: Dell Inc. PowerEdge T410/0H19HD, BIOS 1.6.3 02/01/2011
+task: ffff88007b6cf4e0 ti: ffff88007b7cc000 task.ti: ffff88007b7cc000
+RIP: 0010:[<ffffffff81070321>]  [<ffffffff81070321>] __wake_up_common+0x31/0x90
+RSP: 0018:ffff88007b7cde08  EFLAGS: 00010082
+RAX: ffffffffffffffe8 RBX: ffff88003756c130 RCX: 0000000000000000
+RDX: 0000000000000000 RSI: 0000000000000003 RDI: ffff88003756c130
+RBP: ffff88007b7cde48 R08: 0000000000000000 R09: ffff88012b173200
+R10: 0000000000000000 R11: 0000000000000000 R12: 0000000000000282
+R13: ffff88003756c138 R14: 0000000000000000 R15: 0000000000000000
+FS:  0000000000000000(0000) GS:ffff88012fc60000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 0000000000000000 CR3: 0000000001a0b000 CR4: 00000000000007e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Stack:
+ ffff88007b7cde28 0000000300000000 ffff88007b7cde28 ffff88003756c130
+ 0000000000000282 ffff88003756c128 ffffffff81227670 0000000000000000
+ ffff88007b7cde78 ffffffff810722b7 ffff88007cdcf000 ffffffff81a90540
+Call Trace:
+ [<ffffffff81227670>] ? crypto_alloc_pcomp+0x20/0x20
+ [<ffffffff810722b7>] complete_all+0x47/0x60
+ [<ffffffff81227708>] cryptomgr_probe+0x98/0xc0
+ [<ffffffff81227670>] ? crypto_alloc_pcomp+0x20/0x20
+ [<ffffffff8106760e>] kthread+0xce/0xe0
+ [<ffffffff81067540>] ? kthread_freezable_should_stop+0x70/0x70
+ [<ffffffff815450dc>] ret_from_fork+0x7c/0xb0
+ [<ffffffff81067540>] ? kthread_freezable_should_stop+0x70/0x70
+Code: 41 56 41 55 41 54 53 48 83 ec 18 66 66 66 66 90 89 75 cc 89 55 c8
+      4c 8d 6f 08 48 8b 57 08 41 89 cf 4d 89 c6 48 8d 42 e
+RIP  [<ffffffff81070321>] __wake_up_common+0x31/0x90
+ RSP <ffff88007b7cde08>
+CR2: 0000000000000000
+---[ end trace b495b19270a4d37e ]---
 
-> > A character device and a network protocol both sound reasonable, but
-> > it really depends on the use cases:
-> > 
-> > * Does Linux act both as the sender and receiver, or do you want to
-> >   support just one of the cases (which?)?
-> > 
-> Both, depending on the use case. Some of those are
-> 
-> 1) ACARS -
->    http://en.wikipedia.org/wiki/Aircraft_Communications_Addressing_and_Reporting_System
->    Rx and tx
-> 
-> 2) CIDS - Cabin Intercommunication Data System
->    Rx and tx
-> 
-> 3) IRS (Inertial Reference System) and FMS (Flight Management System)
->    Rx only
+My assumption is that the following is happening: the minimal SCTP
+tool runs under ``echo 1 > /proc/sys/net/sctp/auth_enable'', hence
+it's making use of crypto_alloc_hash() via sctp_auth_init_hmacs().
+It forks itself, heavily allocates, binds, listens and waits in
+accept on sctp sockets, and then randomly kills some of them (no
+need for an actual client in this case to hit this). Then, again,
+allocating, binding, etc, and then killing child processes.
 
-Ok, I see.
+The problem that might be happening here is that cryptomgr requests
+the module to probe/load through cryptomgr_schedule_probe(), but
+before the thread handler cryptomgr_probe() returns, we return from
+the wait_for_completion_interruptible() function and probably already
+have cleared up larval, thus we run into a NULL pointer dereference
+when in cryptomgr_probe() complete_all() is being called.
 
-> > * Would you expect to always just transfer a single 32-bit word, or
-> >   are there larger chunks of logically contigous data? What are typical
-> >   and maximum sizes for those?
-> > 
-> The raw protocol is chunks of 32 bit (Logical Data Unit, or LDU), which
-> the protocol refers to as 'physical layer'. Broadcast messages such as
-> those from IRS and FMS use this format.
-> 
-> There is also bit-oriented data. The two protocols I am aware of are "Bit-
-> Oriented File Transfer Protocol", and "Bit-Oriented Media Access Control
-> (MAC) Protocol", which is supposed to be IEEE 802 compliant. Packet size
-> is 3 to 255 LDUs for FTP and 3 to 1023 LDUs for the MAC protocol.
-> Both include a SOF and EOF marker, so the actual data size would be 1-253
-> or 1-1021 LDUs. Each LDU carries 20 bit, and partial words are possible
-> in 4-bit increments, which means the data transfer size is 4 to 20,420 bit
-> (2,552.5 bytes) for the MAC protocol, and 4 to 5,060 bit (632.5 bytes)
-> for FTP.
-> 
-> Bit-oriented data is commonly used for ACARS and CIDS, where bi-directional
-> communication is used.
-> 
-> Details are available in Specification ARINC-429P3-19-2009, sections 2.5 and 3.0.
-> You should be able to find it on the web if you are interested.
+If we wait with wait_for_completion() instead, this panic will not
+occur anymore. This is valid, because in case a signal is pending,
+cryptomgr_probe() returns from probing anyway with properly calling
+complete_all().
 
-Ok, this sounds like it would make a network type interface more
-practical, at least for the 802 specific parts.
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ v1->v2:
+  - Submitting as non-RFC
+  - Slightly improving commit message
 
-> > * Would you expect the kernel to filter for specific data on the
-> >   receiver side?
-> > 
-> Each LDU has an 8-bit label. Applications listen for specific sets of labels.
-> The chips have a configurable hardware filter; if there are not enough hardware
-> filters, the kernel would have to do the filtering. Either case, the kernel
-> has to select protocol receivers (sockets or open file descriptors) based
-> on bind/registration information. For example, one aplication may register
-> for label 1,3,5, and 7, and another for labels 1, 3, 12, and 14. So there can
-> be overlaps.
+ crypto/algboss.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Ok
-
-> > * Would a user space receiver want to always see all data from one
-> >   sender, or only the latest word?
-> > 
-> The receiver would want to receive all data for the labels it has registered
-> for.
-> 
-> Hope this helps. Note that, at least as first step, I only envision to handle
-> 4-byte units and pass those to/from user-space. Implementing the two link layer
-> protocols would probably make sense, especially with the socket interface,
-> but that would be a second step.
-
-My vote would be for a new socket family for the low-level protocol,
-with room for extension later to support the advanced features.
-
-This should be one of the simplest socket implementations possible, if
-you just need to send and receive 32 bit words, and can bind to a
-a set of labels for rx as you described above.
-
-The only possible concern I see with that interface is slightly higher
-latency than what you would be able to get with a straight read/write
-based character device.
-
-	Arnd
+diff --git a/crypto/algboss.c b/crypto/algboss.c
+index 769219b..eee89a5 100644
+--- a/crypto/algboss.c
++++ b/crypto/algboss.c
+@@ -195,7 +195,7 @@ static int cryptomgr_schedule_probe(struct crypto_larval *larval)
+ 	if (IS_ERR(thread))
+ 		goto err_free_param;
+ 
+-	wait_for_completion_interruptible(&larval->completion);
++	wait_for_completion(&larval->completion);
+ 
+ 	return NOTIFY_STOP;
+ 
+-- 
+1.7.11.7
