@@ -1,32 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net PATCH 1/1] drivers: net: cpsw: fix cpsw clock gating
- issue across suspend/resume
-Date: Wed, 19 Jun 2013 18:34:16 -0700 (PDT)
-Message-ID: <20130619.183416.530352072063563371.davem@davemloft.net>
-References: <1371548076-22035-1-git-send-email-mugunthanvnm@ti.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/2] netdev: octeon_mgmt: Correct tx IFG workaround.
+Date: Wed, 19 Jun 2013 18:37:19 -0700
+Message-ID: <1371692239.2146.7.camel@joe-AO722>
+References: <1371688820-4585-1-git-send-email-ddaney.cavm@gmail.com>
+	 <1371688820-4585-2-git-send-email-ddaney.cavm@gmail.com>
+	 <1371690487.2146.5.camel@joe-AO722> <51C25ACA.1070907@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mugunthanvnm@ti.com
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	linux-mips@linux-mips.org, David Daney <david.daney@cavium.com>
+To: David Daney <ddaney.cavm@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47194 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935237Ab3FTBeR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 21:34:17 -0400
-In-Reply-To: <1371548076-22035-1-git-send-email-mugunthanvnm@ti.com>
+Received: from perches-mx.perches.com ([206.117.179.246]:38207 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S935237Ab3FTBhU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 21:37:20 -0400
+In-Reply-To: <51C25ACA.1070907@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Date: Tue, 18 Jun 2013 15:04:35 +0530
-
-> Due to some hardware integration issue, CPSW sliver modules requires a
-> reset across suspend/resume cycle for a successful clock gating to
-> CPGMAC (CPSW and Davinci MDIO) in AM335x PG1.0.
-> This issue is fixed in PG2.x, though to support suspend/resume on PG1.0
-> this reset is required.
+On Wed, 2013-06-19 at 18:28 -0700, David Daney wrote:
+> On 06/19/2013 06:08 PM, Joe Perches wrote:
+> > On Wed, 2013-06-19 at 17:40 -0700, David Daney wrote:
+> >> From: David Daney <david.daney@cavium.com>
+> >>
+> >> The previous fix was still too agressive to meet ieee specs.  Increase
+> >> to (14, 10).
+> > []
+> >> diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
+> > []
+> >> @@ -1141,10 +1141,13 @@ static int octeon_mgmt_open(struct net_device *netdev)
+> >>   		/* For compensation state to lock. */
+> >>   		ndelay(1040 * NS_PER_PHY_CLK);
+> >>
+> >> -		/* Some Ethernet switches cannot handle standard
+> >> -		 * Interframe Gap, increase to 16 bytes.
+> >> +		/* Default Interframe Gaps are too small.  Recommended
+> >> +		 * workaround is.
+> >> +		 *
+> >> +		 * AGL_GMX_TX_IFG[IFG1]=14
+> >> +		 * AGL_GMX_TX_IFG[IFG2]=10
+> >
+> > Why isn't the TX IFG just 96 bit times?
 > 
-> Signed-off-by: Mugunthan V N <mugunthanvnm@ti.com>
+> I don't have a full understanding of how the transistors are wired up on 
+> the chip, so I cannot accurately answer your question.  But I can say 
+> that after I empirically found the previous values to get the thing to 
+> work, the hardware designers independently found that the values 
+> supplied in this patch are required to achieve industry standard IFGs 
+> with this hardware.
 
-Applied, thanks.
+For one specific chip or for the Octeon entire family?
