@@ -1,102 +1,44 @@
-From: Sergey Popovich <popovich_sergei@mail.ru>
-Subject: ipset: hash:*net* doesnt match after entry removal (both inet, inet6 families)
-Date: Thu, 20 Jun 2013 15:09:53 +0300
-Message-ID: <2813882.HseEuK1kWK@tuxracer>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH] trace: using strlcpy instead of strncpy
+Date: Thu, 20 Jun 2013 08:20:02 -0400
+Message-ID: <1371730802.18733.73.camel@gandalf.local.home>
+References: <51C2E265.9010209@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback3.mail.ru ([94.100.176.58]:36298 "EHLO
-	fallback3.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753541Ab3FTMQE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 08:16:04 -0400
-Received: from smtp44.i.mail.ru (smtp44.i.mail.ru [94.100.177.104])
-	by fallback3.mail.ru (mPOP.Fallback_MX) with ESMTP id 3D572E8C2E30
-	for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 16:12:02 +0400 (MSK)
-Received: from [195.234.68.4] (port=45165 helo=tuxracer.localnet)
-	by smtp44.i.mail.ru with esmtpa (envelope-from <popovich_sergei@mail.ru>)
-	id 1UpdiA-0003On-Qp
-	for netdev@vger.kernel.org; Thu, 20 Jun 2013 16:11:35 +0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: fweisbec@gmail.com, mingo@redhat.com, linux-kernel@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>
+To: Zhao Hongjiang <zhaohongjiang@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51C2E265.9010209@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello!
+This fix is to a networking tracepoint. It should go through the
+networking folks.
 
-Deploying ip6?tables filtering rules on one of our server we spot following 
-issue using Linux kernel 3.9.6 and ipset 6.19 as userlang and hash:*set* set 
-type:
+-- Steve
 
-  Deleting previously added network prefix longer than any prefix, that already
-  in set, causes future lookups on remaining prefixes not to match (both using 
-  ipset(8) test command and ip6?tables(8) "set" match, on any hash:*net* set 
-  type).
 
-Tested on the following configurations:
-  1. v3.9.6, ipset 6.19 (also 6.12.1)  : reproduced
-  2. v3.8.13(EOL), ipset 6.12.1         : reproduced
-  3. v3.2.46, ipset 6.12.1                  : not reproducable
-
-Both IPv4 and IPv6 are affected.
-
-Steps to reproduce (using ipset(8) test command for simplicity):
---------------------------------------------------------------------------------
-#!/bin/bash -v
-
-##  Create ipset for inet AFI
-ipset create set-v4 hash:net family inet
-
-## Add 192.168.1.0/24 prefix to set and check
-ipset add set-v4 192.168.1.0/24
-ipset test set-v4 192.168.1.0
-192.168.1.0 is in set set-v4.
-ipset test set-v4 192.168.1.255
-192.168.1.255 is in set set-v4.
-
-## Add 172.16.1.0/25 prefix to set and check
-ipset add set-v4 172.16.1.0/25
-ipset test set-v4 192.168.1.0
-192.168.1.0 is in set set-v4.
-ipset test set-v4 192.168.1.255
-192.168.1.255 is in set set-v4.
-ipset test set-v4 172.16.1.0
-172.16.1.0 is in set set-v4.
-ipset test set-v4 172.16.1.127
-172.16.1.127 is in set set-v4.
-
-## List set-v4 contents
-ipset list set-v4
-Name: set-v4
-Type: hash:net
-Header: family inet hashsize 1024 maxelem 65536 
-Size in memory: 16824
-References: 0
-Members:
-172.16.1.0/25
-192.168.1.0/24
-
-## Delete longer (more specific) prefix from the set
-ipset del set-v4 172.16.1.0/25
-
-## And test again remaining prefixes
-ipset test set-v4 192.168.1.0
-192.168.1.0 is NOT in set set-v4.
-ipset test set-v4 192.168.1.255
-192.168.1.255 is NOT in set set-v4.
-
-## List set-v4 contents
-ipset list set-v4
-Name: set-v4
-Type: hash:net
-Header: family inet hashsize 1024 maxelem 65536 
-Size in memory: 16824
-References: 0
-Members:
-192.168.1.0/24
-
-## Destroy set-v4
-ipset destroy set-v4
-
--- 
-SP5474-RIPE
-Sergey Popovich
+On Thu, 2013-06-20 at 19:07 +0800, Zhao Hongjiang wrote:
+> for NUL terminated string, need alway set '\0' in the end.
+> 
+> Signed-off-by: Zhao Hongjiang <zhaohongjiang@huawei.com>
+> ---
+>  include/trace/events/sock.h |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/include/trace/events/sock.h b/include/trace/events/sock.h
+> index 779abb9..333d8b5 100644
+> --- a/include/trace/events/sock.h
+> +++ b/include/trace/events/sock.h
+> @@ -44,7 +44,7 @@ TRACE_EVENT(sock_exceed_buf_limit,
+>  	),
+>  
+>  	TP_fast_assign(
+> -		strncpy(__entry->name, prot->name, 32);
+> +		strlcpy(__entry->name, prot->name, 32);
+>  		__entry->sysctl_mem = prot->sysctl_mem;
+>  		__entry->allocated = allocated;
+>  		__entry->sysctl_rmem = prot->sysctl_rmem[0];
