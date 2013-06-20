@@ -1,121 +1,57 @@
-From: Jim Baxter <jim_baxter@mentor.com>
-Subject: Re: VLAN driver question
-Date: Thu, 20 Jun 2013 20:05:33 +0100
-Message-ID: <51C3527D.1030304@mentor.com>
-References: <51BF5F81.2040207@mentor.com>  <1371566484.1956.16.camel@bwh-desktop.uk.level5networks.com>  <51C1D4D7.1000904@mentor.com> <1371659635.1956.45.camel@bwh-desktop.uk.level5networks.com>
+From: Jesse Gross <jesse@nicira.com>
+Subject: Re: [PATCH v2.33] datapath: Add basic MPLS support to kernel
+Date: Thu, 20 Jun 2013 12:28:32 -0700
+Message-ID: <CAEP_g=8X-vdMQ7RngJyidKsxhaS_p6Pa8JVh3U+fD64rt2Umzg@mail.gmail.com>
+References: <1371539209-31134-1-git-send-email-horms@verge.net.au> <20130620005653.GA21614@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "dev@openvswitch.org" <dev@openvswitch.org>,
+	netdev <netdev@vger.kernel.org>, Ravi K <rkerur@gmail.com>,
+	Isaku Yamahata <yamahata@valinux.co.jp>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Jarno Rajahalme <jarno.rajahalme@nsn.com>,
+	Joe Stringer <joe@wand.net.nz>
+To: Simon Horman <horms@verge.net.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay1.mentorg.com ([192.94.38.131]:61068 "EHLO
-	relay1.mentorg.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422731Ab3FTTFi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 15:05:38 -0400
-In-Reply-To: <1371659635.1956.45.camel@bwh-desktop.uk.level5networks.com>
+Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:46641 "HELO
+	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S965665Ab3FTT2x (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 15:28:53 -0400
+Received: by mail-ie0-f175.google.com with SMTP id a13so17280858iee.20
+        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 12:28:52 -0700 (PDT)
+In-Reply-To: <20130620005653.GA21614@verge.net.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 19/06/13 17:33, Ben Hutchings wrote:
-> On Wed, 2013-06-19 at 16:57 +0100, Jim Baxter wrote:
->> Thank you Ben, that is very helpful.
+On Wed, Jun 19, 2013 at 5:56 PM, Simon Horman <horms@verge.net.au> wrote:
+> On Tue, Jun 18, 2013 at 04:06:49PM +0900, Simon Horman wrote:
+>> Allow datapath to recognize and extract MPLS labels into flow keys
+>> and execute actions which push, pop, and set labels on packets.
 >>
->> On 18/06/13 15:41, Ben Hutchings wrote:
->>> On Mon, 2013-06-17 at 20:12 +0100, Jim Baxter wrote:
->>>> I have a network card that has a single flag to indicate if a received
->>>> packet contains a vlan packet.
->>>>
->>>> Can I use this to accelerate the kernels handling of the packet with
->>>> something like the following?
->>>>
->>>> /* Handle received VLAN packets */
->>>> if ((ndev->features & NETIF_F_HW_VLAN_CTAG_RX) && ebdp &&
->>>> 					(ebdp->cbd_esc &
->>>> 					BD_ENET_RX_VLAN)) {
->>>> 	/* Push and remove the vlan tag */
->>>> 	struct vlan_hdr *vlan_header;
->>>> 	u16 vlan_tag;
->>>> 	vlan_header = (struct vlan_hdr *) skb->data;
->>>> 	vlan_tag = ntohs(vlan_header->h_vlan_TCI);
->>>> 	__vlan_hwaccel_put_tag(skb, vlan_tag);
->>>> 	skb->len -= VLAN_HLEN;
->>>> 	skb->data += VLAN_HLEN;
->>>> 	vlan_set_encap_proto(skb, vlan_header);
->>>
->>> You have to move the Ethernet addresses forward as well.  Imagine this
->>> device is being bridged - the Ethernet header won't be regenerated, so
->>> it has to be immediately before the network header.
->>>
->> Unless I have misunderstood, the Ethernet header is already copied
->> across to the skb by the Driver I am editing with the lines:
->> 	skb_reserve(skb, NET_IP_ALIGN);
->> 	skb_put(skb, pkt_len - 4);	/* Make room */
->> 	skb_copy_to_linear_data(skb, data, pkt_len - 4);
->> 	skb->protocol = eth_type_trans(skb, ndev);
-> 
-> Right, but the copy and ether_type_trans() result in an skb like this:
-> 
-> -14 -8  -2   0   2    4
-> |dst|src|8100|vid|type|payload...|
->              ^
-> 
-> After extracting the VLAN tag the skb looks like:
-> 
-> -18 -12 -6   -4  -2   0
-> |dst|src|8100|vid|type|payload...|
->                       ^
-> 
-> If this packet is bridged, the 14 bytes before skb->data will be treated
-> as the Ethernet header:
-> 
-> 0 2   8    10  12   14
-> |x|src|8100|vid|type|payload...|
-> ^
-> 
-> Then with the VLAN tag inserted;
-> 
-> 0 2   8    10  12   14  16   18
-> |x|src|8100|vid|8100|vid|type|payload...|
-> 
->> Thinking about it though I should actually use the flag from the driver
->> to create an skb of the size (pkt_len - 4 - VLAN_HLEN) and extract the
->> vlan header from data so it is not copied to the skb, does this sound
->> sensible?
-> [...]
-> 
-> That would also work.
-> 
-> Ben.
-> 
+>> Based heavily on work by Leo Alterman, Ravi K, Isaku Yamahata and Joe Stringer.
+>>
+>> Cc: Ravi K <rkerur@gmail.com>
+>> Cc: Leo Alterman <lalterman@nicira.com>
+>> Cc: Isaku Yamahata <yamahata@valinux.co.jp>
+>> Cc: Joe Stringer <joe@wand.net.nz>
+>> Signed-off-by: Simon Horman <horms@verge.net.au>
+>>
+>> ---
+>>
+>> This patch depends on "gre: Restructure tunneling" which it aims
+>> to be compatible with.
+>
+> To clarify. The dependency relates to a conflict when applying this patch
+> which modifies datapath/linux/compat/gso.[ch], files that are
+> created by "gre: Restructure tunneling". I believe it would
+> be trivial to reverse the dependency so that this patch creates
+> those files and "gre: Restructure tunneling" applies on top of it
+> as the two patches add different functions to those files.
+>
+> As such I think it would be better to describe this patch
+> as compatible with "gre: Restructure tunneling" rather than
+> dependent on it.
 
-Thank you for that information, I have decided to extract the data
-before copying the data into the skb->data structure.
-
-This is the put of the packet showing my removal of the data correctly,
-however the network is not receiving any data on the VLAN.
-
-- data buffer from the Network card
-ff ff ff ff ff ff 00 26 b9 d4 19 01 81 00 00 0a 08 06 00 01 08 00 06 04
-00 01 00 26 b9 d4
-
-- skb->data after I have only copied data to it and removed the vlan 4
-octet header using skb_copy_to_linear_data and
-skb_copy_to_linear_data_offset.
-ff ff ff ff ff ff 00 26 b9 d4 19 01 08 06 00 01 08 00 06 04 00 01 00 26
-b9 d4 19 01 c0 a8
-
-- skb-data after eth_type_trans()
-00 01 08 00 06 04 00 01 00 26 b9 d4 19 01 c0 a8 01 67 00 00 00 00 00 00
-c0 a8 01 64 00 00
-
-After this point I send the packet into the network stack with:
-	__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
-
-	napi_gro_receive(&fep->napi, skb);
-
-Am I missing a kernel call or doing something wrong to cause the packet
-to be rejected in the kernel?
-
-Thank you for any help,
-Jim
+I agree that's the case. However, now that the OVS GRE code is
+upstream, I think I can take just a quick pass over the GRE patch to
+get it in and then we won't have any dependency issues.
