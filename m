@@ -1,41 +1,39 @@
-From: Gao feng <gaofeng@cn.fujitsu.com>
-Subject: Re: [PATCH v2 4/4] neigh: don't leak default parms to uninitial netns
-Date: Thu, 20 Jun 2013 09:18:48 +0800
-Message-ID: <51C25878.2070302@cn.fujitsu.com>
-References: <1371175607-1405-1-git-send-email-gaofeng@cn.fujitsu.com> <1371175607-1405-4-git-send-email-gaofeng@cn.fujitsu.com> <20130619.180505.1958820391321832484.davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [Patch iproute2] add quickack option to ip route
+Date: Wed, 19 Jun 2013 18:17:22 -0700
+Message-ID: <20130619181722.50b2d7b7@nehalam.linuxnetplumber.net>
+References: <1371260359-5875-1-git-send-email-amwang@redhat.com>
+	<1371260359-5875-2-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>
+To: Cong Wang <amwang@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from cn.fujitsu.com ([222.73.24.84]:62371 "EHLO song.cn.fujitsu.com"
-	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S934734Ab3FTBRM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 19 Jun 2013 21:17:12 -0400
-In-Reply-To: <20130619.180505.1958820391321832484.davem@davemloft.net>
+Received: from mail-pd0-f178.google.com ([209.85.192.178]:62826 "EHLO
+	mail-pd0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S935191Ab3FTBR0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 21:17:26 -0400
+Received: by mail-pd0-f178.google.com with SMTP id w11so5673866pde.37
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 18:17:26 -0700 (PDT)
+In-Reply-To: <1371260359-5875-2-git-send-email-amwang@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2013 09:05 AM, David Miller wrote:
-> From: Gao feng <gaofeng@cn.fujitsu.com>
-> Date: Fri, 14 Jun 2013 10:06:47 +0800
+On Sat, 15 Jun 2013 09:39:19 +0800
+Cong Wang <amwang@redhat.com> wrote:
+
+> From: Cong Wang <amwang@redhat.com>
 > 
->> Only allow initial net namespace to get default parms
->> through netlink.
->>
->> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+> This patch adds quickack option to enable/disable TCP quick ack
+> mode for per-route.
 > 
-> Disallowing changes to the default neigh parms is fine, but there is no
-> reason to forbid seeing what default neigh parms will be used in a given
-> network namespace just because it isn't &init_net.
+> Cc: Stephen Hemminger <stephen@networkplumber.org>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 > 
 
-Yes, we can make sure un-init net namespace can't do harm to default neigh parms,
-it's enough.
-
-> I don't see why you want to restrict this at all.
-> 
-> I'm not applying these patches, sorry.
-
-You can just drop this one, are there some problems with the other 3 patches?
+I am still waiting until RTAX_QUICKACK is accepted into net-next to apply to net-next-3.10 branch
+of iproute
