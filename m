@@ -1,7 +1,7 @@
 From: Asias He <asias@redhat.com>
-Subject: [PATCH 2/4] VSOCK: Return VMCI_ERROR_NO_MEM when fails to allocate skb
-Date: Thu, 20 Jun 2013 17:20:31 +0800
-Message-ID: <1371720033-19714-3-git-send-email-asias@redhat.com>
+Subject: [PATCH 4/4] VSOCK: Fix VSOCK_HASH and VSOCK_CONN_HASH
+Date: Thu, 20 Jun 2013 17:20:33 +0800
+Message-ID: <1371720033-19714-5-git-send-email-asias@redhat.com>
 References: <1371720033-19714-1-git-send-email-asias@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Andy King <acking@vmware.com>,
@@ -9,47 +9,50 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Reilly Grant <grantr@vmware.com>, Asias He <asias@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:62458 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:2523 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755535Ab3FTJU4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 05:20:56 -0400
+	id S1756245Ab3FTJVD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 05:21:03 -0400
 In-Reply-To: <1371720033-19714-1-git-send-email-asias@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-vmci_transport_recv_dgram_cb always return VMCI_SUCESS even if we fail
-to allocate skb, return VMCI_ERROR_NO_MEM instead.
+If we mod with VSOCK_HASH_SIZE -1, we get 0, 1, .... 249.  Actually, we
+have vsock_bind_table[0 ... 250] and vsock_connected_table[0 .. 250].
+In this case the last entry will never be used.
+
+We should mod with VSOCK_HASH_SIZE instead.
 
 Signed-off-by: Asias He <asias@redhat.com>
 ---
- net/vmw_vsock/vmci_transport.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+ net/vmw_vsock/af_vsock.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
-index daff752..99b511d 100644
---- a/net/vmw_vsock/vmci_transport.c
-+++ b/net/vmw_vsock/vmci_transport.c
-@@ -625,13 +625,14 @@ static int vmci_transport_recv_dgram_cb(void *data, struct vmci_datagram *dg)
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index b0b362a..593071d 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -144,18 +144,18 @@ EXPORT_SYMBOL_GPL(vm_sockets_get_local_cid);
+  * VSOCK_HASH_SIZE + 1 so that vsock_bind_table[0] through
+  * vsock_bind_table[VSOCK_HASH_SIZE - 1] are for bound sockets and
+  * vsock_bind_table[VSOCK_HASH_SIZE] is for unbound sockets.  The hash function
+- * mods with VSOCK_HASH_SIZE - 1 to ensure this.
++ * mods with VSOCK_HASH_SIZE to ensure this.
+  */
+ #define VSOCK_HASH_SIZE         251
+ #define MAX_PORT_RETRIES        24
  
- 	/* Attach the packet to the socket's receive queue as an sk_buff. */
- 	skb = alloc_skb(size, GFP_ATOMIC);
--	if (skb) {
--		/* sk_receive_skb() will do a sock_put(), so hold here. */
--		sock_hold(sk);
--		skb_put(skb, size);
--		memcpy(skb->data, dg, size);
--		sk_receive_skb(sk, skb, 0);
--	}
-+	if (!skb)
-+		return VMCI_ERROR_NO_MEM;
-+
-+	/* sk_receive_skb() will do a sock_put(), so hold here. */
-+	sock_hold(sk);
-+	skb_put(skb, size);
-+	memcpy(skb->data, dg, size);
-+	sk_receive_skb(sk, skb, 0);
+-#define VSOCK_HASH(addr)        ((addr)->svm_port % (VSOCK_HASH_SIZE - 1))
++#define VSOCK_HASH(addr)        ((addr)->svm_port % VSOCK_HASH_SIZE)
+ #define vsock_bound_sockets(addr) (&vsock_bind_table[VSOCK_HASH(addr)])
+ #define vsock_unbound_sockets     (&vsock_bind_table[VSOCK_HASH_SIZE])
  
- 	return VMCI_SUCCESS;
- }
+ /* XXX This can probably be implemented in a better way. */
+ #define VSOCK_CONN_HASH(src, dst)				\
+-	(((src)->svm_cid ^ (dst)->svm_port) % (VSOCK_HASH_SIZE - 1))
++	(((src)->svm_cid ^ (dst)->svm_port) % VSOCK_HASH_SIZE)
+ #define vsock_connected_sockets(src, dst)		\
+ 	(&vsock_connected_table[VSOCK_CONN_HASH(src, dst)])
+ #define vsock_connected_sockets_vsk(vsk)				\
 -- 
 1.8.1.4
