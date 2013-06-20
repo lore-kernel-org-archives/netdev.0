@@ -1,59 +1,39 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH RFC] vhost-net: make more functions static
-Date: Thu, 20 Jun 2013 14:55:19 +0300
-Message-ID: <20130620115519.GA5301@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net] net/mlx_en: Timestamping is not supported in slave mode
+Date: Thu, 20 Jun 2013 14:58:10 +0300
+Message-ID: <1371729490-10491-1-git-send-email-amirv@mellanox.com>
+Cc: Amir Vadai <amirv@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mailp.voltaire.com ([193.47.165.129]:33182 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S935353Ab3FTL6a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 07:58:30 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Make two more functions static - they only have local callers.
+Old hypervisors don't mask out timestamp capability for slave. Till slave
+support will be added, need to disable capability by slave.
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
 ---
+ drivers/net/ethernet/mellanox/mlx4/main.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-Will be merged through the vhost tree - no need to apply
-directly.
-
- drivers/vhost/net.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 534adb0..4c5de87 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -167,7 +167,7 @@ static void vhost_net_clear_ubuf_info(struct vhost_net *n)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 2f4a260..8a43499 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -632,6 +632,9 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
+ 		dev->caps.cqe_size   = 32;
  	}
- }
  
--int vhost_net_set_ubuf_info(struct vhost_net *n)
-+static int vhost_net_set_ubuf_info(struct vhost_net *n)
- {
- 	bool zcopy;
- 	int i;
-@@ -188,7 +188,7 @@ err:
- 	return -ENOMEM;
- }
++	dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
++	mlx4_warn(dev, "Timestamping is not supported in slave mode.\n");
++
+ 	slave_adjust_steering_mode(dev, &dev_cap, &hca_param);
  
--void vhost_net_vq_reset(struct vhost_net *n)
-+static void vhost_net_vq_reset(struct vhost_net *n)
- {
- 	int i;
- 
+ 	return 0;
 -- 
-MST
+1.8.3.251.g1462b67
