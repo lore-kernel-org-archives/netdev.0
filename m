@@ -1,41 +1,62 @@
 From: Simon Horman <horms@verge.net.au>
-Subject: Re: [PATCH] ipvs: sloppy TCP and SCTP
-Date: Thu, 20 Jun 2013 22:12:32 +0900
-Message-ID: <20130620131232.GB24993@verge.net.au>
-References: <20130612104754.GA29327@eldamar.org.uk>
- <20130613075615.GA29773@eldamar.org.uk>
- <alpine.LFD.2.00.1306131121470.1680@ja.ssi.bg>
+Subject: Re: [PATCH] ipvs: SH fallback and L4 hashing
+Date: Thu, 20 Jun 2013 22:20:03 +0900
+Message-ID: <20130620132003.GD24993@verge.net.au>
+References: <20130619095425.GA20145@eldamar.org.uk>
+ <alpine.LFD.2.00.1306192239510.1823@ja.ssi.bg>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Alexander Frolkin <avf@eldamar.org.uk>, lvs-devel@vger.kernel.org,
 	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
-	linux-kernel <linux-kernel@vger.kernel.org>
+	linux-kernel@vger.kernel.org
 To: Julian Anastasov <ja@ssi.bg>
 Return-path: <lvs-devel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <alpine.LFD.2.00.1306131121470.1680@ja.ssi.bg>
+In-Reply-To: <alpine.LFD.2.00.1306192239510.1823@ja.ssi.bg>
 Sender: lvs-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 13, 2013 at 11:32:11AM +0300, Julian Anastasov wrote:
+On Wed, Jun 19, 2013 at 10:45:43PM +0300, Julian Anastasov wrote:
 > 
 > 	Hello,
 > 
-> On Thu, 13 Jun 2013, Alexander Frolkin wrote:
+> On Wed, 19 Jun 2013, Alexander Frolkin wrote:
 > 
-> > This adds support for sloppy TCP and SCTP modes to IPVS.
+> > By default the SH scheduler rejects connections that are hashed onto a
+> > realserver of weight 0.  This patch adds a flag to make SH choose a
+> > different realserver in this case, instead of rejecting the connection.
 > > 
-> > When enabled (sysctls net.ipv4.vs.sloppy_tcp and
-> > net.ipv4.vs.sloppy_sctp), allows IPVS to create connection state on any
-> > packet, not just a TCP SYN (or SCTP INIT).
+> > The patch also adds a flag to make SH include the source port (TCP, UDP,
+> > SCTP) in the hash as well as the source address.  This basically allows
+> > for deterministic round-robin load balancing (i.e., where any director
+> > in a cluster of directors with identical config will send the same
+> > packet the same way).
 > > 
-> > This allows connections to fail over from one IPVS director to another
-> > mid-flight.
+> > The flags are service flags (IP_VS_SVC_F_SCHED*) so that these options
+> > can be set per service.  They are set using a new option to ipvsadm.
 > > 
 > > Signed-off-by: Alexander Frolkin <avf@eldamar.org.uk>
 > 
-> 	Thanks! Simon, please apply to ipvs-next tree!
+> 	Thanks! Looks good to me.
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> 
+> > ---
+> > The patch is against the ipvs-next tree.
+> 
+> 	Still, I see one warning:
+> 
+> patching file include/uapi/linux/ip_vs.h
+> patching file net/netfilter/ipvs/ip_vs_sh.c
+> Hunk #2 succeeded at 75 with fuzz 1.
+> 
+> 	May be because you are missing the
+> "ipvs: ip_vs_sh: fix build" change, not sure where is
+> the fault, may be the change is not in ipvs-next,
+> Simon can tell how to proceed with applying this patch.
 
-Done :)
+Thanks, applied and pushed to ipvs-next.
 
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+I also noticed some fuzz.
+Alexander, could you double-check ipvs-next to make sure
+that I applied the patch correctly?
