@@ -1,73 +1,72 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the wireless-next tree with the net
- tree
-Date: Thu, 20 Jun 2013 13:40:32 +1000
-Message-ID: <20130620134032.8b7ae39298881c936338e7fb@canb.auug.org.au>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V2 0/4] Add IPv6 support for iWARP
+Date: Wed, 19 Jun 2013 21:08:05 -0700 (PDT)
+Message-ID: <20130619.210805.224358826374432656.davem@davemloft.net>
+References: <1371037302-3586-1-git-send-email-vipul@chelsio.com>
+	<20130619.180120.1989500368231967461.davem@davemloft.net>
+	<51C266A1.2050003@opengridcomputing.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="PGP-SHA256";
- boundary="Signature=_Thu__20_Jun_2013_13_40_32_+1000_mlNf_MqL2LnsAacT"
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Johannes Berg <johannes.berg@intel.com>,
-	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org,
+	faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org,
+	sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <51C266A1.2050003-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Thu__20_Jun_2013_13_40_32_+1000_mlNf_MqL2LnsAacT
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
+Date: Wed, 19 Jun 2013 21:19:13 -0500
 
-Hi John,
+> On 6/19/2013 8:01 PM, David Miller wrote:
+>> From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+>> Date: Wed, 12 Jun 2013 17:11:38 +0530
+>>
+>>> We have included all the maintainers of respective drivers. Kindly
+>>> review the change and let us know in case of any review comments.
+>> I have not seen anyone review v2 of this patch series.
+>>
+> 
+> Reviewed-by: Steve Wise <swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org>
 
-Today's linux-next merge of the wireless-next tree got a conflict in
-net/wireless/nl80211.c between commit 3a5a423bb958 ("nl80211: fix attrbuf
-access race by allocating a separate one") from the net tree and commit
-940d0ac9dbe3 ("cfg80211: fix rtnl leak in wiphy dump error cases") from
-the wireless-next tree.
+You wrote the first patch, and I bet you didn't even read the code in
+the cxgb4 driver.  So your review is sort of pointless... UNLESS you
+spotted the obvious bugs in these changes, that would have been
+interesting.
 
-I fixed it up (see below) and can carry the fix as necessary (no action
-is required).
+Because NOBODY, and I mean NOBODY, even looked at the build of the
+cxgb4 changes.
 
---=20
-Cheers,
-Stephen Rothwell                    sfr@canb.auug.org.au
+Tell me what this does:
 
-diff --cc net/wireless/nl80211.c
-index 51d660e,e402819..0000000
---- a/net/wireless/nl80211.c
-+++ b/net/wireless/nl80211.c
-@@@ -1550,7 -1542,7 +1547,8 @@@ static int nl80211_dump_wiphy(struct sk
- =20
-  			netdev =3D dev_get_by_index(sock_net(skb->sk), ifidx);
-  			if (!netdev) {
-+ 				rtnl_unlock();
- +				kfree(tb);
-  				return -ENODEV;
-  			}
-  			if (netdev->ieee80211_ptr) {
+ 	struct tid_info *t = dev->rdev.lldi.tids;
+ 	int status = GET_AOPEN_STATUS(ntohl(rpl->atid_status));
++	struct sockaddr_in *la = (struct sockaddr_in *)&ep->com.local_addr;
++	struct sockaddr_in *ra = (struct sockaddr_in *)&ep->com.remote_addr;
++	struct sockaddr_in6 *la6 = (struct sockaddr_in6 *)&ep->com.local_addr;
++	struct sockaddr_in6 *ra6 = (struct sockaddr_in6 *)&ep->com.remote_addr;
++
++
+ 
+ 	ep = lookup_atid(t, atid);
 
---Signature=_Thu__20_Jun_2013_13_40_32_+1000_mlNf_MqL2LnsAacT
-Content-Type: application/pgp-signature
+Dereferencing 'ep' before initializing it.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2.0.20 (GNU/Linux)
+The compiler complains loudly about this, therefore nobody even looked at
+the build logs from these changes before submitting them to me.
 
-iQIcBAEBCAAGBQJRwnm0AAoJEECxmPOUX5FErdIP/1nP/6tNSyWKkCocOvWVhQU3
-HOuggcNQ1IGShvfr8VJmmOHDodzl0UzoKUh+oedL+f8ENoDiIjC+YVYDPbhEu0OR
-DTsHZdWpITu3PW83MEgk8HgT+j848Tf5QQP0Ti9QrBJTzJOykzNjbm/ZtYj6L03U
-t/dlwaxNR9LI3r/uTpWSS8pWzIyyb5WgVgGFDqq/jl9KASk+FXqCBBUbO7BkiBLm
-zrH7/R/MIfZP76ExprTj2OGLYc/NF8DNpPA8V9YVs2u/v5OBySzESvgaeZN6S2EF
-xxD4KagFH20Ws7tOm/z/x7z3V/SIEMx+jvYxHypJ9RHYGhWp1MxlS5k/MV1A0/n6
-zmk1w92JjqblZ+i1h9uxLrRxSaHMAEr2x4zB66boK1T+bMkZQliewDv8CjMWP6RB
-iErlAt4gis4S4ZUJXQazox2ELG8oP1obL+6XUNaYtpRN4neLNhuciEBVqtvOgWWV
-ZxSSFNMdgmCimAzDYavjtI9D7tD40dbH8EclhDcAKyT+lNgOvjgTZPORsCHVesBB
-8xgJgA7mAfvEptD/mbNO3LJEEcpKGwiwF6q2h17XNNP0DCRleXnbYFslXyyB0/HL
-Jg+k1ZlHa/vigABoS5OTXbhpk5eB3IY6iPDAuVl8KjWzi0hhTXxgx54n/S9m/dlr
-Lg5b6kmHDqBpL7DLdp4l
-=wGgO
------END PGP SIGNATURE-----
+That translates to "don't care", and if the people submitting this
+code don't care why should I?
 
---Signature=_Thu__20_Jun_2013_13_40_32_+1000_mlNf_MqL2LnsAacT--
+Sorry, not impressed.  I'm seriously going to take my time reviewing
+any future submissions of these changes, because it's obvious that
+even the people writing and submitting this code DO NOT CARE.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
