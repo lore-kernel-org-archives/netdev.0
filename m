@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] sfc: Remove write permission from phy_type
- attribute
-Date: Wed, 19 Jun 2013 22:19:11 -0700 (PDT)
-Message-ID: <20130619.221911.589157489583077294.davem@davemloft.net>
-References: <1371573940.1956.19.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [PATCH] mv643xx_eth: Allocate receive queue initialized to zero
+Date: Wed, 19 Jun 2013 22:19:28 -0700 (PDT)
+Message-ID: <20130619.221928.858650471566973618.davem@davemloft.net>
+References: <1371576759-21782-1-git-send-email-lkundrak@v3.sk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bhutchings@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49392 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751093Ab3FTFTM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 01:19:12 -0400
-In-Reply-To: <1371573940.1956.19.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: buytenh@wantstofly.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: lkundrak@v3.sk
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371576759-21782-1-git-send-email-lkundrak@v3.sk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ben Hutchings <bhutchings@solarflare.com>
-Date: Tue, 18 Jun 2013 17:45:40 +0100
+From: Lubomir Rintel <lkundrak@v3.sk>
+Date: Tue, 18 Jun 2013 19:32:38 +0200
 
-> Driver probe currently results in:
+> Zero pointer in rx_skb is how respective rxq_deinit() finds out out that a skb
+> slot is unallocated. If rxq_refill() fails (e.g. on OOM condition), subsequent
+> teardown would result in an attempt to kfree() invalid pointers.
 > 
-> WARNING: at drivers/base/core.c:576 device_create_file+0x57/0x7e()
-> Attribute phy_type: write permission without 'store'
-> 
-> Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
+> Signed-off-by: Lubomir Rintel <lkundrak@v3.sk>
 
 Applied.
