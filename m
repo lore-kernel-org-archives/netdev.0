@@ -1,82 +1,52 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: Re: [PATCH net-next 4/6] bonding: don't validate arp if we don't
- have to
-Date: Thu, 20 Jun 2013 15:43:51 +0200
-Message-ID: <51C30717.5080303@redhat.com>
-References: <1371663286-12518-5-git-send-email-vfalico@redhat.com> <51C22E58.5080209@redhat.com> <20130620084322.GJ26116@redhat.com>
+Subject: Re: [PATCH] 8021q: fix vlan 0 inconsistencies
+Date: Thu, 20 Jun 2013 16:08:34 +0200
+Message-ID: <51C30CE2.5030803@redhat.com>
+References: <1371731078-12531-1-git-send-email-nikolay@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
-	rick.jones2@hp.com
-To: Veaceslav Falico <vfalico@redhat.com>
+Cc: kaber@trash.net, davem@davemloft.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38622 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:34195 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965461Ab3FTNrS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 09:47:18 -0400
-In-Reply-To: <20130620084322.GJ26116@redhat.com>
+	id S965093Ab3FTOLZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 10:11:25 -0400
+In-Reply-To: <1371731078-12531-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2013 10:43 AM, Veaceslav Falico wrote:
-> On Thu, Jun 20, 2013 at 12:19:04AM +0200, Nikolay Aleksandrov wrote:
->> On 19/06/13 19:34, Veaceslav Falico wrote:
->>> Currently, we validate all the incoming arps if arp_validate not 0.
->>> However, we don't have to validate backup slaves if arp_validate == active
->>> and vice versa, so return early in bond_arp_rcv() in these cases.
->>>
->>> It works correctly now because we verify arp_validate in slave_last_rx(),
->>> however we're just doing useless work in bond_arp_rcv().
->>>
->>> Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
->>> ---
->>>  drivers/net/bonding/bond_main.c |    4 ++++
->>>  1 files changed, 4 insertions(+), 0 deletions(-)
->>>
->>> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>> index b69c7f0..2cfbb2e 100644
->>> --- a/drivers/net/bonding/bond_main.c
->>> +++ b/drivers/net/bonding/bond_main.c
->>> @@ -2624,6 +2624,10 @@ static int bond_arp_rcv(const struct sk_buff *skb,
->>> struct bonding *bond,
->>>          return RX_HANDLER_ANOTHER;
->>>
->>>      read_lock(&bond->lock);
->>> +
->>> +    if (!slave_do_arp_validate(bond, slave))
->>> +        goto out_unlock;
->>> +
->>>      alen = arp_hdr_len(bond->dev);
->>>
->>>      pr_debug("bond_arp_rcv: bond %s skb->dev %s\n",
->> Hm, I think this issue runs deeper because recv_probe can be wrong and
->> also if arp_validate is enabled while the bond is running then
->> recv_probe is not set (or unset for that matter if disabled). I have a
->> patch which needs little more work for some time now in my queue that
->> fixes this, but if you'd like to fix it I'd suggest addressing that
->> issue (recv_probe), because then you can just drop these checks and
->> improve performance when disabled (after it's been enabled).
+On 06/20/2013 02:24 PM, nikolay@redhat.com wrote:
+> From: Nikolay Aleksandrov <nikolay@redhat.com>
 > 
-> Yup, recv_probe value is really poorly synced with the arp_validate, I'll
-> try to take a look at it when I have time and in case you won't fix it by
-> that time :).
+> The first part of the patch stops the addition of VLAN 0 to bonding
+> devices because we use an internal vlan_list to keep the added vlans and
+> after that when checking if we're using vlans on the bond
+> (bond_vlan_used) it evaluates to true always, which leads to different
+> problems. Since this is intended for HW vlan filters, it's not needed
+> for the bonding, and for its slaves it will still get added upon
+> NETDEV_UP.
+> The second part that does unconditional vlan_vid_del is needed because
+> when we add vlan 0 to a bonding device, it can never be removed
+> completely (it will always stay in the local vlan_list). Since there's
+> refcounting, I don't think this will change the behaviour because if a
+> real device is UP then vlan 0 will have at least refcnt == 1 so
+> ndo_vlan_rx_kill_vid won't get called until the device is down, but in
+> the bonding case we need it while the device is up so we can cleanup
+> properly after vlan 0 removal.
+> As an addition I'd like to say that I tried many different fixes of this
+> issue from inside the bonding, but they all have shortcomings and fixing
+> the root cause would be much better. For example I can't filter out vlan
+> 0 in the bond's ndo_vlan_rx_add_vid because bond_has_this_ip() (and others)
+> rely on being able to check the vlan devices on top through the local
+> vlan_list. Also there's no way to differentiate between addition of vlan 0
+> from vlan_device_event and from register_vlan_dev.
 > 
-> However, I don't think we should drop this check even in this case. This
-> check just verifies if we should validate this exact slave - being it
-> active or backup, and considering the value of arp_validate (which can be
-> active/backup/both).
-> 
-> Maybe I've understood you wrong, though :).
-> 
->> This got a bit confusing when I read it :-)
->>
->> Cheers,
->> Nik
-I agree with this patch, I didn't mean to drop it :-) My intention was more to
-augment it to include the fix for recv_probe as well. But that is not critical
-so it can be done at a later time.
+> Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
+In fact I think there's a deeper issue with vlan 0 because if you add it to any
+device its refcount will only be incremented (unconditional vlan_vid_add in
+register_vlan_dev) and never decremented. And this issue is also fixed by this
+patch.
 
-Cheers,
- Nik
+Nik
