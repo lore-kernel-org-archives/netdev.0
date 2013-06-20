@@ -1,43 +1,203 @@
 From: Veaceslav Falico <vfalico@redhat.com>
-Subject: [PATCH v2 net-next 5/6] bonding: doc: some details on backup slave arp validation
-Date: Thu, 20 Jun 2013 18:35:04 +0200
-Message-ID: <1371746105-2482-6-git-send-email-vfalico@redhat.com>
+Subject: [PATCH v2 net-next 1/6] bonding: add helper function bond_get_targets_ip(targets, ip)
+Date: Thu, 20 Jun 2013 18:35:00 +0200
+Message-ID: <1371746105-2482-2-git-send-email-vfalico@redhat.com>
 Cc: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net,
 	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
 	rick.jones2@hp.com, nikolay@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:32543 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:41356 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965608Ab3FTQfq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 12:35:46 -0400
+	id S965632Ab3FTQfu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 12:35:50 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add some details to bonding documentation on how backup slave arp
-validation works.
+Add function bond_get_targets_ip(targets, ip) which searches through
+targets array of ips (arp_targets) and returns the position of first
+match. If ip == 0, returns the first free slot. On failure to find the
+ip or free slot, return -1.
+
+Use it to verify if the arp we've received is valid and in sysfs.
+
+v1->v2:
+Fix "[2/6] bonding: add helper function bond_get_targets_ip(targets, ip)",
+per Nikolay's advice, to verify if source ip != 0.0.0.0, otherwise we might
+update 'null' arp_ip_targets' last_rx. Also, address style.
 
 Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
 ---
- Documentation/networking/bonding.txt |    6 ++++++
- 1 files changed, 6 insertions(+), 0 deletions(-)
+ drivers/net/bonding/bond_main.c  |   21 ++++++--------
+ drivers/net/bonding/bond_sysfs.c |   54 ++++++++++++++-----------------------
+ drivers/net/bonding/bonding.h    |   16 +++++++++++
+ 3 files changed, 46 insertions(+), 45 deletions(-)
 
-diff --git a/Documentation/networking/bonding.txt b/Documentation/networking/bonding.txt
-index e7454fc..adee3b4 100644
---- a/Documentation/networking/bonding.txt
-+++ b/Documentation/networking/bonding.txt
-@@ -303,6 +303,12 @@ arp_validate
- 	such a situation, validation of backup slaves must be
- 	disabled.
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 3b31c19..976d28e 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -2610,19 +2610,16 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
  
-+	The validation of ARP requests on backup slaves is mainly
-+	helping bonding to decide which slaves are more likely to
-+	work in case of the active slave failure, it doesn't really
-+	guarantee that the backup slave will work if it's selected
-+	as the next active slave.
+ static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32 sip, __be32 tip)
+ {
+-	int i;
+-	__be32 *targets = bond->params.arp_targets;
++	if (!sip || !bond_has_this_ip(bond, tip)) {
++		pr_debug("bva: sip %pI4 tip %pI4 not found\n", &sip, &tip);
++		return;
++	}
+ 
+-	for (i = 0; (i < BOND_MAX_ARP_TARGETS) && targets[i]; i++) {
+-		pr_debug("bva: sip %pI4 tip %pI4 t[%d] %pI4 bhti(tip) %d\n",
+-			 &sip, &tip, i, &targets[i],
+-			 bond_has_this_ip(bond, tip));
+-		if (sip == targets[i]) {
+-			if (bond_has_this_ip(bond, tip))
+-				slave->last_arp_rx = jiffies;
+-			return;
+-		}
++	if (bond_get_targets_ip(bond->params.arp_targets, sip) == -1) {
++		pr_debug("bva: sip %pI4 not found in targets\n", &sip);
++		return;
+ 	}
++	slave->last_arp_rx = jiffies;
+ }
+ 
+ static int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
+@@ -4839,7 +4836,7 @@ static int __net_init bond_net_init(struct net *net)
+ 
+ 	bond_create_proc_dir(bn);
+ 	bond_create_sysfs(bn);
+-	
 +
- 	This option is useful in network configurations in which
- 	multiple bonding hosts are concurrently issuing ARPs to one or
- 	more targets beyond a common switch.  Should the link between
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
+index f8bee4c..ece57f1 100644
+--- a/drivers/net/bonding/bond_sysfs.c
++++ b/drivers/net/bonding/bond_sysfs.c
+@@ -591,7 +591,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
+ 					 const char *buf, size_t count)
+ {
+ 	__be32 newtarget;
+-	int i = 0, done = 0, ret = count;
++	int i = 0, ret = -EINVAL;
+ 	struct bonding *bond = to_bond(d);
+ 	__be32 *targets;
+ 
+@@ -602,57 +602,44 @@ static ssize_t bonding_store_arp_targets(struct device *d,
+ 		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
+ 			pr_err("%s: invalid ARP target %pI4 specified for addition\n",
+ 			       bond->dev->name, &newtarget);
+-			ret = -EINVAL;
+ 			goto out;
+ 		}
+-		/* look for an empty slot to put the target in, and check for dupes */
+-		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
+-			if (targets[i] == newtarget) { /* duplicate */
+-				pr_err("%s: ARP target %pI4 is already present\n",
+-				       bond->dev->name, &newtarget);
+-				ret = -EINVAL;
+-				goto out;
+-			}
+-			if (targets[i] == 0) {
+-				pr_info("%s: adding ARP target %pI4.\n",
+-					bond->dev->name, &newtarget);
+-				done = 1;
+-				targets[i] = newtarget;
+-			}
++
++		if (bond_get_targets_ip(targets, newtarget) != -1) { /* dup */
++			pr_err("%s: ARP target %pI4 is already present\n",
++			       bond->dev->name, &newtarget);
++			goto out;
+ 		}
+-		if (!done) {
++
++		i = bond_get_targets_ip(targets, 0); /* first free slot */
++		if (i == -1) {
+ 			pr_err("%s: ARP target table is full!\n",
+ 			       bond->dev->name);
+-			ret = -EINVAL;
+ 			goto out;
+ 		}
+ 
++		pr_info("%s: adding ARP target %pI4.\n", bond->dev->name,
++			 &newtarget);
++		targets[i] = newtarget;
+ 	} else if (buf[0] == '-')	{
+ 		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
+ 			pr_err("%s: invalid ARP target %pI4 specified for removal\n",
+ 			       bond->dev->name, &newtarget);
+-			ret = -EINVAL;
+ 			goto out;
+ 		}
+ 
+-		for (i = 0; (i < BOND_MAX_ARP_TARGETS) && !done; i++) {
+-			if (targets[i] == newtarget) {
+-				int j;
+-				pr_info("%s: removing ARP target %pI4.\n",
+-					bond->dev->name, &newtarget);
+-				for (j = i; (j < (BOND_MAX_ARP_TARGETS-1)) && targets[j+1]; j++)
+-					targets[j] = targets[j+1];
+-
+-				targets[j] = 0;
+-				done = 1;
+-			}
+-		}
+-		if (!done) {
++		i = bond_get_targets_ip(targets, newtarget);
++		if (i == -1) {
+ 			pr_info("%s: unable to remove nonexistent ARP target %pI4.\n",
+ 				bond->dev->name, &newtarget);
+-			ret = -EINVAL;
+ 			goto out;
+ 		}
++
++		pr_info("%s: removing ARP target %pI4.\n", bond->dev->name,
++			&newtarget);
++		for (; (i < BOND_MAX_ARP_TARGETS-1) && targets[i+1]; i++)
++			targets[i] = targets[i+1];
++		targets[i] = 0;
+ 	} else {
+ 		pr_err("no command found in arp_ip_targets file for bond %s. Use +<addr> or -<addr>.\n",
+ 		       bond->dev->name);
+@@ -660,6 +647,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
+ 		goto out;
+ 	}
+ 
++	ret = count;
+ out:
+ 	return ret;
+ }
+diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+index c990b42..486e532 100644
+--- a/drivers/net/bonding/bonding.h
++++ b/drivers/net/bonding/bonding.h
+@@ -464,6 +464,22 @@ static inline struct slave *bond_slave_has_mac(struct bonding *bond,
+ 	return NULL;
+ }
+ 
++/* Check if the ip is present in arp ip list, or first free slot if ip == 0
++ * Returns -1 if not found, index if found
++ */
++static inline int bond_get_targets_ip(__be32 *targets, __be32 ip)
++{
++	int i;
++
++	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
++		if (targets[i] == ip)
++			return i;
++		else if (targets[i] == 0)
++			break;
++
++	return -1;
++}
++
+ /* exported from bond_main.c */
+ extern int bond_net_id;
+ extern const struct bond_parm_tbl bond_lacp_tbl[];
 -- 
 1.7.1
