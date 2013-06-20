@@ -1,67 +1,57 @@
-From: David Daney <ddaney.cavm@gmail.com>
-Subject: [PATCH 2/2] netdev: octeon_mgmt: Fix structure layout for little-endian.
-Date: Wed, 19 Jun 2013 17:40:20 -0700
-Message-ID: <1371688820-4585-3-git-send-email-ddaney.cavm@gmail.com>
-References: <1371688820-4585-1-git-send-email-ddaney.cavm@gmail.com>
-Cc: linux-mips@linux-mips.org, David Daney <david.daney@cavium.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: Problems in bridge.8, ip-netns.8, ip-maddress.8, ip-tunnel.8,
+ ip-route.8, ip-neighbour.8, ip-rule.8
+Date: Wed, 19 Jun 2013 17:53:57 -0700
+Message-ID: <20130619175357.1af033aa@nehalam.linuxnetplumber.net>
+References: <20130618051405.06917417E7@snark.thyrsus.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: esr@thyrsus.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f170.google.com ([209.85.192.170]:63606 "EHLO
-	mail-pd0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S935427Ab3FTAkc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 20:40:32 -0400
-Received: by mail-pd0-f170.google.com with SMTP id x11so5623275pdj.29
-        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 17:40:31 -0700 (PDT)
-In-Reply-To: <1371688820-4585-1-git-send-email-ddaney.cavm@gmail.com>
+Received: from mail-pd0-f172.google.com ([209.85.192.172]:54924 "EHLO
+	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934734Ab3FTAyC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 20:54:02 -0400
+Received: by mail-pd0-f172.google.com with SMTP id z10so5644793pdj.17
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 17:54:01 -0700 (PDT)
+In-Reply-To: <20130618051405.06917417E7@snark.thyrsus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Daney <david.daney@cavium.com>
+On Tue, 18 Jun 2013 01:14:05 -0400 (EDT)
+esr@thyrsus.com wrote:
 
-The C ABI reverses the bitfield fill order when compiled as
-little-endian.
+> This is automatically generated email about markup problems in a man
+> page for which you appear to be responsible.  If you are not the right
+> person or list, please tell me so I can correct my database.
+> 
+> See http://catb.org/~esr/doclifter/bugs.html for details on how and
+> why these patches were generated.  Feel free to email me with any
+> questions.  Note: These patches do not change the modification date of
+> any manual page.  You may wish to do that by hand.
+> 
+> I apologize if this message seems spammy or impersonal. The volume of
+> markup bugs I am tracking is over five hundred - there is no real
+> alternative to generating bugmail from a database and template.
+> 
+> --
+>                              Eric S. Raymond
 
-Signed-off-by: David Daney <david.daney@cavium.com>
----
- drivers/net/ethernet/octeon/octeon_mgmt.c | 22 +++++++++++++++-------
- 1 file changed, 15 insertions(+), 7 deletions(-)
+Thank you for spotting this but please fix the formatting.
 
-diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
-index 1ef4148..622aa75 100644
---- a/drivers/net/ethernet/octeon/octeon_mgmt.c
-+++ b/drivers/net/ethernet/octeon/octeon_mgmt.c
-@@ -46,17 +46,25 @@
- union mgmt_port_ring_entry {
- 	u64 d64;
- 	struct {
--		u64    reserved_62_63:2;
-+#define RING_ENTRY_CODE_DONE 0xf
-+#define RING_ENTRY_CODE_MORE 0x10
-+#ifdef __BIG_ENDIAN_BITFIELD
-+		u64 reserved_62_63:2;
- 		/* Length of the buffer/packet in bytes */
--		u64    len:14;
-+		u64 len:14;
- 		/* For TX, signals that the packet should be timestamped */
--		u64    tstamp:1;
-+		u64 tstamp:1;
- 		/* The RX error code */
--		u64    code:7;
--#define RING_ENTRY_CODE_DONE 0xf
--#define RING_ENTRY_CODE_MORE 0x10
-+		u64 code:7;
- 		/* Physical address of the buffer */
--		u64    addr:40;
-+		u64 addr:40;
-+#else
-+		u64 addr:40;
-+		u64 code:7;
-+		u64 tstamp:1;
-+		u64 len:14;
-+		u64 reserved_62_63:2;
-+#endif
- 	} s;
- };
- 
--- 
-1.7.11.7
+All patches should be rooted at the iproute2 top level repository 
+(similar to the requirements for the
+kernel as documented in Documentation/SubmittingPatches)
+
+If apply them manually the patch fails as well. 
+that can be correctly processed by git 
+$ cd my-iproute2
+$ cd man/man8
+$ $ patch < ~/Downloads/Problems-in-bridge.8-ip-netns.8-ip-maddress.8-ip-tunnel.8-ip-route.8-ip-neighbour.8-ip-rule.8.patch 
+patching file ip-rule.8
+patch: **** malformed patch at line 90: Problems with ip-neighbour.8:
+
+If you use a tool like quilt or git format-patch a correctly formatted email
+will be generated.
