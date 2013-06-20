@@ -1,67 +1,48 @@
-From: David Daney <ddaney@caviumnetworks.com>
-Subject: Re: [PATCH 1/2] netdev: octeon_mgmt: Correct tx IFG workaround.
-Date: Wed, 19 Jun 2013 18:47:34 -0700
-Message-ID: <51C25F36.1040202@caviumnetworks.com>
-References: <1371688820-4585-1-git-send-email-ddaney.cavm@gmail.com>  <1371688820-4585-2-git-send-email-ddaney.cavm@gmail.com>  <1371690487.2146.5.camel@joe-AO722> <51C25ACA.1070907@gmail.com> <1371692239.2146.7.camel@joe-AO722>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Daney <ddaney.cavm@gmail.com>, <netdev@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        <linux-mips@linux-mips.org>, David Daney <david.daney@cavium.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-mips-bounce@linux-mips.org>
-In-Reply-To: <1371692239.2146.7.camel@joe-AO722>
-Sender: linux-mips-bounce@linux-mips.org
-Errors-to: linux-mips-bounce@linux-mips.org
-List-help: <mailto:ecartis@linux-mips.org?Subject=help>
-List-unsubscribe: <mailto:ecartis@linux-mips.org?subject=unsubscribe%20linux-mips>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:ecartis@linux-mips.org?subject=subscribe%20linux-mips>
-List-owner: <mailto:ralf@linux-mips.org>
-List-post: <mailto:linux-mips@linux-mips.org>
-List-archive: <http://www.linux-mips.org/archives/linux-mips/>
-List-Id: netdev.vger.kernel.org
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: [PATCH v3 RESEND 1/3] neigh: no need to call lookup_neigh_parms in neigh_parms_alloc
+Date: Thu, 20 Jun 2013 10:01:32 +0800
+Message-ID: <1371693694-18531-1-git-send-email-gaofeng@cn.fujitsu.com>
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org,
+	Gao feng <gaofeng@cn.fujitsu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cn.fujitsu.com ([222.73.24.84]:52544 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S935237Ab3FTCAY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 22:00:24 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/19/2013 06:37 PM, Joe Perches wrote:
-> On Wed, 2013-06-19 at 18:28 -0700, David Daney wrote:
->> On 06/19/2013 06:08 PM, Joe Perches wrote:
->>> On Wed, 2013-06-19 at 17:40 -0700, David Daney wrote:
->>>> From: David Daney <david.daney@cavium.com>
->>>>
->>>> The previous fix was still too agressive to meet ieee specs.  Increase
->>>> to (14, 10).
->>> []
->>>> diff --git a/drivers/net/ethernet/octeon/octeon_mgmt.c b/drivers/net/ethernet/octeon/octeon_mgmt.c
->>> []
->>>> @@ -1141,10 +1141,13 @@ static int octeon_mgmt_open(struct net_device *netdev)
->>>>    		/* For compensation state to lock. */
->>>>    		ndelay(1040 * NS_PER_PHY_CLK);
->>>>
->>>> -		/* Some Ethernet switches cannot handle standard
->>>> -		 * Interframe Gap, increase to 16 bytes.
->>>> +		/* Default Interframe Gaps are too small.  Recommended
->>>> +		 * workaround is.
->>>> +		 *
->>>> +		 * AGL_GMX_TX_IFG[IFG1]=14
->>>> +		 * AGL_GMX_TX_IFG[IFG2]=10
->>>
->>> Why isn't the TX IFG just 96 bit times?
->>
->> I don't have a full understanding of how the transistors are wired up on
->> the chip, so I cannot accurately answer your question.  But I can say
->> that after I empirically found the previous values to get the thing to
->> work, the hardware designers independently found that the values
->> supplied in this patch are required to achieve industry standard IFGs
->> with this hardware.
->
-> For one specific chip or for the Octeon entire family?
->
+neigh_table.parms always exist and is initialized,kmemdup
+can use it to create new neigh_parms, actually lookup_neigh_parms
+here will return neigh_table.parms too.
 
-You will notice, if you look at the code, that there is an if statement 
-that controls which chips get the special IFG treatment.
+Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+---
+ net/core/neighbour.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-But to summarize: Only chips that have 1Gig MII ports are affected. 
-Older versions (that only support 10M and 100M) do not get the adjustment.
-
-David Daney
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 5c56b21..62d9757 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1429,15 +1429,11 @@ static inline struct neigh_parms *lookup_neigh_parms(struct neigh_table *tbl,
+ struct neigh_parms *neigh_parms_alloc(struct net_device *dev,
+ 				      struct neigh_table *tbl)
+ {
+-	struct neigh_parms *p, *ref;
++	struct neigh_parms *p;
+ 	struct net *net = dev_net(dev);
+ 	const struct net_device_ops *ops = dev->netdev_ops;
+ 
+-	ref = lookup_neigh_parms(tbl, net, 0);
+-	if (!ref)
+-		return NULL;
+-
+-	p = kmemdup(ref, sizeof(*p), GFP_KERNEL);
++	p = kmemdup(&tbl->parms, sizeof(*p), GFP_KERNEL);
+ 	if (p) {
+ 		p->tbl		  = tbl;
+ 		atomic_set(&p->refcnt, 1);
+-- 
+1.8.1.4
