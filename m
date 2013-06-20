@@ -1,39 +1,42 @@
-From: Andy Shevchenko <andy.shevchenko@gmail.com>
-Subject: Re: [PATCH v6] ethernet/arc/arc_emac - Add new driver
-Date: Thu, 20 Jun 2013 19:12:23 +0300
-Message-ID: <CAHp75VdV0s_v7NSPjWh67rRgnK8N2d-YydMQ3zJ9z5Ha3Kds=g@mail.gmail.com>
-References: <1371729196-4505-1-git-send-email-abrodkin@synopsys.com>
-	<CAHp75Vf8+z0B6PMjGqVNPuEJrVYiR-yMT5dvqqBAs=GA5utLrQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Joe Perches <joe@perches.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Devicetree Discuss <devicetree-discuss@lists.ozlabs.org>,
-	Florian Fainelli <florian@openwrt.org>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAHp75Vf8+z0B6PMjGqVNPuEJrVYiR-yMT5dvqqBAs=GA5utLrQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Veaceslav Falico <vfalico@redhat.com>
+Subject: [PATCH v2 net-next 2/6] bonding: don't add duplicate targets to arp_ip_target
+Date: Thu, 20 Jun 2013 18:35:01 +0200
+Message-ID: <1371746105-2482-3-git-send-email-vfalico@redhat.com>
+Cc: vfalico@redhat.com, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
+	rick.jones2@hp.com, nikolay@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:17510 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161031Ab3FTQe7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 12:34:59 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 20, 2013 at 7:00 PM, Andy Shevchenko
-<andy.shevchenko@gmail.com> wrote:
-> On Thu, Jun 20, 2013 at 2:53 PM, Alexey Brodkin
-> <Alexey.Brodkin@synopsys.com> wrote:
+Print a warning and skip them.
 
->> please take a look at 6th re-spin of the patch.
-> Usually it's better to start new thread for new version of the patchset.
-Oh, sorry, It seems Gmail too smart.
+Signed-off-by: Veaceslav Falico <vfalico@redhat.com>
+---
+ drivers/net/bonding/bond_main.c |    6 +++++-
+ 1 files changed, 5 insertions(+), 1 deletions(-)
 
---
-With Best Regards,
-Andy Shevchenko
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 976d28e..1645130 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -4588,7 +4588,11 @@ static int bond_check_params(struct bond_params *params)
+ 				   arp_ip_target[i]);
+ 			arp_interval = 0;
+ 		} else {
+-			arp_target[arp_ip_count++] = ip;
++			if (bond_get_targets_ip(arp_target, ip) == -1)
++				arp_target[arp_ip_count++] = ip;
++			else
++				pr_warning("Warning: duplicate address %pI4 in arp_ip_target, skipping\n",
++					   &ip);
+ 		}
+ 	}
+ 
+-- 
+1.7.1
