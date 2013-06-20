@@ -1,52 +1,36 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: qlen check in tun.c
-Date: Thu, 20 Jun 2013 11:07:25 +0300
-Message-ID: <20130620080725.GB23621@redhat.com>
-References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com>
- <51C12592.6050503@redhat.com>
- <CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [RFC PATCH net-next 3/3] packet: nlmon: virtual netlink monitoring
+ device for packet sockets
+Date: Thu, 20 Jun 2013 10:07:10 +0200
+Message-ID: <51C2B82E.9060401@redhat.com>
+References: <1371665086-19677-1-git-send-email-dborkman@redhat.com> <1371665086-19677-4-git-send-email-dborkman@redhat.com> <20130619115941.34fc425e@samsung-9>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jerry Chu <hkchu@google.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, tgraf@suug.ch, netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:61670 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:50055 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755036Ab3FTIGl (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 04:06:41 -0400
-Content-Disposition: inline
-In-Reply-To: <CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com>
+	id S1755401Ab3FTIHh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 04:07:37 -0400
+In-Reply-To: <20130619115941.34fc425e@samsung-9>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 19, 2013 at 12:39:34PM -0700, Jerry Chu wrote:
-> Hi Jason,
-> 
-> On Tue, Jun 18, 2013 at 8:29 PM, Jason Wang <jasowang@redhat.com> wrote:
-> > On 06/19/2013 10:31 AM, Jerry Chu wrote:
-> >> In tun_net_xmit() the max qlen is computed as
-> >> dev->tx_queue_len / tun->numqueues. For multi-queue configuration the
-> >> latter may be way too small, forcing one to adjust txqueuelen based
-> >> on number of queues created. (Well the default txqueuelen of
-> >> 500/TUN_READQ_SIZE already seems too small even for single queue.)
-> >
-> > Hi Jerry:
-> >
-> > Do you have some test result of this? Anyway, tun allows userspace to
-> > adjust this value based on its requirement.
-> 
-> Sure, but the default size of 500 is just way too small. queue overflows even
-> with a simple single-stream throughput test through Openvswitch due to CPU
-> scheduler anomaly. On our loaded multi-stream test even 8192 can't prevent
-> queue overflow. But then with 8192 we'll be deep into the "buffer
-> bloat" territory.
-> We haven't figured out an optimal strategy for thruput vs latency, but
-> suffice to
-> say 500 is too small.
-> 
-> Jerry
+On 06/19/2013 08:59 PM, Stephen Hemminger wrote:
+> On Wed, 19 Jun 2013 20:04:46 +0200
+> Daniel Borkmann <dborkman@redhat.com> wrote:
+>
+>> Currently, there is no good possibility to debug netlink traffic that
+>> is being exchanged between kernel and user space. Therefore, this patch
+>> implements a netlink virtual device, so that netlink messages will be
+>> made visible to PF_PACKET sockets. Once there was an approach with a
+>> similar idea [1], but it got forgotten somehow.
+>
+> ip monitor all
 
-Maybe TSO is off for you?
-With TSO you can get 64Kbyte packets, 500 of these is 30 Mbytes!
-We really should consider setting byte limits, not packet limits.
+Well, but this is only restricted to debugging rtnl and there are many other
+subsystems using netlink. Also, it's not about low-level debugging netlink
+in general from what I see from the code. So it's not really the same resp.
+comparable to each other.
