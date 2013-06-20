@@ -1,34 +1,41 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH V3 iproute2 3/3] Add VF link state control
-Date: Wed, 19 Jun 2013 18:15:27 -0700
-Message-ID: <20130619181527.7dc9ef52@nehalam.linuxnetplumber.net>
-References: <1371118752-2314-1-git-send-email-ogerlitz@mellanox.com>
-	<1371118752-2314-4-git-send-email-ogerlitz@mellanox.com>
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Subject: Re: [PATCH v2 4/4] neigh: don't leak default parms to uninitial netns
+Date: Thu, 20 Jun 2013 09:18:48 +0800
+Message-ID: <51C25878.2070302@cn.fujitsu.com>
+References: <1371175607-1405-1-git-send-email-gaofeng@cn.fujitsu.com> <1371175607-1405-4-git-send-email-gaofeng@cn.fujitsu.com> <20130619.180505.1958820391321832484.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org, amirv@mellanox.com,
-	ronye@mellanox.com
-To: Or Gerlitz <ogerlitz@mellanox.com>
+Cc: ebiederm@xmission.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f48.google.com ([209.85.160.48]:62324 "EHLO
-	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934734Ab3FTBPb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 21:15:31 -0400
-Received: by mail-pb0-f48.google.com with SMTP id ma3so5635713pbc.35
-        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 18:15:31 -0700 (PDT)
-In-Reply-To: <1371118752-2314-4-git-send-email-ogerlitz@mellanox.com>
+Received: from cn.fujitsu.com ([222.73.24.84]:62371 "EHLO song.cn.fujitsu.com"
+	rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S934734Ab3FTBRM (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 19 Jun 2013 21:17:12 -0400
+In-Reply-To: <20130619.180505.1958820391321832484.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 13 Jun 2013 13:19:12 +0300
-Or Gerlitz <ogerlitz@mellanox.com> wrote:
-
-> From: Rony Efraim <ronye@mellanox.com>
+On 06/20/2013 09:05 AM, David Miller wrote:
+> From: Gao feng <gaofeng@cn.fujitsu.com>
+> Date: Fri, 14 Jun 2013 10:06:47 +0800
 > 
-> Add link state per VF command
+>> Only allow initial net namespace to get default parms
+>> through netlink.
+>>
+>> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 > 
-> Signed-off-by: Rony Efraim <ronye@mellanox.com>
-> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Disallowing changes to the default neigh parms is fine, but there is no
+> reason to forbid seeing what default neigh parms will be used in a given
+> network namespace just because it isn't &init_net.
+> 
 
-Applied to net-next-3.10 branch.
+Yes, we can make sure un-init net namespace can't do harm to default neigh parms,
+it's enough.
+
+> I don't see why you want to restrict this at all.
+> 
+> I'm not applying these patches, sorry.
+
+You can just drop this one, are there some problems with the other 3 patches?
