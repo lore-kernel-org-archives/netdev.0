@@ -1,49 +1,51 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH net-next 3/3] packet: nlmon: virtual netlink
- monitoring device for packet sockets
-Date: Thu, 20 Jun 2013 08:46:53 -0700
-Message-ID: <20130620084653.4d11dd3e@nehalam.linuxnetplumber.net>
-References: <1371665086-19677-1-git-send-email-dborkman@redhat.com>
-	<1371665086-19677-4-git-send-email-dborkman@redhat.com>
-	<20130619115941.34fc425e@samsung-9>
-	<51C2B82E.9060401@redhat.com>
+Subject: Re: [PATCH net-next 1/8] vxlan: Fix error handling while creating
+ device.
+Date: Thu, 20 Jun 2013 08:47:48 -0700
+Message-ID: <20130620084748.2c79809f@nehalam.linuxnetplumber.net>
+References: <1371713185-8076-1-git-send-email-pshelar@nicira.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, tgraf@suug.ch, netdev@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: netdev@vger.kernel.org, dev@openvswitch.org
+To: Pravin B Shelar <pshelar@nicira.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f169.google.com ([209.85.192.169]:61581 "EHLO
-	mail-pd0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757106Ab3FTPq6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 11:46:58 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so6422095pdj.28
-        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 08:46:57 -0700 (PDT)
-In-Reply-To: <51C2B82E.9060401@redhat.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:54596 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758090Ab3FTPrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 11:47:51 -0400
+Received: by mail-pa0-f53.google.com with SMTP id tj12so6451247pac.12
+        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 08:47:51 -0700 (PDT)
+In-Reply-To: <1371713185-8076-1-git-send-email-pshelar@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 20 Jun 2013 10:07:10 +0200
-Daniel Borkmann <dborkman@redhat.com> wrote:
+On Thu, 20 Jun 2013 00:26:25 -0700
+Pravin B Shelar <pshelar@nicira.com> wrote:
 
-> On 06/19/2013 08:59 PM, Stephen Hemminger wrote:
-> > On Wed, 19 Jun 2013 20:04:46 +0200
-> > Daniel Borkmann <dborkman@redhat.com> wrote:
-> >
-> >> Currently, there is no good possibility to debug netlink traffic that
-> >> is being exchanged between kernel and user space. Therefore, this patch
-> >> implements a netlink virtual device, so that netlink messages will be
-> >> made visible to PF_PACKET sockets. Once there was an approach with a
-> >> similar idea [1], but it got forgotten somehow.
-> >
-> > ip monitor all
+> Delete vxlan-sock list entry from list before freeing the memory.
 > 
-> Well, but this is only restricted to debugging rtnl and there are many other
-> subsystems using netlink. Also, it's not about low-level debugging netlink
-> in general from what I see from the code. So it's not really the same resp.
-> comparable to each other.
+> Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
+> ---
+>  drivers/net/vxlan.c |    4 +++-
+>  1 files changed, 3 insertions(+), 1 deletions(-)
+> 
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 284c6c0..173705f 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -1606,9 +1606,11 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
+>  	err = register_netdevice(dev);
+>  	if (err) {
+>  		if (--vs->refcnt == 0) {
+> +			hlist_del_rcu(&vs->hlist);
+>  			rtnl_unlock();
+> +
+>  			sk_release_kernel(vs->sock->sk);
+> -			kfree(vs);
+> +			kfree_rcu(vs, rcu);
+>  			rtnl_lock();
+>  		}
+>  		return err;
 
-I was thinking that having a more general monitor is great, and maybe you
-could reuse the similar concepts that already exist. I like the device idea
-or maybe teaching libpcap how to handle another input source like Patrick's
-mmap netlink would be better.
+This will not be necessary with my next patch set, that code all changes.
