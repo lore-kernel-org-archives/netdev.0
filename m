@@ -1,31 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 00/12] openvswitch: gre tunneling support.
-Date: Wed, 19 Jun 2013 18:08:21 -0700 (PDT)
-Message-ID: <20130619.180821.1778396090877108077.davem@davemloft.net>
-References: <1371516561-17622-1-git-send-email-pshelar@nicira.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH V3 iproute2 3/3] Add VF link state control
+Date: Wed, 19 Jun 2013 18:15:27 -0700
+Message-ID: <20130619181527.7dc9ef52@nehalam.linuxnetplumber.net>
+References: <1371118752-2314-1-git-send-email-ogerlitz@mellanox.com>
+	<1371118752-2314-4-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dev@openvswitch.org
-To: pshelar@nicira.com
+Cc: davem@davemloft.net, netdev@vger.kernel.org, amirv@mellanox.com,
+	ronye@mellanox.com
+To: Or Gerlitz <ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46883 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964831Ab3FTBIW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 21:08:22 -0400
-In-Reply-To: <1371516561-17622-1-git-send-email-pshelar@nicira.com>
+Received: from mail-pb0-f48.google.com ([209.85.160.48]:62324 "EHLO
+	mail-pb0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934734Ab3FTBPb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 21:15:31 -0400
+Received: by mail-pb0-f48.google.com with SMTP id ma3so5635713pbc.35
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 18:15:31 -0700 (PDT)
+In-Reply-To: <1371118752-2314-4-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pravin B Shelar <pshelar@nicira.com>
-Date: Mon, 17 Jun 2013 17:49:21 -0700
+On Thu, 13 Jun 2013 13:19:12 +0300
+Or Gerlitz <ogerlitz@mellanox.com> wrote:
 
-> Following patch series adds support for gre tunneling.
-> First six patches extend kernel gre and ip_tunnel modules
-> api so that there is more code sharing between gre modules
-> and ovs. Rest of patches adds ovs tunneling infrastructre
-> and gre protocol vport.
+> From: Rony Efraim <ronye@mellanox.com>
 > 
-> V2 fixes two patches according to comments from Jesse.
+> Add link state per VF command
+> 
+> Signed-off-by: Rony Efraim <ronye@mellanox.com>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 
-Series applied, thanks.
+Applied to net-next-3.10 branch.
