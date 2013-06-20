@@ -1,37 +1,56 @@
-From: "Eric S. Raymond" <esr@thyrsus.com>
-Subject: Re: Problems in bridge.8, ip-netns.8, ip-maddress.8, ip-tunnel.8,
- ip-route.8, ip-neighbour.8, ip-rule.8
-Date: Thu, 20 Jun 2013 15:29:45 -0400
-Message-ID: <20130620192944.GA7832@thyrsus.com>
-References: <20130618051405.06917417E7@snark.thyrsus.com>
- <20130619175357.1af033aa@nehalam.linuxnetplumber.net>
-Reply-To: esr@thyrsus.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Amir Vadai <amirv@mellanox.com>
+Subject: [PATCH net-next 03/11] net/mlx4_en: Do not query stats when device port is down
+Date: Thu, 20 Jun 2013 22:40:14 +0300
+Message-ID: <1371757222-21412-4-git-send-email-amirv@mellanox.com>
+References: <1371757222-21412-1-git-send-email-amirv@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Jack Morgenstein <jackm@dev.mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from static-71-162-243-5.phlapa.fios.verizon.net ([71.162.243.5]:48191
-	"EHLO snark.thyrsus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965846Ab3FTT3u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 15:29:50 -0400
-Content-Disposition: inline
-In-Reply-To: <20130619175357.1af033aa@nehalam.linuxnetplumber.net>
+Received: from mailp.voltaire.com ([193.47.165.129]:38496 "EHLO mellanox.co.il"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1755213Ab3FTTkh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 15:40:37 -0400
+In-Reply-To: <1371757222-21412-1-git-send-email-amirv@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stephen Hemminger <stephen@networkplumber.org>:
-> All patches should be rooted at the iproute2 top level repository 
+From: Jack Morgenstein <jackm@dev.mellanox.com>
 
-Attempting to follow your directions, I cloned iproute2 from
-github. but I don't see any of the pages I'm trying to fix in there.
+There are no counters allocated to the eth device when the port is down, so
+this query is meaningless at that time.
 
-esr@snark:~/software/iproute2/man/man8$ ls
-arpd.8    rtacct.8  tc-bfifo.8        tc-drr.8         tc-prio.8
-ip.8      rtmon.8   tc-cbq.8          tc-htb.8         tc-red.8
-lnstat.8  ss.8      tc-cbq-details.8  tc-pfifo.8       tc-sfq.8
-routel.8  tc.8      tc-choke.8        tc-pfifo_fast.8  tc-tbf.8
+It also leads to querying incorrect counters (since the counter_index is not
+valid when the device port is down).
 
-Is this the right repository? If not, where do I find it?
+Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.com>
+Signed-off-by: Amir Vadai <amirv@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 7299ada..c0b02d7 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1375,12 +1375,13 @@ static void mlx4_en_do_get_stats(struct work_struct *work)
+ 
+ 	mutex_lock(&mdev->state_lock);
+ 	if (mdev->device_up) {
+-		err = mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 0);
+-		if (err)
+-			en_dbg(HW, priv, "Could not update stats\n");
++		if (priv->port_up) {
++			err = mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 0);
++			if (err)
++				en_dbg(HW, priv, "Could not update stats\n");
+ 
+-		if (priv->port_up)
+ 			mlx4_en_auto_moderation(priv);
++		}
+ 
+ 		queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
+ 	}
 -- 
-		<a href="http://www.catb.org/~esr/">Eric S. Raymond</a>
+1.8.3.251.g1462b67
