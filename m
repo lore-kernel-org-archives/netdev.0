@@ -1,49 +1,44 @@
-From: David Stevens <dlstevens-r/Jw6+rmf7HQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH net-next 5/8] vxlan: Factor out vxlan send api.
-Date: Thu, 20 Jun 2013 08:46:42 -0400
-Message-ID: <OF9BEEA27A.EA477839-ON87257B90.0045D6A5-85257B90.00463241@us.ibm.com>
-References: <1371713207-8232-1-git-send-email-pshelar@nicira.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net] vhost-net: fix use-after-free in vhost_net_flush
+Date: Thu, 20 Jun 2013 16:47:59 +0400
+Message-ID: <51C2F9FF.4090702@cogentembedded.com>
+References: <20130620114813.GA17373@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1371713207-8232-1-git-send-email-pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
-	<mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Sender: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	"David S. Miller" <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130620114813.GA17373@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-> From: Pravin B Shelar <pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
- 
+Hello.
 
-> @@ -1205,13 +1222,13 @@ static netdev_tx_t vxlan_xmit(struct sk_buff
-> *skb, struct net_device *dev)
-> 
->        skb1 = skb_clone(skb, GFP_ATOMIC);
->        if (skb1) {
-> -         rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
-> +         rc1 = __vxlan_xmit(skb1, dev, rdst, did_rsc);
->           if (rc == NETDEV_TX_OK)
->              rc = rc1;
->        }
->     }
-> 
-> -   rc1 = vxlan_xmit_one(skb, dev, rdst0, did_rsc);
-> +   rc1 = __vxlan_xmit(skb, dev, rdst0, did_rsc);
->     if (rc == NETDEV_TX_OK)
->        rc = rc1;
->     return rc;
+On 20-06-2013 15:48, Michael S. Tsirkin wrote:
 
-You're changing the name of the function that sends a
-packet to one destination because you think "__vxlan_xmit"
-is more descriptive than "vxlan_xmit_one" ?
+> vhost_net_ubuf_put_and_wait has a confusing name:
+> it will actually also free it's argument.
+> Thus since commit 1280c27f8e29acf4af2da914e80ec27c3dbd5c01
 
-                                                +-DLS
+    Please also specify that commit's summary line in parens.
+
+> vhost_net_flush tries to use the argument after passing it
+> to vhost_net_ubuf_put_and_wait, this results
+> in use after free.
+> To fix, don't free the argument in vhost_net_ubuf_put_and_wait,
+> add an new API for callers that want to free ubufs.
+
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+WBR, Sergei
