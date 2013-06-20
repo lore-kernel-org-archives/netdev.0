@@ -1,33 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net-next rfc 1/3] net: avoid high order memory allocation for
- queues by using flex array
-Date: Wed, 19 Jun 2013 23:05:12 -0700
-Message-ID: <1371708312.3252.359.camel@edumazet-glaptop>
-References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
-	  <1371620452-49349-2-git-send-email-jasowang@redhat.com>
-	  <1371623518.3252.267.camel@edumazet-glaptop>
-	  <20130619091132.GA2816@redhat.com>
-	 <1371635763.3252.289.camel@edumazet-glaptop> <51C28FA7.2070901@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] ipv6: don't call addrconf_dst_alloc again when enable
+ lo
+Date: Wed, 19 Jun 2013 23:05:32 -0700 (PDT)
+Message-ID: <20130619.230532.1329281330568271336.davem@davemloft.net>
+References: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, davem@davemloft.net,
-	edumazet@google.com, hkchu@google.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51C28FA7.2070901@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: kumaran.4353@gmail.com, netdev@vger.kernel.org
+To: gaofeng@cn.fujitsu.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49980 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753363Ab3FTGFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 02:05:33 -0400
+In-Reply-To: <1371352470-3226-1-git-send-email-gaofeng@cn.fujitsu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-20 at 13:14 +0800, Jason Wang wrote:
+From: Gao feng <gaofeng@cn.fujitsu.com>
+Date: Sun, 16 Jun 2013 11:14:30 +0800
 
-> A drawback of NETIF_F_LLTX is that we may contend on qdisc lock
-> especially when we have a huge number of tx queues.
+> If we disable all of the net interfaces, and enable
+> un-lo interface before lo interface, we already allocated
+> the addrconf dst in ipv6_add_addr. So we shouldn't allocate
+> it again when we enable lo interface.
+> 
+> Otherwise the message below will be triggered.
+> unregister_netdevice: waiting for sit1 to become free. Usage count = 1
+> 
+> This problem is introduced by commit 25fb6ca4ed9cad72f14f61629b68dc03c0d9713f
+> "net IPv6 : Fix broken IPv6 routing table after loopback down-up"
+> 
+> Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
 
-For your information loopback driver is LLTX, and there is no qdisc on
-it, unless you specifically add one.
+This is the second such regression added by that commit :-/
 
-Once you add a qdisc on a device, you hit the typical contention on a
-spinlock. But its hard to design a parallel qdisc. So far nobody did
-that.
+Applied and queue up for -stable, thanks.
