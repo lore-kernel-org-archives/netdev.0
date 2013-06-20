@@ -1,7 +1,7 @@
 From: Zhao Hongjiang <zhaohongjiang@huawei.com>
-Subject: [PATCH 4/5] net: irda: using strlcpy instead of strncpy
-Date: Thu, 20 Jun 2013 18:49:44 +0800
-Message-ID: <1371725385-11540-4-git-send-email-zhaohongjiang@huawei.com>
+Subject: [PATCH 5/5] net: bluetooth: using strlcpy instead of strncpy
+Date: Thu, 20 Jun 2013 18:49:45 +0800
+Message-ID: <1371725385-11540-5-git-send-email-zhaohongjiang@huawei.com>
 References: <1371725385-11540-1-git-send-email-zhaohongjiang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,10 +10,10 @@ Cc: <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
 	<netdev@vger.kernel.org>, Zhao Hongjiang <zhaohongjiang@huawei.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:45558 "EHLO
+Received: from szxga02-in.huawei.com ([119.145.14.65]:45787 "EHLO
 	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1757188Ab3FTKwG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 06:52:06 -0400
+	with ESMTP id S1754919Ab3FTKwr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 06:52:47 -0400
 In-Reply-To: <1371725385-11540-1-git-send-email-zhaohongjiang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -22,50 +22,30 @@ for NUL terminated string, need alway set '\0' in the end.
 
 Signed-off-by: Zhao Hongjiang <zhaohongjiang@huawei.com>
 ---
- net/irda/af_irda.c             |    2 +-
- net/irda/ircomm/ircomm_param.c |    3 ++-
- net/irda/irttp.c               |    2 +-
- 3 files changed, 4 insertions(+), 3 deletions(-)
+ net/bluetooth/hidp/core.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/irda/af_irda.c b/net/irda/af_irda.c
-index 0578d4f..f605d23 100644
---- a/net/irda/af_irda.c
-+++ b/net/irda/af_irda.c
-@@ -480,7 +480,7 @@ static int irda_open_tsap(struct irda_sock *self, __u8 tsap_sel, char *name)
- 	notify.udata_indication	     = irda_data_indication;
- 	notify.flow_indication       = irda_flow_indication;
- 	notify.instance = self;
--	strncpy(notify.name, name, NOTIFY_MAX_NAME);
-+	strlcpy(notify.name, name, sizeof(notify.name));
- 
- 	self->tsap = irttp_open_tsap(tsap_sel, DEFAULT_INITIAL_CREDIT,
- 				     &notify);
-diff --git a/net/irda/ircomm/ircomm_param.c b/net/irda/ircomm/ircomm_param.c
-index 3089391..5b80be8 100644
---- a/net/irda/ircomm/ircomm_param.c
-+++ b/net/irda/ircomm/ircomm_param.c
-@@ -259,7 +259,8 @@ static int ircomm_param_port_name(void *instance, irda_param_t *param, int get)
- 		IRDA_DEBUG(0, "%s(), not imp!\n", __func__ );
- 	} else {
- 		IRDA_DEBUG(0, "%s(), port-name=%s\n", __func__ , param->pv.c);
--		strncpy(self->settings.port_name, param->pv.c, 32);
-+		strlcpy(self->settings.port_name, param->pv.c,
-+			sizeof(self->settings.port_name));
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index 940f5ac..828be45 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -85,7 +85,7 @@ static void hidp_copy_session(struct hidp_session *session, struct hidp_conninfo
+ 		ci->product = session->input->id.product;
+ 		ci->version = session->input->id.version;
+ 		if (session->input->name)
+-			strncpy(ci->name, session->input->name, 128);
++			strlcpy(ci->name, session->input->name, sizeof(ci->name));
+ 		else
+ 			strncpy(ci->name, "HID Boot Device", 128);
  	}
+@@ -94,7 +94,7 @@ static void hidp_copy_session(struct hidp_session *session, struct hidp_conninfo
+ 		ci->vendor  = session->hid->vendor;
+ 		ci->product = session->hid->product;
+ 		ci->version = session->hid->version;
+-		strncpy(ci->name, session->hid->name, 128);
++		strlcpy(ci->name, session->hid->name, sizeof(ci->name));
+ 	}
+ }
  
- 	return 0;
-diff --git a/net/irda/irttp.c b/net/irda/irttp.c
-index ae43c62..b6e1c9f 100644
---- a/net/irda/irttp.c
-+++ b/net/irda/irttp.c
-@@ -430,7 +430,7 @@ struct tsap_cb *irttp_open_tsap(__u8 stsap_sel, int credit, notify_t *notify)
- 	if(notify->status_indication != NULL)
- 		ttp_notify.status_indication = irttp_status_indication;
- 	ttp_notify.instance = self;
--	strncpy(ttp_notify.name, notify->name, NOTIFY_MAX_NAME);
-+	strlcpy(ttp_notify.name, notify->name, sizeof(ttp_notify.name));
- 
- 	self->magic = TTP_TSAP_MAGIC;
- 	self->connected = FALSE;
 -- 
 1.7.1
