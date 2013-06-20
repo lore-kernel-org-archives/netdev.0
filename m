@@ -1,55 +1,143 @@
 From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH 5/6] alx: fix MAC address alignment problem
-Date: Fri, 21 Jun 2013 00:14:53 +0200
-Message-ID: <1371766494-18979-6-git-send-email-johannes@sipsolutions.net>
+Subject: [PATCH 6/6] alx: fix ethtool support code
+Date: Fri, 21 Jun 2013 00:14:54 +0200
+Message-ID: <1371766494-18979-7-git-send-email-johannes@sipsolutions.net>
 References: <1371766494-18979-1-git-send-email-johannes@sipsolutions.net>
 Cc: ben@decadent.org.uk
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:49189 "EHLO
+Received: from s3.sipsolutions.net ([144.76.43.152]:49192 "EHLO
 	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030363Ab3FTWPD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 18:15:03 -0400
+	with ESMTP id S1030365Ab3FTWPE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 18:15:04 -0400
 In-Reply-To: <1371766494-18979-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In two places, parts of MAC addresses are used as u32/u16
-values. This can cause alignment problems, use put_unaligned
-and get_unaligned to fix this.
+A number of places treated features wrongly, listing not-supported
+features instead of supported ones. Also, the get_drvinfo ethtool
+callback isn't needed, and alx_get_pauseparam can be simplified.
 
 Reported-by: Ben Hutchings <ben@decadent.org.uk>
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
 ---
- drivers/net/ethernet/atheros/alx/hw.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/atheros/alx/ethtool.c | 62 +++++++++++++-----------------
+ 1 file changed, 26 insertions(+), 36 deletions(-)
 
-diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
-index 2a2bbe9..6b34855 100644
---- a/drivers/net/ethernet/atheros/alx/hw.c
-+++ b/drivers/net/ethernet/atheros/alx/hw.c
-@@ -282,8 +282,8 @@ static bool alx_read_macaddr(struct alx_hw *hw, u8 *addr)
- 	mac1 = alx_read_mem32(hw, ALX_STAD1);
+diff --git a/drivers/net/ethernet/atheros/alx/ethtool.c b/drivers/net/ethernet/atheros/alx/ethtool.c
+index 2170b61..0f4c79e 100644
+--- a/drivers/net/ethernet/atheros/alx/ethtool.c
++++ b/drivers/net/ethernet/atheros/alx/ethtool.c
+@@ -46,22 +46,35 @@
+ #include "reg.h"
+ #include "hw.h"
  
- 	/* addr should be big-endian */
--	*(__be32 *)(addr + 2) = cpu_to_be32(mac0);
--	*(__be16 *)addr = cpu_to_be16(mac1);
-+	put_unaligned(cpu_to_be32(mac0), (__be32 *)(addr + 2));
-+	put_unaligned(cpu_to_be16(mac1), (__be16 *)addr);
++static u32 alx_get_supported_speeds(struct alx_hw *hw)
++{
++	u32 supported = SUPPORTED_10baseT_Half |
++			SUPPORTED_10baseT_Full |
++			SUPPORTED_100baseT_Half |
++			SUPPORTED_100baseT_Full;
++
++	if (alx_hw_giga(hw))
++		supported |= SUPPORTED_1000baseT_Full;
++
++	BUILD_BUG_ON(SUPPORTED_10baseT_Half != ADVERTISED_10baseT_Half);
++	BUILD_BUG_ON(SUPPORTED_10baseT_Full != ADVERTISED_10baseT_Full);
++	BUILD_BUG_ON(SUPPORTED_100baseT_Half != ADVERTISED_100baseT_Half);
++	BUILD_BUG_ON(SUPPORTED_100baseT_Full != ADVERTISED_100baseT_Full);
++	BUILD_BUG_ON(SUPPORTED_1000baseT_Full != ADVERTISED_1000baseT_Full);
++
++	return supported;
++}
  
- 	return is_valid_ether_addr(addr);
+ static int alx_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ {
+ 	struct alx_priv *alx = netdev_priv(netdev);
+ 	struct alx_hw *hw = &alx->hw;
+ 
+-	ecmd->supported = SUPPORTED_10baseT_Half |
+-			  SUPPORTED_10baseT_Full |
+-			  SUPPORTED_100baseT_Half |
+-			  SUPPORTED_100baseT_Full |
+-			  SUPPORTED_Autoneg |
++	ecmd->supported = SUPPORTED_Autoneg |
+ 			  SUPPORTED_TP |
+ 			  SUPPORTED_Pause |
+ 			  SUPPORTED_Asym_Pause;
+-	if (alx_hw_giga(hw))
+-		ecmd->supported |= SUPPORTED_1000baseT_Full;
++	ecmd->supported |= alx_get_supported_speeds(hw);
+ 
+ 	ecmd->advertising = ADVERTISED_TP;
+ 	if (hw->adv_cfg & ADVERTISED_Autoneg)
+@@ -102,7 +115,7 @@ static int alx_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
+ 	ASSERT_RTNL();
+ 
+ 	if (ecmd->autoneg == AUTONEG_ENABLE) {
+-		if (ecmd->advertising & ADVERTISED_1000baseT_Half)
++		if (ecmd->advertising & ~alx_get_supported_speeds(hw))
+ 			return -EINVAL;
+ 		adv_cfg = ecmd->advertising | ADVERTISED_Autoneg;
+ 	} else {
+@@ -123,21 +136,10 @@ static void alx_get_pauseparam(struct net_device *netdev,
+ 	struct alx_priv *alx = netdev_priv(netdev);
+ 	struct alx_hw *hw = &alx->hw;
+ 
+-	if (hw->flowctrl & ALX_FC_ANEG &&
+-	    hw->adv_cfg & ADVERTISED_Autoneg)
+-		pause->autoneg = AUTONEG_ENABLE;
+-	else
+-		pause->autoneg = AUTONEG_DISABLE;
+-
+-	if (hw->flowctrl & ALX_FC_TX)
+-		pause->tx_pause = 1;
+-	else
+-		pause->tx_pause = 0;
+-
+-	if (hw->flowctrl & ALX_FC_RX)
+-		pause->rx_pause = 1;
+-	else
+-		pause->rx_pause = 0;
++	pause->autoneg = !!(hw->flowctrl & ALX_FC_ANEG &&
++			    hw->adv_cfg & ADVERTISED_Autoneg);
++	pause->tx_pause = !!(hw->flowctrl & ALX_FC_TX);
++	pause->rx_pause = !!(hw->flowctrl & ALX_FC_RX);
  }
-@@ -326,9 +326,9 @@ void alx_set_macaddr(struct alx_hw *hw, const u8 *addr)
- 	u32 val;
  
- 	/* for example: 00-0B-6A-F6-00-DC * STAD0=6AF600DC, STAD1=000B */
--	val = be32_to_cpu(*(__be32 *)(addr + 2));
-+	val = be32_to_cpu(get_unaligned((__be32 *)(addr + 2)));
- 	alx_write_mem32(hw, ALX_STAD0, val);
--	val = be16_to_cpu(*(__be16 *)addr);
-+	val = be16_to_cpu(get_unaligned((__be16 *)addr));
- 	alx_write_mem32(hw, ALX_STAD1, val);
+ 
+@@ -216,8 +218,7 @@ static int alx_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ 	struct alx_priv *alx = netdev_priv(netdev);
+ 	struct alx_hw *hw = &alx->hw;
+ 
+-	if (wol->wolopts & (WAKE_ARP | WAKE_MAGICSECURE |
+-			    WAKE_UCAST | WAKE_BCAST | WAKE_MCAST))
++	if (wol->wolopts & ~(WAKE_MAGIC | WAKE_PHY))
+ 		return -EOPNOTSUPP;
+ 
+ 	hw->sleep_ctrl = 0;
+@@ -232,22 +233,11 @@ static int alx_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ 	return 0;
  }
  
+-static void alx_get_drvinfo(struct net_device *netdev,
+-			    struct ethtool_drvinfo *drvinfo)
+-{
+-	struct alx_priv *alx = netdev_priv(netdev);
+-
+-	strlcpy(drvinfo->driver, alx_drv_name, sizeof(drvinfo->driver));
+-	strlcpy(drvinfo->bus_info, pci_name(alx->hw.pdev),
+-		sizeof(drvinfo->bus_info));
+-}
+-
+ const struct ethtool_ops alx_ethtool_ops = {
+ 	.get_settings	= alx_get_settings,
+ 	.set_settings	= alx_set_settings,
+ 	.get_pauseparam	= alx_get_pauseparam,
+ 	.set_pauseparam	= alx_set_pauseparam,
+-	.get_drvinfo	= alx_get_drvinfo,
+ 	.get_msglevel	= alx_get_msglevel,
+ 	.set_msglevel	= alx_set_msglevel,
+ 	.get_wol	= alx_get_wol,
 -- 
 1.8.0
