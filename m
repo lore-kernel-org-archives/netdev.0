@@ -1,14 +1,15 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [net-next 3/8] i40e: driver ethtool core
-Date: Thu, 20 Jun 2013 20:59:12 +0100
-Message-ID: <1371758352.1946.16.camel@bwh-desktop.uk.level5networks.com>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: [net-next 1/8] i40e: main driver core
+Date: Thu, 20 Jun 2013 20:01:08 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E4168533F1F@FMSMSX102.amr.corp.intel.com>
 References: <1371182122-26629-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1371182122-26629-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1371666430.1956.102.camel@bwh-desktop.uk.level5networks.com>
-	 <FC41C24E35F18A40888AACA1A36F3E4168533EAD@FMSMSX102.amr.corp.intel.com>
+	 <1371182122-26629-2-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1371665562.1956.89.camel@bwh-desktop.uk.level5networks.com>
+	 <FC41C24E35F18A40888AACA1A36F3E4168533EA6@FMSMSX102.amr.corp.intel.com>
+ <1371758085.1946.12.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
 Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"davem@davemloft.net" <davem@davemloft.net>,
 	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
@@ -18,89 +19,52 @@ Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
 	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
 	"e1000-devel@lists.sourceforge.net"
 	<e1000-devel@lists.sourceforge.net>
-To: "Nelson, Shannon" <shannon.nelson@intel.com>
+To: Ben Hutchings <bhutchings@solarflare.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:40741 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161110Ab3FTT7Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 15:59:16 -0400
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E4168533EAD@FMSMSX102.amr.corp.intel.com>
+Received: from mga09.intel.com ([134.134.136.24]:10496 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965552Ab3FTUBL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 16:01:11 -0400
+In-Reply-To: <1371758085.1946.12.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-20 at 19:47 +0000, Nelson, Shannon wrote:
-> > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> > Sent: Wednesday, June 19, 2013 11:27 AM
-> > 
-> > On Thu, 2013-06-13 at 20:55 -0700, Jeff Kirsher wrote:
-> > > From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-[...]
-> > > +static struct i40e_stats i40e_gstrings_stats[] = {
-> > > +	I40E_PF_STAT("rx_bytes", stats.eth.rx_bytes),
-> > > +	I40E_PF_STAT("tx_bytes", stats.eth.tx_bytes),
-> > > +	I40E_PF_STAT("rx_errors", stats.eth.rx_errors),
-> > > +	I40E_PF_STAT("tx_errors", stats.eth.tx_errors),
-> > 
-> > Duplicates.
-> 
-> Well, not really are they duplicates - the NETDEV_STAT numbers are
-> specifically for each netdev that is attached to this device.  Because
-> the XL710 supports VMDq, SR-IOV, and some other device multiplexing
-> schemes, each netdev's NETDEV_STAT struct is the subset of the traffic
-> going through its portion of the device.
->
-> The PF_STAT struct holds the stats for what actually goes through the
-> physical port.  This is not necessarily a summation of the various
-> NETDEV_STAT structs, because some connections may be talking to each
-> other and not out the physical port.
-> 
-> When ethtool -S is called on the PF's netdev, we see both the netdev
-> and the ports stats printed.  When called on non-PF connection we only
-> see the netdev stats, none of the port stats.
-
-Good point.  And this is something I've been meaning to bring up for
-discussion on netdev myself - we should have some naming convention to
-distinguish per-port and per-function/per-netdev statistics.
-
-> > [...]
-> > > +#define I40E_QUEUE_STATS_LEN \
-> > > +  ((((struct i40e_netdev_priv *)netdev_priv(netdev))->vsi-
-> > >num_queue_pairs + \
-> > > +    ((struct i40e_netdev_priv *)netdev_priv(netdev))->vsi-
-> > >num_queue_pairs) * 2)
-> > 
-> > netdev should be a macro parameter.  Actually this could just as well be
-> > a function.
-> 
-> Sure.
-> Can you tell we inherited a lot from our previous drivers?
-
-Just a little. :-)
-
-[...]
-> > > +static int i40e_set_phys_id(struct net_device *netdev,
-> > > +			    enum ethtool_phys_id_state state)
-> > > +{
-> > > +	struct i40e_netdev_priv *np = netdev_priv(netdev);
-> > > +	struct i40e_pf *pf = np->vsi->back;
-> > > +	struct i40e_hw *hw = &pf->hw;
-> > > +	int blink_freq = 2;
-> > > +	static u32 led_status;
-> > 
-> > Ugh, no.
-> > 
-> > Since ETHTOOL_PHYSID drops the RTNL between calls to set_phys_id, it's
-> > possible to invoke it on multiple devices at the same time...
-> 
-> Yep, that should become PF netdev specific.
-[...]
-
-My point was that you have a static variable here, whose use is not
-serialised.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+PiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWlsdG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0N
+Cj4gU2VudDogVGh1cnNkYXksIEp1bmUgMjAsIDIwMTMgMTI6NTUgUE0NCj4gDQo+IE9uIFRodSwg
+MjAxMy0wNi0yMCBhdCAxOTo0NiArMDAwMCwgTmVsc29uLCBTaGFubm9uIHdyb3RlOg0KPiA+ID4g
+RnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRvOmJodXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+
+ID4gPiBTZW50OiBXZWRuZXNkYXksIEp1bmUgMTksIDIwMTMgMTE6MTMgQU0NCj4gPiA+DQo+ID4g
+PiBPbiBUaHUsIDIwMTMtMDYtMTMgYXQgMjA6NTUgLTA3MDAsIEplZmYgS2lyc2hlciB3cm90ZToN
+Cj4gPiA+ID4gRnJvbTogSmVzc2UgQnJhbmRlYnVyZyA8amVzc2UuYnJhbmRlYnVyZ0BpbnRlbC5j
+b20+DQo+IFsuLi5dDQoNCj4gPiA+DQo+ID4gPiBZb3Ugc2hvdWxkIGJlIHVzaW5nIHJ0bmxfZGV2
+aWNlX3N0YXRzNjQ7IGF0IDQwRyBhIDMyLWJpdCBjb3VudGVyIGlzDQo+ID4gPiByaWRpY3Vsb3Vz
+ICh1c2luZyB0aGlzIGluIGEgMzItYml0IG1hY2hpbmUgaXMgYSBiaXQgcmlkaWN1bG91cyB0b28s
+DQo+ID4gPiB0aG91Z2guLi4pDQo+ID4NCj4gPiBZb3UgbWVhbiBydG5sX2xpbmtfc3RhdHM2ND8g
+IFN1cmUuDQo+IA0KPiBSaWdodCwgeWVzLg0KPiANCj4gPiBZZXMsIHRoaXMgZHJpdmVyIGlzIHJl
+YWxseSBub3QgbWVhbnQgZm9yIGEgMzItYml0IG1hY2hpbmUuICBXZSd2ZQ0KPiA+IGRpc2N1c3Nl
+ZCBtYWtpbmcgc3VyZSBpdCB3b3VsZCBvbmx5IGJ1aWxkIGZvciA2NC1iaXQsIGJ1dCBoYWRuJ3Qg
+cXVpdGUNCj4gPiBnb3R0ZW4gYXJvdW5kIHRvIGltcGxlbWVudGluZyB0aGUgcmVzdHJpY3Rpb24u
+ICBJdCBzZWVtcyB0aGUgcmlnaHQNCj4gPiB0aGluZyB0byBkbyAtIHdvdWxkIGFueW9uZSBpbiB0
+aGUgY29tbXVuaXR5IGdldCBiZW50IG91dCBvZiBzaGFwZSBpZg0KPiA+IHdlIGFkZGVkIHRoYXQ/
+DQo+IA0KPiBJJ20gYWZyYWlkIHRoZXkgcHJvYmFibHkgd291bGQuDQoNClllYWgsIHRoYXQgd2Fz
+IG91ciB0aG91Z2h0LiAgV2UncmUgZ29pbmcgdG8gdHJ5IHRvIG1ha2Ugc3VyZSBpdCBhdCBsZWFz
+dCBjb21waWxlcyBjbGVhbmx5LCBidXQgSSdtIG5vdCBzdXJlIHdlJ2xsIGJlIGFibGUgdG8gZ3Vh
+cmFudGVlIHVzZWZ1bCBwZXJmb3JtYW5jZS4NCg0KPiANCj4gWy4uLl0NCj4gPiA+ID4gKy8qKg0K
+PiA+ID4gPiArICogaTQwZV9jb25maWdfcnNzIC0gUHJlcGFyZSBmb3IgUlNTIGlmIHVzZWQNCj4g
+PiA+ID4gKyAqIEBwZjogYm9hcmQgcHJpdmF0ZSBzdHJ1Y3R1cmUNCj4gPiA+ID4gKyAqKi8NCj4g
+PiA+ID4gK3N0YXRpYyBzMzIgaTQwZV9jb25maWdfcnNzKHN0cnVjdCBpNDBlX3BmICpwZikNCj4g
+PiA+ID4gK3sNCj4gPiA+ID4gKwlzdHJ1Y3QgaTQwZV9odyAqaHcgPSAmcGYtPmh3Ow0KPiA+ID4g
+PiArCXUzMiBsdXQgPSAwOw0KPiA+ID4gPiArCWludCBpLCBqOw0KPiA+ID4gPiArCXU2NCBoZW5h
+Ow0KPiA+ID4gPiArCS8qIFNldCBvZiByYW5kb20ga2V5cyBnZW5lcmF0ZWQgdXNpbmcga2VybmVs
+IHJhbmRvbSBudW1iZXINCj4gPiA+IGdlbmVyYXRvciAqLw0KPiA+ID4gPiArCXN0YXRpYyBjb25z
+dCB1MzIgc2VlZFtJNDBFX1BGUUZfSEtFWV9NQVhfSU5ERVggKyAxXSA9DQo+IHsweDQxYjAxNjg3
+LA0KPiA+ID4gPiArCQkJCTB4MTgzY2ZkOGMsIDB4Y2U4ODA0NDAsIDB4NTgwY2JjM2MsDQo+IDB4
+MzU4OTczNzcsDQo+ID4gPiA+ICsJCQkJMHgzMjhiMjVlMSwgMHg0ZmE5ODkyMiwgMHhiN2Q5MGMx
+NCwNCj4gMHhkNWJhZDcwZCwNCj4gPiA+ID4gKwkJCQkweGNkMTVhMmMxLCAweGU4NTgwMjI1LCAw
+eDRhMWU5ZDExLA0KPiAweGZlNTczMWJlfTsNCj4gPiA+DQo+ID4gPiBDaG9zZW4gYnkgYSBmYWly
+IGRpY2Ugcm9sbD8NCj4gPg0KPiA+IFdlbGwsIGFzIGZhaXIgYXMgL2Rldi9yYW5kb20gZ2V0cy4N
+Cj4gWy4uLl0NCj4gDQo+IE15IHBvaW50IGlzOiBvbmNlIHlvdSB0dXJuIGEgcmFuZG9tIGNob2lj
+ZSBpbnRvIGEgY29uc3RhbnQsIGl0J3Mgbm8NCj4gbG9uZ2VyIHJhbmRvbS4NCg0KUG9pbnQgdGFr
+ZW4sIGJ1dCB3ZSBqdXN0IHdhbnRlZCBhIHJhbmRvbSBzZXQgb2YgYml0cyB0byBzdGFydCwganVz
+dCBhcyB3ZSBkaWQgaW4gaXhnYmUuDQoNClRoYW5rcywNCnNsbg0KDQo=
