@@ -1,26 +1,25 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: Problems in bridge.8, ip-netns.8, ip-maddress.8, ip-tunnel.8,
- ip-route.8, ip-neighbour.8, ip-rule.8
-Date: Wed, 19 Jun 2013 17:53:57 -0700
-Message-ID: <20130619175357.1af033aa@nehalam.linuxnetplumber.net>
-References: <20130618051405.06917417E7@snark.thyrsus.com>
+Subject: Re: Problems in tc-ematch.8
+Date: Wed, 19 Jun 2013 17:55:44 -0700
+Message-ID: <20130619175544.522b0346@nehalam.linuxnetplumber.net>
+References: <20130619010257.75ABE4143C@snark.thyrsus.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org
 To: esr@thyrsus.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pd0-f172.google.com ([209.85.192.172]:54924 "EHLO
-	mail-pd0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934734Ab3FTAyC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 20:54:02 -0400
-Received: by mail-pd0-f172.google.com with SMTP id z10so5644793pdj.17
-        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 17:54:01 -0700 (PDT)
-In-Reply-To: <20130618051405.06917417E7@snark.thyrsus.com>
+Received: from mail-pb0-f42.google.com ([209.85.160.42]:49897 "EHLO
+	mail-pb0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934734Ab3FTAzs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 19 Jun 2013 20:55:48 -0400
+Received: by mail-pb0-f42.google.com with SMTP id un1so5629071pbc.29
+        for <netdev@vger.kernel.org>; Wed, 19 Jun 2013 17:55:47 -0700 (PDT)
+In-Reply-To: <20130619010257.75ABE4143C@snark.thyrsus.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 18 Jun 2013 01:14:05 -0400 (EDT)
+On Tue, 18 Jun 2013 21:02:57 -0400 (EDT)
 esr@thyrsus.com wrote:
 
 > This is automatically generated email about markup problems in a man
@@ -39,19 +38,13 @@ esr@thyrsus.com wrote:
 > --
 >                              Eric S. Raymond
 
-Thank you for spotting this but please fix the formatting.
+Thanks for seeing this as well. But also won't apply.
+Like other patch, this was not properly rooted in iproute2 repository.
 
-All patches should be rooted at the iproute2 top level repository 
-(similar to the requirements for the
-kernel as documented in Documentation/SubmittingPatches)
+I think you were looking at the last version, not the current code
+in iproute2 git repository.
 
-If apply them manually the patch fails as well. 
-that can be correctly processed by git 
-$ cd my-iproute2
-$ cd man/man8
-$ $ patch < ~/Downloads/Problems-in-bridge.8-ip-netns.8-ip-maddress.8-ip-tunnel.8-ip-route.8-ip-neighbour.8-ip-rule.8.patch 
-patching file ip-rule.8
-patch: **** malformed patch at line 90: Problems with ip-neighbour.8:
-
-If you use a tool like quilt or git format-patch a correctly formatted email
-will be generated.
+$ patch < ~/Downloads/Problems-in-tc-ematch.8.patch
+patching file tc-ematch.8
+Hunk #2 FAILED at 67.
+1 out of 2 hunks FAILED -- saving rejects to file tc-ematch.8.rej
