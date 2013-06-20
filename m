@@ -1,42 +1,41 @@
-From: Asias He <asias@redhat.com>
-Subject: [PATCH 3/4] VSOCK: Remove unnecessary label
-Date: Thu, 20 Jun 2013 17:20:32 +0800
-Message-ID: <1371720033-19714-4-git-send-email-asias@redhat.com>
-References: <1371720033-19714-1-git-send-email-asias@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Andy King <acking@vmware.com>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	Reilly Grant <grantr@vmware.com>, Asias He <asias@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:31063 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754841Ab3FTJVB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 05:21:01 -0400
-In-Reply-To: <1371720033-19714-1-git-send-email-asias@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf] IPVS fix for v3.10
+Date: Thu, 20 Jun 2013 11:47:36 +0200
+Message-ID: <20130620094736.GA18950@localhost>
+References: <1371606963-30548-1-git-send-email-horms@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1371606963-30548-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Asias He <asias@redhat.com>
----
- net/vmw_vsock/vmci_transport.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+On Wed, Jun 19, 2013 at 10:56:01AM +0900, Simon Horman wrote:
+> Hi Pablo,
+> 
+> I realise this is rather late in the cycle, so please feel free
+> to push back on this. We can add it to v3.11 and then -stable.
+> 
+> This fix appears to resolve a long-standing problem that has
+> existed since SCTP support was added to IPVS in v2.6.32.
+> I believe it is relevant to -stable all the way back until then.
+> 
+> The following changes since commit b396966c4688522863572927cb30aa874b3ec504:
+> 
+>   netfilter: xt_TCPMSS: Fix missing fragmentation handling (2013-06-12 11:06:19 +0200)
+> 
+> are available in the git repository at:
+> 
+>   git://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs.git tags/ipvs-fixes-for-v3.10
+> 
+> for you to fetch changes up to 06f3d7f973ec04290d86b7dd91b48d38d90433dc:
+> 
+>   ipvs: SCTP ports should be writable in ICMP packets (2013-06-19 09:53:52 +0900)
 
-diff --git a/net/vmw_vsock/vmci_transport.c b/net/vmw_vsock/vmci_transport.c
-index 99b511d..ffc11df 100644
---- a/net/vmw_vsock/vmci_transport.c
-+++ b/net/vmw_vsock/vmci_transport.c
-@@ -940,10 +940,9 @@ static void vmci_transport_recv_pkt_work(struct work_struct *work)
- 		 * reset to prevent that.
- 		 */
- 		vmci_transport_send_reset(sk, pkt);
--		goto out;
-+		break;
- 	}
- 
--out:
- 	release_sock(sk);
- 	kfree(recv_pkt_info);
- 	/* Release reference obtained in the stream callback when we fetched
--- 
-1.8.1.4
+Pulled, thanks Simon.
