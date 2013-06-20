@@ -1,7 +1,7 @@
 From: Daniel Borkmann <dborkman@redhat.com>
 Subject: [PATCH crypto] crypto: algboss: fix NULL pointer dereference in cryptomgr_probe
-Date: Thu, 20 Jun 2013 10:00:21 +0200
-Message-ID: <1371715221-27192-1-git-send-email-dborkman@redhat.com>
+Date: Thu, 20 Jun 2013 11:18:09 +0200
+Message-ID: <1371719889-28636-1-git-send-email-dborkman@redhat.com>
 Cc: linux-crypto@vger.kernel.org, linux-sctp@vger.kernel.org,
 	netdev@vger.kernel.org
 To: herbert@gondor.hengli.com.au
