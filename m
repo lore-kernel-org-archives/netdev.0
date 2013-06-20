@@ -1,39 +1,47 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: [PATCH net] net/mlx_en: Timestamping is not supported in slave mode
-Date: Thu, 20 Jun 2013 14:58:10 +0300
-Message-ID: <1371729490-10491-1-git-send-email-amirv@mellanox.com>
-Cc: Amir Vadai <amirv@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, netdev@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH 1/5] net: ipv4: using strlcpy instead of strncpy
+Date: Thu, 20 Jun 2013 05:14:57 -0700
+Message-ID: <1371730497.3252.400.camel@edumazet-glaptop>
+References: <1371725385-11540-1-git-send-email-zhaohongjiang@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, netdev@vger.kernel.org
+To: Zhao Hongjiang <zhaohongjiang@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:33182 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S935353Ab3FTL6a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 07:58:30 -0400
+Received: from mail-ea0-f172.google.com ([209.85.215.172]:62167 "EHLO
+	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757435Ab3FTMPC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 08:15:02 -0400
+Received: by mail-ea0-f172.google.com with SMTP id q10so3934204eaj.3
+        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 05:15:01 -0700 (PDT)
+In-Reply-To: <1371725385-11540-1-git-send-email-zhaohongjiang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Old hypervisors don't mask out timestamp capability for slave. Till slave
-support will be added, need to disable capability by slave.
+On Thu, 2013-06-20 at 18:49 +0800, Zhao Hongjiang wrote:
+> for NUL terminated string, need alway set '\0' in the end.
+> 
+> Signed-off-by: Zhao Hongjiang <zhaohongjiang@huawei.com>
+> ---
+>  net/ipv4/tcp_cong.c |    2 +-
+>  1 files changed, 1 insertions(+), 1 deletions(-)
+> 
+> diff --git a/net/ipv4/tcp_cong.c b/net/ipv4/tcp_cong.c
+> index 019c238..3280234 100644
+> --- a/net/ipv4/tcp_cong.c
+> +++ b/net/ipv4/tcp_cong.c
+> @@ -170,7 +170,7 @@ void tcp_get_default_congestion_control(char *name)
+>  
+>  	rcu_read_lock();
+>  	ca = list_entry(tcp_cong_list.next, struct tcp_congestion_ops, list);
+> -	strncpy(name, ca->name, TCP_CA_NAME_MAX);
+> +	strlcpy(name, ca->name, sizeof(name));
+>  	rcu_read_unlock();
+>  }
+>  
 
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/main.c | 3 +++
- 1 file changed, 3 insertions(+)
+You are quite mistaken.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 2f4a260..8a43499 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -632,6 +632,9 @@ static int mlx4_slave_cap(struct mlx4_dev *dev)
- 		dev->caps.cqe_size   = 32;
- 	}
- 
-+	dev->caps.flags2 &= ~MLX4_DEV_CAP_FLAG2_TS;
-+	mlx4_warn(dev, "Timestamping is not supported in slave mode.\n");
-+
- 	slave_adjust_steering_mode(dev, &dev_cap, &hca_param);
- 
- 	return 0;
--- 
-1.8.3.251.g1462b67
+How did you test this patch exactly ?
