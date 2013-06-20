@@ -1,7 +1,7 @@
 From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Subject: [PATCH net-next 3/4] bnx2x: improve VF timings
-Date: Thu, 20 Jun 2013 17:39:10 +0300
-Message-ID: <1371739151-15744-4-git-send-email-yuvalmin@broadcom.com>
+Subject: [PATCH net-next 1/4] bnx2x: Improve PF behaviour toward VF
+Date: Thu, 20 Jun 2013 17:39:08 +0300
+Message-ID: <1371739151-15744-2-git-send-email-yuvalmin@broadcom.com>
 References: <1371739151-15744-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -10,60 +10,231 @@ Cc: eilong@broadcom.com, ariele@broadcom.com,
 	"Yuval Mintz" <yuvalmin@broadcom.com>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mms3.broadcom.com ([216.31.210.19]:4974 "EHLO mms3.broadcom.com"
+Received: from mms2.broadcom.com ([216.31.210.18]:4483 "EHLO mms2.broadcom.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1757758Ab3FTOja (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 10:39:30 -0400
+	id S1755028Ab3FTOjU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 20 Jun 2013 10:39:20 -0400
 In-Reply-To: <1371739151-15744-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ariel Elior <ariele@broadcom.com>
 
-Wait 100ms for FLR to complete in parallel over all VFs instead of serializing
-the waits (which can amount to several seconds with 64 VFs).
+If PF is unloaded with loaded VFs, signal towards VFs so they can detect
+this gracefully.
 
 Signed-off-by: Ariel Elior <ariele@broadcom.com>
 Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
 Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
----
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 10 +++++++---
- 1 file changed, 7 insertions(+), 3 deletions(-)
+----
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x.h       |  2 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c   |  3 +++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c  | 23 +++++++++++++++++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c | 24 ++++++++++++++++++++---
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h |  2 ++
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c  | 12 +++++++++++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h  |  5 ++++-
+ 7 files changed, 63 insertions(+), 8 deletions(-)
 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+index f76597e..80346d5 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x.h
+@@ -1205,6 +1205,7 @@ enum {
+ 	BNX2X_SP_RTNL_AFEX_F_UPDATE,
+ 	BNX2X_SP_RTNL_ENABLE_SRIOV,
+ 	BNX2X_SP_RTNL_VFPF_MCAST,
++	BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
+ 	BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
+ 	BNX2X_SP_RTNL_HYPERVISOR_VLAN,
+ };
+@@ -1375,6 +1376,7 @@ struct bnx2x {
+ #define USING_SINGLE_MSIX_FLAG		(1 << 20)
+ #define BC_SUPPORTS_DCBX_MSG_NON_PMF	(1 << 21)
+ #define IS_VF_FLAG			(1 << 22)
++#define INTERRUPTS_ENABLED_FLAG		(1 << 23)
+ 
+ #define BP_NOMCP(bp)			((bp)->flags & NO_MCP_FLAG)
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+index 4e42bdd..9086d827 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.c
+@@ -2857,6 +2857,9 @@ int bnx2x_nic_unload(struct bnx2x *bp, int unload_mode, bool keep_link)
+ 	bp->state = BNX2X_STATE_CLOSING_WAIT4_HALT;
+ 	smp_mb();
+ 
++	/* indicate to VFs that the PF is going down */
++	bnx2x_iov_channel_down(bp);
++
+ 	if (CNIC_LOADED(bp))
+ 		bnx2x_cnic_notify(bp, CNIC_CTL_STOP_CMD);
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+index 658b9fd..12cc701 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_main.c
+@@ -5458,9 +5458,19 @@ static void bnx2x_timer(unsigned long data)
+ 		bnx2x_stats_handle(bp, STATS_EVENT_UPDATE);
+ 
+ 	/* sample pf vf bulletin board for new posts from pf */
+-	if (IS_VF(bp))
++	if (IS_VF(bp)) {
+ 		bnx2x_sample_bulletin(bp);
+ 
++		/* if channel is down we need to self destruct */
++		if (bp->old_bulletin.valid_bitmap & 1 << CHANNEL_DOWN) {
++			smp_mb__before_clear_bit();
++			set_bit(BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
++				&bp->sp_rtnl_state);
++			smp_mb__after_clear_bit();
++			schedule_delayed_work(&bp->sp_rtnl_task, 0);
++		}
++	}
++
+ 	mod_timer(&bp->timer, jiffies + bp->current_interval);
+ }
+ 
+@@ -9621,6 +9631,13 @@ sp_rtnl_not_reset:
+ 		   "sending set mcast vf pf channel message from rtnl sp-task\n");
+ 		bnx2x_vfpf_set_mcast(bp->dev);
+ 	}
++	if (test_and_clear_bit(BNX2X_SP_RTNL_VFPF_CHANNEL_DOWN,
++			       &bp->sp_rtnl_state)){
++		if (!test_bit(__LINK_STATE_NOCARRIER, &bp->dev->state)) {
++			bnx2x_tx_disable(bp);
++			BNX2X_ERR("PF indicated channel is not servicable anymore. This means this VF device is no longer operational\n");
++		}
++	}
+ 
+ 	if (test_and_clear_bit(BNX2X_SP_RTNL_VFPF_STORM_RX_MODE,
+ 			       &bp->sp_rtnl_state)) {
+@@ -12813,6 +12830,8 @@ static void __bnx2x_remove(struct pci_dev *pdev,
+ 		rtnl_unlock();
+ 	}
+ 
++	bnx2x_iov_remove_one(bp);
++
+ 	/* Power on: we can't let PCI layer write to us while we are in D3 */
+ 	if (IS_PF(bp))
+ 		bnx2x_set_power_state(bp, PCI_D0);
+@@ -12827,8 +12846,6 @@ static void __bnx2x_remove(struct pci_dev *pdev,
+ 	/* Make sure RESET task is not scheduled before continuing */
+ 	cancel_delayed_work_sync(&bp->sp_rtnl_task);
+ 
+-	bnx2x_iov_remove_one(bp);
+-
+ 	/* send message via vfpf channel to release the resources of this vf */
+ 	if (IS_VF(bp))
+ 		bnx2x_vfpf_release(bp);
 diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-index f6177ba..bda4d7e 100644
+index 8a556dd..2a8ad6d 100644
 --- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
 +++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
-@@ -1469,9 +1469,6 @@ static u8 bnx2x_vf_is_pcie_pending(struct bnx2x *bp, u8 abs_vfid)
+@@ -1459,13 +1459,11 @@ static u8 bnx2x_vf_is_pcie_pending(struct bnx2x *bp, u8 abs_vfid)
+ 	struct bnx2x_virtf *vf = bnx2x_vf_by_abs_fid(bp, abs_vfid);
  
- int bnx2x_vf_flr_clnup_epilog(struct bnx2x *bp, u8 abs_vfid)
- {
--	/* Wait 100ms */
--	msleep(100);
+ 	if (!vf)
+-		goto unknown_dev;
++		return false;
+ 
+ 	dev = pci_get_bus_and_slot(vf->bus, vf->devfn);
+ 	if (dev)
+ 		return bnx2x_is_pcie_pending(dev);
 -
- 	/* Verify no pending pci transactions */
- 	if (bnx2x_vf_is_pcie_pending(bp, abs_vfid))
- 		BNX2X_ERR("PCIE Transactions still pending\n");
-@@ -2174,6 +2171,9 @@ int bnx2x_iov_nic_init(struct bnx2x *bp)
+-unknown_dev:
+ 	return false;
+ }
  
- 	DP(BNX2X_MSG_IOV, "num of vfs: %d\n", (bp)->vfdb->sriov.nr_virtfn);
+@@ -3469,3 +3467,23 @@ int bnx2x_open_epilog(struct bnx2x *bp)
  
-+	/* let FLR complete ... */
-+	msleep(100);
+ 	return 0;
+ }
 +
- 	/* initialize vf database */
- 	for_each_vf(bp, vfid) {
- 		struct bnx2x_virtf *vf = BP_VF(bp, vfid);
-@@ -2775,6 +2775,10 @@ int bnx2x_vf_init(struct bnx2x *bp, struct bnx2x_virtf *vf, dma_addr_t *sb_map)
- 		   vf->abs_vfid, vf->state);
++void bnx2x_iov_channel_down(struct bnx2x *bp)
++{
++	int vf_idx;
++	struct pf_vf_bulletin_content *bulletin;
++
++	if (!IS_SRIOV(bp))
++		return;
++
++	for_each_vf(bp, vf_idx) {
++		/* locate this VFs bulletin board and update the channel down
++		 * bit
++		 */
++		bulletin = BP_VF_BULLETIN(bp, vf_idx);
++		bulletin->valid_bitmap |= 1 << CHANNEL_DOWN;
++
++		/* update vf bulletin board */
++		bnx2x_post_vf_bulletin(bp, vf_idx);
++	}
++}
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+index f08c604..ff153a3 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.h
+@@ -761,6 +761,7 @@ static inline int bnx2x_vf_headroom(struct bnx2x *bp)
+ }
+ void bnx2x_pf_set_vfs_vlan(struct bnx2x *bp);
+ int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs);
++void bnx2x_iov_channel_down(struct bnx2x *bp);
+ int bnx2x_open_epilog(struct bnx2x *bp);
+ 
+ #else /* CONFIG_BNX2X_SRIOV */
+@@ -817,6 +818,7 @@ static inline void __iomem *bnx2x_vf_doorbells(struct bnx2x *bp)
+ static inline int bnx2x_vf_pci_alloc(struct bnx2x *bp) {return 0; }
+ static inline void bnx2x_pf_set_vfs_vlan(struct bnx2x *bp) {}
+ static inline int bnx2x_sriov_configure(struct pci_dev *dev, int num_vfs) {return 0; }
++static inline void bnx2x_iov_channel_down(struct bnx2x *bp) {}
+ static inline int bnx2x_open_epilog(struct bnx2x *bp) {return 0; }
+ 
+ #endif /* CONFIG_BNX2X_SRIOV */
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+index 861809d..4983b73 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.c
+@@ -113,7 +113,7 @@ static int bnx2x_send_msg2pf(struct bnx2x *bp, u8 *done, dma_addr_t msg_mapping)
+ {
+ 	struct cstorm_vf_zone_data __iomem *zone_data =
+ 		REG_ADDR(bp, PXP_VF_ADDR_CSDM_GLOBAL_START);
+-	int tout = 600, interval = 100; /* wait for 60 seconds */
++	int tout = 100, interval = 100; /* wait for 10 seconds */
+ 
+ 	if (*done) {
+ 		BNX2X_ERR("done was non zero before message to pf was sent\n");
+@@ -121,6 +121,16 @@ static int bnx2x_send_msg2pf(struct bnx2x *bp, u8 *done, dma_addr_t msg_mapping)
  		return -EINVAL;
  	}
+ 
++	/* if PF indicated channel is down avoid sending message. Return success
++	 * so calling flow can continue
++	 */
++	bnx2x_sample_bulletin(bp);
++	if (bp->old_bulletin.valid_bitmap & 1 << CHANNEL_DOWN) {
++		DP(BNX2X_MSG_IOV, "detecting channel down. Aborting message\n");
++		*done = PFVF_STATUS_SUCCESS;
++		return 0;
++	}
 +
-+	/* let FLR complete ... */
-+	msleep(100);
-+
- 	/* FLR cleanup epilogue */
- 	if (bnx2x_vf_flr_clnup_epilog(bp, vf->abs_vfid))
- 		return -EBUSY;
+ 	/* Write message address */
+ 	writel(U64_LO(msg_mapping),
+ 	       &zone_data->non_trigger.vf_pf_channel.msg_addr_lo);
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
+index 41708fa..f3ad174 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_vfpf.h
+@@ -331,7 +331,10 @@ struct pf_vf_bulletin_content {
+ #define VLAN_VALID		1	/* when set, the vf should not access
+ 					 * the vfpf channel
+ 					 */
+-
++#define CHANNEL_DOWN		2	/* vfpf channel is disabled. VFs are not
++					 * to attempt to send messages on the
++					 * channel after this bit is set
++					 */
+ 	u8 mac[ETH_ALEN];
+ 	u8 mac_padding[2];
+ 
 -- 
 1.8.1.227.g44fe835
