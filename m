@@ -1,31 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/9] PTR_RET is now PTR_ERR_OR_ZERO(): Replace most.
-Date: Wed, 19 Jun 2013 23:05:46 -0700 (PDT)
-Message-ID: <20130619.230546.1612893804152231671.davem@davemloft.net>
-References: <87ehc2rczo.fsf@rustcorp.com.au>
-	<1371357768-4968-1-git-send-email-rusty@rustcorp.com.au>
-	<1371357768-4968-2-git-send-email-rusty@rustcorp.com.au>
+Subject: Re: [Patch net-next v3] tcp: introduce a per-route knob for quick
+ ack
+Date: Wed, 19 Jun 2013 23:07:35 -0700 (PDT)
+Message-ID: <20130619.230735.424431851379597627.davem@davemloft.net>
+References: <1371260359-5875-1-git-send-email-amwang@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org,
-	linux-arm-kernel@lists.infradead.org, julia.lawall@lip6.fr
-To: rusty@rustcorp.com.au
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371357768-4968-2-git-send-email-rusty@rustcorp.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com, rick.jones2@hp.com,
+	stephen@networkplumber.org, tgraf@suug.ch, David.Laight@ACULAB.COM
+To: amwang@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50058 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751860Ab3FTGHh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 02:07:37 -0400
+In-Reply-To: <1371260359-5875-1-git-send-email-amwang@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Rusty Russell <rusty@rustcorp.com.au>
-Date: Sun, 16 Jun 2013 14:12:41 +0930
+From: Cong Wang <amwang@redhat.com>
+Date: Sat, 15 Jun 2013 09:39:18 +0800
 
-> Sweep of the simple cases.
+> From: Cong Wang <amwang@redhat.com>
 > 
-> Cc: netdev@vger.kernel.org
-> Cc: linuxppc-dev@lists.ozlabs.org
-> Cc: linux-arm-kernel@lists.infradead.org
-> Cc: Julia Lawall <julia.lawall@lip6.fr>
-> Signed-off-by: Rusty Russell <rusty@rustcorp.com.au>
+> In previous discussions, I tried to find some reasonable heuristics
+> for delayed ACK, however this seems not possible, according to Eric:
+ ...
+> and according to David:
+ ...
+> It still makes sense to enable or disable quick ack mode like
+> what TCP_QUICK_ACK does.
+> 
+> Similar to TCP_QUICK_ACK option, but for people who can't
+> modify the source code and still wants to control
+> TCP delayed ACK behavior. As David suggested, this should belong
+> to per-path scope, since different pathes may want different
+> behaviors.
+> 
+> Signed-off-by: Cong Wang <amwang@redhat.com>
 
-Acked-by: David S. Miller <davem@davemloft.net>
+Applied.
