@@ -1,40 +1,123 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH] net bridge: add null pointer check, fix panic
-Date: Thu, 20 Jun 2013 01:14:00 -0700
-Message-ID: <1371716040.3252.389.camel@edumazet-glaptop>
-References: <51C2710D.2060405@gmail.com> <51C2721B.9050603@gmail.com>
-	<1371704129.3252.356.camel@edumazet-glaptop>
-	<51C2A8AA.5010902@gmail.com>
-	<1371713342.3252.371.camel@edumazet-glaptop>
-	<51C2B3A9.5070904@gmail.com>
+Subject: [PATCH net-next] net: allow large number of tx queues
+Date: Thu, 20 Jun 2013 01:15:51 -0700
+Message-ID: <1371716151.3252.390.camel@edumazet-glaptop>
+References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
+	 <1371620452-49349-2-git-send-email-jasowang@redhat.com>
+	 <1371623518.3252.267.camel@edumazet-glaptop>
+	 <20130619091132.GA2816@redhat.com>
+	 <1371635763.3252.289.camel@edumazet-glaptop>
+	 <20130619154059.GA13735@redhat.com>
+	 <1371657511.3252.324.camel@edumazet-glaptop>
+	 <20130619180709.GA15017@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, davem@davemloft.net,
-	linux-kernel@vger.kernel.org
-To: xiaoming gao <gxm.linux.kernel@gmail.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <51C2B3A9.5070904@gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	hkchu@google.com, netdev <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bk0-f52.google.com ([209.85.214.52]:57284 "EHLO
+	mail-bk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754498Ab3FTIP4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 04:15:56 -0400
+Received: by mail-bk0-f52.google.com with SMTP id d7so2692795bkh.39
+        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 01:15:55 -0700 (PDT)
+In-Reply-To: <20130619180709.GA15017@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-20 at 15:47 +0800, xiaoming gao wrote:
+From: Eric Dumazet <edumazet@google.com>
 
-> 
-> if you remove the test on FF_BRIDGE_PORT, and br_port_get_rcu never returns NULL, the problem is fixed.
-> but the codes in mainline is still bugged, am i right??
-> by the way, kernel-stable 3.0 and 3.4 tree also have this bug, and is very easily to reproduce.
+On Wed, 2013-06-19 at 21:07 +0300, Michael S. Tsirkin wrote:
 
-Commit 00cfec37484761a4 has to be backported anyway, if not already
-backported.
+> As we have explicit code to recover, maybe set __GFP_NOWARN?
+> If we are out of memory, vzalloc will warn too, we don't
+> need two warnings.
 
-I would rather fix things properly, instead of adding defensive code.
+Yes, that's absolutely the right thing to do.
+
+Its yet not clear this patch is really needed, but here it is.
+
+Thanks
+
+[PATCH net-next] net: allow large number of tx queues
+
+netif_alloc_netdev_queues() uses kcalloc() to allocate memory
+for the "struct netdev_queue *_tx" array.
+
+For large number of tx queues, kcalloc() might fail, so this
+patch does a fallback to vzalloc().
+
+As vmalloc() adds overhead on a critical network path, add __GFP_REPEAT
+to kzalloc() flags to do this fallback only when really needed.
+
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+---
+ net/core/dev.c |   26 +++++++++++++++++++-------
+ 1 file changed, 19 insertions(+), 7 deletions(-)
+
+diff --git a/net/core/dev.c b/net/core/dev.c
+index fa007db..722f633 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -130,6 +130,7 @@
+ #include <linux/cpu_rmap.h>
+ #include <linux/static_key.h>
+ #include <linux/hashtable.h>
++#include <linux/vmalloc.h>
+ 
+ #include "net-sysfs.h"
+ 
+@@ -5253,17 +5254,28 @@ static void netdev_init_one_queue(struct net_device *dev,
+ #endif
+ }
+ 
++static void netif_free_tx_queues(struct net_device *dev)
++{
++	if (is_vmalloc_addr(dev->_tx))
++		vfree(dev->_tx);
++	else
++		kfree(dev->_tx);
++}
++
+ static int netif_alloc_netdev_queues(struct net_device *dev)
+ {
+ 	unsigned int count = dev->num_tx_queues;
+ 	struct netdev_queue *tx;
++	size_t sz = count * sizeof(*tx);
+ 
+-	BUG_ON(count < 1);
+-
+-	tx = kcalloc(count, sizeof(struct netdev_queue), GFP_KERNEL);
+-	if (!tx)
+-		return -ENOMEM;
++	BUG_ON(count < 1 || count > 0xffff);
+ 
++	tx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
++	if (!tx) {
++		tx = vzalloc(sz);
++		if (!tx)
++			return -ENOMEM;
++	}
+ 	dev->_tx = tx;
+ 
+ 	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
+@@ -5811,7 +5823,7 @@ free_all:
+ 
+ free_pcpu:
+ 	free_percpu(dev->pcpu_refcnt);
+-	kfree(dev->_tx);
++	netif_free_tx_queues(dev);
+ #ifdef CONFIG_RPS
+ 	kfree(dev->_rx);
+ #endif
+@@ -5836,7 +5848,7 @@ void free_netdev(struct net_device *dev)
+ 
+ 	release_net(dev_net(dev));
+ 
+-	kfree(dev->_tx);
++	netif_free_tx_queues(dev);
+ #ifdef CONFIG_RPS
+ 	kfree(dev->_rx);
+ #endif
