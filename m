@@ -1,46 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/1] net/x25: fix address parsing bug in
- x25_parse_address_block.
-Date: Wed, 19 Jun 2013 17:59:28 -0700 (PDT)
-Message-ID: <20130619.175928.1277008545805789566.davem@davemloft.net>
-References: <1371673956-471-1-git-send-email-steve.moorby@ntlworld.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V2 0/4] Add IPv6 support for iWARP
+Date: Wed, 19 Jun 2013 18:01:20 -0700 (PDT)
+Message-ID: <20130619.180120.1989500368231967461.davem@davemloft.net>
+References: <1371037302-3586-1-git-send-email-vipul@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sasha.levin@oracle.com, akpm@linux-foundation.org,
-	paulmck@linux.vnet.ibm.com, jiri@resnulli.us,
-	linux-x25@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: steve.moorby@ntlworld.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1371673956-471-1-git-send-email-steve.moorby@ntlworld.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org, divy-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org, dm-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org,
+	swise-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, roland-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	tom-7bPotxP6k4+P2YhJcF5u+vpXobYPEAuW@public.gmane.org, faisal.latif-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org, sasha.levin-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	nirranjan-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+To: vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1371037302-3586-1-git-send-email-vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Stephen Moorby <steve.moorby@ntlworld.com>
-Date: Wed, 19 Jun 2013 21:32:36 +0100
+From: Vipul Pandya <vipul-ut6Up61K2wZBDgjK7y7TUQ@public.gmane.org>
+Date: Wed, 12 Jun 2013 17:11:38 +0530
 
-> This problem was discovered when a linux box was incorrectly rejecting
-> calls from some X.25 equipment.  The problem was diagnosed to an incorrect
-> address length calculation in 'x25_parse_address_block', the calculation
-> did not account for the address digits being BCD encoded.  The correct
-> calculation is already performed on line 155.
-> 
-> Patched on linux-next 18-Jun-2013
-> Tested on 2.6.32-45-generic
-> 
-> Signed-off-by: Stephen Moorby <steve.moorby@ntlworld.com>
+> We have included all the maintainers of respective drivers. Kindly
+> review the change and let us know in case of any review comments.
 
-This change has two problems:
+I have not seen anyone review v2 of this patch series.
 
-1) If there is existing code that does the calculation correctly, don't
-   get creative and express the calculation differently than the existing
-   code.
-
-2) If there are two places doing the same thing, write a helper function
-   that does it in one place.
-
-The exact reason this bug exists is because of code duplication, you are
-making it even worse by writing the same calculation two different ways.
-
-Please fix this up and resubmit, thanks.
+At least the Infiniband maintainer should do so.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
