@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] inet: frag , remove an empty ifdef.
-Date: Wed, 19 Jun 2013 23:07:46 -0700 (PDT)
-Message-ID: <20130619.230746.1574933720000310714.davem@davemloft.net>
-References: <1371326696-32561-1-git-send-email-ramirose@gmail.com>
+Subject: Re: [PATCH] net: vlan: fix comment for vlan_ethhdr->h_vlan_proto
+Date: Wed, 19 Jun 2013 23:17:18 -0700 (PDT)
+Message-ID: <20130619.231718.566676542331651980.davem@davemloft.net>
+References: <1371222421-6397-1-git-send-email-olaf@aepfle.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: ramirose@gmail.com
+Cc: kaber@trash.net, netdev@vger.kernel.org
+To: olaf@aepfle.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:50074 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:50148 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753376Ab3FTGHr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 02:07:47 -0400
-In-Reply-To: <1371326696-32561-1-git-send-email-ramirose@gmail.com>
+	with ESMTP id S1751790Ab3FTGRT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 02:17:19 -0400
+In-Reply-To: <1371222421-6397-1-git-send-email-olaf@aepfle.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rami Rosen <ramirose@gmail.com>
-Date: Sat, 15 Jun 2013 23:04:56 +0300
+From: Olaf Hering <olaf@aepfle.de>
+Date: Fri, 14 Jun 2013 17:07:01 +0200
 
-> This patch removes an empty ifdef from inet_frag_intern()
-> in net/ipv4/inet_fragment.c.
+> After addition of 8021AD h_vlan_proto can be either ETH_P_8021Q or
+> ETH_P_8021AD.
 > 
-> commit b67bfe0d42cac56c512dd5da4b1b347a23f4b70a
-> (hlist: drop the node parameter from iterators) removed hlist from
-> net/ipv4/inet_fragment.c, but did not remove the enclosing ifdef command,
-> which is now empty.
-> 
-> Signed-off-by: Rami Rosen <ramirose@gmail.com>
+> Signed-off-by: Olaf Hering <olaf@aepfle.de>
 
-Applied.
+Applied, thanks.
