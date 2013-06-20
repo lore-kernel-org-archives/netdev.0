@@ -1,337 +1,115 @@
-From: Pravin B Shelar <pshelar@nicira.com>
-Subject: [PATCH net-next 8/8] openvswitch: Add vxlan tunneling support.
-Date: Thu, 20 Jun 2013 00:27:02 -0700
-Message-ID: <1371713222-8349-1-git-send-email-pshelar@nicira.com>
-Cc: Pravin B Shelar <pshelar@nicira.com>
-To: netdev@vger.kernel.org, dev@openvswitch.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog115.obsmtp.com ([74.125.149.238]:42471 "HELO
-	na3sys009aog115.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1753990Ab3FTH1Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 20 Jun 2013 03:27:16 -0400
-Received: by mail-pd0-f169.google.com with SMTP id y10so5947403pdj.0
-        for <netdev@vger.kernel.org>; Thu, 20 Jun 2013 00:27:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net bridge: add null pointer check, fix panic
+Date: Thu, 20 Jun 2013 00:29:02 -0700
+Message-ID: <1371713342.3252.371.camel@edumazet-glaptop>
+References: <51C2710D.2060405@gmail.com> <51C2721B.9050603@gmail.com>
+	<1371704129.3252.356.camel@edumazet-glaptop>
+	<51C2A8AA.5010902@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
+To: xiaoming gao <gxm.linux.kernel@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <51C2A8AA.5010902@gmail.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Following patch adds vxlan vport type for openvswitch using
-vxlan api.
-This patch adds vxlan dependency for openvswitch.
+On Thu, 2013-06-20 at 15:00 +0800, xiaoming gao wrote:
 
-Signed-off-by: Pravin B Shelar <pshelar@nicira.com>
----
- include/uapi/linux/openvswitch.h |   11 ++
- net/openvswitch/Kconfig          |    1 +
- net/openvswitch/Makefile         |    3 +-
- net/openvswitch/vport-vxlan.c    |  220 ++++++++++++++++++++++++++++++++++++++
- net/openvswitch/vport.c          |    3 +
- net/openvswitch/vport.h          |    1 +
- 6 files changed, 238 insertions(+), 1 deletions(-)
- create mode 100644 net/openvswitch/vport-vxlan.c
+> HI Eric
+> the problem is as follow:
+> br_del_if()-->del_nbp():
+> 
+> list_del_rcu(&p->list);
+> dev->priv_flags &= ~IFF_BRIDGE_PORT;
+> 
+> ------>at this point, the nic be deleting still have rx_handler , so , may in br_handle_frame()
+> ------>br_port_exists() will return false,so br_get_port_rcu() will return NULL
+> ------>so in br_handle_frame , there will be a null panic.
+> 
+> netdev_rx_handler_unregister(dev);
+> synchronize_net();
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index c55efaa..52490b0 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -165,6 +165,7 @@ enum ovs_vport_type {
- 	OVS_VPORT_TYPE_NETDEV,   /* network device */
- 	OVS_VPORT_TYPE_INTERNAL, /* network device implemented by datapath */
- 	OVS_VPORT_TYPE_GRE,      /* GRE tunnel. */
-+	OVS_VPORT_TYPE_VXLAN,	 /* VXLAN tunnel. */
- 	__OVS_VPORT_TYPE_MAX
- };
+This code is no longer like that in current tree.
+Check commit 4a0b5ec12f0ffc3024616e6dc62cf8a04c54edcd
+("bridge: remove a redundant synchronize_net()")
+
+> 
+> 
+> i have checked commit 00cfec37484761a44, i think it didn't fix this bug..
+
+I claim adding NULL tests is not needed in the fast path, it was clearly
+stated in the changelog.
+
+I would change the dismantle path to make sure br_get_port_rcu() does
+not return NULL in the fast path, and remove the test on FF_BRIDGE_PORT
+
+Try something like that :
+
+diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+index 1b8b8b8..2edfb80 100644
+--- a/net/bridge/br_input.c
++++ b/net/bridge/br_input.c
+@@ -60,7 +60,7 @@ static int br_pass_frame_up(struct sk_buff *skb)
+ int br_handle_frame_finish(struct sk_buff *skb)
+ {
+ 	const unsigned char *dest = eth_hdr(skb)->h_dest;
+-	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
++	struct net_bridge_port *p = __br_port_get_rcu(skb->dev);
+ 	struct net_bridge *br;
+ 	struct net_bridge_fdb_entry *dst;
+ 	struct net_bridge_mdb_entry *mdst;
+@@ -68,7 +68,7 @@ int br_handle_frame_finish(struct sk_buff *skb)
+ 	bool unicast = true;
+ 	u16 vid = 0;
  
-@@ -211,6 +212,16 @@ enum ovs_vport_attr {
+-	if (!p || p->state == BR_STATE_DISABLED)
++	if (p->state == BR_STATE_DISABLED)
+ 		goto drop;
  
- #define OVS_VPORT_ATTR_MAX (__OVS_VPORT_ATTR_MAX - 1)
+ 	if (!br_allowed_ingress(p->br, nbp_get_vlan_info(p), skb, &vid))
+@@ -142,7 +142,7 @@ drop:
+ /* note: already called with rcu_read_lock */
+ static int br_handle_local_finish(struct sk_buff *skb)
+ {
+-	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
++	struct net_bridge_port *p = __br_port_get_rcu(skb->dev);
+ 	u16 vid = 0;
  
-+/* OVS_VPORT_ATTR_OPTIONS attributes for tunnels.
-+ */
-+enum {
-+	OVS_TUNNEL_ATTR_UNSPEC,
-+	OVS_TUNNEL_ATTR_DST_PORT, /* 16-bit UDP port, used by L4 tunnels. */
-+	__OVS_TUNNEL_ATTR_MAX
-+};
-+
-+#define OVS_TUNNEL_ATTR_MAX (__OVS_TUNNEL_ATTR_MAX - 1)
-+
- /* Flows. */
+ 	br_vlan_get_tag(skb, &vid);
+@@ -172,7 +172,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+ 	if (!skb)
+ 		return RX_HANDLER_CONSUMED;
  
- #define OVS_FLOW_FAMILY  "ovs_flow"
-diff --git a/net/openvswitch/Kconfig b/net/openvswitch/Kconfig
-index 9fbc04a..201b40c 100644
---- a/net/openvswitch/Kconfig
-+++ b/net/openvswitch/Kconfig
-@@ -20,6 +20,7 @@ config OPENVSWITCH
- 	  translate it into packet processing rules.
+-	p = br_port_get_rcu(skb->dev);
++	p = __br_port_get_rcu(skb->dev);
  
- 	  Open vSwitch GRE support depends on CONFIG_NET_IPGRE_DEMUX.
-+	  Open vSwitch VXLAN support depends on CONFIG_VXLAN.
+ 	if (unlikely(is_link_local_ether_addr(dest))) {
+ 		/*
+diff --git a/net/bridge/br_private.h b/net/bridge/br_private.h
+index 3be89b3..9fdd467 100644
+--- a/net/bridge/br_private.h
++++ b/net/bridge/br_private.h
+@@ -184,6 +184,11 @@ struct net_bridge_port
  
- 	  See http://openvswitch.org for more information and userspace
- 	  utilities.
-diff --git a/net/openvswitch/Makefile b/net/openvswitch/Makefile
-index 01bddb2..33952c9 100644
---- a/net/openvswitch/Makefile
-+++ b/net/openvswitch/Makefile
-@@ -12,4 +12,5 @@ openvswitch-y := \
- 	vport.o \
- 	vport-gre.o \
- 	vport-internal_dev.o \
--	vport-netdev.o
-+	vport-netdev.o \
-+	vport-vxlan.o
-diff --git a/net/openvswitch/vport-vxlan.c b/net/openvswitch/vport-vxlan.c
-new file mode 100644
-index 0000000..be22134
---- /dev/null
-+++ b/net/openvswitch/vport-vxlan.c
-@@ -0,0 +1,220 @@
-+/*
-+ * Copyright (c) 2013 Nicira, Inc.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of version 2 of the GNU General Public
-+ * License as published by the Free Software Foundation.
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-+ * General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with this program; if not, write to the Free Software
-+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
-+ * 02110-1301, USA
-+ */
-+
-+#if IS_ENABLED(CONFIG_VXLAN)
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/in.h>
-+#include <linux/ip.h>
-+#include <linux/net.h>
-+#include <linux/rculist.h>
-+#include <linux/udp.h>
-+
-+#include <net/icmp.h>
-+#include <net/ip.h>
-+#include <net/udp.h>
-+#include <net/ip_tunnels.h>
-+#include <net/udp.h>
-+#include <net/rtnetlink.h>
-+#include <net/route.h>
-+#include <net/dsfield.h>
-+#include <net/inet_ecn.h>
-+#include <net/net_namespace.h>
-+#include <net/netns/generic.h>
-+#include <net/vxlan.h>
-+
-+#include "datapath.h"
-+#include "vport.h"
-+
-+#define OVS_VXLAN_RCV_PRIORITY		8
-+
-+/**
-+ * struct vxlan_port - Keeps track of open UDP ports
-+ * @vh: vxlan_handler created for the port.
-+ * @dst_port: vxlan UDP port no.
-+ * @name: vport name.
-+ */
-+struct vxlan_port {
-+	struct vxlan_handler *vh;
-+	__be16 dst_port;
-+	char name[IFNAMSIZ];
-+};
-+
-+static inline struct vxlan_port *vxlan_vport(const struct vport *vport)
+ #define br_port_exists(dev) (dev->priv_flags & IFF_BRIDGE_PORT)
+ 
++static inline struct net_bridge_port *__br_port_get_rcu(const struct net_device *dev)
 +{
-+	return vport_priv(vport);
++	return rcu_dereference(dev->rx_handler_data);
 +}
 +
-+/* Called with rcu_read_lock and BH disabled. */
-+static int vxlan_rcv(struct vxlan_handler *vh, struct sk_buff *skb, __be32 vx_vni)
-+{
-+	struct vport *vport = vh->data;
-+	struct iphdr *iph;
-+	struct ovs_key_ipv4_tunnel tun_key;
-+	__be64 key;
-+
-+	if (unlikely(!vport))
-+		return PACKET_REJECT;
-+
-+	/* Save outer tunnel values */
-+	iph = ip_hdr(skb);
-+	key = cpu_to_be64(ntohl(vx_vni) >> 8);
-+	ovs_flow_tun_key_init(&tun_key, iph, key, TUNNEL_KEY);
-+
-+	ovs_vport_receive(vport, skb, &tun_key);
-+	return PACKET_RCVD;
-+}
-+
-+static int vxlan_get_options(const struct vport *vport, struct sk_buff *skb)
-+{
-+	struct vxlan_port *vxlan_port = vxlan_vport(vport);
-+
-+	if (nla_put_u16(skb, OVS_TUNNEL_ATTR_DST_PORT, ntohs(vxlan_port->dst_port)))
-+		return -EMSGSIZE;
-+	return 0;
-+}
-+
-+static void vxlan_tnl_destroy(struct vport *vport)
-+{
-+	struct vxlan_port *vxlan_port = vxlan_vport(vport);
-+
-+	rtnl_lock();
-+	vxlan_del_handler(vxlan_port->vh);
-+	rtnl_unlock();
-+
-+	ovs_vport_deferred_free(vport);
-+}
-+
-+static struct vport *vxlan_tnl_create(const struct vport_parms *parms)
-+{
-+	struct net *net = ovs_dp_get_net(parms->dp);
-+	struct nlattr *options = parms->options;
-+	struct vxlan_port *vxlan_port;
-+	struct vxlan_handler *vh;
-+	struct vport *vport;
-+	struct nlattr *a;
-+	int err;
-+	u16 dst_port;
-+
-+	if (!options) {
-+		err = -EINVAL;
-+		goto error;
-+	}
-+	a = nla_find_nested(options, OVS_TUNNEL_ATTR_DST_PORT);
-+	if (a && nla_len(a) == sizeof(u16)) {
-+		dst_port = nla_get_u16(a);
-+	} else {
-+		/* Require destination port from userspace. */
-+		err = -EINVAL;
-+		goto error;
-+	}
-+
-+	vport = ovs_vport_alloc(sizeof(struct vxlan_port),
-+				&ovs_vxlan_vport_ops, parms);
-+	if (IS_ERR(vport))
-+		return vport;
-+
-+	rtnl_lock();
-+	vh = vxlan_add_handler(net, htons(dst_port), vxlan_rcv,
-+			       vport, OVS_VXLAN_RCV_PRIORITY);
-+	rtnl_unlock();
-+	if (IS_ERR(vh)) {
-+		ovs_vport_free(vport);
-+		return (void *)vh;
-+	}
-+
-+	vxlan_port = vxlan_vport(vport);
-+	strncpy(vxlan_port->name, parms->name, IFNAMSIZ);
-+	vxlan_port->vh = vh;
-+	vxlan_port->dst_port = htons(dst_port);
-+
-+	return vport;
-+
-+error:
-+	return ERR_PTR(err);
-+}
-+
-+static int vxlan_tnl_send(struct vport *vport, struct sk_buff *skb)
-+{
-+	struct net *net = ovs_dp_get_net(vport->dp);
-+	struct vxlan_port *vxlan_port = vxlan_vport(vport);
-+	__be16 dst_port = vxlan_port->dst_port;
-+	struct flowi4 fl;
-+	struct rtable *rt;
-+	__be16 df;
-+	int port_min;
-+	int port_max;
-+	__be16 src_port;
-+	int err;
-+
-+	if (unlikely(!OVS_CB(skb)->tun_key)) {
-+		err = -EINVAL;
-+		goto error;
-+	}
-+
-+	/* Route lookup */
-+	memset(&fl, 0, sizeof(fl));
-+	fl.daddr = OVS_CB(skb)->tun_key->ipv4_dst;
-+	fl.saddr = OVS_CB(skb)->tun_key->ipv4_src;
-+	fl.flowi4_tos = RT_TOS(OVS_CB(skb)->tun_key->ipv4_tos);
-+	fl.flowi4_mark = skb->mark;
-+	fl.flowi4_proto = IPPROTO_GRE;
-+
-+	rt = ip_route_output_key(net, &fl);
-+	if (IS_ERR(rt)) {
-+		err = PTR_ERR(rt);
-+		goto error;
-+	}
-+
-+	df = OVS_CB(skb)->tun_key->tun_flags & TUNNEL_DONT_FRAGMENT ?
-+		htons(IP_DF) : 0;
-+
-+	skb->local_df = 1;
-+
-+	inet_get_local_port_range(&port_min, &port_max);
-+	src_port = vxlan_src_port(port_min, port_max, skb);
-+
-+	err = vxlan_xmit_skb(net, vxlan_port->vh, rt, skb,
-+			     fl.saddr, OVS_CB(skb)->tun_key->ipv4_dst,
-+			     OVS_CB(skb)->tun_key->ipv4_tos,
-+			     OVS_CB(skb)->tun_key->ipv4_ttl, df,
-+			     src_port, dst_port,
-+			     htonl(be64_to_cpu(OVS_CB(skb)->tun_key->tun_id) << 8));
-+	if (err < 0)
-+		ip_rt_put(rt);
-+error:
-+	return err;
-+
-+}
-+
-+static const char *vxlan_get_name(const struct vport *vport)
-+{
-+	struct vxlan_port *vxlan_port = vxlan_vport(vport);
-+	return vxlan_port->name;
-+}
-+
-+const struct vport_ops ovs_vxlan_vport_ops = {
-+	.type		= OVS_VPORT_TYPE_VXLAN,
-+	.create		= vxlan_tnl_create,
-+	.destroy	= vxlan_tnl_destroy,
-+	.get_name	= vxlan_get_name,
-+	.get_options	= vxlan_get_options,
-+	.send		= vxlan_tnl_send,
-+};
-+#endif
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index f52dfb9..ebd9f5f 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -42,6 +42,9 @@ static const struct vport_ops *vport_ops_list[] = {
- #ifdef CONFIG_NET_IPGRE_DEMUX
- 	&ovs_gre_vport_ops,
- #endif
-+#if IS_ENABLED(CONFIG_VXLAN)
-+	&ovs_vxlan_vport_ops,
-+#endif
- };
- 
- /* Protected by RCU read lock for reading, ovs_mutex for writing. */
-diff --git a/net/openvswitch/vport.h b/net/openvswitch/vport.h
-index 376045c..1a9fbce 100644
---- a/net/openvswitch/vport.h
-+++ b/net/openvswitch/vport.h
-@@ -199,6 +199,7 @@ void ovs_vport_record_error(struct vport *, enum vport_err_type err_type);
- extern const struct vport_ops ovs_netdev_vport_ops;
- extern const struct vport_ops ovs_internal_vport_ops;
- extern const struct vport_ops ovs_gre_vport_ops;
-+extern const struct vport_ops ovs_vxlan_vport_ops;
- 
- static inline void ovs_skb_postpush_rcsum(struct sk_buff *skb,
- 				      const void *start, unsigned int len)
--- 
-1.7.1
+ static inline struct net_bridge_port *br_port_get_rcu(const struct net_device *dev)
+ {
+ 	struct net_bridge_port *port =
