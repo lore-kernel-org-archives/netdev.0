@@ -1,129 +1,71 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next] net: allow large number of tx queues
-Date: Fri, 21 Jun 2013 14:41:48 +0800
-Message-ID: <51C3F5AC.2090008@redhat.com>
-References: <1371620452-49349-1-git-send-email-jasowang@redhat.com> <1371620452-49349-2-git-send-email-jasowang@redhat.com> <1371623518.3252.267.camel@edumazet-glaptop> <20130619091132.GA2816@redhat.com> <1371635763.3252.289.camel@edumazet-glaptop> <20130619154059.GA13735@redhat.com> <1371657511.3252.324.camel@edumazet-glaptop> <20130619180709.GA15017@redhat.com> <1371716151.3252.390.camel@edumazet-glaptop> <20130620083530.GA23909@redhat.com>
+Subject: Re: qlen check in tun.c
+Date: Fri, 21 Jun 2013 14:44:47 +0800
+Message-ID: <51C3F65F.3090909@redhat.com>
+References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com> <51C12592.6050503@redhat.com> <CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
-	hkchu@google.com, netdev <netdev@vger.kernel.org>,
-	dwmw2@infradead.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Michael S. Tsirkin" <mst@redhat.com>
+To: Jerry Chu <hkchu@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:40642 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:40742 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423164Ab3FUGmc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jun 2013 02:42:32 -0400
-In-Reply-To: <20130620083530.GA23909@redhat.com>
+	id S1750725Ab3FUGpD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jun 2013 02:45:03 -0400
+In-Reply-To: <CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2013 04:35 PM, Michael S. Tsirkin wrote:
-> On Thu, Jun 20, 2013 at 01:15:51AM -0700, Eric Dumazet wrote:
->> From: Eric Dumazet <edumazet@google.com>
+On 06/20/2013 03:39 AM, Jerry Chu wrote:
+> Hi Jason,
+>
+> On Tue, Jun 18, 2013 at 8:29 PM, Jason Wang <jasowang@redhat.com> wrote:
+>> On 06/19/2013 10:31 AM, Jerry Chu wrote:
+>>> In tun_net_xmit() the max qlen is computed as
+>>> dev->tx_queue_len / tun->numqueues. For multi-queue configuration the
+>>> latter may be way too small, forcing one to adjust txqueuelen based
+>>> on number of queues created. (Well the default txqueuelen of
+>>> 500/TUN_READQ_SIZE already seems too small even for single queue.)
+>> Hi Jerry:
 >>
->> On Wed, 2013-06-19 at 21:07 +0300, Michael S. Tsirkin wrote:
+>> Do you have some test result of this? Anyway, tun allows userspace to
+>> adjust this value based on its requirement.
+> Sure, but the default size of 500 is just way too small. queue overflows even
+> with a simple single-stream throughput test through Openvswitch due to CPU
+> scheduler anomaly. On our loaded multi-stream test even 8192 can't prevent
+> queue overflow. But then with 8192 we'll be deep into the "buffer
+> bloat" territory.
+
+Do the overflow also happens on bridge? If not, maybe a bug of openvswitch?
+
+Btw, it the scheduler brings unexpected latency, increasing tx queue
+length may just make things worse.
+> We haven't figured out an optimal strategy for thruput vs latency, but
+> suffice to
+> say 500 is too small.
+>
+> Jerry
+>
+>>> Wouldn't it be better to simply use dev->tx_queue_len to cap the qlen of
+>>> each queue? This also seems to be more consistent with h/w multi-queues.
+>> Make sense. Michael, any ideas on this?
+>>> Also is there any objection to increase MAX_TAP_QUEUES from 8 to 16?
+>>> Yes it will take up more space in struct tun_struct. But we are
+>>> hitting the perf limit of 8 queues.
+>> Not only the tun_struct, another issue of this is sizeof(netdev_queue)
+>> which is 320 currently, if we use 16, it may be greater than 4096 which
+>> lead high order page allocation. Need a solution such as flex array or
+>> array of pointers.
 >>
->>> As we have explicit code to recover, maybe set __GFP_NOWARN?
->>> If we are out of memory, vzalloc will warn too, we don't
->>> need two warnings.
->> Yes, that's absolutely the right thing to do.
->>
->> Its yet not clear this patch is really needed, but here it is.
+>> Btw, I have draft patch on both, will post as rfc.
 >>
 >> Thanks
->>
->> [PATCH net-next] net: allow large number of tx queues
->>
->> netif_alloc_netdev_queues() uses kcalloc() to allocate memory
->> for the "struct netdev_queue *_tx" array.
->>
->> For large number of tx queues, kcalloc() might fail, so this
->> patch does a fallback to vzalloc().
->>
->> As vmalloc() adds overhead on a critical network path, add __GFP_REPEAT
->> to kzalloc() flags to do this fallback only when really needed.
->>
->> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> FWIW
->
-> Acked-by: Michael S. Tsirkin <mst@redhat.com>
->
-> This makes it possible to go up to 1K queues which should
-> be enough, so we can revert the first chunk in
-> edfb6a148ce62e5e19354a1dcd9a34e00815c2a1.
-
-1K queues (about 80 pages) looks a little bit aggressive which means we
-may always fall back to vmalloc()?
->
->
->> ---
->>  net/core/dev.c |   26 +++++++++++++++++++-------
->>  1 file changed, 19 insertions(+), 7 deletions(-)
->>
->> diff --git a/net/core/dev.c b/net/core/dev.c
->> index fa007db..722f633 100644
->> --- a/net/core/dev.c
->> +++ b/net/core/dev.c
->> @@ -130,6 +130,7 @@
->>  #include <linux/cpu_rmap.h>
->>  #include <linux/static_key.h>
->>  #include <linux/hashtable.h>
->> +#include <linux/vmalloc.h>
->>  
->>  #include "net-sysfs.h"
->>  
->> @@ -5253,17 +5254,28 @@ static void netdev_init_one_queue(struct net_device *dev,
->>  #endif
->>  }
->>  
->> +static void netif_free_tx_queues(struct net_device *dev)
->> +{
->> +	if (is_vmalloc_addr(dev->_tx))
->> +		vfree(dev->_tx);
->> +	else
->> +		kfree(dev->_tx);
->> +}
->> +
->>  static int netif_alloc_netdev_queues(struct net_device *dev)
->>  {
->>  	unsigned int count = dev->num_tx_queues;
->>  	struct netdev_queue *tx;
->> +	size_t sz = count * sizeof(*tx);
->>  
->> -	BUG_ON(count < 1);
->> -
->> -	tx = kcalloc(count, sizeof(struct netdev_queue), GFP_KERNEL);
->> -	if (!tx)
->> -		return -ENOMEM;
->> +	BUG_ON(count < 1 || count > 0xffff);
->>  
->> +	tx = kzalloc(sz, GFP_KERNEL | __GFP_NOWARN | __GFP_REPEAT);
->> +	if (!tx) {
->> +		tx = vzalloc(sz);
->> +		if (!tx)
->> +			return -ENOMEM;
->> +	}
->>  	dev->_tx = tx;
->>  
->>  	netdev_for_each_tx_queue(dev, netdev_init_one_queue, NULL);
->> @@ -5811,7 +5823,7 @@ free_all:
->>  
->>  free_pcpu:
->>  	free_percpu(dev->pcpu_refcnt);
->> -	kfree(dev->_tx);
->> +	netif_free_tx_queues(dev);
->>  #ifdef CONFIG_RPS
->>  	kfree(dev->_rx);
->>  #endif
->> @@ -5836,7 +5848,7 @@ void free_netdev(struct net_device *dev)
->>  
->>  	release_net(dev_net(dev));
->>  
->> -	kfree(dev->_tx);
->> +	netif_free_tx_queues(dev);
->>  #ifdef CONFIG_RPS
->>  	kfree(dev->_rx);
->>  #endif
->>
+>>> Thanks,
+>>>
+>>> Jerry
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
