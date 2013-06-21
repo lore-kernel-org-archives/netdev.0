@@ -1,120 +1,134 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v3 net-next 6/6] bonding: add an option to fail when any
- of arp_ip_target is inaccessible
-Date: Fri, 21 Jun 2013 20:53:51 +0200
-Message-ID: <20130621185351.GA30542@redhat.com>
-References: <1371820284-13280-7-git-send-email-vfalico@redhat.com>
- <51C49666.1030407@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
-	rick.jones2@hp.com, mkubecek@suse.cz
-To: Nikolay Aleksandrov <nikolay@redhat.com>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: [PATCH v3] build some drivers only when compile-testing
+Date: Fri, 21 Jun 2013 13:11:38 +0200
+Message-ID: <1371813098-6649-1-git-send-email-jslaby@suse.cz>
+References: <20130619142731.GA7979@kroah.com>
+Cc: linux-kernel@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Jeff Mahoney <jeffm@suse.com>,
+	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
+	linux-geode@lists.infradead.org, linux-fbdev@vger.kernel.org,
+	Richard Cochran <richardcochran@gmail.com>,
+	netdev@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>
+To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:26553 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423424Ab3FUSyj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jun 2013 14:54:39 -0400
-Content-Disposition: inline
-In-Reply-To: <51C49666.1030407@redhat.com>
+Received: from ip4-83-240-18-99.cust.nbox.cz ([83.240.18.99]:43910 "EHLO
+	anemoi" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1423424Ab3FUS5a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jun 2013 14:57:30 -0400
+In-Reply-To: <20130619142731.GA7979@kroah.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 21, 2013 at 08:07:34PM +0200, Nikolay Aleksandrov wrote:
->On 06/21/2013 03:11 PM, Veaceslav Falico wrote:
-...snip...
->>  out:
->>+	rtnl_unlock();
->A leftover rtnl_unlock here.
+Some drivers can be built on more platforms than they run on. This is
+a burden for users and distributors who package a kernel. They have to
+read Kconfig help texts and manually deselect some (for them useless)
+drivers when updating their configs via oldconfig. And yet, sometimes
+it is even impossible to disable the drivers without patching the
+kernel.
 
-Great catch, thank you!
+Introduce a new config option COMPILE_TEST and make all those drivers
+to depend on the platform they really run on, or on the COMPILE_TEST
+option.  Now, when users/distributors choose COMPILE_TEST=n they will
+not have the drivers in their oldconfig output, but developers still
+can compile-test them with COMPILE_TEST=y.
 
->
->Nik
->
->>  	return ret;
->>  }
->>  static DEVICE_ATTR(arp_ip_target, S_IRUGO | S_IWUSR , bonding_show_arp_targets, bonding_store_arp_targets);
->>@@ -1623,6 +1687,7 @@ static struct attribute *per_bond_attrs[] = {
->>  	&dev_attr_mode.attr,
->>  	&dev_attr_fail_over_mac.attr,
->>  	&dev_attr_arp_validate.attr,
->>+	&dev_attr_arp_all_targets.attr,
->>  	&dev_attr_arp_interval.attr,
->>  	&dev_attr_arp_ip_target.attr,
->>  	&dev_attr_downdelay.attr,
->>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->>index 486e532..3fb73cc 100644
->>--- a/drivers/net/bonding/bonding.h
->>+++ b/drivers/net/bonding/bonding.h
->>@@ -144,6 +144,7 @@ struct bond_params {
->>  	u8 num_peer_notif;
->>  	int arp_interval;
->>  	int arp_validate;
->>+	int arp_all_targets;
->>  	int use_carrier;
->>  	int fail_over_mac;
->>  	int updelay;
->>@@ -179,6 +180,7 @@ struct slave {
->>  	int    delay;
->>  	unsigned long jiffies;
->>  	unsigned long last_arp_rx;
->>+	unsigned long target_last_arp_rx[BOND_MAX_ARP_TARGETS];
->>  	s8     link;    /* one of BOND_LINK_XXXX */
->>  	s8     new_link;
->>  	u8     backup:1,   /* indicates backup slave. Value corresponds with
->>@@ -322,6 +324,9 @@ static inline bool bond_is_active_slave(struct slave *slave)
->>  #define BOND_FOM_ACTIVE			1
->>  #define BOND_FOM_FOLLOW			2
->>
->>+#define BOND_ARP_TARGETS_ANY		0
->>+#define BOND_ARP_TARGETS_ALL		1
->>+
->>  #define BOND_ARP_VALIDATE_NONE		0
->>  #define BOND_ARP_VALIDATE_ACTIVE	(1 << BOND_STATE_ACTIVE)
->>  #define BOND_ARP_VALIDATE_BACKUP	(1 << BOND_STATE_BACKUP)
->>@@ -334,11 +339,31 @@ static inline int slave_do_arp_validate(struct bonding *bond,
->>  	return bond->params.arp_validate & (1 << bond_slave_state(slave));
->>  }
->>
->>+/* Get the oldest arp which we've received on this slave for bond's
->>+ * arp_targets.
->>+ */
->>+static inline unsigned long slave_oldest_target_arp_rx(struct bonding *bond,
->>+						       struct slave *slave)
->>+{
->>+	int i = 1;
->>+	unsigned long ret = slave->target_last_arp_rx[0];
->>+
->>+	for (; (i < BOND_MAX_ARP_TARGETS) && bond->params.arp_targets[i]; i++)
->>+		if (time_before(slave->target_last_arp_rx[i], ret))
->>+			ret = slave->target_last_arp_rx[i];
->>+
->>+	return ret;
->>+}
->>+
->>  static inline unsigned long slave_last_rx(struct bonding *bond,
->>  					struct slave *slave)
->>  {
->>-	if (slave_do_arp_validate(bond, slave))
->>-		return slave->last_arp_rx;
->>+	if (slave_do_arp_validate(bond, slave)) {
->>+		if (bond->params.arp_all_targets == BOND_ARP_TARGETS_ALL)
->>+			return slave_oldest_target_arp_rx(bond, slave);
->>+		else
->>+			return slave->last_arp_rx;
->>+	}
->>
->>  	return slave->dev->last_rx;
->>  }
->>@@ -486,6 +511,7 @@ extern const struct bond_parm_tbl bond_lacp_tbl[];
->>  extern const struct bond_parm_tbl bond_mode_tbl[];
->>  extern const struct bond_parm_tbl xmit_hashtype_tbl[];
->>  extern const struct bond_parm_tbl arp_validate_tbl[];
->>+extern const struct bond_parm_tbl arp_all_targets_tbl[];
->>  extern const struct bond_parm_tbl fail_over_mac_tbl[];
->>  extern const struct bond_parm_tbl pri_reselect_tbl[];
->>  extern struct bond_parm_tbl ad_select_tbl[];
->>
->
+Now the drivers where we use this new option:
+* PTP_1588_CLOCK_PCH: The PCH EG20T is only compatible with Intel Atom
+  processors so it should depend on x86.
+* FB_GEODE: Geode is 32-bit only so only enable it for X86_32.
+* INTEL_MID_PTI: It is specific to the Penwell type of Intel Atom
+  device.
+
+[v2]
+* remove EXPERT dependency
+
+[v3]
+* do not touch IMX
+
+Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Jeff Mahoney <jeffm@suse.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Cc: Florian Tobias Schandinat <FlorianSchandinat@gmx.de>
+Cc: linux-geode@lists.infradead.org
+Cc: linux-fbdev@vger.kernel.org
+Cc: Richard Cochran <richardcochran@gmail.com>
+Cc: netdev@vger.kernel.org
+Cc: Ben Hutchings <ben@decadent.org.uk>
+Cc: "Keller, Jacob E" <jacob.e.keller@intel.com>
+---
+ drivers/misc/Kconfig        |  2 +-
+ drivers/ptp/Kconfig         |  1 +
+ drivers/video/geode/Kconfig |  2 +-
+ init/Kconfig                | 14 ++++++++++++++
+ 4 files changed, 17 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 80889d5..8dacd4c 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -135,7 +135,7 @@ config PHANTOM
+ 
+ config INTEL_MID_PTI
+ 	tristate "Parallel Trace Interface for MIPI P1149.7 cJTAG standard"
+-	depends on PCI && TTY
++	depends on PCI && TTY && (X86_INTEL_MID || COMPILE_TEST)
+ 	default n
+ 	help
+ 	  The PTI (Parallel Trace Interface) driver directs
+diff --git a/drivers/ptp/Kconfig b/drivers/ptp/Kconfig
+index 1ea6f1d..5be73ba 100644
+--- a/drivers/ptp/Kconfig
++++ b/drivers/ptp/Kconfig
+@@ -72,6 +72,7 @@ config DP83640_PHY
+ 
+ config PTP_1588_CLOCK_PCH
+ 	tristate "Intel PCH EG20T as PTP clock"
++	depends on X86 || COMPILE_TEST
+ 	select PTP_1588_CLOCK
+ 	help
+ 	  This driver adds support for using the PCH EG20T as a PTP
+diff --git a/drivers/video/geode/Kconfig b/drivers/video/geode/Kconfig
+index 21e351a..1e85552 100644
+--- a/drivers/video/geode/Kconfig
++++ b/drivers/video/geode/Kconfig
+@@ -3,7 +3,7 @@
+ #
+ config FB_GEODE
+ 	bool "AMD Geode family framebuffer support"
+-	depends on FB && PCI && X86
++	depends on FB && PCI && (X86_32 || (X86 && COMPILE_TEST))
+ 	---help---
+ 	  Say 'Y' here to allow you to select framebuffer drivers for
+ 	  the AMD Geode family of processors.
+diff --git a/init/Kconfig b/init/Kconfig
+index ce540ef..54d3fa5 100644
+--- a/init/Kconfig
++++ b/init/Kconfig
+@@ -53,6 +53,20 @@ config CROSS_COMPILE
+ 	  need to set this unless you want the configured kernel build
+ 	  directory to select the cross-compiler automatically.
+ 
++config COMPILE_TEST
++	bool "Compile also drivers which will not load"
++	default n
++	help
++	  Some drivers can be compiled on a different platform than they are
++	  intended to be run on. Despite they cannot be loaded there (or even
++	  when they load they cannot be used due to missing HW support),
++	  developers still, opposing to distributors, might want to build such
++	  drivers to compile-test them.
++
++	  If you are a developer and want to build everything available, say Y
++	  here. If you are a user/distributor, say N here to exclude useless
++	  drivers to be distributed.
++
+ config LOCALVERSION
+ 	string "Local version - append to kernel release"
+ 	help
+-- 
+1.8.3.1
