@@ -1,258 +1,204 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 3/3] packet: nlmon: virtual netlink monitoring device for packet sockets
-Date: Fri, 21 Jun 2013 19:38:08 +0200
-Message-ID: <1371836288-13122-4-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 2/3] net: netlink: virtual tap device management
+Date: Fri, 21 Jun 2013 19:38:07 +0200
+Message-ID: <1371836288-13122-3-git-send-email-dborkman@redhat.com>
 References: <1371836288-13122-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:33288 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:32948 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423392Ab3FURiO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jun 2013 13:38:14 -0400
+	id S1423307Ab3FURiN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jun 2013 13:38:13 -0400
 In-Reply-To: <1371836288-13122-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently, there is no good possibility to debug netlink traffic that
-is being exchanged between kernel and user space. Therefore, this patch
-implements a netlink virtual device, so that netlink messages will be
-made visible to PF_PACKET sockets. Once there was an approach with a
-similar idea [1], but it got forgotten somehow.
-
-I think it makes most sense to accept the "overhead" of an extra netlink
-net device over implementing the same functionality from PF_PACKET
-sockets once again into netlink sockets. We have BPF filters that can
-already be easily applied which even have netlink extensions, we have
-RX_RING zero-copy between kernel- and user space that can be reused,
-and much more features. So instead of re-implementing all of this, we
-simply pass the skb to a given PF_PACKET socket for further analysis.
-
-Another nice benefit that comes from that is that no code needs to be
-changed in user space packet analyzers (maybe adding a dissector, but
-not more), thus out of the box, we can already capture pcap files of
-netlink traffic to debug/troubleshoot netlink problems.
-
-Also thanks goes to Thomas Graf, Flavio Leitner, Jesper Dangaard Brouer.
-
- [1] http://marc.info/?l=linux-netdev&m=113813401516110
+Similarly to the networking receive path with ptype_all taps, we add
+the possibility to register netdevices that are for ARPHRD_NETLINK to
+the netlink subsystem, so that those can be used for netlink analyzers
+resp. debuggers. We do not offer a direct callback function as out-of-tree
+modules could do crap with it. Instead, a netdevice must be registered
+properly and only receives a clone, managed by the netlink layer. Symbols
+are exported as GPL-only.
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- drivers/net/Kconfig  |  10 +++
- drivers/net/Makefile |   1 +
- drivers/net/nlmon.c  | 170 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 181 insertions(+)
- create mode 100644 drivers/net/nlmon.c
+ include/linux/netlink.h  |  10 +++++
+ net/netlink/af_netlink.c | 107 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 117 insertions(+)
 
-diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
-index 3835321..bdcbaf4 100644
---- a/drivers/net/Kconfig
-+++ b/drivers/net/Kconfig
-@@ -244,6 +244,16 @@ config VIRTIO_NET
- 	  This is the virtual network driver for virtio.  It can be used with
- 	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
+diff --git a/include/linux/netlink.h b/include/linux/netlink.h
+index f78b430..86fde81a 100644
+--- a/include/linux/netlink.h
++++ b/include/linux/netlink.h
+@@ -145,4 +145,14 @@ static inline int netlink_dump_start(struct sock *ssk, struct sk_buff *skb,
+ 	return __netlink_dump_start(ssk, skb, nlh, control);
+ }
  
-+config NLMON
-+	tristate "Virtual netlink monitoring device"
-+	---help---
-+	  This option enables a monitoring net device for netlink skbs. The
-+	  purpose of this is to analyze netlink messages with packet sockets.
-+	  Thus applications like tcpdump will be able to see local netlink
-+	  messages if they tap into the netlink device, record pcaps for further
-+	  diagnostics, etc. This is mostly intended for developers or support
-+	  to debug netlink issues. If unsure, say N.
-+
- endif # NET_CORE
- 
- config SUNGEM_PHY
-diff --git a/drivers/net/Makefile b/drivers/net/Makefile
-index ef3d090..3fef8a8 100644
---- a/drivers/net/Makefile
-+++ b/drivers/net/Makefile
-@@ -22,6 +22,7 @@ obj-$(CONFIG_TUN) += tun.o
- obj-$(CONFIG_VETH) += veth.o
- obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
- obj-$(CONFIG_VXLAN) += vxlan.o
-+obj-$(CONFIG_NLMON) += nlmon.o
- 
- #
- # Networking Drivers
-diff --git a/drivers/net/nlmon.c b/drivers/net/nlmon.c
-new file mode 100644
-index 0000000..dc364be
---- /dev/null
-+++ b/drivers/net/nlmon.c
-@@ -0,0 +1,170 @@
-+#include <linux/module.h>
-+#include <linux/kernel.h>
-+#include <linux/netdevice.h>
-+#include <linux/netlink.h>
-+#include <net/net_namespace.h>
-+#include <linux/if_arp.h>
-+
-+struct pcpu_lstats {
-+	u64 packets;
-+	u64 bytes;
-+	struct u64_stats_sync syncp;
++struct netlink_tap {
++	struct net_device *dev;
++	struct module *module;
++	struct list_head list;
 +};
 +
-+static netdev_tx_t nlmon_xmit(struct sk_buff *skb, struct net_device *dev)
++extern int netlink_add_tap(struct netlink_tap *nt);
++extern int __netlink_remove_tap(struct netlink_tap *nt);
++extern int netlink_remove_tap(struct netlink_tap *nt);
++
+ #endif	/* __LINUX_NETLINK_H */
+diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
+index 8978755..796f1a5 100644
+--- a/net/netlink/af_netlink.c
++++ b/net/netlink/af_netlink.c
+@@ -57,6 +57,7 @@
+ #include <linux/audit.h>
+ #include <linux/mutex.h>
+ #include <linux/vmalloc.h>
++#include <linux/if_arp.h>
+ #include <asm/cacheflush.h>
+ 
+ #include <net/net_namespace.h>
+@@ -101,6 +102,9 @@ static atomic_t nl_table_users = ATOMIC_INIT(0);
+ 
+ static ATOMIC_NOTIFIER_HEAD(netlink_chain);
+ 
++static DEFINE_SPINLOCK(netlink_tap_lock);
++static struct list_head netlink_tap_all __read_mostly;
++
+ static inline u32 netlink_group_mask(u32 group)
+ {
+ 	return group ? 1 << (group - 1) : 0;
+@@ -111,6 +115,100 @@ static inline struct hlist_head *nl_portid_hashfn(struct nl_portid_hash *hash, u
+ 	return &hash->table[jhash_1word(portid, hash->rnd) & hash->mask];
+ }
+ 
++int netlink_add_tap(struct netlink_tap *nt)
 +{
-+	int len = skb->len;
-+	struct pcpu_lstats *stats = this_cpu_ptr(dev->lstats);
-+
-+	u64_stats_update_begin(&stats->syncp);
-+	stats->bytes += len;
-+	stats->packets++;
-+	u64_stats_update_end(&stats->syncp);
-+
-+	dev_kfree_skb(skb);
-+
-+	return NETDEV_TX_OK;
-+}
-+
-+static int nlmon_is_valid_mtu(int new_mtu)
-+{
-+	return new_mtu >= sizeof(struct nlmsghdr) && new_mtu <= INT_MAX;
-+}
-+
-+static int nlmon_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	if (!nlmon_is_valid_mtu(new_mtu))
++	if (unlikely(nt->dev->type != ARPHRD_NETLINK))
 +		return -EINVAL;
 +
-+	dev->mtu = new_mtu;
++	spin_lock(&netlink_tap_lock);
++	list_add_rcu(&nt->list, &netlink_tap_all);
++	spin_unlock(&netlink_tap_lock);
++
++	if (nt->module)
++		__module_get(nt->module);
++
 +	return 0;
 +}
++EXPORT_SYMBOL_GPL(netlink_add_tap);
 +
-+static int nlmon_dev_init(struct net_device *dev)
++int __netlink_remove_tap(struct netlink_tap *nt)
 +{
-+	dev->lstats = alloc_percpu(struct pcpu_lstats);
++	bool found = false;
++	struct netlink_tap *tmp;
 +
-+	return dev->lstats == NULL ? -ENOMEM : 0;
-+}
++	spin_lock(&netlink_tap_lock);
 +
-+static void nlmon_dev_uninit(struct net_device *dev)
-+{
-+	free_percpu(dev->lstats);
-+}
-+
-+static struct netlink_tap nlmon_tap;
-+
-+static int nlmon_open(struct net_device *dev)
-+{
-+	return netlink_add_tap(&nlmon_tap);
-+}
-+
-+static int nlmon_close(struct net_device *dev)
-+{
-+	return netlink_remove_tap(&nlmon_tap);
-+}
-+
-+static struct rtnl_link_stats64 *
-+nlmon_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
-+{
-+	int i;
-+	u64 bytes = 0, packets = 0;
-+
-+	for_each_possible_cpu(i) {
-+		const struct pcpu_lstats *nl_stats;
-+		u64 tbytes, tpackets;
-+		unsigned int start;
-+
-+		nl_stats = per_cpu_ptr(dev->lstats, i);
-+
-+		do {
-+			start = u64_stats_fetch_begin_bh(&nl_stats->syncp);
-+			tbytes = nl_stats->bytes;
-+			tpackets = nl_stats->packets;
-+		} while (u64_stats_fetch_retry_bh(&nl_stats->syncp, start));
-+
-+		packets += tpackets;
-+		bytes += tbytes;
++	list_for_each_entry(tmp, &netlink_tap_all, list) {
++		if (nt == tmp) {
++			list_del_rcu(&nt->list);
++			found = true;
++			goto out;
++		}
 +	}
 +
-+	stats->rx_packets = packets;
-+	stats->tx_packets = 0;
++	pr_warn("__netlink_remove_tap: %p not found\n", nt);
++out:
++	spin_unlock(&netlink_tap_lock);
 +
-+	stats->rx_bytes = bytes;
-+	stats->tx_bytes = 0;
++	if (found && nt->module)
++		module_put(nt->module);
 +
-+	return stats;
++	return found ? 0 : -ENODEV;
 +}
++EXPORT_SYMBOL_GPL(__netlink_remove_tap);
 +
-+static u32 always_on(struct net_device *dev)
++int netlink_remove_tap(struct netlink_tap *nt)
 +{
-+	return 1;
++	int ret;
++
++	ret = __netlink_remove_tap(nt);
++	synchronize_net();
++
++	return ret;
 +}
++EXPORT_SYMBOL_GPL(netlink_remove_tap);
 +
-+static const struct ethtool_ops nlmon_ethtool_ops = {
-+	.get_link = always_on,
-+};
-+
-+static const struct net_device_ops nlmon_ops = {
-+	.ndo_init = nlmon_dev_init,
-+	.ndo_uninit = nlmon_dev_uninit,
-+	.ndo_open = nlmon_open,
-+	.ndo_stop = nlmon_close,
-+	.ndo_start_xmit = nlmon_xmit,
-+	.ndo_get_stats64 = nlmon_get_stats64,
-+	.ndo_change_mtu = nlmon_change_mtu,
-+};
-+
-+static struct netlink_tap nlmon_tap __read_mostly = {
-+	.module = THIS_MODULE,
-+};
-+
-+static void nlmon_setup(struct net_device *dev)
++static int __netlink_deliver_tap_skb(struct sk_buff *skb,
++				     struct net_device *dev)
 +{
-+	dev->type = ARPHRD_NETLINK;
-+	dev->tx_queue_len = 0;
++	struct sk_buff *nskb;
++	int ret = -ENOMEM;
 +
-+	dev->netdev_ops	= &nlmon_ops;
-+	dev->ethtool_ops = &nlmon_ethtool_ops;
-+	dev->destructor	= free_netdev;
++	dev_hold(dev);
++	nskb = skb_clone(skb, GFP_ATOMIC);
++	if (nskb) {
++		nskb->dev = dev;
++		ret = dev_queue_xmit(nskb);
++		if (unlikely(ret > 0))
++			ret = net_xmit_errno(ret);
++	}
 +
-+	dev->features = NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
-+	dev->flags = IFF_NOARP;
-+
-+	/* That's rather a softlimit here, which, of course,
-+	 * can be altered. Not a real MTU, but what is to be
-+	 * expected in most cases.
-+	 */
-+	dev->mtu = NLMSG_GOODSIZE;
++	dev_put(dev);
++	return ret;
 +}
 +
-+static __init int nlmon_register(void)
++static void __netlink_deliver_tap(struct sk_buff *skb)
 +{
-+	int err;
-+	struct net_device *nldev;
++	int ret;
++	struct netlink_tap *tmp;
 +
-+	nldev = nlmon_tap.dev = alloc_netdev(0, "netlink", nlmon_setup);
-+	if (unlikely(nldev == NULL))
-+		return -ENOMEM;
-+
-+	err = register_netdev(nldev);
-+	if (unlikely(err))
-+		free_netdev(nldev);
-+
-+	return err;
++	list_for_each_entry_rcu(tmp, &netlink_tap_all, list) {
++		ret = __netlink_deliver_tap_skb(skb, tmp->dev);
++		if (unlikely(ret))
++			break;
++	}
 +}
 +
-+static __exit void nlmon_unregister(void)
++static void netlink_deliver_tap(struct sk_buff *skb)
 +{
-+	struct net_device *nldev = nlmon_tap.dev;
++	rcu_read_lock();
 +
-+	unregister_netdev(nldev);
++	if (unlikely(!list_empty(&netlink_tap_all)))
++		__netlink_deliver_tap(skb);
++
++	rcu_read_unlock();
 +}
 +
-+module_init(nlmon_register);
-+module_exit(nlmon_unregister);
+ static void netlink_overrun(struct sock *sk)
+ {
+ 	struct netlink_sock *nlk = nlk_sk(sk);
+@@ -1518,6 +1616,8 @@ static int __netlink_sendskb(struct sock *sk, struct sk_buff *skb)
+ {
+ 	int len = skb->len;
+ 
++	netlink_deliver_tap(skb);
 +
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Daniel Borkmann <dborkman@redhat.com>");
-+MODULE_AUTHOR("Mathieu Geli <geli@enseirb.fr>");
-+MODULE_DESCRIPTION("Netlink monitoring device");
+ #ifdef CONFIG_NETLINK_MMAP
+ 	if (netlink_skb_is_mmaped(skb))
+ 		netlink_queue_mmaped_skb(sk, skb);
+@@ -1578,6 +1678,11 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
+ 
+ 	ret = -ECONNREFUSED;
+ 	if (nlk->netlink_rcv != NULL) {
++		/* We could do a netlink_deliver_tap(skb) here as well
++		 * but since this is intended for the kernel only, we
++		 * should rather let it stay under the hood.
++		 */
++
+ 		ret = skb->len;
+ 		netlink_skb_set_owner_r(skb, sk);
+ 		NETLINK_CB(skb).sk = ssk;
+@@ -2975,6 +3080,8 @@ static int __init netlink_proto_init(void)
+ 		nl_table[i].compare = netlink_compare;
+ 	}
+ 
++	INIT_LIST_HEAD(&netlink_tap_all);
++
+ 	netlink_add_usersock_entry();
+ 
+ 	sock_register(&netlink_family_ops);
 -- 
 1.7.11.7
