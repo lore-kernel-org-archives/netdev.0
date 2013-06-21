@@ -1,37 +1,61 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] xen-netback: double free on unload
-Date: Fri, 21 Jun 2013 09:20:08 +0300
-Message-ID: <20130621062008.GA10873@elgon.mountain>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH 1/2] kernel: remove unnecessary head file
+Date: Fri, 21 Jun 2013 09:40:12 +0300 (EEST)
+Message-ID: <alpine.LFD.2.00.1306210937180.1707@ja.ssi.bg>
+References: <1371781157-16743-1-git-send-email-junwei.zhang@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: xen-devel@lists.xensource.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Ian Campbell <ian.campbell@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:22470 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030248Ab3FUGUV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 02:20:21 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: wensong@linux-vs.org, horms@verge.net.au, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: JunweiZhang <junwei.zhang@6wind.com>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1371781157-16743-1-git-send-email-junwei.zhang@6wind.com>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There is a typo here, "i" vs "j", so we would crash on module_exit().
 
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+	Hello,
 
-diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
-index a0b50ad..130bcb2 100644
---- a/drivers/net/xen-netback/netback.c
-+++ b/drivers/net/xen-netback/netback.c
-@@ -1968,8 +1968,8 @@ static void __exit netback_fini(void)
- 		del_timer_sync(&netbk->net_timer);
- 		kthread_stop(netbk->task);
- 		for (j = 0; j < MAX_PENDING_REQS; j++) {
--			if (netbk->mmap_pages[i])
--				__free_page(netbk->mmap_pages[i]);
-+			if (netbk->mmap_pages[j])
-+				__free_page(netbk->mmap_pages[j]);
- 		}
- 	}
- 
+On Fri, 21 Jun 2013, junwei.zhang@6wind.com wrote:
+
+> From: JunweiZhang <junwei.zhang@6wind.com>
+> 
+> ip_vs.h is not necessary for sysctl_binary.c.
+> 
+> prepare for the next patch to avoid compile issue.
+> 
+> Signed-off-by: JunweiZhang <junwei.zhang@6wind.com>
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+
+	Both patches look good to me:
+
+Reviewed-by: Julian Anastasov <ja@ssi.bg>
+
+	Please use version descriptor in future, for example:
+
+[PATCHv2 ...] ...
+
+> ---
+>  kernel/sysctl_binary.c | 1 -
+>  1 file changed, 1 deletion(-)
+> 
+> diff --git a/kernel/sysctl_binary.c b/kernel/sysctl_binary.c
+> index aea4a9e..b609213 100644
+> --- a/kernel/sysctl_binary.c
+> +++ b/kernel/sysctl_binary.c
+> @@ -3,7 +3,6 @@
+>  #include "../fs/xfs/xfs_sysctl.h"
+>  #include <linux/sunrpc/debug.h>
+>  #include <linux/string.h>
+> -#include <net/ip_vs.h>
+>  #include <linux/syscalls.h>
+>  #include <linux/namei.h>
+>  #include <linux/mount.h>
+> -- 
+> 1.8.1.2
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
