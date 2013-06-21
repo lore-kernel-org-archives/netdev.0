@@ -1,64 +1,92 @@
-From: =?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>
-Subject: [PATCH] bridge: prevent flooding IPv6 packets that do not
-	have a listener
-Date: Fri, 21 Jun 2013 13:53:58 +0200
-Message-ID: <1371815638-5618-1-git-send-email-linus.luessing@web.de>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH v2 net-next 6/6] bonding: add an option to fail when any
+ of arp_ip_target is inaccessible
+Date: Fri, 21 Jun 2013 14:03:20 +0200
+Message-ID: <20130621120319.GB7269@unicorn.suse.cz>
+References: <1371746105-2482-7-git-send-email-vfalico@redhat.com>
+ <20130621102318.GA7269@unicorn.suse.cz>
+ <20130621110031.GF1157@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Cc: Stephen Hemminger <stephen@networkplumber.org>, netdev@vger.kernel.org,
-	=?UTF-8?q?Linus=20L=C3=BCssing?= <linus.luessing@web.de>,
-	"David S. Miller" <davem@davemloft.net>, linux-kernel@vger.kernel.org
-To: bridge@lists.linux-foundation.org
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
+	rick.jones2@hp.com, nikolay@redhat.com
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from cantor2.suse.de ([195.135.220.15]:44777 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S965692Ab3FUMDW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jun 2013 08:03:22 -0400
+Content-Disposition: inline
+In-Reply-To: <20130621110031.GF1157@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Currently if there is no listener for a certain group then IPv6 packets
-for that group are flooded on all ports, even though there might be no
-host and router interested in it on a port.
+On Fri, Jun 21, 2013 at 01:00:31PM +0200, Veaceslav Falico wrote:
+> On Fri, Jun 21, 2013 at 12:23:18PM +0200, Michal Kubecek wrote:
+> >On Thu, Jun 20, 2013 at 06:35:05PM +0200, Veaceslav Falico wrote:
+> >>@@ -1712,6 +1721,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+> >>
+> >> 	new_slave->last_arp_rx = jiffies -
+> >> 		(msecs_to_jiffies(bond->params.arp_interval) + 1);
+> >>+	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
+> >>+		new_slave->target_last_arp_rx[i] = jiffies;
+> >>
+> >> 	if (bond->params.miimon && !bond->params.use_carrier) {
+> >> 		link_reporting = bond_check_dev_link(bond, slave_dev, 1);
+> >
+> >For cards with slow initial negotiation, this can cause a down -> up ->
+> >down -> up flap on enslaving. This is why initial walue of last_arp_rx
+> >was modified in commit f31c7937. Is there a reason not to initialize
+> >target_last_arp_rx[i] to the same value?
+> 
+> Yep, I've seen this commit, however I didn't really understand it.
+> 
+> My logic is:
+> 
+> 1) on enslaving, we suppose that the new slave is up and give it a chance
+> to prove it.
+> 	1.1) if there is no active slave, lets try the new one, anyway
+> 	     we're down.
+> 	1.2) if there is one - nothing changes
+> 
+> 2) if, as you've said, it's still initializing - then it basically will just
+> be marked as down until it finishes the initialization, and after that will
+> go up. So, it goes up -> down (while initializing) -> up (when arps are
+> received).
+> 
+> So, by using jiffies, we can start using the slave immediately, without
+> waiting to receive the confirmation - if we don't have an active one,
+> obviously. If we have one - nothing changes.
+> 
+> Did I miss something?
 
-With this commit they are only forwarded to ports with a multicast
-router.
+Experiments I've done show that most cards fall into one of two groups:
 
-Just like commit bd4265fe36 ("bridge: Only flood unregistered groups
-to routers") did for IPv4, let's do the same for IPv6 with the same
-reasoning.
+1. device is ready after dev_open() and netif_carrier_ok() reflects it
+2. device is not ready for some time after dev_open()
 
-Signed-off-by: Linus L=C3=BCssing <linus.luessing@web.de>
----
- net/bridge/br_multicast.c |   10 ++++++++--
- 1 file changed, 8 insertions(+), 2 deletions(-)
+For some cards from group 2, especially modern gigabit cards, this delay
+can be surprisingly long, e.g. for some igb based cards it can take more
+than two seconds until the card is ready and working. The original logic
+(always start in up state) then caused ARP monitor to detect a failure
+which was recorded and shown in statistics. I was not a functional
+problem but it confused some customers and their monitoring tools.
 
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 81f2389..8bdfaf5 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1465,8 +1465,14 @@ static int br_multicast_ipv6_rcv(struct net_bridge=
- *br,
- 	 *  - MLD has always Router Alert hop-by-hop option
- 	 *  - But we do not support jumbrograms.
- 	 */
--	if (ip6h->version !=3D 6 ||
--	    ip6h->nexthdr !=3D IPPROTO_HOPOPTS ||
-+	if (ip6h->version !=3D 6)
-+		return 0;
-+
-+	/* Prevent flooding this packet if there is no listener present */
-+	if (ipv6_is_transient_multicast(&ip6h->daddr))
-+		BR_INPUT_SKB_CB(skb)->mrouters_only =3D 1;
-+
-+	if (ip6h->nexthdr !=3D IPPROTO_HOPOPTS ||
- 	    ip6h->payload_len =3D=3D 0)
- 		return 0;
-=20
---=20
-1.7.10.4
+Therefore commit f31c7937 changed logic to start a new slave in down
+state if bond uses ARP monitoring and netif_carrier_ok() returns false.
+This allows slaves from group 1 to start as up and stay that way and
+slaves from group 2 to start as down and do only one down -> up
+transition once the card is really ready; to be more precise: with a bit
+of delay but exactly at the same time the slave would be finally up
+without the patch.
+
+This also required setting last_arp_rx not to "now" but to "more that
+arp_interval ago", otherwise with arp_interval short enough (with
+respect to the initialization delay), ARP monitor would falsely detect
+up state on first opportunity, switch the slave to up, then after
+arp_interval back to down once more and later finally to up. And unless
+I overlooked something, if you set target_last_arp_rx[i] to jiffies,
+this is exactly what happens with the "all" setting.
+
+                                                        Michal Kubecek
