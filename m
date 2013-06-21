@@ -1,44 +1,231 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net-next 8/8] qlcnic: Update version to 5.2.44
-Date: Fri, 21 Jun 2013 12:31:01 -0400
-Message-ID: <1371832261-18930-9-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [PATCH net-next 6/8] qlcnic: Add support for 'set driver version' in 83XX
+Date: Fri, 21 Jun 2013 12:30:59 -0400
+Message-ID: <1371832261-18930-7-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1371832261-18930-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
 	<shahed.shaikh@qlogic.com>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+	Pratik Pujar <pratik.pujar@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe001.messaging.microsoft.com ([216.32.181.181]:46492
+Received: from ch1ehsobe006.messaging.microsoft.com ([216.32.181.186]:12813
 	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1423380Ab3FUQ56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 12:57:58 -0400
+	by vger.kernel.org with ESMTP id S1423420Ab3FUQ54 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 12:57:56 -0400
 In-Reply-To: <1371832261-18930-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+From: Pratik Pujar <pratik.pujar@qlogic.com>
 
+Issue 'set driver version' during driver load and after reset recovery
+to notify the driver version to the firmware.
+
+Signed-off-by: Pratik Pujar <pratik.pujar@qlogic.com>
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    5 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |    9 +++++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |    6 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    3 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   25 +++++++++++++------
+ 6 files changed, 33 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 57762b9..d59be02 100644
+index 0b3361e..45d9329 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -38,8 +38,8 @@
+@@ -819,7 +819,7 @@ struct qlcnic_mac_list_s {
  
- #define _QLCNIC_LINUX_MAJOR 5
- #define _QLCNIC_LINUX_MINOR 2
--#define _QLCNIC_LINUX_SUBVERSION 43
--#define QLCNIC_LINUX_VERSIONID  "5.2.43"
-+#define _QLCNIC_LINUX_SUBVERSION 44
-+#define QLCNIC_LINUX_VERSIONID  "5.2.44"
- #define QLCNIC_DRV_IDC_VER  0x01
- #define QLCNIC_DRIVER_VERSION  ((_QLCNIC_LINUX_MAJOR << 16) |\
- 		 (_QLCNIC_LINUX_MINOR << 8) | (_QLCNIC_LINUX_SUBVERSION))
+ #define QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG	BIT_2
+ #define QLCNIC_FW_CAP2_HW_LRO_IPV6		BIT_3
+-#define QLCNIC_FW_CAPABILITY_2_OCBB		BIT_5
++#define QLCNIC_FW_CAPABILITY_SET_DRV_VER	BIT_5
+ #define QLCNIC_FW_CAPABILITY_2_BEACON		BIT_7
+ 
+ /* module types */
+@@ -1476,7 +1476,7 @@ int qlcnic_nic_del_mac(struct qlcnic_adapter *, const u8 *);
+ void qlcnic_82xx_free_mac_list(struct qlcnic_adapter *adapter);
+ 
+ int qlcnic_fw_cmd_set_mtu(struct qlcnic_adapter *adapter, int mtu);
+-int qlcnic_fw_cmd_set_drv_version(struct qlcnic_adapter *);
++int qlcnic_fw_cmd_set_drv_version(struct qlcnic_adapter *, u32);
+ int qlcnic_change_mtu(struct net_device *netdev, int new_mtu);
+ netdev_features_t qlcnic_fix_features(struct net_device *netdev,
+ 	netdev_features_t features);
+@@ -1500,6 +1500,7 @@ int qlcnic_validate_max_rss(struct qlcnic_adapter *, __u32);
+ void qlcnic_alloc_lb_filters_mem(struct qlcnic_adapter *adapter);
+ void qlcnic_82xx_set_mac_filter_count(struct qlcnic_adapter *);
+ int qlcnic_enable_msix(struct qlcnic_adapter *, u32);
++void qlcnic_set_drv_version(struct qlcnic_adapter *);
+ 
+ /*  eSwitch management functions */
+ int qlcnic_config_switch_port(struct qlcnic_adapter *,
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+index 48fdaff..a1887e4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+@@ -63,6 +63,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_83xx_mbx_tbl[] = {
+ 	{QLCNIC_CMD_STOP_NIC_FUNC, 2, 1},
+ 	{QLCNIC_CMD_SET_LED_CONFIG, 5, 1},
+ 	{QLCNIC_CMD_GET_LED_CONFIG, 1, 5},
++	{QLCNIC_CMD_83XX_SET_DRV_VER, 4, 1},
+ 	{QLCNIC_CMD_ADD_RCV_RINGS, 130, 26},
+ 	{QLCNIC_CMD_CONFIG_VPORT, 4, 4},
+ 	{QLCNIC_CMD_BC_EVENT_SETUP, 2, 1},
+@@ -2186,16 +2187,17 @@ int qlcnic_83xx_get_nic_info(struct qlcnic_adapter *adapter,
+ 	u32 temp;
+ 	u8 op = 0;
+ 	struct qlcnic_cmd_args cmd;
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 
+ 	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_GET_NIC_INFO);
+ 	if (err)
+ 		return err;
+ 
+-	if (func_id != adapter->ahw->pci_func) {
++	if (func_id != ahw->pci_func) {
+ 		temp = func_id << 16;
+ 		cmd.req.arg[1] = op | BIT_31 | temp;
+ 	} else {
+-		cmd.req.arg[1] = adapter->ahw->pci_func << 16;
++		cmd.req.arg[1] = ahw->pci_func << 16;
+ 	}
+ 	err = qlcnic_issue_cmd(adapter, &cmd);
+ 	if (err) {
+@@ -2222,6 +2224,9 @@ int qlcnic_83xx_get_nic_info(struct qlcnic_adapter *adapter,
+ 		temp = (cmd.rsp.arg[8] & 0x7FFE0000) >> 17;
+ 		npar_info->max_linkspeed_reg_offset = temp;
+ 	}
++	if (npar_info->capabilities & QLCNIC_FW_CAPABILITY_MORE_CAPS)
++		memcpy(ahw->extra_capability, &cmd.rsp.arg[16],
++		       sizeof(ahw->extra_capability));
+ 
+ out:
+ 	qlcnic_free_mbx_args(&cmd);
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+index f073c08..e2d04d5 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
+@@ -629,6 +629,7 @@ static int qlcnic_83xx_idc_reattach_driver(struct qlcnic_adapter *adapter)
+ 		return -EIO;
+ 	}
+ 
++	qlcnic_set_drv_version(adapter);
+ 	qlcnic_83xx_idc_attach_driver(adapter);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+index 72593a1..0d54fce 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c
+@@ -36,7 +36,7 @@ static const struct qlcnic_mailbox_metadata qlcnic_mbx_tbl[] = {
+ 	{QLCNIC_CMD_CONFIG_PORT, 4, 1},
+ 	{QLCNIC_CMD_TEMP_SIZE, 4, 4},
+ 	{QLCNIC_CMD_GET_TEMP_HDR, 4, 1},
+-	{QLCNIC_CMD_SET_DRV_VER, 4, 1},
++	{QLCNIC_CMD_82XX_SET_DRV_VER, 4, 1},
+ 	{QLCNIC_CMD_GET_LED_STATUS, 4, 2},
+ };
+ 
+@@ -182,7 +182,7 @@ int qlcnic_82xx_issue_cmd(struct qlcnic_adapter *adapter,
+ 	return cmd->rsp.arg[0];
+ }
+ 
+-int qlcnic_fw_cmd_set_drv_version(struct qlcnic_adapter *adapter)
++int qlcnic_fw_cmd_set_drv_version(struct qlcnic_adapter *adapter, u32 fw_cmd)
+ {
+ 	struct qlcnic_cmd_args cmd;
+ 	u32 arg1, arg2, arg3;
+@@ -194,7 +194,7 @@ int qlcnic_fw_cmd_set_drv_version(struct qlcnic_adapter *adapter)
+ 		 _QLCNIC_LINUX_MAJOR, _QLCNIC_LINUX_MINOR,
+ 		 _QLCNIC_LINUX_SUBVERSION);
+ 
+-	err = qlcnic_alloc_mbx_args(&cmd, adapter, QLCNIC_CMD_SET_DRV_VER);
++	err = qlcnic_alloc_mbx_args(&cmd, adapter, fw_cmd);
+ 	if (err)
+ 		return err;
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
+index 812fd07..b190c84 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
+@@ -86,7 +86,7 @@ enum qlcnic_regs {
+ #define QLCNIC_CMD_BC_EVENT_SETUP		0x31
+ #define	QLCNIC_CMD_CONFIG_VPORT			0x32
+ #define QLCNIC_CMD_GET_MAC_STATS		0x37
+-#define QLCNIC_CMD_SET_DRV_VER			0x38
++#define QLCNIC_CMD_82XX_SET_DRV_VER		0x38
+ #define QLCNIC_CMD_GET_LED_STATUS		0x3C
+ #define QLCNIC_CMD_CONFIGURE_RSS		0x41
+ #define QLCNIC_CMD_CONFIG_INTR_COAL		0x43
+@@ -103,6 +103,7 @@ enum qlcnic_regs {
+ #define QLCNIC_CMD_GET_LINK_STATUS		0x68
+ #define QLCNIC_CMD_SET_LED_CONFIG		0x69
+ #define QLCNIC_CMD_GET_LED_CONFIG		0x6A
++#define QLCNIC_CMD_83XX_SET_DRV_VER		0x6F
+ #define QLCNIC_CMD_ADD_RCV_RINGS		0x0B
+ 
+ #define QLCNIC_INTRPT_INTX			1
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 97d633a..6859836 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -1985,6 +1985,21 @@ int qlcnic_alloc_tx_rings(struct qlcnic_adapter *adapter,
+ 	return 0;
+ }
+ 
++void qlcnic_set_drv_version(struct qlcnic_adapter *adapter)
++{
++	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	u32 fw_cmd = 0;
++
++	if (qlcnic_82xx_check(adapter))
++		fw_cmd = QLCNIC_CMD_82XX_SET_DRV_VER;
++	else if (qlcnic_83xx_check(adapter))
++		fw_cmd = QLCNIC_CMD_83XX_SET_DRV_VER;
++
++	if ((ahw->capabilities & QLCNIC_FW_CAPABILITY_MORE_CAPS) &&
++	    (ahw->extra_capability[0] & QLCNIC_FW_CAPABILITY_SET_DRV_VER))
++		qlcnic_fw_cmd_set_drv_version(adapter, fw_cmd);
++}
++
+ static int
+ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+@@ -1992,7 +2007,6 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	struct qlcnic_adapter *adapter = NULL;
+ 	struct qlcnic_hardware_context *ahw;
+ 	int err, pci_using_dac = -1;
+-	u32 capab2;
+ 	char board_name[QLCNIC_MAX_BOARD_NAME_LEN + 19]; /* MAC + ": " + name */
+ 
+ 	if (pdev->is_virtfn)
+@@ -2147,13 +2161,7 @@ qlcnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (err)
+ 		goto err_out_disable_mbx_intr;
+ 
+-	if (qlcnic_82xx_check(adapter)) {
+-		if (ahw->capabilities & QLCNIC_FW_CAPABILITY_MORE_CAPS) {
+-			capab2 = QLCRD32(adapter, CRB_FW_CAPABILITIES_2);
+-			if (capab2 & QLCNIC_FW_CAPABILITY_2_OCBB)
+-				qlcnic_fw_cmd_set_drv_version(adapter);
+-		}
+-	}
++	qlcnic_set_drv_version(adapter);
+ 
+ 	pci_set_drvdata(pdev, adapter);
+ 
+@@ -3124,6 +3132,7 @@ done:
+ 	adapter->fw_fail_cnt = 0;
+ 	adapter->flags &= ~QLCNIC_FW_HANG;
+ 	clear_bit(__QLCNIC_RESETTING, &adapter->state);
++	qlcnic_set_drv_version(adapter);
+ 
+ 	if (!qlcnic_clr_drv_state(adapter))
+ 		qlcnic_schedule_work(adapter, qlcnic_fw_poll_work,
 -- 
 1.7.1
