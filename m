@@ -1,18 +1,17 @@
 From: Ricardo Landim <ricardolan@gmail.com>
-Subject: (unknown)
-Date: Fri, 21 Jun 2013 07:01:52 -0300
-Message-ID: <CACYKsS63yKWVY=9P8hP198DdMV2KxZXXWKwCB0FTZsw4vu86Yg@mail.gmail.com>
+Subject: UDP splice
+Date: Fri, 21 Jun 2013 07:04:16 -0300
+Message-ID: <CACYKsS7pMFNdBxU2raMphKyb1zU7MEbhc=vsD+FdZ5sgFq71NQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f169.google.com ([209.85.214.169]:54102 "EHLO
-	mail-ob0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751957Ab3FUKBx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 06:01:53 -0400
-Received: by mail-ob0-f169.google.com with SMTP id up14so8263157obb.28
-        for <netdev@vger.kernel.org>; Fri, 21 Jun 2013 03:01:52 -0700 (PDT)
-Subject: 
+Received: from mail-oa0-f52.google.com ([209.85.219.52]:38010 "EHLO
+	mail-oa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750725Ab3FUKER (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 06:04:17 -0400
+Received: by mail-oa0-f52.google.com with SMTP id g12so8977664oah.25
+        for <netdev@vger.kernel.org>; Fri, 21 Jun 2013 03:04:17 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
