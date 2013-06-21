@@ -1,357 +1,95 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH net-next 4/8] qlcnic: Add support for PEX DMA method to read memory section of adapter dump
-Date: Fri, 21 Jun 2013 12:30:57 -0400
-Message-ID: <1371832261-18930-5-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [PATCH net-next 5/8] qlcnic: Cleanup of structure qlcnic_hardware_context
+Date: Fri, 21 Jun 2013 12:30:58 -0400
+Message-ID: <1371832261-18930-6-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1371832261-18930-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
-	<shahed.shaikh@qlogic.com>, <Dept_NX_Linux_NIC_Driver@qlogic.com>
+	<shahed.shaikh@qlogic.com>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Pratik Pujar <pratik.pujar@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ch1ehsobe002.messaging.microsoft.com ([216.32.181.182]:46327
+Received: from ch1ehsobe003.messaging.microsoft.com ([216.32.181.183]:20955
 	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1423203Ab3FUQ5u (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 12:57:50 -0400
+	by vger.kernel.org with ESMTP id S1423380Ab3FUQ5w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 12:57:52 -0400
 In-Reply-To: <1371832261-18930-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahed Shaikh <shahed.shaikh@qlogic.com>
+From: Pratik Pujar <pratik.pujar@qlogic.com>
 
-This patch adds support to read memory section of adapter
-dump using PEX DMA method. This method significantly improves
-total adapter dump collection time.
-
-Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
+Signed-off-by: Pratik Pujar <pratik.pujar@qlogic.com>
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    3 +
- .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |  225 +++++++++++++++++++-
- 2 files changed, 221 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h       |    2 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c    |    3 ++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c  |    4 ++--
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c |    2 +-
+ 4 files changed, 6 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index cb39650..87d0054 100644
+index 87d0054..0b3361e 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -393,6 +393,9 @@ struct qlcnic_fw_dump {
- 	u32	size;	/* total size of the dump */
- 	void	*data;	/* dump data area */
- 	struct	qlcnic_dump_template_hdr *tmpl_hdr;
-+	dma_addr_t phys_addr;
-+	void	*dma_buffer;
-+	bool	use_pex_dma;
- };
+@@ -449,7 +449,7 @@ struct qlcnic_hardware_context {
+ 	u16 max_pci_func;
  
- /*
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-index 4b9bab1..ab8a674 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_minidump.c
-@@ -15,6 +15,7 @@
- #define QLC_83XX_MINIDUMP_FLASH		0x520000
- #define QLC_83XX_OCM_INDEX			3
- #define QLC_83XX_PCI_INDEX			0
-+#define QLC_83XX_DMA_ENGINE_INDEX		8
- 
- static const u32 qlcnic_ms_read_data[] = {
- 	0x410000A8, 0x410000AC, 0x410000B8, 0x410000BC
-@@ -32,6 +33,16 @@ static const u32 qlcnic_ms_read_data[] = {
- 
- #define QLCNIC_DUMP_MASK_MAX	0xff
- 
-+struct qlcnic_pex_dma_descriptor {
-+	u32	read_data_size;
-+	u32	dma_desc_cmd;
-+	u32	src_addr_low;
-+	u32	src_addr_high;
-+	u32	dma_bus_addr_low;
-+	u32	dma_bus_addr_high;
-+	u32	rsvd[6];
-+} __packed;
-+
- struct qlcnic_common_entry_hdr {
- 	u32     type;
- 	u32     offset;
-@@ -90,7 +101,10 @@ struct __ocm {
- } __packed;
- 
- struct __mem {
--	u8	rsvd[24];
-+	u32	desc_card_addr;
-+	u32	dma_desc_cmd;
-+	u32	start_dma_cmd;
-+	u32	rsvd[3];
- 	u32	addr;
- 	u32	size;
- } __packed;
-@@ -466,12 +480,12 @@ skip_poll:
- 	return l2->no_ops * l2->read_addr_num * sizeof(u32);
- }
- 
--static u32 qlcnic_read_memory(struct qlcnic_adapter *adapter,
--			      struct qlcnic_dump_entry *entry, __le32 *buffer)
-+static u32 qlcnic_read_memory_test_agent(struct qlcnic_adapter *adapter,
-+					 struct __mem *mem, __le32 *buffer,
-+					 int *ret)
- {
--	u32 addr, data, test, ret = 0;
-+	u32 addr, data, test;
- 	int i, reg_read;
--	struct __mem *mem = &entry->region.mem;
- 
- 	reg_read = mem->size;
- 	addr = mem->addr;
-@@ -480,7 +494,8 @@ static u32 qlcnic_read_memory(struct qlcnic_adapter *adapter,
- 		dev_info(&adapter->pdev->dev,
- 			 "Unaligned memory addr:0x%x size:0x%x\n",
- 			 addr, reg_read);
--		return -EINVAL;
-+		*ret = -EINVAL;
-+		return 0;
+ 	u32 capabilities;
+-	u32 capabilities2;
++	u32 extra_capability[3];
+ 	u32 temp;
+ 	u32 int_vec_bit;
+ 	u32 fw_hal_version;
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+index e7f305d..9fcbfd4 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
+@@ -786,7 +786,8 @@ int qlcnic_82xx_config_hw_lro(struct qlcnic_adapter *adapter, int enable)
+ 	word = 0;
+ 	if (enable) {
+ 		word = QLCNIC_ENABLE_IPV4_LRO | QLCNIC_NO_DEST_IPV4_CHECK;
+-		if (adapter->ahw->capabilities2 & QLCNIC_FW_CAP2_HW_LRO_IPV6)
++		if (adapter->ahw->extra_capability[0] &
++		    QLCNIC_FW_CAP2_HW_LRO_IPV6)
+ 			word |= QLCNIC_ENABLE_IPV6_LRO |
+ 				QLCNIC_NO_DEST_IPV6_CHECK;
  	}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+index 14d05e3..97d633a 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
+@@ -994,7 +994,7 @@ qlcnic_initialize_nic(struct qlcnic_adapter *adapter)
+ 	if (adapter->ahw->capabilities & QLCNIC_FW_CAPABILITY_MORE_CAPS) {
+ 		u32 temp;
+ 		temp = QLCRD32(adapter, CRB_FW_CAPABILITIES_2);
+-		adapter->ahw->capabilities2 = temp;
++		adapter->ahw->extra_capability[0] = temp;
+ 	}
+ 	adapter->ahw->max_mac_filters = nic_info.max_mac_filters;
+ 	adapter->ahw->max_mtu = nic_info.max_mtu;
+@@ -1486,7 +1486,7 @@ static void qlcnic_get_lro_mss_capability(struct qlcnic_adapter *adapter)
+ 	u32 capab = 0;
  
- 	mutex_lock(&adapter->ahw->mem_lock);
-@@ -499,7 +514,7 @@ static u32 qlcnic_read_memory(struct qlcnic_adapter *adapter,
- 			if (printk_ratelimit()) {
- 				dev_err(&adapter->pdev->dev,
- 					"failed to read through agent\n");
--				ret = -EINVAL;
-+				*ret = -EIO;
- 				goto out;
- 			}
- 		}
-@@ -516,6 +531,181 @@ out:
- 	return mem->size;
- }
- 
-+/* DMA register base address */
-+#define QLC_DMA_REG_BASE_ADDR(dma_no)	(0x77320000 + (dma_no * 0x10000))
-+
-+/* DMA register offsets w.r.t base address */
-+#define QLC_DMA_CMD_BUFF_ADDR_LOW	0
-+#define QLC_DMA_CMD_BUFF_ADDR_HI	4
-+#define QLC_DMA_CMD_STATUS_CTRL		8
-+
-+#define QLC_PEX_DMA_READ_SIZE		(PAGE_SIZE * 16)
-+
-+static int qlcnic_start_pex_dma(struct qlcnic_adapter *adapter,
-+				struct __mem *mem)
-+{
-+	struct qlcnic_dump_template_hdr *tmpl_hdr;
-+	struct device *dev = &adapter->pdev->dev;
-+	u32 dma_no, dma_base_addr, temp_addr;
-+	int i, ret, dma_sts;
-+
-+	tmpl_hdr = adapter->ahw->fw_dump.tmpl_hdr;
-+	dma_no = tmpl_hdr->saved_state[QLC_83XX_DMA_ENGINE_INDEX];
-+	dma_base_addr = QLC_DMA_REG_BASE_ADDR(dma_no);
-+
-+	temp_addr = dma_base_addr + QLC_DMA_CMD_BUFF_ADDR_LOW;
-+	ret = qlcnic_83xx_wrt_reg_indirect(adapter, temp_addr,
-+					   mem->desc_card_addr);
-+	if (ret)
-+		return ret;
-+
-+	temp_addr = dma_base_addr + QLC_DMA_CMD_BUFF_ADDR_HI;
-+	ret = qlcnic_83xx_wrt_reg_indirect(adapter, temp_addr, 0);
-+	if (ret)
-+		return ret;
-+
-+	temp_addr = dma_base_addr + QLC_DMA_CMD_STATUS_CTRL;
-+	ret = qlcnic_83xx_wrt_reg_indirect(adapter, temp_addr,
-+					   mem->start_dma_cmd);
-+	if (ret)
-+		return ret;
-+
-+	/* Wait for DMA to complete */
-+	temp_addr = dma_base_addr + QLC_DMA_CMD_STATUS_CTRL;
-+	for (i = 0; i < 400; i++) {
-+		dma_sts = qlcnic_ind_rd(adapter, temp_addr);
-+
-+		if (dma_sts & BIT_1)
-+			usleep_range(250, 500);
-+		else
-+			break;
-+	}
-+
-+	if (i >= 400) {
-+		dev_info(dev, "PEX DMA operation timed out");
-+		ret = -EIO;
-+	}
-+
-+	return ret;
-+}
-+
-+static u32 qlcnic_read_memory_pexdma(struct qlcnic_adapter *adapter,
-+				     struct __mem *mem,
-+				     __le32 *buffer, int *ret)
-+{
-+	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
-+	u32 temp, dma_base_addr, size = 0, read_size = 0;
-+	struct qlcnic_pex_dma_descriptor *dma_descr;
-+	struct qlcnic_dump_template_hdr *tmpl_hdr;
-+	struct device *dev = &adapter->pdev->dev;
-+	dma_addr_t dma_phys_addr;
-+	void *dma_buffer;
-+
-+	tmpl_hdr = fw_dump->tmpl_hdr;
-+
-+	/* Check if DMA engine is available */
-+	temp = tmpl_hdr->saved_state[QLC_83XX_DMA_ENGINE_INDEX];
-+	dma_base_addr = QLC_DMA_REG_BASE_ADDR(temp);
-+	temp = qlcnic_ind_rd(adapter,
-+			     dma_base_addr + QLC_DMA_CMD_STATUS_CTRL);
-+
-+	if (!(temp & BIT_31)) {
-+		dev_info(dev, "%s: DMA engine is not available\n", __func__);
-+		*ret = -EIO;
-+		return 0;
-+	}
-+
-+	/* Create DMA descriptor */
-+	dma_descr = kzalloc(sizeof(struct qlcnic_pex_dma_descriptor),
-+			    GFP_KERNEL);
-+	if (!dma_descr) {
-+		*ret = -ENOMEM;
-+		return 0;
-+	}
-+
-+	/* dma_desc_cmd  0:15  = 0
-+	 * dma_desc_cmd 16:19  = mem->dma_desc_cmd 0:3
-+	 * dma_desc_cmd 20:23  = pci function number
-+	 * dma_desc_cmd 24:31  = mem->dma_desc_cmd 8:15
-+	 */
-+	dma_phys_addr = fw_dump->phys_addr;
-+	dma_buffer = fw_dump->dma_buffer;
-+	temp = 0;
-+	temp = mem->dma_desc_cmd & 0xff0f;
-+	temp |= (adapter->ahw->pci_func & 0xf) << 4;
-+	dma_descr->dma_desc_cmd = (temp << 16) & 0xffff0000;
-+	dma_descr->dma_bus_addr_low = LSD(dma_phys_addr);
-+	dma_descr->dma_bus_addr_high = MSD(dma_phys_addr);
-+	dma_descr->src_addr_high = 0;
-+
-+	/* Collect memory dump using multiple DMA operations if required */
-+	while (read_size < mem->size) {
-+		if (mem->size - read_size >= QLC_PEX_DMA_READ_SIZE)
-+			size = QLC_PEX_DMA_READ_SIZE;
-+		else
-+			size = mem->size - read_size;
-+
-+		dma_descr->src_addr_low = mem->addr + read_size;
-+		dma_descr->read_data_size = size;
-+
-+		/* Write DMA descriptor to MS memory*/
-+		temp = sizeof(struct qlcnic_pex_dma_descriptor) / 16;
-+		*ret = qlcnic_83xx_ms_mem_write128(adapter, mem->desc_card_addr,
-+						   (u32 *)dma_descr, temp);
-+		if (*ret) {
-+			dev_info(dev, "Failed to write DMA descriptor to MS memory at address 0x%x\n",
-+				 mem->desc_card_addr);
-+			goto free_dma_descr;
-+		}
-+
-+		*ret = qlcnic_start_pex_dma(adapter, mem);
-+		if (*ret) {
-+			dev_info(dev, "Failed to start PEX DMA operation\n");
-+			goto free_dma_descr;
-+		}
-+
-+		memcpy(buffer, dma_buffer, size);
-+		buffer += size / 4;
-+		read_size += size;
-+	}
-+
-+free_dma_descr:
-+	kfree(dma_descr);
-+
-+	return read_size;
-+}
-+
-+static u32 qlcnic_read_memory(struct qlcnic_adapter *adapter,
-+			      struct qlcnic_dump_entry *entry, __le32 *buffer)
-+{
-+	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
-+	struct device *dev = &adapter->pdev->dev;
-+	struct __mem *mem = &entry->region.mem;
-+	u32 data_size;
-+	int ret = 0;
-+
-+	if (fw_dump->use_pex_dma) {
-+		data_size = qlcnic_read_memory_pexdma(adapter, mem, buffer,
-+						      &ret);
-+		if (ret)
-+			dev_info(dev,
-+				 "Failed to read memory dump using PEX DMA: mask[0x%x]\n",
-+				 entry->hdr.mask);
-+		else
-+			return data_size;
-+	}
-+
-+	data_size = qlcnic_read_memory_test_agent(adapter, mem, buffer, &ret);
-+	if (ret) {
-+		dev_info(dev,
-+			 "Failed to read memory dump using test agent method: mask[0x%x]\n",
-+			 entry->hdr.mask);
-+		return 0;
-+	} else {
-+		return data_size;
-+	}
-+}
-+
- static u32 qlcnic_dump_nop(struct qlcnic_adapter *adapter,
- 			   struct qlcnic_dump_entry *entry, __le32 *buffer)
- {
-@@ -893,6 +1083,12 @@ flash_temp:
- 
- 	tmpl_hdr = ahw->fw_dump.tmpl_hdr;
- 	tmpl_hdr->drv_cap_mask = QLCNIC_DUMP_MASK_DEF;
-+
-+	if ((tmpl_hdr->version & 0xffffff) >= 0x20001)
-+		ahw->fw_dump.use_pex_dma = true;
-+	else
-+		ahw->fw_dump.use_pex_dma = false;
-+
- 	ahw->fw_dump.enable = 1;
- 
- 	return 0;
-@@ -910,7 +1106,9 @@ int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
- 	struct qlcnic_fw_dump *fw_dump = &adapter->ahw->fw_dump;
- 	struct qlcnic_dump_template_hdr *tmpl_hdr = fw_dump->tmpl_hdr;
- 	static const struct qlcnic_dump_operations *fw_dump_ops;
-+	struct device *dev = &adapter->pdev->dev;
- 	struct qlcnic_hardware_context *ahw;
-+	void *temp_buffer;
- 
- 	ahw = adapter->ahw;
- 
-@@ -944,6 +1142,16 @@ int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
- 	tmpl_hdr->sys_info[0] = QLCNIC_DRIVER_VERSION;
- 	tmpl_hdr->sys_info[1] = adapter->fw_version;
- 
-+	if (fw_dump->use_pex_dma) {
-+		temp_buffer = dma_alloc_coherent(dev, QLC_PEX_DMA_READ_SIZE,
-+						 &fw_dump->phys_addr,
-+						 GFP_KERNEL);
-+		if (!temp_buffer)
-+			fw_dump->use_pex_dma = false;
-+		else
-+			fw_dump->dma_buffer = temp_buffer;
-+	}
-+
  	if (qlcnic_82xx_check(adapter)) {
- 		ops_cnt = ARRAY_SIZE(qlcnic_fw_dump_ops);
- 		fw_dump_ops = qlcnic_fw_dump_ops;
-@@ -1002,6 +1210,9 @@ int qlcnic_dump_fw(struct qlcnic_adapter *adapter)
- 		return 0;
- 	}
- error:
-+	if (fw_dump->use_pex_dma)
-+		dma_free_coherent(dev, QLC_PEX_DMA_READ_SIZE,
-+				  fw_dump->dma_buffer, fw_dump->phys_addr);
- 	vfree(fw_dump->data);
- 	return -EINVAL;
- }
+-		if (adapter->ahw->capabilities2 &
++		if (adapter->ahw->extra_capability[0] &
+ 		    QLCNIC_FW_CAPABILITY_2_LRO_MAX_TCP_SEG)
+ 			adapter->flags |= QLCNIC_FW_LRO_MSS_CAP;
+ 	} else {
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+index 7ec030a..10ed82b 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c
+@@ -168,7 +168,7 @@ static int qlcnic_82xx_store_beacon(struct qlcnic_adapter *adapter,
+ 	if (err)
+ 		return err;
+ 
+-	if ((ahw->capabilities2 & QLCNIC_FW_CAPABILITY_2_BEACON)) {
++	if (ahw->extra_capability[0] & QLCNIC_FW_CAPABILITY_2_BEACON) {
+ 		err = qlcnic_get_beacon_state(adapter, &h_beacon_state);
+ 		if (!err) {
+ 			dev_info(&adapter->pdev->dev,
 -- 
 1.7.1
