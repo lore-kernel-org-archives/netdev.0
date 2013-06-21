@@ -1,57 +1,55 @@
 From: Jesse Gross <jesse@nicira.com>
-Subject: [PATCH net-next 1/2] openvswitch: Allow GRE ports when compiled as a module.
-Date: Fri, 21 Jun 2013 16:17:10 -0700
-Message-ID: <1371856631-47807-1-git-send-email-jesse@nicira.com>
+Subject: [PATCH net-next 2/2] ip_tunnel: Protect tunnel functions with CONFIG_INET guard.
+Date: Fri, 21 Jun 2013 16:17:11 -0700
+Message-ID: <1371856631-47807-2-git-send-email-jesse@nicira.com>
+References: <1371856631-47807-1-git-send-email-jesse@nicira.com>
 Cc: netdev@vger.kernel.org, dev@openvswitch.org,
 	Pravin Shelar <pshelar@nicira.com>,
+	Randy Dunlap <rdunlap@infradead.org>,
 	Jesse Gross <jesse@nicira.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog121.obsmtp.com ([74.125.149.145]:51358 "HELO
-	na3sys009aog121.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1946207Ab3FUXRS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 19:17:18 -0400
-Received: by mail-pa0-f47.google.com with SMTP id kl14so8483417pab.34
-        for <netdev@vger.kernel.org>; Fri, 21 Jun 2013 16:17:18 -0700 (PDT)
+Received: from na3sys009aog106.obsmtp.com ([74.125.149.77]:52494 "HELO
+	na3sys009aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1946207Ab3FUXRV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 19:17:21 -0400
+Received: by mail-pa0-f54.google.com with SMTP id kx10so8444790pab.41
+        for <netdev@vger.kernel.org>; Fri, 21 Jun 2013 16:17:20 -0700 (PDT)
+In-Reply-To: <1371856631-47807-1-git-send-email-jesse@nicira.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Open vSwitch GRE tunnels are currently only enabled if the GRE
-datapath code is statically compiled in but it should be possible
-to use it as a module as well.
+Tunnel constants can be used in generic code but in these cases
+the inline functions in ip_tunnels.h cause compilation problems
+if CONFIG_INET is not set.
 
 CC: Pravin Shelar <pshelar@nicira.com>
+Reported-by: Randy Dunlap <rdunlap@infradead.org>
 Signed-off-by: Jesse Gross <jesse@nicira.com>
 ---
- net/openvswitch/vport-gre.c | 2 +-
- net/openvswitch/vport.c     | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ include/net/ip_tunnels.h | 5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/net/openvswitch/vport-gre.c b/net/openvswitch/vport-gre.c
-index 3a8d190..943e5c4 100644
---- a/net/openvswitch/vport-gre.c
-+++ b/net/openvswitch/vport-gre.c
-@@ -16,7 +16,7 @@
-  * 02110-1301, USA
-  */
- 
--#ifdef CONFIG_NET_IPGRE_DEMUX
-+#if IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)
- #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
- 
- #include <linux/if.h>
-diff --git a/net/openvswitch/vport.c b/net/openvswitch/vport.c
-index f52dfb9..ba81294 100644
---- a/net/openvswitch/vport.c
-+++ b/net/openvswitch/vport.c
-@@ -39,7 +39,7 @@ static const struct vport_ops *vport_ops_list[] = {
- 	&ovs_netdev_vport_ops,
- 	&ovs_internal_vport_ops,
- 
--#ifdef CONFIG_NET_IPGRE_DEMUX
-+#if IS_ENABLED(CONFIG_NET_IPGRE_DEMUX)
- 	&ovs_gre_vport_ops,
- #endif
+diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+index 10bbb42..b0d9824 100644
+--- a/include/net/ip_tunnels.h
++++ b/include/net/ip_tunnels.h
+@@ -93,6 +93,8 @@ struct ip_tunnel_net {
+ 	struct net_device *fb_tunnel_dev;
  };
+ 
++#ifdef CONFIG_INET
++
+ int ip_tunnel_init(struct net_device *dev);
+ void ip_tunnel_uninit(struct net_device *dev);
+ void  ip_tunnel_dellink(struct net_device *dev, struct list_head *head);
+@@ -180,4 +182,7 @@ static inline void iptunnel_xmit_stats(int err,
+ 		err_stats->tx_dropped++;
+ 	}
+ }
++
++#endif /* CONFIG_INET */
++
+ #endif /* __NET_IP_TUNNELS_H */
 -- 
 1.8.1.2
