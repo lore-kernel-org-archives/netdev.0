@@ -1,34 +1,43 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: Re: [PATCH 5/6] alx: fix MAC address alignment problem
-Date: Fri, 21 Jun 2013 10:43:32 +0200
-Message-ID: <1371804212.10400.1.camel@jlt4.sipsolutions.net>
-References: <1371766494-18979-1-git-send-email-johannes@sipsolutions.net>
-	 <1371766494-18979-6-git-send-email-johannes@sipsolutions.net>
-	 <AE90C24D6B3A694183C094C60CF0A2F6026B729E@saturn3.aculab.com>
+From: Wei Liu <wei.liu2@citrix.com>
+Subject: Re: [patch] xen-netback: double free on unload
+Date: Fri, 21 Jun 2013 10:51:01 +0100
+Message-ID: <20130621095101.GA14648@zion.uk.xensource.com>
+References: <20130621062008.GA10873@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben@decadent.org.uk
-To: David Laight <David.Laight@ACULAB.COM>
+Content-Type: text/plain; charset="us-ascii"
+Cc: Ian Campbell <ian.campbell@citrix.com>,
+	<xen-devel@lists.xensource.com>, <netdev@vger.kernel.org>,
+	<kernel-janitors@vger.kernel.org>, <wei.liu2@citrix.com>
+To: Dan Carpenter <dan.carpenter@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:50938 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752681Ab3FUInh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 04:43:37 -0400
-In-Reply-To: <AE90C24D6B3A694183C094C60CF0A2F6026B729E@saturn3.aculab.com>
+Received: from smtp.citrix.com ([66.165.176.89]:9858 "EHLO SMTP.CITRIX.COM"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750730Ab3FUJvE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jun 2013 05:51:04 -0400
+Content-Disposition: inline
+In-Reply-To: <20130621062008.GA10873@elgon.mountain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-06-21 at 09:38 +0100, David Laight wrote:
-> > In two places, parts of MAC addresses are used as u32/u16
-> > values. This can cause alignment problems, use put_unaligned
-> > and get_unaligned to fix this.
+On Fri, Jun 21, 2013 at 09:20:08AM +0300, Dan Carpenter wrote:
+> There is a typo here, "i" vs "j", so we would crash on module_exit().
 > 
-> I suspect they are always 16bit aligned, so 16bit accesses
-> would be ok - rather than using byte accesses.
-> However I wouldn't know how to request this with the available
-> definitions....
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> diff --git a/drivers/net/xen-netback/netback.c b/drivers/net/xen-netback/netback.c
+> index a0b50ad..130bcb2 100644
+> --- a/drivers/net/xen-netback/netback.c
+> +++ b/drivers/net/xen-netback/netback.c
+> @@ -1968,8 +1968,8 @@ static void __exit netback_fini(void)
+>  		del_timer_sync(&netbk->net_timer);
+>  		kthread_stop(netbk->task);
+>  		for (j = 0; j < MAX_PENDING_REQS; j++) {
+> -			if (netbk->mmap_pages[i])
+> -				__free_page(netbk->mmap_pages[i]);
+> +			if (netbk->mmap_pages[j])
+> +				__free_page(netbk->mmap_pages[j]);
 
-For at least one of them, there's no such guarantee.
+Nice catch, thanks.
 
-johannes
+
+Wei.
