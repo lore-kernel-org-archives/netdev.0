@@ -1,41 +1,48 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 0/2] Netfilter/IPVS fixes for net
-Date: Fri, 21 Jun 2013 02:38:39 +0200
-Message-ID: <1371775121-9710-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/2] netfilter: nf_conntrack_ipv6: Plug sk_buff leak in fragment handling
+Date: Fri, 21 Jun 2013 02:38:41 +0200
+Message-ID: <1371775121-9710-3-git-send-email-pablo@netfilter.org>
+References: <1371775121-9710-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:59452 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1758204Ab3FUAiz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 20 Jun 2013 20:38:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1371775121-9710-1-git-send-email-pablo@netfilter.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Phil Oester <kernel@linuxace.com>
 
-The following patchset contains two fixes for Netfilter/IPVS, they are:
+In commit 4cdd3408 ("netfilter: nf_conntrack_ipv6: improve fragmentation
+handling"), an sk_buff leak was introduced when dealing with reassembled
+packets by grabbing a reference to the original skb instead of the
+reassembled skb.  At this point, the leak only impacted conntracks with an
+associated helper.
 
-* A skb leak fix in fragmentation handling in case that helpers are in place,
-  it occurs since the IPV6 NAT infrastructure, from Phil Oester.
+In commit 58a317f1 ("netfilter: ipv6: add IPv6 NAT support"), the bug was
+expanded to include all reassembled packets with unconfirmed conntracks.
 
-* Fix SCTP port mangling in ICMP packets, from Julian Anastasov.
+Fix this by grabbing a reference to the proper reassembled skb.  This
+closes netfilter bugzilla #823.
 
-Specifically, the first one should find its path to -stable asap. I can take
-care myself of it once this hits Linus' tree, let me know what you prefer.
-
-You can pull these changes from:
-
-
-Julian Anastasov (1):
-  ipvs: SCTP ports should be writable in ICMP packets
-
-Phil Oester (1):
-  netfilter: nf_conntrack_ipv6: Plug sk_buff leak in fragment handling
-
+Signed-off-by: Phil Oester <kernel@linuxace.com>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
  net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |    2 +-
- net/netfilter/ipvs/ip_vs_core.c                |    3 ++-
- 2 files changed, 3 insertions(+), 2 deletions(-)
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
+diff --git a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+index 97bcf2b..c9b6a6e 100644
+--- a/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
++++ b/net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c
+@@ -204,7 +204,7 @@ static unsigned int __ipv6_conntrack_in(struct net *net,
+ 		if (ct != NULL && !nf_ct_is_untracked(ct)) {
+ 			help = nfct_help(ct);
+ 			if ((help && help->helper) || !nf_ct_is_confirmed(ct)) {
+-				nf_conntrack_get_reasm(skb);
++				nf_conntrack_get_reasm(reasm);
+ 				NF_HOOK_THRESH(NFPROTO_IPV6, hooknum, reasm,
+ 					       (struct net_device *)in,
+ 					       (struct net_device *)out,
 -- 
 1.7.10.4
+
