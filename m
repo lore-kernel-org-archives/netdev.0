@@ -1,53 +1,47 @@
-From: Christoph =?iso-8859-1?Q?M=FCllner?=
-	<christoph.muellner@theobroma-systems.com>
-Subject: [PATCH] net: fec: Fix multicast list setup in fec_restart().
-Date: Fri, 21 Jun 2013 18:40:55 +0200 (CEST)
-Message-ID: <61455.62.178.124.14.1371832855.squirrel@mail.theobroma-systems.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 2/8] qlcnic: Secondary unicast MAC address
+ support.
+Date: Fri, 21 Jun 2013 10:10:09 -0700
+Message-ID: <1371834609.19215.47.camel@joe-AO722>
+References: <1371832261-18930-1-git-send-email-jitendra.kalsaria@qlogic.com>
+	 <1371832261-18930-3-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "Grant Likely" <grant.likely@linaro.org>,
-	"Rob Herring" <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Fabio Estevam" <fabio.estevam@freescale.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	sony.chacko@qlogic.com, shahed.shaikh@qlogic.com,
+	Dept_NX_Linux_NIC_Driver@qlogic.com
+To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from perches-mx.perches.com ([206.117.179.246]:37097 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1423404Ab3FURKK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jun 2013 13:10:10 -0400
+In-Reply-To: <1371832261-18930-3-git-send-email-jitendra.kalsaria@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Setup the multicast list of the net_device instead of
-clearing it blindly. This restores the multicast groups
-in case of a link down/up event.
+On Fri, 2013-06-21 at 12:30 -0400, Jitendra Kalsaria wrote:
+> From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+> 
+> Add support for configuring secondary unicast address which
+> will use existing HW filters to store all the unicast MAC
+> addresses and prevent device going into promiscuous mode.
 
-Signed-off-by: Christoph Muellner <christoph.muellner@theobroma-systems.com>
----
- drivers/net/ethernet/freescale/fec_main.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+[]
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c
-b/drivers/net/ethernet/freescale/fec_main.c
-index a667015..8e8e743 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -60,6 +60,8 @@
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+[]
+> @@ -421,6 +421,7 @@ struct qlcnic_hardware_context {
+> +	u8 max_uc_count;
 
- #include "fec.h"
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
+[]
+> +#define QLC_83XX_MAX_UC_COUNT			4096
 
-+static void set_multicast_list(struct net_device *ndev);
-+
- #if defined(CONFIG_ARM)
- #define FEC_ALIGNMENT  0xf
- #else
-@@ -472,8 +474,7 @@ fec_restart(struct net_device *ndev, int duplex)
-        writel(0xffc00000, fep->hwp + FEC_IEVENT);
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h
+[]
+> +#define QLCNIC_MAX_UC_COUNT		512
 
-        /* Reset all multicast. */
--       writel(0, fep->hwp + FEC_GRP_HASH_TABLE_HIGH);
--       writel(0, fep->hwp + FEC_GRP_HASH_TABLE_LOW);
-+       set_multicast_list(ndev);
- #ifndef CONFIG_M5272
-        writel(0, fep->hwp + FEC_HASH_TABLE_HIGH);
-        writel(0, fep->hwp + FEC_HASH_TABLE_LOW);
--- 
-1.7.4.1
+These #defines don't seem right.
+There's no way to fit these values in a u8.
