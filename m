@@ -1,40 +1,258 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 1/3] net: if_arp: add ARPHRD_NETLINK type
-Date: Fri, 21 Jun 2013 19:38:06 +0200
-Message-ID: <1371836288-13122-2-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 3/3] packet: nlmon: virtual netlink monitoring device for packet sockets
+Date: Fri, 21 Jun 2013 19:38:08 +0200
+Message-ID: <1371836288-13122-4-git-send-email-dborkman@redhat.com>
 References: <1371836288-13122-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:9999 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33288 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423452Ab3FURiL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jun 2013 13:38:11 -0400
+	id S1423392Ab3FURiO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jun 2013 13:38:14 -0400
 In-Reply-To: <1371836288-13122-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This small patch adds the definition of ARPHRD_NETLINK which can for
-example be used by netlink monitoring devices as device type. So that
-sockaddr_ll can pick it up and based on that choose the correct packet
-dissector.
+Currently, there is no good possibility to debug netlink traffic that
+is being exchanged between kernel and user space. Therefore, this patch
+implements a netlink virtual device, so that netlink messages will be
+made visible to PF_PACKET sockets. Once there was an approach with a
+similar idea [1], but it got forgotten somehow.
+
+I think it makes most sense to accept the "overhead" of an extra netlink
+net device over implementing the same functionality from PF_PACKET
+sockets once again into netlink sockets. We have BPF filters that can
+already be easily applied which even have netlink extensions, we have
+RX_RING zero-copy between kernel- and user space that can be reused,
+and much more features. So instead of re-implementing all of this, we
+simply pass the skb to a given PF_PACKET socket for further analysis.
+
+Another nice benefit that comes from that is that no code needs to be
+changed in user space packet analyzers (maybe adding a dissector, but
+not more), thus out of the box, we can already capture pcap files of
+netlink traffic to debug/troubleshoot netlink problems.
+
+Also thanks goes to Thomas Graf, Flavio Leitner, Jesper Dangaard Brouer.
+
+ [1] http://marc.info/?l=linux-netdev&m=113813401516110
 
 Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
 ---
- include/uapi/linux/if_arp.h | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/Kconfig  |  10 +++
+ drivers/net/Makefile |   1 +
+ drivers/net/nlmon.c  | 170 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 181 insertions(+)
+ create mode 100644 drivers/net/nlmon.c
 
-diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
-index 82c7d1b..d7fea34 100644
---- a/include/uapi/linux/if_arp.h
-+++ b/include/uapi/linux/if_arp.h
-@@ -93,6 +93,7 @@
- #define ARPHRD_PHONET_PIPE 821		/* PhoNet pipe header		*/
- #define ARPHRD_CAIF	822		/* CAIF media type		*/
- #define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
-+#define ARPHRD_NETLINK	824		/* Netlink header		*/
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 3835321..bdcbaf4 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -244,6 +244,16 @@ config VIRTIO_NET
+ 	  This is the virtual network driver for virtio.  It can be used with
+ 	  lguest or QEMU based VMMs (like KVM or Xen).  Say Y or M.
  
- #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
- #define ARPHRD_NONE	  0xFFFE	/* zero header length */
++config NLMON
++	tristate "Virtual netlink monitoring device"
++	---help---
++	  This option enables a monitoring net device for netlink skbs. The
++	  purpose of this is to analyze netlink messages with packet sockets.
++	  Thus applications like tcpdump will be able to see local netlink
++	  messages if they tap into the netlink device, record pcaps for further
++	  diagnostics, etc. This is mostly intended for developers or support
++	  to debug netlink issues. If unsure, say N.
++
+ endif # NET_CORE
+ 
+ config SUNGEM_PHY
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index ef3d090..3fef8a8 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -22,6 +22,7 @@ obj-$(CONFIG_TUN) += tun.o
+ obj-$(CONFIG_VETH) += veth.o
+ obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
+ obj-$(CONFIG_VXLAN) += vxlan.o
++obj-$(CONFIG_NLMON) += nlmon.o
+ 
+ #
+ # Networking Drivers
+diff --git a/drivers/net/nlmon.c b/drivers/net/nlmon.c
+new file mode 100644
+index 0000000..dc364be
+--- /dev/null
++++ b/drivers/net/nlmon.c
+@@ -0,0 +1,170 @@
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/netdevice.h>
++#include <linux/netlink.h>
++#include <net/net_namespace.h>
++#include <linux/if_arp.h>
++
++struct pcpu_lstats {
++	u64 packets;
++	u64 bytes;
++	struct u64_stats_sync syncp;
++};
++
++static netdev_tx_t nlmon_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	int len = skb->len;
++	struct pcpu_lstats *stats = this_cpu_ptr(dev->lstats);
++
++	u64_stats_update_begin(&stats->syncp);
++	stats->bytes += len;
++	stats->packets++;
++	u64_stats_update_end(&stats->syncp);
++
++	dev_kfree_skb(skb);
++
++	return NETDEV_TX_OK;
++}
++
++static int nlmon_is_valid_mtu(int new_mtu)
++{
++	return new_mtu >= sizeof(struct nlmsghdr) && new_mtu <= INT_MAX;
++}
++
++static int nlmon_change_mtu(struct net_device *dev, int new_mtu)
++{
++	if (!nlmon_is_valid_mtu(new_mtu))
++		return -EINVAL;
++
++	dev->mtu = new_mtu;
++	return 0;
++}
++
++static int nlmon_dev_init(struct net_device *dev)
++{
++	dev->lstats = alloc_percpu(struct pcpu_lstats);
++
++	return dev->lstats == NULL ? -ENOMEM : 0;
++}
++
++static void nlmon_dev_uninit(struct net_device *dev)
++{
++	free_percpu(dev->lstats);
++}
++
++static struct netlink_tap nlmon_tap;
++
++static int nlmon_open(struct net_device *dev)
++{
++	return netlink_add_tap(&nlmon_tap);
++}
++
++static int nlmon_close(struct net_device *dev)
++{
++	return netlink_remove_tap(&nlmon_tap);
++}
++
++static struct rtnl_link_stats64 *
++nlmon_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
++{
++	int i;
++	u64 bytes = 0, packets = 0;
++
++	for_each_possible_cpu(i) {
++		const struct pcpu_lstats *nl_stats;
++		u64 tbytes, tpackets;
++		unsigned int start;
++
++		nl_stats = per_cpu_ptr(dev->lstats, i);
++
++		do {
++			start = u64_stats_fetch_begin_bh(&nl_stats->syncp);
++			tbytes = nl_stats->bytes;
++			tpackets = nl_stats->packets;
++		} while (u64_stats_fetch_retry_bh(&nl_stats->syncp, start));
++
++		packets += tpackets;
++		bytes += tbytes;
++	}
++
++	stats->rx_packets = packets;
++	stats->tx_packets = 0;
++
++	stats->rx_bytes = bytes;
++	stats->tx_bytes = 0;
++
++	return stats;
++}
++
++static u32 always_on(struct net_device *dev)
++{
++	return 1;
++}
++
++static const struct ethtool_ops nlmon_ethtool_ops = {
++	.get_link = always_on,
++};
++
++static const struct net_device_ops nlmon_ops = {
++	.ndo_init = nlmon_dev_init,
++	.ndo_uninit = nlmon_dev_uninit,
++	.ndo_open = nlmon_open,
++	.ndo_stop = nlmon_close,
++	.ndo_start_xmit = nlmon_xmit,
++	.ndo_get_stats64 = nlmon_get_stats64,
++	.ndo_change_mtu = nlmon_change_mtu,
++};
++
++static struct netlink_tap nlmon_tap __read_mostly = {
++	.module = THIS_MODULE,
++};
++
++static void nlmon_setup(struct net_device *dev)
++{
++	dev->type = ARPHRD_NETLINK;
++	dev->tx_queue_len = 0;
++
++	dev->netdev_ops	= &nlmon_ops;
++	dev->ethtool_ops = &nlmon_ethtool_ops;
++	dev->destructor	= free_netdev;
++
++	dev->features = NETIF_F_FRAGLIST | NETIF_F_HIGHDMA;
++	dev->flags = IFF_NOARP;
++
++	/* That's rather a softlimit here, which, of course,
++	 * can be altered. Not a real MTU, but what is to be
++	 * expected in most cases.
++	 */
++	dev->mtu = NLMSG_GOODSIZE;
++}
++
++static __init int nlmon_register(void)
++{
++	int err;
++	struct net_device *nldev;
++
++	nldev = nlmon_tap.dev = alloc_netdev(0, "netlink", nlmon_setup);
++	if (unlikely(nldev == NULL))
++		return -ENOMEM;
++
++	err = register_netdev(nldev);
++	if (unlikely(err))
++		free_netdev(nldev);
++
++	return err;
++}
++
++static __exit void nlmon_unregister(void)
++{
++	struct net_device *nldev = nlmon_tap.dev;
++
++	unregister_netdev(nldev);
++}
++
++module_init(nlmon_register);
++module_exit(nlmon_unregister);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Daniel Borkmann <dborkman@redhat.com>");
++MODULE_AUTHOR("Mathieu Geli <geli@enseirb.fr>");
++MODULE_DESCRIPTION("Netlink monitoring device");
 -- 
 1.7.11.7
