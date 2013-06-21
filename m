@@ -1,45 +1,51 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: fec: Fix multicast list setup in fec_restart().
-Date: Fri, 21 Jun 2013 10:25:08 -0700
-Message-ID: <1371835508.19215.50.camel@joe-AO722>
-References: <61455.62.178.124.14.1371832855.squirrel@mail.theobroma-systems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	netdev@vger.kernel.org
-To: Christoph =?ISO-8859-1?Q?M=FCllner?=
-	<christoph.muellner@theobroma-systems.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <61455.62.178.124.14.1371832855.squirrel@mail.theobroma-systems.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: [PATCH net-next 0/3] virtual netlink device for packet sockets
+Date: Fri, 21 Jun 2013 19:38:05 +0200
+Message-ID: <1371836288-13122-1-git-send-email-dborkman@redhat.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:10616 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422925Ab3FURiK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 21 Jun 2013 13:38:10 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2013-06-21 at 18:40 +0200, Christoph M=FCllner wrote:
-> Setup the multicast list of the net_device instead of
-> clearing it blindly. This restores the multicast groups
-> in case of a link down/up event.
->=20
-> Signed-off-by: Christoph Muellner <christoph.muellner@theobroma-syste=
-ms.com>
+This set allows for a virtual netlink device that can be easily used
+without modification by tools like tcpdump, Wireshark et al. to debug
+and troubleshoot netlink traffic that is exchanged between user and
+kernel space. We could even record pcap files for a later analysis.
+No code change would be needed on the side of such analyzers, except
+adding a simple protocol dissector, for example.
 
-Theobroma?
-food of the gods or does your company just like chocolate?
+Please have a look at the main description in patch 3. Patch 1 and 2
+are just prerequisits for the actual 3rd patch.
 
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c
-[]
-> +static void set_multicast_list(struct net_device *ndev);
-[]
-> @@ -472,8 +474,7 @@ fec_restart(struct net_device *ndev, int duplex)
->         writel(0xffc00000, fep->hwp + FEC_IEVENT);
->=20
->         /* Reset all multicast. */
-> -       writel(0, fep->hwp + FEC_GRP_HASH_TABLE_HIGH);
-> -       writel(0, fep->hwp + FEC_GRP_HASH_TABLE_LOW);
-> +       set_multicast_list(ndev);
+I think the device idea is the cleanest solution. We have packet sockets
+and they do exactly what we want and expect from them, they have all the
+features etc, and user space would not even need to implement code. Thus
+adding more and more functionality into af_netlink would be a bigger
+surgery and further bloat it up with duplicate code, imho. By taking the
+approach with what I'm proposing, we have a clean segregation of
+functionality (as: packet sockets vs. netlink sockets), thus keeping it
+simple and stupid, and not too complex. 
 
-maybe dev_set_rx_mode(ndev) ?
+Thanks !
+
+Daniel Borkmann (3):
+  net: if_arp: add ARPHRD_NETLINK type
+  net: netlink: add registration/unregistration of virtual tap devices
+  packet: nlmon: virtual netlink monitoring device for packet sockets
+
+ drivers/net/Kconfig         |  10 +++
+ drivers/net/Makefile        |   1 +
+ drivers/net/nlmon.c         | 170 ++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/netlink.h     |  10 +++
+ include/uapi/linux/if_arp.h |   1 +
+ net/netlink/af_netlink.c    | 107 ++++++++++++++++++++++++++++
+ 6 files changed, 299 insertions(+)
+ create mode 100644 drivers/net/nlmon.c
+
+-- 
+1.7.11.7
