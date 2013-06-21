@@ -1,77 +1,58 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Structured ethtool statistic names
-Date: Fri, 21 Jun 2013 16:39:05 +0100
-Message-ID: <1371829145.3570.46.camel@bwh-desktop.uk.level5networks.com>
-References: <1371182122-26629-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1371182122-26629-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	<1371666430.1956.102.camel@bwh-desktop.uk.level5networks.com>
-	<FC41C24E35F18A40888AACA1A36F3E4168533EAD@FMSMSX102.amr.corp.intel.com>
-	<1371758352.1946.16.camel@bwh-desktop.uk.level5networks.com>
-	<FC41C24E35F18A40888AACA1A36F3E4168533F3F@FMSMSX102.amr.corp.intel.com>
+Subject: Re: VLAN driver question
+Date: Fri, 21 Jun 2013 16:42:31 +0100
+Message-ID: <1371829351.3570.48.camel@bwh-desktop.uk.level5networks.com>
+References: <51BF5F81.2040207@mentor.com>
+	  <1371566484.1956.16.camel@bwh-desktop.uk.level5networks.com>
+	  <51C1D4D7.1000904@mentor.com>
+	 <1371659635.1956.45.camel@bwh-desktop.uk.level5networks.com>
+	 <51C3527D.1030304@mentor.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>, "Brandeburg,
-	Jesse" <jesse.brandeburg@intel.com>, "gospo@redhat.com" <gospo@redhat.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"sassmann@redhat.com" <sassmann@redhat.com>
-To: "Nelson, Shannon" <shannon.nelson@intel.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <FC41C24E35F18A40888AACA1A36F3E4168533F3F@FMSMSX102.amr.corp.intel.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Jim Baxter <jim_baxter@mentor.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from webmail.solarflare.com ([12.187.104.25]:23564 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423053Ab3FUPmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 11:42:35 -0400
+In-Reply-To: <51C3527D.1030304@mentor.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2013-06-20 at 20:04 +0000, Nelson, Shannon wrote:
-> > From: Ben Hutchings [mailto:bhutchings@solarflare.com]
-> > Sent: Thursday, June 20, 2013 12:59 PM
-> > 
-> > On Thu, 2013-06-20 at 19:47 +0000, Nelson, Shannon wrote:
+On Thu, 2013-06-20 at 20:05 +0100, Jim Baxter wrote:
 [...]
-> > > When ethtool -S is called on the PF's netdev, we see both the netdev
-> > > and the ports stats printed.  When called on non-PF connection we only
-> > > see the netdev stats, none of the port stats.
-> > 
-> > Good point.  And this is something I've been meaning to bring up for
-> > discussion on netdev myself - we should have some naming convention to
-> > distinguish per-port and per-function/per-netdev statistics.
+> Thank you for that information, I have decided to extract the data
+> before copying the data into the skb->data structure.
 > 
-> If you've got some ideas on a convention to use, we'd be happy to set the precedent.
+> This is the put of the packet showing my removal of the data correctly,
+> however the network is not receiving any data on the VLAN.
+> 
+> - data buffer from the Network card
+> ff ff ff ff ff ff 00 26 b9 d4 19 01 81 00 00 0a 08 06 00 01 08 00 06 04
+> 00 01 00 26 b9 d4
+> 
+> - skb->data after I have only copied data to it and removed the vlan 4
+> octet header using skb_copy_to_linear_data and
+> skb_copy_to_linear_data_offset.
+> ff ff ff ff ff ff 00 26 b9 d4 19 01 08 06 00 01 08 00 06 04 00 01 00 26
+> b9 d4 19 01 c0 a8
+> 
+> - skb-data after eth_type_trans()
+> 00 01 08 00 06 04 00 01 00 26 b9 d4 19 01 c0 a8 01 67 00 00 00 00 00 00
+> c0 a8 01 64 00 00
+> 
+> After this point I send the packet into the network stack with:
+> 	__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), vlan_tag);
+> 
+> 	napi_gro_receive(&fep->napi, skb);
+> 
+> Am I missing a kernel call or doing something wrong to cause the packet
+> to be rejected in the kernel?
 
-OK, how about:
-
-1. Statistic names are made up of "." separators and name components
-that do not include "." or whitespace.
-2. Names of statistics for the net device as a whole have a single name
-component.
-3. Names of statistics for the external port, where there is a useful
-distinction from the net device, follow the format:
-    "port." name-component.
-
-Rationale: Only virtualised NIC drivers require a distinction, so the
-convention should allow other drivers to comply without changes.
-Statistics are requested on a specific net device, so that device's own
-statistics should be considered primary and not given a prefix.
-
-Since other people have been adding or proposing to add them:
-
-4. Names of statistics for a single queue follow the format:
-    queue-type "-" index "." name-component
-Where queue-type is "rx" or "tx" and index is the index of the queue as
-used in the kernel.
-
-Rationale: This queue naming is consistent with the queue objects in
-sysfs.
-
-This should be extensible to allow for reading, say, VF statistics
-through a PF net device, e.g. "vf-" index "." name-component.
+That looks about right to me, but perhaps vlan_tag has the wrong byte
+order?  __vlan_hwaccel_put_tag() expects it in host byte order.
 
 Ben.
 
@@ -79,16 +60,3 @@ Ben.
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
-
-
-------------------------------------------------------------------------------
-This SF.net email is sponsored by Windows:
-
-Build for Windows Store.
-
-http://p.sf.net/sfu/windows-dev2dev
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
