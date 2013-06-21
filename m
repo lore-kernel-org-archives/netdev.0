@@ -1,95 +1,46 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: Re: [PATCH v6] ethernet/arc/arc_emac - Add new driver
-Date: Fri, 21 Jun 2013 07:05:44 +0000
-Message-ID: <4881796E12491D4BB15146FE0209CE643F5F4A8F@DE02WEMBXB.internal.synopsys.com>
-References: <1371729196-4505-1-git-send-email-abrodkin@synopsys.com>
- <CAHp75Vf8+z0B6PMjGqVNPuEJrVYiR-yMT5dvqqBAs=GA5utLrQ@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: allow large number of tx queues
+Date: Fri, 21 Jun 2013 00:12:30 -0700
+Message-ID: <1371798750.3252.431.camel@edumazet-glaptop>
+References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
+	 <1371620452-49349-2-git-send-email-jasowang@redhat.com>
+	 <1371623518.3252.267.camel@edumazet-glaptop>
+	 <20130619091132.GA2816@redhat.com>
+	 <1371635763.3252.289.camel@edumazet-glaptop>
+	 <20130619154059.GA13735@redhat.com>
+	 <1371657511.3252.324.camel@edumazet-glaptop>
+	 <20130619180709.GA15017@redhat.com>
+	 <1371716151.3252.390.camel@edumazet-glaptop>
+	 <20130620083530.GA23909@redhat.com> <51C3F5AC.2090008@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Francois Romieu <romieu@fr.zoreil.com>,
-	Joe Perches <joe@perches.com>,
-	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
-	Mischa Jonker <Mischa.Jonker@synopsys.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Grant Likely <grant.likely@linaro.org>,
-	Rob Herring <rob.herring@calxeda.com>,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Devicetree Discuss <devicetree-discuss@lists.ozlabs.org>,
-	Florian Fainelli <florian@openwrt.org>
-To: Andy Shevchenko <andy.shevchenko@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "Michael S. Tsirkin" <mst@redhat.com>, davem@davemloft.net,
+	hkchu@google.com, netdev <netdev@vger.kernel.org>,
+	dwmw2@infradead.org
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f180.google.com ([209.85.215.180]:48855 "EHLO
+	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754870Ab3FUHMg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 03:12:36 -0400
+Received: by mail-ea0-f180.google.com with SMTP id k10so4422183eaj.39
+        for <netdev@vger.kernel.org>; Fri, 21 Jun 2013 00:12:35 -0700 (PDT)
+In-Reply-To: <51C3F5AC.2090008@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2013 08:00 PM, Andy Shevchenko wrote:
-> On Thu, Jun 20, 2013 at 2:53 PM, Alexey Brodkin
->> +               if ((info & FOR_EMAC) || !txbd->data)
->
-> Redundant internal braces. Up to you.
+On Fri, 2013-06-21 at 14:41 +0800, Jason Wang wrote:
 
-I left them so priorities of operations will be obvious.
+> 1K queues (about 80 pages) looks a little bit aggressive which means we
+> may always fall back to vmalloc()?
 
->> +#define FRST_OR_LAST_MASK      (FRST_MASK | LAST_MASK)
->
-> You may re-use it in *_tx_clean() above.
-> Also, please use full English word FIRST. Actually is there any
-> conflicts with existing drivers? Should it be with [ARC_]EMAC prefix?
+1K queues looks like you should use 0 queue (LLTX) in fact, so that you
+design the minimal percpu structure in the driver to fit the needs.
 
-Re-used it in 2 mentioned places. And changed FRST with FIRST.
-I don't see defines with the same name anywhere else.
+Using Qdisc, qith MQ, pfifo_fast, on 1000 'queues' is adding a fair
+amount of overhead and memory usage.
 
->
->> +               /* Make sure pointer to data buffer is set */
->> +               mb();
->
-> I'm not so familiar with memory barriers, but is this somehow differ
-> from smp_mb()?
-> Which one suits better? And what about the other places in this file?
-
-Since for now driver itself is not SMP-safe so I don't see any reason 
-for "smp_" barriers. Later I plan to add SMP compatibility and that this 
-point barriers will be replaced as well.
-
-Another thing is I switched to "wmb()" (which is a barrier fror write in 
-particular) instead of generic "mb()".
-
->> +       /* Allocate Tx BD's similar to Rx BD's. All Tx BD's owned by CPU */
->> +       bd = priv->txbd;
->> +       for (i = 0; i < TX_BD_NUM; i++) {
->> +               bd->data = 0;
->> +               bd->info = 0;
->> +               bd++;
->> +       }
->
-> Looks like
-> memset(priv->txbd, 0, siezeof(*priv->txbd) * TX_BD_NUM);
-
-Correct.
-
->> +       /* Get "info" of the next BD */
->
->> +       /* Get PHY from device tree */
->> +       phy_node = of_parse_phandle(pdev->dev.of_node, "phy", 0);
->
->> +       /* Get EMAC registers base address from device tree */
->> +       err = of_address_to_resource(pdev->dev.of_node, 0, &res_regs);
->
->> +       /* Get CPU clock frequency from device tree */
->> +       if (of_property_read_u32(pdev->dev.of_node, "clock-frequency",
->> +                                &clock_frequency)) {
->
->> +       /* Get IRQ from device tree */
->> +       err = of_irq_to_resource(pdev->dev.of_node, 0, &res_irq);
->
-> So, you don't like the idea to get as much as possible before
-> alloc_netdev(), don't you?
-
-Ok, I did this change)))
-
-Regards,
-Alexey
+For example, loopback driver only needs small percpu structure (16
+bytes), as it immediately forward the packet into netif_rx() [ Which
+also use a percpu area called softnet_data ]
