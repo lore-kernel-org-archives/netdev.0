@@ -1,36 +1,47 @@
-From: Cong Wang <amwang@redhat.com>
-Subject: [Patch net-next] bridge: fix a typo in comments
-Date: Fri, 21 Jun 2013 15:37:25 +0800
-Message-ID: <1371800245-23494-1-git-send-email-amwang@redhat.com>
-Cc: Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44957 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S965317Ab3FUHhp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jun 2013 03:37:45 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Alexander Frolkin <avf@eldamar.org.uk>
+Subject: Re: [PATCH] ipvs: SH fallback and L4 hashing
+Date: Fri, 21 Jun 2013 09:24:08 +0100
+Message-ID: <20130621082408.GB23366@eldamar.org.uk>
+References: <20130619095425.GA20145@eldamar.org.uk>
+ <alpine.LFD.2.00.1306192239510.1823@ja.ssi.bg>
+ <20130620132003.GD24993@verge.net.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Julian Anastasov <ja@ssi.bg>, lvs-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Simon Horman <horms@verge.net.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130620132003.GD24993@verge.net.au>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <amwang@redhat.com>
+Hi,
 
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-Cc: "David S. Miller" <davem@davemloft.net>
-Signed-off-by: Cong Wang <amwang@redhat.com>
+> I also noticed some fuzz.
+> Alexander, could you double-check ipvs-next to make sure
+> that I applied the patch correctly?
 
----
-diff --git a/net/bridge/br_multicast.c b/net/bridge/br_multicast.c
-index 31952a1..81befac 100644
---- a/net/bridge/br_multicast.c
-+++ b/net/bridge/br_multicast.c
-@@ -1012,7 +1012,7 @@ static int br_ip6_multicast_mld2_report(struct net_bridge *br,
- #endif
+I diff'ed my local dev branch with upstream, and the only thing I can
+see that has any relation to my patches is:
+
+diff --git a/net/netfilter/ipvs/ip_vs_sh.c b/net/netfilter/ipvs/ip_vs_sh.c
+index b7e2c5a..f16c027 100644
+--- a/net/netfilter/ipvs/ip_vs_sh.c
++++ b/net/netfilter/ipvs/ip_vs_sh.c
+@@ -71,8 +71,8 @@ struct ip_vs_sh_bucket {
+ #define IP_VS_SH_TAB_MASK               (IP_VS_SH_TAB_SIZE - 1)
  
- /*
-- * Add port to rotuer_list
-+ * Add port to router_list
-  *  list is maintained ordered by pointer value
-  *  and locked by br->multicast_lock and RCU
-  */
+ struct ip_vs_sh_state {
+-       struct ip_vs_sh_bucket          buckets[IP_VS_SH_TAB_SIZE];
+        struct rcu_head                 rcu_head;
++       struct ip_vs_sh_bucket          buckets[IP_VS_SH_TAB_SIZE];
+ };
+ 
+ /* Helper function to determine if server is unavailable */
+
+Not sure when or why this changed, but maybe it accounts for the fuzz?
+
+
+Alex
