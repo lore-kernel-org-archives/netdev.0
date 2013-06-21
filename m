@@ -1,39 +1,49 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: Re: [PATCH v2 net-next 6/6] bonding: add an option to fail when any
- of arp_ip_target is inaccessible
-Date: Fri, 21 Jun 2013 12:23:18 +0200
-Message-ID: <20130621102318.GA7269@unicorn.suse.cz>
-References: <1371746105-2482-7-git-send-email-vfalico@redhat.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v7] ethernet/arc/arc_emac - Add new driver
+Date: Fri, 21 Jun 2013 03:32:55 -0700
+Message-ID: <1371810775.19215.30.camel@joe-AO722>
+References: <1371799241-27771-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
-	davem@davemloft.net, linux@8192.net, nicolas.2p.debian@free.fr,
-	rick.jones2@hp.com, nikolay@redhat.com
-To: Veaceslav Falico <vfalico@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from cantor2.suse.de ([195.135.220.15]:41430 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752119Ab3FUKXX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jun 2013 06:23:23 -0400
-Content-Disposition: inline
-In-Reply-To: <1371746105-2482-7-git-send-email-vfalico@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org,
+	Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Mischa Jonker <Mischa.Jonker@synopsys.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
+	Florian Fainelli <florian@openwrt.org>
+To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371799241-27771-1-git-send-email-abrodkin@synopsys.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 20, 2013 at 06:35:05PM +0200, Veaceslav Falico wrote:
-> @@ -1712,6 +1721,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->  
->  	new_slave->last_arp_rx = jiffies -
->  		(msecs_to_jiffies(bond->params.arp_interval) + 1);
-> +	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
-> +		new_slave->target_last_arp_rx[i] = jiffies;
->  
->  	if (bond->params.miimon && !bond->params.use_carrier) {
->  		link_reporting = bond_check_dev_link(bond, slave_dev, 1);
+On Fri, 2013-06-21 at 11:20 +0400, Alexey Brodkin wrote:
+> Driver for non-standard on-chip ethernet device ARC EMAC 10/100,
+> instantiated in some legacy ARC (Synopsys) FPGA Boards such as
+> ARCAngel4/ML50x.
 
-For cards with slow initial negotiation, this can cause a down -> up ->
-down -> up flap on enslaving. This is why initial walue of last_arp_rx
-was modified in commit f31c7937. Is there a reason not to initialize
-target_last_arp_rx[i] to the same value?
+Looks fine to me.
 
-                                                        Michal Kubecek
+One nit you could fix later and a question.
+
+> diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+[]
+> +static int arc_emac_rx(struct net_device *ndev, int budget)
+> +{
+[]
+> +			if (net_ratelimit())
+> +				netdev_err(ndev, "incomplete packed received\n");
+
+s/packed/packet/
+
+> +		rxbd->data = (unsigned char *)cpu_to_le32(rx_buff->skb->data);
+
+32 bit only.  Should the Kconfig block have some arch_arc dependency
+so it can't get compiled for 64 bit systems?
