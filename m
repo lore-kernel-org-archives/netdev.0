@@ -1,456 +1,129 @@
-From: Veaceslav Falico <vfalico@redhat.com>
-Subject: Re: [PATCH v3 net-next 6/6] bonding: add an option to fail when any
- of arp_ip_target is inaccessible
-Date: Fri, 21 Jun 2013 21:21:43 +0200
-Message-ID: <20130621192143.GB30542@redhat.com>
-References: <1371820284-13280-7-git-send-email-vfalico@redhat.com>
- <9312.1371838880@death.nxdomain>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: 3.9.5+:  Crash in tcp_input.c:4810.
+Date: Fri, 21 Jun 2013 12:26:37 -0700
+Message-ID: <51C4A8ED.8010106@candelatech.com>
+References: <51BF50B3.1080403@candelatech.com> <1371493059.3252.200.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: netdev@vger.kernel.org, andy@greyhouse.net, davem@davemloft.net,
-	linux@8192.net, nicolas.2p.debian@free.fr, rick.jones2@hp.com,
-	nikolay@redhat.com, mkubecek@suse.cz
-To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49191 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1423686Ab3FUTWO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 21 Jun 2013 15:22:14 -0400
-Content-Disposition: inline
-In-Reply-To: <9312.1371838880@death.nxdomain>
+Received: from mail.candelatech.com ([208.74.158.172]:47327 "EHLO
+	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423672Ab3FUT0k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 15:26:40 -0400
+In-Reply-To: <1371493059.3252.200.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 21, 2013 at 11:21:20AM -0700, Jay Vosburgh wrote:
->Veaceslav Falico <vfalico@redhat.com> wrote:
-...snip...
->>--- a/Documentation/networking/bonding.txt
->>+++ b/Documentation/networking/bonding.txt
->>@@ -321,6 +321,23 @@ arp_validate
+On 06/17/2013 11:17 AM, Eric Dumazet wrote:
+> On Mon, 2013-06-17 at 11:08 -0700, Ben Greear wrote:
+>> This is from a 3.9.5+ kernel with local patches.  We saw this crash during
+>> a weekend run where we had TCP traffic trying to run on 128+ wifi station
+>> interfaces as the interfaces assocaited over and over again (the AP
+>> could handle no more than 127 stations and would dis-associate others
+>> when the 128th tried to associate).
 >>
->> 	This option was added in bonding version 3.1.0.
+>> The code in question is this from the tcp_collapse() method:
 >>
->>+arp_all_targets
->>+
->>+	Specifies whether, in active-backup mode with arp validation,
->>+	any of the arp_ip_targets should be up to keep the slave up
->>+	(default) or it should go down if at least one of
->>+	arp_ip_targets doesn't reply to arp requests.
->
->	I would write the above as:
->
->	Specifies the quantity of arp_ip_targets that must be reachable
->	in order for the ARP monitor to consider a slave as being up.
->	This option affects only active-backup mode for slaves with
->	arp_validation enabled.
+>> 		skb_reserve(nskb, header);
+>> 		memcpy(nskb->head, skb->head, header);
+>> 		memcpy(nskb->cb, skb->cb, sizeof(skb->cb));
+>> 		TCP_SKB_CB(nskb)->seq = TCP_SKB_CB(nskb)->end_seq = start;
+>> 		__skb_queue_before(list, skb, nskb);
+>> 		skb_set_owner_r(nskb, sk);
+>>
+>> 		/* Copy data, releasing collapsed skbs. */
+>> 		while (copy > 0) {
+>> 			int offset = start - TCP_SKB_CB(skb)->seq;
+>> 			int size = TCP_SKB_CB(skb)->end_seq - start;
+>>
+>> 			BUG_ON(offset < 0);
 
-Yeah, a lot more clear. However, doesn't "the quantity" suggest some
-number, but not binary (as we have it)?
 
-Hrm, it's an interesting idea btw, to make it accept the exact quantity of
-reachable arp_ip_targets to be up, instead of any/all, though I don't think
-it'll find use in real world situation. It's easy to implement btw, we
-just need to get the n-th least fresh arp_ip_target in slave_last_rx(). And
-we can have -1 for all.
+It took about 3 days of running the same torture test (on 3.9.6+ this time),
+but we saw this crash again.
 
-If you think that it's viable - I can add it to the next version.
+No other kernel splats seen before this (at least for several hours).
 
->
->>+
->>+	Possible values are:
->>+
->>+	any or 0
->>+
->>+		consider the slave up if any of the arp_ip_targets is up
->>+
->>+	all or 1
->>+
->>+		consider the slave up if all of the arp_ip_targets are up
->
->	Instead of "if" here I would use "only when" to make the
->distinction clearer.  Instead of "up," I would use "reachable."
+Since it is rare, maybe we could change it to a WARN_ON, and take whatever
+measures are needed to continue running?
 
-Yep, thank you.
 
->
->>+
->> downdelay
->>
->> 	Specifies the time, in milliseconds, to wait before disabling
->>diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
->>index f51c379..8a94b21 100644
->>--- a/drivers/net/bonding/bond_main.c
->>+++ b/drivers/net/bonding/bond_main.c
->>@@ -104,6 +104,7 @@ static char *xmit_hash_policy;
->> static int arp_interval = BOND_LINK_ARP_INTERV;
->> static char *arp_ip_target[BOND_MAX_ARP_TARGETS];
->> static char *arp_validate;
->>+static char *arp_all_targets;
->> static char *fail_over_mac;
->> static int all_slaves_active = 0;
->> static struct bond_params bonding_defaults;
->>@@ -166,6 +167,8 @@ module_param(arp_validate, charp, 0);
->> MODULE_PARM_DESC(arp_validate, "validate src/dst of ARP probes; "
->> 			       "0 for none (default), 1 for active, "
->> 			       "2 for backup, 3 for all");
->>+module_param(arp_all_targets, charp, 0);
->>+MODULE_PARM_DESC(arp_all_targets, "fail on any/all arp targets timeout; 0 for any (default), 1 for all");
->> module_param(fail_over_mac, charp, 0);
->> MODULE_PARM_DESC(fail_over_mac, "For active-backup, do not set all slaves to "
->> 				"the same MAC; 0 for none (default), "
->>@@ -216,6 +219,12 @@ const struct bond_parm_tbl xmit_hashtype_tbl[] = {
->> {	NULL,			-1},
->> };
->>
->>+const struct bond_parm_tbl arp_all_targets_tbl[] = {
->>+{	"any",			BOND_ARP_TARGETS_ANY},
->>+{	"all",			BOND_ARP_TARGETS_ALL},
->>+{	NULL,			-1},
->>+};
->>+
->> const struct bond_parm_tbl arp_validate_tbl[] = {
->> {	"none",			BOND_ARP_VALIDATE_NONE},
->> {	"active",		BOND_ARP_VALIDATE_ACTIVE},
->>@@ -1483,7 +1492,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->> 	struct slave *new_slave = NULL;
->> 	struct sockaddr addr;
->> 	int link_reporting;
->>-	int res = 0;
->>+	int res = 0, i;
->>
->> 	if (!bond->params.use_carrier &&
->> 	    slave_dev->ethtool_ops->get_link == NULL &&
->>@@ -1712,6 +1721,8 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
->>
->> 	new_slave->last_arp_rx = jiffies -
->> 		(msecs_to_jiffies(bond->params.arp_interval) + 1);
->>+	for (i = 0; i < BOND_MAX_ARP_TARGETS; i++)
->>+		new_slave->target_last_arp_rx[i] = new_slave->last_arp_rx;
->>
->> 	if (bond->params.miimon && !bond->params.use_carrier) {
->> 		link_reporting = bond_check_dev_link(bond, slave_dev, 1);
->>@@ -2610,16 +2621,20 @@ static void bond_arp_send_all(struct bonding *bond, struct slave *slave)
->>
->> static void bond_validate_arp(struct bonding *bond, struct slave *slave, __be32 sip, __be32 tip)
->> {
->>+	int i;
->>+
->> 	if (!sip || !bond_has_this_ip(bond, tip)) {
->> 		pr_debug("bva: sip %pI4 tip %pI4 not found\n", &sip, &tip);
->> 		return;
->> 	}
->>
->>-	if (bond_get_targets_ip(bond->params.arp_targets, sip) == -1) {
->>+	i = bond_get_targets_ip(bond->params.arp_targets, sip);
->>+	if (i == -1) {
->> 		pr_debug("bva: sip %pI4 not found in targets\n", &sip);
->> 		return;
->> 	}
->> 	slave->last_arp_rx = jiffies;
->>+	slave->target_last_arp_rx[i] = jiffies;
->> }
->>
->> static int bond_arp_rcv(const struct sk_buff *skb, struct bonding *bond,
->>@@ -4407,6 +4422,7 @@ int bond_parse_parm(const char *buf, const struct bond_parm_tbl *tbl)
->> static int bond_check_params(struct bond_params *params)
->> {
->> 	int arp_validate_value, fail_over_mac_value, primary_reselect_value, i;
->>+	int arp_all_targets_value;
->>
->> 	/*
->> 	 * Convert string parameters.
->>@@ -4632,6 +4648,21 @@ static int bond_check_params(struct bond_params *params)
->> 	} else
->> 		arp_validate_value = 0;
->>
->>+	if (arp_all_targets && arp_validate_value) {
->>+		arp_all_targets_value = bond_parse_parm(arp_all_targets,
->>+							arp_all_targets_tbl);
->>+
->>+		if (arp_all_targets_value == -1) {
->>+			pr_err("Error: invalid arp_all_targets_value \"%s\"\n",
->>+			       arp_all_targets);
->>+			arp_all_targets_value = 0;
->>+		}
->>+	} else {
->>+		if (arp_all_targets && !arp_validate_value)
->>+			pr_err("arp_all_targets requires arp_validate\n");
->>+		arp_all_targets_value = 0;
->>+	}
->
->	I would not make setting arp_all_targets conditional on having
->arp_validate also specified.  It should be permissible to set it
->independently of arp_validate, with arp_all_targets having no effect if
->arp_validate is not set.
+------------[ cut here ]------------
+kernel BUG at /home/greearb/git/linux-3.9.dev.y/net/ipv4/tcp_input.c:4810!
+invalid opcode: 0000 [#1] PREEMPT SMP
+Modules linked in: nf_nat_ipv4 nf_nat 8021q garp stp mrp llc fuse macvlan wanlink(O) pktgen lockd sunrpc f71882fg cdc_acm snd_hda_codec_realtek snd_hda_intel 
+snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm snd_page_alloc snd_timer snd ath9k soundcore serio_raw gpio_ich pcspkr ath9k_common coretemp hwmon mperf 
+intel_powerclamp ath9k_hw ath kvm mac80211 e1000e ptp cfg80211 ppdev iTCO_wdt iTCO_vendor_support parport_pc microcode lpc_ich i2c_i801 pps_core parport uinput 
+ipv6 i915 video i2c_algo_bit drm_kms_helper drm i2c_core [last unloaded: iptable_nat]
+CPU 3
+Pid: 2443, comm: btserver Tainted: G        WC O 3.9.6+ #84 To be filled by O.E.M. To be filled by O.E.M./To be filled by O.E.M.
+RIP: 0010:[<ffffffff8155ac89>]  [<ffffffff8155ac89>] tcp_collapse+0x267/0x37a
+RSP: 0000:ffff88022bd83608  EFLAGS: 00010287
+RAX: 0000000000001100 RBX: ffff8801850fd170 RCX: 0000000000000000
+RDX: 00000000fffff4a5 RSI: ffff8801850fd100 RDI: ffff88009ff47700
+RBP: ffff88022bd83668 R08: 000000009a632eec R09: ffff880196284428
+R10: ffffffffa04047c0 R11: ffff880217f50000 R12: 000000009a62ea89
+R13: ffff880196284400 R14: ffff88009ff47700 R15: 0000000000000df0
+FS:  00007f74ca9eb740(0000) GS:ffff88022bd80000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+CR2: 0000000007e4dec8 CR3: 00000002179eb000 CR4: 00000000000007e0
+DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+Process btserver (pid: 2443, threadinfo ffff88021773c000, task ffff88021be6c650)
+Stack:
+  ffff88022bd83618 ffff8801000000d0 9a636da8fffff4a5 0000000000000000
+  ffff8801850fd100 ffff88009ff47728 ffff88022bd83698 ffff8801850fd100
+  ffff8801850fd6c8 ffff8801850fd6c8 0000000000000a80 ffff8801007d9400
+Call Trace:
+  <IRQ>
+  [<ffffffff8155b515>] tcp_try_rmem_schedule+0x1c7/0x26d
+  [<ffffffff8155b8ac>] tcp_data_queue+0x1a9/0xa7e
+  [<ffffffff8155ec95>] tcp_rcv_established+0x63b/0x696
+  [<ffffffff815668e7>] tcp_v4_do_rcv+0x1bd/0x37d
+  [<ffffffff81568a97>] tcp_v4_rcv+0x4ed/0x7d7
+  [<ffffffff81538790>] ? nf_hook_slow+0x102/0x113
+  [<ffffffff81548c9c>] ? xfrm4_policy_check.clone.0+0x4f/0x4f
+  [<ffffffff81548db8>] ip_local_deliver_finish+0x11c/0x199
+  [<ffffffff81548c9c>] ? xfrm4_policy_check.clone.0+0x4f/0x4f
+  [<ffffffff81548c9c>] ? xfrm4_policy_check.clone.0+0x4f/0x4f
+  [<ffffffff81548e81>] NF_HOOK.clone.1+0x4c/0x53
+  [<ffffffff81548ed6>] ip_local_deliver+0x4e/0x52
+  [<ffffffff81548b46>] ip_rcv_finish+0x2da/0x2f2
+  [<ffffffff8154886c>] ? inet_add_protocol+0x48/0x48
+  [<ffffffff81548e81>] NF_HOOK.clone.1+0x4c/0x53
+  [<ffffffff81549116>] ip_rcv+0x23c/0x26a
+  [<ffffffff8150f632>] __netif_receive_skb_core+0x4e7/0x558
+  [<ffffffff8150f6f1>] __netif_receive_skb+0x4e/0x5e
+  [<ffffffff815118f7>] netif_receive_skb+0x5b/0x90
+  [<ffffffffa027d04a>] ? ieee80211_data_to_8023+0x2eb/0x370 [cfg80211]
+  [<ffffffff815ca611>] ? _raw_read_unlock+0x24/0x2f
+  [<ffffffffa03cda4d>] ieee80211_deliver_skb+0xcd/0x108 [mac80211]
+  [<ffffffffa03cf30d>] ieee80211_rx_handlers+0x1305/0x18c9 [mac80211]
+  [<ffffffffa093b66e>] ? ath_txq_schedule+0x762/0x899 [ath9k]
+  [<ffffffff81104823>] ? handle_irq_event+0x4c/0x61
+  [<ffffffffa03d01cf>] ieee80211_prepare_and_rx_handle+0x8fe/0x96a [mac80211]
+  [<ffffffffa03d09c4>] ieee80211_rx+0x6e9/0x759 [mac80211]
+  [<ffffffff81307b1c>] ? swiotlb_map_page+0x67/0xbb
+  [<ffffffffa0938f83>] ath_rx_tasklet+0xfce/0x10a7 [ath9k]
+  [<ffffffffa09373b5>] ath9k_tasklet+0xf9/0x150 [ath9k]
+  [<ffffffff8109d6d3>] tasklet_action+0x7d/0xcc
+  [<ffffffff8109db2c>] __do_softirq+0x114/0x254
+  [<ffffffff815ca525>] ? _raw_spin_unlock+0x24/0x2f
+  [<ffffffff8109dcfe>] irq_exit+0x4b/0xa8
+  [<ffffffff815d29dd>] do_IRQ+0x9d/0xb4
+  [<ffffffff815caaad>] common_interrupt+0x6d/0x6d
+  <EOI>
+  [<ffffffff815d0e80>] ? sysret_audit+0x17/0x21
+Code: 89 30 4d 89 75 08 ff 43 10 48 8b 75 c0 e8 30 d0 ff ff e9 ee 00 00 00 4d 8d 4d 28 44 89 e2 41 2b 51 18 45 8b 41 1c 89 55 b0 79 04 <0f> 0b eb fe 45 29 e0 45 
+85 c0 7e 4d 45 39 f8 4c 89 f7 4c 89 4d
+RIP  [<ffffffff8155ac89>] tcp_collapse+0x267/0x37a
+  RSP <ffff88022bd83608>
+---[ end trace 31987c0a8f390662 ]---
 
-Yep, thank you, I've also shifted to this idea.
 
->
->>+
->> 	if (miimon) {
->> 		pr_info("MII link monitoring set to %d ms\n", miimon);
->> 	} else if (arp_interval) {
->>@@ -4696,6 +4727,7 @@ static int bond_check_params(struct bond_params *params)
->> 	params->num_peer_notif = num_peer_notif;
->> 	params->arp_interval = arp_interval;
->> 	params->arp_validate = arp_validate_value;
->>+	params->arp_all_targets = arp_all_targets_value;
->> 	params->updelay = updelay;
->> 	params->downdelay = downdelay;
->> 	params->use_carrier = use_carrier;
->>diff --git a/drivers/net/bonding/bond_sysfs.c b/drivers/net/bonding/bond_sysfs.c
->>index ece57f1..c390905 100644
->>--- a/drivers/net/bonding/bond_sysfs.c
->>+++ b/drivers/net/bonding/bond_sysfs.c
->>@@ -443,6 +443,49 @@ static ssize_t bonding_store_arp_validate(struct device *d,
->>
->> static DEVICE_ATTR(arp_validate, S_IRUGO | S_IWUSR, bonding_show_arp_validate,
->> 		   bonding_store_arp_validate);
->>+/*
->>+ * Show and set arp_all_targets.
->>+ */
->>+static ssize_t bonding_show_arp_all_targets(struct device *d,
->>+					 struct device_attribute *attr,
->>+					 char *buf)
->>+{
->>+	struct bonding *bond = to_bond(d);
->>+	int value = bond->params.arp_all_targets;
->>+
->>+	return sprintf(buf, "%s %d\n", arp_all_targets_tbl[value].modename,
->>+		       value);
->>+}
->>+
->>+static ssize_t bonding_store_arp_all_targets(struct device *d,
->>+					  struct device_attribute *attr,
->>+					  const char *buf, size_t count)
->>+{
->>+	struct bonding *bond = to_bond(d);
->>+	int new_value;
->>+
->>+	new_value = bond_parse_parm(buf, arp_all_targets_tbl);
->>+	if (new_value < 0) {
->>+		pr_err("%s: Ignoring invalid arp_all_targets value %s\n",
->>+		       bond->dev->name, buf);
->>+		return -EINVAL;
->>+	}
->>+	if (new_value && !bond->params.arp_validate) {
->>+		pr_err("%s: arp_all_targets requires arp_validate.\n",
->>+		       bond->dev->name);
->>+		return -EINVAL;
->>+	}
->
->	Same comment here re: arp_validate being required.  The current
->restriction adds an ordering requirement (validate must come first), and
->the implementation is such that having arp_all_targets set without
->arp_validate has no effect, so there is no reason to impose this
->restriction.
-
-Yep, thank you.
-
->
->>+	pr_info("%s: setting arp_all_targets to %s (%d).\n",
->>+		bond->dev->name, arp_all_targets_tbl[new_value].modename,
->>+		new_value);
->>+
->>+	bond->params.arp_all_targets = new_value;
->>+
->>+	return count;
->>+}
->>+
->>+static DEVICE_ATTR(arp_all_targets, S_IRUGO | S_IWUSR,
->>+		   bonding_show_arp_all_targets, bonding_store_arp_all_targets);
->>
->> /*
->>  * Show and store fail_over_mac.  User only allowed to change the
->>@@ -590,10 +633,11 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->> 					 struct device_attribute *attr,
->> 					 const char *buf, size_t count)
->> {
->>-	__be32 newtarget;
->>-	int i = 0, ret = -EINVAL;
->> 	struct bonding *bond = to_bond(d);
->>-	__be32 *targets;
->>+	struct slave *slave;
->>+	__be32 newtarget, *targets;
->>+	unsigned long *targets_rx;
->>+	int ind, i, j, ret = -EINVAL;
->>
->> 	targets = bond->params.arp_targets;
->> 	newtarget = in_aton(buf + 1);
->>@@ -611,8 +655,8 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->> 			goto out;
->> 		}
->>
->>-		i = bond_get_targets_ip(targets, 0); /* first free slot */
->>-		if (i == -1) {
->>+		ind = bond_get_targets_ip(targets, 0); /* first free slot */
->>+		if (ind == -1) {
->> 			pr_err("%s: ARP target table is full!\n",
->> 			       bond->dev->name);
->> 			goto out;
->>@@ -620,7 +664,12 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->>
->> 		pr_info("%s: adding ARP target %pI4.\n", bond->dev->name,
->> 			 &newtarget);
->>-		targets[i] = newtarget;
->>+		/* not to race with bond_arp_rcv */
->>+		write_lock_bh(&bond->lock);
->>+		bond_for_each_slave(bond, slave, i)
->>+			slave->target_last_arp_rx[ind] = jiffies;
->>+		targets[ind] = newtarget;
->>+		write_unlock_bh(&bond->lock);
->> 	} else if (buf[0] == '-')	{
->> 		if ((newtarget == 0) || (newtarget == htonl(INADDR_BROADCAST))) {
->> 			pr_err("%s: invalid ARP target %pI4 specified for removal\n",
->>@@ -628,18 +677,32 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->> 			goto out;
->> 		}
->>
->>-		i = bond_get_targets_ip(targets, newtarget);
->>-		if (i == -1) {
->>-			pr_info("%s: unable to remove nonexistent ARP target %pI4.\n",
->>+		ind = bond_get_targets_ip(targets, newtarget);
->>+		if (ind == -1) {
->>+			pr_err("%s: unable to remove nonexistent ARP target %pI4.\n",
->> 				bond->dev->name, &newtarget);
->> 			goto out;
->> 		}
->>
->>+		if (ind == 0 && !targets[1] && bond->params.arp_validate)
->>+			pr_warn("%s: removing last arp target with arp_validate on\n",
->>+				bond->dev->name);
->>+
->
->	There's no warning in the current code for removing the last
->arp_ip_target; I don't think adding one is necessary, particularly if it
->is just for the validate case.
-
-My logic was - if we're currently configured to be up by the arp_validate -
-and we removing the last arp_ip_target - then we're either in the process
-of shutting down the interface or something is really wrong. And, btw,
-there's such an pr_info() for bonding_store_arp_interval():
-
-  588                 if (!bond->params.arp_targets[0])
-  589                         pr_info("%s: ARP monitoring has been set up, but no ARP targets have been specified.\n",
-  590                                 bond->dev->name);
-
-So, maybe, only change to bond->params.arp_interval instead of arp_validate?
-
-Thank you very much for the review!
-
->
->	-J
->
->> 		pr_info("%s: removing ARP target %pI4.\n", bond->dev->name,
->> 			&newtarget);
->>-		for (; (i < BOND_MAX_ARP_TARGETS-1) && targets[i+1]; i++)
->>+
->>+		write_lock_bh(&bond->lock);
->>+		bond_for_each_slave(bond, slave, i) {
->>+			targets_rx = slave->target_last_arp_rx;
->>+			j = ind;
->>+			for (; (j < BOND_MAX_ARP_TARGETS-1) && targets[j+1]; j++)
->>+				targets_rx[j] = targets_rx[j+1];
->>+			targets_rx[j] = 0;
->>+		}
->>+		for (i = ind; (i < BOND_MAX_ARP_TARGETS-1) && targets[i+1]; i++)
->> 			targets[i] = targets[i+1];
->> 		targets[i] = 0;
->>+		write_unlock_bh(&bond->lock);
->> 	} else {
->> 		pr_err("no command found in arp_ip_targets file for bond %s. Use +<addr> or -<addr>.\n",
->> 		       bond->dev->name);
->>@@ -649,6 +712,7 @@ static ssize_t bonding_store_arp_targets(struct device *d,
->>
->> 	ret = count;
->> out:
->>+	rtnl_unlock();
->> 	return ret;
->> }
->> static DEVICE_ATTR(arp_ip_target, S_IRUGO | S_IWUSR , bonding_show_arp_targets, bonding_store_arp_targets);
->>@@ -1623,6 +1687,7 @@ static struct attribute *per_bond_attrs[] = {
->> 	&dev_attr_mode.attr,
->> 	&dev_attr_fail_over_mac.attr,
->> 	&dev_attr_arp_validate.attr,
->>+	&dev_attr_arp_all_targets.attr,
->> 	&dev_attr_arp_interval.attr,
->> 	&dev_attr_arp_ip_target.attr,
->> 	&dev_attr_downdelay.attr,
->>diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
->>index 486e532..3fb73cc 100644
->>--- a/drivers/net/bonding/bonding.h
->>+++ b/drivers/net/bonding/bonding.h
->>@@ -144,6 +144,7 @@ struct bond_params {
->> 	u8 num_peer_notif;
->> 	int arp_interval;
->> 	int arp_validate;
->>+	int arp_all_targets;
->> 	int use_carrier;
->> 	int fail_over_mac;
->> 	int updelay;
->>@@ -179,6 +180,7 @@ struct slave {
->> 	int    delay;
->> 	unsigned long jiffies;
->> 	unsigned long last_arp_rx;
->>+	unsigned long target_last_arp_rx[BOND_MAX_ARP_TARGETS];
->> 	s8     link;    /* one of BOND_LINK_XXXX */
->> 	s8     new_link;
->> 	u8     backup:1,   /* indicates backup slave. Value corresponds with
->>@@ -322,6 +324,9 @@ static inline bool bond_is_active_slave(struct slave *slave)
->> #define BOND_FOM_ACTIVE			1
->> #define BOND_FOM_FOLLOW			2
->>
->>+#define BOND_ARP_TARGETS_ANY		0
->>+#define BOND_ARP_TARGETS_ALL		1
->>+
->> #define BOND_ARP_VALIDATE_NONE		0
->> #define BOND_ARP_VALIDATE_ACTIVE	(1 << BOND_STATE_ACTIVE)
->> #define BOND_ARP_VALIDATE_BACKUP	(1 << BOND_STATE_BACKUP)
->>@@ -334,11 +339,31 @@ static inline int slave_do_arp_validate(struct bonding *bond,
->> 	return bond->params.arp_validate & (1 << bond_slave_state(slave));
->> }
->>
->>+/* Get the oldest arp which we've received on this slave for bond's
->>+ * arp_targets.
->>+ */
->>+static inline unsigned long slave_oldest_target_arp_rx(struct bonding *bond,
->>+						       struct slave *slave)
->>+{
->>+	int i = 1;
->>+	unsigned long ret = slave->target_last_arp_rx[0];
->>+
->>+	for (; (i < BOND_MAX_ARP_TARGETS) && bond->params.arp_targets[i]; i++)
->>+		if (time_before(slave->target_last_arp_rx[i], ret))
->>+			ret = slave->target_last_arp_rx[i];
->>+
->>+	return ret;
->>+}
->>+
->> static inline unsigned long slave_last_rx(struct bonding *bond,
->> 					struct slave *slave)
->> {
->>-	if (slave_do_arp_validate(bond, slave))
->>-		return slave->last_arp_rx;
->>+	if (slave_do_arp_validate(bond, slave)) {
->>+		if (bond->params.arp_all_targets == BOND_ARP_TARGETS_ALL)
->>+			return slave_oldest_target_arp_rx(bond, slave);
->>+		else
->>+			return slave->last_arp_rx;
->>+	}
->>
->> 	return slave->dev->last_rx;
->> }
->>@@ -486,6 +511,7 @@ extern const struct bond_parm_tbl bond_lacp_tbl[];
->> extern const struct bond_parm_tbl bond_mode_tbl[];
->> extern const struct bond_parm_tbl xmit_hashtype_tbl[];
->> extern const struct bond_parm_tbl arp_validate_tbl[];
->>+extern const struct bond_parm_tbl arp_all_targets_tbl[];
->> extern const struct bond_parm_tbl fail_over_mac_tbl[];
->> extern const struct bond_parm_tbl pri_reselect_tbl[];
->> extern struct bond_parm_tbl ad_select_tbl[];
->>--
->>1.7.1
->
->---
->	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
->
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
