@@ -1,46 +1,45 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: allow large number of tx queues
-Date: Fri, 21 Jun 2013 00:12:30 -0700
-Message-ID: <1371798750.3252.431.camel@edumazet-glaptop>
-References: <1371620452-49349-1-git-send-email-jasowang@redhat.com>
-	 <1371620452-49349-2-git-send-email-jasowang@redhat.com>
-	 <1371623518.3252.267.camel@edumazet-glaptop>
-	 <20130619091132.GA2816@redhat.com>
-	 <1371635763.3252.289.camel@edumazet-glaptop>
-	 <20130619154059.GA13735@redhat.com>
-	 <1371657511.3252.324.camel@edumazet-glaptop>
-	 <20130619180709.GA15017@redhat.com>
-	 <1371716151.3252.390.camel@edumazet-glaptop>
-	 <20130620083530.GA23909@redhat.com> <51C3F5AC.2090008@redhat.com>
+From: Shan Wei <shanwei88@gmail.com>
+Subject: [PATCH] tcp: doc : fix the syncookies default value
+Date: Fri, 21 Jun 2013 15:18:32 +0800
+Message-ID: <51C3FE48.2060804@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=GB2312
 Content-Transfer-Encoding: 7bit
-Cc: "Michael S. Tsirkin" <mst@redhat.com>, davem@davemloft.net,
-	hkchu@google.com, netdev <netdev@vger.kernel.org>,
-	dwmw2@infradead.org
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f180.google.com ([209.85.215.180]:48855 "EHLO
-	mail-ea0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754870Ab3FUHMg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 03:12:36 -0400
-Received: by mail-ea0-f180.google.com with SMTP id k10so4422183eaj.39
-        for <netdev@vger.kernel.org>; Fri, 21 Jun 2013 00:12:35 -0700 (PDT)
-In-Reply-To: <51C3F5AC.2090008@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: davidshan@tencent.com
+To: davem@davemloft.net, linux-doc@vger.kernel.org,
+	netdev@vger.kernel.org
+Return-path: <linux-doc-owner@vger.kernel.org>
+Sender: linux-doc-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, 2013-06-21 at 14:41 +0800, Jason Wang wrote:
 
-> 1K queues (about 80 pages) looks a little bit aggressive which means we
-> may always fall back to vmalloc()?
+syncookies is on for default since in commit e994b7c901
+(tcp: Don't make syn cookies initial setting depend on CONFIG_SYSCTL).
 
-1K queues looks like you should use 0 queue (LLTX) in fact, so that you
-design the minimal percpu structure in the driver to fit the needs.
+And fix a typo of CONFIG_SYN_COOKIES.
 
-Using Qdisc, qith MQ, pfifo_fast, on 1000 'queues' is adding a fair
-amount of overhead and memory usage.
+Signed-off-by: Shan Wei <davidshan@tencent.com>
+---
+ Documentation/networking/ip-sysctl.txt |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-For example, loopback driver only needs small percpu structure (16
-bytes), as it immediately forward the packet into netif_rx() [ Which
-also use a percpu area called softnet_data ]
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 36e5a40..1074290 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -420,10 +420,10 @@ tcp_synack_retries - INTEGER
+ 	for a passive TCP connection will happen after 63seconds.
+ 
+ tcp_syncookies - BOOLEAN
+-	Only valid when the kernel was compiled with CONFIG_SYNCOOKIES
++	Only valid when the kernel was compiled with CONFIG_SYN_COOKIES
+ 	Send out syncookies when the syn backlog queue of a socket
+ 	overflows. This is to prevent against the common 'SYN flood attack'
+-	Default: FALSE
++	Default: 1
+ 
+ 	Note, that syncookies is fallback facility.
+ 	It MUST NOT be used to help highly loaded servers to stand
+-- 
+1.7.1
+
