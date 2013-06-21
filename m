@@ -1,129 +1,511 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 3.9.5+:  Crash in tcp_input.c:4810.
-Date: Fri, 21 Jun 2013 12:26:37 -0700
-Message-ID: <51C4A8ED.8010106@candelatech.com>
-References: <51BF50B3.1080403@candelatech.com> <1371493059.3252.200.camel@edumazet-glaptop>
+From: "Eric S. Raymond" <esr@thyrsus.com>
+Subject: First set of manpage markup fixes
+Date: Fri, 21 Jun 2013 15:57:21 -0400
+Message-ID: <20130621195721.GA10029@thyrsus.com>
+Reply-To: esr@thyrsus.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/mixed; boundary="dDRMvlgZJXvWKvBx"
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	Florian Westphal <fw@strlen.de>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.candelatech.com ([208.74.158.172]:47327 "EHLO
-	ns3.lanforge.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423672Ab3FUT0k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 15:26:40 -0400
-In-Reply-To: <1371493059.3252.200.camel@edumazet-glaptop>
+Received: from static-71-162-243-5.phlapa.fios.verizon.net ([71.162.243.5]:41128
+	"EHLO snark.thyrsus.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1945935Ab3FUT5X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 15:57:23 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/17/2013 11:17 AM, Eric Dumazet wrote:
-> On Mon, 2013-06-17 at 11:08 -0700, Ben Greear wrote:
->> This is from a 3.9.5+ kernel with local patches.  We saw this crash during
->> a weekend run where we had TCP traffic trying to run on 128+ wifi station
->> interfaces as the interfaces assocaited over and over again (the AP
->> could handle no more than 127 stations and would dis-associate others
->> when the 128th tried to associate).
->>
->> The code in question is this from the tcp_collapse() method:
->>
->> 		skb_reserve(nskb, header);
->> 		memcpy(nskb->head, skb->head, header);
->> 		memcpy(nskb->cb, skb->cb, sizeof(skb->cb));
->> 		TCP_SKB_CB(nskb)->seq = TCP_SKB_CB(nskb)->end_seq = start;
->> 		__skb_queue_before(list, skb, nskb);
->> 		skb_set_owner_r(nskb, sk);
->>
->> 		/* Copy data, releasing collapsed skbs. */
->> 		while (copy > 0) {
->> 			int offset = start - TCP_SKB_CB(skb)->seq;
->> 			int size = TCP_SKB_CB(skb)->end_seq - start;
->>
->> 			BUG_ON(offset < 0);
 
+--dDRMvlgZJXvWKvBx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-It took about 3 days of running the same torture test (on 3.9.6+ this time),
-but we saw this crash again.
+Enclosed patch fixes inappropriate uses of the .SS macro.  Fuller explanation
+in the change comment.
 
-No other kernel splats seen before this (at least for several hours).
-
-Since it is rare, maybe we could change it to a WARN_ON, and take whatever
-measures are needed to continue running?
-
-
-------------[ cut here ]------------
-kernel BUG at /home/greearb/git/linux-3.9.dev.y/net/ipv4/tcp_input.c:4810!
-invalid opcode: 0000 [#1] PREEMPT SMP
-Modules linked in: nf_nat_ipv4 nf_nat 8021q garp stp mrp llc fuse macvlan wanlink(O) pktgen lockd sunrpc f71882fg cdc_acm snd_hda_codec_realtek snd_hda_intel 
-snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm snd_page_alloc snd_timer snd ath9k soundcore serio_raw gpio_ich pcspkr ath9k_common coretemp hwmon mperf 
-intel_powerclamp ath9k_hw ath kvm mac80211 e1000e ptp cfg80211 ppdev iTCO_wdt iTCO_vendor_support parport_pc microcode lpc_ich i2c_i801 pps_core parport uinput 
-ipv6 i915 video i2c_algo_bit drm_kms_helper drm i2c_core [last unloaded: iptable_nat]
-CPU 3
-Pid: 2443, comm: btserver Tainted: G        WC O 3.9.6+ #84 To be filled by O.E.M. To be filled by O.E.M./To be filled by O.E.M.
-RIP: 0010:[<ffffffff8155ac89>]  [<ffffffff8155ac89>] tcp_collapse+0x267/0x37a
-RSP: 0000:ffff88022bd83608  EFLAGS: 00010287
-RAX: 0000000000001100 RBX: ffff8801850fd170 RCX: 0000000000000000
-RDX: 00000000fffff4a5 RSI: ffff8801850fd100 RDI: ffff88009ff47700
-RBP: ffff88022bd83668 R08: 000000009a632eec R09: ffff880196284428
-R10: ffffffffa04047c0 R11: ffff880217f50000 R12: 000000009a62ea89
-R13: ffff880196284400 R14: ffff88009ff47700 R15: 0000000000000df0
-FS:  00007f74ca9eb740(0000) GS:ffff88022bd80000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-CR2: 0000000007e4dec8 CR3: 00000002179eb000 CR4: 00000000000007e0
-DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
-DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
-Process btserver (pid: 2443, threadinfo ffff88021773c000, task ffff88021be6c650)
-Stack:
-  ffff88022bd83618 ffff8801000000d0 9a636da8fffff4a5 0000000000000000
-  ffff8801850fd100 ffff88009ff47728 ffff88022bd83698 ffff8801850fd100
-  ffff8801850fd6c8 ffff8801850fd6c8 0000000000000a80 ffff8801007d9400
-Call Trace:
-  <IRQ>
-  [<ffffffff8155b515>] tcp_try_rmem_schedule+0x1c7/0x26d
-  [<ffffffff8155b8ac>] tcp_data_queue+0x1a9/0xa7e
-  [<ffffffff8155ec95>] tcp_rcv_established+0x63b/0x696
-  [<ffffffff815668e7>] tcp_v4_do_rcv+0x1bd/0x37d
-  [<ffffffff81568a97>] tcp_v4_rcv+0x4ed/0x7d7
-  [<ffffffff81538790>] ? nf_hook_slow+0x102/0x113
-  [<ffffffff81548c9c>] ? xfrm4_policy_check.clone.0+0x4f/0x4f
-  [<ffffffff81548db8>] ip_local_deliver_finish+0x11c/0x199
-  [<ffffffff81548c9c>] ? xfrm4_policy_check.clone.0+0x4f/0x4f
-  [<ffffffff81548c9c>] ? xfrm4_policy_check.clone.0+0x4f/0x4f
-  [<ffffffff81548e81>] NF_HOOK.clone.1+0x4c/0x53
-  [<ffffffff81548ed6>] ip_local_deliver+0x4e/0x52
-  [<ffffffff81548b46>] ip_rcv_finish+0x2da/0x2f2
-  [<ffffffff8154886c>] ? inet_add_protocol+0x48/0x48
-  [<ffffffff81548e81>] NF_HOOK.clone.1+0x4c/0x53
-  [<ffffffff81549116>] ip_rcv+0x23c/0x26a
-  [<ffffffff8150f632>] __netif_receive_skb_core+0x4e7/0x558
-  [<ffffffff8150f6f1>] __netif_receive_skb+0x4e/0x5e
-  [<ffffffff815118f7>] netif_receive_skb+0x5b/0x90
-  [<ffffffffa027d04a>] ? ieee80211_data_to_8023+0x2eb/0x370 [cfg80211]
-  [<ffffffff815ca611>] ? _raw_read_unlock+0x24/0x2f
-  [<ffffffffa03cda4d>] ieee80211_deliver_skb+0xcd/0x108 [mac80211]
-  [<ffffffffa03cf30d>] ieee80211_rx_handlers+0x1305/0x18c9 [mac80211]
-  [<ffffffffa093b66e>] ? ath_txq_schedule+0x762/0x899 [ath9k]
-  [<ffffffff81104823>] ? handle_irq_event+0x4c/0x61
-  [<ffffffffa03d01cf>] ieee80211_prepare_and_rx_handle+0x8fe/0x96a [mac80211]
-  [<ffffffffa03d09c4>] ieee80211_rx+0x6e9/0x759 [mac80211]
-  [<ffffffff81307b1c>] ? swiotlb_map_page+0x67/0xbb
-  [<ffffffffa0938f83>] ath_rx_tasklet+0xfce/0x10a7 [ath9k]
-  [<ffffffffa09373b5>] ath9k_tasklet+0xf9/0x150 [ath9k]
-  [<ffffffff8109d6d3>] tasklet_action+0x7d/0xcc
-  [<ffffffff8109db2c>] __do_softirq+0x114/0x254
-  [<ffffffff815ca525>] ? _raw_spin_unlock+0x24/0x2f
-  [<ffffffff8109dcfe>] irq_exit+0x4b/0xa8
-  [<ffffffff815d29dd>] do_IRQ+0x9d/0xb4
-  [<ffffffff815caaad>] common_interrupt+0x6d/0x6d
-  <EOI>
-  [<ffffffff815d0e80>] ? sysret_audit+0x17/0x21
-Code: 89 30 4d 89 75 08 ff 43 10 48 8b 75 c0 e8 30 d0 ff ff e9 ee 00 00 00 4d 8d 4d 28 44 89 e2 41 2b 51 18 45 8b 41 1c 89 55 b0 79 04 <0f> 0b eb fe 45 29 e0 45 
-85 c0 7e 4d 45 39 f8 4c 89 f7 4c 89 4d
-RIP  [<ffffffff8155ac89>] tcp_collapse+0x267/0x37a
-  RSP <ffff88022bd83608>
----[ end trace 31987c0a8f390662 ]---
-
-
+There are other problems in these pages that block lifting to
+XML-DocBook, most notably in the command synopses.  They will take
+some creativity to fix.  I'm working on it
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+		<a href="http://www.catb.org/~esr/">Eric S. Raymond</a>
+
+--dDRMvlgZJXvWKvBx
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-Abolish-presentation-level-misuse-of-the-.SS-macro.patch"
+
+>From 75745adba4b45b87577b61a2daa886dd444f44da Mon Sep 17 00:00:00 2001
+From: "Eric S. Raymond" <esr@thyrsus.com>
+Date: Fri, 21 Jun 2013 15:27:38 -0400
+Subject: [PATCH] Abolish presentation-level misuse of the .SS macro.
+
+This change fixes most (but not all) fatal errors in attempts to lift
+the iproute2 manual pages to XML-DocBook.  Where .SS is still used it
+is a real subsection header, not just a way to outdent and bold text.
+Presentation-level instances are turned into .TP calls and tables.
+---
+ man/man8/ip-maddress.8  | 11 ++++++---
+ man/man8/ip-neighbour.8 | 49 +++++++++++++++++++++++-----------------
+ man/man8/ip-netns.8     | 35 +++++++++++++++++------------
+ man/man8/ip-route.8.in  | 56 +++++++++++++++++++++++++++++++++++-----------
+ man/man8/ip-tunnel.8    | 26 ++++++++++++++++------
+ man/man8/ip-xfrm.8      | 59 +++++++++++++++++++++----------------------------
+ 6 files changed, 145 insertions(+), 91 deletions(-)
+
+diff --git a/man/man8/ip-maddress.8 b/man/man8/ip-maddress.8
+index e0bad47..288d5cc 100644
+--- a/man/man8/ip-maddress.8
++++ b/man/man8/ip-maddress.8
+@@ -31,13 +31,17 @@ objects are multicast addresses.
+ .BI dev " NAME " (default)
+ the device name.
+ 
+-.SS ip maddress add - add a multicast address
+-.SS ip maddress delete - delete a multicast address
+-these commands attach/detach a static link-layer multicast address
++.TP
++.B ip maddress add - add a multicast address
++.TP
++.B ip maddress delete - delete a multicast address
++.sp
++These commands attach/detach a static link-layer multicast address
+ to listen on the interface.
+ Note that it is impossible to join protocol multicast groups
+ statically.  This command only manages link-layer addresses.
+ 
++.RS
+ .TP
+ .BI address " LLADDRESS " (default)
+ the link-layer multicast address.
+@@ -45,6 +49,7 @@ the link-layer multicast address.
+ .TP
+ .BI dev " NAME"
+ the device to join/leave this multicast address.
++.RE
+ 
+ .SH SEE ALSO
+ .br
+diff --git a/man/man8/ip-neighbour.8 b/man/man8/ip-neighbour.8
+index 5d9768f..67fbec7 100644
+--- a/man/man8/ip-neighbour.8
++++ b/man/man8/ip-neighbour.8
+@@ -46,10 +46,17 @@ is also known by another name - the ARP table.
+ The corresponding commands display neighbour bindings
+ and their properties, add new neighbour entries and delete old ones.
+ 
+-.SS ip neighbour add - add a new neighbour entry
+-.SS ip neighbour change - change an existing entry
+-.SS ip neighbour replace - add a new entry or change an existing one
++.TP
++ip neighbour add
++add a new neighbour entry
++.TP
++ip neighbour change
++change an existing entry
++.TP
++ip neighbour replace
++add a new entry or change an existing one
+ 
++.PP
+ These commands create new neighbour records or update existing ones.
+ 
+ .TP
+@@ -74,31 +81,28 @@ the state of the neighbour entry.
+ is an abbreviation for 'Neighbour Unreachability Detection'.
+ The state can take one of the following values:
+ 
+-.in +8
++.TP
+ .B permanent
+-- the neighbour entry is valid forever and can be only
++the neighbour entry is valid forever and can be only
+ be removed administratively.
+-.sp
+-
++.TP
+ .B noarp
+-- the neighbour entry is valid. No attempts to validate
++the neighbour entry is valid. No attempts to validate
+ this entry will be made but it can be removed when its lifetime expires.
+-.sp
+-
++.TP
+ .B reachable
+-- the neighbour entry is valid until the reachability
++the neighbour entry is valid until the reachability
+ timeout expires.
+-.sp
+-
++.TP
+ .B stale
+-- the neighbour entry is valid but suspicious.
++the neighbour entry is valid but suspicious.
+ This option to
+ .B ip neigh
+ does not change the neighbour state if it was valid and the address
+ is not changed by this command.
+-.in -8
+-
+-.SS ip neighbour delete - delete a neighbour entry
++.RS
++ip neighbour delete - delete a neighbour entry
++.RE
+ This command invalidates a neighbour entry.
+ 
+ .PP
+@@ -120,9 +124,11 @@ on a
+ .B NOARP
+ interface or if the address is multicast or broadcast.
+ 
+-.SS ip neighbour show - list neighbour entries
++.RS
++ip neighbour show - list neighbour entries
++.RE
+ 
+-This commands displays neighbour tables.
++This command displays neighbour tables.
+ 
+ .TP
+ .BI to " ADDRESS " (default)
+@@ -154,7 +160,10 @@ lists all entries except for
+ and
+ .BR "noarp" .
+ 
+-.SS ip neighbour flush - flush neighbour entries
++.RS
++ip neighbour flush - flush neighbour entries
++.RE
++
+ This command flushes neighbour tables, selecting
+ entries to flush by some criteria.
+ 
+diff --git a/man/man8/ip-netns.8 b/man/man8/ip-netns.8
+index 87534be..6aa6e93 100644
+--- a/man/man8/ip-netns.8
++++ b/man/man8/ip-netns.8
+@@ -64,35 +64,41 @@ namespace unaware applications, by creating a mount namespace and
+ bind mounting all of the per network namespace configure files into
+ their traditional location in /etc.
+ 
+-.SS ip netns list - show all of the named network namespaces
+-
++.TP
++.B ip netns list - show all of the named network namespaces
++.sp
+ This command displays all of the network namespaces in /var/run/netns
+ 
+-.SS ip netns add NAME - create a new named network namespace
+-
++.TP
++.B ip netns add NAME - create a new named network namespace
++.sp
+ If NAME is available in /var/run/netns/ this command creates a new
+ network namespace and assigns NAME.
+ 
+-.SS ip netns delete NAME - delete the name of a network namespace
+-
++.TP
++.B ip netns delete NAME - delete the name of a network namespace
++.sp
+ If NAME is present in /var/run/netns it is umounted and the mount
+ point is removed.  If this is the last user of the network namespace the
+ network namespace will be freed, otherwise the network namespace
+ persists until it has no more users.  ip netns delete may fail if
+ the mount point is in use in another mount namespace.
+ 
+-.SS ip netns identify PID - Report network namespaces names for process
+-
++.TP
++.B ip netns identify PID - Report network namespaces names for process
++.sp
+ This command walks through /var/run/netns and finds all the network
+ namespace names for network namespace of the specified process.
+ 
+-.SS ip netns pids NAME - Report processes in the named network namespace
+-
++.TP
++.B ip netns pids NAME - Report processes in the named network namespace
++.sp
+ This command walks through proc and finds all of the process who have
+ the named network namespace as their primary network namespace.
+ 
+-.SS ip netns exec NAME cmd ... - Run cmd in the named network namespace
+-
++.TP
++.B ip netns exec NAME cmd ... - Run cmd in the named network namespace
++.sp
+ This command allows applications that are network namespace unaware
+ to be run in something other than the default network namespace with
+ all of the configuration for the specified network namespace appearing
+@@ -100,8 +106,9 @@ in the customary global locations.  A network namespace and bind mounts
+ are used to move files from their network namespace specific location
+ to their default locations without affecting other processes.
+ 
+-.SS ip netns monitor - Report as network namespace names are added and deleted
+-
++.TP
++.B ip netns monitor - Report as network namespace names are added and deleted
++.sp
+ This command watches network namespace name addition and deletion events
+ and prints a line for each event it sees.
+ 
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index 2c35a97..654816f 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -246,10 +246,16 @@ The multiple routing tables enter the game when
+ .I policy routing
+ is used.
+ 
+-.SS ip route add - add new route
+-.SS ip route change - change route
+-.SS ip route replace - change or add new one
+-
++.TP
++ip route add
++add new route
++.TP
++ip route change
++change route
++.TP
++ip route replace
++change or add new one
++.RS
+ .TP
+ .BI to " TYPE PREFIX " (default)
+ the destination prefix of the route.  If
+@@ -502,9 +508,12 @@ to assign (or not to assign) protocol tags.
+ .B onlink
+ pretend that the nexthop is directly attached to this link,
+ even if it does not match any interface prefix.
++.RE
+ 
+-.SS ip route delete - delete route
+-
++.TP
++ip route delete
++delete route
++.RS
+ .B ip route del
+ has the same arguments as
+ .BR "ip route add" ,
+@@ -518,8 +527,12 @@ verifies that they coincide with the attributes of the route to delete.
+ If no route with the given key and attributes was found,
+ .B ip route del
+ fails.
++.RE
+ 
+-.SS ip route show - list routes
++.TP
++ip route show
++list routes
++.RS
+ the command displays the contents of the routing tables or the route(s)
+ selected by some criteria.
+ 
+@@ -628,8 +641,12 @@ by
+ .TP
+ .BI realms " FROMREALM/TOREALM"
+ only list routes with these realms.
++.RE
+ 
+-.SS ip route flush - flush routing tables
++.TP
++ip route flush
++flush routing tables
++.RS
+ this command flushes routes selected by some criteria.
+ 
+ .sp
+@@ -652,8 +669,12 @@ twice,
+ .B ip route flush
+ also dumps all the deleted routes in the format described in the
+ previous subsection.
++.RE
+ 
+-.SS ip route get - get a single route
++.TP
++ip route get
++get a single route
++.RS
+ this command gets a single route to a destination and prints its
+ contents exactly as the kernel sees it.
+ 
+@@ -707,21 +728,30 @@ however, no packets are actually sent.  With the
+ .B iif
+ argument, the kernel pretends that a packet arrived from this interface
+ and searches for a path to forward the packet.
++.RE
+ 
+-.SS ip route save - save routing table information to stdout
+-this command behaves like
++.TP
++ip route save
++save routing table information to stdout
++.RS
++This command behaves like
+ .BR "ip route show"
+ except that the output is raw data suitable for passing to
+ .BR "ip route restore" .
++.RE
+ 
+-.SS ip route restore - restore routing table information from stdin
+-this command expects to read a data stream as returned from
++.TP
++ip route restore
++restore routing table information from stdin
++.RS
++This command expects to read a data stream as returned from
+ .BR "ip route save" .
+ It will attempt to restore the routing table information exactly as
+ it was at the time of the save, so any translation of information
+ in the stream (such as device indexes) must be done first.  Any existing
+ routes are left unchanged.  Any routes specified in the data stream that
+ already exist in the table will be ignored.
++.RE
+ 
+ .SH EXAMPLES
+ .PP
+diff --git a/man/man8/ip-tunnel.8 b/man/man8/ip-tunnel.8
+index cb05a4b..697e80d 100644
+--- a/man/man8/ip-tunnel.8
++++ b/man/man8/ip-tunnel.8
+@@ -88,10 +88,16 @@ The encapsulating (or outer) address family is specified by the
+ .B -f
+ option.  The default is IPv4.
+ 
+-.SS ip tunnel add - add a new tunnel
+-.SS ip tunnel change - change an existing tunnel
+-.SS ip tunnel delete - destroy a tunnel
+-
++.TP
++.B ip tunnel add
++add a new tunnel
++.TP
++.B ip tunnel change
++change an existing tunnel
++.TP
++.B ip tunnel delete
++destroy a tunnel
++.RS
+ .TP
+ .BI name " NAME " (default)
+ select the tunnel device name.
+@@ -223,9 +229,12 @@ set a fixed encapsulation limit.  Default is 4.
+ .BI flowlabel " FLOWLABEL"
+ .RB ( " only IPv6 tunnels " )
+ set a fixed flowlabel.
++.RE
+ 
+-.SS ip tunnel prl - potential router list (ISATAP only)
+-
++.TP
++.B ip tunnel prl
++potential router list (ISATAP only)
++.RS
+ .TP
+ .BI dev " NAME"
+ mandatory device name.
+@@ -238,8 +247,11 @@ mandatory device name.
+ .BI prl-delete " ADDR"
+ .RB "Add or delete " ADDR
+ as a potential router or default router.
++.RE
+ 
+-.SS ip tunnel show - list tunnels
++.TP
++.B ip tunnel show
++list tunnels
+ This command has no arguments.
+ 
+ .SH SEE ALSO
+diff --git a/man/man8/ip-xfrm.8 b/man/man8/ip-xfrm.8
+index 1d33eed..2d31b4d 100644
+--- a/man/man8/ip-xfrm.8
++++ b/man/man8/ip-xfrm.8
+@@ -369,23 +369,19 @@ object operating on the Security Association Database, and the
+ object operating on the Security Policy Database). It is also used for
+ the IP Payload Compression Protocol and features of Mobile IPv6.
+ 
+-.SS ip xfrm state add - add new state into xfrm
+-
+-.SS ip xfrm state update - update existing state in xfrm
+-
+-.SS ip xfrm state allocspi - allocate an SPI value
+-
+-.SS ip xfrm state delete - delete existing state in xfrm
+-
+-.SS ip xfrm state get - get existing state in xfrm
+-
+-.SS ip xfrm state deleteall - delete all existing state in xfrm
+-
+-.SS ip xfrm state list - print out the list of existing state in xfrm
+-
+-.SS ip xfrm state flush - flush all state in xfrm
+-
+-.SS ip xfrm state count - count all existing state in xfrm
++.TS
++l l.
++ip xfrm state add	add new state into xfrm
++ip xfrm state update	update existing state in xfrm
++ip xfrm state allocspi	allocate an SPI value
++ip xfrm state delete	delete existing state in xfrm
++ip xfrm state get	get existing state in xfrm
++ip xfrm state deleteall	delete all existing state in xfrm
++ip xfrm state list	print out the list of existing state in xfrm
++ip xfrm state flush	flush all state in xfrm
++ip xfrm state count	count all existing state in xfrm
++ip xfrm monitor 	state monitoring for xfrm objects
++.TE
+ 
+ .TP
+ .IR ID
+@@ -506,22 +502,18 @@ encapsulates packets with protocol
+ .BR espinudp " or " espinudp-nonike ","
+ .RI "using source port " SPORT ", destination port "  DPORT
+ .RI ", and original address " OADDR "."
+-
+-.SS ip xfrm policy add - add a new policy
+-
+-.SS ip xfrm policy update - update an existing policy
+-
+-.SS ip xfrm policy delete - delete an existing policy
+-
+-.SS ip xfrm policy get - get an existing policy
+-
+-.SS ip xfrm policy deleteall - delete all existing xfrm policies
+-
+-.SS ip xfrm policy list - print out the list of xfrm policies
+-
+-.SS ip xfrm policy flush - flush policies
+-
+-.SS ip xfrm policy count - count existing policies
++.sp
++.TS
++l l.
++ip xfrm policy add	add a new policy
++ip xfrm policy update	update an existing policy
++ip xfrm policy delete	delete an existing policy
++ip xfrm policy get	get an existing policy
++ip xfrm policy deleteall	delete all existing xfrm policies
++ip xfrm policy list	print out the list of xfrm policies
++ip xfrm policy flush	flush policies
++ip xfrm policy count	count existing policies
++.TE
+ 
+ .TP
+ .IR SELECTOR
+@@ -615,7 +607,6 @@ and inbound trigger
+ can be
+ .BR required " (default) or " use "."
+ 
+-.SS ip xfrm monitor - state monitoring for xfrm objects
+ The xfrm objects to monitor can be optionally specified.
+ 
+ .SH AUTHOR
+-- 
+1.8.0.1.g2b06c9a
+
+
+--dDRMvlgZJXvWKvBx--
