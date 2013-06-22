@@ -1,87 +1,79 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next 4/5] net: sctp: decouple cleaning socket data
- from endpoint
-Date: Sat, 22 Jun 2013 23:38:59 +0200
-Message-ID: <51C61973.10004@redhat.com>
-References: <1371545720-22950-1-git-send-email-dborkman@redhat.com> <1371545720-22950-5-git-send-email-dborkman@redhat.com> <51C3133A.4000707@gmail.com> <51C33C0D.2040902@redhat.com> <51C3A88E.2030003@gmail.com>
+From: nirinA raseliarison <nirina.raseliarison@gmail.com>
+Subject: if_bridge.h:183:20: error: field 'ip6' has incomplete type
+Date: Sun, 23 Jun 2013 02:09:22 +0300
+Message-ID: <op.wy3rxwht9ey1ta@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=iso-8859-15; format=flowed; delsp=yes
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>
-To: Vlad Yasevich <vyasevich@gmail.com>
+Cc: netdev@vger.kernel.org
+To: "Stephen Hemminger" <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57699 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751097Ab3FVVjO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 22 Jun 2013 17:39:14 -0400
-In-Reply-To: <51C3A88E.2030003@gmail.com>
+Received: from mail-wg0-f46.google.com ([74.125.82.46]:37517 "EHLO
+	mail-wg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750943Ab3FVXJL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jun 2013 19:09:11 -0400
+Received: by mail-wg0-f46.google.com with SMTP id c11so7275700wgh.13
+        for <netdev@vger.kernel.org>; Sat, 22 Jun 2013 16:09:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/21/2013 03:12 AM, Vlad Yasevich wrote:
-> On 06/20/2013 01:29 PM, Daniel Borkmann wrote:
->> On 06/20/2013 04:35 PM, Vlad Yasevich wrote:
->>> On 06/18/2013 04:55 AM, Daniel Borkmann wrote:
->>>> Rather instead of having the endpoint clean the garbage for the
->>>> socket, use a sk_destruct handler sctp_destruct_sock(), that does
->>>> the job for that when there are no more references on the socket.
->>>
->>> With this patch it is possible to run sctp_put_port while the socket
->>> is not locked.
->>>
->>> The flow goes something like this:
->>>
->>> sctp_close()
->>>    sk_bh_lock_sock();
->>>    sk_common_release()
->>>      sctp_destroy_sock()
->>>        endpoint_put()
->>>          endpoint_destroy() <-- This is where we used to do sctp_put_port
->>>    sk_bh_unlock_sock();
->>>    sock_put()
->>>      sk_free()
->>>        __sk_free()
->>>          sctp_destruct_sock()
->>>            sctp_put_port()
->>>
->>> I haven't found any race conditions yet, but that doesn't mean they
->>> don't exist.
->>>
->>> I think an easy solution would be to do sctp_put_port in sctp_unhash(),
->>> but I haven't traced all the paths.
->>
->> Hm, compared to the current (pre-patch) solution, sctp_put_port() does not
->> necessarily need to be called at sk_common_release() time if refs are still
->> on the endpoint, so that endpoint_destroy() is further deferred in time.
->> Thus,
->> if we would do the sctp_put_port() in sctp_unhash(), we could free it at an
->> earlier time than with endpoint_destroy(). This does not necessarily
->> need to
->> be a bad or wrong way, but with the current approach it's done at an later
->> point in time afaik.
->
-> You are right. Doing it in sctp_unhash() could be possibly too early.
->
->> If it's only about the locking, what if we just hold
->> that socket lock around sctp_put_port() in the current patch?
->>
->> But besides that, if at such a late point in time someone still has
->> access to
->> that socket member (right before we do the kfree(sk)), we would be
->> pretty much
->> screwed. :-) Despite having the socket lock or not, the port hashtable
->> has it's
->> own protection from what I see.
->
-> Yes it does and I've been looking to see if this is sufficient enough
-> for our purposes.  It looks like our saving grace is the fact that
-> we set the sk_state to CLOSED sctp_endpoint_free().  Otherwise, we'd
-> have a race between sctp_endpoint_destroy() and conflict detection
-> in sctp_get_port_local.  This seems a bit fragile and we are making
-> it a bit so more with this patch.
->
-> I think it would be better to see if we can remove the socket from
-> the port table a bit earlier if possbile.
+hello there,
+i got the errors below when building brigde-utils-1.5.
+adding "in6.h" to "if_bridge.h" apparently solve them;
+but i would be happy if someone can advise me to build
+bridge-utils and the correct fix for these issues.
 
-Ok, let me come back to this on Monday.
+thanks,
+
+-------------8<----------------------8<-------------------------------------
+
+In file included from libbridge.h:24:0,
+                  from libbridge_devif.c:28:
+/usr/include/linux/if_bridge.h:183:20: error: field 'ip6' has incomplete  
+type
+     struct in6_addr ip6;
+                     ^
+In file included from libbridge.h:24:0,
+                  from libbridge_if.c:26:
+/usr/include/linux/if_bridge.h:183:20: error: field 'ip6' has incomplete  
+type
+     struct in6_addr ip6;
+                     ^
+In file included from libbridge.h:24:0,
+                  from libbridge_init.c:28:
+/usr/include/linux/if_bridge.h:183:20: error: field 'ip6' has incomplete  
+type
+     struct in6_addr ip6;
+                     ^
+In file included from libbridge.h:24:0,
+                  from libbridge_misc.c:24:
+/usr/include/linux/if_bridge.h:183:20: error: field 'ip6' has incomplete  
+type
+     struct in6_addr ip6;
+                     ^
+[...]
+
+gcc -Wall -O2 -fPIC -I../libbridge -I/usr/src/linux/include  -c brctl.c
+In file included from ../libbridge/libbridge.h:24:0,
+                  from brctl.c:25:
+/usr/include/linux/if_bridge.h:183:20: error: field 'ip6' has incomplete  
+type
+     struct in6_addr ip6;
+                     ^
+-------------8<----------------------8<-------------------------------------
+diff -u include/uapi/linux/if_bridge_orig.h include/uapi/linux/if_bridge.h
+--- include/uapi/linux/if_bridge_orig.h 2013-06-23 03:55:34.072971125 +0300
++++ include/uapi/linux/if_bridge.h      2013-06-23 03:55:45.676970995 +0300
+@@ -14,6 +14,7 @@
+  #define _UAPI_LINUX_IF_BRIDGE_H
+
+  #include <linux/types.h>
++#include <linux/in6.h>
+
+  #define SYSFS_BRIDGE_ATTR      "bridge"
+  #define SYSFS_BRIDGE_FDB       "brforward"
+-------------8<----------------------8<-------------------------------------
+
+
+--
+nirinA
