@@ -1,43 +1,44 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: Patches required for 3.9 stable
-Date: Sat, 22 Jun 2013 07:45:18 -0700
-Message-ID: <20130622144518.GA11334@kroah.com>
-References: <51BEC1C3.40109@redhat.com>
- <20130617.132057.1873879604917526327.davem@davemloft.net>
- <20130622103954.GA2003@electric-eye.fr.zoreil.com>
+From: "Goss, Neal III" <neal.goss@MyFWC.com>
+Subject: KIVA LOAN LENDERS 2013 LOAN OFFER
+Date: Sat, 22 Jun 2013 10:54:42 -0400
+Message-ID: <4F5FF9AB3D1CC94DBB300D025C8C4A3B0AA0983E03@FWC-TLEX10.fwc.state.fl.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, jasowang@redhat.com,
-	netdev@vger.kernel.org, mst@redhat.com, jwboyer@redhat.com
-To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Type: text/plain; charset=Windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Undisclosed recipients:;
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:40924 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751242Ab3FVOog (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jun 2013 10:44:36 -0400
-Content-Disposition: inline
-In-Reply-To: <20130622103954.GA2003@electric-eye.fr.zoreil.com>
+Received: from fwc-tlex8.fwc.state.fl.us ([216.76.92.213]:5388 "EHLO
+	FWC-TLEX8.fwc.state.fl.us" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751087Ab3FVPAV convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jun 2013 11:00:21 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 22, 2013 at 12:39:54PM +0200, Francois Romieu wrote:
-> David Miller <davem@davemloft.net> :
-> > From: Jason Wang <jasowang@redhat.com>
-> [...]
-> > I'm currently working on stable submissions for networking.  The
-> > person to ask for this kind of stuff is me, not Greg.
-> 
-> Is there a way (git, http, mailing list) to know where things are when
-> a patch has been removed from patchwork [1] and has not appeared in
-> Greg's tree [2] ?
+    KIVA LOAN SERVICE LMT
 
-Usually it's only a week or so at the most that this gap happens, why
-does it matter?
+Attention
 
-You can watch the stable@vger.kernel.org mailing list and see the
-submission by David of the patches, and then my ack of them later when
-they hit my tree, is that sufficient?
+This is to inform you that, Kiva Loans have commenced the 2013 loan off=
+er. Kiva Loans is giving out
+ $50,000 to $200,000 USD (Fifty To Two Hundred Thousand US Dollars) to =
+qualified applicants who can utilize these funds positively on personal=
+/business purposes, and have it returned within 5 years.
+This loan is offered at 2% monthly interest rate. To apply, kindly fill=
+ the details below, and write to us through our e-mail: Address.=20
+=20
+=46ull Name:=85=85=85=85=85=85=85=85...
+=46ull Address:=85=85=85=85=85=85=85..
+State:=85=85=85=85=85=85=85=85=85=85=85.
+Occupation:=85=85=85=85=85=85=85=85.
+Age:=85=85=85=85=85=85=85=85=85=85=85=85
+Sex:=85=85=85=85=85=85=85=85=85=85=85=85
+Country:=85=85=85=85=85=85=85=85=85=85
+Mobile:=85=85=85=85=85=85=85=85=85=85=85
 
-thanks,
 
-greg k-h
+Thanks,
+Mr. mark Scott
+Kiva Loans Coordinator
+E-mail us, kivaloanlenders@gmail.com
+Website: http://www.kiva.org/team/uk
