@@ -1,52 +1,60 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: Fwd: Re: [PATCH] can: usb_8dev: unregister netdev before free()ing
-Date: Sat, 22 Jun 2013 09:08:17 +0200
-Message-ID: <51C54D61.104@hartkopp.net>
-References: <51C1DC58.2040705@hartkopp.net> <51C4A3B7.9040903@hartkopp.net> <51C4A6C5.7040609@cogentembedded.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Subject: [PATCH v2 net-next 0/8] qlcnic: Driver updates
+Date: Sat, 22 Jun 2013 04:11:59 -0400
+Message-ID: <1371888727-16422-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	Linux Netdev List <netdev@vger.kernel.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <51C4A6C5.7040609@cogentembedded.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
+	<shahed.shaikh@qlogic.com>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:29254
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932292Ab3FVIiX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jun 2013 04:38:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Unfortunately the "Cc: stable@vger.kernel.org" was missing in the original patch.
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-I just wanted to make sure that it doesn't get lost for 3.9 stable.
+Re-submitting the patch set after fixing patch#2 as pointed by Joe Perches.
 
-Tnx & best regards,
-Oliver
+Please apply patch series to net-next.
 
-On 21.06.2013 21:17, Sergei Shtylyov wrote:
-> Hello.
-> 
-> On 06/21/2013 11:04 PM, Oliver Hartkopp wrote:
-> 
->> can you please integrate this patch into stable 3.9 too?
->> The usb_8dev driver was introduced in Linux 3.9 and has now been fixed in
->> DaveMs net-tree for 3.10 some days ago.
-> 
->> Upstream commit 4afe2156eb639e563d6ef0c2706b66ea400348b2
-> 
->> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=4afe2156eb639e563d6ef0c2706b66ea400348b2
->>
-> 
->> I wanted to put stable@kernel.org in CC but that bounced.
-> 
->    Because it's now at stable@vger.kernel.org. You don't need to CC it in your
-> mail, just add "Cc: stable@vger.kernel.org" line to the patch header after
-> signoff. Though actually, Dave Miller doesn't like this protocol and queues
-> the stable patches himself.
-> 
->> Tnx,
->> Oliver
-> 
-> WBR, Sergei
-> 
+Thanks,
+    Jiten
 
+Jitendra Kalsaria (3):
+  qlcnic: Secondary unicast MAC address support.
+  qlcnic: Minimize sleep duration within loopback diagnostic test.
+  qlcnic: Update version to 5.2.44
+
+Pratik Pujar (2):
+  qlcnic: Cleanup of structure qlcnic_hardware_context
+  qlcnic: Add support for 'set driver version' in 83XX
+
+Rajesh Borundia (1):
+  qlcnic: Add support for 83xx suspend and resume.
+
+Shahed Shaikh (2):
+  qlcnic: Handle qlcnic_alloc_mbx_args() failure
+  qlcnic: Add support for PEX DMA method to read memory section of
+    adapter dump
+
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   36 +++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |  269 ++++++++++++++++----
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |   12 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   24 ++-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  |   23 ++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_ctx.c    |  129 +++++++---
+ .../net/ethernet/qlogic/qlcnic/qlcnic_ethtool.c    |    6 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hdr.h    |    1 +
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |   88 ++++++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    7 +-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |  138 +++++------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_minidump.c   |  225 ++++++++++++++++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    2 +
+ .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   53 ++++
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sysfs.c  |    2 +-
+ 15 files changed, 816 insertions(+), 199 deletions(-)
