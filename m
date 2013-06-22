@@ -1,65 +1,52 @@
-From: Randy Dunlap <rdunlap@infradead.org>
-Subject: Re: [PATCH net-next 2/2] ip_tunnel: Protect tunnel functions with
- CONFIG_INET guard.
-Date: Fri, 21 Jun 2013 20:46:51 -0700
-Message-ID: <51C51E2B.7050704@infradead.org>
-References: <1371856631-47807-1-git-send-email-jesse@nicira.com> <1371856631-47807-2-git-send-email-jesse@nicira.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: Fwd: Re: [PATCH] can: usb_8dev: unregister netdev before free()ing
+Date: Sat, 22 Jun 2013 09:08:17 +0200
+Message-ID: <51C54D61.104@hartkopp.net>
+References: <51C1DC58.2040705@hartkopp.net> <51C4A3B7.9040903@hartkopp.net> <51C4A6C5.7040609@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	dev@openvswitch.org, Pravin Shelar <pshelar@nicira.com>
-To: Jesse Gross <jesse@nicira.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from merlin.infradead.org ([205.233.59.134]:51432 "EHLO
-	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423471Ab3FVDrM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 21 Jun 2013 23:47:12 -0400
-In-Reply-To: <1371856631-47807-2-git-send-email-jesse@nicira.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
+	Linux Netdev List <netdev@vger.kernel.org>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	David Miller <davem@davemloft.net>
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <51C4A6C5.7040609@cogentembedded.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/21/13 16:17, Jesse Gross wrote:
-> Tunnel constants can be used in generic code but in these cases
-> the inline functions in ip_tunnels.h cause compilation problems
-> if CONFIG_INET is not set.
+Unfortunately the "Cc: stable@vger.kernel.org" was missing in the original patch.
+
+I just wanted to make sure that it doesn't get lost for 3.9 stable.
+
+Tnx & best regards,
+Oliver
+
+On 21.06.2013 21:17, Sergei Shtylyov wrote:
+> Hello.
 > 
-> CC: Pravin Shelar <pshelar@nicira.com>
-> Reported-by: Randy Dunlap <rdunlap@infradead.org>
-> Signed-off-by: Jesse Gross <jesse@nicira.com>
-
-Acked-by: Randy Dunlap <rdunlap@infradead.org>
-
-Thanks.
-
-
-> ---
->  include/net/ip_tunnels.h | 5 +++++
->  1 file changed, 5 insertions(+)
+> On 06/21/2013 11:04 PM, Oliver Hartkopp wrote:
 > 
-> diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-> index 10bbb42..b0d9824 100644
-> --- a/include/net/ip_tunnels.h
-> +++ b/include/net/ip_tunnels.h
-> @@ -93,6 +93,8 @@ struct ip_tunnel_net {
->  	struct net_device *fb_tunnel_dev;
->  };
->  
-> +#ifdef CONFIG_INET
-> +
->  int ip_tunnel_init(struct net_device *dev);
->  void ip_tunnel_uninit(struct net_device *dev);
->  void  ip_tunnel_dellink(struct net_device *dev, struct list_head *head);
-> @@ -180,4 +182,7 @@ static inline void iptunnel_xmit_stats(int err,
->  		err_stats->tx_dropped++;
->  	}
->  }
-> +
-> +#endif /* CONFIG_INET */
-> +
->  #endif /* __NET_IP_TUNNELS_H */
+>> can you please integrate this patch into stable 3.9 too?
+>> The usb_8dev driver was introduced in Linux 3.9 and has now been fixed in
+>> DaveMs net-tree for 3.10 some days ago.
+> 
+>> Upstream commit 4afe2156eb639e563d6ef0c2706b66ea400348b2
+> 
+>> http://git.kernel.org/cgit/linux/kernel/git/davem/net.git/commit/?id=4afe2156eb639e563d6ef0c2706b66ea400348b2
+>>
+> 
+>> I wanted to put stable@kernel.org in CC but that bounced.
+> 
+>    Because it's now at stable@vger.kernel.org. You don't need to CC it in your
+> mail, just add "Cc: stable@vger.kernel.org" line to the patch header after
+> signoff. Though actually, Dave Miller doesn't like this protocol and queues
+> the stable patches himself.
+> 
+>> Tnx,
+>> Oliver
+> 
+> WBR, Sergei
 > 
 
-
--- 
-~Randy
