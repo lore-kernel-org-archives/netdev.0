@@ -1,43 +1,43 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Patches required for 3.9 stable
-Date: Sat, 22 Jun 2013 12:39:54 +0200
-Message-ID: <20130622103954.GA2003@electric-eye.fr.zoreil.com>
-References: <51BEC1C3.40109@redhat.com>
- <20130617.132057.1873879604917526327.davem@davemloft.net>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 net-next 5/8] qlcnic: Cleanup of structure
+ qlcnic_hardware_context
+Date: Sat, 22 Jun 2013 03:53:48 -0700
+Message-ID: <1371898428.3137.5.camel@joe-AO722>
+References: <1371888727-16422-1-git-send-email-jitendra.kalsaria@qlogic.com>
+	 <1371888727-16422-6-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jasowang@redhat.com, gregkh@linuxfoundation.org,
-	netdev@vger.kernel.org, mst@redhat.com, jwboyer@redhat.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	sony.chacko@qlogic.com, shahed.shaikh@qlogic.com,
+	Dept_NX_Linux_NIC_Driver@qlogic.com,
+	Pratik Pujar <pratik.pujar@qlogic.com>
+To: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:41728 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752930Ab3FVKkH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jun 2013 06:40:07 -0400
-Content-Disposition: inline
-In-Reply-To: <20130617.132057.1873879604917526327.davem@davemloft.net>
+Received: from perches-mx.perches.com ([206.117.179.246]:37205 "EHLO
+	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751965Ab3FVKxt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 22 Jun 2013 06:53:49 -0400
+In-Reply-To: <1371888727-16422-6-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> :
-> From: Jason Wang <jasowang@redhat.com>
-[...]
-> I'm currently working on stable submissions for networking.  The
-> person to ask for this kind of stuff is me, not Greg.
+On Sat, 2013-06-22 at 04:12 -0400, Jitendra Kalsaria wrote:
+> From: Pratik Pujar <pratik.pujar@qlogic.com>
 
-Is there a way (git, http, mailing list) to know where things are when
-a patch has been removed from patchwork [1] and has not appeared in
-Greg's tree [2] ?
+This isn't really a cleanup.
+It's allowing more capabilities.
 
-I can take it as a signal that it will either appear shortly in Greg's
-current queue or signal a problem but a confirmation that I have not
-missed an information channel would be welcome.
+> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+[]
+> @@ -449,7 +449,7 @@ struct qlcnic_hardware_context {
+>  	u16 max_pci_func;
+>  
+>  	u32 capabilities;
+> -	u32 capabilities2;
+> +	u32 extra_capability[3];
 
-Thanks.
+Also, it looks like it's used as a bitfield.
 
-[1] http://patchwork.ozlabs.org/bundle/davem/stable/?state=*&archive=both
-[2] http://git.kernel.org/cgit/linux/kernel/git/stable/stable-queue.git
-    as per Documentation/stable_kernel_rules.txt
-
--- 
-Ueimor
+I suggest instead using an array of ulongs and
+something like tg3's use of tg3_flag_set|tg3_flag_clear.
