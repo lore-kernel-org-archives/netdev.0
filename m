@@ -1,524 +1,166 @@
 From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Subject: [PATCH v2 net-next 7/8] qlcnic: Add support for 83xx suspend and resume.
-Date: Sat, 22 Jun 2013 04:12:06 -0400
-Message-ID: <1371888727-16422-8-git-send-email-jitendra.kalsaria@qlogic.com>
+Subject: [PATCH v2 net-next 3/8] qlcnic: Minimize sleep duration within loopback diagnostic test.
+Date: Sat, 22 Jun 2013 04:12:02 -0400
+Message-ID: <1371888727-16422-4-git-send-email-jitendra.kalsaria@qlogic.com>
 References: <1371888727-16422-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <sony.chacko@qlogic.com>,
 	<shahed.shaikh@qlogic.com>, <Dept_NX_Linux_NIC_Driver@qlogic.com>,
-	Rajesh Borundia <rajesh.borundia@qlogic.com>
+	Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe001.messaging.microsoft.com ([216.32.180.11]:29294
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932352Ab3FVIib (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jun 2013 04:38:31 -0400
+Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:1039 "EHLO
+	va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932292Ab3FVIi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 22 Jun 2013 04:38:26 -0400
 In-Reply-To: <1371888727-16422-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 
-o Implement shutdown and resume handlers for 83xx.
-o Refactor 82xx shutdown and resume handlers.
+o Minimize sleep duration and check for adapter status.
+o Exit from loopback test if adapter reset is detected.
 
-Signed-off-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
 Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |   14 ++++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   53 ++++++++++++++++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    6 ++
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |   17 ++++-
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c  |   23 +++++++-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c     |   51 +++++++++++++++
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h     |    4 +
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   66 ++-----------------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |    2 +
- .../ethernet/qlogic/qlcnic/qlcnic_sriov_common.c   |   53 ++++++++++++++++
- 10 files changed, 225 insertions(+), 64 deletions(-)
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c    |   57 +++++++++++++------
+ .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h    |    3 +-
+ 2 files changed, 41 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index 955dd85..a89e322 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1596,6 +1596,8 @@ struct qlcnic_nic_template {
- 	void (*napi_del)(struct qlcnic_adapter *);
- 	void (*config_ipaddr)(struct qlcnic_adapter *, __be32, int);
- 	irqreturn_t (*clear_legacy_intr)(struct qlcnic_adapter *);
-+	int (*shutdown)(struct pci_dev *);
-+	int (*resume)(struct qlcnic_adapter *);
- };
- 
- /* Adapter hardware abstraction */
-@@ -1800,6 +1802,18 @@ static inline void qlcnic_napi_enable(struct qlcnic_adapter *adapter)
- 	adapter->ahw->hw_ops->napi_enable(adapter);
- }
- 
-+static inline int __qlcnic_shutdown(struct pci_dev *pdev)
-+{
-+	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
-+
-+	return adapter->nic_ops->shutdown(pdev);
-+}
-+
-+static inline int __qlcnic_resume(struct qlcnic_adapter *adapter)
-+{
-+	return adapter->nic_ops->resume(adapter);
-+}
-+
- static inline void qlcnic_napi_disable(struct qlcnic_adapter *adapter)
- {
- 	adapter->ahw->hw_ops->napi_disable(adapter);
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-index 1938812..0913c62 100644
+index ab66410..1c463dd 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
-@@ -186,6 +186,8 @@ static struct qlcnic_nic_template qlcnic_83xx_ops = {
- 	.napi_del		= qlcnic_83xx_napi_del,
- 	.config_ipaddr		= qlcnic_83xx_config_ipaddr,
- 	.clear_legacy_intr	= qlcnic_83xx_clear_legacy_intr,
-+	.shutdown		= qlcnic_83xx_shutdown,
-+	.resume			= qlcnic_83xx_resume,
- };
+@@ -1676,13 +1676,19 @@ int qlcnic_83xx_loopback_test(struct net_device *netdev, u8 mode)
  
- void qlcnic_83xx_register_map(struct qlcnic_hardware_context *ahw)
-@@ -3393,3 +3395,54 @@ int qlcnic_83xx_flash_test(struct qlcnic_adapter *adapter)
- 	}
- 	return 0;
- }
-+
-+int qlcnic_83xx_shutdown(struct pci_dev *pdev)
-+{
-+	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
-+	struct net_device *netdev = adapter->netdev;
-+	int retval;
-+
-+	netif_device_detach(netdev);
-+	qlcnic_cancel_idc_work(adapter);
-+
-+	if (netif_running(netdev))
-+		qlcnic_down(adapter, netdev);
-+
-+	qlcnic_83xx_disable_mbx_intr(adapter);
-+	cancel_delayed_work_sync(&adapter->idc_aen_work);
-+
-+	retval = pci_save_state(pdev);
-+	if (retval)
-+		return retval;
-+
-+	return 0;
-+}
-+
-+int qlcnic_83xx_resume(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct qlc_83xx_idc *idc = &ahw->idc;
-+	int err = 0;
-+
-+	err = qlcnic_83xx_idc_init(adapter);
-+	if (err)
-+		return err;
-+
-+	if (ahw->nic_mode == QLC_83XX_VIRTUAL_NIC_MODE) {
-+		if (ahw->op_mode == QLCNIC_MGMT_FUNC) {
-+			qlcnic_83xx_set_vnic_opmode(adapter);
-+		} else {
-+			err = qlcnic_83xx_check_vnic_state(adapter);
-+			if (err)
-+				return err;
+ 	/* Poll for link up event before running traffic */
+ 	do {
+-		msleep(500);
++		msleep(QLC_83XX_LB_MSLEEP_COUNT);
+ 		if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
+ 			qlcnic_83xx_process_aen(adapter);
+ 
+-		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
+-			dev_info(&adapter->pdev->dev,
+-				 "Firmware didn't sent link up event to loopback request\n");
++		if (test_bit(__QLCNIC_RESETTING, &adapter->state)) {
++			netdev_info(netdev,
++				    "Device is resetting, free LB test resources\n");
++			ret = -EIO;
++			goto free_diag_res;
 +		}
-+	}
++		if (loop++ > QLC_83XX_LB_WAIT_COUNT) {
++			netdev_info(netdev,
++				    "Firmware didn't sent link up event to loopback request\n");
+ 			ret = -QLCNIC_FW_NOT_RESPOND;
+ 			qlcnic_83xx_clear_lb_mode(adapter, mode);
+ 			goto free_diag_res;
+@@ -1711,6 +1717,7 @@ fail_diag_alloc:
+ int qlcnic_83xx_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ {
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	struct net_device *netdev = adapter->netdev;
+ 	int status = 0, loop = 0;
+ 	u32 config;
+ 
+@@ -1728,9 +1735,9 @@ int qlcnic_83xx_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 
+ 	status = qlcnic_83xx_set_port_config(adapter);
+ 	if (status) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to Set Loopback Mode = 0x%x.\n",
+-			ahw->port_config);
++		netdev_err(netdev,
++			   "Failed to Set Loopback Mode = 0x%x.\n",
++			   ahw->port_config);
+ 		ahw->port_config = config;
+ 		clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
+ 		return status;
+@@ -1738,13 +1745,19 @@ int qlcnic_83xx_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 
+ 	/* Wait for Link and IDC Completion AEN */
+ 	do {
+-		msleep(300);
++		msleep(QLC_83XX_LB_MSLEEP_COUNT);
+ 		if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
+ 			qlcnic_83xx_process_aen(adapter);
+ 
+-		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
+-			dev_err(&adapter->pdev->dev,
+-				"FW did not generate IDC completion AEN\n");
++		if (test_bit(__QLCNIC_RESETTING, &adapter->state)) {
++			netdev_info(netdev,
++				    "Device is resetting, free LB test resources\n");
++			clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
++			return -EIO;
++		}
++		if (loop++ > QLC_83XX_LB_WAIT_COUNT) {
++			netdev_err(netdev,
++				   "Did not receive IDC completion AEN\n");
+ 			clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
+ 			qlcnic_83xx_clear_lb_mode(adapter, mode);
+ 			return -EIO;
+@@ -1759,6 +1772,7 @@ int qlcnic_83xx_set_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ int qlcnic_83xx_clear_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ {
+ 	struct qlcnic_hardware_context *ahw = adapter->ahw;
++	struct net_device *netdev = adapter->netdev;
+ 	int status = 0, loop = 0;
+ 	u32 config = ahw->port_config;
+ 
+@@ -1770,9 +1784,9 @@ int qlcnic_83xx_clear_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 
+ 	status = qlcnic_83xx_set_port_config(adapter);
+ 	if (status) {
+-		dev_err(&adapter->pdev->dev,
+-			"Failed to Clear Loopback Mode = 0x%x.\n",
+-			ahw->port_config);
++		netdev_err(netdev,
++			   "Failed to Clear Loopback Mode = 0x%x.\n",
++			   ahw->port_config);
+ 		ahw->port_config = config;
+ 		clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
+ 		return status;
+@@ -1780,13 +1794,20 @@ int qlcnic_83xx_clear_lb_mode(struct qlcnic_adapter *adapter, u8 mode)
+ 
+ 	/* Wait for Link and IDC Completion AEN */
+ 	do {
+-		msleep(300);
++		msleep(QLC_83XX_LB_MSLEEP_COUNT);
+ 		if (!(adapter->flags & QLCNIC_MSIX_ENABLED))
+ 			qlcnic_83xx_process_aen(adapter);
+ 
+-		if (loop++ > QLCNIC_ILB_MAX_RCV_LOOP) {
+-			dev_err(&adapter->pdev->dev,
+-				"Firmware didn't sent IDC completion AEN\n");
++		if (test_bit(__QLCNIC_RESETTING, &adapter->state)) {
++			netdev_info(netdev,
++				    "Device is resetting, free LB test resources\n");
++			clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
++			return -EIO;
++		}
 +
-+	err = qlcnic_83xx_idc_reattach_driver(adapter);
-+	if (err)
-+		return err;
-+
-+	qlcnic_schedule_work(adapter, qlcnic_83xx_idc_poll_dev_state,
-+			     idc->delay);
-+	return err;
-+}
++		if (loop++ > QLC_83XX_LB_WAIT_COUNT) {
++			netdev_err(netdev,
++				   "Did not receive IDC completion AEN\n");
+ 			clear_bit(QLC_83XX_IDC_COMP_AEN, &ahw->idc.status);
+ 			return -EIO;
+ 		}
 diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-index e356ee8..2548d14 100644
+index e821ee4..e356ee8 100644
 --- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
 +++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.h
-@@ -628,4 +628,10 @@ u32 qlcnic_83xx_mbx_poll(struct qlcnic_adapter *, u32 *);
- void qlcnic_83xx_enable_mbx_poll(struct qlcnic_adapter *);
- void qlcnic_83xx_disable_mbx_poll(struct qlcnic_adapter *);
- void qlcnic_83xx_set_mac_filter_count(struct qlcnic_adapter *);
-+int qlcnic_83xx_shutdown(struct pci_dev *);
-+int qlcnic_83xx_resume(struct qlcnic_adapter *);
-+int qlcnic_83xx_idc_init(struct qlcnic_adapter *);
-+int qlcnic_83xx_idc_reattach_driver(struct qlcnic_adapter *);
-+int qlcnic_83xx_set_vnic_opmode(struct qlcnic_adapter *);
-+int qlcnic_83xx_check_vnic_state(struct qlcnic_adapter *);
- #endif
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index e2d04d5..f41dfab 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -606,7 +606,7 @@ static int qlcnic_83xx_idc_check_fan_failure(struct qlcnic_adapter *adapter)
- 	return 0;
- }
- 
--static int qlcnic_83xx_idc_reattach_driver(struct qlcnic_adapter *adapter)
-+int qlcnic_83xx_idc_reattach_driver(struct qlcnic_adapter *adapter)
- {
- 	int err;
- 
-@@ -1135,7 +1135,7 @@ qlcnic_83xx_idc_first_to_load_function_handler(struct qlcnic_adapter *adapter)
- 	return 0;
- }
- 
--static int qlcnic_83xx_idc_init(struct qlcnic_adapter *adapter)
-+int qlcnic_83xx_idc_init(struct qlcnic_adapter *adapter)
- {
- 	int ret = -EIO;
- 
-@@ -1554,9 +1554,18 @@ static int qlcnic_83xx_reset_template_checksum(struct qlcnic_adapter *p_dev)
- 
- int qlcnic_83xx_get_reset_instruction_template(struct qlcnic_adapter *p_dev)
- {
--	u8 *p_buff;
--	u32 addr, count;
- 	struct qlcnic_hardware_context *ahw = p_dev->ahw;
-+	u32 addr, count, prev_ver, curr_ver;
-+	u8 *p_buff;
-+
-+	if (ahw->reset.buff != NULL) {
-+		prev_ver = p_dev->fw_version;
-+		curr_ver = qlcnic_83xx_get_fw_version(p_dev);
-+		if (curr_ver > prev_ver)
-+			kfree(ahw->reset.buff);
-+		else
-+			return 0;
-+	}
- 
- 	ahw->reset.seq_error = 0;
- 	ahw->reset.buff = kzalloc(QLC_83XX_RESTART_TEMPLATE_SIZE, GFP_KERNEL);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-index b5054e1..599d1fd 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_vnic.c
-@@ -39,7 +39,7 @@ int qlcnic_83xx_disable_vnic_mode(struct qlcnic_adapter *adapter, int lock)
- 	return 0;
- }
- 
--static int qlcnic_83xx_set_vnic_opmode(struct qlcnic_adapter *adapter)
-+int qlcnic_83xx_set_vnic_opmode(struct qlcnic_adapter *adapter)
- {
- 	u8 id;
- 	int ret = -EBUSY;
-@@ -218,3 +218,24 @@ int qlcnic_83xx_config_vnic_opmode(struct qlcnic_adapter *adapter)
- 
- 	return 0;
- }
-+
-+int qlcnic_83xx_check_vnic_state(struct qlcnic_adapter *adapter)
-+{
-+	struct qlcnic_hardware_context *ahw = adapter->ahw;
-+	struct qlc_83xx_idc *idc = &ahw->idc;
-+	u32 state;
-+
-+	state = QLCRDX(ahw, QLC_83XX_VNIC_STATE);
-+	while (state != QLCNIC_DEV_NPAR_OPER && idc->vnic_wait_limit--) {
-+		msleep(1000);
-+		state = QLCRDX(ahw, QLC_83XX_VNIC_STATE);
-+	}
-+
-+	if (!idc->vnic_wait_limit) {
-+		dev_err(&adapter->pdev->dev,
-+			"vNIC mode not operational, state check timed out.\n");
-+		return -EIO;
-+	}
-+
-+	return 0;
-+}
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-index 9fcbfd4..5b5d2ed 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.c
-@@ -1577,3 +1577,54 @@ void qlcnic_82xx_api_unlock(struct qlcnic_adapter *adapter)
- {
- 	qlcnic_pcie_sem_unlock(adapter, 5);
- }
-+
-+int qlcnic_82xx_shutdown(struct pci_dev *pdev)
-+{
-+	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
-+	struct net_device *netdev = adapter->netdev;
-+	int retval;
-+
-+	netif_device_detach(netdev);
-+
-+	qlcnic_cancel_idc_work(adapter);
-+
-+	if (netif_running(netdev))
-+		qlcnic_down(adapter, netdev);
-+
-+	qlcnic_clr_all_drv_state(adapter, 0);
-+
-+	clear_bit(__QLCNIC_RESETTING, &adapter->state);
-+
-+	retval = pci_save_state(pdev);
-+	if (retval)
-+		return retval;
-+
-+	if (qlcnic_wol_supported(adapter)) {
-+		pci_enable_wake(pdev, PCI_D3cold, 1);
-+		pci_enable_wake(pdev, PCI_D3hot, 1);
-+	}
-+
-+	return 0;
-+}
-+
-+int qlcnic_82xx_resume(struct qlcnic_adapter *adapter)
-+{
-+	struct net_device *netdev = adapter->netdev;
-+	int err;
-+
-+	err = qlcnic_start_firmware(adapter);
-+	if (err) {
-+		dev_err(&adapter->pdev->dev, "failed to start firmware\n");
-+		return err;
-+	}
-+
-+	if (netif_running(netdev)) {
-+		err = qlcnic_up(adapter, netdev);
-+		if (!err)
-+			qlcnic_restore_indev_addr(netdev, NETDEV_UP);
-+	}
-+
-+	netif_device_attach(netdev);
-+	qlcnic_schedule_work(adapter, qlcnic_fw_poll_work, FW_POLL_DELAY);
-+	return err;
-+}
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-index b190c84..2c22504 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_hw.h
-@@ -199,4 +199,8 @@ void qlcnic_82xx_api_unlock(struct qlcnic_adapter *);
- void qlcnic_82xx_napi_enable(struct qlcnic_adapter *);
- void qlcnic_82xx_napi_disable(struct qlcnic_adapter *);
- void qlcnic_82xx_napi_del(struct qlcnic_adapter *);
-+int qlcnic_82xx_shutdown(struct pci_dev *);
-+int qlcnic_82xx_resume(struct qlcnic_adapter *);
-+void qlcnic_clr_all_drv_state(struct qlcnic_adapter *adapter, u8 failed);
-+void qlcnic_fw_poll_work(struct work_struct *work);
- #endif				/* __QLCNIC_HW_H_ */
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 0d7a4fd..4528f8e 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -59,13 +59,11 @@ static int qlcnic_close(struct net_device *netdev);
- static void qlcnic_tx_timeout(struct net_device *netdev);
- static void qlcnic_attach_work(struct work_struct *work);
- static void qlcnic_fwinit_work(struct work_struct *work);
--static void qlcnic_fw_poll_work(struct work_struct *work);
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void qlcnic_poll_controller(struct net_device *netdev);
- #endif
- 
- static void qlcnic_idc_debug_info(struct qlcnic_adapter *adapter, u8 encoding);
--static void qlcnic_clr_all_drv_state(struct qlcnic_adapter *adapter, u8);
- static int qlcnic_can_start_firmware(struct qlcnic_adapter *adapter);
- 
- static irqreturn_t qlcnic_tmp_intr(int irq, void *data);
-@@ -469,6 +467,8 @@ static struct qlcnic_nic_template qlcnic_ops = {
- 	.napi_add		= qlcnic_82xx_napi_add,
- 	.napi_del		= qlcnic_82xx_napi_del,
- 	.config_ipaddr		= qlcnic_82xx_config_ipaddr,
-+	.shutdown		= qlcnic_82xx_shutdown,
-+	.resume			= qlcnic_82xx_resume,
- 	.clear_legacy_intr	= qlcnic_82xx_clear_legacy_intr,
- };
- 
-@@ -2277,37 +2277,6 @@ static void qlcnic_remove(struct pci_dev *pdev)
- 	kfree(ahw);
- 	free_netdev(netdev);
- }
--static int __qlcnic_shutdown(struct pci_dev *pdev)
--{
--	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
--	struct net_device *netdev = adapter->netdev;
--	int retval;
+@@ -36,7 +36,8 @@
+ #define QLC_83XX_MAX_DRV_LOCK_RECOVERY_ATTEMPT		3
+ #define QLC_83XX_DRV_LOCK_RECOVERY_DELAY		200
+ #define QLC_83XX_DRV_LOCK_RECOVERY_STATUS_MASK		0x3
 -
--	netif_device_detach(netdev);
--
--	qlcnic_cancel_idc_work(adapter);
--
--	if (netif_running(netdev))
--		qlcnic_down(adapter, netdev);
--
--	qlcnic_sriov_cleanup(adapter);
--	if (qlcnic_82xx_check(adapter))
--		qlcnic_clr_all_drv_state(adapter, 0);
--
--	clear_bit(__QLCNIC_RESETTING, &adapter->state);
--
--	retval = pci_save_state(pdev);
--	if (retval)
--		return retval;
--	if (qlcnic_82xx_check(adapter)) {
--		if (qlcnic_wol_supported(adapter)) {
--			pci_enable_wake(pdev, PCI_D3cold, 1);
--			pci_enable_wake(pdev, PCI_D3hot, 1);
--		}
--	}
--
--	return 0;
--}
- 
- static void qlcnic_shutdown(struct pci_dev *pdev)
- {
-@@ -2318,8 +2287,7 @@ static void qlcnic_shutdown(struct pci_dev *pdev)
- }
- 
- #ifdef CONFIG_PM
--static int
--qlcnic_suspend(struct pci_dev *pdev, pm_message_t state)
-+static int qlcnic_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	int retval;
- 
-@@ -2331,11 +2299,9 @@ qlcnic_suspend(struct pci_dev *pdev, pm_message_t state)
- 	return 0;
- }
- 
--static int
--qlcnic_resume(struct pci_dev *pdev)
-+static int qlcnic_resume(struct pci_dev *pdev)
- {
- 	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
--	struct net_device *netdev = adapter->netdev;
- 	int err;
- 
- 	err = pci_enable_device(pdev);
-@@ -2346,23 +2312,7 @@ qlcnic_resume(struct pci_dev *pdev)
- 	pci_set_master(pdev);
- 	pci_restore_state(pdev);
- 
--	err = qlcnic_start_firmware(adapter);
--	if (err) {
--		dev_err(&pdev->dev, "failed to start firmware\n");
--		return err;
--	}
--
--	if (netif_running(netdev)) {
--		err = qlcnic_up(adapter, netdev);
--		if (err)
--			goto done;
--
--		qlcnic_restore_indev_addr(netdev, NETDEV_UP);
--	}
--done:
--	netif_device_attach(netdev);
--	qlcnic_schedule_work(adapter, qlcnic_fw_poll_work, FW_POLL_DELAY);
--	return 0;
-+	return  __qlcnic_resume(adapter);
- }
- #endif
- 
-@@ -2701,8 +2651,7 @@ qlcnic_clr_drv_state(struct qlcnic_adapter *adapter)
- 	return 0;
- }
- 
--static void
--qlcnic_clr_all_drv_state(struct qlcnic_adapter *adapter, u8 failed)
-+void qlcnic_clr_all_drv_state(struct qlcnic_adapter *adapter, u8 failed)
- {
- 	u32  val;
- 
-@@ -3213,8 +3162,7 @@ detach:
- 	return 1;
- }
- 
--static void
--qlcnic_fw_poll_work(struct work_struct *work)
-+void qlcnic_fw_poll_work(struct work_struct *work)
- {
- 	struct qlcnic_adapter *adapter = container_of(work,
- 				struct qlcnic_adapter, fw_work.work);
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-index 9176cb0..0daf660 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
-@@ -195,6 +195,8 @@ int __qlcnic_sriov_add_act_list(struct qlcnic_sriov *, struct qlcnic_vf_info *,
- int qlcnic_sriov_get_vf_vport_info(struct qlcnic_adapter *,
- 				   struct qlcnic_info *, u16);
- int qlcnic_sriov_cfg_vf_guest_vlan(struct qlcnic_adapter *, u16, u8);
-+int qlcnic_sriov_vf_shutdown(struct pci_dev *);
-+int qlcnic_sriov_vf_resume(struct qlcnic_adapter *);
- 
- static inline bool qlcnic_sriov_enable_check(struct qlcnic_adapter *adapter)
- {
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-index bcd200e..d556249 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_common.c
-@@ -76,6 +76,8 @@ static struct qlcnic_nic_template qlcnic_sriov_vf_ops = {
- 	.cancel_idc_work        = qlcnic_sriov_vf_cancel_fw_work,
- 	.napi_add		= qlcnic_83xx_napi_add,
- 	.napi_del		= qlcnic_83xx_napi_del,
-+	.shutdown		= qlcnic_sriov_vf_shutdown,
-+	.resume			= qlcnic_sriov_vf_resume,
- 	.config_ipaddr		= qlcnic_83xx_config_ipaddr,
- 	.clear_legacy_intr	= qlcnic_83xx_clear_legacy_intr,
- };
-@@ -1954,3 +1956,54 @@ static void qlcnic_sriov_vf_free_mac_list(struct qlcnic_adapter *adapter)
- 		kfree(cur);
- 	}
- }
-+
-+int qlcnic_sriov_vf_shutdown(struct pci_dev *pdev)
-+{
-+	struct qlcnic_adapter *adapter = pci_get_drvdata(pdev);
-+	struct net_device *netdev = adapter->netdev;
-+	int retval;
-+
-+	netif_device_detach(netdev);
-+	qlcnic_cancel_idc_work(adapter);
-+
-+	if (netif_running(netdev))
-+		qlcnic_down(adapter, netdev);
-+
-+	qlcnic_sriov_channel_cfg_cmd(adapter, QLCNIC_BC_CMD_CHANNEL_TERM);
-+	qlcnic_sriov_cfg_bc_intr(adapter, 0);
-+	qlcnic_83xx_disable_mbx_intr(adapter);
-+	cancel_delayed_work_sync(&adapter->idc_aen_work);
-+
-+	retval = pci_save_state(pdev);
-+	if (retval)
-+		return retval;
-+
-+	return 0;
-+}
-+
-+int qlcnic_sriov_vf_resume(struct qlcnic_adapter *adapter)
-+{
-+	struct qlc_83xx_idc *idc = &adapter->ahw->idc;
-+	struct net_device *netdev = adapter->netdev;
-+	int err;
-+
-+	set_bit(QLC_83XX_MODULE_LOADED, &idc->status);
-+	qlcnic_83xx_enable_mbx_intrpt(adapter);
-+	err = qlcnic_sriov_cfg_bc_intr(adapter, 1);
-+	if (err)
-+		return err;
-+
-+	err = qlcnic_sriov_channel_cfg_cmd(adapter, QLCNIC_BC_CMD_CHANNEL_INIT);
-+	if (!err) {
-+		if (netif_running(netdev)) {
-+			err = qlcnic_up(adapter, netdev);
-+			if (!err)
-+				qlcnic_restore_indev_addr(netdev, NETDEV_UP);
-+		}
-+	}
-+
-+	netif_device_attach(netdev);
-+	qlcnic_schedule_work(adapter, qlcnic_sriov_vf_poll_dev_state,
-+			     idc->delay);
-+	return err;
-+}
++#define QLC_83XX_LB_WAIT_COUNT				250
++#define QLC_83XX_LB_MSLEEP_COUNT			20
+ #define QLC_83XX_NO_NIC_RESOURCE	0x5
+ #define QLC_83XX_MAC_PRESENT		0xC
+ #define QLC_83XX_MAC_ABSENT		0xD
 -- 
 1.7.1
