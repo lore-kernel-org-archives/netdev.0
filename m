@@ -1,61 +1,51 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv6: check return value of ipv6_get_lladdr
-Date: Sun, 23 Jun 2013 21:56:48 +0200
-Message-ID: <20130623195648.GC13836@order.stressinduktion.org>
+From: Peter Korsgaard <jacmet@sunsite.dk>
+Subject: Re: [PATCH 1/1] net: add dm9620 net usb driver
+Date: Sun, 23 Jun 2013 22:00:52 +0200
+Message-ID: <87mwqglhqj.fsf@dell.be.48ers.dk>
+References: <1371730801-2288-1-git-send-email-josright123@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: dborkman@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:32987 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751152Ab3FWT4t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 15:56:49 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org,
+	netdev@vger.kernel.org, joseph_chang@davicom.com.tw,
+	josright@hotmail.com
+To: Joseph CHANG <josright123@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1371730801-2288-1-git-send-email-josright123@gmail.com> (Joseph
+	CHANG's message of "Thu, 20 Jun 2013 20:20:01 +0800")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-We should check the return value of ipv6_get_lladdr in inet6_set_iftoken.
+>>>>> "Joseph" == Joseph CHANG <josright123@gmail.com> writes:
 
-A possible situation, which could leave ll_addr unassigned is, when
-the user removed her link-local address but a global scoped address was
-already set. In this case the interface would still be IF_READY and not
-dead. In that case the RS source address is some value from the stack.
+ Joseph> DM9620 is an USB2.0 network adapter rather than DM9601 USB1.1. This
+ Joseph> driver processed the RX data 4 bytes header, TX data 2 bytes header,
+ Joseph> make the control bit exactly right in PHY write function, and optional
+ Joseph> IFF_ALLMUTLI bit for RX control.
 
-Cc: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
-Maybe -net, or even stable?
+But dm9601.c already supports the dm9620 based devices. Why another
+driver for the same hardware?
 
- net/ipv6/addrconf.c | 9 ++++-----
- 1 file changed, 4 insertions(+), 5 deletions(-)
+Please CC me on dm9601 related patches.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8044912..9392c6e 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4317,6 +4317,7 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
- 	struct inet6_ifaddr *ifp;
- 	struct net_device *dev = idev->dev;
- 	bool update_rs = false;
-+	struct in6_addr ll_addr;
- 
- 	if (token == NULL)
- 		return -EINVAL;
-@@ -4336,11 +4337,9 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
- 
- 	write_unlock_bh(&idev->lock);
- 
--	if (!idev->dead && (idev->if_flags & IF_READY)) {
--		struct in6_addr ll_addr;
--
--		ipv6_get_lladdr(dev, &ll_addr, IFA_F_TENTATIVE |
--				IFA_F_OPTIMISTIC);
-+	if (!idev->dead && (idev->if_flags & IF_READY) &&
-+	    !ipv6_get_lladdr(dev, &ll_addr, IFA_F_TENTATIVE |
-+					    IFA_F_OPTIMISTIC)) {
- 
- 		/* If we're not ready, then normal ifup will take care
- 		 * of this. Otherwise, we need to request our rs here.
+ Joseph> Tested good for many platforms, include X86 desktop and ARM embedded.
+
+ Joseph> +static struct usb_driver dm9620_driver = {
+ Joseph> +	.name = "dm9620",
+ Joseph> +	.id_table = products,
+ Joseph> +	.probe = usbnet_probe,
+ Joseph> +	.disconnect = usbnet_disconnect,
+ Joseph> +	.suspend = usbnet_suspend,
+ Joseph> +	.resume = usbnet_resume,
+ Joseph> +	.disable_hub_initiated_lpm = 1,
+ Joseph> +};
+ Joseph> +
+ Joseph> +module_usb_driver(dm9620_driver);
+ Joseph> +
+ Joseph> +MODULE_AUTHOR("Peter Korsgaard <jacmet@sunsite.dk>");
+
+I'm not the author of this file.
+
+
 -- 
-1.8.1.4
+Bye, Peter Korsgaard
