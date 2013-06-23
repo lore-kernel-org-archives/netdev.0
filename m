@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH 14/45] sched/rt: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Sun, 23 Jun 2013 19:11:07 +0530
-Message-ID: <20130623134103.19094.5606.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH 15/45] rcu: Use get/put_online_cpus_atomic() to prevent CPU
+ offline
+Date: Sun, 23 Jun 2013 19:11:16 +0530
+Message-ID: <20130623134113.19094.92935.stgit@srivatsabhat.in.ibm.com>
 References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,111 +13,53 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
 	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Return-path: <linux-arch-owner@vger.kernel.org>
+Return-path: <linux-pm-owner@vger.kernel.org>
 In-Reply-To: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able
 to depend on disabling preemption to prevent CPUs from going offline
 from under us.
 
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
-offline, while invoking from atomic context.
+In RCU code, rcu_implicit_dynticks_qs() checks if a CPU is offline,
+while being protected by a spinlock. Use the get/put_online_cpus_atomic()
+APIs to prevent CPUs from going offline, while invoking from atomic context.
 
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: Dipankar Sarma <dipankar@in.ibm.com>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/sched/rt.c |   14 ++++++++++++++
- 1 file changed, 14 insertions(+)
+ kernel/rcutree.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
-diff --git a/kernel/sched/rt.c b/kernel/sched/rt.c
-index 01970c8..03d9f38 100644
---- a/kernel/sched/rt.c
-+++ b/kernel/sched/rt.c
-@@ -6,6 +6,7 @@
- #include "sched.h"
- 
- #include <linux/slab.h>
-+#include <linux/cpu.h>
- 
- int sched_rr_timeslice = RR_TIMESLICE;
- 
-@@ -28,7 +29,9 @@ static enum hrtimer_restart sched_rt_period_timer(struct hrtimer *timer)
- 		if (!overrun)
- 			break;
- 
-+		get_online_cpus_atomic();
- 		idle = do_sched_rt_period_timer(rt_b, overrun);
-+		put_online_cpus_atomic();
- 	}
- 
- 	return idle ? HRTIMER_NORESTART : HRTIMER_RESTART;
-@@ -547,6 +550,7 @@ static int do_balance_runtime(struct rt_rq *rt_rq)
- 	int i, weight, more = 0;
- 	u64 rt_period;
- 
-+	get_online_cpus_atomic();
- 	weight = cpumask_weight(rd->span);
- 
- 	raw_spin_lock(&rt_b->rt_runtime_lock);
-@@ -588,6 +592,7 @@ next:
- 		raw_spin_unlock(&iter->rt_runtime_lock);
- 	}
- 	raw_spin_unlock(&rt_b->rt_runtime_lock);
-+	put_online_cpus_atomic();
- 
- 	return more;
- }
-@@ -1168,6 +1173,10 @@ static void yield_task_rt(struct rq *rq)
- #ifdef CONFIG_SMP
- static int find_lowest_rq(struct task_struct *task);
- 
-+/*
-+ * Must be called within get/put_online_cpus_atomic(), to prevent CPUs
-+ * from going offline from under us.
-+ */
- static int
- select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
- {
-@@ -1561,6 +1570,8 @@ retry:
- 		return 0;
- 	}
- 
-+	get_online_cpus_atomic();
-+
- 	/* We might release rq lock */
- 	get_task_struct(next_task);
- 
-@@ -1611,6 +1622,7 @@ retry:
- out:
- 	put_task_struct(next_task);
- 
-+	put_online_cpus_atomic();
- 	return ret;
- }
- 
-@@ -1630,6 +1642,7 @@ static int pull_rt_task(struct rq *this_rq)
- 	if (likely(!rt_overloaded(this_rq)))
- 		return 0;
- 
-+	get_online_cpus_atomic();
- 	for_each_cpu(cpu, this_rq->rd->rto_mask) {
- 		if (this_cpu == cpu)
+diff --git a/kernel/rcutree.c b/kernel/rcutree.c
+index cf3adc6..caeed1a 100644
+--- a/kernel/rcutree.c
++++ b/kernel/rcutree.c
+@@ -2107,6 +2107,8 @@ static void force_qs_rnp(struct rcu_state *rsp, int (*f)(struct rcu_data *))
+ 			rcu_initiate_boost(rnp, flags); /* releases rnp->lock */
  			continue;
-@@ -1695,6 +1708,7 @@ skip:
- 		double_unlock_balance(this_rq, src_rq);
- 	}
+ 		}
++
++		get_online_cpus_atomic();
+ 		cpu = rnp->grplo;
+ 		bit = 1;
+ 		for (; cpu <= rnp->grphi; cpu++, bit <<= 1) {
+@@ -2114,6 +2116,8 @@ static void force_qs_rnp(struct rcu_state *rsp, int (*f)(struct rcu_data *))
+ 			    f(per_cpu_ptr(rsp->rda, cpu)))
+ 				mask |= bit;
+ 		}
++		put_online_cpus_atomic();
++
+ 		if (mask != 0) {
  
-+	put_online_cpus_atomic();
- 	return ret;
- }
- 
+ 			/* rcu_report_qs_rnp() releases rnp->lock. */
+
