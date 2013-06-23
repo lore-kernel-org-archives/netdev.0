@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH 43/45] sh: Use get/put_online_cpus_atomic() to prevent CPU
+Subject: [PATCH 44/45] sparc: Use get/put_online_cpus_atomic() to prevent CPU
  offline
-Date: Sun, 23 Jun 2013 19:17:39 +0530
-Message-ID: <20130623134735.19094.47323.stgit@srivatsabhat.in.ibm.com>
+Date: Sun, 23 Jun 2013 19:18:01 +0530
+Message-ID: <20130623134757.19094.85879.stgit@srivatsabhat.in.ibm.com>
 References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,24 +13,19 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Paul Mundt <lethal@linux-sh.org>,
-	Thomas Gleixner <tglx@linutronix.de>, linux-sh@vger.kernel.org
+	"David S. Miller" <davem@davemloft.net>,
+	Sam Ravnborg <sam@ravnborg.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Dave Kleikamp <dave.kleikamp@oracle.com>,
+	sparclinux@vger.kernel.org
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
 	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e23smtp05.au.ibm.com ([202.81.31.147]:57739 "EHLO
-	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752687Ab3FWNvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 09:51:11 -0400
-Received: from /spool/local
-	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
-	Sun, 23 Jun 2013 23:45:04 +1000
+Return-path: <sparclinux-owner@vger.kernel.org>
 In-Reply-To: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: sparclinux-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able
 to depend on disabling preemption to prevent CPUs from going offline
@@ -39,70 +34,81 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: Paul Mundt <lethal@linux-sh.org>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Sam Ravnborg <sam@ravnborg.org>
 Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: linux-sh@vger.kernel.org
+Cc: Dave Kleikamp <dave.kleikamp@oracle.com>
+Cc: sparclinux@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/sh/kernel/smp.c |   12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+ arch/sparc/kernel/smp_64.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/arch/sh/kernel/smp.c b/arch/sh/kernel/smp.c
-index 4569645..42ec182 100644
---- a/arch/sh/kernel/smp.c
-+++ b/arch/sh/kernel/smp.c
-@@ -357,7 +357,7 @@ static void flush_tlb_mm_ipi(void *mm)
-  */
- void flush_tlb_mm(struct mm_struct *mm)
+diff --git a/arch/sparc/kernel/smp_64.c b/arch/sparc/kernel/smp_64.c
+index 77539ed..4f71a95 100644
+--- a/arch/sparc/kernel/smp_64.c
++++ b/arch/sparc/kernel/smp_64.c
+@@ -792,7 +792,9 @@ static void smp_cross_call_masked(unsigned long *func, u32 ctx, u64 data1, u64 d
+ /* Send cross call to all processors except self. */
+ static void smp_cross_call(unsigned long *func, u32 ctx, u64 data1, u64 data2)
  {
++	get_online_cpus_atomic();
+ 	smp_cross_call_masked(func, ctx, data1, data2, cpu_online_mask);
++	put_online_cpus_atomic();
+ }
+ 
+ extern unsigned long xcall_sync_tick;
+@@ -896,7 +898,7 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
+ 	atomic_inc(&dcpage_flushes);
+ #endif
+ 
+-	this_cpu = get_cpu();
++	this_cpu = get_online_cpus_atomic();
+ 
+ 	if (cpu == this_cpu) {
+ 		__local_flush_dcache_page(page);
+@@ -922,7 +924,7 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
+ 		}
+ 	}
+ 
+-	put_cpu();
++	put_online_cpus_atomic();
+ }
+ 
+ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
+@@ -933,7 +935,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
+ 	if (tlb_type == hypervisor)
+ 		return;
+ 
 -	preempt_disable();
 +	get_online_cpus_atomic();
  
- 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
- 		smp_call_function(flush_tlb_mm_ipi, (void *)mm, 1);
-@@ -369,7 +369,7 @@ void flush_tlb_mm(struct mm_struct *mm)
+ #ifdef CONFIG_DEBUG_DCFLUSH
+ 	atomic_inc(&dcpage_flushes);
+@@ -958,7 +960,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
  	}
- 	local_flush_tlb_mm(mm);
+ 	__local_flush_dcache_page(page);
  
 -	preempt_enable();
 +	put_online_cpus_atomic();
  }
  
- struct flush_tlb_data {
-@@ -390,7 +390,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
+ void __irq_entry smp_new_mmu_context_version_client(int irq, struct pt_regs *regs)
+@@ -1150,6 +1152,7 @@ void smp_capture(void)
  {
- 	struct mm_struct *mm = vma->vm_mm;
+ 	int result = atomic_add_ret(1, &smp_capture_depth);
  
--	preempt_disable();
 +	get_online_cpus_atomic();
- 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
- 		struct flush_tlb_data fd;
+ 	if (result == 1) {
+ 		int ncpus = num_online_cpus();
  
-@@ -405,7 +405,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
- 				cpu_context(i, mm) = 0;
+@@ -1166,6 +1169,7 @@ void smp_capture(void)
+ 		printk("done\n");
+ #endif
  	}
- 	local_flush_tlb_range(vma, start, end);
--	preempt_enable();
 +	put_online_cpus_atomic();
  }
  
- static void flush_tlb_kernel_range_ipi(void *info)
-@@ -433,7 +433,7 @@ static void flush_tlb_page_ipi(void *info)
- 
- void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
- {
--	preempt_disable();
-+	get_online_cpus_atomic();
- 	if ((atomic_read(&vma->vm_mm->mm_users) != 1) ||
- 	    (current->mm != vma->vm_mm)) {
- 		struct flush_tlb_data fd;
-@@ -448,7 +448,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
- 				cpu_context(i, vma->vm_mm) = 0;
- 	}
- 	local_flush_tlb_page(vma, page);
--	preempt_enable();
-+	put_online_cpus_atomic();
- }
- 
- static void flush_tlb_one_ipi(void *info)
+ void smp_release(void)
+
