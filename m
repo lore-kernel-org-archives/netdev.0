@@ -1,39 +1,30 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH 30/45] x86/xen: Use get/put_online_cpus_atomic() to prevent
-	CPU offline
-Date: Sun, 23 Jun 2013 19:14:56 +0530
-Message-ID: <20130623134453.19094.28360.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH 31/45] alpha/smp: Use get/put_online_cpus_atomic() to prevent
+ CPU offline
+Date: Sun, 23 Jun 2013 19:15:20 +0530
+Message-ID: <20130623134516.19094.57189.stgit@srivatsabhat.in.ibm.com>
 References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-arch@vger.kernel.org, Jeremy Fitzhardinge <jeremy@goop.org>,
-	x86@kernel.org, "H. Peter Anvin" <hpa@zytor.com>,
-	nikunj@linux.vnet.ibm.com, zhong@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, fweisbec@gmail.com,
-	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
-	linux-kernel@vger.kernel.org, rostedt@goodmis.org,
-	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu,
-	Ingo Molnar <mingo@redhat.com>, wangyun@linux.vnet.ibm.com,
-	srivatsa.bhat@linux.vnet.ibm.com, netdev@vger.kernel.org,
+Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
+	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Richard Henderson <rth@twiddle.net>,
+	Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
+	Matt Turner <mattst88@gmail.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
-	virtualization@lists.linux-foundation.org,
-	linuxppc-dev@lists.ozlabs.org, xen-devel@lists.xensource.com
-To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org, oleg@redhat.com,
-	paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au, mingo@kernel.org,
-	akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com,
-	vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+	linux-alpha@vger.kernel.org
+To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able
@@ -43,44 +34,107 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
-Cc: Jeremy Fitzhardinge <jeremy@goop.org>
+Also, remove the non-ASCII character present in this file!
+
+Cc: Richard Henderson <rth@twiddle.net>
+Cc: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
+Cc: Matt Turner <mattst88@gmail.com>
 Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: "H. Peter Anvin" <hpa@zytor.com>
-Cc: x86@kernel.org
-Cc: xen-devel@lists.xensource.com
-Cc: virtualization@lists.linux-foundation.org
+Cc: linux-alpha@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/x86/xen/mmu.c |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ arch/alpha/kernel/smp.c |   19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
 
-diff --git a/arch/x86/xen/mmu.c b/arch/x86/xen/mmu.c
-index fdc3ba2..3229c4f 100644
---- a/arch/x86/xen/mmu.c
-+++ b/arch/x86/xen/mmu.c
-@@ -39,6 +39,7 @@
-  * Jeremy Fitzhardinge <jeremy@xensource.com>, XenSource Inc, 2007
-  */
- #include <linux/sched.h>
-+#include <linux/cpu.h>
- #include <linux/highmem.h>
- #include <linux/debugfs.h>
- #include <linux/bug.h>
-@@ -1163,9 +1164,13 @@ static void xen_drop_mm_ref(struct mm_struct *mm)
-  */
- static void xen_exit_mmap(struct mm_struct *mm)
- {
--	get_cpu();		/* make sure we don't move around */
-+	/*
-+	 * Make sure we don't move around, and also prevent CPUs from
-+	 * going offline.
-+	 */
-+	get_online_cpus_atomic();
- 	xen_drop_mm_ref(mm);
--	put_cpu();
-+	put_online_cpus_atomic();
+diff --git a/arch/alpha/kernel/smp.c b/arch/alpha/kernel/smp.c
+index 7b60834..e147268 100644
+--- a/arch/alpha/kernel/smp.c
++++ b/arch/alpha/kernel/smp.c
+@@ -497,7 +497,6 @@ smp_cpus_done(unsigned int max_cpus)
+ 	       ((bogosum + 2500) / (5000/HZ)) % 100);
+ }
  
- 	spin_lock(&mm->page_table_lock);
+-
+ void
+ smp_percpu_timer_interrupt(struct pt_regs *regs)
+ {
+@@ -681,7 +680,7 @@ ipi_flush_tlb_mm(void *x)
+ void
+ flush_tlb_mm(struct mm_struct *mm)
+ {
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 
+ 	if (mm == current->active_mm) {
+ 		flush_tlb_current(mm);
+@@ -693,7 +692,7 @@ flush_tlb_mm(struct mm_struct *mm)
+ 				if (mm->context[cpu])
+ 					mm->context[cpu] = 0;
+ 			}
+-			preempt_enable();
++			put_online_cpus_atomic();
+ 			return;
+ 		}
+ 	}
+@@ -702,7 +701,7 @@ flush_tlb_mm(struct mm_struct *mm)
+ 		printk(KERN_CRIT "flush_tlb_mm: timed out\n");
+ 	}
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ EXPORT_SYMBOL(flush_tlb_mm);
+ 
+@@ -730,7 +729,7 @@ flush_tlb_page(struct vm_area_struct *vma, unsigned long addr)
+ 	struct flush_tlb_page_struct data;
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 
+ 	if (mm == current->active_mm) {
+ 		flush_tlb_current_page(mm, vma, addr);
+@@ -742,7 +741,7 @@ flush_tlb_page(struct vm_area_struct *vma, unsigned long addr)
+ 				if (mm->context[cpu])
+ 					mm->context[cpu] = 0;
+ 			}
+-			preempt_enable();
++			put_online_cpus_atomic();
+ 			return;
+ 		}
+ 	}
+@@ -755,7 +754,7 @@ flush_tlb_page(struct vm_area_struct *vma, unsigned long addr)
+ 		printk(KERN_CRIT "flush_tlb_page: timed out\n");
+ 	}
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ EXPORT_SYMBOL(flush_tlb_page);
+ 
+@@ -786,7 +785,7 @@ flush_icache_user_range(struct vm_area_struct *vma, struct page *page,
+ 	if ((vma->vm_flags & VM_EXEC) == 0)
+ 		return;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 
+ 	if (mm == current->active_mm) {
+ 		__load_new_mm_context(mm);
+@@ -798,7 +797,7 @@ flush_icache_user_range(struct vm_area_struct *vma, struct page *page,
+ 				if (mm->context[cpu])
+ 					mm->context[cpu] = 0;
+ 			}
+-			preempt_enable();
++			put_online_cpus_atomic();
+ 			return;
+ 		}
+ 	}
+@@ -807,5 +806,5 @@ flush_icache_user_range(struct vm_area_struct *vma, struct page *page,
+ 		printk(KERN_CRIT "flush_icache_page: timed out\n");
+ 	}
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
