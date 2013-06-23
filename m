@@ -1,11 +1,10 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH 31/45] alpha/smp: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Mon, 24 Jun 2013 00:26:38 +0530
-Message-ID: <51C744E6.1040905@linux.vnet.ibm.com>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com> <20130623134516.19094.57189.stgit@srivatsabhat.in.ibm.com> <CAEdQ38HLzNoRABCUR7tEoBLJWn86xSd2VfSHxs0MPj5r5GvTXQ@mail.gmail.com>
+Subject: Re: [PATCH 07/45] CPU hotplug: Expose the new debug config option
+Date: Mon, 24 Jun 2013 00:28:35 +0530
+Message-ID: <51C7455B.904@linux.vnet.ibm.com>
+References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com> <20130623133928.19094.8259.stgit@srivatsabhat.in.ibm.com> <51C70F82.4030101@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
 Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -17,31 +16,54 @@ Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Richard Henderson <rth@twiddle.net>,
-	Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
-	linux-alpha@vger.kernel.org
-To: Matt Turner <mattst88@gmail.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <CAEdQ38HLzNoRABCUR7tEoBLJWn86xSd2VfSHxs0MPj5r5GvTXQ@mail.gmail.com>
-Sender: linux-arch-owner@vger.kernel.org
+	"Paul E. McKenney" <paul.mckenney@linaro.org>,
+	Akinobu Mita <akinobu.mita@gmail.com>,
+	Catalin Marinas <catalin.marinas@arm.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <51C70F82.4030101@cogentembedded.com>
+Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/23/2013 11:20 PM, Matt Turner wrote:
-> On Sun, Jun 23, 2013 at 6:45 AM, Srivatsa S. Bhat
-> <srivatsa.bhat@linux.vnet.ibm.com> wrote:
->> Once stop_machine() is gone from the CPU offline path, we won't be able
->> to depend on disabling preemption to prevent CPUs from going offline
->> from under us.
->>
->> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
->> offline, while invoking from atomic context.
->>
->> Also, remove the non-ASCII character present in this file!
+On 06/23/2013 08:38 PM, Sergei Shtylyov wrote:
+> Hello.
 > 
-> It's not non-ASCII. It's a page break.
+> On 23-06-2013 17:39, Srivatsa S. Bhat wrote:
+> 
+>> Now that we have all the pieces of the CPU hotplug debug infrastructure
+>> in place, expose the feature by growing a new Kconfig option,
+>> CONFIG_DEBUG_HOTPLUG_CPU.
+> 
+>> Cc: Andrew Morton <akpm@linux-foundation.org>
+>> Cc: "Paul E. McKenney" <paul.mckenney@linaro.org>
+>> Cc: Akinobu Mita <akinobu.mita@gmail.com>
+>> Cc: Catalin Marinas <catalin.marinas@arm.com>
+>> Cc: Michel Lespinasse <walken@google.com>
+>> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+>> ---
+> 
+>>   lib/Kconfig.debug |    9 +++++++++
+>>   1 file changed, 9 insertions(+)
+> 
+>> diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+>> index 566cf2b..6be1e72 100644
+>> --- a/lib/Kconfig.debug
+>> +++ b/lib/Kconfig.debug
+>> @@ -512,6 +512,15 @@ config DEBUG_PREEMPT
+>>         if kernel code uses it in a preemption-unsafe way. Also, the
+>> kernel
+>>         will detect preemption count underflows.
+>>
+>> +config DEBUG_HOTPLUG_CPU
+>> +    bool "Debug CPU hotplug"
+>> +    depends on HOTPLUG_CPU
+>> +    default n
+> 
+>     It's the default default, no need to specify it.
 > 
 
-Oh, ok..
+Ah, I see. Thanks!
 
 Regards,
 Srivatsa S. Bhat
+
