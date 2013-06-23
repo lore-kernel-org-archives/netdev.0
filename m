@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH 42/45] powerpc: Use get/put_online_cpus_atomic() to avoid
- false-positive warning
-Date: Sun, 23 Jun 2013 19:17:29 +0530
-Message-ID: <20130623134725.19094.9780.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH 43/45] sh: Use get/put_online_cpus_atomic() to prevent CPU
+ offline
+Date: Sun, 23 Jun 2013 19:17:39 +0530
+Message-ID: <20130623134735.19094.47323.stgit@srivatsabhat.in.ibm.com>
 References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,61 +13,96 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Kumar Gala <galak@kernel.crashing.org>,
-	Zhao Chenhui <chenhui.zhao@freescale.com>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	linuxppc-dev@lists.ozlabs.org
+	Paul Mundt <lethal@linux-sh.org>,
+	Thomas Gleixner <tglx@linutronix.de>, linux-sh@vger.kernel.org
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
 	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Return-path: <linux-pm-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from e23smtp05.au.ibm.com ([202.81.31.147]:57739 "EHLO
+	e23smtp05.au.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752687Ab3FWNvL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 09:51:11 -0400
+Received: from /spool/local
+	by e23smtp05.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
+	Sun, 23 Jun 2013 23:45:04 +1000
 In-Reply-To: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bringing a secondary CPU online is a special case in which, accessing
-the cpu_online_mask is safe, even though that task (which running on the
-CPU coming online) is not the hotplug writer.
+Once stop_machine() is gone from the CPU offline path, we won't be able
+to depend on disabling preemption to prevent CPUs from going offline
+from under us.
 
-It is a little hard to teach this to the debugging checks under
-CONFIG_DEBUG_HOTPLUG_CPU. But luckily powerpc is one of the few places
-where the CPU coming online traverses the cpu_online_mask before fully
-coming online. So wrap that part under get/put_online_cpus_atomic(), to
-avoid false-positive warnings from the CPU hotplug debug code.
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+offline, while invoking from atomic context.
 
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Kumar Gala <galak@kernel.crashing.org>
-Cc: Zhao Chenhui <chenhui.zhao@freescale.com>
+Cc: Paul Mundt <lethal@linux-sh.org>
 Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: linuxppc-dev@lists.ozlabs.org
+Cc: linux-sh@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/powerpc/kernel/smp.c |    2 ++
- 1 file changed, 2 insertions(+)
+ arch/sh/kernel/smp.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/arch/powerpc/kernel/smp.c b/arch/powerpc/kernel/smp.c
-index 2123bec..59c9a09 100644
---- a/arch/powerpc/kernel/smp.c
-+++ b/arch/powerpc/kernel/smp.c
-@@ -657,6 +657,7 @@ __cpuinit void start_secondary(void *unused)
- 		cpumask_set_cpu(base + i, cpu_core_mask(cpu));
- 	}
- 	l2_cache = cpu_to_l2cache(cpu);
+diff --git a/arch/sh/kernel/smp.c b/arch/sh/kernel/smp.c
+index 4569645..42ec182 100644
+--- a/arch/sh/kernel/smp.c
++++ b/arch/sh/kernel/smp.c
+@@ -357,7 +357,7 @@ static void flush_tlb_mm_ipi(void *mm)
+  */
+ void flush_tlb_mm(struct mm_struct *mm)
+ {
+-	preempt_disable();
 +	get_online_cpus_atomic();
- 	for_each_online_cpu(i) {
- 		struct device_node *np = cpu_to_l2cache(i);
- 		if (!np)
-@@ -667,6 +668,7 @@ __cpuinit void start_secondary(void *unused)
- 		}
- 		of_node_put(np);
- 	}
-+	put_online_cpus_atomic();
- 	of_node_put(l2_cache);
  
- 	local_irq_enable();
-
+ 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
+ 		smp_call_function(flush_tlb_mm_ipi, (void *)mm, 1);
+@@ -369,7 +369,7 @@ void flush_tlb_mm(struct mm_struct *mm)
+ 	}
+ 	local_flush_tlb_mm(mm);
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ struct flush_tlb_data {
+@@ -390,7 +390,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
+ 		struct flush_tlb_data fd;
+ 
+@@ -405,7 +405,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
+ 				cpu_context(i, mm) = 0;
+ 	}
+ 	local_flush_tlb_range(vma, start, end);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ static void flush_tlb_kernel_range_ipi(void *info)
+@@ -433,7 +433,7 @@ static void flush_tlb_page_ipi(void *info)
+ 
+ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+ {
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	if ((atomic_read(&vma->vm_mm->mm_users) != 1) ||
+ 	    (current->mm != vma->vm_mm)) {
+ 		struct flush_tlb_data fd;
+@@ -448,7 +448,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+ 				cpu_context(i, vma->vm_mm) = 0;
+ 	}
+ 	local_flush_tlb_page(vma, page);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ static void flush_tlb_one_ipi(void *info)
