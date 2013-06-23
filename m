@@ -1,37 +1,50 @@
-From: Jean Sacren <sakiwit@gmail.com>
-Subject: [PATCH net-next 2/2] net: uapi: do not manually set the first enumerator to zero
-Date: Sun, 23 Jun 2013 15:56:17 -0600
-Message-ID: <1372024577-6343-2-git-send-email-sakiwit@gmail.com>
-References: <1372024577-6343-1-git-send-email-sakiwit@gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: [PATCH net-next] ipv6: don't disable interface if last ipv6 address is removed
+Date: Mon, 24 Jun 2013 00:22:20 +0200
+Message-ID: <20130623222220.GD13836@order.stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: yoshfuji@linux-ipv6.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:42356 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751645Ab3FWV6A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 17:58:00 -0400
-Received: by mail-pa0-f48.google.com with SMTP id kp12so10067095pab.21
-        for <netdev@vger.kernel.org>; Sun, 23 Jun 2013 14:57:59 -0700 (PDT)
-In-Reply-To: <1372024577-6343-1-git-send-email-sakiwit@gmail.com>
+Received: from order.stressinduktion.org ([87.106.68.36]:33144 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751606Ab3FWWWV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 18:22:21 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Clean up the unnecessary assignment of the first enumerator to zero.
+The reason behind this change is that as soon as we delete
+the last ipv6 address of an interface we also lose the
+/proc/sys/net/ipv6/conf/<interface> directory. This seems to be a
+usability problem for me.
 
-Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+I don't see any reason why we should shutdown ipv6 on that interface in
+such cases.
+
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- include/uapi/linux/net.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/ipv6/addrconf.c | 6 ------
+ 1 file changed, 6 deletions(-)
 
-diff --git a/include/uapi/linux/net.h b/include/uapi/linux/net.h
-index 9136b54..9177fd3 100644
---- a/include/uapi/linux/net.h
-+++ b/include/uapi/linux/net.h
-@@ -48,7 +48,7 @@ enum {
- };
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index 8044912..3c1c789 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -2502,12 +2502,6 @@ static int inet6_addr_del(struct net *net, int ifindex, const struct in6_addr *p
+ 			read_unlock_bh(&idev->lock);
  
- typedef enum {
--	SS_FREE = 0,			/* not allocated		*/
-+	SS_FREE,			/* not allocated		*/
- 	SS_UNCONNECTED,			/* unconnected to any socket	*/
- 	SS_CONNECTING,			/* in process of connecting	*/
- 	SS_CONNECTED,			/* connected to socket		*/
+ 			ipv6_del_addr(ifp);
+-
+-			/* If the last address is deleted administratively,
+-			   disable IPv6 on this interface.
+-			 */
+-			if (list_empty(&idev->addr_list))
+-				addrconf_ifdown(idev->dev, 1);
+ 			return 0;
+ 		}
+ 	}
+-- 
+1.8.1.4
