@@ -1,46 +1,90 @@
-From: Theodore Ts'o <tytso@mit.edu>
-Subject: Re: [trivial] treewide: Add __GFP_NOWARN to k.alloc calls with
- v.alloc fallbacks
-Date: Sun, 23 Jun 2013 14:40:51 -0400
-Message-ID: <20130623184051.GA13222@thunk.org>
-References: <1371669353.2038.45.camel@joe-AO722>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH 25/45] staging/octeon: Use get/put_online_cpus_atomic()
+ to prevent CPU offline
+Date: Mon, 24 Jun 2013 00:25:37 +0530
+Message-ID: <51C744A9.8000406@linux.vnet.ibm.com>
+References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
+ <20130623134331.19094.80396.stgit@srivatsabhat.in.ibm.com>
+ <20130623181740.GB24256@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jiri Kosina <trivial@kernel.org>,
-	Lars Ellenberg <drbd-dev@lists.linbit.com>,
-	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
-	Christoph Raisch <raisch@de.ibm.com>,
-	Roland Dreier <roland@kernel.org>,
-	Sean Hefty <sean.hefty@intel.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Divy Le Ray <divy@chelsio.com>,
-	Dimitris Michailidis <dm@chelsio.com>,
-	"James E.J. Bottomley" <JBottomley@parallels.com>,
-	Chris Mason <chris.mason@fusionio.com>,
-	Andreas Dilger <adilger.kernel@dilger.ca>,
-	Steven Whitehouse <swhiteho@redhat.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	drbd-user@lists.linbit.com, linux-kernel@vger.kernel.org,
-	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
-	linux-scsi@vger.kernel.org, linux-btrfs@vger.kernel.org,
-	linux-ext4@vger.kernel.org,
-	cluster-devel <cluster-devel@redhat.com>
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-btrfs-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1371669353.2038.45.camel@joe-AO722>
-Sender: linux-btrfs-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: peterz@infradead.org, fweisbec@gmail.com, linux-kernel@vger.kernel.org,
+ walken@google.com, mingo@kernel.org, linux-arch@vger.kernel.org,
+ vincent.guittot@linaro.org, ddaney@caviumnetworks.com,
+ xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
+ paulmck@linux.vnet.ibm.com, devel@driverdev.osuosl.org,
+ nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org, rusty@rustcorp.com.au,
+ rostedt@goodmis.org, namhyung@kernel.org, tglx@linutronix.de,
+ laijs@cn.fujitsu.com, zhong@linux.vnet.ibm.com, netdev@vger.kernel.org,
+ oleg@redhat.com, sbw@mit.edu, tj@kernel.org, akpm@linux-foundation.org,
+ linuxppc-dev@lists.ozlabs.org
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20130623181740.GB24256@kroah.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 19, 2013 at 12:15:53PM -0700, Joe Perches wrote:
-> Don't emit OOM warnings when k.alloc calls fail when
-> there there is a v.alloc immediately afterwards.
+On 06/23/2013 11:47 PM, Greg Kroah-Hartman wrote:
+> On Sun, Jun 23, 2013 at 07:13:33PM +0530, Srivatsa S. Bhat wrote:
+>> Once stop_machine() is gone from the CPU offline path, we won't be able
+>> to depend on disabling preemption to prevent CPUs from going offline
+>> from under us.
+>>
+>> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+>> offline, while invoking from atomic context.
+>>
+>> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+>> Cc: devel@driverdev.osuosl.org
+>> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+>> ---
+>>
+>>  drivers/staging/octeon/ethernet-rx.c |    3 +++
+>>  1 file changed, 3 insertions(+)
+>>
+>> diff --git a/drivers/staging/octeon/ethernet-rx.c b/drivers/staging/octeon/ethernet-rx.c
+>> index 34afc16..8588b4d 100644
+>> --- a/drivers/staging/octeon/ethernet-rx.c
+>> +++ b/drivers/staging/octeon/ethernet-rx.c
+>> @@ -36,6 +36,7 @@
+>>  #include <linux/prefetch.h>
+>>  #include <linux/ratelimit.h>
+>>  #include <linux/smp.h>
+>> +#include <linux/cpu.h>
+>>  #include <linux/interrupt.h>
+>>  #include <net/dst.h>
+>>  #ifdef CONFIG_XFRM
+>> @@ -97,6 +98,7 @@ static void cvm_oct_enable_one_cpu(void)
+>>  		return;
+>>  
+>>  	/* ... if a CPU is available, Turn on NAPI polling for that CPU.  */
+>> +	get_online_cpus_atomic();
+>>  	for_each_online_cpu(cpu) {
+>>  		if (!cpu_test_and_set(cpu, core_state.cpu_state)) {
+>>  			v = smp_call_function_single(cpu, cvm_oct_enable_napi,
+>> @@ -106,6 +108,7 @@ static void cvm_oct_enable_one_cpu(void)
+>>  			break;
+>>  		}
+>>  	}
+>> +	put_online_cpus_atomic();
 > 
-> Signed-off-by: Joe Perches <joe@perches.com>
+> Does this driver really need to be doing this in the first place?  If
+> so, why?  The majority of network drivers don't, why is this one
+> "special"?
+> 
 
-For fs/ext4/super.c:
+Honestly, I don't know. Let's CC the author of that code (David Daney).
+I wonder why get_maintainer.pl didn't generate his name for this file,
+even though the entire file is almost made up of his commits alone!
 
-Acked-by: "Theodore Ts'o" <tytso@mit.edu>
-
-					- Ted
+Regards,
+Srivatsa S. Bhat
