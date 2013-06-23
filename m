@@ -1,59 +1,56 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: possible bug in IPv6 MLD retransmissions
-Date: Sun, 23 Jun 2013 16:18:02 +0200
-Message-ID: <20130623141802.GA13836@order.stressinduktion.org>
-References: <20130517032449.GA3595@obelix.rh> <20130518173105.GD29528@order.stressinduktion.org> <20130521150616.GA8513@obelix.rh> <20130522004027.GD32093@order.stressinduktion.org> <OF1A7F184A.4282AFE8-ON85257B73.003E82A8-85257B73.003F3B88@us.ibm.com> <20130523202156.GJ17411@order.stressinduktion.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH net] tun: fix recovery from gup errors
+Date: Sun, 23 Jun 2013 17:19:03 +0300
+Message-ID: <20130623141903.GA21029@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-To: David Stevens <dlstevens@us.ibm.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Neil Horman <nhorman@tuxdriver.com>, netdev@vger.kernel.org,
+	Brad Hubbard <bhubbard@redhat.com>
+To: linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:60826 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750995Ab3FWOSF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 10:18:05 -0400
+Received: from mx1.redhat.com ([209.132.183.28]:2151 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751509Ab3FWOSX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Jun 2013 10:18:23 -0400
 Content-Disposition: inline
-In-Reply-To: <20130523202156.GJ17411@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 23, 2013 at 10:21:56PM +0200, Hannes Frederic Sowa wrote:
-> On Wed, May 22, 2013 at 07:30:39AM -0400, David Stevens wrote:
-> > Second, I think doing this on all LL addresses unconditionally isn't a 
-> > good
-> > idea. If some configuration is using thousands of LL addrs for reasons of 
-> > their
-> > own, they would suddenly be blasted with unexpected MLD reports where
-> > they have none now. I don't see why tracking it would be such a problem --
-> > if nothing else, you could simply add a counter for the number of valid LL 
-> > addrs
-> > incremented on DAD completion, and send these whenever it transitions from 
-> > 0 to 1.
-> 
-> While testing some code, I noticed that we seem to have a similar
-> problem with the generation of router soliciations. We send out
-> MAX_RTR_SOLICITATIONS for each link-local address dad completion.
-> 
-> So the tracking could have some more users and I will move it to
-> addrconf.c. I'll hope I cope with all the tiny races I found in my last
-> version. :)
+get user pages might fail partially in tun zero copy
+mode. To recover we need to put all pages that we got,
+but code used a wrong index resulting in double-free
+errors.
 
-Sorry, I could not finish this patch before I got distracted with other
-things. I had a look at it again yesterday and came up with the following
-plan:
+Reported-by: Brad Hubbard <bhubbard@redhat.com>
+Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+---
 
-a) split up router advertisment and dad timer
-b) remove src-argument from ndisc_send_rs and calculate it from the ll
-   addresses of the interface when sending the RS
-c) introduce ll_dad_completion counter
-d) rebase the above patch onto this utilising the ll_dad_completion counter
+I haven't figured out why do we get failures,
+but recovery is clearly wrong.
 
-Does this plan sound solid?
+This is also -stable material.
 
-I plan to send out a patch for a) today.
+ drivers/net/tun.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Greetings,
-
-  Hannes
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index bfa9bb4..c098b1e 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1010,8 +1010,9 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+ 			return -EMSGSIZE;
+ 		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
+ 		if (num_pages != size) {
+-			for (i = 0; i < num_pages; i++)
+-				put_page(page[i]);
++			int j;
++			for (j = 0; j < num_pages; j++)
++				put_page(page[i + j]);
+ 			return -EFAULT;
+ 		}
+ 		truesize = size * PAGE_SIZE;
+-- 
+MST
