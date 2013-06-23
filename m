@@ -1,50 +1,37 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv6: don't disable interface if last ipv6 address is removed
-Date: Mon, 24 Jun 2013 00:22:20 +0200
-Message-ID: <20130623222220.GD13836@order.stressinduktion.org>
+Subject: Re: [PATCH net-next] ipv6: check return value of ipv6_get_lladdr
+Date: Mon, 24 Jun 2013 00:30:17 +0200
+Message-ID: <20130623223017.GE13836@order.stressinduktion.org>
+References: <20130623195648.GC13836@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: yoshfuji@linux-ipv6.org
-To: netdev@vger.kernel.org
+To: netdev@vger.kernel.org, dborkman@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:33144 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:33149 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751606Ab3FWWWV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 18:22:21 -0400
+	with ESMTP id S1751542Ab3FWWaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 18:30:19 -0400
 Content-Disposition: inline
+In-Reply-To: <20130623195648.GC13836@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The reason behind this change is that as soon as we delete
-the last ipv6 address of an interface we also lose the
-/proc/sys/net/ipv6/conf/<interface> directory. This seems to be a
-usability problem for me.
+On Sun, Jun 23, 2013 at 09:56:48PM +0200, Hannes Frederic Sowa wrote:
+> We should check the return value of ipv6_get_lladdr in inet6_set_iftoken.
+> 
+> A possible situation, which could leave ll_addr unassigned is, when
+> the user removed her link-local address but a global scoped address was
+> already set. In this case the interface would still be IF_READY and not
+> dead. In that case the RS source address is some value from the stack.
+> 
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+> Maybe -net, or even stable?
 
-I don't see any reason why we should shutdown ipv6 on that interface in
-such cases.
+Actually, stable is nonsense because tokenized ipv6 addresses first
+appeared in v3.10-rc1 in mainline.
 
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/addrconf.c | 6 ------
- 1 file changed, 6 deletions(-)
+Greetings,
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 8044912..3c1c789 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -2502,12 +2502,6 @@ static int inet6_addr_del(struct net *net, int ifindex, const struct in6_addr *p
- 			read_unlock_bh(&idev->lock);
- 
- 			ipv6_del_addr(ifp);
--
--			/* If the last address is deleted administratively,
--			   disable IPv6 on this interface.
--			 */
--			if (list_empty(&idev->addr_list))
--				addrconf_ifdown(idev->dev, 1);
- 			return 0;
- 		}
- 	}
--- 
-1.8.1.4
+  Hannes
