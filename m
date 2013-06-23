@@ -1,11 +1,12 @@
-From: Matt Turner <mattst88@gmail.com>
-Subject: Re: [PATCH 31/45] alpha/smp: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Sun, 23 Jun 2013 10:50:42 -0700
-Message-ID: <CAEdQ38HLzNoRABCUR7tEoBLJWn86xSd2VfSHxs0MPj5r5GvTXQ@mail.gmail.com>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com> <20130623134516.19094.57189.stgit@srivatsabhat.in.ibm.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH 25/45] staging/octeon: Use get/put_online_cpus_atomic()
+ to prevent CPU offline
+Date: Sun, 23 Jun 2013 11:17:40 -0700
+Message-ID: <20130623181740.GB24256@kroah.com>
+References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
+ <20130623134331.19094.80396.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii
 Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
@@ -16,24 +17,60 @@ Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Richard Henderson <rth@twiddle.net>,
-	Ivan Kokshaysky <ink@jurassic.park.msu.ru>,
-	linux-alpha@vger.kernel.org
+	devel@driverdev.osuosl.org
 To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <20130623134516.19094.57189.stgit@srivatsabhat.in.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20130623134331.19094.80396.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-pm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 23, 2013 at 6:45 AM, Srivatsa S. Bhat
-<srivatsa.bhat@linux.vnet.ibm.com> wrote:
+On Sun, Jun 23, 2013 at 07:13:33PM +0530, Srivatsa S. Bhat wrote:
 > Once stop_machine() is gone from the CPU offline path, we won't be able
 > to depend on disabling preemption to prevent CPUs from going offline
 > from under us.
->
+> 
 > Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 > offline, while invoking from atomic context.
->
-> Also, remove the non-ASCII character present in this file!
+> 
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: devel@driverdev.osuosl.org
+> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+> ---
+> 
+>  drivers/staging/octeon/ethernet-rx.c |    3 +++
+>  1 file changed, 3 insertions(+)
+> 
+> diff --git a/drivers/staging/octeon/ethernet-rx.c b/drivers/staging/octeon/ethernet-rx.c
+> index 34afc16..8588b4d 100644
+> --- a/drivers/staging/octeon/ethernet-rx.c
+> +++ b/drivers/staging/octeon/ethernet-rx.c
+> @@ -36,6 +36,7 @@
+>  #include <linux/prefetch.h>
+>  #include <linux/ratelimit.h>
+>  #include <linux/smp.h>
+> +#include <linux/cpu.h>
+>  #include <linux/interrupt.h>
+>  #include <net/dst.h>
+>  #ifdef CONFIG_XFRM
+> @@ -97,6 +98,7 @@ static void cvm_oct_enable_one_cpu(void)
+>  		return;
+>  
+>  	/* ... if a CPU is available, Turn on NAPI polling for that CPU.  */
+> +	get_online_cpus_atomic();
+>  	for_each_online_cpu(cpu) {
+>  		if (!cpu_test_and_set(cpu, core_state.cpu_state)) {
+>  			v = smp_call_function_single(cpu, cvm_oct_enable_napi,
+> @@ -106,6 +108,7 @@ static void cvm_oct_enable_one_cpu(void)
+>  			break;
+>  		}
+>  	}
+> +	put_online_cpus_atomic();
 
-It's not non-ASCII. It's a page break.
+Does this driver really need to be doing this in the first place?  If
+so, why?  The majority of network drivers don't, why is this one
+"special"?
+
+thanks,
+
+greg k-h
