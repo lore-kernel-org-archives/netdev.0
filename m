@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH 21/45] block: Use get/put_online_cpus_atomic() to prevent CPU
- offline
-Date: Sun, 23 Jun 2013 19:12:50 +0530
-Message-ID: <20130623134246.19094.2993.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH 22/45] percpu_counter: Use get/put_online_cpus_atomic() to
+ prevent CPU offline
+Date: Sun, 23 Jun 2013 19:12:59 +0530
+Message-ID: <20130623134256.19094.99231.stgit@srivatsabhat.in.ibm.com>
 References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,7 +13,7 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jens Axboe <axboe@kernel.dk>
+	Al Viro <viro@zeniv.linux.org.uk>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
@@ -30,33 +30,30 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: Jens Axboe <axboe@kernel.dk>
+Cc: Al Viro <viro@zeniv.linux.org.uk>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- block/blk-softirq.c |    3 +++
- 1 file changed, 3 insertions(+)
+ lib/percpu_counter.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
-diff --git a/block/blk-softirq.c b/block/blk-softirq.c
-index 467c8de..bbab3d3 100644
---- a/block/blk-softirq.c
-+++ b/block/blk-softirq.c
-@@ -58,6 +58,7 @@ static void trigger_softirq(void *data)
-  */
- static int raise_blk_irq(int cpu, struct request *rq)
- {
+diff --git a/lib/percpu_counter.c b/lib/percpu_counter.c
+index ba6085d..9cf9086 100644
+--- a/lib/percpu_counter.c
++++ b/lib/percpu_counter.c
+@@ -98,6 +98,7 @@ s64 __percpu_counter_sum(struct percpu_counter *fbc)
+ 	s64 ret;
+ 	int cpu;
+ 
 +	get_online_cpus_atomic();
- 	if (cpu_online(cpu)) {
- 		struct call_single_data *data = &rq->csd;
- 
-@@ -66,8 +67,10 @@ static int raise_blk_irq(int cpu, struct request *rq)
- 		data->flags = 0;
- 
- 		__smp_call_function_single(cpu, data, 0);
-+		put_online_cpus_atomic();
- 		return 0;
+ 	raw_spin_lock(&fbc->lock);
+ 	ret = fbc->count;
+ 	for_each_online_cpu(cpu) {
+@@ -105,6 +106,7 @@ s64 __percpu_counter_sum(struct percpu_counter *fbc)
+ 		ret += *pcount;
  	}
+ 	raw_spin_unlock(&fbc->lock);
 +	put_online_cpus_atomic();
- 
- 	return 1;
+ 	return ret;
  }
+ EXPORT_SYMBOL(__percpu_counter_sum);
