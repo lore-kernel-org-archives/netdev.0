@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH 02/45] CPU hotplug: Clarify the usage of different
- synchronization APIs
-Date: Sun, 23 Jun 2013 19:08:12 +0530
-Message-ID: <20130623133808.19094.62963.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH 05/45] CPU hotplug: Protect set_cpu_online() to avoid
+ false-positives
+Date: Sun, 23 Jun 2013 19:09:02 +0530
+Message-ID: <20130623133858.19094.70477.stgit@srivatsabhat.in.ibm.com>
 References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -26,16 +26,18 @@ In-Reply-To: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-We have quite a few APIs now which help synchronize with CPU hotplug.
-Among them, get/put_online_cpus() is the oldest and the most well-known,
-so no problems there. By extension, its easy to comprehend the new
-set : get/put_online_cpus_atomic().
+When bringing a secondary CPU online, the task running on the CPU coming up
+sets itself in the cpu_online_mask. This is safe even though this task is not
+the hotplug writer task.
 
-But there is yet another set, which might appear tempting to use:
-cpu_hotplug_disable()/cpu_hotplug_enable(). Add comments to clarify
-that this latter set is NOT for general use and must be used only in
-specific cases where the requirement is really to _disable_ hotplug
-and not just to synchronize with it.
+But it is kinda hard to teach this to the CPU hotplug debug infrastructure,
+and if we get it wrong, we risk making the debug code too lenient, risking
+false-negatives.
+
+Luckily, all architectures use set_cpu_online() to manipulate the
+cpu_online_mask. So, to avoid false-positive warnings from the CPU hotplug
+debug code, encapsulate the body of set_cpu_online() within
+get/put_online_cpus_atomic().
 
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: Andrew Morton <akpm@linux-foundation.org>
@@ -44,24 +46,25 @@ Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/cpu.c |    7 +++++++
- 1 file changed, 7 insertions(+)
+ kernel/cpu.c |    4 ++++
+ 1 file changed, 4 insertions(+)
 
 diff --git a/kernel/cpu.c b/kernel/cpu.c
-index 2d03398..860f51a 100644
+index e90d9d7..23df9ba 100644
 --- a/kernel/cpu.c
 +++ b/kernel/cpu.c
-@@ -139,6 +139,13 @@ static void cpu_hotplug_done(void)
-  * the 'cpu_hotplug_disabled' flag. The same lock is also acquired by the
-  * hotplug path before performing hotplug operations. So acquiring that lock
-  * guarantees mutual exclusion from any currently running hotplug operations.
-+ *
-+ * Note: In most cases, this is *NOT* the function you need. If you simply
-+ * want to avoid racing with CPU hotplug operations, use get/put_online_cpus()
-+ * or get/put_online_cpus_atomic(), depending on the situation.
-+ *
-+ * This set of functions is reserved for cases where you really wish to
-+ * _disable_ CPU hotplug and not just synchronize with it.
-  */
- void cpu_hotplug_disable(void)
+@@ -818,10 +818,14 @@ void set_cpu_present(unsigned int cpu, bool present)
+ 
+ void set_cpu_online(unsigned int cpu, bool online)
  {
++	get_online_cpus_atomic();
++
+ 	if (online)
+ 		cpumask_set_cpu(cpu, to_cpumask(cpu_online_bits));
+ 	else
+ 		cpumask_clear_cpu(cpu, to_cpumask(cpu_online_bits));
++
++	put_online_cpus_atomic();
+ }
+ 
+ void set_cpu_active(unsigned int cpu, bool active)
