@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH 20/45] net: Use get/put_online_cpus_atomic() to prevent CPU
+Subject: [PATCH 21/45] block: Use get/put_online_cpus_atomic() to prevent CPU
  offline
-Date: Sun, 23 Jun 2013 19:12:40 +0530
-Message-ID: <20130623134236.19094.39650.stgit@srivatsabhat.in.ibm.com>
+Date: Sun, 23 Jun 2013 19:12:50 +0530
+Message-ID: <20130623134246.19094.2993.stgit@srivatsabhat.in.ibm.com>
 References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,12 +13,7 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Alexander Duyck <alexander.h.duyck@intel.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Ben Hutchings <bhutchings@solarflare.com>,
-	netdev@vger.kernel.org
+	Jens Axboe <axboe@kernel.dk>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
@@ -35,73 +30,33 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Eric Dumazet <edumazet@google.com>
-Cc: Alexander Duyck <alexander.h.duyck@intel.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>
-Cc: Ben Hutchings <bhutchings@solarflare.com>
-Cc: netdev@vger.kernel.org
+Cc: Jens Axboe <axboe@kernel.dk>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- net/core/dev.c |    9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ block/blk-softirq.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index fc1e289..90519e9 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -3141,7 +3141,7 @@ int netif_rx(struct sk_buff *skb)
- 		struct rps_dev_flow voidflow, *rflow = &voidflow;
- 		int cpu;
+diff --git a/block/blk-softirq.c b/block/blk-softirq.c
+index 467c8de..bbab3d3 100644
+--- a/block/blk-softirq.c
++++ b/block/blk-softirq.c
+@@ -58,6 +58,7 @@ static void trigger_softirq(void *data)
+  */
+ static int raise_blk_irq(int cpu, struct request *rq)
+ {
++	get_online_cpus_atomic();
+ 	if (cpu_online(cpu)) {
+ 		struct call_single_data *data = &rq->csd;
  
--		preempt_disable();
-+		get_online_cpus_atomic();
- 		rcu_read_lock();
+@@ -66,8 +67,10 @@ static int raise_blk_irq(int cpu, struct request *rq)
+ 		data->flags = 0;
  
- 		cpu = get_rps_cpu(skb->dev, skb, &rflow);
-@@ -3151,7 +3151,7 @@ int netif_rx(struct sk_buff *skb)
- 		ret = enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
- 
- 		rcu_read_unlock();
--		preempt_enable();
+ 		__smp_call_function_single(cpu, data, 0);
 +		put_online_cpus_atomic();
- 	} else
- #endif
- 	{
-@@ -3570,6 +3570,7 @@ int netif_receive_skb(struct sk_buff *skb)
- 		struct rps_dev_flow voidflow, *rflow = &voidflow;
- 		int cpu, ret;
- 
-+		get_online_cpus_atomic();
- 		rcu_read_lock();
- 
- 		cpu = get_rps_cpu(skb->dev, skb, &rflow);
-@@ -3577,9 +3578,11 @@ int netif_receive_skb(struct sk_buff *skb)
- 		if (cpu >= 0) {
- 			ret = enqueue_to_backlog(skb, cpu, &rflow->last_qtail);
- 			rcu_read_unlock();
-+			put_online_cpus_atomic();
- 			return ret;
- 		}
- 		rcu_read_unlock();
-+		put_online_cpus_atomic();
+ 		return 0;
  	}
- #endif
- 	return __netif_receive_skb(skb);
-@@ -3957,6 +3960,7 @@ static void net_rps_action_and_irq_enable(struct softnet_data *sd)
- 		local_irq_enable();
++	put_online_cpus_atomic();
  
- 		/* Send pending IPI's to kick RPS processing on remote cpus. */
-+		get_online_cpus_atomic();
- 		while (remsd) {
- 			struct softnet_data *next = remsd->rps_ipi_next;
- 
-@@ -3965,6 +3969,7 @@ static void net_rps_action_and_irq_enable(struct softnet_data *sd)
- 							   &remsd->csd, 0);
- 			remsd = next;
- 		}
-+		put_online_cpus_atomic();
- 	} else
- #endif
- 		local_irq_enable();
+ 	return 1;
+ }
