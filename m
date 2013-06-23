@@ -1,73 +1,55 @@
-From: Amir Vadai <amirv@mellanox.com>
-Subject: Re: [PATCH net-next 01/11] net/mlx4_en: Suppress page allocation
- failure warnings
-Date: Sun, 23 Jun 2013 11:46:58 +0300
-Message-ID: <51C6B602.20703@mellanox.com>
-References: <1371757222-21412-1-git-send-email-amirv@mellanox.com>  <1371757222-21412-2-git-send-email-amirv@mellanox.com> <1371763689.3252.419.camel@edumazet-glaptop>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next] net: allow large number of tx queues
+Date: Sun, 23 Jun 2013 13:29:51 +0300
+Message-ID: <20130623102951.GC17316@redhat.com>
+References: <1371623518.3252.267.camel@edumazet-glaptop>
+ <20130619091132.GA2816@redhat.com>
+ <1371635763.3252.289.camel@edumazet-glaptop>
+ <20130619154059.GA13735@redhat.com>
+ <1371657511.3252.324.camel@edumazet-glaptop>
+ <20130619180709.GA15017@redhat.com>
+ <1371716151.3252.390.camel@edumazet-glaptop>
+ <20130620083530.GA23909@redhat.com>
+ <51C3F5AC.2090008@redhat.com>
+ <1371798750.3252.431.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Jack Morgenstein <jackm@dev.mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, davem@davemloft.net,
+	hkchu@google.com, netdev <netdev@vger.kernel.org>,
+	dwmw2@infradead.org
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from eu1sys200aog104.obsmtp.com ([207.126.144.117]:40956 "EHLO
-	eu1sys200aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750914Ab3FWIr0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 04:47:26 -0400
-In-Reply-To: <1371763689.3252.419.camel@edumazet-glaptop>
+Received: from mx1.redhat.com ([209.132.183.28]:62446 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750982Ab3FWK3d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 23 Jun 2013 06:29:33 -0400
+Content-Disposition: inline
+In-Reply-To: <1371798750.3252.431.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/06/2013 00:28, Eric Dumazet wrote:
-> On Thu, 2013-06-20 at 22:40 +0300, Amir Vadai wrote:
->> From: Yevgeny Petrilin <yevgenyp@mellanox.com>
->>
->> When system is low on resources, those warnings hang the host.
->>
->> Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
->> Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.com>
->> Signed-off-by: Amir Vadai <amirv@mellanox.com>
->> ---
->>  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 4 ++--
->>  1 file changed, 2 insertions(+), 2 deletions(-)
->>
->> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
->> index 9c57581..2b564ac 100644
->> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
->> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
->> @@ -57,8 +57,8 @@ static int mlx4_en_alloc_frags(struct mlx4_en_priv *priv,
->>  	for (i = 0; i < priv->num_frags; i++) {
->>  		frag_info = &priv->frag_info[i];
->>  		if (ring_alloc[i].offset == frag_info->last_offset) {
->> -			page = alloc_pages(GFP_ATOMIC | __GFP_COMP,
->> -					MLX4_EN_ALLOC_ORDER);
->> +			page = alloc_pages(GFP_ATOMIC | __GFP_COMP |
->> +					   __GFP_NOWARN, MLX4_EN_ALLOC_ORDER);
->>  			if (!page)
->>  				goto out;
->>  			dma = dma_map_page(priv->ddev, page, 0,
+On Fri, Jun 21, 2013 at 12:12:30AM -0700, Eric Dumazet wrote:
+> On Fri, 2013-06-21 at 14:41 +0800, Jason Wang wrote:
+> 
+> > 1K queues (about 80 pages) looks a little bit aggressive which means we
+> > may always fall back to vmalloc()?
+> 
+> 1K queues looks like you should use 0 queue (LLTX) in fact, so that you
+> design the minimal percpu structure in the driver to fit the needs.
+> 
+> Using Qdisc, qith MQ, pfifo_fast, on 1000 'queues' is adding a fair
+> amount of overhead and memory usage.
+> 
+> For example, loopback driver only needs small percpu structure (16
+> bytes), as it immediately forward the packet into netif_rx() [ Which
+> also use a percpu area called softnet_data ]
 > 
 > 
-> Thats IMHO a lazy patch...
-> 
-> What about mlx4_en_init_allocator() ?
-mlx4_en_init_allocator() is called only on driver initialization - I
-don't care if it will warn when no memory.
-But mlx4_en_alloc_frags() is on the data path, and many warnings there
-when the system is already stressed and without memory is bad.
-Besides the warnings, this error flow is handled, and
-mlx4_en_en_fill_rx_buffers() will handle the ENOMEM.
 
-> 
-> I think I did a patch doing fallback to order-1 and order-0 allocations
-Current code has, as I said above, a fallback to reduce the rx ring size
-when memory is stressed. Do you suggest to use smaller fragments instead
-(or in addition)?
-Can you send me a link to the patch?
+I agree it's worth considering for tun.
 
+But the same number of queues will be there for virtio net,
+and that's much more like a regular network device.
 
-Thanks,
-Amir
+-- 
+MST
