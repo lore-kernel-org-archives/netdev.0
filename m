@@ -1,76 +1,46 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH 25/45] staging/octeon: Use get/put_online_cpus_atomic()
- to prevent CPU offline
-Date: Sun, 23 Jun 2013 11:17:40 -0700
-Message-ID: <20130623181740.GB24256@kroah.com>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
- <20130623134331.19094.80396.stgit@srivatsabhat.in.ibm.com>
+From: Theodore Ts'o <tytso@mit.edu>
+Subject: Re: [trivial] treewide: Add __GFP_NOWARN to k.alloc calls with
+ v.alloc fallbacks
+Date: Sun, 23 Jun 2013 14:40:51 -0400
+Message-ID: <20130623184051.GA13222@thunk.org>
+References: <1371669353.2038.45.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org,
-	laijs@cn.fujitsu.com, rostedt@goodmis.org,
-	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
-	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devel@driverdev.osuosl.org
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
+Cc: Jiri Kosina <trivial@kernel.org>,
+	Lars Ellenberg <drbd-dev@lists.linbit.com>,
+	Hoang-Nam Nguyen <hnguyen@de.ibm.com>,
+	Christoph Raisch <raisch@de.ibm.com>,
+	Roland Dreier <roland@kernel.org>,
+	Sean Hefty <sean.hefty@intel.com>,
+	Hal Rosenstock <hal.rosenstock@gmail.com>,
+	Divy Le Ray <divy@chelsio.com>,
+	Dimitris Michailidis <dm@chelsio.com>,
+	"James E.J. Bottomley" <JBottomley@parallels.com>,
+	Chris Mason <chris.mason@fusionio.com>,
+	Andreas Dilger <adilger.kernel@dilger.ca>,
+	Steven Whitehouse <swhiteho@redhat.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	drbd-user@lists.linbit.com, linux-kernel@vger.kernel.org,
+	linux-rdma@vger.kernel.org, netdev@vger.kernel.org,
+	linux-scsi@vger.kernel.org, linux-btrfs@vger.kernel.org,
+	linux-ext4@vger.kernel.org,
+	cluster-devel <cluster-devel@redhat.com>
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-btrfs-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20130623134331.19094.80396.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-pm-owner@vger.kernel.org
+In-Reply-To: <1371669353.2038.45.camel@joe-AO722>
+Sender: linux-btrfs-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 23, 2013 at 07:13:33PM +0530, Srivatsa S. Bhat wrote:
-> Once stop_machine() is gone from the CPU offline path, we won't be able
-> to depend on disabling preemption to prevent CPUs from going offline
-> from under us.
+On Wed, Jun 19, 2013 at 12:15:53PM -0700, Joe Perches wrote:
+> Don't emit OOM warnings when k.alloc calls fail when
+> there there is a v.alloc immediately afterwards.
 > 
-> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
-> offline, while invoking from atomic context.
-> 
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: devel@driverdev.osuosl.org
-> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
-> ---
-> 
->  drivers/staging/octeon/ethernet-rx.c |    3 +++
->  1 file changed, 3 insertions(+)
-> 
-> diff --git a/drivers/staging/octeon/ethernet-rx.c b/drivers/staging/octeon/ethernet-rx.c
-> index 34afc16..8588b4d 100644
-> --- a/drivers/staging/octeon/ethernet-rx.c
-> +++ b/drivers/staging/octeon/ethernet-rx.c
-> @@ -36,6 +36,7 @@
->  #include <linux/prefetch.h>
->  #include <linux/ratelimit.h>
->  #include <linux/smp.h>
-> +#include <linux/cpu.h>
->  #include <linux/interrupt.h>
->  #include <net/dst.h>
->  #ifdef CONFIG_XFRM
-> @@ -97,6 +98,7 @@ static void cvm_oct_enable_one_cpu(void)
->  		return;
->  
->  	/* ... if a CPU is available, Turn on NAPI polling for that CPU.  */
-> +	get_online_cpus_atomic();
->  	for_each_online_cpu(cpu) {
->  		if (!cpu_test_and_set(cpu, core_state.cpu_state)) {
->  			v = smp_call_function_single(cpu, cvm_oct_enable_napi,
-> @@ -106,6 +108,7 @@ static void cvm_oct_enable_one_cpu(void)
->  			break;
->  		}
->  	}
-> +	put_online_cpus_atomic();
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Does this driver really need to be doing this in the first place?  If
-so, why?  The majority of network drivers don't, why is this one
-"special"?
+For fs/ext4/super.c:
 
-thanks,
+Acked-by: "Theodore Ts'o" <tytso@mit.edu>
 
-greg k-h
+					- Ted
