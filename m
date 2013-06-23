@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH 10/45] sched/core: Use get/put_online_cpus_atomic() to prevent
+Subject: [PATCH 12/45] sched/fair: Use get/put_online_cpus_atomic() to prevent
  CPU offline
-Date: Sun, 23 Jun 2013 19:10:27 +0530
-Message-ID: <20130623134020.19094.59333.stgit@srivatsabhat.in.ibm.com>
+Date: Sun, 23 Jun 2013 19:10:47 +0530
+Message-ID: <20130623134043.19094.8381.stgit@srivatsabhat.in.ibm.com>
 References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -19,18 +19,10 @@ To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
 	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from e28smtp05.in.ibm.com ([122.248.162.5]:47870 "EHLO
-	e28smtp05.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751849Ab3FWNnt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 09:43:49 -0400
-Received: from /spool/local
-	by e28smtp05.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
-	Sun, 23 Jun 2013 19:08:46 +0530
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able
 to depend on disabling preemption to prevent CPUs from going offline
@@ -44,109 +36,96 @@ Cc: Peter Zijlstra <peterz@infradead.org>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/sched/core.c |   23 +++++++++++++++++++++--
- 1 file changed, 21 insertions(+), 2 deletions(-)
+ kernel/sched/fair.c |   14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index 195658b..accd550 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -1160,11 +1160,11 @@ void kick_process(struct task_struct *p)
- {
- 	int cpu;
- 
--	preempt_disable();
-+	get_online_cpus_atomic();
- 	cpu = task_cpu(p);
- 	if ((cpu != smp_processor_id()) && task_curr(p))
- 		smp_send_reschedule(cpu);
--	preempt_enable();
-+	put_online_cpus_atomic();
- }
- EXPORT_SYMBOL_GPL(kick_process);
- #endif /* CONFIG_SMP */
-@@ -1172,6 +1172,9 @@ EXPORT_SYMBOL_GPL(kick_process);
- #ifdef CONFIG_SMP
- /*
-  * ->cpus_allowed is protected by both rq->lock and p->pi_lock
-+ *
-+ *  Must be called within get/put_online_cpus_atomic(), to prevent
-+ *  CPUs from going offline from under us.
+diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
+index c0ac2c3..88f056e 100644
+--- a/kernel/sched/fair.c
++++ b/kernel/sched/fair.c
+@@ -3338,7 +3338,8 @@ done:
+  *
+  * Returns the target CPU number, or the same CPU if no balancing is needed.
+  *
+- * preempt must be disabled.
++ * Must be called within get/put_online_cpus_atomic(), to prevent CPUs
++ * from going offline from under us.
   */
- static int select_fallback_rq(int cpu, struct task_struct *p)
- {
-@@ -1245,6 +1248,9 @@ out:
+ static int
+ select_task_rq_fair(struct task_struct *p, int sd_flag, int wake_flags)
+@@ -5267,6 +5268,8 @@ void idle_balance(int this_cpu, struct rq *this_rq)
+ 	raw_spin_unlock(&this_rq->lock);
  
- /*
-  * The caller (fork, wakeup) owns p->pi_lock, ->cpus_allowed is stable.
-+ *
-+ * Must be called within get/put_online_cpus_atomic(), to prevent
-+ * CPUs from going offline from under us.
-  */
- static inline
- int select_task_rq(struct task_struct *p, int sd_flags, int wake_flags)
-@@ -1489,6 +1495,8 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
- 	unsigned long flags;
- 	int cpu, success = 0;
- 
-+	get_online_cpus_atomic();
+ 	update_blocked_averages(this_cpu);
 +
- 	smp_wmb();
- 	raw_spin_lock_irqsave(&p->pi_lock, flags);
- 	if (!(p->state & state))
-@@ -1531,6 +1539,7 @@ stat:
- out:
- 	raw_spin_unlock_irqrestore(&p->pi_lock, flags);
- 
++	get_online_cpus_atomic();
+ 	rcu_read_lock();
+ 	for_each_domain(this_cpu, sd) {
+ 		unsigned long interval;
+@@ -5290,6 +5293,7 @@ void idle_balance(int this_cpu, struct rq *this_rq)
+ 		}
+ 	}
+ 	rcu_read_unlock();
 +	put_online_cpus_atomic();
- 	return success;
- }
  
-@@ -1753,6 +1762,8 @@ void wake_up_new_task(struct task_struct *p)
- 	unsigned long flags;
- 	struct rq *rq;
+ 	raw_spin_lock(&this_rq->lock);
  
-+	get_online_cpus_atomic();
-+
- 	raw_spin_lock_irqsave(&p->pi_lock, flags);
- #ifdef CONFIG_SMP
- 	/*
-@@ -1773,6 +1784,8 @@ void wake_up_new_task(struct task_struct *p)
- 		p->sched_class->task_woken(rq, p);
- #endif
- 	task_rq_unlock(rq, p, &flags);
-+
-+	put_online_cpus_atomic();
- }
- 
- #ifdef CONFIG_PREEMPT_NOTIFIERS
-@@ -3886,6 +3899,8 @@ bool __sched yield_to(struct task_struct *p, bool preempt)
- 	unsigned long flags;
- 	int yielded = 0;
+@@ -5316,6 +5320,7 @@ static int active_load_balance_cpu_stop(void *data)
+ 	struct rq *target_rq = cpu_rq(target_cpu);
+ 	struct sched_domain *sd;
  
 +	get_online_cpus_atomic();
-+
- 	local_irq_save(flags);
- 	rq = this_rq();
+ 	raw_spin_lock_irq(&busiest_rq->lock);
  
-@@ -3931,6 +3946,8 @@ out_unlock:
- out_irq:
- 	local_irq_restore(flags);
- 
-+	put_online_cpus_atomic();
-+
- 	if (yielded > 0)
- 		schedule();
- 
-@@ -4331,9 +4348,11 @@ static int migration_cpu_stop(void *data)
- 	 * The original target cpu might have gone down and we might
- 	 * be on another cpu but it doesn't matter.
- 	 */
-+	get_online_cpus_atomic();
- 	local_irq_disable();
- 	__migrate_task(arg->task, raw_smp_processor_id(), arg->dest_cpu);
- 	local_irq_enable();
+ 	/* make sure the requested cpu hasn't gone down in the meantime */
+@@ -5367,6 +5372,7 @@ static int active_load_balance_cpu_stop(void *data)
+ out_unlock:
+ 	busiest_rq->active_balance = 0;
+ 	raw_spin_unlock_irq(&busiest_rq->lock);
 +	put_online_cpus_atomic();
  	return 0;
+ }
+ 
+@@ -5527,6 +5533,7 @@ static void rebalance_domains(int cpu, enum cpu_idle_type idle)
+ 
+ 	update_blocked_averages(cpu);
+ 
++	get_online_cpus_atomic();
+ 	rcu_read_lock();
+ 	for_each_domain(cpu, sd) {
+ 		if (!(sd->flags & SD_LOAD_BALANCE))
+@@ -5575,6 +5582,7 @@ out:
+ 			break;
+ 	}
+ 	rcu_read_unlock();
++	put_online_cpus_atomic();
+ 
+ 	/*
+ 	 * next_balance will be updated only when there is a need.
+@@ -5706,6 +5714,7 @@ static void run_rebalance_domains(struct softirq_action *h)
+ 	enum cpu_idle_type idle = this_rq->idle_balance ?
+ 						CPU_IDLE : CPU_NOT_IDLE;
+ 
++	get_online_cpus_atomic();
+ 	rebalance_domains(this_cpu, idle);
+ 
+ 	/*
+@@ -5714,6 +5723,7 @@ static void run_rebalance_domains(struct softirq_action *h)
+ 	 * stopped.
+ 	 */
+ 	nohz_idle_balance(this_cpu, idle);
++	put_online_cpus_atomic();
+ }
+ 
+ static inline int on_null_domain(int cpu)
+@@ -5731,8 +5741,10 @@ void trigger_load_balance(struct rq *rq, int cpu)
+ 	    likely(!on_null_domain(cpu)))
+ 		raise_softirq(SCHED_SOFTIRQ);
+ #ifdef CONFIG_NO_HZ_COMMON
++	get_online_cpus_atomic();
+ 	if (nohz_kick_needed(rq, cpu) && likely(!on_null_domain(cpu)))
+ 		nohz_balancer_kick(cpu);
++	put_online_cpus_atomic();
+ #endif
  }
  
