@@ -1,41 +1,28 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH iproute2 2/2] vxlan: allow specifying multiple default
- destinations
-Date: Mon, 24 Jun 2013 00:32:49 +0000 (UTC)
-Message-ID: <kq843h$n38$1@ger.gmane.org>
-References: <1372004643-24718-1-git-send-email-mike.rapoport@ravellosystems.com>
- <1372004643-24718-2-git-send-email-mike.rapoport@ravellosystems.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/8] qlcnic: Driver updates
+Date: Sun, 23 Jun 2013 18:30:16 -0700 (PDT)
+Message-ID: <20130623.183016.1828046873005316618.davem@davemloft.net>
+References: <1371888727-16422-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
+	shahed.shaikh@qlogic.com, Dept_NX_Linux_NIC_Driver@qlogic.com
+To: jitendra.kalsaria@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:51627 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751486Ab3FXAdH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 23 Jun 2013 20:33:07 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UquiQ-0004d5-6B
-	for netdev@vger.kernel.org; Mon, 24 Jun 2013 02:33:06 +0200
-Received: from 218.63.189.90 ([218.63.189.90])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 02:33:06 +0200
-Received: from xiyou.wangcong by 218.63.189.90 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 02:33:06 +0200
+Received: from shards.monkeyblade.net ([149.20.54.216]:34951 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751860Ab3FXBa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 21:30:28 -0400
+In-Reply-To: <1371888727-16422-1-git-send-email-jitendra.kalsaria@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 23 Jun 2013 at 16:24 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
-> +static void explain_change(void)
-> +{
-> +	fprintf(stderr, "Usage: ... vxlan id VNI\n");
-> +	fprintf(stderr, "                 [ dstadd DST ]\n");
-> +	fprintf(stderr, "                 [ dstdel ADDR ]\n");
-> +	fprintf(stderr, "\n");
-> +	fprintf(stderr, "Where: VNI := 0-16777215\n");
-> ++	fprintf(stderr, "       DST  := [ ADDR [port PORT] [vni VNI] [via DEV]]\n");
+From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+Date: Sat, 22 Jun 2013 04:11:59 -0400
 
-This '++' line does't look correct, does it?
+> Re-submitting the patch set after fixing patch#2 as pointed by Joe Perches.
+> 
+> Please apply patch series to net-next.
+
+Series applied, thanks.
