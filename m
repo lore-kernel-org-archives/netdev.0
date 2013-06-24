@@ -1,47 +1,36 @@
-From: Wei Liu <wei.liu2@citrix.com>
-Subject: Re: [PATCH net-next V3 1/3] xen-netback: split event channels
- support for Xen backend driver
-Date: Mon, 24 Jun 2013 11:18:07 +0100
-Message-ID: <20130624101807.GA2394@zion.uk.xensource.com>
-References: <1369240487-18834-1-git-send-email-wei.liu2@citrix.com>
- <1369240487-18834-2-git-send-email-wei.liu2@citrix.com>
- <51C8320902000078000DFF4E@nat28.tlf.novell.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2] [NET]: Unmap fragment page once iterator is done
+Date: Mon, 24 Jun 2013 14:35:19 +0400
+Message-ID: <51C820E7.6040004@cogentembedded.com>
+References: <1372055628-27044-1-git-send-email-wedsonaf@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Wei Liu <wei.liu2@citrix.com>, <david.vrabel@citrix.com>,
-	<ian.campbell@citrix.com>, <xen-devel@lists.xen.org>,
-	<annie.li@oracle.com>, <konrad.wilk@oracle.com>,
-	<netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp02.citrix.com ([66.165.176.63]:37895 "EHLO
-	SMTP02.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750902Ab3FXKch (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 06:32:37 -0400
-Content-Disposition: inline
-In-Reply-To: <51C8320902000078000DFF4E@nat28.tlf.novell.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Wedson Almeida Filho <wedsonaf@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1372055628-27044-1-git-send-email-wedsonaf@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 24, 2013 at 10:48:25AM +0100, Jan Beulich wrote:
-> >>> On 22.05.13 at 18:34, Wei Liu <wei.liu2@citrix.com> wrote:
-> > Netback and netfront only use one event channel to do TX / RX notification,
-> > which may cause unnecessary wake-up of processing routines. This patch adds a
-> > new feature called feature-split-event-channels to netback, enabling it to
-> > handle TX and RX events separately.
-> > 
-> > Netback will use tx_irq to notify guest for TX completion, rx_irq for RX
-> > notification.
-> 
-> While I can see the benefit for the frontend, does this really make
-> a lot of a difference to the backend considering that both rx and tx
-> handling get done on the same thread anyway?
-> 
+Hello.
 
-Not for now. But I'm working on separating the backend handling routines.
+On 24-06-2013 10:33, Wedson Almeida Filho wrote:
 
-So if you're thinking about backporting, I don't think this is the
-material.
+> Callers of skb_seq_read() are currently forced to call skb_abort_seq_read()
+> even when consuming all the data because the last call to skb_seq_read (the
+> one that returns 0 to indicate the end) fails to unmap the last fragment page.
 
+> With this patch callers will be allowed to traverse the SKB data by calling
+> skb_prepare_seq_read() once and repeatedly calling skb_seq_read() as originally
+> intended (and documented in the original commit 677e90eda), that is, only call
 
-Wei.
+    Please also specify the summary line of that commit.
+
+> skb_abort_seq_read() if the sequential read is actually aborted.
+
+> Signed-off-by: Wedson Almeida Filho <wedsonaf@gmail.com>
+
+WBR, Sergei
