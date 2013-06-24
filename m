@@ -1,165 +1,51 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [PATCH 04/45] CPU hotplug: Add infrastructure to check lacking
- hotplug synchronization
-Date: Mon, 24 Jun 2013 19:26:03 -0400
-Message-ID: <1372116363.18733.189.camel@gandalf.local.home>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
-	 <20130623133841.19094.69631.stgit@srivatsabhat.in.ibm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] tehuti: using uninitialized data in bdx_ioctl_priv()
+Date: Mon, 24 Jun 2013 16:27:31 -0700 (PDT)
+Message-ID: <20130624.162731.1160289203652795505.davem@davemloft.net>
+References: <20130624160503.GC31984@elgon.mountain>
+	<20130624.130145.1513695698751905735.davem@davemloft.net>
+	<1372105452.1896.45.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org,
-	laijs@cn.fujitsu.com, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
-	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Alex Shi <alex.shi@intel.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-In-Reply-To: <20130623133841.19094.69631.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Cc: dan.carpenter@oracle.com, andy@greyhouse.net,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: bhutchings@solarflare.com
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <1372105452.1896.45.camel@bwh-desktop.uk.level5networks.com>
+Sender: kernel-janitors-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2013-06-23 at 19:08 +0530, Srivatsa S. Bhat wrote:
+From: Ben Hutchings <bhutchings@solarflare.com>
+Date: Mon, 24 Jun 2013 21:24:12 +0100
 
+> On Mon, 2013-06-24 at 13:01 -0700, David Miller wrote:
+>> From: Dan Carpenter <dan.carpenter@oracle.com>
+>> Date: Mon, 24 Jun 2013 19:05:03 +0300
+>> 
+>> > If we "cmd == SIOCDEVPRIVATE" then we use data[] without initializing
+>> > it.  The most common case is that we would return -EOPNOTSUPP.  The
+>> > other case is that we'd end up reading and writing to randomish places.
+>> > This requires CAP_SYS_RAWIO so it's not very bad.
+>> > 
+>> > The fix is to not allow SIOCDEVPRIVATE because it doesn't work.  I
+>> > returned -EOPNOTSUPP instead of -ENOTTY because that's what is used in
+>> > the rest of the file.
+>> > 
+>> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>> 
+>> I think the intention is to only allow SIOCDEVPRIVATE, rather than
+>> accept any and all values other than it which are inside of the
+>> private ioctl range.
+>> 
+>> The 'cmd' validation is one step, and it determines the interpretation
+>> of data[0].
+> 
+> But data is only initialised on the error path.  So this whole function
+> is useless.  It might as well be removed entirely.
+> 
+> (Also, drivers generally should not assign SIOCDEVPRIVATE+{0,1,2}, as
+> those numbers used to be conventionally used for MII operations.)
 
-Just to make the code a little cleaner, can you add:
-
-> diff --git a/kernel/cpu.c b/kernel/cpu.c
-> index 860f51a..e90d9d7 100644
-> --- a/kernel/cpu.c
-> +++ b/kernel/cpu.c
-> @@ -63,6 +63,72 @@ static struct {
->  	.refcount = 0,
->  };
->  
-> +#ifdef CONFIG_DEBUG_HOTPLUG_CPU
-> +
-> +static DEFINE_PER_CPU(unsigned long, atomic_reader_refcnt);
-> +
-> +static int current_is_hotplug_safe(const struct cpumask *mask)
-> +{
-> +
-> +	/* If we are not dealing with cpu_online_mask, don't complain. */
-> +	if (mask != cpu_online_mask)
-> +		return 1;
-> +
-> +	/* If this is the task doing hotplug, don't complain. */
-> +	if (unlikely(current == cpu_hotplug.active_writer))
-> +		return 1;
-> +
-> +	/* If we are in early boot, don't complain. */
-> +	if (system_state != SYSTEM_RUNNING)
-> +		return 1;
-> +
-> +	/*
-> +	 * Check if the current task is in atomic context and it has
-> +	 * invoked get_online_cpus_atomic() to synchronize with
-> +	 * CPU Hotplug.
-> +	 */
-> +	if (preempt_count() || irqs_disabled())
-> +		return this_cpu_read(atomic_reader_refcnt);
-> +	else
-> +		return 1; /* No checks for non-atomic contexts for now */
-> +}
-> +
-> +static inline void warn_hotplug_unsafe(void)
-> +{
-> +	WARN_ONCE(1, "Must use get/put_online_cpus_atomic() to synchronize"
-> +		     " with CPU hotplug\n");
-> +}
-> +
-> +/*
-> + * Check if the task (executing in atomic context) has the required protection
-> + * against CPU hotplug, while accessing the specified cpumask.
-> + */
-> +void check_hotplug_safe_cpumask(const struct cpumask *mask)
-> +{
-> +	if (!current_is_hotplug_safe(mask))
-> +		warn_hotplug_unsafe();
-> +}
-> +EXPORT_SYMBOL_GPL(check_hotplug_safe_cpumask);
-> +
-> +/*
-> + * Similar to check_hotplug_safe_cpumask(), except that we don't complain
-> + * if the task (executing in atomic context) is testing whether the CPU it
-> + * is executing on is online or not.
-> + *
-> + * (A task executing with preemption disabled on a CPU, automatically prevents
-> + *  offlining that CPU, irrespective of the actual implementation of CPU
-> + *  offline. So we don't enforce holding of get_online_cpus_atomic() for that
-> + *  case).
-> + */
-> +void check_hotplug_safe_cpu(unsigned int cpu, const struct cpumask *mask)
-> +{
-> +	if(!current_is_hotplug_safe(mask) && cpu != smp_processor_id())
-> +		warn_hotplug_unsafe();
-> +}
-> +EXPORT_SYMBOL_GPL(check_hotplug_safe_cpu);
-> +
-
-static inline void atomic_reader_refcnt_inc(void)
-{
-	this_cpu_inc(atomic_reader_refcnt);
-}
-static inline void atomic_reader_refcnt_dec(void)
-{
-	this_cpu_dec(atomic_reader_refcnt);
-}
-
-#else
-static inline void atomic_reader_refcnt_inc(void)
-{
-}
-static inline void atomic_reader_refcnt_dec(void)
-{
-}
-#endif
-
-> +#endif
-> +
->  void get_online_cpus(void)
->  {
->  	might_sleep();
-> @@ -189,13 +255,22 @@ unsigned int get_online_cpus_atomic(void)
->  	 * from going offline.
->  	 */
->  	preempt_disable();
-> +
-> +#ifdef CONFIG_DEBUG_HOTPLUG_CPU
-> +	this_cpu_inc(atomic_reader_refcnt);
-> +#endif
-
-Replace the #ifdef with just:
-
-	atomic_reader_refcnt_inc();
-
->  	return smp_processor_id();
->  }
->  EXPORT_SYMBOL_GPL(get_online_cpus_atomic);
->  
->  void put_online_cpus_atomic(void)
->  {
-> +
-> +#ifdef CONFIG_DEBUG_HOTPLUG_CPU
-> +	this_cpu_dec(atomic_reader_refcnt);
-> +#endif
-
-And
-
-	atomic_reader_refcnt_dec();
-
--- Steve
-
->  	preempt_enable();
-> +
->  }
->  EXPORT_SYMBOL_GPL(put_online_cpus_atomic);
->  
+Agreed, this function should be removed, and if someone has to have this
+functionality they can implement ETHTOOL_GREGS.
