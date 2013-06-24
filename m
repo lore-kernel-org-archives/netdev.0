@@ -1,73 +1,103 @@
-From: Wedson Almeida Filho <wedsonaf@gmail.com>
-Subject: [PATCH v2] [NET]: Unmap fragment page once iterator is done
-Date: Sun, 23 Jun 2013 23:33:48 -0700
-Message-ID: <1372055628-27044-1-git-send-email-wedsonaf@gmail.com>
-Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Wedson Almeida Filho <wedsonaf@gmail.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jesper Nilsson <jesper.nilsson@axis.com>
+Subject: Re: [PATCH 33/45] cris/smp: Use get/put_online_cpus_atomic() to
+ prevent CPU offline
+Date: Mon, 24 Jun 2013 08:41:56 +0200
+Message-ID: <20130624064156.GR23735@axis.com>
+References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
+ <20130623134536.19094.52797.stgit@srivatsabhat.in.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org,
+	laijs@cn.fujitsu.com, rostedt@goodmis.org,
+	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
+	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Mikael Starvik <starvik@axis.com>,
+	Jesper Nilsson <jespern@axis.com>, linux-cris-kernel@axis.com
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ra.se.axis.com ([195.60.68.13]:57304 "EHLO ra.se.axis.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751922Ab3FXGmD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jun 2013 02:42:03 -0400
+Content-Disposition: inline
+In-Reply-To: <20130623134536.19094.52797.stgit@srivatsabhat.in.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Callers of skb_seq_read() are currently forced to call skb_abort_seq_read()
-even when consuming all the data because the last call to skb_seq_read (the
-one that returns 0 to indicate the end) fails to unmap the last fragment page.
+On Sun, Jun 23, 2013 at 07:15:39PM +0530, Srivatsa S. Bhat wrote:
+> Once stop_machine() is gone from the CPU offline path, we won't be able
+> to depend on disabling preemption to prevent CPUs from going offline
+> from under us.
+> 
+> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+> offline, while invoking from atomic context.
+> 
+> Cc: Mikael Starvik <starvik@axis.com>
 
-With this patch callers will be allowed to traverse the SKB data by calling
-skb_prepare_seq_read() once and repeatedly calling skb_seq_read() as originally
-intended (and documented in the original commit 677e90eda), that is, only call
-skb_abort_seq_read() if the sequential read is actually aborted.
+Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
 
-Signed-off-by: Wedson Almeida Filho <wedsonaf@gmail.com>
----
- drivers/scsi/libiscsi_tcp.c |    1 -
- net/batman-adv/main.c       |    1 -
- net/core/skbuff.c           |    7 ++++++-
- 3 files changed, 6 insertions(+), 3 deletions(-)
+> Cc: Thomas Gleixner <tglx@linutronix.de>
+> Cc: linux-cris-kernel@axis.com
+> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+> ---
+> 
+>  arch/cris/arch-v32/kernel/smp.c |    5 +++++
+>  1 file changed, 5 insertions(+)
+> 
+> diff --git a/arch/cris/arch-v32/kernel/smp.c b/arch/cris/arch-v32/kernel/smp.c
+> index cdd1202..b2d4612 100644
+> --- a/arch/cris/arch-v32/kernel/smp.c
+> +++ b/arch/cris/arch-v32/kernel/smp.c
+> @@ -13,6 +13,7 @@
+>  #include <linux/init.h>
+>  #include <linux/timex.h>
+>  #include <linux/sched.h>
+> +#include <linux/cpu.h>
+>  #include <linux/kernel.h>
+>  #include <linux/cpumask.h>
+>  #include <linux/interrupt.h>
+> @@ -222,6 +223,7 @@ void flush_tlb_common(struct mm_struct* mm, struct vm_area_struct* vma, unsigned
+>  	unsigned long flags;
+>  	cpumask_t cpu_mask;
+>  
+> +	get_online_cpus_atomic();
+>  	spin_lock_irqsave(&tlbstate_lock, flags);
+>  	cpu_mask = (mm == FLUSH_ALL ? cpu_all_mask : *mm_cpumask(mm));
+>  	cpumask_clear_cpu(smp_processor_id(), &cpu_mask);
+> @@ -230,6 +232,7 @@ void flush_tlb_common(struct mm_struct* mm, struct vm_area_struct* vma, unsigned
+>  	flush_addr = addr;
+>  	send_ipi(IPI_FLUSH_TLB, 1, cpu_mask);
+>  	spin_unlock_irqrestore(&tlbstate_lock, flags);
+> +	put_online_cpus_atomic();
+>  }
+>  
+>  void flush_tlb_all(void)
+> @@ -319,10 +322,12 @@ int smp_call_function(void (*func)(void *info), void *info, int wait)
+>  	data.info = info;
+>  	data.wait = wait;
+>  
+> +	get_online_cpus_atomic();
+>  	spin_lock(&call_lock);
+>  	call_data = &data;
+>  	ret = send_ipi(IPI_CALL, wait, cpu_mask);
+>  	spin_unlock(&call_lock);
+> +	put_online_cpus_atomic();
+>  
+>  	return ret;
+>  }
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-diff --git a/drivers/scsi/libiscsi_tcp.c b/drivers/scsi/libiscsi_tcp.c
-index 552e8a2..448eae8 100644
---- a/drivers/scsi/libiscsi_tcp.c
-+++ b/drivers/scsi/libiscsi_tcp.c
-@@ -906,7 +906,6 @@ int iscsi_tcp_recv_skb(struct iscsi_conn *conn, struct sk_buff *skb,
- 			ISCSI_DBG_TCP(conn, "no more data avail. Consumed %d\n",
- 				      consumed);
- 			*status = ISCSI_TCP_SKB_DONE;
--			skb_abort_seq_read(&seq);
- 			goto skb_done;
- 		}
- 		BUG_ON(segment->copied >= segment->size);
-diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
-index 51aafd6..08125f3 100644
---- a/net/batman-adv/main.c
-+++ b/net/batman-adv/main.c
-@@ -473,7 +473,6 @@ __be32 batadv_skb_crc32(struct sk_buff *skb, u8 *payload_ptr)
- 		crc = crc32c(crc, data, len);
- 		consumed += len;
- 	}
--	skb_abort_seq_read(&st);
- 
- 	return htonl(crc);
- }
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index cfd777b..26ea1cf 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -2554,8 +2554,13 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
- 	unsigned int block_limit, abs_offset = consumed + st->lower_offset;
- 	skb_frag_t *frag;
- 
--	if (unlikely(abs_offset >= st->upper_offset))
-+	if (unlikely(abs_offset >= st->upper_offset)) {
-+		if (st->frag_data) {
-+			kunmap_atomic(st->frag_data);
-+			st->frag_data = NULL;
-+		}
- 		return 0;
-+	}
- 
- next_skb:
- 	block_limit = skb_headlen(st->cur_skb) + st->stepped_offset;
+/^JN - Jesper Nilsson
 -- 
-1.7.9.5
+               Jesper Nilsson -- jesper.nilsson@axis.com
