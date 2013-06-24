@@ -1,34 +1,50 @@
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Subject: Re: [PATCH v3 net-next 0/1] net: lls select poll support
-Date: Mon, 24 Jun 2013 07:23:27 +0300
-Message-ID: <51C7C9BF.5090305@linux.intel.com>
-References: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com> <20130623.184437.1772856342146874217.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: qlen check in tun.c
+Date: Mon, 24 Jun 2013 13:13:35 +0800
+Message-ID: <51C7D57F.6080803@redhat.com>
+References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com> <51C12592.6050503@redhat.com> <CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com> <20130620080725.GB23621@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
-	e1000-devel@lists.sourceforge.net, willemb@google.com,
-	erdnetdev@gmail.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
-	or.gerlitz@gmail.com, amirv@mellanox.com, alexr@mellanox.com,
-	eliezer@tamir.org.il
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130623.184437.1772856342146874217.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jerry Chu <hkchu@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:4004 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750990Ab3FXFNp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jun 2013 01:13:45 -0400
+In-Reply-To: <20130620080725.GB23621@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 24/06/2013 04:44, David Miller wrote:
-> From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-> Date: Wed, 19 Jun 2013 13:04:21 +0300
->
->> One question: do we need in sock_poll() to test that sock->sk is not null?
->> (Thanks to Willem de Bruijn for pointing this out.)
->
-> We should not have to.
->
-> Please clean up various things in this patch:
+On 06/20/2013 04:07 PM, Michael S. Tsirkin wrote:
+> On Wed, Jun 19, 2013 at 12:39:34PM -0700, Jerry Chu wrote:
+>> Hi Jason,
+>>
+>> On Tue, Jun 18, 2013 at 8:29 PM, Jason Wang <jasowang@redhat.com> wrote:
+>>> On 06/19/2013 10:31 AM, Jerry Chu wrote:
+>>>> In tun_net_xmit() the max qlen is computed as
+>>>> dev->tx_queue_len / tun->numqueues. For multi-queue configuration the
+>>>> latter may be way too small, forcing one to adjust txqueuelen based
+>>>> on number of queues created. (Well the default txqueuelen of
+>>>> 500/TUN_READQ_SIZE already seems too small even for single queue.)
+>>> Hi Jerry:
+>>>
+>>> Do you have some test result of this? Anyway, tun allows userspace to
+>>> adjust this value based on its requirement.
+>> Sure, but the default size of 500 is just way too small. queue overflows even
+>> with a simple single-stream throughput test through Openvswitch due to CPU
+>> scheduler anomaly. On our loaded multi-stream test even 8192 can't prevent
+>> queue overflow. But then with 8192 we'll be deep into the "buffer
+>> bloat" territory.
+>> We haven't figured out an optimal strategy for thruput vs latency, but
+>> suffice to
+>> say 500 is too small.
+>>
+>> Jerry
+> Maybe TSO is off for you?
+> With TSO you can get 64Kbyte packets, 500 of these is 30 Mbytes!
+> We really should consider setting byte limits, not packet limits.
 
-Ok,
-Thanks!
+Do you mean BQL for tuntap?
