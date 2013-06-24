@@ -1,61 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 net-next 0/1] net: lls select poll support
-Date: Sun, 23 Jun 2013 18:44:37 -0700 (PDT)
-Message-ID: <20130623.184437.1772856342146874217.davem@davemloft.net>
-References: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
+Subject: Re: [PATCH net-next 5/8] vxlan: Factor out vxlan send api.
+Date: Sun, 23 Jun 2013 18:45:14 -0700 (PDT)
+Message-ID: <20130623.184514.1432951068531783628.davem@davemloft.net>
+References: <1371713207-8232-1-git-send-email-pshelar@nicira.com>
+	<OF9BEEA27A.EA477839-ON87257B90.0045D6A5-85257B90.00463241@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	jesse.brandeburg@intel.com, donald.c.skidmore@intel.com,
-	e1000-devel@lists.sourceforge.net, willemb@google.com,
-	erdnetdev@gmail.com, bhutchings@solarflare.com,
-	andi@firstfloor.org, hpa@zytor.com, eilong@broadcom.com,
-	or.gerlitz@gmail.com, amirv@mellanox.com, alexr@mellanox.com,
-	eliezer@tamir.org.il
-To: eliezer.tamir@linux.intel.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: pshelar@nicira.com, dev@openvswitch.org, netdev@vger.kernel.org,
+	netdev-owner@vger.kernel.org
+To: dlstevens@us.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35067 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751989Ab3FXBpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 21:45:14 -0400
+In-Reply-To: <OF9BEEA27A.EA477839-ON87257B90.0045D6A5-85257B90.00463241@us.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
-Date: Wed, 19 Jun 2013 13:04:21 +0300
+From: David Stevens <dlstevens@us.ibm.com>
+Date: Thu, 20 Jun 2013 08:46:42 -0400
 
-> One question: do we need in sock_poll() to test that sock->sk is not null?
-> (Thanks to Willem de Bruijn for pointing this out.) 
+>> From: Pravin B Shelar <pshelar@nicira.com>
+>  
+> 
+>> @@ -1205,13 +1222,13 @@ static netdev_tx_t vxlan_xmit(struct sk_buff
+>> *skb, struct net_device *dev)
+>> 
+>>        skb1 = skb_clone(skb, GFP_ATOMIC);
+>>        if (skb1) {
+>> -         rc1 = vxlan_xmit_one(skb1, dev, rdst, did_rsc);
+>> +         rc1 = __vxlan_xmit(skb1, dev, rdst, did_rsc);
+>>           if (rc == NETDEV_TX_OK)
+>>              rc = rc1;
+>>        }
+>>     }
+>> 
+>> -   rc1 = vxlan_xmit_one(skb, dev, rdst0, did_rsc);
+>> +   rc1 = __vxlan_xmit(skb, dev, rdst0, did_rsc);
+>>     if (rc == NETDEV_TX_OK)
+>>        rc = rc1;
+>>     return rc;
+> 
+> You're changing the name of the function that sends a
+> packet to one destination because you think "__vxlan_xmit"
+> is more descriptive than "vxlan_xmit_one" ?
 
-We should not have to.
-
-Please clean up various things in this patch:
-
-1) You have cases where you add tons of unnecessary empty lines, of the
-   form:
-
-	if (foo) {
-	/* EMPTY LINE */
-		code...
-
-    please get rid of them.
-
-2) Some of the LL loops have conditions that are not properly formatted,
-   I see things like:
-
-	do {
-		...
-	} while (x && y && z
-			&& whatever)
-
-   That "&& whatever" is not properly indented.  You must always indent
-   multi-line conditions like this:
-
-	xxx (x && y &&
-	     z && ...)
-
-   That is, operators always end the line, the never begin the line.
-   And one the second and subsequent lines you must line up the first
-   character with the first column after the openning parenthesis of
-   the first line.  You should not just use a series of only TAB
-   characters to indent these expressions.
-
-Thanks.
+Agreed, this is rediculous.
