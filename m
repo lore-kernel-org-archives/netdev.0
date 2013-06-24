@@ -1,39 +1,67 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: UDP splice
-Date: Mon, 24 Jun 2013 11:33:24 -0700
-Message-ID: <1372098804.3301.77.camel@edumazet-glaptop>
-References: <CACYKsS7pMFNdBxU2raMphKyb1zU7MEbhc=vsD+FdZ5sgFq71NQ@mail.gmail.com>
-	 <1372088554.1896.3.camel@bwh-desktop.uk.level5networks.com>
-	 <20130624155154.GD10413@order.stressinduktion.org>
-	 <1372089776.1896.9.camel@bwh-desktop.uk.level5networks.com>
-	 <20130624170119.GE10413@order.stressinduktion.org>
-	 <CACYKsS5uy6nGbtCYit0eNyBSemzimgLrVdUJAgeBmZwDAy7F-A@mail.gmail.com>
-	 <1372096418.3301.75.camel@edumazet-glaptop>
-	 <CACYKsS4brDSL4gWGV8Aw455qqa-mdhE_=C7pFS-V=qaA7FBa6g@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] tun: fix recovery from gup errors
+Date: Mon, 24 Jun 2013 11:34:20 -0700 (PDT)
+Message-ID: <20130624.113420.778980615077488498.davem@davemloft.net>
+References: <20130623141903.GA21029@redhat.com>
+	<51C715F5.2050300@cogentembedded.com>
+	<20130624125412.GA690@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
-To: Ricardo Landim <ricardolan@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f175.google.com ([209.85.215.175]:40062 "EHLO
-	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751344Ab3FXSdW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 14:33:22 -0400
-Received: by mail-ea0-f175.google.com with SMTP id z7so6272690eaf.34
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 11:33:20 -0700 (PDT)
-In-Reply-To: <CACYKsS4brDSL4gWGV8Aw455qqa-mdhE_=C7pFS-V=qaA7FBa6g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: sergei.shtylyov@cogentembedded.com, linux-kernel@vger.kernel.org,
+	jasowang@redhat.com, edumazet@google.com, nhorman@tuxdriver.com,
+	netdev@vger.kernel.org, bhubbard@redhat.com
+To: mst@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130624125412.GA690@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-06-24 at 15:08 -0300, Ricardo Landim wrote:
-> Help in zero copy and improve in cost of syscalls.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Mon, 24 Jun 2013 15:54:12 +0300
+
+> On Sun, Jun 23, 2013 at 07:36:21PM +0400, Sergei Shtylyov wrote:
+>> Hello.
+>> 
+>> On 23-06-2013 18:19, Michael S. Tsirkin wrote:
+>> 
+>> >get user pages might fail partially in tun zero copy
+>> >mode. To recover we need to put all pages that we got,
+>> >but code used a wrong index resulting in double-free
+>> >errors.
+>> 
+>> >Reported-by: Brad Hubbard <bhubbard@redhat.com>
+>> >Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>> >---
+>> 
+>> >I haven't figured out why do we get failures,
+>> >but recovery is clearly wrong.
+>> 
+>> >This is also -stable material.
+>> 
+>> >  drivers/net/tun.c | 5 +++--
+>> >  1 file changed, 3 insertions(+), 2 deletions(-)
+>> 
+>> >diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+>> >index bfa9bb4..c098b1e 100644
+>> >--- a/drivers/net/tun.c
+>> >+++ b/drivers/net/tun.c
+>> >@@ -1010,8 +1010,9 @@ static int zerocopy_sg_from_iovec(struct sk_buff *skb, const struct iovec *from,
+>> >  			return -EMSGSIZE;
+>> >  		num_pages = get_user_pages_fast(base, size, 0, &page[i]);
+>> >  		if (num_pages != size) {
+>> >-			for (i = 0; i < num_pages; i++)
+>> >-				put_page(page[i]);
+>> >+			int j;
+>> 
+>>   Empty line wouldn't hurt here, after declaration.
+>> 
+>> >+			for (j = 0; j < num_pages; j++)
+>> >+				put_page(page[i + j]);
 > 
-> In my intel xeon(3.3ghz), read udp socket and write udp socket (proxy)
-> spends ~40000 cycles (~12 us).
-> 
+> I think it's clearer without: this is the only code
+> within this block, declaration is really part of
+> the loop that comes after it.
+> An empty line would break it up visually.
 
-splice() wont reduce number of syscalls.
-
-If payload is small, copying it is less than 1000 cycles, so its a small
-part of the cost you measured.
+No, really, an empty line after local variable declarations please.
