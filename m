@@ -1,85 +1,73 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next v4 1/2] vxlan: introduce vxlan_rdst_append
-Date: Mon, 24 Jun 2013 06:02:37 +0000 (UTC)
-Message-ID: <kq8nds$ao1$1@ger.gmane.org>
-References: <1372004543-24675-1-git-send-email-mike.rapoport@ravellosystems.com>
- <1372004543-24675-2-git-send-email-mike.rapoport@ravellosystems.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from plane.gmane.org ([80.91.229.3]:56933 "EHLO plane.gmane.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751115Ab3FXGD1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jun 2013 02:03:27 -0400
-Received: from list by plane.gmane.org with local (Exim 4.69)
-	(envelope-from <linux-netdev-2@m.gmane.org>)
-	id 1UqzrZ-0006ip-TD
-	for netdev@vger.kernel.org; Mon, 24 Jun 2013 08:03:23 +0200
-Received: from 60.160.82.190 ([60.160.82.190])
-        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 08:02:53 +0200
-Received: from xiyou.wangcong by 60.160.82.190 with local (Gmexim 0.1 (Debian))
-        id 1AlnuQ-0007hv-00
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 08:02:53 +0200
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wedson Almeida Filho <wedsonaf@gmail.com>
+Subject: [PATCH v2] [NET]: Unmap fragment page once iterator is done
+Date: Sun, 23 Jun 2013 23:33:48 -0700
+Message-ID: <1372055628-27044-1-git-send-email-wedsonaf@gmail.com>
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Wedson Almeida Filho <wedsonaf@gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 23 Jun 2013 at 16:22 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
-> to allow remotes list management for both FDB entries and default
-> destinations
->
-> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
-> ---
->  drivers/net/vxlan.c | 14 ++++++++++----
->  1 file changed, 10 insertions(+), 4 deletions(-)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index 212a256..e5fb6568 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -386,14 +386,13 @@ static struct vxlan_fdb *vxlan_find_mac(struct vxlan_dev *vxlan,
->  	return f;
->  }
->  
-> -/* Add/update destinations for multicast */
-> -static int vxlan_fdb_append(struct vxlan_fdb *f,
-> +static int vxlan_rdst_append(struct list_head *remotes,
->  			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
+Callers of skb_seq_read() are currently forced to call skb_abort_seq_read()
+even when consuming all the data because the last call to skb_seq_read (the
+one that returns 0 to indicate the end) fails to unmap the last fragment page.
 
+With this patch callers will be allowed to traverse the SKB data by calling
+skb_prepare_seq_read() once and repeatedly calling skb_seq_read() as originally
+intended (and documented in the original commit 677e90eda), that is, only call
+skb_abort_seq_read() if the sequential read is actually aborted.
 
-I think you need to align the above line.
+Signed-off-by: Wedson Almeida Filho <wedsonaf@gmail.com>
+---
+ drivers/scsi/libiscsi_tcp.c |    1 -
+ net/batman-adv/main.c       |    1 -
+ net/core/skbuff.c           |    7 ++++++-
+ 3 files changed, 6 insertions(+), 3 deletions(-)
 
-
->  {
->  	struct vxlan_rdst *rd;
->  
->  	/* protected by vxlan->hash_lock */
-> -	list_for_each_entry(rd, &f->remotes, list) {
-> +	list_for_each_entry(rd, remotes, list) {
-
-This patch is based on Stephen's patches which are not yet merged into
-net-next, right? If so, I think you have to wait. My IPv6 patches are
-pending because of his patches too.
-
-
->  		if (rd->remote_ip == ip &&
->  		    rd->remote_port == port &&
->  		    rd->remote_vni == vni &&
-> @@ -409,11 +408,18 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
->  	rd->remote_vni = vni;
->  	rd->remote_ifindex = ifindex;
->  
-> -	list_add_tail_rcu(&rd->list, &f->remotes);
-> +	list_add_tail_rcu(&rd->list, remotes);
->  
->  	return 1;
->  }
->  
-> +/* Add/update destinations for multicast */
-> +static int vxlan_fdb_append(struct vxlan_fdb *f,
-> +			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
-
-You need to align this line too.
+diff --git a/drivers/scsi/libiscsi_tcp.c b/drivers/scsi/libiscsi_tcp.c
+index 552e8a2..448eae8 100644
+--- a/drivers/scsi/libiscsi_tcp.c
++++ b/drivers/scsi/libiscsi_tcp.c
+@@ -906,7 +906,6 @@ int iscsi_tcp_recv_skb(struct iscsi_conn *conn, struct sk_buff *skb,
+ 			ISCSI_DBG_TCP(conn, "no more data avail. Consumed %d\n",
+ 				      consumed);
+ 			*status = ISCSI_TCP_SKB_DONE;
+-			skb_abort_seq_read(&seq);
+ 			goto skb_done;
+ 		}
+ 		BUG_ON(segment->copied >= segment->size);
+diff --git a/net/batman-adv/main.c b/net/batman-adv/main.c
+index 51aafd6..08125f3 100644
+--- a/net/batman-adv/main.c
++++ b/net/batman-adv/main.c
+@@ -473,7 +473,6 @@ __be32 batadv_skb_crc32(struct sk_buff *skb, u8 *payload_ptr)
+ 		crc = crc32c(crc, data, len);
+ 		consumed += len;
+ 	}
+-	skb_abort_seq_read(&st);
+ 
+ 	return htonl(crc);
+ }
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index cfd777b..26ea1cf 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -2554,8 +2554,13 @@ unsigned int skb_seq_read(unsigned int consumed, const u8 **data,
+ 	unsigned int block_limit, abs_offset = consumed + st->lower_offset;
+ 	skb_frag_t *frag;
+ 
+-	if (unlikely(abs_offset >= st->upper_offset))
++	if (unlikely(abs_offset >= st->upper_offset)) {
++		if (st->frag_data) {
++			kunmap_atomic(st->frag_data);
++			st->frag_data = NULL;
++		}
+ 		return 0;
++	}
+ 
+ next_skb:
+ 	block_limit = skb_headlen(st->cur_skb) + st->stepped_offset;
+-- 
+1.7.9.5
