@@ -1,34 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] xen-netback: double free on unload
-Date: Mon, 24 Jun 2013 00:26:07 -0700 (PDT)
-Message-ID: <20130624.002607.1816906327683052502.davem@davemloft.net>
-References: <20130621062008.GA10873@elgon.mountain>
+Subject: Re: [PATCH] tcp: doc : fix the syncookies default value
+Date: Mon, 24 Jun 2013 00:26:46 -0700 (PDT)
+Message-ID: <20130624.002646.2160084949798994102.davem@davemloft.net>
+References: <51C3FE48.2060804@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ian.campbell@citrix.com, xen-devel@lists.xensource.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20130621062008.GA10873@elgon.mountain>
-Sender: kernel-janitors-owner@vger.kernel.org
+Cc: linux-doc@vger.kernel.org, netdev@vger.kernel.org,
+	davidshan@tencent.com
+To: shanwei88@gmail.com
+Return-path: <linux-doc-owner@vger.kernel.org>
+In-Reply-To: <51C3FE48.2060804@gmail.com>
+Sender: linux-doc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 21 Jun 2013 09:20:08 +0300
+From: Shan Wei <shanwei88@gmail.com>
+Date: Fri, 21 Jun 2013 15:18:32 +0800
 
-> There is a typo here, "i" vs "j", so we would crash on module_exit().
+> syncookies is on for default since in commit e994b7c901
+> (tcp: Don't make syn cookies initial setting depend on CONFIG_SYSCTL).
 > 
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> And fix a typo of CONFIG_SYN_COOKIES.
+> 
+> Signed-off-by: Shan Wei <davidshan@tencent.com>
 
-Please always explicitly state the tree for which a patch is
-applicable.
-
-Here I figured it out by trial an error, trying to apply it
-to 'net' (where it failed) and then 'net-next' (where it
-applied cleanly).
-
-I should never have to play patch monkey games like that, you
-need to tell me where a patch is targetted.
-
-Thanks.
+Applied, thanks.
