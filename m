@@ -1,123 +1,276 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v4 2/2] vxlan: allow specifying multiple
- default destinations
-Date: Mon, 24 Jun 2013 13:24:27 -0700
-Message-ID: <20130624132427.56b6284f@nehalam.linuxnetplumber.net>
-References: <1372004543-24675-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<1372004543-24675-3-git-send-email-mike.rapoport@ravellosystems.com>
-	<20130623171440.439356b7@nehalam.linuxnetplumber.net>
-	<CAF1J0HOKKZhjs+M++d0LwYBYSexD9Cx84t7MUmu6Gk39PDfXrw@mail.gmail.com>
-	<20130624083505.59bd806e@nehalam.linuxnetplumber.net>
-	<CAF1J0HMTigLsg3KUMtOUmR0Vyp1nbG3n9pr1JSDLnrDxThAXOA@mail.gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [RFC PATCH net-next 2/2] sit: add support of x-netns
+Date: Mon, 24 Jun 2013 12:28:20 -0700
+Message-ID: <878v1zjokr.fsf@xmission.com>
+References: <87y5ijd98e.fsf@xmission.com>
+	<1372083239-9451-1-git-send-email-nicolas.dichtel@6wind.com>
+	<1372083239-9451-3-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, davem@davemloft.net, bcrl@kvack.org,
+	ravi.mlists@gmail.com
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pb0-f68.google.com ([209.85.160.68]:42634 "EHLO
-	mail-pb0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751445Ab3FXUYc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 16:24:32 -0400
-Received: by mail-pb0-f68.google.com with SMTP id jt11so5668145pbb.11
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 13:24:31 -0700 (PDT)
-In-Reply-To: <CAF1J0HMTigLsg3KUMtOUmR0Vyp1nbG3n9pr1JSDLnrDxThAXOA@mail.gmail.com>
+Received: from out04.mta.xmission.com ([166.70.13.234]:42058 "EHLO
+	out04.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751697Ab3FXUmQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 16:42:16 -0400
+In-Reply-To: <1372083239-9451-3-git-send-email-nicolas.dichtel@6wind.com>
+	(Nicolas Dichtel's message of "Mon, 24 Jun 2013 16:13:59 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 24 Jun 2013 22:52:09 +0300
-Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+Nicolas Dichtel <nicolas.dichtel@6wind.com> writes:
 
-> On Mon, Jun 24, 2013 at 6:35 PM, Stephen Hemminger
-> <stephen@networkplumber.org> wrote:
-> > On Mon, 24 Jun 2013 08:57:55 +0300
-> > Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
-> >
-> >> On Mon, Jun 24, 2013 at 3:14 AM, Stephen Hemminger
-> >> <stephen@networkplumber.org> wrote:
-> >> > On Sun, 23 Jun 2013 19:22:23 +0300
-> >> > Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
-> >> >
-> >> >> A list of multiple default destinations can be used in environments that
-> >> >> disable multicast on the infrastructure level, e.g. public clouds.
-> >> >>
-> >> >> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
-> >> >> ---
-> >> >>  drivers/net/vxlan.c          | 268 +++++++++++++++++++++++++++++++++++++++++--
-> >> >>  include/uapi/linux/if_link.h |  17 +++
-> >> >>  2 files changed, 276 insertions(+), 9 deletions(-)
-> >> >>
-> >> >> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> >> >> index e5fb6568..f57a0d94 100644
-> >> >> --- a/drivers/net/vxlan.c
-> >> >> +++ b/drivers/net/vxlan.c
-> >> >> @@ -103,6 +103,7 @@ struct vxlan_rdst {
-> >> >>       u32                      remote_vni;
-> >> >>       u32                      remote_ifindex;
-> >> >>       struct list_head         list;
-> >> >> +     struct rcu_head          rcu;
-> >> >>  };
-> >> >
-> >> > The use of remotes_cnt here is not SMP safe.
-> >> > You are using remotes_cnt to size the buffer for dumping, but then the list
-> >> > of remotes might change during the dump.
-> >>
-> >> The remotes_cnt is used only in netlink callbacks with rtnl_lock held
-> >> and it cannot be modified otherwise, so I don't see why it is not SMP
-> >> safe.
-> >>
-> >> > There a a couple of alternatives here:
-> >> > 1. Put a hard limit on the number of remotes per MAC.
-> >> > 2. When there are multiple destnations, just dump multiple entries, like
-> >> >    multipath routing does.
-> >> >
-> >> > I prefer #2 because it also allows for a cleaner API on creation.
-> >> >
-> >>
-> >
-> > After a few more hours of review, I think the API still needs more work.
-> > The API uses attributes IFLA_VXLAN_REMOTE_NEW and IFLA_VXLAN_REMOTE_DEL to
-> > implement adding and deleting entries. This is contrary to other uses of attributes
-> > in Linux netlink. The convention is that attributes are are descriptors of objects
-> > not verbs. The attributes are reported and used on creation.
-> >
-> > The API needs to use the netlink message flags to indicate create, replace and delete
-> > instead. It may mean changes to net/core/rtnetlink.c. I would rather see VXLAN follow
-> > convention as close as possible.
-> 
-> Just to make sure I've got your point here, the API should use
-> RTM_NEWSOMETHING, RTM_DELSOMETHING and RTM_GETSOMETHING message types
-> with attribute SOME_PREFIX_VXLAN_REMOTE, and the attribute itself may
-> contain sub-attributes, such as remote address, port, vni etc...
-> 
-> If this assumption is correct I could think of the following alternatives:
-> 
-> 1) Add RTM_NEWVXLANDST, which seems to me somewhat overkill
-> 2) Add RTA_VXLAN_REMOTE to rtattr_type_t. This way that creation API
-> will be similar to multipath routing, but I'm not sure that adding
-> VXLAN specific attribute type to rtattr_type_t is appropriate.
-> 3) Allow zero mac address in rtnl_fdb_{add,del} and than make the
-> default destinations part of the fdb, as David Stevens suggested (1).
-> In this case fdb deletion should be reworked so that at least one
-> default destination will be always kept.
+> This patch allows to switch the netns when packet is encapsulated or
+> decapsulated. In other word, the encapsulated packet is received in a netns,
+> where the lookup is done to find the tunnel. Once the tunnel is found, the
+> packet is decapsulated and injecting into the corresponding interface which
+> stands to another netns.
+>
+> When one of the two netns is removed, the tunnel is destroyed.
 
-API should look like adding, deleting, modifying routes.
-Ideally, it should all work using existing tools with out lots of special pain.
-An example would be:
+I don't see any fundamental problems with this code.  There are bugs
+with the cleanup noted below.
 
-# bridge fdb add 6a:ee:bc:af:7e:4a dev vxlan0 dst 172.30.42.11
-# bridge fdb append 6a:ee:bc:af:7e:4a dev vxlan0 dst 172.30.42.12
-# bridge fdb show dev vxlan0
-6a:ee:bc:af:7e:4a dst 172.30.42.11 self permanent
-6a:ee:bc:af:7e:4a dst 172.30.42.12 self permanent
+The primary sit interface is marked as NETNS_LOCAL which is good.  A
+comment might be nice explaining the reasonsing but for code
+archeologists.
 
-# bridge fdb delete 6a:ee:bc:af:7e:4a dev vxlan0 dst 172.30.42.11
-# bridge fdb show dev vxlan0
-6a:ee:bc:af:7e:4a dst 172.30.42.12 self permanent
+Conditionally calling dev_cleanup_skb bugs me.  The extra conditional
+looks like a maintenance hazard.   Unless I have missed some subtle
+detail either we don't need the cleanup at all or actually it is a bug
+that we aren't scrubbing our packets as they progress through tunnels
+even in the same network namespace.
 
-Right now the netlink flags for NLM_F_EXCL and NLM_F_APPEND have no
-meaning so it doesn't work that way.
+Can we just make that function the skb scrubbing needed for packets to
+traverse a tunnel?
 
-If you delete all destinations, then just delete the entry.
-No point in keeping a default if all remote hops are gone.
+My concern going into this was that we would get code that would break
+because it would not be tested enough.  If we can remove the conditional
+from dev_cleanup_skb we won't have any code that is conditionally run
+and the logic looks simple enough not to bitrot in routine maintenance.
+
+Eric
+
+> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> ---
+>  include/net/ip_tunnels.h |  1 +
+>  net/ipv4/ip_tunnel.c     |  7 ++++++-
+>  net/ipv6/sit.c           | 49 ++++++++++++++++++++++++------------------------
+>  3 files changed, 32 insertions(+), 25 deletions(-)
+>
+> diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
+> index b0d9824..781b3cf 100644
+> --- a/include/net/ip_tunnels.h
+> +++ b/include/net/ip_tunnels.h
+> @@ -42,6 +42,7 @@ struct ip_tunnel {
+>  	struct ip_tunnel __rcu	*next;
+>  	struct hlist_node hash_node;
+>  	struct net_device	*dev;
+> +	struct net		*net;	/* netns for packet i/o */
+>  
+>  	int		err_count;	/* Number of arrived ICMP errors */
+>  	unsigned long	err_time;	/* Time when the last ICMP error
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index bd227e5..b6a7704 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -304,6 +304,7 @@ static struct net_device *__ip_tunnel_create(struct net *net,
+>  
+>  	tunnel = netdev_priv(dev);
+>  	tunnel->parms = *parms;
+> +	tunnel->net = net;
+>  
+>  	err = register_netdevice(dev);
+>  	if (err)
+> @@ -453,6 +454,9 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
+>  	tstats->rx_bytes += skb->len;
+>  	u64_stats_update_end(&tstats->syncp);
+>  
+> +	if (tunnel->net != dev_net(tunnel->dev))
+> +		dev_cleanup_skb(skb);
+> +
+>  	if (tunnel->dev->type == ARPHRD_ETHER) {
+>  		skb->protocol = eth_type_trans(skb, tunnel->dev);
+>  		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+> @@ -541,7 +545,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
+>  			tos = ipv6_get_dsfield((const struct ipv6hdr *)inner_iph);
+>  	}
+>  
+> -	rt = ip_route_output_tunnel(dev_net(dev), &fl4,
+> +	rt = ip_route_output_tunnel(tunnel->net, &fl4,
+>  				    tunnel->parms.iph.protocol,
+>  				    dst, tnl_params->saddr,
+>  				    tunnel->parms.o_key,
+> @@ -888,6 +892,7 @@ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
+>  	if (ip_tunnel_find(itn, p, dev->type))
+>  		return -EEXIST;
+>  
+> +	nt->net = net;
+>  	nt->parms = *p;
+>  	err = register_netdevice(dev);
+>  	if (err)
+> diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+> index f639866..4e03904 100644
+> --- a/net/ipv6/sit.c
+> +++ b/net/ipv6/sit.c
+> @@ -466,14 +466,14 @@ isatap_chksrc(struct sk_buff *skb, const struct iphdr *iph, struct ip_tunnel *t)
+>  
+>  static void ipip6_tunnel_uninit(struct net_device *dev)
+>  {
+> -	struct net *net = dev_net(dev);
+> -	struct sit_net *sitn = net_generic(net, sit_net_id);
+> +	struct ip_tunnel *tunnel = netdev_priv(dev);
+> +	struct sit_net *sitn = net_generic(tunnel->net, sit_net_id);
+>  
+>  	if (dev == sitn->fb_tunnel_dev) {
+>  		RCU_INIT_POINTER(sitn->tunnels_wc[0], NULL);
+>  	} else {
+> -		ipip6_tunnel_unlink(sitn, netdev_priv(dev));
+> -		ipip6_tunnel_del_prl(netdev_priv(dev), NULL);
+> +		ipip6_tunnel_unlink(sitn, tunnel);
+> +		ipip6_tunnel_del_prl(tunnel, NULL);
+>  	}
+>  	dev_put(dev);
+>  }
+> @@ -621,6 +621,8 @@ static int ipip6_rcv(struct sk_buff *skb)
+>  		tstats->rx_packets++;
+>  		tstats->rx_bytes += skb->len;
+>  
+> +		if (tunnel->net != dev_net(tunnel->dev))
+> +			dev_cleanup_skb(skb);
+>  		netif_rx(skb);
+>  
+>  		return 0;
+> @@ -803,7 +805,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+>  			goto tx_error;
+>  	}
+>  
+> -	rt = ip_route_output_ports(dev_net(dev), &fl4, NULL,
+> +	rt = ip_route_output_ports(tunnel->net, &fl4, NULL,
+>  				   dst, tiph->saddr,
+>  				   0, 0,
+>  				   IPPROTO_IPV6, RT_TOS(tos),
+> @@ -858,6 +860,9 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
+>  			tunnel->err_count = 0;
+>  	}
+>  
+> +	if (tunnel->net != dev_net(dev))
+> +		dev_cleanup_skb(skb);
+> +
+>  	/*
+>  	 * Okay, now see if we can stuff it in the buffer as-is.
+>  	 */
+> @@ -944,7 +949,8 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
+>  	iph = &tunnel->parms.iph;
+>  
+>  	if (iph->daddr) {
+> -		struct rtable *rt = ip_route_output_ports(dev_net(dev), &fl4, NULL,
+> +		struct rtable *rt = ip_route_output_ports(tunnel->net, &fl4,
+> +							  NULL,
+>  							  iph->daddr, iph->saddr,
+>  							  0, 0,
+>  							  IPPROTO_IPV6,
+> @@ -959,7 +965,7 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
+>  	}
+>  
+>  	if (!tdev && tunnel->parms.link)
+> -		tdev = __dev_get_by_index(dev_net(dev), tunnel->parms.link);
+> +		tdev = __dev_get_by_index(tunnel->net, tunnel->parms.link);
+>  
+>  	if (tdev) {
+>  		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
+> @@ -972,7 +978,7 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
+>  
+>  static void ipip6_tunnel_update(struct ip_tunnel *t, struct ip_tunnel_parm *p)
+>  {
+> -	struct net *net = dev_net(t->dev);
+> +	struct net *net = t->net;
+>  	struct sit_net *sitn = net_generic(net, sit_net_id);
+>  
+>  	ipip6_tunnel_unlink(sitn, t);
+> @@ -1248,7 +1254,6 @@ static void ipip6_tunnel_setup(struct net_device *dev)
+>  	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
+>  	dev->iflink		= 0;
+>  	dev->addr_len		= 4;
+> -	dev->features		|= NETIF_F_NETNS_LOCAL;
+>  	dev->features		|= NETIF_F_LLTX;
+>  }
+>  
+> @@ -1257,6 +1262,7 @@ static int ipip6_tunnel_init(struct net_device *dev)
+>  	struct ip_tunnel *tunnel = netdev_priv(dev);
+>  
+>  	tunnel->dev = dev;
+> +	tunnel->net = dev_net(dev);
+>  
+>  	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
+>  	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
+> @@ -1277,6 +1283,7 @@ static int __net_init ipip6_fb_tunnel_init(struct net_device *dev)
+>  	struct sit_net *sitn = net_generic(net, sit_net_id);
+>  
+>  	tunnel->dev = dev;
+> +	tunnel->net = dev_net(dev);
+>  	strcpy(tunnel->parms.name, dev->name);
+>  
+>  	iph->version		= 4;
+> @@ -1562,22 +1569,15 @@ static struct xfrm_tunnel ipip_handler __read_mostly = {
+>  	.priority	=	2,
+>  };
+>  
+> -static void __net_exit sit_destroy_tunnels(struct sit_net *sitn, struct list_head *head)
+> +static void __net_exit sit_destroy_tunnels(struct net *net,
+> +					   struct list_head *head)
+>  {
+> -	int prio;
+> +	struct net_device *dev, *aux;
+>  
+> -	for (prio = 1; prio < 4; prio++) {
+> -		int h;
+> -		for (h = 0; h < HASH_SIZE; h++) {
+> -			struct ip_tunnel *t;
+> -
+> -			t = rtnl_dereference(sitn->tunnels[prio][h]);
+> -			while (t != NULL) {
+> -				unregister_netdevice_queue(t->dev, head);
+> -				t = rtnl_dereference(t->next);
+> -			}
+> -		}
+> -	}
+> +	for_each_netdev_safe(net, dev, aux)
+> +		if (dev->rtnl_link_ops &&
+> +		    !strcmp(dev->rtnl_link_ops->kind, "sit"))
+> +			unregister_netdevice_queue(dev, head);
+
+This entire idiom change is a bit ugly, and it is wrong.
+
+You need to look for two classes of tunnels to take down.  Tunnels that
+originate in net and tunnels whose netdevice is in net.
+
+For tunnles that reside in net you should be able to just compare the
+rtnl_link_ops pointer, rather than an ascii name.
+
+Tunnels that originate in this network namespace most definitely need to
+be taken down as among other things you wisely do not keep a reference
+count on the originating network namespace.
+
+>  }
+>  
+>  static int __net_init sit_init_net(struct net *net)
+> @@ -1598,6 +1598,7 @@ static int __net_init sit_init_net(struct net *net)
+>  		goto err_alloc_dev;
+>  	}
+>  	dev_net_set(sitn->fb_tunnel_dev, net);
+> +	sitn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
+>  
+>  	err = ipip6_fb_tunnel_init(sitn->fb_tunnel_dev);
+>  	if (err)
+> @@ -1627,7 +1628,7 @@ static void __net_exit sit_exit_net(struct net *net)
+>  	LIST_HEAD(list);
+>  
+>  	rtnl_lock();
+> -	sit_destroy_tunnels(sitn, &list);
+> +	sit_destroy_tunnels(net, &list);
+>  	unregister_netdevice_queue(sitn->fb_tunnel_dev, &list);
+>  	unregister_netdevice_many(&list);
+>  	rtnl_unlock();
