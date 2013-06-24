@@ -1,85 +1,117 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net/hsr: Add support for the High-availability Seamless
- Redundancy protocol (HSRv0)
-Date: Mon, 24 Jun 2013 11:16:37 -0700
-Message-ID: <1372097797.1245.12.camel@joe-AO722>
-References: <51C87746.1010002@xdin.com>
+From: David Daney <ddaney.cavm@gmail.com>
+Subject: Re: [PATCH 25/45] staging/octeon: Use get/put_online_cpus_atomic()
+ to prevent CPU offline
+Date: Mon, 24 Jun 2013 11:17:06 -0700
+Message-ID: <51C88D22.5000408@gmail.com>
+References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com> <20130623134331.19094.80396.stgit@srivatsabhat.in.ibm.com> <20130623181740.GB24256@kroah.com> <51C744A9.8000406@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Javier Boticario <jboticario@gmail.com>,
-	balferreira <balferreira@googlemail.com>
-To: Arvid Brodin <arvid.brodin@xdin.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:53390 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752961Ab3FXSQk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jun 2013 14:16:40 -0400
-In-Reply-To: <51C87746.1010002@xdin.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org,
+	laijs@cn.fujitsu.com, rostedt@goodmis.org,
+	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
+	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devel@driverdev.osuosl.org, ddaney@caviumnetworks.com
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51C744A9.8000406@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-06-24 at 18:43 +0200, Arvid Brodin wrote:
-> High-availability Seamless Redundancy ("HSR") provides instant failover
-> redundancy for Ethernet networks. It requires a special network topology where
-> all nodes are connected in a ring (each node having two physical network
-> interfaces). It is suited for applications that demand high availability and
-> very short reaction time.
+On 06/23/2013 11:55 AM, Srivatsa S. Bhat wrote:
+> On 06/23/2013 11:47 PM, Greg Kroah-Hartman wrote:
+>> On Sun, Jun 23, 2013 at 07:13:33PM +0530, Srivatsa S. Bhat wrote:
+>>> Once stop_machine() is gone from the CPU offline path, we won't be able
+>>> to depend on disabling preemption to prevent CPUs from going offline
+>>> from under us.
+>>>
+>>> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+>>> offline, while invoking from atomic context.
+>>>
+>>> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+>>> Cc: devel@driverdev.osuosl.org
+>>> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+>>> ---
+>>>
+>>>   drivers/staging/octeon/ethernet-rx.c |    3 +++
+>>>   1 file changed, 3 insertions(+)
+>>>
+>>> diff --git a/drivers/staging/octeon/ethernet-rx.c b/drivers/staging/octeon/ethernet-rx.c
+>>> index 34afc16..8588b4d 100644
+>>> --- a/drivers/staging/octeon/ethernet-rx.c
+>>> +++ b/drivers/staging/octeon/ethernet-rx.c
+>>> @@ -36,6 +36,7 @@
+>>>   #include <linux/prefetch.h>
+>>>   #include <linux/ratelimit.h>
+>>>   #include <linux/smp.h>
+>>> +#include <linux/cpu.h>
+>>>   #include <linux/interrupt.h>
+>>>   #include <net/dst.h>
+>>>   #ifdef CONFIG_XFRM
+>>> @@ -97,6 +98,7 @@ static void cvm_oct_enable_one_cpu(void)
+>>>   		return;
+>>>
+>>>   	/* ... if a CPU is available, Turn on NAPI polling for that CPU.  */
+>>> +	get_online_cpus_atomic();
+>>>   	for_each_online_cpu(cpu) {
+>>>   		if (!cpu_test_and_set(cpu, core_state.cpu_state)) {
+>>>   			v = smp_call_function_single(cpu, cvm_oct_enable_napi,
+>>> @@ -106,6 +108,7 @@ static void cvm_oct_enable_one_cpu(void)
+>>>   			break;
+>>>   		}
+>>>   	}
+>>> +	put_online_cpus_atomic();
+>>
+>> Does this driver really need to be doing this in the first place?  If
+>> so, why?  The majority of network drivers don't, why is this one
+>> "special"?
 
-trivia:
 
-You should probably use checkpatch.pl --strict for files in net.
-It will suggest aligning arguments in the more common net style.
+It depends on your definition of "need".
 
->  net/hsr/hsr_device.h          |  30 +++
->  net/hsr/hsr_framereg.h        |  54 ++++
->  net/hsr/hsr_main.h            | 167 ++++++++++++
->  net/hsr/hsr_netlink.h         |  74 ++++++
+The current driver receives packets from *all* network ports into a 
+single queue (in OCTEON speak this queue is called a POW group).  Under 
+high packet rates, the CPU time required to process the packets may 
+exceed the capabilities of a single CPU.
 
-Maybe some of these .h files should go into include/net/...
+In order to increase throughput beyond the single CPU limited rate, we 
+bring more than one CPUs into play for NAPI receive.  The code being 
+patched here is part of the logic that controls which CPUs are used for 
+NAPI receive.
 
-A future version of checkpatch may read all the include
-files and exempt any CamelCase defines/typedefs/functions
-from CamelCase warnings.
+Just for the record:  Yes I know that doing this may lead to packet 
+reordering when doing forwarding.
 
-> +	if ((skb->protocol != htons(ETH_P_PRP)) ||
-> +			(hsr_ethhdr->ethhdr.h_proto != htons(ETH_P_PRP))) {
+A further question that wasn't asked is: Will the code work at all if a 
+CPU is taken offline even if the race, the patch eliminates, is avoided?
 
-Please align indents after the appropriate open parenthesis. 
+I doubt it.
 
-	if (foo ||
-	    bar) {
+As far as the patch goes:
 
-> +bool is_hsr_master(struct net_device *dev)
-> +{
-> +	if (!dev) {
-> +		WARN_ON_ONCE(1);
-> +		return 0;
-> +	}
-> +	if (!dev->netdev_ops) {
-> +		WARN_ON_ONCE(1);
-> +		return 0;
-> +	}
+Acked-by: David Daney <david.daney@cavium.com>
 
-probably better to combine and give a textual reason
+David Daney
 
-> diff --git a/net/hsr/hsr_main.h b/net/hsr/hsr_main.h
-[]
-> +#define HSR_LIFE_CHECK_INTERVAL		 2000 /* ms */
-> +#define HSR_NODE_FORGET_TIME		60000 /* ms */
-> +#define HSR_ANNOUNCE_INTERVAL		  100 /* ms */
-
-Odd alignment
-
-> diff --git a/net/hsr/hsr_netlink.c b/net/hsr/hsr_netlink.c
-[]
-> +static const struct nla_policy hsr_genl_policy[HSR_A_MAX + 1] = {
-> +	[HSR_A_NODE_ADDR] = { .type = NLA_BINARY, .len = ETH_ALEN },
-> +	[HSR_A_NODE_ADDR_B] = { .type = NLA_BINARY, .len = ETH_ALEN },
-> +	[HSR_A_IFINDEX] = { .type = NLA_U32 },
-> +	[HSR_A_IF1_AGE] = { .type = NLA_U32 }, /* Actually signed 32-bit */
-> +	[HSR_A_IF2_AGE] = { .type = NLA_U32 }, /* Actually signed 32-bit */
-
-Why not use NLA_S32?
+>>
+>
+> Honestly, I don't know. Let's CC the author of that code (David Daney).
+> I wonder why get_maintainer.pl didn't generate his name for this file,
+> even though the entire file is almost made up of his commits alone!
+>
+> Regards,
+> Srivatsa S. Bhat
+>
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
