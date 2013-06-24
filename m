@@ -1,85 +1,64 @@
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Subject: [PATCH 28/32] net: delete __cpuinit usage from all net files
-Date: Mon, 24 Jun 2013 15:30:33 -0400
-Message-ID: <1372102237-8757-29-git-send-email-paul.gortmaker@windriver.com>
-References: <1372102237-8757-1-git-send-email-paul.gortmaker@windriver.com>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: PROBLEM: Bridging does not work with Mellanox ConnectX-2
+ (mlx4_en) card in SR-IOV mode
+Date: Mon, 24 Jun 2013 22:42:10 +0300
+Message-ID: <CAJZOPZLCG8_zfsP76EnEcGj3nUfP9batXMfvOqsPyNc63JqLSA@mail.gmail.com>
+References: <CAJA5wJQDRztwtMxJopUWfmqEOH39Xp0g-hCrY8gMZ2TKccSuhw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372102237-8757-1-git-send-email-paul.gortmaker@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Ryousei Takano <takano-ryousei@aist.go.jp>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
+To: Pawit Pornkitprasan <p.pawit@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qa0-f41.google.com ([209.85.216.41]:59943 "EHLO
+	mail-qa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745Ab3FXTmL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 15:42:11 -0400
+Received: by mail-qa0-f41.google.com with SMTP id f14so18750qak.14
+        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 12:42:10 -0700 (PDT)
+In-Reply-To: <CAJA5wJQDRztwtMxJopUWfmqEOH39Xp0g-hCrY8gMZ2TKccSuhw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The __cpuinit type of throwaway sections might have made sense
-some time ago when RAM was more constrained, but now the savings
-do not offset the cost and complications.  For example, the fix in
-commit 5e427ec2d0 ("x86: Fix bit corruption at CPU resume time")
-is a good example of the nasty type of bugs that can be created
-with improper use of the various __init prefixes.
+On Mon, Jun 24, 2013 at 10:55 AM, Pawit Pornkitprasan <p.pawit@gmail.com> wrote:
+> [1.] One line summary of the problem:
+> Bridging does not work with Mellanox ConnectX-2 (mlx4_en) card in SR-IOV mode
+>
+> [2.] Full description of the problem/report:
+> I am using Mellanox ConnectX-2 card with SR-IOV support enabled.
+> (options mlx4_core num_vfs=8). When I use the device as a part of the
+> bridge, devices behind the bridge can see broadcast network packets,
+> but cannot see unicast packets directed to them. Devices behind the
+> bridge can send packets properly (though not so useful since it cannot
+> receive any reply). Further detail provided under reproduction
+> section.
+>
+> When SR-IOV is disabled (num_vfs=0), bridging works as expected
+>
+> [3.] Keywords (i.e., modules, networking, kernel):
+> mlx4_en, networking, sr-iov, bridge
+>
+> [4.] Kernel information
+> [4.1.] Kernel version (from /proc/version):
+> Linux version 3.10.0-rc7+ (root@khonmek-16) (gcc version 4.7.3
+> (Ubuntu/Linaro 4.7.3-1ubuntu1) ) #1 SMP Mon Jun 24 11:42:32 JST 2013
 
-After a discussion on LKML[1] it was decided that cpuinit should go
-the way of devinit and be phased out.  Once all the users are gone,
-we can then finally remove the macros themselves from linux/init.h.
 
-This removes all the net/* uses of the __cpuinit macros
-from all C files.
+Pawit,
 
-[1] https://lkml.org/lkml/2013/5/20/589
+As Greg indicdated, this (== stetting a bridge over a PF or VF in
+SRIOV moded) can actually work, if you make sure to use FDB operations
+to add the VM unicast MAC to the uplink (the mellanox device) tables,
+this is trivial (google for ndo_fdb_add ...) and should work, let us
+know if it doesn't.
 
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
----
+> also happens with latest Ubuntu-Raring kernel
+> Linux version 3.8.0-25-generic (buildd@roseapple) (gcc version 4.7.3
+> (Ubuntu/Linaro 4.7.3-1ubuntu1) ) #37-Ubuntu SMP Thu Jun 6 20:47:07 UTC 2013
 
-[This commit is part of the __cpuinit removal work.  If you don't see
- any problems with it, then you don't have to do anything ; it will be
- submitted with all the rest of the __cpuinit removal work.  On the
- other hand, if you want to carry this patch in with your other pending
- changes so as to handle conflicts with other pending work yourself, then
- that is fine too, as the commits can largely be treated independently.
- For more information, please see: https://lkml.org/lkml/2013/6/20/513 ]
+so on 3.10 it "just" doesn't work (but should as I explained above)
+but on 3.8 you're crashing? can you send the oops listings?
 
- net/core/flow.c | 4 ++--
- net/iucv/iucv.c | 2 +-
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/net/core/flow.c b/net/core/flow.c
-index 7102f16..dfa602c 100644
---- a/net/core/flow.c
-+++ b/net/core/flow.c
-@@ -403,7 +403,7 @@ void flow_cache_flush_deferred(void)
- 	schedule_work(&flow_cache_flush_work);
- }
- 
--static int __cpuinit flow_cache_cpu_prepare(struct flow_cache *fc, int cpu)
-+static int flow_cache_cpu_prepare(struct flow_cache *fc, int cpu)
- {
- 	struct flow_cache_percpu *fcp = per_cpu_ptr(fc->percpu, cpu);
- 	size_t sz = sizeof(struct hlist_head) * flow_cache_hash_size(fc);
-@@ -421,7 +421,7 @@ static int __cpuinit flow_cache_cpu_prepare(struct flow_cache *fc, int cpu)
- 	return 0;
- }
- 
--static int __cpuinit flow_cache_cpu(struct notifier_block *nfb,
-+static int flow_cache_cpu(struct notifier_block *nfb,
- 			  unsigned long action,
- 			  void *hcpu)
- {
-diff --git a/net/iucv/iucv.c b/net/iucv/iucv.c
-index 4fe76ff..cd5b8ec 100644
---- a/net/iucv/iucv.c
-+++ b/net/iucv/iucv.c
-@@ -621,7 +621,7 @@ static void iucv_disable(void)
- 	put_online_cpus();
- }
- 
--static int __cpuinit iucv_cpu_notify(struct notifier_block *self,
-+static int iucv_cpu_notify(struct notifier_block *self,
- 				     unsigned long action, void *hcpu)
- {
- 	cpumask_t cpumask;
--- 
-1.8.1.2
+Or.
