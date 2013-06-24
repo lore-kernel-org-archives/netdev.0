@@ -1,50 +1,47 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: qlen check in tun.c
-Date: Mon, 24 Jun 2013 13:13:35 +0800
-Message-ID: <51C7D57F.6080803@redhat.com>
-References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com> <51C12592.6050503@redhat.com> <CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com> <20130620080725.GB23621@redhat.com>
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: Re: [PATCH iproute2 2/2] vxlan: allow specifying multiple default destinations
+Date: Mon, 24 Jun 2013 08:40:48 +0300
+Message-ID: <CAF1J0HNMuzFXyMprCfgv0OGcLYofnxa2tSGJq-JyEOoJbBA9OQ@mail.gmail.com>
+References: <1372004643-24718-1-git-send-email-mike.rapoport@ravellosystems.com>
+	<1372004643-24718-2-git-send-email-mike.rapoport@ravellosystems.com>
+	<kq843h$n38$1@ger.gmane.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Jerry Chu <hkchu@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Cc: netdev@vger.kernel.org
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:4004 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750990Ab3FXFNp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jun 2013 01:13:45 -0400
-In-Reply-To: <20130620080725.GB23621@redhat.com>
+Received: from na3sys010aog106.obsmtp.com ([74.125.245.80]:47077 "HELO
+	na3sys010aog106.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751289Ab3FXFkt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 01:40:49 -0400
+Received: by mail-ob0-f180.google.com with SMTP id eh20so10551060obb.11
+        for <netdev@vger.kernel.org>; Sun, 23 Jun 2013 22:40:48 -0700 (PDT)
+In-Reply-To: <kq843h$n38$1@ger.gmane.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/20/2013 04:07 PM, Michael S. Tsirkin wrote:
-> On Wed, Jun 19, 2013 at 12:39:34PM -0700, Jerry Chu wrote:
->> Hi Jason,
->>
->> On Tue, Jun 18, 2013 at 8:29 PM, Jason Wang <jasowang@redhat.com> wrote:
->>> On 06/19/2013 10:31 AM, Jerry Chu wrote:
->>>> In tun_net_xmit() the max qlen is computed as
->>>> dev->tx_queue_len / tun->numqueues. For multi-queue configuration the
->>>> latter may be way too small, forcing one to adjust txqueuelen based
->>>> on number of queues created. (Well the default txqueuelen of
->>>> 500/TUN_READQ_SIZE already seems too small even for single queue.)
->>> Hi Jerry:
->>>
->>> Do you have some test result of this? Anyway, tun allows userspace to
->>> adjust this value based on its requirement.
->> Sure, but the default size of 500 is just way too small. queue overflows even
->> with a simple single-stream throughput test through Openvswitch due to CPU
->> scheduler anomaly. On our loaded multi-stream test even 8192 can't prevent
->> queue overflow. But then with 8192 we'll be deep into the "buffer
->> bloat" territory.
->> We haven't figured out an optimal strategy for thruput vs latency, but
->> suffice to
->> say 500 is too small.
->>
->> Jerry
-> Maybe TSO is off for you?
-> With TSO you can get 64Kbyte packets, 500 of these is 30 Mbytes!
-> We really should consider setting byte limits, not packet limits.
+On Mon, Jun 24, 2013 at 3:32 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Sun, 23 Jun 2013 at 16:24 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+>> +static void explain_change(void)
+>> +{
+>> +     fprintf(stderr, "Usage: ... vxlan id VNI\n");
+>> +     fprintf(stderr, "                 [ dstadd DST ]\n");
+>> +     fprintf(stderr, "                 [ dstdel ADDR ]\n");
+>> +     fprintf(stderr, "\n");
+>> +     fprintf(stderr, "Where: VNI := 0-16777215\n");
+>> ++    fprintf(stderr, "       DST  := [ ADDR [port PORT] [vni VNI] [via DEV]]\n");
+>
+> This '++' line does't look correct, does it?
 
-Do you mean BQL for tuntap?
+Indeed so,  thanks for catching.
+
+> --
+> To unsubscribe from this list: send the line "unsubscribe netdev" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
+
+--
+Sincerely yours,
+Mike.
