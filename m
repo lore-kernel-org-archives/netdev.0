@@ -1,53 +1,74 @@
-From: Ricardo Landim <ricardolan@gmail.com>
-Subject: Re: UDP splice
-Date: Mon, 24 Jun 2013 14:09:19 -0300
-Message-ID: <CACYKsS5uy6nGbtCYit0eNyBSemzimgLrVdUJAgeBmZwDAy7F-A@mail.gmail.com>
-References: <CACYKsS7pMFNdBxU2raMphKyb1zU7MEbhc=vsD+FdZ5sgFq71NQ@mail.gmail.com>
-	<1372088554.1896.3.camel@bwh-desktop.uk.level5networks.com>
-	<20130624155154.GD10413@order.stressinduktion.org>
-	<1372089776.1896.9.camel@bwh-desktop.uk.level5networks.com>
-	<20130624170119.GE10413@order.stressinduktion.org>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH 25/45] staging/octeon: Use get/put_online_cpus_atomic()
+ to prevent CPU offline
+Date: Mon, 24 Jun 2013 22:55:23 +0530
+Message-ID: <51C88103.8090301@linux.vnet.ibm.com>
+References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com> <20130623134331.19094.80396.stgit@srivatsabhat.in.ibm.com> <20130623181740.GB24256@kroah.com> <51C744A9.8000406@linux.vnet.ibm.com> <1372015045.3137.67.camel@joe-AO722>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-To: Ben Hutchings <bhutchings@solarflare.com>,
-	Ricardo Landim <ricardolan@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f47.google.com ([209.85.219.47]:62588 "EHLO
-	mail-oa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936Ab3FXRJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 13:09:20 -0400
-Received: by mail-oa0-f47.google.com with SMTP id m1so12083654oag.6
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 10:09:20 -0700 (PDT)
-In-Reply-To: <20130624170119.GE10413@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: 7bit
+Cc: peterz@infradead.org, fweisbec@gmail.com,
+	linux-kernel@vger.kernel.org, walken@google.com, mingo@kernel.org,
+	linux-arch@vger.kernel.org, vincent.guittot@linaro.org,
+	ddaney@caviumnetworks.com, xiaoguangrong@linux.vnet.ibm.com,
+	wangyun@linux.vnet.ibm.com, paulmck@linux.vnet.ibm.com,
+	devel@driverdev.osuosl.org, nikunj@linux.vnet.ibm.com,
+	linux-pm@vger.kernel.org, rusty@rustcorp.com.au,
+	rostedt@goodmis.org, namhyung@kernel.org, tglx@linutronix.de,
+	laijs@cn.fujitsu.com, zhong@linux.vnet.ibm.com,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	oleg@redhat.com, sbw@mit.edu, netdev@vger.kernel.org,
+	tj@kernel.org, akpm@linux-foundation.org,
+	linuxppc-dev@lists.ozlabs.org
+To: Joe Perches <joe@perches.com>
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <1372015045.3137.67.camel@joe-AO722>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Useful for UDP proxy, mainly for RTP payload including voice (voip)
-and video live stream...
+On 06/24/2013 12:47 AM, Joe Perches wrote:
+> On Mon, 2013-06-24 at 00:25 +0530, Srivatsa S. Bhat wrote:
+>> On 06/23/2013 11:47 PM, Greg Kroah-Hartman wrote:
+>>> On Sun, Jun 23, 2013 at 07:13:33PM +0530, Srivatsa S. Bhat wrote:
+> []
+>>>> diff --git a/drivers/staging/octeon/ethernet-rx.c b/drivers/staging/octeon/ethernet-rx.c
+> []
+>> Honestly, I don't know. Let's CC the author of that code (David Daney).
+>> I wonder why get_maintainer.pl didn't generate his name for this file,
+>> even though the entire file is almost made up of his commits alone!
+> 
+> Because by default, get_maintainer looks for a matching
+> file entry in MAINTAINERS.  Failing that, it looks at
+> one year of git history.  In this case, no work has been
+> done on the file for quite awhile.
+> 
+> --git-blame can be added to the get_maintainer.pl command
+> line to look for % of authorship by line and commit count.
+> 
+> Adding --git-blame can take a long time to run, that's why
+> it's not on by default.  Also, very old history can give
+> invalid email addresses as people move around and email
+> addresses decay.
+> 
+> If you always want to find original authors, you could
+> use a .get_maintainer.conf file with --git-blame in it.
+> 
+> $ time ./scripts/get_maintainer.pl --git-blame -f drivers/staging/octeon/ethernet-tx.c
+> Greg Kroah-Hartman <gregkh@linuxfoundation.org> (supporter:STAGING SUBSYSTEM,commits:4/16=25%)
+> David Daney <ddaney@caviumnetworks.com> (authored lines:711/725=98%,commits:13/16=81%)
+> Ralf Baechle <ralf@linux-mips.org> (commits:11/16=69%)
+> Eric Dumazet <eric.dumazet@gmail.com> (commits:2/16=12%)
+> Andrew Morton <akpm@linux-foundation.org> (commits:1/16=6%)
+> devel@driverdev.osuosl.org (open list:STAGING SUBSYSTEM)
+> linux-kernel@vger.kernel.org (open list)
+> 
+> real	0m16.853s
+> user	0m16.088s
+> sys	0m0.444s
+> 
+> 
 
-2013/6/24 Hannes Frederic Sowa <hannes@stressinduktion.org>:
-> On Mon, Jun 24, 2013 at 05:02:56PM +0100, Ben Hutchings wrote:
->> On Mon, 2013-06-24 at 17:51 +0200, Hannes Frederic Sowa wrote:
->> > On Mon, Jun 24, 2013 at 04:42:34PM +0100, Ben Hutchings wrote:
->> > > splice() works with streams, but UDP is a message-oriented protocol.
->> > > How would a UDP implementation of splice() decide where to put the
->> > > message boundaries, or to distinguish the messages?
->> >
->> > Splicing a pipe to udp socket should work nontheless. Splicing from udp socket
->> > to pipe does not work.
->>
->> Should it?  I suppose it could work for UDP-based protocols that include
->> their own framing, but I can't see that it's generally useful.
->
-> It is the same with sendfile: One splice-call would result in one udp
-> message and could span several ip fragments. So, message boundaries
-> would be maintained. splice is good for large data but the generation of
-> fragments defeat its use here.
->
-> I don't know what would be most suitable to use for copying udp fragments
-> from one socket to another socket. I would have tried recvmmsg/sendmmsg.
->
-> Greetings,
->
->   Hannes
->
+Oh, ok.. Thanks for the explanation and the tip!
+
+Regards,
+Srivatsa S. Bhat
