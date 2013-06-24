@@ -1,44 +1,45 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] sh_eth: fix unhandled RFE interrupt
-Date: Mon, 24 Jun 2013 15:07:49 +0400
-Message-ID: <51C82885.8030607@cogentembedded.com>
-References: <201306210112.22352.sergei.shtylyov@cogentembedded.com> <20130624.001044.2036651955086655996.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nobuhiro.iwamatsu.yj@renesas.com,
-	linux-sh@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+From: frank.blaschka@de.ibm.com
+Subject: [patch 5/5] qeth: use default napi weight
+Date: Mon, 24 Jun 2013 13:21:52 +0200
+Message-ID: <20130624112226.861904661@de.ibm.com>
+References: <20130624112147.347247916@de.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	Sebastian Ott <sebott@linux.vnet.ibm.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f181.google.com ([209.85.217.181]:61541 "EHLO
-	mail-lb0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750979Ab3FXLHx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 07:07:53 -0400
-Received: by mail-lb0-f181.google.com with SMTP id w10so409964lbi.40
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 04:07:52 -0700 (PDT)
-In-Reply-To: <20130624.001044.2036651955086655996.davem@davemloft.net>
+Received: from e06smtp14.uk.ibm.com ([195.75.94.110]:34330 "EHLO
+	e06smtp14.uk.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751828Ab3FXLWc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 07:22:32 -0400
+Received: from /spool/local
+	by e06smtp14.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <frank.blaschka@de.ibm.com>;
+	Mon, 24 Jun 2013 12:15:07 +0100
+Content-Disposition: inline; filename=604-qeth-default-napi-weight.diff
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+From: Sebastian Ott <sebott@linux.vnet.ibm.com>
 
-On 24-06-2013 11:10, David Miller wrote:
+Since commit 82dc3c63c692b1e1d59378ecee948ac88e034aad
+"net: introduce NAPI_POLL_WEIGHT" network drivers receive a warning
+when they use napi weight higher than NAPI_POLL_WEIGHT. This patch
+reduces QETH_NAPI_WEIGHT from 128 to 64 (NAPI_POLL_WEIGHT).
 
->> EESR.RFE (receive FIFO overflow) interrupt is enabled by the driver on all SoCs
->> and sh_eth_error() handles it but it's not present in any initializer/assignment
->> of the 'eesr_err_check' field of 'struct sh_eth_cpu_data'. This leads to that
->> interrupt not being handled and cleared, and finally to disabling IRQ and the
->> driver being non-functional.
+Signed-off-by: Sebastian Ott <sebott@linux.vnet.ibm.com>
+Signed-off-by: Frank Blaschka <blaschka@linux.vnet.ibm.com>
+---
+ drivers/s390/net/qeth_core.h |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
->> Modify DEFAULT_EESR_ERR_CHECK macro and all explicit initializers of the above
->> mentioned field to contain the EESR.RFE bit. Remove useless backslashes from the
->> initializers, while at it.
-
->> Signed-off-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-
-> Applied to 'net'.
-
-    Queue it for -stable please, the bug goes back to the very start of 
-the driver development, it seems...
-
-WBR, Sergei
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -738,7 +738,7 @@ struct qeth_rx {
+ 	int qdio_err;
+ };
+ 
+-#define QETH_NAPI_WEIGHT 128
++#define QETH_NAPI_WEIGHT NAPI_POLL_WEIGHT
+ 
+ struct qeth_card {
+ 	struct list_head list;
