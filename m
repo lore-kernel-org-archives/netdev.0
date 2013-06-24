@@ -1,43 +1,45 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 1/5] ipvs: SCTP ports should be writable in ICMP packets
-Date: Mon, 24 Jun 2013 17:15:45 +0200
-Message-ID: <1372086950-4042-2-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 3/5] netfilter: nf_nat_sip: fix mangling
+Date: Mon, 24 Jun 2013 17:15:47 +0200
+Message-ID: <1372086950-4042-4-git-send-email-pablo@netfilter.org>
 References: <1372086950-4042-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51478 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752368Ab3FXPQE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jun 2013 11:16:04 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1372086950-4042-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Julian Anastasov <ja@ssi.bg>
+From: Balazs Peter Odor <balazs@obiserver.hu>
 
-Make sure that SCTP ports are writable when embedded in ICMP
-from client, so that ip_vs_nat_icmp can translate them safely.
+In (b20ab9c netfilter: nf_ct_helper: better logging for dropped packets)
+there were some missing brackets around the logging information, thus
+always returning drop.
 
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Closes https://bugzilla.kernel.org/show_bug.cgi?id=60061
+
+Signed-off-by: Balazs Peter Odor <balazs@obiserver.hu>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_core.c |    3 ++-
+ net/netfilter/nf_nat_sip.c |    3 ++-
  1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 05565d2..23b8eb5 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -1442,7 +1442,8 @@ ignore_ipip:
+diff --git a/net/netfilter/nf_nat_sip.c b/net/netfilter/nf_nat_sip.c
+index 96ccdf7..dac11f7 100644
+--- a/net/netfilter/nf_nat_sip.c
++++ b/net/netfilter/nf_nat_sip.c
+@@ -230,9 +230,10 @@ static unsigned int nf_nat_sip(struct sk_buff *skb, unsigned int protoff,
+ 					&ct->tuplehash[!dir].tuple.src.u3,
+ 					false);
+ 			if (!mangle_packet(skb, protoff, dataoff, dptr, datalen,
+-					   poff, plen, buffer, buflen))
++					   poff, plen, buffer, buflen)) {
+ 				nf_ct_helper_log(skb, ct, "cannot mangle received");
+ 				return NF_DROP;
++			}
+ 		}
  
- 	/* do the statistics and put it back */
- 	ip_vs_in_stats(cp, skb);
--	if (IPPROTO_TCP == cih->protocol || IPPROTO_UDP == cih->protocol)
-+	if (IPPROTO_TCP == cih->protocol || IPPROTO_UDP == cih->protocol ||
-+	    IPPROTO_SCTP == cih->protocol)
- 		offset += 2 * sizeof(__u16);
- 	verdict = ip_vs_icmp_xmit(skb, cp, pp, offset, hooknum, &ciph);
- 
+ 		/* The rport= parameter (RFC 3581) contains the port number
 -- 
 1.7.10.4
+
