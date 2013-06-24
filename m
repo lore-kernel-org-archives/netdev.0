@@ -1,42 +1,46 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] virtual netlink device for packet sockets
-Date: Mon, 24 Jun 2013 16:39:48 -0700 (PDT)
-Message-ID: <20130624.163948.896814553052733547.davem@davemloft.net>
-References: <1371836288-13122-1-git-send-email-dborkman@redhat.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH] build some drivers only when compile-testing
+Date: Mon, 24 Jun 2013 16:42:40 -0700
+Message-ID: <20130624234240.GA21064@kroah.com>
+References: <1369214326-6558-1-git-send-email-jslaby@suse.cz>
+ <20130523022327.GB6159@kroah.com>
+ <519D8876.9050405@suse.com>
+ <51BF6BFF.7050705@suse.cz>
+ <20130618160427.GE28961@kroah.com>
+ <51C154A0.6080104@suse.cz>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dborkman@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48222 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751860Ab3FXXjt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 19:39:49 -0400
-In-Reply-To: <1371836288-13122-1-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Mahoney <jeffm@suse.com>, jirislaby@gmail.com,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+	linux-usb@vger.kernel.org,
+	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
+	linux-geode@lists.infradead.org, linux-fbdev@vger.kernel.org,
+	Richard Cochran <richardcochran@gmail.com>,
+	netdev@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	Michal Marek <mmarek@suse.cz>, tomi.valkeinen@ti.com
+To: Jiri Slaby <jslaby@suse.cz>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <51C154A0.6080104@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <dborkman@redhat.com>
-Date: Fri, 21 Jun 2013 19:38:05 +0200
-
-> This set allows for a virtual netlink device that can be easily used
-> without modification by tools like tcpdump, Wireshark et al. to debug
-> and troubleshoot netlink traffic that is exchanged between user and
-> kernel space. We could even record pcap files for a later analysis.
-> No code change would be needed on the side of such analyzers, except
-> adding a simple protocol dissector, for example.
+On Wed, Jun 19, 2013 at 08:50:08AM +0200, Jiri Slaby wrote:
+> On 06/18/2013 06:04 PM, Greg Kroah-Hartman wrote:
+> >> So currently I have what is attached... Comments?
+> > 
+> > Looks good to me, want me to queue it up through my char/misc driver
+> > tree for 3.11?
 > 
-> Please have a look at the main description in patch 3. Patch 1 and 2
-> are just prerequisits for the actual 3rd patch.
-> 
-> I think the device idea is the cleanest solution. We have packet sockets
-> and they do exactly what we want and expect from them, they have all the
-> features etc, and user space would not even need to implement code. Thus
-> adding more and more functionality into af_netlink would be a bigger
-> surgery and further bloat it up with duplicate code, imho. By taking the
-> approach with what I'm proposing, we have a clean segregation of
-> functionality (as: packet sockets vs. netlink sockets), thus keeping it
-> simple and stupid, and not too complex. 
+> If there are no objections... Whoever picks that up, I would be happy 8-).
 
-Yep, this seems like a good tradeoff.  Series applied, thanks!
+I've taken it, without the chipidea portion, through my driver-core
+tree.
+
+thanks,
+
+greg k-h
