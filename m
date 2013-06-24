@@ -1,45 +1,32 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH crypto] crypto: algboss: fix NULL pointer dereference
- in cryptomgr_probe
-Date: Mon, 24 Jun 2013 16:33:06 +0200
-Message-ID: <51C858A2.40801@redhat.com>
-References: <1371715221-27192-1-git-send-email-dborkman@redhat.com> <20130624135943.GA11776@gondor.apana.org.au>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: gre: fix a possible skb leak
+Date: Mon, 24 Jun 2013 07:36:00 -0700
+Message-ID: <1372084560.3301.68.camel@edumazet-glaptop>
+References: <1372080360.3301.61.camel@edumazet-glaptop>
+	 <20130624140359.GA28057@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-crypto@vger.kernel.org, linux-sctp@vger.kernel.org,
-	netdev@vger.kernel.org
-To: Herbert Xu <herbert@gondor.hengli.com.au>
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <20130624135943.GA11776@gondor.apana.org.au>
-Sender: linux-crypto-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: Veaceslav Falico <vfalico@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f170.google.com ([209.85.215.170]:37402 "EHLO
+	mail-ea0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750936Ab3FXOf7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 10:35:59 -0400
+Received: by mail-ea0-f170.google.com with SMTP id h10so6251842eaj.1
+        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 07:35:57 -0700 (PDT)
+In-Reply-To: <20130624140359.GA28057@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/24/2013 03:59 PM, Herbert Xu wrote:
-...
-> Author: Herbert Xu <herbert@gondor.apana.org.au>
-> Date:   Mon Jun 24 21:57:42 2013 +0800
->
->      crypto: algboss - Hold ref count on larval
->
-...
->
->      The use of wait_for_completion_interruptible is intentional so that
->      we don't lock up the thread if a bug causes us to never wake up.
->
->      This bug is caused by the helper thread using the larval without
->      holding a reference count on it.  If the helper thread completes
->      after the original thread requesting for help has gone away and
->      destroyed the larval, then we get the crash above.
->
->      So the fix is to hold a reference count on the larval.
->
->      Cc: <stable@vger.kernel.org> # 3.6+
->      Reported-by: Daniel Borkmann <dborkman@redhat.com>
->      Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+On Mon, 2013-06-24 at 16:03 +0200, Veaceslav Falico wrote:
 
-Tested-by: Daniel Borkmann <dborkman@redhat.com>
+> Maybe we can also use it here (build-tested only):
 
-This fixes the panic for me with the reproducer I sent off-list.
+Sure, but it will be done later on net-next
 
-Thanks Herbert !
+This patch is a stable candidate, so I made a somewhat minimal change
