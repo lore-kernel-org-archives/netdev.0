@@ -1,53 +1,102 @@
-From: Yura Pakhuchiy <pakhuchiy@gmail.com>
-Subject: Re: Per route MTU settings are broken in linux kernel 3.2
-Date: Mon, 24 Jun 2013 20:08:35 +0700
-Message-ID: <1372079315.32157.15.camel@linux>
-References: <1372063443.32157.10.camel@linux>
-	 <1372077951.21189.16.camel@deadeye.wl.decadent.org.uk>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH] gre: fix a possible skb leak
+Date: Mon, 24 Jun 2013 06:26:00 -0700
+Message-ID: <1372080360.3301.61.camel@edumazet-glaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@vger.kernel.org>,
-	stable@vger.kernel.org
-To: Ben Hutchings <ben@decadent.org.uk>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372077951.21189.16.camel@deadeye.wl.decadent.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Daniel Borkmann <dborkman@redhat.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ea0-f175.google.com ([209.85.215.175]:45982 "EHLO
+	mail-ea0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750797Ab3FXNZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 09:25:59 -0400
+Received: by mail-ea0-f175.google.com with SMTP id z7so6069986eaf.34
+        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 06:25:57 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-24 at 13:45 +0100, Ben Hutchings wrote:
-> On Mon, 2013-06-24 at 15:44 +0700, Yura Pakhuchiy wrote:
-> > Hello Ben,
-> > 
-> > Looks like setting per route MTU (as described in [1]) is broken in
-> > Linux kernel 3.2. I tested with newer Ubuntu kernels 3.5 and 3.8 and it
-> > looks like problem is fixed there. I filled Ubuntu bug report [2] with
-> > more details and sample script which illustrates problem. But since this
-> > problem is probably also present in stock kernel (not just in Ubuntu),
-> > is it possible to backport fixes to stable 3.2 series?
-> > 
-> > 1. http://lartc.org/howto/lartc.cookbook.mtu-discovery.html
-> > 2. https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1177507
-> 
-> Sure, what are the fixes?
+From: Eric Dumazet <edumazet@google.com>
 
-Actually, I do not know :-( Ubuntu devs have not fixed this problem in
-Ubuntu 3.2 kernel. But these commits in mainline kernel looks related:
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=9b04f350057863d1fad1ba071e09362a1da3503e
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=5f2d04f1f9b52604fca6ee08a77972c0df67e082
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=d851c12b60471188e15e5c8405b289073e8dd025
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=7f92d334ba19a0d8e96f8f8f092219553367d921
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=ee9a8f7ab2edf801b8b514c310455c94acc232f6
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=38d523e2948162776903349c89d65f7b9370dadb
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=fa1e492aa3cbafba9f8fc6d05e5b08a3091daf4a
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=05ab86c55683410593720003442dde629782aaac
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=9cb3a50c5f63ed745702972f66eaee8767659acd
-https://git.kernel.org/cgit/linux/kernel/git/stable/linux-stable.git/commit/?id=b44108dbdbaa07c609bb5755e8dd6c2035236251
+commit 68c331631143 ("v4 GRE: Add TCP segmentation offload for GRE")
+added a possible skb leak, because it frees only the head of segment
+list, in case a skb_linearize() call fails.
 
-However I'm not sure whether they all are required or sufficient to fix
-everything correctly.
+This patch adds a kfree_skb_list() helper to fix the bug.
 
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Pravin B Shelar <pshelar@nicira.com>
+Cc: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/linux/skbuff.h |    1 +
+ net/core/skbuff.c      |   20 ++++++++++++--------
+ net/ipv4/gre.c         |    2 +-
+ 3 files changed, 14 insertions(+), 9 deletions(-)
 
--- 
-Best regards,
-        Yura
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index 9c676eae..dec1748 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -627,6 +627,7 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
+ }
+ 
+ extern void kfree_skb(struct sk_buff *skb);
++extern void kfree_skb_list(struct sk_buff *segs);
+ extern void skb_tx_error(struct sk_buff *skb);
+ extern void consume_skb(struct sk_buff *skb);
+ extern void	       __kfree_skb(struct sk_buff *skb);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index cfd777b..1c1738c 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -483,15 +483,8 @@ EXPORT_SYMBOL(skb_add_rx_frag);
+ 
+ static void skb_drop_list(struct sk_buff **listp)
+ {
+-	struct sk_buff *list = *listp;
+-
++	kfree_skb_list(*listp);
+ 	*listp = NULL;
+-
+-	do {
+-		struct sk_buff *this = list;
+-		list = list->next;
+-		kfree_skb(this);
+-	} while (list);
+ }
+ 
+ static inline void skb_drop_fraglist(struct sk_buff *skb)
+@@ -651,6 +644,17 @@ void kfree_skb(struct sk_buff *skb)
+ }
+ EXPORT_SYMBOL(kfree_skb);
+ 
++void kfree_skb_list(struct sk_buff *segs)
++{
++	while (segs) {
++		struct sk_buff *next = segs->next;
++
++		kfree_skb(segs);
++		segs = next;
++	}
++}
++EXPORT_SYMBOL(kfree_skb_list);
++
+ /**
+  *	skb_tx_error - report an sk_buff xmit error
+  *	@skb: buffer that triggered an error
+diff --git a/net/ipv4/gre.c b/net/ipv4/gre.c
+index b2e805a..7856d16 100644
+--- a/net/ipv4/gre.c
++++ b/net/ipv4/gre.c
+@@ -178,7 +178,7 @@ static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
+ 
+ 				err = __skb_linearize(skb);
+ 				if (err) {
+-					kfree_skb(segs);
++					kfree_skb_list(segs);
+ 					segs = ERR_PTR(err);
+ 					goto out;
+ 				}
