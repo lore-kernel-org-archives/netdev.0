@@ -1,32 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: Fix compilation with no IOV support
-Date: Mon, 24 Jun 2013 01:48:04 -0700 (PDT)
-Message-ID: <20130624.014804.1847359381186166068.davem@davemloft.net>
-References: <1372061050-9206-1-git-send-email-yuvalmin@broadcom.com>
+From: Geert Uytterhoeven <geert@linux-m68k.org>
+Subject: Re: SLIP: Is there a maintainer for drivers/net/slip/slip.c ?
+Date: Mon, 24 Jun 2013 10:49:54 +0200
+Message-ID: <CAMuHMdXDrPxw2Fs7ncATz+8JTJYu=dm3m0bQrca4KY9UZvyV8A@mail.gmail.com>
+References: <51C802DA.4080202@mentor.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com,
-	ariele@broadcom.com, eilong@broadcom.com
-To: yuvalmin@broadcom.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38677 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060Ab3FXIsF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 04:48:05 -0400
-In-Reply-To: <1372061050-9206-1-git-send-email-yuvalmin@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Dean Jenkins <Dean_Jenkins@mentor.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51C802DA.4080202@mentor.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Mon, 24 Jun 2013 11:04:10 +0300
+On Mon, Jun 24, 2013 at 10:27 AM, Dean Jenkins <Dean_Jenkins@mentor.com> wrote:
+> Using the Linux v3.9 tag, I note that
+>
+> ./scripts/get_maintainer.pl -f drivers/net/slip/slip.c
+> netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
+> linux-kernel@vger.kernel.org (open list)
+>
+> There seems to be no maintainer for drivers/net/slip/slip.c, is that true ?
 
-> This fixes an issue caused by submit 78c3bcc5d1af64f51d9f30b0f5a2d1985bf69734
-> `bnx2x: Improve PF behaviour toward VF', which made the bnx2x driver fail
-> compilation when PCI_IOV is not set.
-> 
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+netdev seems to be the most appropriate mailing list, cfr. what
+get_maintainer.pl reported, hence CC netdev added.
 
-Applied, thanks.
+> I am asking because sl_encaps() and slip_write_wakeup() do not handle error
+> codes from tty->ops->write() and a recursive stack overflow crash can occur
+> if the tty->ops->write() fails to write all the characters. I have some
+> patches to fix this but would like some feedback on an appropriate solution.
+
+Gr{oetje,eeting}s,
+
+                        Geert
+
+--
+Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+
+In personal conversations with technical people, I call myself a hacker. But
+when I'm talking to journalists I just say "programmer" or something like that.
+                                -- Linus Torvalds
