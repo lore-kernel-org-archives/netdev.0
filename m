@@ -1,42 +1,46 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: SLIP: Is there a maintainer for drivers/net/slip/slip.c ?
-Date: Mon, 24 Jun 2013 10:49:54 +0200
-Message-ID: <CAMuHMdXDrPxw2Fs7ncATz+8JTJYu=dm3m0bQrca4KY9UZvyV8A@mail.gmail.com>
-References: <51C802DA.4080202@mentor.com>
+From: Daniel Borkmann <dborkman@redhat.com>
+Subject: Re: [PATCH net-next] net: udp4: move GSO functions to udp_offload
+Date: Mon, 24 Jun 2013 10:51:18 +0200
+Message-ID: <51C80886.9000307@redhat.com>
+References: <1370688963-32635-1-git-send-email-dborkman@redhat.com> <1372063295.3301.52.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Dean Jenkins <Dean_Jenkins@mentor.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <51C802DA.4080202@mentor.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	Pravin B Shelar <pshelar@nicira.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:19862 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750760Ab3FXIv0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jun 2013 04:51:26 -0400
+In-Reply-To: <1372063295.3301.52.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 24, 2013 at 10:27 AM, Dean Jenkins <Dean_Jenkins@mentor.com> wrote:
-> Using the Linux v3.9 tag, I note that
+On 06/24/2013 10:41 AM, Eric Dumazet wrote:
+> On Sat, 2013-06-08 at 12:56 +0200, Daniel Borkmann wrote:
+>> Similarly to TCP offloading and UDPv6 offloading, move all related
+>> UDPv4 functions to udp_offload.c to make things more explicit. Also,
+>> by this, we can make those functions static.
+>>
+>> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+>> ---
+>>   include/net/udp.h      |   7 ++--
+>>   net/ipv4/Makefile      |   2 +-
+>>   net/ipv4/af_inet.c     |   9 +----
+>>   net/ipv4/udp.c         |  75 +------------------------------------
+>>   net/ipv4/udp_offload.c | 100 +++++++++++++++++++++++++++++++++++++++++++++++++
+>>   5 files changed, 108 insertions(+), 85 deletions(-)
+>>   create mode 100644 net/ipv4/udp_offload.c
 >
-> ./scripts/get_maintainer.pl -f drivers/net/slip/slip.c
-> netdev@vger.kernel.org (open list:NETWORKING DRIVERS)
-> linux-kernel@vger.kernel.org (open list)
+> Daniel, the same could be done for GRE, ie moving GSO stuff into
+> net/ipv4/gre_offload.c
 >
-> There seems to be no maintainer for drivers/net/slip/slip.c, is that true ?
+> Tell me if you do not have the time to do this, I will handle it.
 
-netdev seems to be the most appropriate mailing list, cfr. what
-get_maintainer.pl reported, hence CC netdev added.
+Ok, I can do this today.
 
-> I am asking because sl_encaps() and slip_write_wakeup() do not handle error
-> codes from tty->ops->write() and a recursive stack overflow crash can occur
-> if the tty->ops->write() fails to write all the characters. I have some
-> patches to fix this but would like some feedback on an appropriate solution.
+Thanks,
 
-Gr{oetje,eeting}s,
-
-                        Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-                                -- Linus Torvalds
+Daniel
