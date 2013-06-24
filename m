@@ -1,48 +1,52 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 9/9] sfc: Improve test for IOMMU in use
-Date: Mon, 24 Jun 2013 21:15:23 +0100
-Message-ID: <1372104923.1896.38.camel@bwh-desktop.uk.level5networks.com>
-References: <1372104708.1896.29.camel@bwh-desktop.uk.level5networks.com>
+Subject: Re: [patch] tehuti: using uninitialized data in bdx_ioctl_priv()
+Date: Mon, 24 Jun 2013 21:24:12 +0100
+Message-ID: <1372105452.1896.45.camel@bwh-desktop.uk.level5networks.com>
+References: <20130624160503.GC31984@elgon.mountain>
+	 <20130624.130145.1513695698751905735.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>,
-	"Alex Williamson" <alex.williamson@redhat.com>
+Cc: <dan.carpenter@oracle.com>, <andy@greyhouse.net>,
+	<netdev@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17359 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751505Ab3FXUP1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 16:15:27 -0400
-In-Reply-To: <1372104708.1896.29.camel@bwh-desktop.uk.level5networks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20130624.130145.1513695698751905735.davem@davemloft.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The device::iommu_group field may be set even if no IOMMU is in use.
-iommu_present() is still a better indicator, although it doesn't tell
-us whether *our* device is affected.
+On Mon, 2013-06-24 at 13:01 -0700, David Miller wrote:
+> From: Dan Carpenter <dan.carpenter@oracle.com>
+> Date: Mon, 24 Jun 2013 19:05:03 +0300
+> 
+> > If we "cmd == SIOCDEVPRIVATE" then we use data[] without initializing
+> > it.  The most common case is that we would return -EOPNOTSUPP.  The
+> > other case is that we'd end up reading and writing to randomish places.
+> > This requires CAP_SYS_RAWIO so it's not very bad.
+> > 
+> > The fix is to not allow SIOCDEVPRIVATE because it doesn't work.  I
+> > returned -EOPNOTSUPP instead of -ENOTTY because that's what is used in
+> > the rest of the file.
+> > 
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> 
+> I think the intention is to only allow SIOCDEVPRIVATE, rather than
+> accept any and all values other than it which are inside of the
+> private ioctl range.
+> 
+> The 'cmd' validation is one step, and it determines the interpretation
+> of data[0].
 
-Reported-by: Alex Williamson <alex.williamson@redhat.com>
-Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
----
- drivers/net/ethernet/sfc/rx.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+But data is only initialised on the error path.  So this whole function
+is useless.  It might as well be removed entirely.
 
-diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
-index 5c45118..65646cd 100644
---- a/drivers/net/ethernet/sfc/rx.c
-+++ b/drivers/net/ethernet/sfc/rx.c
-@@ -677,7 +677,7 @@ static void efx_init_rx_recycle_ring(struct efx_nic *efx,
- #ifdef CONFIG_PPC64
- 	bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_IOMMU;
- #else
--	if (efx->pci_dev->dev.iommu_group)
-+	if (iommu_present(&pci_bus_type))
- 		bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_IOMMU;
- 	else
- 		bufs_in_recycle_ring = EFX_RECYCLE_RING_SIZE_NOIOMMU;
+(Also, drivers generally should not assign SIOCDEVPRIVATE+{0,1,2}, as
+those numbers used to be conventionally used for MII operations.)
+
+Ben.
 
 -- 
 Ben Hutchings, Staff Engineer, Solarflare
 Not speaking for my employer; that's the marketing department's job.
 They asked us to note that Solarflare product names are trademarked.
+
