@@ -1,60 +1,45 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 net-next 5/8] qlcnic: Cleanup of structure
- qlcnic_hardware_context
-Date: Mon, 24 Jun 2013 11:19:22 -0700
-Message-ID: <1372097962.1245.14.camel@joe-AO722>
-References: <1371888727-16422-1-git-send-email-jitendra.kalsaria@qlogic.com>
-	 <1371888727-16422-6-git-send-email-jitendra.kalsaria@qlogic.com>
-	 <1371898428.3137.5.camel@joe-AO722>
-	 <446476BDCB53C441A1847D74CB603378DA72D5@avmb3.qlogic.org>
+From: Flavio Leitner <fbl@redhat.com>
+Subject: Re: [PATCH net-next] ipv6: split duplicate address detection and
+ router solicitation timer
+Date: Mon, 24 Jun 2013 15:18:55 -0300
+Message-ID: <20130624181854.GA22786@obelix.rh>
+References: <20130623163901.GB13836@order.stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Pratik Pujar <pratik.pujar@qlogic.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org,
+	dlstevens@us.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:36009 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752586Ab3FXSTX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jun 2013 14:19:23 -0400
-In-Reply-To: <446476BDCB53C441A1847D74CB603378DA72D5@avmb3.qlogic.org>
+Received: from mx1.redhat.com ([209.132.183.28]:12490 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752586Ab3FXSTr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jun 2013 14:19:47 -0400
+Content-Disposition: inline
+In-Reply-To: <20130623163901.GB13836@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2013-06-24 at 18:17 +0000, Pratik Pujar wrote:
-> >-----Original Message-----
-> >From: Joe Perches [mailto:joe@perches.com]
-> >Sent: 22 June 2013 16:24
-> >To: Jitendra Kalsaria
-> >Cc: David Miller; netdev; Sony Chacko; Shahed Shaikh; Dept-NX Linux NIC
-> >Driver; Pratik Pujar
-> >Subject: Re: [PATCH v2 net-next 5/8] qlcnic: Cleanup of structure
-> >qlcnic_hardware_context
-> >
-> >On Sat, 2013-06-22 at 04:12 -0400, Jitendra Kalsaria wrote:
-> >> From: Pratik Pujar <pratik.pujar@qlogic.com>
-> >
-> >This isn't really a cleanup.
-> >It's allowing more capabilities.
+On Sun, Jun 23, 2013 at 06:39:01PM +0200, Hannes Frederic Sowa wrote:
+> This patch splits the timers for duplicate address detection and router
+> solicitations apart. The router solicitations timer goes into inet6_dev
+> and the dad timer stays in inet6_ifaddr.
 > 
-> The driver was dealing with extra capabilities but separate variables
-> were used for these. Now instead of using separate variables, clubbed
-> in a single array. 
+> The reason behind this patch is to reduce the number of unneeded router
+> solicitations send out by the host if additional link-local addresses
+> are created. Currently we send out RS for every link-local address on
+> an interface.
+> 
+> If the RS timer fires we pick a source address with ipv6_get_lladdr. This
+> change could hurt people adding additional link-local addresses and
+> specifying these addresses in the radvd clients section because we
+> no longer guarantee that we use every ll address as source address in
+> router solicitations.
+> 
+> Cc: Flavio Leitner <fleitner@redhat.com>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: David Stevens <dlstevens@us.ibm.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
 
-What was 2 is now 3 no?
+The patch looks good. I tried here and saw no bugs nor problems.
 
-> >> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> >> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-> >[]
-> >> @@ -449,7 +449,7 @@ struct qlcnic_hardware_context {
-> >>  	u16 max_pci_func;
-> >>
-> >>  	u32 capabilities;
-> >> -	u32 capabilities2;
-> >> +	u32 extra_capability[3];
+Reviewed-by: Flavio Leitner <fbl@redhat.com>
