@@ -1,46 +1,80 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next] ipv6: remove old token ipv6 address as soon as possible
-Date: Mon, 24 Jun 2013 22:03:28 +0200
-Message-ID: <20130624200328.GJ13836@order.stressinduktion.org>
+From: Ben Hutchings <bhutchings@solarflare.com>
+Subject: Pull request: sfc-next 2013-06-24
+Date: Mon, 24 Jun 2013 21:11:48 +0100
+Message-ID: <1372104708.1896.29.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: dborkman@redhat.com
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	linux-net-drivers <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:35097 "EHLO
-	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750775Ab3FXUD3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 16:03:29 -0400
-Content-Disposition: inline
+Received: from webmail.solarflare.com ([12.187.104.25]:17246 "EHLO
+	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750745Ab3FXULw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 16:11:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-If the tokenized ip address is re-set on an interface we depend on the
-arrival of a new router advertisment to call addrconf_verify to clean
-up the old address (which valid_lft is now set to 0). Old addresses can
-linger around for a longer time if e.g. the source of router advertisments
-vanishes.
+The following changes since commit 37173488400704f1a05656616cd12baa9e03173b:
 
-So, call addrconf_verify immediately after setting the new tokenized
-address to get rid of the old tokenized addresses.
+  bnx2x: Fix compilation with no IOV support (2013-06-24 01:47:47 -0700)
 
-Cc: Daniel Borkmann <dborkman@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/addrconf.c | 1 +
- 1 file changed, 1 insertion(+)
+are available in the git repository at:
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 90788a1..ffc280f 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -4363,6 +4363,7 @@ static int inet6_set_iftoken(struct inet6_dev *idev, struct in6_addr *token)
- 	}
- 
- 	write_unlock_bh(&idev->lock);
-+	addrconf_verify(0);
- 	return 0;
- }
- 
+  git://git.kernel.org/pub/scm/linux/kernel/git/bwh/sfc-next.git for-davem
+
+for you to fetch changes up to 636d73da27e83ce4882f8823f79063bb37980961:
+
+  sfc: Improve test for IOMMU in use (2013-06-24 20:02:53 +0100)
+
+1. Make EEH recovery work when using legacy interrupts, from Alexandre
+   Rames.
+
+2. Enable accelerated RFS for VLAN-tagged flows, from Andy Lutomirski.
+
+3. Improve performance for non-TCP (and particularly UDP) traffic, which
+   regressed in 3.10 when we switched to always allocating paged RX
+   buffers.  Partly by Jon Cooper.
+
+4. Some minor bug fixes to IOMMU detection, timestamping capabilities,
+   and IRQ cleanup on the probe failure path.
+
+I've dropped the RX skb cache, which improved some benchmarks but
+perhaps needs some reworking to be more generally useful.
+
+Ben.
+
+----------------------------------------------------------------
+Alexandre Rames (1):
+      sfc: Fix EEH with legacy interrupts.
+
+Andy Lutomirski (1):
+      sfc: Enable accelerated RFS on vlans
+
+Ben Hutchings (5):
+      sfc: Report software timestamping capabilities
+      sfc: Define and set RX buffer flag for packets parsed as TCP
+      sfc: Do not pass non-TCP packets into GRO code
+      sfc: Fix IRQ cleanup in case of a probe failure
+      sfc: Improve test for IOMMU in use
+
+Jon Cooper (2):
+      sfc: Enable RX checksum offload for packets not handled by GRO
+      sfc: Increase size of RX SKB header area
+
+ drivers/net/ethernet/sfc/efx.c        | 40 +++----------------
+ drivers/net/ethernet/sfc/efx.h        |  1 +
+ drivers/net/ethernet/sfc/ethtool.c    | 16 +++++++-
+ drivers/net/ethernet/sfc/filter.c     | 15 ++++++-
+ drivers/net/ethernet/sfc/net_driver.h |  2 +
+ drivers/net/ethernet/sfc/nic.c        | 74 ++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/sfc/nic.h        |  4 +-
+ drivers/net/ethernet/sfc/ptp.c        | 13 +++---
+ drivers/net/ethernet/sfc/rx.c         |  8 ++--
+ 9 files changed, 114 insertions(+), 59 deletions(-)
+
 -- 
-1.8.1.4
+Ben Hutchings, Staff Engineer, Solarflare
+Not speaking for my employer; that's the marketing department's job.
+They asked us to note that Solarflare product names are trademarked.
