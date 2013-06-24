@@ -1,8 +1,7 @@
 From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: [PATCH net-next 6/9] sfc: Define and set RX buffer flag for packets
- parsed as TCP
-Date: Mon, 24 Jun 2013 21:14:24 +0100
-Message-ID: <1372104864.1896.35.camel@bwh-desktop.uk.level5networks.com>
+Subject: [PATCH net-next 7/9] sfc: Do not pass non-TCP packets into GRO code
+Date: Mon, 24 Jun 2013 21:14:46 +0100
+Message-ID: <1372104886.1896.36.camel@bwh-desktop.uk.level5networks.com>
 References: <1372104708.1896.29.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
@@ -10,65 +9,39 @@ Content-Transfer-Encoding: 7bit
 Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:17323 "EHLO
+Received: from webmail.solarflare.com ([12.187.104.25]:17341 "EHLO
 	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750745Ab3FXUO2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 16:14:28 -0400
+	with ESMTP id S1750784Ab3FXUOu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 16:14:50 -0400
 In-Reply-To: <1372104708.1896.29.camel@bwh-desktop.uk.level5networks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This will be useful for shortcutting some software packet parsing.
+GRO can handle non-TCP packets and pass them up without coalescing,
+but it has to do some extra work to parse the packet which we can
+bypass using the hardware parse result.  (This condition yields a
+false negative for TCP/IPv6 packets received by Falcon, but its
+performance is already poor in that case due to lack of checksum
+offload.)
 
 Signed-off-by: Ben Hutchings <bhutchings@solarflare.com>
 ---
- drivers/net/ethernet/sfc/net_driver.h |  1 +
- drivers/net/ethernet/sfc/nic.c        | 19 ++++++++++++++-----
- 2 files changed, 15 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/sfc/rx.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 2dec48b..f4c7e6b 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -243,6 +243,7 @@ struct efx_rx_buffer {
- #define EFX_RX_BUF_LAST_IN_PAGE	0x0001
- #define EFX_RX_PKT_CSUMMED	0x0002
- #define EFX_RX_PKT_DISCARD	0x0004
-+#define EFX_RX_PKT_TCP		0x0040
+diff --git a/drivers/net/ethernet/sfc/rx.c b/drivers/net/ethernet/sfc/rx.c
+index 6efff3d..5c45118 100644
+--- a/drivers/net/ethernet/sfc/rx.c
++++ b/drivers/net/ethernet/sfc/rx.c
+@@ -629,7 +629,7 @@ void __efx_rx_packet(struct efx_channel *channel)
+ 	if (unlikely(!(efx->net_dev->features & NETIF_F_RXCSUM)))
+ 		rx_buf->flags &= ~EFX_RX_PKT_CSUMMED;
  
- /**
-  * struct efx_rx_page_state - Page-based rx buffer state
-diff --git a/drivers/net/ethernet/sfc/nic.c b/drivers/net/ethernet/sfc/nic.c
-index 39432d3..f2b864c 100644
---- a/drivers/net/ethernet/sfc/nic.c
-+++ b/drivers/net/ethernet/sfc/nic.c
-@@ -1080,12 +1080,21 @@ efx_handle_rx_event(struct efx_channel *channel, const efx_qword_t *event)
- 	rx_ev_hdr_type = EFX_QWORD_FIELD(*event, FSF_AZ_RX_EV_HDR_TYPE);
- 
- 	if (likely(rx_ev_pkt_ok)) {
--		/* If packet is marked as OK and packet type is TCP/IP or
--		 * UDP/IP, then we can rely on the hardware checksum.
-+		/* If packet is marked as OK then we can rely on the
-+		 * hardware checksum and classification.
- 		 */
--		flags = (rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP ||
--			 rx_ev_hdr_type == FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP) ?
--			EFX_RX_PKT_CSUMMED : 0;
-+		flags = 0;
-+		switch (rx_ev_hdr_type) {
-+		case FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_TCP:
-+			flags |= EFX_RX_PKT_TCP;
-+			/* fall through */
-+		case FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_UDP:
-+			flags |= EFX_RX_PKT_CSUMMED;
-+			/* fall through */
-+		case FSE_CZ_RX_EV_HDR_TYPE_IPV4V6_OTHER:
-+		case FSE_AZ_RX_EV_HDR_TYPE_OTHER:
-+			break;
-+		}
- 	} else {
- 		flags = efx_handle_rx_not_ok(rx_queue, event);
- 	}
+-	if (!channel->type->receive_skb)
++	if ((rx_buf->flags & EFX_RX_PKT_TCP) && !channel->type->receive_skb)
+ 		efx_rx_packet_gro(channel, rx_buf, channel->rx_pkt_n_frags, eh);
+ 	else
+ 		efx_rx_deliver(channel, eh, rx_buf, channel->rx_pkt_n_frags);
 
 
 -- 
