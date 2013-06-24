@@ -1,43 +1,48 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] net: udp4: move GSO functions to udp_offload
-Date: Mon, 24 Jun 2013 01:41:35 -0700
-Message-ID: <1372063295.3301.52.camel@edumazet-glaptop>
-References: <1370688963-32635-1-git-send-email-dborkman@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] xen-netback: double free on unload
+Date: Mon, 24 Jun 2013 01:44:49 -0700 (PDT)
+Message-ID: <20130624.014449.788391647881401988.davem@davemloft.net>
+References: <20130621062008.GA10873@elgon.mountain>
+	<20130624.002607.1816906327683052502.davem@davemloft.net>
+	<alpine.DEB.2.02.1306240830580.2215@hadrien>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Daniel Borkmann <dborkman@redhat.com>
+Cc: dan.carpenter@oracle.com, ian.campbell@citrix.com,
+	xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: julia.lawall@lip6.fr
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bk0-f54.google.com ([209.85.214.54]:45952 "EHLO
-	mail-bk0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750848Ab3FXIlk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 04:41:40 -0400
-Received: by mail-bk0-f54.google.com with SMTP id it16so4079974bkc.13
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 01:41:38 -0700 (PDT)
-In-Reply-To: <1370688963-32635-1-git-send-email-dborkman@redhat.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:38651 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751616Ab3FXIou (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 04:44:50 -0400
+In-Reply-To: <alpine.DEB.2.02.1306240830580.2215@hadrien>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 2013-06-08 at 12:56 +0200, Daniel Borkmann wrote:
-> Similarly to TCP offloading and UDPv6 offloading, move all related
-> UDPv4 functions to udp_offload.c to make things more explicit. Also,
-> by this, we can make those functions static.
+From: Julia Lawall <julia.lawall@lip6.fr>
+Date: Mon, 24 Jun 2013 08:31:31 +0100 (BST)
+
+> On Mon, 24 Jun 2013, David Miller wrote:
 > 
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->  include/net/udp.h      |   7 ++--
->  net/ipv4/Makefile      |   2 +-
->  net/ipv4/af_inet.c     |   9 +----
->  net/ipv4/udp.c         |  75 +------------------------------------
->  net/ipv4/udp_offload.c | 100 +++++++++++++++++++++++++++++++++++++++++++++++++
->  5 files changed, 108 insertions(+), 85 deletions(-)
->  create mode 100644 net/ipv4/udp_offload.c
+>> From: Dan Carpenter <dan.carpenter@oracle.com>
+>> Date: Fri, 21 Jun 2013 09:20:08 +0300
+>>
+>> > There is a typo here, "i" vs "j", so we would crash on module_exit().
+>> >
+>> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>>
+>> Please always explicitly state the tree for which a patch is
+>> applicable.
+>>
+>> Here I figured it out by trial an error, trying to apply it
+>> to 'net' (where it failed) and then 'net-next' (where it
+>> applied cleanly).
+>>
+>> I should never have to play patch monkey games like that, you
+>> need to tell me where a patch is targetted.
+> 
+> Shouldn't one always, by default, work on linux-next?
 
-Daniel, the same could be done for GRE, ie moving GSO stuff into
-net/ipv4/gre_offload.c
-
-Tell me if you do not have the time to do this, I will handle it.
-
-Thanks
+Bug fixes, especially serious ones, should be targetted at 'net'.
