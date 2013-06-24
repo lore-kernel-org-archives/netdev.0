@@ -1,103 +1,101 @@
-From: Jesper Nilsson <jesper.nilsson@axis.com>
-Subject: Re: [PATCH 33/45] cris/smp: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Mon, 24 Jun 2013 08:41:56 +0200
-Message-ID: <20130624064156.GR23735@axis.com>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
- <20130623134536.19094.52797.stgit@srivatsabhat.in.ibm.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next v4 2/2] vxlan: allow specifying multiple
+ default destinations
+Date: Mon, 24 Jun 2013 06:48:17 +0000 (UTC)
+Message-ID: <kq8q3h$9lu$1@ger.gmane.org>
+References: <1372004543-24675-1-git-send-email-mike.rapoport@ravellosystems.com>
+ <1372004543-24675-3-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org,
-	laijs@cn.fujitsu.com, rostedt@goodmis.org,
-	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
-	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mikael Starvik <starvik@axis.com>,
-	Jesper Nilsson <jespern@axis.com>, linux-cris-kernel@axis.com
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ra.se.axis.com ([195.60.68.13]:57304 "EHLO ra.se.axis.com"
+Received: from plane.gmane.org ([80.91.229.3]:53491 "EHLO plane.gmane.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751922Ab3FXGmD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jun 2013 02:42:03 -0400
-Content-Disposition: inline
-In-Reply-To: <20130623134536.19094.52797.stgit@srivatsabhat.in.ibm.com>
+	id S1751473Ab3FXGtF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jun 2013 02:49:05 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1Ur0Zm-0007b3-6N
+	for netdev@vger.kernel.org; Mon, 24 Jun 2013 08:49:04 +0200
+Received: from 60.160.82.190 ([60.160.82.190])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 08:48:34 +0200
+Received: from xiyou.wangcong by 60.160.82.190 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 08:48:34 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 23, 2013 at 07:15:39PM +0530, Srivatsa S. Bhat wrote:
-> Once stop_machine() is gone from the CPU offline path, we won't be able
-> to depend on disabling preemption to prevent CPUs from going offline
-> from under us.
-> 
-> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
-> offline, while invoking from atomic context.
-> 
-> Cc: Mikael Starvik <starvik@axis.com>
-
-Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
-
-> Cc: Thomas Gleixner <tglx@linutronix.de>
-> Cc: linux-cris-kernel@axis.com
-> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
-> ---
-> 
->  arch/cris/arch-v32/kernel/smp.c |    5 +++++
->  1 file changed, 5 insertions(+)
-> 
-> diff --git a/arch/cris/arch-v32/kernel/smp.c b/arch/cris/arch-v32/kernel/smp.c
-> index cdd1202..b2d4612 100644
-> --- a/arch/cris/arch-v32/kernel/smp.c
-> +++ b/arch/cris/arch-v32/kernel/smp.c
-> @@ -13,6 +13,7 @@
->  #include <linux/init.h>
->  #include <linux/timex.h>
->  #include <linux/sched.h>
-> +#include <linux/cpu.h>
->  #include <linux/kernel.h>
->  #include <linux/cpumask.h>
->  #include <linux/interrupt.h>
-> @@ -222,6 +223,7 @@ void flush_tlb_common(struct mm_struct* mm, struct vm_area_struct* vma, unsigned
->  	unsigned long flags;
->  	cpumask_t cpu_mask;
+On Sun, 23 Jun 2013 at 16:22 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+>  static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+>  {
+> +	int err;
+> +
+>  	if (tb[IFLA_ADDRESS]) {
+>  		if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN) {
+>  			pr_debug("invalid link address (not ethernet)\n");
+> @@ -1460,6 +1599,10 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
+>  		}
+>  	}
 >  
-> +	get_online_cpus_atomic();
->  	spin_lock_irqsave(&tlbstate_lock, flags);
->  	cpu_mask = (mm == FLUSH_ALL ? cpu_all_mask : *mm_cpumask(mm));
->  	cpumask_clear_cpu(smp_processor_id(), &cpu_mask);
-> @@ -230,6 +232,7 @@ void flush_tlb_common(struct mm_struct* mm, struct vm_area_struct* vma, unsigned
->  	flush_addr = addr;
->  	send_ipi(IPI_FLUSH_TLB, 1, cpu_mask);
->  	spin_unlock_irqrestore(&tlbstate_lock, flags);
-> +	put_online_cpus_atomic();
+> +	err = vxlan_validate_remotes(data[IFLA_VXLAN_REMOTES]);
+> +	if (err)
+> +		return err;
+> +
+>  	return 0;
 >  }
->  
->  void flush_tlb_all(void)
-> @@ -319,10 +322,12 @@ int smp_call_function(void (*func)(void *info), void *info, int wait)
->  	data.info = info;
->  	data.wait = wait;
->  
-> +	get_online_cpus_atomic();
->  	spin_lock(&call_lock);
->  	call_data = &data;
->  	ret = send_ipi(IPI_CALL, wait, cpu_mask);
->  	spin_unlock(&call_lock);
-> +	put_online_cpus_atomic();
->  
->  	return ret;
->  }
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
 
-/^JN - Jesper Nilsson
--- 
-               Jesper Nilsson -- jesper.nilsson@axis.com
+
+Seems you can simply return vxlan_validate_remotes(...); here.
+
+
+> +static int vxlan_fill_remotes_info(struct sk_buff *skb,
+> +				   const struct vxlan_dev *vxlan)
+> +{
+> +	struct vxlan_rdst *rd;
+> +	struct nlattr *nest, *rdst_nest;
+> +	__be32 ip;
+> +	int i = 1;
+> +
+> +	if (!vxlan->remotes_cnt)
+> +		return 0;
+> +
+> +	nest = nla_nest_start(skb, IFLA_VXLAN_REMOTES);
+> +	if (nest == NULL)
+> +		goto nla_put_failure;
+> +
+> +	list_for_each_entry_rcu(rd, &vxlan->remotes, list) {
+
+
+Need RCU read lock here?
+
+
+> +		ip = rd->remote_ip;
+> +
+> +		if (ip == vxlan->default_dst.remote_ip)
+> +			continue;
+> +
+> +		rdst_nest = nla_nest_start(skb, i);
+> +		if (rdst_nest == NULL)
+> +			goto nla_put_failure;
+> +
+> +		if (nla_put_be32(skb, IFLA_VXLAN_REMOTE_ADDR, ip))
+> +			goto nla_put_failure;
+> +
+> +		nla_nest_end(skb, rdst_nest);
+> +		i++;
+> +	}
+> +
+> +	nla_nest_end(skb, nest);
+> +
+> +	return 0;
+> +
+> +nla_put_failure:
+> +	return -EMSGSIZE;
+> +}
+> +
+
+
+Thanks!
