@@ -1,31 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] VSOCK fix and cleanup
-Date: Sun, 23 Jun 2013 23:52:15 -0700 (PDT)
-Message-ID: <20130623.235215.1378819992781353051.davem@davemloft.net>
-References: <1371720033-19714-1-git-send-email-asias@redhat.com>
+Subject: Re: [PATCH net-next 0/4] bnx2x: enhancement patch series
+Date: Sun, 23 Jun 2013 23:54:40 -0700 (PDT)
+Message-ID: <20130623.235440.1122403519961617914.davem@davemloft.net>
+References: <1371739151-15744-1-git-send-email-yuvalmin@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, acking@vmware.com, dtor@vmware.com,
-	grantr@vmware.com
-To: asias@redhat.com
+Cc: netdev@vger.kernel.org, eilong@broadcom.com, ariele@broadcom.com
+To: yuvalmin@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37267 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37281 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751207Ab3FXGwT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 02:52:19 -0400
-In-Reply-To: <1371720033-19714-1-git-send-email-asias@redhat.com>
+	with ESMTP id S1752064Ab3FXGyl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 02:54:41 -0400
+In-Reply-To: <1371739151-15744-1-git-send-email-yuvalmin@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Asias He <asias@redhat.com>
-Date: Thu, 20 Jun 2013 17:20:29 +0800
+From: "Yuval Mintz" <yuvalmin@broadcom.com>
+Date: Thu, 20 Jun 2013 17:39:07 +0300
 
+> This patch series mostly revolves around improving SR-IOV implementation
+> (Better PF-VF relation, sanity checks and timings), as well as including
+> a patch correcting the (outward) advertisement of 20G capabilities.
 > 
-> Asias He (4):
->   VSOCK: Introduce vsock_auto_bind helper
->   VSOCK: Return VMCI_ERROR_NO_MEM when fails to allocate skb
->   VSOCK: Remove unnecessary label
->   VSOCK: Fix VSOCK_HASH and VSOCK_CONN_HASH
+> Please consider applying these patches to `net-next'.
 
-Series applied to net-next, thanks.
+Series applied, thanks.
