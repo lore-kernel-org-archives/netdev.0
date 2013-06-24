@@ -1,108 +1,47 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net-next v4 2/2] vxlan: allow specifying multiple default destinations
-Date: Mon, 24 Jun 2013 09:58:42 +0300
-Message-ID: <CAF1J0HM2vuGfVg-p8pARzOR1bz+X6bs_yMHXPBM45k4Ty9OcUA@mail.gmail.com>
-References: <1372004543-24675-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<1372004543-24675-3-git-send-email-mike.rapoport@ravellosystems.com>
-	<kq8q3h$9lu$1@ger.gmane.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] vhost-net: fix use-after-free in vhost_net_flush
+Date: Mon, 24 Jun 2013 00:01:27 -0700 (PDT)
+Message-ID: <20130624.000127.3603241221368993.davem@davemloft.net>
+References: <20130620114813.GA17373@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog110.obsmtp.com ([74.125.245.88]:46097 "HELO
-	na3sys010aog110.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1752495Ab3FXG6n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 02:58:43 -0400
-Received: by mail-ob0-f169.google.com with SMTP id up14so10594440obb.0
-        for <netdev@vger.kernel.org>; Sun, 23 Jun 2013 23:58:42 -0700 (PDT)
-In-Reply-To: <kq8q3h$9lu$1@ger.gmane.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20130620114813.GA17373@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 24, 2013 at 9:48 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Sun, 23 Jun 2013 at 16:22 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
->>  static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
->>  {
->> +     int err;
->> +
->>       if (tb[IFLA_ADDRESS]) {
->>               if (nla_len(tb[IFLA_ADDRESS]) != ETH_ALEN) {
->>                       pr_debug("invalid link address (not ethernet)\n");
->> @@ -1460,6 +1599,10 @@ static int vxlan_validate(struct nlattr *tb[], struct nlattr *data[])
->>               }
->>       }
->>
->> +     err = vxlan_validate_remotes(data[IFLA_VXLAN_REMOTES]);
->> +     if (err)
->> +             return err;
->> +
->>       return 0;
->>  }
->
->
-> Seems you can simply return vxlan_validate_remotes(...); here.
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Date: Thu, 20 Jun 2013 14:48:13 +0300
 
-Yes, but I believe it's better looking this way.
+> vhost_net_ubuf_put_and_wait has a confusing name:
+> it will actually also free it's argument.
+> Thus since commit 1280c27f8e29acf4af2da914e80ec27c3dbd5c01
 
->> +static int vxlan_fill_remotes_info(struct sk_buff *skb,
->> +                                const struct vxlan_dev *vxlan)
->> +{
->> +     struct vxlan_rdst *rd;
->> +     struct nlattr *nest, *rdst_nest;
->> +     __be32 ip;
->> +     int i = 1;
->> +
->> +     if (!vxlan->remotes_cnt)
->> +             return 0;
->> +
->> +     nest = nla_nest_start(skb, IFLA_VXLAN_REMOTES);
->> +     if (nest == NULL)
->> +             goto nla_put_failure;
->> +
->> +     list_for_each_entry_rcu(rd, &vxlan->remotes, list) {
->
->
-> Need RCU read lock here?
+Never reference commits only by SHA1 ID, it is never sufficient.
 
-Why? The remotes list can be modified only via netlink with rtnl_lock held...
+Always provide, after the SHA1 ID, in parenthesis, the header line
+from the commit message.
 
->
->> +             ip = rd->remote_ip;
->> +
->> +             if (ip == vxlan->default_dst.remote_ip)
->> +                     continue;
->> +
->> +             rdst_nest = nla_nest_start(skb, i);
->> +             if (rdst_nest == NULL)
->> +                     goto nla_put_failure;
->> +
->> +             if (nla_put_be32(skb, IFLA_VXLAN_REMOTE_ADDR, ip))
->> +                     goto nla_put_failure;
->> +
->> +             nla_nest_end(skb, rdst_nest);
->> +             i++;
->> +     }
->> +
->> +     nla_nest_end(skb, nest);
->> +
->> +     return 0;
->> +
->> +nla_put_failure:
->> +     return -EMSGSIZE;
->> +}
->> +
->
->
-> Thanks!
->
-> --
-> To unsubscribe from this list: send the line "unsubscribe netdev" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+To be honest, I'm kind of tired of telling people they need to do
+this over and over again.
 
+Maybe people keep forgetting because the reason why this is an issue
+hasn't really sunk in.
 
-
---
-Sincerely yours,
-Mike.
+If the patch you reference got backported into another tree, it will
+not have the SHA1 ID, and therefore someone reading the "fix" won't
+be able to find the fault causing change without going through a lot
+of trouble.  By providing the commit header line you remove that
+problem altogether, no ambiguity is possible.
