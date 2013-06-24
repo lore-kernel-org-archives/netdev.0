@@ -1,69 +1,85 @@
-From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: Re: [PATCH net-next v4 2/2] vxlan: allow specifying multiple default destinations
-Date: Mon, 24 Jun 2013 08:57:55 +0300
-Message-ID: <CAF1J0HOKKZhjs+M++d0LwYBYSexD9Cx84t7MUmu6Gk39PDfXrw@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next v4 1/2] vxlan: introduce vxlan_rdst_append
+Date: Mon, 24 Jun 2013 06:02:37 +0000 (UTC)
+Message-ID: <kq8nds$ao1$1@ger.gmane.org>
 References: <1372004543-24675-1-git-send-email-mike.rapoport@ravellosystems.com>
-	<1372004543-24675-3-git-send-email-mike.rapoport@ravellosystems.com>
-	<20130623171440.439356b7@nehalam.linuxnetplumber.net>
+ <1372004543-24675-2-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog108.obsmtp.com ([74.125.245.84]:58952 "HELO
-	na3sys010aog108.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751155Ab3FXF54 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 01:57:56 -0400
-Received: by mail-ob0-f182.google.com with SMTP id va7so10478185obc.13
-        for <netdev@vger.kernel.org>; Sun, 23 Jun 2013 22:57:55 -0700 (PDT)
-In-Reply-To: <20130623171440.439356b7@nehalam.linuxnetplumber.net>
+Received: from plane.gmane.org ([80.91.229.3]:56933 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751115Ab3FXGD1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jun 2013 02:03:27 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1UqzrZ-0006ip-TD
+	for netdev@vger.kernel.org; Mon, 24 Jun 2013 08:03:23 +0200
+Received: from 60.160.82.190 ([60.160.82.190])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 08:02:53 +0200
+Received: from xiyou.wangcong by 60.160.82.190 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 08:02:53 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 24, 2013 at 3:14 AM, Stephen Hemminger
-<stephen@networkplumber.org> wrote:
-> On Sun, 23 Jun 2013 19:22:23 +0300
-> Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+On Sun, 23 Jun 2013 at 16:22 GMT, Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+> to allow remotes list management for both FDB entries and default
+> destinations
 >
->> A list of multiple default destinations can be used in environments that
->> disable multicast on the infrastructure level, e.g. public clouds.
->>
->> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
->> ---
->>  drivers/net/vxlan.c          | 268 +++++++++++++++++++++++++++++++++++++++++--
->>  include/uapi/linux/if_link.h |  17 +++
->>  2 files changed, 276 insertions(+), 9 deletions(-)
->>
->> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->> index e5fb6568..f57a0d94 100644
->> --- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -103,6 +103,7 @@ struct vxlan_rdst {
->>       u32                      remote_vni;
->>       u32                      remote_ifindex;
->>       struct list_head         list;
->> +     struct rcu_head          rcu;
->>  };
+> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
+> ---
+>  drivers/net/vxlan.c | 14 ++++++++++----
+>  1 file changed, 10 insertions(+), 4 deletions(-)
 >
-> The use of remotes_cnt here is not SMP safe.
-> You are using remotes_cnt to size the buffer for dumping, but then the list
-> of remotes might change during the dump.
-
-The remotes_cnt is used only in netlink callbacks with rtnl_lock held
-and it cannot be modified otherwise, so I don't see why it is not SMP
-safe.
-
-> There a a couple of alternatives here:
-> 1. Put a hard limit on the number of remotes per MAC.
-> 2. When there are multiple destnations, just dump multiple entries, like
->    multipath routing does.
->
-> I prefer #2 because it also allows for a cleaner API on creation.
->
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index 212a256..e5fb6568 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -386,14 +386,13 @@ static struct vxlan_fdb *vxlan_find_mac(struct vxlan_dev *vxlan,
+>  	return f;
+>  }
+>  
+> -/* Add/update destinations for multicast */
+> -static int vxlan_fdb_append(struct vxlan_fdb *f,
+> +static int vxlan_rdst_append(struct list_head *remotes,
+>  			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
 
 
+I think you need to align the above line.
 
---
-Sincerely yours,
-Mike.
+
+>  {
+>  	struct vxlan_rdst *rd;
+>  
+>  	/* protected by vxlan->hash_lock */
+> -	list_for_each_entry(rd, &f->remotes, list) {
+> +	list_for_each_entry(rd, remotes, list) {
+
+This patch is based on Stephen's patches which are not yet merged into
+net-next, right? If so, I think you have to wait. My IPv6 patches are
+pending because of his patches too.
+
+
+>  		if (rd->remote_ip == ip &&
+>  		    rd->remote_port == port &&
+>  		    rd->remote_vni == vni &&
+> @@ -409,11 +408,18 @@ static int vxlan_fdb_append(struct vxlan_fdb *f,
+>  	rd->remote_vni = vni;
+>  	rd->remote_ifindex = ifindex;
+>  
+> -	list_add_tail_rcu(&rd->list, &f->remotes);
+> +	list_add_tail_rcu(&rd->list, remotes);
+>  
+>  	return 1;
+>  }
+>  
+> +/* Add/update destinations for multicast */
+> +static int vxlan_fdb_append(struct vxlan_fdb *f,
+> +			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
+
+You need to align this line too.
