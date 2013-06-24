@@ -1,51 +1,48 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH 22/45] percpu_counter: Use get/put_online_cpus_atomic()
- to prevent CPU offline
-Date: Mon, 24 Jun 2013 11:06:36 -0700
-Message-ID: <20130624180636.GB1918@mtj.dyndns.org>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
- <20130623134256.19094.99231.stgit@srivatsabhat.in.ibm.com>
- <20130624175535.GA1918@mtj.dyndns.org>
+From: Ricardo Landim <ricardolan@gmail.com>
+Subject: Re: UDP splice
+Date: Mon, 24 Jun 2013 15:08:25 -0300
+Message-ID: <CACYKsS4brDSL4gWGV8Aw455qqa-mdhE_=C7pFS-V=qaA7FBa6g@mail.gmail.com>
+References: <CACYKsS7pMFNdBxU2raMphKyb1zU7MEbhc=vsD+FdZ5sgFq71NQ@mail.gmail.com>
+	<1372088554.1896.3.camel@bwh-desktop.uk.level5networks.com>
+	<20130624155154.GD10413@order.stressinduktion.org>
+	<1372089776.1896.9.camel@bwh-desktop.uk.level5networks.com>
+	<20130624170119.GE10413@order.stressinduktion.org>
+	<CACYKsS5uy6nGbtCYit0eNyBSemzimgLrVdUJAgeBmZwDAy7F-A@mail.gmail.com>
+	<1372096418.3301.75.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, peterz@infradead.org, oleg@redhat.com,
-	paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org,
-	laijs@cn.fujitsu.com, rostedt@goodmis.org,
-	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
-	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Al Viro <viro@zeniv.linux.org.uk>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-pm-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130624175535.GA1918@mtj.dyndns.org>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Ben Hutchings <bhutchings@solarflare.com>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oa0-f41.google.com ([209.85.219.41]:38797 "EHLO
+	mail-oa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751817Ab3FXSIZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 14:08:25 -0400
+Received: by mail-oa0-f41.google.com with SMTP id n10so12251184oag.28
+        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 11:08:25 -0700 (PDT)
+In-Reply-To: <1372096418.3301.75.camel@edumazet-glaptop>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 24, 2013 at 10:55:35AM -0700, Tejun Heo wrote:
-> > @@ -105,6 +106,7 @@ s64 __percpu_counter_sum(struct percpu_counter *fbc)
-> >  		ret += *pcount;
-> >  	}
-> >  	raw_spin_unlock(&fbc->lock);
-> > +	put_online_cpus_atomic();
-> 
-> I don't think this is necessary.  CPU on/offlining is explicitly
-> handled via the hotplug callback which synchronizes through fbc->lock.
-> __percpu_counter_sum() racing with actual on/offlining doesn't affect
-> correctness and adding superflous get_online_cpus_atomic() around it
-> can be misleading.
+Help in zero copy and improve in cost of syscalls.
 
-Ah, okay, so you added a debug feature which triggers warning if
-online mask is accessed without synchronization.  Yeah, that makes
-sense and while the above is not strictly necessary, it probably is
-better to just add it rather than suppressing the warning in a
-different way.  Can you please at least add a comment explaining that?
+In my intel xeon(3.3ghz), read udp socket and write udp socket (proxy)
+spends ~40000 cycles (~12 us).
 
-Thanks.
 
--- 
-tejun
+
+2013/6/24 Eric Dumazet <eric.dumazet@gmail.com>:
+> On Mon, 2013-06-24 at 14:09 -0300, Ricardo Landim wrote:
+>> Useful for UDP proxy, mainly for RTP payload including voice (voip)
+>> and video live stream...
+>
+>
+> I really doubt splice could help voip streams, they usually send one
+> small frame every 20 ms. Implementing splice() for such small frame
+> would be not really useful.
+>
+> For video, I would rather use a kernel helper (netfilter/conntrack ?) to
+> avoid userland switch...
+>
+>
+>
