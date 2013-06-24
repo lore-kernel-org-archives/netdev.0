@@ -1,77 +1,62 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/5] netfilter: ipt_ULOG: fix incorrect setting of ulog timer
-Date: Mon, 24 Jun 2013 17:16:26 +0200
-Message-ID: <1372086986-4080-2-git-send-email-pablo@netfilter.org>
-References: <1372086986-4080-1-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 4/5] netfilter: ctnetlink: send event when conntrack label was modified
+Date: Mon, 24 Jun 2013 17:16:25 +0200
+Message-ID: <1372086986-4080-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:51604 "EHLO mail.us.es"
+Received: from mail.us.es ([193.147.175.20]:51597 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752178Ab3FXPQi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 24 Jun 2013 11:16:38 -0400
-In-Reply-To: <1372086986-4080-1-git-send-email-pablo@netfilter.org>
+	id S1752245Ab3FXPQg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 24 Jun 2013 11:16:36 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gao feng <gaofeng@cn.fujitsu.com>
+From: Florian Westphal <fw@strlen.de>
 
-The parameter of setup_timer should be &ulog->nlgroup[i].
-the incorrect parameter will cause kernel panic in
-ulog_timer.
+commit 0ceabd83875b72a29f33db4ab703d6ba40ea4c58
+(netfilter: ctnetlink: deliver labels to userspace) sets the event bit
+when we raced with another packet, instead of raising the event bit
+when the label bit is set for the first time.
 
-Bug introducted in commit 355430671ad93546b34b4e91bdf720f3a704efa4
-"netfilter: ipt_ULOG: add net namespace support for ipt_ULOG"
+commit 9b21f6a90924dfe8e5e686c314ddb441fb06501e
+(netfilter: ctnetlink: allow userspace to modify labels) forgot to update
+the event mask in the "conntrack already exists" case.
 
-ebt_ULOG doesn't have this problem.
+Both issues result in CTA_LABELS attribute not getting included in the
+conntrack event.
 
-[ I have mangled this patch to fix nlgroup != 0 case, we were
-  also crashing there --pablo ]
-
-Tested-by: George Spelvin <linux@horizon.com>
-Reported-by: Borislav Petkov <bp@alien8.de>
-Signed-off-by: Gao feng <gaofeng@cn.fujitsu.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/ipv4/netfilter/ipt_ULOG.c |   12 ++++++++----
- 1 file changed, 8 insertions(+), 4 deletions(-)
+ net/netfilter/nf_conntrack_labels.c  |    2 +-
+ net/netfilter/nf_conntrack_netlink.c |    1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/ipv4/netfilter/ipt_ULOG.c b/net/ipv4/netfilter/ipt_ULOG.c
-index ff4b781..32b0e97 100644
---- a/net/ipv4/netfilter/ipt_ULOG.c
-+++ b/net/ipv4/netfilter/ipt_ULOG.c
-@@ -125,15 +125,16 @@ static void ulog_send(struct ulog_net *ulog, unsigned int nlgroupnum)
- /* timer function to flush queue in flushtimeout time */
- static void ulog_timer(unsigned long data)
- {
-+	unsigned int groupnum = *((unsigned int *)data);
- 	struct ulog_net *ulog = container_of((void *)data,
- 					     struct ulog_net,
--					     nlgroup[*(unsigned int *)data]);
-+					     nlgroup[groupnum]);
- 	pr_debug("timer function called, calling ulog_send\n");
+diff --git a/net/netfilter/nf_conntrack_labels.c b/net/netfilter/nf_conntrack_labels.c
+index 8fe2e99..355d2ef 100644
+--- a/net/netfilter/nf_conntrack_labels.c
++++ b/net/netfilter/nf_conntrack_labels.c
+@@ -45,7 +45,7 @@ int nf_connlabel_set(struct nf_conn *ct, u16 bit)
+ 	if (test_bit(bit, labels->bits))
+ 		return 0;
  
- 	/* lock to protect against somebody modifying our structure
- 	 * from ipt_ulog_target at the same time */
- 	spin_lock_bh(&ulog->lock);
--	ulog_send(ulog, data);
-+	ulog_send(ulog, groupnum);
- 	spin_unlock_bh(&ulog->lock);
- }
+-	if (test_and_set_bit(bit, labels->bits))
++	if (!test_and_set_bit(bit, labels->bits))
+ 		nf_conntrack_event_cache(IPCT_LABEL, ct);
  
-@@ -407,8 +408,11 @@ static int __net_init ulog_tg_net_init(struct net *net)
- 
- 	spin_lock_init(&ulog->lock);
- 	/* initialize ulog_buffers */
--	for (i = 0; i < ULOG_MAXNLGROUPS; i++)
--		setup_timer(&ulog->ulog_buffers[i].timer, ulog_timer, i);
-+	for (i = 0; i < ULOG_MAXNLGROUPS; i++) {
-+		ulog->nlgroup[i] = i;
-+		setup_timer(&ulog->ulog_buffers[i].timer, ulog_timer,
-+			    (unsigned long)&ulog->nlgroup[i]);
-+	}
- 
- 	ulog->nflognl = netlink_kernel_create(net, NETLINK_NFLOG, &cfg);
- 	if (!ulog->nflognl)
+ 	return 0;
+diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
+index 6d0f8a1..ecf065f 100644
+--- a/net/netfilter/nf_conntrack_netlink.c
++++ b/net/netfilter/nf_conntrack_netlink.c
+@@ -1825,6 +1825,7 @@ ctnetlink_new_conntrack(struct sock *ctnl, struct sk_buff *skb,
+ 			nf_conntrack_eventmask_report((1 << IPCT_REPLY) |
+ 						      (1 << IPCT_ASSURED) |
+ 						      (1 << IPCT_HELPER) |
++						      (1 << IPCT_LABEL) |
+ 						      (1 << IPCT_PROTOINFO) |
+ 						      (1 << IPCT_NATSEQADJ) |
+ 						      (1 << IPCT_MARK),
 -- 
 1.7.10.4
