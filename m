@@ -1,46 +1,54 @@
-From: Pawit Pornkitprasan <p.pawit@gmail.com>
-Subject: Re: PROBLEM: Bridging does not work with Mellanox ConnectX-2
- (mlx4_en) card in SR-IOV mode
-Date: Tue, 25 Jun 2013 07:45:33 +0900
-Message-ID: <CAJA5wJRW1gai3pRXRD1fugrXQJxsJ3PDzVkLqWqjxvF-ixAheg@mail.gmail.com>
-References: <CAJA5wJQDRztwtMxJopUWfmqEOH39Xp0g-hCrY8gMZ2TKccSuhw@mail.gmail.com>
-	<CAJZOPZLCG8_zfsP76EnEcGj3nUfP9batXMfvOqsPyNc63JqLSA@mail.gmail.com>
+From: Wedson Almeida Filho <wedsonaf@gmail.com>
+Subject: Re: [PATCH v2] [NET]: Unmap fragment page once iterator is done
+Date: Mon, 24 Jun 2013 15:47:18 -0700
+Message-ID: <CANeycqrPeBvOQeSmRZGcJwCvW=W=Hr+QW8O-99TB_Cqpv5Qr_Q@mail.gmail.com>
+References: <1372055628-27044-1-git-send-email-wedsonaf@gmail.com>
+	<51C820E7.6040004@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Ryousei Takano <takano-ryousei@aist.go.jp>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f175.google.com ([209.85.223.175]:42865 "EHLO
-	mail-ie0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750858Ab3FXWpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 18:45:34 -0400
-Received: by mail-ie0-f175.google.com with SMTP id a13so25901103iee.20
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 15:45:33 -0700 (PDT)
-In-Reply-To: <CAJZOPZLCG8_zfsP76EnEcGj3nUfP9batXMfvOqsPyNc63JqLSA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Thomas Graf <tgraf@suug.ch>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51C820E7.6040004@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 25, 2013 at 4:42 AM, Or Gerlitz <or.gerlitz@gmail.com> wrote:
-> Pawit,
+The summary line of the original commit is "[NET]: Zerocopy sequential
+reading of skb data".
+
+On Mon, Jun 24, 2013 at 3:35 AM, Sergei Shtylyov
+<sergei.shtylyov@cogentembedded.com> wrote:
+> Hello.
 >
-> As Greg indicdated, this (== stetting a bridge over a PF or VF in
-> SRIOV moded) can actually work, if you make sure to use FDB operations
-> to add the VM unicast MAC to the uplink (the mellanox device) tables,
-> this is trivial (google for ndo_fdb_add ...) and should work, let us
-> know if it doesn't.
 >
-
-Thank you. I will try it out.
-
+> On 24-06-2013 10:33, Wedson Almeida Filho wrote:
 >
-> so on 3.10 it "just" doesn't work (but should as I explained above)
-> but on 3.8 you're crashing? can you send the oops listings?
+>> Callers of skb_seq_read() are currently forced to call
+>> skb_abort_seq_read()
+>> even when consuming all the data because the last call to skb_seq_read
+>> (the
+>> one that returns 0 to indicate the end) fails to unmap the last fragment
+>> page.
 >
-
-It just doesn't work on both kernels.
-
-Thank you for your replies,
-Pawit
+>
+>> With this patch callers will be allowed to traverse the SKB data by
+>> calling
+>> skb_prepare_seq_read() once and repeatedly calling skb_seq_read() as
+>> originally
+>> intended (and documented in the original commit 677e90eda), that is, only
+>> call
+>
+>
+>    Please also specify the summary line of that commit.
+>
+>
+>> skb_abort_seq_read() if the sequential read is actually aborted.
+>
+>
+>> Signed-off-by: Wedson Almeida Filho <wedsonaf@gmail.com>
+>
+>
+> WBR, Sergei
+>
