@@ -1,89 +1,99 @@
-From: Or Gerlitz <or.gerlitz@gmail.com>
-Subject: Re: [PATCH net-next] mlx4: allow order-0 memory allocations in RX path
-Date: Mon, 24 Jun 2013 17:10:54 +0300
-Message-ID: <CAJZOPZLH8JEcHdv1v24BOTVd9b76dxKbVJv0127zAgGAPj_3Eg@mail.gmail.com>
-References: <1371757222-21412-1-git-send-email-amirv@mellanox.com>
-	<1371757222-21412-2-git-send-email-amirv@mellanox.com>
-	<1371763689.3252.419.camel@edumazet-glaptop>
-	<51C6B602.20703@mellanox.com>
-	<1372000676.3301.27.camel@edumazet-glaptop>
-	<CAJZOPZ+-StTDm0D-jaeWGfQqOzz5e3C92zPmQf=0_mPV3MukCQ@mail.gmail.com>
-	<1372022003.3301.47.camel@edumazet-glaptop>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [RFC PATCH net-next 1/2] dev: introduce dev_cleanup_skb()
+Date: Mon, 24 Jun 2013 16:13:58 +0200
+Message-ID: <1372083239-9451-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <87y5ijd98e.fsf@xmission.com>
+ <1372083239-9451-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com, bcrl@kvack.org,
+	ravi.mlists@gmail.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qa0-f53.google.com ([209.85.216.53]:51573 "EHLO
-	mail-qa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936Ab3FXOKz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 10:10:55 -0400
-Received: by mail-qa0-f53.google.com with SMTP id g10so2209820qah.5
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 07:10:54 -0700 (PDT)
-In-Reply-To: <1372022003.3301.47.camel@edumazet-glaptop>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:37612 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751112Ab3FXOOU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 10:14:20 -0400
+In-Reply-To: <1372083239-9451-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 24, 2013 at 12:13 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Sun, 2013-06-23 at 23:17 +0300, Or Gerlitz wrote:
->> On Sun, Jun 23, 2013 at 6:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> > Signed-off-by: Eric Dumazet <edumazet@google.com>
->> >
->> > mlx4 exclusively uses order-2 allocations in RX path, which are
->> > likely to fail under memory pressure.
->> >
->> > We therefore drop frames more than needed.
->> >
->> > This patch tries order-3, order-2, order-1 and finally order-0
->> > allocations to keep good performance, yet allow allocations if/when
->> > memory gets fragmented.
->> >
->> > By using larger pages, and avoiding unnecessary get_page()/put_page()
->> > on compound pages, this patch improves performance as well, lowering
->> > false sharing on struct page.
->>
->> Hi Eric, thanks for the patch, both Amir and Yevgeny are OOO, so it
->> will take us a bit more time to conduct the review... but lets start:
->> could you explain a little further what do you exactly refer to by
->> "false sharing" in this context?
->
-> Every time mlx4 prepared a page frag into a skb, it did :
->  - a get_page() in mlx4_en_alloc_frags()
->  - a get_page() in mlx4_en_complete_rx_desc()
->  - a put_page() in mlx4_en_free_frag()
->
-> -> lot of changes of page->_count
->
-> When this skb is consumed, frag is freed -> put_page()
->
-> -> decrement of page->_count
->
-> If the consumer is on a different cpu, this adds false sharing on
-> "struct page"
->
-> After my patch, mlx4 driver touches this "struct page" only once,
-> and the consumers will do their get_page() without being slowed down by
-> mlx4 driver/cpu. This reduces latencies.
->
->>
->> Also, I am not fully sure, but I think the current driver code doesn't
->> support splice and this somehow relates to how RX skbs are spread over
->> pages. In that repsect, I wonder if this patch goes in the direction
->> that would allow to support splice, or maybe takes us a bit back, as
->> of moving to use order-3 allocations?
->
-> splice is supported by core networking, no worries ;)
->
-> It doesn't depend on order-whatever allocations.
->
-> BTW, splice() works well for TCP over loopback, and TX already uses
-> fragments in order-3 pages.
+The goal of this new function is to perform all needed cleanup before sending
+an skb into another netns.
 
-Yep, we've tried fio with splice today on mlx4_en NICs running
-net-next and it works, I am not sure what was that past problem nor
-does it matter too much when things are working now...
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ include/linux/netdevice.h |  1 +
+ net/core/dev.c            | 34 ++++++++++++++++++++++++----------
+ 2 files changed, 25 insertions(+), 10 deletions(-)
 
-Or.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 09b4188..9b72d87 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2321,6 +2321,7 @@ extern int		dev_hard_start_xmit(struct sk_buff *skb,
+ 					    struct netdev_queue *txq);
+ extern int		dev_forward_skb(struct net_device *dev,
+ 					struct sk_buff *skb);
++extern void		dev_cleanup_skb(struct sk_buff *skb);
+ 
+ extern int		netdev_budget;
+ 
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 722f633..d30bc22 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1625,6 +1625,29 @@ static inline bool is_skb_forwardable(struct net_device *dev,
+ }
+ 
+ /**
++ * dev_cleanup_skb - cleanup an skb before sending it to another netns
++ *
++ * @skb: buffer to clean
++ *
++ * dev_cleanup_skb can be used to clean an skb before injecting it in
++ * another namespace. We have to clear all information in the skb that
++ * could impact namespace isolation.
++ */
++void dev_cleanup_skb(struct sk_buff *skb)
++{
++	skb_orphan(skb);
++	skb->tstamp.tv64 = 0;
++	skb->pkt_type = PACKET_HOST;
++	skb->skb_iif = 0;
++	skb_dst_drop(skb);
++	skb->mark = 0;
++	secpath_reset(skb);
++	nf_reset(skb);
++	nf_reset_trace(skb);
++}
++EXPORT_SYMBOL_GPL(dev_cleanup_skb);
++
++/**
+  * dev_forward_skb - loopback an skb to another netif
+  *
+  * @dev: destination network device
+@@ -1652,22 +1675,13 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	skb_orphan(skb);
+-
+ 	if (unlikely(!is_skb_forwardable(dev, skb))) {
+ 		atomic_long_inc(&dev->rx_dropped);
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
+ 	}
+-	skb->skb_iif = 0;
+-	skb_dst_drop(skb);
+-	skb->tstamp.tv64 = 0;
+-	skb->pkt_type = PACKET_HOST;
++	dev_cleanup_skb(skb);
+ 	skb->protocol = eth_type_trans(skb, dev);
+-	skb->mark = 0;
+-	secpath_reset(skb);
+-	nf_reset(skb);
+-	nf_reset_trace(skb);
+ 	return netif_rx(skb);
+ }
+ EXPORT_SYMBOL_GPL(dev_forward_skb);
+-- 
+1.8.2.1
