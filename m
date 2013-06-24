@@ -1,34 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] qlcnic: Do not sleep while holding spinlock
-Date: Mon, 24 Jun 2013 00:29:03 -0700 (PDT)
-Message-ID: <20130624.002903.698113277692903648.davem@davemloft.net>
-References: <1371830982-18172-1-git-send-email-jitendra.kalsaria@qlogic.com>
+From: Julia Lawall <julia.lawall@lip6.fr>
+Subject: Re: [patch] xen-netback: double free on unload
+Date: Mon, 24 Jun 2013 08:31:31 +0100 (BST)
+Message-ID: <alpine.DEB.2.02.1306240830580.2215@hadrien>
+References: <20130621062008.GA10873@elgon.mountain> <20130624.002607.1816906327683052502.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, sony.chacko@qlogic.com,
-	shahed.shaikh@qlogic.com, Dept_NX_Linux_NIC_Driver@qlogic.com
-To: jitendra.kalsaria@qlogic.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37740 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753035Ab3FXH3E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 03:29:04 -0400
-In-Reply-To: <1371830982-18172-1-git-send-email-jitendra.kalsaria@qlogic.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: dan.carpenter@oracle.com, ian.campbell@citrix.com,
+	xen-devel@lists.xensource.com, netdev@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20130624.002607.1816906327683052502.davem@davemloft.net>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
-Date: Fri, 21 Jun 2013 12:09:42 -0400
+On Mon, 24 Jun 2013, David Miller wrote:
 
-> From: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> 
-> This patch reverts commit a4791254b6625b06aa33e36304f6e8a1a4a1fdea
-> ("qlcnic: change mdelay to msleep") which overwrote a commit
-> 68b3f28c11bf896be32ad2a2e151aaa5f4a7c98e
-> ("qlcnic: Fix scheduling while atomic bug")
-> 
-> Signed-off-by: Shahed Shaikh <shahed.shaikh@qlogic.com>
-> Signed-off-by: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>
+> From: Dan Carpenter <dan.carpenter@oracle.com>
+> Date: Fri, 21 Jun 2013 09:20:08 +0300
+>
+> > There is a typo here, "i" vs "j", so we would crash on module_exit().
+> >
+> > Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+> Please always explicitly state the tree for which a patch is
+> applicable.
+>
+> Here I figured it out by trial an error, trying to apply it
+> to 'net' (where it failed) and then 'net-next' (where it
+> applied cleanly).
+>
+> I should never have to play patch monkey games like that, you
+> need to tell me where a patch is targetted.
 
-Applied.
+Shouldn't one always, by default, work on linux-next?
+
+julia
