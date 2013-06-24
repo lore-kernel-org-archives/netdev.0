@@ -1,68 +1,57 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] rtlwifi: rtl8723ae: Fix typo in firmware names
-Date: Sun, 23 Jun 2013 18:14:43 -0500
-Message-ID: <1372029283-20824-1-git-send-email-Larry.Finger@lwfinger.net>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v4 2/2] vxlan: allow specifying multiple
+ default destinations
+Date: Sun, 23 Jun 2013 17:14:40 -0700
+Message-ID: <20130623171440.439356b7@nehalam.linuxnetplumber.net>
+References: <1372004543-24675-1-git-send-email-mike.rapoport@ravellosystems.com>
+	<1372004543-24675-3-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-wireless@vger.kernel.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	netdev@vger.kernel.org,
-	=?UTF-8?q?Axel=20K=C3=B6llhofer?= <AxelKoellhofer@web.de>,
-	Stable <stable@vger.kernel.org>
-To: linville@tuxdriver.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Thomas Graf <tgraf@suug.ch>
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yh0-f46.google.com ([209.85.213.46]:39168 "EHLO
-	mail-yh0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752002Ab3FWXPG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 19:15:06 -0400
+Received: from mail-pb0-f67.google.com ([209.85.160.67]:38490 "EHLO
+	mail-pb0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751617Ab3FXAOp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 23 Jun 2013 20:14:45 -0400
+Received: by mail-pb0-f67.google.com with SMTP id rr13so5079870pbb.6
+        for <netdev@vger.kernel.org>; Sun, 23 Jun 2013 17:14:44 -0700 (PDT)
+In-Reply-To: <1372004543-24675-3-git-send-email-mike.rapoport@ravellosystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The driver loads its firmware from files rtlwifi/rtl8723fw*.bin, but th=
-e
-MODULE_FIRMWARE macros refer to rtlwifi/RTL8723aefw*.bin.
+On Sun, 23 Jun 2013 19:22:23 +0300
+Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
 
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Stable <stable@vger.kernel.org>  [3.8+]
-Reported-by: Axel K=C3=B6llhofer <AxelKoellhofer@web.de>
----
+> A list of multiple default destinations can be used in environments that
+> disable multicast on the infrastructure level, e.g. public clouds.
+> 
+> Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
+> ---
+>  drivers/net/vxlan.c          | 268 +++++++++++++++++++++++++++++++++++++++++--
+>  include/uapi/linux/if_link.h |  17 +++
+>  2 files changed, 276 insertions(+), 9 deletions(-)
+> 
+> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
+> index e5fb6568..f57a0d94 100644
+> --- a/drivers/net/vxlan.c
+> +++ b/drivers/net/vxlan.c
+> @@ -103,6 +103,7 @@ struct vxlan_rdst {
+>  	u32			 remote_vni;
+>  	u32			 remote_ifindex;
+>  	struct list_head	 list;
+> +	struct rcu_head		 rcu;
+>  };
 
-John,
+The use of remotes_cnt here is not SMP safe.
+You are using remotes_cnt to size the buffer for dumping, but then the list
+of remotes might change during the dump.
 
-This patch can be pushed to the 3.11 stream. It is a bug, but it has
-little consequence.
+There a a couple of alternatives here:
+1. Put a hard limit on the number of remotes per MAC.
+2. When there are multiple destnations, just dump multiple entries, like
+   multipath routing does.
 
-Larry
----
- drivers/net/wireless/rtlwifi/rtl8723ae/sw.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c b/drivers/net/=
-wireless/rtlwifi/rtl8723ae/sw.c
-index e4c4cdc..d9ee2ef 100644
---- a/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
-+++ b/drivers/net/wireless/rtlwifi/rtl8723ae/sw.c
-@@ -251,7 +251,7 @@ static struct rtl_hal_cfg rtl8723ae_hal_cfg =3D {
- 	.bar_id =3D 2,
- 	.write_readback =3D true,
- 	.name =3D "rtl8723ae_pci",
--	.fw_name =3D "rtlwifi/rtl8723aefw.bin",
-+	.fw_name =3D "rtlwifi/rtl8723fw.bin",
- 	.ops =3D &rtl8723ae_hal_ops,
- 	.mod_params =3D &rtl8723ae_mod_params,
- 	.maps[SYS_ISO_CTRL] =3D REG_SYS_ISO_CTRL,
-@@ -353,8 +353,8 @@ MODULE_AUTHOR("Realtek WlanFAE	<wlanfae@realtek.com=
->");
- MODULE_AUTHOR("Larry Finger	<Larry.Finger@lwfinger.net>");
- MODULE_LICENSE("GPL");
- MODULE_DESCRIPTION("Realtek 8723E 802.11n PCI wireless");
--MODULE_FIRMWARE("rtlwifi/rtl8723aefw.bin");
--MODULE_FIRMWARE("rtlwifi/rtl8723aefw_B.bin");
-+MODULE_FIRMWARE("rtlwifi/rtl8723fw.bin");
-+MODULE_FIRMWARE("rtlwifi/rtl8723fw_B.bin");
-=20
- module_param_named(swenc, rtl8723ae_mod_params.sw_crypto, bool, 0444);
- module_param_named(debug, rtl8723ae_mod_params.debug, int, 0444);
---=20
-1.8.1.4
+I prefer #2 because it also allows for a cleaner API on creation.
