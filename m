@@ -1,66 +1,54 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: UDP splice
-Date: Mon, 24 Jun 2013 17:02:56 +0100
-Message-ID: <1372089776.1896.9.camel@bwh-desktop.uk.level5networks.com>
-References: <CACYKsS7pMFNdBxU2raMphKyb1zU7MEbhc=vsD+FdZ5sgFq71NQ@mail.gmail.com>
-	 <1372088554.1896.3.camel@bwh-desktop.uk.level5networks.com>
-	 <20130624155154.GD10413@order.stressinduktion.org>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] tehuti: using uninitialized data in bdx_ioctl_priv()
+Date: Mon, 24 Jun 2013 19:05:03 +0300
+Message-ID: <20130624160503.GC31984@elgon.mountain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Ricardo Landim <ricardolan@gmail.com>, <netdev@vger.kernel.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:13503 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750884Ab3FXQDB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 12:03:01 -0400
-In-Reply-To: <20130624155154.GD10413@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Andy Gospodarek <andy@greyhouse.net>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2013-06-24 at 17:51 +0200, Hannes Frederic Sowa wrote:
-> On Mon, Jun 24, 2013 at 04:42:34PM +0100, Ben Hutchings wrote:
-> > On Fri, 2013-06-21 at 07:04 -0300, Ricardo Landim wrote:
-> > > Hi folks,
-> > > 
-> > > I am developing a RTP proxy for voip applications and tried use the
-> > > splice syscall
-> > > for zero copy. I am trying splice udp data to pipe and splice pipe to udp
-> > > socket.
-> > > 
-> > > I read some information of the splice function and reading the kernel
-> > > source code I saw this lines in net/ipv4/af_inet.c
-> > > 
-> > > const struct proto_ops inet_stream_ops = {
-> > > ...
-> > >     .splice_read = tcp_splice_read,
-> > > ...
-> > > }
-> > > 
-> > > const struct proto_ops inet_dgram_ops = {
-> > > ...
-> > > ...
-> > > }
-> > > 
-> > > There is an implementation of splice for TCP socket but not for UDP socket.
-> > > 
-> > > My question is: there is some limitation in UDP socket that prevents this
-> > > implementation?
-> > 
-> > splice() works with streams, but UDP is a message-oriented protocol.
-> > How would a UDP implementation of splice() decide where to put the
-> > message boundaries, or to distinguish the messages?
-> 
-> Splicing a pipe to udp socket should work nontheless. Splicing from udp socket
-> to pipe does not work.
+If we "cmd == SIOCDEVPRIVATE" then we use data[] without initializing
+it.  The most common case is that we would return -EOPNOTSUPP.  The
+other case is that we'd end up reading and writing to randomish places.
+This requires CAP_SYS_RAWIO so it's not very bad.
 
-Should it?  I suppose it could work for UDP-based protocols that include
-their own framing, but I can't see that it's generally useful.
+The fix is to not allow SIOCDEVPRIVATE because it doesn't work.  I
+returned -EOPNOTSUPP instead of -ENOTTY because that's what is used in
+the rest of the file.
 
-Ben.
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+This bug is several years old.
 
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+diff --git a/drivers/net/ethernet/tehuti/tehuti.c b/drivers/net/ethernet/tehuti/tehuti.c
+index 571452e..5d08f38 100644
+--- a/drivers/net/ethernet/tehuti/tehuti.c
++++ b/drivers/net/ethernet/tehuti/tehuti.c
+@@ -647,14 +647,16 @@ static int bdx_ioctl_priv(struct net_device *ndev, struct ifreq *ifr, int cmd)
+ 	ENTER;
+ 
+ 	DBG("jiffies=%ld cmd=%d\n", jiffies, cmd);
+-	if (cmd != SIOCDEVPRIVATE) {
+-		error = copy_from_user(data, ifr->ifr_data, sizeof(data));
+-		if (error) {
+-			pr_err("can't copy from user\n");
+-			RET(-EFAULT);
+-		}
+-		DBG("%d 0x%x 0x%x\n", data[0], data[1], data[2]);
++
++	if (cmd == SIOCDEVPRIVATE)
++		RET(-EOPNOTSUPP);
++
++	error = copy_from_user(data, ifr->ifr_data, sizeof(data));
++	if (error) {
++		pr_err("can't copy from user\n");
++		RET(-EFAULT);
+ 	}
++	DBG("%d 0x%x 0x%x\n", data[0], data[1], data[2]);
+ 
+ 	if (!capable(CAP_SYS_RAWIO))
+ 		return -EPERM;
