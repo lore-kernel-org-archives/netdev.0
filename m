@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 45/45] tile: Use get/put_online_cpus_atomic() to prevent
+Subject: [PATCH v2 44/45] sparc: Use get/put_online_cpus_atomic() to prevent
  CPU offline
-Date: Wed, 26 Jun 2013 02:04:00 +0530
-Message-ID: <20130625203400.16593.86066.stgit@srivatsabhat.in.ibm.com>
+Date: Wed, 26 Jun 2013 02:03:53 +0530
+Message-ID: <20130625203353.16593.20506.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,7 +13,11 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Chris Metcalf <cmetcalf@tilera.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Sam Ravnborg <sam@ravnborg.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Dave Kleikamp <dave.kleikamp@oracle.com>,
+	sparclinux@vger.kernel.org,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -31,126 +35,80 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: Chris Metcalf <cmetcalf@tilera.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Sam Ravnborg <sam@ravnborg.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Dave Kleikamp <dave.kleikamp@oracle.com>
+Cc: sparclinux@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/tile/kernel/module.c |    3 +++
- arch/tile/kernel/tlb.c    |   15 +++++++++++++++
- arch/tile/mm/homecache.c  |    3 +++
- 3 files changed, 21 insertions(+)
+ arch/sparc/kernel/smp_64.c |   12 ++++++++----
+ 1 file changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/arch/tile/kernel/module.c b/arch/tile/kernel/module.c
-index 4918d91..db7d858 100644
---- a/arch/tile/kernel/module.c
-+++ b/arch/tile/kernel/module.c
-@@ -20,6 +20,7 @@
- #include <linux/fs.h>
- #include <linux/string.h>
- #include <linux/kernel.h>
-+#include <linux/cpu.h>
- #include <asm/pgtable.h>
- #include <asm/homecache.h>
- #include <arch/opcode.h>
-@@ -79,8 +80,10 @@ void module_free(struct module *mod, void *module_region)
- 	vfree(module_region);
- 
- 	/* Globally flush the L1 icache. */
-+	get_online_cpus_atomic();
- 	flush_remote(0, HV_FLUSH_EVICT_L1I, cpu_online_mask,
- 		     0, 0, 0, NULL, NULL, 0);
-+	put_online_cpus_atomic();
- 
- 	/*
- 	 * FIXME: If module_region == mod->module_init, trim exception
-diff --git a/arch/tile/kernel/tlb.c b/arch/tile/kernel/tlb.c
-index 3fd54d5..a32b9dd 100644
---- a/arch/tile/kernel/tlb.c
-+++ b/arch/tile/kernel/tlb.c
-@@ -14,6 +14,7 @@
-  */
- 
- #include <linux/cpumask.h>
-+#include <linux/cpu.h>
- #include <linux/module.h>
- #include <linux/hugetlb.h>
- #include <asm/tlbflush.h>
-@@ -35,6 +36,8 @@ void flush_tlb_mm(struct mm_struct *mm)
+diff --git a/arch/sparc/kernel/smp_64.c b/arch/sparc/kernel/smp_64.c
+index 77539ed..4f71a95 100644
+--- a/arch/sparc/kernel/smp_64.c
++++ b/arch/sparc/kernel/smp_64.c
+@@ -792,7 +792,9 @@ static void smp_cross_call_masked(unsigned long *func, u32 ctx, u64 data1, u64 d
+ /* Send cross call to all processors except self. */
+ static void smp_cross_call(unsigned long *func, u32 ctx, u64 data1, u64 data2)
  {
- 	HV_Remote_ASID asids[NR_CPUS];
- 	int i = 0, cpu;
-+
 +	get_online_cpus_atomic();
- 	for_each_cpu(cpu, mm_cpumask(mm)) {
- 		HV_Remote_ASID *asid = &asids[i++];
- 		asid->y = cpu / smp_topology.width;
-@@ -43,6 +46,7 @@ void flush_tlb_mm(struct mm_struct *mm)
+ 	smp_cross_call_masked(func, ctx, data1, data2, cpu_online_mask);
++	put_online_cpus_atomic();
+ }
+ 
+ extern unsigned long xcall_sync_tick;
+@@ -896,7 +898,7 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
+ 	atomic_inc(&dcpage_flushes);
+ #endif
+ 
+-	this_cpu = get_cpu();
++	this_cpu = get_online_cpus_atomic();
+ 
+ 	if (cpu == this_cpu) {
+ 		__local_flush_dcache_page(page);
+@@ -922,7 +924,7 @@ void smp_flush_dcache_page_impl(struct page *page, int cpu)
+ 		}
  	}
- 	flush_remote(0, HV_FLUSH_EVICT_L1I, mm_cpumask(mm),
- 		     0, 0, 0, NULL, asids, i);
+ 
+-	put_cpu();
 +	put_online_cpus_atomic();
  }
  
- void flush_tlb_current_task(void)
-@@ -55,8 +59,11 @@ void flush_tlb_page_mm(struct vm_area_struct *vma, struct mm_struct *mm,
+ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
+@@ -933,7 +935,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
+ 	if (tlb_type == hypervisor)
+ 		return;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 
+ #ifdef CONFIG_DEBUG_DCFLUSH
+ 	atomic_inc(&dcpage_flushes);
+@@ -958,7 +960,7 @@ void flush_dcache_page_all(struct mm_struct *mm, struct page *page)
+ 	}
+ 	__local_flush_dcache_page(page);
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ void __irq_entry smp_new_mmu_context_version_client(int irq, struct pt_regs *regs)
+@@ -1150,6 +1152,7 @@ void smp_capture(void)
  {
- 	unsigned long size = vma_kernel_pagesize(vma);
- 	int cache = (vma->vm_flags & VM_EXEC) ? HV_FLUSH_EVICT_L1I : 0;
-+
-+	get_online_cpus_atomic();
- 	flush_remote(0, cache, mm_cpumask(mm),
- 		     va, size, size, mm_cpumask(mm), NULL, 0);
-+	put_online_cpus_atomic();
- }
+ 	int result = atomic_add_ret(1, &smp_capture_depth);
  
- void flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
-@@ -71,13 +78,18 @@ void flush_tlb_range(struct vm_area_struct *vma,
- 	unsigned long size = vma_kernel_pagesize(vma);
- 	struct mm_struct *mm = vma->vm_mm;
- 	int cache = (vma->vm_flags & VM_EXEC) ? HV_FLUSH_EVICT_L1I : 0;
-+
 +	get_online_cpus_atomic();
- 	flush_remote(0, cache, mm_cpumask(mm), start, end - start, size,
- 		     mm_cpumask(mm), NULL, 0);
-+	put_online_cpus_atomic();
- }
+ 	if (result == 1) {
+ 		int ncpus = num_online_cpus();
  
- void flush_tlb_all(void)
- {
- 	int i;
-+
-+	get_online_cpus_atomic();
- 	for (i = 0; ; ++i) {
- 		HV_VirtAddrRange r = hv_inquire_virtual(i);
- 		if (r.size == 0)
-@@ -89,10 +101,13 @@ void flush_tlb_all(void)
- 			     r.start, r.size, HPAGE_SIZE, cpu_online_mask,
- 			     NULL, 0);
+@@ -1166,6 +1169,7 @@ void smp_capture(void)
+ 		printk("done\n");
+ #endif
  	}
 +	put_online_cpus_atomic();
  }
  
- void flush_tlb_kernel_range(unsigned long start, unsigned long end)
- {
-+	get_online_cpus_atomic();
- 	flush_remote(0, HV_FLUSH_EVICT_L1I, cpu_online_mask,
- 		     start, end - start, PAGE_SIZE, cpu_online_mask, NULL, 0);
-+	put_online_cpus_atomic();
- }
-diff --git a/arch/tile/mm/homecache.c b/arch/tile/mm/homecache.c
-index 1ae9119..7ff5bf0 100644
---- a/arch/tile/mm/homecache.c
-+++ b/arch/tile/mm/homecache.c
-@@ -397,9 +397,12 @@ void homecache_change_page_home(struct page *page, int order, int home)
- 	BUG_ON(page_count(page) > 1);
- 	BUG_ON(page_mapcount(page) != 0);
- 	kva = (unsigned long) page_address(page);
-+
-+	get_online_cpus_atomic();
- 	flush_remote(0, HV_FLUSH_EVICT_L2, &cpu_cacheable_map,
- 		     kva, pages * PAGE_SIZE, PAGE_SIZE, cpu_online_mask,
- 		     NULL, 0);
-+	put_online_cpus_atomic();
- 
- 	for (i = 0; i < pages; ++i, kva += PAGE_SIZE) {
- 		pte_t *ptep = virt_to_pte(NULL, kva);
+ void smp_release(void)
