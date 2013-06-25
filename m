@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 32/45] blackfin/smp: Use get/put_online_cpus_atomic() to
+Subject: [PATCH v2 33/45] cris/smp: Use get/put_online_cpus_atomic() to
  prevent CPU offline
-Date: Wed, 26 Jun 2013 02:01:32 +0530
-Message-ID: <20130625203131.16593.32081.stgit@srivatsabhat.in.ibm.com>
+Date: Wed, 26 Jun 2013 02:01:51 +0530
+Message-ID: <20130625203151.16593.6198.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,10 +13,10 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Mike Frysinger <vapier@gentoo.org>,
-	Bob Liu <lliubbo@gmail.com>, Steven Miao <realmz6@gmail.com>,
+	Jesper Nilsson <jesper.nilsson@axis.com>,
+	Mikael Starvik <starvik@axis.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
-	uclinux-dist-devel@blackfin.uclinux.org,
+	linux-cris-kernel@axis.com,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -34,34 +34,54 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: Mike Frysinger <vapier@gentoo.org>
-Cc: Bob Liu <lliubbo@gmail.com>
-Cc: Steven Miao <realmz6@gmail.com>
+Acked-by: Jesper Nilsson <jesper.nilsson@axis.com>
+Cc: Mikael Starvik <starvik@axis.com>
 Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: uclinux-dist-devel@blackfin.uclinux.org
+Cc: linux-cris-kernel@axis.com
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/blackfin/mach-common/smp.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ arch/cris/arch-v32/kernel/smp.c |    5 +++++
+ 1 file changed, 5 insertions(+)
 
-diff --git a/arch/blackfin/mach-common/smp.c b/arch/blackfin/mach-common/smp.c
-index 1bc2ce6..11496cd 100644
---- a/arch/blackfin/mach-common/smp.c
-+++ b/arch/blackfin/mach-common/smp.c
-@@ -238,13 +238,13 @@ void smp_send_stop(void)
- {
- 	cpumask_t callmap;
+diff --git a/arch/cris/arch-v32/kernel/smp.c b/arch/cris/arch-v32/kernel/smp.c
+index cdd1202..b2d4612 100644
+--- a/arch/cris/arch-v32/kernel/smp.c
++++ b/arch/cris/arch-v32/kernel/smp.c
+@@ -13,6 +13,7 @@
+ #include <linux/init.h>
+ #include <linux/timex.h>
+ #include <linux/sched.h>
++#include <linux/cpu.h>
+ #include <linux/kernel.h>
+ #include <linux/cpumask.h>
+ #include <linux/interrupt.h>
+@@ -222,6 +223,7 @@ void flush_tlb_common(struct mm_struct* mm, struct vm_area_struct* vma, unsigned
+ 	unsigned long flags;
+ 	cpumask_t cpu_mask;
  
--	preempt_disable();
 +	get_online_cpus_atomic();
- 	cpumask_copy(&callmap, cpu_online_mask);
- 	cpumask_clear_cpu(smp_processor_id(), &callmap);
- 	if (!cpumask_empty(&callmap))
- 		send_ipi(&callmap, BFIN_IPI_CPU_STOP);
+ 	spin_lock_irqsave(&tlbstate_lock, flags);
+ 	cpu_mask = (mm == FLUSH_ALL ? cpu_all_mask : *mm_cpumask(mm));
+ 	cpumask_clear_cpu(smp_processor_id(), &cpu_mask);
+@@ -230,6 +232,7 @@ void flush_tlb_common(struct mm_struct* mm, struct vm_area_struct* vma, unsigned
+ 	flush_addr = addr;
+ 	send_ipi(IPI_FLUSH_TLB, 1, cpu_mask);
+ 	spin_unlock_irqrestore(&tlbstate_lock, flags);
++	put_online_cpus_atomic();
+ }
  
--	preempt_enable();
+ void flush_tlb_all(void)
+@@ -319,10 +322,12 @@ int smp_call_function(void (*func)(void *info), void *info, int wait)
+ 	data.info = info;
+ 	data.wait = wait;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock(&call_lock);
+ 	call_data = &data;
+ 	ret = send_ipi(IPI_CALL, wait, cpu_mask);
+ 	spin_unlock(&call_lock);
 +	put_online_cpus_atomic();
  
- 	return;
+ 	return ret;
  }
