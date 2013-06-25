@@ -1,130 +1,1165 @@
-From: Arvid Brodin <arvid.brodin@xdin.com>
-Subject: Re: [PATCH] net/hsr: Add support for the High-availability Seamless
- Redundancy protocol (HSRv0)
-Date: Tue, 25 Jun 2013 23:16:40 +0200
-Message-ID: <51CA08B8.9030001@xdin.com>
-References: <51C87746.1010002@xdin.com> <1372097797.1245.12.camel@joe-AO722>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: oops in udpv6_sendmsg
+Date: Tue, 25 Jun 2013 23:28:51 +0200
+Message-ID: <20130625212851.GA20081@order.stressinduktion.org>
+References: <20130329184006.GA23893@redhat.com> <1364582958.5113.49.camel@edumazet-glaptop> <1364865839.5113.165.camel@edumazet-glaptop> <20130417010213.GA9027@redhat.com> <1366164132.3205.21.camel@edumazet-glaptop> <20130417141138.GA17648@redhat.com> <1366208856.3205.23.camel@edumazet-glaptop> <1366214751.3205.29.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Stephen Hemminger <shemminger@vyatta.com>,
-	Javier Boticario <jboticario@gmail.com>,
-	balferreira <balferreira@googlemail.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=utf-8
+Cc: Dave Jones <davej@redhat.com>, David Miller <davem@davemloft.net>,
+	netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from spam1.webland.se ([91.207.112.90]:51377 "EHLO spam1.webland.se"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750971Ab3FYV0A (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jun 2013 17:26:00 -0400
-In-Reply-To: <1372097797.1245.12.camel@joe-AO722>
+Received: from order.stressinduktion.org ([87.106.68.36]:37610 "EHLO
+	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751102Ab3FYV2y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 17:28:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1366214751.3205.29.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2013-06-24 20:16, Joe Perches wrote:
-> On Mon, 2013-06-24 at 18:43 +0200, Arvid Brodin wrote:
->> High-availability Seamless Redundancy ("HSR") provides instant failo=
-ver
->> redundancy for Ethernet networks. It requires a special network topo=
-logy where
->> all nodes are connected in a ring (each node having two physical net=
-work
->> interfaces). It is suited for applications that demand high availabi=
-lity and
->> very short reaction time.
->=20
-> trivia:
->=20
-> You should probably use checkpatch.pl --strict for files in net.
-> It will suggest aligning arguments in the more common net style.
+On Wed, Apr 17, 2013 at 09:05:51AM -0700, Eric Dumazet wrote:
+> On Wed, 2013-04-17 at 07:27 -0700, Eric Dumazet wrote:
+> > On Wed, 2013-04-17 at 10:11 -0400, Dave Jones wrote:
+> > > On Tue, Apr 16, 2013 at 07:02:12PM -0700, Eric Dumazet wrote:
+> > 
+> > > good news is that with some changes, I was able to make current
+> > > trinity reproduce this in seconds rather than hours..
+> > > 
+> > > ./trinity -q -l off -n -c sendmsg -c connect 
+> > > 
+> > > on current tree seems to reliably trigger it for me.
+> > 
+> > Good new indeed, I got a crash in 2 seconds
+> > 
+> > (have to reproduce it because I lost the console output)
+> > 
+> > 
+> 
+> Hmm, sk_dst_get() assumes dst are always freed after RCU grace period,
+> but it seems not the case with IPv6.
+> 
+> We should atomically set dst->__refcnt to -1 before RCU grace period and
+> final destruction, then sk_dst_get should do something like :
+> 
+> rcu_read_lock();
+> dst = rcu_dereference(sk->sk_dst_cache); 
+> if (dst && !atomic_add_unless(&dst->__refcnt, 1, -1))
+> 	dst = NULL;
+> rcu_read_unlock();
+> 
+> Ie we should not increment dst->__refcnt if the dst is in dismantle
+> phase.
 
-Does this mean I should also remove spaces after casts (IMO this would =
-reduce readability
-somewhat)?
+I just took a look at this bug and enhanced the dst_hold etc. functions
+with some debugging printks. I wanted to share this early, because perhaps
+someone can see some irregularities (some more comments below this dump):
 
+[   80.807173] dst_release: dst ffff880114068000 refcnt 17 function ip6_cork_release
+[   80.809775] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   81.604175] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function __sk_dst_check
+[   81.611478] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function tcp_current_mss
+[   81.622428] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function tcp_advertise_mss
+[   81.626798] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function __sk_dst_check
+[   81.764696] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   81.768158] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   81.778506] dst_hold: dst ffff880114068000 refcnt 19 function _sk_dst_get
+[   81.782090] sk_dst_get: dst ffff880114068000 refcnt 19 function sk_dst_check
+[   81.787947] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   81.804736] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   81.814451] dst_release: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   81.820629] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   81.826188] dst_hold: dst ffff880114068000 refcnt 19 function ip6_append_data
+[   81.832156] dst_clone: dst ffff880114068000 refcnt 20 function ip6_push_pending_frames
+[   81.843214] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   81.853416] dst_release: dst ffff880114068000 refcnt 20 function icmpv6_xrlim_allow
+[   81.856524] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   81.862571] dst_hold: dst ffff880114068000 refcnt 22 function ip6_pol_route
+[   81.881521] dst_release: dst ffff880114068000 refcnt 21 function xfrm_lookup
+[   81.889756] dst_hold: dst ffff880114068000 refcnt 22 function ip6_append_data
+[   81.910315] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   81.910327] dst_hold: dst ffff8800d8804b40 refcnt 10 function __mkroute_output
+[   81.910329] dst_release: dst ffff8800d8804b40 refcnt 9 function ip_rt_put
+[   81.910333] dst_hold: dst ffff8800d8804b40 refcnt 10 function __mkroute_output
+[   81.910337] __sk_dst_set: old           (null) new ffff8800d8804b40 function ip4_datagram_connect
+[   81.973225] dst_clone: dst ffff880114068000 refcnt 23 function ip6_push_pending_frames
+[   81.981574] dst_release: dst ffff880114068000 refcnt 22 function ip6_cork_release
+[   81.999834] dst_release: dst ffff880114068000 refcnt 21 function icmp6_send
+[   82.003502] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   82.003524] dst_release: dst ffff8800d8805440 refcnt 0 function ip_rt_put
+[   82.003556] dst_release: dst ffff8800d8805440 refcnt 0 function ip_rt_put
+[   82.006106] dst_hold: dst ffff880114068000 refcnt 22 function _sk_dst_get
+[   82.006107] sk_dst_get: dst ffff880114068000 refcnt 22 function sk_dst_check
+[   82.006110] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   82.006111] dst_release: dst ffff880114068000 refcnt 21 function ____sk_dst_set
+[   82.006113] dst_release: dst ffff880114068000 refcnt 20 function sk_dst_check
+[   82.006120] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   82.006128] dst_hold: dst ffff880114068000 refcnt 22 function ip6_append_data
+[   82.006159] dst_release: dst ffff880114068000 refcnt 21 function udpv6_sendmsg
+[   82.085030] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   82.087515] dst_release: dst ffff880114068000 refcnt 19 function ip6_cork_release
+[   82.094058] dst_release: dst ffff880114068000 refcnt 18 function refdst_drop
+[   82.099239] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   82.111871] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   82.115722] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   82.120082] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_connect_init
+[   82.130363] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_mss_to_mtu
+[   82.136394] __sk_dst_get: dst ffff880114068000 refcnt 19 function __tcp_mtu_to_mss
+[   82.143182] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_advertise_mss
+[   82.152812] __sk_dst_get: dst ffff880114068000 refcnt 19 function __sk_dst_check
+[   82.158153] dst_release: dst ffff880114068000 refcnt 18 function __sk_dst_check
+[   82.165055] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   82.170648] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   82.180389] dst_clone: dst ffff880114068000 refcnt 20 function skb_dst_force
+[   82.184891] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   82.189581] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   82.193964] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   82.207114] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   82.211582] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   82.241403] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   82.244473] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   82.246889] dst_release: dst ffff8800d8804240 refcnt 8 function ip_rt_put
+[   82.249532] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   82.253441] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[   83.291530] dst_hold: dst ffff880114068000 refcnt 19 function _sk_dst_get
+[   83.298829] sk_dst_get: dst ffff880114068000 refcnt 19 function sk_dst_check
+[   83.302652] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   83.324808] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   83.379074] dst_release: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   83.416260] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   83.430071] dst_hold: dst ffff880114068000 refcnt 19 function ip6_append_data
+[   83.432666] dst_release: dst ffff880114068000 refcnt 18 function ip6_cork_release
+[   83.437043] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   83.463002] __sk_dst_set: old ffff8800d8804d80 new           (null) function __sk_dst_reset
+[   83.466230] dst_release: dst ffff8800d8804d80 refcnt 4 function ____sk_dst_set
+[   83.468787] __sk_dst_set: old           (null) new ffff8800d8805440 function ip4_datagram_connect
+[   83.480071] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   83.484086] dst_release: dst ffff8800d8805200 refcnt 0 function ip_rt_put
+[   83.494206] __sk_dst_set: old           (null) new ffff8800d8805200 function ip4_datagram_connect
+[   83.504156] __sk_dst_get: dst ffff8800d8805200 refcnt 1 function ip4_datagram_release_cb
+[   83.509190] __sk_dst_get: dst ffff8800d8805200 refcnt 1 function __sk_dst_check
+[   83.534480] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   83.537165] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   83.541757] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_connect_init
+[   83.545957] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_mss_to_mtu
+[   83.549792] __sk_dst_get: dst ffff880114068000 refcnt 19 function __tcp_mtu_to_mss
+[   83.563981] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_advertise_mss
+[   83.568356] __sk_dst_get: dst ffff880114068000 refcnt 19 function __sk_dst_check
+[   83.571697] dst_release: dst ffff880114068000 refcnt 18 function __sk_dst_check
+[   83.574800] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   83.577306] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   83.580177] dst_clone: dst ffff880114068000 refcnt 20 function skb_dst_force
+[   83.582670] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   83.584943] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   83.587487] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   83.590054] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   83.592927] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   83.640383] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function dst_negative_advice
+[   83.642334] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[   83.644097] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_current_mss
+[   83.647324] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_advertise_mss
+[   83.650720] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[   84.624413] dst_release: dst ffff8800d8804fc0 refcnt 0 function refdst_drop
+[   84.631512] __sk_dst_get: dst ffff8800d8804000 refcnt 1 function ip4_datagram_release_cb
+[   84.643745] __sk_dst_get: dst ffff8800d8804000 refcnt 1 function __sk_dst_check
+[   84.687738] dst_hold: dst ffff8800d8804240 refcnt 10 function _sk_dst_get
+[   84.693166] sk_dst_get: dst ffff8800d8804240 refcnt 10 function sk_dst_check
+[   84.698164] dst_release: dst ffff8800d8804240 refcnt 9 function refdst_drop
+[   84.747269] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   84.754080] __sk_dst_set: old ffff880114068000 new ffff880114068000 function sk_setup_caps
+[   84.762031] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   84.783351] dst_hold: dst ffff8800d8804b40 refcnt 11 function _sk_dst_get
+[   84.785781] sk_dst_get: dst ffff8800d8804b40 refcnt 11 function sk_dst_check
+[   84.788249] dst_release: dst ffff8800d8804b40 refcnt 10 function ip6_sk_dst_check
+[   84.790789] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   84.793159] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   84.795534] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   84.797873] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   84.800207] dst_hold: dst ffff88011466bb10 refcnt 2 function fib6_rule_lookup
+[   84.803547] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_dst_lookup_tail
+[   84.992274] dst_hold: dst ffff8800d8804b40 refcnt 11 function __mkroute_output
+[   84.998342] __sk_dst_set: old           (null) new ffff8800d8804b40 function sk_setup_caps
+[   85.005312] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function tcp_current_mss
+[   85.011698] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function tcp_advertise_mss
+[   85.017768] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function __sk_dst_check
+[   85.034342] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[   85.043414] dst_release: dst ffff8800d8804b40 refcnt 10 function ____sk_dst_set
+[   85.840942] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   85.848146] dst_hold: dst ffff880114068000 refcnt 20 function ip6_append_data
+[   85.859232] dst_release: dst ffff880114068000 refcnt 19 function ip6_cork_release
+[   85.866092] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   85.894880] dst_hold: dst ffff8800d8804d80 refcnt 5 function __mkroute_output
+[   85.897694] dst_hold: dst ffff8800d8804d80 refcnt 6 function __mkroute_output
+[   85.901755] dst_hold: dst ffff8800d8804d80 refcnt 7 function __mkroute_output
+[   85.912028] dst_release: dst ffff8800d8804d80 refcnt 6 function xfrm_lookup
+[   85.918059] dst_release: dst ffff8800d8804d80 refcnt 5 function refdst_drop
+[   85.920461] dst_release: dst ffff8800d8804d80 refcnt 4 function refdst_drop
+[   85.941987] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   85.944975] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   85.947462] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[   85.950510] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[   85.961641] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[   85.966129] dst_release: dst ffff8800d8804240 refcnt 9 function ____sk_dst_set
+[   85.969967] __sk_dst_set: old           (null) new ffff8800d8804fc0 function ip4_datagram_connect
+[   86.005421] dst_hold: dst ffff8800d8804b40 refcnt 11 function _sk_dst_get
+[   86.010001] sk_dst_get: dst ffff8800d8804b40 refcnt 11 function sk_dst_check
+[   86.014394] dst_release: dst ffff8800d8804b40 refcnt 10 function refdst_drop
+[   86.054371] dst_hold: dst ffff880114068000 refcnt 19 function _sk_dst_get
+[   86.056887] sk_dst_get: dst ffff880114068000 refcnt 19 function sk_dst_check
+[   86.059447] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   86.062311] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   86.064753] dst_release: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   86.066904] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   86.069500] dst_hold: dst ffff880114068000 refcnt 19 function ip6_append_data
+[   86.072150] dst_release: dst ffff880114068000 refcnt 18 function udpv6_sendmsg
+[   86.075352] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   86.077768] __sk_dst_set: old ffff8800d8804240 new ffff880114068000 function sk_setup_caps
+[   86.080510] dst_release: dst ffff8800d8804240 refcnt 8 function ____sk_dst_set
+[   86.207953] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   86.219364] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   86.228919] dst_release: dst ffff8800d5a1c000 refcnt 0 function ip_rt_put
+[   86.247153] __sk_dst_set: old           (null) new ffff8800d5a1c000 function ip4_datagram_connect
+[   86.720630] dst_hold: dst ffff8800d8804b40 refcnt 11 function __mkroute_output
+[   86.726907] __sk_dst_set: old           (null) new ffff8800d8804b40 function sk_setup_caps
+[   86.738547] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function tcp_current_mss
+[   86.744653] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function tcp_advertise_mss
+[   86.756953] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function __sk_dst_check
+[   86.771894] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[   86.780500] dst_release: dst ffff8800d8804b40 refcnt 10 function ____sk_dst_set
+[   87.160502] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   87.214560] dst_hold: dst ffff880114068000 refcnt 19 function _sk_dst_get
+[   87.227287] sk_dst_get: dst ffff880114068000 refcnt 19 function sk_dst_check
+[   87.239417] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   87.262934] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   87.282952] dst_release: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   87.316913] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   87.326197] dst_hold: dst ffff880114068000 refcnt 19 function ip6_append_data
+[   87.333698] dst_hold: dst ffff8800d8804b40 refcnt 11 function __mkroute_output
+[   87.333700] dst_release: dst ffff8800d8804b40 refcnt 10 function ip_rt_put
+[   87.333705] dst_hold: dst ffff8800d8804b40 refcnt 11 function __mkroute_output
+[   87.333721] dst_release: dst ffff8800d8804b40 refcnt 10 function ip_rt_put
+[   87.333725] dst_hold: dst ffff8800d8804b40 refcnt 11 function __mkroute_output
+[   87.333755] __sk_dst_set: old           (null) new ffff8800d8804b40 function sk_setup_caps
+[   87.333758] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function tcp_connect_init
+[   87.334176] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function tcp_advertise_mss
+[   87.334181] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function __sk_dst_check
+[   87.412113] dst_clone: dst ffff880114068000 refcnt 20 function ip6_push_pending_frames
+[   87.415969] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[   87.415972] dst_release: dst ffff8800d8804b40 refcnt 10 function ____sk_dst_set
+[   87.438288] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   87.438300] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   87.438316] __sk_dst_get: dst ffff880114068000 refcnt 21 function tcp_connect_init
+[   87.438319] __sk_dst_get: dst ffff880114068000 refcnt 21 function tcp_mss_to_mtu
+[   87.438321] __sk_dst_get: dst ffff880114068000 refcnt 21 function __tcp_mtu_to_mss
+[   87.438345] __sk_dst_get: dst ffff880114068000 refcnt 21 function tcp_advertise_mss
+[   87.438349] __sk_dst_get: dst ffff880114068000 refcnt 21 function __sk_dst_check
+[   87.438351] dst_release: dst ffff880114068000 refcnt 20 function __sk_dst_check
+[   87.438353] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   87.438356] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   87.438375] dst_clone: dst ffff880114068000 refcnt 22 function skb_dst_force
+[   87.438423] dst_hold: dst ffff880114068000 refcnt 23 function ip6_pol_route
+[   87.438433] dst_release: dst ffff880114068000 refcnt 22 function refdst_drop
+[   87.438483] dst_release: dst ffff880114068000 refcnt 21 function refdst_drop
+[   87.438520] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   87.438521] dst_release: dst ffff880114068000 refcnt 20 function ____sk_dst_set
+[   87.506480] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   87.509897] dst_release: dst ffff880114068000 refcnt 20 function icmpv6_xrlim_allow
+[   87.512628] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   87.515073] dst_hold: dst ffff880114068000 refcnt 22 function ip6_pol_route
+[   87.518394] dst_release: dst ffff880114068000 refcnt 21 function xfrm_lookup
+[   87.522145] dst_hold: dst ffff880114068000 refcnt 22 function ip6_append_data
+[   87.525929] dst_clone: dst ffff880114068000 refcnt 23 function ip6_push_pending_frames
+[   87.531042] dst_release: dst ffff880114068000 refcnt 22 function ip6_cork_release
+[   87.534962] dst_release: dst ffff880114068000 refcnt 21 function icmp6_send
+[   87.538682] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   87.542799] dst_release: dst ffff880114068000 refcnt 19 function ip6_cork_release
+[   87.547250] dst_release: dst ffff880114068000 refcnt 18 function refdst_drop
+[   87.549822] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   87.616409] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   87.619108] __sk_dst_set: old           (null) new ffff8800d8804240 function sk_setup_caps
+[   87.621952] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_current_mss
+[   87.624508] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_advertise_mss
+[   87.627116] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[   87.630233] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[   87.634974] dst_release: dst ffff8800d8804240 refcnt 8 function ____sk_dst_set
+[   87.664144] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function dst_negative_advice
+[   87.667590] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function __sk_dst_check
+[   87.671893] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function tcp_current_mss
+[   87.677962] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function tcp_advertise_mss
+[   87.681855] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function __sk_dst_check
+[   87.685123] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[   87.688650] dst_release: dst ffff8800d8804240 refcnt 7 function ____sk_dst_set
+[   88.498608] __sk_dst_set: old ffff8800d8804480 new           (null) function __sk_dst_reset
+[   88.507177] dst_release: dst ffff8800d8804480 refcnt 3 function ____sk_dst_set
+[   88.518236] dst_release: dst ffff8800d5a1c240 refcnt 0 function ip_rt_put
+[   88.535937] dst_hold: dst ffff8800d8804480 refcnt 4 function __mkroute_output
+[   88.554360] dst_clone: dst ffff8800d8804480 refcnt 5 function udp_sendmsg
+[   88.563447] __sk_dst_set: old           (null) new ffff8800d8804480 function udp_sendmsg
+[   88.579627] dst_hold: dst ffff8800d8804480 refcnt 6 function __mkroute_output
+[   88.608315] dst_hold: dst ffff8800d8804480 refcnt 7 function __mkroute_output
+[   88.624903] dst_release: dst ffff8800d8804480 refcnt 6 function xfrm_lookup
+[   88.630484] dst_release: dst ffff8800d8804480 refcnt 5 function refdst_drop
+[   88.637060] dst_release: dst ffff8800d8804480 refcnt 4 function refdst_drop
+[   88.656693] dst_hold: dst ffff880114068000 refcnt 19 function _sk_dst_get
+[   88.659094] sk_dst_get: dst ffff880114068000 refcnt 19 function sk_dst_check
+[   88.661236] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   88.663998] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   88.666497] dst_release: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   88.668931] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   88.672109] dst_hold: dst ffff880114068000 refcnt 19 function ip6_append_data
+[   88.674750] dst_release: dst ffff880114068000 refcnt 18 function ip6_cork_release
+[   88.677442] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   88.695314] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   88.699086] dst_hold: dst ffff8800d8804d80 refcnt 5 function __mkroute_output
+[   88.703070] dst_release: dst ffff8800d8804d80 refcnt 4 function ip_rt_put
+[   88.706859] dst_hold: dst ffff8800d8804d80 refcnt 5 function __mkroute_output
+[   88.711306] __sk_dst_set: old           (null) new ffff8800d8804d80 function ip4_datagram_connect
+[   88.715259] __sk_dst_get: dst ffff8800d8804d80 refcnt 5 function ip4_datagram_release_cb
+[   88.717995] __sk_dst_get: dst ffff8800d8804d80 refcnt 5 function __sk_dst_check
+[   88.736180] dst_hold: dst ffff8800d8804b40 refcnt 11 function __mkroute_output
+[   88.742759] dst_hold: dst ffff880114068000 refcnt 19 function _sk_dst_get
+[   88.742760] sk_dst_get: dst ffff880114068000 refcnt 19 function sk_dst_check
+[   88.742784] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   88.742786] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   88.742787] dst_release: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   88.742794] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   88.742802] dst_hold: dst ffff880114068000 refcnt 19 function ip6_append_data
+[   88.742837] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   88.751140] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   88.751157] dst_release: dst ffff8800d5a1c240 refcnt 0 function ip_rt_put
+[   88.751185] dst_hold: dst ffff8800d8804d80 refcnt 6 function __mkroute_output
+[   88.751188] __sk_dst_set: old           (null) new ffff8800d8804d80 function ip4_datagram_connect
+[   88.760729] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   88.760743] dst_release: dst ffff8800d5a1c240 refcnt 0 function ip_rt_put
+[   88.760790] dst_hold: dst ffff8800d8804d80 refcnt 7 function __mkroute_output
+[   88.760796] __sk_dst_set: old           (null) new ffff8800d8804d80 function ip4_datagram_connect
+[   88.760798] __sk_dst_get: dst ffff8800d8804d80 refcnt 7 function ip4_datagram_release_cb
+[   88.760800] __sk_dst_get: dst ffff8800d8804d80 refcnt 7 function __sk_dst_check
+[   88.763742] dst_hold: dst ffff880114068000 refcnt 20 function _sk_dst_get
+[   88.763744] sk_dst_get: dst ffff880114068000 refcnt 20 function sk_dst_check
+[   88.763746] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   88.763747] dst_release: dst ffff880114068000 refcnt 19 function ____sk_dst_set
+[   88.763748] dst_release: dst ffff880114068000 refcnt 18 function sk_dst_check
+[   88.763755] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   88.763786] dst_hold: dst ffff880114068000 refcnt 20 function ip6_append_data
+[   88.763817] dst_clone: dst ffff880114068000 refcnt 21 function ip6_push_pending_frames
+[   88.763856] dst_hold: dst ffff880114068000 refcnt 22 function ip6_pol_route
+[   88.763858] dst_release: dst ffff880114068000 refcnt 21 function icmpv6_xrlim_allow
+[   88.763861] dst_hold: dst ffff880114068000 refcnt 22 function ip6_pol_route
+[   88.763866] dst_hold: dst ffff880114068000 refcnt 23 function ip6_pol_route
+[   88.763869] dst_release: dst ffff880114068000 refcnt 22 function xfrm_lookup
+[   88.763871] dst_hold: dst ffff880114068000 refcnt 23 function ip6_append_data
+[   88.763901] dst_clone: dst ffff880114068000 refcnt 24 function ip6_push_pending_frames
+[   88.763910] dst_release: dst ffff880114068000 refcnt 23 function ip6_cork_release
+[   88.763912] dst_release: dst ffff880114068000 refcnt 22 function icmp6_send
+[   88.763914] dst_release: dst ffff880114068000 refcnt 21 function refdst_drop
+[   88.763955] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   88.763982] dst_release: dst ffff880114068000 refcnt 19 function ip6_cork_release
+[   88.763984] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   88.771384] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   88.771386] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   88.771394] dst_hold: dst ffff8800d8804d80 refcnt 8 function __mkroute_output
+[   88.771396] dst_release: dst ffff8800d8804d80 refcnt 7 function ip_rt_put
+[   88.771399] dst_hold: dst ffff8800d8804d80 refcnt 8 function __mkroute_output
+[   88.771402] __sk_dst_set: old           (null) new ffff8800d8804d80 function ip4_datagram_connect
+[   88.811285] __sk_dst_get: dst ffff8800d8805b00 refcnt 1 function ip4_datagram_release_cb
+[   88.811288] __sk_dst_get: dst ffff8800d8805b00 refcnt 1 function __sk_dst_check
+[   88.818563] __sk_dst_set: old ffff8800d8804480 new           (null) function __sk_dst_reset
+[   88.818565] dst_release: dst ffff8800d8804480 refcnt 3 function ____sk_dst_set
+[   88.818582] dst_release: dst ffff8800d5a1c480 refcnt 0 function ip_rt_put
+[   88.825087] dst_release: dst ffff8800d5a1c240 refcnt 0 function refdst_drop
+[   88.825208] __sk_dst_get: dst ffff8800d8805b00 refcnt 1 function ip4_datagram_release_cb
+[   88.825210] __sk_dst_get: dst ffff8800d8805b00 refcnt 1 function __sk_dst_check
+[   88.879963] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   88.879975] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   88.879992] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_connect_init
+[   88.879994] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_mss_to_mtu
+[   88.879997] __sk_dst_get: dst ffff880114068000 refcnt 19 function __tcp_mtu_to_mss
+[   88.880093] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_advertise_mss
+[   88.880097] __sk_dst_get: dst ffff880114068000 refcnt 19 function __sk_dst_check
+[   88.880099] dst_release: dst ffff880114068000 refcnt 18 function __sk_dst_check
+[   88.880102] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   88.880105] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   88.880123] dst_clone: dst ffff880114068000 refcnt 20 function skb_dst_force
+[   88.880172] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   88.880182] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   88.880232] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   88.880270] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   88.880271] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   88.897275] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   88.897286] dst_hold: dst ffff8800d8804d80 refcnt 9 function __mkroute_output
+[   88.897288] dst_release: dst ffff8800d8804d80 refcnt 8 function ip_rt_put
+[   88.897292] dst_hold: dst ffff8800d8804d80 refcnt 9 function __mkroute_output
+[   88.897299] __sk_dst_set: old           (null) new ffff8800d8804d80 function ip4_datagram_connect
+[   88.897301] __sk_dst_get: dst ffff8800d8804d80 refcnt 9 function ip4_datagram_release_cb
+[   88.897302] __sk_dst_get: dst ffff8800d8804d80 refcnt 9 function __sk_dst_check
+[   88.922822] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   88.922830] __sk_dst_set: old ffff880114068000 new ffff880114068000 function sk_setup_caps
+[   88.922831] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   88.930390] dst_hold: dst ffff880114068000 refcnt 19 function _sk_dst_get
+[   88.930391] sk_dst_get: dst ffff880114068000 refcnt 19 function sk_dst_check
+[   88.930394] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   88.930395] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   88.930397] dst_release: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   88.930404] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   88.930411] dst_hold: dst ffff880114068000 refcnt 19 function ip6_append_data
+[   88.930443] dst_clone: dst ffff880114068000 refcnt 20 function ip6_push_pending_frames
+[   88.930480] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   88.930482] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   88.930484] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   88.930486] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   88.930487] dst_hold: dst ffff88011466bb10 refcnt 2 function fib6_rule_lookup
+[   88.930489] dst_release: dst ffff88011466bb10 refcnt 1 function icmpv6_xrlim_allow
+[   88.930491] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   88.930526] dst_release: dst ffff880114068000 refcnt 18 function ip6_cork_release
+[   88.930528] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   88.944705] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   88.944727] dst_release: dst ffff8800d5a1c240 refcnt 0 function ip_rt_put
+[   88.944759] dst_release: dst ffff8800d5a1c240 refcnt 0 function ip_rt_put
+[   89.155450] __sk_dst_set: old           (null) new ffff8800d8804b40 function sk_setup_caps
+[   89.158434] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function tcp_current_mss
+[   89.161061] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function tcp_advertise_mss
+[   89.163406] __sk_dst_get: dst ffff8800d8804b40 refcnt 11 function __sk_dst_check
+[   89.166859] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[   89.171522] dst_release: dst ffff8800d8804b40 refcnt 10 function ____sk_dst_set
+[watchdog] 21004 iterations. [F:20890 S:114]
+[   89.683222] dst_release: dst ffff8800d5a1c240 refcnt 0 function ip_rt_put
+[   89.688999] dst_release: dst ffff8800d5a1c240 refcnt 0 function ip_rt_put
+[   90.025635] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   90.035223] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   90.046157] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_connect_init
+[   90.056739] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_mss_to_mtu
+[   90.074915] __sk_dst_get: dst ffff880114068000 refcnt 19 function __tcp_mtu_to_mss
+[   90.087263] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_advertise_mss
+[   90.099684] __sk_dst_get: dst ffff880114068000 refcnt 19 function __sk_dst_check
+[   90.111559] dst_release: dst ffff880114068000 refcnt 18 function __sk_dst_check
+[   90.117839] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   90.123227] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   90.129815] dst_clone: dst ffff880114068000 refcnt 20 function skb_dst_force
+[   90.135657] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   90.138647] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   90.141321] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   90.143908] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   90.146799] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   90.164985] dst_hold: dst ffff880114068000 refcnt 19 function _sk_dst_get
+[   90.176861] sk_dst_get: dst ffff880114068000 refcnt 19 function sk_dst_check
+[   90.180678] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   90.184732] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   90.188961] dst_release: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   90.193058] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   90.196795] dst_hold: dst ffff880114068000 refcnt 19 function ip6_append_data
+[   90.200758] dst_clone: dst ffff880114068000 refcnt 20 function ip6_push_pending_frames
+[   90.204943] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   90.208592] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   90.212258] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   90.216251] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   90.220129] dst_hold: dst ffff88011466bb10 refcnt 2 function fib6_rule_lookup
+[   90.224050] dst_release: dst ffff88011466bb10 refcnt 1 function icmpv6_xrlim_allow
+[   90.228117] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   90.232125] dst_release: dst ffff880114068000 refcnt 18 function ip6_cork_release
+[   90.236076] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   90.241291] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   90.245076] dst_release: dst ffff880114068000 refcnt 17 function ____sk_dst_set
+[   90.247612] __sk_dst_set: old           (null) new ffff8800d5a1c240 function ip4_datagram_connect
+[   90.263298] dst_hold: dst ffff880114068000 refcnt 18 function _sk_dst_get
+[   90.265827] sk_dst_get: dst ffff880114068000 refcnt 18 function sk_dst_check
+[   90.268315] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   90.271238] dst_release: dst ffff880114068000 refcnt 17 function ____sk_dst_set
+[   90.273824] dst_release: dst ffff880114068000 refcnt 16 function sk_dst_check
+[   90.277202] dst_hold: dst ffff880114068000 refcnt 17 function ip6_pol_route
+[   90.283517] dst_hold: dst ffff880114068000 refcnt 18 function ip6_append_data
+[   90.295927] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   90.371480] dst_hold: dst ffff880114068000 refcnt 19 function _sk_dst_get
+[   90.375668] sk_dst_get: dst ffff880114068000 refcnt 19 function sk_dst_check
+[   90.379554] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   90.384477] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   90.388635] dst_release: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   90.392690] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   90.396641] dst_hold: dst ffff880114068000 refcnt 19 function ip6_append_data
+[   90.409875] dst_clone: dst ffff880114068000 refcnt 20 function ip6_push_pending_frames
+[   90.414424] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   90.418544] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   90.421569] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   90.425992] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   90.430144] dst_hold: dst ffff88011466bb10 refcnt 2 function fib6_rule_lookup
+[   90.434151] dst_release: dst ffff88011466bb10 refcnt 1 function icmpv6_xrlim_allow
+[   90.438403] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   90.449981] dst_release: dst ffff880114068000 refcnt 18 function ip6_cork_release
+[   90.452578] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   90.463345] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   90.468792] dst_release: dst ffff880114068000 refcnt 17 function ____sk_dst_set
+[   90.479859] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   90.524627] __sk_dst_set: old ffff8800d8805200 new           (null) function __sk_dst_reset
+[   90.529218] dst_release: dst ffff8800d8805200 refcnt 0 function ____sk_dst_set
+[   90.533474] dst_hold: dst ffff8800d8804240 refcnt 8 function __mkroute_output
+[   90.539068] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[   90.544510] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function ip4_datagram_release_cb
+[   90.556835] __sk_dst_get: dst ffff8800d8804240 refcnt 8 function __sk_dst_check
+[   90.815122] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   90.830288] dst_hold: dst ffff8800d8804b40 refcnt 11 function __mkroute_output
+[   90.837692] dst_release: dst ffff8800d8804b40 refcnt 10 function ip_rt_put
+[   90.859936] dst_hold: dst ffff8800d8804b40 refcnt 11 function __mkroute_output
+[   90.871195] __sk_dst_set: old           (null) new ffff8800d8804b40 function ip4_datagram_connect
+[   90.903270] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   90.906663] dst_hold: dst ffff8800d8804b40 refcnt 12 function __mkroute_output
+[   90.910835] dst_release: dst ffff8800d8804b40 refcnt 11 function ip_rt_put
+[   90.914752] dst_hold: dst ffff8800d8804b40 refcnt 12 function __mkroute_output
+[   90.918643] __sk_dst_set: old           (null) new ffff8800d8804b40 function ip4_datagram_connect
+[   90.928119] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function refdst_drop
+[   90.960192] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   90.963961] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   90.969950] dst_hold: dst ffff8800d8804480 refcnt 4 function __mkroute_output
+[   90.984854] __sk_dst_set: old           (null) new ffff8800d8804480 function ip4_datagram_connect
+[   91.051546] __sk_dst_set: old ffff8800d8804d80 new           (null) function __sk_dst_reset
+[   91.054590] dst_release: dst ffff8800d8804d80 refcnt 8 function ____sk_dst_set
+[   91.057175] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   91.593508] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[   91.604055] dst_release: dst ffff8800d8804240 refcnt 7 function ____sk_dst_set
+[   91.610603] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   91.694493] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   91.709827] dst_hold: dst ffff8800d8804d80 refcnt 9 function __mkroute_output
+[   91.725943] dst_release: dst ffff8800d8804d80 refcnt 8 function ip_rt_put
+[   91.746945] dst_hold: dst ffff8800d8804d80 refcnt 9 function __mkroute_output
+[   91.757829] __sk_dst_set: old           (null) new ffff8800d8804d80 function ip4_datagram_connect
+[   91.779820] __sk_dst_get: dst ffff8800d8804d80 refcnt 9 function ip4_datagram_release_cb
+[   91.784258] __sk_dst_get: dst ffff8800d8804d80 refcnt 9 function __sk_dst_check
+[   91.808209] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   91.819842] dst_release: dst ffff880114068000 refcnt 16 function ____sk_dst_set
+[   91.825106] dst_hold: dst ffff8800d8804240 refcnt 8 function __mkroute_output
+[   91.833191] dst_release: dst ffff8800d8804240 refcnt 7 function ip_rt_put
+[   91.837003] dst_hold: dst ffff8800d8804240 refcnt 8 function __mkroute_output
+[   91.840722] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[   91.847494] dst_hold: dst ffff880114068000 refcnt 17 function ip6_pol_route
+[   91.851469] __sk_dst_set: old ffff8800d8805d40 new ffff880114068000 function sk_setup_caps
+[   91.859997] dst_release: dst ffff8800d8805d40 refcnt 0 function ____sk_dst_set
+[   91.874862] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   91.885180] dst_hold: dst ffff8800d8804d80 refcnt 10 function __mkroute_output
+[   91.892264] dst_release: dst ffff8800d8804d80 refcnt 9 function ip_rt_put
+[   91.906880] dst_hold: dst ffff8800d8804d80 refcnt 10 function __mkroute_output
+[   91.909890] __sk_dst_set: old           (null) new ffff8800d8804d80 function ip4_datagram_connect
+[   91.918898] __sk_dst_get: dst ffff8800d8804d80 refcnt 10 function ip4_datagram_release_cb
+[   91.925319] __sk_dst_get: dst ffff8800d8804d80 refcnt 10 function __sk_dst_check
+[   91.944951] dst_hold: dst ffff8800d8804d80 refcnt 11 function _sk_dst_get
+[   91.949952] sk_dst_get: dst ffff8800d8804d80 refcnt 11 function sk_dst_check
+[   91.954960] __sk_dst_get: dst ffff8800d8804d80 refcnt 11 function ip4_datagram_release_cb
+[   91.973846] __sk_dst_get: dst ffff8800d8804d80 refcnt 11 function __sk_dst_check
+[   92.026857] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[   92.030947] dst_release: dst ffff8800d8804b40 refcnt 11 function ____sk_dst_set
+[   92.041048] dst_hold: dst ffff8800d8804d80 refcnt 12 function __mkroute_output
+[   92.048726] __sk_dst_set: old           (null) new ffff8800d8804d80 function ip4_datagram_connect
+[   92.099544] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   92.102099] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   92.110049] dst_clone: dst ffff880114068000 refcnt 19 function ip6_push_pending_frames
+[   92.114404] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[   92.118221] dst_release: dst ffff880114068000 refcnt 19 function icmpv6_xrlim_allow
+[   92.122587] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[   92.126828] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   92.131102] dst_release: dst ffff880114068000 refcnt 20 function xfrm_lookup
+[   92.135156] dst_hold: dst ffff880114068000 refcnt 21 function ip6_append_data
+[   92.139069] dst_clone: dst ffff880114068000 refcnt 22 function ip6_push_pending_frames
+[   92.143380] dst_release: dst ffff880114068000 refcnt 21 function ip6_cork_release
+[   92.147506] dst_release: dst ffff880114068000 refcnt 20 function icmp6_send
+[   92.151302] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   92.155583] dst_release: dst ffff880114068000 refcnt 18 function ip6_cork_release
+[   92.159930] dst_release: dst ffff880114068000 refcnt 17 function refdst_drop
+[   92.172474] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   92.183102] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   92.188193] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   92.204440] dst_hold: dst ffff8800d8804480 refcnt 5 function _sk_dst_get
+[   92.207210] sk_dst_get: dst ffff8800d8804480 refcnt 5 function sk_dst_check
+[   92.209625] dst_release: dst ffff8800d8804480 refcnt 4 function ip6_sk_dst_check
+[   92.212227] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   92.214603] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   92.220867] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   92.223318] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   92.225599] dst_hold: dst ffff88011466bb10 refcnt 2 function fib6_rule_lookup
+[   92.227865] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_dst_lookup_tail
+[   93.246631] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   93.247315] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   93.247340] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   93.247390] __sk_dst_get: dst ffff880114068000 refcnt 18 function tcp_connect_init
+[   93.247395] __sk_dst_get: dst ffff880114068000 refcnt 18 function tcp_mss_to_mtu
+[   93.247400] __sk_dst_get: dst ffff880114068000 refcnt 18 function __tcp_mtu_to_mss
+[   93.247482] __sk_dst_get: dst ffff880114068000 refcnt 18 function tcp_advertise_mss
+[   93.247491] __sk_dst_get: dst ffff880114068000 refcnt 18 function __sk_dst_check
+[   93.247494] dst_release: dst ffff880114068000 refcnt 17 function __sk_dst_check
+[   93.247500] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   93.247507] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   93.247546] dst_clone: dst ffff880114068000 refcnt 19 function skb_dst_force
+[   93.247685] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[   93.247711] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   93.247880] dst_release: dst ffff880114068000 refcnt 18 function refdst_drop
+[   93.248112] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   93.248115] dst_release: dst ffff880114068000 refcnt 17 function ____sk_dst_set
+[   93.276942] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   93.276969] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   93.276973] dst_release: dst ffff8800d8804240 refcnt 8 function ip_rt_put
+[   93.276984] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   93.276999] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[   93.277005] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function ip4_datagram_release_cb
+[   93.277093] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[   93.285598] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   93.285621] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   93.285656] __sk_dst_get: dst ffff880114068000 refcnt 18 function tcp_connect_init
+[   93.285660] __sk_dst_get: dst ffff880114068000 refcnt 18 function tcp_mss_to_mtu
+[   93.285666] __sk_dst_get: dst ffff880114068000 refcnt 18 function __tcp_mtu_to_mss
+[   93.285722] __sk_dst_get: dst ffff880114068000 refcnt 18 function tcp_advertise_mss
+[   93.285730] __sk_dst_get: dst ffff880114068000 refcnt 18 function __sk_dst_check
+[   93.285733] dst_release: dst ffff880114068000 refcnt 17 function __sk_dst_check
+[   93.285740] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   93.285746] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   93.285826] dst_clone: dst ffff880114068000 refcnt 19 function skb_dst_force
+[   93.285944] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[   93.285969] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   93.286159] dst_release: dst ffff880114068000 refcnt 18 function refdst_drop
+[   93.286249] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   93.286252] dst_release: dst ffff880114068000 refcnt 17 function ____sk_dst_set
+[   93.322247] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[   93.322252] dst_release: dst ffff8800d8804240 refcnt 9 function ip_rt_put
+[   93.322262] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[   93.322298] dst_release: dst ffff8800d8804240 refcnt 9 function ip_rt_put
+[   93.322306] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[   93.322310] __sk_dst_set: old           (null) new ffff8800d8804240 function sk_setup_caps
+[   93.322315] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function tcp_connect_init
+[   93.322376] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function tcp_advertise_mss
+[   93.322385] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function __sk_dst_check
+[   93.340361] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[   93.340366] dst_release: dst ffff8800d8804240 refcnt 9 function ____sk_dst_set
+[   93.596897] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   93.600353] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   93.610708] dst_hold: dst ffff880114068000 refcnt 18 function _sk_dst_get
+[   93.623292] sk_dst_get: dst ffff880114068000 refcnt 18 function sk_dst_check
+[   93.627222] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   93.633330] dst_release: dst ffff880114068000 refcnt 17 function ____sk_dst_set
+[   93.643859] dst_release: dst ffff880114068000 refcnt 16 function sk_dst_check
+[   93.646351] dst_hold: dst ffff880114068000 refcnt 17 function ip6_pol_route
+[   93.649883] dst_hold: dst ffff880114068000 refcnt 18 function ip6_append_data
+[   93.662459] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   93.707576] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   93.716858] __sk_dst_set: old ffff8800d8805440 new ffff880114068000 function sk_setup_caps
+[   93.721560] dst_release: dst ffff8800d8805440 refcnt 0 function ____sk_dst_set
+[   93.738469] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   93.747862] dst_hold: dst ffff8800d8804b40 refcnt 12 function __mkroute_output
+[   93.752024] dst_release: dst ffff8800d8804b40 refcnt 11 function ip_rt_put
+[   93.755972] dst_hold: dst ffff8800d8804b40 refcnt 12 function __mkroute_output
+[   93.760062] __sk_dst_set: old           (null) new ffff8800d8804b40 function ip4_datagram_connect
+[   93.769845] __sk_dst_get: dst ffff8800d8804b40 refcnt 12 function ip4_datagram_release_cb
+[   93.774707] __sk_dst_get: dst ffff8800d8804b40 refcnt 12 function __sk_dst_check
+[   93.786501] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[   93.790940] dst_release: dst ffff8800d8804240 refcnt 8 function ____sk_dst_set
+[   93.798451] dst_hold: dst ffff8800d8804b40 refcnt 13 function __mkroute_output
+[   93.802318] __sk_dst_set: old           (null) new ffff8800d8804b40 function ip4_datagram_connect
+[   93.881918] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   93.885997] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   93.895547] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   93.912965] dst_hold: dst ffff880114068000 refcnt 20 function _sk_dst_get
+[   93.924867] sk_dst_get: dst ffff880114068000 refcnt 20 function sk_dst_check
+[   93.929357] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   93.933317] dst_release: dst ffff880114068000 refcnt 19 function ____sk_dst_set
+[   93.937454] dst_release: dst ffff880114068000 refcnt 18 function sk_dst_check
+[   93.941719] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   93.945694] dst_hold: dst ffff880114068000 refcnt 20 function ip6_append_data
+[   93.949814] dst_clone: dst ffff880114068000 refcnt 21 function ip6_push_pending_frames
+[   93.962069] dst_hold: dst ffff880114068000 refcnt 22 function ip6_pol_route
+[   93.965800] dst_release: dst ffff880114068000 refcnt 21 function icmpv6_xrlim_allow
+[   93.978053] dst_hold: dst ffff880114068000 refcnt 22 function ip6_pol_route
+[   93.988850] dst_hold: dst ffff880114068000 refcnt 23 function ip6_pol_route
+[   93.998861] dst_release: dst ffff880114068000 refcnt 22 function xfrm_lookup
+[   94.004164] dst_hold: dst ffff880114068000 refcnt 23 function ip6_append_data
+[   94.012453] dst_clone: dst ffff880114068000 refcnt 24 function ip6_push_pending_frames
+[   94.026899] dst_release: dst ffff880114068000 refcnt 23 function ip6_cork_release
+[   94.030852] dst_release: dst ffff880114068000 refcnt 22 function icmp6_send
+[   94.036985] dst_release: dst ffff880114068000 refcnt 21 function refdst_drop
+[   94.055102] dst_release: dst ffff880114068000 refcnt 20 function ip6_cork_release
+[   94.059135] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   94.065347] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   94.084732] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   94.089431] dst_hold: dst ffff8800d8804b40 refcnt 14 function __mkroute_output
+[   94.098050] dst_release: dst ffff8800d8804b40 refcnt 13 function ip_rt_put
+[   94.104430] dst_hold: dst ffff8800d8804b40 refcnt 14 function __mkroute_output
+[   94.113920] __sk_dst_set: old           (null) new ffff8800d8804b40 function ip4_datagram_connect
+[   94.125054] __sk_dst_get: dst ffff8800d8804b40 refcnt 14 function ip4_datagram_release_cb
+[   94.128609] __sk_dst_get: dst ffff8800d8804b40 refcnt 14 function __sk_dst_check
+[   94.150443] dst_hold: dst ffff8800d8804b40 refcnt 15 function _sk_dst_get
+[   94.156309] sk_dst_get: dst ffff8800d8804b40 refcnt 15 function sk_dst_check
+[   94.160462] dst_release: dst ffff8800d8804b40 refcnt 14 function ip6_sk_dst_check
+[   94.164943] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   94.177854] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   94.180270] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   94.186550] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   94.190915] dst_hold: dst ffff88011466bb10 refcnt 2 function fib6_rule_lookup
+[   94.194246] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_dst_lookup_tail
+[   94.212687] dst_hold: dst ffff880114068000 refcnt 20 function _sk_dst_get
+[   94.217658] sk_dst_get: dst ffff880114068000 refcnt 20 function sk_dst_check
+[   94.221228] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   94.224164] dst_release: dst ffff880114068000 refcnt 19 function ____sk_dst_set
+[   94.226866] dst_release: dst ffff880114068000 refcnt 18 function sk_dst_check
+[   94.240868] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   94.243516] dst_hold: dst ffff880114068000 refcnt 20 function ip6_append_data
+[   94.246165] dst_clone: dst ffff880114068000 refcnt 21 function ip6_push_pending_frames
+[   94.248861] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   94.252507] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   94.264276] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   94.268531] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   94.272251] dst_hold: dst ffff88011466bb10 refcnt 2 function fib6_rule_lookup
+[   94.276120] dst_release: dst ffff88011466bb10 refcnt 1 function icmpv6_xrlim_allow
+[   94.280603] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   94.292914] dst_release: dst ffff880114068000 refcnt 19 function ip6_cork_release
+[   94.295601] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   94.300299] dst_hold: dst ffff880114068000 refcnt 20 function _sk_dst_get
+[   94.310838] sk_dst_get: dst ffff880114068000 refcnt 20 function sk_dst_check
+[   94.317875] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   94.326894] dst_release: dst ffff880114068000 refcnt 19 function ____sk_dst_set
+[   94.335964] dst_release: dst ffff880114068000 refcnt 18 function sk_dst_check
+[   94.344086] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   94.351963] dst_hold: dst ffff880114068000 refcnt 20 function ip6_append_data
+[   94.364103] dst_clone: dst ffff880114068000 refcnt 21 function ip6_push_pending_frames
+[   94.369333] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   94.378880] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   94.390678] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   94.405102] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   94.418396] dst_hold: dst ffff88011466bb10 refcnt 2 function fib6_rule_lookup
+[   94.420973] dst_release: dst ffff88011466bb10 refcnt 1 function icmpv6_xrlim_allow
+[   94.423671] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   94.426425] dst_release: dst ffff880114068000 refcnt 19 function ip6_cork_release
+[   94.441921] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   94.453720] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   94.464049] dst_release: dst ffff8800d8804b40 refcnt 14 function ip_rt_put
+[   94.470488] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   94.488268] dst_release: dst ffff8800d8804b40 refcnt 14 function ip_rt_put
+[   94.492180] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   94.497999] __sk_dst_set: old           (null) new ffff8800d8804b40 function sk_setup_caps
+[   94.502662] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function tcp_connect_init
+[   94.506744] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function tcp_advertise_mss
+[   94.510831] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function __sk_dst_check
+[   94.515739] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[   94.520659] dst_release: dst ffff8800d8804b40 refcnt 14 function ____sk_dst_set
+[   95.571223] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   95.591727] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   95.591732] dst_release: dst ffff8800d8804b40 refcnt 14 function ip_rt_put
+[   95.591743] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   95.591778] dst_release: dst ffff8800d8804b40 refcnt 14 function ip_rt_put
+[   95.591787] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   95.591868] __sk_dst_set: old           (null) new ffff8800d8804b40 function sk_setup_caps
+[   95.591873] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function tcp_connect_init
+[   95.591932] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function tcp_advertise_mss
+[   95.591940] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function __sk_dst_check
+[   95.594679] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[   95.594679] dst_release: dst ffff8800d8804b40 refcnt 14 function ____sk_dst_set
+[   95.693328] dst_release: dst ffff8800d8804240 refcnt 8 function ip_rt_put
+[   95.698569] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   95.703982] dst_release: dst ffff8800d8804240 refcnt 8 function ip_rt_put
+[   95.706462] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   95.709643] __sk_dst_set: old           (null) new ffff8800d8804240 function sk_setup_caps
+[   95.714915] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[   95.719658] __sk_dst_set: old           (null) new ffff8800d8804240 function sk_setup_caps
+[   95.724434] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function tcp_current_mss
+[   95.731985] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function tcp_advertise_mss
+[   95.740161] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function __sk_dst_check
+[   95.749306] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[   95.759900] dst_release: dst ffff8800d8804240 refcnt 9 function ____sk_dst_set
+[   95.765683] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_connect_init
+[   95.770337] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_advertise_mss
+[   95.781853] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[   96.682518] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[   96.686910] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   96.686913] dst_release: dst ffff8800d8804b40 refcnt 14 function ip_rt_put
+[   96.686917] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   96.686935] dst_release: dst ffff8800d8804b40 refcnt 14 function ip_rt_put
+[   96.686938] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   96.686940] __sk_dst_set: old           (null) new ffff8800d8804b40 function sk_setup_caps
+[   96.686942] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function tcp_connect_init
+[   96.686971] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function tcp_advertise_mss
+[   96.686975] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function __sk_dst_check
+[   96.688122] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[   96.688125] dst_release: dst ffff8800d8804b40 refcnt 14 function ____sk_dst_set
+[   96.694697] dst_hold: dst ffff8800d8804480 refcnt 5 function __mkroute_output
+[   96.694901] dst_hold: dst ffff8800d8804480 refcnt 6 function __mkroute_output
+[   96.694909] dst_hold: dst ffff8800d8804480 refcnt 7 function __mkroute_output
+[   96.694910] dst_release: dst ffff8800d8804480 refcnt 6 function xfrm_lookup
+[   96.694998] dst_release: dst ffff8800d8804480 refcnt 5 function refdst_drop
+[   96.695083] dst_release: dst ffff8800d8804480 refcnt 4 function refdst_drop
+[   96.700688] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[   96.700691] dst_release: dst ffff8800d8804b40 refcnt 13 function ____sk_dst_set
+[   96.700702] dst_hold: dst ffff8800d8804b40 refcnt 14 function __mkroute_output
+[   96.700704] __sk_dst_set: old           (null) new ffff8800d8804b40 function ip4_datagram_connect
+[   96.711371] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[   96.711378] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   96.714824] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   96.715295] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   96.715300] __sk_dst_set: old ffff8800d8804240 new ffff880114068000 function sk_setup_caps
+[   96.715301] dst_release: dst ffff8800d8804240 refcnt 9 function ____sk_dst_set
+[   96.718168] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[   96.718183] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function ip_rt_put
+[   96.718204] dst_hold: dst ffff8800d8804480 refcnt 5 function __mkroute_output
+[   96.718207] __sk_dst_set: old           (null) new ffff8800d8804480 function ip4_datagram_connect
+[   96.810058] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[   96.816698] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_current_mss
+[   96.821856] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_advertise_mss
+[   96.830146] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[   96.837300] dst_release: dst ffff8800d8804240 refcnt 8 function refdst_drop
+[   96.848790] dst_hold: dst ffff880114068000 refcnt 22 function _sk_dst_get
+[   96.852655] sk_dst_get: dst ffff880114068000 refcnt 22 function sk_dst_check
+[   96.856334] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   96.860683] dst_release: dst ffff880114068000 refcnt 21 function ____sk_dst_set
+[   96.864713] dst_release: dst ffff880114068000 refcnt 20 function sk_dst_check
+[   96.870975] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   96.884887] dst_hold: dst ffff880114068000 refcnt 22 function ip6_append_data
+[   96.888615] dst_release: dst ffff880114068000 refcnt 21 function ip6_cork_release
+[   96.895284] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   96.910334] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   96.920296] dst_release: dst ffff880114068000 refcnt 20 function ____sk_dst_set
+[   96.927108] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   96.934083] dst_release: dst ffff8800d8804240 refcnt 8 function ip_rt_put
+[   96.948890] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   96.952818] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[   96.969484] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   96.971984] __sk_dst_set: old ffff8800d8804240 new ffff880114068000 function sk_setup_caps
+[   96.976739] dst_release: dst ffff8800d8804240 refcnt 8 function ____sk_dst_set
+[   96.980932] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   96.987736] dst_release: dst ffff880114068000 refcnt 20 function ____sk_dst_set
+[   96.992068] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[   96.994044] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[   97.020275] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   97.022894] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   97.025831] __sk_dst_get: dst ffff880114068000 refcnt 21 function tcp_connect_init
+[   97.028185] __sk_dst_get: dst ffff880114068000 refcnt 21 function tcp_mss_to_mtu
+[   97.031654] __sk_dst_get: dst ffff880114068000 refcnt 21 function __tcp_mtu_to_mss
+[   97.035884] __sk_dst_get: dst ffff880114068000 refcnt 21 function tcp_advertise_mss
+[   97.040037] __sk_dst_get: dst ffff880114068000 refcnt 21 function __sk_dst_check
+[   97.049910] dst_release: dst ffff880114068000 refcnt 20 function __sk_dst_check
+[   97.054916] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   97.058098] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   97.068896] dst_clone: dst ffff880114068000 refcnt 22 function skb_dst_force
+[   97.071490] dst_hold: dst ffff880114068000 refcnt 23 function ip6_pol_route
+[   97.074138] dst_release: dst ffff880114068000 refcnt 22 function refdst_drop
+[   97.078248] dst_release: dst ffff880114068000 refcnt 21 function refdst_drop
+[   97.082126] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   97.089906] dst_release: dst ffff880114068000 refcnt 20 function ____sk_dst_set
+[   97.096446] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   97.104028] dst_release: dst ffff880114068000 refcnt 19 function ____sk_dst_set
+[   97.110312] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[   97.122658] dst_release: dst ffff8800d8804240 refcnt 9 function ip_rt_put
+[   97.125029] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[   97.127500] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[   97.230948] dst_clone: dst ffff880114068000 refcnt 20 function ip6_push_pending_frames
+[   97.235598] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   97.240924] dst_release: dst ffff880114068000 refcnt 20 function icmpv6_xrlim_allow
+[   97.245981] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   97.252380] dst_hold: dst ffff880114068000 refcnt 22 function ip6_pol_route
+[   97.266894] dst_release: dst ffff880114068000 refcnt 21 function xfrm_lookup
+[   97.270610] dst_hold: dst ffff880114068000 refcnt 22 function ip6_append_data
+[   97.275724] dst_clone: dst ffff880114068000 refcnt 23 function ip6_push_pending_frames
+[   97.280178] dst_release: dst ffff880114068000 refcnt 22 function ip6_cork_release
+[   97.284452] dst_release: dst ffff880114068000 refcnt 21 function icmp6_send
+[   97.288365] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   97.293260] dst_release: dst ffff880114068000 refcnt 19 function ip6_cork_release
+[   97.300420] dst_release: dst ffff880114068000 refcnt 18 function refdst_drop
+[   97.367239] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   97.376301] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   97.384555] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_connect_init
+[   97.390796] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_mss_to_mtu
+[   97.398206] __sk_dst_get: dst ffff880114068000 refcnt 19 function __tcp_mtu_to_mss
+[   97.408527] __sk_dst_get: dst ffff880114068000 refcnt 19 function tcp_advertise_mss
+[   97.414772] __sk_dst_get: dst ffff880114068000 refcnt 19 function __sk_dst_check
+[   97.421536] dst_release: dst ffff880114068000 refcnt 18 function __sk_dst_check
+[   97.425780] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   97.429699] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   97.434313] dst_clone: dst ffff880114068000 refcnt 20 function skb_dst_force
+[   97.439128] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[   97.451900] dst_release: dst ffff880114068000 refcnt 20 function refdst_drop
+[   97.456701] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   97.462179] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   97.481881] dst_release: dst ffff880114068000 refcnt 18 function ____sk_dst_set
+[   97.489195] dst_clone: dst ffff880114068000 refcnt 19 function ip6_push_pending_frames
+[   97.496087] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   97.511879] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   97.515722] dst_hold: dst ffff88011466bb10 refcnt 2 function ip6_pol_route
+[   97.520563] dst_release: dst ffff88011466bb10 refcnt 1 function ip6_rt_put
+[   97.522990] dst_hold: dst ffff88011466bb10 refcnt 2 function fib6_rule_lookup
+[   97.525496] dst_release: dst ffff88011466bb10 refcnt 1 function icmpv6_xrlim_allow
+[   97.528086] dst_release: dst ffff880114068000 refcnt 18 function refdst_drop
+[   97.537516] dst_release: dst ffff880114068000 refcnt 17 function ip6_cork_release
+[   97.541884] dst_release: dst ffff8800d8804b40 refcnt 14 function refdst_drop
+[   97.548315] __sk_dst_get: dst ffff8800d8804b40 refcnt 14 function ip4_datagram_release_cb
+[   97.553685] __sk_dst_get: dst ffff8800d8804b40 refcnt 14 function __sk_dst_check
+[   97.568842] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   97.571346] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   97.574466] __sk_dst_get: dst ffff880114068000 refcnt 18 function tcp_connect_init
+[   97.577156] __sk_dst_get: dst ffff880114068000 refcnt 18 function tcp_mss_to_mtu
+[   97.579705] __sk_dst_get: dst ffff880114068000 refcnt 18 function __tcp_mtu_to_mss
+[   97.582386] __sk_dst_get: dst ffff880114068000 refcnt 18 function tcp_advertise_mss
+[   97.585204] __sk_dst_get: dst ffff880114068000 refcnt 18 function __sk_dst_check
+[   97.587743] dst_release: dst ffff880114068000 refcnt 17 function __sk_dst_check
+[   97.590320] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[   97.592795] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   97.595752] dst_clone: dst ffff880114068000 refcnt 19 function skb_dst_force
+[   97.598255] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[   97.601230] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[   97.605222] dst_release: dst ffff880114068000 refcnt 18 function refdst_drop
+[   97.609116] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   97.613543] dst_release: dst ffff880114068000 refcnt 17 function ____sk_dst_set
+[   97.748986] dst_release: dst ffff8800d5a1c6c0 refcnt 0 function refdst_drop
+[   97.774392] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[   97.778300] dst_release: dst ffff8800d8804240 refcnt 9 function ____sk_dst_set
+[   97.782567] dst_hold: dst ffff8800d8804b40 refcnt 15 function __mkroute_output
+[   97.786315] __sk_dst_set: old           (null) new ffff8800d8804b40 function ip4_datagram_connect
+[   97.790364] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function ip4_datagram_release_cb
+[   97.794147] __sk_dst_get: dst ffff8800d8804b40 refcnt 15 function __sk_dst_check
+[   98.840169] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function dst_negative_advice
+[   98.846384] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[   98.852231] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_current_mss
+[   98.857697] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function tcp_advertise_mss
+[   98.863440] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[   98.903559] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   98.915663] dst_release: dst ffff880114068000 refcnt 16 function ____sk_dst_set
+[   98.921887] dst_hold: dst ffff8800d8804b40 refcnt 16 function __mkroute_output
+[   98.932084] dst_release: dst ffff8800d8804b40 refcnt 15 function ip_rt_put
+[   98.956998] dst_hold: dst ffff8800d8804b40 refcnt 16 function __mkroute_output
+[   98.978926] __sk_dst_set: old           (null) new ffff8800d8804b40 function ip4_datagram_connect
+[   98.991897] dst_hold: dst ffff880114068000 refcnt 17 function _sk_dst_get
+[   98.997767] sk_dst_get: dst ffff880114068000 refcnt 17 function sk_dst_check
+[   99.012272] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[   99.015188] dst_release: dst ffff880114068000 refcnt 16 function ____sk_dst_set
+[   99.018693] dst_release: dst ffff880114068000 refcnt 15 function sk_dst_check
+[   99.025976] dst_hold: dst ffff880114068000 refcnt 16 function ip6_pol_route
+[   99.038087] dst_hold: dst ffff880114068000 refcnt 17 function ip6_append_data
+[   99.040442] dst_release: dst ffff880114068000 refcnt 16 function ip6_cork_release
+[   99.043058] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   99.080267] dst_hold: dst ffff880114068000 refcnt 17 function ip6_pol_route
+[   99.086054] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   99.096481] __sk_dst_get: dst ffff880114068000 refcnt 17 function tcp_connect_init
+[   99.110699] __sk_dst_get: dst ffff880114068000 refcnt 17 function tcp_mss_to_mtu
+[   99.115969] __sk_dst_get: dst ffff880114068000 refcnt 17 function __tcp_mtu_to_mss
+[   99.121087] __sk_dst_get: dst ffff880114068000 refcnt 17 function tcp_advertise_mss
+[   99.126053] __sk_dst_get: dst ffff880114068000 refcnt 17 function __sk_dst_check
+[   99.128682] dst_release: dst ffff880114068000 refcnt 16 function __sk_dst_check
+[   99.131290] dst_hold: dst ffff880114068000 refcnt 17 function ip6_pol_route
+[   99.133747] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[   99.136666] dst_clone: dst ffff880114068000 refcnt 18 function skb_dst_force
+[   99.139373] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[   99.142041] dst_release: dst ffff880114068000 refcnt 18 function refdst_drop
+[   99.144547] dst_release: dst ffff880114068000 refcnt 17 function refdst_drop
+[  100.817398] dst_hold: dst ffff880114068000 refcnt 18 function _sk_dst_get
+[  100.832175] sk_dst_get: dst ffff880114068000 refcnt 18 function sk_dst_check
+[  100.842454] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[  100.861321] dst_release: dst ffff880114068000 refcnt 17 function ____sk_dst_set
+[  100.880991] dst_release: dst ffff880114068000 refcnt 16 function sk_dst_check
+[  100.895300] dst_hold: dst ffff880114068000 refcnt 17 function ip6_pol_route
+[  100.906128] dst_hold: dst ffff880114068000 refcnt 18 function ip6_append_data
+[  100.915343] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[  100.925737] dst_clone: dst ffff880114068000 refcnt 19 function ip6_push_pending_frames
+[  100.931386] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[  100.941578] dst_release: dst ffff880114068000 refcnt 19 function icmpv6_xrlim_allow
+[  100.946415] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[  100.951528] dst_hold: dst ffff880114068000 refcnt 21 function ip6_pol_route
+[  100.961142] dst_release: dst ffff880114068000 refcnt 20 function xfrm_lookup
+[  100.965712] dst_hold: dst ffff880114068000 refcnt 21 function ip6_append_data
+[  100.969785] dst_clone: dst ffff880114068000 refcnt 22 function ip6_push_pending_frames
+[  100.974071] dst_release: dst ffff880114068000 refcnt 21 function ip6_cork_release
+[  100.990597] dst_release: dst ffff880114068000 refcnt 20 function icmp6_send
+[  100.998062] dst_release: dst ffff880114068000 refcnt 19 function refdst_drop
+[  101.004231] dst_release: dst ffff880114068000 refcnt 18 function ip6_cork_release
+[  101.012882] dst_release: dst ffff880114068000 refcnt 17 function refdst_drop
+[  101.024602] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[  101.029337] dst_hold: dst ffff8800d8804d80 refcnt 13 function __mkroute_output
+[  101.031629] dst_release: dst ffff8800d8804d80 refcnt 12 function ip_rt_put
+[  101.041123] dst_hold: dst ffff8800d8804d80 refcnt 13 function __mkroute_output
+[  101.045616] __sk_dst_set: old           (null) new ffff8800d8804d80 function ip4_datagram_connect
+[  101.059527] dst_hold: dst ffff880114068000 refcnt 18 function ip6_pol_route
+[  101.064734] __sk_dst_set: old ffff8800d8804d80 new ffff880114068000 function sk_setup_caps
+[  101.069098] dst_release: dst ffff8800d8804d80 refcnt 12 function ____sk_dst_set
+[  101.088120] dst_hold: dst ffff8800d8804b40 refcnt 17 function __mkroute_output
+[  101.107054] __sk_dst_set: old           (null) new ffff8800d8804b40 function sk_setup_caps
+[  101.111664] __sk_dst_set: old ffff8800d5a1c000 new           (null) function __sk_dst_reset
+[  101.111703] __sk_dst_get: dst ffff8800d8804b40 refcnt 17 function tcp_current_mss
+[  101.111708] __sk_dst_get: dst ffff8800d8804b40 refcnt 17 function tcp_advertise_mss
+[  101.111713] __sk_dst_get: dst ffff8800d8804b40 refcnt 17 function __sk_dst_check
+[  101.116144] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[  101.116147] dst_release: dst ffff8800d8804b40 refcnt 16 function ____sk_dst_set
+[  101.142012] dst_release: dst ffff8800d5a1c000 refcnt 0 function ____sk_dst_set
+[  101.147420] __sk_dst_set: old           (null) new ffff8800d5a1c000 function ip4_datagram_connect
+[  101.152154] dst_release: dst ffff8800d5a1c900 refcnt 0 function refdst_drop
+[  101.169017] dst_hold: dst ffff880114068000 refcnt 19 function ip6_pol_route
+[  101.173499] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[  101.211130] dst_hold: dst ffff8800d8804d80 refcnt 13 function _sk_dst_get
+[  101.215141] sk_dst_get: dst ffff8800d8804d80 refcnt 13 function sk_dst_check
+[  101.220259] dst_hold: dst ffff8800d8804480 refcnt 6 function __mkroute_output
+[  101.224205] dst_hold: dst ffff8800d8804480 refcnt 7 function __mkroute_output
+[  101.227968] dst_release: dst ffff8800d8804480 refcnt 6 function xfrm_lookup
+[  101.232018] dst_release: dst ffff8800d8804d80 refcnt 12 function refdst_drop
+[  101.236057] dst_release: dst ffff8800d8804480 refcnt 5 function refdst_drop
+[  101.279725] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[  101.283045] __sk_dst_set: old ffff8800d8804b40 new ffff880114068000 function sk_setup_caps
+[  101.293589] dst_release: dst ffff8800d8804b40 refcnt 15 function ____sk_dst_set
+[  101.327367] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[  101.330919] dst_release: dst ffff8800d8804240 refcnt 8 function ____sk_dst_set
+[  101.345956] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[  101.373591] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[  101.379171] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function ip4_datagram_release_cb
+[  101.387937] __sk_dst_get: dst ffff8800d8804240 refcnt 9 function __sk_dst_check
+[  102.311632] dst_hold: dst ffff880114068000 refcnt 21 function _sk_dst_get
+[  102.319481] sk_dst_get: dst ffff880114068000 refcnt 21 function sk_dst_check
+[  102.333518] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[  102.351313] dst_release: dst ffff880114068000 refcnt 20 function ____sk_dst_set
+[  102.361943] dst_release: dst ffff880114068000 refcnt 19 function sk_dst_check
+[  102.366615] dst_hold: dst ffff880114068000 refcnt 20 function ip6_pol_route
+[  102.376059] dst_hold: dst ffff880114068000 refcnt 21 function ip6_append_data
+[  102.383936] dst_clone: dst ffff880114068000 refcnt 22 function ip6_push_pending_frames
+[  102.393625] dst_hold: dst ffff880114068000 refcnt 23 function ip6_pol_route
+[  102.410959] dst_release: dst ffff880114068000 refcnt 22 function icmpv6_xrlim_allow
+[  102.423110] dst_hold: dst ffff880114068000 refcnt 23 function ip6_pol_route
+[  102.431084] dst_hold: dst ffff880114068000 refcnt 24 function ip6_pol_route
+[  102.445429] dst_release: dst ffff880114068000 refcnt 23 function xfrm_lookup
+[  102.453300] dst_hold: dst ffff880114068000 refcnt 24 function ip6_append_data
+[  102.457752] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[  102.457755] dst_release: dst ffff8800d8804240 refcnt 8 function ____sk_dst_set
+[  102.457767] dst_hold: dst ffff8800d8804240 refcnt 9 function __mkroute_output
+[  102.457769] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[  102.484681] __sk_dst_set: old ffff8800d8804d80 new           (null) function __sk_dst_reset
+[  102.484684] dst_release: dst ffff8800d8804d80 refcnt 11 function ____sk_dst_set
+[  102.503743] dst_clone: dst ffff880114068000 refcnt 25 function ip6_push_pending_frames
+[  102.507913] dst_release: dst ffff880114068000 refcnt 24 function ip6_cork_release
+[  102.511906] dst_release: dst ffff880114068000 refcnt 23 function icmp6_send
+[  102.512481] __sk_dst_set: old ffff8800d8804000 new           (null) function __sk_dst_reset
+[  102.512483] dst_release: dst ffff8800d8804000 refcnt 0 function ____sk_dst_set
+[  102.512526] __sk_dst_set: old           (null) new ffff8800d5a1c900 function ip4_datagram_connect
+[  102.512529] __sk_dst_get: dst ffff8800d5a1c900 refcnt 1 function ip4_datagram_release_cb
+[  102.512530] __sk_dst_get: dst ffff8800d5a1c900 refcnt 1 function __sk_dst_check
+[  102.512736] __sk_dst_set: old ffff8800d5a1c900 new           (null) function __sk_dst_reset
+[  102.512737] dst_release: dst ffff8800d5a1c900 refcnt 0 function ____sk_dst_set
+[  102.512754] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[  102.512756] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[  102.512758] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function ip4_datagram_release_cb
+[  102.512759] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function __sk_dst_check
+[  102.542023] dst_hold: dst ffff880114068000 refcnt 24 function ip6_pol_route
+[  102.542077] __sk_dst_set: old ffff8800d8804b40 new ffff880114068000 function sk_setup_caps
+[  102.542079] dst_release: dst ffff8800d8804b40 refcnt 14 function ____sk_dst_set
+[  102.575160] dst_hold: dst ffff880114068000 refcnt 25 function ip6_pol_route
+[  102.575167] __sk_dst_set: old ffff8800d8804240 new ffff880114068000 function sk_setup_caps
+[  102.575169] dst_release: dst ffff8800d8804240 refcnt 9 function ____sk_dst_set
+[  102.575278] dst_hold: dst ffff880114068000 refcnt 26 function _sk_dst_get
+[  102.575280] sk_dst_get: dst ffff880114068000 refcnt 26 function sk_dst_check
+[  102.575282] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[  102.575283] dst_release: dst ffff880114068000 refcnt 25 function ____sk_dst_set
+[  102.575284] dst_release: dst ffff880114068000 refcnt 24 function sk_dst_check
+[  102.575287] dst_hold: dst ffff880114068000 refcnt 25 function ip6_pol_route
+[  102.575293] dst_hold: dst ffff880114068000 refcnt 26 function ip6_append_data
+[  102.575322] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[  102.579121] dst_hold: dst ffff8800d8804d80 refcnt 12 function __mkroute_output
+[  102.579130] dst_hold: dst ffff8800d8804d80 refcnt 13 function __mkroute_output
+[  102.579131] dst_release: dst ffff8800d8804d80 refcnt 12 function xfrm_lookup
+[  102.579221] dst_release: dst ffff8800d8804d80 refcnt 11 function refdst_drop
+[  102.579261] dst_release: dst ffff8800d8804d80 refcnt 10 function refdst_drop
+[  102.579288] __sk_dst_get: dst ffff8800d8804d80 refcnt 10 function ip4_datagram_release_cb
+[  102.579289] __sk_dst_get: dst ffff8800d8804d80 refcnt 10 function __sk_dst_check
+[  102.619083] dst_hold: dst ffff8800d8804d80 refcnt 11 function _sk_dst_get
+[  102.619085] sk_dst_get: dst ffff8800d8804d80 refcnt 11 function sk_dst_check
+[  102.619090] dst_release: dst ffff8800d8804d80 refcnt 10 function ip_cork_release
+[  102.619702] dst_hold: dst ffff8800d8804d80 refcnt 11 function __mkroute_output
+[  102.619740] __sk_dst_get: dst ffff8800d8804d80 refcnt 11 function ip4_datagram_release_cb
+[  102.619741] __sk_dst_get: dst ffff8800d8804d80 refcnt 11 function __sk_dst_check
+[  102.632300] __sk_dst_set: old           (null) new           (null) function __sk_dst_reset
+[  102.632312] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[  102.632313] dst_release: dst ffff8800d8804240 refcnt 9 function ip_rt_put
+[  102.632318] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[  102.632321] __sk_dst_set: old           (null) new ffff8800d8804240 function ip4_datagram_connect
+[  102.660287] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[  102.660290] dst_release: dst ffff8800d8804b40 refcnt 13 function ____sk_dst_set
+[  102.660308] __sk_dst_set: old           (null) new ffff8800d5a1c6c0 function ip4_datagram_connect
+[  102.660310] __sk_dst_get: dst ffff8800d5a1c6c0 refcnt 1 function ip4_datagram_release_cb
+[  102.660312] __sk_dst_get: dst ffff8800d5a1c6c0 refcnt 1 function __sk_dst_check
+[  102.660874] dst_release: dst ffff8800d5a1cb40 refcnt 0 function refdst_drop
+[  102.799934] dst_release: dst ffff880114068000 refcnt 25 function refdst_drop
+[  102.802312] dst_release: dst ffff880114068000 refcnt 24 function ip6_cork_release
+[  102.804972] dst_release: dst ffff880114068000 refcnt 23 function refdst_drop
+[  102.807212] __sk_dst_set: old           (null) new ffff880114068000 function sk_setup_caps
+[  102.824778] dst_hold: dst ffff8800d8804b40 refcnt 14 function __mkroute_output
+[  102.827345] __sk_dst_set: old           (null) new ffff8800d8804b40 function sk_setup_caps
+[  102.831604] __sk_dst_get: dst ffff8800d8804b40 refcnt 14 function tcp_current_mss
+[  102.836151] __sk_dst_get: dst ffff8800d8804b40 refcnt 14 function tcp_advertise_mss
+[  102.840292] __sk_dst_get: dst ffff8800d8804b40 refcnt 14 function __sk_dst_check
+[  102.845352] __sk_dst_set: old ffff8800d8804b40 new           (null) function __sk_dst_reset
+[  102.849808] dst_release: dst ffff8800d8804b40 refcnt 13 function ____sk_dst_set
+[  102.880131] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function dst_negative_advice
+[  102.882980] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function __sk_dst_check
+[  102.885517] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function tcp_current_mss
+[  102.888114] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function tcp_advertise_mss
+[  102.890807] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function __sk_dst_check
+[  102.894648] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[  102.899632] dst_release: dst ffff8800d8804240 refcnt 9 function ____sk_dst_set
+[watchdog] 32021 iterations. [F:31840 S:183]
+[  103.648645] dst_hold: dst ffff8800d8804240 refcnt 10 function __mkroute_output
+[  103.655468] __sk_dst_set: old           (null) new ffff8800d8804240 function sk_setup_caps
+[  103.670779] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function tcp_current_mss
+[  103.675105] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function tcp_advertise_mss
+[  103.694345] __sk_dst_get: dst ffff8800d8804240 refcnt 10 function __sk_dst_check
+[  103.707009] __sk_dst_set: old ffff8800d8804240 new           (null) function __sk_dst_reset
+[  103.722419] dst_release: dst ffff8800d8804240 refcnt 9 function ____sk_dst_set
+[  103.740232] dst_hold: dst ffff8800d8804b40 refcnt 14 function _sk_dst_get
+[  103.749371] sk_dst_get: dst ffff8800d8804b40 refcnt 14 function sk_dst_check
+[  103.754578] dst_hold: dst ffff8800d8804b40 refcnt 15 function ip6_append_data
+[  103.760686] __sk_dst_set: old ffff8800d8804b40 new ffff8800d8804b40 function sk_setup_caps
+[  103.766675] dst_release: dst ffff8800d8804b40 refcnt 14 function ____sk_dst_set
+[  103.772600] BUG: unable to handle kernel paging request at 000000000100002d
+[  103.773536] IP: [<ffffffff816c08e7>] udpv6_sendmsg+0x2c7/0xc50
+[  103.773536] PGD d910e067 PUD d93b0067 PMD 0
+[  103.773536] Oops: 0000 [#1] SMP
+[  103.773536] Modules linked in: nf_conntrack_netbios_ns nf_conntrack_broadcast ipt_MASQUERADE ip6table_mangle ip6t_REJECT iptable_nat nf_nat_ipv4 nf_nat iptable_mangle nf_conntrack_ipv4 nf_defrag_ipv4 xt_conntrack nf_conntrack ebtable_filter ebtables ip6table_filter ip6_tables snd_hda_intel snd_hda_codec snd_hwdep snd_seq snd_seq_device snd_pcm snd_page_alloc snd_timer snd i2c_piix4 soundcore virtio_net virtio_balloon i2c_core virtio_blk [last unloaded: nf_defrag_ipv6]
+[  103.773536] CPU: 1 PID: 815 Comm: trinity-child1 Not tainted 3.10.0-rc6+ #27
+[  103.773536] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+[  103.773536] task: ffff880117da8000 ti: ffff8800d5944000 task.ti: ffff8800d5944000
+[  103.773536] RIP: 0010:[<ffffffff816c08e7>]  [<ffffffff816c08e7>] udpv6_sendmsg+0x2c7/0xc50
+[  103.773536] RSP: 0018:ffff8800d5945a78  EFLAGS: 00010202
+[  103.773536] RAX: 0000000001000001 RBX: ffff8800371626c0 RCX: ffff880037162c78
+[  103.773536] RDX: 0000000000000000 RSI: ffff880117da8928 RDI: 0000000000000246
+[  103.773536] RBP: ffff8800d5945ba8 R08: ffff880037162c58 R09: 0000000000000001
+[  103.773536] R10: ffff880037162c58 R11: 0000000000000000 R12: ffff880037162c58
+[  103.773536] R13: ffff8800371628b0 R14: ffff8800d8804b40 R15: 0000000000000000
+[  103.773536] FS:  00007f0260b47740(0000) GS:ffff88011b400000(0000) knlGS:0000000000000000
+[  103.773536] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[  103.773536] CR2: 000000000100002d CR3: 00000000d9157000 CR4: 00000000000006e0
+[  103.773536] DR0: 0000000000000000 DR1: 0000000000000000 DR2: 0000000000000000
+[  103.773536] DR3: 0000000000000000 DR6: 00000000ffff0ff0 DR7: 0000000000000400
+[  103.773536] Stack:
+[  103.773536]  0000000000000000 0000000000000000 ffff8800d5945b30 ffff8800d8804b40
+[  103.773536]  ffff88006001ed6c ffffffff00000000 ffff880037162c78 ffff880037162c58
+[  103.773536]  ffff880037162c58 0000000081020e49 ffff880037162c78 0000000100000000
+[  103.773536] Call Trace:
+[  103.773536]  [<ffffffff810af008>] ? sched_clock_cpu+0xa8/0x120
+[  103.773536]  [<ffffffff810d7e4d>] ? trace_hardirqs_off+0xd/0x10
+[  103.773536]  [<ffffffff81658f87>] inet_sendmsg+0x127/0x240
+[  103.773536]  [<ffffffff81658e65>] ? inet_sendmsg+0x5/0x240
+[  103.773536]  [<ffffffff815b8646>] sock_sendmsg+0xa6/0xd0
+[  103.773536]  [<ffffffff810dd9dd>] ? lock_release_non_nested+0x30d/0x350
+[  103.773536]  [<ffffffff815b8a1c>] ___sys_sendmsg+0x3ac/0x3c0
+[  103.773536]  [<ffffffff810d7e4d>] ? trace_hardirqs_off+0xd/0x10
+[  103.773536]  [<ffffffff810af0ef>] ? local_clock+0x6f/0x80
+[  103.773536]  [<ffffffff8104b168>] ? kvm_clock_read+0x38/0x50
+[  103.773536]  [<ffffffff81020e49>] ? sched_clock+0x9/0x10
+[  103.773536]  [<ffffffff810aee55>] ? sched_clock_local+0x25/0xa0
+[  103.773536]  [<ffffffff810af008>] ? sched_clock_cpu+0xa8/0x120
+[  103.773536]  [<ffffffff811fb4f7>] ? fget_light+0x3e7/0x520
+[  103.773536]  [<ffffffff815b9ff9>] __sys_sendmsg+0x49/0x90
+[  103.773536]  [<ffffffff815ba052>] SyS_sendmsg+0x12/0x20
+[  103.773536]  [<ffffffff81725dd9>] system_call_fastpath+0x16/0x1b
+[  103.773536] Code: ff ff ff 49 89 4c 24 48 4c 8b 85 08 ff ff ff 4d 89 44 24 50 49 8b 86 a0 00 00 00 4c 8b 95 10 ff ff ff 48 85 c0 0f 84 c2 08 00 00 <8b> 40 2c 41 89 44 24 74 4c 89 ef 4c 89 95 10 ff ff ff e8 f2 bb
+[  103.773536] RIP  [<ffffffff816c08e7>] udpv6_sendmsg+0x2c7/0xc50
+[  103.773536]  RSP <ffff8800d5945a78>
+[  103.979223] __sk_dst_set: old ffff880114068000 new           (null) function __sk_dst_reset
+[  103.979226] dst_release: dst ffff880114068000 refcnt 22 function ____sk_dst_set
+[  103.979240] dst_release: dst ffff8800d5a1cb40 refcnt 0 function ip_rt_put
+[  103.773536] CR2: 000000000100002d
+[  103.994725] ---[ end trace 89af15aa9ce4fffe ]---
+[  103.997270] Kernel panic - not syncing: Fatal exception
 
->>  net/hsr/hsr_device.h          |  30 +++
->>  net/hsr/hsr_framereg.h        |  54 ++++
->>  net/hsr/hsr_main.h            | 167 ++++++++++++
->>  net/hsr/hsr_netlink.h         |  74 ++++++
->=20
-> Maybe some of these .h files should go into include/net/...
->=20
-> A future version of checkpatch may read all the include
-> files and exempt any CamelCase defines/typedefs/functions
-> from CamelCase warnings.
+R14 seems to hold the broken dst-reference (seems to be a rtable
+reference).  Grepping through the dump with ffff8800d8804b40 shows the
+reference count handling of this particular dst-ref.
 
-I cannot judge if these files should go into include/net/ or not. Where=
- can I get a final
-say on this?
+I have not yet drawn any conclusions out of this and will play around
+a bit more.
 
-Some of the definitions in hsr_netlink.h are needed by userspace tools =
-that want to listen
-for ring errors etc from the HSR driver, so it would be a good thing if=
- this file could be
-part of the kernel headers install. How can I accomplish this?
+Thanks,
 
-
->> +	if ((skb->protocol !=3D htons(ETH_P_PRP)) ||
->> +			(hsr_ethhdr->ethhdr.h_proto !=3D htons(ETH_P_PRP))) {
->=20
-> Please align indents after the appropriate open parenthesis.=20
->=20
-> 	if (foo ||
-> 	    bar) {
->=20
->> +bool is_hsr_master(struct net_device *dev)
->> +{
->> +	if (!dev) {
->> +		WARN_ON_ONCE(1);
->> +		return 0;
->> +	}
->> +	if (!dev->netdev_ops) {
->> +		WARN_ON_ONCE(1);
->> +		return 0;
->> +	}
->=20
-> probably better to combine and give a textual reason
-
-Or perhaps better to remove them altogether? I guess you could call the=
-m debug statements...
-
-
->> diff --git a/net/hsr/hsr_main.h b/net/hsr/hsr_main.h
-> []
->> +#define HSR_LIFE_CHECK_INTERVAL		 2000 /* ms */
->> +#define HSR_NODE_FORGET_TIME		60000 /* ms */
->> +#define HSR_ANNOUNCE_INTERVAL		  100 /* ms */
->=20
-> Odd alignment
-
-Only because of the plus chars added by diff. :)
-
-
->> diff --git a/net/hsr/hsr_netlink.c b/net/hsr/hsr_netlink.c
-> []
->> +static const struct nla_policy hsr_genl_policy[HSR_A_MAX + 1] =3D {
->> +	[HSR_A_NODE_ADDR] =3D { .type =3D NLA_BINARY, .len =3D ETH_ALEN },
->> +	[HSR_A_NODE_ADDR_B] =3D { .type =3D NLA_BINARY, .len =3D ETH_ALEN =
-},
->> +	[HSR_A_IFINDEX] =3D { .type =3D NLA_U32 },
->> +	[HSR_A_IF1_AGE] =3D { .type =3D NLA_U32 }, /* Actually signed 32-b=
-it */
->> +	[HSR_A_IF2_AGE] =3D { .type =3D NLA_U32 }, /* Actually signed 32-b=
-it */
->=20
-> Why not use NLA_S32?
-
-We need the code to work on older kernels as well, where NLA_S32 does n=
-ot exist. Actually,
-these values never become negative with the current code. During develo=
-pment we returned a
-negative value to mean "out of range" but we have switched to INT_MAX i=
-nstead. So perhaps
-it's best just to remove these comments?
-
-
---=20
-Arvid Brodin | Consultant (Linux)
-T: +46-8-56254286 | M: +46-70-9714286 | arvid.brodin@xdin.com
-XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
+  Hannes
