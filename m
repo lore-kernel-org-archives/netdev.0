@@ -1,72 +1,161 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH iproute2] ss: add more TCP_INFO components
-Date: Tue, 25 Jun 2013 13:29:17 -0700
-Message-ID: <1372192157.3301.118.camel@edumazet-glaptop>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: [PATCH v2 01/45] CPU hotplug: Provide APIs to prevent CPU offline
+ from atomic context
+Date: Wed, 26 Jun 2013 01:55:42 +0530
+Message-ID: <20130625202541.16593.17752.stgit@srivatsabhat.in.ibm.com>
+References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Stephen Hemminger <stephen@networkplumber.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f49.google.com ([74.125.83.49]:56307 "EHLO
-	mail-ee0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752152Ab3FYU3F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 16:29:05 -0400
-Received: by mail-ee0-f49.google.com with SMTP id b57so6922572eek.36
-        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 13:29:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
+	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Tejun Heo <tj@kernel.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
+	Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>,
+	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+The current CPU offline code uses stop_machine() internally. And disabling
+preemption prevents stop_machine() from taking effect, thus also preventing
+CPUs from going offline, as a side effect.
 
-Allow ss -i to display more TCP informations :
+There are places where this side-effect of preempt_disable() (or equivalent)
+is used to synchronize with CPU hotplug. Typically these are in atomic
+sections of code, where they can't make use of get/put_online_cpus(), because
+the latter set of APIs can sleep.
 
-unacked:N   Number of un-acked packets
-retrans:X/Y   X: number of outstanding retransmit packets
-              Y: total number of retransmits for the session
-lost:N       Number of lost packets (tcpi_lost)
-sacked:N     Number of sacked packets (tcpi_sacked)
-facked:N     Number of facked packets (tcpi_facked)
-reordering:N Reordering level (if different of 3)
+Going forward, we want to get rid of stop_machine() from the CPU hotplug
+offline path. And then, with stop_machine() gone, disabling preemption will
+no longer prevent CPUs from going offline.
 
-Example :
+So provide a set of APIs for such atomic hotplug readers, to prevent (any)
+CPUs from going offline. For now, they will default to preempt_disable()
+and preempt_enable() itself, but this will help us do the tree-wide conversion,
+as a preparatory step to remove stop_machine() from CPU hotplug.
 
-$ ss -emoi dst 10.7.7.83
-tcp   ESTAB      0      1154056   10.7.7.84:54127    10.7.7.83:34342
-timer:(on,200ms,0) ino:57003 sk:ffff88063c51d0c0 <->
-	 skmem:(r0,rb89280,t0,tb2097152,f726504,w1436184,o0,bl0) ts sack cubic
-wscale:7,6 rto:310 rtt:107.375/1 mss:1448 cwnd:568 ssthresh:108 send
-61.3Mbps unacked:568 retrans:0/21 reordering:127 rcv_space:29200
+(Besides, it is good documentation as well, since it clearly marks places
+where we synchronize with CPU hotplug, instead of combining it subtly with
+disabling preemption).
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Yuchung Cheng <ycheng@google.com>
-Cc: Neal Cardwell <ncardwell@google.com>
+In future, when actually removing stop_machine(), we will alter the
+implementation of these APIs to a suitable synchronization scheme.
+
+Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: Tejun Heo <tj@kernel.org>
+Cc: "Rafael J. Wysocki" <rjw@sisk.pl>
+Cc: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
- misc/ss.c |   13 +++++++++++++
- 1 file changed, 13 insertions(+)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index e0d11ff..c0369f1 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -1435,6 +1435,19 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 					 / rtt));
- 		}
+ include/linux/cpu.h |   20 ++++++++++++++++++++
+ kernel/cpu.c        |   38 ++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 58 insertions(+)
+
+diff --git a/include/linux/cpu.h b/include/linux/cpu.h
+index 9f3c7e8..a57b25a 100644
+--- a/include/linux/cpu.h
++++ b/include/linux/cpu.h
+@@ -17,6 +17,8 @@
+ #include <linux/node.h>
+ #include <linux/compiler.h>
+ #include <linux/cpumask.h>
++#include <linux/percpu.h>
++#include <linux/smp.h>
  
-+		if (info->tcpi_unacked)
-+			printf(" unacked:%u", info->tcpi_unacked);
-+		if (info->tcpi_retrans || info->tcpi_total_retrans)
-+			printf(" retrans:%u/%u", info->tcpi_retrans,
-+			       info->tcpi_total_retrans);
-+		if (info->tcpi_lost)
-+			printf(" lost:%u", info->tcpi_lost);
-+		if (info->tcpi_sacked && r->idiag_state != SS_LISTEN)
-+			printf(" sacked:%u", info->tcpi_sacked);
-+		if (info->tcpi_fackets)
-+			printf(" fackets:%u", info->tcpi_fackets);
-+		if (info->tcpi_reordering != 3)
-+			printf(" reordering:%d", info->tcpi_reordering);
- 		if (info->tcpi_rcv_rtt)
- 			printf(" rcv_rtt:%g", (double) info->tcpi_rcv_rtt/1000);
- 		if (info->tcpi_rcv_space)
+ struct device;
+ 
+@@ -175,6 +177,8 @@ extern struct bus_type cpu_subsys;
+ 
+ extern void get_online_cpus(void);
+ extern void put_online_cpus(void);
++extern unsigned int get_online_cpus_atomic(void);
++extern void put_online_cpus_atomic(void);
+ extern void cpu_hotplug_disable(void);
+ extern void cpu_hotplug_enable(void);
+ #define hotcpu_notifier(fn, pri)	cpu_notifier(fn, pri)
+@@ -202,6 +206,22 @@ static inline void cpu_hotplug_driver_unlock(void)
+ #define put_online_cpus()	do { } while (0)
+ #define cpu_hotplug_disable()	do { } while (0)
+ #define cpu_hotplug_enable()	do { } while (0)
++
++static inline unsigned int get_online_cpus_atomic(void)
++{
++	/*
++	 * Disable preemption to avoid getting complaints from the
++	 * debug_smp_processor_id() code.
++	 */
++	preempt_disable();
++	return smp_processor_id();
++}
++
++static inline void put_online_cpus_atomic(void)
++{
++	preempt_enable();
++}
++
+ #define hotcpu_notifier(fn, pri)	do { (void)(fn); } while (0)
+ /* These aren't inline functions due to a GCC bug. */
+ #define register_hotcpu_notifier(nb)	({ (void)(nb); 0; })
+diff --git a/kernel/cpu.c b/kernel/cpu.c
+index 198a388..2d03398 100644
+--- a/kernel/cpu.c
++++ b/kernel/cpu.c
+@@ -154,6 +154,44 @@ void cpu_hotplug_enable(void)
+ 	cpu_maps_update_done();
+ }
+ 
++/*
++ * get_online_cpus_atomic - Prevent any CPU from going offline
++ *
++ * Atomic hotplug readers (tasks which wish to prevent CPUs from going
++ * offline during their critical section, but can't afford to sleep)
++ * can invoke this function to synchronize with CPU offline. This function
++ * can be called recursively, provided it is matched with an equal number
++ * of calls to put_online_cpus_atomic().
++ *
++ * Note: This does NOT prevent CPUs from coming online! It only prevents
++ * CPUs from going offline.
++ *
++ * Lock ordering rule: Strictly speaking, there is no lock ordering
++ * requirement here, but it is advisable to keep the locking consistent.
++ * As a simple rule-of-thumb, use these functions in the outer-most blocks
++ * of your critical sections, outside of other locks.
++ *
++ * Returns the current CPU number, with preemption disabled.
++ */
++unsigned int get_online_cpus_atomic(void)
++{
++	/*
++	 * The current CPU hotplug implementation uses stop_machine() in
++	 * the CPU offline path. And disabling preemption prevents
++	 * stop_machine() from taking effect. Thus, this prevents any CPU
++	 * from going offline.
++	 */
++	preempt_disable();
++	return smp_processor_id();
++}
++EXPORT_SYMBOL_GPL(get_online_cpus_atomic);
++
++void put_online_cpus_atomic(void)
++{
++	preempt_enable();
++}
++EXPORT_SYMBOL_GPL(put_online_cpus_atomic);
++
+ #else /* #if CONFIG_HOTPLUG_CPU */
+ static void cpu_hotplug_begin(void) {}
+ static void cpu_hotplug_done(void) {}
