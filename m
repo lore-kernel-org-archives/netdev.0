@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 13/45] timer: Use get/put_online_cpus_atomic() to prevent
- CPU offline
-Date: Wed, 26 Jun 2013 01:57:31 +0530
-Message-ID: <20130625202730.16593.35113.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v2 15/45] rcu: Use get/put_online_cpus_atomic() to prevent CPU
+ offline
+Date: Wed, 26 Jun 2013 01:57:55 +0530
+Message-ID: <20130625202755.16593.67819.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,7 +13,8 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>,
+	Dipankar Sarma <dipankar@in.ibm.com>,
+	"Paul E. McKenney" <paulmck@linux.vnet.ibm.com>,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -28,49 +29,37 @@ Once stop_machine() is gone from the CPU offline path, we won't be able
 to depend on disabling preemption to prevent CPUs from going offline
 from under us.
 
-Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
-offline, while invoking from atomic context.
+In RCU code, rcu_implicit_dynticks_qs() checks if a CPU is offline,
+while being protected by a spinlock. Use the get/put_online_cpus_atomic()
+APIs to prevent CPUs from going offline, while invoking from atomic context.
 
-Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: Dipankar Sarma <dipankar@in.ibm.com>
+Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/timer.c |    4 ++++
+ kernel/rcutree.c |    4 ++++
  1 file changed, 4 insertions(+)
 
-diff --git a/kernel/timer.c b/kernel/timer.c
-index 15ffdb3..5db594c 100644
---- a/kernel/timer.c
-+++ b/kernel/timer.c
-@@ -729,6 +729,7 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
- 	timer_stats_timer_set_start_info(timer);
- 	BUG_ON(!timer->function);
+diff --git a/kernel/rcutree.c b/kernel/rcutree.c
+index cf3adc6..caeed1a 100644
+--- a/kernel/rcutree.c
++++ b/kernel/rcutree.c
+@@ -2107,6 +2107,8 @@ static void force_qs_rnp(struct rcu_state *rsp, int (*f)(struct rcu_data *))
+ 			rcu_initiate_boost(rnp, flags); /* releases rnp->lock */
+ 			continue;
+ 		}
++
++		get_online_cpus_atomic();
+ 		cpu = rnp->grplo;
+ 		bit = 1;
+ 		for (; cpu <= rnp->grphi; cpu++, bit <<= 1) {
+@@ -2114,6 +2116,8 @@ static void force_qs_rnp(struct rcu_state *rsp, int (*f)(struct rcu_data *))
+ 			    f(per_cpu_ptr(rsp->rda, cpu)))
+ 				mask |= bit;
+ 		}
++		put_online_cpus_atomic();
++
+ 		if (mask != 0) {
  
-+	get_online_cpus_atomic();
- 	base = lock_timer_base(timer, &flags);
- 
- 	ret = detach_if_pending(timer, base, false);
-@@ -768,6 +769,7 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
- 
- out_unlock:
- 	spin_unlock_irqrestore(&base->lock, flags);
-+	put_online_cpus_atomic();
- 
- 	return ret;
- }
-@@ -926,6 +928,7 @@ void add_timer_on(struct timer_list *timer, int cpu)
- 
- 	timer_stats_timer_set_start_info(timer);
- 	BUG_ON(timer_pending(timer) || !timer->function);
-+	get_online_cpus_atomic();
- 	spin_lock_irqsave(&base->lock, flags);
- 	timer_set_base(timer, base);
- 	debug_activate(timer, timer->expires);
-@@ -940,6 +943,7 @@ void add_timer_on(struct timer_list *timer, int cpu)
- 	 */
- 	wake_up_nohz_cpu(cpu);
- 	spin_unlock_irqrestore(&base->lock, flags);
-+	put_online_cpus_atomic();
- }
- EXPORT_SYMBOL_GPL(add_timer_on);
- 
+ 			/* rcu_report_qs_rnp() releases rnp->lock. */
