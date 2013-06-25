@@ -1,41 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 2/2] sit: add support of x-netns
-Date: Tue, 25 Jun 2013 16:56:12 -0700 (PDT)
-Message-ID: <20130625.165612.1653110297729408070.davem@davemloft.net>
-References: <51C9A4E3.2060906@6wind.com>
-	<1372170295-4717-1-git-send-email-nicolas.dichtel@6wind.com>
-	<1372170295-4717-3-git-send-email-nicolas.dichtel@6wind.com>
+Subject: Re: [PATCH v3 net-next 0/6] bonding: prepare to and add
+ arp_all_targets
+Date: Tue, 25 Jun 2013 16:59:00 -0700 (PDT)
+Message-ID: <20130625.165900.1252114206200126763.davem@davemloft.net>
+References: <1372067374-10459-1-git-send-email-vfalico@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com, bcrl@kvack.org,
-	ravi.mlists@gmail.com, bhutchings@solarflare.com
-To: nicolas.dichtel@6wind.com
+Cc: netdev@vger.kernel.org, fubar@us.ibm.com, andy@greyhouse.net,
+	linux@8192.net, nicolas.2p.debian@free.fr, rick.jones2@hp.com,
+	nikolay@redhat.com, mkubecek@suse.cz
+To: vfalico@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35253 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35294 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752400Ab3FYX4N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 19:56:13 -0400
-In-Reply-To: <1372170295-4717-3-git-send-email-nicolas.dichtel@6wind.com>
+	with ESMTP id S1752363Ab3FYX7B (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 19:59:01 -0400
+In-Reply-To: <1372067374-10459-1-git-send-email-vfalico@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Date: Tue, 25 Jun 2013 16:24:55 +0200
+From: Veaceslav Falico <vfalico@redhat.com>
+Date: Mon, 24 Jun 2013 11:49:28 +0200
 
-> @@ -453,6 +454,8 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
->  	tstats->rx_bytes += skb->len;
->  	u64_stats_update_end(&tstats->syncp);
->  
-> +	skb_scrub_packet(skb);
-> +
->  	if (tunnel->dev->type == ARPHRD_ETHER) {
->  		skb->protocol = eth_type_trans(skb, tunnel->dev);
->  		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
+> This patchset does some cleanup, fixes a few flaws and adds a new parameter
+> to control whether the slave should stay up when any of arp_ip_targets are
+> up or all of them are up (i.e. if the slave should go down if even one
+> target from arp_ip_targets fail).
+> 
+> The patches 1-5 basically prepare the bonding code to work properly with this
+> new parameter, however it's not depending on them.
+> 
+> All comments are really welcome.
 
-I can't see how this can be ok.
-
-If something in netfilter depends upon the state you are clearing out
-here, someone's packet filtering setup is going to break.
-
-I'm not applying these patches, sorry.
+Series applied, thank you.
