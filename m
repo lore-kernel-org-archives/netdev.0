@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 39/45] mn10300: Use get/put_online_cpus_atomic() to prevent
+Subject: [PATCH v2 41/45] powerpc: Use get/put_online_cpus_atomic() to prevent
  CPU offline
-Date: Wed, 26 Jun 2013 02:03:04 +0530
-Message-ID: <20130625203303.16593.37863.stgit@srivatsabhat.in.ibm.com>
+Date: Wed, 26 Jun 2013 02:03:32 +0530
+Message-ID: <20130625203332.16593.33244.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,17 +13,23 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	David Howells <dhowells@redhat.com>,
-	Koichi Yasutake <yasutake.koichi@jp.panasonic.com>,
-	linux-am33-list@redhat.com,
+	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Gleb Natapov <gleb@redhat.com>, Alexander Graf <agraf@suse.de>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Grant Likely <grant.likely@secretlab.ca>,
+	Kumar Gala <galak@kernel.crashing.org>,
+	Zhao Chenhui <chenhui.zhao@freescale.com>,
+	linuxppc-dev@lists.ozlabs.org, kvm@vger.kernel.org,
+	kvm-ppc@vger.kernel.org, oprofile-list@lists.sf.net,
+	cbe-oss-dev@lists.ozlabs.org,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
 	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
 	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Return-path: <linux-arch-owner@vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
 In-Reply-To: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able
@@ -33,123 +39,250 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: David Howells <dhowells@redhat.com>
-Cc: Koichi Yasutake <yasutake.koichi@jp.panasonic.com>
-Cc: linux-am33-list@redhat.com
+Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Gleb Natapov <gleb@redhat.com>
+Cc: Alexander Graf <agraf@suse.de>
+Cc: Rob Herring <rob.herring@calxeda.com>
+Cc: Grant Likely <grant.likely@secretlab.ca>
+Cc: Kumar Gala <galak@kernel.crashing.org>
+Cc: Zhao Chenhui <chenhui.zhao@freescale.com>
+Cc: linuxppc-dev@lists.ozlabs.org
+Cc: kvm@vger.kernel.org
+Cc: kvm-ppc@vger.kernel.org
+Cc: oprofile-list@lists.sf.net
+Cc: cbe-oss-dev@lists.ozlabs.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/mn10300/mm/cache-smp.c |    3 +++
- arch/mn10300/mm/tlb-smp.c   |   17 +++++++++--------
- 2 files changed, 12 insertions(+), 8 deletions(-)
+ arch/powerpc/kernel/irq.c                  |    7 ++++++-
+ arch/powerpc/kernel/machine_kexec_64.c     |    4 ++--
+ arch/powerpc/kernel/smp.c                  |    2 ++
+ arch/powerpc/kvm/book3s_hv.c               |    5 +++--
+ arch/powerpc/mm/mmu_context_nohash.c       |    3 +++
+ arch/powerpc/oprofile/cell/spu_profiler.c  |    3 +++
+ arch/powerpc/oprofile/cell/spu_task_sync.c |    4 ++++
+ arch/powerpc/oprofile/op_model_cell.c      |    6 ++++++
+ 8 files changed, 29 insertions(+), 5 deletions(-)
 
-diff --git a/arch/mn10300/mm/cache-smp.c b/arch/mn10300/mm/cache-smp.c
-index 2d23b9e..406357d 100644
---- a/arch/mn10300/mm/cache-smp.c
-+++ b/arch/mn10300/mm/cache-smp.c
-@@ -13,6 +13,7 @@
- #include <linux/mman.h>
- #include <linux/threads.h>
- #include <linux/interrupt.h>
+diff --git a/arch/powerpc/kernel/irq.c b/arch/powerpc/kernel/irq.c
+index ca39bac..41e9961 100644
+--- a/arch/powerpc/kernel/irq.c
++++ b/arch/powerpc/kernel/irq.c
+@@ -45,6 +45,7 @@
+ #include <linux/irq.h>
+ #include <linux/seq_file.h>
+ #include <linux/cpumask.h>
 +#include <linux/cpu.h>
- #include <asm/page.h>
- #include <asm/pgtable.h>
- #include <asm/processor.h>
-@@ -91,6 +92,7 @@ void smp_cache_interrupt(void)
- void smp_cache_call(unsigned long opr_mask,
- 		    unsigned long start, unsigned long end)
- {
-+	get_online_cpus_atomic();
- 	smp_cache_mask = opr_mask;
- 	smp_cache_start = start;
- 	smp_cache_end = end;
-@@ -102,4 +104,5 @@ void smp_cache_call(unsigned long opr_mask,
- 	while (!cpumask_empty(&smp_cache_ipi_map))
- 		/* nothing. lockup detection does not belong here */
- 		mb();
-+	put_online_cpus_atomic();
- }
-diff --git a/arch/mn10300/mm/tlb-smp.c b/arch/mn10300/mm/tlb-smp.c
-index 3e57faf..8856fd3 100644
---- a/arch/mn10300/mm/tlb-smp.c
-+++ b/arch/mn10300/mm/tlb-smp.c
-@@ -23,6 +23,7 @@
- #include <linux/sched.h>
  #include <linux/profile.h>
- #include <linux/smp.h>
-+#include <linux/cpu.h>
- #include <asm/tlbflush.h>
- #include <asm/bitops.h>
- #include <asm/processor.h>
-@@ -61,7 +62,7 @@ void smp_flush_tlb(void *unused)
- {
- 	unsigned long cpu_id;
+ #include <linux/bitops.h>
+ #include <linux/list.h>
+@@ -410,7 +411,10 @@ void migrate_irqs(void)
+ 	unsigned int irq;
+ 	static int warned;
+ 	cpumask_var_t mask;
+-	const struct cpumask *map = cpu_online_mask;
++	const struct cpumask *map;
++
++	get_online_cpus_atomic();
++	map = cpu_online_mask;
  
--	cpu_id = get_cpu();
-+	cpu_id = get_online_cpus_atomic();
+ 	alloc_cpumask_var(&mask, GFP_ATOMIC);
  
- 	if (!cpumask_test_cpu(cpu_id, &flush_cpumask))
- 		/* This was a BUG() but until someone can quote me the line
-@@ -82,7 +83,7 @@ void smp_flush_tlb(void *unused)
- 	cpumask_clear_cpu(cpu_id, &flush_cpumask);
- 	smp_mb__after_clear_bit();
- out:
+@@ -436,6 +440,7 @@ void migrate_irqs(void)
+ 	}
+ 
+ 	free_cpumask_var(mask);
++	put_online_cpus_atomic();
+ 
+ 	local_irq_enable();
+ 	mdelay(1);
+diff --git a/arch/powerpc/kernel/machine_kexec_64.c b/arch/powerpc/kernel/machine_kexec_64.c
+index 611acdf..38f6d75 100644
+--- a/arch/powerpc/kernel/machine_kexec_64.c
++++ b/arch/powerpc/kernel/machine_kexec_64.c
+@@ -187,7 +187,7 @@ static void kexec_prepare_cpus_wait(int wait_state)
+ 	int my_cpu, i, notified=-1;
+ 
+ 	hw_breakpoint_disable();
+-	my_cpu = get_cpu();
++	my_cpu = get_online_cpus_atomic();
+ 	/* Make sure each CPU has at least made it to the state we need.
+ 	 *
+ 	 * FIXME: There is a (slim) chance of a problem if not all of the CPUs
+@@ -266,7 +266,7 @@ static void kexec_prepare_cpus(void)
+ 	 */
+ 	kexec_prepare_cpus_wait(KEXEC_STATE_REAL_MODE);
+ 
 -	put_cpu();
 +	put_online_cpus_atomic();
  }
  
- /**
-@@ -144,7 +145,7 @@ void flush_tlb_mm(struct mm_struct *mm)
+ #else /* ! SMP */
+diff --git a/arch/powerpc/kernel/smp.c b/arch/powerpc/kernel/smp.c
+index ee7ac5e..2123bec 100644
+--- a/arch/powerpc/kernel/smp.c
++++ b/arch/powerpc/kernel/smp.c
+@@ -277,9 +277,11 @@ void smp_send_debugger_break(void)
+ 	if (unlikely(!smp_ops))
+ 		return;
+ 
++	get_online_cpus_atomic();
+ 	for_each_online_cpu(cpu)
+ 		if (cpu != me)
+ 			do_message_pass(cpu, PPC_MSG_DEBUGGER_BREAK);
++	put_online_cpus_atomic();
+ }
+ #endif
+ 
+diff --git a/arch/powerpc/kvm/book3s_hv.c b/arch/powerpc/kvm/book3s_hv.c
+index 2efa9dd..9d8a973 100644
+--- a/arch/powerpc/kvm/book3s_hv.c
++++ b/arch/powerpc/kvm/book3s_hv.c
+@@ -28,6 +28,7 @@
+ #include <linux/fs.h>
+ #include <linux/anon_inodes.h>
+ #include <linux/cpumask.h>
++#include <linux/cpu.h>
+ #include <linux/spinlock.h>
+ #include <linux/page-flags.h>
+ #include <linux/srcu.h>
+@@ -78,7 +79,7 @@ void kvmppc_fast_vcpu_kick(struct kvm_vcpu *vcpu)
+ 		++vcpu->stat.halt_wakeup;
+ 	}
+ 
+-	me = get_cpu();
++	me = get_online_cpus_atomic();
+ 
+ 	/* CPU points to the first thread of the core */
+ 	if (cpu != me && cpu >= 0 && cpu < nr_cpu_ids) {
+@@ -88,7 +89,7 @@ void kvmppc_fast_vcpu_kick(struct kvm_vcpu *vcpu)
+ 		else if (cpu_online(cpu))
+ 			smp_send_reschedule(cpu);
+ 	}
+-	put_cpu();
++	put_online_cpus_atomic();
+ }
+ 
+ /*
+diff --git a/arch/powerpc/mm/mmu_context_nohash.c b/arch/powerpc/mm/mmu_context_nohash.c
+index e779642..c7bdcb4 100644
+--- a/arch/powerpc/mm/mmu_context_nohash.c
++++ b/arch/powerpc/mm/mmu_context_nohash.c
+@@ -194,6 +194,8 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
+ 	unsigned int i, id, cpu = smp_processor_id();
+ 	unsigned long *map;
+ 
++	get_online_cpus_atomic();
++
+ 	/* No lockless fast path .. yet */
+ 	raw_spin_lock(&context_lock);
+ 
+@@ -280,6 +282,7 @@ void switch_mmu_context(struct mm_struct *prev, struct mm_struct *next)
+ 	pr_hardcont(" -> %d\n", id);
+ 	set_context(id, next->pgd);
+ 	raw_spin_unlock(&context_lock);
++	put_online_cpus_atomic();
+ }
+ 
+ /*
+diff --git a/arch/powerpc/oprofile/cell/spu_profiler.c b/arch/powerpc/oprofile/cell/spu_profiler.c
+index b129d00..ab6e6c1 100644
+--- a/arch/powerpc/oprofile/cell/spu_profiler.c
++++ b/arch/powerpc/oprofile/cell/spu_profiler.c
+@@ -14,6 +14,7 @@
+ 
+ #include <linux/hrtimer.h>
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <linux/slab.h>
+ #include <asm/cell-pmu.h>
+ #include <asm/time.h>
+@@ -142,6 +143,7 @@ static enum hrtimer_restart profile_spus(struct hrtimer *timer)
+ 	if (!spu_prof_running)
+ 		goto stop;
+ 
++	get_online_cpus_atomic();
+ 	for_each_online_cpu(cpu) {
+ 		if (cbe_get_hw_thread_id(cpu))
+ 			continue;
+@@ -177,6 +179,7 @@ static enum hrtimer_restart profile_spus(struct hrtimer *timer)
+ 				       oprof_spu_smpl_arry_lck_flags);
+ 
+ 	}
++	put_online_cpus_atomic();
+ 	smp_wmb();	/* insure spu event buffer updates are written */
+ 			/* don't want events intermingled... */
+ 
+diff --git a/arch/powerpc/oprofile/cell/spu_task_sync.c b/arch/powerpc/oprofile/cell/spu_task_sync.c
+index 28f1af2..8464ef6 100644
+--- a/arch/powerpc/oprofile/cell/spu_task_sync.c
++++ b/arch/powerpc/oprofile/cell/spu_task_sync.c
+@@ -28,6 +28,7 @@
+ #include <linux/oprofile.h>
+ #include <linux/slab.h>
+ #include <linux/spinlock.h>
++#include <linux/cpu.h>
+ #include "pr_util.h"
+ 
+ #define RELEASE_ALL 9999
+@@ -448,11 +449,14 @@ static int number_of_online_nodes(void)
  {
- 	cpumask_t cpu_mask;
- 
--	preempt_disable();
+         u32 cpu; u32 tmp;
+         int nodes = 0;
++
 +	get_online_cpus_atomic();
- 	cpumask_copy(&cpu_mask, mm_cpumask(mm));
- 	cpumask_clear_cpu(smp_processor_id(), &cpu_mask);
- 
-@@ -152,7 +153,7 @@ void flush_tlb_mm(struct mm_struct *mm)
- 	if (!cpumask_empty(&cpu_mask))
- 		flush_tlb_others(cpu_mask, mm, FLUSH_ALL);
- 
--	preempt_enable();
+         for_each_online_cpu(cpu) {
+                 tmp = cbe_cpu_to_node(cpu) + 1;
+                 if (tmp > nodes)
+                         nodes++;
+         }
 +	put_online_cpus_atomic();
+         return nodes;
  }
  
- /**
-@@ -163,7 +164,7 @@ void flush_tlb_current_task(void)
- 	struct mm_struct *mm = current->mm;
- 	cpumask_t cpu_mask;
+diff --git a/arch/powerpc/oprofile/op_model_cell.c b/arch/powerpc/oprofile/op_model_cell.c
+index b9589c1..c9bb028 100644
+--- a/arch/powerpc/oprofile/op_model_cell.c
++++ b/arch/powerpc/oprofile/op_model_cell.c
+@@ -22,6 +22,7 @@
+ #include <linux/oprofile.h>
+ #include <linux/percpu.h>
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <linux/spinlock.h>
+ #include <linux/timer.h>
+ #include <asm/cell-pmu.h>
+@@ -463,6 +464,7 @@ static void cell_virtual_cntr(unsigned long data)
+ 	 * not both playing with the counters on the same node.
+ 	 */
  
--	preempt_disable();
 +	get_online_cpus_atomic();
- 	cpumask_copy(&cpu_mask, mm_cpumask(mm));
- 	cpumask_clear_cpu(smp_processor_id(), &cpu_mask);
+ 	spin_lock_irqsave(&cntr_lock, flags);
  
-@@ -171,7 +172,7 @@ void flush_tlb_current_task(void)
- 	if (!cpumask_empty(&cpu_mask))
- 		flush_tlb_others(cpu_mask, mm, FLUSH_ALL);
+ 	prev_hdw_thread = hdw_thread;
+@@ -550,6 +552,7 @@ static void cell_virtual_cntr(unsigned long data)
+ 	}
  
--	preempt_enable();
+ 	spin_unlock_irqrestore(&cntr_lock, flags);
 +	put_online_cpus_atomic();
+ 
+ 	mod_timer(&timer_virt_cntr, jiffies + HZ / 10);
  }
- 
- /**
-@@ -184,7 +185,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
- 	struct mm_struct *mm = vma->vm_mm;
- 	cpumask_t cpu_mask;
- 
--	preempt_disable();
+@@ -608,6 +611,8 @@ static void spu_evnt_swap(unsigned long data)
+ 	/* Make sure spu event interrupt handler and spu event swap
+ 	 * don't access the counters simultaneously.
+ 	 */
++
 +	get_online_cpus_atomic();
- 	cpumask_copy(&cpu_mask, mm_cpumask(mm));
- 	cpumask_clear_cpu(smp_processor_id(), &cpu_mask);
+ 	spin_lock_irqsave(&cntr_lock, flags);
  
-@@ -192,7 +193,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
- 	if (!cpumask_empty(&cpu_mask))
- 		flush_tlb_others(cpu_mask, mm, va);
+ 	cur_spu_evnt_phys_spu_indx = spu_evnt_phys_spu_indx;
+@@ -673,6 +678,7 @@ static void spu_evnt_swap(unsigned long data)
+ 	}
  
--	preempt_enable();
+ 	spin_unlock_irqrestore(&cntr_lock, flags);
 +	put_online_cpus_atomic();
- }
  
- /**
+ 	/* swap approximately every 0.1 seconds */
+ 	mod_timer(&timer_spu_event_swap, jiffies + HZ / 25);
+
