@@ -1,36 +1,36 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 12/45] sched/fair: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Wed, 26 Jun 2013 01:57:24 +0530
-Message-ID: <20130625202724.16593.64863.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v2 26/45] x86: Use get/put_online_cpus_atomic() to prevent CPU
+ offline
+Date: Wed, 26 Jun 2013 02:00:10 +0530
+Message-ID: <20130625203010.16593.33560.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: linux-arch@vger.kernel.org, nikunj@linux.vnet.ibm.com,
- zhong@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
- Peter Zijlstra <peterz@infradead.org>, fweisbec@gmail.com,
- linux-kernel@vger.kernel.org, rostedt@goodmis.org,
- xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, Ingo Molnar <mingo@redhat.com>,
- wangyun@linux.vnet.ibm.com,
- "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>, netdev@vger.kernel.org,
- linuxppc-dev@lists.ozlabs.org
-To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org, oleg@redhat.com,
- paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au, mingo@kernel.org,
- akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com,
- vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
+	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Ingo Molnar <mingo@redhat.com>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	Tony Luck <tony.luck@intel.com>,
+	Borislav Petkov <bp@alien8.de>,
+	Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>,
+	Sebastian Andrzej Siewior <sebastian@breakpoint.cc>,
+	Joerg Roedel <joro@8bytes.org>,
+	Jan Beulich <jbeulich@suse.com>,
+	Joonsoo Kim <js1304@gmail.com>, linux-edac@vger.kernel.org,
+	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 Once stop_machine() is gone from the CPU offline path, we won't be able
@@ -40,100 +40,221 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
+Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Borislav Petkov <bp@alien8.de>
+Cc: Konrad Rzeszutek Wilk <konrad.wilk@oracle.com>
+Cc: Sebastian Andrzej Siewior <sebastian@breakpoint.cc>
+Cc: Joerg Roedel <joro@8bytes.org>
+Cc: Jan Beulich <jbeulich@suse.com>
+Cc: Joonsoo Kim <js1304@gmail.com>
+Cc: linux-edac@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/sched/fair.c |   14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+ arch/x86/kernel/apic/io_apic.c           |   21 ++++++++++++++++++---
+ arch/x86/kernel/cpu/mcheck/therm_throt.c |    4 ++--
+ arch/x86/mm/tlb.c                        |   14 +++++++-------
+ 3 files changed, 27 insertions(+), 12 deletions(-)
 
-diff --git a/kernel/sched/fair.c b/kernel/sched/fair.c
-index c0ac2c3..88f056e 100644
---- a/kernel/sched/fair.c
-+++ b/kernel/sched/fair.c
-@@ -3338,7 +3338,8 @@ done:
-  *
-  * Returns the target CPU number, or the same CPU if no balancing is needed.
-  *
-- * preempt must be disabled.
-+ * Must be called within get/put_online_cpus_atomic(), to prevent CPUs
-+ * from going offline from under us.
-  */
- static int
- select_task_rq_fair(struct task_struct *p, int sd_flag, int wake_flags)
-@@ -5267,6 +5268,8 @@ void idle_balance(int this_cpu, struct rq *this_rq)
- 	raw_spin_unlock(&this_rq->lock);
- 
- 	update_blocked_averages(this_cpu);
-+
-+	get_online_cpus_atomic();
- 	rcu_read_lock();
- 	for_each_domain(this_cpu, sd) {
- 		unsigned long interval;
-@@ -5290,6 +5293,7 @@ void idle_balance(int this_cpu, struct rq *this_rq)
- 		}
- 	}
- 	rcu_read_unlock();
-+	put_online_cpus_atomic();
- 
- 	raw_spin_lock(&this_rq->lock);
- 
-@@ -5316,6 +5320,7 @@ static int active_load_balance_cpu_stop(void *data)
- 	struct rq *target_rq = cpu_rq(target_cpu);
- 	struct sched_domain *sd;
+diff --git a/arch/x86/kernel/apic/io_apic.c b/arch/x86/kernel/apic/io_apic.c
+index 9ed796c..4c71c1e 100644
+--- a/arch/x86/kernel/apic/io_apic.c
++++ b/arch/x86/kernel/apic/io_apic.c
+@@ -25,6 +25,7 @@
+ #include <linux/init.h>
+ #include <linux/delay.h>
+ #include <linux/sched.h>
++#include <linux/cpu.h>
+ #include <linux/pci.h>
+ #include <linux/mc146818rtc.h>
+ #include <linux/compiler.h>
+@@ -1169,9 +1170,11 @@ int assign_irq_vector(int irq, struct irq_cfg *cfg, const struct cpumask *mask)
+ 	int err;
+ 	unsigned long flags;
  
 +	get_online_cpus_atomic();
- 	raw_spin_lock_irq(&busiest_rq->lock);
- 
- 	/* make sure the requested cpu hasn't gone down in the meantime */
-@@ -5367,6 +5372,7 @@ static int active_load_balance_cpu_stop(void *data)
- out_unlock:
- 	busiest_rq->active_balance = 0;
- 	raw_spin_unlock_irq(&busiest_rq->lock);
+ 	raw_spin_lock_irqsave(&vector_lock, flags);
+ 	err = __assign_irq_vector(irq, cfg, mask);
+ 	raw_spin_unlock_irqrestore(&vector_lock, flags);
 +	put_online_cpus_atomic();
- 	return 0;
+ 	return err;
  }
  
-@@ -5527,6 +5533,7 @@ static void rebalance_domains(int cpu, enum cpu_idle_type idle)
+@@ -1757,13 +1760,13 @@ __apicdebuginit(void) print_local_APICs(int maxcpu)
+ 	if (!maxcpu)
+ 		return;
  
- 	update_blocked_averages(cpu);
- 
+-	preempt_disable();
 +	get_online_cpus_atomic();
- 	rcu_read_lock();
- 	for_each_domain(cpu, sd) {
- 		if (!(sd->flags & SD_LOAD_BALANCE))
-@@ -5575,6 +5582,7 @@ out:
+ 	for_each_online_cpu(cpu) {
+ 		if (cpu >= maxcpu)
  			break;
+ 		smp_call_function_single(cpu, print_local_APIC, NULL, 1);
  	}
- 	rcu_read_unlock();
-+	put_online_cpus_atomic();
- 
- 	/*
- 	 * next_balance will be updated only when there is a need.
-@@ -5706,6 +5714,7 @@ static void run_rebalance_domains(struct softirq_action *h)
- 	enum cpu_idle_type idle = this_rq->idle_balance ?
- 						CPU_IDLE : CPU_NOT_IDLE;
- 
-+	get_online_cpus_atomic();
- 	rebalance_domains(this_cpu, idle);
- 
- 	/*
-@@ -5714,6 +5723,7 @@ static void run_rebalance_domains(struct softirq_action *h)
- 	 * stopped.
- 	 */
- 	nohz_idle_balance(this_cpu, idle);
+-	preempt_enable();
 +	put_online_cpus_atomic();
  }
  
- static inline int on_null_domain(int cpu)
-@@ -5731,8 +5741,10 @@ void trigger_load_balance(struct rq *rq, int cpu)
- 	    likely(!on_null_domain(cpu)))
- 		raise_softirq(SCHED_SOFTIRQ);
- #ifdef CONFIG_NO_HZ_COMMON
+ __apicdebuginit(void) print_PIC(void)
+@@ -2153,10 +2156,12 @@ static int ioapic_retrigger_irq(struct irq_data *data)
+ 	unsigned long flags;
+ 	int cpu;
+ 
 +	get_online_cpus_atomic();
- 	if (nohz_kick_needed(rq, cpu) && likely(!on_null_domain(cpu)))
- 		nohz_balancer_kick(cpu);
+ 	raw_spin_lock_irqsave(&vector_lock, flags);
+ 	cpu = cpumask_first_and(cfg->domain, cpu_online_mask);
+ 	apic->send_IPI_mask(cpumask_of(cpu), cfg->vector);
+ 	raw_spin_unlock_irqrestore(&vector_lock, flags);
 +	put_online_cpus_atomic();
- #endif
+ 
+ 	return 1;
  }
+@@ -2175,6 +2180,7 @@ void send_cleanup_vector(struct irq_cfg *cfg)
+ {
+ 	cpumask_var_t cleanup_mask;
+ 
++	get_online_cpus_atomic();
+ 	if (unlikely(!alloc_cpumask_var(&cleanup_mask, GFP_ATOMIC))) {
+ 		unsigned int i;
+ 		for_each_cpu_and(i, cfg->old_domain, cpu_online_mask)
+@@ -2185,6 +2191,7 @@ void send_cleanup_vector(struct irq_cfg *cfg)
+ 		free_cpumask_var(cleanup_mask);
+ 	}
+ 	cfg->move_in_progress = 0;
++	put_online_cpus_atomic();
+ }
+ 
+ asmlinkage void smp_irq_move_cleanup_interrupt(void)
+@@ -2939,11 +2946,13 @@ unsigned int __create_irqs(unsigned int from, unsigned int count, int node)
+ 			goto out_irqs;
+ 	}
+ 
++	get_online_cpus_atomic();
+ 	raw_spin_lock_irqsave(&vector_lock, flags);
+ 	for (i = 0; i < count; i++)
+ 		if (__assign_irq_vector(irq + i, cfg[i], apic->target_cpus()))
+ 			goto out_vecs;
+ 	raw_spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 
+ 	for (i = 0; i < count; i++) {
+ 		irq_set_chip_data(irq + i, cfg[i]);
+@@ -2957,6 +2966,7 @@ out_vecs:
+ 	for (i--; i >= 0; i--)
+ 		__clear_irq_vector(irq + i, cfg[i]);
+ 	raw_spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ out_irqs:
+ 	for (i = 0; i < count; i++)
+ 		free_irq_at(irq + i, cfg[i]);
+@@ -2994,9 +3004,11 @@ void destroy_irq(unsigned int irq)
+ 
+ 	free_remapped_irq(irq);
+ 
++	get_online_cpus_atomic();
+ 	raw_spin_lock_irqsave(&vector_lock, flags);
+ 	__clear_irq_vector(irq, cfg);
+ 	raw_spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	free_irq_at(irq, cfg);
+ }
+ 
+@@ -3365,8 +3377,11 @@ io_apic_setup_irq_pin(unsigned int irq, int node, struct io_apic_irq_attr *attr)
+ 	if (!cfg)
+ 		return -EINVAL;
+ 	ret = __add_pin_to_irq_node(cfg, node, attr->ioapic, attr->ioapic_pin);
+-	if (!ret)
++	if (!ret) {
++		get_online_cpus_atomic();
+ 		setup_ioapic_irq(irq, cfg, attr);
++		put_online_cpus_atomic();
++	}
+ 	return ret;
+ }
+ 
+diff --git a/arch/x86/kernel/cpu/mcheck/therm_throt.c b/arch/x86/kernel/cpu/mcheck/therm_throt.c
+index 2f3a799..3eea984 100644
+--- a/arch/x86/kernel/cpu/mcheck/therm_throt.c
++++ b/arch/x86/kernel/cpu/mcheck/therm_throt.c
+@@ -83,13 +83,13 @@ static ssize_t therm_throt_device_show_##event##_##name(		\
+ 	unsigned int cpu = dev->id;					\
+ 	ssize_t ret;							\
+ 									\
+-	preempt_disable();	/* CPU hotplug */			\
++	get_online_cpus_atomic();	/* CPU hotplug */		\
+ 	if (cpu_online(cpu)) {						\
+ 		ret = sprintf(buf, "%lu\n",				\
+ 			      per_cpu(thermal_state, cpu).event.name);	\
+ 	} else								\
+ 		ret = 0;						\
+-	preempt_enable();						\
++	put_online_cpus_atomic();					\
+ 									\
+ 	return ret;							\
+ }
+diff --git a/arch/x86/mm/tlb.c b/arch/x86/mm/tlb.c
+index 282375f..8126374 100644
+--- a/arch/x86/mm/tlb.c
++++ b/arch/x86/mm/tlb.c
+@@ -147,12 +147,12 @@ void flush_tlb_current_task(void)
+ {
+ 	struct mm_struct *mm = current->mm;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 
+ 	local_flush_tlb();
+ 	if (cpumask_any_but(mm_cpumask(mm), smp_processor_id()) < nr_cpu_ids)
+ 		flush_tlb_others(mm_cpumask(mm), mm, 0UL, TLB_FLUSH_ALL);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ /*
+@@ -187,7 +187,7 @@ void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
+ 	unsigned long addr;
+ 	unsigned act_entries, tlb_entries = 0;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	if (current->active_mm != mm)
+ 		goto flush_all;
+ 
+@@ -225,21 +225,21 @@ void flush_tlb_mm_range(struct mm_struct *mm, unsigned long start,
+ 		if (cpumask_any_but(mm_cpumask(mm),
+ 				smp_processor_id()) < nr_cpu_ids)
+ 			flush_tlb_others(mm_cpumask(mm), mm, start, end);
+-		preempt_enable();
++		put_online_cpus_atomic();
+ 		return;
+ 	}
+ 
+ flush_all:
+ 	if (cpumask_any_but(mm_cpumask(mm), smp_processor_id()) < nr_cpu_ids)
+ 		flush_tlb_others(mm_cpumask(mm), mm, 0UL, TLB_FLUSH_ALL);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ void flush_tlb_page(struct vm_area_struct *vma, unsigned long start)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 
+ 	if (current->active_mm == mm) {
+ 		if (current->mm)
+@@ -251,7 +251,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long start)
+ 	if (cpumask_any_but(mm_cpumask(mm), smp_processor_id()) < nr_cpu_ids)
+ 		flush_tlb_others(mm_cpumask(mm), mm, start, 0UL);
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ static void do_flush_tlb_all(void *info)
