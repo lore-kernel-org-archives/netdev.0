@@ -1,99 +1,99 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH v2 15/45] rcu: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Tue, 25 Jun 2013 15:00:26 -0700
-Message-ID: <20130625220026.GG3828@linux.vnet.ibm.com>
-References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
- <20130625202755.16593.67819.stgit@srivatsabhat.in.ibm.com>
-Reply-To: paulmck@linux.vnet.ibm.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, rusty@rustcorp.com.au, mingo@kernel.org,
-	akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com,
-	vincent.guittot@linaro.org, laijs@cn.fujitsu.com,
-	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
-	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Dipankar Sarma <dipankar@in.ibm.com>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-arch-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130625202755.16593.67819.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-arch-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Kamal Mostafa <kamal@canonical.com>
+Subject: [ 3.8.y.z extended stable ] Patch "sctp: fully initialize sctp_outq in sctp_outq_init" has been added to staging queue
+Date: Tue, 25 Jun 2013 15:20:15 -0700
+Message-ID: <1372198815-20451-1-git-send-email-kamal@canonical.com>
+Cc: "West Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, Kamal Mostafa <kamal@canonical.com>,
+	kernel-team@lists.ubuntu.com
+To: Neil Horman <nhorman@tuxdriver.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:49770 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751208Ab3FYWUU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 18:20:20 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 26, 2013 at 01:57:55AM +0530, Srivatsa S. Bhat wrote:
-> Once stop_machine() is gone from the CPU offline path, we won't be able
-> to depend on disabling preemption to prevent CPUs from going offline
-> from under us.
-> 
-> In RCU code, rcu_implicit_dynticks_qs() checks if a CPU is offline,
-> while being protected by a spinlock. Use the get/put_online_cpus_atomic()
-> APIs to prevent CPUs from going offline, while invoking from atomic context.
+This is a note to let you know that I have just added a patch titled
 
-I am not completely sure that this is needed.  Here is a (quite possibly
-flawed) argument for its not being needed:
+    sctp: fully initialize sctp_outq in sctp_outq_init
 
-o	rcu_gp_init() holds off CPU-hotplug operations during
-	grace-period initialization.  Therefore, RCU will avoid
-	looking for quiescent states from CPUs that were offline
-	(and thus in an extended quiescent state) at the beginning
-	of the grace period.
+to the linux-3.8.y-queue branch of the 3.8.y.z extended stable tree 
+which can be found at:
 
-o	If force_qs_rnp() is looking for a quiescent state from
-	a given CPU, and if it senses that CPU as being offline,
-	then even without synchronization we know that the CPU
-	was offline some time during the current grace period.
+ http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.8.y-queue
 
-	After all, it was online at the beginning of the grace
-	period (otherwise, we would not be looking at it at all),
-	and our later sampling of its state must have therefore
-	happened after the start of the grace period.  Given that
-	the grace period has not yet ended, it also has to happened
-	before the end of the grace period.
+This patch is scheduled to be released in version 3.8.13.4.
 
-o	Therefore, we should be able to sample the offline state
-	without synchronization.
+If you, or anyone else, feels it should not be added to this tree, please 
+reply to this email.
 
-Possible flaws in this argument:  memory ordering, oddnesses in
-the sampling and updates of the cpumask recording which CPUs are
-online, and so on.
+For more information about the 3.8.y.z tree, see
+https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
 
-Thoughts?
+Thanks.
+-Kamal
 
-							Thanx, Paul
+------
 
-> Cc: Dipankar Sarma <dipankar@in.ibm.com>
-> Cc: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
-> ---
-> 
->  kernel/rcutree.c |    4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/kernel/rcutree.c b/kernel/rcutree.c
-> index cf3adc6..caeed1a 100644
-> --- a/kernel/rcutree.c
-> +++ b/kernel/rcutree.c
-> @@ -2107,6 +2107,8 @@ static void force_qs_rnp(struct rcu_state *rsp, int (*f)(struct rcu_data *))
->  			rcu_initiate_boost(rnp, flags); /* releases rnp->lock */
->  			continue;
->  		}
-> +
-> +		get_online_cpus_atomic();
->  		cpu = rnp->grplo;
->  		bit = 1;
->  		for (; cpu <= rnp->grphi; cpu++, bit <<= 1) {
-> @@ -2114,6 +2116,8 @@ static void force_qs_rnp(struct rcu_state *rsp, int (*f)(struct rcu_data *))
->  			    f(per_cpu_ptr(rsp->rda, cpu)))
->  				mask |= bit;
->  		}
-> +		put_online_cpus_atomic();
-> +
->  		if (mask != 0) {
-> 
->  			/* rcu_report_qs_rnp() releases rnp->lock. */
-> 
+>From dd83d877ec13bd4289653075974feae56482a49a Mon Sep 17 00:00:00 2001
+From: Neil Horman <nhorman@tuxdriver.com>
+Date: Wed, 12 Jun 2013 14:26:44 -0400
+Subject: sctp: fully initialize sctp_outq in sctp_outq_init
+
+[ Upstream commit c5c7774d7eb4397891edca9ebdf750ba90977a69 ]
+
+In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86
+(refactor sctp_outq_teardown to insure proper re-initalization)
+we modified sctp_outq_teardown to use sctp_outq_init to fully re-initalize the
+outq structure.  Steve West recently asked me why I removed the q->error = 0
+initalization from sctp_outq_teardown.  I did so because I was operating under
+the impression that sctp_outq_init would properly initalize that value for us,
+but it doesn't.  sctp_outq_init operates under the assumption that the outq
+struct is all 0's (as it is when called from sctp_association_init), but using
+it in __sctp_outq_teardown violates that assumption. We should do a memset in
+sctp_outq_init to ensure that the entire structure is in a known state there
+instead.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: netdev@vger.kernel.org
+CC: davem@davemloft.net
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Kamal Mostafa <kamal@canonical.com>
+---
+ net/sctp/outqueue.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
+index 9bcdbd0..b531098 100644
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -206,6 +206,8 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
+  */
+ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ {
++	memset(q, 0, sizeof(struct sctp_outq));
++
+ 	q->asoc = asoc;
+ 	INIT_LIST_HEAD(&q->out_chunk_list);
+ 	INIT_LIST_HEAD(&q->control_chunk_list);
+@@ -213,13 +215,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ 	INIT_LIST_HEAD(&q->sacked);
+ 	INIT_LIST_HEAD(&q->abandoned);
+
+-	q->fast_rtx = 0;
+-	q->outstanding_bytes = 0;
+ 	q->empty = 1;
+-	q->cork  = 0;
+-
+-	q->malloced = 0;
+-	q->out_qlen = 0;
+ }
+
+ /* Free the outqueue structure and any related pending chunks.
+--
+1.8.1.2
