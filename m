@@ -1,36 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: remove old token ipv6 address as soon
- as possible
-Date: Tue, 25 Jun 2013 16:30:03 -0700 (PDT)
-Message-ID: <20130625.163003.1939592365965386146.davem@davemloft.net>
-References: <20130624200328.GJ13836@order.stressinduktion.org>
+Subject: Re: [PATCH net-next V1 00/10] Mellanox driver updates 2013-06-25
+Date: Tue, 25 Jun 2013 16:30:22 -0700 (PDT)
+Message-ID: <20130625.163022.904170172910029930.davem@davemloft.net>
+References: <1372151378-21468-1-git-send-email-ogerlitz@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dborkman@redhat.com
-To: hannes@stressinduktion.org
+Cc: netdev@vger.kernel.org
+To: ogerlitz@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34981 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34986 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752200Ab3FYXaE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 19:30:04 -0400
-In-Reply-To: <20130624200328.GJ13836@order.stressinduktion.org>
+	with ESMTP id S1752165Ab3FYXaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 19:30:23 -0400
+In-Reply-To: <1372151378-21468-1-git-send-email-ogerlitz@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 24 Jun 2013 22:03:28 +0200
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Date: Tue, 25 Jun 2013 12:09:28 +0300
 
-> If the tokenized ip address is re-set on an interface we depend on the
-> arrival of a new router advertisment to call addrconf_verify to clean
-> up the old address (which valid_lft is now set to 0). Old addresses can
-> linger around for a longer time if e.g. the source of router advertisments
-> vanishes.
+> This patch set contains some small fixes to mlx4_core and mlx4_en.
 > 
-> So, call addrconf_verify immediately after setting the new tokenized
-> address to get rid of the old tokenized addresses.
+> Amir is OOO and he passed the stick to me on this series.
 > 
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> The patches were applied and tested on commit d3c5f47ee2 "net: Restore 
+> unintentional reverts." plus Eric's patch "mlx4: allow order-0 memory 
+> allocations in RX path" from http://patchwork.ozlabs.org/patch/253575/ 
+> that I just acknowledged.
+> 
+> Changes from V0:
+> - dropped patch 1/11 as this is handled by Eric's change
+> - addressed feedback on patch 6/10: Add prints when TX timeout occurs
+>   - en_info => en_warn
+>   - Use single line for warning message
+>   - Update change log
 
-Applied.
+Series applied, thanks.
