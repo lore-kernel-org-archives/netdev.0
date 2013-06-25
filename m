@@ -1,43 +1,52 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next 0/6] Further SCTP changes
-Date: Tue, 25 Jun 2013 17:13:35 +0200
-Message-ID: <1372173221-15244-1-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next 1/6] net: sctp: remove TEST_FRAME ifdef
+Date: Tue, 25 Jun 2013 17:13:36 +0200
+Message-ID: <1372173221-15244-2-git-send-email-dborkman@redhat.com>
+References: <1372173221-15244-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:20855 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:58361 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751275Ab3FYPNp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jun 2013 11:13:45 -0400
+	id S1751275Ab3FYPNq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jun 2013 11:13:46 -0400
+In-Reply-To: <1372173221-15244-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mostly it's all about getting rid of unnecessary code, and/or making
-it more clean and readable. Code has been tested with lksctp-tools
-functional test suite and also my small sctp stress test helper that
-was used to discover the recent null-ptr derefs.
+We do neither ship a test_frame.h, nor will this be compatible with
+the 2.5 out-of-tree lksctp kernel test suite anyway. So remove this
+artefact.
 
-Changes since last version:
-  - Left sctp_put_port() still in sctp_endpoint_destroy() for now
-  - Added minor "net: sctp: simplify sctp_get_port" patch
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ include/net/sctp/sctp.h | 7 -------
+ 1 file changed, 7 deletions(-)
 
-Daniel Borkmann (6):
-  net: sctp: remove TEST_FRAME ifdef
-  ktime: add ms_to_ktime() and ktime_add_ms() helpers
-  net: sctp: migrate cookie life from timeval to ktime
-  net: sctp: minor: sctp_seq_dump_local_addrs add missing newline
-  net: sctp: decouple cleaning some socket data from endpoint
-  net: sctp: simplify sctp_get_port
-
- include/linux/ktime.h      | 13 +++++++++++++
- include/net/sctp/sctp.h    | 25 -------------------------
- include/net/sctp/structs.h |  6 +++---
- net/sctp/associola.c       |  8 +-------
- net/sctp/endpointola.c     | 18 +++++++++---------
- net/sctp/proc.c            |  2 +-
- net/sctp/sm_make_chunk.c   | 19 ++++++++-----------
- net/sctp/socket.c          | 35 +++++++++++++++++++----------------
- 8 files changed, 54 insertions(+), 72 deletions(-)
-
+diff --git a/include/net/sctp/sctp.h b/include/net/sctp/sctp.h
+index 6321c08..15214a8 100644
+--- a/include/net/sctp/sctp.h
++++ b/include/net/sctp/sctp.h
+@@ -188,11 +188,6 @@ extern struct kmem_cache *sctp_bucket_cachep __read_mostly;
+  *  Section:  Macros, externs, and inlines
+  */
+ 
+-
+-#ifdef TEST_FRAME
+-#include <test_frame.h>
+-#else
+-
+ /* spin lock wrappers. */
+ #define sctp_spin_lock_irqsave(lock, flags) spin_lock_irqsave(lock, flags)
+ #define sctp_spin_unlock_irqrestore(lock, flags)  \
+@@ -218,8 +213,6 @@ extern struct kmem_cache *sctp_bucket_cachep __read_mostly;
+ #define SCTP_INC_STATS_USER(net, field) SNMP_INC_STATS_USER((net)->sctp.sctp_statistics, field)
+ #define SCTP_DEC_STATS(net, field)      SNMP_DEC_STATS((net)->sctp.sctp_statistics, field)
+ 
+-#endif /* !TEST_FRAME */
+-
+ /* sctp mib definitions */
+ enum {
+ 	SCTP_MIB_NUM = 0,
 -- 
 1.7.11.7
