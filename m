@@ -1,35 +1,29 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: freeze with interface rename & SIOCGIFNAME
-Date: Tue, 25 Jun 2013 10:19:37 -0700
-Message-ID: <1372180777.3301.109.camel@edumazet-glaptop>
-References: <51C9BB9C.4050405@freebox.fr>
-	  <1372176951.3301.103.camel@edumazet-glaptop> <51C9C4FF.1020706@freebox.fr>
-	  <1372179447.3301.105.camel@edumazet-glaptop>
-	 <1372179933.3301.106.camel@edumazet-glaptop> <51C9CF8B.6030502@freebox.fr>
+From: Fabio Estevam <festevam@gmail.com>
+Subject: Re: [PATCH 1/1] fec: Add support for reading RMON registers
+Date: Tue, 25 Jun 2013 14:32:32 -0300
+Message-ID: <CAOMZO5D-8RiuGY_b7+Ct+cYfLGJdmQNbpoumCdDrUFQGC_HCdw@mail.gmail.com>
+References: <1372135740-32311-1-git-send-email-cphealy@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Cong Wang <amwang@redhat.com>
-To: Nicolas Schichan <nschichan@freebox.fr>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Frank Li <Frank.Li@freescale.com>,
+	Fabio Estevam <fabio.estevam@freescale.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Ruslan Sushko <rsushko@gmail.com>, netdev@vger.kernel.org
+To: Chris Healy <cphealy@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ea0-f172.google.com ([209.85.215.172]:64011 "EHLO
-	mail-ea0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751242Ab3FYRT3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 13:19:29 -0400
-Received: by mail-ea0-f172.google.com with SMTP id q10so7032053eaj.3
-        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 10:19:28 -0700 (PDT)
-In-Reply-To: <51C9CF8B.6030502@freebox.fr>
+Received: from mail-ve0-f175.google.com ([209.85.128.175]:48394 "EHLO
+	mail-ve0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751271Ab3FYRcd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 13:32:33 -0400
+Received: by mail-ve0-f175.google.com with SMTP id da11so10478812veb.34
+        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 10:32:32 -0700 (PDT)
+In-Reply-To: <1372135740-32311-1-git-send-email-cphealy@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-06-25 at 19:12 +0200, Nicolas Schichan wrote:
+On Tue, Jun 25, 2013 at 1:49 AM, Chris Healy <cphealy@gmail.com> wrote:
+> Add ethtool operation to read RMON registers.
 
-> Am I right in thinking that the process spinning on SIOCGIFNAME should be 
-> naturally be preempted by other tasks by the scheduler once its timeslice has 
-> expired or am I missing something ?
-
-It depends on CONFIG_PREEMPT settings.
-
-If the kernel is not preemptable, we basically can loop forever, unless
-we call cond_resched()
+These RMON registers do not exist on mcf5272, so you need to take this
+into account.
