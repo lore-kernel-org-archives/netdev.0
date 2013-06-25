@@ -1,41 +1,75 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v2 25/45] staging/octeon: Use
- get/put_online_cpus_atomic() to prevent CPU offline
-Date: Tue, 25 Jun 2013 13:45:31 -0700
-Message-ID: <20130625204531.GA18272@kroah.com>
-References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
- <20130625203003.16593.38565.stgit@srivatsabhat.in.ibm.com>
+From: "Nelson, Shannon" <shannon.nelson@intel.com>
+Subject: RE: Structured ethtool statistic names
+Date: Tue, 25 Jun 2013 20:46:14 +0000
+Message-ID: <FC41C24E35F18A40888AACA1A36F3E416853593E@FMSMSX102.amr.corp.intel.com>
+References: <1371182122-26629-1-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1371182122-26629-4-git-send-email-jeffrey.t.kirsher@intel.com>
+	 <1371666430.1956.102.camel@bwh-desktop.uk.level5networks.com>
+	 <FC41C24E35F18A40888AACA1A36F3E4168533EAD@FMSMSX102.amr.corp.intel.com>
+	 <1371758352.1946.16.camel@bwh-desktop.uk.level5networks.com>
+	 <FC41C24E35F18A40888AACA1A36F3E4168533F3F@FMSMSX102.amr.corp.intel.com>
+ <1371829145.3570.46.camel@bwh-desktop.uk.level5networks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org,
-	laijs@cn.fujitsu.com, rostedt@goodmis.org,
-	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
-	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
-	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devel@driverdev.osuosl.org, David Daney <david.daney@cavium.com>
-To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20130625203003.16593.38565.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"gospo@redhat.com" <gospo@redhat.com>,
+	"sassmann@redhat.com" <sassmann@redhat.com>,
+	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
+	"e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>
+To: Ben Hutchings <bhutchings@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga11.intel.com ([192.55.52.93]:59094 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752897Ab3FYUqR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jun 2013 16:46:17 -0400
+In-Reply-To: <1371829145.3570.46.camel@bwh-desktop.uk.level5networks.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 26, 2013 at 02:00:04AM +0530, Srivatsa S. Bhat wrote:
-> Once stop_machine() is gone from the CPU offline path, we won't be able
-> to depend on disabling preemption to prevent CPUs from going offline
-> from under us.
-> 
-> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
-> offline, while invoking from atomic context.
-> 
-> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-> Cc: devel@driverdev.osuosl.org
-> Acked-by: David Daney <david.daney@cavium.com>
-> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
-
-Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
+dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogRnJpZGF5LCBKdW5lIDIxLCAy
+MDEzIDg6MzkgQU0NCj4gDQo+IE9uIFRodSwgMjAxMy0wNi0yMCBhdCAyMDowNCArMDAwMCwgTmVs
+c29uLCBTaGFubm9uIHdyb3RlOg0KPiA+ID4gRnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRvOmJo
+dXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+ID4gPiBTZW50OiBUaHVyc2RheSwgSnVuZSAyMCwg
+MjAxMyAxMjo1OSBQTQ0KPiA+ID4NCj4gPiA+IE9uIFRodSwgMjAxMy0wNi0yMCBhdCAxOTo0NyAr
+MDAwMCwgTmVsc29uLCBTaGFubm9uIHdyb3RlOg0KPiBbLi4uXQ0KPiA+ID4gPiBXaGVuIGV0aHRv
+b2wgLVMgaXMgY2FsbGVkIG9uIHRoZSBQRidzIG5ldGRldiwgd2Ugc2VlIGJvdGggdGhlDQo+IG5l
+dGRldg0KPiA+ID4gPiBhbmQgdGhlIHBvcnRzIHN0YXRzIHByaW50ZWQuICBXaGVuIGNhbGxlZCBv
+biBub24tUEYgY29ubmVjdGlvbiB3ZQ0KPiBvbmx5DQo+ID4gPiA+IHNlZSB0aGUgbmV0ZGV2IHN0
+YXRzLCBub25lIG9mIHRoZSBwb3J0IHN0YXRzLg0KPiA+ID4NCj4gPiA+IEdvb2QgcG9pbnQuICBB
+bmQgdGhpcyBpcyBzb21ldGhpbmcgSSd2ZSBiZWVuIG1lYW5pbmcgdG8gYnJpbmcgdXAgZm9yDQo+
+ID4gPiBkaXNjdXNzaW9uIG9uIG5ldGRldiBteXNlbGYgLSB3ZSBzaG91bGQgaGF2ZSBzb21lIG5h
+bWluZyBjb252ZW50aW9uDQo+IHRvDQo+ID4gPiBkaXN0aW5ndWlzaCBwZXItcG9ydCBhbmQgcGVy
+LWZ1bmN0aW9uL3Blci1uZXRkZXYgc3RhdGlzdGljcy4NCj4gPg0KPiA+IElmIHlvdSd2ZSBnb3Qg
+c29tZSBpZGVhcyBvbiBhIGNvbnZlbnRpb24gdG8gdXNlLCB3ZSdkIGJlIGhhcHB5IHRvIHNldA0K
+PiB0aGUgcHJlY2VkZW50Lg0KPiANCj4gT0ssIGhvdyBhYm91dDoNCj4gDQo+IDEuIFN0YXRpc3Rp
+YyBuYW1lcyBhcmUgbWFkZSB1cCBvZiAiLiIgc2VwYXJhdG9ycyBhbmQgbmFtZSBjb21wb25lbnRz
+DQo+IHRoYXQgZG8gbm90IGluY2x1ZGUgIi4iIG9yIHdoaXRlc3BhY2UuDQo+IDIuIE5hbWVzIG9m
+IHN0YXRpc3RpY3MgZm9yIHRoZSBuZXQgZGV2aWNlIGFzIGEgd2hvbGUgaGF2ZSBhIHNpbmdsZSBu
+YW1lDQo+IGNvbXBvbmVudC4NCj4gMy4gTmFtZXMgb2Ygc3RhdGlzdGljcyBmb3IgdGhlIGV4dGVy
+bmFsIHBvcnQsIHdoZXJlIHRoZXJlIGlzIGEgdXNlZnVsDQo+IGRpc3RpbmN0aW9uIGZyb20gdGhl
+IG5ldCBkZXZpY2UsIGZvbGxvdyB0aGUgZm9ybWF0Og0KPiAgICAgInBvcnQuIiBuYW1lLWNvbXBv
+bmVudC4NCj4gDQo+IFJhdGlvbmFsZTogT25seSB2aXJ0dWFsaXNlZCBOSUMgZHJpdmVycyByZXF1
+aXJlIGEgZGlzdGluY3Rpb24sIHNvIHRoZQ0KPiBjb252ZW50aW9uIHNob3VsZCBhbGxvdyBvdGhl
+ciBkcml2ZXJzIHRvIGNvbXBseSB3aXRob3V0IGNoYW5nZXMuDQo+IFN0YXRpc3RpY3MgYXJlIHJl
+cXVlc3RlZCBvbiBhIHNwZWNpZmljIG5ldCBkZXZpY2UsIHNvIHRoYXQgZGV2aWNlJ3Mgb3duDQo+
+IHN0YXRpc3RpY3Mgc2hvdWxkIGJlIGNvbnNpZGVyZWQgcHJpbWFyeSBhbmQgbm90IGdpdmVuIGEg
+cHJlZml4Lg0KPiANCj4gU2luY2Ugb3RoZXIgcGVvcGxlIGhhdmUgYmVlbiBhZGRpbmcgb3IgcHJv
+cG9zaW5nIHRvIGFkZCB0aGVtOg0KPiANCj4gNC4gTmFtZXMgb2Ygc3RhdGlzdGljcyBmb3IgYSBz
+aW5nbGUgcXVldWUgZm9sbG93IHRoZSBmb3JtYXQ6DQo+ICAgICBxdWV1ZS10eXBlICItIiBpbmRl
+eCAiLiIgbmFtZS1jb21wb25lbnQNCj4gV2hlcmUgcXVldWUtdHlwZSBpcyAicngiIG9yICJ0eCIg
+YW5kIGluZGV4IGlzIHRoZSBpbmRleCBvZiB0aGUgcXVldWUgYXMNCj4gdXNlZCBpbiB0aGUga2Vy
+bmVsLg0KPiANCj4gUmF0aW9uYWxlOiBUaGlzIHF1ZXVlIG5hbWluZyBpcyBjb25zaXN0ZW50IHdp
+dGggdGhlIHF1ZXVlIG9iamVjdHMgaW4NCj4gc3lzZnMuDQo+IA0KPiBUaGlzIHNob3VsZCBiZSBl
+eHRlbnNpYmxlIHRvIGFsbG93IGZvciByZWFkaW5nLCBzYXksIFZGIHN0YXRpc3RpY3MNCj4gdGhy
+b3VnaCBhIFBGIG5ldCBkZXZpY2UsIGUuZy4gInZmLSIgaW5kZXggIi4iIG5hbWUtY29tcG9uZW50
+Lg0KPiANCj4gQmVuLg0KDQpZZXMsIHRoaXMgc2VlbXMgbGlrZSBhIHJlYXNvbmFibGUgcGxhY2Ug
+dG8gc3RhcnQsIGVzcGVjaWFsbHkgc2luY2Ugbm8gb25lIGVsc2Ugc2VlbXMgdG8gYmUgY29tcGxh
+aW5pbmcgeWV0LiAgSSdsbCB3b3JrIHdpdGggdGhpcyBhIGxpdHRsZSBvbiBvdXIgY3VycmVudCBu
+YW1lcyBhbmQgc2VlIGhvdyBpdCBsb29rcy4NCg0KVGhhbmtzLA0Kc2xuDQoNCg==
