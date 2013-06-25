@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 40/45] powerpc,
- irq: Use GFP_ATOMIC allocations in atomic context
-Date: Wed, 26 Jun 2013 02:03:11 +0530
-Message-ID: <20130625203310.16593.6214.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v2 43/45] sh: Use get/put_online_cpus_atomic() to prevent CPU
+ offline
+Date: Wed, 26 Jun 2013 02:03:47 +0530
+Message-ID: <20130625203346.16593.72263.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,14 +13,8 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Paul Mackerras <paulus@samba.org>,
-	Ian Munsie <imunsie@au1.ibm.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	Michael Ellerman <michael@ellerman.id.au>,
-	Li Zhong <zhong@linux.vnet.ibm.com>,
-	linuxppc-dev@lists.ozlabs.org,
+	Paul Mundt <lethal@linux-sh.org>,
+	Thomas Gleixner <tglx@linutronix.de>, linux-sh@vger.kernel.org,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -31,34 +25,77 @@ In-Reply-To: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The function migrate_irqs() is called with interrupts disabled
-and hence its not safe to do GFP_KERNEL allocations inside it,
-because they can sleep. So change the gfp mask to GFP_ATOMIC.
+Once stop_machine() is gone from the CPU offline path, we won't be able
+to depend on disabling preemption to prevent CPUs from going offline
+from under us.
 
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Michael Ellerman <michael@ellerman.id.au>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Ian Munsie <imunsie@au1.ibm.com>
-Cc: Steven Rostedt <rostedt@goodmis.org>
-Cc: Michael Ellerman <michael@ellerman.id.au>
-Cc: Li Zhong <zhong@linux.vnet.ibm.com>
-Cc: linuxppc-dev@lists.ozlabs.org
+Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+offline, while invoking from atomic context.
+
+Cc: Paul Mundt <lethal@linux-sh.org>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: linux-sh@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/powerpc/kernel/irq.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/sh/kernel/smp.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/arch/powerpc/kernel/irq.c b/arch/powerpc/kernel/irq.c
-index ea185e0..ca39bac 100644
---- a/arch/powerpc/kernel/irq.c
-+++ b/arch/powerpc/kernel/irq.c
-@@ -412,7 +412,7 @@ void migrate_irqs(void)
- 	cpumask_var_t mask;
- 	const struct cpumask *map = cpu_online_mask;
+diff --git a/arch/sh/kernel/smp.c b/arch/sh/kernel/smp.c
+index 4569645..42ec182 100644
+--- a/arch/sh/kernel/smp.c
++++ b/arch/sh/kernel/smp.c
+@@ -357,7 +357,7 @@ static void flush_tlb_mm_ipi(void *mm)
+  */
+ void flush_tlb_mm(struct mm_struct *mm)
+ {
+-	preempt_disable();
++	get_online_cpus_atomic();
  
--	alloc_cpumask_var(&mask, GFP_KERNEL);
-+	alloc_cpumask_var(&mask, GFP_ATOMIC);
+ 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
+ 		smp_call_function(flush_tlb_mm_ipi, (void *)mm, 1);
+@@ -369,7 +369,7 @@ void flush_tlb_mm(struct mm_struct *mm)
+ 	}
+ 	local_flush_tlb_mm(mm);
  
- 	for_each_irq_desc(irq, desc) {
- 		struct irq_data *data;
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ struct flush_tlb_data {
+@@ -390,7 +390,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	if ((atomic_read(&mm->mm_users) != 1) || (current->mm != mm)) {
+ 		struct flush_tlb_data fd;
+ 
+@@ -405,7 +405,7 @@ void flush_tlb_range(struct vm_area_struct *vma,
+ 				cpu_context(i, mm) = 0;
+ 	}
+ 	local_flush_tlb_range(vma, start, end);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ static void flush_tlb_kernel_range_ipi(void *info)
+@@ -433,7 +433,7 @@ static void flush_tlb_page_ipi(void *info)
+ 
+ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+ {
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	if ((atomic_read(&vma->vm_mm->mm_users) != 1) ||
+ 	    (current->mm != vma->vm_mm)) {
+ 		struct flush_tlb_data fd;
+@@ -448,7 +448,7 @@ void flush_tlb_page(struct vm_area_struct *vma, unsigned long page)
+ 				cpu_context(i, vma->vm_mm) = 0;
+ 	}
+ 	local_flush_tlb_page(vma, page);
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ static void flush_tlb_one_ipi(void *info)
