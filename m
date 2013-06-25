@@ -1,55 +1,42 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH V1 net-next 02/10] net/mlx4_en: Do not query stats when device port is down
-Date: Tue, 25 Jun 2013 12:09:30 +0300
-Message-ID: <1372151378-21468-3-git-send-email-ogerlitz@mellanox.com>
-References: <1372151378-21468-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Jack Morgenstein <jackm@dev.mellanox.com>,
-	Amir Vadai <amirv@mellanox.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: remove invalid __rcu annotation
+Date: Tue, 25 Jun 2013 02:44:38 -0700 (PDT)
+Message-ID: <20130625.024438.272501145166501401.davem@davemloft.net>
+References: <1372148466.3301.85.camel@edumazet-glaptop>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hkchu@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:52112 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751461Ab3FYJKZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jun 2013 05:10:25 -0400
-In-Reply-To: <1372151378-21468-1-git-send-email-ogerlitz@mellanox.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53314 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896Ab3FYJom (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 05:44:42 -0400
+In-Reply-To: <1372148466.3301.85.camel@edumazet-glaptop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jack Morgenstein <jackm@dev.mellanox.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 25 Jun 2013 01:21:06 -0700
 
-There are no counters allocated to the eth device when the port is down, so
-this query is meaningless at that time.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> struct tcp_fastopen_context has a field named tfm, which is a pointer
+> to a crypto_cipher structure.
+> 
+> It currently has a __rcu annotation, which is not needed at all.
+> 
+> tcp_fastopen_ctx is the pointer fetched by rcu_dereference(), but once
+> we have a pointer to current tcp_fastopen_context, we do not use/need
+> rcu_dereference() to access tfm.
+> 
+> This fixes a lot of sparse errors like the following :
+> 
+> net/ipv4/tcp_fastopen.c:21:31: warning: incorrect type in argument 1 (different address spaces)
+> net/ipv4/tcp_fastopen.c:21:31:    expected struct crypto_cipher *tfm
+> net/ipv4/tcp_fastopen.c:21:31:    got struct crypto_cipher [noderef] <asn:4>*tfm
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-It also leads to querying incorrect counters (since the counter_index is not
-valid when the device port is down).
-
-Signed-off-by: Jack Morgenstein <jackm@dev.mellanox.com>
-Signed-off-by: Amir Vadai <amirv@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c |    9 +++++----
- 1 files changed, 5 insertions(+), 4 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 7299ada..c0b02d7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -1375,12 +1375,13 @@ static void mlx4_en_do_get_stats(struct work_struct *work)
- 
- 	mutex_lock(&mdev->state_lock);
- 	if (mdev->device_up) {
--		err = mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 0);
--		if (err)
--			en_dbg(HW, priv, "Could not update stats\n");
-+		if (priv->port_up) {
-+			err = mlx4_en_DUMP_ETH_STATS(mdev, priv->port, 0);
-+			if (err)
-+				en_dbg(HW, priv, "Could not update stats\n");
- 
--		if (priv->port_up)
- 			mlx4_en_auto_moderation(priv);
-+		}
- 
- 		queue_delayed_work(mdev->workqueue, &priv->stats_task, STATS_DELAY);
- 	}
--- 
-1.7.1
+Applied.
