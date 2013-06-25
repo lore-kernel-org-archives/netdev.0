@@ -1,55 +1,40 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH 40/45] powerpc, irq: Use GFP_ATOMIC allocations in
- atomic context
-Date: Tue, 25 Jun 2013 13:13:27 +1000
-Message-ID: <1372130007.3944.185.camel@pasglop>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com>
- <20130623134657.19094.93687.stgit@srivatsabhat.in.ibm.com>
- <20130625020842.GD14051@concordia> <1372126384.3944.177.camel@pasglop>
- <20130625025858.GE14051@concordia>
+From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
+Subject: Re: [PATCH v8] ethernet/arc/arc_emac - Add new driver
+Date: Tue, 25 Jun 2013 04:17:48 +0000
+Message-ID: <4881796E12491D4BB15146FE0209CE643F5FFB9C@DE02WEMBXB.internal.synopsys.com>
+References: <1372053267-19359-1-git-send-email-abrodkin@synopsys.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: peterz@infradead.org, fweisbec@gmail.com, linux-kernel@vger.kernel.org,
- Paul Mackerras <paulus@samba.org>, walken@google.com, mingo@kernel.org,
- linux-arch@vger.kernel.org, vincent.guittot@linaro.org,
- xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
- paulmck@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
- linux-pm@vger.kernel.org, rusty@rustcorp.com.au, rostedt@goodmis.org,
- Ian Munsie <imunsie@au1.ibm.com>, namhyung@kernel.org, tglx@linutronix.de,
- laijs@cn.fujitsu.com, zhong@linux.vnet.ibm.com, netdev@vger.kernel.org,
- oleg@redhat.com, sbw@mit.edu,
- "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>, tj@kernel.org,
- akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
-To: Michael Ellerman <michael@ellerman.id.au>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20130625025858.GE14051@concordia>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Transfer-Encoding: 8BIT
+Cc: Andy Shevchenko <andy.shevchenko@gmail.com>,
+	Francois Romieu <romieu@fr.zoreil.com>,
+	Joe Perches <joe@perches.com>,
+	Vineet Gupta <Vineet.Gupta1@synopsys.com>,
+	Mischa Jonker <Mischa.Jonker@synopsys.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Grant Likely <grant.likely@linaro.org>,
+	Rob Herring <rob.herring@calxeda.com>,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree-discuss@lists.ozlabs.org"
+	<devicetree-discuss@lists.ozlabs.org>,
+	Florian Fainelli <florian@openwrt.org>,
+	David Laight <david.laight@aculab.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-06-25 at 12:58 +1000, Michael Ellerman wrote:
-> On Tue, Jun 25, 2013 at 12:13:04PM +1000, Benjamin Herrenschmidt wrote:
-> > On Tue, 2013-06-25 at 12:08 +1000, Michael Ellerman wrote:
-> > > We're not checking for allocation failure, which we should be.
-> > > 
-> > > But this code is only used on powermac and 85xx, so it should probably
-> > > just be a TODO to fix this up to handle the failure.
-> > 
-> > And what can we do if they fail ?
-> 
-> Fail up the chain and not unplug the CPU presumably.
+On 06/24/2013 09:54 AM, Alexey Brodkin wrote:
+> Driver for non-standard on-chip ethernet device ARC EMAC 10/100,
+> instantiated in some legacy ARC (Synopsys) FPGA Boards such as
+> ARCAngel4/ML50x.
 
-BTW. Isn't Srivatsa series removing the need to stop_machine() for
-unplug ? That should mean we should be able to use GFP_KERNEL no ?
+Any comments on this patch?
 
-Cheers,
-Ben.
+If not please consider applying.
+
+Regards,
+Alexey
