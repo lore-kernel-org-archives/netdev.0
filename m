@@ -1,99 +1,70 @@
-From: Kamal Mostafa <kamal@canonical.com>
-Subject: [ 3.8.y.z extended stable ] Patch "sctp: fully initialize sctp_outq in sctp_outq_init" has been added to staging queue
-Date: Tue, 25 Jun 2013 15:20:15 -0700
-Message-ID: <1372198815-20451-1-git-send-email-kamal@canonical.com>
-Cc: "West Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, netdev@vger.kernel.org,
-	davem@davemloft.net, Kamal Mostafa <kamal@canonical.com>,
-	kernel-team@lists.ubuntu.com
-To: Neil Horman <nhorman@tuxdriver.com>
+From: Jerry Chu <hkchu@google.com>
+Subject: Re: qlen check in tun.c
+Date: Tue, 25 Jun 2013 15:23:38 -0700
+Message-ID: <CAPshTCie4T7ktq=wEoY3M9t=q2Zsujt2PvJ29tF1y+MJnKPujg@mail.gmail.com>
+References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com>
+	<51C12592.6050503@redhat.com>
+	<CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com>
+	<20130620080725.GB23621@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: Jason Wang <jasowang@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:49770 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751208Ab3FYWUU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 18:20:20 -0400
+Received: from mail-la0-f45.google.com ([209.85.215.45]:57944 "EHLO
+	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751208Ab3FYWXj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 18:23:39 -0400
+Received: by mail-la0-f45.google.com with SMTP id fr10so12892293lab.4
+        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 15:23:38 -0700 (PDT)
+In-Reply-To: <20130620080725.GB23621@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a note to let you know that I have just added a patch titled
+On Thu, Jun 20, 2013 at 1:07 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
+> On Wed, Jun 19, 2013 at 12:39:34PM -0700, Jerry Chu wrote:
+>> Hi Jason,
+>>
+>> On Tue, Jun 18, 2013 at 8:29 PM, Jason Wang <jasowang@redhat.com> wrote:
+>> > On 06/19/2013 10:31 AM, Jerry Chu wrote:
+>> >> In tun_net_xmit() the max qlen is computed as
+>> >> dev->tx_queue_len / tun->numqueues. For multi-queue configuration the
+>> >> latter may be way too small, forcing one to adjust txqueuelen based
+>> >> on number of queues created. (Well the default txqueuelen of
+>> >> 500/TUN_READQ_SIZE already seems too small even for single queue.)
+>> >
+>> > Hi Jerry:
+>> >
+>> > Do you have some test result of this? Anyway, tun allows userspace to
+>> > adjust this value based on its requirement.
+>>
+>> Sure, but the default size of 500 is just way too small. queue overflows even
+>> with a simple single-stream throughput test through Openvswitch due to CPU
+>> scheduler anomaly. On our loaded multi-stream test even 8192 can't prevent
+>> queue overflow. But then with 8192 we'll be deep into the "buffer
+>> bloat" territory.
+>> We haven't figured out an optimal strategy for thruput vs latency, but
+>> suffice to
+>> say 500 is too small.
+>>
+>> Jerry
+>
+> Maybe TSO is off for you?
+> With TSO you can get 64Kbyte packets, 500 of these is 30 Mbytes!
+> We really should consider setting byte limits, not packet limits.
 
-    sctp: fully initialize sctp_outq in sctp_outq_init
+Sorry for the delay. TSO was on when I was seeing lots of pkts drops.
+But I realized the catch was GRO was off, which caused lots of MTU
+size pkts to pile up on the receive side overflowing the small tuntap
+queue.
 
-to the linux-3.8.y-queue branch of the 3.8.y.z extended stable tree 
-which can be found at:
+I just finished implementing GRE support in the GRO stack. When I
+turned it on, there were much less pkt drops. I do notice now the many
+acks triggered by the thruput tests will cause the tuntap queue to
+overflow.
 
- http://kernel.ubuntu.com/git?p=ubuntu/linux.git;a=shortlog;h=refs/heads/linux-3.8.y-queue
+In any case, with a large tx queue there should probably have some
+queue mgmt or BQL logic going with it.
 
-This patch is scheduled to be released in version 3.8.13.4.
-
-If you, or anyone else, feels it should not be added to this tree, please 
-reply to this email.
-
-For more information about the 3.8.y.z tree, see
-https://wiki.ubuntu.com/Kernel/Dev/ExtendedStable
-
-Thanks.
--Kamal
-
-------
-
->From dd83d877ec13bd4289653075974feae56482a49a Mon Sep 17 00:00:00 2001
-From: Neil Horman <nhorman@tuxdriver.com>
-Date: Wed, 12 Jun 2013 14:26:44 -0400
-Subject: sctp: fully initialize sctp_outq in sctp_outq_init
-
-[ Upstream commit c5c7774d7eb4397891edca9ebdf750ba90977a69 ]
-
-In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86
-(refactor sctp_outq_teardown to insure proper re-initalization)
-we modified sctp_outq_teardown to use sctp_outq_init to fully re-initalize the
-outq structure.  Steve West recently asked me why I removed the q->error = 0
-initalization from sctp_outq_teardown.  I did so because I was operating under
-the impression that sctp_outq_init would properly initalize that value for us,
-but it doesn't.  sctp_outq_init operates under the assumption that the outq
-struct is all 0's (as it is when called from sctp_association_init), but using
-it in __sctp_outq_teardown violates that assumption. We should do a memset in
-sctp_outq_init to ensure that the entire structure is in a known state there
-instead.
-
-Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
-Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
-CC: Vlad Yasevich <vyasevich@gmail.com>
-CC: netdev@vger.kernel.org
-CC: davem@davemloft.net
-Acked-by: Vlad Yasevich <vyasevich@gmail.com>
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Kamal Mostafa <kamal@canonical.com>
----
- net/sctp/outqueue.c | 8 ++------
- 1 file changed, 2 insertions(+), 6 deletions(-)
-
-diff --git a/net/sctp/outqueue.c b/net/sctp/outqueue.c
-index 9bcdbd0..b531098 100644
---- a/net/sctp/outqueue.c
-+++ b/net/sctp/outqueue.c
-@@ -206,6 +206,8 @@ static inline int sctp_cacc_skip(struct sctp_transport *primary,
-  */
- void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
- {
-+	memset(q, 0, sizeof(struct sctp_outq));
-+
- 	q->asoc = asoc;
- 	INIT_LIST_HEAD(&q->out_chunk_list);
- 	INIT_LIST_HEAD(&q->control_chunk_list);
-@@ -213,13 +215,7 @@ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
- 	INIT_LIST_HEAD(&q->sacked);
- 	INIT_LIST_HEAD(&q->abandoned);
-
--	q->fast_rtx = 0;
--	q->outstanding_bytes = 0;
- 	q->empty = 1;
--	q->cork  = 0;
--
--	q->malloced = 0;
--	q->out_qlen = 0;
- }
-
- /* Free the outqueue structure and any related pending chunks.
---
-1.8.1.2
+Jerry
