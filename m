@@ -1,8 +1,7 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 05/45] CPU hotplug: Protect set_cpu_online() to avoid
- false-positives
-Date: Wed, 26 Jun 2013 01:56:34 +0530
-Message-ID: <20130625202634.16593.17645.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v2 07/45] CPU hotplug: Expose the new debug config option
+Date: Wed, 26 Jun 2013 01:56:49 +0530
+Message-ID: <20130625202648.16593.89461.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,10 +12,12 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thomas Gleixner <tglx@linutronix.de>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
+	"Paul E. McKenney" <paul.mckenney@linaro.org>,
+	Akinobu Mita <akinobu.mita@gmail.com>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Michel Lespinasse <walken@google.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -27,45 +28,38 @@ In-Reply-To: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-arch-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When bringing a secondary CPU online, the task running on the CPU coming up
-sets itself in the cpu_online_mask. This is safe even though this task is not
-the hotplug writer task.
+Now that we have all the pieces of the CPU hotplug debug infrastructure
+in place, expose the feature by growing a new Kconfig option,
+CONFIG_DEBUG_HOTPLUG_CPU.
 
-But it is kinda hard to teach this to the CPU hotplug debug infrastructure,
-and if we get it wrong, we risk making the debug code too lenient, risking
-false-negatives.
-
-Luckily, all architectures use set_cpu_online() to manipulate the
-cpu_online_mask. So, to avoid false-positive warnings from the CPU hotplug
-debug code, encapsulate the body of set_cpu_online() within
-get/put_online_cpus_atomic().
-
-Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
-Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+Cc: "Paul E. McKenney" <paul.mckenney@linaro.org>
+Cc: Akinobu Mita <akinobu.mita@gmail.com>
+Cc: Catalin Marinas <catalin.marinas@arm.com>
+Cc: Michel Lespinasse <walken@google.com>
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- kernel/cpu.c |    4 ++++
- 1 file changed, 4 insertions(+)
+ lib/Kconfig.debug |    8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/kernel/cpu.c b/kernel/cpu.c
-index 5297ec1..35e7115 100644
---- a/kernel/cpu.c
-+++ b/kernel/cpu.c
-@@ -832,10 +832,14 @@ void set_cpu_present(unsigned int cpu, bool present)
+diff --git a/lib/Kconfig.debug b/lib/Kconfig.debug
+index 566cf2b..ec6be74 100644
+--- a/lib/Kconfig.debug
++++ b/lib/Kconfig.debug
+@@ -512,6 +512,14 @@ config DEBUG_PREEMPT
+ 	  if kernel code uses it in a preemption-unsafe way. Also, the kernel
+ 	  will detect preemption count underflows.
  
- void set_cpu_online(unsigned int cpu, bool online)
- {
-+	get_online_cpus_atomic();
++config DEBUG_HOTPLUG_CPU
++	bool "Debug CPU hotplug"
++	depends on HOTPLUG_CPU
++	help
++	  If you say Y here, the kernel will check all the accesses of
++	  cpu_online_mask from atomic contexts, and will print warnings if
++	  the task lacks appropriate synchronization with CPU hotplug.
 +
- 	if (online)
- 		cpumask_set_cpu(cpu, to_cpumask(cpu_online_bits));
- 	else
- 		cpumask_clear_cpu(cpu, to_cpumask(cpu_online_bits));
-+
-+	put_online_cpus_atomic();
- }
- 
- void set_cpu_active(unsigned int cpu, bool active)
+ config DEBUG_RT_MUTEXES
+ 	bool "RT Mutex debugging, deadlock detection"
+ 	depends on DEBUG_KERNEL && RT_MUTEXES
