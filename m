@@ -1,82 +1,42 @@
-From: Pratik Pujar <pratik.pujar@qlogic.com>
-Subject: RE: [PATCH v2 net-next 5/8] qlcnic: Cleanup of structure
- qlcnic_hardware_context
-Date: Tue, 25 Jun 2013 05:04:02 +0000
-Message-ID: <446476BDCB53C441A1847D74CB603378DA7A8F@avmb3.qlogic.org>
-References: <1371888727-16422-1-git-send-email-jitendra.kalsaria@qlogic.com>
-	 <1371888727-16422-6-git-send-email-jitendra.kalsaria@qlogic.com>
-	 <1371898428.3137.5.camel@joe-AO722>
-	 <446476BDCB53C441A1847D74CB603378DA72D5@avmb3.qlogic.org>
- <1372097962.1245.14.camel@joe-AO722>
+From: Or Gerlitz <or.gerlitz@gmail.com>
+Subject: Re: PROBLEM: Bridging does not work with Mellanox ConnectX-2
+ (mlx4_en) card in SR-IOV mode
+Date: Tue, 25 Jun 2013 08:36:18 +0300
+Message-ID: <CAJZOPZ+izFj+8FycCjLd-jD5E8dV+F=gLkxFUaJVA0sQi3XhmA@mail.gmail.com>
+References: <CAJA5wJQDRztwtMxJopUWfmqEOH39Xp0g-hCrY8gMZ2TKccSuhw@mail.gmail.com>
+	<CAJZOPZLCG8_zfsP76EnEcGj3nUfP9batXMfvOqsPyNc63JqLSA@mail.gmail.com>
+	<CAJA5wJRW1gai3pRXRD1fugrXQJxsJ3PDzVkLqWqjxvF-ixAheg@mail.gmail.com>
+	<CAJA5wJSQiCbmNgv14yENe4PQtRxKeEC0KTcgVow4LnE-thyp2Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Sony Chacko <sony.chacko@qlogic.com>,
-	Shahed Shaikh <shahed.shaikh@qlogic.com>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Joe Perches <joe@perches.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Cc: netdev@vger.kernel.org, Ryousei Takano <takano-ryousei@aist.go.jp>,
+	"Rose, Gregory V" <gregory.v.rose@intel.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
+To: Pawit Pornkitprasan <p.pawit@gmail.com>,
+	Vlad Yasevich <vyasevic@redhat.com>,
+	"Michael S. Tsirkin" <mst@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:48858
-	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750890Ab3FYFP3 convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jun 2013 01:15:29 -0400
-In-Reply-To: <1372097962.1245.14.camel@joe-AO722>
-Content-Language: en-US
+Received: from mail-qa0-f51.google.com ([209.85.216.51]:43185 "EHLO
+	mail-qa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751006Ab3FYFgT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 01:36:19 -0400
+Received: by mail-qa0-f51.google.com with SMTP id f11so341925qae.10
+        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 22:36:18 -0700 (PDT)
+In-Reply-To: <CAJA5wJSQiCbmNgv14yENe4PQtRxKeEC0KTcgVow4LnE-thyp2Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
->-----Original Message-----
->From: Joe Perches [mailto:joe@perches.com]
->Sent: 24 June 2013 23:49
->To: Pratik Pujar
->Cc: Jitendra Kalsaria; David Miller; netdev; Sony Chacko; Shahed Shaikh; Dept-
->NX Linux NIC Driver
->Subject: Re: [PATCH v2 net-next 5/8] qlcnic: Cleanup of structure
->qlcnic_hardware_context
->
->On Mon, 2013-06-24 at 18:17 +0000, Pratik Pujar wrote:
->> >-----Original Message-----
->> >From: Joe Perches [mailto:joe@perches.com]
->> >Sent: 22 June 2013 16:24
->> >To: Jitendra Kalsaria
->> >Cc: David Miller; netdev; Sony Chacko; Shahed Shaikh; Dept-NX Linux
->> >NIC Driver; Pratik Pujar
->> >Subject: Re: [PATCH v2 net-next 5/8] qlcnic: Cleanup of structure
->> >qlcnic_hardware_context
->> >
->> >On Sat, 2013-06-22 at 04:12 -0400, Jitendra Kalsaria wrote:
->> >> From: Pratik Pujar <pratik.pujar@qlogic.com>
->> >
->> >This isn't really a cleanup.
->> >It's allowing more capabilities.
+On Tue, Jun 25, 2013 at 3:46 AM, Pawit Pornkitprasan <p.pawit@gmail.com> wrote:
+> On Tue, Jun 25, 2013 at 7:45 AM, Pawit Pornkitprasan <p.pawit@gmail.com> wrote:
 >>
->> The driver was dealing with extra capabilities but separate variables
->> were used for these. Now instead of using separate variables, clubbed
->> in a single array.
+>> Thank you. I will try it out.
+>>
 >
->What was 2 is now 3 no?
->
+> Update: I've tried "sudo bridge fdb add [target mac address] dev p4p1"
+> and the bridge is working properly. Is there any reason why the
+> bridging code cannot do this automatically?
 
-Yes, adapter chip exposes extra capabilities through 3 words. Driver uses only 1, as others are reserved as of now. So array extra_capability[3] is a provision for future use of these extra capabilities. 
-I will change the description to structure cleanup + provision for future use of extra capabilities. 
-
->> >> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
->> >> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
->> >[]
->> >> @@ -449,7 +449,7 @@ struct qlcnic_hardware_context {
->> >>  	u16 max_pci_func;
->> >>
->> >>  	u32 capabilities;
->> >> -	u32 capabilities2;
->> >> +	u32 extra_capability[3];
->
->
-
-Thanks,
-Pratik.
+Good question, there is some ongoing work in that direction but I am
+not sure where things stand now, I added Michael and Vlad who are
+involved in that adventure.
