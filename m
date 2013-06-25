@@ -1,7 +1,7 @@
 From: Prabhakar Lad <prabhakar.csengg@gmail.com>
-Subject: [PATCH v2 3/3] net: davinci_mdio: gaurd the DT code with IS_ENABLED(CONFIG_OF)
-Date: Tue, 25 Jun 2013 21:24:53 +0530
-Message-ID: <1372175693-20318-4-git-send-email-prabhakar.csengg@gmail.com>
+Subject: [PATCH v2 1/3] net: davinci: emac: Convert to devm_* api
+Date: Tue, 25 Jun 2013 21:24:51 +0530
+Message-ID: <1372175693-20318-2-git-send-email-prabhakar.csengg@gmail.com>
 References: <1372175693-20318-1-git-send-email-prabhakar.csengg@gmail.com>
 Cc: DLOS <davinci-linux-open-source@linux.davincidsp.com>,
 	LKML <linux-kernel@vger.kernel.org>,
@@ -15,48 +15,119 @@ List-Id: netdev.vger.kernel.org
 
 From: "Lad, Prabhakar" <prabhakar.csengg@gmail.com>
 
-guard the davinci_mdio_of_mtable table and davinci_mdio_probe_dt()
-with CONFIG_OF.
+Use devm_ioremap_resource instead of devm_request_mem_region()/devm_ioremap()
+and devm_request_irq() instead of request_irq().
+
+This ensures more consistent error values and simplifies error paths.
 
 Signed-off-by: Lad, Prabhakar <prabhakar.csengg@gmail.com>
 ---
- drivers/net/ethernet/ti/davinci_mdio.c |    5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/ti/davinci_emac.c |   49 ++++++--------------------------
+ 1 file changed, 9 insertions(+), 40 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index c47f0db..dac6f58 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -291,6 +291,7 @@ static int davinci_mdio_write(struct mii_bus *bus, int phy_id,
- 	return 0;
- }
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index 860e15d..8baf630 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -1532,7 +1532,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 	struct device *emac_dev = &ndev->dev;
+ 	u32 cnt;
+ 	struct resource *res;
+-	int q, m, ret;
++	int ret;
+ 	int i = 0;
+ 	int k = 0;
+ 	struct emac_priv *priv = netdev_priv(ndev);
+@@ -1567,8 +1567,9 @@ static int emac_dev_open(struct net_device *ndev)
  
-+#if IS_ENABLED(CONFIG_OF)
- static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
- 			 struct platform_device *pdev)
- {
-@@ -308,7 +309,7 @@ static int davinci_mdio_probe_dt(struct mdio_platform_data *data,
+ 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k))) {
+ 		for (i = res->start; i <= res->end; i++) {
+-			if (request_irq(i, emac_irq, IRQF_DISABLED,
+-					ndev->name, ndev))
++			if (devm_request_irq(&priv->pdev->dev, i, emac_irq,
++					     IRQF_DISABLED,
++					     ndev->name, ndev))
+ 				goto rollback;
+ 		}
+ 		k++;
+@@ -1641,15 +1642,7 @@ static int emac_dev_open(struct net_device *ndev)
  
- 	return 0;
- }
+ rollback:
+ 
+-	dev_err(emac_dev, "DaVinci EMAC: request_irq() failed");
 -
-+#endif
- 
- static int davinci_mdio_probe(struct platform_device *pdev)
+-	for (q = k; k >= 0; k--) {
+-		for (m = i; m >= res->start; m--)
+-			free_irq(m, ndev);
+-		res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, k-1);
+-		m = res->end;
+-	}
+-
++	dev_err(emac_dev, "DaVinci EMAC: devm_request_irq() failed");
+ 	ret = -EBUSY;
+ err:
+ 	pm_runtime_put(&priv->pdev->dev);
+@@ -1667,9 +1660,6 @@ err:
+  */
+ static int emac_dev_stop(struct net_device *ndev)
  {
-@@ -477,11 +478,13 @@ static const struct dev_pm_ops davinci_mdio_pm_ops = {
- 	.resume_early	= davinci_mdio_resume,
- };
+-	struct resource *res;
+-	int i = 0;
+-	int irq_num;
+ 	struct emac_priv *priv = netdev_priv(ndev);
+ 	struct device *emac_dev = &ndev->dev;
  
-+#if IS_ENABLED(CONFIG_OF)
- static const struct of_device_id davinci_mdio_of_mtable[] = {
- 	{ .compatible = "ti,davinci_mdio", },
- 	{ /* sentinel */ },
- };
- MODULE_DEVICE_TABLE(of, davinci_mdio_of_mtable);
-+#endif
+@@ -1685,13 +1675,6 @@ static int emac_dev_stop(struct net_device *ndev)
+ 	if (priv->phydev)
+ 		phy_disconnect(priv->phydev);
  
- static struct platform_driver davinci_mdio_driver = {
- 	.driver = {
+-	/* Free IRQ */
+-	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, i))) {
+-		for (irq_num = res->start; irq_num <= res->end; irq_num++)
+-			free_irq(irq_num, priv->ndev);
+-		i++;
+-	}
+-
+ 	if (netif_msg_drv(priv))
+ 		dev_notice(emac_dev, "DaVinci EMAC: %s stopped\n", ndev->name);
+ 
+@@ -1856,7 +1839,7 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 	struct resource *res;
+ 	struct net_device *ndev;
+ 	struct emac_priv *priv;
+-	unsigned long size, hw_ram_addr;
++	unsigned long hw_ram_addr;
+ 	struct emac_platform_data *pdata;
+ 	struct device *emac_dev;
+ 	struct cpdma_params dma_params;
+@@ -1907,25 +1890,11 @@ static int davinci_emac_probe(struct platform_device *pdev)
+ 	emac_dev = &ndev->dev;
+ 	/* Get EMAC platform data */
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+-	if (!res) {
+-		dev_err(&pdev->dev,"error getting res\n");
+-		rc = -ENOENT;
+-		goto no_pdata;
+-	}
+-
+ 	priv->emac_base_phys = res->start + pdata->ctrl_reg_offset;
+-	size = resource_size(res);
+-	if (!devm_request_mem_region(&pdev->dev, res->start,
+-				     size, ndev->name)) {
+-		dev_err(&pdev->dev, "failed request_mem_region() for regs\n");
+-		rc = -ENXIO;
+-		goto no_pdata;
+-	}
+-
+-	priv->remap_addr = devm_ioremap(&pdev->dev, res->start, size);
+-	if (!priv->remap_addr) {
++	priv->remap_addr = devm_ioremap_resource(&pdev->dev, res);
++	if (IS_ERR(priv->remap_addr)) {
+ 		dev_err(&pdev->dev, "unable to map IO\n");
+-		rc = -ENOMEM;
++		rc = PTR_ERR(priv->remap_addr);
+ 		goto no_pdata;
+ 	}
+ 	priv->emac_base = priv->remap_addr + pdata->ctrl_reg_offset;
 -- 
 1.7.9.5
