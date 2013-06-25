@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 36/45] ia64: smp,
- tlb: Use get/put_online_cpus_atomic() to prevent CPU offline
-Date: Wed, 26 Jun 2013 02:02:25 +0530
-Message-ID: <20130625203224.16593.17120.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v2 37/45] m32r: Use get/put_online_cpus_atomic() to prevent
+ CPU offline
+Date: Wed, 26 Jun 2013 02:02:37 +0530
+Message-ID: <20130625203237.16593.75941.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,8 +13,8 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Tony Luck <tony.luck@intel.com>,
-	Fenghua Yu <fenghua.yu@intel.com>, linux-ia64@vger.kernel.org,
+	Hirokazu Takata <takata@linux-m32r.org>,
+	linux-m32r@ml.linux-m32r.org, linux-m32r-ja@ml.linux-m32r.org,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -32,86 +32,85 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: Tony Luck <tony.luck@intel.com>
-Cc: Fenghua Yu <fenghua.yu@intel.com>
-Cc: linux-ia64@vger.kernel.org
+Cc: Hirokazu Takata <takata@linux-m32r.org>
+Cc: linux-m32r@ml.linux-m32r.org
+Cc: linux-m32r-ja@ml.linux-m32r.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/ia64/kernel/smp.c |   12 ++++++------
- arch/ia64/mm/tlb.c     |    4 ++--
- 2 files changed, 8 insertions(+), 8 deletions(-)
+ arch/m32r/kernel/smp.c |   16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-diff --git a/arch/ia64/kernel/smp.c b/arch/ia64/kernel/smp.c
-index 9fcd4e6..25991ba 100644
---- a/arch/ia64/kernel/smp.c
-+++ b/arch/ia64/kernel/smp.c
-@@ -24,6 +24,7 @@
- #include <linux/init.h>
- #include <linux/interrupt.h>
- #include <linux/smp.h>
-+#include <linux/cpu.h>
- #include <linux/kernel_stat.h>
- #include <linux/mm.h>
- #include <linux/cache.h>
-@@ -259,8 +260,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask)
- 	cpumask_t cpumask = xcpumask;
- 	int mycpu, cpu, flush_mycpu = 0;
+diff --git a/arch/m32r/kernel/smp.c b/arch/m32r/kernel/smp.c
+index ce7aea3..ffafdba 100644
+--- a/arch/m32r/kernel/smp.c
++++ b/arch/m32r/kernel/smp.c
+@@ -151,7 +151,7 @@ void smp_flush_cache_all(void)
+ 	cpumask_t cpumask;
+ 	unsigned long *mask;
  
--	preempt_disable();
--	mycpu = smp_processor_id();
-+	mycpu = get_online_cpus_atomic();
- 
- 	for_each_cpu_mask(cpu, cpumask)
- 		counts[cpu] = local_tlb_flush_counts[cpu].count & 0xffff;
-@@ -280,7 +280,7 @@ smp_flush_tlb_cpumask(cpumask_t xcpumask)
- 		while(counts[cpu] == (local_tlb_flush_counts[cpu].count & 0xffff))
- 			udelay(FLUSH_DELAY);
- 
--	preempt_enable();
-+	put_online_cpus_atomic();
- }
- 
- void
-@@ -293,12 +293,12 @@ void
- smp_flush_tlb_mm (struct mm_struct *mm)
- {
- 	cpumask_var_t cpus;
 -	preempt_disable();
 +	get_online_cpus_atomic();
- 	/* this happens for the common case of a single-threaded fork():  */
- 	if (likely(mm == current->active_mm && atomic_read(&mm->mm_users) == 1))
- 	{
- 		local_finish_flush_tlb_mm(mm);
--		preempt_enable();
-+		put_online_cpus_atomic();
- 		return;
- 	}
- 	if (!alloc_cpumask_var(&cpus, GFP_ATOMIC)) {
-@@ -313,7 +313,7 @@ smp_flush_tlb_mm (struct mm_struct *mm)
- 	local_irq_disable();
- 	local_finish_flush_tlb_mm(mm);
- 	local_irq_enable();
+ 	cpumask_copy(&cpumask, cpu_online_mask);
+ 	cpumask_clear_cpu(smp_processor_id(), &cpumask);
+ 	spin_lock(&flushcache_lock);
+@@ -162,7 +162,7 @@ void smp_flush_cache_all(void)
+ 	while (flushcache_cpumask)
+ 		mb();
+ 	spin_unlock(&flushcache_lock);
 -	preempt_enable();
 +	put_online_cpus_atomic();
  }
  
- void arch_send_call_function_single_ipi(int cpu)
-diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
-index ed61297..8c55ef5 100644
---- a/arch/ia64/mm/tlb.c
-+++ b/arch/ia64/mm/tlb.c
-@@ -87,11 +87,11 @@ wrap_mmu_context (struct mm_struct *mm)
- 	 * can't call flush_tlb_all() here because of race condition
- 	 * with O(1) scheduler [EF]
- 	 */
--	cpu = get_cpu(); /* prevent preemption/migration */
-+	cpu = get_online_cpus_atomic(); /* prevent preemption/migration */
- 	for_each_online_cpu(i)
- 		if (i != cpu)
- 			per_cpu(ia64_need_tlb_flush, i) = 1;
--	put_cpu();
+ void smp_flush_cache_all_interrupt(void)
+@@ -197,12 +197,12 @@ void smp_flush_tlb_all(void)
+ {
+ 	unsigned long flags;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	local_irq_save(flags);
+ 	__flush_tlb_all();
+ 	local_irq_restore(flags);
+ 	smp_call_function(flush_tlb_all_ipi, NULL, 1);
+-	preempt_enable();
 +	put_online_cpus_atomic();
- 	local_flush_tlb_all();
  }
  
+ /*==========================================================================*
+@@ -250,7 +250,7 @@ void smp_flush_tlb_mm(struct mm_struct *mm)
+ 	unsigned long *mmc;
+ 	unsigned long flags;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	cpu_id = smp_processor_id();
+ 	mmc = &mm->context[cpu_id];
+ 	cpumask_copy(&cpu_mask, mm_cpumask(mm));
+@@ -268,7 +268,7 @@ void smp_flush_tlb_mm(struct mm_struct *mm)
+ 	if (!cpumask_empty(&cpu_mask))
+ 		flush_tlb_others(cpu_mask, mm, NULL, FLUSH_ALL);
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ /*==========================================================================*
+@@ -320,7 +320,7 @@ void smp_flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
+ 	unsigned long *mmc;
+ 	unsigned long flags;
+ 
+-	preempt_disable();
++	get_online_cpus_atomic();
+ 	cpu_id = smp_processor_id();
+ 	mmc = &mm->context[cpu_id];
+ 	cpumask_copy(&cpu_mask, mm_cpumask(mm));
+@@ -341,7 +341,7 @@ void smp_flush_tlb_page(struct vm_area_struct *vma, unsigned long va)
+ 	if (!cpumask_empty(&cpu_mask))
+ 		flush_tlb_others(cpu_mask, mm, vma, va);
+ 
+-	preempt_enable();
++	put_online_cpus_atomic();
+ }
+ 
+ /*==========================================================================*
