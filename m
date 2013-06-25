@@ -1,47 +1,38 @@
 From: Daniel Borkmann <dborkman@redhat.com>
-Subject: [PATCH net-next v3 0/6] Further SCTP changes
-Date: Tue, 25 Jun 2013 18:17:24 +0200
-Message-ID: <1372177050-17829-1-git-send-email-dborkman@redhat.com>
+Subject: [PATCH net-next v3 4/6] net: sctp: minor: sctp_seq_dump_local_addrs add missing newline
+Date: Tue, 25 Jun 2013 18:17:28 +0200
+Message-ID: <1372177050-17829-5-git-send-email-dborkman@redhat.com>
+References: <1372177050-17829-1-git-send-email-dborkman@redhat.com>
 Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:52064 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:57156 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750708Ab3FYQRh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jun 2013 12:17:37 -0400
+	id S1752168Ab3FYQRj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jun 2013 12:17:39 -0400
+In-Reply-To: <1372177050-17829-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mostly it's all about getting rid of unnecessary code, and/or making
-it more clean and readable. Code has been tested with lksctp-tools
-functional test suite and also my small sctp stress test helper that
-was used to discover the recent null-ptr derefs.
+A trailing newline has been forgotten to add into the WARN().
 
-v2->v3:
-  - Just changed "net: sctp: decouple cleaning some socket data from endpoint"
-    patch description slightly and made assignment explicit as Vlad requested
-  - Rest is unchanged
-v1->v2:
-  - Left sctp_put_port() still in sctp_endpoint_destroy() for now
-  - Added minor "net: sctp: simplify sctp_get_port" patch
+Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
+---
+ net/sctp/proc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Daniel Borkmann (6):
-  net: sctp: remove TEST_FRAME ifdef
-  ktime: add ms_to_ktime() and ktime_add_ms() helpers
-  net: sctp: migrate cookie life from timeval to ktime
-  net: sctp: minor: sctp_seq_dump_local_addrs add missing newline
-  net: sctp: decouple cleaning some socket data from endpoint
-  net: sctp: simplify sctp_get_port
-
- include/linux/ktime.h      | 13 +++++++++++++
- include/net/sctp/sctp.h    | 25 -------------------------
- include/net/sctp/structs.h |  6 +++---
- net/sctp/associola.c       |  8 +-------
- net/sctp/endpointola.c     | 19 ++++++++++---------
- net/sctp/proc.c            |  2 +-
- net/sctp/sm_make_chunk.c   | 19 ++++++++-----------
- net/sctp/socket.c          | 35 +++++++++++++++++++----------------
- 8 files changed, 55 insertions(+), 72 deletions(-)
-
+diff --git a/net/sctp/proc.c b/net/sctp/proc.c
+index 0c83162..62526c4 100644
+--- a/net/sctp/proc.c
++++ b/net/sctp/proc.c
+@@ -138,7 +138,7 @@ static void sctp_seq_dump_local_addrs(struct seq_file *seq, struct sctp_ep_commo
+ 
+ 		peer = asoc->peer.primary_path;
+ 		if (unlikely(peer == NULL)) {
+-			WARN(1, "Association %p with NULL primary path!", asoc);
++			WARN(1, "Association %p with NULL primary path!\n", asoc);
+ 			return;
+ 		}
+ 
 -- 
 1.7.11.7
