@@ -1,35 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: Unmap fragment page once iterator is done
-Date: Tue, 25 Jun 2013 16:20:54 -0700 (PDT)
-Message-ID: <20130625.162054.890870423042371628.davem@davemloft.net>
-References: <1372123520-18287-1-git-send-email-wedsonaf@gmail.com>
+Subject: Re: [PATCH net-next] ipv6: split duplicate address detection and
+ router solicitation timer
+Date: Tue, 25 Jun 2013 16:23:58 -0700 (PDT)
+Message-ID: <20130625.162358.2018248422018779273.davem@davemloft.net>
+References: <20130623163901.GB13836@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sergei.shtylyov@cogentembedded.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: wedsonaf@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372123520-18287-1-git-send-email-wedsonaf@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, fleitner@redhat.com,
+	yoshfuji@linux-ipv6.org, dlstevens@us.ibm.com
+To: hannes@stressinduktion.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34905 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751774Ab3FYXYB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 19:24:01 -0400
+In-Reply-To: <20130623163901.GB13836@order.stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Wedson Almeida Filho <wedsonaf@gmail.com>
-Date: Mon, 24 Jun 2013 18:25:20 -0700
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Sun, 23 Jun 2013 18:39:01 +0200
 
-> Callers of skb_seq_read() are currently forced to call skb_abort_seq_read()
-> even when consuming all the data because the last call to skb_seq_read (the
-> one that returns 0 to indicate the end) fails to unmap the last fragment page.
+> This patch splits the timers for duplicate address detection and router
+> solicitations apart. The router solicitations timer goes into inet6_dev
+> and the dad timer stays in inet6_ifaddr.
 > 
-> With this patch callers will be allowed to traverse the SKB data by calling
-> skb_prepare_seq_read() once and repeatedly calling skb_seq_read() as originally
-> intended (and documented in the original commit 677e90eda - "[NET]: Zerocopy
-> sequential reading of skb data"), that is, only call skb_abort_seq_read() if
-> the sequential read is actually aborted.
+> The reason behind this patch is to reduce the number of unneeded router
+> solicitations send out by the host if additional link-local addresses
+> are created. Currently we send out RS for every link-local address on
+> an interface.
 > 
-> Signed-off-by: Wedson Almeida Filho <wedsonaf@gmail.com>
+> If the RS timer fires we pick a source address with ipv6_get_lladdr. This
+> change could hurt people adding additional link-local addresses and
+> specifying these addresses in the radvd clients section because we
+> no longer guarantee that we use every ll address as source address in
+> router solicitations.
+> 
+> Cc: Flavio Leitner <fleitner@redhat.com>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: David Stevens <dlstevens@us.ibm.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-This patch doesn't even come close to applying to the net-next tree,
-please respin this patch properly and resubmit.
-
-Thanks.
+Applied.
