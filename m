@@ -1,7 +1,7 @@
 From: Mike Rapoport <mike.rapoport@ravellosystems.com>
-Subject: [PATCH net-next v5 1/6] vxlan: add implicit fdb entry for default destination
-Date: Tue, 25 Jun 2013 16:01:51 +0300
-Message-ID: <1372165316-17647-2-git-send-email-mike.rapoport@ravellosystems.com>
+Subject: [PATCH net-next v5 2/6] vxlan: introduce vxlan_fdb_find_rdst
+Date: Tue, 25 Jun 2013 16:01:52 +0300
+Message-ID: <1372165316-17647-3-git-send-email-mike.rapoport@ravellosystems.com>
 References: <1372165316-17647-1-git-send-email-mike.rapoport@ravellosystems.com>
 Cc: Stephen Hemminger <stephen@networkplumber.org>,
 	David Stevens <dlstevens@us.ibm.com>,
@@ -10,147 +10,66 @@ Cc: Stephen Hemminger <stephen@networkplumber.org>,
 	Mike Rapoport <mike.rapoport@ravellosystems.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys010aog107.obsmtp.com ([74.125.245.82]:33444 "HELO
-	na3sys010aog107.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1751082Ab3FYNCJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 09:02:09 -0400
-Received: by mail-wi0-f170.google.com with SMTP id ey16so868815wid.5
-        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 06:02:07 -0700 (PDT)
+Received: from na3sys010aog104.obsmtp.com ([74.125.245.76]:38817 "HELO
+	na3sys010aog104.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751082Ab3FYNCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 09:02:13 -0400
+Received: by mail-wi0-f180.google.com with SMTP id c10so721436wiw.7
+        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 06:02:12 -0700 (PDT)
 In-Reply-To: <1372165316-17647-1-git-send-email-mike.rapoport@ravellosystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+which will be reused by vxlan_fdb_delete
+
 Signed-off-by: Mike Rapoport <mike.rapoport@ravellosystems.com>
 ---
- drivers/net/vxlan.c | 68 ++++++++++++++++++++++++++++++++++++++---------------
- 1 file changed, 49 insertions(+), 19 deletions(-)
+ drivers/net/vxlan.c | 23 ++++++++++++++++++-----
+ 1 file changed, 18 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 212a256..bdfe46e 100644
+index bdfe46e..306bd94 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -80,6 +80,8 @@ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
- 
- static int vxlan_net_id;
- 
-+static const u8 all_zeros_mac[ETH_ALEN];
-+
- /* per UDP socket information */
- struct vxlan_sock {
- 	struct hlist_node hlist;
-@@ -1151,7 +1153,7 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct ethhdr *eth;
- 	bool did_rsc = false;
--	struct vxlan_rdst *rdst0, *rdst;
-+	struct vxlan_rdst *rdst;
- 	struct vxlan_fdb *f;
- 
- 	skb_reset_mac_header(skb);
-@@ -1171,26 +1173,27 @@ static netdev_tx_t vxlan_xmit(struct sk_buff *skb, struct net_device *dev)
- 	}
- 
- 	if (f == NULL) {
--		rdst0 = &vxlan->default_dst;
--
--		if (rdst0->remote_ip == htonl(INADDR_ANY) &&
--		    (vxlan->flags & VXLAN_F_L2MISS) &&
--		    !is_multicast_ether_addr(eth->h_dest))
--			vxlan_fdb_miss(vxlan, eth->h_dest);
--	} else {
--		rdst = rdst0 = first_remote(f);
-+		f = vxlan_find_mac(vxlan, all_zeros_mac);
-+		if (f == NULL) {
-+			if ((vxlan->flags & VXLAN_F_L2MISS) &&
-+			    !is_multicast_ether_addr(eth->h_dest))
-+				vxlan_fdb_miss(vxlan, eth->h_dest);
-+
-+			dev->stats.tx_dropped++;
-+			dev_kfree_skb(skb);
-+			return NETDEV_TX_OK;
-+		}
-+	}
- 
--		/* if there are multiple destinations, send copies */
--		list_for_each_entry_continue_rcu(rdst, &f->remotes, list) {
--			struct sk_buff *skb1;
-+	list_for_each_entry_rcu(rdst, &f->remotes, list) {
-+		struct sk_buff *skb1;
- 
--			skb1 = skb_clone(skb, GFP_ATOMIC);
--			if (skb1)
--				vxlan_xmit_one(skb1, dev, rdst, did_rsc);
--		}
-+		skb1 = skb_clone(skb, GFP_ATOMIC);
-+		if (skb1)
-+			vxlan_xmit_one(skb1, dev, rdst, did_rsc);
- 	}
- 
--	vxlan_xmit_one(skb, dev, rdst0, did_rsc);
-+	dev_kfree_skb(skb);
- 	return NETDEV_TX_OK;
+@@ -388,21 +388,34 @@ static struct vxlan_fdb *vxlan_find_mac(struct vxlan_dev *vxlan,
+ 	return f;
  }
  
-@@ -1260,12 +1263,25 @@ static int vxlan_init(struct net_device *dev)
- 	return 0;
- }
+-/* Add/update destinations for multicast */
+-static int vxlan_fdb_append(struct vxlan_fdb *f,
+-			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
++/* caller should hold vxlan->hash_lock */
++static struct vxlan_rdst *vxlan_fdb_find_rdst(struct vxlan_fdb *f,
++					      __be32 ip, __be16 port,
++					      __u32 vni, __u32 ifindex)
+ {
+ 	struct vxlan_rdst *rd;
  
-+static void vxlan_fdb_delete_defualt(struct vxlan_dev *vxlan)
-+{
-+	struct vxlan_fdb *f;
-+
-+	spin_lock_bh(&vxlan->hash_lock);
-+	f = __vxlan_find_mac(vxlan, all_zeros_mac);
-+	if (f)
-+		vxlan_fdb_destroy(vxlan, f);
-+	spin_unlock_bh(&vxlan->hash_lock);
+-	/* protected by vxlan->hash_lock */
+ 	list_for_each_entry(rd, &f->remotes, list) {
+ 		if (rd->remote_ip == ip &&
+ 		    rd->remote_port == port &&
+ 		    rd->remote_vni == vni &&
+ 		    rd->remote_ifindex == ifindex)
+-			return 0;
++			return rd;
+ 	}
+ 
++	return NULL;
 +}
 +
- static void vxlan_uninit(struct net_device *dev)
- {
- 	struct vxlan_dev *vxlan = netdev_priv(dev);
- 	struct vxlan_net *vn = net_generic(dev_net(dev), vxlan_net_id);
- 	struct vxlan_sock *vs = vxlan->vn_sock;
- 
-+	vxlan_fdb_delete_defualt(vxlan);
++/* Add/update destinations for multicast */
++static int vxlan_fdb_append(struct vxlan_fdb *f,
++			    __be32 ip, __be16 port, __u32 vni, __u32 ifindex)
++{
++	struct vxlan_rdst *rd;
 +
- 	if (vs)
- 		vxlan_sock_release(vn, vs);
- 	free_percpu(dev->tstats);
-@@ -1304,7 +1320,9 @@ static void vxlan_flush(struct vxlan_dev *vxlan)
- 		hlist_for_each_safe(p, n, &vxlan->fdb_head[h]) {
- 			struct vxlan_fdb *f
- 				= container_of(p, struct vxlan_fdb, hlist);
--			vxlan_fdb_destroy(vxlan, f);
-+			/* the all_zeros_mac entry is deleted at vxlan_uninit */
-+			if (!is_zero_ether_addr(f->eth_addr))
-+				vxlan_fdb_destroy(vxlan, f);
- 		}
- 	}
- 	spin_unlock_bh(&vxlan->hash_lock);
-@@ -1657,10 +1675,22 @@ static int vxlan_newlink(struct net *net, struct net_device *dev,
- 
- 	SET_ETHTOOL_OPS(dev, &vxlan_ethtool_ops);
- 
--	err = register_netdevice(dev);
-+	/* create an fdb entry for default destination */
-+	err = vxlan_fdb_create(vxlan, all_zeros_mac,
-+			       vxlan->default_dst.remote_ip,
-+			       NUD_REACHABLE|NUD_PERMANENT,
-+			       NLM_F_EXCL|NLM_F_CREATE,
-+			       vxlan->dst_port, vxlan->default_dst.remote_vni,
-+			       vxlan->default_dst.remote_ifindex, NTF_SELF);
- 	if (err)
- 		return err;
- 
-+	err = register_netdevice(dev);
-+	if (err) {
-+		vxlan_fdb_delete_defualt(vxlan);
-+		return err;
-+	}
++	rd = vxlan_fdb_find_rdst(f, ip, port, vni, ifindex);
++	if (rd)
++		return 0;
 +
- 	list_add(&vxlan->next, &vn->vxlan_list);
- 
- 	return 0;
+ 	rd = kmalloc(sizeof(*rd), GFP_ATOMIC);
+ 	if (rd == NULL)
+ 		return -ENOBUFS;
 -- 
 1.8.1.5
