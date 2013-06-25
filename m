@@ -1,38 +1,44 @@
-From: Daniel Borkmann <dborkman@redhat.com>
-Subject: Re: [PATCH net-next] ipv6: remove old token ipv6 address as soon
- as possible
-Date: Tue, 25 Jun 2013 09:56:19 +0200
-Message-ID: <51C94D23.6020006@redhat.com>
-References: <20130624200328.GJ13836@order.stressinduktion.org>
+From: Jiri Slaby <jslaby@suse.cz>
+Subject: Re: [PATCH] build some drivers only when compile-testing
+Date: Tue, 25 Jun 2013 10:16:53 +0200
+Message-ID: <51C951F5.2080105@suse.cz>
+References: <1369214326-6558-1-git-send-email-jslaby@suse.cz> <20130523022327.GB6159@kroah.com> <519D8876.9050405@suse.com> <51BF6BFF.7050705@suse.cz> <20130618160427.GE28961@kroah.com> <51C154A0.6080104@suse.cz> <20130624234240.GA21064@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:25942 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751092Ab3FYH4Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jun 2013 03:56:24 -0400
-In-Reply-To: <20130624200328.GJ13836@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jeff Mahoney <jeffm@suse.com>, jirislaby@gmail.com,
+	linux-kernel@vger.kernel.org,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Alexander Shishkin <alexander.shishkin@linux.intel.com>,
+	linux-usb@vger.kernel.org,
+	Florian Tobias Schandinat <FlorianSchandinat@gmx.de>,
+	linux-geode@lists.infradead.org, linux-fbdev@vger.kernel.org,
+	Richard Cochran <richardcochran@gmail.com>,
+	netdev@vger.kernel.org, Ben Hutchings <ben@decadent.org.uk>,
+	"Keller, Jacob E" <jacob.e.keller@intel.com>,
+	Michal Marek <mmarek@suse.cz>, tomi.valkeinen@ti.com
+To: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130624234240.GA21064@kroah.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/24/2013 10:03 PM, Hannes Frederic Sowa wrote:
-> If the tokenized ip address is re-set on an interface we depend on the
-> arrival of a new router advertisment to call addrconf_verify to clean
-> up the old address (which valid_lft is now set to 0). Old addresses can
-> linger around for a longer time if e.g. the source of router advertisments
-> vanishes.
->
-> So, call addrconf_verify immediately after setting the new tokenized
-> address to get rid of the old tokenized addresses.
->
-> Cc: Daniel Borkmann <dborkman@redhat.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+On 06/25/2013 01:42 AM, Greg Kroah-Hartman wrote:
+> On Wed, Jun 19, 2013 at 08:50:08AM +0200, Jiri Slaby wrote:
+>> On 06/18/2013 06:04 PM, Greg Kroah-Hartman wrote:
+>>>> So currently I have what is attached... Comments?
+>>>
+>>> Looks good to me, want me to queue it up through my char/misc driver
+>>> tree for 3.11?
+>>
+>> If there are no objections... Whoever picks that up, I would be happy 8-).
+> 
+> I've taken it, without the chipidea portion, through my driver-core
+> tree.
 
-Agreed. This is also done when simply adding or modifying an address, so this
-would be good for tokenized addresses, too. I've tested it also and it looks
-good. Thanks Hannes !
+Ok thanks. (FWIW I sent v3 without the chipidea change too...)
 
-Acked-by: Daniel Borkmann <dborkman@redhat.com>
+-- 
+js
+suse labs
