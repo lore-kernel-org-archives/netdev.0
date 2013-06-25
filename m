@@ -1,29 +1,54 @@
-From: Fabio Estevam <festevam@gmail.com>
-Subject: Re: [PATCH 1/1] fec: Add support for reading RMON registers
-Date: Tue, 25 Jun 2013 14:32:32 -0300
-Message-ID: <CAOMZO5D-8RiuGY_b7+Ct+cYfLGJdmQNbpoumCdDrUFQGC_HCdw@mail.gmail.com>
-References: <1372135740-32311-1-git-send-email-cphealy@gmail.com>
+From: <Narendra_K@Dell.com>
+Subject: RE: [PATCH net-next] net: Add phys_port identifier to struct
+ net_device and export it to sysfs
+Date: Tue, 25 Jun 2013 10:33:31 -0700
+Message-ID: <E31FB011129F30488D5861F383904915210BC0481A@BLRX7MCDC201.AMER.DELL.COM>
+References: <20130617181004.GA1364@fedora-17-guest.dell.com>
+  <51BF59D8.10806@gmail.com>
+  <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
+  <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
+  <E31FB011129F30488D5861F383904915210BB9042A@BLRX7MCDC201.AMER.DELL.COM>
+ <1371670481.1956.105.camel@bwh-desktop.uk.level5networks.com>
+ <51C4892B.8000806@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Frank Li <Frank.Li@freescale.com>,
-	Fabio Estevam <fabio.estevam@freescale.com>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Ruslan Sushko <rsushko@gmail.com>, netdev@vger.kernel.org
-To: Chris Healy <cphealy@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <bhutchings@solarflare.com>, <netdev@vger.kernel.org>,
+	<john.r.fastabend@intel.com>
+To: <john.fastabend@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ve0-f175.google.com ([209.85.128.175]:48394 "EHLO
-	mail-ve0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751271Ab3FYRcd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 13:32:33 -0400
-Received: by mail-ve0-f175.google.com with SMTP id da11so10478812veb.34
-        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 10:32:32 -0700 (PDT)
-In-Reply-To: <1372135740-32311-1-git-send-email-cphealy@gmail.com>
+Received: from ausxippc101.us.dell.com ([143.166.85.207]:50676 "EHLO
+	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751538Ab3FYRd7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 13:33:59 -0400
+In-Reply-To: <51C4892B.8000806@gmail.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 25, 2013 at 1:49 AM, Chris Healy <cphealy@gmail.com> wrote:
-> Add ethtool operation to read RMON registers.
-
-These RMON registers do not exist on mcf5272, so you need to take this
-into account.
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2huIEZhc3RhYmVuZCBbbWFp
+bHRvOmpvaG4uZmFzdGFiZW5kQGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBKdW5lIDIxLCAy
+MDEzIDEwOjQxIFBNDQo+IFRvOiBLLCBOYXJlbmRyYQ0KPiBDYzogQmVuIEh1dGNoaW5nczsgbmV0
+ZGV2QHZnZXIua2VybmVsLm9yZzsgam9obi5yLmZhc3RhYmVuZEBpbnRlbC5jb20NCj4gU3ViamVj
+dDogUmU6IFtQQVRDSCBuZXQtbmV4dF0gbmV0OiBBZGQgcGh5c19wb3J0IGlkZW50aWZpZXIgdG8g
+c3RydWN0DQo+IG5ldF9kZXZpY2UgYW5kIGV4cG9ydCBpdCB0byBzeXNmcw0KPiANCj4gT24gMDYv
+MTkvMjAxMyAxMjozNCBQTSwgQmVuIEh1dGNoaW5ncyB3cm90ZToNClsuLi5dDQoNCj4gPiBJIHRo
+aW5rIHNvLg0KPiA+DQo+ID4+IElmIGNvcnJlY3QsICBJIHRoaW5rIHRoZSAnc2hvd19icm9hZGNh
+c3QnIGZ1bmN0aW9uIGFsc28gbmVlZHMgdG8gYmUNCj4gPj4gZml4ZWQgYXMgaXQgaXMgbm90IGhv
+bGRpbmcgdGhlIGxvY2suDQo+ID4NCj4gPiBJIHRoaW5rIHRoZSBicm9hZGNhc3QgYWRkcmVzcyBz
+aG91bGQgbmV2ZXIgY2hhbmdlIGR1cmluZyB0aGUgbGlmZXRpbWUNCj4gPiBvZiBhIGRldmljZSwg
+c28gaXQgZG9lc24ndCBuZWVkIHRoZSBsb2NrLiAgVGhhdCBtaWdodCBub3QgYmUgdHJ1ZSBmb3IN
+Cj4gPiBhbGwgbGF5ZXIgMiBwcm90b2NvbHMgdGhvdWdoLg0KPiA+DQo+ID4gQmVuLg0KPiA+DQo+
+IA0KPiBBbHNvLCBkbyB5b3UgdGhpbmsgdGhpcyB3aWxsIGJlIHByaW1hcmlseSB1c2VmdWwgZm9y
+IHBhcnRpdGlvbmluZyBkZXZpY2VzIHRoYXQNCj4gZXhwb3NlIG11bHRpcGxlIHBoeXNpY2FsIGZ1
+bmN0aW9ucz8gT3IgZG8geW91IHNlZSBhIHVzZSBjYXNlIGZvciBTUi1JT1Ygd2l0aA0KPiB2aXJ0
+dWFsIGZ1bmN0aW9ucyBhcyB3ZWxsLiBUaGUgcHloc19wb3J0IGF0dHJpYnV0ZSBwcm92aWRlcyBh
+IGNvbW1vbg0KPiBpbnRlcmZhY2UgZm9yIGJvdGggY2FzZXMgd2hpY2ggaXMgZ29vZCBJIHN1cHBv
+c2UgaW4gdGhlIFZGIGNhc2UgaG93ZXZlciB0aGUNCj4gaG9zdCBjYW4gYWxyZWFkeSBsZWFybiB0
+aGlzLiBJIGdhdGhlciBmcm9tIHlvdXIgb3JpZ2luYWwgcG9zdCBoZXJlIHRoYXQgeW91IGFyZQ0K
+PiBhd2FyZSBvZiBhbGwgdGhpcy4NCj4gDQoNCkpvaG4sICAgSSB0aGluayBpdCB3aWxsIGJlIHVz
+ZWZ1bCBpbiB0aGUgU1JJT1Ygc2NlbmFyaW8gYWxzbyB3aGVuIG1vcmUgdGhhbiBvbmUgVkYgZnJv
+bSB0d28gTklDcyBhcmUgYXNzaWduZWQgdG8gdGhlIGd1ZXN0LiBwaHlzX3BvcnQgd291bGQgYmUg
+aGVscGZ1bCBpbiBjaG9vc2luZyB0aGUgY29ycmVjdCBzbGF2ZSBpbnRlcmZhY2VzIHdoZW4gaG9z
+dCBkZXRhaWxzIGFyZSBub3QgYXZhaWxhYmxlLg0KIA0KV2l0aCByZWdhcmRzLA0KTmFyZW5kcmEg
+Sw0KTGludXggRW5naW5lZXJpbmcNCkRlbGwgSW5jLg0KDQo=
