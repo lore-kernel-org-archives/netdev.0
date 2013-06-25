@@ -1,44 +1,57 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v2 2/7] alx: fix 100mbit/full duplex speed translation
-Date: Tue, 25 Jun 2013 12:32:28 -0700
-Message-ID: <1372188748.1245.77.camel@joe-AO722>
-References: <1372185503-24705-1-git-send-email-johannes@sipsolutions.net>
-	 <1372185503-24705-3-git-send-email-johannes@sipsolutions.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Johannes Berg <johannes@sipsolutions.net>
+From: Vlad Yasevich <vyasevic@redhat.com>
+Subject: [PATCHv2 net-next 0/4] macvtap: locking and offload control
+Date: Tue, 25 Jun 2013 16:04:18 -0400
+Message-ID: <1372190662-30815-1-git-send-email-vyasevic@redhat.com>
+Cc: mst@redhat.com, eric.dumazet@gmail.com, davem@davemloft.net,
+	Vlad Yasevich <vyasevic@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from perches-mx.perches.com ([206.117.179.246]:45468 "EHLO
-	labridge.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751102Ab3FYTc3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jun 2013 15:32:29 -0400
-In-Reply-To: <1372185503-24705-3-git-send-email-johannes@sipsolutions.net>
+Received: from mx1.redhat.com ([209.132.183.28]:13113 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751619Ab3FYUEa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jun 2013 16:04:30 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-06-25 at 20:38 +0200, Johannes Berg wrote:
-> 100mbit full duplex is ADVERTISED_100baseT_Half, not
-> ADVERTISED_10baseT_Half.
+This series of patches changes the macvtap locking to use rtnl instead
+of a private lock and adds the ability for user to specify TAP offload
+features.
 
-Correct code, bad commit message.
+The macvtap_lock protects the relationship between macvlan_dev and
+macvtap_queue structures.  This relationship is modified in 3 places:
+open(), release(), and dellinks().  dellinks() is already protected
+by rtnl through the rtnetlink message handling.  If we add rtnl protection
+during the open() and relase() calls, we can remove the private lock.
 
-> Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
-> ---
->  drivers/net/ethernet/atheros/alx/hw.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/atheros/alx/hw.c b/drivers/net/ethernet/atheros/alx/hw.c
-> index 220a16a..dc71cfb 100644
-> --- a/drivers/net/ethernet/atheros/alx/hw.c
-> +++ b/drivers/net/ethernet/atheros/alx/hw.c
-> @@ -1134,7 +1134,7 @@ static inline u32 alx_speed_to_ethadv(int speed)
->  	case SPEED_100 + DUPLEX_FULL:
->  		return ADVERTISED_100baseT_Full;
->  	case SPEED_100 + DUPLEX_HALF:
-> -		return ADVERTISED_10baseT_Half;
-> +		return ADVERTISED_100baseT_Half;
->  	case SPEED_10 + DUPLEX_FULL:
->  		return ADVERTISED_10baseT_Full;
->  	case SPEED_10 + DUPLEX_HALF:
+We can also stop using the _bh veriants of rcu since in most cases
+either regular rcu is already taken or we don't need to disable bh.
+
+Macvtap does not allow tap user to control of offload functionality via
+TUNSETOFFLOAD ioctl.  This is the ioctl that qemu uses when
+attempting to enable or disable offload features that it expects on the
+tap socket.  The 3rd patch adds this support, but there is a small
+wrinkle.  Typcally, tap offloads are reversed.  When the user disables
+TSO to the tap, it does not expect to receive TSO packets.  To do this
+here, we reverse the sence such that when TSO is disabled, we actuall
+disalbe GRO on the macvtap interface, but also save the user expected
+offloads so that we can properly perform segmentation when passing
+data to the user (patch 4).
+
+Changes since v1:
+ - use rtnl locks.
+ - reverse the sence of offload features to make them more consitent
+   with user of tap.
+
+Vlad Yasevich (4):
+  macvtap: Convert to using rtnl lock
+  macvtap: Consistently use rcu functions
+  macvtap: Let TUNSETOFFLOAD actually controll offload features.
+  macvtap: Perform GSO on forwarding path.
+
+ drivers/net/macvlan.c      |  10 +++
+ drivers/net/macvtap.c      | 176 ++++++++++++++++++++++++++++++++-------------
+ include/linux/if_macvlan.h |   2 +
+ 3 files changed, 140 insertions(+), 48 deletions(-)
+
+-- 
+1.8.1.4
