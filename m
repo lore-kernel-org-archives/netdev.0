@@ -1,60 +1,40 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 11/45] migration: Use raw_spin_lock/unlock since interrupts
- are already disabled
-Date: Wed, 26 Jun 2013 01:57:17 +0530
-Message-ID: <20130625202717.16593.55189.stgit@srivatsabhat.in.ibm.com>
-References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCHv2 net-next 1/4] macvtap: Convert to using rtnl lock
+Date: Tue, 25 Jun 2013 13:31:18 -0700
+Message-ID: <1372192278.3301.120.camel@edumazet-glaptop>
+References: <1372190662-30815-1-git-send-email-vyasevic@redhat.com>
+	 <1372190662-30815-2-git-send-email-vyasevic@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
-	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
-	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Ingo Molnar <mingo@redhat.com>,
-	Peter Zijlstra <peterz@infradead.org>,
-	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, mst@redhat.com, davem@davemloft.net
+To: Vlad Yasevich <vyasevic@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ee0-f44.google.com ([74.125.83.44]:57230 "EHLO
+	mail-ee0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753222Ab3FYUbG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 16:31:06 -0400
+Received: by mail-ee0-f44.google.com with SMTP id c13so7035546eek.3
+        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 13:31:05 -0700 (PDT)
+In-Reply-To: <1372190662-30815-2-git-send-email-vyasevic@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We need not use the raw_spin_lock_irqsave/restore primitives because
-all CPU_DYING notifiers run with interrupts disabled. So just use
-raw_spin_lock/unlock.
+On Tue, 2013-06-25 at 16:04 -0400, Vlad Yasevich wrote:
+> Macvtap uses a private lock to protect the relationship between
+> macvtap_queue and macvlan_dev.  The private lock is not needed
+> since the relationship is managed by user via open(), release(),
+> and dellink() calls.  dellink() already happens under rtnl, so
+> we can safely convert open() and release(), and use it in ioctl()
+> as well.
+> 
+> Suggested by Eric Dumazet.
+> 
+> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
+> ---
+>  drivers/net/macvtap.c | 62 +++++++++++++++++++++------------------------------
+>  1 file changed, 25 insertions(+), 37 deletions(-)
 
-Cc: Ingo Molnar <mingo@redhat.com>
-Cc: Peter Zijlstra <peterz@infradead.org>
-Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
----
+Looks fine to me, thanks !
 
- kernel/sched/core.c |    4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/kernel/sched/core.c b/kernel/sched/core.c
-index accd550..ff26f54 100644
---- a/kernel/sched/core.c
-+++ b/kernel/sched/core.c
-@@ -4682,14 +4682,14 @@ migration_call(struct notifier_block *nfb, unsigned long action, void *hcpu)
- 	case CPU_DYING:
- 		sched_ttwu_pending();
- 		/* Update our root-domain */
--		raw_spin_lock_irqsave(&rq->lock, flags);
-+		raw_spin_lock(&rq->lock); /* IRQs already disabled */
- 		if (rq->rd) {
- 			BUG_ON(!cpumask_test_cpu(cpu, rq->rd->span));
- 			set_rq_offline(rq);
- 		}
- 		migrate_tasks(cpu);
- 		BUG_ON(rq->nr_running != 1); /* the migration thread */
--		raw_spin_unlock_irqrestore(&rq->lock, flags);
-+		raw_spin_unlock(&rq->lock);
- 		break;
- 
- 	case CPU_DEAD:
+Reviewed-by: Eric Dumazet <edumazet@google.com>
