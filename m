@@ -1,64 +1,130 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH net-next v5 0/6] vxlan: allow specifying multiple
- default destinations
-Date: Tue, 25 Jun 2013 14:19:23 -0700
-Message-ID: <20130625141923.5aafd5a4@nehalam.linuxnetplumber.net>
-References: <1372165316-17647-1-git-send-email-mike.rapoport@ravellosystems.com>
+From: Arvid Brodin <arvid.brodin@xdin.com>
+Subject: Re: [PATCH] net/hsr: Add support for the High-availability Seamless
+ Redundancy protocol (HSRv0)
+Date: Tue, 25 Jun 2013 23:16:40 +0200
+Message-ID: <51CA08B8.9030001@xdin.com>
+References: <51C87746.1010002@xdin.com> <1372097797.1245.12.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Cong Wang <xiyou.wangcong@gmail.com>
-To: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Stephen Hemminger <shemminger@vyatta.com>,
+	Javier Boticario <jboticario@gmail.com>,
+	balferreira <balferreira@googlemail.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:51199 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752988Ab3FYVT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 17:19:27 -0400
-Received: by mail-pa0-f67.google.com with SMTP id bj3so6945727pad.10
-        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 14:19:27 -0700 (PDT)
-In-Reply-To: <1372165316-17647-1-git-send-email-mike.rapoport@ravellosystems.com>
+Received: from spam1.webland.se ([91.207.112.90]:51377 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750971Ab3FYV0A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jun 2013 17:26:00 -0400
+In-Reply-To: <1372097797.1245.12.camel@joe-AO722>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 25 Jun 2013 16:01:50 +0300
-Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
+On 2013-06-24 20:16, Joe Perches wrote:
+> On Mon, 2013-06-24 at 18:43 +0200, Arvid Brodin wrote:
+>> High-availability Seamless Redundancy ("HSR") provides instant failo=
+ver
+>> redundancy for Ethernet networks. It requires a special network topo=
+logy where
+>> all nodes are connected in a ring (each node having two physical net=
+work
+>> interfaces). It is suited for applications that demand high availabi=
+lity and
+>> very short reaction time.
+>=20
+> trivia:
+>=20
+> You should probably use checkpatch.pl --strict for files in net.
+> It will suggest aligning arguments in the more common net style.
 
-> These patches add ability to specify multiple default destinations to
-> vxlan. This ability is usefull in cases when multicast are disabled on
-> infrastructure level, for instance in public clouds.
-> 
-> The default destinations list is managed via the fdb entry with
-> "00:00:00:00:00:00" MAC address and does not require changes to vxlan
-> netlink API.
-> 
-> The default destinations can be added/deleted using 'bridge fdb'
-> commands, e.g:
-> 
-> # ip link add vxlan0 type vxlan id 23 group 239.1.1.1 dev eth0
-> # bridge fdb show dev vxlan0
-> 00:00:00:00:00:00 dst 239.1.1.1 self permanent
-> 
-> # bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 54.242.49.246
-> # bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 23.22.26.34
-> # bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 184.72.129.120
-> # bridge fdb show dev vxlan0
-> 00:00:00:00:00:00 dst 239.1.1.1 self permanent
-> 00:00:00:00:00:00 dst 54.242.49.246 self permanent
-> 00:00:00:00:00:00 dst 23.22.26.34 self permanent
-> 00:00:00:00:00:00 dst 184.72.129.120 self permanent
-> 
-> # bridge fdb delete 00:00:00:00:00:00 dev vxlan0 dst 23.22.26.34
-> # bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 54.242.49.246
-> # bridge fdb show dev vxlan0
-> 00:00:00:00:00:00 dst 239.1.1.1 self permanent
-> 00:00:00:00:00:00 dst 184.72.129.120 self permanent
-> 
-> Since v5 is complete rework, I've dropped prevoius changelog as not relevant.
-> 
-I assume iproute changes are no longer needed?
+Does this mean I should also remove spaces after casts (IMO this would =
+reduce readability
+somewhat)?
 
 
-It would be good to have multiple non-default destinations as well.
-It would allow for implementing multicast MAC addresses.
+>>  net/hsr/hsr_device.h          |  30 +++
+>>  net/hsr/hsr_framereg.h        |  54 ++++
+>>  net/hsr/hsr_main.h            | 167 ++++++++++++
+>>  net/hsr/hsr_netlink.h         |  74 ++++++
+>=20
+> Maybe some of these .h files should go into include/net/...
+>=20
+> A future version of checkpatch may read all the include
+> files and exempt any CamelCase defines/typedefs/functions
+> from CamelCase warnings.
+
+I cannot judge if these files should go into include/net/ or not. Where=
+ can I get a final
+say on this?
+
+Some of the definitions in hsr_netlink.h are needed by userspace tools =
+that want to listen
+for ring errors etc from the HSR driver, so it would be a good thing if=
+ this file could be
+part of the kernel headers install. How can I accomplish this?
+
+
+>> +	if ((skb->protocol !=3D htons(ETH_P_PRP)) ||
+>> +			(hsr_ethhdr->ethhdr.h_proto !=3D htons(ETH_P_PRP))) {
+>=20
+> Please align indents after the appropriate open parenthesis.=20
+>=20
+> 	if (foo ||
+> 	    bar) {
+>=20
+>> +bool is_hsr_master(struct net_device *dev)
+>> +{
+>> +	if (!dev) {
+>> +		WARN_ON_ONCE(1);
+>> +		return 0;
+>> +	}
+>> +	if (!dev->netdev_ops) {
+>> +		WARN_ON_ONCE(1);
+>> +		return 0;
+>> +	}
+>=20
+> probably better to combine and give a textual reason
+
+Or perhaps better to remove them altogether? I guess you could call the=
+m debug statements...
+
+
+>> diff --git a/net/hsr/hsr_main.h b/net/hsr/hsr_main.h
+> []
+>> +#define HSR_LIFE_CHECK_INTERVAL		 2000 /* ms */
+>> +#define HSR_NODE_FORGET_TIME		60000 /* ms */
+>> +#define HSR_ANNOUNCE_INTERVAL		  100 /* ms */
+>=20
+> Odd alignment
+
+Only because of the plus chars added by diff. :)
+
+
+>> diff --git a/net/hsr/hsr_netlink.c b/net/hsr/hsr_netlink.c
+> []
+>> +static const struct nla_policy hsr_genl_policy[HSR_A_MAX + 1] =3D {
+>> +	[HSR_A_NODE_ADDR] =3D { .type =3D NLA_BINARY, .len =3D ETH_ALEN },
+>> +	[HSR_A_NODE_ADDR_B] =3D { .type =3D NLA_BINARY, .len =3D ETH_ALEN =
+},
+>> +	[HSR_A_IFINDEX] =3D { .type =3D NLA_U32 },
+>> +	[HSR_A_IF1_AGE] =3D { .type =3D NLA_U32 }, /* Actually signed 32-b=
+it */
+>> +	[HSR_A_IF2_AGE] =3D { .type =3D NLA_U32 }, /* Actually signed 32-b=
+it */
+>=20
+> Why not use NLA_S32?
+
+We need the code to work on older kernels as well, where NLA_S32 does n=
+ot exist. Actually,
+these values never become negative with the current code. During develo=
+pment we returned a
+negative value to mean "out of range" but we have switched to INT_MAX i=
+nstead. So perhaps
+it's best just to remove these comments?
+
+
+--=20
+Arvid Brodin | Consultant (Linux)
+T: +46-8-56254286 | M: +46-70-9714286 | arvid.brodin@xdin.com
+XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
