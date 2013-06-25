@@ -1,130 +1,82 @@
-From: Jesse Gross <jesse@nicira.com>
-Subject: Re: [ovs-dev] [PATCH] datapath: optimize flow compare and mask functions
-Date: Mon, 24 Jun 2013 22:08:21 -0700
-Message-ID: <CAEP_g=_a55zCfLtcnCo2wphJfUFhA9Eh0uAPcB441O_iEQgDMg@mail.gmail.com>
-References: <1371904368-32642-1-git-send-email-azhou@nicira.com>
+From: Pratik Pujar <pratik.pujar@qlogic.com>
+Subject: RE: [PATCH v2 net-next 5/8] qlcnic: Cleanup of structure
+ qlcnic_hardware_context
+Date: Tue, 25 Jun 2013 05:04:02 +0000
+Message-ID: <446476BDCB53C441A1847D74CB603378DA7A8F@avmb3.qlogic.org>
+References: <1371888727-16422-1-git-send-email-jitendra.kalsaria@qlogic.com>
+	 <1371888727-16422-6-git-send-email-jitendra.kalsaria@qlogic.com>
+	 <1371898428.3137.5.camel@joe-AO722>
+	 <446476BDCB53C441A1847D74CB603378DA72D5@avmb3.qlogic.org>
+ <1372097962.1245.14.camel@joe-AO722>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "dev@openvswitch.com" <dev@openvswitch.com>,
-	Peter Klausler <pmk@google.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Andy Zhou <azhou@nicira.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jitendra Kalsaria <jitendra.kalsaria@qlogic.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Sony Chacko <sony.chacko@qlogic.com>,
+	Shahed Shaikh <shahed.shaikh@qlogic.com>,
+	Dept-NX Linux NIC Driver
+	<Dept_NX_Linux_NIC_Driver@qlogic.com>
+To: Joe Perches <joe@perches.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from na3sys009aog114.obsmtp.com ([74.125.149.211]:35143 "HELO
-	na3sys009aog114.obsmtp.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with SMTP id S1750741Ab3FYFIo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 01:08:44 -0400
-Received: by mail-la0-f50.google.com with SMTP id dy20so11369560lab.9
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 22:08:42 -0700 (PDT)
-In-Reply-To: <1371904368-32642-1-git-send-email-azhou@nicira.com>
+Received: from va3ehsobe010.messaging.microsoft.com ([216.32.180.30]:48858
+	"EHLO va3outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750890Ab3FYFP3 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jun 2013 01:15:29 -0400
+In-Reply-To: <1372097962.1245.14.camel@joe-AO722>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Please CC the original author and people that participated in the discussion.
 
-On Sat, Jun 22, 2013 at 5:32 AM, Andy Zhou <azhou@nicira.com> wrote:
-> For architectures can load and store unaligned long efficiently, use 4
-> or 8 bytes operations. This improves the efficiency compare to byte wise
-> operations.
+>-----Original Message-----
+>From: Joe Perches [mailto:joe@perches.com]
+>Sent: 24 June 2013 23:49
+>To: Pratik Pujar
+>Cc: Jitendra Kalsaria; David Miller; netdev; Sony Chacko; Shahed Shaikh; Dept-
+>NX Linux NIC Driver
+>Subject: Re: [PATCH v2 net-next 5/8] qlcnic: Cleanup of structure
+>qlcnic_hardware_context
 >
-> This patch is uses ideas and code from a patch submitted by Peter Klausler
-> titled "replace memcmp() with specialized comparator". The flow compare
-> function is essentially his implementation.  The original patch
-> mentioned 7X speed up with this optimization.
+>On Mon, 2013-06-24 at 18:17 +0000, Pratik Pujar wrote:
+>> >-----Original Message-----
+>> >From: Joe Perches [mailto:joe@perches.com]
+>> >Sent: 22 June 2013 16:24
+>> >To: Jitendra Kalsaria
+>> >Cc: David Miller; netdev; Sony Chacko; Shahed Shaikh; Dept-NX Linux
+>> >NIC Driver; Pratik Pujar
+>> >Subject: Re: [PATCH v2 net-next 5/8] qlcnic: Cleanup of structure
+>> >qlcnic_hardware_context
+>> >
+>> >On Sat, 2013-06-22 at 04:12 -0400, Jitendra Kalsaria wrote:
+>> >> From: Pratik Pujar <pratik.pujar@qlogic.com>
+>> >
+>> >This isn't really a cleanup.
+>> >It's allowing more capabilities.
+>>
+>> The driver was dealing with extra capabilities but separate variables
+>> were used for these. Now instead of using separate variables, clubbed
+>> in a single array.
 >
-> Co-authored-by: Peter Klausler <pmk@google.com>
-> Signed-off-by: Andy Zhou <azhou@nicira.com>
-> ---
->  datapath/flow.c |   55 +++++++++++++++++++++++++++++++++++++++++++++----------
->  1 file changed, 45 insertions(+), 10 deletions(-)
+>What was 2 is now 3 no?
 >
-> diff --git a/datapath/flow.c b/datapath/flow.c
-> index 39de931..273cbea 100644
-> --- a/datapath/flow.c
-> +++ b/datapath/flow.c
-> @@ -45,6 +45,13 @@
+
+Yes, adapter chip exposes extra capabilities through 3 words. Driver uses only 1, as others are reserved as of now. So array extra_capability[3] is a provision for future use of these extra capabilities. 
+I will change the description to structure cleanup + provision for future use of extra capabilities. 
+
+>> >> diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+>> >> b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
+>> >[]
+>> >> @@ -449,7 +449,7 @@ struct qlcnic_hardware_context {
+>> >>  	u16 max_pci_func;
+>> >>
+>> >>  	u32 capabilities;
+>> >> -	u32 capabilities2;
+>> >> +	u32 extra_capability[3];
 >
->  #include "vlan.h"
 >
-> +#ifdef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
-> +#define ADDR_IS_ALIGNED(addr)  1
-> +#else
-> +#define ADDR_IS_ALIGNED(addr)  \
-> +           ((long) addr & (sizeof(long) - 1) == 0)
-> +#endif
-> +
->  static struct kmem_cache *flow_cache;
->
->  static void ovs_sw_flow_mask_set(struct sw_flow_mask *mask,
-> @@ -343,16 +350,26 @@ static void flow_key_mask(struct sw_flow_key *dst,
->                           const struct sw_flow_key *src,
->                           const struct sw_flow_mask *mask)
->  {
-> -       u8 *m = (u8 *)&mask->key + mask->range.start;
-> -       u8 *s = (u8 *)src + mask->range.start;
-> -       u8 *d = (u8 *)dst + mask->range.start;
-> -       int i;
-> +       const u8 *m = (u8 *)&mask->key;
-> +       const u8 *s = (u8 *)src;
-> +       u8 *d = (u8 *)dst;
-> +       int len = sizeof(*dst);
->
-> -       memset(dst, 0, sizeof(*dst));
-> -       for (i = 0; i < ovs_sw_flow_mask_size_roundup(mask); i++) {
-> -               *d = *s & *m;
-> -               d++, s++, m++;
-> +       if (ADDR_IS_ALIGNED((m | s | d))) {
-> +               const long *ml = (const long *)m;
-> +               const long *sl = (const long *)s;
-> +               long *dl = (long *)d;
-> +
-> +               for (; len >= sizeof(long); len -= sizeof(long))
-> +                       *dl++ = *sl++ & *ml++;
-> +
-> +               m = (const u8 *)ml;
-> +               s = (const u8 *)sl;
-> +               d = (u8 *)dl;
->         }
-> +
-> +       while (len-- > 0)
-> +               *d++ = *s++ & *m++;
->  }
->
->  #define TCP_FLAGS_OFFSET 13
-> @@ -984,8 +1001,26 @@ static int flow_key_start(const struct sw_flow_key *key)
->  static bool __cmp_key(const struct sw_flow_key *key1,
->                 const struct sw_flow_key *key2,  int key_start, int key_len)
->  {
-> -       return !memcmp((u8 *)key1 + key_start,
-> -                       (u8 *)key2 + key_start, (key_len - key_start));
-> +       const u8 *cp1 = (u8 *)key1 + key_start;
-> +       const u8 *cp2 = (u8 *)key2 + key_start;
-> +       int len = key_len - key_start;
-> +       long diffs = 0;
-> +
-> +       if (ADDR_IS_ALIGNED(cp1 | cp2)) {
-> +               const long *lp1 = (const long *)cp1;
-> +               const long *lp2 = (const long *)cp2;
-> +
-> +               for (; len >= sizeof(long); len -= sizeof(long))
-> +                       diffs |= *lp1++ ^ *lp2++;
-> +
-> +               cp1 = (const u8 *)lp1;
-> +               cp2 = (const u8 *)lp2;
-> +       }
-> +
-> +       while (len-- > 0)
-> +               diffs |= *cp1++ ^ *cp2++;
-> +
-> +       return diffs == 0;
->  }
->
->  static bool __flow_cmp_key(const struct sw_flow *flow,
-> --
-> 1.7.9.5
->
-> _______________________________________________
-> dev mailing list
-> dev@openvswitch.org
-> http://openvswitch.org/mailman/listinfo/dev
+
+Thanks,
+Pratik.
