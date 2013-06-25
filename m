@@ -1,104 +1,77 @@
-From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: Re: [PATCH 04/45] CPU hotplug: Add infrastructure to check lacking
- hotplug synchronization
-Date: Wed, 26 Jun 2013 00:19:43 +0530
-Message-ID: <51C9E647.90306@linux.vnet.ibm.com>
-References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com> <20130623133841.19094.69631.stgit@srivatsabhat.in.ibm.com> <1372116363.18733.189.camel@gandalf.local.home>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
-	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
-	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
-	walken@google.com, vincent.guittot@linaro.org,
-	laijs@cn.fujitsu.com, wangyun@linux.vnet.ibm.com,
-	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
-	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
-	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Alex Shi <alex.shi@intel.com>,
-	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
-	Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>,
-	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <1372116363.18733.189.camel@gandalf.local.home>
-Sender: linux-pm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: [ 74/95] sctp: fully initialize sctp_outq in sctp_outq_init
+Date: Tue, 25 Jun 2013 11:33:01 -0700
+Message-ID: <20130625182201.928951638@linuxfoundation.org>
+References: <20130625182153.605455184@linuxfoundation.org>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	stable@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	"West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>,
+	Vlad Yasevich <vyasevich@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.linuxfoundation.org ([140.211.169.12]:41050 "EHLO
+	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752610Ab3FYSeJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 14:34:09 -0400
+In-Reply-To: <20130625182153.605455184@linuxfoundation.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/25/2013 04:56 AM, Steven Rostedt wrote:
-> On Sun, 2013-06-23 at 19:08 +0530, Srivatsa S. Bhat wrote:
-> 
-> 
-> Just to make the code a little cleaner, can you add:
-> 
->> diff --git a/kernel/cpu.c b/kernel/cpu.c
->> index 860f51a..e90d9d7 100644
->> --- a/kernel/cpu.c
->> +++ b/kernel/cpu.c
->> @@ -63,6 +63,72 @@ static struct {
->>  	.refcount = 0,
->>  };
->>  
->> +#ifdef CONFIG_DEBUG_HOTPLUG_CPU
->> +
-[..]
-> 
-> static inline void atomic_reader_refcnt_inc(void)
-> {
-> 	this_cpu_inc(atomic_reader_refcnt);
-> }
-> static inline void atomic_reader_refcnt_dec(void)
-> {
-> 	this_cpu_dec(atomic_reader_refcnt);
-> }
-> 
-> #else
-> static inline void atomic_reader_refcnt_inc(void)
-> {
-> }
-> static inline void atomic_reader_refcnt_dec(void)
-> {
-> }
-> #endif
-> 
->> +#endif
->> +
->>  void get_online_cpus(void)
->>  {
->>  	might_sleep();
->> @@ -189,13 +255,22 @@ unsigned int get_online_cpus_atomic(void)
->>  	 * from going offline.
->>  	 */
->>  	preempt_disable();
->> +
->> +#ifdef CONFIG_DEBUG_HOTPLUG_CPU
->> +	this_cpu_inc(atomic_reader_refcnt);
->> +#endif
-> 
-> Replace the #ifdef with just:
-> 
-> 	atomic_reader_refcnt_inc();
-> 
->>  	return smp_processor_id();
->>  }
->>  EXPORT_SYMBOL_GPL(get_online_cpus_atomic);
->>  
->>  void put_online_cpus_atomic(void)
->>  {
->> +
->> +#ifdef CONFIG_DEBUG_HOTPLUG_CPU
->> +	this_cpu_dec(atomic_reader_refcnt);
->> +#endif
-> 
-> And
-> 
-> 	atomic_reader_refcnt_dec();
-> 
+3.9-stable review patch.  If anyone has any objections, please let me know.
 
-This makes the code look much better. Thank you!
-I'll make that change in my v2.
+------------------
 
-Regards,
-Srivatsa S. Bhat
+From: Neil Horman <nhorman@tuxdriver.com>
 
+[ Upstream commit c5c7774d7eb4397891edca9ebdf750ba90977a69 ]
+
+In commit 2f94aabd9f6c925d77aecb3ff020f1cc12ed8f86
+(refactor sctp_outq_teardown to insure proper re-initalization)
+we modified sctp_outq_teardown to use sctp_outq_init to fully re-initalize the
+outq structure.  Steve West recently asked me why I removed the q->error = 0
+initalization from sctp_outq_teardown.  I did so because I was operating under
+the impression that sctp_outq_init would properly initalize that value for us,
+but it doesn't.  sctp_outq_init operates under the assumption that the outq
+struct is all 0's (as it is when called from sctp_association_init), but using
+it in __sctp_outq_teardown violates that assumption. We should do a memset in
+sctp_outq_init to ensure that the entire structure is in a known state there
+instead.
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Reported-by: "West, Steve (NSN - US/Fort Worth)" <steve.west@nsn.com>
+CC: Vlad Yasevich <vyasevich@gmail.com>
+CC: netdev@vger.kernel.org
+CC: davem@davemloft.net
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+---
+ net/sctp/outqueue.c |    8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+--- a/net/sctp/outqueue.c
++++ b/net/sctp/outqueue.c
+@@ -206,6 +206,8 @@ static inline int sctp_cacc_skip(struct
+  */
+ void sctp_outq_init(struct sctp_association *asoc, struct sctp_outq *q)
+ {
++	memset(q, 0, sizeof(struct sctp_outq));
++
+ 	q->asoc = asoc;
+ 	INIT_LIST_HEAD(&q->out_chunk_list);
+ 	INIT_LIST_HEAD(&q->control_chunk_list);
+@@ -213,13 +215,7 @@ void sctp_outq_init(struct sctp_associat
+ 	INIT_LIST_HEAD(&q->sacked);
+ 	INIT_LIST_HEAD(&q->abandoned);
+ 
+-	q->fast_rtx = 0;
+-	q->outstanding_bytes = 0;
+ 	q->empty = 1;
+-	q->cork  = 0;
+-
+-	q->malloced = 0;
+-	q->out_qlen = 0;
+ }
+ 
+ /* Free the outqueue structure and any related pending chunks.
