@@ -1,55 +1,104 @@
-From: Johannes Berg <johannes@sipsolutions.net>
-Subject: [PATCH v2 4/7] alx: make sizes unsigned
-Date: Tue, 25 Jun 2013 20:38:20 +0200
-Message-ID: <1372185503-24705-5-git-send-email-johannes@sipsolutions.net>
-References: <1372185503-24705-1-git-send-email-johannes@sipsolutions.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from s3.sipsolutions.net ([144.76.43.152]:41274 "EHLO
-	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752490Ab3FYSi3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 14:38:29 -0400
-Received: by sipsolutions.net with esmtpsa (TLS1.2:DHE_RSA_AES_256_CBC_SHA256:256)
-	(Exim 4.80)
-	(envelope-from <johannes@sipsolutions.net>)
-	id 1UrY8K-0003om-O0
-	for netdev@vger.kernel.org; Tue, 25 Jun 2013 20:38:28 +0200
-In-Reply-To: <1372185503-24705-1-git-send-email-johannes@sipsolutions.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH 04/45] CPU hotplug: Add infrastructure to check lacking
+ hotplug synchronization
+Date: Wed, 26 Jun 2013 00:19:43 +0530
+Message-ID: <51C9E647.90306@linux.vnet.ibm.com>
+References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com> <20130623133841.19094.69631.stgit@srivatsabhat.in.ibm.com> <1372116363.18733.189.camel@gandalf.local.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org,
+	laijs@cn.fujitsu.com, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
+	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Alex Shi <alex.shi@intel.com>,
+	KOSAKI Motohiro <kosaki.motohiro@jp.fujitsu.com>,
+	Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <1372116363.18733.189.camel@gandalf.local.home>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The ring sizes should be unsigned, pointed out by Ben Hutchings.
+On 06/25/2013 04:56 AM, Steven Rostedt wrote:
+> On Sun, 2013-06-23 at 19:08 +0530, Srivatsa S. Bhat wrote:
+> 
+> 
+> Just to make the code a little cleaner, can you add:
+> 
+>> diff --git a/kernel/cpu.c b/kernel/cpu.c
+>> index 860f51a..e90d9d7 100644
+>> --- a/kernel/cpu.c
+>> +++ b/kernel/cpu.c
+>> @@ -63,6 +63,72 @@ static struct {
+>>  	.refcount = 0,
+>>  };
+>>  
+>> +#ifdef CONFIG_DEBUG_HOTPLUG_CPU
+>> +
+[..]
+> 
+> static inline void atomic_reader_refcnt_inc(void)
+> {
+> 	this_cpu_inc(atomic_reader_refcnt);
+> }
+> static inline void atomic_reader_refcnt_dec(void)
+> {
+> 	this_cpu_dec(atomic_reader_refcnt);
+> }
+> 
+> #else
+> static inline void atomic_reader_refcnt_inc(void)
+> {
+> }
+> static inline void atomic_reader_refcnt_dec(void)
+> {
+> }
+> #endif
+> 
+>> +#endif
+>> +
+>>  void get_online_cpus(void)
+>>  {
+>>  	might_sleep();
+>> @@ -189,13 +255,22 @@ unsigned int get_online_cpus_atomic(void)
+>>  	 * from going offline.
+>>  	 */
+>>  	preempt_disable();
+>> +
+>> +#ifdef CONFIG_DEBUG_HOTPLUG_CPU
+>> +	this_cpu_inc(atomic_reader_refcnt);
+>> +#endif
+> 
+> Replace the #ifdef with just:
+> 
+> 	atomic_reader_refcnt_inc();
+> 
+>>  	return smp_processor_id();
+>>  }
+>>  EXPORT_SYMBOL_GPL(get_online_cpus_atomic);
+>>  
+>>  void put_online_cpus_atomic(void)
+>>  {
+>> +
+>> +#ifdef CONFIG_DEBUG_HOTPLUG_CPU
+>> +	this_cpu_dec(atomic_reader_refcnt);
+>> +#endif
+> 
+> And
+> 
+> 	atomic_reader_refcnt_dec();
+> 
 
-Reported-by: Ben Hutchings <ben@decadent.org.uk>
-Signed-off-by: Johannes Berg <johannes@sipsolutions.net>
----
- drivers/net/ethernet/atheros/alx/alx.h | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+This makes the code look much better. Thank you!
+I'll make that change in my v2.
 
-diff --git a/drivers/net/ethernet/atheros/alx/alx.h b/drivers/net/ethernet/atheros/alx/alx.h
-index 50b3ae2..d71103d 100644
---- a/drivers/net/ethernet/atheros/alx/alx.h
-+++ b/drivers/net/ethernet/atheros/alx/alx.h
-@@ -85,16 +85,16 @@ struct alx_priv {
- 	struct {
- 		dma_addr_t dma;
- 		void *virt;
--		int size;
-+		unsigned int size;
- 	} descmem;
- 
- 	/* protect int_mask updates */
- 	spinlock_t irq_lock;
- 	u32 int_mask;
- 
--	int tx_ringsz;
--	int rx_ringsz;
--	int rxbuf_size;
-+	unsigned int tx_ringsz;
-+	unsigned int rx_ringsz;
-+	unsigned int rxbuf_size;
- 
- 	struct napi_struct napi;
- 	struct alx_tx_queue txq;
--- 
-1.8.0
+Regards,
+Srivatsa S. Bhat
+
