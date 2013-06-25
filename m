@@ -1,60 +1,142 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: PROBLEM: Bridging does not work with Mellanox ConnectX-2 (mlx4_en)
- card in SR-IOV mode
-Date: Mon, 24 Jun 2013 23:13:32 -0700
-Message-ID: <51C9350C.5090407@gmail.com>
-References: <CAJA5wJQDRztwtMxJopUWfmqEOH39Xp0g-hCrY8gMZ2TKccSuhw@mail.gmail.com> <CAJZOPZLCG8_zfsP76EnEcGj3nUfP9batXMfvOqsPyNc63JqLSA@mail.gmail.com> <CAJA5wJRW1gai3pRXRD1fugrXQJxsJ3PDzVkLqWqjxvF-ixAheg@mail.gmail.com> <CAJA5wJSQiCbmNgv14yENe4PQtRxKeEC0KTcgVow4LnE-thyp2Q@mail.gmail.com> <CAJZOPZ+izFj+8FycCjLd-jD5E8dV+F=gLkxFUaJVA0sQi3XhmA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Pawit Pornkitprasan <p.pawit@gmail.com>,
-	Vlad Yasevich <vyasevic@redhat.com>,
-	"Michael S. Tsirkin" <mst@redhat.com>, netdev@vger.kernel.org,
-	Ryousei Takano <takano-ryousei@aist.go.jp>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
+From: Gavin Shan <shangw@linux.vnet.ibm.com>
+Subject: [PATCH] net/tg3: Avoid delay during MMIO access
+Date: Tue, 25 Jun 2013 15:24:32 +0800
+Message-ID: <1372145072-8559-1-git-send-email-shangw@linux.vnet.ibm.com>
+Cc: mcarlson@broadcom.com, benh@kernel.crashing.org,
+	Gavin Shan <shangw@linux.vnet.ibm.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ye0-f171.google.com ([209.85.213.171]:52605 "EHLO
-	mail-ye0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751028Ab3FYGNy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 02:13:54 -0400
-Received: by mail-ye0-f171.google.com with SMTP id q14so365045yen.30
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 23:13:53 -0700 (PDT)
-In-Reply-To: <CAJZOPZ+izFj+8FycCjLd-jD5E8dV+F=gLkxFUaJVA0sQi3XhmA@mail.gmail.com>
+Received: from e38.co.us.ibm.com ([32.97.110.159]:33089 "EHLO
+	e38.co.us.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751219Ab3FYHYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 03:24:41 -0400
+Received: from /spool/local
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <shangw@linux.vnet.ibm.com>;
+	Tue, 25 Jun 2013 01:24:41 -0600
+Received: from d03relay03.boulder.ibm.com (d03relay03.boulder.ibm.com [9.17.195.228])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id C4FF31FF001C
+	for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 01:19:22 -0600 (MDT)
+Received: from d03av01.boulder.ibm.com (d03av01.boulder.ibm.com [9.17.195.167])
+	by d03relay03.boulder.ibm.com (8.13.8/8.13.8/NCO v10.0) with ESMTP id r5P7Oc94154676
+	for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 01:24:38 -0600
+Received: from d03av01.boulder.ibm.com (loopback [127.0.0.1])
+	by d03av01.boulder.ibm.com (8.14.4/8.13.1/NCO v10.0 AVout) with ESMTP id r5P7Oa7n015857
+	for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 01:24:37 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/24/2013 10:36 PM, Or Gerlitz wrote:
-> On Tue, Jun 25, 2013 at 3:46 AM, Pawit Pornkitprasan <p.pawit@gmail.com> wrote:
->> On Tue, Jun 25, 2013 at 7:45 AM, Pawit Pornkitprasan <p.pawit@gmail.com> wrote:
->>>
->>> Thank you. I will try it out.
->>>
->>
->> Update: I've tried "sudo bridge fdb add [target mac address] dev p4p1"
->> and the bridge is working properly. Is there any reason why the
->> bridging code cannot do this automatically?
->
-> Good question, there is some ongoing work in that direction but I am
-> not sure where things stand now, I added Michael and Vlad who are
-> involved in that adventure.
+When the EEH error is the result of a fenced host bridge, MMIO accesses
+can be very slow (milliseconds) to timeout and return all 1's,
+thus causing the driver various timeout loops to take way too long and
+trigger soft-lockup warnings (in addition to taking minutes to recover).
 
-At least the original thought here was for most use cases user space
-added the MAC  addresses behind the bridge typically by creating a
-virtual device or tap device. In this case whatever added this device
-should also add the FDB entry to the embedded bridge.
+It might be worthwhile to check if for any of these cases, ffffffff is
+a valid possible value, and if not, bail early since that means the HW
+is either gone or isolated. In the meantime, checking that the PCI channel
+is offline would be workaround of the problem.
 
-If the bridge is actually learning MAC addresses possibly from a
-trusted guest. Then something needs to listen for the FDB events
-and push them to the hardware.
+Cc: <stable@vger.kernel.org> # v3.0+
+Signed-off-by: Gavin Shan <shangw@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/broadcom/tg3.c |   36 +++++++++++++++++++++++++++++++++++
+ 1 files changed, 36 insertions(+), 0 deletions(-)
 
-I suppose we could add another knob to propagate FDB entries if it
-is useful. Although adding it to libvirt/whatever seems like it would
-work just as well.
-
-.John
-
+diff --git a/drivers/net/ethernet/broadcom/tg3.c b/drivers/net/ethernet/broadcom/tg3.c
+index c777b90..a13463e 100644
+--- a/drivers/net/ethernet/broadcom/tg3.c
++++ b/drivers/net/ethernet/broadcom/tg3.c
+@@ -744,6 +744,9 @@ static int tg3_ape_lock(struct tg3 *tp, int locknum)
+ 		status = tg3_ape_read32(tp, gnt + off);
+ 		if (status == bit)
+ 			break;
++		if (pci_channel_offline(tp->pdev))
++			break;
++
+ 		udelay(10);
+ 	}
+ 
+@@ -1635,6 +1638,9 @@ static void tg3_wait_for_event_ack(struct tg3 *tp)
+ 	for (i = 0; i < delay_cnt; i++) {
+ 		if (!(tr32(GRC_RX_CPU_EVENT) & GRC_RX_CPU_DRIVER_EVENT))
+ 			break;
++		if (pci_channel_offline(tp->pdev))
++			break;
++
+ 		udelay(8);
+ 	}
+ }
+@@ -1813,6 +1819,9 @@ static int tg3_poll_fw(struct tg3 *tp)
+ 		for (i = 0; i < 200; i++) {
+ 			if (tr32(VCPU_STATUS) & VCPU_STATUS_INIT_DONE)
+ 				return 0;
++			if (pci_channel_offline(tp->pdev))
++				return -ENODEV;
++
+ 			udelay(100);
+ 		}
+ 		return -ENODEV;
+@@ -1823,6 +1832,15 @@ static int tg3_poll_fw(struct tg3 *tp)
+ 		tg3_read_mem(tp, NIC_SRAM_FIRMWARE_MBOX, &val);
+ 		if (val == ~NIC_SRAM_FIRMWARE_MBOX_MAGIC1)
+ 			break;
++		if (pci_channel_offline(tp->pdev)) {
++			if (!tg3_flag(tp, NO_FWARE_REPORTED)) {
++				tg3_flag_set(tp, NO_FWARE_REPORTED);
++				netdev_info(tp->dev, "No firmware running\n");
++			}
++
++			break;
++		}
++
+ 		udelay(10);
+ 	}
+ 
+@@ -3520,6 +3538,8 @@ static int tg3_pause_cpu(struct tg3 *tp, u32 cpu_base)
+ 		tw32(cpu_base + CPU_MODE,  CPU_MODE_HALT);
+ 		if (tr32(cpu_base + CPU_MODE) & CPU_MODE_HALT)
+ 			break;
++		if (pci_channel_offline(tp->pdev))
++			return -EBUSY;
+ 	}
+ 
+ 	return (i == iters) ? -EBUSY : 0;
+@@ -8589,6 +8609,14 @@ static int tg3_stop_block(struct tg3 *tp, unsigned long ofs, u32 enable_bit, boo
+ 	tw32_f(ofs, val);
+ 
+ 	for (i = 0; i < MAX_WAIT_CNT; i++) {
++		if (pci_channel_offline(tp->pdev)) {
++			dev_err(&tp->pdev->dev,
++				"tg3_stop_block device offline, "
++				"ofs=%lx enable_bit=%x\n",
++				ofs, enable_bit);
++			return -ENODEV;
++		}
++
+ 		udelay(100);
+ 		val = tr32(ofs);
+ 		if ((val & enable_bit) == 0)
+@@ -8612,6 +8640,13 @@ static int tg3_abort_hw(struct tg3 *tp, bool silent)
+ 
+ 	tg3_disable_ints(tp);
+ 
++	if (pci_channel_offline(tp->pdev)) {
++		tp->rx_mode &= ~(RX_MODE_ENABLE | TX_MODE_ENABLE);
++		tp->mac_mode &= ~MAC_MODE_TDE_ENABLE;
++		err = -ENODEV;
++		goto err_no_dev;
++	}
++
+ 	tp->rx_mode &= ~RX_MODE_ENABLE;
+ 	tw32_f(MAC_RX_MODE, tp->rx_mode);
+ 	udelay(10);
+@@ -8660,6 +8695,7 @@ static int tg3_abort_hw(struct tg3 *tp, bool silent)
+ 	err |= tg3_stop_block(tp, BUFMGR_MODE, BUFMGR_MODE_ENABLE, silent);
+ 	err |= tg3_stop_block(tp, MEMARB_MODE, MEMARB_MODE_ENABLE, silent);
+ 
++err_no_dev:
+ 	for (i = 0; i < tp->irq_cnt; i++) {
+ 		struct tg3_napi *tnapi = &tp->napi[i];
+ 		if (tnapi->hw_status)
 -- 
-John Fastabend         Intel Corporation
+1.7.5.4
