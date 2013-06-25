@@ -1,35 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ipv6: don't disable interface if last ipv6
- address is removed
-Date: Tue, 25 Jun 2013 16:24:04 -0700 (PDT)
-Message-ID: <20130625.162404.1739290747766756693.davem@davemloft.net>
-References: <20130623222220.GD13836@order.stressinduktion.org>
+Subject: Re: [PATCH net] tun: fix recovery from gup errors
+Date: Tue, 25 Jun 2013 16:24:29 -0700 (PDT)
+Message-ID: <20130625.162429.966445706450575614.davem@davemloft.net>
+References: <20130623141903.GA21029@redhat.com>
+	<51C7BB8C.70304@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34911 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774Ab3FYXYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 19:24:05 -0400
-In-Reply-To: <20130623222220.GD13836@order.stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mst@redhat.com, linux-kernel@vger.kernel.org, edumazet@google.com,
+	nhorman@tuxdriver.com, netdev@vger.kernel.org, bhubbard@redhat.com
+To: jasowang@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <51C7BB8C.70304@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Mon, 24 Jun 2013 00:22:20 +0200
+From: Jason Wang <jasowang@redhat.com>
+Date: Mon, 24 Jun 2013 11:22:52 +0800
 
-> The reason behind this change is that as soon as we delete
-> the last ipv6 address of an interface we also lose the
-> /proc/sys/net/ipv6/conf/<interface> directory. This seems to be a
-> usability problem for me.
+> On 06/23/2013 10:19 PM, Michael S. Tsirkin wrote:
+>> get user pages might fail partially in tun zero copy
+>> mode. To recover we need to put all pages that we got,
+>> but code used a wrong index resulting in double-free
+>> errors.
+>>
+>> Reported-by: Brad Hubbard <bhubbard@redhat.com>
+>> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+>> ---
+>>
+>> I haven't figured out why do we get failures,
+>> but recovery is clearly wrong.
+>>
+>> This is also -stable material.
 > 
-> I don't see any reason why we should shutdown ipv6 on that interface in
-> such cases.
-> 
-> Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Acked-by: Jason Wang <jasowang@redhat.com>
 
-Applied.
+Applied with the missing empty line added, I was tired of waiting for
+Michael to take care of this himself.
