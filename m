@@ -1,70 +1,68 @@
-From: Jerry Chu <hkchu@google.com>
-Subject: Re: qlen check in tun.c
-Date: Tue, 25 Jun 2013 15:23:38 -0700
-Message-ID: <CAPshTCie4T7ktq=wEoY3M9t=q2Zsujt2PvJ29tF1y+MJnKPujg@mail.gmail.com>
-References: <CAPshTCgdb9FzKHzxkpDpowZjzqBv5yM_rBpcT88YmYBSojN8Tw@mail.gmail.com>
-	<51C12592.6050503@redhat.com>
-	<CAPshTCj+2wx=LhHujMqiZc1ptvGbcn+V7P9aAhBELHf6cbL+jg@mail.gmail.com>
-	<20130620080725.GB23621@redhat.com>
+From: Arvid Brodin <arvid.brodin@xdin.com>
+Subject: Re: [PATCH] net/hsr: Add support for the High-availability Seamless
+ Redundancy protocol (HSRv0)
+Date: Wed, 26 Jun 2013 00:30:51 +0200
+Message-ID: <51CA1A1B.5080700@xdin.com>
+References: <1902752B0C92F943AB7EA9EE13E2DEEC126CC8C873@HQ1-EXCH02.corp.brocade.com> <20130624170727.4d7893a1@nehalam.linuxnetplumber.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
-Cc: Jason Wang <jasowang@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Michael S. Tsirkin" <mst@redhat.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Joe Perches <joe@perches.com>,
+	Javier Boticario <jboticario@gmail.com>,
+	"balferreira@googlemail.com" <balferreira@googlemail.com>
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-la0-f45.google.com ([209.85.215.45]:57944 "EHLO
-	mail-la0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751208Ab3FYWXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 18:23:39 -0400
-Received: by mail-la0-f45.google.com with SMTP id fr10so12892293lab.4
-        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 15:23:38 -0700 (PDT)
-In-Reply-To: <20130620080725.GB23621@redhat.com>
+Received: from spam1.webland.se ([91.207.112.90]:54402 "EHLO spam1.webland.se"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751195Ab3FYWay (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jun 2013 18:30:54 -0400
+In-Reply-To: <20130624170727.4d7893a1@nehalam.linuxnetplumber.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 20, 2013 at 1:07 AM, Michael S. Tsirkin <mst@redhat.com> wrote:
-> On Wed, Jun 19, 2013 at 12:39:34PM -0700, Jerry Chu wrote:
->> Hi Jason,
->>
->> On Tue, Jun 18, 2013 at 8:29 PM, Jason Wang <jasowang@redhat.com> wrote:
->> > On 06/19/2013 10:31 AM, Jerry Chu wrote:
->> >> In tun_net_xmit() the max qlen is computed as
->> >> dev->tx_queue_len / tun->numqueues. For multi-queue configuration the
->> >> latter may be way too small, forcing one to adjust txqueuelen based
->> >> on number of queues created. (Well the default txqueuelen of
->> >> 500/TUN_READQ_SIZE already seems too small even for single queue.)
->> >
->> > Hi Jerry:
->> >
->> > Do you have some test result of this? Anyway, tun allows userspace to
->> > adjust this value based on its requirement.
->>
->> Sure, but the default size of 500 is just way too small. queue overflows even
->> with a simple single-stream throughput test through Openvswitch due to CPU
->> scheduler anomaly. On our loaded multi-stream test even 8192 can't prevent
->> queue overflow. But then with 8192 we'll be deep into the "buffer
->> bloat" territory.
->> We haven't figured out an optimal strategy for thruput vs latency, but
->> suffice to
->> say 500 is too small.
->>
->> Jerry
->
-> Maybe TSO is off for you?
-> With TSO you can get 64Kbyte packets, 500 of these is 30 Mbytes!
-> We really should consider setting byte limits, not packet limits.
+On 2013-06-25 02:07, Stephen Hemminger wrote:
+> On Mon, 24 Jun 2013 09:44:01 -0700
+> Arvid Brodin <arvid.brodin@xdin.com> wrote:
+>=20
+>> +
+>> +
+>> +static bool is_admin_up(struct net_device *dev)
+>> +{
+>> +       return dev && (dev->flags & IFF_UP);
+>> +}
+>> +
+>> +static bool is_operstate_up(struct net_device *dev)
+>> +{
+>> +       return (dev && (dev->operstate =3D=3D IF_OPER_UP));
+>> +}
+>> +
+>=20
+> Isn't is_admin_up the same as netif_running()?
 
-Sorry for the delay. TSO was on when I was seeing lots of pkts drops.
-But I realized the catch was GRO was off, which caused lots of MTU
-size pkts to pile up on the receive side overflowing the small tuntap
-queue.
+I don't think so (but I'm unsure). This is netif_running() (from includ=
+e/linux/netdevice.h):
 
-I just finished implementing GRE support in the GRO stack. When I
-turned it on, there were much less pkt drops. I do notice now the many
-acks triggered by the thruput tests will cause the tuntap queue to
-overflow.
+static inline bool netif_running(const struct net_device *dev)
+{
+	return test_bit(__LINK_STATE_START, &dev->state);
+}
 
-In any case, with a large tx queue there should probably have some
-queue mgmt or BQL logic going with it.
+I'm not sure what this does. I don't think it's the same as checking wh=
+ether the admin has
+issued an UP command?
 
-Jerry
+
+> And is_operstate_up the same as netif_oper_up()?
+
+netif_oper_up() also returns true if the device state is IF_OPER_UNKNOW=
+N. A device can
+have that state without even having carrier, so that's not OK for the H=
+SR driver.
+
+
+
+--=20
+Arvid Brodin | Consultant (Linux)
+T: +46-8-56254286 | M: +46-70-9714286 | arvid.brodin@xdin.com
+XDIN AB | Knarrarn=E4sgatan 7 | SE-164 40 Kista | Sweden | xdin.com
