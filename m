@@ -1,32 +1,66 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] bnx2x: Remove sparse and coccinelle warnings
-Date: Tue, 25 Jun 2013 02:46:43 -0700 (PDT)
-Message-ID: <20130625.024643.1288739412588484069.davem@davemloft.net>
-References: <1372139411-8250-1-git-send-email-yuvalmin@broadcom.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com,
-	dmitry@broadcom.com, ariele@broadcom.com, eilong@broadcom.com
-To: yuvalmin@broadcom.com
+From: Mike Rapoport <mike.rapoport@ravellosystems.com>
+Subject: [PATCH net-next v5 0/6] vxlan: allow specifying multiple default destinations
+Date: Tue, 25 Jun 2013 16:01:50 +0300
+Message-ID: <1372165316-17647-1-git-send-email-mike.rapoport@ravellosystems.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	David Stevens <dlstevens@us.ibm.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Mike Rapoport <mike.rapoport@ravellosystems.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53332 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751391Ab3FYJqo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 05:46:44 -0400
-In-Reply-To: <1372139411-8250-1-git-send-email-yuvalmin@broadcom.com>
+Received: from na3sys010aog102.obsmtp.com ([74.125.245.72]:52924 "HELO
+	na3sys010aog102.obsmtp.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with SMTP id S1751082Ab3FYNCF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 09:02:05 -0400
+Received: by mail-we0-f180.google.com with SMTP id w56so8997050wes.25
+        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 06:02:02 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Yuval Mintz" <yuvalmin@broadcom.com>
-Date: Tue, 25 Jun 2013 08:50:11 +0300
+These patches add ability to specify multiple default destinations to
+vxlan. This ability is usefull in cases when multicast are disabled on
+infrastructure level, for instance in public clouds.
 
-> This patch solves several sparse issues as well as an unneeded semicolon
-> found via coccinelle.
-> 
-> Signed-off-by: Yuval Mintz <yuvalmin@broadcom.com>
-> Signed-off-by: Dmitry Kravkov <dmitry@broadcom.com>
-> Signed-off-by: Ariel Elior <ariele@broadcom.com>
-> Signed-off-by: Eilon Greenstein <eilong@broadcom.com>
+The default destinations list is managed via the fdb entry with
+"00:00:00:00:00:00" MAC address and does not require changes to vxlan
+netlink API.
 
-Applied.
+The default destinations can be added/deleted using 'bridge fdb'
+commands, e.g:
+
+# ip link add vxlan0 type vxlan id 23 group 239.1.1.1 dev eth0
+# bridge fdb show dev vxlan0
+00:00:00:00:00:00 dst 239.1.1.1 self permanent
+
+# bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 54.242.49.246
+# bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 23.22.26.34
+# bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 184.72.129.120
+# bridge fdb show dev vxlan0
+00:00:00:00:00:00 dst 239.1.1.1 self permanent
+00:00:00:00:00:00 dst 54.242.49.246 self permanent
+00:00:00:00:00:00 dst 23.22.26.34 self permanent
+00:00:00:00:00:00 dst 184.72.129.120 self permanent
+
+# bridge fdb delete 00:00:00:00:00:00 dev vxlan0 dst 23.22.26.34
+# bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 54.242.49.246
+# bridge fdb show dev vxlan0
+00:00:00:00:00:00 dst 239.1.1.1 self permanent
+00:00:00:00:00:00 dst 184.72.129.120 self permanent
+
+Since v5 is complete rework, I've dropped prevoius changelog as not relevant.
+
+Mike Rapoport (6):
+  vxlan: add implicit fdb entry for default destination
+  vxlan: introduce vxlan_fdb_find_rdst
+  vxlan: introduce vxlan_fdb_parse
+  vxlan: allow removal of single destination from fdb entry
+  rtnetlink: allow using zero MAC address in rtnl_fdb_{add,del}
+  vxlan: fdb: allow specifying multiple destinations for zero MAC
+
+ drivers/net/vxlan.c  | 219 +++++++++++++++++++++++++++++++++++++--------------
+ net/core/rtnetlink.c |   8 --
+ 2 files changed, 159 insertions(+), 68 deletions(-)
+
+-- 
+1.8.1.5
