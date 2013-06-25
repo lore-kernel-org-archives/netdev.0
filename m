@@ -1,37 +1,37 @@
-From: Pawit Pornkitprasan <p.pawit@gmail.com>
-Subject: Re: PROBLEM: Bridging does not work with Mellanox ConnectX-2
- (mlx4_en) card in SR-IOV mode
-Date: Tue, 25 Jun 2013 09:46:19 +0900
-Message-ID: <CAJA5wJSQiCbmNgv14yENe4PQtRxKeEC0KTcgVow4LnE-thyp2Q@mail.gmail.com>
-References: <CAJA5wJQDRztwtMxJopUWfmqEOH39Xp0g-hCrY8gMZ2TKccSuhw@mail.gmail.com>
-	<CAJZOPZLCG8_zfsP76EnEcGj3nUfP9batXMfvOqsPyNc63JqLSA@mail.gmail.com>
-	<CAJA5wJRW1gai3pRXRD1fugrXQJxsJ3PDzVkLqWqjxvF-ixAheg@mail.gmail.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2 nf-next] netfilter: xt_socket: add
+ XT_SOCKET_NOWILDCARD flag
+Date: Tue, 25 Jun 2013 02:57:43 +0200
+Message-ID: <20130625005743.GA3437@localhost>
+References: <1370300249.24311.190.camel@edumazet-glaptop>
+ <1371732742.3252.408.camel@edumazet-glaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Cc: netdev@vger.kernel.org, Ryousei Takano <takano-ryousei@aist.go.jp>,
-	"Rose, Gregory V" <gregory.v.rose@intel.com>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	Amir Vadai <amirv@mellanox.com>, Yan Burman <yanb@mellanox.com>
-To: Or Gerlitz <or.gerlitz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ie0-f176.google.com ([209.85.223.176]:46355 "EHLO
-	mail-ie0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750860Ab3FYAqU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 24 Jun 2013 20:46:20 -0400
-Received: by mail-ie0-f176.google.com with SMTP id ar20so26522323iec.35
-        for <netdev@vger.kernel.org>; Mon, 24 Jun 2013 17:46:20 -0700 (PDT)
-In-Reply-To: <CAJA5wJRW1gai3pRXRD1fugrXQJxsJ3PDzVkLqWqjxvF-ixAheg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>, netfilter-devel@vger.kernel.org,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1371732742.3252.408.camel@edumazet-glaptop>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 25, 2013 at 7:45 AM, Pawit Pornkitprasan <p.pawit@gmail.com> wrote:
->
-> Thank you. I will try it out.
->
+On Thu, Jun 20, 2013 at 05:52:22AM -0700, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> xt_socket module can be a nice replacement to conntrack module
+> in some cases (SYN filtering for example)
+> 
+> But it lacks the ability to match the 3rd packet of TCP
+> handshake (ACK coming from the client).
+> 
+> Add a XT_SOCKET_NOWILDCARD flag to disable the wildcard mechanism.
+> 
+> The wildcard is the legacy socket match behavior, that ignores
+> LISTEN sockets bound to INADDR_ANY (or ipv6 equivalent)
+> 
+> iptables -I INPUT -p tcp --syn -j SYN_CHAIN
+> iptables -I INPUT -m socket --nowildcard -j ACCEPT
 
-Update: I've tried "sudo bridge fdb add [target mac address] dev p4p1"
-and the bridge is working properly. Is there any reason why the
-bridging code cannot do this automatically?
-
-Thank you,
-Pawit
+Applied, thanks Eric!
