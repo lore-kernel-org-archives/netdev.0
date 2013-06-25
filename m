@@ -1,166 +1,69 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: pull request: wireless 2013-06-25
-Date: Tue, 25 Jun 2013 13:45:07 -0400
-Message-ID: <20130625174507.GB31220@tuxdriver.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH v2 1/1] alx: add a simple AR816x/AR817x device driver
+Date: Tue, 25 Jun 2013 20:24:44 +0200
+Message-ID: <1372184684.22317.1.camel@jlt4.sipsolutions.net>
+References: <1370899609-13954-1-git-send-email-johannes@sipsolutions.net>
+	 <1370899746-14219-1-git-send-email-johannes@sipsolutions.net>
+	 <1371518286.3495.60.camel@deadeye.wl.decadent.org.uk>
+	 <1371764438.8333.20.camel@jlt4.sipsolutions.net>
+	 <20130622101758.GA5427@sig21.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="fUYQa+Pmc3FrFX/N"
-Cc: linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: dave@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org,
+	mcgrof@do-not-panic.com, kvalo@adurom.com, adrian.chadd@gmail.com
+To: Johannes Stezenbach <js@sig21.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([144.76.43.152]:41243 "EHLO
+	sipsolutions.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751005Ab3FYSZC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 14:25:02 -0400
+In-Reply-To: <20130622101758.GA5427@sig21.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Sat, 2013-06-22 at 12:17 +0200, Johannes Stezenbach wrote:
+> On Thu, Jun 20, 2013 at 11:40:38PM +0200, Johannes Berg wrote:
+> > 
+> > On Tue, 2013-06-18 at 02:18 +0100, Ben Hutchings wrote:
+> 
+> > > > +	/* Workaround for PCI problem when BIOS sets MMRBC incorrectly. */
+> > > > +	pci_read_config_word(hw->pdev, PCI_COMMAND, &val16);
+> > > > +	if (!(val16 & ALX_PCI_CMD) || (val16 & PCI_COMMAND_INTX_DISABLE)) {
+> > > > +		val16 = (val16 | ALX_PCI_CMD) & ~PCI_COMMAND_INTX_DISABLE;
+> > > > +		pci_write_config_word(hw->pdev, PCI_COMMAND, val16);
+> > > > +	}
+> > > [...]
+> > > 
+> > > I don't understand what this is trying to work around but it looks
+> > > extremely dodgy.  The driver already appears to be doing
+> > > pci_{save,restore}_state() in suspend/resume which is the right thing to
+> > > do.
+> > 
+> > I have no idea, but ~PCI_COMMAND_INTX_DISABLE seems really just like
+> > what we do with PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG... maybe this was
+> > some sort of workaround for that.
+> > 
+> > Johannes, can you try to remove this chunk of code and see if your
+> > device still works? If so I'd just kill it.
+> 
+> I removed it and did a full power cycle, alx still works.
+> Also tried suspend-to-RAM and alx still works.  However,
+> since the comment for this code is about BIOS bugs it might
+> be that it is required on some other machine?  Not sure
+> if it is wise to remove it...
 
---fUYQa+Pmc3FrFX/N
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I dunno ... it seems to me we should just try, absent other information?
+It really does look a lot like what PCI_DEV_FLAGS_MSI_INTX_DISABLE_BUG
+does ...
 
-Dave,
+> Another thing: When testing suspend-to-RAM my machine immediately
+> woke up.  ethtool said wol is enabled by default:
+>         Supports Wake-on: pg
+> 	Wake-on: pg
+> but even after "ethtool -s eth0 wol d" it still woke up.
 
-A few more late-breaking fixes hoping for 3.10...
+Hmm, yeah, I can reproduce that :-/ I'll try to fix it. Or maybe just
+kill WoWLAN code ...
 
-Regarding the Bluetooth fix, Gustavo says:
-
-"A important fix to 3.10, this patch fixes an issues that was preventing
-the l2cap info response command to be handled properly."
-
-Also for that Bluetooth fix, Johan adds:
-
-"Once the code gives up parsing this PDU it also gives up essential
-parts of the L2CAP connection creation process, i.e. without this
-patch the stack will fail to establish connections properly."
-
-Moving onto ath9k, Felix Fietkau fixes an RCU locking issue in
-the transmit path.  As for ath9k_htc, Sujith Manoharan fixes some
-authentication timeouts by ensuring that a chip reset is done when
-IDLE is turned off.
-
-I think these are all micro-fixes that shouldn't cause any trouble.
-Please let me know if there are problems!
-
-John
-
----
-
-The following changes since commit f57da7a65b386dd4535daa4f7a3773a025fbb022:
-
-  qlcnic: Do not sleep while holding spinlock (2013-06-24 00:28:28 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/linville/wireless.git for-d=
-avem
-
-for you to fetch changes up to 9d5c34f568a8d80cb69cc89ebb426ceb1d1f4737:
-
-  Merge branch 'master' of git://git.kernel.org/pub/scm/linux/kernel/git/li=
-nville/wireless into for-davem (2013-06-25 13:24:12 -0400)
-
-----------------------------------------------------------------
-
-Felix Fietkau (1):
-      ath9k: fix an RCU issue in calling ieee80211_get_tx_rates
-
-Jaganath Kanakkassery (1):
-      Bluetooth: Fix invalid length check in l2cap_information_rsp()
-
-John W. Linville (2):
-      Merge branch 'master' of git://git.kernel.org/.../bluetooth/bluetooth
-      Merge branch 'master' of git://git.kernel.org/.../linville/wireless i=
-nto for-davem
-
-Sujith Manoharan (1):
-      ath9k_htc: Handle IDLE state transition properly
-
- drivers/net/wireless/ath/ath9k/htc_drv_main.c | 2 +-
- drivers/net/wireless/ath/ath9k/xmit.c         | 6 +++++-
- net/bluetooth/l2cap_core.c                    | 2 +-
- 3 files changed, 7 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/wireless/ath/ath9k/htc_drv_main.c b/drivers/net/wi=
-reless/ath/ath9k/htc_drv_main.c
-index 0743a47..62f1b76 100644
---- a/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-+++ b/drivers/net/wireless/ath/ath9k/htc_drv_main.c
-@@ -1174,7 +1174,7 @@ static int ath9k_htc_config(struct ieee80211_hw *hw, =
-u32 changed)
- 		mutex_lock(&priv->htc_pm_lock);
-=20
- 		priv->ps_idle =3D !!(conf->flags & IEEE80211_CONF_IDLE);
--		if (priv->ps_idle)
-+		if (!priv->ps_idle)
- 			chip_reset =3D true;
-=20
- 		mutex_unlock(&priv->htc_pm_lock);
-diff --git a/drivers/net/wireless/ath/ath9k/xmit.c b/drivers/net/wireless/a=
-th/ath9k/xmit.c
-index 1c9b1ba..83ab6be 100644
---- a/drivers/net/wireless/ath/ath9k/xmit.c
-+++ b/drivers/net/wireless/ath/ath9k/xmit.c
-@@ -1570,6 +1570,8 @@ void ath_txq_schedule(struct ath_softc *sc, struct at=
-h_txq *txq)
- 	    txq->axq_ampdu_depth >=3D ATH_AGGR_MIN_QDEPTH)
- 		return;
-=20
-+	rcu_read_lock();
-+
- 	ac =3D list_first_entry(&txq->axq_acq, struct ath_atx_ac, list);
- 	last_ac =3D list_entry(txq->axq_acq.prev, struct ath_atx_ac, list);
-=20
-@@ -1608,8 +1610,10 @@ void ath_txq_schedule(struct ath_softc *sc, struct a=
-th_txq *txq)
-=20
- 		if (ac =3D=3D last_ac ||
- 		    txq->axq_ampdu_depth >=3D ATH_AGGR_MIN_QDEPTH)
--			return;
-+			break;
- 	}
-+
-+	rcu_read_unlock();
- }
-=20
- /***********/
-diff --git a/net/bluetooth/l2cap_core.c b/net/bluetooth/l2cap_core.c
-index 4be6a26..68843a2 100644
---- a/net/bluetooth/l2cap_core.c
-+++ b/net/bluetooth/l2cap_core.c
-@@ -4333,7 +4333,7 @@ static inline int l2cap_information_rsp(struct l2cap_=
-conn *conn,
- 	struct l2cap_info_rsp *rsp =3D (struct l2cap_info_rsp *) data;
- 	u16 type, result;
-=20
--	if (cmd_len !=3D sizeof(*rsp))
-+	if (cmd_len < sizeof(*rsp))
- 		return -EPROTO;
-=20
- 	type   =3D __le16_to_cpu(rsp->type);
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
-
---fUYQa+Pmc3FrFX/N
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.13 (GNU/Linux)
-
-iQIcBAEBAgAGBQJRydciAAoJEJctW/TcYTgGRuQQAJOxbpJToNMK1R6YYU7yCWr5
-XI6t6TePOhr6zUFJNN1hIBq564vRn4Nn5uJHpgeMfOxNEHmjM10gmL3BuWqrFE8k
-aehld7p+zDKgZMypZUzpG9OP7pNTiRmC7MVjYd9gP4OraT7OqtwMLQHMaytutBrk
-sgHufOkeidqul7J0tJVmVtLfaTvME3rL2o+vxw6cnm3wFqf+bkR4exhC6gQHNbva
-z/uMTmg6BcxfyaNHlFxQPVrnrCL57fzNeXqzezQCOthKk9pWEJZfFVV2us41Dpfn
-zyaqTEBc1qwFflzn4vzsQylNd+WFlSAoLHv4Onr+tjOMDDi+L/w7QX/dw4thGAi8
-2FZaiPSotxlRSlXnsz3wbdK6WqStYTHrwzOr6u+DdG5adVJv0JbDAzPZP6QDnPYS
-k0ub382D6OyufACDZ0quU/QQ0CdUKRt9MJGQJ7HQfscQ5l+gyd643XnVeY+mssH1
-67pidDvDdTLR1KvdFhCPTZY0O+0G2OKeADKE/3s9vku4YNEf5ZOxcgHvqoKiPkrq
-xumLQ4KaDCFoTqnwyZEiz0nQv8x/j5xkpjfk4RUU1iugpL1S6E2KQ96JgeRmF64k
-eeqt2vBDxJNKefzXqg3Nww7fczd7EX3oGOhTd5mlRHHVSSWaGVWRbvi8ZlC1cJzv
-TIrx/RL+jxWMq6MB43SR
-=zVgD
------END PGP SIGNATURE-----
-
---fUYQa+Pmc3FrFX/N--
+johannes
