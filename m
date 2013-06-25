@@ -1,107 +1,64 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [RFC PATCH] net: add a tx_queue attribute rate_queue_limits in
- Mbps
-Date: Tue, 25 Jun 2013 14:08:26 -0700
-Message-ID: <51CA06CA.2010305@gmail.com>
-References: <20130624032407.7546.96685.stgit@nitbit.x32> <1372186837.2110.17.camel@bwh-desktop.uk.level5networks.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH net-next v5 0/6] vxlan: allow specifying multiple
+ default destinations
+Date: Tue, 25 Jun 2013 14:19:23 -0700
+Message-ID: <20130625141923.5aafd5a4@nehalam.linuxnetplumber.net>
+References: <1372165316-17647-1-git-send-email-mike.rapoport@ravellosystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, therbert@google.com, ben@decadent.org.uk,
-	jesse.brandeburg@intel.com, jeffrey.t.kirsher@intel.com
-To: Ben Hutchings <bhutchings@solarflare.com>
+Cc: netdev@vger.kernel.org, David Stevens <dlstevens@us.ibm.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+To: Mike Rapoport <mike.rapoport@ravellosystems.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oa0-f53.google.com ([209.85.219.53]:61784 "EHLO
-	mail-oa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752261Ab3FYVIv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 17:08:51 -0400
-Received: by mail-oa0-f53.google.com with SMTP id k14so14116945oag.12
-        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 14:08:50 -0700 (PDT)
-In-Reply-To: <1372186837.2110.17.camel@bwh-desktop.uk.level5networks.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:51199 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752988Ab3FYVT1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 17:19:27 -0400
+Received: by mail-pa0-f67.google.com with SMTP id bj3so6945727pad.10
+        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 14:19:27 -0700 (PDT)
+In-Reply-To: <1372165316-17647-1-git-send-email-mike.rapoport@ravellosystems.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/25/2013 12:00 PM, Ben Hutchings wrote:
-> On Sun, 2013-06-23 at 20:24 -0700, John Fastabend wrote:
-> [...]
->> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
->> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> [...]
->> +int ixgbe_set_rate_limit(struct net_device *dev, int index, u32 *tx_rate)
->> +{
->> +	struct ixgbe_adapter *a = netdev_priv(dev);
->> +	struct ixgbe_hw *hw = &a->hw;
->> +	int linkspeed = ixgbe_link_mbps(a);
->> +	u8 reg_idx = a->tx_ring[index]->reg_idx;
->> +	u32 bcnrc = ixgbe_bcnrc_from_rate(a, *tx_rate, linkspeed);
->> +
->> +	/* rate limit cannot be less than 10Mbs or greater than link speed */
->> +	if (*tx_rate && ((*tx_rate <= 10) || (*tx_rate > linkspeed)))
->> +		return -EINVAL;
->
-> What if the link is not up?
->
+On Tue, 25 Jun 2013 16:01:50 +0300
+Mike Rapoport <mike.rapoport@ravellosystems.com> wrote:
 
-As its written this would always be an error because link_speed is 0.
-Not likely what we want.
+> These patches add ability to specify multiple default destinations to
+> vxlan. This ability is usefull in cases when multicast are disabled on
+> infrastructure level, for instance in public clouds.
+> 
+> The default destinations list is managed via the fdb entry with
+> "00:00:00:00:00:00" MAC address and does not require changes to vxlan
+> netlink API.
+> 
+> The default destinations can be added/deleted using 'bridge fdb'
+> commands, e.g:
+> 
+> # ip link add vxlan0 type vxlan id 23 group 239.1.1.1 dev eth0
+> # bridge fdb show dev vxlan0
+> 00:00:00:00:00:00 dst 239.1.1.1 self permanent
+> 
+> # bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 54.242.49.246
+> # bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 23.22.26.34
+> # bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 184.72.129.120
+> # bridge fdb show dev vxlan0
+> 00:00:00:00:00:00 dst 239.1.1.1 self permanent
+> 00:00:00:00:00:00 dst 54.242.49.246 self permanent
+> 00:00:00:00:00:00 dst 23.22.26.34 self permanent
+> 00:00:00:00:00:00 dst 184.72.129.120 self permanent
+> 
+> # bridge fdb delete 00:00:00:00:00:00 dev vxlan0 dst 23.22.26.34
+> # bridge fdb append 00:00:00:00:00:00 dev vxlan0 dst 54.242.49.246
+> # bridge fdb show dev vxlan0
+> 00:00:00:00:00:00 dst 239.1.1.1 self permanent
+> 00:00:00:00:00:00 dst 184.72.129.120 self permanent
+> 
+> Since v5 is complete rework, I've dropped prevoius changelog as not relevant.
+> 
+I assume iproute changes are no longer needed?
 
-> What if the link speed is currently higher than tx_rate, but is later
-> reduced below tx_rate?
 
-As its written you just end up with a tx_rate limit that is broken and
-because the hw calculation depends on link speed the value won't be
-correct any more.
-
-Both of these cases are probably broken as is.
-
->
-> [...]
->> --- a/include/linux/netdevice.h
->> +++ b/include/linux/netdevice.h
->> @@ -574,6 +574,7 @@ struct netdev_queue {
->>   #ifdef CONFIG_BQL
->>   	struct dql		dql;
->>   #endif
->> +	unsigned long		rate_limit;
->
-> Should be u32, consistent with variables in ndo_set_ratelimit and
-> set_tx_rate_limit.
->
->>   } ____cacheline_aligned_in_smp;
->>
->>   static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
->> @@ -932,6 +933,14 @@ struct netdev_fcoe_hbainfo {
->>    *	that determine carrier state from physical hardware properties (eg
->>    *	network cables) or protocol-dependent mechanisms (eg
->>    *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
->> + *
->> + * int (*ndo_set_ratelimit)(struct net_device *dev,
->> + *			    int queue_index, u32 *maxrate)
->> + *	Called to set the rate limit in Mpbs specified by maxrate of the
->> + *	specified queue_index. It is expected that hardware way may quantize
->> + *	the rate limits. In these cases the driver should guarentee the
->> + *	specfied maxrate is not exceeded and return the set value in maxrate.
->> + *	Zero should be returned on sucess otherwise use appropriate error code.
-> [...]
->
-> In general, how does maxrate interact with link speed?
-
-I think the best approach is to allow a max_rate that is greater than
-the link speed. This seems more straight forward than arbitrarily
-resetting the value or doing something else.
-
-ixgbe and maybe other drivers will need to reconfigure their internal
-hardware limiters if they are derived from link speed.
-
->
-> There are also several spelling and grammar errors in this text.
->
-
-Yeah, must have been late, not enough coffee. Thanks for looking at it
-Ben.
-
-Also I was thinking about pushing it over to netlink as Stephen
-preferred.
-
--- 
-John Fastabend         Intel Corporation
+It would be good to have multiple non-default destinations as well.
+It would allow for implementing multicast MAC addresses.
