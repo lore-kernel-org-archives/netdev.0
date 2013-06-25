@@ -1,83 +1,73 @@
-From: Ben Hutchings <bhutchings@solarflare.com>
-Subject: Re: [RFC PATCH] net: add a tx_queue attribute rate_queue_limits in
- Mbps
-Date: Tue, 25 Jun 2013 20:00:37 +0100
-Message-ID: <1372186837.2110.17.camel@bwh-desktop.uk.level5networks.com>
-References: <20130624032407.7546.96685.stgit@nitbit.x32>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH 40/45] powerpc, irq: Use GFP_ATOMIC allocations in atomic
+ context
+Date: Wed, 26 Jun 2013 00:50:01 +0530
+Message-ID: <51C9ED61.1060306@linux.vnet.ibm.com>
+References: <20130623133642.19094.16038.stgit@srivatsabhat.in.ibm.com> <20130623134657.19094.93687.stgit@srivatsabhat.in.ibm.com> <20130625020842.GD14051@concordia> <1372126384.3944.177.camel@pasglop> <20130625025858.GE14051@concordia> <1372130007.3944.185.camel@pasglop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <therbert@google.com>,
-	<ben@decadent.org.uk>, <jesse.brandeburg@intel.com>,
-	<jeffrey.t.kirsher@intel.com>
-To: John Fastabend <john.fastabend@gmail.com>
+Cc: Michael Ellerman <michael@ellerman.id.au>, tglx@linutronix.de,
+	peterz@infradead.org, tj@kernel.org, oleg@redhat.com,
+	paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org,
+	laijs@cn.fujitsu.com, rostedt@goodmis.org,
+	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
+	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Paul Mackerras <paulus@samba.org>,
+	Ian Munsie <imunsie@au1.ibm.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from webmail.solarflare.com ([12.187.104.25]:31887 "EHLO
-	webmail.solarflare.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752576Ab3FYTAm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 15:00:42 -0400
-In-Reply-To: <20130624032407.7546.96685.stgit@nitbit.x32>
+Received: from e28smtp06.in.ibm.com ([122.248.162.6]:45513 "EHLO
+	e28smtp06.in.ibm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751698Ab3FYTXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 15:23:24 -0400
+Received: from /spool/local
+	by e28smtp06.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <srivatsa.bhat@linux.vnet.ibm.com>;
+	Wed, 26 Jun 2013 00:45:53 +0530
+In-Reply-To: <1372130007.3944.185.camel@pasglop>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2013-06-23 at 20:24 -0700, John Fastabend wrote:
-[...]
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
-[...]
-> +int ixgbe_set_rate_limit(struct net_device *dev, int index, u32 *tx_rate)
-> +{
-> +	struct ixgbe_adapter *a = netdev_priv(dev);
-> +	struct ixgbe_hw *hw = &a->hw;
-> +	int linkspeed = ixgbe_link_mbps(a);
-> +	u8 reg_idx = a->tx_ring[index]->reg_idx;
-> +	u32 bcnrc = ixgbe_bcnrc_from_rate(a, *tx_rate, linkspeed);
-> +
-> +	/* rate limit cannot be less than 10Mbs or greater than link speed */
-> +	if (*tx_rate && ((*tx_rate <= 10) || (*tx_rate > linkspeed)))
-> +		return -EINVAL;
+On 06/25/2013 08:43 AM, Benjamin Herrenschmidt wrote:
+> On Tue, 2013-06-25 at 12:58 +1000, Michael Ellerman wrote:
+>> On Tue, Jun 25, 2013 at 12:13:04PM +1000, Benjamin Herrenschmidt wrote:
+>>> On Tue, 2013-06-25 at 12:08 +1000, Michael Ellerman wrote:
+>>>> We're not checking for allocation failure, which we should be.
+>>>>
+>>>> But this code is only used on powermac and 85xx, so it should probably
+>>>> just be a TODO to fix this up to handle the failure.
+>>>
+>>> And what can we do if they fail ?
+>>
+>> Fail up the chain and not unplug the CPU presumably.
+> 
+> BTW. Isn't Srivatsa series removing the need to stop_machine() for
+> unplug ? 
 
-What if the link is not up?
+Yes.
 
-What if the link speed is currently higher than tx_rate, but is later
-reduced below tx_rate?
+That should mean we should be able to use GFP_KERNEL no ?
 
-[...]
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -574,6 +574,7 @@ struct netdev_queue {
->  #ifdef CONFIG_BQL
->  	struct dql		dql;
->  #endif
-> +	unsigned long		rate_limit;
+No, because whatever code was being executed in stop_machine() context
+would still be executed with interrupts disabled. So allocations that
+can sleep would continue to be forbidden in this path.
 
-Should be u32, consistent with variables in ndo_set_ratelimit and
-set_tx_rate_limit.
+In the CPU unplug sequence, the CPU_DYING notifications (and the surrounding
+code) is guaranteed to be run:
+a. _on_ the CPU going offline
+b. with interrupts disabled on that CPU.
 
->  } ____cacheline_aligned_in_smp;
->  
->  static inline int netdev_queue_numa_node_read(const struct netdev_queue *q)
-> @@ -932,6 +933,14 @@ struct netdev_fcoe_hbainfo {
->   *	that determine carrier state from physical hardware properties (eg
->   *	network cables) or protocol-dependent mechanisms (eg
->   *	USB_CDC_NOTIFY_NETWORK_CONNECTION) should NOT implement this function.
-> + *
-> + * int (*ndo_set_ratelimit)(struct net_device *dev,
-> + *			    int queue_index, u32 *maxrate)
-> + *	Called to set the rate limit in Mpbs specified by maxrate of the
-> + *	specified queue_index. It is expected that hardware way may quantize
-> + *	the rate limits. In these cases the driver should guarentee the
-> + *	specfied maxrate is not exceeded and return the set value in maxrate.
-> + *	Zero should be returned on sucess otherwise use appropriate error code.
-[...]
+My patchset will retain these guarantees even after removing stop_machine().
+And these are required for the correct execution of the code in this path,
+since they rely on these semantics.
 
-In general, how does maxrate interact with link speed?
+So I guess I'll retain the patch as it is. Thank you!
 
-There are also several spelling and grammar errors in this text.
-
-Ben.
-
--- 
-Ben Hutchings, Staff Engineer, Solarflare
-Not speaking for my employer; that's the marketing department's job.
-They asked us to note that Solarflare product names are trademarked.
+Regards,
+Srivatsa S. Bhat
