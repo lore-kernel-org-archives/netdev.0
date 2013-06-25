@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 34/45] hexagon/smp: Use get/put_online_cpus_atomic() to
- prevent CPU offline
-Date: Wed, 26 Jun 2013 02:02:04 +0530
-Message-ID: <20130625203204.16593.61516.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v2 35/45] ia64: irq,
+ perfmon: Use get/put_online_cpus_atomic() to prevent CPU offline
+Date: Wed, 26 Jun 2013 02:02:11 +0530
+Message-ID: <20130625203211.16593.71188.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -13,9 +13,12 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
 	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Richard Kuo <rkuo@codeaurora.org>,
+	Tony Luck <tony.luck@intel.com>,
+	Fenghua Yu <fenghua.yu@intel.com>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	"Eric W. Biederman" <ebiederm@xmission.com>,
 	Thomas Gleixner <tglx@linutronix.de>,
-	linux-hexagon@vger.kernel.org,
+	linux-ia64@vger.kernel.org,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -33,30 +36,159 @@ from under us.
 Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
 offline, while invoking from atomic context.
 
-Cc: Richard Kuo <rkuo@codeaurora.org>
+Cc: Tony Luck <tony.luck@intel.com>
+Cc: Fenghua Yu <fenghua.yu@intel.com>
+Cc: Andrew Morton <akpm@linux-foundation.org>
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>
 Cc: Thomas Gleixner <tglx@linutronix.de>
-Cc: linux-hexagon@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- arch/hexagon/kernel/smp.c |    3 +++
- 1 file changed, 3 insertions(+)
+ arch/ia64/kernel/irq_ia64.c |   15 +++++++++++++++
+ arch/ia64/kernel/perfmon.c  |    8 +++++++-
+ 2 files changed, 22 insertions(+), 1 deletion(-)
 
-diff --git a/arch/hexagon/kernel/smp.c b/arch/hexagon/kernel/smp.c
-index 0e364ca..30d4318 100644
---- a/arch/hexagon/kernel/smp.c
-+++ b/arch/hexagon/kernel/smp.c
-@@ -241,9 +241,12 @@ void smp_send_reschedule(int cpu)
- void smp_send_stop(void)
- {
- 	struct cpumask targets;
-+
+diff --git a/arch/ia64/kernel/irq_ia64.c b/arch/ia64/kernel/irq_ia64.c
+index 1034884..f58b162 100644
+--- a/arch/ia64/kernel/irq_ia64.c
++++ b/arch/ia64/kernel/irq_ia64.c
+@@ -25,6 +25,7 @@
+ #include <linux/ptrace.h>
+ #include <linux/signal.h>
+ #include <linux/smp.h>
++#include <linux/cpu.h>
+ #include <linux/threads.h>
+ #include <linux/bitops.h>
+ #include <linux/irq.h>
+@@ -160,9 +161,11 @@ int bind_irq_vector(int irq, int vector, cpumask_t domain)
+ 	unsigned long flags;
+ 	int ret;
+ 
 +	get_online_cpus_atomic();
- 	cpumask_copy(&targets, cpu_online_mask);
- 	cpumask_clear_cpu(smp_processor_id(), &targets);
- 	send_ipi(&targets, IPI_CPU_STOP);
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	ret = __bind_irq_vector(irq, vector, domain);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	return ret;
+ }
+ 
+@@ -190,9 +193,11 @@ static void clear_irq_vector(int irq)
+ {
+ 	unsigned long flags;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	__clear_irq_vector(irq);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
 +	put_online_cpus_atomic();
  }
  
- void arch_send_call_function_single_ipi(int cpu)
+ int
+@@ -204,6 +209,7 @@ ia64_native_assign_irq_vector (int irq)
+ 
+ 	vector = -ENOSPC;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	for_each_online_cpu(cpu) {
+ 		domain = vector_allocation_domain(cpu);
+@@ -218,6 +224,7 @@ ia64_native_assign_irq_vector (int irq)
+ 	BUG_ON(__bind_irq_vector(irq, vector, domain));
+  out:
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	return vector;
+ }
+ 
+@@ -302,9 +309,11 @@ int irq_prepare_move(int irq, int cpu)
+ 	unsigned long flags;
+ 	int ret;
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	ret = __irq_prepare_move(irq, cpu);
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	return ret;
+ }
+ 
+@@ -320,11 +329,13 @@ void irq_complete_move(unsigned irq)
+ 	if (unlikely(cpu_isset(smp_processor_id(), cfg->old_domain)))
+ 		return;
+ 
++	get_online_cpus_atomic();
+ 	cpumask_and(&cleanup_mask, &cfg->old_domain, cpu_online_mask);
+ 	cfg->move_cleanup_count = cpus_weight(cleanup_mask);
+ 	for_each_cpu_mask(i, cleanup_mask)
+ 		platform_send_ipi(i, IA64_IRQ_MOVE_VECTOR, IA64_IPI_DM_INT, 0);
+ 	cfg->move_in_progress = 0;
++	put_online_cpus_atomic();
+ }
+ 
+ static irqreturn_t smp_irq_move_cleanup_interrupt(int irq, void *dev_id)
+@@ -393,10 +404,12 @@ void destroy_and_reserve_irq(unsigned int irq)
+ 
+ 	dynamic_irq_cleanup(irq);
+ 
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	__clear_irq_vector(irq);
+ 	irq_status[irq] = IRQ_RSVD;
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ }
+ 
+ /*
+@@ -409,6 +422,7 @@ int create_irq(void)
+ 	cpumask_t domain = CPU_MASK_NONE;
+ 
+ 	irq = vector = -ENOSPC;
++	get_online_cpus_atomic();
+ 	spin_lock_irqsave(&vector_lock, flags);
+ 	for_each_online_cpu(cpu) {
+ 		domain = vector_allocation_domain(cpu);
+@@ -424,6 +438,7 @@ int create_irq(void)
+ 	BUG_ON(__bind_irq_vector(irq, vector, domain));
+  out:
+ 	spin_unlock_irqrestore(&vector_lock, flags);
++	put_online_cpus_atomic();
+ 	if (irq >= 0)
+ 		dynamic_irq_init(irq);
+ 	return irq;
+diff --git a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+index 9ea25fc..16c8303 100644
+--- a/arch/ia64/kernel/perfmon.c
++++ b/arch/ia64/kernel/perfmon.c
+@@ -6476,9 +6476,12 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
+ 	/* do the easy test first */
+ 	if (pfm_alt_intr_handler) return -EBUSY;
+ 
++	get_online_cpus_atomic();
++
+ 	/* one at a time in the install or remove, just fail the others */
+ 	if (!spin_trylock(&pfm_alt_install_check)) {
+-		return -EBUSY;
++		ret = -EBUSY;
++		goto out;
+ 	}
+ 
+ 	/* reserve our session */
+@@ -6498,6 +6501,7 @@ pfm_install_alt_pmu_interrupt(pfm_intr_handler_desc_t *hdl)
+ 	pfm_alt_intr_handler = hdl;
+ 
+ 	spin_unlock(&pfm_alt_install_check);
++	put_online_cpus_atomic();
+ 
+ 	return 0;
+ 
+@@ -6510,6 +6514,8 @@ cleanup_reserve:
+ 	}
+ 
+ 	spin_unlock(&pfm_alt_install_check);
++out:
++	put_online_cpus_atomic();
+ 
+ 	return ret;
+ }
 
