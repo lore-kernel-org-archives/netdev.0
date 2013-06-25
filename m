@@ -1,83 +1,102 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCHv2] vhost-net: fix use-after-free in vhost_net_flush
-Date: Tue, 25 Jun 2013 17:29:46 +0300
-Message-ID: <20130625142946.GA17414@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org,
-	virtualization@lists.linux-foundation.org,
-	"David S. Miller" <davem@davemloft.net>
-To: linux-kernel@vger.kernel.org
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: [PATCH v2 net-next 1/2] dev: introduce skb_scrub_packet()
+Date: Tue, 25 Jun 2013 16:24:54 +0200
+Message-ID: <1372170295-4717-2-git-send-email-nicolas.dichtel@6wind.com>
+References: <51C9A4E3.2060906@6wind.com>
+ <1372170295-4717-1-git-send-email-nicolas.dichtel@6wind.com>
+Cc: davem@davemloft.net, ebiederm@xmission.com, bcrl@kvack.org,
+	ravi.mlists@gmail.com, bhutchings@solarflare.com,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:40736 "EHLO
+	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751891Ab3FYO3s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 10:29:48 -0400
+In-Reply-To: <1372170295-4717-1-git-send-email-nicolas.dichtel@6wind.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-vhost_net_ubuf_put_and_wait has a confusing name:
-it will actually also free it's argument.
-Thus since commit 1280c27f8e29acf4af2da914e80ec27c3dbd5c01
-    "vhost-net: flush outstanding DMAs on memory change"
-vhost_net_flush tries to use the argument after passing it
-to vhost_net_ubuf_put_and_wait, this results
-in use after free.
-To fix, don't free the argument in vhost_net_ubuf_put_and_wait,
-add an new API for callers that want to free ubufs.
+The goal of this new function is to perform all needed cleanup before sending
+an skb into another netns.
 
-Acked-by: Asias He <asias@redhat.com>
-Acked-by: Jason Wang <jasowang@redhat.com>
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
-
+Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 ---
+ include/linux/skbuff.h |  1 +
+ net/core/dev.c         | 11 +----------
+ net/core/skbuff.c      | 23 +++++++++++++++++++++++
+ 3 files changed, 25 insertions(+), 10 deletions(-)
 
-Please review, and queue for 3.10 and stable.
-Changes since v1:
-	- no functional change, tweaked the commit message
-
- drivers/vhost/net.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 5c77d6a..534adb0 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -149,6 +149,11 @@ static void vhost_net_ubuf_put_and_wait(struct vhost_net_ubuf_ref *ubufs)
- {
- 	kref_put(&ubufs->kref, vhost_net_zerocopy_done_signal);
- 	wait_event(ubufs->wait, !atomic_read(&ubufs->kref.refcount));
-+}
-+
-+static void vhost_net_ubuf_put_wait_and_free(struct vhost_net_ubuf_ref *ubufs)
-+{
-+	vhost_net_ubuf_put_and_wait(ubufs);
- 	kfree(ubufs);
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index a7393ad..6b06023 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2384,6 +2384,7 @@ extern void	       skb_split(struct sk_buff *skb,
+ 				 struct sk_buff *skb1, const u32 len);
+ extern int	       skb_shift(struct sk_buff *tgt, struct sk_buff *skb,
+ 				 int shiftlen);
++extern void	       skb_scrub_packet(struct sk_buff *skb);
+ 
+ extern struct sk_buff *skb_segment(struct sk_buff *skb,
+ 				   netdev_features_t features);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 722f633..370354a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -1652,22 +1652,13 @@ int dev_forward_skb(struct net_device *dev, struct sk_buff *skb)
+ 		}
+ 	}
+ 
+-	skb_orphan(skb);
+-
+ 	if (unlikely(!is_skb_forwardable(dev, skb))) {
+ 		atomic_long_inc(&dev->rx_dropped);
+ 		kfree_skb(skb);
+ 		return NET_RX_DROP;
+ 	}
+-	skb->skb_iif = 0;
+-	skb_dst_drop(skb);
+-	skb->tstamp.tv64 = 0;
+-	skb->pkt_type = PACKET_HOST;
++	skb_scrub_packet(skb);
+ 	skb->protocol = eth_type_trans(skb, dev);
+-	skb->mark = 0;
+-	secpath_reset(skb);
+-	nf_reset(skb);
+-	nf_reset_trace(skb);
+ 	return netif_rx(skb);
  }
- 
-@@ -1073,7 +1078,7 @@ static long vhost_net_set_backend(struct vhost_net *n, unsigned index, int fd)
- 	mutex_unlock(&vq->mutex);
- 
- 	if (oldubufs) {
--		vhost_net_ubuf_put_and_wait(oldubufs);
-+		vhost_net_ubuf_put_wait_and_free(oldubufs);
- 		mutex_lock(&vq->mutex);
- 		vhost_zerocopy_signal_used(n, vq);
- 		mutex_unlock(&vq->mutex);
-@@ -1091,7 +1096,7 @@ err_used:
- 	vq->private_data = oldsock;
- 	vhost_net_enable_vq(n, vq);
- 	if (ubufs)
--		vhost_net_ubuf_put_and_wait(ubufs);
-+		vhost_net_ubuf_put_wait_and_free(ubufs);
- err_ubufs:
- 	fput(sock->file);
- err_vq:
+ EXPORT_SYMBOL_GPL(dev_forward_skb);
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index 9f73eca..b1fcb87 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3492,3 +3492,26 @@ bool skb_try_coalesce(struct sk_buff *to, struct sk_buff *from,
+ 	return true;
+ }
+ EXPORT_SYMBOL(skb_try_coalesce);
++
++/**
++ * skb_scrub_packet - scrub an skb before sending it to another netns
++ *
++ * @skb: buffer to clean
++ *
++ * skb_scrub_packet can be used to clean an skb before injecting it in
++ * another namespace. We have to clear all information in the skb that
++ * could impact namespace isolation.
++ */
++void skb_scrub_packet(struct sk_buff *skb)
++{
++	skb_orphan(skb);
++	skb->tstamp.tv64 = 0;
++	skb->pkt_type = PACKET_HOST;
++	skb->skb_iif = 0;
++	skb_dst_drop(skb);
++	skb->mark = 0;
++	secpath_reset(skb);
++	nf_reset(skb);
++	nf_reset_trace(skb);
++}
++EXPORT_SYMBOL_GPL(skb_scrub_packet);
 -- 
-MST
+1.8.2.1
