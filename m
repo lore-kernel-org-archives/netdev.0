@@ -1,54 +1,57 @@
-From: <Narendra_K@Dell.com>
-Subject: RE: [PATCH net-next] net: Add phys_port identifier to struct
- net_device and export it to sysfs
-Date: Tue, 25 Jun 2013 10:33:31 -0700
-Message-ID: <E31FB011129F30488D5861F383904915210BC0481A@BLRX7MCDC201.AMER.DELL.COM>
-References: <20130617181004.GA1364@fedora-17-guest.dell.com>
-  <51BF59D8.10806@gmail.com>
-  <E31FB011129F30488D5861F383904915210BB90367@BLRX7MCDC201.AMER.DELL.COM>
-  <1371656194.1956.25.camel@bwh-desktop.uk.level5networks.com>
-  <E31FB011129F30488D5861F383904915210BB9042A@BLRX7MCDC201.AMER.DELL.COM>
- <1371670481.1956.105.camel@bwh-desktop.uk.level5networks.com>
- <51C4892B.8000806@gmail.com>
+From: Vlad Yasevich <vyasevich@gmail.com>
+Subject: Re: [PATCH net-next v3 0/6] Further SCTP changes
+Date: Tue, 25 Jun 2013 13:54:56 -0400
+Message-ID: <51C9D970.2040102@gmail.com>
+References: <1372177050-17829-1-git-send-email-dborkman@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <bhutchings@solarflare.com>, <netdev@vger.kernel.org>,
-	<john.r.fastabend@intel.com>
-To: <john.fastabend@gmail.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-sctp@vger.kernel.org
+To: Daniel Borkmann <dborkman@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausxippc101.us.dell.com ([143.166.85.207]:50676 "EHLO
-	ausxippc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751538Ab3FYRd7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 13:33:59 -0400
-In-Reply-To: <51C4892B.8000806@gmail.com>
-Content-Language: en-US
+Received: from mail-qa0-f47.google.com ([209.85.216.47]:52590 "EHLO
+	mail-qa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751101Ab3FYRzB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 13:55:01 -0400
+In-Reply-To: <1372177050-17829-1-git-send-email-dborkman@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBKb2huIEZhc3RhYmVuZCBbbWFp
-bHRvOmpvaG4uZmFzdGFiZW5kQGdtYWlsLmNvbV0NCj4gU2VudDogRnJpZGF5LCBKdW5lIDIxLCAy
-MDEzIDEwOjQxIFBNDQo+IFRvOiBLLCBOYXJlbmRyYQ0KPiBDYzogQmVuIEh1dGNoaW5nczsgbmV0
-ZGV2QHZnZXIua2VybmVsLm9yZzsgam9obi5yLmZhc3RhYmVuZEBpbnRlbC5jb20NCj4gU3ViamVj
-dDogUmU6IFtQQVRDSCBuZXQtbmV4dF0gbmV0OiBBZGQgcGh5c19wb3J0IGlkZW50aWZpZXIgdG8g
-c3RydWN0DQo+IG5ldF9kZXZpY2UgYW5kIGV4cG9ydCBpdCB0byBzeXNmcw0KPiANCj4gT24gMDYv
-MTkvMjAxMyAxMjozNCBQTSwgQmVuIEh1dGNoaW5ncyB3cm90ZToNClsuLi5dDQoNCj4gPiBJIHRo
-aW5rIHNvLg0KPiA+DQo+ID4+IElmIGNvcnJlY3QsICBJIHRoaW5rIHRoZSAnc2hvd19icm9hZGNh
-c3QnIGZ1bmN0aW9uIGFsc28gbmVlZHMgdG8gYmUNCj4gPj4gZml4ZWQgYXMgaXQgaXMgbm90IGhv
-bGRpbmcgdGhlIGxvY2suDQo+ID4NCj4gPiBJIHRoaW5rIHRoZSBicm9hZGNhc3QgYWRkcmVzcyBz
-aG91bGQgbmV2ZXIgY2hhbmdlIGR1cmluZyB0aGUgbGlmZXRpbWUNCj4gPiBvZiBhIGRldmljZSwg
-c28gaXQgZG9lc24ndCBuZWVkIHRoZSBsb2NrLiAgVGhhdCBtaWdodCBub3QgYmUgdHJ1ZSBmb3IN
-Cj4gPiBhbGwgbGF5ZXIgMiBwcm90b2NvbHMgdGhvdWdoLg0KPiA+DQo+ID4gQmVuLg0KPiA+DQo+
-IA0KPiBBbHNvLCBkbyB5b3UgdGhpbmsgdGhpcyB3aWxsIGJlIHByaW1hcmlseSB1c2VmdWwgZm9y
-IHBhcnRpdGlvbmluZyBkZXZpY2VzIHRoYXQNCj4gZXhwb3NlIG11bHRpcGxlIHBoeXNpY2FsIGZ1
-bmN0aW9ucz8gT3IgZG8geW91IHNlZSBhIHVzZSBjYXNlIGZvciBTUi1JT1Ygd2l0aA0KPiB2aXJ0
-dWFsIGZ1bmN0aW9ucyBhcyB3ZWxsLiBUaGUgcHloc19wb3J0IGF0dHJpYnV0ZSBwcm92aWRlcyBh
-IGNvbW1vbg0KPiBpbnRlcmZhY2UgZm9yIGJvdGggY2FzZXMgd2hpY2ggaXMgZ29vZCBJIHN1cHBv
-c2UgaW4gdGhlIFZGIGNhc2UgaG93ZXZlciB0aGUNCj4gaG9zdCBjYW4gYWxyZWFkeSBsZWFybiB0
-aGlzLiBJIGdhdGhlciBmcm9tIHlvdXIgb3JpZ2luYWwgcG9zdCBoZXJlIHRoYXQgeW91IGFyZQ0K
-PiBhd2FyZSBvZiBhbGwgdGhpcy4NCj4gDQoNCkpvaG4sICAgSSB0aGluayBpdCB3aWxsIGJlIHVz
-ZWZ1bCBpbiB0aGUgU1JJT1Ygc2NlbmFyaW8gYWxzbyB3aGVuIG1vcmUgdGhhbiBvbmUgVkYgZnJv
-bSB0d28gTklDcyBhcmUgYXNzaWduZWQgdG8gdGhlIGd1ZXN0LiBwaHlzX3BvcnQgd291bGQgYmUg
-aGVscGZ1bCBpbiBjaG9vc2luZyB0aGUgY29ycmVjdCBzbGF2ZSBpbnRlcmZhY2VzIHdoZW4gaG9z
-dCBkZXRhaWxzIGFyZSBub3QgYXZhaWxhYmxlLg0KIA0KV2l0aCByZWdhcmRzLA0KTmFyZW5kcmEg
-Sw0KTGludXggRW5naW5lZXJpbmcNCkRlbGwgSW5jLg0KDQo=
+On 06/25/2013 12:17 PM, Daniel Borkmann wrote:
+> Mostly it's all about getting rid of unnecessary code, and/or making
+> it more clean and readable. Code has been tested with lksctp-tools
+> functional test suite and also my small sctp stress test helper that
+> was used to discover the recent null-ptr derefs.
+>
+> v2->v3:
+>    - Just changed "net: sctp: decouple cleaning some socket data from endpoint"
+>      patch description slightly and made assignment explicit as Vlad requested
+>    - Rest is unchanged
+> v1->v2:
+>    - Left sctp_put_port() still in sctp_endpoint_destroy() for now
+>    - Added minor "net: sctp: simplify sctp_get_port" patch
+>
+> Daniel Borkmann (6):
+>    net: sctp: remove TEST_FRAME ifdef
+>    ktime: add ms_to_ktime() and ktime_add_ms() helpers
+>    net: sctp: migrate cookie life from timeval to ktime
+>    net: sctp: minor: sctp_seq_dump_local_addrs add missing newline
+>    net: sctp: decouple cleaning some socket data from endpoint
+>    net: sctp: simplify sctp_get_port
+
+Acked-by: Vlad Yasevich <vyasevich@gmail.com>
+
+-vlad
+
+>
+>   include/linux/ktime.h      | 13 +++++++++++++
+>   include/net/sctp/sctp.h    | 25 -------------------------
+>   include/net/sctp/structs.h |  6 +++---
+>   net/sctp/associola.c       |  8 +-------
+>   net/sctp/endpointola.c     | 19 ++++++++++---------
+>   net/sctp/proc.c            |  2 +-
+>   net/sctp/sm_make_chunk.c   | 19 ++++++++-----------
+>   net/sctp/socket.c          | 35 +++++++++++++++++++----------------
+>   8 files changed, 55 insertions(+), 72 deletions(-)
+>
