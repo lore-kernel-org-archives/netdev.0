@@ -1,48 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/2] net: convert lists of macros to
- enumerations
-Date: Tue, 25 Jun 2013 16:26:07 -0700 (PDT)
-Message-ID: <20130625.162607.2024533380367124753.davem@davemloft.net>
-References: <1372024577-6343-1-git-send-email-sakiwit@gmail.com>
-	<20130624081414.492ceeb0@nehalam.linuxnetplumber.net>
+Subject: Re: [PATCH net v2] ipv6: check return value of ipv6_get_lladdr
+Date: Tue, 25 Jun 2013 16:28:04 -0700 (PDT)
+Message-ID: <20130625.162804.328857332762341398.davem@davemloft.net>
+References: <20130624194240.GI13836@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sakiwit@gmail.com, netdev@vger.kernel.org
-To: stephen@networkplumber.org
+Cc: netdev@vger.kernel.org, dborkman@redhat.com, fbl@redhat.com
+To: hannes@stressinduktion.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34945 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34956 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751774Ab3FYX0I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 19:26:08 -0400
-In-Reply-To: <20130624081414.492ceeb0@nehalam.linuxnetplumber.net>
+	with ESMTP id S1752043Ab3FYX2F (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 19:28:05 -0400
+In-Reply-To: <20130624194240.GI13836@order.stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Stephen Hemminger <stephen@networkplumber.org>
-Date: Mon, 24 Jun 2013 08:14:14 -0700
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Date: Mon, 24 Jun 2013 21:42:40 +0200
 
-> On Sun, 23 Jun 2013 15:56:16 -0600
-> Jean Sacren <sakiwit@gmail.com> wrote:
+> We should check the return value of ipv6_get_lladdr in inet6_set_iftoken.
 > 
->> Use enumerations to replace macros for simpler preprocessing. Map numeric
->> values to enumerators. Where required, prepend the list with an additional
->> enumerator to accommodate the rest.
->> 
->> Signed-off-by: Jean Sacren <sakiwit@gmail.com>
+> A possible situation, which could leave ll_addr unassigned is, when
+> the user removed her link-local address but a global scoped address was
+> already set. In this case the interface would still be IF_READY and not
+> dead. In that case the RS source address is some value from the stack.
 > 
-> Converting the network based header files is easy and safe as long
-> as you test it. Not sure if it is worth the effort.
+> v2: Daniel Borkmann noted a small indent inconstancy; no semantic
+> changes.
 > 
-> But changing the uapi exported header risks breaking applications that
-> were doing:
-> 
-> #ifdef SIOCXXXX
->        do some code to enable that
-> #endif
-> 
-> Since enum values don't show up in the CPP namespace.
+> Cc: Daniel Borkmann <dborkman@redhat.com>
+> Acked-by: Daniel Borkmann <dborkman@redhat.com>
+> Reviewed-by: Flavio Leitner <fbl@redhat.com>
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 
-Agreed, these patches aren't to be considered seriously.  Too much
-potential breakage, and even without that risk I see pretty much
-zero value to these changes.
+Applied, thanks.
