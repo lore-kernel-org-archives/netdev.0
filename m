@@ -1,51 +1,91 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] ss: add more TCP_INFO components
-Date: Tue, 25 Jun 2013 13:33:52 -0700
-Message-ID: <20130625133352.6d10797a@nehalam.linuxnetplumber.net>
-References: <1372192157.3301.118.camel@edumazet-glaptop>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: [PATCH v2 27/45] perf/x86: Use get/put_online_cpus_atomic() to
+ prevent CPU offline
+Date: Wed, 26 Jun 2013 02:00:17 +0530
+Message-ID: <20130625203017.16593.40391.stgit@srivatsabhat.in.ibm.com>
+References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:58865 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753543Ab3FYUd5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 16:33:57 -0400
-Received: by mail-pa0-f45.google.com with SMTP id bi5so13197133pad.18
-        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 13:33:57 -0700 (PDT)
-In-Reply-To: <1372192157.3301.118.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
+	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+	srivatsa.bhat@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Peter Zijlstra <a.p.zijlstra@chello.nl>,
+	Paul Mackerras <paulus@samba.org>,
+	Ingo Molnar <mingo@redhat.com>,
+	Arnaldo Carvalho de Melo <acme@ghostprotocols.net>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"H. Peter Anvin" <hpa@zytor.com>, x86@kernel.org,
+	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org, laijs@cn.fujitsu.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Jun 2013 13:29:17 -0700
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+The CPU_DYING notifier modifies the per-cpu pointer pmu->box, and this can
+race with functions such as uncore_pmu_to_box() and uncore_pci_remove() when
+we remove stop_machine() from the CPU offline path. So protect them using
+get/put_online_cpus_atomic().
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> Allow ss -i to display more TCP informations :
-> 
-> unacked:N   Number of un-acked packets
-> retrans:X/Y   X: number of outstanding retransmit packets
->               Y: total number of retransmits for the session
-> lost:N       Number of lost packets (tcpi_lost)
-> sacked:N     Number of sacked packets (tcpi_sacked)
-> facked:N     Number of facked packets (tcpi_facked)
-> reordering:N Reordering level (if different of 3)
-> 
-> Example :
-> 
-> $ ss -emoi dst 10.7.7.83
-> tcp   ESTAB      0      1154056   10.7.7.84:54127    10.7.7.83:34342
-> timer:(on,200ms,0) ino:57003 sk:ffff88063c51d0c0 <->
-> 	 skmem:(r0,rb89280,t0,tb2097152,f726504,w1436184,o0,bl0) ts sack cubic
-> wscale:7,6 rto:310 rtt:107.375/1 mss:1448 cwnd:568 ssthresh:108 send
-> 61.3Mbps unacked:568 retrans:0/21 reordering:127 rcv_space:29200
-> 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
+Cc: Peter Zijlstra <a.p.zijlstra@chello.nl>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: Ingo Molnar <mingo@redhat.com>
+Cc: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
+Cc: Thomas Gleixner <tglx@linutronix.de>
+Cc: "H. Peter Anvin" <hpa@zytor.com>
+Cc: x86@kernel.org
+Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
+---
 
-Applied
+ arch/x86/kernel/cpu/perf_event_intel_uncore.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/arch/x86/kernel/cpu/perf_event_intel_uncore.c b/arch/x86/kernel/cpu/perf_event_intel_uncore.c
+index 9dd9975..7c2a064 100644
+--- a/arch/x86/kernel/cpu/perf_event_intel_uncore.c
++++ b/arch/x86/kernel/cpu/perf_event_intel_uncore.c
+@@ -1,3 +1,4 @@
++#include <linux/cpu.h>
+ #include "perf_event_intel_uncore.h"
+ 
+ static struct intel_uncore_type *empty_uncore[] = { NULL, };
+@@ -2630,6 +2631,7 @@ uncore_pmu_to_box(struct intel_uncore_pmu *pmu, int cpu)
+ 	if (box)
+ 		return box;
+ 
++	get_online_cpus_atomic();
+ 	raw_spin_lock(&uncore_box_lock);
+ 	list_for_each_entry(box, &pmu->box_list, list) {
+ 		if (box->phys_id == topology_physical_package_id(cpu)) {
+@@ -2639,6 +2641,7 @@ uncore_pmu_to_box(struct intel_uncore_pmu *pmu, int cpu)
+ 		}
+ 	}
+ 	raw_spin_unlock(&uncore_box_lock);
++	put_online_cpus_atomic();
+ 
+ 	return *per_cpu_ptr(pmu->box, cpu);
+ }
+@@ -3229,6 +3232,7 @@ static void uncore_pci_remove(struct pci_dev *pdev)
+ 	list_del(&box->list);
+ 	raw_spin_unlock(&uncore_box_lock);
+ 
++	get_online_cpus_atomic();
+ 	for_each_possible_cpu(cpu) {
+ 		if (*per_cpu_ptr(pmu->box, cpu) == box) {
+ 			*per_cpu_ptr(pmu->box, cpu) = NULL;
+@@ -3237,6 +3241,8 @@ static void uncore_pci_remove(struct pci_dev *pdev)
+ 	}
+ 
+ 	WARN_ON_ONCE(atomic_read(&box->refcnt) != 1);
++	put_online_cpus_atomic();
++
+ 	kfree(box);
+ }
+ 
