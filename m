@@ -1,8 +1,8 @@
 From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
-Subject: [PATCH v2 01/45] CPU hotplug: Provide APIs to prevent CPU offline
- from atomic context
-Date: Wed, 26 Jun 2013 01:55:42 +0530
-Message-ID: <20130625202541.16593.17752.stgit@srivatsabhat.in.ibm.com>
+Subject: [PATCH v2 02/45] CPU hotplug: Clarify the usage of different
+ synchronization APIs
+Date: Wed, 26 Jun 2013 01:56:01 +0530
+Message-ID: <20130625202601.16593.54501.stgit@srivatsabhat.in.ibm.com>
 References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,8 +15,8 @@ Cc: rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Thomas Gleixner <tglx@linutronix.de>,
 	Andrew Morton <akpm@linux-foundation.org>,
-	Tejun Heo <tj@kernel.org>, "Rafael J. Wysocki" <rjw@sisk.pl>,
 	Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>,
+	"Rafael J. Wysocki" <rafael.j.wysocki@intel.com>,
 	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
 To: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
 	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
@@ -27,135 +27,42 @@ In-Reply-To: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The current CPU offline code uses stop_machine() internally. And disabling
-preemption prevents stop_machine() from taking effect, thus also preventing
-CPUs from going offline, as a side effect.
+We have quite a few APIs now which help synchronize with CPU hotplug.
+Among them, get/put_online_cpus() is the oldest and the most well-known,
+so no problems there. By extension, its easy to comprehend the new
+set : get/put_online_cpus_atomic().
 
-There are places where this side-effect of preempt_disable() (or equivalent)
-is used to synchronize with CPU hotplug. Typically these are in atomic
-sections of code, where they can't make use of get/put_online_cpus(), because
-the latter set of APIs can sleep.
+But there is yet another set, which might appear tempting to use:
+cpu_hotplug_disable()/cpu_hotplug_enable(). Add comments to clarify
+that this latter set is NOT for general use and must be used only in
+specific cases where the requirement is really to _disable_ hotplug
+and not just to synchronize with it.
 
-Going forward, we want to get rid of stop_machine() from the CPU hotplug
-offline path. And then, with stop_machine() gone, disabling preemption will
-no longer prevent CPUs from going offline.
-
-So provide a set of APIs for such atomic hotplug readers, to prevent (any)
-CPUs from going offline. For now, they will default to preempt_disable()
-and preempt_enable() itself, but this will help us do the tree-wide conversion,
-as a preparatory step to remove stop_machine() from CPU hotplug.
-
-(Besides, it is good documentation as well, since it clearly marks places
-where we synchronize with CPU hotplug, instead of combining it subtly with
-disabling preemption).
-
-In future, when actually removing stop_machine(), we will alter the
-implementation of these APIs to a suitable synchronization scheme.
-
-Reviewed-by: Steven Rostedt <rostedt@goodmis.org>
 Cc: Thomas Gleixner <tglx@linutronix.de>
 Cc: Andrew Morton <akpm@linux-foundation.org>
-Cc: Tejun Heo <tj@kernel.org>
-Cc: "Rafael J. Wysocki" <rjw@sisk.pl>
 Cc: Yasuaki Ishimatsu <isimatu.yasuaki@jp.fujitsu.com>
+Cc: "Rafael J. Wysocki" <rafael.j.wysocki@intel.com>
 Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 ---
 
- include/linux/cpu.h |   20 ++++++++++++++++++++
- kernel/cpu.c        |   38 ++++++++++++++++++++++++++++++++++++++
- 2 files changed, 58 insertions(+)
+ kernel/cpu.c |    7 +++++++
+ 1 file changed, 7 insertions(+)
 
-diff --git a/include/linux/cpu.h b/include/linux/cpu.h
-index 9f3c7e8..a57b25a 100644
---- a/include/linux/cpu.h
-+++ b/include/linux/cpu.h
-@@ -17,6 +17,8 @@
- #include <linux/node.h>
- #include <linux/compiler.h>
- #include <linux/cpumask.h>
-+#include <linux/percpu.h>
-+#include <linux/smp.h>
- 
- struct device;
- 
-@@ -175,6 +177,8 @@ extern struct bus_type cpu_subsys;
- 
- extern void get_online_cpus(void);
- extern void put_online_cpus(void);
-+extern unsigned int get_online_cpus_atomic(void);
-+extern void put_online_cpus_atomic(void);
- extern void cpu_hotplug_disable(void);
- extern void cpu_hotplug_enable(void);
- #define hotcpu_notifier(fn, pri)	cpu_notifier(fn, pri)
-@@ -202,6 +206,22 @@ static inline void cpu_hotplug_driver_unlock(void)
- #define put_online_cpus()	do { } while (0)
- #define cpu_hotplug_disable()	do { } while (0)
- #define cpu_hotplug_enable()	do { } while (0)
-+
-+static inline unsigned int get_online_cpus_atomic(void)
-+{
-+	/*
-+	 * Disable preemption to avoid getting complaints from the
-+	 * debug_smp_processor_id() code.
-+	 */
-+	preempt_disable();
-+	return smp_processor_id();
-+}
-+
-+static inline void put_online_cpus_atomic(void)
-+{
-+	preempt_enable();
-+}
-+
- #define hotcpu_notifier(fn, pri)	do { (void)(fn); } while (0)
- /* These aren't inline functions due to a GCC bug. */
- #define register_hotcpu_notifier(nb)	({ (void)(nb); 0; })
 diff --git a/kernel/cpu.c b/kernel/cpu.c
-index 198a388..2d03398 100644
+index 2d03398..860f51a 100644
 --- a/kernel/cpu.c
 +++ b/kernel/cpu.c
-@@ -154,6 +154,44 @@ void cpu_hotplug_enable(void)
- 	cpu_maps_update_done();
- }
- 
-+/*
-+ * get_online_cpus_atomic - Prevent any CPU from going offline
+@@ -139,6 +139,13 @@ static void cpu_hotplug_done(void)
+  * the 'cpu_hotplug_disabled' flag. The same lock is also acquired by the
+  * hotplug path before performing hotplug operations. So acquiring that lock
+  * guarantees mutual exclusion from any currently running hotplug operations.
 + *
-+ * Atomic hotplug readers (tasks which wish to prevent CPUs from going
-+ * offline during their critical section, but can't afford to sleep)
-+ * can invoke this function to synchronize with CPU offline. This function
-+ * can be called recursively, provided it is matched with an equal number
-+ * of calls to put_online_cpus_atomic().
++ * Note: In most cases, this is *NOT* the function you need. If you simply
++ * want to avoid racing with CPU hotplug operations, use get/put_online_cpus()
++ * or get/put_online_cpus_atomic(), depending on the situation.
 + *
-+ * Note: This does NOT prevent CPUs from coming online! It only prevents
-+ * CPUs from going offline.
-+ *
-+ * Lock ordering rule: Strictly speaking, there is no lock ordering
-+ * requirement here, but it is advisable to keep the locking consistent.
-+ * As a simple rule-of-thumb, use these functions in the outer-most blocks
-+ * of your critical sections, outside of other locks.
-+ *
-+ * Returns the current CPU number, with preemption disabled.
-+ */
-+unsigned int get_online_cpus_atomic(void)
-+{
-+	/*
-+	 * The current CPU hotplug implementation uses stop_machine() in
-+	 * the CPU offline path. And disabling preemption prevents
-+	 * stop_machine() from taking effect. Thus, this prevents any CPU
-+	 * from going offline.
-+	 */
-+	preempt_disable();
-+	return smp_processor_id();
-+}
-+EXPORT_SYMBOL_GPL(get_online_cpus_atomic);
-+
-+void put_online_cpus_atomic(void)
-+{
-+	preempt_enable();
-+}
-+EXPORT_SYMBOL_GPL(put_online_cpus_atomic);
-+
- #else /* #if CONFIG_HOTPLUG_CPU */
- static void cpu_hotplug_begin(void) {}
- static void cpu_hotplug_done(void) {}
++ * This set of functions is reserved for cases where you really wish to
++ * _disable_ CPU hotplug and not just synchronize with it.
+  */
+ void cpu_hotplug_disable(void)
+ {
