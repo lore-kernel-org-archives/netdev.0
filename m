@@ -1,75 +1,48 @@
-From: "Nelson, Shannon" <shannon.nelson@intel.com>
-Subject: RE: Structured ethtool statistic names
-Date: Tue, 25 Jun 2013 20:46:14 +0000
-Message-ID: <FC41C24E35F18A40888AACA1A36F3E416853593E@FMSMSX102.amr.corp.intel.com>
-References: <1371182122-26629-1-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1371182122-26629-4-git-send-email-jeffrey.t.kirsher@intel.com>
-	 <1371666430.1956.102.camel@bwh-desktop.uk.level5networks.com>
-	 <FC41C24E35F18A40888AACA1A36F3E4168533EAD@FMSMSX102.amr.corp.intel.com>
-	 <1371758352.1946.16.camel@bwh-desktop.uk.level5networks.com>
-	 <FC41C24E35F18A40888AACA1A36F3E4168533F3F@FMSMSX102.amr.corp.intel.com>
- <1371829145.3570.46.camel@bwh-desktop.uk.level5networks.com>
+From: Johannes Stezenbach <js@sig21.net>
+Subject: Re: [PATCH v2 0/7] alx: small fixes/cleanups
+Date: Tue, 25 Jun 2013 23:01:02 +0200
+Message-ID: <20130625210102.GA18495@sig21.net>
+References: <1372185503-24705-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"Brandeburg, Jesse" <jesse.brandeburg@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"gospo@redhat.com" <gospo@redhat.com>,
-	"sassmann@redhat.com" <sassmann@redhat.com>,
-	"Waskiewicz Jr, Peter P" <peter.p.waskiewicz.jr@intel.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>
-To: Ben Hutchings <bhutchings@solarflare.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Johannes Berg <johannes@sipsolutions.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:59094 "EHLO mga11.intel.com"
+Received: from bar.sig21.net ([80.81.252.164]:38272 "EHLO bar.sig21.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752897Ab3FYUqR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 25 Jun 2013 16:46:17 -0400
-In-Reply-To: <1371829145.3570.46.camel@bwh-desktop.uk.level5networks.com>
-Content-Language: en-US
+	id S1751802Ab3FYVCF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jun 2013 17:02:05 -0400
+Content-Disposition: inline
+In-Reply-To: <1372185503-24705-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBCZW4gSHV0Y2hpbmdzIFttYWls
-dG86Ymh1dGNoaW5nc0Bzb2xhcmZsYXJlLmNvbV0NCj4gU2VudDogRnJpZGF5LCBKdW5lIDIxLCAy
-MDEzIDg6MzkgQU0NCj4gDQo+IE9uIFRodSwgMjAxMy0wNi0yMCBhdCAyMDowNCArMDAwMCwgTmVs
-c29uLCBTaGFubm9uIHdyb3RlOg0KPiA+ID4gRnJvbTogQmVuIEh1dGNoaW5ncyBbbWFpbHRvOmJo
-dXRjaGluZ3NAc29sYXJmbGFyZS5jb21dDQo+ID4gPiBTZW50OiBUaHVyc2RheSwgSnVuZSAyMCwg
-MjAxMyAxMjo1OSBQTQ0KPiA+ID4NCj4gPiA+IE9uIFRodSwgMjAxMy0wNi0yMCBhdCAxOTo0NyAr
-MDAwMCwgTmVsc29uLCBTaGFubm9uIHdyb3RlOg0KPiBbLi4uXQ0KPiA+ID4gPiBXaGVuIGV0aHRv
-b2wgLVMgaXMgY2FsbGVkIG9uIHRoZSBQRidzIG5ldGRldiwgd2Ugc2VlIGJvdGggdGhlDQo+IG5l
-dGRldg0KPiA+ID4gPiBhbmQgdGhlIHBvcnRzIHN0YXRzIHByaW50ZWQuICBXaGVuIGNhbGxlZCBv
-biBub24tUEYgY29ubmVjdGlvbiB3ZQ0KPiBvbmx5DQo+ID4gPiA+IHNlZSB0aGUgbmV0ZGV2IHN0
-YXRzLCBub25lIG9mIHRoZSBwb3J0IHN0YXRzLg0KPiA+ID4NCj4gPiA+IEdvb2QgcG9pbnQuICBB
-bmQgdGhpcyBpcyBzb21ldGhpbmcgSSd2ZSBiZWVuIG1lYW5pbmcgdG8gYnJpbmcgdXAgZm9yDQo+
-ID4gPiBkaXNjdXNzaW9uIG9uIG5ldGRldiBteXNlbGYgLSB3ZSBzaG91bGQgaGF2ZSBzb21lIG5h
-bWluZyBjb252ZW50aW9uDQo+IHRvDQo+ID4gPiBkaXN0aW5ndWlzaCBwZXItcG9ydCBhbmQgcGVy
-LWZ1bmN0aW9uL3Blci1uZXRkZXYgc3RhdGlzdGljcy4NCj4gPg0KPiA+IElmIHlvdSd2ZSBnb3Qg
-c29tZSBpZGVhcyBvbiBhIGNvbnZlbnRpb24gdG8gdXNlLCB3ZSdkIGJlIGhhcHB5IHRvIHNldA0K
-PiB0aGUgcHJlY2VkZW50Lg0KPiANCj4gT0ssIGhvdyBhYm91dDoNCj4gDQo+IDEuIFN0YXRpc3Rp
-YyBuYW1lcyBhcmUgbWFkZSB1cCBvZiAiLiIgc2VwYXJhdG9ycyBhbmQgbmFtZSBjb21wb25lbnRz
-DQo+IHRoYXQgZG8gbm90IGluY2x1ZGUgIi4iIG9yIHdoaXRlc3BhY2UuDQo+IDIuIE5hbWVzIG9m
-IHN0YXRpc3RpY3MgZm9yIHRoZSBuZXQgZGV2aWNlIGFzIGEgd2hvbGUgaGF2ZSBhIHNpbmdsZSBu
-YW1lDQo+IGNvbXBvbmVudC4NCj4gMy4gTmFtZXMgb2Ygc3RhdGlzdGljcyBmb3IgdGhlIGV4dGVy
-bmFsIHBvcnQsIHdoZXJlIHRoZXJlIGlzIGEgdXNlZnVsDQo+IGRpc3RpbmN0aW9uIGZyb20gdGhl
-IG5ldCBkZXZpY2UsIGZvbGxvdyB0aGUgZm9ybWF0Og0KPiAgICAgInBvcnQuIiBuYW1lLWNvbXBv
-bmVudC4NCj4gDQo+IFJhdGlvbmFsZTogT25seSB2aXJ0dWFsaXNlZCBOSUMgZHJpdmVycyByZXF1
-aXJlIGEgZGlzdGluY3Rpb24sIHNvIHRoZQ0KPiBjb252ZW50aW9uIHNob3VsZCBhbGxvdyBvdGhl
-ciBkcml2ZXJzIHRvIGNvbXBseSB3aXRob3V0IGNoYW5nZXMuDQo+IFN0YXRpc3RpY3MgYXJlIHJl
-cXVlc3RlZCBvbiBhIHNwZWNpZmljIG5ldCBkZXZpY2UsIHNvIHRoYXQgZGV2aWNlJ3Mgb3duDQo+
-IHN0YXRpc3RpY3Mgc2hvdWxkIGJlIGNvbnNpZGVyZWQgcHJpbWFyeSBhbmQgbm90IGdpdmVuIGEg
-cHJlZml4Lg0KPiANCj4gU2luY2Ugb3RoZXIgcGVvcGxlIGhhdmUgYmVlbiBhZGRpbmcgb3IgcHJv
-cG9zaW5nIHRvIGFkZCB0aGVtOg0KPiANCj4gNC4gTmFtZXMgb2Ygc3RhdGlzdGljcyBmb3IgYSBz
-aW5nbGUgcXVldWUgZm9sbG93IHRoZSBmb3JtYXQ6DQo+ICAgICBxdWV1ZS10eXBlICItIiBpbmRl
-eCAiLiIgbmFtZS1jb21wb25lbnQNCj4gV2hlcmUgcXVldWUtdHlwZSBpcyAicngiIG9yICJ0eCIg
-YW5kIGluZGV4IGlzIHRoZSBpbmRleCBvZiB0aGUgcXVldWUgYXMNCj4gdXNlZCBpbiB0aGUga2Vy
-bmVsLg0KPiANCj4gUmF0aW9uYWxlOiBUaGlzIHF1ZXVlIG5hbWluZyBpcyBjb25zaXN0ZW50IHdp
-dGggdGhlIHF1ZXVlIG9iamVjdHMgaW4NCj4gc3lzZnMuDQo+IA0KPiBUaGlzIHNob3VsZCBiZSBl
-eHRlbnNpYmxlIHRvIGFsbG93IGZvciByZWFkaW5nLCBzYXksIFZGIHN0YXRpc3RpY3MNCj4gdGhy
-b3VnaCBhIFBGIG5ldCBkZXZpY2UsIGUuZy4gInZmLSIgaW5kZXggIi4iIG5hbWUtY29tcG9uZW50
-Lg0KPiANCj4gQmVuLg0KDQpZZXMsIHRoaXMgc2VlbXMgbGlrZSBhIHJlYXNvbmFibGUgcGxhY2Ug
-dG8gc3RhcnQsIGVzcGVjaWFsbHkgc2luY2Ugbm8gb25lIGVsc2Ugc2VlbXMgdG8gYmUgY29tcGxh
-aW5pbmcgeWV0LiAgSSdsbCB3b3JrIHdpdGggdGhpcyBhIGxpdHRsZSBvbiBvdXIgY3VycmVudCBu
-YW1lcyBhbmQgc2VlIGhvdyBpdCBsb29rcy4NCg0KVGhhbmtzLA0Kc2xuDQoNCg==
+On Tue, Jun 25, 2013 at 08:38:16PM +0200, Johannes Berg wrote:
+> Thanks to Ben's review mostly, here are some fixes/cleanups in
+> alx. I'm seriously considering removing WoWLAN as I have no use
+> for it and am not too motivated to debug it, anyone else want
+> to try debugging? :)
+
+One thing I noticed is alx_select_powersaving_speed() will return 0
+when there is no link but leaves *speed uninitialized.
+Then __alx_shutdown() prints e.g.
+   alx 0000:03:00.0 eth0: wol: ctrl=3, speed=FFFF8801
+In this case the
+  alx_write_phy_reg(hw, ALX_MII_IER, 0);
+is skipped in alx_select_powersaving_speed().
+However, it should still be done in alx_pre_suspend()
+when WOL is disabled.  But it might be we need to move
+the alx_clear_phy_intr() in __alx_shutdown() down.
+
+I'm also not sure why alx_get_phy_link() reads MII_BMSR
+twice, but the old driver from compat-wireless-3.6.8-1-snpc
+also does it, it seems deliberate.
+
+Unless someone beats me to it I will try to debug
+on the weekend.
+
+BTW, it is WoLAN not WoWLAN :-)
+
+
+Thanks,
+Johannes
