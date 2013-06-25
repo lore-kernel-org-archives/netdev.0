@@ -1,137 +1,98 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 5/6] net: sctp: decouple cleaning some socket
- data from endpoint
-Date: Tue, 25 Jun 2013 11:32:28 -0400
-Message-ID: <51C9B80C.6070905@gmail.com>
-References: <1372173221-15244-1-git-send-email-dborkman@redhat.com> <1372173221-15244-6-git-send-email-dborkman@redhat.com>
+From: Eliezer Tamir <eliezer.tamir@linux.intel.com>
+Subject: Re: [PATCH RFC] net: lls epoll support
+Date: Tue, 25 Jun 2013 18:34:36 +0300
+Message-ID: <51C9B88C.1080401@linux.intel.com>
+References: <20130619100421.22132.99447.stgit@ladj378.jer.intel.com> <51C1993C.9030204@linux.intel.com> <CALuTh9E5CvV1sfjMJRs7mWwfTm2HpaFFMJWEP10sbSpA8qBMsg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qc0-f177.google.com ([209.85.216.177]:49853 "EHLO
-	mail-qc0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751817Ab3FYPce (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 11:32:34 -0400
-In-Reply-To: <1372173221-15244-6-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	e1000-devel@lists.sourceforge.net,
+	Willem de Bruijn <willemb@google.com>,
+	Eric Dumazet <erdnetdev@gmail.com>,
+	Ben Hutchings <bhutchings@solarflare.com>,
+	Andi Kleen <andi@firstfloor.org>, HPA <hpa@zytor.com>,
+	Eilon Greenstien <eilong@broadcom.com>,
+	Or Gerlitz <or.gerlitz@gmail.com>,
+	Amir Vadai <amirv@mellanox.com>,
+	Alex Rosenbaum <alexr@mellanox.com>,
+	Eliezer Tamir <eliezer@tamir.org.il>
+To: yaniv saar <yaniv.mellanox@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CALuTh9E5CvV1sfjMJRs7mWwfTm2HpaFFMJWEP10sbSpA8qBMsg@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/25/2013 11:13 AM, Daniel Borkmann wrote:
-> Rather instead of having the endpoint clean the garbage from the
-> socket, use a sk_destruct handler sctp_destruct_sock(), that does
-> the job for that when there are no more references on the socket.
-> At least do this for our crypto transform through crypto_free_hash()
-> that is allocated when in listening state. Also, for now, move the
-> sctp_put_port() into the sk if body.
+On 25/06/2013 17:26, yaniv saar wrote:
+> On Wed, Jun 19, 2013 at 2:42 PM, Eliezer Tamir
+> <eliezer.tamir@linux.intel.com> wrote:
+>>
+>> [this patch needs the poll patch to be applied first]
+>> with sockperf doing epoll on 1000 sockets I see an avg latency of 6us
+>>
+>
+> hi eliezer,
+>
+> please consider the following solution for epoll that is based on
+> polling dev+queue.
+> instead of looping over the socket as in LLS, maintain in eventpool
+> struct a list of device+queues (qdlist).
 
-This sentence is hard to parse without looking at the patch.  Can
-you rephrase.  May be say that we perform sctp_put_port() only when
-sk is valid.
+Thanks for looking into this.
+I'm currently working on a solution that has a lot similar to what you 
+are proposing.
 
-> At a later point in time we
-> can still determine if there's an option of placing this into
-> unhash() or sctp_endpoint_free() without any races. For now, leave
-> it in sctp_endpoint_destroy() though.
->
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->   net/sctp/endpointola.c | 18 +++++++++---------
->   net/sctp/socket.c      | 16 +++++++++++++++-
->   2 files changed, 24 insertions(+), 10 deletions(-)
->
-> diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-> index a8b2674..8ad7781 100644
-> --- a/net/sctp/endpointola.c
-> +++ b/net/sctp/endpointola.c
-> @@ -247,10 +247,9 @@ void sctp_endpoint_free(struct sctp_endpoint *ep)
->   /* Final destructor for endpoint.  */
->   static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->   {
-> -	SCTP_ASSERT(ep->base.dead, "Endpoint is not dead", return);
-> +	struct sock *sk;
->
-> -	/* Free up the HMAC transform. */
-> -	crypto_free_hash(sctp_sk(ep->base.sk)->hmac);
-> +	SCTP_ASSERT(ep->base.dead, "Endpoint is not dead", return);
->
->   	/* Free the digest buffer */
->   	kfree(ep->digest);
-> @@ -271,13 +270,14 @@ static void sctp_endpoint_destroy(struct sctp_endpoint *ep)
->
->   	memset(ep->secret_key, 0, sizeof(ep->secret_key));
->
-> -	/* Remove and free the port */
-> -	if (sctp_sk(ep->base.sk)->bind_hash)
-> -		sctp_put_port(ep->base.sk);
-> -
->   	/* Give up our hold on the sock. */
-> -	if (ep->base.sk)
-> -		sock_put(ep->base.sk);
-> +	if ((sk = ep->base.sk)) {
+We don't need a new id mechanism, we already have the napi_id.
+The nice thing about the napi_id is that the only locking it needs
+is an rcu_read_lock when dereferencing.
 
-Can you either split the above into separate assignment and test (this 
-is what checkpatchs.pl recommends) or at least comment that you mean to 
-do assign and test in the above statement.
+we don't need to remember the ll_usec value of each socket because
+the patch for select/poll (currently waiting for review) added
+a separate sysctl value for poll.
 
--vlad
-> +		/* Remove and free the port */
-> +		if (sctp_sk(sk)->bind_hash)
-> +			sctp_put_port(sk);
-> +
-> +		sock_put(sk);
-> +	}
->
->   	kfree(ep);
->   	SCTP_DBG_OBJCNT_DEC(ep);
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 4c47e55..ba9359c 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -93,6 +93,7 @@ static int sctp_wait_for_packet(struct sock * sk, int *err, long *timeo_p);
->   static int sctp_wait_for_connect(struct sctp_association *, long *timeo_p);
->   static int sctp_wait_for_accept(struct sock *sk, long timeo);
->   static void sctp_wait_for_close(struct sock *sk, long timeo);
-> +static void sctp_destruct_sock(struct sock *sk);
->   static struct sctp_af *sctp_sockaddr_af(struct sctp_sock *opt,
->   					union sctp_addr *addr, int len);
->   static int sctp_bindx_add(struct sock *, struct sockaddr *, int);
-> @@ -3966,6 +3967,8 @@ static int sctp_init_sock(struct sock *sk)
->
->   	sp->hmac = NULL;
->
-> +	sk->sk_destruct = sctp_destruct_sock;
-> +
->   	SCTP_DBG_OBJCNT_INC(sock);
->
->   	local_bh_disable();
-> @@ -4008,6 +4011,17 @@ static void sctp_destroy_sock(struct sock *sk)
->   	local_bh_enable();
->   }
->
-> +/* Triggered when there are no references on the socket anymore */
-> +static void sctp_destruct_sock(struct sock *sk)
-> +{
-> +	struct sctp_sock *sp = sctp_sk(sk);
-> +
-> +	/* Free up the HMAC transform. */
-> +	crypto_free_hash(sp->hmac);
-> +
-> +	inet_sock_destruct(sk);
-> +}
-> +
->   /* API 4.1.7 shutdown() - TCP Style Syntax
->    *     int shutdown(int socket, int how);
->    *
-> @@ -6848,7 +6862,7 @@ void sctp_copy_sock(struct sock *newsk, struct sock *sk,
->   	newsk->sk_reuse = sk->sk_reuse;
->
->   	newsk->sk_shutdown = sk->sk_shutdown;
-> -	newsk->sk_destruct = inet_sock_destruct;
-> +	newsk->sk_destruct = sctp_destruct_sock;
->   	newsk->sk_family = sk->sk_family;
->   	newsk->sk_protocol = IPPROTO_SCTP;
->   	newsk->sk_backlog_rcv = sk->sk_prot->backlog_rcv;
->
+I would like to find a way for the user to specify how long to busy
+wait, directly from the system call, but I was not able to find
+a simple way of adding this without a change to the system call
+prototype.
+
+we do however need to track when a socket's napi_id changes.
+But for that we can hook into sk_mark_ll().
+
+so here is a list of proposed changes:
+
+1. add a linked list of unique napi_id's to struct eventpoll.
+each id will have a collision list of sockets that have the same id.
+-a hash is gratuitous, we expect the unique list to have 0 to 2
+  elements in most cases.
+
+2. when a new socket is added, if its id is new it gets added to the 
+unique list, otherwise to the collision list of that id.
+
+3. when a socket is removed, if it's on the unique list, replace it
+with the first on its former collision list.
+
+4. add callback mechanism to sk_mark_ll() which will be activated when
+  the mark changes, update the lists.
+(a socket may be polled by more than one epoll so be careful)
+
+5. add  and remove to/from the lists in ep_insert and ep_remove
+  respectively. check if we need to do something for ep_modify().
+
+6. add an ep_poll helper that will round robin polling on the
+files in the unique list.
+
+7. init everything from epoll_create.
+
+locking:
+
+napi_id's are great since they don't need locking except for an
+rcu_read_lock when polling on one.
+
+the lists need a spinlock for adding/removing, maybe they
+can use ep->lock.
+
+callback registration/removal needs to use the same mechanism that
+ep_add / ep_remove use to protect themselves from the rest of epoll.
