@@ -1,35 +1,41 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCHv2 net-next 2/4] macvtap: Consistently use rcu functions
-Date: Tue, 25 Jun 2013 13:31:52 -0700
-Message-ID: <1372192312.3301.121.camel@edumazet-glaptop>
-References: <1372190662-30815-1-git-send-email-vyasevic@redhat.com>
-	 <1372190662-30815-3-git-send-email-vyasevic@redhat.com>
+From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v2 25/45] staging/octeon: Use
+ get/put_online_cpus_atomic() to prevent CPU offline
+Date: Tue, 25 Jun 2013 13:45:31 -0700
+Message-ID: <20130625204531.GA18272@kroah.com>
+References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
+ <20130625203003.16593.38565.stgit@srivatsabhat.in.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, davem@davemloft.net
-To: Vlad Yasevich <vyasevic@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ee0-f52.google.com ([74.125.83.52]:62283 "EHLO
-	mail-ee0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752709Ab3FYUbk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 16:31:40 -0400
-Received: by mail-ee0-f52.google.com with SMTP id c50so6978808eek.39
-        for <netdev@vger.kernel.org>; Tue, 25 Jun 2013 13:31:39 -0700 (PDT)
-In-Reply-To: <1372190662-30815-3-git-send-email-vyasevic@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, paulmck@linux.vnet.ibm.com, rusty@rustcorp.com.au,
+	mingo@kernel.org, akpm@linux-foundation.org, namhyung@kernel.org,
+	walken@google.com, vincent.guittot@linaro.org,
+	laijs@cn.fujitsu.com, rostedt@goodmis.org,
+	wangyun@linux.vnet.ibm.com, xiaoguangrong@linux.vnet.ibm.com,
+	sbw@mit.edu, fweisbec@gmail.com, zhong@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	linux-arch@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	devel@driverdev.osuosl.org, David Daney <david.daney@cavium.com>
+To: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20130625203003.16593.38565.stgit@srivatsabhat.in.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2013-06-25 at 16:04 -0400, Vlad Yasevich wrote:
-> Currently macvtap uses rcu_bh functions in its
-> user facing fuction macvtap_get_user() and macvtap_put_user().
-> However, its packet handlers use normal rcu as the rcu_read_lock()
-> is taken in netif_receive_skb().  We can safely discontinue
-> the usage or rcu with bh disabled.
+On Wed, Jun 26, 2013 at 02:00:04AM +0530, Srivatsa S. Bhat wrote:
+> Once stop_machine() is gone from the CPU offline path, we won't be able
+> to depend on disabling preemption to prevent CPUs from going offline
+> from under us.
 > 
-> Signed-off-by: Vlad Yasevich <vyasevic@redhat.com>
-> ---
->  drivers/net/macvtap.c | 18 +++++++++---------
->  1 file changed, 9 insertions(+), 9 deletions(-)
+> Use the get/put_online_cpus_atomic() APIs to prevent CPUs from going
+> offline, while invoking from atomic context.
+> 
+> Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
+> Cc: devel@driverdev.osuosl.org
+> Acked-by: David Daney <david.daney@cavium.com>
+> Signed-off-by: Srivatsa S. Bhat <srivatsa.bhat@linux.vnet.ibm.com>
 
-Reviewed-by: Eric Dumazet <edumazet@google.com>
+Acked-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
