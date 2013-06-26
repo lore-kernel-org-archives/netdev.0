@@ -1,240 +1,74 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: [PATCH v3 net-next 2/2] sit: add support of x-netns
-Date: Wed, 26 Jun 2013 16:11:28 +0200
-Message-ID: <1372255888-4792-3-git-send-email-nicolas.dichtel@6wind.com>
-References: <51CADB72.3090206@6wind.com>
- <1372255888-4792-1-git-send-email-nicolas.dichtel@6wind.com>
-Cc: netdev@vger.kernel.org, ebiederm@xmission.com, bcrl@kvack.org,
-	ravi.mlists@gmail.com, bhutchings@solarflare.com,
-	eric.dumazet@gmail.com, Nicolas Dichtel <nicolas.dichtel@6wind.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from 33.106-14-84.ripe.coltfrance.com ([84.14.106.33]:43631 "EHLO
-	proxy.6wind.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475Ab3FZOMA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 10:12:00 -0400
-In-Reply-To: <1372255888-4792-1-git-send-email-nicolas.dichtel@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 15/45] rcu: Use get/put_online_cpus_atomic() to prevent
+ CPU offline
+Date: Wed, 26 Jun 2013 19:39:40 +0530
+Message-ID: <51CAF624.6060004@linux.vnet.ibm.com>
+References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com> <20130625202755.16593.67819.stgit@srivatsabhat.in.ibm.com> <20130625220026.GG3828@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: tglx@linutronix.de, peterz@infradead.org, tj@kernel.org,
+	oleg@redhat.com, rusty@rustcorp.com.au, mingo@kernel.org,
+	akpm@linux-foundation.org, namhyung@kernel.org, walken@google.com,
+	vincent.guittot@linaro.org, laijs@cn.fujitsu.com,
+	rostedt@goodmis.org, wangyun@linux.vnet.ibm.com,
+	xiaoguangrong@linux.vnet.ibm.com, sbw@mit.edu, fweisbec@gmail.com,
+	zhong@linux.vnet.ibm.com, nikunj@linux.vnet.ibm.com,
+	linux-pm@vger.kernel.org, linux-arch@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Dipankar Sarma <dipankar@in.ibm.com>
+To: paulmck@linux.vnet.ibm.com
+Return-path: <linux-arch-owner@vger.kernel.org>
+In-Reply-To: <20130625220026.GG3828@linux.vnet.ibm.com>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch allows to switch the netns when packet is encapsulated or
-decapsulated. In other word, the encapsulated packet is received in a netns,
-where the lookup is done to find the tunnel. Once the tunnel is found, the
-packet is decapsulated and injecting into the corresponding interface which
-stands to another netns.
+On 06/26/2013 03:30 AM, Paul E. McKenney wrote:
+> On Wed, Jun 26, 2013 at 01:57:55AM +0530, Srivatsa S. Bhat wrote:
+>> Once stop_machine() is gone from the CPU offline path, we won't be able
+>> to depend on disabling preemption to prevent CPUs from going offline
+>> from under us.
+>>
+>> In RCU code, rcu_implicit_dynticks_qs() checks if a CPU is offline,
+>> while being protected by a spinlock. Use the get/put_online_cpus_atomic()
+>> APIs to prevent CPUs from going offline, while invoking from atomic context.
+> 
+> I am not completely sure that this is needed.  Here is a (quite possibly
+> flawed) argument for its not being needed:
+> 
+> o	rcu_gp_init() holds off CPU-hotplug operations during
+> 	grace-period initialization.  Therefore, RCU will avoid
+> 	looking for quiescent states from CPUs that were offline
+> 	(and thus in an extended quiescent state) at the beginning
+> 	of the grace period.
+> 
+> o	If force_qs_rnp() is looking for a quiescent state from
+> 	a given CPU, and if it senses that CPU as being offline,
+> 	then even without synchronization we know that the CPU
+> 	was offline some time during the current grace period.
+> 
+> 	After all, it was online at the beginning of the grace
+> 	period (otherwise, we would not be looking at it at all),
+> 	and our later sampling of its state must have therefore
+> 	happened after the start of the grace period.  Given that
+> 	the grace period has not yet ended, it also has to happened
+> 	before the end of the grace period.
+> 
+> o	Therefore, we should be able to sample the offline state
+> 	without synchronization.
+>
 
-When one of the two netns is removed, the tunnel is destroyed.
+Thanks a lot for explaining the synchronization design in detail, Paul!
+I agree that get/put_online_cpus_atomic() is not necessary here.
 
-Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
----
- include/net/ip_tunnels.h |  1 +
- net/ipv4/ip_tunnel.c     | 10 +++++++++-
- net/ipv6/sit.c           | 42 ++++++++++++++++++++++++++++++++----------
- 3 files changed, 42 insertions(+), 11 deletions(-)
+Regarding the debug checks under CONFIG_DEBUG_HOTPLUG_CPU, to avoid
+false-positives, I'm thinking of introducing a few _nocheck() variants,
+on a case-by-case basis, like cpu_is_offline_nocheck() (useful here in RCU)
+and for_each_online_cpu_nocheck() (useful in percpu-counter code, as
+pointed out by Tejun Heo). These fine synchronization details are kinda
+hard to encapsulate in that debug logic, so we can use the _nocheck()
+variants here to avoid getting splats when running with DEBUG_HOTPLUG_CPU
+enabled.
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index b0d9824..781b3cf 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -42,6 +42,7 @@ struct ip_tunnel {
- 	struct ip_tunnel __rcu	*next;
- 	struct hlist_node hash_node;
- 	struct net_device	*dev;
-+	struct net		*net;	/* netns for packet i/o */
- 
- 	int		err_count;	/* Number of arrived ICMP errors */
- 	unsigned long	err_time;	/* Time when the last ICMP error
-diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-index bd227e5..5ae01e3 100644
---- a/net/ipv4/ip_tunnel.c
-+++ b/net/ipv4/ip_tunnel.c
-@@ -304,6 +304,7 @@ static struct net_device *__ip_tunnel_create(struct net *net,
- 
- 	tunnel = netdev_priv(dev);
- 	tunnel->parms = *parms;
-+	tunnel->net = net;
- 
- 	err = register_netdevice(dev);
- 	if (err)
-@@ -453,6 +454,9 @@ int ip_tunnel_rcv(struct ip_tunnel *tunnel, struct sk_buff *skb,
- 	tstats->rx_bytes += skb->len;
- 	u64_stats_update_end(&tstats->syncp);
- 
-+	if (tunnel->net != dev_net(tunnel->dev))
-+		skb_scrub_packet(skb);
-+
- 	if (tunnel->dev->type == ARPHRD_ETHER) {
- 		skb->protocol = eth_type_trans(skb, tunnel->dev);
- 		skb_postpull_rcsum(skb, eth_hdr(skb), ETH_HLEN);
-@@ -541,7 +545,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 			tos = ipv6_get_dsfield((const struct ipv6hdr *)inner_iph);
- 	}
- 
--	rt = ip_route_output_tunnel(dev_net(dev), &fl4,
-+	rt = ip_route_output_tunnel(tunnel->net, &fl4,
- 				    tunnel->parms.iph.protocol,
- 				    dst, tnl_params->saddr,
- 				    tunnel->parms.o_key,
-@@ -602,6 +606,9 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
- 	}
- #endif
- 
-+	if (tunnel->net != dev_net(dev))
-+		skb_scrub_packet(skb);
-+
- 	if (tunnel->err_count > 0) {
- 		if (time_before(jiffies,
- 				tunnel->err_time + IPTUNNEL_ERR_TIMEO)) {
-@@ -888,6 +895,7 @@ int ip_tunnel_newlink(struct net_device *dev, struct nlattr *tb[],
- 	if (ip_tunnel_find(itn, p, dev->type))
- 		return -EEXIST;
- 
-+	nt->net = net;
- 	nt->parms = *p;
- 	err = register_netdevice(dev);
- 	if (err)
-diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
-index f639866..97a0bfe 100644
---- a/net/ipv6/sit.c
-+++ b/net/ipv6/sit.c
-@@ -466,14 +466,14 @@ isatap_chksrc(struct sk_buff *skb, const struct iphdr *iph, struct ip_tunnel *t)
- 
- static void ipip6_tunnel_uninit(struct net_device *dev)
- {
--	struct net *net = dev_net(dev);
--	struct sit_net *sitn = net_generic(net, sit_net_id);
-+	struct ip_tunnel *tunnel = netdev_priv(dev);
-+	struct sit_net *sitn = net_generic(tunnel->net, sit_net_id);
- 
- 	if (dev == sitn->fb_tunnel_dev) {
- 		RCU_INIT_POINTER(sitn->tunnels_wc[0], NULL);
- 	} else {
--		ipip6_tunnel_unlink(sitn, netdev_priv(dev));
--		ipip6_tunnel_del_prl(netdev_priv(dev), NULL);
-+		ipip6_tunnel_unlink(sitn, tunnel);
-+		ipip6_tunnel_del_prl(tunnel, NULL);
- 	}
- 	dev_put(dev);
- }
-@@ -621,6 +621,8 @@ static int ipip6_rcv(struct sk_buff *skb)
- 		tstats->rx_packets++;
- 		tstats->rx_bytes += skb->len;
- 
-+		if (tunnel->net != dev_net(tunnel->dev))
-+			skb_scrub_packet(skb);
- 		netif_rx(skb);
- 
- 		return 0;
-@@ -803,7 +805,7 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 			goto tx_error;
- 	}
- 
--	rt = ip_route_output_ports(dev_net(dev), &fl4, NULL,
-+	rt = ip_route_output_ports(tunnel->net, &fl4, NULL,
- 				   dst, tiph->saddr,
- 				   0, 0,
- 				   IPPROTO_IPV6, RT_TOS(tos),
-@@ -858,6 +860,9 @@ static netdev_tx_t ipip6_tunnel_xmit(struct sk_buff *skb,
- 			tunnel->err_count = 0;
- 	}
- 
-+	if (tunnel->net != dev_net(dev))
-+		skb_scrub_packet(skb);
-+
- 	/*
- 	 * Okay, now see if we can stuff it in the buffer as-is.
- 	 */
-@@ -944,7 +949,8 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
- 	iph = &tunnel->parms.iph;
- 
- 	if (iph->daddr) {
--		struct rtable *rt = ip_route_output_ports(dev_net(dev), &fl4, NULL,
-+		struct rtable *rt = ip_route_output_ports(tunnel->net, &fl4,
-+							  NULL,
- 							  iph->daddr, iph->saddr,
- 							  0, 0,
- 							  IPPROTO_IPV6,
-@@ -959,7 +965,7 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
- 	}
- 
- 	if (!tdev && tunnel->parms.link)
--		tdev = __dev_get_by_index(dev_net(dev), tunnel->parms.link);
-+		tdev = __dev_get_by_index(tunnel->net, tunnel->parms.link);
- 
- 	if (tdev) {
- 		dev->hard_header_len = tdev->hard_header_len + sizeof(struct iphdr);
-@@ -972,7 +978,7 @@ static void ipip6_tunnel_bind_dev(struct net_device *dev)
- 
- static void ipip6_tunnel_update(struct ip_tunnel *t, struct ip_tunnel_parm *p)
- {
--	struct net *net = dev_net(t->dev);
-+	struct net *net = t->net;
- 	struct sit_net *sitn = net_generic(net, sit_net_id);
- 
- 	ipip6_tunnel_unlink(sitn, t);
-@@ -1248,7 +1254,6 @@ static void ipip6_tunnel_setup(struct net_device *dev)
- 	dev->priv_flags	       &= ~IFF_XMIT_DST_RELEASE;
- 	dev->iflink		= 0;
- 	dev->addr_len		= 4;
--	dev->features		|= NETIF_F_NETNS_LOCAL;
- 	dev->features		|= NETIF_F_LLTX;
- }
- 
-@@ -1257,6 +1262,7 @@ static int ipip6_tunnel_init(struct net_device *dev)
- 	struct ip_tunnel *tunnel = netdev_priv(dev);
- 
- 	tunnel->dev = dev;
-+	tunnel->net = dev_net(dev);
- 
- 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
- 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
-@@ -1277,6 +1283,7 @@ static int __net_init ipip6_fb_tunnel_init(struct net_device *dev)
- 	struct sit_net *sitn = net_generic(net, sit_net_id);
- 
- 	tunnel->dev = dev;
-+	tunnel->net = dev_net(dev);
- 	strcpy(tunnel->parms.name, dev->name);
- 
- 	iph->version		= 4;
-@@ -1564,8 +1571,14 @@ static struct xfrm_tunnel ipip_handler __read_mostly = {
- 
- static void __net_exit sit_destroy_tunnels(struct sit_net *sitn, struct list_head *head)
- {
-+	struct net *net = dev_net(sitn->fb_tunnel_dev);
-+	struct net_device *dev, *aux;
- 	int prio;
- 
-+	for_each_netdev_safe(net, dev, aux)
-+		if (dev->rtnl_link_ops == &sit_link_ops)
-+			unregister_netdevice_queue(dev, head);
-+
- 	for (prio = 1; prio < 4; prio++) {
- 		int h;
- 		for (h = 0; h < HASH_SIZE; h++) {
-@@ -1573,7 +1586,12 @@ static void __net_exit sit_destroy_tunnels(struct sit_net *sitn, struct list_hea
- 
- 			t = rtnl_dereference(sitn->tunnels[prio][h]);
- 			while (t != NULL) {
--				unregister_netdevice_queue(t->dev, head);
-+				/* If dev is in the same netns, it has already
-+				 * been added to the list by the previous loop.
-+				 */
-+				if (dev_net(t->dev) != net)
-+					unregister_netdevice_queue(t->dev,
-+								   head);
- 				t = rtnl_dereference(t->next);
- 			}
- 		}
-@@ -1598,6 +1616,10 @@ static int __net_init sit_init_net(struct net *net)
- 		goto err_alloc_dev;
- 	}
- 	dev_net_set(sitn->fb_tunnel_dev, net);
-+	/* FB netdevice is special: we have one, and only one per netns.
-+	 * Allowing to move it to another netns is clearly unsafe.
-+	 */
-+	sitn->fb_tunnel_dev->features |= NETIF_F_NETNS_LOCAL;
- 
- 	err = ipip6_fb_tunnel_init(sitn->fb_tunnel_dev);
- 	if (err)
--- 
-1.8.2.1
+Regards,
+Srivatsa S. Bhat
