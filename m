@@ -1,38 +1,72 @@
-From: Shawn Guo <shawn.guo@linaro.org>
-Subject: Re: [PATCH net-next v1 1/1] net: fec: Add VLAN receive HW support.
-Date: Wed, 26 Jun 2013 10:56:56 +0800
-Message-ID: <20130626025649.GA32202@S2101-09.ap.freescale.net>
-References: <jim_baxter@mentor.com>
- <1372204524-27798-1-git-send-email-jim_baxter@mentor.com>
- <9848F2DB572E5649BA045B288BE08FBE014FE4E1@039-SN2MPN1-023.039d.mgd.msft.net>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the pm tree
+Date: Wed, 26 Jun 2013 13:08:38 +1000
+Message-ID: <20130626130838.fb1e8f7cbe232d231a036bf8@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Jim Baxter <jim_baxter@mentor.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Li Frank-B20596 <B20596@freescale.com>,
-	Estevam Fabio-R49496 <r49496@freescale.com>,
-	Lucas Stach <l.stach@pengutronix.de>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ben Hutchings <bhutchings@solarflare.com>
-To: Duan Fugang-B38611 <B38611@freescale.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from tx2ehsobe003.messaging.microsoft.com ([65.55.88.13]:14677 "EHLO
-	tx2outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751424Ab3FZC5r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 25 Jun 2013 22:57:47 -0400
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="PGP-SHA256";
+ boundary="Signature=_Wed__26_Jun_2013_13_08_38_+1000_W=OwMn=BqTw.AWqh"
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Colin Cross <ccross@android.com>,
+	"Rafael J. Wysocki" <rjw@sisk.pl>,
+	Eliezer Tamir <eliezer.tamir@linux.intel.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
+
+--Signature=_Wed__26_Jun_2013_13_08_38_+1000_W=OwMn=BqTw.AWqh
+Content-Type: text/plain; charset=US-ASCII
 Content-Disposition: inline
-In-Reply-To: <9848F2DB572E5649BA045B288BE08FBE014FE4E1@039-SN2MPN1-023.039d.mgd.msft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: quoted-printable
 
-On Wed, Jun 26, 2013 at 02:31:40AM +0000, Duan Fugang-B38611 wrote:
-> In addition,
-> 	1.	enet IP support hw VLAN detect such as imx28-fec, imx6q-fec and mvf600-fec, so you can add the "BD_ENET_RX_VLAN " to those platform driver_data.
+Hi all,
 
-I guess Jim only tested the code on imx6q-fec.  We shouldn't enable it
-for the other two platforms until it's been tested on them.  As the
-counter example, although we expect FEC_QUIRK_HAS_CSUM should also work
-for imx28-fec, if we enable FEC_QUIRK_HAS_CSUM for it, fec driver will
-just break right way on imx28.
+Today's linux-next merge of the net-next tree got a conflict in
+fs/select.c between commit 9745cdb36da8 ("select: use freezable blocking
+call") from the pm tree and commit 2d48d67fa8cd ("net: poll/select low
+latency socket support") from the net-next tree.
 
-Shawn
+I fixed it up (see below) and can carry the fix as necessary (no action
+is required).
+
+--=20
+Cheers,
+Stephen Rothwell                    sfr@canb.auug.org.au
+
+diff --cc fs/select.c
+index 6b14dc7,79b876e..0000000
+--- a/fs/select.c
++++ b/fs/select.c
+@@@ -27,7 -27,7 +27,8 @@@
+  #include <linux/rcupdate.h>
+  #include <linux/hrtimer.h>
+  #include <linux/sched/rt.h>
+ +#include <linux/freezer.h>
++ #include <net/ll_poll.h>
+ =20
+  #include <asm/uaccess.h>
+ =20
+
+--Signature=_Wed__26_Jun_2013_13_08_38_+1000_W=OwMn=BqTw.AWqh
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.20 (GNU/Linux)
+
+iQIcBAEBCAAGBQJRyls6AAoJEECxmPOUX5FEfPIQAJalg2SzCoWlxlPDsri8zgtU
+KyN3SB3J5FVvxKJatyaXpKu/U0FmItceIFc0XFhEvPAk5gD2dZUi7lGs3i3oOn4O
+SZ8AU/oR/WBT9NSB2DWbZfTb7VGJ8r7AzDE7F77KgeYZoUpgY8oyceZtUAssPFWO
+7ZYvCcTPIoEUZF6M56PltLnKRUMnR0D2DIjevp7ynaeEKlmRPerNbDjT6zgYUhPd
+pOF0SWusNxAP3LFfgoRFfZEnIb4EDIwMSCoA6uAy8+9Li55tbx2OP0FQB5xD9FHR
+QJp+Eo2Rhpxi4pBVKsQXsPVb8Wnp4QdBvxJKB5nfxa6dkXrP3q480/1URlIZOS6y
+EcTkN635uk2eGLk7fPx4g/Hc0431JH8XxPsGzoroSHOdS//WHsF3yfgMF+cTBn69
+bBpOQiEYtlHn5EQebcSP+X6J4Eix2MqLC+rQqRGgy9V6oHa6zx/pmN58hkKwc4Ya
+lmXQ4AMMXtXFk4FNfHkXqJOSN7CrE/ZOo5Fb2vJlu3juVDijL9kSRRP1D9GNg6Yb
+czc9rOJ6HUvrRQEiUw/dPZnkm7KmQ37XhHUiJXhkQLLvfFMkZiPD+UWMs5wKug3x
+XRwqjJf6kJoJj9swRD5bU/p5Kdg4rYBQdyJ1T2p4RZKQ7WgzbRU7VUKCRWiJP40H
+y3+cFOL4Q5/ifNd61WhJ
+=zIHJ
+-----END PGP SIGNATURE-----
+
+--Signature=_Wed__26_Jun_2013_13_08_38_+1000_W=OwMn=BqTw.AWqh--
