@@ -1,39 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] arc_emac: fix compile-time errors & warnings on PPC64
-Date: Wed, 26 Jun 2013 01:36:11 -0700 (PDT)
-Message-ID: <20130626.013611.177497936507567378.davem@davemloft.net>
-References: <1372232966-11507-1-git-send-email-abrodkin@synopsys.com>
+Subject: Re: linux-next: build failure after merge of the final tree
+ (net-next tree related)
+Date: Wed, 26 Jun 2013 01:36:20 -0700 (PDT)
+Message-ID: <20130626.013620.38647708061243546.davem@davemloft.net>
+References: <20130626175610.8a8b6606fd9a5b6269398059@canb.auug.org.au>
+	<4881796E12491D4BB15146FE0209CE643F603C48@DE02WEMBXB.internal.synopsys.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andy.shevchenko@gmail.com,
-	romieu@fr.zoreil.com, joe@perches.com, Vineet.Gupta1@synopsys.com,
-	Mischa.Jonker@synopsys.com, arnd@arndb.de, grant.likely@linaro.org,
-	rob.herring@calxeda.com, paul.gortmaker@windriver.com,
-	linux-kernel@vger.kernel.org, devicetree-discuss@lists.ozlabs.org,
-	florian@openwrt.org, david.laight@aculab.com
+Cc: sfr@canb.auug.org.au, netdev@vger.kernel.org,
+	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Alexey.Brodkin@synopsys.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1372232966-11507-1-git-send-email-abrodkin@synopsys.com>
+In-Reply-To: <4881796E12491D4BB15146FE0209CE643F603C48@DE02WEMBXB.internal.synopsys.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Date: Wed, 26 Jun 2013 11:49:26 +0400
+Date: Wed, 26 Jun 2013 08:07:37 +0000
 
-> As reported by "kbuild test robot" there were some errors and warnings
-> on attempt to build kernel with "make ARCH=powerpc allmodconfig".
+> On 06/26/2013 11:56 AM, Stephen Rothwell wrote:
+>> Hi all,
+>>
+>> After merging the final tree, today's linux-next build (powerpc
+>> allyesconfig) failed like this:
+> []
+>> Caused by commit e4f2379db6c6 ("ethernet/arc/arc_emac - Add new driver")
+>> from the net-next tree.
+>>
+>> I have reverted that commit for today.
 > 
-> And this patch addresses both errors and warnings.
-> Below is a list of introduced changes:
-> 1. Fix compile-time errors (misspellings in "dma_unmap_single") on PPC.
-> 2. Use DMA address instead of "skb->data" as a pointer to data buffer.
-> This fixed warnings on pointer to int conversion on 64-bit systems.
-> 3. Re-implemented initial allocation of Rx buffers in "arc_emac_open" in
-> the same way they're re-allocated during operation (receiving packets).
-> So once again DMA address could be used instead of "skb->data".
-> 4. Explicitly use EMAC_BUFFER_SIZE for Rx buffers allocation.
-> 
-> Signed-off-by: Alexey Brodkin <abrodkin@synopsys.com>
+> I've just sent a patch that fixes reported issues (both errors and 
+> warnings).
 
-Applied.
+And I've just applied it.
