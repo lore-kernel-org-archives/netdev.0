@@ -1,53 +1,52 @@
-From: Darren Hart <dvhart@linux.intel.com>
-Subject: Re: [PATCH 8/8] pch_gbe: Add MinnowBoard support
-Date: Tue, 25 Jun 2013 20:11:22 -0700
-Message-ID: <1372216282.8177.4.camel@envy.home>
-References: <cover.1372211451.git.dvhart@linux.intel.com>
-	 <6c27e79870ec93f7a8c6692d4bcfebaee589fa6b.1372211451.git.dvhart@linux.intel.com>
-	 <CAErSpo4PuKOqKM19Ra5D_jCH0SEtNTo95_EhyXVxYAB3J_27zg@mail.gmail.com>
+From: Duan Fugang-B38611 <B38611@freescale.com>
+Subject: RE: [PATCH net-next v1 1/1] net: fec: Add VLAN receive HW support.
+Date: Wed, 26 Jun 2013 03:13:14 +0000
+Message-ID: <9848F2DB572E5649BA045B288BE08FBE014FE6CC@039-SN2MPN1-023.039d.mgd.msft.net>
+References: <jim_baxter@mentor.com>
+ <1372204524-27798-1-git-send-email-jim_baxter@mentor.com>
+ <9848F2DB572E5649BA045B288BE08FBE014FE4E1@039-SN2MPN1-023.039d.mgd.msft.net>
+ <20130626025649.GA32202@S2101-09.ap.freescale.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	"H. Peter Anvin" <hpa@zytor.com>,
-	Peter P Waskiewicz Jr <peter.p.waskiewicz.jr@intel.com>,
-	Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	danders@circuitco.com, vishal.l.verma@intel.com,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jim Baxter <jim_baxter@mentor.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>
-To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAErSpo4PuKOqKM19Ra5D_jCH0SEtNTo95_EhyXVxYAB3J_27zg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Li Frank-B20596 <B20596@freescale.com>,
+	Estevam Fabio-R49496 <r49496@freescale.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Ben Hutchings <bhutchings@solarflare.com>
+To: Shawn Guo <shawn.guo@linaro.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ch1ehsobe005.messaging.microsoft.com ([216.32.181.185]:15130
+	"EHLO ch1outboundpool.messaging.microsoft.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751445Ab3FZDNk convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 25 Jun 2013 23:13:40 -0400
+In-Reply-To: <20130626025649.GA32202@S2101-09.ap.freescale.net>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2013-06-25 at 20:35 -0600, Bjorn Helgaas wrote:
-> On Tue, Jun 25, 2013 at 7:53 PM, Darren Hart <dvhart@linux.intel.com> wrote:
+Yes, you are right.
 
-> >  static DEFINE_PCI_DEVICE_TABLE(pch_gbe_pcidev_id) = {
-> >         {.vendor = PCI_VENDOR_ID_INTEL,
-> >          .device = PCI_DEVICE_ID_INTEL_IOH1_GBE,
-> > +        .subvendor = PCI_VENDOR_ID_CIRCUITCO,
-> > +        .subdevice = PCI_DEVICE_ID_CIRCUITCO_MINNOWBOARD,
-> 
-> "MINNOWBOARD" seems like a pretty generic name for something that
-> probably refers only to the gigabit ethernet device in the EG20T.  If
-> you expect to use that same subdevice ID on other devices, I guess we
-> can add PCI_DEVICE_ID_CIRCUITCO_MINNOWBOARD to pci_ids.h.  If it will
-> only be used for the gigabit ethernet device, we would normally not
-> add a #define for it and would just use the hex constant here (see the
-> comment at the top of pci_ids.h).
+Before we sent our our patch, we must test it on all covered platforms.
 
-The firmware populates the subsystem vendor and device ID for every
-device on the PCH with PCI_VENDOR_ID_CIRCUITCO and
-PCI_DEVICE_ID_CIRCUITCO_MINNOWBOARD, respectively. Currently I have
-only made changes to pch_gbe to make use of it, but there is the
-possibility of using this ID elsewhere. I don't currently have plans to
-do so however. So if it is preferable, I can leave
-PCI_VENDOR_ID_CIRCUITCO in pci_ids.h and use 0x0001 here for the
-subsystem device ID.
 
--- 
-Darren Hart
-Intel Open Source Technology Center
-Yocto Project - Technical Lead - Linux Kernel
+Thanks,
+Andy 
+
+-----Original Message-----
+From: Shawn Guo [mailto:shawn.guo@linaro.org] 
+Sent: Wednesday, June 26, 2013 10:57 AM
+To: Duan Fugang-B38611
+Cc: Jim Baxter; David S. Miller; Li Frank-B20596; Estevam Fabio-R49496; Lucas Stach; netdev@vger.kernel.org; Ben Hutchings
+Subject: Re: [PATCH net-next v1 1/1] net: fec: Add VLAN receive HW support.
+
+On Wed, Jun 26, 2013 at 02:31:40AM +0000, Duan Fugang-B38611 wrote:
+> In addition,
+> 	1.	enet IP support hw VLAN detect such as imx28-fec, imx6q-fec and mvf600-fec, so you can add the "BD_ENET_RX_VLAN " to those platform driver_data.
+
+I guess Jim only tested the code on imx6q-fec.  We shouldn't enable it for the other two platforms until it's been tested on them.  As the counter example, although we expect FEC_QUIRK_HAS_CSUM should also work for imx28-fec, if we enable FEC_QUIRK_HAS_CSUM for it, fec driver will just break right way on imx28.
+
+Shawn
