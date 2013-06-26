@@ -1,149 +1,194 @@
 From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net-next 1/2] ipv6: introduce per-interface counter for dad-completed ipv6 addresses
-Date: Thu, 27 Jun 2013 00:06:56 +0200
-Message-ID: <20130626220656.GA20845@order.stressinduktion.org>
+Subject: [PATCH net-next 2/2] ipv6: resend MLD report if a link-local address completes DAD
+Date: Thu, 27 Jun 2013 00:07:01 +0200
+Message-ID: <20130626220701.GA26180@order.stressinduktion.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
-Cc: fbl@redhat.com, yoshfuji@linux-ipv6.org, dlstevens@us.ibm.com
+Cc: fleitner@redhat.com, yoshfuji@linux-ipv6.org, dlstevens@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from order.stressinduktion.org ([87.106.68.36]:40026 "EHLO
+Received: from order.stressinduktion.org ([87.106.68.36]:40032 "EHLO
 	order.stressinduktion.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752018Ab3FZWG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 18:06:57 -0400
+	with ESMTP id S1752018Ab3FZWHC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 18:07:02 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-To reduce the number of unnecessary router solicitations, MLDv2 and IGMPv3
-messages we need to track the number of valid (as in non-optimistic,
-no-dad-failed and non-tentative) link-local addresses. Therefore, this
-patch implements a valid_ll_addr_cnt in struct inet6_dev.
+RFC3590/RFC3810 specifies we should resend MLD reports as soon as a
+valid link-local address is available.
 
-We now only emit router solicitations if the first link-local address
-finishes duplicate address detection.
+We now use the valid_ll_addr_cnt to check if it is necessary to resend
+a new report.
 
-The changes for MLDv2 and IGMPv3 are in a follow-up patch.
+Changes since Flavio Leitner's version:
+a) adapt for valid_ll_addr_cnt
+b) resend first reports directly in the path and just arm the timer for
+   mc_qrv-1 resends.
 
-While there, also simplify one if statement(one minor nit I made in one
-of my previous patches):
-
-if (!...)
-	do();
-else
-	return;
-
-<<into>>
-
-if (...)
-	return;
-do();
-
-Cc: Flavio Leitner <fbl@redhat.com>
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+Reported-by: Flavio Leitner <fleitner@redhat.com>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 Cc: David Stevens <dlstevens@us.ibm.com>
-Suggested-by: David Stevens <dlstevens@us.ibm.com>
 Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Flavio Leitner <fbl@redhat.com>
 ---
- include/net/if_inet6.h |  1 +
- net/ipv6/addrconf.c    | 39 +++++++++++++++++++++++++++++++--------
- 2 files changed, 32 insertions(+), 8 deletions(-)
+ include/net/addrconf.h |  1 +
+ include/net/if_inet6.h |  2 ++
+ net/ipv6/addrconf.c    | 17 ++++++++++++-----
+ net/ipv6/mcast.c       | 52 ++++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 67 insertions(+), 5 deletions(-)
 
+diff --git a/include/net/addrconf.h b/include/net/addrconf.h
+index 21f70270..f68eaf5 100644
+--- a/include/net/addrconf.h
++++ b/include/net/addrconf.h
+@@ -155,6 +155,7 @@ extern bool ipv6_chk_mcast_addr(struct net_device *dev,
+ 				const struct in6_addr *group,
+ 				const struct in6_addr *src_addr);
+ 
++extern void ipv6_mc_dad_complete(struct inet6_dev *idev);
+ /*
+  * identify MLD packets for MLD filter exceptions
+  */
 diff --git a/include/net/if_inet6.h b/include/net/if_inet6.h
-index e4c5a2d..1628b8f 100644
+index 1628b8f..736b5fb 100644
 --- a/include/net/if_inet6.h
 +++ b/include/net/if_inet6.h
-@@ -166,6 +166,7 @@ struct inet6_dev {
- 	struct net_device	*dev;
+@@ -174,10 +174,12 @@ struct inet6_dev {
+ 	unsigned char		mc_qrv;
+ 	unsigned char		mc_gq_running;
+ 	unsigned char		mc_ifc_count;
++	unsigned char		mc_dad_count;
+ 	unsigned long		mc_v1_seen;
+ 	unsigned long		mc_maxdelay;
+ 	struct timer_list	mc_gq_timer;	/* general query timer */
+ 	struct timer_list	mc_ifc_timer;	/* interface change timer */
++	struct timer_list	mc_dad_timer;	/* dad complete mc timer */
  
- 	struct list_head	addr_list;
-+	int			valid_ll_addr_cnt;
- 
- 	struct ifmcaddr6	*mc_list;
- 	struct ifmcaddr6	*mc_tomb;
+ 	struct ifacaddr6	*ac_list;
+ 	rwlock_t		lock;
 diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index afaf3cd..7044785 100644
+index 7044785..d66da0b 100644
 --- a/net/ipv6/addrconf.c
 +++ b/net/ipv6/addrconf.c
-@@ -3277,6 +3277,7 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
+@@ -3277,7 +3277,7 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
  {
  	struct net_device *dev = ifp->idev->dev;
  	struct in6_addr lladdr;
-+	bool send_rs;
+-	bool send_rs;
++	bool send_rs, send_mld;
  
  	addrconf_del_dad_timer(ifp);
  
-@@ -3290,20 +3291,25 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
- 	   router advertisements, start sending router solicitations.
- 	 */
+@@ -3293,14 +3293,21 @@ static void addrconf_dad_completed(struct inet6_ifaddr *ifp)
  
--	if (ipv6_accept_ra(ifp->idev) &&
--	    ifp->idev->cnf.rtr_solicits > 0 &&
--	    (dev->flags&IFF_LOOPBACK) == 0 &&
--	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL)) {
-+	read_lock_bh(&ifp->idev->lock);
-+	spin_lock(&ifp->lock);
-+	send_rs = ipv6_accept_ra(ifp->idev) &&
-+		  ifp->idev->cnf.rtr_solicits > 0 &&
-+		  (dev->flags&IFF_LOOPBACK) == 0 &&
-+		  ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL &&
-+		  ifp->idev->valid_ll_addr_cnt == 1;
-+	spin_unlock(&ifp->lock);
-+	read_unlock_bh(&ifp->idev->lock);
+ 	read_lock_bh(&ifp->idev->lock);
+ 	spin_lock(&ifp->lock);
+-	send_rs = ipv6_accept_ra(ifp->idev) &&
++	send_mld = ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL &&
++		   ifp->idev->valid_ll_addr_cnt == 1;
++	send_rs = send_mld &&
++		  ipv6_accept_ra(ifp->idev) &&
+ 		  ifp->idev->cnf.rtr_solicits > 0 &&
+-		  (dev->flags&IFF_LOOPBACK) == 0 &&
+-		  ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL &&
+-		  ifp->idev->valid_ll_addr_cnt == 1;
++		  (dev->flags&IFF_LOOPBACK) == 0;
+ 	spin_unlock(&ifp->lock);
+ 	read_unlock_bh(&ifp->idev->lock);
+ 
++	/* While dad is in progress mld report's source address is in6_addrany.
++	 * Resend with proper ll now.
++	 */
++	if (send_mld)
++		ipv6_mc_dad_complete(ifp->idev);
 +
-+	if (send_rs) {
+ 	if (send_rs) {
  		/*
  		 *	If a host as already performed a random delay
- 		 *	[...] as part of DAD [...] there is no need
- 		 *	to delay again before sending the first RS
- 		 */
--		if (!ipv6_get_lladdr(dev, &lladdr, IFA_F_TENTATIVE))
--			ndisc_send_rs(dev, &lladdr,
--				      &in6addr_linklocal_allrouters);
--		else
-+		if (ipv6_get_lladdr(dev, &lladdr, IFA_F_TENTATIVE))
- 			return;
-+		ndisc_send_rs(dev, &lladdr, &in6addr_linklocal_allrouters);
- 
- 		write_lock_bh(&ifp->idev->lock);
- 		spin_lock(&ifp->lock);
-@@ -4573,6 +4579,19 @@ errout:
- 		rtnl_set_sk_err(net, RTNLGRP_IPV6_PREFIX, err);
+diff --git a/net/ipv6/mcast.c b/net/ipv6/mcast.c
+index 72c8bfe..502c877 100644
+--- a/net/ipv6/mcast.c
++++ b/net/ipv6/mcast.c
+@@ -999,6 +999,14 @@ static void mld_ifc_start_timer(struct inet6_dev *idev, int delay)
+ 		in6_dev_hold(idev);
  }
  
-+static void update_valid_ll_addr_cnt(struct inet6_ifaddr *ifp, int count)
++static void mld_dad_start_timer(struct inet6_dev *idev, int delay)
 +{
-+	write_lock_bh(&ifp->idev->lock);
-+	spin_lock(&ifp->lock);
-+	if (((ifp->flags & (IFA_F_PERMANENT|IFA_F_TENTATIVE|IFA_F_OPTIMISTIC|
-+			    IFA_F_DADFAILED)) == IFA_F_PERMANENT) &&
-+	    (ipv6_addr_type(&ifp->addr) & IPV6_ADDR_LINKLOCAL))
-+		ifp->idev->valid_ll_addr_cnt += count;
-+	WARN_ON(ifp->idev->valid_ll_addr_cnt < 0);
-+	spin_unlock(&ifp->lock);
-+	write_unlock_bh(&ifp->idev->lock);
++	int tv = net_random() % delay;
++
++	if (!mod_timer(&idev->mc_dad_timer, jiffies+tv+2))
++		in6_dev_hold(idev);
 +}
 +
- static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
- {
- 	struct net *net = dev_net(ifp->idev->dev);
-@@ -4581,6 +4600,8 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
+ /*
+  *	IGMP handling (alias multicast ICMPv6 messages)
+  */
+@@ -1815,6 +1823,46 @@ err_out:
+ 	goto out;
+ }
  
- 	switch (event) {
- 	case RTM_NEWADDR:
-+		update_valid_ll_addr_cnt(ifp, 1);
++static void mld_resend_report(struct inet6_dev *idev)
++{
++	if (MLD_V1_SEEN(idev)) {
++		struct ifmcaddr6 *mcaddr;
++		read_lock_bh(&idev->lock);
++		for (mcaddr = idev->mc_list; mcaddr; mcaddr = mcaddr->next) {
++			if (!(mcaddr->mca_flags & MAF_NOREPORT))
++				igmp6_send(&mcaddr->mca_addr, idev->dev,
++					   ICMPV6_MGM_REPORT);
++		}
++		read_unlock_bh(&idev->lock);
++	} else {
++		mld_send_report(idev, NULL);
++	}
++}
 +
- 		/*
- 		 * If the address was optimistic
- 		 * we inserted the route at the start of
-@@ -4596,6 +4617,8 @@ static void __ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
- 					      ifp->idev->dev, 0, 0);
- 		break;
- 	case RTM_DELADDR:
-+		update_valid_ll_addr_cnt(ifp, -1);
++void ipv6_mc_dad_complete(struct inet6_dev *idev)
++{
++	idev->mc_dad_count = idev->mc_qrv;
++	if (idev->mc_dad_count) {
++		mld_resend_report(idev);
++		idev->mc_dad_count--;
++		if (idev->mc_dad_count)
++			mld_dad_start_timer(idev, idev->mc_maxdelay);
++	}
++}
 +
- 		if (ifp->idev->cnf.forwarding)
- 			addrconf_leave_anycast(ifp);
- 		addrconf_leave_solict(ifp->idev, &ifp->addr);
++static void mld_dad_timer_expire(unsigned long data)
++{
++	struct inet6_dev *idev = (struct inet6_dev *)data;
++
++	mld_resend_report(idev);
++	if (idev->mc_dad_count) {
++		idev->mc_dad_count--;
++		if (idev->mc_dad_count)
++			mld_dad_start_timer(idev, idev->mc_maxdelay);
++	}
++	__in6_dev_put(idev);
++}
++
+ static int ip6_mc_del1_src(struct ifmcaddr6 *pmc, int sfmode,
+ 	const struct in6_addr *psfsrc)
+ {
+@@ -2232,6 +2280,8 @@ void ipv6_mc_down(struct inet6_dev *idev)
+ 	idev->mc_gq_running = 0;
+ 	if (del_timer(&idev->mc_gq_timer))
+ 		__in6_dev_put(idev);
++	if (del_timer(&idev->mc_dad_timer))
++		__in6_dev_put(idev);
+ 
+ 	for (i = idev->mc_list; i; i=i->next)
+ 		igmp6_group_dropped(i);
+@@ -2268,6 +2318,8 @@ void ipv6_mc_init_dev(struct inet6_dev *idev)
+ 	idev->mc_ifc_count = 0;
+ 	setup_timer(&idev->mc_ifc_timer, mld_ifc_timer_expire,
+ 			(unsigned long)idev);
++	setup_timer(&idev->mc_dad_timer, mld_dad_timer_expire,
++		    (unsigned long)idev);
+ 	idev->mc_qrv = MLD_QRV_DEFAULT;
+ 	idev->mc_maxdelay = IGMP6_UNSOLICITED_IVAL;
+ 	idev->mc_v1_seen = 0;
 -- 
 1.8.1.4
