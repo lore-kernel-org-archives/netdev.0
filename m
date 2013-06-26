@@ -1,101 +1,53 @@
-From: Vlad Yasevich <vyasevich@gmail.com>
-Subject: Re: [PATCH net-next 1/2] lib: vsprintf: add IPv4/v6 generic %pig/%pIg
- format specifier
-Date: Wed, 26 Jun 2013 13:27:19 -0400
-Message-ID: <51CB2477.6070903@gmail.com>
-References: <1372266073-11998-1-git-send-email-dborkman@redhat.com> <1372266073-11998-2-git-send-email-dborkman@redhat.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH v2 15/45] rcu: Use get/put_online_cpus_atomic() to
+ prevent CPU offline
+Date: Wed, 26 Jun 2013 10:29:48 -0700
+Message-ID: <20130626172948.GD4405@mtj.dyndns.org>
+References: <20130625202452.16593.22810.stgit@srivatsabhat.in.ibm.com>
+ <20130625202755.16593.67819.stgit@srivatsabhat.in.ibm.com>
+ <20130625220026.GG3828@linux.vnet.ibm.com>
+ <51CAF624.6060004@linux.vnet.ibm.com>
+ <AE90C24D6B3A694183C094C60CF0A2F6026B72AA@saturn3.aculab.com>
+ <20130626143424.GN3828@linux.vnet.ibm.com>
+ <1372258271.18733.256.camel@gandalf.local.home>
+ <20130626152148.GA4405@mtj.dyndns.org>
+ <1372260823.18733.263.camel@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-sctp@vger.kernel.org
-To: Daniel Borkmann <dborkman@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-gh0-f181.google.com ([209.85.160.181]:53463 "EHLO
-	mail-gh0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751841Ab3FZR12 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 13:27:28 -0400
-In-Reply-To: <1372266073-11998-2-git-send-email-dborkman@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: paulmck@linux.vnet.ibm.com, David Laight <David.Laight@ACULAB.COM>,
+	"Srivatsa S. Bhat" <srivatsa.bhat@linux.vnet.ibm.com>,
+	peterz@infradead.org, fweisbec@gmail.com,
+	linux-kernel@vger.kernel.org, walken@google.com, mingo@kernel.org,
+	linux-arch@vger.kernel.org, vincent.guittot@linaro.org,
+	xiaoguangrong@linux.vnet.ibm.com, wangyun@linux.vnet.ibm.com,
+	nikunj@linux.vnet.ibm.com, linux-pm@vger.kernel.org,
+	rusty@rustcorp.com.au, namhyung@kernel.org, tglx@linutronix.de,
+	laijs@cn.fujitsu.com, zhong@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, oleg@redhat.com, sbw@mit.edu,
+	akpm@linux-foundation.org, linuxppc-dev@lists.ozlabs.org
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1372260823.18733.263.camel@gandalf.local.home>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/26/2013 01:01 PM, Daniel Borkmann wrote:
-> In order to avoid making code that deals with printing both, IPv4 and
-> IPv6 addresses, unnecessary complicated as for example ...
->
->    if (sa.sa_family == AF_INET6)
->      printk("... %pI6 ...", sin6_addr);
->    else
->      printk("... %pI4 ...", sin_addr.s_addr);
->
-> ... it would be better to introduce a format specifier that can deal
-> with those kind of situations internally; just as we have a "struct
-> sockaddr" for generic mapping into "struct sockaddr_in" or "struct
-> sockaddr_in6" as e.g. done in "union sctp_addr". Then, we could
-> reduce the above statement into something like:
->
->    printk("... %pIg ..", &sockaddr);
->
-> While we're at it, support for both %pig/%pIg, where 'g' stands for
-> generic, comes for free. In case our pointer is NULL, pointer() then
-> deals with that already at an earlier point in time internally.
->
-> Likely, there are many other areas than just SCTP in the kernel to make
-> use of this extension as well.
->
-> Signed-off-by: Daniel Borkmann <dborkman@redhat.com>
-> ---
->   lib/vsprintf.c | 18 ++++++++++++++++--
->   1 file changed, 16 insertions(+), 2 deletions(-)
+Hello,
 
-I think you should also update Documentation/printk-formats.txt
+On Wed, Jun 26, 2013 at 11:33:43AM -0400, Steven Rostedt wrote:
+> I thought the whole deal with this patchset was to remove stop_machine
+> from CPU hotplug. Why halt all CPUs just to remove one? stomp_machine()
+> is extremely intrusive for the entire system, where as one CPU making
+> sure all CPUs schedule isn't very intrusive at all.
+> 
+> I didn't think the idea of this patch set was to make CPU hotplug
+> faster, just less intrusive to the system.
 
--vlad
+Yeap, removal of stop_machine is a great improvement in itself.  ISTR
+mentions of hot-unplug latency but I could be mistaken.  Srivatsa, can
+you please chime in on that?
 
->
-> diff --git a/lib/vsprintf.c b/lib/vsprintf.c
-> index e149c64..7243742 100644
-> --- a/lib/vsprintf.c
-> +++ b/lib/vsprintf.c
-> @@ -1004,10 +1004,10 @@ int kptr_restrict __read_mostly;
->    * - 'MF' For a 6-byte MAC FDDI address, it prints the address
->    *       with a dash-separated hex notation
->    * - '[mM]R' For a 6-byte MAC address, Reverse order (Bluetooth)
-> - * - 'I' [46] for IPv4/IPv6 addresses printed in the usual way
-> + * - 'I' [46g] for IPv4/IPv6 addresses printed in the usual way
->    *       IPv4 uses dot-separated decimal without leading 0's (1.2.3.4)
->    *       IPv6 uses colon separated network-order 16 bit hex with leading 0's
-> - * - 'i' [46] for 'raw' IPv4/IPv6 addresses
-> + * - 'i' [46g] for 'raw' IPv4/IPv6 addresses
->    *       IPv6 omits the colons (01020304...0f)
->    *       IPv4 uses dot-separated decimal with leading 0's (010.123.045.006)
->    * - '[Ii]4[hnbl]' IPv4 addresses in host, network, big or little endian order
-> @@ -1093,6 +1093,18 @@ char *pointer(const char *fmt, char *buf, char *end, void *ptr,
->   			return ip6_addr_string(buf, end, ptr, spec, fmt);
->   		case '4':
->   			return ip4_addr_string(buf, end, ptr, spec, fmt);
-> +		case 'g':
-> +			{
-> +				const struct sockaddr *sa = ptr;
-> +
-> +				if (sa->sa_family == AF_INET6) {
-> +					ptr = &((struct sockaddr_in6 *) sa)->sin6_addr;
-> +					return ip6_addr_string(buf, end, ptr, spec, fmt);
-> +				} else {
-> +					ptr = &((struct sockaddr_in *) sa)->sin_addr.s_addr;
-> +					return ip4_addr_string(buf, end, ptr, spec, fmt);
-> +				}
-> +			}
->   		}
->   		break;
->   	case 'U':
-> @@ -1370,6 +1382,8 @@ qualifier:
->    * %pI6 print an IPv6 address with colons
->    * %pi6 print an IPv6 address without colons
->    * %pI6c print an IPv6 address as specified by RFC 5952
-> + * %pIg depending on sa_family of 'struct sockaddr *' switch to %pI6/%pI4
-> + * %pig depending on sa_family of 'struct sockaddr *' switch to %pi6/%pi4
->    * %pU[bBlL] print a UUID/GUID in big or little endian using lower or upper
->    *   case.
->    * %*ph[CDN] a variable-length hex string with a separator (supports up to 64
->
+Thanks.
+
+-- 
+tejun
