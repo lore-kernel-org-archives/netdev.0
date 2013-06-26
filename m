@@ -1,71 +1,81 @@
 From: Nikolay Aleksandrov <nikolay@redhat.com>
-Subject: [PATCH net-next 1/3] bonding: remove unnecessary setup_by_slave member
-Date: Wed, 26 Jun 2013 17:13:37 +0200
-Message-ID: <1372259619-32430-2-git-send-email-nikolay@redhat.com>
+Subject: [PATCH net-next 2/3] bonding: remove unnecessary dev_addr_from_first member
+Date: Wed, 26 Jun 2013 17:13:38 +0200
+Message-ID: <1372259619-32430-3-git-send-email-nikolay@redhat.com>
 References: <1372259619-32430-1-git-send-email-nikolay@redhat.com>
 Cc: davem@davemloft.net, andy@greyhouse.net, fubar@us.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:14748 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:33791 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751569Ab3FZPRR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 26 Jun 2013 11:17:17 -0400
+	id S1751780Ab3FZPRt (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 26 Jun 2013 11:17:49 -0400
 In-Reply-To: <1372259619-32430-1-git-send-email-nikolay@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We have a member called setup_by_slave in struct bonding to denote if the
-bond dev has different type than ARPHRD_ETHER, but that is already denoted
-in bond's netdev type variable if it was setup by the slave, so use that
-instead of the member.
+In struct bonding there's a member called dev_addr_from_first which is
+used to denote when the bond dev should clone the first slave's MAC
+address but since we have netdev's addr_assign_type variable that is not
+necessary. We clone the first slave's MAC each time we have a random MAC
+set to the bond device. This has the nice side-effect of also fixing an
+inconsistency - when the MAC address of the bond dev is set after its
+creation, but prior to having slaves, it's not kept and the first slave's
+MAC is cloned. The only way to keep the MAC was to create the bond device
+with the MAC address set (e.g. through ip link). In all cases if the
+bond device is left without any slaves - its MAC gets reset to a random
+one as before.
 
 Signed-off-by: Nikolay Aleksandrov <nikolay@redhat.com>
 ---
- drivers/net/bonding/bond_main.c | 5 +----
+ drivers/net/bonding/bond_main.c | 7 ++-----
  drivers/net/bonding/bonding.h   | 1 -
- 2 files changed, 1 insertion(+), 5 deletions(-)
+ 2 files changed, 2 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 142d55d..2e8b9f1 100644
+index 2e8b9f1..0da3c12 100644
 --- a/drivers/net/bonding/bond_main.c
 +++ b/drivers/net/bonding/bond_main.c
-@@ -1382,8 +1382,6 @@ done:
- static void bond_setup_by_slave(struct net_device *bond_dev,
- 				struct net_device *slave_dev)
- {
--	struct bonding *bond = netdev_priv(bond_dev);
--
- 	bond_dev->header_ops	    = slave_dev->header_ops;
+@@ -1596,7 +1596,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
  
- 	bond_dev->type		    = slave_dev->type;
-@@ -1392,7 +1390,6 @@ static void bond_setup_by_slave(struct net_device *bond_dev,
+ 	/* If this is the first slave, then we need to set the master's hardware
+ 	 * address to be the same as the slave's. */
+-	if (bond->slave_cnt == 0 && bond->dev_addr_from_first)
++	if (!bond->slave_cnt && bond->dev->addr_assign_type == NET_ADDR_RANDOM)
+ 		bond_set_dev_addr(bond->dev, slave_dev);
  
- 	memcpy(bond_dev->broadcast, slave_dev->broadcast,
- 		slave_dev->addr_len);
--	bond->setup_by_slave = 1;
+ 	new_slave = kzalloc(sizeof(struct slave), GFP_KERNEL);
+@@ -2041,7 +2041,6 @@ static int __bond_release_one(struct net_device *bond_dev,
+ 	if (bond->slave_cnt == 0) {
+ 		bond_set_carrier(bond);
+ 		eth_hw_addr_random(bond_dev);
+-		bond->dev_addr_from_first = true;
+ 
+ 		if (bond_vlan_used(bond)) {
+ 			pr_warning("%s: Warning: clearing HW address of %s while it still has VLANs.\n",
+@@ -4800,10 +4799,8 @@ static int bond_init(struct net_device *bond_dev)
+ 
+ 	/* Ensure valid dev_addr */
+ 	if (is_zero_ether_addr(bond_dev->dev_addr) &&
+-	    bond_dev->addr_assign_type == NET_ADDR_PERM) {
++	    bond_dev->addr_assign_type == NET_ADDR_PERM)
+ 		eth_hw_addr_random(bond_dev);
+-		bond->dev_addr_from_first = true;
+-	}
+ 
+ 	return 0;
  }
- 
- /* On bonding slaves other than the currently active slave, suppress
-@@ -3187,7 +3184,7 @@ static int bond_slave_netdev_event(unsigned long event,
- 
- 	switch (event) {
- 	case NETDEV_UNREGISTER:
--		if (bond->setup_by_slave)
-+		if (bond_dev->type != ARPHRD_ETHER)
- 			bond_release_and_destroy(bond_dev, slave_dev);
- 		else
- 			bond_release(bond_dev, slave_dev);
 diff --git a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
-index 3fb73cc..c6c8d03 100644
+index c6c8d03..42d1c65 100644
 --- a/drivers/net/bonding/bonding.h
 +++ b/drivers/net/bonding/bonding.h
-@@ -226,7 +226,6 @@ struct bonding {
- 	rwlock_t lock;
- 	rwlock_t curr_slave_lock;
- 	u8	 send_peer_notif;
--	s8	 setup_by_slave;
- 	u8       igmp_retrans;
- #ifdef CONFIG_PROC_FS
- 	struct   proc_dir_entry *proc_entry;
+@@ -248,7 +248,6 @@ struct bonding {
+ 	/* debugging support via debugfs */
+ 	struct	 dentry *debug_dir;
+ #endif /* CONFIG_DEBUG_FS */
+-	bool	dev_addr_from_first;
+ };
+ 
+ static inline bool bond_vlan_used(struct bonding *bond)
 -- 
 1.8.1.4
