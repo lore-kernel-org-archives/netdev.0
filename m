@@ -1,45 +1,79 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH v2 net-next 2/2] sit: add support of x-netns
-Date: Wed, 26 Jun 2013 14:15:46 +0200
-Message-ID: <51CADB72.3090206@6wind.com>
-References: <1372170295-4717-3-git-send-email-nicolas.dichtel@6wind.com>  <20130625.165612.1653110297729408070.davem@davemloft.net>  <87d2r964d9.fsf@xmission.com>  <20130625.224810.293452557691677283.davem@davemloft.net>  <87ppv942ad.fsf@xmission.com> <1372242136.3301.162.camel@edumazet-glaptop>
-Reply-To: nicolas.dichtel@6wind.com
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [netlink] WARNING: at mm/vmalloc.c:1487 __vunmap()
+Date: Wed, 26 Jun 2013 05:42:38 -0700
+Message-ID: <1372250558.3301.194.camel@edumazet-glaptop>
+References: <20130614220119.GA12954@localhost>
+	 <20130617200938.GA14567@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	bcrl@kvack.org, ravi.mlists@gmail.com, bhutchings@solarflare.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wi0-f171.google.com ([209.85.212.171]:37581 "EHLO
-	mail-wi0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750843Ab3FZMPu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 26 Jun 2013 08:15:50 -0400
-Received: by mail-wi0-f171.google.com with SMTP id hj3so1896615wib.16
-        for <netdev@vger.kernel.org>; Wed, 26 Jun 2013 05:15:49 -0700 (PDT)
-In-Reply-To: <1372242136.3301.162.camel@edumazet-glaptop>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Fengguang Wu <fengguang.wu@intel.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, David Miller <davem@davemloft.net>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20130617200938.GA14567@localhost>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 26/06/2013 12:22, Eric Dumazet a =C3=A9crit :
-> On Wed, 2013-06-26 at 03:03 -0700, Eric W. Biederman wrote:
->
->
->> That said I won't object if Nocolas Ditchel resends his patches with
->> that test put back in.  I just think it is silly and when someone
->> finally gets bit by the bug and complains we will have to go through=
- and
->> remove the test.
->
-> Well, what is the reason skb_orphan() must be called in a tunnel xmit
-> path ?
->
-> This patch changes more things than what advertised in changelog :(
-In fact, this is true. If we finally found that skb_scrub_packet() is n=
-eeded in=20
-all cases (not only when changing namespace), this will be another patc=
-h.
+On Mon, 2013-06-17 at 22:09 +0200, Pablo Neira Ayuso wrote:
 
-I will resend the serie with the test put back.
+> I've been trying to trigger this bug here with no success using
+> different communication configurations (userspace <-> userspace,
+> userspace <-> kernelspace).
+> 
+
+I got more success with trinity ;)
+
+> The address that vfree shows seems good to me and we always set
+> skb->head to NULL after releasing the network buffer.
+> 
+> This patch also exposes the vmalloc infrastructure to user-space,
+> which is something that didn't happen so far. Not sure if Trinity is
+> uncovering a bug there.
+
+Nope there are several issues :
+
+1) bug in netlink_alloc_large_skb() because it doesn't account
+for sizeof(struct skb_shared_info) overhead and initialization.
+
+2) Also, skb_clone() on such skb should be forbidden.
+
+   Example, nl_fib_input() does a nskb = skb_clone(skb)
+
+If skb is freed before nskb, then nskb wont know skb->head must be freed
+by vfree()
+
+I don't know...
+
+3) Do we really need this vmalloc stuff, because it sounds like we are
+going to add yet another test in fast path (in skb_free_head())
+
+4) Or we must track all skb_clone() netlink calls to attach a destructor
+to properly to the vfree()
+
+
+[1]
+ BUG: unable to handle kernel paging request at ffffc90018a39001
+ IP: [<ffffffff814cdeef>] skb_clone+0x1f/0xb0
+ PGD c7f40f067 PUD 67f81b067 PMD 65de02067 PTE 0
+ Oops: 0000 [#1] [ 1931.190995] scsi_nl_rcv_msg: discarding partial skb
+ gsmi: Log Shutdown Reason 0x03
+ CPU: 1 PID: 4157 Comm: trinity-child1 Tainted: G        W    3.10.0-smp-DEV #148
+ task: ffff880c5fb647f0 ti: ffff880c5ff6c000 task.ti: ffff880c5ff6c000
+ RIP: 0010:[<ffffffff814cdeef>]  [<ffffffff814cdeef>] skb_clone+0x1f/0xb0
+ RSP: 0018:ffff880c5ff6db18  EFLAGS: 00010282
+ RAX: 0000000000002000 RBX: ffff88065fed8ec0 RCX: 0000000060fd8cb3
+ RDX: ffffc90018a37000 RSI: 00000000000000d0 RDI: ffff88065fed8ec0
+ RBP: ffff880c5ff6db28 R08: ffffc90018a39000 R09: 0000000000000001
+ R10: ffffc90018a38fff R11: 0000000000000000 R12: 00000000000000d0
+ R13: ffff880c266a0000 R14: ffff88065fed8ec0 R15: 0000000000000000
+ FS:  000000000264d880(0063) GS:ffff88067fc20000(0000) knlGS:0000000000000000
+ CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+ CR2: ffffc90018a39001 CR3: 0000000c5b8af000 CR4: 00000000000007e0
+ Call Trace:
+ [<ffffffff8154b086>] nl_fib_input+0x46/0x140
+ [<ffffffff815057ed>] netlink_unicast+0x13d/0x1f0
+ [<ffffffff81505b95>] netlink_sendmsg+0x2f5/0x3f0
+ [<ffffffff814c366e>] sock_aio_write+0x15e/0x180
+ [<ffffffff81193743>] do_sync_readv_writev+0x73/0xb0
+ [<ffffffff81194e5b>] do_readv_writev+0xdb/0x2c0
